@@ -9,6 +9,7 @@ mod combat;
 mod turret;
 mod projectile;
 mod faction;
+mod hud;
 
 fn main() {
     App::new()
@@ -22,7 +23,7 @@ fn main() {
             ..default()
         }))
         // Our custom game plugins
-        .add_plugins((MapPlugin, ResourcesPlugin, UnitsPlugin, CommandsPlugin, CombatPlugin, TurretPlugin, ProjectilePlugin, FactionPlugin, GamePlugin))
+        .add_plugins((MapPlugin, ResourcesPlugin, UnitsPlugin, CommandsPlugin, CombatPlugin, TurretPlugin, ProjectilePlugin, FactionPlugin, HudPlugin, GamePlugin))
         .run();
 }
 
@@ -34,6 +35,7 @@ use combat::CombatPlugin;
 use turret::TurretPlugin;
 use projectile::ProjectilePlugin;
 use faction::FactionPlugin;
+use hud::HudPlugin;
 
 // Main game plugin - organizes all game systems
 struct GamePlugin;
