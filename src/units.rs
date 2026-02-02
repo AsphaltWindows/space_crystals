@@ -556,9 +556,41 @@ fn right_click_move_command(
                                 command_mode.mode = CommandType::Default;
                             }
 
-                            CommandType::Attack | CommandType::AttackGround => {
-                                // Attack commands - not implemented yet (Task #6)
-                                info!("Attack commands not yet implemented (Task #6)");
+                            CommandType::Attack => {
+                                // Attack mode clicked on ground (no enemy found)
+                                // Just reset to default mode - attack on enemy was handled above
+                                info!("Attack mode: No enemy at click location, returning to default mode");
+                                command_mode.mode = CommandType::Default;
+                            }
+
+                            CommandType::AttackGround => {
+                                // Attack Ground command - issue AttackLocation to selected units
+                                for (entity, transform, unit_base, _owner) in selected_units.iter() {
+                                    let start_grid = world_to_grid(transform.translation);
+
+                                    // Calculate path to the attack location
+                                    if let Some(path) = find_path(start_grid, target_grid, &tiles, unit_base) {
+                                        let smoothed_waypoints = smooth_path(path);
+
+                                        commands_ecs.entity(entity)
+                                            .remove::<crate::commands::HoldingPosition>()
+                                            .insert((
+                                                MoveTarget(target_pos),
+                                                Path {
+                                                    waypoints: smoothed_waypoints,
+                                                    current_waypoint: 0,
+                                                },
+                                                UnitCommand::AttackLocation(target_pos),
+                                            ));
+                                    } else {
+                                        warn!("No path found for unit to ({}, {})", target_grid.x, target_grid.z);
+                                    }
+                                }
+
+                                info!("Attack Ground command: {} unit(s) to ({:.1}, {:.1})",
+                                    selected_count, target_pos.x, target_pos.z);
+
+                                // Reset to default mode
                                 command_mode.mode = CommandType::Default;
                             }
                         }
