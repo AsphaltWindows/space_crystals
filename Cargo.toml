@@ -1,0 +1,21 @@
+[package]
+name = "space_crystals"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = "0.14"
+
+# Enable optimizations for dependencies in dev mode (faster runtime, slower compile)
+[profile.dev.package."*"]
+opt-level = 3
+
+# Optimize our code a bit in dev mode for better performance
+[profile.dev]
+opt-level = 1
+
+# Use dynamic linking for faster compile times during development
+[features]
+default = ["bevy/dynamic_linking"]
