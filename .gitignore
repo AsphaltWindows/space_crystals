@@ -1,1 +1,5 @@
 /target
+/agents
+/agent_logs
+/project_tasks
+/completed_tasks
