@@ -22,9 +22,6 @@ This is the main agent which will be responsible only for maintaining the other 
 Breaks down features and objectives into actionable tasks. Helps with:
 - Task generation and decomposition
 - Dependency mapping
-- Scope definition
-- Risk identification
-- Work organization
 
 Use this agent when you need to plan implementation of new features or organize development work.
 

@@ -189,7 +189,7 @@ fn attack_phase_system(
 
             AttackPhase::Firing => {
                 // Handle attack type when entering firing phase
-                if attack_state.time_in_phase < delta {
+                if attack_state.time_in_phase <= delta {
                     // Just entered firing phase
                     match &attack_cap.attack_type {
                         AttackType::FullyConnected => {
@@ -321,9 +321,9 @@ fn auto_target_system(
             continue;
         }
 
-        // Skip if unit has a move command (is busy)
+        // Skip if unit has an explicit attack target or stop command
         if let Ok(command) = unit_commands.get(entity) {
-            if !matches!(command, crate::commands::UnitCommand::Idle | crate::commands::UnitCommand::HoldPosition) {
+            if matches!(command, crate::commands::UnitCommand::AttackTarget(_) | crate::commands::UnitCommand::Stop) {
                 continue;
             }
         }

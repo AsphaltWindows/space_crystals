@@ -629,13 +629,13 @@ fn unit_movement_system(
     mut commands: Commands,
     time: Res<Time>,
     mut units: Query<
-        (Entity, &mut Transform, &mut Velocity, &MovementSpeed, &MoveTarget, Option<&mut Path>, Option<&AttackState>),
+        (Entity, &mut Transform, &mut Velocity, &MovementSpeed, &MoveTarget, Option<&mut Path>, Option<&AttackState>, &mut UnitCommand),
         (With<Unit>, Without<crate::commands::HoldingPosition>)
     >,
 ) {
     let delta = time.delta_seconds();
 
-    for (entity, mut transform, mut velocity, speed, _target, path_option, attack_state_opt) in units.iter_mut() {
+    for (entity, mut transform, mut velocity, speed, _target, path_option, attack_state_opt, mut unit_command) in units.iter_mut() {
         // Stop moving if in Firing or Cooldown phase
         if let Some(attack_state) = attack_state_opt {
             if matches!(attack_state.phase, crate::combat::AttackPhase::Firing | crate::combat::AttackPhase::Cooldown) {
@@ -653,6 +653,9 @@ fn unit_movement_system(
                 // Reached end of path
                 velocity.0 = Vec3::ZERO;
                 commands.entity(entity).remove::<MoveTarget>().remove::<Path>();
+                if matches!(*unit_command, UnitCommand::Move(_)) {
+                    *unit_command = UnitCommand::Idle;
+                }
                 continue;
             }
 
@@ -670,6 +673,9 @@ fn unit_movement_system(
                     // Reached end of path
                     velocity.0 = Vec3::ZERO;
                     commands.entity(entity).remove::<MoveTarget>().remove::<Path>();
+                    if matches!(*unit_command, UnitCommand::Move(_)) {
+                        *unit_command = UnitCommand::Idle;
+                    }
                     continue;
                 }
 
@@ -681,6 +687,9 @@ fn unit_movement_system(
             // No path - this shouldn't happen but handle gracefully
             velocity.0 = Vec3::ZERO;
             commands.entity(entity).remove::<MoveTarget>();
+            if matches!(*unit_command, UnitCommand::Move(_)) {
+                *unit_command = UnitCommand::Idle;
+            }
             continue;
         };
 
