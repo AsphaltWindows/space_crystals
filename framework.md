@@ -22,11 +22,11 @@ Three types:
 - **Sink**: Interactive with user. Consumes messages. Has interactive and non-interactive mode.
 
 Each agent is defined by:
-- Name (unique identifier, snake_case)
+- Name (unique identifier, snake_case; also used as directory names)
 - Type (source | processing | sink)
 - Description/role
 - Consumed message types (with priority, lower number = higher priority)
-- Produced message types
+- Produced message types (with target consumers)
 - Interactive mode description (source/sink required, processing optional)
 - Non-interactive mode description
 
@@ -47,7 +47,7 @@ The script receives two positional arguments:
 The script is responsible for:
 - Checking `messages/{name}/{message-type}/pending/` for pending messages across its consumed types
 - Processing messages and moving them through `pending/` → `active/` → `done/`
-- Writing output messages to downstream consumers' `messages/{consumer}/{message-type}/pending/` directories
+- Using `scripts/send_message.sh` to send output messages to downstream consumers
 - Writing to its own `artifacts/{name}/` directory
 
 Script nodes always have `close_vote_required: false` and `type: processing`.
@@ -95,15 +95,15 @@ Located in `/messages/{agent-name}/{message-type}/` (organized by **consuming** 
 
 Message filename format: `{producing-agent}-{message-name}.md`
 
-The `{message-name}` is a short descriptive slug for the specific message (e.g., `add-reviewer-agent`, `fix-parser-bug`). The message type is encoded in the directory path, not the filename. Timestamps are not needed in the filename — messages are write-only and file creation time serves as the timestamp.
+The `{message-name}` is a short descriptive slug for the specific message (e.g., `add_reviewer_agent`, `fix_parser_bug`). The message type is encoded in the directory path, not the filename. Timestamps are not needed in the filename — messages are write-only and file creation time serves as the timestamp.
 
 ### Message Types
 
-All message types are registered in the `message_types` section of `pipeline.yaml`. Each entry has a name, description, and path to a template file. The registry is the canonical list of types — agents' `consumes` and `produces` entries reference these by name.
+All message types are registered in the `message_types` section of `pipeline.yaml`. Each entry has a name (snake_case), description, and path to a template file. The registry is the canonical list of types — agents' `consumes` and `produces` entries reference these by name. Message type names are used as directory names, so snake_case is required.
 
 ### Message Templates
 
-Each message type has a template file in `templates/messages/{message-type}.md`. Templates define the expected structure for that message type. Producers should follow the template when creating messages.
+Each message type has a template file in `templates/messages/{message-type}.md`. Templates document the expected content structure for that message type. Agents use `scripts/send_message.sh` to create messages (which handles metadata and file placement); the templates serve as guidance for what content to pass.
 
 ### Forum
 
@@ -173,7 +173,9 @@ Defined in `pipeline.yaml`. The scheduler reads this to determine:
 - What each agent produces
 - How to route messages
 
-The `message_types` section defines all message types used in the pipeline. Each type has a name and description. This serves as the canonical registry — the `consumes` and `produces` entries on agents reference these types by name. The init script and architect use this list to create the per-type inbox directories (`messages/{agent}/{message-type}/{pending,active,done}/`) for each consuming agent.
+The `message_types` section defines all message types used in the pipeline. Each type has a name and description. This serves as the canonical registry — the `consumes` and `produces` entries on agents reference these types by name.
+
+Each `produces` entry includes a `to` field listing the consuming agents. This is the authoritative routing table — the producer writes to `messages/{consumer}/{message-type}/pending/` for each agent in the `to` list. The `consumes` entries on receiving agents are the inverse view. The init script and architect use both to create the per-type inbox directories (`messages/{agent}/{message-type}/{pending,active,done}/`).
 
 ## Scheduler
 
@@ -190,6 +192,7 @@ Nodes are **never started speculatively**. The scheduler guarantees work exists 
 ## Scripts
 
 - `scripts/run_scheduler.sh` — orchestrator
+- `scripts/send_message.sh <from> <to> <message-type> <message-name> <content>` — creates a message in the recipient's inbox. Validates the message type exists and the recipient consumes it. Agents and script nodes should use this instead of writing message files directly.
 - `scripts/add_comment.sh <topic-file> <agent-name> <comment-text>` — appends comment to forum topic, clears all close-votes
 - `scripts/vote_close.sh <topic-file> <agent-name>` — adds close-vote to forum topic
 
@@ -212,6 +215,7 @@ Nodes are **never started speculatively**. The scheduler guarantees work exists 
 │   └── {agent-name}.md           # agent prompt (Claude Code format, agents only)
 ├── scripts/
 │   ├── run_scheduler.sh
+│   ├── send_message.sh
 │   ├── add_comment.sh
 │   ├── vote_close.sh
 │   └── {script-node-name}.sh     # script node entry points

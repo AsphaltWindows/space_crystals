@@ -1,12 +1,10 @@
-# {Agent Name} Agent {Created|Updated|Removed}
+# agent_update
 
-## Metadata
-- **From**: {producing-agent}
-- **To**: {consuming-agent}
+Content guidance for the `agent_update` message type.
 
-## Content
+The content passed to `scripts/send_message.sh` should include:
 
-**Agent**: {agent-name}
+**Agent**: {agent_name}
 **Action**: {created|updated|removed}
 
 {Description of what changed and why. For new agents, summarize their role. For updates, describe what was modified.}

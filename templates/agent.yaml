@@ -14,6 +14,7 @@ consumes:
 
 produces:
   # - type: {message-type}       # must be registered in pipeline.yaml message_types
+  #   to: [{consumer-agent}, ...]  # which agents receive this message
   #   description: {what this message represents}
 
 interactive_mode: |

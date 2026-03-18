@@ -10,11 +10,28 @@ mkdir -p "$LOCK_DIR"
 while true; do
 
 # Parse scheduled agent names from pipeline.yaml (skip agents with scheduled: false)
+# Only parse names under the 'agents:' section, not 'message_types:' or other sections
 AGENTS=""
 CURRENT_AGENT=""
 IS_SCHEDULED=true
+IN_AGENTS_SECTION=false
 
 while IFS= read -r line; do
+    # Detect top-level section headers (no leading whitespace, ends with colon)
+    if echo "$line" | grep -q '^[a-z_]*:'; then
+        if echo "$line" | grep -q '^agents:'; then
+            IN_AGENTS_SECTION=true
+        else
+            # Entering a different section — flush any pending agent
+            if [ "$IN_AGENTS_SECTION" = true ] && [ -n "$CURRENT_AGENT" ] && [ "$IS_SCHEDULED" = true ]; then
+                AGENTS="$AGENTS $CURRENT_AGENT"
+            fi
+            IN_AGENTS_SECTION=false
+            CURRENT_AGENT=""
+        fi
+        continue
+    fi
+    [ "$IN_AGENTS_SECTION" = true ] || continue
     if echo "$line" | grep -q '^\s*-\?\s*name:'; then
         if [ -n "$CURRENT_AGENT" ] && [ "$IS_SCHEDULED" = true ]; then
             AGENTS="$AGENTS $CURRENT_AGENT"
@@ -25,7 +42,7 @@ while IFS= read -r line; do
         IS_SCHEDULED=false
     fi
 done < "$PIPELINE"
-if [ -n "$CURRENT_AGENT" ] && [ "$IS_SCHEDULED" = true ]; then
+if [ "$IN_AGENTS_SECTION" = true ] && [ -n "$CURRENT_AGENT" ] && [ "$IS_SCHEDULED" = true ]; then
     AGENTS="$AGENTS $CURRENT_AGENT"
 fi
 

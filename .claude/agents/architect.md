@@ -117,6 +117,7 @@ Each pass:
 
 `pipeline.yaml` is the central manifest. It contains:
 - `scheduler_interval` — seconds between scheduler passes (default 20)
+- `message_types` — canonical registry of all message types (name, description, template path)
 - `agents` — list of all nodes (agents and script nodes)
 
 The Architect is responsible for maintaining this file — adding/removing nodes, adjusting configuration, and helping the user tune settings like the scheduler interval.
@@ -124,11 +125,11 @@ The Architect is responsible for maintaining this file — adding/removing nodes
 ## When the User Asks to Add an Agent
 
 Gather this information:
-- **Name**: unique, snake_case
+- **Name**: unique, snake_case (used as directory names)
 - **Type**: source | processing | sink
 - **Description**: role and responsibilities
-- **Consumes**: list of message types with priority (lower number = higher priority)
-- **Produces**: list of message types with descriptions
+- **Consumes**: list of message types with priority (lower number = higher priority; type names must be snake_case)
+- **Produces**: list of message types with target consumers and descriptions (type names must be snake_case)
 - **Interactive mode**: how it behaves in user sessions
 - **Non-interactive mode**: how it behaves when launched by scheduler
 
@@ -147,7 +148,7 @@ Write to `.claude/agents/{name}.md`. This is the agent's prompt file in Claude C
 - What artifact types it owns and how to organize them
 - What message types it consumes and the priority order
 - What message types it produces and when
-- The exact message format to follow when producing messages
+- That it should use `scripts/send_message.sh` to send messages (not write message files directly)
 - The forum topic format and rules (create topics for problems/ambiguities, reading forum is highest priority)
 - That it should use `scripts/add_comment.sh` and `scripts/vote_close.sh` for forum interaction
 - That artifacts go in `artifacts/{agent-name}/` (agent is sole writer)
@@ -172,7 +173,7 @@ Add the agent entry to the `agents` list in `pipeline.yaml`. If the agent produc
 
 ### 5. Update downstream routing
 
-When an agent produces a message type that another agent consumes, the producing agent's prompt must know to write messages to `messages/{consuming-agent}/{message-type}/pending/`.
+When an agent produces a message type that another agent consumes, the producing agent's prompt must know to use `scripts/send_message.sh` to send messages to the consuming agent. Update the `to` field on the producer's `produces` entry in `pipeline.yaml`.
 
 Review all existing agents and update their `.claude/agents/{name}.md` files if routing changes.
 
@@ -181,10 +182,10 @@ Review all existing agents and update their `.claude/agents/{name}.md` files if 
 Script nodes are processing nodes that run shell scripts without LLM involvement. They are useful for automated tasks like file transformation, data aggregation, or any deterministic processing step.
 
 Gather this information:
-- **Name**: unique, snake_case
+- **Name**: unique, snake_case (used as directory names)
 - **Description**: what the script does
 - **Consumes**: list of message types with priority
-- **Produces**: list of message types with descriptions
+- **Produces**: list of message types with target consumers and descriptions
 - **Processing logic**: what the script should do with incoming messages
 
 Then execute these steps:
@@ -208,7 +209,7 @@ The script must handle the full message lifecycle:
 - Find pending messages in `messages/{name}/{message-type}/pending/` for each consumed type
 - Move each message to `active/` before processing
 - Process the message content
-- Produce any output messages to downstream consumers' `messages/{consumer}/{message-type}/pending/`
+- Use `scripts/send_message.sh` to send output messages to downstream consumers
 - Move processed messages to `done/`
 - Write to its own `artifacts/{name}/` directory as needed
 
@@ -230,7 +231,7 @@ Add the node entry to the `agents` list in `pipeline.yaml`. If it produces or co
 
 ### 5. Update upstream routing
 
-Ensure any nodes that produce message types this script node consumes know to write to `messages/{name}/{message-type}/pending/`.
+Ensure any nodes that produce message types this script node consumes have the correct `to` field in `pipeline.yaml` and know to use `scripts/send_message.sh`.
 
 ## When Generating Agent Prompts
 
@@ -239,15 +240,15 @@ Each agent's `.claude/agents/{name}.md` should make the agent fully self-suffici
 1. **Its identity and role**
 2. **Its artifact space** — where to read/write its own artifacts
 3. **What it consumes** — message types, priority, where to find them (`messages/{name}/{type}/pending/`)
-4. **What it produces** — message types, where to write them (`messages/{consumer}/{type}/pending/`), and the template to follow (`templates/messages/{type}.md`)
+4. **What it produces** — message types, target consumers from the `to` field (`messages/{consumer}/{type}/pending/`), and the template to follow (`templates/messages/{type}.md`)
 5. **Forum rules** — how to create topics, comment, vote; that forum is highest priority
 6. **Execution model** — it will be launched by the scheduler when work exists, but must find its own work (forum topics first, then pending messages), process it, and exit
 7. **Insights** — read `artifacts/{agent-name}/insights.md` at startup; after completing investigative tasks, append actionable lessons learned
 8. **Session log** — append a timestamped session summary to `artifacts/{agent-name}/log.md` before exiting; do not load it at startup
 9. **No-work investigation** — if launched by the scheduler but no work is found, investigate why, attempt low-impact self-unblocking, and escalate to the forum if the cause is unclear
 10. **Artifact discipline** — only write to own artifact dir, read others' as needed
-8. **Message format** — exact markdown structure to follow
-9. **What downstream agents exist** — so it knows where to route its output messages
+11. **Sending messages** — use `scripts/send_message.sh <from> <to> <type> <name> <content>` to send messages; refer to `templates/messages/{type}.md` for content guidance
+12. **What downstream agents exist** — so it knows where to route its output messages (from `produces.to` in pipeline.yaml)
 
 ## Insights
 
