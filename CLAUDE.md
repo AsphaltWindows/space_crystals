@@ -6,88 +6,93 @@ A real-time strategy game built with Bevy 0.17.
 
 Space Crystals is an RTS game currently in early development. The project uses the Bevy game engine and is written in Rust.
 
-# Agents
+# Project Structure
 
-Agent definitions live in `./.claude/agents/`. All agents follow the shared framework defined in `agents/framework.md`.
+- **Source code**: `artifacts/developer/` (Cargo.toml, src/, etc.)
+- **Design documents**: `artifacts/designer/design/*.md`
+- **Agent framework**: `framework.md`
+- **Pipeline manifest**: `pipeline.yaml`
+- **Agent definitions**: `agents/{name}/agent.yaml`
+- **Agent prompts**: `.claude/agents/{name}.md`
+- **Message inboxes**: `messages/{agent}/{message_type}/pending|active|done/`
+- **Message templates**: `templates/messages/{message_type}.md`
 
-Agents are stateless workers. Each execution: load context, do one task, write outputs, die. The only continuity between executions is through files (logs, forum, task artifacts).
+# Agent Framework
 
-## Agent Framework
-
-See `agents/framework.md` for the full shared lifecycle, forum rules, and directory layout.
+See `framework.md` for the full shared lifecycle, forum rules, and directory layout.
 
 Key concepts:
-- **Forum** (`/forum`): Highest-priority task source for all agents. Cross-agent communication via topic files.
-- **Logs**: Each agent has a persistent log file that is always loaded. The agent's only memory between executions.
-- **Single task per execution**: An agent does at most one unit of work per run.
+- **Forum** (`forum/`): Highest-priority task source for all agents. Cross-agent communication via topic files.
+- **Artifacts** (`artifacts/{name}/`): Each agent's persistent state. Sole writer, others read-only.
+- **Messages**: Agents communicate via markdown messages routed through per-consumer inboxes using `scripts/send_message.sh`.
+- **Insights**: Each agent's persistent memory between executions (`artifacts/{name}/insights.md`).
+- **Single task per execution**: An agent does at most one unit of work per run, then exits.
 
-## Available Agent Types
-
-### Designer
-**File**: `agents/designer.md` | **Log**: `./agent_logs/designer_log.md`
-
-Interactive agent. Collaboratively develops game design with the user. Maintains `/design/*.md` files and writes `/design_updates` summaries after each session.
-
-### Product Analyst
-**File**: `agents/product_analyst.md` | **Log**: `./agent_logs/product_analyst_log.md`
-
-Processes `/design_updates` into `/features` specifications. Writes `/feature_updates` for each feature modified. Skeptical — flags inconsistencies via the forum.
-
-### Project Manager
-**File**: `agents/project_manager.md` | **Log**: `./agent_logs/project_manager_log.md`
-
-Processes `/feature_updates` into `/tickets` with QA steps and expected user experience. Also creates technical/refactor tickets when forum discussions warrant them.
-
-### Task Planner
-**File**: `agents/task_planner.md` | **Log**: `./agent_logs/task_planner_log.md`
-
-Enriches `/tickets` with codebase context and dependency info, producing developer-ready tasks in `/developer_tasks`. Suggests refactors via the forum.
-
-### Developer
-**File**: `agents/developer.md` | **Log**: `./agent_logs/developer_log.md`
-
-Implements `/developer_tasks` (respecting dependency order), writes unit tests, maintains code organization rules. Moves completed tasks to `/qa_tasks`.
-
-### QA
-**File**: `agents/qa.md` | **Log**: `./agent_logs/qa_log.md`
-
-Interactive agent. Walks the user through QA steps from `/qa_tasks`. Pass moves to `/completed_tasks`. Fail annotates and returns to `/developer_tasks`.
-
-## Pipeline
+# Pipeline
 
 ```
-Designer ──> /design_updates ──> Product Analyst ──> /design_updates_archive
-                                       │
-                                 /feature_updates ──> Project Manager ──> /feature_updates_archive
-                                                            │
-                                                      /tickets ──> Task Planner ──> /tickets_archive
-                                                                         │
-                                                                   /developer_tasks ──> Developer ──> /qa_tasks
-                                                                                                         │
-                                                                                                      QA ──> /completed_tasks
+Designer (interactive, 1 session -> N feature_requests)
+    |
+    v feature_request
+Task Splitter (1 -> M developer_tasks + forward feature_request + manifest)
+    |                          |
+    | developer_task           | feature_request + feature_tasks
+    v                          v
+Task Planner (1:1)      Completion Aggregator (script node)
+    | planned_task              ^ task_completion
+    v                          |
+Developer (1:1) ---------------+
+                               | when all done:
+                               v qa_item
+                        QA Router (script node)
+                        |---> Manual QA (interactive sink)
+                        +---> Automatic QA (autonomous)
+                               |
+                               v feature_request (on failure, _r{N})
+                        back to Task Splitter
 ```
 
-Each pipeline directory is a queue. Presence of a file = unprocessed work. After processing, agents move the input file to the corresponding archive directory.
+## Agents
 
-All agents communicate laterally via `/forum`.
+### Designer (source)
+Interactive. Collaborates with user on game design. Produces `feature_request` messages with QA instructions. Design docs live in `artifacts/designer/design/`.
 
-## Supervisor (Shell Script)
+### Task Splitter (processing)
+Decomposes `feature_request` into `developer_task` messages. Reads design docs and codebase for informed splits. Forwards original feature_request and a `feature_tasks` manifest to the completion aggregator.
 
-**Script**: `run_supervisor.sh` (uses `check_pipeline.sh`) | **Log**: `./agent_logs/supervisor_log.md`
+### Task Planner (processing)
+Enriches `developer_task` with codebase context (files, patterns, dependencies), producing `planned_task` messages.
 
-Pure shell script orchestrator — not an agent. Runs on a 30s loop. `check_pipeline.sh` checks pipeline directories for files — presence means work is pending. The supervisor script then archives closed forum topics and launches agents as needed. Does not schedule interactive sessions (QA, designer, operator — those are user-initiated). Designer and QA are launched in forum-only mode when they have pending forum votes.
+### Developer (processing)
+Implements `planned_task` messages. Writes code and tests in `artifacts/developer/`. Produces `task_completion` markers.
 
-## Utility Agents
+### Completion Aggregator (script node)
+Tracks task completions against feature_tasks manifests. When all tasks for a feature are done, produces a `qa_item`.
 
-These agents do not count for forum close-votes but can read forum topics.
+### QA Router (script node)
+Routes `qa_item` to manual_qa or automatic_qa based on `artifacts/qa_router/auto_capabilities.txt`.
 
-### Operator
-**File**: `agents/operator.md` | **Log**: `./agent_logs/operator_log.md`
+### Manual QA (sink)
+Interactive. Walks user through QA steps. On failure, produces a scoped `feature_request` rework back to task_splitter.
 
-Interactive agent. Gives the user an organizational view of the project. Can create forum topics on behalf of the user to steer project direction.
+### Automatic QA (processing)
+Autonomous. Runs automated QA checks. On failure, produces a scoped `feature_request` rework back to task_splitter.
+
+### Operator (source, utility)
+Not scheduled. User's direct interface to inject concerns into the pipeline via forum topics. Close-vote not required.
+
+### Architect (source, utility)
+Maintains the pipeline framework itself. Creates/modifies agent definitions, pipeline configuration, and scripts.
+
+## Scheduler
+
+`scripts/run_scheduler.sh` — runs in a continuous loop (interval configured by `scheduler_interval` in `pipeline.yaml`). Detects work for each node (forum topics or pending messages) and launches them.
 
 # Technical Stack
 
 - **Language**: Rust (Edition 2021)
 - **Game Engine**: Bevy 0.17
 - **Build System**: Cargo
+
+# currentDate
+Today's date is 2026-03-18.

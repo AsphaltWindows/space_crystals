@@ -1,6 +1,12 @@
+scheduler_interval: 20
+
 message_types:
+  - name: agent_update
+    description: Notification that an agent was added or modified. Produced by architect.
+    template: templates/messages/agent_update.md
+
   - name: feature_request
-    description: A feature/change description with QA instructions. Produced by designer (or QA agents on failure). Consumed by task_splitter and completion_aggregator.
+    description: A feature/change description with QA instructions. Produced by designer (originals) or QA agents (reworks on failure). Consumed by task_splitter. Also forwarded by task_splitter to completion_aggregator.
     template: templates/messages/feature_request.md
 
   - name: developer_task
@@ -11,16 +17,16 @@ message_types:
     description: Manifest mapping a feature_request to its developer_task filenames. Produced by task_splitter, consumed by completion_aggregator.
     template: templates/messages/feature_tasks.md
 
-  - name: task_completion
-    description: Marker indicating a developer_task was completed. Produced by developer, consumed by completion_aggregator.
-    template: templates/messages/task_completion.md
-
   - name: planned_task
     description: A developer_task enriched with codebase context and dependencies. Produced by task_planner, consumed by developer.
     template: templates/messages/planned_task.md
 
+  - name: task_completion
+    description: Marker indicating a developer_task was completed. Produced by developer, consumed by completion_aggregator.
+    template: templates/messages/task_completion.md
+
   - name: qa_item
-    description: A completed feature ready for QA. Contains original feature_request content and QA instructions. Produced by completion_aggregator, consumed by qa_router.
+    description: A completed feature ready for QA. Contains original feature_request content and QA instructions. Produced by completion_aggregator, routed by qa_router to manual_qa or automatic_qa.
     template: templates/messages/qa_item.md
 
 agents:
@@ -37,7 +43,7 @@ agents:
     produces:
       - type: agent_update
         to: []
-        description: Notification that a new agent was added or modified
+        description: Notification that a new agent was added or modified.
 
   - name: designer
     type: source
