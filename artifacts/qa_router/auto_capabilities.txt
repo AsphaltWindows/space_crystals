@@ -1,0 +1,13 @@
+# QA Router — Automated QA Capabilities
+#
+# Each non-comment, non-empty line is a grep pattern (basic regex).
+# If ALL QA instruction lines in a qa_item match at least one pattern,
+# the item is routed to automatic_qa. Otherwise it goes to manual_qa.
+#
+# Update this file as automated QA tooling is added to the project.
+#
+# Examples (uncomment as capabilities are added):
+# cargo test
+# cargo check
+# compile
+# unit test

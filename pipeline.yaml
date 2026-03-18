@@ -1,0 +1,121 @@
+message_types:
+  - name: feature_request
+    description: A feature/change description with QA instructions. Produced by designer (or QA agents on failure). Consumed by task_splitter and completion_aggregator.
+    template: templates/messages/feature_request.md
+
+  - name: developer_task
+    description: A single unit of implementation work. Produced by task_splitter, consumed by task_planner.
+    template: templates/messages/developer_task.md
+
+  - name: feature_tasks
+    description: Manifest mapping a feature_request to its developer_task filenames. Produced by task_splitter, consumed by completion_aggregator.
+    template: templates/messages/feature_tasks.md
+
+  - name: task_completion
+    description: Marker indicating a developer_task was completed. Produced by developer, consumed by completion_aggregator.
+    template: templates/messages/task_completion.md
+
+  - name: planned_task
+    description: A developer_task enriched with codebase context and dependencies. Produced by task_planner, consumed by developer.
+    template: templates/messages/planned_task.md
+
+  - name: qa_item
+    description: A completed feature ready for QA. Contains original feature_request content and QA instructions. Produced by completion_aggregator, consumed by qa_router.
+    template: templates/messages/qa_item.md
+
+agents:
+  - name: operator
+    type: source
+    scheduled: false
+    close_vote_required: false
+    consumes: []
+    produces: []
+
+  - name: architect
+    type: source
+    consumes: []
+    produces:
+      - type: agent_update
+        description: Notification that a new agent was added or modified
+
+  - name: designer
+    type: source
+    consumes: []
+    produces:
+      - type: feature_request
+        description: A feature/change description with QA instructions. Multiple per session. Routed to task_splitter.
+
+  - name: task_splitter
+    type: processing
+    consumes:
+      - type: feature_request
+        priority: 1
+    produces:
+      - type: developer_task
+        description: Single unit of implementation work. Multiple per feature_request. Routed to task_planner.
+      - type: feature_request
+        description: Original feature_request forwarded unchanged to completion_aggregator.
+      - type: feature_tasks
+        description: Manifest mapping feature_request to developer_task filenames. Routed to completion_aggregator.
+
+  - name: task_planner
+    type: processing
+    consumes:
+      - type: developer_task
+        priority: 1
+    produces:
+      - type: planned_task
+        description: Developer-ready task with codebase context and dependencies. 1:1 with input. Routed to developer.
+
+  - name: developer
+    type: processing
+    consumes:
+      - type: planned_task
+        priority: 1
+    produces:
+      - type: task_completion
+        description: Marker that a task was implemented. 1:1 with input. Routed to completion_aggregator.
+
+  - name: completion_aggregator
+    type: processing
+    close_vote_required: false
+    script: scripts/completion_aggregator.sh
+    consumes:
+      - type: feature_tasks
+        priority: 1
+      - type: feature_request
+        priority: 2
+      - type: task_completion
+        priority: 3
+    produces:
+      - type: qa_item
+        description: Completed feature forwarded for QA. Routed to qa_router.
+
+  - name: qa_router
+    type: processing
+    close_vote_required: false
+    script: scripts/qa_router.sh
+    consumes:
+      - type: qa_item
+        priority: 1
+    produces:
+      - type: qa_item
+        description: Same qa_item routed to either manual_qa or automatic_qa based on QA tooling capabilities.
+
+  - name: manual_qa
+    type: sink
+    consumes:
+      - type: qa_item
+        priority: 1
+    produces:
+      - type: feature_request
+        description: Rework request scoped to QA failures. Routed to task_splitter. Uses _r{N} filename suffix.
+
+  - name: automatic_qa
+    type: processing
+    consumes:
+      - type: qa_item
+        priority: 1
+    produces:
+      - type: feature_request
+        description: Rework request scoped to QA failures. Routed to task_splitter. Uses _r{N} filename suffix.
