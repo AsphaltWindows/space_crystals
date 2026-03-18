@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cargo build:*)"
+      "Bash(cargo build:*)",
+      "Bash(for dir in design_updates feature_updates tickets developer_tasks qa_tasks)",
+      "Bash(do echo -e \"\\\\n--- $dir ---\")",
+      "Read(//home/iv/dev/space_crystals/**)",
+      "Bash(done)",
+      "Bash(for dir in design_updates_archive feature_updates_archive tickets_archive completed_tasks)"
     ]
   }
 }

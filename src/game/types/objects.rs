@@ -229,6 +229,13 @@ impl ObjectEnum {
                 sight_range: 5,
                 groupable: false, // Ungroupable — each Agent is its own SelectionGroup
             },
+            ObjectEnum::SyndicateGuard => ObjectType {
+                name: "Guard".to_string(),
+                size: (36, 36),
+                destructible: true,
+                sight_range: 5,
+                groupable: true, // Unlike Agent — Guard IS groupable
+            },
             ObjectEnum::DeploymentCenter => ObjectType {
                 name: "Deployment Center".to_string(),
                 size: (4, 4),
@@ -355,7 +362,7 @@ impl ObjectEnum {
 
     /// Check if this object is a unit
     pub fn is_unit(&self) -> bool {
-        matches!(self, ObjectEnum::Peacekeeper | ObjectEnum::SupplyChopper | ObjectEnum::SyndicateAgent)
+        matches!(self, ObjectEnum::Peacekeeper | ObjectEnum::SupplyChopper | ObjectEnum::SyndicateAgent | ObjectEnum::SyndicateGuard)
     }
 
     /// Check if this object is a resource
@@ -366,10 +373,11 @@ impl ObjectEnum {
     /// Get the unit control cost for producing this unit type.
     /// Returns 0 for non-unit objects.
     pub fn unit_control_cost(&self) -> u32 {
-        use crate::game::units::types::unit_data::{PEACEKEEPER_CONTROL_COST, AGENT_CONTROL_COST};
+        use crate::game::units::types::unit_data::{PEACEKEEPER_CONTROL_COST, AGENT_CONTROL_COST, GUARD_CONTROL_COST};
         match self {
             ObjectEnum::Peacekeeper => PEACEKEEPER_CONTROL_COST,
             ObjectEnum::SyndicateAgent => AGENT_CONTROL_COST,
+            ObjectEnum::SyndicateGuard => GUARD_CONTROL_COST,
             ObjectEnum::SupplyChopper => 0, // Choppers don't consume unit control
             _ => 0,
         }
@@ -732,6 +740,7 @@ mod tests {
             ObjectEnum::Peacekeeper,
             ObjectEnum::SupplyChopper,
             ObjectEnum::SyndicateAgent,
+            ObjectEnum::SyndicateGuard,
             ObjectEnum::PowerPlant,
             ObjectEnum::Barracks,
             ObjectEnum::DeploymentCenter,
@@ -1091,6 +1100,30 @@ mod tests {
     fn test_syndicate_agent_is_ungroupable() {
         let obj = ObjectEnum::SyndicateAgent.object_type();
         assert!(!obj.groupable, "Agent must be ungroupable per design spec");
+    }
+
+    // --- Guard tests ---
+
+    #[test]
+    fn test_syndicate_guard_is_groupable() {
+        let obj = ObjectEnum::SyndicateGuard.object_type();
+        assert!(obj.groupable, "Guard must be groupable per design spec");
+    }
+
+    #[test]
+    fn test_syndicate_guard_is_unit() {
+        assert!(ObjectEnum::SyndicateGuard.is_unit());
+    }
+
+    #[test]
+    fn test_syndicate_guard_is_not_structure() {
+        assert!(!ObjectEnum::SyndicateGuard.is_structure());
+    }
+
+    #[test]
+    fn test_syndicate_guard_unit_control_cost() {
+        let cost = ObjectEnum::SyndicateGuard.unit_control_cost();
+        assert_eq!(cost, 1);
     }
 
     // === unit_control_cost() Tests ===

@@ -1,92 +1,45 @@
-# Task 003: Implement Tile Properties and Types
+# Task 003: Implement Tile System Matching Design Specification
+
+## Status
+**Completed** - 2026-02-22
+
+Renamed TileType -> TilePresetEnum, TileProperties -> TilePreset (added value and name fields). Added TilePlacement component with tile_type, location, and elevation. Updated all 10 referencing files. Preset property values match design exactly.
 
 ## Description
-Extend the grid system to support different tile types with associated properties as defined in the design document. Each tile should have a type (Plane, Rugged Terrain, Cliff, Mountain, Water) and corresponding properties (Buildable, Traversible, Drillable, Rugged, Recruitable) that will affect gameplay mechanics.
+Refactor the tile system to match the formal design specification. Replace the current `TileType` enum and `TileProperties` component with a TilePreset-based system. Implement the 5 default presets with their exact property values and add the Elevation field to tile placements.
 
 ## Why Needed
-Different terrain types are core to the RTS design. Units have different movement capabilities based on terrain, buildings can only be placed on certain tiles, and gameplay tactics depend on terrain variation. This provides the foundation for strategic map design and unit differentiation.
+The design formalizes tiles as preset-based configurations with 5 boolean properties (Buildable, Traversible, Rugged, Drillable, Recruitable) and separates the preset definition from the placement (which adds Location and Elevation). The current code has a similar but not identical system — it needs to match exactly.
 
 ## Acceptance Criteria
-- [ ] TileType enum exists with variants: Plane, RuggedTerrain, Cliff, Mountain, Water
-- [ ] TileProperties struct exists with boolean flags: buildable, traversible, drillable, rugged, recruitable
-- [ ] Each TileType has a method or mapping to get its default properties
-- [ ] Tile component is extended to include TileType and TileProperties
-- [ ] Different tile types are visually distinguishable (different colors or materials)
-- [ ] Test map is generated with variety of tile types (at least one of each type)
-- [ ] Hovering over a tile with mouse displays its type (console log for now)
+- `TilePresetEnum` enum with 5 default variants: `Plane`, `RuggedTerrain`, `Cliff`, `Mountain`, `Water`
+- `TilePreset` struct/data with: `Value` (TilePresetEnum), `Name` (String), `Buildable`, `Traversible`, `Rugged`, `Drillable`, `Recruitable` (all bool)
+- Default preset values match design exactly:
+  - Plane: Buildable=true, Traversible=true, Rugged=false, Drillable=true, Recruitable=true
+  - RuggedTerrain: Buildable=false, Traversible=true, Rugged=true, Drillable=true, Recruitable=true
+  - Cliff: Buildable=false, Traversible=false, Rugged=false, Drillable=true, Recruitable=true
+  - Mountain: Buildable=false, Traversible=false, Rugged=false, Drillable=false, Recruitable=true
+  - Water: Buildable=false, Traversible=false, Rugged=false, Drillable=false, Recruitable=false
+- `TilePlacement` component with: `tile_type` (TilePresetEnum), `location` (grid coordinates), `elevation` (u8, 0-16)
+- A function or method to look up `TilePreset` properties from a `TilePresetEnum` value (e.g., `TilePresetEnum::properties() -> TilePreset`)
+- Existing tile spawning system updated to use new types
+- Existing pathfinding references to tile properties updated
+- Project compiles and runs, map renders correctly
 
 ## Relevant Files/Components
-- `src/map.rs` or `src/grid.rs` - Add tile type definitions
-- Tile component - Extend with type and properties
-- Startup system - Generate a test map with varied terrain
-- Add a system to handle mouse hover and display tile info
+- Current map module — has `TileType` enum, `TileProperties`, `GridPosition`, `Tile`, `GridMap`
+- Current pathfinding module — references tile traversibility
 
 ## Technical Considerations
-
-**Tile Type Definitions**:
-```rust
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum TileType {
-    Plane,
-    RuggedTerrain,
-    Cliff,
-    Mountain,
-    Water,
-}
-
-#[derive(Component, Clone, Copy)]
-struct TileProperties {
-    buildable: bool,
-    traversible: bool,
-    drillable: bool,
-    rugged: bool,
-    recruitable: bool,
-}
-
-impl TileType {
-    fn default_properties(&self) -> TileProperties {
-        match self {
-            TileType::Plane => TileProperties {
-                buildable: true,
-                traversible: true,
-                drillable: true,
-                rugged: false,
-                recruitable: true,
-            },
-            TileType::RuggedTerrain => TileProperties {
-                buildable: false,
-                traversible: true,
-                drillable: true,
-                rugged: true,
-                recruitable: true,
-            },
-            // ... other types
-        }
-    }
-}
-```
-
-**Visual Differentiation**:
-- Assign different colors to each tile type:
-  - Plane: Light green
-  - Rugged: Brown
-  - Cliff: Gray
-  - Mountain: Dark gray
-  - Water: Blue
-- Use Bevy's StandardMaterial with base_color
-
-**Test Map Generation**:
-- Create a simple pattern or use noise for varied terrain
-- Ensure at least one tile of each type exists for testing
-- Can be deterministic for now (no need for random generation yet)
-
-**Mouse Interaction** (basic):
-- Use raycast from camera through mouse position
-- Check if ray hits a tile entity
-- Log tile type to console
+- The current `TileType` enum and `TileProperties` component can be replaced. `TileType` becomes `TilePresetEnum`, `TileProperties` fields now include `Recruitable` (new field).
+- The current `determine_tile_type()` function generates a test pattern — keep a similar test pattern but use TilePresetEnum values.
+- `GridPosition` can remain as-is — it maps to the design's `Location` in `TilePlacement`.
+- Elevation defaults to 0 for existing tiles. The elevation system is defined but doesn't need active gameplay behavior yet — just store the value.
+- Consider implementing `TilePresetEnum::properties()` as a match expression returning the preset data, since the 5 default presets have fixed values.
 
 ## Prerequisites
-- [x] `task_002.md` - Grid system must exist to add properties to tiles
+- [ ] `task_001.md` — Directory structure must be in place
+- [ ] `task_002.md` — Core enums (TilePresetEnum could live in core types or map types)
 
 ## Complexity
-Medium
+Simple

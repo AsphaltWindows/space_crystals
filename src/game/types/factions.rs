@@ -95,6 +95,8 @@ pub struct GdoPlayerResources {
     pub unit_control_used: u32,
     /// Capacity (available): fixed at 200
     pub unit_control_cap: u32,
+    /// Whether the player owns at least one Power Plant (tech prerequisite)
+    pub has_power_plant: bool,
 }
 
 impl Default for GdoPlayerResources {
@@ -106,6 +108,7 @@ impl Default for GdoPlayerResources {
             power_consumed: 0,
             unit_control_used: 0,
             unit_control_cap: GDO_UNIT_CONTROL_CAP,
+            has_power_plant: false,
         }
     }
 }

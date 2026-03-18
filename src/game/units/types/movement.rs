@@ -69,7 +69,15 @@ impl PartialEq for PathNode {
 
 impl Ord for PathNode {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.f_cost.partial_cmp(&self.f_cost).unwrap_or(std::cmp::Ordering::Equal)
+        // Primary: lower f_cost is better (reversed for max-heap → min-heap)
+        // Tie-break: lower h_cost is better (more progress made toward goal),
+        // which produces straighter diagonal paths on open terrain.
+        match other.f_cost.partial_cmp(&self.f_cost).unwrap_or(std::cmp::Ordering::Equal) {
+            std::cmp::Ordering::Equal => {
+                other.h_cost.partial_cmp(&self.h_cost).unwrap_or(std::cmp::Ordering::Equal)
+            }
+            ord => ord,
+        }
     }
 }
 

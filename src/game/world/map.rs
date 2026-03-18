@@ -5,7 +5,7 @@ use crate::types::{GridPosition, MainCamera, VisibleEntity, Owner, SightRange, L
                    Unit, VisibilityStateEnum};
 use crate::game::types::ObjectInstance;
 use super::types::*;
-use super::utils::{world_to_grid, vision_center, cursor_pos_in_viewport};
+use super::utils::{world_to_grid, vision_center};
 
 /// Determine tile type based on grid position for a 64x64 map
 /// Creates a procedural terrain with water borders, scattered mountains/cliffs, and rugged areas
@@ -109,12 +109,9 @@ pub fn spawn_grid(
             let elevation = 0u8;
 
             commands.spawn((
-                PbrBundle {
-                    mesh: tile_mesh.clone(),
-                    material: tile_material,
-                    transform: Transform::from_xyz(world_x, 0.0, world_z),
-                    ..default()
-                },
+                Mesh3d(tile_mesh.clone()),
+                MeshMaterial3d(tile_material),
+                Transform::from_xyz(world_x, 0.0, world_z),
                 Tile,
                 VisibleEntity,
                 tile_type,
@@ -137,23 +134,104 @@ pub fn spawn_grid(
     info!("Tile distribution: {:?}", tile_type_counts);
 }
 
-/// System to draw grid cell outlines using Gizmos
-pub fn draw_grid_lines(mut gizmos: Gizmos, grid: Res<GridMap>) {
+/// Maximum draw distance for grid lines from the camera's ground projection.
+/// Set to 40.0 to ensure full coverage of the 64×64 map (half-extent = 32)
+/// from any camera position, with headroom for edge panning.
+const GRID_LINE_DRAW_RADIUS: f32 = 40.0;
+
+/// Distance from camera beyond which grid lines begin to fade out.
+/// Lines between FADE_START and DRAW_RADIUS fade linearly from full alpha to zero.
+/// This prevents the dark band artifact caused by many semi-transparent lines
+/// compounding under perspective compression at the far edge of the view.
+const GRID_LINE_FADE_START: f32 = 20.0;
+
+/// Base alpha for grid lines at full opacity (within FADE_START distance).
+const GRID_LINE_BASE_ALPHA: f32 = 0.35;
+
+/// Compute the opacity for a grid line at a given distance from the camera.
+/// Returns `GRID_LINE_BASE_ALPHA` for distances ≤ `GRID_LINE_FADE_START`,
+/// fades with a cubic curve to 0.0 at `GRID_LINE_DRAW_RADIUS`.
+///
+/// The cubic falloff (power of 3) is critical: under perspective projection,
+/// grid lines far from the camera compress into a narrow screen-space band.
+/// A linear fade leaves enough residual alpha that 10+ overlapping lines
+/// compound into a visible dark band. The cubic curve ensures lines in the
+/// compressed far zone have negligible individual alpha, preventing the
+/// compounding artifact.
+fn grid_line_alpha(distance: f32) -> f32 {
+    if distance <= GRID_LINE_FADE_START {
+        GRID_LINE_BASE_ALPHA
+    } else if distance >= GRID_LINE_DRAW_RADIUS {
+        0.0
+    } else {
+        let t = (distance - GRID_LINE_FADE_START) / (GRID_LINE_DRAW_RADIUS - GRID_LINE_FADE_START);
+        let remaining = 1.0 - t;
+        GRID_LINE_BASE_ALPHA * remaining * remaining * remaining
+    }
+}
+
+/// System to draw grid cell outlines using Gizmos.
+///
+/// Draws grid lines within `GRID_LINE_DRAW_RADIUS` of the camera's ground
+/// projection point. Lines beyond `GRID_LINE_FADE_START` fade out linearly,
+/// reaching zero opacity at `GRID_LINE_DRAW_RADIUS`. This prevents the dark
+/// band artifact from perspective compression while covering the full map.
+pub fn draw_grid_lines(
+    mut gizmos: Gizmos,
+    grid: Res<GridMap>,
+    camera_query: Query<&Transform, With<MainCamera>>,
+) {
     let half_w = grid.width as f32 / 2.0;
     let half_h = grid.height as f32 / 2.0;
-    let color = Color::srgba(0.0, 0.0, 0.0, 0.35);
     let y = 0.005;
 
-    // Vertical lines (along Z axis)
-    for x in 0..=grid.width {
+    // Get camera ground projection for distance culling
+    let cam_x = camera_query.iter().next().map(|t| t.translation.x).unwrap_or(0.0);
+    let cam_z = camera_query.iter().next().map(|t| t.translation.z).unwrap_or(0.0);
+    let radius = GRID_LINE_DRAW_RADIUS;
+
+    // Compute visible grid index range (clamped to grid bounds)
+    let min_x = ((cam_x - radius + half_w).floor().max(0.0) as u32).min(grid.width);
+    let max_x = ((cam_x + radius + half_w).ceil().max(0.0) as u32).min(grid.width);
+    let min_z = ((cam_z - radius + half_h).floor().max(0.0) as u32).min(grid.height);
+    let max_z = ((cam_z + radius + half_h).ceil().max(0.0) as u32).min(grid.height);
+
+    // World-space clamp bounds for line endpoints
+    let clip_min_x = (cam_x - radius).max(-half_w);
+    let clip_max_x = (cam_x + radius).min(half_w);
+    let clip_min_z = (cam_z - radius).max(-half_h);
+    let clip_max_z = (cam_z + radius).min(half_h);
+
+    // Vertical lines (along Z axis) — each with distance-based opacity
+    for x in min_x..=max_x {
         let wx = x as f32 - half_w;
-        gizmos.line(Vec3::new(wx, y, -half_h), Vec3::new(wx, y, half_h), color);
+        let dist = (wx - cam_x).abs();
+        let alpha = grid_line_alpha(dist);
+        if alpha <= 0.0 {
+            continue;
+        }
+        let color = Color::srgba(0.0, 0.0, 0.0, alpha);
+        gizmos.line(
+            Vec3::new(wx, y, clip_min_z),
+            Vec3::new(wx, y, clip_max_z),
+            color,
+        );
     }
 
-    // Horizontal lines (along X axis)
-    for z in 0..=grid.height {
+    // Horizontal lines (along X axis) — each with distance-based opacity
+    for z in min_z..=max_z {
         let wz = z as f32 - half_h;
-        gizmos.line(Vec3::new(-half_w, y, wz), Vec3::new(half_w, y, wz), color);
+        let dist = (wz - cam_z).abs();
+        let alpha = grid_line_alpha(dist);
+        if alpha <= 0.0 {
+            continue;
+        }
+        let color = Color::srgba(0.0, 0.0, 0.0, alpha);
+        gizmos.line(
+            Vec3::new(clip_min_x, y, wz),
+            Vec3::new(clip_max_x, y, wz),
+            color,
+        );
     }
 }
 
@@ -164,11 +242,11 @@ pub fn tile_hover_system(
     tiles: Query<(&TilePresetEnum, &TilePreset, &GridPosition), With<Tile>>,
     buttons: Res<ButtonInput<MouseButton>>,
 ) {
-    let window = windows.single();
-    let (camera, camera_transform) = cameras.single();
+    let Ok(window) = windows.single() else { return; };
+    let Ok((camera, camera_transform)) = cameras.single() else { return; };
 
-    if let Some(cursor_pos) = cursor_pos_in_viewport(window, camera) {
-        if let Some(ray) = camera.viewport_to_world(camera_transform, cursor_pos) {
+    if let Some(cursor_pos) = window.cursor_position() {
+        if let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_pos) {
             if ray.direction.y.abs() > 0.001 {
                 let t = -ray.origin.y / ray.direction.y;
                 if t > 0.0 {
@@ -217,8 +295,11 @@ pub fn update_fog_of_war(
     // Build visible tile sets for each player
     for (sight_range, grid_pos, owner, obj_instance) in vision_sources.iter() {
         if let Some(player_id) = owner.player_number() {
-            // Compute vision center: for multi-tile structures, offset by half the footprint
-            let size = obj_instance.map(|obj| obj.object_type.object_type().size);
+            // Compute vision center: for multi-tile structures, offset by half the footprint.
+            // Only apply size offset for structures — unit sizes are in space units, not grid tiles.
+            let size = obj_instance
+                .filter(|obj| obj.object_type.is_structure())
+                .map(|obj| obj.object_type.object_type().size);
             let (cx, cz) = vision_center(grid_pos.x, grid_pos.z, size);
 
             let visible_set = player_visible_tiles.entry(player_id).or_default();
@@ -285,7 +366,7 @@ pub fn apply_fog_rendering(
         (With<Unit>, Without<Tile>),
     >,
     mut tile_visuals: Query<
-        (&GridPosition, &TilePresetEnum, &mut Handle<StandardMaterial>),
+        (&GridPosition, &TilePresetEnum, &mut MeshMaterial3d<StandardMaterial>),
         With<Tile>,
     >,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -324,7 +405,7 @@ pub fn apply_fog_rendering(
             base_color.to_srgba().blue * fog_multiplier,
         );
 
-        if let Some(mat) = materials.get_mut(material_handle.id()) {
+        if let Some(mat) = materials.get_mut(material_handle.0.id()) {
             mat.base_color = fogged_color;
         }
     }
@@ -359,5 +440,255 @@ pub fn apply_structure_fog_rendering(
             VisibilityStateEnum::Explored => Visibility::Inherited, // Show in last-known state
             VisibilityStateEnum::Visible => Visibility::Inherited,
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::ObjectEnum;
+    use crate::game::types::ObjectInstance;
+
+    // === Vision center filtering tests ===
+
+    #[test]
+    fn unit_object_instance_is_not_structure() {
+        // Peacekeeper has size (24,24) in space units — must NOT be treated as grid offset
+        assert!(!ObjectEnum::Peacekeeper.is_structure());
+        assert!(!ObjectEnum::SupplyChopper.is_structure());
+        assert!(!ObjectEnum::SyndicateAgent.is_structure());
+    }
+
+    #[test]
+    fn structure_object_instance_is_structure() {
+        assert!(ObjectEnum::DeploymentCenter.is_structure());
+        assert!(ObjectEnum::PowerPlant.is_structure());
+        assert!(ObjectEnum::Barracks.is_structure());
+    }
+
+    #[test]
+    fn unit_vision_center_has_no_size_offset() {
+        // Simulate what update_fog_of_war does for a unit
+        let obj = ObjectInstance::destructible(ObjectEnum::Peacekeeper, 100.0);
+        let size = Some(&obj)
+            .filter(|o| o.object_type.is_structure())
+            .map(|o| o.object_type.object_type().size);
+        // For units, size should be None (filtered out)
+        assert!(size.is_none());
+        let (cx, cz) = vision_center(32, 32, size);
+        assert_eq!((cx, cz), (32, 32));
+    }
+
+    #[test]
+    fn structure_vision_center_has_size_offset() {
+        // Simulate what update_fog_of_war does for a structure
+        let obj = ObjectInstance::destructible(ObjectEnum::DeploymentCenter, 500.0);
+        let size = Some(&obj)
+            .filter(|o| o.object_type.is_structure())
+            .map(|o| o.object_type.object_type().size);
+        // DeploymentCenter is (4,4), so offset by (2,2)
+        assert!(size.is_some());
+        let (cx, cz) = vision_center(30, 30, size);
+        assert_eq!((cx, cz), (32, 32));
+    }
+
+    #[test]
+    fn peacekeeper_size_is_space_units_not_grid() {
+        // Peacekeeper size is 24x24 space units — applying this as grid offset would be wrong
+        let obj_type = ObjectEnum::Peacekeeper.object_type();
+        assert_eq!(obj_type.size, (24, 24));
+        // If we naively used this, vision would be offset by (12,12) tiles — clearly wrong
+        let (bad_cx, bad_cz) = vision_center(32, 32, Some((24, 24)));
+        assert_eq!((bad_cx, bad_cz), (44, 44)); // 12 tiles off!
+        // With the fix (filtering out units), no offset
+        let (good_cx, good_cz) = vision_center(32, 32, None);
+        assert_eq!((good_cx, good_cz), (32, 32));
+    }
+
+    #[test]
+    fn supply_chopper_vision_center_no_offset() {
+        let obj = ObjectInstance::destructible(ObjectEnum::SupplyChopper, 50.0);
+        let size = Some(&obj)
+            .filter(|o| o.object_type.is_structure())
+            .map(|o| o.object_type.object_type().size);
+        assert!(size.is_none());
+        let (cx, cz) = vision_center(20, 20, size);
+        assert_eq!((cx, cz), (20, 20));
+    }
+
+    #[test]
+    fn syndicate_agent_vision_center_no_offset() {
+        let obj = ObjectInstance::destructible(ObjectEnum::SyndicateAgent, 75.0);
+        let size = Some(&obj)
+            .filter(|o| o.object_type.is_structure())
+            .map(|o| o.object_type.object_type().size);
+        assert!(size.is_none());
+        let (cx, cz) = vision_center(15, 40, size);
+        assert_eq!((cx, cz), (15, 40));
+    }
+
+    #[test]
+    fn entity_without_object_instance_no_offset() {
+        // Entities with SightRange but no ObjectInstance (e.g. future sensor wards)
+        let size: Option<(u32, u32)> = None;
+        let (cx, cz) = vision_center(10, 10, size);
+        assert_eq!((cx, cz), (10, 10));
+    }
+
+    #[test]
+    fn tunnel_vision_center_has_structure_offset() {
+        let obj = ObjectInstance::destructible(ObjectEnum::Tunnel, 200.0);
+        let size = Some(&obj)
+            .filter(|o| o.object_type.is_structure())
+            .map(|o| o.object_type.object_type().size);
+        assert!(size.is_some());
+        let obj_type = ObjectEnum::Tunnel.object_type();
+        let (cx, cz) = vision_center(25, 25, Some(obj_type.size));
+        // Tunnel size determines offset
+        let expected_cx = 25 + (obj_type.size.0 as i32) / 2;
+        let expected_cz = 25 + (obj_type.size.1 as i32) / 2;
+        assert_eq!((cx, cz), (expected_cx, expected_cz));
+    }
+
+    // === Grid line draw radius and opacity falloff tests ===
+
+    #[test]
+    fn grid_line_draw_radius_covers_full_map() {
+        // Radius must be >= half the grid extent to cover full map from any camera position
+        let grid = GridMap::default();
+        let half_extent = (grid.width as f32 / 2.0).max(grid.height as f32 / 2.0);
+        assert!(
+            GRID_LINE_DRAW_RADIUS >= half_extent,
+            "Draw radius {} must be >= map half-extent {} to cover full map",
+            GRID_LINE_DRAW_RADIUS,
+            half_extent
+        );
+    }
+
+    #[test]
+    fn grid_line_fade_start_less_than_draw_radius() {
+        assert!(GRID_LINE_FADE_START < GRID_LINE_DRAW_RADIUS);
+    }
+
+    #[test]
+    fn grid_line_alpha_full_within_fade_start() {
+        assert_eq!(grid_line_alpha(0.0), GRID_LINE_BASE_ALPHA);
+        assert_eq!(grid_line_alpha(10.0), GRID_LINE_BASE_ALPHA);
+        assert_eq!(grid_line_alpha(GRID_LINE_FADE_START), GRID_LINE_BASE_ALPHA);
+    }
+
+    #[test]
+    fn grid_line_alpha_zero_at_draw_radius() {
+        assert_eq!(grid_line_alpha(GRID_LINE_DRAW_RADIUS), 0.0);
+        assert_eq!(grid_line_alpha(GRID_LINE_DRAW_RADIUS + 5.0), 0.0);
+    }
+
+    #[test]
+    fn grid_line_alpha_fades_cubically() {
+        // At the midpoint of the fade zone (t=0.5), cubic fade gives (1-0.5)^3 = 0.125
+        let midpoint = (GRID_LINE_FADE_START + GRID_LINE_DRAW_RADIUS) / 2.0;
+        let mid_alpha = grid_line_alpha(midpoint);
+        let expected = GRID_LINE_BASE_ALPHA * 0.125; // (0.5)^3
+        assert!((mid_alpha - expected).abs() < 0.001,
+            "Midpoint alpha {} should be ~{} (cubic falloff)", mid_alpha, expected);
+    }
+
+    #[test]
+    fn grid_line_alpha_far_lines_negligible() {
+        // Lines at 75% through the fade zone should have very low alpha,
+        // preventing the dark band artifact from perspective compression.
+        let far_dist = GRID_LINE_FADE_START + 0.75 * (GRID_LINE_DRAW_RADIUS - GRID_LINE_FADE_START);
+        let alpha = grid_line_alpha(far_dist);
+        // (1-0.75)^3 = 0.015625 * 0.35 ≈ 0.0055
+        assert!(alpha < 0.01,
+            "Far fade zone alpha {} should be < 0.01 to prevent compounding artifact", alpha);
+    }
+
+    #[test]
+    fn grid_line_alpha_monotonically_decreasing_in_fade_zone() {
+        let a1 = grid_line_alpha(GRID_LINE_FADE_START + 1.0);
+        let a2 = grid_line_alpha(GRID_LINE_FADE_START + 5.0);
+        let a3 = grid_line_alpha(GRID_LINE_FADE_START + 10.0);
+        assert!(a1 > a2, "alpha at closer distance should be higher");
+        assert!(a2 > a3, "alpha at closer distance should be higher");
+    }
+
+    #[test]
+    fn grid_line_cull_range_centered_covers_full_grid() {
+        // Camera at origin with radius 40 on 64x64 grid — should cover entire grid
+        let grid = GridMap::default();
+        let half_w = grid.width as f32 / 2.0; // 32.0
+        let cam_x = 0.0_f32;
+        let radius = GRID_LINE_DRAW_RADIUS;
+
+        let min_x = ((cam_x - radius + half_w).floor().max(0.0) as u32).min(grid.width);
+        let max_x = ((cam_x + radius + half_w).ceil().max(0.0) as u32).min(grid.width);
+
+        // cam_x - radius + half_w = 0 - 40 + 32 = -8 → clamped to 0
+        // cam_x + radius + half_w = 0 + 40 + 32 = 72 → clamped to 64
+        assert_eq!(min_x, 0);
+        assert_eq!(max_x, 64);
+        // Full grid coverage: 65 lines for 64 cells
+        assert_eq!(max_x - min_x + 1, grid.width + 1);
+    }
+
+    #[test]
+    fn grid_line_cull_range_edge_camera_still_covers_far_side() {
+        // Camera near the left edge — should still cover right edge
+        let grid = GridMap::default();
+        let half_w = grid.width as f32 / 2.0;
+        let cam_x = -25.0_f32;
+        let radius = GRID_LINE_DRAW_RADIUS;
+
+        let min_x = ((cam_x - radius + half_w).floor().max(0.0) as u32).min(grid.width);
+        let max_x = ((cam_x + radius + half_w).ceil().max(0.0) as u32).min(grid.width);
+
+        // cam_x - radius + half_w = -25 - 40 + 32 = -33 → clamped to 0
+        assert_eq!(min_x, 0);
+        // cam_x + radius + half_w = -25 + 40 + 32 = 47
+        assert_eq!(max_x, 47);
+    }
+
+    #[test]
+    fn grid_line_clips_to_grid_bounds() {
+        // Line endpoints clamped to grid world-space bounds
+        let grid = GridMap::default();
+        let half_w = grid.width as f32 / 2.0;
+        let half_h = grid.height as f32 / 2.0;
+        let cam_x = 0.0_f32;
+        let cam_z = 0.0_f32;
+        let radius = GRID_LINE_DRAW_RADIUS;
+
+        let clip_min_x = (cam_x - radius).max(-half_w);
+        let clip_max_x = (cam_x + radius).min(half_w);
+        let clip_min_z = (cam_z - radius).max(-half_h);
+        let clip_max_z = (cam_z + radius).min(half_h);
+
+        // Radius 40 > half_w 32, so clamps to grid bounds
+        assert_eq!(clip_min_x, -32.0);
+        assert_eq!(clip_max_x, 32.0);
+        assert_eq!(clip_min_z, -32.0);
+        assert_eq!(clip_max_z, 32.0);
+        // Full grid coverage
+        assert_eq!(clip_max_x - clip_min_x, grid.width as f32);
+    }
+
+    #[test]
+    fn grid_line_edge_lines_have_reduced_opacity() {
+        // Lines at the map edge (32 units from center camera) should be faded
+        let edge_dist = 32.0_f32;
+        let alpha = grid_line_alpha(edge_dist);
+        assert!(alpha < GRID_LINE_BASE_ALPHA,
+            "Edge line at distance {} should be faded (alpha={}, base={})",
+            edge_dist, alpha, GRID_LINE_BASE_ALPHA);
+        assert!(alpha > 0.0, "Edge line should still be visible (alpha={})", alpha);
+    }
+
+    #[test]
+    fn grid_line_near_lines_have_full_opacity() {
+        // Lines close to camera should have full opacity
+        let near_dist = 5.0_f32;
+        let alpha = grid_line_alpha(near_dist);
+        assert_eq!(alpha, GRID_LINE_BASE_ALPHA);
     }
 }

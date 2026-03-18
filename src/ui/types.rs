@@ -13,7 +13,7 @@ pub const HUD_BOTTOM_PANEL_HEIGHT: f32 = 220.0;
 #[derive(Component)]
 pub struct UiCamera;
 
-/// Resource holding the UI camera entity (used for TargetCamera on root UI nodes)
+/// Resource holding the UI camera entity (used for UiTargetCamera on root UI nodes)
 #[derive(Resource)]
 pub struct UiCameraEntity(pub Entity);
 
@@ -102,6 +102,12 @@ pub struct StructureIcon {
 #[derive(Component)]
 pub struct StructureHealthBar {
     pub structure_entity: Entity,
+}
+
+/// Marker for resource entity icon in selected entities display
+#[derive(Component)]
+pub struct ResourceIcon {
+    pub resource_entity: Entity,
 }
 
 /// Marker component for the command panel section (right side of HUD)
@@ -205,6 +211,8 @@ pub enum StructureMenuState {
     EfAwaitingPlacement,
     /// Supply Tower selected
     SupplyTowerMenu,
+    /// Headquarters selected — production menu
+    HeadquartersMenu,
     /// Tunnel selected — DefaultState: Upgrade, Expand, Eject
     TunnelIdle,
     /// Tunnel selected — ExpandMenu: pick an expansion type
@@ -213,6 +221,8 @@ pub enum StructureMenuState {
     TunnelAwaitingPlacement,
     /// Tunnel selected — EjectMenu: pick unit type to eject
     TunnelEjectMenu,
+    /// Structure with no active commands (e.g., Power Plant, Extraction Plate)
+    Inert,
 }
 
 
@@ -278,11 +288,33 @@ pub enum CommandButtonAction {
     TunnelSelectExpansion(crate::types::ObjectEnum),
     /// Tunnel: Eject a unit of the given type from Side A
     TunnelEjectUnit(crate::types::ObjectEnum),
+    /// Tunnel: Cancel an in-progress upgrade
+    TunnelCancelUpgrade,
+    /// Headquarters: Train an Agent
+    HqTrain(crate::types::ObjectEnum),
+    /// Headquarters: Cancel last queued item
+    HqCancel,
     /// Agent: Build Tunnel (enters AwaitingPlacement)
     AgentBuildTunnel,
     /// Agent: Drop Off Resources at own Tunnel
     AgentDropOff,
+    /// Set rally point for production structures (enters AwaitingTarget mode)
+    SetRallyPoint,
+    /// Unit: Enter tunnel (enters AwaitingTarget for tunnel selection)
+    UnitEnter,
+    /// Unit: Gather resources (enters AwaitingTarget for resource selection)
+    UnitGather,
 }
+
+/// Marker component storing whether a command button is enabled (clickable).
+/// Inserted alongside `CommandButtonAction` and `GridSlot` during button spawn.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct CommandButtonEnabled(pub bool);
+
+/// Marker component storing whether a command is "common" (applies to all selected entities).
+/// Inserted alongside `CommandButtonAction` and `GridSlot` during button spawn.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct CommandButtonCommon(pub bool);
 
 /// Marker component for the placement ghost entity
 #[derive(Component)]
@@ -359,4 +391,12 @@ pub struct EjectionQueue {
     pub queue: VecDeque<Entity>,
     /// Frames since last unit began ejecting (for 8-frame minimum spacing)
     pub cooldown: u32,
+}
+
+/// Marker component inserted on a Tunnel entity to request ejecting a unit of a given type.
+/// Processed and removed by `ejection_tick_system`.
+#[derive(Component, Clone, Debug)]
+pub struct EjectRequest {
+    /// The ObjectEnum type of unit to eject
+    pub unit_type: crate::types::ObjectEnum,
 }

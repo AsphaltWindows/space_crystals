@@ -94,6 +94,27 @@ The display of available commands for the current selection, derived from Contro
 ### CommonCommands - commands available to every object in Selection
 ### GroupCommands - commands available to objects of type ActiveGroup
 
+### Grid Layout
+The CommandPanel is a 3x3 grid of command slots. Each slot has a default hotkey:
+
+```
+| Q | W | E |
+| A | S | D |
+| Z | X | C |
+```
+
+### Standard Slot Assignments
+Certain slots have standardized functions across all object types that use them:
+
+- **Z (bottom-left)**: Back / Cancel menu. In any multi-stage menu (BuildMenu, ExpandMenu, EjectMenu, AwaitingTarget, AwaitingPlacement), Z returns to the previous state (StateOnlyTransition). Equivalent to Escape or right-click cancel.
+- **X (bottom-center)**: Cancel Production / Cancel Upgrade. In production buildings, cancels the last queued item and refunds cost. In structures with upgrades, cancels the in-progress upgrade and refunds cost.
+- **C (bottom-right)**: Set Rally Point. In unit-producing structures, enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState).
+
+### Production Building Default Right-Click
+For all unit-producing structures, right-click from DefaultState sets the rally point:
+- Right-click Ground: sets rally point to that location
+- Right-click Object: sets rally point to that object
+
 ## DefaultState
 The default ObjectInterfaceState for a selection. The command panel displays available commands. Right-click performs a context-sensitive command based on what is under the cursor. Command hotkeys or button clicks initiate transitions to AwaitingTarget or issue immediate commands.
 

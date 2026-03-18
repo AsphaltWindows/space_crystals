@@ -52,24 +52,25 @@ Tunnels have 3 upgrade tiers. Each tier increases HP, Tunnel Area radius, Tunnel
 - **A: Upgrade Tunnel** — upgrades to next tier (CommandIssuingTransition). Costs Supplies per upgrade cost formula. Unavailable if already Tier 3 or if currently performing an operation.
 - **B: Expand Tunnel** — enters ExpandMenu (StateOnlyTransition). Multi-stage: select an underground expansion to build, then place it within the Tunnel Area.
 - **C: Eject** — enters EjectMenu (StateOnlyTransition). Multi-stage: select units from the Tunnel Network to eject from this Tunnel.
+- **X: Cancel Upgrade** — cancels the in-progress Tunnel upgrade (CommandIssuingTransition). Full refund of Supplies cost. Only available while an upgrade is in progress.
 
 #### EjectMenu:
 Displays a grid of unit type tiles representing all units currently in the Tunnel Network. Each tile shows the unit type icon and a count of how many of that type are in the network. Unit types whose base category exceeds this Tunnel's tier are visible but greyed out (disabled).
 
 - Click an enabled unit type tile: ejects one unit of that type from this Tunnel's Side A (CommandIssuingTransition). Ejected units are queued — a new unit begins ejecting every 8 frames minimum, but actual throughput is limited by unit speed and collision at Side A. Standard movement and collision mechanics apply as units emerge.
-- Escape/right-click: returns to DefaultState (StateOnlyTransition)
+- **Z**: returns to DefaultState (StateOnlyTransition)
 
 #### ExpandMenu:
 Displays available underground expansion types for this Tunnel's current tier. Only expansions at or below the Tunnel's tier are available.
 
 - Click an expansion type: begins construction if the Tunnel is not already performing an operation (enters AwaitingPlacement for that expansion)
-- Escape/right-click: returns to DefaultState (StateOnlyTransition)
+- **Z**: returns to DefaultState (StateOnlyTransition)
 
 #### AwaitingPlacement (Expansion):
 - A ghost preview of the expansion follows the cursor within the Tunnel Area, snapped to the grid. Tinted green when valid, red when invalid. The expansion must fit entirely within the Tunnel Area.
 - R rotates the ghost 90 degrees clockwise, Shift+R counter-clockwise. F flips horizontally, Shift+F flips vertically.
 - Left-click valid location: places expansion, begins construction (CommandIssuingTransition, returns to DefaultState)
-- Escape/right-click: returns to ExpandMenu (StateOnlyTransition)
+- **Z**: returns to ExpandMenu (StateOnlyTransition)
 
 ### Tunnel Area
 
@@ -124,16 +125,90 @@ Higher-tier Tunnels count toward lower-tier cost calculations (a T3 Tunnel count
 
 ## Tunnel Expansions
 
-Underground buildings constructed within a Tunnel's Tunnel Area. Expansions are invisible to enemies without detection and can be walked over by surface units. All Syndicate units are produced by Tunnel expansions. Produced units either emerge from the parent Tunnel or remain in the Tunnel Network depending on the expansion's rally point.
+Underground buildings constructed within a Tunnel's Tunnel Area. Expansions are invisible to enemies without detection and can be walked over by surface units. All Syndicate units are produced by Tunnel expansions.
+
+### Rally Point Behavior
+
+Each production expansion can have a rally point set. This determines what happens when a unit finishes production:
+
+- **Rally point set on the surface**: Unit auto-ejects from the parent Tunnel (Side A) and moves to the rally point.
+- **No rally point, or rally point set on the parent Tunnel**: Unit stays in the Tunnel Network, available for ejection from any sufficiently-tiered Tunnel.
 
 ### Headquarters
 
-The Headquarters is a Tier 1 Tunnel expansion that produces Agents. The Syndicate player starts with one pre-built in their starting Tunnel. Additional Headquarters can be constructed in any Tier 1+ Tunnel.
+The Headquarters is a Tier 1 Tunnel expansion that produces Agents and Guards. The Syndicate player starts with one pre-built in their starting Tunnel. Additional Headquarters can be constructed in any Tier 1+ Tunnel.
 
 #### Entity Type - Structure Type (Underground)
+#### Size - 2x2
 #### Tier Requirement - 1
+#### Cost - 200 Space Crystals
+#### Build Time - 400 frames (25 seconds)
+#### HP - 400
+#### PointArmor - 1
+#### FullArmor - 4
 #### Produces:
 - Agent: 100 Space Crystals, 160 frames (10 seconds)
+- Guard: 125 Space Crystals, 120 frames (7.5 seconds)
+
+#### HeadquartersInstanceState:
+- RallyPoint: Coordinates | ObjectInstance | None
+- BuildQueue: array of ObjectEnum (max 5)
+- CurrentBuild: ObjectEnum | None
+- CurrentBuildProgress: number (frames elapsed) | None
+
+#### ObjectInterfaceState[Headquarters]:
+
+DefaultState commands:
+
+Right-click resolution:
+- Right-click Ground: issues SetRallyPoint command to that location
+- Right-click Object: issues SetRallyPoint command to that object
+
+Immediate commands (CommandIssuingTransition):
+- **Q: Build Agent**: deducts 100 Space Crystals from player, adds Agent to BuildQueue. Only available if BuildQueue has fewer than 5 entries and player has sufficient Space Crystals.
+- **W: Build Guard**: deducts 125 Space Crystals from player, adds Guard to BuildQueue. Only available if BuildQueue has fewer than 5 entries and player has sufficient Space Crystals.
+- **X: Cancel Production**: removes last entry from BuildQueue, refunds full cost to player. Only available if BuildQueue is not empty.
+
+Target commands (StateOnlyTransition):
+- **C: Set Rally Point**: enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState).
+
+## Guard
+
+The Guard is the Syndicate's basic combat infantry. A heavy infantry unit with a rapid-fire fully connected attack, tougher than the GDO Peacekeeper but with shorter range.
+
+### Entity Type - Unit
+### Faction - TheSyndicate
+### UnitBase - HeavyInfantry
+
+### Silhouette - 36x36
+### MaxHP - 80
+### PointArmor - 1
+### FullArmor - 1
+### SightRange - 5
+### TunnelSpaceCost - 2
+### Groupable - true
+
+### UnitBaseAttributes[HeavyInfantry]:
+- MaxSpeed: 5 space units/frame
+- Acceleration: infinite
+- Deceleration: infinite
+- TurnRate: 180 degrees/frame
+
+### TurretAttributes - None
+
+### AttackAttributes:
+- AttackType: FullyConnected
+- TargetDomain: Ground
+- TargetType: SingleTarget
+- Damage: 6
+- Range: 3 grid units
+- MinRange: 0
+- AimDuration: 2 frames
+- FiringDuration: 1 frame
+- CooldownDuration: 1 frame
+- ReloadDuration: 4 frames
+
+### ObjectInterfaceState: BasicCombatUnitInterfaceState
 
 ## Agent
 

@@ -4,8 +4,13 @@ use crate::game::types::ObjectInstance;
 use crate::utils::is_enemy;
 use crate::game::units::types::*;
 use crate::game::units::utils::{world_to_grid, smooth_path};
+use crate::game::units::pathfinding::find_path_for_domain;
 use crate::game::world::types::{Tile, TilePreset, GridMap, ElevationMap, elevation_modifier};
 use crate::game::combat::types::*;
+
+/// Distance (gu) a target must move before triggering a path recomputation.
+/// Prevents per-frame find_path calls that cause excessive allocation pressure.
+const TARGET_MOVED_REPATH_THRESHOLD: f32 = 2.0;
 
 /// Attacking object behavior system.
 ///
@@ -16,7 +21,7 @@ pub fn attacking_object_behavior_system(
     mut commands: Commands,
     mut units: Query<
         (Entity, &Transform, &AttackCapability, &mut AttackState, &UnitCommand,
-         &UnitBaseEnum, &Owner, Option<&DomainEnum>, &GridPosition),
+         &UnitBaseEnum, &Owner, Option<&DomainEnum>, &GridPosition, Option<&MoveTarget>),
         With<Unit>
     >,
     targets: Query<(&Transform, &Owner, Option<&DomainEnum>, &GridPosition), With<ObjectInstance>>,
@@ -26,7 +31,7 @@ pub fn attacking_object_behavior_system(
     occupancy: Res<OccupancyMap>,
 ) {
     for (entity, transform, attack_cap, mut attack_state, command, unit_base, _owner,
-         source_domain, source_grid_pos) in units.iter_mut()
+         source_domain, source_grid_pos, existing_move_target) in units.iter_mut()
     {
         let target_entity = match command {
             UnitCommand::AttackTarget(t) => *t,
@@ -77,19 +82,27 @@ pub fn attacking_object_behavior_system(
             // Turret units and gliders: keep moving, turret/phase system handles firing
         } else {
             // Out of range — approach target
-            let start_grid = world_to_grid(transform.translation);
-            let target_grid = world_to_grid(target_transform.translation);
+            // Only re-path if no existing path, or if target has moved significantly
+            let needs_repath = match existing_move_target {
+                Some(mt) => mt.0.distance(target_transform.translation) > TARGET_MOVED_REPATH_THRESHOLD,
+                None => true,
+            };
 
-            if let Some(path) = crate::game::units::pathfinding::find_path(
-                start_grid, target_grid, &tiles, unit_base,
-                grid.width as i32, grid.height as i32,
-                &occupancy, (start_grid.x, start_grid.z),
-            ) {
-                let smoothed = smooth_path(path);
-                commands.entity(entity).insert((
-                    MoveTarget(target_transform.translation),
-                    Path { waypoints: smoothed, current_waypoint: 0 },
-                ));
+            if needs_repath {
+                let start_grid = world_to_grid(transform.translation);
+                let target_grid = world_to_grid(target_transform.translation);
+
+                if let Some(path) = find_path_for_domain(
+                    start_grid, target_grid, &tiles, unit_base,
+                    grid.width as i32, grid.height as i32,
+                    &occupancy, (start_grid.x, start_grid.z),
+                ) {
+                    let smoothed = smooth_path(path);
+                    commands.entity(entity).insert((
+                        MoveTarget(target_transform.translation),
+                        Path { waypoints: smoothed, current_waypoint: 0 },
+                    ));
+                }
             }
         }
     }
@@ -104,7 +117,7 @@ pub fn attacking_location_behavior_system(
     mut commands: Commands,
     mut units: Query<
         (Entity, &Transform, &AttackCapability, &mut AttackState, &UnitCommand,
-         &UnitBaseEnum, Option<&DomainEnum>, &GridPosition),
+         &UnitBaseEnum, Option<&DomainEnum>, &GridPosition, Option<&MoveTarget>),
         With<Unit>
     >,
     tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
@@ -113,7 +126,7 @@ pub fn attacking_location_behavior_system(
     occupancy: Res<OccupancyMap>,
 ) {
     for (entity, transform, attack_cap, mut attack_state, command, unit_base,
-         source_domain, source_grid_pos) in units.iter_mut()
+         source_domain, source_grid_pos, existing_move_target) in units.iter_mut()
     {
         let target_pos = match command {
             UnitCommand::AttackLocation(pos) => *pos,
@@ -158,20 +171,22 @@ pub fn attacking_location_behavior_system(
                 attack_state.phase = AttackPhase::None;
             }
         } else {
-            // Out of range — approach
-            let start_grid = world_to_grid(transform.translation);
-            let target_grid_pos = world_to_grid(target_pos);
+            // Out of range — approach (only re-path if no existing path)
+            if existing_move_target.is_none() {
+                let start_grid = world_to_grid(transform.translation);
+                let target_grid_pos = world_to_grid(target_pos);
 
-            if let Some(path) = crate::game::units::pathfinding::find_path(
-                start_grid, target_grid_pos, &tiles, unit_base,
-                grid.width as i32, grid.height as i32,
-                &occupancy, (start_grid.x, start_grid.z),
-            ) {
-                let smoothed = smooth_path(path);
-                commands.entity(entity).insert((
-                    MoveTarget(target_pos),
-                    Path { waypoints: smoothed, current_waypoint: 0 },
-                ));
+                if let Some(path) = find_path_for_domain(
+                    start_grid, target_grid_pos, &tiles, unit_base,
+                    grid.width as i32, grid.height as i32,
+                    &occupancy, (start_grid.x, start_grid.z),
+                ) {
+                    let smoothed = smooth_path(path);
+                    commands.entity(entity).insert((
+                        MoveTarget(target_pos),
+                        Path { waypoints: smoothed, current_waypoint: 0 },
+                    ));
+                }
             }
         }
     }
@@ -186,7 +201,8 @@ pub fn attack_move_behavior_system(
     mut commands: Commands,
     mut units: Query<
         (Entity, &Transform, &AttackCapability, &mut AttackState, &mut UnitCommand,
-         &UnitBaseEnum, &Owner, Option<&SightRange>, Option<&DomainEnum>, &GridPosition),
+         &UnitBaseEnum, &Owner, Option<&SightRange>, Option<&DomainEnum>, &GridPosition,
+         Option<&MoveTarget>),
         With<Unit>
     >,
     potential_targets: Query<(Entity, &Transform, &Owner, Option<&DomainEnum>, &GridPosition), With<ObjectInstance>>,
@@ -197,7 +213,7 @@ pub fn attack_move_behavior_system(
     occupancy: Res<OccupancyMap>,
 ) {
     for (entity, transform, _attack_cap, mut attack_state, mut command, unit_base, owner,
-         sight_range_opt, _source_domain, _source_grid_pos) in units.iter_mut()
+         sight_range_opt, _source_domain, _source_grid_pos, existing_move_target) in units.iter_mut()
     {
         let destination = match command.as_ref() {
             UnitCommand::AttackMove(dest) => *dest,
@@ -237,7 +253,7 @@ pub fn attack_move_behavior_system(
                     // Re-pathfind to destination
                     let start_grid = world_to_grid(pos);
                     let target_grid = world_to_grid(destination);
-                    if let Some(path) = crate::game::units::pathfinding::find_path(
+                    if let Some(path) = find_path_for_domain(
                         start_grid, target_grid, &tiles, unit_base,
                         grid.width as i32, grid.height as i32,
                         &occupancy, (start_grid.x, start_grid.z),
@@ -261,7 +277,7 @@ pub fn attack_move_behavior_system(
 
                 let start_grid = world_to_grid(pos);
                 let target_grid = world_to_grid(destination);
-                if let Some(path) = crate::game::units::pathfinding::find_path(
+                if let Some(path) = find_path_for_domain(
                     start_grid, target_grid, &tiles, unit_base,
                     grid.width as i32, grid.height as i32,
                     &occupancy, (start_grid.x, start_grid.z),
@@ -313,21 +329,21 @@ pub fn attack_move_behavior_system(
         } else {
             // No enemies — ensure we're moving toward destination
             // Only re-pathfind if we don't already have a path
-            // (checking for MoveTarget component presence would require another query,
-            //  so we rely on the movement system to handle path following)
-            let start_grid = world_to_grid(pos);
-            let target_grid = world_to_grid(destination);
+            if existing_move_target.is_none() {
+                let start_grid = world_to_grid(pos);
+                let target_grid = world_to_grid(destination);
 
-            if let Some(path) = crate::game::units::pathfinding::find_path(
-                start_grid, target_grid, &tiles, unit_base,
-                grid.width as i32, grid.height as i32,
-                &occupancy, (start_grid.x, start_grid.z),
-            ) {
-                let smoothed = smooth_path(path);
-                commands.entity(entity).insert((
-                    MoveTarget(destination),
-                    Path { waypoints: smoothed, current_waypoint: 0 },
-                ));
+                if let Some(path) = find_path_for_domain(
+                    start_grid, target_grid, &tiles, unit_base,
+                    grid.width as i32, grid.height as i32,
+                    &occupancy, (start_grid.x, start_grid.z),
+                ) {
+                    let smoothed = smooth_path(path);
+                    commands.entity(entity).insert((
+                        MoveTarget(destination),
+                        Path { waypoints: smoothed, current_waypoint: 0 },
+                    ));
+                }
             }
         }
     }
@@ -678,7 +694,7 @@ mod tests {
 
     #[test]
     fn attack_target_command_matches() {
-        let cmd = UnitCommand::AttackTarget(Entity::from_raw(5));
+        let cmd = UnitCommand::AttackTarget(Entity::from_raw_u32(5).unwrap());
         assert!(matches!(cmd, UnitCommand::AttackTarget(_)));
     }
 

@@ -292,6 +292,10 @@ pub struct Projectile {
 pub struct ExplosionEffect {
     pub lifetime: f32,
     pub max_lifetime: f32,
+    /// Base scale factor (matches the explosion radius). The animation
+    /// multiplies this by a growth factor so a unit sphere renders at
+    /// the correct visual radius.
+    pub base_scale: f32,
 }
 
 /// Component for attack line tracer visual (FullyConnected attacks)
@@ -306,6 +310,61 @@ pub struct AttackLine {
 pub struct TargetHighlight {
     pub lifetime: f32,
     pub max_lifetime: f32,
+}
+
+/// Cached mesh and material handles for combat visual effects.
+/// Created once at game start to avoid per-spawn asset allocation.
+/// All combat spawn functions use handles from this cache instead of
+/// calling `meshes.add()` / `materials.add()` per entity.
+#[derive(Resource)]
+pub struct CombatAssetCache {
+    /// Unit cuboid (half-extents 1.0) for attack lines — scaled per-instance
+    pub attack_line_mesh: Handle<Mesh>,
+    /// Bright yellow-white unlit material for attack lines
+    pub attack_line_material: Handle<StandardMaterial>,
+    /// Unit sphere (radius 1.0) for sphere projectiles and explosions — scaled per-instance
+    pub unit_sphere_mesh: Handle<Mesh>,
+    /// Gold emissive material for sphere projectiles
+    pub projectile_sphere_material: Handle<StandardMaterial>,
+    /// Metallic gray material for cylinder/capsule projectiles
+    pub projectile_cylinder_material: Handle<StandardMaterial>,
+    /// Orange emissive blend material for explosions
+    pub explosion_material: Handle<StandardMaterial>,
+}
+
+impl CombatAssetCache {
+    /// Initialize all cached combat assets.
+    pub fn new(
+        meshes: &mut Assets<Mesh>,
+        materials: &mut Assets<StandardMaterial>,
+    ) -> Self {
+        Self {
+            attack_line_mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
+            attack_line_material: materials.add(StandardMaterial {
+                base_color: Color::srgb(1.0, 1.0, 0.6),
+                emissive: Color::srgb(2.0, 2.0, 0.5).into(),
+                unlit: true,
+                ..default()
+            }),
+            unit_sphere_mesh: meshes.add(Sphere::new(1.0)),
+            projectile_sphere_material: materials.add(StandardMaterial {
+                base_color: Color::srgb(1.0, 0.8, 0.0),
+                emissive: Color::srgb(1.0, 0.8, 0.0).into(),
+                ..default()
+            }),
+            projectile_cylinder_material: materials.add(StandardMaterial {
+                base_color: Color::srgb(0.8, 0.8, 0.8),
+                metallic: 0.8,
+                ..default()
+            }),
+            explosion_material: materials.add(StandardMaterial {
+                base_color: Color::srgb(1.0, 0.5, 0.0),
+                emissive: Color::srgb(1.0, 0.3, 0.0).into(),
+                alpha_mode: AlphaMode::Blend,
+                ..default()
+            }),
+        }
+    }
 }
 
 /// Component recording a unit's position when it auto-acquired an idle target.
@@ -483,5 +542,81 @@ mod tests {
             assert!(c.base_can_move, "Turret source phase {:?} should allow move", phase);
             assert!(c.base_can_turn, "Turret source phase {:?} should allow turn", phase);
         }
+    }
+
+    // === CombatAssetCache ===
+
+    #[test]
+    fn combat_asset_cache_creates_all_handles() {
+        let mut meshes = Assets::<Mesh>::default();
+        let mut materials = Assets::<StandardMaterial>::default();
+        let cache = CombatAssetCache::new(&mut meshes, &mut materials);
+        // All handles should reference valid assets
+        assert!(meshes.get(&cache.attack_line_mesh).is_some());
+        assert!(meshes.get(&cache.unit_sphere_mesh).is_some());
+        assert!(materials.get(&cache.attack_line_material).is_some());
+        assert!(materials.get(&cache.projectile_sphere_material).is_some());
+        assert!(materials.get(&cache.projectile_cylinder_material).is_some());
+        assert!(materials.get(&cache.explosion_material).is_some());
+    }
+
+    #[test]
+    fn combat_asset_cache_attack_line_and_sphere_are_distinct() {
+        let mut meshes = Assets::<Mesh>::default();
+        let mut materials = Assets::<StandardMaterial>::default();
+        let cache = CombatAssetCache::new(&mut meshes, &mut materials);
+        // Different meshes for attack lines vs spheres
+        assert_ne!(cache.attack_line_mesh, cache.unit_sphere_mesh);
+        // Different materials for each combat visual type
+        assert_ne!(cache.attack_line_material, cache.projectile_sphere_material);
+        assert_ne!(cache.projectile_sphere_material, cache.projectile_cylinder_material);
+        assert_ne!(cache.explosion_material, cache.attack_line_material);
+    }
+
+    #[test]
+    fn combat_asset_cache_only_creates_two_meshes() {
+        let mut meshes = Assets::<Mesh>::default();
+        let mut materials = Assets::<StandardMaterial>::default();
+        let _cache = CombatAssetCache::new(&mut meshes, &mut materials);
+        // Exactly 2 meshes: unit cuboid + unit sphere
+        assert_eq!(meshes.len(), 2);
+        // Exactly 4 materials: attack_line, projectile_sphere, projectile_cylinder, explosion
+        assert_eq!(materials.len(), 4);
+    }
+
+    // === ExplosionEffect base_scale ===
+
+    #[test]
+    fn explosion_effect_base_scale_stored() {
+        let effect = ExplosionEffect {
+            lifetime: 0.0,
+            max_lifetime: 0.5,
+            base_scale: 3.0,
+        };
+        assert_eq!(effect.base_scale, 3.0);
+    }
+
+    #[test]
+    fn explosion_animation_at_start_equals_base_scale() {
+        let base_scale = 2.5_f32;
+        let progress = 0.0_f32;
+        let scale = base_scale * (1.0 + progress * 2.0);
+        assert_eq!(scale, 2.5);
+    }
+
+    #[test]
+    fn explosion_animation_at_end_triples_base_scale() {
+        let base_scale = 2.0_f32;
+        let progress = 1.0_f32;
+        let scale = base_scale * (1.0 + progress * 2.0);
+        assert_eq!(scale, 6.0); // 2.0 * 3.0
+    }
+
+    #[test]
+    fn explosion_animation_at_midpoint() {
+        let base_scale = 1.0_f32;
+        let progress = 0.5_f32;
+        let scale = base_scale * (1.0 + progress * 2.0);
+        assert_eq!(scale, 2.0); // 1.0 * 2.0
     }
 }

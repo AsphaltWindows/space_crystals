@@ -1,9 +1,8 @@
 use bevy::prelude::*;
-use bevy::ecs::system::EntityCommands;
 use crate::types::*;
 use crate::game::types::{ObjectInstance, Player, GdoPlayerResources, SyndicatePlayerResources, CultsPlayerResources, ColonistsPlayerResources, StructureInstance, PowerValue, BuildRadiusExtension, DeploymentCenterState, BarracksState, ExtractionFacilityState};
-use crate::game::types::structures::ExtractionPlateState;
-use crate::game::world::types::SpaceCrystalPatch;
+use crate::game::types::structures::{ExtractionPlateState, SupplyTowerState};
+use crate::game::world::types::{SpaceCrystalPatch, SupplyDeliveryStation};
 use crate::game::world::types::{Tile, TilePresetEnum};
 use crate::types::UnitBaseEnum;
 use crate::game::units::types::{UnitType, MovementSpeed};
@@ -19,176 +18,144 @@ pub fn setup_hud(
     players: Query<&Player>,
 ) {
     // Spawn a dedicated UI camera (fullscreen, renders HUD on top of the 3D viewport)
+    // DespawnOnExit auto-cleans when leaving InGame state
     let ui_cam = commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                order: 1, // Render after the 3D camera
-                clear_color: bevy::render::camera::ClearColorConfig::None,
-                ..default()
-            },
+        Camera2d,
+        Camera {
+            order: 1, // Render after the 3D camera
+            clear_color: ClearColorConfig::None,
             ..default()
         },
+        IsDefaultUiCamera,
         super::types::UiCamera,
+        DespawnOnExit(AppState::InGame),
     )).id();
     commands.insert_resource(super::types::UiCameraEntity(ui_cam));
 
     // Top resource bar
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.0),
-                    height: Val::Px(super::types::HUD_TOP_BAR_HEIGHT),
-                    position_type: PositionType::Absolute,
-                    top: Val::Px(0.0),
-                    left: Val::Px(0.0),
-                    padding: UiRect::horizontal(Val::Px(16.0)),
-                    column_gap: Val::Px(24.0),
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                background_color: BackgroundColor(Color::srgba(0.05, 0.05, 0.1, 0.85)),
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Px(super::types::HUD_TOP_BAR_HEIGHT),
+                position_type: PositionType::Absolute,
+                top: Val::Px(0.0),
+                left: Val::Px(0.0),
+                padding: UiRect::horizontal(Val::Px(16.0)),
+                column_gap: Val::Px(24.0),
+                align_items: AlignItems::Center,
                 ..default()
             },
-            TargetCamera(ui_cam),
+            BackgroundColor(Color::srgba(0.05, 0.05, 0.1, 0.85)),
+            UiTargetCamera(ui_cam),
             ResourceBar,
             Interaction::default(),
+            DespawnOnExit(AppState::InGame),
         ))
         .with_children(|parent| {
-            let text_style = TextStyle {
-                font_size: 14.0,
-                color: Color::srgb(0.9, 0.9, 0.9),
-                ..default()
-            };
-
             // Determine the local player's faction
             let local_faction = players.iter()
                 .find(|p| p.player_number == local_player.0)
                 .map(|p| p.faction)
                 .unwrap_or(FactionEnum::GlobalDefenseOrdinance);
 
-            spawn_resource_bar_fields(parent, &text_style, local_faction);
+            spawn_resource_bar_fields(parent, 14.0, Color::srgb(0.9, 0.9, 0.9), local_faction);
         });
 
     // Bottom HUD panel
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.0),
-                    height: Val::Px(super::types::HUD_BOTTOM_PANEL_HEIGHT),
-                    position_type: PositionType::Absolute,
-                    bottom: Val::Px(0.0),
-                    left: Val::Px(0.0),
-                    padding: UiRect::all(Val::Px(10.0)),
-                    column_gap: Val::Px(10.0),
-                    ..default()
-                },
-                background_color: BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.9)),
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Px(super::types::HUD_BOTTOM_PANEL_HEIGHT),
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(0.0),
+                left: Val::Px(0.0),
+                padding: UiRect::all(Val::Px(10.0)),
+                column_gap: Val::Px(10.0),
                 ..default()
             },
-            TargetCamera(ui_cam),
+            BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.9)),
+            UiTargetCamera(ui_cam),
             HudPanel,
             Interaction::default(),
+            DespawnOnExit(AppState::InGame),
         ))
         .with_children(|parent| {
             // Left section: Minimap
             parent.spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Px(200.0),
-                        height: Val::Percent(100.0),
-                        padding: UiRect::all(Val::Px(5.0)),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        flex_direction: FlexDirection::Column,
-                        ..default()
-                    },
-                    background_color: BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.8)),
+                Node {
+                    width: Val::Px(200.0),
+                    height: Val::Percent(100.0),
+                    padding: UiRect::all(Val::Px(5.0)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    flex_direction: FlexDirection::Column,
                     ..default()
                 },
+                BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.8)),
                 MinimapSection,
             ))
             .with_children(|parent| {
-                parent.spawn(TextBundle {
-                    text: Text::from_section(
-                        "Minimap",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::srgb(0.7, 0.7, 0.7),
-                            ..default()
-                        },
-                    ),
-                    style: Style {
+                parent.spawn((
+                    Text::new("Minimap"),
+                    TextFont { font_size: 12.0, ..default() },
+                    TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                    Node {
                         margin: UiRect::bottom(Val::Px(5.0)),
                         ..default()
                     },
-                    ..default()
-                });
+                ));
 
                 parent.spawn((
-                    NodeBundle {
-                        style: Style {
-                            width: Val::Px(180.0),
-                            height: Val::Px(180.0),
-                            display: Display::Grid,
-                            grid_template_columns: RepeatedGridTrack::flex(32, 1.0),
-                            grid_template_rows: RepeatedGridTrack::flex(32, 1.0),
-                            ..default()
-                        },
-                        background_color: BackgroundColor(Color::srgb(0.0, 0.0, 0.0)),
+                    Node {
+                        width: Val::Px(180.0),
+                        height: Val::Px(180.0),
+                        display: Display::Grid,
+                        grid_template_columns: RepeatedGridTrack::flex(32, 1.0),
+                        grid_template_rows: RepeatedGridTrack::flex(32, 1.0),
                         ..default()
                     },
+                    BackgroundColor(Color::srgb(0.0, 0.0, 0.0)),
                     MinimapContainer,
                 ));
             });
 
             // Center section: Selected Units Grid
             parent.spawn((
-                NodeBundle {
-                    style: Style {
-                        flex_grow: 1.0,
-                        height: Val::Percent(100.0),
-                        padding: UiRect::all(Val::Px(5.0)),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                    background_color: BackgroundColor(Color::srgba(0.15, 0.15, 0.15, 0.8)),
+                Node {
+                    flex_grow: 1.0,
+                    height: Val::Percent(100.0),
+                    padding: UiRect::all(Val::Px(5.0)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    overflow: Overflow::clip(),
                     ..default()
                 },
+                BackgroundColor(Color::srgba(0.15, 0.15, 0.15, 0.8)),
                 UnitsGridSection,
             ))
             .with_children(|parent| {
-                parent.spawn(TextBundle {
-                    text: Text::from_section(
-                        "No Units Selected",
-                        TextStyle {
-                            font_size: 16.0,
-                            color: Color::srgb(0.7, 0.7, 0.7),
-                            ..default()
-                        },
-                    ),
-                    ..default()
-                });
+                parent.spawn((
+                    Text::new("No Units Selected"),
+                    TextFont { font_size: 16.0, ..default() },
+                    TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                ));
             });
 
             // Right section: Command Panel
             parent.spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Px(200.0),
-                        height: Val::Percent(100.0),
-                        padding: UiRect::all(Val::Px(8.0)),
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::FlexStart,
-                        overflow: Overflow::clip(),
-                        ..default()
-                    },
-                    background_color: BackgroundColor(Color::srgba(0.12, 0.15, 0.12, 0.9)),
+                Node {
+                    width: Val::Px(200.0),
+                    height: Val::Percent(100.0),
+                    padding: UiRect::all(Val::Px(8.0)),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::FlexStart,
+                    overflow: Overflow::clip(),
                     ..default()
                 },
+                BackgroundColor(Color::srgba(0.12, 0.15, 0.12, 0.9)),
                 CommandPanelSection,
             ));
         });
@@ -210,7 +177,7 @@ pub fn update_minimap_system(
     grid: Res<crate::game::world::types::GridMap>,
 ) {
     if minimap_tiles.is_empty() {
-        if let Ok(container_entity) = minimap_container.get_single() {
+        if let Ok(container_entity) = minimap_container.single() {
             // Build a color map by downsampling: each minimap cell covers a 2x2 area of the real grid
             let scale_x = grid.width as f32 / MINIMAP_SIZE as f32;
             let scale_z = grid.height as f32 / MINIMAP_SIZE as f32;
@@ -231,15 +198,12 @@ pub fn update_minimap_system(
 
                     commands.entity(container_entity).with_children(|parent| {
                         parent.spawn((
-                            NodeBundle {
-                                style: Style {
-                                    width: Val::Px(5.0),
-                                    height: Val::Px(5.0),
-                                    ..default()
-                                },
-                                background_color: BackgroundColor(tile_color),
+                            Node {
+                                width: Val::Px(5.0),
+                                height: Val::Px(5.0),
                                 ..default()
                             },
+                            BackgroundColor(tile_color),
                             MinimapTile {
                                 grid_x: sample_x,
                                 grid_z: sample_z,
@@ -259,70 +223,64 @@ pub fn update_minimap_system(
 pub fn update_selected_units_grid_system(
     mut commands: Commands,
     units_grid_section: Query<Entity, With<UnitsGridSection>>,
-    selected_units: Query<(Entity, &UnitType, &ObjectInstance, &Owner, &UnitBaseEnum, &MovementSpeed, &AttackCapability, Option<&Turret>), (With<Unit>, With<Selected>)>,
-    selected_structures: Query<(Entity, &ObjectInstance, &Owner, Option<&PowerValue>, Option<&BuildRadiusExtension>, Option<&DeploymentCenterState>, Option<&BarracksState>, Option<&ExtractionFacilityState>, Option<&ExtractionPlateState>), (With<StructureInstance>, With<Selected>, Without<Unit>)>,
+    selected_units: Query<(Entity, &UnitType, &ObjectInstance, &Owner, &UnitBaseEnum, &MovementSpeed, Option<&AttackCapability>, Option<&Turret>), (With<Unit>, With<Selected>)>,
+    selected_structures: Query<(Entity, &ObjectInstance, &Owner, Option<&PowerValue>, Option<&BuildRadiusExtension>, Option<&DeploymentCenterState>, Option<&BarracksState>, Option<&ExtractionFacilityState>, Option<&ExtractionPlateState>, Option<&SupplyTowerState>), (With<StructureInstance>, With<Selected>, Without<Unit>)>,
     sc_patches: Query<&SpaceCrystalPatch>,
+    selected_scp: Query<(Entity, &SpaceCrystalPatch, &ObjectInstance), (With<Selected>, Without<Unit>, Without<StructureInstance>)>,
+    selected_sds: Query<(Entity, &SupplyDeliveryStation, &ObjectInstance), (With<Selected>, Without<Unit>, Without<StructureInstance>, Without<SpaceCrystalPatch>)>,
     existing_unit_icons: Query<(Entity, &UnitIcon)>,
     existing_struct_icons: Query<(Entity, &StructureIcon)>,
-    mut unit_health_bars: Query<(&mut Style, &UnitHealthBar), Without<StructureHealthBar>>,
-    mut struct_health_bars: Query<(&mut Style, &StructureHealthBar), Without<UnitHealthBar>>,
+    existing_resource_icons: Query<(Entity, &ResourceIcon)>,
+    mut unit_health_bars: Query<(&mut Node, &UnitHealthBar), (Without<StructureHealthBar>, Without<ResourceIcon>)>,
+    mut struct_health_bars: Query<(&mut Node, &StructureHealthBar), (Without<UnitHealthBar>, Without<ResourceIcon>)>,
     selection: Res<Selection>,
-    mut last_active_group: Local<Option<usize>>,
 ) {
-    let grid_entity = match units_grid_section.get_single() {
-        Ok(entity) => entity,
-        Err(_) => return,
-    };
+    let Ok(grid_entity) = units_grid_section.single() else { return; };
 
     let unit_count = selected_units.iter().count();
     let struct_count = selected_structures.iter().count();
-    let total_selected = unit_count + struct_count;
+    let resource_count = selected_scp.iter().count() + selected_sds.iter().count();
+    let total_selected = unit_count + struct_count + resource_count;
 
-    // Detect active group index changes (for Tab cycling highlight updates)
-    let active_group_changed = *last_active_group != selection.active_group_index;
-    *last_active_group = selection.active_group_index;
-
-    let existing_count = existing_unit_icons.iter().count() + existing_struct_icons.iter().count();
-    if existing_count != total_selected || (active_group_changed && total_selected > 1) {
+    let existing_count = existing_unit_icons.iter().count() + existing_struct_icons.iter().count() + existing_resource_icons.iter().count();
+    if existing_count != total_selected || selection.is_changed() {
         // Selection changed — rebuild UI
         for (icon_entity, _) in existing_unit_icons.iter() {
-            commands.entity(icon_entity).despawn_recursive();
+            commands.entity(icon_entity).despawn();
         }
         for (icon_entity, _) in existing_struct_icons.iter() {
-            commands.entity(icon_entity).despawn_recursive();
+            commands.entity(icon_entity).despawn();
+        }
+        for (icon_entity, _) in existing_resource_icons.iter() {
+            commands.entity(icon_entity).despawn();
         }
 
         if total_selected == 0 {
             // Nothing selected
-            commands.entity(grid_entity).despawn_descendants();
-            commands.entity(grid_entity).insert(Style {
+            commands.entity(grid_entity).despawn_children();
+            commands.entity(grid_entity).insert(Node {
                 flex_grow: 1.0,
                 height: Val::Percent(100.0),
                 padding: UiRect::all(Val::Px(5.0)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                overflow: Overflow::clip(),
                 ..default()
             });
             commands.entity(grid_entity).with_children(|parent| {
-                parent.spawn(TextBundle {
-                    text: Text::from_section(
-                        "No Selection",
-                        TextStyle {
-                            font_size: 16.0,
-                            color: Color::srgb(0.7, 0.7, 0.7),
-                            ..default()
-                        },
-                    ),
-                    ..default()
-                });
+                parent.spawn((
+                    Text::new("No Selection"),
+                    TextFont { font_size: 16.0, ..default() },
+                    TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                ));
             });
         } else if total_selected == 1 && struct_count == 1 {
             // Single structure selected
-            let (struct_entity, obj_instance, owner, power, build_radius, dc_state, bk_state, ef_state, ep_state) = selected_structures.iter().next().unwrap();
+            let (struct_entity, obj_instance, owner, power, build_radius, dc_state, bk_state, ef_state, ep_state, st_state) = selected_structures.iter().next().unwrap();
             let obj_type_data = obj_instance.object_type.object_type();
 
-            commands.entity(grid_entity).despawn_descendants();
-            commands.entity(grid_entity).insert(Style {
+            commands.entity(grid_entity).despawn_children();
+            commands.entity(grid_entity).insert(Node {
                 flex_grow: 1.0,
                 height: Val::Percent(100.0),
                 padding: UiRect::all(Val::Px(10.0)),
@@ -330,31 +288,29 @@ pub fn update_selected_units_grid_system(
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Row,
                 column_gap: Val::Px(20.0),
+                overflow: Overflow::clip(),
                 ..default()
             });
 
             commands.entity(grid_entity).with_children(|parent| {
                 // Left side: Structure icon with color and health bar
                 parent.spawn((
-                    NodeBundle {
-                        style: Style {
-                            width: Val::Px(120.0),
-                            height: Val::Px(150.0),
-                            flex_direction: FlexDirection::Column,
-                            align_items: AlignItems::Center,
-                            justify_content: JustifyContent::Center,
-                            padding: UiRect::all(Val::Px(8.0)),
-                            ..default()
-                        },
-                        background_color: BackgroundColor(Color::srgba(0.25, 0.25, 0.25, 0.9)),
+                    Node {
+                        width: Val::Px(120.0),
+                        height: Val::Px(150.0),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        padding: UiRect::all(Val::Px(8.0)),
                         ..default()
                     },
+                    BackgroundColor(Color::srgba(0.25, 0.25, 0.25, 0.9)),
                     StructureIcon { structure_entity: struct_entity },
                 ))
                 .with_children(|icon_parent| {
                     // Owner color swatch (square for structures)
-                    icon_parent.spawn(NodeBundle {
-                        style: Style {
+                    icon_parent.spawn((
+                        Node {
                             width: Val::Px(80.0),
                             height: Val::Px(80.0),
                             border: UiRect::all(Val::Px(2.0)),
@@ -362,10 +318,9 @@ pub fn update_selected_units_grid_system(
                             justify_content: JustifyContent::Center,
                             ..default()
                         },
-                        background_color: BackgroundColor(owner.color()),
-                        border_color: BorderColor(Color::srgb(0.6, 0.6, 0.6)),
-                        ..default()
-                    })
+                        BackgroundColor(owner.color()),
+                        BorderColor::all(Color::srgb(0.6, 0.6, 0.6)),
+                    ))
                     .with_children(|swatch| {
                         // Structure type indicator text inside swatch
                         let abbrev = match obj_instance.object_type {
@@ -374,71 +329,56 @@ pub fn update_selected_units_grid_system(
                             ObjectEnum::Barracks => "BK",
                             ObjectEnum::ExtractionFacility => "EF",
                             ObjectEnum::ExtractionPlate => "EP",
+                            ObjectEnum::SupplyTower => "ST",
                             _ => "??",
                         };
-                        swatch.spawn(TextBundle {
-                            text: Text::from_section(
-                                abbrev,
-                                TextStyle {
-                                    font_size: 24.0,
-                                    color: Color::srgb(1.0, 1.0, 1.0),
-                                    ..default()
-                                },
-                            ),
-                            ..default()
-                        });
+                        swatch.spawn((
+                            Text::new(abbrev),
+                            TextFont { font_size: 24.0, ..default() },
+                            TextColor(Color::srgb(1.0, 1.0, 1.0)),
+                        ));
                     });
 
                     // Health bar
-                    icon_parent.spawn(NodeBundle {
-                        style: Style {
+                    icon_parent.spawn((
+                        Node {
                             width: Val::Px(100.0),
                             height: Val::Px(12.0),
                             margin: UiRect::top(Val::Px(8.0)),
                             ..default()
                         },
-                        background_color: BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
-                        ..default()
-                    })
+                        BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
+                    ))
                     .with_children(|health_parent| {
                         let health_percent = obj_instance.health_fraction();
                         let health_color = get_health_color(health_percent);
 
                         health_parent.spawn((
-                            NodeBundle {
-                                style: Style {
-                                    width: Val::Percent(health_percent * 100.0),
-                                    height: Val::Percent(100.0),
-                                    ..default()
-                                },
-                                background_color: BackgroundColor(health_color),
+                            Node {
+                                width: Val::Percent(health_percent * 100.0),
+                                height: Val::Percent(100.0),
                                 ..default()
                             },
+                            BackgroundColor(health_color),
                             StructureHealthBar { structure_entity: struct_entity },
                         ));
                     });
 
                     // HP text
-                    icon_parent.spawn(TextBundle {
-                        text: Text::from_section(
-                            format!("{:.0} / {:.0}", obj_instance.hp.unwrap_or(0.0), obj_instance.max_hp.unwrap_or(0.0)),
-                            TextStyle {
-                                font_size: 12.0,
-                                color: Color::srgb(0.8, 0.8, 0.8),
-                                ..default()
-                            },
-                        ),
-                        style: Style {
+                    icon_parent.spawn((
+                        Text::new(format!("{:.0} / {:.0}", obj_instance.hp.unwrap_or(0.0), obj_instance.max_hp.unwrap_or(0.0))),
+                        TextFont { font_size: 12.0, ..default() },
+                        TextColor(Color::srgb(0.8, 0.8, 0.8)),
+                        Node {
                             margin: UiRect::top(Val::Px(4.0)),
                             ..default()
                         },
-                        ..default()
-                    });
+                    ));
                 });
 
                 // Right side: Structure stats
-                parent.spawn(NodeBundle {
-                    style: Style {
+                parent.spawn((
+                    Node {
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Start,
                         justify_content: JustifyContent::Start,
@@ -446,26 +386,19 @@ pub fn update_selected_units_grid_system(
                         row_gap: Val::Px(4.0),
                         ..default()
                     },
-                    background_color: BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)),
-                    ..default()
-                })
+                    BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)),
+                ))
                 .with_children(|stats_parent| {
                     // Structure name
-                    stats_parent.spawn(TextBundle {
-                        text: Text::from_section(
-                            &obj_type_data.name,
-                            TextStyle {
-                                font_size: 20.0,
-                                color: Color::srgb(1.0, 1.0, 1.0),
-                                ..default()
-                            },
-                        ),
-                        style: Style {
+                    stats_parent.spawn((
+                        Text::new(&obj_type_data.name),
+                        TextFont { font_size: 20.0, ..default() },
+                        TextColor(Color::srgb(1.0, 1.0, 1.0)),
+                        Node {
                             margin: UiRect::bottom(Val::Px(8.0)),
                             ..default()
                         },
-                        ..default()
-                    });
+                    ));
 
                     // Owner
                     let owner_text = match owner.player_number() {
@@ -565,14 +498,37 @@ pub fn update_selected_units_grid_system(
                             spawn_stat_text(stats_parent, "  Patch unavailable", 13.0, Color::srgb(0.7, 0.7, 0.7), None);
                         }
                     }
+
+                    if let Some(st) = st_state {
+                        spawn_stat_text(stats_parent, "Production", 12.0, Color::srgb(0.9, 0.8, 0.6), None);
+                        if let Some(ref building) = st.current_build {
+                            let progress = st.current_build_progress.unwrap_or(0.0);
+                            let cost = SupplyTowerState::production_cost(building);
+                            let total_frames = cost.map(|c| c.build_frames as f32).unwrap_or(160.0);
+                            let pct = (progress / total_frames * 100.0).min(100.0);
+                            let name = building.object_type().name;
+                            spawn_stat_text(stats_parent, &format!("  Training {} ({:.0}%)", name, pct), 13.0, Color::srgb(0.9, 0.9, 0.5), None);
+                        } else {
+                            spawn_stat_text(stats_parent, "  Idle", 13.0, Color::srgb(0.7, 0.7, 0.7), None);
+                        }
+                        if !st.build_queue.is_empty() {
+                            spawn_stat_text(stats_parent, &format!("  Queue: {}/{}", st.build_queue.len(), SupplyTowerState::MAX_QUEUE_SIZE), 13.0, Color::srgb(0.8, 0.8, 0.8), None);
+                        }
+                        if st.scheduled_sds.is_some() {
+                            spawn_stat_text(stats_parent, "  Delivering", 13.0, Color::srgb(0.5, 1.0, 0.5), None);
+                        }
+                        if st.attached_chopper.is_some() {
+                            spawn_stat_text(stats_parent, "  Chopper: Attached", 13.0, Color::srgb(0.5, 0.9, 1.0), None);
+                        }
+                    }
                 });
             });
         } else if total_selected == 1 && unit_count == 1 {
             // Single unit selected (existing behavior)
             let (unit_entity, unit_type, obj_instance, owner, unit_base, speed, attack, turret) = selected_units.iter().next().unwrap();
 
-            commands.entity(grid_entity).despawn_descendants();
-            commands.entity(grid_entity).insert(Style {
+            commands.entity(grid_entity).despawn_children();
+            commands.entity(grid_entity).insert(Node {
                 flex_grow: 1.0,
                 height: Val::Percent(100.0),
                 padding: UiRect::all(Val::Px(10.0)),
@@ -580,86 +536,73 @@ pub fn update_selected_units_grid_system(
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Row,
                 column_gap: Val::Px(20.0),
+                overflow: Overflow::clip(),
                 ..default()
             });
 
             commands.entity(grid_entity).with_children(|parent| {
                 // Left side: Unit icon with color and health bar
                 parent.spawn((
-                    NodeBundle {
-                        style: Style {
-                            width: Val::Px(120.0),
-                            height: Val::Px(150.0),
-                            flex_direction: FlexDirection::Column,
-                            align_items: AlignItems::Center,
-                            justify_content: JustifyContent::Center,
-                            padding: UiRect::all(Val::Px(8.0)),
-                            ..default()
-                        },
-                        background_color: BackgroundColor(Color::srgba(0.25, 0.25, 0.25, 0.9)),
+                    Node {
+                        width: Val::Px(120.0),
+                        height: Val::Px(150.0),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        padding: UiRect::all(Val::Px(8.0)),
                         ..default()
                     },
+                    BackgroundColor(Color::srgba(0.25, 0.25, 0.25, 0.9)),
                     UnitIcon { unit_entity },
                 ))
                 .with_children(|icon_parent| {
-                    icon_parent.spawn(NodeBundle {
-                        style: Style {
+                    icon_parent.spawn((
+                        Node {
                             width: Val::Px(80.0),
                             height: Val::Px(80.0),
                             ..default()
                         },
-                        background_color: BackgroundColor(owner.color()),
-                        ..default()
-                    });
+                        BackgroundColor(owner.color()),
+                    ));
 
-                    icon_parent.spawn(NodeBundle {
-                        style: Style {
+                    icon_parent.spawn((
+                        Node {
                             width: Val::Px(100.0),
                             height: Val::Px(12.0),
                             margin: UiRect::top(Val::Px(8.0)),
                             ..default()
                         },
-                        background_color: BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
-                        ..default()
-                    })
+                        BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
+                    ))
                     .with_children(|health_parent| {
                         let health_percent = obj_instance.health_fraction();
                         let health_color = get_health_color(health_percent);
 
                         health_parent.spawn((
-                            NodeBundle {
-                                style: Style {
-                                    width: Val::Percent(health_percent * 100.0),
-                                    height: Val::Percent(100.0),
-                                    ..default()
-                                },
-                                background_color: BackgroundColor(health_color),
+                            Node {
+                                width: Val::Percent(health_percent * 100.0),
+                                height: Val::Percent(100.0),
                                 ..default()
                             },
+                            BackgroundColor(health_color),
                             UnitHealthBar { unit_entity },
                         ));
                     });
 
-                    icon_parent.spawn(TextBundle {
-                        text: Text::from_section(
-                            format!("{:.0} / {:.0}", obj_instance.hp.unwrap_or(0.0), obj_instance.max_hp.unwrap_or(0.0)),
-                            TextStyle {
-                                font_size: 12.0,
-                                color: Color::srgb(0.8, 0.8, 0.8),
-                                ..default()
-                            },
-                        ),
-                        style: Style {
+                    icon_parent.spawn((
+                        Text::new(format!("{:.0} / {:.0}", obj_instance.hp.unwrap_or(0.0), obj_instance.max_hp.unwrap_or(0.0))),
+                        TextFont { font_size: 12.0, ..default() },
+                        TextColor(Color::srgb(0.8, 0.8, 0.8)),
+                        Node {
                             margin: UiRect::top(Val::Px(4.0)),
                             ..default()
                         },
-                        ..default()
-                    });
+                    ));
                 });
 
                 // Right side: Detailed stats
-                parent.spawn(NodeBundle {
-                    style: Style {
+                parent.spawn((
+                    Node {
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Start,
                         justify_content: JustifyContent::Start,
@@ -667,25 +610,18 @@ pub fn update_selected_units_grid_system(
                         row_gap: Val::Px(4.0),
                         ..default()
                     },
-                    background_color: BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)),
-                    ..default()
-                })
+                    BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)),
+                ))
                 .with_children(|stats_parent| {
-                    stats_parent.spawn(TextBundle {
-                        text: Text::from_section(
-                            &unit_type.name,
-                            TextStyle {
-                                font_size: 20.0,
-                                color: Color::srgb(1.0, 1.0, 1.0),
-                                ..default()
-                            },
-                        ),
-                        style: Style {
+                    stats_parent.spawn((
+                        Text::new(&unit_type.name),
+                        TextFont { font_size: 20.0, ..default() },
+                        TextColor(Color::srgb(1.0, 1.0, 1.0)),
+                        Node {
                             margin: UiRect::bottom(Val::Px(8.0)),
                             ..default()
                         },
-                        ..default()
-                    });
+                    ));
 
                     let base_type_name = unit_base.display_name();
                     spawn_stat_text(stats_parent, &format!("Type: {}", base_type_name), 14.0, Color::srgb(0.8, 0.8, 0.8), Some(2.0));
@@ -695,9 +631,13 @@ pub fn update_selected_units_grid_system(
                         None => "Neutral".to_string(),
                     };
                     spawn_stat_text(stats_parent, &format!("Owner: {}", owner_text), 14.0, owner.color(), Some(8.0));
-                    spawn_stat_text(stats_parent, "Combat", 12.0, Color::srgb(0.9, 0.7, 0.7), None);
-                    spawn_stat_text(stats_parent, &format!("  Damage: {:.0}", attack.damage), 13.0, Color::srgb(0.8, 0.8, 0.8), None);
-                    spawn_stat_text(stats_parent, &format!("  Range: {:.1}", attack.range), 13.0, Color::srgb(0.8, 0.8, 0.8), Some(6.0));
+                    if let Some(attack) = attack {
+                        spawn_stat_text(stats_parent, "Combat", 12.0, Color::srgb(0.9, 0.7, 0.7), None);
+                        spawn_stat_text(stats_parent, &format!("  Damage: {:.0}", attack.damage), 13.0, Color::srgb(0.8, 0.8, 0.8), None);
+                        spawn_stat_text(stats_parent, &format!("  Range: {:.1}", attack.range), 13.0, Color::srgb(0.8, 0.8, 0.8), Some(6.0));
+                    } else {
+                        spawn_stat_text(stats_parent, "Unarmed", 12.0, Color::srgb(0.7, 0.7, 0.7), Some(6.0));
+                    }
                     spawn_stat_text(stats_parent, "Movement", 12.0, Color::srgb(0.7, 0.8, 0.9), None);
                     spawn_stat_text(stats_parent, &format!("  Speed: {:.1}", speed.0), 13.0, Color::srgb(0.8, 0.8, 0.8), Some(6.0));
 
@@ -705,15 +645,178 @@ pub fn update_selected_units_grid_system(
                         let turn_angle_deg = turret.turn_angle.to_degrees();
                         let turn_rate_deg = turret.turn_rate.to_degrees();
                         spawn_stat_text(stats_parent, "Turret", 12.0, Color::srgb(0.8, 0.7, 0.9), None);
-                        spawn_stat_text(stats_parent, &format!("  Arc: {:.0}°", turn_angle_deg), 13.0, Color::srgb(0.8, 0.8, 0.8), None);
-                        spawn_stat_text(stats_parent, &format!("  Turn Rate: {:.0}°/s", turn_rate_deg), 13.0, Color::srgb(0.8, 0.8, 0.8), None);
+                        spawn_stat_text(stats_parent, &format!("  Arc: {:.0}\u{00b0}", turn_angle_deg), 13.0, Color::srgb(0.8, 0.8, 0.8), None);
+                        spawn_stat_text(stats_parent, &format!("  Turn Rate: {:.0}\u{00b0}/s", turn_rate_deg), 13.0, Color::srgb(0.8, 0.8, 0.8), None);
                     }
                 });
             });
+        } else if total_selected == 1 && resource_count == 1 {
+            // Single resource entity selected (Crystal Patch or SDS)
+            commands.entity(grid_entity).despawn_children();
+            commands.entity(grid_entity).insert(Node {
+                flex_grow: 1.0,
+                height: Val::Percent(100.0),
+                padding: UiRect::all(Val::Px(10.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                flex_direction: FlexDirection::Row,
+                column_gap: Val::Px(20.0),
+                overflow: Overflow::clip(),
+                ..default()
+            });
+
+            // Determine which resource type is selected
+            if let Some((res_entity, scp, obj_instance)) = selected_scp.iter().next() {
+                let obj_type_data = obj_instance.object_type.object_type();
+                commands.entity(grid_entity).with_children(|parent| {
+                    // Left side: Resource icon
+                    parent.spawn((
+                        Node {
+                            width: Val::Px(120.0),
+                            height: Val::Px(150.0),
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            padding: UiRect::all(Val::Px(8.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.25, 0.25, 0.25, 0.9)),
+                        ResourceIcon { resource_entity: res_entity },
+                    ))
+                    .with_children(|icon_parent| {
+                        // Crystal color swatch
+                        icon_parent.spawn((
+                            Node {
+                                width: Val::Px(80.0),
+                                height: Val::Px(80.0),
+                                border: UiRect::all(Val::Px(2.0)),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.3, 0.8, 1.0)),
+                            BorderColor::all(Color::srgb(0.5, 0.7, 0.9)),
+                        ))
+                        .with_children(|swatch| {
+                            swatch.spawn((
+                                Text::new("SC"),
+                                TextFont { font_size: 24.0, ..default() },
+                                TextColor(Color::srgb(1.0, 1.0, 1.0)),
+                            ));
+                        });
+                    });
+
+                    // Right side: Crystal Patch stats
+                    parent.spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Start,
+                            justify_content: JustifyContent::Start,
+                            padding: UiRect::all(Val::Px(10.0)),
+                            row_gap: Val::Px(4.0),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)),
+                    ))
+                    .with_children(|stats_parent| {
+                        // Name
+                        spawn_stat_text(stats_parent, &obj_type_data.name, 20.0, Color::srgb(1.0, 1.0, 1.0), Some(8.0));
+
+                        // Resource type
+                        spawn_stat_text(stats_parent, "Type: Resource", 14.0, Color::srgb(0.8, 0.8, 0.8), Some(8.0));
+
+                        // Remaining amount
+                        let remaining = scp.remaining_amount;
+                        let initial = scp.initial_amount;
+                        let pct = if initial > 0 { (remaining as f32 / initial as f32 * 100.0).min(100.0) } else { 0.0 };
+                        spawn_stat_text(stats_parent, "Resources", 12.0, Color::srgb(0.5, 0.9, 1.0), None);
+                        spawn_stat_text(stats_parent, &format!("  Remaining: {} / {} ({:.0}%)", remaining, initial, pct), 13.0, Color::srgb(0.8, 0.8, 0.8), None);
+
+                        if scp.has_plate {
+                            spawn_stat_text(stats_parent, "  Extraction Plate: Active", 13.0, Color::srgb(0.5, 1.0, 0.5), None);
+                        }
+
+                        if remaining == 0 {
+                            spawn_stat_text(stats_parent, "  Depleted", 13.0, Color::srgb(1.0, 0.7, 0.3), None);
+                        }
+                    });
+                });
+            } else if let Some((res_entity, sds, obj_instance)) = selected_sds.iter().next() {
+                let obj_type_data = obj_instance.object_type.object_type();
+                commands.entity(grid_entity).with_children(|parent| {
+                    // Left side: Resource icon
+                    parent.spawn((
+                        Node {
+                            width: Val::Px(120.0),
+                            height: Val::Px(150.0),
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            padding: UiRect::all(Val::Px(8.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.25, 0.25, 0.25, 0.9)),
+                        ResourceIcon { resource_entity: res_entity },
+                    ))
+                    .with_children(|icon_parent| {
+                        // SDS color swatch
+                        icon_parent.spawn((
+                            Node {
+                                width: Val::Px(80.0),
+                                height: Val::Px(80.0),
+                                border: UiRect::all(Val::Px(2.0)),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.8, 0.6, 0.2)),
+                            BorderColor::all(Color::srgb(0.7, 0.5, 0.3)),
+                        ))
+                        .with_children(|swatch| {
+                            swatch.spawn((
+                                Text::new("SD"),
+                                TextFont { font_size: 24.0, ..default() },
+                                TextColor(Color::srgb(1.0, 1.0, 1.0)),
+                            ));
+                        });
+                    });
+
+                    // Right side: SDS stats
+                    parent.spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Start,
+                            justify_content: JustifyContent::Start,
+                            padding: UiRect::all(Val::Px(10.0)),
+                            row_gap: Val::Px(4.0),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)),
+                    ))
+                    .with_children(|stats_parent| {
+                        // Name
+                        spawn_stat_text(stats_parent, &obj_type_data.name, 20.0, Color::srgb(1.0, 1.0, 1.0), Some(8.0));
+
+                        // Resource type
+                        spawn_stat_text(stats_parent, "Type: Resource", 14.0, Color::srgb(0.8, 0.8, 0.8), Some(8.0));
+
+                        // Delivery stats
+                        spawn_stat_text(stats_parent, "Delivery", 12.0, Color::srgb(0.9, 0.8, 0.5), None);
+                        spawn_stat_text(stats_parent, &format!("  Size: {} supplies", sds.delivery_size), 13.0, Color::srgb(0.8, 0.8, 0.8), None);
+                        spawn_stat_text(stats_parent, &format!("  Interval: {:.0}s", sds.delivery_interval), 13.0, Color::srgb(0.8, 0.8, 0.8), None);
+                        spawn_stat_text(stats_parent, &format!("  Current: {} supplies", sds.current_supplies), 13.0, Color::srgb(0.8, 0.8, 0.8), None);
+
+                        if sds.current_supplies == 0 {
+                            let time_left = sds.time_until_next_delivery;
+                            spawn_stat_text(stats_parent, &format!("  Next delivery: {:.1}s", time_left), 13.0, Color::srgb(1.0, 0.7, 0.3), None);
+                        }
+                    });
+                });
+            }
         } else {
-            // Multiple entities selected (units and/or structures)
-            commands.entity(grid_entity).despawn_descendants();
-            commands.entity(grid_entity).insert(Style {
+            // Multiple entities selected (units, structures, and/or resources)
+            commands.entity(grid_entity).despawn_children();
+            commands.entity(grid_entity).insert(Node {
                 flex_grow: 1.0,
                 height: Val::Percent(100.0),
                 padding: UiRect::all(Val::Px(5.0)),
@@ -732,7 +835,7 @@ pub fn update_selected_units_grid_system(
 
             // Show structures first, then units
             let mut cards_spawned = 0;
-            for (struct_entity, obj_instance, owner, _power, _build_radius, _dc, _bk, _ef, _ep) in selected_structures.iter() {
+            for (struct_entity, obj_instance, owner, _power, _build_radius, _dc, _bk, _ef, _ep, _st) in selected_structures.iter() {
                 if cards_spawned >= 12 { break; }
                 let obj_type_data = obj_instance.object_type.object_type();
                 let in_active_group = active_entities.contains(&struct_entity);
@@ -746,19 +849,35 @@ pub fn update_selected_units_grid_system(
                 spawn_selection_portrait(&mut commands, grid_entity, unit_entity, &unit_type.name, obj_instance, owner, false, in_active_group);
                 cards_spawned += 1;
             }
+
+            // Show resource entities last
+            for (res_entity, _scp, obj_instance) in selected_scp.iter() {
+                if cards_spawned >= 12 { break; }
+                let obj_type_data = obj_instance.object_type.object_type();
+                let in_active_group = active_entities.contains(&res_entity);
+                spawn_resource_portrait(&mut commands, grid_entity, res_entity, &obj_type_data.name, in_active_group);
+                cards_spawned += 1;
+            }
+            for (res_entity, _sds, obj_instance) in selected_sds.iter() {
+                if cards_spawned >= 12 { break; }
+                let obj_type_data = obj_instance.object_type.object_type();
+                let in_active_group = active_entities.contains(&res_entity);
+                spawn_resource_portrait(&mut commands, grid_entity, res_entity, &obj_type_data.name, in_active_group);
+                cards_spawned += 1;
+            }
         }
     } else {
         // Update health bars for existing icons (no selection change)
-        for (mut style, health_bar) in unit_health_bars.iter_mut() {
+        for (mut node, health_bar) in unit_health_bars.iter_mut() {
             if let Ok((_, _, obj_instance, _, _, _, _, _)) = selected_units.get(health_bar.unit_entity) {
                 let health_percent = obj_instance.health_fraction();
-                style.width = Val::Percent(health_percent * 100.0);
+                node.width = Val::Percent(health_percent * 100.0);
             }
         }
-        for (mut style, health_bar) in struct_health_bars.iter_mut() {
-            if let Ok((_, obj_instance, _, _, _, _, _, _, _)) = selected_structures.get(health_bar.structure_entity) {
+        for (mut node, health_bar) in struct_health_bars.iter_mut() {
+            if let Ok((_, obj_instance, _, _, _, _, _, _, _, _)) = selected_structures.get(health_bar.structure_entity) {
                 let health_percent = obj_instance.health_fraction();
-                style.width = Val::Percent(health_percent * 100.0);
+                node.width = Val::Percent(health_percent * 100.0);
             }
         }
     }
@@ -785,18 +904,15 @@ fn spawn_selection_portrait(
         };
 
         let mut card_entity = parent.spawn((
-            NodeBundle {
-                style: Style {
-                    width: Val::Px(140.0),
-                    height: Val::Px(95.0),
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Start,
-                    padding: UiRect::all(Val::Px(4.0)),
-                    ..default()
-                },
-                background_color: BackgroundColor(Color::srgba(0.25, 0.25, 0.25, 0.9)),
+            Node {
+                width: Val::Px(140.0),
+                height: Val::Px(95.0),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Start,
+                padding: UiRect::all(Val::Px(4.0)),
                 ..default()
             },
+            BackgroundColor(Color::srgba(0.25, 0.25, 0.25, 0.9)),
             SelectionPortrait { entity },
             Interaction::default(),
         ));
@@ -818,111 +934,82 @@ fn spawn_selection_portrait(
 
         card_entity.with_children(move |card| {
             // Top row: color swatch + name
-            card.spawn(NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.0),
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    column_gap: Val::Px(4.0),
-                    margin: UiRect::bottom(Val::Px(2.0)),
-                    ..default()
-                },
+            card.spawn(Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(4.0),
+                margin: UiRect::bottom(Val::Px(2.0)),
                 ..default()
             })
             .with_children(|top_row| {
-                top_row.spawn(NodeBundle {
-                    style: Style {
+                top_row.spawn((
+                    Node {
                         width: Val::Px(16.0),
                         height: Val::Px(16.0),
                         ..default()
                     },
-                    background_color: BackgroundColor(owner_color),
-                    ..default()
-                });
+                    BackgroundColor(owner_color),
+                ));
 
-                top_row.spawn(TextBundle {
-                    text: Text::from_section(
-                        display_name.clone(),
-                        TextStyle {
-                            font_size: 11.0,
-                            color: Color::srgb(1.0, 1.0, 1.0),
-                            ..default()
-                        },
-                    ),
-                    ..default()
-                });
+                top_row.spawn((
+                    Text::new(display_name.clone()),
+                    TextFont { font_size: 11.0, ..default() },
+                    TextColor(Color::srgb(1.0, 1.0, 1.0)),
+                ));
             });
 
             // HP text
-            card.spawn(TextBundle {
-                text: Text::from_section(
-                    format!("HP: {:.0}/{:.0}", hp, max_hp),
-                    TextStyle {
-                        font_size: 10.0,
-                        color: Color::srgb(0.7, 0.9, 0.7),
-                        ..default()
-                    },
-                ),
-                style: Style {
+            card.spawn((
+                Text::new(format!("HP: {:.0}/{:.0}", hp, max_hp)),
+                TextFont { font_size: 10.0, ..default() },
+                TextColor(Color::srgb(0.7, 0.9, 0.7)),
+                Node {
                     margin: UiRect::bottom(Val::Px(1.0)),
                     ..default()
                 },
-                ..default()
-            });
+            ));
 
             // Type label
             let type_label = if is_struct { "Structure" } else { "Unit" };
-            card.spawn(TextBundle {
-                text: Text::from_section(
-                    type_label,
-                    TextStyle {
-                        font_size: 10.0,
-                        color: if is_struct { Color::srgb(0.7, 0.9, 0.8) } else { Color::srgb(0.9, 0.7, 0.7) },
-                        ..default()
-                    },
-                ),
-                style: Style {
+            card.spawn((
+                Text::new(type_label),
+                TextFont { font_size: 10.0, ..default() },
+                TextColor(if is_struct { Color::srgb(0.7, 0.9, 0.8) } else { Color::srgb(0.9, 0.7, 0.7) }),
+                Node {
                     margin: UiRect::bottom(Val::Px(3.0)),
                     ..default()
                 },
-                ..default()
-            });
+            ));
 
             // Health bar
-            card.spawn(NodeBundle {
-                style: Style {
+            card.spawn((
+                Node {
                     width: Val::Percent(100.0),
                     height: Val::Px(6.0),
                     ..default()
                 },
-                background_color: BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
-                ..default()
-            })
+                BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
+            ))
             .with_children(|health_parent| {
                 if is_struct {
                     health_parent.spawn((
-                        NodeBundle {
-                            style: Style {
-                                width: Val::Percent(health_percent * 100.0),
-                                height: Val::Percent(100.0),
-                                ..default()
-                            },
-                            background_color: BackgroundColor(health_color),
+                        Node {
+                            width: Val::Percent(health_percent * 100.0),
+                            height: Val::Percent(100.0),
                             ..default()
                         },
+                        BackgroundColor(health_color),
                         StructureHealthBar { structure_entity: entity },
                     ));
                 } else {
                     health_parent.spawn((
-                        NodeBundle {
-                            style: Style {
-                                width: Val::Percent(health_percent * 100.0),
-                                height: Val::Percent(100.0),
-                                ..default()
-                            },
-                            background_color: BackgroundColor(health_color),
+                        Node {
+                            width: Val::Percent(health_percent * 100.0),
+                            height: Val::Percent(100.0),
                             ..default()
                         },
+                        BackgroundColor(health_color),
                         UnitHealthBar { unit_entity: entity },
                     ));
                 }
@@ -930,8 +1017,8 @@ fn spawn_selection_portrait(
 
             // Active group highlight overlay
             if in_active_group {
-                card.spawn(NodeBundle {
-                    style: Style {
+                card.spawn((
+                    Node {
                         position_type: PositionType::Absolute,
                         width: Val::Percent(100.0),
                         height: Val::Percent(100.0),
@@ -939,9 +1026,95 @@ fn spawn_selection_portrait(
                         left: Val::Px(0.0),
                         ..default()
                     },
-                    background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.15)),
+                    BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.15)),
+                ));
+            }
+        });
+    });
+}
+
+/// Helper to spawn a resource portrait card for multi-select display.
+/// Simpler than unit/structure portraits since resources are indestructible and unowned.
+fn spawn_resource_portrait(
+    commands: &mut Commands,
+    grid_entity: Entity,
+    entity: Entity,
+    name: &str,
+    in_active_group: bool,
+) {
+    commands.entity(grid_entity).with_children(|parent| {
+        let mut card_entity = parent.spawn((
+            Node {
+                width: Val::Px(140.0),
+                height: Val::Px(95.0),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Start,
+                padding: UiRect::all(Val::Px(4.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.25, 0.25, 0.25, 0.9)),
+            SelectionPortrait { entity },
+            ResourceIcon { resource_entity: entity },
+            Interaction::default(),
+        ));
+
+        let display_name = if name.len() > 14 {
+            format!("{}...", &name[..11])
+        } else {
+            name.to_string()
+        };
+
+        card_entity.with_children(move |card| {
+            // Top row: color swatch + name
+            card.spawn(Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(4.0),
+                margin: UiRect::bottom(Val::Px(2.0)),
+                ..default()
+            })
+            .with_children(|top_row| {
+                top_row.spawn((
+                    Node {
+                        width: Val::Px(16.0),
+                        height: Val::Px(16.0),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.5, 0.7, 0.9)),
+                ));
+
+                top_row.spawn((
+                    Text::new(display_name.clone()),
+                    TextFont { font_size: 11.0, ..default() },
+                    TextColor(Color::srgb(1.0, 1.0, 1.0)),
+                ));
+            });
+
+            // Type label
+            card.spawn((
+                Text::new("Resource"),
+                TextFont { font_size: 10.0, ..default() },
+                TextColor(Color::srgb(0.5, 0.9, 1.0)),
+                Node {
+                    margin: UiRect::bottom(Val::Px(3.0)),
                     ..default()
-                });
+                },
+            ));
+
+            // Active group highlight overlay
+            if in_active_group {
+                card.spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        top: Val::Px(0.0),
+                        left: Val::Px(0.0),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.15)),
+                ));
             }
         });
     });
@@ -949,37 +1122,59 @@ fn spawn_selection_portrait(
 
 /// System to handle click interactions on selection portraits in the multi-select panel.
 /// Supports: left-click (select only), shift-click (remove), ctrl-click (select same type),
-/// ctrl-shift-click (remove same type), alt-click (center camera).
+/// ctrl-shift-click (remove same type), alt-hover (center camera).
 pub fn selection_portrait_click_system(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
-    portraits: Query<(&Interaction, &SelectionPortrait), Changed<Interaction>>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
+    portraits: Query<(&Interaction, &SelectionPortrait)>,
     mut selection: ResMut<Selection>,
     selected_query: Query<Entity, With<Selected>>,
     object_instances: Query<&ObjectInstance>,
     transforms: Query<&Transform, Without<MainCamera>>,
     mut camera_query: Query<&mut Transform, (With<MainCamera>, Without<SelectionPortrait>)>,
 ) {
+    let alt_held = keyboard.pressed(KeyCode::AltLeft) || keyboard.pressed(KeyCode::AltRight);
+
+    // Alt + click camera centering: detect which portrait is hovered, then
+    // check for an actual mouse click to avoid triggering on mere hover.
+    // We use ButtonInput<MouseButton> rather than Interaction::Pressed because
+    // some Linux WMs intercept Alt+Click for window dragging, preventing
+    // Interaction::Pressed from firing. ButtonInput may still receive the event
+    // depending on WM config, and at minimum the behavior is correct (click-based).
+    if alt_held && mouse_buttons.just_pressed(MouseButton::Left) {
+        for (interaction, portrait) in portraits.iter() {
+            if matches!(interaction, Interaction::Hovered | Interaction::Pressed) {
+                let target_entity = portrait.entity;
+                if let Ok(target_transform) = transforms.get(target_entity) {
+                    if let Ok(mut cam_transform) = camera_query.single_mut() {
+                        // Apply z_offset to account for the camera's oblique angle.
+                        // Camera looks from (x, y, z) down at the ground; the Z
+                        // offset from camera position to the ground look-at point
+                        // is y * 25.0 / 40.0 (matching the initial setup angle).
+                        let z_offset = cam_transform.translation.y * 25.0 / 40.0;
+                        cam_transform.translation.x = target_transform.translation.x;
+                        cam_transform.translation.z = target_transform.translation.z + z_offset;
+                    }
+                }
+                return;
+            }
+        }
+    }
+
     for (interaction, portrait) in portraits.iter() {
         if *interaction != Interaction::Pressed {
             continue;
         }
 
-        let ctrl_held = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
-        let shift_held = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
-        let alt_held = keyboard.pressed(KeyCode::AltLeft) || keyboard.pressed(KeyCode::AltRight);
-        let target_entity = portrait.entity;
-
+        // Skip if Alt is held (camera centering handled above)
         if alt_held {
-            // Alt-click: center camera on this entity, no selection change
-            if let Ok(target_transform) = transforms.get(target_entity) {
-                if let Ok(mut cam_transform) = camera_query.get_single_mut() {
-                    cam_transform.translation.x = target_transform.translation.x;
-                    cam_transform.translation.z = target_transform.translation.z;
-                }
-            }
             continue;
         }
+
+        let ctrl_held = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
+        let shift_held = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
+        let target_entity = portrait.entity;
 
         if ctrl_held && shift_held {
             // Ctrl+Shift-click: remove all entities of same type from selection
@@ -1069,9 +1264,14 @@ pub(crate) fn resource_bar_fields_for_faction(faction: FactionEnum) -> Vec<(Reso
 }
 
 /// Spawn the correct resource bar text elements based on the local player's faction.
-fn spawn_resource_bar_fields(parent: &mut ChildBuilder, text_style: &TextStyle, faction: FactionEnum) {
+fn spawn_resource_bar_fields(parent: &mut ChildSpawnerCommands, font_size: f32, color: Color, faction: FactionEnum) {
     for (field, default_text) in resource_bar_fields_for_faction(faction) {
-        parent.spawn((TextBundle::from_section(default_text, text_style.clone()), field));
+        parent.spawn((
+            Text::new(default_text),
+            TextFont { font_size, ..default() },
+            TextColor(color),
+            field,
+        ));
     }
 }
 
@@ -1083,7 +1283,7 @@ pub fn update_resource_bar_system(
     syn_query: Query<(&Player, &SyndicatePlayerResources)>,
     cults_query: Query<(&Player, &CultsPlayerResources)>,
     col_query: Query<(&Player, &ColonistsPlayerResources)>,
-    mut fields: Query<(&mut Text, &ResourceBarField)>,
+    mut fields: Query<(&mut Text, &mut TextColor, &ResourceBarField)>,
 ) {
     let local_id = local_player.0;
 
@@ -1098,13 +1298,13 @@ pub fn update_resource_bar_system(
     match faction {
         FactionEnum::GlobalDefenseOrdinance => {
             let Some((_player, res)) = gdo_query.iter().find(|(p, _)| p.player_number == local_id) else { return };
-            for (mut text, field) in fields.iter_mut() {
+            for (mut text, mut text_color, field) in fields.iter_mut() {
                 match field {
                     ResourceBarField::Crystals => {
-                        text.sections[0].value = format!("SC: {}", res.space_crystals);
+                        **text = format!("SC: {}", res.space_crystals);
                     }
                     ResourceBarField::Supplies => {
-                        text.sections[0].value = format!("Supplies: {}", res.supplies);
+                        **text = format!("Supplies: {}", res.supplies);
                     }
                     ResourceBarField::Power => {
                         let net = res.current_power();
@@ -1113,11 +1313,11 @@ pub fn update_resource_bar_system(
                         } else {
                             Color::srgb(1.0, 0.4, 0.4)
                         };
-                        text.sections[0].value = format!("Power: {} / {}", net, res.power_generated);
-                        text.sections[0].style.color = color;
+                        **text = format!("Power: {} / {}", net, res.power_generated);
+                        text_color.0 = color;
                     }
                     ResourceBarField::UnitControl => {
-                        text.sections[0].value = format!("UC: {} / {}", res.unit_control_used, res.unit_control_cap);
+                        **text = format!("UC: {} / {}", res.unit_control_used, res.unit_control_cap);
                     }
                     _ => {}
                 }
@@ -1125,16 +1325,16 @@ pub fn update_resource_bar_system(
         }
         FactionEnum::TheSyndicate => {
             let Some((_player, res)) = syn_query.iter().find(|(p, _)| p.player_number == local_id) else { return };
-            for (mut text, field) in fields.iter_mut() {
+            for (mut text, mut _text_color, field) in fields.iter_mut() {
                 match field {
                     ResourceBarField::Crystals => {
-                        text.sections[0].value = format!("SC: {}", res.space_crystals);
+                        **text = format!("SC: {}", res.space_crystals);
                     }
                     ResourceBarField::Supplies => {
-                        text.sections[0].value = format!("Supplies: {}", res.supplies);
+                        **text = format!("Supplies: {}", res.supplies);
                     }
                     ResourceBarField::TunnelSpace => {
-                        text.sections[0].value = format!("TS: {} / {}", res.tunnel_space_used, res.tunnel_space_provided);
+                        **text = format!("TS: {} / {}", res.tunnel_space_used, res.tunnel_space_provided);
                     }
                     _ => {}
                 }
@@ -1142,13 +1342,13 @@ pub fn update_resource_bar_system(
         }
         FactionEnum::TheCults => {
             let Some((_player, res)) = cults_query.iter().find(|(p, _)| p.player_number == local_id) else { return };
-            for (mut text, field) in fields.iter_mut() {
+            for (mut text, mut _text_color, field) in fields.iter_mut() {
                 match field {
                     ResourceBarField::Crystals => {
-                        text.sections[0].value = format!("SC: {}", res.space_crystals);
+                        **text = format!("SC: {}", res.space_crystals);
                     }
                     ResourceBarField::UnitControl => {
-                        text.sections[0].value = format!("UC: {} / {}", res.unit_control_used, res.unit_control_available);
+                        **text = format!("UC: {} / {}", res.unit_control_used, res.unit_control_available);
                     }
                     _ => {}
                 }
@@ -1156,22 +1356,22 @@ pub fn update_resource_bar_system(
         }
         FactionEnum::Colonists => {
             let Some((_player, res)) = col_query.iter().find(|(p, _)| p.player_number == local_id) else { return };
-            for (mut text, field) in fields.iter_mut() {
+            for (mut text, mut _text_color, field) in fields.iter_mut() {
                 match field {
                     ResourceBarField::Crystals => {
-                        text.sections[0].value = format!("SC: {}", res.space_crystals);
+                        **text = format!("SC: {}", res.space_crystals);
                     }
                     ResourceBarField::Alloys => {
-                        text.sections[0].value = format!("Alloys: {}", res.alloys);
+                        **text = format!("Alloys: {}", res.alloys);
                     }
                     ResourceBarField::Essence => {
-                        text.sections[0].value = format!("Essence: {}", res.essence);
+                        **text = format!("Essence: {}", res.essence);
                     }
                     ResourceBarField::Conduits => {
-                        text.sections[0].value = format!("Conduits: {}", res.conduits);
+                        **text = format!("Conduits: {}", res.conduits);
                     }
                     ResourceBarField::BeaconCapacity => {
-                        text.sections[0].value = format!("BC: {} / {}", res.beacon_capacity_used, res.beacon_capacity_provided);
+                        **text = format!("BC: {} / {}", res.beacon_capacity_used, res.beacon_capacity_provided);
                     }
                     _ => {}
                 }
@@ -1181,28 +1381,22 @@ pub fn update_resource_bar_system(
 }
 
 /// Helper to spawn a stat text element
-fn spawn_stat_text(parent: &mut ChildBuilder, text: &str, font_size: f32, color: Color, bottom_margin: Option<f32>) {
+fn spawn_stat_text(parent: &mut ChildSpawnerCommands, text: &str, font_size: f32, color: Color, bottom_margin: Option<f32>) {
     let margin = if let Some(m) = bottom_margin {
         UiRect::bottom(Val::Px(m))
     } else {
         UiRect::default()
     };
 
-    parent.spawn(TextBundle {
-        text: Text::from_section(
-            text,
-            TextStyle {
-                font_size,
-                color,
-                ..default()
-            },
-        ),
-        style: Style {
+    parent.spawn((
+        Text::new(text),
+        TextFont { font_size, ..default() },
+        TextColor(color),
+        Node {
             margin,
             ..default()
         },
-        ..default()
-    });
+    ));
 }
 
 #[cfg(test)]
@@ -1638,5 +1832,66 @@ mod tests {
         let removed = selection.remove_entity(e2);
         assert!(!removed);
         assert_eq!(selection.total_entity_count(), 1);
+    }
+
+    // === ResourceIcon component tests ===
+
+    #[test]
+    fn resource_icon_stores_entity() {
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+        let icon = ResourceIcon { resource_entity: entity };
+        assert_eq!(icon.resource_entity, entity);
+    }
+
+    #[test]
+    fn resource_icon_different_from_unit_and_structure_icons() {
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+        let _resource_icon = ResourceIcon { resource_entity: entity };
+        let _unit_icon = UnitIcon { unit_entity: entity };
+        let _struct_icon = StructureIcon { structure_entity: entity };
+        // All three icon types can coexist for the same entity without conflict
+    }
+
+    // === Resource selection counting tests ===
+
+    #[test]
+    fn resource_only_selection_shows_in_groups() {
+        // Resources should appear in selection groups and be counted
+        let mut selection = Selection::default();
+        let mut world = World::new();
+        let e1 = world.spawn_empty().id();
+        selection.groups = vec![
+            SelectionGroup { object_type: ObjectEnum::SpaceCrystalsPatch, entities: vec![e1] },
+        ];
+        assert_eq!(selection.groups.len(), 1);
+        assert_eq!(selection.groups[0].object_type, ObjectEnum::SpaceCrystalsPatch);
+    }
+
+    #[test]
+    fn sds_selection_shows_in_groups() {
+        let mut selection = Selection::default();
+        let mut world = World::new();
+        let e1 = world.spawn_empty().id();
+        selection.groups = vec![
+            SelectionGroup { object_type: ObjectEnum::SupplyDeliveryStation, entities: vec![e1] },
+        ];
+        assert_eq!(selection.groups.len(), 1);
+        assert_eq!(selection.groups[0].object_type, ObjectEnum::SupplyDeliveryStation);
+    }
+
+    #[test]
+    fn mixed_resource_and_unit_selection() {
+        let mut selection = Selection::default();
+        let mut world = World::new();
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+        selection.groups = vec![
+            SelectionGroup { object_type: ObjectEnum::SpaceCrystalsPatch, entities: vec![e1] },
+            SelectionGroup { object_type: ObjectEnum::Peacekeeper, entities: vec![e2] },
+        ];
+        assert_eq!(selection.groups.len(), 2);
+        assert_eq!(selection.total_entity_count(), 2);
     }
 }

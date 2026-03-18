@@ -9,8 +9,10 @@ use super::units::types::{
     UnitType, UnitControlCost, RuggedTerrainDefenseBonus, TunnelSpaceCost,
     unit_data::{peacekeeper_type_data, peacekeeper_attack_data, frames_to_seconds,
                 agent_type_data, agent_attack_data,
+                guard_type_data, guard_attack_data,
                 PEACEKEEPER_CONTROL_COST, PEACEKEEPER_RUGGED_BONUS,
-                AGENT_CONTROL_COST, AGENT_TUNNEL_SPACE_COST, AGENT_RUGGED_BONUS},
+                AGENT_CONTROL_COST, AGENT_TUNNEL_SPACE_COST, AGENT_RUGGED_BONUS,
+                GUARD_CONTROL_COST, GUARD_TUNNEL_SPACE_COST, GUARD_RUGGED_BONUS},
     movement::{MovementSpeed, RotationSpeed, Velocity, TurnRateMovementParams},
     state::{UnitCommand, CommandQueue, BaseCommandState, BaseBehaviorState,
             LocomotionChannel, OrientationChannel, BaseAttackChannel, AgentCarryState},
@@ -25,23 +27,17 @@ use super::units::types::movement::DragMovementParams;
 /// Spawn a structure name label as a child entity.
 /// `height_offset` is the Y position above the parent's origin where the label floats.
 fn spawn_structure_label(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     name: &str,
     height_offset: f32,
 ) {
-    let text_style = TextStyle {
-        font_size: 36.0,
-        color: Color::WHITE,
-        ..default()
-    };
     parent.spawn((
-        Text2dBundle {
-            text: Text::from_section(name, text_style)
-                .with_justify(JustifyText::Center),
-            transform: Transform::from_xyz(0.0, height_offset, 0.0)
-                .with_scale(Vec3::splat(0.01)), // Scale down for world-space readability
-            ..default()
-        },
+        Text2d::new(name),
+        TextFont { font_size: 36.0, ..default() },
+        TextColor(Color::WHITE),
+        TextLayout::new_with_justify(Justify::Center),
+        Transform::from_xyz(0.0, height_offset, 0.0)
+            .with_scale(Vec3::splat(0.01)), // Scale down for world-space readability
         StructureLabel,
     ));
 }
@@ -52,8 +48,8 @@ pub fn billboard_label_system(
     camera_query: Query<&GlobalTransform, With<MainCamera>>,
     mut label_query: Query<(&mut Transform, &GlobalTransform), (With<StructureLabel>, Without<MainCamera>)>,
 ) {
-    let Ok(camera_global) = camera_query.get_single() else { return };
-    let camera_pos = camera_global.translation();
+    let Ok(camera_global) = camera_query.single() else { return };
+    let camera_pos: Vec3 = camera_global.translation();
 
     for (mut label_transform, label_global) in label_query.iter_mut() {
         let label_world_pos = label_global.translation();
@@ -86,7 +82,7 @@ fn side_labels(sym: SymmetryTypeEnum) -> [char; 4] {
 /// The building is centered at local (0,0,0) with given half-extents.
 /// Since labels are children, they rotate with the parent automatically.
 fn spawn_side_labels(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     sym: SymmetryTypeEnum,
     half_x: f32,
     half_z: f32,
@@ -130,20 +126,13 @@ fn spawn_side_labels(
         let font_size = if is_b_side { 48.0 } else { 36.0 };
 
         parent.spawn((
-            Text2dBundle {
-                text: Text::from_section(
-                    label_char.to_string(),
-                    TextStyle {
-                        font_size,
-                        color: text_color,
-                        ..default()
-                    },
-                ).with_justify(JustifyText::Center),
-                transform: Transform::from_translation(positions[i])
-                    .with_rotation(rotations[i])
-                    .with_scale(Vec3::splat(0.008)),
-                ..default()
-            },
+            Text2d::new(label_char.to_string()),
+            TextFont { font_size, ..default() },
+            TextColor(text_color),
+            TextLayout::new_with_justify(Justify::Center),
+            Transform::from_translation(positions[i])
+                .with_rotation(rotations[i])
+                .with_scale(Vec3::splat(0.008)),
             StructureLabel, // Reuse for billboard system
         ));
     }
@@ -151,7 +140,7 @@ fn spawn_side_labels(
 
 /// Public interface for spawning side labels on ghost preview entities.
 pub fn spawn_ghost_side_labels(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     sym: SymmetryTypeEnum,
     half_x: f32,
     half_z: f32,
@@ -181,12 +170,9 @@ pub fn spawn_deployment_center(
     });
 
     commands.spawn((
-        PbrBundle {
-            mesh,
-            material,
-            transform: Transform::from_xyz(world_x, 0.75, world_z),
-            ..default()
-        },
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.75, world_z),
         ObjectInstance::destructible(ObjectEnum::DeploymentCenter, DC_MAX_HP),
         StructureInstance::default(),
         owner,
@@ -221,9 +207,11 @@ pub fn spawn_power_plant(
     let world_z = (grid_z as f32 - 32.0) + (rot_z as f32) / 2.0;
 
     let mesh = meshes.add(Cuboid::new(2.0, 1.0, 2.0));
+    let is_flipped = flip_horizontal || flip_vertical;
     let material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.8, 0.8, 0.2),
         metallic: 0.4,
+        cull_mode: if is_flipped { None } else { Some(bevy::render::render_resource::Face::Back) },
         ..default()
     });
 
@@ -234,14 +222,11 @@ pub fn spawn_power_plant(
     );
 
     commands.spawn((
-        PbrBundle {
-            mesh,
-            material,
-            transform: Transform::from_xyz(world_x, 0.5, world_z)
-                .with_rotation(Quat::from_rotation_y(rotation.radians()))
-                .with_scale(flip_scale),
-            ..default()
-        },
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.5, world_z)
+            .with_rotation(Quat::from_rotation_y(rotation.radians()))
+            .with_scale(flip_scale),
         ObjectInstance::destructible(ObjectEnum::PowerPlant, PP_MAX_HP),
         StructureInstance { rotation, flip_horizontal, flip_vertical },
         owner,
@@ -275,9 +260,11 @@ pub fn spawn_barracks(
     let world_z = (grid_z as f32 - 32.0) + (rot_z as f32) / 2.0;
 
     let mesh = meshes.add(Cuboid::new(3.0, 0.8, 2.0));
+    let is_flipped = flip_horizontal || flip_vertical;
     let material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.3, 0.6, 0.3),
         metallic: 0.3,
+        cull_mode: if is_flipped { None } else { Some(bevy::render::render_resource::Face::Back) },
         ..default()
     });
 
@@ -288,14 +275,11 @@ pub fn spawn_barracks(
     );
 
     commands.spawn((
-        PbrBundle {
-            mesh,
-            material,
-            transform: Transform::from_xyz(world_x, 0.4, world_z)
-                .with_rotation(Quat::from_rotation_y(rotation.radians()))
-                .with_scale(flip_scale),
-            ..default()
-        },
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.4, world_z)
+            .with_rotation(Quat::from_rotation_y(rotation.radians()))
+            .with_scale(flip_scale),
         ObjectInstance::destructible(ObjectEnum::Barracks, BK_MAX_HP),
         StructureInstance { rotation, flip_horizontal, flip_vertical },
         owner,
@@ -330,10 +314,12 @@ pub fn spawn_extraction_facility(
     let world_z = (grid_z as f32 - 32.0) + (rot_z as f32) / 2.0;
 
     let mesh = meshes.add(Cuboid::new(3.0, 1.2, 3.0));
+    let is_flipped = flip_horizontal || flip_vertical;
     let material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.6, 0.4, 0.2),
         metallic: 0.5,
         perceptual_roughness: 0.4,
+        cull_mode: if is_flipped { None } else { Some(bevy::render::render_resource::Face::Back) },
         ..default()
     });
 
@@ -344,14 +330,11 @@ pub fn spawn_extraction_facility(
     );
 
     commands.spawn((
-        PbrBundle {
-            mesh,
-            material,
-            transform: Transform::from_xyz(world_x, 0.6, world_z)
-                .with_rotation(Quat::from_rotation_y(rotation.radians()))
-                .with_scale(flip_scale),
-            ..default()
-        },
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.6, world_z)
+            .with_rotation(Quat::from_rotation_y(rotation.radians()))
+            .with_scale(flip_scale),
         ObjectInstance::destructible(ObjectEnum::ExtractionFacility, EF_MAX_HP),
         StructureInstance { rotation, flip_horizontal, flip_vertical },
         owner,
@@ -390,12 +373,9 @@ pub fn spawn_extraction_plate(
     });
 
     commands.spawn((
-        PbrBundle {
-            mesh,
-            material,
-            transform: Transform::from_xyz(world_x, 0.1, world_z),
-            ..default()
-        },
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.1, world_z),
         ObjectInstance::destructible(ObjectEnum::ExtractionPlate, EP_MAX_HP),
         StructureInstance::default(),
         owner,
@@ -466,12 +446,9 @@ pub fn spawn_peacekeeper(
     };
 
     commands.spawn((
-        PbrBundle {
-            mesh,
-            material,
-            transform: Transform::from_xyz(world_x, 0.5, world_z),
-            ..default()
-        },
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.5, world_z),
         Unit,
         ObjectInstance::destructible(ObjectEnum::Peacekeeper, type_data.max_hp as f32),
         owner,
@@ -483,10 +460,10 @@ pub fn spawn_peacekeeper(
         MovementSpeed(move_speed),
         RotationSpeed(rot_speed),
         Velocity(Vec3::ZERO),
+    )).insert((
         attack_capability,
         AttackState::default(),
         UnitCommand::Idle,
-    )).insert((
         turn_rate_params,
         type_data.unit_base.data().domain,
         UnitControlCost(PEACEKEEPER_CONTROL_COST),
@@ -564,12 +541,9 @@ pub fn spawn_syndicate_agent(
     };
 
     commands.spawn((
-        PbrBundle {
-            mesh,
-            material,
-            transform: Transform::from_xyz(world_x, 0.5, world_z),
-            ..default()
-        },
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.5, world_z),
         Unit,
         ObjectInstance::destructible(ObjectEnum::SyndicateAgent, type_data.max_hp as f32),
         owner,
@@ -581,10 +555,10 @@ pub fn spawn_syndicate_agent(
         MovementSpeed(move_speed),
         RotationSpeed(rot_speed),
         Velocity(Vec3::ZERO),
+    )).insert((
         attack_capability,
         AttackState::default(),
         UnitCommand::Idle,
-    )).insert((
         turn_rate_params,
         type_data.unit_base.data().domain,
         UnitControlCost(AGENT_CONTROL_COST),
@@ -612,6 +586,103 @@ pub fn spawn_syndicate_agent(
     )).id()
 }
 
+/// Spawn a Syndicate Guard unit at the given grid position
+pub fn spawn_syndicate_guard(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    grid_x: i32,
+    grid_z: i32,
+    owner: Owner,
+) -> Entity {
+    let world_x = (grid_x as f32 - 32.0) + 0.5;
+    let world_z = (grid_z as f32 - 32.0) + 0.5;
+
+    let type_data = guard_type_data();
+    let attack_data = guard_attack_data();
+
+    // Same capsule size as Agent (both have 36x36 silhouette)
+    let mesh = meshes.add(Capsule3d::new(0.28, 0.8));
+    let material = materials.add(StandardMaterial {
+        base_color: owner.color(),
+        ..default()
+    });
+
+    // Convert design-spec frame-based attack timings to seconds
+    let attack_capability = AttackCapability {
+        damage: attack_data.damage as f32,
+        range: attack_data.range as f32, // Ranged: 3 GU (NOT MELEE_RANGE)
+        min_range: attack_data.min_range as f32,
+        aim_time: frames_to_seconds(attack_data.aim_duration),
+        fire_time: frames_to_seconds(attack_data.firing_duration),
+        cooldown_time: frames_to_seconds(attack_data.cooldown_duration),
+        reload_time: frames_to_seconds(attack_data.reload_duration),
+        attack_type: AttackType::FullyConnected {
+            subtype: attack_data.fc_subtype.unwrap_or(FullyConnectedSubtype::Ranged),
+        },
+        target_domain: attack_data.target_domain,
+        target_type: attack_data.target_type,
+        aoe_radius: attack_data.aoe_radius.map(|r| r as f32),
+    };
+
+    // HeavyInfantry: MaxSpeed 5 SU/frame * 16 FPS / 64 SU/GU = 1.25 GU/sec
+    // TurnRate 180 deg/frame * 16 FPS = 2880 deg/sec (effectively instant)
+    let move_speed = 5.0 * (FRAMES_PER_SECOND as f32) / (SPACE_UNITS_PER_GRID_UNIT as f32);
+    let rot_speed = 10.0; // Very high for instant-turn infantry
+
+    let turn_rate_params = TurnRateMovementParams {
+        turn_rate: 180.0_f32.to_radians() * (FRAMES_PER_SECOND as f32), // 2880 deg/sec in radians
+        acceleration: f32::MAX,
+        deceleration: f32::MAX,
+        max_speed: move_speed,
+    };
+
+    commands.spawn((
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.5, world_z),
+        Unit,
+        ObjectInstance::destructible(ObjectEnum::SyndicateGuard, type_data.max_hp as f32),
+        owner,
+        UnitType { name: "Guard".to_string() },
+        Selectable,
+        SelectionBounds::unit(),
+        GridPosition { x: grid_x, z: grid_z },
+        type_data.unit_base,
+        MovementSpeed(move_speed),
+        RotationSpeed(rot_speed),
+        Velocity(Vec3::ZERO),
+    )).insert((
+        attack_capability,
+        AttackState::default(),
+        UnitCommand::Idle,
+        turn_rate_params,
+        type_data.unit_base.data().domain,
+        UnitControlCost(GUARD_CONTROL_COST),
+        RuggedTerrainDefenseBonus(GUARD_RUGGED_BONUS),
+        TunnelSpaceCost(GUARD_TUNNEL_SPACE_COST),
+        CommandQueue::new(),
+        BaseCommandState::default(),
+        BaseBehaviorState::default(),
+        LocomotionChannel::default(),
+        OrientationChannel::default(),
+        BaseAttackChannel::default(),
+        // Note: Guard is pure combat — NO AgentCarryState
+        // Note: HeavyInfantry has_turret=false, so no turret channels
+    )).insert((
+        Armor {
+            point_armor: type_data.point_armor as f32,
+            full_armor: type_data.full_armor as f32,
+            directional_armor: type_data.unit_base.data().directional_armor,
+        },
+        Silhouette {
+            width: type_data.silhouette_width as f32 / SPACE_UNITS_PER_GRID_UNIT as f32,
+            height: type_data.silhouette_height as f32 / SPACE_UNITS_PER_GRID_UNIT as f32,
+        },
+        SightRange(ObjectEnum::SyndicateGuard.object_type().sight_range),
+    )).id()
+}
+
 /// Spawn a Tunnel structure at the given grid position (Tier 1 by default).
 /// The Tunnel is a surface structure with a TunnelState, TunnelArea, and visual mesh.
 pub fn spawn_tunnel(
@@ -636,12 +707,9 @@ pub fn spawn_tunnel(
     let tier = TunnelTier::Tier1;
 
     commands.spawn((
-        PbrBundle {
-            mesh,
-            material,
-            transform: Transform::from_xyz(world_x, 0.5, world_z),
-            ..default()
-        },
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.5, world_z),
         ObjectInstance::destructible(ObjectEnum::Tunnel, tier.max_hp()),
         StructureInstance::default(),
         owner,
@@ -651,6 +719,53 @@ pub fn spawn_tunnel(
         TunnelState::default_tier1(),
         TunnelArea::new(grid_x, grid_z, &tier),
         SightRange(TUNNEL_SIGHT_RANGE),
+        crate::ui::types::EjectionQueue::default(),
+    )).with_children(|parent| {
+        spawn_structure_label(parent, "Tunnel", 0.8);
+        spawn_side_labels(parent, SymmetryTypeEnum::ABCD, 2.0, 2.0, 1.0);
+    }).id()
+}
+
+/// Spawn a partially-built Tunnel (under construction) at the given grid position.
+/// Same as `spawn_tunnel()` but starts at 10% HP with a `ConstructionHP` component.
+/// The `construction_hp_tick_system` handles HP scaling automatically.
+pub fn spawn_tunnel_under_construction(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    grid_x: i32,
+    grid_z: i32,
+    owner: Owner,
+    build_frames: u32,
+) -> Entity {
+    let world_x = (grid_x as f32 - 32.0) + 2.0; // Center of 4x4
+    let world_z = (grid_z as f32 - 32.0) + 2.0;
+
+    let mesh = meshes.add(Cuboid::new(4.0, 1.0, 4.0));
+    let material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.5, 0.2, 0.2),
+        metallic: 0.5,
+        perceptual_roughness: 0.4,
+        ..default()
+    });
+
+    let tier = TunnelTier::Tier1;
+
+    commands.spawn((
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.5, world_z),
+        ObjectInstance::under_construction(ObjectEnum::Tunnel, tier.max_hp()),
+        ConstructionHP::new(build_frames),
+        StructureInstance::default(),
+        owner,
+        Selectable,
+        SelectionBounds::from_dimensions(4.0, 1.0, 4.0),
+        GridPosition { x: grid_x, z: grid_z },
+        TunnelState::default_tier1(),
+        TunnelArea::new(grid_x, grid_z, &tier),
+        SightRange(TUNNEL_SIGHT_RANGE),
+        crate::ui::types::EjectionQueue::default(),
     )).with_children(|parent| {
         spawn_structure_label(parent, "Tunnel", 0.8);
         spawn_side_labels(parent, SymmetryTypeEnum::ABCD, 2.0, 2.0, 1.0);
@@ -658,24 +773,44 @@ pub fn spawn_tunnel(
 }
 
 /// Spawn a Headquarters (underground expansion) at the given grid position.
-/// No surface mesh — entity exists for gameplay logic only.
-/// Underground visualization will be added in a future task.
+/// Rendered as a surface marker so it is visible and selectable.
 pub fn spawn_headquarters(
     commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
     grid_x: i32,
     grid_z: i32,
     owner: Owner,
     parent_tunnel: Entity,
 ) -> Entity {
+    let world_x = (grid_x as f32 - 32.0) + 1.0; // Center of 2x2
+    let world_z = (grid_z as f32 - 32.0) + 1.0;
+
+    let mesh = meshes.add(Cuboid::new(2.0, 1.0, 2.0));
+    let material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.7, 0.2, 0.6),
+        metallic: 0.5,
+        perceptual_roughness: 0.3,
+        ..default()
+    });
+
     commands.spawn((
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.5, world_z),
         ObjectInstance::destructible(ObjectEnum::Headquarters, HQ_MAX_HP),
         StructureInstance::default(),
         owner,
+        Selectable,
+        SelectionBounds::from_dimensions(2.0, 1.0, 2.0),
         GridPosition { x: grid_x, z: grid_z },
         DomainEnum::Underground,
         TunnelExpansionMarker { parent_tunnel },
         HeadquartersState::default(),
-    )).id()
+        SightRange(3),
+    )).with_children(|parent| {
+        spawn_structure_label(parent, "Headquarters", 0.8);
+    }).id()
 }
 
 /// Spawn a Supply Tower entity at the given grid position
@@ -696,10 +831,12 @@ pub fn spawn_supply_tower(
     let world_z = (grid_z as f32 - 32.0) + (rot_z as f32) / 2.0;
 
     let mesh = meshes.add(Cuboid::new(3.0, 1.2, 3.0));
+    let is_flipped = flip_horizontal || flip_vertical;
     let material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.5, 0.5, 0.8),
         metallic: 0.5,
         perceptual_roughness: 0.3,
+        cull_mode: if is_flipped { None } else { Some(bevy::render::render_resource::Face::Back) },
         ..default()
     });
 
@@ -710,14 +847,11 @@ pub fn spawn_supply_tower(
     );
 
     commands.spawn((
-        PbrBundle {
-            mesh,
-            material,
-            transform: Transform::from_xyz(world_x, 0.6, world_z)
-                .with_rotation(Quat::from_rotation_y(rotation.radians()))
-                .with_scale(flip_scale),
-            ..default()
-        },
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.6, world_z)
+            .with_rotation(Quat::from_rotation_y(rotation.radians()))
+            .with_scale(flip_scale),
         ObjectInstance::destructible(ObjectEnum::SupplyTower, ST_MAX_HP),
         StructureInstance { rotation, flip_horizontal, flip_vertical },
         owner,
@@ -767,12 +901,9 @@ pub fn spawn_supply_chopper(
     let max_speed = drag_params.max_speed();
 
     commands.spawn((
-        PbrBundle {
-            mesh,
-            material,
-            transform: Transform::from_xyz(world_x, 1.5, world_z), // Hover above ground
-            ..default()
-        },
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 1.5, world_z), // Hover above ground
         Unit,
         ObjectInstance::destructible(ObjectEnum::SupplyChopper, SC_MAX_HP),
         owner,

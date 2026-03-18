@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::types::AppState;
 use super::types::*;
 use super::utils::{format_duration, format_percent};
 
@@ -30,7 +31,7 @@ pub fn update_overlay_text(
         return;
     }
 
-    let Ok(mut text) = text_query.get_single_mut() else {
+    let Ok(mut text) = text_query.single_mut() else {
         return;
     };
 
@@ -87,38 +88,35 @@ pub fn update_overlay_text(
     lines.push(format!("{:-<52}", ""));
     lines.push(format!("{:<16}                  min      avg      max    pct", ""));
 
-    text.sections[0].value = lines.join("\n");
+    **text = lines.join("\n");
 }
 
-/// Startup system that spawns the diagnostics overlay UI.
+/// Spawns the diagnostics overlay UI on entering InGame state.
+/// Uses IsDefaultUiCamera on the HUD camera to render on the correct camera.
 pub fn spawn_overlay(mut commands: Commands) {
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    top: Val::Px(40.0),
-                    right: Val::Px(10.0),
-                    padding: UiRect::all(Val::Px(8.0)),
-                    ..default()
-                },
-                background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.75)),
-                visibility: Visibility::Hidden,
-                z_index: ZIndex::Global(100),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(40.0),
+                right: Val::Px(10.0),
+                padding: UiRect::all(Val::Px(8.0)),
                 ..default()
             },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.75)),
+            Visibility::Hidden,
+            ZIndex(100),
             DiagnosticsOverlay,
+            DespawnOnExit(AppState::InGame),
         ))
         .with_children(|parent| {
             parent.spawn((
-                TextBundle::from_section(
-                    "Performance Diagnostics\nLoading...",
-                    TextStyle {
-                        font_size: 12.0,
-                        color: Color::srgb(0.0, 1.0, 0.0),
-                        ..default()
-                    },
-                ),
+                Text::new("Performance Diagnostics\nLoading..."),
+                TextFont {
+                    font_size: 12.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.0, 1.0, 0.0)),
                 DiagnosticsText,
             ));
         });

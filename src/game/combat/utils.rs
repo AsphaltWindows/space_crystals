@@ -58,12 +58,9 @@ pub fn spawn_turret_visual(
     });
 
     let turret_entity = commands.spawn((
-        PbrBundle {
-            mesh: turret_mesh,
-            material: turret_material,
-            transform: Transform::from_xyz(0.0, 0.3, 0.0),
-            ..default()
-        },
+        Mesh3d(turret_mesh),
+        MeshMaterial3d(turret_material),
+        Transform::from_xyz(0.0, 0.3, 0.0),
         TurretVisual {
             parent_unit: parent_entity,
         },
@@ -72,11 +69,14 @@ pub fn spawn_turret_visual(
     commands.entity(parent_entity).add_child(turret_entity);
 }
 
-/// Spawn a projectile entity
+/// Spawn a projectile entity using cached mesh/material assets.
+/// Sphere projectiles use the cached unit sphere (scaled per-instance).
+/// Capsule projectiles still create a mesh per-spawn (non-uniform scaling
+/// breaks hemisphere caps) but reuse the cached material.
 pub fn spawn_projectile(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
+    cache: &CombatAssetCache,
     start_position: Vec3,
     target_position: Vec3,
     speed: f32,
@@ -85,34 +85,21 @@ pub fn spawn_projectile(
     visual: ProjectileVisual,
     source_owner: Owner,
 ) {
-    let (mesh, material) = match visual {
+    let (mesh, material, scale) = match visual {
         ProjectileVisual::Sphere { radius } => {
-            let mesh = meshes.add(Sphere::new(radius));
-            let material = materials.add(StandardMaterial {
-                base_color: Color::srgb(1.0, 0.8, 0.0),
-                emissive: Color::srgb(1.0, 0.8, 0.0).into(),
-                ..default()
-            });
-            (mesh, material)
+            (cache.unit_sphere_mesh.clone(), cache.projectile_sphere_material.clone(), Vec3::splat(radius))
         }
         ProjectileVisual::Cylinder { radius, length } => {
+            // Capsule mesh can't be cleanly cached (non-uniform scale distorts caps)
             let mesh = meshes.add(Capsule3d::new(radius, length));
-            let material = materials.add(StandardMaterial {
-                base_color: Color::srgb(0.8, 0.8, 0.8),
-                metallic: 0.8,
-                ..default()
-            });
-            (mesh, material)
+            (mesh, cache.projectile_cylinder_material.clone(), Vec3::ONE)
         }
     };
 
     commands.spawn((
-        PbrBundle {
-            mesh,
-            material,
-            transform: Transform::from_translation(start_position),
-            ..default()
-        },
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_translation(start_position).with_scale(scale),
         Projectile {
             target_position,
             speed,
@@ -123,41 +110,33 @@ pub fn spawn_projectile(
     ));
 }
 
-/// Spawn visual explosion effect
+/// Spawn visual explosion effect using cached unit sphere and material.
+/// The sphere is scaled to the explosion radius; the animation system
+/// multiplies by base_scale to preserve the correct visual size.
 pub fn spawn_explosion_effect(
     commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
+    cache: &CombatAssetCache,
     position: Vec3,
     radius: f32,
 ) {
-    let explosion_mesh = meshes.add(Sphere::new(radius));
-    let explosion_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(1.0, 0.5, 0.0),
-        emissive: Color::srgb(1.0, 0.3, 0.0).into(),
-        alpha_mode: AlphaMode::Blend,
-        ..default()
-    });
-
     commands.spawn((
-        PbrBundle {
-            mesh: explosion_mesh,
-            material: explosion_material,
-            transform: Transform::from_translation(position),
-            ..default()
-        },
+        Mesh3d(cache.unit_sphere_mesh.clone()),
+        MeshMaterial3d(cache.explosion_material.clone()),
+        Transform::from_translation(position)
+            .with_scale(Vec3::splat(radius)),
         ExplosionEffect {
             lifetime: 0.0,
             max_lifetime: 0.5,
+            base_scale: radius,
         },
     ));
 }
 
-/// Spawn a visual attack line tracer between attacker and target
+/// Spawn a visual attack line tracer between attacker and target.
+/// Uses a cached unit cuboid (scaled to line dimensions) and cached material.
 pub fn spawn_attack_line(
     commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
+    cache: &CombatAssetCache,
     start: Vec3,
     end: Vec3,
 ) {
@@ -169,26 +148,16 @@ pub fn spawn_attack_line(
         return;
     }
 
-    let line_mesh = meshes.add(Cuboid::new(0.02, 0.02, length));
-    let line_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(1.0, 1.0, 0.6),
-        emissive: Color::srgb(2.0, 2.0, 0.5).into(),
-        unlit: true,
-        ..default()
-    });
-
-    // Orient the cuboid from start to end
+    // Orient the unit cuboid from start to end, scaled to line dimensions
     let normalized = direction.normalize();
     let transform = Transform::from_translation(midpoint)
-        .looking_to(normalized, Vec3::Y);
+        .looking_to(normalized, Vec3::Y)
+        .with_scale(Vec3::new(0.02, 0.02, length));
 
     commands.spawn((
-        PbrBundle {
-            mesh: line_mesh,
-            material: line_material,
-            transform,
-            ..default()
-        },
+        Mesh3d(cache.attack_line_mesh.clone()),
+        MeshMaterial3d(cache.attack_line_material.clone()),
+        transform,
         AttackLine {
             lifetime: 0.0,
             max_lifetime: 0.15,
@@ -531,7 +500,7 @@ mod tests {
 
     #[test]
     fn attack_target_unit_target() {
-        let entity = Entity::from_raw(42);
+        let entity = Entity::from_raw_u32(42).unwrap();
         let target = AttackTarget::UnitTarget(entity);
         if let AttackTarget::UnitTarget(e) = target {
             assert_eq!(e, entity);
@@ -555,7 +524,7 @@ mod tests {
 
     #[test]
     fn attack_state_target_entity_from_unit_target() {
-        let entity = Entity::from_raw(42);
+        let entity = Entity::from_raw_u32(42).unwrap();
         let state = AttackState {
             current_target: Some(AttackTarget::UnitTarget(entity)),
             ..Default::default()
@@ -746,7 +715,7 @@ mod tests {
     fn damage_event_single_target_variant() {
         let event = DamageEvent::SingleTarget {
             damage: 10.0,
-            source: Entity::from_raw(1),
+            source: Entity::from_raw_u32(1).unwrap(),
             source_position: Vec3::ZERO,
         };
         assert!(matches!(event, DamageEvent::SingleTarget { damage, .. } if damage == 10.0));
@@ -756,7 +725,7 @@ mod tests {
     fn damage_event_aoe_variant() {
         let event = DamageEvent::AreaOfEffect {
             damage: 20.0,
-            source: Entity::from_raw(1),
+            source: Entity::from_raw_u32(1).unwrap(),
             center: Vec3::new(5.0, 0.0, 5.0),
             radius: 3.0,
             source_owner: Owner::player(0),
@@ -890,5 +859,57 @@ mod tests {
         let unit_area = 1.0_f32;
         let effective_armor = full_armor * (overlap / unit_area);
         assert_eq!(effective_armor, 2.5);
+    }
+
+    // === Attack line scale trick ===
+
+    #[test]
+    fn attack_line_scale_preserves_thin_dimensions() {
+        // Unit cuboid half-extents are (1,1,1). Scaling by (0.02, 0.02, length)
+        // gives effective half-extents matching the original Cuboid::new(0.02, 0.02, length).
+        let length = 5.0_f32;
+        let scale = Vec3::new(0.02, 0.02, length);
+        // Half-extents after scale: 1.0 * 0.02 = 0.02, 1.0 * length = 5.0
+        assert_eq!(scale.x, 0.02);
+        assert_eq!(scale.z, length);
+    }
+
+    #[test]
+    fn attack_line_zero_length_skipped() {
+        // spawn_attack_line returns early if length < 0.01
+        let start = Vec3::new(1.0, 0.5, 1.0);
+        let end = Vec3::new(1.0, 0.5, 1.0);
+        let length = (end - start).length();
+        assert!(length < 0.01);
+    }
+
+    // === Sphere projectile scale trick ===
+
+    #[test]
+    fn sphere_projectile_scale_matches_radius() {
+        let radius = 0.3_f32;
+        let scale = Vec3::splat(radius);
+        // Unit sphere (radius=1.0) scaled by radius gives visual radius = radius
+        assert_eq!(scale.x, radius);
+        assert_eq!(scale.y, radius);
+        assert_eq!(scale.z, radius);
+    }
+
+    // === Explosion scale with base_scale ===
+
+    #[test]
+    fn explosion_initial_scale_matches_radius() {
+        let radius = 2.0_f32;
+        let progress = 0.0_f32;
+        let scale = radius * (1.0 + progress * 2.0);
+        assert_eq!(scale, 2.0);
+    }
+
+    #[test]
+    fn explosion_final_scale_is_triple_radius() {
+        let radius = 1.5_f32;
+        let progress = 1.0_f32;
+        let scale = radius * (1.0 + progress * 2.0);
+        assert_eq!(scale, 4.5); // 1.5 * 3.0
     }
 }

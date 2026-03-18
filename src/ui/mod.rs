@@ -26,14 +26,13 @@ impl Plugin for HudPlugin {
                 menu::faction_button_click,
                 menu::menu_button_hover,
             ).run_if(in_state(AppState::Menu)))
-            .add_systems(OnExit(AppState::Menu), menu::cleanup_menu)
             // In-game HUD systems
             .add_systems(OnEnter(AppState::InGame), hud::setup_hud.after(crate::game::world::faction::setup_player_resources))
             .add_systems(Update, (
                 utils::update_cursor_over_ui,
                 command_panel::update_cursor_target.after(utils::update_cursor_over_ui),
                 hud::update_minimap_system,
-                hud::update_selected_units_grid_system,
+                hud::update_selected_units_grid_system.after(command_panel::command_panel_hotkeys),
                 hud::selection_portrait_click_system.after(hud::update_selected_units_grid_system),
                 hud::update_resource_bar_system,
                 command_panel::update_command_panel_state.after(command_panel::update_cursor_target),
@@ -41,7 +40,6 @@ impl Plugin for HudPlugin {
                 command_panel::handle_command_button_clicks.after(command_panel::rebuild_command_panel_ui),
                 command_panel::command_panel_hotkeys,
                 command_panel::update_command_panel_progress,
-            ).in_set(DiagCategory::UiHud)
-             .run_if(in_state(AppState::InGame)));
+            ).in_set(DiagCategory::UiHud));
     }
 }

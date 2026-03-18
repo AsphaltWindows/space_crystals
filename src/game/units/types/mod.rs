@@ -8,4 +8,4 @@ pub mod utils;
 pub use movement::*;
 pub use state::*;
 pub use unit_data::*;
-pub use types::{OccupancyMap, CollisionBody, NeedsRepath};
+pub use types::{OccupancyMap, CollisionBody, NeedsRepath, RepathAttempts, MAX_REPATH_ATTEMPTS};

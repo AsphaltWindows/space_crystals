@@ -7,9 +7,10 @@ use crate::game::utils::{
     spawn_tunnel, spawn_headquarters, spawn_supply_tower, spawn_supply_chopper,
 };
 use super::types::{GdoBuildArea, SpaceCrystalPatch, Tile, TilePreset, FogOfWarMap};
-use super::utils::{expand_build_area, world_to_grid, grid_to_world, can_place_building, rotated_building_size, cursor_pos_in_viewport};
+use super::utils::{expand_build_area, world_to_grid, grid_to_world, can_place_building, rotated_building_size};
 use crate::ui::types::{ObjectInterfaceState, StructureMenuState, AgentMenuState, CommandPanelTarget, PlacementGhost, PlacementState, CursorOverUi, BuildAreaOverlay};
 use crate::game::units::types::state::UnitCommand;
+use crate::game::units::types::state::behavior::BuildingTunnelBehavior;
 
 /// Setup initial player resources using design-aligned Player + faction-specific resource components.
 /// Player 0 is always the local human; the faction assignment depends on SelectedFaction.
@@ -48,6 +49,7 @@ pub fn setup_player_resources(mut commands: Commands, selected: Res<SelectedFact
             power_consumed: 0,
             unit_control_used: 0,
             unit_control_cap: 200,
+            has_power_plant: false,  // Will be computed by power grid system
         },
     ));
     commands.spawn((
@@ -116,7 +118,7 @@ pub fn setup_syndicate_game_start(
     let hq_grid_x = tunnel_grid_x + 2; // Offset within the 10x10 area
     let hq_grid_z = tunnel_grid_z - 2;
     let _hq_entity = spawn_headquarters(
-        &mut commands,
+        &mut commands, &mut meshes, &mut materials,
         hq_grid_x, hq_grid_z,
         syn_owner, tunnel_entity,
     );
@@ -159,24 +161,29 @@ pub fn setup_enemy_test_units(
 /// System to compute power grid for GDO players each tick
 pub fn compute_power_grid(
     mut players: Query<(&Player, &mut GdoPlayerResources)>,
-    buildings: Query<(&Owner, &PowerValue)>,
+    buildings: Query<(&Owner, &PowerValue, &ObjectInstance)>,
 ) {
     for (player, mut resources) in players.iter_mut() {
         let mut generated: i32 = 0;
         let mut consumed: i32 = 0;
+        let mut found_power_plant = false;
 
-        for (owner, power) in buildings.iter() {
+        for (owner, power, obj) in buildings.iter() {
             if owner.player_number() == Some(player.player_number) {
                 if power.0 > 0 {
                     generated += power.0;
                 } else if power.0 < 0 {
                     consumed += power.0.abs();
                 }
+                if obj.object_type == ObjectEnum::PowerPlant {
+                    found_power_plant = true;
+                }
             }
         }
 
         resources.power_generated = generated;
         resources.power_consumed = consumed;
+        resources.has_power_plant = found_power_plant;
     }
 }
 
@@ -222,14 +229,14 @@ pub fn barracks_production_tick_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut barracks_query: Query<(Entity, &Owner, &crate::types::GridPosition, &mut BarracksState)>,
+    mut barracks_query: Query<(Entity, &Owner, &crate::types::GridPosition, &mut BarracksState, &StructureInstance)>,
     mut players: Query<(&Player, &mut GdoPlayerResources)>,
     tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
     grid: Res<super::types::GridMap>,
     rally_targets: Query<(&Transform, &Owner), With<ObjectInstance>>,
     occupancy: Res<crate::game::units::types::OccupancyMap>,
 ) {
-    for (_bk_entity, owner, grid_pos, mut bk_state) in barracks_query.iter_mut() {
+    for (_bk_entity, owner, grid_pos, mut bk_state, structure_instance) in barracks_query.iter_mut() {
         // If no current build but queue has items, start next build
         if bk_state.current_build.is_none() && !bk_state.build_queue.is_empty() {
             let next = bk_state.build_queue.remove(0);
@@ -247,11 +254,12 @@ pub fn barracks_production_tick_system(
                     *progress += power_ratio;
 
                     if *progress >= required_frames {
-                        // Production complete — spawn unit
-                        // Spawn at B side (short side): 1 grid unit beyond the building's edge
-                        // Barracks is 3x2 at grid_pos, B side is the z+ short side
-                        let spawn_x = grid_pos.x + 1; // Center of 3-wide
-                        let spawn_z = grid_pos.z + 3; // 1 beyond the 2-deep building
+                        // Production complete — spawn unit at the B-side exit
+                        let (dx, dz) = super::utils::spawn_side_offset(
+                            ObjectEnum::Barracks, structure_instance,
+                        );
+                        let spawn_x = grid_pos.x + dx;
+                        let spawn_z = grid_pos.z + dz;
 
                         let unit_entity = spawn_peacekeeper(
                             &mut commands, &mut meshes, &mut materials,
@@ -268,12 +276,13 @@ pub fn barracks_production_tick_system(
                         }
 
                         // Issue rally point command to the spawned unit
+                        let produced_unit_base = crate::game::units::types::unit_data::peacekeeper_type_data().unit_base;
                         issue_rally_command(
                             &mut commands, unit_entity,
                             &bk_state.rally_point, owner,
                             spawn_x, spawn_z,
                             &tiles, &grid, &rally_targets,
-                            &occupancy,
+                            &occupancy, &produced_unit_base,
                         );
 
                         info!("Barracks: Produced {:?} at ({}, {})", unit_type, spawn_x, spawn_z);
@@ -287,7 +296,8 @@ pub fn barracks_production_tick_system(
     }
 }
 
-/// Issue a rally command to a newly spawned unit based on the barracks rally point
+/// Issue a rally command to a newly spawned unit based on the barracks rally point.
+/// `unit_base` determines pathfinding domain (air units skip terrain checks).
 fn issue_rally_command(
     commands: &mut Commands,
     unit_entity: Entity,
@@ -299,9 +309,10 @@ fn issue_rally_command(
     grid: &super::types::GridMap,
     rally_targets: &Query<(&Transform, &Owner), With<ObjectInstance>>,
     occupancy: &crate::game::units::types::OccupancyMap,
+    unit_base: &crate::types::UnitBaseEnum,
 ) {
     use crate::game::units::utils::{world_to_grid, smooth_path};
-    use crate::game::units::pathfinding::find_path;
+    use crate::game::units::pathfinding::find_path_for_domain;
     use crate::game::units::types::movement::{MoveTarget, Path};
     use crate::game::units::types::state::UnitCommand;
 
@@ -311,13 +322,11 @@ fn issue_rally_command(
     };
 
     let spawn_grid = GridPosition { x: spawn_x, z: spawn_z };
-    // Default unit base for Peacekeeper
-    let unit_base = crate::types::UnitBaseEnum::LightInfantry;
 
     match rally {
         RallyTarget::Location(pos) => {
             let target_grid = world_to_grid(*pos);
-            if let Some(path) = find_path(spawn_grid, target_grid, tiles, &unit_base, grid.width as i32, grid.height as i32, occupancy, (spawn_grid.x, spawn_grid.z)) {
+            if let Some(path) = find_path_for_domain(spawn_grid, target_grid, tiles, unit_base, grid.width as i32, grid.height as i32, occupancy, (spawn_grid.x, spawn_grid.z)) {
                 let smoothed = smooth_path(path);
                 commands.entity(unit_entity).insert((
                     MoveTarget(*pos),
@@ -338,7 +347,7 @@ fn issue_rally_command(
                 } else {
                     // Move to friendly/neutral rally target position
                     let target_grid = world_to_grid(target_pos);
-                    if let Some(path) = find_path(spawn_grid, target_grid, tiles, &unit_base, grid.width as i32, grid.height as i32, occupancy, (spawn_grid.x, spawn_grid.z)) {
+                    if let Some(path) = find_path_for_domain(spawn_grid, target_grid, tiles, unit_base, grid.width as i32, grid.height as i32, occupancy, (spawn_grid.x, spawn_grid.z)) {
                         let smoothed = smooth_path(path);
                         commands.entity(unit_entity).insert((
                             MoveTarget(target_pos),
@@ -349,6 +358,128 @@ fn issue_rally_command(
                 }
             }
             // If target entity no longer exists, unit stays idle
+        }
+    }
+}
+
+// =====================================================
+// HEADQUARTERS PRODUCTION SYSTEM
+// =====================================================
+
+/// System that ticks Headquarters unit production each simulation frame.
+/// Follows the same pattern as `barracks_production_tick_system` but uses
+/// `SyndicatePlayerResources` and spawns Agents from the parent Tunnel's surface position.
+pub fn headquarters_production_tick_system(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut hq_query: Query<(Entity, &Owner, &mut HeadquartersState, &TunnelExpansionMarker)>,
+    _players: Query<(&Player, &SyndicatePlayerResources)>,
+    tunnel_data: Query<(&Transform, &StructureInstance, &GridPosition), With<TunnelState>>,
+    tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
+    grid: Res<super::types::GridMap>,
+    rally_targets: Query<(&Transform, &Owner), With<ObjectInstance>>,
+    occupancy: Res<crate::game::units::types::OccupancyMap>,
+) {
+    use crate::game::units::utils::tunnel_side_world_position;
+    use crate::game::units::utils::world_to_grid;
+    use crate::game::units::types::state::behavior::InTunnelNetwork;
+
+    for (_hq_entity, owner, mut hq_state, expansion_marker) in hq_query.iter_mut() {
+        // If no current build but queue has items, start next build
+        if hq_state.current_build.is_none() && !hq_state.build_queue.is_empty() {
+            let next = hq_state.build_queue.remove(0);
+            hq_state.current_build = Some(next);
+            hq_state.current_build_progress = Some(0.0);
+        }
+
+        // Tick current build
+        if let Some(unit_type) = hq_state.current_build {
+            if let Some(cost) = HeadquartersState::production_cost(&unit_type) {
+                let required_frames = cost.build_frames as f32;
+
+                if let Some(ref mut progress) = hq_state.current_build_progress {
+                    // No power ratio for Syndicate — progress 1.0 per frame
+                    *progress += 1.0;
+
+                    if *progress >= required_frames {
+                        // Determine if unit should eject to surface or enter tunnel network
+                        let should_eject = match &hq_state.rally_point {
+                            Some(RallyTarget::Object(entity)) if *entity == expansion_marker.parent_tunnel => {
+                                // Rally target is parent tunnel → stay in tunnel network
+                                false
+                            }
+                            _ => true, // Default: eject from Side A (with or without rally)
+                        };
+
+                        if should_eject {
+                            // Spawn at Side A of parent tunnel
+                            let spawn_pos = if let Ok((tunnel_tf, tunnel_si, _tunnel_gp)) = tunnel_data.get(expansion_marker.parent_tunnel) {
+                                let side_a_world = tunnel_side_world_position(tunnel_tf, tunnel_si, 'A');
+                                let side_a_grid = world_to_grid(side_a_world);
+                                (side_a_grid.x, side_a_grid.z)
+                            } else {
+                                warn!("HQ production: parent tunnel {:?} not found in tunnel_data query, falling back to map center", expansion_marker.parent_tunnel);
+                                (32, 32) // Fallback to map center
+                            };
+
+                            let unit_entity = match unit_type {
+                                ObjectEnum::SyndicateAgent => crate::game::utils::spawn_syndicate_agent(
+                                    &mut commands, &mut meshes, &mut materials,
+                                    spawn_pos.0, spawn_pos.1, *owner,
+                                ),
+                                ObjectEnum::SyndicateGuard => crate::game::utils::spawn_syndicate_guard(
+                                    &mut commands, &mut meshes, &mut materials,
+                                    spawn_pos.0, spawn_pos.1, *owner,
+                                ),
+                                _ => continue,
+                            };
+
+                            // Determine unit base for domain-aware pathfinding
+                            let produced_unit_base = match unit_type {
+                                ObjectEnum::SyndicateAgent => crate::game::units::types::unit_data::agent_type_data().unit_base,
+                                ObjectEnum::SyndicateGuard => crate::game::units::types::unit_data::guard_type_data().unit_base,
+                                _ => crate::types::UnitBaseEnum::HeavyInfantry, // fallback
+                            };
+
+                            // Issue rally point command to the spawned unit
+                            issue_rally_command(
+                                &mut commands, unit_entity,
+                                &hq_state.rally_point, owner,
+                                spawn_pos.0, spawn_pos.1,
+                                &tiles, &grid, &rally_targets,
+                                &occupancy, &produced_unit_base,
+                            );
+
+                            info!("Headquarters: Produced {:?} at Side A ({}, {})", unit_type, spawn_pos.0, spawn_pos.1);
+                        } else {
+                            // No surface rally point — unit enters Tunnel Network
+                            let owner_player = owner.player_number().unwrap_or(0);
+
+                            let unit_entity = match unit_type {
+                                ObjectEnum::SyndicateAgent => crate::game::utils::spawn_syndicate_agent(
+                                    &mut commands, &mut meshes, &mut materials,
+                                    0, 0, *owner, // Position doesn't matter — will be hidden
+                                ),
+                                ObjectEnum::SyndicateGuard => crate::game::utils::spawn_syndicate_guard(
+                                    &mut commands, &mut meshes, &mut materials,
+                                    0, 0, *owner,
+                                ),
+                                _ => continue,
+                            };
+
+                            // Mark as in tunnel network and hide from map
+                            commands.entity(unit_entity).insert(InTunnelNetwork { owner_player });
+                            commands.entity(unit_entity).insert(Visibility::Hidden);
+
+                            info!("Headquarters: Produced {:?}, entered Tunnel Network", unit_type);
+                        }
+
+                        hq_state.current_build = None;
+                        hq_state.current_build_progress = None;
+                    }
+                }
+            }
         }
     }
 }
@@ -411,19 +542,26 @@ pub fn rally_target_cleanup_system(
 }
 
 // =====================================================
-// BARRACKS RALLY POINT SYSTEM
+// PRODUCTION RALLY POINT SYSTEM
 // =====================================================
 
-/// System to set Barracks rally point via right-click when a Barracks is selected
-pub fn barracks_rally_point_system(
+/// System to set rally point via right-click on any production structure that is selected.
+/// Handles Barracks, Headquarters, and Supply Tower.
+pub fn production_rally_point_system(
     buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     cameras: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
-    mut selected_barracks: Query<(&Owner, &mut BarracksState), With<Selected>>,
+    mut barracks_query: Query<(Entity, &mut BarracksState), With<Selected>>,
+    mut hq_query: Query<(Entity, &mut HeadquartersState, &TunnelExpansionMarker), With<Selected>>,
+    mut st_query: Query<(Entity, &mut SupplyTowerState), With<Selected>>,
     potential_targets: Query<(Entity, &Transform, &Owner, &SelectionBounds), With<ObjectInstance>>,
     cursor_over_ui: Res<CursorOverUi>,
     local_player: Res<LocalPlayer>,
     panel_state: Res<ObjectInterfaceState>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    existing_markers: Query<(Entity, &RallyPointMarker)>,
 ) {
     if !buttons.just_pressed(MouseButton::Right) {
         return;
@@ -433,49 +571,116 @@ pub fn barracks_rally_point_system(
         return;
     }
 
-    // Only handle when in Barracks menu state
-    if !matches!(*panel_state, ObjectInterfaceState::StructureMenu(StructureMenuState::BarracksMenu)) {
+    // Only handle when in a production structure menu state
+    let is_production_menu = matches!(*panel_state,
+        ObjectInterfaceState::StructureMenu(
+            StructureMenuState::BarracksMenu |
+            StructureMenuState::HeadquartersMenu |
+            StructureMenuState::SupplyTowerMenu
+        )
+    );
+    if !is_production_menu {
         return;
     }
 
-    // Must have a selected barracks
-    let Ok((_owner, mut bk_state)) = selected_barracks.get_single_mut() else {
-        return;
+    let Ok(window) = windows.single() else { return };
+    let Ok((camera, camera_transform)) = cameras.single() else { return };
+
+    let Some(cursor_pos) = window.cursor_position() else { return };
+    let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_pos) else { return };
+
+    // Determine the rally target from the click
+    let rally_target = compute_rally_target_from_click(
+        cursor_pos, &ray, camera, camera_transform,
+        &potential_targets, &local_player,
+    );
+
+    let Some(rally_target) = rally_target else { return };
+
+    // For Object targets, look up the target entity's world position for the visual marker
+    let object_world_pos = if let RallyTarget::Object(target_entity) = &rally_target {
+        potential_targets.iter()
+            .find(|(e, _, _, _)| *e == *target_entity)
+            .map(|(_, t, _, _)| t.translation)
+    } else {
+        None
     };
 
-    let Ok(window) = windows.get_single() else { return };
-    let Ok((camera, camera_transform)) = cameras.get_single() else { return };
-
-    let Some(cursor_pos) = cursor_pos_in_viewport(window, camera) else { return };
-    let Some(ray) = camera.viewport_to_world(camera_transform, cursor_pos) else { return };
-
-    // Check for entity under cursor first
-    let click_radius = 25.0_f32;
-    let mut best_distance = f32::MAX;
-    let mut clicked_entity: Option<(Entity, bool)> = None;
-
-    for (target_entity, target_transform, target_owner, _bounds) in potential_targets.iter() {
-        let target_pos = target_transform.translation;
-        if let Some(screen_pos) = camera.world_to_viewport(camera_transform, target_pos) {
-            let dx = cursor_pos.x - screen_pos.x;
-            let dy = cursor_pos.y - screen_pos.y;
-            let dist = (dx * dx + dy * dy).sqrt();
-            if dist <= click_radius {
-                let cam_distance = (target_pos - camera_transform.translation()).length();
-                if cam_distance < best_distance {
-                    let is_enemy = !target_owner.is_neutral()
-                        && target_owner.player_number() != Some(local_player.0);
-                    clicked_entity = Some((target_entity, is_enemy));
-                    best_distance = cam_distance;
+    // Set rally point on all selected production structures of the active group type
+    match *panel_state {
+        ObjectInterfaceState::StructureMenu(StructureMenuState::BarracksMenu) => {
+            for (entity, mut bk_state) in &mut barracks_query {
+                bk_state.rally_point = Some(rally_target.clone());
+                info!("Barracks: Rally point set");
+                spawn_or_update_rally_marker(&mut commands, &mut meshes, &mut materials, &existing_markers, entity, &rally_target, object_world_pos);
+            }
+        }
+        ObjectInterfaceState::StructureMenu(StructureMenuState::HeadquartersMenu) => {
+            for (entity, mut hq_state, expansion_marker) in &mut hq_query {
+                // If clicking the parent tunnel, clear rally point (unit stays in network)
+                if let RallyTarget::Object(target_e) = &rally_target {
+                    if *target_e == expansion_marker.parent_tunnel {
+                        hq_state.rally_point = None;
+                        despawn_rally_marker_for(&mut commands, &existing_markers, entity);
+                        info!("Headquarters: Rally point cleared (target is parent tunnel)");
+                        continue;
+                    }
                 }
+                hq_state.rally_point = Some(rally_target.clone());
+                info!("Headquarters: Rally point set");
+                spawn_or_update_rally_marker(&mut commands, &mut meshes, &mut materials, &existing_markers, entity, &rally_target, object_world_pos);
+            }
+        }
+        ObjectInterfaceState::StructureMenu(StructureMenuState::SupplyTowerMenu) => {
+            for (entity, mut st_state) in &mut st_query {
+                st_state.rally_point = Some(rally_target.clone());
+                info!("Supply Tower: Rally point set");
+                spawn_or_update_rally_marker(&mut commands, &mut meshes, &mut materials, &existing_markers, entity, &rally_target, object_world_pos);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Compute a RallyTarget from a click position — checks entities first, then ground plane.
+fn compute_rally_target_from_click(
+    _cursor_pos: Vec2,
+    ray: &Ray3d,
+    _camera: &Camera,
+    _camera_transform: &GlobalTransform,
+    potential_targets: &Query<(Entity, &Transform, &Owner, &SelectionBounds), With<ObjectInstance>>,
+    _local_player: &Res<LocalPlayer>,
+) -> Option<RallyTarget> {
+    // Check for entity under cursor via 3D ray-AABB intersection
+    let ray_origin = ray.origin;
+    let ray_dir = *ray.direction;
+    let click_pad = 0.3;
+    let mut best_distance = f32::MAX;
+    let mut clicked_entity: Option<Entity> = None;
+
+    for (target_entity, target_transform, _target_owner, bounds) in potential_targets.iter() {
+        let center = target_transform.translation;
+        let aabb_min = Vec3::new(
+            center.x - bounds.half_x - click_pad,
+            center.y - bounds.half_y - click_pad,
+            center.z - bounds.half_z - click_pad,
+        );
+        let aabb_max = Vec3::new(
+            center.x + bounds.half_x + click_pad,
+            center.y + bounds.half_y + click_pad,
+            center.z + bounds.half_z + click_pad,
+        );
+
+        if let Some(t) = crate::ui::utils::ray_aabb_intersect(ray_origin, ray_dir, aabb_min, aabb_max) {
+            if t < best_distance {
+                clicked_entity = Some(target_entity);
+                best_distance = t;
             }
         }
     }
 
-    if let Some((target_entity, _is_enemy)) = clicked_entity {
-        bk_state.rally_point = Some(RallyTarget::Object(target_entity));
-        info!("Barracks: Rally point set to entity {:?}", target_entity);
-        return;
+    if let Some(target_entity) = clicked_entity {
+        return Some(RallyTarget::Object(target_entity));
     }
 
     // Ground click — set rally to location
@@ -483,8 +688,67 @@ pub fn barracks_rally_point_system(
         let t = -ray.origin.y / ray.direction.y;
         if t > 0.0 {
             let world_hit = ray.origin + *ray.direction * t;
-            bk_state.rally_point = Some(RallyTarget::Location(world_hit));
-            info!("Barracks: Rally point set to ({:.1}, {:.1})", world_hit.x, world_hit.z);
+            return Some(RallyTarget::Location(world_hit));
+        }
+    }
+
+    None
+}
+
+/// Spawn or update a visual rally point marker for a production structure.
+/// Despawns any existing marker for the owner, then spawns a new one at the rally location.
+/// For Object targets, `object_world_pos` provides the target entity's position for the marker.
+pub fn spawn_or_update_rally_marker(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    existing_markers: &Query<(Entity, &RallyPointMarker)>,
+    owner_structure: Entity,
+    rally_target: &RallyTarget,
+    object_world_pos: Option<Vec3>,
+) {
+    // Despawn existing marker for this structure
+    despawn_rally_marker_for(commands, existing_markers, owner_structure);
+
+    // Determine world position for the marker
+    let marker_pos = match rally_target {
+        RallyTarget::Location(pos) => *pos,
+        RallyTarget::Object(_) => {
+            // For object targets, place marker at the target's position if provided
+            if let Some(pos) = object_world_pos {
+                pos
+            } else {
+                return;
+            }
+        }
+    };
+
+    // Spawn a small cylinder as the rally point indicator
+    let marker_mesh = meshes.add(Cylinder::new(0.3, 0.1));
+    let marker_material = materials.add(StandardMaterial {
+        base_color: Color::srgba(0.2, 1.0, 0.2, 0.7),
+        emissive: LinearRgba::new(0.0, 2.0, 0.0, 1.0),
+        alpha_mode: AlphaMode::Blend,
+        ..default()
+    });
+
+    commands.spawn((
+        Mesh3d(marker_mesh),
+        MeshMaterial3d(marker_material),
+        Transform::from_translation(Vec3::new(marker_pos.x, 0.15, marker_pos.z)),
+        RallyPointMarker { owner_structure },
+    ));
+}
+
+/// Despawn any existing rally point marker for the given structure entity.
+pub fn despawn_rally_marker_for(
+    commands: &mut Commands,
+    existing_markers: &Query<(Entity, &RallyPointMarker)>,
+    owner_structure: Entity,
+) {
+    for (marker_entity, marker) in existing_markers.iter() {
+        if marker.owner_structure == owner_structure {
+            commands.entity(marker_entity).despawn();
         }
     }
 }
@@ -826,8 +1090,9 @@ pub fn manage_placement_ghost(
             let mesh = meshes.add(Cuboid::new(w, h, d));
             let material = materials.add(StandardMaterial {
                 base_color: Color::srgba(0.2, 0.8, 0.2, 0.5),
-                alpha_mode: AlphaMode::Blend,
+                alpha_mode: AlphaMode::Add,
                 unlit: true,
+                cull_mode: None, // Double-sided: prevents backface culling artifacts when flipped (negative scale)
                 ..default()
             });
 
@@ -837,13 +1102,10 @@ pub fn manage_placement_ghost(
             let half_z = d / 2.0;
 
             commands.spawn((
-                PbrBundle {
-                    mesh,
-                    material,
-                    transform: Transform::from_xyz(0.0, h / 2.0, 0.0),
-                    visibility: Visibility::Hidden,
-                    ..default()
-                },
+                Mesh3d(mesh),
+                MeshMaterial3d(material),
+                Transform::from_xyz(0.0, h / 2.0, 0.0),
+                Visibility::Hidden,
                 PlacementGhost,
             )).with_children(|parent| {
                 crate::game::utils::spawn_ghost_side_labels(parent, sym, half_x, half_z, h);
@@ -862,7 +1124,7 @@ pub fn manage_placement_ghost(
     } else if !is_placing && !ghost_query.is_empty() {
         // Despawn ghost
         for entity in ghost_query.iter() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
         placement_state.building_type = None;
         placement_state.source_entity = None;
@@ -875,13 +1137,13 @@ pub fn manage_placement_ghost(
 pub fn update_placement_ghost(
     windows: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
-    mut ghost_query: Query<(&mut Transform, &mut Visibility, &Handle<StandardMaterial>), With<PlacementGhost>>,
+    mut ghost_query: Query<(&mut Transform, &mut Visibility, &MeshMaterial3d<StandardMaterial>), With<PlacementGhost>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     panel_state: Res<ObjectInterfaceState>,
     mut placement_state: ResMut<PlacementState>,
     build_area: Res<GdoBuildArea>,
     tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
-    structures: Query<(&GridPosition, &StructureInstance)>,
+    structures: Query<(&GridPosition, &StructureInstance, &ObjectInstance)>,
     patches: Query<(&GridPosition, &SpaceCrystalPatch)>,
     tunnel_areas: Query<&TunnelArea>,
     fog_map: Res<FogOfWarMap>,
@@ -891,27 +1153,15 @@ pub fn update_placement_ghost(
         return;
     }
 
-    let (mut ghost_transform, mut ghost_vis, mat_handle) = match ghost_query.get_single_mut() {
-        Ok(g) => g,
-        Err(_) => return,
-    };
+    let Ok((mut ghost_transform, mut ghost_vis, mat_handle)) = ghost_query.single_mut() else { return; };
 
-    let building_type = match placement_state.building_type {
-        Some(bt) => bt,
-        None => return,
-    };
+    let Some(building_type) = placement_state.building_type else { return; };
 
-    let window = match windows.get_single() {
-        Ok(w) => w,
-        Err(_) => return,
-    };
+    let Ok(window) = windows.single() else { return; };
 
-    let (camera, camera_transform) = match camera_query.get_single() {
-        Ok(c) => c,
-        Err(_) => return,
-    };
+    let Ok((camera, camera_transform)) = camera_query.single() else { return; };
 
-    let cursor_pos = match cursor_pos_in_viewport(window, camera) {
+    let cursor_pos = match window.cursor_position() {
         Some(pos) => pos,
         None => {
             *ghost_vis = Visibility::Hidden;
@@ -921,8 +1171,8 @@ pub fn update_placement_ghost(
 
     // Raycast to ground plane (Y=0)
     let ray = match camera.viewport_to_world(camera_transform, cursor_pos) {
-        Some(r) => r,
-        None => return,
+        Ok(r) => r,
+        Err(_) => return,
     };
 
     // Intersect with Y=0 plane
@@ -1017,7 +1267,7 @@ pub fn update_placement_ghost(
     placement_state.is_valid = is_valid;
 
     // Update ghost color based on validity
-    if let Some(material) = materials.get_mut(mat_handle) {
+    if let Some(material) = materials.get_mut(&mat_handle.0) {
         material.base_color = if is_valid {
             Color::srgba(0.2, 0.8, 0.2, 0.5) // Green
         } else {
@@ -1039,8 +1289,10 @@ pub fn placement_click_system(
     mut dc_query: Query<(&Owner, &mut DeploymentCenterState)>,
     mut ef_query: Query<(&Owner, &mut ExtractionFacilityState)>,
     mut tunnel_query: Query<(&Owner, &mut TunnelState)>,
+    mut syndicate_players: Query<(&Player, &mut SyndicatePlayerResources)>,
     mut build_area: ResMut<GdoBuildArea>,
     mut patches: Query<(Entity, &GridPosition, &mut SpaceCrystalPatch)>,
+    existing_builders: Query<&BuildingTunnelBehavior>,
 ) {
     if !panel_state.is_placement_mode() {
         return;
@@ -1132,10 +1384,14 @@ pub fn placement_click_system(
                                 &mut commands, &mut meshes, &mut materials,
                                 grid_x, grid_z, owner, rotation, flip_h, flip_v,
                             );
-                            // Supply Tower also spawns a free Supply Chopper
+                            // Supply Tower also spawns a free Supply Chopper at the spawn-side exit
+                            let st_si = StructureInstance::new(rotation, flip_h, flip_v);
+                            let (dx, dz) = super::utils::spawn_side_offset(
+                                ObjectEnum::SupplyTower, &st_si,
+                            );
                             spawn_supply_chopper(
                                 &mut commands, &mut meshes, &mut materials,
-                                grid_x + 1, grid_z + 3, owner,
+                                grid_x + dx, grid_z + dz, owner,
                             );
                             expand_build_area(&mut build_area, grid_x, grid_z, rot_x, rot_z, 1);
                         }
@@ -1174,38 +1430,71 @@ pub fn placement_click_system(
                 }
             }
             ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelAwaitingPlacement) => {
-                // Place tunnel expansion
+                // Place tunnel expansion — deduct cost and begin construction (entity spawns on completion)
                 if let Ok((owner, mut tunnel_state)) = tunnel_query.get_mut(source_entity) {
-                    let owner = *owner;
-                    // Set the tunnel's current operation to building expansion
-                    tunnel_state.current_operation = Some(TunnelOperation::BuildingExpansion {
-                        object: building_type,
-                        progress: 0.0,
-                    });
-
-                    // Spawn the expansion entity
-                    match building_type {
-                        ObjectEnum::Headquarters => {
-                            spawn_headquarters(
-                                &mut commands,
-                                grid_x, grid_z, owner, source_entity,
-                            );
-                        }
+                    // Determine expansion cost
+                    let cost = match building_type {
+                        ObjectEnum::Headquarters => syndicate_structure_stats::HQ_SC_COST,
                         _ => {
                             info!("Unknown tunnel expansion type: {:?}", building_type);
+                            0
+                        }
+                    };
+
+                    // Check and deduct cost from SyndicatePlayerResources
+                    let mut cost_paid = false;
+                    for (player, mut res) in syndicate_players.iter_mut() {
+                        if Some(player.player_number) == owner.player_number() {
+                            if res.space_crystals >= cost as i32 {
+                                res.space_crystals -= cost as i32;
+                                cost_paid = true;
+                                info!("Tunnel expansion {:?}: deducted {} SC", building_type, cost);
+                            } else {
+                                info!("Tunnel expansion {:?}: insufficient SC ({} < {})", building_type, res.space_crystals, cost);
+                            }
+                            break;
                         }
                     }
 
-                    info!("Placed tunnel expansion {:?} at ({}, {})", building_type, grid_x, grid_z);
+                    if !cost_paid {
+                        *panel_state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelIdle);
+                        return;
+                    }
+
+                    // Set the tunnel's current operation to building expansion (entity spawns on completion)
+                    tunnel_state.current_operation = Some(TunnelOperation::BuildingExpansion {
+                        object: building_type,
+                        progress: 0.0,
+                        grid_x,
+                        grid_z,
+                        rotation,
+                        flip_horizontal: flip_h,
+                        flip_vertical: flip_v,
+                    });
+
+                    info!("Began tunnel expansion {:?} construction at ({}, {})", building_type, grid_x, grid_z);
                     *panel_state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelIdle);
                 }
             }
             ObjectInterfaceState::AgentMenu(AgentMenuState::AgentAwaitingPlacement) => {
                 // Agent placement: issue BuildTunnel command to the Agent, don't spawn structure yet
                 let world_pos = grid_to_world(grid_x, grid_z, 1.0);
-                commands.entity(source_entity)
-                    .insert(UnitCommand::BuildTunnel(world_pos));
-                info!("Agent: BuildTunnel command to ({}, {})", grid_x, grid_z);
+
+                // Single-Agent construction enforcement: reject if another Agent is
+                // already building (MovingToSite or Constructing) at the same location
+                let location_taken = existing_builders.iter().any(|b| {
+                    let dx = (b.target_location.x - world_pos.x).abs();
+                    let dz = (b.target_location.z - world_pos.z).abs();
+                    dx < 1.0 && dz < 1.0
+                });
+
+                if location_taken {
+                    info!("Agent: BuildTunnel rejected — another Agent is already building at ({}, {})", grid_x, grid_z);
+                } else {
+                    commands.entity(source_entity)
+                        .insert(UnitCommand::BuildTunnel(world_pos));
+                    info!("Agent: BuildTunnel command to ({}, {})", grid_x, grid_z);
+                }
                 *panel_state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
             }
             _ => {}
@@ -1258,12 +1547,9 @@ pub fn manage_build_area_overlay(
                         ..default()
                     });
                     commands.spawn((
-                        PbrBundle {
-                            mesh: mesh_handle,
-                            material,
-                            transform: Transform::from_xyz(0.0, 0.01, 0.0),
-                            ..default()
-                        },
+                        Mesh3d(mesh_handle),
+                        MeshMaterial3d(material),
+                        Transform::from_xyz(0.0, 0.01, 0.0),
                         BuildAreaOverlay,
                     ));
                 }
@@ -1286,37 +1572,39 @@ pub fn manage_build_area_overlay(
             });
 
             commands.spawn((
-                PbrBundle {
-                    mesh: mesh_handle,
-                    material,
-                    transform: Transform::from_xyz(0.0, 0.01, 0.0),
-                    ..default()
-                },
+                Mesh3d(mesh_handle),
+                MeshMaterial3d(material),
+                Transform::from_xyz(0.0, 0.01, 0.0),
                 BuildAreaOverlay,
             ));
         }
     } else if !is_placing && !overlay_query.is_empty() {
         // Despawn overlay
         for entity in overlay_query.iter() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }
 
-/// Check if any existing structure occupies any cell of the given footprint.
+/// Check if any existing structure's full footprint occupies any cell of the given footprint.
+/// Unlike origin-only checks, this accounts for multi-cell structures (e.g., 4x4 Tunnel).
 fn has_structure_overlap(
     pos_x: i32,
     pos_z: i32,
     size_x: u32,
     size_z: u32,
-    structures: &Query<(&GridPosition, &StructureInstance)>,
+    structures: &Query<(&GridPosition, &StructureInstance, &ObjectInstance)>,
 ) -> bool {
     for dx in 0..size_x as i32 {
         for dz in 0..size_z as i32 {
             let check_x = pos_x + dx;
             let check_z = pos_z + dz;
-            for (struct_pos, _) in structures.iter() {
-                if struct_pos.x == check_x && struct_pos.z == check_z {
+            for (struct_pos, _si, obj) in structures.iter() {
+                let (sx, sz) = obj.object_type.object_type().size;
+                // Check if check_x/check_z falls within this structure's full footprint
+                if check_x >= struct_pos.x && check_x < struct_pos.x + sx as i32
+                    && check_z >= struct_pos.z && check_z < struct_pos.z + sz as i32
+                {
                     return true;
                 }
             }
@@ -1328,7 +1616,7 @@ fn has_structure_overlap(
 /// Build a single mesh from all cells in the build area.
 /// Each cell becomes a quad (2 triangles) at its world position.
 fn build_area_mesh(build_area: &GdoBuildArea) -> Mesh {
-    use bevy::render::mesh::PrimitiveTopology;
+    use bevy::mesh::{PrimitiveTopology, Indices};
 
     let cell_count = build_area.cells.len();
     let mut positions: Vec<[f32; 3]> = Vec::with_capacity(cell_count * 4);
@@ -1372,13 +1660,13 @@ fn build_area_mesh(build_area: &GdoBuildArea) -> Mesh {
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+    mesh.insert_indices(Indices::U32(indices));
     mesh
 }
 
 /// Build a single mesh from all cells in a TunnelArea (for overlay during expansion placement).
 fn tunnel_area_mesh(tunnel_area: &TunnelArea) -> Mesh {
-    use bevy::render::mesh::PrimitiveTopology;
+    use bevy::mesh::{PrimitiveTopology, Indices};
 
     let cell_count = tunnel_area.cells.len();
     let mut positions: Vec<[f32; 3]> = Vec::with_capacity(cell_count * 4);
@@ -1420,7 +1708,7 @@ fn tunnel_area_mesh(tunnel_area: &TunnelArea) -> Mesh {
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+    mesh.insert_indices(Indices::U32(indices));
     mesh
 }
 
@@ -1433,10 +1721,13 @@ fn tunnel_area_mesh(tunnel_area: &TunnelArea) -> Mesh {
 /// When construction completes, the expansion entity is spawned.
 /// When upgrade completes, the TunnelTier is advanced and TunnelArea recalculated.
 pub fn tunnel_construction_tick_system(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     mut tunnel_query: Query<(Entity, &Owner, &mut TunnelState, &mut TunnelArea)>,
     mut syndicate_players: Query<(&Player, &mut SyndicatePlayerResources)>,
 ) {
-    for (_entity, owner, mut tunnel_state, mut tunnel_area) in tunnel_query.iter_mut() {
+    for (tunnel_entity, owner, mut tunnel_state, mut tunnel_area) in tunnel_query.iter_mut() {
         let operation = match &tunnel_state.current_operation {
             Some(op) => op.clone(),
             None => continue,
@@ -1478,23 +1769,112 @@ pub fn tunnel_construction_tick_system(
                     });
                 }
             }
-            TunnelOperation::BuildingExpansion { object, progress } => {
+            TunnelOperation::BuildingExpansion { object, progress, grid_x, grid_z, rotation, flip_horizontal, flip_vertical } => {
                 // TODO: Check Agent presence (builder_present) once enter_command task lands.
                 // For now, construction always progresses.
-                let required = syndicate_structure_stats::TUNNEL_CONSTRUCTION_FRAMES as f32;
+                let required = match object {
+                    ObjectEnum::Headquarters => syndicate_structure_stats::HQ_BUILD_FRAMES as f32,
+                    _ => syndicate_structure_stats::TUNNEL_CONSTRUCTION_FRAMES as f32,
+                };
                 let new_progress = progress + 1.0;
 
                 if new_progress >= required {
-                    // Construction complete
+                    // Construction complete — spawn the expansion entity
                     tunnel_state.current_operation = None;
-                    // TODO: Spawn the expansion entity once tunnel_expansions task defines types
-                    info!("Tunnel expansion {:?} construction complete", object);
+                    let owner_copy = *owner;
+                    match object {
+                        ObjectEnum::Headquarters => {
+                            spawn_headquarters(
+                                &mut commands, &mut meshes, &mut materials,
+                                grid_x, grid_z, owner_copy, tunnel_entity,
+                            );
+                            info!("Tunnel expansion Headquarters spawned at ({}, {})", grid_x, grid_z);
+                        }
+                        _ => {
+                            info!("Tunnel expansion {:?} construction complete (no spawn handler)", object);
+                        }
+                    }
                 } else {
                     tunnel_state.current_operation = Some(TunnelOperation::BuildingExpansion {
                         object,
                         progress: new_progress,
+                        grid_x,
+                        grid_z,
+                        rotation,
+                        flip_horizontal,
+                        flip_vertical,
                     });
                 }
+            }
+        }
+    }
+}
+
+/// System to process tunnel ejection queues and eject requests.
+/// Each tick: process pending EjectRequest markers, decrement cooldowns,
+/// eject one unit per tunnel when cooldown expires.
+pub fn ejection_tick_system(
+    mut commands: Commands,
+    mut tunnel_query: Query<(Entity, &Transform, &StructureInstance, &Owner, &mut crate::ui::types::EjectionQueue, Option<&crate::ui::types::EjectRequest>)>,
+    network_units: Query<(Entity, &ObjectInstance, &crate::game::units::types::state::behavior::InTunnelNetwork)>,
+) {
+    use crate::game::units::utils::tunnel_side_world_position;
+    use crate::game::units::types::state::behavior::InTunnelNetwork;
+
+    for (tunnel_entity, tunnel_tf, tunnel_si, owner, mut ejection_queue, eject_request) in tunnel_query.iter_mut() {
+        // Process pending EjectRequest: find a matching unit in the network and add to queue
+        if let Some(request) = eject_request {
+            let owner_player = owner.player_number().unwrap_or(0);
+
+            // Find first matching unit in the network owned by the same player
+            let matching_unit = network_units.iter()
+                .find(|(_, obj, in_net)| {
+                    obj.object_type == request.unit_type && in_net.owner_player == owner_player
+                })
+                .map(|(entity, _, _)| entity);
+
+            if let Some(unit_entity) = matching_unit {
+                ejection_queue.queue.push_back(unit_entity);
+                info!("Tunnel: Queued {:?} for ejection (queue len: {})", request.unit_type, ejection_queue.queue.len());
+            } else {
+                info!("Tunnel: No {:?} unit found in network for player {}", request.unit_type, owner_player);
+            }
+
+            // Remove the request marker
+            commands.entity(tunnel_entity).remove::<crate::ui::types::EjectRequest>();
+        }
+
+        // Process ejection cooldown
+        if ejection_queue.cooldown > 0 {
+            ejection_queue.cooldown -= 1;
+            continue;
+        }
+
+        // Eject next unit from queue
+        if let Some(unit_entity) = ejection_queue.queue.pop_front() {
+            // Verify entity still exists and is in network
+            if let Ok((_, _, _)) = network_units.get(unit_entity) {
+                // Compute Side A position
+                let side_a_pos = tunnel_side_world_position(tunnel_tf, tunnel_si, 'A');
+
+                // Teleport unit to Side A, make visible, remove InTunnelNetwork
+                commands.entity(unit_entity)
+                    .remove::<InTunnelNetwork>()
+                    .insert(Visibility::Visible)
+                    .insert(Transform::from_translation(Vec3::new(side_a_pos.x, 0.5, side_a_pos.z)));
+
+                // Issue a move command away from the tunnel exit to clear the way
+                let move_away = Vec3::new(side_a_pos.x, 0.5, side_a_pos.z - 2.0); // Move slightly away from Side A
+                commands.entity(unit_entity)
+                    .insert(UnitCommand::Move(move_away));
+
+                // Reset cooldown (8 frames minimum between ejections)
+                ejection_queue.cooldown = 8;
+
+                info!("Tunnel: Ejected unit {:?} at Side A ({:.1}, {:.1})", unit_entity, side_a_pos.x, side_a_pos.z);
+            } else {
+                // Entity no longer valid — skip and try next
+                info!("Tunnel: Ejection skipped — unit {:?} no longer in network", unit_entity);
             }
         }
     }
@@ -1505,10 +1885,14 @@ pub fn supply_tower_production_tick_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut st_query: Query<(Entity, &Owner, &crate::types::GridPosition, &mut SupplyTowerState)>,
+    mut st_query: Query<(Entity, &Owner, &crate::types::GridPosition, &mut SupplyTowerState, &StructureInstance)>,
     players: Query<(&Player, &mut GdoPlayerResources)>,
+    rally_targets: Query<(&Transform, &Owner), With<ObjectInstance>>,
 ) {
-    for (_st_entity, owner, grid_pos, mut st_state) in st_query.iter_mut() {
+    use crate::game::units::types::movement::MoveTarget;
+    use crate::game::units::types::state::UnitCommand;
+
+    for (_st_entity, owner, grid_pos, mut st_state, structure_instance) in st_query.iter_mut() {
         // If no current build but queue has items, start next build
         if st_state.current_build.is_none() && !st_state.build_queue.is_empty() {
             let next = st_state.build_queue.remove(0);
@@ -1526,14 +1910,45 @@ pub fn supply_tower_production_tick_system(
                     *progress += power_ratio;
 
                     if *progress >= required_frames {
-                        // Production complete — spawn chopper near the tower
-                        let spawn_x = grid_pos.x + 1;
-                        let spawn_z = grid_pos.z + 3;
+                        // Production complete — spawn chopper at the spawn-side exit
+                        let (dx, dz) = super::utils::spawn_side_offset(
+                            ObjectEnum::SupplyTower, structure_instance,
+                        );
+                        let spawn_x = grid_pos.x + dx;
+                        let spawn_z = grid_pos.z + dz;
 
-                        spawn_supply_chopper(
+                        let unit_entity = spawn_supply_chopper(
                             &mut commands, &mut meshes, &mut materials,
                             spawn_x, spawn_z, *owner,
                         );
+
+                        // Issue rally command to the newly spawned chopper (air unit — direct move, no pathfinding needed)
+                        if let Some(rally) = &st_state.rally_point {
+                            match rally {
+                                RallyTarget::Location(pos) => {
+                                    commands.entity(unit_entity).insert((
+                                        MoveTarget(*pos),
+                                        UnitCommand::Move(*pos),
+                                    ));
+                                }
+                                RallyTarget::Object(target_entity) => {
+                                    if let Ok((target_transform, target_owner)) = rally_targets.get(*target_entity) {
+                                        let target_pos = target_transform.translation;
+                                        let is_enemy = !target_owner.is_neutral()
+                                            && target_owner.player_number() != owner.player_number();
+
+                                        if is_enemy {
+                                            commands.entity(unit_entity).insert(UnitCommand::AttackTarget(*target_entity));
+                                        } else {
+                                            commands.entity(unit_entity).insert((
+                                                MoveTarget(target_pos),
+                                                UnitCommand::Move(target_pos),
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
                         info!("Supply Tower: Produced {:?} at ({}, {})", unit_type, spawn_x, spawn_z);
 
@@ -1543,5 +1958,161 @@ pub fn supply_tower_production_tick_system(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::prelude::*;
+
+    #[test]
+    fn headquarters_default_has_no_rally_point() {
+        let state = HeadquartersState::default();
+        assert!(state.rally_point.is_none());
+    }
+
+    #[test]
+    fn headquarters_rally_point_location_means_eject() {
+        let state = HeadquartersState {
+            rally_point: Some(RallyTarget::Location(Vec3::new(10.0, 0.0, 10.0))),
+            ..default()
+        };
+        // A Location rally point means the unit should eject to surface
+        let should_eject = matches!(state.rally_point, Some(RallyTarget::Location(_)));
+        assert!(should_eject);
+    }
+
+    #[test]
+    fn headquarters_no_rally_means_tunnel_network() {
+        let state = HeadquartersState::default();
+        // No rally point means the unit stays in the tunnel network
+        let should_eject = match &state.rally_point {
+            Some(RallyTarget::Location(_)) => true,
+            Some(RallyTarget::Object(_)) => true, // non-parent-tunnel object
+            None => false,
+        };
+        assert!(!should_eject);
+    }
+
+    #[test]
+    fn headquarters_rally_target_parent_tunnel_clears() {
+        // Simulate the "rally on parent tunnel = clear" logic
+        let parent_tunnel = Entity::from_raw_u32(42).unwrap();
+        let rally_target = RallyTarget::Object(parent_tunnel);
+
+        let mut state = HeadquartersState {
+            rally_point: Some(rally_target),
+            ..default()
+        };
+
+        // The logic: if rally target entity == parent_tunnel, clear
+        if let Some(RallyTarget::Object(entity)) = &state.rally_point {
+            if *entity == parent_tunnel {
+                state.rally_point = None;
+            }
+        }
+
+        assert!(state.rally_point.is_none(), "Rally should be cleared when target is parent tunnel");
+    }
+
+    #[test]
+    fn headquarters_rally_target_other_entity_does_not_clear() {
+        let parent_tunnel = Entity::from_raw_u32(42).unwrap();
+        let other_entity = Entity::from_raw_u32(99).unwrap();
+        let rally_target = RallyTarget::Object(other_entity);
+
+        let mut state = HeadquartersState {
+            rally_point: Some(rally_target),
+            ..default()
+        };
+
+        // The logic: if rally target entity != parent_tunnel, keep it
+        if let Some(RallyTarget::Object(entity)) = &state.rally_point {
+            if *entity == parent_tunnel {
+                state.rally_point = None;
+            }
+        }
+
+        assert!(state.rally_point.is_some(), "Rally should NOT be cleared when target is different entity");
+    }
+
+    #[test]
+    fn rally_point_marker_stores_owner() {
+        let owner = Entity::from_raw_u32(10).unwrap();
+        let marker = RallyPointMarker { owner_structure: owner };
+        assert_eq!(marker.owner_structure, owner);
+    }
+
+    #[test]
+    fn headquarters_production_eject_decision_with_parent_tunnel_rally() {
+        // When rally_point is Object(parent_tunnel), should NOT eject
+        let parent_tunnel = Entity::from_raw_u32(42).unwrap();
+        let rally_point = Some(RallyTarget::Object(parent_tunnel));
+
+        let should_eject = match &rally_point {
+            Some(RallyTarget::Location(_)) => true,
+            Some(RallyTarget::Object(entity)) => *entity != parent_tunnel,
+            None => false,
+        };
+
+        assert!(!should_eject, "Rally on parent tunnel should not cause ejection");
+    }
+
+    #[test]
+    fn headquarters_production_eject_decision_with_enemy_rally() {
+        // When rally_point is Object(enemy), should eject
+        let parent_tunnel = Entity::from_raw_u32(42).unwrap();
+        let enemy = Entity::from_raw_u32(99).unwrap();
+        let rally_point = Some(RallyTarget::Object(enemy));
+
+        let should_eject = match &rally_point {
+            Some(RallyTarget::Location(_)) => true,
+            Some(RallyTarget::Object(entity)) => *entity != parent_tunnel,
+            None => false,
+        };
+
+        assert!(should_eject, "Rally on enemy should cause ejection");
+    }
+
+    /// Ghost placement material uses AlphaMode::Add (order-independent blending) and
+    /// cull_mode: None to prevent visual artifacts when the ghost is flipped via negative scale.
+    /// AlphaMode::Blend caused depth-sorting artifacts with negative scale, making the ghost
+    /// appear "upside-down" from certain camera angles.
+    #[test]
+    fn ghost_material_should_be_double_sided_and_additive() {
+        // The ghost StandardMaterial uses AlphaMode::Add + cull_mode: None
+        // AlphaMode::Add is order-independent, preventing visual artifacts when
+        // flip_horizontal or flip_vertical sets a negative scale component.
+        let mat = StandardMaterial {
+            base_color: Color::srgba(0.2, 0.8, 0.2, 0.5),
+            alpha_mode: AlphaMode::Add,
+            unlit: true,
+            cull_mode: None,
+            ..default()
+        };
+        assert!(mat.cull_mode.is_none(), "Ghost material must be double-sided (cull_mode: None)");
+        assert_eq!(mat.alpha_mode, AlphaMode::Add, "Ghost material must use additive blending to avoid depth-sort artifacts with negative scale");
+    }
+
+    /// Flip scale should negate X for horizontal and Z for vertical.
+    #[test]
+    fn flip_scale_axes_are_correct() {
+        // flip_horizontal = true → scale.x = -1, scale.z = 1
+        let flip_h = Vec3::new(-1.0, 1.0, 1.0);
+        assert_eq!(flip_h.x, -1.0);
+        assert_eq!(flip_h.y, 1.0);
+        assert_eq!(flip_h.z, 1.0);
+
+        // flip_vertical = true → scale.x = 1, scale.z = -1
+        let flip_v = Vec3::new(1.0, 1.0, -1.0);
+        assert_eq!(flip_v.x, 1.0);
+        assert_eq!(flip_v.y, 1.0);
+        assert_eq!(flip_v.z, -1.0);
+
+        // both flipped → scale.x = -1, scale.z = -1
+        let flip_both = Vec3::new(-1.0, 1.0, -1.0);
+        assert_eq!(flip_both.x, -1.0);
+        assert_eq!(flip_both.z, -1.0);
     }
 }

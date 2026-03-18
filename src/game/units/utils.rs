@@ -6,6 +6,9 @@ use crate::game::combat::types::*;
 use super::types::movement::{MoveTarget, Path, Velocity};
 use super::types::HoldingPosition;
 
+// Re-export tunnel_side_world_position for cross-module access
+pub use super::systems::behaviors::tunnel_side_world_position;
+
 /// Half-map offset for 64x64 grid (world 0,0 is grid center 32,32)
 const GRID_HALF_SIZE: f32 = 32.0;
 

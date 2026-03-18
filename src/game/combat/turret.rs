@@ -54,7 +54,7 @@ pub fn turret_rotation_system(
     time: Res<Time>,
     mut turrets: Query<&mut Turret, With<Unit>>,
 ) {
-    let delta = time.delta_seconds();
+    let delta = time.delta_secs();
 
     for mut turret in turrets.iter_mut() {
         let Some(target_angle) = turret.target_angle else {
@@ -79,7 +79,7 @@ pub fn update_turret_visual_system(
     mut turret_visuals: Query<&mut Transform, With<TurretVisual>>,
 ) {
     for (turret, children) in units.iter() {
-        for &child in children.iter() {
+        for child in children.iter() {
             if let Ok(mut turret_transform) = turret_visuals.get_mut(child) {
                 turret_transform.rotation = Quat::from_rotation_y(turret.current_angle);
             }

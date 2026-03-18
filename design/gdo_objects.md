@@ -90,8 +90,11 @@ Right-click resolution:
 - Right-click Object: issues SetRallyPoint command to that object
 
 Immediate commands (CommandIssuingTransition):
-- Build Peacekeeper: deducts 50 Space Crystals from player, adds Peacekeeper to BuildQueue. Only available if BuildQueue has fewer than 5 entries and player has sufficient Space Crystals and Unit Control.
-- Cancel Production: removes last entry from BuildQueue, refunds full cost to player. Only available if BuildQueue is not empty.
+- **Q: Build Peacekeeper**: deducts 50 Space Crystals from player, adds Peacekeeper to BuildQueue. Only available if BuildQueue has fewer than 5 entries and player has sufficient Space Crystals and Unit Control.
+- **X: Cancel Production**: removes last entry from BuildQueue, refunds full cost to player. Only available if BuildQueue is not empty.
+
+Target commands (StateOnlyTransition):
+- **C: Set Rally Point**: enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState).
 
 ## DeploymentCenter
 GDO primary construction structure. Constructs buildings one at a time, which must then be placed within the build radius. The build radius is the area around the Deployment Center and any placed GDO buildings, extended by each building's BuildRadiusExtension.
@@ -134,15 +137,15 @@ BuildMenu (instance idle — no CurrentConstruction, no ReadyToPlace):
 - Escape/right-click: returns to DefaultState (StateOnlyTransition)
 
 BuildMenu (instance constructing — CurrentConstruction is set):
-- Cancel Construction: refunds full cost, clears CurrentConstruction (CommandIssuingTransition, returns to DefaultState)
+- **X: Cancel Construction**: refunds full cost, clears CurrentConstruction (CommandIssuingTransition, returns to DefaultState)
 - Other build options unavailable
-- Escape/right-click: returns to DefaultState (StateOnlyTransition)
+- **Z**: returns to DefaultState (StateOnlyTransition)
 
 BuildMenu (building ready — ReadyToPlace is set):
 - Select completed building: enters AwaitingPlacement (StateOnlyTransition)
-- Cancel Ready Building: refunds 75% cost (rounded down), clears ReadyToPlace (CommandIssuingTransition, returns to DefaultState)
+- **X: Cancel Ready Building**: refunds 75% cost (rounded down), clears ReadyToPlace (CommandIssuingTransition, returns to DefaultState)
 - Other build options unavailable
-- Escape/right-click: returns to DefaultState (StateOnlyTransition)
+- **Z**: returns to DefaultState (StateOnlyTransition)
 
 AwaitingPlacement:
 - A ghost preview of the building follows the cursor, snapped to the grid. The ghost is tinted green when the placement is valid and red when invalid.
@@ -184,14 +187,14 @@ GDO resource extraction structure. Constructs Extraction Plates onto Space Cryst
 ### ObjectInterfaceState[ExtractionFacility]:
 
 DefaultState (idle — no CurrentConstruction, no ReadyToPlace):
-- Build Extraction Plate: deducts 75 Space Crystals, starts construction (CommandIssuingTransition). Only available if player has sufficient Space Crystals.
+- **Q: Build Extraction Plate**: deducts 75 Space Crystals, starts construction (CommandIssuingTransition). Only available if player has sufficient Space Crystals.
 
 DefaultState (constructing — CurrentConstruction is set):
-- Cancel Construction: refunds full cost, clears CurrentConstruction (CommandIssuingTransition)
+- **X: Cancel Construction**: refunds full cost, clears CurrentConstruction (CommandIssuingTransition)
 
 DefaultState (ready to place — ReadyToPlace is set):
-- Place Plate: enters AwaitingPlacement (StateOnlyTransition)
-- Cancel Ready Plate: refunds 75% cost (rounded down), clears ReadyToPlace (CommandIssuingTransition)
+- **Q: Place Plate**: enters AwaitingPlacement (StateOnlyTransition)
+- **X: Cancel Ready Plate**: refunds 75% cost (rounded down), clears ReadyToPlace (CommandIssuingTransition)
 
 AwaitingPlacement:
 - A ghost preview of the Extraction Plate follows the cursor, snapped to the grid. The ghost is tinted green when over a valid Space Crystal Patch (within build area, no existing plate) and red otherwise.
@@ -272,12 +275,17 @@ GDO supply collection structure. Serves as the drop-off point for supplies gathe
 
 DefaultState commands:
 
+Right-click resolution:
+- Right-click Ground: issues SetRallyPoint command to that location
+- Right-click Object: issues SetRallyPoint command to that object
+
 Immediate commands (CommandIssuingTransition):
-- Build Supply Chopper: deducts 100 Space Crystals from player, adds SupplyChopper to BuildQueue. Only available if BuildQueue has fewer than 5 entries and player has sufficient Space Crystals.
-- Cancel Production: removes last entry from BuildQueue, refunds full cost to player. Only available if BuildQueue is not empty.
+- **Q: Build Supply Chopper**: deducts 100 Space Crystals from player, adds SupplyChopper to BuildQueue. Only available if BuildQueue has fewer than 5 entries and player has sufficient Space Crystals.
+- **X: Cancel Production**: removes last entry from BuildQueue, refunds full cost to player. Only available if BuildQueue is not empty.
 
 Target commands (StateOnlyTransition):
-- Schedule Deliveries: enters AwaitingTarget[ScheduleDeliveries]. Only available if tower has an attached chopper.
+- **C: Set Rally Point**: enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState).
+- **S: Schedule Deliveries**: enters AwaitingTarget[ScheduleDeliveries]. Only available if tower has an attached chopper.
 
 ### AwaitingTarget[ScheduleDeliveries] resolution:
 - Left-click SupplyDeliveryStation: sets ScheduledSDS to the clicked station, attached chopper begins automated delivery loop (CommandIssuingTransition, returns to DefaultState)
@@ -332,9 +340,4 @@ Target commands (StateOnlyTransition):
 - Attach to Tower: enters AwaitingTarget[AttachToTower]
 
 ### AwaitingTarget[PickUpSupplies] resolution:
-- Left-click SupplyDeliveryStation: issues PickUpSupplies command (CommandIssuingTransition, returns to DefaultState)
-- Left-click anything else: no action
-
-### AwaitingTarget[AttachToTower] resolution:
-- Left-click own SupplyTower (with no other chopper attached): issues AttachToTower command (CommandIssuingTransition, returns to DefaultState)
-- Left-click anything else: no action
+- Left-click SupplyDeliveryStation: issues PickUpSupplies command (CommandIssuingTransition,

@@ -4,6 +4,7 @@ mod overlay;
 mod instrumentation;
 
 use bevy::prelude::*;
+use crate::types::AppState;
 use crate::simulation::types::DiagCategory;
 use types::{PerformanceMetrics, TimerStarts};
 use instrumentation::{start_timer, stop_timer, prune_metrics, console_log_metrics_system};
@@ -17,7 +18,7 @@ impl Plugin for PerformanceDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PerformanceMetrics>()
             .init_resource::<TimerStarts>()
-            .add_systems(Startup, spawn_overlay);
+            .add_systems(OnEnter(AppState::InGame), spawn_overlay);
 
         // --- FixedUpdate instrumentation ---
         app.add_systems(FixedUpdate, (

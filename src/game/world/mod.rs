@@ -5,7 +5,7 @@ use crate::simulation::types::DiagCategory;
 pub mod types;
 pub mod utils;
 pub mod map;
-pub(crate) mod faction;
+pub mod faction;
 mod resources;
 
 /// Plugin for map-related systems
@@ -27,11 +27,9 @@ impl Plugin for MapPlugin {
                 map::apply_fog_rendering,
                 map::apply_structure_fog_rendering,
                 crate::game::utils::billboard_label_system,
-            ).in_set(DiagCategory::Map)
-             .run_if(in_state(AppState::InGame)))
+            ).in_set(DiagCategory::Map))
             .add_systems(FixedUpdate, map::update_fog_of_war
-                .in_set(DiagCategory::FogOfWar)
-                .run_if(in_state(AppState::InGame)));
+                .in_set(DiagCategory::FogOfWar));
     }
 }
 
@@ -52,8 +50,7 @@ impl Plugin for ResourcesPlugin {
                 resources::manage_selection_indicators,
                 resources::log_selection_changes,
                 resources::sds_delivery_timer,
-            ).in_set(DiagCategory::Selection)
-             .run_if(in_state(AppState::InGame)));
+            ).in_set(DiagCategory::Selection));
     }
 }
 
@@ -77,30 +74,35 @@ impl Plugin for FactionPlugin {
                 faction::compute_power_grid,
                 faction::display_resources_system,
                 resources::control_group_system,
-                resources::selection_group_sync_system,
+                // selection_group_sync must run AFTER systems that modify Selected markers
+                // via deferred commands, so Bevy auto-inserts apply_deferred between them.
+                // Without this, Selection resource can be stale for one frame, causing
+                // command panel flicker and info panel desync on control group switches.
+                resources::selection_group_sync_system
+                    .after(resources::control_group_system)
+                    .after(resources::selection_validation_system),
                 resources::active_group_cycle_system,
                 resources::selection_validation_system,
                 faction::manage_placement_ghost,
                 faction::update_placement_ghost,
                 faction::placement_click_system,
                 faction::manage_build_area_overlay,
-                faction::barracks_rally_point_system,
-            ).in_set(DiagCategory::Faction)
-             .run_if(in_state(AppState::InGame)))
+                faction::production_rally_point_system,
+            ).in_set(DiagCategory::Faction))
             .add_systems(FixedUpdate, (
                 faction::dc_construction_tick_system,
                 faction::barracks_production_tick_system,
+                faction::headquarters_production_tick_system,
                 faction::extraction_plate_mining_system,
                 faction::ef_construction_tick_system,
                 faction::construction_hp_tick_system,
                 faction::rally_target_cleanup_system,
                 faction::tunnel_construction_tick_system,
-            ).in_set(DiagCategory::Construction)
-             .run_if(in_state(AppState::InGame)))
+                faction::ejection_tick_system,
+            ).in_set(DiagCategory::Construction))
             .add_systems(FixedUpdate,
                 faction::supply_tower_production_tick_system
-                    .in_set(DiagCategory::SupplyDelivery)
-                    .run_if(in_state(AppState::InGame)),
+                    .in_set(DiagCategory::SupplyDelivery),
             );
     }
 }

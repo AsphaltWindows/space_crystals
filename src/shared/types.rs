@@ -171,6 +171,10 @@ impl Selection {
     /// Groupable entities with the same ObjectEnum are combined into one group.
     /// Ungroupable entities each get their own group.
     pub fn build_from_entities(&mut self, entities: &[(Entity, ObjectEnum, bool)]) {
+        // Remember the active group type so we can try to preserve it after rebuild
+        let old_active_type = self.active_group().map(|g| g.object_type);
+        let old_active_index = self.active_group_index;
+
         self.groups.clear();
 
         for &(entity, object_type, groupable) in entities {
@@ -195,7 +199,21 @@ impl Selection {
             }
         }
 
-        self.active_group_index = if self.groups.is_empty() { None } else { Some(0) };
+        if self.groups.is_empty() {
+            self.active_group_index = None;
+        } else if let Some(old_type) = old_active_type {
+            // Try to preserve active group by matching the old active group's type
+            if let Some(pos) = self.groups.iter().position(|g| g.object_type == old_type) {
+                self.active_group_index = Some(pos);
+            } else if let Some(old_idx) = old_active_index {
+                // Old type no longer exists — clamp index to valid range
+                self.active_group_index = Some(old_idx.min(self.groups.len() - 1));
+            } else {
+                self.active_group_index = Some(0);
+            }
+        } else {
+            self.active_group_index = Some(0);
+        }
     }
 
     /// Cycle the active group to the next one (Tab key behavior)
@@ -292,6 +310,7 @@ pub enum ObjectEnum {
     SupplyChopper,
     // Syndicate Units
     SyndicateAgent,
+    SyndicateGuard,
     // GDO Structures
     PowerPlant,
     Barracks,
@@ -609,8 +628,8 @@ mod tests {
     #[test]
     fn selection_build_from_groupable_same_type() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
         sel.build_from_entities(&[
             (e1, ObjectEnum::Peacekeeper, true),
             (e2, ObjectEnum::Peacekeeper, true),
@@ -624,8 +643,8 @@ mod tests {
     #[test]
     fn selection_build_from_different_groupable_types() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
         sel.build_from_entities(&[
             (e1, ObjectEnum::Peacekeeper, true),
             (e2, ObjectEnum::PowerPlant, true),
@@ -637,8 +656,8 @@ mod tests {
     #[test]
     fn selection_build_from_ungroupable_same_type() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
         // DeploymentCenter is ungroupable
         sel.build_from_entities(&[
             (e1, ObjectEnum::DeploymentCenter, false),
@@ -653,9 +672,9 @@ mod tests {
     #[test]
     fn selection_build_from_mixed_groupable_and_ungroupable() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
-        let e3 = Entity::from_raw(3);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
+        let e3 = Entity::from_raw_u32(3).unwrap();
         sel.build_from_entities(&[
             (e1, ObjectEnum::Peacekeeper, true),
             (e2, ObjectEnum::Peacekeeper, true),
@@ -668,7 +687,7 @@ mod tests {
     #[test]
     fn selection_active_type_returns_first_group_type() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
         sel.build_from_entities(&[(e1, ObjectEnum::Peacekeeper, true)]);
         assert_eq!(sel.active_type(), Some(ObjectEnum::Peacekeeper));
     }
@@ -676,8 +695,8 @@ mod tests {
     #[test]
     fn selection_cycle_active_group() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
         sel.build_from_entities(&[
             (e1, ObjectEnum::Peacekeeper, true),
             (e2, ObjectEnum::PowerPlant, true),
@@ -692,7 +711,7 @@ mod tests {
     #[test]
     fn selection_cycle_active_group_single_group() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
         sel.build_from_entities(&[(e1, ObjectEnum::Peacekeeper, true)]);
         sel.cycle_active_group();
         assert_eq!(sel.active_group_index, Some(0)); // stays at 0
@@ -708,8 +727,8 @@ mod tests {
     #[test]
     fn selection_contains_entity() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
         sel.build_from_entities(&[(e1, ObjectEnum::Peacekeeper, true)]);
         assert!(sel.contains_entity(e1));
         assert!(!sel.contains_entity(e2));
@@ -718,8 +737,8 @@ mod tests {
     #[test]
     fn selection_remove_entity() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
         sel.build_from_entities(&[
             (e1, ObjectEnum::Peacekeeper, true),
             (e2, ObjectEnum::Peacekeeper, true),
@@ -733,7 +752,7 @@ mod tests {
     #[test]
     fn selection_remove_entity_cleans_empty_groups() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
         sel.build_from_entities(&[(e1, ObjectEnum::Peacekeeper, true)]);
         sel.remove_entity(e1);
         assert!(sel.groups.is_empty());
@@ -743,8 +762,8 @@ mod tests {
     #[test]
     fn selection_remove_entity_not_found() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
         sel.build_from_entities(&[(e1, ObjectEnum::Peacekeeper, true)]);
         assert!(!sel.remove_entity(e2));
         assert_eq!(sel.total_entity_count(), 1);
@@ -753,8 +772,8 @@ mod tests {
     #[test]
     fn selection_remove_entity_fixes_active_index() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
         sel.build_from_entities(&[
             (e1, ObjectEnum::DeploymentCenter, false),
             (e2, ObjectEnum::ExtractionFacility, false),
@@ -771,7 +790,7 @@ mod tests {
     #[test]
     fn selection_clear() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
         sel.build_from_entities(&[(e1, ObjectEnum::Peacekeeper, true)]);
         sel.clear();
         assert!(sel.groups.is_empty());
@@ -781,7 +800,7 @@ mod tests {
     #[test]
     fn selection_build_deduplicates_entities() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
         // Same entity appears twice
         sel.build_from_entities(&[
             (e1, ObjectEnum::Peacekeeper, true),
@@ -800,9 +819,9 @@ mod tests {
     #[test]
     fn multi_agent_selection_creates_separate_groups() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(10);
-        let e2 = Entity::from_raw(11);
-        let e3 = Entity::from_raw(12);
+        let e1 = Entity::from_raw_u32(10).unwrap();
+        let e2 = Entity::from_raw_u32(11).unwrap();
+        let e3 = Entity::from_raw_u32(12).unwrap();
         // Agent is ungroupable (groupable: false)
         sel.build_from_entities(&[
             (e1, ObjectEnum::SyndicateAgent, false),
@@ -827,10 +846,10 @@ mod tests {
     #[test]
     fn mixed_agents_and_groupable_units_selection() {
         let mut sel = Selection::default();
-        let e1 = Entity::from_raw(20);
-        let e2 = Entity::from_raw(21);
-        let e3 = Entity::from_raw(22);
-        let e4 = Entity::from_raw(23);
+        let e1 = Entity::from_raw_u32(20).unwrap();
+        let e2 = Entity::from_raw_u32(21).unwrap();
+        let e3 = Entity::from_raw_u32(22).unwrap();
+        let e4 = Entity::from_raw_u32(23).unwrap();
         sel.build_from_entities(&[
             (e1, ObjectEnum::Peacekeeper, true),
             (e2, ObjectEnum::Peacekeeper, true),
@@ -848,5 +867,74 @@ mod tests {
         assert_eq!(sel.groups[1].object_type, ObjectEnum::SyndicateAgent);
         assert_eq!(sel.groups[2].entities.len(), 1);
         assert_eq!(sel.groups[2].object_type, ObjectEnum::SyndicateAgent);
+    }
+
+    #[test]
+    fn build_from_entities_preserves_active_group_on_rebuild() {
+        let mut sel = Selection::default();
+        let e1 = Entity::from_raw_u32(30).unwrap();
+        let e2 = Entity::from_raw_u32(31).unwrap();
+        let e3 = Entity::from_raw_u32(32).unwrap();
+
+        // Initial build: two groups
+        sel.build_from_entities(&[
+            (e1, ObjectEnum::Peacekeeper, true),
+            (e2, ObjectEnum::Peacekeeper, true),
+            (e3, ObjectEnum::SyndicateAgent, false),
+        ]);
+        assert_eq!(sel.active_group_index, Some(0));
+
+        // Simulate Tab cycling to group 1 (Agent)
+        sel.cycle_active_group();
+        assert_eq!(sel.active_group_index, Some(1));
+        assert_eq!(sel.active_group().unwrap().object_type, ObjectEnum::SyndicateAgent);
+
+        // Rebuild with same entities (simulates selection_group_sync_system)
+        sel.build_from_entities(&[
+            (e1, ObjectEnum::Peacekeeper, true),
+            (e2, ObjectEnum::Peacekeeper, true),
+            (e3, ObjectEnum::SyndicateAgent, false),
+        ]);
+
+        // Active group should still be SyndicateAgent at index 1
+        assert_eq!(sel.active_group_index, Some(1));
+        assert_eq!(sel.active_group().unwrap().object_type, ObjectEnum::SyndicateAgent);
+    }
+
+    #[test]
+    fn build_from_entities_resets_when_active_type_removed() {
+        let mut sel = Selection::default();
+        let e1 = Entity::from_raw_u32(40).unwrap();
+        let e2 = Entity::from_raw_u32(41).unwrap();
+
+        // Initial build: two groups
+        sel.build_from_entities(&[
+            (e1, ObjectEnum::Peacekeeper, true),
+            (e2, ObjectEnum::SyndicateAgent, false),
+        ]);
+        sel.cycle_active_group();
+        assert_eq!(sel.active_group_index, Some(1));
+        assert_eq!(sel.active_group().unwrap().object_type, ObjectEnum::SyndicateAgent);
+
+        // Rebuild with only Peacekeepers (Agent removed from selection)
+        sel.build_from_entities(&[
+            (e1, ObjectEnum::Peacekeeper, true),
+        ]);
+
+        // Active group should fall back — index clamped to valid range
+        assert_eq!(sel.active_group_index, Some(0));
+        assert_eq!(sel.active_group().unwrap().object_type, ObjectEnum::Peacekeeper);
+    }
+
+    #[test]
+    fn build_from_entities_fresh_selection_starts_at_zero() {
+        let mut sel = Selection::default();
+        let e1 = Entity::from_raw_u32(50).unwrap();
+
+        // No prior active group (fresh selection)
+        sel.build_from_entities(&[
+            (e1, ObjectEnum::Peacekeeper, true),
+        ]);
+        assert_eq!(sel.active_group_index, Some(0));
     }
 }

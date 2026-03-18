@@ -75,7 +75,7 @@ pub fn hold_position_system(
     if keyboard.just_pressed(KeyCode::KeyH) {
         let count = selected_units.iter().count();
         if count > 0 {
-            for (entity, attack_state_opt) in selected_units.iter() {
+            for (entity, attack_state_opt) in &selected_units {
                 // Skip units in non-interruptible attack phases
                 if let Some(attack_state) = attack_state_opt {
                     if !attack_state.phase.is_interruptible() {
@@ -111,7 +111,7 @@ pub fn stop_command_system(
     if keyboard.just_pressed(KeyCode::KeyS) {
         let count = selected_units.iter().count();
         if count > 0 {
-            for (entity, mut velocity, attack_state_opt) in selected_units.iter_mut() {
+            for (entity, mut velocity, attack_state_opt) in &mut selected_units {
                 // Skip units in non-interruptible attack phases
                 if let Some(attack_state) = attack_state_opt {
                     if !attack_state.phase.is_interruptible() {
@@ -142,7 +142,7 @@ pub fn patrol_command_system(
         With<Unit>
     >,
 ) {
-    for (entity, transform, mut command, unit_base) in units.iter_mut() {
+    for (entity, transform, mut command, unit_base) in &mut units {
         if let UnitCommand::Patrol { start, end, going_to_end } = *command {
             let current_pos = transform.translation;
             let target = if going_to_end { end } else { start };
@@ -160,7 +160,7 @@ pub fn patrol_command_system(
                 let start_grid = world_to_grid(current_pos);
                 let target_grid = world_to_grid(new_target);
 
-                if let Some(path) = crate::game::units::pathfinding::find_path(start_grid, target_grid, &tiles, unit_base, grid.width as i32, grid.height as i32, &occupancy, (start_grid.x, start_grid.z)) {
+                if let Some(path) = crate::game::units::pathfinding::find_path_for_domain(start_grid, target_grid, &tiles, unit_base, grid.width as i32, grid.height as i32, &occupancy, (start_grid.x, start_grid.z)) {
                     let smoothed_waypoints = smooth_path(path);
 
                     commands.entity(entity).insert((

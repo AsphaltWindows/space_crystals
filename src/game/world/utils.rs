@@ -1,32 +1,13 @@
 use bevy::prelude::*;
-use bevy::window::Window;
-use crate::types::{GridPosition, ObjectEnum, StructureRotation, VisibilityStateEnum};
+use crate::types::{GridPosition, ObjectEnum, StructureRotation, SymmetryTypeEnum, VisibilityStateEnum};
+use crate::game::types::StructureInstance;
+use crate::game::types::objects::ObjectInstance;
 use super::types::*;
 
-/// Compute the viewport offset in logical (window-space) pixels.
-/// The camera viewport's `physical_position` is in physical pixels;
-/// dividing by the window's scale factor gives logical pixels.
-/// Returns `Vec2::ZERO` if the camera has no custom viewport.
-pub fn viewport_offset(camera: &Camera, scale_factor: f32) -> Vec2 {
-    if let Some(viewport) = &camera.viewport {
-        Vec2::new(
-            viewport.physical_position.x as f32 / scale_factor,
-            viewport.physical_position.y as f32 / scale_factor,
-        )
-    } else {
-        Vec2::ZERO
-    }
-}
-
-/// Returns cursor position adjusted for the camera viewport offset.
-/// `window.cursor_position()` returns window-space coordinates, but camera functions
-/// (`viewport_to_world`, `world_to_viewport`) operate in viewport-space.
-/// This converts window-space cursor position to viewport-space.
-pub fn cursor_pos_in_viewport(window: &Window, camera: &Camera) -> Option<Vec2> {
-    let cursor_pos = window.cursor_position()?;
-    let offset = viewport_offset(camera, window.scale_factor());
-    Some(cursor_pos - offset)
-}
+// NOTE: viewport_offset() and cursor_pos_in_viewport() were removed.
+// In Bevy 0.17, viewport_to_world() and world_to_viewport() handle viewport offsets
+// internally (using logical_viewport_rect() which includes target_rect.min).
+// All callers should use window.cursor_position() directly.
 
 /// Helper function to convert world coordinates to grid coordinates (map version)
 /// Assumes grid is centered at world origin (half-width = 32 for 64x64)
@@ -88,6 +69,44 @@ pub fn rotated_building_size(
     match rotation {
         StructureRotation::R0 | StructureRotation::R180 => (base_size_x, base_size_z),
         StructureRotation::R90 | StructureRotation::R270 => (base_size_z, base_size_x),
+    }
+}
+
+/// Compute the spawn offset for the B-side exit of a structure.
+/// Returns (dx, dz) offset from the structure's grid_pos origin.
+///
+/// For structures with a 'B' label in their symmetry (e.g. Barracks ABAC),
+/// the spawn point is placed 1 tile beyond the B-side edge.
+/// For structures without a 'B' label (e.g. AAAA symmetry like Supply Tower),
+/// the spawn point follows the rotation: R0→South, R90→East, R180→North, R270→West.
+pub fn spawn_side_offset(
+    object: ObjectEnum,
+    si: &StructureInstance,
+) -> (i32, i32) {
+    let st = object.structure_type();
+    let (base_w, base_h) = object.object_type().size;
+    let (w, h) = rotated_building_size(base_w, base_h, &si.rotation);
+
+    let symmetry = st.map(|s| s.symmetry_type).unwrap_or(SymmetryTypeEnum::AAAA);
+    let labels = si.oriented_labels(symmetry);
+
+    // labels: [N=0, E=1, S=2, W=3]
+    let b_side = labels.iter().position(|&c| c == 'B');
+
+    match b_side {
+        Some(0) => (w as i32 / 2, -1),            // North: 1 tile above origin
+        Some(1) => (w as i32, h as i32 / 2),       // East: 1 tile beyond width
+        Some(2) => (w as i32 / 2, h as i32),       // South: 1 tile beyond height
+        Some(3) => (-1, h as i32 / 2),             // West: 1 tile left of origin
+        _ => {
+            // No B side (e.g. AAAA) — use rotation to pick the "default" spawn side
+            match si.rotation {
+                StructureRotation::R0   => (w as i32 / 2, h as i32),    // South
+                StructureRotation::R90  => (w as i32, h as i32 / 2),    // East
+                StructureRotation::R180 => (w as i32 / 2, -1),          // North
+                StructureRotation::R270 => (-1, h as i32 / 2),          // West
+            }
+        }
     }
 }
 
@@ -230,7 +249,7 @@ pub fn can_place_building(
     object_type: ObjectEnum,
     build_area: &GdoBuildArea,
     tiles: &Query<(&GridPosition, &TilePreset), With<Tile>>,
-    structures: &Query<(&GridPosition, &crate::game::types::StructureInstance)>,
+    structures: &Query<(&GridPosition, &crate::game::types::StructureInstance, &ObjectInstance)>,
     patches: &Query<(&GridPosition, &SpaceCrystalPatch)>,
     fog_map: &FogOfWarMap,
     player_id: u8,
@@ -286,9 +305,12 @@ pub fn can_place_building(
                 return Err("No tile at position");
             }
 
-            // 3. No overlap with existing structures
-            for (struct_pos, _) in structures.iter() {
-                if struct_pos.x == check_x && struct_pos.z == check_z {
+            // 3. No overlap with existing structures (check full footprints)
+            for (struct_pos, _si, obj) in structures.iter() {
+                let (sx, sz) = obj.object_type.object_type().size;
+                if check_x >= struct_pos.x && check_x < struct_pos.x + sx as i32
+                    && check_z >= struct_pos.z && check_z < struct_pos.z + sz as i32
+                {
                     return Err("Overlaps existing structure");
                 }
             }
@@ -309,7 +331,7 @@ pub fn can_worker_place_structure(
     size_x: u32,
     size_z: u32,
     tiles: &Query<(&GridPosition, &TilePreset), With<Tile>>,
-    structures: &Query<(&GridPosition, &crate::game::types::StructureInstance)>,
+    structures: &Query<(&GridPosition, &crate::game::types::StructureInstance, &ObjectInstance)>,
 ) -> Result<(), &'static str> {
     for dx in 0..size_x as i32 {
         for dz in 0..size_z as i32 {
@@ -331,9 +353,12 @@ pub fn can_worker_place_structure(
                 return Err("No tile at position");
             }
 
-            // Check no overlap with existing structures
-            for (struct_pos, _) in structures.iter() {
-                if struct_pos.x == check_x && struct_pos.z == check_z {
+            // Check no overlap with existing structures (full footprint check)
+            for (struct_pos, _si, obj) in structures.iter() {
+                let (sx, sz) = obj.object_type.object_type().size;
+                if check_x >= struct_pos.x && check_x < struct_pos.x + sx as i32
+                    && check_z >= struct_pos.z && check_z < struct_pos.z + sz as i32
+                {
                     return Err("Overlaps existing structure");
                 }
             }
@@ -346,108 +371,6 @@ pub fn can_worker_place_structure(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // =====================================================
-    // Viewport offset tests
-    // =====================================================
-
-    #[test]
-    fn viewport_offset_no_viewport_returns_zero() {
-        let camera = Camera::default();
-        let offset = viewport_offset(&camera, 1.0);
-        assert_eq!(offset, Vec2::ZERO);
-    }
-
-    #[test]
-    fn viewport_offset_with_viewport_at_origin() {
-        use bevy::render::camera::Viewport;
-        let mut camera = Camera::default();
-        camera.viewport = Some(Viewport {
-            physical_position: UVec2::new(0, 0),
-            physical_size: UVec2::new(1280, 688),
-            ..default()
-        });
-        let offset = viewport_offset(&camera, 1.0);
-        assert_eq!(offset, Vec2::ZERO);
-    }
-
-    #[test]
-    fn viewport_offset_with_top_bar_offset() {
-        use bevy::render::camera::Viewport;
-        let mut camera = Camera::default();
-        // Simulates HUD top bar of 32px at scale_factor 1.0
-        camera.viewport = Some(Viewport {
-            physical_position: UVec2::new(0, 32),
-            physical_size: UVec2::new(1280, 688),
-            ..default()
-        });
-        let offset = viewport_offset(&camera, 1.0);
-        assert!((offset.x - 0.0).abs() < 0.001);
-        assert!((offset.y - 32.0).abs() < 0.001);
-    }
-
-    #[test]
-    fn viewport_offset_with_scale_factor() {
-        use bevy::render::camera::Viewport;
-        let mut camera = Camera::default();
-        // Physical 64px offset at scale_factor 2.0 → 32 logical pixels
-        camera.viewport = Some(Viewport {
-            physical_position: UVec2::new(0, 64),
-            physical_size: UVec2::new(2560, 1376),
-            ..default()
-        });
-        let offset = viewport_offset(&camera, 2.0);
-        assert!((offset.x - 0.0).abs() < 0.001);
-        assert!((offset.y - 32.0).abs() < 0.001);
-    }
-
-    #[test]
-    fn viewport_offset_with_x_and_y() {
-        use bevy::render::camera::Viewport;
-        let mut camera = Camera::default();
-        camera.viewport = Some(Viewport {
-            physical_position: UVec2::new(100, 50),
-            physical_size: UVec2::new(1080, 670),
-            ..default()
-        });
-        let offset = viewport_offset(&camera, 1.0);
-        assert!((offset.x - 100.0).abs() < 0.001);
-        assert!((offset.y - 50.0).abs() < 0.001);
-    }
-
-    #[test]
-    fn viewport_offset_with_fractional_scale() {
-        use bevy::render::camera::Viewport;
-        let mut camera = Camera::default();
-        // Physical 48px at scale 1.5 → 32 logical
-        camera.viewport = Some(Viewport {
-            physical_position: UVec2::new(0, 48),
-            physical_size: UVec2::new(1920, 1032),
-            ..default()
-        });
-        let offset = viewport_offset(&camera, 1.5);
-        assert!((offset.x - 0.0).abs() < 0.001);
-        assert!((offset.y - 32.0).abs() < 0.001);
-    }
-
-    #[test]
-    fn cursor_adjustment_math_correctness() {
-        // Verify that subtracting viewport offset converts window-space to viewport-space
-        let cursor_window_space = Vec2::new(640.0, 392.0);
-        let vp_offset = Vec2::new(0.0, 32.0); // 32px top bar
-        let cursor_viewport_space = cursor_window_space - vp_offset;
-        assert!((cursor_viewport_space.x - 640.0).abs() < 0.001);
-        assert!((cursor_viewport_space.y - 360.0).abs() < 0.001);
-    }
-
-    #[test]
-    fn cursor_at_viewport_top_edge() {
-        // Cursor at y=32 (just at the top of the viewport) → viewport y=0
-        let cursor_window = Vec2::new(500.0, 32.0);
-        let offset = Vec2::new(0.0, 32.0);
-        let result = cursor_window - offset;
-        assert!((result.y - 0.0).abs() < 0.001);
-    }
 
     // =====================================================
     // Screen-space hit tests
@@ -541,7 +464,7 @@ mod tests {
 
     #[test]
     fn closest_to_center_single_candidate() {
-        let entity = Entity::from_raw(1);
+        let entity = Entity::from_raw_u32(1).unwrap();
         let candidates = vec![make_candidate(entity, 100.0, 100.0)];
         let result = closest_to_center(&candidates, Vec2::new(50.0, 50.0));
         assert_eq!(result, entity);
@@ -549,9 +472,9 @@ mod tests {
 
     #[test]
     fn closest_to_center_picks_nearest() {
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
-        let e3 = Entity::from_raw(3);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
+        let e3 = Entity::from_raw_u32(3).unwrap();
         let candidates = vec![
             make_candidate(e1, 100.0, 100.0),  // dist to center(50,50) = ~70.7
             make_candidate(e2, 55.0, 55.0),     // dist to center(50,50) = ~7.07
@@ -563,8 +486,8 @@ mod tests {
 
     #[test]
     fn closest_to_center_exact_center() {
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
         let candidates = vec![
             make_candidate(e1, 50.0, 50.0),  // exactly at center
             make_candidate(e2, 60.0, 60.0),
@@ -896,9 +819,19 @@ mod tests {
     }
 
     fn spawn_structure_at(world: &mut World, x: i32, z: i32) {
+        // Spawn a 1x1 structure (ExtractionPlate) for overlap testing
         world.spawn((
             GridPosition { x, z },
             StructureInstance::default(),
+            ObjectInstance::destructible(ObjectEnum::ExtractionPlate, 100.0),
+        ));
+    }
+
+    fn spawn_structure_at_type(world: &mut World, x: i32, z: i32, object_type: ObjectEnum) {
+        world.spawn((
+            GridPosition { x, z },
+            StructureInstance::default(),
+            ObjectInstance::destructible(object_type, 100.0),
         ));
     }
 
@@ -912,10 +845,10 @@ mod tests {
 
         let result = world.run_system_once(|
             tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
-            structures: Query<(&GridPosition, &StructureInstance)>,
+            structures: Query<(&GridPosition, &StructureInstance, &ObjectInstance)>,
         | {
             can_worker_place_structure(10, 10, 2, 2, &tiles, &structures)
-        });
+        }).unwrap();
         assert!(result.is_ok());
     }
 
@@ -927,10 +860,10 @@ mod tests {
 
         let result = world.run_system_once(|
             tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
-            structures: Query<(&GridPosition, &StructureInstance)>,
+            structures: Query<(&GridPosition, &StructureInstance, &ObjectInstance)>,
         | {
             can_worker_place_structure(10, 10, 2, 2, &tiles, &structures)
-        });
+        }).unwrap();
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "Tile is not buildable");
     }
@@ -943,10 +876,10 @@ mod tests {
 
         let result = world.run_system_once(|
             tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
-            structures: Query<(&GridPosition, &StructureInstance)>,
+            structures: Query<(&GridPosition, &StructureInstance, &ObjectInstance)>,
         | {
             can_worker_place_structure(10, 10, 2, 2, &tiles, &structures)
-        });
+        }).unwrap();
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "No tile at position");
     }
@@ -961,10 +894,10 @@ mod tests {
 
         let result = world.run_system_once(|
             tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
-            structures: Query<(&GridPosition, &StructureInstance)>,
+            structures: Query<(&GridPosition, &StructureInstance, &ObjectInstance)>,
         | {
             can_worker_place_structure(10, 10, 2, 2, &tiles, &structures)
-        });
+        }).unwrap();
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "Overlaps existing structure");
     }
@@ -976,10 +909,10 @@ mod tests {
 
         let result = world.run_system_once(|
             tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
-            structures: Query<(&GridPosition, &StructureInstance)>,
+            structures: Query<(&GridPosition, &StructureInstance, &ObjectInstance)>,
         | {
             can_worker_place_structure(5, 5, 1, 1, &tiles, &structures)
-        });
+        }).unwrap();
         assert!(result.is_ok());
     }
 
@@ -993,10 +926,10 @@ mod tests {
 
         let result = world.run_system_once(|
             tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
-            structures: Query<(&GridPosition, &StructureInstance)>,
+            structures: Query<(&GridPosition, &StructureInstance, &ObjectInstance)>,
         | {
             can_worker_place_structure(20, 20, 1, 1, &tiles, &structures)
-        });
+        }).unwrap();
         assert!(result.is_ok(), "Worker placement should not require visibility");
     }
 
@@ -1009,10 +942,175 @@ mod tests {
 
         let result = world.run_system_once(|
             tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
-            structures: Query<(&GridPosition, &StructureInstance)>,
+            structures: Query<(&GridPosition, &StructureInstance, &ObjectInstance)>,
         | {
             can_worker_place_structure(30, 30, 1, 1, &tiles, &structures)
-        });
+        }).unwrap();
         assert!(result.is_ok(), "Worker placement should not require build area");
+    }
+
+    #[test]
+    fn worker_place_fails_on_multi_cell_structure_overlap() {
+        let mut world = World::new();
+        // Spawn tiles covering 10..14 in both x and z (5x5 grid)
+        let mut tiles_to_spawn = Vec::new();
+        for x in 10..15 {
+            for z in 10..15 {
+                tiles_to_spawn.push((x, z));
+            }
+        }
+        spawn_buildable_tiles(&mut world, &tiles_to_spawn);
+        // Spawn a 4x4 Tunnel at (10, 10) — footprint covers (10,10) to (13,13)
+        spawn_structure_at_type(&mut world, 10, 10, ObjectEnum::Tunnel);
+
+        // Try placing a 2x2 at (12, 12) — overlaps with Tunnel's footprint
+        let result = world.run_system_once(|
+            tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
+            structures: Query<(&GridPosition, &StructureInstance, &ObjectInstance)>,
+        | {
+            can_worker_place_structure(12, 12, 2, 2, &tiles, &structures)
+        }).unwrap();
+        assert!(result.is_err(), "Should detect overlap with Tunnel's full 4x4 footprint");
+        assert_eq!(result.unwrap_err(), "Overlaps existing structure");
+    }
+
+    #[test]
+    fn worker_place_succeeds_adjacent_to_multi_cell_structure() {
+        let mut world = World::new();
+        // Spawn tiles covering 10..16 in both x and z
+        let mut tiles_to_spawn = Vec::new();
+        for x in 10..16 {
+            for z in 10..16 {
+                tiles_to_spawn.push((x, z));
+            }
+        }
+        spawn_buildable_tiles(&mut world, &tiles_to_spawn);
+        // Spawn a 4x4 Tunnel at (10, 10) — footprint covers (10,10) to (13,13)
+        spawn_structure_at_type(&mut world, 10, 10, ObjectEnum::Tunnel);
+
+        // Place a 2x2 at (14, 10) — adjacent but not overlapping
+        let result = world.run_system_once(|
+            tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
+            structures: Query<(&GridPosition, &StructureInstance, &ObjectInstance)>,
+        | {
+            can_worker_place_structure(14, 10, 2, 2, &tiles, &structures)
+        }).unwrap();
+        assert!(result.is_ok(), "Should succeed when adjacent but not overlapping");
+    }
+
+    // =====================================================
+    // spawn_side_offset tests
+    // =====================================================
+
+    #[test]
+    fn barracks_r0_b_side_is_south() {
+        // Barracks 3x2, ABAC. R0: oriented_labels = [A,B,A,C] → B at East(1)
+        // Wait — let's verify: base ABAC = [N=A, E=B, S=A, W=C], R0 shift=0
+        // So B is at East(1) → offset (w, h/2) = (3, 1)
+        let si = StructureInstance::new(StructureRotation::R0, false, false);
+        let (dx, dz) = spawn_side_offset(ObjectEnum::Barracks, &si);
+        assert_eq!(dx, 3); // Beyond the 3-wide building
+        assert_eq!(dz, 1); // Midpoint of 2-deep building
+    }
+
+    #[test]
+    fn barracks_r90_b_side_rotates() {
+        // R90: shift right by 1 → labels become [C, A, B, A] → B at South(2)
+        // Size rotated: (2, 3). Offset: (w/2, h) = (1, 3)
+        let si = StructureInstance::new(StructureRotation::R90, false, false);
+        let (dx, dz) = spawn_side_offset(ObjectEnum::Barracks, &si);
+        assert_eq!(dx, 1); // Midpoint of rotated 2-wide
+        assert_eq!(dz, 3); // Beyond the rotated 3-deep
+    }
+
+    #[test]
+    fn barracks_r180_b_side_rotates() {
+        // R180: shift right by 2 → labels become [A, C, A, B] → B at West(3)
+        // Size: (3, 2). Offset: (-1, h/2) = (-1, 1)
+        let si = StructureInstance::new(StructureRotation::R180, false, false);
+        let (dx, dz) = spawn_side_offset(ObjectEnum::Barracks, &si);
+        assert_eq!(dx, -1);
+        assert_eq!(dz, 1);
+    }
+
+    #[test]
+    fn barracks_r270_b_side_rotates() {
+        // R270: shift right by 3 → labels become [B, A, C, A] → B at North(0)
+        // Size rotated: (2, 3). Offset: (w/2, -1) = (1, -1)
+        let si = StructureInstance::new(StructureRotation::R270, false, false);
+        let (dx, dz) = spawn_side_offset(ObjectEnum::Barracks, &si);
+        assert_eq!(dx, 1);
+        assert_eq!(dz, -1);
+    }
+
+    #[test]
+    fn supply_tower_r0_default_south() {
+        // SupplyTower 3x3, AAAA — no B side. R0 defaults to South.
+        // Offset: (w/2, h) = (1, 3)
+        let si = StructureInstance::new(StructureRotation::R0, false, false);
+        let (dx, dz) = spawn_side_offset(ObjectEnum::SupplyTower, &si);
+        assert_eq!(dx, 1);
+        assert_eq!(dz, 3);
+    }
+
+    #[test]
+    fn supply_tower_r90_default_east() {
+        // AAAA, R90 → East. Size still (3,3). Offset: (w, h/2) = (3, 1)
+        let si = StructureInstance::new(StructureRotation::R90, false, false);
+        let (dx, dz) = spawn_side_offset(ObjectEnum::SupplyTower, &si);
+        assert_eq!(dx, 3);
+        assert_eq!(dz, 1);
+    }
+
+    #[test]
+    fn supply_tower_r180_default_north() {
+        // AAAA, R180 → North. Offset: (w/2, -1) = (1, -1)
+        let si = StructureInstance::new(StructureRotation::R180, false, false);
+        let (dx, dz) = spawn_side_offset(ObjectEnum::SupplyTower, &si);
+        assert_eq!(dx, 1);
+        assert_eq!(dz, -1);
+    }
+
+    #[test]
+    fn supply_tower_r270_default_west() {
+        // AAAA, R270 → West. Offset: (-1, h/2) = (-1, 1)
+        let si = StructureInstance::new(StructureRotation::R270, false, false);
+        let (dx, dz) = spawn_side_offset(ObjectEnum::SupplyTower, &si);
+        assert_eq!(dx, -1);
+        assert_eq!(dz, 1);
+    }
+
+    #[test]
+    fn barracks_flipped_horizontal_swaps_ew() {
+        // R0 + flip_h: labels [A,B,A,C] → flip E↔W → [A,C,A,B] → B at West(3)
+        // Size: (3,2). Offset: (-1, h/2) = (-1, 1)
+        let si = StructureInstance::new(StructureRotation::R0, true, false);
+        let (dx, dz) = spawn_side_offset(ObjectEnum::Barracks, &si);
+        assert_eq!(dx, -1);
+        assert_eq!(dz, 1);
+    }
+
+    #[test]
+    fn deployment_center_aaaa_r0_south() {
+        // DC is 4x4, AAAA. R0 → South. Offset: (w/2, h) = (2, 4)
+        let si = StructureInstance::new(StructureRotation::R0, false, false);
+        let (dx, dz) = spawn_side_offset(ObjectEnum::DeploymentCenter, &si);
+        assert_eq!(dx, 2);
+        assert_eq!(dz, 4);
+    }
+
+    #[test]
+    fn spawn_offset_outside_building_footprint() {
+        // Verify that for all Barracks rotations, the spawn tile is outside the footprint
+        for rot in [StructureRotation::R0, StructureRotation::R90, StructureRotation::R180, StructureRotation::R270] {
+            let si = StructureInstance::new(rot, false, false);
+            let (dx, dz) = spawn_side_offset(ObjectEnum::Barracks, &si);
+            let (w, h) = rotated_building_size(3, 2, &rot);
+            // The spawn point should be outside the [0..w) x [0..h) footprint
+            let inside_x = dx >= 0 && dx < w as i32;
+            let inside_z = dz >= 0 && dz < h as i32;
+            assert!(!(inside_x && inside_z),
+                "Spawn point ({dx}, {dz}) is inside footprint ({w}x{h}) for rotation {rot:?}");
+        }
     }
 }

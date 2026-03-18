@@ -8,11 +8,21 @@ pub mod systems;
 mod projectile;
 mod turret;
 
+/// Startup system to initialize the CombatAssetCache resource.
+fn init_combat_asset_cache(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    commands.insert_resource(types::CombatAssetCache::new(&mut meshes, &mut materials));
+}
+
 /// Plugin for combat systems
 pub struct CombatPlugin;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(OnEnter(AppState::InGame), init_combat_asset_cache);
         app.add_systems(Update, (
             // Combat behavior systems run before attack_phase_system
             // so they can set AttackState.target before phase progression
@@ -28,8 +38,7 @@ impl Plugin for CombatPlugin {
             systems::idle_leash_system,
             systems::apply_damage_system,
             systems::remove_dead_entities_system,
-        ).in_set(DiagCategory::Combat)
-         .run_if(in_state(AppState::InGame)));
+        ).in_set(DiagCategory::Combat));
     }
 }
 
@@ -42,8 +51,7 @@ impl Plugin for TurretPlugin {
             turret::turret_aiming_system,
             turret::turret_rotation_system,
             turret::update_turret_visual_system,
-        ).in_set(DiagCategory::Turrets)
-         .run_if(in_state(AppState::InGame)));
+        ).in_set(DiagCategory::Turrets));
     }
 }
 
@@ -58,7 +66,6 @@ impl Plugin for ProjectilePlugin {
             projectile::explosion_effect_system,
             projectile::attack_line_decay_system,
             projectile::target_highlight_decay_system,
-        ).in_set(DiagCategory::Projectiles)
-         .run_if(in_state(AppState::InGame)));
+        ).in_set(DiagCategory::Projectiles));
     }
 }

@@ -9,7 +9,7 @@ pub fn projectile_movement_system(
     time: Res<Time>,
     mut projectiles: Query<(&mut Transform, &Projectile)>,
 ) {
-    let delta = time.delta_seconds();
+    let delta = time.delta_secs();
 
     for (mut transform, projectile) in projectiles.iter_mut() {
         let current_pos = transform.translation;
@@ -31,8 +31,7 @@ pub fn projectile_impact_system(
     mut commands: Commands,
     projectiles: Query<(Entity, &Transform, &Projectile)>,
     mut units: Query<(Entity, &Transform, &Owner), With<Unit>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    cache: Res<CombatAssetCache>,
 ) {
     for (projectile_entity, projectile_transform, projectile) in projectiles.iter() {
         let projectile_pos = projectile_transform.translation;
@@ -63,8 +62,7 @@ pub fn projectile_impact_system(
 
                 spawn_explosion_effect(
                     &mut commands,
-                    &mut meshes,
-                    &mut materials,
+                    &cache,
                     target_pos,
                     effect_radius,
                 );
@@ -94,7 +92,7 @@ pub fn projectile_impact_system(
                 }
             }
 
-            commands.entity(projectile_entity).despawn_recursive();
+            commands.entity(projectile_entity).despawn();
         }
     }
 }
@@ -105,7 +103,7 @@ pub fn target_highlight_decay_system(
     time: Res<Time>,
     mut highlights: Query<(Entity, &mut TargetHighlight, &mut Transform)>,
 ) {
-    let delta = time.delta_seconds();
+    let delta = time.delta_secs();
 
     for (entity, mut highlight, mut transform) in highlights.iter_mut() {
         highlight.lifetime += delta;
@@ -115,7 +113,7 @@ pub fn target_highlight_decay_system(
         transform.scale = Vec3::splat(pulse);
 
         if highlight.lifetime >= highlight.max_lifetime {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }
@@ -126,13 +124,13 @@ pub fn attack_line_decay_system(
     time: Res<Time>,
     mut lines: Query<(Entity, &mut AttackLine)>,
 ) {
-    let delta = time.delta_seconds();
+    let delta = time.delta_secs();
 
     for (entity, mut line) in lines.iter_mut() {
         line.lifetime += delta;
 
         if line.lifetime >= line.max_lifetime {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }
@@ -143,17 +141,17 @@ pub fn explosion_effect_system(
     time: Res<Time>,
     mut explosions: Query<(Entity, &mut Transform, &mut ExplosionEffect)>,
 ) {
-    let delta = time.delta_seconds();
+    let delta = time.delta_secs();
 
     for (entity, mut transform, mut effect) in explosions.iter_mut() {
         effect.lifetime += delta;
 
         let progress = effect.lifetime / effect.max_lifetime;
-        let scale = 1.0 + progress * 2.0;
+        let scale = effect.base_scale * (1.0 + progress * 2.0);
         transform.scale = Vec3::splat(scale);
 
         if effect.lifetime >= effect.max_lifetime {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }

@@ -205,6 +205,118 @@ impl BuildingStructureBehavior {
     }
 }
 
+/// Phase of the gathering resource behavior cycle.
+#[derive(Clone, Debug, PartialEq)]
+pub enum GatherPhase {
+    /// Moving to the resource source
+    MovingToResource,
+    /// Extracting resources (frame counter)
+    Extracting { frames_remaining: u32 },
+    /// Moving to tunnel for drop-off
+    MovingToTunnel { tunnel_entity: Entity, side_position: Vec3 },
+    /// Dropping off resources at tunnel (frame counter)
+    DroppingOff { tunnel_entity: Entity, frames_remaining: u32 },
+}
+
+/// Marker component for the GatheringResource behavior.
+/// Encompasses the full gather-deliver cycle: approach resource -> extract ->
+/// travel to nearest own Tunnel -> drop off.
+#[derive(Component, Clone, Debug)]
+pub struct GatheringResourceBehavior {
+    /// Target resource entity (SpaceCrystalPatch or SupplyDeliveryStation)
+    pub target_resource: Entity,
+    /// Current phase of the gathering cycle
+    pub phase: GatherPhase,
+    /// Path to current target
+    pub path: Vec<Vec3>,
+    pub path_index: usize,
+}
+
+impl GatheringResourceBehavior {
+    pub fn new(target_resource: Entity) -> Self {
+        Self {
+            target_resource,
+            phase: GatherPhase::MovingToResource,
+            path: Vec::new(),
+            path_index: 0,
+        }
+    }
+}
+
+/// Phase of the drop-off resources behavior.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DropOffPhase {
+    /// Moving to the tunnel's appropriate side
+    MovingToTunnel,
+    /// Dropping off resources (frame counter)
+    DroppingOff { frames_remaining: u32 },
+}
+
+/// Marker component for the DroppingOffResources behavior.
+/// Moves to the target Tunnel's appropriate side based on carried resource type,
+/// then performs drop-off.
+#[derive(Component, Clone, Debug)]
+pub struct DroppingOffResourcesBehavior {
+    /// Target tunnel entity
+    pub target_tunnel: Entity,
+    /// Current phase
+    pub phase: DropOffPhase,
+    /// Path to tunnel side
+    pub path: Vec<Vec3>,
+    pub path_index: usize,
+}
+
+impl DroppingOffResourcesBehavior {
+    pub fn new(target_tunnel: Entity) -> Self {
+        Self {
+            target_tunnel,
+            phase: DropOffPhase::MovingToTunnel,
+            path: Vec::new(),
+            path_index: 0,
+        }
+    }
+}
+
+/// Phase of the tunnel building behavior.
+#[derive(Clone, Debug, PartialEq)]
+pub enum BuildTunnelPhase {
+    /// Moving to the build location
+    MovingToSite,
+    /// Constructing — Agent is embedded, tunnel entity exists with ConstructionHP
+    Constructing {
+        /// The partially-built tunnel entity
+        tunnel_entity: Entity,
+        /// Frames of construction elapsed
+        frames_elapsed: u32,
+    },
+}
+
+/// Marker component for the BuildingTunnel behavior.
+/// When present, a dedicated system moves the Agent to the build site,
+/// spawns a partially-built Tunnel, embeds the Agent, and ticks construction.
+#[derive(Component, Clone, Debug)]
+pub struct BuildingTunnelBehavior {
+    /// Target world-space location to build at
+    pub target_location: Vec3,
+    /// Current phase
+    pub phase: BuildTunnelPhase,
+    /// Precomputed path to target
+    pub path: Vec<Vec3>,
+    /// Current index in the path
+    pub path_index: usize,
+}
+
+impl BuildingTunnelBehavior {
+    pub fn new(target_location: Vec3) -> Self {
+        Self {
+            target_location,
+            phase: BuildTunnelPhase::MovingToSite,
+            path: Vec::new(),
+            path_index: 0,
+        }
+    }
+}
+
 /// Marker component for units that are inside the Tunnel Network.
 /// Placed on unit entities when they complete the EnteringTunnel behavior.
 /// The entity is despawned from the map but logically exists in the network.
@@ -384,10 +496,10 @@ mod tests {
 
     #[test]
     fn base_attack_channel_aiming_at_target() {
-        let target = Entity::from_raw(42);
+        let target = Entity::from_raw_u32(42).unwrap();
         let channel = BaseAttackChannel::Aiming(target);
         if let BaseAttackChannel::Aiming(e) = channel {
-            assert_eq!(e, Entity::from_raw(42));
+            assert_eq!(e, Entity::from_raw_u32(42).unwrap());
         } else {
             panic!("Expected Aiming variant");
         }
@@ -395,7 +507,7 @@ mod tests {
 
     #[test]
     fn base_attack_channel_firing_at_target() {
-        let channel = BaseAttackChannel::Firing(Entity::from_raw(10));
+        let channel = BaseAttackChannel::Firing(Entity::from_raw_u32(10).unwrap());
         assert!(matches!(channel, BaseAttackChannel::Firing(_)));
     }
 
@@ -436,13 +548,13 @@ mod tests {
 
     #[test]
     fn turret_attack_channel_aiming() {
-        let channel = TurretAttackChannel::Aiming(Entity::from_raw(99));
+        let channel = TurretAttackChannel::Aiming(Entity::from_raw_u32(99).unwrap());
         assert!(matches!(channel, TurretAttackChannel::Aiming(_)));
     }
 
     #[test]
     fn turret_attack_channel_firing() {
-        let channel = TurretAttackChannel::Firing(Entity::from_raw(5));
+        let channel = TurretAttackChannel::Firing(Entity::from_raw_u32(5).unwrap());
         assert!(matches!(channel, TurretAttackChannel::Firing(_)));
     }
 
@@ -470,7 +582,7 @@ mod tests {
     fn turret_channels_independent_of_base_channels() {
         let base_orientation = OrientationChannel::Maintaining;
         let turret_orientation = TurretOrientationChannel::Turning(Vec3::ONE);
-        let turret_attack = TurretAttackChannel::Aiming(Entity::from_raw(1));
+        let turret_attack = TurretAttackChannel::Aiming(Entity::from_raw_u32(1).unwrap());
 
         // Turret can be active while base is maintaining
         assert!(matches!(base_orientation, OrientationChannel::Maintaining));
@@ -482,26 +594,26 @@ mod tests {
 
     #[test]
     fn entering_tunnel_behavior_new() {
-        let tunnel = Entity::from_raw(42);
+        let tunnel = Entity::from_raw_u32(42).unwrap();
         let behavior = EnteringTunnelBehavior::new(tunnel);
-        assert_eq!(behavior.target_tunnel, Entity::from_raw(42));
+        assert_eq!(behavior.target_tunnel, Entity::from_raw_u32(42).unwrap());
         assert!(behavior.path.is_empty());
         assert_eq!(behavior.path_index, 0);
     }
 
     #[test]
     fn entering_tunnel_behavior_with_path() {
-        let tunnel = Entity::from_raw(10);
+        let tunnel = Entity::from_raw_u32(10).unwrap();
         let path = vec![Vec3::new(1.0, 0.0, 1.0), Vec3::new(5.0, 0.0, 5.0)];
         let behavior = EnteringTunnelBehavior::with_path(tunnel, path.clone());
-        assert_eq!(behavior.target_tunnel, Entity::from_raw(10));
+        assert_eq!(behavior.target_tunnel, Entity::from_raw_u32(10).unwrap());
         assert_eq!(behavior.path.len(), 2);
         assert_eq!(behavior.path_index, 0);
     }
 
     #[test]
     fn entering_tunnel_behavior_stores_tunnel_entity() {
-        let tunnel = Entity::from_raw(99);
+        let tunnel = Entity::from_raw_u32(99).unwrap();
         let behavior = EnteringTunnelBehavior::new(tunnel);
         assert_eq!(behavior.target_tunnel, tunnel);
     }
@@ -510,9 +622,9 @@ mod tests {
     fn entering_tunnel_behavior_is_component() {
         // Verify it can be used as a Bevy component
         let mut world = World::new();
-        let entity = world.spawn(EnteringTunnelBehavior::new(Entity::from_raw(1))).id();
+        let entity = world.spawn(EnteringTunnelBehavior::new(Entity::from_raw_u32(1).unwrap())).id();
         let behavior = world.entity(entity).get::<EnteringTunnelBehavior>().unwrap();
-        assert_eq!(behavior.target_tunnel, Entity::from_raw(1));
+        assert_eq!(behavior.target_tunnel, Entity::from_raw_u32(1).unwrap());
     }
 
     // === InTunnelNetwork tests ===
@@ -586,5 +698,143 @@ mod tests {
     fn building_structure_behavior_stores_object_type() {
         let behavior = BuildingStructureBehavior::new(Vec3::ZERO, ObjectEnum::Tunnel);
         assert_eq!(behavior.object_to_build, ObjectEnum::Tunnel);
+    }
+
+    // === GatheringResourceBehavior tests ===
+
+    #[test]
+    fn gathering_resource_behavior_new() {
+        let target = Entity::from_raw_u32(5).unwrap();
+        let behavior = GatheringResourceBehavior::new(target);
+        assert_eq!(behavior.target_resource, target);
+        assert_eq!(behavior.phase, GatherPhase::MovingToResource);
+        assert!(behavior.path.is_empty());
+        assert_eq!(behavior.path_index, 0);
+    }
+
+    #[test]
+    fn gathering_resource_behavior_is_component() {
+        let mut world = World::new();
+        let target = Entity::from_raw_u32(10).unwrap();
+        let entity = world.spawn(GatheringResourceBehavior::new(target)).id();
+        let b = world.entity(entity).get::<GatheringResourceBehavior>().unwrap();
+        assert_eq!(b.target_resource, Entity::from_raw_u32(10).unwrap());
+    }
+
+    #[test]
+    fn gather_phase_extracting_tracks_frames() {
+        let phase = GatherPhase::Extracting { frames_remaining: 48 };
+        assert_eq!(phase, GatherPhase::Extracting { frames_remaining: 48 });
+    }
+
+    #[test]
+    fn gather_phase_moving_to_tunnel_stores_data() {
+        let phase = GatherPhase::MovingToTunnel {
+            tunnel_entity: Entity::from_raw_u32(1).unwrap(),
+            side_position: Vec3::new(5.0, 0.0, 5.0),
+        };
+        if let GatherPhase::MovingToTunnel { tunnel_entity, side_position } = phase {
+            assert_eq!(tunnel_entity, Entity::from_raw_u32(1).unwrap());
+            assert_eq!(side_position, Vec3::new(5.0, 0.0, 5.0));
+        } else {
+            panic!("Expected MovingToTunnel");
+        }
+    }
+
+    #[test]
+    fn gather_phase_dropping_off_tracks_frames() {
+        let tunnel = Entity::from_raw_u32(99).unwrap();
+        let phase = GatherPhase::DroppingOff { tunnel_entity: tunnel, frames_remaining: 24 };
+        assert_eq!(phase, GatherPhase::DroppingOff { tunnel_entity: tunnel, frames_remaining: 24 });
+    }
+
+    // === DroppingOffResourcesBehavior tests ===
+
+    #[test]
+    fn dropping_off_resources_behavior_new() {
+        let tunnel = Entity::from_raw_u32(42).unwrap();
+        let behavior = DroppingOffResourcesBehavior::new(tunnel);
+        assert_eq!(behavior.target_tunnel, tunnel);
+        assert_eq!(behavior.phase, DropOffPhase::MovingToTunnel);
+        assert!(behavior.path.is_empty());
+        assert_eq!(behavior.path_index, 0);
+    }
+
+    #[test]
+    fn dropping_off_resources_behavior_is_component() {
+        let mut world = World::new();
+        let tunnel = Entity::from_raw_u32(7).unwrap();
+        let entity = world.spawn(DroppingOffResourcesBehavior::new(tunnel)).id();
+        let b = world.entity(entity).get::<DroppingOffResourcesBehavior>().unwrap();
+        assert_eq!(b.target_tunnel, Entity::from_raw_u32(7).unwrap());
+    }
+
+    #[test]
+    fn drop_off_phase_moving_is_default() {
+        let phase = DropOffPhase::MovingToTunnel;
+        assert_eq!(phase, DropOffPhase::MovingToTunnel);
+    }
+
+    #[test]
+    fn drop_off_phase_dropping_off_tracks_frames() {
+        let phase = DropOffPhase::DroppingOff { frames_remaining: 48 };
+        assert_eq!(phase, DropOffPhase::DroppingOff { frames_remaining: 48 });
+    }
+
+    // === BuildingTunnelBehavior tests ===
+
+    #[test]
+    fn building_tunnel_behavior_new() {
+        let target = Vec3::new(10.0, 0.0, 10.0);
+        let behavior = BuildingTunnelBehavior::new(target);
+        assert_eq!(behavior.target_location, target);
+        assert_eq!(behavior.phase, BuildTunnelPhase::MovingToSite);
+        assert!(behavior.path.is_empty());
+        assert_eq!(behavior.path_index, 0);
+    }
+
+    #[test]
+    fn building_tunnel_behavior_is_component() {
+        let mut world = World::new();
+        let target = Vec3::new(5.0, 0.0, 5.0);
+        let entity = world.spawn(BuildingTunnelBehavior::new(target)).id();
+        let b = world.entity(entity).get::<BuildingTunnelBehavior>().unwrap();
+        assert_eq!(b.target_location, target);
+    }
+
+    #[test]
+    fn build_tunnel_phase_constructing_equality() {
+        let phase_a = BuildTunnelPhase::Constructing {
+            tunnel_entity: Entity::from_raw_u32(1).unwrap(),
+            frames_elapsed: 50,
+        };
+        let phase_b = BuildTunnelPhase::Constructing {
+            tunnel_entity: Entity::from_raw_u32(1).unwrap(),
+            frames_elapsed: 50,
+        };
+        assert_eq!(phase_a, phase_b);
+    }
+
+    #[test]
+    fn build_tunnel_phase_constructing_not_equal_different_frames() {
+        let phase_a = BuildTunnelPhase::Constructing {
+            tunnel_entity: Entity::from_raw_u32(1).unwrap(),
+            frames_elapsed: 50,
+        };
+        let phase_b = BuildTunnelPhase::Constructing {
+            tunnel_entity: Entity::from_raw_u32(1).unwrap(),
+            frames_elapsed: 100,
+        };
+        assert_ne!(phase_a, phase_b);
+    }
+
+    #[test]
+    fn build_tunnel_phase_moving_not_equal_constructing() {
+        let phase_a = BuildTunnelPhase::MovingToSite;
+        let phase_b = BuildTunnelPhase::Constructing {
+            tunnel_entity: Entity::from_raw_u32(1).unwrap(),
+            frames_elapsed: 0,
+        };
+        assert_ne!(phase_a, phase_b);
     }
 }

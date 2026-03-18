@@ -1,12 +1,15 @@
 use bevy::prelude::*;
+use bevy::window::WindowResolution;
 
 use space_crystals::game::{MapPlugin, ResourcesPlugin, UnitsPlugin, CommandsPlugin, CombatPlugin, TurretPlugin, ProjectilePlugin, FactionPlugin};
 use space_crystals::simulation::SimulationCorePlugin;
 #[cfg(feature = "diagnostics")]
 use space_crystals::simulation::diagnostics::PerformanceDiagnosticsPlugin;
+#[cfg(feature = "diagnostics")]
+use bevy::diagnostic::{EntityCountDiagnosticsPlugin, LogDiagnosticsPlugin};
 use space_crystals::ui;
 use space_crystals::ui::HudPlugin;
-use bevy::render::camera::Viewport;
+use bevy::camera::Viewport;
 use space_crystals::types::{MainCamera, AppState};
 use space_crystals::simulation::types::DiagCategory;
 
@@ -15,7 +18,7 @@ fn main() {
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Space Crystals RTS".to_string(),
-                resolution: (1280.0, 720.0).into(),
+                resolution: WindowResolution::new(1280, 720),
                 ..default()
             }),
             ..default()
@@ -23,7 +26,11 @@ fn main() {
         .add_plugins((SimulationCorePlugin, MapPlugin, ResourcesPlugin, UnitsPlugin, CommandsPlugin, CombatPlugin, TurretPlugin, ProjectilePlugin, FactionPlugin, HudPlugin, GamePlugin));
 
     #[cfg(feature = "diagnostics")]
-    app.add_plugins(PerformanceDiagnosticsPlugin);
+    app.add_plugins((
+        PerformanceDiagnosticsPlugin,
+        EntityCountDiagnosticsPlugin::default(),
+        LogDiagnosticsPlugin::default(),
+    ));
 
     app.run();
 }
@@ -40,8 +47,7 @@ impl Plugin for GamePlugin {
                 camera_movement,
                 camera_zoom,
                 update_camera_viewport,
-            ).in_set(DiagCategory::Camera)
-             .run_if(in_state(AppState::InGame)));
+            ).in_set(DiagCategory::Camera));
     }
 }
 
@@ -50,23 +56,21 @@ fn setup(
     mut commands: Commands,
 ) {
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 40.0, 25.0)
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 40.0, 25.0)
+            .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         MainCamera,
     ));
 
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_rotation(Quat::from_euler(
             EulerRot::XYZ,
             -0.5,
             0.5,
             0.0,
         )),
-        ..default()
-    });
+    ));
 
     info!("Space Crystals RTS initialized!");
 }
@@ -77,9 +81,9 @@ fn camera_movement(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut camera_query: Query<&mut Transform, With<MainCamera>>,
 ) {
-    let mut camera_transform = camera_query.single_mut();
+    let Ok(mut camera_transform) = camera_query.single_mut() else { return; };
     let speed = 10.0;
-    let delta = time.delta_seconds();
+    let delta = time.delta_secs();
 
     if keyboard.pressed(KeyCode::ArrowUp) {
         camera_transform.translation.z -= speed * delta;
@@ -104,9 +108,9 @@ fn camera_zoom(
     interface_state: Res<ui::types::ObjectInterfaceState>,
     selection: Res<space_crystals::types::Selection>,
 ) {
-    let mut camera_transform = camera_query.single_mut();
+    let Ok(mut camera_transform) = camera_query.single_mut() else { return; };
     let zoom_speed = 10.0;
-    let delta = time.delta_seconds();
+    let delta = time.delta_secs();
 
     // Panel is hidden when in Default state with empty selection
     let panel_hidden = matches!(*interface_state, ui::types::ObjectInterfaceState::Default) && selection.groups.is_empty();
@@ -124,7 +128,7 @@ fn update_camera_viewport(
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mut cameras: Query<&mut Camera, With<MainCamera>>,
 ) {
-    let window = windows.single();
+    let Ok(window) = windows.single() else { return; };
     let scale_factor = window.scale_factor();
     let physical_width = window.physical_width();
     let physical_height = window.physical_height();
@@ -138,7 +142,7 @@ fn update_camera_viewport(
         return;
     }
 
-    let mut camera = cameras.single_mut();
+    let Ok(mut camera) = cameras.single_mut() else { return; };
     camera.viewport = Some(Viewport {
         physical_position: UVec2::new(0, top_px),
         physical_size: UVec2::new(physical_width, viewport_height),

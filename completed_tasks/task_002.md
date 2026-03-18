@@ -1,71 +1,49 @@
-# Task 002: Implement Grid-Based Map System
+# Task 002: Define Scale Constants and Core Entity Type Hierarchy
+
+## Status
+**Completed** - 2026-02-22
+
+Added FRAMES_PER_SECOND (16) and SPACE_UNITS_PER_GRID_UNIT (64) constants. Defined 9 identity enums: FactionEnum, ObjectEnum, UnitBaseEnum, MovementModelEnum, AttackTypeEnum, TargetDomainEnum, TargetTypeEnum, DomainEnum, VisibilityStateEnum. Renamed Faction → FactionEnum with updated variant names (TheSyndicate, TheCults). Existing UnitBase and AttackType kept for runtime compatibility; new identity enums coexist.
 
 ## Description
-Create a foundational grid-based map system that will serve as the terrain for the RTS game. This system should represent the game world as a 2D grid where each cell can hold tile data. The implementation should use Bevy ECS patterns with entities representing individual tiles, and should support querying tiles by grid coordinates.
+Define the foundational type system that mirrors the top of the design document's concept hierarchy. This includes the simulation scale constants, the abstract Entity hierarchy, and the core enums (FactionEnum, ObjectEnum) that will be referenced throughout the codebase.
 
 ## Why Needed
-The map system is the foundation for all gameplay mechanics in an RTS. Units need to navigate on tiles, buildings need to be placed on tiles, and resources need to exist on specific tiles. This must be implemented before any gameplay features involving the map.
+The design document defines a formal concept hierarchy starting with Scale (SimulationFrame, GridUnit, SpaceUnit), then Entity → Invisible Entity / Visible Entity. These foundational types are prerequisites for all other game types. The current codebase has ad-hoc versions of some of these — they need to be replaced with design-aligned definitions.
 
 ## Acceptance Criteria
-- [ ] Grid resource exists storing grid dimensions (width, height) and cell size
-- [ ] Tile entities are spawned in a grid pattern
-- [ ] Each tile entity has a GridPosition component storing its (x, z) coordinates
-- [ ] Helper function exists to convert world coordinates to grid coordinates
-- [ ] Helper function exists to query a tile entity by grid position
-- [ ] Visual representation of the grid exists (simple plane meshes for now)
-- [ ] Camera is positioned to view the entire grid
-- [ ] Grid dimensions are configurable (start with 20x20)
+- Scale constants defined and accessible:
+  - `FRAMES_PER_SECOND: u32 = 16`
+  - `SPACE_UNITS_PER_GRID_UNIT: u32 = 64`
+- `FactionEnum` enum with variants: `GlobalDefenseOrdinance`, `TheSyndicate`, `TheCults`, `Colonists`
+- `ObjectEnum` enum with variants for all 6 GDO objects: `Peacekeeper`, `PowerPlant`, `Barracks`, `DeploymentCenter`, `ExtractionFacility`, `ExtractionPlate` (plus `SpaceCrystalsPatch` and `SupplyDeliveryStation` for the neutral resource objects)
+- `UnitBaseEnum` enum with all 9 variants: `LightInfantry`, `HeavyInfantry`, `WheeledVehicle`, `TrackedVehicle`, `DrillUnit`, `HoverVehicle`, `Mech`, `HoverCraft`, `Glider`
+- `MovementModelEnum` enum with 5 variants: `TurnRate`, `FixedTurnRadius`, `SpeedTurnRadius`, `Drag`, `Glider`
+- `AttackTypeEnum` enum with 4 variants: `FullyConnected`, `HeadDisjointed`, `TailDisjointed`, `DoublyDisjointed`
+- `TargetDomainEnum` enum: `Ground`, `Air`, `Universal`
+- `TargetTypeEnum` enum: `SingleTarget`, `AoE`
+- `DomainEnum` enum: `Ground`, `Air`, `Underground`
+- `VisibilityStateEnum` enum: `Unexplored`, `Explored`, `Visible`
+- Replace existing `Faction` enum in faction.rs with the new `FactionEnum`
+- All enums derive appropriate Bevy traits: `Component`, `Clone`, `Copy`, `Debug`, `PartialEq`, `Eq`, `Hash` as appropriate
+- Project compiles and runs after changes
 
 ## Relevant Files/Components
-- `src/main.rs` - Will need to add grid-related systems and components
-- Consider creating `src/map.rs` or `src/grid.rs` for map-specific code
-- `setup` system - Will need to spawn grid tiles
-- Camera positioning in `setup` - Adjust to view the full grid
+- Current `src/faction.rs` — has existing `Faction` enum
+- Current `src/combat.rs` — has existing `AttackType` and `AttackPhase` enums
+- Current `src/units.rs` — has existing `UnitBase` enum
+- Whichever types.rs file is appropriate after task_001 restructuring
 
 ## Technical Considerations
-
-**Grid Representation**:
-- Use a 2D grid where each cell is a square tile
-- Grid coordinates: (x, z) where y is elevation
-- World space: Center the grid at origin for simplicity
-
-**ECS Architecture**:
-```rust
-// Resource to store grid metadata
-struct GridMap {
-    width: u32,
-    height: u32,
-    cell_size: f32,
-}
-
-// Component to mark tile entities
-#[derive(Component)]
-struct Tile;
-
-// Component storing grid position
-#[derive(Component)]
-struct GridPosition {
-    x: i32,
-    z: i32,
-}
-```
-
-**Helper Functions**:
-- `world_to_grid(world_pos: Vec3, cell_size: f32) -> (i32, i32)`
-- `grid_to_world(grid_x: i32, grid_z: i32, cell_size: f32) -> Vec3`
-- Query system to find tile at grid position
-
-**Visual Representation**:
-- Spawn a plane mesh for each tile
-- Use a simple material (different color than background)
-- Tiles should be clearly visible and distinguishable
-
-**Performance Note**:
-- For a 20x20 grid (400 tiles), spawning individual entities is fine
-- Consider spatial indexing in future tasks if grid becomes very large
+- These are data-definition enums — they define the vocabulary of the game. Place them in the appropriate `types.rs` per the reorganized directory structure.
+- The existing `Faction` enum has 4 variants already but may have different naming. Align exactly with design: `GlobalDefenseOrdinance`, `TheSyndicate`, `TheCults`, `Colonists`.
+- The existing `UnitBase` enum is a complex enum with inline data. The new design separates the enum identity (UnitBaseEnum) from the attribute data. Replace the existing enum with the clean identity enum; attributes will be defined in a later task.
+- The existing `AttackType` enum has inline data (projectile_speed, etc.). The new design separates enum identity from attributes. Replace with clean identity enum.
+- `ObjectEnum` will grow as more factions' objects are defined. For now include only GDO objects + neutral resources.
+- Update all existing code that references the old enums to use the new ones. This may require temporary adapter code.
 
 ## Prerequisites
-None - This builds on the basic setup from Task 001.
+- [ ] `task_001.md` — Directory structure must be in place for proper file placement
 
 ## Complexity
 Medium

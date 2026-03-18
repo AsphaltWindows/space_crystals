@@ -181,14 +181,75 @@ pub fn agent_attack_data() -> AttackAttributesData {
     }
 }
 
+/// Agent mining duration at a Space Crystal Patch (frames)
+pub const AGENT_MINING_DURATION: u32 = 48;
+
+/// Agent pickup duration at a Supply Delivery Station (frames)
+pub const AGENT_PICKUP_DURATION: u32 = 48;
+
+/// Agent drop-off duration at a Tunnel side (frames)
+pub const AGENT_DROPOFF_DURATION: u32 = 48;
+
+/// Amount of Space Crystals an Agent picks up per gather cycle
+pub const AGENT_CRYSTAL_CARRY: u32 = 50;
+
+/// Amount of Supplies an Agent picks up per gather cycle
+pub const AGENT_SUPPLY_CARRY: u32 = 1;
+
 /// Agent unit control cost
 pub const AGENT_CONTROL_COST: u32 = 1;
 
 /// Agent tunnel space cost (occupies 2 tunnel space when inside the network)
 pub const AGENT_TUNNEL_SPACE_COST: u32 = 2;
 
+/// Agent tunnel construction duration in simulation frames (480 frames = 30 seconds at 16 FPS)
+pub const AGENT_TUNNEL_BUILD_FRAMES: u32 = 480;
+
 /// Agent rugged terrain defense bonus (HeavyInfantry has rugged_terrain: true)
 pub const AGENT_RUGGED_BONUS: f32 = 0.5;
+
+// === Syndicate Guard Definition ===
+
+/// Guard static type data
+pub fn guard_type_data() -> UnitTypeData {
+    UnitTypeData {
+        faction: FactionEnum::TheSyndicate,
+        silhouette_width: 36,
+        silhouette_height: 36,
+        max_hp: 80,
+        point_armor: 1,
+        full_armor: 1,
+        unit_base: UnitBaseEnum::HeavyInfantry,
+    }
+}
+
+/// Guard attack attributes (design-spec, frame-based)
+pub fn guard_attack_data() -> AttackAttributesData {
+    AttackAttributesData {
+        attack_type: AttackTypeEnum::FullyConnected,
+        fc_subtype: Some(FullyConnectedSubtype::Ranged), // RANGED, not Melee like Agent
+        target_domain: TargetDomainEnum::Ground,
+        target_type: TargetTypeEnum::SingleTarget,
+        aoe_radius: None,
+        damage: 6,
+        range: 3, // 3 grid units (unlike Agent's 0 for melee)
+        min_range: 0,
+        projectile_speed: None, // FullyConnected = instant hit
+        aim_duration: 2,
+        firing_duration: 1,
+        cooldown_duration: 1,
+        reload_duration: 4,
+    }
+}
+
+/// Guard unit control cost
+pub const GUARD_CONTROL_COST: u32 = 1;
+
+/// Guard tunnel space cost (occupies 2 tunnel space when inside the network)
+pub const GUARD_TUNNEL_SPACE_COST: u32 = 2;
+
+/// Guard rugged terrain defense bonus (HeavyInfantry has rugged_terrain: true)
+pub const GUARD_RUGGED_BONUS: f32 = 0.5;
 
 /// Convert frame-based duration to seconds using simulation FPS
 pub fn frames_to_seconds(frames: u32) -> f32 {
@@ -550,5 +611,123 @@ mod tests {
         use crate::simulation::{FRAMES_PER_SECOND, SPACE_UNITS_PER_GRID_UNIT};
         let expected = 6.0 * (FRAMES_PER_SECOND as f32) / (SPACE_UNITS_PER_GRID_UNIT as f32);
         assert!((expected - 1.5).abs() < f32::EPSILON);
+    }
+
+    // === Syndicate Guard type data tests ===
+
+    #[test]
+    fn guard_type_data_fields() {
+        let data = guard_type_data();
+        assert_eq!(data.faction, FactionEnum::TheSyndicate);
+        assert_eq!(data.silhouette_width, 36);
+        assert_eq!(data.silhouette_height, 36);
+        assert_eq!(data.max_hp, 80);
+        assert_eq!(data.point_armor, 1);
+        assert_eq!(data.full_armor, 1);
+        assert_eq!(data.unit_base, UnitBaseEnum::HeavyInfantry);
+    }
+
+    #[test]
+    fn guard_attack_data_fields() {
+        let data = guard_attack_data();
+        assert_eq!(data.attack_type, AttackTypeEnum::FullyConnected);
+        assert_eq!(data.fc_subtype, Some(FullyConnectedSubtype::Ranged));
+        assert_eq!(data.target_domain, TargetDomainEnum::Ground);
+        assert_eq!(data.target_type, TargetTypeEnum::SingleTarget);
+        assert!(data.aoe_radius.is_none());
+        assert_eq!(data.damage, 6);
+        assert_eq!(data.range, 3);
+        assert_eq!(data.min_range, 0);
+        assert!(data.projectile_speed.is_none());
+    }
+
+    #[test]
+    fn guard_attack_timing_aim_duration() {
+        let data = guard_attack_data();
+        assert_eq!(data.aim_duration, 2);
+    }
+
+    #[test]
+    fn guard_attack_timing_firing_duration() {
+        let data = guard_attack_data();
+        assert_eq!(data.firing_duration, 1);
+    }
+
+    #[test]
+    fn guard_attack_timing_cooldown_duration() {
+        let data = guard_attack_data();
+        assert_eq!(data.cooldown_duration, 1);
+    }
+
+    #[test]
+    fn guard_attack_timing_reload_duration() {
+        let data = guard_attack_data();
+        assert_eq!(data.reload_duration, 4);
+    }
+
+    #[test]
+    fn guard_attack_is_ranged_subtype() {
+        let data = guard_attack_data();
+        assert_eq!(data.fc_subtype, Some(FullyConnectedSubtype::Ranged));
+    }
+
+    #[test]
+    fn guard_attack_no_projectile_speed() {
+        let data = guard_attack_data();
+        assert!(data.projectile_speed.is_none());
+    }
+
+    #[test]
+    fn guard_attack_no_aoe() {
+        let data = guard_attack_data();
+        assert!(data.aoe_radius.is_none());
+    }
+
+    // --- Guard constants ---
+
+    #[test]
+    fn guard_control_cost_is_one() {
+        assert_eq!(GUARD_CONTROL_COST, 1);
+    }
+
+    #[test]
+    fn guard_tunnel_space_cost_is_two() {
+        assert_eq!(GUARD_TUNNEL_SPACE_COST, 2);
+    }
+
+    #[test]
+    fn guard_rugged_bonus_is_fifty_percent() {
+        assert!((GUARD_RUGGED_BONUS - 0.5).abs() < f32::EPSILON);
+    }
+
+    // --- Guard ObjectType cross-check ---
+
+    #[test]
+    fn guard_object_type_matches_spec() {
+        use crate::types::ObjectEnum;
+        let obj = ObjectEnum::SyndicateGuard.object_type();
+        assert_eq!(obj.name, "Guard");
+        assert_eq!(obj.size, (36, 36));
+        assert!(obj.destructible);
+        assert_eq!(obj.sight_range, 5);
+        assert!(obj.groupable); // Guard IS groupable (unlike Agent)
+    }
+
+    #[test]
+    fn guard_is_unit_not_structure() {
+        use crate::types::ObjectEnum;
+        assert!(ObjectEnum::SyndicateGuard.is_unit());
+        assert!(!ObjectEnum::SyndicateGuard.is_structure());
+        assert!(!ObjectEnum::SyndicateGuard.is_resource());
+    }
+
+    // --- Guard movement speed derivation ---
+
+    #[test]
+    fn guard_movement_speed_derivation() {
+        // 5 SU/frame * 16 FPS / 64 SU/GU = 1.25 GU/sec
+        use crate::simulation::{FRAMES_PER_SECOND, SPACE_UNITS_PER_GRID_UNIT};
+        let expected = 5.0 * (FRAMES_PER_SECOND as f32) / (SPACE_UNITS_PER_GRID_UNIT as f32);
+        assert!((expected - 1.25).abs() < f32::EPSILON);
     }
 }

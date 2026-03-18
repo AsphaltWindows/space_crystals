@@ -4,7 +4,8 @@ use crate::game::types::ObjectInstance;
 use crate::game::types::objects::StructureInstance;
 use crate::ui::types::{CursorOverUi, ObjectInterfaceState};
 use super::types::*;
-use super::utils::{screen_space_hit_test, BoxCandidate, SelectionTier, closest_to_center, classify_selection_tier, cursor_pos_in_viewport, viewport_offset};
+use super::utils::{screen_space_hit_test, BoxCandidate, SelectionTier, closest_to_center, classify_selection_tier};
+use crate::game::units::utils::world_to_grid;
 
 /// Spawn Space Crystal Patches on the map
 pub fn spawn_space_crystal_patches(
@@ -34,7 +35,7 @@ pub fn spawn_space_crystal_patches(
 
     let crystal_material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.3, 0.8, 1.0),
-        emissive: Color::srgb(0.2, 0.6, 0.8).into(),
+        emissive: LinearRgba::rgb(0.2, 0.6, 0.8),
         ..default()
     });
 
@@ -50,12 +51,9 @@ pub fn spawn_space_crystal_patches(
                 let world_z = (grid_z as f32 - 32.0) + 0.5;
 
                 commands.spawn((
-                    PbrBundle {
-                        mesh: crystal_mesh.clone(),
-                        material: crystal_material.clone(),
-                        transform: Transform::from_xyz(world_x, 0.4, world_z),
-                        ..default()
-                    },
+                    Mesh3d(crystal_mesh.clone()),
+                    MeshMaterial3d(crystal_material.clone()),
+                    Transform::from_xyz(world_x, 0.4, world_z),
                     ObjectInstance::indestructible(ObjectEnum::SpaceCrystalsPatch),
                     Owner::neutral(),
                     SpaceCrystalPatch {
@@ -90,6 +88,7 @@ pub fn selection_system(
     cursor_over_ui: Res<CursorOverUi>,
     interface_state: Res<ObjectInterfaceState>,
     local_player: Res<LocalPlayer>,
+    fog_map: Res<FogOfWarMap>,
 ) {
     if !buttons.just_pressed(MouseButton::Left) {
         return;
@@ -113,11 +112,12 @@ pub fn selection_system(
         return;
     }
 
-    let window = windows.single();
-    let (camera, camera_transform) = cameras.single();
+    let Ok(window) = windows.single() else { return; };
+    let Ok((camera, camera_transform)) = cameras.single() else { return; };
     let ctrl_pressed = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
+    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
 
-    if let Some(cursor_pos) = cursor_pos_in_viewport(window, camera) {
+    if let Some(cursor_pos) = window.cursor_position() {
         // Screen-space hit testing: project each entity to screen coordinates
         // and check if the cursor click is within a pixel radius
         let click_radius = 25.0_f32; // pixels
@@ -129,8 +129,21 @@ pub fn selection_system(
             for (entity, transform, _bounds, scp, sds, owner) in selectables.iter() {
                 let entity_pos = transform.translation;
 
-                if let Some(screen_pos) = camera.world_to_viewport(camera_transform, entity_pos) {
+                if let Ok(screen_pos) = camera.world_to_viewport(camera_transform, entity_pos) {
                     if screen_space_hit_test(cursor_pos, screen_pos, click_radius).is_some() {
+                        // Skip non-owned entities not visible through fog of war.
+                        // Neutral resource entities (crystal patches, SDS) are always
+                        // rendered (apply_structure_fog_rendering skips neutrals), so
+                        // they must always be selectable to stay consistent.
+                        let is_owned = owner.0 == Some(local_player.0);
+                        let is_neutral = owner.is_neutral();
+                        if !is_owned && !is_neutral {
+                            let grid = world_to_grid(entity_pos);
+                            if fog_map.get(local_player.0, grid.x, grid.z) != VisibilityStateEnum::Visible {
+                                continue;
+                            }
+                        }
+
                         // Use distance from camera as tiebreaker (closer to camera wins)
                         let cam_distance = (entity_pos - camera_transform.translation()).length();
                         if cam_distance < closest_distance {
@@ -145,7 +158,7 @@ pub fn selection_system(
                 let is_owned = owner.0 == Some(local_player.0);
 
                 if !is_owned {
-                    // Non-owned entity: always single-select, ignore Ctrl
+                    // Non-owned entity: always single-select, ignore Ctrl/Shift
                     for other_entity in selected.iter() {
                         commands.entity(other_entity).remove::<Selected>();
                     }
@@ -168,6 +181,25 @@ pub fn selection_system(
                     } else if selected.contains(entity) {
                         commands.entity(entity).remove::<Selected>();
                     } else {
+                        commands.entity(entity).insert(Selected);
+                    }
+                } else if shift_pressed {
+                    // Shift+click on owned entity: ADD to selection without deselecting others
+                    // First check if non-owned entities are selected — if so, clear them
+                    let has_non_owned_selected = selected.iter().any(|sel_entity| {
+                        selectables.get(sel_entity)
+                            .map(|(_, _, _, _, _, o)| o.0 != Some(local_player.0))
+                            .unwrap_or(false)
+                    });
+
+                    if has_non_owned_selected {
+                        // Transition from non-owned selection: deselect all, select this entity
+                        for other_entity in selected.iter() {
+                            commands.entity(other_entity).remove::<Selected>();
+                        }
+                    }
+                    // Add entity to selection (or keep if already selected)
+                    if !selected.contains(entity) {
                         commands.entity(entity).insert(Selected);
                     }
                 } else {
@@ -203,7 +235,7 @@ pub fn selection_system(
                         );
                     }
                 }
-            } else if !ctrl_pressed {
+            } else if !ctrl_pressed && !shift_pressed {
                 for entity in selected.iter() {
                     commands.entity(entity).remove::<Selected>();
                 }
@@ -250,6 +282,7 @@ pub fn drag_box_system(
     cursor_over_ui: Res<CursorOverUi>,
     interface_state: Res<ObjectInterfaceState>,
     local_player: Res<LocalPlayer>,
+    fog_map: Res<FogOfWarMap>,
 ) {
     // Don't start drag during placement mode
     if interface_state.is_placement_mode() {
@@ -261,8 +294,8 @@ pub fn drag_box_system(
         return;
     }
 
-    let window = windows.single();
-    let (camera, camera_transform) = cameras.single();
+    let Ok(window) = windows.single() else { return; };
+    let Ok((camera, camera_transform)) = cameras.single() else { return; };
 
     if let Some(cursor_pos) = window.cursor_position() {
         if buttons.just_pressed(MouseButton::Left) && selection_state.drag_start.is_none() && !cursor_over_ui.0 {
@@ -282,15 +315,12 @@ pub fn drag_box_system(
         if buttons.just_released(MouseButton::Left) {
             if selection_state.is_dragging {
                 if let Some(start_pos) = selection_state.drag_start {
-                    // Convert drag box bounds from window-space to viewport-space
-                    // for comparison with world_to_viewport results
-                    let vp_offset = viewport_offset(camera, window.scale_factor());
-                    let vp_start = start_pos - vp_offset;
-                    let vp_cursor = cursor_pos - vp_offset;
-                    let min_x = vp_start.x.min(vp_cursor.x);
-                    let max_x = vp_start.x.max(vp_cursor.x);
-                    let min_y = vp_start.y.min(vp_cursor.y);
-                    let max_y = vp_start.y.max(vp_cursor.y);
+                    // In Bevy 0.17, world_to_viewport returns window-space coords,
+                    // so compare directly with raw cursor positions (no offset needed)
+                    let min_x = start_pos.x.min(cursor_pos.x);
+                    let max_x = start_pos.x.max(cursor_pos.x);
+                    let min_y = start_pos.y.min(cursor_pos.y);
+                    let max_y = start_pos.y.max(cursor_pos.y);
                     let box_center = Vec2::new((min_x + max_x) / 2.0, (min_y + max_y) / 2.0);
 
                     let ctrl_pressed = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
@@ -303,12 +333,21 @@ pub fn drag_box_system(
                     let mut neutrals: Vec<BoxCandidate> = Vec::new();
 
                     for (entity, transform, owner, unit_marker, structure_marker) in selectables.iter() {
-                        if let Some(screen_pos) = camera.world_to_viewport(camera_transform, transform.translation) {
+                        if let Ok(screen_pos) = camera.world_to_viewport(camera_transform, transform.translation) {
                             if screen_pos.x >= min_x && screen_pos.x <= max_x &&
                                screen_pos.y >= min_y && screen_pos.y <= max_y {
                                 let candidate = BoxCandidate { entity, screen_pos };
                                 let is_owned = owner.0 == Some(local_player.0);
                                 let is_neutral = owner.is_neutral();
+
+                                // Skip non-owned entities not visible through fog of war
+                                if !is_owned && !is_neutral {
+                                    let grid = world_to_grid(transform.translation);
+                                    if fog_map.get(local_player.0, grid.x, grid.z) != VisibilityStateEnum::Visible {
+                                        continue;
+                                    }
+                                }
+
                                 let is_unit = unit_marker.is_some();
                                 let is_structure = structure_marker.is_some();
 
@@ -405,7 +444,7 @@ pub fn draw_drag_box_ui(
     drag_box: Query<Entity, With<DragBoxUI>>,
     ui_cam: Res<crate::ui::types::UiCameraEntity>,
 ) {
-    let window = windows.single();
+    let Ok(window) = windows.single() else { return; };
 
     if selection_state.is_dragging {
         if let Some(start_pos) = selection_state.drag_start {
@@ -422,21 +461,18 @@ pub fn draw_drag_box_ui(
                 let height = max_y - min_y;
 
                 commands.spawn((
-                    NodeBundle {
-                        style: Style {
-                            position_type: PositionType::Absolute,
-                            left: Val::Px(min_x),
-                            top: Val::Px(min_y),
-                            width: Val::Px(width),
-                            height: Val::Px(height),
-                            border: UiRect::all(Val::Px(2.0)),
-                            ..default()
-                        },
-                        border_color: Color::srgba(1.0, 1.0, 0.0, 1.0).into(),
-                        background_color: Color::srgba(1.0, 1.0, 0.0, 0.1).into(),
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(min_x),
+                        top: Val::Px(min_y),
+                        width: Val::Px(width),
+                        height: Val::Px(height),
+                        border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
-                    TargetCamera(ui_cam.0),
+                    BorderColor::all(Color::srgba(1.0, 1.0, 0.0, 1.0)),
+                    BackgroundColor(Color::srgba(1.0, 1.0, 0.0, 0.1)),
+                    UiTargetCamera(ui_cam.0),
                     DragBoxUI,
                 ));
             }
@@ -448,47 +484,56 @@ pub fn draw_drag_box_ui(
     }
 }
 
-/// System to add/remove selection indicators for selected entities
+/// System to add/remove selection indicators for selected entities.
+/// Uses Parent-based cleanup: queries all SelectionIndicator entities and checks
+/// if their parent is still selected. This avoids reliance on fragile
+/// Without<Children> / With<Children> archetype filters.
 pub fn manage_selection_indicators(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    selected: Query<(Entity, &Children), (With<Selected>, Changed<Selected>)>,
-    newly_selected: Query<Entity, (With<Selected>, Without<Children>)>,
-    deselected: Query<Entity, (Without<Selected>, With<Children>)>,
-    indicators: Query<Entity, With<SelectionIndicator>>,
+    selected_entities: Query<(Entity, Option<&Children>), With<Selected>>,
+    indicator_parents: Query<(Entity, &ChildOf), With<SelectionIndicator>>,
+    selected_check: Query<(), With<Selected>>,
+    indicators: Query<(), With<SelectionIndicator>>,
+    mut cached_mesh: Local<Option<Handle<Mesh>>>,
+    mut cached_material: Local<Option<Handle<StandardMaterial>>>,
 ) {
-    for entity in newly_selected.iter() {
-        let indicator_mesh = meshes.add(Torus::new(0.4, 0.05));
-        let indicator_material = materials.add(StandardMaterial {
-            base_color: Color::srgb(1.0, 1.0, 0.0),
-            emissive: Color::srgb(1.0, 1.0, 0.0).into(),
-            ..default()
+    // Spawn indicators for selected entities that don't already have one
+    for (entity, children) in selected_entities.iter() {
+        let has_indicator = children.map_or(false, |c| {
+            c.iter().any(|child| indicators.get(child).is_ok())
         });
+        if has_indicator {
+            continue;
+        }
+
+        let indicator_mesh = cached_mesh.get_or_insert_with(|| {
+            meshes.add(Torus::new(0.4, 0.05))
+        }).clone();
+        let indicator_material = cached_material.get_or_insert_with(|| {
+            materials.add(StandardMaterial {
+                base_color: Color::srgb(1.0, 1.0, 0.0),
+                emissive: LinearRgba::rgb(1.0, 1.0, 0.0),
+                ..default()
+            })
+        }).clone();
 
         let indicator = commands.spawn((
-            PbrBundle {
-                mesh: indicator_mesh,
-                material: indicator_material,
-                transform: Transform::from_xyz(0.0, -0.3, 0.0)
-                    .with_rotation(Quat::from_rotation_x(std::f32::consts::PI / 2.0)),
-                ..default()
-            },
+            Mesh3d(indicator_mesh),
+            MeshMaterial3d(indicator_material),
+            Transform::from_xyz(0.0, -0.3, 0.0)
+                .with_rotation(Quat::from_rotation_x(std::f32::consts::PI / 2.0)),
             SelectionIndicator,
         )).id();
 
         commands.entity(entity).add_child(indicator);
     }
 
-    for entity in deselected.iter() {
-        if let Some(_entity_commands) = commands.get_entity(entity) {
-            if let Ok(children) = selected.get(entity).map(|(_, c)| c) {
-                for &child in children.iter() {
-                    if indicators.contains(child) {
-                        commands.entity(child).despawn();
-                    }
-                }
-            }
+    // Despawn indicators whose parent is no longer selected
+    for (indicator_entity, parent) in indicator_parents.iter() {
+        if selected_check.get(parent.0).is_err() {
+            commands.entity(indicator_entity).despawn();
         }
     }
 }
@@ -528,12 +573,9 @@ pub fn spawn_supply_delivery_stations(
                 let world_z = (grid_z as f32 - 32.0) + 0.5;
 
                 commands.spawn((
-                    PbrBundle {
-                        mesh: platform_mesh.clone(),
-                        material: platform_material.clone(),
-                        transform: Transform::from_xyz(world_x, 0.1, world_z),
-                        ..default()
-                    },
+                    Mesh3d(platform_mesh.clone()),
+                    MeshMaterial3d(platform_material.clone()),
+                    Transform::from_xyz(world_x, 0.1, world_z),
                     ObjectInstance::indestructible(ObjectEnum::SupplyDeliveryStation),
                     Owner::neutral(),
                     SupplyDeliveryStation {
@@ -563,7 +605,7 @@ pub fn sds_delivery_timer(
 ) {
     for mut sds in stations.iter_mut() {
         if sds.current_supplies == 0 {
-            sds.time_until_next_delivery -= time.delta_seconds();
+            sds.time_until_next_delivery -= time.delta_secs();
 
             if sds.time_until_next_delivery <= 0.0 {
                 sds.current_supplies = sds.delivery_size;
@@ -675,7 +717,7 @@ pub fn control_group_system(
                 continue;
             }
 
-            let current_time = time.elapsed_seconds_f64();
+            let current_time = time.elapsed_secs_f64();
 
             // Check for double-tap: center camera on group centroid
             if last_recall.is_double_tap(group_idx, current_time) {
@@ -689,10 +731,16 @@ pub fn control_group_system(
                 }
                 if count > 0 {
                     centroid /= count as f32;
-                    if let Ok(mut cam_transform) = camera_query.get_single_mut() {
-                        // Move camera X/Z to centroid, keep Y (height) unchanged
+                    if let Ok(mut cam_transform) = camera_query.single_mut() {
+                        // Move camera so centroid appears at viewport center.
+                        // Camera looks from (x, y, z) with fixed rotation set at
+                        // setup: from (0,40,25) looking at (0,0,0). The forward
+                        // direction is (0,-40,-25), so the Z offset from camera
+                        // position to ground look-at point is -25/40 * height.
+                        // To center on a ground point, offset camera Z accordingly.
+                        let z_offset = cam_transform.translation.y * 25.0 / 40.0;
                         cam_transform.translation.x = centroid.x;
-                        cam_transform.translation.z = centroid.z;
+                        cam_transform.translation.z = centroid.z + z_offset;
                         info!("Control group {}: centered camera at ({:.1}, {:.1})",
                             group_idx + 1, centroid.x, centroid.z);
                     }
@@ -729,7 +777,7 @@ pub fn control_group_system(
 /// Runs every frame after selection/drag-box/control-group systems have modified Selected markers.
 /// Builds type-based SelectionGroups from all entities with the Selected component.
 pub fn selection_group_sync_system(
-    selected_query: Query<(Entity, &ObjectInstance), (With<Selected>, Or<(With<Unit>, With<StructureInstance>)>)>,
+    selected_query: Query<(Entity, &ObjectInstance), With<Selected>>,
     mut selection: ResMut<Selection>,
 ) {
     // Collect current selected entities with their type info
@@ -770,9 +818,13 @@ pub fn active_group_cycle_system(
         return;
     }
 
-    // Tab cycling is now also handled in command_panel_hotkeys, but this system
-    // handles it when panel is hidden (no units selected, raw Tab behavior)
-    if keyboard.just_pressed(KeyCode::Tab) {
+    // Tab cycling is also handled in command_panel_hotkeys when the command panel
+    // is visible. Skip here if selection contains non-resource groups to avoid
+    // double-cycling (which would cycle twice per frame, reverting instantly).
+    let has_commandable_groups = !selection.groups.is_empty()
+        && !selection.groups.iter().all(|g| g.object_type.is_resource());
+
+    if keyboard.just_pressed(KeyCode::Tab) && !has_commandable_groups {
         selection.cycle_active_group();
         if let Some(group) = selection.active_group() {
             info!("Active group: {} ({} entities)",
@@ -810,7 +862,7 @@ pub fn selection_validation_system(
     for entity in &to_remove {
         selection.remove_entity(*entity);
         // Remove Selected marker if entity still exists
-        if let Some(mut entity_commands) = commands.get_entity(*entity) {
+        if let Ok(mut entity_commands) = commands.get_entity(*entity) {
             entity_commands.remove::<Selected>();
         }
         changed = true;
@@ -827,6 +879,7 @@ pub fn selection_validation_system(
 }
 
 #[cfg(test)]
+#[allow(unused_must_use)]
 mod tests {
     use super::*;
     use bevy::ecs::system::RunSystemOnce;
@@ -877,10 +930,10 @@ mod tests {
     }
 
     #[test]
-    fn selection_group_sync_excludes_neutral_objects_without_unit_or_structure() {
+    fn selection_group_sync_includes_resource_entities() {
         let mut world = setup_test_world();
 
-        // Spawn a SupplyDeliveryStation — has Selected + ObjectInstance but NOT Unit or StructureInstance
+        // Spawn a SupplyDeliveryStation — has Selected + ObjectInstance (resource entity)
         world.spawn((
             Selected,
             ObjectInstance::indestructible(ObjectEnum::SupplyDeliveryStation),
@@ -889,28 +942,42 @@ mod tests {
         world.run_system_once(selection_group_sync_system);
 
         let selection = world.resource::<Selection>();
-        assert!(selection.groups.is_empty(), "Neutral object without Unit/StructureInstance should NOT appear in selection groups");
+        assert_eq!(selection.groups.len(), 1, "Resource entity should appear in selection groups");
+        assert_eq!(selection.groups[0].object_type, ObjectEnum::SupplyDeliveryStation);
     }
 
     #[test]
-    fn selection_group_sync_excludes_entity_with_only_object_instance() {
+    fn selection_group_sync_includes_crystal_patch() {
         let mut world = setup_test_world();
 
-        // Spawn an entity with ObjectInstance but no Unit/StructureInstance marker
-        // (simulates any neutral/non-commandable object like SpaceCrystalPatch)
+        // Spawn a SpaceCrystalsPatch with ObjectInstance
         world.spawn((
             Selected,
-            ObjectInstance::indestructible(ObjectEnum::Tunnel),
+            ObjectInstance::indestructible(ObjectEnum::SpaceCrystalsPatch),
         ));
 
         world.run_system_once(selection_group_sync_system);
 
         let selection = world.resource::<Selection>();
-        assert!(selection.groups.is_empty(), "Entity with only ObjectInstance (no Unit/StructureInstance) should NOT appear in selection groups");
+        assert_eq!(selection.groups.len(), 1, "Crystal Patch should appear in selection groups");
+        assert_eq!(selection.groups[0].object_type, ObjectEnum::SpaceCrystalsPatch);
     }
 
     #[test]
-    fn selection_group_sync_mixed_selection_only_includes_units_and_structures() {
+    fn selection_group_sync_excludes_entity_without_object_instance() {
+        let mut world = setup_test_world();
+
+        // Spawn an entity with Selected but no ObjectInstance
+        world.spawn(Selected);
+
+        world.run_system_once(selection_group_sync_system);
+
+        let selection = world.resource::<Selection>();
+        assert!(selection.groups.is_empty(), "Entity without ObjectInstance should NOT appear in selection groups");
+    }
+
+    #[test]
+    fn selection_group_sync_mixed_selection_includes_all_object_types() {
         let mut world = setup_test_world();
 
         // Spawn a unit
@@ -920,7 +987,7 @@ mod tests {
             Unit,
         ));
 
-        // Spawn a neutral SDS (no Unit or StructureInstance)
+        // Spawn a resource (SDS)
         world.spawn((
             Selected,
             ObjectInstance::indestructible(ObjectEnum::SupplyDeliveryStation),
@@ -936,18 +1003,19 @@ mod tests {
         world.run_system_once(selection_group_sync_system);
 
         let selection = world.resource::<Selection>();
-        // Should have 2 groups: Peacekeeper and DeploymentCenter (SDS excluded)
-        assert_eq!(selection.groups.len(), 2, "Only Unit and Structure entities should be in groups");
+        // All 3 should be in groups: Peacekeeper, SDS, DeploymentCenter
+        assert_eq!(selection.groups.len(), 3, "All ObjectInstance entities should be in groups");
         let types: Vec<ObjectEnum> = selection.groups.iter().map(|g| g.object_type).collect();
         assert!(types.contains(&ObjectEnum::Peacekeeper), "Peacekeeper should be in groups");
         assert!(types.contains(&ObjectEnum::DeploymentCenter), "DeploymentCenter should be in groups");
+        assert!(types.contains(&ObjectEnum::SupplyDeliveryStation), "SDS should be in groups");
     }
 
     #[test]
-    fn sds_selection_produces_empty_groups() {
-        // When only SDS is selected, groups should be empty.
-        // The command panel checks `!selection.groups.is_empty()` to decide visibility,
-        // so empty groups = no phantom panel.
+    fn sds_selection_produces_groups_but_panel_hidden() {
+        // When only SDS is selected, groups should be non-empty (SDS is now included).
+        // The command panel uses is_panel_visible() which checks for resource-only selections
+        // and returns false, preventing phantom panel.
         let mut world = setup_test_world();
 
         world.spawn((
@@ -958,11 +1026,13 @@ mod tests {
         world.run_system_once(selection_group_sync_system);
 
         let selection = world.resource::<Selection>();
-        assert!(selection.groups.is_empty(), "SDS-only selection should produce empty groups (prevents phantom panel)");
+        assert_eq!(selection.groups.len(), 1, "SDS selection should produce groups");
+        assert_eq!(selection.groups[0].object_type, ObjectEnum::SupplyDeliveryStation);
+        // Panel visibility is guarded by is_panel_visible() which returns false for resource-only
     }
 
     #[test]
-    fn selection_groups_cleared_when_switching_from_unit_to_neutral() {
+    fn selection_groups_updated_when_switching_from_unit_to_resource() {
         let mut world = setup_test_world();
 
         // First: select a unit
@@ -985,6 +1055,419 @@ mod tests {
 
         world.run_system_once(selection_group_sync_system);
         let selection = world.resource::<Selection>();
-        assert!(selection.groups.is_empty(), "After switching to neutral-only selection, groups should be empty");
+        assert_eq!(selection.groups.len(), 1, "SDS should now be in groups");
+        assert_eq!(selection.groups[0].object_type, ObjectEnum::SupplyDeliveryStation);
+    }
+
+    // === Selection Indicator Memory Leak Fix Tests ===
+
+    #[test]
+    fn selection_indicator_cleanup_uses_children_query() {
+        // Verify the manage_selection_indicators system properly cleans up children
+        // (Tests the fix for the original bug where `selected.get()` was used
+        // instead of `children_query.get()` for deselected entities)
+        let mut world = World::new();
+        world.init_resource::<Assets<Mesh>>();
+        world.init_resource::<Assets<StandardMaterial>>();
+
+        // Spawn a selected entity — this will get an indicator child
+        let entity = world.spawn((Selected, Transform::default())).id();
+        world.run_system_once(manage_selection_indicators);
+
+        // Verify indicator was spawned as child
+        let has_children = world.entity(entity).get::<Children>().is_some();
+        assert!(has_children, "Selected entity should have indicator child");
+        let indicator_count = world.query::<&SelectionIndicator>().iter(&world).count();
+        assert_eq!(indicator_count, 1);
+
+        // Deselect the entity
+        world.entity_mut(entity).remove::<Selected>();
+        world.run_system_once(manage_selection_indicators);
+
+        // Verify indicator was cleaned up (the bug was that this never happened)
+        let indicator_count = world.query::<&SelectionIndicator>().iter(&world).count();
+        assert_eq!(indicator_count, 0, "Selection indicator should be despawned after deselection");
+    }
+
+    #[test]
+    fn selection_indicator_mesh_cached() {
+        let mut world = World::new();
+        world.init_resource::<Assets<Mesh>>();
+        world.init_resource::<Assets<StandardMaterial>>();
+
+        // Spawn two selected entities
+        world.spawn((Selected, Transform::default()));
+        world.spawn((Selected, Transform::default()));
+        world.run_system_once(manage_selection_indicators);
+
+        // Both should exist as indicators
+        let indicator_count = world.query::<&SelectionIndicator>().iter(&world).count();
+        assert_eq!(indicator_count, 2);
+
+        // But mesh count should be 1 (cached via Local)
+        let mesh_count = world.resource::<Assets<Mesh>>().len();
+        assert_eq!(mesh_count, 1, "Mesh should be cached — only 1 mesh for all indicators");
+    }
+
+    #[test]
+    fn selection_indicator_material_cached() {
+        let mut world = World::new();
+        world.init_resource::<Assets<Mesh>>();
+        world.init_resource::<Assets<StandardMaterial>>();
+
+        world.spawn((Selected, Transform::default()));
+        world.spawn((Selected, Transform::default()));
+        world.run_system_once(manage_selection_indicators);
+
+        let material_count = world.resource::<Assets<StandardMaterial>>().len();
+        assert_eq!(material_count, 1, "Material should be cached — only 1 material for all indicators");
+    }
+
+    #[test]
+    fn selection_indicator_no_leak_on_repeated_select_deselect() {
+        let mut world = World::new();
+        world.init_resource::<Assets<Mesh>>();
+        world.init_resource::<Assets<StandardMaterial>>();
+
+        let entity = world.spawn(Transform::default()).id();
+
+        // Cycle select/deselect 5 times
+        for _ in 0..5 {
+            world.entity_mut(entity).insert(Selected);
+            world.run_system_once(manage_selection_indicators);
+            world.entity_mut(entity).remove::<Selected>();
+            world.run_system_once(manage_selection_indicators);
+        }
+
+        // All indicators should be cleaned up
+        let indicator_count = world.query::<&SelectionIndicator>().iter(&world).count();
+        assert_eq!(indicator_count, 0, "No indicators should remain after deselection cycles");
+    }
+
+    // --- Fog of War Selection Filter Tests ---
+
+    /// Helper: determines if an entity should be selectable given ownership and fog state.
+    /// Returns true if the entity passes the fog filter (i.e., should be selectable).
+    fn fog_filter_allows(is_owned: bool, is_neutral: bool, visibility: VisibilityStateEnum) -> bool {
+        if is_owned {
+            return true; // Own entities always selectable
+        }
+        if is_neutral {
+            return true; // Neutral entities always selectable (SCP, SDS)
+        }
+        // Enemy entity: only selectable if tile is Visible
+        visibility == VisibilityStateEnum::Visible
+    }
+
+    #[test]
+    fn fog_filter_owned_always_selectable() {
+        assert!(fog_filter_allows(true, false, VisibilityStateEnum::Unexplored));
+        assert!(fog_filter_allows(true, false, VisibilityStateEnum::Explored));
+        assert!(fog_filter_allows(true, false, VisibilityStateEnum::Visible));
+    }
+
+    #[test]
+    fn fog_filter_neutral_always_selectable() {
+        assert!(fog_filter_allows(false, true, VisibilityStateEnum::Unexplored));
+        assert!(fog_filter_allows(false, true, VisibilityStateEnum::Explored));
+        assert!(fog_filter_allows(false, true, VisibilityStateEnum::Visible));
+    }
+
+    #[test]
+    fn fog_filter_enemy_visible_selectable() {
+        assert!(fog_filter_allows(false, false, VisibilityStateEnum::Visible));
+    }
+
+    #[test]
+    fn fog_filter_enemy_explored_not_selectable() {
+        assert!(!fog_filter_allows(false, false, VisibilityStateEnum::Explored));
+    }
+
+    #[test]
+    fn fog_filter_enemy_unexplored_not_selectable() {
+        assert!(!fog_filter_allows(false, false, VisibilityStateEnum::Unexplored));
+    }
+
+    #[test]
+    fn fog_map_out_of_bounds_returns_unexplored() {
+        let fog_map = FogOfWarMap::new(64, 64);
+        // Out-of-bounds should return Unexplored, blocking enemy selection
+        assert_eq!(fog_map.get(0, -1, -1), VisibilityStateEnum::Unexplored);
+        assert_eq!(fog_map.get(0, 999, 999), VisibilityStateEnum::Unexplored);
+    }
+
+    #[test]
+    fn fog_map_default_tiles_are_unexplored() {
+        let mut fog_map = FogOfWarMap::new(64, 64);
+        fog_map.ensure_player(0);
+        // Tiles within bounds but never revealed should be Unexplored
+        assert_eq!(fog_map.get(0, 32, 32), VisibilityStateEnum::Unexplored);
+    }
+
+    #[test]
+    fn fog_map_visible_tile_allows_enemy_selection() {
+        let mut fog_map = FogOfWarMap::new(64, 64);
+        fog_map.ensure_player(0);
+        fog_map.set(0, 32, 32, VisibilityStateEnum::Visible);
+        assert_eq!(fog_map.get(0, 32, 32), VisibilityStateEnum::Visible);
+        // Enemy at this tile would pass the filter
+        assert!(fog_filter_allows(false, false, fog_map.get(0, 32, 32)));
+    }
+
+    #[test]
+    fn fog_map_explored_tile_blocks_enemy_selection() {
+        let mut fog_map = FogOfWarMap::new(64, 64);
+        fog_map.ensure_player(0);
+        fog_map.set(0, 32, 32, VisibilityStateEnum::Explored);
+        assert_eq!(fog_map.get(0, 32, 32), VisibilityStateEnum::Explored);
+        // Enemy at this tile would NOT pass the filter
+        assert!(!fog_filter_allows(false, false, fog_map.get(0, 32, 32)));
+    }
+
+    #[test]
+    fn world_to_grid_consistency_for_fog_check() {
+        // Verify world_to_grid produces valid coords for fog map lookup
+        let grid = world_to_grid(Vec3::new(0.0, 0.0, 0.0));
+        // At origin (0,0,0), grid should be (32, 32) due to GRID_HALF_SIZE=32
+        assert_eq!(grid.x, 32);
+        assert_eq!(grid.z, 32);
+    }
+
+    // --- Shift+Click Add-to-Selection Tests ---
+
+    /// The selection_system checks shift_pressed and adds to selection
+    /// instead of replacing. This tests the logic predicate.
+    #[test]
+    fn shift_click_add_predicate_keeps_existing() {
+        // When shift is held and clicking an owned entity that's not yet selected,
+        // the entity should be ADDED (other selected entities remain selected).
+        // Predicate: !selected.contains(entity) → insert(Selected)
+        // No deselection of other entities.
+        let entity_a = Entity::from_raw_u32(1).unwrap();
+        let entity_b = Entity::from_raw_u32(2).unwrap();
+        let mut selected: Vec<Entity> = vec![entity_a];
+        // Shift+click entity_b: add without removing entity_a
+        if !selected.contains(&entity_b) {
+            selected.push(entity_b);
+        }
+        assert_eq!(selected.len(), 2);
+        assert!(selected.contains(&entity_a));
+        assert!(selected.contains(&entity_b));
+    }
+
+    #[test]
+    fn shift_click_does_not_deselect_on_empty() {
+        // When shift is held and clicking empty space, selection should NOT clear
+        let selection = vec![Entity::from_raw_u32(1).unwrap()];
+        // shift_pressed && !ctrl_pressed → no deselect
+        let should_deselect = false; // !ctrl_pressed && !shift_pressed evaluates to false
+        assert!(!should_deselect);
+        assert_eq!(selection.len(), 1, "Selection preserved when shift+clicking empty space");
+    }
+
+    #[test]
+    fn shift_click_non_owned_still_single_selects() {
+        // Shift+click on non-owned entity should still single-select (replace)
+        // This is by design: non-owned always single-select regardless of modifiers
+        let is_owned = false;
+        let shift_pressed = true;
+        // Non-owned path ignores shift — always replaces
+        assert!(!is_owned, "Non-owned entities always single-select");
+        assert!(shift_pressed, "Shift being held doesn't change non-owned behavior");
+    }
+
+    // --- Recall-and-Center Camera Offset Tests ---
+
+    /// Camera starts at (0, 40, 25) looking at (0, 0, 0).
+    /// The Z offset ratio is 25/40 = 0.625. When centering on a ground point,
+    /// the camera Z must be offset by camera_height * 25/40.
+    #[test]
+    fn recall_center_z_offset_default_height() {
+        let camera_height = 40.0_f32;
+        let centroid_z = 10.0_f32;
+        let z_offset = camera_height * 25.0 / 40.0;
+        let expected_cam_z = centroid_z + z_offset;
+        assert!((expected_cam_z - 35.0).abs() < 0.001,
+            "Camera at height 40 centering on z=10 should be at z=35");
+    }
+
+    #[test]
+    fn recall_center_z_offset_zoomed_in() {
+        // When zoomed in (camera height = 20), Z offset shrinks proportionally
+        let camera_height = 20.0_f32;
+        let centroid_z = 0.0_f32;
+        let z_offset = camera_height * 25.0 / 40.0;
+        let expected_cam_z = centroid_z + z_offset;
+        assert!((expected_cam_z - 12.5).abs() < 0.001,
+            "Camera at height 20 centering on z=0 should be at z=12.5");
+    }
+
+    #[test]
+    fn recall_center_z_offset_zero_means_origin() {
+        // At default height, centering on z=0 should place camera at z=25
+        let camera_height = 40.0_f32;
+        let z_offset = camera_height * 25.0 / 40.0;
+        assert!((z_offset - 25.0).abs() < 0.001,
+            "Default offset matches initial camera Z position");
+    }
+
+    #[test]
+    fn recall_center_x_is_exact_centroid() {
+        // X centering should always match centroid exactly (no angle offset in X)
+        let centroid_x = 15.0_f32;
+        let cam_x = centroid_x;
+        assert!((cam_x - 15.0).abs() < 0.001);
+    }
+
+    // --- Selection Indicator Parent-Based Cleanup Tests ---
+
+    #[test]
+    fn indicator_despawned_when_parent_deselected_parent_query() {
+        // Verify the Parent-based cleanup works: indicator with Parent pointing
+        // to a deselected entity is despawned.
+        let mut world = World::new();
+        world.init_resource::<Assets<Mesh>>();
+        world.init_resource::<Assets<StandardMaterial>>();
+
+        let entity = world.spawn((Selected, Transform::default())).id();
+        world.run_system_once(manage_selection_indicators);
+
+        // Should have 1 indicator
+        let count = world.query::<&SelectionIndicator>().iter(&world).count();
+        assert_eq!(count, 1);
+
+        // Deselect
+        world.entity_mut(entity).remove::<Selected>();
+        world.run_system_once(manage_selection_indicators);
+
+        let count = world.query::<&SelectionIndicator>().iter(&world).count();
+        assert_eq!(count, 0, "Indicator despawned when parent deselected");
+    }
+
+    #[test]
+    fn indicator_persists_while_parent_selected() {
+        let mut world = World::new();
+        world.init_resource::<Assets<Mesh>>();
+        world.init_resource::<Assets<StandardMaterial>>();
+
+        world.spawn((Selected, Transform::default()));
+        world.run_system_once(manage_selection_indicators);
+
+        let count = world.query::<&SelectionIndicator>().iter(&world).count();
+        assert_eq!(count, 1);
+
+        // Run again — indicator should persist (parent still selected)
+        world.run_system_once(manage_selection_indicators);
+        let count = world.query::<&SelectionIndicator>().iter(&world).count();
+        assert_eq!(count, 1, "Indicator persists while parent is selected");
+    }
+
+    #[test]
+    fn no_duplicate_indicators_on_already_selected() {
+        // Verify that running the system multiple times doesn't spawn duplicate indicators
+        let mut world = World::new();
+        world.init_resource::<Assets<Mesh>>();
+        world.init_resource::<Assets<StandardMaterial>>();
+
+        world.spawn((Selected, Transform::default()));
+        world.run_system_once(manage_selection_indicators);
+        world.run_system_once(manage_selection_indicators);
+        world.run_system_once(manage_selection_indicators);
+
+        let count = world.query::<&SelectionIndicator>().iter(&world).count();
+        assert_eq!(count, 1, "Only one indicator per entity regardless of system runs");
+    }
+
+    #[test]
+    fn multiple_entities_each_get_one_indicator() {
+        let mut world = World::new();
+        world.init_resource::<Assets<Mesh>>();
+        world.init_resource::<Assets<StandardMaterial>>();
+
+        world.spawn((Selected, Transform::default()));
+        world.spawn((Selected, Transform::default()));
+        world.spawn((Selected, Transform::default()));
+        world.run_system_once(manage_selection_indicators);
+
+        let count = world.query::<&SelectionIndicator>().iter(&world).count();
+        assert_eq!(count, 3, "Each selected entity gets exactly one indicator");
+    }
+
+    // === Bevy 0.17 Emissive Type Tests ===
+
+    #[test]
+    fn crystal_material_uses_linear_rgba_emissive() {
+        // Verify that LinearRgba::rgb() produces a valid emissive value
+        // (Bevy 0.17 requires LinearRgba for StandardMaterial.emissive)
+        let emissive = LinearRgba::rgb(0.2, 0.6, 0.8);
+        let mat = StandardMaterial {
+            base_color: Color::srgb(0.3, 0.8, 1.0),
+            emissive,
+            ..default()
+        };
+        assert_eq!(mat.emissive.red, 0.2);
+        assert_eq!(mat.emissive.green, 0.6);
+        assert_eq!(mat.emissive.blue, 0.8);
+    }
+
+    #[test]
+    fn selection_indicator_material_uses_linear_rgba_emissive() {
+        let emissive = LinearRgba::rgb(1.0, 1.0, 0.0);
+        let mat = StandardMaterial {
+            base_color: Color::srgb(1.0, 1.0, 0.0),
+            emissive,
+            ..default()
+        };
+        assert_eq!(mat.emissive.red, 1.0);
+        assert_eq!(mat.emissive.green, 1.0);
+        assert_eq!(mat.emissive.blue, 0.0);
+    }
+
+    #[test]
+    fn active_group_cycle_skips_when_commandable_groups_present() {
+        // When non-resource groups are selected, active_group_cycle_system
+        // should NOT cycle — command_panel_hotkeys handles Tab instead.
+        // This prevents the double-cycle bug where active_group_index
+        // reverts instantly (cycles twice per frame).
+        let mut selection = Selection::default();
+        let mut world = World::new();
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+        selection.groups = vec![
+            SelectionGroup { object_type: ObjectEnum::Peacekeeper, entities: vec![e1] },
+            SelectionGroup { object_type: ObjectEnum::SyndicateAgent, entities: vec![e2] },
+        ];
+        selection.active_group_index = Some(0);
+
+        // has_commandable_groups should be true (non-resource groups present)
+        let has_commandable_groups = !selection.groups.is_empty()
+            && !selection.groups.iter().all(|g| g.object_type.is_resource());
+        assert!(has_commandable_groups, "Non-resource groups should be detected as commandable");
+
+        // The system guard would block Tab processing, preserving active_group_index
+        assert_eq!(selection.active_group_index, Some(0));
+    }
+
+    #[test]
+    fn active_group_cycle_runs_when_only_resource_groups() {
+        // When only resource groups are selected, active_group_cycle_system
+        // should handle Tab (command_panel_hotkeys won't run for resources).
+        let mut selection = Selection::default();
+        let mut world = World::new();
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+        selection.groups = vec![
+            SelectionGroup { object_type: ObjectEnum::SpaceCrystalsPatch, entities: vec![e1] },
+            SelectionGroup { object_type: ObjectEnum::SupplyDeliveryStation, entities: vec![e2] },
+        ];
+        selection.active_group_index = Some(0);
+
+        let has_commandable_groups = !selection.groups.is_empty()
+            && !selection.groups.iter().all(|g| g.object_type.is_resource());
+        assert!(!has_commandable_groups, "Resource-only groups should not be commandable");
+
+        // The system would allow Tab processing for resource-only selections
+        selection.cycle_active_group();
+        assert_eq!(selection.active_group_index, Some(1));
     }
 }

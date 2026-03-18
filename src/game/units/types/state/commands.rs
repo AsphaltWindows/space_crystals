@@ -87,6 +87,8 @@ pub enum CommandType {
     Gather,
     DropOff,
     BuildTunnel,
+    SetRallyPoint,
+    ScheduleDeliveries,
 }
 
 impl CommandType {
@@ -104,6 +106,8 @@ impl CommandType {
             CommandType::Gather => "Gather",
             CommandType::DropOff => "Drop Off",
             CommandType::BuildTunnel => "Build Tunnel",
+            CommandType::SetRallyPoint => "Set Rally Point",
+            CommandType::ScheduleDeliveries => "Schedule Deliveries",
         }
     }
 
@@ -121,6 +125,8 @@ impl CommandType {
             CommandType::Gather => "G",
             CommandType::DropOff => "D",
             CommandType::BuildTunnel => "A",
+            CommandType::SetRallyPoint => "C",
+            CommandType::ScheduleDeliveries => "S",
         }
     }
 }
@@ -313,9 +319,9 @@ mod tests {
     #[test]
     fn turret_command_state_with_locked_target() {
         let state = TurretCommandState {
-            locked_target: Some(Entity::from_raw(42)),
+            locked_target: Some(Entity::from_raw_u32(42).unwrap()),
         };
-        assert_eq!(state.locked_target, Some(Entity::from_raw(42)));
+        assert_eq!(state.locked_target, Some(Entity::from_raw_u32(42).unwrap()));
     }
 
     // === CommandType tests ===
@@ -391,7 +397,7 @@ mod tests {
 
     #[test]
     fn is_available_attack_target_requires_attack() {
-        let cmd = UnitCommand::AttackTarget(Entity::from_raw(1));
+        let cmd = UnitCommand::AttackTarget(Entity::from_raw_u32(1).unwrap());
         assert!(!cmd.is_available(false, false, false, false));
         assert!(cmd.is_available(true, false, false, false));
     }
@@ -423,26 +429,26 @@ mod tests {
 
     #[test]
     fn unit_command_pick_up_supplies_variant() {
-        let cmd = UnitCommand::PickUpSupplies(Entity::from_raw(1));
+        let cmd = UnitCommand::PickUpSupplies(Entity::from_raw_u32(1).unwrap());
         assert!(matches!(cmd, UnitCommand::PickUpSupplies(_)));
     }
 
     #[test]
     fn unit_command_attach_to_tower_variant() {
-        let cmd = UnitCommand::AttachToTower(Entity::from_raw(2));
+        let cmd = UnitCommand::AttachToTower(Entity::from_raw_u32(2).unwrap());
         assert!(matches!(cmd, UnitCommand::AttachToTower(_)));
     }
 
     #[test]
     fn is_available_pick_up_supplies_always() {
-        let cmd = UnitCommand::PickUpSupplies(Entity::from_raw(1));
+        let cmd = UnitCommand::PickUpSupplies(Entity::from_raw_u32(1).unwrap());
         assert!(cmd.is_available(false, false, false, false));
         assert!(cmd.is_available(true, true, true, true));
     }
 
     #[test]
     fn is_available_attach_to_tower_always() {
-        let cmd = UnitCommand::AttachToTower(Entity::from_raw(2));
+        let cmd = UnitCommand::AttachToTower(Entity::from_raw_u32(2).unwrap());
         assert!(cmd.is_available(false, false, false, false));
         assert!(cmd.is_available(true, true, true, true));
     }
@@ -451,16 +457,16 @@ mod tests {
 
     #[test]
     fn unit_command_enter_variant() {
-        let cmd = UnitCommand::Enter(Entity::from_raw(10));
+        let cmd = UnitCommand::Enter(Entity::from_raw_u32(10).unwrap());
         assert!(matches!(cmd, UnitCommand::Enter(_)));
     }
 
     #[test]
     fn unit_command_enter_stores_entity() {
-        let tunnel = Entity::from_raw(42);
+        let tunnel = Entity::from_raw_u32(42).unwrap();
         let cmd = UnitCommand::Enter(tunnel);
         if let UnitCommand::Enter(e) = cmd {
-            assert_eq!(e, Entity::from_raw(42));
+            assert_eq!(e, Entity::from_raw_u32(42).unwrap());
         } else {
             panic!("Expected Enter variant");
         }
@@ -468,7 +474,7 @@ mod tests {
 
     #[test]
     fn is_available_enter_requires_syndicate() {
-        let cmd = UnitCommand::Enter(Entity::from_raw(1));
+        let cmd = UnitCommand::Enter(Entity::from_raw_u32(1).unwrap());
         // Not syndicate — should be unavailable
         assert!(!cmd.is_available(false, false, false, false));
         assert!(!cmd.is_available(true, true, true, false));
@@ -499,6 +505,7 @@ mod tests {
             CommandType::AttackGround, CommandType::AttackMove, CommandType::Patrol,
             CommandType::Reverse, CommandType::Enter, CommandType::Build,
             CommandType::Gather, CommandType::DropOff, CommandType::BuildTunnel,
+            CommandType::SetRallyPoint, CommandType::ScheduleDeliveries,
         ];
         for ct in types {
             assert!(!ct.name().is_empty());
@@ -563,13 +570,13 @@ mod tests {
 
     #[test]
     fn unit_command_gather_variant() {
-        let cmd = UnitCommand::Gather(Entity::from_raw(5));
+        let cmd = UnitCommand::Gather(Entity::from_raw_u32(5).unwrap());
         assert!(matches!(cmd, UnitCommand::Gather(_)));
     }
 
     #[test]
     fn is_available_gather_requires_syndicate() {
-        let cmd = UnitCommand::Gather(Entity::from_raw(1));
+        let cmd = UnitCommand::Gather(Entity::from_raw_u32(1).unwrap());
         assert!(!cmd.is_available(false, false, false, false));
         assert!(cmd.is_available(false, false, false, true));
     }
@@ -578,13 +585,13 @@ mod tests {
 
     #[test]
     fn unit_command_drop_off_resources_variant() {
-        let cmd = UnitCommand::DropOffResources(Entity::from_raw(7));
+        let cmd = UnitCommand::DropOffResources(Entity::from_raw_u32(7).unwrap());
         assert!(matches!(cmd, UnitCommand::DropOffResources(_)));
     }
 
     #[test]
     fn is_available_drop_off_requires_syndicate() {
-        let cmd = UnitCommand::DropOffResources(Entity::from_raw(1));
+        let cmd = UnitCommand::DropOffResources(Entity::from_raw_u32(1).unwrap());
         assert!(!cmd.is_available(false, false, false, false));
         assert!(cmd.is_available(false, false, false, true));
     }
@@ -620,6 +627,31 @@ mod tests {
     fn command_type_build_tunnel_name_and_hotkey() {
         assert_eq!(CommandType::BuildTunnel.name(), "Build Tunnel");
         assert_eq!(CommandType::BuildTunnel.hotkey(), "A");
+    }
+
+    #[test]
+    fn command_type_set_rally_point_name() {
+        assert_eq!(CommandType::SetRallyPoint.name(), "Set Rally Point");
+    }
+
+    #[test]
+    fn command_type_set_rally_point_hotkey() {
+        assert_eq!(CommandType::SetRallyPoint.hotkey(), "C");
+    }
+
+    #[test]
+    fn command_type_schedule_deliveries_name() {
+        assert_eq!(CommandType::ScheduleDeliveries.name(), "Schedule Deliveries");
+    }
+
+    #[test]
+    fn command_type_schedule_deliveries_hotkey() {
+        assert_eq!(CommandType::ScheduleDeliveries.hotkey(), "S");
+    }
+
+    #[test]
+    fn command_type_schedule_deliveries_is_not_default() {
+        assert_ne!(CommandType::ScheduleDeliveries, CommandType::Default);
     }
 }
 

@@ -44,10 +44,10 @@ pub fn attack_phase_system(
     >,
     targets: Query<(&Transform, &Owner, Option<&DomainEnum>, &GridPosition), With<ObjectInstance>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    cache: Res<CombatAssetCache>,
     elevation_map: Res<ElevationMap>,
 ) {
-    let delta = time.delta_seconds();
+    let delta = time.delta_secs();
 
     for (entity, transform, attack_cap, mut attack_state, owner, unit_command, source_domain, source_grid_pos) in units.iter_mut() {
         let Some(target_entity) = attack_state.target_entity() else {
@@ -128,8 +128,7 @@ pub fn attack_phase_system(
                                 let end_pos = target_tf.translation + Vec3::Y * 0.5;
                                 spawn_attack_line(
                                     &mut commands,
-                                    &mut meshes,
-                                    &mut materials,
+                                    &cache,
                                     start_pos,
                                     end_pos,
                                 );
@@ -142,7 +141,7 @@ pub fn attack_phase_system(
                                 spawn_projectile(
                                     &mut commands,
                                     &mut meshes,
-                                    &mut materials,
+                                    &cache,
                                     transform.translation + Vec3::new(0.0, 0.5, 0.0),
                                     target_transform.translation,
                                     *projectile_speed,
@@ -170,7 +169,7 @@ pub fn attack_phase_system(
                                 spawn_projectile(
                                     &mut commands,
                                     &mut meshes,
-                                    &mut materials,
+                                    &cache,
                                     target_loc,
                                     target_loc,
                                     1.0,
@@ -189,7 +188,7 @@ pub fn attack_phase_system(
                                 spawn_projectile(
                                     &mut commands,
                                     &mut meshes,
-                                    &mut materials,
+                                    &cache,
                                     transform.translation + Vec3::new(0.0, 0.5, 0.0),
                                     target_loc,
                                     *projectile_speed,
@@ -574,7 +573,7 @@ pub fn remove_dead_entities_system(
                         // Patch is depleted — despawn the patch entity
                         info!("Extraction Plate {:?} destroyed over depleted patch, removing patch",
                             entity);
-                        commands.entity(plate.attached_patch).despawn_recursive();
+                        commands.entity(plate.attached_patch).despawn();
                     }
                 }
             }
@@ -596,7 +595,7 @@ pub fn remove_dead_entities_system(
             } else {
                 info!("Entity {:?} destroyed", entity);
             }
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }
@@ -736,7 +735,7 @@ mod tests {
 
     #[test]
     fn base_auto_target_blocks_attack_target() {
-        let cmd = UnitCommand::AttackTarget(Entity::from_raw(1));
+        let cmd = UnitCommand::AttackTarget(Entity::from_raw_u32(1).unwrap());
         let allowed = matches!(cmd, UnitCommand::Idle | UnitCommand::HoldPosition | UnitCommand::AttackMove(_));
         assert!(!allowed);
     }
@@ -773,7 +772,7 @@ mod tests {
 
     #[test]
     fn extraction_plate_state_has_attached_patch() {
-        let patch_entity = Entity::from_raw(42);
+        let patch_entity = Entity::from_raw_u32(42).unwrap();
         let plate = ExtractionPlateState {
             attached_patch: patch_entity,
             mining_timer: 0,

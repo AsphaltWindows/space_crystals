@@ -60,6 +60,14 @@ pub enum RallyTarget {
     Object(Entity),
 }
 
+/// Visual marker component for rally point indicators on production structures.
+/// Spawned as a mesh entity at the rally point location.
+#[derive(Component, Clone, Debug)]
+pub struct RallyPointMarker {
+    /// The production structure entity this rally point belongs to
+    pub owner_structure: Entity,
+}
+
 // === Deployment Center ===
 
 /// Instance state for the Deployment Center
@@ -158,9 +166,22 @@ impl BarracksState {
         true
     }
 
-    /// Cancel the last queued item (returns the cancelled object)
+    /// Cancel the last queued item, or the currently building unit if queue is empty.
+    /// Returns the cancelled object type for refund calculation.
     pub fn cancel_last(&mut self) -> Option<ObjectEnum> {
-        self.build_queue.pop()
+        if let Some(cancelled) = self.build_queue.pop() {
+            Some(cancelled)
+        } else if let Some(cancelled) = self.current_build.take() {
+            self.current_build_progress = None;
+            Some(cancelled)
+        } else {
+            None
+        }
+    }
+
+    /// Returns true if there is any active production or queued items to cancel.
+    pub fn has_cancellable(&self) -> bool {
+        !self.build_queue.is_empty() || self.current_build.is_some()
     }
 }
 
@@ -254,6 +275,10 @@ impl HeadquartersState {
                 space_crystals: 100,
                 build_frames: 160,
             }),
+            ObjectEnum::SyndicateGuard => Some(StructureCost {
+                space_crystals: 125,
+                build_frames: 120,
+            }),
             _ => None,
         }
     }
@@ -267,9 +292,22 @@ impl HeadquartersState {
         true
     }
 
-    /// Cancel the last queued item (returns the cancelled object)
+    /// Cancel the last queued item, or the currently building unit if queue is empty.
+    /// Returns the cancelled object type for refund calculation.
     pub fn cancel_last(&mut self) -> Option<ObjectEnum> {
-        self.build_queue.pop()
+        if let Some(cancelled) = self.build_queue.pop() {
+            Some(cancelled)
+        } else if let Some(cancelled) = self.current_build.take() {
+            self.current_build_progress = None;
+            Some(cancelled)
+        } else {
+            None
+        }
+    }
+
+    /// Returns true if there is any active production or queued items to cancel.
+    pub fn has_cancellable(&self) -> bool {
+        !self.build_queue.is_empty() || self.current_build.is_some()
     }
 }
 
@@ -290,6 +328,8 @@ pub struct SupplyTowerState {
     pub current_build: Option<ObjectEnum>,
     /// Frames of progress on current build
     pub current_build_progress: Option<f32>,
+    /// Rally point for produced choppers
+    pub rally_point: Option<RallyTarget>,
 }
 
 impl SupplyTowerState {
@@ -316,9 +356,22 @@ impl SupplyTowerState {
         true
     }
 
-    /// Cancel the last queued item (returns the cancelled object)
+    /// Cancel the last queued item, or the currently building unit if queue is empty.
+    /// Returns the cancelled object type for refund calculation.
     pub fn cancel_last(&mut self) -> Option<ObjectEnum> {
-        self.build_queue.pop()
+        if let Some(cancelled) = self.build_queue.pop() {
+            Some(cancelled)
+        } else if let Some(cancelled) = self.current_build.take() {
+            self.current_build_progress = None;
+            Some(cancelled)
+        } else {
+            None
+        }
+    }
+
+    /// Returns true if there is any active production or queued items to cancel.
+    pub fn has_cancellable(&self) -> bool {
+        !self.build_queue.is_empty() || self.current_build.is_some()
     }
 }
 
@@ -403,9 +456,11 @@ pub mod syndicate_structure_stats {
     pub const TUNNEL_UPGRADE_FRAMES: u32 = 480; // 30 seconds at 16 FPS
 
     // Headquarters
-    pub const HQ_MAX_HP: f32 = 200.0;
-    pub const HQ_POINT_ARMOR: u32 = 0;
-    pub const HQ_FULL_ARMOR: u32 = 0;
+    pub const HQ_MAX_HP: f32 = 400.0;
+    pub const HQ_POINT_ARMOR: u32 = 1;
+    pub const HQ_FULL_ARMOR: u32 = 4;
+    pub const HQ_SC_COST: u32 = 200;
+    pub const HQ_BUILD_FRAMES: u32 = 400; // 25 seconds at 16 FPS
 }
 
 // === Transit Tier ===
@@ -547,7 +602,15 @@ pub enum TunnelOperation {
     /// Upgrading to the next tier
     Upgrading { target_tier: TunnelTier, progress: f32 },
     /// Building an expansion structure
-    BuildingExpansion { object: ObjectEnum, progress: f32 },
+    BuildingExpansion {
+        object: ObjectEnum,
+        progress: f32,
+        grid_x: i32,
+        grid_z: i32,
+        rotation: crate::types::StructureRotation,
+        flip_horizontal: bool,
+        flip_vertical: bool,
+    },
 }
 
 // === Tunnel Area ===
@@ -1035,6 +1098,11 @@ mod tests {
         state.current_operation = Some(TunnelOperation::BuildingExpansion {
             object: ObjectEnum::Tunnel,
             progress: 0.0,
+            grid_x: 0,
+            grid_z: 0,
+            rotation: crate::types::StructureRotation::R0,
+            flip_horizontal: false,
+            flip_vertical: false,
         });
         assert!(state.is_busy());
     }
@@ -1196,6 +1264,44 @@ mod tests {
         assert!(bk.cancel_last().is_none());
     }
 
+    #[test]
+    fn bk_cancel_last_cancels_active_build_when_queue_empty() {
+        let mut bk = BarracksState::default();
+        bk.current_build = Some(ObjectEnum::Peacekeeper);
+        bk.current_build_progress = Some(0.5);
+        let cancelled = bk.cancel_last().unwrap();
+        assert_eq!(cancelled, ObjectEnum::Peacekeeper);
+        assert!(bk.current_build.is_none(), "current_build should be cleared");
+        assert!(bk.current_build_progress.is_none(), "progress should be cleared");
+    }
+
+    #[test]
+    fn bk_cancel_last_prefers_queue_over_active_build() {
+        let mut bk = BarracksState::default();
+        bk.current_build = Some(ObjectEnum::Peacekeeper);
+        bk.current_build_progress = Some(0.5);
+        bk.try_queue(ObjectEnum::Peacekeeper);
+        let cancelled = bk.cancel_last().unwrap();
+        assert_eq!(cancelled, ObjectEnum::Peacekeeper);
+        assert!(bk.current_build.is_some(), "active build should NOT be cancelled when queue has items");
+        assert!(bk.build_queue.is_empty(), "queue item should be removed");
+    }
+
+    #[test]
+    fn bk_has_cancellable_with_queue() {
+        let mut bk = BarracksState::default();
+        assert!(!bk.has_cancellable());
+        bk.try_queue(ObjectEnum::Peacekeeper);
+        assert!(bk.has_cancellable());
+    }
+
+    #[test]
+    fn bk_has_cancellable_with_active_build() {
+        let mut bk = BarracksState::default();
+        bk.current_build = Some(ObjectEnum::Peacekeeper);
+        assert!(bk.has_cancellable());
+    }
+
     // === Rally Target Tests ===
 
     #[test]
@@ -1211,7 +1317,7 @@ mod tests {
     #[test]
     fn rally_target_object_construction() {
         // Use a fake entity to test the enum variant
-        let entity = Entity::from_raw(42);
+        let entity = Entity::from_raw_u32(42).unwrap();
         let rally = RallyTarget::Object(entity);
         match rally {
             RallyTarget::Object(e) => assert_eq!(e, entity),
@@ -1416,7 +1522,7 @@ mod tests {
 
     #[test]
     fn validate_upgrade_tier1_to_tier2_succeeds() {
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
         let state = TunnelState::default_tier1();
         let area = TunnelArea::new(10, 10, &TunnelTier::Tier1);
         let result = validate_tunnel_upgrade(e1, &state, &area, 100, &[]);
@@ -1426,7 +1532,7 @@ mod tests {
 
     #[test]
     fn validate_upgrade_tier2_to_tier3_succeeds() {
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
         let state = TunnelState::new(TunnelTier::Tier2);
         let area = TunnelArea::new(10, 10, &TunnelTier::Tier2);
         let result = validate_tunnel_upgrade(e1, &state, &area, 100, &[]);
@@ -1436,7 +1542,7 @@ mod tests {
 
     #[test]
     fn validate_upgrade_tier3_already_max() {
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
         let state = TunnelState::new(TunnelTier::Tier3);
         let area = TunnelArea::new(10, 10, &TunnelTier::Tier3);
         let result = validate_tunnel_upgrade(e1, &state, &area, 100, &[]);
@@ -1446,11 +1552,16 @@ mod tests {
 
     #[test]
     fn validate_upgrade_busy_tunnel_blocked() {
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
         let mut state = TunnelState::default_tier1();
         state.current_operation = Some(TunnelOperation::BuildingExpansion {
             object: ObjectEnum::Tunnel,
             progress: 0.0,
+            grid_x: 0,
+            grid_z: 0,
+            rotation: crate::types::StructureRotation::R0,
+            flip_horizontal: false,
+            flip_vertical: false,
         });
         let area = TunnelArea::new(10, 10, &TunnelTier::Tier1);
         let result = validate_tunnel_upgrade(e1, &state, &area, 100, &[]);
@@ -1460,7 +1571,7 @@ mod tests {
 
     #[test]
     fn validate_upgrade_insufficient_supplies() {
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
         let state = TunnelState::default_tier1();
         let area = TunnelArea::new(10, 10, &TunnelTier::Tier1);
         let result = validate_tunnel_upgrade(e1, &state, &area, 1, &[]); // Need 2, have 1
@@ -1470,8 +1581,8 @@ mod tests {
 
     #[test]
     fn validate_upgrade_would_overlap_blocked() {
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
         let state1 = TunnelState::default_tier1();
         let area1 = TunnelArea::new(10, 10, &TunnelTier::Tier1);
         // Place second tunnel close enough that T2 area would overlap
@@ -1492,8 +1603,8 @@ mod tests {
 
     #[test]
     fn validate_upgrade_no_overlap_when_far_apart() {
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
         let state1 = TunnelState::default_tier1();
         let area1 = TunnelArea::new(0, 0, &TunnelTier::Tier1);
         let state2 = TunnelState::default_tier1();
@@ -1505,8 +1616,8 @@ mod tests {
 
     #[test]
     fn validate_upgrade_t2_cost_with_existing_t2() {
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
         let state1 = TunnelState::default_tier1();
         let area1 = TunnelArea::new(0, 0, &TunnelTier::Tier1);
         let state2 = TunnelState::new(TunnelTier::Tier2);
@@ -1519,8 +1630,8 @@ mod tests {
 
     #[test]
     fn validate_upgrade_t3_cost_with_existing_t3() {
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
         let state1 = TunnelState::new(TunnelTier::Tier2);
         let area1 = TunnelArea::new(0, 0, &TunnelTier::Tier2);
         let state2 = TunnelState::new(TunnelTier::Tier3);
@@ -1535,14 +1646,14 @@ mod tests {
 
     #[test]
     fn tunnel_expansion_marker_stores_parent() {
-        let parent = Entity::from_raw(42);
+        let parent = Entity::from_raw_u32(42).unwrap();
         let marker = TunnelExpansionMarker { parent_tunnel: parent };
         assert_eq!(marker.parent_tunnel, parent);
     }
 
     #[test]
     fn tunnel_expansion_marker_clone() {
-        let parent = Entity::from_raw(7);
+        let parent = Entity::from_raw_u32(7).unwrap();
         let marker = TunnelExpansionMarker { parent_tunnel: parent };
         let cloned = marker.clone();
         assert_eq!(cloned.parent_tunnel, parent);
@@ -1629,17 +1740,85 @@ mod tests {
         assert_eq!(state.build_queue.len(), 1);
     }
 
+    #[test]
+    fn headquarters_production_cost_guard() {
+        let cost = HeadquartersState::production_cost(&ObjectEnum::SyndicateGuard);
+        assert!(cost.is_some());
+        let cost = cost.unwrap();
+        assert_eq!(cost.space_crystals, 125);
+        assert_eq!(cost.build_frames, 120);
+    }
+
+    #[test]
+    fn headquarters_guard_can_be_queued() {
+        let mut state = HeadquartersState::default();
+        assert!(state.try_queue(ObjectEnum::SyndicateGuard));
+        assert_eq!(state.build_queue.len(), 1);
+        assert_eq!(state.build_queue[0], ObjectEnum::SyndicateGuard);
+    }
+
+    #[test]
+    fn headquarters_mixed_queue_agent_and_guard() {
+        let mut state = HeadquartersState::default();
+        assert!(state.try_queue(ObjectEnum::SyndicateAgent));
+        assert!(state.try_queue(ObjectEnum::SyndicateGuard));
+        assert!(state.try_queue(ObjectEnum::SyndicateAgent));
+        assert_eq!(state.build_queue.len(), 3);
+        assert_eq!(state.build_queue[0], ObjectEnum::SyndicateAgent);
+        assert_eq!(state.build_queue[1], ObjectEnum::SyndicateGuard);
+        assert_eq!(state.build_queue[2], ObjectEnum::SyndicateAgent);
+    }
+
+    #[test]
+    fn headquarters_cancel_last_guard_from_mixed_queue() {
+        let mut state = HeadquartersState::default();
+        state.try_queue(ObjectEnum::SyndicateAgent);
+        state.try_queue(ObjectEnum::SyndicateGuard);
+        let cancelled = state.cancel_last();
+        assert_eq!(cancelled, Some(ObjectEnum::SyndicateGuard));
+        assert_eq!(state.build_queue.len(), 1);
+        assert_eq!(state.build_queue[0], ObjectEnum::SyndicateAgent);
+    }
+
+    #[test]
+    fn headquarters_cancel_last_cancels_active_build_when_queue_empty() {
+        let mut state = HeadquartersState::default();
+        state.current_build = Some(ObjectEnum::SyndicateAgent);
+        state.current_build_progress = Some(0.3);
+        let cancelled = state.cancel_last().unwrap();
+        assert_eq!(cancelled, ObjectEnum::SyndicateAgent);
+        assert!(state.current_build.is_none());
+        assert!(state.current_build_progress.is_none());
+    }
+
+    #[test]
+    fn headquarters_has_cancellable() {
+        let mut state = HeadquartersState::default();
+        assert!(!state.has_cancellable());
+        state.current_build = Some(ObjectEnum::SyndicateGuard);
+        assert!(state.has_cancellable());
+        state.current_build = None;
+        state.try_queue(ObjectEnum::SyndicateAgent);
+        assert!(state.has_cancellable());
+    }
+
     // === Headquarters Stat Constants Tests ===
 
     #[test]
     fn hq_max_hp_value() {
-        assert_eq!(HQ_MAX_HP, 200.0);
+        assert_eq!(HQ_MAX_HP, 400.0);
     }
 
     #[test]
     fn hq_armor_values() {
-        assert_eq!(HQ_POINT_ARMOR, 0);
-        assert_eq!(HQ_FULL_ARMOR, 0);
+        assert_eq!(HQ_POINT_ARMOR, 1);
+        assert_eq!(HQ_FULL_ARMOR, 4);
+    }
+
+    #[test]
+    fn hq_cost_and_build_time() {
+        assert_eq!(HQ_SC_COST, 200);
+        assert_eq!(HQ_BUILD_FRAMES, 400);
     }
 
     // === Headquarters ObjectEnum Integration Tests ===
@@ -1706,8 +1885,8 @@ mod tests {
     fn headquarters_destructible_instance() {
         use crate::game::types::objects::ObjectInstance;
         let obj = ObjectInstance::destructible(ObjectEnum::Headquarters, HQ_MAX_HP);
-        assert_eq!(obj.hp, Some(200.0));
-        assert_eq!(obj.max_hp, Some(200.0));
+        assert_eq!(obj.hp, Some(400.0));
+        assert_eq!(obj.max_hp, Some(400.0));
         assert!(obj.is_alive());
     }
 
@@ -1792,6 +1971,28 @@ mod tests {
     }
 
     #[test]
+    fn supply_tower_cancel_last_cancels_active_build_when_queue_empty() {
+        let mut st = SupplyTowerState::default();
+        st.current_build = Some(ObjectEnum::SupplyChopper);
+        st.current_build_progress = Some(0.75);
+        let cancelled = st.cancel_last().unwrap();
+        assert_eq!(cancelled, ObjectEnum::SupplyChopper);
+        assert!(st.current_build.is_none());
+        assert!(st.current_build_progress.is_none());
+    }
+
+    #[test]
+    fn supply_tower_has_cancellable() {
+        let mut st = SupplyTowerState::default();
+        assert!(!st.has_cancellable());
+        st.current_build = Some(ObjectEnum::SupplyChopper);
+        assert!(st.has_cancellable());
+        st.current_build = None;
+        st.try_queue(ObjectEnum::SupplyChopper);
+        assert!(st.has_cancellable());
+    }
+
+    #[test]
     fn supply_tower_construction_cost() {
         let cost = DeploymentCenterState::construction_cost(&ObjectEnum::SupplyTower).unwrap();
         assert_eq!(cost.space_crystals, 200);
@@ -1863,5 +2064,11 @@ mod tests {
     #[test]
     fn supply_tower_is_not_unit() {
         assert!(!ObjectEnum::SupplyTower.is_unit());
+    }
+
+    #[test]
+    fn supply_tower_state_default_has_no_rally_point() {
+        let state = SupplyTowerState::default();
+        assert!(state.rally_point.is_none());
     }
 }

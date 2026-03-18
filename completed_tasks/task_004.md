@@ -1,73 +1,47 @@
-# Task 004: Implement Resource Entities (Space Crystal Patches)
+# Task 004: Implement Faction and Player Data Model
+
+## Status
+**Completed** - 2026-02-22
+
+Refactored Owner from enum to struct wrapping Option<u8>. Created Player component, GdoPlayerResources with power ratio and unit control cap (200). Added placeholder resources for Syndicate/Cults/Colonists. Removed old FactionResources unified enum and PlayerResources wrapper. Updated all 14 referencing files.
 
 ## Description
-Implement Space Crystal Patch (SCP) entities as described in the design document. These are the primary resource nodes in the game that factions will harvest. Each SCP should occupy a tile, prevent building (with exceptions noted in design), block traversal, and display remaining resources when selected.
+Implement the Faction and Player entity types matching the design specification. Define GDO-specific resource tracking (Space Crystals, Supplies, Power, Unit Control) and create the Player entity with its faction association and resource state.
 
 ## Why Needed
-Space Crystals are the core resource for all factions. Without resource nodes, there's no economy system. This task establishes the foundation for resource gathering mechanics that will be implemented by different factions in future tasks.
+The design defines Faction as an Invisible Entity with a Name, Value (FactionEnum), and a faction-specific DisplayHud. Player is an Invisible Entity with Name, Faction, PlayerNumber, and DisplayHudInfo. The current code has a `FactionMember` component and `PlayerResources` / `FactionResources` enums — these need to be aligned with the formal design, especially the GDO resource model (Space Crystals, Supplies, Power as flat capacity, Unit Control hard cap of 200).
 
 ## Acceptance Criteria
-- [ ] SpaceCrystalPatch component exists with amount field (remaining crystals)
-- [ ] SCP entities spawn on specific tiles in the test map
-- [ ] SCPs have visual representation distinct from regular tiles (glowing crystal material)
-- [ ] SCPs are marked as not buildable and not traversible on their tiles
-- [ ] Clicking/selecting an SCP displays its remaining amount (console log for now)
-- [ ] SCPs are selectable entities with visual feedback (outline or highlight)
-- [ ] Test map spawns 3-5 SCPs with varying amounts (1000-5000 crystals each)
+- `Player` component with: `name` (String), `faction` (FactionEnum), `player_number` (u8)
+- `GdoPlayerResources` struct/component with:
+  - `space_crystals: i32` (current amount)
+  - `supplies: i32` (current amount)
+  - `power_generated: i32` (sum of positive Power from owned buildings)
+  - `power_consumed: i32` (sum of negative Power from owned buildings, stored as positive)
+  - `unit_control_used: u32` (current units' total control cost)
+  - `unit_control_cap: u32` (always 200)
+- A method or function to compute `current_power() -> i32` (generated - consumed)
+- A method or function to compute `power_ratio() -> f32` (for proportional slowdown: if power is negative, ratio = generated / consumed; if positive, ratio = 1.0)
+- `Owner` component aligned with design: stores `Option<u8>` (PlayerNumber) where `None` means unowned/neutral
+- Replace existing `PlayerResources` and `FactionResources` with the new design-aligned types
+- Existing systems that reference player resources updated
+- Project compiles and runs
 
 ## Relevant Files/Components
-- `src/map.rs` or create `src/resources.rs` - SCP-specific code
-- Tile properties - SCPs modify their tile's properties
-- Selection system - SCPs need to be selectable
-- Startup system - Spawn test SCPs during map generation
+- Current faction module — has `Faction`, `FactionMember`, `PlayerResources`, `FactionResources`, `GdoResources`
+- Current units module — has `Owner` enum
 
 ## Technical Considerations
-
-**SCP Component Structure**:
-```rust
-#[derive(Component)]
-struct SpaceCrystalPatch {
-    amount: u32,
-    initial_amount: u32,
-}
-
-#[derive(Component)]
-struct Selectable;
-
-#[derive(Component)]
-struct Selected;
-```
-
-**Tile Interaction**:
-- When SCP is spawned on a tile, modify that tile's properties:
-  - Set buildable = false
-  - Set traversible = false
-- Consider storing a reference between SCP and its tile, or query by position
-
-**Visual Representation**:
-- SCP should be positioned slightly above the tile (y offset)
-- Use a mesh that looks crystal-like (can be simple geo for now)
-- Apply an emissive material to make it glow
-- Color: Cyan/blue with emissive glow
-
-**Selection Visual Feedback**:
-- Add a ring or outline around selected SCP
-- Can use a simple cylinder mesh as selection indicator
-- When Selected component is added, spawn selection indicator as child entity
-
-**Resource Amount Display**:
-- For now, log to console when SCP is clicked
-- Format: "Space Crystal Patch: 3500 / 5000 remaining"
-- Future task will add UI display
-
-**Placement on Map**:
-- Place SCPs on Plane tiles (valid for resources)
-- Distribute across map, not all clustered
-- Use fixed positions for now (deterministic testing)
+- The current `Owner` enum has `Player(u8)` and `Neutral` variants with color mapping. The design uses `PlayerNumber | None`. Keep the color mapping utility but align the core type with the design.
+- The current `GdoResources` struct has `space_crystals`, `supplies`, `power_generated`, `power_consumed` — this is close to what's needed. Add `unit_control_used` and `unit_control_cap`.
+- Power is a flat capacity system: each building has a static Power value (positive=generator, negative=consumer). Total Power = sum across all owned buildings. If negative, all consumers operate slower proportionally.
+- Unit Control is a hard cap of 200, always fully available (no buildings needed to unlock it).
+- For now, only GDO resources need full implementation. Other faction resources can be defined as placeholder structs.
+- The `setup_player_resources` system currently creates resources for Player 0 (GDO) and Player 1 (Syndicate) — update to use new types.
 
 ## Prerequisites
-- [x] `task_002.md` - Grid system needed to place SCPs on tiles
-- [x] `task_003.md` - Tile properties needed to mark SCP tiles as not buildable/traversible
+- [ ] `task_001.md` — Directory structure must be in place
+- [ ] `task_002.md` — FactionEnum must be defined
 
 ## Complexity
 Medium
