@@ -1,15 +1,12 @@
-# Planned Task: {brief description}
+# planned_task
 
-## Metadata
-- **From**: task_planner
-- **To**: developer
+Content guidance for the `planned_task` message type.
 
-<!-- Filename: task_planner_{task_slug}.md
-     The task_slug should match the slug from the original developer_task. -->
+The content passed to `scripts/send_message.sh` should include:
 
 ## Parent Feature
 
-{filename of the parent feature_request}
+{filename of the parent feature_request, carried over from the developer_task}
 
 ## Task
 
@@ -17,11 +14,11 @@
 
 ## Technical Context
 
-{Specific files, functions, components, systems, and patterns relevant to this task.
-Cite file paths. Note existing patterns to follow. Identify integration points.
-Include Bevy ECS considerations — systems, queries, events, resources, plugins.}
+{Specific files that need to change (with paths), existing patterns to follow,
+relevant types/traits/components/resources, integration points, Bevy ECS
+considerations — system ordering, queries, events, plugins.}
 
 ## Dependencies
 
 {List of other planned_tasks or existing systems this task depends on.
-Explain why each dependency exists. If none, state "None."}
+Explain why each dependency exists. "None" if standalone.}

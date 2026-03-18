@@ -77,19 +77,15 @@ Produced by the task_planner.
 
 **Message type: `task_completion`**
 
-Write to: `messages/completion_aggregator/task_completion/pending/developer_{task_slug}.md`
+Use `scripts/send_message.sh` to send:
 
-The `{task_slug}` must match the slug from the planned_task (e.g., if the input was `task_planner_syndicate_tunnel_component.md`, use `syndicate_tunnel_component`).
-
-```markdown
-# Task Completion: {task_slug}
-
-## Metadata
-- **From**: developer
-- **To**: completion_aggregator
+```bash
+scripts/send_message.sh developer completion_aggregator task_completion "{task_slug}" "Task complete."
 ```
 
-This is a minimal marker — the completion_aggregator is a script that matches filenames. Keep it simple.
+The `{task_slug}` must match the slug from the planned_task (e.g., if the input was `task_planner-syndicate_tunnel_component.md`, use `syndicate_tunnel_component`).
+
+This is a minimal marker — the completion_aggregator is a script that matches filenames. The content is not read by the aggregator.
 
 ## Forum
 

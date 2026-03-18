@@ -20,8 +20,7 @@ NODE_NAME="$2"
 
 MSG_DIR="$ROOT_DIR/messages/$NODE_NAME"
 QA_ITEM_DIR="$MSG_DIR/qa_item"
-MANUAL_QA_DIR="$ROOT_DIR/messages/manual_qa/qa_item"
-AUTO_QA_DIR="$ROOT_DIR/messages/automatic_qa/qa_item"
+SEND_MSG="$ROOT_DIR/scripts/send_message.sh"
 CAPABILITIES_FILE="$ROOT_DIR/artifacts/$NODE_NAME/auto_capabilities.txt"
 LOG_FILE="$ROOT_DIR/artifacts/$NODE_NAME/log.md"
 
@@ -95,14 +94,15 @@ for item in "$QA_ITEM_DIR/pending"/*.md; do
         fi
     fi
 
-    # Route the qa_item
-    if [ "$route" = "automatic_qa" ]; then
-        cp "$active_item" "$AUTO_QA_DIR/pending/$item_name"
-        log "Routed to automatic_qa: $item_name"
-    else
-        cp "$active_item" "$MANUAL_QA_DIR/pending/$item_name"
-        log "Routed to manual_qa: $item_name"
-    fi
+    # Extract the message slug from the filename: {from}-{slug}.md -> {slug}
+    msg_slug="$(echo "$item_name" | sed 's/^[^-]*-//; s/\.md$//')"
+
+    # Extract content (everything from ## Content onward)
+    content="$(sed -n '/^## Content$/,$ p' "$active_item")"
+
+    # Route via send_message.sh
+    "$SEND_MSG" "$NODE_NAME" "$route" "qa_item" "$msg_slug" "$content"
+    log "Routed to $route: $item_name"
 
     mv "$active_item" "$QA_ITEM_DIR/done/"
 done

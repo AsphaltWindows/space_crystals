@@ -55,17 +55,17 @@ Each message contains a task description and a reference to its parent feature_r
 
 **Message type: `planned_task`** (1:1 with input)
 
-Write to: `messages/developer/planned_task/pending/task_planner_{task_slug}.md`
+Use `scripts/send_message.sh` to send:
 
-The `{task_slug}` should match the slug from the original developer_task (e.g., if the input was `task_splitter_syndicate_tunnel_component.md`, use `syndicate_tunnel_component`).
+```bash
+scripts/send_message.sh task_planner developer planned_task "{task_slug}" "{content}"
+```
 
-```markdown
-# Planned Task: {brief description}
+The `{task_slug}` should match the slug from the original developer_task (e.g., if the input was `task_splitter-syndicate_tunnel_component.md`, use `syndicate_tunnel_component`).
 
-## Metadata
-- **From**: task_planner
-- **To**: developer
+The content should include (see `templates/messages/planned_task.md`):
 
+```
 ## Parent Feature
 
 {filename of the parent feature_request, carried over from the developer_task}
@@ -76,13 +76,9 @@ The `{task_slug}` should match the slug from the original developer_task (e.g., 
 
 ## Technical Context
 
-{Your codebase investigation results:
-- Specific files that need to change (with paths)
-- Existing patterns to follow (cite examples from the codebase)
-- Relevant types, traits, components, resources
-- Integration points with other systems
-- Bevy ECS considerations — system ordering, queries, events, plugins
-- Any existing code that can be reused or extended}
+{Specific files that need to change (with paths), existing patterns to follow,
+relevant types/traits/components/resources, integration points, Bevy ECS
+considerations — system ordering, queries, events, plugins.}
 
 ## Dependencies
 

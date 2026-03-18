@@ -57,23 +57,19 @@ Each message contains:
 
 **On failure — Message type: `feature_request`**
 
-When QA fails, produce a rework request back to the task_splitter:
+When QA fails, use `scripts/send_message.sh` to send a rework request:
 
-Write to: `messages/task_splitter/feature_request/pending/automatic_qa_{original_slug}_r{N}.md`
+```bash
+scripts/send_message.sh automatic_qa task_splitter feature_request "{original_slug}_r{N}" "{content}"
+```
 
 Where:
-- `{original_slug}` is the feature slug from the qa_item filename (strip the `completion_aggregator_` prefix)
+- `{original_slug}` is the feature slug from the qa_item filename (strip the producing agent prefix before the first dash)
 - `{N}` is the revision number (1 for first rework, increment if the slug already has `_r{N}`)
 
-```markdown
-# Feature Request: {brief topic} (rework)
+The content should include (see `templates/messages/feature_request.md`):
 
-## Metadata
-- **From**: automatic_qa
-- **To**: task_splitter
-
-## Content
-
+```
 {Describe what needs to be fixed. Reference the original feature and explain
 specifically what passed and what failed. Include actual error messages, test
 output, or build failures. Scope this to ONLY the parts that failed.}

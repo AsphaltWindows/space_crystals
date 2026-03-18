@@ -1,14 +1,12 @@
-# Developer Task: {brief description}
+# developer_task
 
-## Metadata
-- **From**: task_splitter
-- **To**: task_planner
+Content guidance for the `developer_task` message type.
 
-<!-- Filename: task_splitter_{task_slug}.md -->
+The content passed to `scripts/send_message.sh` should include:
 
 ## Parent Feature
 
-{filename of the parent feature_request message}
+{filename of the parent feature_request in completion_aggregator's inbox}
 
 ## Task
 

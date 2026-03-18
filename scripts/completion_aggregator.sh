@@ -4,7 +4,7 @@ set -euo pipefail
 # Completion Aggregator Script Node
 #
 # Tracks developer task completions against feature_tasks manifests.
-# When all tasks for a feature are complete, produces a qa_item.
+# When all tasks for a feature are complete, produces a qa_item via send_message.sh.
 #
 # Message types consumed:
 #   - feature_request: The original feature description + QA instructions (held in active)
@@ -21,7 +21,7 @@ MSG_DIR="$ROOT_DIR/messages/$NODE_NAME"
 FEATURE_REQ_DIR="$MSG_DIR/feature_request"
 FEATURE_TASKS_DIR="$MSG_DIR/feature_tasks"
 TASK_COMPLETION_DIR="$MSG_DIR/task_completion"
-QA_ROUTER_DIR="$ROOT_DIR/messages/qa_router/qa_item"
+SEND_MSG="$ROOT_DIR/scripts/send_message.sh"
 LOG_FILE="$ROOT_DIR/artifacts/$NODE_NAME/log.md"
 
 log() {
@@ -114,14 +114,14 @@ for manifest in "$FEATURE_TASKS_DIR/active"/*.md; do
     fi
 
     # Check if all tasks have corresponding task_completion files in active/
-    # The task_completion filename is: developer_{task_slug}.md
-    # The developer_task filename is: task_splitter_{task_slug}.md
-    # So we need to map task_splitter_{slug} -> developer_{slug}
+    # The task_completion filename is: developer-{task_slug}.md
+    # The developer_task filename is: task_splitter-{task_slug}.md
+    # So we need to map task_splitter-{slug} -> developer-{slug}
     all_complete=true
     for task_file in "${tasks[@]}"; do
-        # Extract the slug: strip the producing agent prefix (everything before first _)
-        task_slug="$(echo "$task_file" | sed 's/^[^_]*_//')"
-        completion_file="developer_${task_slug}"
+        # Extract the slug: strip the producing agent prefix and dash
+        task_slug="$(echo "$task_file" | sed 's/^[^-]*-//')"
+        completion_file="developer-${task_slug}"
 
         if [ ! -f "$TASK_COMPLETION_DIR/active/$completion_file" ]; then
             all_complete=false
@@ -139,31 +139,25 @@ for manifest in "$FEATURE_TASKS_DIR/active"/*.md; do
         fi
 
         # Derive the feature slug from the feature_request filename
-        # e.g., designer_add_syndicate_tunnels.md -> add_syndicate_tunnels
-        feature_slug="$(echo "$feature_req_file" | sed 's/^[^_]*_//; s/\.md$//')"
+        # e.g., designer-add_syndicate_tunnels.md -> add_syndicate_tunnels
+        feature_slug="$(echo "$feature_req_file" | sed 's/^[^-]*-//; s/\.md$//')"
 
-        # Produce qa_item: extract Content and QA Instructions from the feature_request
-        qa_item_file="completion_aggregator_${feature_slug}.md"
-        {
-            echo "# QA Item: ${feature_slug}"
-            echo ""
-            echo "## Metadata"
-            echo "- **From**: completion_aggregator"
-            echo "- **To**: qa_router"
-            echo ""
-            # Copy everything from ## Content onward from the feature_request
-            sed -n '/^## Content$/,$ p' "$FEATURE_REQ_DIR/active/$feature_req_file"
-        } > "$QA_ROUTER_DIR/pending/$qa_item_file"
+        # Extract Content and QA Instructions from the feature_request
+        # (everything from ## Content onward, skipping metadata)
+        content="$(sed -n '/^## Content$/,$ p' "$FEATURE_REQ_DIR/active/$feature_req_file")"
 
-        log "Produced qa_item: $qa_item_file"
+        # Send via send_message.sh
+        "$SEND_MSG" "$NODE_NAME" "qa_router" "qa_item" "$feature_slug" "$content"
+
+        log "Produced qa_item: $feature_slug"
 
         # Move everything to done
         mv "$FEATURE_REQ_DIR/active/$feature_req_file" "$FEATURE_REQ_DIR/done/"
         mv "$manifest" "$FEATURE_TASKS_DIR/done/"
 
         for task_file in "${tasks[@]}"; do
-            task_slug="$(echo "$task_file" | sed 's/^[^_]*_//')"
-            completion_file="developer_${task_slug}"
+            task_slug="$(echo "$task_file" | sed 's/^[^-]*-//')"
+            completion_file="developer-${task_slug}"
             if [ -f "$TASK_COMPLETION_DIR/active/$completion_file" ]; then
                 mv "$TASK_COMPLETION_DIR/active/$completion_file" "$TASK_COMPLETION_DIR/done/"
             fi

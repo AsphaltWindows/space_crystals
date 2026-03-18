@@ -36,6 +36,7 @@ agents:
     consumes: []
     produces:
       - type: agent_update
+        to: []
         description: Notification that a new agent was added or modified
 
   - name: designer
@@ -43,7 +44,8 @@ agents:
     consumes: []
     produces:
       - type: feature_request
-        description: A feature/change description with QA instructions. Multiple per session. Routed to task_splitter.
+        to: [task_splitter]
+        description: A feature/change description with QA instructions. Multiple per session.
 
   - name: task_splitter
     type: processing
@@ -52,11 +54,14 @@ agents:
         priority: 1
     produces:
       - type: developer_task
-        description: Single unit of implementation work. Multiple per feature_request. Routed to task_planner.
+        to: [task_planner]
+        description: Single unit of implementation work. Multiple per feature_request.
       - type: feature_request
-        description: Original feature_request forwarded unchanged to completion_aggregator.
+        to: [completion_aggregator]
+        description: Original feature_request forwarded unchanged.
       - type: feature_tasks
-        description: Manifest mapping feature_request to developer_task filenames. Routed to completion_aggregator.
+        to: [completion_aggregator]
+        description: Manifest mapping feature_request to developer_task filenames.
 
   - name: task_planner
     type: processing
@@ -65,7 +70,8 @@ agents:
         priority: 1
     produces:
       - type: planned_task
-        description: Developer-ready task with codebase context and dependencies. 1:1 with input. Routed to developer.
+        to: [developer]
+        description: Developer-ready task with codebase context and dependencies. 1:1 with input.
 
   - name: developer
     type: processing
@@ -74,7 +80,8 @@ agents:
         priority: 1
     produces:
       - type: task_completion
-        description: Marker that a task was implemented. 1:1 with input. Routed to completion_aggregator.
+        to: [completion_aggregator]
+        description: Marker that a task was implemented. 1:1 with input.
 
   - name: completion_aggregator
     type: processing
@@ -89,7 +96,8 @@ agents:
         priority: 3
     produces:
       - type: qa_item
-        description: Completed feature forwarded for QA. Routed to qa_router.
+        to: [qa_router]
+        description: Completed feature forwarded for QA.
 
   - name: qa_router
     type: processing
@@ -100,6 +108,7 @@ agents:
         priority: 1
     produces:
       - type: qa_item
+        to: [manual_qa, automatic_qa]
         description: Same qa_item routed to either manual_qa or automatic_qa based on QA tooling capabilities.
 
   - name: manual_qa
@@ -109,7 +118,8 @@ agents:
         priority: 1
     produces:
       - type: feature_request
-        description: Rework request scoped to QA failures. Routed to task_splitter. Uses _r{N} filename suffix.
+        to: [task_splitter]
+        description: Rework request scoped to QA failures. Uses _r{N} filename suffix.
 
   - name: automatic_qa
     type: processing
@@ -118,4 +128,5 @@ agents:
         priority: 1
     produces:
       - type: feature_request
-        description: Rework request scoped to QA failures. Routed to task_splitter. Uses _r{N} filename suffix.
+        to: [task_splitter]
+        description: Rework request scoped to QA failures. Uses _r{N} filename suffix.

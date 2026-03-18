@@ -55,23 +55,17 @@ Each time you make a design change (or coherent group of related changes) during
 
 Each feature_request must include **QA instructions** — how to verify that this design change was implemented correctly, and what the user should experience when testing it. Write these from the user's perspective.
 
-Write each message to:
+Use `scripts/send_message.sh` to send each message:
 
-`messages/task_splitter/feature_request/pending/designer_{message_name}.md`
+```bash
+scripts/send_message.sh designer task_splitter feature_request "{message_name}" "{content}"
+```
 
 Where `{message_name}` is a short descriptive slug (e.g., `add_syndicate_tunnels`, `rework_combat_targeting`).
 
-Use this exact format:
+The content should follow this structure (see `templates/messages/feature_request.md`):
 
-```markdown
-# Feature Request: {brief topic}
-
-## Metadata
-- **From**: designer
-- **To**: task_splitter
-
-## Content
-
+```
 {What changed and why. Reference the specific artifacts/designer/design/*.md
 files that were modified, and describe what changed in each. Be specific enough
 that downstream agents can understand the full scope without reading the

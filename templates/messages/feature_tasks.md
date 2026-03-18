@@ -1,18 +1,20 @@
-# Feature Tasks: {brief topic}
+# feature_tasks
 
-## Metadata
-- **From**: task_splitter
-- **To**: completion_aggregator
+Content guidance for the `feature_tasks` message type.
 
-<!-- Filename: task_splitter_{feature_slug}.md
-     Must match the slug of the corresponding feature_request message. -->
+The content passed to `scripts/send_message.sh` should include:
 
 ## Feature Request
 
-{filename of the corresponding feature_request message in
-messages/completion_aggregator/feature_request/}
+{exact filename of the corresponding feature_request message in
+completion_aggregator's inbox, e.g., task_splitter-{feature_slug}.md}
 
 ## Developer Tasks
 
-{bulleted list of developer_task filenames produced for this feature,
-as they appear in messages/task_planner/developer_task/pending/}
+- {filename_1.md}
+- {filename_2.md}
+- {filename_3.md}
+
+{Bulleted list of exact filenames as produced by send_message.sh
+(format: task_splitter-{task_slug}.md). The completion_aggregator
+matches these literally against task_completion filenames.}

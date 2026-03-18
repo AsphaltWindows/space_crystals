@@ -1,14 +1,12 @@
-# Feature Request: {brief topic}
+# feature_request
 
-## Metadata
-- **From**: {producing_agent}
-- **To**: task_splitter
+Content guidance for the `feature_request` message type.
 
-<!-- Filename: {producing_agent}_{message_name}.md
-     Designer originals: designer_{slug}.md
-     QA reworks: {qa_agent}_{slug}_r{N}.md (N increments per rework cycle) -->
+The content passed to `scripts/send_message.sh` should include:
 
-## Content
+<!-- Filename convention:
+     Designer originals: designer-{slug}.md (created by send_message.sh)
+     QA reworks: {qa_agent}-{slug}_r{N}.md (N increments per rework cycle) -->
 
 {What should exist or change. Be specific enough that downstream agents can
 understand the full scope. Reference design docs or prior context as needed.}

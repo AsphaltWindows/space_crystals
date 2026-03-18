@@ -56,52 +56,52 @@ For each feature_request you process, you produce three kinds of output:
 
 ### 1. `developer_task` messages (one per task)
 
-Write each to: `messages/task_planner/developer_task/pending/task_splitter_{task_slug}.md`
+Use `scripts/send_message.sh` to send each task:
 
-Where `{task_slug}` describes the specific task (e.g., `syndicate_tunnel_component`, `syndicate_tunnel_spawning`, `syndicate_tunnel_ui`).
+```bash
+scripts/send_message.sh task_splitter task_planner developer_task "{task_slug}" "{content}"
+```
 
-```markdown
-# Developer Task: {brief description}
+Where `{task_slug}` describes the specific task (e.g., `syndicate_tunnel_component`, `syndicate_tunnel_spawning`).
 
-## Metadata
-- **From**: task_splitter
-- **To**: task_planner
+The content should include (see `templates/messages/developer_task.md`):
 
+```
 ## Parent Feature
 
-{filename of the parent feature_request}
+{filename of the parent feature_request in completion_aggregator's inbox}
 
 ## Task
 
 {Clear description of what needs to be implemented. Scoped to a single
-coherent unit of work. Include enough context that the task_planner can
-enrich it with codebase specifics without re-reading the full feature_request.}
+coherent unit of work.}
 ```
 
 ### 2. `feature_request` forwarded to completion_aggregator
 
-Copy the original feature_request **unchanged** to:
+Read the original feature_request content and forward it via:
 
-`messages/completion_aggregator/feature_request/pending/{original_filename}`
+```bash
+scripts/send_message.sh task_splitter completion_aggregator feature_request "{feature_slug}" "{original_content}"
+```
 
-Do not modify the content — it passes through to QA later.
+Use the same slug from the original filename. The content should be the original feature_request body (Content + QA Instructions) passed through unchanged.
 
 ### 3. `feature_tasks` manifest
 
-Write to: `messages/completion_aggregator/feature_tasks/pending/task_splitter_{feature_slug}.md`
+Send the manifest via:
 
-The `{feature_slug}` should match the slug from the original feature_request filename.
+```bash
+scripts/send_message.sh task_splitter completion_aggregator feature_tasks "{feature_slug}" "{content}"
+```
 
-```markdown
-# Feature Tasks: {brief topic}
+The content should include (see `templates/messages/feature_tasks.md`):
 
-## Metadata
-- **From**: task_splitter
-- **To**: completion_aggregator
-
+```
 ## Feature Request
 
-{exact filename of the feature_request as copied to completion_aggregator}
+{exact filename of the feature_request as sent to completion_aggregator,
+i.e., task_splitter-{feature_slug}.md}
 
 ## Developer Tasks
 
@@ -110,7 +110,7 @@ The `{feature_slug}` should match the slug from the original feature_request fil
 - {filename_3.md}
 ```
 
-The Developer Tasks list must contain the **exact filenames** as written to `messages/task_planner/developer_task/pending/`. The completion_aggregator uses these to track which tasks need to complete before the feature is ready for QA.
+The Developer Tasks list must contain the **exact filenames** as produced by `send_message.sh` (format: `task_splitter-{task_slug}.md`). The completion_aggregator uses these to track which tasks need to complete before the feature is ready for QA.
 
 ## Forum
 

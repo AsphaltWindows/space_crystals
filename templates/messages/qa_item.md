@@ -1,20 +1,14 @@
-# QA Item: {brief topic}
+# qa_item
 
-## Metadata
-- **From**: completion_aggregator
-- **To**: qa_router
+Content guidance for the `qa_item` message type.
 
-<!-- Filename: completion_aggregator_{feature_slug}.md -->
-
-<!-- This is the original feature_request content forwarded for QA.
-     The completion_aggregator copies the Content and QA Instructions
-     sections from the feature_request unchanged. -->
-
-## Content
+The content passed to `scripts/send_message.sh` should include the original
+feature_request body (Content + QA Instructions sections) forwarded from
+the completion_aggregator. The content passes through unchanged — it originated
+from the designer or a QA rework.
 
 {Original feature_request content — what should exist or change.}
 
 ## QA Instructions
 
-{Original QA instructions from the feature_request — how to verify
-the implementation is correct.}
+{Original QA instructions — how to verify the implementation is correct.}

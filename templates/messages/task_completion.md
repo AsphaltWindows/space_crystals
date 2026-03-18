@@ -1,8 +1,10 @@
-# Task Completion: {task_slug}
+# task_completion
 
-## Metadata
-- **From**: developer
-- **To**: completion_aggregator
+Content guidance for the `task_completion` message type.
 
-<!-- Filename: developer_{task_slug}.md
-     The task_slug must match the corresponding developer_task/planned_task slug. -->
+Minimal marker message. The content passed to `scripts/send_message.sh` can be
+a simple string like "Task complete." — the completion_aggregator only checks
+whether the file exists, it does not read the content.
+
+The message_name (slug) must match the corresponding developer_task slug so the
+completion_aggregator can correlate them.
