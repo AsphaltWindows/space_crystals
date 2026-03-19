@@ -1,7 +1,7 @@
 # Testing Module
 
 Provides `TestApp` and `TestHarness`, the core infrastructure for headless game
-integration tests. Used by both `tests/scenarios/` and `tests/qa/` test targets.
+integration tests. Used by both `artifacts/developer/tests/scenarios/` and `artifacts/developer/tests/qa/` test targets.
 
 ## Files
 
@@ -14,10 +14,10 @@ integration tests. Used by both `tests/scenarios/` and `tests/qa/` test targets.
 ## Feature Gate
 
 This module is only compiled when `#[cfg(any(test, feature = "testing"))]` is active.
-Integration tests in `tests/` use the `testing` Cargo feature.
+Integration tests in `artifacts/developer/tests/` use the `testing` Cargo feature.
 
 ## QA Test Infrastructure
 
-The QA agent generates test files in `tests/qa/[task_name].rs`. Each file contains
-one test function per `[auto]`-tagged QA step. The `tests/qa/helpers.rs` module
+The QA agent generates test files in `artifacts/developer/tests/qa/[task_name].rs`. Each file contains
+one test function per `[auto]`-tagged QA step. The `artifacts/developer/tests/qa/helpers.rs` module
 re-exports `TestApp`, `TestHarness`, assertions, and common game types for convenience.

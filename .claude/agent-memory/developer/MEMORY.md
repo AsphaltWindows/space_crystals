@@ -8,7 +8,7 @@
 - `src/` at 7 entries (max) — game/, lib.rs, main.rs, README.md, shared/, simulation/, ui/
 - `src/shared/` — crate-level types.rs, utils.rs, testing/ — re-exported via lib.rs
 - `src/shared/testing/` — TestApp + TestHarness, feature-gated, at 7 entries (max)
-- `tests/qa/` — QA integration tests, `helpers.rs` re-exports TestApp/TestHarness/assertions
+- `artifacts/developer/tests/qa/` — QA integration tests, `helpers.rs` re-exports TestApp/TestHarness/assertions
 - `src/game/` and `src/game/units/` use `types/` directories instead of `types.rs`
 - `src/game/units/systems/` has core.rs, commands.rs, behaviors.rs
 - `src/game/combat/systems/` has core.rs, behaviors.rs

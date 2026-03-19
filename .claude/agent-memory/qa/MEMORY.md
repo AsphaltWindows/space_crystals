@@ -15,7 +15,7 @@
 - Faction selection screen Syndicate HQ missing — FIXED
 
 ## Automated QA Test Generation
-- **Test infrastructure**: `tests/qa/main.rs` + `tests/qa/helpers.rs`. Modules registered between `// --- QA MODULES START/END ---` markers.
+- **Test infrastructure**: `artifacts/developer/tests/qa/main.rs` + `artifacts/developer/tests/qa/helpers.rs`. Modules registered between `// --- QA MODULES START/END ---` markers.
 - **FixedUpdate doesn't fire** in headless TestApp (MinimalPlugins). Use `app.world_mut().run_system_once(system_fn)` to trigger FixedUpdate systems directly.
 - **pub(crate) systems** can't be called from integration tests. Replicate logic in inline closures for `run_system_once`.
 - **Float precision**: N additions of (1.0/N) doesn't reach exactly 1.0 for most N. Use build_frames=10 or add extra ticks.
