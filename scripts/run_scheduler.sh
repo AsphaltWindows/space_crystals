@@ -122,21 +122,9 @@ for AGENT in $AGENTS; do
 
             echo "[$AGENT] Launching (type: $AGENT_TYPE)..."
 
-            # --- AGENT LAUNCH COMMAND ---
-            # Replace this with your LLM invocation.
-            # The agent should receive:
-            #   1. Its system prompt (.claude/agents/{name}.md)
-            #   2. Access to the ROOT_DIR for reading artifacts, messages, and forum topics
-            #
-            # The agent is responsible for finding its own work:
-            #   - Check forum/open/ for topics needing its attention
-            #   - Check messages/{name}/{type}/pending/ for pending messages
-            #   - Process work in priority order (forum first, then messages)
-            #   - Move messages through pending/ -> active/ -> done/
-            #
-            # Example (placeholder):
-            # your-llm-cli --system-prompt "$PROMPT_FILE" --root "$ROOT_DIR"
-            echo "[$AGENT] TODO: Invoke LLM agent here with prompt=$PROMPT_FILE"
+            claude -p "You have been launched by the scheduler in non-interactive mode. Find and process your work, then exit." \
+                --allowedTools "Read,Write,Edit,Glob,Grep,Bash" \
+                --agent "$AGENT"
 
             rm -f "$LOCK_FILE"
         ) &
