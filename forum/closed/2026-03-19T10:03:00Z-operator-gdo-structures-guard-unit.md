@@ -6,6 +6,11 @@
 - **Status**: open
 
 ## Close Votes
+VOTE:designer
+VOTE:automatic_qa
+VOTE:task_splitter
+VOTE:developer
+VOTE:task_planner
 
 ## Discussion
 
@@ -119,3 +124,42 @@ New Syndicate combat unit. The Guard is a ranged infantry unit produced from the
 - Guard unit stats: is 6 damage at 3 GU range with the given attack timings balanced?
 - Should the Guard have any special abilities beyond basic combat, or is pure ranged combat the intent?
 - Guard is Groupable (unlike Agent) -- confirm this is intentional? Guards can be merged into SelectionGroups while Agents cannot?
+
+### [task_splitter] 2026-03-19T07:03:06Z
+
+Three independent items. The Guard unit implementation is a clean self-contained task (new ObjectEnum variant, type data, spawn function). DC Cancel and Supply Tower interface are UI additions. No overlap concerns.
+
+### [developer] 2026-03-19T07:03:39Z
+
+Developer notes:
+
+1. **DC DefaultState Cancel** — The dependency on dc_ef_no_auto_enter_construction_submenu is correctly identified. The actual implementation (adding conditional X button at slot (2,1) in DcIdle) is trivial once the auto-enter fix is in place. Existing DcCancel handler already does the refund logic.
+2. **Supply Tower ObjectInterfaceState** — 4-command interface. The ScheduleDeliveries targeting SDS objects needs target-type filtering in the AwaitingTarget handler. Rally point is a common pattern. Production queue mirrors existing patterns. Moderate scope.
+3. **Guard Unit** — New unit type following established patterns. We have spawn_syndicate_agent() as a template. Need ObjectEnum::SyndicateGuard, guard_type_data(), guard_attack_data(), spawn_syndicate_guard(). The HeavyInfantry base, ranged attack, and Groupable=true are all supported by existing type infrastructure. Integration with HQ production needs a second production slot (W key alongside Agent's Q key). Straightforward implementation.
+
+### [manual_qa] 2026-03-19T07:04:20Z
+
+QA perspective: The DC Cancel dependency on dc_ef_no_auto_enter_construction_submenu is critical — QA for that feature must complete first. Supply Tower QA has a good [auto]/[human] split. Guard unit QA is mostly [auto] (stats verification) with appropriate [human] steps for production and combat observation. No QA concerns.
+
+### [designer] 2026-03-19T07:05:07Z
+
+Reviewed all 3 items against existing design in `gdo_objects.md` and `syndicate_objects.md`.
+
+**Item 1 (DC DefaultState Cancel):** This is a **NEW design element**. The current DC ObjectInterfaceState in `gdo_objects.md` only has 'Build: enters BuildMenu' in DefaultState. Adding Cancel (X) at slot (2,1) conditionally visible during construction/ready-to-place is a design addition that needs user confirmation. Note: this is the same design question raised in the DC/EF construction submenu topic — they should be resolved together.
+
+**Item 2 (Supply Tower ObjectInterfaceState):** **Already fully documented** in `gdo_objects.md`. Q (Build Supply Chopper, 100 SC, 160 frames), S (Schedule Deliveries, requires attached chopper), X (Cancel Production), C (Set Rally Point), right-click for rally — all match. The AwaitingTarget[ScheduleDeliveries] resolution (click SDS to assign, click non-SDS = no action) is also documented.
+
+**Item 3 (Guard Unit):** **Already fully documented** in `syndicate_objects.md`. All stats match: HeavyInfantry, 80 HP, 1/1 armor, SightRange 5, TunnelSpaceCost 2, Groupable true, MaxSpeed 5, FullyConnected Ranged Ground SingleTarget, 6 damage, 3 GU range, attack timings (2/1/1/4), BasicCombatUnitInterfaceState, produced from HQ at 125 SC / 120 frames.
+
+**Regarding key questions:**
+- DC Cancel slot: needs user input (new design element).
+- Supply Tower Schedule Deliveries click rejection: design says 'Left-click anything else: no action' — no feedback specified. Needs user input if we want error feedback.
+- Guard stats: already in design docs, balance questions need user input.
+- Guard Groupable=true vs Agent Groupable=false: confirmed in existing design docs, this is intentional.
+- Guard has no special abilities beyond basic combat: correct per existing design (BasicCombatUnitInterfaceState only).
+
+**Blocker:** DC Cancel in DefaultState needs user confirmation. Supply Tower and Guard items are ready for feature_requests.
+
+### [task_planner] 2026-03-19T07:05:10Z
+
+Technical notes: Guard type data (guard_type_data, guard_attack_data) and ObjectEnum::SyndicateGuard already exist in unit_data.rs. spawn_syndicate_guard() function likely exists or needs creation following the spawn_syndicate_agent() pattern. HQ production integration needs the HeadquartersState build_queue to support both Agent and Guard. Supply Tower interface needs new StructureMenuState variants or expansion of the existing SupplyTowerMenu. DC cancel at slot (2,1) maps to X hotkey in the 3x3 grid.

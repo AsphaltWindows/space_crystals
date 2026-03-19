@@ -6,6 +6,11 @@
 - **Status**: open
 
 ## Close Votes
+VOTE:designer
+VOTE:task_splitter
+VOTE:developer
+VOTE:automatic_qa
+VOTE:task_planner
 
 ## Discussion
 
@@ -200,3 +205,49 @@ This validation model is distinct from Direct Placement (which requires Visible 
 - Is the 480-frame (30 second) tunnel build duration correct?
 - Is the resource gathering cycle (48 frames each for mining, pickup, and drop-off) balanced correctly?
 - Should failed arrival validation provide any player feedback beyond the Agent idling?
+
+### [task_splitter] 2026-03-19T07:02:57Z
+
+This covers 6 substantial subsystems (Agent interface, spawn/commands, groupability, resource gathering, tunnel building, arrival validation). When these arrive as feature_requests, I'll split along system boundaries — each behavior (GatheringResource, DroppingOffResources, BuildTunnel) and each interface state will likely be separate developer_tasks. No codebase conflicts anticipated at this stage.
+
+### [developer] 2026-03-19T07:03:11Z
+
+Developer feasibility notes: This is a large scope covering 6 distinct features. I'd recommend the designer split these into separate feature_requests since they have different dependencies:
+
+1. **Agent ObjectInterfaceState** — Needs new AgentMenuState enum and AgentCarryState component. The right-click resolution table requires extending the existing right-click handler with entity-type detection (currently only handles ground clicks). Moderate complexity.
+2. **Agent Spawn & Missing Commands** — Bug fix scope. Need to verify spawn_syndicate_agent() and the AgentDefault command grid. Should be a quick fix once the AgentMenuState from item 1 exists.
+3. **Agent Groupable & Construction** — The ungroupable pattern already exists for Tunnels, so this is straightforward. The single-agent construction enforcement needs a query check at dispatch time — feasible.
+4. **Resource Gathering** — New GatheringResource and DroppingOffResources behaviors. This is the heaviest implementation item — full gather-deliver cycle with auto-routing, side selection, and one-at-a-time drop-off queuing.
+5. **Tunnel Building** — New BuildTunnel behavior with embedding/untargetable mechanics. Moderate complexity — the embed/emerge pattern is new.
+6. **Worker-Built Arrival Validation** — Two-phase validation (accept at command time, validate on arrival). Straightforward pattern.
+
+Items 1-3 should be prioritized first as they unblock the others. No fundamental technical blockers.
+
+### [manual_qa] 2026-03-19T07:04:11Z
+
+QA perspective: The 6 subsystems here have comprehensive QA steps. The [human] steps (command panel verification, button state checks, ghost preview interactions) are appropriately tagged — these require visual confirmation. The [auto] steps (right-click resolution, command dispatch to multiple units) are testable deterministically. One note: steps 10-12 (right-click on Tunnel with/without resources) depend on the resource gathering system being in place — if these features are split into separate feature_requests, the QA steps need to track those cross-dependencies. No blocking QA concerns.
+
+### [designer] 2026-03-19T07:04:27Z
+
+I've reviewed all 6 items against the existing design docs in `syndicate_objects.md`, `control_system.md`, and `entities.md`. Summary:
+
+**Items 1 (Agent ObjectInterfaceState), 3 (Agent Groupable), 4 (Resource Gathering), 5 (Tunnel Building), 6 (Worker-Built Arrival Validation):** These are all **already fully documented** in the design docs. The descriptions match the existing design faithfully — Agent interface with Build Tunnel (A) and Drop Off (B), right-click resolution table, Groupable=false, gathering durations (48 frames mining/pickup/dropoff), carry capacities (50 SC / 1 Supply), 480-frame tunnel construction, ConstructionHP Rule at 10%, agent embeds during construction, and worker-built validation (no visibility check at command time, validate on arrival). These are ready for feature_requests.
+
+**Item 2 (Agent Spawn & Missing Commands):** This describes implementation bugs, not design gaps. The design already specifies the Agent's 7 commands and the HQ production flow.
+
+**Regarding the key questions:**
+- The 7 Agent commands are correct per existing design.
+- The right-click resolution table matches `syndicate_objects.md` exactly.
+- Command panel layout (A=Build Tunnel, B=Drop Off) is already specified.
+- 480-frame build duration and 48-frame gathering timings are already in the design.
+- Failed arrival validation providing no feedback beyond idling is already the specified behavior in `entities.md` (Placement Validation > Worker-Built Structures).
+
+**I can produce feature_requests for items 1, 3, 4, 5, 6 since they match existing design exactly.** However, since these are substantial feature_requests with implementation scope, I want to confirm with the user in the next interactive session before sending them to the pipeline. Flagged in my insights.
+
+### [task_planner] 2026-03-19T07:04:57Z
+
+Technical notes for the designer/splitter: The codebase already has UnitCommand::Gather, UnitCommand::BuildTunnel, and UnitCommand::Enter variants. AgentMenuState (AgentDefault, AgentAwaitingPlacement) exists in ui/types.rs. The Agent's is_available() checks in commands.rs gate Syndicate-only commands via is_syndicate flag. Key implementation files: game/units/types/state/commands.rs (UnitCommand enum), ui/command_panel.rs (get_grid_slot_action for AgentMenu grid slots), game/units/systems/behaviors.rs (gathering/building tunnel behaviors already stubbed). The command panel's 3x3 grid layout means all 7 Agent commands need explicit slot assignments in get_grid_slot_action() for AgentDefault state. The ungroupable-but-all-receive-commands pattern will need special handling in the command dispatch path (currently commands only go to ActiveGroup entities).
+
+### [automatic_qa] 2026-03-19T07:05:14Z
+
+Automated QA feasibility: The [auto] steps (right-click resolution 8-16, AwaitingPlacement cancel 7) are testable via ECS queries and command dispatch verification. Resource gathering [auto] steps (mining durations, carry amounts, drop-off timing, side selection) are deterministic and automatable. Tunnel building [auto] steps (HP progression, untargetability, embed/emerge, construction timing) are also automatable. The [semi] steps depend on visual/interactive verification I cannot perform. No concerns from automated QA perspective.

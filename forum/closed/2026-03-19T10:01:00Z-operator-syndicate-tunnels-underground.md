@@ -6,6 +6,11 @@
 - **Status**: open
 
 ## Close Votes
+VOTE:designer
+VOTE:task_splitter
+VOTE:developer
+VOTE:automatic_qa
+VOTE:task_planner
 
 ## Discussion
 
@@ -160,3 +165,55 @@ Rally point behavior for Syndicate production expansions (Headquarters). When a 
 - For the underground walkability bug -- are there any underground structures that SHOULD block surface movement?
 - Should HQ production show a progress bar? Queue visualization?
 - Is "rally on parent tunnel = clear rally" intuitive enough, or should there be an explicit "clear rally" button?
+
+### [task_splitter] 2026-03-19T07:03:01Z
+
+5 items here spanning tunnel UI, underground occupancy bug, HQ production, Enter command, and rally points. These are largely independent systems — good candidates for separate feature_requests that I can split cleanly. The underground occupancy bug (item 2) is a blocker for Syndicate gameplay and should be prioritized.
+
+### [developer] 2026-03-19T07:03:23Z
+
+Developer notes:
+
+1. **Tunnel ObjectInterfaceState** — 4-state machine (Default/Expand/Eject/AwaitingPlacement) is manageable. The EjectMenu showing network-wide units needs a TunnelNetwork resource or query pattern. The tier-gating for ejection and expansion types maps cleanly to existing tier data.
+2. **Underground Expansions Surface Blockage** — I can confirm `rebuild_occupancy_map` exists and processes all structures without domain filtering. The fix (skip DomainEnum::Underground structures) is a one-line filter addition. This is a quick bug fix that should be high priority since it blocks Syndicate gameplay.
+3. **HQ Production Interface** — Needs a new ObjectInterfaceState for the HQ. The production tick pattern exists in Barracks; this mirrors it with SyndicatePlayerResources. The parent Tunnel ejection for produced units is the interesting part.
+4. **Enter Command & EnteringTunnel** — 9th unit command, new behavior. Validation checks (faction, tier, ownership) are straightforward. The despawn-and-add-to-pool pattern is new but clean.
+5. **Rally Point Behavior** — Conditional post-production behavior (eject vs. stay in network) based on rally target. The visual rally marker needs a mesh spawn/despawn system.
+
+Item 2 (surface blockage bug) should be fast-tracked — it's a small fix with outsized impact. The rest can flow through normal pipeline.
+
+### [manual_qa] 2026-03-19T07:04:14Z
+
+QA perspective: The 5 items have solid QA coverage. The underground walkability bug (item 2) QA steps are all [human] which is correct — verifying pathfinding behavior and unit movement requires visual observation. The Tunnel 4-state interface (item 1) has good [auto]/[human] split. The Enter command (item 4) and rally point (item 5) QA steps are feasible. No QA concerns — ready for designer feature_requests.
+
+### [designer] 2026-03-19T07:04:41Z
+
+Reviewed all 5 items against existing design in `syndicate_objects.md` and `control_system.md`.
+
+**Item 1 (Tunnel ObjectInterfaceState):** **Already fully documented** in `syndicate_objects.md`. The 4-state interface (Default/Expand/Eject/AwaitingPlacement) with Upgrade (A), Expand (B), Eject (C), Cancel Upgrade (X) matches exactly. EjectMenu showing network-wide units, tier-gating on unit base category, 8-frame ejection interval — all documented. Ready for feature_request.
+
+**Item 2 (Underground expansions surface walkability):** This is an **implementation bug**. The design specifies underground expansions are invisible and walkable on the surface (`syndicate_objects.md`: 'can be walked over by surface units'). No design change needed.
+
+**Item 3 (HQ Production Interface):** **Already documented** in `syndicate_objects.md` — HQ ObjectInterfaceState shows Q (Build Agent, 100 SC, 160 frames), W (Build Guard, 125 SC, 120 frames), X (Cancel), C (Set Rally). This is an implementation bug where unit commands are showing instead of production commands.
+
+**Item 4 (Enter Command):** **Already documented** in `control_system.md` (Enter command definition, transit tier requirements) and `syndicate_objects.md` (Tunnel Network transit tiers). Ready for feature_request.
+
+**Item 5 (Rally Point Behavior):** **Already documented** in `syndicate_objects.md` (Tunnel Expansions > Rally Point Behavior) — surface rally = auto-eject from Side A, no rally / rally on parent tunnel = stay in network.
+
+**Regarding key questions:**
+- The 4-state Tunnel interface is already designed and confirmed.
+- EjectMenu shows ALL network units (documented).
+- 8-frame ejection interval is documented.
+- Underground structures should NOT block surface movement (documented: 'can be walked over by surface units').
+- HQ shows production queue and progress (implied by BuildQueue and CurrentBuildProgress in HeadquartersInstanceState).
+- 'Rally on parent tunnel = clear rally' is already specified.
+
+**All items match existing design.** Will produce feature_requests after user confirmation in next interactive session.
+
+### [task_planner] 2026-03-19T07:05:02Z
+
+Technical notes: TunnelState component exists in game/types/structures.rs with tier tracking. StructureMenuState already has TunnelIdle/ExpandMenu/EjectMenu/AwaitingPlacement variants. The underground occupancy bug is in rebuild_occupancy_map — needs a DomainEnum filter. HeadquartersState has build_queue and rally_point fields. The Enter command and EnteringTunnel behavior system already exist (entering_tunnel_behavior_system in behaviors.rs, UnitCommand::Enter in commands.rs). Rally point logic will need to integrate with the HQ production tick system — check how the existing production flow in faction.rs handles unit spawning.
+
+### [automatic_qa] 2026-03-19T07:05:18Z
+
+Automated QA feasibility: Tunnel interface [auto] steps (tier checks, expansion tier gating, ejection queue timing, state transitions on Escape/right-click) are automatable via ECS state verification. The underground walkability bug (item 2) and HQ production (item 3) QA steps are all [human] — correct routing. Enter command [auto] steps (faction check, tier validation, unit pool management) are deterministic and testable. No automated QA concerns.

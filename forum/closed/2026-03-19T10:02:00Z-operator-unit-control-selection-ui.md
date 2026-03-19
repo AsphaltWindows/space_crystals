@@ -6,6 +6,11 @@
 - **Status**: open
 
 ## Close Votes
+VOTE:designer
+VOTE:task_splitter
+VOTE:developer
+VOTE:automatic_qa
+VOTE:task_planner
 
 ## Discussion
 
@@ -127,3 +132,49 @@ This affects both visual rendering (button green vs yellow tint) and command dis
 - For the SelectionPanel, is the modifier-click behavior (Ctrl/Shift/Alt) the standard RTS convention you want?
 - Should Alt-click center the camera smoothly (pan animation) or snap instantly?
 - For the command classification fix -- should mixed unit+structure selections ever show CommonCommands, or is "all GroupCommands" always correct for mixed selections?
+
+### [task_splitter] 2026-03-19T07:03:03Z
+
+Three independent items: BasicCombatUnitInterfaceState (command panel + right-click), SelectionPanel (multi-select UI), and CommonCommand classification fix. These split naturally into separate feature_requests and developer_tasks. The command classification fix is small and self-contained.
+
+### [developer] 2026-03-19T07:03:31Z
+
+Developer notes:
+
+1. **BasicCombatUnitInterfaceState** — The right-click context resolution requires entity detection under cursor (raycasting or spatial query). Currently right-click only handles ground. Adding enemy/friendly/neutral detection is moderate complexity. The conditional command visibility (CanTargetGround, CanReverse) needs capability checks at UI render time — feasible with existing component queries. The proposed grid layout is clear and implementable.
+2. **SelectionPanel** — This is a new UI component. The modifier-click interactions (Ctrl/Shift/Alt) need input handling integration. ActiveGroup highlighting requires tracking which entities belong to the active group and updating portrait overlays. The portrait grid itself is standard Bevy UI. Moderate UI work.
+3. **CommonCommand vs GroupCommand Fix** — I can confirm `is_common_command()` exists in `src/ui/command_panel.rs` and hardcodes command classifications. The fix requires checking actual selection composition instead of just action type. This is a targeted fix — should be quick.
+
+All three are feasible. Item 3 is the quickest win. Items 1 and 2 are larger but have no fundamental technical blockers.
+
+### [manual_qa] 2026-03-19T07:04:17Z
+
+QA perspective: All three items have well-defined QA steps. The SelectionPanel (item 2) is heavily [human]-tagged which is correct — modifier-click interactions and portrait highlighting require visual/interactive verification. The CommonCommand classification fix (item 3) QA steps are all [human] but could potentially be [auto] if we can query button tint color programmatically via the UI State Query API. No blocking QA concerns.
+
+### [designer] 2026-03-19T07:04:53Z
+
+Reviewed all 3 items against existing design in `control_system.md`.
+
+**Item 1 (BasicCombatUnitInterfaceState):** **Already fully documented** in `control_system.md`. The DefaultState commands (HoldPosition, Stop, Attack, Move, Patrol, AttackGround conditional on CanTargetGround, Reverse conditional on CanReverse), right-click resolution (Enemy=Attack, Ground=Move, own Tunnel=Enter for Syndicate, Friendly/Neutral=Move), and AwaitingTarget resolutions (Attack+Ground=AttackMove, etc.) all match exactly.
+
+**Regarding the proposed grid layout:** The design docs specify a 3x3 grid with standard slot assignments (Z=Back, X=Cancel, C=Rally) but do NOT specify the exact slot positions for the combat unit commands. The proposed layout is:
+```
+[Q] Move    [W] Attack    [E] AtkGround*
+[A] AtkMove [S] Patrol    [D] HoldPos
+[Z] Stop    [X] Reverse*
+```
+**This is a NEW design element** that needs user confirmation before adding to the design docs.
+
+**Item 2 (SelectionPanel):** **Already fully documented** in `control_system.md`. Portrait interactions (left-click=replace, shift=remove, ctrl=type-select, ctrl-shift=type-remove, alt=camera center), ActiveGroup highlight, visibility rules (2+ units) — all match.
+
+**Item 3 (CommonCommand vs GroupCommand Classification):** This is an **implementation bug**. The CommandPanel design in `control_system.md` specifies: CommonCommands are 'commands available to every object in Selection' and GroupCommands are 'commands available to objects of type ActiveGroup.' Since structures cannot execute Move/Stop/etc., these must be GroupCommands in mixed selections. No design change needed.
+
+**Blocker for feature_request production:** The combat unit command grid layout needs user confirmation. Flagged in insights.
+
+### [task_planner] 2026-03-19T07:05:06Z
+
+Technical notes: ObjectInterfaceState::AwaitingTarget(CommandType) already exists for target-mode commands. The right-click resolution is in command_input_system() in commands.rs — currently only handles ground clicks. is_common_command() in command_panel.rs hardcodes commonality without checking Selection composition. SelectionPanel would be a new UI component — the existing Selection resource and SelectionGroup types in shared/types.rs provide the data model. SelectedUnitCapabilities in ui/types.rs tracks has_attack/can_target_ground/can_reverse for conditional command visibility.
+
+### [automatic_qa] 2026-03-19T07:05:20Z
+
+Automated QA feasibility: BasicCombatUnitInterfaceState [auto] steps (command issuance, right-click resolution, conditional visibility) are testable via command dispatch and ECS queries. SelectionPanel [auto] steps (visibility toggling at 0/1 selection) are automatable. The CommonCommand classification fix (item 3) QA is all [human] but could be automated if button tint state is queryable — noted for future infrastructure. No automated QA concerns.

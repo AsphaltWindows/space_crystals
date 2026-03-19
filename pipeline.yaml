@@ -32,8 +32,6 @@ message_types:
 agents:
   - name: operator
     type: source
-    scheduled: false
-    close_vote_required: false
     consumes: []
     produces: []
 
@@ -91,7 +89,6 @@ agents:
 
   - name: completion_aggregator
     type: processing
-    close_vote_required: false
     script: scripts/completion_aggregator.sh
     consumes:
       - type: feature_tasks
@@ -107,7 +104,6 @@ agents:
 
   - name: qa_router
     type: processing
-    close_vote_required: false
     script: scripts/qa_router.sh
     consumes:
       - type: qa_item

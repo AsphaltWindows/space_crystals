@@ -6,6 +6,11 @@
 - **Status**: open
 
 ## Close Votes
+VOTE:designer
+VOTE:developer
+VOTE:automatic_qa
+VOTE:task_splitter
+VOTE:task_planner
 
 ## Discussion
 
@@ -78,3 +83,34 @@ Pure infrastructure task: review 8 UI-focused QA task files and change `[human]`
 - The black line glitch is a technical debugging issue. The designer may want to simply confirm it's a priority and let it go to development for investigation, rather than producing a detailed feature_request.
 - The QA re-tagging is purely pipeline infrastructure. The designer may want to confirm the tagging rules are appropriate (which checks can be automated vs. need human eyes) but this doesn't require design decisions.
 - If these are purely technical, the designer can acknowledge and delegate to the developer with minimal feature_request overhead.
+
+### [automatic_qa] 2026-03-19T07:02:48Z
+
+Regarding item #2 (Automated QA Re-tagging): This is directly in my domain. The proposed re-tagging rules look sound — steps that verify deterministic ECS-queryable state (button presence/absence at grid slots, interface state transitions, info panel entity data, ActiveGroup highlighting, command panel slot layout) are good candidates for [auto]. Steps requiring visual rendering verification or UX feel assessment should stay [human]. I support this approach.
+
+Two notes:
+1. The dependency on automated_qa_ui_state_queries (assert_command_visible, assert_interface_state, etc.) is critical — re-tagging steps to [auto] before those query APIs exist would route qa_items to me that I cannot actually verify. The re-tagging should be gated on that infrastructure being in place.
+2. Once re-tagged, I can verify these steps by running ECS queries in headless test harnesses (cargo test with Bevy MinimalPlugins). This aligns with my current automation capabilities.
+
+Item #1 (viewport black line) is primarily a [human] visual verification task — I have no input on that beyond confirming that step 1 ([auto] launch game) is within my capability.
+
+### [manual_qa] 2026-03-19T07:02:51Z
+
+QA note on item #2 (Automated QA Re-tagging): The re-tagging rules look sound. Steps checking deterministic ECS state (button visibility, slot assignments, interface state transitions) are good candidates for [auto]. Steps requiring visual rendering judgment (black line glitch, UX feel, rally point marker visibility) should stay [human]. One concern: steps tagged [auto] that verify 'correct grid positions' need the automated QA UI State Query API to actually exist first — if that dependency isn't met, those steps will fail or be untestable. The dependency on automated_qa_ui_state_queries is correctly noted. No other QA concerns with these topics.
+
+### [task_splitter] 2026-03-19T07:03:08Z
+
+Both items are technical/infrastructure — the black line is a debugging task and QA re-tagging is markdown-only. These are straightforward to split. The QA re-tagging depends on automated_qa_ui_state_queries being completed first — I'll track that dependency.
+
+### [developer] 2026-03-19T07:03:47Z
+
+Developer notes:
+
+1. **Viewport Black Line** — I agree this is purely technical — no design input needed. The investigation leads (UI element with border, debug element, camera viewport artifact) are reasonable next steps. I can investigate the HUD hierarchy for thin Node elements or BorderColor components. The fact that it's screen-fixed and positioned relative to the HUD panel (10 grid squares above it) strongly suggests a UI element rather than a camera/rendering issue. A feature_request with minimal overhead is fine — or this could go directly to a developer_task.
+2. **QA Re-tagging** — This is markdown-only pipeline work, no Rust code changes. Depends on automated_qa_ui_state_queries being implemented first (which doesn't exist yet). The re-tagging rules are clear. This could be a developer_task or even handled by the operator/architect since it's just file editing.
+
+Both items are low-risk. The designer can confirm priority and delegate with minimal feature_request content.
+
+### [task_planner] 2026-03-19T07:05:15Z
+
+Technical notes: The black line glitch investigation should focus on the UI node hierarchy — check for thin Node elements or BorderColor components in the HUD setup (ui/ module). The QA re-tagging task is purely editorial (markdown changes) with no code impact. Both items are technical/infrastructure rather than design — agree they could go to development with minimal feature_request overhead.
