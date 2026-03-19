@@ -9,46 +9,24 @@ mkdir -p "$LOCK_DIR"
 
 while true; do
 
-# Parse scheduled agent names from pipeline.yaml (skip agents with scheduled: false)
-# Only parse names under the 'agents:' section, not 'message_types:' or other sections
+# Discover scheduled agents from agents/*/agent.yaml files
+# Skip agents with scheduled: false
 AGENTS=""
-CURRENT_AGENT=""
-IS_SCHEDULED=true
-IN_AGENTS_SECTION=false
 
-while IFS= read -r line; do
-    # Detect top-level section headers (no leading whitespace, ends with colon)
-    if echo "$line" | grep -q '^[a-z_]*:'; then
-        if echo "$line" | grep -q '^agents:'; then
-            IN_AGENTS_SECTION=true
-        else
-            # Entering a different section — flush any pending agent
-            if [ "$IN_AGENTS_SECTION" = true ] && [ -n "$CURRENT_AGENT" ] && [ "$IS_SCHEDULED" = true ]; then
-                AGENTS="$AGENTS $CURRENT_AGENT"
-            fi
-            IN_AGENTS_SECTION=false
-            CURRENT_AGENT=""
-        fi
+for AGENT_YAML in "$ROOT_DIR"/agents/*/agent.yaml; do
+    [ -f "$AGENT_YAML" ] || continue
+    AGENT_DIR_NAME=$(basename "$(dirname "$AGENT_YAML")")
+    # Check if scheduled is explicitly set to false
+    if grep -q '^\s*scheduled:\s*false' "$AGENT_YAML"; then
         continue
     fi
-    [ "$IN_AGENTS_SECTION" = true ] || continue
-    if echo "$line" | grep -q '^\s*-\?\s*name:'; then
-        if [ -n "$CURRENT_AGENT" ] && [ "$IS_SCHEDULED" = true ]; then
-            AGENTS="$AGENTS $CURRENT_AGENT"
-        fi
-        CURRENT_AGENT=$(echo "$line" | sed 's/.*name:\s*//' | tr -d ' ')
-        IS_SCHEDULED=true
-    elif echo "$line" | grep -q '^\s*scheduled:\s*false'; then
-        IS_SCHEDULED=false
-    fi
-done < "$PIPELINE"
-if [ "$IN_AGENTS_SECTION" = true ] && [ -n "$CURRENT_AGENT" ] && [ "$IS_SCHEDULED" = true ]; then
-    AGENTS="$AGENTS $CURRENT_AGENT"
-fi
+    AGENTS="$AGENTS $AGENT_DIR_NAME"
+done
 
 if [ -z "$AGENTS" ]; then
-    echo "No agents defined in pipeline.yaml"
-    exit 0
+    echo "No scheduled agents found in agents/*/"
+    sleep "$( grep '^\s*scheduler_interval:' "$PIPELINE" | sed 's/.*scheduler_interval:\s*//' | tr -d ' ' )"
+    continue
 fi
 
 for AGENT in $AGENTS; do
@@ -105,8 +83,8 @@ for AGENT in $AGENTS; do
 
     # Read agent type and check for script runner
     AGENT_YAML="$ROOT_DIR/agents/${AGENT}/agent.yaml"
-    AGENT_TYPE=$(grep '^\s*type:' "$AGENT_YAML" | sed 's/.*type:\s*//' | tr -d ' ')
-    AGENT_SCRIPT=$(grep '^\s*script:' "$AGENT_YAML" 2>/dev/null | sed 's/.*script:\s*//' | tr -d ' ')
+    AGENT_TYPE=$(grep '^\s*type:' "$AGENT_YAML" | sed 's/.*type:\s*//' | tr -d ' ' || true)
+    AGENT_SCRIPT=$(grep '^\s*script:' "$AGENT_YAML" 2>/dev/null | sed 's/.*script:\s*//' | tr -d ' ' || true)
 
     if [ -n "$AGENT_SCRIPT" ]; then
         # Script-based node — run the script directly
@@ -124,7 +102,7 @@ for AGENT in $AGENTS; do
 
         # Launch script in background
         (
-            echo "$$" > "$LOCK_FILE"
+            echo "$BASHPID" > "$LOCK_FILE"
             echo "[$AGENT] Launching script (type: $AGENT_TYPE): $AGENT_SCRIPT"
             "$SCRIPT_PATH" "$ROOT_DIR" "$AGENT"
             rm -f "$LOCK_FILE"
@@ -140,7 +118,7 @@ for AGENT in $AGENTS; do
 
         # Launch agent in background
         (
-            echo "$$" > "$LOCK_FILE"
+            echo "$BASHPID" > "$LOCK_FILE"
 
             echo "[$AGENT] Launching (type: $AGENT_TYPE)..."
 
