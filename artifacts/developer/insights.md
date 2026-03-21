@@ -81,3 +81,5 @@
 - Right-click only handles ground clicks, no entity detection
 - Persistent horizontal black line in viewport (likely UI element, not camera artifact)
 - QA integration tests (`tests/qa/`) have broken imports — `assert_command_visible`, `assert_interface_state`, etc. not found
+- `PointerIndicator` component in `ui/types.rs`; pointer spawn/update systems and `PointerDisplayType::indicator_color()` impl in `ui/utils.rs`
+- `ui/` directory is at 7 items (the limit) — any new files require reorganizing into subdirectories

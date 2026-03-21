@@ -1,5 +1,13 @@
 # Developer Session Log
 
+## 2026-03-20 — pointer_display_rendering
+
+- **Task**: Implement pointer indicator rendering system that displays a colored overlay tracking cursor position based on PointerDisplayType
+- **Implementation**: Added `PointerIndicator` component to `ui/types.rs`. Added `indicator_color()` impl on `PointerDisplayType`, `spawn_pointer_indicator` and `update_pointer_display` systems to `ui/utils.rs`. Registered spawn as OnEnter(InGame) after setup_hud, update system after resolve_pointer_display_type in DiagCategory::UiHud set.
+- **Behavior**: Indicator hidden during placement mode, cursor-over-UI, or cursor off-window. Positioned with 12px offset bottom-right of cursor. Color mapped per variant (green=Move, red=Attack, cyan=Enter, etc.)
+- **Tests**: 7 new unit tests — distinct colors for all variants, transparency check, color channel assertions, placement mode detection
+- **Directory compliance**: ui/ at 7 items (limit). Initially planned separate pointer.rs but consolidated into utils.rs to stay within limit.
+
 ## 2026-03-20 — pointer_display_type_resolution
 
 - **Task**: Define PointerDisplayType enum and resolution system
