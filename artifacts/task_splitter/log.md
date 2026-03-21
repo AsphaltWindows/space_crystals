@@ -519,3 +519,17 @@
   1. `pointer_display_type_resolution` — Define enum, resource, resolution system with full rule matrix
   2. `pointer_display_rendering` — Visual cursor rendering based on resolved type
 - **Sent**: 2 developer_tasks to task_planner, feature_request forwarded to completion_aggregator, feature_tasks manifest sent.
+
+## 2026-03-20T00:00:00Z — tunnel-transit-light-infantry
+
+- No open forum topics
+- Processed feature_request: `designer-tunnel-transit-light-infantry.md`
+  - Design doc clarification: LightInfantry added to Tier 1+ transit tier description
+  - Code already correct — TransitTier::Tier1 matches both LightInfantry and HeavyInfantry with passing tests
+  - Created 1 verification-only task: `tunnel-transit-light-infantry-verify`
+  - Forwarded feature_request and manifest to completion_aggregator
+
+## 2026-03-20T00:00:00Z — Processed camera-pan-snap
+
+- **Forum**: No open topics requiring attention.
+- **Processed**: `designer-camera-pan-snap.md` — Camera panning snap behavior (design doc formalization). Already fully implemented in two code paths (Alt-click portrait, double-tap control group). Created 1 verification task: `camera-pan-snap-verify`. Forwarded feature request and manifest to completion_aggregator.

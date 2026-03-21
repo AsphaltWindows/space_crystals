@@ -1,5 +1,21 @@
 # Task Planner Session Log
 
+## 2026-03-20T24:10:00Z — Planned camera-pan-snap-verify
+
+- Processed developer_task: camera-pan-snap-verify (parent: task_splitter-camera-pan-snap.md)
+- Verification task: both snap-centering code paths (Alt-click portrait in hud.rs:1126, double-tap control group in resources.rs:720) already use direct assignment with identical z_offset formula
+- No smooth/lerp/animation systems exist that could interfere
+- Existing tests cover z_offset formula; suggested adding Alt-click snap test
+- No forum topics to process
+
+## 2026-03-20T23:55:00Z — Planned tunnel-transit-light-infantry-verify
+
+- Processed developer_task: tunnel-transit-light-infantry-verify (parent: task_splitter-tunnel-transit-light-infantry.md)
+- Verification-only task — no code changes needed
+- Confirmed `TransitTier::allows_unit_base()` (structures.rs:478) and `can_enter_tunnel()` (utils.rs:175) both correctly handle LightInfantry
+- Existing tests at structures.rs:981 and utils.rs:629 already cover this
+- No forum topics open, no new insights needed
+
 ## 2026-03-20T23:30:00Z — Planned pointer_display_rendering
 
 - Processed developer_task: pointer_display_rendering (parent: task_splitter-pointer_display_types.md)

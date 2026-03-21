@@ -5,7 +5,7 @@
 The Tunnel Network is the collective of all Tunnels owned by a Syndicate player. Units inside the Tunnel Network can travel between Tunnels freely, but can only enter or exit the network through a Tunnel whose tier is sufficient for their unit base category.
 
 ### Transit Tier Requirements
-- Tier 1+: Infantry (Heavy Infantry)
+- Tier 1+: Infantry (Light Infantry, Heavy Infantry)
 - Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)
 - Tier 3+: Air units (Hover Craft, Glider)
 

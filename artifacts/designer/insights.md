@@ -27,10 +27,8 @@
 
 ## Loose Ends
 
-- **Pointer display types**: RESOLVED. 8 types designed (Inactive, Move, Attack, AttackGround, Patrol, GatherResources, ReturnResources, Enter) with full resolution rules for DefaultState, AwaitingTarget, and AwaitingPlacement contexts. Feature request sent. Supply Tower ScheduleDeliveries invalid target now shows Inactive pointer.
-- Alt-click camera behavior: should it pan smoothly or snap instantly? (from `unit-control-selection-ui`)
-- Agent UnitBase is documented as HeavyInfantry but forum topic 2 mentions LightInfantry in the key questions. Design says HeavyInfantry — confirm this is intentional.
-- Tunnel transit tier requirements: design says "Tier 1+: Infantry (Heavy Infantry)" but the parenthetical only mentions Heavy Infantry, not Light Infantry. The BasicCombatUnitInterfaceState right-click resolution for Enter says "Syndicate units only" — does this include all Syndicate unit bases or just those meeting tier requirements?
+- **Lore**: User wants to do a lore session before diving into Cults faction design. Opening question asked: "What's the setting? What are Space Crystals, and why are these factions fighting over them?" No answer yet — resume here next session.
+- **Cults faction design**: Blocked on lore session. After lore, resume with: Recruitable terrain (special tile type or created by Cult action?), how Recruits spawn (passive at Recruitment Centers or active mechanic?). Existing design in factions.md covers identity, resources (Space Crystals, Unit Control), and the territorial scaling concept.
 
 ## Insights
 

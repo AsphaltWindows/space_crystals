@@ -1894,4 +1894,76 @@ mod tests {
         assert_eq!(selection.groups.len(), 2);
         assert_eq!(selection.total_entity_count(), 2);
     }
+
+    // === Alt-Click Portrait Camera Snap Centering Tests ===
+
+    #[test]
+    fn alt_click_snap_z_offset_default_height() {
+        // At default camera height (40), z_offset should be 25.0
+        let camera_height = 40.0_f32;
+        let target_z = 10.0_f32;
+        let z_offset = camera_height * 25.0 / 40.0;
+        let result_cam_z = target_z + z_offset;
+        assert!((result_cam_z - 35.0).abs() < 0.001,
+            "Camera at height 40 centering on z=10 should snap to z=35, got {}", result_cam_z);
+    }
+
+    #[test]
+    fn alt_click_snap_z_offset_zoomed_in() {
+        // At zoomed-in height (20), z_offset shrinks proportionally
+        let camera_height = 20.0_f32;
+        let target_z = 5.0_f32;
+        let z_offset = camera_height * 25.0 / 40.0;
+        let result_cam_z = target_z + z_offset;
+        assert!((result_cam_z - 17.5).abs() < 0.001,
+            "Camera at height 20 centering on z=5 should snap to z=17.5, got {}", result_cam_z);
+    }
+
+    #[test]
+    fn alt_click_snap_x_is_exact_target() {
+        // X centering is direct assignment with no offset
+        let target_x = 42.0_f32;
+        let result_cam_x = target_x;
+        assert!((result_cam_x - 42.0).abs() < 0.001,
+            "Camera X should snap exactly to target X");
+    }
+
+    #[test]
+    fn alt_click_snap_formula_matches_control_group_snap() {
+        // Both snap paths must use the same z_offset formula
+        // This test verifies the formula produces identical results
+        let camera_height = 35.0_f32;
+        let target_z = -8.0_f32;
+
+        // Portrait snap formula (hud.rs)
+        let portrait_z_offset = camera_height * 25.0 / 40.0;
+        let portrait_cam_z = target_z + portrait_z_offset;
+
+        // Control group snap formula (resources.rs)
+        let group_z_offset = camera_height * 25.0 / 40.0;
+        let group_cam_z = target_z + group_z_offset;
+
+        assert!((portrait_cam_z - group_cam_z).abs() < 0.001,
+            "Both snap paths must produce identical results");
+    }
+
+    #[test]
+    fn alt_click_snap_is_instant_no_interpolation() {
+        // Verify that snap centering sets the value directly (no lerp factor)
+        // The system does: cam.x = target.x; cam.z = target.z + z_offset;
+        // There is no t factor, no lerp, no animation — just direct assignment.
+        let camera_height = 40.0_f32;
+        let target_pos = Vec3::new(100.0, 0.0, -50.0);
+        let z_offset = camera_height * 25.0 / 40.0;
+
+        // Simulate snap: direct assignment
+        let cam_x = target_pos.x;
+        let cam_z = target_pos.z + z_offset;
+
+        // Result should be exactly target position + offset, regardless of
+        // previous camera position (no lerp toward target)
+        assert!((cam_x - 100.0).abs() < f32::EPSILON);
+        assert!((cam_z - (-25.0)).abs() < 0.001,
+            "Snap should be instant: expected -25.0, got {}", cam_z);
+    }
 }

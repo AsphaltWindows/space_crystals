@@ -629,3 +629,17 @@
 - **Registration**: Phase 3 in UnitsPlugin alongside old systems; grid_position_sync_system chained `.after()` the new systems
 - **Tests**: 12 unit tests covering Moving, Stationary, Stopping, empty path, snap-when-close, Reversing, MoveTarget-skip, orientation Turning/Maintaining/skip, fallback locomotion
 - **Result**: 1622 tests pass, build clean
+
+## 2026-03-20 — tunnel_transit_light_infantry_verify
+
+- **Task**: Verification-only task to confirm LightInfantry is correctly included in Tier 1+ tunnel transit filtering
+- **Result**: No code changes needed. Confirmed `TransitTier::Tier1.allows_unit_base(&LightInfantry)` returns true, `can_enter_tunnel` works for LightInfantry+Tier1, and all 16 related tests pass green.
+- **Completion sent**: developer-tunnel_transit_light_infantry_verify.md
+
+## 2026-03-20 — camera_pan_snap_verify
+
+- **Task**: Verify camera instant-snap centering matches design spec and add tests
+- Confirmed both snap paths (Alt-click portrait in hud.rs, double-tap control group in resources.rs) use direct assignment with identical z_offset formula (`cam.y * 25.0 / 40.0`)
+- Confirmed camera_movement system (arrow key panning) doesn't interfere with snap
+- Added 5 unit tests for Alt-click snap centering: z_offset at default/zoomed heights, x exact targeting, formula parity with control group path, instant-no-interpolation verification
+- All 1683 lib tests pass

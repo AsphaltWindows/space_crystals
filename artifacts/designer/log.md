@@ -242,3 +242,32 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 **Insights updated**: Added Option C (Hybrid) to the pointer display types loose end.
 
 **Feature requests produced**: 0 (no design decisions reached).
+
+## 2026-03-20 — Interactive Session: Pointer Display Follow-up
+
+**Trigger**: User session. User reported a previous pointer display session didn't save to logs/insights.
+
+**Actions**:
+1. Loaded insights, checked forum (no open topics).
+2. Investigated current state of pointer display design in `control_system.md` — found the PointerDisplayType section is fully populated (8 types, resolution rules for DefaultState, AwaitingTarget, AwaitingPlacement). Insights already mark pointer displays as RESOLVED.
+3. Asked user what they thought was missing. User did not elaborate and requested recording and exit.
+4. Confirmed no design doc changes needed — pointer display content appears intact.
+
+**Insights updated**: No changes (content already captured).
+
+**Feature requests produced**: 0 (no design changes made).
+
+## 2026-03-20 — Interactive Session: Loose Ends Cleanup + Cults Kickoff
+
+**Trigger**: User session.
+
+**Actions taken**:
+
+1. **Agent UnitBase (resolved)**: User confirmed HeavyInfantry is intentional. No doc change needed — already correct.
+2. **Tunnel transit tiers (resolved)**: User confirmed Tier 1 Infantry includes both Light Infantry and Heavy Infantry. Updated `syndicate_objects.md` line 8. Sent feature_request `tunnel-transit-light-infantry`.
+3. **Alt-click camera (resolved)**: User specified standard pan, currently snap (instant). Added Panning section to `camera.md`. Sent feature_request `camera-pan-snap`.
+4. **Cults faction**: User wanted to start on Cults but suggested doing a lore session first. Opening question asked ("What's the setting? What are Space Crystals, and why are factions fighting?") but no answer before session end.
+
+**Insights updated**: Cleared all three resolved loose ends. Added lore session and Cults design as new loose ends.
+
+**Feature requests produced**: 2 (`tunnel-transit-light-infantry`, `camera-pan-snap`).

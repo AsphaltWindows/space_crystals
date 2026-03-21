@@ -147,3 +147,9 @@ Large batch of ~28 foundational feature requests arrived covering: tile terrain,
 
 ## Already-Processed Feature Requests (batch 18 - Pointer Display)
 - **pointer-display-types**: No existing implementation — PointerDisplayType is entirely new. Split into 2 tasks: pointer_display_type_resolution (enum + resource + resolution system with full rule matrix for DefaultState/AwaitingTarget/Placement), pointer_display_rendering (visual cursor update system). Resolution mirrors right-click logic in core.rs but produces display state only.
+
+## Already-Processed Feature Requests (batch 19 - Design doc clarification)
+- **tunnel-transit-light-infantry**: Design doc clarification only — LightInfantry was already correctly included in TransitTier::Tier1 in code (structures.rs line 482) with passing tests. Created a single verification task.
+
+## Already-Processed Feature Requests (batch 20 - Camera)
+- **camera-pan-snap**: Design doc formalization of existing behavior. Camera instant-snap centering already implemented in two places: Alt-click portrait (hud.rs selection_portrait_click_system) and double-tap control group recall (resources.rs). Both use same z_offset formula (cam.y * 25.0 / 40.0). Created a single verification task.
