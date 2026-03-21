@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use crate::types::*;
 use crate::game::types::ObjectInstance;
 use crate::game::types::objects::StructureInstance;
-use crate::ui::types::{CursorOverUi, ObjectInterfaceState};
+use crate::ui::types::{CursorOverUi, ObjectInterfaceState, StructureMenuState, AgentMenuState};
 use super::types::*;
 use super::utils::{screen_space_hit_test, BoxCandidate, SelectionTier, closest_to_center, classify_selection_tier};
 use crate::game::units::utils::world_to_grid;
@@ -565,34 +565,38 @@ pub fn spawn_supply_delivery_stations(
     let mut spawned_count = 0;
 
     for ((grid_x, grid_z), delivery_size, delivery_interval) in sds_data {
+        // Mark all 4 tiles of the 2x2 footprint as non-traversible and non-buildable
         for (tile_pos, mut properties) in tiles.iter_mut() {
-            if tile_pos.x == grid_x && tile_pos.z == grid_z {
+            let dx = tile_pos.x - grid_x;
+            let dz = tile_pos.z - grid_z;
+            if dx >= 0 && dx < 2 && dz >= 0 && dz < 2 {
                 properties.traversible = false;
-
-                let world_x = (grid_x as f32 - 32.0) + 0.5;
-                let world_z = (grid_z as f32 - 32.0) + 0.5;
-
-                commands.spawn((
-                    Mesh3d(platform_mesh.clone()),
-                    MeshMaterial3d(platform_material.clone()),
-                    Transform::from_xyz(world_x, 0.1, world_z),
-                    ObjectInstance::indestructible(ObjectEnum::SupplyDeliveryStation),
-                    Owner::neutral(),
-                    SupplyDeliveryStation {
-                        delivery_size,
-                        delivery_interval,
-                        current_supplies: delivery_size,
-                        time_until_next_delivery: delivery_interval,
-                    },
-                    Selectable,
-                    SelectionBounds::from_dimensions(1.6, 0.2, 1.6),
-                    GridPosition { x: grid_x, z: grid_z },
-                ));
-
-                spawned_count += 1;
-                break;
+                properties.buildable = false;
             }
         }
+
+        // Center the entity on the 2x2 footprint (offset by +0.5 tiles from anchor)
+        let world_x = (grid_x as f32 - 32.0) + 1.0;
+        let world_z = (grid_z as f32 - 32.0) + 1.0;
+
+        commands.spawn((
+            Mesh3d(platform_mesh.clone()),
+            MeshMaterial3d(platform_material.clone()),
+            Transform::from_xyz(world_x, 0.1, world_z),
+            ObjectInstance::indestructible(ObjectEnum::SupplyDeliveryStation),
+            Owner::neutral(),
+            SupplyDeliveryStation {
+                delivery_size,
+                delivery_interval,
+                current_supplies: delivery_size,
+                time_until_next_delivery: delivery_interval,
+            },
+            Selectable,
+            SelectionBounds::from_dimensions(1.6, 0.2, 1.6),
+            GridPosition { x: grid_x, z: grid_z },
+        ));
+
+        spawned_count += 1;
     }
 
     info!("Spawned {} Supply Delivery Stations", spawned_count);
@@ -685,7 +689,17 @@ pub fn control_group_system(
             continue;
         }
 
-        if ctrl_held {
+        if ctrl_held && shift_held {
+            // Ctrl+Shift+Number: Add current selection to group (merge, no duplicates)
+            // Only include entities owned by the local player
+            for (entity, owner) in selected_entities.iter() {
+                if owner.0 == Some(local_player.0) && !control_groups.groups[group_idx].contains(&entity) {
+                    control_groups.groups[group_idx].push(entity);
+                }
+            }
+            info!("Control group {}: now {} entities (after add)",
+                group_idx + 1, control_groups.groups[group_idx].len());
+        } else if ctrl_held {
             // Ctrl+Number: Assign current selection to group (replace)
             // Only include entities owned by the local player
             let selected: Vec<Entity> = selected_entities.iter()
@@ -697,16 +711,6 @@ pub fn control_group_system(
                 info!("Control group {}: assigned {} entities",
                     group_idx + 1, control_groups.groups[group_idx].len());
             }
-        } else if shift_held {
-            // Shift+Number: Add current selection to group (merge, no duplicates)
-            // Only include entities owned by the local player
-            for (entity, owner) in selected_entities.iter() {
-                if owner.0 == Some(local_player.0) && !control_groups.groups[group_idx].contains(&entity) {
-                    control_groups.groups[group_idx].push(entity);
-                }
-            }
-            info!("Control group {}: now {} entities (after add)",
-                group_idx + 1, control_groups.groups[group_idx].len());
         } else {
             // Number only: Recall group as selection
             // First, clean up dead entities
@@ -824,7 +828,16 @@ pub fn active_group_cycle_system(
     let has_commandable_groups = !selection.groups.is_empty()
         && !selection.groups.iter().all(|g| g.object_type.is_resource());
 
-    if keyboard.just_pressed(KeyCode::Tab) && !has_commandable_groups {
+    let shift_held = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
+
+    if shift_held && keyboard.just_pressed(KeyCode::Tab) && !has_commandable_groups {
+        selection.cycle_active_group_backward();
+        if let Some(group) = selection.active_group() {
+            info!("Active group (backward): {} ({} entities)",
+                group.object_type.object_type().name,
+                group.entities.len());
+        }
+    } else if keyboard.just_pressed(KeyCode::Tab) && !shift_held && !has_commandable_groups {
         selection.cycle_active_group();
         if let Some(group) = selection.active_group() {
             info!("Active group: {} ({} entities)",
@@ -878,12 +891,129 @@ pub fn selection_validation_system(
     }
 }
 
+/// Tracks previous selection state for interface reset detection.
+#[derive(Resource, Default)]
+pub struct PreviousSelectionSnapshot {
+    pub initialized: bool,
+    pub active_group_index: Option<usize>,
+    pub group_types: Vec<ObjectEnum>,
+}
+
+/// System to reset ObjectInterfaceState when the Selection or active group changes.
+/// Tracks the previous selection snapshot (active_group_index + group types) and
+/// resets to Default when a change is detected.
+pub fn interface_state_selection_reset_system(
+    selection: Res<Selection>,
+    mut interface_state: ResMut<ObjectInterfaceState>,
+    mut prev_state: ResMut<PreviousSelectionSnapshot>,
+) {
+    let current_types: Vec<ObjectEnum> = selection.groups.iter().map(|g| g.object_type).collect();
+    let current_index = selection.active_group_index;
+
+    if prev_state.initialized {
+        if prev_state.active_group_index != current_index || prev_state.group_types != current_types {
+            *interface_state = ObjectInterfaceState::Default;
+        }
+    }
+
+    prev_state.initialized = true;
+    prev_state.active_group_index = current_index;
+    prev_state.group_types = current_types;
+}
+
+/// System to validate the current ObjectInterfaceState against the active SelectionGroup.
+/// If the current state is no longer valid for the active group, resets to Default.
+pub fn interface_state_validation_system(
+    selection: Res<Selection>,
+    mut interface_state: ResMut<ObjectInterfaceState>,
+    dc_query: Query<&crate::game::types::structures::DeploymentCenterState>,
+    bk_query: Query<&crate::game::types::structures::BarracksState>,
+    ef_query: Query<&crate::game::types::structures::ExtractionFacilityState>,
+    st_query: Query<&crate::game::types::structures::SupplyTowerState>,
+    hq_query: Query<&crate::game::types::structures::HeadquartersState>,
+    tunnel_query: Query<&crate::game::types::structures::TunnelState>,
+) {
+    use StructureMenuState::*;
+
+    let active_group = selection.active_group();
+    let active_type = selection.active_type();
+
+    let is_valid = match &*interface_state {
+        ObjectInterfaceState::Default => true,
+
+        ObjectInterfaceState::AwaitingTarget(_) => {
+            // Valid as long as the active group has at least one entity
+            active_group.map_or(false, |g| !g.entities.is_empty())
+        }
+
+        ObjectInterfaceState::AgentMenu(_) => {
+            active_type == Some(ObjectEnum::SyndicateAgent)
+        }
+
+        ObjectInterfaceState::StructureMenu(sm) => match sm {
+            DcIdle | DcBuildMenu | DcReadyToPlace | DcAwaitingPlacement => {
+                active_type == Some(ObjectEnum::DeploymentCenter)
+                    && active_group.map_or(false, |g| {
+                        g.entities.iter().any(|e| dc_query.get(*e).is_ok())
+                    })
+            }
+            DcConstructing => {
+                active_type == Some(ObjectEnum::DeploymentCenter)
+                    && active_group.map_or(false, |g| {
+                        g.entities.iter().any(|e| {
+                            dc_query.get(*e).map_or(false, |dc| dc.current_construction.is_some())
+                        })
+                    })
+            }
+            BarracksMenu => {
+                active_type == Some(ObjectEnum::Barracks)
+                    && active_group.map_or(false, |g| {
+                        g.entities.iter().any(|e| bk_query.get(*e).is_ok())
+                    })
+            }
+            EfIdle | EfAwaitingPlacement => {
+                active_type == Some(ObjectEnum::ExtractionFacility)
+                    && active_group.map_or(false, |g| {
+                        g.entities.iter().any(|e| ef_query.get(*e).is_ok())
+                    })
+            }
+            SupplyTowerMenu => {
+                active_type == Some(ObjectEnum::SupplyTower)
+                    && active_group.map_or(false, |g| {
+                        g.entities.iter().any(|e| st_query.get(*e).is_ok())
+                    })
+            }
+            HeadquartersMenu => {
+                active_type == Some(ObjectEnum::Headquarters)
+                    && active_group.map_or(false, |g| {
+                        g.entities.iter().any(|e| hq_query.get(*e).is_ok())
+                    })
+            }
+            TunnelIdle | TunnelExpandMenu | TunnelEjectMenu | TunnelAwaitingPlacement => {
+                active_type == Some(ObjectEnum::Tunnel)
+                    && active_group.map_or(false, |g| {
+                        g.entities.iter().any(|e| tunnel_query.get(*e).is_ok())
+                    })
+            }
+            Inert => {
+                active_type.map_or(false, |t| t.is_structure())
+            }
+        },
+    };
+
+    if !is_valid {
+        *interface_state = ObjectInterfaceState::Default;
+    }
+}
+
 #[cfg(test)]
 #[allow(unused_must_use)]
 mod tests {
     use super::*;
     use bevy::ecs::system::RunSystemOnce;
     use crate::game::types::ObjectInstance;
+    use crate::game::units::types::commands::CommandType;
+    use crate::ui::types::{StructureMenuState, AgentMenuState};
     use crate::game::types::objects::StructureInstance;
 
     /// Helper to create a minimal test world with the Selection resource
@@ -1469,5 +1599,313 @@ mod tests {
         // The system would allow Tab processing for resource-only selections
         selection.cycle_active_group();
         assert_eq!(selection.active_group_index, Some(1));
+    }
+
+    // === Interface State Selection Reset Tests ===
+
+    fn setup_test_world_with_interface_state() -> World {
+        let mut world = World::new();
+        world.insert_resource(Selection::default());
+        world.insert_resource(ObjectInterfaceState::Default);
+        world.insert_resource(PreviousSelectionSnapshot::default());
+        world
+    }
+
+    #[test]
+    fn interface_reset_on_selection_change() {
+        let mut world = setup_test_world_with_interface_state();
+
+        // Initial run to seed the Local cache
+        world.run_system_once(interface_state_selection_reset_system);
+
+        // Set interface to AwaitingTarget
+        *world.resource_mut::<ObjectInterfaceState>() =
+            ObjectInterfaceState::AwaitingTarget(CommandType::Move);
+
+        // Change selection: add a group
+        let e = world.spawn((
+            Selected,
+            ObjectInstance::indestructible(ObjectEnum::Peacekeeper),
+            Unit,
+        )).id();
+        {
+            let mut sel = world.resource_mut::<Selection>();
+            sel.groups = vec![SelectionGroup {
+                object_type: ObjectEnum::Peacekeeper,
+                entities: vec![e],
+            }];
+            sel.active_group_index = Some(0);
+        }
+
+        world.run_system_once(interface_state_selection_reset_system);
+
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, ObjectInterfaceState::Default,
+            "Interface state should reset to Default when selection changes");
+    }
+
+    #[test]
+    fn interface_reset_on_active_group_index_change() {
+        let mut world = setup_test_world_with_interface_state();
+
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+        {
+            let mut sel = world.resource_mut::<Selection>();
+            sel.groups = vec![
+                SelectionGroup { object_type: ObjectEnum::Peacekeeper, entities: vec![e1] },
+                SelectionGroup { object_type: ObjectEnum::SyndicateGuard, entities: vec![e2] },
+            ];
+            sel.active_group_index = Some(0);
+        }
+
+        // Seed the cache
+        world.run_system_once(interface_state_selection_reset_system);
+
+        // Set non-default state
+        *world.resource_mut::<ObjectInterfaceState>() =
+            ObjectInterfaceState::AwaitingTarget(CommandType::Attack);
+
+        // Change active group index
+        world.resource_mut::<Selection>().active_group_index = Some(1);
+
+        world.run_system_once(interface_state_selection_reset_system);
+
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, ObjectInterfaceState::Default,
+            "Interface state should reset when active_group_index changes");
+    }
+
+    #[test]
+    fn interface_no_reset_when_selection_unchanged() {
+        let mut world = setup_test_world_with_interface_state();
+
+        let e = world.spawn_empty().id();
+        {
+            let mut sel = world.resource_mut::<Selection>();
+            sel.groups = vec![SelectionGroup {
+                object_type: ObjectEnum::Peacekeeper,
+                entities: vec![e],
+            }];
+            sel.active_group_index = Some(0);
+        }
+
+        // Seed cache
+        world.run_system_once(interface_state_selection_reset_system);
+
+        // Set non-default state
+        let target_state = ObjectInterfaceState::AwaitingTarget(CommandType::Move);
+        *world.resource_mut::<ObjectInterfaceState>() = target_state.clone();
+
+        // Run again without changing selection
+        world.run_system_once(interface_state_selection_reset_system);
+
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, target_state,
+            "Interface state should NOT reset when selection is unchanged");
+    }
+
+    // === Interface State Validation Tests ===
+
+    #[test]
+    fn validation_default_always_valid() {
+        let mut world = setup_test_world_with_interface_state();
+        // Empty selection, Default state — should remain valid
+        world.run_system_once(interface_state_validation_system);
+
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, ObjectInterfaceState::Default);
+    }
+
+    #[test]
+    fn validation_awaiting_target_invalid_with_empty_selection() {
+        let mut world = setup_test_world_with_interface_state();
+        *world.resource_mut::<ObjectInterfaceState>() =
+            ObjectInterfaceState::AwaitingTarget(CommandType::Move);
+
+        world.run_system_once(interface_state_validation_system);
+
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, ObjectInterfaceState::Default,
+            "AwaitingTarget should reset to Default with empty selection");
+    }
+
+    #[test]
+    fn validation_awaiting_target_valid_with_entities() {
+        let mut world = setup_test_world_with_interface_state();
+
+        let e = world.spawn_empty().id();
+        {
+            let mut sel = world.resource_mut::<Selection>();
+            sel.groups = vec![SelectionGroup {
+                object_type: ObjectEnum::Peacekeeper,
+                entities: vec![e],
+            }];
+            sel.active_group_index = Some(0);
+        }
+
+        let target_state = ObjectInterfaceState::AwaitingTarget(CommandType::Attack);
+        *world.resource_mut::<ObjectInterfaceState>() = target_state.clone();
+
+        world.run_system_once(interface_state_validation_system);
+
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, target_state,
+            "AwaitingTarget should be preserved with active entities");
+    }
+
+    #[test]
+    fn validation_agent_menu_invalid_with_non_agent_group() {
+        let mut world = setup_test_world_with_interface_state();
+
+        let e = world.spawn_empty().id();
+        {
+            let mut sel = world.resource_mut::<Selection>();
+            sel.groups = vec![SelectionGroup {
+                object_type: ObjectEnum::Peacekeeper,
+                entities: vec![e],
+            }];
+            sel.active_group_index = Some(0);
+        }
+
+        *world.resource_mut::<ObjectInterfaceState>() =
+            ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
+
+        world.run_system_once(interface_state_validation_system);
+
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, ObjectInterfaceState::Default,
+            "AgentMenu should reset when active group is not SyndicateAgent");
+    }
+
+    #[test]
+    fn validation_agent_menu_valid_with_agent_group() {
+        let mut world = setup_test_world_with_interface_state();
+
+        let e = world.spawn_empty().id();
+        {
+            let mut sel = world.resource_mut::<Selection>();
+            sel.groups = vec![SelectionGroup {
+                object_type: ObjectEnum::SyndicateAgent,
+                entities: vec![e],
+            }];
+            sel.active_group_index = Some(0);
+        }
+
+        let target_state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
+        *world.resource_mut::<ObjectInterfaceState>() = target_state.clone();
+
+        world.run_system_once(interface_state_validation_system);
+
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, target_state,
+            "AgentMenu should be preserved when active group is SyndicateAgent");
+    }
+
+    #[test]
+    fn validation_structure_menu_dc_invalid_without_dc_state() {
+        use crate::game::types::structures::DeploymentCenterState;
+        let mut world = setup_test_world_with_interface_state();
+
+        // DC entity WITHOUT DeploymentCenterState component
+        let e = world.spawn_empty().id();
+        {
+            let mut sel = world.resource_mut::<Selection>();
+            sel.groups = vec![SelectionGroup {
+                object_type: ObjectEnum::DeploymentCenter,
+                entities: vec![e],
+            }];
+            sel.active_group_index = Some(0);
+        }
+
+        *world.resource_mut::<ObjectInterfaceState>() =
+            ObjectInterfaceState::StructureMenu(StructureMenuState::DcIdle);
+
+        world.run_system_once(interface_state_validation_system);
+
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, ObjectInterfaceState::Default,
+            "DcIdle should reset when DC entity lacks DeploymentCenterState");
+    }
+
+    #[test]
+    fn validation_structure_menu_dc_valid_with_dc_state() {
+        use crate::game::types::structures::DeploymentCenterState;
+        let mut world = setup_test_world_with_interface_state();
+
+        let e = world.spawn((DeploymentCenterState::default(),)).id();
+        {
+            let mut sel = world.resource_mut::<Selection>();
+            sel.groups = vec![SelectionGroup {
+                object_type: ObjectEnum::DeploymentCenter,
+                entities: vec![e],
+            }];
+            sel.active_group_index = Some(0);
+        }
+
+        let target_state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcIdle);
+        *world.resource_mut::<ObjectInterfaceState>() = target_state.clone();
+
+        world.run_system_once(interface_state_validation_system);
+
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, target_state,
+            "DcIdle should be preserved when DC entity has DeploymentCenterState");
+    }
+
+    #[test]
+    fn validation_dc_constructing_invalid_without_active_construction() {
+        use crate::game::types::structures::DeploymentCenterState;
+        let mut world = setup_test_world_with_interface_state();
+
+        // DC with no active construction
+        let e = world.spawn((DeploymentCenterState::default(),)).id();
+        {
+            let mut sel = world.resource_mut::<Selection>();
+            sel.groups = vec![SelectionGroup {
+                object_type: ObjectEnum::DeploymentCenter,
+                entities: vec![e],
+            }];
+            sel.active_group_index = Some(0);
+        }
+
+        *world.resource_mut::<ObjectInterfaceState>() =
+            ObjectInterfaceState::StructureMenu(StructureMenuState::DcConstructing);
+
+        world.run_system_once(interface_state_validation_system);
+
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, ObjectInterfaceState::Default,
+            "DcConstructing should reset when DC has no active construction");
+    }
+
+    #[test]
+    fn validation_dc_constructing_valid_with_active_construction() {
+        use crate::game::types::structures::DeploymentCenterState;
+        let mut world = setup_test_world_with_interface_state();
+
+        let dc_state = DeploymentCenterState {
+            current_construction: Some(ObjectEnum::Barracks),
+            construction_progress: Some(50.0),
+            ready_to_place: None,
+        };
+        let e = world.spawn((dc_state,)).id();
+        {
+            let mut sel = world.resource_mut::<Selection>();
+            sel.groups = vec![SelectionGroup {
+                object_type: ObjectEnum::DeploymentCenter,
+                entities: vec![e],
+            }];
+            sel.active_group_index = Some(0);
+        }
+
+        let target_state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcConstructing);
+        *world.resource_mut::<ObjectInterfaceState>() = target_state.clone();
+
+        world.run_system_once(interface_state_validation_system);
+
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, target_state,
+            "DcConstructing should be preserved when DC has active construction");
     }
 }

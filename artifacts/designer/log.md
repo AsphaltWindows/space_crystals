@@ -1,5 +1,18 @@
 # Designer Session Log
 
+## 2026-03-20T10:00:00Z — Interactive Session: Pointer Display Types
+
+**Trigger**: User session, picked up loose end on pointer display types.
+
+**Work done**:
+- Resumed A/B/C pointer approach question from previous session. User chose Communicative (B) — pointer always shows what action will happen.
+- User defined 6 pointer types: Move, Attack, AttackGround, Patrol, GatherResources, ReturnResources.
+- Added 2 more through discussion: Inactive (muted, for no-action states) and Enter (Syndicate tunnel entry).
+- Key decisions: Attack on ground = AttackMove (not AttackGround); AwaitingPlacement uses building ghost as cursor (no pointer type); ScheduleDeliveries reuses GatherResources pointer; Inactive is visually muted.
+- Added PointerDisplayType section to control_system.md with full resolution rules for DefaultState, AwaitingTarget, and AwaitingPlacement.
+- Sent feature_request `pointer_display_types` to task_splitter.
+- Updated insights: resolved pointer display types loose end, cleared both urgent forum questions (Supply Tower invalid target now covered by Inactive pointer).
+
 ## 2026-03-19T10:30:00Z — Non-Interactive Forum Pass
 
 **Trigger**: Scheduler launch — 6 open forum topics needing close-vote.
@@ -37,3 +50,195 @@
 6. `visual-bugs-qa-infrastructure`
 
 **Feature requests produced**: 0 (blocked on user confirmation in next interactive session).
+
+## 2026-03-19T12:00:00Z — Non-Interactive Forum Pass
+
+**Trigger**: Scheduler launch — 1 open forum topic needing close-vote.
+
+**Actions taken**: Voted to close `2026-03-19T00-00-00Z-operator-telegram-integration-successful.md` — informational announcement about Telegram integration, no design input needed.
+
+**Feature requests produced**: 0.
+
+## 2026-03-19T13:00:00Z — Non-Interactive Forum Pass
+
+**Trigger**: Scheduler launch — 1 open forum topic needing close-vote.
+
+**Actions taken**: Voted to close `2026-03-19T00-00-00Z-operator-telegram-integration-successful.md` — informational Telegram announcement, no design input needed. Developer had already voted; designer vote should close the topic.
+
+**Feature requests produced**: 0.
+
+## 2026-03-19T14:00:00Z — Interactive Session
+
+**Trigger**: User session — answering urgent forum questions.
+
+**Actions taken**:
+
+1. **DC DefaultState Cancel (resolved)**: User confirmed Cancel (X) should appear in both DefaultState and BuildMenu. Updated `gdo_objects.md` — added X: Cancel Construction and X: Cancel Ready Building to DC DefaultState. Sent feature_request `dc-defaultstate-cancel`.
+
+2. **BasicCombatUnit Grid Layout (resolved)**: User provided revised layout. Key decisions: AttackMove is not a separate command (it's Attack targeting ground), Stop on X, Reverse on W, HoldPosition on E, Attack on A, Patrol on S, AttackGround on D. Updated `control_system.md` — added grid layout and hotkey assignments to BasicCombatUnitInterfaceState. Sent feature_request `combat-unit-grid-layout`.
+
+3. **Supply Tower Error Feedback (pinned)**: User wants invalid pointer display type for invalid targets, but pointer display types haven't been designed yet. Added to loose ends.
+
+**Insights updated**: Removed resolved urgent questions (#1, #2). Updated #3 with user's answer. Added pointer display types to loose ends. Unblocked pending feature_requests #11 and #14.
+
+**Feature requests produced**: 2 (`dc-defaultstate-cancel`, `combat-unit-grid-layout`).
+
+## 2026-03-19T15:00:00Z — Interactive Session
+
+**Trigger**: User session — sending pending feature_requests into the pipeline.
+
+**Actions taken**:
+
+User confirmed sending all 16 pending feature_requests from insights into the pipeline. Noted overlap with 2 already-completed feature_requests (`designer-combat-unit-grid-layout`, `designer-dc-defaultstate-cancel`) in the relevant messages so downstream agents can avoid duplication.
+
+**Feature requests produced** (16 total):
+1. `agent-interface` — Agent ObjectInterfaceState (Build Tunnel, Drop Off, right-click resolution)
+2. `agent-groupable-construction` — Agent Groupable=false, single-agent construction enforcement
+3. `agent-resource-gathering` — Agent crystal/supply gathering and drop-off behaviors
+4. `agent-tunnel-building` — Agent Tunnel construction flow, ConstructionHP, 480 frames
+5. `worker-built-validation` — Two-phase placement validation for worker-built structures
+6. `tunnel-interface` — Tunnel 4-state ObjectInterfaceState (Upgrade/Expand/Eject/AwaitingPlacement)
+7. `underground-surface-walkability` — Fix: underground expansions don't block surface movement
+8. `hq-production-interface` — Fix: HQ shows production commands, not unit commands
+9. `enter-command-tunnel` — Enter command and EnteringTunnel behavior
+10. `syndicate-rally-point` — Rally point behavior for Syndicate production expansions
+11. `basic-combat-unit-interface` — Full BasicCombatUnitInterfaceState (right-click + AwaitingTarget resolutions, notes prior grid layout overlap)
+12. `selection-panel` — SelectionPanel portrait grid with click interactions
+13. `common-vs-group-commands` — Fix: CommonCommand vs GroupCommand classification
+14. `dc-ef-construction-rework` — DC/EF construction flow rework (notes prior DC Cancel overlap)
+15. `supply-tower-interface` — Supply Tower ObjectInterfaceState (Q/S/X/C, Schedule Deliveries)
+16. `guard-unit` — Guard unit full implementation (stats, production, BasicCombatUnitInterfaceState)
+
+**Insights updated**: Cleared pending design review section. Kept loose ends and urgent forum questions unchanged.
+
+## 2026-03-20 — Bulk Feature Request Generation
+
+**Context:** User requested checking which design docs hadn't been turned into feature requests and sending them all.
+
+**Work Done:**
+- Audited all existing feature requests (9 done, 9 pending) against all 12 design doc files
+- Identified 26 design areas not yet covered by feature requests
+- Sent 26 new feature requests to task_splitter:
+
+1. `scale-camera-system` — SimulationFrame (16 FPS), GridUnit, SpaceUnit, fixed 28 GridUnit camera, HUD layout
+2. `tile-terrain-system` — Tiles, TilePresets, 5 DefaultTilePresets, TilePlacement with elevation
+3. `fog-of-war-elevation` — 3-state vision system, ElevationModifier (+/-1 range)
+4. `resource-nodes` — SpaceCrystalsPatch (1x1, depletable), SupplyDeliveryStation (2x2, periodic)
+5. `factions-resources` — All 4 factions with resource systems and HUD displays
+6. `unit-bases-movement-collision` — 9 UnitBase types, 5 MovementModels, TurretAttributes, collision
+7. `combat-attack-system` — AttackAttributes, 4 phases, 4 attack types, damage calculation, ValidTarget
+8. `locomotion-orientation-constraints` — All 5 movement model constraint tables
+9. `control-state-selection` — ControlState, Selection, BoxSelection (5-tier), ControlGroups, GroupCycling
+10. `unit-command-system` — 9 commands with BaseCommandState, command queue
+11. `base-behaviors` — All 9 base behaviors (movement, attack, patrol, hold, stop)
+12. `turret-behavior-system` — TurretCommandState, TurretBehavior, TurretAutonomousScanning
+13. `base-auto-targeting` — Idle/HoldPosition auto-engagement, 4 grid unit leash
+14. `action-channels` — Base (Locomotion, Orientation, BaseAttack) + Turret (TurretOrientation, TurretAttack)
+15. `command-indicators` — Visual markers with color coding
+16. `peacekeeper-unit` — GDO LightInfantry, full stats
+17. `gdo-power-plant` — 2x2, +20 power, ConstructionHP rule
+18. `gdo-barracks` — 3x2, infantry production, rally points
+19. `gdo-build-area` — Build radius expansion system
+20. `extraction-plate` — 1x1 mining structure, mining/residual rates
+21. `supply-chopper` — Unarmed HoverCraft, supply transport
+22. `tunnel-network-mechanics` — Tiers, transit rules, area, non-overlap, cost scaling
+23. `gdo-deployment-center` — 4x4, construction catalog, prerequisites
+24. `gdo-extraction-facility` — 3x3, structure stats
+25. `syndicate-headquarters-structure` — 2x2 T1 expansion, production catalog
+26. `command-panel-framework` — 3x3 grid, standard slots, Common vs Group commands
+
+**Noted:** gdo_objects.md is truncated at line 348, SupplyChopper AwaitingTarget section incomplete.
+
+## 2026-03-20 — Non-Interactive (Scheduler)
+
+- Loaded insights. No urgent forum questions requiring user input.
+- Found 1 open forum topic: `2026-03-20T00-00-00Z-operator-avoid-cargo-clean.md` — operator directive to avoid `cargo clean`. Not relevant to designer (we don't build). Voted to close.
+- No other work found. Exiting.
+
+## 2026-03-20 — Non-Interactive (Scheduler)
+
+- Loaded insights. No urgent forum questions requiring user input.
+- Found 1 open forum topic: `2026-03-20T00-00-00Z-operator-avoid-cargo-clean.md` — still open, already had designer close-vote from previous session. Re-confirmed vote. No new topics or work. Exiting.
+
+## 2026-03-20 — Interactive Session
+
+**Trigger**: User session — completing truncated Supply Chopper design.
+
+**Actions taken**:
+
+1. Reviewed truncated `gdo_objects.md` — file cut off at line 349 mid-sentence in AwaitingTarget[PickUpSupplies].
+2. Discussed and resolved Supply Chopper command design with user:
+   - PickUpSupplies: no action on invalid target, unavailable when carrying units
+   - AttachToTower: only valid on own towers with no attached chopper, unavailable when carrying units
+   - New DropOffSupplies command: available when carrying supplies, valid on own towers with no attached chopper
+   - Right-click resolution is state-dependent (carrying supplies vs not)
+   - Drop-off at non-attached tower is touch-and-go (immediate lift off)
+   - Automated scheduled departures don't break attachment; player commands do
+3. Updated `gdo_objects.md` with complete Supply Chopper ObjectInterfaceState.
+4. Sent feature_request `supply_chopper_commands`.
+
+**Feature requests produced**: 1 (`supply_chopper_commands`).
+
+## 2026-03-20 — Interactive Session
+
+**Trigger**: User asked about outstanding work areas.
+
+**Actions taken**:
+
+1. Reviewed insights and design docs to compile a prioritized list of outstanding work areas for the user.
+2. Presented 10 items across 4 priority tiers: blocking (pointer display types), open loose ends (alt-click camera, Agent UnitBase, tunnel transit tiers), incomplete factions (Cults, Colonists), and undesigned systems (maps, win conditions, tech trees, fog of war details).
+3. User chose to work on pointer display types.
+4. Framed the design space: identified 4 main contexts where pointer feedback is needed (DefaultState right-click preview, AwaitingTarget valid/invalid, AwaitingPlacement valid/invalid, non-interactive). Asked opening question about cursor approach (distinct icons vs color tinting vs both).
+5. User requested recording and exit before answering the first question.
+
+**Insights updated**: Expanded pointer display types loose end with session context and the specific open question to resume with.
+
+**Feature requests produced**: 0 (no design decisions reached).
+
+## 2026-03-20 — Interactive Session
+
+**Trigger**: User asked to continue pointer display types discussion.
+
+**Actions taken**:
+
+1. Loaded insights, checked forum (no open topics).
+2. Restated the pointer display types open question from previous session: 4 contexts identified (DefaultState right-click preview, AwaitingTarget valid/invalid, AwaitingPlacement valid/invalid, non-interactive), first decision point is distinct icons vs color tinting vs both.
+3. User requested recording and exit before answering the question.
+
+**Insights updated**: No changes — loose end remains identical.
+
+**Feature requests produced**: 0 (no design decisions reached).
+
+## 2026-03-20 — Interactive Session
+
+**Trigger**: User asked what to work on next; chose pointer display types.
+
+**Actions taken**:
+
+1. Loaded insights, checked forum (no open topics).
+2. Resumed pointer display types discussion. Refined the visual approach question into two concrete options:
+   - **Option A (Minimal)**: Pointer signals valid/invalid only; player infers action from context.
+   - **Option B (Communicative)**: Pointer previews the specific action (attack crosshair over enemy, move arrow over ground, enter icon over tunnel, etc.).
+3. Presented both options to user. User requested recording and exit before choosing.
+
+**Insights updated**: Updated pointer display types loose end with the A/B framing for next session.
+
+**Feature requests produced**: 0 (no design decisions reached).
+
+## 2026-03-20 — Interactive Session
+
+**Trigger**: User asked what to work on next; chose pointer display types.
+
+**Actions taken**:
+
+1. Loaded insights, checked forum (no open topics).
+2. Resumed pointer display types discussion. Presented the A/B choice from previous session, added a third option:
+   - **Option A (Minimal)**: Pointer signals valid/invalid only.
+   - **Option B (Communicative)**: Pointer previews specific action.
+   - **Option C (Hybrid)**: Minimal for AwaitingTarget (player already chose command), Communicative for DefaultState right-click (action varies by cursor target).
+3. Surfaced that Option B has significant design surface area (many distinct pointer icons needed).
+4. User did not choose; requested recording and exit.
+
+**Insights updated**: Added Option C (Hybrid) to the pointer display types loose end.
+
+**Feature requests produced**: 0 (no design decisions reached).

@@ -282,6 +282,13 @@ pub fn tile_hover_system(
 /// System that recalculates fog of war visibility each fixed tick.
 /// For each player, builds a set of currently-visible tiles from all their
 /// vision sources (entities with SightRange + Owner), then updates the FogOfWarMap.
+///
+/// NOTE: The design spec (entities.md ElevationModifier) states that sight range
+/// should be modified by relative elevation (+1/-1 per tile). Currently, elevation
+/// modifiers are only applied in combat systems (attack range). Vision uses raw
+/// SightRange without per-tile elevation comparison. This has no practical effect
+/// while all tiles share elevation 0. When varied elevations are introduced,
+/// per-tile elevation-aware vision should be implemented here.
 pub fn update_fog_of_war(
     mut fog_map: ResMut<FogOfWarMap>,
     mut last_known: ResMut<LastKnownStructures>,

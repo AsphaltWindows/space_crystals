@@ -203,10 +203,6 @@ pub enum StructureMenuState {
     BarracksMenu,
     /// ExtractionFacility selected
     EfIdle,
-    /// EF constructing
-    EfConstructing,
-    /// EF has plate ready to place
-    EfReadyToPlace,
     /// EF awaiting plate placement click — ghost follows mouse
     EfAwaitingPlacement,
     /// Supply Tower selected
@@ -304,6 +300,12 @@ pub enum CommandButtonAction {
     UnitEnter,
     /// Unit: Gather resources (enters AwaitingTarget for resource selection)
     UnitGather,
+    /// SupplyChopper: Pick Up Supplies (enters AwaitingTarget)
+    ChopperPickUpSupplies,
+    /// SupplyChopper: Attach to Tower (enters AwaitingTarget)
+    ChopperAttachToTower,
+    /// SupplyChopper: Drop Off Supplies at Tower (enters AwaitingTarget)
+    ChopperDropOffSupplies,
 }
 
 /// Marker component storing whether a command button is enabled (clickable).
@@ -374,6 +376,10 @@ pub struct SelectedUnitCapabilities {
     pub can_reverse: bool,
     /// Whether the selected Agent is carrying resources (for drop-off button grey-out)
     pub agent_carrying: bool,
+    /// Whether the active group is a SupplyChopper (for chopper-specific command panel)
+    pub is_chopper: bool,
+    /// Whether the selected chopper is carrying supplies (for drop-off button availability)
+    pub chopper_has_supplies: bool,
 }
 
 /// Marker component for each portrait in the multi-select panel.
@@ -399,4 +405,24 @@ pub struct EjectionQueue {
 pub struct EjectRequest {
     /// The ObjectEnum type of unit to eject
     pub unit_type: crate::types::ObjectEnum,
+}
+
+/// Marker component for the pointer indicator UI entity
+#[derive(Component)]
+pub struct PointerIndicator;
+
+/// What kind of cursor/pointer feedback to display based on hover context.
+/// Resolved each frame by `resolve_pointer_display_type` after selection &
+/// cursor-target systems have run.
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PointerDisplayType {
+    #[default]
+    Inactive,
+    Move,
+    Attack,
+    AttackGround,
+    Patrol,
+    GatherResources,
+    ReturnResources,
+    Enter,
 }

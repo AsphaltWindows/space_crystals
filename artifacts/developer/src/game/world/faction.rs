@@ -409,7 +409,8 @@ pub fn headquarters_production_tick_system(
                                 // Rally target is parent tunnel → stay in tunnel network
                                 false
                             }
-                            _ => true, // Default: eject from Side A (with or without rally)
+                            Some(_) => true, // Rally to location or non-parent object → eject
+                            None => false,   // No rally point → stay in tunnel network
                         };
 
                         if should_eject {
@@ -519,6 +520,34 @@ pub fn extraction_plate_mining_system(
                     }
                 }
             }
+        }
+    }
+}
+
+// =====================================================
+// DEPLETED PATCH DESPAWN SYSTEM
+// =====================================================
+
+/// Despawns SpaceCrystalPatch entities when their remaining_amount reaches 0.
+/// Also despawns the attached ExtractionPlate if one exists.
+/// Per the design spec: "When a patch is fully depleted, it disappears from the map."
+pub fn depleted_patch_despawn_system(
+    mut commands: Commands,
+    patches: Query<(Entity, &SpaceCrystalPatch)>,
+    plates: Query<(Entity, &ExtractionPlateState)>,
+) {
+    for (patch_entity, patch) in patches.iter() {
+        if patch.remaining_amount == 0 {
+            // Find and despawn any extraction plate attached to this patch
+            for (plate_entity, plate_state) in plates.iter() {
+                if plate_state.attached_patch == patch_entity {
+                    info!("Despawning extraction plate {:?} over depleted patch {:?}", plate_entity, patch_entity);
+                    commands.entity(plate_entity).despawn();
+                }
+            }
+
+            info!("Despawning depleted SpaceCrystalPatch {:?}", patch_entity);
+            commands.entity(patch_entity).despawn();
         }
     }
 }
@@ -1305,7 +1334,7 @@ pub fn placement_click_system(
                 *panel_state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcReadyToPlace);
             }
             ObjectInterfaceState::StructureMenu(StructureMenuState::EfAwaitingPlacement) => {
-                *panel_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace);
+                *panel_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle);
             }
             ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelAwaitingPlacement) => {
                 *panel_state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelExpandMenu);
@@ -1380,7 +1409,7 @@ pub fn placement_click_system(
                             expand_build_area(&mut build_area, grid_x, grid_z, rot_x, rot_z, 2);
                         }
                         ObjectEnum::SupplyTower => {
-                            spawn_supply_tower(
+                            let tower_entity = spawn_supply_tower(
                                 &mut commands, &mut meshes, &mut materials,
                                 grid_x, grid_z, owner, rotation, flip_h, flip_v,
                             );
@@ -1389,10 +1418,19 @@ pub fn placement_click_system(
                             let (dx, dz) = super::utils::spawn_side_offset(
                                 ObjectEnum::SupplyTower, &st_si,
                             );
-                            spawn_supply_chopper(
+                            let chopper_entity = spawn_supply_chopper(
                                 &mut commands, &mut meshes, &mut materials,
                                 grid_x + dx, grid_z + dz, owner,
                             );
+                            // Link the tower and its free chopper for auto-delivery
+                            commands.entity(tower_entity).insert(SupplyTowerState {
+                                attached_chopper: Some(chopper_entity),
+                                ..default()
+                            });
+                            commands.entity(chopper_entity).insert(SupplyChopperState {
+                                attached_tower: Some(tower_entity),
+                                ..default()
+                            });
                             expand_build_area(&mut build_area, grid_x, grid_z, rot_x, rot_z, 1);
                         }
                         _ => {}
@@ -1965,6 +2003,7 @@ pub fn supply_tower_production_tick_system(
 mod tests {
     use super::*;
     use bevy::prelude::*;
+    use bevy::ecs::system::RunSystemOnce;
 
     #[test]
     fn headquarters_default_has_no_rally_point() {
@@ -2114,5 +2153,134 @@ mod tests {
         let flip_both = Vec3::new(-1.0, 1.0, -1.0);
         assert_eq!(flip_both.x, -1.0);
         assert_eq!(flip_both.z, -1.0);
+    }
+
+    // --- Depleted Patch Despawn Tests ---
+
+    #[test]
+    fn depleted_patch_is_despawned() {
+        let mut world = World::new();
+        // Spawn a depleted patch (remaining_amount == 0)
+        let patch_entity = world.spawn(SpaceCrystalPatch {
+            remaining_amount: 0,
+            initial_amount: 1000,
+            has_plate: false,
+        }).id();
+
+        world.run_system_once(depleted_patch_despawn_system).unwrap();
+        world.flush();
+
+        assert!(world.get_entity(patch_entity).is_err(),
+            "Depleted patch should be despawned");
+    }
+
+    #[test]
+    fn non_depleted_patch_is_not_despawned() {
+        let mut world = World::new();
+        // Spawn a patch with remaining resources
+        let patch_entity = world.spawn(SpaceCrystalPatch {
+            remaining_amount: 500,
+            initial_amount: 1000,
+            has_plate: true,
+        }).id();
+
+        world.run_system_once(depleted_patch_despawn_system).unwrap();
+        world.flush();
+
+        assert!(world.get_entity(patch_entity).is_ok(),
+            "Non-depleted patch should not be despawned");
+    }
+
+    #[test]
+    fn depleted_patch_also_despawns_attached_plate() {
+        let mut world = World::new();
+        // Spawn a depleted patch
+        let patch_entity = world.spawn(SpaceCrystalPatch {
+            remaining_amount: 0,
+            initial_amount: 1000,
+            has_plate: true,
+        }).id();
+
+        // Spawn an extraction plate attached to this patch
+        let plate_entity = world.spawn(ExtractionPlateState {
+            attached_patch: patch_entity,
+            mining_timer: 0,
+        }).id();
+
+        world.run_system_once(depleted_patch_despawn_system).unwrap();
+        world.flush();
+
+        assert!(world.get_entity(patch_entity).is_err(),
+            "Depleted patch should be despawned");
+        assert!(world.get_entity(plate_entity).is_err(),
+            "Plate attached to depleted patch should also be despawned");
+    }
+
+    #[test]
+    fn plate_on_non_depleted_patch_is_not_despawned() {
+        let mut world = World::new();
+        // Spawn a patch with remaining resources
+        let patch_entity = world.spawn(SpaceCrystalPatch {
+            remaining_amount: 100,
+            initial_amount: 1000,
+            has_plate: true,
+        }).id();
+
+        // Spawn an extraction plate attached to this patch
+        let plate_entity = world.spawn(ExtractionPlateState {
+            attached_patch: patch_entity,
+            mining_timer: 0,
+        }).id();
+
+        world.run_system_once(depleted_patch_despawn_system).unwrap();
+        world.flush();
+
+        assert!(world.get_entity(patch_entity).is_ok(),
+            "Non-depleted patch should not be despawned");
+        assert!(world.get_entity(plate_entity).is_ok(),
+            "Plate on non-depleted patch should not be despawned");
+    }
+
+    #[test]
+    fn supply_tower_placement_links_chopper() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+
+        let (tower_entity, chopper_entity) = app.world_mut().run_system_once(
+            |mut commands: Commands,
+             mut meshes: ResMut<Assets<Mesh>>,
+             mut materials: ResMut<Assets<StandardMaterial>>| {
+                let owner = Owner::player(1);
+                let tower = spawn_supply_tower(
+                    &mut commands, &mut meshes, &mut materials,
+                    32, 32, owner, crate::types::StructureRotation::R0, false, false,
+                );
+                let chopper = spawn_supply_chopper(
+                    &mut commands, &mut meshes, &mut materials,
+                    33, 32, owner,
+                );
+                commands.entity(tower).insert(SupplyTowerState {
+                    attached_chopper: Some(chopper),
+                    ..default()
+                });
+                commands.entity(chopper).insert(SupplyChopperState {
+                    attached_tower: Some(tower),
+                    ..default()
+                });
+                (tower, chopper)
+            },
+        ).unwrap();
+
+        app.world_mut().flush();
+
+        let tower_state = app.world().entity(tower_entity).get::<SupplyTowerState>().unwrap();
+        assert_eq!(tower_state.attached_chopper, Some(chopper_entity),
+            "Tower should reference the chopper entity");
+
+        let chopper_state = app.world().entity(chopper_entity).get::<SupplyChopperState>().unwrap();
+        assert_eq!(chopper_state.attached_tower, Some(tower_entity),
+            "Chopper should reference the tower entity");
     }
 }

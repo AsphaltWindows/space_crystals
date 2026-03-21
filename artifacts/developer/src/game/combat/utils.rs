@@ -295,6 +295,46 @@ pub fn is_valid_target(
     is_domain_compatible(attacker_domain, target_domain)
 }
 
+/// Select the best target from candidates using 3-tier priority:
+/// 1. Threatening targets (can attack us) over non-threatening
+/// 2. Least rotation needed among equal threat level
+/// 3. Closest distance as tiebreaker when threat and rotation are equal
+///
+/// Each candidate is (entity, threatening, rotation_abs, distance).
+/// Returns the best entity, or None if no candidates.
+pub fn select_best_target(
+    candidates: impl Iterator<Item = (Entity, bool, f32, f32)>,
+) -> Option<Entity> {
+    let mut best: Option<(bool, f32, f32, Entity)> = None;
+
+    for (entity, threatening, rotation_abs, distance) in candidates {
+        let is_better = match &best {
+            None => true,
+            Some((best_threat, best_rot, best_dist, _)) => {
+                if threatening && !best_threat {
+                    true
+                } else if threatening == *best_threat {
+                    if rotation_abs < *best_rot - 0.01 {
+                        true
+                    } else if (rotation_abs - best_rot).abs() < 0.01 {
+                        distance < *best_dist
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }
+        };
+
+        if is_better {
+            best = Some((threatening, rotation_abs, distance, entity));
+        }
+    }
+
+    best.map(|(_, _, _, entity)| entity)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

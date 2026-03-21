@@ -8,7 +8,7 @@ mod hud;
 mod command_panel;
 pub mod menu;
 
-use types::{ObjectInterfaceState, CommandPanelTarget, CursorOverUi, CursorTarget, SelectedUnitCapabilities};
+use types::{ObjectInterfaceState, CommandPanelTarget, CursorOverUi, CursorTarget, SelectedUnitCapabilities, PointerDisplayType};
 
 /// Plugin for HUD (Heads-Up Display) systems
 pub struct HudPlugin;
@@ -20,6 +20,7 @@ impl Plugin for HudPlugin {
             .init_resource::<CursorOverUi>()
             .init_resource::<CursorTarget>()
             .init_resource::<SelectedUnitCapabilities>()
+            .init_resource::<PointerDisplayType>()
             // Menu systems (Menu state)
             .add_systems(OnEnter(AppState::Menu), menu::setup_menu)
             .add_systems(Update, (
@@ -27,7 +28,12 @@ impl Plugin for HudPlugin {
                 menu::menu_button_hover,
             ).run_if(in_state(AppState::Menu)))
             // In-game HUD systems
-            .add_systems(OnEnter(AppState::InGame), hud::setup_hud.after(crate::game::world::faction::setup_player_resources))
+            .add_systems(OnEnter(AppState::InGame), (
+                hud::setup_hud.after(crate::game::world::faction::setup_player_resources),
+                utils::spawn_pointer_indicator
+                    .after(hud::setup_hud)
+                    .after(crate::game::world::faction::setup_player_resources),
+            ))
             .add_systems(Update, (
                 utils::update_cursor_over_ui,
                 command_panel::update_cursor_target.after(utils::update_cursor_over_ui),
@@ -39,7 +45,10 @@ impl Plugin for HudPlugin {
                 command_panel::rebuild_command_panel_ui.after(command_panel::update_command_panel_state),
                 command_panel::handle_command_button_clicks.after(command_panel::rebuild_command_panel_ui),
                 command_panel::command_panel_hotkeys,
+                command_panel::right_click_cancel_submenu,
                 command_panel::update_command_panel_progress,
+                command_panel::resolve_pointer_display_type.after(command_panel::update_command_panel_state),
+                utils::update_pointer_display.after(command_panel::resolve_pointer_display_type),
             ).in_set(DiagCategory::UiHud));
     }
 }

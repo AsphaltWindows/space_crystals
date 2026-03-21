@@ -225,6 +225,15 @@ impl Selection {
         }
     }
 
+    /// Cycle the active group to the previous one (Shift-Tab key behavior)
+    pub fn cycle_active_group_backward(&mut self) {
+        if let Some(idx) = self.active_group_index {
+            if !self.groups.is_empty() {
+                self.active_group_index = Some((idx + self.groups.len() - 1) % self.groups.len());
+            }
+        }
+    }
+
     /// Remove a specific entity from all groups. Cleans up empty groups.
     /// Returns true if the entity was found and removed.
     pub fn remove_entity(&mut self, entity: Entity) -> bool {
@@ -721,6 +730,38 @@ mod tests {
     fn selection_cycle_active_group_empty_selection() {
         let mut sel = Selection::default();
         sel.cycle_active_group();
+        assert_eq!(sel.active_group_index, None); // stays None
+    }
+
+    #[test]
+    fn selection_cycle_active_group_backward() {
+        let mut sel = Selection::default();
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
+        sel.build_from_entities(&[
+            (e1, ObjectEnum::Peacekeeper, true),
+            (e2, ObjectEnum::PowerPlant, true),
+        ]);
+        assert_eq!(sel.active_group_index, Some(0));
+        sel.cycle_active_group_backward();
+        assert_eq!(sel.active_group_index, Some(1)); // wraps backward from 0 to 1
+        sel.cycle_active_group_backward();
+        assert_eq!(sel.active_group_index, Some(0)); // wraps back to 0
+    }
+
+    #[test]
+    fn selection_cycle_active_group_backward_single_group() {
+        let mut sel = Selection::default();
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        sel.build_from_entities(&[(e1, ObjectEnum::Peacekeeper, true)]);
+        sel.cycle_active_group_backward();
+        assert_eq!(sel.active_group_index, Some(0)); // stays at 0
+    }
+
+    #[test]
+    fn selection_cycle_active_group_backward_empty_selection() {
+        let mut sel = Selection::default();
+        sel.cycle_active_group_backward();
         assert_eq!(sel.active_group_index, None); // stays None
     }
 

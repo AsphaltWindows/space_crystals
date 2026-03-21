@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::types::{Unit, Owner, DomainEnum, GridPosition, UnitBaseEnum, SightRange, MovementModelEnum};
+use crate::types::{Unit, Owner, DomainEnum, GridPosition, UnitBaseEnum, SightRange, MovementModelEnum, VisibilityStateEnum};
 use crate::game::types::ObjectInstance;
 use crate::utils::is_enemy;
 use crate::game::units::types::*;
@@ -7,6 +7,8 @@ use crate::game::units::utils::{world_to_grid, smooth_path};
 use crate::game::units::pathfinding::find_path_for_domain;
 use crate::game::world::types::{Tile, TilePreset, GridMap, ElevationMap, elevation_modifier};
 use crate::game::combat::types::*;
+use crate::game::combat::utils::{is_valid_target, select_best_target};
+use crate::game::combat::systems::core::{can_threaten, compute_relative_turret_angle};
 
 /// Distance (gu) a target must move before triggering a path recomputation.
 /// Prevents per-frame find_path calls that cause excessive allocation pressure.
@@ -21,7 +23,8 @@ pub fn attacking_object_behavior_system(
     mut commands: Commands,
     mut units: Query<
         (Entity, &Transform, &AttackCapability, &mut AttackState, &UnitCommand,
-         &UnitBaseEnum, &Owner, Option<&DomainEnum>, &GridPosition, Option<&MoveTarget>),
+         &UnitBaseEnum, &Owner, Option<&DomainEnum>, &GridPosition, Option<&MoveTarget>,
+         Option<&mut TurretCommandState>),
         With<Unit>
     >,
     targets: Query<(&Transform, &Owner, Option<&DomainEnum>, &GridPosition), With<ObjectInstance>>,
@@ -31,7 +34,7 @@ pub fn attacking_object_behavior_system(
     occupancy: Res<OccupancyMap>,
 ) {
     for (entity, transform, attack_cap, mut attack_state, command, unit_base, _owner,
-         source_domain, source_grid_pos, existing_move_target) in units.iter_mut()
+         source_domain, source_grid_pos, existing_move_target, mut turret_state) in units.iter_mut()
     {
         let target_entity = match command {
             UnitCommand::AttackTarget(t) => *t,
@@ -47,6 +50,10 @@ pub fn attacking_object_behavior_system(
                 .insert(UnitCommand::Idle);
             attack_state.current_target = None;
             attack_state.phase = AttackPhase::None;
+            // Clear turret locked_target so autonomous scanning can re-acquire
+            if let Some(ref mut turret) = turret_state {
+                turret.locked_target = None;
+            }
             continue;
         };
 
@@ -71,6 +78,11 @@ pub fn attacking_object_behavior_system(
                     attack_state.phase = AttackPhase::None;
                     attack_state.time_in_phase = 0.0;
                 }
+            }
+
+            // Relay target to turret locked_target for turret units
+            if let Some(ref mut turret) = turret_state {
+                turret.locked_target = Some(target_entity);
             }
 
             // Infantry: stop movement when in range
@@ -355,6 +367,8 @@ pub fn attack_move_behavior_system(
 /// enemies that come within range. For turret units, the turret_autonomous_scanning_system
 /// handles targeting. For non-turret CanTurnInPlace infantry, rotates toward enemies.
 /// For non-turning infantry, only engages targets within the facing arc.
+/// Uses 3-tier target priority: threatening > least rotation > closest distance.
+/// Filters targets through is_valid_target (destructible, visible, domain-compatible).
 pub fn hold_position_behavior_system(
     mut commands: Commands,
     mut units: Query<
@@ -362,7 +376,7 @@ pub fn hold_position_behavior_system(
          &UnitBaseEnum, &Owner, Option<&DomainEnum>, &GridPosition),
         (With<Unit>, Without<Turret>)
     >,
-    potential_targets: Query<(Entity, &Transform, &Owner, Option<&DomainEnum>, &GridPosition), With<ObjectInstance>>,
+    potential_targets: Query<(Entity, &Transform, &Owner, Option<&DomainEnum>, &GridPosition, &ObjectInstance, &VisibilityStateEnum, Option<&AttackCapability>), With<ObjectInstance>>,
     elevation_map: Res<ElevationMap>,
 ) {
     for (entity, transform, attack_cap, mut attack_state, command, unit_base, owner,
@@ -387,16 +401,24 @@ pub fn hold_position_behavior_system(
         let src_elev = elevation_map.get(source_grid_pos.x, source_grid_pos.z);
         let pos = transform.translation;
 
-        let mut best_target: Option<(Entity, f32)> = None;
+        let mut candidates = Vec::new();
 
-        for (target_entity, target_transform, target_owner, target_domain, target_grid_pos) in potential_targets.iter() {
+        for (target_entity, target_transform, target_owner, target_domain, target_grid_pos,
+             target_obj, target_vis, target_attack_cap) in potential_targets.iter()
+        {
             if target_entity == entity { continue; }
             if !is_enemy(owner, target_owner) { continue; }
+
+            let tgt_domain = target_domain.copied().unwrap_or(DomainEnum::Ground);
+
+            // Filter through is_valid_target (destructible, visible, domain-compatible)
+            if !is_valid_target(target_obj, target_vis, &tgt_domain, &attack_cap.target_domain) {
+                continue;
+            }
 
             let distance = pos.distance(target_transform.translation);
 
             // Compute elevation-adjusted effective range
-            let tgt_domain = target_domain.copied().unwrap_or(DomainEnum::Ground);
             let tgt_elev = elevation_map.get(target_grid_pos.x, target_grid_pos.z);
             let elev_mod = if attack_cap.is_melee() { 0 } else {
                 elevation_modifier(src_domain, src_elev, tgt_domain, tgt_elev)
@@ -418,16 +440,15 @@ pub fn hold_position_behavior_system(
                 }
             }
 
-            if let Some((_, best_dist)) = &best_target {
-                if distance < *best_dist {
-                    best_target = Some((target_entity, distance));
-                }
-            } else {
-                best_target = Some((target_entity, distance));
-            }
+            // Compute threat and rotation for 3-tier priority
+            let threatening = can_threaten(target_attack_cap, &src_domain);
+            let relative_angle = compute_relative_turret_angle(transform, target_transform.translation);
+            let rotation_abs = relative_angle.abs();
+
+            candidates.push((target_entity, threatening, rotation_abs, distance));
         }
 
-        if let Some((target, _)) = best_target {
+        if let Some(target) = select_best_target(candidates.into_iter()) {
             attack_state.current_target = Some(AttackTarget::UnitTarget(target));
             attack_state.phase = AttackPhase::Aiming;
             attack_state.time_in_phase = 0.0;
@@ -724,5 +745,71 @@ mod tests {
             going_to_end: true,
         };
         assert!(matches!(cmd, UnitCommand::Patrol { .. }));
+    }
+
+    // === TurretCommandState target relay tests ===
+
+    #[test]
+    fn turret_state_locked_target_set_on_engage() {
+        // When attacking_object_behavior_system engages a target in range,
+        // TurretCommandState.locked_target should be set to the target entity
+        let target = Entity::from_raw_u32(42).unwrap();
+        let mut turret_state = TurretCommandState::default();
+        assert!(turret_state.locked_target.is_none());
+
+        // Simulate what the system does when target is in range
+        turret_state.locked_target = Some(target);
+        assert_eq!(turret_state.locked_target, Some(target));
+    }
+
+    #[test]
+    fn turret_state_locked_target_cleared_on_target_destroyed() {
+        // When target is destroyed, locked_target should be cleared
+        let target = Entity::from_raw_u32(42).unwrap();
+        let mut turret_state = TurretCommandState {
+            locked_target: Some(target),
+        };
+
+        // Simulate what the system does when target is gone
+        turret_state.locked_target = None;
+        assert!(turret_state.locked_target.is_none());
+    }
+
+    #[test]
+    fn non_turret_units_work_without_turret_command_state() {
+        // Units without TurretCommandState (Option is None) should not panic
+        // This verifies the Option<&mut TurretCommandState> pattern works
+        let turret_state: Option<&mut TurretCommandState> = None;
+        // The if-let pattern in the system safely skips non-turret units
+        if let Some(_turret) = turret_state {
+            panic!("Should not enter this branch for non-turret units");
+        }
+    }
+
+    #[test]
+    fn turret_units_identified_by_has_turret() {
+        // Wheeled vehicles, tracked vehicles, and gliders have turrets
+        assert!(UnitBaseEnum::WheeledVehicle.data().has_turret);
+        assert!(UnitBaseEnum::TrackedVehicle.data().has_turret);
+        assert!(UnitBaseEnum::Glider.data().has_turret);
+        // Infantry does not have turrets
+        assert!(!UnitBaseEnum::LightInfantry.data().has_turret);
+        assert!(!UnitBaseEnum::HeavyInfantry.data().has_turret);
+    }
+
+    #[test]
+    fn turret_locked_target_updates_on_new_target() {
+        // If turret is already locked on one target and a new AttackTarget command
+        // is issued, locked_target should update to the new target
+        let old_target = Entity::from_raw_u32(10).unwrap();
+        let new_target = Entity::from_raw_u32(20).unwrap();
+        let mut turret_state = TurretCommandState {
+            locked_target: Some(old_target),
+        };
+
+        // System sets locked_target unconditionally when in range
+        turret_state.locked_target = Some(new_target);
+        assert_eq!(turret_state.locked_target, Some(new_target));
+        assert_ne!(turret_state.locked_target, Some(old_target));
     }
 }

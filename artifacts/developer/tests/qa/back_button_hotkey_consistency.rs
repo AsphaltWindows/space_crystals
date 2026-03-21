@@ -49,7 +49,7 @@ fn apply_escape_transition(state: &ObjectInterfaceState) -> ObjectInterfaceState
             ObjectInterfaceState::StructureMenu(StructureMenuState::DcReadyToPlace)
         }
         ObjectInterfaceState::StructureMenu(StructureMenuState::EfAwaitingPlacement) => {
-            ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace)
+            ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle)
         }
         other => other.clone(),
     }

@@ -29,6 +29,8 @@ pub enum UnitCommand {
     Gather(Entity),
     /// Drop off carried resources at an own Tunnel (Agent only)
     DropOffResources(Entity),
+    /// Drop off supplies at a Supply Tower (chopper only)
+    DropOffSupplies(Entity),
     /// Build a Tunnel at a target location (Agent only — walk there first)
     BuildTunnel(Vec3),
 }
@@ -67,6 +69,8 @@ impl UnitCommand {
             UnitCommand::DropOffResources(_) => is_syndicate,
             // Build Tunnel (Agent only)
             UnitCommand::BuildTunnel(_) => is_syndicate,
+            // Drop off supplies at tower (chopper-specific UI handles visibility)
+            UnitCommand::DropOffSupplies(_) => true,
         }
     }
 }
@@ -82,6 +86,8 @@ pub enum CommandType {
     AttackMove,
     Patrol,
     Reverse,
+    HoldPosition,
+    Stop,
     Enter,
     Build,
     Gather,
@@ -89,6 +95,9 @@ pub enum CommandType {
     BuildTunnel,
     SetRallyPoint,
     ScheduleDeliveries,
+    PickUpSupplies,
+    AttachToTower,
+    DropOffSupplies,
 }
 
 impl CommandType {
@@ -101,6 +110,8 @@ impl CommandType {
             CommandType::AttackMove => "Attack Move",
             CommandType::Patrol => "Patrol",
             CommandType::Reverse => "Reverse",
+            CommandType::HoldPosition => "Hold Position",
+            CommandType::Stop => "Stop",
             CommandType::Enter => "Enter",
             CommandType::Build => "Build",
             CommandType::Gather => "Gather",
@@ -108,6 +119,9 @@ impl CommandType {
             CommandType::BuildTunnel => "Build Tunnel",
             CommandType::SetRallyPoint => "Set Rally Point",
             CommandType::ScheduleDeliveries => "Schedule Deliveries",
+            CommandType::PickUpSupplies => "Pick Up Supplies",
+            CommandType::AttachToTower => "Attach to Tower",
+            CommandType::DropOffSupplies => "Drop Off Supplies",
         }
     }
 
@@ -120,6 +134,8 @@ impl CommandType {
             CommandType::AttackMove => "T",
             CommandType::Patrol => "P",
             CommandType::Reverse => "R",
+            CommandType::HoldPosition => "E",
+            CommandType::Stop => "X",
             CommandType::Enter => "N",
             CommandType::Build => "B",
             CommandType::Gather => "G",
@@ -127,6 +143,9 @@ impl CommandType {
             CommandType::BuildTunnel => "A",
             CommandType::SetRallyPoint => "C",
             CommandType::ScheduleDeliveries => "S",
+            CommandType::PickUpSupplies => "W",
+            CommandType::AttachToTower => "E",
+            CommandType::DropOffSupplies => "A",
         }
     }
 }
@@ -506,10 +525,36 @@ mod tests {
             CommandType::Reverse, CommandType::Enter, CommandType::Build,
             CommandType::Gather, CommandType::DropOff, CommandType::BuildTunnel,
             CommandType::SetRallyPoint, CommandType::ScheduleDeliveries,
+            CommandType::PickUpSupplies, CommandType::AttachToTower,
+            CommandType::DropOffSupplies,
         ];
         for ct in types {
             assert!(!ct.name().is_empty());
         }
+    }
+
+    // === Supply Chopper CommandType tests ===
+
+    #[test]
+    fn command_type_pick_up_supplies_name_and_hotkey() {
+        assert_eq!(CommandType::PickUpSupplies.name(), "Pick Up Supplies");
+        assert_eq!(CommandType::PickUpSupplies.hotkey(), "W");
+    }
+
+    #[test]
+    fn command_type_attach_to_tower_name_and_hotkey() {
+        assert_eq!(CommandType::AttachToTower.name(), "Attach to Tower");
+        assert_eq!(CommandType::AttachToTower.hotkey(), "E");
+    }
+
+    #[test]
+    fn command_type_pick_up_supplies_is_not_default() {
+        assert_ne!(CommandType::PickUpSupplies, CommandType::Default);
+    }
+
+    #[test]
+    fn command_type_attach_to_tower_is_not_default() {
+        assert_ne!(CommandType::AttachToTower, CommandType::Default);
     }
 
     // === Build command tests ===
@@ -652,6 +697,43 @@ mod tests {
     #[test]
     fn command_type_schedule_deliveries_is_not_default() {
         assert_ne!(CommandType::ScheduleDeliveries, CommandType::Default);
+    }
+
+    // === DropOffSupplies command tests ===
+
+    #[test]
+    fn unit_command_drop_off_supplies_variant() {
+        let cmd = UnitCommand::DropOffSupplies(Entity::from_raw_u32(3).unwrap());
+        assert!(matches!(cmd, UnitCommand::DropOffSupplies(_)));
+    }
+
+    #[test]
+    fn unit_command_drop_off_supplies_stores_entity() {
+        let tower = Entity::from_raw_u32(99).unwrap();
+        let cmd = UnitCommand::DropOffSupplies(tower);
+        if let UnitCommand::DropOffSupplies(e) = cmd {
+            assert_eq!(e, Entity::from_raw_u32(99).unwrap());
+        } else {
+            panic!("Expected DropOffSupplies variant");
+        }
+    }
+
+    #[test]
+    fn is_available_drop_off_supplies_always() {
+        let cmd = UnitCommand::DropOffSupplies(Entity::from_raw_u32(1).unwrap());
+        assert!(cmd.is_available(false, false, false, false));
+        assert!(cmd.is_available(true, true, true, true));
+    }
+
+    #[test]
+    fn command_type_drop_off_supplies_name_and_hotkey() {
+        assert_eq!(CommandType::DropOffSupplies.name(), "Drop Off Supplies");
+        assert_eq!(CommandType::DropOffSupplies.hotkey(), "A");
+    }
+
+    #[test]
+    fn command_type_drop_off_supplies_is_not_default() {
+        assert_ne!(CommandType::DropOffSupplies, CommandType::Default);
     }
 }
 

@@ -1,0 +1,16 @@
+- 2026-03-19T03:45:12-04:00: Routed to manual_qa: completion_aggregator-combat-unit-grid-layout.md
+- 2026-03-19T03:45:12-04:00: Router pass complete
+- 2026-03-19T03:47:52-04:00: Routed to manual_qa: completion_aggregator-dc-defaultstate-cancel.md
+- 2026-03-19T03:47:52-04:00: Router pass complete
+- 2026-03-19T23:52:11-04:00: Routed to manual_qa: completion_aggregator-agent-interface.md
+- 2026-03-19T23:52:11-04:00: Router pass complete
+- 2026-03-20T00:30:06-04:00: Routed to manual_qa: completion_aggregator-scale-camera-system.md
+- 2026-03-20T00:30:06-04:00: Router pass complete
+- 2026-03-20T00:33:07-04:00: Routed to manual_qa: completion_aggregator-hq-production-interface.md
+- 2026-03-20T00:33:07-04:00: Router pass complete
+- 2026-03-20T00:38:49-04:00: Routed to manual_qa: completion_aggregator-command-panel-framework.md
+- 2026-03-20T00:38:49-04:00: Router pass complete
+- 2026-03-20T01:52:34-04:00: Routed to manual_qa: completion_aggregator-basic-combat-unit-interface.md
+- 2026-03-20T01:52:34-04:00: Router pass complete
+- 2026-03-20T03:15:04-04:00: Routed to manual_qa: completion_aggregator-action-channels.md
+- 2026-03-20T03:15:04-04:00: Router pass complete

@@ -41,3 +41,32 @@
 - No pending qa_items in inbox, no stuck/malformed messages found
 
 **Outcome:** Forum pass only. No qa_items to process.
+
+## 2026-03-19T14:00:00Z — Forum Pass (No QA Items)
+
+**Work done:**
+- Read insights file
+- Reviewed 1 open forum topic (Telegram integration announcement) — voted to close (informational, no action needed)
+- No pending qa_items in inbox, no stuck/malformed messages found
+
+**Outcome:** Forum pass only. No qa_items to process.
+
+## 2026-03-19T15:00:00Z — Forum Pass (No QA Items)
+
+**Work done:**
+- Read insights file
+- Reviewed 1 open forum topic (Telegram integration announcement) — voted to close
+- No pending qa_items in inbox, no stuck/malformed messages found
+
+**Outcome:** Forum pass only. No qa_items to process.
+
+## 2026-03-20T00:00:00Z — Forum Pass (No QA Items)
+
+**Work done:**
+- Read insights file
+- Reviewed 1 open forum topic: operator directive to never run `cargo clean`
+- Commented acknowledging the directive and voted to close
+- Updated insights.md with the no-cargo-clean rule
+- No pending qa_items in inbox
+
+**Outcome:** Forum pass only. No qa_items to process.

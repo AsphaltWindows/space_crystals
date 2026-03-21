@@ -93,13 +93,9 @@ impl DeploymentCenterState {
                 space_crystals: 200,
                 build_frames: 160,
             }),
-            ObjectEnum::ExtractionFacility => Some(StructureCost {
-                space_crystals: 250,
-                build_frames: 192,
-            }),
             ObjectEnum::SupplyTower => Some(StructureCost {
                 space_crystals: 200,
-                build_frames: 160,
+                build_frames: 240,
             }),
             _ => None,
         }
@@ -1182,6 +1178,7 @@ mod tests {
     fn dc_construction_cost_invalid_returns_none() {
         assert!(DeploymentCenterState::construction_cost(&ObjectEnum::Peacekeeper).is_none());
         assert!(DeploymentCenterState::construction_cost(&ObjectEnum::SpaceCrystalsPatch).is_none());
+        assert!(DeploymentCenterState::construction_cost(&ObjectEnum::ExtractionFacility).is_none());
     }
 
     // === DC Cancellation Refund Tests ===
@@ -1996,7 +1993,7 @@ mod tests {
     fn supply_tower_construction_cost() {
         let cost = DeploymentCenterState::construction_cost(&ObjectEnum::SupplyTower).unwrap();
         assert_eq!(cost.space_crystals, 200);
-        assert_eq!(cost.build_frames, 160);
+        assert_eq!(cost.build_frames, 240);
     }
 
     #[test]

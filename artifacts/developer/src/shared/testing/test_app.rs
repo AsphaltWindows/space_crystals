@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::camera::ScalingMode;
 use bevy::window::PrimaryWindow;
 
 use crate::game::{
@@ -69,6 +70,12 @@ impl TestApp {
                 order: 0,
                 ..default()
             },
+            Projection::Orthographic(OrthographicProjection {
+                scaling_mode: ScalingMode::FixedHorizontal { viewport_width: 28.0 },
+                near: -100.0,
+                far: 1000.0,
+                ..OrthographicProjection::default_3d()
+            }),
             GlobalTransform::default(),
             Transform::from_xyz(0.0, 40.0, 25.0)
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),

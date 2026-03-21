@@ -134,21 +134,82 @@ What is under the player's cursor at the time of a click. Used by AwaitingTarget
 ### Location - Coordinates
 ### Object - ObjectInstance | None
 
+## PointerDisplayType
+The visual appearance of the player's cursor, communicating what action will occur on click. Determined each tick by the current ControlState, the ActiveGroup's capabilities, and the CursorTarget. Only one PointerDisplayType is active at a time.
+
+### Types:
+
+| Type | Visual Feel | Description |
+|------|------------|-------------|
+| Inactive | Muted, subdued | Nothing will happen on click. Shown when nothing is selected, or when hovering over an invalid target for the current context. |
+| Move | — | Unit will move to this location or object. |
+| Attack | — | Unit will attack this target. |
+| AttackGround | — | Unit will attack this ground location. |
+| Patrol | — | Unit will patrol to this location. |
+| GatherResources | — | Unit will gather from this resource. |
+| ReturnResources | — | Unit will return carried resources to this drop-off point. |
+| Enter | — | Unit will enter this object (e.g., Syndicate unit entering a Tunnel). |
+
+### Resolution Rules
+
+PointerDisplayType is resolved based on the current ObjectInterfaceState:
+
+#### DefaultState (right-click preview):
+The pointer previews the action that right-click would perform, based on the ActiveGroup's RightClickResolution:
+
+- Nothing selected: **Inactive**
+- Cursor over enemy object (and selection can attack): **Attack**
+- Cursor over ground (and selection can move): **Move**
+- Cursor over friendly/neutral object (and selection can move): **Move**
+- Cursor over own Tunnel (Syndicate unit, tier sufficient): **Enter**
+- Cursor over resource (resource gatherer selected): **GatherResources**
+- Cursor over drop-off point (resource gatherer carrying resources): **ReturnResources**
+- Selection is a production building: **Move** (rally point)
+- No valid action for current cursor target: **Inactive**
+
+#### AwaitingTarget[CommandType]:
+The pointer reflects the pending command and whether the current CursorTarget is valid:
+
+- AwaitingTarget[Attack] over enemy object: **Attack**
+- AwaitingTarget[Attack] over ground: **Attack** (will issue AttackMove)
+- AwaitingTarget[Attack] over friendly/neutral object: **Inactive**
+- AwaitingTarget[Move] over ground or any object: **Move**
+- AwaitingTarget[Patrol] over ground: **Patrol**
+- AwaitingTarget[Patrol] over non-ground: **Inactive**
+- AwaitingTarget[AttackGround] over ground: **AttackGround**
+- AwaitingTarget[AttackGround] over non-ground: **Inactive**
+- AwaitingTarget[Reverse] over ground: **Move**
+- AwaitingTarget[Reverse] over non-ground: **Inactive**
+- AwaitingTarget[ScheduleDeliveries] over valid target: **GatherResources**
+- AwaitingTarget[ScheduleDeliveries] over invalid target: **Inactive**
+- AwaitingTarget[SetRallyPoint] over ground or object: **Move**
+
+#### AwaitingPlacement:
+No pointer display type — the building ghost preview serves as the cursor.
+
 ## BasicCombatUnitInterfaceState
 The ObjectInterfaceState template used by combat units. Defines the available commands, right-click resolution, and awaiting-target resolution rules common to most combat units.
 
 ### DefaultState commands:
 
+Grid layout:
+```
+[Q] Move      [W] Reverse*    [E] HoldPosition
+[A] Attack    [S] Patrol      [D] AttackGround*
+[Z] —         [X] Stop        [C] —
+```
+*Conditional: W (Reverse) only available if UnitBase has CanReverse = true. D (AttackGround) only available if AttackType has CanTargetGround = true.*
+
 Immediate commands (CommandIssuingTransition, no target required):
-- HoldPosition: issues HoldPosition command
-- Stop: issues Stop command
+- **E: HoldPosition**: issues HoldPosition command
+- **X: Stop**: issues Stop command
 
 Target commands (StateOnlyTransition to AwaitingTarget):
-- Attack: enters AwaitingTarget[Attack]
-- Move: enters AwaitingTarget[Move]
-- Patrol: enters AwaitingTarget[Patrol]
-- AttackGround: enters AwaitingTarget[AttackGround] (only available if unit's AttackType has CanTargetGround = true)
-- Reverse: enters AwaitingTarget[Reverse] (only available if unit's UnitBase has CanReverse = true)
+- **A: Attack**: enters AwaitingTarget[Attack]
+- **Q: Move**: enters AwaitingTarget[Move]
+- **S: Patrol**: enters AwaitingTarget[Patrol]
+- **D: AttackGround**: enters AwaitingTarget[AttackGround] (only available if unit's AttackType has CanTargetGround = true)
+- **W: Reverse**: enters AwaitingTarget[Reverse] (only available if unit's UnitBase has CanReverse = true)
 
 ### RightClickResolution:
 - Cursor over EnemyObject: issues Attack command targeting that object

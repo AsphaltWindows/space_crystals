@@ -60,6 +60,7 @@ pub struct FactionPlugin;
 impl Plugin for FactionPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<crate::ui::types::PlacementState>();
+        app.init_resource::<resources::PreviousSelectionSnapshot>();
         app.init_resource::<crate::types::ControlGroups>();
         app.init_resource::<crate::types::Selection>();
         app.init_resource::<types::LastRecallState>();
@@ -83,6 +84,11 @@ impl Plugin for FactionPlugin {
                     .after(resources::selection_validation_system),
                 resources::active_group_cycle_system,
                 resources::selection_validation_system,
+                resources::interface_state_selection_reset_system
+                    .after(resources::selection_group_sync_system)
+                    .after(resources::active_group_cycle_system),
+                resources::interface_state_validation_system
+                    .after(resources::interface_state_selection_reset_system),
                 faction::manage_placement_ghost,
                 faction::update_placement_ghost,
                 faction::placement_click_system,
@@ -94,6 +100,7 @@ impl Plugin for FactionPlugin {
                 faction::barracks_production_tick_system,
                 faction::headquarters_production_tick_system,
                 faction::extraction_plate_mining_system,
+                faction::depleted_patch_despawn_system,
                 faction::ef_construction_tick_system,
                 faction::construction_hp_tick_system,
                 faction::rally_target_cleanup_system,

@@ -128,7 +128,13 @@ GDO primary construction structure. Constructs buildings one at a time, which mu
 ### ObjectInterfaceState[DeploymentCenter]:
 
 DefaultState commands:
-- Build: enters BuildMenu (StateOnlyTransition)
+
+Immediate commands (CommandIssuingTransition):
+- **X: Cancel Construction**: refunds full cost, clears CurrentConstruction (CommandIssuingTransition). Only visible when CurrentConstruction is set.
+- **X: Cancel Ready Building**: refunds 75% cost (rounded down), clears ReadyToPlace (CommandIssuingTransition). Only visible when ReadyToPlace is set.
+
+State commands (StateOnlyTransition):
+- **Q: Build**: enters BuildMenu (StateOnlyTransition)
 
 BuildMenu (instance idle — no CurrentConstruction, no ReadyToPlace):
 - Power Plant: deducts 150 Space Crystals, sets CurrentConstruction = PowerPlant (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals.
@@ -326,18 +332,37 @@ DefaultState commands:
 
 Right-click resolution:
 - Right-click Ground: issues Move command to that location
-- Right-click SupplyDeliveryStation: issues PickUpSupplies command (fly to SDS, land, pick up all available supplies)
-- Right-click own SupplyTower: issues AttachToTower command (fly to tower, land, attach). Only if chopper is not carrying units.
+- Right-click SupplyDeliveryStation: issues PickUpSupplies command (fly to SDS, land, pick up all available supplies). Only if chopper is not carrying units.
+- Right-click own SupplyTower (when carrying supplies): issues DropOffSupplies command (fly to tower, land, drop off all carried supplies, immediately lift off — unless this is the chopper's attached tower)
+- Right-click own SupplyTower (when not carrying supplies): issues AttachToTower command (fly to tower, land, attach). Only if chopper is not carrying units.
 - Right-click other friendly/neutral Object: issues Move command to that object's location
 
 Immediate commands (CommandIssuingTransition):
-- Stop: issues Stop command to the chopper
-- Hold Position: issues HoldPosition command to the chopper
+- Stop: issues Stop command
+- Hold Position: issues HoldPosition command
 
 Target commands (StateOnlyTransition):
 - Move: enters AwaitingTarget[Move]
-- Pick Up Supplies: enters AwaitingTarget[PickUpSupplies]
-- Attach to Tower: enters AwaitingTarget[AttachToTower]
+- Pick Up Supplies: enters AwaitingTarget[PickUpSupplies]. Only available if chopper is not carrying units.
+- Attach to Tower: enters AwaitingTarget[AttachToTower]. Only available if chopper is not carrying units.
+- Drop Off Supplies: enters AwaitingTarget[DropOffSupplies]. Only available if chopper is carrying supplies.
 
 ### AwaitingTarget[PickUpSupplies] resolution:
-- Left-click SupplyDeliveryStation: issues PickUpSupplies command (CommandIssuingTransition,
+- Left-click SupplyDeliveryStation: issues PickUpSupplies command (CommandIssuingTransition, returns to DefaultState)
+- Left-click anything else: no action
+- Escape/right-click: returns to DefaultState (StateOnlyTransition)
+
+### AwaitingTarget[AttachToTower] resolution:
+- Left-click own SupplyTower with no attached chopper: issues AttachToTower command (CommandIssuingTransition, returns to DefaultState)
+- Left-click anything else: no action
+- Escape/right-click: returns to DefaultState (StateOnlyTransition)
+
+### AwaitingTarget[DropOffSupplies] resolution:
+- Left-click own SupplyTower with no attached chopper: issues DropOffSupplies command (CommandIssuingTransition, returns to DefaultState)
+- Left-click anything else: no action
+- Escape/right-click: returns to DefaultState (StateOnlyTransition)
+
+### AwaitingTarget[Move] resolution:
+- Left-click ground: issues Move command to that location (CommandIssuingTransition, returns to DefaultState)
+- Left-click object: issues Move command to that object's location (CommandIssuingTransition, returns to DefaultState)
+- Escape/right-click: returns to DefaultState (StateOnlyTransition)

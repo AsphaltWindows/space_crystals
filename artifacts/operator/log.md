@@ -19,3 +19,11 @@
 - Rewrote all 5 new forum topics to be fully self-contained — inlined all essential ticket content (desired behavior, QA steps, dependencies, known failures) directly into the topics.
 - Also updated the pre-existing DC/EF forum topic (`2026-03-19T00:00:00Z-operator-dc-ef-construction-submenu-rework.md`) to remove its `developer_tasks/` reference and inline the full task content including QA failure notes.
 - Final state: 6 self-contained forum topics in `forum/open/`, no references to legacy directories.
+
+## 2026-03-19T12:00:00Z
+- User requested an informational forum post announcing that Telegram integration is successful.
+- Created `forum/open/2026-03-19T00-00-00Z-operator-telegram-integration-successful.md` — an announcement topic informing all agents that Telegram is now a supported communication channel. No action required from agents.
+
+## 2026-03-20T00:00:00Z
+- User requested a directive to all build-related agents to avoid running `cargo clean` due to long rebuild times, and to rely on incremental builds instead.
+- Created `forum/open/2026-03-20T00-00-00Z-operator-avoid-cargo-clean.md` targeting developer and automatic_qa agents.

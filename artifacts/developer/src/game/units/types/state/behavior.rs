@@ -317,6 +317,64 @@ impl BuildingTunnelBehavior {
     }
 }
 
+// === Supply Chopper Behaviors ===
+
+/// Phase of the PickUpSupplies behavior.
+#[derive(Clone, Debug, PartialEq)]
+pub enum PickUpPhase {
+    /// Moving to the Supply Delivery Station
+    MovingToSDS,
+    /// Transferring supplies from SDS (frame counter)
+    Transferring { frames_remaining: u32 },
+}
+
+/// Marker component for the PickUpSupplies behavior.
+/// Moves chopper to the target SDS, transfers supplies, then returns to attached tower or idles.
+#[derive(Component, Clone, Debug)]
+pub struct PickingUpSuppliesBehavior {
+    /// Target Supply Delivery Station entity
+    pub target_sds: Entity,
+    /// Current phase
+    pub phase: PickUpPhase,
+}
+
+impl PickingUpSuppliesBehavior {
+    pub fn new(target_sds: Entity) -> Self {
+        Self {
+            target_sds,
+            phase: PickUpPhase::MovingToSDS,
+        }
+    }
+}
+
+/// Marker component for the AttachToTower behavior.
+/// Moves chopper to the target Supply Tower and establishes attachment on arrival.
+#[derive(Component, Clone, Debug)]
+pub struct AttachingToTowerBehavior {
+    /// Target Supply Tower entity
+    pub target_tower: Entity,
+}
+
+impl AttachingToTowerBehavior {
+    pub fn new(target_tower: Entity) -> Self {
+        Self { target_tower }
+    }
+}
+
+/// Marker component for the DropOffSupplies behavior.
+/// Moves chopper to the target Supply Tower and delivers carried supplies on arrival.
+#[derive(Component, Clone, Debug)]
+pub struct DroppingOffSuppliesBehavior {
+    /// Target Supply Tower entity
+    pub target_tower: Entity,
+}
+
+impl DroppingOffSuppliesBehavior {
+    pub fn new(target_tower: Entity) -> Self {
+        Self { target_tower }
+    }
+}
+
 /// Marker component for units that are inside the Tunnel Network.
 /// Placed on unit entities when they complete the EnteringTunnel behavior.
 /// The entity is despawned from the map but logically exists in the network.
@@ -836,5 +894,47 @@ mod tests {
             frames_elapsed: 0,
         };
         assert_ne!(phase_a, phase_b);
+    }
+
+    // === PickingUpSuppliesBehavior tests ===
+
+    #[test]
+    fn picking_up_supplies_behavior_new() {
+        let target = Entity::from_raw_u32(42).unwrap();
+        let behavior = PickingUpSuppliesBehavior::new(target);
+        assert_eq!(behavior.target_sds, target);
+        assert_eq!(behavior.phase, PickUpPhase::MovingToSDS);
+    }
+
+    #[test]
+    fn pick_up_phase_transferring_tracks_frames() {
+        let phase = PickUpPhase::Transferring { frames_remaining: 30 };
+        assert_eq!(phase, PickUpPhase::Transferring { frames_remaining: 30 });
+    }
+
+    #[test]
+    fn pick_up_phase_moving_not_equal_transferring() {
+        assert_ne!(
+            PickUpPhase::MovingToSDS,
+            PickUpPhase::Transferring { frames_remaining: 0 },
+        );
+    }
+
+    // === AttachingToTowerBehavior tests ===
+
+    #[test]
+    fn attaching_to_tower_behavior_new() {
+        let target = Entity::from_raw_u32(7).unwrap();
+        let behavior = AttachingToTowerBehavior::new(target);
+        assert_eq!(behavior.target_tower, target);
+    }
+
+    // === DroppingOffSuppliesBehavior tests ===
+
+    #[test]
+    fn dropping_off_supplies_behavior_new() {
+        let target = Entity::from_raw_u32(99).unwrap();
+        let behavior = DroppingOffSuppliesBehavior::new(target);
+        assert_eq!(behavior.target_tower, target);
     }
 }

@@ -7,9 +7,9 @@ use crate::game::units::types::types::{CommandIndicator, CommandIndicatorType, c
 use crate::game::combat::utils::{create_turret_for_unit, spawn_turret_visual};
 use crate::game::units::types::movement::TurnRateMovementParams;
 use crate::game::utils::spawn_peacekeeper;
-use crate::ui::types::{CursorTarget, CursorTargetEnum, CursorOverUi, ObjectInterfaceState, CommandPanelTarget, StructureMenuState};
+use crate::ui::types::{CursorTarget, CursorTargetEnum, CursorOverUi, ObjectInterfaceState, CommandPanelTarget, StructureMenuState, AgentMenuState};
 use crate::game::units::types::*;
-use crate::game::units::utils::{world_to_grid, create_attack_capability, smooth_path, clear_movement_state_full};
+use crate::game::units::utils::{world_to_grid, create_attack_capability, smooth_path, clear_movement_state_full, can_enter_tunnel, issue_or_queue_command};
 use crate::game::types::{SupplyTowerState, SupplyChopperState, TunnelState, BarracksState, HeadquartersState, RallyTarget, TunnelExpansionMarker, RallyPointMarker};
 use crate::game::world::faction::{spawn_or_update_rally_marker, despawn_rally_marker_for};
 use crate::game::world::types::{SupplyDeliveryStation, SpaceCrystalPatch};
@@ -179,10 +179,11 @@ pub fn unit_selection_display(
 pub fn right_click_move_command(
     mut commands_ecs: Commands,
     buttons: Res<ButtonInput<MouseButton>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     mut interface_state: ResMut<ObjectInterfaceState>,
     cursor_target: Res<CursorTarget>,
     cursor_over_ui: Res<CursorOverUi>,
-    selected_units: Query<(Entity, &Transform, &UnitBaseEnum, &Owner, Option<&AttackState>, Option<&SupplyChopperState>, &ObjectInstance, Option<&AgentCarryState>), (With<Unit>, With<Selected>)>,
+    mut selected_units: Query<(Entity, &Transform, &UnitBaseEnum, &Owner, Option<&AttackState>, Option<&SupplyChopperState>, &ObjectInstance, Option<&AgentCarryState>, &mut CommandQueue), (With<Unit>, With<Selected>)>,
     target_info: Query<(Option<&SupplyDeliveryStation>, Option<&SupplyTowerState>, &Owner, Option<&SpaceCrystalPatch>, Option<&TunnelState>), With<ObjectInstance>>,
     tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
     grid: Res<GridMap>,
@@ -249,9 +250,11 @@ pub fn right_click_move_command(
         return;
     }
 
+    let shift_held = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
+
     // Check if any selected unit is a Supply Chopper
-    let has_selected_choppers = selected_units.iter().any(|(_, _, _, _, _, chopper_state, _, _)| chopper_state.is_some());
-    let has_selected_agents = selected_units.iter().any(|(_, _, _, _, _, _, obj, _)| obj.object_type == ObjectEnum::SyndicateAgent);
+    let has_selected_choppers = selected_units.iter().any(|(_, _, _, _, _, chopper_state, _, _, _)| chopper_state.is_some());
+    let has_selected_agents = selected_units.iter().any(|(_, _, _, _, _, _, obj, _, _)| obj.object_type == ObjectEnum::SyndicateAgent);
 
     // Handle entity click (Attack mode left-click or right-click entity detection)
     if let Some(target_entity) = cursor_target.entity {
@@ -265,15 +268,17 @@ pub fn right_click_move_command(
 
         if should_attack {
             let selected_count = selected_units.iter().count();
-            for (entity, _, _, _, attack_state_opt, _, _, _) in &selected_units {
+            for (entity, _, _, _, attack_state_opt, _, _, _, mut command_queue) in &mut selected_units {
                 if let Some(attack_state) = attack_state_opt {
                     if !attack_state.phase.is_interruptible() {
                         continue;
                     }
                 }
                 let mut entity_cmds = commands_ecs.entity(entity);
-                clear_movement_state_full(&mut entity_cmds);
-                entity_cmds.insert(UnitCommand::AttackTarget(target_entity));
+                if !shift_held {
+                    clear_movement_state_full(&mut entity_cmds);
+                }
+                issue_or_queue_command(&mut entity_cmds, &mut command_queue, UnitCommand::AttackTarget(target_entity), shift_held);
             }
 
             // Attack target highlights are now handled by command_indicator_sync_system
@@ -283,11 +288,68 @@ pub fn right_click_move_command(
             return;
         }
 
-        // Right-click on non-enemy entity: check for chopper-specific targets
-        if is_right_click && command_type == CommandType::Default && has_selected_choppers {
-            if let Ok((sds_opt, st_opt, target_owner, _, _)) = target_info.get(target_entity) {
+        // Left-click entity in DropOff mode: target must be own Tunnel
+        if command_type == CommandType::DropOff {
+            if let Ok((_sds_opt, _st_opt, target_owner, _crystal_opt, tunnel_opt)) = target_info.get(target_entity) {
+                if tunnel_opt.is_some() && target_owner.player_number() == Some(local_player.0) {
+                    for (entity, _, _, _, attack_state_opt, _, obj, _, mut command_queue) in &mut selected_units {
+                        if obj.object_type == ObjectEnum::SyndicateAgent {
+                            if let Some(attack_state) = attack_state_opt {
+                                if !attack_state.phase.is_interruptible() {
+                                    continue;
+                                }
+                            }
+                            let mut entity_cmds = commands_ecs.entity(entity);
+                            if !shift_held {
+                                clear_movement_state_full(&mut entity_cmds);
+                                entity_cmds.insert(AttackState::default());
+                            }
+                            issue_or_queue_command(&mut entity_cmds, &mut command_queue, UnitCommand::DropOffResources(target_entity), shift_held);
+                        }
+                    }
+                    info!("Agent: DropOff command via target click");
+                    *interface_state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
+                    return;
+                }
+            }
+            // Target is not an own Tunnel — reset without issuing command
+            *interface_state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
+            return;
+        }
+
+        // Left-click entity in Enter mode: target must be own Tunnel with valid tier
+        if command_type == CommandType::Enter {
+            if let Ok((_sds_opt, _st_opt, target_owner, _crystal_opt, tunnel_opt)) = target_info.get(target_entity) {
+                if let Some(tunnel_state) = tunnel_opt {
+                    if target_owner.player_number() == Some(local_player.0) {
+                        for (entity, _, unit_base, owner, attack_state_opt, _, obj, _, mut command_queue) in &mut selected_units {
+                            let is_syndicate = matches!(obj.object_type, ObjectEnum::SyndicateAgent | ObjectEnum::SyndicateGuard);
+                            if can_enter_tunnel(is_syndicate, owner.player_number(), target_owner.player_number(), unit_base, &tunnel_state.tier).is_ok() {
+                                if let Some(attack_state) = attack_state_opt {
+                                    if !attack_state.phase.is_interruptible() { continue; }
+                                }
+                                let mut entity_cmds = commands_ecs.entity(entity);
+                                if !shift_held {
+                                    clear_movement_state_full(&mut entity_cmds);
+                                }
+                                issue_or_queue_command(&mut entity_cmds, &mut command_queue, UnitCommand::Enter(target_entity), shift_held);
+                            }
+                        }
+                        *interface_state = ObjectInterfaceState::Default;
+                        return;
+                    }
+                }
+            }
+            // Invalid target — reset without issuing command
+            *interface_state = ObjectInterfaceState::Default;
+            return;
+        }
+
+        // Left-click entity in PickUpSupplies mode: target must be SDS
+        if command_type == CommandType::PickUpSupplies {
+            if let Ok((sds_opt, _st_opt, _target_owner, _, _)) = target_info.get(target_entity) {
                 if sds_opt.is_some() {
-                    for (entity, _, _, _, attack_state_opt, chopper_opt, _, _) in &selected_units {
+                    for (entity, _, _, _, attack_state_opt, chopper_opt, _, _, mut command_queue) in &mut selected_units {
                         if chopper_opt.is_some() {
                             if let Some(attack_state) = attack_state_opt {
                                 if !attack_state.phase.is_interruptible() {
@@ -295,8 +357,112 @@ pub fn right_click_move_command(
                                 }
                             }
                             let mut entity_cmds = commands_ecs.entity(entity);
-                            clear_movement_state_full(&mut entity_cmds);
-                            entity_cmds.insert((UnitCommand::PickUpSupplies(target_entity), AttackState::default()));
+                            if !shift_held {
+                                clear_movement_state_full(&mut entity_cmds);
+                                entity_cmds.insert(AttackState::default());
+                            }
+                            issue_or_queue_command(&mut entity_cmds, &mut command_queue, UnitCommand::PickUpSupplies(target_entity), shift_held);
+                            if !shift_held {
+                                entity_cmds.insert(PickingUpSuppliesBehavior::new(target_entity));
+                            }
+                        }
+                    }
+                    info!("Supply Chopper: PickUpSupplies via target click");
+                    *interface_state = ObjectInterfaceState::Default;
+                    return;
+                }
+            }
+            // Target is not an SDS — reset without issuing command
+            *interface_state = ObjectInterfaceState::Default;
+            return;
+        }
+
+        // Left-click entity in AttachToTower mode: target must be own SupplyTower
+        if command_type == CommandType::AttachToTower {
+            if let Ok((_sds_opt, st_opt, target_owner, _, _)) = target_info.get(target_entity) {
+                if st_opt.is_some() && target_owner.player_number() == Some(local_player.0) {
+                    for (entity, _, _, _, attack_state_opt, chopper_opt, _, _, mut command_queue) in &mut selected_units {
+                        if chopper_opt.is_some() {
+                            if let Some(attack_state) = attack_state_opt {
+                                if !attack_state.phase.is_interruptible() {
+                                    continue;
+                                }
+                            }
+                            let mut entity_cmds = commands_ecs.entity(entity);
+                            if !shift_held {
+                                clear_movement_state_full(&mut entity_cmds);
+                                entity_cmds.insert(AttackState::default());
+                            }
+                            issue_or_queue_command(&mut entity_cmds, &mut command_queue, UnitCommand::AttachToTower(target_entity), shift_held);
+                            if !shift_held {
+                                entity_cmds.insert(AttachingToTowerBehavior::new(target_entity));
+                            }
+                        }
+                    }
+                    info!("Supply Chopper: AttachToTower via target click");
+                    *interface_state = ObjectInterfaceState::Default;
+                    return;
+                }
+            }
+            // Target is not an own SupplyTower — reset without issuing command
+            *interface_state = ObjectInterfaceState::Default;
+            return;
+        }
+
+        // Left-click entity in DropOffSupplies mode: target must be own SupplyTower
+        if command_type == CommandType::DropOffSupplies {
+            if let Ok((_sds_opt, st_opt, target_owner, _, _)) = target_info.get(target_entity) {
+                if st_opt.is_some() && target_owner.player_number() == Some(local_player.0) {
+                    for (entity, _, _, _, attack_state_opt, chopper_opt, _, _, mut command_queue) in &mut selected_units {
+                        if chopper_opt.is_some() {
+                            if let Some(attack_state) = attack_state_opt {
+                                if !attack_state.phase.is_interruptible() {
+                                    continue;
+                                }
+                            }
+                            let mut entity_cmds = commands_ecs.entity(entity);
+                            if !shift_held {
+                                clear_movement_state_full(&mut entity_cmds);
+                                entity_cmds.insert(AttackState::default());
+                            }
+                            issue_or_queue_command(&mut entity_cmds, &mut command_queue, UnitCommand::DropOffSupplies(target_entity), shift_held);
+                            if !shift_held {
+                                entity_cmds.insert(DroppingOffSuppliesBehavior::new(target_entity));
+                            }
+                        }
+                    }
+                    info!("Supply Chopper: DropOffSupplies via target click");
+                    *interface_state = ObjectInterfaceState::Default;
+                    return;
+                }
+            }
+            // Target is not an own SupplyTower — reset without issuing command
+            *interface_state = ObjectInterfaceState::Default;
+            return;
+        }
+
+        // Right-click on non-enemy entity: check for chopper-specific targets
+        if is_right_click && command_type == CommandType::Default && has_selected_choppers {
+            if let Ok((sds_opt, st_opt, target_owner, _, _)) = target_info.get(target_entity) {
+                if sds_opt.is_some() {
+                    // TODO: When carried_units field is added to SupplyChopperState,
+                    // only issue PickUpSupplies if chopper is NOT carrying units.
+                    for (entity, _, _, _, attack_state_opt, chopper_opt, _, _, mut command_queue) in &mut selected_units {
+                        if chopper_opt.is_some() {
+                            if let Some(attack_state) = attack_state_opt {
+                                if !attack_state.phase.is_interruptible() {
+                                    continue;
+                                }
+                            }
+                            let mut entity_cmds = commands_ecs.entity(entity);
+                            if !shift_held {
+                                clear_movement_state_full(&mut entity_cmds);
+                                entity_cmds.insert(AttackState::default());
+                            }
+                            issue_or_queue_command(&mut entity_cmds, &mut command_queue, UnitCommand::PickUpSupplies(target_entity), shift_held);
+                            if !shift_held {
+                                entity_cmds.insert(PickingUpSuppliesBehavior::new(target_entity));
+                            }
                         }
                     }
                     info!("Supply Chopper: PickUpSupplies from SDS");
@@ -304,19 +470,41 @@ pub fn right_click_move_command(
                     return;
                 }
                 if st_opt.is_some() && target_owner.player_number() == Some(local_player.0) {
-                    for (entity, _, _, _, attack_state_opt, chopper_opt, _, _) in &selected_units {
-                        if chopper_opt.is_some() {
+                    for (entity, _, _, _, attack_state_opt, chopper_opt, _, _, mut command_queue) in &mut selected_units {
+                        if let Some(chopper_state) = chopper_opt {
                             if let Some(attack_state) = attack_state_opt {
                                 if !attack_state.phase.is_interruptible() {
                                     continue;
                                 }
                             }
+                            // TODO: When carried_units field is added to SupplyChopperState,
+                            // skip both DropOffSupplies and AttachToTower if carrying units
+                            // (fall through to default move instead).
+                            let chopper_command = if chopper_state.carried_supplies > 0 {
+                                UnitCommand::DropOffSupplies(target_entity)
+                            } else {
+                                UnitCommand::AttachToTower(target_entity)
+                            };
                             let mut entity_cmds = commands_ecs.entity(entity);
-                            clear_movement_state_full(&mut entity_cmds);
-                            entity_cmds.insert((UnitCommand::AttachToTower(target_entity), AttackState::default()));
+                            if !shift_held {
+                                clear_movement_state_full(&mut entity_cmds);
+                                entity_cmds.insert(AttackState::default());
+                            }
+                            if !shift_held {
+                                match &chopper_command {
+                                    UnitCommand::DropOffSupplies(tower) => {
+                                        entity_cmds.insert(DroppingOffSuppliesBehavior::new(*tower));
+                                    }
+                                    UnitCommand::AttachToTower(tower) => {
+                                        entity_cmds.insert(AttachingToTowerBehavior::new(*tower));
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            issue_or_queue_command(&mut entity_cmds, &mut command_queue, chopper_command, shift_held);
                         }
                     }
-                    info!("Supply Chopper: AttachToTower");
+                    info!("Supply Chopper: command issued for own SupplyTower");
                     *interface_state = ObjectInterfaceState::Default;
                     return;
                 }
@@ -327,7 +515,7 @@ pub fn right_click_move_command(
             if let Ok((sds_opt, _st_opt, target_owner, crystal_opt, tunnel_opt)) = target_info.get(target_entity) {
                 // Crystal patch → Gather
                 if crystal_opt.is_some() {
-                    for (entity, _, _, _, attack_state_opt, _, obj, _) in &selected_units {
+                    for (entity, _, _, _, attack_state_opt, _, obj, _, mut command_queue) in &mut selected_units {
                         if obj.object_type == ObjectEnum::SyndicateAgent {
                             if let Some(attack_state) = attack_state_opt {
                                 if !attack_state.phase.is_interruptible() {
@@ -335,8 +523,11 @@ pub fn right_click_move_command(
                                 }
                             }
                             let mut entity_cmds = commands_ecs.entity(entity);
-                            clear_movement_state_full(&mut entity_cmds);
-                            entity_cmds.insert((UnitCommand::Gather(target_entity), AttackState::default()));
+                            if !shift_held {
+                                clear_movement_state_full(&mut entity_cmds);
+                                entity_cmds.insert(AttackState::default());
+                            }
+                            issue_or_queue_command(&mut entity_cmds, &mut command_queue, UnitCommand::Gather(target_entity), shift_held);
                         }
                     }
                     info!("Agent: Gather crystals");
@@ -345,7 +536,7 @@ pub fn right_click_move_command(
                 }
                 // Supply Delivery Station → Gather (supplies)
                 if sds_opt.is_some() {
-                    for (entity, _, _, _, attack_state_opt, _, obj, _) in &selected_units {
+                    for (entity, _, _, _, attack_state_opt, _, obj, _, mut command_queue) in &mut selected_units {
                         if obj.object_type == ObjectEnum::SyndicateAgent {
                             if let Some(attack_state) = attack_state_opt {
                                 if !attack_state.phase.is_interruptible() {
@@ -353,30 +544,44 @@ pub fn right_click_move_command(
                                 }
                             }
                             let mut entity_cmds = commands_ecs.entity(entity);
-                            clear_movement_state_full(&mut entity_cmds);
-                            entity_cmds.insert((UnitCommand::Gather(target_entity), AttackState::default()));
+                            if !shift_held {
+                                clear_movement_state_full(&mut entity_cmds);
+                                entity_cmds.insert(AttackState::default());
+                            }
+                            issue_or_queue_command(&mut entity_cmds, &mut command_queue, UnitCommand::Gather(target_entity), shift_held);
                         }
                     }
                     info!("Agent: Gather supplies");
                     *interface_state = ObjectInterfaceState::Default;
                     return;
                 }
-                // Own Tunnel → DropOff (if carrying) or Enter (if not)
+                // Own Tunnel → DropOff (if carrying) or Enter (if not, with tier validation)
                 if tunnel_opt.is_some() && target_owner.player_number() == Some(local_player.0) {
-                    for (entity, _, _, _, attack_state_opt, _, obj, carry_opt) in &selected_units {
+                    for (entity, _, unit_base, owner, attack_state_opt, _, obj, carry_opt, mut command_queue) in &mut selected_units {
                         if obj.object_type == ObjectEnum::SyndicateAgent {
                             if let Some(attack_state) = attack_state_opt {
                                 if !attack_state.phase.is_interruptible() {
                                     continue;
                                 }
                             }
-                            let mut entity_cmds = commands_ecs.entity(entity);
-                            clear_movement_state_full(&mut entity_cmds);
-                            entity_cmds.insert(AttackState::default());
-                            if carry_opt.map(|cs| cs.is_carrying()).unwrap_or(false) {
-                                entity_cmds.insert(UnitCommand::DropOffResources(target_entity));
+                            let cmd = if carry_opt.map(|cs| cs.is_carrying()).unwrap_or(false) {
+                                Some(UnitCommand::DropOffResources(target_entity))
+                            } else if let Some(ts) = tunnel_opt {
+                                if can_enter_tunnel(true, owner.player_number(), target_owner.player_number(), unit_base, &ts.tier).is_ok() {
+                                    Some(UnitCommand::Enter(target_entity))
+                                } else {
+                                    None
+                                }
                             } else {
-                                entity_cmds.insert(UnitCommand::Enter(target_entity));
+                                None
+                            };
+                            if let Some(cmd) = cmd {
+                                let mut entity_cmds = commands_ecs.entity(entity);
+                                if !shift_held {
+                                    clear_movement_state_full(&mut entity_cmds);
+                                    entity_cmds.insert(AttackState::default());
+                                }
+                                issue_or_queue_command(&mut entity_cmds, &mut command_queue, cmd, shift_held);
                             }
                         }
                     }
@@ -386,6 +591,42 @@ pub fn right_click_move_command(
                 }
             }
         }
+
+        // Right-click on non-enemy Tunnel: BasicCombatUnit (Guard etc.) Enter
+        if is_right_click && command_type == CommandType::Default {
+            if let Some(target_entity) = cursor_target.entity {
+                if let Ok((_sds_opt, _st_opt, target_owner, _crystal_opt, tunnel_opt)) = target_info.get(target_entity) {
+                    if let Some(tunnel_state) = tunnel_opt {
+                        if target_owner.player_number() == Some(local_player.0) {
+                            let mut any_entered = false;
+                            for (entity, _, unit_base, owner, attack_state_opt, _, obj, _, mut command_queue) in &mut selected_units {
+                                // Skip Agents (already handled above)
+                                if obj.object_type == ObjectEnum::SyndicateAgent { continue; }
+                                let is_syndicate = matches!(obj.object_type, ObjectEnum::SyndicateGuard);
+                                if !is_syndicate { continue; }
+                                if can_enter_tunnel(is_syndicate, owner.player_number(), target_owner.player_number(), unit_base, &tunnel_state.tier).is_ok() {
+                                    if let Some(attack_state) = attack_state_opt {
+                                        if !attack_state.phase.is_interruptible() { continue; }
+                                    }
+                                    let mut entity_cmds = commands_ecs.entity(entity);
+                                    if !shift_held {
+                                        clear_movement_state_full(&mut entity_cmds);
+                                    }
+                                    issue_or_queue_command(&mut entity_cmds, &mut command_queue, UnitCommand::Enter(target_entity), shift_held);
+                                    any_entered = true;
+                                }
+                            }
+                            if any_entered {
+                                info!("Guard: Enter tunnel");
+                                *interface_state = ObjectInterfaceState::Default;
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // If right-click on non-enemy entity, fall through to ground Move below
     }
 
@@ -400,26 +641,32 @@ pub fn right_click_move_command(
 
     match command_type {
         CommandType::Move | CommandType::Default => {
-            for (entity, transform, unit_base, _owner, attack_state_opt, _, _, _) in &selected_units {
+            for (entity, transform, unit_base, _owner, attack_state_opt, _, _, _, mut command_queue) in &mut selected_units {
                 if let Some(attack_state) = attack_state_opt {
                     if !attack_state.phase.is_interruptible() {
                         continue;
                     }
                 }
-                let start_grid = world_to_grid(transform.translation);
-                if let Some(path) = crate::game::units::pathfinding::find_path_for_domain(start_grid, target_grid, &tiles, unit_base, grid.width as i32, grid.height as i32, &occupancy, (start_grid.x, start_grid.z)) {
-                    let smoothed_waypoints = smooth_path(path);
-                    commands_ecs.entity(entity)
-                        .remove::<HoldingPosition>()
-                        .remove::<IdleOrigin>()
-                        .insert((
-                            MoveTarget(target_pos),
-                            Path { waypoints: smoothed_waypoints, current_waypoint: 0 },
-                            UnitCommand::Move(target_pos),
-                            AttackState::default(), // Clear attack state so unit doesn't stop to shoot
-                        ));
+                let cmd = UnitCommand::Move(target_pos);
+                if shift_held {
+                    command_queue.push(cmd);
                 } else {
-                    warn!("No path found for unit to ({}, {})", target_grid.x, target_grid.z);
+                    command_queue.clear();
+                    let start_grid = world_to_grid(transform.translation);
+                    if let Some(path) = crate::game::units::pathfinding::find_path_for_domain(start_grid, target_grid, &tiles, unit_base, grid.width as i32, grid.height as i32, &occupancy, (start_grid.x, start_grid.z)) {
+                        let smoothed_waypoints = smooth_path(path);
+                        commands_ecs.entity(entity)
+                            .remove::<HoldingPosition>()
+                            .remove::<IdleOrigin>()
+                            .insert((
+                                MoveTarget(target_pos),
+                                Path { waypoints: smoothed_waypoints, current_waypoint: 0 },
+                                cmd,
+                                AttackState::default(),
+                            ));
+                    } else {
+                        warn!("No path found for unit to ({}, {})", target_grid.x, target_grid.z);
+                    }
                 }
             }
             info!("Move command: {} unit(s) to ({:.1}, {:.1})", selected_count, target_pos.x, target_pos.z);
@@ -427,25 +674,31 @@ pub fn right_click_move_command(
         }
 
         CommandType::Patrol => {
-            for (entity, transform, unit_base, _owner, attack_state_opt, _, _, _) in &selected_units {
+            for (entity, transform, unit_base, _owner, attack_state_opt, _, _, _, mut command_queue) in &mut selected_units {
                 if let Some(attack_state) = attack_state_opt {
                     if !attack_state.phase.is_interruptible() {
                         continue;
                     }
                 }
                 let start_pos = transform.translation;
-                let start_grid = world_to_grid(start_pos);
-                if let Some(path) = crate::game::units::pathfinding::find_path_for_domain(start_grid, target_grid, &tiles, unit_base, grid.width as i32, grid.height as i32, &occupancy, (start_grid.x, start_grid.z)) {
-                    let smoothed_waypoints = smooth_path(path);
-                    commands_ecs.entity(entity)
-                        .remove::<HoldingPosition>()
-                        .remove::<IdleOrigin>()
-                        .insert((
-                            MoveTarget(target_pos),
-                            Path { waypoints: smoothed_waypoints, current_waypoint: 0 },
-                            UnitCommand::Patrol { start: start_pos, end: target_pos, going_to_end: true },
-                            AttackState::default(), // Clear attack state for clean patrol start
-                        ));
+                let cmd = UnitCommand::Patrol { start: start_pos, end: target_pos, going_to_end: true };
+                if shift_held {
+                    command_queue.push(cmd);
+                } else {
+                    command_queue.clear();
+                    let start_grid = world_to_grid(start_pos);
+                    if let Some(path) = crate::game::units::pathfinding::find_path_for_domain(start_grid, target_grid, &tiles, unit_base, grid.width as i32, grid.height as i32, &occupancy, (start_grid.x, start_grid.z)) {
+                        let smoothed_waypoints = smooth_path(path);
+                        commands_ecs.entity(entity)
+                            .remove::<HoldingPosition>()
+                            .remove::<IdleOrigin>()
+                            .insert((
+                                MoveTarget(target_pos),
+                                Path { waypoints: smoothed_waypoints, current_waypoint: 0 },
+                                cmd,
+                                AttackState::default(),
+                            ));
+                    }
                 }
             }
             info!("Patrol command: {} unit(s) to ({:.1}, {:.1})", selected_count, target_pos.x, target_pos.z);
@@ -454,23 +707,29 @@ pub fn right_click_move_command(
 
         CommandType::Attack => {
             // Attack + ground click = AttackMove to that location
-            for (entity, transform, unit_base, _owner, attack_state_opt, _, _, _) in &selected_units {
+            for (entity, transform, unit_base, _owner, attack_state_opt, _, _, _, mut command_queue) in &mut selected_units {
                 if let Some(attack_state) = attack_state_opt {
                     if !attack_state.phase.is_interruptible() {
                         continue;
                     }
                 }
-                let start_grid = world_to_grid(transform.translation);
-                if let Some(path) = crate::game::units::pathfinding::find_path_for_domain(start_grid, target_grid, &tiles, unit_base, grid.width as i32, grid.height as i32, &occupancy, (start_grid.x, start_grid.z)) {
-                    let smoothed_waypoints = smooth_path(path);
-                    commands_ecs.entity(entity)
-                        .remove::<HoldingPosition>()
-                        .remove::<IdleOrigin>()
-                        .insert((
-                            MoveTarget(target_pos),
-                            Path { waypoints: smoothed_waypoints, current_waypoint: 0 },
-                            UnitCommand::AttackMove(target_pos),
-                        ));
+                let cmd = UnitCommand::AttackMove(target_pos);
+                if shift_held {
+                    command_queue.push(cmd);
+                } else {
+                    command_queue.clear();
+                    let start_grid = world_to_grid(transform.translation);
+                    if let Some(path) = crate::game::units::pathfinding::find_path_for_domain(start_grid, target_grid, &tiles, unit_base, grid.width as i32, grid.height as i32, &occupancy, (start_grid.x, start_grid.z)) {
+                        let smoothed_waypoints = smooth_path(path);
+                        commands_ecs.entity(entity)
+                            .remove::<HoldingPosition>()
+                            .remove::<IdleOrigin>()
+                            .insert((
+                                MoveTarget(target_pos),
+                                Path { waypoints: smoothed_waypoints, current_waypoint: 0 },
+                                cmd,
+                            ));
+                    }
                 }
             }
             info!("Attack Move (from Attack+ground): {} unit(s) to ({:.1}, {:.1})", selected_count, target_pos.x, target_pos.z);
@@ -478,23 +737,29 @@ pub fn right_click_move_command(
         }
 
         CommandType::AttackMove => {
-            for (entity, transform, unit_base, _owner, attack_state_opt, _, _, _) in &selected_units {
+            for (entity, transform, unit_base, _owner, attack_state_opt, _, _, _, mut command_queue) in &mut selected_units {
                 if let Some(attack_state) = attack_state_opt {
                     if !attack_state.phase.is_interruptible() {
                         continue;
                     }
                 }
-                let start_grid = world_to_grid(transform.translation);
-                if let Some(path) = crate::game::units::pathfinding::find_path_for_domain(start_grid, target_grid, &tiles, unit_base, grid.width as i32, grid.height as i32, &occupancy, (start_grid.x, start_grid.z)) {
-                    let smoothed_waypoints = smooth_path(path);
-                    commands_ecs.entity(entity)
-                        .remove::<HoldingPosition>()
-                        .remove::<IdleOrigin>()
-                        .insert((
-                            MoveTarget(target_pos),
-                            Path { waypoints: smoothed_waypoints, current_waypoint: 0 },
-                            UnitCommand::AttackMove(target_pos),
-                        ));
+                let cmd = UnitCommand::AttackMove(target_pos);
+                if shift_held {
+                    command_queue.push(cmd);
+                } else {
+                    command_queue.clear();
+                    let start_grid = world_to_grid(transform.translation);
+                    if let Some(path) = crate::game::units::pathfinding::find_path_for_domain(start_grid, target_grid, &tiles, unit_base, grid.width as i32, grid.height as i32, &occupancy, (start_grid.x, start_grid.z)) {
+                        let smoothed_waypoints = smooth_path(path);
+                        commands_ecs.entity(entity)
+                            .remove::<HoldingPosition>()
+                            .remove::<IdleOrigin>()
+                            .insert((
+                                MoveTarget(target_pos),
+                                Path { waypoints: smoothed_waypoints, current_waypoint: 0 },
+                                cmd,
+                            ));
+                    }
                 }
             }
             info!("Attack Move command: {} unit(s) to ({:.1}, {:.1})", selected_count, target_pos.x, target_pos.z);
@@ -502,23 +767,29 @@ pub fn right_click_move_command(
         }
 
         CommandType::AttackGround => {
-            for (entity, transform, unit_base, _owner, attack_state_opt, _, _, _) in &selected_units {
+            for (entity, transform, unit_base, _owner, attack_state_opt, _, _, _, mut command_queue) in &mut selected_units {
                 if let Some(attack_state) = attack_state_opt {
                     if !attack_state.phase.is_interruptible() {
                         continue;
                     }
                 }
-                let start_grid = world_to_grid(transform.translation);
-                if let Some(path) = crate::game::units::pathfinding::find_path_for_domain(start_grid, target_grid, &tiles, unit_base, grid.width as i32, grid.height as i32, &occupancy, (start_grid.x, start_grid.z)) {
-                    let smoothed_waypoints = smooth_path(path);
-                    commands_ecs.entity(entity)
-                        .remove::<HoldingPosition>()
-                        .remove::<IdleOrigin>()
-                        .insert((
-                            MoveTarget(target_pos),
-                            Path { waypoints: smoothed_waypoints, current_waypoint: 0 },
-                            UnitCommand::AttackLocation(target_pos),
-                        ));
+                let cmd = UnitCommand::AttackLocation(target_pos);
+                if shift_held {
+                    command_queue.push(cmd);
+                } else {
+                    command_queue.clear();
+                    let start_grid = world_to_grid(transform.translation);
+                    if let Some(path) = crate::game::units::pathfinding::find_path_for_domain(start_grid, target_grid, &tiles, unit_base, grid.width as i32, grid.height as i32, &occupancy, (start_grid.x, start_grid.z)) {
+                        let smoothed_waypoints = smooth_path(path);
+                        commands_ecs.entity(entity)
+                            .remove::<HoldingPosition>()
+                            .remove::<IdleOrigin>()
+                            .insert((
+                                MoveTarget(target_pos),
+                                Path { waypoints: smoothed_waypoints, current_waypoint: 0 },
+                                cmd,
+                            ));
+                    }
                 }
             }
             info!("Attack Ground command: {} unit(s) to ({:.1}, {:.1})", selected_count, target_pos.x, target_pos.z);
@@ -526,7 +797,7 @@ pub fn right_click_move_command(
         }
 
         CommandType::Reverse => {
-            for (entity, transform, unit_base, _owner, attack_state_opt, _, _, _) in &selected_units {
+            for (entity, transform, unit_base, _owner, attack_state_opt, _, _, _, mut command_queue) in &mut selected_units {
                 if let Some(attack_state) = attack_state_opt {
                     if !attack_state.phase.is_interruptible() {
                         continue;
@@ -535,18 +806,24 @@ pub fn right_click_move_command(
                 if !unit_base.data().can_reverse {
                     continue;
                 }
-                let start_grid = world_to_grid(transform.translation);
-                if let Some(path) = crate::game::units::pathfinding::find_path_for_domain(start_grid, target_grid, &tiles, unit_base, grid.width as i32, grid.height as i32, &occupancy, (start_grid.x, start_grid.z)) {
-                    let smoothed_waypoints = smooth_path(path);
-                    commands_ecs.entity(entity)
-                        .remove::<HoldingPosition>()
-                        .remove::<IdleOrigin>()
-                        .insert((
-                            MoveTarget(target_pos),
-                            Path { waypoints: smoothed_waypoints, current_waypoint: 0 },
-                            UnitCommand::Reverse(target_pos),
-                            AttackState::default(), // Clear attack state for clean reverse
-                        ));
+                let cmd = UnitCommand::Reverse(target_pos);
+                if shift_held {
+                    command_queue.push(cmd);
+                } else {
+                    command_queue.clear();
+                    let start_grid = world_to_grid(transform.translation);
+                    if let Some(path) = crate::game::units::pathfinding::find_path_for_domain(start_grid, target_grid, &tiles, unit_base, grid.width as i32, grid.height as i32, &occupancy, (start_grid.x, start_grid.z)) {
+                        let smoothed_waypoints = smooth_path(path);
+                        commands_ecs.entity(entity)
+                            .remove::<HoldingPosition>()
+                            .remove::<IdleOrigin>()
+                            .insert((
+                                MoveTarget(target_pos),
+                                Path { waypoints: smoothed_waypoints, current_waypoint: 0 },
+                                cmd,
+                                AttackState::default(),
+                            ));
+                    }
                 }
             }
             info!("Reverse command: {} unit(s) to ({:.1}, {:.1})", selected_count, target_pos.x, target_pos.z);
@@ -565,9 +842,26 @@ pub fn right_click_move_command(
             *interface_state = ObjectInterfaceState::Default;
         }
 
-        CommandType::Gather | CommandType::DropOff => {
-            // Gather and DropOff require clicking a target entity, not ground.
+        CommandType::Gather => {
+            // Gather requires clicking a target entity, not ground.
             // Ground click resets mode.
+            *interface_state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
+        }
+
+        CommandType::DropOff => {
+            // DropOff requires clicking a target entity, not ground.
+            // Ground click resets mode.
+            *interface_state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
+        }
+
+        CommandType::PickUpSupplies | CommandType::AttachToTower | CommandType::DropOffSupplies => {
+            // These require clicking a target entity, not ground.
+            // Ground click resets mode.
+            *interface_state = ObjectInterfaceState::Default;
+        }
+
+        CommandType::HoldPosition | CommandType::Stop => {
+            // These are immediate commands, not ground-targeting. Ground click resets mode.
             *interface_state = ObjectInterfaceState::Default;
         }
 
@@ -1368,6 +1662,369 @@ pub fn air_unit_separation_system(
         if repulsion.length_squared() > 0.0001 {
             transform.translation.x += repulsion.x * delta;
             transform.translation.z += repulsion.z * delta;
+        }
+    }
+}
+
+/// Channel-driven locomotion consumer for TurnRate units.
+/// Reads LocomotionChannel (written by behavior systems in Phase 2) and drives
+/// Transform/Velocity. Mirrors turn_rate_movement_system logic but reads from
+/// channels instead of MoveTarget/Path components.
+///
+/// Coexistence: only processes entities WITHOUT MoveTarget (channel-driven path).
+/// Entities with MoveTarget continue to use the old turn_rate_movement_system.
+pub fn channel_turnrate_locomotion_system(
+    time: Res<Time>,
+    occupancy: Res<OccupancyMap>,
+    mut units: Query<
+        (Entity, &mut Transform, &mut Velocity, &LocomotionChannel,
+         &TurnRateMovementParams, Option<&Silhouette>, Option<&DomainEnum>),
+        (With<Unit>, Without<MoveTarget>, Without<HoldingPosition>)
+    >,
+) {
+    let delta = time.delta_secs();
+    if delta < 0.0001 {
+        return;
+    }
+
+    for (entity, mut transform, mut velocity, locomotion, params,
+         silhouette_opt, domain_opt) in &mut units
+    {
+        match locomotion {
+            LocomotionChannel::Moving(path) => {
+                if path.is_empty() {
+                    velocity.0 = Vec3::ZERO;
+                    continue;
+                }
+                let target = path[0];
+                let current_pos = transform.translation;
+                let to_target = Vec3::new(target.x - current_pos.x, 0.0, target.z - current_pos.z);
+                let distance = to_target.length();
+
+                if distance < 0.1 {
+                    // Very close — snap position
+                    transform.translation.x = target.x;
+                    transform.translation.z = target.z;
+                    velocity.0 = Vec3::ZERO;
+                    continue;
+                }
+
+                // Compute facing vs waypoint angle for speed modulation
+                let desired_dir = to_target.normalize();
+                let current_forward = transform.forward();
+                let current_facing = Vec3::new(current_forward.x, 0.0, current_forward.z).normalize_or_zero();
+                let dot = current_facing.dot(desired_dir).clamp(-1.0, 1.0);
+                let angle_to_target = dot.acos();
+
+                // Compute desired speed
+                let current_speed = velocity.0.length();
+                let decel_distance = if params.deceleration < f32::MAX / 2.0 {
+                    (current_speed * current_speed) / (2.0 * params.deceleration)
+                } else {
+                    0.0
+                };
+
+                let target_speed = if distance < decel_distance.max(0.5) {
+                    (distance / decel_distance.max(0.5)) * params.max_speed
+                } else if angle_to_target > std::f32::consts::FRAC_PI_2 {
+                    // Facing away from waypoint — slow down to turn
+                    params.max_speed * 0.1
+                } else {
+                    params.max_speed
+                };
+
+                let new_speed = if target_speed > current_speed {
+                    (current_speed + params.acceleration * delta).min(target_speed)
+                } else {
+                    (current_speed - params.deceleration * delta).max(target_speed).max(0.0)
+                };
+
+                // Move forward in facing direction
+                let updated_forward = transform.forward();
+                let facing_2d = Vec3::new(updated_forward.x, 0.0, updated_forward.z).normalize_or_zero();
+                velocity.0 = facing_2d * new_speed;
+
+                let proposed_pos = transform.translation + velocity.0 * delta;
+
+                // Ground collision check
+                let is_ground = domain_opt.map_or(true, |d| *d == DomainEnum::Ground);
+                if is_ground {
+                    if let Some(sil) = silhouette_opt {
+                        let half_w = sil.width / 2.0;
+                        let half_h = sil.height / 2.0;
+                        if occupancy.check_movement_collision(entity, proposed_pos.x, proposed_pos.z, half_w, half_h) {
+                            velocity.0 = Vec3::ZERO;
+                            continue;
+                        }
+                    }
+                }
+
+                transform.translation = proposed_pos;
+                let is_air = domain_opt.map_or(false, |d| *d == DomainEnum::Air);
+                transform.translation.y = if is_air { 1.5 } else { 0.5 };
+            }
+            LocomotionChannel::Reversing(path) => {
+                if path.is_empty() {
+                    velocity.0 = Vec3::ZERO;
+                    continue;
+                }
+                let target = path[0];
+                let current_pos = transform.translation;
+                let to_target = Vec3::new(target.x - current_pos.x, 0.0, target.z - current_pos.z);
+                let distance = to_target.length();
+
+                if distance < 0.1 {
+                    transform.translation.x = target.x;
+                    transform.translation.z = target.z;
+                    velocity.0 = Vec3::ZERO;
+                    continue;
+                }
+
+                // Move backward (opposite of facing direction)
+                let current_forward = transform.forward();
+                let facing_2d = Vec3::new(current_forward.x, 0.0, current_forward.z).normalize_or_zero();
+                let reverse_dir = -facing_2d;
+
+                // Reverse at reduced speed
+                let current_speed = velocity.0.length();
+                let reverse_max = params.max_speed * 0.5;
+                let target_speed = if distance < 1.0 {
+                    reverse_max * (distance / 1.0)
+                } else {
+                    reverse_max
+                };
+
+                let new_speed = if target_speed > current_speed {
+                    (current_speed + params.acceleration * delta).min(target_speed)
+                } else {
+                    (current_speed - params.deceleration * delta).max(target_speed).max(0.0)
+                };
+
+                velocity.0 = reverse_dir * new_speed;
+
+                let proposed_pos = transform.translation + velocity.0 * delta;
+
+                // Ground collision check
+                let is_ground = domain_opt.map_or(true, |d| *d == DomainEnum::Ground);
+                if is_ground {
+                    if let Some(sil) = silhouette_opt {
+                        if occupancy.check_movement_collision(entity, proposed_pos.x, proposed_pos.z, sil.width / 2.0, sil.height / 2.0) {
+                            velocity.0 = Vec3::ZERO;
+                            continue;
+                        }
+                    }
+                }
+
+                transform.translation = proposed_pos;
+                let is_air = domain_opt.map_or(false, |d| *d == DomainEnum::Air);
+                transform.translation.y = if is_air { 1.5 } else { 0.5 };
+            }
+            LocomotionChannel::Stopping => {
+                let current_speed = velocity.0.length();
+                if current_speed < 0.01 {
+                    velocity.0 = Vec3::ZERO;
+                    continue;
+                }
+                let new_speed = if params.deceleration < f32::MAX / 2.0 {
+                    (current_speed - params.deceleration * delta).max(0.0)
+                } else {
+                    0.0 // Instant deceleration
+                };
+                velocity.0 = velocity.0.normalize_or_zero() * new_speed;
+
+                let proposed_pos = transform.translation + velocity.0 * delta;
+
+                let is_ground = domain_opt.map_or(true, |d| *d == DomainEnum::Ground);
+                if is_ground {
+                    if let Some(sil) = silhouette_opt {
+                        if occupancy.check_movement_collision(entity, proposed_pos.x, proposed_pos.z, sil.width / 2.0, sil.height / 2.0) {
+                            velocity.0 = Vec3::ZERO;
+                            continue;
+                        }
+                    }
+                }
+
+                transform.translation = proposed_pos;
+                let is_air = domain_opt.map_or(false, |d| *d == DomainEnum::Air);
+                transform.translation.y = if is_air { 1.5 } else { 0.5 };
+            }
+            LocomotionChannel::Stationary => {
+                // No channel-driven movement — leave for other systems or idle
+            }
+        }
+    }
+}
+
+/// Channel-driven locomotion consumer for non-TurnRate units (fallback).
+/// Reads LocomotionChannel and drives Transform/Velocity using direct-to-waypoint
+/// movement (same pattern as unit_movement_system).
+///
+/// Only processes entities WITHOUT MoveTarget and WITHOUT TurnRateMovementParams.
+pub fn channel_fallback_locomotion_system(
+    time: Res<Time>,
+    occupancy: Res<OccupancyMap>,
+    mut units: Query<
+        (Entity, &mut Transform, &mut Velocity, &LocomotionChannel,
+         &MovementSpeed, Option<&Silhouette>, Option<&DomainEnum>),
+        (With<Unit>, Without<MoveTarget>, Without<TurnRateMovementParams>, Without<HoldingPosition>)
+    >,
+) {
+    let delta = time.delta_secs();
+    if delta < 0.0001 {
+        return;
+    }
+
+    for (entity, mut transform, mut velocity, locomotion, speed,
+         silhouette_opt, domain_opt) in &mut units
+    {
+        match locomotion {
+            LocomotionChannel::Moving(path) | LocomotionChannel::Reversing(path) => {
+                if path.is_empty() {
+                    velocity.0 = Vec3::ZERO;
+                    continue;
+                }
+                let target = path[0];
+                let current_pos = transform.translation;
+                let direction_3d = target - current_pos;
+                let direction_2d = Vec3::new(direction_3d.x, 0.0, direction_3d.z);
+                let distance = direction_2d.length();
+
+                if distance < 0.1 {
+                    transform.translation.x = target.x;
+                    transform.translation.z = target.z;
+                    velocity.0 = Vec3::ZERO;
+                    continue;
+                }
+
+                let normalized_direction = direction_2d.normalize();
+                let acceleration = 8.0;
+                let decel_distance = 1.5;
+
+                if distance < decel_distance {
+                    let target_speed = (distance / decel_distance) * speed.0;
+                    let desired_velocity = normalized_direction * target_speed;
+                    velocity.0 = velocity.0.lerp(desired_velocity, acceleration * delta);
+                } else {
+                    let desired_velocity = normalized_direction * speed.0;
+                    velocity.0 = velocity.0.lerp(desired_velocity, acceleration * delta);
+                }
+
+                let proposed_pos = transform.translation + velocity.0 * delta;
+
+                let is_ground = domain_opt.map_or(true, |d| *d == DomainEnum::Ground);
+                if is_ground {
+                    if let Some(sil) = silhouette_opt {
+                        let half_w = sil.width / 2.0;
+                        let half_h = sil.height / 2.0;
+                        if occupancy.check_movement_collision(entity, proposed_pos.x, proposed_pos.z, half_w, half_h) {
+                            velocity.0 = Vec3::ZERO;
+                            continue;
+                        }
+                    }
+                }
+
+                transform.translation = proposed_pos;
+                let is_air = domain_opt.map_or(false, |d| *d == DomainEnum::Air);
+                transform.translation.y = if is_air { 1.5 } else { 0.5 };
+            }
+            LocomotionChannel::Stopping => {
+                let current_speed = velocity.0.length();
+                if current_speed < 0.01 {
+                    velocity.0 = Vec3::ZERO;
+                    continue;
+                }
+                // Decelerate using default rate
+                let new_speed = (current_speed - 8.0 * delta).max(0.0);
+                velocity.0 = velocity.0.normalize_or_zero() * new_speed;
+
+                let proposed_pos = transform.translation + velocity.0 * delta;
+
+                let is_ground = domain_opt.map_or(true, |d| *d == DomainEnum::Ground);
+                if is_ground {
+                    if let Some(sil) = silhouette_opt {
+                        if occupancy.check_movement_collision(entity, proposed_pos.x, proposed_pos.z, sil.width / 2.0, sil.height / 2.0) {
+                            velocity.0 = Vec3::ZERO;
+                            continue;
+                        }
+                    }
+                }
+
+                transform.translation = proposed_pos;
+                let is_air = domain_opt.map_or(false, |d| *d == DomainEnum::Air);
+                transform.translation.y = if is_air { 1.5 } else { 0.5 };
+            }
+            LocomotionChannel::Stationary => {
+                // No channel-driven movement
+            }
+        }
+    }
+}
+
+/// Channel-driven orientation consumer system.
+/// Reads OrientationChannel and rotates the unit base toward the target.
+/// Handles TurnRate units (uses TurnRateMovementParams.turn_rate) and
+/// non-TurnRate units (uses RotationSpeed).
+///
+/// For TurnRate units, applies turn-rate-limited rotation per tick.
+/// For non-TurnRate units, applies slerp-based rotation toward target.
+pub fn channel_orientation_system(
+    time: Res<Time>,
+    mut units: Query<
+        (&mut Transform, &OrientationChannel,
+         Option<&TurnRateMovementParams>, Option<&RotationSpeed>),
+        (With<Unit>, Without<MoveTarget>)
+    >,
+) {
+    let delta = time.delta_secs();
+    if delta < 0.0001 {
+        return;
+    }
+
+    for (mut transform, orientation, turn_params_opt, rot_speed_opt) in &mut units {
+        match orientation {
+            OrientationChannel::Turning(target) => {
+                let current_pos = transform.translation;
+                let to_target = Vec3::new(target.x - current_pos.x, 0.0, target.z - current_pos.z);
+
+                if to_target.length_squared() < 0.001 {
+                    continue;
+                }
+
+                let desired_dir = to_target.normalize();
+
+                if let Some(params) = turn_params_opt {
+                    // TurnRate rotation: turn toward target, capped by turn_rate
+                    let current_forward = transform.forward();
+                    let current_facing = Vec3::new(current_forward.x, 0.0, current_forward.z).normalize_or_zero();
+                    let dot = current_facing.dot(desired_dir).clamp(-1.0, 1.0);
+                    let angle_to_target = dot.acos();
+
+                    if angle_to_target > 0.001 {
+                        let max_turn = params.turn_rate * delta;
+                        let cross = current_facing.cross(desired_dir);
+                        let turn_sign = if cross.y >= 0.0 { 1.0 } else { -1.0 };
+                        let actual_turn = angle_to_target.min(max_turn);
+                        let turn_quat = Quat::from_rotation_y(turn_sign * actual_turn);
+                        transform.rotation = turn_quat * transform.rotation;
+                    }
+                } else if let Some(rot_speed) = rot_speed_opt {
+                    // Non-TurnRate rotation: slerp toward target direction
+                    let target_rotation = Quat::from_rotation_y(
+                        desired_dir.x.atan2(desired_dir.z)
+                    );
+                    let rotation_speed_factor = rot_speed.0 * delta;
+                    transform.rotation = transform.rotation.slerp(target_rotation, rotation_speed_factor.min(1.0));
+                } else {
+                    // Fallback: instant snap
+                    let target_rotation = Quat::from_rotation_y(
+                        desired_dir.x.atan2(desired_dir.z)
+                    );
+                    transform.rotation = target_rotation;
+                }
+            }
+            OrientationChannel::Maintaining => {
+                // Hold current facing — no rotation applied
+            }
         }
     }
 }
@@ -2257,6 +2914,782 @@ mod tests {
 
         let attack_state = world.entity(unit).get::<AttackState>().unwrap();
         assert!(attack_state.current_target.is_none(), "Non-combat command should clear attack state");
+    }
+
+    // === Agent DropOff Target Click Tests ===
+
+    /// Helper: create a World with all resources needed for right_click_move_command
+    fn create_dropoff_test_world(command_type: CommandType, target_entity: Option<Entity>, cursor_kind: CursorTargetEnum) -> World {
+        let mut world = World::new();
+        world.insert_resource(ObjectInterfaceState::AwaitingTarget(command_type));
+        world.insert_resource(CursorTarget {
+            kind: cursor_kind,
+            location: Some(Vec3::new(5.0, 0.0, 5.0)),
+            entity: target_entity,
+        });
+        world.insert_resource(CursorOverUi(false));
+        let mut buttons = ButtonInput::<MouseButton>::default();
+        buttons.press(MouseButton::Left);
+        world.insert_resource(buttons);
+        world.insert_resource(ButtonInput::<KeyCode>::default());
+        world.insert_resource(LocalPlayer(0));
+        world.insert_resource(GridMap { width: 64, height: 64, cell_size: 1.0 });
+        world.insert_resource(OccupancyMap::default());
+        world
+    }
+
+    /// Helper: spawn a selected SyndicateAgent entity
+    fn spawn_selected_agent(world: &mut World) -> Entity {
+        world.spawn((
+            Unit,
+            Selected,
+            Transform::from_xyz(0.0, 0.5, 0.0),
+            UnitBaseEnum::LightInfantry,
+            Owner::player(0),
+            ObjectInstance::destructible(ObjectEnum::SyndicateAgent, 100.0),
+            UnitCommand::Idle,
+            CommandQueue::new(),
+        )).id()
+    }
+
+    /// Helper: spawn an own Tunnel entity
+    fn spawn_own_tunnel(world: &mut World) -> Entity {
+        world.spawn((
+            ObjectInstance::destructible(ObjectEnum::Tunnel, 500.0),
+            Owner::player(0),
+            TunnelState::default_tier1(),
+        )).id()
+    }
+
+    /// Helper: spawn an enemy Tunnel entity
+    fn spawn_enemy_tunnel(world: &mut World) -> Entity {
+        world.spawn((
+            ObjectInstance::destructible(ObjectEnum::Tunnel, 500.0),
+            Owner::player(1),
+            TunnelState::default_tier1(),
+        )).id()
+    }
+
+    #[test]
+    fn dropoff_left_click_own_tunnel_issues_command() {
+        let mut world = World::new();
+        let tunnel = spawn_own_tunnel(&mut world);
+        let agent = spawn_selected_agent(&mut world);
+        // Now set up resources with the tunnel as target
+        world.insert_resource(ObjectInterfaceState::AwaitingTarget(CommandType::DropOff));
+        world.insert_resource(CursorTarget {
+            kind: CursorTargetEnum::FriendlyObject,
+            location: Some(Vec3::new(5.0, 0.0, 5.0)),
+            entity: Some(tunnel),
+        });
+        world.insert_resource(CursorOverUi(false));
+        let mut buttons = ButtonInput::<MouseButton>::default();
+        buttons.press(MouseButton::Left);
+        world.insert_resource(buttons);
+        world.insert_resource(ButtonInput::<KeyCode>::default());
+        world.insert_resource(LocalPlayer(0));
+        world.insert_resource(GridMap { width: 64, height: 64, cell_size: 1.0 });
+        world.insert_resource(OccupancyMap::default());
+
+        world.run_system_once(right_click_move_command).unwrap();
+
+        // Agent should have DropOffResources command
+        let cmd = world.entity(agent).get::<UnitCommand>().unwrap();
+        match cmd {
+            UnitCommand::DropOffResources(target) => assert_eq!(*target, tunnel),
+            other => panic!("Expected DropOffResources, got {:?}", other),
+        }
+        // Interface should return to AgentDefault
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault));
+    }
+
+    #[test]
+    fn dropoff_left_click_non_tunnel_resets_to_agent_default() {
+        let mut world = World::new();
+        // Spawn a non-tunnel entity (just an ObjectInstance with Owner, no TunnelState)
+        let non_tunnel = world.spawn((
+            ObjectInstance::destructible(ObjectEnum::SyndicateAgent, 100.0),
+            Owner::player(0),
+        )).id();
+        let agent = spawn_selected_agent(&mut world);
+
+        world.insert_resource(ObjectInterfaceState::AwaitingTarget(CommandType::DropOff));
+        world.insert_resource(CursorTarget {
+            kind: CursorTargetEnum::FriendlyObject,
+            location: Some(Vec3::new(5.0, 0.0, 5.0)),
+            entity: Some(non_tunnel),
+        });
+        world.insert_resource(CursorOverUi(false));
+        let mut buttons = ButtonInput::<MouseButton>::default();
+        buttons.press(MouseButton::Left);
+        world.insert_resource(buttons);
+        world.insert_resource(ButtonInput::<KeyCode>::default());
+        world.insert_resource(LocalPlayer(0));
+        world.insert_resource(GridMap { width: 64, height: 64, cell_size: 1.0 });
+        world.insert_resource(OccupancyMap::default());
+
+        world.run_system_once(right_click_move_command).unwrap();
+
+        // Agent should NOT have DropOffResources command (still Idle)
+        let cmd = world.entity(agent).get::<UnitCommand>().unwrap();
+        match cmd {
+            UnitCommand::Idle => {} // expected
+            other => panic!("Expected Idle (no command issued), got {:?}", other),
+        }
+        // Interface should return to AgentDefault
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault));
+    }
+
+    #[test]
+    fn dropoff_left_click_enemy_tunnel_resets_without_command() {
+        let mut world = World::new();
+        let enemy_tunnel = spawn_enemy_tunnel(&mut world);
+        let agent = spawn_selected_agent(&mut world);
+
+        world.insert_resource(ObjectInterfaceState::AwaitingTarget(CommandType::DropOff));
+        world.insert_resource(CursorTarget {
+            kind: CursorTargetEnum::EnemyObject,
+            location: Some(Vec3::new(5.0, 0.0, 5.0)),
+            entity: Some(enemy_tunnel),
+        });
+        world.insert_resource(CursorOverUi(false));
+        let mut buttons = ButtonInput::<MouseButton>::default();
+        buttons.press(MouseButton::Left);
+        world.insert_resource(buttons);
+        world.insert_resource(ButtonInput::<KeyCode>::default());
+        world.insert_resource(LocalPlayer(0));
+        world.insert_resource(GridMap { width: 64, height: 64, cell_size: 1.0 });
+        world.insert_resource(OccupancyMap::default());
+
+        world.run_system_once(right_click_move_command).unwrap();
+
+        // Agent should NOT have DropOffResources command
+        let cmd = world.entity(agent).get::<UnitCommand>().unwrap();
+        match cmd {
+            UnitCommand::Idle => {} // expected - no command issued
+            other => panic!("Expected Idle (no command issued for enemy tunnel), got {:?}", other),
+        }
+        // Interface should return to AgentDefault
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault));
+    }
+
+    // ---- rebuild_occupancy_map tests ----
+
+    #[test]
+    fn rebuild_occupancy_map_surface_structure_blocks_tiles() {
+        let mut world = World::new();
+        world.insert_resource(OccupancyMap::default());
+
+        // Spawn a surface Tunnel (4x4) at grid (10, 10) — no DomainEnum means surface
+        world.spawn((
+            GridPosition { x: 10, z: 10 },
+            ObjectInstance::destructible(ObjectEnum::Tunnel, 100.0),
+            StructureInstance::default(),
+        ));
+
+        world.run_system_once(rebuild_occupancy_map).unwrap();
+
+        let occupancy = world.resource::<OccupancyMap>();
+        // Tunnel is 4x4, so tiles (10,10) through (13,13) should be blocked
+        for dx in 0..4 {
+            for dz in 0..4 {
+                let tile = (10 + dx, 10 + dz);
+                assert!(occupancy.blocked_tiles.contains(&tile),
+                    "Surface structure tile {:?} should be in blocked_tiles", tile);
+                assert!(occupancy.structure_tiles.contains(&tile),
+                    "Surface structure tile {:?} should be in structure_tiles", tile);
+            }
+        }
+    }
+
+    #[test]
+    fn rebuild_occupancy_map_underground_structure_does_not_block() {
+        let mut world = World::new();
+        world.insert_resource(OccupancyMap::default());
+
+        // Spawn an underground Headquarters (2x2) at grid (10, 10)
+        world.spawn((
+            GridPosition { x: 10, z: 10 },
+            ObjectInstance::destructible(ObjectEnum::Headquarters, 100.0),
+            StructureInstance::default(),
+            DomainEnum::Underground,
+        ));
+
+        world.run_system_once(rebuild_occupancy_map).unwrap();
+
+        let occupancy = world.resource::<OccupancyMap>();
+        // Underground structure should NOT block any tiles
+        for dx in 0..2 {
+            for dz in 0..2 {
+                let tile = (10 + dx, 10 + dz);
+                assert!(!occupancy.blocked_tiles.contains(&tile),
+                    "Underground structure tile {:?} should NOT be in blocked_tiles", tile);
+                assert!(!occupancy.structure_tiles.contains(&tile),
+                    "Underground structure tile {:?} should NOT be in structure_tiles", tile);
+            }
+        }
+    }
+
+    #[test]
+    fn rebuild_occupancy_map_surface_blocks_but_underground_does_not() {
+        let mut world = World::new();
+        world.insert_resource(OccupancyMap::default());
+
+        // Surface Tunnel at grid (10, 10) — 4x4
+        world.spawn((
+            GridPosition { x: 10, z: 10 },
+            ObjectInstance::destructible(ObjectEnum::Tunnel, 100.0),
+            StructureInstance::default(),
+        ));
+
+        // Underground HQ at grid (20, 20) — 2x2, no overlap with tunnel
+        world.spawn((
+            GridPosition { x: 20, z: 20 },
+            ObjectInstance::destructible(ObjectEnum::Headquarters, 100.0),
+            StructureInstance::default(),
+            DomainEnum::Underground,
+        ));
+
+        world.run_system_once(rebuild_occupancy_map).unwrap();
+
+        let occupancy = world.resource::<OccupancyMap>();
+
+        // Tunnel tiles should be blocked
+        for dx in 0..4 {
+            for dz in 0..4 {
+                let tile = (10 + dx, 10 + dz);
+                assert!(occupancy.blocked_tiles.contains(&tile),
+                    "Surface Tunnel tile {:?} should be blocked", tile);
+            }
+        }
+
+        // HQ tiles should NOT be blocked
+        for dx in 0..2 {
+            for dz in 0..2 {
+                let tile = (20 + dx, 20 + dz);
+                assert!(!occupancy.blocked_tiles.contains(&tile),
+                    "Underground HQ tile {:?} should NOT be blocked", tile);
+            }
+        }
+    }
+
+    // === Enter Command Right-Click Integration Tests ===
+
+    /// Helper: spawn a selected SyndicateGuard entity
+    fn spawn_selected_guard(world: &mut World) -> Entity {
+        world.spawn((
+            Unit,
+            Selected,
+            Transform::from_xyz(0.0, 0.5, 0.0),
+            UnitBaseEnum::HeavyInfantry,
+            Owner::player(0),
+            ObjectInstance::destructible(ObjectEnum::SyndicateGuard, 100.0),
+            UnitCommand::Idle,
+            CommandQueue::new(),
+        )).id()
+    }
+
+    /// Helper: set up world resources for right_click_move_command with right-click on an entity
+    fn create_right_click_entity_world(target_entity: Entity) -> World {
+        let mut world = World::new();
+        world.insert_resource(ObjectInterfaceState::Default);
+        world.insert_resource(CursorTarget {
+            kind: CursorTargetEnum::FriendlyObject,
+            location: Some(Vec3::new(5.0, 0.0, 5.0)),
+            entity: Some(target_entity),
+        });
+        world.insert_resource(CursorOverUi(false));
+        let mut buttons = ButtonInput::<MouseButton>::default();
+        buttons.press(MouseButton::Right);
+        world.insert_resource(buttons);
+        world.insert_resource(ButtonInput::<KeyCode>::default());
+        world.insert_resource(LocalPlayer(0));
+        world.insert_resource(GridMap { width: 64, height: 64, cell_size: 1.0 });
+        world.insert_resource(OccupancyMap::default());
+        world
+    }
+
+    #[test]
+    fn guard_right_click_own_tunnel_issues_enter_command() {
+        let mut world = World::new();
+        let tunnel = spawn_own_tunnel(&mut world);
+        let guard = spawn_selected_guard(&mut world);
+
+        world.insert_resource(ObjectInterfaceState::Default);
+        world.insert_resource(CursorTarget {
+            kind: CursorTargetEnum::FriendlyObject,
+            location: Some(Vec3::new(5.0, 0.0, 5.0)),
+            entity: Some(tunnel),
+        });
+        world.insert_resource(CursorOverUi(false));
+        let mut buttons = ButtonInput::<MouseButton>::default();
+        buttons.press(MouseButton::Right);
+        world.insert_resource(buttons);
+        world.insert_resource(ButtonInput::<KeyCode>::default());
+        world.insert_resource(LocalPlayer(0));
+        world.insert_resource(GridMap { width: 64, height: 64, cell_size: 1.0 });
+        world.insert_resource(OccupancyMap::default());
+
+        world.run_system_once(right_click_move_command).unwrap();
+
+        let cmd = world.entity(guard).get::<UnitCommand>().unwrap();
+        match cmd {
+            UnitCommand::Enter(target) => assert_eq!(*target, tunnel),
+            other => panic!("Expected Enter, got {:?}", other),
+        }
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, ObjectInterfaceState::Default);
+    }
+
+    #[test]
+    fn agent_right_click_own_tunnel_not_carrying_issues_enter() {
+        let mut world = World::new();
+        let tunnel = spawn_own_tunnel(&mut world);
+        let agent = spawn_selected_agent(&mut world);
+
+        world.insert_resource(ObjectInterfaceState::Default);
+        world.insert_resource(CursorTarget {
+            kind: CursorTargetEnum::FriendlyObject,
+            location: Some(Vec3::new(5.0, 0.0, 5.0)),
+            entity: Some(tunnel),
+        });
+        world.insert_resource(CursorOverUi(false));
+        let mut buttons = ButtonInput::<MouseButton>::default();
+        buttons.press(MouseButton::Right);
+        world.insert_resource(buttons);
+        world.insert_resource(ButtonInput::<KeyCode>::default());
+        world.insert_resource(LocalPlayer(0));
+        world.insert_resource(GridMap { width: 64, height: 64, cell_size: 1.0 });
+        world.insert_resource(OccupancyMap::default());
+
+        world.run_system_once(right_click_move_command).unwrap();
+
+        let cmd = world.entity(agent).get::<UnitCommand>().unwrap();
+        match cmd {
+            UnitCommand::Enter(target) => assert_eq!(*target, tunnel),
+            other => panic!("Expected Enter, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn agent_carrying_right_click_tunnel_issues_dropoff_not_enter() {
+        let mut world = World::new();
+        let tunnel = spawn_own_tunnel(&mut world);
+        let agent = world.spawn((
+            Unit,
+            Selected,
+            Transform::from_xyz(0.0, 0.5, 0.0),
+            UnitBaseEnum::LightInfantry,
+            Owner::player(0),
+            ObjectInstance::destructible(ObjectEnum::SyndicateAgent, 100.0),
+            UnitCommand::Idle,
+            AgentCarryState { crystals: 50, supplies: 0 },
+            CommandQueue::new(),
+        )).id();
+
+        world.insert_resource(ObjectInterfaceState::Default);
+        world.insert_resource(CursorTarget {
+            kind: CursorTargetEnum::FriendlyObject,
+            location: Some(Vec3::new(5.0, 0.0, 5.0)),
+            entity: Some(tunnel),
+        });
+        world.insert_resource(CursorOverUi(false));
+        let mut buttons = ButtonInput::<MouseButton>::default();
+        buttons.press(MouseButton::Right);
+        world.insert_resource(buttons);
+        world.insert_resource(ButtonInput::<KeyCode>::default());
+        world.insert_resource(LocalPlayer(0));
+        world.insert_resource(GridMap { width: 64, height: 64, cell_size: 1.0 });
+        world.insert_resource(OccupancyMap::default());
+
+        world.run_system_once(right_click_move_command).unwrap();
+
+        let cmd = world.entity(agent).get::<UnitCommand>().unwrap();
+        match cmd {
+            UnitCommand::DropOffResources(target) => assert_eq!(*target, tunnel),
+            other => panic!("Expected DropOffResources, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn enter_awaiting_target_left_click_valid_tunnel_issues_enter() {
+        let mut world = World::new();
+        let tunnel = spawn_own_tunnel(&mut world);
+        let agent = spawn_selected_agent(&mut world);
+
+        world.insert_resource(ObjectInterfaceState::AwaitingTarget(CommandType::Enter));
+        world.insert_resource(CursorTarget {
+            kind: CursorTargetEnum::FriendlyObject,
+            location: Some(Vec3::new(5.0, 0.0, 5.0)),
+            entity: Some(tunnel),
+        });
+        world.insert_resource(CursorOverUi(false));
+        let mut buttons = ButtonInput::<MouseButton>::default();
+        buttons.press(MouseButton::Left);
+        world.insert_resource(buttons);
+        world.insert_resource(ButtonInput::<KeyCode>::default());
+        world.insert_resource(LocalPlayer(0));
+        world.insert_resource(GridMap { width: 64, height: 64, cell_size: 1.0 });
+        world.insert_resource(OccupancyMap::default());
+
+        world.run_system_once(right_click_move_command).unwrap();
+
+        let cmd = world.entity(agent).get::<UnitCommand>().unwrap();
+        match cmd {
+            UnitCommand::Enter(target) => assert_eq!(*target, tunnel),
+            other => panic!("Expected Enter, got {:?}", other),
+        }
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, ObjectInterfaceState::Default);
+    }
+
+    #[test]
+    fn enter_awaiting_target_left_click_invalid_target_resets_state() {
+        let mut world = World::new();
+        // Spawn a non-tunnel entity
+        let non_tunnel = world.spawn((
+            ObjectInstance::destructible(ObjectEnum::SyndicateAgent, 100.0),
+            Owner::player(0),
+        )).id();
+        let agent = spawn_selected_agent(&mut world);
+
+        world.insert_resource(ObjectInterfaceState::AwaitingTarget(CommandType::Enter));
+        world.insert_resource(CursorTarget {
+            kind: CursorTargetEnum::FriendlyObject,
+            location: Some(Vec3::new(5.0, 0.0, 5.0)),
+            entity: Some(non_tunnel),
+        });
+        world.insert_resource(CursorOverUi(false));
+        let mut buttons = ButtonInput::<MouseButton>::default();
+        buttons.press(MouseButton::Left);
+        world.insert_resource(buttons);
+        world.insert_resource(ButtonInput::<KeyCode>::default());
+        world.insert_resource(LocalPlayer(0));
+        world.insert_resource(GridMap { width: 64, height: 64, cell_size: 1.0 });
+        world.insert_resource(OccupancyMap::default());
+
+        world.run_system_once(right_click_move_command).unwrap();
+
+        // Should remain Idle — no command issued
+        let cmd = world.entity(agent).get::<UnitCommand>().unwrap();
+        match cmd {
+            UnitCommand::Idle => {}
+            other => panic!("Expected Idle, got {:?}", other),
+        }
+        // Interface should reset to Default
+        let state = world.resource::<ObjectInterfaceState>();
+        assert_eq!(*state, ObjectInterfaceState::Default);
+    }
+
+    #[test]
+    fn vehicle_tier1_tunnel_rejects_enter() {
+        let mut world = World::new();
+        let tunnel = spawn_own_tunnel(&mut world); // Tier 1 — infantry only
+        // Spawn a Guard with WheeledVehicle base (requires Tier 2+)
+        let guard = world.spawn((
+            Unit,
+            Selected,
+            Transform::from_xyz(0.0, 0.5, 0.0),
+            UnitBaseEnum::WheeledVehicle,
+            Owner::player(0),
+            ObjectInstance::destructible(ObjectEnum::SyndicateGuard, 100.0),
+            UnitCommand::Idle,
+            CommandQueue::new(),
+        )).id();
+
+        world.insert_resource(ObjectInterfaceState::AwaitingTarget(CommandType::Enter));
+        world.insert_resource(CursorTarget {
+            kind: CursorTargetEnum::FriendlyObject,
+            location: Some(Vec3::new(5.0, 0.0, 5.0)),
+            entity: Some(tunnel),
+        });
+        world.insert_resource(CursorOverUi(false));
+        let mut buttons = ButtonInput::<MouseButton>::default();
+        buttons.press(MouseButton::Left);
+        world.insert_resource(buttons);
+        world.insert_resource(ButtonInput::<KeyCode>::default());
+        world.insert_resource(LocalPlayer(0));
+        world.insert_resource(GridMap { width: 64, height: 64, cell_size: 1.0 });
+        world.insert_resource(OccupancyMap::default());
+
+        world.run_system_once(right_click_move_command).unwrap();
+
+        // Vehicle should still be Idle — tier too low
+        let cmd = world.entity(guard).get::<UnitCommand>().unwrap();
+        match cmd {
+            UnitCommand::Idle => {}
+            other => panic!("Expected Idle (tier validation reject), got {:?}", other),
+        }
+    }
+
+    // ---- Channel consumer system tests ----
+
+    /// Helper: create TurnRateMovementParams for tests (infantry-like, fast turn, instant accel)
+    fn test_turnrate_params() -> TurnRateMovementParams {
+        TurnRateMovementParams {
+            turn_rate: 10.0, // fast turn for testing
+            acceleration: 100.0,
+            deceleration: 100.0,
+            max_speed: 5.0,
+        }
+    }
+
+    /// Helper: spawn a channel-driven TurnRate unit (no MoveTarget — channel-only movement)
+    fn spawn_channel_turnrate_unit(world: &mut World, pos: Vec3, facing_angle: f32) -> Entity {
+        world.spawn((
+            Unit,
+            Transform::from_translation(pos)
+                .with_rotation(Quat::from_rotation_y(facing_angle)),
+            Velocity(Vec3::ZERO),
+            test_turnrate_params(),
+            LocomotionChannel::default(),
+            OrientationChannel::default(),
+            GridPosition { x: 32, z: 32 },
+        )).id()
+    }
+
+    #[test]
+    fn channel_turnrate_moving_sets_velocity() {
+        let mut world = World::new();
+        world.insert_resource(OccupancyMap::default());
+        world.insert_resource(Time::<()>::default());
+
+        // Unit at origin, default rotation (faces -Z in Bevy), target at -Z
+        let entity = spawn_channel_turnrate_unit(&mut world, Vec3::new(0.0, 0.5, 0.0), 0.0);
+        world.entity_mut(entity).insert(
+            LocomotionChannel::Moving(vec![Vec3::new(0.0, 0.0, -10.0)])
+        );
+
+        // Advance time so delta_secs > 0
+
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(16));
+
+        world.run_system_once(channel_turnrate_locomotion_system).unwrap();
+
+        let velocity = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(velocity.0.length() > 0.0, "Unit should have non-zero velocity when Moving");
+        // Should be moving roughly in -Z direction (facing direction)
+        assert!(velocity.0.z < 0.0, "Velocity z should be negative (moving toward target in facing direction)");
+    }
+
+    #[test]
+    fn channel_turnrate_stationary_no_movement() {
+        let mut world = World::new();
+        world.insert_resource(OccupancyMap::default());
+        world.insert_resource(Time::<()>::default());
+
+        let entity = spawn_channel_turnrate_unit(&mut world, Vec3::new(0.0, 0.5, 0.0), 0.0);
+        // Channel is default Stationary
+
+        
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(16));
+
+        world.run_system_once(channel_turnrate_locomotion_system).unwrap();
+
+        let velocity = world.entity(entity).get::<Velocity>().unwrap();
+        assert_eq!(velocity.0, Vec3::ZERO, "Stationary channel should not produce movement");
+    }
+
+    #[test]
+    fn channel_turnrate_stopping_decelerates() {
+        let mut world = World::new();
+        world.insert_resource(OccupancyMap::default());
+        world.insert_resource(Time::<()>::default());
+
+        let entity = spawn_channel_turnrate_unit(&mut world, Vec3::new(0.0, 0.5, 0.0), 0.0);
+        // Give initial velocity, then set to Stopping
+        world.entity_mut(entity).insert((
+            Velocity(Vec3::new(0.0, 0.0, 5.0)),
+            LocomotionChannel::Stopping,
+        ));
+
+        
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(16));
+
+        world.run_system_once(channel_turnrate_locomotion_system).unwrap();
+
+        let velocity = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(velocity.0.length() < 5.0, "Stopping should decelerate");
+    }
+
+    #[test]
+    fn channel_turnrate_moving_empty_path_stops() {
+        let mut world = World::new();
+        world.insert_resource(OccupancyMap::default());
+        world.insert_resource(Time::<()>::default());
+
+        let entity = spawn_channel_turnrate_unit(&mut world, Vec3::new(0.0, 0.5, 0.0), 0.0);
+        world.entity_mut(entity).insert((
+            Velocity(Vec3::new(0.0, 0.0, 3.0)),
+            LocomotionChannel::Moving(vec![]),
+        ));
+
+        
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(16));
+
+        world.run_system_once(channel_turnrate_locomotion_system).unwrap();
+
+        let velocity = world.entity(entity).get::<Velocity>().unwrap();
+        assert_eq!(velocity.0, Vec3::ZERO, "Empty path should zero velocity");
+    }
+
+    #[test]
+    fn channel_turnrate_snap_when_close() {
+        let mut world = World::new();
+        world.insert_resource(OccupancyMap::default());
+        world.insert_resource(Time::<()>::default());
+
+        // Unit very close to target (distance < 0.1)
+        let target = Vec3::new(1.0, 0.0, 1.0);
+        let entity = spawn_channel_turnrate_unit(&mut world, Vec3::new(1.05, 0.5, 1.02), 0.0);
+        world.entity_mut(entity).insert(
+            LocomotionChannel::Moving(vec![target])
+        );
+
+        
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(16));
+
+        world.run_system_once(channel_turnrate_locomotion_system).unwrap();
+
+        let transform = world.entity(entity).get::<Transform>().unwrap();
+        assert!((transform.translation.x - target.x).abs() < 0.001, "Should snap X to target");
+        assert!((transform.translation.z - target.z).abs() < 0.001, "Should snap Z to target");
+    }
+
+    #[test]
+    fn channel_turnrate_reversing_moves_backward() {
+        let mut world = World::new();
+        world.insert_resource(OccupancyMap::default());
+        world.insert_resource(Time::<()>::default());
+
+        // Unit facing -Z (default rotation), reversing target at +Z
+        let entity = spawn_channel_turnrate_unit(&mut world, Vec3::new(0.0, 0.5, 0.0), 0.0);
+        world.entity_mut(entity).insert(
+            LocomotionChannel::Reversing(vec![Vec3::new(0.0, 0.0, 5.0)])
+        );
+
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(16));
+
+        world.run_system_once(channel_turnrate_locomotion_system).unwrap();
+
+        let velocity = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(velocity.0.length() > 0.0, "Should have velocity when reversing");
+        // Reversing moves opposite to facing (-Z face → +Z movement)
+        assert!(velocity.0.z > 0.0, "Should move in +Z (reverse of -Z facing)");
+    }
+
+    #[test]
+    fn channel_turnrate_skips_movetarget_entities() {
+        let mut world = World::new();
+        world.insert_resource(OccupancyMap::default());
+        world.insert_resource(Time::<()>::default());
+
+        // Unit WITH MoveTarget should be skipped by channel system
+        let entity = spawn_channel_turnrate_unit(&mut world, Vec3::new(0.0, 0.5, 0.0), 0.0);
+        world.entity_mut(entity).insert((
+            LocomotionChannel::Moving(vec![Vec3::new(0.0, 0.0, 10.0)]),
+            MoveTarget(Vec3::new(0.0, 0.0, 10.0)),
+        ));
+
+        
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(16));
+
+        world.run_system_once(channel_turnrate_locomotion_system).unwrap();
+
+        let velocity = world.entity(entity).get::<Velocity>().unwrap();
+        assert_eq!(velocity.0, Vec3::ZERO, "Entity with MoveTarget should not be processed by channel system");
+    }
+
+    #[test]
+    fn channel_orientation_turns_toward_target() {
+        let mut world = World::new();
+        world.insert_resource(Time::<()>::default());
+
+        // Unit at origin facing +Z, orientation target at +X direction
+        let entity = spawn_channel_turnrate_unit(&mut world, Vec3::new(0.0, 0.5, 0.0), 0.0);
+        world.entity_mut(entity).insert(
+            OrientationChannel::Turning(Vec3::new(10.0, 0.0, 0.0))
+        );
+
+        let initial_rotation = world.entity(entity).get::<Transform>().unwrap().rotation;
+
+        
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(16));
+
+        world.run_system_once(channel_orientation_system).unwrap();
+
+        let final_rotation = world.entity(entity).get::<Transform>().unwrap().rotation;
+        // Rotation should have changed
+        assert_ne!(initial_rotation, final_rotation, "Unit should have rotated toward target");
+    }
+
+    #[test]
+    fn channel_orientation_maintaining_no_rotation() {
+        let mut world = World::new();
+        world.insert_resource(Time::<()>::default());
+
+        let entity = spawn_channel_turnrate_unit(&mut world, Vec3::new(0.0, 0.5, 0.0), 0.0);
+        // OrientationChannel is default Maintaining
+
+        let initial_rotation = world.entity(entity).get::<Transform>().unwrap().rotation;
+
+        
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(16));
+
+        world.run_system_once(channel_orientation_system).unwrap();
+
+        let final_rotation = world.entity(entity).get::<Transform>().unwrap().rotation;
+        assert_eq!(initial_rotation, final_rotation, "Maintaining should not change rotation");
+    }
+
+    #[test]
+    fn channel_orientation_skips_movetarget_entities() {
+        let mut world = World::new();
+        world.insert_resource(Time::<()>::default());
+
+        let entity = spawn_channel_turnrate_unit(&mut world, Vec3::new(0.0, 0.5, 0.0), 0.0);
+        world.entity_mut(entity).insert((
+            OrientationChannel::Turning(Vec3::new(10.0, 0.0, 0.0)),
+            MoveTarget(Vec3::new(10.0, 0.0, 0.0)),
+        ));
+
+        let initial_rotation = world.entity(entity).get::<Transform>().unwrap().rotation;
+
+        
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(16));
+
+        world.run_system_once(channel_orientation_system).unwrap();
+
+        let final_rotation = world.entity(entity).get::<Transform>().unwrap().rotation;
+        assert_eq!(initial_rotation, final_rotation, "Entity with MoveTarget should be skipped");
+    }
+
+    #[test]
+    fn channel_fallback_locomotion_moving() {
+        let mut world = World::new();
+        world.insert_resource(OccupancyMap::default());
+        world.insert_resource(Time::<()>::default());
+
+        // Non-TurnRate unit with channel movement
+        let entity = world.spawn((
+            Unit,
+            Transform::from_xyz(0.0, 0.5, 0.0),
+            Velocity(Vec3::ZERO),
+            MovementSpeed(5.0),
+            LocomotionChannel::Moving(vec![Vec3::new(5.0, 0.0, 5.0)]),
+            GridPosition { x: 32, z: 32 },
+        )).id();
+
+        
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(16));
+
+        world.run_system_once(channel_fallback_locomotion_system).unwrap();
+
+        let velocity = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(velocity.0.length() > 0.0, "Non-TurnRate unit should move via fallback system");
     }
 
 }

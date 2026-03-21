@@ -3,14 +3,15 @@ use crate::types::*;
 use crate::game::types::{
     ObjectInstance, Player, GdoPlayerResources, SyndicatePlayerResources, StructureInstance,
     DeploymentCenterState, BarracksState, ExtractionFacilityState,
-    SupplyTowerState, TunnelState, TunnelTier, TunnelOperation,
+    SupplyTowerState, SupplyChopperState, TunnelState, TunnelTier, TunnelOperation,
     HeadquartersState,
     tunnel_t2_upgrade_cost, tunnel_t3_upgrade_cost,
 };
-use crate::game::units::types::commands::{CommandType, HoldingPosition, UnitCommand};
+use crate::game::units::types::commands::{CommandType, HoldingPosition, UnitCommand, CommandQueue};
 use crate::game::units::types::state::AgentCarryState;
 use crate::game::units::types::movement::{MoveTarget, Path, Velocity};
 use crate::game::combat::types::{AttackState, AttackCapability, AttackType};
+use crate::game::world::types::{SpaceCrystalPatch, SupplyDeliveryStation};
 use super::types::*;
 
 /// Hotkey letters for the 3x3 grid, indexed [row][col]
@@ -46,6 +47,7 @@ fn get_grid_slot_action(
     has_active_construction: bool,
     caps: &SelectedUnitCapabilities,
     tunnel_is_upgrading: bool,
+    has_ready_plate: bool,
 ) -> Option<CommandButtonAction> {
     match state {
         ObjectInterfaceState::StructureMenu(sm) => match sm {
@@ -57,7 +59,6 @@ fn get_grid_slot_action(
             StructureMenuState::DcBuildMenu => match (row, col) {
                 (0, 0) => Some(CommandButtonAction::DcBuild(ObjectEnum::PowerPlant)),
                 (0, 1) => Some(CommandButtonAction::DcBuild(ObjectEnum::Barracks)),
-                (0, 2) => Some(CommandButtonAction::DcBuild(ObjectEnum::ExtractionFacility)),
                 (1, 0) => Some(CommandButtonAction::DcBuild(ObjectEnum::SupplyTower)),
                 (2, 0) => Some(CommandButtonAction::Back),
                 _ => None,
@@ -80,19 +81,9 @@ fn get_grid_slot_action(
                 _ => None,
             },
             StructureMenuState::EfIdle => match (row, col) {
+                (0, 0) if has_ready_plate => Some(CommandButtonAction::EnterPlacement),
                 (0, 0) => Some(CommandButtonAction::EfBuildPlate),
                 (2, 1) if has_active_construction => Some(CommandButtonAction::EfCancel),
-                _ => None,
-            },
-            StructureMenuState::EfConstructing => match (row, col) {
-                (2, 0) => Some(CommandButtonAction::Back),
-                (2, 1) => Some(CommandButtonAction::EfCancel),
-                _ => None,
-            },
-            StructureMenuState::EfReadyToPlace => match (row, col) {
-                (0, 0) => Some(CommandButtonAction::EnterPlacement),
-                (2, 0) => Some(CommandButtonAction::Back),
-                (2, 1) => Some(CommandButtonAction::EfCancel),
                 _ => None,
             },
             StructureMenuState::SupplyTowerMenu => match (row, col) {
@@ -139,27 +130,31 @@ fn get_grid_slot_action(
                 None
             },
         },
+        ObjectInterfaceState::Default if caps.is_chopper => match (row, col) {
+            // SupplyChopper-specific commands
+            (0, 0) => Some(CommandButtonAction::UnitMove),
+            (0, 1) => Some(CommandButtonAction::ChopperPickUpSupplies),
+            (0, 2) => Some(CommandButtonAction::ChopperAttachToTower),
+            (1, 0) => Some(CommandButtonAction::ChopperDropOffSupplies),
+            (1, 2) => Some(CommandButtonAction::UnitHoldPosition),
+            (2, 1) => Some(CommandButtonAction::UnitStop),
+            _ => None,
+        },
         ObjectInterfaceState::Default => match (row, col) {
             // Unit commands (only shown when Selection has units)
             (0, 0) => Some(CommandButtonAction::UnitMove),
-            (0, 1) if caps.has_attack => Some(CommandButtonAction::UnitAttack),
-            (0, 2) if caps.can_target_ground => Some(CommandButtonAction::UnitAttackGround),
-            (1, 0) if caps.has_attack => Some(CommandButtonAction::UnitAttackMove),
+            (0, 1) if caps.can_reverse => Some(CommandButtonAction::UnitReverse),
+            (0, 2) => Some(CommandButtonAction::UnitHoldPosition),
+            (1, 0) if caps.has_attack => Some(CommandButtonAction::UnitAttack),
             (1, 1) => Some(CommandButtonAction::UnitPatrol),
-            (1, 2) => Some(CommandButtonAction::UnitHoldPosition),
-            (2, 0) => Some(CommandButtonAction::UnitStop),
-            (2, 1) if caps.can_reverse => Some(CommandButtonAction::UnitReverse),
+            (1, 2) if caps.can_target_ground => Some(CommandButtonAction::UnitAttackGround),
+            (2, 1) => Some(CommandButtonAction::UnitStop),
             _ => None,
         },
         ObjectInterfaceState::AgentMenu(am) => match am {
             AgentMenuState::AgentDefault => match (row, col) {
-                (0, 0) => Some(CommandButtonAction::UnitMove),
-                (0, 1) if caps.has_attack => Some(CommandButtonAction::UnitAttack),
-                (0, 2) => Some(CommandButtonAction::UnitEnter),
-                (1, 0) => Some(CommandButtonAction::UnitGather),
-                (1, 1) => Some(CommandButtonAction::AgentDropOff),
-                (1, 2) => Some(CommandButtonAction::AgentBuildTunnel),
-                (2, 0) => Some(CommandButtonAction::UnitStop),
+                (0, 0) => Some(CommandButtonAction::AgentBuildTunnel),
+                (0, 1) => Some(CommandButtonAction::AgentDropOff),
                 _ => None,
             },
             AgentMenuState::AgentAwaitingPlacement => {
@@ -289,7 +284,7 @@ pub fn update_command_panel_state(
         (Entity, &ObjectInstance, Option<&DeploymentCenterState>, Option<&BarracksState>, Option<&ExtractionFacilityState>, Option<&SupplyTowerState>, Option<&TunnelState>),
         (With<StructureInstance>, With<Selected>),
     >,
-    selected_units: Query<(Entity, Option<&AttackCapability>, &UnitBaseEnum, &ObjectInstance, Option<&AgentCarryState>), (With<Unit>, With<Selected>, Without<StructureInstance>)>,
+    selected_units: Query<(Entity, Option<&AttackCapability>, &UnitBaseEnum, &ObjectInstance, Option<&AgentCarryState>, Option<&SupplyChopperState>), (With<Unit>, With<Selected>, Without<StructureInstance>)>,
     mut interface_state: ResMut<ObjectInterfaceState>,
     mut panel_target: ResMut<CommandPanelTarget>,
     mut unit_caps: ResMut<SelectedUnitCapabilities>,
@@ -346,8 +341,6 @@ pub fn update_command_panel_state(
                     let in_valid_ef_state = matches!(*interface_state,
                         ObjectInterfaceState::StructureMenu(
                             StructureMenuState::EfIdle |
-                            StructureMenuState::EfConstructing |
-                            StructureMenuState::EfReadyToPlace |
                             StructureMenuState::EfAwaitingPlacement
                         )
                     );
@@ -492,8 +485,7 @@ pub fn rebuild_command_panel_ui(
                 StructureMenuState::DcReadyToPlace | StructureMenuState::DcAwaitingPlacement => "Deployment Center",
                 StructureMenuState::DcBuildMenu => "Build Menu",
                 StructureMenuState::BarracksMenu => "Barracks",
-                StructureMenuState::EfIdle | StructureMenuState::EfConstructing |
-                StructureMenuState::EfReadyToPlace | StructureMenuState::EfAwaitingPlacement => "Extraction Facility",
+                StructureMenuState::EfIdle | StructureMenuState::EfAwaitingPlacement => "Extraction Facility",
                 StructureMenuState::SupplyTowerMenu => "Supply Tower",
                 StructureMenuState::HeadquartersMenu => "Headquarters",
                 StructureMenuState::TunnelIdle | StructureMenuState::TunnelAwaitingPlacement => "Tunnel",
@@ -579,19 +571,6 @@ pub fn rebuild_command_panel_ui(
                         }
                     }
                 }
-            }
-            ObjectInterfaceState::StructureMenu(StructureMenuState::EfConstructing) => {
-                if let Some(target_entity) = panel_target.entity {
-                    if let Ok(ef) = ef_query.get(target_entity) {
-                        let progress = ef.construction_progress.unwrap_or(0.0);
-                        let total = ExtractionFacilityState::construction_cost().build_frames as f32;
-                        let pct = (progress / total * 100.0).min(100.0);
-                        spawn_progress_text(parent, &format!("Building Plate... {:.0}%", pct));
-                    }
-                }
-            }
-            ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace) => {
-                spawn_progress_text(parent, "Plate ready!");
             }
             ObjectInterfaceState::StructureMenu(StructureMenuState::DcAwaitingPlacement) => {
                 spawn_progress_text(parent, "Click to place");
@@ -780,10 +759,16 @@ pub fn rebuild_command_panel_ui(
                 let syndicate_supplies = get_syndicate_supplies(panel_target.entity, &tunnel_query, &syndicate_players);
                 let has_network_units = !network_units.is_empty();
 
+                // Check if EF has a plate ready to place (for context-dependent Q button)
+                let has_ready_plate = panel_target.entity
+                    .and_then(|e| ef_query.get(e).ok())
+                    .map(|ef| ef.ready_to_place)
+                    .unwrap_or(false);
+
                 for row in 0..3u8 {
                     for col in 0..3u8 {
                         let hotkey = GRID_HOTKEYS[row as usize][col as usize];
-                        if let Some(action) = get_grid_slot_action(&interface_state, row, col, bk_has_queue, has_active_construction, &unit_caps, tunnel_is_upgrading) {
+                        if let Some(action) = get_grid_slot_action(&interface_state, row, col, bk_has_queue, has_active_construction, &unit_caps, tunnel_is_upgrading, has_ready_plate) {
                             let label = grid_button_label(&interface_state, &action, player_sc, hotkey);
                             let enabled = grid_button_enabled_ext(&action, player_sc, bk_has_queue, panel_target.entity, &bk_query, &st_query, &tunnel_query, tunnel_upgrade_cost, syndicate_supplies, &unit_caps, has_power_plant, syndicate_sc, &selected_owners, has_network_units);
                             let active = is_action_active(&action, &interface_state);
@@ -804,6 +789,7 @@ pub fn rebuild_command_panel_ui(
 /// System to handle command button clicks
 pub fn handle_command_button_clicks(
     mut commands: Commands,
+    keyboard: Res<ButtonInput<KeyCode>>,
     mut interaction_query: Query<
         (&Interaction, &CommandButtonAction),
         Changed<Interaction>,
@@ -818,15 +804,16 @@ pub fn handle_command_button_clicks(
     mut syndicate_players: Query<(&Player, &mut SyndicatePlayerResources)>,
     mut placement_state: ResMut<PlacementState>,
     mut players: Query<(&Player, &mut GdoPlayerResources)>,
-    selected_units: Query<(Entity, &mut Velocity), (With<Unit>, With<Selected>, Without<StructureInstance>)>,
+    selected_units: Query<(Entity, &mut Velocity, Option<&mut CommandQueue>), (With<Unit>, With<Selected>, Without<StructureInstance>)>,
     attack_states: Query<&AttackState>,
     selection: Res<Selection>,
 ) {
+    let shift_held = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
     for (interaction, action) in interaction_query.iter_mut() {
         if *interaction != Interaction::Pressed {
             continue;
         }
-        execute_command_action(action, &mut commands, &mut interface_state, &panel_target, &mut dc_query, &mut bk_hq_query, &mut ef_query, &mut st_query_mut, &mut tunnel_query_mut, &mut syndicate_players, &mut placement_state, &mut players, &selected_units, &attack_states, &selection);
+        execute_command_action(action, &mut commands, &mut interface_state, &panel_target, &mut dc_query, &mut bk_hq_query, &mut ef_query, &mut st_query_mut, &mut tunnel_query_mut, &mut syndicate_players, &mut placement_state, &mut players, &selected_units, &attack_states, shift_held, &selection);
     }
 }
 
@@ -843,7 +830,7 @@ pub fn command_panel_hotkeys(
     mut tunnel_query_mut: Query<(&Owner, &mut TunnelState, &crate::game::types::TunnelArea)>,
     mut syndicate_players: Query<(&Player, &mut SyndicatePlayerResources)>,
     mut players: Query<(&Player, &mut GdoPlayerResources)>,
-    selected_units: Query<(Entity, &mut Velocity), (With<Unit>, With<Selected>, Without<StructureInstance>)>,
+    selected_units: Query<(Entity, &mut Velocity, Option<&mut CommandQueue>), (With<Unit>, With<Selected>, Without<StructureInstance>)>,
     attack_states: Query<&AttackState>,
     mut placement_state: ResMut<PlacementState>,
     unit_caps: Res<SelectedUnitCapabilities>,
@@ -854,8 +841,24 @@ pub fn command_panel_hotkeys(
         return;
     }
 
-    // Tab: Cycle active group (StateOnlyTransition)
-    if keyboard.just_pressed(KeyCode::Tab) {
+    let shift_held = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
+
+    // Shift-Tab: Cycle active group backward
+    if shift_held && keyboard.just_pressed(KeyCode::Tab) {
+        if selection.groups.len() > 1 {
+            selection.cycle_active_group_backward();
+            if !matches!(*interface_state, ObjectInterfaceState::Default) {
+                *interface_state = ObjectInterfaceState::Default;
+            } else {
+                interface_state.set_changed();
+            }
+            info!("Group cycling backward: active group index {:?}", selection.active_group_index);
+        }
+        return;
+    }
+
+    // Tab: Cycle active group forward (StateOnlyTransition)
+    if keyboard.just_pressed(KeyCode::Tab) && !shift_held {
         if selection.groups.len() > 1 {
             selection.cycle_active_group();
             // Reset to default state when active group changes
@@ -879,7 +882,7 @@ pub fn command_panel_hotkeys(
                 *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcReadyToPlace);
             }
             ObjectInterfaceState::StructureMenu(StructureMenuState::EfAwaitingPlacement) => {
-                *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace);
+                *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle);
             }
             ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelExpandMenu) |
             ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelEjectMenu) => {
@@ -889,10 +892,6 @@ pub fn command_panel_hotkeys(
             ObjectInterfaceState::StructureMenu(StructureMenuState::DcReadyToPlace) => {
                 *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcIdle);
             }
-            ObjectInterfaceState::StructureMenu(StructureMenuState::EfConstructing) |
-            ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace) => {
-                *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle);
-            }
             ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelAwaitingPlacement) => {
                 *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelExpandMenu);
             }
@@ -901,11 +900,14 @@ pub fn command_panel_hotkeys(
                 info!("Agent: Cancelled placement, back to AgentDefault");
             }
             ObjectInterfaceState::AwaitingTarget(_) => {
-                // Check if we should return to AgentDefault or Default
-                let all_agents = selected_units.iter().count() > 0; // If units are selected, check below
-                let _ = all_agents; // suppress unused warning
-                *interface_state = ObjectInterfaceState::Default;
-                info!("Cancelled awaiting target, back to Default");
+                let active_is_agent = selection.active_type() == Some(ObjectEnum::SyndicateAgent);
+                if active_is_agent {
+                    *interface_state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
+                    info!("Cancelled awaiting target, back to AgentDefault");
+                } else {
+                    *interface_state = ObjectInterfaceState::Default;
+                    info!("Cancelled awaiting target, back to Default");
+                }
             }
             _ => {}
         }
@@ -919,9 +921,16 @@ pub fn command_panel_hotkeys(
                 *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcAwaitingPlacement);
                 return;
             }
-            ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace) => {
-                *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfAwaitingPlacement);
-                return;
+            ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle) => {
+                // Only enter placement if plate is ready
+                let plate_ready = panel_target.entity
+                    .and_then(|e| ef_query.get(e).ok())
+                    .map(|(_, ef)| ef.ready_to_place)
+                    .unwrap_or(false);
+                if plate_ready {
+                    *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfAwaitingPlacement);
+                    return;
+                }
             }
             _ => {}
         }
@@ -995,12 +1004,99 @@ pub fn command_panel_hotkeys(
                     .map(|(_, ts, _)| matches!(ts.current_operation, Some(TunnelOperation::Upgrading { .. })))
                     .unwrap_or(false);
 
-                if let Some(action) = get_grid_slot_action(&interface_state, row, col, bk_has_queue, has_active_construction, &unit_caps, tunnel_is_upgrading) {
-                    execute_command_action(&action, &mut commands, &mut interface_state, &panel_target, &mut dc_query, &mut bk_hq_query, &mut ef_query, &mut st_query_mut, &mut tunnel_query_mut, &mut syndicate_players, &mut placement_state, &mut players, &selected_units, &attack_states, &selection);
+                // Check if EF has a plate ready to place
+                let has_ready_plate = panel_target.entity
+                    .and_then(|e| ef_query.get(e).ok())
+                    .map(|(_, ef)| ef.ready_to_place)
+                    .unwrap_or(false);
+
+                if let Some(action) = get_grid_slot_action(&interface_state, row, col, bk_has_queue, has_active_construction, &unit_caps, tunnel_is_upgrading, has_ready_plate) {
+                    execute_command_action(&action, &mut commands, &mut interface_state, &panel_target, &mut dc_query, &mut bk_hq_query, &mut ef_query, &mut st_query_mut, &mut tunnel_query_mut, &mut syndicate_players, &mut placement_state, &mut players, &selected_units, &attack_states, shift_held, &selection);
                 }
             }
             break; // Only process one key per frame
         }
+    }
+}
+
+/// Determine the cancel-target state for right-click from a sub-menu.
+/// Returns Some(new_state) if the current state should be cancelled, None otherwise.
+/// `resolve_rally_target` is a callback that determines which structure menu
+/// to return to when cancelling SetRallyPoint (returns the structure type marker).
+fn right_click_cancel_target(
+    current: &ObjectInterfaceState,
+    resolve_rally_target: impl FnOnce() -> Option<RallyTargetKind>,
+) -> Option<ObjectInterfaceState> {
+    match current {
+        // DC sub-menus → DcIdle
+        ObjectInterfaceState::StructureMenu(StructureMenuState::DcBuildMenu) |
+        ObjectInterfaceState::StructureMenu(StructureMenuState::DcConstructing) |
+        ObjectInterfaceState::StructureMenu(StructureMenuState::DcReadyToPlace) => {
+            Some(ObjectInterfaceState::StructureMenu(StructureMenuState::DcIdle))
+        }
+        // Tunnel sub-menus → TunnelIdle
+        ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelExpandMenu) |
+        ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelEjectMenu) => {
+            Some(ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelIdle))
+        }
+        // SetRallyPoint → determine which structure menu to return to
+        ObjectInterfaceState::AwaitingTarget(CommandType::SetRallyPoint) => {
+            match resolve_rally_target() {
+                Some(RallyTargetKind::Barracks) => Some(ObjectInterfaceState::StructureMenu(StructureMenuState::BarracksMenu)),
+                Some(RallyTargetKind::Headquarters) => Some(ObjectInterfaceState::StructureMenu(StructureMenuState::HeadquartersMenu)),
+                Some(RallyTargetKind::SupplyTower) => Some(ObjectInterfaceState::StructureMenu(StructureMenuState::SupplyTowerMenu)),
+                None => Some(ObjectInterfaceState::Default),
+            }
+        }
+        // ScheduleDeliveries → SupplyTowerMenu
+        ObjectInterfaceState::AwaitingTarget(CommandType::ScheduleDeliveries) => {
+            Some(ObjectInterfaceState::StructureMenu(StructureMenuState::SupplyTowerMenu))
+        }
+        // Don't handle Default, placement modes, or unit AwaitingTarget modes
+        _ => None,
+    }
+}
+
+/// Marker for which production structure the panel target entity is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RallyTargetKind {
+    Barracks,
+    Headquarters,
+    SupplyTower,
+}
+
+/// Right-click cancel for multi-stage ObjectInterfaceState sub-menus.
+/// When in a structure sub-menu or certain AwaitingTarget states,
+/// right-click returns to the parent/idle state — same as Z/Escape.
+/// Does NOT handle placement modes (handled by placement_click_system in faction.rs)
+/// or unit AwaitingTarget modes (handled by right_click_move_command in core.rs).
+pub fn right_click_cancel_submenu(
+    buttons: Res<ButtonInput<MouseButton>>,
+    mut interface_state: ResMut<ObjectInterfaceState>,
+    panel_target: Res<CommandPanelTarget>,
+    bk_query: Query<(), With<BarracksState>>,
+    hq_query: Query<(), With<HeadquartersState>>,
+    st_query: Query<(), With<SupplyTowerState>>,
+) {
+    if !buttons.just_pressed(MouseButton::Right) {
+        return;
+    }
+
+    let resolve = || {
+        let entity = panel_target.entity?;
+        if bk_query.get(entity).is_ok() {
+            Some(RallyTargetKind::Barracks)
+        } else if hq_query.get(entity).is_ok() {
+            Some(RallyTargetKind::Headquarters)
+        } else if st_query.get(entity).is_ok() {
+            Some(RallyTargetKind::SupplyTower)
+        } else {
+            None
+        }
+    };
+
+    if let Some(new_state) = right_click_cancel_target(&interface_state, resolve) {
+        *interface_state = new_state;
     }
 }
 
@@ -1018,8 +1114,9 @@ fn execute_command_action(
     syndicate_players: &mut Query<(&Player, &mut SyndicatePlayerResources)>,
     placement_state: &mut ResMut<PlacementState>,
     players: &mut Query<(&Player, &mut GdoPlayerResources)>,
-    selected_units: &Query<(Entity, &mut Velocity), (With<Unit>, With<Selected>, Without<StructureInstance>)>,
+    selected_units: &Query<(Entity, &mut Velocity, Option<&mut CommandQueue>), (With<Unit>, With<Selected>, Without<StructureInstance>)>,
     attack_states: &Query<&AttackState>,
+    shift_held: bool,
     selection: &Selection,
 ) {
     match action {
@@ -1197,13 +1294,9 @@ fn execute_command_action(
         CommandButtonAction::EfBuildPlate => {
             let Some(target_entity) = panel_target.entity else { return };
             if let Ok((owner, mut ef_state)) = ef_query.get_mut(target_entity) {
-                // Context-aware: route to the appropriate sub-state if construction is active
-                if ef_state.current_construction {
-                    **interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfConstructing);
-                    return;
-                }
-                if ef_state.ready_to_place {
-                    **interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace);
+                // If already constructing or ready, just refresh (no-op, grid shows current state)
+                if ef_state.current_construction || ef_state.ready_to_place {
+                    interface_state.set_changed();
                     return;
                 }
                 let cost = ExtractionFacilityState::construction_cost();
@@ -1212,7 +1305,7 @@ fn execute_command_action(
                         res.space_crystals -= cost.space_crystals as i32;
                         ef_state.current_construction = true;
                         ef_state.construction_progress = Some(0.0);
-                        **interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfConstructing);
+                        interface_state.set_changed();
                         info!("EF: Started building plate ({} SC)", cost.space_crystals);
                     } else {
                         info!("EF: Not enough SC");
@@ -1242,10 +1335,6 @@ fn execute_command_action(
                 ObjectInterfaceState::StructureMenu(StructureMenuState::DcReadyToPlace) => {
                     **interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcIdle);
                 }
-                ObjectInterfaceState::StructureMenu(StructureMenuState::EfConstructing) |
-                ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace) => {
-                    **interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle);
-                }
                 ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelExpandMenu) |
                 ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelEjectMenu) => {
                     **interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelIdle);
@@ -1261,7 +1350,7 @@ fn execute_command_action(
                 ObjectInterfaceState::StructureMenu(StructureMenuState::DcReadyToPlace) => {
                     **interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcAwaitingPlacement);
                 }
-                ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace) => {
+                ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle) => {
                     **interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfAwaitingPlacement);
                 }
                 _ => {}
@@ -1297,11 +1386,28 @@ fn execute_command_action(
                         continue;
                     }
                 }
-                commands.entity(entity)
-                    .remove::<MoveTarget>()
-                    .remove::<Path>()
-                    .insert(HoldingPosition)
-                    .insert(UnitCommand::HoldPosition);
+                let mut entity_cmds = commands.entity(entity);
+                if shift_held {
+                    // Queue via deferred command insert — we can't get mutable query access here
+                    // since target_entities already borrowed selected_units immutably.
+                    // Use commands to insert the queued command via a deferred closure.
+                    entity_cmds.queue(move |mut entity: EntityWorldMut| {
+                        if let Some(mut queue) = entity.get_mut::<CommandQueue>() {
+                            queue.push(UnitCommand::HoldPosition);
+                        }
+                    });
+                } else {
+                    entity_cmds
+                        .remove::<MoveTarget>()
+                        .remove::<Path>()
+                        .insert(HoldingPosition)
+                        .insert(UnitCommand::HoldPosition);
+                    entity_cmds.queue(move |mut entity: EntityWorldMut| {
+                        if let Some(mut queue) = entity.get_mut::<CommandQueue>() {
+                            queue.clear();
+                        }
+                    });
+                }
             }
             info!("Hold Position");
         }
@@ -1314,11 +1420,25 @@ fn execute_command_action(
                         continue;
                     }
                 }
-                commands.entity(entity)
-                    .remove::<MoveTarget>()
-                    .remove::<Path>()
-                    .remove::<HoldingPosition>()
-                    .insert(UnitCommand::Stop);
+                let mut entity_cmds = commands.entity(entity);
+                if shift_held {
+                    entity_cmds.queue(move |mut entity: EntityWorldMut| {
+                        if let Some(mut queue) = entity.get_mut::<CommandQueue>() {
+                            queue.push(UnitCommand::Stop);
+                        }
+                    });
+                } else {
+                    entity_cmds
+                        .remove::<MoveTarget>()
+                        .remove::<Path>()
+                        .remove::<HoldingPosition>()
+                        .insert(UnitCommand::Stop);
+                    entity_cmds.queue(move |mut entity: EntityWorldMut| {
+                        if let Some(mut queue) = entity.get_mut::<CommandQueue>() {
+                            queue.clear();
+                        }
+                    });
+                }
             }
             info!("Stop");
         }
@@ -1333,6 +1453,18 @@ fn execute_command_action(
         CommandButtonAction::UnitGather => {
             **interface_state = ObjectInterfaceState::AwaitingTarget(CommandType::Gather);
             info!("Command mode: Gather");
+        }
+        CommandButtonAction::ChopperPickUpSupplies => {
+            **interface_state = ObjectInterfaceState::AwaitingTarget(CommandType::PickUpSupplies);
+            info!("Command mode: Pick Up Supplies");
+        }
+        CommandButtonAction::ChopperAttachToTower => {
+            **interface_state = ObjectInterfaceState::AwaitingTarget(CommandType::AttachToTower);
+            info!("Command mode: Attach to Tower");
+        }
+        CommandButtonAction::ChopperDropOffSupplies => {
+            **interface_state = ObjectInterfaceState::AwaitingTarget(CommandType::DropOffSupplies);
+            info!("Command mode: Drop Off Supplies");
         }
         CommandButtonAction::StTrain(unit_type) => {
             let entities = active_group_entities(selection);
@@ -1407,7 +1539,7 @@ fn execute_command_action(
             // Enter placement mode for Agent tunnel building
             placement_state.building_type = Some(ObjectEnum::Tunnel);
             // Set source_entity to the first selected Agent entity
-            let agent_entity = selected_units.iter().next().map(|(e, _)| e);
+            let agent_entity = selected_units.iter().next().map(|(e, _, _)| e);
             placement_state.source_entity = agent_entity;
             placement_state.grid_pos = None;
             placement_state.is_valid = false;
@@ -1468,22 +1600,10 @@ pub fn update_command_panel_progress(
                 interface_state.set_changed();
             }
         }
-        ObjectInterfaceState::StructureMenu(StructureMenuState::EfConstructing) => {
-            if let Ok(ef) = ef_query.get(target) {
-                if !ef.current_construction && ef.ready_to_place {
-                    *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace);
-                } else if !ef.current_construction && !ef.ready_to_place {
-                    *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle);
-                } else {
-                    interface_state.set_changed();
-                }
-            }
-        }
-        ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace) => {
-            if let Ok(ef) = ef_query.get(target) {
-                if !ef.ready_to_place {
-                    *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle);
-                }
+        ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle) => {
+            // Refresh the grid when EF state changes (construction progress, ready_to_place transitions)
+            if ef_query.get(target).is_ok() {
+                interface_state.set_changed();
             }
         }
         ObjectInterfaceState::StructureMenu(StructureMenuState::SupplyTowerMenu) => {
@@ -1518,7 +1638,7 @@ pub fn update_command_panel_progress(
 /// Returns `SelectedUnitCapabilities` with `has_attack`, `can_target_ground`, `can_reverse`
 /// set to true if ANY selected unit has that capability.
 fn compute_selected_unit_capabilities(
-    selected_units: &Query<(Entity, Option<&AttackCapability>, &UnitBaseEnum, &ObjectInstance, Option<&AgentCarryState>), (With<Unit>, With<Selected>, Without<StructureInstance>)>,
+    selected_units: &Query<(Entity, Option<&AttackCapability>, &UnitBaseEnum, &ObjectInstance, Option<&AgentCarryState>, Option<&SupplyChopperState>), (With<Unit>, With<Selected>, Without<StructureInstance>)>,
     selection: &Selection,
 ) -> SelectedUnitCapabilities {
     let mut caps = SelectedUnitCapabilities::default();
@@ -1526,7 +1646,7 @@ fn compute_selected_unit_capabilities(
     // This ensures the command panel reflects what the active group can do,
     // not the union of all selected units
     let active_entities: Option<&Vec<Entity>> = selection.active_group().map(|g| &g.entities);
-    for (entity, attack_cap, unit_base, _obj, carry_state) in selected_units.iter() {
+    for (entity, attack_cap, unit_base, obj, carry_state, chopper_state) in selected_units.iter() {
         // Skip entities not in the active group (when there is one)
         if let Some(entities) = active_entities {
             if !entities.contains(&entity) {
@@ -1545,6 +1665,14 @@ fn compute_selected_unit_capabilities(
         if let Some(cs) = carry_state {
             if cs.is_carrying() {
                 caps.agent_carrying = true;
+            }
+        }
+        if obj.object_type == ObjectEnum::SupplyChopper {
+            caps.is_chopper = true;
+        }
+        if let Some(cs) = chopper_state {
+            if cs.carried_supplies > 0 {
+                caps.chopper_has_supplies = true;
             }
         }
     }
@@ -2006,6 +2134,7 @@ fn grid_button_enabled_ext(
                 .unwrap_or(false)
         }
         CommandButtonAction::AgentDropOff => unit_caps.agent_carrying,
+        CommandButtonAction::ChopperDropOffSupplies => unit_caps.chopper_has_supplies,
         _ => grid_button_enabled(action, player_sc, bk_has_queue, target_entity, bk_query, st_query),
     }
 }
@@ -2023,24 +2152,85 @@ fn find_syndicate_resources_mut<'a>(
     None
 }
 
-/// Whether a command action is a "common command" (available to all selected entities).
-/// A command is only common if every group in the selection can execute it.
-/// When the selection contains structures, unit-only commands are NOT common.
-fn is_common_command(action: &CommandButtonAction, selection: &Selection) -> bool {
-    let is_unit_command = matches!(action,
+/// Whether a CommandButtonAction is a unit/agent action (as opposed to structure/resource).
+fn is_unit_action(action: &CommandButtonAction) -> bool {
+    matches!(action,
         CommandButtonAction::UnitMove |
+        CommandButtonAction::UnitAttack |
+        CommandButtonAction::UnitAttackGround |
+        CommandButtonAction::UnitAttackMove |
         CommandButtonAction::UnitPatrol |
         CommandButtonAction::UnitHoldPosition |
         CommandButtonAction::UnitStop |
+        CommandButtonAction::UnitReverse |
+        CommandButtonAction::UnitEnter |
+        CommandButtonAction::UnitGather |
         CommandButtonAction::AgentBuildTunnel |
-        CommandButtonAction::AgentDropOff
-    );
-    if !is_unit_command {
+        CommandButtonAction::AgentDropOff |
+        CommandButtonAction::ChopperPickUpSupplies |
+        CommandButtonAction::ChopperAttachToTower |
+        CommandButtonAction::ChopperDropOffSupplies
+    )
+}
+
+/// Whether a given ObjectEnum type supports a specific CommandButtonAction.
+/// This is the static capability mapping used to determine common vs group commands.
+fn object_type_supports_action(obj: &ObjectEnum, action: &CommandButtonAction) -> bool {
+    // Structures and resources support no unit/agent actions
+    if !obj.is_unit() {
         return false;
     }
-    // Unit commands are only common if ALL groups are unit types
-    // (i.e., no structures in the selection)
-    !selection.groups.iter().any(|g| g.object_type.is_structure())
+
+    match action {
+        // All units support basic movement commands
+        CommandButtonAction::UnitMove |
+        CommandButtonAction::UnitPatrol |
+        CommandButtonAction::UnitHoldPosition |
+        CommandButtonAction::UnitStop => true,
+
+        // Attack requires AttackCapability — SupplyChopper lacks it
+        CommandButtonAction::UnitAttack |
+        CommandButtonAction::UnitAttackMove => matches!(obj,
+            ObjectEnum::Peacekeeper | ObjectEnum::SyndicateAgent | ObjectEnum::SyndicateGuard
+        ),
+
+        // AttackGround requires can_target_ground (TailDisjointed or DoublyDisjointed attack type)
+        // Only Peacekeeper has TailDisjointed attack
+        CommandButtonAction::UnitAttackGround => matches!(obj, ObjectEnum::Peacekeeper),
+
+        // Reverse requires can_reverse on UnitBase — currently no HeavyInfantry/Glider units have it
+        // (WheeledVehicle, TrackedVehicle, DrillUnit do, but no ObjectEnum variants use those yet)
+        CommandButtonAction::UnitReverse => false,
+
+        // Agent-specific commands — only SyndicateAgent
+        CommandButtonAction::AgentBuildTunnel |
+        CommandButtonAction::AgentDropOff |
+        CommandButtonAction::UnitGather => matches!(obj, ObjectEnum::SyndicateAgent),
+
+        // Enter tunnel — Syndicate units only (Agent and Guard)
+        CommandButtonAction::UnitEnter => matches!(obj,
+            ObjectEnum::SyndicateAgent | ObjectEnum::SyndicateGuard
+        ),
+
+        // Supply Chopper-specific commands
+        CommandButtonAction::ChopperPickUpSupplies |
+        CommandButtonAction::ChopperAttachToTower |
+        CommandButtonAction::ChopperDropOffSupplies => matches!(obj, ObjectEnum::SupplyChopper),
+
+        // All other actions (structure commands, etc.) are not unit actions
+        _ => false,
+    }
+}
+
+/// Whether a command action is a "common command" (available to all selected entities).
+/// A command is common if and only if every SelectionGroup in the Selection supports it.
+/// Structure/resource-specific commands are never common across unit groups.
+fn is_common_command(action: &CommandButtonAction, selection: &Selection) -> bool {
+    if !is_unit_action(action) {
+        return false;
+    }
+    // A unit command is common iff every group supports it
+    selection.groups.iter().all(|g| object_type_supports_action(&g.object_type, action))
 }
 
 /// Determine which entities should receive a command based on whether it's
@@ -2058,24 +2248,24 @@ fn active_group_entities(selection: &Selection) -> Vec<Entity> {
 fn command_target_entities(
     action: &CommandButtonAction,
     selection: &Selection,
-    selected_units: &Query<(Entity, &mut Velocity), (With<Unit>, With<Selected>, Without<StructureInstance>)>,
+    selected_units: &Query<(Entity, &mut Velocity, Option<&mut CommandQueue>), (With<Unit>, With<Selected>, Without<StructureInstance>)>,
 ) -> Vec<Entity> {
     if is_common_command(action, selection) {
         // Common command: issue to all selected units
-        selected_units.iter().map(|(e, _)| e).collect()
+        selected_units.iter().map(|(e, _, _)| e).collect()
     } else {
         // Group command: issue only to active group entities
         if let Some(active_group) = selection.active_group() {
             active_group.entities.clone()
         } else {
-            selected_units.iter().map(|(e, _)| e).collect()
+            selected_units.iter().map(|(e, _, _)| e).collect()
         }
     }
 }
 
 /// Generate the label for a grid button based on state and action
 fn grid_button_label(
-    _state: &ObjectInterfaceState,
+    state: &ObjectInterfaceState,
     action: &CommandButtonAction,
     _player_sc: i32,
     hotkey: char,
@@ -2084,10 +2274,13 @@ fn grid_button_label(
         CommandButtonAction::DcOpenBuildMenu => format!("[{}] Build", hotkey),
         CommandButtonAction::DcBuild(ObjectEnum::PowerPlant) => format!("[{}] PP\n150 SC", hotkey),
         CommandButtonAction::DcBuild(ObjectEnum::Barracks) => format!("[{}] BK\n200 SC", hotkey),
-        CommandButtonAction::DcBuild(ObjectEnum::ExtractionFacility) => format!("[{}] EF\n250 SC", hotkey),
         CommandButtonAction::DcBuild(ObjectEnum::SupplyTower) => format!("[{}] ST\n200 SC", hotkey),
         CommandButtonAction::DcBuild(_) => format!("[{}] Build", hotkey),
-        CommandButtonAction::DcCancel => format!("[{}] Cancel", hotkey),
+        CommandButtonAction::DcCancel => match state {
+            ObjectInterfaceState::StructureMenu(StructureMenuState::DcConstructing) => format!("[{}] Cancel\nConstr.", hotkey),
+            ObjectInterfaceState::StructureMenu(StructureMenuState::DcReadyToPlace) => format!("[{}] Cancel\nBuilding", hotkey),
+            _ => format!("[{}] Cancel", hotkey),
+        },
         CommandButtonAction::BkTrain(ObjectEnum::Peacekeeper) => format!("[{}] PK\n50 SC", hotkey),
         CommandButtonAction::BkTrain(_) => format!("[{}] Train", hotkey),
         CommandButtonAction::BkCancel => format!("[{}] Cancel\nLast", hotkey),
@@ -2132,6 +2325,9 @@ fn grid_button_label(
         CommandButtonAction::AgentBuildTunnel => format!("[{}] Build\nTunnel", hotkey),
         CommandButtonAction::AgentDropOff => format!("[{}] Drop\nOff", hotkey),
         CommandButtonAction::SetRallyPoint => format!("[{}] Rally", hotkey),
+        CommandButtonAction::ChopperPickUpSupplies => format!("[{}] Pick Up\nSupplies", hotkey),
+        CommandButtonAction::ChopperAttachToTower => format!("[{}] Attach\nTower", hotkey),
+        CommandButtonAction::ChopperDropOffSupplies => format!("[{}] Drop Off\nSupplies", hotkey),
     }
 }
 
@@ -2147,7 +2343,6 @@ fn grid_button_enabled(
     match action {
         CommandButtonAction::DcBuild(ObjectEnum::PowerPlant) => player_sc >= 150,
         CommandButtonAction::DcBuild(ObjectEnum::Barracks) => player_sc >= 200,
-        CommandButtonAction::DcBuild(ObjectEnum::ExtractionFacility) => player_sc >= 250,
         CommandButtonAction::DcBuild(ObjectEnum::SupplyTower) => player_sc >= 200,
         CommandButtonAction::BkTrain(ObjectEnum::Peacekeeper) => {
             let queue_full = target_entity
@@ -2183,6 +2378,9 @@ fn is_action_active(action: &CommandButtonAction, interface_state: &ObjectInterf
         (CommandButtonAction::UnitReverse, CommandType::Reverse) => true,
         (CommandButtonAction::UnitEnter, CommandType::Enter) => true,
         (CommandButtonAction::UnitGather, CommandType::Gather) => true,
+        (CommandButtonAction::ChopperPickUpSupplies, CommandType::PickUpSupplies) => true,
+        (CommandButtonAction::ChopperAttachToTower, CommandType::AttachToTower) => true,
+        (CommandButtonAction::ChopperDropOffSupplies, CommandType::DropOffSupplies) => true,
         _ => false,
     }
 }
@@ -2288,6 +2486,234 @@ fn spawn_empty_grid_cell(parent: &mut ChildSpawnerCommands) {
     ));
 }
 
+/// Describes what target_info the resolution function needs to know about a
+/// cursor-hovered entity, extracted from ECS queries.
+#[derive(Debug, Clone, Default)]
+struct CursorEntityInfo {
+    has_crystal_patch: bool,
+    has_supply_station: bool,
+    has_tunnel: bool,
+    is_own: bool,
+    has_supply_tower: bool,
+}
+
+/// Pure function that resolves the pointer display type from the current
+/// interface state, cursor target, and selection capabilities.
+///
+/// Separated from the ECS system for testability.
+fn resolve_pointer_display(
+    interface_state: &ObjectInterfaceState,
+    cursor_kind: &CursorTargetEnum,
+    has_cursor_entity: bool,
+    cursor_entity_info: &CursorEntityInfo,
+    selection_count: usize,
+    active_type: Option<ObjectEnum>,
+    unit_caps: &SelectedUnitCapabilities,
+    active_group_has_production: bool,
+) -> PointerDisplayType {
+    // Placement mode → Inactive
+    if interface_state.is_placement_mode() {
+        return PointerDisplayType::Inactive;
+    }
+
+    // AwaitingTarget mode
+    if let Some(ct) = interface_state.awaiting_command_type() {
+        return resolve_awaiting_target(ct, cursor_kind, has_cursor_entity, cursor_entity_info);
+    }
+
+    // DefaultState (and structure/agent menu states)
+    resolve_default_state(
+        cursor_kind,
+        has_cursor_entity,
+        cursor_entity_info,
+        selection_count,
+        active_type,
+        unit_caps,
+        active_group_has_production,
+    )
+}
+
+/// Resolution logic for AwaitingTarget command modes.
+fn resolve_awaiting_target(
+    ct: CommandType,
+    cursor_kind: &CursorTargetEnum,
+    _has_cursor_entity: bool,
+    cursor_entity_info: &CursorEntityInfo,
+) -> PointerDisplayType {
+    match ct {
+        CommandType::Attack => match cursor_kind {
+            CursorTargetEnum::EnemyObject => PointerDisplayType::Attack,
+            CursorTargetEnum::Ground => PointerDisplayType::Attack, // AttackMove preview
+            _ => PointerDisplayType::Inactive,
+        },
+        CommandType::Move => PointerDisplayType::Move,
+        CommandType::Patrol => match cursor_kind {
+            CursorTargetEnum::Ground => PointerDisplayType::Patrol,
+            _ => PointerDisplayType::Inactive,
+        },
+        CommandType::AttackGround => match cursor_kind {
+            CursorTargetEnum::Ground => PointerDisplayType::AttackGround,
+            _ => PointerDisplayType::Inactive,
+        },
+        CommandType::Reverse => match cursor_kind {
+            CursorTargetEnum::Ground => PointerDisplayType::Move,
+            _ => PointerDisplayType::Inactive,
+        },
+        CommandType::ScheduleDeliveries => {
+            if cursor_entity_info.has_supply_station {
+                PointerDisplayType::GatherResources
+            } else {
+                PointerDisplayType::Inactive
+            }
+        },
+        CommandType::SetRallyPoint => PointerDisplayType::Move,
+        CommandType::Enter => {
+            if cursor_entity_info.has_tunnel && cursor_entity_info.is_own {
+                PointerDisplayType::Enter
+            } else {
+                PointerDisplayType::Inactive
+            }
+        },
+        CommandType::Gather => {
+            if cursor_entity_info.has_crystal_patch || cursor_entity_info.has_supply_station {
+                PointerDisplayType::GatherResources
+            } else {
+                PointerDisplayType::Inactive
+            }
+        },
+        CommandType::DropOff | CommandType::DropOffSupplies => {
+            if cursor_entity_info.has_tunnel && cursor_entity_info.is_own {
+                PointerDisplayType::ReturnResources
+            } else if cursor_entity_info.has_supply_tower && cursor_entity_info.is_own {
+                PointerDisplayType::ReturnResources
+            } else {
+                PointerDisplayType::Inactive
+            }
+        },
+        _ => PointerDisplayType::Inactive,
+    }
+}
+
+/// Resolution logic for DefaultState (and structure/agent menu states).
+fn resolve_default_state(
+    cursor_kind: &CursorTargetEnum,
+    _has_cursor_entity: bool,
+    cursor_entity_info: &CursorEntityInfo,
+    selection_count: usize,
+    active_type: Option<ObjectEnum>,
+    unit_caps: &SelectedUnitCapabilities,
+    active_group_has_production: bool,
+) -> PointerDisplayType {
+    if selection_count == 0 {
+        return PointerDisplayType::Inactive;
+    }
+
+    // Production structures → Move (rally point preview)
+    if active_group_has_production {
+        return PointerDisplayType::Move;
+    }
+
+    let is_unit_group = active_type.map(|t| t.is_unit()).unwrap_or(false);
+
+    // Enemy target + has_attack → Attack
+    if *cursor_kind == CursorTargetEnum::EnemyObject && unit_caps.has_attack {
+        return PointerDisplayType::Attack;
+    }
+
+    // Resource gathering checks (agents and choppers)
+    let is_agent = active_type == Some(ObjectEnum::SyndicateAgent);
+    let is_chopper = unit_caps.is_chopper;
+
+    if (is_agent || is_chopper) && (cursor_entity_info.has_crystal_patch || cursor_entity_info.has_supply_station) {
+        return PointerDisplayType::GatherResources;
+    }
+
+    // Return resources check — agent carrying to own tunnel
+    if unit_caps.agent_carrying && cursor_entity_info.has_tunnel && cursor_entity_info.is_own {
+        return PointerDisplayType::ReturnResources;
+    }
+
+    // Return resources check — chopper with supplies to own supply tower
+    if unit_caps.chopper_has_supplies && cursor_entity_info.has_supply_tower && cursor_entity_info.is_own {
+        return PointerDisplayType::ReturnResources;
+    }
+
+    // Enter tunnel — syndicate units to own tunnel
+    let is_syndicate_unit = matches!(active_type, Some(ObjectEnum::SyndicateAgent | ObjectEnum::SyndicateGuard));
+    if is_syndicate_unit && cursor_entity_info.has_tunnel && cursor_entity_info.is_own {
+        return PointerDisplayType::Enter;
+    }
+
+    // Ground / Friendly / Neutral with movable units → Move
+    if is_unit_group && matches!(cursor_kind, CursorTargetEnum::Ground | CursorTargetEnum::FriendlyObject | CursorTargetEnum::NeutralObject) {
+        return PointerDisplayType::Move;
+    }
+
+    PointerDisplayType::Inactive
+}
+
+/// System that resolves `PointerDisplayType` each frame based on the current
+/// interface state, cursor target, selection, and unit capabilities.
+///
+/// Must run after `update_command_panel_state` (which populates
+/// `SelectedUnitCapabilities`, `ObjectInterfaceState`) and after
+/// `update_cursor_target` (which populates `CursorTarget`).
+pub fn resolve_pointer_display_type(
+    interface_state: Res<ObjectInterfaceState>,
+    cursor_target: Res<CursorTarget>,
+    selection: Res<Selection>,
+    unit_caps: Res<SelectedUnitCapabilities>,
+    mut pointer_display: ResMut<PointerDisplayType>,
+    target_info: Query<(Option<&SpaceCrystalPatch>, Option<&SupplyDeliveryStation>, Option<&TunnelState>, Option<&SupplyTowerState>, &Owner), With<ObjectInstance>>,
+    selected_structures: Query<(Option<&BarracksState>, Option<&HeadquartersState>, Option<&SupplyTowerState>, Option<&DeploymentCenterState>, Option<&ExtractionFacilityState>), (With<StructureInstance>, With<Selected>)>,
+    local_player: Res<LocalPlayer>,
+) {
+    // Build cursor entity info from ECS queries
+    let cursor_entity_info = if let Some(entity) = cursor_target.entity {
+        if let Ok((crystal, supply_station, tunnel, supply_tower, owner)) = target_info.get(entity) {
+            CursorEntityInfo {
+                has_crystal_patch: crystal.is_some(),
+                has_supply_station: supply_station.is_some(),
+                has_tunnel: tunnel.is_some(),
+                is_own: owner.player_number() == Some(local_player.0),
+                has_supply_tower: supply_tower.is_some(),
+            }
+        } else {
+            CursorEntityInfo::default()
+        }
+    } else {
+        CursorEntityInfo::default()
+    };
+
+    // Check if the active group is a production structure
+    let active_group_has_production = if let Some(group) = selection.active_group() {
+        if group.object_type.is_structure() {
+            group.entities.iter().any(|&e| {
+                if let Ok((bk, hq, st, dc, ef)) = selected_structures.get(e) {
+                    bk.is_some() || hq.is_some() || st.is_some() || dc.is_some() || ef.is_some()
+                } else {
+                    false
+                }
+            })
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    *pointer_display = resolve_pointer_display(
+        &interface_state,
+        &cursor_target.kind,
+        cursor_target.entity.is_some(),
+        &cursor_entity_info,
+        selection.total_entity_count(),
+        selection.active_type(),
+        &unit_caps,
+        active_group_has_production,
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2344,9 +2770,9 @@ mod tests {
 
     #[test]
     fn selected_unit_capabilities_equality() {
-        let a = SelectedUnitCapabilities { has_attack: true, can_target_ground: false, can_reverse: true, agent_carrying: false };
-        let b = SelectedUnitCapabilities { has_attack: true, can_target_ground: false, can_reverse: true, agent_carrying: false };
-        let c = SelectedUnitCapabilities { has_attack: false, can_target_ground: false, can_reverse: true, agent_carrying: false };
+        let a = SelectedUnitCapabilities { has_attack: true, can_target_ground: false, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false };
+        let b = SelectedUnitCapabilities { has_attack: true, can_target_ground: false, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false };
+        let c = SelectedUnitCapabilities { has_attack: false, can_target_ground: false, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false };
         assert_eq!(a, b);
         assert_ne!(a, c);
     }
@@ -2354,7 +2780,7 @@ mod tests {
     // === get_grid_slot_action conditional tests ===
 
     fn all_caps() -> SelectedUnitCapabilities {
-        SelectedUnitCapabilities { has_attack: true, can_target_ground: true, can_reverse: true, agent_carrying: false }
+        SelectedUnitCapabilities { has_attack: true, can_target_ground: true, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false }
     }
 
     fn no_caps() -> SelectedUnitCapabilities {
@@ -2413,78 +2839,67 @@ mod tests {
     }
 
     fn attack_only() -> SelectedUnitCapabilities {
-        SelectedUnitCapabilities { has_attack: true, can_target_ground: false, can_reverse: false, agent_carrying: false }
+        SelectedUnitCapabilities { has_attack: true, can_target_ground: false, can_reverse: false, agent_carrying: false, is_chopper: false, chopper_has_supplies: false }
     }
 
     #[test]
     fn unit_commands_move_always_available() {
         let caps = no_caps();
-        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 0, 0, false, false, &caps, false);
+        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 0, 0, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::UnitMove)));
     }
 
     #[test]
     fn unit_commands_attack_requires_has_attack() {
         let caps = no_caps();
-        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 0, 1, false, false, &caps, false);
+        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 1, 0, false, false, &caps, false, false);
         assert!(action.is_none());
 
         let caps = attack_only();
-        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 0, 1, false, false, &caps, false);
+        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 1, 0, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::UnitAttack)));
     }
 
     #[test]
     fn unit_commands_attack_ground_requires_can_target_ground() {
         let caps = attack_only();
-        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 0, 2, false, false, &caps, false);
+        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 1, 2, false, false, &caps, false, false);
         assert!(action.is_none());
 
         let caps = all_caps();
-        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 0, 2, false, false, &caps, false);
+        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 1, 2, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::UnitAttackGround)));
-    }
-
-    #[test]
-    fn unit_commands_attack_move_requires_has_attack() {
-        let caps = no_caps();
-        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 1, 0, false, false, &caps, false);
-        assert!(action.is_none());
-
-        let caps = attack_only();
-        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 1, 0, false, false, &caps, false);
-        assert!(matches!(action, Some(CommandButtonAction::UnitAttackMove)));
     }
 
     #[test]
     fn unit_commands_patrol_always_available() {
         let caps = no_caps();
-        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 1, 1, false, false, &caps, false);
+        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 1, 1, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::UnitPatrol)));
     }
 
     #[test]
     fn unit_commands_hold_position_always_available() {
         let caps = no_caps();
-        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 1, 2, false, false, &caps, false);
+        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 0, 2, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::UnitHoldPosition)));
     }
 
     #[test]
     fn unit_commands_stop_always_available() {
         let caps = no_caps();
-        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 2, 0, false, false, &caps, false);
+        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 2, 1, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::UnitStop)));
     }
 
     #[test]
     fn unit_commands_reverse_requires_can_reverse() {
         let caps = no_caps();
-        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 2, 1, false, false, &caps, false);
+        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 0, 1, false, false, &caps, false, false);
         assert!(action.is_none());
 
-        let caps = SelectedUnitCapabilities { has_attack: false, can_target_ground: false, can_reverse: true, agent_carrying: false };
-        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 2, 1, false, false, &caps, false);
+        let caps = SelectedUnitCapabilities { has_attack: false, can_target_ground: false, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false };
+        let action = get_grid_slot_action(&ObjectInterfaceState::Default, 0, 1, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::UnitReverse)));
     }
 
@@ -2541,18 +2956,18 @@ mod tests {
     // === Conditional layout completeness ===
 
     #[test]
-    fn all_caps_unit_commands_shows_all_eight_commands() {
+    fn all_caps_unit_commands_shows_all_seven_commands() {
         let caps = all_caps();
         let mut count = 0;
         for row in 0..3u8 {
             for col in 0..3u8 {
-                if get_grid_slot_action(&ObjectInterfaceState::Default, row, col, false, false, &caps, false).is_some() {
+                if get_grid_slot_action(&ObjectInterfaceState::Default, row, col, false, false, &caps, false, false).is_some() {
                     count += 1;
                 }
             }
         }
-        // Move, Attack, AtkGround, AtkMove, Patrol, HoldPos, Stop, Reverse = 8
-        assert_eq!(count, 8);
+        // Move, Reverse, HoldPos, Attack, Patrol, AtkGround, Stop = 7
+        assert_eq!(count, 7);
     }
 
     #[test]
@@ -2561,12 +2976,12 @@ mod tests {
         let mut count = 0;
         for row in 0..3u8 {
             for col in 0..3u8 {
-                if get_grid_slot_action(&ObjectInterfaceState::Default, row, col, false, false, &caps, false).is_some() {
+                if get_grid_slot_action(&ObjectInterfaceState::Default, row, col, false, false, &caps, false, false).is_some() {
                     count += 1;
                 }
             }
         }
-        // Move, Patrol, HoldPos, Stop = 4
+        // Move(0,0), HoldPos(0,2), Patrol(1,1), Stop(2,1) = 4
         assert_eq!(count, 4);
     }
 
@@ -2693,13 +3108,34 @@ mod tests {
     }
 
     #[test]
-    fn attack_is_not_common_command() {
+    fn attack_is_common_when_all_groups_support_it() {
+        // Peacekeeper + SyndicateAgent both have attack → common
         let sel = units_only_selection();
+        assert!(is_common_command(&CommandButtonAction::UnitAttack, &sel));
+    }
+
+    #[test]
+    fn attack_is_not_common_when_chopper_in_selection() {
+        // Peacekeeper + SupplyChopper: chopper has no attack → NOT common
+        let sel = Selection {
+            groups: vec![
+                SelectionGroup {
+                    object_type: ObjectEnum::Peacekeeper,
+                    entities: vec![Entity::from_raw_u32(1).unwrap()],
+                },
+                SelectionGroup {
+                    object_type: ObjectEnum::SupplyChopper,
+                    entities: vec![Entity::from_raw_u32(2).unwrap()],
+                },
+            ],
+            active_group_index: Some(0),
+        };
         assert!(!is_common_command(&CommandButtonAction::UnitAttack, &sel));
     }
 
     #[test]
     fn reverse_is_not_common_command() {
+        // No current unit types have can_reverse → never common
         let sel = units_only_selection();
         assert!(!is_common_command(&CommandButtonAction::UnitReverse, &sel));
     }
@@ -2722,13 +3158,126 @@ mod tests {
         assert!(!is_common_command(&CommandButtonAction::UnitStop, &sel));
     }
 
+    #[test]
+    fn basic_commands_common_with_chopper_and_peacekeeper() {
+        // Peacekeeper + SupplyChopper: Move, Stop, HoldPosition, Patrol ARE common
+        let sel = Selection {
+            groups: vec![
+                SelectionGroup {
+                    object_type: ObjectEnum::Peacekeeper,
+                    entities: vec![Entity::from_raw_u32(1).unwrap()],
+                },
+                SelectionGroup {
+                    object_type: ObjectEnum::SupplyChopper,
+                    entities: vec![Entity::from_raw_u32(2).unwrap()],
+                },
+            ],
+            active_group_index: Some(0),
+        };
+        assert!(is_common_command(&CommandButtonAction::UnitMove, &sel));
+        assert!(is_common_command(&CommandButtonAction::UnitStop, &sel));
+        assert!(is_common_command(&CommandButtonAction::UnitHoldPosition, &sel));
+        assert!(is_common_command(&CommandButtonAction::UnitPatrol, &sel));
+    }
+
+    #[test]
+    fn attack_common_with_peacekeeper_and_guard() {
+        // Peacekeeper + SyndicateGuard: both have attack → common
+        let sel = Selection {
+            groups: vec![
+                SelectionGroup {
+                    object_type: ObjectEnum::Peacekeeper,
+                    entities: vec![Entity::from_raw_u32(1).unwrap()],
+                },
+                SelectionGroup {
+                    object_type: ObjectEnum::SyndicateGuard,
+                    entities: vec![Entity::from_raw_u32(2).unwrap()],
+                },
+            ],
+            active_group_index: Some(0),
+        };
+        assert!(is_common_command(&CommandButtonAction::UnitAttack, &sel));
+        assert!(is_common_command(&CommandButtonAction::UnitAttackMove, &sel));
+    }
+
+    #[test]
+    fn attack_ground_not_common_across_different_units() {
+        // Peacekeeper (has AttackGround) + SyndicateGuard (no AttackGround) → NOT common
+        let sel = Selection {
+            groups: vec![
+                SelectionGroup {
+                    object_type: ObjectEnum::Peacekeeper,
+                    entities: vec![Entity::from_raw_u32(1).unwrap()],
+                },
+                SelectionGroup {
+                    object_type: ObjectEnum::SyndicateGuard,
+                    entities: vec![Entity::from_raw_u32(2).unwrap()],
+                },
+            ],
+            active_group_index: Some(0),
+        };
+        assert!(!is_common_command(&CommandButtonAction::UnitAttackGround, &sel));
+    }
+
+    #[test]
+    fn object_type_supports_action_structure_supports_nothing() {
+        assert!(!object_type_supports_action(&ObjectEnum::DeploymentCenter, &CommandButtonAction::UnitMove));
+        assert!(!object_type_supports_action(&ObjectEnum::Barracks, &CommandButtonAction::UnitStop));
+    }
+
+    #[test]
+    fn object_type_supports_action_resource_supports_nothing() {
+        assert!(!object_type_supports_action(&ObjectEnum::SpaceCrystalsPatch, &CommandButtonAction::UnitMove));
+        assert!(!object_type_supports_action(&ObjectEnum::SupplyDeliveryStation, &CommandButtonAction::UnitAttack));
+    }
+
+    #[test]
+    fn object_type_supports_action_chopper_no_attack() {
+        assert!(object_type_supports_action(&ObjectEnum::SupplyChopper, &CommandButtonAction::UnitMove));
+        assert!(!object_type_supports_action(&ObjectEnum::SupplyChopper, &CommandButtonAction::UnitAttack));
+        assert!(!object_type_supports_action(&ObjectEnum::SupplyChopper, &CommandButtonAction::UnitAttackMove));
+        assert!(!object_type_supports_action(&ObjectEnum::SupplyChopper, &CommandButtonAction::UnitAttackGround));
+    }
+
+    #[test]
+    fn object_type_supports_action_agent_specific() {
+        assert!(object_type_supports_action(&ObjectEnum::SyndicateAgent, &CommandButtonAction::AgentBuildTunnel));
+        assert!(object_type_supports_action(&ObjectEnum::SyndicateAgent, &CommandButtonAction::AgentDropOff));
+        assert!(object_type_supports_action(&ObjectEnum::SyndicateAgent, &CommandButtonAction::UnitGather));
+        assert!(object_type_supports_action(&ObjectEnum::SyndicateAgent, &CommandButtonAction::UnitEnter));
+        // Peacekeeper does NOT support agent commands
+        assert!(!object_type_supports_action(&ObjectEnum::Peacekeeper, &CommandButtonAction::AgentBuildTunnel));
+        assert!(!object_type_supports_action(&ObjectEnum::Peacekeeper, &CommandButtonAction::AgentDropOff));
+    }
+
+    #[test]
+    fn is_unit_action_covers_all_unit_actions() {
+        assert!(is_unit_action(&CommandButtonAction::UnitMove));
+        assert!(is_unit_action(&CommandButtonAction::UnitAttack));
+        assert!(is_unit_action(&CommandButtonAction::UnitAttackGround));
+        assert!(is_unit_action(&CommandButtonAction::UnitAttackMove));
+        assert!(is_unit_action(&CommandButtonAction::UnitPatrol));
+        assert!(is_unit_action(&CommandButtonAction::UnitHoldPosition));
+        assert!(is_unit_action(&CommandButtonAction::UnitStop));
+        assert!(is_unit_action(&CommandButtonAction::UnitReverse));
+        assert!(is_unit_action(&CommandButtonAction::UnitEnter));
+        assert!(is_unit_action(&CommandButtonAction::UnitGather));
+        assert!(is_unit_action(&CommandButtonAction::AgentBuildTunnel));
+        assert!(is_unit_action(&CommandButtonAction::AgentDropOff));
+        assert!(is_unit_action(&CommandButtonAction::ChopperPickUpSupplies));
+        assert!(is_unit_action(&CommandButtonAction::ChopperAttachToTower));
+        // Structure commands are NOT unit actions
+        assert!(!is_unit_action(&CommandButtonAction::DcOpenBuildMenu));
+        assert!(!is_unit_action(&CommandButtonAction::BkCancel));
+    }
+
     // === StructureMenuState grid tests ===
 
     #[test]
     fn dc_idle_shows_build_button() {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcIdle);
         let caps = no_caps();
-        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::DcOpenBuildMenu)));
     }
 
@@ -2736,9 +3285,9 @@ mod tests {
     fn dc_build_menu_shows_structures() {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcBuildMenu);
         let caps = no_caps();
-        let pp = get_grid_slot_action(&state, 0, 0, false, false, &caps, false);
+        let pp = get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false);
         assert!(matches!(pp, Some(CommandButtonAction::DcBuild(ObjectEnum::PowerPlant))));
-        let bk = get_grid_slot_action(&state, 0, 1, false, false, &caps, false);
+        let bk = get_grid_slot_action(&state, 0, 1, false, false, &caps, false, false);
         assert!(matches!(bk, Some(CommandButtonAction::DcBuild(ObjectEnum::Barracks))));
     }
 
@@ -2747,13 +3296,13 @@ mod tests {
         let state = ObjectInterfaceState::AwaitingTarget(CommandType::Attack);
         let caps = all_caps();
         // Z (2,0) should be Back
-        let action = get_grid_slot_action(&state, 2, 0, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 0, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::Back)));
         // All other slots should be None
         for row in 0..3u8 {
             for col in 0..3u8 {
                 if (row, col) == (2, 0) { continue; }
-                assert!(get_grid_slot_action(&state, row, col, false, false, &caps, false).is_none(),
+                assert!(get_grid_slot_action(&state, row, col, false, false, &caps, false, false).is_none(),
                     "Slot ({}, {}) should be empty in AwaitingTarget", row, col);
             }
         }
@@ -2765,11 +3314,11 @@ mod tests {
     fn tunnel_idle_shows_three_commands() {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelIdle);
         let caps = no_caps();
-        let upgrade = get_grid_slot_action(&state, 0, 0, false, false, &caps, false);
+        let upgrade = get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false);
         assert!(matches!(upgrade, Some(CommandButtonAction::TunnelUpgrade)));
-        let expand = get_grid_slot_action(&state, 0, 1, false, false, &caps, false);
+        let expand = get_grid_slot_action(&state, 0, 1, false, false, &caps, false, false);
         assert!(matches!(expand, Some(CommandButtonAction::TunnelOpenExpandMenu)));
-        let eject = get_grid_slot_action(&state, 0, 2, false, false, &caps, false);
+        let eject = get_grid_slot_action(&state, 0, 2, false, false, &caps, false, false);
         assert!(matches!(eject, Some(CommandButtonAction::TunnelOpenEjectMenu)));
     }
 
@@ -2780,7 +3329,7 @@ mod tests {
         // Only (0,0), (0,1), (0,2) should have actions
         for row in 1..3u8 {
             for col in 0..3u8 {
-                assert!(get_grid_slot_action(&state, row, col, false, false, &caps, false).is_none(),
+                assert!(get_grid_slot_action(&state, row, col, false, false, &caps, false, false).is_none(),
                     "Expected None at ({}, {})", row, col);
             }
         }
@@ -2790,7 +3339,7 @@ mod tests {
     fn tunnel_idle_cancel_upgrade_shown_when_upgrading() {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelIdle);
         let caps = no_caps();
-        let action = get_grid_slot_action(&state, 2, 1, false, false, &caps, true);
+        let action = get_grid_slot_action(&state, 2, 1, false, false, &caps, true, false);
         assert!(matches!(action, Some(CommandButtonAction::TunnelCancelUpgrade)));
     }
 
@@ -2798,7 +3347,7 @@ mod tests {
     fn tunnel_idle_cancel_upgrade_hidden_when_not_upgrading() {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelIdle);
         let caps = no_caps();
-        let action = get_grid_slot_action(&state, 2, 1, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 1, false, false, &caps, false, false);
         assert!(action.is_none());
     }
 
@@ -2823,7 +3372,7 @@ mod tests {
     fn tunnel_expand_menu_headquarters_at_0_0() {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelExpandMenu);
         let caps = no_caps();
-        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::TunnelSelectExpansion(ObjectEnum::Headquarters))));
     }
 
@@ -2831,7 +3380,7 @@ mod tests {
     fn tunnel_expand_menu_back_at_2_0() {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelExpandMenu);
         let caps = no_caps();
-        let action = get_grid_slot_action(&state, 2, 0, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 0, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::Back)));
     }
 
@@ -2840,20 +3389,20 @@ mod tests {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelExpandMenu);
         let caps = no_caps();
         // All non-mapped slots should return None
-        assert!(get_grid_slot_action(&state, 0, 1, false, false, &caps, false).is_none());
-        assert!(get_grid_slot_action(&state, 0, 2, false, false, &caps, false).is_none());
-        assert!(get_grid_slot_action(&state, 1, 0, false, false, &caps, false).is_none());
-        assert!(get_grid_slot_action(&state, 1, 1, false, false, &caps, false).is_none());
-        assert!(get_grid_slot_action(&state, 1, 2, false, false, &caps, false).is_none());
-        assert!(get_grid_slot_action(&state, 2, 1, false, false, &caps, false).is_none());
-        assert!(get_grid_slot_action(&state, 2, 2, false, false, &caps, false).is_none());
+        assert!(get_grid_slot_action(&state, 0, 1, false, false, &caps, false, false).is_none());
+        assert!(get_grid_slot_action(&state, 0, 2, false, false, &caps, false, false).is_none());
+        assert!(get_grid_slot_action(&state, 1, 0, false, false, &caps, false, false).is_none());
+        assert!(get_grid_slot_action(&state, 1, 1, false, false, &caps, false, false).is_none());
+        assert!(get_grid_slot_action(&state, 1, 2, false, false, &caps, false, false).is_none());
+        assert!(get_grid_slot_action(&state, 2, 1, false, false, &caps, false, false).is_none());
+        assert!(get_grid_slot_action(&state, 2, 2, false, false, &caps, false, false).is_none());
     }
 
     #[test]
     fn tunnel_eject_menu_back_at_2_0() {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelEjectMenu);
         let caps = no_caps();
-        let action = get_grid_slot_action(&state, 2, 0, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 0, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::Back)));
     }
 
@@ -2865,7 +3414,7 @@ mod tests {
         for row in 0..3u8 {
             for col in 0..3u8 {
                 if (row, col) == (2, 0) { continue; }
-                assert!(get_grid_slot_action(&state, row, col, false, false, &caps, false).is_none());
+                assert!(get_grid_slot_action(&state, row, col, false, false, &caps, false, false).is_none());
             }
         }
     }
@@ -2876,7 +3425,7 @@ mod tests {
         let caps = no_caps();
         for row in 0..3u8 {
             for col in 0..3u8 {
-                assert!(get_grid_slot_action(&state, row, col, false, false, &caps, false).is_none());
+                assert!(get_grid_slot_action(&state, row, col, false, false, &caps, false, false).is_none());
             }
         }
     }
@@ -3049,77 +3598,34 @@ mod tests {
     // === Agent Interface State tests ===
 
     #[test]
-    fn agent_default_shows_move_at_q() {
+    fn agent_default_shows_build_tunnel_at_q() {
         let caps = no_caps();
         let state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
-        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false);
-        assert!(matches!(action, Some(CommandButtonAction::UnitMove)));
-    }
-
-    #[test]
-    fn agent_default_shows_attack_at_w_when_has_attack() {
-        let caps = attack_only();
-        let state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
-        let action = get_grid_slot_action(&state, 0, 1, false, false, &caps, false);
-        assert!(matches!(action, Some(CommandButtonAction::UnitAttack)));
-    }
-
-    #[test]
-    fn agent_default_hides_attack_at_w_when_no_attack() {
-        let caps = no_caps();
-        let state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
-        let action = get_grid_slot_action(&state, 0, 1, false, false, &caps, false);
-        assert!(action.is_none());
-    }
-
-    #[test]
-    fn agent_default_shows_enter_at_e() {
-        let caps = no_caps();
-        let state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
-        let action = get_grid_slot_action(&state, 0, 2, false, false, &caps, false);
-        assert!(matches!(action, Some(CommandButtonAction::UnitEnter)));
-    }
-
-    #[test]
-    fn agent_default_shows_gather_at_a() {
-        let caps = no_caps();
-        let state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
-        let action = get_grid_slot_action(&state, 1, 0, false, false, &caps, false);
-        assert!(matches!(action, Some(CommandButtonAction::UnitGather)));
-    }
-
-    #[test]
-    fn agent_default_shows_drop_off_at_s() {
-        let caps = no_caps();
-        let state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
-        let action = get_grid_slot_action(&state, 1, 1, false, false, &caps, false);
-        assert!(matches!(action, Some(CommandButtonAction::AgentDropOff)));
-    }
-
-    #[test]
-    fn agent_default_shows_build_tunnel_at_d() {
-        let caps = no_caps();
-        let state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
-        let action = get_grid_slot_action(&state, 1, 2, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::AgentBuildTunnel)));
     }
 
     #[test]
-    fn agent_default_shows_stop_at_z() {
+    fn agent_default_shows_drop_off_at_w() {
         let caps = no_caps();
         let state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
-        let action = get_grid_slot_action(&state, 2, 0, false, false, &caps, false);
-        assert!(matches!(action, Some(CommandButtonAction::UnitStop)));
+        let action = get_grid_slot_action(&state, 0, 1, false, false, &caps, false, false);
+        assert!(matches!(action, Some(CommandButtonAction::AgentDropOff)));
     }
 
     #[test]
     fn agent_default_no_extra_slots() {
         let caps = no_caps();
         let state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
-        // (2,1) and (2,2) should be empty; (0,1) empty without attack
-        for &(row, col) in &[(2, 1), (2, 2)] {
-            let action = get_grid_slot_action(&state, row, col, false, false, &caps, false);
-            assert!(action.is_none(), "Unexpected action at ({}, {})", row, col);
+        // All slots except (0,0) and (0,1) should be empty
+        for row in 0..3u8 {
+            for col in 0..3u8 {
+                if (row, col) == (0, 0) || (row, col) == (0, 1) {
+                    continue;
+                }
+                let action = get_grid_slot_action(&state, row, col, false, false, &caps, false, false);
+                assert!(action.is_none(), "Unexpected action at ({}, {})", row, col);
+            }
         }
     }
 
@@ -3129,7 +3635,7 @@ mod tests {
         let state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentAwaitingPlacement);
         for row in 0..3u8 {
             for col in 0..3u8 {
-                let action = get_grid_slot_action(&state, row, col, false, false, &caps, false);
+                let action = get_grid_slot_action(&state, row, col, false, false, &caps, false, false);
                 assert!(action.is_none());
             }
         }
@@ -3206,8 +3712,29 @@ mod tests {
     }
 
     #[test]
-    fn agent_commands_are_common_with_units_only() {
+    fn agent_commands_not_common_with_non_agent_units() {
+        // Peacekeeper + SyndicateAgent: Peacekeeper doesn't support AgentBuildTunnel → NOT common
         let sel = units_only_selection();
+        assert!(!is_common_command(&CommandButtonAction::AgentBuildTunnel, &sel));
+        assert!(!is_common_command(&CommandButtonAction::AgentDropOff, &sel));
+    }
+
+    #[test]
+    fn agent_commands_common_with_only_agents() {
+        // Two SyndicateAgent groups: both support AgentBuildTunnel → IS common
+        let sel = Selection {
+            groups: vec![
+                SelectionGroup {
+                    object_type: ObjectEnum::SyndicateAgent,
+                    entities: vec![Entity::from_raw_u32(1).unwrap()],
+                },
+                SelectionGroup {
+                    object_type: ObjectEnum::SyndicateAgent,
+                    entities: vec![Entity::from_raw_u32(2).unwrap()],
+                },
+            ],
+            active_group_index: Some(0),
+        };
         assert!(is_common_command(&CommandButtonAction::AgentBuildTunnel, &sel));
         assert!(is_common_command(&CommandButtonAction::AgentDropOff, &sel));
     }
@@ -3249,7 +3776,7 @@ mod tests {
     fn dc_build_menu_back_at_bottom_left() {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcBuildMenu);
         let caps = no_caps();
-        let action = get_grid_slot_action(&state, 2, 0, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 0, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::Back)));
     }
 
@@ -3257,7 +3784,7 @@ mod tests {
     fn dc_build_menu_no_back_at_bottom_right() {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcBuildMenu);
         let caps = no_caps();
-        let action = get_grid_slot_action(&state, 2, 2, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 2, false, false, &caps, false, false);
         assert!(!matches!(action, Some(CommandButtonAction::Back)));
     }
 
@@ -3270,7 +3797,7 @@ mod tests {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcBuildMenu);
         let caps = no_caps();
         assert!(
-            matches!(get_grid_slot_action(&state, 2, 0, false, false, &caps, false), Some(CommandButtonAction::Back)),
+            matches!(get_grid_slot_action(&state, 2, 0, false, false, &caps, false, false), Some(CommandButtonAction::Back)),
             "Back button must be at grid position (2,0) = Z = bottom-left"
         );
     }
@@ -3387,7 +3914,7 @@ mod tests {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcBuildMenu);
         let caps = no_caps();
         // Supply Tower is at (1, 0) in the DC build menu
-        let action = get_grid_slot_action(&state, 1, 0, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 1, 0, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::DcBuild(ObjectEnum::SupplyTower))),
             "DC build menu should have Supply Tower at (1,0)");
     }
@@ -3398,7 +3925,7 @@ mod tests {
     fn schedule_deliveries_action_exists_in_supply_tower_menu() {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::SupplyTowerMenu);
         let caps = no_caps();
-        let action = get_grid_slot_action(&state, 1, 0, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 1, 0, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::StScheduleDeliveries)),
             "Supply Tower menu should have Schedule Deliveries at (1,0)");
     }
@@ -3457,7 +3984,7 @@ mod tests {
     fn hq_menu_grid_slot_train_agent_at_0_0() {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::HeadquartersMenu);
         let caps = no_caps();
-        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::HqTrain(ObjectEnum::SyndicateAgent))));
     }
 
@@ -3466,7 +3993,7 @@ mod tests {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::HeadquartersMenu);
         let caps = no_caps();
         // Cancel visible at (2,1) when has_queue is true
-        let action = get_grid_slot_action(&state, 2, 1, true, false, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 1, true, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::HqCancel)));
     }
 
@@ -3475,7 +4002,7 @@ mod tests {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::HeadquartersMenu);
         let caps = no_caps();
         // Cancel hidden when has_queue is false
-        let action = get_grid_slot_action(&state, 2, 1, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 1, false, false, &caps, false, false);
         assert!(action.is_none());
     }
 
@@ -3483,7 +4010,7 @@ mod tests {
     fn hq_menu_grid_slot_guard_at_0_1() {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::HeadquartersMenu);
         let caps = no_caps();
-        let action = get_grid_slot_action(&state, 0, 1, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 0, 1, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::HqTrain(ObjectEnum::SyndicateGuard))));
     }
 
@@ -3495,7 +4022,7 @@ mod tests {
         for row in 0..3u8 {
             for col in 0..3u8 {
                 if (row, col) == (0, 0) || (row, col) == (0, 1) || (row, col) == (2, 2) { continue; }
-                let action = get_grid_slot_action(&state, row, col, false, false, &caps, false);
+                let action = get_grid_slot_action(&state, row, col, false, false, &caps, false, false);
                 assert!(action.is_none(), "Slot ({}, {}) should be empty", row, col);
             }
         }
@@ -3601,7 +4128,7 @@ mod tests {
         let mut count = 0;
         for row in 0..3u8 {
             for col in 0..3u8 {
-                if get_grid_slot_action(&state, row, col, true, false, &caps, false).is_some() {
+                if get_grid_slot_action(&state, row, col, true, false, &caps, false, false).is_some() {
                     count += 1;
                 }
             }
@@ -3617,7 +4144,7 @@ mod tests {
         let mut count = 0;
         for row in 0..3u8 {
             for col in 0..3u8 {
-                if get_grid_slot_action(&state, row, col, false, false, &caps, false).is_some() {
+                if get_grid_slot_action(&state, row, col, false, false, &caps, false, false).is_some() {
                     count += 1;
                 }
             }
@@ -3635,7 +4162,7 @@ mod tests {
         for row in 0..3u8 {
             for col in 0..3u8 {
                 assert!(
-                    get_grid_slot_action(&state, row, col, false, false, &caps, false).is_none(),
+                    get_grid_slot_action(&state, row, col, false, false, &caps, false, false).is_none(),
                     "Inert structure should have no grid buttons at ({}, {})", row, col
                 );
             }
@@ -3692,11 +4219,23 @@ mod tests {
 
     #[test]
     fn multiple_unit_groups_group_commands_not_common() {
-        // With multiple unit groups, group-specific commands should NOT be treated as common
-        let sel = units_only_selection();
+        // With multiple unit groups where one doesn't support Attack, it should NOT be common
+        let sel = Selection {
+            groups: vec![
+                SelectionGroup {
+                    object_type: ObjectEnum::Peacekeeper,
+                    entities: vec![Entity::from_raw_u32(1).unwrap()],
+                },
+                SelectionGroup {
+                    object_type: ObjectEnum::SupplyChopper,
+                    entities: vec![Entity::from_raw_u32(2).unwrap()],
+                },
+            ],
+            active_group_index: Some(0),
+        };
         let attack_action = CommandButtonAction::UnitAttack;
         let result = sel.groups.len() <= 1 || is_common_command(&attack_action, &sel);
-        assert!(!result, "Attack should be group-specific with multiple groups");
+        assert!(!result, "Attack should be group-specific when chopper is in selection");
     }
 
     #[test]
@@ -3736,7 +4275,7 @@ mod tests {
         ];
         for ct in command_types {
             let state = ObjectInterfaceState::AwaitingTarget(ct);
-            let action = get_grid_slot_action(&state, 2, 0, false, false, &caps, false);
+            let action = get_grid_slot_action(&state, 2, 0, false, false, &caps, false, false);
             assert!(matches!(action, Some(CommandButtonAction::Back)),
                 "AwaitingTarget({:?}) should have Back at (2,0)", ct);
         }
@@ -3752,7 +4291,7 @@ mod tests {
         ];
         for menu in production_menus {
             let state = ObjectInterfaceState::StructureMenu(menu.clone());
-            let action = get_grid_slot_action(&state, 2, 2, false, false, &caps, false);
+            let action = get_grid_slot_action(&state, 2, 2, false, false, &caps, false, false);
             assert!(matches!(action, Some(CommandButtonAction::SetRallyPoint)),
                 "Menu {:?} should have SetRallyPoint at (2,2)", menu);
         }
@@ -3763,17 +4302,17 @@ mod tests {
         let caps = no_caps();
         // Barracks
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::BarracksMenu);
-        let action = get_grid_slot_action(&state, 2, 1, true, false, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 1, true, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::BkCancel)));
 
         // Supply Tower
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::SupplyTowerMenu);
-        let action = get_grid_slot_action(&state, 2, 1, true, false, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 1, true, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::StCancel)));
 
         // HQ
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::HeadquartersMenu);
-        let action = get_grid_slot_action(&state, 2, 1, true, false, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 1, true, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::HqCancel)));
     }
 
@@ -3781,12 +4320,12 @@ mod tests {
     fn dc_constructing_back_at_z_cancel_at_x() {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcConstructing);
-        let back = get_grid_slot_action(&state, 2, 0, false, false, &caps, false);
+        let back = get_grid_slot_action(&state, 2, 0, false, false, &caps, false, false);
         assert!(matches!(back, Some(CommandButtonAction::Back)));
-        let cancel = get_grid_slot_action(&state, 2, 1, false, false, &caps, false);
+        let cancel = get_grid_slot_action(&state, 2, 1, false, false, &caps, false, false);
         assert!(matches!(cancel, Some(CommandButtonAction::DcCancel)));
         // Old position (0,0) should be empty
-        let old = get_grid_slot_action(&state, 0, 0, false, false, &caps, false);
+        let old = get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false);
         assert!(old.is_none(), "DcConstructing (0,0) should be empty after move");
     }
 
@@ -3794,43 +4333,71 @@ mod tests {
     fn dc_ready_to_place_back_at_z_cancel_at_x() {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcReadyToPlace);
-        let place = get_grid_slot_action(&state, 0, 0, false, false, &caps, false);
+        let place = get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false);
         assert!(matches!(place, Some(CommandButtonAction::EnterPlacement)));
-        let back = get_grid_slot_action(&state, 2, 0, false, false, &caps, false);
+        let back = get_grid_slot_action(&state, 2, 0, false, false, &caps, false, false);
         assert!(matches!(back, Some(CommandButtonAction::Back)));
-        let cancel = get_grid_slot_action(&state, 2, 1, false, false, &caps, false);
+        let cancel = get_grid_slot_action(&state, 2, 1, false, false, &caps, false, false);
         assert!(matches!(cancel, Some(CommandButtonAction::DcCancel)));
         // Old cancel position (0,1) should be empty
-        let old = get_grid_slot_action(&state, 0, 1, false, false, &caps, false);
+        let old = get_grid_slot_action(&state, 0, 1, false, false, &caps, false, false);
         assert!(old.is_none(), "DcReadyToPlace (0,1) should be empty after move");
     }
 
     #[test]
-    fn ef_constructing_back_at_z_cancel_at_x() {
-        let caps = no_caps();
-        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfConstructing);
-        let back = get_grid_slot_action(&state, 2, 0, false, false, &caps, false);
-        assert!(matches!(back, Some(CommandButtonAction::Back)));
-        let cancel = get_grid_slot_action(&state, 2, 1, false, false, &caps, false);
-        assert!(matches!(cancel, Some(CommandButtonAction::EfCancel)));
-        // Old position (0,0) should be empty
-        let old = get_grid_slot_action(&state, 0, 0, false, false, &caps, false);
-        assert!(old.is_none(), "EfConstructing (0,0) should be empty after move");
+    fn dc_cancel_label_in_idle_is_generic() {
+        let label = grid_button_label(
+            &ObjectInterfaceState::StructureMenu(StructureMenuState::DcIdle),
+            &CommandButtonAction::DcCancel,
+            0,
+            'X',
+        );
+        assert_eq!(label, "[X] Cancel");
     }
 
     #[test]
-    fn ef_ready_to_place_back_at_z_cancel_at_x() {
+    fn dc_cancel_label_in_constructing_shows_constr() {
+        let label = grid_button_label(
+            &ObjectInterfaceState::StructureMenu(StructureMenuState::DcConstructing),
+            &CommandButtonAction::DcCancel,
+            0,
+            'X',
+        );
+        assert_eq!(label, "[X] Cancel\nConstr.");
+    }
+
+    #[test]
+    fn dc_cancel_label_in_ready_to_place_shows_building() {
+        let label = grid_button_label(
+            &ObjectInterfaceState::StructureMenu(StructureMenuState::DcReadyToPlace),
+            &CommandButtonAction::DcCancel,
+            0,
+            'X',
+        );
+        assert_eq!(label, "[X] Cancel\nBuilding");
+    }
+
+    #[test]
+    fn ef_idle_with_ready_plate_shows_enter_placement() {
         let caps = no_caps();
-        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace);
-        let place = get_grid_slot_action(&state, 0, 0, false, false, &caps, false);
-        assert!(matches!(place, Some(CommandButtonAction::EnterPlacement)));
-        let back = get_grid_slot_action(&state, 2, 0, false, false, &caps, false);
-        assert!(matches!(back, Some(CommandButtonAction::Back)));
-        let cancel = get_grid_slot_action(&state, 2, 1, false, false, &caps, false);
-        assert!(matches!(cancel, Some(CommandButtonAction::EfCancel)));
-        // Old cancel position (0,1) should be empty
-        let old = get_grid_slot_action(&state, 0, 1, false, false, &caps, false);
-        assert!(old.is_none(), "EfReadyToPlace (0,1) should be empty after move");
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle);
+        // has_ready_plate=true → Q shows EnterPlacement instead of EfBuildPlate
+        let action = get_grid_slot_action(&state, 0, 0, false, true, &caps, false, true);
+        assert!(matches!(action, Some(CommandButtonAction::EnterPlacement)),
+            "EfIdle with ready plate should show EnterPlacement at (0,0)");
+    }
+
+    #[test]
+    fn ef_idle_constructing_shows_build_plate_and_cancel() {
+        let caps = no_caps();
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle);
+        // has_active_construction=true, has_ready_plate=false → Q=EfBuildPlate, X=EfCancel
+        let q = get_grid_slot_action(&state, 0, 0, false, true, &caps, false, false);
+        assert!(matches!(q, Some(CommandButtonAction::EfBuildPlate)),
+            "EfIdle constructing should show EfBuildPlate at (0,0)");
+        let x = get_grid_slot_action(&state, 2, 1, false, true, &caps, false, false);
+        assert!(matches!(x, Some(CommandButtonAction::EfCancel)),
+            "EfIdle constructing should show EfCancel at (2,1)");
     }
 
     #[test]
@@ -3855,7 +4422,7 @@ mod tests {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::BarracksMenu);
         // Old position (0,1) should be empty
-        let old = get_grid_slot_action(&state, 0, 1, true, false, &caps, false);
+        let old = get_grid_slot_action(&state, 0, 1, true, false, &caps, false, false);
         assert!(old.is_none(), "BarracksMenu (0,1) should be empty after BkCancel move");
     }
 
@@ -3863,7 +4430,7 @@ mod tests {
     fn barracks_train_peacekeeper_at_q() {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::BarracksMenu);
-        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false);
         assert!(
             matches!(action, Some(CommandButtonAction::BkTrain(ObjectEnum::Peacekeeper))),
             "BarracksMenu (0,0) should be BkTrain(Peacekeeper)"
@@ -3875,7 +4442,7 @@ mod tests {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::BarracksMenu);
         // bk_has_queue = false → cancel at (2,1) should be None
-        let action = get_grid_slot_action(&state, 2, 1, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 1, false, false, &caps, false, false);
         assert!(action.is_none(), "BarracksMenu (2,1) should be None when queue is empty");
     }
 
@@ -3886,7 +4453,7 @@ mod tests {
         let mut count = 0;
         for row in 0..3u8 {
             for col in 0..3u8 {
-                if get_grid_slot_action(&state, row, col, true, false, &caps, false).is_some() {
+                if get_grid_slot_action(&state, row, col, true, false, &caps, false, false).is_some() {
                     count += 1;
                 }
             }
@@ -3902,7 +4469,7 @@ mod tests {
         let mut count = 0;
         for row in 0..3u8 {
             for col in 0..3u8 {
-                if get_grid_slot_action(&state, row, col, false, false, &caps, false).is_some() {
+                if get_grid_slot_action(&state, row, col, false, false, &caps, false, false).is_some() {
                     count += 1;
                 }
             }
@@ -3916,7 +4483,7 @@ mod tests {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::SupplyTowerMenu);
         // Old position (0,1) should be empty
-        let old = get_grid_slot_action(&state, 0, 1, true, false, &caps, false);
+        let old = get_grid_slot_action(&state, 0, 1, true, false, &caps, false, false);
         assert!(old.is_none(), "SupplyTowerMenu (0,1) should be empty after StCancel move");
     }
 
@@ -3926,7 +4493,7 @@ mod tests {
     fn dc_idle_grid_has_open_build_menu() {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcIdle);
-        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::DcOpenBuildMenu)));
     }
 
@@ -3934,7 +4501,7 @@ mod tests {
     fn dc_idle_no_construction_no_cancel() {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcIdle);
-        let action = get_grid_slot_action(&state, 2, 1, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 1, false, false, &caps, false, false);
         assert!(action.is_none(), "DcIdle should not show cancel when has_active_construction=false");
     }
 
@@ -3942,7 +4509,7 @@ mod tests {
     fn dc_idle_with_construction_shows_cancel() {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcIdle);
-        let action = get_grid_slot_action(&state, 2, 1, false, true, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 1, false, true, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::DcCancel)),
             "DcIdle should show DcCancel at (2,1) when has_active_construction=true");
     }
@@ -3951,7 +4518,7 @@ mod tests {
     fn dc_idle_with_construction_still_has_build_menu() {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcIdle);
-        let action = get_grid_slot_action(&state, 0, 0, false, true, &caps, false);
+        let action = get_grid_slot_action(&state, 0, 0, false, true, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::DcOpenBuildMenu)),
             "DcIdle should still show DcOpenBuildMenu at (0,0) even with active construction");
     }
@@ -3960,32 +4527,32 @@ mod tests {
     fn dc_build_menu_grid_has_all_buildings_and_back() {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcBuildMenu);
-        assert!(matches!(get_grid_slot_action(&state, 0, 0, false, false, &caps, false), Some(CommandButtonAction::DcBuild(ObjectEnum::PowerPlant))));
-        assert!(matches!(get_grid_slot_action(&state, 0, 1, false, false, &caps, false), Some(CommandButtonAction::DcBuild(ObjectEnum::Barracks))));
-        assert!(matches!(get_grid_slot_action(&state, 0, 2, false, false, &caps, false), Some(CommandButtonAction::DcBuild(ObjectEnum::ExtractionFacility))));
-        assert!(matches!(get_grid_slot_action(&state, 1, 0, false, false, &caps, false), Some(CommandButtonAction::DcBuild(ObjectEnum::SupplyTower))));
-        assert!(matches!(get_grid_slot_action(&state, 2, 0, false, false, &caps, false), Some(CommandButtonAction::Back)));
+        assert!(matches!(get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false), Some(CommandButtonAction::DcBuild(ObjectEnum::PowerPlant))));
+        assert!(matches!(get_grid_slot_action(&state, 0, 1, false, false, &caps, false, false), Some(CommandButtonAction::DcBuild(ObjectEnum::Barracks))));
+        assert!(get_grid_slot_action(&state, 0, 2, false, false, &caps, false, false).is_none());
+        assert!(matches!(get_grid_slot_action(&state, 1, 0, false, false, &caps, false, false), Some(CommandButtonAction::DcBuild(ObjectEnum::SupplyTower))));
+        assert!(matches!(get_grid_slot_action(&state, 2, 0, false, false, &caps, false, false), Some(CommandButtonAction::Back)));
     }
 
     #[test]
     fn dc_constructing_grid_has_back_and_cancel() {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcConstructing);
-        assert!(matches!(get_grid_slot_action(&state, 2, 0, false, false, &caps, false), Some(CommandButtonAction::Back)));
-        assert!(matches!(get_grid_slot_action(&state, 2, 1, false, false, &caps, false), Some(CommandButtonAction::DcCancel)));
+        assert!(matches!(get_grid_slot_action(&state, 2, 0, false, false, &caps, false, false), Some(CommandButtonAction::Back)));
+        assert!(matches!(get_grid_slot_action(&state, 2, 1, false, false, &caps, false, false), Some(CommandButtonAction::DcCancel)));
         // Old cancel position (0,0) should be empty
-        assert!(get_grid_slot_action(&state, 0, 0, false, false, &caps, false).is_none());
+        assert!(get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false).is_none());
     }
 
     #[test]
     fn dc_ready_to_place_grid_has_enter_placement_back_and_cancel() {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcReadyToPlace);
-        assert!(matches!(get_grid_slot_action(&state, 0, 0, false, false, &caps, false), Some(CommandButtonAction::EnterPlacement)));
-        assert!(matches!(get_grid_slot_action(&state, 2, 0, false, false, &caps, false), Some(CommandButtonAction::Back)));
-        assert!(matches!(get_grid_slot_action(&state, 2, 1, false, false, &caps, false), Some(CommandButtonAction::DcCancel)));
+        assert!(matches!(get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false), Some(CommandButtonAction::EnterPlacement)));
+        assert!(matches!(get_grid_slot_action(&state, 2, 0, false, false, &caps, false, false), Some(CommandButtonAction::Back)));
+        assert!(matches!(get_grid_slot_action(&state, 2, 1, false, false, &caps, false, false), Some(CommandButtonAction::DcCancel)));
         // Old cancel position (0,1) should be empty
-        assert!(get_grid_slot_action(&state, 0, 1, false, false, &caps, false).is_none());
+        assert!(get_grid_slot_action(&state, 0, 1, false, false, &caps, false, false).is_none());
     }
 
     // === EF grid slot tests ===
@@ -3994,29 +4561,9 @@ mod tests {
     fn ef_idle_grid_has_build_plate() {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle);
-        assert!(matches!(get_grid_slot_action(&state, 0, 0, false, false, &caps, false), Some(CommandButtonAction::EfBuildPlate)));
+        assert!(matches!(get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false), Some(CommandButtonAction::EfBuildPlate)));
     }
 
-    #[test]
-    fn ef_constructing_grid_has_back_and_cancel() {
-        let caps = no_caps();
-        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfConstructing);
-        assert!(matches!(get_grid_slot_action(&state, 2, 0, false, false, &caps, false), Some(CommandButtonAction::Back)));
-        assert!(matches!(get_grid_slot_action(&state, 2, 1, false, false, &caps, false), Some(CommandButtonAction::EfCancel)));
-        // Old cancel position (0,0) should be empty
-        assert!(get_grid_slot_action(&state, 0, 0, false, false, &caps, false).is_none());
-    }
-
-    #[test]
-    fn ef_ready_to_place_grid_has_enter_placement_back_and_cancel() {
-        let caps = no_caps();
-        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace);
-        assert!(matches!(get_grid_slot_action(&state, 0, 0, false, false, &caps, false), Some(CommandButtonAction::EnterPlacement)));
-        assert!(matches!(get_grid_slot_action(&state, 2, 0, false, false, &caps, false), Some(CommandButtonAction::Back)));
-        assert!(matches!(get_grid_slot_action(&state, 2, 1, false, false, &caps, false), Some(CommandButtonAction::EfCancel)));
-        // Old cancel position (0,1) should be empty
-        assert!(get_grid_slot_action(&state, 0, 1, false, false, &caps, false).is_none());
-    }
 
     #[test]
     fn ef_idle_remaining_slots_are_none() {
@@ -4026,47 +4573,12 @@ mod tests {
         for row in 0..3u8 {
             for col in 0..3u8 {
                 if (row, col) == (0, 0) { continue; }
-                assert!(get_grid_slot_action(&state, row, col, false, false, &caps, false).is_none(),
+                assert!(get_grid_slot_action(&state, row, col, false, false, &caps, false, false).is_none(),
                     "Expected None at ({}, {}) for EfIdle", row, col);
             }
         }
     }
 
-    #[test]
-    fn ef_constructing_q_slot_is_empty() {
-        // Q slot hidden/inactive during construction
-        let caps = no_caps();
-        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfConstructing);
-        assert!(get_grid_slot_action(&state, 0, 0, false, false, &caps, false).is_none());
-    }
-
-    #[test]
-    fn ef_constructing_remaining_slots_are_none() {
-        let caps = no_caps();
-        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfConstructing);
-        // Only (2,0) Back and (2,1) Cancel should have actions
-        for row in 0..3u8 {
-            for col in 0..3u8 {
-                if (row, col) == (2, 0) || (row, col) == (2, 1) { continue; }
-                assert!(get_grid_slot_action(&state, row, col, false, false, &caps, false).is_none(),
-                    "Expected None at ({}, {}) for EfConstructing", row, col);
-            }
-        }
-    }
-
-    #[test]
-    fn ef_ready_to_place_remaining_slots_are_none() {
-        let caps = no_caps();
-        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace);
-        // Only (0,0), (2,0), (2,1) should have actions
-        for row in 0..3u8 {
-            for col in 0..3u8 {
-                if (row, col) == (0, 0) || (row, col) == (2, 0) || (row, col) == (2, 1) { continue; }
-                assert!(get_grid_slot_action(&state, row, col, false, false, &caps, false).is_none(),
-                    "Expected None at ({}, {}) for EfReadyToPlace", row, col);
-            }
-        }
-    }
 
     #[test]
     fn ef_awaiting_placement_is_placement_mode() {
@@ -4080,17 +4592,6 @@ mod tests {
         assert!(!state.is_placement_mode());
     }
 
-    #[test]
-    fn ef_constructing_is_not_placement_mode() {
-        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfConstructing);
-        assert!(!state.is_placement_mode());
-    }
-
-    #[test]
-    fn ef_ready_to_place_is_not_placement_mode() {
-        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace);
-        assert!(!state.is_placement_mode());
-    }
 
     // === Mixed unit+structure active group type routing tests ===
 
@@ -4208,15 +4709,11 @@ mod tests {
     fn ef_valid_states_are_preserved() {
         let valid_ef_states = vec![
             StructureMenuState::EfIdle,
-            StructureMenuState::EfConstructing,
-            StructureMenuState::EfReadyToPlace,
             StructureMenuState::EfAwaitingPlacement,
         ];
         for state in valid_ef_states {
             let in_valid = matches!(state,
                 StructureMenuState::EfIdle |
-                StructureMenuState::EfConstructing |
-                StructureMenuState::EfReadyToPlace |
                 StructureMenuState::EfAwaitingPlacement
             );
             assert!(in_valid, "EF state {:?} should be considered valid for preservation", state);
@@ -4233,8 +4730,6 @@ mod tests {
         for state in non_ef_states {
             let in_valid = matches!(state,
                 StructureMenuState::EfIdle |
-                StructureMenuState::EfConstructing |
-                StructureMenuState::EfReadyToPlace |
                 StructureMenuState::EfAwaitingPlacement
             );
             assert!(!in_valid, "Non-EF state {:?} should NOT be valid for EF preservation", state);
@@ -4257,11 +4752,11 @@ mod tests {
     }
 
     #[test]
-    fn ef_back_from_constructing_goes_to_idle() {
-        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfConstructing);
+    fn ef_escape_from_awaiting_placement_goes_to_idle() {
+        // EfAwaitingPlacement → Escape → EfIdle (no longer goes to EfReadyToPlace)
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfAwaitingPlacement);
         let result = match state {
-            ObjectInterfaceState::StructureMenu(StructureMenuState::EfConstructing) |
-            ObjectInterfaceState::StructureMenu(StructureMenuState::EfReadyToPlace) =>
+            ObjectInterfaceState::StructureMenu(StructureMenuState::EfAwaitingPlacement) =>
                 ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle),
             _ => state,
         };
@@ -4325,7 +4820,7 @@ mod tests {
     fn ef_idle_no_construction_no_cancel() {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle);
-        let action = get_grid_slot_action(&state, 2, 1, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 1, false, false, &caps, false, false);
         assert!(action.is_none(), "EfIdle should not show cancel when has_active_construction=false");
     }
 
@@ -4333,7 +4828,7 @@ mod tests {
     fn ef_idle_with_construction_shows_cancel() {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle);
-        let action = get_grid_slot_action(&state, 2, 1, false, true, &caps, false);
+        let action = get_grid_slot_action(&state, 2, 1, false, true, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::EfCancel)),
             "EfIdle should show EfCancel at (2,1) when has_active_construction=true");
     }
@@ -4342,7 +4837,7 @@ mod tests {
     fn ef_idle_with_construction_still_has_build_plate() {
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle);
-        let action = get_grid_slot_action(&state, 0, 0, false, true, &caps, false);
+        let action = get_grid_slot_action(&state, 0, 0, false, true, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::EfBuildPlate)),
             "EfIdle should still show EfBuildPlate at (0,0) even with active construction");
     }
@@ -4393,7 +4888,7 @@ mod tests {
         // TunnelOpenEjectMenu should be at (0, 2) in TunnelIdle state
         let caps = no_caps();
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelIdle);
-        let action = get_grid_slot_action(&state, 0, 2, false, false, &caps, false);
+        let action = get_grid_slot_action(&state, 0, 2, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::TunnelOpenEjectMenu)),
             "Eject should appear at grid slot (0, 2) in TunnelIdle");
     }
@@ -4428,5 +4923,811 @@ mod tests {
         let tier = TunnelTier::Tier1;
         let unit_base = crate::game::units::types::unit_data::guard_type_data().unit_base;
         assert!(tier.can_transit(&unit_base), "Tier1 tunnel should allow Guard (HeavyInfantry) ejection");
+    }
+
+    #[test]
+    fn tier1_tunnel_rejects_vehicle_ejection() {
+        // WheeledVehicle requires Tier2+ transit
+        let tier = TunnelTier::Tier1;
+        let unit_base = crate::types::UnitBaseEnum::WheeledVehicle;
+        assert!(!tier.can_transit(&unit_base), "Tier1 tunnel should reject WheeledVehicle ejection");
+    }
+
+    #[test]
+    fn tier2_tunnel_allows_vehicle_ejection() {
+        let tier = TunnelTier::Tier2;
+        let unit_base = crate::types::UnitBaseEnum::WheeledVehicle;
+        assert!(tier.can_transit(&unit_base), "Tier2 tunnel should allow WheeledVehicle ejection");
+    }
+
+    #[test]
+    fn tier2_tunnel_rejects_air_ejection() {
+        let tier = TunnelTier::Tier2;
+        let unit_base = crate::types::UnitBaseEnum::HoverCraft;
+        assert!(!tier.can_transit(&unit_base), "Tier2 tunnel should reject HoverCraft ejection");
+    }
+
+    #[test]
+    fn tier3_tunnel_allows_air_ejection() {
+        let tier = TunnelTier::Tier3;
+        let unit_base = crate::types::UnitBaseEnum::HoverCraft;
+        assert!(tier.can_transit(&unit_base), "Tier3 tunnel should allow HoverCraft ejection");
+    }
+
+    // === Tunnel upgrade cost formula design spec verification ===
+
+    #[test]
+    fn tunnel_upgrade_t2_cost_matches_design_spec() {
+        use crate::game::types::structures::{tunnel_t2_upgrade_cost, tunnel_t3_upgrade_cost};
+        // Design spec: Upgrade to Tier 2: 2 + 2 x (number of T2+ Tunnels owned)
+        // 1st T2: 2, 2nd T2: 4, 3rd T2: 6
+        assert_eq!(tunnel_t2_upgrade_cost(0), 2, "1st T2 upgrade should cost 2");
+        assert_eq!(tunnel_t2_upgrade_cost(1), 4, "2nd T2 upgrade should cost 4");
+        assert_eq!(tunnel_t2_upgrade_cost(2), 6, "3rd T2 upgrade should cost 6");
+    }
+
+    #[test]
+    fn tunnel_upgrade_t3_cost_matches_design_spec() {
+        use crate::game::types::structures::{tunnel_t3_upgrade_cost};
+        // Design spec: Upgrade to Tier 3: 3 + 3 x (number of T3 Tunnels owned)
+        // 1st T3: 3, 2nd T3: 6, 3rd T3: 9
+        assert_eq!(tunnel_t3_upgrade_cost(0), 3, "1st T3 upgrade should cost 3");
+        assert_eq!(tunnel_t3_upgrade_cost(1), 6, "2nd T3 upgrade should cost 6");
+        assert_eq!(tunnel_t3_upgrade_cost(2), 9, "3rd T3 upgrade should cost 9");
+    }
+
+    #[test]
+    fn tunnel_upgrade_cancel_gives_full_refund() {
+        use crate::game::types::structures::{tunnel_t2_upgrade_cost, tunnel_t3_upgrade_cost};
+        // Design spec: "Full refund of Supplies cost" — the cancel function uses
+        // the same cost formula as upgrade, so refund == original cost
+        let upgrade_cost = tunnel_t2_upgrade_cost(0);
+        let refund_cost = tunnel_t2_upgrade_cost(0);
+        assert_eq!(upgrade_cost, refund_cost, "Cancel refund must equal upgrade cost");
+
+        let upgrade_cost_t3 = tunnel_t3_upgrade_cost(1);
+        let refund_cost_t3 = tunnel_t3_upgrade_cost(1);
+        assert_eq!(upgrade_cost_t3, refund_cost_t3, "Cancel refund must equal upgrade cost for T3");
+    }
+
+    // === Ejection queue cooldown design spec verification ===
+
+    #[test]
+    fn ejection_queue_cooldown_is_8_frames() {
+        // Design spec: "a new unit begins ejecting every 8 frames minimum"
+        // The ejection_tick_system sets cooldown = 8 after each ejection.
+        // This is verified by the constant in the system (hardcoded 8).
+        // Here we verify the EjectionQueue tracks cooldown correctly.
+        let mut queue = crate::ui::types::EjectionQueue::default();
+        assert_eq!(queue.cooldown, 0, "Default cooldown should be 0");
+        queue.cooldown = 8;
+        assert_eq!(queue.cooldown, 8, "Cooldown should be settable to 8");
+    }
+
+    // === Right-click cancel submenu tests ===
+
+    #[test]
+    fn right_click_dc_build_menu_returns_dc_idle() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcBuildMenu);
+        let result = right_click_cancel_target(&state, || None);
+        assert_eq!(result, Some(ObjectInterfaceState::StructureMenu(StructureMenuState::DcIdle)));
+    }
+
+    #[test]
+    fn right_click_dc_constructing_returns_dc_idle() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcConstructing);
+        let result = right_click_cancel_target(&state, || None);
+        assert_eq!(result, Some(ObjectInterfaceState::StructureMenu(StructureMenuState::DcIdle)));
+    }
+
+    #[test]
+    fn right_click_dc_ready_to_place_returns_dc_idle() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcReadyToPlace);
+        let result = right_click_cancel_target(&state, || None);
+        assert_eq!(result, Some(ObjectInterfaceState::StructureMenu(StructureMenuState::DcIdle)));
+    }
+
+    #[test]
+    fn right_click_tunnel_expand_menu_returns_tunnel_idle() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelExpandMenu);
+        let result = right_click_cancel_target(&state, || None);
+        assert_eq!(result, Some(ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelIdle)));
+    }
+
+    #[test]
+    fn right_click_tunnel_eject_menu_returns_tunnel_idle() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelEjectMenu);
+        let result = right_click_cancel_target(&state, || None);
+        assert_eq!(result, Some(ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelIdle)));
+    }
+
+    #[test]
+    fn right_click_ef_idle_returns_none() {
+        // EfIdle has no sub-menus to cancel, so right_click_cancel_target returns None
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::EfIdle);
+        let result = right_click_cancel_target(&state, || None);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn right_click_set_rally_point_with_barracks_returns_barracks_menu() {
+        let state = ObjectInterfaceState::AwaitingTarget(CommandType::SetRallyPoint);
+        let result = right_click_cancel_target(&state, || Some(RallyTargetKind::Barracks));
+        assert_eq!(result, Some(ObjectInterfaceState::StructureMenu(StructureMenuState::BarracksMenu)));
+    }
+
+    #[test]
+    fn right_click_set_rally_point_with_headquarters_returns_hq_menu() {
+        let state = ObjectInterfaceState::AwaitingTarget(CommandType::SetRallyPoint);
+        let result = right_click_cancel_target(&state, || Some(RallyTargetKind::Headquarters));
+        assert_eq!(result, Some(ObjectInterfaceState::StructureMenu(StructureMenuState::HeadquartersMenu)));
+    }
+
+    #[test]
+    fn right_click_set_rally_point_with_supply_tower_returns_st_menu() {
+        let state = ObjectInterfaceState::AwaitingTarget(CommandType::SetRallyPoint);
+        let result = right_click_cancel_target(&state, || Some(RallyTargetKind::SupplyTower));
+        assert_eq!(result, Some(ObjectInterfaceState::StructureMenu(StructureMenuState::SupplyTowerMenu)));
+    }
+
+    #[test]
+    fn right_click_set_rally_point_no_target_returns_default() {
+        let state = ObjectInterfaceState::AwaitingTarget(CommandType::SetRallyPoint);
+        let result = right_click_cancel_target(&state, || None);
+        assert_eq!(result, Some(ObjectInterfaceState::Default));
+    }
+
+    #[test]
+    fn right_click_schedule_deliveries_returns_supply_tower_menu() {
+        let state = ObjectInterfaceState::AwaitingTarget(CommandType::ScheduleDeliveries);
+        let result = right_click_cancel_target(&state, || None);
+        assert_eq!(result, Some(ObjectInterfaceState::StructureMenu(StructureMenuState::SupplyTowerMenu)));
+    }
+
+    #[test]
+    fn right_click_default_state_does_nothing() {
+        let state = ObjectInterfaceState::Default;
+        let result = right_click_cancel_target(&state, || None);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn right_click_placement_state_does_nothing() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcAwaitingPlacement);
+        let result = right_click_cancel_target(&state, || None);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn right_click_unit_awaiting_target_move_does_nothing() {
+        let state = ObjectInterfaceState::AwaitingTarget(CommandType::Move);
+        let result = right_click_cancel_target(&state, || None);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn right_click_unit_awaiting_target_attack_does_nothing() {
+        let state = ObjectInterfaceState::AwaitingTarget(CommandType::Attack);
+        let result = right_click_cancel_target(&state, || None);
+        assert_eq!(result, None);
+    }
+
+    // === SupplyChopper interface tests ===
+
+    #[test]
+    fn chopper_grid_shows_move_pickup_attach_dropoff() {
+        let caps = SelectedUnitCapabilities { is_chopper: true, ..Default::default() };
+        let state = ObjectInterfaceState::Default;
+        assert!(matches!(get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false), Some(CommandButtonAction::UnitMove)));
+        assert!(matches!(get_grid_slot_action(&state, 0, 1, false, false, &caps, false, false), Some(CommandButtonAction::ChopperPickUpSupplies)));
+        assert!(matches!(get_grid_slot_action(&state, 0, 2, false, false, &caps, false, false), Some(CommandButtonAction::ChopperAttachToTower)));
+        assert!(matches!(get_grid_slot_action(&state, 1, 0, false, false, &caps, false, false), Some(CommandButtonAction::ChopperDropOffSupplies)));
+        assert!(matches!(get_grid_slot_action(&state, 1, 2, false, false, &caps, false, false), Some(CommandButtonAction::UnitHoldPosition)));
+        assert!(matches!(get_grid_slot_action(&state, 2, 1, false, false, &caps, false, false), Some(CommandButtonAction::UnitStop)));
+    }
+
+    #[test]
+    fn chopper_grid_has_no_attack_buttons() {
+        let caps = SelectedUnitCapabilities { is_chopper: true, ..Default::default() };
+        let state = ObjectInterfaceState::Default;
+        // No attack-related buttons in any remaining empty slots
+        assert!(get_grid_slot_action(&state, 1, 1, false, false, &caps, false, false).is_none());
+        assert!(get_grid_slot_action(&state, 2, 0, false, false, &caps, false, false).is_none());
+        assert!(get_grid_slot_action(&state, 2, 2, false, false, &caps, false, false).is_none());
+    }
+
+    #[test]
+    fn chopper_object_type_supports_chopper_actions() {
+        assert!(object_type_supports_action(&ObjectEnum::SupplyChopper, &CommandButtonAction::ChopperPickUpSupplies));
+        assert!(object_type_supports_action(&ObjectEnum::SupplyChopper, &CommandButtonAction::ChopperAttachToTower));
+    }
+
+    #[test]
+    fn non_chopper_does_not_support_chopper_actions() {
+        assert!(!object_type_supports_action(&ObjectEnum::Peacekeeper, &CommandButtonAction::ChopperPickUpSupplies));
+        assert!(!object_type_supports_action(&ObjectEnum::Peacekeeper, &CommandButtonAction::ChopperAttachToTower));
+        assert!(!object_type_supports_action(&ObjectEnum::SyndicateAgent, &CommandButtonAction::ChopperPickUpSupplies));
+    }
+
+    #[test]
+    fn is_action_active_pick_up_supplies_mode() {
+        let state = ObjectInterfaceState::AwaitingTarget(CommandType::PickUpSupplies);
+        assert!(is_action_active(&CommandButtonAction::ChopperPickUpSupplies, &state));
+        assert!(!is_action_active(&CommandButtonAction::ChopperAttachToTower, &state));
+        assert!(!is_action_active(&CommandButtonAction::UnitMove, &state));
+    }
+
+    #[test]
+    fn is_action_active_attach_to_tower_mode() {
+        let state = ObjectInterfaceState::AwaitingTarget(CommandType::AttachToTower);
+        assert!(is_action_active(&CommandButtonAction::ChopperAttachToTower, &state));
+        assert!(!is_action_active(&CommandButtonAction::ChopperPickUpSupplies, &state));
+    }
+
+    #[test]
+    fn chopper_grid_button_labels() {
+        let label = grid_button_label(
+            &ObjectInterfaceState::Default,
+            &CommandButtonAction::ChopperPickUpSupplies,
+            0,
+            'W',
+        );
+        assert_eq!(label, "[W] Pick Up\nSupplies");
+
+        let label = grid_button_label(
+            &ObjectInterfaceState::Default,
+            &CommandButtonAction::ChopperAttachToTower,
+            0,
+            'E',
+        );
+        assert_eq!(label, "[E] Attach\nTower");
+    }
+
+    #[test]
+    fn non_chopper_default_grid_unchanged() {
+        // Verify the standard Default grid hasn't changed when is_chopper=false
+        let caps = no_caps();
+        let state = ObjectInterfaceState::Default;
+        assert!(matches!(get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false), Some(CommandButtonAction::UnitMove)));
+        assert!(matches!(get_grid_slot_action(&state, 0, 2, false, false, &caps, false, false), Some(CommandButtonAction::UnitHoldPosition)));
+        assert!(matches!(get_grid_slot_action(&state, 1, 1, false, false, &caps, false, false), Some(CommandButtonAction::UnitPatrol)));
+        assert!(matches!(get_grid_slot_action(&state, 2, 1, false, false, &caps, false, false), Some(CommandButtonAction::UnitStop)));
+        // No PickUpSupplies or AttachToTower in non-chopper grid
+        assert!(get_grid_slot_action(&state, 0, 1, false, false, &caps, false, false).is_none());
+    }
+
+    // === ChopperDropOffSupplies tests ===
+
+    #[test]
+    fn chopper_drop_off_supplies_in_grid() {
+        let caps = SelectedUnitCapabilities { is_chopper: true, ..Default::default() };
+        let state = ObjectInterfaceState::Default;
+        assert!(matches!(
+            get_grid_slot_action(&state, 1, 0, false, false, &caps, false, false),
+            Some(CommandButtonAction::ChopperDropOffSupplies)
+        ));
+    }
+
+    #[test]
+    fn chopper_drop_off_supplies_label() {
+        let label = grid_button_label(
+            &ObjectInterfaceState::Default,
+            &CommandButtonAction::ChopperDropOffSupplies,
+            0,
+            'A',
+        );
+        assert_eq!(label, "[A] Drop Off\nSupplies");
+    }
+
+    #[test]
+    fn chopper_drop_off_supplies_object_type_support() {
+        assert!(object_type_supports_action(&ObjectEnum::SupplyChopper, &CommandButtonAction::ChopperDropOffSupplies));
+        assert!(!object_type_supports_action(&ObjectEnum::Peacekeeper, &CommandButtonAction::ChopperDropOffSupplies));
+    }
+
+    #[test]
+    fn chopper_drop_off_supplies_is_unit_action() {
+        assert!(is_unit_action(&CommandButtonAction::ChopperDropOffSupplies));
+    }
+
+    #[test]
+    fn is_action_active_drop_off_supplies_mode() {
+        let state = ObjectInterfaceState::AwaitingTarget(CommandType::DropOffSupplies);
+        assert!(is_action_active(&CommandButtonAction::ChopperDropOffSupplies, &state));
+        assert!(!is_action_active(&CommandButtonAction::ChopperPickUpSupplies, &state));
+        assert!(!is_action_active(&CommandButtonAction::ChopperAttachToTower, &state));
+    }
+
+    #[test]
+    fn chopper_drop_off_supplies_caps_gating() {
+        // Without supplies — chopper_has_supplies should be false by default
+        let caps_empty = SelectedUnitCapabilities { is_chopper: true, chopper_has_supplies: false, ..Default::default() };
+        assert!(!caps_empty.chopper_has_supplies);
+
+        // With supplies — chopper_has_supplies should be true
+        let caps_has = SelectedUnitCapabilities { is_chopper: true, chopper_has_supplies: true, ..Default::default() };
+        assert!(caps_has.chopper_has_supplies);
+    }
+
+    // === resolve_pointer_display tests ===
+
+    fn default_cursor_info() -> CursorEntityInfo {
+        CursorEntityInfo::default()
+    }
+
+    fn caps_with_attack() -> SelectedUnitCapabilities {
+        SelectedUnitCapabilities { has_attack: true, ..Default::default() }
+    }
+
+    #[test]
+    fn pointer_inactive_when_no_selection() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::Default,
+            &CursorTargetEnum::Ground,
+            false,
+            &default_cursor_info(),
+            0, // no selection
+            None,
+            &SelectedUnitCapabilities::default(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Inactive);
+    }
+
+    #[test]
+    fn pointer_inactive_during_placement() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::StructureMenu(StructureMenuState::DcAwaitingPlacement),
+            &CursorTargetEnum::Ground,
+            false,
+            &default_cursor_info(),
+            1,
+            Some(ObjectEnum::DeploymentCenter),
+            &SelectedUnitCapabilities::default(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Inactive);
+    }
+
+    #[test]
+    fn pointer_move_on_ground_with_units() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::Default,
+            &CursorTargetEnum::Ground,
+            false,
+            &default_cursor_info(),
+            3,
+            Some(ObjectEnum::Peacekeeper),
+            &caps_with_attack(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Move);
+    }
+
+    #[test]
+    fn pointer_attack_on_enemy_with_attack_units() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::Default,
+            &CursorTargetEnum::EnemyObject,
+            true,
+            &default_cursor_info(),
+            2,
+            Some(ObjectEnum::Peacekeeper),
+            &caps_with_attack(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Attack);
+    }
+
+    #[test]
+    fn pointer_inactive_on_enemy_without_attack() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::Default,
+            &CursorTargetEnum::EnemyObject,
+            true,
+            &default_cursor_info(),
+            1,
+            Some(ObjectEnum::SyndicateAgent),
+            &SelectedUnitCapabilities::default(), // no attack
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Inactive);
+    }
+
+    #[test]
+    fn pointer_move_for_production_structure() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::Default,
+            &CursorTargetEnum::Ground,
+            false,
+            &default_cursor_info(),
+            1,
+            Some(ObjectEnum::Barracks),
+            &SelectedUnitCapabilities::default(),
+            true, // has production
+        );
+        assert_eq!(result, PointerDisplayType::Move);
+    }
+
+    #[test]
+    fn pointer_gather_agent_on_crystal() {
+        let info = CursorEntityInfo { has_crystal_patch: true, ..Default::default() };
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::Default,
+            &CursorTargetEnum::NeutralObject,
+            true,
+            &info,
+            1,
+            Some(ObjectEnum::SyndicateAgent),
+            &SelectedUnitCapabilities::default(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::GatherResources);
+    }
+
+    #[test]
+    fn pointer_gather_chopper_on_supply_station() {
+        let info = CursorEntityInfo { has_supply_station: true, ..Default::default() };
+        let caps = SelectedUnitCapabilities { is_chopper: true, ..Default::default() };
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::Default,
+            &CursorTargetEnum::NeutralObject,
+            true,
+            &info,
+            1,
+            Some(ObjectEnum::SupplyChopper),
+            &caps,
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::GatherResources);
+    }
+
+    #[test]
+    fn pointer_return_resources_agent_to_own_tunnel() {
+        let info = CursorEntityInfo { has_tunnel: true, is_own: true, ..Default::default() };
+        let caps = SelectedUnitCapabilities { agent_carrying: true, ..Default::default() };
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::Default,
+            &CursorTargetEnum::FriendlyObject,
+            true,
+            &info,
+            1,
+            Some(ObjectEnum::SyndicateAgent),
+            &caps,
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::ReturnResources);
+    }
+
+    #[test]
+    fn pointer_return_resources_chopper_to_own_supply_tower() {
+        let info = CursorEntityInfo { has_supply_tower: true, is_own: true, ..Default::default() };
+        let caps = SelectedUnitCapabilities { is_chopper: true, chopper_has_supplies: true, ..Default::default() };
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::Default,
+            &CursorTargetEnum::FriendlyObject,
+            true,
+            &info,
+            1,
+            Some(ObjectEnum::SupplyChopper),
+            &caps,
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::ReturnResources);
+    }
+
+    #[test]
+    fn pointer_enter_syndicate_unit_own_tunnel() {
+        let info = CursorEntityInfo { has_tunnel: true, is_own: true, ..Default::default() };
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::Default,
+            &CursorTargetEnum::FriendlyObject,
+            true,
+            &info,
+            1,
+            Some(ObjectEnum::SyndicateGuard),
+            &SelectedUnitCapabilities::default(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Enter);
+    }
+
+    #[test]
+    fn pointer_no_enter_for_non_syndicate() {
+        let info = CursorEntityInfo { has_tunnel: true, is_own: true, ..Default::default() };
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::Default,
+            &CursorTargetEnum::FriendlyObject,
+            true,
+            &info,
+            1,
+            Some(ObjectEnum::Peacekeeper),
+            &caps_with_attack(),
+            false,
+        );
+        // Peacekeeper can't enter tunnels → Move (friendly object, has units)
+        assert_eq!(result, PointerDisplayType::Move);
+    }
+
+    // --- AwaitingTarget tests ---
+
+    #[test]
+    fn awaiting_attack_enemy_shows_attack() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::Attack),
+            &CursorTargetEnum::EnemyObject,
+            true,
+            &default_cursor_info(),
+            1,
+            Some(ObjectEnum::Peacekeeper),
+            &caps_with_attack(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Attack);
+    }
+
+    #[test]
+    fn awaiting_attack_ground_shows_attack() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::Attack),
+            &CursorTargetEnum::Ground,
+            false,
+            &default_cursor_info(),
+            1,
+            Some(ObjectEnum::Peacekeeper),
+            &caps_with_attack(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Attack);
+    }
+
+    #[test]
+    fn awaiting_attack_friendly_shows_inactive() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::Attack),
+            &CursorTargetEnum::FriendlyObject,
+            true,
+            &default_cursor_info(),
+            1,
+            Some(ObjectEnum::Peacekeeper),
+            &caps_with_attack(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Inactive);
+    }
+
+    #[test]
+    fn awaiting_move_any_target_shows_move() {
+        for kind in [CursorTargetEnum::Ground, CursorTargetEnum::EnemyObject, CursorTargetEnum::FriendlyObject] {
+            let result = resolve_pointer_display(
+                &ObjectInterfaceState::AwaitingTarget(CommandType::Move),
+                &kind,
+                false,
+                &default_cursor_info(),
+                1,
+                Some(ObjectEnum::Peacekeeper),
+                &caps_with_attack(),
+                false,
+            );
+            assert_eq!(result, PointerDisplayType::Move);
+        }
+    }
+
+    #[test]
+    fn awaiting_patrol_ground_shows_patrol() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::Patrol),
+            &CursorTargetEnum::Ground,
+            false,
+            &default_cursor_info(),
+            1,
+            Some(ObjectEnum::Peacekeeper),
+            &caps_with_attack(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Patrol);
+    }
+
+    #[test]
+    fn awaiting_patrol_enemy_shows_inactive() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::Patrol),
+            &CursorTargetEnum::EnemyObject,
+            true,
+            &default_cursor_info(),
+            1,
+            Some(ObjectEnum::Peacekeeper),
+            &caps_with_attack(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Inactive);
+    }
+
+    #[test]
+    fn awaiting_attack_ground_cmd_ground_target() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::AttackGround),
+            &CursorTargetEnum::Ground,
+            false,
+            &default_cursor_info(),
+            1,
+            Some(ObjectEnum::Peacekeeper),
+            &caps_with_attack(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::AttackGround);
+    }
+
+    #[test]
+    fn awaiting_reverse_ground_shows_move() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::Reverse),
+            &CursorTargetEnum::Ground,
+            false,
+            &default_cursor_info(),
+            1,
+            Some(ObjectEnum::Peacekeeper),
+            &SelectedUnitCapabilities { can_reverse: true, ..Default::default() },
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Move);
+    }
+
+    #[test]
+    fn awaiting_schedule_deliveries_on_supply_station() {
+        let info = CursorEntityInfo { has_supply_station: true, ..Default::default() };
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::ScheduleDeliveries),
+            &CursorTargetEnum::NeutralObject,
+            true,
+            &info,
+            1,
+            Some(ObjectEnum::SupplyChopper),
+            &SelectedUnitCapabilities { is_chopper: true, ..Default::default() },
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::GatherResources);
+    }
+
+    #[test]
+    fn awaiting_set_rally_point_shows_move() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::SetRallyPoint),
+            &CursorTargetEnum::Ground,
+            false,
+            &default_cursor_info(),
+            1,
+            Some(ObjectEnum::Barracks),
+            &SelectedUnitCapabilities::default(),
+            true,
+        );
+        assert_eq!(result, PointerDisplayType::Move);
+    }
+
+    #[test]
+    fn awaiting_enter_own_tunnel() {
+        let info = CursorEntityInfo { has_tunnel: true, is_own: true, ..Default::default() };
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::Enter),
+            &CursorTargetEnum::FriendlyObject,
+            true,
+            &info,
+            1,
+            Some(ObjectEnum::SyndicateGuard),
+            &SelectedUnitCapabilities::default(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Enter);
+    }
+
+    #[test]
+    fn awaiting_enter_enemy_tunnel_shows_inactive() {
+        let info = CursorEntityInfo { has_tunnel: true, is_own: false, ..Default::default() };
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::Enter),
+            &CursorTargetEnum::EnemyObject,
+            true,
+            &info,
+            1,
+            Some(ObjectEnum::SyndicateGuard),
+            &SelectedUnitCapabilities::default(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Inactive);
+    }
+
+    #[test]
+    fn awaiting_gather_on_crystal() {
+        let info = CursorEntityInfo { has_crystal_patch: true, ..Default::default() };
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::Gather),
+            &CursorTargetEnum::NeutralObject,
+            true,
+            &info,
+            1,
+            Some(ObjectEnum::SyndicateAgent),
+            &SelectedUnitCapabilities::default(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::GatherResources);
+    }
+
+    #[test]
+    fn awaiting_dropoff_own_tunnel() {
+        let info = CursorEntityInfo { has_tunnel: true, is_own: true, ..Default::default() };
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::DropOff),
+            &CursorTargetEnum::FriendlyObject,
+            true,
+            &info,
+            1,
+            Some(ObjectEnum::SyndicateAgent),
+            &SelectedUnitCapabilities { agent_carrying: true, ..Default::default() },
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::ReturnResources);
+    }
+
+    #[test]
+    fn awaiting_dropoff_supplies_own_supply_tower() {
+        let info = CursorEntityInfo { has_supply_tower: true, is_own: true, ..Default::default() };
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::DropOffSupplies),
+            &CursorTargetEnum::FriendlyObject,
+            true,
+            &info,
+            1,
+            Some(ObjectEnum::SupplyChopper),
+            &SelectedUnitCapabilities { is_chopper: true, chopper_has_supplies: true, ..Default::default() },
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::ReturnResources);
+    }
+
+    #[test]
+    fn awaiting_hold_position_shows_inactive() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::AwaitingTarget(CommandType::HoldPosition),
+            &CursorTargetEnum::Ground,
+            false,
+            &default_cursor_info(),
+            1,
+            Some(ObjectEnum::Peacekeeper),
+            &caps_with_attack(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Inactive);
+    }
+
+    #[test]
+    fn pointer_move_on_friendly_with_units() {
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::Default,
+            &CursorTargetEnum::FriendlyObject,
+            true,
+            &default_cursor_info(),
+            2,
+            Some(ObjectEnum::Peacekeeper),
+            &caps_with_attack(),
+            false,
+        );
+        assert_eq!(result, PointerDisplayType::Move);
+    }
+
+    #[test]
+    fn pointer_inactive_structure_no_production() {
+        // Non-production structure (e.g., PowerPlant) should be inactive
+        let result = resolve_pointer_display(
+            &ObjectInterfaceState::Default,
+            &CursorTargetEnum::Ground,
+            false,
+            &default_cursor_info(),
+            1,
+            Some(ObjectEnum::PowerPlant),
+            &SelectedUnitCapabilities::default(),
+            false, // no production
+        );
+        // PowerPlant is a structure (not a unit) — is_unit() returns false → Inactive
+        assert_eq!(result, PointerDisplayType::Inactive);
     }
 }

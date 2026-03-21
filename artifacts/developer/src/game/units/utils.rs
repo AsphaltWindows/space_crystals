@@ -5,6 +5,7 @@ use crate::game::world::types::TilePreset;
 use crate::game::combat::types::*;
 use super::types::movement::{MoveTarget, Path, Velocity};
 use super::types::HoldingPosition;
+use super::types::commands::{UnitCommand, CommandQueue};
 
 // Re-export tunnel_side_world_position for cross-module access
 pub use super::systems::behaviors::tunnel_side_world_position;
@@ -144,6 +145,23 @@ pub fn clear_movement_state_full(entity_commands: &mut EntityCommands) {
         .remove::<HoldingPosition>()
         .remove::<IdleOrigin>()
         .insert(Velocity(Vec3::ZERO));
+}
+
+/// Issues a command to a unit, either immediately or queued based on shift state.
+/// When shift_held: pushes to CommandQueue, does not touch current command.
+/// When !shift_held: clears CommandQueue, inserts UnitCommand (caller handles movement state).
+pub fn issue_or_queue_command(
+    entity_cmds: &mut EntityCommands,
+    command_queue: &mut CommandQueue,
+    command: UnitCommand,
+    shift_held: bool,
+) {
+    if shift_held {
+        command_queue.push(command);
+    } else {
+        command_queue.clear();
+        entity_cmds.insert(command);
+    }
 }
 
 /// Validate whether a unit can enter a tunnel.
@@ -679,5 +697,44 @@ mod tests {
             let result = can_enter_tunnel(true, Some(0), Some(0), &base, &TunnelTier::Tier3);
             assert!(result.is_ok(), "Expected {:?} to be allowed on T3", base);
         }
+    }
+
+    // === issue_or_queue_command tests ===
+
+    #[test]
+    fn issue_or_queue_shift_pushes_to_queue() {
+        let mut world = World::new();
+        let entity = world.spawn((UnitCommand::Idle, CommandQueue::new())).id();
+        let mut queue = world.get_mut::<CommandQueue>(entity).unwrap();
+        // Simulate shift_held = true
+        queue.push(UnitCommand::Move(Vec3::new(1.0, 0.0, 0.0)));
+
+        let queue = world.get::<CommandQueue>(entity).unwrap();
+        assert_eq!(queue.len(), 1);
+        let cmd = world.get::<UnitCommand>(entity).unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle), "Shift-queue should not change current command");
+    }
+
+    #[test]
+    fn issue_or_queue_no_shift_clears_and_replaces() {
+        let mut world = World::new();
+        let entity = world.spawn((UnitCommand::Idle, CommandQueue::new())).id();
+        // Pre-fill queue
+        {
+            let mut queue = world.get_mut::<CommandQueue>(entity).unwrap();
+            queue.push(UnitCommand::HoldPosition);
+        }
+        // Simulate non-shift: clear queue, replace command
+        {
+            let mut queue = world.get_mut::<CommandQueue>(entity).unwrap();
+            queue.clear();
+            let mut entity_ref = world.entity_mut(entity);
+            entity_ref.insert(UnitCommand::Stop);
+        }
+
+        let queue = world.get::<CommandQueue>(entity).unwrap();
+        assert!(queue.is_empty());
+        let cmd = world.get::<UnitCommand>(entity).unwrap();
+        assert!(matches!(cmd, UnitCommand::Stop));
     }
 }

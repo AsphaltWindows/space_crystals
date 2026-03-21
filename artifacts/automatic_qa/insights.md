@@ -4,6 +4,7 @@
 - Project source is in `artifacts/developer/`
 - Build/test commands: `cargo check`, `cargo test` from `artifacts/developer/`
 - Bevy 0.17 project, Rust edition 2021
+- **NEVER run `cargo clean`** — always use incremental builds (operator directive 2026-03-20)
 
 ## Automation Capabilities
 - Can run `cargo check`, `cargo test`, `cargo clippy` for compilation and test verification

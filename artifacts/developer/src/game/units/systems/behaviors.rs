@@ -3,8 +3,9 @@ use bevy::prelude::*;
 use crate::game::units::types::movement::{MoveObjectTarget, Velocity};
 use crate::game::units::types::state::behavior::{
     BaseBehaviorState, BuildingStructureBehavior, BuildingTunnelBehavior, BuildTunnelPhase,
-    EnteringTunnelBehavior,
+    EnteringTunnelBehavior, InTunnelNetwork,
     GatheringResourceBehavior, GatherPhase, DroppingOffResourcesBehavior, DropOffPhase,
+    PickingUpSuppliesBehavior, PickUpPhase, AttachingToTowerBehavior, DroppingOffSuppliesBehavior,
     LocomotionChannel, OrientationChannel,
 };
 use crate::game::units::types::state::commands::{UnitCommand, TurretCommandState};
@@ -14,13 +15,17 @@ use crate::game::units::types::unit_data::{
     AGENT_CRYSTAL_CARRY, AGENT_SUPPLY_CARRY, AGENT_TUNNEL_BUILD_FRAMES,
 };
 use crate::game::types::{ConstructionHP, ObjectInstance, StructureInstance, TunnelState};
-use crate::game::types::structures::tunnel_construction_cost;
+use crate::game::types::structures::{tunnel_construction_cost, SupplyChopperState, SupplyTowerState};
+use crate::game::types::factions::GdoPlayerResources;
+use crate::game::world::types::SupplyDeliveryStation;
 use crate::game::utils::spawn_tunnel_under_construction;
 use crate::game::types::factions::{Player, SyndicatePlayerResources};
-use crate::types::SymmetryTypeEnum;
+use crate::types::{ObjectEnum, SymmetryTypeEnum};
 use crate::game::world::types::{Tile, TilePreset, SpaceCrystalPatch};
 use crate::game::world::utils::{can_worker_place_structure, world_to_grid};
-use crate::types::{GridPosition, Owner};
+use crate::types::{GridPosition, Owner, Unit, UnitBaseEnum};
+use crate::game::units::utils::can_enter_tunnel;
+use crate::game::units::types::unit_data::{agent_type_data, guard_type_data};
 
 /// Distance threshold for considering a waypoint reached (in grid units).
 /// Must match WAYPOINT_ARRIVAL_THRESHOLD in core.rs to avoid dual-layer conflicts.
@@ -362,6 +367,46 @@ pub fn stopping_behavior_system(
     }
 }
 
+/// Behavior completion system.
+///
+/// Detects when Move, Reverse, or Stop behaviors have reached completion
+/// (LocomotionChannel::Stationary + near-zero velocity) and transitions
+/// UnitCommand to Idle so command_dequeue_system can pop the next queued command.
+/// Glider units circling after Move are NOT completed — they remain in Move until
+/// a new command is issued.
+pub fn behavior_completion_system(
+    mut query: Query<(
+        &mut UnitCommand,
+        &mut BaseBehaviorState,
+        &LocomotionChannel,
+        &Velocity,
+    )>,
+) {
+    for (mut command, mut behavior, locomotion, velocity) in &mut query {
+        // Only complete for commands that have behavior completion semantics
+        let should_complete = match command.as_ref() {
+            UnitCommand::Move(_) | UnitCommand::Reverse(_) | UnitCommand::Stop => true,
+            _ => false,
+        };
+        if !should_complete {
+            continue;
+        }
+
+        // Gliders circling after Move are not "complete" — they circle indefinitely
+        if let BaseBehaviorState::Glider { circling: true, .. } = behavior.as_ref() {
+            continue;
+        }
+
+        // Behavior is complete when locomotion is Stationary and velocity is near zero
+        if matches!(locomotion, LocomotionChannel::Stationary)
+            && velocity.0.length() < STOPPED_VELOCITY_THRESHOLD
+        {
+            *command = UnitCommand::Idle;
+            *behavior = BaseBehaviorState::None;
+        }
+    }
+}
+
 // === Helper functions ===
 
 /// Update the path_index in the current BaseBehaviorState variant.
@@ -409,12 +454,71 @@ pub fn has_path_deviation(pos: Vec3, planned_path: &[Vec3], path_index: usize) -
 /// Distance threshold for considering arrival at Side A position (in world units)
 const TUNNEL_ARRIVAL_THRESHOLD: f32 = 0.5;
 
+/// Dispatch system for UnitCommand::Enter.
+///
+/// Detects units with `UnitCommand::Enter(tunnel_entity)` that don't yet have
+/// an `EnteringTunnelBehavior` marker. Validates the Enter command using
+/// `can_enter_tunnel()` (faction, owner, tier checks). If valid, inserts
+/// `EnteringTunnelBehavior` on the unit. If invalid, resets the command to Idle.
+///
+/// Schedule: Update, Phase 2 (before entering_tunnel_behavior_system)
+pub fn enter_command_dispatch_system(
+    mut commands: Commands,
+    mut units: Query<
+        (Entity, &mut UnitCommand, &ObjectInstance, &Owner),
+        (With<Unit>, Without<EnteringTunnelBehavior>, Without<InTunnelNetwork>),
+    >,
+    tunnels: Query<(&TunnelState, &Owner), With<TunnelState>>,
+) {
+    for (entity, mut command, obj, unit_owner) in &mut units {
+        let tunnel_entity = match &*command {
+            UnitCommand::Enter(te) => *te,
+            _ => continue,
+        };
+
+        // Look up tunnel — cancel if it no longer exists
+        let (tunnel_state, tunnel_owner) = match tunnels.get(tunnel_entity) {
+            Ok(result) => result,
+            Err(_) => {
+                warn!("Enter command target entity does not exist or has no TunnelState");
+                *command = UnitCommand::Idle;
+                continue;
+            }
+        };
+
+        // Determine if unit is Syndicate and get its UnitBaseEnum
+        let (is_syndicate, unit_base) = match obj.object_type {
+            ObjectEnum::SyndicateAgent => (true, agent_type_data().unit_base),
+            ObjectEnum::SyndicateGuard => (true, guard_type_data().unit_base),
+            _ => (false, UnitBaseEnum::LightInfantry), // placeholder; will fail validation
+        };
+
+        // Validate
+        match can_enter_tunnel(
+            is_syndicate,
+            unit_owner.player_number(),
+            tunnel_owner.player_number(),
+            &unit_base,
+            &tunnel_state.tier,
+        ) {
+            Ok(()) => {
+                commands.entity(entity).insert(EnteringTunnelBehavior::new(tunnel_entity));
+            }
+            Err(reason) => {
+                warn!("Enter command rejected: {}", reason);
+                *command = UnitCommand::Idle;
+            }
+        }
+    }
+}
+
 /// Process EnteringTunnel behavior.
 ///
 /// Units with the `EnteringTunnelBehavior` marker move toward the target Tunnel's
 /// position (Side A approximated as the tunnel's transform position).
-/// On arrival, writes to locomotion/orientation channels. When within threshold,
-/// the unit entity is despawned (logically enters the tunnel network).
+/// On arrival, the unit is placed into the tunnel network: `InTunnelNetwork` is inserted,
+/// visibility is set to Hidden, and movement state is cleared. The entity is NOT despawned,
+/// so it remains queryable for ejection by the production/ejection system.
 ///
 /// Schedule: Update (same as other behavior systems)
 pub fn entering_tunnel_behavior_system(
@@ -425,10 +529,12 @@ pub fn entering_tunnel_behavior_system(
         &mut EnteringTunnelBehavior,
         &mut LocomotionChannel,
         &mut OrientationChannel,
+        &Owner,
+        &mut Visibility,
     )>,
     tunnels: Query<&Transform, With<TunnelState>>,
 ) {
-    for (entity, transform, entering, mut locomotion, mut orientation) in &mut units {
+    for (entity, transform, entering, mut locomotion, mut orientation, owner, mut visibility) in &mut units {
         // Get the tunnel's position (Side A approximated as tunnel center)
         let tunnel_transform = match tunnels.get(entering.target_tunnel) {
             Ok(t) => t,
@@ -447,8 +553,15 @@ pub fn entering_tunnel_behavior_system(
 
         if distance < TUNNEL_ARRIVAL_THRESHOLD {
             // Unit has arrived at Side A — enter the tunnel network
-            // Despawn the unit entity from the map
-            commands.entity(entity).despawn();
+            let owner_player = owner.player_number().unwrap_or(0);
+            commands.entity(entity).insert(InTunnelNetwork { owner_player });
+            *visibility = Visibility::Hidden;
+            // Clear movement state
+            *locomotion = LocomotionChannel::Stationary;
+            *orientation = OrientationChannel::Maintaining;
+            commands.entity(entity).insert(Velocity(Vec3::ZERO));
+            // Remove behavior marker
+            commands.entity(entity).remove::<EnteringTunnelBehavior>();
             continue;
         }
 
@@ -907,6 +1020,8 @@ pub fn building_tunnel_behavior_system(
     tunnel_query: Query<(Entity, &Owner), With<TunnelState>>,
     tunnel_hp_query: Query<&ObjectInstance, With<ConstructionHP>>,
     mut syndicate_players: Query<(&Player, &mut SyndicatePlayerResources)>,
+    tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
+    structures: Query<(&GridPosition, &StructureInstance, &ObjectInstance)>,
 ) {
     // Single-Agent construction enforcement: collect locations where construction is in progress
     let constructing_locations: Vec<(Entity, Vec3)> = units.iter()
@@ -927,6 +1042,20 @@ pub fn building_tunnel_behavior_system(
                 let distance = Vec3::new(unit_pos.x - target.x, 0.0, unit_pos.z - target.z).length();
 
                 if distance < BUILD_ARRIVAL_THRESHOLD {
+                    // Validate placement — tiles must be buildable and unoccupied
+                    let (grid_x_val, grid_z_val) = world_to_grid(target, 1.0);
+                    let (size_x, size_z) = ObjectEnum::Tunnel.object_type().size;
+                    let valid = can_worker_place_structure(grid_x_val, grid_z_val, size_x, size_z, &tiles, &structures);
+                    if valid.is_err() {
+                        info!("Agent: Build tunnel rejected — placement invalid at ({}, {}): {}", grid_x_val, grid_z_val, valid.unwrap_err());
+                        *command = UnitCommand::Idle;
+                        *behavior = BaseBehaviorState::None;
+                        *locomotion = LocomotionChannel::Stationary;
+                        *orientation = OrientationChannel::Maintaining;
+                        commands.entity(entity).remove::<BuildingTunnelBehavior>();
+                        continue;
+                    }
+
                     // Single-Agent construction enforcement: reject if another agent
                     // is already constructing at this location
                     let location_taken = constructing_locations.iter().any(|(other_e, loc)| {
@@ -1047,6 +1176,314 @@ pub fn building_tunnel_behavior_system(
                         frames_elapsed: new_frames,
                     };
                 }
+            }
+        }
+    }
+}
+
+// === Supply Chopper Behavior Systems ===
+
+/// Duration in frames for transferring supplies from SDS to chopper (~0.5 seconds at 60fps)
+const CHOPPER_PICKUP_DURATION: u32 = 30;
+
+/// HP restored per frame while chopper is landed/attached at tower
+const CHOPPER_REPAIR_RATE: f32 = 1.0;
+
+/// PickUpSupplies behavior system.
+///
+/// Handles the supply pickup cycle:
+/// 1. Move to the target Supply Delivery Station
+/// 2. Transfer supplies (30 frames)
+/// 3. If attached to a tower, auto-move back to tower. Otherwise idle.
+pub fn supply_chopper_pickup_system(
+    mut commands: Commands,
+    mut choppers: Query<(
+        Entity,
+        &Transform,
+        &mut PickingUpSuppliesBehavior,
+        &mut LocomotionChannel,
+        &mut OrientationChannel,
+        &mut UnitCommand,
+        &mut BaseBehaviorState,
+        &mut SupplyChopperState,
+    )>,
+    mut sds_query: Query<&mut SupplyDeliveryStation, Without<PickingUpSuppliesBehavior>>,
+    target_transforms: Query<&Transform, (Without<PickingUpSuppliesBehavior>, Without<SupplyTowerState>)>,
+    tower_transforms: Query<&Transform, (With<SupplyTowerState>, Without<PickingUpSuppliesBehavior>)>,
+) {
+    for (entity, transform, mut behavior, mut locomotion, mut orientation, mut command, mut base_behavior, mut chopper_state) in &mut choppers {
+        match behavior.phase.clone() {
+            PickUpPhase::MovingToSDS => {
+                let sds_pos = match target_transforms.get(behavior.target_sds) {
+                    Ok(t) => t.translation,
+                    Err(_) => {
+                        // SDS gone — cancel
+                        *command = UnitCommand::Idle;
+                        *base_behavior = BaseBehaviorState::None;
+                        *locomotion = LocomotionChannel::Stationary;
+                        *orientation = OrientationChannel::Maintaining;
+                        commands.entity(entity).remove::<PickingUpSuppliesBehavior>();
+                        continue;
+                    }
+                };
+
+                let dist = Vec3::new(
+                    transform.translation.x - sds_pos.x, 0.0,
+                    transform.translation.z - sds_pos.z,
+                ).length();
+
+                if dist < OBJECT_PROXIMITY_DISTANCE {
+                    // Arrived — start transferring
+                    behavior.phase = PickUpPhase::Transferring { frames_remaining: CHOPPER_PICKUP_DURATION };
+                    *locomotion = LocomotionChannel::Stationary;
+                    *orientation = OrientationChannel::Maintaining;
+                } else {
+                    // Move toward SDS
+                    *locomotion = LocomotionChannel::Moving(vec![sds_pos]);
+                    *orientation = OrientationChannel::Turning(sds_pos);
+                }
+            }
+            PickUpPhase::Transferring { frames_remaining } => {
+                if frames_remaining <= 1 {
+                    // Transfer complete — take supplies from SDS
+                    if let Ok(mut sds) = sds_query.get_mut(behavior.target_sds) {
+                        chopper_state.carried_supplies += sds.current_supplies;
+                        sds.current_supplies = 0;
+                    }
+
+                    // If attached to a tower, auto-return
+                    if let Some(tower_entity) = chopper_state.attached_tower {
+                        if let Ok(tower_t) = tower_transforms.get(tower_entity) {
+                            *command = UnitCommand::DropOffSupplies(tower_entity);
+                            *locomotion = LocomotionChannel::Moving(vec![tower_t.translation]);
+                            *orientation = OrientationChannel::Turning(tower_t.translation);
+                            commands.entity(entity).remove::<PickingUpSuppliesBehavior>();
+                            commands.entity(entity).insert(DroppingOffSuppliesBehavior::new(tower_entity));
+                            continue;
+                        }
+                    }
+
+                    // No attached tower — idle
+                    *command = UnitCommand::Idle;
+                    *base_behavior = BaseBehaviorState::None;
+                    *locomotion = LocomotionChannel::Stationary;
+                    *orientation = OrientationChannel::Maintaining;
+                    commands.entity(entity).remove::<PickingUpSuppliesBehavior>();
+                } else {
+                    behavior.phase = PickUpPhase::Transferring { frames_remaining: frames_remaining - 1 };
+                }
+            }
+        }
+    }
+}
+
+/// AttachToTower behavior system.
+///
+/// Moves chopper to the target Supply Tower and establishes attachment on arrival.
+pub fn supply_chopper_attach_system(
+    mut commands: Commands,
+    mut choppers: Query<(
+        Entity,
+        &Transform,
+        &AttachingToTowerBehavior,
+        &mut LocomotionChannel,
+        &mut OrientationChannel,
+        &mut UnitCommand,
+        &mut BaseBehaviorState,
+        &mut SupplyChopperState,
+    )>,
+    mut towers: Query<(&Transform, &mut SupplyTowerState), Without<AttachingToTowerBehavior>>,
+) {
+    for (entity, transform, behavior, mut locomotion, mut orientation, mut command, mut base_behavior, mut chopper_state) in &mut choppers {
+        let tower_data = match towers.get_mut(behavior.target_tower) {
+            Ok(data) => data,
+            Err(_) => {
+                // Tower gone — cancel
+                *command = UnitCommand::Idle;
+                *base_behavior = BaseBehaviorState::None;
+                *locomotion = LocomotionChannel::Stationary;
+                *orientation = OrientationChannel::Maintaining;
+                commands.entity(entity).remove::<AttachingToTowerBehavior>();
+                continue;
+            }
+        };
+
+        let (tower_transform, mut tower_state) = tower_data;
+        let tower_pos = tower_transform.translation;
+
+        let dist = Vec3::new(
+            transform.translation.x - tower_pos.x, 0.0,
+            transform.translation.z - tower_pos.z,
+        ).length();
+
+        if dist < OBJECT_PROXIMITY_DISTANCE {
+            // Arrived — establish attachment
+            // If previously attached to a different tower, clear old attachment
+            if let Some(old_tower) = chopper_state.attached_tower {
+                if old_tower != behavior.target_tower {
+                    // Need to use other_towers query to avoid aliased access
+                    // Since we already have tower_state borrowed for behavior.target_tower,
+                    // the old tower access must be done after we drop it. Use commands instead.
+                    commands.queue(move |world: &mut World| {
+                        if let Ok(mut old_st) = world.get_entity_mut(old_tower) {
+                            if let Some(mut old_state) = old_st.get_mut::<SupplyTowerState>() {
+                                if old_state.attached_chopper == Some(entity) {
+                                    old_state.attached_chopper = None;
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
+            chopper_state.attached_tower = Some(behavior.target_tower);
+            tower_state.attached_chopper = Some(entity);
+
+            *command = UnitCommand::Idle;
+            *base_behavior = BaseBehaviorState::None;
+            *locomotion = LocomotionChannel::Stationary;
+            *orientation = OrientationChannel::Maintaining;
+            commands.entity(entity).remove::<AttachingToTowerBehavior>();
+        } else {
+            // Move toward tower
+            *locomotion = LocomotionChannel::Moving(vec![tower_pos]);
+            *orientation = OrientationChannel::Turning(tower_pos);
+        }
+    }
+}
+
+/// DropOffSupplies behavior system.
+///
+/// Moves chopper to the target Supply Tower and delivers carried supplies on arrival.
+pub fn supply_chopper_dropoff_system(
+    mut commands: Commands,
+    mut choppers: Query<(
+        Entity,
+        &Transform,
+        &DroppingOffSuppliesBehavior,
+        &mut LocomotionChannel,
+        &mut OrientationChannel,
+        &mut UnitCommand,
+        &mut BaseBehaviorState,
+        &mut SupplyChopperState,
+        &Owner,
+    )>,
+    tower_transforms: Query<&Transform, (With<SupplyTowerState>, Without<DroppingOffSuppliesBehavior>)>,
+    mut player_resources: Query<(&Player, &mut GdoPlayerResources)>,
+) {
+    for (entity, transform, behavior, mut locomotion, mut orientation, mut command, mut base_behavior, mut chopper_state, owner) in &mut choppers {
+        let tower_pos = match tower_transforms.get(behavior.target_tower) {
+            Ok(t) => t.translation,
+            Err(_) => {
+                // Tower gone — cancel
+                *command = UnitCommand::Idle;
+                *base_behavior = BaseBehaviorState::None;
+                *locomotion = LocomotionChannel::Stationary;
+                *orientation = OrientationChannel::Maintaining;
+                commands.entity(entity).remove::<DroppingOffSuppliesBehavior>();
+                continue;
+            }
+        };
+
+        let dist = Vec3::new(
+            transform.translation.x - tower_pos.x, 0.0,
+            transform.translation.z - tower_pos.z,
+        ).length();
+
+        if dist < OBJECT_PROXIMITY_DISTANCE {
+            // Arrived — transfer supplies to player resources
+            if chopper_state.carried_supplies > 0 {
+                if let Some(owner_player) = owner.player_number() {
+                    for (player, mut resources) in &mut player_resources {
+                        if player.player_number == owner_player {
+                            resources.supplies += chopper_state.carried_supplies as i32;
+                            break;
+                        }
+                    }
+                }
+                chopper_state.carried_supplies = 0;
+            }
+
+            *command = UnitCommand::Idle;
+            *base_behavior = BaseBehaviorState::None;
+            *locomotion = LocomotionChannel::Stationary;
+            *orientation = OrientationChannel::Maintaining;
+            commands.entity(entity).remove::<DroppingOffSuppliesBehavior>();
+        } else {
+            // Move toward tower
+            *locomotion = LocomotionChannel::Moving(vec![tower_pos]);
+            *orientation = OrientationChannel::Turning(tower_pos);
+        }
+    }
+}
+
+/// Supply chopper detach system.
+///
+/// When a chopper with an attached tower receives a non-Idle command,
+/// detach it from the tower so other systems see clean state.
+pub fn supply_chopper_detach_system(
+    mut choppers: Query<(Entity, &UnitCommand, &mut SupplyChopperState)>,
+    mut towers: Query<&mut SupplyTowerState>,
+) {
+    for (entity, command, mut chopper_state) in &mut choppers {
+        if chopper_state.attached_tower.is_none() {
+            continue;
+        }
+
+        // Detach when command is anything other than Idle
+        if !matches!(command, UnitCommand::Idle) {
+            if let Some(tower_entity) = chopper_state.attached_tower.take() {
+                if let Ok(mut tower_state) = towers.get_mut(tower_entity) {
+                    if tower_state.attached_chopper == Some(entity) {
+                        tower_state.attached_chopper = None;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Supply chopper repair system.
+///
+/// When a chopper is idle, attached to a tower, and near the tower,
+/// it slowly repairs over time.
+pub fn supply_chopper_repair_system(
+    mut choppers: Query<(
+        &Transform,
+        &SupplyChopperState,
+        &UnitCommand,
+        &mut ObjectInstance,
+    )>,
+    tower_transforms: Query<&Transform, (With<SupplyTowerState>, Without<SupplyChopperState>)>,
+) {
+    for (transform, chopper_state, command, mut obj) in &mut choppers {
+        if !matches!(command, UnitCommand::Idle) {
+            continue;
+        }
+
+        let tower_entity = match chopper_state.attached_tower {
+            Some(e) => e,
+            None => continue,
+        };
+
+        let tower_pos = match tower_transforms.get(tower_entity) {
+            Ok(t) => t.translation,
+            Err(_) => continue,
+        };
+
+        let dist = Vec3::new(
+            transform.translation.x - tower_pos.x, 0.0,
+            transform.translation.z - tower_pos.z,
+        ).length();
+
+        if dist >= OBJECT_PROXIMITY_DISTANCE {
+            continue;
+        }
+
+        // Repair: increment HP, capped at max_hp
+        if let (Some(hp), Some(max_hp)) = (obj.hp, obj.max_hp) {
+            if hp < max_hp {
+                obj.hp = Some((hp + CHOPPER_REPAIR_RATE).min(max_hp));
             }
         }
     }
@@ -1338,6 +1775,191 @@ mod tests {
         assert_eq!(target.entity, Entity::from_raw_u32(1).unwrap());
     }
 
+    // === EnteringTunnel behavior + dispatch tests ===
+
+    /// Helper to spawn an agent entity for tunnel entering tests
+    fn spawn_agent_for_tunnel_test(world: &mut World, pos: Vec3, tunnel_entity: Entity) -> Entity {
+        world.spawn((
+            Transform::from_translation(pos),
+            Unit,
+            ObjectInstance {
+                object_type: ObjectEnum::SyndicateAgent,
+                hp: Some(75.0),
+                max_hp: Some(75.0),
+            },
+            Owner(Some(0)),
+            UnitCommand::Enter(tunnel_entity),
+            LocomotionChannel::Stationary,
+            OrientationChannel::Maintaining,
+            Visibility::Visible,
+        )).id()
+    }
+
+    /// Helper to spawn a tunnel entity for tests
+    fn spawn_tunnel_for_test(world: &mut World, pos: Vec3, owner: u8) -> Entity {
+        world.spawn((
+            Transform::from_translation(pos),
+            TunnelState::new(crate::game::types::TunnelTier::Tier1),
+            Owner(Some(owner)),
+            StructureInstance::default(),
+        )).id()
+    }
+
+    #[test]
+    fn enter_dispatch_valid_agent_inserts_behavior_marker() {
+        let mut world = World::new();
+        let tunnel = spawn_tunnel_for_test(&mut world, Vec3::new(10.0, 0.5, 10.0), 0);
+        let agent = spawn_agent_for_tunnel_test(&mut world, Vec3::ZERO, tunnel);
+
+        world.run_system_once(enter_command_dispatch_system).unwrap();
+
+        assert!(world.entity(agent).get::<EnteringTunnelBehavior>().is_some());
+        let behavior = world.entity(agent).get::<EnteringTunnelBehavior>().unwrap();
+        assert_eq!(behavior.target_tunnel, tunnel);
+    }
+
+    #[test]
+    fn enter_dispatch_non_syndicate_rejects_command() {
+        let mut world = World::new();
+        let tunnel = spawn_tunnel_for_test(&mut world, Vec3::new(10.0, 0.5, 10.0), 0);
+        // Spawn a non-syndicate unit (Peacekeeper) with Enter command
+        let unit = world.spawn((
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            Unit,
+            ObjectInstance {
+                object_type: ObjectEnum::Peacekeeper,
+                hp: Some(100.0),
+                max_hp: Some(100.0),
+            },
+            Owner(Some(0)),
+            UnitCommand::Enter(tunnel),
+            LocomotionChannel::Stationary,
+            OrientationChannel::Maintaining,
+            Visibility::Visible,
+        )).id();
+
+        world.run_system_once(enter_command_dispatch_system).unwrap();
+
+        // Should NOT have behavior marker
+        assert!(world.entity(unit).get::<EnteringTunnelBehavior>().is_none());
+        // Command should be reset to Idle
+        let cmd = world.entity(unit).get::<UnitCommand>().unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle));
+    }
+
+    #[test]
+    fn enter_dispatch_wrong_owner_rejects_command() {
+        let mut world = World::new();
+        // Tunnel owned by player 1, agent owned by player 0
+        let tunnel = spawn_tunnel_for_test(&mut world, Vec3::new(10.0, 0.5, 10.0), 1);
+        let agent = spawn_agent_for_tunnel_test(&mut world, Vec3::ZERO, tunnel);
+
+        world.run_system_once(enter_command_dispatch_system).unwrap();
+
+        assert!(world.entity(agent).get::<EnteringTunnelBehavior>().is_none());
+        let cmd = world.entity(agent).get::<UnitCommand>().unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle));
+    }
+
+    #[test]
+    fn enter_dispatch_tunnel_not_found_rejects_command() {
+        let mut world = World::new();
+        // Use a fake entity that doesn't exist as a tunnel
+        let fake_tunnel = Entity::from_raw_u32(9999).unwrap();
+        let agent = spawn_agent_for_tunnel_test(&mut world, Vec3::ZERO, fake_tunnel);
+
+        world.run_system_once(enter_command_dispatch_system).unwrap();
+
+        assert!(world.entity(agent).get::<EnteringTunnelBehavior>().is_none());
+        let cmd = world.entity(agent).get::<UnitCommand>().unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle));
+    }
+
+    #[test]
+    fn entering_tunnel_far_away_sets_moving() {
+        let mut world = World::new();
+        let tunnel = spawn_tunnel_for_test(&mut world, Vec3::new(10.0, 0.5, 10.0), 0);
+        let agent = world.spawn((
+            Transform::from_xyz(0.0, 0.5, 0.0), // Far from tunnel
+            EnteringTunnelBehavior::new(tunnel),
+            LocomotionChannel::Stationary,
+            OrientationChannel::Maintaining,
+            Owner(Some(0)),
+            Visibility::Visible,
+        )).id();
+
+        world.run_system_once(entering_tunnel_behavior_system).unwrap();
+
+        let locomotion = world.entity(agent).get::<LocomotionChannel>().unwrap();
+        assert!(matches!(locomotion, LocomotionChannel::Moving(_)));
+        let orientation = world.entity(agent).get::<OrientationChannel>().unwrap();
+        assert!(matches!(orientation, OrientationChannel::Turning(_)));
+        // Entity should still exist and NOT be in tunnel network
+        assert!(world.entity(agent).get::<InTunnelNetwork>().is_none());
+        // Behavior marker should still be present
+        assert!(world.entity(agent).get::<EnteringTunnelBehavior>().is_some());
+    }
+
+    #[test]
+    fn entering_tunnel_at_arrival_enters_network() {
+        let mut world = World::new();
+        let tunnel_pos = Vec3::new(5.0, 0.5, 5.0);
+        let tunnel = spawn_tunnel_for_test(&mut world, tunnel_pos, 0);
+        // Spawn agent very close to tunnel (within TUNNEL_ARRIVAL_THRESHOLD)
+        let agent = world.spawn((
+            Transform::from_translation(tunnel_pos + Vec3::new(0.1, 0.0, 0.1)),
+            EnteringTunnelBehavior::new(tunnel),
+            LocomotionChannel::Stationary,
+            OrientationChannel::Maintaining,
+            Owner(Some(0)),
+            Visibility::Visible,
+        )).id();
+
+        world.run_system_once(entering_tunnel_behavior_system).unwrap();
+
+        // Entity should still exist (not despawned)
+        assert!(world.get_entity(agent).is_ok());
+        // Should have InTunnelNetwork
+        let network = world.entity(agent).get::<InTunnelNetwork>().unwrap();
+        assert_eq!(network.owner_player, 0);
+        // Should be hidden
+        let vis = world.entity(agent).get::<Visibility>().unwrap();
+        assert_eq!(*vis, Visibility::Hidden);
+        // Channels should be stationary/maintaining
+        let locomotion = world.entity(agent).get::<LocomotionChannel>().unwrap();
+        assert!(matches!(locomotion, LocomotionChannel::Stationary));
+        let orientation = world.entity(agent).get::<OrientationChannel>().unwrap();
+        assert!(matches!(orientation, OrientationChannel::Maintaining));
+        // Behavior marker should be removed
+        assert!(world.entity(agent).get::<EnteringTunnelBehavior>().is_none());
+    }
+
+    #[test]
+    fn entering_tunnel_missing_tunnel_cancels() {
+        let mut world = World::new();
+        let fake_tunnel = Entity::from_raw_u32(9999).unwrap();
+        let agent = world.spawn((
+            Transform::from_xyz(5.0, 0.5, 5.0),
+            EnteringTunnelBehavior::new(fake_tunnel),
+            LocomotionChannel::Moving(vec![Vec3::ZERO]),
+            OrientationChannel::Turning(Vec3::ZERO),
+            Owner(Some(0)),
+            Visibility::Visible,
+        )).id();
+
+        world.run_system_once(entering_tunnel_behavior_system).unwrap();
+
+        // Behavior marker should be removed
+        assert!(world.entity(agent).get::<EnteringTunnelBehavior>().is_none());
+        // Channels should be stopping/maintaining
+        let locomotion = world.entity(agent).get::<LocomotionChannel>().unwrap();
+        assert!(matches!(locomotion, LocomotionChannel::Stopping));
+        let orientation = world.entity(agent).get::<OrientationChannel>().unwrap();
+        assert!(matches!(orientation, OrientationChannel::Maintaining));
+        // Should NOT be in tunnel network
+        assert!(world.entity(agent).get::<InTunnelNetwork>().is_none());
+    }
+
     // === BuildingStructureBehavior system tests ===
 
     #[test]
@@ -1569,6 +2191,29 @@ mod tests {
         )).id()
     }
 
+    /// Helper to spawn 4x4 buildable tiles at a given grid position
+    /// Use grid (32, 32) for world position Vec3(0.5, 0, 0.5)
+    fn spawn_buildable_tiles_4x4(world: &mut World, grid_x: i32, grid_z: i32) {
+        for dx in 0..4 {
+            for dz in 0..4 {
+                world.spawn((
+                    GridPosition { x: grid_x + dx, z: grid_z + dz },
+                    TilePreset {
+                        value: crate::game::world::types::TilePresetEnum::Plane,
+                        name: "Plane".to_string(),
+                        texture: None,
+                        buildable: true,
+                        traversible: true,
+                        rugged: false,
+                        drillable: false,
+                        recruitable: false,
+                    },
+                    Tile,
+                ));
+            }
+        }
+    }
+
     /// Helper to spawn a Player entity with SyndicatePlayerResources
     fn spawn_syndicate_player(world: &mut World, player_number: u8, supplies: i32) -> Entity {
         world.spawn((
@@ -1620,6 +2265,7 @@ mod tests {
         let target = Vec3::new(0.5, 0.0, 0.5);
         let entity = spawn_agent_with_build_tunnel(app.world_mut(), target, target, Owner::player(0));
         spawn_syndicate_player(app.world_mut(), 0, 100);
+        spawn_buildable_tiles_4x4(app.world_mut(), 32, 32);
 
         app.world_mut().run_system_once(building_tunnel_behavior_system).unwrap();
 
@@ -1651,6 +2297,7 @@ mod tests {
         let target = Vec3::new(0.5, 0.0, 0.5);
         spawn_agent_with_build_tunnel(app.world_mut(), target, target, Owner::player(0));
         let player_entity = spawn_syndicate_player(app.world_mut(), 0, 10);
+        spawn_buildable_tiles_4x4(app.world_mut(), 32, 32);
 
         app.world_mut().run_system_once(building_tunnel_behavior_system).unwrap();
 
@@ -1676,6 +2323,7 @@ mod tests {
         let target = Vec3::new(0.5, 0.0, 0.5);
         spawn_agent_with_build_tunnel(app.world_mut(), target, target, Owner::player(0));
         let player_entity = spawn_syndicate_player(app.world_mut(), 0, 10);
+        spawn_buildable_tiles_4x4(app.world_mut(), 32, 32);
 
         app.world_mut().run_system_once(building_tunnel_behavior_system).unwrap();
 
@@ -1701,6 +2349,7 @@ mod tests {
         let target = Vec3::new(0.5, 0.0, 0.5);
         let entity = spawn_agent_with_build_tunnel(app.world_mut(), target, target, Owner::player(0));
         spawn_syndicate_player(app.world_mut(), 0, 0);
+        spawn_buildable_tiles_4x4(app.world_mut(), 32, 32);
 
         app.world_mut().run_system_once(building_tunnel_behavior_system).unwrap();
 
@@ -1918,6 +2567,7 @@ mod tests {
         let target = Vec3::new(0.5, 0.0, 0.5);
         spawn_agent_with_build_tunnel(app.world_mut(), target, target, Owner::player(0));
         spawn_syndicate_player(app.world_mut(), 0, 100);
+        spawn_buildable_tiles_4x4(app.world_mut(), 32, 32);
 
         // No tunnels before
         let tunnel_count_before = app.world_mut().query::<&TunnelState>().iter(app.world()).count();
@@ -1942,6 +2592,7 @@ mod tests {
         let target = Vec3::new(0.5, 0.0, 0.5);
         spawn_agent_with_build_tunnel(app.world_mut(), target, target, Owner::player(0));
         spawn_syndicate_player(app.world_mut(), 0, 100);
+        spawn_buildable_tiles_4x4(app.world_mut(), 32, 32);
 
         app.world_mut().run_system_once(building_tunnel_behavior_system).unwrap();
         app.world_mut().flush();
@@ -1964,6 +2615,7 @@ mod tests {
         let target = Vec3::new(0.5, 0.0, 0.5);
         spawn_agent_with_build_tunnel(app.world_mut(), target, target, Owner::player(0));
         spawn_syndicate_player(app.world_mut(), 0, 100);
+        spawn_buildable_tiles_4x4(app.world_mut(), 32, 32);
 
         app.world_mut().run_system_once(building_tunnel_behavior_system).unwrap();
         app.world_mut().flush();
@@ -2016,6 +2668,7 @@ mod tests {
         );
 
         spawn_syndicate_player(app.world_mut(), 0, 200);
+        spawn_buildable_tiles_4x4(app.world_mut(), 32, 32);
 
         app.world_mut().run_system_once(building_tunnel_behavior_system).unwrap();
         app.world_mut().flush();
@@ -2072,6 +2725,8 @@ mod tests {
         );
 
         spawn_syndicate_player(app.world_mut(), 0, 200);
+        // Tiles for target_b at grid (42, 42)
+        spawn_buildable_tiles_4x4(app.world_mut(), 42, 42);
 
         app.world_mut().run_system_once(building_tunnel_behavior_system).unwrap();
         app.world_mut().flush();
@@ -2103,6 +2758,7 @@ mod tests {
         );
 
         spawn_syndicate_player(app.world_mut(), 0, 200);
+        spawn_buildable_tiles_4x4(app.world_mut(), 32, 32);
 
         app.world_mut().run_system_once(building_tunnel_behavior_system).unwrap();
         app.world_mut().flush();
@@ -2116,6 +2772,113 @@ mod tests {
                 "Agent B should be in Constructing phase"
             );
         }
+    }
+
+    // === Tunnel Arrival Validation Tests ===
+
+    #[test]
+    fn building_tunnel_arrival_unbuildable_tile_cancels() {
+        // Agent at target, but one tile is unbuildable → should cancel
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+
+        let target = Vec3::new(0.5, 0.0, 0.5);
+        let entity = spawn_agent_with_build_tunnel(app.world_mut(), target, target, Owner::player(0));
+        spawn_syndicate_player(app.world_mut(), 0, 100);
+
+        // Spawn 4x4 tiles but make one unbuildable
+        for dx in 0..4 {
+            for dz in 0..4 {
+                app.world_mut().spawn((
+                    GridPosition { x: 32 + dx, z: 32 + dz },
+                    TilePreset {
+                        value: crate::game::world::types::TilePresetEnum::Plane,
+                        name: "Plane".to_string(),
+                        texture: None,
+                        buildable: !(dx == 1 && dz == 1), // One tile unbuildable
+                        traversible: true,
+                        rugged: false,
+                        drillable: false,
+                        recruitable: false,
+                    },
+                    Tile,
+                ));
+            }
+        }
+
+        app.world_mut().run_system_once(building_tunnel_behavior_system).unwrap();
+        app.world_mut().flush();
+
+        // Agent should be idle, behavior removed
+        let cmd = app.world_mut().entity(entity).get::<UnitCommand>().unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle), "Agent should be idle after unbuildable tile");
+        assert!(
+            app.world_mut().entity(entity).get::<BuildingTunnelBehavior>().is_none(),
+            "BuildingTunnelBehavior should be removed"
+        );
+
+        // No tunnel should have been spawned
+        let tunnel_count = app.world_mut().query::<&TunnelState>().iter(app.world()).count();
+        assert_eq!(tunnel_count, 0, "No tunnel should be spawned");
+    }
+
+    #[test]
+    fn building_tunnel_arrival_structure_overlap_cancels() {
+        // Agent at target, tiles are buildable, but existing structure overlaps → should cancel
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+
+        let target = Vec3::new(0.5, 0.0, 0.5);
+        let entity = spawn_agent_with_build_tunnel(app.world_mut(), target, target, Owner::player(0));
+        spawn_syndicate_player(app.world_mut(), 0, 100);
+        spawn_buildable_tiles_4x4(app.world_mut(), 32, 32);
+
+        // Spawn an existing structure that overlaps the placement area
+        app.world_mut().spawn((
+            GridPosition { x: 33, z: 33 },
+            StructureInstance::default(),
+            ObjectInstance::destructible(ObjectEnum::Tunnel, 600.0),
+        ));
+
+        app.world_mut().run_system_once(building_tunnel_behavior_system).unwrap();
+        app.world_mut().flush();
+
+        // Agent should be idle, behavior removed
+        let cmd = app.world_mut().entity(entity).get::<UnitCommand>().unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle), "Agent should be idle after structure overlap");
+        assert!(
+            app.world_mut().entity(entity).get::<BuildingTunnelBehavior>().is_none(),
+            "BuildingTunnelBehavior should be removed"
+        );
+    }
+
+    #[test]
+    fn building_tunnel_arrival_no_tiles_cancels() {
+        // Agent at target, no tiles spawned → should cancel
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+
+        let target = Vec3::new(0.5, 0.0, 0.5);
+        let entity = spawn_agent_with_build_tunnel(app.world_mut(), target, target, Owner::player(0));
+        spawn_syndicate_player(app.world_mut(), 0, 100);
+        // No tiles spawned
+
+        app.world_mut().run_system_once(building_tunnel_behavior_system).unwrap();
+        app.world_mut().flush();
+
+        // Agent should be idle, behavior removed
+        let cmd = app.world_mut().entity(entity).get::<UnitCommand>().unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle), "Agent should be idle when no tiles exist");
+        assert!(
+            app.world_mut().entity(entity).get::<BuildingTunnelBehavior>().is_none(),
+            "BuildingTunnelBehavior should be removed"
+        );
     }
 
     // === Gathering/DropOff helper function tests ===
@@ -2589,5 +3352,626 @@ mod tests {
                 assert_eq!(resources.supplies, 11); // 10 + 1
             }
         }
+    }
+
+    // === Supply Chopper constants tests ===
+
+    #[test]
+    fn chopper_pickup_duration_is_30_frames() {
+        assert_eq!(CHOPPER_PICKUP_DURATION, 30);
+    }
+
+    #[test]
+    fn chopper_repair_rate_is_1_hp_per_frame() {
+        assert!((CHOPPER_REPAIR_RATE - 1.0).abs() < f32::EPSILON);
+    }
+
+    // === Supply Chopper Pickup System Tests ===
+
+    fn spawn_chopper_entity(world: &mut World, pos: Vec3, owner: Owner) -> Entity {
+        world.spawn((
+            Transform::from_translation(pos),
+            Unit,
+            ObjectInstance::destructible(ObjectEnum::SupplyChopper, 150.0),
+            owner,
+            UnitCommand::PickUpSupplies(Entity::PLACEHOLDER),
+            BaseBehaviorState::default(),
+            LocomotionChannel::default(),
+            OrientationChannel::default(),
+            SupplyChopperState::default(),
+            Velocity(Vec3::ZERO),
+        )).id()
+    }
+
+    fn spawn_sds_entity(world: &mut World, pos: Vec3) -> Entity {
+        world.spawn((
+            Transform::from_translation(pos),
+            SupplyDeliveryStation {
+                delivery_size: 100,
+                delivery_interval: 60.0,
+                current_supplies: 50,
+                time_until_next_delivery: 60.0,
+            },
+        )).id()
+    }
+
+    fn spawn_tower_entity(world: &mut World, pos: Vec3) -> Entity {
+        world.spawn((
+            Transform::from_translation(pos),
+            SupplyTowerState::default(),
+        )).id()
+    }
+
+    #[test]
+    fn pickup_system_moves_toward_sds() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let sds = spawn_sds_entity(app.world_mut(), Vec3::new(10.0, 0.0, 10.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(0.0, 1.5, 0.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).insert((
+            UnitCommand::PickUpSupplies(sds),
+            PickingUpSuppliesBehavior::new(sds),
+        ));
+
+        app.world_mut().run_system_once(supply_chopper_pickup_system).unwrap();
+
+        let loco = app.world().get::<LocomotionChannel>(chopper).unwrap();
+        assert!(matches!(loco, LocomotionChannel::Moving(_)));
+    }
+
+    #[test]
+    fn pickup_system_starts_transferring_on_arrival() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let sds = spawn_sds_entity(app.world_mut(), Vec3::new(1.0, 0.0, 1.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(1.0, 1.5, 1.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).insert((
+            UnitCommand::PickUpSupplies(sds),
+            PickingUpSuppliesBehavior::new(sds),
+        ));
+
+        app.world_mut().run_system_once(supply_chopper_pickup_system).unwrap();
+
+        let behavior = app.world().get::<PickingUpSuppliesBehavior>(chopper).unwrap();
+        assert!(matches!(behavior.phase, PickUpPhase::Transferring { .. }));
+    }
+
+    #[test]
+    fn pickup_system_transfers_supplies_on_completion() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let sds = spawn_sds_entity(app.world_mut(), Vec3::new(1.0, 0.0, 1.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(1.0, 1.5, 1.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).insert((
+            UnitCommand::PickUpSupplies(sds),
+            PickingUpSuppliesBehavior {
+                target_sds: sds,
+                phase: PickUpPhase::Transferring { frames_remaining: 1 },
+            },
+        ));
+
+        app.world_mut().run_system_once(supply_chopper_pickup_system).unwrap();
+        app.world_mut().flush();
+
+        // Chopper should have the supplies
+        let cs = app.world().get::<SupplyChopperState>(chopper).unwrap();
+        assert_eq!(cs.carried_supplies, 50);
+
+        // SDS should be empty
+        let sds_state = app.world().get::<SupplyDeliveryStation>(sds).unwrap();
+        assert_eq!(sds_state.current_supplies, 0);
+
+        // Behavior marker should be removed
+        assert!(app.world().get::<PickingUpSuppliesBehavior>(chopper).is_none());
+
+        // Should be idle (no attached tower)
+        let cmd = app.world().get::<UnitCommand>(chopper).unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle));
+    }
+
+    #[test]
+    fn pickup_system_cancels_on_missing_sds() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let fake_sds = Entity::from_raw_u32(999).unwrap();
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(0.0, 1.5, 0.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).insert((
+            UnitCommand::PickUpSupplies(fake_sds),
+            PickingUpSuppliesBehavior::new(fake_sds),
+        ));
+
+        app.world_mut().run_system_once(supply_chopper_pickup_system).unwrap();
+        app.world_mut().flush();
+
+        let cmd = app.world().get::<UnitCommand>(chopper).unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle));
+        assert!(app.world().get::<PickingUpSuppliesBehavior>(chopper).is_none());
+    }
+
+    #[test]
+    fn pickup_system_auto_returns_to_attached_tower() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let tower = spawn_tower_entity(app.world_mut(), Vec3::new(5.0, 0.0, 5.0));
+        let sds = spawn_sds_entity(app.world_mut(), Vec3::new(1.0, 0.0, 1.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(1.0, 1.5, 1.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).insert((
+            UnitCommand::PickUpSupplies(sds),
+            PickingUpSuppliesBehavior {
+                target_sds: sds,
+                phase: PickUpPhase::Transferring { frames_remaining: 1 },
+            },
+        ));
+        app.world_mut().entity_mut(chopper).get_mut::<SupplyChopperState>().unwrap().attached_tower = Some(tower);
+
+        app.world_mut().run_system_once(supply_chopper_pickup_system).unwrap();
+        app.world_mut().flush();
+
+        // Should auto-return to tower with DropOffSupplies
+        let cmd = app.world().get::<UnitCommand>(chopper).unwrap();
+        assert!(matches!(cmd, UnitCommand::DropOffSupplies(_)));
+
+        // Should have DroppingOffSuppliesBehavior inserted
+        assert!(app.world().get::<DroppingOffSuppliesBehavior>(chopper).is_some());
+    }
+
+    // === Supply Chopper Attach System Tests ===
+
+    #[test]
+    fn attach_system_moves_toward_tower() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let tower = spawn_tower_entity(app.world_mut(), Vec3::new(10.0, 0.0, 10.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(0.0, 1.5, 0.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).insert((
+            UnitCommand::AttachToTower(tower),
+            AttachingToTowerBehavior::new(tower),
+        ));
+
+        app.world_mut().run_system_once(supply_chopper_attach_system).unwrap();
+
+        let loco = app.world().get::<LocomotionChannel>(chopper).unwrap();
+        assert!(matches!(loco, LocomotionChannel::Moving(_)));
+    }
+
+    #[test]
+    fn attach_system_establishes_attachment_on_arrival() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let tower = spawn_tower_entity(app.world_mut(), Vec3::new(1.0, 0.0, 1.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(1.0, 1.5, 1.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).insert((
+            UnitCommand::AttachToTower(tower),
+            AttachingToTowerBehavior::new(tower),
+        ));
+
+        app.world_mut().run_system_once(supply_chopper_attach_system).unwrap();
+        app.world_mut().flush();
+
+        // Chopper should be attached to tower
+        let cs = app.world().get::<SupplyChopperState>(chopper).unwrap();
+        assert_eq!(cs.attached_tower, Some(tower));
+
+        // Tower should reference chopper
+        let ts = app.world().get::<SupplyTowerState>(tower).unwrap();
+        assert_eq!(ts.attached_chopper, Some(chopper));
+
+        // Behavior marker removed
+        assert!(app.world().get::<AttachingToTowerBehavior>(chopper).is_none());
+
+        // Should be idle
+        let cmd = app.world().get::<UnitCommand>(chopper).unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle));
+    }
+
+    #[test]
+    fn attach_system_cancels_on_missing_tower() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let fake_tower = Entity::from_raw_u32(888).unwrap();
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(0.0, 1.5, 0.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).insert((
+            UnitCommand::AttachToTower(fake_tower),
+            AttachingToTowerBehavior::new(fake_tower),
+        ));
+
+        app.world_mut().run_system_once(supply_chopper_attach_system).unwrap();
+        app.world_mut().flush();
+
+        let cmd = app.world().get::<UnitCommand>(chopper).unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle));
+        assert!(app.world().get::<AttachingToTowerBehavior>(chopper).is_none());
+    }
+
+    // === Supply Chopper Dropoff System Tests ===
+
+    fn spawn_gdo_player(world: &mut World, player_number: u8) {
+        use crate::game::types::factions::Player;
+        use crate::types::FactionEnum;
+        world.spawn((
+            Player::new("Test", FactionEnum::GlobalDefenseOrdinance, player_number),
+            GdoPlayerResources {
+                space_crystals: 100,
+                supplies: 50,
+                power_generated: 10,
+                power_consumed: 5,
+                unit_control_used: 0,
+                unit_control_cap: 200,
+                has_power_plant: false,
+            },
+        ));
+    }
+
+    #[test]
+    fn dropoff_system_delivers_supplies_on_arrival() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let tower = spawn_tower_entity(app.world_mut(), Vec3::new(1.0, 0.0, 1.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(1.0, 1.5, 1.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).insert((
+            UnitCommand::DropOffSupplies(tower),
+            DroppingOffSuppliesBehavior::new(tower),
+        ));
+        app.world_mut().entity_mut(chopper).get_mut::<SupplyChopperState>().unwrap().carried_supplies = 25;
+        spawn_gdo_player(app.world_mut(), 0);
+
+        app.world_mut().run_system_once(supply_chopper_dropoff_system).unwrap();
+        app.world_mut().flush();
+
+        // Carried supplies should be zero
+        let cs = app.world().get::<SupplyChopperState>(chopper).unwrap();
+        assert_eq!(cs.carried_supplies, 0);
+
+        // Player resources should have increased
+        let mut q = app.world_mut().query::<(&Player, &GdoPlayerResources)>();
+        for (player, resources) in q.iter(app.world()) {
+            if player.player_number == 0 {
+                assert_eq!(resources.supplies, 75); // 50 + 25
+            }
+        }
+
+        // Behavior removed
+        assert!(app.world().get::<DroppingOffSuppliesBehavior>(chopper).is_none());
+
+        // Should be idle
+        let cmd = app.world().get::<UnitCommand>(chopper).unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle));
+    }
+
+    #[test]
+    fn dropoff_system_moves_toward_tower() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let tower = spawn_tower_entity(app.world_mut(), Vec3::new(10.0, 0.0, 10.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(0.0, 1.5, 0.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).insert((
+            UnitCommand::DropOffSupplies(tower),
+            DroppingOffSuppliesBehavior::new(tower),
+        ));
+
+        app.world_mut().run_system_once(supply_chopper_dropoff_system).unwrap();
+
+        let loco = app.world().get::<LocomotionChannel>(chopper).unwrap();
+        assert!(matches!(loco, LocomotionChannel::Moving(_)));
+    }
+
+    // === Supply Chopper Detach System Tests ===
+
+    #[test]
+    fn detach_system_detaches_on_non_idle_command() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let tower = spawn_tower_entity(app.world_mut(), Vec3::new(5.0, 0.0, 5.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(0.0, 1.5, 0.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).get_mut::<SupplyChopperState>().unwrap().attached_tower = Some(tower);
+        app.world_mut().entity_mut(tower).get_mut::<SupplyTowerState>().unwrap().attached_chopper = Some(chopper);
+        app.world_mut().entity_mut(chopper).insert(UnitCommand::Move(Vec3::new(10.0, 0.0, 10.0)));
+
+        app.world_mut().run_system_once(supply_chopper_detach_system).unwrap();
+
+        let cs = app.world().get::<SupplyChopperState>(chopper).unwrap();
+        assert!(cs.attached_tower.is_none());
+
+        let ts = app.world().get::<SupplyTowerState>(tower).unwrap();
+        assert!(ts.attached_chopper.is_none());
+    }
+
+    #[test]
+    fn detach_system_keeps_attachment_when_idle() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let tower = spawn_tower_entity(app.world_mut(), Vec3::new(5.0, 0.0, 5.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(5.0, 1.5, 5.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).get_mut::<SupplyChopperState>().unwrap().attached_tower = Some(tower);
+        app.world_mut().entity_mut(tower).get_mut::<SupplyTowerState>().unwrap().attached_chopper = Some(chopper);
+        app.world_mut().entity_mut(chopper).insert(UnitCommand::Idle);
+
+        app.world_mut().run_system_once(supply_chopper_detach_system).unwrap();
+
+        let cs = app.world().get::<SupplyChopperState>(chopper).unwrap();
+        assert_eq!(cs.attached_tower, Some(tower));
+
+        let ts = app.world().get::<SupplyTowerState>(tower).unwrap();
+        assert_eq!(ts.attached_chopper, Some(chopper));
+    }
+
+    // === Supply Chopper Repair System Tests ===
+
+    #[test]
+    fn repair_system_heals_damaged_chopper_at_tower() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let tower = spawn_tower_entity(app.world_mut(), Vec3::new(1.0, 0.0, 1.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(1.0, 1.5, 1.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).get_mut::<SupplyChopperState>().unwrap().attached_tower = Some(tower);
+        app.world_mut().entity_mut(chopper).insert(UnitCommand::Idle);
+        // Damage the chopper
+        app.world_mut().entity_mut(chopper).get_mut::<ObjectInstance>().unwrap().hp = Some(100.0);
+
+        app.world_mut().run_system_once(supply_chopper_repair_system).unwrap();
+
+        let obj = app.world().get::<ObjectInstance>(chopper).unwrap();
+        assert_eq!(obj.hp, Some(101.0)); // +1 HP
+    }
+
+    #[test]
+    fn repair_system_caps_at_max_hp() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let tower = spawn_tower_entity(app.world_mut(), Vec3::new(1.0, 0.0, 1.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(1.0, 1.5, 1.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).get_mut::<SupplyChopperState>().unwrap().attached_tower = Some(tower);
+        app.world_mut().entity_mut(chopper).insert(UnitCommand::Idle);
+        // HP very close to max
+        app.world_mut().entity_mut(chopper).get_mut::<ObjectInstance>().unwrap().hp = Some(149.5);
+
+        app.world_mut().run_system_once(supply_chopper_repair_system).unwrap();
+
+        let obj = app.world().get::<ObjectInstance>(chopper).unwrap();
+        assert_eq!(obj.hp, Some(150.0)); // Capped at max
+    }
+
+    #[test]
+    fn repair_system_does_not_heal_at_full_hp() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let tower = spawn_tower_entity(app.world_mut(), Vec3::new(1.0, 0.0, 1.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(1.0, 1.5, 1.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).get_mut::<SupplyChopperState>().unwrap().attached_tower = Some(tower);
+        app.world_mut().entity_mut(chopper).insert(UnitCommand::Idle);
+        // Already at full HP
+        assert_eq!(app.world().get::<ObjectInstance>(chopper).unwrap().hp, Some(150.0));
+
+        app.world_mut().run_system_once(supply_chopper_repair_system).unwrap();
+
+        let obj = app.world().get::<ObjectInstance>(chopper).unwrap();
+        assert_eq!(obj.hp, Some(150.0)); // Unchanged
+    }
+
+    #[test]
+    fn repair_system_does_not_heal_when_not_idle() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let tower = spawn_tower_entity(app.world_mut(), Vec3::new(1.0, 0.0, 1.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(1.0, 1.5, 1.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).get_mut::<SupplyChopperState>().unwrap().attached_tower = Some(tower);
+        app.world_mut().entity_mut(chopper).insert(UnitCommand::Move(Vec3::new(10.0, 0.0, 10.0)));
+        app.world_mut().entity_mut(chopper).get_mut::<ObjectInstance>().unwrap().hp = Some(100.0);
+
+        app.world_mut().run_system_once(supply_chopper_repair_system).unwrap();
+
+        let obj = app.world().get::<ObjectInstance>(chopper).unwrap();
+        assert_eq!(obj.hp, Some(100.0)); // Unchanged — not idle
+    }
+
+    #[test]
+    fn repair_system_does_not_heal_when_far_from_tower() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let tower = spawn_tower_entity(app.world_mut(), Vec3::new(20.0, 0.0, 20.0));
+        let chopper = spawn_chopper_entity(app.world_mut(), Vec3::new(0.0, 1.5, 0.0), Owner::player(0));
+        app.world_mut().entity_mut(chopper).get_mut::<SupplyChopperState>().unwrap().attached_tower = Some(tower);
+        app.world_mut().entity_mut(chopper).insert(UnitCommand::Idle);
+        app.world_mut().entity_mut(chopper).get_mut::<ObjectInstance>().unwrap().hp = Some(100.0);
+
+        app.world_mut().run_system_once(supply_chopper_repair_system).unwrap();
+
+        let obj = app.world().get::<ObjectInstance>(chopper).unwrap();
+        assert_eq!(obj.hp, Some(100.0)); // Unchanged — too far
+    }
+
+    // === behavior_completion_system tests ===
+
+    fn spawn_completion_test_entity(
+        world: &mut World,
+        command: UnitCommand,
+        locomotion: LocomotionChannel,
+        velocity: Vec3,
+        behavior: BaseBehaviorState,
+    ) -> Entity {
+        world.spawn((
+            command,
+            locomotion,
+            Velocity(velocity),
+            behavior,
+            OrientationChannel::default(),
+        )).id()
+    }
+
+    #[test]
+    fn move_command_completes_when_stationary_and_stopped() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let entity = spawn_completion_test_entity(
+            app.world_mut(),
+            UnitCommand::Move(Vec3::new(10.0, 0.0, 10.0)),
+            LocomotionChannel::Stationary,
+            Vec3::ZERO,
+            BaseBehaviorState::TurnRate { planned_path: vec![], path_index: 0 },
+        );
+
+        app.world_mut().run_system_once(behavior_completion_system).unwrap();
+
+        let cmd = app.world().get::<UnitCommand>(entity).unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle), "Move should complete to Idle");
+        let beh = app.world().get::<BaseBehaviorState>(entity).unwrap();
+        assert!(matches!(beh, BaseBehaviorState::None), "Behavior should be None");
+    }
+
+    #[test]
+    fn reverse_command_completes_when_stationary_and_stopped() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let entity = spawn_completion_test_entity(
+            app.world_mut(),
+            UnitCommand::Reverse(Vec3::new(5.0, 0.0, 5.0)),
+            LocomotionChannel::Stationary,
+            Vec3::ZERO,
+            BaseBehaviorState::FixedTurnRadius { planned_path: vec![], path_index: 0 },
+        );
+
+        app.world_mut().run_system_once(behavior_completion_system).unwrap();
+
+        let cmd = app.world().get::<UnitCommand>(entity).unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle), "Reverse should complete to Idle");
+    }
+
+    #[test]
+    fn stop_command_completes_when_stationary_and_stopped() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let entity = spawn_completion_test_entity(
+            app.world_mut(),
+            UnitCommand::Stop,
+            LocomotionChannel::Stationary,
+            Vec3::ZERO,
+            BaseBehaviorState::None,
+        );
+
+        app.world_mut().run_system_once(behavior_completion_system).unwrap();
+
+        let cmd = app.world().get::<UnitCommand>(entity).unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle), "Stop should complete to Idle");
+    }
+
+    #[test]
+    fn move_does_not_complete_while_still_moving() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let entity = spawn_completion_test_entity(
+            app.world_mut(),
+            UnitCommand::Move(Vec3::new(10.0, 0.0, 10.0)),
+            LocomotionChannel::Moving(vec![Vec3::new(5.0, 0.0, 5.0)]),
+            Vec3::new(1.0, 0.0, 0.0),
+            BaseBehaviorState::TurnRate { planned_path: vec![Vec3::new(5.0, 0.0, 5.0)], path_index: 0 },
+        );
+
+        app.world_mut().run_system_once(behavior_completion_system).unwrap();
+
+        let cmd = app.world().get::<UnitCommand>(entity).unwrap();
+        assert!(matches!(cmd, UnitCommand::Move(_)), "Should stay in Move while not stationary");
+    }
+
+    #[test]
+    fn move_does_not_complete_with_nonzero_velocity() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let entity = spawn_completion_test_entity(
+            app.world_mut(),
+            UnitCommand::Move(Vec3::new(10.0, 0.0, 10.0)),
+            LocomotionChannel::Stationary,
+            Vec3::new(0.5, 0.0, 0.0), // Still has velocity
+            BaseBehaviorState::TurnRate { planned_path: vec![], path_index: 0 },
+        );
+
+        app.world_mut().run_system_once(behavior_completion_system).unwrap();
+
+        let cmd = app.world().get::<UnitCommand>(entity).unwrap();
+        assert!(matches!(cmd, UnitCommand::Move(_)), "Should stay in Move with non-zero velocity");
+    }
+
+    #[test]
+    fn glider_circling_does_not_complete() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let entity = spawn_completion_test_entity(
+            app.world_mut(),
+            UnitCommand::Move(Vec3::new(10.0, 0.0, 10.0)),
+            LocomotionChannel::Stationary,
+            Vec3::ZERO,
+            BaseBehaviorState::Glider {
+                planned_path: vec![Vec3::new(10.0, 0.0, 10.0)],
+                path_index: 0,
+                circling: true,
+                strafe_target: None,
+            },
+        );
+
+        app.world_mut().run_system_once(behavior_completion_system).unwrap();
+
+        let cmd = app.world().get::<UnitCommand>(entity).unwrap();
+        assert!(matches!(cmd, UnitCommand::Move(_)), "Glider circling should not complete");
+    }
+
+    #[test]
+    fn idle_command_not_affected_by_completion() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let entity = spawn_completion_test_entity(
+            app.world_mut(),
+            UnitCommand::Idle,
+            LocomotionChannel::Stationary,
+            Vec3::ZERO,
+            BaseBehaviorState::None,
+        );
+
+        app.world_mut().run_system_once(behavior_completion_system).unwrap();
+
+        let cmd = app.world().get::<UnitCommand>(entity).unwrap();
+        assert!(matches!(cmd, UnitCommand::Idle), "Idle should stay Idle");
+    }
+
+    #[test]
+    fn attack_target_not_affected_by_completion() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let target = Entity::from_raw_u32(42).unwrap();
+        let entity = spawn_completion_test_entity(
+            app.world_mut(),
+            UnitCommand::AttackTarget(target),
+            LocomotionChannel::Stationary,
+            Vec3::ZERO,
+            BaseBehaviorState::None,
+        );
+
+        app.world_mut().run_system_once(behavior_completion_system).unwrap();
+
+        let cmd = app.world().get::<UnitCommand>(entity).unwrap();
+        assert!(matches!(cmd, UnitCommand::AttackTarget(_)), "AttackTarget should not be completed by this system");
     }
 }
