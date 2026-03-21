@@ -68,7 +68,8 @@ for manifest in "$FEATURE_TASKS_DIR/active"/*.md; do
         fi
         if $in_feature_request; then
             # First non-empty line after the heading is the filename
-            trimmed="$(echo "$line" | xargs)"
+            trimmed="${line#"${line%%[![:space:]]*}"}"
+            trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
             if [ -n "$trimmed" ] && ! echo "$trimmed" | grep -q "^##"; then
                 feature_req_file="$trimmed"
                 break
@@ -100,7 +101,9 @@ for manifest in "$FEATURE_TASKS_DIR/active"/*.md; do
             fi
             # Parse bullet lines: "- filename.md"
             if echo "$line" | grep -q "^- "; then
-                task_file="$(echo "$line" | sed 's/^- //' | xargs)"
+                task_file="${line#- }"
+                task_file="${task_file#"${task_file%%[![:space:]]*}"}"
+                task_file="${task_file%"${task_file##*[![:space:]]}"}"
                 if [ -n "$task_file" ]; then
                     tasks+=("$task_file")
                 fi

@@ -296,3 +296,240 @@
 - 2026-03-20T23:53:24-04:00: Aggregator pass complete
 - 2026-03-20T23:56:22-04:00: Activated task_completion: developer-camera_pan_snap_verify.md
 - 2026-03-20T23:56:25-04:00: Aggregator pass complete
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-agent_groupable_construction.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-agent_resource_gathering.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-base_auto_targeting.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-base_behaviors.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-camera_pan_snap.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-combat_attack_system.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-command_indicators.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-common_vs_group_commands.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-control_state_selection.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-dc_ef_construction_rework.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-enter_command_tunnel.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-extraction_plate.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-factions_resources.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-fog_of_war_elevation.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-gdo_barracks.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-gdo_build_area.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-gdo_deployment_center.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-gdo_extraction_facility.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-gdo_power_plant.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-guard_unit.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-locomotion_orientation_constraints.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-peacekeeper_unit.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-resource_nodes.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-selection_panel.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-supply_chopper_commands.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-supply_chopper.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-supply_tower_interface.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-syndicate_headquarters_structure.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-syndicate_rally_point.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-tile_terrain_system.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-tunnel_interface.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-tunnel_network_mechanics.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-tunnel_transit_light_infantry.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-turret_behavior_system.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-underground_surface_walkability.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-unit_bases_movement_collision.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-unit_command_system.md
+- 2026-03-21T01:03:27-04:00: Activated feature_request: task_splitter-worker_built_validation.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-agent_groupable_construction.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-agent_resource_gathering.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-base_auto_targeting.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-base_behaviors.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-camera_pan_snap.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-combat_attack_system.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-command_indicators.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-common_vs_group_commands.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-control_state_selection.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-dc_ef_construction_rework.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-enter_command_tunnel.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-extraction_plate.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-factions_resources.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-fog_of_war_elevation.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-gdo_barracks.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-gdo_build_area.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-gdo_deployment_center.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-gdo_extraction_facility.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-gdo_power_plant.md
+- 2026-03-21T01:03:27-04:00: Activated feature_tasks: task_splitter-guard_unit.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-locomotion_orientation_constraints.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-peacekeeper_unit.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-resource_nodes.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-selection_panel.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-supply_chopper_commands.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-supply_chopper.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-supply_tower_interface.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-syndicate_headquarters_structure.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-syndicate_rally_point.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-tile_terrain_system.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-tunnel_interface.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-tunnel_network_mechanics.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-tunnel_transit_light_infantry.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-turret_behavior_system.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-underground_surface_walkability.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-unit_bases_movement_collision.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-unit_command_system.md
+- 2026-03-21T01:03:28-04:00: Activated feature_tasks: task_splitter-worker_built_validation.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-agent_resource_gathering_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-base_auto_target_refinements.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-base_behaviors_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-camera_pan_snap_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-combat_attack_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-command_indicators_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-command_to_state_mapping.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-common_command_classification_fix.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-control_selection_keybinding_fixes.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-control_selection_state_validation.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-dc_buildmenu_remove_ef.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-ef_flat_interface_rework.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-enter_command_behavior_pipeline.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-enter_right_click_integration.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-extraction_plate_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-factions_resources_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-fog_of_war_elevation_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-gdo_barracks_verification.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-gdo_build_area_verification.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-gdo_deployment_center_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-gdo_extraction_facility_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-gdo_power_plant_verification.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-guard_unit_verification.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-locomotion_orientation_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-peacekeeper_unit_verification.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-resource_nodes_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-selection_panel_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-shift_click_command_queuing.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-supply_chopper_behaviors.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-supply_chopper_command_panel.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-supply_chopper_dropoff_command.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-supply_chopper_interface.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-supply_tower_placement_attach_chopper.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-syndicate_hq_structure_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-syndicate_rally_point_eject_fix.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-tile_terrain_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-tunnel_arrival_validation.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-tunnel_interface_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-tunnel_network_mechanics_verification.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-tunnel_transit_light_infantry_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-turret_autonomous_scanning_rework.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-turret_base_behavior_target_relay.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-turret_engagement_system.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-underground_walkability_verify.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-verify_agent_groupable_construction.md
+- 2026-03-21T01:03:28-04:00: Activated task_completion: developer-verify_unit_bases_movement_collision.md
+- 2026-03-21T01:03:28-04:00: All tasks complete for task_splitter-agent_groupable_construction.md — producing qa_item
+- 2026-03-21T01:03:28-04:00: Produced qa_item: agent_groupable_construction
+- 2026-03-21T01:03:28-04:00: Moved all messages to done for feature: agent_groupable_construction
+- 2026-03-21T01:03:28-04:00: All tasks complete for task_splitter-agent_resource_gathering.md — producing qa_item
+- 2026-03-21T01:03:28-04:00: Produced qa_item: agent_resource_gathering
+- 2026-03-21T01:03:28-04:00: Moved all messages to done for feature: agent_resource_gathering
+- 2026-03-21T01:03:28-04:00: All tasks complete for task_splitter-base_auto_targeting.md — producing qa_item
+- 2026-03-21T01:03:29-04:00: Produced qa_item: base_auto_targeting
+- 2026-03-21T01:03:29-04:00: Moved all messages to done for feature: base_auto_targeting
+- 2026-03-21T01:03:29-04:00: All tasks complete for task_splitter-base_behaviors.md — producing qa_item
+- 2026-03-21T01:03:29-04:00: Produced qa_item: base_behaviors
+- 2026-03-21T01:03:29-04:00: Moved all messages to done for feature: base_behaviors
+- 2026-03-21T01:03:29-04:00: All tasks complete for task_splitter-camera_pan_snap.md — producing qa_item
+- 2026-03-21T01:03:29-04:00: Produced qa_item: camera_pan_snap
+- 2026-03-21T01:03:29-04:00: Moved all messages to done for feature: camera_pan_snap
+- 2026-03-21T01:03:29-04:00: All tasks complete for task_splitter-combat_attack_system.md — producing qa_item
+- 2026-03-21T01:03:29-04:00: Produced qa_item: combat_attack_system
+- 2026-03-21T01:03:29-04:00: Moved all messages to done for feature: combat_attack_system
+- 2026-03-21T01:03:30-04:00: All tasks complete for task_splitter-command_indicators.md — producing qa_item
+- 2026-03-21T01:03:30-04:00: Produced qa_item: command_indicators
+- 2026-03-21T01:03:30-04:00: Moved all messages to done for feature: command_indicators
+- 2026-03-21T01:03:30-04:00: All tasks complete for task_splitter-common_vs_group_commands.md — producing qa_item
+- 2026-03-21T01:03:30-04:00: Produced qa_item: common_vs_group_commands
+- 2026-03-21T01:03:30-04:00: Moved all messages to done for feature: common_vs_group_commands
+- 2026-03-21T01:03:30-04:00: All tasks complete for task_splitter-control_state_selection.md — producing qa_item
+- 2026-03-21T01:03:30-04:00: Produced qa_item: control_state_selection
+- 2026-03-21T01:03:30-04:00: Moved all messages to done for feature: control_state_selection
+- 2026-03-21T01:03:30-04:00: All tasks complete for task_splitter-dc_ef_construction_rework.md — producing qa_item
+- 2026-03-21T01:03:31-04:00: Produced qa_item: dc_ef_construction_rework
+- 2026-03-21T01:03:31-04:00: Moved all messages to done for feature: dc_ef_construction_rework
+- 2026-03-21T01:03:31-04:00: All tasks complete for task_splitter-enter_command_tunnel.md — producing qa_item
+- 2026-03-21T01:03:31-04:00: Produced qa_item: enter_command_tunnel
+- 2026-03-21T01:03:31-04:00: Moved all messages to done for feature: enter_command_tunnel
+- 2026-03-21T01:03:31-04:00: All tasks complete for task_splitter-extraction_plate.md — producing qa_item
+- 2026-03-21T01:03:31-04:00: Produced qa_item: extraction_plate
+- 2026-03-21T01:03:31-04:00: Moved all messages to done for feature: extraction_plate
+- 2026-03-21T01:03:31-04:00: All tasks complete for task_splitter-factions_resources.md — producing qa_item
+- 2026-03-21T01:03:31-04:00: Produced qa_item: factions_resources
+- 2026-03-21T01:03:32-04:00: Moved all messages to done for feature: factions_resources
+- 2026-03-21T01:03:32-04:00: All tasks complete for task_splitter-fog_of_war_elevation.md — producing qa_item
+- 2026-03-21T01:03:32-04:00: Produced qa_item: fog_of_war_elevation
+- 2026-03-21T01:03:32-04:00: Moved all messages to done for feature: fog_of_war_elevation
+- 2026-03-21T01:03:32-04:00: All tasks complete for task_splitter-gdo_barracks.md — producing qa_item
+- 2026-03-21T01:03:32-04:00: Produced qa_item: gdo_barracks
+- 2026-03-21T01:03:32-04:00: Moved all messages to done for feature: gdo_barracks
+- 2026-03-21T01:03:32-04:00: All tasks complete for task_splitter-gdo_build_area.md — producing qa_item
+- 2026-03-21T01:03:32-04:00: Produced qa_item: gdo_build_area
+- 2026-03-21T01:03:32-04:00: Moved all messages to done for feature: gdo_build_area
+- 2026-03-21T01:03:32-04:00: All tasks complete for task_splitter-gdo_deployment_center.md — producing qa_item
+- 2026-03-21T01:03:33-04:00: Produced qa_item: gdo_deployment_center
+- 2026-03-21T01:03:33-04:00: Moved all messages to done for feature: gdo_deployment_center
+- 2026-03-21T01:03:33-04:00: All tasks complete for task_splitter-gdo_extraction_facility.md — producing qa_item
+- 2026-03-21T01:03:33-04:00: Produced qa_item: gdo_extraction_facility
+- 2026-03-21T01:03:33-04:00: Moved all messages to done for feature: gdo_extraction_facility
+- 2026-03-21T01:03:33-04:00: All tasks complete for task_splitter-gdo_power_plant.md — producing qa_item
+- 2026-03-21T01:03:33-04:00: Produced qa_item: gdo_power_plant
+- 2026-03-21T01:03:33-04:00: Moved all messages to done for feature: gdo_power_plant
+- 2026-03-21T01:03:33-04:00: All tasks complete for task_splitter-guard_unit.md — producing qa_item
+- 2026-03-21T01:03:33-04:00: Produced qa_item: guard_unit
+- 2026-03-21T01:03:33-04:00: Moved all messages to done for feature: guard_unit
+- 2026-03-21T01:03:34-04:00: All tasks complete for task_splitter-locomotion_orientation_constraints.md — producing qa_item
+- 2026-03-21T01:03:34-04:00: Produced qa_item: locomotion_orientation_constraints
+- 2026-03-21T01:03:34-04:00: Moved all messages to done for feature: locomotion_orientation_constraints
+- 2026-03-21T01:03:34-04:00: All tasks complete for task_splitter-peacekeeper_unit.md — producing qa_item
+- 2026-03-21T01:03:34-04:00: Produced qa_item: peacekeeper_unit
+- 2026-03-21T01:03:34-04:00: Moved all messages to done for feature: peacekeeper_unit
+- 2026-03-21T01:03:34-04:00: All tasks complete for task_splitter-resource_nodes.md — producing qa_item
+- 2026-03-21T01:03:34-04:00: Produced qa_item: resource_nodes
+- 2026-03-21T01:03:34-04:00: Moved all messages to done for feature: resource_nodes
+- 2026-03-21T01:03:34-04:00: All tasks complete for task_splitter-selection_panel.md — producing qa_item
+- 2026-03-21T01:03:34-04:00: Produced qa_item: selection_panel
+- 2026-03-21T01:03:34-04:00: Moved all messages to done for feature: selection_panel
+- 2026-03-21T01:03:35-04:00: All tasks complete for task_splitter-supply_chopper_commands.md — producing qa_item
+- 2026-03-21T01:03:35-04:00: Produced qa_item: supply_chopper_commands
+- 2026-03-21T01:03:35-04:00: Moved all messages to done for feature: supply_chopper_commands
+- 2026-03-21T01:03:35-04:00: All tasks complete for task_splitter-supply_chopper.md — producing qa_item
+- 2026-03-21T01:03:35-04:00: Produced qa_item: supply_chopper
+- 2026-03-21T01:03:35-04:00: Moved all messages to done for feature: supply_chopper
+- 2026-03-21T01:03:35-04:00: All tasks complete for task_splitter-supply_tower_interface.md — producing qa_item
+- 2026-03-21T01:03:35-04:00: Produced qa_item: supply_tower_interface
+- 2026-03-21T01:03:35-04:00: Moved all messages to done for feature: supply_tower_interface
+- 2026-03-21T01:03:35-04:00: All tasks complete for task_splitter-syndicate_headquarters_structure.md — producing qa_item
+- 2026-03-21T01:03:36-04:00: Produced qa_item: syndicate_headquarters_structure
+- 2026-03-21T01:03:36-04:00: Moved all messages to done for feature: syndicate_headquarters_structure
+- 2026-03-21T01:03:36-04:00: All tasks complete for task_splitter-syndicate_rally_point.md — producing qa_item
+- 2026-03-21T01:03:36-04:00: Produced qa_item: syndicate_rally_point
+- 2026-03-21T01:03:36-04:00: Moved all messages to done for feature: syndicate_rally_point
+- 2026-03-21T01:03:36-04:00: All tasks complete for task_splitter-tile_terrain_system.md — producing qa_item
+- 2026-03-21T01:03:36-04:00: Produced qa_item: tile_terrain_system
+- 2026-03-21T01:03:36-04:00: Moved all messages to done for feature: tile_terrain_system
+- 2026-03-21T01:03:36-04:00: All tasks complete for task_splitter-tunnel_interface.md — producing qa_item
+- 2026-03-21T01:03:36-04:00: Produced qa_item: tunnel_interface
+- 2026-03-21T01:03:36-04:00: Moved all messages to done for feature: tunnel_interface
+- 2026-03-21T01:03:37-04:00: All tasks complete for task_splitter-tunnel_network_mechanics.md — producing qa_item
+- 2026-03-21T01:03:37-04:00: Produced qa_item: tunnel_network_mechanics
+- 2026-03-21T01:03:37-04:00: Moved all messages to done for feature: tunnel_network_mechanics
+- 2026-03-21T01:03:37-04:00: All tasks complete for task_splitter-tunnel_transit_light_infantry.md — producing qa_item
+- 2026-03-21T01:03:37-04:00: Produced qa_item: tunnel_transit_light_infantry
+- 2026-03-21T01:03:37-04:00: Moved all messages to done for feature: tunnel_transit_light_infantry
+- 2026-03-21T01:03:37-04:00: All tasks complete for task_splitter-turret_behavior_system.md — producing qa_item
+- 2026-03-21T01:03:37-04:00: Produced qa_item: turret_behavior_system
+- 2026-03-21T01:03:37-04:00: Moved all messages to done for feature: turret_behavior_system
+- 2026-03-21T01:03:37-04:00: All tasks complete for task_splitter-underground_surface_walkability.md — producing qa_item
+- 2026-03-21T01:03:38-04:00: Produced qa_item: underground_surface_walkability
+- 2026-03-21T01:03:38-04:00: Moved all messages to done for feature: underground_surface_walkability
+- 2026-03-21T01:03:38-04:00: All tasks complete for task_splitter-unit_bases_movement_collision.md — producing qa_item
+- 2026-03-21T01:03:38-04:00: Produced qa_item: unit_bases_movement_collision
+- 2026-03-21T01:03:38-04:00: Moved all messages to done for feature: unit_bases_movement_collision
+- 2026-03-21T01:03:38-04:00: All tasks complete for task_splitter-unit_command_system.md — producing qa_item
+- 2026-03-21T01:03:38-04:00: Produced qa_item: unit_command_system
+- 2026-03-21T01:03:38-04:00: Moved all messages to done for feature: unit_command_system
+- 2026-03-21T01:03:38-04:00: All tasks complete for task_splitter-worker_built_validation.md — producing qa_item
+- 2026-03-21T01:03:39-04:00: Produced qa_item: worker_built_validation
+- 2026-03-21T01:03:39-04:00: Moved all messages to done for feature: worker_built_validation
+- 2026-03-21T01:03:39-04:00: Aggregator pass complete

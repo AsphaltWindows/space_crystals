@@ -33,7 +33,8 @@ log() {
 capabilities=()
 if [ -f "$CAPABILITIES_FILE" ]; then
     while IFS= read -r line; do
-        trimmed="$(echo "$line" | xargs)"
+        trimmed="${line#"${line%%[![:space:]]*}"}"
+        trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
         # Skip empty lines and comments
         [ -z "$trimmed" ] && continue
         echo "$trimmed" | grep -q "^#" && continue
@@ -62,7 +63,8 @@ for item in "$QA_ITEM_DIR/pending"/*.md; do
             if echo "$line" | grep -q "^## "; then
                 break
             fi
-            trimmed="$(echo "$line" | xargs)"
+            trimmed="${line#"${line%%[![:space:]]*}"}"
+        trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
             # Collect non-empty lines
             if [ -n "$trimmed" ]; then
                 qa_lines+=("$trimmed")

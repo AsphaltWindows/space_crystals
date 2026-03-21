@@ -16,3 +16,32 @@
 - 2026-03-20T03:15:04-04:00: Router pass complete
 - 2026-03-20T23:17:28-04:00: Routed to manual_qa: completion_aggregator-pointer_display_types.md
 - 2026-03-20T23:17:28-04:00: Router pass complete
+- 2026-03-21T01:04:28-04:00: Routed to manual_qa: completion_aggregator-base_auto_targeting.md
+- 2026-03-21T01:04:28-04:00: Routed to manual_qa: completion_aggregator-base_behaviors.md
+- 2026-03-21T01:04:29-04:00: Routed to manual_qa: completion_aggregator-camera_pan_snap.md
+- 2026-03-21T01:04:29-04:00: Routed to manual_qa: completion_aggregator-combat_attack_system.md
+- 2026-03-21T01:04:29-04:00: Routed to manual_qa: completion_aggregator-command_indicators.md
+- 2026-03-21T01:04:30-04:00: Routed to manual_qa: completion_aggregator-common_vs_group_commands.md
+- 2026-03-21T01:04:30-04:00: Routed to manual_qa: completion_aggregator-control_state_selection.md
+- 2026-03-21T01:04:31-04:00: Routed to manual_qa: completion_aggregator-dc_ef_construction_rework.md
+- 2026-03-21T01:04:31-04:00: Routed to manual_qa: completion_aggregator-enter_command_tunnel.md
+- 2026-03-21T01:04:31-04:00: Routed to manual_qa: completion_aggregator-extraction_plate.md
+- 2026-03-21T01:04:32-04:00: Routed to manual_qa: completion_aggregator-factions_resources.md
+- 2026-03-21T01:04:48-04:00: Routed to manual_qa: completion_aggregator-gdo_barracks.md
+- 2026-03-21T01:04:48-04:00: Routed to manual_qa: completion_aggregator-gdo_build_area.md
+- 2026-03-21T01:05:08-04:00: Routed to manual_qa: completion_aggregator-gdo_extraction_facility.md
+- 2026-03-21T01:05:09-04:00: Routed to manual_qa: completion_aggregator-gdo_power_plant.md
+- 2026-03-21T01:05:29-04:00: Routed to manual_qa: completion_aggregator-locomotion_orientation_constraints.md
+- 2026-03-21T01:05:49-04:00: Routed to manual_qa: completion_aggregator-resource_nodes.md
+- 2026-03-21T01:06:29-04:00: Routed to manual_qa: completion_aggregator-supply_chopper.md
+- 2026-03-21T01:06:29-04:00: Routed to manual_qa: completion_aggregator-supply_tower_interface.md
+- 2026-03-21T01:07:09-04:00: Routed to manual_qa: completion_aggregator-tile_terrain_system.md
+- 2026-03-21T01:07:10-04:00: Routed to manual_qa: completion_aggregator-tunnel_interface.md
+- 2026-03-21T01:07:10-04:00: Routed to manual_qa: completion_aggregator-tunnel_network_mechanics.md
+- 2026-03-21T01:07:10-04:00: Routed to manual_qa: completion_aggregator-tunnel_transit_light_infantry.md
+- 2026-03-21T01:07:11-04:00: Routed to manual_qa: completion_aggregator-turret_behavior_system.md
+- 2026-03-21T01:07:11-04:00: Routed to manual_qa: completion_aggregator-underground_surface_walkability.md
+- 2026-03-21T01:07:11-04:00: Routed to manual_qa: completion_aggregator-unit_bases_movement_collision.md
+- 2026-03-21T01:07:12-04:00: Routed to manual_qa: completion_aggregator-unit_command_system.md
+- 2026-03-21T01:07:12-04:00: Routed to manual_qa: completion_aggregator-worker_built_validation.md
+- 2026-03-21T01:07:12-04:00: Router pass complete
