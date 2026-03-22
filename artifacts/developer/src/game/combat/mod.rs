@@ -39,6 +39,8 @@ impl Plugin for CombatPlugin {
             systems::attack_channel_sync_system,
             systems::idle_leash_system,
             systems::apply_damage_system,
+            systems::cults_unit_death_tracking_system.before(systems::remove_dead_entities_system),
+            crate::game::world::faction::cults_construction_cancel_system.before(systems::remove_dead_entities_system),
             systems::remove_dead_entities_system,
         ).in_set(DiagCategory::Combat));
     }

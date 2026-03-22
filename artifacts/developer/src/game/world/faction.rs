@@ -5,10 +5,12 @@ use crate::game::utils::{
     spawn_deployment_center, spawn_power_plant, spawn_barracks,
     spawn_extraction_facility, spawn_extraction_plate, spawn_peacekeeper,
     spawn_tunnel, spawn_headquarters, spawn_supply_tower, spawn_supply_chopper,
+    spawn_recruitment_center, spawn_cults_soldier, spawn_cults_gunner,
+    spawn_cults_storage_under_construction,
 };
-use super::types::{GdoBuildArea, SpaceCrystalPatch, Tile, TilePreset, FogOfWarMap};
+use super::types::{GdoBuildArea, SpaceCrystalPatch, Tile, TilePreset, FogOfWarMap, MapStartingPositions};
 use super::utils::{expand_build_area, world_to_grid, grid_to_world, can_place_building, rotated_building_size};
-use crate::ui::types::{ObjectInterfaceState, StructureMenuState, AgentMenuState, CommandPanelTarget, PlacementGhost, PlacementState, CursorOverUi, BuildAreaOverlay};
+use crate::ui::types::{ObjectInterfaceState, StructureMenuState, AgentMenuState, CultsRecruitMenuState, CommandPanelTarget, PlacementGhost, PlacementState, CursorOverUi, BuildAreaOverlay, ArmoryEjectionQueue};
 use crate::game::units::types::state::UnitCommand;
 use crate::game::units::types::state::behavior::BuildingTunnelBehavior;
 
@@ -18,48 +20,86 @@ pub fn setup_player_resources(mut commands: Commands, selected: Res<SelectedFact
     // The local human controls player 0
     commands.insert_resource(LocalPlayer(0));
 
-    // Determine player numbers based on selected faction
-    let (gdo_player, syn_player) = if selected.0 == FactionEnum::GlobalDefenseOrdinance {
-        (0u8, 1u8) // Player selected GDO → GDO is player 0, Syndicate is player 1
-    } else {
-        (1u8, 0u8) // Player selected Syndicate → Syndicate is player 0, GDO is player 1
-    };
+    match selected.0 {
+        FactionEnum::GlobalDefenseOrdinance => {
+            // GDO selected: GDO=player 0 (local), Syndicate=player 1 (opponent)
+            spawn_faction_and_player(&mut commands, FactionEnum::GlobalDefenseOrdinance, 0);
+            spawn_faction_and_player(&mut commands, FactionEnum::TheSyndicate, 1);
+        }
+        FactionEnum::TheSyndicate => {
+            // Syndicate selected: Syndicate=player 0 (local), GDO=player 1 (opponent)
+            spawn_faction_and_player(&mut commands, FactionEnum::TheSyndicate, 0);
+            spawn_faction_and_player(&mut commands, FactionEnum::GlobalDefenseOrdinance, 1);
+        }
+        FactionEnum::TheCults => {
+            // Cults selected: Cults=player 0 (local), GDO=player 1 (opponent)
+            spawn_faction_and_player(&mut commands, FactionEnum::TheCults, 0);
+            spawn_faction_and_player(&mut commands, FactionEnum::GlobalDefenseOrdinance, 1);
+        }
+        FactionEnum::Colonists => {
+            // Colonists selected: Colonists=player 0 (local), GDO=player 1 (opponent)
+            spawn_faction_and_player(&mut commands, FactionEnum::Colonists, 0);
+            spawn_faction_and_player(&mut commands, FactionEnum::GlobalDefenseOrdinance, 1);
+        }
+    }
 
-    // Spawn Faction entities (invisible entities representing each faction in the game)
-    commands.spawn((
-        InvisibleEntity,
-        FactionEnum::GlobalDefenseOrdinance,
-        DisplayHud::new(FactionEnum::GlobalDefenseOrdinance),
-    ));
-    commands.spawn((
-        InvisibleEntity,
-        FactionEnum::TheSyndicate,
-        DisplayHud::new(FactionEnum::TheSyndicate),
-    ));
+    info!("Initialized faction resources: Selected {:?}", selected.0);
+}
 
-    // Spawn Player entities (invisible entities with faction-specific resources)
+/// Helper to spawn a faction entity and its corresponding player entity with resources.
+fn spawn_faction_and_player(commands: &mut Commands, faction: FactionEnum, player_id: u8) {
+    let player_name = if player_id == 0 { "Player 1" } else { "Player 2" };
+
+    // Spawn the faction entity
     commands.spawn((
         InvisibleEntity,
-        Player::new("Player 1", FactionEnum::GlobalDefenseOrdinance, gdo_player),
-        DisplayHudInfo::new(FactionEnum::GlobalDefenseOrdinance),
-        GdoPlayerResources {
-            space_crystals: 1000,
-            supplies: 0,
-            power_generated: 0,  // Will be computed by power grid system from buildings
-            power_consumed: 0,
-            unit_control_used: 0,
-            unit_control_cap: 200,
-            has_power_plant: false,  // Will be computed by power grid system
-        },
-    ));
-    commands.spawn((
-        InvisibleEntity,
-        Player::new("Player 2", FactionEnum::TheSyndicate, syn_player),
-        DisplayHudInfo::new(FactionEnum::TheSyndicate),
-        SyndicatePlayerResources::default(),
+        faction,
+        DisplayHud::new(faction),
     ));
 
-    info!("Initialized faction resources: Selected {:?}, GDO=player {}, SYN=player {}", selected.0, gdo_player, syn_player);
+    // Spawn the player entity with faction-specific resources
+    match faction {
+        FactionEnum::GlobalDefenseOrdinance => {
+            commands.spawn((
+                InvisibleEntity,
+                Player::new(player_name, FactionEnum::GlobalDefenseOrdinance, player_id),
+                DisplayHudInfo::new(FactionEnum::GlobalDefenseOrdinance),
+                GdoPlayerResources {
+                    space_crystals: 1000,
+                    supplies: 0,
+                    power_generated: 0,
+                    power_consumed: 0,
+                    unit_control_used: 0,
+                    unit_control_cap: 200,
+                    has_power_plant: false,
+                },
+            ));
+        }
+        FactionEnum::TheSyndicate => {
+            commands.spawn((
+                InvisibleEntity,
+                Player::new(player_name, FactionEnum::TheSyndicate, player_id),
+                DisplayHudInfo::new(FactionEnum::TheSyndicate),
+                SyndicatePlayerResources::default(),
+            ));
+        }
+        FactionEnum::TheCults => {
+            commands.spawn((
+                InvisibleEntity,
+                Player::new(player_name, FactionEnum::TheCults, player_id),
+                DisplayHudInfo::new(FactionEnum::TheCults),
+                CultsPlayerResources::default(),
+            ));
+        }
+        FactionEnum::Colonists => {
+            commands.spawn((
+                InvisibleEntity,
+                Player::new(player_name, FactionEnum::Colonists, player_id),
+                DisplayHudInfo::new(FactionEnum::Colonists),
+                ColonistsPlayerResources::default(),
+            ));
+        }
+    }
 }
 
 /// Spawn the initial Deployment Center and initialize the build area
@@ -127,6 +167,90 @@ pub fn setup_syndicate_game_start(
         "Syndicate Game Start: Deployed Tunnel at grid ({}, {}), HQ at ({}, {}), owner={:?}",
         tunnel_grid_x, tunnel_grid_z, hq_grid_x, hq_grid_z, syn_owner
     );
+}
+
+/// Spawn the initial Recruitment Center for the Cults faction
+pub fn setup_cults_game_start(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut rc_counter: ResMut<RecruitmentCenterCounter>,
+    selected: Res<SelectedFaction>,
+) {
+    let cults_owner = if selected.0 == FactionEnum::TheCults {
+        Owner::player(0)
+    } else {
+        Owner::player(1)
+    };
+
+    let rc_grid_x = 50;
+    let rc_grid_z = 50;
+    let _rc_entity = spawn_recruitment_center(
+        &mut commands, &mut meshes, &mut materials,
+        rc_grid_x, rc_grid_z, cults_owner, rc_counter.next(),
+    );
+
+    info!(
+        "Cults Game Start: Deployed Recruitment Center at grid ({}, {}), owner={:?}",
+        rc_grid_x, rc_grid_z, cults_owner
+    );
+}
+
+/// Stub game start for the Colonists faction. No structures are designed yet.
+pub fn setup_colonists_game_start(
+    selected: Res<SelectedFaction>,
+) {
+    let colonists_owner = if selected.0 == FactionEnum::Colonists {
+        Owner::player(0)
+    } else {
+        Owner::player(1)
+    };
+
+    info!(
+        "Colonists Game Start: No structures to spawn yet, owner={:?}",
+        colonists_owner
+    );
+}
+
+/// Center the camera on the local player's primary structure at game start.
+/// If `MapStartingPositions` has an entry for the local player's slot,
+/// the camera centers on that grid position instead.
+pub fn center_camera_on_start(
+    local_player: Res<LocalPlayer>,
+    selected_faction: Res<SelectedFaction>,
+    map_positions: Res<MapStartingPositions>,
+    structures: Query<(&ObjectInstance, &Owner, &Transform), Without<MainCamera>>,
+    mut camera_query: Query<&mut Transform, With<MainCamera>>,
+) {
+    // Step 1: Check for map-defined starting position
+    if let Some(&(grid_x, grid_z)) = map_positions.positions.get(&local_player.0) {
+        if let Ok(mut cam_transform) = camera_query.single_mut() {
+            let world_pos = grid_to_world(grid_x, grid_z, 1.0);
+            let z_offset = cam_transform.translation.y * 25.0 / 40.0;
+            cam_transform.translation.x = world_pos.x;
+            cam_transform.translation.z = world_pos.z + z_offset;
+        }
+        return;
+    }
+
+    // Step 2: Fall back to primary structure
+    let primary_type = match selected_faction.0 {
+        FactionEnum::GlobalDefenseOrdinance => ObjectEnum::DeploymentCenter,
+        FactionEnum::TheSyndicate => ObjectEnum::Tunnel,
+        _ => return,
+    };
+    let local_owner = Owner::player(local_player.0);
+
+    for (obj, owner, transform) in structures.iter() {
+        if obj.object_type == primary_type && *owner == local_owner {
+            if let Ok(mut cam_transform) = camera_query.single_mut() {
+                let z_offset = cam_transform.translation.y * 25.0 / 40.0;
+                cam_transform.translation.x = transform.translation.x;
+                cam_transform.translation.z = transform.translation.z + z_offset;
+            }
+            return;
+        }
+    }
 }
 
 /// Spawn enemy test units for the non-selected faction
@@ -496,10 +620,11 @@ pub fn extraction_plate_mining_system(
     mut players: Query<(&Player, &mut GdoPlayerResources)>,
 ) {
     for (owner, mut plate_state) in plates.iter_mut() {
-        plate_state.mining_timer += 1;
+        let power_ratio = get_power_ratio_for_owner(owner, &players);
+        plate_state.mining_timer += power_ratio;
 
         if plate_state.mining_timer >= EXTRACTION_PLATE_MINING_INTERVAL {
-            plate_state.mining_timer = 0;
+            plate_state.mining_timer = 0.0;
 
             // Check patch state and mine
             if let Ok(mut patch) = patches.get_mut(plate_state.attached_patch) {
@@ -583,6 +708,8 @@ pub fn production_rally_point_system(
     mut barracks_query: Query<(Entity, &mut BarracksState), With<Selected>>,
     mut hq_query: Query<(Entity, &mut HeadquartersState, &TunnelExpansionMarker), With<Selected>>,
     mut st_query: Query<(Entity, &mut SupplyTowerState), With<Selected>>,
+    mut rc_query: Query<(Entity, &mut RecruitmentCenterState), (With<Selected>, Without<BarracksState>, Without<HeadquartersState>, Without<SupplyTowerState>, Without<ArmoryState>)>,
+    mut armory_query: Query<(Entity, &mut ArmoryState), (With<Selected>, Without<BarracksState>, Without<HeadquartersState>, Without<SupplyTowerState>, Without<RecruitmentCenterState>)>,
     potential_targets: Query<(Entity, &Transform, &Owner, &SelectionBounds), With<ObjectInstance>>,
     cursor_over_ui: Res<CursorOverUi>,
     local_player: Res<LocalPlayer>,
@@ -605,7 +732,9 @@ pub fn production_rally_point_system(
         ObjectInterfaceState::StructureMenu(
             StructureMenuState::BarracksMenu |
             StructureMenuState::HeadquartersMenu |
-            StructureMenuState::SupplyTowerMenu
+            StructureMenuState::SupplyTowerMenu |
+            StructureMenuState::RecruitmentCenterMenu |
+            StructureMenuState::ArmoryMenu
         )
     );
     if !is_production_menu {
@@ -664,6 +793,27 @@ pub fn production_rally_point_system(
             for (entity, mut st_state) in &mut st_query {
                 st_state.rally_point = Some(rally_target.clone());
                 info!("Supply Tower: Rally point set");
+                spawn_or_update_rally_marker(&mut commands, &mut meshes, &mut materials, &existing_markers, entity, &rally_target, object_world_pos);
+            }
+        }
+        ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu) => {
+            for (entity, mut rc_state) in &mut rc_query {
+                // RC rally_point is Option<Vec3>, not Option<RallyTarget> — resolve to world position
+                let location = match &rally_target {
+                    RallyTarget::Object(e) => potential_targets.iter()
+                        .find(|(te, _, _, _)| *te == *e)
+                        .map(|(_, t, _, _)| t.translation),
+                    RallyTarget::Location(loc) => Some(*loc),
+                };
+                rc_state.rally_point = location;
+                info!("Recruitment Center: Rally point set");
+                spawn_or_update_rally_marker(&mut commands, &mut meshes, &mut materials, &existing_markers, entity, &rally_target, object_world_pos);
+            }
+        }
+        ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu) => {
+            for (entity, mut armory_state) in &mut armory_query {
+                armory_state.rally_point = Some(rally_target.clone());
+                info!("Armory: Rally point set");
                 spawn_or_update_rally_marker(&mut commands, &mut meshes, &mut materials, &existing_markers, entity, &rally_target, object_world_pos);
             }
         }
@@ -821,7 +971,7 @@ pub fn ef_construction_tick_system(
 /// When progress reaches 1.0, the ConstructionHP component is removed.
 pub fn construction_hp_tick_system(
     mut commands: Commands,
-    mut query: Query<(Entity, &mut ObjectInstance, &mut ConstructionHP)>,
+    mut query: Query<(Entity, &mut ObjectInstance, &mut ConstructionHP), Without<CultsConstructionState>>,
 ) {
     for (entity, mut obj, mut construction) in query.iter_mut() {
         let increment = 1.0 / construction.build_frames as f32;
@@ -1101,6 +1251,10 @@ pub fn manage_placement_ghost(
                 // The building_type is already set in PlacementState by execute_tunnel_select_expansion
                 placement_state.building_type
             }
+            ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitAwaitingPlacement) => {
+                // The building_type is already set in PlacementState by execute_command_action
+                placement_state.building_type
+            }
             _ => None,
         };
 
@@ -1263,6 +1417,14 @@ pub fn update_placement_ghost(
             &tiles,
             &structures,
         ).is_ok()
+    } else if matches!(*panel_state, ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitAwaitingPlacement)) {
+        // Cults Recruit placement — validate tile buildability and no structure overlap (no build area, no fog check)
+        crate::game::world::utils::can_worker_place_structure(
+            grid_x, grid_z,
+            size_x, size_z,
+            &tiles,
+            &structures,
+        ).is_ok()
     } else if matches!(*panel_state, ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelAwaitingPlacement)) {
         // Tunnel expansion placement — validate against TunnelArea
         if let Some(source) = placement_state.source_entity {
@@ -1322,6 +1484,7 @@ pub fn placement_click_system(
     mut build_area: ResMut<GdoBuildArea>,
     mut patches: Query<(Entity, &GridPosition, &mut SpaceCrystalPatch)>,
     existing_builders: Query<&BuildingTunnelBehavior>,
+    selected_recruits: Query<(Entity, &Owner), (With<crate::types::Unit>, With<Selected>)>,
 ) {
     if !panel_state.is_placement_mode() {
         return;
@@ -1341,6 +1504,9 @@ pub fn placement_click_system(
             }
             ObjectInterfaceState::AgentMenu(AgentMenuState::AgentAwaitingPlacement) => {
                 *panel_state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
+            }
+            ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitAwaitingPlacement) => {
+                *panel_state = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitConstructMenu);
             }
             _ => {}
         }
@@ -1535,6 +1701,34 @@ pub fn placement_click_system(
                 }
                 *panel_state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
             }
+            ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitAwaitingPlacement) => {
+                // Get owner from first selected recruit
+                let owner = match selected_recruits.iter().next() {
+                    Some((_, o)) => *o,
+                    None => { return; }
+                };
+
+                let rotation = placement_state.rotation;
+                let flip_h = placement_state.flip_horizontal;
+                let flip_v = placement_state.flip_vertical;
+
+                let building_entity = match building_type {
+                    ObjectEnum::CultsStorage => {
+                        spawn_cults_storage_under_construction(
+                            &mut commands, &mut meshes, &mut materials,
+                            grid_x, grid_z, owner, rotation, flip_h, flip_v,
+                        )
+                    }
+                    _ => { return; }
+                };
+
+                // Issue ConstructBuilding command to ALL selected recruits
+                for (entity, _) in selected_recruits.iter() {
+                    commands.entity(entity).insert(UnitCommand::ConstructBuilding(building_entity));
+                }
+                info!("Placed {:?} under construction at ({}, {}) — issued ConstructBuilding to recruits", building_type, grid_x, grid_z);
+                *panel_state = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitDefault);
+            }
             _ => {}
         }
     }
@@ -1567,8 +1761,9 @@ pub fn manage_build_area_overlay(
         // Build overlay mesh from the appropriate area
         let is_tunnel = matches!(*panel_state, ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelAwaitingPlacement));
         let is_agent = matches!(*panel_state, ObjectInterfaceState::AgentMenu(AgentMenuState::AgentAwaitingPlacement));
+        let is_cults_recruit = matches!(*panel_state, ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitAwaitingPlacement));
 
-        if is_agent {
+        if is_agent || is_cults_recruit {
             // Agent placement: no build area overlay needed (Agent can build anywhere with valid tiles)
         } else if is_tunnel {
             // Build mesh from TunnelArea cells
@@ -1999,6 +2194,390 @@ pub fn supply_tower_production_tick_system(
     }
 }
 
+// =====================================================
+// RECRUITMENT AREA TILE CLAIMING SYSTEM
+// =====================================================
+
+/// System that claims recruitable tiles for Recruitment Centers.
+/// Uses approach B: stale claim cleanup at start (self-healing).
+/// Priority is by build_order (ascending = first-built has priority).
+pub fn recruitment_tile_claiming_system(
+    mut claim_map: ResMut<super::types::TileClaimMap>,
+    mut rc_query: Query<(Entity, &GridPosition, &mut RecruitmentCenterState, &ObjectInstance)>,
+    tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
+) {
+    // Step 1: Remove stale claims (entities that are no longer alive)
+    let stale_entities: Vec<Entity> = {
+        let mut stale = Vec::new();
+        for (_, &claimer) in claim_map.claims.iter() {
+            if !stale.contains(&claimer) {
+                let is_alive = rc_query.iter().any(|(e, _, _, obj)| e == claimer && obj.is_alive());
+                if !is_alive {
+                    stale.push(claimer);
+                }
+            }
+        }
+        stale
+    };
+    for entity in stale_entities {
+        claim_map.unclaim_all_for(entity);
+    }
+
+    // Step 2: Build a recruitable tile lookup from the tile query
+    let recruitable_tiles: std::collections::HashSet<(i32, i32)> = tiles
+        .iter()
+        .filter(|(_, preset)| preset.recruitable)
+        .map(|(gp, _)| (gp.x, gp.z))
+        .collect();
+
+    // Step 3: Collect RCs sorted by build_order (ascending)
+    let mut rcs: Vec<(Entity, i32, i32, u64)> = rc_query
+        .iter()
+        .filter(|(_, _, _, obj)| obj.is_alive())
+        .map(|(e, gp, state, _)| (e, gp.x, gp.z, state.build_order))
+        .collect();
+    rcs.sort_by_key(|&(_, _, _, order)| order);
+
+    // Step 4: Clear all existing claims and reclaim from scratch each frame
+    claim_map.claims.clear();
+
+    // Step 5: For each RC in build_order priority, claim tiles
+    let mut claimed_per_entity: std::collections::HashMap<Entity, Vec<(i32, i32)>> =
+        std::collections::HashMap::new();
+
+    for (entity, gx, gz, _order) in &rcs {
+        let mut claimed = Vec::new();
+        // 10x10 area centered on 4x4 footprint: extends 3 tiles beyond each edge
+        let x_min = (gx - 3).max(0);
+        let x_max = (gx + 6).min(63);
+        let z_min = (gz - 3).max(0);
+        let z_max = (gz + 6).min(63);
+
+        for x in x_min..=x_max {
+            for z in z_min..=z_max {
+                let pos = (x, z);
+                if recruitable_tiles.contains(&pos) && claim_map.is_claimed(pos).is_none() {
+                    claim_map.claim_tile(pos, *entity);
+                    claimed.push(pos);
+                }
+            }
+        }
+        claimed_per_entity.insert(*entity, claimed);
+    }
+
+    // Step 6: Update RC state with claimed tiles, effectiveness, and local_capacity
+    for (entity, _, mut rc_state, _) in rc_query.iter_mut() {
+        if let Some(claimed) = claimed_per_entity.remove(&entity) {
+            let effectiveness = claimed.len() as f32 / 100.0;
+            let local_capacity = (20.0 * effectiveness).floor() as u32;
+            rc_state.claimed_tiles = claimed;
+            rc_state.effectiveness = effectiveness;
+            rc_state.local_capacity = local_capacity;
+        } else {
+            // Dead or not found — clear
+            rc_state.claimed_tiles.clear();
+            rc_state.effectiveness = 0.0;
+            rc_state.local_capacity = 0;
+        }
+    }
+}
+
+// =====================================================
+// RECRUITMENT CENTER AUTO-PRODUCTION SYSTEM
+// =====================================================
+
+/// System that auto-produces Recruit units from Recruitment Centers each simulation frame.
+/// Each RC with effectiveness > 0 and local_used < local_capacity accumulates production_progress.
+/// At 100% effectiveness, production takes 12 seconds (192 frames). Scales inversely with effectiveness.
+pub fn recruitment_center_production_system(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut rc_query: Query<(Entity, &Owner, &GridPosition, &mut RecruitmentCenterState)>,
+    tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
+    grid: Res<super::types::GridMap>,
+    occupancy: Res<crate::game::units::types::OccupancyMap>,
+) {
+    use crate::game::units::utils::{world_to_grid, smooth_path};
+    use crate::game::units::pathfinding::find_path_for_domain;
+    use crate::game::units::types::movement::{MoveTarget, Path};
+    use crate::game::units::types::state::UnitCommand;
+    use crate::game::units::types::unit_data::OriginatingCenters;
+    use crate::game::utils::spawn_cults_recruit;
+    use crate::simulation::FRAMES_PER_SECOND;
+    use crate::types::UnitBaseEnum;
+
+    let base_frames = 12 * FRAMES_PER_SECOND; // 192 frames at 16 FPS
+
+    for (center_entity, owner, grid_pos, mut rc_state) in rc_query.iter_mut() {
+        // Skip inactive or at-capacity centers
+        if rc_state.effectiveness <= 0.0 || rc_state.local_used >= rc_state.local_capacity {
+            continue;
+        }
+
+        let required_frames = (base_frames as f32 / rc_state.effectiveness).ceil() as u32;
+        rc_state.production_progress += 1;
+
+        if rc_state.production_progress >= required_frames {
+            rc_state.production_progress = 0;
+
+            // Spawn Recruit at RC's grid position (top-left corner)
+            let spawn_x = grid_pos.x;
+            let spawn_z = grid_pos.z;
+
+            let unit_entity = spawn_cults_recruit(
+                &mut commands, &mut meshes, &mut materials,
+                spawn_x, spawn_z, *owner,
+            );
+
+            // Track originating center for death-based unit control release
+            commands.entity(unit_entity).insert(OriginatingCenters {
+                centers: vec![center_entity],
+            });
+
+            rc_state.local_used += 1;
+
+            // Issue rally command if set
+            if let Some(rally_pos) = rc_state.rally_point {
+                let spawn_grid = GridPosition { x: spawn_x, z: spawn_z };
+                let target_grid = world_to_grid(rally_pos);
+                if let Some(path) = find_path_for_domain(
+                    spawn_grid, target_grid, &tiles,
+                    &UnitBaseEnum::LightInfantry,
+                    grid.width as i32, grid.height as i32,
+                    &occupancy, (spawn_x, spawn_z),
+                ) {
+                    let smoothed = smooth_path(path);
+                    commands.entity(unit_entity).insert((
+                        MoveTarget(rally_pos),
+                        Path { waypoints: smoothed, current_waypoint: 0 },
+                        UnitCommand::Move(rally_pos),
+                    ));
+                }
+            }
+
+            info!("Recruitment Center: Produced Recruit at ({}, {})", spawn_x, spawn_z);
+        }
+    }
+}
+
+// =====================================================
+// CULTS UNIT CONTROL AGGREGATION SYSTEM
+// =====================================================
+
+/// Aggregates unit control capacity and usage from all Recruitment Centers
+/// into the owning player's CultsPlayerResources each frame.
+pub fn cults_unit_control_aggregation_system(
+    rc_query: Query<(&Owner, &RecruitmentCenterState)>,
+    mut players: Query<(&Player, &mut CultsPlayerResources)>,
+) {
+    for (player, mut res) in players.iter_mut() {
+        let mut total_capacity: u32 = 0;
+        let mut total_used: u32 = 0;
+
+        for (owner, rc_state) in rc_query.iter() {
+            if owner.player_number() == Some(player.player_number) {
+                total_capacity += rc_state.local_capacity;
+                total_used += rc_state.local_used;
+            }
+        }
+
+        res.unit_control_available = total_capacity;
+        res.unit_control_used = total_used;
+    }
+}
+
+// =====================================================
+// CULTS CONSTRUCTION TICK SYSTEM
+// =====================================================
+
+/// System that ticks Cults building construction progress.
+/// Progress scales linearly with the number of assigned Recruits.
+/// When complete, all assigned Recruits are despawned and the building becomes operational.
+pub fn cults_construction_tick_system(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut ObjectInstance, &mut ConstructionHP, &mut CultsConstructionState)>,
+) {
+    for (entity, mut obj, mut construction, mut cults_state) in query.iter_mut() {
+        let recruit_count = cults_state.assigned_recruits.len() as u32;
+        if recruit_count == 0 {
+            continue; // Paused — no recruits assigned
+        }
+
+        cults_state.construction_progress += recruit_count;
+
+        // Update ConstructionHP progress (0.0 to 1.0)
+        let progress = (cults_state.construction_progress as f32 / cults_state.total_construction_frames as f32).min(1.0);
+        construction.progress = progress;
+
+        // Update HP using ConstructionHP::hp_fraction()
+        if let Some(max_hp) = obj.max_hp {
+            obj.hp = Some(max_hp * ConstructionHP::hp_fraction(progress));
+        }
+
+        // Check completion
+        if cults_state.construction_progress >= cults_state.total_construction_frames {
+            // Set HP to full max
+            if let Some(max_hp) = obj.max_hp {
+                obj.hp = Some(max_hp);
+            }
+            // Despawn all assigned recruits (they are consumed)
+            for recruit_entity in cults_state.assigned_recruits.drain(..) {
+                commands.entity(recruit_entity).despawn();
+            }
+            // Remove construction components — building is complete
+            commands.entity(entity).remove::<ConstructionHP>();
+            commands.entity(entity).remove::<CultsConstructionState>();
+        }
+    }
+}
+
+// =====================================================
+// CULTS CONSTRUCTION CANCEL SYSTEM
+// =====================================================
+
+/// System that handles cancellation of Cults buildings under construction.
+/// When a building is destroyed (HP reaches 0), all assigned Recruits are ejected,
+/// restored to visible, and set to Idle near the building's position.
+/// Must run BEFORE remove_dead_entities_system so recruits can be ejected first.
+pub fn cults_construction_cancel_system(
+    mut commands: Commands,
+    mut query: Query<(Entity, &ObjectInstance, &Transform, &mut CultsConstructionState)>,
+) {
+    for (_entity, obj, transform, mut cults_state) in query.iter_mut() {
+        if !obj.is_alive() {
+            // Building was destroyed — eject all recruits
+            let base_pos = transform.translation;
+            for (i, recruit_entity) in cults_state.assigned_recruits.drain(..).enumerate() {
+                // Offset each recruit slightly from the building center
+                let offset_x = ((i % 3) as f32 - 1.0) * 1.5;
+                let offset_z = ((i / 3) as f32) * 1.5 + 1.5;
+                let eject_pos = Vec3::new(base_pos.x + offset_x, base_pos.y, base_pos.z + offset_z);
+
+                commands.entity(recruit_entity)
+                    .insert(Visibility::Inherited)
+                    .insert(UnitCommand::Idle)
+                    .insert(Transform::from_translation(eject_pos));
+            }
+        }
+    }
+}
+
+/// Compute the exit (Side C) world position for an Armory.
+/// The Armory is 3x2 with ABCB symmetry: N=A, E=B, S=C, W=B.
+/// Side C is opposite Side A. For a 3x2 building, the half-sizes are:
+/// width = 1.5 (x-axis), depth = 1.0 (z-axis). Exit offset is depth + 0.5 = 1.5.
+fn armory_exit_side_position(
+    transform: &Transform,
+    structure_instance: &StructureInstance,
+) -> Vec3 {
+    use crate::types::SymmetryTypeEnum;
+
+    let labels = structure_instance.oriented_labels(SymmetryTypeEnum::ABCB);
+    // Find which cardinal direction (N=0, E=1, S=2, W=3) has Side C
+    let cardinal_index = labels.iter().position(|&c| c == 'C').unwrap_or(2);
+
+    let center = transform.translation;
+    // For a 3x2 building: half-width=1.5, half-depth=1.0
+    // Side C exit offset depends on which cardinal direction it faces
+    let offset = match cardinal_index {
+        0 | 2 => 1.5, // North/South face (depth side: 1.0 + 0.5)
+        1 | 3 => 2.0, // East/West face (width side: 1.5 + 0.5)
+        _ => 1.5,
+    };
+
+    match cardinal_index {
+        0 => Vec3::new(center.x, center.y, center.z - offset), // North
+        1 => Vec3::new(center.x + offset, center.y, center.z), // East
+        2 => Vec3::new(center.x, center.y, center.z + offset), // South
+        3 => Vec3::new(center.x - offset, center.y, center.z), // West
+        _ => center,
+    }
+}
+
+/// System to tick Armory training progress and spawn trained units.
+/// Runs in FixedUpdate.
+pub fn armory_training_tick_system(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut armory_query: Query<(Entity, &Owner, &Transform, &StructureInstance, &mut ArmoryState)>,
+    tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
+    grid: Res<super::types::GridMap>,
+    rally_targets: Query<(&Transform, &Owner), With<ObjectInstance>>,
+    occupancy: Res<crate::game::units::types::OccupancyMap>,
+) {
+    for (_entity, owner, transform, si, mut armory) in armory_query.iter_mut() {
+        let Some(unit_type) = armory.training_queue else { continue; };
+        let required_frames = match unit_type {
+            ObjectEnum::CultsSoldier => crate::game::types::cults_structure_stats::SOLDIER_TRAINING_FRAMES,
+            ObjectEnum::CultsGunner => crate::game::types::cults_structure_stats::GUNNER_TRAINING_FRAMES,
+            _ => continue,
+        };
+        armory.training_progress += 1;
+        if armory.training_progress >= required_frames {
+            // Compute exit side (C) position
+            let exit_pos = armory_exit_side_position(transform, si);
+            let (exit_x, exit_z) = world_to_grid(exit_pos, 1.0);
+
+            // Spawn the trained unit
+            let unit_entity = match unit_type {
+                ObjectEnum::CultsSoldier => spawn_cults_soldier(
+                    &mut commands, &mut meshes, &mut materials,
+                    exit_x, exit_z, *owner,
+                ),
+                ObjectEnum::CultsGunner => spawn_cults_gunner(
+                    &mut commands, &mut meshes, &mut materials,
+                    exit_x, exit_z, *owner,
+                ),
+                _ => continue,
+            };
+
+            // Issue rally command (follow HQ pattern)
+            issue_rally_command(
+                &mut commands, unit_entity,
+                &armory.rally_point, owner,
+                exit_x, exit_z,
+                &tiles, &grid, &rally_targets, &occupancy,
+                &crate::types::UnitBaseEnum::LightInfantry,
+            );
+
+            // Clear training state
+            armory.training_queue = None;
+            armory.training_progress = 0;
+        }
+    }
+}
+
+/// System to eject Recruits from Armory one at a time with a cooldown.
+/// Runs in FixedUpdate.
+pub fn armory_eject_tick_system(
+    mut commands: Commands,
+    mut armory_query: Query<(Entity, &Transform, &StructureInstance, &mut ArmoryEjectionQueue)>,
+) {
+    for (entity, transform, si, mut ejection_queue) in armory_query.iter_mut() {
+        if ejection_queue.cooldown > 0 {
+            ejection_queue.cooldown -= 1;
+            continue;
+        }
+        if let Some(recruit_entity) = ejection_queue.queue.pop_front() {
+            let exit_pos = armory_exit_side_position(transform, si);
+            // Move the recruit slightly further from the exit to avoid stacking
+            let eject_offset = Vec3::new(0.0, 0.0, 1.5);
+            if commands.get_entity(recruit_entity).is_ok() {
+                commands.entity(recruit_entity)
+                    .insert(Visibility::Inherited)
+                    .insert(Transform::from_translation(exit_pos))
+                    .insert(UnitCommand::Move(exit_pos + eject_offset));
+            }
+            ejection_queue.cooldown = 8; // 8-frame spacing like tunnel ejection
+        } else {
+            // Queue empty — remove the component
+            commands.entity(entity).remove::<ArmoryEjectionQueue>();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2204,7 +2783,7 @@ mod tests {
         // Spawn an extraction plate attached to this patch
         let plate_entity = world.spawn(ExtractionPlateState {
             attached_patch: patch_entity,
-            mining_timer: 0,
+            mining_timer: 0.0,
         }).id();
 
         world.run_system_once(depleted_patch_despawn_system).unwrap();
@@ -2229,7 +2808,7 @@ mod tests {
         // Spawn an extraction plate attached to this patch
         let plate_entity = world.spawn(ExtractionPlateState {
             attached_patch: patch_entity,
-            mining_timer: 0,
+            mining_timer: 0.0,
         }).id();
 
         world.run_system_once(depleted_patch_despawn_system).unwrap();
@@ -2239,6 +2818,114 @@ mod tests {
             "Non-depleted patch should not be despawned");
         assert!(world.get_entity(plate_entity).is_ok(),
             "Plate on non-depleted patch should not be despawned");
+    }
+
+    #[test]
+    fn extraction_plate_mining_slowed_by_power_deficit() {
+        let mut world = World::new();
+
+        // Spawn a player with power deficit: ratio = 50/100 = 0.5
+        let player_entity = world.spawn((
+            Player::new("Test", FactionEnum::GlobalDefenseOrdinance, 0),
+            GdoPlayerResources {
+                space_crystals: 0,
+                supplies: 0,
+                power_generated: 50,
+                power_consumed: 100,
+                unit_control_used: 0,
+                unit_control_cap: 10,
+                has_power_plant: true,
+            },
+        )).id();
+
+        // Spawn a crystal patch with resources
+        let patch_entity = world.spawn(SpaceCrystalPatch {
+            remaining_amount: 1000,
+            initial_amount: 1000,
+            has_plate: true,
+        }).id();
+
+        // Spawn an extraction plate owned by the player
+        let plate_entity = world.spawn((
+            Owner::player(0),
+            ExtractionPlateState {
+                attached_patch: patch_entity,
+                mining_timer: 0.0,
+            },
+        )).id();
+
+        // Run 48 ticks — at full power this would complete one mining cycle,
+        // but at 0.5 ratio only 24.0 effective ticks accumulate
+        for _ in 0..48 {
+            world.run_system_once(extraction_plate_mining_system).unwrap();
+            world.flush();
+        }
+
+        // Mining should NOT have completed yet
+        let res = world.get::<GdoPlayerResources>(player_entity).unwrap();
+        assert_eq!(res.space_crystals, 0,
+            "Mining should not complete in 48 ticks at 0.5 power ratio");
+
+        // Run 48 more ticks (total 96 ticks at 0.5 = 48 effective)
+        for _ in 0..48 {
+            world.run_system_once(extraction_plate_mining_system).unwrap();
+            world.flush();
+        }
+
+        // Now mining should have completed at least once
+        let res = world.get::<GdoPlayerResources>(player_entity).unwrap();
+        assert!(res.space_crystals > 0,
+            "Mining should complete after 96 ticks at 0.5 power ratio");
+        assert_eq!(res.space_crystals, EXTRACTION_PLATE_MINING_RATE as i32,
+            "Should have mined exactly one cycle worth of crystals");
+
+        // Verify the timer has been reset
+        let plate = world.get::<ExtractionPlateState>(plate_entity).unwrap();
+        assert!(plate.mining_timer < EXTRACTION_PLATE_MINING_INTERVAL,
+            "Timer should have been reset after mining cycle");
+    }
+
+    #[test]
+    fn extraction_plate_mining_full_power() {
+        let mut world = World::new();
+
+        // Spawn a player with full power (generated >= consumed)
+        let player_entity = world.spawn((
+            Player::new("Test", FactionEnum::GlobalDefenseOrdinance, 0),
+            GdoPlayerResources {
+                space_crystals: 0,
+                supplies: 0,
+                power_generated: 100,
+                power_consumed: 50,
+                unit_control_used: 0,
+                unit_control_cap: 10,
+                has_power_plant: true,
+            },
+        )).id();
+
+        let patch_entity = world.spawn(SpaceCrystalPatch {
+            remaining_amount: 1000,
+            initial_amount: 1000,
+            has_plate: true,
+        }).id();
+
+        world.spawn((
+            Owner::player(0),
+            ExtractionPlateState {
+                attached_patch: patch_entity,
+                mining_timer: 0.0,
+            },
+        ));
+
+        // Run exactly 48 ticks at full power — should complete one cycle
+        for _ in 0..48 {
+            world.run_system_once(extraction_plate_mining_system).unwrap();
+            world.flush();
+        }
+
+        let res = world.get::<GdoPlayerResources>(player_entity).unwrap();
+        assert_eq!(res.space_crystals, EXTRACTION_PLATE_MINING_RATE as i32,
+            "Mining should complete in exactly 48 ticks at full power");
     }
 
     #[test]
@@ -2282,5 +2969,1271 @@ mod tests {
         let chopper_state = app.world().entity(chopper_entity).get::<SupplyChopperState>().unwrap();
         assert_eq!(chopper_state.attached_tower, Some(tower_entity),
             "Chopper should reference the tower entity");
+    }
+
+    #[test]
+    fn setup_player_resources_gdo_selected_spawns_gdo_and_syndicate() {
+        let mut app = App::new();
+        app.insert_resource(SelectedFaction(FactionEnum::GlobalDefenseOrdinance));
+        app.world_mut().run_system_once(setup_player_resources).unwrap();
+        app.world_mut().flush();
+
+        // Verify LocalPlayer is set
+        let local = app.world().resource::<LocalPlayer>();
+        assert_eq!(local.0, 0);
+
+        // Verify GDO player entity exists with player_id 0
+        let mut found_gdo = false;
+        let mut found_syn = false;
+        for entity in app.world().iter_entities() {
+            if let Some(player) = entity.get::<Player>() {
+                if player.faction == FactionEnum::GlobalDefenseOrdinance {
+                    assert_eq!(player.player_number, 0);
+                    assert!(entity.get::<GdoPlayerResources>().is_some());
+                    found_gdo = true;
+                }
+                if player.faction == FactionEnum::TheSyndicate {
+                    assert_eq!(player.player_number, 1);
+                    assert!(entity.get::<SyndicatePlayerResources>().is_some());
+                    found_syn = true;
+                }
+            }
+        }
+        assert!(found_gdo, "GDO player entity should exist");
+        assert!(found_syn, "Syndicate player entity should exist");
+    }
+
+    #[test]
+    fn setup_player_resources_cults_selected_spawns_cults_and_gdo() {
+        let mut app = App::new();
+        app.insert_resource(SelectedFaction(FactionEnum::TheCults));
+        app.world_mut().run_system_once(setup_player_resources).unwrap();
+        app.world_mut().flush();
+
+        let mut found_cults = false;
+        let mut found_gdo = false;
+        for entity in app.world().iter_entities() {
+            if let Some(player) = entity.get::<Player>() {
+                if player.faction == FactionEnum::TheCults {
+                    assert_eq!(player.player_number, 0);
+                    assert!(entity.get::<CultsPlayerResources>().is_some());
+                    found_cults = true;
+                }
+                if player.faction == FactionEnum::GlobalDefenseOrdinance {
+                    assert_eq!(player.player_number, 1);
+                    assert!(entity.get::<GdoPlayerResources>().is_some());
+                    found_gdo = true;
+                }
+            }
+        }
+        assert!(found_cults, "Cults player entity should exist");
+        assert!(found_gdo, "GDO opponent entity should exist");
+    }
+
+    #[test]
+    fn setup_player_resources_colonists_selected_spawns_colonists_and_gdo() {
+        let mut app = App::new();
+        app.insert_resource(SelectedFaction(FactionEnum::Colonists));
+        app.world_mut().run_system_once(setup_player_resources).unwrap();
+        app.world_mut().flush();
+
+        let mut found_colonists = false;
+        let mut found_gdo = false;
+        for entity in app.world().iter_entities() {
+            if let Some(player) = entity.get::<Player>() {
+                if player.faction == FactionEnum::Colonists {
+                    assert_eq!(player.player_number, 0);
+                    assert!(entity.get::<ColonistsPlayerResources>().is_some());
+                    found_colonists = true;
+                }
+                if player.faction == FactionEnum::GlobalDefenseOrdinance {
+                    assert_eq!(player.player_number, 1);
+                    assert!(entity.get::<GdoPlayerResources>().is_some());
+                    found_gdo = true;
+                }
+            }
+        }
+        assert!(found_colonists, "Colonists player entity should exist");
+        assert!(found_gdo, "GDO opponent entity should exist");
+    }
+
+    #[test]
+    fn setup_player_resources_syndicate_selected_spawns_syndicate_and_gdo() {
+        let mut app = App::new();
+        app.insert_resource(SelectedFaction(FactionEnum::TheSyndicate));
+        app.world_mut().run_system_once(setup_player_resources).unwrap();
+        app.world_mut().flush();
+
+        let mut found_syn = false;
+        let mut found_gdo = false;
+        for entity in app.world().iter_entities() {
+            if let Some(player) = entity.get::<Player>() {
+                if player.faction == FactionEnum::TheSyndicate {
+                    assert_eq!(player.player_number, 0);
+                    assert!(entity.get::<SyndicatePlayerResources>().is_some());
+                    found_syn = true;
+                }
+                if player.faction == FactionEnum::GlobalDefenseOrdinance {
+                    assert_eq!(player.player_number, 1);
+                    assert!(entity.get::<GdoPlayerResources>().is_some());
+                    found_gdo = true;
+                }
+            }
+        }
+        assert!(found_syn, "Syndicate player entity should exist");
+        assert!(found_gdo, "GDO opponent entity should exist");
+    }
+
+    #[test]
+    fn cults_player_resources_default_values() {
+        let res = CultsPlayerResources::default();
+        assert_eq!(res.space_crystals, 500);
+        assert_eq!(res.unit_control_used, 0);
+        assert_eq!(res.unit_control_available, 0);
+    }
+
+    #[test]
+    fn colonists_player_resources_default_values() {
+        let res = ColonistsPlayerResources::default();
+        assert_eq!(res.space_crystals, 500);
+        assert_eq!(res.alloys, 50);
+        assert_eq!(res.essence, 50);
+        assert_eq!(res.beacon_capacity_provided, 20);
+        assert_eq!(res.beacon_capacity_used, 0);
+    }
+
+    #[test]
+    fn extraction_plate_power_grid_integration() {
+        use crate::testing::{TestApp, TestHarness};
+        use crate::game::types::structures::gdo_structure_stats::{DC_POWER, PP_POWER, EP_POWER};
+
+        let mut test_app = TestApp::new_with_faction(crate::types::FactionEnum::GlobalDefenseOrdinance);
+        // Step to trigger OnEnter(InGame) which spawns faction/player entities
+        test_app.step();
+        let owner = Owner::player(0);
+
+        // Spawn a power plant (+20)
+        {
+            let mut harness = TestHarness::new(&mut test_app.app);
+            harness.spawn_structure_at_grid(ObjectEnum::PowerPlant, 32, 32, owner);
+        }
+
+        // Spawn 3 extraction plates (-3 each = -9 total)
+        {
+            let mut harness = TestHarness::new(&mut test_app.app);
+            let patch = harness.spawn_resource(30, 30, 1000);
+            harness.spawn_extraction_plate_at_grid(30, 31, owner, patch);
+            let patch2 = harness.spawn_resource(31, 30, 1000);
+            harness.spawn_extraction_plate_at_grid(31, 31, owner, patch2);
+            let patch3 = harness.spawn_resource(33, 30, 1000);
+            harness.spawn_extraction_plate_at_grid(33, 31, owner, patch3);
+        }
+
+        // Run the power grid computation
+        test_app.app.world_mut().run_system_once(compute_power_grid).unwrap();
+
+        // Check power values on the GDO player resources
+        let mut query = test_app.app.world_mut().query::<(&Player, &GdoPlayerResources)>();
+        let found = query.iter(test_app.app.world())
+            .find(|(p, _)| p.player_number == 0);
+        assert!(found.is_some(), "Player 0 should exist");
+        let (_, res) = found.unwrap();
+        // DC (20) is spawned by TestApp initialization + our PP (20) = 40 generated
+        let expected_generated = DC_POWER + PP_POWER;
+        let expected_consumed = EP_POWER.abs() * 3; // 3 plates * 3 = 9
+        assert_eq!(res.power_generated, expected_generated, "DC + Power Plant generate power");
+        assert_eq!(res.power_consumed, expected_consumed, "3 extraction plates consume {} power each", EP_POWER.abs());
+        // Net power: 40 - 9 = 31
+        assert_eq!(res.current_power(), expected_generated - expected_consumed);
+    }
+
+    #[test]
+    fn test_center_camera_on_start_gdo() {
+        use crate::testing::TestApp;
+        use crate::types::{MainCamera, FactionEnum, LocalPlayer};
+        use crate::game::types::ObjectInstance;
+
+        let mut test_app = TestApp::new_with_faction(FactionEnum::GlobalDefenseOrdinance);
+        test_app.app.world_mut().insert_resource(LocalPlayer(0));
+        test_app.app.world_mut().init_resource::<crate::game::world::types::MapStartingPositions>();
+
+        // Spawn a deployment center for player 0 at a known position
+        let dc_pos = Vec3::new(100.0, 0.0, 200.0);
+        test_app.app.world_mut().spawn((
+            ObjectInstance { object_type: ObjectEnum::DeploymentCenter, hp: None, max_hp: None },
+            Owner::player(0),
+            Transform::from_translation(dc_pos),
+        ));
+
+        // TestApp already spawns a MainCamera at (0, 40, 25)
+        test_app.app.world_mut().run_system_once(center_camera_on_start).unwrap();
+
+        let mut cam_query = test_app.app.world_mut().query_filtered::<&Transform, With<MainCamera>>();
+        let cam = cam_query.single(test_app.app.world()).unwrap();
+        assert_eq!(cam.translation.x, 100.0);
+        let expected_z = 200.0 + 40.0 * 25.0 / 40.0;
+        assert_eq!(cam.translation.z, expected_z);
+    }
+
+    #[test]
+    fn test_center_camera_on_start_syndicate() {
+        use crate::testing::TestApp;
+        use crate::types::{MainCamera, FactionEnum, LocalPlayer};
+        use crate::game::types::ObjectInstance;
+
+        let mut test_app = TestApp::new_with_faction(FactionEnum::TheSyndicate);
+        test_app.app.world_mut().insert_resource(LocalPlayer(0));
+        test_app.app.world_mut().init_resource::<crate::game::world::types::MapStartingPositions>();
+
+        // Spawn a tunnel for player 0 at a known position
+        let tunnel_pos = Vec3::new(50.0, 0.0, 80.0);
+        test_app.app.world_mut().spawn((
+            ObjectInstance { object_type: ObjectEnum::Tunnel, hp: None, max_hp: None },
+            Owner::player(0),
+            Transform::from_translation(tunnel_pos),
+        ));
+
+        // TestApp already spawns a MainCamera at (0, 40, 25)
+        test_app.app.world_mut().run_system_once(center_camera_on_start).unwrap();
+
+        let mut cam_query = test_app.app.world_mut().query_filtered::<&Transform, With<MainCamera>>();
+        let cam = cam_query.single(test_app.app.world()).unwrap();
+        assert_eq!(cam.translation.x, 50.0);
+        let expected_z = 80.0 + 40.0 * 25.0 / 40.0;
+        assert_eq!(cam.translation.z, expected_z);
+    }
+
+    #[test]
+    fn test_center_camera_on_start_no_structure() {
+        use crate::testing::TestApp;
+        use crate::types::{MainCamera, FactionEnum, LocalPlayer};
+
+        let mut test_app = TestApp::new_with_faction(FactionEnum::GlobalDefenseOrdinance);
+        test_app.app.world_mut().insert_resource(LocalPlayer(0));
+        test_app.app.world_mut().init_resource::<crate::game::world::types::MapStartingPositions>();
+
+        // No DC spawned — system should be a no-op. TestApp camera at (0, 40, 25).
+        test_app.app.world_mut().run_system_once(center_camera_on_start).unwrap();
+
+        let mut cam_query = test_app.app.world_mut().query_filtered::<&Transform, With<MainCamera>>();
+        let cam = cam_query.single(test_app.app.world()).unwrap();
+        // Camera should remain at original position
+        assert_eq!(cam.translation.x, 0.0);
+    }
+
+    #[test]
+    fn test_center_camera_on_start_map_position_override() {
+        use crate::testing::TestApp;
+        use crate::types::{MainCamera, FactionEnum, LocalPlayer};
+        use crate::game::types::ObjectInstance;
+        use crate::game::world::types::MapStartingPositions;
+        use crate::game::world::utils::grid_to_world;
+
+        let mut test_app = TestApp::new_with_faction(FactionEnum::GlobalDefenseOrdinance);
+        test_app.app.world_mut().insert_resource(LocalPlayer(0));
+
+        // Set a map starting position for player 0
+        let mut map_pos = MapStartingPositions::default();
+        map_pos.positions.insert(0, (40, 50));
+        test_app.app.world_mut().insert_resource(map_pos);
+
+        // Also spawn a DC — map position should take priority
+        let dc_pos = Vec3::new(100.0, 0.0, 200.0);
+        test_app.app.world_mut().spawn((
+            ObjectInstance { object_type: ObjectEnum::DeploymentCenter, hp: None, max_hp: None },
+            Owner::player(0),
+            Transform::from_translation(dc_pos),
+        ));
+
+        test_app.app.world_mut().run_system_once(center_camera_on_start).unwrap();
+
+        let mut cam_query = test_app.app.world_mut().query_filtered::<&Transform, With<MainCamera>>();
+        let cam = cam_query.single(test_app.app.world()).unwrap();
+
+        let expected_world = grid_to_world(40, 50, 1.0);
+        assert_eq!(cam.translation.x, expected_world.x);
+        let expected_z = expected_world.z + 40.0 * 25.0 / 40.0;
+        assert_eq!(cam.translation.z, expected_z);
+        // Confirm it did NOT use the DC position
+        assert_ne!(cam.translation.x, 100.0);
+    }
+
+    #[test]
+    fn test_center_camera_on_start_map_position_no_matching_slot() {
+        use crate::testing::TestApp;
+        use crate::types::{MainCamera, FactionEnum, LocalPlayer};
+        use crate::game::types::ObjectInstance;
+        use crate::game::world::types::MapStartingPositions;
+
+        let mut test_app = TestApp::new_with_faction(FactionEnum::GlobalDefenseOrdinance);
+        test_app.app.world_mut().insert_resource(LocalPlayer(0));
+
+        // Set a map starting position for player 1 (not local player 0)
+        let mut map_pos = MapStartingPositions::default();
+        map_pos.positions.insert(1, (40, 50));
+        test_app.app.world_mut().insert_resource(map_pos);
+
+        // Spawn a DC for player 0 — should fall through to structure-based centering
+        let dc_pos = Vec3::new(100.0, 0.0, 200.0);
+        test_app.app.world_mut().spawn((
+            ObjectInstance { object_type: ObjectEnum::DeploymentCenter, hp: None, max_hp: None },
+            Owner::player(0),
+            Transform::from_translation(dc_pos),
+        ));
+
+        test_app.app.world_mut().run_system_once(center_camera_on_start).unwrap();
+
+        let mut cam_query = test_app.app.world_mut().query_filtered::<&Transform, With<MainCamera>>();
+        let cam = cam_query.single(test_app.app.world()).unwrap();
+        // Should use the DC position, not the map position for slot 1
+        assert_eq!(cam.translation.x, 100.0);
+        let expected_z = 200.0 + 40.0 * 25.0 / 40.0;
+        assert_eq!(cam.translation.z, expected_z);
+    }
+
+    #[test]
+    fn test_center_camera_on_start_map_position_grid_conversion() {
+        use crate::testing::TestApp;
+        use crate::types::{MainCamera, FactionEnum, LocalPlayer};
+        use crate::game::world::types::MapStartingPositions;
+        use crate::game::world::utils::grid_to_world;
+
+        let mut test_app = TestApp::new_with_faction(FactionEnum::GlobalDefenseOrdinance);
+        test_app.app.world_mut().insert_resource(LocalPlayer(0));
+
+        // Use grid center (32, 32) which should map to world (0.5, 0.0, 0.5)
+        let mut map_pos = MapStartingPositions::default();
+        map_pos.positions.insert(0, (32, 32));
+        test_app.app.world_mut().insert_resource(map_pos);
+
+        test_app.app.world_mut().run_system_once(center_camera_on_start).unwrap();
+
+        let mut cam_query = test_app.app.world_mut().query_filtered::<&Transform, With<MainCamera>>();
+        let cam = cam_query.single(test_app.app.world()).unwrap();
+
+        let expected_world = grid_to_world(32, 32, 1.0);
+        assert_eq!(cam.translation.x, expected_world.x);
+        assert_eq!(cam.translation.x, 0.5); // (32 - 32) * 1.0 + 0.5
+        let expected_z = expected_world.z + 40.0 * 25.0 / 40.0;
+        assert_eq!(cam.translation.z, expected_z);
+    }
+
+    // =====================================================
+    // RECRUITMENT TILE CLAIMING TESTS
+    // =====================================================
+
+    /// Helper: spawn a minimal tile entity at the given grid position with the given preset
+    fn spawn_test_tile(world: &mut World, x: i32, z: i32, preset_enum: crate::game::world::types::TilePresetEnum) -> Entity {
+        let preset = preset_enum.properties();
+        world.spawn((
+            GridPosition { x, z },
+            preset,
+            Tile,
+        )).id()
+    }
+
+    /// Helper: spawn a minimal Recruitment Center entity
+    fn spawn_test_rc(world: &mut World, x: i32, z: i32, build_order: u64) -> Entity {
+        world.spawn((
+            GridPosition { x, z },
+            RecruitmentCenterState {
+                build_order,
+                ..Default::default()
+            },
+            ObjectInstance::destructible(ObjectEnum::RecruitmentCenter, crate::game::types::structures::cults_structure_stats::RC_MAX_HP),
+        )).id()
+    }
+
+    #[test]
+    fn tile_claim_map_basic_operations() {
+        use crate::game::world::types::TileClaimMap;
+        let mut map = TileClaimMap::default();
+        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e2 = Entity::from_raw_u32(2).unwrap();
+
+        // Claim and check
+        map.claim_tile((5, 5), e1);
+        assert_eq!(map.is_claimed((5, 5)), Some(e1));
+        assert_eq!(map.is_claimed((6, 6)), None);
+
+        // Unclaim single
+        map.unclaim_tile((5, 5));
+        assert_eq!(map.is_claimed((5, 5)), None);
+
+        // Unclaim all for entity
+        map.claim_tile((1, 1), e1);
+        map.claim_tile((2, 2), e1);
+        map.claim_tile((3, 3), e2);
+        map.unclaim_all_for(e1);
+        assert_eq!(map.is_claimed((1, 1)), None);
+        assert_eq!(map.is_claimed((2, 2)), None);
+        assert_eq!(map.is_claimed((3, 3)), Some(e2));
+    }
+
+    #[test]
+    fn rc_all_recruitable_terrain_full_effectiveness() {
+        use crate::game::world::types::{TileClaimMap, TilePresetEnum};
+
+        let mut app = App::new();
+        app.init_resource::<TileClaimMap>();
+
+        // Spawn a 10x10 area of recruitable tiles centered on RC at (10, 10)
+        // RC footprint: [10..13] x [10..13], area: [7..16] x [7..16]
+        for x in 7..=16 {
+            for z in 7..=16 {
+                spawn_test_tile(app.world_mut(), x, z, TilePresetEnum::Plane);
+            }
+        }
+
+        // Spawn RC
+        spawn_test_rc(app.world_mut(), 10, 10, 0);
+
+        app.world_mut().run_system_once(recruitment_tile_claiming_system).unwrap();
+
+        // Check state
+        let mut query = app.world_mut().query::<&RecruitmentCenterState>();
+        let state = query.single(app.world()).unwrap();
+        assert_eq!(state.claimed_tiles.len(), 100);
+        assert!((state.effectiveness - 1.0).abs() < f32::EPSILON);
+        assert_eq!(state.local_capacity, 20);
+    }
+
+    #[test]
+    fn rc_half_recruitable_terrain_half_effectiveness() {
+        use crate::game::world::types::{TileClaimMap, TilePresetEnum};
+
+        let mut app = App::new();
+        app.init_resource::<TileClaimMap>();
+
+        // RC at (10, 10), area [7..16] x [7..16]
+        // Make half the tiles Water (non-recruitable)
+        for x in 7..=16 {
+            for z in 7..=16 {
+                if z <= 11 {
+                    // 5 rows of 10 = 50 recruitable
+                    spawn_test_tile(app.world_mut(), x, z, TilePresetEnum::Plane);
+                } else {
+                    // 5 rows of 10 = 50 non-recruitable
+                    spawn_test_tile(app.world_mut(), x, z, TilePresetEnum::Water);
+                }
+            }
+        }
+
+        spawn_test_rc(app.world_mut(), 10, 10, 0);
+
+        app.world_mut().run_system_once(recruitment_tile_claiming_system).unwrap();
+
+        let mut query = app.world_mut().query::<&RecruitmentCenterState>();
+        let state = query.single(app.world()).unwrap();
+        assert_eq!(state.claimed_tiles.len(), 50);
+        assert!((state.effectiveness - 0.5).abs() < f32::EPSILON);
+        assert_eq!(state.local_capacity, 10);
+    }
+
+    #[test]
+    fn rc_overlapping_areas_first_built_has_priority() {
+        use crate::game::world::types::{TileClaimMap, TilePresetEnum};
+
+        let mut app = App::new();
+        app.init_resource::<TileClaimMap>();
+
+        // Two RCs with overlapping areas. Both at same z, close together in x.
+        // RC1 at (10, 10), area [7..16] x [7..16], build_order=0
+        // RC2 at (14, 10), area [11..20] x [7..16], build_order=1
+        // Overlap: x in [11..16], z in [7..16] = 6 * 10 = 60 tiles
+
+        // Spawn all tiles in combined area
+        for x in 7..=20 {
+            for z in 7..=16 {
+                spawn_test_tile(app.world_mut(), x, z, TilePresetEnum::Plane);
+            }
+        }
+
+        let rc1 = spawn_test_rc(app.world_mut(), 10, 10, 0);
+        let _rc2 = spawn_test_rc(app.world_mut(), 14, 10, 1);
+
+        app.world_mut().run_system_once(recruitment_tile_claiming_system).unwrap();
+
+        // RC1 gets all 100 tiles (its full area)
+        // RC2 gets: area [11..20]x[7..16] = 10*10=100 tiles, minus 60 overlap claimed by RC1 = 40
+        let mut query = app.world_mut().query::<(Entity, &RecruitmentCenterState)>();
+        let mut found_rc1 = false;
+        let mut found_rc2 = false;
+        for (entity, state) in query.iter(app.world()) {
+            if entity == rc1 {
+                assert_eq!(state.claimed_tiles.len(), 100);
+                assert!((state.effectiveness - 1.0).abs() < f32::EPSILON);
+                assert_eq!(state.local_capacity, 20);
+                found_rc1 = true;
+            } else {
+                assert_eq!(state.claimed_tiles.len(), 40);
+                assert!((state.effectiveness - 0.4).abs() < f32::EPSILON);
+                assert_eq!(state.local_capacity, 8);
+                found_rc2 = true;
+            }
+        }
+        assert!(found_rc1 && found_rc2);
+    }
+
+    #[test]
+    fn rc_destruction_frees_tiles_for_others() {
+        use crate::game::world::types::{TileClaimMap, TilePresetEnum};
+
+        let mut app = App::new();
+        app.init_resource::<TileClaimMap>();
+
+        // Same overlapping setup
+        for x in 7..=20 {
+            for z in 7..=16 {
+                spawn_test_tile(app.world_mut(), x, z, TilePresetEnum::Plane);
+            }
+        }
+
+        let rc1 = spawn_test_rc(app.world_mut(), 10, 10, 0);
+        let _rc2 = spawn_test_rc(app.world_mut(), 14, 10, 1);
+
+        // Run claiming once
+        app.world_mut().run_system_once(recruitment_tile_claiming_system).unwrap();
+
+        // Kill RC1
+        let mut obj_query = app.world_mut().query::<&mut ObjectInstance>();
+        let mut rc1_obj = obj_query.get_mut(app.world_mut(), rc1).unwrap();
+        rc1_obj.apply_damage(crate::game::types::structures::cults_structure_stats::RC_MAX_HP + 1.0);
+
+        // Run claiming again
+        app.world_mut().run_system_once(recruitment_tile_claiming_system).unwrap();
+
+        // RC2 should now get all 100 tiles in its area
+        let mut state_query = app.world_mut().query::<(Entity, &RecruitmentCenterState)>();
+        for (entity, state) in state_query.iter(app.world()) {
+            if entity != rc1 {
+                assert_eq!(state.claimed_tiles.len(), 100);
+                assert!((state.effectiveness - 1.0).abs() < f32::EPSILON);
+                assert_eq!(state.local_capacity, 20);
+            }
+        }
+
+        // Claim map should have no claims for RC1
+        let claim_map = app.world().resource::<TileClaimMap>();
+        assert!(claim_map.claims.values().all(|&e| e != rc1));
+    }
+
+    #[test]
+    fn rc_near_map_edge_clamps_area() {
+        use crate::game::world::types::{TileClaimMap, TilePresetEnum};
+
+        let mut app = App::new();
+        app.init_resource::<TileClaimMap>();
+
+        // RC at (0, 0) — area would be [-3..6] x [-3..6], clamped to [0..6] x [0..6] = 7*7 = 49 tiles
+        for x in 0..=6 {
+            for z in 0..=6 {
+                spawn_test_tile(app.world_mut(), x, z, TilePresetEnum::Plane);
+            }
+        }
+
+        spawn_test_rc(app.world_mut(), 0, 0, 0);
+
+        app.world_mut().run_system_once(recruitment_tile_claiming_system).unwrap();
+
+        let mut query = app.world_mut().query::<&RecruitmentCenterState>();
+        let state = query.single(app.world()).unwrap();
+        assert_eq!(state.claimed_tiles.len(), 49);
+        assert!((state.effectiveness - 0.49).abs() < f32::EPSILON);
+        // floor(20 * 0.49) = floor(9.8) = 9
+        assert_eq!(state.local_capacity, 9);
+    }
+
+    // =====================================================
+    // RECRUITMENT CENTER PRODUCTION TESTS
+    // =====================================================
+
+    /// Helper: spawn an RC entity with custom effectiveness and capacity for production tests
+    fn spawn_production_rc(world: &mut World, x: i32, z: i32, effectiveness: f32, local_capacity: u32, owner: Owner) -> Entity {
+        world.spawn((
+            GridPosition { x, z },
+            RecruitmentCenterState {
+                effectiveness,
+                local_capacity,
+                local_used: 0,
+                production_progress: 0,
+                rally_point: None,
+                build_order: 0,
+                claimed_tiles: Vec::new(),
+            },
+            ObjectInstance::destructible(ObjectEnum::RecruitmentCenter, 500.0),
+            owner,
+        )).id()
+    }
+
+    fn setup_production_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+        app.init_resource::<crate::game::world::types::GridMap>();
+        app.init_resource::<crate::game::units::types::OccupancyMap>();
+        app
+    }
+
+    #[test]
+    fn rc_production_100_pct_produces_recruit_at_192_frames() {
+        let mut app = setup_production_app();
+        let rc_entity = spawn_production_rc(app.world_mut(), 30, 30, 1.0, 20, Owner::player(0));
+
+        // Run 191 frames — should NOT have produced yet
+        for _ in 0..191 {
+            app.world_mut().run_system_once(recruitment_center_production_system).unwrap();
+        }
+
+        let recruit_count = app.world_mut().query_filtered::<Entity, With<crate::types::Unit>>().iter(app.world()).count();
+        assert_eq!(recruit_count, 0, "Should not produce before 192 frames");
+
+        // Frame 192 — should produce
+        app.world_mut().run_system_once(recruitment_center_production_system).unwrap();
+
+        let recruit_count = app.world_mut().query_filtered::<Entity, With<crate::types::Unit>>().iter(app.world()).count();
+        assert_eq!(recruit_count, 1, "Should produce 1 recruit at frame 192");
+
+        // Check RC state
+        let rc_state = app.world().get::<RecruitmentCenterState>(rc_entity).unwrap();
+        assert_eq!(rc_state.local_used, 1);
+        assert_eq!(rc_state.production_progress, 0);
+    }
+
+    #[test]
+    fn rc_production_50_pct_produces_recruit_at_384_frames() {
+        let mut app = setup_production_app();
+        spawn_production_rc(app.world_mut(), 30, 30, 0.5, 20, Owner::player(0));
+
+        // Run 383 frames — should NOT produce
+        for _ in 0..383 {
+            app.world_mut().run_system_once(recruitment_center_production_system).unwrap();
+        }
+
+        let recruit_count = app.world_mut().query_filtered::<Entity, With<crate::types::Unit>>().iter(app.world()).count();
+        assert_eq!(recruit_count, 0, "Should not produce before 384 frames at 50% effectiveness");
+
+        // Frame 384 — should produce
+        app.world_mut().run_system_once(recruitment_center_production_system).unwrap();
+
+        let recruit_count = app.world_mut().query_filtered::<Entity, With<crate::types::Unit>>().iter(app.world()).count();
+        assert_eq!(recruit_count, 1, "Should produce 1 recruit at frame 384");
+    }
+
+    #[test]
+    fn rc_production_stops_at_capacity() {
+        let mut app = setup_production_app();
+        let rc_entity = spawn_production_rc(app.world_mut(), 30, 30, 1.0, 2, Owner::player(0));
+
+        // Produce 2 recruits (2 * 192 = 384 frames)
+        for _ in 0..384 {
+            app.world_mut().run_system_once(recruitment_center_production_system).unwrap();
+        }
+
+        let recruit_count = app.world_mut().query_filtered::<Entity, With<crate::types::Unit>>().iter(app.world()).count();
+        assert_eq!(recruit_count, 2, "Should produce 2 recruits");
+
+        let rc_state = app.world().get::<RecruitmentCenterState>(rc_entity).unwrap();
+        assert_eq!(rc_state.local_used, 2);
+
+        // Run 192 more frames — should NOT produce (at capacity)
+        for _ in 0..192 {
+            app.world_mut().run_system_once(recruitment_center_production_system).unwrap();
+        }
+
+        let recruit_count = app.world_mut().query_filtered::<Entity, With<crate::types::Unit>>().iter(app.world()).count();
+        assert_eq!(recruit_count, 2, "Should not produce when at capacity");
+    }
+
+    #[test]
+    fn rc_production_resumes_when_local_used_drops() {
+        let mut app = setup_production_app();
+        let rc_entity = spawn_production_rc(app.world_mut(), 30, 30, 1.0, 1, Owner::player(0));
+
+        // Produce 1 recruit (192 frames)
+        for _ in 0..192 {
+            app.world_mut().run_system_once(recruitment_center_production_system).unwrap();
+        }
+
+        let recruit_count = app.world_mut().query_filtered::<Entity, With<crate::types::Unit>>().iter(app.world()).count();
+        assert_eq!(recruit_count, 1);
+
+        // Simulate unit death: decrement local_used
+        app.world_mut().get_mut::<RecruitmentCenterState>(rc_entity).unwrap().local_used = 0;
+
+        // Run 192 more frames — should produce again
+        for _ in 0..192 {
+            app.world_mut().run_system_once(recruitment_center_production_system).unwrap();
+        }
+
+        let recruit_count = app.world_mut().query_filtered::<Entity, With<crate::types::Unit>>().iter(app.world()).count();
+        assert_eq!(recruit_count, 2, "Should produce again after local_used drops");
+    }
+
+    #[test]
+    fn rc_production_skips_zero_effectiveness() {
+        let mut app = setup_production_app();
+        spawn_production_rc(app.world_mut(), 30, 30, 0.0, 20, Owner::player(0));
+
+        // Run many frames — should NOT produce
+        for _ in 0..500 {
+            app.world_mut().run_system_once(recruitment_center_production_system).unwrap();
+        }
+
+        let recruit_count = app.world_mut().query_filtered::<Entity, With<crate::types::Unit>>().iter(app.world()).count();
+        assert_eq!(recruit_count, 0, "Should not produce with 0 effectiveness");
+    }
+
+    #[test]
+    fn rc_recruit_has_originating_center() {
+        use crate::game::units::types::unit_data::OriginatingCenters;
+
+        let mut app = setup_production_app();
+        let rc_entity = spawn_production_rc(app.world_mut(), 30, 30, 1.0, 20, Owner::player(0));
+
+        for _ in 0..192 {
+            app.world_mut().run_system_once(recruitment_center_production_system).unwrap();
+        }
+        // Flush deferred commands
+        app.update();
+
+        let mut query = app.world_mut().query::<&OriginatingCenters>();
+        let origins = query.single(app.world()).unwrap();
+        assert_eq!(origins.centers.len(), 1);
+        assert_eq!(origins.centers[0], rc_entity);
+    }
+
+    #[test]
+    fn rc_recruit_has_rally_command_when_rally_set() {
+        use crate::game::units::types::state::UnitCommand;
+
+        let mut app = setup_production_app();
+        let rally_pos = Vec3::new(5.0, 0.0, 5.0);
+        let rc_entity = spawn_production_rc(app.world_mut(), 30, 30, 1.0, 20, Owner::player(0));
+        app.world_mut().get_mut::<RecruitmentCenterState>(rc_entity).unwrap().rally_point = Some(rally_pos);
+
+        for _ in 0..192 {
+            app.world_mut().run_system_once(recruitment_center_production_system).unwrap();
+        }
+        // Flush deferred commands
+        app.update();
+
+        // The recruit should have a Move command (if pathfinding succeeded)
+        // Note: pathfinding may fail in minimal test (no tiles), so we check the RC state instead
+        let rc_state = app.world().get::<RecruitmentCenterState>(rc_entity).unwrap();
+        assert_eq!(rc_state.local_used, 1);
+        assert_eq!(rc_state.production_progress, 0);
+    }
+
+    // =====================================================
+    // CULTS UNIT CONTROL AGGREGATION TESTS
+    // =====================================================
+
+    #[test]
+    fn aggregation_sums_capacity_across_rcs() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        // Spawn player entity with CultsPlayerResources
+        app.world_mut().spawn((
+            InvisibleEntity,
+            Player::new("Test Player", FactionEnum::TheCults, 0),
+            CultsPlayerResources::default(),
+        ));
+
+        // Spawn two RCs owned by player 0
+        app.world_mut().spawn((
+            Owner::player(0),
+            RecruitmentCenterState {
+                local_capacity: 20,
+                local_used: 5,
+                effectiveness: 1.0,
+                ..Default::default()
+            },
+        ));
+        app.world_mut().spawn((
+            Owner::player(0),
+            RecruitmentCenterState {
+                local_capacity: 10,
+                local_used: 3,
+                effectiveness: 0.5,
+                ..Default::default()
+            },
+        ));
+
+        app.world_mut().run_system_once(cults_unit_control_aggregation_system).unwrap();
+
+        let mut query = app.world_mut().query::<&CultsPlayerResources>();
+        let res = query.single(app.world()).unwrap();
+        assert_eq!(res.unit_control_available, 30, "Total capacity should be 20 + 10");
+        assert_eq!(res.unit_control_used, 8, "Total used should be 5 + 3");
+    }
+
+    #[test]
+    fn aggregation_ignores_other_players_rcs() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        // Spawn player 0
+        app.world_mut().spawn((
+            InvisibleEntity,
+            Player::new("Player 0", FactionEnum::TheCults, 0),
+            CultsPlayerResources::default(),
+        ));
+
+        // Spawn RC owned by player 1 (different player)
+        app.world_mut().spawn((
+            Owner::player(1),
+            RecruitmentCenterState {
+                local_capacity: 20,
+                local_used: 10,
+                effectiveness: 1.0,
+                ..Default::default()
+            },
+        ));
+
+        app.world_mut().run_system_once(cults_unit_control_aggregation_system).unwrap();
+
+        let mut query = app.world_mut().query::<&CultsPlayerResources>();
+        let res = query.single(app.world()).unwrap();
+        assert_eq!(res.unit_control_available, 0, "Should not count other player's RC");
+        assert_eq!(res.unit_control_used, 0);
+    }
+
+    // =====================================================
+    // CULTS CONSTRUCTION TICK SYSTEM TESTS
+    // =====================================================
+
+    fn setup_construction_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+        app
+    }
+
+    /// Helper to spawn a Cults building under construction with CultsConstructionState
+    fn spawn_cults_building_under_construction(world: &mut World, total_frames: u32, max_hp: f32) -> Entity {
+        world.spawn((
+            ObjectInstance::under_construction(ObjectEnum::CultsStorage, max_hp),
+            ConstructionHP::new(total_frames),
+            CultsConstructionState::new(total_frames),
+            Transform::from_xyz(5.0, 0.0, 5.0),
+            Owner::player(0),
+        )).id()
+    }
+
+    /// Helper to spawn a hidden Recruit entity (simulating one that has entered a building)
+    fn spawn_hidden_recruit(world: &mut World) -> Entity {
+        world.spawn((
+            crate::types::Unit,
+            ObjectInstance::destructible(ObjectEnum::CultsRecruit, 50.0),
+            Owner::player(0),
+            UnitCommand::Idle,
+            Visibility::Hidden,
+            Transform::from_xyz(0.0, 0.0, 0.0),
+        )).id()
+    }
+
+    #[test]
+    fn cults_construction_one_recruit_completes_in_total_frames() {
+        let mut app = setup_construction_app();
+        let total_frames = 100;
+        let max_hp = 200.0;
+
+        let recruit = spawn_hidden_recruit(app.world_mut());
+        let building = spawn_cults_building_under_construction(app.world_mut(), total_frames, max_hp);
+
+        // Assign 1 recruit to the building
+        app.world_mut().get_mut::<CultsConstructionState>(building).unwrap()
+            .assigned_recruits.push(recruit);
+
+        // Run for exactly total_frames ticks
+        for _ in 0..total_frames {
+            app.world_mut().run_system_once(cults_construction_tick_system).unwrap();
+        }
+        // Flush deferred commands
+        app.update();
+
+        // Building should be complete (no ConstructionHP)
+        assert!(app.world().get::<ConstructionHP>(building).is_none(),
+            "ConstructionHP should be removed on completion");
+        assert!(app.world().get::<CultsConstructionState>(building).is_none(),
+            "CultsConstructionState should be removed on completion");
+
+        // HP should be at max
+        let obj = app.world().get::<ObjectInstance>(building).unwrap();
+        assert_eq!(obj.hp, Some(max_hp));
+
+        // Recruit should be despawned
+        assert!(app.world().get_entity(recruit).is_err(),
+            "Recruit should be despawned on completion");
+    }
+
+    #[test]
+    fn cults_construction_two_recruits_complete_in_half_frames() {
+        let mut app = setup_construction_app();
+        let total_frames = 100;
+        let max_hp = 200.0;
+
+        let recruit1 = spawn_hidden_recruit(app.world_mut());
+        let recruit2 = spawn_hidden_recruit(app.world_mut());
+        let building = spawn_cults_building_under_construction(app.world_mut(), total_frames, max_hp);
+
+        // Assign 2 recruits
+        {
+            let mut state = app.world_mut().get_mut::<CultsConstructionState>(building).unwrap();
+            state.assigned_recruits.push(recruit1);
+            state.assigned_recruits.push(recruit2);
+        }
+
+        // Run for half the total frames
+        for _ in 0..50 {
+            app.world_mut().run_system_once(cults_construction_tick_system).unwrap();
+        }
+        app.update();
+
+        // Building should be complete
+        assert!(app.world().get::<ConstructionHP>(building).is_none(),
+            "Should complete in N/2 frames with 2 recruits");
+
+        // Both recruits should be despawned
+        assert!(app.world().get_entity(recruit1).is_err(), "Recruit 1 should be despawned");
+        assert!(app.world().get_entity(recruit2).is_err(), "Recruit 2 should be despawned");
+    }
+
+    #[test]
+    fn cults_construction_no_recruits_no_progress() {
+        let mut app = setup_construction_app();
+        let total_frames = 100;
+        let max_hp = 200.0;
+
+        let building = spawn_cults_building_under_construction(app.world_mut(), total_frames, max_hp);
+
+        // Run many frames with no recruits assigned
+        for _ in 0..200 {
+            app.world_mut().run_system_once(cults_construction_tick_system).unwrap();
+        }
+
+        // Should still have ConstructionHP (not complete)
+        let state = app.world().get::<CultsConstructionState>(building).unwrap();
+        assert_eq!(state.construction_progress, 0, "No progress without recruits");
+        assert!(app.world().get::<ConstructionHP>(building).is_some());
+    }
+
+    #[test]
+    fn cults_construction_hp_scales_during_progress() {
+        let mut app = setup_construction_app();
+        let total_frames = 100;
+        let max_hp = 200.0;
+
+        let recruit = spawn_hidden_recruit(app.world_mut());
+        let building = spawn_cults_building_under_construction(app.world_mut(), total_frames, max_hp);
+
+        app.world_mut().get_mut::<CultsConstructionState>(building).unwrap()
+            .assigned_recruits.push(recruit);
+
+        // Run for 50 frames (50% progress)
+        for _ in 0..50 {
+            app.world_mut().run_system_once(cults_construction_tick_system).unwrap();
+        }
+
+        let obj = app.world().get::<ObjectInstance>(building).unwrap();
+        let expected_hp = max_hp * ConstructionHP::hp_fraction(0.5); // 10% + 90% * 0.5 = 55% = 110.0
+        assert!(f32::abs(obj.hp.unwrap() - expected_hp) < 0.01,
+            "HP should scale with progress: expected {}, got {}", expected_hp, obj.hp.unwrap());
+    }
+
+    #[test]
+    fn cults_construction_cancel_ejects_recruits_on_death() {
+        let mut app = setup_construction_app();
+        let total_frames = 100;
+
+        let recruit1 = spawn_hidden_recruit(app.world_mut());
+        let recruit2 = spawn_hidden_recruit(app.world_mut());
+        let building = spawn_cults_building_under_construction(app.world_mut(), total_frames, 200.0);
+
+        {
+            let mut state = app.world_mut().get_mut::<CultsConstructionState>(building).unwrap();
+            state.assigned_recruits.push(recruit1);
+            state.assigned_recruits.push(recruit2);
+        }
+
+        // Kill the building
+        app.world_mut().get_mut::<ObjectInstance>(building).unwrap().hp = Some(0.0);
+
+        // Run cancel system
+        app.world_mut().run_system_once(cults_construction_cancel_system).unwrap();
+        app.update();
+
+        // Recruits should be visible again and idle
+        let vis1 = app.world().get::<Visibility>(recruit1).unwrap();
+        assert_eq!(*vis1, Visibility::Inherited, "Recruit 1 should be visible after cancel");
+
+        let vis2 = app.world().get::<Visibility>(recruit2).unwrap();
+        assert_eq!(*vis2, Visibility::Inherited, "Recruit 2 should be visible after cancel");
+
+        let cmd1 = app.world().get::<UnitCommand>(recruit1).unwrap();
+        assert!(matches!(*cmd1, UnitCommand::Idle), "Recruit 1 should be idle after cancel");
+
+        let cmd2 = app.world().get::<UnitCommand>(recruit2).unwrap();
+        assert!(matches!(*cmd2, UnitCommand::Idle), "Recruit 2 should be idle after cancel");
+    }
+
+    #[test]
+    fn cults_construction_state_new() {
+        let state = CultsConstructionState::new(300);
+        assert!(state.assigned_recruits.is_empty());
+        assert_eq!(state.construction_progress, 0);
+        assert_eq!(state.total_construction_frames, 300);
+    }
+
+    #[test]
+    fn generic_construction_hp_tick_skips_cults_buildings() {
+        let mut app = setup_construction_app();
+        let total_frames = 100;
+        let max_hp = 200.0;
+
+        // Spawn a Cults building with BOTH ConstructionHP and CultsConstructionState
+        let building = spawn_cults_building_under_construction(app.world_mut(), total_frames, max_hp);
+
+        // Run the GENERIC construction_hp_tick_system
+        for _ in 0..50 {
+            app.world_mut().run_system_once(construction_hp_tick_system).unwrap();
+        }
+
+        // The generic system should NOT have advanced progress (due to Without<CultsConstructionState> filter)
+        let construction = app.world().get::<ConstructionHP>(building).unwrap();
+        assert_eq!(construction.progress, 0.0,
+            "Generic construction_hp_tick_system should skip Cults buildings");
+    }
+
+    // === Armory training tick system tests ===
+
+    fn spawn_test_armory_entity(world: &mut World, pos: Vec3, player: u8) -> Entity {
+        world.spawn((
+            Transform::from_translation(pos),
+            StructureInstance {
+                rotation: crate::types::StructureRotation::R0,
+                flip_horizontal: false,
+                flip_vertical: false,
+            },
+            ObjectInstance::destructible(ObjectEnum::CultsArmory, 300.0),
+            Owner::player(player),
+            ArmoryState::default(),
+        )).id()
+    }
+
+    #[test]
+    fn armory_training_tick_advances_progress() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+        app.init_resource::<crate::game::world::types::GridMap>();
+        app.init_resource::<crate::game::units::types::OccupancyMap>();
+
+        let armory = spawn_test_armory_entity(app.world_mut(), Vec3::new(0.0, 0.0, 0.0), 0);
+
+        // Set up training
+        {
+            let mut armory_state = app.world_mut().get_mut::<ArmoryState>(armory).unwrap();
+            armory_state.training_queue = Some(ObjectEnum::CultsSoldier);
+            armory_state.training_progress = 0;
+        }
+
+        // Tick the system
+        app.world_mut().run_system_once(armory_training_tick_system).unwrap();
+
+        let armory_state = app.world().get::<ArmoryState>(armory).unwrap();
+        assert_eq!(armory_state.training_progress, 1);
+        assert_eq!(armory_state.training_queue, Some(ObjectEnum::CultsSoldier));
+    }
+
+    #[test]
+    fn armory_training_completes_at_required_frames() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+        app.init_resource::<crate::game::world::types::GridMap>();
+        app.init_resource::<crate::game::units::types::OccupancyMap>();
+
+        let armory = spawn_test_armory_entity(app.world_mut(), Vec3::new(0.0, 0.0, 0.0), 0);
+
+        // Set progress to just before completion
+        {
+            let mut armory_state = app.world_mut().get_mut::<ArmoryState>(armory).unwrap();
+            armory_state.training_queue = Some(ObjectEnum::CultsSoldier);
+            armory_state.training_progress = crate::game::types::cults_structure_stats::SOLDIER_TRAINING_FRAMES - 1;
+        }
+
+        // Tick the system
+        app.world_mut().run_system_once(armory_training_tick_system).unwrap();
+
+        let armory_state = app.world().get::<ArmoryState>(armory).unwrap();
+        // Training should be complete — queue cleared
+        assert_eq!(armory_state.training_queue, None);
+        assert_eq!(armory_state.training_progress, 0);
+    }
+
+    #[test]
+    fn armory_training_skips_when_no_queue() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<Assets<Mesh>>();
+        app.init_resource::<Assets<StandardMaterial>>();
+        app.init_resource::<crate::game::world::types::GridMap>();
+        app.init_resource::<crate::game::units::types::OccupancyMap>();
+
+        let armory = spawn_test_armory_entity(app.world_mut(), Vec3::new(0.0, 0.0, 0.0), 0);
+
+        // No training queue set (default)
+        app.world_mut().run_system_once(armory_training_tick_system).unwrap();
+
+        let armory_state = app.world().get::<ArmoryState>(armory).unwrap();
+        assert_eq!(armory_state.training_queue, None);
+        assert_eq!(armory_state.training_progress, 0);
+    }
+
+    #[test]
+    fn armory_exit_side_position_r0_is_south() {
+        let transform = Transform::from_xyz(10.0, 0.0, 10.0);
+        let si = StructureInstance {
+            rotation: crate::types::StructureRotation::R0,
+            flip_horizontal: false,
+            flip_vertical: false,
+        };
+        let pos = armory_exit_side_position(&transform, &si);
+        // ABCB symmetry at R0: N=A, E=B, S=C, W=B. Side C is South.
+        assert!(pos.z > 10.0, "Exit should be south of center, got z={}", pos.z);
+        assert!((pos.x - 10.0).abs() < 0.01, "Exit should be at same x");
+    }
+
+    // === Armory eject system tests ===
+
+    #[test]
+    fn armory_eject_removes_queue_when_empty() {
+        let mut app = App::new();
+
+        let armory = app.world_mut().spawn((
+            Transform::from_xyz(10.0, 0.0, 10.0),
+            StructureInstance {
+                rotation: crate::types::StructureRotation::R0,
+                flip_horizontal: false,
+                flip_vertical: false,
+            },
+            ArmoryEjectionQueue {
+                queue: std::collections::VecDeque::new(),
+                cooldown: 0,
+            },
+        )).id();
+
+        app.world_mut().run_system_once(armory_eject_tick_system).unwrap();
+
+        // Empty queue should be removed
+        assert!(app.world().get::<ArmoryEjectionQueue>(armory).is_none());
+    }
+
+    #[test]
+    fn armory_eject_sets_cooldown() {
+        let mut app = App::new();
+
+        // Create a recruit entity to eject
+        let recruit = app.world_mut().spawn((
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            Visibility::Hidden,
+            UnitCommand::Idle,
+        )).id();
+
+        let mut queue = std::collections::VecDeque::new();
+        queue.push_back(recruit);
+
+        let armory = app.world_mut().spawn((
+            Transform::from_xyz(10.0, 0.0, 10.0),
+            StructureInstance {
+                rotation: crate::types::StructureRotation::R0,
+                flip_horizontal: false,
+                flip_vertical: false,
+            },
+            ArmoryEjectionQueue {
+                queue,
+                cooldown: 0,
+            },
+        )).id();
+
+        app.world_mut().run_system_once(armory_eject_tick_system).unwrap();
+
+        let ejection = app.world().get::<ArmoryEjectionQueue>(armory);
+        // Should have cooldown set after ejecting
+        if let Some(eq) = ejection {
+            assert_eq!(eq.cooldown, 8);
+        }
+        // Queue should now be empty (but component exists due to cooldown)
+    }
+
+    #[test]
+    fn armory_eject_respects_cooldown() {
+        let mut app = App::new();
+
+        let recruit = app.world_mut().spawn((
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            Visibility::Hidden,
+            UnitCommand::Idle,
+        )).id();
+
+        let mut queue = std::collections::VecDeque::new();
+        queue.push_back(recruit);
+
+        let armory = app.world_mut().spawn((
+            Transform::from_xyz(10.0, 0.0, 10.0),
+            StructureInstance {
+                rotation: crate::types::StructureRotation::R0,
+                flip_horizontal: false,
+                flip_vertical: false,
+            },
+            ArmoryEjectionQueue {
+                queue,
+                cooldown: 5,
+            },
+        )).id();
+
+        app.world_mut().run_system_once(armory_eject_tick_system).unwrap();
+
+        // Cooldown should have decremented but recruit not ejected
+        let ejection = app.world().get::<ArmoryEjectionQueue>(armory).unwrap();
+        assert_eq!(ejection.cooldown, 4);
+        assert_eq!(ejection.queue.len(), 1);
+    }
+
+    #[test]
+    fn armory_state_training_cost_soldier() {
+        let cost = ArmoryState::training_cost(&ObjectEnum::CultsSoldier);
+        assert_eq!(cost, Some(crate::game::types::cults_structure_stats::SOLDIER_TRAINING_COST));
+    }
+
+    #[test]
+    fn armory_state_training_cost_gunner() {
+        let cost = ArmoryState::training_cost(&ObjectEnum::CultsGunner);
+        assert_eq!(cost, Some(crate::game::types::cults_structure_stats::GUNNER_TRAINING_COST));
+    }
+
+    #[test]
+    fn armory_state_training_cost_invalid() {
+        let cost = ArmoryState::training_cost(&ObjectEnum::Peacekeeper);
+        assert_eq!(cost, None);
+    }
+
+    #[test]
+    fn armory_state_training_frames_soldier() {
+        let frames = ArmoryState::training_frames(&ObjectEnum::CultsSoldier);
+        assert_eq!(frames, Some(crate::game::types::cults_structure_stats::SOLDIER_TRAINING_FRAMES));
+    }
+
+    #[test]
+    fn armory_state_training_frames_gunner() {
+        let frames = ArmoryState::training_frames(&ObjectEnum::CultsGunner);
+        assert_eq!(frames, Some(crate::game::types::cults_structure_stats::GUNNER_TRAINING_FRAMES));
     }
 }

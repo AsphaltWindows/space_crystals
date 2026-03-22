@@ -179,7 +179,7 @@ fn step_12_chopper_move_command() {
     let cmd = world.get::<UnitCommand>(chopper).expect("Should have UnitCommand");
     match cmd {
         UnitCommand::Move(target) => {
-            assert_eq!(*target, Vec3::new(5.0, 0.0, 5.0), "Move target should match");
+            assert_eq!(target, &Vec3::new(5.0, 0.0, 5.0), "Move target should match");
         }
         _ => panic!("Expected Move command, got {:?}", cmd),
     }
@@ -222,7 +222,7 @@ fn step_13_chopper_pickup_command() {
     let cmd = world.get::<UnitCommand>(chopper).expect("Should have UnitCommand");
     match cmd {
         UnitCommand::PickUpSupplies(target) => {
-            assert_eq!(*target, sds, "PickUpSupplies target should be the SDS entity");
+            assert_eq!(target, &sds, "PickUpSupplies target should be the SDS entity");
         }
         _ => panic!("Expected PickUpSupplies command, got {:?}", cmd),
     }
@@ -254,7 +254,7 @@ fn step_14_chopper_attach_command() {
     let cmd = world.get::<UnitCommand>(chopper).expect("Should have UnitCommand");
     match cmd {
         UnitCommand::AttachToTower(target) => {
-            assert_eq!(*target, tower, "AttachToTower target should be the tower entity");
+            assert_eq!(target, &tower, "AttachToTower target should be the tower entity");
         }
         _ => panic!("Expected AttachToTower command, got {:?}", cmd),
     }
@@ -338,7 +338,7 @@ fn step_16_attach_to_tower_via_command() {
     let cmd = world.get::<UnitCommand>(chopper).expect("Should have UnitCommand");
     match cmd {
         UnitCommand::AttachToTower(target) => {
-            assert_eq!(*target, tower, "AttachToTower target should be the tower");
+            assert_eq!(target, &tower, "AttachToTower target should be the tower");
         }
         _ => panic!("Expected AttachToTower command, got {:?}", cmd),
     }

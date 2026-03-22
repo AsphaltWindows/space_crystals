@@ -254,6 +254,23 @@ impl ElevationMap {
     }
 }
 
+/// Resource storing optional starting camera positions per player slot.
+/// Maps player slot index to grid coordinates (x, z).
+/// If a slot has an entry, the camera will center on that position at game start.
+/// If no entry exists, falls back to centering on the player's primary structure.
+#[derive(Resource, Clone, Debug)]
+pub struct MapStartingPositions {
+    pub positions: HashMap<u8, (i32, i32)>,
+}
+
+impl Default for MapStartingPositions {
+    fn default() -> Self {
+        Self {
+            positions: HashMap::new(),
+        }
+    }
+}
+
 /// Returns the elevation modifier between source and target.
 /// Returns +1 if source is higher, -1 if source is lower, 0 if equal.
 /// Returns 0 if either entity is in the Air domain (air units are exempt).
@@ -296,6 +313,35 @@ impl LastRecallState {
     pub fn is_double_tap(&self, group_index: usize, current_time: f64) -> bool {
         self.group_index == Some(group_index)
             && (current_time - self.timestamp) <= Self::DOUBLE_TAP_THRESHOLD
+    }
+}
+
+/// Resource tracking which Recruitment Center has claimed each recruitable tile.
+/// Maps grid position → the RC entity that owns the claim.
+#[derive(Resource, Default)]
+pub struct TileClaimMap {
+    pub claims: HashMap<(i32, i32), Entity>,
+}
+
+impl TileClaimMap {
+    /// Claim a tile position for a given entity
+    pub fn claim_tile(&mut self, pos: (i32, i32), entity: Entity) {
+        self.claims.insert(pos, entity);
+    }
+
+    /// Remove a claim on a tile position
+    pub fn unclaim_tile(&mut self, pos: (i32, i32)) {
+        self.claims.remove(&pos);
+    }
+
+    /// Check if a tile position is claimed and by whom
+    pub fn is_claimed(&self, pos: (i32, i32)) -> Option<Entity> {
+        self.claims.get(&pos).copied()
+    }
+
+    /// Remove all claims for a given entity
+    pub fn unclaim_all_for(&mut self, entity: Entity) {
+        self.claims.retain(|_, e| *e != entity);
     }
 }
 

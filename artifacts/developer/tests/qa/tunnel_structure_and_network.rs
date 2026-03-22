@@ -66,8 +66,8 @@ fn step_4_tunnel_starts_tier1() {
     // Verify HP matches Tier 1 (600)
     let harness = TestHarness::new(&mut test_app.app);
     let (hp, max_hp) = harness.get_health(tunnel).unwrap();
-    assert!((max_hp - 600.0).abs() < 1.0, "Tier 1 max HP should be 600, got {}", max_hp);
-    assert!((hp - 600.0).abs() < 1.0, "Tier 1 HP should be 600, got {}", hp);
+    assert!(f32::abs(max_hp - 600.0) < 1.0, "Tier 1 max HP should be 600, got {}", max_hp);
+    assert!(f32::abs(hp - 600.0) < 1.0, "Tier 1 HP should be 600, got {}", hp);
 }
 
 /// QA Step 5 [auto]: Upgrade a Tunnel to Tier 2, then to Tier 3 — verify tier is tracked correctly

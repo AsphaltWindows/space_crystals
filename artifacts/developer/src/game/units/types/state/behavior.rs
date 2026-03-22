@@ -375,6 +375,30 @@ impl DroppingOffSuppliesBehavior {
     }
 }
 
+/// Marker component for the EnteringArmory behavior.
+/// When present, a dedicated system moves the CultsRecruit toward the target Armory.
+/// On arrival, the unit is stored in ArmoryState.stored_recruits and hidden.
+#[derive(Component, Clone, Debug)]
+pub struct EnteringArmoryBehavior {
+    /// The armory entity this recruit is entering
+    pub target_armory: Entity,
+    /// Precomputed path to armory entrance
+    pub path: Vec<Vec3>,
+    /// Current index in the path
+    pub path_index: usize,
+}
+
+impl EnteringArmoryBehavior {
+    /// Create a new EnteringArmoryBehavior targeting a specific armory
+    pub fn new(target_armory: Entity) -> Self {
+        Self {
+            target_armory,
+            path: Vec::new(),
+            path_index: 0,
+        }
+    }
+}
+
 /// Marker component for units that are inside the Tunnel Network.
 /// Placed on unit entities when they complete the EnteringTunnel behavior.
 /// The entity is despawned from the map but logically exists in the network.

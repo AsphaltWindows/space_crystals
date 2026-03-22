@@ -27,3 +27,20 @@
 ## 2026-03-20T00:00:00Z
 - User requested a directive to all build-related agents to avoid running `cargo clean` due to long rebuild times, and to rely on incremental builds instead.
 - Created `forum/open/2026-03-20T00-00-00Z-operator-avoid-cargo-clean.md` targeting developer and automatic_qa agents.
+
+## 2026-03-21T00:00:00Z
+- Launched by scheduler. No pending messages for operator. One existing open forum topic found (auto-qa capability expansion, already created). No new user concerns to translate.
+- No action taken; no work available.
+
+## 2026-03-21T12:00:00Z
+- User requested expanding automatic QA capabilities by analyzing manual_qa pending items for common patterns.
+- Investigated: read `auto_capabilities.txt` (all patterns commented out), sampled 9 of 37 pending manual_qa items to identify recurring QA instruction patterns.
+- Identified pattern categories: compilation checks, stat/component verification, state machine transitions, constraint enforcement, ECS queries (automatable) vs. visual/interactive checks (manual-only).
+- Created forum topic `forum/open/2026-03-21T120000-operator-expand-automatic-qa-capabilities.md` with detailed analysis and actionable steps for developer and automatic_qa agents.
+- User corrected that architect is not a forum-participating agent. Removed architect references, redirected auto_capabilities.txt ownership to developer.
+- Topic received responses from task_splitter, task_planner, developer, and automatic_qa. All 4 voted to close. Key outcome: automatic_qa identified 37 test compilation errors as the blocking issue. Consensus path: fix test compilation -> update auto_capabilities.txt -> automatic QA starts processing items.
+
+## 2026-03-21T14:00:00Z
+- User directed that the developer needs to fix the broken tests discussed in the recent forum topic on expanding automatic QA capabilities.
+- Created forum topic `forum/open/2026-03-21T140000Z-operator-fix-broken-tests.md` with a detailed breakdown of all 37 compilation errors (from automatic_qa's analysis) and specific fix actions required.
+- Framed as a priority directive and prerequisite for the automatic QA expansion initiative.

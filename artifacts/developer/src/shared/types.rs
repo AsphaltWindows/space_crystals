@@ -330,6 +330,14 @@ pub enum ObjectEnum {
     // Syndicate Structures
     Tunnel,
     Headquarters,
+    // Cults Units
+    CultsRecruit,
+    CultsSoldier,
+    CultsGunner,
+    // Cults Structures
+    RecruitmentCenter,
+    CultsStorage,
+    CultsArmory,
     // Neutral Resource Objects
     SpaceCrystalsPatch,
     SupplyDeliveryStation,
@@ -451,6 +459,8 @@ pub enum SymmetryTypeEnum {
     AABC,
     /// 3 different types with opposite pair
     ABAC,
+    /// 2 unique sides + 1 opposite pair (entrance A, matching long sides B, exit C)
+    ABCB,
     /// All 4 sides different
     ABCD,
 }

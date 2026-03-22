@@ -153,3 +153,73 @@ Large batch of ~28 foundational feature requests arrived covering: tile terrain,
 
 ## Already-Processed Feature Requests (batch 20 - Camera)
 - **camera-pan-snap**: Design doc formalization of existing behavior. Camera instant-snap centering already implemented in two places: Alt-click portrait (hud.rs selection_portrait_click_system) and double-tap control group recall (resources.rs). Both use same z_offset formula (cam.y * 25.0 / 40.0). Created a single verification task.
+
+## Design Gap: ExtractionFacility Construction (2026-03-21) — RESOLVED
+- Designer added EF to DC Constructs list (200 SC, 320 frames) + ExtractionPlate Power -3
+- Split into 2 tasks: dc_buildmenu_add_ef (grid slot + construction_cost), extraction_plate_power_cost (PowerValue(-3) on spawn)
+
+## Already-Processed Feature Requests (rework 1 - factions_resources)
+- **factions_resources_r1**: QA rework — GDO/Syndicate passed, but 3 items failed: (1) GDO UC cap untestable (blocked on EF buildability), (2) Cults not startable, (3) Colonists not startable. Resource structs and HUD display code already exist for all 4 factions. setup_player_resources in faction.rs is hardcoded for 2-player GDO vs Syndicate. Split into 2 tasks: cults-colonists-game-start (expand AVAILABLE_FACTIONS + setup_player_resources for all 4 factions + stub game start functions), gdo-unit-control-cap-test (integration test for production blocking at cap since in-game QA blocked on EF).
+
+## Codebase Patterns (faction setup)
+- setup_player_resources (faction.rs) hardcoded for GDO vs Syndicate binary — needs refactor for 4-faction support
+- AVAILABLE_FACTIONS in menu.rs gates which factions are selectable (currently [GDO, Syndicate])
+- Each faction needs: InvisibleEntity+FactionEnum+DisplayHud entity, Player+DisplayHudInfo+FactionResources entity, and a setup_X_game_start function registered in world/mod.rs
+
+## Already-Processed Feature Requests (rework 2 - tile terrain)
+- **tile_terrain_system_r1**: QA rework — tile presets work but elevation not rendering (all tiles at Y=0). Root cause: spawn_grid hardcodes elevation=0 and Transform Y=0.0. Split into 1 task: tile_elevation_rendering (assign varied elevations per tile type, map elevation to Transform Y).
+
+## Already-Processed Feature Requests (rework 3 - unit bases movement)
+- **unit_bases_movement_collision_r1**: QA rework — LightInfantry (Peacekeeper) works but remaining 8 base types untestable. Root causes: (1) spawn_test_units only spawns Peacekeepers + 3 placeholder enemy units with wrong ObjectEnum/stats, (2) NO movement systems for FixedTurnRadius/SpeedTurnRadius/Drag/Glider models (only TurnRate implemented), (3) no crushing mechanic. Split into 4 tasks: test_unit_spawner_all_bases (spawn representative units for all 9 base types), vehicle_turn_movement_systems (FixedTurnRadius + SpeedTurnRadius), drag_glider_movement_systems (Drag + Glider), unit_crushing_mechanic (TrackedVehicle/Mech crush LightInfantry).
+
+## Codebase Patterns (movement systems)
+- `unit_movement_system`: generic fallback for non-TurnRate entities (simple waypoint following, no model-specific physics)
+- `turn_rate_movement_system`: TurnRate model (Peacekeeper, Agent, Guard, Mech)
+- `channel_turnrate_locomotion_system` + `channel_fallback_locomotion_system`: channel-driven variants
+- Movement param components: TurnRateMovementParams, FixedTurnRadiusMovementParams, SpeedTurnRadiusMovementParams, DragMovementParams, GliderMovementParams — all defined in movement.rs but only TurnRate has a movement system
+- All movement systems registered in UnitsPlugin Phase 3, grid_position_sync_system must run after all of them
+- SupplyChopper spawns with DragMovementParams but uses generic unit_movement_system (no drag physics)
+
+## Already-Processed Feature Requests (batch 21 - EP power penalty)
+- **extraction_plate_power_penalty**: Single task — extraction_plate_mining_system doesn't use power_ratio. Other production systems (barracks, DC, ST, HQ) all apply get_power_ratio_for_owner() to their progress counters. Mining timer needs same treatment (may require f32 conversion). Split into 1 task: extraction_plate_power_slowdown.
+
+## Already-Processed Feature Requests (batch 22 - ownership guard)
+- **command_panel_ownership_guard**: Bug fix — CommandPanel, hotkeys, and right-click resolution all operate on any selected entity regardless of ownership. `is_panel_visible()` checks for empty selection and resource-only but NOT ownership. `right_click_move_command()` checks target ownership (own tunnel, own ST) but not selected unit ownership. Single coherent concern → 1 task: command_panel_ownership_guard (add LocalPlayer+Owner guards to is_panel_visible, update_command_panel_state, command_panel_hotkeys, right_click_move_command, execute_command_action).
+
+## Already-Processed Feature Requests (batch 23 - camera starting position)
+- **camera_starting_position**: Camera spawns at (0,40,25) but primary structures are at grid (30,30) GDO / (40,40) Syndicate. Single task: add startup system that queries local player's primary structure (DC or Tunnel) and snaps camera to it. Uses existing snap formula from hud.rs/resources.rs.
+
+## Already-Processed Feature Requests (batch 24 - camera map override)
+- **camera_starting_position_map_override**: Extends camera starting position with map-defined per-player-slot positions. No MapStartingPositions resource or player slot concept exists yet. Single task: camera_map_starting_position (add MapStartingPositions resource + startup system with map-override-then-primary-structure fallback). Supersedes the previous camera_starting_position task scope — the new task includes the fallback behavior.
+
+## Already-Processed Feature Requests (batch 25 - Cults structures)
+- **cults_recruitment_center_and_storage**: First Cults faction structures. No Cults objects existed in ObjectEnum. Split into 5 tasks:
+  1. recruitment_center_structure — ObjectEnum::RecruitmentCenter, type data (4x4, AAAA), spawn function, RecruitmentCenterState component, Cults game start update
+  2. storage_structure — ObjectEnum::CultsStorage, type data (3x2, ABAB), spawn function
+  3. recruitment_area_tile_claiming — TileClaimMap resource, 10x10 area scanning, first-built priority claiming, effectiveness calculation, reclaim on destruction
+  4. recruitment_center_auto_production — Auto-production tick system (effectiveness-scaled rate/capacity), stub CultsRecruit unit, HUD UC aggregation from centers
+  5. cults_unit_control_tracking — OriginatingCenters component, lineage persistence through training, death → local_used decrement
+
+## Codebase Patterns (Cults faction)
+- CultsPlayerResources already exists with space_crystals, unit_control_used, unit_control_available — HUD display already wired
+- setup_cults_game_start exists and spawns a RecruitmentCenter at grid (50,30) with build_order from RecruitmentCenterCounter
+- TilePreset.recruitable field exists on all tile types (all except Water are recruitable)
+- RecruitmentCenter and CultsStorage ObjectEnum variants NOW EXIST with full type data, spawn functions, and tests
+- RecruitmentCenterState component fully defined (rally_point, claimed_tiles, effectiveness, local_capacity, local_used, production_progress, build_order)
+- RecruitmentCenterCounter resource for build-order priority tracking
+- No StructureMenuState variant for RecruitmentCenter yet (no command panel)
+- No CultsRecruit unit exists yet (stub to be created by recruitment_center_auto_production task)
+- No TileClaimMap or tile claiming system yet
+- No OriginatingCenters / UC tracking yet
+
+## Already-Processed Feature Requests (batch 26 - Cults objects formalized)
+- **cults_objects_formalized**: Formal design doc for Cults structures + building mechanics. Previous batch 25 tasks (recruitment_center_structure, storage_structure, recruitment_area_tile_claiming, recruitment_center_auto_production, cults_unit_control_tracking) cover structure data + tile claiming + auto-production + UC tracking. This feature adds: (1) RecruitmentCenter ObjectInterfaceState, (2) Cults building mechanics (Recruit-based construction). Split into 3 tasks:
+  1. recruitment_center_interface — StructureMenuState::RecruitmentCenterMenu, command panel (X=Cancel, C=Rally), right-click rally, AwaitingTarget resolution
+  2. cults_building_placement — Recruit Build Command flow (Construct submenu, building selection, ghost placement, walk-to-site command, Assist Construction AwaitingTarget)
+  3. cults_construction_system — CultsConstructionState component, Recruit enter behavior, construction tick (proportional to Recruit count), completion consumption, cancellation refund
+
+## Already-Processed Feature Requests (batch 27 - Cults Armory)
+- **add_cults_armory**: New Cults training building (3x2, ABCB). Recruits enter entrance side (A), stored internally (max 10), trained into Soldiers/Gunners consuming crystals, or ejected from exit side (C). Many values TBD (placeholder constants). No Soldier/Gunner ObjectEnum variants exist yet — stubs needed. Split into 3 tasks:
+  1. armory_structure — ObjectEnum::CultsArmory, type data (3x2 ABCB), ArmoryState component, spawn function, placeholder constants
+  2. armory_enter_mechanic — Recruit right-click→Enter Armory, walk to A side, enter and hide, StoredRecruits tracking, cap at 10
+  3. armory_interface_and_production — StructureMenuState::ArmoryMenu (Q=Soldier, W=Gunner, E=EjectAll, C=Rally), training tick system, eject system, stub CultsSoldier/CultsGunner ObjectEnum variants, info panel, availability gating

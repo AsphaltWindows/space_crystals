@@ -441,6 +441,8 @@ fn step_14_peacekeeper_no_attack_ground_capability() {
         can_target_ground: false,
         can_reverse: false,
         agent_carrying: false,
+        is_chopper: false,
+        chopper_has_supplies: false,
     };
 
     assert!(
@@ -462,6 +464,8 @@ fn step_15_peacekeeper_no_reverse_capability() {
         can_target_ground: false,
         can_reverse: false,
         agent_carrying: false,
+        is_chopper: false,
+        chopper_has_supplies: false,
     };
 
     assert!(

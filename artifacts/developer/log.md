@@ -1,5 +1,66 @@
 # Developer Session Log
 
+## 2026-03-22 — armory_enter_mechanic
+
+- **Task**: Implement CultsRecruit entering Armory mechanic
+- **Changes**:
+  - Added `UnitCommand::EnterArmory(Entity)` variant to commands.rs, updated `is_available()`, `command_state_sync_system`
+  - Added `EnteringArmoryBehavior` marker component to behavior.rs
+  - Added `enter_armory_dispatch_system` and `entering_armory_behavior_system` to behaviors.rs
+  - Added right-click resolution for Recruit→Armory in core.rs (added `Option<&ArmoryState>` to `target_info` query, updated all 8 destructure sites)
+  - Added `has_selected_recruits` flag, `EnterArmory` to command indicators
+  - Added `LocomotionChannel`/`OrientationChannel`/`Velocity` to `spawn_cults_recruit()`
+  - Registered new systems in UnitsPlugin Phase 2
+  - Added 13 new tests (3 command tests, 2 indicator tests, 4 dispatch tests, 4 behavior tests)
+- **Result**: 1830 lib tests pass, build clean
+
+## 2026-03-22 — recruitment_center_auto_production
+
+- **Task**: Implement RC auto-production system and unit control aggregation
+- **Changes**:
+  - Added `CultsRecruit` variant to `ObjectEnum` (shared/types.rs) and `object_type()` (game/types/objects.rs)
+  - Added `spawn_cults_recruit()` stub function in game/utils.rs (minimal placeholder unit)
+  - Added `recruitment_center_production_system` in game/world/faction.rs — auto-produces Recruits every 12s (192 frames) at 100% effectiveness, scaled inversely by effectiveness. Stops at local_capacity. Attaches OriginatingCenters. Issues rally Move command if rally_point set.
+  - Added `cults_unit_control_aggregation_system` — sums local_capacity/local_used across all RCs per player into CultsPlayerResources
+  - Registered both systems in FixedUpdate (DiagCategory::Construction) in game/world/mod.rs
+  - 9 new tests: production timing (100%/50%), capacity stop, resume after decrement, zero effectiveness skip, originating center attachment, rally command, aggregation summation, aggregation player isolation
+- **Tests**: 1779 lib tests pass (was 1770)
+
+## 2026-03-21 — recruitment_center_structure
+
+- **Task**: Add Recruitment Center structure for The Cults faction
+- **Changes**: Added ObjectEnum::RecruitmentCenter variant, object_type/structure_type implementations, RecruitmentCenterState component, RecruitmentCenterCounter resource, cults_structure_stats module, spawn_recruitment_center function, updated setup_cults_game_start to spawn RC at (50,50)
+- **Files modified**: shared/types.rs, game/types/objects.rs, game/types/structures.rs, game/utils.rs, game/world/faction.rs, game/world/mod.rs
+- **Tests**: 6 new tests (object_type, is_structure, is_not_unit, state defaults, counter increments, stats defined). All 1754 lib tests pass.
+
+## 2026-03-21 — camera_starting_position
+
+- **Task**: Add startup system to center camera on local player's primary structure at game start
+- **Changes**: Added `center_camera_on_start` system to `faction.rs`, registered in `mod.rs` FactionPlugin with `.after()` ordering on all setup functions. System queries for DeploymentCenter (GDO) or Tunnel (Syndicate) owned by local player and snaps camera using existing z_offset formula.
+- **Tests**: 3 new tests (GDO centering, Syndicate centering, no-structure no-op). All 1745 lib tests pass.
+
+## 2026-03-21 — dc_buildmenu_add_ef
+
+- **Task**: Add Extraction Facility to DC build menu grid and construction cost table
+- Added EF at grid slot (1,1) in DcBuildMenu match block in command_panel.rs
+- Added EF cost arm (200 SC, 320 frames) in structures.rs construction_cost()
+- Updated test: removed EF from "invalid returns none" test, added dedicated cost test
+- Added grid slot test dc_build_menu_ef_at_row1_col1
+- All 1733 tests pass
+
+## 2026-03-21 — tile_elevation_rendering
+
+- **Task**: Fix tile elevation rendering so tiles at different elevations appear at different Y heights
+- **Changes**: Modified `src/game/world/map.rs` — added `determine_elevation()` function (maps tile type to elevation range using simple_hash), added `ELEVATION_HEIGHT_STEP` constant (0.1), updated `spawn_grid` to use varied elevations and map them to Y coordinates
+- **Tests**: Added 10 tests covering all tile type ranges, determinism, MAX_ELEVATION compliance, variation, and ordering
+- **Result**: 31/31 map tests pass, build clean
+
+## 2026-03-21 — cults_colonists_game_start
+
+- **Task**: Make The Cults and Colonists factions selectable and startable
+- **Changes**: (1) menu.rs: expanded AVAILABLE_FACTIONS to all 4 factions, updated tests. (2) faction.rs: refactored setup_player_resources into match-based dispatch with spawn_faction_and_player helper, supporting all 4 factions. Added stub setup_cults_game_start and setup_colonists_game_start functions. (3) mod.rs: registered new game start systems. Added 6 new tests covering all faction selections and default resource values.
+- **Result**: 32/32 tests pass, clean compilation
+
 ## 2026-03-20 — pointer_display_rendering
 
 - **Task**: Implement pointer indicator rendering system that displays a colored overlay tracking cursor position based on PointerDisplayType
@@ -643,3 +704,262 @@
 - Confirmed camera_movement system (arrow key panning) doesn't interfere with snap
 - Added 5 unit tests for Alt-click snap centering: z_offset at default/zoomed heights, x exact targeting, formula parity with control group path, instant-no-interpolation verification
 - All 1683 lib tests pass
+
+## 2026-03-21 — No-work run
+
+- No pending planned_tasks in inbox
+- Single forum topic (`2026-03-21T12-00-00Z-operator-auto-qa-capability-expansion.md`) is an empty 0-byte file — cannot interact with it. Likely incomplete/malformed.
+- No action taken.
+
+## 2026-03-21 — No-work run (2nd)
+
+- Forum: empty topic was replaced by designer topic `2026-03-21T14-00-00Z-designer-empty-forum-topic.md` noting the empty file; that topic was subsequently closed before I could vote.
+- No pending planned_tasks in inbox.
+- No action taken.
+
+## 2026-03-21 — Forum pass (automatic QA capabilities)
+
+- Commented on operator forum topic `2026-03-21T120000-operator-expand-automatic-qa-capabilities.md` — provided developer assessment of what QA patterns are automatable via ECS tests, current test infrastructure status, and recommended approach.
+- No pending planned_tasks in inbox.
+
+## 2026-03-21 — No-work pass
+
+- Voted to close forum topic `2026-03-21T120000-operator-expand-automatic-qa-capabilities.md` (already commented previously).
+- No pending planned_tasks in inbox. No work available.
+
+## 2026-03-21 — Fix broken test compilation (operator directive)
+
+- **Forum topic**: `2026-03-21T140000Z-operator-fix-broken-tests.md`
+- Fixed all 37 compilation errors in integration test suite (`tests/qa/`, `tests/scenarios/`):
+  - Removed cfg gate on testing module (was `#[cfg(any(test, feature = "testing"))]`, now always available) — fixes 6 import errors + 9 missing function errors
+  - Added `is_chopper`/`chopper_has_supplies` fields to 4 `SelectedUnitCapabilities` initializers
+  - Fixed 6 deref errors: `*target` → `target`/`&value` comparison for Vec3/Entity/FullyConnectedSubtype
+  - Fixed 13 type inference errors: used `f32::abs()` function syntax + `EntityRef` closure annotation
+- Results: 1683 lib tests pass, 293 QA tests pass (21 pre-existing runtime failures), 27 scenario tests pass (1 pre-existing runtime failure)
+- Commented and voted to close forum topic
+
+## 2026-03-21 — Forum fix + no pending tasks
+
+- **Forum**: Fixed missing `diagnostics` feature in Cargo.toml (added `diagnostics = []` to `[features]`). Commented and voted to close topic.
+- **Tasks**: No pending planned_tasks. Exiting.
+
+## 2026-03-21 — Forum comment on EF build path
+
+- **Forum**: Commented on `2026-03-21T122500Z-manual_qa-cannot-build-extraction-facility.md` with root cause analysis. EF is missing from DC build menu and has no other construction path. DC's design spec only lists PowerPlant/Barracks/SupplyTower. Recommended escalation to designer for clarification.
+- **Tasks**: No pending planned_tasks. Exiting.
+
+## 2026-03-21 — Forum pass (no-work)
+
+- **Forum**: Voted to close EF topic (designer confirmed design gap). Commented on camera-centering topic with implementation feasibility assessment, voted to close.
+- **Tasks**: No pending planned_tasks. Exiting.
+
+## 2026-03-21 — Forum pass (no-work, session 2)
+
+- **Forum**: Voted to close camera-centering topic (all agents commented, awaiting designer interactive session). EF topic already closed-voted.
+- **Tasks**: No pending planned_tasks. Exiting.
+
+## 2026-03-21 — gdo_unit_control_cap_test
+
+- **Task**: Add integration tests for GDO unit control cap enforcement in barracks production
+- **Forum**: Both open topics already have developer vote — no action needed
+- **Implementation**: Added 4 new tests to `tests/qa/unit_cap_systems.rs`:
+  - `cost_zero_units_allowed_at_cap` — verifies cost-0 units (SupplyChopper, structures) are allowed at cap
+  - `barracks_production_increments_unit_control` — verifies production tick increments unit_control_used
+  - `barracks_production_spawns_even_at_cap` — documents that spawn-time has no cap check (can push over cap)
+  - `queue_time_cap_check_blocks_at_boundary` — verifies has_unit_control boundary checks for queue-time gating
+- **Key finding**: FixedUpdate systems don't fire in headless TestApp — used `run_system_once()` pattern (requires `use bevy::ecs::system::RunSystemOnce` trait import)
+- **All 8 unit_cap_systems tests pass, all 1689 lib tests pass**
+
+## 2026-03-21 — test_unit_spawner_all_bases
+
+- **Task**: Expand `spawn_test_units` to spawn one representative unit for each of the 9 UnitBaseEnum variants
+- **Changes**: Modified `core.rs` spawn_test_units function:
+  - Added Syndicate Agent and Guard via proper spawn helpers (spawn_syndicate_agent, spawn_syndicate_guard)
+  - Replaced 3 placeholder enemy units with 6 properly-configured test units (WheeledVehicle, TrackedVehicle, HoverVehicle, Mech, Glider, DrillUnit)
+  - Each unit has correct UnitBaseEnum, DomainEnum, movement param component, turret components, armor, channels
+  - Glider gets SeparationRadius for air domain; DrillUnit gets underground domain
+  - All units at distinct grid positions (33-41, 32)
+- **Build**: cargo check passes, cargo test --lib passes (1699 tests)
+- **Note**: ObjectEnum::Peacekeeper used as placeholder for vehicle/mech/glider types (TODO comments added)
+
+## 2026-03-21 — vehicle_turn_movement_systems
+
+- **Task**: Implement `fixed_turn_radius_movement_system` (WheeledVehicle) and `speed_turn_radius_movement_system` (TrackedVehicle)
+- **Implementation**:
+  - Added both systems to core.rs following turn_rate_movement_system pattern
+  - FixedTurnRadius: cannot turn in place (must creep forward), speed-dependent turn rate = speed/min_radius, reverse support when target >120° behind
+  - SpeedTurnRadius: can rotate freely when stationary, speed-dependent turning at speed (max_turn_rate = 1/ratio), slows for sharp turns
+  - Both use waypoint logic, ground collision via OccupancyMap, attack phase constraints
+  - Updated unit_movement_system, unit_rotation_system, and channel_fallback_locomotion_system filters to exclude all 4 specialized movement types (TurnRate, FixedTurnRadius, SpeedTurnRadius, Drag, Glider)
+  - Registered both systems in UnitsPlugin Phase 3, added grid_position_sync_system .after() constraints
+- **Tests**: 13 new tests (7 FixedTurnRadius, 6 SpeedTurnRadius) covering forward movement, turning behavior, collision, attack constraints, system exclusion
+- **Build**: cargo test --lib passes (1711 tests)
+
+## 2026-03-21 — unit_crushing_mechanic
+
+- **Forum**: Voted to close enemies-dont-attack-by-default (all agents agreed, pipeline tasks exist). Commented and voted on can-control-enemy-units-and-buildings (ownership filter gap in command systems).
+- **Task**: Implement unit crushing mechanic — TrackedVehicle and Mech crush enemy LightInfantry on contact.
+- **Changes**:
+  - Added `can_crush: bool` field to `UnitBaseData` in movement.rs; set `true` for TrackedVehicle and Mech, `false` for all others
+  - Added `crushing_system` in core.rs — AABB overlap in XZ plane, enemy-only, filters InTunnelNetwork
+  - Registered in UnitsPlugin Phase 3.5 (after movement, before grid sync) with `.after()` on all 6 movement systems
+  - Added `only_tracked_and_mech_can_crush` test in movement.rs
+- **Tests**: 8 new tests (1 movement type test + 7 crushing system tests: crush occurs, mech crushes, no friendly fire, heavy infantry survives, non-crusher no effect, no overlap no crush, in-tunnel excluded)
+- **Build**: cargo test --lib passes (1719 tests)
+
+## 2026-03-21 — drag_glider_movement_systems
+
+- **Task**: Implement `drag_movement_system` and `glider_movement_system` for physics-based movement
+- **Forum**: Voted to close enemy-unit-control topic (already commented previously)
+- **Implementation**:
+  - `drag_movement_system`: thrust (forward + omni) and drag physics. Idle = drag-only decel. Active = waypoint following with turn rate. Ground collision for ground-domain, air skips collision.
+  - `glider_movement_system`: always-moving air unit. Idle = constant right turn at idle_speed. Active = accelerate to max_speed, speed-dependent turn radius (radius = speed^2 / max_centripetal_accel). Fly-through waypoints without stopping.
+  - Registered both in UnitsPlugin Phase 3 with `.after()` on crushing_system and grid_position_sync_system
+- **Tests**: 12 new tests (6 drag: accelerate, drag-decel, max_speed, move-complete, filter exclusion, air height; 6 glider: idle circling, accelerate, never-stops, decel-to-idle, speed-dependent radius, filter exclusion)
+- **Build**: cargo test --lib passes (1731 tests)
+
+## 2026-03-21 — extraction_plate_power_cost
+
+- **Task**: Add PowerValue(-3) component to Extraction Plate entities so they consume power from the GDO grid
+- **Implementation**:
+  - Added `EP_POWER = -3` constant to `gdo_structure_stats` in structures.rs
+  - Added `PowerValue(EP_POWER)` to `spawn_extraction_plate()` component bundle in utils.rs
+  - Updated existing `extraction_plate_has_no_power_cost` test → `extraction_plate_power_cost` (asserts EP_POWER == -3)
+  - Added `extraction_plate_power_is_consumer` test (PowerValue < 0)
+  - Added `EP_POWER` to `power_constants_values` test
+  - Added integration test in faction.rs: spawns PP + 3 EPs, runs compute_power_grid, verifies generated/consumed/net power
+- **Build**: cargo test --lib passes (1735 tests)
+
+## 2026-03-21 — extraction_plate_power_slowdown
+
+- **Task**: Apply power_ratio slowdown to Extraction Plate mining system
+- **Changes**:
+  - Changed `ExtractionPlateState.mining_timer` from `u32` to `f32` and `EXTRACTION_PLATE_MINING_INTERVAL` from `u32` to `f32` in structures.rs
+  - Applied `get_power_ratio_for_owner()` in `extraction_plate_mining_system` (faction.rs) — timer increments by power_ratio instead of 1
+  - Updated all `mining_timer: 0` literals to `0.0` across faction.rs, utils.rs, combat/systems/core.rs
+  - Added 2 tests: `extraction_plate_mining_slowed_by_power_deficit` (verifies 0.5 ratio doubles mining time) and `extraction_plate_mining_full_power` (verifies normal-speed mining)
+- **Build**: cargo test --lib passes (1737 tests)
+
+## 2026-03-21 — command_panel_ownership_guard
+
+- **Task**: Add ownership guard so command panel, hotkeys, and right-click commands only function for local player's units/structures
+- **Changes**:
+  - Added `selection_owned_by_local_player()` helper in `command_panel.rs`
+  - Added `owned_by_local_player: bool` field to `SelectedUnitCapabilities` resource
+  - `update_command_panel_state`: Added `LocalPlayer` + `Owner` query params, early-returns with state reset when selection not owned
+  - `rebuild_command_panel_ui`: Added `!unit_caps.owned_by_local_player` guard alongside `is_panel_visible`
+  - `command_panel_hotkeys`: Same ownership guard added
+  - `right_click_move_command`: Added inline ownership guard using existing `local_player` and `Owner` in query
+  - `handle_command_button_clicks`: Protected indirectly — no buttons rendered when panel hidden
+- **Tests**: 5 new unit tests for `selection_owned_by_local_player` (own/enemy/neutral/mixed/empty)
+- **Result**: 1742 lib tests pass (5 new)
+
+## 2026-03-21 — camera_map_starting_position
+
+- **Task**: Add `MapStartingPositions` resource and extend `center_camera_on_start` to check map-defined positions before falling back to primary structure
+- **Changes**:
+  - `game/world/types.rs`: Added `MapStartingPositions` resource (HashMap<u8, (i32, i32)>)
+  - `game/world/faction.rs`: Extended `center_camera_on_start` with `Res<MapStartingPositions>` param, grid_to_world conversion, priority check before structure fallback
+  - `game/world/mod.rs`: Registered `MapStartingPositions` with `init_resource`
+- **Tests**: 3 existing tests updated (added `init_resource::<MapStartingPositions>`), 3 new tests (map override priority, no matching slot fallback, grid conversion)
+- **Result**: All 6 center_camera tests pass, 1748 total lib tests
+
+## 2026-03-21 — storage_structure
+
+- **Task**: Add Cults Storage structure (passive drop-off point for Space Crystals)
+- **Changes**:
+  - `shared/types.rs`: Added `CultsStorage` variant to `ObjectEnum`
+  - `game/types/objects.rs`: Added `object_type()` (3x2, destructible, sight 3, groupable) and `structure_type()` (ABAB symmetry), updated test arrays
+  - `game/types/structures.rs`: Added `STORAGE_MAX_HP`, `STORAGE_POINT_ARMOR`, `STORAGE_FULL_ARMOR` constants to `cults_structure_stats`
+  - `game/utils.rs`: Added `spawn_cults_storage()` function (dark purple 3x2 cuboid, concurrent drop-off comment)
+- **Tests**: 5 new tests (object_type, is_structure, is_not_unit, stats_defined, spawn_with_components)
+- **Result**: All 1759 lib tests pass
+
+## 2026-03-21 — recruitment_area_tile_claiming
+
+- **Task**: Implement Recruitment Area tile claiming system for Recruitment Centers
+- **Changes**:
+  - `game/world/types.rs`: Added `TileClaimMap` resource with `claim_tile`, `unclaim_tile`, `is_claimed`, `unclaim_all_for` methods
+  - `game/world/faction.rs`: Added `recruitment_tile_claiming_system` — clears stale claims (approach B), builds recruitable tile lookup, sorts RCs by build_order, claims tiles with priority, updates effectiveness and local_capacity
+  - `game/world/mod.rs`: Registered `TileClaimMap` resource and `recruitment_tile_claiming_system` in Update/DiagCategory::Faction
+- **Tests**: 6 new tests (tile_claim_map_basic_operations, rc_all_recruitable_terrain_full_effectiveness, rc_half_recruitable_terrain_half_effectiveness, rc_overlapping_areas_first_built_has_priority, rc_destruction_frees_tiles_for_others, rc_near_map_edge_clamps_area)
+- **Result**: All 1765 lib tests pass
+
+## 2026-03-22 — cults_unit_control_tracking
+
+- **Task**: Implement OriginatingCenters component and death tracking system for Cults unit control
+- **Changes**:
+  - `game/units/types/unit_data.rs`: Added `OriginatingCenters` component (Vec<Entity> of originating RCs)
+  - `game/combat/systems/core.rs`: Added `cults_unit_death_tracking_system` — decrements RC `local_used` on unit death via saturating_sub, gracefully handles destroyed centers
+  - `game/combat/mod.rs`: Registered system with `.before(remove_dead_entities_system)` ordering in CombatPlugin
+- **Tests**: 5 new tests (single center decrement, multiple centers, destroyed center graceful handling, saturating_sub underflow prevention, alive units skipped)
+- **Result**: All 1770 lib tests pass
+
+## 2026-03-22 — recruitment_center_interface
+
+- **Task**: Implement ObjectInterfaceState for RecruitmentCenter (command panel, rally point, cancel production)
+- **Changes**:
+  - `ui/types.rs`: Added `StructureMenuState::RecruitmentCenterMenu` and `CommandButtonAction::RcCancel`
+  - `ui/command_panel.rs`: Added RC grid slot actions (Cancel Prod at X, Rally at C), state detection, title/info panel with production %, escape handler, execute handler for RcCancel (resets production_progress to 0), right_click_cancel_target with RallyTargetKind::RecruitmentCenter, progress refresh system, extended bk_hq_query to include RC
+  - `game/units/systems/core.rs`: Extended set_rally_point_click_system with RC branch (rally_point is Vec3 not RallyTarget), returns to RecruitmentCenterMenu after setting rally
+  - `game/world/faction.rs`: Extended production_rally_point_system with RC right-click rally support
+  - `game/world/resources.rs`: Added RecruitmentCenterMenu to interface_state_validation_system match
+- **Tests**: 9 new tests (grid slot cancel/rally/empty, cancel label, right_click returns RC menu, is_not_placement_mode, rc_cancel/set_rally not unit actions)
+- **Result**: All 1788 lib tests pass
+
+## 2026-03-22 — cults_construction_system
+
+- **Task**: Implement Cults construction execution system — Recruits entering buildings, proportional speedup, completion consumption, cancellation
+- **Changes**:
+  - `game/types/structures.rs`: Added `CultsConstructionState` component + `STORAGE_BUILD_FRAMES = 300` constant
+  - `game/units/types/state/commands.rs`: Added `UnitCommand::ConstructBuilding(Entity)`, `CommandType::ConstructBuilding`, `CommandType::AssistConstruction`, updated `is_available()`, `name()`, `hotkey()`, `command_state_sync_system`
+  - `game/units/systems/behaviors.rs`: Added `cults_recruit_enter_construction_system` — Recruits walk to building, enter when within 2.0 distance, become Hidden
+  - `game/world/faction.rs`: Added `cults_construction_tick_system` (progress scales with recruit count), `cults_construction_cancel_system` (eject recruits on death), modified `construction_hp_tick_system` with `Without<CultsConstructionState>` filter
+  - `game/world/mod.rs`: Registered `cults_construction_tick_system` in FixedUpdate Construction set
+  - `game/combat/mod.rs`: Registered `cults_construction_cancel_system` before `remove_dead_entities_system`
+  - `game/units/mod.rs`: Registered `cults_recruit_enter_construction_system` in Phase 2 behaviors
+  - `game/units/systems/core.rs`: Added ConstructBuilding/AssistConstruction arms to right_click_move_command match
+- **Tests**: 18 new tests (construction tick, proportional speedup, cancellation, HP scaling, behavior entry, command types)
+- **Result**: All 1806 lib tests pass
+
+## 2026-03-22 — armory_structure
+
+- **Task**: Add Cults Armory structure to the game (ObjectEnum, ObjectType, StructureType, ArmoryState, spawn function, constants)
+- **Changes**:
+  - `shared/types.rs`: Added `CultsArmory` to ObjectEnum, `ABCB` to SymmetryTypeEnum
+  - `game/types/objects.rs`: Added CultsArmory entries in object_type(), structure_type(), oriented_labels(). Added ABCB to oriented_labels base match.
+  - `game/types/structures.rs`: Added Armory constants (ARMORY_MAX_HP=300, ARMORY_POINT_ARMOR=1, ARMORY_FULL_ARMOR=4, etc.), ArmoryState component with stored_recruits, training_queue, training_progress, rally_point
+  - `game/utils.rs`: Added spawn_cults_armory() (3x2, ABCB symmetry, Armor component), added ABCB to side_labels()
+- **Tests**: 11 new tests (ObjectType properties, symmetry, structure validation, spawn components, ArmoryState default)
+- **Result**: All 1817 lib tests pass
+
+## 2026-03-22 — armory_interface_and_production
+
+- **Task picked up**: Implement Armory command panel interface, training production, and eject mechanic
+- **Implementation underway**: Reading codebase, planning changes across ui/types.rs, command_panel.rs, faction.rs, game/utils.rs, game/world/mod.rs, resources.rs
+- **Build/test cycle**: Compilation passes, all 1830 tests pass. Now adding tests.
+- **Completion**: Armory interface and production fully implemented.
+- **Files modified**:
+  - `shared/types.rs`: Added CultsSoldier, CultsGunner to ObjectEnum
+  - `game/types/objects.rs`: Added ObjectType entries and is_unit() for CultsSoldier/CultsGunner
+  - `game/types/structures.rs`: Added ArmoryState::training_cost() and training_frames() helpers
+  - `ui/types.rs`: Added StructureMenuState::ArmoryMenu, 3 CommandButtonAction variants, ArmoryEjectionQueue component
+  - `ui/command_panel.rs`: Full Armory interface — grid layout, update_command_panel_state, rebuild_command_panel_ui info panel, execute_command_action handlers (train/eject), grid_button_enabled_ext, grid_button_label, right_click_cancel_target, Escape handler, RallyTargetKind::Armory
+  - `game/utils.rs`: Added spawn_cults_soldier() and spawn_cults_gunner() placeholder spawn functions
+  - `game/world/faction.rs`: Added armory_training_tick_system, armory_eject_tick_system, armory_exit_side_position helper, ArmoryMenu rally point in production_rally_point_system
+  - `game/world/mod.rs`: Registered armory_training_tick_system and armory_eject_tick_system
+  - `game/world/resources.rs`: Added ArmoryMenu to interface_state_validation_system
+- **Tests**: 28 new tests (grid layout, labels, unit actions, rally cancel, exit position, training tick, eject system, ArmoryState helpers, ObjectType properties)
+- **Result**: All 1858 lib tests pass
+
+## 2026-03-22 — cults_building_placement
+
+- **Task**: Implement Cults building placement flow — Recruit command panel, placement system, ConstructBuilding command issuance
+- **Changes**:
+  - `ui/types.rs`: Added `CultsRecruitMenuState` enum (RecruitDefault, RecruitConstructMenu, RecruitAwaitingPlacement), `CultsRecruitMenu` variant on ObjectInterfaceState, `RecruitConstruct`/`RecruitSelectBuilding`/`RecruitAssistConstruction` CommandButtonAction variants, updated is_placement_mode
+  - `ui/command_panel.rs`: Added CultsRecruitMenu grid slot actions, update_command_panel_state Recruit routing, rebuild_command_panel_ui titles, Escape/Back handlers, execute_command_action handlers, is_unit_action/object_type_supports_action/grid_button_label/grid_button_enabled_ext for new variants, is_panel_visible support
+  - `game/utils.rs`: Added `spawn_cults_storage_under_construction()` — under_construction + ConstructionHP + CultsConstructionState
+  - `game/world/faction.rs`: Updated manage_placement_ghost, update_placement_ghost (can_worker_place_structure validation), placement_click_system (right-click cancel, left-click spawn + ConstructBuilding to recruits), manage_build_area_overlay (no overlay for Cults), added selected_recruits query
+  - `game/world/resources.rs`: Added CultsRecruitMenu to interface_state_validation_system
+- **Tests**: 8 new tests (grid layout, placement mode, unit actions, object type support, labels, titles)
+- **Result**: All 1866 lib tests pass

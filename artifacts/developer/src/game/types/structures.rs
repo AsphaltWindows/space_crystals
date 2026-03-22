@@ -97,6 +97,10 @@ impl DeploymentCenterState {
                 space_crystals: 200,
                 build_frames: 240,
             }),
+            ObjectEnum::ExtractionFacility => Some(StructureCost {
+                space_crystals: 200,
+                build_frames: 320,
+            }),
             _ => None,
         }
     }
@@ -227,13 +231,13 @@ pub struct ExtractionPlateState {
     /// The SpaceCrystalsPatch entity this plate is mining
     pub attached_patch: Entity,
     /// Frames since last mining tick
-    pub mining_timer: u32,
+    pub mining_timer: f32,
 }
 
 /// Mining constants for Extraction Plates
 pub const EXTRACTION_PLATE_MINING_RATE: u32 = 10;
 pub const EXTRACTION_PLATE_RESIDUAL_RATE: u32 = 1;
-pub const EXTRACTION_PLATE_MINING_INTERVAL: u32 = 48;
+pub const EXTRACTION_PLATE_MINING_INTERVAL: f32 = 48.0;
 
 // === Tunnel Expansions ===
 
@@ -417,6 +421,7 @@ pub mod gdo_structure_stats {
     pub const EP_POINT_ARMOR: u32 = 2;
     pub const EP_FULL_ARMOR: u32 = 2;
     pub const EP_BUILD_RADIUS: u32 = 0;
+    pub const EP_POWER: i32 = -3;
 
     // Supply Tower
     pub const ST_MAX_HP: f32 = 400.0;
@@ -457,6 +462,144 @@ pub mod syndicate_structure_stats {
     pub const HQ_FULL_ARMOR: u32 = 4;
     pub const HQ_SC_COST: u32 = 200;
     pub const HQ_BUILD_FRAMES: u32 = 400; // 25 seconds at 16 FPS
+}
+
+/// Structure stat constants for Cults structures
+pub mod cults_structure_stats {
+    // Recruitment Center
+    pub const RC_MAX_HP: f32 = 1000.0; // Same as DC (4x4 primary structure)
+    pub const RC_POINT_ARMOR: u32 = 1;
+    pub const RC_FULL_ARMOR: u32 = 16;
+
+    // Armory
+    pub const ARMORY_MAX_HP: f32 = 300.0;
+    pub const ARMORY_POINT_ARMOR: u32 = 1;
+    pub const ARMORY_FULL_ARMOR: u32 = 4;
+    pub const ARMORY_SC_COST: u32 = 150; // TBD placeholder
+    pub const ARMORY_INTERNAL_RECRUIT_CAPACITY: usize = 10;
+    pub const SOLDIER_TRAINING_COST: u32 = 75; // TBD placeholder
+    pub const SOLDIER_TRAINING_FRAMES: u32 = 160; // TBD placeholder
+    pub const GUNNER_TRAINING_COST: u32 = 100; // TBD placeholder
+    pub const GUNNER_TRAINING_FRAMES: u32 = 200; // TBD placeholder
+
+    // Storage
+    pub const STORAGE_MAX_HP: f32 = 200.0;
+    pub const STORAGE_POINT_ARMOR: u32 = 1;
+    pub const STORAGE_FULL_ARMOR: u32 = 4;
+    /// Build frames for Cults Storage with 1 Recruit (~18.75 seconds at 16fps)
+    pub const STORAGE_BUILD_FRAMES: u32 = 300;
+}
+
+// === Cults Construction ===
+
+/// Component tracking Cults building construction state.
+/// Attached to Cults buildings spawned under construction.
+/// Progress scales linearly with the number of assigned Recruits.
+#[derive(Component, Clone, Debug)]
+pub struct CultsConstructionState {
+    /// Entities of Recruits currently inside the building (hidden, consumed on completion)
+    pub assigned_recruits: Vec<Entity>,
+    /// Frames of construction progress completed
+    pub construction_progress: u32,
+    /// Total frames needed to complete construction (base, with 1 Recruit)
+    pub total_construction_frames: u32,
+}
+
+impl CultsConstructionState {
+    /// Create a new CultsConstructionState with the given total frames.
+    pub fn new(total_construction_frames: u32) -> Self {
+        Self {
+            assigned_recruits: Vec::new(),
+            construction_progress: 0,
+            total_construction_frames,
+        }
+    }
+}
+
+// === Recruitment Center ===
+
+/// Counter resource for assigning monotonic build_order to Recruitment Centers
+#[derive(Resource, Default)]
+pub struct RecruitmentCenterCounter {
+    next_id: u64,
+}
+
+impl RecruitmentCenterCounter {
+    /// Get the next build order value and increment the counter
+    pub fn next(&mut self) -> u64 {
+        let id = self.next_id;
+        self.next_id += 1;
+        id
+    }
+}
+
+/// Instance state for the Recruitment Center (Cults primary structure)
+#[derive(Component, Clone, Debug)]
+pub struct RecruitmentCenterState {
+    /// Rally point for produced Recruits
+    pub rally_point: Option<Vec3>,
+    /// Grid positions of claimed Recruitable tiles
+    pub claimed_tiles: Vec<(i32, i32)>,
+    /// Cached ratio of claimed_recruitable / total_tiles_in_area
+    pub effectiveness: f32,
+    /// floor(20 * effectiveness), max unit control from this center
+    pub local_capacity: u32,
+    /// Unit control currently used by units originating from this center
+    pub local_used: u32,
+    /// Frames accumulated toward next Recruit
+    pub production_progress: u32,
+    /// Monotonic counter for first-built priority
+    pub build_order: u64,
+}
+
+impl Default for RecruitmentCenterState {
+    fn default() -> Self {
+        Self {
+            rally_point: None,
+            claimed_tiles: Vec::new(),
+            effectiveness: 0.0,
+            local_capacity: 0,
+            local_used: 0,
+            production_progress: 0,
+            build_order: 0,
+        }
+    }
+}
+
+// === Armory ===
+
+/// Instance state for the Cults Armory structure.
+/// Stores Recruits internally for training into Soldiers/Gunners.
+#[derive(Component, Clone, Debug, Default)]
+pub struct ArmoryState {
+    /// Entities of Recruits stored inside the Armory (max ARMORY_INTERNAL_RECRUIT_CAPACITY)
+    pub stored_recruits: Vec<Entity>,
+    /// Current training order (which unit type to produce), None if idle
+    pub training_queue: Option<ObjectEnum>,
+    /// Frames of training progress elapsed
+    pub training_progress: u32,
+    /// Rally point for trained units
+    pub rally_point: Option<RallyTarget>,
+}
+
+impl ArmoryState {
+    /// Get the training cost in Space Crystals for a given unit type.
+    pub fn training_cost(unit_type: &ObjectEnum) -> Option<u32> {
+        match unit_type {
+            ObjectEnum::CultsSoldier => Some(cults_structure_stats::SOLDIER_TRAINING_COST),
+            ObjectEnum::CultsGunner => Some(cults_structure_stats::GUNNER_TRAINING_COST),
+            _ => None,
+        }
+    }
+
+    /// Get the training frames for a given unit type.
+    pub fn training_frames(unit_type: &ObjectEnum) -> Option<u32> {
+        match unit_type {
+            ObjectEnum::CultsSoldier => Some(cults_structure_stats::SOLDIER_TRAINING_FRAMES),
+            ObjectEnum::CultsGunner => Some(cults_structure_stats::GUNNER_TRAINING_FRAMES),
+            _ => None,
+        }
+    }
 }
 
 // === Transit Tier ===
@@ -764,6 +907,7 @@ mod tests {
     use super::*;
     use super::gdo_structure_stats::*;
     use super::syndicate_structure_stats::*;
+    use crate::types::SymmetryTypeEnum;
 
     #[test]
     fn power_value_generator_is_positive() {
@@ -787,6 +931,7 @@ mod tests {
         assert_eq!(PP_POWER, 20);
         assert_eq!(BK_POWER, -30);
         assert_eq!(EF_POWER, -15);
+        assert_eq!(EP_POWER, -3);
     }
 
     #[test]
@@ -805,11 +950,15 @@ mod tests {
     }
 
     #[test]
-    fn extraction_plate_has_no_power_cost() {
-        // Extraction Plates don't have a power constant — they don't consume power
-        // Only the Extraction Facility does
-        assert_eq!(EF_POWER, -15);
-        // EP has no power field in gdo_structure_stats (verify by absence)
+    fn extraction_plate_power_cost() {
+        // Extraction Plates consume 3 power each
+        assert_eq!(EP_POWER, -3);
+    }
+
+    #[test]
+    fn extraction_plate_power_is_consumer() {
+        let pv = PowerValue(EP_POWER);
+        assert!(pv.0 < 0, "Extraction Plate should consume power");
     }
 
     // --- ConstructionHP tests ---
@@ -1178,7 +1327,13 @@ mod tests {
     fn dc_construction_cost_invalid_returns_none() {
         assert!(DeploymentCenterState::construction_cost(&ObjectEnum::Peacekeeper).is_none());
         assert!(DeploymentCenterState::construction_cost(&ObjectEnum::SpaceCrystalsPatch).is_none());
-        assert!(DeploymentCenterState::construction_cost(&ObjectEnum::ExtractionFacility).is_none());
+    }
+
+    #[test]
+    fn dc_construction_cost_extraction_facility() {
+        let cost = DeploymentCenterState::construction_cost(&ObjectEnum::ExtractionFacility).unwrap();
+        assert_eq!(cost.space_crystals, 200);
+        assert_eq!(cost.build_frames, 320);
     }
 
     // === DC Cancellation Refund Tests ===
@@ -2067,5 +2222,91 @@ mod tests {
     fn supply_tower_state_default_has_no_rally_point() {
         let state = SupplyTowerState::default();
         assert!(state.rally_point.is_none());
+    }
+
+    // === Recruitment Center Tests ===
+
+    #[test]
+    fn recruitment_center_object_type_correct() {
+        let ot = ObjectEnum::RecruitmentCenter.object_type();
+        assert_eq!(ot.name, "Recruitment Center");
+        assert_eq!(ot.size, (4, 4));
+        assert!(ot.destructible);
+        assert_eq!(ot.sight_range, 6);
+        assert!(!ot.groupable);
+    }
+
+    #[test]
+    fn recruitment_center_is_structure() {
+        assert!(ObjectEnum::RecruitmentCenter.is_structure());
+        let st = ObjectEnum::RecruitmentCenter.structure_type().unwrap();
+        assert_eq!(st.symmetry_type, SymmetryTypeEnum::AAAA);
+    }
+
+    #[test]
+    fn recruitment_center_is_not_unit() {
+        assert!(!ObjectEnum::RecruitmentCenter.is_unit());
+    }
+
+    #[test]
+    fn recruitment_center_state_default_values() {
+        let state = RecruitmentCenterState::default();
+        assert!(state.rally_point.is_none());
+        assert!(state.claimed_tiles.is_empty());
+        assert_eq!(state.effectiveness, 0.0);
+        assert_eq!(state.local_capacity, 0);
+        assert_eq!(state.local_used, 0);
+        assert_eq!(state.production_progress, 0);
+        assert_eq!(state.build_order, 0);
+    }
+
+    #[test]
+    fn recruitment_center_counter_increments() {
+        let mut counter = RecruitmentCenterCounter::default();
+        assert_eq!(counter.next(), 0);
+        assert_eq!(counter.next(), 1);
+        assert_eq!(counter.next(), 2);
+    }
+
+    #[test]
+    fn recruitment_center_stats_defined() {
+        use super::cults_structure_stats::*;
+        assert!(RC_MAX_HP > 0.0);
+        assert!(RC_POINT_ARMOR > 0);
+        assert!(RC_FULL_ARMOR > 0);
+        assert!(RC_FULL_ARMOR > RC_POINT_ARMOR);
+    }
+
+    // === Cults Storage Tests ===
+
+    #[test]
+    fn cults_storage_object_type_correct() {
+        let ot = ObjectEnum::CultsStorage.object_type();
+        assert_eq!(ot.name, "Storage");
+        assert_eq!(ot.size, (3, 2));
+        assert!(ot.destructible);
+        assert_eq!(ot.sight_range, 3);
+        assert!(ot.groupable);
+    }
+
+    #[test]
+    fn cults_storage_is_structure() {
+        assert!(ObjectEnum::CultsStorage.is_structure());
+        let st = ObjectEnum::CultsStorage.structure_type().unwrap();
+        assert_eq!(st.symmetry_type, SymmetryTypeEnum::ABAB);
+    }
+
+    #[test]
+    fn cults_storage_is_not_unit() {
+        assert!(!ObjectEnum::CultsStorage.is_unit());
+    }
+
+    #[test]
+    fn cults_storage_stats_defined() {
+        use super::cults_structure_stats::*;
+        assert_eq!(STORAGE_MAX_HP, 200.0);
+        assert!(STORAGE_POINT_ARMOR > 0);
+        assert!(STORAGE_FULL_ARMOR > 0);
+        assert!(STORAGE_FULL_ARMOR > STORAGE_POINT_ARMOR);
     }
 }

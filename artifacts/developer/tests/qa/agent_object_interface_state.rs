@@ -655,6 +655,8 @@ fn agent_drop_off_disabled_when_not_carrying() {
         can_target_ground: false,
         can_reverse: false,
         agent_carrying: false,
+        is_chopper: false,
+        chopper_has_supplies: false,
     };
     assert!(!caps.agent_carrying, "Drop Off button should be disabled when agent not carrying");
 }
@@ -667,6 +669,8 @@ fn agent_drop_off_enabled_when_carrying() {
         can_target_ground: false,
         can_reverse: false,
         agent_carrying: true,
+        is_chopper: false,
+        chopper_has_supplies: false,
     };
     assert!(caps.agent_carrying, "Drop Off button should be enabled when agent is carrying");
 }

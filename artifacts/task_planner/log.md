@@ -1,5 +1,133 @@
 # Task Planner Session Log
 
+## 2026-03-22T10:00:00Z — Planned: cults_building_placement
+- Investigated: placement ghost system (faction.rs:1194-1665), Agent placement flow as reference, ObjectInterfaceState/AgentMenuState patterns, command panel grid layout, CultsStorage spawn function, ConstructionHP component, update_command_panel_state agent detection
+- Key findings: CultsRecruit doesn't exist in ObjectEnum yet (added by recruitment_center_auto_production, in progress). Designed CultsRecruitMenu as new ObjectInterfaceState variant (parallel to AgentMenu). Cults placement uses can_worker_place_structure (no build area). placement_click_system needs selected_recruits query added. Need new UnitCommand::ConstructBuilding(Entity) and CommandType::AssistConstruction.
+- No forum topics to process
+
+## 2026-03-21T23:00:00Z — Planned: cults_unit_control_tracking
+- Investigated: OriginatingCenters component placement, remove_dead_entities_system in combat/systems/core.rs, RecruitmentCenterState.local_used, system ordering in CombatPlugin
+- Key findings: No OriginatingCenters exists yet. Death tracking must run BEFORE remove_dead_entities_system (which despawns). Component goes in unit_data.rs alongside UnitControlCost. System uses is_alive() check + saturating_sub pattern. No RemovedComponents needed.
+- Produced: planned_task for developer with full file paths, query signatures, ordering constraints, and test patterns
+
+## 2026-03-21T22:30:00Z — Planned: recruitment_center_auto_production
+- Investigated: barracks/HQ production patterns in faction.rs, RecruitmentCenterState fields, CultsPlayerResources, HUD display
+- Key findings: RC rally_point is Option<Vec3> (not RallyTarget), HUD already displays UC from CultsPlayerResources, CultsRecruit ObjectEnum variant doesn't exist yet
+- Produced planned_task with 7 file change sites, spawn function pattern, aggregation system design, and test guidance
+- Noted OriginatingCenters dependency on sibling cults_unit_control_tracking task
+
+## 2026-03-21T21:45:00Z — Planned: recruitment_area_tile_claiming
+- Input: `task_splitter-recruitment_area_tile_claiming.md` (parent: `task_splitter-cults_recruitment_center_and_storage.md`)
+- Investigated: RecruitmentCenterState fields (already defined with claimed_tiles, effectiveness, local_capacity), TilePreset.recruitable field, tile query patterns in faction.rs, TileClaimMap placement options, remove_dead_entities_system for destruction cleanup, spawn_recruitment_center() params, 10x10 area math, TestHarness tile helpers
+- Key findings: All RC state fields already exist and default to empty/zero. TileClaimMap goes in game/world/types.rs alongside other map resources. Recommended self-healing stale claim cleanup over RemovedComponents to avoid cross-schedule ordering issues
+- Output: `task_planner-recruitment_area_tile_claiming.md` → developer
+- No forum topics, 2 remaining pending tasks (recruitment_center_auto_production, cults_unit_control_tracking)
+
+## 2026-03-21T21:00:00Z — Planned: recruitment_center_structure
+- Input: `task_splitter-recruitment_center_structure.md` (parent: `task_splitter-cults_recruitment_center_and_storage.md`)
+- Investigated: ObjectEnum patterns, spawn functions (DC as closest analog), structure stats modules, setup_cults_game_start stub, CultsPlayerResources, design doc for Cults objects
+- Key findings: setup_cults_game_start is a stub needing full Commands/Assets params; no cults_structure_stats module exists yet; need RecruitmentCenterCounter Resource for build_order
+- Output: planned_task with 6 files to modify, detailed spawn function guidance, test array updates needed
+- No forum topics open
+
+## 2026-03-21T19:30:00Z — Planned: camera_map_starting_position
+- No forum topics to process
+- Planned task `camera_map_starting_position` (parent: camera_starting_position_map_override)
+- Key finding: `center_camera_on_start` system already exists at faction.rs:202-226 doing the structure fallback
+- Task extends it to check `MapStartingPositions` resource first, using `grid_to_world` for coordinate conversion
+- 3 files to change: types.rs (new resource), faction.rs (modify system), mod.rs (init_resource)
+- 3 existing tests need `init_resource::<MapStartingPositions>()` added; 3 new tests recommended
+
+## 2026-03-21T17:05:00Z — Forum only (no pending tasks)
+- Commented on and voted to close forum topic: "Player can control enemy units and buildings"
+- Confirmed ownership gap in 3 command-issuing systems (right_click_move_command, command_panel_hotkeys, execute_command_action) plus update_command_panel_state
+- No pending developer_tasks to process
+
+## 2026-03-22T00:15:00Z — Planned vehicle_turn_movement_systems
+- Processed developer_task for two new MoveTarget/Path-driven movement systems: `fixed_turn_radius_movement_system` (WheeledVehicle) and `speed_turn_radius_movement_system` (TrackedVehicle)
+- Investigated `turn_rate_movement_system` as reference pattern, movement param types, UnitsPlugin registration, query exclusion patterns
+- Documented filter updates needed on `unit_movement_system` and `channel_fallback_locomotion_system`
+- Recommended adding all 4 movement param exclusions at once to avoid merge conflicts with sibling tasks
+- Added "Movement System Architecture" insight section
+- No forum topics to process
+
+## 2026-03-21T23:59:00Z — Planned test_unit_spawner_all_bases
+
+- **Input**: `task_splitter-test_unit_spawner_all_bases.md` (parent: unit_bases_movement_collision_r1)
+- **Task**: Expand `spawn_test_units` to spawn all 9 UnitBaseEnum variants with correct movement params, turret components, domains, and armor
+- **Investigation**: Examined `spawn_test_units` (core.rs:25-140), all 5 movement param types (movement.rs), `spawn_peacekeeper`/`spawn_syndicate_agent`/`spawn_syndicate_guard` (game/utils.rs), `create_turret_for_unit` (combat/utils.rs), `UnitBaseEnum::data()` (movement.rs:298-393), ObjectEnum variants (shared/types.rs:316-336)
+- **Key findings**: Current code uses `ObjectEnum::Peacekeeper` for all enemy units (bug). No ObjectEnum variants exist for vehicles/mechs/gliders yet. All movement param types already importable via wildcard. `SeparationRadius` needed for air units (Glider).
+- **Output**: `task_planner-test_unit_spawner_all_bases.md` sent to developer
+- No forum topics needed
+
+## 2026-03-21T23:55:00Z — Planned tile_elevation_rendering
+
+- Forum: No open topics
+- Task: `tile_elevation_rendering` from feature `tile_terrain_system_r1` (sole task in feature)
+- Investigation: Examined `spawn_grid` in map.rs (lines 75-135), `TilePlacement`/`ElevationMap` types, `simple_hash`, downstream consumers in combat systems
+- Key findings: All infrastructure exists (TilePlacement validates 0-16, ElevationMap resource, combat systems already consume elevation). Only map.rs needs changes: new `determine_elevation()` function, new `ELEVATION_HEIGHT_STEP` constant, two line changes in `spawn_grid`
+- Noted grid lines draw at Y=0.005 (will clip under elevated tiles) -- flagged as out of scope
+- Sent planned_task to developer
+
+## 2026-03-21T23:30:00Z — Planned gdo_unit_control_cap_test
+
+- Forum: Both open topics already have my votes, no action needed
+- Processed `task_splitter-gdo_unit_control_cap_test` → `task_planner-gdo_unit_control_cap_test`
+- Key finding: Extensive unit control cap tests already exist in factions.rs (5 tests) and unit_cap_systems.rs (3 integration tests)
+- Highlighted that barracks_production_tick_system does NOT check has_unit_control at spawn time — only at queue time
+- Directed developer to focus on: production system gating test, SupplyChopper cost-0 test, unit_control_used increment verification
+
+## 2026-03-21T23:00:00Z — Planned cults_colonists_game_start
+
+- Forum: Both open topics already have my votes, no action needed
+- Planned task `cults_colonists_game_start` (parent: factions_resources_r1): Add TheCults and Colonists to AVAILABLE_FACTIONS in menu.rs, expand setup_player_resources() in faction.rs to handle 4 factions, create stub game start functions, register in mod.rs. Standalone task, no dependencies. Noted that ColonistsPlayerResources::default() has conduits=0, not 10 as stated in task description.
+
+## 2026-03-21T22:00:00Z — No-work session
+
+- Forum: Voted to close `2026-03-21T122700Z-manual_qa-syndicate-camera-not-centered-on-starting-tunnel.md` (all agents have commented, awaiting designer interactive session)
+- Already voted on EF forum topic previously
+- No pending developer_tasks found
+- No stuck or malformed messages
+
+## 2026-03-21T19:00:00Z — Forum comment session
+
+- Forum: Commented on `2026-03-21T122500Z-manual_qa-cannot-build-extraction-facility.md` with codebase analysis
+  - Root cause: EF correctly removed from DC build menu per design, but no alternative build path exists
+  - `setup_gdo_game_start()` only spawns DC; DC menu has PP/BK/ST only; spawn code exists but is unreachable
+  - Flagged as design gap requiring designer decision
+- No pending developer_tasks
+
+## 2026-03-21T18:00:00Z — No-work session
+
+- Forum: Voted to close `2026-03-21T122200Z-manual_qa-build-qa-artifact-missing-diagnostics-feature.md` — issue resolved by developer, topic closed (all votes in)
+- No pending developer_tasks found
+
+## 2026-03-21T17:00:00Z — No-work session
+
+- Forum: Voted to close `2026-03-21T140000Z-operator-fix-broken-tests.md` — all test compilation issues resolved by developer
+- No pending developer_tasks found
+- No stuck or malformed messages detected
+
+## 2026-03-21T15:00:00Z — Forum comment on broken tests directive
+
+- Forum: Commented on `2026-03-21T140000Z-operator-fix-broken-tests.md` with detailed technical analysis
+  - Root cause: `testing` feature not defined in Cargo.toml, causing cascade of 37 compilation errors
+  - 4 `SelectedUnitCapabilities` initializers need `is_chopper`/`chopper_has_supplies` fields
+  - "Missing" assertion functions actually exist in `shared/testing/assertions.rs` — just inaccessible due to feature gate
+- No pending developer_tasks to process
+
+## 2026-03-21T12:00:00Z — No work available
+
+- Forum: 1 open topic (`auto-qa-capability-expansion`) is 0 bytes (empty file, not yet populated)
+
+## 2026-03-21T15:00:00Z — No work available
+
+- Forum: Voted to close `empty-forum-topic` (housekeeping issue about empty 0-byte file, already flagged by designer)
+- No pending developer_tasks
+- Pending developer_tasks: none
+- Active developer_tasks: none
+- No action taken
+
 ## 2026-03-20T24:10:00Z — Planned camera-pan-snap-verify
 
 - Processed developer_task: camera-pan-snap-verify (parent: task_splitter-camera-pan-snap.md)
@@ -833,3 +961,151 @@
 - Key findings: DropOffSupplies doesn't exist yet anywhere. PickUpSupplies/AttachToTower exist as UnitCommand variants but map to CommandType::Default. carried_units field doesn't exist on SupplyChopperState — noted as TODO in plan.
 - Produced planned_task with detailed file-level guidance for all 4 change sites
 - 3 remaining pending tasks: supply-chopper-behaviors, supply-chopper-interface, supply-chopper-command-panel
+
+## 2026-03-21T12:30:00Z — No work available
+
+- Forum: 1 open topic (`auto-qa-capability-expansion`) still empty (0 bytes) — cannot comment or vote
+- Pending developer_tasks: none
+- Active developer_tasks: none
+- No stuck or malformed messages found
+
+## 2026-03-21T14:00:00Z — Forum only
+
+- Forum: Commented on `expand-automatic-qa-capabilities` topic with codebase architecture analysis (existing test patterns, automatable vs manual QA categories, test infrastructure references). Voted to close.
+- No pending developer_tasks found.
+
+## 2026-03-21T16:00:00Z — Forum vote only
+
+- Forum: Voted to close `expand-automatic-qa-capabilities` topic (already commented in prior session).
+- No pending developer_tasks found.
+
+## 2026-03-21T18:00:00Z — No work available
+
+- Forum: `expand-automatic-qa-capabilities` already had my comment and vote from prior session. Confirmed vote registered.
+- No pending developer_tasks in inbox.
+- All 59 developer_tasks in done/.
+
+## 2026-03-21T16:00:00Z — No-work session, forum vote
+
+- Forum: Voted to close `2026-03-21T140000Z-operator-fix-broken-tests.md` — analysis already provided in prior session
+- No pending developer_tasks found
+
+## 2026-03-21T16:00:00Z — Forum close vote + no-work check
+
+- Forum: Voted to close `2026-03-21T140000Z-operator-fix-broken-tests.md` — test compilation confirmed fixed by automatic_qa
+- No pending developer_tasks in inbox
+
+## 2026-03-21T18:00:00Z — Forum comment + no-work check
+
+- Forum: Commented on `2026-03-21T122200Z-manual_qa-build-qa-artifact-missing-diagnostics-feature.md` — confirmed `diagnostics = []` already exists in Cargo.toml line 71, voted to close as resolved
+- No pending developer_tasks in inbox
+
+## 2026-03-21T21:00:00Z — Forum votes, no pending tasks
+
+- Forum: Commented on camera centering topic with technical context (camera spawns at fixed origin, needs post-faction-setup repositioning)
+- Forum: Voted to close both open topics (camera centering, EF build path)
+- No pending developer_tasks found
+
+## 2026-03-21T20:00:00Z — No-work session (forum only)
+
+- Forum: Voted to close `2026-03-21T122700Z-manual_qa-syndicate-camera-not-centered-on-starting-tunnel.md` — discussion complete, all agents agree on approach, awaiting feature_request
+- No pending developer_tasks found
+- No stuck or malformed messages
+
+### 2026-03-21 — drag_glider_movement_systems
+
+- Planned `drag_glider_movement_systems` task from parent feature `unit_bases_movement_collision_r1`
+- Investigated existing movement systems (turn_rate, unit_movement, channel_turnrate, channel_fallback) for patterns
+- Confirmed DragMovementParams/GliderMovementParams types and helper methods already exist in movement.rs
+- Confirmed existing system filters already exclude Drag/Glider param types — no filter changes needed
+- Produced planned_task with physics model details (drag formula, thrust decomposition, glider circling/fly-through behavior)
+- No forum topics to process
+
+### 2026-03-21 — unit_crushing_mechanic
+
+- Forum: Commented on and voted to close `enemies-dont-attack-by-default` topic (known issue tracked by existing tasks)
+- Planned `unit_crushing_mechanic` task from parent feature `unit_bases_movement_collision_r1`
+- Investigated `UnitBaseData` struct — `crushable` field exists, `can_crush` field needs to be added
+- Confirmed TrackedVehicle and Mech are the only crushers per design doc
+- Mapped death pipeline: `apply_damage(MAX)` → `remove_dead_entities_system` handles cleanup
+- Provided AABB overlap approach using `Silhouette` component dimensions
+- Noted Bevy query disjointness concern for dual `With<Unit>` queries (crusher + crushable)
+- Included system registration with `.after()` constraints on all 6 movement systems
+
+## 2026-03-21T18:30:00Z — Planned dc_buildmenu_add_ef
+- Processed developer_task: Add Extraction Facility to DC BuildMenu grid and construction cost table
+- Investigated: command_panel.rs DcBuildMenu grid (line 59-64), structures.rs construction_cost() (line 86-101), existing tests (line 1164-1182, 1993-1997), grid test patterns (line 3776-3801)
+- Produced planned_task with 4 file change sites, test updates, and confirmed no new imports or systems needed
+- No forum topics to process
+
+## 2026-03-21T18:30:00Z — Planned extraction_plate_power_cost
+
+- Processed developer_task `extraction_plate_power_cost` from feature `dc_builds_extraction_facility`
+- Task: Add `PowerValue(-3)` to ExtractionPlate spawn + constant + tests
+- Key findings: existing test `extraction_plate_has_no_power_cost` (structures.rs:812) explicitly asserts plates don't consume power — needs updating. No `EP_POWER` constant exists yet. `compute_power_grid` will auto-detect new PowerValue. HUD query already includes `Option<&PowerValue>`.
+- Sent planned_task to developer
+
+## 2026-03-21T18:30:00Z — Planned: extraction_plate_power_slowdown
+- Investigated `extraction_plate_mining_system` (faction.rs:563-595) and `ExtractionPlateState` (structures.rs:230)
+- Identified `mining_timer: u32` needs to become `f32` for fractional power_ratio increments
+- Mapped all callers of `mining_timer` field (faction.rs test spawns, utils.rs spawn, combat test)
+- Referenced `ef_construction_tick_system` as the closest pattern match
+- System already has `GdoPlayerResources` query; just needs `get_power_ratio_for_owner()` call
+- Sent planned_task with full file paths, line numbers, and test guidance
+
+## 2026-03-21T18:45:00Z — Planned: command_panel_ownership_guard
+- Investigated 5 change sites: `is_panel_visible` (line 268), `update_command_panel_state` (line 283), `command_panel_hotkeys` (line 822), `handle_command_button_clicks` (line 791), `right_click_move_command` (core.rs line 241)
+- Confirmed `right_click_move_command` already has `LocalPlayer` and `&Owner` in query — only needs guard logic
+- Identified `is_panel_visible` needs signature change (add `&LocalPlayer`, `&Query<&Owner>`) with 2 call sites to update
+- Recommended `selection_owned_by_local_player()` helper pattern for reuse across systems
+- No forum topics open; no new refactor concerns found
+- Sent planned_task to developer
+
+## 2026-03-21T18:15:00Z — Planned camera_starting_position task
+- Processed developer_task: camera_starting_position
+- Investigated camera snap pattern in resources.rs (control group double-tap) and hud.rs (portrait alt-click)
+- Confirmed system should use OnEnter(AppState::InGame), not Startup, matching existing game-start registration
+- Provided complete system signature with proper query disambiguation (Without<MainCamera>)
+- Noted .after() ordering on all four faction setup functions
+- Sent planned_task to developer
+
+## 2026-03-21T22:00:00Z — Planned storage_structure task
+- Processed developer_task: storage_structure (parent: cults_recruitment_center_and_storage)
+- Investigated: spawn_barracks pattern (utils.rs:247-298), ObjectEnum variants (shared/types.rs:316), object_type/structure_type matches (objects.rs), cults_structure_stats module (structures.rs:468), RC spawn function (utils.rs:946-983)
+- Key findings: Barracks is exact 3x2 analog, ABAB symmetry already supported in side_labels, cults_structure_stats import already in utils.rs, no Armor component on GDO/Syndicate structure spawns (only on units)
+- No forum topics needed — straightforward addition following established patterns
+- Sent planned_task to developer
+
+## 2026-03-22T00:00:00Z — Session
+
+- **Forum**: No open topics to process
+- **Task processed**: `task_splitter-recruitment_center_interface.md` → `task_planner-recruitment_center_interface.md`
+- **Investigation**: Mapped all change sites for RC interface across 4 files (ui/types.rs, ui/command_panel.rs, game/units/systems/core.rs, game/world/faction.rs). Identified 10+ specific change sites in command_panel.rs. Key finding: RC rally_point is Option<Vec3> unlike other structures' Option<RallyTarget>, requiring conversion in rally systems.
+- **Insights updated**: Added RC Interface Implementation Notes section
+
+## 2026-03-22T12:00:00Z — Planned: cults_construction_system
+
+- **Forum**: No open topics to process
+- **Task processed**: `task_splitter-cults_construction_system.md` → `task_planner-cults_construction_system.md`
+- **Investigation**: Analyzed ConstructionHP (structures.rs), construction_hp_tick_system (faction.rs:946), building_tunnel_behavior_system (behaviors.rs:1010-1182), spawn_cults_recruit/spawn_cults_storage (utils.rs), remove_dead_entities_system (combat/core.rs:776)
+- **Key findings**: UnitCommand::ConstructBuilding doesn't exist yet; generic construction_hp_tick_system needs Without<CultsConstructionState> filter to avoid double-progression; Recruits lack movement channel components
+- **Insights updated**: Added Cults Construction System Notes section
+
+## 2026-03-22T14:00:00Z — Planned: armory_structure
+- Investigated: ObjectEnum variants (shared/types.rs:316), SymmetryTypeEnum (shared/types.rs:446), BarracksState/RecruitmentCenterState patterns (structures.rs), spawn_cults_storage pattern (utils.rs:988), cults_structure_stats module (structures.rs:468), Armor component (combat/types.rs:183), RallyTarget type (structures.rs:57), validate_size() logic (objects.rs:33), design doc (cults_objects.md:108)
+- Key findings: ABCB symmetry type missing from enum — must be added. RallyPointTarget doesn't exist — task description error, use RallyTarget. StructureType has no armor fields — armor is a separate component. CultsStorage spawn doesn't include Armor but Armory should.
+- Output: planned_task sent to developer for armory_structure
+- No forum topics to process
+
+## 2026-03-22T15:00:00Z — Planned: armory_enter_mechanic
+- Investigated: EnteringTunnelBehavior pattern (behavior.rs:134-162), enter_command_dispatch_system (behaviors.rs:465-513), entering_tunnel_behavior_system (behaviors.rs:524-572), right_click_move_command entity-click handlers (core.rs:340-695), UnitCommand::Enter is_available gating (commands.rs:65), target_info query (core.rs:249), spawn_cults_recruit components (utils.rs:1043-1074), has_selected_agents/choppers flags (core.rs:322-324)
+- Key findings: Enter is gated by is_syndicate — need separate EnterArmory variant. spawn_cults_recruit lacks LocomotionChannel/OrientationChannel (needs fixing for movement). target_info query needs ArmoryState added (affects 10+ destructure sites). Pattern: dispatch validates + inserts marker, behavior moves + hides + stores in Vec<Entity>.
+- Output: planned_task sent to developer for armory_enter_mechanic
+- Dependencies: armory_structure must land first (defines ArmoryState, CultsArmory, constants)
+- No forum topics to process
+
+## 2026-03-22T18:30:00Z — Planned: armory_interface_and_production
+- Investigated: StructureMenuState enum, get_grid_slot_action grid patterns, execute_command_action (BkTrain/HqTrain/RcCancel as reference), production_rally_point_system, RallyTargetKind enum, ejection_tick_system (tunnel eject pattern), grid_button_enabled_ext availability checks, CultsPlayerResources (not currently in command_panel.rs), update_command_panel_state structure matching
+- Key findings: CultsArmory/ArmoryState/CultsSoldier/CultsGunner don't exist yet (created by armory_structure task). execute_command_action lacks CultsPlayerResources access — needs new query param + find_cults_resources_mut helper. ArmoryEjectionQueue needs to be a separate component from tunnel EjectionQueue. Armory rally_point is Option<RallyTarget> (not Option<Vec3> like RC).
+- Dependencies: armory_structure (types/constants), armory_enter_mechanic (stored_recruits population + recruit movement components)
+- Output: planned_task sent to developer

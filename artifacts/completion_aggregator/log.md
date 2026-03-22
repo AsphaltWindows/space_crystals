@@ -533,3 +533,118 @@
 - 2026-03-21T01:03:39-04:00: Produced qa_item: worker_built_validation
 - 2026-03-21T01:03:39-04:00: Moved all messages to done for feature: worker_built_validation
 - 2026-03-21T01:03:39-04:00: Aggregator pass complete
+- 2026-03-21T12:34:24-04:00: Activated feature_request: task_splitter-factions_resources_r1.md
+- 2026-03-21T12:34:24-04:00: Activated feature_tasks: task_splitter-factions_resources_r1.md
+- 2026-03-21T12:34:24-04:00: Aggregator pass complete
+- 2026-03-21T12:39:25-04:00: Activated task_completion: developer-cults_colonists_game_start.md
+- 2026-03-21T12:39:25-04:00: Aggregator pass complete
+- 2026-03-21T12:46:07-04:00: Activated feature_request: task_splitter-tile_terrain_system_r1.md
+- 2026-03-21T12:46:07-04:00: Activated feature_tasks: task_splitter-tile_terrain_system_r1.md
+- 2026-03-21T12:46:07-04:00: Aggregator pass complete
+- 2026-03-21T12:47:07-04:00: Activated task_completion: developer-gdo_unit_control_cap_test.md
+- 2026-03-21T12:47:07-04:00: All tasks complete for task_splitter-factions_resources_r1.md — producing qa_item
+- 2026-03-21T12:47:07-04:00: Produced qa_item: factions_resources_r1
+- 2026-03-21T12:47:07-04:00: Moved all messages to done for feature: factions_resources_r1
+- 2026-03-21T12:47:07-04:00: Aggregator pass complete
+- 2026-03-21T12:49:27-04:00: Activated task_completion: developer-tile_elevation_rendering.md
+- 2026-03-21T12:49:27-04:00: All tasks complete for task_splitter-tile_terrain_system_r1.md — producing qa_item
+- 2026-03-21T12:49:27-04:00: Produced qa_item: tile_terrain_system_r1
+- 2026-03-21T12:49:27-04:00: Moved all messages to done for feature: tile_terrain_system_r1
+- 2026-03-21T12:49:27-04:00: Aggregator pass complete
+- 2026-03-21T12:51:48-04:00: Activated feature_request: task_splitter-unit_bases_movement_collision_r1.md
+- 2026-03-21T12:51:48-04:00: Activated feature_tasks: task_splitter-unit_bases_movement_collision_r1.md
+- 2026-03-21T12:51:48-04:00: Aggregator pass complete
+- 2026-03-21T12:55:48-04:00: Activated task_completion: developer-test_unit_spawner_all_bases.md
+- 2026-03-21T12:55:48-04:00: Aggregator pass complete
+- 2026-03-21T13:02:09-04:00: Activated task_completion: developer-vehicle_turn_movement_systems.md
+- 2026-03-21T13:02:10-04:00: Aggregator pass complete
+- 2026-03-21T13:07:11-04:00: Activated task_completion: developer-unit_crushing_mechanic.md
+- 2026-03-21T13:07:11-04:00: Aggregator pass complete
+- 2026-03-21T13:12:33-04:00: Activated task_completion: developer-drag_glider_movement_systems.md
+- 2026-03-21T13:12:33-04:00: All tasks complete for task_splitter-unit_bases_movement_collision_r1.md — producing qa_item
+- 2026-03-21T13:12:33-04:00: Produced qa_item: unit_bases_movement_collision_r1
+- 2026-03-21T13:12:33-04:00: Moved all messages to done for feature: unit_bases_movement_collision_r1
+- 2026-03-21T13:12:33-04:00: Aggregator pass complete
+- 2026-03-21T16:26:52-04:00: Activated feature_request: task_splitter-dc_builds_extraction_facility.md
+- 2026-03-21T16:26:52-04:00: Aggregator pass complete
+- 2026-03-21T16:27:12-04:00: Activated feature_tasks: task_splitter-dc_builds_extraction_facility.md
+- 2026-03-21T16:27:13-04:00: Aggregator pass complete
+- 2026-03-21T16:28:53-04:00: Activated feature_request: task_splitter-extraction_plate_power_penalty.md
+- 2026-03-21T16:28:53-04:00: Activated feature_tasks: task_splitter-extraction_plate_power_penalty.md
+- 2026-03-21T16:28:53-04:00: Aggregator pass complete
+- 2026-03-21T16:29:13-04:00: Activated task_completion: developer-dc_buildmenu_add_ef.md
+- 2026-03-21T16:29:13-04:00: Aggregator pass complete
+- 2026-03-21T16:31:14-04:00: Activated feature_request: task_splitter-command_panel_ownership_guard.md
+- 2026-03-21T16:31:14-04:00: Activated feature_tasks: task_splitter-command_panel_ownership_guard.md
+- 2026-03-21T16:31:14-04:00: Aggregator pass complete
+- 2026-03-21T16:36:16-04:00: Activated task_completion: developer-extraction_plate_power_cost.md
+- 2026-03-21T16:36:16-04:00: All tasks complete for task_splitter-dc_builds_extraction_facility.md — producing qa_item
+- 2026-03-21T16:36:16-04:00: Produced qa_item: dc_builds_extraction_facility
+- 2026-03-21T16:36:16-04:00: Moved all messages to done for feature: dc_builds_extraction_facility
+- 2026-03-21T16:36:16-04:00: Aggregator pass complete
+- 2026-03-21T16:39:17-04:00: Activated task_completion: developer-extraction_plate_power_slowdown.md
+- 2026-03-21T16:39:17-04:00: All tasks complete for task_splitter-extraction_plate_power_penalty.md — producing qa_item
+- 2026-03-21T16:39:17-04:00: Produced qa_item: extraction_plate_power_penalty
+- 2026-03-21T16:39:17-04:00: Moved all messages to done for feature: extraction_plate_power_penalty
+- 2026-03-21T16:39:17-04:00: Aggregator pass complete
+- 2026-03-21T16:46:00-04:00: Activated task_completion: developer-command_panel_ownership_guard.md
+- 2026-03-21T16:46:00-04:00: All tasks complete for task_splitter-command_panel_ownership_guard.md — producing qa_item
+- 2026-03-21T16:46:00-04:00: Produced qa_item: command_panel_ownership_guard
+- 2026-03-21T16:46:00-04:00: Moved all messages to done for feature: command_panel_ownership_guard
+- 2026-03-21T16:46:00-04:00: Aggregator pass complete
+- 2026-03-21T23:16:14-04:00: Activated feature_request: task_splitter-camera_starting_position.md
+- 2026-03-21T23:16:14-04:00: Activated feature_tasks: task_splitter-camera_starting_position.md
+- 2026-03-21T23:16:14-04:00: Aggregator pass complete
+- 2026-03-21T23:18:35-04:00: Activated feature_request: task_splitter-camera_starting_position_map_override.md
+- 2026-03-21T23:18:35-04:00: Activated feature_tasks: task_splitter-camera_starting_position_map_override.md
+- 2026-03-21T23:18:35-04:00: Aggregator pass complete
+- 2026-03-21T23:21:36-04:00: Activated task_completion: developer-camera_starting_position.md
+- 2026-03-21T23:21:36-04:00: All tasks complete for task_splitter-camera_starting_position.md — producing qa_item
+- 2026-03-21T23:21:36-04:00: Produced qa_item: camera_starting_position
+- 2026-03-21T23:21:36-04:00: Moved all messages to done for feature: camera_starting_position
+- 2026-03-21T23:21:36-04:00: Aggregator pass complete
+- 2026-03-21T23:24:17-04:00: Activated task_completion: developer-camera_map_starting_position.md
+- 2026-03-21T23:24:17-04:00: All tasks complete for task_splitter-camera_starting_position_map_override.md — producing qa_item
+- 2026-03-21T23:24:17-04:00: Produced qa_item: camera_starting_position_map_override
+- 2026-03-21T23:24:17-04:00: Moved all messages to done for feature: camera_starting_position_map_override
+- 2026-03-21T23:24:17-04:00: Aggregator pass complete
+- 2026-03-21T23:44:46-04:00: Activated feature_request: task_splitter-cults_recruitment_center_and_storage.md
+- 2026-03-21T23:44:46-04:00: Activated feature_tasks: task_splitter-cults_recruitment_center_and_storage.md
+- 2026-03-21T23:44:46-04:00: Aggregator pass complete
+- 2026-03-21T23:49:48-04:00: Activated task_completion: developer-recruitment_center_structure.md
+- 2026-03-21T23:49:48-04:00: Aggregator pass complete
+- 2026-03-21T23:54:50-04:00: Activated task_completion: developer-storage_structure.md
+- 2026-03-21T23:54:50-04:00: Aggregator pass complete
+- 2026-03-21T23:57:31-04:00: Activated feature_request: task_splitter-cults_objects_formalized.md
+- 2026-03-21T23:57:31-04:00: Activated feature_tasks: task_splitter-cults_objects_formalized.md
+- 2026-03-21T23:57:31-04:00: Aggregator pass complete
+- 2026-03-21T23:59:32-04:00: Activated task_completion: developer-recruitment_area_tile_claiming.md
+- 2026-03-21T23:59:32-04:00: Aggregator pass complete
+- 2026-03-22T00:03:33-04:00: Activated task_completion: developer-cults_unit_control_tracking.md
+- 2026-03-22T00:03:33-04:00: Aggregator pass complete
+- 2026-03-22T00:09:36-04:00: Activated task_completion: developer-recruitment_center_auto_production.md
+- 2026-03-22T00:09:36-04:00: All tasks complete for task_splitter-cults_recruitment_center_and_storage.md — producing qa_item
+- 2026-03-22T00:09:36-04:00: Produced qa_item: cults_recruitment_center_and_storage
+- 2026-03-22T00:09:36-04:00: Moved all messages to done for feature: cults_recruitment_center_and_storage
+- 2026-03-22T00:09:36-04:00: Aggregator pass complete
+- 2026-03-22T00:18:19-04:00: Activated feature_request: task_splitter-add_cults_armory.md
+- 2026-03-22T00:18:19-04:00: Activated feature_tasks: task_splitter-add_cults_armory.md
+- 2026-03-22T00:18:19-04:00: Aggregator pass complete
+- 2026-03-22T00:18:39-04:00: Activated task_completion: developer-recruitment_center_interface.md
+- 2026-03-22T00:18:39-04:00: Aggregator pass complete
+- 2026-03-22T00:27:23-04:00: Activated task_completion: developer-cults_construction_system.md
+- 2026-03-22T00:27:23-04:00: Aggregator pass complete
+- 2026-03-22T00:34:26-04:00: Activated task_completion: developer-armory_structure.md
+- 2026-03-22T00:34:26-04:00: Aggregator pass complete
+- 2026-03-22T00:42:09-04:00: Activated task_completion: developer-armory_enter_mechanic.md
+- 2026-03-22T00:42:09-04:00: Aggregator pass complete
+- 2026-03-22T01:02:17-04:00: Activated task_completion: developer-armory_interface_and_production.md
+- 2026-03-22T01:02:17-04:00: All tasks complete for task_splitter-add_cults_armory.md — producing qa_item
+- 2026-03-22T01:02:17-04:00: Produced qa_item: add_cults_armory
+- 2026-03-22T01:02:17-04:00: Moved all messages to done for feature: add_cults_armory
+- 2026-03-22T01:02:17-04:00: Aggregator pass complete
+- 2026-03-22T01:11:01-04:00: Activated task_completion: developer-cults_building_placement.md
+- 2026-03-22T01:11:01-04:00: All tasks complete for task_splitter-cults_objects_formalized.md — producing qa_item
+- 2026-03-22T01:11:01-04:00: Produced qa_item: cults_objects_formalized
+- 2026-03-22T01:11:01-04:00: Moved all messages to done for feature: cults_objects_formalized
+- 2026-03-22T01:11:01-04:00: Aggregator pass complete

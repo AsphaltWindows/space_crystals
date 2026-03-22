@@ -2,7 +2,8 @@ use bevy::prelude::*;
 use crate::types::{Unit, Owner, DomainEnum, GridPosition};
 use crate::game::types::ObjectInstance;
 use crate::utils::is_enemy;
-use crate::game::units::types::{UnitCommand, UnitControlCost, TurretCommandState};
+use crate::game::units::types::{UnitCommand, UnitControlCost, TurretCommandState, OriginatingCenters};
+use crate::game::types::structures::RecruitmentCenterState;
 use crate::game::types::factions::{Player, GdoPlayerResources};
 use crate::game::world::types::{ElevationMap, elevation_modifier, SpaceCrystalPatch};
 use crate::game::types::structures::ExtractionPlateState;
@@ -753,6 +754,24 @@ pub fn apply_damage_system(
     }
 }
 
+/// System to decrement Recruitment Center `local_used` when Cults units die.
+/// Must run BEFORE `remove_dead_entities_system` so OriginatingCenters can be read before despawn.
+pub fn cults_unit_death_tracking_system(
+    dying_units: Query<(&ObjectInstance, &OriginatingCenters)>,
+    mut rc_query: Query<&mut RecruitmentCenterState>,
+) {
+    for (obj, origins) in dying_units.iter() {
+        if !obj.is_alive() {
+            for &center_entity in &origins.centers {
+                if let Ok(mut rc_state) = rc_query.get_mut(center_entity) {
+                    rc_state.local_used = rc_state.local_used.saturating_sub(1);
+                }
+                // If center entity doesn't exist (destroyed), get_mut returns Err — gracefully skipped
+            }
+        }
+    }
+}
+
 /// System to remove dead entities (units and structures) and decrement unit cap on death
 pub fn remove_dead_entities_system(
     mut commands: Commands,
@@ -1041,7 +1060,7 @@ mod tests {
         let patch_entity = Entity::from_raw_u32(42).unwrap();
         let plate = ExtractionPlateState {
             attached_patch: patch_entity,
-            mining_timer: 0,
+            mining_timer: 0.0,
         };
         assert_eq!(plate.attached_patch, patch_entity);
     }
@@ -1690,5 +1709,128 @@ mod tests {
                 }
             }
         }
+    }
+
+    // === cults_unit_death_tracking_system ===
+
+    #[test]
+    fn death_tracking_decrements_local_used_on_single_center() {
+        use bevy::ecs::system::RunSystemOnce;
+        use crate::types::ObjectEnum;
+
+        let mut world = World::new();
+
+        // Spawn an RC with local_used = 1
+        let rc = world.spawn(RecruitmentCenterState {
+            local_used: 1,
+            ..Default::default()
+        }).id();
+
+        // Spawn a dead unit originating from this center
+        let mut obj = ObjectInstance::destructible(ObjectEnum::Peacekeeper, 100.0);
+        obj.hp = Some(0.0); // dead
+        world.spawn((obj, OriginatingCenters { centers: vec![rc] }));
+
+        world.run_system_once(cults_unit_death_tracking_system);
+
+        let rc_state = world.get::<RecruitmentCenterState>(rc).unwrap();
+        assert_eq!(rc_state.local_used, 0);
+    }
+
+    #[test]
+    fn death_tracking_decrements_multiple_centers() {
+        use bevy::ecs::system::RunSystemOnce;
+        use crate::types::ObjectEnum;
+
+        let mut world = World::new();
+
+        let rc_a = world.spawn(RecruitmentCenterState {
+            local_used: 3,
+            ..Default::default()
+        }).id();
+        let rc_b = world.spawn(RecruitmentCenterState {
+            local_used: 1,
+            ..Default::default()
+        }).id();
+
+        // Unit trained from A twice and B once (e.g. merged cost)
+        let mut obj = ObjectInstance::destructible(ObjectEnum::Peacekeeper, 100.0);
+        obj.hp = Some(0.0);
+        world.spawn((obj, OriginatingCenters { centers: vec![rc_a, rc_a, rc_b] }));
+
+        world.run_system_once(cults_unit_death_tracking_system);
+
+        let a_state = world.get::<RecruitmentCenterState>(rc_a).unwrap();
+        assert_eq!(a_state.local_used, 1); // 3 - 2 = 1
+        let b_state = world.get::<RecruitmentCenterState>(rc_b).unwrap();
+        assert_eq!(b_state.local_used, 0); // 1 - 1 = 0
+    }
+
+    #[test]
+    fn death_tracking_handles_destroyed_center_gracefully() {
+        use bevy::ecs::system::RunSystemOnce;
+        use crate::types::ObjectEnum;
+
+        let mut world = World::new();
+
+        // Spawn and then despawn the center to simulate destruction
+        let rc = world.spawn(RecruitmentCenterState {
+            local_used: 1,
+            ..Default::default()
+        }).id();
+        world.despawn(rc);
+
+        // Dead unit referencing the destroyed center
+        let mut obj = ObjectInstance::destructible(ObjectEnum::Peacekeeper, 100.0);
+        obj.hp = Some(0.0);
+        world.spawn((obj, OriginatingCenters { centers: vec![rc] }));
+
+        // Should not panic — destroyed center is gracefully skipped
+        world.run_system_once(cults_unit_death_tracking_system);
+    }
+
+    #[test]
+    fn death_tracking_saturating_sub_prevents_underflow() {
+        use bevy::ecs::system::RunSystemOnce;
+        use crate::types::ObjectEnum;
+
+        let mut world = World::new();
+
+        // RC with local_used already at 0
+        let rc = world.spawn(RecruitmentCenterState {
+            local_used: 0,
+            ..Default::default()
+        }).id();
+
+        let mut obj = ObjectInstance::destructible(ObjectEnum::Peacekeeper, 100.0);
+        obj.hp = Some(0.0);
+        world.spawn((obj, OriginatingCenters { centers: vec![rc] }));
+
+        world.run_system_once(cults_unit_death_tracking_system);
+
+        let rc_state = world.get::<RecruitmentCenterState>(rc).unwrap();
+        assert_eq!(rc_state.local_used, 0); // Doesn't underflow
+    }
+
+    #[test]
+    fn death_tracking_skips_alive_units() {
+        use bevy::ecs::system::RunSystemOnce;
+        use crate::types::ObjectEnum;
+
+        let mut world = World::new();
+
+        let rc = world.spawn(RecruitmentCenterState {
+            local_used: 1,
+            ..Default::default()
+        }).id();
+
+        // Alive unit — should NOT decrement
+        let obj = ObjectInstance::destructible(ObjectEnum::Peacekeeper, 100.0);
+        world.spawn((obj, OriginatingCenters { centers: vec![rc] }));
+
+        world.run_system_once(cults_unit_death_tracking_system);
+
+        let rc_state = world.get::<RecruitmentCenterState>(rc).unwrap();
+        assert_eq!(rc_state.local_used, 1); // Unchanged
     }
 }

@@ -24,10 +24,14 @@ impl Plugin for UnitsPlugin {
                     systems::behaviors::enter_command_dispatch_system,
                     systems::behaviors::entering_tunnel_behavior_system
                         .after(systems::behaviors::enter_command_dispatch_system),
+                    systems::behaviors::enter_armory_dispatch_system,
+                    systems::behaviors::entering_armory_behavior_system
+                        .after(systems::behaviors::enter_armory_dispatch_system),
                     systems::behaviors::building_behavior_system,
                     systems::behaviors::gathering_resource_behavior_system,
                     systems::behaviors::dropping_off_resources_behavior_system,
                     systems::behaviors::building_tunnel_behavior_system,
+                    systems::behaviors::cults_recruit_enter_construction_system,
                     systems::behaviors::supply_chopper_detach_system,
                     systems::behaviors::supply_chopper_pickup_system
                         .after(systems::behaviors::supply_chopper_detach_system),
@@ -44,6 +48,10 @@ impl Plugin for UnitsPlugin {
                     // Old pipeline: MoveTarget/Path-driven movement (entities without active channels)
                     systems::core::unit_movement_system,
                     systems::core::turn_rate_movement_system,
+                    systems::core::fixed_turn_radius_movement_system,
+                    systems::core::speed_turn_radius_movement_system,
+                    systems::core::drag_movement_system,
+                    systems::core::glider_movement_system,
                     systems::core::collision_repath_system,
                     systems::core::unit_rotation_system,
                     // New pipeline: channel-driven movement (entities without MoveTarget)
@@ -53,12 +61,27 @@ impl Plugin for UnitsPlugin {
                     // Shared: air unit separation (runs after all movement)
                     systems::core::air_unit_separation_system,
                 ).after(systems::core::rebuild_occupancy_map),
+                // Phase 3.5: Crushing check — after movement, before grid sync
+                systems::core::crushing_system
+                    .after(systems::core::unit_movement_system)
+                    .after(systems::core::turn_rate_movement_system)
+                    .after(systems::core::fixed_turn_radius_movement_system)
+                    .after(systems::core::speed_turn_radius_movement_system)
+                    .after(systems::core::drag_movement_system)
+                    .after(systems::core::glider_movement_system)
+                    .after(systems::core::channel_turnrate_locomotion_system)
+                    .after(systems::core::channel_fallback_locomotion_system),
                 // Phase 4: Sync grid positions from transforms (after movement)
                 systems::core::grid_position_sync_system
                     .after(systems::core::unit_movement_system)
                     .after(systems::core::turn_rate_movement_system)
+                    .after(systems::core::fixed_turn_radius_movement_system)
+                    .after(systems::core::speed_turn_radius_movement_system)
+                    .after(systems::core::drag_movement_system)
+                    .after(systems::core::glider_movement_system)
                     .after(systems::core::channel_turnrate_locomotion_system)
-                    .after(systems::core::channel_fallback_locomotion_system),
+                    .after(systems::core::channel_fallback_locomotion_system)
+                    .after(systems::core::crushing_system),
                 // Phase 5: Visual feedback — runs after commands are issued
                 systems::core::unit_selection_display,
                 systems::core::right_click_move_command,

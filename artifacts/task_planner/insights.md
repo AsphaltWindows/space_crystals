@@ -197,5 +197,94 @@
 - Reads: `ObjectInterfaceState`, `CursorTarget`, `Selection`, `SelectedUnitCapabilities`, `LocalPlayer`
 - Sibling task `pointer_display_rendering` consumes the resource for visual updates
 
+## Movement System Architecture (MoveTarget/Path pipeline)
+- All MoveTarget/Path-driven movement systems live in `game/units/systems/core.rs`, registered in Phase 3 of `UnitsPlugin` (mod.rs:43-55)
+- Each movement model gets its own system, filtered by its param component type (e.g., `&TurnRateMovementParams` in query)
+- `unit_movement_system` is the fallback — uses `Without<TurnRateMovementParams>` (and should also exclude other param types) + `&MovementSpeed`
+- Query exclusion pattern: systems exclude each other via `Without<OtherParamsType>` to prevent double-processing
+- `grid_position_sync_system` must have `.after()` constraints for ALL movement systems
+- `channel_fallback_locomotion_system` also needs `Without<>` for all specific param types
+- Shared constants: `WAYPOINT_ARRIVAL_THRESHOLD = 0.5` (core.rs:21)
+- Ground collision pattern: `occupancy.check_movement_collision(entity, x, z, half_w, half_h)` → on collision, remove Path, insert NeedsRepath, zero velocity
+
+## Cults Faction Structure
+- First Cults structure: RecruitmentCenter (4x4, AAAA, primary structure like DC)
+- `setup_cults_game_start()` (faction.rs:172) spawns RC at grid (50,50) with full Commands/mesh/material params
+- `CultsPlayerResources` (factions.rs:171) has `unit_control_used`/`unit_control_available` fields ready for RC integration
+- No `cults_structure_stats` module exists yet — will be added alongside `gdo_structure_stats` and `syndicate_structure_stats` in structures.rs
+- Cults faction color: `Color::srgb(0.5, 0.2, 0.6)` (purple) — shared/types.rs:298
+- `RecruitmentCenterCounter` Resource needed for build_order priority (first-built-first-claim semantics per design doc)
+- `RecruitmentCenterState` (structures.rs:494) already has all fields: `claimed_tiles`, `effectiveness`, `local_capacity`, `local_used`, `production_progress`, `build_order`, `rally_point`
+- `spawn_recruitment_center()` (utils.rs:947) takes build_order param, spawns with GridPosition, ObjectInstance, StructureInstance
+- `TileClaimMap` resource to be added in `game/world/types.rs` — HashMap<(i32,i32), Entity>
+- 10x10 area: RC at GridPosition(x,z) → area from (x-3, z-3) to (x+6, z+6) inclusive
+- Tile recruitable: all TilePresetEnum except Water. Query: `(&GridPosition, &TilePreset), With<Tile>`
+- `remove_dead_entities_system` (combat/systems/core.rs:757) despawns dead entities — claiming system should self-heal stale claims
+
+## RC Production System Notes
+- RC production uses integer frame counting (`production_progress: u32`), NOT float progress like barracks
+- RC `rally_point` is `Option<Vec3>` — simpler than `Option<RallyTarget>` used by Barracks/HQ
+- RC has no build queue — continuous auto-production, one at a time
+- No power ratio for Cults — production rate scales by `effectiveness` only
+- `CultsRecruit` ObjectEnum variant needs to be added (doesn't exist yet)
+- `OriginatingCenters` component shared between production task and unit_control_tracking task — whichever lands first defines it
+- HUD TheCults branch (hud.rs:1343-1356) already displays UC from CultsPlayerResources — just needs aggregation system to populate it
+
+## RC Interface Implementation Notes
+- RC interface follows HeadquartersMenu pattern: single StructureMenuState, cancel + rally grid
+- RC `rally_point` is `Option<Vec3>` (NOT `Option<RallyTarget>`) — must convert RallyTarget to Vec3 in rally systems
+- `set_rally_point_click_system` (core.rs:952) unconditionally returns to `Default` after setting rally — needs RC-aware return logic
+- `right_click_cancel_target` (command_panel.rs:1059) + `RallyTargetKind` enum needs RC variant for correct Escape/right-click return
+- `update_command_panel_state` query on `selected_structures` (line 300) needs `Option<&RecruitmentCenterState>` added
+- `production_rally_point_system` (faction.rs:703) handles right-click rally for BK/HQ/ST — needs RC branch
+- `bk_has_queue` param in `get_grid_slot_action` is overloaded for multiple cancel buttons — consider renaming to `has_cancel_target` or adding `rc_has_production` param
+
+## Cults Recruit Interface Pattern
+- CultsRecruit needs its own `ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState)` — separate from AgentMenu
+- CultsRecruitMenuState: RecruitDefault, RecruitConstructMenu, RecruitAwaitingPlacement
+- Cults placement validation uses `can_worker_place_structure()` (same as Agent tunnel — no build area, no fog)
+- `ObjectEnum::CultsRecruit` may not exist yet — added by `recruitment_center_auto_production` task
+- `is_unit()` in objects.rs needs CultsRecruit added
+- `UnitCommand::ConstructBuilding(Entity)` is the walk-to-site command for Cults building
+- `CommandType::AssistConstruction` for the assist construction AwaitingTarget mode
+- `placement_click_system` (faction.rs:1433) needs a `selected_recruits` query added for Cults placement
+- Cults buildings cost Recruits (consumed on completion), not crystals — no resource deduction at placement time
+- `spawn_cults_storage()` exists (utils.rs:988); need `spawn_cults_storage_under_construction()` variant
+
+## Cults Construction System Notes
+- `CultsConstructionState` component: assigned_recruits (Vec<Entity>), construction_progress (u32), total_construction_frames (u32)
+- `UnitCommand::ConstructBuilding(Entity)` does NOT exist yet — must be added to commands.rs
+- Generic `construction_hp_tick_system` (faction.rs:946) must be filtered with `Without<CultsConstructionState>` to avoid double-progression
+- Recruits are hidden (Visibility::Hidden) while inside construction, NOT despawned — allows cancellation refund
+- On completion: recruits despawned; on cancel/destruction: recruits restored with Visibility::Inherited + UnitCommand::Idle
+- Cancel system must run BEFORE `remove_dead_entities_system` (combat/mod.rs:43) — same ordering as `cults_unit_death_tracking_system`
+- `spawn_cults_recruit()` (utils.rs:1043) currently spawns with minimal components — no LocomotionChannel/OrientationChannel
+- Registration: cults_construction_tick_system in FixedUpdate/DiagCategory::Construction (world/mod.rs:109-122)
+
+## Armory Structure Notes
+- `SymmetryTypeEnum::ABCB` does NOT exist yet — must be added to enum in shared/types.rs:446
+- ABCB allows non-square sizes (like ABAB/ABAC/ABCD) — do NOT add to `requires_square` match in validate_size()
+- `RallyPointTarget` does NOT exist — use `RallyTarget` (structures.rs:57)
+- `ArmoryState` goes in structures.rs after RecruitmentCenterState (~line 528)
+- Constants go in `cults_structure_stats` module (structures.rs:468)
+- `spawn_cults_armory()` follows `spawn_cults_storage()` pattern (utils.rs:988) — same 3x2 with rotation/flip
+
+## Armory Enter Mechanic Pattern
+- `UnitCommand::Enter` is gated by `is_syndicate` in `is_available()` — Cults units need a separate `EnterArmory(Entity)` variant
+- `spawn_cults_recruit()` (utils.rs:1043) lacks `LocomotionChannel`/`OrientationChannel`/`Velocity` — must be added for any movement behavior to work
+- `target_info` query in `right_click_move_command` (core.rs:249) needs `Option<&ArmoryState>` added — affects ~10+ destructure sites
+- Pattern for new enter behaviors: dispatch system (validate + insert marker) → behavior system (move + arrive + hide/store)
+- Armory stores recruits in `ArmoryState.stored_recruits: Vec<Entity>` (not a network like tunnels)
+
+## Armory Interface & Production Notes
+- `ArmoryMenu` StructureMenuState needed — follows Barracks/HQ single-state pattern
+- `execute_command_action` needs `CultsPlayerResources` query added (not currently accessible) + separate `armory_query` to avoid borrow conflicts with `bk_hq_query`
+- `ArmoryEjectionQueue` component (separate from tunnel `EjectionQueue`) for the eject-all mechanic
+- `CultsSoldier`/`CultsGunner` ObjectEnum variants needed as stubs for training output
+- Armory `rally_point` is `Option<RallyTarget>` (like Barracks), NOT `Option<Vec3>` (like RC) — can reuse Barracks rally pattern directly
+- `RallyTargetKind::Armory` variant + `StructureMenuState::ArmoryMenu` in `production_rally_point_system` is_production_menu check
+- Training consumes a stored recruit (pop from stored_recruits) AND deducts crystals; spawns a NEW entity on completion
+- `find_cults_resources_mut` helper needed (mirrors `find_syndicate_resources_mut`)
+
 ## Directive: Never Run `cargo clean`
 - Always use incremental builds. Diagnose build issues directly instead of wiping cache.

@@ -157,6 +157,8 @@ pub enum ObjectInterfaceState {
     StructureMenu(StructureMenuState),
     /// Agent-specific states (unique worker unit interface)
     AgentMenu(AgentMenuState),
+    /// Cults Recruit states (construct buildings, assist construction)
+    CultsRecruitMenu(CultsRecruitMenuState),
 }
 
 impl ObjectInterfaceState {
@@ -168,7 +170,8 @@ impl ObjectInterfaceState {
                 StructureMenuState::EfAwaitingPlacement |
                 StructureMenuState::TunnelAwaitingPlacement
             ) |
-            ObjectInterfaceState::AgentMenu(AgentMenuState::AgentAwaitingPlacement)
+            ObjectInterfaceState::AgentMenu(AgentMenuState::AgentAwaitingPlacement) |
+            ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitAwaitingPlacement)
         )
     }
 
@@ -217,6 +220,10 @@ pub enum StructureMenuState {
     TunnelAwaitingPlacement,
     /// Tunnel selected — EjectMenu: pick unit type to eject
     TunnelEjectMenu,
+    /// Recruitment Center selected — production overview + rally point
+    RecruitmentCenterMenu,
+    /// Armory selected — training + eject menu
+    ArmoryMenu,
     /// Structure with no active commands (e.g., Power Plant, Extraction Plate)
     Inert,
 }
@@ -229,6 +236,17 @@ pub enum AgentMenuState {
     AgentDefault,
     /// Agent selected — AwaitingPlacement: ghost preview for Tunnel building
     AgentAwaitingPlacement,
+}
+
+/// Cults Recruit interface states
+#[derive(Debug, Clone, PartialEq)]
+pub enum CultsRecruitMenuState {
+    /// Recruit selected — DefaultState: Construct, Assist Construction
+    RecruitDefault,
+    /// Recruit selected — Build submenu: pick building to construct
+    RecruitConstructMenu,
+    /// Recruit selected — AwaitingPlacement: ghost preview for Cults building
+    RecruitAwaitingPlacement,
 }
 
 /// Marker for command panel buttons with their action
@@ -306,6 +324,20 @@ pub enum CommandButtonAction {
     ChopperAttachToTower,
     /// SupplyChopper: Drop Off Supplies at Tower (enters AwaitingTarget)
     ChopperDropOffSupplies,
+    /// Recruitment Center: Cancel current production (reset progress)
+    RcCancel,
+    /// Armory: Train a Soldier
+    ArmoryTrainSoldier,
+    /// Armory: Train a Gunner
+    ArmoryTrainGunner,
+    /// Armory: Eject all stored Recruits
+    ArmoryEjectAll,
+    /// Recruit: Open Construct submenu
+    RecruitConstruct,
+    /// Recruit: Select a building to construct (carries the ObjectEnum)
+    RecruitSelectBuilding(crate::types::ObjectEnum),
+    /// Recruit: Assist Construction (enters AwaitingTarget)
+    RecruitAssistConstruction,
 }
 
 /// Marker component storing whether a command button is enabled (clickable).
@@ -380,6 +412,8 @@ pub struct SelectedUnitCapabilities {
     pub is_chopper: bool,
     /// Whether the selected chopper is carrying supplies (for drop-off button availability)
     pub chopper_has_supplies: bool,
+    /// Whether the entire selection is owned by the local player (ownership guard)
+    pub owned_by_local_player: bool,
 }
 
 /// Marker component for each portrait in the multi-select panel.
@@ -405,6 +439,16 @@ pub struct EjectionQueue {
 pub struct EjectRequest {
     /// The ObjectEnum type of unit to eject
     pub unit_type: crate::types::ObjectEnum,
+}
+
+/// Queue of Recruits waiting to eject from an Armory's exit side (Side C).
+/// Attached as a component to Armory entities during eject.
+#[derive(Component, Clone, Debug, Default)]
+pub struct ArmoryEjectionQueue {
+    /// Recruit entities queued to eject
+    pub queue: VecDeque<Entity>,
+    /// Frames since last unit began ejecting (for 8-frame minimum spacing)
+    pub cooldown: u32,
 }
 
 /// Marker component for the pointer indicator UI entity

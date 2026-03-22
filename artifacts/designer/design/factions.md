@@ -22,7 +22,7 @@ Core resource. Gathered from Space Crystals Patches via Extraction Facilities an
 Tactical and tech resource. Gathered from Supply Delivery Stations via Supply Towers and Supply Choppers. Spent on advanced buildings, units, and research.
 
 ### Power
-Flat capacity system. Each GDO building has a static Power value — positive for generators, negative for consumers. The player's total Power is the sum across all owned buildings. If total Power is negative, all power-consuming buildings operate slower in proportion to total available power versus total required power.
+Flat capacity system. Each GDO building has a static Power value — positive for generators, negative for consumers. The player's total Power is the sum across all owned buildings. If total Power is negative, all power-consuming buildings and Extraction Plates operate slower in proportion to total available power versus total required power (affecting construction speed, unit production speed, and mining rate).
 
 ### Unit Control
 Hard cap of 200, always fully available with no buildings required to unlock it. Each GDO unit has a Unit Control cost. The player cannot build units if doing so would exceed the cap.

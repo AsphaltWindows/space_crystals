@@ -64,6 +64,24 @@ fn simple_hash(x: u32, z: u32) -> u32 {
     h ^ (h >> 16)
 }
 
+/// Scale factor converting integer elevation (0-16) to world-space Y coordinate.
+/// At max elevation (16), Y = 1.6 units — visible but not extreme relative to cell_size=1.0.
+pub const ELEVATION_HEIGHT_STEP: f32 = 0.1;
+
+/// Determine tile elevation based on tile type and grid position.
+/// Returns a u8 in 0..=16 (respects MAX_ELEVATION).
+/// Uses simple_hash for deterministic per-tile variation within each type's range.
+fn determine_elevation(tile_type: TilePresetEnum, x: u32, z: u32) -> u8 {
+    let hash = simple_hash(x, z) as u8;
+    match tile_type {
+        TilePresetEnum::Water => 0,
+        TilePresetEnum::Plane => (hash % 4) + 2,       // 2..=5
+        TilePresetEnum::RuggedTerrain => (hash % 5) + 4, // 4..=8
+        TilePresetEnum::Cliff => (hash % 5) + 8,        // 8..=12
+        TilePresetEnum::Mountain => (hash % 7) + 10,    // 10..=16
+    }
+}
+
 /// Squared distance between two grid positions
 fn dist_sq(x1: u32, z1: u32, x2: u32, z2: u32) -> u32 {
     let dx = x1 as i32 - x2 as i32;
@@ -106,18 +124,18 @@ pub fn spawn_grid(
             let world_x = offset_x + x as f32 * grid.cell_size;
             let world_z = offset_z + z as f32 * grid.cell_size;
 
-            let elevation = 0u8;
+            let elevation = determine_elevation(tile_type, x, z);
 
             commands.spawn((
                 Mesh3d(tile_mesh.clone()),
                 MeshMaterial3d(tile_material),
-                Transform::from_xyz(world_x, 0.0, world_z),
+                Transform::from_xyz(world_x, elevation as f32 * ELEVATION_HEIGHT_STEP, world_z),
                 Tile,
                 VisibleEntity,
                 tile_type,
                 properties,
                 TilePlacement::new(tile_type, grid_pos, elevation)
-                    .expect("Default elevation 0 is always valid"),
+                    .expect("Elevation from determine_elevation should be within MAX_ELEVATION"),
                 grid_pos,
             ));
 
@@ -697,5 +715,133 @@ mod tests {
         let near_dist = 5.0_f32;
         let alpha = grid_line_alpha(near_dist);
         assert_eq!(alpha, GRID_LINE_BASE_ALPHA);
+    }
+
+    // === Elevation generation tests ===
+
+    #[test]
+    fn elevation_height_step_is_positive() {
+        assert!(ELEVATION_HEIGHT_STEP > 0.0);
+    }
+
+    #[test]
+    fn water_elevation_is_zero() {
+        // Water tiles always have elevation 0 regardless of position
+        for x in 0..20 {
+            for z in 0..20 {
+                assert_eq!(determine_elevation(TilePresetEnum::Water, x, z), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn plane_elevation_in_range() {
+        for x in 0..50 {
+            for z in 0..50 {
+                let e = determine_elevation(TilePresetEnum::Plane, x, z);
+                assert!(e >= 2 && e <= 5, "Plane elevation {} at ({},{}) out of range 2..=5", e, x, z);
+            }
+        }
+    }
+
+    #[test]
+    fn rugged_terrain_elevation_in_range() {
+        for x in 0..50 {
+            for z in 0..50 {
+                let e = determine_elevation(TilePresetEnum::RuggedTerrain, x, z);
+                assert!(e >= 4 && e <= 8, "RuggedTerrain elevation {} at ({},{}) out of range 4..=8", e, x, z);
+            }
+        }
+    }
+
+    #[test]
+    fn cliff_elevation_in_range() {
+        for x in 0..50 {
+            for z in 0..50 {
+                let e = determine_elevation(TilePresetEnum::Cliff, x, z);
+                assert!(e >= 8 && e <= 12, "Cliff elevation {} at ({},{}) out of range 8..=12", e, x, z);
+            }
+        }
+    }
+
+    #[test]
+    fn mountain_elevation_in_range() {
+        for x in 0..50 {
+            for z in 0..50 {
+                let e = determine_elevation(TilePresetEnum::Mountain, x, z);
+                assert!(e >= 10 && e <= 16, "Mountain elevation {} at ({},{}) out of range 10..=16", e, x, z);
+            }
+        }
+    }
+
+    #[test]
+    fn elevation_is_deterministic() {
+        // Same inputs always produce same output
+        for x in 0..20 {
+            for z in 0..20 {
+                let e1 = determine_elevation(TilePresetEnum::Plane, x, z);
+                let e2 = determine_elevation(TilePresetEnum::Plane, x, z);
+                assert_eq!(e1, e2, "Elevation not deterministic at ({},{})", x, z);
+            }
+        }
+    }
+
+    #[test]
+    fn elevation_respects_max_elevation() {
+        // All tile types produce values <= MAX_ELEVATION (16)
+        let types = [
+            TilePresetEnum::Water,
+            TilePresetEnum::Plane,
+            TilePresetEnum::RuggedTerrain,
+            TilePresetEnum::Cliff,
+            TilePresetEnum::Mountain,
+        ];
+        for tile_type in types {
+            for x in 0..100 {
+                for z in 0..100 {
+                    let e = determine_elevation(tile_type, x, z);
+                    assert!(e <= MAX_ELEVATION,
+                        "{:?} elevation {} at ({},{}) exceeds MAX_ELEVATION {}",
+                        tile_type, e, x, z, MAX_ELEVATION);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn elevation_varies_across_positions() {
+        // Plane tiles should not all have the same elevation (hash provides variation)
+        let mut values = std::collections::HashSet::new();
+        for x in 0..20 {
+            for z in 0..20 {
+                values.insert(determine_elevation(TilePresetEnum::Plane, x, z));
+            }
+        }
+        assert!(values.len() > 1, "Elevation should vary across positions, got only {:?}", values);
+    }
+
+    #[test]
+    fn different_tile_types_have_different_elevation_ranges() {
+        // Average elevation should increase: Water < Plane < RuggedTerrain < Cliff < Mountain
+        let avg = |tt: TilePresetEnum| -> f32 {
+            let mut sum = 0u32;
+            let count = 400;
+            for x in 0..20 {
+                for z in 0..20 {
+                    sum += determine_elevation(tt, x, z) as u32;
+                }
+            }
+            sum as f32 / count as f32
+        };
+        let water_avg = avg(TilePresetEnum::Water);
+        let plane_avg = avg(TilePresetEnum::Plane);
+        let rugged_avg = avg(TilePresetEnum::RuggedTerrain);
+        let cliff_avg = avg(TilePresetEnum::Cliff);
+        let mountain_avg = avg(TilePresetEnum::Mountain);
+
+        assert!(water_avg < plane_avg, "Water avg {} should be < Plane avg {}", water_avg, plane_avg);
+        assert!(plane_avg < rugged_avg, "Plane avg {} should be < RuggedTerrain avg {}", plane_avg, rugged_avg);
+        assert!(rugged_avg < cliff_avg, "RuggedTerrain avg {} should be < Cliff avg {}", rugged_avg, cliff_avg);
+        assert!(cliff_avg < mountain_avg, "Cliff avg {} should be < Mountain avg {}", cliff_avg, mountain_avg);
     }
 }

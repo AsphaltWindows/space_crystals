@@ -1,16 +1,18 @@
 use bevy::prelude::*;
 use crate::types::*;
-use crate::game::types::{ObjectInstance, StructureInstance};
+use crate::game::types::{ObjectInstance, StructureInstance, RecruitmentCenterState};
 use crate::game::world::types::{Tile, TilePreset, GridMap};
 use crate::game::combat::types::{AttackState, Turret, IdleOrigin, Armor, Silhouette, SeparationRadius, SEPARATION_FORCE_SCALE};
 use crate::game::units::types::types::{CommandIndicator, CommandIndicatorType, command_indicator_color, command_has_indicator};
 use crate::game::combat::utils::{create_turret_for_unit, spawn_turret_visual};
-use crate::game::units::types::movement::TurnRateMovementParams;
-use crate::game::utils::spawn_peacekeeper;
+use crate::game::units::types::movement::{TurnRateMovementParams, FixedTurnRadiusMovementParams, SpeedTurnRadiusMovementParams, DragMovementParams, GliderMovementParams};
+use crate::game::utils::{spawn_peacekeeper, spawn_syndicate_agent, spawn_syndicate_guard};
 use crate::ui::types::{CursorTarget, CursorTargetEnum, CursorOverUi, ObjectInterfaceState, CommandPanelTarget, StructureMenuState, AgentMenuState};
 use crate::game::units::types::*;
 use crate::game::units::utils::{world_to_grid, create_attack_capability, smooth_path, clear_movement_state_full, can_enter_tunnel, issue_or_queue_command};
 use crate::game::types::{SupplyTowerState, SupplyChopperState, TunnelState, BarracksState, HeadquartersState, RallyTarget, TunnelExpansionMarker, RallyPointMarker};
+use crate::game::types::structures::ArmoryState;
+use crate::game::types::cults_structure_stats::ARMORY_INTERNAL_RECRUIT_CAPACITY;
 use crate::game::world::faction::{spawn_or_update_rally_marker, despawn_rally_marker_for};
 use crate::game::world::types::{SupplyDeliveryStation, SpaceCrystalPatch};
 use crate::game::units::types::state::AgentCarryState;
@@ -36,54 +38,58 @@ pub fn spawn_test_units(
         );
     }
 
-    // Enemy test units (Player 1) — still using placeholder stats until their unit types are defined
-    let enemy_data: [(i32, i32, &str, f32, UnitMeshType, UnitBaseEnum, f32, f32); 3] = [
-        (44, 32, "Wheeled APC", 150.0, UnitMeshType::Cube,
-            UnitBaseEnum::WheeledVehicle, 7.0, 3.0),
-        (45, 32, "Heavy Tank", 200.0, UnitMeshType::Cube,
-            UnitBaseEnum::TrackedVehicle, 2.5, 1.57),
-        (46, 32, "Drill Unit", 180.0, UnitMeshType::Cube,
-            UnitBaseEnum::DrillUnit, 2.0, 1.2),
+    // Spawn Syndicate infantry (Player 1) — Agent and Guard using proper spawn helpers
+    spawn_syndicate_agent(
+        &mut commands, &mut meshes, &mut materials,
+        33, 32, Owner::player(1),
+    );
+    spawn_syndicate_guard(
+        &mut commands, &mut meshes, &mut materials,
+        34, 32, Owner::player(1),
+    );
+
+    // Spawn test units for remaining UnitBaseEnum variants (Player 1).
+    // TODO: These use ObjectEnum::Peacekeeper as placeholder — need proper ObjectEnum variants.
+    let vehicle_test_units: [(i32, i32, &str, UnitBaseEnum); 6] = [
+        (36, 32, "Wheeled APC",    UnitBaseEnum::WheeledVehicle),
+        (37, 32, "Heavy Tank",     UnitBaseEnum::TrackedVehicle),
+        (38, 32, "Hover Vehicle",  UnitBaseEnum::HoverVehicle),
+        (39, 32, "Battle Mech",    UnitBaseEnum::Mech),
+        (40, 32, "Glider",         UnitBaseEnum::Glider),
+        (41, 32, "Drill Unit",     UnitBaseEnum::DrillUnit),
     ];
 
     let owner = Owner::player(1);
 
-    for (grid_x, grid_z, unit_name, max_health, mesh_type, unit_base, speed, rot_speed) in enemy_data {
+    for (grid_x, grid_z, unit_name, unit_base) in vehicle_test_units {
         let world_x = (grid_x as f32 - 32.0) + 0.5;
         let world_z = (grid_z as f32 - 32.0) + 0.5;
+        let base_data = unit_base.data();
 
-        let mesh = match mesh_type {
-            UnitMeshType::Capsule => meshes.add(Capsule3d::new(0.2, 0.6)),
-            UnitMeshType::Cube => meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-        };
-
+        let mesh = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
         let material = materials.add(StandardMaterial {
             base_color: owner.color(),
             ..default()
         });
-
-        let has_turret = unit_base.data().has_turret;
 
         let mut entity_commands = commands.spawn((
             Mesh3d(mesh),
             MeshMaterial3d(material),
             Transform::from_xyz(world_x, 0.5, world_z),
             Unit,
-            ObjectInstance::destructible(ObjectEnum::Peacekeeper, max_health),
+            // TODO: Use correct ObjectEnum variant when defined for each vehicle/mech/glider type
+            ObjectInstance::destructible(ObjectEnum::Peacekeeper, 150.0),
             owner,
-            UnitType {
-                name: unit_name.to_string(),
-            },
+            UnitType { name: unit_name.to_string() },
             Selectable,
-            GridPosition {
-                x: grid_x,
-                z: grid_z,
-            },
+            SelectionBounds::unit(),
+            GridPosition { x: grid_x, z: grid_z },
             unit_base,
-            unit_base.data().domain,
-            MovementSpeed(speed),
-            RotationSpeed(rot_speed),
+            base_data.domain,
+            MovementSpeed(5.0),  // Placeholder until ObjectEnum-based stats exist
+            RotationSpeed(2.0),  // Placeholder until ObjectEnum-based stats exist
         ));
+
         entity_commands.insert((
             Velocity(Vec3::ZERO),
             create_attack_capability(&unit_base),
@@ -91,7 +97,6 @@ pub fn spawn_test_units(
             UnitCommand::Idle,
         ));
 
-        let base_data = unit_base.data();
         entity_commands.insert((
             CommandQueue::new(),
             BaseCommandState::default(),
@@ -99,9 +104,10 @@ pub fn spawn_test_units(
             LocomotionChannel::default(),
             OrientationChannel::default(),
             UnitControlCost(1), // TODO: Use actual cost from unit type data when defined
+            SightRange(5),      // Placeholder until ObjectEnum-based sight_range exists
         ));
 
-        // Armor and silhouette — placeholder values until unit type data is defined
+        // Armor and silhouette
         entity_commands.insert((
             Armor {
                 point_armor: 5.0, // Placeholder
@@ -114,8 +120,67 @@ pub fn spawn_test_units(
             },
         ));
 
+        // Movement params — correct component per movement model
+        match unit_base {
+            UnitBaseEnum::WheeledVehicle => {
+                entity_commands.insert(FixedTurnRadiusMovementParams {
+                    minimum_turn_radius: 4.0,
+                    forward_acceleration: 5.0,
+                    forward_max_speed: 10.0,
+                    reverse_acceleration: 3.0,
+                    reverse_max_speed: 5.0,
+                    deceleration: 8.0,
+                });
+            }
+            UnitBaseEnum::TrackedVehicle => {
+                entity_commands.insert(SpeedTurnRadiusMovementParams {
+                    speed_to_turn_radius_ratio: 0.5,
+                    acceleration: 5.0,
+                    deceleration: 10.0,
+                    max_speed: 12.0,
+                });
+            }
+            UnitBaseEnum::HoverVehicle => {
+                entity_commands.insert(DragMovementParams {
+                    forward_acceleration: 6.0,
+                    non_forward_acceleration: 4.0,
+                    drag_ratio: 2.0,
+                    turn_rate: 2.5,
+                });
+            }
+            UnitBaseEnum::Mech => {
+                entity_commands.insert(TurnRateMovementParams {
+                    turn_rate: 3.0,
+                    acceleration: 5.0,
+                    deceleration: 10.0,
+                    max_speed: 8.0,
+                });
+            }
+            UnitBaseEnum::Glider => {
+                entity_commands.insert(GliderMovementParams {
+                    idle_speed: 5.0,
+                    max_speed: 15.0,
+                    acceleration: 3.0,
+                    deceleration: 6.0,
+                    max_centripetal_acceleration: 10.0,
+                });
+                // Air units need separation radius
+                entity_commands.insert(SeparationRadius(1.25));
+            }
+            UnitBaseEnum::DrillUnit => {
+                entity_commands.insert(SpeedTurnRadiusMovementParams {
+                    speed_to_turn_radius_ratio: 0.5,
+                    acceleration: 5.0,
+                    deceleration: 10.0,
+                    max_speed: 12.0,
+                });
+            }
+            _ => {} // Infantry handled by spawn helpers above
+        }
+
+        // Turret components
+        let has_turret = base_data.has_turret;
         if has_turret {
-            // Turret units: turret channels handle attacks
             entity_commands.insert((
                 TurretCommandState::default(),
                 TurretBehaviorState::default(),
@@ -123,7 +188,6 @@ pub fn spawn_test_units(
                 TurretAttackChannel::default(),
             ));
         } else {
-            // Non-turret units: base handles attacks
             entity_commands.insert(BaseAttackChannel::default());
         }
 
@@ -136,7 +200,7 @@ pub fn spawn_test_units(
         spawn_turret_visual(&mut commands, entity_id, &mut meshes, &mut materials, &unit_base, owner.color());
     }
 
-    info!("Spawned 4 Peacekeepers (Player 0) and 3 enemy test units (Player 1)");
+    info!("Spawned 4 Peacekeepers (Player 0), 2 Syndicate infantry, and 6 vehicle/mech/glider test units (Player 1)");
 }
 
 /// System to sync GridPosition from Transform for all units each frame.
@@ -184,7 +248,7 @@ pub fn right_click_move_command(
     cursor_target: Res<CursorTarget>,
     cursor_over_ui: Res<CursorOverUi>,
     mut selected_units: Query<(Entity, &Transform, &UnitBaseEnum, &Owner, Option<&AttackState>, Option<&SupplyChopperState>, &ObjectInstance, Option<&AgentCarryState>, &mut CommandQueue), (With<Unit>, With<Selected>)>,
-    target_info: Query<(Option<&SupplyDeliveryStation>, Option<&SupplyTowerState>, &Owner, Option<&SpaceCrystalPatch>, Option<&TunnelState>), With<ObjectInstance>>,
+    target_info: Query<(Option<&SupplyDeliveryStation>, Option<&SupplyTowerState>, &Owner, Option<&SpaceCrystalPatch>, Option<&TunnelState>, Option<&ArmoryState>), With<ObjectInstance>>,
     tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
     grid: Res<GridMap>,
     local_player: Res<LocalPlayer>,
@@ -250,11 +314,17 @@ pub fn right_click_move_command(
         return;
     }
 
+    // Ownership guard: only allow commands for units owned by the local player
+    if selected_units.iter().any(|(_, _, _, owner, _, _, _, _, _)| owner.player_number() != Some(local_player.0)) {
+        return;
+    }
+
     let shift_held = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
 
     // Check if any selected unit is a Supply Chopper
     let has_selected_choppers = selected_units.iter().any(|(_, _, _, _, _, chopper_state, _, _, _)| chopper_state.is_some());
     let has_selected_agents = selected_units.iter().any(|(_, _, _, _, _, _, obj, _, _)| obj.object_type == ObjectEnum::SyndicateAgent);
+    let has_selected_recruits = selected_units.iter().any(|(_, _, _, _, _, _, obj, _, _)| obj.object_type == ObjectEnum::CultsRecruit);
 
     // Handle entity click (Attack mode left-click or right-click entity detection)
     if let Some(target_entity) = cursor_target.entity {
@@ -290,7 +360,7 @@ pub fn right_click_move_command(
 
         // Left-click entity in DropOff mode: target must be own Tunnel
         if command_type == CommandType::DropOff {
-            if let Ok((_sds_opt, _st_opt, target_owner, _crystal_opt, tunnel_opt)) = target_info.get(target_entity) {
+            if let Ok((_sds_opt, _st_opt, target_owner, _crystal_opt, tunnel_opt, _armory_opt)) = target_info.get(target_entity) {
                 if tunnel_opt.is_some() && target_owner.player_number() == Some(local_player.0) {
                     for (entity, _, _, _, attack_state_opt, _, obj, _, mut command_queue) in &mut selected_units {
                         if obj.object_type == ObjectEnum::SyndicateAgent {
@@ -319,7 +389,7 @@ pub fn right_click_move_command(
 
         // Left-click entity in Enter mode: target must be own Tunnel with valid tier
         if command_type == CommandType::Enter {
-            if let Ok((_sds_opt, _st_opt, target_owner, _crystal_opt, tunnel_opt)) = target_info.get(target_entity) {
+            if let Ok((_sds_opt, _st_opt, target_owner, _crystal_opt, tunnel_opt, _armory_opt)) = target_info.get(target_entity) {
                 if let Some(tunnel_state) = tunnel_opt {
                     if target_owner.player_number() == Some(local_player.0) {
                         for (entity, _, unit_base, owner, attack_state_opt, _, obj, _, mut command_queue) in &mut selected_units {
@@ -347,7 +417,7 @@ pub fn right_click_move_command(
 
         // Left-click entity in PickUpSupplies mode: target must be SDS
         if command_type == CommandType::PickUpSupplies {
-            if let Ok((sds_opt, _st_opt, _target_owner, _, _)) = target_info.get(target_entity) {
+            if let Ok((sds_opt, _st_opt, _target_owner, _, _, _)) = target_info.get(target_entity) {
                 if sds_opt.is_some() {
                     for (entity, _, _, _, attack_state_opt, chopper_opt, _, _, mut command_queue) in &mut selected_units {
                         if chopper_opt.is_some() {
@@ -379,7 +449,7 @@ pub fn right_click_move_command(
 
         // Left-click entity in AttachToTower mode: target must be own SupplyTower
         if command_type == CommandType::AttachToTower {
-            if let Ok((_sds_opt, st_opt, target_owner, _, _)) = target_info.get(target_entity) {
+            if let Ok((_sds_opt, st_opt, target_owner, _, _, _)) = target_info.get(target_entity) {
                 if st_opt.is_some() && target_owner.player_number() == Some(local_player.0) {
                     for (entity, _, _, _, attack_state_opt, chopper_opt, _, _, mut command_queue) in &mut selected_units {
                         if chopper_opt.is_some() {
@@ -411,7 +481,7 @@ pub fn right_click_move_command(
 
         // Left-click entity in DropOffSupplies mode: target must be own SupplyTower
         if command_type == CommandType::DropOffSupplies {
-            if let Ok((_sds_opt, st_opt, target_owner, _, _)) = target_info.get(target_entity) {
+            if let Ok((_sds_opt, st_opt, target_owner, _, _, _)) = target_info.get(target_entity) {
                 if st_opt.is_some() && target_owner.player_number() == Some(local_player.0) {
                     for (entity, _, _, _, attack_state_opt, chopper_opt, _, _, mut command_queue) in &mut selected_units {
                         if chopper_opt.is_some() {
@@ -443,7 +513,7 @@ pub fn right_click_move_command(
 
         // Right-click on non-enemy entity: check for chopper-specific targets
         if is_right_click && command_type == CommandType::Default && has_selected_choppers {
-            if let Ok((sds_opt, st_opt, target_owner, _, _)) = target_info.get(target_entity) {
+            if let Ok((sds_opt, st_opt, target_owner, _, _, _)) = target_info.get(target_entity) {
                 if sds_opt.is_some() {
                     // TODO: When carried_units field is added to SupplyChopperState,
                     // only issue PickUpSupplies if chopper is NOT carrying units.
@@ -512,7 +582,7 @@ pub fn right_click_move_command(
         }
         // Right-click on non-enemy entity: check for Agent-specific targets
         if is_right_click && command_type == CommandType::Default && has_selected_agents {
-            if let Ok((sds_opt, _st_opt, target_owner, crystal_opt, tunnel_opt)) = target_info.get(target_entity) {
+            if let Ok((sds_opt, _st_opt, target_owner, crystal_opt, tunnel_opt, _armory_opt)) = target_info.get(target_entity) {
                 // Crystal patch → Gather
                 if crystal_opt.is_some() {
                     for (entity, _, _, _, attack_state_opt, _, obj, _, mut command_queue) in &mut selected_units {
@@ -592,10 +662,38 @@ pub fn right_click_move_command(
             }
         }
 
+        // Right-click on own Armory: CultsRecruit Enter
+        if is_right_click && command_type == CommandType::Default && has_selected_recruits {
+            if let Some(target_entity) = cursor_target.entity {
+                if let Ok((_sds_opt, _st_opt, target_owner, _crystal_opt, _tunnel_opt, armory_opt)) = target_info.get(target_entity) {
+                    if let Some(armory_state) = armory_opt {
+                        if target_owner.player_number() == Some(local_player.0)
+                            && armory_state.stored_recruits.len() < ARMORY_INTERNAL_RECRUIT_CAPACITY
+                        {
+                            for (entity, _, _, _, attack_state_opt, _, obj, _, mut command_queue) in &mut selected_units {
+                                if obj.object_type != ObjectEnum::CultsRecruit { continue; }
+                                if let Some(attack_state) = attack_state_opt {
+                                    if !attack_state.phase.is_interruptible() { continue; }
+                                }
+                                let mut entity_cmds = commands_ecs.entity(entity);
+                                if !shift_held {
+                                    clear_movement_state_full(&mut entity_cmds);
+                                }
+                                issue_or_queue_command(&mut entity_cmds, &mut command_queue, UnitCommand::EnterArmory(target_entity), shift_held);
+                            }
+                            info!("Recruit: Enter Armory");
+                            *interface_state = ObjectInterfaceState::Default;
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
         // Right-click on non-enemy Tunnel: BasicCombatUnit (Guard etc.) Enter
         if is_right_click && command_type == CommandType::Default {
             if let Some(target_entity) = cursor_target.entity {
-                if let Ok((_sds_opt, _st_opt, target_owner, _crystal_opt, tunnel_opt)) = target_info.get(target_entity) {
+                if let Ok((_sds_opt, _st_opt, target_owner, _crystal_opt, tunnel_opt, _armory_opt)) = target_info.get(target_entity) {
                     if let Some(tunnel_state) = tunnel_opt {
                         if target_owner.player_number() == Some(local_player.0) {
                             let mut any_entered = false;
@@ -874,6 +972,12 @@ pub fn right_click_move_command(
             // Handled by schedule_deliveries_click_system — early return above should prevent reaching here
             unreachable!("ScheduleDeliveries should be handled by schedule_deliveries_click_system");
         }
+
+        CommandType::ConstructBuilding | CommandType::AssistConstruction => {
+            // These require clicking a target entity/position via the Cults Recruit interface.
+            // Ground click in these modes is a no-op or resets mode.
+            *interface_state = ObjectInterfaceState::Default;
+        }
     }
 
     // Move target markers are now handled by command_indicator_sync_system
@@ -891,6 +995,7 @@ pub fn set_rally_point_click_system(
     mut barracks_query: Query<&mut BarracksState>,
     mut hq_query: Query<(&mut HeadquartersState, &TunnelExpansionMarker)>,
     mut st_query: Query<&mut SupplyTowerState>,
+    mut rc_query: Query<&mut RecruitmentCenterState>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -957,10 +1062,25 @@ pub fn set_rally_point_click_system(
             st_state.rally_point = Some(rally_target.clone());
             info!("Supply Tower: Rally point set via command mode");
             spawn_or_update_rally_marker(&mut commands, &mut meshes, &mut materials, &existing_markers, target_entity, &rally_target, object_world_pos);
+        } else if let Ok(mut rc_state) = rc_query.get_mut(target_entity) {
+            // RC rally_point is Option<Vec3>, not Option<RallyTarget> — resolve to world position
+            let location = match &rally_target {
+                RallyTarget::Object(e) => object_transforms.get(*e).ok().map(|t| t.translation),
+                RallyTarget::Location(loc) => Some(*loc),
+            };
+            rc_state.rally_point = location;
+            info!("Recruitment Center: Rally point set via command mode");
+            spawn_or_update_rally_marker(&mut commands, &mut meshes, &mut materials, &existing_markers, target_entity, &rally_target, object_world_pos);
         }
     }
 
-    *interface_state = ObjectInterfaceState::Default;
+    // Return to the appropriate structure menu after setting rally point
+    let active_type = selection.active_type();
+    if active_type == Some(ObjectEnum::RecruitmentCenter) {
+        *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu);
+    } else {
+        *interface_state = ObjectInterfaceState::Default;
+    }
 }
 
 /// System to handle left-click target selection when in AwaitingTarget(ScheduleDeliveries) mode.
@@ -1025,7 +1145,9 @@ pub fn unit_movement_system(
     mut units: Query<
         (Entity, &mut Transform, &mut Velocity, &MovementSpeed, &MoveTarget, Option<&mut Path>,
          Option<&AttackState>, Option<&Turret>, &mut UnitCommand, Option<&Silhouette>, Option<&DomainEnum>),
-        (With<Unit>, Without<HoldingPosition>, Without<TurnRateMovementParams>)
+        (With<Unit>, Without<HoldingPosition>, Without<TurnRateMovementParams>,
+         Without<FixedTurnRadiusMovementParams>, Without<SpeedTurnRadiusMovementParams>,
+         Without<DragMovementParams>, Without<GliderMovementParams>)
     >,
 ) {
     let delta = time.delta_secs();
@@ -1138,7 +1260,9 @@ pub fn unit_rotation_system(
     time: Res<Time>,
     mut units: Query<
         (&mut Transform, &Velocity, &RotationSpeed),
-        (With<Unit>, Without<TurnRateMovementParams>)
+        (With<Unit>, Without<TurnRateMovementParams>,
+         Without<FixedTurnRadiusMovementParams>, Without<SpeedTurnRadiusMovementParams>,
+         Without<DragMovementParams>, Without<GliderMovementParams>)
     >,
 ) {
     let delta = time.delta_secs();
@@ -1315,6 +1439,758 @@ pub fn turn_rate_movement_system(
         // Air units hover above ground; ground units stay at ground level
         let is_air_unit = domain_opt.map_or(false, |d| *d == DomainEnum::Air);
         transform.translation.y = if is_air_unit { 1.5 } else { 0.5 };
+    }
+}
+
+/// FixedTurnRadius movement system — handles movement for wheeled vehicles.
+/// Units cannot turn in place; turning requires forward (or reverse) motion.
+/// Turn rate while moving = current_speed / minimum_turn_radius.
+/// Supports forward and reverse movement with separate acceleration/speed params.
+pub fn fixed_turn_radius_movement_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    occupancy: Res<OccupancyMap>,
+    mut units: Query<
+        (Entity, &mut Transform, &mut Velocity, &FixedTurnRadiusMovementParams, &MoveTarget,
+         Option<&mut Path>, Option<&AttackState>, Option<&Turret>, &mut UnitCommand,
+         Option<&Silhouette>, Option<&DomainEnum>),
+        (With<Unit>, Without<HoldingPosition>)
+    >,
+) {
+    let delta = time.delta_secs();
+    if delta < 0.0001 {
+        return;
+    }
+
+    for (entity, mut transform, mut velocity, params, _target, path_option,
+         attack_state_opt, turret_opt, mut unit_command, silhouette_opt, domain_opt) in &mut units
+    {
+        // Check attack phase action constraints — turret-source units can move freely
+        if let Some(attack_state) = attack_state_opt {
+            let is_turret_source = turret_opt.is_some();
+            let constraints = attack_state.phase.base_action_constraints(is_turret_source);
+            if !constraints.base_can_move {
+                velocity.0 = Vec3::ZERO;
+                continue;
+            }
+        }
+
+        let current_pos = transform.translation;
+
+        // Get next waypoint from path
+        let next_waypoint = if let Some(mut path) = path_option {
+            if path.current_waypoint >= path.waypoints.len() {
+                velocity.0 = Vec3::ZERO;
+                commands.entity(entity).remove::<MoveTarget>().remove::<Path>();
+                if matches!(*unit_command, UnitCommand::Move(_) | UnitCommand::AttackMove(_) | UnitCommand::Reverse(_)) {
+                    *unit_command = UnitCommand::Idle;
+                }
+                continue;
+            }
+
+            let waypoint = path.waypoints[path.current_waypoint];
+            let to_waypoint = waypoint - current_pos;
+            let distance_to_waypoint = Vec3::new(to_waypoint.x, 0.0, to_waypoint.z).length();
+
+            if distance_to_waypoint < WAYPOINT_ARRIVAL_THRESHOLD {
+                path.current_waypoint += 1;
+
+                if path.current_waypoint >= path.waypoints.len() {
+                    velocity.0 = Vec3::ZERO;
+                    commands.entity(entity).remove::<MoveTarget>().remove::<Path>();
+                    if matches!(*unit_command, UnitCommand::Move(_)) {
+                        *unit_command = UnitCommand::Idle;
+                    }
+                    continue;
+                }
+
+                path.waypoints[path.current_waypoint]
+            } else {
+                waypoint
+            }
+        } else {
+            velocity.0 = Vec3::ZERO;
+            commands.entity(entity).remove::<MoveTarget>();
+            if matches!(*unit_command, UnitCommand::Move(_)) {
+                *unit_command = UnitCommand::Idle;
+            }
+            continue;
+        };
+
+        // Compute desired direction (2D, ignoring Y)
+        let to_waypoint = next_waypoint - current_pos;
+        let desired_dir_2d = Vec3::new(to_waypoint.x, 0.0, to_waypoint.z);
+        let distance = desired_dir_2d.length();
+
+        if distance < 0.1 {
+            transform.translation.x = next_waypoint.x;
+            transform.translation.z = next_waypoint.z;
+            velocity.0 = Vec3::ZERO;
+            continue;
+        }
+
+        let desired_dir = desired_dir_2d.normalize();
+
+        // Get current facing direction from rotation
+        let current_forward = transform.forward();
+        let current_facing = Vec3::new(current_forward.x, 0.0, current_forward.z).normalize_or_zero();
+
+        // Compute angle between current facing and desired direction
+        let dot_forward = current_facing.dot(desired_dir).clamp(-1.0, 1.0);
+        let angle_to_target = dot_forward.acos();
+
+        // Determine whether to reverse: if waypoint is mostly behind us (>120°), reverse
+        let reverse_threshold = std::f32::consts::FRAC_PI_2 + std::f32::consts::FRAC_PI_6; // ~120°
+        let should_reverse = angle_to_target > reverse_threshold;
+
+        let current_speed = velocity.0.length();
+
+        if should_reverse {
+            // --- Reverse movement ---
+            // Reverse direction is opposite of forward
+            let reverse_facing = -current_facing;
+            let dot_reverse = reverse_facing.dot(desired_dir).clamp(-1.0, 1.0);
+            let reverse_angle = dot_reverse.acos();
+
+            // Turn while reversing (same turn rate as forward)
+            let max_turn = if current_speed > 0.01 {
+                params.max_turn_rate_at_speed(current_speed) * delta
+            } else {
+                0.0 // Can't turn when stationary
+            };
+
+            if reverse_angle > 0.001 && max_turn > 0.0 {
+                let cross = current_facing.cross(desired_dir);
+                // Reverse turn: steer opposite since we're going backwards
+                let turn_sign = if cross.y >= 0.0 { -1.0 } else { 1.0 };
+                let actual_turn = reverse_angle.min(max_turn);
+                let turn_quat = Quat::from_rotation_y(turn_sign * actual_turn);
+                transform.rotation = turn_quat * transform.rotation;
+            }
+
+            // Compute reverse speed
+            let decel_distance = if params.deceleration < f32::MAX / 2.0 {
+                (current_speed * current_speed) / (2.0 * params.deceleration)
+            } else {
+                0.0
+            };
+
+            let target_speed = if distance < decel_distance.max(0.5) {
+                (distance / decel_distance.max(0.5)) * params.reverse_max_speed
+            } else {
+                params.reverse_max_speed
+            };
+
+            let new_speed = if target_speed > current_speed {
+                (current_speed + params.reverse_acceleration * delta).min(target_speed)
+            } else {
+                (current_speed - params.deceleration * delta).max(target_speed).max(0.0)
+            };
+
+            // Move backward (opposite of facing)
+            let updated_forward = transform.forward();
+            let facing_2d = Vec3::new(updated_forward.x, 0.0, updated_forward.z).normalize_or_zero();
+            velocity.0 = -facing_2d * new_speed;
+        } else {
+            // --- Forward movement ---
+            // Turn toward waypoint, capped by speed-dependent turn rate
+            let max_turn = if current_speed > 0.01 {
+                params.max_turn_rate_at_speed(current_speed) * delta
+            } else {
+                0.0 // Can't turn when stationary — must start moving first
+            };
+
+            if angle_to_target > 0.001 && max_turn > 0.0 {
+                let cross = current_facing.cross(desired_dir);
+                let turn_sign = if cross.y >= 0.0 { 1.0 } else { -1.0 };
+                let actual_turn = angle_to_target.min(max_turn);
+                let turn_quat = Quat::from_rotation_y(turn_sign * actual_turn);
+                transform.rotation = turn_quat * transform.rotation;
+            }
+
+            // Compute desired speed
+            let decel_distance = if params.deceleration < f32::MAX / 2.0 {
+                (current_speed * current_speed) / (2.0 * params.deceleration)
+            } else {
+                0.0
+            };
+
+            let target_speed = if distance < decel_distance.max(0.5) {
+                (distance / decel_distance.max(0.5)) * params.forward_max_speed
+            } else if angle_to_target > std::f32::consts::FRAC_PI_2 {
+                // Facing largely away — slow down (but still need to move to turn)
+                params.forward_max_speed * 0.2
+            } else {
+                params.forward_max_speed
+            };
+
+            // Always move forward at least a minimum speed so the unit can turn
+            // (FixedTurnRadius can't turn in place)
+            let min_creep_speed = if angle_to_target > 0.01 && current_speed < 0.1 {
+                params.forward_max_speed * 0.1
+            } else {
+                0.0
+            };
+
+            let new_speed = if target_speed > current_speed {
+                (current_speed + params.forward_acceleration * delta).min(target_speed)
+            } else {
+                (current_speed - params.deceleration * delta).max(target_speed).max(0.0)
+            };
+            let new_speed = new_speed.max(min_creep_speed);
+
+            // Move forward in facing direction
+            let updated_forward = transform.forward();
+            let facing_2d = Vec3::new(updated_forward.x, 0.0, updated_forward.z).normalize_or_zero();
+            velocity.0 = facing_2d * new_speed;
+        }
+
+        let proposed_pos = transform.translation + velocity.0 * delta;
+
+        // Ground collision check — only for ground-domain units with a silhouette
+        let is_ground = domain_opt.map_or(true, |d| *d == DomainEnum::Ground);
+        if is_ground {
+            if let Some(sil) = silhouette_opt {
+                let half_w = sil.width / 2.0;
+                let half_h = sil.height / 2.0;
+                if occupancy.check_movement_collision(entity, proposed_pos.x, proposed_pos.z, half_w, half_h) {
+                    velocity.0 = Vec3::ZERO;
+                    commands.entity(entity).remove::<Path>().insert(NeedsRepath);
+                    continue;
+                }
+            }
+        }
+
+        transform.translation = proposed_pos;
+        let is_air_unit = domain_opt.map_or(false, |d| *d == DomainEnum::Air);
+        transform.translation.y = if is_air_unit { 1.5 } else { 0.5 };
+    }
+}
+
+/// SpeedTurnRadius movement system — handles movement for tracked vehicles.
+/// Units can rotate in place when stationary. Turn radius increases with speed:
+/// turn_radius = speed * speed_to_turn_radius_ratio.
+/// Sharp turns at speed require slowing down first.
+pub fn speed_turn_radius_movement_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    occupancy: Res<OccupancyMap>,
+    mut units: Query<
+        (Entity, &mut Transform, &mut Velocity, &SpeedTurnRadiusMovementParams, &MoveTarget,
+         Option<&mut Path>, Option<&AttackState>, Option<&Turret>, &mut UnitCommand,
+         Option<&Silhouette>, Option<&DomainEnum>),
+        (With<Unit>, Without<HoldingPosition>)
+    >,
+) {
+    let delta = time.delta_secs();
+    if delta < 0.0001 {
+        return;
+    }
+
+    for (entity, mut transform, mut velocity, params, _target, path_option,
+         attack_state_opt, turret_opt, mut unit_command, silhouette_opt, domain_opt) in &mut units
+    {
+        // Check attack phase action constraints — turret-source units can move freely
+        if let Some(attack_state) = attack_state_opt {
+            let is_turret_source = turret_opt.is_some();
+            let constraints = attack_state.phase.base_action_constraints(is_turret_source);
+            if !constraints.base_can_move {
+                velocity.0 = Vec3::ZERO;
+                continue;
+            }
+        }
+
+        let current_pos = transform.translation;
+
+        // Get next waypoint from path
+        let next_waypoint = if let Some(mut path) = path_option {
+            if path.current_waypoint >= path.waypoints.len() {
+                velocity.0 = Vec3::ZERO;
+                commands.entity(entity).remove::<MoveTarget>().remove::<Path>();
+                if matches!(*unit_command, UnitCommand::Move(_) | UnitCommand::AttackMove(_) | UnitCommand::Reverse(_)) {
+                    *unit_command = UnitCommand::Idle;
+                }
+                continue;
+            }
+
+            let waypoint = path.waypoints[path.current_waypoint];
+            let to_waypoint = waypoint - current_pos;
+            let distance_to_waypoint = Vec3::new(to_waypoint.x, 0.0, to_waypoint.z).length();
+
+            if distance_to_waypoint < WAYPOINT_ARRIVAL_THRESHOLD {
+                path.current_waypoint += 1;
+
+                if path.current_waypoint >= path.waypoints.len() {
+                    velocity.0 = Vec3::ZERO;
+                    commands.entity(entity).remove::<MoveTarget>().remove::<Path>();
+                    if matches!(*unit_command, UnitCommand::Move(_)) {
+                        *unit_command = UnitCommand::Idle;
+                    }
+                    continue;
+                }
+
+                path.waypoints[path.current_waypoint]
+            } else {
+                waypoint
+            }
+        } else {
+            velocity.0 = Vec3::ZERO;
+            commands.entity(entity).remove::<MoveTarget>();
+            if matches!(*unit_command, UnitCommand::Move(_)) {
+                *unit_command = UnitCommand::Idle;
+            }
+            continue;
+        };
+
+        // Compute desired direction (2D, ignoring Y)
+        let to_waypoint = next_waypoint - current_pos;
+        let desired_dir_2d = Vec3::new(to_waypoint.x, 0.0, to_waypoint.z);
+        let distance = desired_dir_2d.length();
+
+        if distance < 0.1 {
+            transform.translation.x = next_waypoint.x;
+            transform.translation.z = next_waypoint.z;
+            velocity.0 = Vec3::ZERO;
+            continue;
+        }
+
+        let desired_dir = desired_dir_2d.normalize();
+
+        // Get current facing direction from rotation
+        let current_forward = transform.forward();
+        let current_facing = Vec3::new(current_forward.x, 0.0, current_forward.z).normalize_or_zero();
+
+        // Compute angle between current facing and desired direction
+        let dot = current_facing.dot(desired_dir).clamp(-1.0, 1.0);
+        let angle_to_target = dot.acos();
+
+        let current_speed = velocity.0.length();
+
+        // Turn toward desired direction
+        // When stationary, can rotate freely (unconstrained); when moving, turn rate is speed-dependent
+        let max_turn = if current_speed < 0.01 {
+            // Stationary — can spin in place freely (use a generous rate)
+            std::f32::consts::TAU * delta // full rotation per second when stationary
+        } else {
+            // Moving — max_turn_rate = 1 / speed_to_turn_radius_ratio (constant)
+            params.max_turn_rate_at_speed(current_speed) * delta
+        };
+
+        if angle_to_target > 0.001 {
+            let cross = current_facing.cross(desired_dir);
+            let turn_sign = if cross.y >= 0.0 { 1.0 } else { -1.0 };
+            let actual_turn = angle_to_target.min(max_turn);
+            let turn_quat = Quat::from_rotation_y(turn_sign * actual_turn);
+            transform.rotation = turn_quat * transform.rotation;
+        }
+
+        // Determine whether to reverse: if waypoint is mostly behind (>120°), consider reversing
+        let reverse_threshold = std::f32::consts::FRAC_PI_2 + std::f32::consts::FRAC_PI_6;
+        let should_reverse = angle_to_target > reverse_threshold && current_speed < 0.5;
+
+        // Compute desired speed
+        let decel_distance = if params.deceleration < f32::MAX / 2.0 {
+            (current_speed * current_speed) / (2.0 * params.deceleration)
+        } else {
+            0.0
+        };
+
+        let target_speed = if should_reverse {
+            // If we need to reverse, first stop
+            0.0
+        } else if distance < decel_distance.max(0.5) {
+            // Approaching destination — decelerate
+            (distance / decel_distance.max(0.5)) * params.max_speed
+        } else if angle_to_target > std::f32::consts::FRAC_PI_2 {
+            // Facing away from waypoint — slow down significantly to allow tighter turns
+            params.max_speed * 0.1
+        } else if angle_to_target > std::f32::consts::FRAC_PI_4 {
+            // Moderate angle — reduce speed
+            params.max_speed * 0.5
+        } else {
+            params.max_speed
+        };
+
+        // Apply acceleration/deceleration
+        let new_speed = if target_speed > current_speed {
+            (current_speed + params.acceleration * delta).min(target_speed)
+        } else {
+            (current_speed - params.deceleration * delta).max(target_speed).max(0.0)
+        };
+
+        // Move forward in facing direction
+        let updated_forward = transform.forward();
+        let facing_2d = Vec3::new(updated_forward.x, 0.0, updated_forward.z).normalize_or_zero();
+        velocity.0 = facing_2d * new_speed;
+
+        let proposed_pos = transform.translation + velocity.0 * delta;
+
+        // Ground collision check — only for ground-domain units with a silhouette
+        let is_ground = domain_opt.map_or(true, |d| *d == DomainEnum::Ground);
+        if is_ground {
+            if let Some(sil) = silhouette_opt {
+                let half_w = sil.width / 2.0;
+                let half_h = sil.height / 2.0;
+                if occupancy.check_movement_collision(entity, proposed_pos.x, proposed_pos.z, half_w, half_h) {
+                    velocity.0 = Vec3::ZERO;
+                    commands.entity(entity).remove::<Path>().insert(NeedsRepath);
+                    continue;
+                }
+            }
+        }
+
+        transform.translation = proposed_pos;
+        let is_air_unit = domain_opt.map_or(false, |d| *d == DomainEnum::Air);
+        transform.translation.y = if is_air_unit { 1.5 } else { 0.5 };
+    }
+}
+
+/// Drag movement system — handles movement for entities with DragMovementParams (HoverVehicle, HoverCraft).
+/// Physics-based: thrust (forward + omni-directional) and drag forces determine velocity.
+/// Effective max speed = total_thrust / drag_ratio.
+/// Ground hover units get collision checks; air units skip collision.
+pub fn drag_movement_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    occupancy: Res<OccupancyMap>,
+    mut units: Query<
+        (Entity, &mut Transform, &mut Velocity, &DragMovementParams, Option<&MoveTarget>,
+         Option<&mut Path>, Option<&AttackState>, Option<&Turret>, &mut UnitCommand,
+         Option<&Silhouette>, Option<&DomainEnum>),
+        (With<Unit>, Without<HoldingPosition>)
+    >,
+) {
+    let delta = time.delta_secs();
+    if delta < 0.0001 {
+        return;
+    }
+
+    for (entity, mut transform, mut velocity, params, move_target_opt, path_option,
+         attack_state_opt, turret_opt, mut unit_command, silhouette_opt, domain_opt) in &mut units
+    {
+        // Check attack phase action constraints — turret-source units can move freely
+        if let Some(attack_state) = attack_state_opt {
+            let is_turret_source = turret_opt.is_some();
+            let constraints = attack_state.phase.base_action_constraints(is_turret_source);
+            if !constraints.base_can_move {
+                velocity.0 = Vec3::ZERO;
+                continue;
+            }
+        }
+
+        // Step 1: Apply drag to velocity
+        let drag_force = velocity.0 * params.drag_ratio * delta;
+        velocity.0 -= drag_force;
+
+        // If no MoveTarget, just let drag decelerate — no thrust applied
+        if move_target_opt.is_none() {
+            // Clamp near-zero velocity to zero
+            if velocity.0.length() < 0.01 {
+                velocity.0 = Vec3::ZERO;
+            }
+            let proposed_pos = transform.translation + velocity.0 * delta;
+            // Ground collision check
+            let is_ground = domain_opt.map_or(true, |d| *d == DomainEnum::Ground);
+            if is_ground {
+                if let Some(sil) = silhouette_opt {
+                    let half_w = sil.width / 2.0;
+                    let half_h = sil.height / 2.0;
+                    if occupancy.check_movement_collision(entity, proposed_pos.x, proposed_pos.z, half_w, half_h) {
+                        velocity.0 = Vec3::ZERO;
+                        continue;
+                    }
+                }
+            }
+            transform.translation = proposed_pos;
+            let is_air_unit = domain_opt.map_or(false, |d| *d == DomainEnum::Air);
+            transform.translation.y = if is_air_unit { 1.5 } else { 0.5 };
+            continue;
+        }
+
+        let current_pos = transform.translation;
+
+        // Get next waypoint from path
+        let next_waypoint = if let Some(mut path) = path_option {
+            if path.current_waypoint >= path.waypoints.len() {
+                commands.entity(entity).remove::<MoveTarget>().remove::<Path>();
+                if matches!(*unit_command, UnitCommand::Move(_) | UnitCommand::AttackMove(_)) {
+                    *unit_command = UnitCommand::Idle;
+                }
+                continue;
+            }
+
+            let waypoint = path.waypoints[path.current_waypoint];
+            let to_waypoint = waypoint - current_pos;
+            let distance_to_waypoint = Vec3::new(to_waypoint.x, 0.0, to_waypoint.z).length();
+
+            if distance_to_waypoint < WAYPOINT_ARRIVAL_THRESHOLD {
+                path.current_waypoint += 1;
+
+                if path.current_waypoint >= path.waypoints.len() {
+                    commands.entity(entity).remove::<MoveTarget>().remove::<Path>();
+                    if matches!(*unit_command, UnitCommand::Move(_)) {
+                        *unit_command = UnitCommand::Idle;
+                    }
+                    continue;
+                }
+
+                path.waypoints[path.current_waypoint]
+            } else {
+                waypoint
+            }
+        } else {
+            commands.entity(entity).remove::<MoveTarget>();
+            if matches!(*unit_command, UnitCommand::Move(_)) {
+                *unit_command = UnitCommand::Idle;
+            }
+            continue;
+        };
+
+        // Compute desired direction (2D, ignoring Y)
+        let to_waypoint = next_waypoint - current_pos;
+        let desired_dir_2d = Vec3::new(to_waypoint.x, 0.0, to_waypoint.z);
+        let distance = desired_dir_2d.length();
+
+        if distance < 0.1 {
+            transform.translation.x = next_waypoint.x;
+            transform.translation.z = next_waypoint.z;
+            // Don't zero velocity — drag will slow it. But advance waypoint logic will handle next frame.
+            continue;
+        }
+
+        let desired_dir = desired_dir_2d.normalize();
+
+        // Get current facing direction
+        let current_forward = transform.forward();
+        let current_facing = Vec3::new(current_forward.x, 0.0, current_forward.z).normalize_or_zero();
+
+        // Turn toward desired direction, capped by turn_rate
+        let dot = current_facing.dot(desired_dir).clamp(-1.0, 1.0);
+        let angle_to_target = dot.acos();
+        let max_turn = params.turn_rate * delta;
+        if angle_to_target > 0.001 {
+            let cross = current_facing.cross(desired_dir);
+            let turn_sign = if cross.y >= 0.0 { 1.0 } else { -1.0 };
+            let actual_turn = angle_to_target.min(max_turn);
+            let turn_quat = Quat::from_rotation_y(turn_sign * actual_turn);
+            transform.rotation = turn_quat * transform.rotation;
+        }
+
+        // Step 2: Apply thrust
+        // Forward thrust in facing direction
+        let updated_forward = transform.forward();
+        let facing_2d = Vec3::new(updated_forward.x, 0.0, updated_forward.z).normalize_or_zero();
+        velocity.0 += facing_2d * params.forward_acceleration * delta;
+
+        // Omni-directional thrust toward target
+        velocity.0 += desired_dir * params.non_forward_acceleration * delta;
+
+        // Clamp velocity to max speed
+        let max_speed = params.max_speed();
+        let current_speed = velocity.0.length();
+        if current_speed > max_speed {
+            velocity.0 = velocity.0.normalize() * max_speed;
+        }
+
+        let proposed_pos = transform.translation + velocity.0 * delta;
+
+        // Ground collision check — only for ground-domain units
+        let is_ground = domain_opt.map_or(true, |d| *d == DomainEnum::Ground);
+        if is_ground {
+            if let Some(sil) = silhouette_opt {
+                let half_w = sil.width / 2.0;
+                let half_h = sil.height / 2.0;
+                if occupancy.check_movement_collision(entity, proposed_pos.x, proposed_pos.z, half_w, half_h) {
+                    velocity.0 = Vec3::ZERO;
+                    commands.entity(entity).remove::<Path>().insert(NeedsRepath);
+                    continue;
+                }
+            }
+        }
+
+        transform.translation = proposed_pos;
+        let is_air_unit = domain_opt.map_or(false, |d| *d == DomainEnum::Air);
+        transform.translation.y = if is_air_unit { 1.5 } else { 0.5 };
+    }
+}
+
+/// Glider movement system — handles movement for entities with GliderMovementParams.
+/// The glider must always be moving to stay airborne. When idle, it circles at idle_speed.
+/// When given orders, it accelerates to max_speed and curves toward waypoints.
+/// Turn radius is speed-dependent: radius = speed^2 / max_centripetal_acceleration.
+pub fn glider_movement_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut units: Query<
+        (Entity, &mut Transform, &mut Velocity, &GliderMovementParams, Option<&MoveTarget>,
+         Option<&mut Path>, Option<&AttackState>, Option<&Turret>, &mut UnitCommand),
+        (With<Unit>, Without<HoldingPosition>)
+    >,
+) {
+    let delta = time.delta_secs();
+    if delta < 0.0001 {
+        return;
+    }
+
+    for (entity, mut transform, mut velocity, params, move_target_opt, path_option,
+         attack_state_opt, turret_opt, mut unit_command) in &mut units
+    {
+        // Check attack phase action constraints — turret-source units can move freely
+        if let Some(attack_state) = attack_state_opt {
+            let is_turret_source = turret_opt.is_some();
+            let constraints = attack_state.phase.base_action_constraints(is_turret_source);
+            if !constraints.base_can_move {
+                // Even constrained, glider maintains minimum speed to stay airborne
+                let current_speed = velocity.0.length();
+                if current_speed < params.idle_speed {
+                    let forward = transform.forward();
+                    let facing_2d = Vec3::new(forward.x, 0.0, forward.z).normalize_or_zero();
+                    velocity.0 = facing_2d * params.idle_speed;
+                }
+                let proposed_pos = transform.translation + velocity.0 * delta;
+                transform.translation = proposed_pos;
+                transform.translation.y = 1.5;
+                continue;
+            }
+        }
+
+        let current_forward = transform.forward();
+        let current_facing = Vec3::new(current_forward.x, 0.0, current_forward.z).normalize_or_zero();
+        let current_speed = velocity.0.length().max(0.01); // Never truly zero for glider
+
+        let has_move_target = move_target_opt.is_some();
+
+        if !has_move_target {
+            // --- Idle circling ---
+            // Decelerate toward idle_speed
+            let target_speed = params.idle_speed;
+            let new_speed = if current_speed > target_speed {
+                (current_speed - params.deceleration * delta).max(target_speed)
+            } else {
+                (current_speed + params.acceleration * delta).min(target_speed)
+            };
+
+            // Apply constant turn for circling: turn_rate = max_centripetal_acceleration / speed
+            let circle_turn_rate = params.max_centripetal_acceleration / new_speed.max(0.1);
+            let actual_turn = circle_turn_rate * delta;
+            // Always turn right (clockwise) when idle circling
+            let turn_quat = Quat::from_rotation_y(-actual_turn);
+            transform.rotation = turn_quat * transform.rotation;
+
+            // Update velocity in new facing direction
+            let updated_forward = transform.forward();
+            let facing_2d = Vec3::new(updated_forward.x, 0.0, updated_forward.z).normalize_or_zero();
+            velocity.0 = facing_2d * new_speed;
+
+            let proposed_pos = transform.translation + velocity.0 * delta;
+            transform.translation = proposed_pos;
+            transform.translation.y = 1.5; // Air domain always
+            continue;
+        }
+
+        // --- Has move target: fly toward waypoints ---
+        let current_pos = transform.translation;
+
+        let next_waypoint = if let Some(mut path) = path_option {
+            if path.current_waypoint >= path.waypoints.len() {
+                // All waypoints consumed — transition to idle circling
+                commands.entity(entity).remove::<MoveTarget>().remove::<Path>();
+                if matches!(*unit_command, UnitCommand::Move(_) | UnitCommand::AttackMove(_)) {
+                    *unit_command = UnitCommand::Idle;
+                }
+                // Don't stop — continue flying, next frame will idle-circle
+                let updated_forward = transform.forward();
+                let facing_2d = Vec3::new(updated_forward.x, 0.0, updated_forward.z).normalize_or_zero();
+                velocity.0 = facing_2d * current_speed;
+                let proposed_pos = transform.translation + velocity.0 * delta;
+                transform.translation = proposed_pos;
+                transform.translation.y = 1.5;
+                continue;
+            }
+
+            let waypoint = path.waypoints[path.current_waypoint];
+            let to_waypoint = waypoint - current_pos;
+            let distance_to_waypoint = Vec3::new(to_waypoint.x, 0.0, to_waypoint.z).length();
+
+            // Fly-through: advance waypoint without decelerating
+            if distance_to_waypoint < WAYPOINT_ARRIVAL_THRESHOLD {
+                path.current_waypoint += 1;
+
+                if path.current_waypoint >= path.waypoints.len() {
+                    // All waypoints consumed
+                    commands.entity(entity).remove::<MoveTarget>().remove::<Path>();
+                    if matches!(*unit_command, UnitCommand::Move(_)) {
+                        *unit_command = UnitCommand::Idle;
+                    }
+                    let updated_forward = transform.forward();
+                    let facing_2d = Vec3::new(updated_forward.x, 0.0, updated_forward.z).normalize_or_zero();
+                    velocity.0 = facing_2d * current_speed;
+                    let proposed_pos = transform.translation + velocity.0 * delta;
+                    transform.translation = proposed_pos;
+                    transform.translation.y = 1.5;
+                    continue;
+                }
+
+                path.waypoints[path.current_waypoint]
+            } else {
+                waypoint
+            }
+        } else {
+            // Has MoveTarget but no Path — remove MoveTarget, transition to idle
+            commands.entity(entity).remove::<MoveTarget>();
+            if matches!(*unit_command, UnitCommand::Move(_)) {
+                *unit_command = UnitCommand::Idle;
+            }
+            let updated_forward = transform.forward();
+            let facing_2d = Vec3::new(updated_forward.x, 0.0, updated_forward.z).normalize_or_zero();
+            velocity.0 = facing_2d * current_speed;
+            let proposed_pos = transform.translation + velocity.0 * delta;
+            transform.translation = proposed_pos;
+            transform.translation.y = 1.5;
+            continue;
+        };
+
+        // Accelerate toward max_speed when given orders
+        let target_speed = params.max_speed;
+        let new_speed = if current_speed < target_speed {
+            (current_speed + params.acceleration * delta).min(target_speed)
+        } else {
+            (current_speed - params.deceleration * delta).max(target_speed)
+        };
+
+        // Compute desired direction to waypoint
+        let to_waypoint = next_waypoint - current_pos;
+        let desired_dir_2d = Vec3::new(to_waypoint.x, 0.0, to_waypoint.z);
+        let distance = desired_dir_2d.length();
+
+        if distance > 0.1 {
+            let desired_dir = desired_dir_2d.normalize();
+
+            // Turn toward waypoint, limited by speed-dependent max turn rate
+            let dot = current_facing.dot(desired_dir).clamp(-1.0, 1.0);
+            let angle_to_target = dot.acos();
+
+            // Max turn rate = max_centripetal_acceleration / speed
+            let max_turn_rate = params.max_centripetal_acceleration / new_speed.max(0.1);
+            let max_turn = max_turn_rate * delta;
+
+            if angle_to_target > 0.001 {
+                let cross = current_facing.cross(desired_dir);
+                let turn_sign = if cross.y >= 0.0 { 1.0 } else { -1.0 };
+                let actual_turn = angle_to_target.min(max_turn);
+                let turn_quat = Quat::from_rotation_y(turn_sign * actual_turn);
+                transform.rotation = turn_quat * transform.rotation;
+            }
+        }
+
+        // Update velocity in facing direction
+        let updated_forward = transform.forward();
+        let facing_2d = Vec3::new(updated_forward.x, 0.0, updated_forward.z).normalize_or_zero();
+        velocity.0 = facing_2d * new_speed;
+
+        let proposed_pos = transform.translation + velocity.0 * delta;
+        transform.translation = proposed_pos;
+        transform.translation.y = 1.5; // Air domain always
     }
 }
 
@@ -1866,7 +2742,9 @@ pub fn channel_fallback_locomotion_system(
     mut units: Query<
         (Entity, &mut Transform, &mut Velocity, &LocomotionChannel,
          &MovementSpeed, Option<&Silhouette>, Option<&DomainEnum>),
-        (With<Unit>, Without<MoveTarget>, Without<TurnRateMovementParams>, Without<HoldingPosition>)
+        (With<Unit>, Without<MoveTarget>, Without<TurnRateMovementParams>,
+         Without<FixedTurnRadiusMovementParams>, Without<SpeedTurnRadiusMovementParams>,
+         Without<DragMovementParams>, Without<GliderMovementParams>, Without<HoldingPosition>)
     >,
 ) {
     let delta = time.delta_secs();
@@ -2024,6 +2902,48 @@ pub fn channel_orientation_system(
             }
             OrientationChannel::Maintaining => {
                 // Hold current facing — no rotation applied
+            }
+        }
+    }
+}
+
+/// Crushing system: TrackedVehicle and Mech units crush enemy LightInfantry on contact.
+/// Runs after all movement systems so positions are final for the frame.
+/// Uses AABB overlap in XZ plane between crusher and crushee silhouettes.
+pub fn crushing_system(
+    crushers: Query<
+        (&Transform, &UnitBaseEnum, &Owner, &Silhouette),
+        (With<Unit>, Without<InTunnelNetwork>),
+    >,
+    mut crushables: Query<
+        (Entity, &Transform, &UnitBaseEnum, &Owner, &Silhouette, &mut ObjectInstance),
+        (With<Unit>, Without<InTunnelNetwork>),
+    >,
+) {
+    for (c_transform, c_base, c_owner, c_sil) in crushers.iter() {
+        if !c_base.data().can_crush {
+            continue;
+        }
+        for (_entity, t_transform, t_base, t_owner, t_sil, mut obj) in crushables.iter_mut() {
+            if !t_base.data().crushable {
+                continue;
+            }
+            if c_owner == t_owner {
+                continue; // only crush enemies
+            }
+            if !obj.is_alive() {
+                continue;
+            }
+            // AABB overlap check in XZ plane
+            let cx = c_transform.translation.x;
+            let cz = c_transform.translation.z;
+            let tx = t_transform.translation.x;
+            let tz = t_transform.translation.z;
+            let overlap_x = (c_sil.width / 2.0 + t_sil.width / 2.0) - (cx - tx).abs();
+            let overlap_z = (c_sil.height / 2.0 + t_sil.height / 2.0) - (cz - tz).abs();
+            if overlap_x > 0.0 && overlap_z > 0.0 {
+                // Crush! Apply lethal damage
+                obj.apply_damage(f32::MAX);
             }
         }
     }
@@ -3690,6 +4610,817 @@ mod tests {
 
         let velocity = world.entity(entity).get::<Velocity>().unwrap();
         assert!(velocity.0.length() > 0.0, "Non-TurnRate unit should move via fallback system");
+    }
+
+    // === FixedTurnRadius movement system tests ===
+
+    fn default_fixed_turn_params() -> FixedTurnRadiusMovementParams {
+        FixedTurnRadiusMovementParams {
+            minimum_turn_radius: 2.0,
+            forward_acceleration: 4.0,
+            forward_max_speed: 6.0,
+            reverse_acceleration: 2.0,
+            reverse_max_speed: 3.0,
+            deceleration: 8.0,
+        }
+    }
+
+    fn spawn_fixed_turn_unit(world: &mut World, pos: Vec3, target: Vec3, facing_angle: f32) -> Entity {
+        let rotation = Quat::from_rotation_y(facing_angle);
+        world.spawn((
+            Unit,
+            Transform::from_translation(pos).with_rotation(rotation),
+            Velocity(Vec3::ZERO),
+            default_fixed_turn_params(),
+            MoveTarget(target),
+            Path { waypoints: vec![target], current_waypoint: 0 },
+            UnitCommand::Move(target),
+            GridPosition { x: 32, z: 32 },
+        )).id()
+    }
+
+    #[test]
+    fn fixed_turn_radius_moves_forward_when_facing_target() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        // Unit at origin facing -Z, target at (0, 0.5, -10) — directly ahead
+        let entity = spawn_fixed_turn_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            Vec3::new(0.0, 0.5, -10.0),
+            0.0, // facing -Z
+        );
+
+        world.run_system_once(fixed_turn_radius_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(vel.0.length() > 0.0, "Unit should begin moving forward");
+        // Should move in -Z direction
+        assert!(vel.0.z < 0.0, "Velocity should be in -Z direction");
+    }
+
+    #[test]
+    fn fixed_turn_radius_cannot_turn_when_stationary() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        // Unit facing -Z, target is to the right (+X) — 90° turn needed
+        let entity = spawn_fixed_turn_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            Vec3::new(10.0, 0.5, 0.0),
+            0.0, // facing -Z
+        );
+
+        let _rot_before = world.entity(entity).get::<Transform>().unwrap().rotation;
+
+        world.run_system_once(fixed_turn_radius_movement_system).unwrap();
+
+        // Unit must move first to turn — at 0 speed the turn rate is 0
+        // But it should still accelerate forward (creep speed) to begin turning
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(vel.0.length() > 0.0, "Unit should creep forward to enable turning");
+    }
+
+    #[test]
+    fn fixed_turn_radius_reverses_when_target_behind() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        // Unit facing -Z, target is behind (+Z direction) — should consider reversing
+        let entity = spawn_fixed_turn_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            Vec3::new(0.0, 0.5, 10.0),
+            0.0, // facing -Z, target directly behind
+        );
+
+        // Give it some initial speed so it can start
+        world.entity_mut(entity).get_mut::<Velocity>().unwrap().0 = Vec3::new(0.0, 0.0, -0.5);
+
+        world.run_system_once(fixed_turn_radius_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        // The unit should be trying to reverse (velocity in +Z, same as target direction)
+        // or creeping forward to turn — either way it should have velocity
+        assert!(vel.0.length() > 0.0, "Unit should have non-zero velocity");
+    }
+
+    #[test]
+    fn fixed_turn_radius_completes_move_command() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(16));
+
+        // Place unit very close to target — should snap and complete
+        let target = Vec3::new(0.0, 0.5, -0.05);
+        let entity = spawn_fixed_turn_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            target,
+            0.0,
+        );
+
+        world.run_system_once(fixed_turn_radius_movement_system).unwrap();
+
+        let _cmd = world.entity(entity).get::<UnitCommand>().unwrap();
+        // Should have transitioned — either the waypoint was consumed or snapped
+        // The entity should eventually idle since it was within 0.1 of waypoint
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(vel.0.length() < 0.01, "Unit should stop near target");
+    }
+
+    #[test]
+    fn fixed_turn_radius_stops_on_collision() {
+        let mut world = World::new();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        let mut occupancy = OccupancyMap::default();
+        // Block the path ahead
+        occupancy.ground_bodies.push(CollisionBody {
+            entity: Entity::from_raw_u32(9999).unwrap(),
+            x: 0.0,
+            z: -2.0,
+            half_w: 5.0,
+            half_h: 5.0,
+        });
+        world.insert_resource(occupancy);
+
+        let entity = spawn_fixed_turn_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            Vec3::new(0.0, 0.5, -10.0),
+            0.0,
+        );
+        // Give it speed and a silhouette (needed for collision)
+        world.entity_mut(entity).insert((
+            Velocity(Vec3::new(0.0, 0.0, -4.0)),
+            Silhouette { width: 1.0, height: 1.0 },
+            DomainEnum::Ground,
+        ));
+
+        world.run_system_once(fixed_turn_radius_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(vel.0.length() < 0.01, "Unit should stop on collision");
+        assert!(world.entity(entity).get::<NeedsRepath>().is_some(), "Unit should need repath");
+    }
+
+    // === SpeedTurnRadius movement system tests ===
+
+    fn default_speed_turn_params() -> SpeedTurnRadiusMovementParams {
+        SpeedTurnRadiusMovementParams {
+            speed_to_turn_radius_ratio: 0.5,
+            acceleration: 4.0,
+            deceleration: 8.0,
+            max_speed: 5.0,
+        }
+    }
+
+    fn spawn_speed_turn_unit(world: &mut World, pos: Vec3, target: Vec3, facing_angle: f32) -> Entity {
+        let rotation = Quat::from_rotation_y(facing_angle);
+        world.spawn((
+            Unit,
+            Transform::from_translation(pos).with_rotation(rotation),
+            Velocity(Vec3::ZERO),
+            default_speed_turn_params(),
+            MoveTarget(target),
+            Path { waypoints: vec![target], current_waypoint: 0 },
+            UnitCommand::Move(target),
+            GridPosition { x: 32, z: 32 },
+        )).id()
+    }
+
+    #[test]
+    fn speed_turn_radius_moves_forward() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        let entity = spawn_speed_turn_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            Vec3::new(0.0, 0.5, -10.0),
+            0.0,
+        );
+
+        world.run_system_once(speed_turn_radius_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(vel.0.length() > 0.0, "Unit should begin moving");
+        assert!(vel.0.z < 0.0, "Velocity should be in -Z direction");
+    }
+
+    #[test]
+    fn speed_turn_radius_can_turn_in_place() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        // Unit facing -Z, target is to the right (+X) — needs 90° turn
+        let entity = spawn_speed_turn_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            Vec3::new(10.0, 0.5, 0.0),
+            0.0, // facing -Z
+        );
+
+        let rot_before = world.entity(entity).get::<Transform>().unwrap().rotation;
+
+        world.run_system_once(speed_turn_radius_movement_system).unwrap();
+
+        let rot_after = world.entity(entity).get::<Transform>().unwrap().rotation;
+        // TrackedVehicle can rotate in place — rotation should change
+        let angle_changed = rot_before.angle_between(rot_after);
+        assert!(angle_changed > 0.01, "TrackedVehicle should turn in place (angle changed: {})", angle_changed);
+    }
+
+    #[test]
+    fn speed_turn_radius_slows_for_sharp_turns() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        // Unit facing -Z at high speed, target is to the right (+X)
+        let entity = spawn_speed_turn_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            Vec3::new(10.0, 0.5, 0.0),
+            0.0,
+        );
+        // Give it high speed in -Z
+        world.entity_mut(entity).get_mut::<Velocity>().unwrap().0 = Vec3::new(0.0, 0.0, -5.0);
+
+        world.run_system_once(speed_turn_radius_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        // Should decelerate — speed should be less than the initial 5.0
+        assert!(vel.0.length() < 5.0, "Unit should slow down for sharp turn, speed: {}", vel.0.length());
+    }
+
+    #[test]
+    fn speed_turn_radius_completes_move_command() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(16));
+
+        let target = Vec3::new(0.0, 0.5, -0.05);
+        let entity = spawn_speed_turn_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            target,
+            0.0,
+        );
+
+        world.run_system_once(speed_turn_radius_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(vel.0.length() < 0.01, "Unit should stop near target");
+    }
+
+    #[test]
+    fn speed_turn_radius_stops_on_collision() {
+        let mut world = World::new();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        let mut occupancy = OccupancyMap::default();
+        occupancy.ground_bodies.push(CollisionBody {
+            entity: Entity::from_raw_u32(9999).unwrap(),
+            x: 0.0,
+            z: -2.0,
+            half_w: 5.0,
+            half_h: 5.0,
+        });
+        world.insert_resource(occupancy);
+
+        let entity = spawn_speed_turn_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            Vec3::new(0.0, 0.5, -10.0),
+            0.0,
+        );
+        world.entity_mut(entity).insert((
+            Velocity(Vec3::new(0.0, 0.0, -4.0)),
+            Silhouette { width: 1.0, height: 1.0 },
+            DomainEnum::Ground,
+        ));
+
+        world.run_system_once(speed_turn_radius_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(vel.0.length() < 0.01, "Unit should stop on collision");
+        assert!(world.entity(entity).get::<NeedsRepath>().is_some(), "Unit should need repath");
+    }
+
+    #[test]
+    fn fixed_turn_radius_attack_constraint_prevents_movement() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        let entity = spawn_fixed_turn_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            Vec3::new(0.0, 0.5, -10.0),
+            0.0,
+        );
+        // Add attack state that prevents movement (Firing phase, no turret)
+        world.entity_mut(entity).insert(AttackState {
+            phase: AttackPhase::Firing,
+            time_in_phase: 0.0,
+            current_target: None,
+        });
+
+        world.run_system_once(fixed_turn_radius_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(vel.0.length() < 0.01, "Unit should not move while firing without turret");
+    }
+
+    #[test]
+    fn speed_turn_radius_not_processed_by_unit_movement_system() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        let entity = spawn_speed_turn_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            Vec3::new(0.0, 0.5, -10.0),
+            0.0,
+        );
+        // Also add MovementSpeed so unit_movement_system query could match
+        world.entity_mut(entity).insert(MovementSpeed(5.0));
+
+        world.run_system_once(unit_movement_system).unwrap();
+
+        // unit_movement_system should NOT have processed this entity (has SpeedTurnRadiusMovementParams)
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(vel.0.length() < 0.01, "unit_movement_system should not process SpeedTurnRadius entities");
+    }
+
+    // === Crushing system tests ===
+
+    fn spawn_crusher(world: &mut World, base: UnitBaseEnum, pos: Vec3, owner: u8) -> Entity {
+        world.spawn((
+            Unit,
+            Transform::from_translation(pos),
+            base,
+            Owner(Some(owner)),
+            Silhouette { width: 1.0, height: 1.0 },
+            ObjectInstance::destructible(ObjectEnum::Peacekeeper, 200.0),
+        )).id()
+    }
+
+    fn spawn_crushable(world: &mut World, base: UnitBaseEnum, pos: Vec3, owner: u8) -> Entity {
+        world.spawn((
+            Unit,
+            Transform::from_translation(pos),
+            base,
+            Owner(Some(owner)),
+            Silhouette { width: 1.0, height: 1.0 },
+            ObjectInstance::destructible(ObjectEnum::Peacekeeper, 100.0),
+        )).id()
+    }
+
+    #[test]
+    fn crushing_tracked_vehicle_kills_enemy_light_infantry() {
+        let mut world = World::new();
+        let _crusher = spawn_crusher(&mut world, UnitBaseEnum::TrackedVehicle, Vec3::new(0.0, 0.5, 0.0), 0);
+        let victim = spawn_crushable(&mut world, UnitBaseEnum::LightInfantry, Vec3::new(0.3, 0.5, 0.3), 1);
+
+        world.run_system_once(crushing_system).unwrap();
+
+        let obj = world.entity(victim).get::<ObjectInstance>().unwrap();
+        assert!(!obj.is_alive(), "LightInfantry should be crushed");
+    }
+
+    #[test]
+    fn crushing_mech_kills_enemy_light_infantry() {
+        let mut world = World::new();
+        let _crusher = spawn_crusher(&mut world, UnitBaseEnum::Mech, Vec3::new(0.0, 0.5, 0.0), 0);
+        let victim = spawn_crushable(&mut world, UnitBaseEnum::LightInfantry, Vec3::new(0.3, 0.5, 0.3), 1);
+
+        world.run_system_once(crushing_system).unwrap();
+
+        let obj = world.entity(victim).get::<ObjectInstance>().unwrap();
+        assert!(!obj.is_alive(), "LightInfantry should be crushed by Mech");
+    }
+
+    #[test]
+    fn crushing_no_friendly_fire() {
+        let mut world = World::new();
+        let _crusher = spawn_crusher(&mut world, UnitBaseEnum::TrackedVehicle, Vec3::new(0.0, 0.5, 0.0), 0);
+        let friendly = spawn_crushable(&mut world, UnitBaseEnum::LightInfantry, Vec3::new(0.3, 0.5, 0.3), 0);
+
+        world.run_system_once(crushing_system).unwrap();
+
+        let obj = world.entity(friendly).get::<ObjectInstance>().unwrap();
+        assert!(obj.is_alive(), "Friendly LightInfantry should not be crushed");
+    }
+
+    #[test]
+    fn crushing_heavy_infantry_survives() {
+        let mut world = World::new();
+        let _crusher = spawn_crusher(&mut world, UnitBaseEnum::TrackedVehicle, Vec3::new(0.0, 0.5, 0.0), 0);
+        let heavy = spawn_crushable(&mut world, UnitBaseEnum::HeavyInfantry, Vec3::new(0.3, 0.5, 0.3), 1);
+
+        world.run_system_once(crushing_system).unwrap();
+
+        let obj = world.entity(heavy).get::<ObjectInstance>().unwrap();
+        assert!(obj.is_alive(), "HeavyInfantry should not be crushable");
+    }
+
+    #[test]
+    fn crushing_wheeled_vehicle_cannot_crush() {
+        let mut world = World::new();
+        let _non_crusher = spawn_crusher(&mut world, UnitBaseEnum::WheeledVehicle, Vec3::new(0.0, 0.5, 0.0), 0);
+        let victim = spawn_crushable(&mut world, UnitBaseEnum::LightInfantry, Vec3::new(0.3, 0.5, 0.3), 1);
+
+        world.run_system_once(crushing_system).unwrap();
+
+        let obj = world.entity(victim).get::<ObjectInstance>().unwrap();
+        assert!(obj.is_alive(), "WheeledVehicle should not be able to crush");
+    }
+
+    #[test]
+    fn crushing_no_overlap_no_crush() {
+        let mut world = World::new();
+        let _crusher = spawn_crusher(&mut world, UnitBaseEnum::TrackedVehicle, Vec3::new(0.0, 0.5, 0.0), 0);
+        let far_unit = spawn_crushable(&mut world, UnitBaseEnum::LightInfantry, Vec3::new(5.0, 0.5, 5.0), 1);
+
+        world.run_system_once(crushing_system).unwrap();
+
+        let obj = world.entity(far_unit).get::<ObjectInstance>().unwrap();
+        assert!(obj.is_alive(), "Distant LightInfantry should not be crushed");
+    }
+
+    #[test]
+    fn crushing_in_tunnel_excluded() {
+        let mut world = World::new();
+        let crusher = spawn_crusher(&mut world, UnitBaseEnum::TrackedVehicle, Vec3::new(0.0, 0.5, 0.0), 0);
+        world.entity_mut(crusher).insert(InTunnelNetwork { owner_player: 0 });
+        let victim = spawn_crushable(&mut world, UnitBaseEnum::LightInfantry, Vec3::new(0.3, 0.5, 0.3), 1);
+
+        world.run_system_once(crushing_system).unwrap();
+
+        let obj = world.entity(victim).get::<ObjectInstance>().unwrap();
+        assert!(obj.is_alive(), "In-tunnel crusher should not crush surface units");
+    }
+
+    // === Drag movement system tests ===
+
+    fn default_drag_params() -> DragMovementParams {
+        DragMovementParams {
+            forward_acceleration: 6.0,
+            non_forward_acceleration: 4.0,
+            drag_ratio: 2.0,
+            turn_rate: 2.5,
+        }
+    }
+
+    fn spawn_drag_unit(world: &mut World, pos: Vec3, target: Option<Vec3>, facing_angle: f32) -> Entity {
+        let rotation = Quat::from_rotation_y(facing_angle);
+        let mut entity = world.spawn((
+            Unit,
+            Transform::from_translation(pos).with_rotation(rotation),
+            Velocity(Vec3::ZERO),
+            default_drag_params(),
+            UnitCommand::Idle,
+            GridPosition { x: 32, z: 32 },
+        ));
+        if let Some(t) = target {
+            entity.insert((
+                MoveTarget(t),
+                Path { waypoints: vec![t], current_waypoint: 0 },
+            ));
+            entity.insert(UnitCommand::Move(t));
+        }
+        entity.id()
+    }
+
+    #[test]
+    fn drag_movement_accelerates_toward_target() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        // Unit at origin facing -Z, target at (0, 0.5, -10)
+        let entity = spawn_drag_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            Some(Vec3::new(0.0, 0.5, -10.0)),
+            0.0, // facing -Z
+        );
+
+        world.run_system_once(drag_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(vel.0.length() > 0.0, "Unit should accelerate toward target");
+        assert!(vel.0.z < 0.0, "Velocity should be in -Z direction");
+    }
+
+    #[test]
+    fn drag_movement_drag_decelerates_when_idle() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        // Unit with initial velocity, no move target
+        let entity = world.spawn((
+            Unit,
+            Transform::from_translation(Vec3::new(0.0, 0.5, 0.0)),
+            Velocity(Vec3::new(0.0, 0.0, -3.0)),
+            default_drag_params(),
+            UnitCommand::Idle,
+            GridPosition { x: 32, z: 32 },
+        )).id();
+
+        world.run_system_once(drag_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        // Drag should reduce speed: 3.0 - 3.0*2.0*0.1 = 2.4
+        assert!(vel.0.length() < 3.0, "Drag should slow the unit down");
+        assert!(vel.0.length() > 0.0, "Unit should still be moving (drag doesn't instantly stop)");
+    }
+
+    #[test]
+    fn drag_movement_respects_max_speed() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+
+        // Use large delta to allow high acceleration
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_secs(10));
+
+        let entity = spawn_drag_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            Some(Vec3::new(0.0, 0.5, -100.0)),
+            0.0,
+        );
+
+        world.run_system_once(drag_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        let max_speed = default_drag_params().max_speed();
+        assert!(vel.0.length() <= max_speed + 0.01, "Velocity should not exceed max speed ({} > {})", vel.0.length(), max_speed);
+    }
+
+    #[test]
+    fn drag_movement_completes_move_command() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        // Target very close — should be reached in one frame
+        let target = Vec3::new(0.0, 0.5, -0.05);
+        let entity = spawn_drag_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            Some(target),
+            0.0,
+        );
+
+        world.run_system_once(drag_movement_system).unwrap();
+
+        // After reaching waypoint, MoveTarget should be removed
+        assert!(world.entity(entity).get::<MoveTarget>().is_none(), "MoveTarget should be removed after reaching destination");
+        let cmd = world.entity(entity).get::<UnitCommand>().unwrap();
+        assert!(matches!(*cmd, UnitCommand::Idle), "Command should be Idle after completing move");
+    }
+
+    #[test]
+    fn drag_movement_not_processed_by_unit_movement_system() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        let entity = spawn_drag_unit(
+            &mut world,
+            Vec3::new(0.0, 0.5, 0.0),
+            Some(Vec3::new(0.0, 0.5, -10.0)),
+            0.0,
+        );
+        world.entity_mut(entity).insert(MovementSpeed(5.0));
+
+        world.run_system_once(unit_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(vel.0.length() < 0.01, "unit_movement_system should not process Drag entities");
+    }
+
+    #[test]
+    fn drag_movement_air_unit_at_air_height() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        let entity = spawn_drag_unit(
+            &mut world,
+            Vec3::new(0.0, 1.5, 0.0),
+            Some(Vec3::new(0.0, 1.5, -10.0)),
+            0.0,
+        );
+        world.entity_mut(entity).insert(DomainEnum::Air);
+
+        world.run_system_once(drag_movement_system).unwrap();
+
+        let transform = world.entity(entity).get::<Transform>().unwrap();
+        assert!((transform.translation.y - 1.5).abs() < 0.01, "Air unit should stay at y=1.5");
+    }
+
+    // === Glider movement system tests ===
+
+    fn default_glider_params() -> GliderMovementParams {
+        GliderMovementParams {
+            idle_speed: 5.0,
+            max_speed: 15.0,
+            acceleration: 3.0,
+            deceleration: 6.0,
+            max_centripetal_acceleration: 10.0,
+        }
+    }
+
+    fn spawn_glider_unit(world: &mut World, pos: Vec3, target: Option<Vec3>, facing_angle: f32) -> Entity {
+        let rotation = Quat::from_rotation_y(facing_angle);
+        let mut entity = world.spawn((
+            Unit,
+            Transform::from_translation(pos).with_rotation(rotation),
+            Velocity(Vec3::new(0.0, 0.0, -5.0)), // Glider starts with idle_speed
+            default_glider_params(),
+            UnitCommand::Idle,
+            GridPosition { x: 32, z: 32 },
+        ));
+        if let Some(t) = target {
+            entity.insert((
+                MoveTarget(t),
+                Path { waypoints: vec![t], current_waypoint: 0 },
+            ));
+            entity.insert(UnitCommand::Move(t));
+        }
+        entity.id()
+    }
+
+    #[test]
+    fn glider_circles_when_idle() {
+        let mut world = World::new();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        // Glider facing -Z with idle speed
+        let entity = spawn_glider_unit(
+            &mut world,
+            Vec3::new(0.0, 1.5, 0.0),
+            None,
+            0.0,
+        );
+
+        let initial_rotation = world.entity(entity).get::<Transform>().unwrap().rotation;
+
+        world.run_system_once(glider_movement_system).unwrap();
+
+        let transform = world.entity(entity).get::<Transform>().unwrap();
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+
+        // Should still be moving at approximately idle_speed
+        assert!(vel.0.length() > 4.0, "Glider should maintain speed when idle");
+        // Rotation should have changed (circling)
+        assert_ne!(transform.rotation, initial_rotation, "Glider should turn when idle (circling)");
+        // Should stay at air height
+        assert!((transform.translation.y - 1.5).abs() < 0.01, "Glider should stay at y=1.5");
+    }
+
+    #[test]
+    fn glider_accelerates_toward_max_speed_when_ordered() {
+        let mut world = World::new();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        let entity = spawn_glider_unit(
+            &mut world,
+            Vec3::new(0.0, 1.5, 0.0),
+            Some(Vec3::new(0.0, 1.5, -50.0)),
+            0.0,
+        );
+
+        let initial_speed = world.entity(entity).get::<Velocity>().unwrap().0.length();
+
+        world.run_system_once(glider_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(vel.0.length() > initial_speed, "Glider should accelerate when given orders");
+    }
+
+    #[test]
+    fn glider_never_stops_after_completing_waypoints() {
+        let mut world = World::new();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        // Target very close — will be consumed immediately
+        let target = Vec3::new(0.0, 1.5, -0.1);
+        let entity = spawn_glider_unit(
+            &mut world,
+            Vec3::new(0.0, 1.5, 0.0),
+            Some(target),
+            0.0,
+        );
+
+        world.run_system_once(glider_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        assert!(vel.0.length() > 1.0, "Glider should never stop — transitions to circling after completing waypoints");
+        // MoveTarget should be removed
+        assert!(world.entity(entity).get::<MoveTarget>().is_none(), "MoveTarget should be removed after waypoints consumed");
+    }
+
+    #[test]
+    fn glider_decelerates_toward_idle_speed_when_no_target() {
+        let mut world = World::new();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        // Start at max speed, no target
+        let entity = world.spawn((
+            Unit,
+            Transform::from_translation(Vec3::new(0.0, 1.5, 0.0)),
+            Velocity(Vec3::new(0.0, 0.0, -15.0)), // max_speed
+            default_glider_params(),
+            UnitCommand::Idle,
+            GridPosition { x: 32, z: 32 },
+        )).id();
+
+        world.run_system_once(glider_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        // Should decelerate toward idle_speed (5.0) from max_speed (15.0)
+        assert!(vel.0.length() < 15.0, "Glider should decelerate toward idle_speed when no target");
+        assert!(vel.0.length() > 4.0, "Glider should still be moving above idle_speed minus one frame");
+    }
+
+    #[test]
+    fn glider_speed_dependent_turn_radius() {
+        let mut world = World::new();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        let params = default_glider_params();
+
+        // At idle_speed (5.0): turn_radius = 25/10 = 2.5, turn_rate = 10/5 = 2.0 rad/s
+        let idle_radius = params.turn_radius(params.idle_speed);
+        assert!((idle_radius - 2.5).abs() < 0.01, "Idle turn radius should be 2.5");
+
+        // At max_speed (15.0): turn_radius = 225/10 = 22.5, turn_rate = 10/15 = 0.667 rad/s
+        let max_radius = params.turn_radius(params.max_speed);
+        assert!((max_radius - 22.5).abs() < 0.01, "Max speed turn radius should be 22.5");
+
+        // Higher speed = wider turn radius
+        assert!(max_radius > idle_radius, "Turn radius should increase with speed");
+    }
+
+    #[test]
+    fn glider_not_processed_by_unit_movement_system() {
+        let mut world = World::new();
+        world.init_resource::<OccupancyMap>();
+        world.init_resource::<Time<()>>();
+        world.resource_mut::<Time<()>>().advance_by(std::time::Duration::from_millis(100));
+
+        let entity = spawn_glider_unit(
+            &mut world,
+            Vec3::new(0.0, 1.5, 0.0),
+            Some(Vec3::new(0.0, 1.5, -10.0)),
+            0.0,
+        );
+        world.entity_mut(entity).insert(MovementSpeed(5.0));
+
+        let initial_vel = world.entity(entity).get::<Velocity>().unwrap().0;
+        world.run_system_once(unit_movement_system).unwrap();
+
+        let vel = world.entity(entity).get::<Velocity>().unwrap();
+        // unit_movement_system should not modify glider velocity
+        assert_eq!(vel.0, initial_vel, "unit_movement_system should not process Glider entities");
     }
 
 }

@@ -159,6 +159,7 @@ impl StructureInstance {
             SymmetryTypeEnum::ABAB => ['A', 'B', 'A', 'B'],
             SymmetryTypeEnum::AABC => ['A', 'A', 'B', 'C'],
             SymmetryTypeEnum::ABAC => ['A', 'B', 'A', 'C'],
+            SymmetryTypeEnum::ABCB => ['A', 'B', 'C', 'B'],
             SymmetryTypeEnum::ABCD => ['A', 'B', 'C', 'D'],
         };
 
@@ -299,6 +300,48 @@ impl ObjectEnum {
                 sight_range: 0, // Underground, no surface sight
                 groupable: false, // Ungroupable — each HQ is its own SelectionGroup
             },
+            ObjectEnum::CultsRecruit => ObjectType {
+                name: "Recruit".to_string(),
+                size: (1, 1),
+                destructible: true,
+                sight_range: 3,
+                groupable: true,
+            },
+            ObjectEnum::CultsSoldier => ObjectType {
+                name: "Soldier".to_string(),
+                size: (1, 1),
+                destructible: true,
+                sight_range: 5,
+                groupable: true,
+            },
+            ObjectEnum::CultsGunner => ObjectType {
+                name: "Gunner".to_string(),
+                size: (1, 1),
+                destructible: true,
+                sight_range: 6,
+                groupable: true,
+            },
+            ObjectEnum::RecruitmentCenter => ObjectType {
+                name: "Recruitment Center".to_string(),
+                size: (4, 4),
+                destructible: true,
+                sight_range: 6,
+                groupable: false,
+            },
+            ObjectEnum::CultsStorage => ObjectType {
+                name: "Storage".to_string(),
+                size: (3, 2),
+                destructible: true,
+                sight_range: 3,
+                groupable: true,
+            },
+            ObjectEnum::CultsArmory => ObjectType {
+                name: "Armory".to_string(),
+                size: (3, 2),
+                destructible: true,
+                sight_range: 3,
+                groupable: true,
+            },
             ObjectEnum::SpaceCrystalsPatch => ObjectType {
                 name: "Space Crystals Patch".to_string(),
                 size: (1, 1),
@@ -351,6 +394,18 @@ impl ObjectEnum {
                 object_type: self.object_type(),
                 symmetry_type: SymmetryTypeEnum::AAAA,
             }),
+            ObjectEnum::RecruitmentCenter => Some(StructureType {
+                object_type: self.object_type(),
+                symmetry_type: SymmetryTypeEnum::AAAA,
+            }),
+            ObjectEnum::CultsStorage => Some(StructureType {
+                object_type: self.object_type(),
+                symmetry_type: SymmetryTypeEnum::ABAB,
+            }),
+            ObjectEnum::CultsArmory => Some(StructureType {
+                object_type: self.object_type(),
+                symmetry_type: SymmetryTypeEnum::ABCB,
+            }),
             _ => None,
         }
     }
@@ -362,7 +417,7 @@ impl ObjectEnum {
 
     /// Check if this object is a unit
     pub fn is_unit(&self) -> bool {
-        matches!(self, ObjectEnum::Peacekeeper | ObjectEnum::SupplyChopper | ObjectEnum::SyndicateAgent | ObjectEnum::SyndicateGuard)
+        matches!(self, ObjectEnum::Peacekeeper | ObjectEnum::SupplyChopper | ObjectEnum::SyndicateAgent | ObjectEnum::SyndicateGuard | ObjectEnum::CultsRecruit | ObjectEnum::CultsSoldier | ObjectEnum::CultsGunner)
     }
 
     /// Check if this object is a resource
@@ -695,6 +750,9 @@ mod tests {
             ObjectEnum::SupplyTower,
             ObjectEnum::Tunnel,
             ObjectEnum::Headquarters,
+            ObjectEnum::RecruitmentCenter,
+            ObjectEnum::CultsStorage,
+            ObjectEnum::CultsArmory,
         ];
         for obj in structures {
             let st = obj.structure_type().expect(&format!("{:?} should be a structure", obj));
@@ -749,6 +807,9 @@ mod tests {
             ObjectEnum::SupplyTower,
             ObjectEnum::Tunnel,
             ObjectEnum::Headquarters,
+            ObjectEnum::RecruitmentCenter,
+            ObjectEnum::CultsStorage,
+            ObjectEnum::CultsArmory,
             ObjectEnum::SpaceCrystalsPatch,
             ObjectEnum::SupplyDeliveryStation,
         ];
@@ -1151,5 +1212,101 @@ mod tests {
     fn test_resource_unit_control_cost_is_zero() {
         assert_eq!(ObjectEnum::SpaceCrystalsPatch.unit_control_cost(), 0);
         assert_eq!(ObjectEnum::SupplyDeliveryStation.unit_control_cost(), 0);
+    }
+
+    // --- CultsArmory tests ---
+
+    #[test]
+    fn test_cults_armory_object_type_size() {
+        let obj = ObjectEnum::CultsArmory.object_type();
+        assert_eq!(obj.size, (3, 2));
+    }
+
+    #[test]
+    fn test_cults_armory_object_type_name() {
+        let obj = ObjectEnum::CultsArmory.object_type();
+        assert_eq!(obj.name, "Armory");
+    }
+
+    #[test]
+    fn test_cults_armory_object_type_destructible() {
+        let obj = ObjectEnum::CultsArmory.object_type();
+        assert!(obj.destructible);
+    }
+
+    #[test]
+    fn test_cults_armory_object_type_sight_range() {
+        let obj = ObjectEnum::CultsArmory.object_type();
+        assert_eq!(obj.sight_range, 3);
+    }
+
+    #[test]
+    fn test_cults_armory_object_type_groupable() {
+        let obj = ObjectEnum::CultsArmory.object_type();
+        assert!(obj.groupable);
+    }
+
+    #[test]
+    fn test_cults_armory_is_structure() {
+        assert!(ObjectEnum::CultsArmory.is_structure());
+    }
+
+    #[test]
+    fn test_cults_armory_is_not_unit() {
+        assert!(!ObjectEnum::CultsArmory.is_unit());
+    }
+
+    #[test]
+    fn test_cults_armory_symmetry_abcb() {
+        let st = ObjectEnum::CultsArmory.structure_type().unwrap();
+        assert_eq!(st.symmetry_type, SymmetryTypeEnum::ABCB);
+    }
+
+    #[test]
+    fn test_abcb_symmetry_allows_unequal_size() {
+        let st = StructureType {
+            object_type: ObjectType {
+                name: "Test".to_string(),
+                size: (3, 2),
+                destructible: true,
+                sight_range: 1,
+                groupable: false,
+            },
+            symmetry_type: SymmetryTypeEnum::ABCB,
+        };
+        assert!(st.validate_size().is_ok());
+    }
+
+    #[test]
+    fn cults_soldier_is_unit() {
+        assert!(ObjectEnum::CultsSoldier.is_unit());
+    }
+
+    #[test]
+    fn cults_gunner_is_unit() {
+        assert!(ObjectEnum::CultsGunner.is_unit());
+    }
+
+    #[test]
+    fn cults_recruit_is_unit() {
+        assert!(ObjectEnum::CultsRecruit.is_unit());
+    }
+
+    #[test]
+    fn cults_soldier_object_type() {
+        let obj = ObjectEnum::CultsSoldier.object_type();
+        assert_eq!(obj.name, "Soldier");
+        assert_eq!(obj.size, (1, 1));
+        assert!(obj.destructible);
+        assert_eq!(obj.sight_range, 5);
+    }
+
+    #[test]
+    fn cults_gunner_object_type() {
+        let obj = ObjectEnum::CultsGunner.object_type();
+        assert_eq!(obj.name, "Gunner");
+        assert_eq!(obj.size, (1, 1));
+        assert!(obj.destructible);
+        assert_eq!(obj.sight_range, 6);
     }
 }

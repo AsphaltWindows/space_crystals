@@ -271,3 +271,373 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 **Insights updated**: Cleared all three resolved loose ends. Added lore session and Cults design as new loose ends.
 
 **Feature requests produced**: 2 (`tunnel-transit-light-infantry`, `camera-pan-snap`).
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — 1 open forum topic needing close-vote.
+
+**Actions taken**:
+- Found 1 open forum topic: `2026-03-21T12-00-00Z-operator-auto-qa-capability-expansion.md` — file exists but is empty (0 bytes), malformed topic. No content to engage with as designer. Voted to close.
+- No pending messages for designer.
+
+**Feature requests produced**: 0.
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Original empty topic (`operator-auto-qa-capability-expansion`) had been commented on by automatic_qa (clearing designer's prior close-vote) and then moved to closed.
+- Created informational forum topic `2026-03-21T14-00-00Z-designer-empty-forum-topic.md` documenting the malformed file. Voted to close it.
+- No pending messages for designer.
+
+**Feature requests produced**: 0.
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — 1 open forum topic needing close-vote.
+
+**Actions taken**:
+- Found 1 open forum topic: `2026-03-21T120000-operator-expand-automatic-qa-capabilities.md` — operator request to expand automatic QA capabilities (analyze manual QA patterns, write tests, update auto_capabilities.txt). Purely architect/developer/automatic_qa concern, no design input needed. Voted to close.
+- No pending messages for designer.
+
+**Feature requests produced**: 0.
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 1 open forum topic: `2026-03-21T120000-operator-expand-automatic-qa-capabilities.md` — same topic, now with substantive comments from task_splitter and task_planner. Still purely architect/developer/automatic_qa domain (test infrastructure, QA routing config). No design input needed. Voted to close.
+- No pending messages for designer.
+
+**Feature requests produced**: 0.
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 1 open forum topic: `2026-03-21T120000-operator-expand-automatic-qa-capabilities.md` — same QA expansion topic, now with additional comments from developer and automatic_qa. Still purely developer/architect/automatic_qa domain (test infrastructure, compilation fixes, auto_capabilities.txt). No design input needed. Voted to close.
+- No pending messages for designer.
+
+**Feature requests produced**: 0.
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 1 open forum topic: `2026-03-21T140000Z-operator-fix-broken-tests.md` — operator directive to developer to fix 37 test compilation errors. Purely developer/task_splitter/task_planner domain. No design input needed. Voted to close.
+- No pending messages for designer.
+
+**Feature requests produced**: 0.
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 1 open forum topic: `2026-03-21T140000Z-operator-fix-broken-tests.md` — same broken tests topic, now with comments from automatic_qa and task_splitter. Still purely developer domain. Re-confirmed close vote.
+- No pending messages for designer.
+
+**Feature requests produced**: 0.
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 1 open forum topic: `2026-03-21T140000Z-operator-fix-broken-tests.md` — same broken tests topic, now with task_planner's detailed root cause analysis. Still purely developer domain. Voted to close.
+- No pending messages for designer.
+
+**Feature requests produced**: 0.
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 1 open forum topic: `2026-03-21T140000Z-operator-fix-broken-tests.md` — broken tests topic now resolved (automatic_qa confirmed compilation fixed, 293 tests pass). Voted to close.
+- No pending messages for designer.
+
+**Feature requests produced**: 0.
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 1 open forum topic: `2026-03-21T140000Z-operator-fix-broken-tests.md` — fully resolved (developer confirmed all 37 errors fixed, automatic_qa verified). Developer already voted to close. Voted to close.
+- No pending messages for designer.
+
+**Feature requests produced**: 0.
+
+## 2026-03-21 — Interactive Session: Lore
+
+**Trigger**: User session — asked what to work on next.
+
+**Actions taken**:
+
+1. Checked forum — 1 open topic (`fix-broken-tests`) already has designer close-vote and is resolved. No action needed.
+2. Presented loose ends: lore session and Cults faction design.
+3. User provided background lore covering: Space Crystal origin (meteorite, self-replicating), dual properties (scientific/manufacturing + psychoactive with ego imprinting), neurotoxicity, and all 4 faction backstories.
+4. Confirmed lore is background context only — psychoactive mechanics, neurotoxicity, and crystal replication are not gameplay-relevant.
+5. Created `artifacts/designer/design/lore.md` with full lore writeup.
+6. Updated insights: added lore.md to TOC, updated Cults loose end (no longer blocked on lore).
+
+**Feature requests produced**: 0 (lore is narrative context, not implementable design).
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 1 open forum topic: `2026-03-21T122200Z-manual_qa-build-qa-artifact-missing-diagnostics-feature.md` — manual_qa reporting missing `diagnostics` feature in Cargo.toml causing build script failure. Purely developer/build tooling issue. No design input needed. Voted to close.
+- No pending messages for designer.
+
+**Feature requests produced**: 0.
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 1 open forum topic: `2026-03-21T122200Z-manual_qa-build-qa-artifact-missing-diagnostics-feature.md` — diagnostics feature missing from Cargo.toml. Already resolved by developer, had 3 close votes. Voted to close (topic closed immediately).
+- No other open forum topics. No pending messages for designer.
+
+**Feature requests produced**: 0.
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 1 open forum topic: `2026-03-21T122500Z-manual_qa-cannot-build-extraction-facility.md` — manual_qa reporting inability to build Extraction Facility during QA. This is an implementation bug, not a design issue. The Extraction Facility design is complete in `gdo_objects.md`. No design input needed. Voted to close.
+- No pending messages for designer.
+
+**Feature requests produced**: 0.
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 2 open forum topics needing designer close-vote:
+  1. `2026-03-21T122500Z-manual_qa-cannot-build-extraction-facility.md` — inability to build Extraction Facility. Implementation bug, design is complete in `gdo_objects.md`. Already had automatic_qa close-vote. Voted to close.
+  2. `2026-03-21T122700Z-manual_qa-syndicate-camera-not-centered-on-starting-tunnel.md` — camera not centering on starting Tunnel for Syndicate. Implementation bug, camera design in `camera.md` covers panning/centering. Voted to close.
+- No pending messages for designer.
+
+**Feature requests produced**: 0.
+
+## 2026-03-21T17:00:00Z — Non-Interactive: Forum Pass
+
+**Trigger**: Scheduler launch, 2 open forum topics.
+
+**Actions**:
+- `syndicate-camera-not-centered`: Already had my close vote. No action needed.
+- `cannot-build-extraction-facility`: Confirmed design gap — EF has no acquisition path in gdo_objects.md. Added comment acknowledging the gap. Flagged as urgent forum question in insights for next interactive session (requires user decision on EF cost/build_frames and whether to add to DC Constructs or spawn at start).
+
+**Produced**: No feature_requests (design decision pending user input).
+
+## 2026-03-21T18:00:00Z — Non-Interactive: Forum Pass
+
+**Trigger**: Scheduler launch, 2 open forum topics.
+
+**Actions**:
+- `cannot-build-extraction-facility`: Already commented and flagged as urgent forum question. No new comments since last pass. No action needed (avoiding comment that would clear close votes).
+- `syndicate-camera-not-centered-on-starting-tunnel`: Added comment identifying design gap — camera.md doesn't specify starting position. Flagged as urgent forum question in insights (need user to confirm camera centers on starting structure at game start).
+
+**Insights updated**: Added camera starting position as second urgent forum question.
+
+**Produced**: No feature_requests (both topics need user design decisions).
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 2 open forum topics, both already have designer comments and are flagged as urgent forum questions in insights:
+  1. `cannot-build-extraction-facility` — awaiting user decision on EF acquisition path (add to DC Constructs with cost/build_frames, or spawn at start).
+  2. `syndicate-camera-not-centered-on-starting-tunnel` — awaiting user confirmation that camera should center on starting structure at game start.
+- No new comments on either topic since last pass. No action taken (cannot resolve without user input, avoiding comments that would clear close votes).
+- No pending messages for designer.
+
+**Feature requests produced**: 0 (both topics blocked on user design decisions).
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 2 open forum topics, both already have designer comments and are flagged as urgent forum questions in insights:
+  1. `cannot-build-extraction-facility` — awaiting user decision on EF acquisition path.
+  2. `syndicate-camera-not-centered-on-starting-tunnel` — awaiting user confirmation on camera starting position.
+- No new comments on either topic since last pass. No action taken.
+- No pending messages for designer.
+
+**Feature requests produced**: 0 (both topics blocked on user design decisions).
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 2 open forum topics, both unchanged since last pass. Designer comments already present, both flagged as urgent forum questions in insights:
+  1. `cannot-build-extraction-facility` — awaiting user decision on EF acquisition path.
+  2. `syndicate-camera-not-centered-on-starting-tunnel` — awaiting user confirmation on camera starting position.
+- No pending messages for designer. No action taken.
+
+**Feature requests produced**: 0 (both topics blocked on user design decisions).
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 2 open forum topics, both unchanged since last pass. Designer comments already present, both flagged as urgent forum questions in insights:
+  1. `cannot-build-extraction-facility` — awaiting user decision on EF acquisition path.
+  2. `syndicate-camera-not-centered-on-starting-tunnel` — awaiting user confirmation on camera starting position.
+- No pending messages for designer. No action taken.
+
+**Feature requests produced**: 0 (both topics blocked on user design decisions).
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 2 open forum topics, both unchanged. Designer comments already present, both flagged as urgent forum questions in insights:
+  1. `cannot-build-extraction-facility` — awaiting user decision on EF acquisition path.
+  2. `syndicate-camera-not-centered-on-starting-tunnel` — awaiting user confirmation on camera starting position.
+- No pending messages for designer. No action taken.
+
+**Feature requests produced**: 0 (both topics blocked on user design decisions).
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 2 open forum topics, both unchanged. Designer comments already present, both flagged as urgent forum questions in insights:
+  1. `cannot-build-extraction-facility` — awaiting user decision on EF acquisition path.
+  2. `syndicate-camera-not-centered-on-starting-tunnel` — awaiting user confirmation on camera starting position.
+- No pending messages for designer. No action taken.
+
+**Feature requests produced**: 0 (both topics blocked on user design decisions).
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 2 open forum topics, both unchanged. Designer comments already present, both flagged as urgent forum questions in insights:
+  1. `cannot-build-extraction-facility` — awaiting user decision on EF acquisition path.
+  2. `syndicate-camera-not-centered-on-starting-tunnel` — awaiting user confirmation on camera starting position.
+- No pending messages for designer. No action taken.
+
+**Feature requests produced**: 0 (both topics blocked on user design decisions).
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 2 open forum topics, both unchanged since previous pass. Designer comments already present, both flagged as urgent forum questions in insights. No new comments from other agents.
+- No pending messages for designer. No action taken.
+
+**Feature requests produced**: 0 (both topics blocked on user design decisions).
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 2 open forum topics, both with designer comments but missing designer close-vote (previous comments had cleared votes).
+- Voted to close both — designer work is complete (comments added, urgent forum questions flagged in insights). Design decisions require user input in next interactive session.
+  1. `cannot-build-extraction-facility` — closed (all agents voted).
+  2. `syndicate-camera-not-centered-on-starting-tunnel` — closed (all agents voted).
+- Urgent forum questions remain in insights for next interactive session.
+
+**Feature requests produced**: 0 (both topics blocked on user design decisions).
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 1 open forum topic: `2026-03-21T130000Z-manual_qa-enemies-dont-attack-by-default.md` — enemy units don't auto-attack nearby player units. Commented citing existing design: `control_system.md` BaseAutoTargeting (idle and HoldPosition auto-engagement), TurretAutonomousScanning, and `combat.md` ValidTarget criteria. This is an implementation gap, not a design gap. Voted to close.
+- 2 urgent forum questions remain in insights (EF acquisition path, camera starting position) — both require user input in next interactive session.
+
+**Feature requests produced**: 0 (no design changes needed).
+
+## 2026-03-21T17:10:00Z — Non-interactive (scheduler)
+
+- Loaded insights, checked `forum/open/` — found 2 topics.
+- **enemies-dont-attack-by-default**: Already commented previously. Well-resolved as implementation gap with tasks in pipeline. Voted to close.
+- **can-control-enemy-units-and-buildings**: New topic. Commented citing `control_system.md` ownership-aware selection rules and RightClickResolution. Identified a design gap: no explicit rule that CommandPanel is empty/hidden for non-owned selections. Added to Pending Design Review in insights for user confirmation.
+
+## 2026-03-21T17:15:00Z — Non-interactive (scheduler)
+
+- Loaded insights, checked `forum/open/` — found 2 topics.
+- **enemies-dont-attack-by-default**: Already has designer close-vote. No action needed.
+- **can-control-enemy-units-and-buildings**: Already commented in prior session. All agents weighed in and agree. Voted to close. Design doc update (explicit ownership guard in `control_system.md`) remains in Pending Design Review for user confirmation.
+- No pending messages for designer.
+
+**Feature requests produced**: 0 (design decision pending user input).
+
+## 2026-03-21 — Non-Interactive (Scheduler)
+
+**Trigger**: Scheduler launch — forum check.
+
+**Actions taken**:
+- Found 1 open forum topic: `2026-03-21T130200Z-manual_qa-can-control-enemy-units-and-buildings.md` — enemy control bug. All agents have commented substantively. Designer already commented identifying the design gap (no explicit ownership guard rule for CommandPanel). Topic is well-resolved. Voted to close.
+- CommandPanel ownership guard remains in Pending Design Review in insights for user confirmation in next interactive session.
+- No pending messages for designer.
+
+**Feature requests produced**: 0 (design doc update pending user confirmation).
+
+## 2026-03-21 — Interactive Session
+
+**Trigger**: User session — asked what to work on.
+
+**Actions taken**:
+
+1. Checked forum — no open topics. Presented 2 urgent forum questions and 1 pending design review from insights.
+
+2. **Extraction Facility in DC Constructs (resolved)**: User confirmed EF should be buildable from DC (was always intended per `to_be_converted.md` line 435, missed during formalization). Added to DC Constructs: 200 SC, 320 frames (20s), no prerequisite. Also added to DC BuildMenu idle state. Sent feature_request `dc_builds_extraction_facility`.
+
+3. **Extraction Plate power cost (resolved)**: User added Power -3 to Extraction Plates. Updated `gdo_objects.md`.
+
+4. **Extraction Plate power penalty (resolved)**: User specified that mining rate slows under power deficit, same as buildings. Updated `factions.md` Power description to include Extraction Plates and list affected operations (construction speed, unit production speed, mining rate). Added `PowerPenalty` line to Extraction Plate in `gdo_objects.md`. Sent feature_request `extraction_plate_power_penalty`.
+
+5. **CommandPanel ownership guard (resolved)**: User confirmed CommandPanel should only show for own units, and commands can only be issued to own objects. Updated `control_system.md` CommandPanel section with explicit ownership guard rule (no CommandPanel, no right-click resolution, no InterfaceTransitions for non-owned selections). Sent feature_request `command_panel_ownership_guard`.
+
+**Insights updated**: Resolved EF acquisition path urgent question, resolved CommandPanel ownership guard pending review, cleaned up strikethrough entries, added new insight about cross-checking `to_be_converted.md` for missed formalizations.
+
+**Feature requests produced**: 3 (`dc_builds_extraction_facility`, `extraction_plate_power_penalty`, `command_panel_ownership_guard`).
+
+## 2026-03-22 — Interactive Session: Cults Armory
+
+**Trigger**: User session — asked where we left off.
+
+**Actions taken**:
+
+1. Checked forum — no open topics.
+2. Presented loose end: Cults faction design. User chose to add one more Cults building.
+3. User specified an Armory — training building where Recruits enter and are held as an internal pool, then trained into combat units (Soldier, Gunner).
+4. Collaborative design established:
+   - 3x2 building, ABCB symmetry (entrance on one short side, exit on opposite, matching long sides)
+   - Internal Recruit capacity: 10
+   - Training consumes one internal Recruit + Space Crystals
+   - Two unit types: Soldier and Gunner
+   - Eject All command sends stored Recruits out the exit side in a rapid stream
+   - Full ObjectInterfaceState: Rally Point (C), Eject All (E), Train Soldier (Q), Train Gunner (W)
+5. Updated `cults_objects.md` with Armory section including open questions.
+6. Sent feature_request `add_cults_armory`.
+
+**Open questions deferred to next session**: Training queue (one at a time vs queueable?), cancel mid-training (Recruit back? Crystals refunded? Both?), parallel vs serial training. Soldier and Gunner unit definitions not started.
+
+**Insights updated**: TOC updated for Armory, loose ends updated with Armory open questions and unit definition needs.
+
+**Feature requests produced**: 1 (`add_cults_armory`).

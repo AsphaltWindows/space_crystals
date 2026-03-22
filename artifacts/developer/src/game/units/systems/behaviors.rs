@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::game::units::types::movement::{MoveObjectTarget, Velocity};
 use crate::game::units::types::state::behavior::{
     BaseBehaviorState, BuildingStructureBehavior, BuildingTunnelBehavior, BuildTunnelPhase,
-    EnteringTunnelBehavior, InTunnelNetwork,
+    EnteringTunnelBehavior, InTunnelNetwork, EnteringArmoryBehavior,
     GatheringResourceBehavior, GatherPhase, DroppingOffResourcesBehavior, DropOffPhase,
     PickingUpSuppliesBehavior, PickUpPhase, AttachingToTowerBehavior, DroppingOffSuppliesBehavior,
     LocomotionChannel, OrientationChannel,
@@ -14,8 +14,9 @@ use crate::game::units::types::unit_data::{
     AGENT_MINING_DURATION, AGENT_PICKUP_DURATION, AGENT_DROPOFF_DURATION,
     AGENT_CRYSTAL_CARRY, AGENT_SUPPLY_CARRY, AGENT_TUNNEL_BUILD_FRAMES,
 };
-use crate::game::types::{ConstructionHP, ObjectInstance, StructureInstance, TunnelState};
-use crate::game::types::structures::{tunnel_construction_cost, SupplyChopperState, SupplyTowerState};
+use crate::game::types::{ConstructionHP, ObjectInstance, StructureInstance, TunnelState, CultsConstructionState};
+use crate::game::types::structures::{tunnel_construction_cost, SupplyChopperState, SupplyTowerState, ArmoryState};
+use crate::game::types::cults_structure_stats::ARMORY_INTERNAL_RECRUIT_CAPACITY;
 use crate::game::types::factions::GdoPlayerResources;
 use crate::game::world::types::SupplyDeliveryStation;
 use crate::game::utils::spawn_tunnel_under_construction;
@@ -568,6 +569,111 @@ pub fn entering_tunnel_behavior_system(
         // Write movement channels to move toward Side A
         *locomotion = LocomotionChannel::Moving(vec![side_a_pos]);
         *orientation = OrientationChannel::Turning(side_a_pos);
+    }
+}
+
+/// Distance threshold for considering arrival at Armory entrance (in world units)
+const ARMORY_ARRIVAL_THRESHOLD: f32 = 0.5;
+
+/// Dispatch system for the EnterArmory command.
+/// Validates that the unit is a CultsRecruit, the armory exists, has same owner,
+/// and has capacity. If valid, inserts `EnteringArmoryBehavior`. Otherwise resets to Idle.
+///
+/// Schedule: Update, Phase 2 (before entering_armory_behavior_system)
+pub fn enter_armory_dispatch_system(
+    mut commands: Commands,
+    mut units: Query<
+        (Entity, &mut UnitCommand, &ObjectInstance, &Owner),
+        (With<Unit>, Without<EnteringArmoryBehavior>),
+    >,
+    armories: Query<(&ArmoryState, &Owner), With<ArmoryState>>,
+) {
+    for (entity, mut command, obj, unit_owner) in &mut units {
+        let armory_entity = match &*command {
+            UnitCommand::EnterArmory(ae) => *ae,
+            _ => continue,
+        };
+        // Only CultsRecruit can enter
+        if obj.object_type != ObjectEnum::CultsRecruit {
+            *command = UnitCommand::Idle;
+            continue;
+        }
+        // Validate armory exists, is owned by same player, and has capacity
+        let (armory_state, armory_owner) = match armories.get(armory_entity) {
+            Ok(r) => r,
+            Err(_) => { *command = UnitCommand::Idle; continue; }
+        };
+        if armory_owner.player_number() != unit_owner.player_number() {
+            *command = UnitCommand::Idle;
+            continue;
+        }
+        if armory_state.stored_recruits.len() >= ARMORY_INTERNAL_RECRUIT_CAPACITY {
+            *command = UnitCommand::Idle;
+            continue;
+        }
+        commands.entity(entity).insert(EnteringArmoryBehavior::new(armory_entity));
+    }
+}
+
+/// Process EnteringArmory behavior.
+///
+/// Units with the `EnteringArmoryBehavior` marker move toward the target Armory's
+/// position (entrance approximated as the armory's transform position).
+/// On arrival, the unit is stored in `ArmoryState.stored_recruits`, hidden,
+/// and movement is cleared. The entity is NOT despawned.
+///
+/// Schedule: Update (same as other behavior systems)
+pub fn entering_armory_behavior_system(
+    mut commands: Commands,
+    mut units: Query<(
+        Entity,
+        &Transform,
+        &mut EnteringArmoryBehavior,
+        &mut LocomotionChannel,
+        &mut OrientationChannel,
+        &mut Visibility,
+    )>,
+    mut armories: Query<(&Transform, &mut ArmoryState), With<ArmoryState>>,
+) {
+    for (entity, transform, entering, mut locomotion, mut orientation, mut visibility) in &mut units {
+        let (armory_transform, mut armory_state) = match armories.get_mut(entering.target_armory) {
+            Ok(r) => r,
+            Err(_) => {
+                // Armory no longer exists — cancel behavior
+                *locomotion = LocomotionChannel::Stopping;
+                *orientation = OrientationChannel::Maintaining;
+                commands.entity(entity).remove::<EnteringArmoryBehavior>();
+                continue;
+            }
+        };
+        // Re-check capacity (may have filled while walking)
+        if armory_state.stored_recruits.len() >= ARMORY_INTERNAL_RECRUIT_CAPACITY {
+            *locomotion = LocomotionChannel::Stopping;
+            *orientation = OrientationChannel::Maintaining;
+            commands.entity(entity).remove::<EnteringArmoryBehavior>();
+            commands.entity(entity).insert(UnitCommand::Idle);
+            continue;
+        }
+        // Entrance is Side A (approximated as armory center, like tunnel)
+        let entrance_pos = armory_transform.translation;
+        let distance = Vec3::new(
+            transform.translation.x - entrance_pos.x, 0.0,
+            transform.translation.z - entrance_pos.z,
+        ).length();
+
+        if distance < ARMORY_ARRIVAL_THRESHOLD {
+            // Unit has arrived — enter the armory
+            armory_state.stored_recruits.push(entity);
+            *visibility = Visibility::Hidden;
+            *locomotion = LocomotionChannel::Stationary;
+            *orientation = OrientationChannel::Maintaining;
+            commands.entity(entity).insert(Velocity(Vec3::ZERO));
+            commands.entity(entity).remove::<EnteringArmoryBehavior>();
+        } else {
+            // Move toward entrance
+            *locomotion = LocomotionChannel::Moving(vec![entrance_pos]);
+            *orientation = OrientationChannel::Turning(entrance_pos);
+        }
     }
 }
 
@@ -1486,6 +1592,78 @@ pub fn supply_chopper_repair_system(
                 obj.hp = Some((hp + CHOPPER_REPAIR_RATE).min(max_hp));
             }
         }
+    }
+}
+
+// =====================================================
+// CULTS RECRUIT CONSTRUCTION BEHAVIOR
+// =====================================================
+
+/// Distance threshold for a Recruit to be considered "arrived" at a construction site
+const RECRUIT_CONSTRUCTION_ARRIVAL_THRESHOLD: f32 = 2.0;
+
+/// System that handles Cults Recruits walking toward and entering buildings under construction.
+/// When a Recruit with UnitCommand::ConstructBuilding reaches the target building, it is
+/// added to the building's CultsConstructionState.assigned_recruits, hidden, and set to Idle.
+pub fn cults_recruit_enter_construction_system(
+    mut recruits: Query<(
+        Entity,
+        &Transform,
+        &mut UnitCommand,
+        &mut Visibility,
+    ), With<Unit>>,
+    mut buildings: Query<(&Transform, &mut CultsConstructionState), With<ConstructionHP>>,
+) {
+    // Collect recruit actions first to avoid borrow conflicts
+    let mut recruit_actions: Vec<(Entity, Entity)> = Vec::new(); // (recruit_entity, building_entity)
+    let mut recruit_movements: Vec<(Entity, Vec3)> = Vec::new(); // (recruit_entity, target_pos)
+
+    for (recruit_entity, transform, command, _visibility) in recruits.iter() {
+        if let UnitCommand::ConstructBuilding(target_building) = *command {
+            // Check if the target building still exists and has CultsConstructionState
+            if let Ok((building_transform, _)) = buildings.get(target_building) {
+                let target_pos = building_transform.translation;
+                let unit_pos = transform.translation;
+                let distance = Vec3::new(unit_pos.x - target_pos.x, 0.0, unit_pos.z - target_pos.z).length();
+
+                if distance < RECRUIT_CONSTRUCTION_ARRIVAL_THRESHOLD {
+                    recruit_actions.push((recruit_entity, target_building));
+                } else {
+                    recruit_movements.push((recruit_entity, target_pos));
+                }
+            } else {
+                // Target building no longer exists or no longer under construction — cancel
+                recruit_movements.push((recruit_entity, Vec3::ZERO)); // sentinel for cancel
+            }
+        }
+    }
+
+    // Apply arrivals: add recruit to building and hide
+    for (recruit_entity, building_entity) in recruit_actions {
+        if let Ok((_, mut cults_state)) = buildings.get_mut(building_entity) {
+            cults_state.assigned_recruits.push(recruit_entity);
+        }
+        if let Ok((_, _, mut command, mut visibility)) = recruits.get_mut(recruit_entity) {
+            *command = UnitCommand::Idle;
+            *visibility = Visibility::Hidden;
+        }
+    }
+
+    // Apply movements: Recruits that haven't arrived yet need to keep moving.
+    // Since Recruits are minimal stubs without LocomotionChannel, use simple direct movement
+    // toward the target. The actual position update is handled by the movement pipeline.
+    // For now, just cancel if the building is gone.
+    for (recruit_entity, target_pos) in recruit_movements {
+        if target_pos == Vec3::ZERO {
+            // Building gone — cancel command
+            if let Ok((_, _, mut command, _)) = recruits.get_mut(recruit_entity) {
+                *command = UnitCommand::Idle;
+            }
+        }
+        // If target_pos is a real position, the Recruit keeps its ConstructBuilding command.
+        // Movement toward the target is handled by the movement pipeline if the Recruit
+        // has movement components. For now, Recruits are stubs — actual movement will be
+        // added when Recruit stats are formalized.
     }
 }
 
@@ -3973,5 +4151,287 @@ mod tests {
 
         let cmd = app.world().get::<UnitCommand>(entity).unwrap();
         assert!(matches!(cmd, UnitCommand::AttackTarget(_)), "AttackTarget should not be completed by this system");
+    }
+
+    // =====================================================
+    // CULTS RECRUIT ENTER CONSTRUCTION SYSTEM TESTS
+    // =====================================================
+
+    fn spawn_test_recruit_for_construction(world: &mut World, pos: Vec3, target_building: Entity) -> Entity {
+        world.spawn((
+            crate::types::Unit,
+            ObjectInstance::destructible(ObjectEnum::CultsRecruit, 50.0),
+            Owner::player(0),
+            UnitCommand::ConstructBuilding(target_building),
+            Visibility::Inherited,
+            Transform::from_translation(pos),
+        )).id()
+    }
+
+    fn spawn_test_construction_building(world: &mut World, pos: Vec3, total_frames: u32) -> Entity {
+        world.spawn((
+            ObjectInstance::under_construction(ObjectEnum::CultsStorage, 200.0),
+            ConstructionHP::new(total_frames),
+            CultsConstructionState::new(total_frames),
+            Transform::from_translation(pos),
+            Owner::player(0),
+        )).id()
+    }
+
+    #[test]
+    fn recruit_enters_building_when_close() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let building_pos = Vec3::new(5.0, 0.0, 5.0);
+        let building = spawn_test_construction_building(app.world_mut(), building_pos, 100);
+        // Recruit is within arrival threshold (< 2.0)
+        let recruit = spawn_test_recruit_for_construction(app.world_mut(), Vec3::new(5.5, 0.0, 5.5), building);
+
+        app.world_mut().run_system_once(cults_recruit_enter_construction_system).unwrap();
+
+        // Recruit should be hidden and idle
+        let vis = app.world().get::<Visibility>(recruit).unwrap();
+        assert_eq!(*vis, Visibility::Hidden, "Recruit should be hidden after entering");
+
+        let cmd = app.world().get::<UnitCommand>(recruit).unwrap();
+        assert!(matches!(*cmd, UnitCommand::Idle), "Recruit should be idle after entering");
+
+        // Building should have the recruit in assigned_recruits
+        let state = app.world().get::<CultsConstructionState>(building).unwrap();
+        assert_eq!(state.assigned_recruits.len(), 1);
+        assert_eq!(state.assigned_recruits[0], recruit);
+    }
+
+    #[test]
+    fn recruit_keeps_command_when_far_away() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let building_pos = Vec3::new(5.0, 0.0, 5.0);
+        let building = spawn_test_construction_building(app.world_mut(), building_pos, 100);
+        // Recruit is far away (> 2.0)
+        let recruit = spawn_test_recruit_for_construction(app.world_mut(), Vec3::new(20.0, 0.0, 20.0), building);
+
+        app.world_mut().run_system_once(cults_recruit_enter_construction_system).unwrap();
+
+        // Recruit should still have the ConstructBuilding command
+        let cmd = app.world().get::<UnitCommand>(recruit).unwrap();
+        assert!(matches!(*cmd, UnitCommand::ConstructBuilding(_)),
+            "Recruit should keep ConstructBuilding when far away");
+
+        // Building should NOT have the recruit assigned yet
+        let state = app.world().get::<CultsConstructionState>(building).unwrap();
+        assert!(state.assigned_recruits.is_empty());
+    }
+
+    #[test]
+    fn recruit_cancels_when_building_gone() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        // Spawn building, then despawn it
+        let building = app.world_mut().spawn((
+            ObjectInstance::under_construction(ObjectEnum::CultsStorage, 200.0),
+            ConstructionHP::new(100),
+            CultsConstructionState::new(100),
+            Transform::from_xyz(5.0, 0.0, 5.0),
+            Owner::player(0),
+        )).id();
+
+        let recruit = spawn_test_recruit_for_construction(app.world_mut(), Vec3::new(5.5, 0.0, 5.5), building);
+
+        // Remove the building
+        app.world_mut().despawn(building);
+
+        app.world_mut().run_system_once(cults_recruit_enter_construction_system).unwrap();
+
+        // Recruit should be set to Idle since building is gone
+        let cmd = app.world().get::<UnitCommand>(recruit).unwrap();
+        assert!(matches!(*cmd, UnitCommand::Idle),
+            "Recruit should cancel when building no longer exists");
+    }
+
+    #[test]
+    fn multiple_recruits_can_enter_same_building() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let building_pos = Vec3::new(5.0, 0.0, 5.0);
+        let building = spawn_test_construction_building(app.world_mut(), building_pos, 100);
+        let recruit1 = spawn_test_recruit_for_construction(app.world_mut(), Vec3::new(5.3, 0.0, 5.3), building);
+        let recruit2 = spawn_test_recruit_for_construction(app.world_mut(), Vec3::new(4.8, 0.0, 5.1), building);
+
+        app.world_mut().run_system_once(cults_recruit_enter_construction_system).unwrap();
+
+        let state = app.world().get::<CultsConstructionState>(building).unwrap();
+        assert_eq!(state.assigned_recruits.len(), 2, "Both recruits should enter");
+    }
+
+    // === EnterArmory dispatch tests ===
+
+    fn spawn_test_armory(world: &mut World, pos: Vec3, owner_player: u8, stored_count: usize) -> Entity {
+        let mut stored_recruits = Vec::new();
+        // Create dummy entities to fill the stored list
+        for _ in 0..stored_count {
+            let dummy = world.spawn_empty().id();
+            stored_recruits.push(dummy);
+        }
+        world.spawn((
+            Transform::from_translation(pos),
+            ArmoryState {
+                stored_recruits,
+                training_queue: None,
+                training_progress: 0,
+                rally_point: None,
+            },
+            Owner::player(owner_player),
+            ObjectInstance::destructible(ObjectEnum::CultsArmory, 300.0),
+        )).id()
+    }
+
+    fn spawn_test_recruit_for_armory(world: &mut World, pos: Vec3, owner_player: u8) -> Entity {
+        world.spawn((
+            Transform::from_translation(pos),
+            Unit,
+            ObjectInstance::destructible(ObjectEnum::CultsRecruit, 50.0),
+            Owner::player(owner_player),
+            UnitCommand::Idle,
+            LocomotionChannel::Stationary,
+            OrientationChannel::Maintaining,
+            Velocity(Vec3::ZERO),
+            Visibility::Inherited,
+        )).id()
+    }
+
+    #[test]
+    fn enter_armory_dispatch_inserts_behavior_for_recruit() {
+        let mut app = App::new();
+        let armory = spawn_test_armory(app.world_mut(), Vec3::new(10.0, 0.0, 10.0), 0, 0);
+        let recruit = spawn_test_recruit_for_armory(app.world_mut(), Vec3::new(5.0, 0.0, 5.0), 0);
+        app.world_mut().entity_mut(recruit).insert(UnitCommand::EnterArmory(armory));
+
+        app.world_mut().run_system_once(enter_armory_dispatch_system).unwrap();
+
+        assert!(app.world().get::<EnteringArmoryBehavior>(recruit).is_some(),
+            "Dispatch should insert EnteringArmoryBehavior");
+    }
+
+    #[test]
+    fn enter_armory_dispatch_rejects_non_recruit() {
+        let mut app = App::new();
+        let armory = spawn_test_armory(app.world_mut(), Vec3::new(10.0, 0.0, 10.0), 0, 0);
+        // Spawn a Guard instead of a Recruit
+        let guard = app.world_mut().spawn((
+            Transform::from_translation(Vec3::new(5.0, 0.0, 5.0)),
+            Unit,
+            ObjectInstance::destructible(ObjectEnum::SyndicateGuard, 100.0),
+            Owner::player(0),
+            UnitCommand::EnterArmory(armory),
+        )).id();
+
+        app.world_mut().run_system_once(enter_armory_dispatch_system).unwrap();
+
+        assert!(app.world().get::<EnteringArmoryBehavior>(guard).is_none(),
+            "Non-recruit should not get behavior");
+        assert!(matches!(app.world().get::<UnitCommand>(guard).unwrap(), UnitCommand::Idle));
+    }
+
+    #[test]
+    fn enter_armory_dispatch_rejects_full_armory() {
+        let mut app = App::new();
+        let armory = spawn_test_armory(app.world_mut(), Vec3::new(10.0, 0.0, 10.0), 0, ARMORY_INTERNAL_RECRUIT_CAPACITY);
+        let recruit = spawn_test_recruit_for_armory(app.world_mut(), Vec3::new(5.0, 0.0, 5.0), 0);
+        app.world_mut().entity_mut(recruit).insert(UnitCommand::EnterArmory(armory));
+
+        app.world_mut().run_system_once(enter_armory_dispatch_system).unwrap();
+
+        assert!(app.world().get::<EnteringArmoryBehavior>(recruit).is_none(),
+            "Full armory should reject entry");
+        assert!(matches!(app.world().get::<UnitCommand>(recruit).unwrap(), UnitCommand::Idle));
+    }
+
+    #[test]
+    fn enter_armory_dispatch_rejects_wrong_owner() {
+        let mut app = App::new();
+        let armory = spawn_test_armory(app.world_mut(), Vec3::new(10.0, 0.0, 10.0), 1, 0); // player 1
+        let recruit = spawn_test_recruit_for_armory(app.world_mut(), Vec3::new(5.0, 0.0, 5.0), 0); // player 0
+        app.world_mut().entity_mut(recruit).insert(UnitCommand::EnterArmory(armory));
+
+        app.world_mut().run_system_once(enter_armory_dispatch_system).unwrap();
+
+        assert!(app.world().get::<EnteringArmoryBehavior>(recruit).is_none(),
+            "Wrong owner should reject entry");
+        assert!(matches!(app.world().get::<UnitCommand>(recruit).unwrap(), UnitCommand::Idle));
+    }
+
+    // === EnteringArmory behavior tests ===
+
+    #[test]
+    fn entering_armory_behavior_moves_toward_armory() {
+        let mut app = App::new();
+        let armory = spawn_test_armory(app.world_mut(), Vec3::new(10.0, 0.0, 10.0), 0, 0);
+        let recruit = spawn_test_recruit_for_armory(app.world_mut(), Vec3::new(5.0, 0.0, 5.0), 0);
+        app.world_mut().entity_mut(recruit).insert(EnteringArmoryBehavior::new(armory));
+
+        app.world_mut().run_system_once(entering_armory_behavior_system).unwrap();
+
+        let loco = app.world().get::<LocomotionChannel>(recruit).unwrap();
+        assert!(matches!(loco, LocomotionChannel::Moving(_)),
+            "Should be moving toward armory");
+    }
+
+    #[test]
+    fn entering_armory_behavior_enters_on_arrival() {
+        let mut app = App::new();
+        let armory_pos = Vec3::new(10.0, 0.0, 10.0);
+        let armory = spawn_test_armory(app.world_mut(), armory_pos, 0, 0);
+        // Place recruit within arrival threshold
+        let recruit = spawn_test_recruit_for_armory(app.world_mut(), Vec3::new(10.0, 0.0, 10.0), 0);
+        app.world_mut().entity_mut(recruit).insert(EnteringArmoryBehavior::new(armory));
+
+        app.world_mut().run_system_once(entering_armory_behavior_system).unwrap();
+
+        // Recruit should be stored in armory
+        let armory_state = app.world().get::<ArmoryState>(armory).unwrap();
+        assert_eq!(armory_state.stored_recruits.len(), 1);
+        assert_eq!(armory_state.stored_recruits[0], recruit);
+        // Recruit should be hidden
+        assert_eq!(*app.world().get::<Visibility>(recruit).unwrap(), Visibility::Hidden);
+        // Behavior marker should be removed
+        assert!(app.world().get::<EnteringArmoryBehavior>(recruit).is_none());
+    }
+
+    #[test]
+    fn entering_armory_behavior_cancels_when_full() {
+        let mut app = App::new();
+        let armory = spawn_test_armory(app.world_mut(), Vec3::new(10.0, 0.0, 10.0), 0, ARMORY_INTERNAL_RECRUIT_CAPACITY);
+        let recruit = spawn_test_recruit_for_armory(app.world_mut(), Vec3::new(10.0, 0.0, 10.0), 0);
+        app.world_mut().entity_mut(recruit).insert(EnteringArmoryBehavior::new(armory));
+
+        app.world_mut().run_system_once(entering_armory_behavior_system).unwrap();
+
+        // Behavior should be removed
+        assert!(app.world().get::<EnteringArmoryBehavior>(recruit).is_none());
+        // Should get Idle command
+        assert!(matches!(app.world().get::<UnitCommand>(recruit).unwrap(), UnitCommand::Idle));
+        // Should NOT be stored
+        let armory_state = app.world().get::<ArmoryState>(armory).unwrap();
+        assert_eq!(armory_state.stored_recruits.len(), ARMORY_INTERNAL_RECRUIT_CAPACITY);
+    }
+
+    #[test]
+    fn entering_armory_behavior_cancels_when_armory_despawned() {
+        let mut app = App::new();
+        let armory = spawn_test_armory(app.world_mut(), Vec3::new(10.0, 0.0, 10.0), 0, 0);
+        let recruit = spawn_test_recruit_for_armory(app.world_mut(), Vec3::new(5.0, 0.0, 5.0), 0);
+        app.world_mut().entity_mut(recruit).insert(EnteringArmoryBehavior::new(armory));
+        // Despawn the armory
+        app.world_mut().despawn(armory);
+
+        app.world_mut().run_system_once(entering_armory_behavior_system).unwrap();
+
+        assert!(app.world().get::<EnteringArmoryBehavior>(recruit).is_none(),
+            "Behavior should be removed when armory is gone");
     }
 }

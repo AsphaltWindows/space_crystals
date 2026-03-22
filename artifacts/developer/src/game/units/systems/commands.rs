@@ -214,6 +214,8 @@ pub fn command_state_sync_system(
             UnitCommand::PickUpSupplies(entity) => (CommandType::PickUpSupplies, None, Some(*entity)),
             UnitCommand::AttachToTower(entity) => (CommandType::AttachToTower, None, Some(*entity)),
             UnitCommand::DropOffSupplies(entity) => (CommandType::DropOffSupplies, None, Some(*entity)),
+            UnitCommand::ConstructBuilding(entity) => (CommandType::ConstructBuilding, None, Some(*entity)),
+            UnitCommand::EnterArmory(entity) => (CommandType::Enter, None, Some(*entity)),
         };
         state.command_type = cmd_type;
         state.target_location = target_loc;

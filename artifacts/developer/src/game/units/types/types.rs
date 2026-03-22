@@ -33,6 +33,7 @@ pub fn command_indicator_color(cmd: &super::state::commands::UnitCommand) -> Col
     use super::state::commands::UnitCommand;
     match cmd {
         UnitCommand::Move(_) | UnitCommand::Reverse(_) | UnitCommand::Enter(_)
+        | UnitCommand::EnterArmory(_)
         | UnitCommand::Gather(_) | UnitCommand::DropOffResources(_)
         | UnitCommand::BuildTunnel(_) => {
             Color::srgb(0.0, 1.0, 0.0) // Green
@@ -59,6 +60,7 @@ pub fn command_has_indicator(cmd: &super::state::commands::UnitCommand) -> bool 
         UnitCommand::Patrol { .. } |
         UnitCommand::Reverse(_) |
         UnitCommand::Enter(_) |
+        UnitCommand::EnterArmory(_) |
         UnitCommand::Gather(_) |
         UnitCommand::DropOffResources(_) |
         UnitCommand::BuildTunnel(_)
@@ -470,6 +472,17 @@ mod tests {
     #[test]
     fn build_tunnel_color_is_green() {
         let color = command_indicator_color(&UnitCommand::BuildTunnel(Vec3::ZERO));
+        assert_eq!(color, Color::srgb(0.0, 1.0, 0.0));
+    }
+
+    #[test]
+    fn enter_armory_has_indicator() {
+        assert!(command_has_indicator(&UnitCommand::EnterArmory(Entity::from_raw_u32(1).unwrap())));
+    }
+
+    #[test]
+    fn enter_armory_color_is_green() {
+        let color = command_indicator_color(&UnitCommand::EnterArmory(Entity::from_raw_u32(1).unwrap()));
         assert_eq!(color, Color::srgb(0.0, 1.0, 0.0));
     }
 }

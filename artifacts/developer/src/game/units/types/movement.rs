@@ -290,6 +290,7 @@ pub struct UnitBaseData {
     pub directional_armor: bool,
     pub rugged_terrain: bool,
     pub crushable: bool,
+    pub can_crush: bool,
     pub can_turn_in_place: bool,
     pub can_reverse: bool,
     pub movement_model: MovementModelEnum,
@@ -305,6 +306,7 @@ impl UnitBaseEnum {
                 directional_armor: false,
                 rugged_terrain: true,
                 crushable: true,
+                can_crush: false,
                 can_turn_in_place: true,
                 can_reverse: false,
                 movement_model: MovementModelEnum::TurnRate,
@@ -315,6 +317,7 @@ impl UnitBaseEnum {
                 directional_armor: false,
                 rugged_terrain: true,
                 crushable: false,
+                can_crush: false,
                 can_turn_in_place: true,
                 can_reverse: false,
                 movement_model: MovementModelEnum::TurnRate,
@@ -325,6 +328,7 @@ impl UnitBaseEnum {
                 directional_armor: true,
                 rugged_terrain: false,
                 crushable: false,
+                can_crush: false,
                 can_turn_in_place: false,
                 can_reverse: true,
                 movement_model: MovementModelEnum::FixedTurnRadius,
@@ -335,6 +339,7 @@ impl UnitBaseEnum {
                 directional_armor: true,
                 rugged_terrain: false,
                 crushable: false,
+                can_crush: true,
                 can_turn_in_place: true,
                 can_reverse: true,
                 movement_model: MovementModelEnum::SpeedTurnRadius,
@@ -345,6 +350,7 @@ impl UnitBaseEnum {
                 directional_armor: true,
                 rugged_terrain: false,
                 crushable: false,
+                can_crush: false,
                 can_turn_in_place: true,
                 can_reverse: true,
                 movement_model: MovementModelEnum::SpeedTurnRadius,
@@ -355,6 +361,7 @@ impl UnitBaseEnum {
                 directional_armor: true,
                 rugged_terrain: false,
                 crushable: false,
+                can_crush: false,
                 can_turn_in_place: true,
                 can_reverse: false,
                 movement_model: MovementModelEnum::Drag,
@@ -365,6 +372,7 @@ impl UnitBaseEnum {
                 directional_armor: true,
                 rugged_terrain: true,
                 crushable: false,
+                can_crush: true,
                 can_turn_in_place: true,
                 can_reverse: false,
                 movement_model: MovementModelEnum::TurnRate,
@@ -375,6 +383,7 @@ impl UnitBaseEnum {
                 directional_armor: false,
                 rugged_terrain: false,
                 crushable: false,
+                can_crush: false,
                 can_turn_in_place: true,
                 can_reverse: false,
                 movement_model: MovementModelEnum::Drag,
@@ -385,6 +394,7 @@ impl UnitBaseEnum {
                 directional_armor: false,
                 rugged_terrain: false,
                 crushable: false,
+                can_crush: false,
                 can_turn_in_place: false,
                 can_reverse: false,
                 movement_model: MovementModelEnum::Glider,
@@ -646,6 +656,16 @@ mod tests {
             UnitBaseEnum::HeavyInfantry,
             UnitBaseEnum::Mech,
         ]);
+    }
+
+    // --- Can crush: only TrackedVehicle and Mech ---
+    #[test]
+    fn only_tracked_and_mech_can_crush() {
+        let crushers = all_variants()
+            .into_iter()
+            .filter(|b| b.data().can_crush)
+            .collect::<Vec<_>>();
+        assert_eq!(crushers, vec![UnitBaseEnum::TrackedVehicle, UnitBaseEnum::Mech]);
     }
 
     // --- Crushable only LightInfantry ---

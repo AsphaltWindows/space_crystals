@@ -64,12 +64,22 @@ impl Plugin for FactionPlugin {
         app.init_resource::<crate::types::ControlGroups>();
         app.init_resource::<crate::types::Selection>();
         app.init_resource::<types::LastRecallState>();
+        app.init_resource::<types::MapStartingPositions>();
+        app.init_resource::<crate::game::types::RecruitmentCenterCounter>();
+        app.init_resource::<types::TileClaimMap>();
 
         app.add_systems(OnEnter(AppState::InGame), (
                 faction::setup_player_resources,
                 faction::setup_gdo_game_start.after(map::spawn_grid),
                 faction::setup_syndicate_game_start.after(map::spawn_grid),
+                faction::setup_cults_game_start.after(map::spawn_grid),
+                faction::setup_colonists_game_start.after(map::spawn_grid),
                 faction::setup_enemy_test_units.after(map::spawn_grid),
+                faction::center_camera_on_start
+                    .after(faction::setup_gdo_game_start)
+                    .after(faction::setup_syndicate_game_start)
+                    .after(faction::setup_cults_game_start)
+                    .after(faction::setup_colonists_game_start),
             ))
             .add_systems(Update, (
                 faction::compute_power_grid,
@@ -94,6 +104,7 @@ impl Plugin for FactionPlugin {
                 faction::placement_click_system,
                 faction::manage_build_area_overlay,
                 faction::production_rally_point_system,
+                faction::recruitment_tile_claiming_system,
             ).in_set(DiagCategory::Faction))
             .add_systems(FixedUpdate, (
                 faction::dc_construction_tick_system,
@@ -106,6 +117,11 @@ impl Plugin for FactionPlugin {
                 faction::rally_target_cleanup_system,
                 faction::tunnel_construction_tick_system,
                 faction::ejection_tick_system,
+                faction::recruitment_center_production_system,
+                faction::cults_unit_control_aggregation_system,
+                faction::cults_construction_tick_system,
+                faction::armory_training_tick_system,
+                faction::armory_eject_tick_system,
             ).in_set(DiagCategory::Construction))
             .add_systems(FixedUpdate,
                 faction::supply_tower_production_tick_system

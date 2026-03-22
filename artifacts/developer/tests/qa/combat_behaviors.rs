@@ -99,7 +99,7 @@ fn step_3_target_death_returns_idle() {
     {
         let world = test_app.app.world_mut();
         if let Some(mut obj) = world.get_mut::<ObjectInstance>(enemy) {
-            obj.apply_damage(10000.0);
+            obj.apply_damage(10000.0_f32);
         }
     }
     test_app.step_n(10);

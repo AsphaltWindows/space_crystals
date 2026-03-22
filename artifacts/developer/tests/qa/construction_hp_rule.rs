@@ -106,7 +106,7 @@ fn step_3_hp_at_fifty_percent_progress() {
     // At 50% progress: HP = 600 * (0.10 + 0.90 * 0.50) = 600 * 0.55 = 330
     let expected_hp = max_hp * 0.55;
     assert!(
-        (hp - expected_hp).abs() < 5.0,
+        f32::abs(hp - expected_hp) < 5.0,
         "HP at 50% progress should be ~{} (55% of {}), got {}",
         expected_hp, max_hp, hp
     );
@@ -148,7 +148,7 @@ fn step_4_partially_built_takes_damage() {
 
     let (hp_after, _) = TestHarness::new(&mut test_app.app).get_health(tunnel_entity).unwrap();
     assert!(
-        (hp_before - hp_after - damage).abs() < 1.0,
+        f32::abs(hp_before - hp_after - damage) < 1.0,
         "HP should decrease by {} from {} to {}, got {}",
         damage, hp_before, hp_before - damage, hp_after
     );
@@ -217,12 +217,12 @@ fn step_6_full_completion_reaches_max_hp() {
 
     let (hp, max) = TestHarness::new(&mut test_app.app).get_health(tunnel_entity).unwrap();
     assert!(
-        (hp - max_hp).abs() < 1.0,
+        f32::abs(hp - max_hp) < 1.0,
         "HP at completion should be ~{}, got {}",
         max_hp, hp
     );
     assert!(
-        (max - max_hp).abs() < 0.01,
+        f32::abs(max - max_hp) < 0.01,
         "Max HP should be {}, got {}",
         max_hp, max
     );
@@ -255,7 +255,7 @@ fn step_7_gdo_buildings_unaffected() {
         let harness = TestHarness::new(&mut test_app.app);
         let (pp_hp, pp_max) = harness.get_health(pp).unwrap();
         assert!(
-            (pp_hp - pp_max).abs() < 0.01,
+            f32::abs(pp_hp - pp_max) < 0.01,
             "PowerPlant should spawn at full HP: {}/{}",
             pp_hp, pp_max
         );
@@ -270,7 +270,7 @@ fn step_7_gdo_buildings_unaffected() {
         let harness = TestHarness::new(&mut test_app.app);
         let (bk_hp, bk_max) = harness.get_health(bk).unwrap();
         assert!(
-            (bk_hp - bk_max).abs() < 0.01,
+            f32::abs(bk_hp - bk_max) < 0.01,
             "Barracks should spawn at full HP: {}/{}",
             bk_hp, bk_max
         );

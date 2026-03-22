@@ -18,9 +18,11 @@ pub struct FactionButton(pub FactionEnum);
 pub struct DisabledButton;
 
 /// Factions that are currently available for selection
-const AVAILABLE_FACTIONS: [FactionEnum; 2] = [
+const AVAILABLE_FACTIONS: [FactionEnum; 4] = [
     FactionEnum::GlobalDefenseOrdinance,
     FactionEnum::TheSyndicate,
+    FactionEnum::TheCults,
+    FactionEnum::Colonists,
 ];
 
 /// Check if a faction is available for selection
@@ -264,13 +266,13 @@ mod tests {
     }
 
     #[test]
-    fn cults_is_not_available() {
-        assert!(!is_faction_available(&FactionEnum::TheCults));
+    fn cults_is_available() {
+        assert!(is_faction_available(&FactionEnum::TheCults));
     }
 
     #[test]
-    fn colonists_is_not_available() {
-        assert!(!is_faction_available(&FactionEnum::Colonists));
+    fn colonists_is_available() {
+        assert!(is_faction_available(&FactionEnum::Colonists));
     }
 
     #[test]
@@ -279,8 +281,8 @@ mod tests {
     }
 
     #[test]
-    fn available_factions_constant_has_two_entries() {
-        assert_eq!(AVAILABLE_FACTIONS.len(), 2);
+    fn available_factions_constant_has_four_entries() {
+        assert_eq!(AVAILABLE_FACTIONS.len(), 4);
     }
 
     #[test]

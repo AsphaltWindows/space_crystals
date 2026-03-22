@@ -45,3 +45,25 @@
 - 2026-03-21T01:07:12-04:00: Routed to manual_qa: completion_aggregator-unit_command_system.md
 - 2026-03-21T01:07:12-04:00: Routed to manual_qa: completion_aggregator-worker_built_validation.md
 - 2026-03-21T01:07:12-04:00: Router pass complete
+- 2026-03-21T12:47:27-04:00: Routed to manual_qa: completion_aggregator-factions_resources_r1.md
+- 2026-03-21T12:47:27-04:00: Router pass complete
+- 2026-03-21T12:49:47-04:00: Routed to manual_qa: completion_aggregator-tile_terrain_system_r1.md
+- 2026-03-21T12:49:47-04:00: Router pass complete
+- 2026-03-21T13:12:53-04:00: Routed to manual_qa: completion_aggregator-unit_bases_movement_collision_r1.md
+- 2026-03-21T13:12:53-04:00: Router pass complete
+- 2026-03-21T16:36:36-04:00: Routed to manual_qa: completion_aggregator-dc_builds_extraction_facility.md
+- 2026-03-21T16:36:36-04:00: Router pass complete
+- 2026-03-21T16:39:37-04:00: Routed to manual_qa: completion_aggregator-extraction_plate_power_penalty.md
+- 2026-03-21T16:39:37-04:00: Router pass complete
+- 2026-03-21T16:46:20-04:00: Routed to manual_qa: completion_aggregator-command_panel_ownership_guard.md
+- 2026-03-21T16:46:20-04:00: Router pass complete
+- 2026-03-21T23:21:56-04:00: Routed to manual_qa: completion_aggregator-camera_starting_position.md
+- 2026-03-21T23:21:56-04:00: Router pass complete
+- 2026-03-21T23:24:37-04:00: Routed to manual_qa: completion_aggregator-camera_starting_position_map_override.md
+- 2026-03-21T23:24:37-04:00: Router pass complete
+- 2026-03-22T00:09:56-04:00: Routed to manual_qa: completion_aggregator-cults_recruitment_center_and_storage.md
+- 2026-03-22T00:09:56-04:00: Router pass complete
+- 2026-03-22T01:02:37-04:00: Routed to manual_qa: completion_aggregator-add_cults_armory.md
+- 2026-03-22T01:02:37-04:00: Router pass complete
+- 2026-03-22T01:11:21-04:00: Routed to manual_qa: completion_aggregator-cults_objects_formalized.md
+- 2026-03-22T01:11:21-04:00: Router pass complete

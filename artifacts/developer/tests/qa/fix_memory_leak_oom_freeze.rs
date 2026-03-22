@@ -11,7 +11,7 @@ fn step_2_launch_game_gdo() {
     let world = test_app.app.world();
     // Should have at least the Deployment Center spawned
     let mut has_dc = false;
-    for obj in world.iter_entities().filter_map(|e| world.get::<ObjectInstance>(e.id())) {
+    for obj in world.iter_entities().filter_map(|e: EntityRef| world.get::<ObjectInstance>(e.id())) {
         if obj.object_type == ObjectEnum::DeploymentCenter {
             has_dc = true;
             break;
@@ -80,7 +80,7 @@ fn step_5_issue_move_commands() {
             .unwrap_or_else(|| panic!("Unit {} should have UnitCommand after move", i));
         match cmd {
             UnitCommand::Move(t) => {
-                assert_eq!(*t, target, "Unit {} move target should match", i);
+                assert_eq!(t, &target, "Unit {} move target should match", i);
             }
             _ => panic!("Unit {} expected Move command, got {:?}", i, cmd),
         }

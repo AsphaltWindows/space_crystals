@@ -89,7 +89,9 @@ Displays a grid of unit portraits for the current selection. Only visible when 2
 - If an action removes all remaining units, the selection becomes empty
 
 ## CommandPanel
-The display of available commands for the current selection, derived from ControlState and game state each tick. Commands available to all objects in the Selection are visually distinguished from commands available only to the ActiveGroup. Clicking a common command issues it to all selected objects. Clicking a group-specific command issues it only to objects in the ActiveGroup.
+The display of available commands for the current selection, derived from ControlState and game state each tick. The CommandPanel is only displayed when all objects in the Selection are owned by the player. When selecting enemy or neutral objects, only the InfoPanel is shown — no commands are available, no right-click resolution is performed, and no InterfaceTransitions can be initiated. Commands can only be issued to objects owned by the player.
+
+When visible, commands available to all objects in the Selection are visually distinguished from commands available only to the ActiveGroup. Clicking a common command issues it to all selected objects. Clicking a group-specific command issues it only to objects in the ActiveGroup.
 
 ### CommonCommands - commands available to every object in Selection
 ### GroupCommands - commands available to objects of type ActiveGroup

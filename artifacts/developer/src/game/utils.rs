@@ -5,6 +5,7 @@ use super::types::*;
 use super::types::objects::StructureLabel;
 use super::types::gdo_structure_stats::*;
 use super::types::syndicate_structure_stats::*;
+use super::types::cults_structure_stats::*;
 use super::units::types::{
     UnitType, UnitControlCost, RuggedTerrainDefenseBonus, TunnelSpaceCost,
     unit_data::{peacekeeper_type_data, peacekeeper_attack_data, frames_to_seconds,
@@ -20,7 +21,7 @@ use super::units::types::{
 use super::combat::types::{AttackCapability, AttackState, AttackType, Armor, Silhouette, SeparationRadius, MELEE_RANGE};
 use super::types::structures::{
     TunnelExpansionMarker, HeadquartersState, TunnelState, TunnelTier, TunnelArea,
-    SupplyTowerState, SupplyChopperState,
+    SupplyTowerState, SupplyChopperState, ArmoryState,
 };
 use super::units::types::movement::DragMovementParams;
 
@@ -73,6 +74,7 @@ fn side_labels(sym: SymmetryTypeEnum) -> [char; 4] {
         SymmetryTypeEnum::ABAB => ['A', 'B', 'A', 'B'],
         SymmetryTypeEnum::AABC => ['A', 'A', 'B', 'C'],
         SymmetryTypeEnum::ABAC => ['A', 'B', 'A', 'C'],
+        SymmetryTypeEnum::ABCB => ['A', 'B', 'C', 'B'],
         SymmetryTypeEnum::ABCD => ['A', 'B', 'C', 'D'],
     }
 }
@@ -383,9 +385,10 @@ pub fn spawn_extraction_plate(
         SelectionBounds::from_dimensions(0.8, 0.15, 0.8),
         GridPosition { x: grid_x, z: grid_z },
         BuildRadiusExtension(EP_BUILD_RADIUS),
+        PowerValue(EP_POWER),
         ExtractionPlateState {
             attached_patch,
-            mining_timer: 0,
+            mining_timer: 0.0,
         },
     )).with_children(|parent| {
         spawn_structure_label(parent, "Extraction Plate", 0.4);
@@ -939,4 +942,452 @@ pub fn spawn_supply_chopper(
         SeparationRadius(1.25),
         SightRange(ObjectEnum::SupplyChopper.object_type().sight_range),
     )).id()
+}
+
+/// Spawn a Recruitment Center entity at the given grid position (Cults primary structure)
+pub fn spawn_recruitment_center(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    grid_x: i32,
+    grid_z: i32,
+    owner: Owner,
+    build_order: u64,
+) -> Entity {
+    let world_x = (grid_x as f32 - 32.0) + 2.0; // Center of 4x4
+    let world_z = (grid_z as f32 - 32.0) + 2.0;
+
+    let mesh = meshes.add(Cuboid::new(4.0, 1.5, 4.0));
+    let material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.5, 0.2, 0.6), // Cults purple
+        metallic: 0.6,
+        perceptual_roughness: 0.3,
+        ..default()
+    });
+
+    commands.spawn((
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.75, world_z),
+        ObjectInstance::destructible(ObjectEnum::RecruitmentCenter, RC_MAX_HP),
+        StructureInstance::default(),
+        owner,
+        Selectable,
+        SelectionBounds::from_dimensions(4.0, 1.5, 4.0),
+        GridPosition { x: grid_x, z: grid_z },
+        SightRange(ObjectEnum::RecruitmentCenter.object_type().sight_range),
+        RecruitmentCenterState { build_order, ..Default::default() },
+    )).with_children(|parent| {
+        spawn_structure_label(parent, "Recruitment Center", 1.05);
+        spawn_side_labels(parent, SymmetryTypeEnum::AAAA, 2.0, 2.0, 1.5);
+    }).id()
+}
+
+/// Spawn a Cults Storage entity at the given grid position.
+/// Storage is a passive drop-off point for Space Crystals.
+/// Multiple Recruits can drop off simultaneously (no queuing/blocking needed at the structure level).
+pub fn spawn_cults_storage(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    grid_x: i32,
+    grid_z: i32,
+    owner: Owner,
+    rotation: StructureRotation,
+    flip_horizontal: bool,
+    flip_vertical: bool,
+) -> Entity {
+    let (base_x, base_z) = (3u32, 2u32);
+    let (rot_x, rot_z) = crate::game::world::utils::rotated_building_size(base_x, base_z, &rotation);
+    let world_x = (grid_x as f32 - 32.0) + (rot_x as f32) / 2.0;
+    let world_z = (grid_z as f32 - 32.0) + (rot_z as f32) / 2.0;
+
+    let mesh = meshes.add(Cuboid::new(3.0, 0.6, 2.0));
+    let is_flipped = flip_horizontal || flip_vertical;
+    let material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.4, 0.15, 0.5),
+        metallic: 0.3,
+        cull_mode: if is_flipped { None } else { Some(bevy::render::render_resource::Face::Back) },
+        ..default()
+    });
+
+    let flip_scale = Vec3::new(
+        if flip_horizontal { -1.0 } else { 1.0 },
+        1.0,
+        if flip_vertical { -1.0 } else { 1.0 },
+    );
+
+    commands.spawn((
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.3, world_z)
+            .with_rotation(Quat::from_rotation_y(rotation.radians()))
+            .with_scale(flip_scale),
+        ObjectInstance::destructible(ObjectEnum::CultsStorage, STORAGE_MAX_HP),
+        StructureInstance { rotation, flip_horizontal, flip_vertical },
+        owner,
+        Selectable,
+        SelectionBounds::from_dimensions(rot_x as f32, 0.6, rot_z as f32),
+        GridPosition { x: grid_x, z: grid_z },
+        SightRange(ObjectEnum::CultsStorage.object_type().sight_range),
+    )).with_children(|parent| {
+        spawn_structure_label(parent, "Storage", 0.5);
+        spawn_side_labels(parent, SymmetryTypeEnum::ABAB, 1.5, 1.0, 0.8);
+    }).id()
+}
+
+/// Spawn a Cults Storage structure under construction at the given grid position.
+/// Starts at 10% HP (via ObjectInstance::under_construction) with ConstructionHP + CultsConstructionState.
+pub fn spawn_cults_storage_under_construction(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    grid_x: i32,
+    grid_z: i32,
+    owner: Owner,
+    rotation: StructureRotation,
+    flip_horizontal: bool,
+    flip_vertical: bool,
+) -> Entity {
+    let (base_x, base_z) = (3u32, 2u32);
+    let (rot_x, rot_z) = crate::game::world::utils::rotated_building_size(base_x, base_z, &rotation);
+    let world_x = (grid_x as f32 - 32.0) + (rot_x as f32) / 2.0;
+    let world_z = (grid_z as f32 - 32.0) + (rot_z as f32) / 2.0;
+
+    let mesh = meshes.add(Cuboid::new(3.0, 0.6, 2.0));
+    let is_flipped = flip_horizontal || flip_vertical;
+    let material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.3, 0.1, 0.35),
+        metallic: 0.3,
+        cull_mode: if is_flipped { None } else { Some(bevy::render::render_resource::Face::Back) },
+        ..default()
+    });
+
+    let flip_scale = Vec3::new(
+        if flip_horizontal { -1.0 } else { 1.0 },
+        1.0,
+        if flip_vertical { -1.0 } else { 1.0 },
+    );
+
+    commands.spawn((
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.3, world_z)
+            .with_rotation(Quat::from_rotation_y(rotation.radians()))
+            .with_scale(flip_scale),
+        ObjectInstance::under_construction(ObjectEnum::CultsStorage, STORAGE_MAX_HP),
+        ConstructionHP::new(STORAGE_BUILD_FRAMES),
+        CultsConstructionState::new(STORAGE_BUILD_FRAMES),
+        StructureInstance { rotation, flip_horizontal, flip_vertical },
+        owner,
+        Selectable,
+        SelectionBounds::from_dimensions(rot_x as f32, 0.6, rot_z as f32),
+        GridPosition { x: grid_x, z: grid_z },
+        SightRange(ObjectEnum::CultsStorage.object_type().sight_range),
+    )).with_children(|parent| {
+        spawn_structure_label(parent, "Storage", 0.5);
+        spawn_side_labels(parent, SymmetryTypeEnum::ABAB, 1.5, 1.0, 0.8);
+    }).id()
+}
+
+/// Spawn a Cults Armory structure at the given grid position.
+/// 3x2 structure with ABCB symmetry, supports rotation and flipping.
+pub fn spawn_cults_armory(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    grid_x: i32,
+    grid_z: i32,
+    owner: Owner,
+    rotation: StructureRotation,
+    flip_horizontal: bool,
+    flip_vertical: bool,
+) -> Entity {
+    let (base_x, base_z) = (3u32, 2u32);
+    let (rot_x, rot_z) = crate::game::world::utils::rotated_building_size(base_x, base_z, &rotation);
+    let world_x = (grid_x as f32 - 32.0) + (rot_x as f32) / 2.0;
+    let world_z = (grid_z as f32 - 32.0) + (rot_z as f32) / 2.0;
+
+    let mesh = meshes.add(Cuboid::new(3.0, 0.8, 2.0));
+    let is_flipped = flip_horizontal || flip_vertical;
+    let material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.55, 0.2, 0.55),
+        metallic: 0.3,
+        cull_mode: if is_flipped { None } else { Some(bevy::render::render_resource::Face::Back) },
+        ..default()
+    });
+
+    let flip_scale = Vec3::new(
+        if flip_horizontal { -1.0 } else { 1.0 },
+        1.0,
+        if flip_vertical { -1.0 } else { 1.0 },
+    );
+
+    commands.spawn((
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.4, world_z)
+            .with_rotation(Quat::from_rotation_y(rotation.radians()))
+            .with_scale(flip_scale),
+        ObjectInstance::destructible(ObjectEnum::CultsArmory, ARMORY_MAX_HP),
+        StructureInstance { rotation, flip_horizontal, flip_vertical },
+        owner,
+        Selectable,
+        SelectionBounds::from_dimensions(rot_x as f32, 0.8, rot_z as f32),
+        GridPosition { x: grid_x, z: grid_z },
+        SightRange(ObjectEnum::CultsArmory.object_type().sight_range),
+        ArmoryState::default(),
+        Armor { point_armor: ARMORY_POINT_ARMOR as f32, full_armor: ARMORY_FULL_ARMOR as f32, directional_armor: false },
+    )).with_children(|parent| {
+        spawn_structure_label(parent, "Armory", 0.6);
+        spawn_side_labels(parent, SymmetryTypeEnum::ABCB, 1.5, 1.0, 0.8);
+    }).id()
+}
+
+/// Maximum HP for a Recruit (placeholder)
+pub const RECRUIT_MAX_HP: f32 = 50.0;
+
+/// Spawn a minimal Cults Recruit unit at the given grid position (placeholder stub).
+/// Full Recruit stats/behaviors will come in a separate feature.
+pub fn spawn_cults_recruit(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    grid_x: i32,
+    grid_z: i32,
+    owner: Owner,
+) -> Entity {
+    let world_x = (grid_x as f32 - 32.0) + 0.5;
+    let world_z = (grid_z as f32 - 32.0) + 0.5;
+
+    let mesh = meshes.add(Capsule3d::new(0.15, 0.5));
+    let material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.5, 0.2, 0.6), // Cults purple
+        ..default()
+    });
+
+    commands.spawn((
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.4, world_z),
+        Unit,
+        ObjectInstance::destructible(ObjectEnum::CultsRecruit, RECRUIT_MAX_HP),
+        owner,
+        UnitType { name: "Recruit".to_string() },
+        Selectable,
+        SelectionBounds::unit(),
+        GridPosition { x: grid_x, z: grid_z },
+        UnitBaseEnum::LightInfantry, // Placeholder
+        UnitCommand::Idle,
+        LocomotionChannel::Stationary,
+        OrientationChannel::Maintaining,
+        Velocity(Vec3::ZERO),
+    )).id()
+}
+
+/// Max HP for Cults Soldier (placeholder)
+pub const SOLDIER_MAX_HP: f32 = 100.0;
+
+/// Spawn a Cults Soldier unit at the given grid position.
+/// Placeholder unit — trained from Armory.
+pub fn spawn_cults_soldier(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    grid_x: i32,
+    grid_z: i32,
+    owner: Owner,
+) -> Entity {
+    let world_x = (grid_x as f32 - 32.0) + 0.5;
+    let world_z = (grid_z as f32 - 32.0) + 0.5;
+
+    let mesh = meshes.add(Capsule3d::new(0.18, 0.55));
+    let material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.6, 0.15, 0.5), // Cults dark purple
+        ..default()
+    });
+
+    commands.spawn((
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.4, world_z),
+        Unit,
+        ObjectInstance::destructible(ObjectEnum::CultsSoldier, SOLDIER_MAX_HP),
+        owner,
+        UnitType { name: "Soldier".to_string() },
+        Selectable,
+        SelectionBounds::unit(),
+        GridPosition { x: grid_x, z: grid_z },
+        UnitBaseEnum::LightInfantry,
+        UnitCommand::Idle,
+        LocomotionChannel::Stationary,
+        OrientationChannel::Maintaining,
+        Velocity(Vec3::ZERO),
+    )).id()
+}
+
+/// Max HP for Cults Gunner (placeholder)
+pub const GUNNER_MAX_HP: f32 = 80.0;
+
+/// Spawn a Cults Gunner unit at the given grid position.
+/// Placeholder unit — trained from Armory.
+pub fn spawn_cults_gunner(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    grid_x: i32,
+    grid_z: i32,
+    owner: Owner,
+) -> Entity {
+    let world_x = (grid_x as f32 - 32.0) + 0.5;
+    let world_z = (grid_z as f32 - 32.0) + 0.5;
+
+    let mesh = meshes.add(Capsule3d::new(0.16, 0.5));
+    let material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.45, 0.1, 0.65), // Cults blue-purple
+        ..default()
+    });
+
+    commands.spawn((
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_xyz(world_x, 0.4, world_z),
+        Unit,
+        ObjectInstance::destructible(ObjectEnum::CultsGunner, GUNNER_MAX_HP),
+        owner,
+        UnitType { name: "Gunner".to_string() },
+        Selectable,
+        SelectionBounds::unit(),
+        GridPosition { x: grid_x, z: grid_z },
+        UnitBaseEnum::LightInfantry,
+        UnitCommand::Idle,
+        LocomotionChannel::Stationary,
+        OrientationChannel::Maintaining,
+        Velocity(Vec3::ZERO),
+    )).id()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::shared::testing::TestApp;
+    use bevy::ecs::system::RunSystemOnce;
+
+    #[test]
+    fn spawn_cults_storage_creates_entity_with_expected_components() {
+        let mut test_app = TestApp::new();
+        let entity = test_app.app.world_mut().run_system_once(|
+            mut commands: Commands,
+            mut meshes: ResMut<Assets<Mesh>>,
+            mut materials: ResMut<Assets<StandardMaterial>>,
+        | -> Entity {
+            spawn_cults_storage(
+                &mut commands, &mut meshes, &mut materials,
+                32, 32, Owner::player(0),
+                StructureRotation::R0, false, false,
+            )
+        }).unwrap();
+        test_app.step(); // flush deferred commands
+
+        let world = test_app.app.world();
+        let entity_ref = world.get_entity(entity).unwrap();
+
+        // Verify ObjectInstance
+        let obj = entity_ref.get::<ObjectInstance>().expect("should have ObjectInstance");
+        assert_eq!(obj.object_type, ObjectEnum::CultsStorage);
+        assert!(obj.is_destructible());
+        assert_eq!(obj.max_hp, Some(STORAGE_MAX_HP));
+
+        // Verify StructureInstance
+        assert!(entity_ref.get::<StructureInstance>().is_some());
+
+        // Verify Owner
+        let owner = entity_ref.get::<Owner>().expect("should have Owner");
+        assert_eq!(*owner, Owner::player(0));
+
+        // Verify Selectable
+        assert!(entity_ref.get::<Selectable>().is_some());
+
+        // Verify SelectionBounds
+        assert!(entity_ref.get::<SelectionBounds>().is_some());
+
+        // Verify GridPosition
+        let grid_pos = entity_ref.get::<GridPosition>().expect("should have GridPosition");
+        assert_eq!(grid_pos.x, 32);
+        assert_eq!(grid_pos.z, 32);
+
+        // Verify SightRange
+        let sight = entity_ref.get::<SightRange>().expect("should have SightRange");
+        assert_eq!(sight.0, 3);
+    }
+
+    #[test]
+    fn spawn_cults_armory_creates_entity_with_expected_components() {
+        let mut test_app = TestApp::new();
+        let entity = test_app.app.world_mut().run_system_once(|
+            mut commands: Commands,
+            mut meshes: ResMut<Assets<Mesh>>,
+            mut materials: ResMut<Assets<StandardMaterial>>,
+        | -> Entity {
+            spawn_cults_armory(
+                &mut commands, &mut meshes, &mut materials,
+                32, 32, Owner::player(0),
+                StructureRotation::R0, false, false,
+            )
+        }).unwrap();
+        test_app.step(); // flush deferred commands
+
+        let world = test_app.app.world();
+        let entity_ref = world.get_entity(entity).unwrap();
+
+        // Verify ObjectInstance
+        let obj = entity_ref.get::<ObjectInstance>().expect("should have ObjectInstance");
+        assert_eq!(obj.object_type, ObjectEnum::CultsArmory);
+        assert!(obj.is_destructible());
+        assert_eq!(obj.max_hp, Some(ARMORY_MAX_HP));
+
+        // Verify StructureInstance
+        assert!(entity_ref.get::<StructureInstance>().is_some());
+
+        // Verify Owner
+        let owner = entity_ref.get::<Owner>().expect("should have Owner");
+        assert_eq!(*owner, Owner::player(0));
+
+        // Verify Selectable
+        assert!(entity_ref.get::<Selectable>().is_some());
+
+        // Verify SelectionBounds
+        assert!(entity_ref.get::<SelectionBounds>().is_some());
+
+        // Verify GridPosition
+        let grid_pos = entity_ref.get::<GridPosition>().expect("should have GridPosition");
+        assert_eq!(grid_pos.x, 32);
+        assert_eq!(grid_pos.z, 32);
+
+        // Verify SightRange
+        let sight = entity_ref.get::<SightRange>().expect("should have SightRange");
+        assert_eq!(sight.0, 3);
+
+        // Verify ArmoryState
+        let armory = entity_ref.get::<ArmoryState>().expect("should have ArmoryState");
+        assert!(armory.stored_recruits.is_empty());
+        assert!(armory.training_queue.is_none());
+        assert_eq!(armory.training_progress, 0);
+        assert!(armory.rally_point.is_none());
+
+        // Verify Armor
+        let armor = entity_ref.get::<Armor>().expect("should have Armor");
+        assert_eq!(armor.point_armor, ARMORY_POINT_ARMOR as f32);
+        assert_eq!(armor.full_armor, ARMORY_FULL_ARMOR as f32);
+        assert!(!armor.directional_armor);
+    }
+
+    #[test]
+    fn armory_state_default_is_empty() {
+        let state = ArmoryState::default();
+        assert!(state.stored_recruits.is_empty());
+        assert!(state.training_queue.is_none());
+        assert_eq!(state.training_progress, 0);
+        assert!(state.rally_point.is_none());
+    }
 }

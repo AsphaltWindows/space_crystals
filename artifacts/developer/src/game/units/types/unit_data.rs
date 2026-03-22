@@ -105,6 +105,13 @@ pub struct RuggedTerrainDefenseBonus(pub f32);
 #[derive(Component, Clone, Debug)]
 pub struct TunnelSpaceCost(pub u32);
 
+/// Component that tracks which Recruitment Center(s) produced a Cults unit.
+/// Used by the death tracking system to decrement each originating center's `local_used`.
+#[derive(Component, Clone, Debug)]
+pub struct OriginatingCenters {
+    pub centers: Vec<Entity>,
+}
+
 // === Peacekeeper Definition ===
 
 use crate::simulation::FRAMES_PER_SECOND;

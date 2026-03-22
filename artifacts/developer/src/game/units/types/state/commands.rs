@@ -33,6 +33,10 @@ pub enum UnitCommand {
     DropOffSupplies(Entity),
     /// Build a Tunnel at a target location (Agent only — walk there first)
     BuildTunnel(Vec3),
+    /// Walk to a Cults building under construction and enter it (Recruit only)
+    ConstructBuilding(Entity),
+    /// Enter a Cults Armory (CultsRecruit only)
+    EnterArmory(Entity),
 }
 
 impl UnitCommand {
@@ -71,6 +75,10 @@ impl UnitCommand {
             UnitCommand::BuildTunnel(_) => is_syndicate,
             // Drop off supplies at tower (chopper-specific UI handles visibility)
             UnitCommand::DropOffSupplies(_) => true,
+            // Construct Building (Cults Recruit only — UI gates visibility)
+            UnitCommand::ConstructBuilding(_) => true,
+            // Enter Armory (Cults Recruit only — UI gates visibility)
+            UnitCommand::EnterArmory(_) => true,
         }
     }
 }
@@ -98,6 +106,8 @@ pub enum CommandType {
     PickUpSupplies,
     AttachToTower,
     DropOffSupplies,
+    ConstructBuilding,
+    AssistConstruction,
 }
 
 impl CommandType {
@@ -122,6 +132,8 @@ impl CommandType {
             CommandType::PickUpSupplies => "Pick Up Supplies",
             CommandType::AttachToTower => "Attach to Tower",
             CommandType::DropOffSupplies => "Drop Off Supplies",
+            CommandType::ConstructBuilding => "Construct Building",
+            CommandType::AssistConstruction => "Assist Construction",
         }
     }
 
@@ -146,6 +158,8 @@ impl CommandType {
             CommandType::PickUpSupplies => "W",
             CommandType::AttachToTower => "E",
             CommandType::DropOffSupplies => "A",
+            CommandType::ConstructBuilding => "B",
+            CommandType::AssistConstruction => "S",
         }
     }
 }
@@ -526,7 +540,8 @@ mod tests {
             CommandType::Gather, CommandType::DropOff, CommandType::BuildTunnel,
             CommandType::SetRallyPoint, CommandType::ScheduleDeliveries,
             CommandType::PickUpSupplies, CommandType::AttachToTower,
-            CommandType::DropOffSupplies,
+            CommandType::DropOffSupplies, CommandType::ConstructBuilding,
+            CommandType::AssistConstruction,
         ];
         for ct in types {
             assert!(!ct.name().is_empty());
@@ -734,6 +749,80 @@ mod tests {
     #[test]
     fn command_type_drop_off_supplies_is_not_default() {
         assert_ne!(CommandType::DropOffSupplies, CommandType::Default);
+    }
+
+    // === ConstructBuilding command tests ===
+
+    #[test]
+    fn unit_command_construct_building_variant() {
+        let cmd = UnitCommand::ConstructBuilding(Entity::from_raw_u32(10).unwrap());
+        assert!(matches!(cmd, UnitCommand::ConstructBuilding(_)));
+    }
+
+    #[test]
+    fn unit_command_construct_building_stores_entity() {
+        let building = Entity::from_raw_u32(42).unwrap();
+        let cmd = UnitCommand::ConstructBuilding(building);
+        if let UnitCommand::ConstructBuilding(e) = cmd {
+            assert_eq!(e, Entity::from_raw_u32(42).unwrap());
+        } else {
+            panic!("Expected ConstructBuilding variant");
+        }
+    }
+
+    #[test]
+    fn is_available_construct_building_always() {
+        let cmd = UnitCommand::ConstructBuilding(Entity::from_raw_u32(1).unwrap());
+        assert!(cmd.is_available(false, false, false, false));
+        assert!(cmd.is_available(true, true, true, true));
+    }
+
+    #[test]
+    fn command_type_construct_building_name_and_hotkey() {
+        assert_eq!(CommandType::ConstructBuilding.name(), "Construct Building");
+        assert_eq!(CommandType::ConstructBuilding.hotkey(), "B");
+    }
+
+    #[test]
+    fn command_type_assist_construction_name_and_hotkey() {
+        assert_eq!(CommandType::AssistConstruction.name(), "Assist Construction");
+        assert_eq!(CommandType::AssistConstruction.hotkey(), "S");
+    }
+
+    #[test]
+    fn command_type_construct_building_is_not_default() {
+        assert_ne!(CommandType::ConstructBuilding, CommandType::Default);
+    }
+
+    #[test]
+    fn command_type_assist_construction_is_not_default() {
+        assert_ne!(CommandType::AssistConstruction, CommandType::Default);
+    }
+
+    // === EnterArmory command tests ===
+
+    #[test]
+    fn unit_command_enter_armory_variant() {
+        let cmd = UnitCommand::EnterArmory(Entity::from_raw_u32(10).unwrap());
+        assert!(matches!(cmd, UnitCommand::EnterArmory(_)));
+    }
+
+    #[test]
+    fn unit_command_enter_armory_stores_entity() {
+        let armory = Entity::from_raw_u32(42).unwrap();
+        let cmd = UnitCommand::EnterArmory(armory);
+        if let UnitCommand::EnterArmory(e) = cmd {
+            assert_eq!(e, Entity::from_raw_u32(42).unwrap());
+        } else {
+            panic!("Expected EnterArmory variant");
+        }
+    }
+
+    #[test]
+    fn is_available_enter_armory_always() {
+        let cmd = UnitCommand::EnterArmory(Entity::from_raw_u32(1).unwrap());
+        assert!(cmd.is_available(false, false, false, false));
+        assert!(cmd.is_available(true, true, true, true));
     }
 }
 

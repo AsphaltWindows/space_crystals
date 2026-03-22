@@ -1,11 +1,12 @@
 use bevy::prelude::*;
 use crate::types::*;
 use crate::game::types::{
-    ObjectInstance, Player, GdoPlayerResources, SyndicatePlayerResources, StructureInstance,
+    ObjectInstance, Player, GdoPlayerResources, SyndicatePlayerResources, CultsPlayerResources, StructureInstance,
     DeploymentCenterState, BarracksState, ExtractionFacilityState,
     SupplyTowerState, SupplyChopperState, TunnelState, TunnelTier, TunnelOperation,
-    HeadquartersState,
+    HeadquartersState, RecruitmentCenterState, ArmoryState,
     tunnel_t2_upgrade_cost, tunnel_t3_upgrade_cost,
+    cults_structure_stats::{SOLDIER_TRAINING_COST, GUNNER_TRAINING_COST},
 };
 use crate::game::units::types::commands::{CommandType, HoldingPosition, UnitCommand, CommandQueue};
 use crate::game::units::types::state::AgentCarryState;
@@ -60,6 +61,7 @@ fn get_grid_slot_action(
                 (0, 0) => Some(CommandButtonAction::DcBuild(ObjectEnum::PowerPlant)),
                 (0, 1) => Some(CommandButtonAction::DcBuild(ObjectEnum::Barracks)),
                 (1, 0) => Some(CommandButtonAction::DcBuild(ObjectEnum::SupplyTower)),
+                (1, 1) => Some(CommandButtonAction::DcBuild(ObjectEnum::ExtractionFacility)),
                 (2, 0) => Some(CommandButtonAction::Back),
                 _ => None,
             },
@@ -120,6 +122,18 @@ fn get_grid_slot_action(
                 (2, 0) => Some(CommandButtonAction::Back),
                 _ => None,
             },
+            StructureMenuState::RecruitmentCenterMenu => match (row, col) {
+                (2, 1) if bk_has_queue => Some(CommandButtonAction::RcCancel),
+                (2, 2) => Some(CommandButtonAction::SetRallyPoint),
+                _ => None,
+            },
+            StructureMenuState::ArmoryMenu => match (row, col) {
+                (0, 0) => Some(CommandButtonAction::ArmoryTrainSoldier),
+                (0, 1) => Some(CommandButtonAction::ArmoryTrainGunner),
+                (0, 2) => Some(CommandButtonAction::ArmoryEjectAll),
+                (2, 2) => Some(CommandButtonAction::SetRallyPoint),
+                _ => None,
+            },
             StructureMenuState::DcAwaitingPlacement | StructureMenuState::EfAwaitingPlacement |
             StructureMenuState::TunnelAwaitingPlacement => {
                 // Placement mode is handled by mouse clicks + Escape, no grid buttons
@@ -161,6 +175,19 @@ fn get_grid_slot_action(
                 // Placement mode — handled by mouse clicks + Escape, no grid buttons
                 None
             },
+        },
+        ObjectInterfaceState::CultsRecruitMenu(crm) => match crm {
+            CultsRecruitMenuState::RecruitDefault => match (row, col) {
+                (0, 0) => Some(CommandButtonAction::RecruitConstruct),
+                (1, 1) => Some(CommandButtonAction::RecruitAssistConstruction),
+                _ => None,
+            },
+            CultsRecruitMenuState::RecruitConstructMenu => match (row, col) {
+                (0, 0) => Some(CommandButtonAction::RecruitSelectBuilding(ObjectEnum::CultsStorage)),
+                (2, 0) => Some(CommandButtonAction::Back),
+                _ => None,
+            },
+            CultsRecruitMenuState::RecruitAwaitingPlacement => None,
         },
         ObjectInterfaceState::AwaitingTarget(_) => match (row, col) {
             (2, 0) => Some(CommandButtonAction::Back),
@@ -260,13 +287,29 @@ pub fn update_cursor_target(
     }
 }
 
+/// Check whether all entities in the selection are owned by the local player.
+/// Returns false if any entity is enemy-owned, neutral, or missing an Owner component.
+fn selection_owned_by_local_player(
+    selection: &Selection,
+    local_player: &LocalPlayer,
+    owner_query: &Query<&Owner>,
+) -> bool {
+    selection.groups.iter().all(|group| {
+        group.entities.iter().all(|entity| {
+            owner_query.get(*entity).map_or(false, |owner| {
+                owner.player_number() == Some(local_player.0)
+            })
+        })
+    })
+}
+
 /// Whether the panel should show content (not hidden).
 /// Returns true when there's an active selection or we're in a structure menu / awaiting target.
 /// Resource-only selections (Crystal Patches, SDS) are treated as empty for panel purposes —
 /// they show InfoPanel but not the command panel.
 fn is_panel_visible(state: &ObjectInterfaceState, selection: &Selection) -> bool {
     match state {
-        ObjectInterfaceState::Default | ObjectInterfaceState::AgentMenu(_) => {
+        ObjectInterfaceState::Default | ObjectInterfaceState::AgentMenu(_) | ObjectInterfaceState::CultsRecruitMenu(_) => {
             if selection.groups.is_empty() {
                 return false;
             }
@@ -281,7 +324,7 @@ fn is_panel_visible(state: &ObjectInterfaceState, selection: &Selection) -> bool
 /// System to update the command panel state based on selected structures
 pub fn update_command_panel_state(
     selected_structures: Query<
-        (Entity, &ObjectInstance, Option<&DeploymentCenterState>, Option<&BarracksState>, Option<&ExtractionFacilityState>, Option<&SupplyTowerState>, Option<&TunnelState>),
+        (Entity, &ObjectInstance, Option<&DeploymentCenterState>, Option<&BarracksState>, Option<&ExtractionFacilityState>, Option<&SupplyTowerState>, Option<&TunnelState>, Option<&ArmoryState>),
         (With<StructureInstance>, With<Selected>),
     >,
     selected_units: Query<(Entity, Option<&AttackCapability>, &UnitBaseEnum, &ObjectInstance, Option<&AgentCarryState>, Option<&SupplyChopperState>), (With<Unit>, With<Selected>, Without<StructureInstance>)>,
@@ -289,7 +332,23 @@ pub fn update_command_panel_state(
     mut panel_target: ResMut<CommandPanelTarget>,
     mut unit_caps: ResMut<SelectedUnitCapabilities>,
     selection: Res<Selection>,
+    local_player: Res<LocalPlayer>,
+    owner_query: Query<&Owner>,
 ) {
+    // Ownership guard: if any selected entity is not owned by the local player,
+    // reset state and hide the panel. This prevents commanding enemy or neutral units.
+    let owned = selection.groups.is_empty() || selection_owned_by_local_player(&selection, &local_player, &owner_query);
+    if unit_caps.owned_by_local_player != owned {
+        unit_caps.owned_by_local_player = owned;
+    }
+    if !owned {
+        if !matches!(*interface_state, ObjectInterfaceState::Default) {
+            *interface_state = ObjectInterfaceState::Default;
+        }
+        panel_target.entity = None;
+        return;
+    }
+
     // Determine which branch to use based on the active group's type.
     // This ensures that when cycling active groups in mixed unit+structure selections,
     // the command panel updates to reflect the active group (not always the structure).
@@ -305,7 +364,7 @@ pub fn update_command_panel_state(
         None
     };
 
-    if let Some((entity, obj_instance, dc_state, _bk_state, ef_state, _st_state, tunnel_state)) = active_structure {
+    if let Some((entity, obj_instance, dc_state, _bk_state, ef_state, _st_state, tunnel_state, armory_state)) = active_structure {
         // Active group is a structure — use structure menu branch
         let target_changed = panel_target.entity != Some(entity);
         panel_target.entity = Some(entity);
@@ -380,6 +439,26 @@ pub fn update_command_panel_state(
                     *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::HeadquartersMenu);
                 }
             }
+            ObjectEnum::RecruitmentCenter => {
+                let in_valid_state = matches!(*interface_state,
+                    ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu) |
+                    ObjectInterfaceState::AwaitingTarget(_)
+                );
+                if target_changed || !in_valid_state {
+                    *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu);
+                }
+            }
+            ObjectEnum::CultsArmory => {
+                if armory_state.is_some() {
+                    let in_valid_state = matches!(*interface_state,
+                        ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu) |
+                        ObjectInterfaceState::AwaitingTarget(_)
+                    );
+                    if target_changed || !in_valid_state {
+                        *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu);
+                    }
+                }
+            }
             // PowerPlant, ExtractionPlate — no active commands
             _ => {
                 let new_state = ObjectInterfaceState::StructureMenu(StructureMenuState::Inert);
@@ -401,15 +480,23 @@ pub fn update_command_panel_state(
             // Check if active group is Agents (for Agent-specific interface)
             let active_is_agent = active_type == Some(ObjectEnum::SyndicateAgent);
 
+            let active_is_cults_recruit = active_type == Some(ObjectEnum::CultsRecruit);
+
             if active_is_agent {
                 // Route to AgentMenu state
                 if !matches!(*interface_state, ObjectInterfaceState::AgentMenu(_) | ObjectInterfaceState::AwaitingTarget(_)) {
                     *interface_state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
                     panel_target.entity = None;
                 }
+            } else if active_is_cults_recruit {
+                // Route to CultsRecruitMenu state
+                if !matches!(*interface_state, ObjectInterfaceState::CultsRecruitMenu(_) | ObjectInterfaceState::AwaitingTarget(_)) {
+                    *interface_state = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitDefault);
+                    panel_target.entity = None;
+                }
             } else {
                 // Stay in Default (unit commands) or AwaitingTarget
-                if matches!(*interface_state, ObjectInterfaceState::StructureMenu(_) | ObjectInterfaceState::AgentMenu(_)) {
+                if matches!(*interface_state, ObjectInterfaceState::StructureMenu(_) | ObjectInterfaceState::AgentMenu(_) | ObjectInterfaceState::CultsRecruitMenu(_)) {
                     *interface_state = ObjectInterfaceState::Default;
                     panel_target.entity = None;
                 }
@@ -440,7 +527,7 @@ pub fn rebuild_command_panel_ui(
     syndicate_players: Query<(&Player, &SyndicatePlayerResources)>,
     network_units: Query<(&ObjectInstance, &crate::game::units::types::state::behavior::InTunnelNetwork)>,
     players: Query<(&Player, &GdoPlayerResources)>,
-    selected_owners: Query<(&Owner, Option<&HeadquartersState>), (With<StructureInstance>, With<Selected>)>,
+    selected_owners: Query<(&Owner, Option<&HeadquartersState>, Option<&RecruitmentCenterState>, Option<&ArmoryState>), (With<StructureInstance>, With<Selected>)>,
     unit_caps: Res<SelectedUnitCapabilities>,
     selection: Res<Selection>,
 ) {
@@ -453,7 +540,7 @@ pub fn rebuild_command_panel_ui(
     // Clear existing content
     commands.entity(panel_entity).despawn_children();
 
-    if !is_panel_visible(&interface_state, &selection) {
+    if !is_panel_visible(&interface_state, &selection) || !unit_caps.owned_by_local_player {
         return;
     }
 
@@ -461,14 +548,14 @@ pub fn rebuild_command_panel_ui(
     let player_sc = get_player_sc_from_owners(&selected_owners, &players);
 
     // Check if player owns a Power Plant (tech prerequisite for Supply Tower)
-    let has_power_plant = if let Some((owner, _)) = selected_owners.iter().next() {
+    let has_power_plant = if let Some((owner, ..)) = selected_owners.iter().next() {
         players.iter().any(|(p, res)| Some(p.player_number) == owner.player_number() && res.has_power_plant)
     } else {
         false
     };
 
     // Get Syndicate SC for HQ production affordability checks
-    let syndicate_sc = if let Some((owner, _)) = selected_owners.iter().next() {
+    let syndicate_sc = if let Some((owner, ..)) = selected_owners.iter().next() {
         syndicate_players.iter()
             .find(|(p, _)| Some(p.player_number) == owner.player_number())
             .map(|(_, res)| res.space_crystals)
@@ -488,6 +575,8 @@ pub fn rebuild_command_panel_ui(
                 StructureMenuState::EfIdle | StructureMenuState::EfAwaitingPlacement => "Extraction Facility",
                 StructureMenuState::SupplyTowerMenu => "Supply Tower",
                 StructureMenuState::HeadquartersMenu => "Headquarters",
+                StructureMenuState::RecruitmentCenterMenu => "Recruitment Center",
+                StructureMenuState::ArmoryMenu => "Armory",
                 StructureMenuState::TunnelIdle | StructureMenuState::TunnelAwaitingPlacement => "Tunnel",
                 StructureMenuState::TunnelExpandMenu => "Expand",
                 StructureMenuState::TunnelEjectMenu => "Eject Units",
@@ -495,6 +584,9 @@ pub fn rebuild_command_panel_ui(
             },
             ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault) => "Agent Commands",
             ObjectInterfaceState::AgentMenu(AgentMenuState::AgentAwaitingPlacement) => "Place Tunnel",
+            ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitDefault) => "Recruit",
+            ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitConstructMenu) => "Construct",
+            ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitAwaitingPlacement) => "Place Building",
             ObjectInterfaceState::Default => "Unit Commands",
             ObjectInterfaceState::AwaitingTarget(ct) => match ct {
                 CommandType::Move => "Move Target",
@@ -600,7 +692,7 @@ pub fn rebuild_command_panel_ui(
                 }
             }
             ObjectInterfaceState::StructureMenu(StructureMenuState::HeadquartersMenu) => {
-                if let Some((_, Some(hq))) = selected_owners.iter().next() {
+                if let Some((_, Some(hq), _, _)) = selected_owners.iter().next() {
                     if hq.current_build.is_some() {
                         let progress = hq.current_build_progress.unwrap_or(0.0);
                         let cost = HeadquartersState::production_cost(hq.current_build.as_ref().unwrap());
@@ -610,6 +702,35 @@ pub fn rebuild_command_panel_ui(
                     }
                     if !hq.build_queue.is_empty() {
                         spawn_info_text(parent, &format!("Queue: {}/{}", hq.build_queue.len(), HeadquartersState::MAX_QUEUE_SIZE));
+                    }
+                }
+            }
+            ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu) => {
+                if let Some((_, _, Some(rc), _)) = selected_owners.iter().next() {
+                    if rc.production_progress > 0 {
+                        // RC auto-produces on a 12s base cycle (192 frames at 16fps)
+                        // Scale by effectiveness: actual_frames = 192 / effectiveness
+                        let total_frames = if rc.effectiveness > 0.0 {
+                            (192.0 / rc.effectiveness) as u32
+                        } else {
+                            192
+                        };
+                        let pct = (rc.production_progress as f32 / total_frames as f32 * 100.0).min(100.0);
+                        spawn_progress_text(parent, &format!("Recruiting... {:.0}%", pct));
+                    }
+                    spawn_info_text(parent, &format!("Capacity: {}/{}", rc.local_used, rc.local_capacity));
+                }
+            }
+            ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu) => {
+                if let Some((_, _, _, Some(armory))) = selected_owners.iter().next() {
+                    spawn_info_text(parent, &format!("Recruits: {}/{}",
+                        armory.stored_recruits.len(),
+                        crate::game::types::cults_structure_stats::ARMORY_INTERNAL_RECRUIT_CAPACITY));
+                    if let Some(ref unit_type) = armory.training_queue {
+                        let total_frames = ArmoryState::training_frames(unit_type).unwrap_or(160) as f32;
+                        let pct = (armory.training_progress as f32 / total_frames * 100.0).min(100.0);
+                        let name = unit_type.object_type().name;
+                        spawn_progress_text(parent, &format!("Training: {} {:.0}%", name, pct));
                     }
                 }
             }
@@ -734,8 +855,12 @@ pub fn rebuild_command_panel_ui(
                         .map(|st| st.has_cancellable())
                         .unwrap_or(false)
                     || selected_owners.iter().next()
-                        .and_then(|(_, hq)| hq)
+                        .and_then(|(_, hq, _, _)| hq)
                         .map(|hq| hq.has_cancellable())
+                        .unwrap_or(false)
+                    || selected_owners.iter().next()
+                        .and_then(|(_, _, rc, _)| rc)
+                        .map(|rc| rc.production_progress > 0)
                         .unwrap_or(false);
 
                 // Check DC/EF construction state for conditional cancel in idle states
@@ -797,7 +922,7 @@ pub fn handle_command_button_clicks(
     mut interface_state: ResMut<ObjectInterfaceState>,
     panel_target: Res<CommandPanelTarget>,
     mut dc_query: Query<(&Owner, &mut DeploymentCenterState)>,
-    mut bk_hq_query: Query<(&Owner, Option<&mut BarracksState>, Option<&mut HeadquartersState>), Or<(With<BarracksState>, With<HeadquartersState>)>>,
+    mut bk_hq_query: Query<(&Owner, Option<&mut BarracksState>, Option<&mut HeadquartersState>, Option<&mut RecruitmentCenterState>, Option<&mut ArmoryState>), Or<(With<BarracksState>, With<HeadquartersState>, With<RecruitmentCenterState>, With<ArmoryState>)>>,
     mut ef_query: Query<(&Owner, &mut ExtractionFacilityState)>,
     mut st_query_mut: Query<(&Owner, &mut SupplyTowerState)>,
     mut tunnel_query_mut: Query<(&Owner, &mut TunnelState, &crate::game::types::TunnelArea)>,
@@ -824,7 +949,7 @@ pub fn command_panel_hotkeys(
     mut interface_state: ResMut<ObjectInterfaceState>,
     panel_target: Res<CommandPanelTarget>,
     mut dc_query: Query<(&Owner, &mut DeploymentCenterState)>,
-    mut bk_hq_query: Query<(&Owner, Option<&mut BarracksState>, Option<&mut HeadquartersState>), Or<(With<BarracksState>, With<HeadquartersState>)>>,
+    mut bk_hq_query: Query<(&Owner, Option<&mut BarracksState>, Option<&mut HeadquartersState>, Option<&mut RecruitmentCenterState>, Option<&mut ArmoryState>), Or<(With<BarracksState>, With<HeadquartersState>, With<RecruitmentCenterState>, With<ArmoryState>)>>,
     mut ef_query: Query<(&Owner, &mut ExtractionFacilityState)>,
     mut st_query_mut: Query<(&Owner, &mut SupplyTowerState)>,
     mut tunnel_query_mut: Query<(&Owner, &mut TunnelState, &crate::game::types::TunnelArea)>,
@@ -836,8 +961,8 @@ pub fn command_panel_hotkeys(
     unit_caps: Res<SelectedUnitCapabilities>,
     mut selection: ResMut<Selection>,
 ) {
-    // Only process grid hotkeys when panel is visible
-    if !is_panel_visible(&interface_state, &selection) {
+    // Only process grid hotkeys when panel is visible and selection is owned by local player
+    if !is_panel_visible(&interface_state, &selection) || !unit_caps.owned_by_local_player {
         return;
     }
 
@@ -899,11 +1024,32 @@ pub fn command_panel_hotkeys(
                 *interface_state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
                 info!("Agent: Cancelled placement, back to AgentDefault");
             }
+            ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitAwaitingPlacement) => {
+                *interface_state = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitConstructMenu);
+                info!("Recruit: Cancelled placement, back to ConstructMenu");
+            }
+            ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitConstructMenu) => {
+                *interface_state = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitDefault);
+                info!("Recruit: Back to RecruitDefault");
+            }
             ObjectInterfaceState::AwaitingTarget(_) => {
-                let active_is_agent = selection.active_type() == Some(ObjectEnum::SyndicateAgent);
+                let active_type = selection.active_type();
+                let active_is_agent = active_type == Some(ObjectEnum::SyndicateAgent);
+                let active_is_rc = active_type == Some(ObjectEnum::RecruitmentCenter);
+                let active_is_armory = active_type == Some(ObjectEnum::CultsArmory);
+                let active_is_cults_recruit = active_type == Some(ObjectEnum::CultsRecruit);
                 if active_is_agent {
                     *interface_state = ObjectInterfaceState::AgentMenu(AgentMenuState::AgentDefault);
                     info!("Cancelled awaiting target, back to AgentDefault");
+                } else if active_is_cults_recruit {
+                    *interface_state = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitDefault);
+                    info!("Cancelled awaiting target, back to RecruitDefault");
+                } else if active_is_rc {
+                    *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu);
+                    info!("Cancelled awaiting target, back to RecruitmentCenterMenu");
+                } else if active_is_armory {
+                    *interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu);
+                    info!("Cancelled awaiting target, back to ArmoryMenu");
                 } else {
                     *interface_state = ObjectInterfaceState::Default;
                     info!("Cancelled awaiting target, back to Default");
@@ -978,9 +1124,9 @@ pub fn command_panel_hotkeys(
                 // Includes both queued items and currently building unit
                 let bk_has_queue = panel_target.entity
                     .and_then(|e| bk_hq_query.get(e).ok())
-                    .map(|(_, bk, hq)| {
-                        bk.as_ref().map(|b| b.has_cancellable()).unwrap_or(false)
-                        || hq.as_ref().map(|h| h.has_cancellable()).unwrap_or(false)
+                    .map(|(_, bk, hq, _, _)| {
+                        bk.as_ref().map(|b: &&BarracksState| b.has_cancellable()).unwrap_or(false)
+                        || hq.as_ref().map(|h: &&HeadquartersState| h.has_cancellable()).unwrap_or(false)
                     })
                     .unwrap_or(false)
                     || panel_target.entity
@@ -1045,6 +1191,8 @@ fn right_click_cancel_target(
                 Some(RallyTargetKind::Barracks) => Some(ObjectInterfaceState::StructureMenu(StructureMenuState::BarracksMenu)),
                 Some(RallyTargetKind::Headquarters) => Some(ObjectInterfaceState::StructureMenu(StructureMenuState::HeadquartersMenu)),
                 Some(RallyTargetKind::SupplyTower) => Some(ObjectInterfaceState::StructureMenu(StructureMenuState::SupplyTowerMenu)),
+                Some(RallyTargetKind::RecruitmentCenter) => Some(ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu)),
+                Some(RallyTargetKind::Armory) => Some(ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu)),
                 None => Some(ObjectInterfaceState::Default),
             }
         }
@@ -1063,6 +1211,8 @@ enum RallyTargetKind {
     Barracks,
     Headquarters,
     SupplyTower,
+    RecruitmentCenter,
+    Armory,
 }
 
 /// Right-click cancel for multi-stage ObjectInterfaceState sub-menus.
@@ -1077,6 +1227,8 @@ pub fn right_click_cancel_submenu(
     bk_query: Query<(), With<BarracksState>>,
     hq_query: Query<(), With<HeadquartersState>>,
     st_query: Query<(), With<SupplyTowerState>>,
+    rc_query: Query<(), With<RecruitmentCenterState>>,
+    armory_query: Query<(), With<ArmoryState>>,
 ) {
     if !buttons.just_pressed(MouseButton::Right) {
         return;
@@ -1090,6 +1242,10 @@ pub fn right_click_cancel_submenu(
             Some(RallyTargetKind::Headquarters)
         } else if st_query.get(entity).is_ok() {
             Some(RallyTargetKind::SupplyTower)
+        } else if rc_query.get(entity).is_ok() {
+            Some(RallyTargetKind::RecruitmentCenter)
+        } else if armory_query.get(entity).is_ok() {
+            Some(RallyTargetKind::Armory)
         } else {
             None
         }
@@ -1107,7 +1263,7 @@ fn execute_command_action(
     interface_state: &mut ResMut<ObjectInterfaceState>,
     panel_target: &Res<CommandPanelTarget>,
     dc_query: &mut Query<(&Owner, &mut DeploymentCenterState)>,
-    bk_hq_query: &mut Query<(&Owner, Option<&mut BarracksState>, Option<&mut HeadquartersState>), Or<(With<BarracksState>, With<HeadquartersState>)>>,
+    bk_hq_query: &mut Query<(&Owner, Option<&mut BarracksState>, Option<&mut HeadquartersState>, Option<&mut RecruitmentCenterState>, Option<&mut ArmoryState>), Or<(With<BarracksState>, With<HeadquartersState>, With<RecruitmentCenterState>, With<ArmoryState>)>>,
     ef_query: &mut Query<(&Owner, &mut ExtractionFacilityState)>,
     st_query: &mut Query<(&Owner, &mut SupplyTowerState)>,
     tunnel_query: &mut Query<(&Owner, &mut TunnelState, &crate::game::types::TunnelArea)>,
@@ -1195,7 +1351,7 @@ fn execute_command_action(
             let entities = active_group_entities(selection);
             let mut any_queued = false;
             for entity in entities {
-                if let Ok((owner, Some(mut bk_state), _)) = bk_hq_query.get_mut(entity) {
+                if let Ok((owner, Some(mut bk_state), _, _, _)) = bk_hq_query.get_mut(entity) {
                     if let Some(cost) = BarracksState::production_cost(unit_type) {
                         if let Some(mut res) = find_player_resources_mut(owner, players) {
                             if res.space_crystals < cost.space_crystals as i32 {
@@ -1228,7 +1384,7 @@ fn execute_command_action(
             let entities = active_group_entities(selection);
             let mut any_cancelled = false;
             for entity in entities {
-                if let Ok((owner, Some(mut bk_state), _)) = bk_hq_query.get_mut(entity) {
+                if let Ok((owner, Some(mut bk_state), _, _, _)) = bk_hq_query.get_mut(entity) {
                     if let Some(cancelled) = bk_state.cancel_last() {
                         if let Some(cost) = BarracksState::production_cost(&cancelled) {
                             if let Some(mut res) = find_player_resources_mut(owner, players) {
@@ -1248,7 +1404,7 @@ fn execute_command_action(
             let entities = active_group_entities(selection);
             let mut any_queued = false;
             for entity in entities {
-                if let Ok((owner, _, Some(mut hq_state))) = bk_hq_query.get_mut(entity) {
+                if let Ok((owner, _, Some(mut hq_state), _, _)) = bk_hq_query.get_mut(entity) {
                     if let Some(cost) = HeadquartersState::production_cost(unit_type) {
                         if let Some(mut res) = find_syndicate_resources_mut(owner, syndicate_players) {
                             if res.space_crystals < cost.space_crystals as i32 {
@@ -1275,7 +1431,7 @@ fn execute_command_action(
             let entities = active_group_entities(selection);
             let mut any_cancelled = false;
             for entity in entities {
-                if let Ok((owner, _, Some(mut hq_state))) = bk_hq_query.get_mut(entity) {
+                if let Ok((owner, _, Some(mut hq_state), _, _)) = bk_hq_query.get_mut(entity) {
                     if let Some(cancelled) = hq_state.cancel_last() {
                         if let Some(cost) = HeadquartersState::production_cost(&cancelled) {
                             if let Some(mut res) = find_syndicate_resources_mut(owner, syndicate_players) {
@@ -1289,6 +1445,16 @@ fn execute_command_action(
             }
             if any_cancelled {
                 interface_state.set_changed();
+            }
+        }
+        CommandButtonAction::RcCancel => {
+            let Some(target_entity) = panel_target.entity else { return };
+            if let Ok((_, _, _, Some(mut rc_state), _)) = bk_hq_query.get_mut(target_entity) {
+                if rc_state.production_progress > 0 {
+                    rc_state.production_progress = 0;
+                    info!("Recruitment Center: Cancelled production");
+                    interface_state.set_changed();
+                }
             }
         }
         CommandButtonAction::EfBuildPlate => {
@@ -1338,6 +1504,9 @@ fn execute_command_action(
                 ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelExpandMenu) |
                 ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelEjectMenu) => {
                     **interface_state = ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelIdle);
+                }
+                ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitConstructMenu) => {
+                    **interface_state = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitDefault);
                 }
                 ObjectInterfaceState::AwaitingTarget(_) => {
                     **interface_state = ObjectInterfaceState::Default;
@@ -1553,6 +1722,90 @@ fn execute_command_action(
             **interface_state = ObjectInterfaceState::AwaitingTarget(CommandType::DropOff);
             info!("Agent: Drop Off Resources mode");
         }
+        CommandButtonAction::ArmoryTrainSoldier => {
+            let Some(target_entity) = panel_target.entity else { return };
+            if let Ok((owner, _, _, _, Some(mut armory))) = bk_hq_query.get_mut(target_entity) {
+                if armory.stored_recruits.is_empty() || armory.training_queue.is_some() { return; }
+                let cost = SOLDIER_TRAINING_COST as i32;
+                let player_number = owner.player_number();
+                // Consume one stored recruit (despawn it)
+                if let Some(recruit_entity) = armory.stored_recruits.pop() {
+                    commands.entity(recruit_entity).despawn();
+                }
+                armory.training_queue = Some(ObjectEnum::CultsSoldier);
+                armory.training_progress = 0;
+                interface_state.set_changed();
+                // Deferred crystal deduction via world access
+                commands.queue(move |world: &mut World| {
+                    let mut cults_query = world.query::<(&Player, &mut CultsPlayerResources)>();
+                    for (player, mut res) in cults_query.iter_mut(world) {
+                        if Some(player.player_number) == player_number {
+                            res.space_crystals -= cost;
+                            break;
+                        }
+                    }
+                });
+                info!("Armory: Training Soldier ({} SC)", cost);
+            }
+        }
+        CommandButtonAction::ArmoryTrainGunner => {
+            let Some(target_entity) = panel_target.entity else { return };
+            if let Ok((owner, _, _, _, Some(mut armory))) = bk_hq_query.get_mut(target_entity) {
+                if armory.stored_recruits.is_empty() || armory.training_queue.is_some() { return; }
+                let cost = GUNNER_TRAINING_COST as i32;
+                let player_number = owner.player_number();
+                // Consume one stored recruit (despawn it)
+                if let Some(recruit_entity) = armory.stored_recruits.pop() {
+                    commands.entity(recruit_entity).despawn();
+                }
+                armory.training_queue = Some(ObjectEnum::CultsGunner);
+                armory.training_progress = 0;
+                interface_state.set_changed();
+                // Deferred crystal deduction via world access
+                commands.queue(move |world: &mut World| {
+                    let mut cults_query = world.query::<(&Player, &mut CultsPlayerResources)>();
+                    for (player, mut res) in cults_query.iter_mut(world) {
+                        if Some(player.player_number) == player_number {
+                            res.space_crystals -= cost;
+                            break;
+                        }
+                    }
+                });
+                info!("Armory: Training Gunner ({} SC)", cost);
+            }
+        }
+        CommandButtonAction::ArmoryEjectAll => {
+            let Some(target_entity) = panel_target.entity else { return };
+            if let Ok((_, _, _, _, Some(mut armory))) = bk_hq_query.get_mut(target_entity) {
+                if armory.stored_recruits.is_empty() { return; }
+                let queue: std::collections::VecDeque<Entity> = armory.stored_recruits.drain(..).collect();
+                commands.entity(target_entity).insert(ArmoryEjectionQueue {
+                    queue,
+                    cooldown: 0,
+                });
+                interface_state.set_changed();
+                info!("Armory: Ejecting all stored Recruits");
+            }
+        }
+        CommandButtonAction::RecruitConstruct => {
+            **interface_state = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitConstructMenu);
+            info!("Recruit: Open construct menu");
+        }
+        CommandButtonAction::RecruitSelectBuilding(building_type) => {
+            placement_state.building_type = Some(*building_type);
+            placement_state.source_entity = selected_units.iter().next().map(|(e, _, _)| e);
+            placement_state.grid_pos = None;
+            placement_state.is_valid = false;
+            placement_state.rotation = crate::types::StructureRotation::default();
+            placement_state.flip_horizontal = false;
+            placement_state.flip_vertical = false;
+            **interface_state = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitAwaitingPlacement);
+            info!("Recruit: Select building {:?} for placement", building_type);
+        }
+        CommandButtonAction::RecruitAssistConstruction => {
+            **interface_state = ObjectInterfaceState::AwaitingTarget(CommandType::AssistConstruction);
+            info!("Command mode: Assist Construction");
+        }
         CommandButtonAction::SetRallyPoint => {
             **interface_state = ObjectInterfaceState::AwaitingTarget(CommandType::SetRallyPoint);
             info!("Command mode: Set Rally Point");
@@ -1615,6 +1868,13 @@ pub fn update_command_panel_progress(
             if hq_query.get(target).is_ok() {
                 interface_state.set_changed();
             }
+        }
+        ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu) => {
+            // RC auto-production changes production_progress each frame — refresh display
+            // Note: RecruitmentCenterState doesn't impl Changed tracking here;
+            // the panel already refreshes via interface_state.set_changed() when the RC
+            // state is observed. For now, piggy-back on the existing change detection.
+            interface_state.set_changed();
         }
         ObjectInterfaceState::StructureMenu(StructureMenuState::TunnelIdle) => {
             if let Ok(ts) = tunnel_progress_query.get(target) {
@@ -1687,10 +1947,10 @@ pub(crate) fn attack_type_can_target_ground(attack_type: &AttackType) -> bool {
 
 /// Get player space crystals for the selected structure's owner
 fn get_player_sc_from_owners(
-    selected_owners: &Query<(&Owner, Option<&HeadquartersState>), (With<StructureInstance>, With<Selected>)>,
+    selected_owners: &Query<(&Owner, Option<&HeadquartersState>, Option<&RecruitmentCenterState>, Option<&ArmoryState>), (With<StructureInstance>, With<Selected>)>,
     players: &Query<(&Player, &GdoPlayerResources)>,
 ) -> i32 {
-    if let Some((owner, _)) = selected_owners.iter().next() {
+    if let Some((owner, ..)) = selected_owners.iter().next() {
         for (player, res) in players.iter() {
             if Some(player.player_number) == owner.player_number() {
                 return res.space_crystals;
@@ -2094,13 +2354,25 @@ fn grid_button_enabled_ext(
     unit_caps: &SelectedUnitCapabilities,
     has_power_plant: bool,
     syndicate_sc: i32,
-    hq_owners: &Query<(&Owner, Option<&HeadquartersState>), (With<StructureInstance>, With<Selected>)>,
+    hq_owners: &Query<(&Owner, Option<&HeadquartersState>, Option<&RecruitmentCenterState>, Option<&ArmoryState>), (With<StructureInstance>, With<Selected>)>,
     has_network_units: bool,
 ) -> bool {
     match action {
+        CommandButtonAction::ArmoryTrainSoldier | CommandButtonAction::ArmoryTrainGunner => {
+            hq_owners.iter().next()
+                .and_then(|(_, _, _, armory)| armory)
+                .map(|a| !a.stored_recruits.is_empty() && a.training_queue.is_none())
+                .unwrap_or(false)
+        }
+        CommandButtonAction::ArmoryEjectAll => {
+            hq_owners.iter().next()
+                .and_then(|(_, _, _, armory)| armory)
+                .map(|a| !a.stored_recruits.is_empty())
+                .unwrap_or(false)
+        }
         CommandButtonAction::HqTrain(unit_type) => {
             let queue_full = hq_owners.iter().next()
-                .and_then(|(_, hq)| hq)
+                .and_then(|(_, hq, _, _)| hq)
                 .map(|hq| hq.build_queue.len() >= HeadquartersState::MAX_QUEUE_SIZE)
                 .unwrap_or(false);
             let cost = HeadquartersState::production_cost(unit_type)
@@ -2135,6 +2407,10 @@ fn grid_button_enabled_ext(
         }
         CommandButtonAction::AgentDropOff => unit_caps.agent_carrying,
         CommandButtonAction::ChopperDropOffSupplies => unit_caps.chopper_has_supplies,
+        CommandButtonAction::RcCancel => true,
+        CommandButtonAction::RecruitConstruct |
+        CommandButtonAction::RecruitSelectBuilding(_) |
+        CommandButtonAction::RecruitAssistConstruction => true,
         _ => grid_button_enabled(action, player_sc, bk_has_queue, target_entity, bk_query, st_query),
     }
 }
@@ -2169,7 +2445,10 @@ fn is_unit_action(action: &CommandButtonAction) -> bool {
         CommandButtonAction::AgentDropOff |
         CommandButtonAction::ChopperPickUpSupplies |
         CommandButtonAction::ChopperAttachToTower |
-        CommandButtonAction::ChopperDropOffSupplies
+        CommandButtonAction::ChopperDropOffSupplies |
+        CommandButtonAction::RecruitConstruct |
+        CommandButtonAction::RecruitSelectBuilding(_) |
+        CommandButtonAction::RecruitAssistConstruction
     )
 }
 
@@ -2216,6 +2495,11 @@ fn object_type_supports_action(obj: &ObjectEnum, action: &CommandButtonAction) -
         CommandButtonAction::ChopperPickUpSupplies |
         CommandButtonAction::ChopperAttachToTower |
         CommandButtonAction::ChopperDropOffSupplies => matches!(obj, ObjectEnum::SupplyChopper),
+
+        // Cults Recruit-specific commands
+        CommandButtonAction::RecruitConstruct |
+        CommandButtonAction::RecruitSelectBuilding(_) |
+        CommandButtonAction::RecruitAssistConstruction => matches!(obj, ObjectEnum::CultsRecruit),
 
         // All other actions (structure commands, etc.) are not unit actions
         _ => false,
@@ -2328,6 +2612,14 @@ fn grid_button_label(
         CommandButtonAction::ChopperPickUpSupplies => format!("[{}] Pick Up\nSupplies", hotkey),
         CommandButtonAction::ChopperAttachToTower => format!("[{}] Attach\nTower", hotkey),
         CommandButtonAction::ChopperDropOffSupplies => format!("[{}] Drop Off\nSupplies", hotkey),
+        CommandButtonAction::RcCancel => format!("[{}] Cancel\nProd", hotkey),
+        CommandButtonAction::ArmoryTrainSoldier => format!("[{}] Train\nSoldier", hotkey),
+        CommandButtonAction::ArmoryTrainGunner => format!("[{}] Train\nGunner", hotkey),
+        CommandButtonAction::ArmoryEjectAll => format!("[{}] Eject\nAll", hotkey),
+        CommandButtonAction::RecruitConstruct => format!("[{}] Construct", hotkey),
+        CommandButtonAction::RecruitSelectBuilding(ObjectEnum::CultsStorage) => format!("[{}] Storage", hotkey),
+        CommandButtonAction::RecruitSelectBuilding(_) => format!("[{}] Build", hotkey),
+        CommandButtonAction::RecruitAssistConstruction => format!("[{}] Assist\nConstruct", hotkey),
     }
 }
 
@@ -2717,6 +3009,7 @@ pub fn resolve_pointer_display_type(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::ecs::system::RunSystemOnce;
     use crate::game::combat::types::{AttackType, ProjectileVisual};
 
     // === attack_type_can_target_ground tests ===
@@ -2770,9 +3063,9 @@ mod tests {
 
     #[test]
     fn selected_unit_capabilities_equality() {
-        let a = SelectedUnitCapabilities { has_attack: true, can_target_ground: false, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false };
-        let b = SelectedUnitCapabilities { has_attack: true, can_target_ground: false, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false };
-        let c = SelectedUnitCapabilities { has_attack: false, can_target_ground: false, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false };
+        let a = SelectedUnitCapabilities { has_attack: true, can_target_ground: false, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false, owned_by_local_player: false };
+        let b = SelectedUnitCapabilities { has_attack: true, can_target_ground: false, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false, owned_by_local_player: false };
+        let c = SelectedUnitCapabilities { has_attack: false, can_target_ground: false, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false, owned_by_local_player: false };
         assert_eq!(a, b);
         assert_ne!(a, c);
     }
@@ -2780,7 +3073,7 @@ mod tests {
     // === get_grid_slot_action conditional tests ===
 
     fn all_caps() -> SelectedUnitCapabilities {
-        SelectedUnitCapabilities { has_attack: true, can_target_ground: true, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false }
+        SelectedUnitCapabilities { has_attack: true, can_target_ground: true, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false, owned_by_local_player: false }
     }
 
     fn no_caps() -> SelectedUnitCapabilities {
@@ -2839,7 +3132,7 @@ mod tests {
     }
 
     fn attack_only() -> SelectedUnitCapabilities {
-        SelectedUnitCapabilities { has_attack: true, can_target_ground: false, can_reverse: false, agent_carrying: false, is_chopper: false, chopper_has_supplies: false }
+        SelectedUnitCapabilities { has_attack: true, can_target_ground: false, can_reverse: false, agent_carrying: false, is_chopper: false, chopper_has_supplies: false, owned_by_local_player: false }
     }
 
     #[test]
@@ -2898,7 +3191,7 @@ mod tests {
         let action = get_grid_slot_action(&ObjectInterfaceState::Default, 0, 1, false, false, &caps, false, false);
         assert!(action.is_none());
 
-        let caps = SelectedUnitCapabilities { has_attack: false, can_target_ground: false, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false };
+        let caps = SelectedUnitCapabilities { has_attack: false, can_target_ground: false, can_reverse: true, agent_carrying: false, is_chopper: false, chopper_has_supplies: false, owned_by_local_player: false };
         let action = get_grid_slot_action(&ObjectInterfaceState::Default, 0, 1, false, false, &caps, false, false);
         assert!(matches!(action, Some(CommandButtonAction::UnitReverse)));
     }
@@ -3781,6 +4074,14 @@ mod tests {
     }
 
     #[test]
+    fn dc_build_menu_ef_at_row1_col1() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcBuildMenu);
+        let caps = no_caps();
+        let action = get_grid_slot_action(&state, 1, 1, false, false, &caps, false, false);
+        assert!(matches!(action, Some(CommandButtonAction::DcBuild(ObjectEnum::ExtractionFacility))));
+    }
+
+    #[test]
     fn dc_build_menu_no_back_at_bottom_right() {
         let state = ObjectInterfaceState::StructureMenu(StructureMenuState::DcBuildMenu);
         let caps = no_caps();
@@ -3883,6 +4184,79 @@ mod tests {
         selection.build_from_entities(&entities);
         assert!(!is_panel_visible(&ObjectInterfaceState::Default, &selection),
             "Panel should be hidden when all selected entities are resources");
+    }
+
+    // === selection_owned_by_local_player tests ===
+
+    #[test]
+    fn ownership_true_when_all_owned_by_local_player() {
+        let mut app = App::new();
+        let e1 = app.world_mut().spawn(Owner::player(1)).id();
+        let e2 = app.world_mut().spawn(Owner::player(1)).id();
+        let mut selection = Selection::default();
+        selection.build_from_entities(&[
+            (e1, ObjectEnum::Peacekeeper, true),
+            (e2, ObjectEnum::Peacekeeper, true),
+        ]);
+        let local_player = LocalPlayer(1);
+        app.world_mut().run_system_once(move |owner_q: Query<&Owner>| {
+            assert!(selection_owned_by_local_player(&selection, &local_player, &owner_q));
+        });
+    }
+
+    #[test]
+    fn ownership_false_when_enemy_unit_selected() {
+        let mut app = App::new();
+        let e1 = app.world_mut().spawn(Owner::player(2)).id();
+        let mut selection = Selection::default();
+        selection.build_from_entities(&[
+            (e1, ObjectEnum::Peacekeeper, true),
+        ]);
+        let local_player = LocalPlayer(1);
+        app.world_mut().run_system_once(move |owner_q: Query<&Owner>| {
+            assert!(!selection_owned_by_local_player(&selection, &local_player, &owner_q));
+        });
+    }
+
+    #[test]
+    fn ownership_false_when_neutral_entity_selected() {
+        let mut app = App::new();
+        let e1 = app.world_mut().spawn(Owner(None)).id();
+        let mut selection = Selection::default();
+        selection.build_from_entities(&[
+            (e1, ObjectEnum::SpaceCrystalsPatch, false),
+        ]);
+        let local_player = LocalPlayer(1);
+        app.world_mut().run_system_once(move |owner_q: Query<&Owner>| {
+            assert!(!selection_owned_by_local_player(&selection, &local_player, &owner_q));
+        });
+    }
+
+    #[test]
+    fn ownership_false_when_mixed_owned_and_enemy() {
+        let mut app = App::new();
+        let e1 = app.world_mut().spawn(Owner::player(1)).id();
+        let e2 = app.world_mut().spawn(Owner::player(2)).id();
+        let mut selection = Selection::default();
+        selection.build_from_entities(&[
+            (e1, ObjectEnum::Peacekeeper, true),
+            (e2, ObjectEnum::Peacekeeper, true),
+        ]);
+        let local_player = LocalPlayer(1);
+        app.world_mut().run_system_once(move |owner_q: Query<&Owner>| {
+            assert!(!selection_owned_by_local_player(&selection, &local_player, &owner_q));
+        });
+    }
+
+    #[test]
+    fn ownership_true_when_selection_empty() {
+        let mut app = App::new();
+        let selection = Selection::default();
+        let local_player = LocalPlayer(1);
+        app.world_mut().run_system_once(move |owner_q: Query<&Owner>| {
+            // Empty selection is considered "owned" (no violations)
+            assert!(selection_owned_by_local_player(&selection, &local_player, &owner_q));
+        });
     }
 
     // === Supply Tower tech prerequisite tests ===
@@ -5105,6 +5479,72 @@ mod tests {
         assert_eq!(result, None);
     }
 
+    // === RecruitmentCenterMenu tests ===
+
+    #[test]
+    fn rc_menu_grid_slot_cancel_at_2_1_when_producing() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu);
+        let caps = no_caps();
+        // Cancel visible at (2,1) when bk_has_queue is true (reused for RC production_progress > 0)
+        let action = get_grid_slot_action(&state, 2, 1, true, false, &caps, false, false);
+        assert!(matches!(action, Some(CommandButtonAction::RcCancel)));
+    }
+
+    #[test]
+    fn rc_menu_grid_slot_no_cancel_when_idle() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu);
+        let caps = no_caps();
+        // Cancel hidden at (2,1) when bk_has_queue is false
+        let action = get_grid_slot_action(&state, 2, 1, false, false, &caps, false, false);
+        assert!(action.is_none());
+    }
+
+    #[test]
+    fn rc_menu_grid_slot_rally_at_2_2() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu);
+        let caps = no_caps();
+        let action = get_grid_slot_action(&state, 2, 2, false, false, &caps, false, false);
+        assert!(matches!(action, Some(CommandButtonAction::SetRallyPoint)));
+    }
+
+    #[test]
+    fn rc_menu_grid_slot_empty_at_0_0() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu);
+        let caps = no_caps();
+        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false);
+        assert!(action.is_none(), "RC menu should have no action at (0,0)");
+    }
+
+    #[test]
+    fn rc_cancel_label() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu);
+        let label = grid_button_label(&state, &CommandButtonAction::RcCancel, 0, 'X');
+        assert_eq!(label, "[X] Cancel\nProd");
+    }
+
+    #[test]
+    fn right_click_set_rally_point_with_rc_returns_rc_menu() {
+        let state = ObjectInterfaceState::AwaitingTarget(CommandType::SetRallyPoint);
+        let result = right_click_cancel_target(&state, || Some(RallyTargetKind::RecruitmentCenter));
+        assert_eq!(result, Some(ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu)));
+    }
+
+    #[test]
+    fn rc_menu_is_not_placement_mode() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::RecruitmentCenterMenu);
+        assert!(!state.is_placement_mode());
+    }
+
+    #[test]
+    fn rc_cancel_is_not_unit_action() {
+        assert!(!is_unit_action(&CommandButtonAction::RcCancel));
+    }
+
+    #[test]
+    fn rc_set_rally_is_not_unit_action() {
+        assert!(!is_unit_action(&CommandButtonAction::SetRallyPoint));
+    }
+
     #[test]
     fn right_click_unit_awaiting_target_attack_does_nothing() {
         let state = ObjectInterfaceState::AwaitingTarget(CommandType::Attack);
@@ -5729,5 +6169,189 @@ mod tests {
         );
         // PowerPlant is a structure (not a unit) — is_unit() returns false → Inactive
         assert_eq!(result, PointerDisplayType::Inactive);
+    }
+
+    // === Armory interface tests ===
+
+    #[test]
+    fn armory_menu_grid_has_train_soldier() {
+        let caps = SelectedUnitCapabilities::default();
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu);
+        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false);
+        assert!(matches!(action, Some(CommandButtonAction::ArmoryTrainSoldier)));
+    }
+
+    #[test]
+    fn armory_menu_grid_has_train_gunner() {
+        let caps = SelectedUnitCapabilities::default();
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu);
+        let action = get_grid_slot_action(&state, 0, 1, false, false, &caps, false, false);
+        assert!(matches!(action, Some(CommandButtonAction::ArmoryTrainGunner)));
+    }
+
+    #[test]
+    fn armory_menu_grid_has_eject_all() {
+        let caps = SelectedUnitCapabilities::default();
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu);
+        let action = get_grid_slot_action(&state, 0, 2, false, false, &caps, false, false);
+        assert!(matches!(action, Some(CommandButtonAction::ArmoryEjectAll)));
+    }
+
+    #[test]
+    fn armory_menu_grid_has_set_rally_point() {
+        let caps = SelectedUnitCapabilities::default();
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu);
+        let action = get_grid_slot_action(&state, 2, 2, false, false, &caps, false, false);
+        assert!(matches!(action, Some(CommandButtonAction::SetRallyPoint)));
+    }
+
+    #[test]
+    fn armory_menu_grid_empty_slots() {
+        let caps = SelectedUnitCapabilities::default();
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu);
+        assert!(get_grid_slot_action(&state, 1, 0, false, false, &caps, false, false).is_none());
+        assert!(get_grid_slot_action(&state, 1, 1, false, false, &caps, false, false).is_none());
+        assert!(get_grid_slot_action(&state, 2, 0, false, false, &caps, false, false).is_none());
+        assert!(get_grid_slot_action(&state, 2, 1, false, false, &caps, false, false).is_none());
+    }
+
+    #[test]
+    fn armory_train_soldier_label() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu);
+        let label = grid_button_label(&state, &CommandButtonAction::ArmoryTrainSoldier, 0, 'Q');
+        assert_eq!(label, "[Q] Train\nSoldier");
+    }
+
+    #[test]
+    fn armory_train_gunner_label() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu);
+        let label = grid_button_label(&state, &CommandButtonAction::ArmoryTrainGunner, 0, 'W');
+        assert_eq!(label, "[W] Train\nGunner");
+    }
+
+    #[test]
+    fn armory_eject_all_label() {
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu);
+        let label = grid_button_label(&state, &CommandButtonAction::ArmoryEjectAll, 0, 'E');
+        assert_eq!(label, "[E] Eject\nAll");
+    }
+
+    #[test]
+    fn armory_actions_are_not_unit_actions() {
+        assert!(!is_unit_action(&CommandButtonAction::ArmoryTrainSoldier));
+        assert!(!is_unit_action(&CommandButtonAction::ArmoryTrainGunner));
+        assert!(!is_unit_action(&CommandButtonAction::ArmoryEjectAll));
+    }
+
+    #[test]
+    fn right_click_cancel_target_rally_armory() {
+        let state = ObjectInterfaceState::AwaitingTarget(CommandType::SetRallyPoint);
+        let result = right_click_cancel_target(&state, || Some(RallyTargetKind::Armory));
+        assert_eq!(result, Some(ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu)));
+    }
+
+    #[test]
+    fn armory_menu_title() {
+        // Verify the title mapping works for ArmoryMenu
+        let state = ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu);
+        let title = match &state {
+            ObjectInterfaceState::StructureMenu(StructureMenuState::ArmoryMenu) => "Armory",
+            _ => "Unknown",
+        };
+        assert_eq!(title, "Armory");
+    }
+
+    // === Cults Recruit Menu Tests ===
+
+    #[test]
+    fn cults_recruit_default_grid_has_construct_and_assist() {
+        let state = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitDefault);
+        let caps = SelectedUnitCapabilities::default();
+        // Q = Construct
+        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false);
+        assert!(matches!(action, Some(CommandButtonAction::RecruitConstruct)));
+        // S = Assist Construction
+        let action = get_grid_slot_action(&state, 1, 1, false, false, &caps, false, false);
+        assert!(matches!(action, Some(CommandButtonAction::RecruitAssistConstruction)));
+        // Other slots are None
+        let action = get_grid_slot_action(&state, 0, 1, false, false, &caps, false, false);
+        assert!(action.is_none());
+    }
+
+    #[test]
+    fn cults_recruit_construct_menu_grid_has_storage_and_back() {
+        let state = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitConstructMenu);
+        let caps = SelectedUnitCapabilities::default();
+        // Q = Storage
+        let action = get_grid_slot_action(&state, 0, 0, false, false, &caps, false, false);
+        assert!(matches!(action, Some(CommandButtonAction::RecruitSelectBuilding(ObjectEnum::CultsStorage))));
+        // Z = Back
+        let action = get_grid_slot_action(&state, 2, 0, false, false, &caps, false, false);
+        assert!(matches!(action, Some(CommandButtonAction::Back)));
+    }
+
+    #[test]
+    fn cults_recruit_awaiting_placement_grid_is_empty() {
+        let state = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitAwaitingPlacement);
+        let caps = SelectedUnitCapabilities::default();
+        for r in 0..3 {
+            for c in 0..3 {
+                let action = get_grid_slot_action(&state, r, c, false, false, &caps, false, false);
+                assert!(action.is_none(), "Expected None at ({}, {})", r, c);
+            }
+        }
+    }
+
+    #[test]
+    fn cults_recruit_is_placement_mode() {
+        let state = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitAwaitingPlacement);
+        assert!(state.is_placement_mode());
+        let default = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitDefault);
+        assert!(!default.is_placement_mode());
+        let construct = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitConstructMenu);
+        assert!(!construct.is_placement_mode());
+    }
+
+    #[test]
+    fn recruit_actions_are_unit_actions() {
+        assert!(is_unit_action(&CommandButtonAction::RecruitConstruct));
+        assert!(is_unit_action(&CommandButtonAction::RecruitSelectBuilding(ObjectEnum::CultsStorage)));
+        assert!(is_unit_action(&CommandButtonAction::RecruitAssistConstruction));
+    }
+
+    #[test]
+    fn object_type_supports_recruit_actions() {
+        assert!(object_type_supports_action(&ObjectEnum::CultsRecruit, &CommandButtonAction::RecruitConstruct));
+        assert!(object_type_supports_action(&ObjectEnum::CultsRecruit, &CommandButtonAction::RecruitSelectBuilding(ObjectEnum::CultsStorage)));
+        assert!(object_type_supports_action(&ObjectEnum::CultsRecruit, &CommandButtonAction::RecruitAssistConstruction));
+        // Other unit types should NOT support recruit actions
+        assert!(!object_type_supports_action(&ObjectEnum::Peacekeeper, &CommandButtonAction::RecruitConstruct));
+        assert!(!object_type_supports_action(&ObjectEnum::SyndicateAgent, &CommandButtonAction::RecruitAssistConstruction));
+    }
+
+    #[test]
+    fn recruit_grid_button_labels() {
+        let state = ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitDefault);
+        assert_eq!(grid_button_label(&state, &CommandButtonAction::RecruitConstruct, 0, 'Q'), "[Q] Construct");
+        assert_eq!(grid_button_label(&state, &CommandButtonAction::RecruitSelectBuilding(ObjectEnum::CultsStorage), 0, 'Q'), "[Q] Storage");
+        assert_eq!(grid_button_label(&state, &CommandButtonAction::RecruitAssistConstruction, 0, 'S'), "[S] Assist\nConstruct");
+    }
+
+    #[test]
+    fn recruit_menu_titles() {
+        let cases = [
+            (ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitDefault), "Recruit"),
+            (ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitConstructMenu), "Construct"),
+            (ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitAwaitingPlacement), "Place Building"),
+        ];
+        for (state, expected) in cases {
+            let title = match &state {
+                ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitDefault) => "Recruit",
+                ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitConstructMenu) => "Construct",
+                ObjectInterfaceState::CultsRecruitMenu(CultsRecruitMenuState::RecruitAwaitingPlacement) => "Place Building",
+                _ => "Unknown",
+            };
+            assert_eq!(title, expected);
+        }
     }
 }

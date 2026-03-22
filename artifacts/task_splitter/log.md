@@ -1,5 +1,54 @@
 # Task Splitter Session Log
 
+## 2026-03-22T00:00:00Z — add_cults_armory
+
+- **Input**: designer-add_cults_armory.md — Cults Armory training building (3x2, ABCB, Recruits enter A side, train into Soldiers/Gunners, eject from C side)
+- **Forum**: No open topics needing attention
+- **Split**: 3 tasks
+  1. armory_structure — ObjectEnum, type data, ArmoryState, spawn function, constants
+  2. armory_enter_mechanic — Recruit enter command, walk-to-entrance, hide+store, cap at 10
+  3. armory_interface_and_production — ArmoryMenu UI, training tick, eject system, stub Soldier/Gunner variants
+- **Forwarded**: feature_request + feature_tasks manifest to completion_aggregator
+
+## 2026-03-21T22:30:00Z — camera_starting_position_map_override
+
+- **Input**: designer-camera_starting_position_map_override.md — Map-defined starting camera positions per player slot with primary structure fallback
+- **Tasks produced**: 1 — camera_map_starting_position (MapStartingPositions resource + startup system with fallback)
+- **Notes**: No existing map config or player slot concept in codebase. Single task since the map override and fallback logic are one coherent startup system. This supersedes the scope of the earlier camera_starting_position task.
+
+## 2026-03-21T21:00:00Z — dc_builds_extraction_facility
+
+- **Input**: designer-dc_builds_extraction_facility.md — Designer added EF to DC Constructs (200 SC, 320 frames) and ExtractionPlate Power -3
+- **Forum**: No open topics needing attention
+- **Split into 2 tasks**:
+  1. `dc_buildmenu_add_ef` — Add EF to DcBuildMenu grid slot (1,1) + DeploymentCenterState::construction_cost match arm (200 SC, 320 frames) + fix test
+  2. `extraction_plate_power_cost` — Add PowerValue(-3) to spawn_extraction_plate entity bundle + power grid test
+- **Forwarded**: feature_request + feature_tasks manifest to completion_aggregator
+- **Resolved**: Design gap from earlier session (EF was unbuildable)
+
+## 2026-03-21T18:00:00Z — tile_terrain_system_r1
+
+- Processed QA rework `manual_qa-tile_terrain_system_r1.md` — elevation not rendering
+- Root cause: spawn_grid hardcodes elevation=0 and Y=0.0 for all tiles
+- Created 1 task: `tile_elevation_rendering` (assign varied elevation per tile type, use in Transform Y)
+- Forwarded feature request and manifest to completion_aggregator
+
+## 2026-03-21T15:00:00Z — No work, forum close
+
+- Voted to close forum topic `fix-broken-tests` — issue fully resolved by developer, all agents voted, topic moved to closed.
+- No pending feature_requests. No active messages. No stuck/malformed files found.
+
+## 2026-03-21T14:30:00Z — No work, forum vote
+
+- Voted to close forum topic `fix-broken-tests` (already commented previously, all agents have weighed in)
+- No pending feature_requests to process
+
+## 2026-03-21T12:30:00Z — No work, forum vote
+
+- Voted to close forum topic `expand-automatic-qa-capabilities` (already commented previously, consensus reached)
+- No pending feature_requests in inbox
+- No stuck or malformed messages found
+
 ## 2026-03-19T10:30:00Z — Forum pass, no pending messages
 
 - Read all 6 open forum topics (all from operator, directed at designer)
@@ -533,3 +582,167 @@
 
 - **Forum**: No open topics requiring attention.
 - **Processed**: `designer-camera-pan-snap.md` — Camera panning snap behavior (design doc formalization). Already fully implemented in two code paths (Alt-click portrait, double-tap control group). Created 1 verification task: `camera-pan-snap-verify`. Forwarded feature request and manifest to completion_aggregator.
+
+## 2026-03-21T00:00:00Z — No work available
+
+- **Forum**: 1 open topic (`2026-03-21T12-00-00Z-operator-auto-qa-capability-expansion.md`) but file is 0 bytes (empty/malformed). Cannot comment or vote — nothing actionable.
+- **Pending messages**: None in `messages/task_splitter/feature_request/pending/` or `active/`.
+- **Action**: No-work exit.
+
+## 2026-03-21T12:00:00Z — No work available
+
+- Forum: 1 open topic (operator-auto-qa-capability-expansion) but file is 0 bytes — likely being written by another agent. No action needed.
+- Pending messages: none.
+- Active messages: none.
+- No stuck or malformed files found.
+
+## 2026-03-21T15:00:00Z — No work available
+
+- Forum: 1 topic in open/ about an empty forum file, but both the empty file and the topic itself were already cleaned up (directory empty)
+- No pending feature_requests in inbox
+- No stuck messages in active/
+- Exiting with no work done
+
+## 2026-03-21T12:30:00Z — Forum pass, no pending messages
+
+- Commented on and voted to close forum topic: expand-automatic-qa-capabilities (operator topic about routing QA items to automatic_qa). Noted that the 37 pending QA items are mostly verification-only tasks ideal for automated tests.
+- No pending feature_requests in inbox.
+- No stuck messages found.
+
+## 2026-03-21T12:30:00Z — Forum vote, no pending messages
+
+- Voted to close forum topic: expand-automatic-qa-capabilities (already commented previously, discussion mature with all agents weighed in).
+- No pending feature_requests in inbox.
+- No stuck messages found.
+
+## 2026-03-21T14:30:00Z — Forum comment + no pending work
+
+- Commented on forum topic `fix-broken-tests` (operator directive): noted this is a single coherent task, no splitting needed, recommended simple QA instructions
+- Voted to close the topic
+- No pending feature_requests to process
+
+## 2026-03-21T15:00:00Z — No work, forum vote
+
+- Voted to close forum topic `2026-03-21T140000Z-operator-fix-broken-tests.md` — test compilation confirmed fixed by automatic_qa (37 errors resolved, cargo test compiles)
+- No pending feature_requests
+- No stuck or malformed messages found
+
+## 2026-03-21T13:00:00Z
+
+- **Forum**: Commented and voted to close `2026-03-21T122200Z-manual_qa-build-qa-artifact-missing-diagnostics-feature.md` — Cargo.toml missing `diagnostics` feature, straightforward fix outside task_splitter domain.
+- **Messages**: No pending feature_requests.
+- **Outcome**: No-work session.
+
+## 2026-03-21T17:00:00Z — No work, forum close vote
+
+- **Forum**: Voted to close `2026-03-21T122200Z-manual_qa-build-qa-artifact-missing-diagnostics-feature.md` — developer confirmed fix, issue resolved.
+- **Messages**: No pending feature_requests.
+- **Outcome**: No-work session.
+
+## 2026-03-21T18:30:00Z — Forum comment on EF construction gap
+
+- **Forum**: Reviewed open topic `2026-03-21T122500Z-manual_qa-cannot-build-extraction-facility.md`
+  - Investigated codebase: DC BuildMenu has PP/BK/ST, EF was correctly removed by dc-buildmenu-remove-ef task
+  - Investigated design doc: EF is not in DC's Constructs list — design gap, not code bug
+  - Added comment explaining root cause and needed designer resolution
+  - Did NOT vote to close (needs designer action)
+- **Messages**: No pending feature_requests
+- **Insights**: Added note about EF construction design gap
+
+## 2026-03-21T16:35:00Z
+
+- **Forum**: Commented on camera-not-centered topic (single task when it arrives), voted to close both open topics (camera + EF buildability)
+- **Processed**: `manual_qa-factions_resources_r1.md` (QA rework)
+  - Split into 2 tasks:
+    1. `cults_colonists_game_start` — Make Cults/Colonists selectable and startable (AVAILABLE_FACTIONS, setup_player_resources expansion, stub game start functions)
+    2. `gdo_unit_control_cap_test` — Integration test for UC cap production blocking (in-game QA blocked on EF)
+  - Forwarded feature_request and manifest to completion_aggregator
+- Updated insights with faction setup patterns
+
+## 2026-03-21T16:45:00Z — No work
+
+- Forum: Voted to close camera-not-centered-on-starting-tunnel topic (already commented previously)
+- Forum: EF buildability topic already voted on — no action needed
+- No pending feature_requests in inbox
+- No stuck messages or malformed files found
+
+## 2026-03-21T19:30:00Z — unit_bases_movement_collision_r1
+
+- Processed QA rework `manual_qa-unit_bases_movement_collision_r1.md` — only LightInfantry testable, remaining 8 base types missing
+- Investigated codebase: found only TurnRate movement system exists, no FixedTurnRadius/SpeedTurnRadius/Drag/Glider systems, no crushing mechanic
+- Split into 4 tasks: test_unit_spawner_all_bases, vehicle_turn_movement_systems, drag_glider_movement_systems, unit_crushing_mechanic
+- Forwarded feature_request and sent feature_tasks manifest to completion_aggregator
+- Updated insights with movement system architecture notes
+- No forum topics needing attention
+
+## 2026-03-21T21:00:00Z — No-work session (forum only)
+
+- Commented on and voted to close forum topic `enemies-dont-attack-by-default` — explained this is covered by existing `base-auto-target-refinements` and `test_unit_spawner_all_bases` tasks
+- No pending feature_requests to process
+
+## 2026-03-21T21:00:00Z — No-work (forum only)
+
+- Read insights file
+- Forum: Commented on `can-control-enemy-units-and-buildings` topic with codebase analysis (command systems query `With<Selected>` without Owner==LocalPlayer filter — confirmed bug across right_click_move_command, command_panel_hotkeys, execute_command_action)
+- Forum: Voted to close `enemies-dont-attack-by-default` topic (already covered by existing pipeline tasks base-auto-target-refinements + test_unit_spawner_all_bases, well-discussed by all agents)
+- No pending feature_requests found, no stuck messages
+
+## 2026-03-21T21:00:00Z — No work
+
+- Forum: Voted to close enemy-control topic (already commented last session)
+- No pending feature_requests
+- No stuck messages found
+
+## 2026-03-21T22:00:00Z — No work
+
+- Forum: Voted to close enemy-control topic (3rd vote: automatic_qa, task_planner, task_splitter)
+- No pending feature_requests
+- No stuck or malformed messages found
+
+## 2026-03-21T22:30:00Z — extraction_plate_power_penalty
+
+- **Input**: designer-extraction_plate_power_penalty.md — EP mining should slow under GDO power deficit
+- **Forum**: No open topics
+- **Analysis**: extraction_plate_mining_system increments timer by 1 unconditionally; all other production systems already use power_ratio. Single focused change.
+- **Output**: 1 developer_task (extraction_plate_power_slowdown), feature_request forwarded, manifest sent
+- **Moved**: feature_request to done
+
+## 2026-03-21T22:00:00Z — command_panel_ownership_guard
+
+- **Input**: designer-command_panel_ownership_guard.md — ownership guard for CommandPanel, hotkeys, right-click resolution
+- **Investigation**: Checked is_panel_visible(), update_command_panel_state(), command_panel_hotkeys(), right_click_move_command() — none check if selected entities are owned by local player
+- **Split**: 1 task (single coherent concern across all command paths)
+  - command_panel_ownership_guard: add LocalPlayer+Owner guards to all command entry points
+- **Output**: 1 developer_task, 1 feature_request forwarded, 1 feature_tasks manifest
+
+## 2026-03-21T22:00:00Z — camera_starting_position
+
+- **Input**: designer-camera_starting_position.md — center camera on local player's primary structure at game start
+- **Investigation**: Camera spawns at (0,40,25); GDO DC at grid (30,30), Syndicate Tunnel at (40,40). Snap pattern exists in hud.rs and resources.rs.
+- **Split**: 1 task (single startup system)
+  - camera_starting_position: query local player's primary structure, snap camera to it
+- **Output**: 1 developer_task, 1 feature_request forwarded, 1 feature_tasks manifest
+
+## 2026-03-21T23:00:00Z — cults_recruitment_center_and_storage
+
+- **Input**: designer-cults_recruitment_center_and_storage.md — First Cults faction structures (Recruitment Center + Storage) with tile claiming, auto-production, UC tracking
+- **Investigation**: No Cults ObjectEnum variants exist. CultsPlayerResources + HUD already wired. TilePreset.recruitable exists. setup_cults_game_start is a stub.
+- **Split**: 5 tasks
+  1. recruitment_center_structure: ObjectEnum + type + spawn + state + game start
+  2. storage_structure: ObjectEnum::CultsStorage + type + spawn
+  3. recruitment_area_tile_claiming: TileClaimMap + 10x10 area + first-built priority + effectiveness
+  4. recruitment_center_auto_production: production tick + CultsRecruit stub + HUD aggregation
+  5. cults_unit_control_tracking: OriginatingCenters + death tracking
+- **Output**: 5 developer_tasks, 1 feature_request forwarded, 1 feature_tasks manifest
+
+## 2026-03-21T session — cults_objects_formalized
+
+- **Forum**: No open topics
+- **Feature request**: `designer-cults_objects_formalized.md`
+- **Investigation**: Checked codebase — RecruitmentCenter/CultsStorage ObjectEnum, type data, spawn functions already implemented by batch 25 tasks. Previous batch 25 tasks (5 tasks) still in pipeline covering structure data, tile claiming, auto-production, UC tracking. This formalized design doc adds RecruitmentCenter interface and Cults building mechanics (Recruit-based construction).
+- **Tasks created** (3):
+  1. `task_splitter-recruitment_center_interface.md` — StructureMenuState::RecruitmentCenterMenu, command panel X=Cancel/C=Rally, right-click rally
+  2. `task_splitter-cults_building_placement.md` — Recruit Build Command flow, Construct submenu, ghost placement, Assist Construction
+  3. `task_splitter-cults_construction_system.md` — CultsConstructionState, Recruit enter, proportional speedup tick, completion consumption, cancellation refund
+- **Forwarded**: feature_request + feature_tasks manifest to completion_aggregator
+- **Moved**: feature_request to done

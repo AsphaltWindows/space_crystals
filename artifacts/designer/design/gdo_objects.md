@@ -119,6 +119,7 @@ GDO primary construction structure. Constructs buildings one at a time, which mu
 ### Constructs:
 - Power Plant: 150 Space Crystals, 160 frames (10 seconds)
 - Barracks: 200 Space Crystals, 160 frames (10 seconds)
+- Extraction Facility: 200 Space Crystals, 320 frames (20 seconds)
 - Supply Tower: 200 Space Crystals, 240 frames (15 seconds). Requires: player owns at least one Power Plant.
 
 ### Cancellation:
@@ -139,6 +140,7 @@ State commands (StateOnlyTransition):
 BuildMenu (instance idle — no CurrentConstruction, no ReadyToPlace):
 - Power Plant: deducts 150 Space Crystals, sets CurrentConstruction = PowerPlant (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals.
 - Barracks: deducts 200 Space Crystals, sets CurrentConstruction = Barracks (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals.
+- Extraction Facility: deducts 200 Space Crystals, sets CurrentConstruction = ExtractionFacility (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals.
 - Supply Tower: deducts 200 Space Crystals, sets CurrentConstruction = SupplyTower (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals and owns at least one Power Plant.
 - Escape/right-click: returns to DefaultState (StateOnlyTransition)
 
@@ -221,9 +223,11 @@ GDO resource harvesting structure. Placed onto a Space Crystal Patch by an Extra
 ### Destructible - true
 ### Groupable - true
 ### BuildRadiusExtension - 0
+### Power - -3
 
 ### MiningRate - 10 Space Crystals per 48 frames (3 seconds)
 ### ResidualMiningRate - 1 Space Crystal per 48 frames (3 seconds)
+### PowerPenalty - When total GDO power is negative, MiningRate and ResidualMiningRate are reduced proportionally (same ratio as the global power penalty for buildings).
 
 ### InfoPanel: displays remaining Space Crystals in the underlying patch
 

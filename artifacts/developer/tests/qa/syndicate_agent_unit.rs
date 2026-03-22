@@ -46,8 +46,8 @@ fn step_2_agent_spawn_stats() {
     // HP = 75
     let harness = TestHarness::new(&mut test_app.app);
     let (hp, max_hp) = harness.get_health(agent).unwrap();
-    assert!((hp - 75.0).abs() < 0.01, "Agent HP should be 75, got {}", hp);
-    assert!((max_hp - 75.0).abs() < 0.01, "Agent MaxHP should be 75, got {}", max_hp);
+    assert!(f32::abs(hp - 75.0) < 0.01, "Agent HP should be 75, got {}", hp);
+    assert!(f32::abs(max_hp - 75.0) < 0.01, "Agent MaxHP should be 75, got {}", max_hp);
 
     // Armor 1/1
     let world = test_app.app.world();
@@ -143,7 +143,7 @@ fn step_5_agent_melee_attack_attributes() {
     // Attack type: FullyConnected Melee
     match &attack.attack_type {
         AttackType::FullyConnected { subtype } => {
-            assert_eq!(*subtype, FullyConnectedSubtype::Melee,
+            assert_eq!(subtype, &FullyConnectedSubtype::Melee,
                 "Agent attack should be FullyConnected Melee");
         }
         _ => panic!("Agent should have FullyConnected attack type, got {:?}", attack.attack_type),

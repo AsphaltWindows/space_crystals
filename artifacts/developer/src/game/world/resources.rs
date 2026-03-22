@@ -950,6 +950,10 @@ pub fn interface_state_validation_system(
             active_type == Some(ObjectEnum::SyndicateAgent)
         }
 
+        ObjectInterfaceState::CultsRecruitMenu(_) => {
+            active_type == Some(ObjectEnum::CultsRecruit)
+        }
+
         ObjectInterfaceState::StructureMenu(sm) => match sm {
             DcIdle | DcBuildMenu | DcReadyToPlace | DcAwaitingPlacement => {
                 active_type == Some(ObjectEnum::DeploymentCenter)
@@ -994,6 +998,12 @@ pub fn interface_state_validation_system(
                     && active_group.map_or(false, |g| {
                         g.entities.iter().any(|e| tunnel_query.get(*e).is_ok())
                     })
+            }
+            RecruitmentCenterMenu => {
+                active_type == Some(ObjectEnum::RecruitmentCenter)
+            }
+            ArmoryMenu => {
+                active_type == Some(ObjectEnum::CultsArmory)
             }
             Inert => {
                 active_type.map_or(false, |t| t.is_structure())
