@@ -81,7 +81,7 @@ Autonomous. Runs automated QA checks. On failure, produces a scoped `feature_req
 ### Operator (source, utility)
 Not scheduled. User's direct interface to inject concerns into the pipeline via forum topics. Close-vote not required.
 
-### Architect (source, utility)
+### Pipeline Builder (source, utility)
 Maintains the pipeline framework itself. Creates/modifies agent definitions, pipeline configuration, and scripts.
 
 ## Scheduler

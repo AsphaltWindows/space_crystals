@@ -1,4 +1,4 @@
-# Architect Session Log
+# Pipeline Builder Session Log
 
 ## 2026-03-19 — Project root cleanup
 

@@ -2,7 +2,7 @@ scheduler_interval: 20
 
 message_types:
   - name: agent_update
-    description: Notification that an agent was added or modified. Produced by architect.
+    description: Notification that an agent was added or modified. Produced by pipeline_builder.
     template: templates/messages/agent_update.md
 
   - name: feature_request
@@ -35,8 +35,10 @@ agents:
     consumes: []
     produces: []
 
-  - name: architect
+  - name: pipeline_builder
     type: source
+    scheduled: false
+    close_vote_required: false
     consumes: []
     produces:
       - type: agent_update

@@ -1,5 +1,12 @@
 # Designer Session Log
 
+## 2026-03-22T16:30:00Z — Non-Interactive: Elevation Rendering Fix
+
+**Trigger**: Scheduler launch; open forum topic requesting feature_request for graphical glitches.
+**Forum**: Responded to `2026-03-22T160000Z-operator-graphical-glitches-fix-needed.md` — the previous investigation into tile elevation rendering gaps was closed without a feature_request being created, so the fix never entered the pipeline.
+**Action**: Created `designer-fix_elevation_rendering_glitches` feature_request recommending Cuboid skirt geometry (primary) or flat rendering revert (fallback). Voted to close the forum topic.
+**Insight added**: Always ensure forum investigation outcomes get formalized as feature_requests before closing.
+
 ## 2026-03-20T10:00:00Z — Interactive Session: Pointer Display Types
 
 **Trigger**: User session, picked up loose end on pointer display types.
@@ -641,3 +648,36 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 **Insights updated**: TOC updated for Armory, loose ends updated with Armory open questions and unit definition needs.
 
 **Feature requests produced**: 1 (`add_cults_armory`).
+
+
+## 2026-03-22T12:00:00Z — Non-Interactive: Forum Pass
+
+**Trigger**: Scheduler launch — open forum topics needing close-vote.
+
+**Actions**:
+- Read forum topic `2026-03-22T115000Z-manual_qa-graphical-glitches-on-game-start.md` — severe graphical glitches blocking QA. This is a developer/rendering issue, not a design concern.
+- Voted to close (outside designer domain).
+- No pending messages in designer inbox.
+- No changes to insights needed.
+
+## 2026-03-22T16:00:00Z — Non-Interactive: Forum Pass
+
+**Trigger**: Scheduler launch, non-interactive mode.
+**Forum**: 1 open topic (`graphical-glitches-on-game-start`) — rendering/developer issue, no design input needed. Voted to close.
+**Outcome**: No design work required. No insights changes.
+
+## 2026-03-22T16:00:00Z — Non-Interactive: Forum Pass
+
+**Trigger**: Scheduler launch.
+
+**Forum**: Reviewed `2026-03-22T115000Z-manual_qa-graphical-glitches-on-game-start.md` — graphical glitches from tile elevation rendering. Added comment clarifying that the design docs define elevation as a gameplay mechanic (integer 0-16, ElevationModifier) but don't prescribe visual rendering approach. The fix is an implementation decision. Voted to close.
+
+**No other work found.**
+
+## 2026-03-22T18:00:00Z — Non-Interactive: Grid Lines Elevation Regression
+
+**Trigger**: Scheduler launch; open forum topic `2026-03-22T12-00-00Z-operator-grid-lines-hidden-by-elevation.md`.
+
+**Forum**: Grid lines invisible after elevation system was added — `draw_grid_lines()` hardcodes Y=0.005 but tiles now render at elevation*0.1. No design decision needed; this is an implementation regression. Commented with design context, voted to close.
+
+**Output**: Sent `feature_request` `fix_grid_lines_elevation` to task_splitter — fix grid lines to query ElevationMap and render at per-tile elevation.

@@ -44,3 +44,9 @@
 - User directed that the developer needs to fix the broken tests discussed in the recent forum topic on expanding automatic QA capabilities.
 - Created forum topic `forum/open/2026-03-21T140000Z-operator-fix-broken-tests.md` with a detailed breakdown of all 37 compilation errors (from automatic_qa's analysis) and specific fix actions required.
 - Framed as a priority directive and prerequisite for the automatic QA expansion initiative.
+
+## 2026-03-22T12:00:00Z
+- User reported visual bug: mesh grid no longer visible in-game.
+- Investigated source (`draw_grid_lines()` in `map.rs`) and git history (`git log -p -S "grid"`).
+- Root cause: commit `c5792d1` added tile elevation system (tiles at y=0.2 to 1.6), but grid lines still drawn at hardcoded y=0.005, hidden under tiles.
+- Created forum topic `2026-03-22T12-00-00Z-operator-grid-lines-hidden-by-elevation.md` with root cause and fix options.

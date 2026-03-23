@@ -134,21 +134,25 @@ Filename: `{ISO-8601-timestamp}-manual_qa-{slug}.md`
 3. If forum work consumed the session: update insights, append to log, exit
 4. Pick up **one** `qa_item` from `messages/manual_qa/qa_item/pending/`
 5. Move it to `messages/manual_qa/qa_item/active/`
-6. Present the feature to the user — explain what was implemented and what needs verification
-7. **Walk through QA steps one at a time**:
+6. **Build the QA artifact** — run `scripts/build_qa_artifact.sh` (pass the qa_item filename as argument). This compiles the game and saves a timestamped build. If the build fails, stop and report the failure to the user — do not proceed with QA steps. Tell the user how to launch the built binary:
+   ```
+   cd artifacts/developer && artifacts/manual_qa/qa_artifacts/latest/space_crystals
+   ```
+7. Present the feature to the user — explain what was implemented and what needs verification
+8. **Walk through QA steps one at a time**:
    - Present each step clearly
    - Ask the user to perform it and report the result
    - Record pass or fail for each step
    - If a step fails, ask the user to describe what they observed vs what was expected
-8. **If all steps pass**:
+9. **If all steps pass**:
    - Move the qa_item to `messages/manual_qa/qa_item/done/`
    - Log the successful QA
-9. **If any steps fail**:
-   - Summarize what passed and what failed
-   - Produce a `feature_request` to `messages/task_splitter/feature_request/pending/` scoped to the failures
-   - Move the qa_item to `messages/manual_qa/qa_item/done/`
-   - Log the failure and rework request
-10. Update insights, append to session log, exit
+10. **If any steps fail**:
+    - Summarize what passed and what failed
+    - Produce a `feature_request` to `messages/task_splitter/feature_request/pending/` scoped to the failures
+    - Move the qa_item to `messages/manual_qa/qa_item/done/`
+    - Log the failure and rework request
+11. Update insights, append to session log, exit
 
 ### Non-Interactive Mode (scheduler launch)
 

@@ -13,6 +13,7 @@
 - **Enemies don't attack by default**: Enemy units are passive, don't engage player units in range.
 - **Can control enemy units/buildings**: Player can issue commands to enemy objects — ownership check missing.
 - **Building selection hitbox too small**: Must click near center of building to select it.
+- **Elevation rendering still broken**: Cuboid mesh approach didn't fix the visual issues. Rework sent requesting flat rendering fallback (all tiles at same Y height, preserve ElevationMap data). This blocks most visual QA until resolved.
 
 ## Process Notes
 - Ask user how to start the game / what's available before diving into steps — saves time on blocked steps.

@@ -15,8 +15,7 @@ fi
 FROM="$1"
 TO="$2"
 MESSAGE_TYPE="$3"
-# Normalize message name: hyphens -> underscores (hyphen is reserved as agent-name separator)
-MESSAGE_NAME="$(echo "$4" | tr '-' '_')"
+MESSAGE_NAME="$4"
 CONTENT="$5"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"

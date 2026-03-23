@@ -35,6 +35,7 @@
 
 ## Insights
 
+- When a forum topic investigation is closed without a feature_request being created, the fix never reaches the pipeline. Always ensure actionable outcomes from forum discussions get formalized as feature_requests before voting to close.
 - When batching many feature_requests, note overlap with already-completed pipeline work (check `messages/task_splitter/feature_request/done/`) and flag it in the message content so downstream agents don't duplicate effort.
 - The gdo_objects.md SupplyChopper truncation has been resolved. Key decisions: drop-off at non-attached towers is touch-and-go; PickUpSupplies and AttachToTower gated by not-carrying-units; DropOffSupplies gated by carrying supplies; automated scheduled departures don't break attachment.
 - Full design doc coverage achieved: 26 feature requests sent covering scale, camera, tiles, fog of war, resources, factions, unit bases, movement, collision, combat, locomotion constraints, control system, commands, behaviors, turret system, auto-targeting, action channels, command indicators, all GDO objects, all Syndicate objects, and framework systems.

@@ -1,5 +1,20 @@
 # Task Planner Session Log
 
+## 2026-03-22T22:00:00Z — Forum only (no pending tasks)
+- Forum: Commented on `grid-lines-hidden-by-elevation` topic with technical analysis of fix approaches (per-cell elevation segments vs flat offset). Voted to close.
+- No pending developer_tasks to process.
+
+## 2026-03-22T19:00:00Z — Planned elevation_cuboid_meshes
+- Forum: No open topics
+- Processed `task_splitter-elevation_cuboid_meshes.md` → `planned_task` sent to developer
+- Simple rendering fix: replace Plane3d with Cuboid in `spawn_grid()` (map.rs lines 100, 132)
+- No new insights needed — straightforward change with no architectural implications
+
+## 2026-03-22T18:10:00Z — No work available
+- Forum: Voted to close `graphical-glitches-fix-needed` topic (designer created feature_request, all agents voted, topic closed)
+- No pending developer_tasks in inbox
+- No action taken on insights (no new discoveries)
+
 ## 2026-03-22T10:00:00Z — Planned: cults_building_placement
 - Investigated: placement ghost system (faction.rs:1194-1665), Agent placement flow as reference, ObjectInterfaceState/AgentMenuState patterns, command panel grid layout, CultsStorage spawn function, ConstructionHP component, update_command_panel_state agent detection
 - Key findings: CultsRecruit doesn't exist in ObjectEnum yet (added by recruitment_center_auto_production, in progress). Designed CultsRecruitMenu as new ObjectInterfaceState variant (parallel to AgentMenu). Cults placement uses can_worker_place_structure (no build area). placement_click_system needs selected_recruits query added. Need new UnitCommand::ConstructBuilding(Entity) and CommandType::AssistConstruction.
@@ -1109,3 +1124,33 @@
 - Key findings: CultsArmory/ArmoryState/CultsSoldier/CultsGunner don't exist yet (created by armory_structure task). execute_command_action lacks CultsPlayerResources access — needs new query param + find_cults_resources_mut helper. ArmoryEjectionQueue needs to be a separate component from tunnel EjectionQueue. Armory rally_point is Option<RallyTarget> (not Option<Vec3> like RC).
 - Dependencies: armory_structure (types/constants), armory_enter_mechanic (stored_recruits population + recruit movement components)
 - Output: planned_task sent to developer
+
+## 2026-03-22T12:00:00Z — No pending tasks; forum pass only
+- Forum: Commented on `graphical-glitches-on-game-start` topic with codebase analysis. Identified tile elevation rendering (map.rs) as likely cause — flat tile meshes at different Y heights create visible gaps/seams. Also noted lib.rs testing module cfg gate removal. Voted to close.
+- No pending developer_tasks found. All directories clean (no stuck active messages).
+
+## 2026-03-22T16:00:00Z — No work available
+- Forum: Voted to close `graphical-glitches-on-game-start` topic (investigation complete, actionable recommendations provided)
+- No pending developer_tasks in inbox
+
+## 2026-03-22T16:00:00Z — No work
+- Forum: Voted to close graphical-glitches-on-game-start (already commented last session)
+- No pending developer_tasks in queue
+
+## 2026-03-22T18:00:00Z — No-work session (forum only)
+- No pending developer_tasks found.
+- Forum: Commented on `2026-03-22T160000Z-operator-graphical-glitches-fix-needed.md` with technical analysis of three elevation rendering fix options (Cuboid meshes, reduced elevation range, flat revert). Provided file paths and line numbers for each approach. Recommended Option 3 (flat) as immediate QA unblock, Option 1 (Cuboid) as proper fix later.
+
+## 2026-03-22T22:30:00Z — Planned grid_lines_elevation_fix
+
+- Processed `task_splitter-grid_lines_elevation_fix.md`
+- Investigated `draw_grid_lines()` in map.rs (lines 204-261): currently draws full-span lines at y=0.005
+- Confirmed `ElevationMap` resource (types.rs:232) already imported via `super::types::*`
+- Confirmed `ELEVATION_HEIGHT_STEP = 0.1` constant in same file (line 69)
+- Produced planned_task with detailed per-cell segment approach, elevation Y formula, and edge case analysis
+- No forum topics to process
+
+## 2026-03-22T22:30:00Z — Planned flatten_tile_rendering
+- No forum topics to process.
+- Planned `flatten_tile_rendering` task: Remove cuboid mesh elevation rendering, replace with flat plane at Y=0, flatten grid_line_elevation_y to constant 0.005, update/remove cuboid and elevation Y tests. All changes isolated to `map.rs`.
+- Straightforward task — no new insights needed.

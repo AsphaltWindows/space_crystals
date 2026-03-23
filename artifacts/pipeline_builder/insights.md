@@ -1,4 +1,4 @@
-# Architect Insights
+# Pipeline Builder Insights
 
 - **`tests/` belongs with `Cargo.toml`**: Rust integration tests must be siblings of the Cargo.toml they test. When the game code lives in `artifacts/developer/`, tests must be `artifacts/developer/tests/`, not project root.
 - **Check git history for orphaned files**: When a file has zero references in the codebase, `git log -- <file>` can confirm whether it was ever integrated or just committed in a bulk import and forgotten.

@@ -963,3 +963,57 @@
   - `game/world/resources.rs`: Added CultsRecruitMenu to interface_state_validation_system
 - **Tests**: 8 new tests (grid layout, placement mode, unit actions, object type support, labels, titles)
 - **Result**: All 1866 lib tests pass
+
+## 2026-03-22 — No-work session (forum only)
+
+- **Forum**: Commented on `graphical-glitches-on-game-start` topic. Investigated recent changes — identified elevation system in `map.rs` (flat Plane3d tiles at varying Y heights causing visible gaps) and camera projection change (perspective→orthographic) as likely causes.
+- **Tasks**: No pending planned_tasks available.
+
+## 2026-03-22 — No-work session (forum close vote)
+
+- **Forum**: Voted to close `graphical-glitches-on-game-start` topic (all agents voted, topic closed).
+- **Tasks**: No pending planned_tasks available.
+
+## 2026-03-22 — No-work session (forum comment)
+
+- **Forum**: Commented on `graphical-glitches-fix-needed` topic with implementation feasibility analysis. Waiting on designer to produce feature_request.
+- **Tasks**: No pending planned_tasks available.
+
+## 2026-03-22 — No-work pass
+
+- **Forum**: Voted to close graphical glitches topic (designer already created feature_request)
+- **Messages**: No pending planned_tasks. Exiting.
+
+## 2026-03-22 — elevation_cuboid_meshes
+
+- **Task**: Replace flat Plane3d tile meshes with Cuboid meshes to eliminate visible gaps between tiles at different elevations.
+- **Changes**: Modified `src/game/world/map.rs` — replaced `Plane3d` with `Cuboid::new(cell_size, 2.0, cell_size)` and adjusted Transform Y so cuboid top face aligns with elevation height.
+- **Tests**: Added 2 tests — cuboid skirt coverage vs max elevation, and top face alignment formula verification.
+- **Result**: 1868 lib tests passing. Build clean (no new warnings).
+
+## 2026-03-22 — No-work session (forum only)
+
+- **Forum**: Commented on and voted to close `grid-lines-hidden-by-elevation` topic. Confirmed the regression root cause (hardcoded y=0.005 vs tile elevation up to 1.6) and recommended per-segment elevation lookup approach.
+- **Tasks**: No pending planned_tasks in queue.
+
+## 2026-03-22 — No-work session (forum cleanup)
+
+- **Forum**: Voted to close `grid-lines-hidden-by-elevation` topic (all agents voted, topic moved to closed). Designer sent feature_request for the fix.
+- **Tasks**: No pending planned_tasks in queue. No open forum topics remaining.
+
+## 2026-03-22 — grid_lines_elevation_fix
+
+- **Task**: Fix `draw_grid_lines()` to render grid lines at correct terrain elevation
+- **Changes**: Modified `draw_grid_lines()` in `game/world/map.rs` to add `Res<ElevationMap>` param, replaced continuous full-span lines with per-cell segments that compute Y from `max(adjacent cell elevations) * ELEVATION_HEIGHT_STEP + 0.005`. Added `grid_line_elevation_y()` helper function.
+- **Tests**: Added 5 unit tests for `grid_line_elevation_y` — zero elevation, max-of-adjacent, out-of-bounds defaults, max elevation (16), equal elevations. All 17 grid line tests pass.
+- **Build**: Compiles clean, 1873 tests pass.
+
+## 2026-03-22 — flatten_tile_rendering
+
+- **Task**: Remove visual elevation rendering so tiles appear flat
+- Replaced Cuboid mesh with Plane3d in spawn_grid
+- Set tile Y position to 0.0 (was elevation-based)
+- Flattened grid_line_elevation_y to return constant 0.005
+- Removed 2 cuboid-specific tests, replaced 5 grid line elevation tests with 1 flat test
+- Preserved ElevationMap, determine_elevation, and all elevation data tests
+- All 32 map tests pass, build compiles clean

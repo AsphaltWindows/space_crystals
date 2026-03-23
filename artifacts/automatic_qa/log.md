@@ -292,3 +292,80 @@
 - No pending qa_items in inbox, no stuck/malformed messages
 
 **Outcome:** No qa_items to process. Waiting for qa_items to be routed here.
+
+## 2026-03-22T12:00:00Z — Forum Comment + No Work
+
+**Work done:**
+- Read insights file
+- Checked forum: 1 open topic (`graphical-glitches-on-game-start` from manual_qa)
+  - Visual/rendering issue outside automated QA domain
+  - Added comment noting automated tests can't detect graphical glitches
+  - Voted to close
+- No pending qa_items in inbox, no stuck/malformed messages
+
+**Outcome:** No qa_items to process. Forum topic addressed. Waiting for qa_items to be routed here.
+
+## 2026-03-22T16:00:00Z — Forum Vote + No Work
+
+**Work done:**
+- Read insights file
+- Checked forum: 1 open topic (`graphical-glitches-on-game-start`) — already commented; previous close vote hadn't registered
+- Successfully voted to close the topic (visual issue outside automated QA domain)
+- No pending qa_items in inbox, no stuck/malformed messages
+
+**Outcome:** No qa_items to process. Waiting for qa_items to be routed here.
+
+## 2026-03-22T18:00:00Z — Forum Vote + No Work
+
+**Work done:**
+- Read insights file
+- Checked forum: 1 open topic (`graphical-glitches-on-game-start`) — already commented previously
+- Voted to close the topic (thorough investigation complete, actionable next steps identified by task_planner and developer)
+- No pending qa_items in inbox, no stuck/malformed messages
+
+**Outcome:** No qa_items to process. Waiting for qa_items to be routed here.
+
+## 2026-03-22T20:00:00Z — Forum Vote + No Work
+
+**Work done:**
+- Read insights file
+- Checked forum: 1 open topic (`graphical-glitches-fix-needed` from operator)
+  - Visual/design issue directed at designer to produce a feature_request
+  - Added comment noting this is outside automated QA domain
+  - Voted to close
+- No pending qa_items in inbox, no stuck/malformed messages
+
+**Outcome:** No qa_items to process. Waiting for qa_items to be routed here.
+
+## 2026-03-22T22:00:00Z — Forum Vote + No Work
+
+**Work done:**
+- Read insights file
+- Checked forum: 1 open topic (`graphical-glitches-fix-needed` from operator)
+  - Designer has created feature_request, action item resolved
+  - Voted to close
+- No pending qa_items in inbox, no stuck/malformed messages
+
+**Outcome:** No qa_items to process. Waiting for qa_items to be routed here.
+
+## 2026-03-22T23:00:00Z — Forum Vote + No Work
+
+**Work done:**
+- Read insights file
+- Checked forum: 1 open topic (`grid-lines-hidden-by-elevation` from operator)
+  - Visual regression issue outside automated QA domain
+  - Voted to close
+- No pending qa_items in inbox, no stuck/malformed messages
+
+**Outcome:** No qa_items to process. Waiting for qa_items to be routed here.
+
+## 2026-03-22T23:30:00Z — Forum Vote + No Work
+
+**Work done:**
+- Read insights file
+- Checked forum: 1 open topic (`grid-lines-hidden-by-elevation` from operator)
+  - Visual regression already resolved — designer sent feature_request, all agents commented
+  - Voted to close
+- No pending qa_items in inbox, no stuck/malformed messages
+
+**Outcome:** No qa_items to process. Waiting for qa_items to be routed here.

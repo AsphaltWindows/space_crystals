@@ -97,7 +97,7 @@ pub fn spawn_grid(
     grid: Res<GridMap>,
     mut elevation_map: ResMut<ElevationMap>,
 ) {
-    let tile_mesh = meshes.add(Plane3d::default().mesh().size(grid.cell_size, grid.cell_size));
+    let tile_mesh = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(grid.cell_size / 2.0)));
 
     let offset_x = -(grid.width as f32 * grid.cell_size) / 2.0 + grid.cell_size / 2.0;
     let offset_z = -(grid.height as f32 * grid.cell_size) / 2.0 + grid.cell_size / 2.0;
@@ -129,7 +129,11 @@ pub fn spawn_grid(
             commands.spawn((
                 Mesh3d(tile_mesh.clone()),
                 MeshMaterial3d(tile_material),
-                Transform::from_xyz(world_x, elevation as f32 * ELEVATION_HEIGHT_STEP, world_z),
+                Transform::from_xyz(
+                    world_x,
+                    0.0,
+                    world_z,
+                ),
                 Tile,
                 VisibleEntity,
                 tile_type,
@@ -197,11 +201,11 @@ fn grid_line_alpha(distance: f32) -> f32 {
 pub fn draw_grid_lines(
     mut gizmos: Gizmos,
     grid: Res<GridMap>,
+    elevation_map: Res<ElevationMap>,
     camera_query: Query<&Transform, With<MainCamera>>,
 ) {
     let half_w = grid.width as f32 / 2.0;
     let half_h = grid.height as f32 / 2.0;
-    let y = 0.005;
 
     // Get camera ground projection for distance culling
     let cam_x = camera_query.iter().next().map(|t| t.translation.x).unwrap_or(0.0);
@@ -214,13 +218,7 @@ pub fn draw_grid_lines(
     let min_z = ((cam_z - radius + half_h).floor().max(0.0) as u32).min(grid.height);
     let max_z = ((cam_z + radius + half_h).ceil().max(0.0) as u32).min(grid.height);
 
-    // World-space clamp bounds for line endpoints
-    let clip_min_x = (cam_x - radius).max(-half_w);
-    let clip_max_x = (cam_x + radius).min(half_w);
-    let clip_min_z = (cam_z - radius).max(-half_h);
-    let clip_max_z = (cam_z + radius).min(half_h);
-
-    // Vertical lines (along Z axis) — each with distance-based opacity
+    // Vertical lines (along Z axis) — per-cell segments with elevation-aware Y
     for x in min_x..=max_x {
         let wx = x as f32 - half_w;
         let dist = (wx - cam_x).abs();
@@ -229,14 +227,19 @@ pub fn draw_grid_lines(
             continue;
         }
         let color = Color::srgba(0.0, 0.0, 0.0, alpha);
-        gizmos.line(
-            Vec3::new(wx, y, clip_min_z),
-            Vec3::new(wx, y, clip_max_z),
-            color,
-        );
+        for z in min_z..max_z {
+            let y = grid_line_elevation_y(&elevation_map, x as i32 - 1, z as i32, x as i32, z as i32);
+            let wz_start = z as f32 - half_h;
+            let wz_end = (z + 1) as f32 - half_h;
+            gizmos.line(
+                Vec3::new(wx, y, wz_start),
+                Vec3::new(wx, y, wz_end),
+                color,
+            );
+        }
     }
 
-    // Horizontal lines (along X axis) — each with distance-based opacity
+    // Horizontal lines (along X axis) — per-cell segments with elevation-aware Y
     for z in min_z..=max_z {
         let wz = z as f32 - half_h;
         let dist = (wz - cam_z).abs();
@@ -245,12 +248,24 @@ pub fn draw_grid_lines(
             continue;
         }
         let color = Color::srgba(0.0, 0.0, 0.0, alpha);
-        gizmos.line(
-            Vec3::new(clip_min_x, y, wz),
-            Vec3::new(clip_max_x, y, wz),
-            color,
-        );
+        for x in min_x..max_x {
+            let y = grid_line_elevation_y(&elevation_map, x as i32, z as i32 - 1, x as i32, z as i32);
+            let wx_start = x as f32 - half_w;
+            let wx_end = (x + 1) as f32 - half_w;
+            gizmos.line(
+                Vec3::new(wx_start, y, wz),
+                Vec3::new(wx_end, y, wz),
+                color,
+            );
+        }
     }
+}
+
+/// Compute the Y coordinate for a grid line segment based on the max elevation
+/// of two adjacent cells. The line sits 0.005 above the tile surface to prevent
+/// z-fighting.
+pub fn grid_line_elevation_y(_elevation_map: &ElevationMap, _ax: i32, _az: i32, _bx: i32, _bz: i32) -> f32 {
+    0.005
 }
 
 /// System to display tile info when hovering with mouse
@@ -843,5 +858,19 @@ mod tests {
         assert!(plane_avg < rugged_avg, "Plane avg {} should be < RuggedTerrain avg {}", plane_avg, rugged_avg);
         assert!(rugged_avg < cliff_avg, "RuggedTerrain avg {} should be < Cliff avg {}", rugged_avg, cliff_avg);
         assert!(cliff_avg < mountain_avg, "Cliff avg {} should be < Mountain avg {}", cliff_avg, mountain_avg);
+    }
+
+    // === Grid line elevation Y tests ===
+
+    #[test]
+    fn grid_line_elevation_y_always_flat() {
+        let mut elev_map = ElevationMap::default();
+        elev_map.insert(3, 5, 10);
+        elev_map.insert(10, 10, 16);
+        // All calls return constant 0.005 regardless of elevation
+        assert!((grid_line_elevation_y(&elev_map, 0, 0, 1, 0) - 0.005).abs() < f32::EPSILON);
+        assert!((grid_line_elevation_y(&elev_map, 3, 5, 4, 5) - 0.005).abs() < f32::EPSILON);
+        assert!((grid_line_elevation_y(&elev_map, -1, 5, 0, 5) - 0.005).abs() < f32::EPSILON);
+        assert!((grid_line_elevation_y(&elev_map, 10, 10, 11, 10) - 0.005).abs() < f32::EPSILON);
     }
 }

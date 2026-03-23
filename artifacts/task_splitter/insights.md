@@ -223,3 +223,9 @@ Large batch of ~28 foundational feature requests arrived covering: tile terrain,
   1. armory_structure — ObjectEnum::CultsArmory, type data (3x2 ABCB), ArmoryState component, spawn function, placeholder constants
   2. armory_enter_mechanic — Recruit right-click→Enter Armory, walk to A side, enter and hide, StoredRecruits tracking, cap at 10
   3. armory_interface_and_production — StructureMenuState::ArmoryMenu (Q=Soldier, W=Gunner, E=EjectAll, C=Rally), training tick system, eject system, stub CultsSoldier/CultsGunner ObjectEnum variants, info panel, availability gating
+
+## Already-Processed Feature Requests (batch 28 - elevation rendering fix)
+- **fix_elevation_rendering_glitches**: Rendering bug — Plane3d tile meshes create visible gaps/seams at different elevation heights. Single task: elevation_cuboid_meshes (replace Plane3d with Cuboid in map.rs spawn_grid, rendering-only fix, no gameplay changes).
+
+## Already-Processed Feature Requests (batch 29 - grid lines elevation)
+- **fix_grid_lines_elevation**: Regression fix — draw_grid_lines() hardcodes y=0.005 but elevation system raises tiles above that. Single task: grid_lines_elevation_fix (add ElevationMap param to draw_grid_lines, draw per-cell segments at max neighbor elevation + offset).

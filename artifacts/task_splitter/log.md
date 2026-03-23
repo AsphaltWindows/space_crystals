@@ -1,5 +1,32 @@
 # Task Splitter Session Log
 
+## 2026-03-22T17:00:00Z — Forum only, no pending work
+
+- **Forum**: Commented on `grid-lines-hidden-by-elevation` topic — confirmed not covered by existing elevation tasks (tile_elevation_rendering, elevation_cuboid_meshes). Recommended designer produce a feature_request. Voted to close.
+- **Messages**: No pending feature_requests.
+
+## 2026-03-22T16:30:00Z — Forum only
+
+- **Forum**: Commented on and voted to close `graphical-glitches-fix-needed` topic (designer action item, will be single task when feature_request arrives)
+- **Messages**: No pending feature_requests to process
+
+## 2026-03-22T12:00:00Z — No work
+
+- **Forum**: Voted to close `graphical-glitches-on-game-start` topic (rendering bug, outside task_splitter domain)
+
+## 2026-03-22T16:00:00Z — No work
+
+- **Forum**: Formally voted to close `graphical-glitches-on-game-start` (had commented previously but missed the vote script call)
+- **Messages**: No pending or active feature_requests
+- No stuck files or malformed messages found
+
+## 2026-03-22T16:00:00Z — No work
+
+- **Forum**: Commented and voted to close `graphical-glitches-on-game-start` (task_planner already identified tile elevation rendering as cause; noted single-task fix if feature_request arrives)
+- **Messages**: No pending feature_requests. All 56 processed requests in done/. No stuck or malformed files.
+- **Messages**: No pending feature_requests
+- **Action**: None
+
 ## 2026-03-22T00:00:00Z — add_cults_armory
 
 - **Input**: designer-add_cults_armory.md — Cults Armory training building (3x2, ABCB, Recruits enter A side, train into Soldiers/Gunners, eject from C side)
@@ -744,5 +771,32 @@
   1. `task_splitter-recruitment_center_interface.md` — StructureMenuState::RecruitmentCenterMenu, command panel X=Cancel/C=Rally, right-click rally
   2. `task_splitter-cults_building_placement.md` — Recruit Build Command flow, Construct submenu, ghost placement, Assist Construction
   3. `task_splitter-cults_construction_system.md` — CultsConstructionState, Recruit enter, proportional speedup tick, completion consumption, cancellation refund
+- **Forwarded**: feature_request + feature_tasks manifest to completion_aggregator
+- **Moved**: feature_request to done
+
+## 2026-03-22T18:15:00Z — Forum vote + fix_elevation_rendering_glitches
+
+- **Forum**: Voted to close `graphical-glitches-fix-needed` (designer already created feature_request)
+- **Feature**: `designer-fix_elevation_rendering_glitches.md` — rendering bug, Plane3d tile meshes create gaps at different elevations
+- **Tasks created** (1):
+  1. `task_splitter-elevation_cuboid_meshes.md` — replace Plane3d with Cuboid in map.rs spawn_grid
+- **Forwarded**: feature_request + feature_tasks manifest to completion_aggregator
+- **Moved**: feature_request to done
+
+## 2026-03-22T20:00:00Z — Processed fix_grid_lines_elevation
+
+- **Forum**: Voted to close `grid-lines-hidden-by-elevation` topic (feature_request now created and processed)
+- **Feature**: `designer-fix_grid_lines_elevation.md` — regression fix, grid lines invisible due to hardcoded Y below elevated tiles
+- **Tasks created** (1):
+  1. `task_splitter-grid_lines_elevation_fix.md` — update draw_grid_lines() to use ElevationMap for per-cell segment Y positioning
+- **Forwarded**: feature_request + feature_tasks manifest to completion_aggregator
+- **Moved**: feature_request to done
+
+## 2026-03-22T19:00:00Z — Processed fix_elevation_rendering_glitches_r1
+
+- **Input**: `manual_qa-fix_elevation_rendering_glitches_r1.md` — rework after QA failure; cuboid mesh approach didn't fix visual glitches. User wants all tiles flat.
+- **Decision**: Single task — all changes are in `map.rs`, surgically removing visual elevation (mesh type, Y positioning, grid line Y) while preserving ElevationMap data.
+- **Tasks created** (1):
+  1. `task_splitter-flatten_tile_rendering.md` — replace cuboid with flat plane, set all tile Y=0, flatten grid line Y, update tests
 - **Forwarded**: feature_request + feature_tasks manifest to completion_aggregator
 - **Moved**: feature_request to done

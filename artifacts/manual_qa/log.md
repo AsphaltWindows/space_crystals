@@ -121,3 +121,32 @@
 **Rework requests sent**: 3
 
 **Remaining pending QA items**: ~33
+
+## 2026-03-22T11:50:00Z — camera_starting_position QA (blocked)
+
+**QA Item**: `qa_router-camera_starting_position.md`
+
+**Results**:
+- Built QA artifact (2026-03-22_114844) successfully
+- Game launched but user reported severe graphical glitches on start, possibly grid-related
+- QA blocked — game nearly unplayable
+
+**Actions taken**:
+- Forum topic filed: graphical-glitches-on-game-start (with grid-related observation from user)
+- QA item moved back to pending — will resume after glitch issue is resolved
+- No rework request sent (this is a broader regression, not specific to camera_starting_position)
+
+## 2026-03-22T16:30:00Z — fix_elevation_rendering_glitches QA
+
+**QA Item**: `qa_router-fix_elevation_rendering_glitches.md`
+
+**Results**:
+- Step 1 (Launch game): PASS
+- Step 2-6 (Cuboid mesh fix, no gaps, elevation visible): FAIL — elevation visualization still looks weird/broken despite cuboid approach
+- Step 7 (Flat rendering fallback): Not implemented — this is what the user prefers
+
+**Actions taken**:
+- Rework request sent: fix_elevation_rendering_glitches_r1 — scoped to flat rendering fallback (remove visual elevation, keep ElevationMap data for gameplay)
+- QA item moved to done
+
+**Session ended** — 1 QA item processed, 1 rework sent. Remaining pending items (~44) deferred; many blocked by elevation rendering issues.
