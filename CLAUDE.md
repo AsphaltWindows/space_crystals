@@ -12,8 +12,8 @@ Space Crystals is an RTS game currently in early development. The project uses t
 - **Design documents**: `artifacts/designer/design/*.md`
 - **Agent framework**: `framework.md`
 - **Pipeline manifest**: `pipeline.yaml`
-- **Agent definitions**: `agents/{name}/agent.yaml`
 - **Agent prompts**: `.claude/agents/{name}.md`
+- **Node definitions**: Inline in `pipeline.yaml` under `nodes:`
 - **Message inboxes**: `messages/{agent}/{message_type}/pending|active|done/`
 - **Message templates**: `templates/messages/{message_type}.md`
 
