@@ -25,7 +25,7 @@ from telegram.ext import (
 )
 
 from telegram_bot.config import load_config
-from telegram_bot.discovery import discover_source_agents
+from telegram_bot.discovery import get_all_agents
 from telegram_bot.session import SessionManager
 
 logger = logging.getLogger(__name__)
@@ -330,9 +330,9 @@ async def agent_command_handler(
 
     # Validate agent name.
     if agent_name not in agents:
-        agent_list = ", ".join(agents)
+        agent_list = ", ".join(f"`{a}`" for a in agents)
         await update.message.reply_text(
-            f"Unknown agent {agent_name}. Available agents: {agent_list}."
+            f"Unknown agent `{agent_name}`. Available agents: {agent_list}."
         )
         return
 
@@ -407,9 +407,6 @@ async def agent_command_handler(
         except Exception:
             logger.exception("Failed to send session-end message to chat %d.", cid)
 
-    async def on_typing(cid: int) -> None:
-        await bot.send_chat_action(chat_id=cid, action="typing")
-
     # Start the session.
     try:
         session = await session_manager.start_session(
@@ -417,7 +414,6 @@ async def agent_command_handler(
             agent_name=agent_name,
             on_response=on_response,
             on_end=on_end,
-            on_typing=on_typing,
         )
     except (FileNotFoundError, OSError) as exc:
         logger.error(
@@ -532,7 +528,7 @@ def build_application(config=None) -> Application:
     """
     if config is None:
         config = load_config()
-    agents = discover_source_agents(pipeline_path=config.pipeline_yaml)
+    agents = get_all_agents(pipeline_path=config.pipeline_yaml)
 
     app = Application.builder().token(config.telegram_bot_token).build()
 

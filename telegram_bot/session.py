@@ -27,13 +27,13 @@ _PROJECT_ROOT = Path.cwd()
 # Timeout in seconds before force-killing the process during graceful shutdown.
 _SHUTDOWN_TIMEOUT = 60
 
-# Interval in seconds for the typing indicator heartbeat.
-# Telegram typing indicators expire after ~5 seconds, so we re-send at this rate.
-_TYPING_HEARTBEAT_INTERVAL = 5
+# Interval in seconds for the progress check loop.
+# Used for wait period logging and progress status message checks.
+_PROGRESS_CHECK_INTERVAL = 5
 
-# Silence thresholds (in seconds) for sending progress status messages.
-# These are checked within the typing heartbeat loop; actual delivery
-# may lag by up to _TYPING_HEARTBEAT_INTERVAL seconds.
+# Wait period thresholds (in seconds) for sending progress status messages.
+# These are checked within the progress check loop; actual delivery may lag
+# by up to _PROGRESS_CHECK_INTERVAL seconds.
 _PROGRESS_15S_THRESHOLD = 15
 _PROGRESS_60S_THRESHOLD = 60
 
@@ -290,10 +290,6 @@ class Session:
         Callable invoked with ``(chat_id,)`` to remove the session from
         the ``SessionManager``'s internal map.  May be ``None`` for
         standalone usage.
-    on_typing:
-        Optional async callback invoked with ``(chat_id,)`` to send a
-        typing indicator to the user.  If ``None``, no typing indicator
-        is sent.
     """
 
     def __init__(
@@ -306,20 +302,18 @@ class Session:
         idle_timeout: int,
         shutdown_message: str,
         cleanup: Optional[Callable] = None,
-        on_typing: Optional[Callable] = None,
     ) -> None:
         self.chat_id = chat_id
         self.agent_name = agent_name
         self.process = process
         self.last_activity: float = time.monotonic()
-        self.silence_start: float = time.monotonic()
+        self.waiting_since: Optional[float] = None
         self._sent_15s_status: bool = False
         self._sent_60s_status: bool = False
         self._filtered_event_count: int = 0
 
         self._on_response = on_response
         self._on_end = on_end
-        self._on_typing = on_typing
         self._idle_timeout = idle_timeout
         self._shutdown_message = shutdown_message
         self._cleanup = cleanup
@@ -341,7 +335,7 @@ class Session:
         self._stdout_task: Optional[asyncio.Task] = None
         self._stderr_task: Optional[asyncio.Task] = None
         self._idle_task: Optional[asyncio.Task] = None
-        self._typing_task: Optional[asyncio.Task] = None
+        self._progress_task: Optional[asyncio.Task] = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -370,8 +364,7 @@ class Session:
         self._stdout_task = asyncio.create_task(self._read_stdout())
         self._stderr_task = asyncio.create_task(self._read_stderr())
         self._idle_task = asyncio.create_task(self._idle_timer())
-        if self._on_typing is not None:
-            self._typing_task = asyncio.create_task(self._typing_heartbeat())
+        self._progress_task = asyncio.create_task(self._progress_check_loop())
 
     async def send(self, text: str) -> None:
         """Write a user message to the agent's stdin.
@@ -400,6 +393,10 @@ class Session:
         self.process.stdin.write(envelope.encode() + b"\n")
         await self.process.stdin.drain()
         self.last_activity = time.monotonic()
+        # Start a new waiting period — status message timers begin now.
+        self.waiting_since = time.monotonic()
+        self._sent_15s_status = False
+        self._sent_60s_status = False
         self._reset_idle_timer()
 
     async def shutdown(self, reason: str = "shutdown") -> None:
@@ -440,6 +437,10 @@ class Session:
                 })
                 self.process.stdin.write(envelope.encode() + b"\n")
                 await self.process.stdin.drain()
+                # Start a waiting period for the shutdown response.
+                self.waiting_since = time.monotonic()
+                self._sent_15s_status = False
+                self._sent_60s_status = False
         except (BrokenPipeError, ConnectionResetError, OSError):
             logger.debug("Could not write shutdown message — pipe broken.")
 
@@ -475,6 +476,9 @@ class Session:
         if self._ended:
             return
         self._ended = True
+        # Clear the waiting period to prevent the progress check loop
+        # from sending status messages during cleanup.
+        self.waiting_since = None
 
         # If the process has exited (crash or otherwise), give the stderr
         # reader a moment to drain remaining output before we cancel it.
@@ -490,7 +494,7 @@ class Session:
         # Cancel remaining background tasks — but not the currently executing
         # task, to avoid a spurious CancelledError during the on_end callback.
         current = asyncio.current_task() if hasattr(asyncio, 'current_task') else asyncio.Task.current_task()
-        for task in (self._stdout_task, self._stderr_task, self._idle_task, self._typing_task):
+        for task in (self._stdout_task, self._stderr_task, self._idle_task, self._progress_task):
             if task and not task.done() and task is not current:
                 task.cancel()
 
@@ -535,9 +539,6 @@ class Session:
                 # premature session termination during long operations.
                 now = time.monotonic()
                 self.last_activity = now
-                self.silence_start = now
-                self._sent_15s_status = False
-                self._sent_60s_status = False
                 self._reset_idle_timer()
 
                 logger.debug(
@@ -560,8 +561,11 @@ class Session:
                 if text:
                     self._filtered_event_count = 0
                     if is_result:
-                        # End-of-turn: deliver only text not yet sent
-                        # via streaming deltas.
+                        # End-of-turn: clear the waiting period and
+                        # deliver only text not yet sent via streaming deltas.
+                        self.waiting_since = None
+                        self._sent_15s_status = False
+                        self._sent_60s_status = False
                         new_text = _deduplicate_result_text(
                             self._turn_delivered_text, text,
                         )
@@ -586,7 +590,11 @@ class Session:
                 else:
                     self._filtered_event_count += 1
                     if is_result:
-                        # Result event with no text — just reset the buffer.
+                        # Result event with no text — clear waiting period
+                        # and reset the buffer.
+                        self.waiting_since = None
+                        self._sent_15s_status = False
+                        self._sent_60s_status = False
                         self._turn_delivered_text = ""
         except asyncio.CancelledError:
             logger.info(
@@ -653,72 +661,63 @@ class Session:
         except asyncio.CancelledError:
             return
 
-    async def _typing_heartbeat(self) -> None:
-        """Periodically send a typing indicator when the agent is silent.
+    async def _progress_check_loop(self) -> None:
+        """Periodically check wait period and send progress status messages.
 
-        If no agent output has been received for ``_TYPING_HEARTBEAT_INTERVAL``
-        seconds, sends a typing indicator via the ``on_typing`` callback.
-        The indicator is re-sent every ``_TYPING_HEARTBEAT_INTERVAL`` seconds
-        until new output arrives or the session ends.
+        Runs every ``_PROGRESS_CHECK_INTERVAL`` seconds.  When a waiting
+        period is active (``waiting_since`` is not ``None``), logs a wait
+        period summary at INFO level and sends user-visible progress status
+        messages at defined thresholds (15s and 60s) via the ``on_response``
+        callback to reassure users during long agent operations.
 
-        Additionally, sends user-visible progress status messages at defined
-        silence thresholds (15s and 60s) via the ``on_response`` callback to
-        reassure users during long agent operations.
+        When no waiting period is active, the loop iteration does nothing.
 
-        Errors from either callback are logged and swallowed — a failed
-        indicator or status message must never crash the session.
+        Errors from the callback are logged and swallowed — a failed
+        status message must never crash the session.
         """
         try:
             while not self._ended:
-                await asyncio.sleep(_TYPING_HEARTBEAT_INTERVAL)
+                await asyncio.sleep(_PROGRESS_CHECK_INTERVAL)
                 if self._ended:
                     return
-                elapsed = time.monotonic() - self.last_activity
-                if elapsed >= _TYPING_HEARTBEAT_INTERVAL:
+
+                # Skip iteration when no waiting period is active.
+                if self.waiting_since is None:
+                    continue
+
+                elapsed = time.monotonic() - self.waiting_since
+
+                # Wait period summary logging.
+                if elapsed > 0:
+                    logger.info(
+                        "Waiting on agent for %ds, %d events received but filtered (chat %d)",
+                        int(elapsed),
+                        self._filtered_event_count,
+                        self.chat_id,
+                    )
+
+                # Check progress status message thresholds.
+                if elapsed >= _PROGRESS_15S_THRESHOLD and not self._sent_15s_status:
+                    self._sent_15s_status = True
                     try:
-                        await self._on_typing(self.chat_id)
+                        await self._on_response(self.chat_id, "\u23f3 Still working...")
                     except Exception:
                         logger.exception(
-                            "Typing indicator callback failed for chat %d.",
+                            "Failed to send 15s status message for chat %d.",
                             self.chat_id,
                         )
-
-                # Log silence summary during agent silence.
-                if self.silence_start is not None:
-                    silence_duration = time.monotonic() - self.silence_start
-                    if silence_duration > 0:
-                        logger.info(
-                            "Agent %s silent for %ds, %d events received but filtered (chat %d)",
-                            self.agent_name,
-                            int(silence_duration),
-                            self._filtered_event_count,
+                if elapsed >= _PROGRESS_60S_THRESHOLD and not self._sent_60s_status:
+                    self._sent_60s_status = True
+                    try:
+                        await self._on_response(
+                            self.chat_id,
+                            "\u23f3 This is taking a while \u2014 still processing your request.",
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed to send 60s status message for chat %d.",
                             self.chat_id,
                         )
-
-                # Check progress status message thresholds
-                if self.silence_start is not None:
-                    silence_elapsed = time.monotonic() - self.silence_start
-                    if silence_elapsed >= _PROGRESS_15S_THRESHOLD and not self._sent_15s_status:
-                        self._sent_15s_status = True
-                        try:
-                            await self._on_response(self.chat_id, "\u23f3 Still working...")
-                        except Exception:
-                            logger.exception(
-                                "Failed to send 15s status message for chat %d.",
-                                self.chat_id,
-                            )
-                    if silence_elapsed >= _PROGRESS_60S_THRESHOLD and not self._sent_60s_status:
-                        self._sent_60s_status = True
-                        try:
-                            await self._on_response(
-                                self.chat_id,
-                                "\u23f3 This is taking a while \u2014 still processing your request.",
-                            )
-                        except Exception:
-                            logger.exception(
-                                "Failed to send 60s status message for chat %d.",
-                                self.chat_id,
-                            )
         except asyncio.CancelledError:
             return
 
@@ -769,7 +768,6 @@ class SessionManager:
         agent_name: str,
         on_response: Callable,
         on_end: Callable,
-        on_typing: Optional[Callable] = None,
     ) -> Session:
         """Spawn a new agent session for a user.
 
@@ -783,8 +781,6 @@ class SessionManager:
             Async callback ``(chat_id, text)`` for agent output.
         on_end:
             Async callback ``(chat_id, agent_name, reason)`` on session end.
-        on_typing:
-            Optional async callback ``(chat_id,)`` for typing indicators.
 
         Returns
         -------
@@ -828,7 +824,6 @@ class SessionManager:
             idle_timeout=self._idle_timeout,
             shutdown_message=self._shutdown_message,
             cleanup=self._remove_session,
-            on_typing=on_typing,
         )
         self._sessions[chat_id] = session
         session.start()
