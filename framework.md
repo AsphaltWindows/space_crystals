@@ -1,5 +1,7 @@
 # Agent Pipeline Framework
 
+> **Read-only for all agents.** This file is framework-owned and must never be modified by any agent, including the pipeline_builder. Changes to this file are made only by the framework maintainer.
+
 ## Overview
 
 A pipeline framework where agents communicate through markdown messages and maintain their own artifact spaces. A shared forum provides cross-pipeline communication with consensus-based resolution.
@@ -21,28 +23,31 @@ Three types:
 - **Processing**: Autonomous. Consumes messages, updates own artifacts, produces messages. Has interactive and non-interactive mode.
 - **Sink**: Interactive with user. Consumes messages. Has interactive and non-interactive mode.
 
-Each agent is defined by:
+### Node Definition
+
+Each pipeline node is defined inline in `pipeline.yaml` under the `nodes` section. Each node entry specifies:
 - Name (unique identifier, snake_case; also used as directory names)
 - Type (source | processing | sink)
 - Description/role
+- Command — the shell command the scheduler executes to launch the node
 - Consumed message types (with priority, lower number = higher priority)
 - Produced message types (with target consumers)
-- Interactive mode description (source/sink required, processing optional)
-- Non-interactive mode description
+- Interactive mode description (agent nodes; source/sink required, processing optional)
+- Non-interactive mode description (agent nodes)
 
 Optional flags:
-- `scheduled: false` — agent is never launched by the scheduler (user-invoked only)
-- `close_vote_required: false` — agent's vote is not needed to close forum topics
+- `scheduled: false` — node is never launched by the scheduler (user-invoked only)
+- `close_vote_required: false` — node's vote is not needed to close forum topics
+
+The `command` field is what the scheduler runs to launch the node. It executes from the project root with `NODE_ROOT` and `NODE_NAME` environment variables set. Both agent nodes and script nodes use this same mechanism — the scheduler does not need to know the node type.
+
+Standard command patterns:
+- Agent nodes: `claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent .claude/agents/{name}.md`
+- Script nodes: `scripts/{name}.sh "$NODE_ROOT" "$NODE_NAME"`
 
 ### Script Nodes
 
 A script node is a processing node that runs a shell script instead of an LLM. It participates in the same pipeline infrastructure — it has its own artifacts directory, messages inbox, and is scheduled by `run_scheduler.sh` — but requires no LLM invocation or agent prompt file.
-
-Script nodes are defined by setting the `script:` field in their `agents/{name}/agent.yaml` to a path (relative to the project root) of an executable shell script. When the scheduler detects work for a script node, it runs the script instead of launching an agent.
-
-The script receives two positional arguments:
-1. `$1` — the project root directory
-2. `$2` — the node name
 
 The script is responsible for:
 - Checking `messages/{name}/{message-type}/pending/` for pending messages across its consumed types
@@ -52,9 +57,14 @@ The script is responsible for:
 
 Script nodes always have `close_vote_required: false` and `type: processing`.
 
-### Special Agents
+### Framework Agents
 
-- **Operator**: A non-scheduled source agent that serves as the user's direct interface. The user talks to the Operator to inject concerns, questions, or directives into the system via forum topics. The Operator's close-vote is never required.
+The framework provides two built-in agents that exist **outside the pipeline**. They are not listed in `pipeline.yaml`, are never scheduled, and their close-votes are never required for forum topic closure.
+
+- **Operator**: The user's direct interface into the system. Translates user concerns, questions, and directives into forum topics that pipeline nodes can act on. Defined in `.claude/agents/operator.md`.
+- **Pipeline Builder**: The meta-agent responsible for designing and maintaining the pipeline. Creates and modifies pipeline nodes, maintains `pipeline.yaml`, and generates agent prompts and scripts. Defined in `.claude/agents/pipeline_builder.md`.
+
+Framework agents have their own artifacts directories (`artifacts/operator/`, `artifacts/pipeline_builder/`) and can participate in forum discussions, but they are not pipeline nodes and must not appear in `pipeline.yaml`.
 
 ### Artifacts
 
@@ -112,7 +122,7 @@ Located in `/forum/open/` and `/forum/closed/`.
 - Any agent can create a topic during task execution
 - Used for problems, ambiguities, or cross-pipeline communication
 - **Highest priority** for all agents — checked before messages
-- A topic is closed only when **every agent** has voted to close it
+- A topic is closed only when every pipeline node with `close_vote_required: true` has voted to close it
 - Any new comment **clears all existing close-votes**
 - Agents should execute work in response to forum topics when the issue falls under their responsibility
 
@@ -166,16 +176,25 @@ The agent should:
 
 ## Pipeline
 
-Defined in `pipeline.yaml`. The scheduler reads this to determine:
+Defined in `pipeline.yaml`. This file contains **only pipeline nodes** — framework agents (operator, pipeline_builder) are not listed here. The scheduler reads this to determine:
 - Which message types exist in the system
-- Which agents exist and their types
-- What each agent consumes (and priority)
-- What each agent produces
+- Which nodes exist and their types
+- What each node consumes (and priority)
+- What each node produces
 - How to route messages
 
-The `message_types` section defines all message types used in the pipeline. Each type has a name and description. This serves as the canonical registry — the `consumes` and `produces` entries on agents reference these types by name.
+The `message_types` section defines all message types used in the pipeline. Each type has a name and description. This serves as the canonical registry — the `consumes` and `produces` entries on nodes reference these types by name.
 
-Each `produces` entry includes a `to` field listing the consuming agents. This is the authoritative routing table — the producer writes to `messages/{consumer}/{message-type}/pending/` for each agent in the `to` list. The `consumes` entries on receiving agents are the inverse view. The init script and pipeline_builder use both to create the per-type inbox directories (`messages/{agent}/{message-type}/{pending,active,done}/`).
+The `nodes` section lists all pipeline nodes (agents and script nodes). Each `produces` entry includes a `to` field listing the consuming nodes. This is the authoritative routing table — the producer writes to `messages/{consumer}/{message-type}/pending/` for each node in the `to` list. The `consumes` entries on receiving nodes are the inverse view. The pipeline_builder uses both to create the per-type inbox directories (`messages/{node}/{message-type}/{pending,active,done}/`).
+
+### Pipeline Upgrade
+
+When the framework is upgraded, `pipeline.yaml` may need migration to match the current framework version. The pipeline_builder is responsible for this migration. Key changes to check:
+- The `nodes` section replaces the former `agents` section — rename the key if the old name is present
+- Framework agents (operator, pipeline_builder) must not appear in `pipeline.yaml` — remove any such entries
+- All entries in `nodes` should be pipeline nodes only
+- Node definitions are now inline in `pipeline.yaml` — if separate `agent.yaml` or `node.yaml` files exist in `agents/{name}/`, migrate their contents into `pipeline.yaml` and remove the files
+- Each node must have a `command` field — the `script:` field is no longer used; migrate script nodes by setting `command: scripts/{name}.sh "$NODE_ROOT" "$NODE_NAME"`
 
 ## Scheduler
 
@@ -183,9 +202,9 @@ Each `produces` entry includes a `to` field listing the consuming agents. This i
 
 The scheduler runs in an infinite loop. The interval between passes is configured by `scheduler_interval` in `pipeline.yaml` (in seconds, default 20). Each pass:
 1. For each scheduled node, skip if already running (PID lock file check)
-2. For agents: check open forum topics — if any topic lacks the agent's close-vote, the node has work
+2. If `close_vote_required` is not false: check open forum topics — if any topic lacks the node's close-vote, the node has work
 3. Check `messages/{node-name}/*/pending/` — if any files exist in any message-type subdirectory, the node has work
-4. If work exists, launch the node in the background — agents find and process their own work then exit; script nodes run their script then exit
+4. If work exists, read `command` from the node's entry in `pipeline.yaml` and execute it in the background
 
 Nodes are **never started speculatively**. The scheduler guarantees work exists before launch, but does not tell the node what to do — the node is responsible for finding and processing its own work.
 
@@ -209,17 +228,15 @@ Nodes are **never started speculatively**. The scheduler guarantees work exists 
 ├── forum/
 │   ├── open/
 │   └── closed/
-├── agents/{node-name}/
-│   └── agent.yaml                # node pipeline definition
 ├── .claude/agents/
-│   └── {agent-name}.md           # agent prompt (Claude Code format, agents only)
+│   └── {agent-name}.md           # agent prompt (Claude Code format, agent nodes only)
 ├── scripts/
 │   ├── run_scheduler.sh
 │   ├── send_message.sh
 │   ├── add_comment.sh
 │   ├── vote_close.sh
 │   └── {script-node-name}.sh     # script node entry points
-├── templates/                    # templates for generating nodes and messages
+├── templates/
 │   └── messages/{message-type}.md  # per-type message templates
 ├── pipeline.yaml                 # pipeline manifest
 └── framework.md                  # this file

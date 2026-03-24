@@ -3,67 +3,121 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PIPELINE="$ROOT_DIR/pipeline.yaml"
-LOCK_DIR="$ROOT_DIR/.locks"
 
-mkdir -p "$LOCK_DIR"
+LOCKFILE="$ROOT_DIR/.scheduler.lock"
+exec 9>"$LOCKFILE"
+if ! flock -n 9; then
+    echo "Another scheduler is already running for this project ($ROOT_DIR). Exiting."
+    exit 1
+fi
+
+declare -A RUNNING_PIDS
+
+# Parse a field value for the current node from pipeline.yaml
+# Reads from the block of lines between the node's "- name:" and the next "- name:" or end of nodes section
+get_node_field() {
+    local node_name="$1"
+    local field="$2"
+    local in_node=false
+    local in_nodes=false
+
+    while IFS= read -r line; do
+        if echo "$line" | grep -q '^nodes:'; then
+            in_nodes=true
+            continue
+        fi
+        # Exit nodes section on next top-level key
+        if $in_nodes && echo "$line" | grep -q '^[a-z_]*:'; then
+            break
+        fi
+        $in_nodes || continue
+
+        # Detect node start
+        if echo "$line" | grep -q '^\s*-\?\s*name:'; then
+            local this_name
+            this_name=$(echo "$line" | sed 's/.*name:\s*//' | tr -d ' ')
+            if [ "$this_name" = "$node_name" ]; then
+                in_node=true
+            else
+                $in_node && break
+            fi
+            continue
+        fi
+        $in_node || continue
+
+        if echo "$line" | grep -q "^\s*${field}:"; then
+            echo "$line" | sed "s/.*${field}:\s*//"
+            return
+        fi
+    done < "$PIPELINE"
+}
 
 while true; do
 
-# Parse agent names from pipeline.yaml, then check each agent's own agent.yaml for scheduled: false
-AGENTS=""
-IN_AGENTS_SECTION=false
+# Parse scheduled node names from pipeline.yaml
+NODES=""
+IN_NODES_SECTION=false
+CURRENT_NAME=""
+CURRENT_SCHEDULED=""
 
 while IFS= read -r line; do
-    # Detect top-level section headers (no leading whitespace, ends with colon)
     if echo "$line" | grep -q '^[a-z_]*:'; then
-        if echo "$line" | grep -q '^agents:'; then
-            IN_AGENTS_SECTION=true
+        if echo "$line" | grep -q '^nodes:'; then
+            IN_NODES_SECTION=true
         else
-            IN_AGENTS_SECTION=false
+            # Flush last node before leaving section
+            if $IN_NODES_SECTION && [ -n "$CURRENT_NAME" ] && [ "$CURRENT_SCHEDULED" != "false" ]; then
+                NODES="$NODES $CURRENT_NAME"
+            fi
+            IN_NODES_SECTION=false
         fi
         continue
     fi
-    [ "$IN_AGENTS_SECTION" = true ] || continue
+    $IN_NODES_SECTION || continue
+
     if echo "$line" | grep -q '^\s*-\?\s*name:'; then
-        AGENT_NAME=$(echo "$line" | sed 's/.*name:\s*//' | tr -d ' ')
-        AGENT_YAML="$ROOT_DIR/agents/${AGENT_NAME}/agent.yaml"
-        if [ -f "$AGENT_YAML" ] && grep -q '^\s*scheduled:\s*false' "$AGENT_YAML"; then
-            continue
+        # Flush previous node
+        if [ -n "$CURRENT_NAME" ] && [ "$CURRENT_SCHEDULED" != "false" ]; then
+            NODES="$NODES $CURRENT_NAME"
         fi
-        AGENTS="$AGENTS $AGENT_NAME"
+        CURRENT_NAME=$(echo "$line" | sed 's/.*name:\s*//' | tr -d ' ')
+        CURRENT_SCHEDULED=""
+    elif echo "$line" | grep -q '^\s*scheduled:'; then
+        CURRENT_SCHEDULED=$(echo "$line" | sed 's/.*scheduled:\s*//' | tr -d ' ')
     fi
 done < "$PIPELINE"
-
-if [ -z "$AGENTS" ]; then
-    echo "No agents defined in pipeline.yaml"
-    exit 0
+# Flush final node
+if $IN_NODES_SECTION && [ -n "$CURRENT_NAME" ] && [ "$CURRENT_SCHEDULED" != "false" ]; then
+    NODES="$NODES $CURRENT_NAME"
 fi
 
-for AGENT in $AGENTS; do
-    LOCK_FILE="$LOCK_DIR/${AGENT}.pid"
+if [ -z "$NODES" ]; then
+    echo "No scheduled nodes found."
+    INTERVAL=$(grep '^\s*scheduler_interval:' "$PIPELINE" | sed 's/.*scheduler_interval:\s*//' | tr -d ' ')
+    INTERVAL="${INTERVAL:-20}"
+    sleep "$INTERVAL"
+    continue
+fi
 
-    # Check if agent is already running
-    if [ -f "$LOCK_FILE" ]; then
-        PID=$(cat "$LOCK_FILE")
-        if kill -0 "$PID" 2>/dev/null; then
-            echo "[$AGENT] Already running (PID $PID), skipping."
+for NODE in $NODES; do
+    # Check if node is already running
+    if [ -n "${RUNNING_PIDS[$NODE]:-}" ]; then
+        if kill -0 "${RUNNING_PIDS[$NODE]}" 2>/dev/null; then
+            echo "[$NODE] Already running (PID ${RUNNING_PIDS[$NODE]}), skipping."
             continue
         else
-            echo "[$AGENT] Stale lock file found, removing."
-            rm -f "$LOCK_FILE"
+            unset "RUNNING_PIDS[$NODE]"
         fi
     fi
 
     HAS_WORK=false
 
-    # Check if this is a script node (skip forum checks for script nodes)
-    AGENT_SCRIPT_CHECK=$(grep '^\s*script:' "$ROOT_DIR/agents/${AGENT}/agent.yaml" 2>/dev/null || true)
-
-    if [ -z "$AGENT_SCRIPT_CHECK" ]; then
-        # Agent node — check forum topics without this agent's close-vote
+    # Check forum topics if close_vote_required is not false
+    CLOSE_VOTE=$(get_node_field "$NODE" "close_vote_required")
+    if [ "$CLOSE_VOTE" != "false" ]; then
         for TOPIC in "$ROOT_DIR"/forum/open/*.md; do
             [ -f "$TOPIC" ] || continue
-            if ! grep -q "^VOTE:${AGENT}$" "$TOPIC"; then
+            if ! grep -q "^VOTE:${NODE}$" "$TOPIC"; then
                 HAS_WORK=true
                 break
             fi
@@ -72,9 +126,9 @@ for AGENT in $AGENTS; do
 
     # Check pending messages across all message-type subdirectories
     if [ "$HAS_WORK" = false ]; then
-        AGENT_MSG_DIR="$ROOT_DIR/messages/${AGENT}"
-        if [ -d "$AGENT_MSG_DIR" ]; then
-            for TYPE_DIR in "$AGENT_MSG_DIR"/*/pending; do
+        NODE_MSG_DIR="$ROOT_DIR/messages/${NODE}"
+        if [ -d "$NODE_MSG_DIR" ]; then
+            for TYPE_DIR in "$NODE_MSG_DIR"/*/pending; do
                 [ -d "$TYPE_DIR" ] || continue
                 if ls "$TYPE_DIR"/*.md &>/dev/null; then
                     HAS_WORK=true
@@ -85,72 +139,29 @@ for AGENT in $AGENTS; do
     fi
 
     if [ "$HAS_WORK" = false ]; then
-        echo "[$AGENT] No pending work."
+        echo "[$NODE] No pending work."
         continue
     fi
 
-    echo "[$AGENT] Work found, launching."
+    echo "[$NODE] Work found, launching."
 
-    # Read agent type and check for script runner
-    AGENT_YAML="$ROOT_DIR/agents/${AGENT}/agent.yaml"
-    AGENT_TYPE=$(grep '^\s*type:' "$AGENT_YAML" | sed 's/.*type:\s*//' | tr -d ' ')
-    AGENT_SCRIPT=$(grep '^\s*script:' "$AGENT_YAML" 2>/dev/null | sed 's/.*script:\s*//' | tr -d ' ')
+    # Read command from pipeline.yaml
+    NODE_CMD=$(get_node_field "$NODE" "command")
 
-    if [ -n "$AGENT_SCRIPT" ]; then
-        # Script-based node — run the script directly
-        SCRIPT_PATH="$ROOT_DIR/$AGENT_SCRIPT"
-
-        if [ ! -f "$SCRIPT_PATH" ]; then
-            echo "[$AGENT] Script not found: $AGENT_SCRIPT, skipping."
-            continue
-        fi
-
-        if [ ! -x "$SCRIPT_PATH" ]; then
-            echo "[$AGENT] Script not executable: $AGENT_SCRIPT, skipping."
-            continue
-        fi
-
-        # Launch script in background
-        (
-            echo "$$" > "$LOCK_FILE"
-            echo "[$AGENT] Launching script (type: $AGENT_TYPE): $AGENT_SCRIPT"
-            "$SCRIPT_PATH" "$ROOT_DIR" "$AGENT"
-            rm -f "$LOCK_FILE"
-        ) &
-    else
-        # LLM-based agent — use Claude Code prompt file
-        PROMPT_FILE="$ROOT_DIR/.claude/agents/${AGENT}.md"
-
-        if [ ! -f "$PROMPT_FILE" ]; then
-            echo "[$AGENT] No .claude/agents/${AGENT}.md found, skipping."
-            continue
-        fi
-
-        # Launch agent in background
-        (
-            echo "$$" > "$LOCK_FILE"
-
-            echo "[$AGENT] Launching (type: $AGENT_TYPE)..."
-
-            # --- AGENT LAUNCH COMMAND ---
-            # Replace this with your LLM invocation.
-            # The agent should receive:
-            #   1. Its system prompt (.claude/agents/{name}.md)
-            #   2. Access to the ROOT_DIR for reading artifacts, messages, and forum topics
-            #
-            # The agent is responsible for finding its own work:
-            #   - Check forum/open/ for topics needing its attention
-            #   - Check messages/{name}/{type}/pending/ for pending messages
-            #   - Process work in priority order (forum first, then messages)
-            #   - Move messages through pending/ -> active/ -> done/
-            #
-            # Example (placeholder):
-            # your-llm-cli --system-prompt "$PROMPT_FILE" --root "$ROOT_DIR"
-            echo "[$AGENT] TODO: Invoke LLM agent here with prompt=$PROMPT_FILE"
-
-            rm -f "$LOCK_FILE"
-        ) &
+    if [ -z "$NODE_CMD" ]; then
+        echo "[$NODE] No command defined in pipeline.yaml, skipping."
+        continue
     fi
+
+    # Launch node in background, detached from terminal
+    mkdir -p "$ROOT_DIR/logs"
+    (
+        cd "$ROOT_DIR"
+        export NODE_ROOT="$ROOT_DIR"
+        export NODE_NAME="$NODE"
+        eval "exec $NODE_CMD"
+    ) </dev/null &>"$ROOT_DIR/logs/${NODE}.log" &
+    RUNNING_PIDS[$NODE]=$!
 
 done
 

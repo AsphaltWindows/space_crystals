@@ -28,35 +28,48 @@ sed -i "/^## Close Votes$/a VOTE:${AGENT_NAME}" "$FULL_PATH"
 
 echo "Vote added for '$AGENT_NAME'."
 
-# Check if all required agents have voted
-# Agents with close_vote_required: false in their agent.yaml are excluded
+# Check if all required nodes have voted
+# Nodes with close_vote_required: false in pipeline.yaml are excluded
 PIPELINE="$ROOT_DIR/pipeline.yaml"
-REQUIRED_AGENTS=""
-IN_AGENTS_SECTION=false
+REQUIRED_NODES=""
+IN_NODES_SECTION=false
+CURRENT_NAME=""
+CURRENT_CLOSE_VOTE=""
 
 while IFS= read -r line; do
     if echo "$line" | grep -q '^[a-z_]*:'; then
-        if echo "$line" | grep -q '^agents:'; then
-            IN_AGENTS_SECTION=true
+        if echo "$line" | grep -q '^nodes:'; then
+            IN_NODES_SECTION=true
         else
-            IN_AGENTS_SECTION=false
+            # Flush last node before leaving section
+            if $IN_NODES_SECTION && [ -n "$CURRENT_NAME" ] && [ "$CURRENT_CLOSE_VOTE" != "false" ]; then
+                REQUIRED_NODES="$REQUIRED_NODES $CURRENT_NAME"
+            fi
+            IN_NODES_SECTION=false
         fi
         continue
     fi
-    [ "$IN_AGENTS_SECTION" = true ] || continue
+    [ "$IN_NODES_SECTION" = true ] || continue
+
     if echo "$line" | grep -q '^\s*-\?\s*name:'; then
-        AGENT_NAME=$(echo "$line" | sed 's/.*name:\s*//' | tr -d ' ')
-        AGENT_YAML="$ROOT_DIR/agents/${AGENT_NAME}/agent.yaml"
-        if [ -f "$AGENT_YAML" ] && grep -q '^\s*close_vote_required:\s*false' "$AGENT_YAML"; then
-            continue
+        # Flush previous node
+        if [ -n "$CURRENT_NAME" ] && [ "$CURRENT_CLOSE_VOTE" != "false" ]; then
+            REQUIRED_NODES="$REQUIRED_NODES $CURRENT_NAME"
         fi
-        REQUIRED_AGENTS="$REQUIRED_AGENTS $AGENT_NAME"
+        CURRENT_NAME=$(echo "$line" | sed 's/.*name:\s*//' | tr -d ' ')
+        CURRENT_CLOSE_VOTE=""
+    elif echo "$line" | grep -q '^\s*close_vote_required:'; then
+        CURRENT_CLOSE_VOTE=$(echo "$line" | sed 's/.*close_vote_required:\s*//' | tr -d ' ')
     fi
 done < "$PIPELINE"
+# Flush final node
+if $IN_NODES_SECTION && [ -n "$CURRENT_NAME" ] && [ "$CURRENT_CLOSE_VOTE" != "false" ]; then
+    REQUIRED_NODES="$REQUIRED_NODES $CURRENT_NAME"
+fi
 
 ALL_VOTED=true
-for AGENT in $REQUIRED_AGENTS; do
-    if ! grep -q "^VOTE:${AGENT}$" "$FULL_PATH"; then
+for NODE in $REQUIRED_NODES; do
+    if ! grep -q "^VOTE:${NODE}$" "$FULL_PATH"; then
         ALL_VOTED=false
         break
     fi
@@ -65,5 +78,5 @@ done
 if [ "$ALL_VOTED" = true ]; then
     CLOSED_DIR="$ROOT_DIR/forum/closed"
     mv "$FULL_PATH" "$CLOSED_DIR/"
-    echo "All agents voted. Topic moved to closed."
+    echo "All required nodes voted. Topic moved to closed."
 fi

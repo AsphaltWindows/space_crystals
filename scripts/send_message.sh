@@ -46,11 +46,11 @@ if [ "$TYPE_FOUND" = false ]; then
     exit 1
 fi
 
-# Validate recipient agent consumes this message type
+# Validate recipient node consumes this message type
 PENDING_DIR="$ROOT_DIR/messages/${TO}/${MESSAGE_TYPE}/pending"
 
 if [ ! -d "$PENDING_DIR" ]; then
-    echo "Error: agent '${TO}' does not have an inbox for message type '${MESSAGE_TYPE}'"
+    echo "Error: node '${TO}' does not have an inbox for message type '${MESSAGE_TYPE}'"
     echo "Expected directory: ${PENDING_DIR}"
     exit 1
 fi
