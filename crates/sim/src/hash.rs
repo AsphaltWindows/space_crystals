@@ -283,6 +283,7 @@ impl StateHash for Object {
             resource,
             orders,
             mover,
+            attack,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -294,9 +295,10 @@ impl StateHash for Object {
         hp.hash(h);
         placement.hash(h);
         resource.hash(h);
-        // Their impls live with their types (`orders.rs`, `mover.rs`).
+        // Their impls live with their types (`orders.rs`, `mover.rs`, `combat.rs`).
         orders.hash(h);
         mover.hash(h);
+        attack.hash(h);
     }
 }
 

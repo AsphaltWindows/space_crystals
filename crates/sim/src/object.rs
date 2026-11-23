@@ -7,6 +7,7 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::combat::AttackState;
 use crate::defs::{Footprint, ObjectDef, ObjectKind};
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::Mover;
@@ -35,6 +36,8 @@ pub struct Object {
     pub orders: Option<Orders>,
     /// Units: movement state (`docs/movement.md > 3`).
     pub mover: Option<Mover>,
+    /// Units that can attack: the attack sequence (`systems/combat.md`; `combat`).
+    pub attack: Option<AttackState>,
 }
 
 impl Object {

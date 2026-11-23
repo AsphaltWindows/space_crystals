@@ -3,7 +3,7 @@
 //! the commands the gate rejects change nothing, and any per-object values a file holds are
 //! handled.
 
-use sc_sim::testing::ScenarioBuilder;
+use sc_sim::testing::{self, ScenarioBuilder};
 use sc_sim::{
     Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Replay, Rng, SU_PER_GU, Sim,
     SimConfig, SimEvent, Spawn, SpawnAt, SpawnSettings, Target, TickInputs, TilePos, Vec2, nav,
@@ -74,16 +74,29 @@ fn random_order(rng: &mut Rng, sim: &Sim, player: PlayerId) -> Command {
         .filter(|o| o.owner == Some(player) && o.orders.is_some())
         .map(|o| o.id)
         .collect();
-    let units = (0..rng.below(6))
+    let units: Vec<ObjectId> = (0..rng.below(6))
         .map(|_| match (rng.below(3), own.is_empty()) {
             (0, _) | (_, true) => random_id(rng, sim),
             _ => own[rng.below(own.len() as u32) as usize],
         })
         .collect();
+    // Attacks often go for the destructible object nearest to the first unit, which may be in range.
+    let nearest = units.first().and_then(|&id| {
+        let unit = sim.object(id)?;
+        sim.nearest_object(unit.pos, |o| o.id != id && o.hp.is_some())
+            .map(|o| o.id)
+    });
     // Half of them moves to a point.
     let kind = match rng.below(12) {
         0 => OrderKind::Move(Target::Object(random_id(rng, sim))),
-        1 => OrderKind::Attack(random_id(rng, sim)),
+        1 => {
+            // Drawn either way, so that the stream of random numbers stays the same.
+            let random = random_id(rng, sim);
+            OrderKind::Attack(match nearest {
+                Some(id) if random.0.is_multiple_of(2) => id,
+                _ => random,
+            })
+        }
         2 => OrderKind::AttackMove(random_point(rng, sim)),
         3 => OrderKind::Patrol(random_point(rng, sim)),
         4 => OrderKind::Hold,
@@ -166,6 +179,8 @@ fn check_invariants(sim: &Sim) {
             );
         }
     }
+    // The removal path (`ARCHITECTURE.md > Combat`) leaves no reference to an object that is gone.
+    assert_eq!(testing::dangling_references(sim), []);
 }
 
 struct Run {
@@ -203,7 +218,11 @@ fn fuzz_run(seed: u64) -> Run {
             match e {
                 SimEvent::Spawned(_) => spawned += 1,
                 SimEvent::Removed(_) => removed += 1,
-                SimEvent::SuppliesDelivered { .. } | SimEvent::MoveFailed { .. } => {}
+                SimEvent::SuppliesDelivered { .. }
+                | SimEvent::MoveFailed { .. }
+                | SimEvent::Attacked { .. }
+                | SimEvent::Hit { .. }
+                | SimEvent::Died { .. } => {}
             }
         }
         unit_steps += sim

@@ -12,6 +12,7 @@
 //! - [`map_render`]: the terrain mesh and the grid overlay;
 //! - [`object_render`]: placeholder visuals of sim objects;
 //! - [`path_overlay`]: the units' remaining paths, a development view;
+//! - [`combat_effects`]: placeholder combat feedback: tracers, HP bars, death markers;
 //! - [`hud`]: the game mode's HUD frame;
 //! - [`editor`]: the map editor (`--editor`), with its own UI, tools and play-test;
 //! - [`qa`]: screenshots, exit at a tick, state dump, commands at given ticks.
@@ -21,6 +22,7 @@
 
 pub mod camera;
 pub mod cli;
+pub mod combat_effects;
 pub mod coords;
 pub mod editor;
 pub mod hud;
@@ -37,6 +39,7 @@ use bevy::prelude::*;
 use sc_sim::{PlayerId, Scenario, SimConfig};
 
 use crate::camera::GameCameraPlugin;
+use crate::combat_effects::CombatEffectsPlugin;
 use crate::editor::{EditorConfig, EditorPlugin};
 use crate::hud::HudPlugin;
 use crate::input::{ActionInputPlugin, InputContext};
@@ -170,6 +173,7 @@ pub fn build_app(config: AppConfig) -> App {
         PathOverlayPlugin {
             visible: config.qa.show_paths,
         },
+        CombatEffectsPlugin,
         QaPlugin { config: config.qa },
     ))
     // The game mode; the editor hides the HUD except in its play-tests.

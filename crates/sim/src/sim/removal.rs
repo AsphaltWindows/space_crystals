@@ -1,0 +1,125 @@
+//! The one way objects leave the game: destroyed in combat (phase 5e) or removed by a debug command. Whatever the
+//! cause, every reference other objects hold to them goes too, so no state ever names an object that is gone.
+
+use super::Sim;
+use crate::events::SimEvent;
+use crate::ids::ObjectId;
+use crate::mover::{MoveGoal, MoveStatus};
+use crate::object::Object;
+use crate::orders::{Order, OrderKind, Target};
+
+impl Sim {
+    /// Removes the objects `ids` (those that exist), each with a `SimEvent::Removed`, in id order. Then, for every
+    /// other object: an order naming one of them completes if it is the current order and is dropped if queued
+    /// (`systems/controls/behaviors.md > AttackingObject` 5: the target destroyed, the behaviour is complete); a move
+    /// towards one ends as `MoveStatus::TargetLost`; an attack on one stops (`combat::AttackState::forget`).
+    ///
+    /// The grids aren't touched: phase 5b catches up with a footprint that went away, and a removal after it must
+    /// sync them (`paths::sync`).
+    pub(super) fn remove_objects(&mut self, ids: &[ObjectId]) {
+        let mut gone: Vec<ObjectId> = ids.to_vec();
+        gone.sort_unstable();
+        gone.dedup();
+        gone.retain(|id| self.objects.remove(id).is_some());
+        if gone.is_empty() {
+            return;
+        }
+        self.events.extend(gone.iter().map(|&id| SimEvent::Removed(id)));
+        for o in self.objects.values_mut() {
+            forget(o, &gone);
+        }
+    }
+}
+
+/// `o` drops every reference to the objects `gone` (sorted by id).
+fn forget(o: &mut Object, gone: &[ObjectId]) {
+    let is_gone = |id: ObjectId| gone.binary_search(&id).is_ok();
+    let names_gone = |order: &Order| order_target(order).is_some_and(is_gone);
+    if let Some(orders) = &mut o.orders {
+        if orders.current.as_ref().is_some_and(|active| names_gone(&active.order)) {
+            orders.current = None;
+        }
+        orders.queue.retain(|order| !names_gone(order));
+    }
+    if let Some(mover) = &mut o.mover
+        && let MoveGoal::Object { id, .. } = mover.goal
+        && is_gone(id)
+    {
+        mover.finish(MoveStatus::TargetLost);
+    }
+    if let Some(attack) = &mut o.attack {
+        attack.forget(gone);
+    }
+}
+
+/// The object an order names, if any.
+fn order_target(order: &Order) -> Option<ObjectId> {
+    match order.kind {
+        OrderKind::Move(Target::Object(id)) | OrderKind::Attack(id) => Some(id),
+        OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
+        OrderKind::Hold | OrderKind::Stop => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use glam::Vec2;
+
+    use super::*;
+    use crate::combat::{AttackPhase, AttackState};
+    use crate::defs::ObjectKind;
+    use crate::ids::PlayerId;
+    use crate::orders::{ActiveOrder, OrderGroup};
+    use crate::scenarios;
+
+    /// Every kind of reference, including a move towards an object, which no behaviour gives yet (slice E).
+    #[test]
+    fn removal_clears_every_reference_to_the_removed() {
+        let mut sim = Sim::new(&scenarios::empty(8, 6));
+        let mut unit = |x| {
+            sim.insert_object(
+                ObjectKind::Peacekeeper,
+                Some(PlayerId(1)),
+                Vec2::new(x, 100.0),
+                None,
+                None,
+            )
+        };
+        let (a, b, c) = (unit(100.0), unit(200.0), unit(300.0));
+        let order = |kind| Order {
+            kind,
+            group: OrderGroup(0),
+            slot: None,
+        };
+        let o = sim.objects.get_mut(&a).unwrap();
+        let orders = o.orders.as_mut().unwrap();
+        orders.current = Some(ActiveOrder {
+            order: order(OrderKind::Move(Target::Object(b))),
+            since: 1,
+        });
+        let point = order(OrderKind::Move(Target::Point(Vec2::ONE)));
+        orders
+            .queue
+            .extend([order(OrderKind::Attack(b)), order(OrderKind::Attack(c)), point.clone()]);
+        let mover = o.mover.as_mut().unwrap();
+        mover.go_to(MoveGoal::Object { id: b, reach: 10.0 }, None, 1);
+        o.attack = Some(AttackState {
+            target: Some(b),
+            phase: Some(AttackPhase::Aiming { target: b }),
+            elapsed: 1,
+        });
+        sim.events.clear();
+
+        sim.remove_objects(&[b, ObjectId(99), b]);
+        assert_eq!(sim.events, [SimEvent::Removed(b)], "once, and only what existed");
+        assert!(!sim.objects.contains_key(&b));
+        let o = &sim.objects[&a];
+        let orders = o.orders.as_ref().unwrap();
+        assert_eq!(orders.current, None, "the current order completed");
+        assert_eq!(orders.queue, [order(OrderKind::Attack(c)), point]);
+        let mover = o.mover.as_ref().unwrap();
+        assert_eq!((mover.goal, mover.status), (MoveGoal::None, MoveStatus::TargetLost));
+        assert_eq!(o.attack, Some(AttackState::default()));
+        assert!(sim.objects.contains_key(&c));
+    }
+}

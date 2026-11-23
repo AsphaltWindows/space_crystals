@@ -11,9 +11,10 @@
 //! - Fixed 16 ticks per second; all durations are counted in ticks.
 //! - Every gameplay number cites its design section (`path/file.md > Section`).
 
-mod combat;
+pub mod combat;
 pub mod command;
 pub mod defs;
+pub mod elevation;
 pub mod events;
 pub(crate) mod hash;
 pub mod ids;
@@ -36,6 +37,7 @@ pub mod testing;
 pub mod units;
 mod vision;
 
+pub use combat::{AttackPhase, AttackState};
 pub use command::{Command, DebugCommand, PlayerCommand, TickInputs};
 pub use defs::{Category, Footprint, ObjectDef, ObjectKind};
 pub use events::SimEvent;

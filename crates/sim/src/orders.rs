@@ -5,8 +5,10 @@
 //! ([`slots`]); it never moves anything. Phase 5a ([`update`]) completes orders, starts the next one and runs the
 //! behaviours, which write `Mover::goal` and read `Mover::status`.
 //!
-//! Behaviours in this slice: Move to a point, Stop and Hold. Move to an object, Attack, AttackMove and Patrol are
-//! accepted into the queue but complete at once (slice E gives them their behaviour).
+//! Behaviours in this slice: Move to a point, Stop, Hold, and Attack without the approach: a unit engages its
+//! target (`combat::AttackState::target`), attacks it while it is in range, and the order completes when the target
+//! is gone. Move to an object, AttackMove and Patrol are accepted into the queue but complete at once (slice E gives
+//! them their behaviour).
 
 pub(crate) mod slots;
 
@@ -15,6 +17,7 @@ use std::collections::{BTreeMap, VecDeque};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::combat::AttackState;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus, Mover};
@@ -125,21 +128,22 @@ impl Orders {
 
 /// Phase 5a (`docs/movement.md > 4`): for every unit before `first_new`, in id order, complete the current order
 /// if its behaviour is done, start queued orders until one is still running, and let that behaviour write the
-/// unit's goal. It reads `Mover::status`, which phase 5d set last tick.
+/// unit's goal and the target its attack engages. It reads `Mover::status`, which phase 5d set last tick, and
+/// `AttackState::target`, which phase 5e drops when the unit can't attack it.
 pub fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId, tick: Tick) {
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
         let (Some(orders), Some(mover)) = (&mut o.orders, &mut o.mover) else {
             continue;
         };
-        update_unit(orders, mover, tick);
+        update_unit(orders, mover, o.attack.as_mut(), tick);
     }
 }
 
-fn update_unit(orders: &mut Orders, mover: &mut Mover, tick: Tick) {
+fn update_unit(orders: &mut Orders, mover: &mut Mover, mut attack: Option<&mut AttackState>, tick: Tick) {
     // Each pass completes an order or starts one from the queue, which is bounded, so this ends.
     loop {
         if let Some(active) = &orders.current {
-            if !is_complete(&active.order, mover) {
+            if !is_complete(&active.order, mover, attack.as_deref()) {
                 return;
             }
             orders.current = None;
@@ -148,13 +152,21 @@ fn update_unit(orders: &mut Orders, mover: &mut Mover, tick: Tick) {
             // No order left: the unit has no behaviour and keeps its last move's outcome.
             return;
         };
-        start(&order, mover, tick);
+        start(&order, mover, attack.as_deref_mut(), tick);
         orders.current = Some(ActiveOrder { order, since: tick });
     }
 }
 
 /// A behaviour begins (`systems/controls/behaviors.md`).
-fn start(order: &Order, mover: &mut Mover, tick: Tick) {
+fn start(order: &Order, mover: &mut Mover, attack: Option<&mut AttackState>, tick: Tick) {
+    // `> AttackingObject`: the attack engages the order's target; every other order disengages it (interrupting an
+    // attack being aimed, `systems/combat.md > Aiming`). No auto-targeting yet (slice E).
+    if let Some(attack) = attack {
+        attack.engage(match order.kind {
+            OrderKind::Attack(id) => Some(id),
+            _ => None,
+        });
+    }
     match order.kind {
         // `> MovingToLocation`: the unit goes to its slot; the group plans from the clicked point.
         OrderKind::Move(Target::Point(click)) => {
@@ -167,16 +179,17 @@ fn start(order: &Order, mover: &mut Mover, tick: Tick) {
         }
         // `> StoppingBehavior`, `> HoldingPosition`: no goal. Infinite deceleration stops the unit at once.
         OrderKind::Stop | OrderKind::Hold => mover.stop(),
-        // TODO(slice E): `> MovingToObject`, `> AttackingObject`, `> AttackMovingToLocation`, `> Patrolling`.
+        // `> AttackingObject` without its approach: the unit attacks from where it stands, while the target is in
+        // range (phase 5e). TODO(E): chase: `> MovingToObject` until in range, and again when the target leaves it.
+        OrderKind::Attack(_) => mover.stop(),
+        // TODO(slice E): `> MovingToObject`, `> AttackMovingToLocation`, `> Patrolling`.
         // Until then they stop the unit and complete at once.
-        OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => {
-            mover.stop()
-        }
+        OrderKind::Move(Target::Object(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => mover.stop(),
     }
 }
 
 /// Whether the order's behaviour is complete, so the next order may start.
-fn is_complete(order: &Order, mover: &Mover) -> bool {
+fn is_complete(order: &Order, mover: &Mover, attack: Option<&AttackState>) -> bool {
     match order.kind {
         // `> MovingToLocation`: complete when stopped at the target, or after failing to make progress
         // (`> Failure`).
@@ -188,10 +201,12 @@ fn is_complete(order: &Order, mover: &Mover) -> bool {
         OrderKind::Stop => true,
         // `> HoldingPosition`: never completes; only a new command ends it.
         OrderKind::Hold => false,
+        // `> AttackingObject` 5: complete when the target is destroyed (the removal path completes the order at once,
+        // `Sim::remove_objects`), or when the attack disengaged it: the unit can't attack it at all (phase 5e), or
+        // can't attack.
+        OrderKind::Attack(id) => attack.is_none_or(|a| a.target != Some(id)),
         // TODO(slice E): their behaviours; no-ops until then.
-        OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => {
-            true
-        }
+        OrderKind::Move(Target::Object(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => true,
     }
 }
 
@@ -318,18 +333,18 @@ mod tests {
         let mut mover = Mover::default();
         orders.give(move_to(10.0, 0.0), true);
         orders.give(move_to(20.0, 0.0), true);
-        update_unit(&mut orders, &mut mover, 1);
+        update_unit(&mut orders, &mut mover, None, 1);
         assert_eq!(mover.goal, MoveGoal::Point(Vec2::new(10.0, 0.0)));
         assert_eq!(orders.queue.len(), 1);
         // Still on the way: nothing changes.
-        update_unit(&mut orders, &mut mover, 2);
+        update_unit(&mut orders, &mut mover, None, 2);
         assert_eq!(orders.current.as_ref().map(|a| a.since), Some(1));
         mover.finish(MoveStatus::Arrived);
-        update_unit(&mut orders, &mut mover, 3);
+        update_unit(&mut orders, &mut mover, None, 3);
         assert_eq!(mover.goal, MoveGoal::Point(Vec2::new(20.0, 0.0)));
         assert_eq!(orders.current.as_ref().map(|a| a.since), Some(3));
         mover.finish(MoveStatus::Failed);
-        update_unit(&mut orders, &mut mover, 4);
+        update_unit(&mut orders, &mut mover, None, 4);
         assert!(orders.is_idle());
         assert_eq!(mover.status, MoveStatus::Failed, "the last outcome stays readable");
     }
@@ -339,15 +354,15 @@ mod tests {
         let mut orders = Orders::default();
         let mut mover = Mover::default();
         orders.give(move_to(10.0, 0.0), true);
-        update_unit(&mut orders, &mut mover, 1);
+        update_unit(&mut orders, &mut mover, None, 1);
         orders.give(order(OrderKind::Stop), true);
         orders.give(order(OrderKind::Hold), false);
         orders.give(move_to(30.0, 0.0), true);
-        update_unit(&mut orders, &mut mover, 2);
+        update_unit(&mut orders, &mut mover, None, 2);
         assert_eq!(mover.goal, MoveGoal::None);
         assert_eq!(orders.current.as_ref().map(|a| a.order.kind), Some(OrderKind::Hold));
         for tick in 3..50 {
-            update_unit(&mut orders, &mut mover, tick);
+            update_unit(&mut orders, &mut mover, None, tick);
         }
         assert_eq!(orders.queue.len(), 1, "orders queued behind Hold wait");
         assert_eq!(mover.goal, MoveGoal::None);
@@ -355,7 +370,7 @@ mod tests {
         let mut stopping = Orders::default();
         stopping.give(order(OrderKind::Stop), true);
         stopping.give(move_to(5.0, 5.0), true);
-        update_unit(&mut stopping, &mut mover, 60);
+        update_unit(&mut stopping, &mut mover, None, 60);
         assert_eq!(
             mover.goal,
             MoveGoal::Point(Vec2::new(5.0, 5.0)),
@@ -363,6 +378,34 @@ mod tests {
         );
     }
 
+    /// `systems/controls/behaviors.md > AttackingObject`: the attack engages the order's target until the unit can't
+    /// attack it any more; any other order disengages it.
+    #[test]
+    fn attack_engages_its_target_until_it_is_dropped() {
+        let mut orders = Orders::default();
+        let mut mover = Mover::default();
+        let mut attack = AttackState::default();
+        mover.go_to(MoveGoal::Point(Vec2::ONE), None, 1);
+        orders.give(order(OrderKind::Attack(ObjectId(3))), true);
+        orders.give(order(OrderKind::Attack(ObjectId(4))), true);
+        update_unit(&mut orders, &mut mover, Some(&mut attack), 2);
+        assert_eq!(attack.target, Some(ObjectId(3)));
+        assert_eq!(mover.goal, MoveGoal::None, "it attacks from where it stands");
+        for tick in 3..10 {
+            update_unit(&mut orders, &mut mover, Some(&mut attack), tick);
+        }
+        assert_eq!(orders.current.as_ref().map(|a| a.since), Some(2), "runs while engaged");
+        // Phase 5e drops the target: the order completes, and the next one engages its own.
+        attack.engage(None);
+        update_unit(&mut orders, &mut mover, Some(&mut attack), 10);
+        assert_eq!(attack.target, Some(ObjectId(4)));
+        assert_eq!(orders.current.as_ref().map(|a| a.since), Some(10));
+        orders.give(move_to(5.0, 5.0), false);
+        update_unit(&mut orders, &mut mover, Some(&mut attack), 11);
+        assert_eq!(attack.target, None, "another order disengages");
+    }
+
+    /// A unit that can't attack (no `AttackState`) completes Attack at once, like the orders slice E builds.
     #[test]
     fn later_orders_are_no_ops_for_now() {
         let mut orders = Orders::default();
@@ -376,7 +419,7 @@ mod tests {
         ] {
             orders.give(order(kind), true);
         }
-        update_unit(&mut orders, &mut mover, 2);
+        update_unit(&mut orders, &mut mover, None, 2);
         assert!(orders.is_idle());
         assert_eq!(mover.goal, MoveGoal::None, "they stop the unit");
     }

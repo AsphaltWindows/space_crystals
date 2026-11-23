@@ -377,7 +377,7 @@ pub enum TargetType {
     },
 }
 
-/// `systems/combat.md > AttackAttributes`: data for the combat slice; nothing reads it yet.
+/// `systems/combat.md > AttackAttributes`, read by the attack sequence (`combat`).
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct AttackAttrs {
     pub attack_type: AttackType,

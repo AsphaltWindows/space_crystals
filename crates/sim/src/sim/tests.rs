@@ -1,4 +1,5 @@
 use super::*;
+use crate::combat::{AttackPhase, AttackState};
 use crate::command::{Command, DebugCommand};
 use crate::ids::SlotId;
 use crate::map::{Tile, TilePresetId};
@@ -40,12 +41,14 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         resource: None,
         orders: Some(Orders::default()),
         mover: Some(Mover::default()),
+        attack: Some(AttackState::default()),
     };
     sim.objects.insert(id, unit);
     id
 }
 
-/// Gives unit `id` a current order, a queued one and a path, so every field of its orders and mover has a value.
+/// Gives unit `id` a current order, a queued one, a path and an attack being aimed, so every field of its orders,
+/// mover and attack has a value.
 fn make_busy(sim: &mut Sim, id: u32) {
     let order = Order {
         kind: OrderKind::Move(Target::Point(Vec2::new(40.0, 50.0))),
@@ -60,10 +63,19 @@ fn make_busy(sim: &mut Sim, id: u32) {
     m.go_to(crate::mover::MoveGoal::Point(Vec2::new(41.0, 51.0)), None, 2);
     m.follow(vec![pos, Vec2::new(41.0, 51.0)], Vec2::new(41.0, 51.0), 0);
     m.avoid_tiles.push(TilePos::new(1, 2));
+    obj(sim, id).attack = Some(AttackState {
+        target: Some(ObjectId(2)),
+        phase: Some(AttackPhase::Aiming { target: ObjectId(2) }),
+        elapsed: 1,
+    });
 }
 
 fn orders(sim: &mut Sim, id: u32) -> &mut Orders {
     obj(sim, id).orders.as_mut().expect("a unit")
+}
+
+fn attack(sim: &mut Sim, id: u32) -> &mut AttackState {
+    obj(sim, id).attack.as_mut().expect("a unit that attacks")
 }
 
 fn mover(sim: &mut Sim, id: u32) -> &mut Mover {
@@ -215,6 +227,24 @@ fn state_hash_covers_every_field() {
         ("blocked_ticks", |s| mover(s, 3).blocked_ticks += 1),
         ("avoid_side", |s| mover(s, 3).avoid_side = crate::mover::Side::Left),
         ("avoid_until", |s| mover(s, 3).avoid_until += 1),
+        ("attack none", |s| obj(s, 3).attack = None),
+        ("attack target", |s| attack(s, 3).target = Some(ObjectId(1))),
+        ("attack target none", |s| attack(s, 3).target = None),
+        ("attack phase none", |s| attack(s, 3).phase = None),
+        ("attack phase", |s| {
+            attack(s, 3).phase = Some(AttackPhase::Firing {
+                target: Some(ObjectId(2)),
+            });
+        }),
+        ("aimed target", |s| {
+            attack(s, 3).phase = Some(AttackPhase::Aiming { target: ObjectId(1) });
+        }),
+        ("fired target", |s| {
+            attack(s, 3).phase = Some(AttackPhase::Firing { target: None });
+        }),
+        ("cooldown", |s| attack(s, 3).phase = Some(AttackPhase::Cooldown)),
+        ("reloading", |s| attack(s, 3).phase = Some(AttackPhase::Reloading)),
+        ("attack elapsed", |s| attack(s, 3).elapsed += 1),
     ];
     for (name, mutate) in mutations {
         let mut sim = base.clone();

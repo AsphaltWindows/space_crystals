@@ -26,12 +26,15 @@ use std::collections::BTreeMap;
 
 use glam::Vec2;
 
+use crate::combat::AttackPhase;
 use crate::command::{Command, DebugCommand, PlayerCommand, TickInputs};
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId, SlotId};
 use crate::map::Map;
-use crate::orders::OrderKind;
+use crate::mover::MoveGoal;
+use crate::object::Object;
+use crate::orders::{OrderKind, Target};
 use crate::replay::Replay;
 use crate::scenario::{Scenario, Spawn, SpawnAt, SpawnSettings};
 use crate::scenarios;
@@ -212,4 +215,41 @@ impl TestSim {
     pub fn events(&self) -> &[(Tick, SimEvent)] {
         &self.events
     }
+}
+
+/// The objects `o` refers to, in no particular order: those its orders (current and queued) name, its move's goal
+/// object, and its attack's target and the target of its attack phase.
+pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
+    let mut ids = Vec::new();
+    if let Some(orders) = &o.orders {
+        let kinds = orders
+            .current
+            .iter()
+            .map(|active| active.order.kind)
+            .chain(orders.queue.iter().map(|order| order.kind));
+        for kind in kinds {
+            if let OrderKind::Attack(id) | OrderKind::Move(Target::Object(id)) = kind {
+                ids.push(id);
+            }
+        }
+    }
+    if let Some(MoveGoal::Object { id, .. }) = o.mover.as_ref().map(|m| m.goal) {
+        ids.push(id);
+    }
+    if let Some(attack) = &o.attack {
+        ids.extend(attack.target);
+        if let Some(AttackPhase::Aiming { target } | AttackPhase::Firing { target: Some(target) }) = attack.phase {
+            ids.push(target);
+        }
+    }
+    ids
+}
+
+/// Every reference to an object that no longer exists, as `(holder, missing)` pairs ([`referenced_ids`]). The
+/// removal path (`Sim::remove_objects`) leaves none behind.
+pub fn dangling_references(sim: &Sim) -> Vec<(ObjectId, ObjectId)> {
+    sim.objects()
+        .flat_map(|o| referenced_ids(o).into_iter().map(move |id| (o.id, id)))
+        .filter(|&(_, id)| sim.object(id).is_none())
+        .collect()
 }

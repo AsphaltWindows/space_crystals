@@ -240,8 +240,13 @@ impl Sim {
         );
         // 5d: the one movement pipeline, the single place that moves units.
         movement::step(&mut self.objects, first_new);
-        // 5e: shoots from the positions movement committed.
-        combat::step(&mut self.objects, first_new);
+        // 5e: shoots from the positions movement committed. The dead leave through the removal path; a footprint
+        // they leave behind no longer blocks, so the grids follow as in 5b.
+        let dead = combat::step(&mut self.objects, &self.map, first_new, &mut self.events);
+        if !dead.is_empty() {
+            self.remove_objects(&dead);
+            paths::sync(&mut self.nav, &self.map, &self.objects, &mut self.nav_version);
+        }
         // 5f: sees the tick's final positions.
         vision::update(&self.objects);
         self.update_supply_stations(first_new);
@@ -267,11 +272,7 @@ impl Sim {
             } => {
                 self.insert_object(kind, owner, pos, placement, None);
             }
-            Checked::Remove(id) => {
-                if self.objects.remove(&id).is_some() {
-                    self.events.push(SimEvent::Removed(id));
-                }
-            }
+            Checked::Remove(id) => self.remove_objects(&[id]),
             Checked::Teleport { id, pos } => {
                 if let Some(o) = self.objects.get_mut(&id) {
                     // No interpolation from the old position.
@@ -333,6 +334,12 @@ impl Sim {
             resource,
             orders: is_unit.then(Orders::default),
             mover: is_unit.then(Mover::default),
+            // `systems/combat.md > AttackAttributes`: units that can attack; their weapon starts ready.
+            attack: def
+                .unit
+                .as_ref()
+                .and_then(|unit| unit.attack.as_ref())
+                .map(|_| combat::AttackState::default()),
         };
         self.objects.insert(id, object);
         self.events.push(SimEvent::Spawned(id));
@@ -443,5 +450,6 @@ impl TryFrom<SimState> for Sim {
 
 mod gate;
 mod preview;
+mod removal;
 #[cfg(test)]
 mod tests;

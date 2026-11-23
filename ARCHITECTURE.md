@@ -145,9 +145,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 - **Core fields**: `id`, `kind`, `owner` (`None` means neutral), `pos`, `prev_pos`, `facing`, `prev_facing` and `hp`
   (`None` means indestructible).
 - **Capabilities**: today these are `placement` (the tile footprint), `resource` (`ResourceState`), and for units
-  `orders` (`Orders`, `orders.rs`: the current order and a queue of at most `MAX_QUEUED_ORDERS`) and `mover`
-  (`Mover`, `mover.rs`: goal, status, path and the replanning state of `docs/movement.md > 3`). Weapons, production
-  and the rest arrive as more optional fields, each with its own module. Never add them as separate stores keyed by
+  `orders` (`Orders`, `orders.rs`: the current order and a queue of at most `MAX_QUEUED_ORDERS`), `mover`
+  (`Mover`, `mover.rs`: goal, status, path and the replanning state of `docs/movement.md > 3`) and, for units that
+  can attack, `attack` (`AttackState`, `combat.rs`: see *Combat*). Production and the rest arrive as more optional
+  fields, each with its own module. Never add them as separate stores keyed by
   id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
@@ -191,7 +192,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
    - 5d `movement::step`: the mover, the only code that writes a unit's `pos` besides a teleport. In M1-B it is
      naive: it follows the waypoints at top speed, first turning to face each leg (at most TurnRate per tick), and
      arrives exactly on its goal. No unit–unit collision yet (slice D).
-   - 5e `combat::step` (slice W) and 5f `vision::update` (slice V): empty so far.
+   - 5e `combat::step`: attack phases, the tick's list of hits applied together, deaths (see *Combat*). The dead
+     leave through `Sim::remove_objects`, then `paths::sync` runs again in case a footprint went with them.
+   - 5f `vision::update` (slice V): empty so far.
    - `update_supply_stations` (`core/map.md > SupplyDeliveryStation`).
 
 - **Spawn tick**: an object that a command creates during tick `t` is first updated by the systems in tick `t + 1`.
@@ -212,6 +215,41 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   - **Pathfinding**: cap repath attempts (`mover::MAX_REPATHS`). A* needs a correct closed set, a best-cost map and
     deterministic tie-breaking. Overwriting a parent at equal cost made zigzag paths.
   - **Occupancy** is domain-aware. For example, underground expansions don't block surface units.
+
+## Combat
+
+Slice W (`combat.rs`, `combat/`, `elevation.rs`; `systems/combat.md`). A unit that can attack has an `AttackState`:
+the target its behaviour engages (`target`, set by its Attack order in 5a), the phase of the running sequence and the
+ticks spent in it. Hashed and serialized like all state.
+
+- **Phases** (`combat/phases.rs`): Aiming → Firing → Cooldown → Reloading, each lasting exactly its duration in
+  ticks (zero included). A sequence starts in 5e when none runs and the engaged target is valid and in range; the
+  next one at the earliest in the tick after Reloading ends, so a cycle takes Aim + Firing + Cooldown + Reload ticks
+  (Peacekeeper 17, Guard 8). Ordered in tick `t`, the first hit lands at the end of tick `t + Aim + Firing − 1`.
+  Aiming turns the base towards the target at TurnRate (the attack writes `facing`) and lasts until it faces it
+  within `FACING_TOLERANCE`. Aiming and Reloading are interruptible: another order, or a target that is gone or out
+  of range, cancels an aim; a reload keeps counting. Firing and Cooldown run on whatever happens.
+- **Queries**: `combat::may_move(&Object)` and `may_turn(&Object)`: whether the attack leaves the base free to move
+  or turn this tick (`> UnitBaseSource`: not while Aiming, Firing or in Cooldown; turret units always). The movement
+  step must keep a unit that may not move in place, and one that may not turn at its facing; the behaviours start a
+  chase only when `may_move` holds.
+- **Range** (`combat/targeting.rs`): from the attacker's centre to the nearest point of the target's silhouette or
+  footprint (`RANGE_MEASURE`, question Q0009's default); within Range and beyond MinRange, both inclusive; the
+  TargetDomain must allow the target's domain. `can_attack_now(map, attacker, target)` is the check for behaviours.
+- **ElevationModifier** (`elevation.rs`, shared with vision): `Elevation::of` an object is its elevation level (the
+  height rounded down), or `Exempt` for air units; `modifier(source, target)` is +1/−1/0 grid unit, binary.
+  `attack_range` and `sight_range` apply it; melee attacks don't take it.
+- **Hits** (`combat/damage.rs`): every attacker acts against one snapshot of the targets, and an attack's effect
+  lands at the end of Firing as a `Hit` on the tick's list. The list is applied once all have acted, so every hit
+  counts, including those on a unit another hit has killed and those of a unit that dies in the same tick.
+  `hit_damage` follows `> SingleTargetDamage` and `> DamageModifierOrder` (pre-armor multipliers, PointArmor,
+  directional multiplier, MinimumDamage); HP is fractional, nothing is rounded. An object at 0 HP or less dies.
+- **Removal path**: `Sim::remove_objects` (`sim/removal.rs`) is the one way objects leave the game, for deaths and
+  debug removals alike. It emits `Removed` and clears every reference to the removed: a current order naming one
+  completes, queued ones are dropped, a move towards one ends `TargetLost`, an attack on one stops (an aim is
+  cancelled, a shot being fired hits nothing). `testing::dangling_references` checks that none are left.
+- **Not yet**: chasing, AttackMove, auto-targeting and leashes (slice E: the Attack order waits while its target is
+  out of range, `TODO(E): chase`), vision checks on targets (slice V), turrets, projectiles, AoE, Riot Shield.
 
 ## Navigation
 
@@ -270,8 +308,8 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   finite and on the map, target objects must exist (`UnknownObject`) and an attack's target be destructible
   (`NotAttackable`). Without `queue` the order replaces the unit's queue and current order; with it, the order is
   appended (a full queue drops it). Each order command is one group (`Sim::next_group`); a move to a point gives
-  each unit its slot. In M1-B only `Move` to a point, `Stop` and `Hold` behave; the others complete at once
-  (TODO slice E).
+  each unit its slot. `Move` to a point, `Stop` and `Hold` behave, and `Attack` without its approach (see *Combat*);
+  the others complete at once (TODO slice E).
 - **Debug spawns and teleports of units** keep the unit invariants: a box on blocked ground or across the map's edge
   is `Reject::Blocked`, one overlapping another unit of its layer `Reject::Occupied(id)`, and so is a blocking
   footprint spawned onto a ground unit. Touching is allowed. A teleported unit plans its path again.
@@ -290,8 +328,8 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   `sc_sim::Replay` (serde) with `start`/`record`/`step`/`run`. The client must never submit a command with a
   non-finite number. The sim would reject it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to
   load. Validate at the input layer.
-- **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, …) are output only, for effects,
-  sounds and UI. The sim never reads them. `Sim::events()` holds only the latest step's events, and `Sim::new`
+- **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`, …) are
+  output only, for effects, sounds and UI. The sim never reads them. `Sim::events()` holds only the latest step's events, and `Sim::new`
   discards the events from the scenario's initial spawns.
 
 ## Sim scenarios and tests
@@ -416,6 +454,10 @@ out by the same rules.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer. Its one mesh is rebuilt every frame while it is shown.
+- **Combat effects** (`combat_effects.rs`, placeholders until Q0001): a tracer for each `SimEvent::Attacked`
+  (`TRACER_TICKS`), HP bars over damaged units, a fading marker for each `SimEvent::Died` (`DEATH_MARKER_TICKS`).
+  One alpha-blended mesh in the overlays layer, rebuilt every frame while anything shows; effects age by the sim's
+  tick and the render alpha, so screenshots stay deterministic.
 - Never make one entity per tile. Draw the terrain as one mesh or texture, or a few chunks. Fog of war will be one
   texture that is updated when visibility changes, never per-tile materials.
 - Create mesh and material handles once and cache them in a `Resource`. Never create assets per frame, per object or
