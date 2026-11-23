@@ -185,6 +185,27 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     tie-breaking. Overwriting a parent at equal cost made zigzag paths.
   - **Occupancy** is domain-aware. For example, underground expansions don't block surface units.
 
+## Navigation
+
+The design is `docs/movement.md > 5` (binding for M1 movement), and the code is `crates/sim/src/nav.rs` and `nav/`.
+The module is pure: it takes the `Map` and tile rectangles and knows nothing of `Object`, `Sim` or the tick.
+
+- **`Nav`** holds one `NavGrid` per `(NavClass, size class)`: a blocked bit and a component label per tile. It is
+  derived data, never hashed or serialized. `Nav::rebuild(map, blockers)` rebuilds it in full when the map or a
+  blocking footprint changes. The caller chooses the blocking footprints (`NavRules::footprint_blocks`). Units are
+  never in a grid.
+- **`Search`** is the scratch for `astar` and the Dijkstra `field`. Keep one and reuse it; nothing carries over
+  between searches. Searches are integer-only. An unreachable goal never searches: retarget it first
+  (`NavGrid::nearest_in_component`), as `find_path` does.
+- **`los`, `box_clear`, `smooth`**: line of sight and waypoints for a unit's box (half extents). Touching is free.
+- **`serve(nav, search, requests, PATH_BUDGET)`** serves a tick's `PathRequest`s in `(since, id)` order within the
+  expansion budget, with one shared field per order group of `GROUP_FIELD_MIN` or more. A `Path` is unit state
+  (serde, `PartialEq`, `StateHash`); `NavCounters` are output only.
+- **Open questions** (Q0011) are the switches `RESOURCES_BLOCK`, `RUGGED_IMPASSABLE` and `ROUTE_ON_TRUE_MAP`.
+- `f32::mul_add` is a disallowed method (`docs/movement.md > 7`): write `a * b + c`.
+- Timings: `cargo test -p sc_sim --release --test nav_perf -- --ignored --nocapture`. That test's `timed` helper is
+  the one place in `crates/sim` that reads the clock, behind an `#[expect]` with its reason.
+
 ## Commands, events and replays
 
 - All player intent is a `Command`. It is wrapped in a `PlayerCommand { player, command }` and collected in one
