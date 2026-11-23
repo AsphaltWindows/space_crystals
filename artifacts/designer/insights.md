@@ -27,7 +27,8 @@
 
 ## Open Director Questions
 
-All non-blocking (Director proceeds on assumptions). Raised with user 2026-11-23.
+All non-blocking (Director proceeds on assumptions).
+- **Q0006** must crystal patches / Supply Delivery Stations sit on flat tiles? (Director assumes no.) Key implication: Extraction Plates are structures → flat-only, so a sloped patch is unminable by GDO. Raised with user 2026-11-23.
 
 ## Loose Ends
 
