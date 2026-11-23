@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/notify_new.py\" artifacts/director/questions Q artifacts/designer/state/last_seen_question \"Director questions\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/notify_new.py\" artifacts/director/questions Q artifacts/designer/state/last_seen_question \"Director questions\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/notify_new.py\" artifacts/director/questions Q artifacts/designer/state/last_seen_question \"Director questions\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

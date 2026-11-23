@@ -17,7 +17,13 @@
 
 ## Development Process
 
-**Pipeline retired (2026-11-23).** Replaced by: a concurrently running implementation lead agent (Director) that delegates to sub-agents, plus this designer session. Channels: designer writes `changes/NNNN-slug.md` (one per coherent change; template in `.claude/agents/designer.md`); Director writes `artifacts/director/questions/QNNNN-slug.md`. Answers to questions are change entries with `Answers: QNNNN`. Notifications via per-session hooks (`--agent` + `--settings`), not yet wired. **Designer commits its own doc changes** with `git commit -- artifacts/designer/`. Game still to be rebuilt from scratch, so docs must stand alone as the complete spec. Old pipeline (forum, messages, scheduler, other agent prompts) — fate not yet decided by user; 22 old feature_requests still sit unconsumed, leave them.
+**Pipeline removed (2026-11-23)**; final state preserved at git tag `pipeline-archive` (commit fafac0b). New setup, documented in root CLAUDE.md:
+- Launch: `scripts/designer.sh` / `scripts/director.sh` (`claude --agent X --settings .claude/X.settings.json`).
+- Channels: I write `artifacts/designer/changes/NNNN-slug.md`; Director writes `artifacts/director/questions/QNNNN-slug.md`; answers = change entries with `Answers: QNNNN`.
+- Hooks: `scripts/hooks/notify_new.py` on SessionStart/UserPromptSubmit/PostToolUse; announces each entry once (ephemeral `state/.notified_*`, gitignored); SessionStart re-announces whole backlog vs `state/last_seen_*`. Verified 2026-11-23 on CC 2.1.325: sub-agent hook input carries `agent_id` (main thread doesn't) → script skips sub-agents; end-to-end notice confirmed in a headless Director run.
+- My state: `artifacts/designer/state/last_seen_question` — update it when I take in questions.
+- I commit my own work with `git commit -- artifacts/designer/`; push only on request.
+- Game will be rebuilt from scratch → docs must stand alone as the complete spec. Old prototype stays at `artifacts/developer/` as reference; Director decides with user where new code lives.
 
 ## Open Director Questions
 

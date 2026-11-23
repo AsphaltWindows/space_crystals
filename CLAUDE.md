@@ -1,109 +1,30 @@
 # Space Crystals RTS
 
-A real-time strategy game built with Bevy 0.17.
-
-# Project Overview
-
-Space Crystals is an RTS game currently in early development. The project uses the Bevy game engine and is written in Rust.
+A real-time strategy game in early development, written in Rust (Edition 2021) with the Bevy 0.17 engine (Cargo build).
 
 # Project Structure
 
-- **Source code**: `artifacts/developer/` (Cargo.toml, src/, etc.)
-- **Design documents**: `artifacts/designer/design/**/*.md` (index: `artifacts/designer/design/README.md`)
-- **Agent framework**: `framework.md`
-- **Pipeline manifest**: `pipeline.yaml`
-- **Agent prompts**: `.claude/agents/{name}.md`
-- **Node definitions**: Inline in `pipeline.yaml` under `nodes:`
-- **Message inboxes**: `messages/{agent}/{message_type}/pending|active|done/`
-- **Message templates**: `templates/messages/{message_type}.md`
+- **Design documents (the spec)**: `artifacts/designer/design/**/*.md` — index: `artifacts/designer/design/README.md`. Cross-references are written `path/file.md > Section`.
+- **Old prototype code**: `artifacts/developer/` — built by a retired agent pipeline; the game is being rebuilt from scratch, so treat it as reference only. The new code location is recorded in `artifacts/director/insights.md` once decided.
+- **Agent prompts**: `.claude/agents/{designer,director}.md`
+- **Per-agent artifacts**: `artifacts/{designer,director}/` — each agent is the sole writer of its own directory.
 
-# Agent Framework
+# Workflow: Designer + Director
 
-See `framework.md` for the full shared lifecycle, forum rules, and directory layout.
+Two Claude Code sessions, possibly running at the same time in this checkout:
 
-Key concepts:
-- **Forum** (`forum/`): Highest-priority task source for all agents. Cross-agent communication via topic files.
-- **Artifacts** (`artifacts/{name}/`): Each agent's persistent state. Sole writer, others read-only.
-- **Messages**: Agents communicate via markdown messages routed through per-consumer inboxes using `scripts/send_message.sh`.
-- **Insights**: Each agent's persistent memory between executions (`artifacts/{name}/insights.md`).
-- **Single task per execution**: An agent does at most one unit of work per run, then exits.
+- **Designer** (`scripts/designer.sh`) — works with the user on the game design, maintains the design docs, and commits its own changes (`artifacts/designer/` only).
+- **Director** (`scripts/director.sh`) — implementation lead; plans from the design docs, delegates to sub-agents, reviews, integrates and commits code.
 
-# Pipeline
+They communicate through files:
 
-```
-Designer (interactive, 1 session -> N feature_requests)
-    |
-    v feature_request
-Task Splitter (1 -> M developer_tasks + forward feature_request + manifest)
-    ^                          |
-    | architecture_request     |
-    |                          |
-Software Architect             |
-(forum-driven,                 |
- reads code + design)         |
-                               |
-    | developer_task           | feature_request + feature_tasks
-    v                          v
-Task Planner (1:1)      Completion Aggregator (script node)
-    | planned_task              ^ task_completion
-    v                          |
-Developer (1:1) ---------------+
-                               | when all done:
-                               v qa_item
-                        QA Router (script node)
-                        |---> Manual QA (interactive sink)
-                        +---> Automatic QA (autonomous)
-                               |
-                               v feature_request (on failure, _r{N})
-                        back to Task Splitter
-```
+| Channel | Written by | Location |
+|---|---|---|
+| Design change entries | Designer | `artifacts/designer/changes/NNNN-slug.md` |
+| Design questions | Director | `artifacts/director/questions/QNNNN-slug.md` |
 
-## Agents
+Answers to questions arrive as change entries marked `Answers: QNNNN`. Each launch script loads a settings file (`.claude/{designer,director}.settings.json`) whose hooks (`scripts/hooks/notify_new.py`) notify that session of new entries at session start, on each user prompt and after tool calls. Each agent records the last entry it has processed in `artifacts/<agent>/state/`.
 
-### Designer (source)
-Interactive. Collaborates with user on game design. Produces `feature_request` messages with QA instructions. Design docs live in `artifacts/designer/design/`.
+**Commits**: always use explicit pathspecs (`git commit -- <paths>`) so one agent never commits the other's in-progress work. The Director never commits `artifacts/designer/`.
 
-### Software Architect (source)
-Senior game-dev software architect. Monitors forum discussions for architectural concerns, investigates code and design, tracks recurring issues, maintains architecture docs in `artifacts/software_architect/architecture/`. Produces `architecture_request` messages to task_splitter.
-
-### Task Splitter (processing)
-Decomposes `feature_request` and `architecture_request` messages into `developer_task` messages. Prioritizes architecture_requests. Reads design docs, architecture docs, and codebase for informed splits. Forwards original request and a `feature_tasks` manifest to the completion aggregator.
-
-### Task Planner (processing)
-Enriches `developer_task` with codebase context (files, patterns, dependencies), producing `planned_task` messages.
-
-### Developer (processing)
-Implements `planned_task` messages. Writes code and tests in `artifacts/developer/`. Produces `task_completion` markers.
-
-### Completion Aggregator (script node)
-Tracks task completions against feature_tasks manifests. When all tasks for a feature are done, produces a `qa_item`.
-
-### QA Router (script node)
-Routes `qa_item` to manual_qa or automatic_qa based on `artifacts/qa_router/auto_capabilities.txt`.
-
-### Manual QA (sink)
-Interactive. Walks user through QA steps. On failure, produces a scoped `feature_request` rework back to task_splitter.
-
-### Automatic QA (processing)
-Autonomous. Runs automated QA checks. On failure, produces a scoped `feature_request` rework back to task_splitter.
-
-### Operator (source, utility)
-Not scheduled. User's direct interface to inject concerns into the pipeline via forum topics. Close-vote not required.
-
-### Pipeline Builder (source, utility)
-Maintains the pipeline framework itself. Creates/modifies agent definitions, pipeline configuration, and scripts.
-
-## Scheduler
-
-`scripts/run_scheduler.sh` — runs in a continuous loop (interval configured by `scheduler_interval` in `pipeline.yaml`). Detects work for each node (forum topics or pending messages) and launches them.
-
-**The scheduler is managed exclusively by the user.** Agents must NEVER start, stop, restart, or modify the scheduler or its lock file (`.scheduler.lock`). If an agent believes the scheduler needs attention, it should open a forum topic — not take direct action.
-
-# Technical Stack
-
-- **Language**: Rust (Edition 2021)
-- **Game Engine**: Bevy 0.17
-- **Build System**: Cargo
-
-# currentDate
-Today's date is 2026-03-18.
+The previous multi-agent pipeline (forum, messages, scheduler, Telegram bot) was removed; its final state is preserved at git tag `pipeline-archive`.

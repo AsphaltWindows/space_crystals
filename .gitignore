@@ -11,3 +11,6 @@ telegram_bot.yaml
 /artifacts/developer/target/
 run_qa.log
 artifacts/manual_qa/qa_artifacts
+
+# Hook notification markers (ephemeral)
+artifacts/*/state/.notified_*
