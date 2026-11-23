@@ -33,6 +33,8 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 - **Q0009** range measured: A attacker centre → nearest point of target shape / B centre-centre / C edge-edge; proximity = within 8 su; silhouettes rotate with facing? (A no / B yes).
 - **Q0010** chase into fog (A go to last seen pos / B complete / C keep chasing); patrol origin at execution vs issue (docs conflict: commands.md vs behaviors.md step 1); failed patrol leg (A counts as arrived, 2 in a row end / B end).
 - **Q0011** patches/stations block ground units?; Rugged impassable for RuggedTerrain=false bases (docs imply: LightInfantry 'able to traverse rugged terrain')?; pathing knows unseen enemy structures? (A true map / B explored only); underground units collide?, air crosses everything.
+- **Q0012** (merges with Q0007 part 2) friendly yielding: playtests show clots (18v18 head-on ~4 stuck; 200-unit stress 1/3–1/5 moves give up). Options A nothing yields (current) / B idle+arrived friendlies sidestep (SC-like) / C B + head-on swap / D soft collision for friendly movers. User leaning A for head-on before seeing data.
+- **Q0013** selection edge cases (7 points, current behaviour = SC2-like): ungroupables each own group + Tab; allies treated as enemies in box; modified clicks on enemy = plain select; empty ground click/box clears, Shift/Ctrl-click empty no-op, Shift-box does NOT add (alt B: adds like SC2), Ctrl beats Shift; InfoPanel 2+ shows ActiveGroup type+counts; SelectionPanel '2+ objects'; no other players' objects in control groups.
 
 ## Loose Ends
 

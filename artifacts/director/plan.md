@@ -95,24 +95,39 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Visuals**: placeholder units (circle and square), a P path overlay, and `--commands` QA input.
   - **Not done**: unit–unit collision (D) and the Attack/AttackMove/Patrol/Move-to-object behaviours (E).
 
+- **M1-S selection** (`e14dd82`, merged in `b63e77f`):
+  - **Selection state**: `ControlStates`, one per player: the selection grouped by kind, the ActiveGroup, and 10 control groups.
+  - **Selecting**: view-space picking on drawn boxes, and box tiers. Click rules use the bindings: Shift toggles; Ctrl or a double-click selects that type on screen.
+  - **Control groups and cycling**: Ctrl, Shift or # on a group, and a double-tap centres on it. Tab cycles the active group.
+  - **Display**: markers, SelectionPanel, InfoPanel.
+  - **Debug**: F2 switches the player.
+  - **Removed objects** leave every selection and group.
+  - **QA**: an `--input-script` QA flag.
+  - **Open**: design gaps went out as Q0013.
+- **M1-D steering and collision** (merged in `b689663`; 387 tests):
+  - **Movement**: the real 5d step in `movement.rs` with `movement/{space,collide,stuck}.rs`. No overlap by construction; exceptions go through `space::blocks`.
+  - **Recovery**: repath and stuck policy. Repaths at 24/48/72 ticks; Failed at 104.
+  - **Invariants**: I1–I7 are checked after every tick in all `TestSim` tests.
+  - **Testing**: a soak of 200 units × 2 000 ticks on 3 seeds.
+  - **Performance**: 500 units take 0.19 ms per tick on average and 0.64 ms at worst. A 250-unit group order takes 6–10 ms (borderline).
+  - **Deviations**: documented in `docs/movement.md` (D).
+  - **Crowding**: dense head-on crowds clot and some moves fail, because the spec says no pushing. The evidence is in Q0012.
+  - **Group arrival rule**: a unit stuck behind arrived members of its own group counts as arrived. This is a stand-in.
+
 ## In progress (three agents in parallel, kept to disjoint areas)
-- **M1-D steering and collision** (Fable; brief `scratchpad/briefs/m1d-steering-collision.md`): the real movement step, repath and stuck policy, the I1–I7 invariant harness, movement scenarios, soak and perf tests.
-- **M1-S selection** (Opus; brief `scratchpad/briefs/m1s-selection.md`):
-  - click, box and type selection rules;
-  - control groups and Tab cycling;
-  - markers, the SelectionPanel and InfoPanel;
-  - a debug player switch.
-- **M1-W combat** (Opus; brief `scratchpad/briefs/m1w-combat.md`):
-  - attack phases, range (Q0009 default), MinRange and TargetDomain;
-  - an `elevation.rs` helper for range and sight;
-  - hit accumulation, armor, deaths through one removal path;
-  - an in-range Attack order;
-  - tracers and HP bars.
+- **M1-W combat** (Opus; brief `scratchpad/briefs/m1w-combat.md`). It was told to merge master (D and S) before finishing and to wire `may_move`/`may_turn` into movement.
+- **M1-H commands UI** (Opus; brief `scratchpad/briefs/m1h-commands-ui.md`):
+  - the 4×3 command panel;
+  - targeting modes;
+  - right-click resolution;
+  - Shift-queue;
+  - indicators and cursors;
+  - an axis-aligned Guard visual.
+- **M1-M magic box** (Opus; brief `scratchpad/briefs/m1m-magic-box.md`). Group destinations follow 0021 (Q0007 part 1) and replace the lattice slots.
 - **Next**:
-  - **V vision** after W (it reuses the elevation helper);
-  - **H commands UI** after S;
-  - **E behaviours** after D, W and V;
-  - **G QA and hardening** last.
+  - **V vision**, after W.
+  - **E behaviours** (chase, AttackMove, Patrol, auto-target, leashes), after W and V.
+  - **G QA and hardening**: golden hashes, perf tuning of group orders, replay playback.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
 The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, the defaults from the doc apply.
@@ -121,9 +136,10 @@ The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, th
 |---|---|---|---|
 | B Unit foundation | unit defs, `Orders`/`Mover`, `Command::Order` plus the gate, spawn checks, naive mover, phases, visuals, path overlay, `--commands` | done (`259f72c`) | Opus |
 | C Navigation | `sc_sim::nav` | done (`88dd9bc`) | Fable |
-| D Steering and collision | spatial grid, step/slide/follow/sidestep, stuck and recovery, invariant harness, movement scenarios | running | Fable |
-| S Selection | clicks, box tiers, control groups, Tab cycling, panels, debug player switch | running | Opus |
-| H Commands UI | command panel, right-click, cursors, indicators, Shift-queue | S | Opus |
+| D Steering and collision | spatial grid, step/slide/follow/sidestep, stuck and recovery, invariant harness, movement scenarios | done (`b689663`) | Fable |
+| S Selection | clicks, box tiers, control groups, Tab cycling, panels, debug player switch | done (`b63e77f`) | Opus |
+| H Commands UI | command panel, right-click, cursors, indicators, Shift-queue | running | Opus |
+| M Magic box | group destinations per 0021 (replaces the 6.4 lattice) | running | Opus |
 | V Vision | per-player visibility, ElevationModifier for sight, fog texture | W (elevation helper) | Opus |
 | W Combat | attack phases, hits, damage, deaths, range (Q0009), elevation helper | running | Opus |
 | E Behaviours | chase, AttackMove, Patrol, Hold, Stop, auto-target and leashes | D, W, V | Fable, or Opus with a Fable review |
@@ -185,14 +201,16 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0004 | Map model: slots, start locations, starting bases | no | answered by 0008, 0009 and 0012 |
 | Q0005 | CommandPanel standard slots vs the 4×3 grid | no | answered by 0002 (matches assumption A) |
 | Q0006 | Do map resources need flat tiles? | no | answered by 0013 (yes, both) |
-| Q0007 | Group moves: destination slots, head-on deadlock (idle units never yield, per spec) | no (needed before D) | open |
+| Q0007 | Group moves: destination slots, head-on deadlock (idle units never yield, per spec) | no | part 1 answered by 0021 (magic box); part 2 (head-on, no yielding) open, with evidence in Q0012 |
 | Q0008 | Move failure numbers; unreachable or occupied targets | no (needed before D) | open |
 | Q0009 | Range measured to large targets; proximity; silhouette rotation | no (needed before W) | open |
 | Q0010 | Chase target lost in fog; Patrol origin; failed legs | no (needed before E) | open |
 | Q0011 | Terrain/obstacles: resources block, Rugged, routes via the true map, underground/air | no | open; C builds the defaults as switches |
+| Q0012 | Crowds clot without yielding: should friendly units yield or swap? (evidence from M1-D) | no | open |
+| Q0013 | Selection edge cases: ungroupables, allies, modified clicks, empty ground, InfoPanel for 2+ objects, control groups | no | open; S built the listed defaults |
 
 ## Design change entries
-Last triaged: 0020.
+Last triaged: 0021.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -210,4 +228,5 @@ Last triaged: 0020.
 | 0012 Map types, creation, generated symmetry | in progress (M0-E); layout rules → M2 | answers Q0004 |
 | 0013 Patches and stations need flat tiles | done (M0-D) | answers Q0006 |
 | 0015–0020 GDO aircraft: assignment, ammo, return/rearm, landed = ground target, rearm time, names (Hornet, Dragonfly) | queued (Later: air) | design stubs |
+| 0021 Group destinations: magic box | in progress (M1-M) | answers Q0007 part 1; replaces the lattice default |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
