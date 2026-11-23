@@ -481,6 +481,23 @@ mod tests {
         assert!(into_config(parse(&args("--editor --headless --exit-at-tick 0")).unwrap()).is_ok());
     }
 
+    /// Review finding: a file claiming a map larger than the sim's largest side fails cleanly (exit code 2 in
+    /// `main`), before the map is allocated.
+    #[test]
+    fn a_map_file_over_the_largest_side_is_an_error() {
+        let path = std::env::temp_dir().join(format!("sc_cli_huge_{}.json", std::process::id()));
+        let mut json = serde_json::to_value(scenarios::empty(5, 4)).unwrap();
+        json["map"] = serde_json::json!({ "tiles": [".".repeat(files::MAX_MAP_SIDE as usize + 1)] });
+        std::fs::write(&path, json.to_string()).unwrap();
+        let game = into_config(parse(&args(&format!("--map {}", path.display()))).unwrap()).err();
+        let editor = into_config(parse(&args(&format!("--editor {}", path.display()))).unwrap()).err();
+        std::fs::remove_file(&path).unwrap();
+        for error in [game, editor] {
+            let error = error.expect("refused");
+            assert!(error.contains("too big"), "{error}");
+        }
+    }
+
     #[test]
     fn a_map_file_round_trips_through_json() {
         let path = std::env::temp_dir().join(format!("sc_cli_map_{}.json", std::process::id()));

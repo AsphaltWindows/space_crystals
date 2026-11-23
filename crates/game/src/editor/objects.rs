@@ -1,15 +1,16 @@
 //! The object edits behind the Place and Select tools, as plain functions on sim types, testable without Bevy:
-//! snapping, footprints, placement checks, mirrored copies, hit tests, where validation problems are, and the
+//! snapping, footprints, placement checks, symmetry images, hit tests, where validation problems are, and the
 //! object palette.
 
 use std::collections::BTreeSet;
 
 use bevy::math::{Rect, Vec2};
 use sc_sim::{
-    Category, Faction, Footprint, Map, ObjectKind, PlayerId, SU_PER_GU, Scenario, ScenarioProblem, SpawnAt, TilePos,
+    Category, Faction, Footprint, Map, ObjectKind, PlayerId, SU_PER_GU, Scenario, ScenarioProblem, SpawnAt, Symmetry,
+    TilePos,
 };
 
-use super::tools::Symmetry;
+use super::terrain;
 use crate::camera::map_extent_su;
 
 /// A tile-based object type's footprint in tiles, or `None` for units.
@@ -64,13 +65,15 @@ pub fn spawn_rect(kind: ObjectKind, at: SpawnAt) -> Rect {
     }
 }
 
-/// The tiles a tile-based spawn covers; none for units.
+/// The tiles a tile-based spawn covers; none for units. A spawn of a damaged file may lie anywhere, even at the
+/// ends of the `i32` range: tiles past them are left out instead of overflowing.
 pub fn footprint_tiles(kind: ObjectKind, at: SpawnAt) -> Vec<TilePos> {
     let (Some((w, h)), SpawnAt::Tile(o)) = (tile_size(kind), at) else {
         return Vec::new();
     };
     (0..h as i32)
-        .flat_map(|dy| (0..w as i32).map(move |dx| TilePos::new(o.x + dx, o.y + dy)))
+        .flat_map(|dy| (0..w as i32).map(move |dx| (dx, dy)))
+        .filter_map(|(dx, dy)| Some(TilePos::new(o.x.checked_add(dx)?, o.y.checked_add(dy)?)))
         .collect()
 }
 
@@ -79,12 +82,26 @@ pub fn footprint_tiles(kind: ObjectKind, at: SpawnAt) -> Vec<TilePos> {
 pub enum PlaceProblem {
     /// Not entirely on the map.
     OffMap,
+    /// `core/map.md > Elevation > Map resources only on flat terrain`: this footprint tile is sloped.
+    NotFlat(TilePos),
     /// Its footprint overlaps the footprint of this spawn.
     Overlaps(usize),
 }
 
-/// Whether an object of `kind` fits at `at`: entirely on the map, and not overlapping the footprint of another
-/// tile-based spawn. `moving` is the spawn being moved, which doesn't count.
+impl PlaceProblem {
+    /// Why `kind` can't go there, for the status line.
+    pub fn message(self, kind: ObjectKind) -> String {
+        let name = kind.def().name;
+        match self {
+            PlaceProblem::OffMap => format!("{name} doesn't fit on the map there"),
+            PlaceProblem::NotFlat(t) => format!("{name} needs flat ground: tile ({}, {}) is sloped", t.x, t.y),
+            PlaceProblem::Overlaps(i) => format!("{name} would overlap spawn #{i}"),
+        }
+    }
+}
+
+/// Whether an object of `kind` fits at `at`: entirely on the map, on flat ground if its type needs it, and not
+/// overlapping the footprint of another tile-based spawn. `moving` is the spawn being moved, which doesn't count.
 pub fn check_placement(
     scenario: &Scenario,
     kind: ObjectKind,
@@ -98,7 +115,14 @@ pub fn check_placement(
             if !(fits(o.x, w, map.width()) && fits(o.y, h, map.height())) {
                 return Err(PlaceProblem::OffMap);
             }
-            let mine: BTreeSet<TilePos> = footprint_tiles(kind, at).into_iter().collect();
+            let tiles = footprint_tiles(kind, at);
+            // Row by row, like the sim's validation, so both name the same tile.
+            if kind.def().needs_flat_ground
+                && let Some(sloped) = tiles.iter().find(|t| !map.is_flat(**t))
+            {
+                return Err(PlaceProblem::NotFlat(*sloped));
+            }
+            let mine: BTreeSet<TilePos> = tiles.into_iter().collect();
             let overlap =
                 scenario.spawns.iter().enumerate().find(|(i, s)| {
                     Some(*i) != moving && footprint_tiles(s.kind, s.at).iter().any(|t| mine.contains(t))
@@ -113,46 +137,38 @@ pub fn check_placement(
     }
 }
 
-/// The mirror image of a spawn location under `symmetry`, unless it is the location itself. A tile footprint is
-/// mirrored as a whole; a point is mirrored through the map's center lines.
-pub fn mirrored_spawn(map: &Map, kind: ObjectKind, at: SpawnAt, symmetry: Symmetry) -> Option<SpawnAt> {
-    let (mirror_x, mirror_y) = match symmetry {
-        Symmetry::None => return None,
-        Symmetry::MirrorX => (true, false),
-        Symmetry::MirrorY => (false, true),
-        Symmetry::Point => (true, true),
-    };
-    let image = match at {
-        SpawnAt::Tile(o) => {
-            let (w, h) = tile_size(kind).unwrap_or((1, 1));
-            let x = if mirror_x {
-                map.width() as i32 - o.x - w as i32
-            } else {
-                o.x
-            };
-            let y = if mirror_y {
-                map.height() as i32 - o.y - h as i32
-            } else {
-                o.y
-            };
-            SpawnAt::Tile(TilePos::new(x, y))
+/// The symmetry images of a spawn location (`core/map_editor.md > Symmetry`, [`sc_sim::MapTransform`]), without
+/// the location itself and each once, with the index of the transform that made it (1 = the first image). A tile
+/// footprint is mapped as a whole. Spawns carry no rotation yet, so a footprint that a quarter turn would turn
+/// on its side keeps its shape around the image of its center.
+pub fn spawn_images(map: &Map, kind: ObjectKind, at: SpawnAt, symmetry: Symmetry) -> Vec<(usize, SpawnAt)> {
+    let mut images: Vec<(usize, SpawnAt)> = Vec::new();
+    for (k, m) in terrain::transforms(map, symmetry).into_iter().enumerate().skip(1) {
+        let image = match (at, tile_size(kind)) {
+            (SpawnAt::Tile(o), Some((w, h))) => match m.footprint(o, w, h) {
+                (origin, w2, h2) if (w2, h2) == (w, h) => SpawnAt::Tile(origin),
+                _ => snap_spawn(kind, m.point(spawn_rect(kind, at).center())),
+            },
+            (SpawnAt::Tile(o), None) => SpawnAt::Tile(m.tile(o)),
+            (SpawnAt::Point(p), _) => SpawnAt::Point(m.point(p)),
+        };
+        if image != at && !images.iter().any(|(_, i)| *i == image) {
+            images.push((k, image));
         }
-        SpawnAt::Point(p) => {
-            let size = map_extent_su(map);
-            let x = if mirror_x { size.x - p.x } else { p.x };
-            let y = if mirror_y { size.y - p.y } else { p.y };
-            SpawnAt::Point(Vec2::new(x, y))
-        }
-    };
-    (image != at).then_some(image)
+    }
+    images
 }
 
-/// The owner of a mirrored copy. On a two-player map the copy goes to the other player, so that both sides get
-/// the same; otherwise it keeps the owner (placeholder rule, design question Q0004).
-pub fn mirrored_owner(owner: Option<PlayerId>, players: usize) -> Option<PlayerId> {
+/// The owner of a spawn's `k`-th symmetry image (`k` ≥ 1) among `images` images (the spawn itself included): when
+/// there are as many images as players, each image goes to the next player, so that every side gets the same;
+/// otherwise it keeps the owner (placeholder rule until the design settles slots on symmetric maps, Q0004 and
+/// `core/map_editor.md > Symmetry`'s TBD).
+pub fn image_owner(owner: Option<PlayerId>, k: usize, images: usize, players: usize) -> Option<PlayerId> {
     match owner {
-        Some(PlayerId(1)) if players == 2 => Some(PlayerId(2)),
-        Some(PlayerId(2)) if players == 2 => Some(PlayerId(1)),
+        Some(p) if images == players && players > 0 && usize::from(p.0) >= 1 => {
+            let next = (usize::from(p.0) - 1 + k) % players + 1;
+            Some(PlayerId(u8::try_from(next).unwrap_or(p.0)))
+        }
         other => other,
     }
 }
@@ -181,6 +197,8 @@ pub fn problem_focus(scenario: &Scenario, problem: &ScenarioProblem) -> (Option<
             .map(|p| clamp_to_map(map, p))
     };
     match problem {
+        ScenarioProblem::MapTooBig { .. } => (None, None),
+        ScenarioProblem::TooSteep { tile, .. } => (Some(clamp_to_map(map, tile.center())), None),
         ScenarioProblem::DuplicatePlayerId(player) => (slot_spot(*player), None),
         ScenarioProblem::PlayerIdOutOfRange { player, .. } => (slot_spot(*player), None),
         ScenarioProblem::StartLocationOffMap { tile, .. } => (Some(clamp_to_map(map, tile.center())), None),
@@ -260,11 +278,7 @@ mod tests {
     }
 
     fn tile_spawn(kind: ObjectKind, x: i32, y: i32) -> Spawn {
-        Spawn {
-            kind,
-            owner: None,
-            at: SpawnAt::Tile(t(x, y)),
-        }
+        Spawn::new(kind, None, SpawnAt::Tile(t(x, y)))
     }
 
     #[test]
@@ -314,36 +328,92 @@ mod tests {
             Ok(()),
             "touching is fine"
         );
+        // `core/map.md > Elevation > Map resources only on flat terrain`: one sloped tile is enough to refuse it.
+        scenario.map.set_corner(sc_sim::CornerPos::new(6, 1), 1);
+        assert_eq!(
+            check_placement(&scenario, station, at(5, 0), None),
+            Err(PlaceProblem::NotFlat(t(5, 0)))
+        );
+        assert_eq!(
+            check_placement(&scenario, patch, at(6, 1), None),
+            Err(PlaceProblem::NotFlat(t(6, 1)))
+        );
+        assert_eq!(check_placement(&scenario, patch, at(7, 1), None), Ok(()));
+        assert!(PlaceProblem::NotFlat(t(5, 0)).message(station).contains("flat ground"));
+    }
+
+    /// Review finding: a spawn of a damaged file at the end of the `i32` range must not overflow.
+    #[test]
+    fn footprints_at_the_ends_of_the_coordinate_range_never_overflow() {
+        let station = ObjectKind::SupplyDeliveryStation;
+        assert_eq!(footprint_tiles(station, SpawnAt::Tile(t(i32::MAX, i32::MAX))).len(), 1);
+        assert_eq!(footprint_tiles(station, SpawnAt::Tile(t(i32::MAX - 1, 0))).len(), 4);
+        let mut scenario = scenarios::empty(8, 6);
+        scenario.spawns = vec![
+            tile_spawn(station, i32::MAX, i32::MAX),
+            tile_spawn(station, i32::MIN, 3),
+        ];
+        assert_eq!(
+            check_placement(&scenario, station, SpawnAt::Tile(t(1, 1)), None),
+            Ok(())
+        );
+        let _ = spawn_at_point(&scenario, Vec2::new(1e30, -1e30));
+        let _ = spawn_images(
+            &scenario.map,
+            station,
+            SpawnAt::Tile(t(i32::MAX, i32::MIN)),
+            Symmetry::Rotate180,
+        );
     }
 
     #[test]
-    fn mirrored_spawns_land_on_the_far_side() {
+    fn symmetry_images_land_on_the_far_sides() {
         let map = Map::new(10, 8);
         let station = ObjectKind::SupplyDeliveryStation;
         let at = SpawnAt::Tile(t(1, 2));
+        let tiles = |images: Vec<(usize, SpawnAt)>| images.into_iter().map(|(_, a)| a).collect::<Vec<_>>();
         assert_eq!(
-            mirrored_spawn(&map, station, at, Symmetry::MirrorX),
-            Some(SpawnAt::Tile(t(7, 2)))
+            tiles(spawn_images(&map, station, at, Symmetry::MirrorVerticalAxis)),
+            [SpawnAt::Tile(t(7, 2))]
         );
         assert_eq!(
-            mirrored_spawn(&map, station, at, Symmetry::Point),
-            Some(SpawnAt::Tile(t(7, 4)))
+            tiles(spawn_images(&map, station, at, Symmetry::Rotate180)),
+            [SpawnAt::Tile(t(7, 4))]
         );
-        assert_eq!(mirrored_spawn(&map, station, at, Symmetry::None), None);
+        assert_eq!(
+            tiles(spawn_images(&map, station, at, Symmetry::MirrorBothAxes)),
+            [SpawnAt::Tile(t(7, 2)), SpawnAt::Tile(t(1, 4)), SpawnAt::Tile(t(7, 4))]
+        );
+        assert_eq!(spawn_images(&map, station, at, Symmetry::None), []);
+        // 90° rotation needs a square map.
+        assert_eq!(spawn_images(&map, station, at, Symmetry::Rotate90), []);
+        let square = Map::new(8, 8);
+        assert_eq!(
+            tiles(spawn_images(&square, station, at, Symmetry::Rotate90)),
+            [SpawnAt::Tile(t(4, 1)), SpawnAt::Tile(t(5, 4)), SpawnAt::Tile(t(2, 5))]
+        );
         let centered = SpawnAt::Tile(t(4, 3));
         assert_eq!(
-            mirrored_spawn(&map, station, centered, Symmetry::Point),
-            None,
+            spawn_images(&map, station, centered, Symmetry::Rotate180),
+            [],
             "its own image"
         );
         let point = SpawnAt::Point(Vec2::new(10.0, 20.0));
         assert_eq!(
-            mirrored_spawn(&map, ObjectKind::CrystalPatch, point, Symmetry::MirrorY),
-            Some(SpawnAt::Point(Vec2::new(10.0, 512.0 - 20.0)))
+            tiles(spawn_images(
+                &map,
+                ObjectKind::CrystalPatch,
+                point,
+                Symmetry::MirrorHorizontalAxis
+            )),
+            [SpawnAt::Point(Vec2::new(10.0, 512.0 - 20.0))]
         );
-        assert_eq!(mirrored_owner(Some(PlayerId(1)), 2), Some(PlayerId(2)));
-        assert_eq!(mirrored_owner(Some(PlayerId(1)), 3), Some(PlayerId(1)));
-        assert_eq!(mirrored_owner(None, 2), None);
+        // Each image goes to the next player when there is one image per player.
+        assert_eq!(image_owner(Some(PlayerId(1)), 1, 2, 2), Some(PlayerId(2)));
+        assert_eq!(image_owner(Some(PlayerId(2)), 1, 2, 2), Some(PlayerId(1)));
+        assert_eq!(image_owner(Some(PlayerId(3)), 2, 4, 4), Some(PlayerId(1)));
+        assert_eq!(image_owner(Some(PlayerId(1)), 1, 2, 3), Some(PlayerId(1)));
+        assert_eq!(image_owner(None, 1, 2, 2), None);
     }
 
     #[test]

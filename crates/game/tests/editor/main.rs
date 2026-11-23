@@ -93,9 +93,5 @@ fn visual_count(app: &mut App) -> usize {
 }
 
 fn patch(x: i32, y: i32) -> Spawn {
-    Spawn {
-        kind: ObjectKind::CrystalPatch,
-        owner: None,
-        at: SpawnAt::Tile(TilePos::new(x, y)),
-    }
+    Spawn::new(ObjectKind::CrystalPatch, None, SpawnAt::Tile(TilePos::new(x, y)))
 }

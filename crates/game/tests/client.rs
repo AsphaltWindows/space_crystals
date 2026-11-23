@@ -7,11 +7,16 @@ use std::collections::BTreeSet;
 use bevy::ecs::message::Messages;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
+use std::collections::BTreeMap;
+
 use sc_sim::{
-    Command, DebugCommand, ObjectId, ObjectKind, PlayerCommand, PlayerId, Scenario, SimEvent, Spawn, SpawnAt, Tick,
-    TilePos, scenarios,
+    Command, CornerPos, DebugCommand, ObjectId, ObjectKind, PlayerCommand, PlayerId, Scenario, SimEvent, Spawn,
+    SpawnAt, Tick, TilePos, scenarios,
 };
-use space_crystals::camera::{CameraView, ViewportInsets, viewport_rect, visible_extent_su};
+use space_crystals::camera::{
+    CameraView, GrabPan, ViewportInsets, cursor_to_ground, cursor_to_view, viewport_rect, visible_extent_su,
+};
+use space_crystals::coords::{drawn_position, lift};
 use space_crystals::hud::{HUD_BAR_HEIGHT_VH, TOP_BAR_HEIGHT_VH};
 use space_crystals::input::{InjectedActions, InputAction};
 use space_crystals::map_render::{GridOverlay, MapRenderAssets, MapView};
@@ -45,11 +50,7 @@ fn tick(app: &App) -> Tick {
 }
 
 fn patch_at(x: i32, y: i32) -> Spawn {
-    Spawn {
-        kind: ObjectKind::CrystalPatch,
-        owner: None,
-        at: SpawnAt::Tile(TilePos::new(x, y)),
-    }
+    Spawn::new(ObjectKind::CrystalPatch, None, SpawnAt::Tile(TilePos::new(x, y)))
 }
 
 /// A small map with three patches and a station.
@@ -58,12 +59,29 @@ fn small_scenario() -> Scenario {
     scenario
         .spawns
         .extend([patch_at(2, 2), patch_at(3, 2), patch_at(10, 9)]);
-    scenario.spawns.push(Spawn {
-        kind: ObjectKind::SupplyDeliveryStation,
-        owner: None,
-        at: SpawnAt::Tile(TilePos::new(6, 5)),
-    });
+    scenario.spawns.push(Spawn::new(
+        ObjectKind::SupplyDeliveryStation,
+        None,
+        SpawnAt::Tile(TilePos::new(6, 5)),
+    ));
     scenario
+}
+
+/// A 32 × 24 map with a plateau at level 3 on corners (12, 9) to (20, 15), its slopes falling away around it, and
+/// a patch in the middle of the plateau at tile (16, 12), where the camera can center on it.
+fn plateau_scenario() -> Scenario {
+    let mut scenario = scenarios::empty(32, 24);
+    let targets: BTreeMap<CornerPos, u8> = (12..=20)
+        .flat_map(|x| (9..=15).map(move |y| (CornerPos::new(x, y), 3)))
+        .collect();
+    scenario.map.set_corner_heights(&targets);
+    scenario.spawns.push(patch_at(16, 12));
+    assert_eq!(scenario.validate(), vec![]);
+    scenario
+}
+
+fn set_cursor(app: &mut App, cursor: Vec2) {
+    app.world_mut().resource_mut::<InjectedActions>().cursor = Some(cursor);
 }
 
 fn debug(command: DebugCommand) -> PlayerCommand {
@@ -223,6 +241,73 @@ fn injected_pan_actions_move_the_camera_and_it_stays_clamped() {
     hold(&mut app, &[]);
     updates(&mut app, 3);
     assert_eq!(camera_center(&app), visible / 2.0);
+}
+
+/// `core/camera.md > Panning > Middle-mouse grab`: the grabbed point stays exactly under the cursor while the button
+/// is held, and the view stops the moment it is released.
+#[test]
+fn the_middle_mouse_grab_keeps_the_grabbed_point_under_the_cursor() {
+    // The view starts at the map's center, far from the edges where it would be clamped.
+    let mut scenario = scenarios::empty(64, 48);
+    scenario.players[0].start_location = None;
+    let mut app = headless_app(scenario);
+    updates(&mut app, 2);
+    let start = camera_center(&app);
+    let size = *app.world().resource::<SurfaceSize>();
+    let insets = *app.world().resource::<ViewportInsets>();
+    let first = Vec2::new(400.0, 300.0);
+    set_cursor(&mut app, first);
+    press(&mut app, InputAction::GrabPan);
+    app.update();
+    let grabbed = cursor_to_view(first, size, insets, start, 1.0).unwrap();
+    assert_eq!(app.world().resource::<GrabPan>().grabbed, Some(grabbed));
+    assert_eq!(camera_center(&app), start, "grabbing alone doesn't move the view");
+
+    hold(&mut app, &[InputAction::GrabPan]);
+    for to in [
+        Vec2::new(350.0, 280.0),
+        Vec2::new(520.0, 430.0),
+        Vec2::new(300.0, 200.0),
+    ] {
+        set_cursor(&mut app, to);
+        app.update();
+        let under = cursor_to_view(to, size, insets, camera_center(&app), 1.0).unwrap();
+        assert!((under - grabbed).length() < 1e-3, "{under} should be {grabbed}");
+    }
+    assert_ne!(camera_center(&app), start);
+
+    // Releasing stops the view at once, wherever the cursor goes.
+    let released_at = camera_center(&app);
+    hold(&mut app, &[]);
+    set_cursor(&mut app, Vec2::new(640.0, 360.0));
+    updates(&mut app, 3);
+    assert_eq!(camera_center(&app), released_at);
+    assert_eq!(app.world().resource::<GrabPan>().grabbed, None);
+}
+
+/// Objects stand on the terrain (drawn lifted by its height), and every pick resolves to the ground drawn under
+/// the cursor.
+#[test]
+fn objects_and_picking_follow_the_terrain_height() {
+    let mut app = headless_app(plateau_scenario());
+    updates(&mut app, 2);
+    let patch = app.world().resource::<SimRes>().object(ObjectId(1)).unwrap().pos;
+    let entity = app.world().resource::<ObjectVisuals>().by_id[&ObjectId(1)];
+    let translation = app.world().get::<Transform>(entity).unwrap().translation;
+    assert_eq!(translation.truncate(), Vec2::new(patch.x, -(patch.y - lift(3.0))));
+
+    // Point the camera at the patch: the cursor at the viewport's center picks the patch's ground point.
+    let map = app.world().resource::<SimRes>().map().clone();
+    app.world_mut().resource_mut::<CameraView>().center = drawn_position(&map, patch);
+    app.update();
+    assert_eq!(camera_center(&app), drawn_position(&map, patch), "not clamped");
+    let size = *app.world().resource::<SurfaceSize>();
+    let insets = *app.world().resource::<ViewportInsets>();
+    let (position, viewport) = viewport_rect(size, insets);
+    let middle = (position.as_vec2() + viewport.as_vec2() / 2.0) / size.scale_factor;
+    let view = *app.world().resource::<CameraView>();
+    let ground = cursor_to_ground(middle, size, insets, view, 1.0, &map).unwrap();
+    assert!((ground - patch).length() < 0.01, "{ground} should be {patch}");
 }
 
 #[test]

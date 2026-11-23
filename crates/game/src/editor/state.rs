@@ -7,7 +7,8 @@ use sc_sim::{PlayerId, ScenarioProblem};
 
 use super::files;
 
-/// What is selected: a spawn (by its index in `Scenario::spawns`) or one of a slot's markers.
+/// What is selected: a spawn (by its index in `Scenario::spawns`) or one of a slot's markers. An index goes stale
+/// when an undo, a redo or a resize reorders the spawns, so those clear the selection.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Selection {
     Spawn(usize),
@@ -18,7 +19,8 @@ pub enum Selection {
 #[derive(Resource, Default, Debug)]
 pub struct EditorSelection(pub Option<Selection>);
 
-/// The map point under the cursor, in sim space units, while the cursor is over the map view.
+/// The ground point under the cursor (space units, `crate::coords::ground_under`), while the cursor is over the
+/// map view.
 #[derive(Resource, Default, Debug)]
 pub struct EditorCursor(pub Option<Vec2>);
 
@@ -94,4 +96,6 @@ pub struct EditorProblems(pub Vec<ScenarioProblem>);
 pub struct EditorUi {
     /// The keyboard help overlay (F1).
     pub help: bool,
+    /// The overlay that tints flat, sloped and too steep tiles (K).
+    pub slopes: bool,
 }

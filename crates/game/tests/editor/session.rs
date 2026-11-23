@@ -3,7 +3,8 @@
 use bevy::prelude::*;
 use sc_sim::{PlayerId, Sim, TilePresetId, scenarios};
 use space_crystals::ClientMode;
-use space_crystals::camera::{CameraView, CameraZoom, ViewportInsets, map_extent_su, viewport_rect, visible_extent_su};
+use space_crystals::camera::{CameraView, CameraZoom, ViewportInsets, viewport_rect, visible_extent_su};
+use space_crystals::coords::{drawn_bounds, drawn_position, lift};
 use space_crystals::editor::EditorConfig;
 use space_crystals::editor::actions::EditorAction as A;
 use space_crystals::editor::doc::EditorDoc;
@@ -167,9 +168,13 @@ fn zoom_reaches_the_whole_map_and_stays_in_range() {
     let size = *app.world().resource::<SurfaceSize>();
     let viewport = viewport_rect(size, EDITOR_INSETS).1;
     let visible = visible_extent_su(viewport, size.physical.x, zoom);
-    let map = map_extent_su(&doc(&app).map);
-    assert!(visible.x >= map.x && visible.y >= map.y, "{visible} shows all of {map}");
-    assert_eq!(app.world().resource::<CameraView>().center, map / 2.0);
+    // The whole map as drawn: its raised ground reaches above its northern edge.
+    let drawn = drawn_bounds(&doc(&app).map);
+    assert!(
+        visible.x >= drawn.width() && visible.y >= drawn.height(),
+        "{visible} shows all of {drawn:?}"
+    );
+    assert_eq!(app.world().resource::<CameraView>().center, drawn.center());
 
     act(
         &mut app,
@@ -188,19 +193,31 @@ fn zoom_reaches_the_whole_map_and_stays_in_range() {
         }],
     );
     assert_eq!(app.world().resource::<CameraZoom>().0, MIN_ZOOM);
-    // Zooming at a point keeps that point where it was on screen.
-    let point = Vec2::new(2100.0, 1500.0);
+    // Centring on a ground point centres on where it is drawn; zooming at a point keeps where it is drawn in place
+    // on screen. Both points lie on the central plateau, at level 3.
+    let map = doc(&app).map.clone();
+    let (target, point) = (Vec2::new(2000.0, 1500.0), Vec2::new(2100.0, 1500.0));
+    assert_eq!((map.height_at(target), map.height_at(point)), (3.0, 3.0));
+    act(&mut app, [A::CenterOn(target)]);
+    assert_eq!(
+        app.world().resource::<CameraView>().center,
+        Vec2::new(2000.0, 1500.0 - lift(3.0))
+    );
+    assert_eq!(
+        app.world().resource::<CameraView>().center,
+        drawn_position(&map, target)
+    );
     act(
         &mut app,
-        [
-            A::CenterOn(Vec2::new(2000.0, 1500.0)),
-            A::Zoom {
-                factor: 2.0,
-                at: Some(point),
-            },
-        ],
+        [A::Zoom {
+            factor: 2.0,
+            at: Some(point),
+        }],
     );
-    assert_eq!(app.world().resource::<CameraView>().center, Vec2::new(1900.0, 1500.0));
+    assert_eq!(
+        app.world().resource::<CameraView>().center,
+        Vec2::new(1900.0, 1500.0 - lift(3.0))
+    );
     let nan = f32::NAN;
     act(&mut app, [A::Zoom { factor: nan, at: None }, A::CenterOn(Vec2::NAN)]);
     assert!(app.world().resource::<CameraView>().center.is_finite());

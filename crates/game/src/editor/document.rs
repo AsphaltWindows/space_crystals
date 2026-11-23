@@ -6,7 +6,7 @@ use sc_sim::{Faction, PlayerId, PlayerSetup, Scenario, TilePos};
 
 use super::actions::{Editor, EditorAction};
 use super::files::{self, MAX_MAP_SIDE, NEW_MAP_NAME, NEW_MAP_SIZE};
-use crate::camera::start_center;
+use crate::camera::start_view;
 
 /// The most player slots a map gets in the editor (placeholder until Q0004 settles slot counts).
 pub const MAX_SLOTS: usize = 8;
@@ -87,7 +87,7 @@ impl Editor<'_> {
         if !scenario.players.iter().any(|p| p.id == self.tools.slot) {
             self.tools.slot = scenario.players.first().map_or(PlayerId(1), |p| p.id);
         }
-        self.view.center = start_center(scenario, self.tools.slot, &scenario.map);
+        self.view.center = start_view(scenario, self.tools.slot, &scenario.map);
     }
 
     pub(super) fn set_name(&mut self, name: String) {
@@ -109,6 +109,8 @@ impl Editor<'_> {
             return;
         }
         self.finish_gesture();
+        // Review finding: resizing may remove spawns, which shifts the indexes after them.
+        self.selection.0 = None;
         let report = self.doc.edit(|s| s.resize_map(width, height));
         if report.is_empty() {
             self.status.info(format!("Resized the map to {width}x{height}"));

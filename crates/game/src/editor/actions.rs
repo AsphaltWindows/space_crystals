@@ -7,18 +7,21 @@ use std::path::PathBuf;
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use sc_sim::{Faction, ObjectKind, PlayerId, TilePos, TilePresetId};
+use sc_sim::{Faction, ObjectKind, PlayerId, SpawnSettings, Symmetry, TilePos, TilePresetId};
 use serde::{Deserialize, Serialize};
 
 use super::doc::EditorDoc;
 use super::gesture::Gesture;
 use super::state::{EditorCursor, EditorFiles, EditorProblems, EditorSelection, EditorStatus, EditorUi, Selection};
-use super::tools::{BRUSH_SIZES, EditorTools, ElevationMode, Symmetry, TOP_ELEVATION, Tool};
+use super::tools::{BRUSH_SIZES, EditorTools, ElevationMode, TOP_ELEVATION, Tool, symmetry_label};
 use crate::ClientMode;
 use crate::camera::{CameraView, CameraZoom, ViewportInsets};
+use crate::coords::drawn_position;
+use crate::map_render::MapView;
 use crate::platform::SurfaceSize;
 
-/// Everything the editor can be asked to do. Positions are sim space units.
+/// Everything the editor can be asked to do. Positions are ground points in space units: what the cursor picks on
+/// the drawn terrain (`crate::coords::ground_under`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum EditorAction {
     // --- The pointer on the map ---
@@ -30,7 +33,7 @@ pub enum EditorAction {
     Drag(Vec2),
     /// Primary button up: the gesture becomes one undo step.
     Release,
-    /// Secondary click: picks the tile's preset and elevation for the terrain tools.
+    /// Secondary click: picks the tile's preset and the height there for the terrain tools.
     Pick(Vec2),
     /// Abandons the current gesture, else closes the help, else clears the selection.
     Cancel,
@@ -40,9 +43,9 @@ pub enum EditorAction {
     SetBrush(u32),
     /// Chooses the preset to paint (switching to Paint unless Fill is active).
     SetPreset(TilePresetId),
-    /// Switches to the elevation tool in this mode.
+    /// Switches to the height tool in this mode.
     SetElevationMode(ElevationMode),
-    /// Chooses the level that Set applies (switching to the elevation tool in Set mode).
+    /// Chooses the level that Set applies (switching to the height tool in Set mode).
     SetElevation(u8),
     /// Raises (positive) or lowers the level that Set applies, like `SetElevation`.
     StepElevation(i32),
@@ -50,10 +53,16 @@ pub enum EditorAction {
     SetKind(ObjectKind),
     /// Neutral or a player slot, for placed objects.
     SetOwner(Option<PlayerId>),
+    /// Live mirroring of strokes and placements (`core/map_editor.md > Symmetry`). 90° rotation needs a square map.
     SetSymmetry(Symmetry),
     /// The slot whose markers the marker tools place and as whom play-tests run.
     SelectSlot(PlayerId),
     DeleteSelected,
+    /// Sets the per-object values of the spawn at this index (`core/map_editor.md > Per-object Resource Values`).
+    SetSpawnSettings {
+        spawn: usize,
+        settings: SpawnSettings,
+    },
 
     // --- The document ---
     Undo,
@@ -86,10 +95,15 @@ pub enum EditorAction {
     },
     /// Zooms out to show the whole map.
     FitMap,
+    /// Centres the view on this ground point (where it is drawn).
     CenterOn(Vec2),
     /// Centres the view on the validation problem at this index of the Problems list and selects its spawn.
     FocusProblem(usize),
     ToggleHelp,
+    /// Shows or hides the tile grid (like the G key).
+    ToggleGrid,
+    /// Shows or hides the overlay of flat, sloped and too steep tiles.
+    ToggleSlopes,
     RefreshFiles,
     /// Starts a play-test of the map, or ends the running one.
     PlayTest,
@@ -130,6 +144,7 @@ pub struct Editor<'w> {
     pub zoom: ResMut<'w, CameraZoom>,
     pub size: Res<'w, SurfaceSize>,
     pub insets: Res<'w, ViewportInsets>,
+    pub map_view: ResMut<'w, MapView>,
 }
 
 /// Applies the queued actions in order. A play-test request stops the queue for this frame, so that the actions
@@ -186,9 +201,10 @@ impl Editor<'_> {
                 self.tools.tool = Tool::Place;
             }
             EditorAction::SetOwner(owner) => self.set_owner(owner),
-            EditorAction::SetSymmetry(symmetry) => self.tools.symmetry = symmetry,
+            EditorAction::SetSymmetry(symmetry) => self.set_symmetry(symmetry),
             EditorAction::SelectSlot(slot) => self.select_slot(slot),
             EditorAction::DeleteSelected => self.delete_selected(),
+            EditorAction::SetSpawnSettings { spawn, settings } => self.set_spawn_settings(spawn, settings),
             EditorAction::Undo => self.undo(true),
             EditorAction::Redo => self.undo(false),
             EditorAction::Save => self.save(),
@@ -207,10 +223,12 @@ impl Editor<'_> {
             EditorAction::SetCameraStart(slot, pos) => self.set_camera_start(slot, pos),
             EditorAction::Zoom { factor, at } => self.zoom_by(factor, at),
             EditorAction::FitMap => self.fit_map(),
-            EditorAction::CenterOn(pos) if pos.is_finite() => self.view.center = pos,
+            EditorAction::CenterOn(pos) if pos.is_finite() => self.center_on(pos),
             EditorAction::CenterOn(_) => {}
             EditorAction::FocusProblem(index) => self.focus_problem(index),
             EditorAction::ToggleHelp => self.ui.help = !self.ui.help,
+            EditorAction::ToggleGrid => self.map_view.grid_visible = !self.map_view.grid_visible,
+            EditorAction::ToggleSlopes => self.ui.slopes = !self.ui.slopes,
             EditorAction::RefreshFiles => self.files.refresh(),
             // Handled by `apply_editor_actions`.
             EditorAction::PlayTest => {}
@@ -218,9 +236,24 @@ impl Editor<'_> {
         self.keep_references_valid();
     }
 
-    /// After a change, drops a selection, slot or owner that no longer exists.
+    /// Centres the view on where the ground point `pos` is drawn.
+    pub(super) fn center_on(&mut self, pos: Vec2) {
+        self.view.center = drawn_position(&self.doc.scenario().map, pos);
+    }
+
+    /// After a change, drops a selection, slot or owner that no longer exists, and resets a preset or symmetry
+    /// that the map no longer has room for (a map opened, created or resized).
     fn keep_references_valid(&mut self) {
         let scenario = self.doc.scenario();
+        let map = &scenario.map;
+        // Review finding: another map's preset table may be shorter than the custom preset chosen before.
+        if map.presets().get(self.tools.preset.0 as usize).is_none() {
+            self.tools.preset = TilePresetId::PLANE;
+        }
+        if !self.tools.symmetry.fits(map.width(), map.height()) {
+            self.tools.symmetry = Symmetry::None;
+            self.status.warn("Symmetry off: 90° rotation needs a square map");
+        }
         let slot_exists = |id: PlayerId| scenario.players.iter().any(|p| p.id == id);
         let valid = match self.selection.0 {
             Some(Selection::Spawn(i)) => i < scenario.spawns.len(),
@@ -278,8 +311,47 @@ impl Editor<'_> {
         }
     }
 
+    fn set_symmetry(&mut self, symmetry: Symmetry) {
+        let map = &self.doc.scenario().map;
+        if !symmetry.fits(map.width(), map.height()) {
+            self.status.warn(format!(
+                "{} needs a square map; this one is {}x{}",
+                symmetry_label(symmetry),
+                map.width(),
+                map.height()
+            ));
+            return;
+        }
+        self.tools.symmetry = symmetry;
+    }
+
+    /// `core/map_editor.md > Per-object Resource Values`: values of the spawn's own kind that make sense.
+    fn set_spawn_settings(&mut self, spawn: usize, settings: SpawnSettings) {
+        let Some(current) = self.doc.scenario().spawns.get(spawn) else {
+            self.status.warn(format!("There is no spawn #{spawn}"));
+            return;
+        };
+        let name = current.kind.def().name;
+        if settings.kind() != current.kind {
+            self.status.warn(format!("These values aren't for a {name}"));
+            return;
+        }
+        if let Err(problem) = settings.check() {
+            self.status.warn(format!("{name}: {problem}"));
+            return;
+        }
+        if current.settings == Some(settings) {
+            return;
+        }
+        self.finish_gesture();
+        self.doc.edit(|s| s.spawns[spawn].settings = Some(settings));
+        self.status.info(format!("Changed the values of #{spawn} {name}"));
+    }
+
     fn undo(&mut self, undo: bool) {
         self.finish_gesture();
+        // Review finding: selections are spawn indexes, which an undone or redone edit may shift.
+        self.selection.0 = None;
         let (done, verb) = if undo {
             (self.doc.undo(), "Undid")
         } else {

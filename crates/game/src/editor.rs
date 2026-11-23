@@ -8,8 +8,8 @@
 //! ([`ui`]), `--editor-script` files and tests queue them, and [`actions::apply_editor_actions`] applies them.
 //! F5 play-tests the map in game mode ([`playtest`]) and comes back with the document and its undo history intact.
 //!
-//! Map design is `core/map.md` (tiles, presets, elevation 0–16, resources); player slots and start locations are
-//! a placeholder model until design question Q0004 is answered.
+//! Map design is `core/map.md` (tiles, presets, corner heights 0–16, resources on flat ground); player slots and
+//! start locations are a placeholder model until design question Q0004 is answered.
 
 pub mod actions;
 pub mod doc;

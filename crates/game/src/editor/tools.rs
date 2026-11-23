@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 use sc_sim::map::MAX_ELEVATION;
-use sc_sim::{ObjectKind, PlayerId, TilePresetId};
+use sc_sim::{ObjectKind, PlayerId, Symmetry, TilePresetId};
 use serde::{Deserialize, Serialize};
 
 /// What a click on the map does.
@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 pub enum Tool {
     /// Select objects and markers; drag to move them, Delete to remove them.
     Select,
-    /// Paint the chosen tile preset with the brush, keeping each tile's elevation.
+    /// Paint the chosen tile preset with the brush. The corner heights stay.
     Paint,
-    /// Set, raise or lower the elevation with the brush (`core/map.md > TilePlacement`).
+    /// Set, raise or lower the corner heights under the brush (`core/map.md > Elevation`); slopes form around them.
     Elevation,
     /// Flood-fill a region of equal tiles with the chosen preset.
     Fill,
@@ -53,7 +53,7 @@ impl Tool {
     }
 }
 
-/// What the elevation tool does to each tile under the brush.
+/// What the height tool does to each corner under the brush.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ElevationMode {
     /// Set it to the chosen level.
@@ -84,38 +84,28 @@ impl ElevationMode {
     }
 }
 
-/// Symmetry painting: terrain strokes and object placements are repeated at their mirror images, for fair maps.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Symmetry {
-    None,
-    /// Left and right halves mirror each other (x is mirrored).
-    MirrorX,
-    /// Top and bottom halves mirror each other (y is mirrored).
-    MirrorY,
-    /// Point symmetry: a 180° rotation about the map center.
-    Point,
+/// The label of a symmetry mode (`core/map_editor.md > Symmetry`). Live mirroring repeats terrain strokes and
+/// object placements at their images ([`sc_sim::symmetry`]); generated symmetric halves are a later task.
+pub fn symmetry_label(symmetry: Symmetry) -> &'static str {
+    match symmetry {
+        Symmetry::None => "None",
+        Symmetry::Rotate180 => "Rotate 180°",
+        Symmetry::Rotate90 => "Rotate 90°",
+        Symmetry::MirrorHorizontalAxis => "Mirror top/bottom",
+        Symmetry::MirrorVerticalAxis => "Mirror left/right",
+        Symmetry::MirrorBothAxes => "Mirror both",
+    }
 }
 
-impl Symmetry {
-    pub const ALL: [Symmetry; 4] = [Symmetry::None, Symmetry::MirrorX, Symmetry::MirrorY, Symmetry::Point];
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Symmetry::None => "None",
-            Symmetry::MirrorX => "Mirror X",
-            Symmetry::MirrorY => "Mirror Y",
-            Symmetry::Point => "Point",
-        }
-    }
-
-    pub fn next(self) -> Self {
-        match self {
-            Symmetry::None => Symmetry::MirrorX,
-            Symmetry::MirrorX => Symmetry::MirrorY,
-            Symmetry::MirrorY => Symmetry::Point,
-            Symmetry::Point => Symmetry::None,
-        }
-    }
+/// The symmetry after `symmetry` in [`Symmetry::ALL`], skipping those that don't fit a `width × height` map (90°
+/// rotation needs a square map).
+pub fn next_symmetry(symmetry: Symmetry, width: u32, height: u32) -> Symmetry {
+    let all = Symmetry::ALL;
+    let start = all.iter().position(|s| *s == symmetry).unwrap_or(0);
+    (1..=all.len())
+        .map(|i| all[(start + i) % all.len()])
+        .find(|s| s.fits(width, height))
+        .unwrap_or(Symmetry::None)
 }
 
 /// Brush sizes: the side of the square brush, in tiles.
@@ -175,9 +165,15 @@ mod tests {
     #[test]
     fn cycles_visit_every_value() {
         let mut s = Symmetry::None;
-        for expected in Symmetry::ALL.iter().cycle().skip(1).take(4) {
-            s = s.next();
+        for expected in Symmetry::ALL.iter().cycle().skip(1).take(6) {
+            s = next_symmetry(s, 8, 8);
             assert_eq!(s, *expected);
+        }
+        // 90° rotation only on square maps.
+        assert_eq!(next_symmetry(Symmetry::Rotate180, 8, 6), Symmetry::MirrorHorizontalAxis);
+        assert_eq!(next_symmetry(Symmetry::Rotate180, 8, 8), Symmetry::Rotate90);
+        for s in Symmetry::ALL {
+            assert!(!symmetry_label(s).is_empty());
         }
         let mut m = ElevationMode::Set;
         for expected in ElevationMode::ALL.iter().cycle().skip(1).take(3) {

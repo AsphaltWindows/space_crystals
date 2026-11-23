@@ -2,16 +2,17 @@
 //!
 //! The sim is the source of truth. Each visual is a separate entity linked to its object by [`ObjectVisual`]. Visuals
 //! are created and despawned by diffing them against `Sim::objects()` (scenario spawns emit no events), and placed
-//! from the sim every frame at `prev_pos.lerp(pos, alpha)`, y-sorted in the ground-object layer. Placeholder shapes
-//! stand in until the art direction (Q0001) is settled.
+//! from the sim every frame at `prev_pos.lerp(pos, alpha)`, drawn at the terrain height there (a tile-based object
+//! at its footprint's height, `core/art_direction.md > Elevation Display`) and y-sorted by its ground position in the
+//! ground-object layer. Placeholder shapes stand in until the art direction (Q0001) is settled.
 
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
-use sc_sim::{ObjectId, ObjectKind};
+use sc_sim::{Map, ObjectId, ObjectKind, Placement};
 
 use crate::ClientSystems;
-use crate::coords::{DrawLayer, anchored_translation, facing_to_rotation, lerp_facing};
+use crate::coords::{DrawLayer, facing_to_rotation, footprint_height, ground_translation, lerp_facing};
 use crate::shapes::{ColorMesh, vertex_color_material};
 use crate::sim_driver::{RenderAlpha, SimRes};
 
@@ -45,9 +46,18 @@ impl Plugin for ObjectRenderPlugin {
     }
 }
 
-/// The transform of a visual anchored at sim position `pos` with sim facing `facing`.
-pub fn object_transform(pos: Vec2, facing: f32) -> Transform {
-    Transform::from_translation(anchored_translation(DrawLayer::GroundObjects, pos))
+/// The height an object stands at: its footprint's for a tile-based object, else the terrain's at `pos`.
+pub fn object_height(map: &Map, pos: Vec2, placement: Option<&Placement>) -> f32 {
+    match placement {
+        Some(p) => footprint_height(map, p.origin, p.w, p.h),
+        None => map.height_at(pos),
+    }
+}
+
+/// The transform of a visual anchored at ground position `pos`, standing at `height` levels, with sim facing
+/// `facing`.
+pub fn object_transform(pos: Vec2, height: f32, facing: f32) -> Transform {
+    Transform::from_translation(ground_translation(DrawLayer::GroundObjects, pos, height))
         .with_rotation(facing_to_rotation(facing))
 }
 
@@ -166,13 +176,14 @@ fn sync_object_visuals(
             .entry(object.kind)
             .or_insert_with(|| meshes.add(placeholder_mesh(object.kind)))
             .clone();
+        let height = object_height(sim.map(), object.pos, object.placement.as_ref());
         let entity = commands
             .spawn((
                 Name::new(format!("{:?} #{}", object.kind, object.id.0)),
                 ObjectVisual(object.id),
                 Mesh2d(mesh),
                 MeshMaterial2d(material.clone()),
-                object_transform(object.pos, object.facing),
+                object_transform(object.pos, height, object.facing),
             ))
             .id();
         visuals.by_id.insert(object.id, entity);
@@ -191,6 +202,7 @@ fn place_object_visuals(
         };
         let pos = object.prev_pos.lerp(object.pos, alpha.0);
         let facing = lerp_facing(object.prev_facing, object.facing, alpha.0);
-        transform.set_if_neq(object_transform(pos, facing));
+        let height = object_height(sim.map(), pos, object.placement.as_ref());
+        transform.set_if_neq(object_transform(pos, height, facing));
     }
 }

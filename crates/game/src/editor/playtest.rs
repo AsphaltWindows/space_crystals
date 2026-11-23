@@ -10,7 +10,7 @@ use super::doc::EditorDoc;
 use super::state::EditorStatus;
 use super::tools::EditorTools;
 use crate::ClientMode;
-use crate::camera::{CameraView, CameraZoom, start_center};
+use crate::camera::{CameraView, CameraZoom, start_view};
 use crate::sim_driver::{LoadedScenario, LocalPlayer, PendingCommands, RecordedInputs, SimControl, SimRes};
 
 /// The editor's view while a play-test runs, to come back to.
@@ -68,7 +68,7 @@ pub fn switch_play_test(
             game.recorded.ticks.clear();
             game.control.paused = false;
             game.zoom.0 = 1.0;
-            game.view.center = start_center(scenario, tools.slot, &scenario.map);
+            game.view.center = start_view(scenario, tools.slot, &scenario.map);
             *mode = ClientMode::PlayTest;
             status.info(format!("Play-testing as player {}: Esc or F5 returns", tools.slot.0));
         }

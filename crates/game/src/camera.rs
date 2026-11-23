@@ -6,6 +6,11 @@
 //!
 //! The game has no zoom (`core/camera.md > Zoom`). The map editor has its own: [`CameraZoom`] scales the view
 //! relative to the game's pixel scale, 28 GU across the full surface width.
+//!
+//! The camera looks at view space (`crate::coords`): [`CameraView::center`] is a view point, the cursor maps to a
+//! view point ([`cursor_to_view`]) and from there to the ground drawn under it ([`cursor_to_ground`]), and the view
+//! stays inside the map's drawn area ([`drawn_bounds`]), so raised ground at the north edge stays reachable. It pans
+//! with the pan actions and with the middle-mouse grab ([`GrabPan`]), in the game and in the editor alike.
 
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{ScalingMode, Viewport};
@@ -13,7 +18,7 @@ use bevy::prelude::*;
 use sc_sim::{Map, PlayerId, SU_PER_GU, Scenario, gu};
 
 use crate::ClientSystems;
-use crate::coords::sim_to_world;
+use crate::coords::{drawn_bounds, drawn_position, ground_under, view_to_world};
 use crate::input::{ActionState, InputAction};
 use crate::platform::{RenderSurface, SurfaceSize};
 use crate::sim_driver::{LoadedScenario, LocalPlayer, SimRes};
@@ -53,10 +58,18 @@ impl Default for CameraZoom {
     }
 }
 
-/// Where the camera looks: the view's center in sim space units. The camera's transform derives from it.
+/// Where the camera looks: the view's center, a view-space point (space units, `crate::coords`). The camera's
+/// transform derives from it. To look at a ground point, center on its [`drawn_position`].
 #[derive(Resource, Copy, Clone, Debug, PartialEq)]
 pub struct CameraView {
     pub center: Vec2,
+}
+
+/// The middle-mouse grab (`core/camera.md > Panning > Middle-mouse grab`): the view point grabbed when the button
+/// went down over the map, kept under the cursor until the button is released.
+#[derive(Resource, Default, Debug)]
+pub struct GrabPan {
+    pub grabbed: Option<Vec2>,
 }
 
 pub struct GameCameraPlugin;
@@ -65,8 +78,10 @@ impl Plugin for GameCameraPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ViewportInsets>()
             .init_resource::<CameraZoom>()
+            .init_resource::<GrabPan>()
             .add_systems(Startup, (init_camera_view, spawn_cameras))
-            .add_systems(Update, pan_camera.in_set(ClientSystems::Actions))
+            // The grab sets the view outright, so it comes last.
+            .add_systems(Update, (pan_camera, grab_pan).chain().in_set(ClientSystems::Actions))
             .add_systems(Update, apply_camera.in_set(ClientSystems::Present));
     }
 }
@@ -74,12 +89,17 @@ impl Plugin for GameCameraPlugin {
 /// `core/camera.md > Starting Position`: the map's starting camera position for the local player's slot, else the
 /// player's primary starting structure. No starting structures exist yet (they arrive with the faction
 /// milestones), so the slot's start location stands in for them (the Q0004 placeholder for where its base goes),
-/// and the map center for a slot without one.
+/// and the map center for a slot without one. A ground point: the camera centers on its [`start_view`].
 pub fn start_center(scenario: &Scenario, player: PlayerId, map: &Map) -> Vec2 {
     let slot = scenario.players.iter().find(|p| p.id == player);
     slot.and_then(|p| p.camera_start)
         .or_else(|| slot.and_then(|p| p.start_location).map(|t| t.center()))
         .unwrap_or_else(|| map_extent_su(map) / 2.0)
+}
+
+/// The view center that shows [`start_center`]: where that ground point is drawn.
+pub fn start_view(scenario: &Scenario, player: PlayerId, map: &Map) -> Vec2 {
+    drawn_position(map, start_center(scenario, player, map))
 }
 
 /// The map's size in space units.
@@ -112,30 +132,74 @@ pub fn visible_extent_su(viewport_size: UVec2, surface_width: u32, zoom: f32) ->
     Vec2::new(width, width * size.y / size.x)
 }
 
-/// The sim position under a cursor at `cursor` (logical pixels from the surface's top-left corner), or `None`
-/// outside the world viewport. `center` is the view's clamped center ([`CameraView`]).
-pub fn cursor_to_sim(cursor: Vec2, size: SurfaceSize, insets: ViewportInsets, center: Vec2, zoom: f32) -> Option<Vec2> {
+/// How far from the view's center a cursor at `cursor` (logical pixels from the surface's top-left corner) points,
+/// in space units, wherever it is; `None` for a non-finite cursor.
+pub fn cursor_offset(cursor: Vec2, size: SurfaceSize, insets: ViewportInsets, zoom: f32) -> Option<Vec2> {
     let (position, viewport) = viewport_rect(size, insets);
     let local = cursor * size.scale_factor - position.as_vec2();
-    let inside = local.cmpge(Vec2::ZERO).all() && local.cmplt(viewport.as_vec2()).all();
-    if !local.is_finite() || !inside {
+    if !local.is_finite() {
         return None;
     }
     let su_per_pixel = visible_extent_su(viewport, size.physical.x, zoom).x / viewport.x as f32;
-    // Screen +y points down, like sim +y.
-    Some(center + (local - viewport.as_vec2() / 2.0) * su_per_pixel)
+    // Screen +y points down, like view +y.
+    Some((local - viewport.as_vec2() / 2.0) * su_per_pixel)
 }
 
-/// Keeps the view on the map: each axis is clamped so the view stays inside the map, or centered on the map when
-/// the map is smaller than the view.
-pub fn clamp_center(center: Vec2, visible: Vec2, map: Vec2) -> Vec2 {
-    let axis = |c: f32, v: f32, m: f32| if m <= v { m / 2.0 } else { c.clamp(v / 2.0, m - v / 2.0) };
-    Vec2::new(axis(center.x, visible.x, map.x), axis(center.y, visible.y, map.y))
+/// The view point under a cursor at `cursor` (logical pixels from the surface's top-left corner), or `None`
+/// outside the world viewport. `center` is the view's clamped center ([`CameraView`]).
+pub fn cursor_to_view(
+    cursor: Vec2,
+    size: SurfaceSize,
+    insets: ViewportInsets,
+    center: Vec2,
+    zoom: f32,
+) -> Option<Vec2> {
+    let (position, viewport) = viewport_rect(size, insets);
+    let local = cursor * size.scale_factor - position.as_vec2();
+    let inside = local.cmpge(Vec2::ZERO).all() && local.cmplt(viewport.as_vec2()).all();
+    if !inside {
+        return None;
+    }
+    cursor_offset(cursor, size, insets, zoom).map(|offset| center + offset)
+}
+
+/// The ground point visible under a cursor ([`cursor_to_view`], then [`ground_under`]): what every click and hover
+/// on the map refers to.
+pub fn cursor_to_ground(
+    cursor: Vec2,
+    size: SurfaceSize,
+    insets: ViewportInsets,
+    view: CameraView,
+    zoom: f32,
+    map: &Map,
+) -> Option<Vec2> {
+    cursor_to_view(cursor, size, insets, view.center, zoom).map(|v| ground_under(map, v))
+}
+
+/// The view center that puts the view point `grabbed` under a cursor at `cursor`: the grab pan's view.
+pub fn grab_center(grabbed: Vec2, cursor: Vec2, size: SurfaceSize, insets: ViewportInsets, zoom: f32) -> Option<Vec2> {
+    cursor_offset(cursor, size, insets, zoom).map(|offset| grabbed - offset)
+}
+
+/// Keeps the view on the map's drawn area `bounds` (view space, [`drawn_bounds`]): each axis is clamped so the
+/// view stays inside it, or centered on it when it is smaller than the view.
+pub fn clamp_center(center: Vec2, visible: Vec2, bounds: Rect) -> Vec2 {
+    let axis = |c: f32, v: f32, lo: f32, hi: f32| {
+        if hi - lo <= v {
+            (lo + hi) / 2.0
+        } else {
+            c.clamp(lo + v / 2.0, hi - v / 2.0)
+        }
+    };
+    Vec2::new(
+        axis(center.x, visible.x, bounds.min.x, bounds.max.x),
+        axis(center.y, visible.y, bounds.min.y, bounds.max.y),
+    )
 }
 
 fn init_camera_view(mut commands: Commands, scenario: Res<LoadedScenario>, player: Res<LocalPlayer>, sim: Res<SimRes>) {
     commands.insert_resource(CameraView {
-        center: start_center(&scenario.0, player.0, sim.map()),
+        center: start_view(&scenario.0, player.0, sim.map()),
     });
 }
 
@@ -193,6 +257,36 @@ fn pan_camera(actions: Res<ActionState>, time: Res<Time<Real>>, zoom: Res<Camera
     }
 }
 
+/// `core/camera.md > Panning > Middle-mouse grab`: the press grabs the view point under the cursor, if the cursor
+/// is over the world view; while the button is held, the view follows so that point stays exactly under the cursor,
+/// wherever the cursor goes; the release ends it on the spot, without drift.
+fn grab_pan(
+    actions: Res<ActionState>,
+    size: Res<SurfaceSize>,
+    insets: Res<ViewportInsets>,
+    zoom: Res<CameraZoom>,
+    mut grab: ResMut<GrabPan>,
+    mut view: ResMut<CameraView>,
+) {
+    if !actions.held(InputAction::GrabPan) {
+        grab.grabbed = None;
+        return;
+    }
+    let Some(cursor) = actions.cursor() else {
+        return;
+    };
+    if actions.just_pressed(InputAction::GrabPan) {
+        grab.grabbed = cursor_to_view(cursor, *size, *insets, view.center, zoom.0);
+        return;
+    }
+    if let Some(grabbed) = grab.grabbed
+        && let Some(center) = grab_center(grabbed, cursor, *size, *insets, zoom.0)
+        && center != view.center
+    {
+        view.center = center;
+    }
+}
+
 /// Clamps the view to the map and puts the world camera's viewport, scale and transform where they belong.
 fn apply_camera(
     size: Res<SurfaceSize>,
@@ -204,7 +298,7 @@ fn apply_camera(
 ) {
     let (position, viewport_size) = viewport_rect(*size, *insets);
     let visible = visible_extent_su(viewport_size, size.physical.x, zoom.0);
-    let center = clamp_center(view.center, visible, map_extent_su(sim.map()));
+    let center = clamp_center(view.center, visible, drawn_bounds(sim.map()));
     if center != view.center {
         view.center = center;
     }
@@ -237,7 +331,7 @@ fn apply_camera(
     }
     // Snap to whole physical pixels, so tile edges don't shimmer while panning.
     let pixels_per_su = viewport_size.x as f32 / visible.x;
-    let snapped = (sim_to_world(center) * pixels_per_su).round() / pixels_per_su;
+    let snapped = (view_to_world(center) * pixels_per_su).round() / pixels_per_su;
     let translation = snapped.extend(0.0);
     if transform.translation != translation {
         transform.translation = translation;
@@ -296,7 +390,7 @@ mod tests {
     }
 
     #[test]
-    fn the_cursor_maps_to_the_sim_point_under_it() {
+    fn the_cursor_maps_to_the_view_point_under_it() {
         let insets = ViewportInsets {
             top_vh: 10.0,
             left_vh: 20.0,
@@ -305,14 +399,45 @@ mod tests {
         let size = surface(1000, 500); // viewport at (100, 50), 900 × 450 px
         let center = Vec2::new(2000.0, 1000.0);
         let su_per_px = gu(VIEW_WIDTH_GU) / 1000.0;
-        let at = |x, y| cursor_to_sim(Vec2::new(x, y), size, insets, center, 1.0);
+        let at = |x, y| cursor_to_view(Vec2::new(x, y), size, insets, center, 1.0);
         assert_eq!(at(550.0, 275.0), Some(center));
         assert_eq!(at(100.0, 50.0), Some(center - Vec2::new(450.0, 225.0) * su_per_px));
         assert_eq!(at(99.0, 300.0), None, "left of the viewport");
         assert_eq!(at(500.0, 40.0), None, "under the top bar");
         assert_eq!(at(f32::NAN, 300.0), None);
-        let zoomed = cursor_to_sim(Vec2::new(100.0, 275.0), size, insets, center, 2.0).unwrap();
+        let zoomed = cursor_to_view(Vec2::new(100.0, 275.0), size, insets, center, 2.0).unwrap();
         assert_eq!(zoomed, center - Vec2::new(450.0 * su_per_px * 2.0, 0.0));
+    }
+
+    #[test]
+    fn the_cursor_picks_the_ground_drawn_under_it() {
+        let size = surface(1000, 500);
+        let insets = ViewportInsets::default();
+        // A map raised to level 4 everywhere: the ground under a view point lies a tile further south.
+        let map = Map::from_ascii("....\n....\n\n44444\n44444\n44444").unwrap();
+        let view = CameraView {
+            center: Vec2::new(128.0, 64.0),
+        };
+        let ground = cursor_to_ground(Vec2::new(500.0, 250.0), size, insets, view, 1.0, &map).unwrap();
+        assert_eq!(ground, Vec2::new(128.0, 64.0 + 64.0));
+        assert_eq!(drawn_position(&map, ground), view.center);
+    }
+
+    #[test]
+    fn a_grab_keeps_the_grabbed_point_under_the_cursor() {
+        let size = surface(1000, 500);
+        let insets = ViewportInsets {
+            top_vh: 10.0,
+            ..default()
+        };
+        for zoom in [1.0, 2.5] {
+            let grabbed = cursor_to_view(Vec2::new(300.0, 200.0), size, insets, Vec2::new(900.0, 700.0), zoom).unwrap();
+            for cursor in [Vec2::new(310.0, 190.0), Vec2::new(900.0, 480.0), Vec2::new(-50.0, 10.0)] {
+                let center = grab_center(grabbed, cursor, size, insets, zoom).unwrap();
+                let under = center + cursor_offset(cursor, size, insets, zoom).unwrap();
+                assert!((under - grabbed).length() < 1e-3, "{cursor}: {under} vs {grabbed}");
+            }
+        }
     }
 
     #[test]
@@ -331,7 +456,7 @@ mod tests {
     #[test]
     fn clamping_keeps_the_view_on_the_map() {
         let visible = Vec2::new(1000.0, 500.0);
-        let map = Vec2::new(4000.0, 3000.0);
+        let map = Rect::new(0.0, 0.0, 4000.0, 3000.0);
         assert_eq!(
             clamp_center(Vec2::new(-50.0, 9999.0), visible, map),
             Vec2::new(500.0, 2750.0)
@@ -342,8 +467,11 @@ mod tests {
         );
         // A map narrower than the view is centered.
         assert_eq!(
-            clamp_center(Vec2::new(0.0, 0.0), visible, Vec2::new(800.0, 3000.0)).x,
+            clamp_center(Vec2::new(0.0, 0.0), visible, Rect::new(0.0, 0.0, 800.0, 3000.0)).x,
             400.0
         );
+        // Raised ground at the north edge is drawn above y 0, and the view can reach it.
+        let raised = Rect::new(0.0, -128.0, 4000.0, 3000.0);
+        assert_eq!(clamp_center(Vec2::new(10.0, -500.0), visible, raised).y, -128.0 + 250.0);
     }
 }

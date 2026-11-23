@@ -1,13 +1,14 @@
 //! What a press, drag and release on the map do with the active tool. A gesture is one undo step: it opens an edit
-//! on the press and closes it on the release.
+//! on the press and closes it on the release. Positions are ground points: what the cursor picks
+//! (`crate::coords::ground_under`).
 
 use std::collections::BTreeSet;
 
 use bevy::prelude::*;
-use sc_sim::{Category, PlayerId, SU_PER_GU, Spawn, SpawnAt, TilePos};
+use sc_sim::{Category, CornerPos, PlayerId, SU_PER_GU, Spawn, SpawnAt, TilePos};
 
 use super::actions::Editor;
-use super::objects::{self, PlaceProblem};
+use super::objects;
 use super::state::Selection;
 use super::terrain;
 use super::tools::{ElevationMode, Tool};
@@ -21,9 +22,13 @@ pub struct Gesture(pub Option<GestureKind>);
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum GestureKind {
-    /// A Paint or Elevation stroke: the last dab's tile, and the tiles it changed so far (raise and lower change
-    /// each tile once per stroke).
-    Stroke { last: TilePos, touched: BTreeSet<TilePos> },
+    /// A Paint or Height stroke: the last dab's tile, the corners raised or lowered so far (each changes once per
+    /// stroke), and the tiles too steep for the painted preset.
+    Stroke {
+        last: TilePos,
+        touched: BTreeSet<CornerPos>,
+        refused: BTreeSet<TilePos>,
+    },
     /// Placing objects; dragging places more where they fit (a crystal field in one stroke).
     Place { last: SpawnAt },
     /// Dragging a spawn: its center sits at the cursor plus `offset`.
@@ -47,6 +52,7 @@ impl Editor<'_> {
                 self.gesture.0 = Some(GestureKind::Stroke {
                     last: tile,
                     touched: BTreeSet::new(),
+                    refused: BTreeSet::new(),
                 });
                 self.dab(tile);
             }
@@ -55,7 +61,10 @@ impl Editor<'_> {
                 if !self.doc.scenario().map.in_bounds(tile) {
                     return;
                 }
-                if !self.doc.edit(|s| terrain::fill(&mut s.map, tile, preset, symmetry)) {
+                let filled = self.doc.edit(|s| terrain::fill(&mut s.map, tile, preset, symmetry));
+                if !filled.refused.is_empty() {
+                    self.warn_refused(filled.refused.len());
+                } else if !filled.changed {
                     self.status.info("Nothing to fill: the region already has that preset");
                 }
             }
@@ -114,8 +123,25 @@ impl Editor<'_> {
 
     /// Ends the gesture: its changes become one undo step.
     pub(super) fn finish_gesture(&mut self) {
-        self.gesture.0 = None;
+        if let Some(GestureKind::Stroke { refused, .. }) = self.gesture.0.take()
+            && !refused.is_empty()
+        {
+            self.warn_refused(refused.len());
+        }
         self.doc.end_edit();
+    }
+
+    /// `core/map.md > Elevation > Maximum slope`: says that the preset wasn't painted on `count` tiles.
+    fn warn_refused(&mut self, count: usize) {
+        let map = &self.doc.scenario().map;
+        let name = map
+            .presets()
+            .get(self.tools.preset.0 as usize)
+            .map_or("?", |p| p.name.as_str());
+        let message = format!(
+            "{name} is Traversible: left {count} tile(s) steeper than 1 level as they were (flatten them first)"
+        );
+        self.status.warn(message);
     }
 
     pub(super) fn cancel(&mut self) {
@@ -129,16 +155,18 @@ impl Editor<'_> {
         }
     }
 
-    /// The eyedropper: the terrain tools take the preset and elevation of the tile at `pos`.
+    /// The eyedropper: the terrain tools take the preset of the tile at `pos` and the height there, rounded to a
+    /// whole level.
     pub(super) fn pick(&mut self, pos: Vec2) {
         let map = &self.doc.scenario().map;
         let Some(tile) = pos.is_finite().then(|| map.tile(TilePos::containing(pos))).flatten() else {
             return;
         };
         let name = map.preset(tile.preset).name.clone();
+        let level = map.height_at(pos).round() as u8;
         self.tools.preset = tile.preset;
-        self.tools.elevation = tile.elevation;
-        self.status.info(format!("Picked {name}, elevation {}", tile.elevation));
+        self.tools.elevation = level;
+        self.status.info(format!("Picked {name}, height {level}"));
     }
 
     pub(super) fn delete_selected(&mut self) {
@@ -199,33 +227,38 @@ impl Editor<'_> {
         }
     }
 
-    /// One brush dab of the Paint or Elevation tool at `center`, mirrored by the symmetry setting.
+    /// One brush dab of the Paint or Height tool at `center`, repeated at its symmetry images.
     fn dab(&mut self, center: TilePos) {
         let tools = &*self.tools;
         let (tool, preset, mode, level) = (tools.tool, tools.preset, tools.elevation_mode, tools.elevation);
-        let tiles = terrain::dab_tiles(&self.doc.scenario().map, center, tools.brush, tools.symmetry);
+        let (brush, symmetry) = (tools.brush, tools.symmetry);
+        if tool == Tool::Paint {
+            let tiles = terrain::dab_tiles(&self.doc.scenario().map, center, brush, symmetry);
+            let painted = terrain::paint(&mut self.doc.scenario_mut().map, tiles, preset);
+            if let Some(GestureKind::Stroke { refused, .. }) = &mut self.gesture.0 {
+                refused.extend(painted.refused);
+            }
+            return;
+        }
+        let corners = terrain::dab_corners(&self.doc.scenario().map, center, brush, symmetry);
         let Some(GestureKind::Stroke { touched, .. }) = &mut self.gesture.0 else {
             return;
         };
-        let fresh: Vec<TilePos> = match (tool, mode) {
-            // Raise and lower change a tile once per stroke, however often the brush passes over it.
-            (Tool::Elevation, ElevationMode::Raise | ElevationMode::Lower) => {
-                tiles.into_iter().filter(|t| touched.insert(*t)).collect()
-            }
-            _ => tiles.into_iter().collect(),
+        let fresh: Vec<CornerPos> = match mode {
+            // Raise and lower change a corner once per stroke, however often the brush passes over it.
+            ElevationMode::Raise | ElevationMode::Lower => corners.into_iter().filter(|c| touched.insert(*c)).collect(),
+            ElevationMode::Set => corners.into_iter().collect(),
         };
         if fresh.is_empty() {
             return;
         }
-        let map = &mut self.doc.scenario_mut().map;
-        match tool {
-            Tool::Paint => terrain::paint(map, fresh, preset),
-            _ => terrain::elevate(map, fresh, mode, level),
-        };
+        let targets = terrain::height_targets(&self.doc.scenario().map, fresh, mode, level);
+        terrain::shape(&mut self.doc.scenario_mut().map, &targets);
     }
 
-    /// Places the chosen object type at `at`, and its mirror image if symmetry is on. Returns whether the object
-    /// was placed. `report` says why not in the status line (the press does, a drag skips bad spots silently).
+    /// Places the chosen object type at `at` with its kind's default values, and copies at its symmetry images
+    /// where they fit. Returns whether the object was placed. `report` says why not in the status line (the press
+    /// does, a drag skips bad spots silently).
     fn place(&mut self, at: SpawnAt, report: bool) -> bool {
         let kind = self.tools.kind;
         let owner = match kind.def().category {
@@ -234,25 +267,25 @@ impl Editor<'_> {
         };
         if let Err(problem) = objects::check_placement(self.doc.scenario(), kind, at, None) {
             if report {
-                self.status.warn(match problem {
-                    PlaceProblem::OffMap => format!("{} doesn't fit on the map there", kind.def().name),
-                    PlaceProblem::Overlaps(i) => format!("{} would overlap spawn #{i}", kind.def().name),
-                });
+                self.status.warn(problem.message(kind));
             }
             return false;
         }
         let players = self.doc.scenario().players.len();
         let symmetry = self.tools.symmetry;
         self.doc.edit(|s| {
-            s.spawns.push(Spawn { kind, owner, at });
-            if let Some(image) = objects::mirrored_spawn(&s.map, kind, at, symmetry)
-                && objects::check_placement(s, kind, image, None).is_ok()
-            {
-                s.spawns.push(Spawn {
-                    kind,
-                    owner: objects::mirrored_owner(owner, players),
-                    at: image,
-                });
+            let spawn = Spawn::new(kind, owner, at);
+            let images = objects::spawn_images(&s.map, kind, at, symmetry);
+            let count = terrain::transforms(&s.map, symmetry).len();
+            s.spawns.push(spawn.clone());
+            for (k, image) in images {
+                if objects::check_placement(s, kind, image, None).is_ok() {
+                    s.spawns.push(Spawn {
+                        owner: objects::image_owner(owner, k, count, players),
+                        at: image,
+                        ..spawn.clone()
+                    });
+                }
             }
         });
         true

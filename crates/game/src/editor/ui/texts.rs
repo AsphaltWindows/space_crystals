@@ -1,8 +1,8 @@
-//! The UI's texts that follow the editor's state: the status line, the elevation level, the file, the selection,
+//! The UI's texts that follow the editor's state: the status line, the height level, the file, the selection,
 //! the problem count, and the F1 help.
 
 use bevy::prelude::*;
-use sc_sim::{SpawnAt, TilePos};
+use sc_sim::{SpawnAt, TilePos, TilePresetId};
 
 use super::{ERROR_TEXT, OK_TEXT, TEXT, WARN_TEXT};
 use crate::ClientMode;
@@ -11,7 +11,7 @@ use crate::editor::files;
 use crate::editor::state::{
     EditorCursor, EditorProblems, EditorSelection, EditorStatus, EditorUi, Selection, StatusLevel,
 };
-use crate::editor::tools::{EditorTools, ElevationMode, Tool};
+use crate::editor::tools::{EditorTools, ElevationMode, Tool, symmetry_label};
 
 /// The two halves of the status line.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
@@ -39,14 +39,18 @@ pub fn help_text() -> String {
     "\
 MOUSE
   Left           use the tool: drag to paint, move, or place more
-  Right          pick the tile's preset and elevation
+  Right          pick the tile's preset and height
   Wheel          zoom at the cursor
-  Middle drag, arrow keys, screen edge: pan
+  Middle drag    grab and pan; arrow keys and screen edge pan too
 
 TOOLS
   V Select   B Paint   H Height   F Fill   O Place   L Start   C Camera
-  [ ]  brush size      E  elevation mode      + -  elevation level
-  M    symmetry        G  grid               Home  whole map
+  [ ]  brush size      E  height mode         + -  height level
+  M    symmetry        G  grid      K  slopes      Home  whole map
+
+The Height tool sets the corners of the brush's tiles; the slopes around
+them follow, and stop at cliffs. Plane and Rugged need ground at most
+1 level steep; crystals and stations need flat ground.
 
 EDIT
   Delete  delete the selection        Esc  cancel / deselect
@@ -65,26 +69,44 @@ fn set_text(text: &mut Mut<Text>, value: String) {
     }
 }
 
-/// The status line's description of the cursor, the tool and the file.
+/// The status line's description of the cursor, the tool and the file: the tile under the cursor with the height
+/// there (interpolated, `core/map.md > Elevation > Terrain height at a point`), its level, and whether the tile is
+/// flat or sloped.
 pub fn status_info(doc: &EditorDoc, tools: &EditorTools, cursor: &EditorCursor) -> String {
     let map = &doc.scenario().map;
-    let at = match cursor.0.map(TilePos::containing).and_then(|t| Some((t, map.tile(t)?))) {
-        Some((t, tile)) => format!(
-            "Tile ({}, {}) {}, elevation {}",
-            t.x,
-            t.y,
-            map.preset(tile.preset).name,
-            tile.elevation
-        ),
+    // Never indexes: the tools may hold a preset of the map before (review finding).
+    let preset_name = |id: TilePresetId| map.presets().get(id.0 as usize).map_or("?", |p| p.name.as_str());
+    let under = cursor.0.and_then(|p| {
+        let t = TilePos::containing(p);
+        Some((p, t, map.tile(t)?))
+    });
+    let at = match under {
+        Some((p, t, tile)) => {
+            let shape = if map.is_too_steep(t) {
+                "too steep"
+            } else if map.is_flat(t) {
+                "flat"
+            } else {
+                "sloped"
+            };
+            format!(
+                "Tile ({}, {}) {}, height {:.1} (level {}), {shape}",
+                t.x,
+                t.y,
+                preset_name(tile.preset),
+                map.height_at(p),
+                map.elevation_level(p)
+            )
+        }
         None => "Off the map".into(),
     };
     let tool = match tools.tool {
-        Tool::Paint => format!("Paint {}, brush {}", map.preset(tools.preset).name, tools.brush),
+        Tool::Paint => format!("Paint {}, brush {}", preset_name(tools.preset), tools.brush),
         Tool::Elevation => match tools.elevation_mode {
             ElevationMode::Set => format!("Height: set {}, brush {}", tools.elevation, tools.brush),
             mode => format!("Height: {}, brush {}", mode.label().to_lowercase(), tools.brush),
         },
-        Tool::Fill => format!("Fill with {}", map.preset(tools.preset).name),
+        Tool::Fill => format!("Fill with {}", preset_name(tools.preset)),
         Tool::Place => {
             let owner = tools.owner.map_or("neutral".into(), |p| format!("P{}", p.0));
             format!("Place {} ({owner})", tools.kind.def().name)
@@ -101,7 +123,7 @@ pub fn status_info(doc: &EditorDoc, tools: &EditorTools, cursor: &EditorCursor) 
     let dirty = if doc.is_dirty() { " (unsaved)" } else { "" };
     format!(
         "{at}  |  {tool}  |  symmetry {}  |  {file}{dirty}",
-        tools.symmetry.label()
+        symmetry_label(tools.symmetry)
     )
 }
 

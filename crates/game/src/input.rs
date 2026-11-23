@@ -1,7 +1,8 @@
 //! Raw input → [`InputAction`]s (`ARCHITECTURE.md > Client architecture > Input`).
 //!
-//! One binding table turns keys into actions; the screen edge pans like the arrow keys. Game systems read only
-//! [`ActionState`]. Tests and QA scripts inject actions through [`InjectedActions`], never raw `ButtonInput`.
+//! Binding tables turn keys and mouse buttons into actions; the screen edge pans like the arrow keys. Game systems
+//! read only [`ActionState`], which also carries the cursor's position. Tests and QA scripts inject actions and the
+//! cursor through [`InjectedActions`], never raw `ButtonInput`.
 
 use std::collections::BTreeSet;
 
@@ -24,6 +25,8 @@ pub enum InputAction {
     PanDown,
     /// Show or hide the tile grid overlay.
     ToggleGrid,
+    /// `core/camera.md > Panning > Middle-mouse grab`: while held, the map point grabbed stays under the cursor.
+    GrabPan,
 }
 
 /// The binding table. Placeholder bindings until Q0002 settles the pan inputs.
@@ -35,6 +38,9 @@ pub const KEY_BINDINGS: &[(KeyCode, InputAction)] = &[
     (KeyCode::KeyG, InputAction::ToggleGrid),
 ];
 
+/// The mouse button bindings (`core/camera.md > Panning > Middle-mouse grab`).
+pub const MOUSE_BINDINGS: &[(MouseButton, InputAction)] = &[(MouseButton::Middle, InputAction::GrabPan)];
+
 /// Screen-edge panning: a cursor this close to a window edge (logical pixels) pans that way. Placeholder until
 /// Q0002 settles the pan inputs.
 pub const EDGE_PAN_MARGIN_PX: f32 = 8.0;
@@ -44,6 +50,7 @@ pub const EDGE_PAN_MARGIN_PX: f32 = 8.0;
 pub struct ActionState {
     held: BTreeSet<InputAction>,
     just_pressed: BTreeSet<InputAction>,
+    cursor: Option<Vec2>,
 }
 
 impl ActionState {
@@ -56,14 +63,20 @@ impl ActionState {
     pub fn just_pressed(&self, action: InputAction) -> bool {
         self.just_pressed.contains(&action)
     }
+
+    /// The cursor's position in logical pixels from the window's top-left corner, while it is over the window.
+    pub fn cursor(&self) -> Option<Vec2> {
+        self.cursor
+    }
 }
 
 /// Actions supplied by tests and scripts. `held` stays active until removed; each `pressed` entry fires once, on
-/// the next frame.
+/// the next frame, and also counts as held on that frame. `cursor`, when set, stands in for the mouse cursor.
 #[derive(Resource, Default, Debug)]
 pub struct InjectedActions {
     pub held: BTreeSet<InputAction>,
     pub pressed: Vec<InputAction>,
+    pub cursor: Option<Vec2>,
 }
 
 /// Whether keyboard and mouse affect the game. Off in QA runs, so a stray cursor or key can't change a screenshot.
@@ -108,6 +121,7 @@ impl TextFocus<'_, '_> {
 fn update_action_state(
     raw: Res<RawInput>,
     keys: Option<Res<ButtonInput<KeyCode>>>,
+    mouse: Option<Res<ButtonInput<MouseButton>>>,
     window: Query<&Window, With<PrimaryWindow>>,
     text_focus: TextFocus,
     mut injected: ResMut<InjectedActions>,
@@ -116,7 +130,19 @@ fn update_action_state(
     let state = &mut *state;
     state.held.clear();
     state.just_pressed.clear();
+    state.cursor = None;
     if raw.enabled {
+        if let Some(mouse) = mouse {
+            for &(button, action) in MOUSE_BINDINGS {
+                if mouse.pressed(button) {
+                    state.held.insert(action);
+                }
+                if mouse.just_pressed(button) {
+                    state.just_pressed.insert(action);
+                }
+            }
+        }
+        state.cursor = window.single().ok().and_then(Window::cursor_position);
         if let Some(keys) = keys
             && !text_focus.typing()
         {
@@ -137,7 +163,13 @@ fn update_action_state(
         }
     }
     state.held.extend(injected.held.iter().copied());
-    state.just_pressed.extend(injected.pressed.drain(..));
+    for action in injected.pressed.drain(..) {
+        state.held.insert(action);
+        state.just_pressed.insert(action);
+    }
+    if injected.cursor.is_some() {
+        state.cursor = injected.cursor;
+    }
 }
 
 /// The pan actions for a cursor at `cursor` (logical pixels, origin top-left) in a window of `size`.
@@ -158,20 +190,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_action_has_exactly_one_key() {
+    fn every_action_has_exactly_one_binding() {
         for action in [
             InputAction::PanLeft,
             InputAction::PanRight,
             InputAction::PanUp,
             InputAction::PanDown,
             InputAction::ToggleGrid,
+            InputAction::GrabPan,
         ] {
-            assert_eq!(
-                KEY_BINDINGS.iter().filter(|(_, a)| *a == action).count(),
-                1,
-                "{action:?}"
-            );
+            let keys = KEY_BINDINGS.iter().filter(|(_, a)| *a == action).count();
+            let buttons = MOUSE_BINDINGS.iter().filter(|(_, a)| *a == action).count();
+            assert_eq!(keys + buttons, 1, "{action:?}");
         }
+        assert_eq!(MOUSE_BINDINGS, [(MouseButton::Middle, InputAction::GrabPan)]);
     }
 
     #[test]

@@ -1,10 +1,11 @@
 //! Raw keyboard and mouse → [`EditorAction`]s. Off in QA runs (`RawInput`), like the game's input; tests and
 //! scripts queue actions directly.
 //!
-//! Mouse: left uses the tool, right picks a tile's preset and elevation, the wheel zooms at the cursor, a middle drag
-//! pans. Keys: see [`key_actions`] and the F1 help. The arrow keys and the screen edge pan through the game camera's
-//! own pan actions. Nothing reaches the map while the pointer is over the editor's UI or a text field has the
-//! keyboard.
+//! Mouse: left uses the tool, right picks a tile's preset and height, the wheel zooms at the cursor. Keys: see
+//! [`key_actions`] and the F1 help. Panning is the game camera's own: the arrow keys, the screen edge and the
+//! middle-mouse grab (`crate::camera::GrabPan`). Every position is the ground point drawn under the cursor
+//! (`crate::camera::cursor_to_ground`). Nothing reaches the map while the pointer is over the editor's UI or a text
+//! field has the keyboard.
 
 use bevy::input::mouse::{AccumulatedMouseScroll, MouseScrollUnit};
 use bevy::picking::hover::HoverMap;
@@ -13,10 +14,11 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use super::actions::{EditorAction, EditorActions};
+use super::doc::EditorDoc;
 use super::state::EditorUi;
-use super::tools::{EditorTools, Tool};
+use super::tools::{EditorTools, Tool, next_symmetry};
 use crate::ClientMode;
-use crate::camera::{CameraView, CameraZoom, ViewportInsets, cursor_to_sim, viewport_rect, visible_extent_su};
+use crate::camera::{CameraView, CameraZoom, ViewportInsets, cursor_to_ground};
 use crate::input::{RawInput, TextFocus};
 use crate::platform::SurfaceSize;
 
@@ -26,12 +28,14 @@ const ZOOM_PER_LINE: f32 = 0.85;
 const PIXELS_PER_LINE: f32 = 40.0;
 
 /// Keyboard shortcuts, for a frame in which no text field has the keyboard.
+#[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 pub fn editor_keys(
     raw: Res<RawInput>,
     mode: Res<ClientMode>,
     keys: Option<Res<ButtonInput<KeyCode>>>,
     text_focus: TextFocus,
     tools: Res<EditorTools>,
+    doc: Res<EditorDoc>,
     mut typed_last_frame: Local<bool>,
     mut actions: ResMut<EditorActions>,
 ) {
@@ -52,15 +56,22 @@ pub fn editor_keys(
     }
     let ctrl = keys.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
     let shift = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    let map = &doc.scenario().map;
     for key in keys.get_just_pressed() {
-        if let Some(action) = key_actions(*key, ctrl, shift, &tools) {
+        if let Some(action) = key_actions(*key, ctrl, shift, &tools, (map.width(), map.height())) {
             actions.push(action);
         }
     }
 }
 
-/// The action of a key press, given the modifiers held and the tools' settings.
-pub fn key_actions(key: KeyCode, ctrl: bool, shift: bool, tools: &EditorTools) -> Option<EditorAction> {
+/// The action of a key press, given the modifiers held, the tools' settings and the map's size.
+pub fn key_actions(
+    key: KeyCode,
+    ctrl: bool,
+    shift: bool,
+    tools: &EditorTools,
+    (width, height): (u32, u32),
+) -> Option<EditorAction> {
     use EditorAction as A;
     if ctrl {
         return match key {
@@ -87,7 +98,8 @@ pub fn key_actions(key: KeyCode, ctrl: bool, shift: bool, tools: &EditorTools) -
         KeyCode::KeyC => A::SetTool(Tool::CameraStart),
         KeyCode::BracketLeft => A::SetBrush(tools.stepped_brush(-1)),
         KeyCode::BracketRight => A::SetBrush(tools.stepped_brush(1)),
-        KeyCode::KeyM => A::SetSymmetry(tools.symmetry.next()),
+        KeyCode::KeyM => A::SetSymmetry(next_symmetry(tools.symmetry, width, height)),
+        KeyCode::KeyK => A::ToggleSlopes,
         KeyCode::KeyE => A::SetElevationMode(tools.elevation_mode.next()),
         KeyCode::Equal | KeyCode::NumpadAdd => A::StepElevation(1),
         KeyCode::Minus | KeyCode::NumpadSubtract => A::StepElevation(-1),
@@ -101,8 +113,6 @@ pub struct PointerTrack {
     hovered: Option<Vec2>,
     /// The primary button went down on the map and is still held.
     dragging: bool,
-    /// The cursor's last position during a middle-button drag (logical pixels).
-    panning_from: Option<Vec2>,
 }
 
 /// Mouse buttons, wheel and cursor over the map view.
@@ -117,6 +127,7 @@ pub fn editor_pointer(
     ui_nodes: Query<(), With<Node>>,
     view_state: (Res<SurfaceSize>, Res<ViewportInsets>, Res<CameraView>, Res<CameraZoom>),
     ui: Res<EditorUi>,
+    doc: Res<EditorDoc>,
     mut track: Local<PointerTrack>,
     mut actions: ResMut<EditorActions>,
 ) {
@@ -131,9 +142,10 @@ pub fn editor_pointer(
                 .get(&PointerId::Mouse)
                 .is_some_and(|hits| hits.keys().any(|e| ui_nodes.contains(*e)))
         });
+    let map = &doc.scenario().map;
     let on_map = cursor
         .filter(|_| !over_ui || track.dragging)
-        .and_then(|c| cursor_to_sim(c, *size, *insets, view.center, zoom.0));
+        .and_then(|c| cursor_to_ground(c, *size, *insets, *view, zoom.0, map));
 
     let hovered = on_map.filter(|_| !over_ui);
     if hovered != track.hovered {
@@ -170,23 +182,6 @@ pub fn editor_pointer(
             });
         }
     }
-
-    // A middle drag that starts on the map pans: the map follows the cursor wherever it goes.
-    if !mouse.pressed(MouseButton::Middle) {
-        track.panning_from = None;
-        return;
-    }
-    if let (Some(now), Some(before)) = (cursor, track.panning_from) {
-        let (_, viewport) = viewport_rect(*size, *insets);
-        let su_per_pixel = visible_extent_su(viewport, size.physical.x, zoom.0).x / viewport.x.max(1) as f32;
-        let delta = (now - before) * size.scale_factor * su_per_pixel;
-        if delta != Vec2::ZERO {
-            actions.push(EditorAction::CenterOn(view.center - delta));
-        }
-    }
-    if track.panning_from.is_some() || (mouse.just_pressed(MouseButton::Middle) && hovered.is_some()) {
-        track.panning_from = cursor;
-    }
 }
 
 #[cfg(test)]
@@ -196,7 +191,7 @@ mod tests {
     #[test]
     fn shortcuts_follow_the_help() {
         let tools = EditorTools::default();
-        let key = |k, ctrl, shift| key_actions(k, ctrl, shift, &tools);
+        let key = |k, ctrl, shift| key_actions(k, ctrl, shift, &tools, (64, 48));
         assert_eq!(key(KeyCode::KeyZ, true, false), Some(EditorAction::Undo));
         assert_eq!(key(KeyCode::KeyZ, true, true), Some(EditorAction::Redo));
         assert_eq!(key(KeyCode::KeyY, true, false), Some(EditorAction::Redo));
@@ -212,6 +207,20 @@ mod tests {
         );
         assert_eq!(key(KeyCode::Minus, false, false), Some(EditorAction::StepElevation(-1)));
         assert_eq!(key(KeyCode::F5, false, false), Some(EditorAction::PlayTest));
+        assert_eq!(key(KeyCode::KeyK, false, false), Some(EditorAction::ToggleSlopes));
         assert_eq!(key(KeyCode::KeyQ, false, false), None);
+        // M cycles the symmetries, past 90° rotation on a map that isn't square.
+        let rotated = EditorTools {
+            symmetry: sc_sim::Symmetry::Rotate180,
+            ..default()
+        };
+        assert_eq!(
+            key_actions(KeyCode::KeyM, false, false, &rotated, (64, 48)),
+            Some(EditorAction::SetSymmetry(sc_sim::Symmetry::MirrorHorizontalAxis))
+        );
+        assert_eq!(
+            key_actions(KeyCode::KeyM, false, false, &rotated, (64, 64)),
+            Some(EditorAction::SetSymmetry(sc_sim::Symmetry::Rotate90))
+        );
     }
 }

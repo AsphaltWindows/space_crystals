@@ -9,8 +9,8 @@ use crate::cli::load_scenario_file;
 
 /// Size of a new map (placeholder until Q0004 settles map sizes).
 pub const NEW_MAP_SIZE: (u32, u32) = (64, 48);
-/// The largest map side the editor makes (placeholder until Q0004 settles map sizes).
-pub const MAX_MAP_SIDE: u32 = 256;
+/// The largest map side: the sim's, which loading and validation enforce too.
+pub use sc_sim::map::MAX_MAP_SIDE;
 /// The name of a new map.
 pub const NEW_MAP_NAME: &str = "untitled";
 

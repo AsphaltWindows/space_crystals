@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use bevy::ui_widgets::ScrollArea;
 
 use super::fields::{TextField, text_field};
-use super::lists::{FileList, OwnerList, PresetList, ProblemList, SlotList};
+use super::lists::{FileList, OwnerList, PresetList, ProblemList, SlotList, SpawnFieldList};
 use super::texts::{HelpOverlay, PanelText, StatusText, help_text};
 use super::{
     BORDER, DIM_TEXT, GAP_VH, LEFT_PANEL_VH, PANEL_BACKGROUND, RIGHT_PANEL_VH, SMALL_VH, STATUS_VH, ShownIn, TEXT,
@@ -16,7 +16,7 @@ use crate::ClientMode;
 use crate::editor::actions::EditorAction;
 use crate::editor::doc::EditorDoc;
 use crate::editor::objects::palette_groups;
-use crate::editor::tools::{BRUSH_SIZES, ElevationMode, Symmetry, Tool};
+use crate::editor::tools::{BRUSH_SIZES, ElevationMode, Tool, symmetry_label};
 use crate::hud::TOP_BAR_HEIGHT_VH;
 
 pub fn spawn_editor_ui(mut commands: Commands, doc: Res<EditorDoc>) {
@@ -73,15 +73,12 @@ fn spawn_toolbar(commands: &mut Commands) {
             for tool in Tool::ALL {
                 bar.spawn(button(tool.label(), EditorAction::SetTool(tool)));
             }
-            bar.spawn(separator());
-            bar.spawn(label("Symmetry", SMALL_VH, DIM_TEXT));
-            for symmetry in Symmetry::ALL {
-                bar.spawn(button(symmetry.label(), EditorAction::SetSymmetry(symmetry)));
-            }
             bar.spawn(Node {
                 flex_grow: 1.0,
                 ..default()
             });
+            bar.spawn(button("Grid (G)", EditorAction::ToggleGrid));
+            bar.spawn(button("Slopes (K)", EditorAction::ToggleSlopes));
             bar.spawn(button("Whole map", EditorAction::FitMap));
             bar.spawn(button("Play-test (F5)", EditorAction::PlayTest));
             bar.spawn(button("Help (F1)", EditorAction::ToggleHelp));
@@ -142,7 +139,7 @@ fn spawn_palette(commands: &mut Commands) {
                 }
             });
 
-            panel.spawn(header("Elevation"));
+            panel.spawn(header("Height"));
             panel.spawn(row()).with_children(|r| {
                 for mode in ElevationMode::ALL {
                     r.spawn(button(mode.label(), EditorAction::SetElevationMode(mode)));
@@ -153,6 +150,23 @@ fn spawn_palette(commands: &mut Commands) {
                 r.spawn((PanelText::ElevationLevel, label("", TEXT_VH, TEXT)));
                 r.spawn(button("+", EditorAction::StepElevation(1)));
             });
+            panel.spawn(label(
+                "Sets the brush's tile corners; slopes follow and stop at cliffs.",
+                SMALL_VH,
+                DIM_TEXT,
+            ));
+
+            panel.spawn(header("Symmetry"));
+            panel.spawn(row()).with_children(|r| {
+                for symmetry in sc_sim::Symmetry::ALL {
+                    r.spawn(button(symmetry_label(symmetry), EditorAction::SetSymmetry(symmetry)));
+                }
+            });
+            panel.spawn(label(
+                "Strokes and placements repeat at their images. 90° needs a square map.",
+                SMALL_VH,
+                DIM_TEXT,
+            ));
 
             panel.spawn(header("Objects"));
             for group in palette_groups() {
@@ -225,6 +239,7 @@ fn spawn_properties(commands: &mut Commands, doc: &EditorDoc) {
 
             panel.spawn(header("Selection"));
             panel.spawn((PanelText::Selection, label("", SMALL_VH, TEXT)));
+            panel.spawn((SpawnFieldList, column()));
             panel.spawn(row()).with_children(|r| {
                 r.spawn(button("Delete", EditorAction::DeleteSelected));
             });

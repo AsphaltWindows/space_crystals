@@ -1,19 +1,19 @@
 //! The UI lists that follow the document and the files: tile presets (the map's own table, custom presets
-//! included), owners, player slots, the files in `maps/`, and the validation problems. Each is rebuilt when what it
-//! shows changes.
+//! included), owners, player slots, the files in `maps/`, the validation problems, and the selected spawn's
+//! per-object values. Each is rebuilt when what it shows changes.
 
 use std::path::PathBuf;
 
 use bevy::prelude::*;
-use sc_sim::{Faction, PlayerId, Tile, TilePos, TilePresetId};
+use sc_sim::{Faction, ObjectKind, PlayerId, TilePos, TilePresetId};
 
-use super::fields::{TextField, text_field};
+use super::fields::{SpawnValue, TextField, text_field};
 use super::{DIM_TEXT, ERROR_TEXT, GAP_VH, OK_TEXT, SMALL_VH, TEXT, TEXT_VH, button, button_frame, label, row};
 use crate::editor::actions::EditorAction;
 use crate::editor::doc::EditorDoc;
 use crate::editor::files;
 use crate::editor::objects::faction_name;
-use crate::editor::state::{EditorFiles, EditorProblems};
+use crate::editor::state::{EditorFiles, EditorProblems, EditorSelection, Selection};
 use crate::map_render::tile_color;
 
 #[derive(Component)]
@@ -30,6 +30,10 @@ pub struct FileList;
 
 #[derive(Component)]
 pub struct ProblemList;
+
+/// The selected spawn's per-object values (`core/map_editor.md > Per-object Resource Values`).
+#[derive(Component)]
+pub struct SpawnFieldList;
 
 /// Replaces the children of the single `L` list when `wanted` differs from what it shows.
 fn rebuild<L: Component, T: PartialEq>(
@@ -69,7 +73,7 @@ pub fn rebuild_presets(
                             height: vh(TEXT_VH * 1.2),
                             ..default()
                         },
-                        BackgroundColor(tile_color(Tile::new(id, 0)).into()),
+                        BackgroundColor(tile_color(id, 0.0).into()),
                     ));
                     b.spawn(label(name.clone(), TEXT_VH, TEXT));
                 });
@@ -164,6 +168,42 @@ pub fn rebuild_files(
                 .file_name()
                 .map_or_else(|| files::display_path(path), |n| n.to_string_lossy().into());
             list.spawn(button(name, EditorAction::Open(path.clone())));
+        }
+    });
+}
+
+/// One text field per value of the selected spawn's kind: a patch's amount, a station's supplies, delivery size
+/// and interval (in seconds). The fields show the document's values and commit changes as
+/// [`EditorAction::SetSpawnSettings`].
+pub fn rebuild_spawn_fields(
+    mut commands: Commands,
+    doc: Res<EditorDoc>,
+    selection: Res<EditorSelection>,
+    list: Query<Entity, With<SpawnFieldList>>,
+    mut shown: Local<Option<Option<(usize, ObjectKind)>>>,
+) {
+    let scenario = doc.scenario();
+    let selected = match selection.0 {
+        Some(Selection::Spawn(i)) => scenario.spawns.get(i).map(|s| (i, s.kind)),
+        _ => None,
+    };
+    rebuild(&mut commands, &list, &mut shown, selected, |list, selected| {
+        let Some((spawn, kind)) = *selected else {
+            return;
+        };
+        for &value in SpawnValue::of(kind) {
+            let field = TextField::SpawnValue { spawn, value };
+            let text = field.value(scenario).unwrap_or_default();
+            list.spawn(row()).with_children(|r| {
+                r.spawn((
+                    label(value.label(), SMALL_VH, DIM_TEXT),
+                    Node {
+                        width: vh(11.0),
+                        ..default()
+                    },
+                ));
+                r.spawn(text_field(field, &text, 9.0));
+            });
         }
     });
 }

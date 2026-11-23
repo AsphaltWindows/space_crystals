@@ -21,6 +21,7 @@ use super::doc::EditorDoc;
 use super::state::{EditorSelection, EditorUi};
 use super::tools::{EditorTools, Tool};
 use crate::camera::ViewportInsets;
+use crate::map_render::MapView;
 use crate::{ClientMode, ClientSystems};
 
 /// Height of the toolbar, in percent of the surface height.
@@ -82,6 +83,7 @@ impl Plugin for EditorUiPlugin {
                         lists::rebuild_slots,
                         lists::rebuild_files,
                         lists::rebuild_problems,
+                        lists::rebuild_spawn_fields,
                     ),
                     (fields::commit_fields, fields::refresh_fields).chain(),
                     (texts::update_status_line, texts::update_panel_texts, texts::show_help),
@@ -99,8 +101,8 @@ fn queue_button_action(activate: On<Activate>, buttons: Query<&UiAction>, mut ac
     }
 }
 
-/// Whether a button's action is the current choice (its button lights up).
-pub fn is_lit(action: &EditorAction, tools: &EditorTools, doc: &EditorDoc, ui: &EditorUi) -> bool {
+/// Whether a button's action is the current choice (its button lights up). `grid` is whether the grid shows.
+pub fn is_lit(action: &EditorAction, tools: &EditorTools, doc: &EditorDoc, ui: &EditorUi, grid: bool) -> bool {
     match action {
         EditorAction::SetTool(tool) => tools.tool == *tool,
         EditorAction::SetBrush(size) => tools.brush == *size,
@@ -112,6 +114,8 @@ pub fn is_lit(action: &EditorAction, tools: &EditorTools, doc: &EditorDoc, ui: &
         EditorAction::SelectSlot(slot) => tools.slot == *slot,
         EditorAction::Open(path) => doc.path() == Some(path.as_path()),
         EditorAction::ToggleHelp => ui.help,
+        EditorAction::ToggleGrid => grid,
+        EditorAction::ToggleSlopes => ui.slopes,
         _ => false,
     }
 }
@@ -122,6 +126,10 @@ fn is_enabled(action: &EditorAction, doc: &EditorDoc, selection: &EditorSelectio
         EditorAction::Undo => doc.can_undo(),
         EditorAction::Redo => doc.can_redo(),
         EditorAction::DeleteSelected => selection.0.is_some(),
+        EditorAction::SetSymmetry(symmetry) => {
+            let map = &doc.scenario().map;
+            symmetry.fits(map.width(), map.height())
+        }
         _ => true,
     }
 }
@@ -131,6 +139,7 @@ fn style_buttons(
     doc: Res<EditorDoc>,
     ui: Res<EditorUi>,
     selection: Res<EditorSelection>,
+    map_view: Res<MapView>,
     mut buttons: Query<(&UiAction, Option<&Hovered>, Has<Pressed>, &mut BackgroundColor)>,
 ) {
     for (action, hovered, pressed, mut background) in &mut buttons {
@@ -140,7 +149,7 @@ fn style_buttons(
         } else if pressed {
             BUTTON_PRESSED
         } else {
-            match (is_lit(&action.0, &tools, &doc, &ui), hovered) {
+            match (is_lit(&action.0, &tools, &doc, &ui, map_view.grid_visible), hovered) {
                 (true, false) => BUTTON_LIT,
                 (true, true) => BUTTON_LIT_HOVER,
                 (false, true) => BUTTON_HOVER,

@@ -1,18 +1,26 @@
 //! The terrain: one mesh for the whole map, never an entity per tile (`ARCHITECTURE.md > Client architecture >
 //! Visuals`), plus a grid overlay toggled with [`InputAction::ToggleGrid`].
 //!
-//! Placeholder look until Q0001 settles the art: one flat colour per tile preset
-//! (`core/map.md > DefaultTilePresets`), lighter for higher elevation (`core/map.md > TilePlacement`), and a lit
-//! edge on the higher tile plus a shadow on the lower tile wherever the elevation changes. Both meshes are rebuilt
-//! in place, under the same handles, whenever the sim's map differs from the one they show (map editor, new sim).
+//! `core/art_direction.md > Elevation Display`, with placeholder colours until Q0001 settles the art:
+//! - every tile is drawn at its corners' heights, lifted up the screen ([`crate::coords::drawn_position`]): a flat
+//!   tile as one quad, a sloped one as a fan of four triangles around its center, which stands at the mean of its
+//!   corners (the bilinear height there);
+//! - each triangle is shaded by the direction it faces: lighter towards [`LIGHT_TOWARDS`], darker away from it;
+//! - steep non-Traversible tiles read as cliff faces: rock-coloured, with a stratum line at every level;
+//! - every vertex's z grows with its ground y, so with the depth test the terrain further south overdraws the
+//!   terrain behind it where they overlap on screen;
+//! - the grid follows the surface, in the terrain's own z band, so terrain in front hides it too.
+//!
+//! Both meshes are rebuilt in place, under the same handles, whenever the sim's map differs from the one they show
+//! (map editor, new sim).
 
 use bevy::prelude::*;
-use sc_sim::{Map, SU_PER_GU, Tile, TilePos};
+use sc_sim::{CornerPos, Map, Tile, TilePos, TilePresetId};
 
 use crate::ClientSystems;
-use crate::coords::{DrawLayer, sim_to_world};
+use crate::coords::{DrawLayer, depth_offset, drawn_at_height, view_to_world};
 use crate::input::{ActionState, InputAction};
-use crate::shapes::{ColorMesh, darken, lighten, vertex_color_material};
+use crate::shapes::{ColorMesh, lighten, shade, vertex_color_material};
 use crate::sim_driver::SimRes;
 
 /// Placeholder colours of the default presets, in `TilePresetId` order: Plane, Rugged Terrain, Cliff, Mountain,
@@ -31,16 +39,31 @@ const CUSTOM_PRESET_COLORS: [Srgba; 4] = [
     Srgba::rgb(0.62, 0.58, 0.30),
     Srgba::rgb(0.38, 0.36, 0.62),
 ];
-/// White mixed into a tile's colour per elevation level, and the most it can add up to.
-const LIGHTEN_PER_LEVEL: f32 = 0.08;
-const MAX_ELEVATION_LIGHTEN: f32 = 0.7;
-/// Elevation change cue: depth (su) and colour of the lit strip on the higher tile and the shadow on the lower one.
-const EDGE_LIGHT_SU: f32 = 3.0;
-const EDGE_LIGHT_AMOUNT: f32 = 0.4;
-const EDGE_SHADOW_SU: f32 = 7.0;
-const EDGE_SHADOW_FACTOR: f32 = 0.5;
+/// White mixed into a tile's colour per level of height: a hint of altitude besides the shading (placeholder).
+const LIGHTEN_PER_LEVEL: f32 = 0.03;
+/// Towards the light that shades the terrain (`core/art_direction.md > Elevation Display`), in ground axes: +x
+/// east, +y south, +z up. Placeholder: from the north-west, the top left of the screen, 45° above the horizon.
+pub const LIGHT_TOWARDS: Vec3 = Vec3::new(-1.0, -1.0, std::f32::consts::SQRT_2);
+/// The height of one level when shading, in space units: steeper than the drawn offset, so that gentle slopes read
+/// (placeholder).
+const SHADING_SU_PER_LEVEL: f32 = 32.0;
+/// The light every face gets, and the light that depends on its facing (Lambert). Flat ground keeps its colour.
+const AMBIENT: f32 = 0.35;
+const DIFFUSE: f32 = 0.65;
+/// Non-Traversible tiles at least this many levels steep are drawn as cliff faces (`core/art_direction.md >
+/// Elevation Display`).
+pub const CLIFF_MIN_SLOPE: u8 = 2;
+/// Cliff faces: the rock colour mixed into the tile's colour, how much, and the stratum lines along each level.
+const CLIFF_ROCK: Srgba = Srgba::rgb(0.40, 0.36, 0.32);
+const CLIFF_ROCK_AMOUNT: f32 = 0.5;
+const STRATUM_SHADE: f32 = 0.62;
+const STRATUM_WIDTH_SU: f32 = 2.0;
 /// Grid lines (placeholder colour).
 const GRID_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.35);
+/// How far in front of the surface the grid, the strata and the editor's slope tint lie (z, about 2 su of ground
+/// y): enough to win the depth test against the surface they lie on, too little to show through the terrain in
+/// front of it.
+pub const SURFACE_LIFT_Z: f32 = 0.002;
 
 #[derive(Component)]
 pub struct Terrain;
@@ -77,96 +100,165 @@ impl Plugin for MapRenderPlugin {
     }
 }
 
-/// The placeholder colour of `tile`: its preset's colour, lightened by its elevation.
-pub fn tile_color(tile: Tile) -> Srgba {
-    let index = tile.preset.0 as usize;
+/// The placeholder colour of a preset at `height` levels: the preset's colour, lightened a little per level.
+pub fn tile_color(preset: TilePresetId, height: f32) -> Srgba {
+    let index = preset.0 as usize;
     let base = PRESET_COLORS
         .get(index)
         .copied()
         .unwrap_or_else(|| CUSTOM_PRESET_COLORS[(index - PRESET_COLORS.len()) % CUSTOM_PRESET_COLORS.len()]);
-    lighten(
-        base,
-        (f32::from(tile.elevation) * LIGHTEN_PER_LEVEL).min(MAX_ELEVATION_LIGHTEN),
-    )
+    lighten(base, height * LIGHTEN_PER_LEVEL)
 }
 
-/// The terrain mesh in world coordinates: one quad per tile, then the elevation cues above them.
+/// How much light a face gets relative to flat ground (1): Lambert's law towards [`LIGHT_TOWARDS`]. Its corners
+/// are in shading space: ground x and y, and height in [`SHADING_SU_PER_LEVEL`]s.
+pub fn light_factor(corners: [Vec3; 3]) -> f32 {
+    let normal = (corners[1] - corners[0]).cross(corners[2] - corners[0]);
+    // Whichever way the corners run, the face looks up.
+    let normal = if normal.z < 0.0 { -normal } else { normal }.normalize_or_zero();
+    if normal == Vec3::ZERO {
+        return 1.0;
+    }
+    let light = LIGHT_TOWARDS.normalize();
+    (AMBIENT + DIFFUSE * normal.dot(light).max(0.0)) / (AMBIENT + DIFFUSE * light.z)
+}
+
+/// A tile's surface as the terrain mesh draws it: its NW, NE, SE and SW corners, then its center at the corners'
+/// mean height, each a ground point with its height in levels. A flat tile is one quad, a sloped one four
+/// triangles from its edges to its center. Off the map, the ground continues at the height of the nearest point
+/// on it ([`Map::height_at`]).
+pub fn tile_surface(map: &Map, t: TilePos) -> [(Vec2, f32); 5] {
+    let [nw, ne, sw, se] = t.corners().map(|c| {
+        let height = map.corner(c).map_or_else(|| map.height_at(c.pos()), f32::from);
+        (c.pos(), height)
+    });
+    let mean = (nw.1 + ne.1 + sw.1 + se.1) / 4.0;
+    [nw, ne, se, sw, (t.center(), mean)]
+}
+
+/// A vertex in the terrain's z band (Bevy world coordinates, relative to the band's base): drawn at `height`, z by
+/// its ground y, plus `lift_z`.
+pub fn surface_vertex(ground: Vec2, height: f32, lift_z: f32) -> Vec3 {
+    view_to_world(drawn_at_height(ground, height)).extend(depth_offset(ground.y) + lift_z)
+}
+
+/// A point of the terrain surface: its ground position and its height in levels.
+#[derive(Copy, Clone, Debug)]
+struct SurfacePoint {
+    ground: Vec2,
+    height: f32,
+}
+
+impl SurfacePoint {
+    fn corner(map: &Map, c: CornerPos) -> Self {
+        Self {
+            ground: c.pos(),
+            height: f32::from(map.corner(c).unwrap_or(0)),
+        }
+    }
+
+    /// The vertex in the terrain mesh: drawn position, z by ground y.
+    fn vertex(self, lift_z: f32) -> Vec3 {
+        surface_vertex(self.ground, self.height, lift_z)
+    }
+
+    /// The point in shading space.
+    fn shading(self) -> Vec3 {
+        self.ground.extend(self.height * SHADING_SU_PER_LEVEL)
+    }
+}
+
+/// The terrain mesh in world coordinates, tile by tile.
 pub fn terrain_mesh(map: &Map) -> Mesh {
     let mut mesh = ColorMesh::triangles();
-    let tiles = || {
-        (0..map.height() as i32)
-            .flat_map(|y| (0..map.width() as i32).map(move |x| TilePos::new(x, y)))
-            .filter_map(|p| Some((p, map.tile(p)?)))
-    };
-    for (p, tile) in tiles() {
-        let (a, b) = tile_corners(p);
-        mesh.rect(sim_to_world(a), sim_to_world(b), 0.0, tile_color(tile).into());
-    }
-    // Every edge once: each tile with its east and south neighbours.
-    for (p, tile) in tiles() {
-        for q in [TilePos::new(p.x + 1, p.y), TilePos::new(p.x, p.y + 1)] {
-            let Some(other) = map.tile(q) else {
-                continue;
-            };
-            if other.elevation == tile.elevation {
-                continue;
+    for y in 0..map.height() as i32 {
+        for x in 0..map.width() as i32 {
+            let t = TilePos::new(x, y);
+            if let Some(tile) = map.tile(t) {
+                terrain_tile(&mut mesh, map, t, tile);
             }
-            let ((high, high_tile), (low, low_tile)) = if tile.elevation > other.elevation {
-                ((p, tile), (q, other))
-            } else {
-                ((q, other), (p, tile))
-            };
-            let (a, b) = edge_strip(low, high, EDGE_SHADOW_SU);
-            let shadow = darken(tile_color(low_tile), EDGE_SHADOW_FACTOR);
-            mesh.rect(sim_to_world(a), sim_to_world(b), 0.01, shadow.into());
-            let (a, b) = edge_strip(high, low, EDGE_LIGHT_SU);
-            let light = lighten(tile_color(high_tile), EDGE_LIGHT_AMOUNT);
-            mesh.rect(sim_to_world(a), sim_to_world(b), 0.02, light.into());
         }
     }
     mesh.into_mesh()
 }
 
-/// Grid lines along every tile edge, in world coordinates.
-pub fn grid_mesh(width: u32, height: u32) -> Mesh {
-    let mut mesh = ColorMesh::lines();
-    let size = Vec2::new(width as f32, height as f32) * SU_PER_GU;
-    for x in 0..=width {
-        let x = x as f32 * SU_PER_GU;
-        mesh.line(
-            sim_to_world(Vec2::new(x, 0.0)),
-            sim_to_world(Vec2::new(x, size.y)),
-            0.0,
-            GRID_COLOR,
-        );
+/// One tile: a quad if it is flat, else four shaded triangles around its center, and strata on a cliff face.
+fn terrain_tile(mesh: &mut ColorMesh, map: &Map, t: TilePos, tile: Tile) {
+    let [nw, ne, sw, se] = t.corners().map(|c| SurfacePoint::corner(map, c));
+    let heights = [nw, ne, sw, se].map(|p| p.height);
+    let (low, high) = heights
+        .iter()
+        .fold((f32::MAX, f32::MIN), |(lo, hi), &h| (lo.min(h), hi.max(h)));
+    let mean = heights.iter().sum::<f32>() / 4.0;
+    let traversible = map.presets().get(tile.preset.0 as usize).is_some_and(|p| p.traversible);
+    let cliff = !traversible && high - low >= f32::from(CLIFF_MIN_SLOPE);
+    let mut color = tile_color(tile.preset, mean);
+    if cliff {
+        color = color.mix(&CLIFF_ROCK, CLIFF_ROCK_AMOUNT);
     }
-    for y in 0..=height {
-        let y = y as f32 * SU_PER_GU;
-        mesh.line(
-            sim_to_world(Vec2::new(0.0, y)),
-            sim_to_world(Vec2::new(size.x, y)),
-            0.0,
-            GRID_COLOR,
-        );
+    if high == low {
+        mesh.quad([nw, ne, se, sw].map(|p| p.vertex(0.0)), color.into());
+        return;
+    }
+    let center = SurfacePoint {
+        ground: t.center(),
+        height: mean,
+    };
+    for (a, b) in [(nw, ne), (ne, se), (se, sw), (sw, nw)] {
+        let face = [a, b, center];
+        let face_color = shade(color, light_factor(face.map(SurfacePoint::shading)));
+        mesh.triangle(face.map(|p| p.vertex(0.0)), face_color.into());
+        if cliff {
+            // A stratum at every whole level strictly between the tile's lowest and highest corner.
+            for level in (low as u8 + 1)..(high as u8) {
+                stratum(mesh, face, f32::from(level), shade(face_color, STRATUM_SHADE));
+            }
+        }
+    }
+}
+
+/// The line where the face crosses height `level`, drawn as a thin band just in front of the face.
+fn stratum(mesh: &mut ColorMesh, face: [SurfacePoint; 3], level: f32, color: Srgba) {
+    let mut ends: Vec<SurfacePoint> = Vec::new();
+    for (a, b) in [(face[0], face[1]), (face[1], face[2]), (face[2], face[0])] {
+        if a.height == b.height {
+            continue;
+        }
+        let t = (level - a.height) / (b.height - a.height);
+        if (0.0..=1.0).contains(&t) {
+            let p = SurfacePoint {
+                ground: a.ground.lerp(b.ground, t),
+                height: level,
+            };
+            if !ends.iter().any(|e| e.ground.distance(p.ground) < 0.01) {
+                ends.push(p);
+            }
+        }
+    }
+    let [a, b] = ends[..] else {
+        return;
+    };
+    let half = Vec3::new(0.0, STRATUM_WIDTH_SU / 2.0, 0.0);
+    let (a, b) = (a.vertex(SURFACE_LIFT_Z), b.vertex(SURFACE_LIFT_Z));
+    mesh.quad([a - half, b - half, b + half, a + half], color.into());
+}
+
+/// Grid lines along every tile edge, following the surface: an edge's height is linear between its corners.
+pub fn grid_mesh(map: &Map) -> Mesh {
+    let mut mesh = ColorMesh::lines();
+    let (width, height) = (map.width() as i32, map.height() as i32);
+    let point = |cx: i32, cy: i32| SurfacePoint::corner(map, CornerPos::new(cx, cy)).vertex(SURFACE_LIFT_Z);
+    for cy in 0..=height {
+        for cx in 0..=width {
+            if cx < width {
+                mesh.line_3d(point(cx, cy), point(cx + 1, cy), GRID_COLOR);
+            }
+            if cy < height {
+                mesh.line_3d(point(cx, cy), point(cx, cy + 1), GRID_COLOR);
+            }
+        }
     }
     mesh.into_mesh()
-}
-
-/// Top-left and bottom-right corners of a tile, in sim space units.
-fn tile_corners(p: TilePos) -> (Vec2, Vec2) {
-    (p.corner(), p.corner() + Vec2::splat(SU_PER_GU))
-}
-
-/// The strip of `tile` that is `depth` su deep along its side facing the adjacent `neighbor` (sim coordinates).
-fn edge_strip(tile: TilePos, neighbor: TilePos, depth: f32) -> (Vec2, Vec2) {
-    let (min, max) = tile_corners(tile);
-    match (neighbor.x - tile.x, neighbor.y - tile.y) {
-        (1, 0) => (Vec2::new(max.x - depth, min.y), max),
-        (-1, 0) => (min, Vec2::new(min.x + depth, max.y)),
-        (0, 1) => (Vec2::new(min.x, max.y - depth), max),
-        (0, -1) => (min, Vec2::new(max.x, min.y + depth)),
-        offset => panic!("tiles {tile:?} and {neighbor:?} are not adjacent ({offset:?})"),
-    }
 }
 
 fn spawn_map(
@@ -178,7 +270,7 @@ fn spawn_map(
 ) {
     let map = sim.map();
     let terrain_mesh = meshes.add(terrain_mesh(map));
-    let grid_mesh = meshes.add(grid_mesh(map.width(), map.height()));
+    let grid_mesh = meshes.add(grid_mesh(map));
     let grid_material = ColorMaterial {
         alpha_mode: bevy::sprite_render::AlphaMode2d::Blend,
         ..vertex_color_material()
@@ -190,12 +282,13 @@ fn spawn_map(
         MeshMaterial2d(materials.add(vertex_color_material())),
         Transform::from_xyz(0.0, 0.0, DrawLayer::Terrain.base_z()),
     ));
+    // In the terrain's z band, so that the terrain in front of a line hides it.
     commands.spawn((
         Name::new("Grid overlay"),
         GridOverlay,
         Mesh2d(grid_mesh.clone()),
         MeshMaterial2d(materials.add(grid_material)),
-        Transform::from_xyz(0.0, 0.0, DrawLayer::GroundDecals.base_z()),
+        Transform::from_xyz(0.0, 0.0, DrawLayer::Terrain.base_z()),
         Visibility::Hidden,
     ));
     commands.insert_resource(MapRenderAssets {
@@ -219,7 +312,7 @@ fn rebuild_map_meshes(
     let map = sim.map();
     for (handle, mesh) in [
         (&assets.terrain_mesh, terrain_mesh(map)),
-        (&assets.grid_mesh, grid_mesh(map.width(), map.height())),
+        (&assets.grid_mesh, grid_mesh(map)),
     ] {
         if let Err(error) = meshes.insert(handle, mesh) {
             error!("map mesh rebuild failed: {error}");
@@ -248,40 +341,96 @@ fn show_grid(view: Res<MapView>, mut grid: Query<&mut Visibility, With<GridOverl
 
 #[cfg(test)]
 mod tests {
+    use bevy::mesh::VertexAttributeValues;
+
     use super::*;
-    use sc_sim::TilePresetId;
+    use crate::coords::lift;
+
+    fn positions(mesh: &Mesh) -> Vec<[f32; 3]> {
+        match mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
+            Some(VertexAttributeValues::Float32x3(p)) => p.clone(),
+            other => panic!("positions: {other:?}"),
+        }
+    }
 
     #[test]
-    fn one_quad_per_tile_plus_two_strips_per_elevation_edge() {
+    fn flat_tiles_are_quads_and_sloped_tiles_four_triangles() {
         let mut map = Map::new(4, 3);
         assert_eq!(terrain_mesh(&map).count_vertices(), 4 * 4 * 3);
-        // A raised tile in the middle of the top row has 3 neighbours: west, east and south.
-        map.set_tile(TilePos::new(1, 0), Tile::new(TilePresetId::PLANE, 2));
-        assert_eq!(terrain_mesh(&map).count_vertices(), 4 * 4 * 3 + 3 * 2 * 4);
+        // Raising corner (1, 1) slopes the four tiles around it: 12 vertices each instead of 4.
+        map.set_corner(CornerPos::new(1, 1), 1);
+        assert_eq!(terrain_mesh(&map).count_vertices(), 4 * 4 * 3 + 4 * 8);
+    }
+
+    #[test]
+    fn vertices_are_lifted_by_their_height_and_sorted_by_their_ground() {
+        let mut map = Map::new(2, 2);
+        map.set_corner(CornerPos::new(1, 1), 2);
+        let vertices = positions(&terrain_mesh(&map));
+        // The raised middle corner is drawn 2 levels up the screen, at the depth of its ground row.
+        assert!(vertices.contains(&[64.0, -(64.0 - lift(2.0)), depth_offset(64.0)]));
+        // The south-west corner (ground y 128) lies in front of the north-west one (ground y 0).
+        assert!(vertices.contains(&[0.0, -128.0, depth_offset(128.0)]));
+        assert!(vertices.contains(&[0.0, 0.0, depth_offset(0.0)]));
+        assert!(vertices.iter().all(|p| (0.0..=depth_offset(128.0)).contains(&p[2])));
+    }
+
+    #[test]
+    fn slopes_facing_the_light_are_lighter() {
+        let flat = [Vec3::ZERO, Vec3::X * 64.0, Vec3::Y * 64.0];
+        assert!((light_factor(flat) - 1.0).abs() < 1e-6);
+        // Rising towards the south-east, the face looks north-west, towards the light.
+        let facing_light = [Vec3::ZERO, Vec3::new(64.0, 0.0, 32.0), Vec3::new(0.0, 64.0, 32.0)];
+        let facing_away = [
+            Vec3::new(0.0, 0.0, 64.0),
+            Vec3::new(64.0, 0.0, 32.0),
+            Vec3::new(0.0, 64.0, 32.0),
+        ];
+        assert!(light_factor(facing_light) > 1.0);
+        assert!(light_factor(facing_away) < 1.0);
+        // The corners' order doesn't matter; a degenerate face is unshaded.
+        assert_eq!(
+            light_factor(facing_light),
+            light_factor([facing_light[1], facing_light[0], facing_light[2]])
+        );
+        assert_eq!(light_factor([Vec3::ZERO; 3]), 1.0);
+    }
+
+    #[test]
+    fn steep_non_traversible_tiles_are_cliff_faces_with_strata() {
+        // The same south-facing drop of 3 levels as a Plane and as a Cliff.
+        let plane = Map::from_ascii(".\n\n33\n00").unwrap();
+        let cliff = Map::from_ascii("c\n\n33\n00").unwrap();
+        let (plane, cliff) = (terrain_mesh(&plane), terrain_mesh(&cliff));
+        assert_eq!(plane.count_vertices(), 12);
+        // Levels 1 and 2 cross the fan's triangles six times: six bands of 4 vertices.
+        assert_eq!(cliff.count_vertices(), 12 + 6 * 4);
+        // A gentle non-Traversible slope is no cliff.
+        assert_eq!(
+            terrain_mesh(&Map::from_ascii("~\n\n11\n00").unwrap()).count_vertices(),
+            12
+        );
     }
 
     #[test]
     fn higher_ground_is_lighter_and_presets_differ() {
-        let low = tile_color(Tile::new(TilePresetId::PLANE, 0));
-        let high = tile_color(Tile::new(TilePresetId::PLANE, 2));
+        let low = tile_color(TilePresetId::PLANE, 0.0);
+        let high = tile_color(TilePresetId::PLANE, 2.0);
         assert!(high.red > low.red && high.green > low.green && high.blue > low.blue);
-        let water = tile_color(Tile::new(TilePresetId::WATER, 0));
-        assert_ne!(low, water);
+        assert_ne!(low, tile_color(TilePresetId::WATER, 0.0));
         // Custom presets get a colour too.
-        let _ = tile_color(Tile::new(sc_sim::TilePresetId(9), 0));
+        let _ = tile_color(TilePresetId(9), 0.0);
     }
 
     #[test]
-    fn edge_strips_lie_inside_their_tile_on_the_shared_side() {
-        let t = TilePos::new(2, 3);
-        let (a, b) = edge_strip(t, TilePos::new(3, 3), 4.0);
-        assert_eq!((a, b), (Vec2::new(188.0, 192.0), Vec2::new(192.0, 256.0)));
-        let (a, b) = edge_strip(t, TilePos::new(2, 2), 4.0);
-        assert_eq!((a, b), (Vec2::new(128.0, 192.0), Vec2::new(192.0, 196.0)));
-    }
-
-    #[test]
-    fn grid_has_a_line_per_tile_edge() {
-        assert_eq!(grid_mesh(4, 3).count_vertices(), 2 * ((4 + 1) + (3 + 1)));
+    fn the_grid_has_a_line_per_tile_edge_on_the_surface() {
+        let mut map = Map::new(4, 3);
+        let edges = 4 * (3 + 1) + 3 * (4 + 1);
+        assert_eq!(grid_mesh(&map).count_vertices(), 2 * edges);
+        map.set_corner(CornerPos::new(4, 3), 3);
+        let lifted = positions(&grid_mesh(&map))
+            .iter()
+            .any(|p| p[0] == 256.0 && p[1] == -(192.0 - lift(3.0)));
+        assert!(lifted, "the grid follows the raised corner");
     }
 }
