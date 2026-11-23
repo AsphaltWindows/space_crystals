@@ -250,6 +250,7 @@ GDO attack aircraft produced at the Airfield. A HoverCraft (a chopper) that fire
 - Weapon: air-to-ground missiles
 - TargetDomain: Ground
 - Ammo: **5 missiles**, then it must reload at its assigned Airfield
+- RearmTimePerAmmo: TBD (time to reload one missile at the Airfield; differs per aircraft type)
 - AttackType, Damage, Range, timings: TBD
 
 TBD: name, Silhouette, MaxHP, armor, SightRange, movement values, turret, cost, build time, Unit Control cost, ObjectInterfaceState.
@@ -267,6 +268,7 @@ GDO air-superiority aircraft produced at the Airfield once the player owns Propu
 - Weapon: air-to-air missiles
 - TargetDomain: Air
 - Ammo: **1 missile**, then it must reload at its assigned Airfield
+- RearmTimePerAmmo: TBD (time to reload one missile at the Airfield; differs per aircraft type)
 - AttackType, Damage, Range, timings: TBD
 
 TBD: name, Silhouette, MaxHP, armor, SightRange, movement values, turret, cost, build time, Unit Control cost, ObjectInterfaceState.
