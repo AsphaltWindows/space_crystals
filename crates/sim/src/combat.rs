@@ -12,8 +12,8 @@
 //!   the order of their attackers (`ARCHITECTURE.md > Tick pipeline`).
 //! - **Deaths**: an object at 0 HP or less dies (`SimEvent::Died`). `step` returns the dead, and `Sim::step`
 //!   removes them through the one removal path (`Sim::remove_objects`), which clears every reference to them.
-//! - **Queries**: [`may_move`] and [`may_turn`] say whether a unit's attack sequence lets it move or turn this tick,
-//!   for the movement step (slice D) and the behaviours (slice E), which don't read them yet.
+//! - **Queries**: [`may_move`] and [`may_turn`] say whether a unit's attack sequence lets it move or turn this tick.
+//!   The movement step holds a unit that may not (phase 5d); the behaviours will read them too (slice E).
 //!
 //! Not built yet: chasing a target out of range, AttackMove, auto-targeting and leashes (slice E), vision checks
 //! on targets (slice V), turrets, projectiles and location targets (the disjointed attack types), AoE damage, the
@@ -123,9 +123,9 @@ impl AttackState {
 /// `systems/combat.md > AttackPhase`, `> UnitBaseSource`: whether `o`'s attack sequence lets its base move this
 /// tick. A unit that attacks from its base can't move while Aiming, Firing or in Cooldown; it may while Reloading
 /// and when no sequence runs. A turret unit's base always may (`> TurretSource`, `TurretSourceBaseActions`), and so
-/// may every object without an attack. For the movement step (5d: a unit that may not move keeps its position) and
-/// the behaviours (5a: no chase while it may not). Before 5e it reads the phase the last tick left, which is the one
-/// this tick runs in; a Stop or a new target in 5a has already cancelled an aim.
+/// may every object without an attack. The movement step (5d) holds a unit that may not, keeping its goal; the
+/// behaviours (5a, slice E) shouldn't start a chase then. Before 5e it reads the phase the last tick left, which is
+/// the one this tick runs in; a Stop or a new target in 5a has already cancelled an aim.
 pub fn may_move(o: &Object) -> bool {
     base_is_free(o)
 }

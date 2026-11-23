@@ -23,6 +23,7 @@ use std::collections::BTreeMap;
 
 use glam::Vec2;
 
+use crate::combat;
 use crate::defs::{Domain, MovementAttrs, UnitDef};
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
@@ -105,7 +106,8 @@ fn unit_of(o: &Object) -> Option<(&'static UnitDef, Vec2)> {
 
 /// Phase 5d (`docs/movement.md > 4`): builds the spatial grids from **all** units, this tick's spawns included
 /// (they are obstacles, though not moved), then moves every unit before `first_new`, in id order, updating the
-/// grid at each commit.
+/// grid at each commit. A unit whose attack holds its base (`combat::may_move`, `combat::may_turn`) stands and
+/// keeps its goal.
 pub(crate) fn step(
     objects: &mut BTreeMap<ObjectId, Object>,
     first_new: ObjectId,
@@ -143,6 +145,9 @@ pub(crate) fn step(
         if o.id >= first_new {
             continue;
         }
+        // `systems/combat.md > UnitBaseSource`: while its attack aims, fires or cools down, a unit's base neither
+        // moves nor turns (the attack turns it while aiming, in phase 5e).
+        let held = !combat::may_move(o) || !combat::may_turn(o);
         let mover = o.mover.as_mut().expect("units have movers");
         let base = unit.base_def();
         let layer = layer_of(base.domain);
@@ -156,15 +161,20 @@ pub(crate) fn step(
             me,
             counters: &mut scratch.counters,
         };
-        let failed = step_unit(
-            &mut o.pos,
-            &mut o.facing,
-            mover,
-            &unit.movement,
-            &mut world,
-            &mut scratch.touched,
-            tick,
-        );
+        let failed = if held {
+            wait(mover, tick);
+            false
+        } else {
+            step_unit(
+                &mut o.pos,
+                &mut o.facing,
+                mover,
+                &unit.movement,
+                &mut world,
+                &mut scratch.touched,
+                tick,
+            )
+        };
         if failed {
             events.push(SimEvent::MoveFailed { unit: o.id });
         }
@@ -185,6 +195,16 @@ fn stand(mover: &mut Mover) {
     mover.velocity = Vec2::ZERO;
     mover.locomotion = Locomotion::Stationary;
     mover.orientation = Orientation::Maintaining;
+}
+
+/// The unit stands this tick but keeps its goal and path: it waits for its path, or for its attack to let it go.
+/// The stuck clock doesn't run meanwhile.
+fn wait(mover: &mut Mover, tick: Tick) {
+    stand(mover);
+    mover.blocked_ticks = 0;
+    if mover.goal != MoveGoal::None {
+        mover.last_progress = mover.last_progress.saturating_add(1).min(tick);
+    }
 }
 
 /// One unit's tick (`docs/movement.md > 6.2`, `> 6.3`). Returns whether its move failed this tick.
@@ -210,12 +230,7 @@ fn step_unit(
     tick: Tick,
 ) -> bool {
     if mover.goal == MoveGoal::None || mover.path_state != PathState::Ready {
-        stand(mover);
-        mover.blocked_ticks = 0;
-        if mover.goal != MoveGoal::None {
-            // The stuck clock doesn't run while the unit waits for its path.
-            mover.last_progress = mover.last_progress.saturating_add(1).min(tick);
-        }
+        wait(mover, tick);
         return false;
     }
     world.counters.steered += 1;

@@ -1,19 +1,20 @@
 //! Placeholder combat feedback (`systems/combat.md`; the art waits on Q0001): a short tracer from the attacker to
-//! its target for each attack that takes effect (`SimEvent::Attacked`), HP bars over damaged units, and a fading
-//! marker where an object died (`SimEvent::Died`).
+//! its target for each attack that takes effect (`SimEvent::Attacked`), HP bars over damaged and selected objects,
+//! and a fading marker where an object died (`SimEvent::Died`).
 //!
 //! Everything is one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while anything
 //! shows. Effects age by the sim's ticks plus the render alpha, so a QA screenshot of a tick (alpha 1) always shows
 //! them alike. HP bars follow the units' interpolated positions.
 
 use bevy::prelude::*;
-use sc_sim::{Map, Object, ObjectKind, PlayerId, Sim, SimEvent, Tick};
+use sc_sim::{Map, Object, ObjectId, ObjectKind, PlayerId, Sim, SimEvent, Tick};
 
 use crate::ClientSystems;
 use crate::coords::{DrawLayer, drawn_at_height, view_to_world};
 use crate::object_render::{object_height, player_color};
+use crate::selection::ControlStates;
 use crate::shapes::{ColorMesh, darken, lighten};
-use crate::sim_driver::{RenderAlpha, SimEventMessage, SimRes};
+use crate::sim_driver::{LocalPlayer, RenderAlpha, SimEventMessage, SimRes};
 
 /// How long a tracer shows, ticks. Placeholder until the art direction (Q0001).
 pub const TRACER_TICKS: u32 = 5;
@@ -21,9 +22,10 @@ pub const TRACER_TICKS: u32 = 5;
 pub const DEATH_MARKER_TICKS: u32 = 40;
 /// A shot leaves a unit this far up the screen from its ground point, su, as from its body rather than its feet.
 const MUZZLE_LIFT: f32 = 8.0;
-/// HP bars: height, gap above the unit's silhouette, and the narrowest bar, su.
+/// HP bars: height, gap above the corners of the unit's silhouette (clear of a selection ring, which lies 7 su
+/// outside them: `selection::markers`), and the narrowest bar, su.
 const BAR_HEIGHT: f32 = 4.0;
-const BAR_GAP: f32 = 5.0;
+const BAR_GAP: f32 = 9.0;
 const BAR_MIN_WIDTH: f32 = 24.0;
 /// Above the path overlay, in the overlays layer.
 const EFFECTS_Z: f32 = 1.0;
@@ -89,14 +91,12 @@ fn shows(sim: &Sim, tick: Tick, ticks: u32) -> bool {
     tick <= sim.tick() && sim.tick() - tick < ticks
 }
 
-/// The HP bars to draw: one over each damaged object, at its interpolated position.
-///
-/// TODO(M1-S): also over the selected units, once the selection exists.
-pub fn hp_bars(sim: &Sim, alpha: f32) -> Vec<HpBar> {
+/// The HP bars to draw: one over each object that is damaged or `selected`, at its interpolated position.
+pub fn hp_bars(sim: &Sim, alpha: f32, selected: impl Fn(ObjectId) -> bool) -> Vec<HpBar> {
     sim.objects()
         .filter_map(|o| {
             let (hp, max_hp) = (o.hp?, o.def().max_hp?);
-            (hp < max_hp).then(|| hp_bar(sim.map(), o, alpha, hp / max_hp))
+            (hp < max_hp || selected(o.id)).then(|| hp_bar(sim.map(), o, alpha, hp / max_hp))
         })
         .collect()
 }
@@ -106,7 +106,7 @@ fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32) -> HpBar {
     let half = o.def().half_extents().unwrap_or(Vec2::splat(BAR_MIN_WIDTH / 2.0));
     let drawn = drawn_at_height(pos, object_height(map, pos, o.placement.as_ref()));
     HpBar {
-        center: drawn - Vec2::new(0.0, half.y + BAR_GAP + BAR_HEIGHT / 2.0),
+        center: drawn - Vec2::new(0.0, half.length() + BAR_GAP + BAR_HEIGHT / 2.0),
         width: (half.x * 2.0).max(BAR_MIN_WIDTH),
         fraction: fraction.clamp(0.0, 1.0),
     }
@@ -169,6 +169,8 @@ fn draw_effects(
     sim: Res<SimRes>,
     alpha: Res<RenderAlpha>,
     effects: Res<CombatEffects>,
+    states: Res<ControlStates>,
+    player: Res<LocalPlayer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut entity: Query<(&Mesh2d, &mut Visibility), With<CombatEffectsMesh>>,
 ) {
@@ -185,7 +187,8 @@ fn draw_effects(
         let fade = 1.0 - age(&sim, alpha.0, tracer.tick) / TRACER_TICKS as f32;
         tracer_line(&mut mesh, sim.map(), tracer, fade, z);
     }
-    for bar in hp_bars(&sim, alpha.0) {
+    let selection = states.selection(player.0);
+    for bar in hp_bars(&sim, alpha.0, |id| selection.contains(id)) {
         hp_bar_shape(&mut mesh, bar, z);
     }
     if mesh.vertex_count() == 0 {

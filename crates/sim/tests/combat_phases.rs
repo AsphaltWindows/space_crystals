@@ -4,7 +4,9 @@
 
 use sc_sim::combat::{self, AttackPhase};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::{DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerId, SimEvent, Target, Tick, Vec2, gu, math};
+use sc_sim::{
+    DebugCommand, MoveGoal, ObjectId, ObjectKind, OrderKind, PlayerId, SimEvent, Target, Tick, Vec2, gu, math,
+};
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
@@ -128,8 +130,8 @@ fn a_new_order_interrupts_aiming() {
 }
 
 /// `systems/combat.md > Firing`, `> Cooldown`: neither can be interrupted. A Stop given in the tick the unit fires
-/// doesn't stop the shot, nor the cooldown after it; the unit can't move until it reloads (`> UnitBaseSource`).
-/// But the attack is disengaged: no further sequence follows.
+/// doesn't stop the shot, nor the cooldown after it; the unit can't move until it reloads (`> UnitBaseSource`): the
+/// movement step holds it with its goal. But the attack is disengaged: no further sequence follows.
 #[test]
 fn firing_and_cooldown_run_on_through_a_new_order() {
     let mut t = engage(ObjectKind::Peacekeeper, ObjectKind::Guard, Vec2::new(350.0, 250.0));
@@ -153,15 +155,23 @@ fn firing_and_cooldown_run_on_through_a_new_order() {
     assert_eq!(attack_ticks(&t, ATTACKER), [4], "the shot lands");
     assert_eq!(phase(&t, ATTACKER), (Some(AttackPhase::Cooldown), 0));
     assert!(!may_move(&t, ATTACKER) && !combat::may_turn(t.sim().object(ATTACKER).unwrap()));
+    let start = Vec2::new(200.0, 250.0);
+    let pos = |t: &TestSim| t.sim().object(ATTACKER).unwrap().pos;
     t.run_until(5);
     assert_eq!(
         phase(&t, ATTACKER),
         (Some(AttackPhase::Cooldown), 1),
         "the move order doesn't cut it short"
     );
+    assert_eq!(pos(&t), start, "held in place");
     t.run_until(6);
     assert_eq!(phase(&t, ATTACKER), (Some(AttackPhase::Reloading), 0));
     assert!(may_move(&t, ATTACKER), "free while reloading");
+    assert_eq!(pos(&t), start, "held in place");
+    let mover = t.sim().object(ATTACKER).unwrap().mover.as_ref().unwrap();
+    assert_eq!(mover.goal, MoveGoal::Point(Vec2::new(200.0, 400.0)), "the move waits");
+    t.run_until(7);
+    assert!(pos(&t).y > start.y, "it leaves once it reloads: {}", pos(&t));
     t.run_until(60);
     assert_eq!(attack_ticks(&t, ATTACKER), [4], "disengaged");
     assert_eq!(t.sim().object(ATTACKER).unwrap().attack.as_ref().unwrap().target, None);

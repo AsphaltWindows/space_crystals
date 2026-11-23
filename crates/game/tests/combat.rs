@@ -1,5 +1,6 @@
-//! Combat feedback in the client (`combat_effects`): a tracer for each shot, HP bars over damaged units and a marker
-//! where a unit died, each kept for its number of ticks. Headless, one tick per update, as in `client.rs`.
+//! Combat feedback in the client (`combat_effects`): a tracer for each shot, HP bars over damaged and selected units
+//! and a marker where a unit died, each kept for its number of ticks. Headless, one tick per update, as in
+//! `client.rs`.
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
@@ -8,10 +9,11 @@ use sc_sim::{
     Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, SpawnAt, Tick, scenarios,
 };
 use space_crystals::combat_effects::{
-    CombatEffects, CombatEffectsMesh, DEATH_MARKER_TICKS, DeathMarker, TRACER_TICKS, hp_bars,
+    CombatEffects, CombatEffectsMesh, DEATH_MARKER_TICKS, DeathMarker, HpBar, TRACER_TICKS, hp_bars,
 };
 use space_crystals::platform::DisplayMode;
-use space_crystals::sim_driver::{PendingCommands, SimRes};
+use space_crystals::selection::{ControlStates, Selection};
+use space_crystals::sim_driver::{LocalPlayer, PendingCommands, SimRes};
 use space_crystals::{AppConfig, build_app};
 
 const P1: PlayerId = PlayerId(1);
@@ -73,6 +75,15 @@ fn effects(app: &App) -> &CombatEffects {
     app.world().resource::<CombatEffects>()
 }
 
+/// The HP bars drawn at the end of the tick, with the local player's selection.
+fn bars(app: &App) -> Vec<HpBar> {
+    let world = app.world();
+    let selection = world
+        .resource::<ControlStates>()
+        .selection(world.resource::<LocalPlayer>().0);
+    hp_bars(world.resource::<SimRes>(), 1.0, |id| selection.contains(id))
+}
+
 fn effects_visible(app: &mut App) -> bool {
     let mut query = app.world_mut().query_filtered::<&Visibility, With<CombatEffectsMesh>>();
     *query.single(app.world()).unwrap() != Visibility::Hidden
@@ -80,7 +91,7 @@ fn effects_visible(app: &mut App) -> bool {
 
 /// A Peacekeeper and a Guard, 160 su apart, attack each other: their first shots land 2 ticks after the orders
 /// (Aim 2, Firing 1) and leave tracers for `TRACER_TICKS`; the hits leave HP bars; the Guard's tenth hit kills the
-/// Peacekeeper, which leaves a marker for `DEATH_MARKER_TICKS`.
+/// Peacekeeper, which leaves a marker for `DEATH_MARKER_TICKS`. A selected unit shows its HP bar even at full HP.
 #[test]
 fn shots_hits_and_deaths_show_for_their_ticks() {
     let mut app = headless_app();
@@ -89,8 +100,11 @@ fn shots_hits_and_deaths_show_for_their_ticks() {
     spawn(&mut app, ObjectKind::Guard, P2, Vec2::new(460.0, 300.0));
     app.update();
     let spawned = tick(&app);
-    assert!(effects(&app).tracers.is_empty() && hp_bars(app.world().resource::<SimRes>(), 1.0).is_empty());
+    assert!(effects(&app).tracers.is_empty() && bars(&app).is_empty());
     assert!(!effects_visible(&mut app), "nothing to show");
+    app.world_mut().resource_mut::<ControlStates>().of_mut(P1).selection = Selection::new([(GUARD, ObjectKind::Guard)]);
+    assert_eq!(bars(&app).iter().map(|bar| bar.fraction).collect::<Vec<_>>(), [1.0]);
+    app.world_mut().resource_mut::<ControlStates>().of_mut(P1).selection = Selection::default();
 
     attack(&mut app, P1, PEACEKEEPER, GUARD);
     attack(&mut app, P2, GUARD, PEACEKEEPER);
@@ -103,10 +117,7 @@ fn shots_hits_and_deaths_show_for_their_ticks() {
         (shot.tick, shot.from, shot.to),
         (first_shots, Vec2::new(300.0, 300.0), Vec2::new(460.0, 300.0))
     );
-    let mut fractions: Vec<f32> = hp_bars(app.world().resource::<SimRes>(), 1.0)
-        .iter()
-        .map(|bar| bar.fraction)
-        .collect();
+    let mut fractions: Vec<f32> = bars(&app).iter().map(|bar| bar.fraction).collect();
     fractions.sort_by(f32::total_cmp);
     assert_eq!(fractions, [71.0 / 80.0, 45.0 / 50.0]);
     assert!(effects_visible(&mut app));
@@ -126,9 +137,9 @@ fn shots_hits_and_deaths_show_for_their_ticks() {
             pos: Vec2::new(300.0, 300.0),
         }]
     );
-    let bars = hp_bars(app.world().resource::<SimRes>(), 1.0);
-    assert_eq!(bars.len(), 1, "the Guard's");
-    assert_eq!(bars[0].fraction, 35.0 / 80.0);
+    let guard_bars = bars(&app);
+    assert_eq!(guard_bars.len(), 1, "the Guard's");
+    assert_eq!(guard_bars[0].fraction, 35.0 / 80.0);
 
     run_until(&mut app, death + DEATH_MARKER_TICKS);
     assert!(effects(&app).deaths.is_empty(), "faded");

@@ -231,9 +231,10 @@ ticks spent in it. Hashed and serialized like all state.
   within `FACING_TOLERANCE`. Aiming and Reloading are interruptible: another order, or a target that is gone or out
   of range, cancels an aim; a reload keeps counting. Firing and Cooldown run on whatever happens.
 - **Queries**: `combat::may_move(&Object)` and `may_turn(&Object)`: whether the attack leaves the base free to move
-  or turn this tick (`> UnitBaseSource`: not while Aiming, Firing or in Cooldown; turret units always). The movement
-  step must keep a unit that may not move in place, and one that may not turn at its facing; the behaviours start a
-  chase only when `may_move` holds.
+  or turn this tick (`> UnitBaseSource`: not while Aiming, Firing or in Cooldown; turret units always). Phase 5d
+  holds a unit that may not: it stands, keeping its goal, path and stuck clock (`movement::wait`). Behaviours
+  (slice E) should start a chase only when `may_move` holds. A unit that moves in 5d and starts aiming in 5e may
+  turn twice in a tick; harmless while every M1 unit turns 180° per tick.
 - **Range** (`combat/targeting.rs`): from the attacker's centre to the nearest point of the target's silhouette or
   footprint (`RANGE_MEASURE`, question Q0009's default); within Range and beyond MinRange, both inclusive; the
   TargetDomain must allow the target's domain. `can_attack_now(map, attacker, target)` is the check for behaviours.
@@ -306,6 +307,8 @@ The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice
   head-on units pass like traffic; a crossing unit is passed behind); else close up or stay. Within one step of the
   goal the unit lands exactly on it. Units without a goal never move: nothing pushes (question Q0007).
 - **Collision exceptions** go in `space::blocks(mover, other)` and nowhere else (crushing will).
+- **Held by its attack**: a unit whose attack sequence holds its base (`combat::may_move` or `may_turn` false: see
+  *Combat*) stands for the tick and keeps its goal, path and stuck clock (`wait`), like a unit waiting for its path.
 - **Stuck and recovery** (`stuck.rs`, numbers from question Q0008 in `mover.rs`): progress is the remaining path
   length; waiting behind a unit that is getting on counts. After `STUCK_TICKS` without it: arrived if the goal is
   within `CROWDED_ARRIVAL_GU` behind stationary units, or behind members of its own order group that have arrived;
