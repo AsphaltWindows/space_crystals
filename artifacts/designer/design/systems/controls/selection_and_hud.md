@@ -124,11 +124,12 @@ The CommandPanel is a 4x3 grid of command slots (4 columns, 3 rows). Each slot h
 ```
 
 ### Standard Slot Assignments
-Certain slots have standardized functions across all object types that use them:
+Certain slots have standardized functions across all object types that use them. Slots are identified by their **hotkey letter** in the 4x3 grid above (Z, X, C = the first three slots of the bottom row):
 
-- **Z (bottom-left)**: Back / Cancel menu. In any multi-stage menu (BuildMenu, ExpandMenu, EjectMenu, AwaitingTarget, AwaitingPlacement), Z returns to the previous state (StateOnlyTransition). Equivalent to Escape or right-click cancel.
-- **X (bottom-center)**: Cancel Production / Cancel Upgrade. In production buildings, cancels the last queued item and refunds cost. In structures with upgrades, cancels the in-progress upgrade and refunds cost.
-- **C (bottom-right)**: Set Rally Point. In unit-producing structures, enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState).
+- **Z (bottom row, 1st slot / bottom-left)**: Back / Cancel menu. In any multi-stage menu (BuildMenu, ExpandMenu, EjectMenu, AwaitingTarget, AwaitingPlacement), Z returns to the previous state (StateOnlyTransition). Equivalent to Escape or right-click cancel.
+- **X (bottom row, 2nd slot)**: Cancel Production / Cancel Upgrade. In production buildings, cancels the last queued item and refunds cost. In structures with upgrades, cancels the in-progress upgrade and refunds cost.
+- **C (bottom row, 3rd slot)**: Set Rally Point. In unit-producing structures, enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState).
+- **V (bottom row, 4th slot / bottom-right)**: no standard function; free for object-specific commands.
 
 ### Production Building Default Right-Click
 For all unit-producing structures, right-click from DefaultState sets the rally point:

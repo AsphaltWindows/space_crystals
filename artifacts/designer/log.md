@@ -1953,3 +1953,9 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - User deleted leftover pipeline/bot files and revoked the Telegram bots. Removed empty forum/ and messages/ dirs; pruned obsolete .gitignore entries.
 - Pushed master (dd2b7e6..8084741) and tag pipeline-archive to origin.
 - Session close: added 'WHERE WE LEFT OFF' block to insights (GDO roster status, pending Advanced Mechanics/Airfield question, open GDO items, process notes); annotated stale Colonists 'Prospector' note (now Drone).
+
+## 2026-11-23T12:32:23-05:00 — Director live; Artillery Rig gate; first Director questions
+- Director started (Cargo workspace scaffolded). Took in Q0001–Q0005; last_seen_question = 5.
+- Decided (user): Artillery Rig requires Advanced Mechanics (resolves the "what else does Advanced Mechanics unlock" thread). Docs: factions/gdo/units.md, factions/gdo/structures.md. Change entry 0001.
+- Q0005 answered from the docs: hotkey letters authoritative; position words fixed; V has no standard function. Doc: systems/controls/selection_and_hud.md. Change entry 0002.
+- Q0001–Q0004 open, need user.

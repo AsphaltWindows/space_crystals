@@ -151,7 +151,7 @@ GDO vehicle production structure. Allows the building of vehicles.
 - Raptor: cost/time TBD.
 - Twister: cost/time TBD.
 - Prospector: cost/time TBD. Requires: player owns at least one Advanced Mechanics.
-- Artillery Rig: cost/time TBD. No Advanced Mechanics requirement.
+- Artillery Rig: cost/time TBD. Requires: player owns at least one Advanced Mechanics.
 
 ### Faction - GlobalDefenseOrganization
 ### Constructed by - DeploymentCenter
@@ -169,7 +169,7 @@ GDO reconnaissance structure. Has an ability to scan and grant vision of an area
 (Full stats TBD, including scan ability details — area size, cooldown, duration)
 
 ## Advanced Mechanics
-GDO vehicle upgrade structure. Allows the building of more advanced vehicles. Has upgrades for vehicles and buildings. Unlocks the **Prospector** (expansion vehicle) at the Factory.
+GDO vehicle upgrade structure. Allows the building of more advanced vehicles. Has upgrades for vehicles and buildings. Unlocks the **Prospector** (expansion vehicle) and the **Artillery Rig** at the Factory.
 
 ### Faction - GlobalDefenseOrganization
 ### Constructed by - DeploymentCenter

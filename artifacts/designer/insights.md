@@ -27,7 +27,11 @@
 
 ## Open Director Questions
 
-(none)
+All non-blocking (Director proceeds on assumptions). Raised with user 2026-11-23.
+- **Q0001** art direction (projection SC1 square vs AoE2 iso, unit facings, building orientations/flips vs pre-drawn art, elevation display, pixels per tile). Needs user.
+- **Q0002** input bindings (shift/ctrl/double-click, control-group keys, pan inputs/speed, queue modifier). Director assumes SC2-like. Needs user.
+- **Q0003** patch RemainingAmount (assumed 1500), Supply station DeliverySize 4 / Interval 60 s, start empty vs stocked, reference map ownership. Needs user.
+- **Q0004** map player slots / start locations / starting-base auto-layout vs per-faction layouts / pre-placed objects / map metadata. Needs user.
 
 ## Loose Ends
 
