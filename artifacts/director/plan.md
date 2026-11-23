@@ -7,8 +7,10 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 ## Built
 - **Workspace scaffold** (`8ce3444`): `sc_sim` core interface — units and coordinates, ids, libm math, tile map with default presets, object defs and instances, commands, events, scenarios (`dev_skirmish`, `empty`), `Sim` tick pipeline, Supply Delivery Station countdown. Determinism lints in `crates/sim/clippy.toml`. Bevy 0.20.1 client stub.
 
+- **ARCHITECTURE.md**: the binding brief for implementing agents.
+
 ## In progress
-- **ARCHITECTURE.md**: brief for implementing agents (being written by an agent).
+- **M0-A sim** and **M0-B client**: agents running in parallel worktrees (details under M0 below).
 
 ## Queued
 ### M0 — Foundation (next; two agents in parallel, separate worktrees)
@@ -44,6 +46,7 @@ Vehicles, turrets, air, area damage, research; AI or online opponents (decide wi
 | Q0002 | Input bindings: map clicks, control-group keys, pan inputs, queue modifier | no | open |
 | Q0003 | Patch amount, supply delivery defaults, reference map | no | open |
 | Q0004 | Map model: player slots, start locations, starting-base layout, pre-placed objects | no | open |
+| Q0005 | CommandPanel standard slot positions vs the 4×3 grid | no | open |
 
 ## Design change entries
 | Entry | Status | Notes |
