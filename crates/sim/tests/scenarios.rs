@@ -290,7 +290,7 @@ fn maps_over_the_largest_side_are_invalid() {
     assert_eq!(s.validate(), [ScenarioProblem::MapTooBig { width: 257, height: 4 }]);
     assert_eq!(
         s.validate()[0].to_string(),
-        "the map is 257 × 4 tiles, more than 256 × 256"
+        "the map is 257 x 4 tiles, more than 256 x 256"
     );
 }
 

@@ -88,7 +88,7 @@ impl fmt::Display for ScenarioProblem {
         match self {
             ScenarioProblem::MapTooBig { width, height } => write!(
                 f,
-                "the map is {width} × {height} tiles, more than {max} × {max}",
+                "the map is {width} x {height} tiles, more than {max} x {max}",
                 max = crate::map::MAX_MAP_SIDE
             ),
             ScenarioProblem::TooSteep { tile, slope } => write!(

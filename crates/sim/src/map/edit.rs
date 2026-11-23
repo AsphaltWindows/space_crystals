@@ -63,8 +63,9 @@ impl Map {
     /// and moves every other corner as little as needed to keep the maximum-slope rule
     /// (`core/map.md > Elevation > Maximum slope`): slopes form outwards on their own, AoE2-style. Two corners
     /// constrain each other when they share a Traversible tile, so the slopes stop at non-Traversible tiles
-    /// (cliffs). On a map without violations this leaves none; it never makes an existing one worse. Returns the
-    /// corners whose height changed, in row order.
+    /// (cliffs). On a map without violations, targets that keep the rule among themselves (all at one level, or
+    /// each one level from where it was) leave none, and an existing violation never gets worse. Contradictory
+    /// targets are still set as given. Returns the corners whose height changed, in row order.
     ///
     /// Each corner ends at its old height clamped between the bounds the targets impose: no lower than a target's
     /// height minus the corner's distance from it, and no higher than a target's height plus that distance,

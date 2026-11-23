@@ -163,7 +163,7 @@ fn spawn_palette(commands: &mut Commands) {
                 }
             });
             panel.spawn(label(
-                "Strokes and placements repeat at their images. 90° needs a square map.",
+                "Strokes and placements repeat at their images. Rotate 90 needs a square map.",
                 SMALL_VH,
                 DIM_TEXT,
             ));

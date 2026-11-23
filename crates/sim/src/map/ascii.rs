@@ -96,7 +96,7 @@ impl Map {
         let max = MAX_MAP_SIDE as usize;
         if width > max || height > max {
             return Err(format!(
-                "the map is too big: {width} × {height} tiles (at most {max} × {max})"
+                "the map is too big: {width} x {height} tiles (at most {max} x {max})"
             ));
         }
         let mut tiles = Vec::with_capacity(width * height);

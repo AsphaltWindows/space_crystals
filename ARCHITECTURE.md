@@ -99,6 +99,36 @@ The design is `core/scale.md`, and the code is `crates/sim/src/units.rs`.
   is the top-left tile, and its `w`/`h` are the footprint **after** rotation, so 90° and 270° swap them. Spawns use
   `SpawnAt::Tile(origin)` for tile-based objects and `SpawnAt::Point(center)` for units.
 
+## Map model
+
+The design is `core/map.md`, and the code is `crates/sim/src/map.rs` and `map/`.
+
+- **Tiles**: a `W × H` map has one `Tile` per tile, which is just a `TilePresetId` into the map's preset table: the
+  five default presets (`core/map.md > DefaultTilePresets`) at fixed indices, then the map's custom presets. A tile has
+  no height of its own. Map sides run from 1 to `map::MAX_MAP_SIDE` (256, a placeholder), checked when a file is read,
+  before anything is allocated, and by `Scenario::validate`.
+- **Corner heights** (`core/map.md > Elevation`): a `(W + 1) × (H + 1)` grid of levels 0–16 (`CornerPos`,
+  `Map::corner`, `TilePos::corners()` in NW, NE, SW, SE order), shared by adjacent tiles, so the terrain is
+  continuous. `Map::height_at(p)` interpolates bilinearly inside the tile that contains `p` (written from the NW corner,
+  so a flat tile gives its level exactly; off the map it takes the nearest point on it). `elevation_level` floors it. A
+  tile is **flat** when its four corners are equal (`is_flat`, `tile_level`), else **sloped**; `tile_slope` is its
+  highest corner minus its lowest.
+- **Maximum slope**: a Traversible tile may slope at most `MAX_TRAVERSIBLE_SLOPE` (1) level; `is_too_steep` and
+  `too_steep_tiles` find violations, and `Scenario::validate` lists them (`ScenarioProblem::TooSteep`). Non-Traversible
+  tiles (Cliff, Mountain, Water) may be as steep as they like.
+- **Map resources need flat ground** (`core/map.md > Elevation > Map resources only on flat terrain`): every footprint
+  tile of a kind with `ObjectDef::needs_flat_ground` must be flat. Validation flags it (`SpawnProblem::NotFlat`) and
+  `Command::Debug(Spawn)` refuses it. Structures don't check flatness yet.
+- **Height edits**: `Map::set_corner_heights(targets)` pins the target corners and moves every other corner as little
+  as needed for the maximum slope (two corners are linked when they share a Traversible tile, so slopes cascade
+  outwards, AoE2-style, and stop at non-Traversible tiles). It returns the corners it changed. On a map without
+  violations, targets that keep the rule among themselves (all at one level, or each one level from where it was)
+  leave none. `Map::resize` keeps the corners that remain, and new ones continue the old edge flat outwards.
+- **Symmetry** (`core/map_editor.md > Symmetry`): `sc_sim::Symmetry` (six modes; 90° rotation only on square maps) gives
+  its `MapTransform`s, pure functions that map tiles, corners (the corner grid is one larger than the tile grid),
+  points, footprints and building placements (rotation included) to their images. The editor's live mirroring is
+  built on them.
+
 ## Object model
 
 Units, structures and resources are all `Object`s (`object.rs`, `core/entities.md > Object Instance`). The layout is
@@ -140,6 +170,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 5. **Systems**, each walking the objects in id order. Today the only one is `update_supply_stations`
    (`core/map.md > SupplyDeliveryStation`).
 
+- **Spawn tick**: an object that a command creates during tick `t` is first updated by the systems in tick `t + 1`.
+  `step` notes `first_new = ObjectId(next_id)` before the commands, and each system walks only
+  `objects.range_mut(..first_new)` (ids only grow). So a debug-spawned station with an interval of 960 delivers at
+  `t + 960`, just as a scenario station, spawned before tick 1, delivers at tick 960.
 - Insert a new phase at a deliberate position, with a comment in `step` saying why there, and update this list.
 - Commands always run before movement. There is exactly **one** movement pipeline, and all movement goes through it.
   The old prototype had two pipelines, and they raced.
@@ -178,19 +212,26 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 - `Scenario::validate()` lists every problem (`ScenarioProblem`) and never panics. `Sim::try_new` returns the problems
   as an error and `Sim::new` panics with them, so load files and editor maps with `try_new`.
 - **Scenario files** are a `Scenario`'s serde form, written with `serde_json::to_string_pretty`. A `version` field
-  (`SCENARIO_FORMAT_VERSION`) comes first; bump it on any incompatible change. The map is stored as rows of strings in
-  the ASCII format below, with the custom presets listed by symbol. Reading rejects other versions and unknown fields.
+  (`SCENARIO_FORMAT_VERSION`, now 2) comes first; bump it on any incompatible change. The map is stored as rows of
+  strings in the ASCII format below: `tiles` (H rows of W symbols) and `heights` (H + 1 rows of W + 1 corner digits),
+  with the custom presets listed by symbol. Every spawn of a kind with per-object values stores them explicitly in
+  `settings` (`SpawnSettings`, `core/map_editor.md > Per-object Resource Values`: a patch's starting amount, a station's
+  starting supplies, delivery size and interval in ticks); `SpawnSettings::defaults` are the named placeholder values
+  that new objects get. Reading rejects other versions, unknown fields and maps over the largest side.
 - Built-in scenarios live in `scenarios.rs`, behind `by_name(name)` and `NAMES`. Keep the two in sync, because the
-  client's `--scenario` flag uses them. Currently there are `dev_skirmish`, a 64×48 development map the Director made
-  (see Q0003), and `empty`, a 32×24 map. `scenarios::empty(w, h)` builds an empty map of any size.
+  client's `--scenario` flag uses them. Currently there are `dev_skirmish`, a 64×48 development map (Q0003) with the
+  starts in opposite corners, gentle hills of slopes only, and a central plateau ringed by cliffs with a ramp up
+  through a gap in the west and in the east, and `empty`, a flat 32×24 map. `scenarios::empty(w, h)` builds an
+  empty map of any size.
 - Unit tests sit in their module (`#[cfg(test)] mod tests`). Scenario and integration tests go in `crates/sim/tests/`
   and use only the public API.
 - Build test scenarios inline from an ASCII map or from `scenarios::empty(w, h)` plus tiles and spawns, not from
   `dev_skirmish`'s layout.
 - **ASCII maps** (`Map::from_ascii`, `Map::to_ascii`; full rules in the `map` module docs) have one symbol per tile and
   one line per row, north to south: `.` Plane, `r` Rugged Terrain, `c` Cliff, `M` Mountain, `~` Water. An optional
-  elevation block of the same size follows after a blank line, with one base-17 digit per tile (`0`–`9`, then `a`–`g`
-  for 10–16). Without it, every tile is at elevation 0. Lines are trimmed, so maps can be indented string literals.
+  height block follows after a blank line, one row and one column larger than the tile block, with one base-17 digit
+  per **corner** (`0`–`9`, then `a`–`g` for 10–16). Without it, every corner is at height 0. Lines are trimmed, so
+  maps can be indented string literals.
 - **Test helpers** live in the public `sc_sim::testing` module, so client tests can use them too.
   `ScenarioBuilder::new(ascii)` makes a scenario with the two players of `scenarios::empty` and seed 1. Add spawns
   with `.spawn(..)`, then call `.build()` or `.start()`. A `TestSim` schedules commands with `at(tick, player, cmd)`
@@ -223,11 +264,28 @@ out by the same rules.
   `Sim::objects()`, because scenario spawns emit no events.
 - **Interpolation**: draw each object at `prev_pos.lerp(pos, a)`, where `a` is `Time<Fixed>::overstep_fraction()`
   read in `Update`. Interpolate facing along the shortest arc.
-- **Coordinates**: 1 world unit is 1 su. `bevy_x = sim_x` and **`bevy_y = -sim_y`**, because Bevy's +y points up.
-  Convert in one helper, never ad hoc. A sim facing θ is a Bevy rotation of −θ about z.
+- **Coordinates** (`coords.rs`): 1 world unit is 1 su, in three spaces. **Ground** is the sim's (+y south).
+  **View** is where a ground point is drawn: `drawn_position(map, ground)` shifts it up the screen (north) by
+  `lift(height) = height × HEIGHT_OFFSET_PER_LEVEL` GU (`core/art_direction.md > Elevation Display`; 0.25 GU per
+  level, a placeholder until art tuning). **Bevy world** is view space with **`bevy_y = -view_y`** (`view_to_world`),
+  because Bevy's +y points up. Convert only through these helpers, never ad hoc. A sim facing θ is a Bevy rotation of
+  −θ about z.
+- **Picking**: every screen → world conversion ends in `coords::ground_under(map, view)`, the inverse of
+  `drawn_position`: the ground point drawn at that view point. Where terrain overlaps itself on screen (a cliff or a
+  hill in front of the ground behind it), the frontmost, i.e. southernmost, surface wins. It solves column by column
+  (at a fixed x the drawn y is linear across a tile row) from south to north; beyond the map's edges the ground
+  continues flat. `camera::cursor_to_ground` is the cursor's ground point: hover, clicks, the editor's brush, ghosts,
+  markers and object picking all use it.
 - **Draw order** follows StarCraft 1. The layers are terrain < ground decals < ground objects < air < overlays, each
-  with its own z band. Within a layer, z grows with sim y, so southern objects draw in front. Each sprite is anchored
-  at its ground position, the sim `pos`, and that point drives its y-sort.
+  with its own z band. Within a layer, z grows with **ground** y, so southern objects draw in front. Each sprite is
+  anchored at its ground position, the sim `pos`, and that point drives its y-sort; it is drawn at its height
+  (`ground_translation`; a tile-based object at its footprint's mean corner height, `footprint_height`).
+- **Terrain** (`map_render.rs`): one mesh. A flat tile is a quad, a sloped one four triangles around its center (at
+  the corners' mean height), each shaded by Lambert's law towards `LIGHT_TOWARDS` (a placeholder: from the north-west,
+  45° up), so flat ground keeps its colour. A non-Traversible tile at least `CLIFF_MIN_SLOPE` levels steep reads as a
+  cliff face: rock-coloured, with a stratum line at every level. Every vertex's z grows with its ground y, so with the
+  depth test southern terrain overdraws the terrain behind it. The grid (G) follows the surface in the terrain's z
+  band, slightly in front, so terrain in front hides it too. Both meshes are rebuilt when the sim's map changes.
 - Never make one entity per tile. Draw the terrain as one mesh or texture, or a few chunks. Fog of war will be one
   texture that is updated when visibility changes, never per-tile materials.
 - Create mesh and material handles once and cache them in a `Resource`. Never create assets per frame, per object or
@@ -235,12 +293,16 @@ out by the same rules.
 
 **Camera**: the camera is orthographic and shows exactly 28 GU horizontally (`core/camera.md > Zoom`; see
 `ScalingMode::FixedHorizontal`). Its viewport is the area between the UI bars (`ViewportInsets`: the top and bottom
-HUD bars in the game, the editor's panels in the editor), so the visible height follows from the aspect ratio. It
-pans with the arrow keys and at the screen edge, with bindings and speed pending in Q0002, and it stays clamped to
-the map. Centering on something snaps instantly (`core/camera.md > Panning`). The camera starts at
-`PlayerSetup::camera_start`, or else at the primary starting structure (`core/camera.md > Starting Position`). Until
-starting structures exist, the slot's start location stands in for it, and the map centre for a slot without one
-(`camera::start_center`). Only the editor zooms (`CameraZoom`).
+HUD bars in the game, the editor's panels in the editor), so the visible height follows from the aspect ratio.
+`CameraView::center` is a **view** point; to look at a ground point, center on its `drawn_position`. It pans with the
+arrow keys and at the screen edge, with bindings and speed pending in Q0002, and it stays clamped to the map's drawn
+area (`coords::drawn_bounds`, from its highest-drawn to its lowest-drawn corner, so raised ground at the north edge
+stays reachable). The middle-mouse grab (`core/camera.md > Panning > Middle-mouse grab`, `camera::GrabPan`) keeps the
+view point grabbed on the press exactly under the cursor while the button is held, and stops on the release; the
+game and the editor share it. Centering on something snaps instantly (`core/camera.md > Panning`). The camera starts
+at `PlayerSetup::camera_start`, or else at the primary starting structure (`core/camera.md > Starting Position`).
+Until starting structures exist, the slot's start location stands in for it, and the map centre for a slot without
+one (`camera::start_center`, shown through `start_view`). Only the editor zooms (`CameraZoom`).
 
 **HUD**: built with bevy_ui (`core/camera.md > HUD Layout`). It has a top resource bar and, at the bottom, the HUD
 Bar with five fixed sections. From left to right they are Minimap, Portrait, InfoPanel, SelectionPanel and
@@ -248,8 +310,9 @@ CommandPanel. All five have the same height and keep fixed horizontal slots, and
 (`systems/controls/selection_and_hud.md > HUD Bar`). bevy_ui lays out each root node inside its camera's viewport,
 so the HUD needs its own full-window UI camera (`IsDefaultUiCamera` / `UiTargetCamera`).
 
-**Input**: raw Bevy input becomes our `InputAction`s through one binding table, and those become UI state changes
-and `Command`s. Tests and QA scripts inject `InputAction`s, never raw `ButtonInput`. In a headless run, injected
+**Input**: raw Bevy input becomes our `InputAction`s through the binding tables (`KEY_BINDINGS`, `MOUSE_BINDINGS`),
+and those become UI state changes and `Command`s. `ActionState::cursor()` is the cursor in logical pixels. Tests and QA
+scripts inject `InputAction`s and a cursor (`InjectedActions`), never raw `ButtonInput`. In a headless run, injected
 presses are cleared before game systems see them.
 
 **Bevy code**
@@ -306,7 +369,8 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
   exact state with no interpolation. Repeated runs give byte-identical PNGs.
 - Exit codes: 0 when everything was saved, 1 when a QA step failed (the log says which), 2 for invalid flags.
 - The `--dump-state` JSON holds `tick`, `scenario`, `players`, `objects` (every field of `sc_sim::Object`), the last
-  tick's `events`, `client` (`local_player`, `camera_center` in su, `grid_visible`, `recorded_ticks`) and `map`.
+  tick's `events`, `client` (`local_player`, `camera_center` as a view point in su, `grid_visible`, `recorded_ticks`)
+  and `map`.
 - `--windowed` runs turn vsync off: with the display asleep, X11 paces a vsynced window at one frame per second.
 - Verify visual work yourself. Capture screenshots and look at the PNGs with the Read tool before you report.
 - To look at another part of a map, write a scenario JSON with a different `camera_start` and pass it with `--map`.
@@ -334,9 +398,31 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
 - **Modes**: `ClientMode` is `Game`, `Editor` or `PlayTest`, and only the HUD and the editor look at it. F5 starts a
   play-test: `Sim::try_new` on the document, as the player of the selected slot, at the game's zoom. Esc or F5 returns
   to the editor with the document, its history and the view unchanged.
+- **Positions**: every position in an `EditorAction` is a ground point (su), the one drawn under the cursor
+  (`coords::ground_under`). `CenterOn` centers the view on where its point is drawn, and `Zoom { at }` keeps that
+  drawn point where it is on screen.
+- **Terrain tools** (`editor/terrain.rs`): Paint and Fill set presets and keep the heights; a Traversible preset is
+  refused, with a status warning, on tiles more than 1 level steep (`terrain::refuses`). The Height tool works on
+  corners: brush N covers N × N tiles and changes their (N + 1)² corners. Set gives them a level; Raise and Lower move
+  each one level, once per stroke however often the brush passes. `Map::set_corner_heights` then cascades the slopes,
+  so a height edit never leaves a too-steep tile. It may slope the ground under a resource: that is allowed and
+  listed as a problem. The overlay previews each dab: the tiles, the corners it sets (white) and the ones the cascade
+  moves (amber), from where they are drawn now to where they will be, and in red the tiles a paint would refuse.
+- **Objects**: Place refuses spots off the map, overlapping another footprint, or, for resources, on a sloped tile
+  (the ghost turns red). New objects get `SpawnSettings::defaults`; selecting one shows its values as text fields
+  (the interval in seconds), which commit `SetSpawnSettings`, one undo step each.
+- **Symmetry** (M, palette buttons): live mirroring of strokes, fills and placements at every image of the mode,
+  through `sc_sim::MapTransform` (`terrain::transforms`, `objects::spawn_images`). 90° rotation is refused on a map
+  that isn't square and switched off when the map stops being square. A placed image's owner moves to the next
+  player when there are as many images as players (placeholder until Q0004); resources stay neutral.
+- **View**: G toggles the grid, K the slope tint (flat green, sloped amber, too steep red, in the terrain's z band).
+  The middle-mouse grab pans as in the game. The status line shows the tile under the cursor with its preset, the
+  interpolated height there, its level, and whether the tile is flat, sloped or too steep.
+- **Selection** is a spawn index or a slot's marker. An undo, a redo or a resize may shift the indexes, so they clear
+  the selection; so does switching documents.
 - **Tests** (`crates/game/tests/editor/`) build a headless app with `AppConfig::editor`, push `EditorAction`s into
   `EditorActions`, call `app.update()`, and assert on `EditorDoc`, the sim, the view and the UI state. Positions are
-  sim coordinates, such as `TilePos::center()`. Never inject raw input.
+  ground points, such as `TilePos::center()`. Never inject raw input.
 - **QA**: `--editor-script` applies its actions in the first frame, before any screenshot. The editor's sim stays at
   tick 0, so take screenshots at tick 0 unless the script play-tests (`"PlayTest"`).
 
@@ -346,8 +432,9 @@ cargo run -- --editor maps/dev_skirmish.json --editor-script /path/to/edits.json
 ```
 
 - **UI**: bevy_ui with Bevy's `bevy_ui_widgets` feature (headless `Button`, `TextInput` and `ScrollArea`) and
-  `ui_picking`. The player slot colours, UI sizes, `MAX_SLOTS`, `NEW_MAP_SIZE` and `MAX_MAP_SIDE` are placeholders,
-  and so are start locations (Q0004).
+  `ui_picking`. Its font has ASCII glyphs only, so UI texts stay ASCII ("Rotate 90", not "90°"). The player slot
+  colours, the overlay and slope tint colours, UI sizes, `MAX_SLOTS`, `NEW_MAP_SIZE` and `sc_sim::map::MAX_MAP_SIDE`
+  are placeholders, and so are start locations (Q0004).
 
 ## Code conventions
 

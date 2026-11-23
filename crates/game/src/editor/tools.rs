@@ -89,8 +89,8 @@ impl ElevationMode {
 pub fn symmetry_label(symmetry: Symmetry) -> &'static str {
     match symmetry {
         Symmetry::None => "None",
-        Symmetry::Rotate180 => "Rotate 180°",
-        Symmetry::Rotate90 => "Rotate 90°",
+        Symmetry::Rotate180 => "Rotate 180",
+        Symmetry::Rotate90 => "Rotate 90",
         Symmetry::MirrorHorizontalAxis => "Mirror top/bottom",
         Symmetry::MirrorVerticalAxis => "Mirror left/right",
         Symmetry::MirrorBothAxes => "Mirror both",

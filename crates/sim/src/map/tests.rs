@@ -323,7 +323,7 @@ fn loading_rejects_maps_over_the_largest_side_before_allocating() {
     let json = serde_json::json!({ "tiles": rows }).to_string();
     let e = serde_json::from_str::<Map>(&json).unwrap_err().to_string();
     assert!(
-        e.contains("the map is too big: 100000 × 100000 tiles (at most 256 × 256)"),
+        e.contains("the map is too big: 100000 x 100000 tiles (at most 256 x 256)"),
         "{e}"
     );
     // Each side on its own.

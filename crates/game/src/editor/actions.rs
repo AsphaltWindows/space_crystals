@@ -252,7 +252,7 @@ impl Editor<'_> {
         }
         if !self.tools.symmetry.fits(map.width(), map.height()) {
             self.tools.symmetry = Symmetry::None;
-            self.status.warn("Symmetry off: 90° rotation needs a square map");
+            self.status.warn("Symmetry off: Rotate 90 needs a square map");
         }
         let slot_exists = |id: PlayerId| scenario.players.iter().any(|p| p.id == id);
         let valid = match self.selection.0 {
