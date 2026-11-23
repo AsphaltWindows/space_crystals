@@ -213,8 +213,9 @@ An Airfield has **4 landing slots**, one per possible assignment, so all of its 
 - **Return to Base** command: sends the aircraft to its assigned Airfield to land and rearm (hotkey TBD). Right-clicking its own Airfield does the same.
 - After rearming, the aircraft **stays landed** at the Airfield. It doesn't go back to where it was unless ordered.
 - An unassigned aircraft has no base: it doesn't return automatically, and Return to Base is unavailable until it is reassigned.
+- **Landed aircraft are ground targets** (user, 2026-11-23): while parked on the Airfield, an aircraft can be hit only by anti-ground weapons (TargetDomain Ground or Universal, systems/combat.md). Air-only weapons (TargetDomain Air) can't hit it. Once it takes off it is an air target again.
 
-TBD: rearm time (per missile or flat); landing/take-off time; whether landed aircraft count as air or ground targets (which weapons can hit them on the pad); Return to Base hotkey/slot.
+TBD: rearm time (per missile or flat); landing/take-off time; Return to Base hotkey/slot.
 
 (Full stats TBD)
 

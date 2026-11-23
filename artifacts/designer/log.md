@@ -1974,3 +1974,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T14:07:42-05:00 — GDO aircraft assignment rules + fighter Glider w/ 5 missiles. Docs: gdo/structures.md, gdo/units.md. Change entry 0015.
 - 2026-11-23T14:09:46-05:00 — Ammo correction: Fighter 1 missile, Hovercraft 5. Change entry 0016 (corrects 0015).
 - 2026-11-23T14:12:24-05:00 — GDO aircraft return/rearm flow, landing slots, reassign input, no auto-reassign. Doc: gdo/structures.md. Change entry 0017.
+- 2026-11-23T14:49:02-05:00 — Landed GDO aircraft are ground targets. Doc: gdo/structures.md. Change entry 0018.
