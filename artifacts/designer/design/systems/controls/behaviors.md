@@ -77,6 +77,13 @@ Final step is Locomotion = Moving(idle circle over TargetLocation), Orientation 
 ### Failure:
 If the unit repeatedly fails to make progress toward TargetLocation, set Locomotion = Stopping. When stopped, behavior complete.
 
+**"Repeatedly fails to make progress"** (placeholder values, user 2026-11-23, tune later):
+- **Stuck**: the unit has gone **1.5 s (24 frames)** without getting any closer to its target.
+- **Re-route attempts**: a stuck unit looks for another route, at most **3 times**, waiting **0.5 s, 1 s and 2 s** before each attempt.
+- **Give up**: if it is still stuck after the third attempt, the behavior fails as above (about 7 s worst case).
+
+This definition applies wherever a behavior says "repeatedly fails to make progress" (MovingToObject, AttackingObject, etc.).
+
 ## MovingToObject
 Base behavior for moving to a mobile or static object instance. Similar to MovingToLocation but the target position may change over time, requiring smarter replanning.
 

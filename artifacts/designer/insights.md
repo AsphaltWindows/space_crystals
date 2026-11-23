@@ -28,7 +28,7 @@
 ## Open Director Questions
 
 All non-blocking; Director proceeds on its defaults (option A in each). Arrived 2026-11-23 mid-GDO-roster; raise after the support-air-unit thread. Movement/pathing cluster:
-- **Q0008** move failure: stuck = 1.5 s no progress, 3 re-route tries (≈7 s worst) ; unreachable target (A nearest reachable point / B refuse); occupied target (A arrived if stuck within 1.5 tiles / B keep trying).
+- **Q0008** part 1 ANSWERED (0024: keep 1.5 s stuck / 3 re-routes / ~7 s). Still ask: unreachable target (A nearest reachable point / B refuse); occupied target (A arrived if stuck within 1.5 tiles behind non-moving units / B keep trying). Note: magic-box 'converge' relies on part 3.
 - **Q0009** range measured: A attacker centre → nearest point of target shape / B centre-centre / C edge-edge; proximity = within 8 su; silhouettes rotate with facing? (A no / B yes).
 - **Q0010** chase into fog (A go to last seen pos / B complete / C keep chasing); patrol origin at execution vs issue (docs conflict: commands.md vs behaviors.md step 1); failed patrol leg (A counts as arrived, 2 in a row end / B end).
 - **Q0011** patches/stations block ground units?; Rugged impassable for RuggedTerrain=false bases (docs imply: LightInfantry 'able to traverse rugged terrain')?; pathing knows unseen enemy structures? (A true map / B explored only); underground units collide?, air crosses everything.
