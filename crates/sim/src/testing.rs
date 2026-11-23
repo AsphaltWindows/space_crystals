@@ -27,7 +27,7 @@ use std::collections::BTreeMap;
 use crate::command::{Command, DebugCommand, PlayerCommand, TickInputs};
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
-use crate::ids::PlayerId;
+use crate::ids::{PlayerId, SlotId};
 use crate::map::Map;
 use crate::replay::Replay;
 use crate::scenario::{Scenario, Spawn, SpawnAt, SpawnSettings};
@@ -35,8 +35,8 @@ use crate::scenarios;
 use crate::sim::Sim;
 use crate::units::Tick;
 
-/// Builds a test [`Scenario`] from an ASCII map ([`Map::from_ascii`]) plus spawns. It has
-/// the two players of [`scenarios::empty`] (ids 1 and 2, GDO) and seed 1.
+/// Builds a test [`Scenario`] from an ASCII map ([`Map::from_ascii`]) plus spawns. It has the two slots of
+/// [`scenarios::empty`] and its default setup: players 1 and 2, GDO, in slots 1 and 2, and seed 1.
 pub struct ScenarioBuilder {
     scenario: Scenario,
 }
@@ -46,20 +46,21 @@ impl ScenarioBuilder {
     pub fn new(ascii_map: &str) -> Self {
         let map = Map::from_ascii(ascii_map).unwrap_or_else(|e| panic!("invalid test map: {e}"));
         let mut scenario = scenarios::empty(map.width(), map.height());
-        scenario.name = "test".into();
-        scenario.map = map;
+        scenario.map.name = "test".into();
+        scenario.map.terrain = map;
         Self { scenario }
     }
 
     pub fn seed(mut self, seed: u64) -> Self {
-        self.scenario.seed = seed;
+        self.scenario.setup.seed = seed;
         self
     }
 
     /// Adds a spawn with the default per-object values of its kind; spawns get ascending ids in the order they
-    /// are added.
+    /// are added. An owner is a player of the default setup, which takes the slot with its number.
     pub fn spawn(mut self, kind: ObjectKind, owner: Option<PlayerId>, at: SpawnAt) -> Self {
-        self.scenario.spawns.push(Spawn::new(kind, owner, at));
+        let slot = owner.map(|p| SlotId(p.0));
+        self.scenario.map.spawns.push(Spawn::new(kind, slot, at));
         self
     }
 
@@ -67,7 +68,7 @@ impl ScenarioBuilder {
     pub fn spawn_with(mut self, settings: SpawnSettings, at: SpawnAt) -> Self {
         let mut spawn = Spawn::new(settings.kind(), None, at);
         spawn.settings = Some(settings);
-        self.scenario.spawns.push(spawn);
+        self.scenario.map.spawns.push(spawn);
         self
     }
 

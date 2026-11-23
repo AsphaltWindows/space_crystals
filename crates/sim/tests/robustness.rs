@@ -212,7 +212,7 @@ fn any_spawn_settings_are_handled() {
             });
             let mut spawn = Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(i * 6, 0)));
             spawn.settings = settings;
-            scenario.spawns.push(spawn);
+            scenario.map.spawns.push(spawn);
         }
         let problems = scenario.validate();
         let (mut preview, _) = Sim::preview(&scenario);

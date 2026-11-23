@@ -1,4 +1,4 @@
-//! Replays: the scenario plus the inputs of every tick (`ARCHITECTURE.md > Commands,
+//! Replays: the scenario (the map and the game setup) plus the inputs of every tick (`ARCHITECTURE.md > Commands,
 //! events and replays`). The sim is deterministic, so playing them back reproduces the
 //! game bit for bit; compare [`Sim::state_hash`] to check.
 
@@ -9,8 +9,8 @@ use crate::scenario::{Scenario, ScenarioProblem};
 use crate::sim::Sim;
 use crate::units::Tick;
 
-/// A recorded game. Serializes as `{ "scenario": …, "inputs": […] }`, the scenario in
-/// its versioned file format.
+/// A recorded game. Serializes as `{ "scenario": { "map": …, "setup": … }, "inputs": […] }`, the map in its
+/// versioned file format.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Replay {
     pub scenario: Scenario,

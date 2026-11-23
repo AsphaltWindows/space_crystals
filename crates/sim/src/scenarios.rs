@@ -1,10 +1,10 @@
-//! Built-in scenarios for development, QA and tests.
+//! Built-in maps for development, QA and tests, each with its default game setup ([`Scenario::new`]: a GDO player in
+//! every slot).
 
 use crate::defs::ObjectKind;
-use crate::ids::PlayerId;
 use crate::map::{Map, Tile, TilePresetId};
-use crate::player::Faction;
-use crate::scenario::{PlayerSetup, Scenario, Spawn, SpawnAt};
+use crate::scenario::{MapDef, MapType, Scenario, Slot, Spawn, SpawnAt};
+use crate::symmetry::Symmetry;
 use crate::units::{CornerPos, TilePos};
 
 /// Names accepted by [`by_name`] (e.g. for the client's `--scenario` flag).
@@ -18,31 +18,44 @@ pub fn by_name(name: &str) -> Option<Scenario> {
     }
 }
 
-/// A flat, featureless map with two players and no objects. The start locations (Q0004
-/// placeholder) sit a quarter of the way in from the top-left and bottom-right corners.
+/// A flat, featureless Custom map without symmetry, with two slots and no objects, and its default setup. The
+/// starts sit a quarter of the way in from the top-left and bottom-right corners.
 pub fn empty(width: u32, height: u32) -> Scenario {
-    let map = Map::new(width, height); // Panics first if the size is 0.
-    let mut players = two_players();
+    Scenario::new(empty_map(width, height))
+}
+
+/// The map of [`empty`].
+pub fn empty_map(width: u32, height: u32) -> MapDef {
+    let terrain = Map::new(width, height); // Panics first if the size is 0.
     let (x, y) = (width / 4, height / 4);
-    players[0].start_location = Some(TilePos::new(x as i32, y as i32));
-    players[1].start_location = Some(TilePos::new((width - 1 - x) as i32, (height - 1 - y) as i32));
-    Scenario {
+    let starts = [
+        TilePos::new(x as i32, y as i32),
+        TilePos::new((width - 1 - x) as i32, (height - 1 - y) as i32),
+    ];
+    MapDef {
+        map_type: MapType::Custom,
         name: "empty".into(),
-        map,
-        players,
+        description: String::new(),
+        terrain,
+        symmetry: Symmetry::None,
+        slots: starts.into_iter().map(Slot::new).collect(),
         spawns: Vec::new(),
-        seed: 1,
     }
 }
 
-/// 64×48 development map, point-symmetric around its center apart from the lake and the mountain. The start
-/// locations sit in the top-left and bottom-right corners, each with an 8-patch crystal field
-/// (`factions/gdo/economy.md > Reference starting base`) between it and the map edge. Terrain
-/// (`core/map.md > Elevation`): a lake, a mountain massif, rugged ground on the flanks, a gentle hill of slopes
-/// only on each side, and a central plateau 3 levels up ringed by cliffs, reached only by a slope through a
-/// 2-tile gap in the west and in the east (the chokepoints). A Supply Delivery Station stands on the plateau, in
-/// the middle of the map.
+/// [`dev_skirmish_map`] with its default setup.
 pub fn dev_skirmish() -> Scenario {
+    Scenario::new(dev_skirmish_map())
+}
+
+/// 64×48 Skirmish Default development map with 180° symmetry: its west half is built here and the east half
+/// generated from it ([`MapDef::regenerate`]), so it is symmetric by construction. The two slots start in the
+/// top-left and bottom-right corners, each with an 8-patch crystal field (`factions/gdo/economy.md > Reference
+/// starting base`) between the start and the map edge. Terrain (`core/map.md > Elevation`): a lake and a mountain
+/// massif on each side, rugged ground on the flanks, a gentle hill of slopes only on each side, and a central
+/// plateau 3 levels up ringed by cliffs, reached only by a slope through a 2-tile gap in the west and in the east
+/// (the chokepoints). A Supply Delivery Station stands on the plateau, in the middle of the map.
+pub fn dev_skirmish_map() -> MapDef {
     let (w, h) = (64, 48);
     let mut map = Map::new(w, h);
     let mut fill = |x0: i32, y0: i32, x1: i32, y1: i32, preset: TilePresetId| {
@@ -52,101 +65,69 @@ pub fn dev_skirmish() -> Scenario {
             }
         }
     };
-    // Lake and mountain between the bases.
+    // A lake north of the middle and a mountain south of it, between the bases.
     fill(22, 6, 29, 13, TilePresetId::WATER);
-    fill(36, 33, 41, 41, TilePresetId::MOUNTAIN);
-    // Rugged ground on the flanks.
+    fill(18, 34, 23, 42, TilePresetId::MOUNTAIN);
+    // Rugged ground on the flank.
     fill(4, 30, 12, 38, TilePresetId::RUGGED);
-    fill(50, 8, 58, 15, TilePresetId::RUGGED);
-    // The central plateau: a ring of cliffs around Plane ground, with a 2-tile gap in the west and in the east.
+    // The central plateau: a ring of cliffs around Plane ground, with a 2-tile gap in the west (and, as its image,
+    // in the east).
     fill(26, 18, 37, 29, TilePresetId::CLIFF);
     fill(27, 19, 36, 28, TilePresetId::PLANE);
     fill(26, 22, 26, 23, TilePresetId::PLANE);
-    fill(37, 24, 37, 25, TilePresetId::PLANE);
 
     // The mountain rises 2 levels per corner from its edge, whose corners stay at 0 for the ground around it.
-    for y in 34..=41 {
-        for x in 37..=41 {
-            let from_edge = (x - 36).min(42 - x).min(y - 33).min(42 - y);
+    for y in 35..=42 {
+        for x in 19..=23 {
+            let from_edge = (x - 18).min(24 - x).min(y - 34).min(43 - y);
             map.set_corner(CornerPos::new(x, y), 2 * from_edge as u8);
         }
     }
-    // Two gentle hills, 3 levels high, one level per 2 tiles: a corner is at least level k if it lies within
-    // 7 - 2k tiles of the top (integer arithmetic on squared distances).
-    for (cx, cy) in [(14, 22), (50, 26)] {
-        for y in cy - 6..=cy + 6 {
-            for x in cx - 6..=cx + 6 {
-                let d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
-                let level = (1..=3).filter(|&k| d2 <= (7 - 2 * k) * (7 - 2 * k)).count();
-                map.set_corner(CornerPos::new(x, y), level as u8);
-            }
+    // A gentle hill, 3 levels high, one level per 2 tiles: a corner is at least level k if it lies within 7 - 2k
+    // tiles of the top (integer arithmetic on squared distances).
+    let (cx, cy) = (14, 22);
+    for y in cy - 6..=cy + 6 {
+        for x in cx - 6..=cx + 6 {
+            let d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+            let level = (1..=3).filter(|&k| d2 <= (7 - 2 * k) * (7 - 2 * k)).count();
+            map.set_corner(CornerPos::new(x, y), level as u8);
         }
     }
-    // Raising the plateau's top lets the slopes form in the gaps on their own; the cliffs take the rest.
-    let top = (27..=37).flat_map(|x| (19..=29).map(move |y| (CornerPos::new(x, y), 3)));
-    map.set_corner_heights(&top.collect());
 
     let mut spawns = Vec::new();
-    let mut patches = |tiles: &[(i32, i32)]| {
-        for &(x, y) in tiles {
-            spawns.push(Spawn::new(
-                ObjectKind::CrystalPatch,
-                None,
-                SpawnAt::Tile(TilePos::new(x, y)),
-            ));
-        }
-    };
-    // Player 1's field: an arc up and left of the start.
-    patches(&[(2, 5), (2, 6), (2, 7), (3, 3), (4, 2), (5, 2), (6, 2), (7, 2)]);
-    // Player 2's field: the same, mirrored through the map center.
-    patches(&[
-        (61, 42),
-        (61, 41),
-        (61, 40),
-        (60, 44),
-        (59, 45),
-        (58, 45),
-        (57, 45),
-        (56, 45),
-    ]);
-    // Its 2×2 footprint is centered on the map.
+    // The first slot's field: an arc up and left of the start.
+    for (x, y) in [(2, 5), (2, 6), (2, 7), (3, 3), (4, 2), (5, 2), (6, 2), (7, 2)] {
+        spawns.push(Spawn::new(
+            ObjectKind::CrystalPatch,
+            None,
+            SpawnAt::Tile(TilePos::new(x, y)),
+        ));
+    }
+    // Its 2×2 footprint is centered on the map: it is its own image.
     spawns.push(Spawn::new(
         ObjectKind::SupplyDeliveryStation,
         None,
         SpawnAt::Tile(TilePos::new(31, 23)),
     ));
+    // Starts in opposite corners (design change 0007).
+    let start = TilePos::new(8, 8);
+    let mut slot = Slot::new(start);
+    slot.camera_start = Some(start.center());
 
-    let mut players = two_players();
-    // Start locations (Q0004 placeholder) in opposite corners (design change 0007), mirrored through the center.
-    let starts = [TilePos::new(8, 8), TilePos::new(55, 39)];
-    for (p, start) in players.iter_mut().zip(starts) {
-        p.start_location = Some(start);
-        p.camera_start = Some(start.center());
-    }
-    Scenario {
+    let mut dev = MapDef {
+        map_type: MapType::SkirmishDefault,
         name: "dev_skirmish".into(),
-        map,
-        players,
+        description: "Development map: two bases in opposite corners, a central plateau with two ramps.".into(),
+        terrain: map,
+        symmetry: Symmetry::Rotate180,
+        slots: vec![slot.clone(), slot],
         spawns,
-        seed: 1,
-    }
-}
-
-fn two_players() -> Vec<PlayerSetup> {
-    vec![
-        PlayerSetup {
-            id: PlayerId(1),
-            name: "Player 1".into(),
-            faction: Faction::Gdo,
-            camera_start: None,
-            start_location: None,
-        },
-        PlayerSetup {
-            id: PlayerId(2),
-            name: "Player 2".into(),
-            faction: Faction::Gdo,
-            camera_start: None,
-            start_location: None,
-        },
-    ]
+    };
+    dev.regenerate();
+    // Raising the plateau's top lets the slopes form in the gaps on their own; the cliffs take the rest. The target
+    // corners are their own set of images, so the slopes come out symmetric.
+    let top = (27..=37).flat_map(|x| (19..=29).map(move |y| (CornerPos::new(x, y), 3)));
+    dev.terrain.set_corner_heights(&top.collect());
+    dev.regenerate();
+    dev
 }

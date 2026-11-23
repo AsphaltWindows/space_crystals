@@ -1,165 +1,74 @@
-//! Everything needed to start a game: map, players, initial objects, RNG seed.
+//! Everything needed to start a game: a map ([`MapDef`]) and who plays it ([`GameSetup`]).
 //!
-//! # Scenario files
+//! # Maps and game setups
 //!
-//! A `Scenario` is also the map editor's file format. It serializes as an object whose
-//! first field is `version` ([`SCENARIO_FORMAT_VERSION`]), followed by `name`, `map` (the
-//! compact row form in the [`crate::map`] docs: tile rows and corner height rows), `players`,
-//! `spawns` (each with its per-object `settings`, [`SpawnSettings`]) and `seed`. Written with
-//! `serde_json::to_string_pretty`, a file shows the map as one line per row, so it stays
-//! short, diffable and editable by hand. Reading rejects other versions and unknown fields.
-//! Reading checks the format only: run [`Scenario::validate`] (or [`crate::Sim::try_new`])
-//! before using a loaded scenario.
+//! A map (`core/map_editor.md`) holds only the map: its type ([`MapType`]), name and description, the terrain (a
+//! [`Map`]), its symmetry, its player slots ([`Slot`]: a start position, an optional camera start, and one Starting
+//! Layout per faction) and its pre-placed objects ([`Spawn`]s, neutral or owned by a slot). Who plays is not part of
+//! it: a [`GameSetup`] lists the players, each with a name, a faction and the slot it takes, and holds the RNG seed.
+//! A [`Scenario`] is the pair, everything [`crate::Sim::try_new`] needs: "a map and its players", as it was before
+//! the two were split, so replays, the client and tests still start games from a `Scenario`.
+//!
+//! # Map files
+//!
+//! A [`MapDef`] is the map editor's file format. It serializes as an object whose first field is `version`
+//! ([`MAP_FORMAT_VERSION`]), followed by `map_type`, `name`, `description`, `symmetry`, `terrain` (the compact row
+//! form in the [`crate::map`] docs: custom presets, tile rows and corner height rows), `slots` (each with its `start`,
+//! `camera_start` and per-faction `layouts`) and `spawns` (each with its per-object `settings`, [`SpawnSettings`]).
+//! Written with `serde_json::to_string_pretty`, a file shows the map as one line per row, so it stays short,
+//! diffable and editable by hand. Reading rejects other versions and unknown fields, and checks the format only: run
+//! [`MapDef::validate`] or [`Scenario::validate`] (or [`crate::Sim::try_new`]) before using a loaded map.
 
+mod create;
 mod edit;
+mod generate;
+mod mapdef;
+mod problems;
 mod settings;
+mod setup;
 mod validate;
 
-use glam::Vec2;
-use serde::de::Error as _;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
-use crate::defs::ObjectKind;
-use crate::ids::PlayerId;
-use crate::map::Map;
-use crate::player::Faction;
-use crate::units::TilePos;
-
+pub use create::{CreationProblem, MAX_SLOTS, MIN_MAP_SIDE, MapSettings};
 pub use edit::ResizeReport;
+pub use generate::{Asymmetry, image_location};
+pub use mapdef::{
+    BuildingOrientation, LayoutObject, MAP_FORMAT_VERSION, MapDef, MapType, Slot, Spawn, SpawnAt, StartingLayouts,
+};
+pub use problems::{ScenarioProblem, SpawnProblem};
 pub use settings::{
     DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, DEFAULT_STARTING_AMOUNT, DEFAULT_STARTING_SUPPLIES,
     SettingsProblem, SpawnSettings,
 };
-pub use validate::{ScenarioProblem, SpawnProblem};
-pub(crate) use validate::{locate, place_spawn};
+pub use setup::{DEFAULT_SEED, GameSetup, PlayerSetup};
+pub(crate) use validate::{locate_oriented, place_spawn};
 
-/// Version of the scenario file format. Bump it on any incompatible change.
-///
-/// - 1: the first format (M0), with one elevation per tile.
-/// - 2: corner heights (`core/map.md > Elevation`) and per-object spawn settings.
-pub const SCENARIO_FORMAT_VERSION: u32 = 2;
+use crate::map::Map;
 
-/// Serializes as a versioned scenario file (see the module docs).
-#[derive(Clone, Debug, PartialEq)]
+/// A map and who plays it (see the module docs). Serializes as `{ "map": …, "setup": … }`, the map in its versioned
+/// file format.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Scenario {
-    pub name: String,
-    pub map: Map,
-    pub players: Vec<PlayerSetup>,
-    /// Spawned in order at tick 0, so they get ascending `ObjectId`s in this order.
-    pub spawns: Vec<Spawn>,
-    pub seed: u64,
+    pub map: MapDef,
+    pub setup: GameSetup,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PlayerSetup {
-    pub id: PlayerId,
-    pub name: String,
-    pub faction: Faction,
-    /// `core/camera.md > Starting Position`: map-defined starting camera center, if any.
-    pub camera_start: Option<Vec2>,
-    /// The tile where this slot's starting base will go. Placeholder map model until
-    /// design question Q0004 (player slots, start locations and starting-base layout)
-    /// is answered; nothing is spawned there yet.
-    pub start_location: Option<TilePos>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Spawn {
-    pub kind: ObjectKind,
-    pub owner: Option<PlayerId>,
-    pub at: SpawnAt,
-    /// The object's per-object values (`core/map_editor.md > Per-object Resource Values`): required for the
-    /// kinds that have them, `None` for the others ([`SpawnSettings::defaults`]).
-    pub settings: Option<SpawnSettings>,
-}
-
-impl Spawn {
-    /// A spawn with the default values of its kind, as the map editor places it.
-    pub fn new(kind: ObjectKind, owner: Option<PlayerId>, at: SpawnAt) -> Self {
-        Self {
-            kind,
-            owner,
-            at,
-            settings: SpawnSettings::defaults(kind),
-        }
+impl Scenario {
+    /// `map` with its default setup ([`GameSetup::default_for`]): a GDO player in every slot.
+    pub fn new(map: MapDef) -> Self {
+        let setup = GameSetup::default_for(&map);
+        Self { map, setup }
     }
-}
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum SpawnAt {
-    /// Tile-based objects: top-left tile of the (unrotated) footprint.
-    Tile(TilePos),
-    /// Units: center position in space units.
-    Point(Vec2),
-}
-
-/// The serialized form of [`Scenario`], borrowed for writing.
-#[derive(Serialize)]
-struct ScenarioFileRef<'a> {
-    version: u32,
-    name: &'a str,
-    map: &'a Map,
-    players: &'a [PlayerSetup],
-    spawns: &'a [Spawn],
-    seed: u64,
-}
-
-/// The serialized form of [`Scenario`], owned for reading.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ScenarioFile {
-    version: u32,
-    name: String,
-    map: Map,
-    players: Vec<PlayerSetup>,
-    spawns: Vec<Spawn>,
-    seed: u64,
-}
-
-impl Serialize for Scenario {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let Scenario {
-            name,
-            map,
-            players,
-            spawns,
-            seed,
-        } = self;
-        ScenarioFileRef {
-            version: SCENARIO_FORMAT_VERSION,
-            name,
-            map,
-            players,
-            spawns,
-            seed: *seed,
-        }
-        .serialize(serializer)
+    /// The map's name.
+    pub fn name(&self) -> &str {
+        &self.map.name
     }
-}
 
-impl<'de> Deserialize<'de> for Scenario {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let ScenarioFile {
-            version,
-            name,
-            map,
-            players,
-            spawns,
-            seed,
-        } = ScenarioFile::deserialize(deserializer)?;
-        if version != SCENARIO_FORMAT_VERSION {
-            return Err(D::Error::custom(format!(
-                "unsupported scenario format version {version} (this build reads version {SCENARIO_FORMAT_VERSION})"
-            )));
-        }
-        Ok(Scenario {
-            name,
-            map,
-            players,
-            spawns,
-            seed,
-        })
+    /// The terrain.
+    pub fn terrain(&self) -> &Map {
+        &self.map.terrain
     }
 }

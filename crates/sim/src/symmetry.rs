@@ -6,11 +6,15 @@
 //! [`MapTransform`]. Coordinates are mapped exactly, with integer arithmetic on doubled coordinates (the map's
 //! center may lie on a tile edge or in a tile's middle), in 64 bits so that no input can overflow.
 
+mod region;
+
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::object::{Placement, Rotation};
 use crate::units::{CornerPos, SU_PER_GU, TilePos};
+
+pub use region::EditableRegion;
 
 /// `core/map_editor.md > Symmetry`: how the parts of a map mirror each other.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -19,6 +19,7 @@ fn custom(name: &str) -> TilePreset {
         rugged: true,
         drillable: false,
         recruitable: true,
+        look: TileLook::Rugged,
     }
 }
 
@@ -66,7 +67,7 @@ fn ascii_round_trips() {
     let map = Map::from_ascii(".r\ncM\n~.\n\n0g0\n5a0\n000\n123").unwrap();
     assert_eq!(map.to_ascii(), ".r\ncM\n~.\n\n0g0\n5a0\n000\n123\n");
     assert_eq!(Map::from_ascii(&map.to_ascii()), Ok(map));
-    let skirmish = scenarios::dev_skirmish().map;
+    let skirmish = scenarios::dev_skirmish().map.terrain;
     assert_eq!(Map::from_ascii(&skirmish.to_ascii()), Ok(skirmish));
 }
 
@@ -190,6 +191,7 @@ fn hash_covers_every_field() {
         ("rugged", |m| m.presets[5].rugged ^= true),
         ("drillable", |m| m.presets[5].drillable ^= true),
         ("recruitable", |m| m.presets[5].recruitable ^= true),
+        ("look", |m| m.presets[5].look = TileLook::Water),
         ("symbol", |m| m.symbols[5] = 'Z'),
         ("added preset", |m| {
             m.add_preset(custom("another"));
@@ -219,6 +221,7 @@ fn custom_preset_map() -> Map {
                 rugged: false,
                 drillable: false,
                 recruitable: true,
+                look: TileLook::Plane,
             },
             '#',
         )
@@ -239,11 +242,11 @@ fn serde_form_is_rows_and_custom_presets() {
             "custom_presets": [
                 {
                     "symbol": "#", "name": "Ash Field", "buildable": true, "traversible": true,
-                    "rugged": false, "drillable": false, "recruitable": true
+                    "rugged": false, "drillable": false, "recruitable": true, "look": "Plane"
                 },
                 {
                     "symbol": "A", "name": "Ice", "buildable": true, "traversible": false,
-                    "rugged": true, "drillable": false, "recruitable": true
+                    "rugged": true, "drillable": false, "recruitable": true, "look": "Rugged"
                 }
             ],
             "tiles": ["..#.", "~~.A"],
@@ -296,12 +299,12 @@ fn serde_rejects_bad_maps_with_a_message() {
         (r#"{ "heights": ["000"] }"#, "missing field `tiles`"),
         (
             r#"{ "custom_presets": [{ "symbol": "~", "name": "Lava", "buildable": false, "traversible": false,
-                 "rugged": false, "drillable": false, "recruitable": false }], "tiles": [".."] }"#,
+                 "rugged": false, "drillable": false, "recruitable": false, "look": "Water" }], "tiles": [".."] }"#,
             "custom preset \"Lava\": preset symbol '~' is already used by preset \"Water\"",
         ),
         (
             r#"{ "custom_presets": [{ "symbol": " ", "name": "Gap", "buildable": false, "traversible": false,
-                 "rugged": false, "drillable": false, "recruitable": false }], "tiles": [".."] }"#,
+                 "rugged": false, "drillable": false, "recruitable": false, "look": "Cliff" }], "tiles": [".."] }"#,
             "custom preset \"Gap\": invalid preset symbol ' '",
         ),
     ];

@@ -56,7 +56,7 @@ fn identical_runs_give_identical_hashes_every_tick() {
 #[test]
 fn the_seed_is_part_of_the_state() {
     let mut reseeded = scenarios::dev_skirmish();
-    reseeded.seed = 2;
+    reseeded.setup.seed = 2;
     let a = Sim::new(&scenarios::dev_skirmish());
     let b = Sim::new(&reseeded);
     assert_ne!(a.state_hash(), b.state_hash());
@@ -131,7 +131,7 @@ fn recording_alongside_the_sim() {
 #[test]
 fn replays_of_invalid_scenarios_fail_without_panicking() {
     let mut scenario = scenarios::empty(4, 4);
-    scenario.players[1].id = PlayerId(1);
+    scenario.setup.players[1].slot = sc_sim::SlotId(1);
     let replay = Replay::new(scenario.clone());
     assert_eq!(replay.try_run(), Err(scenario.validate()));
 }

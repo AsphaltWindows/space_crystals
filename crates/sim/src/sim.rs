@@ -31,7 +31,7 @@ pub struct Sim {
     objects: BTreeMap<ObjectId, Object>,
     next_id: u32,
     /// The only source of randomness (`ARCHITECTURE.md > Determinism`), seeded from
-    /// `Scenario::seed`.
+    /// `GameSetup::seed`.
     rng: Rng,
     /// Output of the latest step only; not part of [`Sim::state_hash`].
     events: Vec<SimEvent>,
@@ -43,38 +43,47 @@ impl Sim {
     pub fn new(scenario: &Scenario) -> Self {
         Self::try_new(scenario).unwrap_or_else(|problems| {
             let problems: Vec<String> = problems.iter().map(ToString::to_string).collect();
-            panic!("invalid scenario {:?}: {}", scenario.name, problems.join("; "))
+            panic!("invalid scenario {:?}: {}", scenario.name(), problems.join("; "))
         })
     }
 
-    /// Starts a game, or lists everything wrong with the scenario
-    /// ([`Scenario::validate`]). Never panics.
+    /// Starts a game of the scenario's map with its game setup, or lists everything wrong with either
+    /// ([`Scenario::validate`]). The map's pre-placed objects come first, those of slots that no player takes left
+    /// out, then each player's Starting Layout for their faction at their slot; objects a slot owns belong to the
+    /// player who takes it. Never panics.
     pub fn try_new(scenario: &Scenario) -> Result<Self, Vec<ScenarioProblem>> {
-        let spots = scenario.spawn_spots()?;
-        let players = scenario
-            .players
-            .iter()
-            .map(|p| Player {
-                id: p.id,
-                name: p.name.clone(),
-                faction: p.faction,
-            })
-            .collect();
-        let mut sim = Self {
-            tick: 0,
-            map: scenario.map.clone(),
-            players,
-            objects: BTreeMap::new(),
-            next_id: 1,
-            rng: Rng::from_seed(scenario.seed),
-            events: Vec::new(),
-        };
-        for (s, (pos, placement)) in scenario.spawns.iter().zip(spots) {
-            sim.insert_object(s.kind, s.owner, pos, placement, s.settings.as_ref());
+        let objects = scenario.start_objects()?;
+        let mut sim = Self::empty(scenario);
+        for o in objects {
+            sim.insert_object(o.kind, o.owner, o.pos, o.placement, o.settings.as_ref());
         }
         // Scenario spawns emit no events (`ARCHITECTURE.md > Commands, events and replays`).
         sim.events.clear();
         Ok(sim)
+    }
+
+    /// The scenario's terrain and players at tick 0, without objects. Players beyond the last `PlayerId` are left
+    /// out (only an invalid setup has them).
+    fn empty(scenario: &Scenario) -> Self {
+        let players = scenario
+            .setup
+            .player_ids()
+            .zip(&scenario.setup.players)
+            .map(|(id, p)| Player {
+                id,
+                name: p.name.clone(),
+                faction: p.faction,
+            })
+            .collect();
+        Self {
+            tick: 0,
+            map: scenario.map.terrain.clone(),
+            players,
+            objects: BTreeMap::new(),
+            next_id: 1,
+            rng: Rng::from_seed(scenario.setup.seed),
+            events: Vec::new(),
+        }
     }
 
     pub fn tick(&self) -> Tick {
