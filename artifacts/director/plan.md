@@ -66,31 +66,23 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Placeholders:** drag 4 px; double tap and double click 0.4 s; double-click distance 6 px.
   - **Open:** bindings aren't serde yet (that needs Bevy's `serialize` feature; decide when rebinding is built), and there is no rejection event.
 
+- **M0-E map types and generated symmetry** (merged in `3251567`; 280 tests). `Scenario = { map: MapDef (format v3), setup: GameSetup }`:
+  - **MapDef**: type, symmetry, terrain with preset looks, slots (start, camera, per-faction layouts), and neutral or slot-owned spawns.
+  - **GameSetup**: players, seed, `config: SimConfig`. Replays are map + setup + inputs.
+  - **Editor**: a creation dialog; Skirmish Default / Custom types; generated symmetry with the locked part dimmed; custom presets with looks; a play-test setup panel; debug on in play-tests.
+  - **Placeholder rules, flagged in code**:
+    - sides 16–256, at most 8 slots in whole symmetry sets, 90° only on square maps;
+    - objects on an axis: a self-image object stays a single object, and one that overlaps its own image is refused;
+    - preset removal is refused while the preset is in use.
+  - **Fixed**: review findings 2, 5, 7, 10, the editor part of 11, and F5-only play-test exit.
+  - **Not done**:
+    - Starting Layout editing (M2);
+    - a panel scrollbar (scroll with the wheel);
+    - the right panel runs past the bottom on maps with 4 or more slots.
+
 ## In progress
-- **M0-E: map types and generated symmetry** (agent in a worktree; brief `scratchpad/briefs/m0e-map-types.md`). It covers:
-  - the map/game-setup split, with slots and per-faction layouts (empty until M2);
-  - the creation dialog and Skirmish Default / Custom map types;
-  - generated symmetry with a locked region;
-  - custom tile presets;
-  - review fixes 2, 5, 7 and 10;
-  - play-tests that end with F5 only;
-  - a symmetric test map.
-
-  It has been told to merge M1-A from master before finishing, folding `SimConfig.debug` into the game setup, with play-tests running with debug on.
-- **M1-C navigation library: done** (`88dd9bc`, 244 tests). `sc_sim::nav` is pure and standalone:
-  - NavGrid with components, rebuilt for 3 grids in 1.9 ms;
-  - A* with retargeting;
-  - LOS (Amanatides–Woo) and bisection smoothing;
-  - group field;
-  - budgeted `serve`;
-  - Q0011 default switches.
-
-  Release perf on a 256² worst-case map:
-  - A* averages 1.8 ms on random pairs; the field takes 3.9 ms.
-  - A **200-unit group order takes 9.4 ms**, against an 8 ms target.
-  - **200 lone requests are served 4 per tick** under the 32k budget.
-
-  **Tuning in G (hardening):** cheaper smoothing, budget tuning, or caching. Size class k > 1 is basic; per-player route grids aren't built (Q0011).
+- **M1-B unit foundation** (Opus, in a worktree; brief `scratchpad/briefs/m1b-unit-foundation.md`). It has been told to merge master (M0-E) before finishing, and may add unit-overlap validation.
+- **Editor onto the shared input layer** (Opus, in a worktree; brief `scratchpad/briefs/m1x-editor-input.md`). All editor keys go into the `Bindings` table; one over-UI test; focused text fields swallow keys. It stays out of M1-B's files.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
 The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, the defaults from the doc apply.
@@ -107,33 +99,9 @@ The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, th
 | E Behaviours | chase, AttackMove, Patrol, Hold, Stop, auto-target and leashes | D, W, V | Fable, or Opus with a Fable review |
 | G QA and hardening | debug control of both sides, replay playback, path overlay, soak, perf, golden hashes | E, H | Opus |
 
-Also queued: moving the editor onto the shared input layer (after M0-E).
+After B: start D, S, V and W in parallel; then H, E, G.
 
 ## Queued
-### M0-E: map types and generated symmetry (in progress; details below kept for reference)
-- **Map/setup split**: the map file holds the map only:
-  - type, name, description, size, terrain, symmetry;
-  - N start positions (slots), each with empty per-faction layouts;
-  - neutral pre-placed objects.
-
-  Factions, player names and the seed belong to the game setup, picked for play-tests.
-- **Creation dialog**: type, size, slot count, symmetry, name, description.
-- **Map types** (0012):
-  - **Skirmish Default**: symmetry is required and generated. Only the editable portion can be edited; the rest is locked and regenerated live, with everything mirrored, including object settings and building orientations. Owned objects are allowed only inside layouts.
-  - **Custom**: no restrictions (its triggers and slot restrictions aren't designed, so not built).
-- **Placeholder limits, flagged**: min/max size, max slots, slot count vs symmetry, objects on the symmetry axis.
-- **Review fixes**: 2 (slot-name commit races the list rebuild), 5 (`--editor` player check), 7 (window close skips the unsaved-changes confirm; non-atomic save), 10 (per-frame UI work). Plus the editor test gaps.
-- **Layout contents, completeness and outdated flags wait for M2**, when Starting Conditions exist.
-
-### M1-A: input and command foundations (done; see Built)
-- **Shared action layer**:
-  - pointer state, cursor world position, modifiers, chords, drag/box state, an over-UI test;
-  - one rebindable bindings table with the 0011 defaults (actual rebinding UI later).
-
-  The editor moves onto this layer. Play-tests end with F5 only, since Esc = cancel (review finding 8).
-- **Sim command gate**: `validate(&PlayerCommand)` checks the player exists, owns the ids, and the ids are alive. Debug commands only when debug is enabled (finding 9).
-- **Client replay-hash test and interpolation test** (finding 11).
-
 ### M1: units move and fight (sandbox)
 Units: Peacekeeper (GDO) and Guard (Syndicate). The work:
 - **movement**:
