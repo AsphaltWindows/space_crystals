@@ -43,26 +43,52 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 
   Sample: `maps/dev_skirmish.json`. `--map`/`--scenario` exit with code 2 and list the problems instead of panicking. The camera falls back from camera start to start location to map centre. The Director checked the screenshots.
 
+- **M0-D corner-height terrain** (merged in `cffb46f`; 203 tests). It covers:
+  - **Terrain model:** a corner heightmap with bilinear height, floor level, flatness and max-slope validation.
+  - **File format v2:** base-17 height rows and explicit per-spawn `settings`; `MAX_MAP_SIDE` 256 is checked before allocating.
+  - **Per-object values:** per-object patch and station values (0007); patches and stations need flat tiles (0013).
+  - **Spawn timing:** an object spawned in tick t is first updated in t+1.
+  - **Rendering:** height offset 0.25 GU per level; Lambert slope shading lit from the NW; cliff faces with strata; objects drawn at terrain height; `coords::ground_under` picks the frontmost surface.
+  - **Camera:** middle-mouse grab pan (0010).
+  - **Editor height tools:** corner tools whose slopes cascade and stop at cliffs; a slope overlay (K).
+  - **Symmetry:** pure transforms for 6 modes in `sc_sim::symmetry`.
+  - **Test map:** rebuilt with starts in the corners, hills, and a cliff plateau with slope entrances.
+  - **Review fixes:** findings 1, 3, 4 and 6.
+
+  The UI font has ASCII glyphs only.
+
+- **M1-A input and command foundations** (merged in `fec5aec`; 224 tests):
+  - **Input layer:** a shared input layer for the game (`ActionState`, `Pointer` with ground/view/over-UI, `MapClick` and `SelectionBox` messages, chords and double-tap/double-click on `Time<Real>`), plus headless injection.
+  - **Bindings:** one rebindable `Bindings` table with the 0011 defaults; Esc = Cancel.
+  - **Command gate:** `Sim::validate` runs inside `step`.
+  - **Debug switch:** `SimConfig { debug }` is hashed and recorded in `Replay`; `--no-debug` turns it off.
+  - **Tests:** client replay-hash and interpolation tests.
+  - **Placeholders:** drag 4 px; double tap and double click 0.4 s; double-click distance 6 px.
+  - **Open:** bindings aren't serde yet (that needs Bevy's `serialize` feature; decide when rebinding is built), and there is no rejection event.
+
 ## In progress
-- **M0-D: corner-height terrain** (agent in its own worktree; brief `scratchpad/briefs/m0d-terrain.md`). It covers:
-  - **0004** corner heightmap: interpolated height, floor level, flatness, max-slope validation, file format v2
-  - **0007** per-object patch and station values, with editor fields
-  - **spawn-tick rule**: an object spawned in tick t is first updated in t+1
-  - **height rendering**: offset per level, slope shading, cliff faces, objects at terrain height, picking through the offset
-  - **0010** middle-mouse grab pan
-  - **corner-based editor height tools** with an automatic slope cascade
-  - **0008** symmetry: 6 modes, including 90° on square maps
-  - **test map rebuilt**: starts in the corners, a hill, a cliff plateau with slope entrances
-  - **Folded in while it runs:**
-    - 0013: patches and stations need flat tiles.
-    - 0012: symmetry transforms built as pure functions only; generated symmetry comes in M0-E.
-    - Review findings 1, 3, 4, 6: stale preset index, stale selection index, footprint overflow, unbounded map size.
-- **Review of M0 and M0-C: done.** No determinism holes; the sim core is solid, and the camera, HUD, presets and resources match the spec. The open findings are listed under M0-E and M1-A below. Weak spots:
-  - the editor's references to the document go stale;
-  - the input layer is too thin for M1.
+- **M0-E: map types and generated symmetry** (agent in a worktree; brief `scratchpad/briefs/m0e-map-types.md`). It covers:
+  - the map/game-setup split, with slots and per-faction layouts (empty until M2);
+  - the creation dialog and Skirmish Default / Custom map types;
+  - generated symmetry with a locked region;
+  - custom tile presets;
+  - review fixes 2, 5, 7 and 10;
+  - play-tests that end with F5 only;
+  - a symmetric test map.
+
+  It has been told to merge M1-A from master before finishing, folding `SimConfig.debug` into the game setup, with play-tests running with debug on.
+- **M1 movement design spike** (Fable, read-only; brief `scratchpad/briefs/m1-movement-spike.md`). Output: `scratchpad/m1/movement-design.md`. It covers:
+  - requirements and design gaps;
+  - the sim data model and the movement steps in the tick;
+  - pathfinding, collision, f32 vs fixed point;
+  - tests;
+  - the M1 slicing.
+- **Next:**
+  - move the editor onto the shared input layer;
+  - then the M1 slices from the spike, once the Director has reviewed it and the Designer has answered its gap questions.
 
 ## Queued
-### M0-E: map types and generated symmetry (after M0-D)
+### M0-E: map types and generated symmetry (in progress; details below kept for reference)
 - **Map/setup split**: the map file holds the map only:
   - type, name, description, size, terrain, symmetry;
   - N start positions (slots), each with empty per-faction layouts;
@@ -77,7 +103,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 - **Review fixes**: 2 (slot-name commit races the list rebuild), 5 (`--editor` player check), 7 (window close skips the unsaved-changes confirm; non-atomic save), 10 (per-frame UI work). Plus the editor test gaps.
 - **Layout contents, completeness and outdated flags wait for M2**, when Starting Conditions exist.
 
-### M1-A: input and command foundations (opens M1)
+### M1-A: input and command foundations (done; see Built)
 - **Shared action layer**:
   - pointer state, cursor world position, modifiers, chords, drag/box state, an over-UI test;
   - one rebindable bindings table with the 0011 defaults (actual rebinding UI later).
@@ -141,21 +167,22 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0006 | Do map resources need flat tiles? | no | answered by 0013 (yes, both) |
 
 ## Design change entries
-Last triaged: 0014.
+Last triaged: 0020.
 
 | Entry | Status | Notes |
 |---|---|---|
 | 0001 Artillery Rig requires Advanced Mechanics | queued (Later: Factory) | |
 | 0002 CommandPanel slots by hotkey | queued (M1 command panel) | answers Q0005 |
 | 0003 Art direction | queued (art pipeline) | confirms the square grid and SC1-style client conventions |
-| 0004 Corner-height elevation | in progress (M0-D) | flatness → M2; ElevationModifier → M1 |
+| 0004 Corner-height elevation | done (M0-D); flatness for structures → M2; ElevationModifier → M1 | |
 | 0005 Underground exemption; structures get ElevationModifier | queued (M1, M4) | |
 | 0006 Slopes don't affect speed | queued (M1, a check only) | confirms the default |
-| 0007 Per-object resource values | in progress (M0-D) | answers Q0003; test map starts in corners |
+| 0007 Per-object resource values | done (M0-D) | answers Q0003 |
 | 0008 Starting layouts; symmetry tools | symmetry in progress (M0-D); layouts queued (M2) | |
 | 0009 Layouts from scratch; Skirmish Default | queued (M2); per-layout toggle superseded by 0012 | |
-| 0010 Middle-mouse grab pan | in progress (M0-D) | |
-| 0011 Default input bindings; rebinding | queued (M1-A, M1) | answers Q0002; matches assumptions |
-| 0012 Map types, creation, generated symmetry | transforms in M0-D; the rest queued (M0-E); layout rules (M2) | answers Q0004 |
-| 0013 Patches and stations need flat tiles | in progress (M0-D, folded in) | answers Q0006 |
+| 0010 Middle-mouse grab pan | done (M0-D) | |
+| 0011 Default input bindings; rebinding | bindings table done (M1-A); selection/groups → M1; rebinding UI later | answers Q0002 |
+| 0012 Map types, creation, generated symmetry | in progress (M0-E); layout rules → M2 | answers Q0004 |
+| 0013 Patches and stations need flat tiles | done (M0-D) | answers Q0006 |
+| 0015–0020 GDO aircraft: assignment, ammo, return/rearm, landed = ground target, rearm time, names (Hornet, Dragonfly) | queued (Later: air) | design stubs |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

@@ -1,9 +1,10 @@
 use super::*;
+use crate::command::{Command, DebugCommand};
 use crate::ids::SlotId;
 use crate::map::{Tile, TilePresetId};
 use crate::object::Rotation;
 use crate::player::Faction;
-use crate::scenario::{DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, Spawn, SpawnSettings};
+use crate::scenario::{DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, Spawn, SpawnAt, SpawnSettings};
 use crate::scenarios;
 use crate::units::TilePos;
 
@@ -11,13 +12,14 @@ fn tile_spawn(kind: ObjectKind, x: i32, y: i32) -> Spawn {
     Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(x, y)))
 }
 
-/// An 8×6 map (512 × 384 su) with a patch (id 1) and a station (id 2).
+/// An 8×6 map (512 × 384 su) with a patch (id 1) and a station (id 2), debug commands on.
 fn small_sim() -> Sim {
     let mut scenario = scenarios::empty(8, 6);
     scenario.map.spawns = vec![
         tile_spawn(ObjectKind::CrystalPatch, 1, 1),
         tile_spawn(ObjectKind::SupplyDeliveryStation, 4, 2),
     ];
+    scenario.setup.config = SimConfig::DEBUG;
     Sim::new(&scenario)
 }
 
@@ -134,6 +136,7 @@ fn state_hash_covers_every_field() {
         ("rng", |s| {
             s.rng.next_u32();
         }),
+        ("config debug", |s| s.config.debug = !s.config.debug),
     ];
     for (name, mutate) in mutations {
         let mut sim = base.clone();
@@ -150,6 +153,36 @@ fn state_hash_ignores_events_only() {
     with_event.events.push(SimEvent::Removed(ObjectId(1)));
     assert_eq!(with_event.state_hash(), base.state_hash());
     assert_eq!(small_sim().state_hash(), base.state_hash());
+}
+
+/// The gate's ownership rule, for the commands a player gives their own objects (none exist yet: debug commands may
+/// refer to anyone's objects).
+#[test]
+fn a_players_orders_may_only_command_their_own_objects() {
+    let mut sim = small_sim();
+    let unit = insert_unit(&mut sim, Vec2::new(100.0, 100.0)); // player 1's
+    assert!(sim.referenced(unit, Some(PlayerId(1))).is_ok());
+    assert_eq!(
+        sim.referenced(unit, Some(PlayerId(2))).err(),
+        Some(Reject::NotOwned(unit))
+    );
+    // Neutral objects belong to no player.
+    let patch = ObjectId(1);
+    assert_eq!(
+        sim.referenced(patch, Some(PlayerId(1))).err(),
+        Some(Reject::NotOwned(patch))
+    );
+    // Debug commands and targets refer to anyone's objects, as long as they exist.
+    assert!(sim.referenced(patch, None).is_ok());
+    let missing = ObjectId(42);
+    assert_eq!(
+        sim.referenced(missing, None).err(),
+        Some(Reject::UnknownObject(missing))
+    );
+    assert_eq!(
+        sim.referenced(missing, Some(PlayerId(1))).err(),
+        Some(Reject::UnknownObject(missing))
+    );
 }
 
 #[test]
@@ -170,7 +203,9 @@ fn set_position_teleports_to_finite_points_on_the_map_only() {
         Vec2::new(10.0, 384.0),
     ];
     for pos in bad {
-        sim.step(&debug(DebugCommand::SetPosition { id: unit, pos }));
+        let teleport = debug(DebugCommand::SetPosition { id: unit, pos });
+        assert_eq!(sim.validate(&teleport.commands[0]), Err(Reject::OffMap), "{pos}");
+        sim.step(&teleport);
         assert_eq!(sim.object(unit).unwrap().pos, target, "{pos}");
     }
     // Tile-based objects keep their placement.
@@ -236,11 +271,13 @@ fn a_stocked_station_waits_until_emptied() {
 fn spawns_are_ignored_once_ids_run_out() {
     let mut sim = small_sim();
     sim.next_id = u32::MAX;
-    sim.step(&debug(DebugCommand::Spawn {
+    let spawn = debug(DebugCommand::Spawn {
         kind: ObjectKind::CrystalPatch,
         owner: None,
         at: SpawnAt::Tile(TilePos::new(0, 0)),
-    }));
+    });
+    assert_eq!(sim.validate(&spawn.commands[0]), Err(Reject::OutOfIds));
+    sim.step(&spawn);
     let ids: Vec<ObjectId> = sim.objects.keys().copied().collect();
     assert_eq!(ids, [ObjectId(1), ObjectId(2)]);
     assert_eq!(sim.next_id, u32::MAX);

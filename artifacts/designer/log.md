@@ -1976,3 +1976,5 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T14:12:24-05:00 — GDO aircraft return/rearm flow, landing slots, reassign input, no auto-reassign. Doc: gdo/structures.md. Change entry 0017.
 - 2026-11-23T14:49:02-05:00 — Landed GDO aircraft are ground targets. Doc: gdo/structures.md. Change entry 0018.
 - 2026-11-23T14:54:17-05:00 — Rearm time per unit of ammo, per aircraft type. Docs: gdo/structures.md, gdo/units.md. Change entry 0019.
+- 2026-11-23T14:59:19-05:00 — Named GDO aircraft: Hornet (AG hover chopper), Dragonfly (AA glider). Change entry 0020.
+- 2026-11-23T15:01:20-05:00 — Artillery Rig name confirmed; fixed leftover working title in Propulsion Labs (now Dragonfly). No change entry (no behavior change; 0020 covers the rename).

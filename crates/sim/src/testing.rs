@@ -32,7 +32,7 @@ use crate::map::Map;
 use crate::replay::Replay;
 use crate::scenario::{Scenario, Spawn, SpawnAt, SpawnSettings};
 use crate::scenarios;
-use crate::sim::Sim;
+use crate::sim::{Sim, SimConfig};
 use crate::units::Tick;
 
 /// Builds a test [`Scenario`] from an ASCII map ([`Map::from_ascii`]) plus spawns. It has the two slots of
@@ -56,6 +56,12 @@ impl ScenarioBuilder {
         self
     }
 
+    /// Sets the game options (by default none: debug commands off, as in a real match).
+    pub fn config(mut self, config: SimConfig) -> Self {
+        self.scenario.setup.config = config;
+        self
+    }
+
     /// Adds a spawn with the default per-object values of its kind; spawns get ascending ids in the order they
     /// are added. An owner is a player of the default setup, which takes the slot with its number.
     pub fn spawn(mut self, kind: ObjectKind, owner: Option<PlayerId>, at: SpawnAt) -> Self {
@@ -76,14 +82,15 @@ impl ScenarioBuilder {
         self.scenario
     }
 
-    /// Builds the scenario and starts a [`TestSim`] on it.
+    /// Builds the scenario and starts a [`TestSim`] on it, with debug commands on.
     pub fn start(self) -> TestSim {
         TestSim::new(self.build())
     }
 }
 
 /// A sim driven by a schedule of commands. It records a [`Replay`] of everything it runs
-/// and keeps every event, since [`Sim::events`] holds only the latest step's.
+/// and keeps every event, since [`Sim::events`] holds only the latest step's. Debug commands
+/// are on unless it starts with another [`SimConfig`] ([`TestSim::with_config`]).
 pub struct TestSim {
     sim: Sim,
     replay: Replay,
@@ -92,8 +99,15 @@ pub struct TestSim {
 }
 
 impl TestSim {
-    /// Panics if the scenario is invalid, listing its problems.
+    /// Panics if the scenario is invalid, listing its problems. Debug commands are on
+    /// ([`SimConfig::DEBUG`]), whatever the scenario's setup says.
     pub fn new(scenario: Scenario) -> Self {
+        Self::with_config(scenario, SimConfig::DEBUG)
+    }
+
+    /// [`TestSim::new`] with the game options `config` in the scenario's setup, in place of its own.
+    pub fn with_config(mut scenario: Scenario, config: SimConfig) -> Self {
+        scenario.setup.config = config;
         Self {
             sim: Sim::new(&scenario),
             replay: Replay::new(scenario),

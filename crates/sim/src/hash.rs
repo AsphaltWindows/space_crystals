@@ -16,6 +16,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::map::{Tile, TileLook, TilePreset, TilePresetId};
 use crate::object::{Object, Placement, ResourceState, Rotation};
 use crate::player::{Faction, Player};
+use crate::sim::SimConfig;
 use crate::units::TilePos;
 
 /// FNV-1a, 64-bit (Fowler, Noll, Vo).
@@ -245,6 +246,13 @@ impl StateHash for ResourceState {
                 next_delivery_in.hash(h);
             }
         }
+    }
+}
+
+impl StateHash for SimConfig {
+    fn hash(&self, h: &mut StateHasher) {
+        let SimConfig { debug } = self;
+        debug.hash(h);
     }
 }
 

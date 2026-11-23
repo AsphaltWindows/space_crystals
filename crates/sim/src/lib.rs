@@ -43,6 +43,6 @@ pub use scenario::{
     BuildingOrientation, GameSetup, LayoutObject, MapDef, MapSettings, MapType, PlayerSetup, Scenario, ScenarioProblem,
     SettingsProblem, Slot, Spawn, SpawnAt, SpawnProblem, SpawnSettings, StartingLayouts,
 };
-pub use sim::Sim;
+pub use sim::{Reject, Sim, SimConfig};
 pub use symmetry::{EditableRegion, MapTransform, Orientation, Symmetry};
 pub use units::{CornerPos, SU_PER_GU, TICKS_PER_SECOND, Tick, TilePos, gu, seconds};

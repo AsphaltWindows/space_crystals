@@ -10,7 +10,7 @@ impl Sim {
     /// or point fits the map is created, even if footprints overlap or the owner is invalid. A slot's objects
     /// belong to the player who takes it, and are left out if nobody does. The second value maps each pre-placed
     /// object, in order, to its object, or to `None` if it couldn't be placed. For a valid scenario the sim equals
-    /// [`Sim::try_new`]'s.
+    /// [`Sim::try_new`]'s, game options included.
     ///
     /// Never start a game from it: games must use [`Sim::try_new`].
     pub fn preview(scenario: &Scenario) -> (Sim, Vec<Option<ObjectId>>) {

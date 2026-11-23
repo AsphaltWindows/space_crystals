@@ -4,8 +4,8 @@
 
 use sc_sim::scenario::MAP_FORMAT_VERSION;
 use sc_sim::{
-    Faction, GameSetup, Map, MapDef, MapType, ObjectKind, PlayerSetup, Rng, Scenario, Sim, Slot, SlotId, Spawn,
-    SpawnAt, SpawnSettings, Symmetry, TickInputs, TileLook, TilePos, TilePreset, Vec2, scenarios,
+    Faction, GameSetup, Map, MapDef, MapType, ObjectKind, PlayerSetup, Rng, Scenario, Sim, SimConfig, Slot, SlotId,
+    Spawn, SpawnAt, SpawnSettings, Symmetry, TickInputs, TileLook, TilePos, TilePreset, Vec2, scenarios,
 };
 
 fn tiny_map() -> MapDef {
@@ -126,12 +126,17 @@ fn scenarios_are_a_map_and_a_setup() {
                 slot: SlotId(1),
             }],
             seed: 7,
+            config: SimConfig { debug: true },
         },
     };
     let json = serde_json::to_value(&scenario).unwrap();
     assert_eq!(
         json["setup"],
-        serde_json::json!({ "players": [{ "name": "Ann", "faction": "Cults", "slot": 1 }], "seed": 7 })
+        serde_json::json!({
+            "players": [{ "name": "Ann", "faction": "Cults", "slot": 1 }],
+            "seed": 7,
+            "config": { "debug": true }
+        })
     );
     assert_eq!(json["map"], serde_json::to_value(tiny_map()).unwrap());
     let back: Scenario = serde_json::from_value(json).unwrap();

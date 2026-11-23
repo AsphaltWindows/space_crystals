@@ -3,8 +3,8 @@
 
 use sc_sim::testing::TestSim;
 use sc_sim::{
-    Command, DebugCommand, ObjectId, ObjectKind, PlayerCommand, PlayerId, Replay, Sim, SpawnAt, TickInputs, TilePos,
-    scenarios,
+    Command, DebugCommand, ObjectId, ObjectKind, PlayerCommand, PlayerId, Replay, Sim, SimConfig, SpawnAt, TickInputs,
+    TilePos, scenarios,
 };
 
 fn spawn(kind: ObjectKind, x: i32, y: i32) -> DebugCommand {
@@ -98,7 +98,8 @@ fn replays_reproduce_the_run() {
     assert_eq!(loaded.try_run().unwrap().state_hash(), t.sim().state_hash());
 
     // Step by step, as a client plays a replay back.
-    let mut sim = Sim::new(&loaded.scenario);
+    let mut sim = loaded.start();
+    assert_eq!(sim.config(), SimConfig::DEBUG, "the replay keeps the game's options");
     while loaded.step(&mut sim) {}
     assert_eq!(sim.tick(), TICKS);
     assert_eq!(sim.state_hash(), t.sim().state_hash());
@@ -109,7 +110,8 @@ fn replays_reproduce_the_run() {
 #[test]
 fn recording_alongside_the_sim() {
     // The client's way: step the sim and record the same inputs, empty ticks included.
-    let scenario = scenarios::empty(16, 12);
+    let mut scenario = scenarios::empty(16, 12);
+    scenario.setup.config = SimConfig::DEBUG;
     let mut sim = Sim::new(&scenario);
     let mut replay = Replay::new(scenario);
     for tick in 1..=50 {

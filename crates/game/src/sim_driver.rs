@@ -9,7 +9,7 @@ use std::ops::Deref;
 use std::time::{Duration, Instant};
 
 use bevy::prelude::*;
-use sc_sim::{PlayerCommand, PlayerId, Scenario, Sim, SimEvent, TICKS_PER_SECOND, Tick, TickInputs};
+use sc_sim::{PlayerCommand, PlayerId, Scenario, Sim, SimConfig, SimEvent, TICKS_PER_SECOND, Tick, TickInputs};
 
 use crate::ClientSystems;
 
@@ -125,6 +125,8 @@ pub struct SimDriverPlugin {
     /// Map editor: show the scenario even if it is invalid ([`Sim::preview`]), paused at tick 0. Otherwise the
     /// scenario must be valid.
     pub preview: bool,
+    /// The game's options (`Sim::with_config`). A preview has none.
+    pub config: SimConfig,
 }
 
 impl Plugin for SimDriverPlugin {
@@ -132,7 +134,7 @@ impl Plugin for SimDriverPlugin {
         let sim = if self.preview {
             Sim::preview(&self.scenario).0
         } else {
-            Sim::new(&self.scenario)
+            Sim::with_config(&self.scenario, self.config)
         };
         app.insert_resource(Time::<Fixed>::from_hz(f64::from(TICKS_PER_SECOND)))
             .insert_resource(SimRes::new(sim))
@@ -158,10 +160,13 @@ impl Plugin for SimDriverPlugin {
     }
 }
 
-/// Restarts the client on `scenario`: a fresh sim, no pending or recorded inputs. Views rebuild because
-/// [`SimRes::generation`] changes.
+/// Restarts the client on `scenario`: a fresh sim with the same options, no pending or recorded inputs. Views
+/// rebuild because [`SimRes::generation`] changes.
 pub fn load_scenario(world: &mut World, scenario: Scenario) {
-    world.resource_mut::<SimRes>().replace(Sim::new(&scenario));
+    let config = world.resource::<SimRes>().config();
+    world
+        .resource_mut::<SimRes>()
+        .replace(Sim::with_config(&scenario, config));
     world.resource_mut::<PendingCommands>().0.clear();
     world.resource_mut::<RecordedInputs>().ticks.clear();
     world.insert_resource(LoadedScenario(scenario));

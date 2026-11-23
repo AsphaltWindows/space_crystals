@@ -5,8 +5,8 @@ use sc_sim::scenario::MAP_FORMAT_VERSION;
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{
     CornerPos, Faction, GameSetup, Map, MapType, ObjectId, ObjectKind, PlayerId, PlayerSetup, Scenario,
-    ScenarioProblem, SettingsProblem, Sim, SlotId, Spawn, SpawnAt, SpawnProblem, SpawnSettings, Symmetry, TilePos,
-    Vec2, scenarios,
+    ScenarioProblem, SettingsProblem, Sim, SimConfig, SlotId, Spawn, SpawnAt, SpawnProblem, SpawnSettings, Symmetry,
+    TilePos, Vec2, scenarios,
 };
 
 #[test]
@@ -145,7 +145,7 @@ fn setup_problems() {
 }
 
 /// A player's slot decides where they start; a slot's objects go to whoever takes it, and stay out of the game
-/// when nobody does. Factions, names and seeds are the setup's.
+/// when nobody does. Factions, names, seeds and game options are the setup's.
 #[test]
 fn slot_ownership_is_resolved_at_start() {
     let mut s = scenario();
@@ -156,6 +156,7 @@ fn slot_ownership_is_resolved_at_start() {
             slot: SlotId(2),
         }],
         seed: 42,
+        config: SimConfig::DEBUG,
     };
     let sim = Sim::try_new(&s).unwrap();
     let players: Vec<_> = sim
@@ -164,11 +165,15 @@ fn slot_ownership_is_resolved_at_start() {
         .map(|p| (p.id, p.name.as_str(), p.faction))
         .collect();
     assert_eq!(players, [(PlayerId(1), "Ann", Faction::Syndicate)]);
+    assert_eq!(sim.config(), SimConfig::DEBUG);
     assert_eq!(s.setup.player_at(SlotId(2)), Some(PlayerId(1)));
     assert_eq!(s.setup.player_at(SlotId(1)), None);
     let mut reseeded = s.clone();
     reseeded.setup.seed = 43;
     assert_ne!(Sim::new(&reseeded).state_hash(), sim.state_hash());
+    let mut without_debug = s.clone();
+    without_debug.setup.config = SimConfig::default();
+    assert_ne!(Sim::new(&without_debug).state_hash(), sim.state_hash());
 
     // Owned objects: no object type can be owned by a map yet (resources never are), so the editor's lenient
     // preview shows how ownership resolves.

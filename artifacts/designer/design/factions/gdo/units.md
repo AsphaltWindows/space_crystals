@@ -237,8 +237,8 @@ GDO expansion vehicle produced at the Factory once the player owns Advanced Mech
 
 TBD: weapon (assumed none), deploy time, whether deployment can be cancelled mid-way, stats, cost, build time, Unit Control cost, hotkeys, ObjectInterfaceState.
 
-## Air-to-Ground Hovercraft (name TBD)
-GDO attack aircraft produced at the Airfield. A HoverCraft (a chopper) that fires **air-to-ground missiles**. Carries **limited ammo** and rearms at its Airfield (factions/gdo/structures.md > Airfield > Aircraft Support).
+## Hornet
+GDO air-to-ground attack aircraft produced at the Airfield. A HoverCraft (a chopper) that fires **air-to-ground missiles**. Carries **limited ammo** and rearms at its Airfield (factions/gdo/structures.md > Airfield > Aircraft Support).
 
 ### Entity Type - Unit
 ### Faction - GlobalDefenseOrganization
@@ -253,10 +253,10 @@ GDO attack aircraft produced at the Airfield. A HoverCraft (a chopper) that fire
 - RearmTimePerAmmo: TBD (time to reload one missile at the Airfield; differs per aircraft type)
 - AttackType, Damage, Range, timings: TBD
 
-TBD: name, Silhouette, MaxHP, armor, SightRange, movement values, turret, cost, build time, Unit Control cost, ObjectInterfaceState.
+TBD: Silhouette, MaxHP, armor, SightRange, movement values, turret, cost, build time, Unit Control cost, ObjectInterfaceState.
 
-## Air-to-Air Fighter (name TBD)
-GDO air-superiority aircraft produced at the Airfield once the player owns Propulsion Labs. Fires **air-to-air missiles**. Carries **limited ammo** and rearms at its Airfield (factions/gdo/structures.md > Airfield > Aircraft Support).
+## Dragonfly
+GDO air-to-air fighter produced at the Airfield once the player owns Propulsion Labs. Fires **air-to-air missiles**. Carries **limited ammo** and rearms at its Airfield (factions/gdo/structures.md > Airfield > Aircraft Support).
 
 ### Entity Type - Unit
 ### Faction - GlobalDefenseOrganization
@@ -271,7 +271,7 @@ GDO air-superiority aircraft produced at the Airfield once the player owns Propu
 - RearmTimePerAmmo: TBD (time to reload one missile at the Airfield; differs per aircraft type)
 - AttackType, Damage, Range, timings: TBD
 
-TBD: name, Silhouette, MaxHP, armor, SightRange, movement values, turret, cost, build time, Unit Control cost, ObjectInterfaceState.
+TBD: Silhouette, MaxHP, armor, SightRange, movement values, turret, cost, build time, Unit Control cost, ObjectInterfaceState.
 
 ## SupplyChopper
 GDO supply transport air unit. An unarmed hovercraft that collects supplies from Supply Delivery Stations and delivers them to Supply Towers. Automatically picks up all available supplies when landing on a Supply Delivery Station.

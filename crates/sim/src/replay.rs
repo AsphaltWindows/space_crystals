@@ -1,5 +1,5 @@
-//! Replays: the scenario (the map and the game setup) plus the inputs of every tick (`ARCHITECTURE.md > Commands,
-//! events and replays`). The sim is deterministic, so playing them back reproduces the
+//! Replays: the scenario (the map and the game setup, which holds the game options) plus the inputs of every tick
+//! (`ARCHITECTURE.md > Commands, events and replays`). The sim is deterministic, so playing them back reproduces the
 //! game bit for bit; compare [`Sim::state_hash`] to check.
 
 use serde::{Deserialize, Serialize};
@@ -13,6 +13,7 @@ use crate::units::Tick;
 /// versioned file format.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Replay {
+    /// The map and the game setup the game started with, game options included.
     pub scenario: Scenario,
     /// `inputs[t]` is what the step from tick `t` to tick `t + 1` applied, empty ticks
     /// included.
@@ -28,6 +29,12 @@ impl Replay {
         }
     }
 
+    /// The game as it starts: the sim to play this replay back on with [`Replay::step`]. Panics on an invalid
+    /// scenario, like [`Sim::new`].
+    pub fn start(&self) -> Sim {
+        Sim::new(&self.scenario)
+    }
+
     /// Records one step. Call it for every [`Sim::step`], in order, with the same inputs,
     /// including empty ones.
     pub fn record(&mut self, inputs: TickInputs) {
@@ -39,8 +46,8 @@ impl Replay {
         Tick::try_from(self.inputs.len()).unwrap_or(Tick::MAX)
     }
 
-    /// Plays back one step: steps `sim`, a sim started from this replay's scenario, with
-    /// the inputs recorded for its current tick. Returns `false`, without stepping, once
+    /// Plays back one step: steps `sim`, a sim started like this replay's game
+    /// ([`Replay::start`]), with the inputs recorded for its current tick. Returns `false`, without stepping, once
     /// `sim` has reached [`Replay::end_tick`].
     pub fn step(&self, sim: &mut Sim) -> bool {
         match self.inputs.get(sim.tick() as usize) {
@@ -64,7 +71,7 @@ impl Replay {
     /// Plays the whole recording from the start. Panics on an invalid scenario, like
     /// [`Sim::new`].
     pub fn run(&self) -> Sim {
-        let mut sim = Sim::new(&self.scenario);
+        let mut sim = self.start();
         for inputs in &self.inputs {
             sim.step(inputs);
         }
