@@ -154,7 +154,8 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - magic-box footprints (Q0015);
   - a robust soak test.
 - **Next**:
-  - **E behaviours** (chase, AttackMove, Patrol, auto-target, leashes), after W and V.
+  - **E behaviours** (chase, AttackMove, Patrol, auto-target, leashes): after V and Y, since it shares `orders.rs` with Y.
+  - **R Riot Shield mode**: after E.
   - **G QA and hardening**: golden hashes, perf tuning of group orders, replay playback.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
