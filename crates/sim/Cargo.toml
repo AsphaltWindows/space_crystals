@@ -1,0 +1,15 @@
+[package]
+name = "sc_sim"
+description = "Space Crystals deterministic game simulation (no engine dependency)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+libm.workspace = true
+glam.workspace = true
+
+[lints]
+workspace = true

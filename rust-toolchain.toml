@@ -1,0 +1,6 @@
+# Pinned per-repo so agents and the user build with the same compiler.
+# Bevy 0.20.1 requires Rust >= 1.97.1. Bump deliberately, together with Bevy upgrades.
+[toolchain]
+channel = "1.100.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

@@ -1,0 +1,37 @@
+//! # sc_sim — Space Crystals game simulation
+//!
+//! Deterministic, engine-free game logic (no Bevy). The client (`crates/game`) reads
+//! this state to draw it and feeds player commands in through [`TickInputs`].
+//! Read `ARCHITECTURE.md` at the repository root before changing anything here.
+//!
+//! Hard rules for this crate:
+//! - Same scenario + same inputs ⇒ bit-identical state. No wall-clock time, no
+//!   thread-dependent behavior, no `HashMap`/`HashSet` iteration, no platform
+//!   transcendental float functions (`f32::sin` etc. — use [`math`]).
+//! - Fixed 16 ticks per second; all durations are counted in ticks.
+//! - Every gameplay number cites its design section (`path/file.md > Section`).
+
+pub mod command;
+pub mod defs;
+pub mod events;
+pub mod ids;
+pub mod map;
+pub mod math;
+pub mod object;
+pub mod player;
+pub mod scenario;
+pub mod scenarios;
+pub mod sim;
+pub mod units;
+
+pub use command::{Command, DebugCommand, PlayerCommand, TickInputs};
+pub use defs::{Category, Footprint, ObjectDef, ObjectKind};
+pub use events::SimEvent;
+pub use glam::Vec2;
+pub use ids::{ObjectId, PlayerId};
+pub use map::{Map, Tile, TilePreset, TilePresetId};
+pub use object::{Object, Placement, ResourceState, Rotation};
+pub use player::{Faction, Player};
+pub use scenario::{PlayerSetup, Scenario, Spawn, SpawnAt};
+pub use sim::Sim;
+pub use units::{SU_PER_GU, TICKS_PER_SECOND, Tick, TilePos, gu, seconds};

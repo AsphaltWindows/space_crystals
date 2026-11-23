@@ -1,0 +1,33 @@
+[package]
+name = "space_crystals"
+description = "Space Crystals RTS client (Bevy)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+sc_sim.workspace = true
+
+[dependencies.bevy]
+version = "=0.20.1"
+default-features = false
+features = [
+    # App basics (the `default_app` bundle).
+    "default_app",
+    # Platform: the `default_platform` bundle minus bevy_gilrs (needs libudev headers),
+    # wayland and webgl2. Audio is omitted entirely (needs ALSA headers).
+    "std",
+    "bevy_winit",
+    "x11",
+    "multi_threaded",
+    "default_font",
+    "custom_cursor",
+    # 2D rendering + UI.
+    "2d_bevy_render",
+    "ui_bevy_render",
+    "png",
+]
+
+[lints]
+workspace = true

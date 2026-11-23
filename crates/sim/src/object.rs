@@ -1,0 +1,107 @@
+//! Object instances (`core/entities.md > Object Instance`).
+//!
+//! An `Object` is a plain struct: common fields plus one `Option` per capability.
+//! New capabilities (movement, weapon, production, …) are added as new optional
+//! fields with their own module, not as separate stores.
+
+use glam::Vec2;
+use serde::{Deserialize, Serialize};
+
+use crate::defs::{Footprint, ObjectDef, ObjectKind};
+use crate::ids::{ObjectId, PlayerId};
+use crate::units::{SU_PER_GU, TilePos};
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Object {
+    pub id: ObjectId,
+    pub kind: ObjectKind,
+    pub owner: Option<PlayerId>,
+    /// Center position, space units.
+    pub pos: Vec2,
+    /// `pos` at the start of the most recent tick (for client-side interpolation).
+    pub prev_pos: Vec2,
+    /// Radians. 0 = east (+x); positive = clockwise on screen (+y is south).
+    pub facing: f32,
+    pub prev_facing: f32,
+    /// Current HP of destructible objects. Fractional (`systems/combat.md > MinimumDamage`).
+    pub hp: Option<f32>,
+    /// Footprint of tile-based objects (structures, resources).
+    pub placement: Option<Placement>,
+    /// Resource node state (`core/map.md > Resource`).
+    pub resource: Option<ResourceState>,
+}
+
+impl Object {
+    pub fn def(&self) -> &'static ObjectDef {
+        self.kind.def()
+    }
+}
+
+/// `core/entities.md > Structure Instance`: rotation in 90° steps, plus flips.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Rotation {
+    #[default]
+    R0,
+    R90,
+    R180,
+    R270,
+}
+
+/// Where a tile-based object sits.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Placement {
+    /// Top-left tile of the footprint.
+    pub origin: TilePos,
+    /// Footprint size in tiles **after** rotation (90°/270° swap w and h).
+    pub w: u32,
+    pub h: u32,
+    pub rotation: Rotation,
+    pub flip_h: bool,
+    pub flip_v: bool,
+}
+
+impl Placement {
+    /// Unrotated placement of `footprint` with its top-left at `origin`.
+    /// Panics for unit silhouettes (units have no tile placement).
+    pub fn new(origin: TilePos, footprint: Footprint) -> Self {
+        let Footprint::Tiles { w, h } = footprint else {
+            panic!("only tile footprints can be placed");
+        };
+        Self {
+            origin,
+            w,
+            h,
+            rotation: Rotation::R0,
+            flip_h: false,
+            flip_v: false,
+        }
+    }
+
+    /// Center of the footprint, space units.
+    pub fn center(&self) -> Vec2 {
+        self.origin.corner() + Vec2::new(self.w as f32, self.h as f32) * (SU_PER_GU / 2.0)
+    }
+
+    /// All tiles covered, row by row.
+    pub fn tiles(&self) -> impl Iterator<Item = TilePos> + '_ {
+        let o = self.origin;
+        (0..self.h as i32).flat_map(move |dy| (0..self.w as i32).map(move |dx| TilePos::new(o.x + dx, o.y + dy)))
+    }
+}
+
+/// State of map resources (`core/map.md`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum ResourceState {
+    /// `core/map.md > SpaceCrystalsPatch > RemainingAmount`.
+    CrystalPatch { remaining: u32 },
+    /// `core/map.md > SupplyDeliveryStation`. Delivery countdown only runs while
+    /// `current_supplies == 0`.
+    SupplyStation {
+        delivery_size: u32,
+        /// Ticks between deliveries (`DeliveryInterval`).
+        delivery_interval: u32,
+        current_supplies: u32,
+        /// Ticks until the next delivery (`NextDeliveryTime`); `None` while supplies remain.
+        next_delivery_in: Option<u32>,
+    },
+}

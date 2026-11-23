@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+members = ["crates/sim", "crates/game"]
+# `cargo run` starts the game (the only binary); `cargo test` covers both crates.
+default-members = ["crates/sim", "crates/game"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+publish = false
+
+[workspace.dependencies]
+sc_sim = { path = "crates/sim" }
+serde = { version = "1", features = ["derive"] }
+libm = "0.2"
+# Same glam as bevy_math 0.20.1, so sim vectors are Bevy vectors. `libm` = platform-independent trig.
+glam = { version = "0.33.2", features = ["serde", "libm"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+# Bevy is slow unoptimized: optimize all dependencies, keep our own code quick to compile.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
