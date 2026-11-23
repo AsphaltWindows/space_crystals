@@ -53,9 +53,39 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **corner-based editor height tools** with an automatic slope cascade
   - **0008** symmetry: 6 modes, including 90° on square maps
   - **test map rebuilt**: starts in the corners, a hill, a cliff plateau with slope entrances
-- **Review of M0 and M0-C** (read-only agent, running in parallel). The terrain areas M0-D is rewriting are excluded. Findings get fixed after M0-D merges.
+  - **Folded in while it runs:**
+    - 0013: patches and stations need flat tiles.
+    - 0012: symmetry transforms built as pure functions only; generated symmetry comes in M0-E.
+    - Review findings 1, 3, 4, 6: stale preset index, stale selection index, footprint overflow, unbounded map size.
+- **Review of M0 and M0-C: done.** No determinism holes; the sim core is solid, and the camera, HUD, presets and resources match the spec. The open findings are listed under M0-E and M1-A below. Weak spots:
+  - the editor's references to the document go stale;
+  - the input layer is too thin for M1.
 
 ## Queued
+### M0-E: map types and generated symmetry (after M0-D)
+- **Map/setup split**: the map file holds the map only:
+  - type, name, description, size, terrain, symmetry;
+  - N start positions (slots), each with empty per-faction layouts;
+  - neutral pre-placed objects.
+
+  Factions, player names and the seed belong to the game setup, picked for play-tests.
+- **Creation dialog**: type, size, slot count, symmetry, name, description.
+- **Map types** (0012):
+  - **Skirmish Default**: symmetry is required and generated. Only the editable portion can be edited; the rest is locked and regenerated live, with everything mirrored, including object settings and building orientations. Owned objects are allowed only inside layouts.
+  - **Custom**: no restrictions (its triggers and slot restrictions aren't designed, so not built).
+- **Placeholder limits, flagged**: min/max size, max slots, slot count vs symmetry, objects on the symmetry axis.
+- **Review fixes**: 2 (slot-name commit races the list rebuild), 5 (`--editor` player check), 7 (window close skips the unsaved-changes confirm; non-atomic save), 10 (per-frame UI work). Plus the editor test gaps.
+- **Layout contents, completeness and outdated flags wait for M2**, when Starting Conditions exist.
+
+### M1-A: input and command foundations (opens M1)
+- **Shared action layer**:
+  - pointer state, cursor world position, modifiers, chords, drag/box state, an over-UI test;
+  - one rebindable bindings table with the 0011 defaults (actual rebinding UI later).
+
+  The editor moves onto this layer. Play-tests end with F5 only, since Esc = cancel (review finding 8).
+- **Sim command gate**: `validate(&PlayerCommand)` checks the player exists, owns the ids, and the ids are alive. Debug commands only when debug is enabled (finding 9).
+- **Client replay-hash test and interpolation test** (finding 11).
+
 ### M1: units move and fight (sandbox)
 Units: Peacekeeper (GDO) and Guard (Syndicate). The work:
 - **movement**:
@@ -65,7 +95,7 @@ Units: Peacekeeper (GDO) and Guard (Syndicate). The work:
 - **vision and fog of war**, with **ElevationModifier**:
   - the elevation level is the floor of the interpolated terrain height; ±1 sight/range, binary
   - units and ground/underground structures count as both source and target; air is exempt (0004, 0005)
-- **selection**: clicks, box tiers, control groups, Tab cycling
+- **selection**: clicks, box tiers, control groups, Tab cycling. Default bindings per 0011: Shift-click toggles; Ctrl-click and double-click select that type on screen; Ctrl/Shift/# for control groups, and a double-tap centres; Shift appends to the queue.
 - **command panel** (BasicCombatUnitInterfaceState): standard slots by hotkey per 0002 (Z back/cancel, X cancel production, C rally point, V free)
 - **right-click resolution**, cursors, command indicators
 - **debug tools** to control both sides; replays
@@ -77,13 +107,12 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 - **placement**: ghost with rotate/flip; the **flatness rule** (every footprint tile flat, for Direct Placement, Worker-Built on arrival and Warp In; 0004)
 - **production**: queues and rally points; crystal harvesting; defeat conditions
 - **GDO supplies**: Supply Tower, Chopper
-- **Starting Conditions and Starting Layouts** (0008, 0009):
-  - per start position, one layout per faction, placed by the map maker; empty by default
-  - overlay editing of all faction layouts
-  - the Skirmish Default restriction, toggled per layout until the design decides its scope
-  - only the picked faction's layout spawns at game start
-  - the Director authors the test map's layouts
-  - this replaces the per-slot start location placeholder
+- **Starting Conditions and Starting Layouts** (0008, 0009, 0012):
+  - layout contents, overlay editing of all faction layouts;
+  - on Skirmish Default maps, only Starting Conditions objects are allowed, and every layout must be complete (the editor lists what's missing);
+  - a flag when a layout is outdated against Starting Conditions;
+  - only the picked faction's layout spawns at game start;
+  - the Director authors the test map's layouts.
 
 ### M3–M5: other factions, basics
 - **M3 Colonists**: Drone, Beacon, Warp In, Egress Node, portals, Legionnaires, shields.
@@ -91,7 +120,8 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
 
 ### Later
-- **Vehicles**, turrets, air, area damage, research. The Factory's Artillery Rig and Prospector need Advanced Mechanics (0001).
+- **Vehicles**, turrets, air, area damage, research. The Factory's Artillery Rig and Prospector need Advanced Mechanics (0001). GDO air (0014): limited ammo with rearming at an Airfield; at most 4 aircraft per Airfield; Air-to-Ground Hovercraft and Air-to-Air Fighter (needs Propulsion Labs).
+- **Key rebinding UI** (0011): the bindings table is built rebindable in M1-A.
 - **AI or online opponents**: decide with the user.
 - **Art pipeline** (0003):
   - 3D models pre-rendered to pixel-art sprites at the fixed camera angle; 32 native px per tile
@@ -104,14 +134,14 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q | Topic | Blocking | Status |
 |---|---|---|---|
 | Q0001 | Art direction | no | answered by 0003 and 0004 |
-| Q0002 | Input bindings | no | partly answered: 0010 (middle-mouse grab). Open: map modifier clicks, control-group keys, arrow/edge pan and speed, queue modifier, rebinding |
+| Q0002 | Input bindings | no | answered by 0010 and 0011 (defaults as proposed; rebindable) |
 | Q0003 | Patch amount, supply defaults, reference map | no | answered by 0007 |
-| Q0004 | Map model: slots, start locations, starting bases | no | partly answered: 0008, 0009. Open: slot count/teams, pre-placed objects, metadata, layout completeness, sync with Starting Conditions |
+| Q0004 | Map model: slots, start locations, starting bases | no | answered by 0008, 0009 and 0012 |
 | Q0005 | CommandPanel standard slots vs the 4×3 grid | no | answered by 0002 (matches assumption A) |
-| Q0006 | Do map resources need flat tiles? | no | open; assuming no |
+| Q0006 | Do map resources need flat tiles? | no | answered by 0013 (yes, both) |
 
 ## Design change entries
-Last triaged: 0010.
+Last triaged: 0014.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -123,5 +153,9 @@ Last triaged: 0010.
 | 0006 Slopes don't affect speed | queued (M1, a check only) | confirms the default |
 | 0007 Per-object resource values | in progress (M0-D) | answers Q0003; test map starts in corners |
 | 0008 Starting layouts; symmetry tools | symmetry in progress (M0-D); layouts queued (M2) | |
-| 0009 Layouts from scratch; Skirmish Default | queued (M2) | |
+| 0009 Layouts from scratch; Skirmish Default | queued (M2); per-layout toggle superseded by 0012 | |
 | 0010 Middle-mouse grab pan | in progress (M0-D) | |
+| 0011 Default input bindings; rebinding | queued (M1-A, M1) | answers Q0002; matches assumptions |
+| 0012 Map types, creation, generated symmetry | transforms in M0-D; the rest queued (M0-E); layout rules (M2) | answers Q0004 |
+| 0013 Patches and stations need flat tiles | in progress (M0-D, folded in) | answers Q0006 |
+| 0014 GDO Airfield and aircraft | queued (Later: air) | |
