@@ -1967,3 +1967,11 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T13:26:08-05:00 — Q0004 partly answered: per-faction Starting Layouts placed by map maker with overlay editing; symmetry tools (90/180 rotation, mirrors). New core/map_editor.md (+README), pointers in faction Starting Conditions. Change entry 0008. Middle-mouse pan decided, not yet written.
 - 2026-11-23T13:28:34-05:00 — Starting Layouts start empty; Skirmish Default restriction (user's name) limits layout to Starting Conditions objects, can be turned off. Doc: core/map_editor.md. Change entry 0009.
 - 2026-11-23T13:29:12-05:00 — Middle-mouse grab-and-drag panning (user). Doc: core/camera.md. Change entry 0010.
+- 2026-11-23T13:38:36-05:00 — Q0002 completed: default bindings confirmed (map clicks, control-group keys, arrows/edge pan, Shift queue), rebinding later at Director's discretion. Docs: selection_and_hud.md, commands.md, camera.md. Change entry 0011.
+- 2026-11-23T13:39:17-05:00 — Q0004 completed: map creation settings, Skirmish Default vs Custom map types, symmetry chosen at creation with generated mirror, complete restricted layouts, outdated flag, neutral-only pre-placement, custom tile presets without custom textures for now. core/map_editor.md rewritten; map.md; README. Change entry 0012 (supersedes 0009 toggle).
+- 2026-11-23T13:42:21-05:00 — Q0006 answered: patches and Supply stations flat-only (option C). Doc: core/map.md. Change entry 0013.
+- 2026-11-23T13:58:37-05:00 — GDO Airfield: limited ammo, 4 aircraft per Airfield, Air-to-Ground Hovercraft + Air-to-Air Fighter (req. Propulsion Labs). Docs: gdo/structures.md, gdo/units.md, README. Change entry 0014.
+- 2026-11-23T14:07:42-05:00 — GDO aircraft assignment rules + fighter Glider w/ 5 missiles. Docs: gdo/structures.md, gdo/units.md. Change entry 0015.
+- 2026-11-23T14:09:46-05:00 — Ammo correction: Fighter 1 missile, Hovercraft 5. Change entry 0016 (corrects 0015).
+- 2026-11-23T14:12:24-05:00 — GDO aircraft return/rearm flow, landing slots, reassign input, no auto-reassign. Doc: gdo/structures.md. Change entry 0017.
+- 2026-11-23T14:49:02-05:00 — Landed GDO aircraft are ground targets. Doc: gdo/structures.md. Change entry 0018.

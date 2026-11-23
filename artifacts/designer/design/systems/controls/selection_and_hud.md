@@ -36,6 +36,18 @@ When the player drags a selection box, the objects captured are filtered by a 5-
 
 Only tier 1 (own units) produces a multi-selection. All other tiers select exactly one object — the one closest to the center of the box.
 
+## MapClickSelection
+Selection by clicking objects on the map (as opposed to portraits in the SelectionPanel). Default inputs (user, 2026-11-23):
+
+| Input | Effect |
+|-------|--------|
+| Left-click object | Replace selection with that object |
+| Shift-click own unit | Toggle that unit in the selection: add it if not selected, remove it if selected |
+| Ctrl-click own unit | Select all own units of that type currently on screen |
+| Double-click own unit | Same as Ctrl-click |
+
+The Selection Constraints above still apply (e.g. an enemy or neutral object is always selected alone).
+
 ## ControlGroups
 A set of 10 saved selections (indexed 0-9) stored per player as part of ControlState. Each control group holds an array of ObjectInstance references. An entity can belong to multiple control groups simultaneously. Control groups persist for the duration of the game. When a control group is recalled, destroyed entities are silently removed from the group.
 
@@ -46,6 +58,15 @@ A set of 10 saved selections (indexed 0-9) stored per player as part of ControlS
 - Add: merge the current Selection into an existing control group (no duplicates)
 - Recall: replace the current Selection with the control group's contents
 - Recall and Center: replace the current Selection with the control group's contents and center the camera on the group's centroid
+
+### Default keys (user, 2026-11-23):
+- Assign: **Ctrl + 0–9**
+- Add: **Shift + 0–9**
+- Recall: **0–9**
+- Recall and Center: **double-tap 0–9** (press the same number twice quickly)
+
+## Key Rebinding
+All default inputs in the controls docs (map clicks, control-group keys, command panel hotkeys, camera panning, command queueing) are **defaults**. Players will be able to **rebind** them; when rebinding is added is up to implementation scheduling (user, 2026-11-23).
 
 ## ObjectInterfaceState[ObjectEnum]
 The current state of the command flow for the active selection group. Parameterized by ObjectEnum — each object type defines its own concrete set of interface states and transitions. Reset to the default state when the Selection or ActiveGroup changes. The available InterfaceTransitions from any given ObjectInterfaceState depend on the game state of the instances in the active SelectionGroup. Each tick, the ObjectInterfaceState is validated against the active SelectionGroup's game state — if the current state is no longer valid (e.g., a structure's construction completed, changing what commands are available), it resets to the default state. For Ungroupable objects, the SelectionGroup always contains exactly one instance, so the ObjectInterfaceState can reliably read that instance's specific game state.

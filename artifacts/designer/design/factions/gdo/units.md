@@ -237,6 +237,40 @@ GDO expansion vehicle produced at the Factory once the player owns Advanced Mech
 
 TBD: weapon (assumed none), deploy time, whether deployment can be cancelled mid-way, stats, cost, build time, Unit Control cost, hotkeys, ObjectInterfaceState.
 
+## Air-to-Ground Hovercraft (name TBD)
+GDO attack aircraft produced at the Airfield. A HoverCraft (a chopper) that fires **air-to-ground missiles**. Carries **limited ammo** and rearms at its Airfield (factions/gdo/structures.md > Airfield > Aircraft Support).
+
+### Entity Type - Unit
+### Faction - GlobalDefenseOrganization
+### Produced at - Airfield
+### TechPrerequisite - none beyond owning the Airfield that produces it
+### UnitBase - HoverCraft (can hover in place, turns in place)
+
+### AttackAttributes:
+- Weapon: air-to-ground missiles
+- TargetDomain: Ground
+- Ammo: **5 missiles**, then it must reload at its assigned Airfield
+- AttackType, Damage, Range, timings: TBD
+
+TBD: name, Silhouette, MaxHP, armor, SightRange, movement values, turret, cost, build time, Unit Control cost, ObjectInterfaceState.
+
+## Air-to-Air Fighter (name TBD)
+GDO air-superiority aircraft produced at the Airfield once the player owns Propulsion Labs. Fires **air-to-air missiles**. Carries **limited ammo** and rearms at its Airfield (factions/gdo/structures.md > Airfield > Aircraft Support).
+
+### Entity Type - Unit
+### Faction - GlobalDefenseOrganization
+### Produced at - Airfield
+### TechPrerequisite - player owns at least one Propulsion Labs (see core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites)
+### UnitBase - Glider (must keep moving; circles when idle; wider turns at higher speed)
+
+### AttackAttributes:
+- Weapon: air-to-air missiles
+- TargetDomain: Air
+- Ammo: **1 missile**, then it must reload at its assigned Airfield
+- AttackType, Damage, Range, timings: TBD
+
+TBD: name, Silhouette, MaxHP, armor, SightRange, movement values, turret, cost, build time, Unit Control cost, ObjectInterfaceState.
+
 ## SupplyChopper
 GDO supply transport air unit. An unarmed hovercraft that collects supplies from Supply Delivery Stations and delivers them to Supply Towers. Automatically picks up all available supplies when landing on a Supply Delivery Station.
 

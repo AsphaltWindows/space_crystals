@@ -1,7 +1,7 @@
 # Map: Tiles and Resources
 
 ## Tile
-Non-selectable visible entity which makes up the game's map. Tile properties are defined by TilePresets. Any combination of properties is valid — the default presets represent common terrain types, but custom presets with arbitrary property combinations and textures can be created via the map editor.
+Non-selectable visible entity which makes up the game's map. Tile properties are defined by TilePresets. Any combination of properties is valid — the default presets represent common terrain types, but custom presets with arbitrary property combinations can be created via the map editor (custom textures: planned for the future; see core/map_editor.md > Custom Tile Presets).
 
 ### Selectable - false
 
@@ -12,7 +12,7 @@ Non-selectable visible entity which makes up the game's map. Tile properties are
 ### Recruitable - boolean
 
 ## TilePreset
-A named tile configuration with a texture and specific property values. The texture visually communicates the tile's gameplay properties. The default presets are the standard terrain types, but map designers can define custom presets with any combination of properties and their own textures.
+A named tile configuration with a texture and specific property values. The texture visually communicates the tile's gameplay properties. The default presets are the standard terrain types, but map designers can define custom presets with any combination of properties (for now using existing textures; custom textures are planned, see core/map_editor.md > Custom Tile Presets).
 
 ### Value - TilePresetEnum
 ### Name - string
@@ -90,6 +90,9 @@ An object's **elevation level** is the terrain height at its position, **rounded
 Structures can only be placed on **flat** tiles. Every tile of a surface structure's footprint must be flat, in addition to being Buildable (core/entities.md > Placement Validation). Adjacent flat tiles share corners, so a connected footprint of flat tiles is always all at one level. Hills stay open ground; bases sit on flat areas.
 
 **Exception: Syndicate underground expansions** (inside a Tunnel Area) may be placed on sloped tiles; the flatness rule doesn't apply to them (user, 2026-11-23). Their surface-related visuals on slopes are an art detail. Surface Syndicate structures (Tunnel, Laser Turret) follow the normal rule.
+
+### Map resources only on flat terrain
+**Space Crystals patches and Supply Delivery Stations** must also sit on **flat** tiles: every footprint tile flat (user, 2026-11-23, Director question Q0006). The map editor refuses them on slopes and map validation flags them. This keeps every patch usable by every faction (GDO Extraction Plates are structures and need flat ground) and keeps stations' building-like sprites level.
 
 ### Display
 See core/art_direction.md > Elevation Display.

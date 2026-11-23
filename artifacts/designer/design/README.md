@@ -14,7 +14,7 @@ Index of the design docs. Paths are relative to this folder.
 | `core/game_rules.md` | Defeat Condition (shared across factions) |
 | `core/entities.md` | Entity hierarchy: Faction, Player, Object Type, Structure Type, Placement Validation (incl. Worker-Built Structures), instances |
 | `core/map.md` | Tiles, tile presets (Buildable/Traversible/Rugged/Drillable/Recruitable), Elevation (corner heights, slopes, flat-only building), Space Crystals patches, Supply Delivery Stations |
-| `core/map_editor.md` | Map editor: per-object resource values, per-faction Starting Layouts (overlay editing), Symmetry Tools (90°/180° rotation, mirrors) |
+| `core/map_editor.md` | Map editor: map creation settings, map types (Skirmish Default / Custom), per-object resource values, per-faction Starting Layouts (overlay, Skirmish Default restriction, outdated flags), Symmetry (chosen at creation, generated), custom tile presets |
 | `core/vision.md` | Vision, visibility states, elevation |
 | `core/tech_and_research.md` | Shared Tech Prerequisite rules and Research rules (with faction exceptions) |
 
@@ -33,7 +33,7 @@ Index of the design docs. Paths are relative to this folder.
 | `factions/gdo/overview.md` | GDO identity and resources (Space Crystals, Supplies, Power, Unit Control) |
 | `factions/gdo/economy.md` | Starting Conditions, Opening Economy Baseline, Economy Targets (GDO vs Colonists), Generator, Extraction Facility, Extraction Plate, Supply Tower |
 | `factions/gdo/structures.md` | Deployment Center, GDO Build Area, Barracks, tech buildings, Defense System, Missile Turret, Bunker, First Aid Tent (Field Engineer-built), Outpost (Prospector-deployed build radius) |
-| `factions/gdo/units.md` | Peacekeeper (incl. Riot Shield), Rocketman (incl. Target Lock), Drone Operator (suicide drones), Field Engineer (repair buildings/vehicles, Bunker, First Aid Tent), Raptor (Factory homing-missile vehicle), Twister (Factory AA + mines), Artillery Rig (Factory, name TBD), Supply Chopper |
+| `factions/gdo/units.md` | Peacekeeper (incl. Riot Shield), Rocketman (incl. Target Lock), Drone Operator (suicide drones), Field Engineer (repair buildings/vehicles, Bunker, First Aid Tent), Raptor (Factory homing-missile vehicle), Twister (Factory AA + mines), Artillery Rig (Factory, name TBD), Air-to-Ground Hovercraft + Air-to-Air Fighter (Airfield, names TBD), Supply Chopper |
 | `factions/syndicate/overview.md` | Syndicate identity and resources (Space Crystals, Supplies, Tunnel Space) |
 | `factions/syndicate/tunnels.md` | Tunnel Network (incl. losing Tunnels, neutral expansions), Tunnel (tiers, sides, Tunnel Area, Tunnel Space) |
 | `factions/syndicate/structures.md` | Tech tree overview, Tunnel Expansions (Hideout, Null Chamber, …), Laser Turret |
