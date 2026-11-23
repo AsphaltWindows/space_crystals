@@ -1972,3 +1972,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T13:42:21-05:00 — Q0006 answered: patches and Supply stations flat-only (option C). Doc: core/map.md. Change entry 0013.
 - 2026-11-23T13:58:37-05:00 — GDO Airfield: limited ammo, 4 aircraft per Airfield, Air-to-Ground Hovercraft + Air-to-Air Fighter (req. Propulsion Labs). Docs: gdo/structures.md, gdo/units.md, README. Change entry 0014.
 - 2026-11-23T14:07:42-05:00 — GDO aircraft assignment rules + fighter Glider w/ 5 missiles. Docs: gdo/structures.md, gdo/units.md. Change entry 0015.
+- 2026-11-23T14:09:46-05:00 — Ammo correction: Fighter 1 missile, Hovercraft 5. Change entry 0016 (corrects 0015).

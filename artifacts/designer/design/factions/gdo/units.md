@@ -238,7 +238,7 @@ GDO expansion vehicle produced at the Factory once the player owns Advanced Mech
 TBD: weapon (assumed none), deploy time, whether deployment can be cancelled mid-way, stats, cost, build time, Unit Control cost, hotkeys, ObjectInterfaceState.
 
 ## Air-to-Ground Hovercraft (name TBD)
-GDO attack aircraft produced at the Airfield. A HoverCraft that fires **air-to-ground missiles**. Carries **limited ammo** and rearms at its Airfield (factions/gdo/structures.md > Airfield > Aircraft Support).
+GDO attack aircraft produced at the Airfield. A HoverCraft (a chopper) that fires **air-to-ground missiles**. Carries **limited ammo** and rearms at its Airfield (factions/gdo/structures.md > Airfield > Aircraft Support).
 
 ### Entity Type - Unit
 ### Faction - GlobalDefenseOrganization
@@ -249,7 +249,7 @@ GDO attack aircraft produced at the Airfield. A HoverCraft that fires **air-to-g
 ### AttackAttributes:
 - Weapon: air-to-ground missiles
 - TargetDomain: Ground
-- Ammo: limited (amount TBD)
+- Ammo: **5 missiles**, then it must reload at its assigned Airfield
 - AttackType, Damage, Range, timings: TBD
 
 TBD: name, Silhouette, MaxHP, armor, SightRange, movement values, turret, cost, build time, Unit Control cost, ObjectInterfaceState.
@@ -266,7 +266,7 @@ GDO air-superiority aircraft produced at the Airfield once the player owns Propu
 ### AttackAttributes:
 - Weapon: air-to-air missiles
 - TargetDomain: Air
-- Ammo: **5 missiles** per sortie, then it must reload at its assigned Airfield
+- Ammo: **1 missile**, then it must reload at its assigned Airfield
 - AttackType, Damage, Range, timings: TBD
 
 TBD: name, Silhouette, MaxHP, armor, SightRange, movement values, turret, cost, build time, Unit Control cost, ObjectInterfaceState.
