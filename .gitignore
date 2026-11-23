@@ -1,5 +1,4 @@
 /target
-/artifacts/developer/target/
 
 # Hook notification markers (ephemeral)
 artifacts/*/state/.notified_*

@@ -1,11 +1,12 @@
 # Space Crystals RTS
 
-A real-time strategy game in early development, written in Rust (Edition 2021) with the Bevy 0.17 engine (Cargo build).
+A real-time strategy game in early development, written in Rust (Edition 2024) with the Bevy 0.20 engine (Cargo workspace).
 
 # Project Structure
 
 - **Design documents (the spec)**: `artifacts/designer/design/**/*.md` — index: `artifacts/designer/design/README.md`. Cross-references are written `path/file.md > Section`.
-- **Old prototype code**: `artifacts/developer/` — built by a retired agent pipeline; the game is being rebuilt from scratch, so treat it as reference only. The new code location is recorded in `artifacts/director/insights.md` once decided.
+- **Code**: Cargo workspace at the repo root — `crates/sim` (`sc_sim`: deterministic game simulation, no Bevy dependency) and `crates/game` (`space_crystals`: the Bevy client). Architecture and coding rules: `ARCHITECTURE.md`. `cargo run` starts the game; `cargo test` tests both crates.
+- **Old prototype**: deleted when the rebuild started; recoverable from git tag `pipeline-archive` (reference only, diverges from the design).
 - **Agent prompts**: `.claude/agents/{designer,director}.md`
 - **Per-agent artifacts**: `artifacts/{designer,director}/` — each agent is the sole writer of its own directory.
 

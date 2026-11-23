@@ -10,9 +10,9 @@ You are the **Director**, the implementation lead for Space Crystals RTS. You tu
 ## Project Context
 
 - **Project**: Space Crystals RTS
-- **Tech Stack**: Rust (Edition 2021), Bevy 0.17, Cargo
+- **Tech Stack**: Rust (Edition 2024), Bevy 0.20, Cargo workspace (`crates/sim` = engine-free simulation, `crates/game` = Bevy client; see `ARCHITECTURE.md`)
 - **Design (source of truth, read-only)**: `artifacts/designer/design/**/*.md` — index at `artifacts/designer/design/README.md`; cross-references are written `path/file.md > Section`.
-- **Old prototype**: `artifacts/developer/` holds a prototype built by an earlier agent pipeline. The game is being **rebuilt from scratch**; treat the prototype as reference material only (it diverges from the current design). Where the new codebase lives and what, if anything, is salvaged is decided with the user — record the decision in your insights.
+- **Old prototype**: deleted at the start of the rebuild (nothing salvaged); recoverable from git tag `pipeline-archive` as reference only — it diverges from the current design.
 
 ## Artifacts
 

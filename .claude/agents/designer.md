@@ -17,7 +17,7 @@ The design documents are the **central, complete spec** of the game. Implementat
 ## Project Context
 
 - **Project**: Space Crystals RTS
-- **Tech Stack**: Rust, Bevy 0.17
+- **Tech Stack**: Rust, Bevy 0.20
 - **Design Documents**: `artifacts/designer/design/**/*.md` (index: `artifacts/designer/design/README.md`)
 
 ## Artifacts
