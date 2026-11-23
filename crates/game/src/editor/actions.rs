@@ -1,6 +1,6 @@
-//! The editor's action layer: everything the editor can do is an [`EditorAction`]. Raw input, UI buttons and
-//! text fields, `--editor-script` files and tests all queue actions in [`EditorActions`], and one system applies
-//! them in order, generating the locked part of a symmetric map again after each one.
+//! The editor's action layer: everything the editor can do is an [`EditorAction`]. The input layer's actions, UI
+//! buttons and text fields, `--editor-script` files and tests all queue actions in [`EditorActions`], and one system
+//! applies them in order, generating the locked part of a symmetric map again after each one.
 
 use std::collections::VecDeque;
 use std::path::PathBuf;

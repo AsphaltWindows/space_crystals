@@ -1,18 +1,20 @@
-//! The pointer over the map: where the cursor points, whether it is over the UI, and the clicks and boxes of the
-//! pointer actions (`ARCHITECTURE.md > Client architecture > Input`).
+//! The pointer over the map: where the cursor points, whether it is over the UI, and the presses, clicks and boxes
+//! of the pointer actions (`ARCHITECTURE.md > Client architecture > Input`).
 //!
-//! [`InputAction::Select`] sends a [`MapClick`] when it is released, or a [`SelectionBox`] when the pointer moved
-//! more than [`DRAG_THRESHOLD_PX`] while it was held. [`InputAction::ContextCommand`] sends a [`MapClick`] when it
-//! is pressed. Neither starts over the UI. Positions on the map are view points (`crate::coords`), which stay on the
-//! same spot of the map while the camera pans, and the ground points drawn there (`coords::ground_under`), as the
-//! last frame showed them.
+//! The pointer follows a press of a primary pointer action that goes down on the map until its release
+//! ([`Pointer::press`]): [`InputAction::Select`] in the game, [`EditorInput::UseTool`] in the editor. A
+//! [`InputAction::Select`] press sends a [`MapClick`] when it is released, or a [`SelectionBox`] when the pointer
+//! moved more than [`DRAG_THRESHOLD_PX`] while it was held. [`InputAction::ContextCommand`] and the editor's
+//! [`EditorInput::Eyedropper`] send a [`MapClick`] when they are pressed. None of them starts over the UI.
+//! Positions on the map are view points (`crate::coords`), which stay on the same spot of the map while the camera
+//! pans, and the ground points drawn there (`coords::ground_under`), as the last frame showed them.
 
 use bevy::ecs::system::SystemParam;
 use bevy::picking::hover::HoverMap;
 use bevy::picking::pointer::PointerId;
 use bevy::prelude::*;
 
-use super::{ActionState, InjectedInput, InputAction, Modifiers, RawInput};
+use super::{ActionState, EditorInput, InjectedInput, InputAction, Modifiers, RawInput};
 use crate::camera::{CameraView, CameraZoom, ViewportInsets, cursor_offset, cursor_to_view, view_rect};
 use crate::coords::ground_under;
 use crate::platform::SurfaceSize;
@@ -27,28 +29,59 @@ pub const DOUBLE_CLICK_SECONDS: f64 = 0.4;
 /// ... and when the second is at most this far from the first (logical pixels). Placeholder: unspecified.
 pub const DOUBLE_CLICK_DISTANCE_PX: f32 = 6.0;
 
+/// The primary pointer actions, the game's and the editor's: the pointer follows a press of one on the map until
+/// its release ([`Pointer::press`]).
+const PRESS_ACTIONS: [InputAction; 2] = [InputAction::Select, InputAction::Editor(EditorInput::UseTool)];
+/// The pointer actions that click on the map when pressed.
+const CLICK_ON_PRESS_ACTIONS: [InputAction; 2] = [
+    InputAction::ContextCommand,
+    InputAction::Editor(EditorInput::Eyedropper),
+];
+
 /// Where the pointer is this frame ([`ActionState::pointer`]).
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Pointer {
     /// The cursor in logical pixels from the surface's top-left corner, while it is over the window or injected.
     pub screen: Option<Vec2>,
     /// The cursor is over the UI: over a UI node, or outside the world view (the HUD's bars, the editor's panels).
-    /// No map click or box starts there.
+    /// No map press, click or box starts there. The one over-UI test of the game and the editor.
     pub over_ui: bool,
     /// The view point under the cursor, while it is over the world view and not over the UI.
     pub view: Option<Vec2>,
     /// The ground point drawn at [`Pointer::view`] (`coords::ground_under`): what the cursor points at on the map.
     pub ground: Option<Vec2>,
+    /// The press of a primary pointer action that went down on the map, from that frame until the frame its button
+    /// goes up (or its input context ends): the drag state. The editor's tools stroke and drag from it.
+    pub press: Option<MapPress>,
     /// The box of a [`InputAction::Select`] drag in progress, in view space: from where it went down to the
     /// cursor, kept inside the world view.
     pub drag_box: Option<Rect>,
 }
 
+/// A press of a primary pointer action ([`InputAction::Select`], [`EditorInput::UseTool`]) that went down on the
+/// map and is still held ([`Pointer::press`]).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct MapPress {
+    pub action: InputAction,
+    /// Where it went down, in logical pixels.
+    pub screen: Vec2,
+    /// The view point there.
+    pub view: Vec2,
+    /// The ground point drawn there.
+    pub ground: Vec2,
+    /// The ground point drawn under the cursor now, while the cursor is over the world view: over a UI node there
+    /// too, because no press starts over the UI but a drag goes on there. The editor's tools drag to it.
+    pub drag_ground: Option<Vec2>,
+    /// The pointer moved further than [`DRAG_THRESHOLD_PX`] from there: a [`InputAction::Select`] press is a box
+    /// now, not a click.
+    pub dragging: bool,
+}
+
 /// A click on the map, never over the UI.
 #[derive(Message, Copy, Clone, Debug, PartialEq)]
 pub struct MapClick {
-    /// [`InputAction::Select`], sent when released unless it became a drag, or [`InputAction::ContextCommand`],
-    /// sent when pressed.
+    /// [`InputAction::Select`], sent when released unless it became a drag, or [`InputAction::ContextCommand`] or
+    /// the editor's [`EditorInput::Eyedropper`], sent when pressed.
     pub action: InputAction,
     /// Where the button went down, in logical pixels.
     pub screen: Vec2,
@@ -113,21 +146,11 @@ impl UiHover<'_, '_> {
     }
 }
 
-/// An [`InputAction::Select`] press that went down on the map.
-#[derive(Copy, Clone, Debug)]
-struct Press {
-    screen: Vec2,
-    view: Vec2,
-    ground: Vec2,
-    /// Seconds of real time.
-    time: f64,
-    dragging: bool,
-}
-
 /// The pointer's memory between frames.
 #[derive(Default, Debug)]
 pub(super) struct PointerTracking {
-    press: Option<Press>,
+    /// The press on the map, and when it went down (seconds of real time).
+    press: Option<(MapPress, f64)>,
     /// The latest click, for double-clicks: its action, where and when (seconds) it went down.
     last_click: Option<(InputAction, Vec2, f64)>,
     /// Where the cursor was last seen, for drags that leave the window.
@@ -169,34 +192,44 @@ pub(super) fn track_pointer(
     } else {
         raw.enabled && hover.over_ui_node()
     };
-    let over_ui = screen.is_some_and(|s| over_node || world.view_at(s).is_none());
-    let view = screen.filter(|_| !over_ui).and_then(|s| world.view_at(s));
-    let ground = view.map(|v| ground_under(world.sim.map(), v));
+    let in_view = screen.and_then(|s| world.view_at(s));
+    let over_ui = screen.is_some() && (over_node || in_view.is_none());
+    let view = in_view.filter(|_| !over_ui);
+    let ground_at = |view| ground_under(world.sim.map(), view);
+    let ground = view.map(ground_at);
     let modifiers = state.modifiers;
 
-    if state.just_pressed(InputAction::Select) {
+    if let Some(action) = PRESS_ACTIONS.into_iter().find(|a| state.just_pressed(*a)) {
         tracking.press = match (screen, view, ground) {
-            (Some(screen), Some(view), Some(ground)) => Some(Press {
-                screen,
-                view,
-                ground,
-                time: now,
-                dragging: false,
-            }),
+            (Some(screen), Some(view), Some(ground)) => Some((
+                MapPress {
+                    action,
+                    screen,
+                    view,
+                    ground,
+                    drag_ground: Some(ground),
+                    dragging: false,
+                },
+                now,
+            )),
             _ => None,
         };
     }
     let last_screen = tracking.last_screen;
-    if let (Some(press), Some(cursor)) = (&mut tracking.press, last_screen)
-        && cursor.distance(press.screen) > DRAG_THRESHOLD_PX
-    {
-        press.dragging = true;
+    if let Some((press, _)) = &mut tracking.press {
+        press.drag_ground = in_view.map(ground_at);
+        if last_screen.is_some_and(|cursor| cursor.distance(press.screen) > DRAG_THRESHOLD_PX) {
+            press.dragging = true;
+        }
     }
     let drag_end = last_screen.and_then(|s| world.clamped_view_at(s));
-    if !state.held(InputAction::Select)
-        && let Some(press) = tracking.press.take()
+    if let Some((press, pressed_at)) = tracking.press
+        && !state.held(press.action)
     {
-        if press.dragging {
+        tracking.press = None;
+        // A Select press ends in a click or a box, unless it ended because the input context changed.
+        let selected = press.action == InputAction::Select && press.action.works_in(state.context);
+        if selected && press.dragging {
             tracking.last_click = None;
             if let Some(end) = drag_end {
                 boxes.write(SelectionBox {
@@ -204,8 +237,8 @@ pub(super) fn track_pointer(
                     modifiers,
                 });
             }
-        } else {
-            let double = tracking.click(InputAction::Select, press.screen, press.time);
+        } else if selected {
+            let double = tracking.click(InputAction::Select, press.screen, pressed_at);
             clicks.write(MapClick {
                 action: InputAction::Select,
                 screen: press.screen,
@@ -216,29 +249,32 @@ pub(super) fn track_pointer(
             });
         }
     }
-    if state.just_pressed(InputAction::ContextCommand)
-        && let (Some(screen), Some(view), Some(ground)) = (screen, view, ground)
-    {
-        let double = tracking.click(InputAction::ContextCommand, screen, now);
-        clicks.write(MapClick {
-            action: InputAction::ContextCommand,
-            screen,
-            view,
-            ground,
-            modifiers,
-            double,
-        });
+    for action in CLICK_ON_PRESS_ACTIONS {
+        if state.just_pressed(action)
+            && let (Some(screen), Some(view), Some(ground)) = (screen, view, ground)
+        {
+            let double = tracking.click(action, screen, now);
+            clicks.write(MapClick {
+                action,
+                screen,
+                view,
+                ground,
+                modifiers,
+                double,
+            });
+        }
     }
 
-    let drag_box = tracking
-        .press
-        .filter(|p| p.dragging)
+    let press = tracking.press.map(|(press, _)| press);
+    let drag_box = press
+        .filter(|p| p.action == InputAction::Select && p.dragging)
         .and_then(|p| drag_end.map(|end| Rect::from_corners(p.view, end)));
     state.pointer = Pointer {
         screen,
         over_ui,
         view,
         ground,
+        press,
         drag_box,
     };
 }

@@ -1,103 +1,81 @@
-//! Raw keyboard and mouse → [`EditorAction`]s. Off in QA runs (`RawInput`), like the game's input; tests and
-//! scripts queue actions directly.
+//! The shared input layer's actions → [`EditorAction`]s (`ARCHITECTURE.md > Client architecture > Input`). The
+//! editor reads only what the layer produces: the actions of the editor's input context ([`ActionState`]), the
+//! pointer ([`Pointer`]: the ground under the cursor, whether it is over the UI, the press on the map) and its clicks
+//! ([`MapClick`]); never raw keys, buttons, the wheel or the cursor. Tests and scripts inject input into the layer
+//! (`crate::input::InjectedInput`) or queue actions directly.
 //!
-//! Mouse: left uses the tool, right picks a tile's preset and height, the wheel zooms at the cursor. Keys: see
-//! [`key_actions`] and the F1 help. Panning is the game camera's own: the arrow keys, the screen edge and the
-//! middle-mouse grab (`crate::camera::GrabPan`). Every position is the ground point drawn under the cursor
-//! (`crate::camera::cursor_to_ground`). Nothing reaches the map while the pointer is over the editor's UI or a text
-//! field has the keyboard.
+//! The pointer: the primary action ([`EditorInput::UseTool`]) uses the tool from its press on the map, through the
+//! drag, to its release; the eyedropper picks a tile's preset and height; the wheel zooms at the cursor. Keys: see
+//! [`editor_action`] and the F1 help; the default bindings are in `crate::input::Bindings::default`. Panning is the
+//! game camera's own: the arrow keys, the screen edge and the middle-mouse grab (`crate::camera::GrabPan`). Every
+//! position is the ground point drawn under the cursor ([`Pointer::ground`]). The layer's rules keep the map from
+//! the pointer while it is over the UI, and the bindings from the keys while a text field has the keyboard.
 //!
 //! The window's close button becomes [`EditorAction::Quit`], which asks a second time when there are unsaved
 //! changes (`crate::platform::ConfirmClose`).
 
-use bevy::input::mouse::{AccumulatedMouseScroll, MouseScrollUnit};
-use bevy::picking::hover::HoverMap;
-use bevy::picking::pointer::PointerId;
 use bevy::prelude::*;
-use bevy::window::{PrimaryWindow, WindowCloseRequested};
+use bevy::window::WindowCloseRequested;
 
 use super::actions::{EditorAction, EditorActions};
-use super::doc::EditorDoc;
-use super::state::EditorUi;
 use super::tools::{EditorTools, Tool};
 use crate::ClientMode;
-use crate::camera::{CameraView, CameraZoom, ViewportInsets, cursor_to_ground};
-use crate::input::{RawInput, TextFocus};
-use crate::platform::SurfaceSize;
+use crate::input::{ActionState, EditorInput, InputAction, MapClick, Pointer};
 
 /// Zoom per wheel line: one line up shows this fraction of the map shown before.
 const ZOOM_PER_LINE: f32 = 0.85;
-/// Wheels that report pixels: this many pixels count as one line.
-const PIXELS_PER_LINE: f32 = 40.0;
 
-/// Keyboard shortcuts, for a frame in which no text field has the keyboard.
+/// The keys' actions: all of them in the editor; in its play-tests only the play-test switch (F5), because Esc is
+/// the game's Cancel there (`systems/controls/selection_and_hud.md > AwaitingTarget`).
 pub fn editor_keys(
-    raw: Res<RawInput>,
+    actions: Res<ActionState>,
     mode: Res<ClientMode>,
-    keys: Option<Res<ButtonInput<KeyCode>>>,
-    text_focus: TextFocus,
     tools: Res<EditorTools>,
-    mut typed_last_frame: Local<bool>,
-    mut actions: ResMut<EditorActions>,
+    mut queue: ResMut<EditorActions>,
 ) {
-    let Some(keys) = keys.filter(|_| raw.enabled) else {
-        return;
-    };
-    // A text field takes the keys while it has the keyboard, and the Escape or Enter that gives it up.
-    let typing_now = text_focus.typing();
-    let typed = std::mem::replace(&mut *typed_last_frame, typing_now);
-    if typing_now || typed {
-        return;
-    }
-    if *mode == ClientMode::PlayTest {
-        // Only F5: in the game Esc cancels (`systems/controls/selection_and_hud.md`).
-        if keys.just_pressed(KeyCode::F5) {
-            actions.push(EditorAction::PlayTest);
-        }
-        return;
-    }
-    let ctrl = keys.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
-    let shift = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
-    for key in keys.get_just_pressed() {
-        if let Some(action) = key_actions(*key, ctrl, shift, &tools) {
-            actions.push(action);
+    for action in actions.pressed_actions() {
+        let wanted = match *mode {
+            ClientMode::Editor => true,
+            ClientMode::PlayTest => action == InputAction::Editor(EditorInput::PlayTest),
+            ClientMode::Game => false,
+        };
+        if let Some(editor_action) = editor_action(action, &tools).filter(|_| wanted) {
+            queue.push(editor_action);
         }
     }
 }
 
-/// The action of a key press, given the modifiers held and the tools' settings.
-pub fn key_actions(key: KeyCode, ctrl: bool, shift: bool, tools: &EditorTools) -> Option<EditorAction> {
+/// The editor action of a pressed input action, given the tools' settings. `None` for the game's actions and for
+/// the pointer's ([`editor_pointer`]); the grid's (G) is the map renderer's own in every mode.
+pub fn editor_action(action: InputAction, tools: &EditorTools) -> Option<EditorAction> {
     use EditorAction as A;
-    if ctrl {
-        return match key {
-            KeyCode::KeyZ if shift => Some(A::Redo),
-            KeyCode::KeyZ => Some(A::Undo),
-            KeyCode::KeyY => Some(A::Redo),
-            KeyCode::KeyS => Some(A::Save),
-            KeyCode::KeyN => Some(A::NewMap),
-            _ => None,
-        };
-    }
-    Some(match key {
-        KeyCode::F1 => A::ToggleHelp,
-        KeyCode::F5 => A::PlayTest,
-        KeyCode::Escape => A::Cancel,
-        KeyCode::Delete | KeyCode::Backspace => A::DeleteSelected,
-        KeyCode::Home => A::FitMap,
-        KeyCode::KeyV => A::SetTool(Tool::Select),
-        KeyCode::KeyB => A::SetTool(Tool::Paint),
-        KeyCode::KeyH => A::SetTool(Tool::Elevation),
-        KeyCode::KeyF => A::SetTool(Tool::Fill),
-        KeyCode::KeyO => A::SetTool(Tool::Place),
-        KeyCode::KeyL => A::SetTool(Tool::Start),
-        KeyCode::KeyC => A::SetTool(Tool::CameraStart),
-        KeyCode::BracketLeft => A::SetBrush(tools.stepped_brush(-1)),
-        KeyCode::BracketRight => A::SetBrush(tools.stepped_brush(1)),
-        KeyCode::KeyK => A::ToggleSlopes,
-        KeyCode::KeyE => A::SetElevationMode(tools.elevation_mode.next()),
-        KeyCode::Equal | KeyCode::NumpadAdd => A::StepElevation(1),
-        KeyCode::Minus | KeyCode::NumpadSubtract => A::StepElevation(-1),
-        _ => return None,
+    use EditorInput as E;
+    let InputAction::Editor(input) = action else {
+        return (action == InputAction::Cancel).then_some(A::Cancel);
+    };
+    Some(match input {
+        E::SelectTool => A::SetTool(Tool::Select),
+        E::PaintTool => A::SetTool(Tool::Paint),
+        E::HeightTool => A::SetTool(Tool::Elevation),
+        E::FillTool => A::SetTool(Tool::Fill),
+        E::PlaceTool => A::SetTool(Tool::Place),
+        E::StartTool => A::SetTool(Tool::Start),
+        E::CameraTool => A::SetTool(Tool::CameraStart),
+        E::SmallerBrush => A::SetBrush(tools.stepped_brush(-1)),
+        E::LargerBrush => A::SetBrush(tools.stepped_brush(1)),
+        E::NextHeightMode => A::SetElevationMode(tools.elevation_mode.next()),
+        E::RaiseLevel => A::StepElevation(1),
+        E::LowerLevel => A::StepElevation(-1),
+        E::ToggleSlopes => A::ToggleSlopes,
+        E::FitMap => A::FitMap,
+        E::DeleteSelection => A::DeleteSelected,
+        E::Undo => A::Undo,
+        E::Redo => A::Redo,
+        E::Save => A::Save,
+        E::NewMap => A::NewMap,
+        E::PlayTest => A::PlayTest,
+        E::ToggleHelp => A::ToggleHelp,
+        E::UseTool | E::Eyedropper | E::Zoom => return None,
     })
 }
 
@@ -109,114 +87,127 @@ pub fn close_requests(mut requests: MessageReader<WindowCloseRequested>, mut act
     }
 }
 
-/// Where the pointer was, for turning pointer changes into actions.
+/// What the pointer last did, for turning its changes into actions.
 #[derive(Default)]
 pub struct PointerTrack {
     hovered: Option<Vec2>,
-    /// The primary button went down on the map and is still held.
-    dragging: bool,
+    /// The editor pressed on the map ([`EditorAction::Press`]) and hasn't released yet.
+    pressing: bool,
 }
 
-/// Mouse buttons, wheel and cursor over the map view.
-#[expect(clippy::too_many_arguments, reason = "a system's parameters")]
+/// The pointer over the map view, in the editor: what it hovers, the tool's press, drag and release
+/// ([`Pointer::press`]), the eyedropper's clicks and the wheel's zoom at the cursor. Nothing starts over the UI, but
+/// a drag goes on over the UI's nodes on the map view.
 pub fn editor_pointer(
-    raw: Res<RawInput>,
+    actions: Res<ActionState>,
     mode: Res<ClientMode>,
-    mouse: Option<Res<ButtonInput<MouseButton>>>,
-    scroll: Option<Res<AccumulatedMouseScroll>>,
-    window: Query<&Window, With<PrimaryWindow>>,
-    hover: Option<Res<HoverMap>>,
-    ui_nodes: Query<(), With<Node>>,
-    view_state: (Res<SurfaceSize>, Res<ViewportInsets>, Res<CameraView>, Res<CameraZoom>),
-    ui: Res<EditorUi>,
-    doc: Res<EditorDoc>,
+    mut clicks: MessageReader<MapClick>,
     mut track: Local<PointerTrack>,
-    mut actions: ResMut<EditorActions>,
+    mut queue: ResMut<EditorActions>,
 ) {
-    let (size, insets, view, zoom) = view_state;
-    let Some(mouse) = mouse.filter(|_| raw.enabled && *mode == ClientMode::Editor) else {
+    let eyedropper = InputAction::Editor(EditorInput::Eyedropper);
+    let picks: Vec<Vec2> = clicks
+        .read()
+        .filter(|c| c.action == eyedropper)
+        .map(|c| c.ground)
+        .collect();
+    if *mode != ClientMode::Editor {
         return;
-    };
-    let cursor = window.single().ok().and_then(Window::cursor_position);
-    let over_ui = ui.help
-        || hover.as_ref().is_some_and(|hover| {
-            hover
-                .get(&PointerId::Mouse)
-                .is_some_and(|hits| hits.keys().any(|e| ui_nodes.contains(*e)))
-        });
-    let map = &doc.map().terrain;
-    let on_map = cursor
-        .filter(|_| !over_ui || track.dragging)
-        .and_then(|c| cursor_to_ground(c, *size, *insets, *view, zoom.0, map));
-
-    let hovered = on_map.filter(|_| !over_ui);
+    }
+    let pointer: &Pointer = actions.pointer();
+    let hovered = pointer.ground;
     if hovered != track.hovered {
         track.hovered = hovered;
-        actions.push(EditorAction::Hover(hovered));
+        queue.push(EditorAction::Hover(hovered));
     }
-    if let Some(pos) = hovered {
-        if mouse.just_pressed(MouseButton::Left) {
-            track.dragging = true;
-            actions.push(EditorAction::Press(pos));
-        } else if mouse.just_pressed(MouseButton::Right) {
-            actions.push(EditorAction::Pick(pos));
+    let use_tool = InputAction::Editor(EditorInput::UseTool);
+    match pointer.press.filter(|press| press.action == use_tool) {
+        Some(press) => {
+            if actions.just_pressed(use_tool) {
+                track.pressing = true;
+                queue.push(EditorAction::Press(press.ground));
+            }
+            // The drag goes on over the UI's nodes on the map view; off the view it waits.
+            if let Some(pos) = press.drag_ground.filter(|_| track.pressing) {
+                queue.push(EditorAction::Drag(pos));
+            }
         }
-    }
-    if track.dragging {
-        if !mouse.pressed(MouseButton::Left) {
-            track.dragging = false;
-            actions.push(EditorAction::Release);
-        } else if let Some(pos) = on_map {
-            actions.push(EditorAction::Drag(pos));
+        None if track.pressing => {
+            track.pressing = false;
+            queue.push(EditorAction::Release);
         }
+        None => {}
     }
-
+    for pos in picks {
+        queue.push(EditorAction::Pick(pos));
+    }
     // The wheel zooms at the cursor; over the UI it scrolls the panels instead.
-    if let (Some(scroll), Some(pos)) = (scroll, hovered) {
-        let lines = match scroll.unit {
-            MouseScrollUnit::Line => scroll.delta.y,
-            MouseScrollUnit::Pixel => scroll.delta.y / PIXELS_PER_LINE,
-        };
-        if lines != 0.0 && lines.is_finite() {
-            actions.push(EditorAction::Zoom {
-                factor: ZOOM_PER_LINE.powf(lines),
-                at: Some(pos),
-            });
-        }
+    let lines = actions.scrolled(InputAction::Editor(EditorInput::Zoom));
+    if let Some(pos) = hovered.filter(|_| lines != 0.0) {
+        queue.push(EditorAction::Zoom {
+            factor: ZOOM_PER_LINE.powf(lines),
+            at: Some(pos),
+        });
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::input::{Bindings, Button, InputContext, Modifiers};
 
+    /// The default bindings give the shortcuts of the F1 help.
     #[test]
-    fn shortcuts_follow_the_help() {
+    fn the_default_bindings_follow_the_help() {
         let tools = EditorTools::default();
-        let key = |k, ctrl, shift| key_actions(k, ctrl, shift, &tools);
-        assert_eq!(key(KeyCode::KeyZ, true, false), Some(EditorAction::Undo));
-        assert_eq!(key(KeyCode::KeyZ, true, true), Some(EditorAction::Redo));
-        assert_eq!(key(KeyCode::KeyY, true, false), Some(EditorAction::Redo));
-        assert_eq!(key(KeyCode::KeyS, true, false), Some(EditorAction::Save));
-        assert_eq!(key(KeyCode::KeyN, true, false), Some(EditorAction::NewMap));
-        assert_eq!(key(KeyCode::KeyB, true, false), None, "Ctrl+B is nothing");
+        let bindings = Bindings::default();
+        let key = |k, modifiers| {
+            let action = bindings.resolve(InputContext::Editor, Button::Key(k), modifiers, false)?;
+            editor_action(action, &tools)
+        };
+        let none = Modifiers::NONE;
+        let ctrl = Modifiers::CTRL;
+        let ctrl_shift = Modifiers { shift: true, ..ctrl };
+        assert_eq!(key(KeyCode::KeyZ, ctrl), Some(EditorAction::Undo));
+        assert_eq!(key(KeyCode::KeyZ, ctrl_shift), Some(EditorAction::Redo));
+        assert_eq!(key(KeyCode::KeyY, ctrl), Some(EditorAction::Redo));
+        assert_eq!(key(KeyCode::KeyS, ctrl), Some(EditorAction::Save));
+        assert_eq!(key(KeyCode::KeyN, ctrl), Some(EditorAction::NewMap));
+        assert_eq!(key(KeyCode::KeyZ, none), None, "Z alone is nothing");
+        assert_eq!(key(KeyCode::KeyB, ctrl), None, "Ctrl+B is nothing");
+        let tool_keys = [
+            (KeyCode::KeyV, Tool::Select),
+            (KeyCode::KeyB, Tool::Paint),
+            (KeyCode::KeyH, Tool::Elevation),
+            (KeyCode::KeyF, Tool::Fill),
+            (KeyCode::KeyO, Tool::Place),
+            (KeyCode::KeyL, Tool::Start),
+            (KeyCode::KeyC, Tool::CameraStart),
+        ];
+        for (k, tool) in tool_keys {
+            assert_eq!(key(k, none), Some(EditorAction::SetTool(tool)), "{k:?}");
+        }
+        assert_eq!(key(KeyCode::BracketRight, none), Some(EditorAction::SetBrush(5)));
+        assert_eq!(key(KeyCode::BracketLeft, none), Some(EditorAction::SetBrush(1)));
         assert_eq!(
-            key(KeyCode::KeyB, false, false),
-            Some(EditorAction::SetTool(Tool::Paint))
+            key(KeyCode::KeyE, none),
+            Some(EditorAction::SetElevationMode(tools.elevation_mode.next()))
         );
-        assert_eq!(
-            key(KeyCode::KeyL, false, false),
-            Some(EditorAction::SetTool(Tool::Start))
-        );
-        assert_eq!(
-            key(KeyCode::BracketRight, false, false),
-            Some(EditorAction::SetBrush(5))
-        );
-        assert_eq!(key(KeyCode::Minus, false, false), Some(EditorAction::StepElevation(-1)));
-        assert_eq!(key(KeyCode::F5, false, false), Some(EditorAction::PlayTest));
-        assert_eq!(key(KeyCode::KeyK, false, false), Some(EditorAction::ToggleSlopes));
-        assert_eq!(key(KeyCode::KeyQ, false, false), None);
+        assert_eq!(key(KeyCode::Equal, none), Some(EditorAction::StepElevation(1)));
+        assert_eq!(key(KeyCode::Minus, none), Some(EditorAction::StepElevation(-1)));
+        assert_eq!(key(KeyCode::Home, none), Some(EditorAction::FitMap));
+        assert_eq!(key(KeyCode::Delete, none), Some(EditorAction::DeleteSelected));
+        assert_eq!(key(KeyCode::Escape, none), Some(EditorAction::Cancel));
+        assert_eq!(key(KeyCode::F1, none), Some(EditorAction::ToggleHelp));
+        assert_eq!(key(KeyCode::F5, none), Some(EditorAction::PlayTest));
+        assert_eq!(key(KeyCode::KeyK, none), Some(EditorAction::ToggleSlopes));
+        assert_eq!(key(KeyCode::KeyQ, none), None);
         // The symmetry is chosen when the map is created and is fixed after.
-        assert_eq!(key(KeyCode::KeyM, false, false), None);
+        assert_eq!(key(KeyCode::KeyM, none), None);
+        // G is the shared grid toggle, which the map's renderer applies in every mode.
+        assert_eq!(key(KeyCode::KeyG, none), None);
+        // The pointer's actions are the pointer system's.
+        assert_eq!(editor_action(InputAction::Editor(EditorInput::UseTool), &tools), None);
+        assert_eq!(editor_action(InputAction::Select, &tools), None);
     }
 }

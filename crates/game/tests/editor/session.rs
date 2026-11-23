@@ -1,7 +1,6 @@
 //! The editor session: what it shows, files, play-testing with its game setup, scripts, zoom, and the maps in the
 //! repository.
 
-use bevy::input::keyboard::Key;
 use bevy::prelude::*;
 use sc_sim::{Faction, PlayerId, Scenario, Sim, SlotId, TilePresetId, scenarios};
 use space_crystals::ClientMode;
@@ -13,14 +12,16 @@ use space_crystals::editor::creation::NewMapDialog;
 use space_crystals::editor::doc::EditorDoc;
 use space_crystals::editor::files;
 use space_crystals::editor::state::{EditorFiles, StatusLevel};
+use space_crystals::editor::tools::Tool;
 use space_crystals::editor::ui::{EDITOR_INSETS, ShownIn};
 use space_crystals::editor::view::MIN_ZOOM;
 use space_crystals::hud::{HUD_INSETS, HudRoot};
+use space_crystals::input::{ActionState, CommandSlot, InputAction, InputContext};
 use space_crystals::platform::SurfaceSize;
 use space_crystals::sim_driver::{LoadedScenario, LocalPlayer, SimControl};
 
 use super::{
-    act, assert_warned, at, doc, editor, editor_with, patch, sim, status, tap, temp_maps, tile, undo_depth,
+    act, assert_warned, at, doc, editor, editor_with, patch, sim, status, tap, temp_maps, tile, tools, undo_depth,
     visual_count,
 };
 
@@ -170,16 +171,40 @@ fn play_testing_runs_the_map_with_its_setup_and_returns_to_the_editor() {
     assert_eq!(status(&app).level, StatusLevel::Error);
 }
 
-/// In the game Esc is Cancel (`systems/controls/selection_and_hud.md`): only F5 ends a play-test.
+/// In the game Esc is Cancel (`systems/controls/selection_and_hud.md`): only F5 ends a play-test. A play-test takes
+/// the game's bindings, so the editor's keys do nothing there.
 #[test]
 fn only_f5_ends_a_play_test() {
     let mut app = editor(scenarios::empty_map(32, 24), &temp_maps("f5"));
-    tap(&mut app, KeyCode::F5, Key::F5);
+    let context = |app: &App| app.world().resource::<ActionState>().context();
+    assert_eq!(context(&app), InputContext::Editor);
+    tap(&mut app, &[], KeyCode::F5);
     assert_eq!(*app.world().resource::<ClientMode>(), ClientMode::PlayTest);
-    tap(&mut app, KeyCode::Escape, Key::Escape);
+    tap(&mut app, &[], KeyCode::Escape);
     assert_eq!(*app.world().resource::<ClientMode>(), ClientMode::PlayTest);
-    tap(&mut app, KeyCode::F5, Key::F5);
+    assert_eq!(context(&app), InputContext::Game);
+    let pressed = |app: &App| {
+        app.world()
+            .resource::<ActionState>()
+            .pressed_actions()
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(pressed(&app), [InputAction::Cancel], "the game's Cancel");
+    // B (the Paint tool) is nothing in the game, and V is the game's command slot, not the Select tool.
+    tap(&mut app, &[], KeyCode::KeyB);
+    tap(&mut app, &[], KeyCode::KeyH);
+    assert_eq!(pressed(&app), [], "H is no binding of the game");
+    tap(&mut app, &[], KeyCode::KeyV);
+    assert_eq!(
+        pressed(&app),
+        [InputAction::CommandSlot(CommandSlot::new(2, 3).unwrap())]
+    );
+    tap(&mut app, &[], KeyCode::F5);
     assert_eq!(*app.world().resource::<ClientMode>(), ClientMode::Editor);
+    assert_eq!(tools(&app).tool, Tool::Select, "the editor saw none of the game's keys");
+    tap(&mut app, &[], KeyCode::KeyB);
+    assert_eq!(context(&app), InputContext::Editor);
+    assert_eq!(tools(&app).tool, Tool::Paint);
 }
 
 #[test]

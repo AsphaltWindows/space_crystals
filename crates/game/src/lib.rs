@@ -6,7 +6,8 @@
 //! [`build_app`] assembles one plugin per feature module:
 //! - [`platform`]: a window, an offscreen image (QA) or no rendering at all (tests);
 //! - [`sim_driver`]: owns the `Sim` and steps it in `FixedUpdate`, 16 ticks per second;
-//! - [`input`]: keys, mouse and the screen edge become [`input::InputAction`]s, clicks and boxes;
+//! - [`input`]: keys, mouse, wheel and the screen edge become [`input::InputAction`]s, clicks and boxes, through
+//!   the bindings of the mode's input context (the game's or the editor's);
 //! - [`camera`]: the world camera (28 GU wide, between the UI) and the UI camera;
 //! - [`map_render`]: the terrain mesh and the grid overlay;
 //! - [`object_render`]: placeholder visuals of sim objects;
@@ -14,7 +15,8 @@
 //! - [`editor`]: the map editor (`--editor`), with its own UI, tools and play-test;
 //! - [`qa`]: screenshots, exit at a tick, state dump.
 //!
-//! Everything except [`hud`] and [`editor`] is independent of the mode ([`ClientMode`]).
+//! Everything except [`hud`] and [`editor`] is independent of the mode ([`ClientMode`]), apart from the input
+//! layer, which applies the bindings of the mode's input context ([`ClientMode::input_context`]).
 
 pub mod camera;
 pub mod cli;
@@ -35,7 +37,7 @@ use sc_sim::{PlayerId, Scenario, SimConfig};
 use crate::camera::GameCameraPlugin;
 use crate::editor::{EditorConfig, EditorPlugin};
 use crate::hud::HudPlugin;
-use crate::input::ActionInputPlugin;
+use crate::input::{ActionInputPlugin, InputContext};
 use crate::map_render::MapRenderPlugin;
 use crate::object_render::ObjectRenderPlugin;
 use crate::platform::{DisplayMode, PlatformPlugin};
@@ -70,6 +72,15 @@ impl ClientMode {
     /// A game is running, with the game's HUD and camera: a normal game or an editor play-test.
     pub fn is_game(self) -> bool {
         self != ClientMode::Editor
+    }
+
+    /// Whose bindings the input layer applies: the game's in a game and in a play-test, the editor's in the editor.
+    pub fn input_context(self) -> InputContext {
+        if self.is_game() {
+            InputContext::Game
+        } else {
+            InputContext::Editor
+        }
     }
 }
 
