@@ -13,12 +13,13 @@
 //! - [`object_render`]: placeholder visuals of sim objects;
 //! - [`path_overlay`]: the units' remaining paths, a development view;
 //! - [`combat_effects`]: placeholder combat feedback: tracers, HP bars, death markers;
-//! - [`hud`]: the game mode's HUD frame;
+//! - [`selection`]: the players' selections and control groups (client-side UI state), and their markers;
+//! - [`hud`]: the game mode's HUD frame, with the InfoPanel and the SelectionPanel;
 //! - [`editor`]: the map editor (`--editor`), with its own UI, tools and play-test;
-//! - [`qa`]: screenshots, exit at a tick, state dump, commands at given ticks.
+//! - [`qa`]: screenshots, exit at a tick, state dump, commands and input at given ticks.
 //!
-//! Everything except [`hud`] and [`editor`] is independent of the mode ([`ClientMode`]), apart from the input
-//! layer, which applies the bindings of the mode's input context ([`ClientMode::input_context`]).
+//! Everything except [`hud`], [`selection`] and [`editor`] is independent of the mode ([`ClientMode`]), apart from
+//! the input layer, which applies the bindings of the mode's input context ([`ClientMode::input_context`]).
 
 pub mod camera;
 pub mod cli;
@@ -32,6 +33,7 @@ pub mod object_render;
 pub mod path_overlay;
 pub mod platform;
 pub mod qa;
+pub mod selection;
 pub mod shapes;
 pub mod sim_driver;
 
@@ -48,6 +50,7 @@ use crate::object_render::ObjectRenderPlugin;
 use crate::path_overlay::PathOverlayPlugin;
 use crate::platform::{DisplayMode, PlatformPlugin};
 use crate::qa::{QaConfig, QaPlugin};
+use crate::selection::SelectionPlugin;
 use crate::sim_driver::SimDriverPlugin;
 
 /// Order of the client's `Update` systems within a frame.
@@ -175,6 +178,7 @@ pub fn build_app(config: AppConfig) -> App {
         },
         CombatEffectsPlugin,
         QaPlugin { config: config.qa },
+        SelectionPlugin,
     ))
     // The game mode; the editor hides the HUD except in its play-tests.
     .add_plugins(HudPlugin);

@@ -596,6 +596,7 @@ fn tap(app: &mut App, modifiers: &[KeyCode], key: KeyCode) -> Vec<InputAction> {
         InputAction::Queue,
         InputAction::ToggleSelection,
         InputAction::SelectSameType,
+        InputAction::CenterOnObject,
     ];
     actions(app).pressed_actions().filter(|a| !roles.contains(a)).collect()
 }

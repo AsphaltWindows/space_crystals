@@ -3,17 +3,26 @@
 //! A top resource bar and, at the bottom, the HUD Bar with its five sections in fixed slots, left to right. All
 //! sections share one height, and a slot stays reserved while its panel has nothing to show. Sizes are in percent
 //! of the surface height (`vh`), so the HUD scales with the window and the world view between the bars keeps its
-//! shape at every resolution. Only the frame exists so far: the top bar shows the player and the tick, and each
-//! section shows its name.
+//! shape at every resolution. The top bar shows the player and the tick. The sections are placed at the rectangles
+//! of [`layout`], which also find the portrait under a click. Two panels show the selection: the InfoPanel
+//! ([`info_panel`]) and the SelectionPanel ([`selection_panel`]); the others show their names, and so do these two
+//! while they have nothing to show.
 //!
 //! The HUD is specific to the game mode: it tells the camera which strip it leaves free through
 //! [`ViewportInsets`], and another mode (the map editor) brings its own UI instead and hides the HUD.
 
+pub mod info_panel;
+pub mod layout;
+pub mod selection_panel;
+
 use bevy::prelude::*;
 
-use crate::ClientMode;
 use crate::camera::ViewportInsets;
+use crate::platform::SurfaceSize;
+use crate::selection::SelectionSystems;
 use crate::sim_driver::{LocalPlayer, SimRes};
+use crate::{ClientMode, ClientSystems};
+use layout::{SECTION_BORDER_PX, SECTION_PADDING_VH, section_rect};
 
 /// Height of the top resource bar, in percent of the surface height (placeholder size).
 pub const TOP_BAR_HEIGHT_VH: f32 = 4.0;
@@ -29,6 +38,8 @@ const SECTION_BACKGROUND: Color = Color::srgb(0.12, 0.13, 0.16);
 const SECTION_BORDER: Color = Color::srgb(0.28, 0.31, 0.36);
 const LABEL_COLOR: Color = Color::srgb(0.55, 0.60, 0.66);
 const TEXT_COLOR: Color = Color::srgb(0.88, 0.90, 0.93);
+/// Size of a section's name.
+const LABEL_VH: f32 = 1.6;
 
 /// The HUD Bar's sections (`systems/controls/selection_and_hud.md > HUD Bar > Sections`).
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
@@ -89,6 +100,10 @@ pub struct HudBar;
 #[derive(Component)]
 pub struct HudRoot;
 
+/// The name a section shows while its panel has nothing to show.
+#[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
+pub struct SectionLabel(pub HudSection);
+
 #[derive(Component)]
 struct PlayerNameText;
 
@@ -108,8 +123,26 @@ pub struct HudPlugin;
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(HUD_INSETS)
+            .init_resource::<selection_panel::SelectionPanelView>()
             .add_systems(Startup, spawn_hud)
-            .add_systems(Update, (update_top_bar, show_hud_in_game_modes));
+            .add_systems(Update, (update_top_bar, show_hud_in_game_modes))
+            // `> SelectionPanel > Interactions`: after the map's clicks and the keys of the same frame.
+            .add_systems(
+                Update,
+                selection_panel::click_portraits
+                    .after(SelectionSystems::Input)
+                    .in_set(ClientSystems::Actions),
+            )
+            .add_systems(
+                Update,
+                (
+                    place_sections,
+                    info_panel::update_info_panel,
+                    selection_panel::update_selection_panel,
+                )
+                    .chain()
+                    .in_set(ClientSystems::Present),
+            );
     }
 }
 
@@ -133,7 +166,7 @@ fn text(content: impl Into<String>, size_vh: f32, color: Color) -> impl Bundle {
     )
 }
 
-fn spawn_hud(mut commands: Commands) {
+fn spawn_hud(mut commands: Commands, size: Res<SurfaceSize>) {
     commands.spawn((
         Name::new("Top bar"),
         TopBar,
@@ -167,38 +200,60 @@ fn spawn_hud(mut commands: Commands) {
                 left: px(0),
                 width: percent(100),
                 height: vh(HUD_BAR_HEIGHT_VH),
-                padding: UiRect::all(vh(HUD_GAP_VH)),
-                column_gap: vh(HUD_GAP_VH),
-                flex_direction: FlexDirection::Row,
                 ..default()
             },
             BackgroundColor(BAR_BACKGROUND),
         ))
         .with_children(|bar| {
             for section in HudSection::ALL {
-                let (width, flex_grow, flex_basis) = match section.width() {
-                    SlotWidth::Fixed(vh_width) => (vh(vh_width), 0.0, auto()),
-                    SlotWidth::Share(share) => (auto(), share, px(0)),
-                };
-                bar.spawn((
+                let mut slot = bar.spawn((
                     Name::new(section.label()),
                     section,
-                    Node {
-                        width,
-                        height: percent(100),
-                        flex_grow,
-                        flex_shrink: 0.0,
-                        flex_basis,
-                        border: UiRect::all(px(1)),
-                        padding: UiRect::all(vh(0.5)),
-                        ..default()
-                    },
+                    section_node(section, size.logical()),
                     BackgroundColor(SECTION_BACKGROUND),
                     BorderColor::all(SECTION_BORDER),
-                    children![text(section.label(), 1.6, LABEL_COLOR)],
                 ));
+                slot.with_child((SectionLabel(section), text(section.label(), LABEL_VH, LABEL_COLOR)));
+                if section == HudSection::InfoPanel {
+                    info_panel::spawn_content(&mut slot);
+                }
             }
         });
+}
+
+/// A section's node at its slot ([`section_rect`]), relative to the HUD Bar. Its content flows top down; the
+/// SelectionPanel's portraits are placed absolutely, from [`layout::PortraitGrid`].
+fn section_node(section: HudSection, surface: Vec2) -> Node {
+    let rect = section_rect(section, surface);
+    let bar_top = surface.y * (1.0 - HUD_BAR_HEIGHT_VH / 100.0);
+    Node {
+        position_type: PositionType::Absolute,
+        left: px(rect.min.x),
+        top: px(rect.min.y - bar_top),
+        width: px(rect.width()),
+        height: px(rect.height()),
+        border: UiRect::all(px(SECTION_BORDER_PX)),
+        padding: UiRect::all(vh(SECTION_PADDING_VH)),
+        flex_direction: FlexDirection::Column,
+        row_gap: vh(SECTION_PADDING_VH),
+        ..default()
+    }
+}
+
+/// Keeps the sections at their slots when the surface changes size.
+fn place_sections(size: Res<SurfaceSize>, mut sections: Query<(&HudSection, &mut Node)>) {
+    if !size.is_changed() {
+        return;
+    }
+    for (section, mut node) in &mut sections {
+        let placed = section_node(*section, size.logical());
+        if (node.left, node.top, node.width, node.height) != (placed.left, placed.top, placed.width, placed.height) {
+            node.left = placed.left;
+            node.top = placed.top;
+            node.width = placed.width;
+            node.height = placed.height;
+        }
+    }
 }
 
 fn update_top_bar(
@@ -225,5 +280,13 @@ fn update_top_bar(
 fn set_text(text: &mut Mut<Text>, value: &str) {
     if text.0 != value {
         value.clone_into(&mut text.0);
+    }
+}
+
+/// Shows or hides a node, taking no room while hidden; changes it only when that differs.
+fn show_node(node: &mut Mut<Node>, shown: bool) {
+    let display = if shown { Display::Flex } else { Display::None };
+    if node.display != display {
+        node.display = display;
     }
 }

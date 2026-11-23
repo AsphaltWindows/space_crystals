@@ -11,6 +11,7 @@ use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
+use crate::movement::MoveCounters;
 use crate::mover::Mover;
 use crate::nav::{Nav, NavCounters};
 use crate::object::{Object, Placement, ResourceState};
@@ -175,6 +176,12 @@ impl Sim {
         self.nav.counters()
     }
 
+    /// The collision work of the most recent [`Sim::step`]'s movement phase: output for tests and overlays, not
+    /// state.
+    pub fn move_counters(&self) -> MoveCounters {
+        self.nav.move_counters()
+    }
+
     /// FNV-1a 64 hash of the whole state: tick, map, players, objects in id order, next id,
     /// PRNG state, config, next order group and nav version (`f32` by its bits; encoding in
     /// `hash.rs`). Events are output and the grids derived data, so they are left out. Equal
@@ -239,7 +246,16 @@ impl Sim {
             &mut self.events,
         );
         // 5d: the one movement pipeline, the single place that moves units.
-        movement::step(&mut self.objects, first_new);
+        let (nav, scratch) = self.nav.for_movement();
+        movement::step(
+            &mut self.objects,
+            first_new,
+            &self.map,
+            nav,
+            scratch,
+            self.tick,
+            &mut self.events,
+        );
         // 5e: shoots from the positions movement committed. The dead leave through the removal path; a footprint
         // they leave behind no longer blocks, so the grids follow as in 5b.
         let dead = combat::step(&mut self.objects, &self.map, first_new, &mut self.events);

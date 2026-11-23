@@ -2,7 +2,10 @@
 //!
 //! The sim is held at each screenshot tick (`SimControl::hold_at`) until the PNG is saved. A held sim draws every
 //! object exactly at its tick position, and raw input is off in QA runs, so a screenshot shows the same pixels on
-//! every run. The sim is also held at the exit tick, so the state dump never overshoots it.
+//! every run. The sim is also held at the exit tick, so the state dump never overshoots it, and at each tick of the
+//! `--input-script` ([`input_script`]) until its step has been applied.
+
+pub mod input_script;
 
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
@@ -11,13 +14,17 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy::window::ExitSystems;
-use sc_sim::{Command, Map, Object, Player, PlayerCommand, PlayerId, SimEvent, Tick};
+use sc_sim::{Command, Map, Object, ObjectId, Player, PlayerCommand, PlayerId, SimEvent, Tick};
 use serde::{Deserialize, Serialize};
+
+pub use input_script::{InputStep, load_input_script};
 
 use crate::ClientSystems;
 use crate::camera::CameraView;
+use crate::input::ReadActions;
 use crate::map_render::MapView;
 use crate::platform::RenderSurface;
+use crate::selection::ControlStates;
 use crate::sim_driver::{LoadedScenario, LocalPlayer, PendingCommands, RecordedInputs, SimControl, SimRes, StepSim};
 
 /// Frames to wait at a screenshot tick before capturing. With synchronous pipeline compilation the first frame is
@@ -42,6 +49,8 @@ pub struct QaConfig {
     /// `--show-paths`: the path overlay is on from the start (QA runs ignore the keyboard). A view option: it
     /// doesn't make a QA run by itself.
     pub show_paths: bool,
+    /// `--input-script`: the virtual keyboard and mouse at given ticks.
+    pub input_script: Vec<InputStep>,
 }
 
 impl QaConfig {
@@ -51,6 +60,7 @@ impl QaConfig {
             || self.exit_at_tick.is_some()
             || self.dump_state.is_some()
             || !self.commands.is_empty()
+            || !self.input_script.is_empty()
     }
 }
 
@@ -105,6 +115,8 @@ pub struct QaState {
     dumped: bool,
     /// `--commands` still to apply, by tick.
     commands: VecDeque<TimedCommand>,
+    /// `--input-script` steps still to apply, by tick.
+    input_steps: VecDeque<InputStep>,
     /// Screenshots written so far.
     pub saved: Vec<PathBuf>,
     /// What went wrong. Any failure makes the run exit with an error code.
@@ -117,6 +129,8 @@ impl QaState {
         screenshots.sort_by_key(|s| s.tick);
         let mut commands = config.commands;
         commands.sort_by_key(|c| c.tick); // Stable: a tick's commands keep their order.
+        let mut input_steps = config.input_script;
+        input_steps.sort_by_key(|s| s.tick);
         Self {
             pending: screenshots.into(),
             phase: CapturePhase::Idle,
@@ -125,18 +139,18 @@ impl QaState {
             exit_requested: false,
             dumped: false,
             commands: commands.into(),
+            input_steps: input_steps.into(),
             saved: Vec::new(),
             failures: Vec::new(),
         }
     }
 
-    /// The tick the sim must wait at next: the next screenshot or the exit tick, whichever comes first.
+    /// The tick the sim must wait at next: the next screenshot, input step or the exit tick, whichever comes
+    /// first.
     pub fn next_stop(&self) -> Option<Tick> {
         let shot = self.pending.front().map(|s| s.tick);
-        match (shot, self.exit_at_tick) {
-            (Some(a), Some(b)) => Some(a.min(b)),
-            (a, b) => a.or(b),
-        }
+        let step = self.input_steps.front().map(|s| s.tick);
+        [shot, step, self.exit_at_tick].into_iter().flatten().min()
     }
 
     fn pop_due(&mut self, tick: Tick) -> Vec<ScreenshotRequest> {
@@ -164,6 +178,7 @@ impl Plugin for QaPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(QaState::new(self.config.clone()))
             .add_systems(FixedUpdate, inject_commands.before(StepSim))
+            .add_systems(PreUpdate, input_script::apply_input_script.before(ReadActions))
             .add_systems(Startup, hold_at_next_stop)
             .add_systems(
                 Update,
@@ -322,6 +337,7 @@ pub struct DumpSources<'w> {
     recorded: Res<'w, RecordedInputs>,
     camera: Option<Res<'w, CameraView>>,
     map_view: Option<Res<'w, MapView>>,
+    control: Option<Res<'w, ControlStates>>,
 }
 
 /// The `--dump-state` file: the sim state through its public accessors, plus the client's view of it.
@@ -345,6 +361,8 @@ pub struct ClientDump {
     pub grid_visible: bool,
     /// Ticks whose inputs are recorded for a replay.
     pub recorded_ticks: usize,
+    /// The local player's selection.
+    pub selection: Vec<ObjectId>,
 }
 
 fn write_state_dump(path: &Path, sources: &DumpSources) -> Result<(), String> {
@@ -360,6 +378,10 @@ fn write_state_dump(path: &Path, sources: &DumpSources) -> Result<(), String> {
             camera_center: sources.camera.as_ref().map(|c| c.center),
             grid_visible: sources.map_view.as_ref().is_some_and(|v| v.grid_visible),
             recorded_ticks: sources.recorded.ticks.len(),
+            selection: sources
+                .control
+                .as_ref()
+                .map_or_else(Vec::new, |c| c.selection(sources.player.0).ids().collect()),
         },
         map: sim.map(),
     };

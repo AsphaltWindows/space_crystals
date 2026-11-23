@@ -5,7 +5,8 @@
 //!
 //! - [`NavGrid`] (5.2): a blocked bit and a component label per tile, one grid per `(NavClass, size class)`.
 //! - [`Search`] (5.3): the A\* scratch arrays; [`Search::astar`] and the Dijkstra [`Search::field`] share one loop.
-//! - [`los`] and [`smooth`] (5.4): line of sight for a box, and string-pulling of a tile path into waypoints.
+//! - [`los`] and [`smooth`] (5.4): line of sight for a box, and string-pulling of a tile path into waypoints
+//!   ([`smooth_avoiding`] keeps a repath's detour around its avoid tiles).
 //! - [`find_path`] and [`serve`] (5.5): one path, and a tick's requests within the expansion budget.
 //!
 //! Every discrete decision (costs, heap keys, tie-breaks, retargeting) is integer arithmetic. Floats appear only
@@ -26,7 +27,7 @@ use crate::map::Map;
 use crate::units::{SU_PER_GU, TilePos};
 
 pub use grid::NavGrid;
-pub use los::{box_clear, los, smooth};
+pub use los::{box_clear, los, segment_avoids, smooth, smooth_avoiding};
 pub use search::{Search, TilePath};
 pub use serve::{Path, PathFail, PathGroup, PathRequest, ServeOutput, Served, find_path, serve};
 

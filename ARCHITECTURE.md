@@ -186,12 +186,13 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
    - 5a `orders::update`: a unit's finished order completes and its next one starts (a move sets `Mover::go_to`,
      Stop and Hold stop it), until one is in progress, so legs follow each other without an idle tick.
    - 5b `paths::sync`: if the blocking footprints changed, rebuild the navigation grids and bump `nav_version`.
-   - 5c `paths::serve`: paths planned on an older `nav_version` are planned again; every `PathState::Wanted` becomes
-     a `nav::PathRequest`, served by `nav::serve` within `PATH_BUDGET` (group fields for move groups). A unit that
-     gets no path fails its move (`SimEvent::MoveFailed`).
-   - 5d `movement::step`: the mover, the only code that writes a unit's `pos` besides a teleport. In M1-B it is
-     naive: it follows the waypoints at top speed, first turning to face each leg (at most TurnRate per tick), and
-     arrives exactly on its goal. No unit–unit collision yet (slice D).
+   - 5c `paths::serve`: first each unit's staggered path checks, in the ticks where `(tick + id) % 4 == 0` (after
+     the ground changed, line of sight along its remaining path, and a new plan only if that is cut; the farthest
+     waypoint in sight becomes its steering target). Then every `PathState::Wanted` becomes a `nav::PathRequest`,
+     served by `nav::serve` within `PATH_BUDGET` (group fields for move groups). A unit that gets no path fails its
+     move (`SimEvent::MoveFailed`).
+   - 5d `movement::step`: steering and hard collision, the only code that writes a unit's `pos` besides a teleport
+     (see Movement and collision). Units move one after another in id order and never overlap.
    - 5e `combat::step`: attack phases, the tick's list of hits applied together, deaths (see *Combat*). The dead
      leave through `Sim::remove_objects`, then `paths::sync` runs again in case a footprint went with them.
    - 5f `vision::update` (slice V): empty so far.
@@ -276,12 +277,54 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   own slot on a square lattice around the click (retargeted into the lead unit's component), the largest silhouette
   plus `SLOT_GAP` apart. The nearest lattice points whose box is clear and in the component are the slots; the one
   farthest from the group's centroid takes its nearest unit first. The order keeps its slot (`Order::slot`).
+- **Avoid tiles** (`Mover::avoid_tiles`): a repath of a stuck unit treats them as blocked, and its smoothed path and
+  its steering stay out of them (`nav::smooth_avoiding`, `nav::segment_avoids`). If they cut every route, the unit
+  drops them and plans again.
 - **Unit boxes** never overlap blocked tiles or another unit of their layer at spawn: the gate checks debug spawns and
   teleports against the sim's grids; scenario validation and the editor check pre-placed and layout units with
   `paths::misplaced` (terrain-only grids of the classes present, plus the footprints).
 - `f32::mul_add` is a disallowed method (`docs/movement.md > 7`): write `a * b + c`.
 - Timings: `cargo test -p sc_sim --release --test nav_perf -- --ignored --nocapture`. That test's `timed` helper is
   the one place in `crates/sim` that reads the clock, behind an `#[expect]` with its reason.
+
+## Movement and collision
+
+The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice D changed it), and the code is
+`crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
+
+- **One pipeline, sequential commit** (`movement::step`, phase 5d): the step builds one spatial grid per collision
+  layer (ground, underground; air units collide with nothing) from every unit, then moves the units in id order and
+  updates the grid at each commit. A unit sees earlier units where they now are and later ones where they were.
+  The grids are scratch, rebuilt every tick and never hashed.
+- **No overlap by construction**: a position is committed only if `World::is_free` holds, the same strict predicates
+  as invariants I1 and I2 (touching is free). Contact positions are assigned from the blocker's edge
+  (`space::resting`), never accumulated. Never write `pos` anywhere else, and never loosen the predicate with an
+  epsilon.
+- **One unit's tick** (`step_unit`, `collide.rs`): turn towards the steering waypoint (at most TurnRate), then move
+  one step: free; **slide** along tiles (per axis); **follow** a unit moving the same way; **go around** a standing
+  or oncoming one (a glance along its face, a 45° step, a step along the face; to the unit's Right first, so
+  head-on units pass like traffic; a crossing unit is passed behind); else close up or stay. Within one step of the
+  goal the unit lands exactly on it. Units without a goal never move: nothing pushes (question Q0007).
+- **Collision exceptions** go in `space::blocks(mover, other)` and nowhere else (crushing will).
+- **Stuck and recovery** (`stuck.rs`, numbers from question Q0008 in `mover.rs`): progress is the remaining path
+  length; waiting behind a unit that is getting on counts. After `STUCK_TICKS` without it: arrived if the goal is
+  within `CROWDED_ARRIVAL_GU` behind stationary units, or behind members of its own order group that have arrived;
+  else a repath (`MAX_REPATHS` per leg, `REPATH_BACKOFF`), around the tile of a blocker that stands; else
+  `MoveStatus::Failed` and `SimEvent::MoveFailed`. Two units head-on in a passage too narrow to pass both fail
+  (question Q0007).
+- **Hooks for later slices**: chasing and queueing behind attackers are `stuck::queues_behind` and the
+  `MoveGoal::Object` arm of `paths::serve` (slice E); other movement models replace the "direction → facing and
+  velocity" part of `step_unit`.
+- **Counters**: `Sim::move_counters()` (sweeps and box tests of the latest tick) and `Sim::nav_counters()` are
+  output, not state. Tests assert them; `cargo test -p sc_sim --release --test movement_perf -- --ignored
+  --nocapture` prints timings.
+- **Invariants** (`docs/movement.md > 8`, `sc_sim::testing::invariants`): I1 no two units of a layer overlap; I2 no
+  ground box overlaps a blocked tile or leaves the map; I3 a unit moves at most its speed per tick; I4 every float
+  is finite; I5 a unit without a goal doesn't move; I6 repaths per leg are capped and no path request waits longer
+  than `MAX_REQUEST_AGE`; I7 an arrived unit never moves again without an order, and a unit without a goal is at
+  rest. A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
+  letters, with a legend). The check is on by default; `check_invariants(false)` turns it off for timing runs. A
+  test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each step.
 
 ## Commands, events and replays
 
@@ -397,7 +440,12 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   (`TestSim::with_config` for other options). It schedules commands with `at(tick, player, cmd)` or
   `debug_at(tick, cmd)`, and each one applies in the step that reaches that tick; `spawn_unit_at(tick, kind, owner,
   pos)` and `order_at(tick, player, units, kind, queue)` are the shortcuts for units. It advances with `step`,
-  `run(n)` and `run_until(tick)`, keeps every event with its tick, and records a `Replay` of the run.
+  `run(n)` and `run_until(tick)`, keeps every event with its tick, and records a `Replay` of the run. After every
+  tick it checks the movement invariants (see Movement and collision); `pos(id)`, `mover(id)` and `status(id)` read
+  a unit, and `ascii(focus)` draws the map.
+- **Movement scenario tests** are `crates/sim/tests/movement_collision.rs` (passing, head-on, choke, group arrival,
+  idle units, repaths, oscillation bounds, save and load in a crowd), `movement_soak.rs` (200 units, random orders,
+  2 000 ticks) and the ignored `movement_perf.rs`.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes. Every state type's hash impl
   destructures it (`hash.rs`), so a new field doesn't compile until it is hashed.
@@ -453,7 +501,8 @@ out by the same rules.
   `(kind, owner)` is shared.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
-  layer. Its one mesh is rebuilt every frame while it is shown.
+  layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
+  up, red failed, blue arrived; placeholder colours). Its one mesh is rebuilt every frame while it is shown.
 - **Combat effects** (`combat_effects.rs`, placeholders until Q0001): a tracer for each `SimEvent::Attacked`
   (`TRACER_TICKS`), HP bars over damaged units, a fading marker for each `SimEvent::Died` (`DEATH_MARKER_TICKS`).
   One alpha-blended mesh in the overlays layer, rebuilt every frame while anything shows; effects age by the sim's
@@ -481,7 +530,11 @@ editor zooms (`CameraZoom`).
 Bar with five fixed sections. From left to right they are Minimap, Portrait, InfoPanel, SelectionPanel and
 CommandPanel. All five have the same height and keep fixed horizontal slots, and a hidden panel's slot stays reserved
 (`systems/controls/selection_and_hud.md > HUD Bar`). bevy_ui lays out each root node inside its camera's viewport,
-so the HUD needs its own full-window UI camera (`IsDefaultUiCamera` / `UiTargetCamera`).
+so the HUD needs its own full-window UI camera (`IsDefaultUiCamera` / `UiTargetCamera`). The sections sit at the
+rectangles `hud::layout` computes from the surface size alone (`section_rect`, `PortraitGrid`); the same geometry
+finds the portrait under a click, because headless tests have no UI picking. The InfoPanel (`hud/info_panel.rs`) and
+the SelectionPanel (`hud/selection_panel.rs`) show the selection (see Selection); a section with nothing to show
+shows its name (`SectionLabel`).
 
 **Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse, the wheel and the screen edge into
 the input of the game and of the map editor, in `PreUpdate` (`ReadActions`, after Bevy's input, UI picking and the
@@ -508,7 +561,8 @@ elsewhere.
   buttons, Esc to cancel, Tab and Shift + Tab, the control group keys, the 4 × 3 command grid QWER/ASDF/ZXCV with
   the standard slots Z, X and C, Shift to queue) and the editor's (its F1 help lists them). A rebinding UI edits it
   with `bind` and `unbind`. It isn't serializable yet: loading it from a file needs Bevy's `serialize` feature for
-  `KeyCode` and `MouseButton`.
+  `KeyCode` and `MouseButton`. The selection adds `CenterOnObject` (Alt) to the modifier actions, for clicks on
+  portraits, and F2 for the debug player switch (a placeholder: the design has no debug keys).
 - **Output**: `ActionState` (a `Resource`) holds this frame's actions (held, just pressed, just released), the wheel's
   turn, the modifiers, the context, the cursor in logical pixels, and the `Pointer`: the view point and the ground
   point (`coords::ground_under`) under the cursor, whether it is over the UI (a UI node by Bevy's picking, or outside
@@ -533,6 +587,34 @@ elsewhere.
   mouse cursor, `over_ui` puts it over a UI node (headless apps have no UI picking), and `held` and `pressed` inject
   actions directly, past the bindings. Never write to Bevy's own `ButtonInput` resources: its input systems clear
   their presses before ours run. `RawInput` turns the real devices off in QA runs.
+
+**Selection** (`selection.rs`, `selection/`; `systems/controls/selection_and_hud.md`): client UI state, never sim
+state. `ControlStates` holds every player's `ControlState`, a `Selection` and 10 control groups; the input changes and
+the HUD shows the local player's (`LocalPlayer`).
+- **Model** (`selection/model.rs`): a selection is a set of object ids with their kinds. Its groups are derived, one
+  per type, in `ObjectKind` order (an ungroupable object, a patch or a station, is a group alone), each by id; the
+  ActiveGroup is a group key, which Tab and Shift + Tab cycle with wrap-around and which falls back to the first group
+  when its group empties. At most `MAX_SELECTED` objects (a placeholder: the order limit).
+- **Picking** (`selection/pick.rs`): `Selectables` is what the local player may select this frame (`selectable_by`,
+  the hook for vision's Explored rule), each object's box as it is drawn: interpolated, lifted by the height it
+  stands at, in view space. A click picks the frontmost box under it (grown by `PICK_SLOP_SU`); a box (the input
+  layer's `SelectionBox`) applies the priority tiers. `Relation::of` says own, enemy or neutral (no teams yet, so no
+  allies); allies would count with enemies in the tiers.
+- **Rules** (`selection/rules.rs`, pure and unit tested): map clicks, boxes, portrait clicks, control group keys and
+  Tab on a `ControlState`, under the Constraints (another player's object or a resource is only ever selected alone).
+  What a click's modifiers mean comes from the bindings (`ClickRoles`). Every rule the design leaves open is marked
+  as a placeholder where it is made.
+- **Systems** (`SelectionSystems`): `Sync` (in `SyncSim`) removes objects that left the sim from every selection
+  and group in the frame of their tick (`SimEvent::Removed`, deaths included, and anything else gone), and starts
+  every state over when the sim is replaced (`SimRes::generation`). `Input` (in `Actions`) applies map clicks, boxes,
+  the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the debug player switch
+  (F2, only while `SimConfig::debug`: the client acts as the next player, so "own" and the state in use change). The
+  HUD's portrait clicks run after it. Systems change a state only through `LocalControl::update`, which marks
+  `ControlStates` changed only on a real change.
+- **Visuals** (`selection/markers.rs`): one marker entity per selected object in the ground-decal layer, under the
+  object (a ring around a unit, a frame inside a footprint), coloured by relation, the ActiveGroup's solid and the
+  others' dashed; meshes cached per shape, relation and activity. The drag box is four edges of one shared mesh in
+  the overlay layer, shown while `Pointer::drag_box` is set.
 
 **Bevy code**
 - Write one plugin per feature module (camera, map rendering, HUD, input, …). Keep systems small. Bevy caps a system
@@ -577,10 +659,11 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--exit-at-tick <n>` | Exits at tick `n`, after its screenshots. Windowless runs default to the last screenshot's. |
 | `--dump-state <path>` | Writes the state as JSON when the run ends (fields below). |
 | `--commands <file.json>` | Applies player commands at given ticks: a JSON list of `{"tick", "player", "command"}` (`qa::TimedCommand`; `command` is a `sc_sim::Command` in serde form). Each applies in the step that reaches its tick (1 or later), a tick's commands in file order. Not with `--editor`. |
+| `--input-script <file.json>` | Drives the virtual keyboard and mouse (`InjectedInput`) at given ticks: a JSON list of `{"tick", "cursor", "press", "tap", "release"}` (`qa::InputStep`; buttons by name: `MouseLeft`, `ControlLeft`, `Digit1`, `KeyQ`, `F2`, …). The sim waits at each step's tick until it is applied, so a button held across steps drags and a chord spans steps (Ctrl + 1: `press` Ctrl and `tap` 1, release Ctrl in a later step). Not with `--editor`. |
 | `--show-paths` | Starts with the unit path overlay on (P toggles it). |
 | `--windowed` | Shows a QA run in a window on the user's display instead of rendering offscreen. |
 | `--headless` | No window and no renderer: sim, client state and `--dump-state` only. Needs `--exit-at-tick`. |
-| Later: `--script <file>`, replays | Run scripted `InputAction`s, and replay recorded sessions. |
+| Later: replays | Replay recorded sessions. |
 
 Taking a screenshot (no window appears; about one second plus `tick / 16` seconds, or add `--fast`):
 
@@ -588,14 +671,14 @@ Taking a screenshot (no window appears; about one second plus `tick / 16` second
 cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png --dump-state /path/to/p2.json
 ```
 
-- Any of `--screenshot`, `--exit-at-tick`, `--dump-state`, `--commands` makes a *QA run*. It ignores keyboard and
-  mouse, renders at scale factor 1, and renders offscreen: Bevy renders into an image on this machine's GPU (Vulkan,
-  Intel Arc), with no window and no Xvfb. The sim waits at each screenshot tick until the PNG is saved, so the PNG
-  shows that tick's exact state with no interpolation. Repeated runs give byte-identical PNGs.
+- Any of `--screenshot`, `--exit-at-tick`, `--dump-state`, `--commands`, `--input-script` makes a *QA run*. It
+  ignores keyboard and mouse, renders at scale factor 1, and renders offscreen: Bevy renders into an image on this
+  machine's GPU (Vulkan, Intel Arc), with no window and no Xvfb. The sim waits at each screenshot tick until the PNG
+  is saved, so the PNG shows that tick's exact state with no interpolation. Repeated runs give byte-identical PNGs.
 - Exit codes: 0 when everything was saved, 1 when a QA step failed (the log says which), 2 for invalid flags.
 - The `--dump-state` JSON holds `tick`, `scenario` (the map's name), `players`, `objects` (every field of
   `sc_sim::Object`), the last tick's `events`, `client` (`local_player`, `camera_center` as a view point in su,
-  `grid_visible`, `recorded_ticks`) and `map` (the terrain).
+  `grid_visible`, `recorded_ticks`, the local player's `selection`) and `map` (the terrain).
 - `--windowed` runs turn vsync off: with the display asleep, X11 paces a vsynced window at one frame per second.
 - Verify visual work yourself. Capture screenshots and look at the PNGs with the Read tool before you report.
 - To look at another part of a map, give the slot a different camera start in the editor (or the file's

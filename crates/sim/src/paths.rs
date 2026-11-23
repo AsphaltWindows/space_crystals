@@ -2,8 +2,9 @@
 //!
 //! [`NavState`] holds the `nav` grids built from the map and the blocking footprints. It is derived data: never
 //! hashed, serialized or compared, rebuilt when a `Sim` is created or loaded. Phase 5b ([`sync`]) rebuilds it when
-//! the blocking footprints change and bumps the sim's `nav_version`. Phase 5c ([`serve`]) turns the movers'
-//! `PathState::Wanted` into paths through `nav::serve`, within `nav::PATH_BUDGET`.
+//! the blocking footprints change and bumps the sim's `nav_version`. Phase 5c ([`serve`]) runs the units' staggered
+//! path checks (`docs/movement.md > 5.6`, `> 6.2`), then turns the movers' `PathState::Wanted` into paths through
+//! `nav::serve`, within `nav::PATH_BUDGET`.
 //!
 //! Invariant: between ticks the grids match the objects, so a loaded save plans exactly like the running game. A
 //! phase after 5b that adds or removes a blocking footprint must call [`sync`] again (`Sim::step` checks this in
@@ -18,8 +19,11 @@ use crate::defs::{Category, Domain, ObjectKind};
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::map::Map;
-use crate::mover::{MoveGoal, MoveStatus, PathState};
-use crate::nav::{self, BlockerKind, Nav, NavClass, NavCounters, NavGrid, NavRules, PathRequest, Search, TileRect};
+use crate::movement;
+use crate::mover::{HALF_STUCK_TICKS, MoveGoal, MoveStatus, Mover, PathState, STAGGER};
+use crate::nav::{
+    self, BlockerKind, Nav, NavClass, NavCounters, NavGrid, NavRules, PathFail, PathRequest, Search, TileRect,
+};
 use crate::object::{Object, Placement};
 use crate::scenario::SpawnProblem;
 use crate::units::{SU_PER_GU, Tick};
@@ -37,6 +41,8 @@ pub(crate) struct NavState {
     search: Search,
     /// The work of the latest phase 5c: output, never state.
     counters: NavCounters,
+    /// The scratch of phase 5d (`movement::step`): spatial grids, rebuilt every tick.
+    moves: movement::Scratch,
 }
 
 impl NavState {
@@ -48,6 +54,7 @@ impl NavState {
             blockers: Vec::new(),
             search: Search::new(),
             counters: NavCounters::default(),
+            moves: movement::Scratch::default(),
         }
     }
 
@@ -60,11 +67,22 @@ impl NavState {
             blockers,
             search: Search::new(),
             counters: NavCounters::default(),
+            moves: movement::Scratch::default(),
         }
     }
 
     pub(crate) fn nav(&self) -> &Nav {
         &self.nav
+    }
+
+    /// The grids, and the scratch of the movement step that reads them.
+    pub(crate) fn for_movement(&mut self) -> (&Nav, &mut movement::Scratch) {
+        (&self.nav, &mut self.moves)
+    }
+
+    /// The work of the latest phase 5d.
+    pub(crate) fn move_counters(&self) -> movement::MoveCounters {
+        self.moves.counters()
     }
 
     pub(crate) fn counters(&self) -> NavCounters {
@@ -85,6 +103,7 @@ impl Clone for NavState {
             blockers: self.blockers.clone(),
             search: Search::new(),
             counters: self.counters,
+            moves: movement::Scratch::default(),
         }
     }
 }
@@ -227,10 +246,53 @@ enum Direct {
     Straight { path: Vec<Vec2>, goal: Vec2 },
 }
 
-/// Phase 5c (`docs/movement.md > 4`, `> 5.5`): serve the units' path requests in `(since, id)` order within
-/// `nav::PATH_BUDGET`, units of one order group sharing a field. Units before `first_new` only. A unit whose path
-/// was planned before the obstacles changed (`nav_version`) plans again. A unit that can't get a path fails its
-/// move (`SimEvent::MoveFailed`).
+/// At most this many waypoints are passed in one staggered check (a technical bound on its line-of-sight tests).
+const MAX_WAYPOINTS_PER_CHECK: usize = 8;
+
+/// The staggered path checks of one unit with a path (`docs/movement.md > 5.6`, `> 6.2`), run in the ticks where
+/// `(tick + id) % STAGGER == 0`, on the grid the unit walks on:
+///
+/// 1. **The ground changed** (`nav_version`): line of sight along the remaining path. If every leg is still clear
+///    the path stays, else the unit plans again. Not counted against the repath cap.
+/// 2. **Steering target**: the unit heads for the farthest waypoint it sees, one after another from the current
+///    one, so it need not touch any of them.
+/// 3. **Lost sight** of the steering waypoint (pushed off the path by sidesteps) **and** no progress for
+///    `HALF_STUCK_TICKS`: a repath that counts against the cap and waits for its backoff. A unit that is still
+///    getting on finds its own way back by sliding, which saves the leg's few repaths for when it needs them.
+fn staggered_check(grid: &NavGrid, pos: Vec2, half: Vec2, mover: &mut Mover, nav_version: u32, tick: Tick) {
+    let sees = |from: Vec2, to: Vec2| nav::los(grid, half, from, to);
+    let next = usize::from(mover.next);
+    let Some(&target) = mover.path.get(next) else {
+        return;
+    };
+    if mover.nav_version != nav_version {
+        let ahead = &mover.path[next..];
+        if sees(pos, target) && ahead.windows(2).all(|leg| sees(leg[0], leg[1])) {
+            mover.nav_version = nav_version;
+        } else {
+            mover.repath(tick);
+            return;
+        }
+    }
+    // The steering also stays out of the unit's avoid tiles, as its path does.
+    let mut at = next;
+    while at + 1 < mover.path.len()
+        && at - next < MAX_WAYPOINTS_PER_CHECK
+        && sees(pos, mover.path[at + 1])
+        && nav::segment_avoids(pos, mover.path[at + 1], &mover.avoid_tiles)
+    {
+        at += 1;
+    }
+    if at != next {
+        mover.next = at as u16;
+    } else if tick.saturating_sub(mover.stuck_clock()) >= HALF_STUCK_TICKS && !sees(pos, target) {
+        mover.counted_repath(tick);
+    }
+}
+
+/// Phase 5c (`docs/movement.md > 4`, `> 5.5`): run the staggered path checks ([`staggered_check`]), then serve the
+/// units' path requests in `(since, id)` order within `nav::PATH_BUDGET`, units of one order group sharing a field.
+/// Units before `first_new` only. A unit that can't get a path fails its move (`SimEvent::MoveFailed`).
 pub(crate) fn serve(
     state: &mut NavState,
     objects: &mut BTreeMap<ObjectId, Object>,
@@ -239,14 +301,22 @@ pub(crate) fn serve(
     tick: Tick,
     events: &mut Vec<SimEvent>,
 ) {
-    // TODO(slice D): check line of sight along the remaining path on the unit's stagger tick, and repath only if a
-    // segment is now blocked (`docs/movement.md > 5.6`).
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
-        if let Some(mover) = &mut o.mover
-            && mover.path_state == PathState::Ready
-            && mover.nav_version != nav_version
-        {
-            mover.repath(tick);
+        let Some(mover) = &mut o.mover else {
+            continue;
+        };
+        if mover.path_state != PathState::Ready || tick.wrapping_add(o.id.0) % STAGGER != 0 {
+            continue;
+        }
+        let def = o.kind.def();
+        let grid = def.unit.as_ref().zip(def.silhouette()).and_then(|(unit, silhouette)| {
+            let class = unit.base_def().nav_class()?;
+            Some((state.nav.grid(class, nav::size_class(silhouette))?, silhouette / 2.0))
+        });
+        match grid {
+            Some((grid, half)) => staggered_check(grid, o.pos, half, mover, nav_version, tick),
+            // Air units fly straight: nothing on the ground changes their path.
+            None => mover.nav_version = nav_version,
         }
     }
 
@@ -315,8 +385,14 @@ pub(crate) fn serve(
         };
         match served.result {
             Ok(path) => mover.follow(path.waypoints, planned_goal(served.id), nav_version),
-            // `docs/movement.md > 5.3`: no path at all (the unit stands on a blocked tile, or its avoid tiles cut
-            // every route). `systems/controls/behaviors.md > MovingToLocation > Failure`.
+            // `docs/movement.md > 5.3`: the avoid tiles cut every route. Tiles are coarse next to units, so that
+            // doesn't prove there is no way: the unit drops them and plans again in the next tick.
+            Err(PathFail::Avoided) if !mover.avoid_tiles.is_empty() => {
+                mover.avoid_tiles.clear();
+                mover.repath(tick);
+            }
+            // No path at all: the unit stands on a blocked tile, or has no grid.
+            // `systems/controls/behaviors.md > MovingToLocation > Failure`.
             Err(_) => {
                 mover.finish(MoveStatus::Failed);
                 events.push(SimEvent::MoveFailed { unit: served.id });

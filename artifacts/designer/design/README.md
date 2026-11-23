@@ -24,7 +24,7 @@ Index of the design docs. Paths are relative to this folder.
 | `systems/units.md` | Unit attributes, collision (incl. crushing), movement models, unit bases (infantry, vehicles, air), turrets |
 | `systems/combat.md` | Attack phases, targeting, attack types, damage calculation (armor, directional, AoE, minimum), shields |
 | `systems/controls/selection_and_hud.md` | Selection, control groups, interface states, HUD bar, selection/command panels, right-click resolution, cursor, command indicators |
-| `systems/controls/commands.md` | Unit commands: Move, Attack, Attack Ground, Attack Move, Patrol, Hold, Stop, Reverse, Enter |
+| `systems/controls/commands.md` | Unit commands (+ group destinations / magic box): Move, Attack, Attack Ground, Attack Move, Patrol, Hold, Stop, Reverse, Enter |
 | `systems/controls/behaviors.md` | Unit/turret behaviors, auto-targeting, action channels (locomotion, orientation, attack) |
 
 ## factions/ — one folder per faction

@@ -22,6 +22,8 @@
 //! assert_eq!(test.replay().run().state_hash(), test.sim().state_hash());
 //! ```
 
+pub mod invariants;
+
 use std::collections::BTreeMap;
 
 use glam::Vec2;
@@ -32,7 +34,7 @@ use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId, SlotId};
 use crate::map::Map;
-use crate::mover::MoveGoal;
+use crate::mover::{MoveGoal, MoveStatus, Mover};
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::replay::Replay;
@@ -40,6 +42,8 @@ use crate::scenario::{Scenario, Spawn, SpawnAt, SpawnSettings};
 use crate::scenarios;
 use crate::sim::{Sim, SimConfig};
 use crate::units::Tick;
+
+use invariants::Invariants;
 
 /// Builds a test [`Scenario`] from an ASCII map ([`Map::from_ascii`]) plus spawns. It has the two slots of
 /// [`scenarios::empty`] and its default setup: players 1 and 2, GDO, in slots 1 and 2, and seed 1.
@@ -97,11 +101,17 @@ impl ScenarioBuilder {
 /// A sim driven by a schedule of commands. It records a [`Replay`] of everything it runs
 /// and keeps every event, since [`Sim::events`] holds only the latest step's. Debug commands
 /// are on unless it starts with another [`SimConfig`] ([`TestSim::with_config`]).
+///
+/// After every tick it checks the movement invariants I1–I7 (`docs/movement.md > 8`, [`invariants`]) and panics
+/// on the first violation, with a picture of the map ([`TestSim::ascii`]). [`TestSim::check_invariants`] is the
+/// switch; it is on from the start.
 pub struct TestSim {
     sim: Sim,
     replay: Replay,
     schedule: BTreeMap<Tick, Vec<PlayerCommand>>,
     events: Vec<(Tick, SimEvent)>,
+    /// `None` while the invariant checks are off.
+    invariants: Option<Invariants>,
 }
 
 impl TestSim {
@@ -114,12 +124,27 @@ impl TestSim {
     /// [`TestSim::new`] with the game options `config` in the scenario's setup, in place of its own.
     pub fn with_config(mut scenario: Scenario, config: SimConfig) -> Self {
         scenario.setup.config = config;
+        let sim = Sim::new(&scenario);
         Self {
-            sim: Sim::new(&scenario),
+            invariants: Some(Invariants::new(&sim)),
+            sim,
             replay: Replay::new(scenario),
             schedule: BTreeMap::new(),
             events: Vec::new(),
         }
+    }
+
+    /// The switch for the invariant checks after every tick (`docs/movement.md > 8`): on by default. Turn them
+    /// off only where their cost matters (timing runs); turning them on again starts from the current state.
+    pub fn check_invariants(&mut self, on: bool) -> &mut Self {
+        self.invariants = on.then(|| Invariants::new(&self.sim));
+        self
+    }
+
+    /// The map with its units as letters, and a legend ([`invariants::ascii`]): the whole map, or for a large one
+    /// the window around `focus`.
+    pub fn ascii(&self, focus: Option<Vec2>) -> String {
+        invariants::ascii(&self.sim, focus)
     }
 
     /// Schedules `command` from `player` for the step that advances the sim to `tick`
@@ -176,6 +201,16 @@ impl TestSim {
             commands: self.schedule.remove(&tick).unwrap_or_default(),
         };
         self.sim.step(&inputs);
+        if let Some(invariants) = &mut self.invariants
+            && let Err(violation) = invariants.check(&self.sim, &inputs)
+        {
+            panic!(
+                "invariant {} broken in tick {tick}: {}\n{}",
+                violation.invariant,
+                violation.message,
+                invariants::ascii(&self.sim, Some(violation.at))
+            );
+        }
         self.replay.record(inputs);
         self.events.extend(self.sim.events().iter().map(|e| (tick, e.clone())));
         self
@@ -204,6 +239,30 @@ impl TestSim {
 
     pub fn sim(&self) -> &Sim {
         &self.sim
+    }
+
+    /// Where object `id` is. Panics if it doesn't exist.
+    pub fn pos(&self, id: u32) -> Vec2 {
+        self.object(id).pos
+    }
+
+    /// Unit `id`'s movement state. Panics if `id` isn't a unit.
+    pub fn mover(&self, id: u32) -> &Mover {
+        self.object(id)
+            .mover
+            .as_ref()
+            .unwrap_or_else(|| panic!("#{id} is not a unit"))
+    }
+
+    /// How unit `id`'s move is going.
+    pub fn status(&self, id: u32) -> MoveStatus {
+        self.mover(id).status
+    }
+
+    fn object(&self, id: u32) -> &Object {
+        self.sim
+            .object(ObjectId(id))
+            .unwrap_or_else(|| panic!("there is no object #{id}"))
     }
 
     /// Everything run so far, ready to play back.

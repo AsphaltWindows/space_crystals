@@ -1,7 +1,8 @@
-//! Unit moves (`systems/controls/behaviors.md > MovingToLocation`, `docs/movement.md > 4–6`): the naive mover of
-//! M1-B follows smoothed paths at its top speed, arrives exactly, goes around walls and cliffs, plays queued orders
-//! back to back, spreads a group over its slots, replans when the ground changes, and stays deterministic across a
-//! save and between runs.
+//! Unit moves (`systems/controls/behaviors.md > MovingToLocation`, `docs/movement.md > 4–6`): a unit follows its
+//! smoothed path at its top speed, arrives exactly, goes around walls and cliffs, plays queued orders back to back,
+//! spreads a group over its slots, replans when the ground changes, and stays deterministic across a save and
+//! between runs. Units in each other's way are in `movement_collision.rs`. Every `TestSim` checks the invariants
+//! I1–I7 after each tick (`docs/movement.md > 8`).
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
@@ -296,8 +297,8 @@ fn an_unreachable_goal_is_retargeted() {
     assert_eq!(end, TilePos::containing(end).center());
 }
 
-/// `docs/movement.md > 5.7`: a station spawned across the route rebuilds the grids (a new `nav_version`); the unit
-/// replans and goes around it.
+/// `docs/movement.md > 5.7`, `> 5.6`: a station spawned across the route rebuilds the grids (a new `nav_version`);
+/// on its next staggered check the unit finds its path cut, replans and goes around it.
 #[test]
 fn a_new_footprint_on_the_route_makes_the_unit_replan() {
     let mut t = ScenarioBuilder::new(OPEN).start();
@@ -317,6 +318,9 @@ fn a_new_footprint_on_the_route_makes_the_unit_replan() {
     t.step();
     assert_eq!(t.sim().objects().count(), 2, "the station");
     assert_eq!(t.sim().nav_version(), 1);
+    // Unit 1 checks in the ticks where `(tick + 1) % 4 == 0`: tick 11.
+    assert_eq!((mover(&t, 1).nav_version, mover(&t, 1).path.len()), (0, 2));
+    t.step();
     let replanned = mover(&t, 1);
     assert_eq!(replanned.nav_version, 1);
     assert!(replanned.path.len() > 2, "{:?}", replanned.path);

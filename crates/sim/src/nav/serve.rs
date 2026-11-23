@@ -4,7 +4,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use super::los::clamp_to_clear;
-use super::{GROUP_FIELD_MIN, Nav, NavClass, NavCounters, NavGrid, Search, los, smooth};
+use super::{GROUP_FIELD_MIN, Nav, NavClass, NavCounters, NavGrid, Search, los, smooth, smooth_avoiding};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::units::{Tick, TilePos};
@@ -130,7 +130,7 @@ pub fn find_path(
         .ok_or(PathFail::Avoided)?
         .tiles;
     Ok(Path {
-        waypoints: smooth(grid, half, start, &tiles, goal),
+        waypoints: smooth_avoiding(grid, half, start, &tiles, goal, avoid),
         retargeted,
     })
 }
