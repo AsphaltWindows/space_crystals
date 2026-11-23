@@ -217,8 +217,16 @@ mod tests {
         let map = with(Map::new(10, 8), Symmetry::None);
         assert_eq!(brush_tiles(&map.terrain, t(4, 4), 1), vec![t(4, 4)]);
         assert_eq!(brush_tiles(&map.terrain, t(4, 4), 3).len(), 9);
-        assert_eq!(brush_tiles(&map.terrain, t(4, 4), 9).len(), 9 * 8, "the 9th row is off the map");
-        assert_eq!(brush_tiles(&map.terrain, t(0, 0), 5).len(), 9, "a corner keeps a 3×3 quarter");
+        assert_eq!(
+            brush_tiles(&map.terrain, t(4, 4), 9).len(),
+            9 * 8,
+            "the 9th row is off the map"
+        );
+        assert_eq!(
+            brush_tiles(&map.terrain, t(0, 0), 5).len(),
+            9,
+            "a corner keeps a 3×3 quarter"
+        );
         // The height brush changes the (N + 1)² corners of its N × N tiles.
         assert_eq!(dab_corners(&map, t(4, 4), 3).len(), 16);
         assert_eq!(dab_corners(&map, t(0, 0), 1).len(), 4);

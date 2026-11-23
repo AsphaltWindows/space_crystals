@@ -257,7 +257,7 @@ mod tests {
             Map::new(5, 4),
             Map::from_ascii("...\n...\n\n0123\n1234\n2345").unwrap(),
             cliff_map(),
-            sc_sim::scenarios::dev_skirmish().map,
+            sc_sim::scenarios::dev_skirmish().map.terrain,
         ];
         for map in &maps {
             let bounds = drawn_bounds(map);

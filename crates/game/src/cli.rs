@@ -459,7 +459,10 @@ mod tests {
         assert_eq!(opened.scenario.map, map);
         let map_args = vec![String::from("--map"), bad.display().to_string()];
         let error = into_config(parse(&map_args).unwrap()).unwrap_err();
-        assert!(error.contains("1 problem(s)") && error.contains("off the map"), "{error}");
+        assert!(
+            error.contains("1 problem(s)") && error.contains("off the map"),
+            "{error}"
+        );
 
         // Review finding: `--player` doesn't stop the editor from opening a file, even one without that slot or
         // without slots (play-tests start as its first slot); the game checks the player.

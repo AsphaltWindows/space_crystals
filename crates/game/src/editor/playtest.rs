@@ -77,11 +77,8 @@ impl Editor<'_> {
             factions.resize(index + 1, Faction::Gdo);
         }
         factions[index] = faction;
-        self.status.info(format!(
-            "Play-tests: slot {} plays {}",
-            slot.0,
-            faction_name(faction)
-        ));
+        self.status
+            .info(format!("Play-tests: slot {} plays {}", slot.0, faction_name(faction)));
     }
 
     pub(super) fn set_play_test_slot(&mut self, slot: SlotId) {

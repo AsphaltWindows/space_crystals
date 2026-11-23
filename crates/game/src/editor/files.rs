@@ -166,7 +166,10 @@ mod tests {
         assert_eq!((map.terrain.width(), map.terrain.height()), NEW_MAP_SIZE);
         let defaults = MapSettings::default();
         assert_eq!(NEW_MAP_SIZE, (defaults.width, defaults.height));
-        assert_eq!((map.map_type, map.symmetry, map.slots.len()), (MapType::SkirmishDefault, Symmetry::Rotate180, 2));
+        assert_eq!(
+            (map.map_type, map.symmetry, map.slots.len()),
+            (MapType::SkirmishDefault, Symmetry::Rotate180, 2)
+        );
         assert_eq!(map.validate(), []);
     }
 

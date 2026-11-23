@@ -429,9 +429,9 @@ impl Editor<'_> {
         let map = self.doc.map();
         match owner {
             Some(slot) if map.slot(slot).is_none() => self.status.warn(format!("There is no slot {}", slot.0)),
-            Some(_) if map.map_type == MapType::SkirmishDefault => self.status.warn(
-                "A Skirmish Default map takes neutral objects only: owned ones go in the Starting Layouts",
-            ),
+            Some(_) if map.map_type == MapType::SkirmishDefault => self
+                .status
+                .warn("A Skirmish Default map takes neutral objects only: owned ones go in the Starting Layouts"),
             _ => self.tools.owner = owner,
         }
     }

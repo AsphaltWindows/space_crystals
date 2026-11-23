@@ -151,9 +151,7 @@ fn spawn_palette(commands: &mut Commands) {
                 r.spawn((PanelText::ElevationLevel, label("", TEXT_VH, TEXT)));
                 r.spawn(button("+", EditorAction::StepElevation(1)));
             });
-            panel.spawn(note(
-                "Sets the brush's tile corners; slopes follow and stop at cliffs.",
-            ));
+            panel.spawn(note("Sets the brush's tile corners; slopes follow and stop at cliffs."));
 
             panel.spawn(header("Objects"));
             for group in palette_groups() {

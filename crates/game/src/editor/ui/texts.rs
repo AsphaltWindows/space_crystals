@@ -222,10 +222,7 @@ pub fn update_panel_texts(
                     1 => String::new(),
                     n => format!(", {n} parts"),
                 };
-                set_text(
-                    &mut text,
-                    format!("{}{parts} (fixed)", symmetry_label(map.symmetry)),
-                );
+                set_text(&mut text, format!("{}{parts} (fixed)", symmetry_label(map.symmetry)));
             }
             PanelText::File => {
                 let path = doc

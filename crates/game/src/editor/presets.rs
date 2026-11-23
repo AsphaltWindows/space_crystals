@@ -10,6 +10,7 @@ use sc_sim::{TileLook, TilePreset, TilePresetId};
 use serde::{Deserialize, Serialize};
 
 use super::actions::Editor;
+use super::tools::Tool;
 
 /// The most custom presets a map gets in the editor (placeholder: the design sets no limit; the map format's text
 /// symbols allow 87).
@@ -74,7 +75,8 @@ pub fn default_preset_count() -> usize {
 }
 
 impl Editor<'_> {
-    /// Adds a custom preset with Plane's properties and look, named "Custom n", and chooses it for painting.
+    /// Adds a custom preset with Plane's properties and look, named "Custom n", and chooses it for painting (or
+    /// filling).
     pub(super) fn add_preset(&mut self) {
         let presets = self.doc.map().terrain.presets();
         let custom = presets.len().saturating_sub(default_preset_count());
@@ -96,8 +98,12 @@ impl Editor<'_> {
         self.finish_gesture();
         let id = self.doc.edit(|m| m.terrain.add_preset(preset));
         self.tools.preset = id;
-        self.status
-            .info(format!("Added the custom preset {name}: set its properties and look below"));
+        if self.tools.tool != Tool::Fill {
+            self.tools.tool = Tool::Paint;
+        }
+        self.status.info(format!(
+            "Added the custom preset {name}: set its properties and look below"
+        ));
     }
 
     /// Changes custom preset `id` with `change`; the default presets are fixed.
@@ -127,9 +133,8 @@ impl Editor<'_> {
     pub(super) fn set_preset_name(&mut self, id: TilePresetId, name: String) {
         let name = name.trim().to_string();
         if name.is_empty() || name.chars().count() > MAX_PRESET_NAME_CHARS {
-            self.status.warn(format!(
-                "A preset name has 1 to {MAX_PRESET_NAME_CHARS} characters"
-            ));
+            self.status
+                .warn(format!("A preset name has 1 to {MAX_PRESET_NAME_CHARS} characters"));
             return;
         }
         self.edit_preset(id, |p| p.name = name);

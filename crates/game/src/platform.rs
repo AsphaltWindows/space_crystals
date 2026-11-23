@@ -12,9 +12,7 @@ use bevy::input::InputPlugin;
 use bevy::prelude::*;
 use bevy::render::RenderPlugin;
 use bevy::render::render_resource::TextureFormat;
-use bevy::window::{
-    ExitCondition, PresentMode, PrimaryWindow, WindowCloseRequested, WindowRef, WindowResolution,
-};
+use bevy::window::{ExitCondition, PresentMode, PrimaryWindow, WindowCloseRequested, WindowRef, WindowResolution};
 use bevy::winit::WinitPlugin;
 
 /// Present while closing the window needs a confirmation: the map editor asks a second time when there are unsaved

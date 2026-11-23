@@ -53,8 +53,9 @@ impl Editor<'_> {
             _ => "do that again",
         };
         self.confirm.0 = Some(action);
-        self.status
-            .warn(format!("Unsaved changes: {again} to discard them, or save first (Ctrl+S)"));
+        self.status.warn(format!(
+            "Unsaved changes: {again} to discard them, or save first (Ctrl+S)"
+        ));
         false
     }
 

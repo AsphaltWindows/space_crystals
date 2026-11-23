@@ -129,40 +129,42 @@ pub fn rebuild_preset_editor(
         .is_default()
         .then(|| doc.map().terrain.presets().get(id.0 as usize).map(|p| p.name.clone()))
         .flatten();
-    rebuild(&mut commands, &list, &mut shown, (id, fixed_name), |list, (id, fixed_name)| {
-        let id = *id;
-        match fixed_name {
-            Some(name) => {
-                list.spawn(label(
-                    format!("{name}: a default preset, fixed"),
-                    SMALL_VH,
-                    DIM_TEXT,
-                ));
-            }
-            None => {
-                list.spawn(row()).with_children(|r| {
-                    r.spawn(label("Name", SMALL_VH, DIM_TEXT));
-                    r.spawn(text_field(TextField::PresetName(id), "", 14.0));
-                    r.spawn(small_button("Remove", EditorAction::RemovePreset(id)));
-                });
-            }
-        }
-        list.spawn(row()).with_children(|r| {
-            for flag in PresetFlag::ALL {
-                r.spawn(small_button(flag.label(), EditorAction::TogglePresetFlag(id, flag)));
-            }
-        });
-        list.spawn(row()).with_children(|r| {
-            r.spawn(label("Look", SMALL_VH, DIM_TEXT));
-            for look in TileLook::ALL {
-                r.spawn(button_frame(EditorAction::SetPresetLook(id, look)))
-                    .with_children(|b| {
-                        b.spawn(swatch(tile_color(look, 0.0).into()));
-                        b.spawn(label(look.label(), SMALL_VH, TEXT));
+    rebuild(
+        &mut commands,
+        &list,
+        &mut shown,
+        (id, fixed_name),
+        |list, (id, fixed_name)| {
+            let id = *id;
+            match fixed_name {
+                Some(name) => {
+                    list.spawn(label(format!("{name}: a default preset, fixed"), SMALL_VH, DIM_TEXT));
+                }
+                None => {
+                    list.spawn(row()).with_children(|r| {
+                        r.spawn(label("Name", SMALL_VH, DIM_TEXT));
+                        r.spawn(text_field(TextField::PresetName(id), "", 14.0));
+                        r.spawn(small_button("Remove", EditorAction::RemovePreset(id)));
                     });
+                }
             }
-        });
-    });
+            list.spawn(row()).with_children(|r| {
+                for flag in PresetFlag::ALL {
+                    r.spawn(small_button(flag.label(), EditorAction::TogglePresetFlag(id, flag)));
+                }
+            });
+            list.spawn(row()).with_children(|r| {
+                r.spawn(label("Look", SMALL_VH, DIM_TEXT));
+                for look in TileLook::ALL {
+                    r.spawn(button_frame(EditorAction::SetPresetLook(id, look)))
+                        .with_children(|b| {
+                            b.spawn(swatch(tile_color(look, 0.0).into()));
+                            b.spawn(label(look.label(), SMALL_VH, TEXT));
+                        });
+                }
+            });
+        },
+    );
 }
 
 pub fn rebuild_owners(
@@ -226,35 +228,41 @@ pub fn rebuild_slots(
         })
         .collect();
     let removable = map.slots.len() > map.image_count();
-    rebuild(&mut commands, &list, &mut shown, (rows, removable), |list, (rows, removable)| {
-        for slot in rows {
-            let start = format!("start {}, {}", slot.start.x, slot.start.y);
-            let camera = slot.camera.map_or("camera -".into(), |c| {
-                let t = TilePos::containing(c);
-                format!("camera {}, {}", t.x, t.y)
-            });
-            list.spawn(row()).with_children(|r| {
-                r.spawn(swatch(slot_color(slot.id)));
-                match slot.source {
-                    None => {
-                        r.spawn(button(format!("S{}", slot.id.0), EditorAction::SelectSlot(slot.id)));
-                        r.spawn(label(format!("{start} | {camera}"), SMALL_VH, TEXT));
-                        if *removable {
-                            r.spawn(small_button("X", EditorAction::RemoveSlots(slot.id)));
+    rebuild(
+        &mut commands,
+        &list,
+        &mut shown,
+        (rows, removable),
+        |list, (rows, removable)| {
+            for slot in rows {
+                let start = format!("start {}, {}", slot.start.x, slot.start.y);
+                let camera = slot.camera.map_or("camera -".into(), |c| {
+                    let t = TilePos::containing(c);
+                    format!("camera {}, {}", t.x, t.y)
+                });
+                list.spawn(row()).with_children(|r| {
+                    r.spawn(swatch(slot_color(slot.id)));
+                    match slot.source {
+                        None => {
+                            r.spawn(button(format!("S{}", slot.id.0), EditorAction::SelectSlot(slot.id)));
+                            r.spawn(label(format!("{start} | {camera}"), SMALL_VH, TEXT));
+                            if *removable {
+                                r.spawn(small_button("X", EditorAction::RemoveSlots(slot.id)));
+                            }
+                        }
+                        Some(source) => {
+                            r.spawn(label(format!("S{}", slot.id.0), TEXT_VH, DIM_TEXT));
+                            r.spawn(label(
+                                format!("image of S{}: {start} | {camera}", source.0),
+                                SMALL_VH,
+                                DIM_TEXT,
+                            ));
                         }
                     }
-                    Some(source) => {
-                        r.spawn(label(format!("S{}", slot.id.0), TEXT_VH, DIM_TEXT));
-                        r.spawn(label(
-                            format!("image of S{}: {start} | {camera}", source.0),
-                            SMALL_VH,
-                            DIM_TEXT,
-                        ));
-                    }
-                }
-            });
-        }
-    });
+                });
+            }
+        },
+    );
 }
 
 /// One row per slot: its player's faction (click for the next one) and whether you play it.
@@ -271,8 +279,8 @@ pub fn rebuild_play_test(
     let wanted = doc.map().slot_ids().map(|s| (s, setup.faction(s))).collect();
     rebuild(&mut commands, &list, &mut shown, wanted, |list, rows| {
         for &(slot, faction) in rows {
-            let next = Faction::ALL
-                [(Faction::ALL.iter().position(|f| *f == faction).unwrap_or(0) + 1) % Faction::ALL.len()];
+            let next =
+                Faction::ALL[(Faction::ALL.iter().position(|f| *f == faction).unwrap_or(0) + 1) % Faction::ALL.len()];
             list.spawn(row()).with_children(|r| {
                 r.spawn(swatch(slot_color(slot)));
                 r.spawn((
@@ -282,16 +290,17 @@ pub fn rebuild_play_test(
                         ..default()
                     },
                 ));
+                // A fixed width, so that the column of faction buttons lines up (replaces the frame's `Node`).
                 r.spawn((
                     button_frame(EditorAction::SetPlayTestFaction(slot, next)),
-                    Node {
-                        width: vh(11.0),
-                        padding: UiRect::axes(vh(0.7), vh(0.35)),
-                        border: UiRect::all(px(1)),
-                        ..default()
-                    },
                     children![label(faction_name(faction), TEXT_VH, TEXT)],
-                ));
+                ))
+                .insert(Node {
+                    width: vh(11.0),
+                    padding: UiRect::axes(vh(0.7), vh(0.35)),
+                    border: UiRect::all(px(1)),
+                    ..default()
+                });
                 r.spawn(small_button("you", EditorAction::SetPlayTestSlot(slot)));
             });
         }

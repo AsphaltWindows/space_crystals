@@ -65,7 +65,10 @@ pub(super) fn locked_cursor(o: &mut Overlay, tile: TilePos) {
 
 /// Outlines what an edit of `tiles` changes in the locked part: their images.
 fn image_outline(o: &mut Overlay, map: &MapDef, tiles: &BTreeSet<TilePos>) {
-    let images: BTreeSet<TilePos> = terrain::tiles_with_images(map, tiles).difference(tiles).copied().collect();
+    let images: BTreeSet<TilePos> = terrain::tiles_with_images(map, tiles)
+        .difference(tiles)
+        .copied()
+        .collect();
     if !images.is_empty() {
         o.tiles_outline(&images, IMAGE_EDGE);
     }
@@ -106,11 +109,7 @@ pub(super) fn height_preview(o: &mut Overlay, map: &MapDef, tools: &EditorTools,
             drawn_at_height(c.pos(), f32::from(from)),
             drawn_at_height(c.pos(), f32::from(to)),
         );
-        let color = if targets.contains(&c) {
-            TARGET_DOT
-        } else {
-            CASCADE_DOT
-        };
+        let color = if targets.contains(&c) { TARGET_DOT } else { CASCADE_DOT };
         o.segment(a, b, 0.003, color.with_alpha(0.6));
         o.dot(b, size, color);
     }
@@ -118,7 +117,10 @@ pub(super) fn height_preview(o: &mut Overlay, map: &MapDef, tools: &EditorTools,
 
 /// The Fill tool at the cursor: the start tile and its images.
 pub(super) fn fill_preview(o: &mut Overlay, map: &MapDef, tile: TilePos) {
-    for t in terrain::image_tiles(map, tile).into_iter().filter(|t| o.map.in_bounds(*t)) {
+    for t in terrain::image_tiles(map, tile)
+        .into_iter()
+        .filter(|t| o.map.in_bounds(*t))
+    {
         o.tiles_outline(&BTreeSet::from([t]), BRUSH_EDGE);
     }
 }

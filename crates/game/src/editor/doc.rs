@@ -289,10 +289,16 @@ mod tests {
         assert!(!d.regenerate(), "nothing changed");
         d.edit(|m| m.terrain.set_tile(TilePos::new(1, 2), Tile::new(TilePresetId::WATER)));
         assert!(d.is_stale());
-        assert_eq!(d.map().first_asymmetry(), Some(sc_sim::scenario::Asymmetry::Tile(TilePos::new(14, 2))));
+        assert_eq!(
+            d.map().first_asymmetry(),
+            Some(sc_sim::scenario::Asymmetry::Tile(TilePos::new(14, 2)))
+        );
         assert!(d.regenerate());
         assert!(!d.is_stale());
-        assert_eq!(d.map().terrain.tile(TilePos::new(14, 2)), Some(Tile::new(TilePresetId::WATER)));
+        assert_eq!(
+            d.map().terrain.tile(TilePos::new(14, 2)),
+            Some(Tile::new(TilePresetId::WATER))
+        );
         assert_eq!(d.map().first_asymmetry(), None);
         d.undo();
         assert!(!d.is_stale() && !d.regenerate());

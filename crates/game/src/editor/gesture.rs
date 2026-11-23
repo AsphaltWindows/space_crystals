@@ -205,7 +205,11 @@ impl Editor<'_> {
     /// whole level. It works on the locked part too: it changes nothing.
     pub(super) fn pick(&mut self, pos: Vec2) {
         let terrain = &self.doc.map().terrain;
-        let Some(tile) = pos.is_finite().then(|| terrain.tile(TilePos::containing(pos))).flatten() else {
+        let Some(tile) = pos
+            .is_finite()
+            .then(|| terrain.tile(TilePos::containing(pos)))
+            .flatten()
+        else {
             return;
         };
         let name = terrain.preset(tile.preset).name.clone();
@@ -257,7 +261,9 @@ impl Editor<'_> {
                     .map(|_| Selection::CameraStart(id))
             })
             .or_else(|| {
-                let id = slots.iter().find(|&&id| map.slot(id).is_some_and(|s| s.start == tile))?;
+                let id = slots
+                    .iter()
+                    .find(|&&id| map.slot(id).is_some_and(|s| s.start == tile))?;
                 Some(Selection::Start(*id))
             });
         if let Some(marker) = marker {
@@ -296,8 +302,13 @@ impl Editor<'_> {
     /// One brush dab of the Paint or Height tool at `center`: on the brush's tiles in the editable part.
     fn dab(&mut self, center: TilePos) {
         let tools = &*self.tools;
-        let (tool, preset, mode, level, brush) =
-            (tools.tool, tools.preset, tools.elevation_mode, tools.elevation, tools.brush);
+        let (tool, preset, mode, level, brush) = (
+            tools.tool,
+            tools.preset,
+            tools.elevation_mode,
+            tools.elevation,
+            tools.brush,
+        );
         if tool == Tool::Paint {
             let tiles = terrain::dab_tiles(self.doc.map(), center, brush);
             if tiles.is_empty() {
@@ -352,10 +363,7 @@ impl Editor<'_> {
             return;
         };
         let at = objects::dragged_spawn(&map.terrain, spawn.kind, center);
-        let moved = Spawn {
-            at,
-            ..spawn.clone()
-        };
+        let moved = Spawn { at, ..spawn.clone() };
         if spawn.at != at && objects::check_placement(map, &moved, Some(index)).is_ok() {
             self.doc.map_mut().spawns[index].at = at;
         }

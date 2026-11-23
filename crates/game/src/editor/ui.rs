@@ -183,9 +183,7 @@ impl UiState<'_> {
             EditorAction::TogglePresetFlag(id, _)
             | EditorAction::SetPresetLook(id, _)
             | EditorAction::RemovePreset(id) => !id.is_default(),
-            EditorAction::EditNewMap(NewMapField::Slots(n)) => {
-                MapSettings::slot_counts(settings.symmetry).contains(n)
-            }
+            EditorAction::EditNewMap(NewMapField::Slots(n)) => MapSettings::slot_counts(settings.symmetry).contains(n),
             EditorAction::EditNewMap(NewMapField::Symmetry(sc_sim::Symmetry::None)) => {
                 settings.map_type != sc_sim::MapType::SkirmishDefault
             }

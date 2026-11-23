@@ -63,9 +63,10 @@ fn patch_at(x: i32, y: i32) -> Spawn {
 fn small_scenario() -> Scenario {
     let mut scenario = scenarios::empty(16, 12);
     scenario
+        .map
         .spawns
         .extend([patch_at(2, 2), patch_at(3, 2), patch_at(10, 9)]);
-    scenario.spawns.push(Spawn::new(
+    scenario.map.spawns.push(Spawn::new(
         ObjectKind::SupplyDeliveryStation,
         None,
         SpawnAt::Tile(TilePos::new(6, 5)),
@@ -80,8 +81,8 @@ fn plateau_scenario() -> Scenario {
     let targets: BTreeMap<CornerPos, u8> = (12..=20)
         .flat_map(|x| (9..=15).map(move |y| (CornerPos::new(x, y), 3)))
         .collect();
-    scenario.map.set_corner_heights(&targets);
-    scenario.spawns.push(patch_at(16, 12));
+    scenario.map.terrain.set_corner_heights(&targets);
+    scenario.map.spawns.push(patch_at(16, 12));
     assert_eq!(scenario.validate(), vec![]);
     scenario
 }
@@ -208,22 +209,24 @@ fn a_paused_sim_keeps_its_tick_and_its_pending_commands() {
 #[test]
 fn the_camera_starts_at_the_players_camera_start() {
     let mut scenario = scenarios::empty(64, 48);
-    scenario.players[1].camera_start = Some(TilePos::new(40, 30).center());
+    scenario.map.slots[1].camera_start = Some(TilePos::new(40, 30).center());
     let mut config = AppConfig::new(scenario);
     config.player = PlayerId(2);
     let mut app = headless(config);
     app.update();
     assert_eq!(camera_center(&app), TilePos::new(40, 30).center());
-    // Player 1 has no camera start and no starting structure yet: its start location stands in.
+    // Player 1's slot has no camera start, and there is no starting structure yet: its start position stands in.
+    // (The map center, for a player without a slot, is tested in `camera.rs`.)
     let mut app = headless_app(scenarios::empty(64, 48));
     app.update();
     assert_eq!(camera_center(&app), TilePos::new(16, 12).center());
-    // Without a start location, the map center.
+}
+
+/// A 64 × 48 map whose camera starts at its center, far from the edges where the view would be clamped.
+fn centered_scenario() -> Scenario {
     let mut scenario = scenarios::empty(64, 48);
-    scenario.players[0].start_location = None;
-    let mut app = headless_app(scenario);
-    app.update();
-    assert_eq!(camera_center(&app), Vec2::new(32.0, 24.0) * 64.0);
+    scenario.map.slots[0].camera_start = Some(Vec2::new(32.0, 24.0) * 64.0);
+    scenario
 }
 
 #[test]
@@ -271,9 +274,7 @@ fn injected_pan_actions_move_the_camera_and_it_stays_clamped() {
 #[test]
 fn the_middle_mouse_grab_keeps_the_grabbed_point_under_the_cursor() {
     // The view starts at the map's center, far from the edges where it would be clamped.
-    let mut scenario = scenarios::empty(64, 48);
-    scenario.players[0].start_location = None;
-    let mut app = headless_app(scenario);
+    let mut app = headless_app(centered_scenario());
     updates(&mut app, 2);
     let start = camera_center(&app);
     let size = *app.world().resource::<SurfaceSize>();
@@ -416,7 +417,7 @@ fn loading_another_scenario_rebuilds_the_map_and_the_visuals() {
     assert_eq!(app.world().resource::<MapView>().builds, 1);
 
     let mut other = scenarios::empty(20, 10);
-    other.spawns.push(patch_at(1, 1));
+    other.map.spawns.push(patch_at(1, 1));
     load_scenario(app.world_mut(), other);
     app.update();
 
@@ -613,9 +614,7 @@ fn a_rebound_action_follows_its_new_binding() {
 /// meanwhile doesn't stop them.
 #[test]
 fn arrow_keys_and_the_middle_button_pan_through_their_bindings() {
-    let mut scenario = scenarios::empty(64, 48);
-    scenario.players[0].start_location = None;
-    let mut app = headless_app(scenario);
+    let mut app = headless_app(centered_scenario());
     updates(&mut app, 2);
     let start = camera_center(&app);
     input(&mut app).keys.press(KeyCode::ArrowLeft);
@@ -843,7 +842,7 @@ fn the_clients_recording_replays_to_the_same_state_hashes() {
     for sim_config in [SimConfig::DEBUG, SimConfig::default()] {
         let mut scenario = small_scenario();
         // A station waiting for its first delivery, so that the state changes by itself too.
-        scenario.spawns.push(Spawn {
+        scenario.map.spawns.push(Spawn {
             settings: Some(SpawnSettings::SupplyDeliveryStation {
                 starting_supplies: 0,
                 delivery_size: 30,
@@ -857,7 +856,7 @@ fn the_clients_recording_replays_to_the_same_state_hashes() {
         });
         assert_eq!(scenario.validate(), vec![]);
         let mut config = AppConfig::new(scenario);
-        config.sim_config = sim_config;
+        config.scenario.setup.config = sim_config;
         let mut app = headless(config);
         let initial_ids = sim_ids(&app);
         let middle = view_middle(&app);
@@ -896,11 +895,12 @@ fn the_clients_recording_replays_to_the_same_state_hashes() {
             assert_eq!(sim_ids(&app), initial_ids, "every debug command was rejected");
         }
 
+        // A replay is the map, the game setup (game options included) and the inputs.
         let replay = Replay {
             scenario: app.world().resource::<LoadedScenario>().0.clone(),
-            config: sim.config(),
             inputs: app.world().resource::<RecordedInputs>().ticks.clone(),
         };
+        assert_eq!(replay.scenario.setup.config, sim_config);
         let mut bare = replay.start();
         loop {
             assert_eq!(
@@ -936,7 +936,7 @@ fn advance(app: &mut App, fraction: f64) -> (f32, Vec2) {
 #[test]
 fn objects_are_drawn_between_their_tick_positions_except_after_a_teleport() {
     let mut scenario = scenarios::empty(16, 12);
-    scenario.spawns.push(patch_at(2, 2));
+    scenario.map.spawns.push(patch_at(2, 2));
     let mut app = headless_app(scenario);
     updates(&mut app, 2);
     // Nothing in the sim moves yet: make object 1 a free (not tile-based) object that moved in the last tick.

@@ -423,7 +423,10 @@ mod tests {
             commit(TextField::Description, "Two bases"),
             Ok(Some(EditorAction::SetDescription("Two bases".into())))
         );
-        assert_eq!(commit(TextField::Seed, "42"), Ok(Some(EditorAction::SetPlayTestSeed(42))));
+        assert_eq!(
+            commit(TextField::Seed, "42"),
+            Ok(Some(EditorAction::SetPlayTestSeed(42)))
+        );
         assert!(commit(TextField::Seed, "").is_err());
         assert_eq!(
             commit(TextField::Width, "24"),
@@ -443,7 +446,11 @@ mod tests {
             commit(TextField::NewMapWidth, "96"),
             Ok(Some(EditorAction::EditNewMap(NewMapField::Width(96))))
         );
-        assert_eq!(commit(TextField::NewMapName, "untitled"), Ok(None), "the dialog's value");
+        assert_eq!(
+            commit(TextField::NewMapName, "untitled"),
+            Ok(None),
+            "the dialog's value"
+        );
 
         // A map with 90 degree rotation stays square.
         let square = MapSettings {

@@ -263,7 +263,10 @@ fn draw_overlay(
         }
         None => None,
     };
-    if let Some(rect) = selected.map(|r| r.inflate(o.line * 2.0)).filter(|r| near_map(terrain, *r)) {
+    if let Some(rect) = selected
+        .map(|r| r.inflate(o.line * 2.0))
+        .filter(|r| near_map(terrain, *r))
+    {
         o.surface_outline(rect, SELECTION_EDGE);
     }
 
