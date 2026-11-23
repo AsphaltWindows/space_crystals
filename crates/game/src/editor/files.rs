@@ -1,18 +1,22 @@
-//! Map files: the `maps/` directory at the repository root, listing it, and loading and saving scenarios in the
-//! sim's JSON scenario format (`ARCHITECTURE.md > Sim scenarios and tests > Scenario files`).
+//! Map files: the `maps/` directory at the repository root, listing it, and loading and saving maps in the sim's
+//! versioned JSON map format (`ARCHITECTURE.md > Sim scenarios and tests > Map files`).
 
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use sc_sim::{Scenario, scenarios};
+use sc_sim::{MapDef, MapSettings};
 
-use crate::cli::load_scenario_file;
+use crate::cli::load_map_file;
 
-/// Size of a new map (placeholder until Q0004 settles map sizes).
-pub const NEW_MAP_SIZE: (u32, u32) = (64, 48);
 /// The largest map side: the sim's, which loading and validation enforce too.
 pub use sc_sim::map::MAX_MAP_SIDE;
+/// The shortest side the editor creates or resizes to (a placeholder, see its docs).
+pub use sc_sim::scenario::MIN_MAP_SIDE;
 /// The name of a new map.
 pub const NEW_MAP_NAME: &str = "untitled";
+/// Size of the map the editor starts with when it has no file: the creation dialog's default
+/// ([`MapSettings::default`]).
+pub const NEW_MAP_SIZE: (u32, u32) = (64, 48);
 
 /// `maps/` at the repository root, where new maps are saved and the files panel looks.
 pub fn default_maps_dir() -> PathBuf {
@@ -37,19 +41,37 @@ pub fn list_maps(dir: &Path) -> Vec<PathBuf> {
     maps
 }
 
-/// Reads a scenario file. It may still be invalid: check it with `Scenario::validate`.
-pub fn load(path: &Path) -> Result<Scenario, String> {
-    load_scenario_file(path)
+/// Reads a map file. The map may still be invalid: check it with `MapDef::validate`.
+pub fn load(path: &Path) -> Result<MapDef, String> {
+    load_map_file(path)
 }
 
-/// Writes `scenario` as a pretty-printed scenario file, creating the directory if needed.
-pub fn save(path: &Path, scenario: &Scenario) -> Result<(), String> {
+/// Writes `map` as a pretty-printed map file, creating the directory if needed. Atomically (review finding): the
+/// file is written and flushed to disk under a temporary name next to `path` first, then renamed over `path`, so a
+/// crash or a full disk leaves the old file whole instead of a truncated one.
+pub fn save(path: &Path, map: &MapDef) -> Result<(), String> {
     if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
         std::fs::create_dir_all(dir).map_err(|e| format!("can't create {}: {e}", dir.display()))?;
     }
-    let mut json = serde_json::to_string_pretty(scenario).map_err(|e| format!("can't serialize the scenario: {e}"))?;
+    let mut json = serde_json::to_string_pretty(map).map_err(|e| format!("can't serialize the map: {e}"))?;
     json.push('\n');
-    std::fs::write(path, json).map_err(|e| format!("can't write {}: {e}", path.display()))
+    let temp = temp_path(path);
+    let written = std::fs::File::create(&temp)
+        .and_then(|mut file| {
+            file.write_all(json.as_bytes())?;
+            file.sync_all()
+        })
+        .and_then(|()| std::fs::rename(&temp, path));
+    written.map_err(|e| {
+        let _ = std::fs::remove_file(&temp);
+        format!("can't write {}: {e}", path.display())
+    })
+}
+
+/// Where [`save`] writes before renaming: a hidden file next to `path` that [`list_maps`] doesn't list.
+pub fn temp_path(path: &Path) -> PathBuf {
+    let name = path.file_name().map_or_else(|| "map".into(), |n| n.to_string_lossy());
+    path.with_file_name(format!(".{name}.saving"))
 }
 
 /// A file name for a map called `name`: lower case letters, digits, `-` and `_`.
@@ -82,12 +104,16 @@ pub fn path_for_new_map(dir: &Path, name: &str) -> PathBuf {
         .expect("some file name is free")
 }
 
-/// A new flat map with the two player slots of `scenarios::empty`.
-pub fn new_scenario(name: &str, width: u32, height: u32) -> Scenario {
-    Scenario {
+/// The map the editor starts with when it has no file: the creation dialog's default settings
+/// ([`MapSettings::default`]) under the name `name` (or [`NEW_MAP_NAME`] if `name` is blank).
+pub fn new_map(name: &str) -> MapDef {
+    let name = if name.trim().is_empty() { NEW_MAP_NAME } else { name };
+    MapSettings {
         name: name.into(),
-        ..scenarios::empty(width, height)
+        ..MapSettings::default()
     }
+    .create()
+    .expect("the default settings make a map")
 }
 
 /// `path` relative to the repository root when it lies inside it, for display.
@@ -100,6 +126,7 @@ pub fn display_path(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sc_sim::{MapType, Symmetry, scenarios};
 
     fn temp_dir(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("sc_editor_files_{tag}_{}", std::process::id()));
@@ -121,12 +148,49 @@ mod tests {
         assert!(list_maps(&dir).is_empty(), "a missing directory lists nothing");
         let path = path_for_new_map(&dir, "My Map");
         assert_eq!(path, dir.join("my_map.json"));
-        let scenario = new_scenario("My Map", 12, 9);
-        save(&path, &scenario).unwrap();
+        let map = new_map("My Map");
+        save(&path, &map).unwrap();
         assert_eq!(path_for_new_map(&dir, "My Map"), dir.join("my_map-2.json"));
         std::fs::write(dir.join("notes.txt"), "not a map").unwrap();
         assert_eq!(list_maps(&dir), vec![path.clone()]);
-        assert_eq!(load(&path), Ok(scenario));
+        assert_eq!(load(&path), Ok(map));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The map the editor starts with is the creation dialog's default: a 64x48 Skirmish Default map for two with
+    /// 180 degree symmetry.
+    #[test]
+    fn a_new_map_has_the_default_settings() {
+        let map = new_map(" ");
+        assert_eq!(map.name, NEW_MAP_NAME);
+        assert_eq!((map.terrain.width(), map.terrain.height()), NEW_MAP_SIZE);
+        let defaults = MapSettings::default();
+        assert_eq!(NEW_MAP_SIZE, (defaults.width, defaults.height));
+        assert_eq!((map.map_type, map.symmetry, map.slots.len()), (MapType::SkirmishDefault, Symmetry::Rotate180, 2));
+        assert_eq!(map.validate(), []);
+    }
+
+    /// Review finding: saving replaces the file whole or not at all, and leaves no temporary file.
+    #[test]
+    fn saving_is_atomic() {
+        let dir = temp_dir("atomic");
+        let path = dir.join("map.json");
+        let first = scenarios::empty_map(20, 16);
+        save(&path, &first).unwrap();
+        let mut second = first.clone();
+        second.description = "second".into();
+        save(&path, &second).unwrap();
+        assert_eq!(load(&path), Ok(second.clone()));
+        assert!(!temp_path(&path).exists());
+        assert_eq!(list_maps(&dir), vec![path.clone()]);
+
+        // When the new file can't be written, the old one stays as it was.
+        std::fs::create_dir_all(temp_path(&path).join("blocked")).unwrap();
+        let mut third = second.clone();
+        third.description = "third".into();
+        let error = save(&path, &third).unwrap_err();
+        assert!(error.contains("can't write"), "{error}");
+        assert_eq!(load(&path), Ok(second));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

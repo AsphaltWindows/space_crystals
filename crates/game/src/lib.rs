@@ -76,9 +76,12 @@ impl ClientMode {
 /// Everything [`build_app`] needs to know.
 #[derive(Clone, Debug)]
 pub struct AppConfig {
-    /// The scenario to play, or the map to edit.
+    /// The scenario to play: the map and the game setup, whose game options say whether debug commands are on
+    /// (`ARCHITECTURE.md > Commands, events and replays`; on unless `--no-debug`). In the editor: the map to edit,
+    /// and the game options its play-tests run with.
     pub scenario: Scenario,
-    /// Whose view the client shows. In the editor: the slot play-tests start as.
+    /// Whose view the client shows. In the editor: the slot play-tests start as (the first slot if the map has no
+    /// such slot).
     pub player: PlayerId,
     pub display: DisplayMode,
     /// Physical size of the window or offscreen image.
@@ -86,16 +89,15 @@ pub struct AppConfig {
     pub qa: QaConfig,
     /// Run as many ticks per frame as possible.
     pub fast: bool,
-    /// The sim's options: debug commands are on unless `--no-debug` (`ARCHITECTURE.md > Commands, events and
-    /// replays`).
-    pub sim_config: SimConfig,
-    /// Edit `scenario` in the map editor instead of playing it.
+    /// Edit `scenario`'s map in the map editor instead of playing it.
     pub editor: Option<EditorConfig>,
 }
 
 impl AppConfig {
-    /// Player 1's view of `scenario` in a 1280×720 window, without QA, with debug commands.
-    pub fn new(scenario: Scenario) -> Self {
+    /// Player 1's view of `scenario` in a 1280×720 window, without QA, with debug commands on (the client's
+    /// default, whatever the scenario's setup says).
+    pub fn new(mut scenario: Scenario) -> Self {
+        scenario.setup.config = SimConfig::DEBUG;
         Self {
             scenario,
             player: PlayerId(1),
@@ -103,12 +105,11 @@ impl AppConfig {
             window_size: cli::DEFAULT_WINDOW_SIZE,
             qa: QaConfig::default(),
             fast: false,
-            sim_config: SimConfig::DEBUG,
             editor: None,
         }
     }
 
-    /// The map editor on `scenario` in a 1280×720 window, without QA.
+    /// The map editor on `scenario`'s map in a 1280×720 window, without QA. Play-tests run with debug commands on.
     pub fn editor(scenario: Scenario, editor: EditorConfig) -> Self {
         Self {
             editor: Some(editor),
@@ -147,7 +148,6 @@ pub fn build_app(config: AppConfig) -> App {
             player: config.player,
             fast: config.fast,
             preview: editing,
-            config: config.sim_config,
         },
         ActionInputPlugin { raw_input: !qa_run },
         GameCameraPlugin,

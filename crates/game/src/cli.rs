@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use bevy::math::UVec2;
-use sc_sim::{PlayerId, Scenario, SimConfig, Tick, scenarios};
+use sc_sim::{MapDef, PlayerId, Scenario, SimConfig, Tick, scenarios};
 
 use crate::AppConfig;
 use crate::editor::actions::EditorAction;
@@ -68,8 +68,9 @@ pub fn usage() -> String {
 Usage: cargo run -- [flags]
 
 Game:
-  --scenario <name>           Start a built-in scenario: {names} (default {DEFAULT_SCENARIO})
-  --map <file.json>           Start a scenario loaded from a JSON file instead
+  --scenario <name>           Start a built-in map: {names} (default {DEFAULT_SCENARIO})
+  --map <file.json>           Start a map file instead
+                              (both with the default setup: a GDO player in every slot, player n in slot n)
   --player <n>                Show player n's view (default 1)
   --window-size <W>x<H>       Window or offscreen image size in pixels (default {w}x{h})
   --fast                      Run as many ticks per frame as possible instead of 16 per second
@@ -78,8 +79,9 @@ Game:
 Map editor:
   --editor [file.json]        Edit a map file (created on the first save if it doesn't exist yet).
                               Without a file: a new {nw}x{nh} map, saved as maps/<name>.json.
-                              With --scenario <name>: a built-in scenario, saved as maps/<name>.json.
+                              With --scenario <name>: a built-in map, saved as maps/<name>.json.
                               --player <n> chooses the slot that play-tests (F5) start as.
+                              Play-tests take debug commands unless --no-debug.
   --editor-script <file.json> Apply a JSON list of editor actions on the first frame (QA)
 
 QA (any of these makes the run reproducible: keyboard and mouse are ignored, frames render offscreen):
@@ -159,28 +161,32 @@ fn parse_screenshot(s: &str) -> Result<ScreenshotRequest, String> {
     })
 }
 
-/// Loads the scenario and checks the flags against it and each other. A game's scenario must be valid; the editor
-/// opens invalid ones too, to fix them, and lists their problems.
+/// Loads the map and checks the flags against it and each other. A game's map gets the default setup (a GDO
+/// player in every slot) and must be valid; the editor opens invalid maps too, to fix them, and lists their
+/// problems.
 pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
-    let (scenario, editor) = if options.editor {
-        let (scenario, editor) = editor_document(&options)?;
-        (scenario, Some(editor))
+    let player = PlayerId(options.player);
+    let (mut scenario, editor) = if options.editor {
+        // Review finding: no player check here. A map without that slot still opens, and play-tests start as its
+        // first slot instead.
+        let (map, editor) = editor_document(&options)?;
+        (Scenario::new(map), Some(editor))
     } else {
         if options.editor_script.is_some() {
             return Err("--editor-script needs --editor".into());
         }
-        (game_scenario(&options)?, None)
+        let scenario = game_scenario(&options)?;
+        if scenario.setup.player(player).is_none() {
+            return Err(format!(
+                "map {:?} has no player {} (players 1 to {}, one per slot)",
+                scenario.name(),
+                options.player,
+                scenario.setup.players.len()
+            ));
+        }
+        (scenario, None)
     };
-    let player = PlayerId(options.player);
-    if !scenario.players.iter().any(|p| p.id == player) {
-        let ids: Vec<String> = scenario.players.iter().map(|p| p.id.0.to_string()).collect();
-        return Err(format!(
-            "scenario {:?} has no player {} (players: {})",
-            scenario.name,
-            options.player,
-            ids.join(", ")
-        ));
-    }
+    scenario.setup.config = SimConfig { debug: options.debug };
     if options.windowed && options.headless {
         return Err("--windowed and --headless exclude each other".into());
     }
@@ -240,16 +246,16 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
         window_size: options.window_size,
         qa,
         fast: options.fast,
-        sim_config: SimConfig { debug: options.debug },
         editor,
     })
 }
 
-/// The scenario a game plays: `--map`, else `--scenario`, else the default. It must be valid.
+/// The scenario a game plays: the map of `--map`, else of `--scenario`, else the default, with the default setup.
+/// It must be valid.
 fn game_scenario(options: &CliOptions) -> Result<Scenario, String> {
     let (scenario, source) = match (&options.map, &options.scenario) {
         (Some(_), Some(_)) => return Err("--map and --scenario exclude each other".into()),
-        (Some(path), None) => (load_scenario_file(path)?, path.display().to_string()),
+        (Some(path), None) => (Scenario::new(load_map_file(path)?), path.display().to_string()),
         (None, name) => {
             let name = name.as_deref().unwrap_or(DEFAULT_SCENARIO);
             let scenario = scenarios::by_name(name)
@@ -271,26 +277,26 @@ fn game_scenario(options: &CliOptions) -> Result<Scenario, String> {
 
 /// The editor's document and configuration: the file of `--editor <file>` (a new map named after it if it doesn't
 /// exist yet), a built-in `--scenario`, or a new map.
-fn editor_document(options: &CliOptions) -> Result<(Scenario, EditorConfig), String> {
+fn editor_document(options: &CliOptions) -> Result<(MapDef, EditorConfig), String> {
     if options.map.is_some() {
         return Err("--editor takes the file itself: --editor <file.json>".into());
     }
-    let (width, height) = files::NEW_MAP_SIZE;
-    let (scenario, path) = match (&options.editor_path, &options.scenario) {
+    let (map, path) = match (&options.editor_path, &options.scenario) {
         (Some(_), Some(_)) => return Err("--editor <file> and --scenario exclude each other".into()),
-        (Some(path), None) if path.exists() => (load_scenario_file(path)?, Some(path.clone())),
+        (Some(path), None) if path.exists() => (load_map_file(path)?, Some(path.clone())),
         (Some(path), None) => {
             let name = path
                 .file_stem()
                 .map_or(files::NEW_MAP_NAME.into(), |s| s.to_string_lossy());
-            (files::new_scenario(&name, width, height), Some(path.clone()))
+            (files::new_map(&name), Some(path.clone()))
         }
         (None, Some(name)) => (
             scenarios::by_name(name)
-                .ok_or_else(|| format!("unknown scenario {name:?}; built-in: {}", scenarios::NAMES.join(", ")))?,
+                .ok_or_else(|| format!("unknown scenario {name:?}; built-in: {}", scenarios::NAMES.join(", ")))?
+                .map,
             None,
         ),
-        (None, None) => (files::new_scenario(files::NEW_MAP_NAME, width, height), None),
+        (None, None) => (files::new_map(files::NEW_MAP_NAME), None),
     };
     let script = match &options.editor_script {
         Some(path) => load_editor_script(path)?,
@@ -301,7 +307,7 @@ fn editor_document(options: &CliOptions) -> Result<(Scenario, EditorConfig), Str
         maps_dir: files::default_maps_dir(),
         script,
     };
-    Ok((scenario, config))
+    Ok((map, config))
 }
 
 /// Reads an `--editor-script`: a JSON list of `EditorAction`s, e.g. `["FitMap", {"Press": [100, 80]}, "Release"]`.
@@ -310,10 +316,11 @@ pub fn load_editor_script(path: &Path) -> Result<Vec<EditorAction>, String> {
     serde_json::from_str(&text).map_err(|e| format!("{} is not a list of editor actions: {e}", path.display()))
 }
 
-/// Reads a `Scenario` from a JSON file (the representation is `sc_sim`'s serde format).
-pub fn load_scenario_file(path: &Path) -> Result<Scenario, String> {
+/// Reads a map file (`sc_sim`'s versioned JSON map format, [`MapDef`]). The map may still be invalid: check it with
+/// `MapDef::validate`.
+pub fn load_map_file(path: &Path) -> Result<MapDef, String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("can't read {}: {e}", path.display()))?;
-    serde_json::from_str(&text).map_err(|e| format!("{} is not a scenario: {e}", path.display()))
+    serde_json::from_str(&text).map_err(|e| format!("{} is not a map file: {e}", path.display()))
 }
 
 fn create_parent_dir(path: &Path) -> Result<(), String> {
@@ -336,12 +343,16 @@ mod tests {
     #[test]
     fn no_flags_start_the_default_game_in_a_window() {
         let config = into_config(parse(&[]).unwrap()).unwrap();
-        assert_eq!(config.scenario.name, DEFAULT_SCENARIO);
+        assert_eq!(config.scenario.name(), DEFAULT_SCENARIO);
         assert_eq!(config.player, PlayerId(1));
         assert_eq!(config.display, DisplayMode::Window);
         assert_eq!(config.window_size, DEFAULT_WINDOW_SIZE);
         assert!(!config.qa.is_active() && !config.fast);
-        assert_eq!(config.sim_config, SimConfig::DEBUG);
+        assert_eq!(config.scenario.setup.config, SimConfig::DEBUG);
+        // The default setup: a GDO player in every slot.
+        let mut expected = sc_sim::GameSetup::default_for(&config.scenario.map);
+        expected.config = SimConfig::DEBUG;
+        assert_eq!(config.scenario.setup, expected);
     }
 
     #[test]
@@ -361,7 +372,7 @@ mod tests {
         assert_eq!(o.dump_state, Some(PathBuf::from("d.json")));
         assert!(o.debug);
         let off = into_config(parse(&args("--no-debug")).unwrap()).unwrap();
-        assert_eq!(off.sim_config, SimConfig { debug: false });
+        assert_eq!(off.scenario.setup.config, SimConfig { debug: false });
     }
 
     #[test]
@@ -428,30 +439,40 @@ mod tests {
         let editor_args = |path: &Path| vec![String::from("--editor"), path.display().to_string()];
         let config = into_config(parse(&editor_args(&missing)).unwrap()).unwrap();
         assert_eq!(config.editor.unwrap().path, Some(missing));
-        assert_eq!(config.scenario.name, "Frozen Lake");
-        let size = (config.scenario.map.width(), config.scenario.map.height());
-        assert_eq!(size, files::NEW_MAP_SIZE);
+        assert_eq!(config.scenario.name(), "Frozen Lake");
+        let terrain = config.scenario.terrain();
+        assert_eq!((terrain.width(), terrain.height()), files::NEW_MAP_SIZE);
 
         let config = into_config(parse(&args("--editor")).unwrap()).unwrap();
         assert_eq!(config.editor.unwrap().path, None);
-        assert_eq!(config.scenario.name, files::NEW_MAP_NAME);
+        assert_eq!(config.scenario.name(), files::NEW_MAP_NAME);
         let config = into_config(parse(&args("--editor --scenario dev_skirmish")).unwrap()).unwrap();
-        assert_eq!(config.scenario, scenarios::dev_skirmish());
+        assert_eq!(config.scenario.map, scenarios::dev_skirmish_map());
 
         // An invalid file opens in the editor, to be fixed there; the game refuses it.
         std::fs::create_dir_all(&dir).unwrap();
         let bad = dir.join("bad.json");
-        let mut scenario = scenarios::empty(8, 6);
-        scenario.players[1].start_location = Some(sc_sim::TilePos::new(50, 50));
-        std::fs::write(&bad, serde_json::to_string(&scenario).unwrap()).unwrap();
+        let mut map = scenarios::empty_map(8, 6);
+        map.slots[1].start = sc_sim::TilePos::new(50, 50);
+        std::fs::write(&bad, serde_json::to_string(&map).unwrap()).unwrap();
         let opened = into_config(parse(&editor_args(&bad)).unwrap()).unwrap();
-        assert_eq!(opened.scenario, scenario);
+        assert_eq!(opened.scenario.map, map);
         let map_args = vec![String::from("--map"), bad.display().to_string()];
         let error = into_config(parse(&map_args).unwrap()).unwrap_err();
-        assert!(
-            error.contains("1 problem(s)") && error.contains("start location"),
-            "{error}"
-        );
+        assert!(error.contains("1 problem(s)") && error.contains("off the map"), "{error}");
+
+        // Review finding: `--player` doesn't stop the editor from opening a file, even one without that slot or
+        // without slots (play-tests start as its first slot); the game checks the player.
+        let mut slotless = map.clone();
+        slotless.slots.clear();
+        std::fs::write(&bad, serde_json::to_string(&slotless).unwrap()).unwrap();
+        let mut with_player = editor_args(&bad);
+        with_player.extend(args("--player 2"));
+        let opened = into_config(parse(&with_player).unwrap()).unwrap();
+        assert_eq!(opened.scenario.map, slotless);
+        assert_eq!(opened.player, PlayerId(2));
+        let error = into_config(parse(&args("--scenario empty --player 3")).unwrap()).unwrap_err();
+        assert!(error.contains("has no player 3"), "{error}");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -496,8 +517,8 @@ mod tests {
     #[test]
     fn a_map_file_over_the_largest_side_is_an_error() {
         let path = std::env::temp_dir().join(format!("sc_cli_huge_{}.json", std::process::id()));
-        let mut json = serde_json::to_value(scenarios::empty(5, 4)).unwrap();
-        json["map"] = serde_json::json!({ "tiles": [".".repeat(files::MAX_MAP_SIDE as usize + 1)] });
+        let mut json = serde_json::to_value(scenarios::empty_map(5, 4)).unwrap();
+        json["terrain"] = serde_json::json!({ "tiles": [".".repeat(files::MAX_MAP_SIDE as usize + 1)] });
         std::fs::write(&path, json.to_string()).unwrap();
         let game = into_config(parse(&args(&format!("--map {}", path.display()))).unwrap()).err();
         let editor = into_config(parse(&args(&format!("--editor {}", path.display()))).unwrap()).err();
@@ -511,10 +532,14 @@ mod tests {
     #[test]
     fn a_map_file_round_trips_through_json() {
         let path = std::env::temp_dir().join(format!("sc_cli_map_{}.json", std::process::id()));
-        let scenario = scenarios::empty(5, 4);
-        std::fs::write(&path, serde_json::to_string(&scenario).unwrap()).unwrap();
-        let loaded = load_scenario_file(&path);
+        let map = scenarios::empty_map(5, 4);
+        std::fs::write(&path, serde_json::to_string(&map).unwrap()).unwrap();
+        let loaded = load_map_file(&path);
+        // A game setup is no part of a map file.
+        std::fs::write(&path, serde_json::to_string(&scenarios::empty(5, 4)).unwrap()).unwrap();
+        let scenario = load_map_file(&path);
         std::fs::remove_file(&path).unwrap();
-        assert_eq!(loaded.unwrap(), scenario);
+        assert_eq!(loaded.unwrap(), map);
+        assert!(scenario.unwrap_err().contains("is not a map file"));
     }
 }

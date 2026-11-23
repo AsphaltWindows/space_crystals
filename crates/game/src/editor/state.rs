@@ -3,17 +3,18 @@
 use std::path::PathBuf;
 
 use bevy::prelude::*;
-use sc_sim::{PlayerId, ScenarioProblem};
+use sc_sim::{ScenarioProblem, SlotId};
 
 use super::files;
 
-/// What is selected: a spawn (by its index in `Scenario::spawns`) or one of a slot's markers. An index goes stale
-/// when an undo, a redo or a resize reorders the spawns, so those clear the selection.
+/// What is selected: a spawn (by its index in `MapDef::spawns`) or one of a slot's markers, always in the editable
+/// part of the map. An index goes stale when an undo, a redo or a resize reorders the spawns, so those clear the
+/// selection; regenerating the locked part keeps it on its spawn.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Selection {
     Spawn(usize),
-    StartLocation(PlayerId),
-    CameraStart(PlayerId),
+    Start(SlotId),
+    CameraStart(SlotId),
 }
 
 #[derive(Resource, Default, Debug)]
@@ -82,12 +83,16 @@ impl EditorFiles {
         Self { dir, maps }
     }
 
+    /// Lists the directory again; changes the resource only when the listing changed.
     pub fn refresh(&mut self) {
-        self.maps = files::list_maps(&self.dir);
+        let maps = files::list_maps(&self.dir);
+        if maps != self.maps {
+            self.maps = maps;
+        }
     }
 }
 
-/// `Scenario::validate()` of the document, as last shown.
+/// `MapDef::validate()` of the document, as last shown.
 #[derive(Resource, Default, Debug)]
 pub struct EditorProblems(pub Vec<ScenarioProblem>);
 

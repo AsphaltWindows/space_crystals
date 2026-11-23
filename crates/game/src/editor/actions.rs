@@ -1,19 +1,22 @@
 //! The editor's action layer: everything the editor can do is an [`EditorAction`]. Raw input, UI buttons and
 //! text fields, `--editor-script` files and tests all queue actions in [`EditorActions`], and one system applies
-//! them in order. Tests and scripts never touch raw input.
+//! them in order, generating the locked part of a symmetric map again after each one.
 
 use std::collections::VecDeque;
 use std::path::PathBuf;
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use sc_sim::{Faction, ObjectKind, PlayerId, SpawnSettings, Symmetry, TilePos, TilePresetId};
+use sc_sim::{Faction, MapType, ObjectKind, SlotId, SpawnSettings, TileLook, TilePos, TilePresetId};
 use serde::{Deserialize, Serialize};
 
+use super::creation::{NewMapDialog, NewMapField};
 use super::doc::EditorDoc;
-use super::gesture::Gesture;
+use super::gesture::{Gesture, GestureKind};
+use super::playtest::PlayTestSetup;
+use super::presets::PresetFlag;
 use super::state::{EditorCursor, EditorFiles, EditorProblems, EditorSelection, EditorStatus, EditorUi, Selection};
-use super::tools::{BRUSH_SIZES, EditorTools, ElevationMode, TOP_ELEVATION, Tool, symmetry_label};
+use super::tools::{BRUSH_SIZES, EditorTools, ElevationMode, TOP_ELEVATION, Tool};
 use crate::ClientMode;
 use crate::camera::{CameraView, CameraZoom, ViewportInsets};
 use crate::coords::drawn_position;
@@ -35,7 +38,7 @@ pub enum EditorAction {
     Release,
     /// Secondary click: picks the tile's preset and the height there for the terrain tools.
     Pick(Vec2),
-    /// Abandons the current gesture, else closes the help, else clears the selection.
+    /// Abandons the current gesture, else closes the new map dialog or the help, else clears the selection.
     Cancel,
 
     // --- Tools ---
@@ -51,12 +54,10 @@ pub enum EditorAction {
     StepElevation(i32),
     /// Chooses the object type to place (switching to Place).
     SetKind(ObjectKind),
-    /// Neutral or a player slot, for placed objects.
-    SetOwner(Option<PlayerId>),
-    /// Live mirroring of strokes and placements (`core/map_editor.md > Symmetry`). 90° rotation needs a square map.
-    SetSymmetry(Symmetry),
-    /// The slot whose markers the marker tools place and as whom play-tests run.
-    SelectSlot(PlayerId),
+    /// Neutral or a player slot, for placed objects. Skirmish Default maps take neutral objects only.
+    SetOwner(Option<SlotId>),
+    /// The slot whose markers the marker tools place: an editable one.
+    SelectSlot(SlotId),
     DeleteSelected,
     /// Sets the per-object values of the spawn at this index (`core/map_editor.md > Per-object Resource Values`).
     SetSpawnSettings {
@@ -64,28 +65,50 @@ pub enum EditorAction {
         settings: SpawnSettings,
     },
 
+    // --- Custom tile presets (`core/map_editor.md > Custom Tile Presets`) ---
+    /// Adds a custom preset and chooses it for painting.
+    AddPreset,
+    SetPresetName(TilePresetId, String),
+    TogglePresetFlag(TilePresetId, PresetFlag),
+    SetPresetLook(TilePresetId, TileLook),
+    /// Removes a custom preset that no tile uses.
+    RemovePreset(TilePresetId),
+
     // --- The document ---
     Undo,
     Redo,
     /// Saves to the document's file, or to `maps/<name>.json` for a new map.
     Save,
-    /// Opens a scenario file. With unsaved changes, it must be asked for twice.
+    /// Opens a map file. With unsaved changes, it must be asked for twice.
     Open(PathBuf),
-    /// Starts a new 64×48 map. With unsaved changes, it must be asked for twice.
+    /// Opens the creation dialog for a new map (`core/map_editor.md > Map Creation`). With unsaved changes, it
+    /// must be asked for twice.
     NewMap,
+    /// Changes a setting of the creation dialog.
+    EditNewMap(NewMapField),
+    /// Creates the map the creation dialog describes, if its settings make one.
+    CreateMap,
+    /// Closes the creation dialog.
+    CancelNewMap,
     SetName(String),
-    SetSeed(u64),
+    SetDescription(String),
     /// Resizes the map, anchored at the top-left; what falls outside is dropped and reported.
     Resize {
         width: u32,
         height: u32,
     },
-    AddSlot,
-    RemoveSlot(PlayerId),
-    SetSlotName(PlayerId, String),
-    SetSlotFaction(PlayerId, Faction),
-    SetStartLocation(PlayerId, Option<TilePos>),
-    SetCameraStart(PlayerId, Option<Vec2>),
+    /// Adds a set of player slots: one, or one per symmetric image.
+    AddSlots,
+    /// Removes the set of player slots that this slot belongs to.
+    RemoveSlots(SlotId),
+    SetStart(SlotId, TilePos),
+    SetCameraStart(SlotId, Option<Vec2>),
+
+    // --- The play-test's game setup (not part of the map) ---
+    SetPlayTestFaction(SlotId, Faction),
+    /// The slot the local player takes in play-tests.
+    SetPlayTestSlot(SlotId),
+    SetPlayTestSeed(u64),
 
     // --- The view ---
     /// Shows `factor` times as much map, keeping the point `at` under the cursor where it is.
@@ -107,6 +130,34 @@ pub enum EditorAction {
     RefreshFiles,
     /// Starts a play-test of the map, or ends the running one.
     PlayTest,
+    /// Closes the editor (the window's close button). With unsaved changes, it must be asked for twice.
+    Quit,
+}
+
+impl EditorAction {
+    /// Whether the action may apply while the creation dialog is open: the dialog's own, and those that leave
+    /// the document alone.
+    fn allowed_in_dialog(&self) -> bool {
+        use EditorAction as A;
+        matches!(
+            self,
+            A::EditNewMap(_)
+                | A::CreateMap
+                | A::CancelNewMap
+                | A::NewMap
+                | A::Cancel
+                | A::Release
+                | A::Save
+                | A::Zoom { .. }
+                | A::FitMap
+                | A::CenterOn(_)
+                | A::ToggleHelp
+                | A::ToggleGrid
+                | A::ToggleSlopes
+                | A::RefreshFiles
+                | A::Quit
+        )
+    }
 }
 
 /// Actions waiting to be applied, oldest first.
@@ -140,44 +191,68 @@ pub struct Editor<'w> {
     pub ui: ResMut<'w, EditorUi>,
     pub problems: Res<'w, EditorProblems>,
     pub confirm: ResMut<'w, PendingConfirmation>,
+    pub dialog: ResMut<'w, NewMapDialog>,
+    pub playtest: ResMut<'w, PlayTestSetup>,
     pub view: ResMut<'w, CameraView>,
     pub zoom: ResMut<'w, CameraZoom>,
     pub size: Res<'w, SurfaceSize>,
     pub insets: Res<'w, ViewportInsets>,
     pub map_view: ResMut<'w, MapView>,
+    pub exit: MessageWriter<'w, AppExit>,
 }
 
-/// Applies the queued actions in order. A play-test request stops the queue for this frame, so that the actions
-/// after it apply once the switch is done. While a play-test runs, only the request to end it applies.
+/// Applies the queued actions in order, generating the locked part of a symmetric map after each one that changed
+/// the map. A play-test request stops the queue for this frame, so that the actions after it apply once the switch
+/// is done. While a play-test runs, only the requests to end it or to quit apply.
 pub fn apply_editor_actions(
     mut queue: ResMut<EditorActions>,
     mode: Res<ClientMode>,
     mut play: ResMut<PlayTestRequest>,
     mut editor: Editor,
 ) {
+    if queue.0.is_empty() {
+        return;
+    }
     while let Some(action) = queue.0.pop_front() {
         if action == EditorAction::PlayTest {
+            if editor.dialog.open {
+                editor.status.warn("Create or cancel the new map first");
+                continue;
+            }
             editor.finish_gesture();
             play.0 = true;
             break;
         }
-        if *mode == ClientMode::PlayTest {
+        if *mode == ClientMode::PlayTest && action != EditorAction::Quit {
             continue;
         }
         editor.apply(action);
+        editor.regenerate();
     }
 }
 
 impl Editor<'_> {
     pub fn apply(&mut self, action: EditorAction) {
+        if let EditorAction::Hover(pos) = action {
+            let pos = pos.filter(|p| p.is_finite());
+            if self.cursor.0 != pos {
+                self.cursor.0 = pos;
+            }
+            return;
+        }
+        if self.dialog.open && !action.allowed_in_dialog() {
+            self.status.warn("Create or cancel the new map first (Esc cancels)");
+            return;
+        }
         if !matches!(
             action,
-            EditorAction::Hover(_) | EditorAction::Open(_) | EditorAction::NewMap
-        ) {
+            EditorAction::Open(_) | EditorAction::NewMap | EditorAction::Quit
+        ) && self.confirm.0.is_some()
+        {
             self.confirm.0 = None;
         }
         match action {
-            EditorAction::Hover(pos) => self.cursor.0 = pos.filter(|p| p.is_finite()),
+            EditorAction::Hover(_) => {}
             EditorAction::Press(pos) => self.press(pos),
             EditorAction::Drag(pos) => self.drag(pos),
             EditorAction::Release => self.finish_gesture(),
@@ -201,26 +276,40 @@ impl Editor<'_> {
                 self.tools.tool = Tool::Place;
             }
             EditorAction::SetOwner(owner) => self.set_owner(owner),
-            EditorAction::SetSymmetry(symmetry) => self.set_symmetry(symmetry),
-            EditorAction::SelectSlot(slot) => self.select_slot(slot),
+            EditorAction::SelectSlot(slot) => {
+                if self.slot_editable(slot) {
+                    self.tools.slot = slot;
+                }
+            }
             EditorAction::DeleteSelected => self.delete_selected(),
             EditorAction::SetSpawnSettings { spawn, settings } => self.set_spawn_settings(spawn, settings),
+            EditorAction::AddPreset => self.add_preset(),
+            EditorAction::SetPresetName(preset, name) => self.set_preset_name(preset, name),
+            EditorAction::TogglePresetFlag(preset, flag) => self.toggle_preset_flag(preset, flag),
+            EditorAction::SetPresetLook(preset, look) => self.edit_preset(preset, |p| p.look = look),
+            EditorAction::RemovePreset(preset) => self.remove_preset(preset),
             EditorAction::Undo => self.undo(true),
             EditorAction::Redo => self.undo(false),
             EditorAction::Save => self.save(),
             EditorAction::Open(path) => self.open(path),
             EditorAction::NewMap => self.new_map(),
+            EditorAction::EditNewMap(field) => self.edit_new_map(field),
+            EditorAction::CreateMap => self.create_map(),
+            EditorAction::CancelNewMap => self.cancel_new_map(),
             EditorAction::SetName(name) => self.set_name(name),
-            EditorAction::SetSeed(seed) => {
-                self.doc.edit(|s| s.seed = seed);
-            }
+            EditorAction::SetDescription(text) => self.set_description(text),
             EditorAction::Resize { width, height } => self.resize(width, height),
-            EditorAction::AddSlot => self.add_slot(),
-            EditorAction::RemoveSlot(slot) => self.remove_slot(slot),
-            EditorAction::SetSlotName(slot, name) => self.set_slot_name(slot, name),
-            EditorAction::SetSlotFaction(slot, faction) => self.edit_slot(slot, |p| p.faction = faction),
-            EditorAction::SetStartLocation(slot, tile) => self.set_start_location(slot, tile),
+            EditorAction::AddSlots => self.add_slots(),
+            EditorAction::RemoveSlots(slot) => self.remove_slots(slot),
+            EditorAction::SetStart(slot, tile) => self.set_start(slot, tile),
             EditorAction::SetCameraStart(slot, pos) => self.set_camera_start(slot, pos),
+            EditorAction::SetPlayTestFaction(slot, faction) => self.set_play_test_faction(slot, faction),
+            EditorAction::SetPlayTestSlot(slot) => self.set_play_test_slot(slot),
+            EditorAction::SetPlayTestSeed(seed) => {
+                if self.playtest.seed != seed {
+                    self.playtest.seed = seed;
+                }
+            }
             EditorAction::Zoom { factor, at } => self.zoom_by(factor, at),
             EditorAction::FitMap => self.fit_map(),
             EditorAction::CenterOn(pos) if pos.is_finite() => self.center_on(pos),
@@ -230,54 +319,96 @@ impl Editor<'_> {
             EditorAction::ToggleGrid => self.map_view.grid_visible = !self.map_view.grid_visible,
             EditorAction::ToggleSlopes => self.ui.slopes = !self.ui.slopes,
             EditorAction::RefreshFiles => self.files.refresh(),
+            EditorAction::Quit => self.quit(),
             // Handled by `apply_editor_actions`.
             EditorAction::PlayTest => {}
         }
         self.keep_references_valid();
     }
 
-    /// Centres the view on where the ground point `pos` is drawn.
-    pub(super) fn center_on(&mut self, pos: Vec2) {
-        self.view.center = drawn_position(&self.doc.scenario().map, pos);
+    /// Generates the locked part of a symmetric map again if the last action changed the map
+    /// ([`EditorDoc::regenerate`]). That lists the spawns of the editable part first, in their order: the
+    /// selection and a dragged spawn keep pointing at the same spawn.
+    pub(super) fn regenerate(&mut self) {
+        if !self.doc.is_stale() {
+            return;
+        }
+        let map = self.doc.map();
+        if map.image_count() > 1 {
+            let editable: Vec<bool> = map.spawns.iter().map(|s| map.is_spawn_editable(s)).collect();
+            let new_index = |i: usize| {
+                let kept = *editable.get(i)?;
+                kept.then(|| editable[..i].iter().filter(|e| **e).count())
+            };
+            if let Some(Selection::Spawn(i)) = self.selection.0 {
+                let moved = new_index(i).map(Selection::Spawn);
+                if moved != self.selection.0 {
+                    self.selection.0 = moved;
+                }
+            }
+            if let Some(GestureKind::MoveSpawn { index, .. }) = &self.gesture.0 {
+                match new_index(*index) {
+                    Some(new) if new == *index => {}
+                    Some(new) => {
+                        if let Some(GestureKind::MoveSpawn { index, .. }) = &mut self.gesture.0 {
+                            *index = new;
+                        }
+                    }
+                    None => self.gesture.0 = None,
+                }
+            }
+        }
+        self.doc.regenerate();
     }
 
-    /// After a change, drops a selection, slot or owner that no longer exists, and resets a preset or symmetry
-    /// that the map no longer has room for (a map opened, created or resized).
+    /// Centres the view on where the ground point `pos` is drawn.
+    pub(super) fn center_on(&mut self, pos: Vec2) {
+        self.view.center = drawn_position(&self.doc.map().terrain, pos);
+    }
+
+    /// After a change, drops a selection, slot or owner that no longer exists or lies in the locked part, and
+    /// resets a preset that the map no longer has (a map opened, created or resized). Writes only what changes,
+    /// so that the UI doesn't redraw for nothing.
     fn keep_references_valid(&mut self) {
-        let scenario = self.doc.scenario();
-        let map = &scenario.map;
+        let map = self.doc.map();
         // Review finding: another map's preset table may be shorter than the custom preset chosen before.
-        if map.presets().get(self.tools.preset.0 as usize).is_none() {
+        if map.terrain.presets().get(self.tools.preset.0 as usize).is_none() {
             self.tools.preset = TilePresetId::PLANE;
         }
-        if !self.tools.symmetry.fits(map.width(), map.height()) {
-            self.tools.symmetry = Symmetry::None;
-            self.status.warn("Symmetry off: Rotate 90 needs a square map");
-        }
-        let slot_exists = |id: PlayerId| scenario.players.iter().any(|p| p.id == id);
         let valid = match self.selection.0 {
-            Some(Selection::Spawn(i)) => i < scenario.spawns.len(),
-            Some(Selection::StartLocation(p)) => {
-                scenario.players.iter().any(|s| s.id == p && s.start_location.is_some())
+            Some(Selection::Spawn(i)) => map.spawns.get(i).is_some_and(|s| map.is_spawn_editable(s)),
+            Some(Selection::Start(s)) => map.slot(s).is_some() && map.is_slot_editable(s),
+            Some(Selection::CameraStart(s)) => {
+                map.slot(s).is_some_and(|slot| slot.camera_start.is_some()) && map.is_slot_editable(s)
             }
-            Some(Selection::CameraStart(p)) => scenario.players.iter().any(|s| s.id == p && s.camera_start.is_some()),
             None => true,
         };
         if !valid {
             self.selection.0 = None;
         }
-        if !slot_exists(self.tools.slot)
-            && let Some(first) = scenario.players.first()
-        {
-            self.tools.slot = first.id;
+        // The marker tools' slot: an editable slot of the map (its set's editable slot, or the first).
+        let slot = self.tools.slot;
+        if map.slot(slot).is_none() || !map.is_slot_editable(slot) {
+            let fixed = if map.slot(slot).is_some() {
+                map.source_slot(slot)
+            } else {
+                SlotId(1)
+            };
+            if fixed != slot {
+                self.tools.slot = fixed;
+            }
         }
-        if self.tools.owner.is_some_and(|o| !slot_exists(o)) {
+        let skirmish = map.map_type == MapType::SkirmishDefault;
+        if self.tools.owner.is_some_and(|o| skirmish || map.slot(o).is_none()) {
             self.tools.owner = None;
+        }
+        if map.slot(self.playtest.slot).is_none() && self.playtest.slot != SlotId(1) {
+            self.playtest.slot = SlotId(1);
         }
     }
 
     fn set_preset(&mut self, preset: TilePresetId) {
-        let Some(info) = self.doc.scenario().map.presets().get(preset.0 as usize) else {
+        let Some(info) = self.doc.map().terrain.presets().get(preset.0 as usize) else {
             self.status.warn(format!("The map has no preset {}", preset.0));
             return;
         };
@@ -294,44 +425,30 @@ impl Editor<'_> {
         self.tools.tool = Tool::Elevation;
     }
 
-    fn set_owner(&mut self, owner: Option<PlayerId>) {
+    fn set_owner(&mut self, owner: Option<SlotId>) {
+        let map = self.doc.map();
         match owner {
-            Some(p) if !self.doc.scenario().players.iter().any(|s| s.id == p) => {
-                self.status.warn(format!("There is no player {}", p.0));
-            }
+            Some(slot) if map.slot(slot).is_none() => self.status.warn(format!("There is no slot {}", slot.0)),
+            Some(_) if map.map_type == MapType::SkirmishDefault => self.status.warn(
+                "A Skirmish Default map takes neutral objects only: owned ones go in the Starting Layouts",
+            ),
             _ => self.tools.owner = owner,
         }
     }
 
-    fn select_slot(&mut self, slot: PlayerId) {
-        if self.doc.scenario().players.iter().any(|p| p.id == slot) {
-            self.tools.slot = slot;
-        } else {
-            self.status.warn(format!("There is no player {}", slot.0));
-        }
-    }
-
-    fn set_symmetry(&mut self, symmetry: Symmetry) {
-        let map = &self.doc.scenario().map;
-        if !symmetry.fits(map.width(), map.height()) {
-            self.status.warn(format!(
-                "{} needs a square map; this one is {}x{}",
-                symmetry_label(symmetry),
-                map.width(),
-                map.height()
-            ));
-            return;
-        }
-        self.tools.symmetry = symmetry;
-    }
-
-    /// `core/map_editor.md > Per-object Resource Values`: values of the spawn's own kind that make sense.
+    /// `core/map_editor.md > Per-object Resource Values`: values of the spawn's own kind that make sense, on a
+    /// spawn of the editable part (its images get them too).
     fn set_spawn_settings(&mut self, spawn: usize, settings: SpawnSettings) {
-        let Some(current) = self.doc.scenario().spawns.get(spawn) else {
+        let map = self.doc.map();
+        let Some(current) = map.spawns.get(spawn) else {
             self.status.warn(format!("There is no spawn #{spawn}"));
             return;
         };
         let name = current.kind.def().name;
+        if !map.is_spawn_editable(current) {
+            self.refuse_locked(&format!("Spawn #{spawn} ({name})"));
+            return;
+        }
         if settings.kind() != current.kind {
             self.status.warn(format!("These values aren't for a {name}"));
             return;
@@ -344,7 +461,7 @@ impl Editor<'_> {
             return;
         }
         self.finish_gesture();
-        self.doc.edit(|s| s.spawns[spawn].settings = Some(settings));
+        self.doc.edit(|m| m.spawns[spawn].settings = Some(settings));
         self.status.info(format!("Changed the values of #{spawn} {name}"));
     }
 

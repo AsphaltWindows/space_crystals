@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 use sc_sim::map::MAX_ELEVATION;
-use sc_sim::{ObjectKind, PlayerId, Symmetry, TilePresetId};
+use sc_sim::{ObjectKind, SlotId, Symmetry, TilePresetId};
 use serde::{Deserialize, Serialize};
 
 /// What a click on the map does.
@@ -18,8 +18,8 @@ pub enum Tool {
     Fill,
     /// Place the chosen object type.
     Place,
-    /// Place the chosen slot's start location (a Q0004 placeholder).
-    StartLocation,
+    /// Place the chosen slot's start position.
+    Start,
     /// Place the chosen slot's camera start (`core/camera.md > Starting Position`).
     CameraStart,
 }
@@ -31,7 +31,7 @@ impl Tool {
         Tool::Elevation,
         Tool::Fill,
         Tool::Place,
-        Tool::StartLocation,
+        Tool::Start,
         Tool::CameraStart,
     ];
 
@@ -42,7 +42,7 @@ impl Tool {
             Tool::Elevation => "Height",
             Tool::Fill => "Fill",
             Tool::Place => "Place",
-            Tool::StartLocation => "Start",
+            Tool::Start => "Start",
             Tool::CameraStart => "Camera",
         }
     }
@@ -84,8 +84,7 @@ impl ElevationMode {
     }
 }
 
-/// The label of a symmetry mode (`core/map_editor.md > Symmetry`). Live mirroring repeats terrain strokes and
-/// object placements at their images ([`sc_sim::symmetry`]); generated symmetric halves are a later task.
+/// The label of a symmetry mode (`core/map_editor.md > Symmetry`).
 pub fn symmetry_label(symmetry: Symmetry) -> &'static str {
     match symmetry {
         Symmetry::None => "None",
@@ -95,17 +94,6 @@ pub fn symmetry_label(symmetry: Symmetry) -> &'static str {
         Symmetry::MirrorVerticalAxis => "Mirror left/right",
         Symmetry::MirrorBothAxes => "Mirror both",
     }
-}
-
-/// The symmetry after `symmetry` in [`Symmetry::ALL`], skipping those that don't fit a `width × height` map (90°
-/// rotation needs a square map).
-pub fn next_symmetry(symmetry: Symmetry, width: u32, height: u32) -> Symmetry {
-    let all = Symmetry::ALL;
-    let start = all.iter().position(|s| *s == symmetry).unwrap_or(0);
-    (1..=all.len())
-        .map(|i| all[(start + i) % all.len()])
-        .find(|s| s.fits(width, height))
-        .unwrap_or(Symmetry::None)
 }
 
 /// Brush sizes: the side of the square brush, in tiles.
@@ -127,11 +115,11 @@ pub struct EditorTools {
     pub elevation: u8,
     /// The object type that Place places.
     pub kind: ObjectKind,
-    /// The owner of placed objects: neutral or a player slot. Resources are always placed neutral.
-    pub owner: Option<PlayerId>,
-    pub symmetry: Symmetry,
-    /// The player slot whose markers the marker tools place, and whom play-tests are played as.
-    pub slot: PlayerId,
+    /// The owner of placed objects: neutral or a player slot. Resources are always placed neutral, and Skirmish
+    /// Default maps take neutral objects only (`core/map_editor.md > Map Types`).
+    pub owner: Option<SlotId>,
+    /// The slot whose markers the marker tools place: an editable one on a symmetric map.
+    pub slot: SlotId,
 }
 
 impl Default for EditorTools {
@@ -144,8 +132,7 @@ impl Default for EditorTools {
             elevation: 1,
             kind: ObjectKind::ALL[0],
             owner: None,
-            symmetry: Symmetry::None,
-            slot: PlayerId(1),
+            slot: SlotId(1),
         }
     }
 }
@@ -163,15 +150,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cycles_visit_every_value() {
-        let mut s = Symmetry::None;
-        for expected in Symmetry::ALL.iter().cycle().skip(1).take(6) {
-            s = next_symmetry(s, 8, 8);
-            assert_eq!(s, *expected);
-        }
-        // 90° rotation only on square maps.
-        assert_eq!(next_symmetry(Symmetry::Rotate180, 8, 6), Symmetry::MirrorHorizontalAxis);
-        assert_eq!(next_symmetry(Symmetry::Rotate180, 8, 8), Symmetry::Rotate90);
+    fn labels_and_cycles() {
         for s in Symmetry::ALL {
             assert!(!symmetry_label(s).is_empty());
         }

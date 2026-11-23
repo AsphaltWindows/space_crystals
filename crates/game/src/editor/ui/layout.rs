@@ -1,12 +1,15 @@
 //! The editor UI's fixed structure, spawned once. Lists and texts that follow the document are filled in by
-//! [`super::lists`] and [`super::texts`].
+//! [`super::lists`] and [`super::texts`], and the text fields by [`super::fields::refresh_fields`].
 
 use bevy::picking::Pickable;
 use bevy::prelude::*;
 use bevy::ui_widgets::ScrollArea;
 
+use super::dialog::spawn_new_map_dialog;
 use super::fields::{TextField, text_field};
-use super::lists::{FileList, OwnerList, PresetList, ProblemList, SlotList, SpawnFieldList};
+use super::lists::{
+    FileList, OwnerList, PlayTestList, PresetEditor, PresetList, ProblemList, SlotList, SpawnFieldList, list_node,
+};
 use super::texts::{HelpOverlay, PanelText, StatusText, help_text};
 use super::{
     BORDER, DIM_TEXT, GAP_VH, LEFT_PANEL_VH, PANEL_BACKGROUND, RIGHT_PANEL_VH, SMALL_VH, STATUS_VH, ShownIn, TEXT,
@@ -14,17 +17,17 @@ use super::{
 };
 use crate::ClientMode;
 use crate::editor::actions::EditorAction;
-use crate::editor::doc::EditorDoc;
 use crate::editor::objects::palette_groups;
-use crate::editor::tools::{BRUSH_SIZES, ElevationMode, Tool, symmetry_label};
+use crate::editor::tools::{BRUSH_SIZES, ElevationMode, Tool};
 use crate::hud::TOP_BAR_HEIGHT_VH;
 
-pub fn spawn_editor_ui(mut commands: Commands, doc: Res<EditorDoc>) {
+pub fn spawn_editor_ui(mut commands: Commands) {
     spawn_toolbar(&mut commands);
     spawn_palette(&mut commands);
-    spawn_properties(&mut commands, &doc);
+    spawn_properties(&mut commands);
     spawn_status_line(&mut commands);
     spawn_overlays(&mut commands);
+    spawn_new_map_dialog(&mut commands);
 }
 
 fn separator() -> impl Bundle {
@@ -118,12 +121,8 @@ fn side_panel(name: &'static str, left: bool, width_vh: f32) -> impl Bundle {
     )
 }
 
-fn column() -> Node {
-    Node {
-        flex_direction: FlexDirection::Column,
-        row_gap: vh(0.3),
-        ..default()
-    }
+fn note(text: &str) -> impl Bundle {
+    label(text.to_string(), SMALL_VH, DIM_TEXT)
 }
 
 fn spawn_palette(commands: &mut Commands) {
@@ -131,13 +130,15 @@ fn spawn_palette(commands: &mut Commands) {
         .spawn(side_panel("Editor palette", true, LEFT_PANEL_VH))
         .with_children(|panel| {
             panel.spawn(header("Terrain"));
-            panel.spawn((PresetList, column()));
+            panel.spawn((PresetList, list_node()));
             panel.spawn(row()).with_children(|r| {
                 r.spawn(label("Brush", SMALL_VH, DIM_TEXT));
                 for size in BRUSH_SIZES {
                     r.spawn(button(size.to_string(), EditorAction::SetBrush(size)));
                 }
             });
+            panel.spawn(label("Chosen preset", SMALL_VH, DIM_TEXT));
+            panel.spawn((PresetEditor, list_node()));
 
             panel.spawn(header("Height"));
             panel.spawn(row()).with_children(|r| {
@@ -150,22 +151,8 @@ fn spawn_palette(commands: &mut Commands) {
                 r.spawn((PanelText::ElevationLevel, label("", TEXT_VH, TEXT)));
                 r.spawn(button("+", EditorAction::StepElevation(1)));
             });
-            panel.spawn(label(
+            panel.spawn(note(
                 "Sets the brush's tile corners; slopes follow and stop at cliffs.",
-                SMALL_VH,
-                DIM_TEXT,
-            ));
-
-            panel.spawn(header("Symmetry"));
-            panel.spawn(row()).with_children(|r| {
-                for symmetry in sc_sim::Symmetry::ALL {
-                    r.spawn(button(symmetry_label(symmetry), EditorAction::SetSymmetry(symmetry)));
-                }
-            });
-            panel.spawn(label(
-                "Strokes and placements repeat at their images. Rotate 90 needs a square map.",
-                SMALL_VH,
-                DIM_TEXT,
             ));
 
             panel.spawn(header("Objects"));
@@ -177,25 +164,22 @@ fn spawn_palette(commands: &mut Commands) {
                     }
                 });
             }
-            panel.spawn(label("Owner (resources are always neutral)", SMALL_VH, DIM_TEXT));
+            panel.spawn(note("Owner (resources are always neutral)"));
             panel.spawn((OwnerList, row()));
 
             panel.spawn(header("Player slots"));
-            panel.spawn(label(
-                "Start locations are a placeholder until design question Q0004",
-                SMALL_VH,
-                WARN_TEXT,
+            panel.spawn(note(
+                "Each slot is a start position. On a symmetric map slots come in sets: you edit the first, its \
+                 images follow.",
             ));
-            panel.spawn((SlotList, column()));
+            panel.spawn((SlotList, list_node()));
             panel.spawn(row()).with_children(|r| {
-                r.spawn(button("Add slot", EditorAction::AddSlot));
-                r.spawn(button("Place start", EditorAction::SetTool(Tool::StartLocation)));
+                r.spawn(button("Add slots", EditorAction::AddSlots));
+                r.spawn(button("Place start", EditorAction::SetTool(Tool::Start)));
                 r.spawn(button("Place camera", EditorAction::SetTool(Tool::CameraStart)));
             });
-            panel.spawn(label(
-                "Markers belong to the lit slot. Select one and press Delete to clear it.",
-                SMALL_VH,
-                DIM_TEXT,
+            panel.spawn(note(
+                "Markers belong to the lit slot. Select a camera start and press Delete to clear it.",
             ));
         });
 }
@@ -206,49 +190,59 @@ fn field_row(name: &str) -> impl Bundle {
         children![(
             label(name.to_string(), SMALL_VH, DIM_TEXT),
             Node {
-                width: vh(5.0),
+                width: vh(6.0),
                 ..default()
             }
         )],
     )
 }
 
-fn spawn_properties(commands: &mut Commands, doc: &EditorDoc) {
-    let scenario = doc.scenario();
+fn spawn_properties(commands: &mut Commands) {
     commands
         .spawn(side_panel("Editor properties", false, RIGHT_PANEL_VH))
         .with_children(|panel| {
             panel.spawn(header("Map"));
             panel.spawn(field_row("Name")).with_children(|r| {
-                r.spawn(text_field(TextField::MapName, &scenario.name, 20.0));
+                r.spawn(text_field(TextField::MapName, "", 20.0));
             });
-            panel.spawn(field_row("Seed")).with_children(|r| {
-                r.spawn(text_field(TextField::Seed, &scenario.seed.to_string(), 20.0));
+            panel.spawn(note("Description"));
+            panel.spawn(text_field(TextField::Description, "", 27.0));
+            panel.spawn(field_row("Type")).with_children(|r| {
+                r.spawn((PanelText::MapType, label("", SMALL_VH, TEXT)));
+            });
+            panel.spawn(field_row("Symmetry")).with_children(|r| {
+                r.spawn((PanelText::Symmetry, label("", SMALL_VH, TEXT)));
             });
             panel.spawn(field_row("Size")).with_children(|r| {
-                r.spawn(text_field(TextField::Width, &scenario.map.width().to_string(), 6.0));
+                r.spawn(text_field(TextField::Width, "", 6.0));
                 r.spawn(label("x", TEXT_VH, DIM_TEXT));
-                r.spawn(text_field(TextField::Height, &scenario.map.height().to_string(), 6.0));
+                r.spawn(text_field(TextField::Height, "", 6.0));
             });
-            panel.spawn(label(
-                "Resizing keeps the top-left corner; Enter applies a field.",
-                SMALL_VH,
-                DIM_TEXT,
-            ));
+            panel.spawn(note("Resizing keeps the top-left corner; Enter applies a field."));
             panel.spawn((PanelText::File, label("", SMALL_VH, DIM_TEXT)));
 
             panel.spawn(header("Selection"));
             panel.spawn((PanelText::Selection, label("", SMALL_VH, TEXT)));
-            panel.spawn((SpawnFieldList, column()));
+            panel.spawn((SpawnFieldList, list_node()));
             panel.spawn(row()).with_children(|r| {
                 r.spawn(button("Delete", EditorAction::DeleteSelected));
             });
 
+            panel.spawn(header("Play-test"));
+            panel.spawn(note(
+                "Who plays which slot (not saved with the map): click a faction to change it.",
+            ));
+            panel.spawn((PlayTestList, list_node()));
+            panel.spawn(field_row("Seed")).with_children(|r| {
+                r.spawn(text_field(TextField::Seed, "", 20.0));
+            });
+            panel.spawn((PanelText::PlayTestOptions, label("", SMALL_VH, DIM_TEXT)));
+
             panel.spawn((PanelText::ProblemsHeader, header("Problems")));
-            panel.spawn((ProblemList, column()));
+            panel.spawn((ProblemList, list_node()));
 
             panel.spawn(header("Maps"));
-            panel.spawn((FileList, column()));
+            panel.spawn((FileList, list_node()));
             panel.spawn(row()).with_children(|r| {
                 r.spawn(button("New map", EditorAction::NewMap));
                 r.spawn(button("Refresh", EditorAction::RefreshFiles));
@@ -329,6 +323,6 @@ fn spawn_overlays(commands: &mut Commands) {
         Pickable::IGNORE,
         GlobalZIndex(5),
         Visibility::Hidden,
-        children![label("PLAY-TEST: Esc or F5 returns to the editor", 2.0, WARN_TEXT)],
+        children![label("PLAY-TEST: F5 returns to the editor", 2.0, WARN_TEXT)],
     ));
 }
