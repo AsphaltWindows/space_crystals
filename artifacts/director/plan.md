@@ -132,15 +132,22 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Also fixed**: a steering limit cycle in `movement/collide.rs` (a leaning sidestep now sets `avoid_side`).
   - **Soak test**: arrivals dropped with converging random groups, so the `>= 100` threshold is fragile. M1-Y reworks it.
 
-## In progress (three agents in parallel, kept to disjoint areas)
+- **M1-H commands UI** (merged in `a71cee1`; 469 tests):
+  - **Command panel**: a 4×3 grid for the ActiveGroup's interface state. Peacekeeper and Guard show Q Move, W Reverse (unavailable), E Hold, A Attack, S Patrol, D AttackGround (unavailable) and X Stop. While targeting, Z is Back.
+  - **Right-click**: ground gives Move; an enemy gives Attack; an own unit, crystal patch or station gives Move to that object.
+  - **Targeting**: Esc, right-click, Z or Back cancel it. A Shift-click queues the order and returns to default, as the design says.
+  - **Shift-queue**: append or replace.
+  - **Indicators**: flashes, plus dashed routes while Shift is held.
+  - **Cursors**: placeholder cursors, also drawn in QA screenshots.
+  - **Guard**: now drawn axis-aligned.
+  - **Gaps**:
+    - Riot Shield has no sim state or command yet (see R).
+    - No OrderKind yet for AttackGround, Reverse or Enter (later milestones).
+    - Patrol origin isn't kept in the sim (E).
+    - The UI edge cases went out as Q0016.
+
+## In progress (two agents in parallel, kept to disjoint areas)
 - **M1-V vision and fog** (Opus; brief `scratchpad/briefs/m1v-vision.md`): per-player Unexplored/Explored/Visible tiles in phase 5f with the elevation sight rule; `Sim::visibility` and `is_visible`; one fog texture in the client; hidden enemies neither drawn nor selectable; a fog toggle and `--no-fog`.
-- **M1-H commands UI** (Opus; brief `scratchpad/briefs/m1h-commands-ui.md`):
-  - the 4×3 command panel;
-  - targeting modes;
-  - right-click resolution;
-  - Shift-queue;
-  - indicators and cursors;
-  - an axis-aligned Guard visual.
 - **M1-Y friendly yielding** (Fable; brief `scratchpad/briefs/m1y-friendly-yielding.md`):
   - idle own units sidestep for blocked movers (0022/0023), with the Q0015 assumption for converging groups;
   - stuck and give-up timing per 0024;
@@ -159,7 +166,8 @@ The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, th
 | C Navigation | `sc_sim::nav` | done (`88dd9bc`) | Fable |
 | D Steering and collision | spatial grid, step/slide/follow/sidestep, stuck and recovery, invariant harness, movement scenarios | done (`b689663`) | Fable |
 | S Selection | clicks, box tiers, control groups, Tab cycling, panels, debug player switch | done (`b63e77f`) | Opus |
-| H Commands UI | command panel, right-click, cursors, indicators, Shift-queue | running | Opus |
+| H Commands UI | command panel, right-click, cursors, indicators, Shift-queue | done (`a71cee1`) | Opus |
+| R Riot Shield mode | the Peacekeeper's Riot Shield as sim state, command and hotkey; shielded speed and right-click per the design | after E (it touches orders) | Opus |
 | M Magic box | group destinations per 0021 (replaces the 6.4 lattice) | done (`93e53ca`) | Opus |
 | Y Friendly yielding | idle own units sidestep (0022/0023), stuck timing (0024), box footprints (Q0015), robust soak | running | Fable |
 | V Vision | per-player visibility, ElevationModifier for sight, fog texture | running | Opus |
@@ -224,17 +232,18 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0005 | CommandPanel standard slots vs the 4×3 grid | no | answered by 0002 (matches assumption A) |
 | Q0006 | Do map resources need flat tiles? | no | answered by 0013 (yes, both) |
 | Q0007 | Group moves: destination slots, head-on deadlock, do idle units yield | no | answered: part 1 by 0021 (magic box); parts 2 and 3 by 0022 (no swapping; idle own units yield) |
-| Q0008 | Move failure: stuck timing, unreachable or occupied targets | no | part 1 (stuck timing) answered by 0024; parts 2 (unreachable target) and 3 (occupied target) open |
+| Q0008 | Move failure: stuck timing, unreachable or occupied targets | no | answered by 0024 (timing), 0025 (nearest reachable point), 0026 (arrived within 2 GU behind non-moving units) |
 | Q0009 | Range measured to large targets; proximity; silhouette rotation | no (needed before W) | open |
 | Q0010 | Chase target lost in fog; Patrol origin; failed legs | no (needed before E) | open |
 | Q0011 | Terrain/obstacles: resources block, Rugged, routes via the true map, underground/air | no | open; C builds the defaults as switches |
 | Q0012 | Crowds clot without yielding: should friendly units yield or swap? (evidence from M1-D) | no | answered by 0022 (option B) and 0023 |
 | Q0013 | Selection edge cases: ungroupables, allies, modified clicks, empty ground, InfoPanel for 2+ objects, control groups | no | open; S built the listed defaults |
 | Q0014 | Combat edge cases: force-attacking own or neutral objects, a shot whose target dies mid-Firing, Rugged for units across tiles | no | open; W built the listed defaults |
-| Q0015 | Magic box meets yielding (converging groups), box from footprints vs centres, Shift-queued group moves | no | open; M1-Y builds the stated assumptions |
+| Q0015 | Magic box meets yielding (converging groups), box from footprints vs centres, Shift-queued group moves | no | points 1–2 answered by 0027 and 0028 (as assumed); point 3 open |
+| Q0016 | Command UI edge cases: who carries out a right-click, invalid targets, input while targeting, Shift keeps targeting | no | open; H built the listed defaults |
 
 ## Design change entries
-Last triaged: 0024.
+Last triaged: 0028.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -256,4 +265,8 @@ Last triaged: 0024.
 | 0022 Friendly idle units sidestep for blocked movers | in progress (M1-Y) | answers Q0012, Q0007 parts 2–3 |
 | 0023 Who yields: idle only; modes don't matter; deployed Artillery Rig fixed | in progress (M1-Y) | the Artillery Rig part is a hook until vehicles |
 | 0024 Stuck 1.5 s, 3 re-route tries, give up | in progress (M1-Y) | answers Q0008 part 1; M1-Y reconciles D's schedule |
+| 0025 Unreachable move target goes to the nearest reachable point | folded into M1-Y (verification tests) | already built by M1-M (`nav::reachable_point`) |
+| 0026 Occupied target: arrived within 2 GU behind non-moving units | folded into M1-Y | replaces D's group-arrival stand-in |
+| 0027 No yielding within the same group order | folded into M1-Y | answers Q0015 point 1 |
+| 0028 Magic box drawn around silhouettes | folded into M1-Y | answers Q0015 point 2 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
