@@ -1984,3 +1984,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T18:42:44-05:00 — Q0008 part 1: stuck/give-up timings kept. Doc: behaviors.md. Change entry 0024.
 - 2026-11-23T18:49:50-05:00 — Q0008 part 2: unreachable target → nearest reachable point. Docs: behaviors.md, commands.md. Change entry 0025. Took in Q0015.
 - 2026-11-23T18:51:23-05:00 — Q0008 part 3: occupied target arrived within 2 GU. Doc: behaviors.md. Change entry 0026.
+- 2026-11-23T18:52:17-05:00 — Q0015.1: arrived units don't yield to same-group arrivals. Doc: units.md. Change entry 0027.
