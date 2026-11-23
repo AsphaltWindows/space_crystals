@@ -5,6 +5,17 @@ An order issued to a unit, produced by a CommandIssuingTransition from the Contr
 
 ### Value - UnitCommandEnum
 
+## Group Destinations (Magic Box)
+When a location-targeted movement order (Move, Attack Move, Patrol) is given to several units at once, each unit's destination is decided by the **magic box** (user, 2026-11-23; StarCraft's model, the user's reference):
+- **The box** is the bounding rectangle around the positions of the units receiving the order.
+- **Click outside the box: keep the arrangement.** Each unit's destination is the click point plus that unit's current offset from the group's center. The group arrives in the same shape it had (a line stays a line).
+- **Click inside the box: converge.** Every unit's destination is the clicked point itself. The units gather around it, stopping where the crowd blocks them (see systems/controls/behaviors.md > MovingToLocation for when a blocked unit stops).
+- **No formation movement:** each unit travels to its destination at its own speed. The group does not wait for its slowest member and strings out if speeds differ.
+
+Rejected alternative (user): a fresh compact grid of spots around the click point. It felt "a little bit too random from a player's perspective".
+
+TBD: what happens when a unit's offset destination is unreachable (pending Director question Q0008); whether the box has a size limit (for widely scattered selections the box covers most of the map, so most clicks converge).
+
 ## Move
 Order the unit to move to a target location or object.
 
