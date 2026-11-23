@@ -4,13 +4,15 @@
 //! sections share one height, and a slot stays reserved while its panel has nothing to show. Sizes are in percent
 //! of the surface height (`vh`), so the HUD scales with the window and the world view between the bars keeps its
 //! shape at every resolution. The top bar shows the player and the tick. The sections are placed at the rectangles
-//! of [`layout`], which also find the portrait under a click. Two panels show the selection: the InfoPanel
-//! ([`info_panel`]) and the SelectionPanel ([`selection_panel`]); the others show their names, and so do these two
-//! while they have nothing to show.
+//! of [`layout`], which also find the portrait or the command button under a click. Two panels show the selection:
+//! the InfoPanel ([`info_panel`]) and the SelectionPanel ([`selection_panel`]); the CommandPanel
+//! ([`command_panel`]) shows the commands for it (`crate::command_ui`). The others show their names, and so do these
+//! three while they have nothing to show.
 //!
 //! The HUD is specific to the game mode: it tells the camera which strip it leaves free through
 //! [`ViewportInsets`], and another mode (the map editor) brings its own UI instead and hides the HUD.
 
+pub mod command_panel;
 pub mod info_panel;
 pub mod layout;
 pub mod selection_panel;
@@ -124,6 +126,7 @@ impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(HUD_INSETS)
             .init_resource::<selection_panel::SelectionPanelView>()
+            .init_resource::<command_panel::CommandPanelView>()
             .add_systems(Startup, spawn_hud)
             .add_systems(Update, (update_top_bar, show_hud_in_game_modes))
             // `> SelectionPanel > Interactions`: after the map's clicks and the keys of the same frame.
@@ -139,6 +142,7 @@ impl Plugin for HudPlugin {
                     place_sections,
                     info_panel::update_info_panel,
                     selection_panel::update_selection_panel,
+                    command_panel::update_command_panel,
                 )
                     .chain()
                     .in_set(ClientSystems::Present),

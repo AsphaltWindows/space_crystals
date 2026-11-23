@@ -5,7 +5,8 @@
 //! from the sim every frame at `prev_pos.lerp(pos, alpha)`, drawn at the terrain height there (a tile-based object
 //! at its footprint's height, `core/art_direction.md > Elevation Display`) and y-sorted by its ground position in the
 //! ground-object layer. Placeholder shapes stand in until the art direction (Q0001) is settled: a unit is a shape of
-//! its own per kind, its silhouette's size, in its owner's colour, with a tick showing its facing.
+//! its own per kind, its silhouette's size, in its owner's colour, with a tick showing its facing. The Guard's square
+//! stays axis-aligned, like its collision box, and only its tick turns ([`FacingTick`]).
 
 use std::collections::BTreeMap;
 
@@ -21,11 +22,17 @@ use crate::sim_driver::{RenderAlpha, SimRes};
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ObjectVisual(pub ObjectId);
 
+/// The facing tick of a visual whose body doesn't turn ([`body_turns`]): a child of the object's visual, turned by
+/// the object's facing.
+#[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
+pub struct FacingTick(pub ObjectId);
+
 /// Mesh and material handles, created once per object kind (and owner, for units) and shared by all its visuals.
 #[derive(Resource, Default)]
 pub struct ObjectVisualAssets {
     material: Option<Handle<ColorMaterial>>,
     meshes: BTreeMap<(ObjectKind, Option<PlayerId>), Handle<Mesh>>,
+    ticks: BTreeMap<ObjectKind, Handle<Mesh>>,
 }
 
 /// The visual entity of each object.
@@ -72,8 +79,22 @@ pub fn object_mesh(kind: ObjectKind, owner: Option<PlayerId>) -> Mesh {
     match kind {
         ObjectKind::CrystalPatch => crystal_patch_mesh(),
         ObjectKind::SupplyDeliveryStation => supply_station_mesh(),
-        ObjectKind::Peacekeeper => unit_mesh(kind, UnitShape::Round, player_color(owner)),
-        ObjectKind::Guard => unit_mesh(kind, UnitShape::Square, player_color(owner)),
+        ObjectKind::Peacekeeper => unit_mesh(kind, UnitShape::Round, player_color(owner), true),
+        ObjectKind::Guard => unit_mesh(kind, UnitShape::Square, player_color(owner), true),
+    }
+}
+
+/// Whether a visual of `kind` turns with its object's facing. The Guard's square doesn't: its collision box never
+/// turns, and a turned square makes crowded Guards look as if they overlapped. Its tick turns alone ([`FacingTick`]).
+fn body_turns(kind: ObjectKind) -> bool {
+    kind != ObjectKind::Guard
+}
+
+/// The mesh of an object's visual: its placeholder shape, without the tick if its body doesn't turn.
+fn visual_mesh(kind: ObjectKind, owner: Option<PlayerId>) -> Mesh {
+    match kind {
+        ObjectKind::Guard => unit_mesh(kind, UnitShape::Square, player_color(owner), false),
+        _ => object_mesh(kind, owner),
     }
 }
 
@@ -105,9 +126,9 @@ enum UnitShape {
 }
 
 /// A unit (placeholders until Q0001 settles the art): its silhouette's size in a shape of its own, filled with its
-/// owner's colour inside a dark rim, and a light tick from its center through its front, along local +x, which the
-/// visual's rotation turns to the unit's facing.
-fn unit_mesh(kind: ObjectKind, shape: UnitShape, color: Color) -> Mesh {
+/// owner's colour inside a dark rim, and (`with_tick`) a light tick from its center through its front, along local
+/// +x, which the visual's rotation turns to the unit's facing.
+fn unit_mesh(kind: ObjectKind, shape: UnitShape, color: Color, with_tick: bool) -> Mesh {
     let half = kind.def().half_extents().unwrap_or(Vec2::splat(12.0));
     let outline = |inset: f32| -> Vec<Vec2> {
         let h = half - Vec2::splat(inset);
@@ -130,6 +151,14 @@ fn unit_mesh(kind: ObjectKind, shape: UnitShape, color: Color) -> Mesh {
     let mut mesh = ColorMesh::triangles();
     mesh.polygon(&outline(0.0), 0.0, darken(srgba, 0.45).into());
     mesh.polygon(&outline(2.5), 0.001, color);
+    if with_tick {
+        facing_tick(&mut mesh, half);
+    }
+    mesh.into_mesh()
+}
+
+/// A unit's facing tick, along local +x, in front of its body.
+fn facing_tick(mesh: &mut ColorMesh, half: Vec2) {
     mesh.segment(
         Vec2::ZERO,
         Vec2::new(half.x + 5.0, 0.0),
@@ -137,6 +166,12 @@ fn unit_mesh(kind: ObjectKind, shape: UnitShape, color: Color) -> Mesh {
         0.002,
         Color::srgb(0.96, 0.96, 0.92),
     );
+}
+
+/// The facing tick of a `kind` visual whose body doesn't turn, alone.
+fn tick_mesh(kind: ObjectKind) -> Mesh {
+    let mut mesh = ColorMesh::triangles();
+    facing_tick(&mut mesh, kind.def().half_extents().unwrap_or(Vec2::splat(12.0)));
     mesh.into_mesh()
 }
 
@@ -247,18 +282,34 @@ fn sync_object_visuals(
         let mesh = assets
             .meshes
             .entry((object.kind, owner))
-            .or_insert_with(|| meshes.add(object_mesh(object.kind, owner)))
+            .or_insert_with(|| meshes.add(visual_mesh(object.kind, owner)))
             .clone();
         let height = object_height(sim.map(), object.pos, object.placement.as_ref());
+        let turns = body_turns(object.kind);
         let entity = commands
             .spawn((
                 Name::new(format!("{:?} #{}", object.kind, object.id.0)),
                 ObjectVisual(object.id),
                 Mesh2d(mesh),
                 MeshMaterial2d(material.clone()),
-                object_transform(object.pos, height, object.facing),
+                object_transform(object.pos, height, if turns { object.facing } else { 0.0 }),
             ))
             .id();
+        if !turns {
+            let tick = assets
+                .ticks
+                .entry(object.kind)
+                .or_insert_with(|| meshes.add(tick_mesh(object.kind)))
+                .clone();
+            commands.spawn((
+                Name::new("Facing tick"),
+                FacingTick(object.id),
+                Mesh2d(tick),
+                MeshMaterial2d(material.clone()),
+                Transform::from_rotation(facing_to_rotation(object.facing)),
+                ChildOf(entity),
+            ));
+        }
         visuals.by_id.insert(object.id, entity);
     }
 }
@@ -267,7 +318,8 @@ fn sync_object_visuals(
 fn place_object_visuals(
     sim: Res<SimRes>,
     alpha: Res<RenderAlpha>,
-    mut visuals: Query<(&ObjectVisual, &mut Transform)>,
+    mut visuals: Query<(&ObjectVisual, &mut Transform), Without<FacingTick>>,
+    mut ticks: Query<(&FacingTick, &mut Transform), Without<ObjectVisual>>,
 ) {
     for (visual, mut transform) in &mut visuals {
         let Some(object) = sim.object(visual.0) else {
@@ -276,6 +328,14 @@ fn place_object_visuals(
         let pos = object.prev_pos.lerp(object.pos, alpha.0);
         let facing = lerp_facing(object.prev_facing, object.facing, alpha.0);
         let height = object_height(sim.map(), pos, object.placement.as_ref());
+        let facing = if body_turns(object.kind) { facing } else { 0.0 };
         transform.set_if_neq(object_transform(pos, height, facing));
+    }
+    for (tick, mut transform) in &mut ticks {
+        let Some(object) = sim.object(tick.0) else {
+            continue;
+        };
+        let facing = lerp_facing(object.prev_facing, object.facing, alpha.0);
+        transform.set_if_neq(Transform::from_rotation(facing_to_rotation(facing)));
     }
 }

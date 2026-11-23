@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 
 use sc_sim::{ObjectId, ObjectKind};
 
+use crate::command_ui::InterfaceState;
 use crate::input::ControlGroup;
 
 /// The most objects a selection or a control group holds. Placeholder, unspecified: `> Selection > Constraints`
@@ -238,26 +239,36 @@ impl ControlGroups {
     }
 }
 
-/// `> ControlState`: a player's selection and control groups, client-side UI state, never part of the sim. The
-/// ObjectInterfaceState joins it with the command panel.
+/// `> ControlState`: a player's selection, control groups and ObjectInterfaceState, client-side UI state, never part
+/// of the sim.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ControlState {
     pub selection: Selection,
     pub groups: ControlGroups,
+    /// `> ObjectInterfaceState[ActiveGroup]`: where the ActiveGroup's command flow stands (`crate::command_ui`).
+    pub interface: InterfaceState,
 }
 
 impl ControlState {
     pub const EMPTY: ControlState = ControlState {
         selection: Selection::EMPTY,
         groups: ControlGroups::EMPTY,
+        interface: InterfaceState::DefaultState,
     };
 
     /// Drops the objects for which `keep` fails from the selection and the control groups. Says whether anything
-    /// changed.
+    /// changed. `> ControlState`: an ObjectInterfaceState the removal makes invalid resets to DefaultState; one of an
+    /// ActiveGroup that is gone does (it was its type's, `> ObjectInterfaceState[ObjectEnum]`), and the command flow
+    /// checks the rest against the game every frame.
     pub fn retain(&mut self, mut keep: impl FnMut(ObjectId) -> bool) -> bool {
+        let active = self.selection.active();
         let selection = self.selection.retain(|id, _| keep(id));
         let groups = self.groups.retain(keep);
-        selection || groups
+        let reset = self.selection.active() != active && self.interface != InterfaceState::DefaultState;
+        if reset {
+            self.interface = InterfaceState::DefaultState;
+        }
+        selection || groups || reset
     }
 }
 
@@ -377,5 +388,19 @@ mod tests {
         assert_eq!(state.selection.ids().collect::<Vec<_>>(), [id(1)]);
         assert_eq!(state.groups.get(group(4)), [id(3)]);
         assert!(!state.retain(|_| true));
+    }
+
+    /// `> ControlState`: a removal resets the ObjectInterfaceState only when it takes away the ActiveGroup.
+    #[test]
+    fn a_removal_resets_the_interface_state_only_with_the_active_group() {
+        let awaiting = InterfaceState::AwaitingTarget(crate::command_ui::UnitCommand::Attack);
+        let mut state = ControlState::EMPTY;
+        state.selection = Selection::new([(id(1), PK), (id(2), PK), (id(3), GUARD)]);
+        state.interface = awaiting;
+        assert!(state.retain(|i| i != id(2)));
+        assert_eq!(state.interface, awaiting, "the Peacekeepers' group is still active");
+        assert!(state.retain(|i| i != id(1)));
+        assert_eq!(state.selection.active().map(|k| k.kind), Some(GUARD));
+        assert_eq!(state.interface, InterfaceState::DefaultState);
     }
 }

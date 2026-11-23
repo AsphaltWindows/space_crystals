@@ -500,8 +500,9 @@ out by the same rules.
   band, slightly in front, so terrain in front hides it too. Both meshes are rebuilt when the sim's map changes.
 - **Units** (`object_render.rs`) are placeholder shapes until the art (Q0001): a shape per kind (Peacekeeper round,
   Guard square) of the silhouette's size, in the owner's colour (`player_color`, the editor's slot colours), with a
-  dark rim and a light tick along the facing; the visual turns with the interpolated facing. One mesh per
-  `(kind, owner)` is shared.
+  dark rim and a light tick along the facing; the visual turns with the interpolated facing. The Guard's square
+  doesn't: it stays axis-aligned like its collision box, and only its tick turns (a `FacingTick` child,
+  `body_turns`). One mesh per `(kind, owner)` is shared, and one tick mesh per kind.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
@@ -535,8 +536,9 @@ CommandPanel. All five have the same height and keep fixed horizontal slots, and
 (`systems/controls/selection_and_hud.md > HUD Bar`). bevy_ui lays out each root node inside its camera's viewport,
 so the HUD needs its own full-window UI camera (`IsDefaultUiCamera` / `UiTargetCamera`). The sections sit at the
 rectangles `hud::layout` computes from the surface size alone (`section_rect`, `PortraitGrid`); the same geometry
-finds the portrait under a click, because headless tests have no UI picking. The InfoPanel (`hud/info_panel.rs`) and
-the SelectionPanel (`hud/selection_panel.rs`) show the selection (see Selection); a section with nothing to show
+finds the portrait under a click, because headless tests have no UI picking (and `CommandGrid` the command button).
+The InfoPanel (`hud/info_panel.rs`) and the SelectionPanel (`hud/selection_panel.rs`) show the selection (see
+Selection), the CommandPanel (`hud/command_panel.rs`) its commands (see Commands UI); a section with nothing to show
 shows its name (`SectionLabel`).
 
 **Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse, the wheel and the screen edge into
@@ -592,8 +594,8 @@ elsewhere.
   their presses before ours run. `RawInput` turns the real devices off in QA runs.
 
 **Selection** (`selection.rs`, `selection/`; `systems/controls/selection_and_hud.md`): client UI state, never sim
-state. `ControlStates` holds every player's `ControlState`, a `Selection` and 10 control groups; the input changes and
-the HUD shows the local player's (`LocalPlayer`).
+state. `ControlStates` holds every player's `ControlState`, a `Selection`, 10 control groups and the
+ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the local player's (`LocalPlayer`).
 - **Model** (`selection/model.rs`): a selection is a set of object ids with their kinds. Its groups are derived, one
   per type, in `ObjectKind` order (an ungroupable object, a patch or a station, is a group alone), each by id; the
   ActiveGroup is a group key, which Tab and Shift + Tab cycle with wrap-around and which falls back to the first group
@@ -613,11 +615,39 @@ the HUD shows the local player's (`LocalPlayer`).
   the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the debug player switch
   (F2, only while `SimConfig::debug`: the client acts as the next player, so "own" and the state in use change). The
   HUD's portrait clicks run after it. Systems change a state only through `LocalControl::update`, which marks
-  `ControlStates` changed only on a real change.
+  `ControlStates` changed only on a real change, and puts the ObjectInterfaceState back to DefaultState when the
+  Selection or its ActiveGroup changes. While a target is awaited, map clicks and boxes select nothing (the drag box
+  isn't drawn): the left-click is the target's.
 - **Visuals** (`selection/markers.rs`): one marker entity per selected object in the ground-decal layer, under the
   object (a ring around a unit, a frame inside a footprint), coloured by relation, the ActiveGroup's solid and the
   others' dashed; meshes cached per shape, relation and activity. The drag box is four edges of one shared mesh in
   the overlay layer, shown while `Pointer::drag_box` is set.
+
+**Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/selection_and_hud.md > ObjectInterfaceState`
+to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units.
+- **Rules** (pure and unit tested): `command_ui/interface.rs` has the `UnitCommand`s, the `InterfaceState`
+  (DefaultState, or AwaitingTarget of a command) in each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the
+  Peacekeeper's and the Guard's BasicCombatUnit grid), the `Panel` a selection gets (common, group, pending, disabled
+  and unavailable buttons; Back in Z while a target is awaited) and who receives a command (a common one the whole
+  selection, a group one the ActiveGroup). `command_ui/resolution.rs` has what a click resolves to (`CursorTarget`,
+  `right_click`, `target_order`) and the `PointerDisplay` that previews it. Nothing is commandable unless the whole
+  selection is the player's (`commandable`).
+- **Systems** (`CommandUiSystems`): `Validate` (in `SyncSim`, after the selection's sync) ends an AwaitingTarget that
+  no longer holds. `Input` (in `Actions`, after the selection's input) turns Esc, the command hotkeys
+  (`InputAction::CommandSlot`), clicks on the panel (found by `CommandGrid`), left-clicks on the map while a target is
+  awaited and right-clicks into state changes and orders. An order is a `Command::Order` in `PendingCommands` naming
+  only the player's own units, given only if `Sim::validate` takes it, queued while `Queue` (Shift) is held; each one
+  is also an `OrderIssued` message.
+- **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
+  changes; each shows its command and its hotkey from the bindings. The indicators (`command_ui/indicators.rs`) are
+  one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
+  own units' current orders (and queued ones while Shift is held), a flash where an order was just given
+  (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow
+  `> Color language`. The pointer (`command_ui/cursor.rs`) shows the `PointerLook`: images drawn in code and cached
+  per look, set as the window's `CursorIcon`, and drawn as a UI node at the injected cursor in QA runs, which render
+  no system cursor.
+- The design leaves some things open (labels, colours, the flash, the cursor's shapes, who carries out a
+  right-click, what an invalid target click does); each placeholder is marked where it is made.
 
 **Bevy code**
 - Write one plugin per feature module (camera, map rendering, HUD, input, …). Keep systems small. Bevy caps a system

@@ -16,6 +16,7 @@ use sc_sim::{ObjectId, ObjectKind, SU_PER_GU};
 
 use super::ControlStates;
 use super::pick::{Relation, Selectable};
+use crate::command_ui::InterfaceState;
 use crate::coords::{DrawLayer, view_to_world};
 use crate::input::ActionState;
 use crate::shapes::{ColorMesh, vertex_color_material};
@@ -261,9 +262,13 @@ fn spawn_drag_box(
 fn draw_drag_box(
     actions: Res<ActionState>,
     mode: Res<ClientMode>,
+    states: Res<ControlStates>,
+    player: Res<LocalPlayer>,
     mut edges: Query<(&DragBoxEdge, &mut Transform, &mut Visibility)>,
 ) {
-    let dragged = actions.pointer().drag_box.filter(|_| mode.is_game());
+    // A box selects nothing while a target is awaited (`super::systems::select_on_map`): none is drawn then.
+    let targeting = states.of(player.0).interface != InterfaceState::DefaultState;
+    let dragged = actions.pointer().drag_box.filter(|_| mode.is_game() && !targeting);
     for (edge, mut transform, mut visibility) in &mut edges {
         let Some(rect) = dragged else {
             visibility.set_if_neq(Visibility::Hidden);

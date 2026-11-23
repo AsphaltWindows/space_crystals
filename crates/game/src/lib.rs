@@ -14,16 +14,19 @@
 //! - [`path_overlay`]: the units' remaining paths, a development view;
 //! - [`combat_effects`]: placeholder combat feedback: tracers, HP bars, death markers;
 //! - [`selection`]: the players' selections and control groups (client-side UI state), and their markers;
-//! - [`hud`]: the game mode's HUD frame, with the InfoPanel and the SelectionPanel;
+//! - [`command_ui`]: orders from the command panel, right-clicks and targeting; command indicators and cursors;
+//! - [`hud`]: the game mode's HUD frame, with the InfoPanel, the SelectionPanel and the CommandPanel;
 //! - [`editor`]: the map editor (`--editor`), with its own UI, tools and play-test;
 //! - [`qa`]: screenshots, exit at a tick, state dump, commands and input at given ticks.
 //!
-//! Everything except [`hud`], [`selection`] and [`editor`] is independent of the mode ([`ClientMode`]), apart from
-//! the input layer, which applies the bindings of the mode's input context ([`ClientMode::input_context`]).
+//! Everything except [`hud`], [`selection`], [`command_ui`] and [`editor`] is independent of the mode
+//! ([`ClientMode`]), apart from the input layer, which applies the bindings of the mode's input context
+//! ([`ClientMode::input_context`]).
 
 pub mod camera;
 pub mod cli;
 pub mod combat_effects;
+pub mod command_ui;
 pub mod coords;
 pub mod editor;
 pub mod hud;
@@ -42,6 +45,7 @@ use sc_sim::{PlayerId, Scenario, SimConfig};
 
 use crate::camera::GameCameraPlugin;
 use crate::combat_effects::CombatEffectsPlugin;
+use crate::command_ui::CommandUiPlugin;
 use crate::editor::{EditorConfig, EditorPlugin};
 use crate::hud::HudPlugin;
 use crate::input::{ActionInputPlugin, InputContext};
@@ -179,6 +183,7 @@ pub fn build_app(config: AppConfig) -> App {
         CombatEffectsPlugin,
         QaPlugin { config: config.qa },
         SelectionPlugin,
+        CommandUiPlugin,
     ))
     // The game mode; the editor hides the HUD except in its play-tests.
     .add_plugins(HudPlugin);
