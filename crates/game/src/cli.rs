@@ -36,6 +36,7 @@ pub struct CliOptions {
     pub exit_at_tick: Option<Tick>,
     pub dump_state: Option<PathBuf>,
     pub commands: Option<PathBuf>,
+    pub input_script: Option<PathBuf>,
     pub show_paths: bool,
     pub windowed: bool,
     pub headless: bool,
@@ -58,6 +59,7 @@ impl Default for CliOptions {
             exit_at_tick: None,
             dump_state: None,
             commands: None,
+            input_script: None,
             show_paths: false,
             windowed: false,
             headless: false,
@@ -95,6 +97,9 @@ QA (any of these makes the run reproducible: keyboard and mouse are ignored, fra
   --dump-state <path>         Write the state as JSON when the run ends
   --commands <file.json>      Apply player commands at given ticks: a JSON list of
                               {{\"tick\": 2, \"player\": 1, \"command\": {{\"Order\": {{...}}}}}}
+  --input-script <file.json>  Drive the virtual keyboard and mouse at given ticks: a JSON list of
+                              {{\"tick\": 3, \"cursor\": [640, 300], \"press\": [\"MouseLeft\"], \"tap\": [],
+                              \"release\": []}} (buttons: MouseLeft, ShiftLeft, Digit1, KeyA, F2, Tab, ...)
   --show-paths                Start with the unit path overlay on (P toggles it)
   --windowed                  Show the QA run in a window instead of rendering offscreen
   --headless                  No window and no rendering at all (no screenshots)
@@ -131,6 +136,7 @@ pub fn parse(args: &[String]) -> Result<CliOptions, String> {
             "--exit-at-tick" => options.exit_at_tick = Some(parse_tick(&value()?)?),
             "--dump-state" => options.dump_state = Some(value()?.into()),
             "--commands" => options.commands = Some(value()?.into()),
+            "--input-script" => options.input_script = Some(value()?.into()),
             "--show-paths" => options.show_paths = true,
             "--windowed" => options.windowed = true,
             "--headless" => options.headless = true,
@@ -205,6 +211,9 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
     if editor.is_some() && options.commands.is_some() {
         return Err("--commands needs a game: the editor's map stays at tick 0".into());
     }
+    if editor.is_some() && options.input_script.is_some() {
+        return Err("--input-script needs a game: the editor's map stays at tick 0 (use --editor-script)".into());
+    }
     let mut qa = QaConfig {
         screenshots: options.screenshots,
         exit_at_tick: options.exit_at_tick,
@@ -214,6 +223,10 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
             None => Vec::new(),
         },
         show_paths: options.show_paths,
+        input_script: match &options.input_script {
+            Some(path) => crate::qa::load_input_script(path)?,
+            None => Vec::new(),
+        },
     };
     let display = if options.headless {
         DisplayMode::Headless
@@ -526,6 +539,7 @@ mod tests {
             "--editor --scenario nowhere",
             "--editor --screenshot 5:a.png",
             "--editor --exit-at-tick 3 --headless",
+            "--editor --input-script s.json",
         ] {
             assert!(into_config(parse(&args(bad)).unwrap()).is_err(), "{bad}");
         }

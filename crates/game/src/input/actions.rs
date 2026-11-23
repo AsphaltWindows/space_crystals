@@ -32,8 +32,9 @@ impl InputContext {
 /// default bindings are [`super::Bindings::default`].
 ///
 /// Most actions fire on a press. The modifier actions ([`InputAction::Queue`], [`InputAction::ToggleSelection`],
-/// [`InputAction::SelectSameType`]) are only ever held: they say how a click or a command is meant. A wheel action
-/// ([`EditorInput::Zoom`]) carries how far the wheel turned ([`super::ActionState::scrolled`]).
+/// [`InputAction::SelectSameType`], [`InputAction::CenterOnObject`]) are only ever held: they say how a click or a
+/// command is meant. A wheel action ([`EditorInput::Zoom`]) carries how far the wheel turned
+/// ([`super::ActionState::scrolled`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum InputAction {
     /// `core/camera.md > Panning > Arrow keys and screen edge`: pans west while held.
@@ -80,6 +81,12 @@ pub enum InputAction {
     ToggleSelection,
     /// Modifier: `> MapClickSelection`: a click selects all own units of that type on screen.
     SelectSameType,
+    /// Modifier: `> SelectionPanel > Interactions`: a click on a portrait centers the camera on that unit instead of
+    /// selecting it.
+    CenterOnObject,
+    /// Debug only (`ARCHITECTURE.md > Commands, events and replays`, `SimConfig::debug`): the local client acts as the
+    /// next player, so one client can control both sides. Placeholder binding: the design has no debug keys.
+    DebugSwitchPlayer,
     /// The map editor's input (`ARCHITECTURE.md > Map editor`).
     Editor(EditorInput),
 }

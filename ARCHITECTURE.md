@@ -439,7 +439,11 @@ editor zooms (`CameraZoom`).
 Bar with five fixed sections. From left to right they are Minimap, Portrait, InfoPanel, SelectionPanel and
 CommandPanel. All five have the same height and keep fixed horizontal slots, and a hidden panel's slot stays reserved
 (`systems/controls/selection_and_hud.md > HUD Bar`). bevy_ui lays out each root node inside its camera's viewport,
-so the HUD needs its own full-window UI camera (`IsDefaultUiCamera` / `UiTargetCamera`).
+so the HUD needs its own full-window UI camera (`IsDefaultUiCamera` / `UiTargetCamera`). The sections sit at the
+rectangles `hud::layout` computes from the surface size alone (`section_rect`, `PortraitGrid`); the same geometry
+finds the portrait under a click, because headless tests have no UI picking. The InfoPanel (`hud/info_panel.rs`) and
+the SelectionPanel (`hud/selection_panel.rs`) show the selection (see Selection); a section with nothing to show
+shows its name (`SectionLabel`).
 
 **Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse, the wheel and the screen edge into
 the input of the game and of the map editor, in `PreUpdate` (`ReadActions`, after Bevy's input, UI picking and the
@@ -466,7 +470,8 @@ elsewhere.
   buttons, Esc to cancel, Tab and Shift + Tab, the control group keys, the 4 × 3 command grid QWER/ASDF/ZXCV with
   the standard slots Z, X and C, Shift to queue) and the editor's (its F1 help lists them). A rebinding UI edits it
   with `bind` and `unbind`. It isn't serializable yet: loading it from a file needs Bevy's `serialize` feature for
-  `KeyCode` and `MouseButton`.
+  `KeyCode` and `MouseButton`. The selection adds `CenterOnObject` (Alt) to the modifier actions, for clicks on
+  portraits, and F2 for the debug player switch (a placeholder: the design has no debug keys).
 - **Output**: `ActionState` (a `Resource`) holds this frame's actions (held, just pressed, just released), the wheel's
   turn, the modifiers, the context, the cursor in logical pixels, and the `Pointer`: the view point and the ground
   point (`coords::ground_under`) under the cursor, whether it is over the UI (a UI node by Bevy's picking, or outside
@@ -491,6 +496,34 @@ elsewhere.
   mouse cursor, `over_ui` puts it over a UI node (headless apps have no UI picking), and `held` and `pressed` inject
   actions directly, past the bindings. Never write to Bevy's own `ButtonInput` resources: its input systems clear
   their presses before ours run. `RawInput` turns the real devices off in QA runs.
+
+**Selection** (`selection.rs`, `selection/`; `systems/controls/selection_and_hud.md`): client UI state, never sim
+state. `ControlStates` holds every player's `ControlState`, a `Selection` and 10 control groups; the input changes and
+the HUD shows the local player's (`LocalPlayer`).
+- **Model** (`selection/model.rs`): a selection is a set of object ids with their kinds. Its groups are derived, one
+  per type, in `ObjectKind` order (an ungroupable object, a patch or a station, is a group alone), each by id; the
+  ActiveGroup is a group key, which Tab and Shift + Tab cycle with wrap-around and which falls back to the first group
+  when its group empties. At most `MAX_SELECTED` objects (a placeholder: the order limit).
+- **Picking** (`selection/pick.rs`): `Selectables` is what the local player may select this frame (`selectable_by`,
+  the hook for vision's Explored rule), each object's box as it is drawn: interpolated, lifted by the height it
+  stands at, in view space. A click picks the frontmost box under it (grown by `PICK_SLOP_SU`); a box (the input
+  layer's `SelectionBox`) applies the priority tiers. `Relation::of` says own, enemy or neutral (no teams yet, so no
+  allies); allies would count with enemies in the tiers.
+- **Rules** (`selection/rules.rs`, pure and unit tested): map clicks, boxes, portrait clicks, control group keys and
+  Tab on a `ControlState`, under the Constraints (another player's object or a resource is only ever selected alone).
+  What a click's modifiers mean comes from the bindings (`ClickRoles`). Every rule the design leaves open is marked
+  as a placeholder where it is made.
+- **Systems** (`SelectionSystems`): `Sync` (in `SyncSim`) removes objects that left the sim from every selection
+  and group in the frame of their tick (`SimEvent::Removed`, deaths included, and anything else gone), and starts
+  every state over when the sim is replaced (`SimRes::generation`). `Input` (in `Actions`) applies map clicks, boxes,
+  the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the debug player switch
+  (F2, only while `SimConfig::debug`: the client acts as the next player, so "own" and the state in use change). The
+  HUD's portrait clicks run after it. Systems change a state only through `LocalControl::update`, which marks
+  `ControlStates` changed only on a real change.
+- **Visuals** (`selection/markers.rs`): one marker entity per selected object in the ground-decal layer, under the
+  object (a ring around a unit, a frame inside a footprint), coloured by relation, the ActiveGroup's solid and the
+  others' dashed; meshes cached per shape, relation and activity. The drag box is four edges of one shared mesh in
+  the overlay layer, shown while `Pointer::drag_box` is set.
 
 **Bevy code**
 - Write one plugin per feature module (camera, map rendering, HUD, input, …). Keep systems small. Bevy caps a system
@@ -535,10 +568,11 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--exit-at-tick <n>` | Exits at tick `n`, after its screenshots. Windowless runs default to the last screenshot's. |
 | `--dump-state <path>` | Writes the state as JSON when the run ends (fields below). |
 | `--commands <file.json>` | Applies player commands at given ticks: a JSON list of `{"tick", "player", "command"}` (`qa::TimedCommand`; `command` is a `sc_sim::Command` in serde form). Each applies in the step that reaches its tick (1 or later), a tick's commands in file order. Not with `--editor`. |
+| `--input-script <file.json>` | Drives the virtual keyboard and mouse (`InjectedInput`) at given ticks: a JSON list of `{"tick", "cursor", "press", "tap", "release"}` (`qa::InputStep`; buttons by name: `MouseLeft`, `ControlLeft`, `Digit1`, `KeyQ`, `F2`, …). The sim waits at each step's tick until it is applied, so a button held across steps drags and a chord spans steps (Ctrl + 1: `press` Ctrl and `tap` 1, release Ctrl in a later step). Not with `--editor`. |
 | `--show-paths` | Starts with the unit path overlay on (P toggles it). |
 | `--windowed` | Shows a QA run in a window on the user's display instead of rendering offscreen. |
 | `--headless` | No window and no renderer: sim, client state and `--dump-state` only. Needs `--exit-at-tick`. |
-| Later: `--script <file>`, replays | Run scripted `InputAction`s, and replay recorded sessions. |
+| Later: replays | Replay recorded sessions. |
 
 Taking a screenshot (no window appears; about one second plus `tick / 16` seconds, or add `--fast`):
 
@@ -546,14 +580,14 @@ Taking a screenshot (no window appears; about one second plus `tick / 16` second
 cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png --dump-state /path/to/p2.json
 ```
 
-- Any of `--screenshot`, `--exit-at-tick`, `--dump-state`, `--commands` makes a *QA run*. It ignores keyboard and
-  mouse, renders at scale factor 1, and renders offscreen: Bevy renders into an image on this machine's GPU (Vulkan,
-  Intel Arc), with no window and no Xvfb. The sim waits at each screenshot tick until the PNG is saved, so the PNG
-  shows that tick's exact state with no interpolation. Repeated runs give byte-identical PNGs.
+- Any of `--screenshot`, `--exit-at-tick`, `--dump-state`, `--commands`, `--input-script` makes a *QA run*. It
+  ignores keyboard and mouse, renders at scale factor 1, and renders offscreen: Bevy renders into an image on this
+  machine's GPU (Vulkan, Intel Arc), with no window and no Xvfb. The sim waits at each screenshot tick until the PNG
+  is saved, so the PNG shows that tick's exact state with no interpolation. Repeated runs give byte-identical PNGs.
 - Exit codes: 0 when everything was saved, 1 when a QA step failed (the log says which), 2 for invalid flags.
 - The `--dump-state` JSON holds `tick`, `scenario` (the map's name), `players`, `objects` (every field of
   `sc_sim::Object`), the last tick's `events`, `client` (`local_player`, `camera_center` as a view point in su,
-  `grid_visible`, `recorded_ticks`) and `map` (the terrain).
+  `grid_visible`, `recorded_ticks`, the local player's `selection`) and `map` (the terrain).
 - `--windowed` runs turn vsync off: with the display asleep, X11 paces a vsynced window at one frame per second.
 - Verify visual work yourself. Capture screenshots and look at the PNGs with the Read tool before you report.
 - To look at another part of a map, give the slot a different camera start in the editor (or the file's
