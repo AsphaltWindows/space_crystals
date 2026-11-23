@@ -14,7 +14,9 @@ When a location-targeted movement order (Move, Attack Move, Patrol) is given to 
 
 Rejected alternative (user): a fresh compact grid of spots around the click point. It felt "a little bit too random from a player's perspective".
 
-TBD: what happens when a unit's offset destination is unreachable (pending Director question Q0008); whether the box has a size limit (for widely scattered selections the box covers most of the map, so most clicks converge).
+An offset destination that is unreachable is handled like any unreachable location: the unit goes to the nearest reachable point (systems/controls/behaviors.md > MovingToLocation > Unreachable target location).
+
+TBD: whether the box has a size limit (for widely scattered selections the box covers most of the map, so most clicks converge).
 
 ## Move
 Order the unit to move to a target location or object.

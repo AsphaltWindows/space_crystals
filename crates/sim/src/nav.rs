@@ -8,9 +8,11 @@
 //! - [`los`] and [`smooth`] (5.4): line of sight for a box, and string-pulling of a tile path into waypoints
 //!   ([`smooth_avoiding`] keeps a repath's detour around its avoid tiles).
 //! - [`find_path`] and [`serve`] (5.5): one path, and a tick's requests within the expansion budget.
+//! - [`reachable_point`] (6.4): where a group member goes when its own destination is out of its reach.
 //!
-//! Every discrete decision (costs, heap keys, tie-breaks, retargeting) is integer arithmetic. Floats appear only
-//! in line of sight and waypoints, with `+ - * /` and comparisons (`docs/movement.md > 7`).
+//! Every discrete decision of a search (costs, heap keys, tie-breaks, retargeting) is integer arithmetic. Floats
+//! appear only in line of sight, waypoints and [`reachable_point`]'s distances, with `+ - * /` and comparisons
+//! (`docs/movement.md > 7`).
 //!
 //! Units never enter a grid (5.7). Unit positions map to tiles through [`NavGrid::tile_of`]. Size class 1 is
 //! complete and tested; larger classes build true-clearance grids, but their goal clamping is only coarse.
@@ -27,14 +29,15 @@ use crate::map::Map;
 use crate::units::{SU_PER_GU, TilePos};
 
 pub use grid::NavGrid;
-pub use los::{box_clear, los, segment_avoids, smooth, smooth_avoiding};
+pub use los::{box_clear, los, reachable_point, segment_avoids, smooth, smooth_avoiding};
 pub use search::{Search, TilePath};
 pub use serve::{Path, PathFail, PathGroup, PathRequest, ServeOutput, Served, find_path, serve};
 
 /// `docs/movement.md > 5.5`: node expansions per tick within which the path server starts jobs (tuning const).
 pub const PATH_BUDGET: u32 = 32_000;
 
-/// `docs/movement.md > 5.5`: from this many requests of one order group on, the group shares one Dijkstra field.
+/// `docs/movement.md > 5.5`: from this many requests of one order group on whose goals the group's anchor sees, they
+/// share one Dijkstra field.
 pub const GROUP_FIELD_MIN: usize = 4;
 
 /// `docs/movement.md > 5.3`: cost of an orthogonal step.

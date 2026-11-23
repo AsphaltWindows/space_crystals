@@ -268,26 +268,48 @@ fn a_field_serves_only_its_own_group_class_and_component() {
     }
 }
 
+/// A member whose own destination lies behind an obstacle from the group's anchor plans alone: through the anchor,
+/// its way would be a detour (`docs/movement.md > 5.5`, `> 6.4`).
 #[test]
-fn a_slot_the_anchor_cannot_see_gets_a_leg_of_its_own() {
+fn a_goal_the_anchor_cannot_see_is_planned_alone() {
     let nav = nav(&walled());
     let grid = ground(&nav);
-    // The anchor is just east of the wall; two slots are west of it, two east.
+    // The anchor is just east of the wall. Two members start west of the wall and go to points west of it; four
+    // start in the south-east and go to points east of it.
     let anchor = t(6, 3);
-    let slots = [t(4, 3), t(4, 4), t(6, 3), t(7, 4)];
-    // Members start in the south-east, so their chains reach the anchor from behind the wall's end.
-    let group: Vec<PathRequest> = (0..4)
-        .map(|i| grouped(i as u32, 3, anchor, t(8 + i, 7), slots[i as usize]))
+    let west = [(t(1, 3), t(4, 3)), (t(1, 4), t(4, 4))];
+    let east = [t(6, 3), t(7, 3), t(6, 4), t(7, 4)];
+    let mut group: Vec<PathRequest> = west
+        .iter()
+        .enumerate()
+        .map(|(i, &(start, goal))| grouped(i as u32, 3, anchor, start, goal))
         .collect();
+    group.extend((0..4).map(|i| grouped(2 + i as u32, 3, anchor, t(8 + i as i32, 7), east[i])));
+    for (start, goal) in west {
+        assert!(
+            !los(grid, HALF, anchor.center(), goal.center()),
+            "the wall hides {goal:?}"
+        );
+        assert!(los(grid, HALF, start.center(), goal.center()));
+    }
     let mut search = Search::new();
     let out = serve(&nav, &mut search, &group, PATH_BUDGET);
-    // The legs come out of the same field: no search per member.
-    assert_eq!((out.counters.fields, out.counters.searches), (1, 0));
+    assert_eq!(ids(&out), [0, 1, 2, 3, 4, 5]);
+    // The western members search alone, and the others still share one field.
+    assert_eq!((out.counters.fields, out.counters.searches), (1, 2));
     for (served, request) in out.served.iter().zip(&group) {
         let path = served.result.as_ref().unwrap();
-        assert!(served.via_field);
+        assert_eq!(served.via_field, request.id.0 >= 2);
         assert_eq!(*path.waypoints.last().unwrap(), request.goal);
+        assert!(!path.retargeted);
         assert_path_clear(grid, path);
+    }
+    // Straight to their points, not round the wall to the anchor and back.
+    for id in [0, 1] {
+        let request = &group[id as usize];
+        let alone = find_path(grid, &mut Search::new(), HALF, request.start, request.goal, &[]);
+        assert_eq!(Ok(path_of(&out, id)), alone.as_ref());
+        assert_eq!(path_of(&out, id).waypoints, [request.start, request.goal]);
     }
 }
 

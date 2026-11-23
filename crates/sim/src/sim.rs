@@ -15,7 +15,7 @@ use crate::movement::MoveCounters;
 use crate::mover::Mover;
 use crate::nav::{Nav, NavCounters};
 use crate::object::{Object, Placement, ResourceState};
-use crate::orders::{Order, OrderGroup, OrderKind, Orders, Target, slots};
+use crate::orders::{Order, OrderGroup, OrderKind, Orders, Target, destinations};
 use crate::paths::{self, NavState};
 use crate::player::Player;
 use crate::rng::Rng;
@@ -304,14 +304,19 @@ impl Sim {
     }
 
     /// `systems/controls/commands.md > Unit Command`: one order for each of `units` (checked: unique existing
-    /// units), sharing a new order group. A group's move to a point gives each unit its own slot
-    /// (`docs/movement.md > 6.4`). Orders only fill queues here; phase 5a starts them.
+    /// units), sharing a new order group. A location order (Move to a point, AttackMove, Patrol) gives each unit of a
+    /// group its own destination by the magic box (`> Group Destinations (Magic Box)`, `docs/movement.md > 6.4`).
+    /// Orders only fill queues here; phase 5a starts them.
     fn give_order(&mut self, units: &[ObjectId], kind: OrderKind, queue: bool) {
         let group = OrderGroup(self.next_group);
         self.next_group = self.next_group.wrapping_add(1);
         let slots = match kind {
-            OrderKind::Move(Target::Point(click)) => slots::assign(self.nav.nav(), &self.objects, units, click),
-            _ => vec![None; units.len()],
+            OrderKind::Move(Target::Point(click)) | OrderKind::AttackMove(click) | OrderKind::Patrol(click) => {
+                destinations::assign(self.nav.nav(), &self.map, &self.objects, units, click)
+            }
+            OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => {
+                vec![None; units.len()]
+            }
         };
         for (id, slot) in units.iter().zip(slots) {
             if let Some(orders) = self.objects.get_mut(id).and_then(|o| o.orders.as_mut()) {

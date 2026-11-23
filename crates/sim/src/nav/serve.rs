@@ -24,7 +24,7 @@ pub struct PathRequest {
     pub half: Vec2,
     /// The unit's position.
     pub start: Vec2,
-    /// Where it wants to go: for a group order its own slot.
+    /// Where it wants to go: for a group order its own destination (`docs/movement.md > 6.4`).
     pub goal: Vec2,
     /// The order group, if the order went to several units.
     pub group: Option<PathGroup>,
@@ -38,7 +38,7 @@ pub struct PathGroup {
     /// The group's id: requests with the same id belong together.
     pub id: u32,
     /// The point the group was sent to (the click). Its tile, retargeted into the members' component, is the
-    /// anchor of the group's field.
+    /// anchor of the group's field; the members' own destinations lie around it (`docs/movement.md > 6.4`).
     pub anchor: Vec2,
 }
 
@@ -141,8 +141,9 @@ pub fn find_path(
 /// - A job starts while the expansions of this call are below the budget, and always finishes. So the oldest
 ///   request is served every tick, and every request within bounded ticks.
 /// - A job is one request's A\*, or a **group field**: when at least [`GROUP_FIELD_MIN`] pending requests share
-///   a group id, class, size class and component (and have no avoid tiles), one Dijkstra from the group's anchor
-///   serves them all, each with the parent chain from its own tile, smoothed, ending on its own goal.
+///   a group id, class, size class and component, have no avoid tiles, and their goals can be seen from the
+///   group's anchor tile (`field_members`), one Dijkstra from the anchor serves them all, each with the parent
+///   chain from its own tile, smoothed, ending on its own goal.
 /// - The budget counts expansions, never time, so the outcome is deterministic. `requests` may come in any
 ///   order; ids must be unique.
 pub fn serve(nav: &Nav, search: &mut Search, requests: &[PathRequest], budget: u32) -> ServeOutput {
@@ -169,12 +170,15 @@ pub fn serve(nav: &Nav, search: &mut Search, requests: &[PathRequest], budget: u
             });
             continue;
         };
-        let members = field_members(grid, requests, &order, &done, i);
-        if members.len() >= GROUP_FIELD_MIN {
-            for (&member, path) in members.iter().zip(field_paths(grid, search, requests, &members)) {
-                done[member] = true;
+        let field = field_members(grid, requests, &order, &done, i);
+        if let Some((anchor, members)) = field.filter(|(_, members)| members.len() >= GROUP_FIELD_MIN) {
+            for (member, path) in members
+                .iter()
+                .zip(field_paths(grid, search, requests, anchor, &members))
+            {
+                done[member.index] = true;
                 served.push(Served {
-                    id: requests[member].id,
+                    id: requests[member.index].id,
                     result: Ok(path),
                     via_field: true,
                 });
@@ -199,63 +203,89 @@ pub fn serve(nav: &Nav, search: &mut Search, requests: &[PathRequest], budget: u
     }
 }
 
-/// The pending requests that would share a field with request `i` (itself included), in serving order. Empty if
-/// `i` can't use one.
-fn field_members(grid: &NavGrid, requests: &[PathRequest], order: &[usize], done: &[bool], i: usize) -> Vec<usize> {
-    let request = &requests[i];
-    let (Some(group), true) = (request.group, request.avoid.is_empty()) else {
-        return Vec::new();
-    };
-    let Some(component) = start_component(grid, request.start) else {
-        return Vec::new();
-    };
-    order
-        .iter()
-        .copied()
-        .filter(|&j| {
-            let other = &requests[j];
-            !done[j]
-                && other.group.is_some_and(|g| g.id == group.id)
-                && other.avoid.is_empty()
-                && (other.class, other.size.max(1)) == (grid.class(), grid.size())
-                && start_component(grid, other.start) == Some(component)
-        })
-        .collect()
+/// A request that shares its group's field, with its goal as the field's grid resolves it.
+struct FieldMember {
+    /// Its index in the requests.
+    index: usize,
+    goal: Vec2,
+    retargeted: bool,
 }
 
-/// One field from the group's anchor, then a path per member (`docs/movement.md > 5.5`). The members share a
-/// component, and `members[0]` is the request that started the job.
-fn field_paths(grid: &NavGrid, search: &mut Search, requests: &[PathRequest], members: &[usize]) -> Vec<Path> {
-    let first = &requests[members[0]];
-    let component = start_component(grid, first.start).expect("field members stand on passable tiles");
-    let anchor_point = first.group.expect("field members have a group").anchor;
-    let anchor_tile = if anchor_point.is_finite() {
-        grid.tile_of(anchor_point)
+/// The field request `i` would share (`docs/movement.md > 5.5`): its anchor tile, and the pending requests that
+/// would share it, `i` first and the others in serving order, each with its goal resolved. `None` if `i` can't use
+/// one. The members share a group id, class, size class and component and have no avoid tiles, and the anchor
+/// tile's centre sees each one's goal for its box.
+///
+/// A member whose goal the anchor can't see plans alone. With the magic box (`docs/movement.md > 6.4`) a
+/// unit's destination is its own place in the group's shape, which may lie behind an obstacle from the click, for
+/// example on the near side of a wall the click is beyond. The way through the anchor would then be a detour, and
+/// only that unit's own search finds the direct one.
+fn field_members(
+    grid: &NavGrid,
+    requests: &[PathRequest],
+    order: &[usize],
+    done: &[bool],
+    i: usize,
+) -> Option<(TilePos, Vec<FieldMember>)> {
+    let request = &requests[i];
+    let (Some(group), true) = (request.group, request.avoid.is_empty()) else {
+        return None;
+    };
+    let component = start_component(grid, request.start)?;
+    let anchor_tile = if group.anchor.is_finite() {
+        grid.tile_of(group.anchor)
     } else {
         TilePos::new(0, 0)
     };
     let anchor = grid
         .nearest_in_component(component, anchor_tile)
         .expect("the component exists");
+    let member = |index: usize| {
+        let request = &requests[index];
+        let (goal_tile, goal, retargeted) = resolve_goal(grid, component, request.half, request.goal);
+        let seen = goal_tile == anchor || los(grid, request.half, grid.center(anchor), goal);
+        seen.then_some(FieldMember {
+            index,
+            goal,
+            retargeted,
+        })
+    };
+    // `i` is the first pending request in serving order, so it heads the list.
+    let mut members = vec![member(i)?];
+    let others = order.iter().copied().filter(|&j| {
+        let other = &requests[j];
+        j != i
+            && !done[j]
+            && other.group.is_some_and(|g| g.id == group.id)
+            && other.avoid.is_empty()
+            && (other.class, other.size.max(1)) == (grid.class(), grid.size())
+            && start_component(grid, other.start) == Some(component)
+    });
+    members.extend(others.filter_map(member));
+    Some((anchor, members))
+}
+
+/// One field from the group's `anchor`, then a path per member (`docs/movement.md > 5.5`): the parent chain from
+/// its own tile to the anchor tile, whose centre sees its goal, smoothed. The members share a component.
+fn field_paths(
+    grid: &NavGrid,
+    search: &mut Search,
+    requests: &[PathRequest],
+    anchor: TilePos,
+    members: &[FieldMember],
+) -> Vec<Path> {
     search.field(grid, anchor);
     members
         .iter()
-        .map(|&m| {
-            let request = &requests[m];
-            let chain = |from: TilePos| {
-                let path = search.field_path(grid, from);
-                path.expect("the field covers the members' component").tiles
-            };
-            let mut tiles = chain(grid.tile_of(request.start));
-            let (goal_tile, goal, retargeted) = resolve_goal(grid, component, request.half, request.goal);
-            // The chain ends on the anchor tile. A slot elsewhere that the anchor's centre can't see gets a leg
-            // of its own from the anchor: the slot's chain, walked backwards. No second search.
-            if goal_tile != anchor && !los(grid, request.half, grid.center(anchor), goal) {
-                tiles.extend(chain(goal_tile).into_iter().rev().skip(1));
-            }
+        .map(|member| {
+            let request = &requests[member.index];
+            let tiles = search
+                .field_path(grid, grid.tile_of(request.start))
+                .expect("the field covers the members' component")
+                .tiles;
             Path {
-                waypoints: smooth(grid, request.half, request.start, &tiles, goal),
-                retargeted,
+                waypoints: smooth(grid, request.half, request.start, &tiles, member.goal),
+                retargeted: member.retargeted,
             }
         })
         .collect()

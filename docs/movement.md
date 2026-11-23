@@ -20,6 +20,9 @@
 - **Slice D (steering and collision) is implemented.** Where the code differs from the first approved text, the
   text below was changed and the change is marked **(D)** with its reason. The code is `crates/sim/src/movement.rs`
   and `movement/`, `paths.rs` and `mover.rs`.
+- **Group destinations follow the magic box** (design change 0021, answering G1): slice M replaced the slots of 6.4.
+  Its changes are marked **(M)**. The code is `crates/sim/src/orders/destinations.rs`, `nav::reachable_point`, the
+  group field of `nav::serve`, and one steering fix the new group shapes exposed (6.3, `movement/collide.rs`).
 
 Design references are `file.md > Section`, relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -47,7 +50,7 @@ Every number marked *(placeholder)* becomes a named const tagged with the questi
 | Hold, Stop | Hold: Locomotion Stationary always, never completes. Stop: Stopping, then no behaviour | `> HoldingPosition`, `> StoppingBehavior` |
 | Queue | Shift appends, otherwise the command replaces the whole queue; next order starts when the current behaviour completes | `systems/controls/commands.md > Unit Command` |
 | Channels | Locomotion (Moving, Reversing, Stopping, Stationary) and Orientation (Turning, Maintaining) are named state; combat and crushing read them | `behaviors.md > BaseActionChannels`, `combat.md > LocomotionOrientationConstraints` |
-| Group moves | **Nothing.** Selection has no size limit | `systems/controls/selection_and_hud.md` |
+| Group moves | **(M)** The magic box: a location order (Move, AttackMove, Patrol) to several units keeps their arrangement when the click is outside the bounding box of their positions (each goes to the click plus its offset from the group's centre) and converges on the click when it is inside. No formation movement. Selection has no size limit | `systems/controls/commands.md > Group Destinations (Magic Box)`, `systems/controls/selection_and_hud.md` |
 
 ## 2. Design gaps and contradictions
 
@@ -55,7 +58,7 @@ Top five first. Each default is what this design implements until answered.
 
 | # | Question | Proposed default |
 |---|---|---|
-| G1 | Several units are ordered to one point and cannot all stand on it. Where does each end up? | Each gets its own slot on a compact lattice around the point (pitch = largest silhouette in the group + 8 su), nearest free slots first. Units move at their own speed, not the slowest's |
+| G1 | Several units are ordered to one point and cannot all stand on it. Where does each end up? | **(M) Answered by 0021** (Q0007, part 1): the magic box, 6.4. The default proposed here, a compact lattice of slots around the point, was rejected. Units move at their own speed, not the slowest's |
 | G2 | **Contradiction with the Director's brief**, which assumes idle units make way. `units.md > Ground Collision` says they don't. Confirm: no pushing or yielding at all, even for own units blocking a chokepoint? | As the spec says: no pushing. The design has a hook for a later "yield" (section 6) |
 | G3 | With hard collision and no yielding, two units meeting head-on in a corridor too narrow to pass (two Guards, 72 su, in one tile) deadlock. Is "both give up and stop" intended? | Yes, by the Failure rule. Alternative to offer: moving friendly units may swap places |
 | G4 | "Repeatedly fails to make progress" has no numbers. | Stuck after 24 ticks without progress; at most 3 repaths per order with 8/16/32-tick backoff; then fail (about 7 s in total) |
@@ -89,9 +92,10 @@ pub enum NavClass { Ground, GroundRugged, Underground }  // passability predicat
 
 // orders.rs: the command queue and behaviour state (commands.md, behaviors.md)
 pub struct Orders { queue: VecDeque<Order> /* cap MAX_QUEUED_ORDERS */, current: Option<ActiveOrder> }
-pub struct Order { kind: OrderKind, group: OrderGroup /* units of one command share it */ }
+pub struct Order { kind: OrderKind, group: OrderGroup /* units of one command share it */,
+                   slot: Option<Vec2> /* (M) this unit's own destination by the magic box (6.4); None: the click */ }
 pub enum OrderKind { Move(Target), Attack(ObjectId), AttackMove(Vec2), Patrol(Vec2), Hold, Stop }
-pub enum Target { Point { click: Vec2, slot: Vec2 }, Object(ObjectId) }  // click: indicator; slot: where this unit goes
+pub enum Target { Point(Vec2), Object(ObjectId) }  // the point is the click
 
 // mover.rs: goal in, motion out. Behaviours write `goal` and read `status`; nothing else moves a unit.
 pub struct Mover {
@@ -124,8 +128,8 @@ pub struct Mover {
 
 ## 4. Movement in the tick pipeline
 
-Phases 1–4 stay as they are. Order commands (phase 4) only write `Orders` queues and compute group slots (6.4); they
-never move anything. Then, each walking units in id order over `..first_new`:
+Phases 1–4 stay as they are. Order commands (phase 4) only write `Orders` queues and compute group destinations
+(6.4); they never move anything. Then, each walking units in id order over `..first_new`:
 
 | Phase | Does | Why here |
 |---|---|---|
@@ -188,7 +192,12 @@ and serves them until `PATH_BUDGET` = 32 000 node expansions is spent *(tuning c
 remains and always finishes, so every request is served within bounded time. Units waiting for a path stand still.
 - **Group orders**: when at least `GROUP_FIELD_MIN` = 4 requests share an `OrderGroup`, nav class and component, run
   **one** Dijkstra from the group's anchor tile (same code, `h = 0`), and give each member the parent chain from its
-  own tile, smoothed, with its slot as the last waypoint. The field is scratch, dropped in the same tick.
+  own tile, smoothed, with its own destination (6.4) as the last waypoint. The field is scratch, dropped in the same
+  tick. **(M)** The anchor is the click's tile, and only requests whose goal the anchor tile's centre sees (for the
+  unit's box) count and share the field; the others plan alone with A\*. With the magic box a destination is the
+  unit's place in the group's shape, which can lie behind an obstacle from the click (on the near side of a wall
+  the click is beyond, say), and the way through the anchor would be a detour. A converging group has every goal on
+  the anchor's tile, and a group moved over open ground sees all of its goals, so both still cost one field.
 - The budget counts expansions, never time, so it is deterministic.
 
 **5.6 Repath policy.** Per order leg, `repaths_left = MAX_REPATHS` (3, G4). Every counted repath waits for
@@ -259,7 +268,10 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
      free. `d` splits into a part straight at the face and a part along it, its lean:
      - *Glance* (the lean is at least half of `d`, squared): slide along the face, the lean alone.
      - *Leaning* (the lean is at least 30 % of `d`): go around on the side the unit leans to: `d` turned 45° that
-       way, else a whole step along the face that way. Never a step back along the face.
+       way, else a whole step along the face that way. Never a step back along the face. **(M)** The side taken
+       becomes `avoid_side`. The unit's own step along the face can drop its lean below 30 %, and head-on with
+       the other `avoid_side` then stepped it straight back, for good: a unit pressed against an idle Guard by the
+       crossing lanes of two magic-box groups failed so.
      - *Head-on*: `d` turned 45° towards `avoid_side`, else a whole step along the face that way. `avoid_side`
        starts **Right** for everyone on every leg, so head-on units pass like traffic with no randomness. Switch
        side only if both candidates fail and `avoid_until` has passed; a switch commits for 16 ticks (no left-right
@@ -281,21 +293,41 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
   (`a − b` against `half_a + half_b`), and an assigned contact that rounds to the inside is moved away float by
   float (`space::resting`).
 
-**6.4 Group slots (G1).** At command application, for a point target and more than one unit: anchor = the click's
-tile, retargeted as in 5.3. Candidate slots spiral outward on a lattice around the click (pitch as G1); a slot is kept
-if the largest member's box there is clear of blocked tiles and its tile is in the anchor's component. Take the first
-`n` (examining at most `4n + 64`; leftover units get the anchor). Assign greedily: the slot farthest from the group's
-centroid takes its nearest free unit, ties by id. If the Designer rejects slots, this step is dropped and 6.5 alone
-handles the crowd.
+**6.4 Group destinations: the magic box (G1).** **(M)** Design change 0021 replaced the slots first approved here
+(`systems/controls/commands.md > Group Destinations (Magic Box)`). At command application (phase 4), a location
+order (Move to a point, AttackMove, Patrol) to more than one unit gives each unit its own destination
+(`Order::slot`, `orders/destinations.rs`):
+- The **box** is the bounding rectangle of the units' positions (their centres). The design doesn't define the
+  **group's centre**; it is the box's centre (for a symmetric group also the centroid), so a group arrives centred on
+  the click.
+- **Click inside the box, edges included: converge.** Every unit goes to the click itself (`slot = None`), and those
+  the crowd blocks stop by 6.5 rule 1: within 1.5 GU of the click behind a stationary unit, or at any distance behind
+  one that arrived with the group, after a repath. A group in a perfect line has a box without area, so only a click
+  on the line converges.
+- **Click outside: keep the arrangement.** Every unit goes to its position plus the vector from the box's centre to
+  the click, so the group arrives in the shape it had.
+- **No formation movement**: each unit goes at its own speed, and a mixed group strings out. The box comes from the
+  positions when the command applies, for a Shift-queued order too.
+- **Unreachable destinations** (TBD in the design, question Q0008; these defaults until it is answered): a
+  destination beyond the map's edge is clamped so that the unit's box lies inside the map. A destination the unit
+  can't stand on (a blocked tile, a box not clear of one, another component) moves to the nearest point it can stand
+  on (`nav::reachable_point`): in rings of tiles outward from it, the point of each tile of the unit's component
+  nearest to it where the box is clear, ties by tile index; exact for boxes up to a tile wide. That is 5.3's
+  retargeting with points for tile centres, so a group that meets a cliff lines up along its edge instead of piling
+  onto tile centres. It never searches. Air units are only clamped to the map.
+- A single unit has no box: it goes to the click (`slot = None`), as before.
+- **Paths**: the group shares one field anchored on the click's tile; a member whose destination the anchor can't
+  see plans alone (5.5).
+- The box has no size limit (TBD in the design): a widely scattered selection mostly converges.
 
 **6.5 Stuck detection and recovery.** Progress = remaining path length to the goal. `last_progress` updates when it
 beats `best_remaining` by half a step. Following a slower unit is progress. A unit is **stuck** after
 `STUCK_TICKS` = 24 without it. Then, in order:
 1. **Crowded arrival**: goal is a point within 1.5 GU and the blocker is stationary → `Arrived` (G5). **(D)** Also,
    at any distance, when the blocker arrived on a move of the same order group (`Mover::group`) and the unit has
-   already tried another way (a repath). Slots are 8 su apart, so earlier arrivals wall in the slots behind them;
-   with the radius alone, the units of a larger group that come last jostled for 6.5 s and failed. Now the group
-   fills up outwards from the slots it reached.
+   already tried another way (a repath). **(M)** A converging group (6.4) sends every unit to the same point, so
+   earlier arrivals wall it in; with the radius alone, the units of a larger group that come last jostled for 6.5 s
+   and failed. Now the group fills up outwards from the point.
 2. **Queueing**: chasing a target and blocked by stationary friendly units attacking the same target → keep waiting,
    re-check every 16 ticks; no repath, no failure. (Slice E; the hook is `movement::stuck::queues_behind`.)
 3. **Repath**, if `repaths_left > 0`. **(D)** The tile of the stationary unit in the way is added to `avoid_tiles`:
@@ -354,14 +386,17 @@ movers in mutual head-on block exchange positions. Both fit in 6.3 without restr
   Guards head-on in it both end `Failed` within a bound; 20 units through a choke all arrive within
   `2 × path / speed + c`; a group arrives, every unit Stationary, and stays so for 100 ticks; an idle unit in the way
   is passed and never moved; goal on a cliff; enclosed unit; an object spawned on the path forces one repath; chase a
-  moving target; three Shift-queued waypoints in order; Patrol for three cycles; Hold; Stop.
+  moving target; three Shift-queued waypoints in order; Patrol for three cycles; Hold; Stop. **(M)** The magic box
+  (`crates/sim/tests/group_destinations.rs`, 0021's Verification): a line ordered far away arrives as the same line
+  centred on the click; a click inside the box converges with nobody failing; a mixed group strings out, fast units
+  first; offset destinations on a cliff or off the map are retargeted; a single unit goes to the click as before.
 - **Oscillation**: distance travelled ≤ 1.5 × path length + c; reversals of velocity along the path ≤ a small bound.
 - **Determinism**: same run twice, per-tick hashes equal; replay round trip; **save at tick k, load, continue**:
   hashes equal (catches hidden unserialized state); **golden hashes** for three scenarios as committed constants.
 - **Soak**: seeded random orders, 200 units, random maps, 2 000 ticks: invariants hold, no panic.
 - **Perf**: an `#[ignore]` test printing ms per tick for 500 units on 256×256, plus CI assertions on the counters.
 - **QA**: `TestSim::ascii()` renders the map with units as letters for readable failures; a client path overlay
-  (waypoints, slots, status colours) behind a debug key and flag; client replay playback (`--replay <file>`), so a
+  (waypoints, destinations, status colours) behind a debug key and flag; client replay playback (`--replay <file>`), so a
   failing sim test's `Replay` can be screenshotted with `--screenshot`.
 
 ## 9. M1 slicing

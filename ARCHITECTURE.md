@@ -267,17 +267,20 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   (`NavGrid::nearest_in_component`), as `find_path` does.
 - **`los`, `box_clear`, `smooth`**: line of sight and waypoints for a unit's box (half extents). Touching is free.
 - **`serve(nav, search, requests, PATH_BUDGET)`** serves a tick's `PathRequest`s in `(since, id)` order within the
-  expansion budget, with one shared field per order group of `GROUP_FIELD_MIN` or more. A `Path` is unit state
-  (serde, `PartialEq`, `StateHash`); `NavCounters` are output only.
+  expansion budget, with one shared field per order group of `GROUP_FIELD_MIN` or more, anchored on the click's tile.
+  A member whose goal the anchor can't see plans alone: through the anchor it would take a detour. A `Path` is unit
+  state (serde, `PartialEq`, `StateHash`); `NavCounters` are output only.
 - **Open questions** (Q0011) are the switches `RESOURCES_BLOCK`, `RUGGED_IMPASSABLE` and `ROUTE_ON_TRUE_MAP`.
 - **In the sim** (`paths.rs`): `NavState` holds the `Nav` of every unit type's `(class, size class)` and the
   footprints it was built from (structures and map resources block, Q0011). It is derived, like the `Nav`: not hashed,
   compared or serialized, built when a `Sim` is created or loaded and rebuilt in phase 5b. `Sim::nav()` (the grids),
   `nav_version()` and `nav_counters()` expose it to tests and overlays.
-- **Group slots** (`orders/slots.rs`, `docs/movement.md > 6.4`): a move of several units to a point gives each its
-  own slot on a square lattice around the click (retargeted into the lead unit's component), the largest silhouette
-  plus `SLOT_GAP` apart. The nearest lattice points whose box is clear and in the component are the slots; the one
-  farthest from the group's centroid takes its nearest unit first. The order keeps its slot (`Order::slot`).
+- **Group destinations** (`orders/destinations.rs`, `docs/movement.md > 6.4`, the design's magic box): a location
+  order (Move to a point, AttackMove, Patrol) to several units looks at the bounding box of their positions. A click
+  inside it sends every unit to the click; outside, each unit goes to the click plus its offset from the box's
+  centre. The order keeps the unit's own destination (`Order::slot`; `None` is the click). Until question Q0008 is
+  answered, a destination is clamped inside the map, and one the unit can't stand on or reach moves to the nearest
+  point it can (`nav::reachable_point`, which never searches).
 - **Avoid tiles** (`Mover::avoid_tiles`): a repath of a stuck unit treats them as blocked, and its smoothed path and
   its steering stay out of them (`nav::smooth_avoiding`, `nav::segment_avoids`). If they cut every route, the unit
   drops them and plans again.
@@ -290,8 +293,8 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 
 ## Movement and collision
 
-The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice D changed it), and the code is
-`crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
+The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice D changed it, **(M)** where the
+magic box did), and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
 
 - **One pipeline, sequential commit** (`movement::step`, phase 5d): the step builds one spatial grid per collision
   layer (ground, underground; air units collide with nothing) from every unit, then moves the units in id order and
@@ -303,8 +306,9 @@ The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice
   epsilon.
 - **One unit's tick** (`step_unit`, `collide.rs`): turn towards the steering waypoint (at most TurnRate), then move
   one step: free; **slide** along tiles (per axis); **follow** a unit moving the same way; **go around** a standing
-  or oncoming one (a glance along its face, a 45° step, a step along the face; to the unit's Right first, so
-  head-on units pass like traffic; a crossing unit is passed behind); else close up or stay. Within one step of the
+  or oncoming one (a glance along its face, a 45° step, a step along the face; to the side the unit leans to, which
+  it keeps, else to its Right first, so head-on units pass like traffic; a crossing unit is passed behind); else
+  close up or stay. Within one step of the
   goal the unit lands exactly on it. Units without a goal never move: nothing pushes (question Q0007).
 - **Collision exceptions** go in `space::blocks(mover, other)` and nowhere else (crushing will).
 - **Held by its attack**: a unit whose attack sequence holds its base (`combat::may_move` or `may_turn` false: see
@@ -353,8 +357,8 @@ The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice
   dropped, and nothing left is `NoUnits`; any id of another player's object rejects it (`NotOwned`). Points must be
   finite and on the map, target objects must exist (`UnknownObject`) and an attack's target be destructible
   (`NotAttackable`). Without `queue` the order replaces the unit's queue and current order; with it, the order is
-  appended (a full queue drops it). Each order command is one group (`Sim::next_group`); a move to a point gives
-  each unit its slot. `Move` to a point, `Stop` and `Hold` behave, and `Attack` without its approach (see *Combat*);
+  appended (a full queue drops it). Each order command is one group (`Sim::next_group`); a location order gives
+  each unit of a group its own destination (the magic box, see *Navigation*). `Move` to a point, `Stop` and `Hold` behave, and `Attack` without its approach (see *Combat*);
   the others complete at once (TODO slice E).
 - **Debug spawns and teleports of units** keep the unit invariants: a box on blocked ground or across the map's edge
   is `Reject::Blocked`, one overlapping another unit of its layer `Reject::Occupied(id)`, and so is a blocking
@@ -447,8 +451,8 @@ The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice
   tick it checks the movement invariants (see Movement and collision); `pos(id)`, `mover(id)` and `status(id)` read
   a unit, and `ascii(focus)` draws the map.
 - **Movement scenario tests** are `crates/sim/tests/movement_collision.rs` (passing, head-on, choke, group arrival,
-  idle units, repaths, oscillation bounds, save and load in a crowd), `movement_soak.rs` (200 units, random orders,
-  2 000 ticks) and the ignored `movement_perf.rs`.
+  idle units, repaths, oscillation bounds, save and load in a crowd), `group_destinations.rs` (the magic box),
+  `movement_soak.rs` (200 units, random orders, 2 000 ticks) and the ignored `movement_perf.rs`.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes. Every state type's hash impl
   destructures it (`hash.rs`), so a new field doesn't compile until it is hashed.
