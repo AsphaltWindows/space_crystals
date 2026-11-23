@@ -11,8 +11,14 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 - **M0-A sim foundation** (`1d966e3`, 66 tests): ASCII test maps; PCG32 `Rng`; `Sim::state_hash` (exhaustive, so a new field won't compile until hashed); `Sim` serde; `Replay`; `sc_sim::testing`; versioned JSON scenario files; `ObjectKind::ALL`; `Scenario::validate` and `Sim::try_new`; `PlayerSetup::start_location` (Q0004 placeholder); non-finite positions rejected.
   - Follow-ups: a debug-spawned station delivers at spawn tick + 959, while a scenario station delivers at tick 960, because objects are updated in the tick they spawn. Settle the convention (proposed: objects spawned during a tick start updating on the next tick). Review the whole of M0 once M0-B is merged.
 
+- **M0-B client foundation** (`6593838`, merged in `731cc59`, 31 tests): `build_app` with one plugin per feature; 16 Hz sim driver with recorded inputs; input layer (`InputAction` + one key table); camera (28 GU wide, edge/arrow pan, clamped); map mesh with elevation cues and a grid toggle (G); placeholder patches and stations; HUD frame; QA mode (`--scenario`, `--map`, `--player`, `--screenshot`, `--exit-at-tick`, `--dump-state`, `--fast`, `--headless`, `--windowed`). Offscreen capture works with no window, about 0.5 s per shot, byte-identical across runs. The Director checked the screenshots against the map.
+  - Notes: the display was asleep during the run (winit saw no monitor, so vsynced X11 windows were paced at 1 FPS); QA windows don't use vsync. Placeholders: pan speed and keys (Q0002), colours and HUD sizes.
+
+**M0 Foundation is complete.**
+
 ## In progress
-- **M0-B client**: agent running in its own worktree (details under M0 below).
+- **M0-C map editor**: agent running in its own worktree. The brief also covers the M0 client follow-ups: load via `Sim::try_new` with no panic, and the camera falls back to `start_location`.
+- Afterwards: one review pass over M0 and M0-C together.
 
 ## Queued
 ### M0 — Foundation (next; two agents in parallel, separate worktrees)
