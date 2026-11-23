@@ -189,7 +189,7 @@ GDO aircraft production structure. Constructs aircraft and provides a landing/re
 - Air-to-Air Fighter (name TBD): cost/time TBD. Requires: player owns at least one Propulsion Labs.
 
 ### Aircraft Support
-- **Limited ammo**: GDO aircraft carry limited ammo and **rearm at an Airfield** (the Airfield is their landing and reloading zone). Ammo amounts per unit, rearm time and the return/rearm flow: TBD.
+- **Limited ammo**: GDO aircraft carry limited ammo and **rearm at an Airfield** (the Airfield is their landing and reloading zone). Ammo per unit is on each aircraft (factions/gdo/units.md); return/rearm flow below.
 - **Capacity: each Airfield supports at most 4 aircraft.** (User, 2026-11-23.)
 
 #### Assignment
@@ -197,14 +197,24 @@ Every GDO aircraft is **assigned** to one Airfield (rules: user, 2026-11-23):
 - An aircraft is assigned to the Airfield that built it.
 - An aircraft lands and reloads only at its **assigned** Airfield.
 - An Airfield holds at most **4 assignments**.
-- **Reassigning**: the player can move an aircraft's assignment to another Airfield, if that Airfield has **fewer than 4** current assignments.
+- **Reassigning**: the player can move an aircraft's assignment to another Airfield, if that Airfield has room: its assignments plus the aircraft in its production queue must be **fewer than 4** (queued aircraft hold their slots, so reassigning into them is blocked). Input: select the aircraft and **right-click the other Airfield**. The aircraft is reassigned and flies there to land.
 - **No manual unassigning**: the player cannot unassign an aircraft (so aircraft can't be freely shuffled around).
-- **Airfield destroyed**: its aircraft become **unassigned**. An unassigned aircraft can't land to reload until it is assigned to an Airfield again.
+- **Airfield destroyed**: its aircraft become **unassigned**. An unassigned aircraft can't land to reload until the player reassigns it. **There is no automatic reassignment**, even if another Airfield has room.
 
 #### Production limit
 An Airfield **can't queue another aircraft** if its assignments plus the aircraft already in its production queue would exceed 4. (E.g. 3 assigned + 1 queued = full.)
 
-TBD: the reassign command (input, hotkey); whether unassigned aircraft get assigned automatically when an Airfield with space exists or only by the player; what happens to queued aircraft if reassignments fill the Airfield first (e.g. 2 assigned + 2 queued, then 2 aircraft reassigned in); rearm flow (automatic return when out of ammo? landing time, rearm time); how many aircraft can land on an Airfield at once.
+#### Landing slots
+An Airfield has **4 landing slots**, one per possible assignment, so all of its aircraft can be landed at the same time.
+
+#### Returning and rearming
+- **Automatic return**: when an aircraft runs out of ammo, it automatically flies back to its assigned Airfield, lands and rearms.
+- The automatic return **can be interrupted** by giving the aircraft any other order (e.g. to fly elsewhere). It then stays out of ammo until it returns.
+- **Return to Base** command: sends the aircraft to its assigned Airfield to land and rearm (hotkey TBD). Right-clicking its own Airfield does the same.
+- After rearming, the aircraft **stays landed** at the Airfield. It doesn't go back to where it was unless ordered.
+- An unassigned aircraft has no base: it doesn't return automatically, and Return to Base is unavailable until it is reassigned.
+
+TBD: rearm time (per missile or flat); landing/take-off time; whether landed aircraft count as air or ground targets (which weapons can hit them on the pad); Return to Base hotkey/slot.
 
 (Full stats TBD)
 
