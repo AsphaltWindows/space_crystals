@@ -184,9 +184,16 @@ fn text_fields_commit_before_the_next_action_and_survive_rebuilds() {
     );
     assert_eq!(moved, amount, "moving the selected object keeps its fields");
     assert_eq!(field_text(&app, preset_name), "Half typed");
+
+    // The race of the finding: the click that takes the keyboard from the field also rebuilds its list (choosing
+    // another preset replaces the preset editor). The text commits to the preset it was typed for first.
     app.world_mut().resource_mut::<InputFocus>().clear();
-    app.update();
+    act(&mut app, [A::SetPreset(TilePresetId::WATER)]);
     assert_eq!(doc(&app).terrain.presets()[5].name, "Half typed");
+    assert!(
+        app.world().get_entity(preset_name).is_err(),
+        "the preset editor was rebuilt for Water"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -258,6 +265,15 @@ fn the_editor_opens_files_with_problems() {
             tile: TilePos::new(40, 3)
         }]
     );
+    // A file over the largest map side is refused before anything is allocated, and the document stays.
+    let huge = dir.join("huge.json");
+    let mut json = serde_json::to_value(scenarios::empty_map(5, 4)).unwrap();
+    json["terrain"] = serde_json::json!({ "tiles": [".".repeat(files::MAX_MAP_SIDE as usize + 1)] });
+    std::fs::write(&huge, json.to_string()).unwrap();
+    act(&mut app, [A::Open(huge)]);
+    assert_eq!(status(&app).level, StatusLevel::Error);
+    assert!(status(&app).message.contains("too big"), "{}", status(&app).message);
+    assert_eq!(*doc(&app), map);
     // It can't be play-tested until it is fixed.
     act(&mut app, [A::PlayTest]);
     app.update();
