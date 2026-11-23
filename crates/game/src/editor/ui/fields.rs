@@ -1,33 +1,45 @@
-//! Text fields (Bevy's headless `TextInput`): the map's name, seed and size, the slots' names, and the selected
-//! spawn's per-object values. A field commits its text as an [`EditorAction`] on Enter or when it loses the
-//! keyboard (a click elsewhere), reverts on Escape, and shows the document's value whenever it doesn't have the
-//! keyboard (after an undo, for example).
+//! Text fields (Bevy's headless `TextInput`): the map's name, description and size, the play-tests' seed, a custom
+//! preset's name, the creation dialog's settings, and the selected spawn's per-object values. A field commits its
+//! text as an [`EditorAction`] on Enter or when it loses the keyboard (a click elsewhere), reverts on Escape, and
+//! shows the editor's value whenever it doesn't have the keyboard (after an undo, for example).
 
+use bevy::ecs::system::SystemParam;
 use bevy::input_focus::InputFocus;
 use bevy::input_focus::tab_navigation::TabIndex;
 use bevy::prelude::*;
 use bevy::text::{EditableText, EditableTextFilter, TextEdit};
 use bevy::ui_widgets::TextInput;
-use sc_sim::{ObjectKind, PlayerId, Scenario, SpawnSettings, TICKS_PER_SECOND};
+use sc_sim::{MapDef, MapSettings, ObjectKind, SpawnSettings, Symmetry, TICKS_PER_SECOND, TilePresetId};
 
 use super::{BORDER, TEXT, TEXT_VH};
 use crate::editor::actions::{EditorAction, EditorActions};
+use crate::editor::creation::{NewMapDialog, NewMapField};
 use crate::editor::doc::EditorDoc;
+use crate::editor::document::MAX_DESCRIPTION_CHARS;
+use crate::editor::playtest::PlayTestSetup;
+use crate::editor::presets::MAX_PRESET_NAME_CHARS;
 use crate::editor::state::EditorStatus;
 
 const FIELD_BACKGROUND: Color = Color::srgb(0.04, 0.05, 0.06);
 const FIELD_FOCUSED: Color = Color::srgb(0.40, 0.62, 0.95);
-/// Longest name a field accepts.
+/// Longest map name a field accepts.
 const MAX_NAME_CHARS: usize = 40;
 
 /// What a text field edits.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TextField {
     MapName,
-    Seed,
+    Description,
     Width,
     Height,
-    SlotName(PlayerId),
+    /// The play-tests' seed.
+    Seed,
+    /// A custom preset's name.
+    PresetName(TilePresetId),
+    NewMapName,
+    NewMapDescription,
+    NewMapWidth,
+    NewMapHeight,
     /// One per-object value of the spawn at this index.
     SpawnValue {
         spawn: usize,
@@ -121,32 +133,82 @@ impl SpawnValue {
 }
 
 /// The values of a spawn: its own, or its kind's defaults (`None` for kinds without values).
-fn spawn_settings(scenario: &Scenario, spawn: usize) -> Option<SpawnSettings> {
-    let spawn = scenario.spawns.get(spawn)?;
+fn spawn_settings(map: &MapDef, spawn: usize) -> Option<SpawnSettings> {
+    let spawn = map.spawns.get(spawn)?;
     spawn
         .settings
         .filter(|s| s.kind() == spawn.kind)
         .or_else(|| SpawnSettings::defaults(spawn.kind))
 }
 
+/// What the fields show and edit.
+#[derive(Copy, Clone)]
+pub struct FieldContext<'a> {
+    pub map: &'a MapDef,
+    pub dialog: &'a MapSettings,
+    pub playtest: &'a PlayTestSetup,
+}
+
+/// The resources a [`FieldContext`] comes from.
+#[derive(SystemParam)]
+pub struct FieldSources<'w> {
+    doc: Res<'w, EditorDoc>,
+    dialog: Res<'w, NewMapDialog>,
+    playtest: Res<'w, PlayTestSetup>,
+}
+
+impl FieldSources<'_> {
+    pub fn context(&self) -> FieldContext<'_> {
+        FieldContext {
+            map: self.doc.map(),
+            dialog: &self.dialog.settings,
+            playtest: &self.playtest,
+        }
+    }
+
+    fn is_changed(&self) -> bool {
+        self.doc.is_changed() || self.dialog.is_changed() || self.playtest.is_changed()
+    }
+}
+
 impl TextField {
-    /// The document's value of the field.
-    pub fn value(self, scenario: &Scenario) -> Option<String> {
+    /// The editor's value of the field.
+    pub fn value(self, ctx: FieldContext) -> Option<String> {
+        let map = ctx.map;
         Some(match self {
-            TextField::MapName => scenario.name.clone(),
-            TextField::Seed => scenario.seed.to_string(),
-            TextField::Width => scenario.map.width().to_string(),
-            TextField::Height => scenario.map.height().to_string(),
-            TextField::SlotName(slot) => scenario.players.iter().find(|p| p.id == slot)?.name.clone(),
-            TextField::SpawnValue { spawn, value } => value.get(spawn_settings(scenario, spawn)?)?,
+            TextField::MapName => map.name.clone(),
+            TextField::Description => map.description.clone(),
+            TextField::Width => map.terrain.width().to_string(),
+            TextField::Height => map.terrain.height().to_string(),
+            TextField::Seed => ctx.playtest.seed.to_string(),
+            TextField::PresetName(id) => map.terrain.presets().get(id.0 as usize)?.name.clone(),
+            TextField::NewMapName => ctx.dialog.name.clone(),
+            TextField::NewMapDescription => ctx.dialog.description.clone(),
+            TextField::NewMapWidth => ctx.dialog.width.to_string(),
+            TextField::NewMapHeight => ctx.dialog.height.to_string(),
+            TextField::SpawnValue { spawn, value } => value.get(spawn_settings(map, spawn)?)?,
         })
     }
 
     fn numeric(self) -> bool {
         matches!(
             self,
-            TextField::Seed | TextField::Width | TextField::Height | TextField::SpawnValue { .. }
+            TextField::Seed
+                | TextField::Width
+                | TextField::Height
+                | TextField::NewMapWidth
+                | TextField::NewMapHeight
+                | TextField::SpawnValue { .. }
         )
+    }
+
+    fn max_characters(self) -> usize {
+        match self {
+            _ if self.numeric() => 20,
+            TextField::Description | TextField::NewMapDescription => MAX_DESCRIPTION_CHARS,
+            TextField::PresetName(_) => MAX_PRESET_NAME_CHARS,
+            _ => MAX_NAME_CHARS,
+        }
     }
 
     /// The characters the field takes: digits for numbers, and a decimal point for seconds.
@@ -161,34 +223,48 @@ impl TextField {
         }
     }
 
-    /// The action that applies `text`: `None` when it is the document's value already, an error message when it
-    /// is no valid value.
-    pub fn commit(self, text: &str, scenario: &Scenario) -> Result<Option<EditorAction>, String> {
+    /// The action that applies `text`: `None` when it is the editor's value already, an error message when it is no
+    /// valid value.
+    pub fn commit(self, text: &str, ctx: FieldContext) -> Result<Option<EditorAction>, String> {
         let text = text.trim();
-        if self.value(scenario).as_deref() == Some(text) {
+        if self.value(ctx).as_deref() == Some(text) {
             return Ok(None);
         }
         let side = |what: &str| {
             text.parse::<u32>()
                 .map_err(|_| format!("The map {what} is a whole number of tiles"))
         };
-        let (width, height) = (scenario.map.width(), scenario.map.height());
+        let terrain = &ctx.map.terrain;
+        let (width, height) = (terrain.width(), terrain.height());
+        // A map with 90 degree rotation stays square: either side sets both.
+        let square = ctx.map.symmetry == Symmetry::Rotate90;
         Ok(Some(match self {
             TextField::MapName => EditorAction::SetName(text.into()),
-            TextField::Seed => {
-                EditorAction::SetSeed(text.parse().map_err(|_| "The seed is a whole number".to_string())?)
+            TextField::Description => EditorAction::SetDescription(text.into()),
+            TextField::Width => {
+                let width = side("width")?;
+                EditorAction::Resize {
+                    width,
+                    height: if square { width } else { height },
+                }
             }
-            TextField::Width => EditorAction::Resize {
-                width: side("width")?,
-                height,
-            },
-            TextField::Height => EditorAction::Resize {
-                width,
-                height: side("height")?,
-            },
-            TextField::SlotName(slot) => EditorAction::SetSlotName(slot, text.into()),
+            TextField::Height => {
+                let height = side("height")?;
+                EditorAction::Resize {
+                    width: if square { height } else { width },
+                    height,
+                }
+            }
+            TextField::Seed => {
+                EditorAction::SetPlayTestSeed(text.parse().map_err(|_| "The seed is a whole number".to_string())?)
+            }
+            TextField::PresetName(id) => EditorAction::SetPresetName(id, text.into()),
+            TextField::NewMapName => EditorAction::EditNewMap(NewMapField::Name(text.into())),
+            TextField::NewMapDescription => EditorAction::EditNewMap(NewMapField::Description(text.into())),
+            TextField::NewMapWidth => EditorAction::EditNewMap(NewMapField::Width(side("width")?)),
+            TextField::NewMapHeight => EditorAction::EditNewMap(NewMapField::Height(side("height")?)),
             TextField::SpawnValue { spawn, value } => {
-                let settings = spawn_settings(scenario, spawn).ok_or_else(|| format!("There is no spawn #{spawn}"))?;
+                let settings = spawn_settings(ctx.map, spawn).ok_or_else(|| format!("There is no spawn #{spawn}"))?;
                 EditorAction::SetSpawnSettings {
                     spawn,
                     settings: value.set(settings, text)?,
@@ -206,7 +282,7 @@ pub fn text_field(field: TextField, value: &str, width_vh: f32) -> impl Bundle {
         // Pointer clicks only focus entities with a tab index.
         TabIndex(0),
         EditableText {
-            max_characters: Some(if field.numeric() { 20 } else { MAX_NAME_CHARS }),
+            max_characters: Some(field.max_characters()),
             ..EditableText::new(value)
         },
         field.filter(),
@@ -223,11 +299,13 @@ pub fn text_field(field: TextField, value: &str, width_vh: f32) -> impl Bundle {
     )
 }
 
-/// Commits a field on Enter or when it loses the keyboard, except to Escape.
+/// Commits a field on Enter or when it loses the keyboard, except to Escape. Runs before the frame's actions apply,
+/// and puts the commit first in the queue: a click that took the keyboard away applies after the text it ended
+/// (review finding: the text was lost when that click rebuilt the field's list).
 pub fn commit_fields(
     focus: Option<ResMut<InputFocus>>,
     keys: Option<Res<ButtonInput<KeyCode>>>,
-    doc: Res<EditorDoc>,
+    sources: FieldSources,
     fields: Query<(&TextField, &EditableText)>,
     mut last_focused: Local<Option<Entity>>,
     mut actions: ResMut<EditorActions>,
@@ -238,12 +316,13 @@ pub fn commit_fields(
     };
     let pressed = |key| keys.as_ref().is_some_and(|k| k.just_pressed(key));
     let enter = pressed(KeyCode::Enter) || pressed(KeyCode::NumpadEnter);
+    let ctx = sources.context();
     let mut commit = |entity: Entity| {
         let Ok((field, text)) = fields.get(entity) else {
             return;
         };
-        match field.commit(&text.value().to_string(), doc.scenario()) {
-            Ok(Some(action)) => actions.push(action),
+        match field.commit(&text.value().to_string(), ctx) {
+            Ok(Some(action)) => actions.0.push_front(action),
             Ok(None) => {}
             Err(message) => status.warn(message),
         }
@@ -262,30 +341,47 @@ pub fn commit_fields(
         focus.clear();
         current = None;
     }
-    *last_focused = current;
+    if *last_focused != current {
+        *last_focused = current;
+    }
 }
 
-/// Shows the document's values in the fields without the keyboard, and marks the focused field.
+/// Shows the editor's values in the fields without the keyboard, and marks the focused field. Only when a value or
+/// the keyboard moved, or new fields appeared.
 pub fn refresh_fields(
     focus: Option<Res<InputFocus>>,
-    doc: Res<EditorDoc>,
+    sources: FieldSources,
     actions: Res<EditorActions>,
-    mut fields: Query<(Entity, &TextField, &mut EditableText, &mut BorderColor)>,
+    mut fields: Query<(Entity, Ref<TextField>, &mut EditableText, &mut BorderColor)>,
+    mut focused_before: Local<Option<Entity>>,
+    mut pending: Local<bool>,
 ) {
     let focused = focus.and_then(|f| f.get());
+    let focus_moved = std::mem::replace(&mut *focused_before, focused) != focused;
+    let added = fields.iter().any(|(_, field, ..)| field.is_added());
+    let mut values = std::mem::take(&mut *pending) || sources.is_changed() || focus_moved || added;
+    // Queued actions (a commit) may still change the values: refresh after them.
+    if values && !actions.0.is_empty() {
+        *pending = true;
+        values = false;
+    }
+    if !values && !focus_moved && !added {
+        return;
+    }
+    let ctx = sources.context();
     for (entity, field, mut text, mut border) in &mut fields {
         let has_focus = focused == Some(entity);
         border.set_if_neq(BorderColor::all(if has_focus { FIELD_FOCUSED } else { BORDER }));
-        // Queued actions (a commit) may still change the value: refresh after them.
-        if has_focus || !actions.0.is_empty() {
+        if has_focus || !values {
             continue;
         }
-        let Some(value) = field.value(doc.scenario()) else {
+        let Some(value) = field.value(ctx) else {
             continue;
         };
         if text.value().to_string() != value {
+            // From its start: a field too short for its value shows how it begins.
             text.editor.set_text(&value);
-            text.queue_edit(TextEdit::TextEnd(false));
+            text.queue_edit(TextEdit::TextStart(false));
         }
     }
 }
@@ -293,65 +389,120 @@ pub fn refresh_fields(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sc_sim::scenarios;
+    use sc_sim::{MapType, Spawn, SpawnAt, TilePos};
+
+    fn map(width: u32, height: u32) -> MapDef {
+        MapSettings {
+            map_type: MapType::Custom,
+            symmetry: Symmetry::None,
+            width,
+            height,
+            slots: 2,
+            name: "empty".into(),
+            ..MapSettings::default()
+        }
+        .create()
+        .unwrap()
+    }
 
     #[test]
     fn fields_commit_valid_changes_only() {
-        let scenario = scenarios::empty(10, 8);
-        let commit = |field: TextField, text: &str| field.commit(text, &scenario);
+        let map = map(20, 16);
+        let dialog = MapSettings::default();
+        let playtest = PlayTestSetup::default();
+        let ctx = FieldContext {
+            map: &map,
+            dialog: &dialog,
+            playtest: &playtest,
+        };
+        let commit = |field: TextField, text: &str| field.commit(text, ctx);
         assert_eq!(commit(TextField::MapName, " empty "), Ok(None), "unchanged");
         assert_eq!(
             commit(TextField::MapName, "Ridge"),
             Ok(Some(EditorAction::SetName("Ridge".into())))
         );
-        assert_eq!(commit(TextField::Seed, "42"), Ok(Some(EditorAction::SetSeed(42))));
-        assert!(commit(TextField::Seed, "").is_err());
         assert_eq!(
-            commit(TextField::Width, "20"),
-            Ok(Some(EditorAction::Resize { width: 20, height: 8 }))
+            commit(TextField::Description, "Two bases"),
+            Ok(Some(EditorAction::SetDescription("Two bases".into())))
         );
         assert_eq!(
-            commit(TextField::Height, "3"),
-            Ok(Some(EditorAction::Resize { width: 10, height: 3 }))
+            commit(TextField::Seed, "42"),
+            Ok(Some(EditorAction::SetPlayTestSeed(42)))
+        );
+        assert!(commit(TextField::Seed, "").is_err());
+        assert_eq!(
+            commit(TextField::Width, "24"),
+            Ok(Some(EditorAction::Resize { width: 24, height: 16 }))
+        );
+        assert_eq!(
+            commit(TextField::Height, "30"),
+            Ok(Some(EditorAction::Resize { width: 20, height: 30 }))
         );
         assert!(commit(TextField::Height, "99999999999").is_err());
         assert_eq!(
-            commit(TextField::SlotName(PlayerId(2)), "Blue"),
-            Ok(Some(EditorAction::SetSlotName(PlayerId(2), "Blue".into())))
+            commit(TextField::PresetName(TilePresetId(5)), "Ice"),
+            Ok(Some(EditorAction::SetPresetName(TilePresetId(5), "Ice".into())))
         );
-        assert_eq!(TextField::SlotName(PlayerId(7)).value(&scenario), None);
+        assert_eq!(TextField::PresetName(TilePresetId(99)).value(ctx), None);
+        assert_eq!(
+            commit(TextField::NewMapWidth, "96"),
+            Ok(Some(EditorAction::EditNewMap(NewMapField::Width(96))))
+        );
+        assert_eq!(
+            commit(TextField::NewMapName, "untitled"),
+            Ok(None),
+            "the dialog's value"
+        );
+
+        // A map with 90 degree rotation stays square.
+        let square = MapSettings {
+            symmetry: Symmetry::Rotate90,
+            width: 32,
+            height: 32,
+            slots: 4,
+            ..MapSettings::default()
+        }
+        .create()
+        .unwrap();
+        let ctx = FieldContext { map: &square, ..ctx };
+        assert_eq!(
+            TextField::Height.commit("40", ctx),
+            Ok(Some(EditorAction::Resize { width: 40, height: 40 }))
+        );
     }
 
     #[test]
     fn spawn_value_fields_show_and_commit_the_spawns_values() {
-        use sc_sim::{Spawn, SpawnAt, TilePos};
-        let mut scenario = scenarios::empty(10, 8);
-        let at = SpawnAt::Tile(TilePos::new(1, 1));
-        scenario.spawns = vec![
-            Spawn::new(ObjectKind::CrystalPatch, None, at),
+        let mut map = map(20, 16);
+        map.spawns = vec![
+            Spawn::new(ObjectKind::CrystalPatch, None, SpawnAt::Tile(TilePos::new(1, 1))),
             Spawn::new(
                 ObjectKind::SupplyDeliveryStation,
                 None,
                 SpawnAt::Tile(TilePos::new(4, 4)),
             ),
         ];
+        let dialog = MapSettings::default();
+        let playtest = PlayTestSetup::default();
+        let ctx = FieldContext {
+            map: &map,
+            dialog: &dialog,
+            playtest: &playtest,
+        };
         let field = |spawn, value| TextField::SpawnValue { spawn, value };
         assert_eq!(
-            field(0, SpawnValue::StartingAmount).value(&scenario),
+            field(0, SpawnValue::StartingAmount).value(ctx),
             Some(sc_sim::scenario::DEFAULT_STARTING_AMOUNT.to_string())
         );
+        assert_eq!(field(1, SpawnValue::DeliveryInterval).value(ctx), Some("60".into()));
         assert_eq!(
-            field(1, SpawnValue::DeliveryInterval).value(&scenario),
-            Some("60".into())
-        );
-        assert_eq!(
-            field(0, SpawnValue::DeliverySize).value(&scenario),
+            field(0, SpawnValue::DeliverySize).value(ctx),
             None,
             "patches have no deliveries"
         );
-        assert_eq!(field(5, SpawnValue::StartingAmount).value(&scenario), None);
+        assert_eq!(field(5, SpawnValue::StartingAmount).value(ctx), None);
         assert_eq!(
-            field(0, SpawnValue::StartingAmount).commit("900", &scenario),
+            field(0, SpawnValue::StartingAmount).commit("900", ctx),
             Ok(Some(EditorAction::SetSpawnSettings {
                 spawn: 0,
                 settings: SpawnSettings::CrystalPatch { starting_amount: 900 }
@@ -359,7 +510,7 @@ mod tests {
         );
         // Seconds become ticks, rounded to the nearest tick.
         let Ok(Some(EditorAction::SetSpawnSettings { settings, .. })) =
-            field(1, SpawnValue::DeliveryInterval).commit("7.5", &scenario)
+            field(1, SpawnValue::DeliveryInterval).commit("7.5", ctx)
         else {
             panic!("the interval should commit");
         };
@@ -372,14 +523,10 @@ mod tests {
             }
         );
         assert_eq!(SpawnValue::DeliveryInterval.get(settings), Some("7.5".into()));
-        assert!(field(1, SpawnValue::DeliverySize).commit("lots", &scenario).is_err());
-        assert!(
-            field(1, SpawnValue::DeliveryInterval)
-                .commit("1e99", &scenario)
-                .is_err()
-        );
+        assert!(field(1, SpawnValue::DeliverySize).commit("lots", ctx).is_err());
+        assert!(field(1, SpawnValue::DeliveryInterval).commit("1e99", ctx).is_err());
         assert_eq!(
-            field(1, SpawnValue::DeliveryInterval).commit("60", &scenario),
+            field(1, SpawnValue::DeliveryInterval).commit("60", ctx),
             Ok(None),
             "unchanged"
         );

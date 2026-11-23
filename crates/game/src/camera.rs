@@ -15,7 +15,7 @@
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{ScalingMode, Viewport};
 use bevy::prelude::*;
-use sc_sim::{Map, PlayerId, SU_PER_GU, Scenario, gu};
+use sc_sim::{Map, PlayerId, SU_PER_GU, Scenario, Slot, gu};
 
 use crate::ClientSystems;
 use crate::coords::{drawn_bounds, drawn_position, ground_under, view_to_world};
@@ -88,13 +88,19 @@ impl Plugin for GameCameraPlugin {
 
 /// `core/camera.md > Starting Position`: the map's starting camera position for the local player's slot, else the
 /// player's primary starting structure. No starting structures exist yet (they arrive with the faction
-/// milestones), so the slot's start location stands in for them (the Q0004 placeholder for where its base goes),
-/// and the map center for a slot without one. A ground point: the camera centers on its [`start_view`].
+/// milestones), so the slot's start position stands in for them, and the map center for a player the setup doesn't
+/// have (or whose slot the map lacks). A ground point: the camera centers on its [`start_view`].
 pub fn start_center(scenario: &Scenario, player: PlayerId, map: &Map) -> Vec2 {
-    let slot = scenario.players.iter().find(|p| p.id == player);
-    slot.and_then(|p| p.camera_start)
-        .or_else(|| slot.and_then(|p| p.start_location).map(|t| t.center()))
-        .unwrap_or_else(|| map_extent_su(map) / 2.0)
+    let slot = scenario.setup.player(player).and_then(|p| scenario.map.slot(p.slot));
+    slot_center(slot, map)
+}
+
+/// [`start_center`] for a slot: its camera start, else its start position, else (no slot) the map center.
+pub fn slot_center(slot: Option<&Slot>, map: &Map) -> Vec2 {
+    slot.map_or_else(
+        || map_extent_su(map) / 2.0,
+        |s| s.camera_start.unwrap_or_else(|| s.start.center()),
+    )
 }
 
 /// The view center that shows [`start_center`]: where that ground point is drawn.
@@ -447,16 +453,20 @@ mod tests {
     }
 
     #[test]
-    fn the_start_falls_back_from_camera_start_to_start_location_to_map_center() {
+    fn the_start_falls_back_from_camera_start_to_start_position_to_map_center() {
         let mut scenario = scenarios::empty(20, 10);
-        scenario.players[0].camera_start = Some(Vec2::new(100.0, 200.0));
-        scenario.players[1].start_location = Some(TilePos::new(3, 4));
-        let map = scenario.map.clone();
+        scenario.map.slots[0].camera_start = Some(Vec2::new(100.0, 200.0));
+        scenario.map.slots[1].start = TilePos::new(3, 4);
+        let map = scenario.map.terrain.clone();
         assert_eq!(start_center(&scenario, PlayerId(1), &map), Vec2::new(100.0, 200.0));
         assert_eq!(start_center(&scenario, PlayerId(2), &map), TilePos::new(3, 4).center());
-        scenario.players[1].start_location = None;
-        assert_eq!(start_center(&scenario, PlayerId(2), &map), Vec2::new(640.0, 320.0));
+        // The player's slot decides, not the player's number.
+        scenario.setup.players[0].slot = sc_sim::SlotId(2);
+        scenario.setup.players[1].slot = sc_sim::SlotId(1);
+        assert_eq!(start_center(&scenario, PlayerId(1), &map), TilePos::new(3, 4).center());
         assert_eq!(start_center(&scenario, PlayerId(9), &map), Vec2::new(640.0, 320.0));
+        scenario.setup.players[0].slot = sc_sim::SlotId(7);
+        assert_eq!(start_center(&scenario, PlayerId(1), &map), Vec2::new(640.0, 320.0));
     }
 
     #[test]

@@ -15,7 +15,7 @@ use glam::Vec2;
 
 use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
-use crate::map::{Tile, TilePreset, TilePresetId};
+use crate::map::{Tile, TileLook, TilePreset, TilePresetId};
 use crate::object::{Object, Placement, ResourceState, Rotation};
 use crate::player::{Faction, Player};
 use crate::sim::SimConfig;
@@ -192,6 +192,7 @@ impl StateHash for TilePreset {
             rugged,
             drillable,
             recruitable,
+            look,
         } = self;
         name.hash(h);
         buildable.hash(h);
@@ -199,6 +200,13 @@ impl StateHash for TilePreset {
         rugged.hash(h);
         drillable.hash(h);
         recruitable.hash(h);
+        look.hash(h);
+    }
+}
+
+impl StateHash for TileLook {
+    fn hash(&self, h: &mut StateHasher) {
+        (*self as u32).hash(h);
     }
 }
 

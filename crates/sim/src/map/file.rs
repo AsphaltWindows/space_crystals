@@ -4,7 +4,7 @@
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::{DEFAULT_PRESET_SYMBOLS, Map, TilePreset, check_new_symbol};
+use super::{DEFAULT_PRESET_SYMBOLS, Map, TileLook, TilePreset, check_new_symbol};
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -28,6 +28,7 @@ struct CustomPreset {
     rugged: bool,
     drillable: bool,
     recruitable: bool,
+    look: TileLook,
 }
 
 impl Serialize for Map {
@@ -44,6 +45,7 @@ impl Serialize for Map {
                 rugged: p.rugged,
                 drillable: p.drillable,
                 recruitable: p.recruitable,
+                look: p.look,
             })
             .collect();
         MapFile {
@@ -78,6 +80,7 @@ impl TryFrom<MapFile> for Map {
                 rugged: p.rugged,
                 drillable: p.drillable,
                 recruitable: p.recruitable,
+                look: p.look,
             });
         }
         let tiles: Vec<&str> = file.tiles.iter().map(String::as_str).collect();

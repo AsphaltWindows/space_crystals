@@ -21,7 +21,7 @@ impl Editor<'_> {
     pub fn fit_zoom(&self) -> f32 {
         let (_, viewport) = viewport_rect(*self.size, *self.insets);
         let visible = visible_extent_su(viewport, self.size.physical.x, 1.0);
-        let map = drawn_bounds(&self.doc.scenario().map).size();
+        let map = drawn_bounds(&self.doc.map().terrain).size();
         (map.x / visible.x).max(map.y / visible.y) * FIT_MARGIN
     }
 
@@ -39,7 +39,7 @@ impl Editor<'_> {
         let new = (old * factor).clamp(min, max);
         if let Some(ground) = at.filter(|p| p.is_finite()) {
             // The point under the cursor stays under the cursor: where its ground is drawn.
-            let p = drawn_position(&self.doc.scenario().map, ground);
+            let p = drawn_position(&self.doc.map().terrain, ground);
             self.view.center = p + (self.view.center - p) * (new / old);
         }
         self.zoom.0 = new;
@@ -47,14 +47,14 @@ impl Editor<'_> {
 
     pub(super) fn fit_map(&mut self) {
         self.zoom.0 = self.fit_zoom().max(MIN_ZOOM);
-        self.view.center = drawn_bounds(&self.doc.scenario().map).center();
+        self.view.center = drawn_bounds(&self.doc.map().terrain).center();
     }
 
     pub(super) fn focus_problem(&mut self, index: usize) {
         let Some(problem) = self.problems.0.get(index).cloned() else {
             return;
         };
-        let (center, spawn) = objects::problem_focus(self.doc.scenario(), &problem);
+        let (center, spawn) = objects::problem_focus(self.doc.map(), &problem);
         if let Some(center) = center {
             self.center_on(center);
         }

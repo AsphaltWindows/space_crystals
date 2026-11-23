@@ -1,214 +1,265 @@
-//! Scenario validation: problems are listed, never panicked on, so a bad map file can't
-//! crash the editor or the game.
+//! Validation of maps and game setups: problems are listed, never panicked on, so a bad map file can't crash the
+//! editor or the game.
 
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, BTreeSet};
-use std::fmt;
 
 use glam::Vec2;
 
-use super::settings::{SettingsProblem, SpawnSettings};
-use super::{Scenario, SpawnAt};
+use super::Scenario;
+use super::create::{MAX_SLOTS, slot_count_fits};
+use super::mapdef::{BuildingOrientation, MapDef, MapType, SpawnAt};
+use super::problems::{ScenarioProblem, SpawnProblem};
+use super::settings::SpawnSettings;
 use crate::defs::{Category, Footprint, ObjectKind};
-use crate::ids::PlayerId;
+use crate::ids::{PlayerId, SlotId};
 use crate::map::Map;
 use crate::object::Placement;
+use crate::symmetry::Symmetry;
 use crate::units::TilePos;
 
-/// Something that makes a scenario unplayable. [`Scenario::validate`] lists them all.
-/// `Display` gives a message for the editor or a log.
-#[derive(Clone, Debug, PartialEq)]
-pub enum ScenarioProblem {
-    /// A side of the map is longer than [`crate::map::MAX_MAP_SIDE`] tiles.
-    MapTooBig { width: u32, height: u32 },
-    /// `core/map.md > Elevation > Maximum slope`: this Traversible tile's corners differ by `slope` levels, more
-    /// than [`crate::map::MAX_TRAVERSIBLE_SLOPE`].
-    TooSteep { tile: TilePos, slope: u8 },
-    /// More than one player has this id.
-    DuplicatePlayerId(PlayerId),
-    /// `core/entities.md > Player`: players are numbered from 1 to n, the number of players.
-    PlayerIdOutOfRange { player: PlayerId, players: usize },
-    /// The start location (placeholder model, Q0004) lies off the map.
-    StartLocationOffMap { player: PlayerId, tile: TilePos },
-    /// The camera start is not a finite point on the map.
-    CameraStartOffMap { player: PlayerId, pos: Vec2 },
-    /// The spawn at this index of `Scenario::spawns` can't be created.
-    InvalidSpawn {
-        spawn: usize,
-        kind: ObjectKind,
-        problem: SpawnProblem,
-    },
-    /// The tile footprints of the spawns at these indices share `tile`.
-    OverlappingFootprints { first: usize, second: usize, tile: TilePos },
-}
-
-/// Why an object can't be created as requested, by a scenario spawn or a debug `Spawn` command.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum SpawnProblem {
-    /// `core/map.md > Resource`: resources are never owned.
-    OwnedResource,
-    /// The owner is not a player of the game.
-    UnknownOwner(PlayerId),
-    /// Tile-based types spawn at a [`SpawnAt::Tile`], units at a [`SpawnAt::Point`].
-    WrongLocationType,
-    /// Part of the tile footprint lies off the map.
-    FootprintOffMap,
-    /// The point is not finite or lies off the map.
-    PointOffMap,
-    /// `core/map.md > Elevation > Map resources only on flat terrain`: this footprint tile is sloped.
-    NotFlat(TilePos),
-    /// `core/map_editor.md > Per-object Resource Values`: the spawn has no values, but its kind needs them.
-    MissingSettings,
-    /// The spawn's values belong to another kind of object.
-    WrongSettings,
-    /// One of the spawn's values makes no sense.
-    InvalidSettings(SettingsProblem),
-}
-
-impl fmt::Display for SpawnProblem {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SpawnProblem::OwnedResource => write!(f, "resources can't have an owner"),
-            SpawnProblem::UnknownOwner(p) => write!(f, "owner {} is not a player", p.0),
-            SpawnProblem::WrongLocationType => {
-                write!(f, "tile-based objects need a tile location and units a point")
-            }
-            SpawnProblem::FootprintOffMap => write!(f, "the footprint is not entirely on the map"),
-            SpawnProblem::PointOffMap => write!(f, "the point is not finite or off the map"),
-            SpawnProblem::NotFlat(t) => write!(f, "it needs flat ground, but its tile ({}, {}) is sloped", t.x, t.y),
-            SpawnProblem::MissingSettings => write!(f, "its per-object values are missing"),
-            SpawnProblem::WrongSettings => write!(f, "its per-object values belong to another kind of object"),
-            SpawnProblem::InvalidSettings(problem) => write!(f, "{problem}"),
-        }
-    }
-}
-
-impl fmt::Display for ScenarioProblem {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ScenarioProblem::MapTooBig { width, height } => write!(
-                f,
-                "the map is {width} x {height} tiles, more than {max} x {max}",
-                max = crate::map::MAX_MAP_SIDE
-            ),
-            ScenarioProblem::TooSteep { tile, slope } => write!(
-                f,
-                "tile ({}, {}) is Traversible but {slope} levels steep (at most {}): flatten it or make it a cliff",
-                tile.x,
-                tile.y,
-                crate::map::MAX_TRAVERSIBLE_SLOPE
-            ),
-            ScenarioProblem::DuplicatePlayerId(p) => write!(f, "player id {} is used more than once", p.0),
-            ScenarioProblem::PlayerIdOutOfRange { player, players } => write!(
-                f,
-                "player id {} is outside 1..={players} (players are numbered 1 to n)",
-                player.0
-            ),
-            ScenarioProblem::StartLocationOffMap { player, tile } => write!(
-                f,
-                "player {}: start location ({}, {}) is off the map",
-                player.0, tile.x, tile.y
-            ),
-            ScenarioProblem::CameraStartOffMap { player, pos } => write!(
-                f,
-                "player {}: camera start ({}, {}) is not a finite point on the map",
-                player.0, pos.x, pos.y
-            ),
-            ScenarioProblem::InvalidSpawn { spawn, kind, problem } => write!(f, "spawn {spawn} ({kind:?}): {problem}"),
-            ScenarioProblem::OverlappingFootprints { first, second, tile } => write!(
-                f,
-                "spawns {first} and {second} overlap at tile ({}, {})",
-                tile.x, tile.y
-            ),
-        }
-    }
-}
-
-/// Where a valid spawn goes: its center and, for tile-based types, its placement.
+/// Where a valid object goes: its center and, for tile-based types, its placement.
 pub(crate) type SpawnSpot = (Vec2, Option<Placement>);
 
-impl Scenario {
-    /// Everything that makes this scenario unplayable: the map's too-steep tiles row by row, then the players,
-    /// then the spawns in order. Empty means [`crate::Sim::try_new`] accepts it. Never panics.
+/// An object a game starts with, checked and placed.
+pub(crate) struct StartObject {
+    pub kind: ObjectKind,
+    pub owner: Option<PlayerId>,
+    pub pos: Vec2,
+    pub placement: Option<Placement>,
+    pub settings: Option<SpawnSettings>,
+}
+
+/// The tiles taken so far, each by the first object on it: finds overlaps.
+#[derive(Default)]
+struct Occupied<T>(BTreeMap<TilePos, T>);
+
+impl<T: Copy> Occupied<T> {
+    /// Takes the tiles of `placement` for `owner`; the first tile someone else had, with that one.
+    fn take(&mut self, placement: &Placement, owner: T) -> Option<(T, TilePos)> {
+        let mut overlap = None;
+        for tile in placement.tiles() {
+            match self.0.entry(tile) {
+                Entry::Vacant(e) => {
+                    e.insert(owner);
+                }
+                Entry::Occupied(e) => {
+                    overlap.get_or_insert((*e.get(), tile));
+                }
+            }
+        }
+        overlap
+    }
+}
+
+impl MapDef {
+    /// Everything that makes this map unplayable whoever plays it: the terrain (size, then the too-steep tiles row by
+    /// row), the symmetry, the slots, the pre-placed objects in order, then the Starting Layouts. Never panics.
     pub fn validate(&self) -> Vec<ScenarioProblem> {
-        self.spawn_spots().err().unwrap_or_default()
+        let mut problems = Vec::new();
+        self.check(&mut problems);
+        problems
     }
 
-    /// Validates the scenario. If it is valid, returns the spot of each spawn, in order.
-    pub(crate) fn spawn_spots(&self) -> Result<Vec<SpawnSpot>, Vec<ScenarioProblem>> {
-        let (width, height) = (self.map.width(), self.map.height());
+    /// Validates the map into `problems`; the spot of each spawn, in order, where it can be placed.
+    fn check(&self, problems: &mut Vec<ScenarioProblem>) -> Vec<Option<SpawnSpot>> {
+        let (width, height) = (self.terrain.width(), self.terrain.height());
         let max = crate::map::MAX_MAP_SIDE;
-        let mut problems = Vec::new();
         if width > max || height > max {
             problems.push(ScenarioProblem::MapTooBig { width, height });
         }
         problems.extend(
-            self.map
+            self.terrain
                 .too_steep_tiles()
                 .into_iter()
                 .map(|(tile, slope)| ScenarioProblem::TooSteep { tile, slope }),
         );
-        let players = self.players.len();
-        let mut ids = BTreeSet::new();
-        for p in &self.players {
-            if !ids.insert(p.id) {
-                problems.push(ScenarioProblem::DuplicatePlayerId(p.id));
+        if self.map_type == MapType::SkirmishDefault && self.symmetry == Symmetry::None {
+            problems.push(ScenarioProblem::SkirmishWithoutSymmetry);
+        }
+        if !self.symmetry.fits(width, height) {
+            problems.push(ScenarioProblem::SymmetryNeedsSquare { width, height });
+        } else if let Some(what) = self.first_asymmetry() {
+            problems.push(ScenarioProblem::NotSymmetric(what));
+        }
+
+        let slots = self.slots.len();
+        if slots == 0 {
+            problems.push(ScenarioProblem::NoSlots);
+        } else if slots > MAX_SLOTS {
+            problems.push(ScenarioProblem::TooManySlots(slots));
+        } else if !slot_count_fits(self.image_count(), slots) {
+            problems.push(ScenarioProblem::SlotsNotInImageSets {
+                slots,
+                images: self.image_count(),
+            });
+        }
+        for (slot, s) in self.slot_ids().zip(&self.slots) {
+            if !self.terrain.in_bounds(s.start) {
+                problems.push(ScenarioProblem::StartOffMap { slot, tile: s.start });
             }
-            if p.id.0 == 0 || usize::from(p.id.0) > players {
-                problems.push(ScenarioProblem::PlayerIdOutOfRange { player: p.id, players });
-            }
-            if let Some(tile) = p.start_location
-                && !self.map.in_bounds(tile)
+            if let Some(pos) = s.camera_start
+                && !self.terrain.contains_point(pos)
             {
-                problems.push(ScenarioProblem::StartLocationOffMap { player: p.id, tile });
-            }
-            if let Some(pos) = p.camera_start
-                && !self.map.contains_point(pos)
-            {
-                problems.push(ScenarioProblem::CameraStartOffMap { player: p.id, pos });
+                problems.push(ScenarioProblem::CameraStartOffMap { slot, pos });
             }
         }
 
         let mut spots = Vec::with_capacity(self.spawns.len());
-        let mut occupied: BTreeMap<TilePos, usize> = BTreeMap::new();
+        let mut occupied = Occupied::default();
         for (i, s) in self.spawns.iter().enumerate() {
-            let spot = place_spawn(&self.map, s.kind, s.owner, s.at, |id| ids.contains(&id))
+            let spot = self
+                .check_owner(s.kind, s.owner)
+                .and_then(|()| place_object(&self.terrain, s.kind, s.at, s.orientation))
                 .and_then(|spot| check_settings(s.kind, s.settings.as_ref()).map(|()| spot));
             match spot {
                 Ok(spot) => {
-                    if let Some(placement) = &spot.1 {
-                        // One problem per spawn: the first tile it shares with an earlier spawn.
-                        let mut overlap = None;
-                        for tile in placement.tiles() {
-                            match occupied.entry(tile) {
-                                Entry::Vacant(e) => {
-                                    e.insert(i);
-                                }
-                                Entry::Occupied(e) => {
-                                    overlap.get_or_insert((*e.get(), tile));
-                                }
-                            }
-                        }
-                        if let Some((first, tile)) = overlap {
-                            problems.push(ScenarioProblem::OverlappingFootprints { first, second: i, tile });
-                        }
+                    // One problem per spawn: the first tile it shares with an earlier spawn.
+                    if let Some(placement) = &spot.1
+                        && let Some((first, tile)) = occupied.take(placement, i)
+                    {
+                        problems.push(ScenarioProblem::OverlappingFootprints { first, second: i, tile });
                     }
-                    spots.push(spot);
+                    spots.push(Some(spot));
                 }
-                Err(problem) => problems.push(ScenarioProblem::InvalidSpawn {
-                    spawn: i,
-                    kind: s.kind,
-                    problem,
-                }),
+                Err(problem) => {
+                    problems.push(ScenarioProblem::InvalidSpawn {
+                        spawn: i,
+                        kind: s.kind,
+                        problem,
+                    });
+                    spots.push(None);
+                }
             }
         }
-        if problems.is_empty() { Ok(spots) } else { Err(problems) }
+
+        for (slot, s) in self.slot_ids().zip(&self.slots) {
+            for (faction, objects) in s.layouts.iter() {
+                for (index, o) in objects.iter().enumerate() {
+                    if let Err(problem) = place_layout_object(&self.terrain, o.kind, o.at, o.orientation) {
+                        problems.push(ScenarioProblem::InvalidLayoutObject {
+                            slot,
+                            faction,
+                            index,
+                            kind: o.kind,
+                            problem,
+                        });
+                    }
+                }
+            }
+        }
+        spots
+    }
+
+    /// Whether a pre-placed object of `kind` may have `owner`.
+    fn check_owner(&self, kind: ObjectKind, owner: Option<SlotId>) -> Result<(), SpawnProblem> {
+        let Some(slot) = owner else {
+            return Ok(());
+        };
+        if kind.def().category == Category::Resource {
+            return Err(SpawnProblem::OwnedResource);
+        }
+        if self.slot(slot).is_none() {
+            return Err(SpawnProblem::UnknownSlot(slot));
+        }
+        if self.map_type == MapType::SkirmishDefault {
+            return Err(SpawnProblem::OwnedOnSkirmishMap);
+        }
+        Ok(())
     }
 }
 
-/// Checks one spawn against the map and the players. Scenario validation and the debug
-/// `Spawn` command both use it, so they accept the same spawns (only scenarios also reject
-/// overlapping footprints).
+impl Scenario {
+    /// Everything that makes this game unplayable: the map's problems ([`MapDef::validate`]), then the setup's, then
+    /// the overlaps of the Starting Layouts the players get. Empty means [`crate::Sim::try_new`] accepts it. Never
+    /// panics.
+    pub fn validate(&self) -> Vec<ScenarioProblem> {
+        self.start_objects().err().unwrap_or_default()
+    }
+
+    /// Validates the scenario. If it is valid, returns the objects the game starts with, in order: the pre-placed
+    /// objects (those of slots that no player takes are left out), then each player's Starting Layout, player by
+    /// player, the objects owned by their players.
+    pub(crate) fn start_objects(&self) -> Result<Vec<StartObject>, Vec<ScenarioProblem>> {
+        let mut problems = Vec::new();
+        let spots = self.map.check(&mut problems);
+        if self.setup.players.is_empty() {
+            problems.push(ScenarioProblem::NoPlayers);
+        }
+        let mut taken = BTreeSet::new();
+        for (player, p) in self.setup.player_ids().zip(&self.setup.players) {
+            if self.map.slot(p.slot).is_none() {
+                problems.push(ScenarioProblem::UnknownSlot { player, slot: p.slot });
+            } else if !taken.insert(p.slot) {
+                problems.push(ScenarioProblem::SlotTaken { player, slot: p.slot });
+            }
+        }
+        if !problems.is_empty() {
+            return Err(problems);
+        }
+
+        let mut objects = Vec::new();
+        let mut occupied: Occupied<()> = Occupied::default();
+        for (s, spot) in self.map.spawns.iter().zip(spots) {
+            let Some((pos, placement)) = spot else {
+                continue;
+            };
+            if let Some(placement) = &placement {
+                occupied.take(placement, ());
+            }
+            let owner = match s.owner {
+                None => None,
+                // No player takes the slot: its objects stay out of the game.
+                Some(slot) => match self.setup.player_at(slot) {
+                    Some(player) => Some(player),
+                    None => continue,
+                },
+            };
+            objects.push(StartObject {
+                kind: s.kind,
+                owner,
+                pos,
+                placement,
+                settings: s.settings,
+            });
+        }
+        for (player, p) in self.setup.player_ids().zip(&self.setup.players) {
+            let Some(slot) = self.map.slot(p.slot) else {
+                continue;
+            };
+            for (index, o) in slot.layouts.get(p.faction).iter().enumerate() {
+                let Ok((pos, placement)) = place_layout_object(&self.map.terrain, o.kind, o.at, o.orientation) else {
+                    continue;
+                };
+                if let Some(placement) = &placement
+                    && let Some(((), tile)) = occupied.take(placement, ())
+                {
+                    problems.push(ScenarioProblem::LayoutOverlap {
+                        slot: p.slot,
+                        faction: p.faction,
+                        index,
+                        tile,
+                    });
+                }
+                objects.push(StartObject {
+                    kind: o.kind,
+                    owner: Some(player),
+                    pos,
+                    placement,
+                    settings: None,
+                });
+            }
+        }
+        if problems.is_empty() {
+            Ok(objects)
+        } else {
+            Err(problems)
+        }
+    }
+}
+
+/// Checks one object owned by a player against the map. Scenario validation and the debug `Spawn` command both use
+/// it, so they accept the same objects (only scenarios also reject overlapping footprints).
 pub(crate) fn place_spawn(
     map: &Map,
     kind: ObjectKind,
@@ -216,17 +267,40 @@ pub(crate) fn place_spawn(
     at: SpawnAt,
     is_player: impl Fn(PlayerId) -> bool,
 ) -> Result<SpawnSpot, SpawnProblem> {
-    let def = kind.def();
     if let Some(p) = owner {
         // `core/map.md > Resource`: resources are never owned.
-        if def.category == Category::Resource {
+        if kind.def().category == Category::Resource {
             return Err(SpawnProblem::OwnedResource);
         }
         if !is_player(p) {
             return Err(SpawnProblem::UnknownOwner(p));
         }
     }
-    let spot = locate(map, def.footprint, at)?;
+    place_object(map, kind, at, BuildingOrientation::default())
+}
+
+/// Checks a Starting Layout object, which its player owns, against the map.
+fn place_layout_object(
+    map: &Map,
+    kind: ObjectKind,
+    at: SpawnAt,
+    orientation: BuildingOrientation,
+) -> Result<SpawnSpot, SpawnProblem> {
+    if kind.def().category == Category::Resource {
+        return Err(SpawnProblem::OwnedResource);
+    }
+    place_object(map, kind, at, orientation)
+}
+
+/// Where an object of `kind` goes at `at`, turned by `orientation`, if that fits the map and its ground.
+fn place_object(
+    map: &Map,
+    kind: ObjectKind,
+    at: SpawnAt,
+    orientation: BuildingOrientation,
+) -> Result<SpawnSpot, SpawnProblem> {
+    let def = kind.def();
+    let spot = locate_oriented(map, def.footprint, at, orientation)?;
     // `core/map.md > Elevation > Map resources only on flat terrain`.
     if def.needs_flat_ground
         && let (_, Some(placement)) = &spot
@@ -248,17 +322,30 @@ fn check_settings(kind: ObjectKind, settings: Option<&SpawnSettings>) -> Result<
     }
 }
 
-/// Where an object with `footprint` goes when spawned `at`, if that fits the map.
-pub(crate) fn locate(map: &Map, footprint: Footprint, at: SpawnAt) -> Result<SpawnSpot, SpawnProblem> {
+/// Where an object with `footprint` goes when spawned `at` and turned by `orientation`, if that fits the map.
+pub(crate) fn locate_oriented(
+    map: &Map,
+    footprint: Footprint,
+    at: SpawnAt,
+    orientation: BuildingOrientation,
+) -> Result<SpawnSpot, SpawnProblem> {
     match (footprint, at) {
         (Footprint::Tiles { w, h }, SpawnAt::Tile(origin)) => {
+            let (w, h) = if orientation.swaps_axes() { (h, w) } else { (w, h) };
             // 64-bit sums: no overflow, whatever the origin.
             let fits =
                 |start: i32, len: u32, size: u32| start >= 0 && i64::from(start) + i64::from(len) <= i64::from(size);
             if !(fits(origin.x, w, map.width()) && fits(origin.y, h, map.height())) {
                 return Err(SpawnProblem::FootprintOffMap);
             }
-            let placement = Placement::new(origin, footprint);
+            let placement = Placement {
+                origin,
+                w,
+                h,
+                rotation: orientation.rotation,
+                flip_h: orientation.flip_h,
+                flip_v: orientation.flip_v,
+            };
             Ok((placement.center(), Some(placement)))
         }
         (Footprint::Silhouette { .. }, SpawnAt::Point(pos)) => {
@@ -275,9 +362,14 @@ pub(crate) fn locate(map: &Map, footprint: Footprint, at: SpawnAt) -> Result<Spa
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::object::Rotation;
 
     const UNIT: Footprint = Footprint::Silhouette { w: 20.0, h: 20.0 };
     const BLOCK: Footprint = Footprint::Tiles { w: 2, h: 3 };
+
+    fn locate(map: &Map, footprint: Footprint, at: SpawnAt) -> Result<SpawnSpot, SpawnProblem> {
+        locate_oriented(map, footprint, at, BuildingOrientation::default())
+    }
 
     #[test]
     fn units_need_a_finite_point_on_the_map() {
@@ -327,5 +419,21 @@ mod tests {
         }
         let point = SpawnAt::Point(Vec2::new(10.0, 10.0));
         assert_eq!(locate(&map, BLOCK, point), Err(SpawnProblem::WrongLocationType));
+    }
+
+    #[test]
+    fn a_quarter_turn_puts_the_footprint_on_its_side() {
+        let map = Map::new(4, 4);
+        let turned = BuildingOrientation {
+            rotation: Rotation::R90,
+            ..Default::default()
+        };
+        let (_, placement) = locate_oriented(&map, BLOCK, SpawnAt::Tile(TilePos::new(1, 2)), turned).unwrap();
+        let placement = placement.unwrap();
+        assert_eq!((placement.w, placement.h, placement.rotation), (3, 2, Rotation::R90));
+        assert_eq!(
+            locate_oriented(&map, BLOCK, SpawnAt::Tile(TilePos::new(2, 2)), turned),
+            Err(SpawnProblem::FootprintOffMap)
+        );
     }
 }

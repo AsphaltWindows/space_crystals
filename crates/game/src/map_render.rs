@@ -15,7 +15,7 @@
 //! (map editor, new sim).
 
 use bevy::prelude::*;
-use sc_sim::{CornerPos, Map, Tile, TilePos, TilePresetId};
+use sc_sim::{CornerPos, Map, Tile, TileLook, TilePos};
 
 use crate::ClientSystems;
 use crate::coords::{DrawLayer, depth_offset, drawn_at_height, view_to_world};
@@ -23,21 +23,15 @@ use crate::input::{ActionState, InputAction};
 use crate::shapes::{ColorMesh, lighten, shade, vertex_color_material};
 use crate::sim_driver::SimRes;
 
-/// Placeholder colours of the default presets, in `TilePresetId` order: Plane, Rugged Terrain, Cliff, Mountain,
-/// Water (`core/map.md > DefaultTilePresets`).
-const PRESET_COLORS: [Srgba; 5] = [
+/// Placeholder colours of the looks (the textures to come), in [`TileLook::ALL`] order: Plane, Rugged, Cliff,
+/// Mountain, Water. A preset is drawn by its look (`core/map_editor.md > Custom Tile Presets`: custom presets use
+/// the existing textures).
+const LOOK_COLORS: [Srgba; 5] = [
     Srgba::rgb(0.42, 0.49, 0.32),
     Srgba::rgb(0.47, 0.38, 0.26),
     Srgba::rgb(0.30, 0.28, 0.27),
     Srgba::rgb(0.56, 0.55, 0.54),
     Srgba::rgb(0.14, 0.31, 0.55),
-];
-/// Custom presets (`core/map.md > TilePreset`) take these in turn until they get textures.
-const CUSTOM_PRESET_COLORS: [Srgba; 4] = [
-    Srgba::rgb(0.60, 0.36, 0.52),
-    Srgba::rgb(0.30, 0.52, 0.50),
-    Srgba::rgb(0.62, 0.58, 0.30),
-    Srgba::rgb(0.38, 0.36, 0.62),
 ];
 /// White mixed into a tile's colour per level of height: a hint of altitude besides the shading (placeholder).
 const LIGHTEN_PER_LEVEL: f32 = 0.03;
@@ -100,14 +94,10 @@ impl Plugin for MapRenderPlugin {
     }
 }
 
-/// The placeholder colour of a preset at `height` levels: the preset's colour, lightened a little per level.
-pub fn tile_color(preset: TilePresetId, height: f32) -> Srgba {
-    let index = preset.0 as usize;
-    let base = PRESET_COLORS
-        .get(index)
-        .copied()
-        .unwrap_or_else(|| CUSTOM_PRESET_COLORS[(index - PRESET_COLORS.len()) % CUSTOM_PRESET_COLORS.len()]);
-    lighten(base, height * LIGHTEN_PER_LEVEL)
+/// The placeholder colour of a look at `height` levels: the look's colour, lightened a little per level.
+pub fn tile_color(look: TileLook, height: f32) -> Srgba {
+    let index = TileLook::ALL.iter().position(|l| *l == look).unwrap_or(0);
+    lighten(LOOK_COLORS[index], height * LIGHTEN_PER_LEVEL)
 }
 
 /// How much light a face gets relative to flat ground (1): Lambert's law towards [`LIGHT_TOWARDS`]. Its corners
@@ -190,9 +180,10 @@ fn terrain_tile(mesh: &mut ColorMesh, map: &Map, t: TilePos, tile: Tile) {
         .iter()
         .fold((f32::MAX, f32::MIN), |(lo, hi), &h| (lo.min(h), hi.max(h)));
     let mean = heights.iter().sum::<f32>() / 4.0;
-    let traversible = map.presets().get(tile.preset.0 as usize).is_some_and(|p| p.traversible);
+    let preset = map.presets().get(tile.preset.0 as usize);
+    let traversible = preset.is_some_and(|p| p.traversible);
     let cliff = !traversible && high - low >= f32::from(CLIFF_MIN_SLOPE);
-    let mut color = tile_color(tile.preset, mean);
+    let mut color = tile_color(preset.map_or(TileLook::Plane, |p| p.look), mean);
     if cliff {
         color = color.mix(&CLIFF_ROCK, CLIFF_ROCK_AMOUNT);
     }
@@ -413,13 +404,38 @@ mod tests {
     }
 
     #[test]
-    fn higher_ground_is_lighter_and_presets_differ() {
-        let low = tile_color(TilePresetId::PLANE, 0.0);
-        let high = tile_color(TilePresetId::PLANE, 2.0);
+    fn higher_ground_is_lighter_and_looks_differ() {
+        let low = tile_color(TileLook::Plane, 0.0);
+        let high = tile_color(TileLook::Plane, 2.0);
         assert!(high.red > low.red && high.green > low.green && high.blue > low.blue);
-        assert_ne!(low, tile_color(TilePresetId::WATER, 0.0));
-        // Custom presets get a colour too.
-        let _ = tile_color(TilePresetId(9), 0.0);
+        for (i, a) in TileLook::ALL.iter().enumerate() {
+            for b in &TileLook::ALL[i + 1..] {
+                assert_ne!(tile_color(*a, 0.0), tile_color(*b, 0.0), "{a:?} and {b:?}");
+            }
+        }
+    }
+
+    /// `core/map_editor.md > Custom Tile Presets`: a custom preset is drawn with its look's colour.
+    #[test]
+    fn custom_presets_are_drawn_by_their_look() {
+        let mut map = Map::from_ascii("~.").unwrap();
+        let ice = map.add_preset(sc_sim::TilePreset {
+            name: "Ice".into(),
+            buildable: false,
+            traversible: true,
+            rugged: false,
+            drillable: false,
+            recruitable: false,
+            look: TileLook::Water,
+        });
+        map.set_tile(TilePos::new(1, 0), Tile::new(ice));
+        let colors = match terrain_mesh(&map).attribute(Mesh::ATTRIBUTE_COLOR) {
+            Some(VertexAttributeValues::Float32x4(c)) => c.clone(),
+            other => panic!("colors: {other:?}"),
+        };
+        // Two flat tiles: a quad each.
+        assert_eq!(colors.len(), 8);
+        assert_eq!(colors[0], colors[4], "the custom tile looks like the water tile");
     }
 
     #[test]

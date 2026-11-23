@@ -132,7 +132,7 @@ fn debug_commands_are_rejected_while_debug_is_off() {
     assert_eq!(on.sim().events().len(), 2);
 
     // The replay keeps the option, so it rejects the same commands.
-    assert_eq!(off.replay().config, SimConfig::default());
+    assert_eq!(off.replay().scenario.setup.config, SimConfig::default());
     assert_eq!(off.replay().run(), *off.sim());
 }
 

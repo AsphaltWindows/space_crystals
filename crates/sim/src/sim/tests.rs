@@ -1,5 +1,6 @@
 use super::*;
 use crate::command::{Command, DebugCommand};
+use crate::ids::SlotId;
 use crate::map::{Tile, TilePresetId};
 use crate::object::Rotation;
 use crate::player::Faction;
@@ -14,11 +15,12 @@ fn tile_spawn(kind: ObjectKind, x: i32, y: i32) -> Spawn {
 /// An 8×6 map (512 × 384 su) with a patch (id 1) and a station (id 2), debug commands on.
 fn small_sim() -> Sim {
     let mut scenario = scenarios::empty(8, 6);
-    scenario.spawns = vec![
+    scenario.map.spawns = vec![
         tile_spawn(ObjectKind::CrystalPatch, 1, 1),
         tile_spawn(ObjectKind::SupplyDeliveryStation, 4, 2),
     ];
-    Sim::with_config(&scenario, SimConfig::DEBUG)
+    scenario.setup.config = SimConfig::DEBUG;
+    Sim::new(&scenario)
 }
 
 /// An idle Peacekeeper of player 1 at `pos`, inserted directly (no checks).
@@ -326,7 +328,7 @@ fn a_stocked_station_waits_until_emptied() {
         delivery_size: 3,
         delivery_interval: 100,
     });
-    scenario.spawns = vec![tile_spawn(ObjectKind::CrystalPatch, 1, 1), stocked];
+    scenario.map.spawns = vec![tile_spawn(ObjectKind::CrystalPatch, 1, 1), stocked];
     let mut sim = Sim::new(&scenario);
     for _ in 0..500 {
         sim.step(&TickInputs::default());
@@ -371,8 +373,8 @@ fn try_new_and_new_agree_on_valid_scenarios() {
 fn new_panics_listing_the_problems() {
     let mut scenario = scenarios::empty(8, 6);
     let mut patch = tile_spawn(ObjectKind::CrystalPatch, 0, 0);
-    patch.owner = Some(PlayerId(1));
-    scenario.spawns.push(patch);
+    patch.owner = Some(SlotId(1));
+    scenario.map.spawns.push(patch);
     Sim::new(&scenario);
 }
 

@@ -56,7 +56,7 @@ fn identical_runs_give_identical_hashes_every_tick() {
 #[test]
 fn the_seed_is_part_of_the_state() {
     let mut reseeded = scenarios::dev_skirmish();
-    reseeded.seed = 2;
+    reseeded.setup.seed = 2;
     let a = Sim::new(&scenarios::dev_skirmish());
     let b = Sim::new(&reseeded);
     assert_ne!(a.state_hash(), b.state_hash());
@@ -110,9 +110,10 @@ fn replays_reproduce_the_run() {
 #[test]
 fn recording_alongside_the_sim() {
     // The client's way: step the sim and record the same inputs, empty ticks included.
-    let scenario = scenarios::empty(16, 12);
-    let mut sim = Sim::with_config(&scenario, SimConfig::DEBUG);
-    let mut replay = Replay::new(scenario, SimConfig::DEBUG);
+    let mut scenario = scenarios::empty(16, 12);
+    scenario.setup.config = SimConfig::DEBUG;
+    let mut sim = Sim::new(&scenario);
+    let mut replay = Replay::new(scenario);
     for tick in 1..=50 {
         let mut inputs = TickInputs::default();
         if tick % 10 == 0 {
@@ -132,7 +133,7 @@ fn recording_alongside_the_sim() {
 #[test]
 fn replays_of_invalid_scenarios_fail_without_panicking() {
     let mut scenario = scenarios::empty(4, 4);
-    scenario.players[1].id = PlayerId(1);
-    let replay = Replay::new(scenario.clone(), SimConfig::default());
+    scenario.setup.players[1].slot = sc_sim::SlotId(1);
+    let replay = Replay::new(scenario.clone());
     assert_eq!(replay.try_run(), Err(scenario.validate()));
 }

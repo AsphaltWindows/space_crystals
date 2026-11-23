@@ -48,7 +48,7 @@
 //! ## Serde form (scenario files, saves)
 //!
 //! `Map` serializes as an object with three fields: `custom_presets`, the presets after
-//! the defaults in [`TilePresetId`] order (each with its `symbol`, `name` and flags),
+//! the defaults in [`TilePresetId`] order (each with its `symbol`, `name`, flags and `look`),
 //! then `tiles` and `heights`, the two ASCII blocks as arrays of row strings (`H` tile
 //! rows of `W` symbols, `H + 1` corner rows of `W + 1` digits). The default presets are
 //! implied, so they always match the design. When reading, `custom_presets` and `heights`
@@ -65,7 +65,8 @@
 //!       "traversible": true,
 //!       "rugged": false,
 //!       "drillable": false,
-//!       "recruitable": true
+//!       "recruitable": true,
+//!       "look": "Rugged"
 //!     }
 //!   ],
 //!   "tiles": [
@@ -84,6 +85,8 @@ mod ascii;
 mod edit;
 mod file;
 mod height;
+
+pub use edit::PresetEditError;
 
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
@@ -106,7 +109,7 @@ pub const MAX_TRAVERSIBLE_SLOPE: u8 = 1;
 /// Text symbols of the default presets, in [`TilePresetId`] order (see the module docs).
 pub const DEFAULT_PRESET_SYMBOLS: [char; 5] = ['.', 'r', 'c', 'M', '~'];
 
-/// `core/map.md > TilePreset`. The texture is client-side; the sim only needs the flags.
+/// `core/map.md > TilePreset`. The sim needs only the flags; `look` says how the client draws it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TilePreset {
     pub name: String,
@@ -115,6 +118,41 @@ pub struct TilePreset {
     pub rugged: bool,
     pub drillable: bool,
     pub recruitable: bool,
+    /// `core/map.md > TilePreset > Texture`.
+    pub look: TileLook,
+}
+
+/// `core/map.md > TilePreset > Texture`: how the client draws a preset. Every look is the texture of a default
+/// preset: custom presets pick one of them until maps can bring their own textures (`core/map_editor.md > Custom Tile
+/// Presets`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum TileLook {
+    Plane,
+    Rugged,
+    Cliff,
+    Mountain,
+    Water,
+}
+
+impl TileLook {
+    /// Every look, in declaration order (the default presets' order).
+    pub const ALL: [TileLook; 5] = [
+        TileLook::Plane,
+        TileLook::Rugged,
+        TileLook::Cliff,
+        TileLook::Mountain,
+        TileLook::Water,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            TileLook::Plane => "Plane",
+            TileLook::Rugged => "Rugged",
+            TileLook::Cliff => "Cliff",
+            TileLook::Mountain => "Mountain",
+            TileLook::Water => "Water",
+        }
+    }
 }
 
 /// Index into a map's preset table.
@@ -129,6 +167,11 @@ impl TilePresetId {
     pub const CLIFF: Self = Self(2);
     pub const MOUNTAIN: Self = Self(3);
     pub const WATER: Self = Self(4);
+
+    /// Whether it is one of the default presets, which every map has and no map changes.
+    pub fn is_default(self) -> bool {
+        usize::from(self.0) < DEFAULT_PRESET_SYMBOLS.len()
+    }
 }
 
 /// `core/map.md > TilePlacement`: a preset at a location. Its height comes from the map's corner heights
@@ -174,20 +217,21 @@ impl Map {
 
     /// `core/map.md > DefaultTilePresets`, in [`TilePresetId`] order.
     pub fn default_presets() -> Vec<TilePreset> {
-        let preset = |name: &str, buildable, traversible, rugged, drillable, recruitable| TilePreset {
+        let preset = |name: &str, buildable, traversible, rugged, drillable, recruitable, look| TilePreset {
             name: name.to_string(),
             buildable,
             traversible,
             rugged,
             drillable,
             recruitable,
+            look,
         };
         vec![
-            preset("Plane", true, true, false, true, true),
-            preset("Rugged Terrain", false, true, true, true, true),
-            preset("Cliff", false, false, false, true, true),
-            preset("Mountain", false, false, false, false, true),
-            preset("Water", false, false, false, false, false),
+            preset("Plane", true, true, false, true, true, TileLook::Plane),
+            preset("Rugged Terrain", false, true, true, true, true, TileLook::Rugged),
+            preset("Cliff", false, false, false, true, true, TileLook::Cliff),
+            preset("Mountain", false, false, false, false, true, TileLook::Mountain),
+            preset("Water", false, false, false, false, false, TileLook::Water),
         ]
     }
 

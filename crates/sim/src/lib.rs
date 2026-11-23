@@ -40,8 +40,8 @@ pub use command::{Command, DebugCommand, PlayerCommand, TickInputs};
 pub use defs::{Category, Footprint, ObjectDef, ObjectKind};
 pub use events::SimEvent;
 pub use glam::Vec2;
-pub use ids::{ObjectId, PlayerId};
-pub use map::{MAX_ELEVATION, MAX_TRAVERSIBLE_SLOPE, Map, Tile, TilePreset, TilePresetId};
+pub use ids::{ObjectId, PlayerId, SlotId};
+pub use map::{MAX_ELEVATION, MAX_TRAVERSIBLE_SLOPE, Map, Tile, TileLook, TilePreset, TilePresetId};
 pub use mover::{MoveGoal, MoveStatus, Mover};
 pub use object::{Object, Placement, ResourceState, Rotation};
 pub use orders::{OrderKind, Orders, Target};
@@ -49,8 +49,9 @@ pub use player::{Faction, Player};
 pub use replay::Replay;
 pub use rng::Rng;
 pub use scenario::{
-    PlayerSetup, Scenario, ScenarioProblem, SettingsProblem, Spawn, SpawnAt, SpawnProblem, SpawnSettings,
+    BuildingOrientation, GameSetup, LayoutObject, MapDef, MapSettings, MapType, PlayerSetup, Scenario, ScenarioProblem,
+    SettingsProblem, Slot, Spawn, SpawnAt, SpawnProblem, SpawnSettings, StartingLayouts,
 };
 pub use sim::{Reject, Sim, SimConfig};
-pub use symmetry::{MapTransform, Orientation, Symmetry};
+pub use symmetry::{EditableRegion, MapTransform, Orientation, Symmetry};
 pub use units::{CornerPos, SU_PER_GU, TICKS_PER_SECOND, Tick, TilePos, gu, seconds};

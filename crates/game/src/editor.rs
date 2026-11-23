@@ -1,17 +1,21 @@
 //! The map editor (`cargo run -- --editor [path.json]`, `ARCHITECTURE.md > Map editor`).
 //!
-//! It edits a `Scenario` (the document, [`doc::EditorDoc`]) and draws it with the game's own renderer, camera and
-//! object visuals: the sim shows [`sc_sim::Sim::preview`] of the document, paused at tick 0, and is replaced
+//! It edits a map (`sc_sim::MapDef`, the document: [`doc::EditorDoc`]) and draws it with the game's own renderer,
+//! camera and object visuals: the sim shows [`sc_sim::Sim::preview`] of the map, paused at tick 0, and is replaced
 //! whenever the document changes, so the map mesh and the object visuals catch up through their usual paths.
 //!
 //! Everything the editor does is an [`actions::EditorAction`]: raw input ([`input`]), UI buttons and fields
-//! ([`ui`]), `--editor-script` files and tests queue them, and [`actions::apply_editor_actions`] applies them.
-//! F5 play-tests the map in game mode ([`playtest`]) and comes back with the document and its undo history intact.
+//! ([`ui`]), `--editor-script` files and tests queue them, and [`actions::apply_editor_actions`] applies them. On a
+//! symmetric map only the editable part is edited; after every action the locked part is generated again from it
+//! (`core/map_editor.md > Symmetry`). New maps come from the creation dialog ([`creation`]); maps may define custom
+//! tile presets ([`presets`]). F5 play-tests the map in game mode with the play-test's game setup ([`playtest`])
+//! and comes back with the document and its undo history intact.
 //!
-//! Map design is `core/map.md` (tiles, presets, corner heights 0–16, resources on flat ground); player slots and
-//! start locations are a placeholder model until design question Q0004 is answered.
+//! Map design is `core/map.md` (tiles, presets, corner heights 0–16, resources on flat ground) and
+//! `core/map_editor.md` (map types, symmetry, player slots and their markers).
 
 pub mod actions;
+pub mod creation;
 pub mod doc;
 pub mod document;
 pub mod files;
@@ -20,6 +24,7 @@ pub mod input;
 pub mod objects;
 pub mod overlay;
 pub mod playtest;
+pub mod presets;
 pub mod state;
 pub mod terrain;
 pub mod tools;
@@ -29,15 +34,18 @@ pub mod view;
 use std::path::PathBuf;
 
 use bevy::prelude::*;
-use sc_sim::{Scenario, Sim};
+use sc_sim::{Faction, MapDef, Scenario, Sim, SlotId};
 
 use self::actions::{EditorAction, EditorActions, PendingConfirmation, PlayTestRequest, apply_editor_actions};
+use self::creation::NewMapDialog;
 use self::doc::EditorDoc;
 use self::gesture::Gesture;
+use self::playtest::PlayTestSetup;
 use self::state::{EditorCursor, EditorFiles, EditorProblems, EditorSelection, EditorStatus, EditorUi, StatusLevel};
 use self::tools::EditorTools;
 use crate::camera::ViewportInsets;
 use crate::hud::HUD_INSETS;
+use crate::platform::ConfirmClose;
 use crate::sim_driver::{LoadedScenario, LocalPlayer, SimRes};
 use crate::{ClientMode, ClientSystems};
 
@@ -66,44 +74,72 @@ pub enum EditorSystems {
 
 pub struct EditorPlugin {
     pub config: EditorConfig,
-    /// The document as it starts.
+    /// The map as it starts, and the game setup whose players, seed and game options its play-tests start with.
     pub scenario: Scenario,
+}
+
+/// The play-test setup that `scenario`'s setup describes, played from `slot` (the first slot if the map has no
+/// such slot).
+fn play_test_setup(scenario: &Scenario, slot: SlotId) -> PlayTestSetup {
+    let map = &scenario.map;
+    let mut factions = vec![Faction::Gdo; map.slots.len()];
+    for player in &scenario.setup.players {
+        if let Some(faction) = player.slot.index().and_then(|i| factions.get_mut(i)) {
+            *faction = player.faction;
+        }
+    }
+    PlayTestSetup {
+        factions,
+        slot: if map.slot(slot).is_some() { slot } else { SlotId(1) },
+        seed: scenario.setup.seed,
+        config: scenario.setup.config,
+    }
+}
+
+/// The status line the editor starts with.
+fn starting_status(map: &MapDef, path: Option<&std::path::Path>, problems: usize) -> EditorStatus {
+    let file = path.map(|p| (files::display_path(p), p.exists()));
+    let (level, message) = match (&file, problems) {
+        (Some((path, false)), _) => (
+            StatusLevel::Info,
+            format!("New map: Ctrl+S saves it as {path} (F1: help)"),
+        ),
+        (Some((path, true)), 0) => (StatusLevel::Info, format!("Editing {path} (F1: help)")),
+        (Some((path, true)), n) => (
+            StatusLevel::Warning,
+            format!("Editing {path}: {n} problem(s), see Problems (F1: help)"),
+        ),
+        (None, _) => (
+            StatusLevel::Info,
+            format!("New map {}: Ctrl+S saves it in maps/ (F1: help)", map.name),
+        ),
+    };
+    EditorStatus { message, level }
 }
 
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
-        let problems = self.scenario.validate();
-        let file = self
-            .config
-            .path
-            .as_deref()
-            .map(|p| (files::display_path(p), p.exists()));
+        let map = &self.scenario.map;
+        let problems = map.validate();
         // Logged at startup (`log_starting_status`): a headless run's logger arrives after the plugins are built.
-        let (level, message) = match (&file, problems.len()) {
-            (Some((path, false)), _) => (
-                StatusLevel::Info,
-                format!("New map: Ctrl+S saves it as {path} (F1: help)"),
-            ),
-            (Some((path, true)), 0) => (StatusLevel::Info, format!("Editing {path} (F1: help)")),
-            (Some((path, true)), n) => (
-                StatusLevel::Warning,
-                format!("Editing {path}: {n} problem(s), see Problems (F1: help)"),
-            ),
-            (None, _) => (StatusLevel::Info, "New map: Ctrl+S saves it in maps/ (F1: help)".into()),
-        };
-        let status = EditorStatus { message, level };
+        let status = starting_status(map, self.config.path.as_deref(), problems.len());
         let player = app.world().resource::<LocalPlayer>().0;
+        let playtest = play_test_setup(&self.scenario, SlotId(player.0));
         let tools = EditorTools {
-            slot: player,
+            slot: map.source_slot(playtest.slot),
             ..default()
         };
-        app.insert_resource(EditorDoc::new(self.scenario.clone(), self.config.path.clone()))
+        app.insert_resource(EditorDoc::new(map.clone(), self.config.path.clone()))
             .insert_resource(tools)
             .insert_resource(status)
+            .insert_resource(playtest)
             .insert_resource(EditorFiles::new(self.config.maps_dir.clone()))
             .insert_resource(EditorProblems(problems))
             .insert_resource(EditorActions(self.config.script.iter().cloned().collect()))
             .insert_resource(ui::EDITOR_INSETS)
+            // The editor confirms closing the window when there are unsaved changes.
+            .init_resource::<ConfirmClose>()
+            .init_resource::<NewMapDialog>()
             .init_resource::<EditorSelection>()
             .init_resource::<EditorCursor>()
             .init_resource::<EditorUi>()
@@ -120,7 +156,7 @@ impl Plugin for EditorPlugin {
             .add_systems(
                 Update,
                 (
-                    (input::editor_keys, input::editor_pointer).in_set(EditorSystems::Input),
+                    (input::editor_keys, input::editor_pointer, input::close_requests).in_set(EditorSystems::Input),
                     (apply_editor_actions, playtest::switch_play_test)
                         .chain()
                         .in_set(EditorSystems::Apply),
@@ -136,7 +172,7 @@ fn log_starting_status(status: Res<EditorStatus>) {
     status.log();
 }
 
-/// In the editor, the sim shows the document: whenever the document changes, a fresh [`Sim::preview`] of it
+/// In the editor, the sim shows the document: whenever the document changes, a fresh [`Sim::preview`] of its map
 /// replaces the sim (which rebuilds the map mesh and the object visuals) and the problems are listed again.
 fn sync_preview(
     mode: Res<ClientMode>,
@@ -150,14 +186,15 @@ fn sync_preview(
         return;
     }
     *synced = Some(doc.revision());
-    let scenario = doc.scenario();
-    let found = scenario.validate();
+    let map = doc.map();
+    let found = map.validate();
     if problems.0 != found {
         problems.0 = found;
     }
-    if loaded.0 != *scenario {
-        sim.replace(Sim::preview(scenario).0);
-        loaded.0 = scenario.clone();
+    if loaded.0.map != *map {
+        let scenario = Scenario::new(map.clone());
+        sim.replace(Sim::preview(&scenario).0);
+        loaded.0 = scenario;
     }
 }
 

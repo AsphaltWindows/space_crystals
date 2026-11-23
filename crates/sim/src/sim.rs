@@ -25,9 +25,8 @@ use crate::{combat, movement, orders, vision};
 use gate::Checked;
 pub use gate::Reject;
 
-/// Game options outside the scenario, fixed when the game starts ([`Sim::with_config`]): stored and hashed in the
-/// `Sim` and recorded in a [`crate::Replay`]. They live here until the game setup (map + setup split, M0-E) holds
-/// them.
+/// Game options, chosen with the rest of the game setup ([`crate::GameSetup::config`]) and fixed when the game
+/// starts: stored and hashed in the `Sim`, so a [`crate::Replay`] (map, setup and inputs) brings them back.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SimConfig {
@@ -55,7 +54,7 @@ pub struct Sim {
     objects: BTreeMap<ObjectId, Object>,
     next_id: u32,
     /// The only source of randomness (`ARCHITECTURE.md > Determinism`), seeded from
-    /// `Scenario::seed`.
+    /// `GameSetup::seed`.
     rng: Rng,
     config: SimConfig,
     /// The next order command's group (`docs/movement.md > 3`, `OrderGroup`).
@@ -72,57 +71,57 @@ pub struct Sim {
 
 impl Sim {
     /// Panics if the scenario is invalid, listing its problems. Use [`Sim::try_new`] for
-    /// scenarios from files or other input. The default [`SimConfig`]: no debug commands.
+    /// scenarios from files or other input.
     pub fn new(scenario: &Scenario) -> Self {
-        Self::with_config(scenario, SimConfig::default())
-    }
-
-    /// Starts a game, or lists everything wrong with the scenario
-    /// ([`Scenario::validate`]). Never panics. The default [`SimConfig`]: no debug commands.
-    pub fn try_new(scenario: &Scenario) -> Result<Self, Vec<ScenarioProblem>> {
-        Self::try_with_config(scenario, SimConfig::default())
-    }
-
-    /// [`Sim::new`] with the game options `config`.
-    pub fn with_config(scenario: &Scenario, config: SimConfig) -> Self {
-        Self::try_with_config(scenario, config).unwrap_or_else(|problems| {
+        Self::try_new(scenario).unwrap_or_else(|problems| {
             let problems: Vec<String> = problems.iter().map(ToString::to_string).collect();
-            panic!("invalid scenario {:?}: {}", scenario.name, problems.join("; "))
+            panic!("invalid scenario {:?}: {}", scenario.name(), problems.join("; "))
         })
     }
 
-    /// [`Sim::try_new`] with the game options `config`.
-    pub fn try_with_config(scenario: &Scenario, config: SimConfig) -> Result<Self, Vec<ScenarioProblem>> {
-        let spots = scenario.spawn_spots()?;
-        let players = scenario
-            .players
-            .iter()
-            .map(|p| Player {
-                id: p.id,
-                name: p.name.clone(),
-                faction: p.faction,
-            })
-            .collect();
-        let mut sim = Self {
-            tick: 0,
-            map: scenario.map.clone(),
-            players,
-            objects: BTreeMap::new(),
-            next_id: 1,
-            rng: Rng::from_seed(scenario.seed),
-            config,
-            next_group: 0,
-            nav_version: 0,
-            events: Vec::new(),
-            nav: NavState::unbuilt(&scenario.map),
-        };
-        for (s, (pos, placement)) in scenario.spawns.iter().zip(spots) {
-            sim.insert_object(s.kind, s.owner, pos, placement, s.settings.as_ref());
+    /// Starts a game of the scenario's map with its game setup (players, seed and game options), or lists everything
+    /// wrong with either ([`Scenario::validate`]). The map's pre-placed objects come first, those of slots that no
+    /// player takes left out, then each player's Starting Layout for their faction at their slot; objects a slot
+    /// owns belong to the player who takes it. Never panics.
+    pub fn try_new(scenario: &Scenario) -> Result<Self, Vec<ScenarioProblem>> {
+        let objects = scenario.start_objects()?;
+        let mut sim = Self::empty(scenario);
+        for o in objects {
+            sim.insert_object(o.kind, o.owner, o.pos, o.placement, o.settings.as_ref());
         }
         sim.nav = NavState::build(&sim.map, &sim.objects);
         // Scenario spawns emit no events (`ARCHITECTURE.md > Commands, events and replays`).
         sim.events.clear();
         Ok(sim)
+    }
+
+    /// The scenario's terrain and players at tick 0, without objects. Players beyond the last `PlayerId` are left
+    /// out (only an invalid setup has them). Its grids are built once the objects are in
+    /// (`NavState::build`).
+    fn empty(scenario: &Scenario) -> Self {
+        let players = scenario
+            .setup
+            .player_ids()
+            .zip(&scenario.setup.players)
+            .map(|(id, p)| Player {
+                id,
+                name: p.name.clone(),
+                faction: p.faction,
+            })
+            .collect();
+        Self {
+            tick: 0,
+            map: scenario.map.terrain.clone(),
+            players,
+            objects: BTreeMap::new(),
+            next_id: 1,
+            rng: Rng::from_seed(scenario.setup.seed),
+            config: scenario.setup.config,
+            next_group: 0,
+            nav_version: 0,
+            events: Vec::new(),
+            nav: NavState::unbuilt(&scenario.map.terrain),
+        }
     }
 
     pub fn tick(&self) -> Tick {

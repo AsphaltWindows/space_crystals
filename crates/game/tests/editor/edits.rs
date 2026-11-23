@@ -1,43 +1,29 @@
-//! Edits: terrain, heights, objects and their values, symmetry, undo and redo, resizing, player slots and
-//! validation problems.
+//! Edits of a map without symmetry: terrain, heights, objects and their values, undo and redo, resizing, player
+//! slots and their markers, and validation problems.
 
 use bevy::prelude::*;
 use sc_sim::{
-    CornerPos, Faction, ObjectKind, PlayerId, ResourceState, ScenarioProblem, Spawn, SpawnAt, SpawnProblem,
-    SpawnSettings, Symmetry, TICKS_PER_SECOND, Tile, TilePos, TilePreset, TilePresetId, scenarios,
+    ObjectKind, ResourceState, ScenarioProblem, SlotId, Spawn, SpawnAt, SpawnProblem, SpawnSettings, TICKS_PER_SECOND,
+    Tile, TilePos, TilePresetId, scenarios,
 };
 use space_crystals::camera::CameraView;
 use space_crystals::editor::actions::EditorAction as A;
 use space_crystals::editor::doc::EditorDoc;
 use space_crystals::editor::files;
 use space_crystals::editor::overlay::Ghost;
-use space_crystals::editor::state::{EditorProblems, EditorSelection, Selection, StatusLevel};
+use space_crystals::editor::state::{Selection, StatusLevel};
 use space_crystals::editor::tools::{ElevationMode, Tool};
 use space_crystals::editor::ui::fields::TextField;
 use space_crystals::map_render::MapView;
 
-use super::{act, at, doc, editor, patch, sim, status, temp_maps, tile, tools, undo_depth, visual_count};
-
-fn corner(app: &App, x: i32, y: i32) -> u8 {
-    doc(app).map.corner(CornerPos::new(x, y)).unwrap()
-}
-
-fn selection(app: &App) -> Option<Selection> {
-    app.world().resource::<EditorSelection>().0
-}
-
-fn problems(app: &App) -> Vec<ScenarioProblem> {
-    app.world().resource::<EditorProblems>().0.clone()
-}
-
-/// The ground point that snaps a 2 × 2 footprint's top-left tile to (`x`, `y`).
-fn station_at(x: i32, y: i32) -> Vec2 {
-    TilePos::new(x + 1, y + 1).corner()
-}
+use super::{
+    act, assert_warned, at, corner, doc, editor, patch, problems, selection, sim, station_at, status, temp_maps, tile,
+    tools, undo_depth, visual_count,
+};
 
 #[test]
 fn painting_heights_and_fill_edit_the_terrain() {
-    let mut app = editor(scenarios::empty(16, 12), &temp_maps("paint"));
+    let mut app = editor(scenarios::empty_map(16, 12), &temp_maps("paint"));
     let builds = app.world().resource::<MapView>().builds;
 
     // One stroke of a 3×3 brush from tile (5, 5) to (8, 5) is one undo step.
@@ -61,7 +47,7 @@ fn painting_heights_and_fill_edit_the_terrain() {
     assert_eq!(tile(&app, 6, 7).preset, TilePresetId::PLANE);
     assert_eq!(undo_depth(&app), 1);
     // The sim and the map mesh caught up.
-    assert_eq!(*sim(&app).map(), doc(&app).map);
+    assert_eq!(*sim(&app).map(), doc(&app).terrain);
     assert!(app.world().resource::<MapView>().builds > builds);
 
     // Setting a level moves the brush's corners; the slopes around them follow, one level per tile.
@@ -70,9 +56,9 @@ fn painting_heights_and_fill_edit_the_terrain() {
         [A::SetElevation(3), A::SetBrush(1), A::Press(at(1, 1)), A::Release],
     );
     assert_eq!(tools(&app).tool, Tool::Elevation);
-    assert_eq!(doc(&app).map.tile_level(TilePos::new(1, 1)), Some(3));
+    assert_eq!(doc(&app).terrain.tile_level(TilePos::new(1, 1)), Some(3));
     assert_eq!((corner(&app, 0, 0), corner(&app, 4, 1), corner(&app, 5, 1)), (2, 1, 0));
-    assert_eq!(doc(&app).map.too_steep_tiles(), vec![]);
+    assert_eq!(doc(&app).terrain.too_steep_tiles(), vec![]);
     assert_eq!(tile(&app, 1, 1).preset, TilePresetId::PLANE, "heights keep the presets");
 
     // A raise stroke raises each corner once, however often the brush passes over it.
@@ -105,7 +91,7 @@ fn painting_heights_and_fill_edit_the_terrain() {
         4,
         "corners outside the brush only move when a slope needs it"
     );
-    assert_eq!(doc(&app).map.too_steep_tiles(), vec![]);
+    assert_eq!(doc(&app).terrain.too_steep_tiles(), vec![]);
     act(&mut app, [A::StepElevation(99)]);
     assert_eq!(tools(&app).elevation, 16, "16 is the top level");
 
@@ -125,26 +111,6 @@ fn painting_heights_and_fill_edit_the_terrain() {
     assert_eq!(tile(&app, 6, 5).preset, TilePresetId::WATER);
     assert_eq!(corner(&app, 1, 1), 4);
 
-    // Symmetry repeats strokes at the images.
-    act(
-        &mut app,
-        [
-            A::SetTool(Tool::Paint),
-            A::SetSymmetry(Symmetry::MirrorVerticalAxis),
-            A::SetPreset(TilePresetId::MOUNTAIN),
-            A::Press(at(0, 0)),
-            A::Release,
-        ],
-    );
-    assert_eq!(tile(&app, 0, 0).preset, TilePresetId::MOUNTAIN);
-    assert_eq!(tile(&app, 15, 0).preset, TilePresetId::MOUNTAIN);
-    assert_eq!(tile(&app, 1, 0).preset, TilePresetId::RUGGED);
-    act(
-        &mut app,
-        [A::SetSymmetry(Symmetry::Rotate180), A::Press(at(2, 2)), A::Release],
-    );
-    assert_eq!(tile(&app, 13, 9).preset, TilePresetId::MOUNTAIN);
-
     // The eyedropper picks a tile's preset and the height at the point, rounded.
     act(&mut app, [A::Pick(at(6, 5))]);
     assert_eq!((tools(&app).preset, tools(&app).elevation), (TilePresetId::WATER, 0));
@@ -156,26 +122,24 @@ fn painting_heights_and_fill_edit_the_terrain() {
 /// refused, with a warning, on tiles steeper than 1 level.
 #[test]
 fn slopes_stop_at_cliffs_and_traversible_presets_need_gentle_ground() {
-    let mut scenario = scenarios::empty(16, 12);
+    let mut map = scenarios::empty_map(16, 12);
     for y in 0..12 {
-        scenario
-            .map
-            .set_tile(TilePos::new(6, y), Tile::new(TilePresetId::CLIFF));
+        map.terrain.set_tile(TilePos::new(6, y), Tile::new(TilePresetId::CLIFF));
     }
-    let mut app = editor(scenario, &temp_maps("cliffs"));
+    let mut app = editor(map, &temp_maps("cliffs"));
     act(
         &mut app,
         [A::SetElevation(5), A::SetBrush(1), A::Press(at(5, 5)), A::Release],
     );
     // Tile (5, 5) stands at 5; the slope runs down westwards, while the cliff column takes the whole drop to the
     // east, where the plane stays flat.
-    assert_eq!(doc(&app).map.tile_level(TilePos::new(5, 5)), Some(5));
+    assert_eq!(doc(&app).terrain.tile_level(TilePos::new(5, 5)), Some(5));
     assert_eq!(
         (0..=5).map(|x| corner(&app, x, 5)).collect::<Vec<_>>(),
         [0, 1, 2, 3, 4, 5]
     );
     assert!((7..=16).all(|x| corner(&app, x, 5) == 0));
-    assert_eq!(doc(&app).map.tile_slope(TilePos::new(6, 5)), Some(5));
+    assert_eq!(doc(&app).terrain.tile_slope(TilePos::new(6, 5)), Some(5));
     assert_eq!(problems(&app), vec![], "a cliff may be as steep as it likes");
 
     // Painting Plane down the cliff column: the tiles at most 1 level steep take it, the others are left alone.
@@ -191,20 +155,15 @@ fn slopes_stop_at_cliffs_and_traversible_presets_need_gentle_ground() {
     let column: Vec<TilePresetId> = (0..12).map(|y| tile(&app, 6, y).preset).collect();
     let (p, c) = (TilePresetId::PLANE, TilePresetId::CLIFF);
     assert_eq!(column, [p, c, c, c, c, c, c, c, c, c, p, p]);
-    assert_eq!(status(&app).level, StatusLevel::Warning);
-    assert!(
-        status(&app).message.contains("left 9 tile(s)"),
-        "{}",
-        status(&app).message
-    );
-    assert_eq!(doc(&app).map.too_steep_tiles(), vec![]);
+    assert_warned(&app, "left 9 tile(s)");
+    assert_eq!(doc(&app).terrain.too_steep_tiles(), vec![]);
 }
 
 /// Design 0013: crystal patches and Supply Delivery Stations need flat ground. Placing one on a slope is refused
 /// (its ghost turns red); a height edit that slopes the ground under one is allowed, and flagged.
 #[test]
 fn resources_need_flat_ground() {
-    let mut app = editor(scenarios::empty(16, 12), &temp_maps("flat"));
+    let mut app = editor(scenarios::empty_map(16, 12), &temp_maps("flat"));
     let station = ObjectKind::SupplyDeliveryStation;
     act(
         &mut app,
@@ -236,8 +195,7 @@ fn resources_need_flat_ground() {
     assert!(color.red > 2.0 * color.green, "the ghost is red: {color:?}");
     act(&mut app, [A::Press(station_at(2, 3)), A::Release]);
     assert_eq!(doc(&app).spawns.len(), 1, "refused");
-    assert_eq!(status(&app).level, StatusLevel::Warning);
-    assert!(status(&app).message.contains("flat ground"), "{}", status(&app).message);
+    assert_warned(&app, "flat ground");
     // A flat plateau takes it.
     act(
         &mut app,
@@ -278,7 +236,7 @@ fn resources_need_flat_ground() {
 
 #[test]
 fn objects_are_placed_moved_and_deleted() {
-    let mut app = editor(scenarios::empty(16, 12), &temp_maps("objects"));
+    let mut app = editor(scenarios::empty_map(16, 12), &temp_maps("objects"));
     let station = ObjectKind::SupplyDeliveryStation;
 
     // The ghost follows the cursor; the station's 2×2 footprint centres on the nearest grid point.
@@ -307,7 +265,7 @@ fn objects_are_placed_moved_and_deleted() {
     act(
         &mut app,
         [
-            A::SetOwner(Some(PlayerId(1))),
+            A::SetOwner(Some(SlotId(1))),
             A::SetKind(ObjectKind::CrystalPatch),
             A::Press(at(1, 1)),
             A::Drag(at(2, 1)),
@@ -315,6 +273,7 @@ fn objects_are_placed_moved_and_deleted() {
             A::Release,
         ],
     );
+    assert_eq!(tools(&app).owner, Some(SlotId(1)), "a Custom map takes owners");
     let patches: Vec<&Spawn> = doc(&app)
         .spawns
         .iter()
@@ -344,19 +303,6 @@ fn objects_are_placed_moved_and_deleted() {
     assert!(doc(&app).spawns.iter().all(|s| s.kind != station));
     assert_eq!(selection(&app), None);
     assert_eq!(visual_count(&mut app), 3);
-
-    // Mirrored placement.
-    act(
-        &mut app,
-        [
-            A::SetSymmetry(Symmetry::MirrorHorizontalAxis),
-            A::SetKind(ObjectKind::CrystalPatch),
-            A::Press(at(7, 0)),
-            A::Release,
-        ],
-    );
-    let spots: Vec<SpawnAt> = doc(&app).spawns.iter().map(|s| s.at).collect();
-    assert!(spots.contains(&SpawnAt::Tile(TilePos::new(7, 0))) && spots.contains(&SpawnAt::Tile(TilePos::new(7, 11))));
 }
 
 /// `core/map_editor.md > Per-object Resource Values`: new objects get the defaults; the values are edited as one
@@ -364,7 +310,7 @@ fn objects_are_placed_moved_and_deleted() {
 #[test]
 fn per_object_values_are_edited_undone_and_saved() {
     let dir = temp_maps("values");
-    let mut app = editor(scenarios::empty(16, 12), &dir);
+    let mut app = editor(scenarios::empty_map(16, 12), &dir);
     let station = ObjectKind::SupplyDeliveryStation;
     act(&mut app, [A::SetKind(station), A::Press(station_at(4, 4)), A::Release]);
     assert_eq!(doc(&app).spawns[0].settings, SpawnSettings::defaults(station));
@@ -435,107 +381,14 @@ fn per_object_values_are_edited_undone_and_saved() {
     act(&mut app, [A::Save]);
     let path = app.world().resource::<EditorDoc>().path().unwrap().to_path_buf();
     assert_eq!(files::load(&path).unwrap().spawns[0].settings, Some(values));
-    act(&mut app, [A::NewMap, A::Open(path)]);
+    act(&mut app, [A::NewMap, A::CreateMap, A::Open(path)]);
     assert_eq!(doc(&app).spawns[0].settings, Some(values));
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// `core/map_editor.md > Symmetry`: strokes and placements repeat at every image of the mode; 90° rotation needs a
-/// square map.
-#[test]
-fn symmetry_repeats_edits_at_every_image() {
-    let mut app = editor(scenarios::empty(12, 12), &temp_maps("symmetry"));
-    let water = TilePresetId::WATER;
-    act(
-        &mut app,
-        [
-            A::SetSymmetry(Symmetry::Rotate90),
-            A::SetPreset(water),
-            A::SetBrush(1),
-            A::Press(at(1, 2)),
-            A::Release,
-        ],
-    );
-    assert_eq!(tools(&app).symmetry, Symmetry::Rotate90);
-    for (x, y) in [(1, 2), (9, 1), (10, 9), (2, 10)] {
-        assert_eq!(tile(&app, x, y).preset, water, "({x}, {y})");
-    }
-    let depth = undo_depth(&app);
-    act(
-        &mut app,
-        [
-            A::SetKind(ObjectKind::SupplyDeliveryStation),
-            A::Press(station_at(3, 4)),
-            A::Release,
-        ],
-    );
-    let spots: Vec<SpawnAt> = doc(&app).spawns.iter().map(|s| s.at).collect();
-    let expected: Vec<SpawnAt> = [(3, 4), (6, 3), (7, 6), (4, 7)]
-        .map(|(x, y)| SpawnAt::Tile(TilePos::new(x, y)))
-        .into();
-    assert_eq!(spots, expected);
-    assert!(
-        doc(&app).spawns.iter().all(|s| s.owner.is_none()),
-        "resources stay neutral"
-    );
-    act(&mut app, [A::Undo]);
-    assert!(doc(&app).spawns.is_empty(), "the images are part of the same undo step");
-    assert_eq!(undo_depth(&app), depth);
-
-    // The other modes, each with its own preset.
-    let cases = [
-        (
-            Symmetry::MirrorBothAxes,
-            TilePresetId::MOUNTAIN,
-            (0, 5),
-            vec![(11, 5), (0, 6), (11, 6)],
-        ),
-        (Symmetry::Rotate180, TilePresetId::CLIFF, (5, 0), vec![(6, 11)]),
-        (
-            Symmetry::MirrorHorizontalAxis,
-            TilePresetId::RUGGED,
-            (3, 0),
-            vec![(3, 11)],
-        ),
-        (
-            Symmetry::MirrorVerticalAxis,
-            TilePresetId::RUGGED,
-            (0, 3),
-            vec![(11, 3)],
-        ),
-        (Symmetry::None, TilePresetId::MOUNTAIN, (6, 6), vec![]),
-    ];
-    for (symmetry, preset, (x, y), images) in cases {
-        act(
-            &mut app,
-            [
-                A::SetSymmetry(symmetry),
-                A::SetPreset(preset),
-                A::Press(at(x, y)),
-                A::Release,
-            ],
-        );
-        for (ix, iy) in std::iter::once((x, y)).chain(images) {
-            assert_eq!(tile(&app, ix, iy).preset, preset, "{symmetry:?}: ({ix}, {iy})");
-        }
-    }
-    assert_eq!(tile(&app, 5, 5).preset, TilePresetId::PLANE, "nothing else changed");
-
-    // 90° rotation is refused on a map that isn't square, and switched off when the map stops being square.
-    act(
-        &mut app,
-        [A::SetSymmetry(Symmetry::Rotate90), A::Resize { width: 12, height: 10 }],
-    );
-    assert_eq!(tools(&app).symmetry, Symmetry::None);
-    assert_eq!(status(&app).level, StatusLevel::Warning);
-    act(&mut app, [A::SetSymmetry(Symmetry::Rotate90)]);
-    assert_eq!(tools(&app).symmetry, Symmetry::None);
-    assert!(status(&app).message.contains("square"), "{}", status(&app).message);
-}
-
 #[test]
 fn undo_and_redo_step_through_whole_actions() {
-    let mut app = editor(scenarios::empty(16, 12), &temp_maps("undo"));
+    let mut app = editor(scenarios::empty_map(16, 12), &temp_maps("undo"));
     let original = doc(&app).clone();
     act(
         &mut app,
@@ -552,7 +405,10 @@ fn undo_and_redo_step_through_whole_actions() {
         [A::SetKind(ObjectKind::CrystalPatch), A::Press(at(10, 10)), A::Release],
     );
     let placed = doc(&app).clone();
-    act(&mut app, [A::SetName("Undo test".into()), A::SetSeed(77)]);
+    act(
+        &mut app,
+        [A::SetName("Undo test".into()), A::SetDescription("Steps".into())],
+    );
     assert_eq!(undo_depth(&app), 4);
 
     act(&mut app, [A::Undo, A::Undo]);
@@ -563,13 +419,13 @@ fn undo_and_redo_step_through_whole_actions() {
     act(&mut app, [A::Undo, A::Undo]);
     assert_eq!(*doc(&app), original);
     assert!(!app.world().resource::<EditorDoc>().is_dirty());
-    assert_eq!(*sim(&app).map(), original.map);
+    assert_eq!(*sim(&app).map(), original.terrain);
 
     act(&mut app, [A::Redo, A::Redo]);
     assert_eq!(*doc(&app), placed);
     // A new edit drops what could be redone.
-    act(&mut app, [A::SetSeed(5), A::Redo]);
-    assert_eq!(doc(&app).seed, 5);
+    act(&mut app, [A::SetDescription("Other".into()), A::Redo]);
+    assert_eq!(doc(&app).description, "Other");
     assert_eq!(doc(&app).name, placed.name);
     // Cancelling a stroke restores the map without an undo step.
     let depth = undo_depth(&app);
@@ -577,7 +433,7 @@ fn undo_and_redo_step_through_whole_actions() {
         &mut app,
         [A::SetTool(Tool::Paint), A::Press(at(12, 3)), A::Cancel, A::Release],
     );
-    assert_eq!(doc(&app).map, placed.map);
+    assert_eq!(doc(&app).terrain, placed.terrain);
     assert_eq!(undo_depth(&app), depth);
 }
 
@@ -585,9 +441,9 @@ fn undo_and_redo_step_through_whole_actions() {
 /// They drop the selection, so Delete can't remove the wrong object.
 #[test]
 fn undo_redo_and_resize_drop_the_selection() {
-    let mut scenario = scenarios::empty(16, 12);
-    scenario.spawns = vec![patch(1, 1), patch(3, 1), patch(5, 1)];
-    let mut app = editor(scenario, &temp_maps("stale"));
+    let mut map = scenarios::empty_map(32, 24);
+    map.spawns = vec![patch(1, 1), patch(3, 1), patch(5, 1)];
+    let mut app = editor(map, &temp_maps("stale"));
     act(
         &mut app,
         [
@@ -610,7 +466,7 @@ fn undo_redo_and_resize_drop_the_selection() {
     assert_eq!(selection(&app), None);
     act(&mut app, [A::Press(at(5, 1)), A::Release]);
     assert_eq!(selection(&app), Some(Selection::Spawn(1)));
-    act(&mut app, [A::Resize { width: 15, height: 12 }]);
+    act(&mut app, [A::Resize { width: 31, height: 24 }]);
     assert_eq!(selection(&app), None);
 }
 
@@ -619,13 +475,14 @@ fn undo_redo_and_resize_drop_the_selection() {
 #[test]
 fn spawns_at_the_ends_of_the_coordinate_range_do_no_harm() {
     let station = ObjectKind::SupplyDeliveryStation;
-    let mut scenario = scenarios::empty(16, 12);
-    scenario.spawns = vec![
+    let extremes = vec![
         Spawn::new(station, None, SpawnAt::Tile(TilePos::new(i32::MAX, i32::MAX))),
         Spawn::new(station, None, SpawnAt::Tile(TilePos::new(i32::MIN, 3))),
         patch(i32::MAX, 0),
     ];
-    let mut app = editor(scenario, &temp_maps("overflow"));
+    let mut map = scenarios::empty_map(16, 12);
+    map.spawns = extremes.clone();
+    let mut app = editor(map, &temp_maps("overflow"));
     assert_eq!(problems(&app).len(), 3, "{:?}", problems(&app));
     act(
         &mut app,
@@ -641,138 +498,112 @@ fn spawns_at_the_ends_of_the_coordinate_range_do_no_harm() {
         act(&mut app, [A::FocusProblem(i)]);
         assert!(app.world().resource::<CameraView>().center.is_finite());
     }
+    // The same on a map with four images, whose locked part is generated from such spawns.
+    let mut map = super::created(sc_sim::Symmetry::MirrorBothAxes, 16, 16, 4);
+    map.spawns = extremes;
+    let mut app = editor(map, &temp_maps("overflow_sym"));
     act(
         &mut app,
         [
-            A::SetSymmetry(Symmetry::MirrorBothAxes),
             A::SetTool(Tool::Select),
-            A::Press(at(8, 8)),
+            A::Press(at(3, 3)),
             A::Release,
-            A::SetTool(Tool::Place),
+            A::SetKind(station),
+            A::Hover(Some(station_at(2, 2))),
+            A::Press(station_at(2, 2)),
+            A::Release,
             A::Hover(Some(at(15, 11))),
         ],
     );
-}
-
-/// Review finding: the tools may hold a custom preset of the map before; a map without it (opened or new) resets
-/// the choice instead of panicking on the status line.
-#[test]
-fn a_custom_preset_choice_is_reset_by_a_map_without_it() {
-    let dir = temp_maps("custom_preset");
-    let mut custom_map = scenarios::empty(16, 12);
-    let ash = custom_map.map.add_preset(TilePreset {
-        name: "Ash".into(),
-        buildable: true,
-        traversible: true,
-        rugged: false,
-        drillable: false,
-        recruitable: false,
-    });
-    let (custom, plain) = (dir.join("custom.json"), dir.join("plain.json"));
-    files::save(&custom, &custom_map).unwrap();
-    files::save(&plain, &scenarios::empty(8, 8)).unwrap();
-    let mut app = editor(custom_map, &dir);
-    act(&mut app, [A::SetPreset(ash), A::Hover(Some(at(2, 2)))]);
-    assert_eq!(tools(&app).preset, ash);
-
-    act(&mut app, [A::Open(plain), A::Hover(Some(at(3, 3)))]);
-    assert_eq!(tools(&app).preset, TilePresetId::PLANE);
-    app.update();
-
-    act(
-        &mut app,
-        [A::Open(custom), A::SetPreset(ash), A::NewMap, A::Hover(Some(at(2, 2)))],
-    );
-    assert_eq!(tools(&app).preset, TilePresetId::PLANE);
-    app.update();
-    std::fs::remove_dir_all(&dir).unwrap();
+    for i in 0..problems(&app).len() {
+        act(&mut app, [A::FocusProblem(i)]);
+        assert!(app.world().resource::<CameraView>().center.is_finite());
+    }
 }
 
 #[test]
 fn resizing_reports_what_falls_outside_and_undo_restores_it() {
-    let mut scenario = scenarios::empty(16, 12);
-    scenario.spawns = vec![patch(2, 2), patch(14, 10)];
-    let mut app = editor(scenario.clone(), &temp_maps("resize"));
-    act(&mut app, [A::Resize { width: 10, height: 8 }]);
-    assert_eq!((doc(&app).map.width(), doc(&app).map.height()), (10, 8));
+    let mut map = scenarios::empty_map(32, 24);
+    map.spawns = vec![patch(2, 2), patch(30, 20)];
+    map.slots[1].camera_start = Some(at(28, 20));
+    let mut app = editor(map.clone(), &temp_maps("resize"));
+    act(&mut app, [A::Resize { width: 20, height: 16 }]);
+    let terrain = &doc(&app).terrain;
+    assert_eq!((terrain.width(), terrain.height()), (20, 16));
     assert_eq!(doc(&app).spawns, vec![patch(2, 2)]);
     assert_eq!(
-        doc(&app).players[1].start_location,
-        None,
-        "P2's start location (11, 8) fell outside"
+        doc(&app).slots[1].start,
+        TilePos::new(19, 15),
+        "S2's start (23, 17) moved onto the map"
     );
-    assert_eq!(status(&app).level, StatusLevel::Warning);
-    assert!(status(&app).message.contains("removed #1"), "{}", status(&app).message);
-    assert!(
-        status(&app).message.contains("P2's start location"),
-        "{}",
-        status(&app).message
-    );
-    assert_eq!(sim(&app).map().width(), 10);
+    assert_eq!(doc(&app).slots[1].camera_start, None);
+    assert_warned(&app, "removed #1");
+    assert_warned(&app, "moved S2's start");
+    assert_warned(&app, "cleared S2's camera start");
+    assert_eq!(sim(&app).map().width(), 20);
 
     act(&mut app, [A::Undo]);
-    assert_eq!(*doc(&app), scenario);
-    act(&mut app, [A::Resize { width: 0, height: 8 }]);
-    assert_eq!(*doc(&app), scenario, "sizes start at 1");
-    act(&mut app, [A::Resize { width: 300, height: 8 }]);
-    assert_eq!(*doc(&app), scenario, "sides end at the sim's largest");
-    act(&mut app, [A::Resize { width: 20, height: 14 }]);
+    assert_eq!(*doc(&app), map);
+    // The placeholder limits: sides from 16 to 256 tiles.
+    for (width, height) in [(15, 24), (0, 24), (32, 257), (300, 8)] {
+        act(&mut app, [A::Resize { width, height }]);
+        assert_eq!(*doc(&app), map, "{width} x {height}");
+        assert_warned(&app, "from 16 to 256");
+    }
+    act(&mut app, [A::Resize { width: 40, height: 30 }]);
     assert_eq!(
-        doc(&app).map.tile(TilePos::new(19, 13)),
+        doc(&app).terrain.tile(TilePos::new(39, 29)),
         Some(Tile::new(TilePresetId::PLANE))
     );
-    assert_eq!(doc(&app).map.corner(CornerPos::new(20, 14)), Some(0));
-    assert_eq!(doc(&app).spawns, scenario.spawns);
+    assert_eq!(corner(&app, 40, 30), 0);
+    assert_eq!(doc(&app).spawns, map.spawns);
 }
 
 #[test]
-fn player_slots_stay_numbered_from_one() {
-    let mut app = editor(scenarios::empty(16, 12), &temp_maps("slots"));
-    let ids = |app: &App| doc(app).players.iter().map(|p| p.id.0).collect::<Vec<_>>();
-    act(&mut app, [A::AddSlot, A::AddSlot]);
-    assert_eq!(ids(&app), vec![1, 2, 3, 4]);
-    assert_eq!(tools(&app).slot, PlayerId(4));
-    act(
-        &mut app,
-        [
-            A::SetSlotName(PlayerId(3), "Third".into()),
-            A::SetSlotFaction(PlayerId(3), Faction::Cults),
-        ],
+fn player_slots_and_their_markers() {
+    let mut app = editor(scenarios::empty_map(32, 24), &temp_maps("slots"));
+    let starts = |app: &App| doc(app).slots.iter().map(|s| s.start).collect::<Vec<_>>();
+    act(&mut app, [A::AddSlots, A::AddSlots]);
+    assert_eq!(doc(&app).slots.len(), 4);
+    assert_eq!(tools(&app).slot, SlotId(4), "the new slot is chosen");
+    let before = starts(&app);
+    assert!(
+        before.iter().enumerate().all(|(i, s)| !before[..i].contains(s)),
+        "new slots start at free spots: {before:?}"
     );
 
-    act(&mut app, [A::RemoveSlot(PlayerId(2))]);
-    assert_eq!(ids(&app), vec![1, 2, 3]);
-    assert_eq!(
-        (doc(&app).players[1].name.as_str(), doc(&app).players[1].faction),
-        ("Third", Faction::Cults)
-    );
-    assert_eq!(
-        tools(&app).slot,
-        PlayerId(3),
-        "the chosen slot moved down with its number"
-    );
+    // Removing a slot moves the later ones down; the chosen slot stays a slot of the map.
+    act(&mut app, [A::RemoveSlots(SlotId(2))]);
+    assert_eq!(starts(&app), [before[0], before[2], before[3]]);
+    assert!(doc(&app).slot(tools(&app).slot).is_some());
     act(
         &mut app,
         [
-            A::RemoveSlot(PlayerId(3)),
-            A::RemoveSlot(PlayerId(2)),
-            A::RemoveSlot(PlayerId(1)),
+            A::RemoveSlots(SlotId(3)),
+            A::RemoveSlots(SlotId(2)),
+            A::RemoveSlots(SlotId(1)),
         ],
     );
-    assert_eq!(ids(&app), vec![1], "a map keeps one slot");
+    assert_eq!(doc(&app).slots.len(), 1, "a map keeps one slot");
+    assert_warned(&app, "at least one");
+    for _ in 0..8 {
+        act(&mut app, [A::AddSlots]);
+    }
+    assert_eq!(doc(&app).slots.len(), 8, "at most 8 slots");
+    assert_warned(&app, "At most 8");
 
-    // Markers: place the start location and the camera start, then select and clear the camera start.
+    // Markers: move the start, place the camera start, then select and clear the camera start.
     act(
         &mut app,
         [
-            A::SelectSlot(PlayerId(1)),
-            A::SetTool(Tool::StartLocation),
+            A::SelectSlot(SlotId(1)),
+            A::SetTool(Tool::Start),
             A::Press(at(3, 3)),
             A::Drag(at(5, 4)),
             A::Release,
         ],
     );
-    assert_eq!(doc(&app).players[0].start_location, Some(TilePos::new(5, 4)));
+    assert_eq!(doc(&app).slots[0].start, TilePos::new(5, 4));
     act(
         &mut app,
         [
@@ -781,24 +612,30 @@ fn player_slots_stay_numbered_from_one() {
             A::Release,
         ],
     );
-    assert_eq!(doc(&app).players[0].camera_start, Some(Vec2::new(500.0, 300.0)));
+    assert_eq!(doc(&app).slots[0].camera_start, Some(Vec2::new(500.0, 300.0)));
     act(
         &mut app,
         [A::SetTool(Tool::Select), A::Press(Vec2::new(510.0, 290.0)), A::Release],
     );
-    assert_eq!(selection(&app), Some(Selection::CameraStart(PlayerId(1))));
+    assert_eq!(selection(&app), Some(Selection::CameraStart(SlotId(1))));
     act(&mut app, [A::DeleteSelected]);
-    assert_eq!(doc(&app).players[0].camera_start, None);
-    act(&mut app, [A::SetCameraStart(PlayerId(1), Some(Vec2::new(-5.0, 0.0)))]);
-    assert_eq!(doc(&app).players[0].camera_start, None, "camera starts stay on the map");
+    assert_eq!(doc(&app).slots[0].camera_start, None);
+    act(&mut app, [A::SetCameraStart(SlotId(1), Some(Vec2::new(-5.0, 0.0)))]);
+    assert_eq!(doc(&app).slots[0].camera_start, None, "camera starts stay on the map");
+    // A start can't be deleted: every slot is a start position.
+    act(&mut app, [A::Press(at(5, 4)), A::Release, A::DeleteSelected]);
+    assert_eq!(selection(&app), Some(Selection::Start(SlotId(1))));
+    assert_eq!(doc(&app).slots[0].start, TilePos::new(5, 4));
+    act(&mut app, [A::SetStart(SlotId(1), TilePos::new(40, 3))]);
+    assert_eq!(doc(&app).slots[0].start, TilePos::new(5, 4), "starts stay on the map");
 }
 
 #[test]
 fn validation_problems_are_listed_and_lead_to_their_spot() {
-    let mut scenario = scenarios::empty(64, 48);
-    scenario.spawns = vec![patch(2, 2), patch(20, 15), patch(20, 15), patch(70, 3)];
+    let mut map = scenarios::empty_map(64, 48);
+    map.spawns = vec![patch(2, 2), patch(20, 15), patch(20, 15), patch(70, 3)];
     let dir = temp_maps("problems");
-    let mut app = editor(scenario, &dir);
+    let mut app = editor(map, &dir);
     assert_eq!(problems(&app).len(), 2, "{:?}", problems(&app));
     // The preview shows every spawn that has a place, overlaps included, so it can be fixed.
     assert_eq!(sim(&app).objects().count(), 3);

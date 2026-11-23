@@ -72,7 +72,8 @@ There is one exception: an `#[ignore]` perf test under `crates/sim/tests/` may r
 - **No hash containers**: don't use `HashMap` or `HashSet`, because their iteration order is random. Use `BTreeMap`,
   `BTreeSet` or a sorted `Vec`.
 - **No outside world**: no wall clock, no threads and no OS randomness. The only source of randomness is the sim's
-  PRNG (`sc_sim::Rng`, PCG32), seeded from `Scenario::seed`. It is part of the hashed state.
+  PRNG (`sc_sim::Rng`, PCG32), seeded from the game setup's seed (`GameSetup::seed`). It is part of the hashed
+  state.
 - **Floats**: `f32` is fine. `+ - * /`, `sqrt`, `abs`, `floor`/`round` and `as` casts give identical results
   everywhere, but transcendental functions (`sin`, `cos`, `atan2`, `exp`, `powf`, …) don't. Call them through
   `sc_sim::math`, which wraps the pure-Rust `libm` crate, and add any missing function there. `powi` is banned too,
@@ -108,7 +109,11 @@ The design is `core/map.md`, and the code is `crates/sim/src/map.rs` and `map/`.
 - **Tiles**: a `W × H` map has one `Tile` per tile, which is just a `TilePresetId` into the map's preset table: the
   five default presets (`core/map.md > DefaultTilePresets`) at fixed indices, then the map's custom presets. A tile has
   no height of its own. Map sides run from 1 to `map::MAX_MAP_SIDE` (256, a placeholder), checked when a file is read,
-  before anything is allocated, and by `Scenario::validate`.
+  before anything is allocated, and by `MapDef::validate`.
+- **Presets** (`core/map_editor.md > Custom Tile Presets`): a `TilePreset` has a name, its five properties and a
+  `TileLook` (Plane, Rugged, Cliff, Mountain or Water), which is all the renderer draws by. The default presets are
+  fixed. `Map::add_preset`, `set_preset` and `remove_preset` edit the custom ones; removing one moves the later ids
+  down and renumbers their tiles, and `preset_use_count` says whether any tile still uses it.
 - **Corner heights** (`core/map.md > Elevation`): a `(W + 1) × (H + 1)` grid of levels 0–16 (`CornerPos`,
   `Map::corner`, `TilePos::corners()` in NW, NE, SW, SE order), shared by adjacent tiles, so the terrain is
   continuous. `Map::height_at(p)` interpolates bilinearly inside the tile that contains `p` (written from the NW corner,
@@ -116,7 +121,7 @@ The design is `core/map.md`, and the code is `crates/sim/src/map.rs` and `map/`.
   tile is **flat** when its four corners are equal (`is_flat`, `tile_level`), else **sloped**; `tile_slope` is its
   highest corner minus its lowest.
 - **Maximum slope**: a Traversible tile may slope at most `MAX_TRAVERSIBLE_SLOPE` (1) level; `is_too_steep` and
-  `too_steep_tiles` find violations, and `Scenario::validate` lists them (`ScenarioProblem::TooSteep`). Non-Traversible
+  `too_steep_tiles` find violations, and `MapDef::validate` lists them (`ScenarioProblem::TooSteep`). Non-Traversible
   tiles (Cliff, Mountain, Water) may be as steep as they like.
 - **Map resources need flat ground** (`core/map.md > Elevation > Map resources only on flat terrain`): every footprint
   tile of a kind with `ObjectDef::needs_flat_ground` must be flat. Validation flags it (`SpawnProblem::NotFlat`) and
@@ -128,8 +133,9 @@ The design is `core/map.md`, and the code is `crates/sim/src/map.rs` and `map/`.
   leave none. `Map::resize` keeps the corners that remain, and new ones continue the old edge flat outwards.
 - **Symmetry** (`core/map_editor.md > Symmetry`): `sc_sim::Symmetry` (six modes; 90° rotation only on square maps) gives
   its `MapTransform`s, pure functions that map tiles, corners (the corner grid is one larger than the tile grid),
-  points, footprints and building placements (rotation included) to their images. The editor's live mirroring is
-  built on them.
+  points, footprints and building placements (rotation included) to their images, and its `EditableRegion`, the part
+  a map maker edits. `MapDef::regenerate` (`scenario/generate.rs`) builds the rest of a symmetric map from that part:
+  see Sim scenarios and tests.
 
 ## Object model
 
@@ -227,14 +233,16 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   There is no rejection event yet: add one as output outside the state hash when the UI needs it.
 - Every new command gets its rules in the gate and tests showing that its invalid forms are rejected without a panic
   and change nothing.
-- **Game options** (`SimConfig`): given at creation (`Sim::with_config`, `try_with_config`), kept in the `Sim`,
-  hashed, and recorded in the `Replay`; scenario and map files don't hold them. `debug` turns debug commands on.
-  `Sim::new` and `SimConfig::default()` have it off, as a real match will. The client turns it on
-  (`AppConfig::sim_config`, off with `--no-debug`), and so does `TestSim::new`.
+- **Game options** (`SimConfig`) are part of the game setup (`GameSetup::config`, see Sim scenarios and tests): the
+  `Sim` keeps and hashes them, and the `Replay` records them with the setup; map files don't hold them. `debug` turns
+  debug commands on. `SimConfig::default()` has it off, as a real match will. The client turns it on
+  (`AppConfig::new`; off with `--no-debug`), editor play-tests run with it on, and so does `TestSim::new`
+  (`TestSim::with_config` or `ScenarioBuilder::config` for other options).
 - `Command::Debug(DebugCommand::…)` covers `Spawn`, `Remove` and `SetPosition`, for development and QA. It bypasses
   costs and rules, only works while `SimConfig::debug` is on, and is never offered in a real match. A teleport sets
   `prev_pos = pos`, so nothing interpolates across the map.
-- **Replay** = the `Scenario` and the `SimConfig` plus the `TickInputs` of every tick, empty ticks included:
+- **Replay** = the `Scenario` (the map and the game setup, game options included) plus the `TickInputs` of every
+  tick, empty ticks included:
   `sc_sim::Replay` (serde) with `start`/`record`/`step`/`run`. The client must never submit a command with a
   non-finite number. The sim would reject it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to
   load. Validate at the input layer.
@@ -244,23 +252,49 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 
 ## Sim scenarios and tests
 
-- A `Scenario` (`scenario.rs`) holds a name, the `Map`, the players (`PlayerSetup`, including `camera_start` and
-  `start_location`, a placeholder until Q0004), the spawns and the RNG `seed`. Spawns are created in order at tick 0,
-  so their ids ascend in list order.
-- `Scenario::validate()` lists every problem (`ScenarioProblem`) and never panics. `Sim::try_new` returns the problems
-  as an error and `Sim::new` panics with them, so load files and editor maps with `try_new`.
-- **Scenario files** are a `Scenario`'s serde form, written with `serde_json::to_string_pretty`. A `version` field
-  (`SCENARIO_FORMAT_VERSION`, now 2) comes first; bump it on any incompatible change. The map is stored as rows of
+- **A `Scenario` is a map plus a game setup** (`scenario.rs` and `scenario/`; the module docs have the details). The
+  name stays because a scenario is still everything a game starts from (`Sim::try_new`, replays, the client, tests),
+  but the two halves are separate:
+  - The **map** (`MapDef`, `core/map_editor.md`) is what the editor edits and a map file holds: its type (`MapType`:
+    Skirmish Default or Custom), name, description, terrain (`Map`), symmetry, player slots (`Slot`: a start
+    position, an optional camera start, and a Starting Layout per faction) and pre-placed objects (`Spawn`s, neutral
+    or owned by a slot).
+  - The **game setup** (`GameSetup`) says who plays: the players (`PlayerSetup`: name, faction, slot), the RNG seed
+    and the game options (`SimConfig`). `Scenario::new(map)` gives every slot a GDO player (`GameSetup::default_for`),
+    as `--map` and `--scenario` do; the editor's play-test panel builds its own.
+  - `Sim::try_new` creates the map's objects first, in list order (so their ids ascend in it), leaving out those of
+    slots no player takes, then each player's Starting Layout for its faction at its slot. A slot's objects belong to
+    the player who takes it.
+- `MapDef::validate()` and `Scenario::validate()` list every problem (`ScenarioProblem`) and never panic.
+  `Sim::try_new` returns the problems as an error and `Sim::new` panics with them, so load files and editor maps with
+  `try_new`.
+- **Map files** are a `MapDef`'s serde form, written with `serde_json::to_string_pretty`. A `version` field
+  (`MAP_FORMAT_VERSION`, now 3) comes first; bump it on any incompatible change. The terrain is stored as rows of
   strings in the ASCII format below: `tiles` (H rows of W symbols) and `heights` (H + 1 rows of W + 1 corner digits),
-  with the custom presets listed by symbol. Every spawn of a kind with per-object values stores them explicitly in
-  `settings` (`SpawnSettings`, `core/map_editor.md > Per-object Resource Values`: a patch's starting amount, a station's
-  starting supplies, delivery size and interval in ticks); `SpawnSettings::defaults` are the named placeholder values
-  that new objects get. Reading rejects other versions, unknown fields and maps over the largest side.
-- Built-in scenarios live in `scenarios.rs`, behind `by_name(name)` and `NAMES`. Keep the two in sync, because the
-  client's `--scenario` flag uses them. Currently there are `dev_skirmish`, a 64×48 development map (Q0003) with the
-  starts in opposite corners, gentle hills of slopes only, and a central plateau ringed by cliffs with a ramp up
-  through a gap in the west and in the east, and `empty`, a flat 32×24 map. `scenarios::empty(w, h)` builds an
-  empty map of any size.
+  with the custom presets (and their looks) listed by symbol. Every spawn of a kind with per-object values stores them
+  explicitly in `settings` (`SpawnSettings`, `core/map_editor.md > Per-object Resource Values`: a patch's starting
+  amount, a station's starting supplies, delivery size and interval in ticks); `SpawnSettings::defaults` are the named
+  placeholder values that new objects get. Reading rejects other versions, unknown fields, maps over the largest side,
+  and a game setup: a map file holds a map only.
+- **Map creation** (`MapSettings`, `scenario/create.rs`): type, size, slot count, symmetry, name and description, with
+  placeholder limits (sides from `MIN_MAP_SIDE` 16 to `MAX_MAP_SIDE` 256, at most `MAX_SLOTS` 8 slots in whole sets of
+  the symmetry's images, `MapSettings::slot_counts`). A Skirmish Default map needs a symmetry, and 90° rotation a
+  square map. `MapSettings::check` names the first problem, and `create` makes a flat Plane map whose editable slots'
+  starts are spread over the editable part, their images generated.
+- **Generated symmetry** (`scenario/generate.rs`, `core/map_editor.md > Symmetry > Editing a symmetric map`): only
+  the editable part of a symmetric map (`MapDef::region`) is edited, and `MapDef::regenerate` makes the rest its
+  images: tiles, corner heights, spawns with their values, and the slots with their starts, camera starts and
+  Starting Layouts. Placeholder rules for the design's TBDs: an object belongs to the part that holds its center; one
+  that is its own image (a 2×2 station at the center of an even map) stays one object, and one that would overlap its
+  own image is invalid; slots come in whole sets of images (slot `k·n + 1` is edited, slot `k·n + 1 + j` is its image
+  `j`), and a slot's objects follow it. `first_asymmetry` finds where a map (a file edited by hand) differs from what
+  its editable part generates; validation flags it (`ScenarioProblem::NotSymmetric`).
+- Built-in scenarios live in `scenarios.rs`, behind `by_name(name)` and `NAMES`, each with its default setup. Keep
+  the two in sync, because the client's `--scenario` flag uses them. Currently there are `dev_skirmish`, a 64×48
+  Skirmish Default development map (Q0003) with 180° symmetry: starts in opposite corners, gentle hills of slopes
+  only, and a central plateau ringed by cliffs with a ramp up through a gap in the west and in the east; and `empty`,
+  a flat 32×24 Custom map without symmetry. `scenarios::empty(w, h)` builds an empty scenario of any size,
+  `empty_map(w, h)` its map.
 - Unit tests sit in their module (`#[cfg(test)] mod tests`). Scenario and integration tests go in `crates/sim/tests/`
   and use only the public API.
 - Build test scenarios inline from an ASCII map or from `scenarios::empty(w, h)` plus tiles and spawns, not from
@@ -271,8 +305,9 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   per **corner** (`0`–`9`, then `a`–`g` for 10–16). Without it, every corner is at height 0. Lines are trimmed, so
   maps can be indented string literals.
 - **Test helpers** live in the public `sc_sim::testing` module, so client tests can use them too.
-  `ScenarioBuilder::new(ascii)` makes a scenario with the two players of `scenarios::empty` and seed 1. Add spawns
-  with `.spawn(..)`, then call `.build()` or `.start()`. A `TestSim` runs with debug commands on
+  `ScenarioBuilder::new(ascii)` makes a scenario with the two slots of `scenarios::empty` and its default setup
+  (players 1 and 2, GDO, in slots 1 and 2) and seed 1. Add spawns with `.spawn(..)` (an owner takes the slot with its
+  number), then call `.build()` or `.start()`. A `TestSim` runs with debug commands on
   (`TestSim::with_config` for other options). It schedules commands with `at(tick, player, cmd)` or
   `debug_at(tick, cmd)`, and each one applies in the step that reaches that tick. It advances with `step`, `run(n)`
   and `run_until(tick)`, keeps every event with its tick, and records a `Replay` of the run.
@@ -339,9 +374,10 @@ area (`coords::drawn_bounds`, from its highest-drawn to its lowest-drawn corner,
 stays reachable). The middle-mouse grab (`core/camera.md > Panning > Middle-mouse grab`, `camera::GrabPan`) keeps the
 view point grabbed on the press exactly under the cursor while the button is held, and stops on the release; the
 game and the editor share it. Centering on something snaps instantly (`core/camera.md > Panning`). The camera starts
-at `PlayerSetup::camera_start`, or else at the primary starting structure (`core/camera.md > Starting Position`).
-Until starting structures exist, the slot's start location stands in for it, and the map centre for a slot without
-one (`camera::start_center`, shown through `start_view`). Only the editor zooms (`CameraZoom`).
+at the local player's slot's camera start (`Slot::camera_start`), or else at the primary starting structure
+(`core/camera.md > Starting Position`). Until starting structures exist, the slot's start position stands in for
+it, and the map centre for a player without a slot (`camera::start_center`, shown through `start_view`). Only the
+editor zooms (`CameraZoom`).
 
 **HUD**: built with bevy_ui (`core/camera.md > HUD Layout`). It has a top resource bar and, at the bottom, the HUD
 Bar with five fixed sections. From left to right they are Minimap, Portrait, InfoPanel, SelectionPanel and
@@ -392,8 +428,8 @@ in `PreUpdate` (`ReadActions`, after Bevy's input and UI picking), and gameplay 
 `TimeUpdateStrategy::FixedTimesteps(1)`, so that each `App::update()` runs FixedUpdate exactly once and real time
 advances by one tick. The very first update only starts the clock, so assert on `Sim::tick()`, not on the number of
 updates. To draw between ticks, advance by part of a tick with `TimeUpdateStrategy::ManualDuration`. A client run's
-`LoadedScenario` and `RecordedInputs` (with the sim's `SimConfig`) are a `Replay`: playing it back in a bare `Sim`
-gives the same `state_hash` at every tick.
+`LoadedScenario` (whose setup holds the game options) and `RecordedInputs` are a `Replay`: playing it back in a bare
+`Sim` gives the same `state_hash` at every tick.
 
 ## Bevy 0.20: verify, don't recall
 
@@ -413,14 +449,14 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 
 | Flag | Effect |
 |---|---|
-| `--scenario <name>` | Starts a built-in scenario (`sc_sim::scenarios::NAMES`). Default `dev_skirmish`. |
-| `--map <file.json>` | Starts a `Scenario` read from JSON (`sc_sim`'s serde format) instead. Excludes `--scenario`. Exits with code 2, listing the problems, if `Sim::try_new` rejects it. |
+| `--scenario <name>` | Starts a built-in scenario (`sc_sim::scenarios::NAMES`) with its default setup. Default `dev_skirmish`. |
+| `--map <file.json>` | Plays a map file (a `MapDef`, see Sim scenarios and tests) instead, with the default setup: a GDO player in every slot. Excludes `--scenario`. Exits with code 2, listing the problems, if `Sim::try_new` rejects it. |
 | `--editor [file.json]` | Opens the map editor (see Map editor) on that file, or on a new map. |
 | `--editor-script <file.json>` | Applies a JSON list of `EditorAction`s in the editor's first frame. |
-| `--player <n>` | Shows player `n`'s view: camera start, top bar. Default 1. |
+| `--player <n>` | Shows player `n`'s view: camera start, top bar. Default 1. In the editor: the slot play-tests start as. |
 | `--window-size <W>x<H>` | Window or offscreen image size in physical pixels. Default `1280x720`. |
 | `--fast` | Runs as many ticks per frame as fit in 50 ms instead of 16 per second. Screenshots are unchanged. |
-| `--no-debug` | Runs the game with debug commands off (`SimConfig`), as a real match will; they are on by default. |
+| `--no-debug` | Runs the game with debug commands off (the setup's `SimConfig`), as a real match will; they are on by default. |
 | `--screenshot <tick>:<path>` | Saves a PNG of exactly that tick. Repeatable, in any order; creates parent dirs. |
 | `--exit-at-tick <n>` | Exits at tick `n`, after its screenshots. Windowless runs default to the last screenshot's. |
 | `--dump-state <path>` | Writes the state as JSON when the run ends (fields below). |
@@ -439,36 +475,68 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
   no window and no Xvfb. The sim waits at each screenshot tick until the PNG is saved, so the PNG shows that tick's
   exact state with no interpolation. Repeated runs give byte-identical PNGs.
 - Exit codes: 0 when everything was saved, 1 when a QA step failed (the log says which), 2 for invalid flags.
-- The `--dump-state` JSON holds `tick`, `scenario`, `players`, `objects` (every field of `sc_sim::Object`), the last
-  tick's `events`, `client` (`local_player`, `camera_center` as a view point in su, `grid_visible`, `recorded_ticks`)
-  and `map`.
+- The `--dump-state` JSON holds `tick`, `scenario` (the map's name), `players`, `objects` (every field of
+  `sc_sim::Object`), the last tick's `events`, `client` (`local_player`, `camera_center` as a view point in su,
+  `grid_visible`, `recorded_ticks`) and `map` (the terrain).
 - `--windowed` runs turn vsync off: with the display asleep, X11 paces a vsynced window at one frame per second.
 - Verify visual work yourself. Capture screenshots and look at the PNGs with the Read tool before you report.
-- To look at another part of a map, write a scenario JSON with a different `camera_start` and pass it with `--map`.
+- To look at another part of a map, give the slot a different camera start in the editor (or the file's
+  `camera_start`) and pass the file with `--map`.
 
 ## Map editor
 
-`cargo run -- --editor [file.json]` opens the map editor (`crates/game/src/editor.rs` and `editor/`). It edits a
-`Scenario` and saves it in the scenario file format above. F1 in the editor lists the mouse and keys.
+`cargo run -- --editor [file.json]` opens the map editor (`crates/game/src/editor.rs` and `editor/`). It edits a map
+(`MapDef`) and saves it as a map file (see Sim scenarios and tests). F1 in the editor lists the mouse and keys.
 
 - **Starting**: with a file that exists, the editor opens it. With a file that doesn't exist yet, it starts a new map
-  that Ctrl+S saves there. Without a file, it starts a new 64×48 map, and `--editor --scenario <name>` opens a
-  built-in scenario. A file that doesn't parse exits with code 2. A file that parses but fails validation still
-  opens, with its problems listed, so that it can be fixed.
+  that Ctrl+S saves there. Without a file, it starts a new map with the creation dialog's defaults (Skirmish Default,
+  64×48, 180° rotation, 2 slots), and `--editor --scenario <name>` opens a built-in scenario's map. A file that
+  doesn't parse exits with code 2. A file that parses but fails validation still opens, with its problems listed, so
+  that it can be fixed; `--player` is not checked against it (play-tests fall back to the first slot).
 - **Files**: maps live in `maps/` at the repository root (`editor::files::default_maps_dir`), and new maps are saved
-  as `maps/<name>.json`. `maps/dev_skirmish.json` is the built-in `dev_skirmish` saved by the editor. A test checks
-  that every map in `maps/` is playable and that this one still matches the built-in.
+  as `maps/<name>.json`. Saves are atomic: `files::save` writes a hidden temporary file next to the target, flushes
+  it and renames it over the target. `maps/dev_skirmish.json` is the built-in `dev_skirmish` saved by the editor. A
+  test checks that every map in `maps/` is playable and that this one still matches the built-in.
 - **Actions**: every change is an `EditorAction` (`editor/actions.rs`), queued in the `EditorActions` resource and
-  applied in `EditorSystems::Apply`. Keys, the mouse and the UI's buttons only queue actions. The edits are plain
-  functions (`editor/terrain.rs`, `editor/objects.rs`) and sim-side helpers (`Map::resize`, `Map::connected_region`,
-  `Scenario::resize_map`, `add_player`, `remove_player`).
-- **Document**: `EditorDoc` holds the scenario, its file and the undo history, with one snapshot per completed action
-  (a whole stroke, drag or field edit). When the document changes, the editor replaces the sim with
-  `Sim::preview(scenario)`. That is a sim at tick 0 that shows every spawn that fits on the map, even when the map is
-  invalid, so the game's map and object rendering show the document.
+  applied in `EditorSystems::Apply`. Keys, the mouse, the UI's buttons, the text fields and the window's close button
+  only queue actions. The edits are plain functions (`editor/terrain.rs`, `editor/objects.rs`, `editor/presets.rs`,
+  `editor/document.rs`) and sim-side helpers (`Map::resize`, `Map::connected_region`, `MapDef::resize`, `add_slots`,
+  `remove_slots`, `regenerate`).
+- **Document**: `EditorDoc` holds the map, its file and the undo history, with one snapshot per completed action (a
+  whole stroke, drag or field edit). Its dirty flag is worked out once per change, not per frame. When the document
+  changes, the editor replaces the sim with `Sim::preview` of the map with its default setup. That is a sim at tick 0
+  that shows every spawn that fits on the map, even when the map is invalid, so the game's map and object rendering
+  show the document.
+- **New maps** (`editor/creation.rs`): New opens the creation dialog (`NewMapDialog`, a modal panel), which edits a
+  `MapSettings`: type, size, slot count, symmetry, name and description, with the placeholder limits shown and
+  enforced (see Sim scenarios and tests). It offers only the slot counts and symmetries the other settings allow, and
+  Create stays disabled until `MapSettings::check` passes. While it is open, other edits are refused; Cancel or Esc
+  closes it. The map type and the symmetry are fixed once the map exists, and shown as such in the properties panel;
+  a 90°-rotated map can only be resized to another square.
+- **Map types** (`core/map_editor.md > Map Types`): on a Skirmish Default map, objects outside the Starting Layouts
+  are neutral, so the editor offers no owner and refuses owned ones (`PlaceProblem::OwnedOnSkirmishMap`). Custom maps
+  have no restrictions.
+- **Symmetry**: the editor edits only the editable part (`MapDef::region`); the locked part is dimmed
+  (`overlay/tints.rs`), and the generated slots' markers are drawn faded. Every edit of the locked part is
+  refused with a status message that names it: strokes and fills there, placing, moving or selecting what lies there,
+  and the generated slots' markers and values. After every action (`Editor::regenerate`), `MapDef::regenerate`
+  rebuilds the locked part when the document changed; a selected object keeps its selection through it. Slots are
+  added and removed in whole sets. An object that would overlap its own image is refused
+  (`PlaceProblem::OverlapsOwnImage`, the placeholder rule). A file whose locked part differs is listed as
+  `NotSymmetric` until its first edit regenerates it. The placement previews show a ghost at each image.
+- **Custom tile presets** (`editor/presets.rs`, `core/map_editor.md > Custom Tile Presets`): Add custom preset makes
+  "Custom n" with Plane's properties and look and chooses it; the chosen preset's name, properties and look are edited
+  in the palette, each one undo step. The default presets are fixed (shown in one line), and a preset some tile still
+  uses can't be removed (the status line says how many tiles). `MAX_CUSTOM_PRESETS` and `MAX_PRESET_NAME_CHARS` are
+  placeholders.
 - **Modes**: `ClientMode` is `Game`, `Editor` or `PlayTest`, and only the HUD and the editor look at it. F5 starts a
-  play-test: `Sim::try_new` on the document, as the player of the selected slot, at the game's zoom. Esc or F5 returns
-  to the editor with the document, its history and the view unchanged.
+  play-test of the document with the play-test setup (`PlayTestSetup`, the Play-test panel): each slot's faction,
+  which slot you play, the seed, and debug commands on. It is not part of the map. `Sim::try_new` must accept the
+  map; the game runs at the game's zoom. Only F5 returns (Esc is the game's Cancel), to the editor with the document,
+  its history and the view unchanged.
+- **Unsaved changes**: New, Open, Quit and the window's close button (`WindowCloseRequested`, through
+  `editor/input.rs::close_requests`; `platform::ConfirmClose` keeps the platform from exiting by itself) ask once with
+  a status warning and go ahead when asked again, also during a play-test.
 - **Positions**: every position in an `EditorAction` is a ground point (su), the one drawn under the cursor
   (`coords::ground_under`). `CenterOn` centers the view on where its point is drawn, and `Zoom { at }` keeps that
   drawn point where it is on screen.
@@ -479,21 +547,23 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
   so a height edit never leaves a too-steep tile. It may slope the ground under a resource: that is allowed and
   listed as a problem. The overlay previews each dab: the tiles, the corners it sets (white) and the ones the cascade
   moves (amber), from where they are drawn now to where they will be, and in red the tiles a paint would refuse.
-- **Objects**: Place refuses spots off the map, overlapping another footprint, or, for resources, on a sloped tile
-  (the ghost turns red). New objects get `SpawnSettings::defaults`; selecting one shows its values as text fields
-  (the interval in seconds), which commit `SetSpawnSettings`, one undo step each.
-- **Symmetry** (M, palette buttons): live mirroring of strokes, fills and placements at every image of the mode,
-  through `sc_sim::MapTransform` (`terrain::transforms`, `objects::spawn_images`). 90° rotation is refused on a map
-  that isn't square and switched off when the map stops being square. A placed image's owner moves to the next
-  player when there are as many images as players (placeholder until Q0004); resources stay neutral.
+- **Objects**: Place refuses spots off the map, overlapping another footprint or its own image, in the locked part,
+  or, for resources, on a sloped tile (the ghost turns red). New objects get `SpawnSettings::defaults`; selecting one
+  shows its values as text fields (the interval in seconds), which commit `SetSpawnSettings`, one undo step each.
 - **View**: G toggles the grid, K the slope tint (flat green, sloped amber, too steep red, in the terrain's z band).
   The middle-mouse grab pans as in the game. The status line shows the tile under the cursor with its preset, the
-  interpolated height there, its level, and whether the tile is flat, sloped or too steep.
+  interpolated height there, its level, whether the tile is flat, sloped or too steep, and whether it is locked.
 - **Selection** is a spawn index or a slot's marker. An undo, a redo or a resize may shift the indexes, so they clear
   the selection; so does switching documents.
-- **Tests** (`crates/game/tests/editor/`) build a headless app with `AppConfig::editor`, push `EditorAction`s into
-  `EditorActions`, call `app.update()`, and assert on `EditorDoc`, the sim, the view and the UI state. Positions are
-  ground points, such as `TilePos::center()`. Never inject raw input.
+- **UI work follows changes** (review finding): each list (`ui/lists.rs`) is rebuilt only when what it shows
+  changed, keyed so that a field being typed into survives marker moves and preset edits; the buttons are restyled
+  when the editor's state changed or the pointer moved over them; the texts and fields refresh only when their values
+  changed. Text fields commit in `EditorSystems::Input`, before the frame's actions, so a click elsewhere (Save, a
+  tool, another field) applies the typed text first; Enter commits, Esc gives up the text.
+- **Tests** (`crates/game/tests/editor/`: `session`, `edits`, `creation`, `symmetry`, `review`) build a headless app
+  with `AppConfig::editor`, push `EditorAction`s into `EditorActions`, call `app.update()`, and assert on `EditorDoc`,
+  the sim, the view and the UI state. Positions are ground points, such as `TilePos::center()`. Never inject raw
+  input, except to test the keys themselves (F5) and the window's close button (`WindowCloseRequested`).
 - **QA**: `--editor-script` applies its actions in the first frame, before any screenshot. The editor's sim stays at
   tick 0, so take screenshots at tick 0 unless the script play-tests (`"PlayTest"`).
 
@@ -504,8 +574,8 @@ cargo run -- --editor maps/dev_skirmish.json --editor-script /path/to/edits.json
 
 - **UI**: bevy_ui with Bevy's `bevy_ui_widgets` feature (headless `Button`, `TextInput` and `ScrollArea`) and
   `ui_picking`. Its font has ASCII glyphs only, so UI texts stay ASCII ("Rotate 90", not "90°"). The player slot
-  colours, the overlay and slope tint colours, UI sizes, `MAX_SLOTS`, `NEW_MAP_SIZE` and `sc_sim::map::MAX_MAP_SIDE`
-  are placeholders, and so are start locations (Q0004).
+  colours, the overlay, locked-part and slope tint colours, UI sizes, `NEW_MAP_SIZE`, `MAX_DESCRIPTION_CHARS` and the
+  sim's creation limits are placeholders.
 
 ## Code conventions
 

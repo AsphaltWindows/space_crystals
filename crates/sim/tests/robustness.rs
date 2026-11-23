@@ -185,9 +185,10 @@ fn fuzz_run(seed: u64) -> Run {
             None,
             SpawnAt::Tile(TilePos::new(9, 4)),
         )
+        .config(SimConfig::DEBUG)
         .build();
-    let mut sim = Sim::with_config(&scenario, SimConfig::DEBUG);
-    let mut replay = Replay::new(scenario, SimConfig::DEBUG);
+    let mut sim = Sim::new(&scenario);
+    let mut replay = Replay::new(scenario);
     let mut rng = Rng::from_seed(seed);
     let (mut spawned, mut removed, mut unit_steps) = (0, 0, 0);
     let mut hashes = Vec::new();
@@ -262,8 +263,9 @@ fn rejected_commands_change_nothing() {
                 None,
                 SpawnAt::Tile(TilePos::new(9, 4)),
             )
+            .config(config)
             .build();
-        let mut sim = Sim::with_config(&scenario, config);
+        let mut sim = Sim::new(&scenario);
         let mut rng = Rng::from_seed(0x9a7e);
         let (mut accepted, mut rejected) = (0, 0);
         for _ in 0..TICKS {
@@ -327,7 +329,7 @@ fn any_spawn_settings_are_handled() {
             });
             let mut spawn = Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(i * 6, 0)));
             spawn.settings = settings;
-            scenario.spawns.push(spawn);
+            scenario.map.spawns.push(spawn);
         }
         let problems = scenario.validate();
         let (mut preview, _) = Sim::preview(&scenario);

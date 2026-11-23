@@ -12,8 +12,25 @@ use bevy::input::InputPlugin;
 use bevy::prelude::*;
 use bevy::render::RenderPlugin;
 use bevy::render::render_resource::TextureFormat;
-use bevy::window::{ExitCondition, PresentMode, PrimaryWindow, WindowRef, WindowResolution};
+use bevy::window::{ExitCondition, PresentMode, PrimaryWindow, WindowCloseRequested, WindowRef, WindowResolution};
 use bevy::winit::WinitPlugin;
+
+/// Present while closing the window needs a confirmation: the map editor asks a second time when there are unsaved
+/// changes, and exits itself. Without it, a close request (`WindowCloseRequested`) exits the app at once.
+#[derive(Resource, Default, Debug)]
+pub struct ConfirmClose;
+
+/// `WindowPlugin::close_when_requested` is off, so that the editor can confirm a close: here a close request exits
+/// the app, unless [`ConfirmClose`] says someone else decides.
+fn exit_on_close_request(
+    mut requests: MessageReader<WindowCloseRequested>,
+    confirm: Option<Res<ConfirmClose>>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    if requests.read().count() > 0 && confirm.is_none() {
+        exit.write(AppExit::Success);
+    }
+}
 
 /// How the client presents frames.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -90,6 +107,7 @@ impl Plugin for PlatformPlugin {
                     DefaultPlugins
                         .set(WindowPlugin {
                             primary_window: Some(window),
+                            close_when_requested: false,
                             ..default()
                         })
                         .set(render),
@@ -101,7 +119,8 @@ impl Plugin for PlatformPlugin {
                     physical: size,
                     scale_factor: 1.0,
                 })
-                .add_systems(First, track_window_size);
+                .add_systems(First, track_window_size)
+                .add_systems(Update, exit_on_close_request);
             }
             DisplayMode::Offscreen => {
                 app.add_plugins(
@@ -128,6 +147,9 @@ impl Plugin for PlatformPlugin {
             DisplayMode::Headless => {
                 app.add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(frame_wait)))
                     .add_plugins((TransformPlugin, AssetPlugin::default(), InputPlugin))
+                    // No window ever asks to close, but tests send the message to drive the editor's confirmation.
+                    .add_message::<WindowCloseRequested>()
+                    .add_systems(Update, exit_on_close_request)
                     .init_asset::<Mesh>()
                     .init_asset::<ColorMaterial>()
                     .init_asset::<Image>()

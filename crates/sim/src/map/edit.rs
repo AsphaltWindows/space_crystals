@@ -3,7 +3,7 @@
 
 use std::collections::{BTreeMap, VecDeque};
 
-use super::{MAX_ELEVATION, MAX_TRAVERSIBLE_SLOPE, Map, Tile, TilePresetId, corner_count};
+use super::{MAX_ELEVATION, MAX_TRAVERSIBLE_SLOPE, Map, Tile, TilePreset, TilePresetId, corner_count};
 use crate::units::{CornerPos, TilePos};
 
 impl Map {
@@ -132,6 +132,70 @@ impl Map {
             }
         }
         changed
+    }
+
+    /// How many tiles use preset `id`.
+    pub fn preset_use_count(&self, id: TilePresetId) -> usize {
+        self.tiles.iter().filter(|t| t.preset == id).count()
+    }
+
+    /// Changes custom preset `id` (`core/map_editor.md > Custom Tile Presets`: any combination of the properties,
+    /// one of the existing looks). The default presets are fixed: changing one, or an unknown id, is refused.
+    pub fn set_preset(&mut self, id: TilePresetId, preset: TilePreset) -> Result<(), PresetEditError> {
+        if id.is_default() {
+            return Err(PresetEditError::DefaultPreset);
+        }
+        let slot = self
+            .presets
+            .get_mut(usize::from(id.0))
+            .ok_or(PresetEditError::Unknown)?;
+        *slot = preset;
+        Ok(())
+    }
+
+    /// Removes custom preset `id`; the presets after it move down one id, and so do their tiles. Refused for a
+    /// default preset, an unknown id, and a preset that tiles still use (placeholder rule: the map maker repaints
+    /// them first, so that no terrain changes behind their back).
+    pub fn remove_preset(&mut self, id: TilePresetId) -> Result<(), PresetEditError> {
+        if id.is_default() {
+            return Err(PresetEditError::DefaultPreset);
+        }
+        if usize::from(id.0) >= self.presets.len() {
+            return Err(PresetEditError::Unknown);
+        }
+        let used = self.preset_use_count(id);
+        if used > 0 {
+            return Err(PresetEditError::InUse(used));
+        }
+        self.presets.remove(usize::from(id.0));
+        self.symbols.remove(usize::from(id.0));
+        for tile in &mut self.tiles {
+            if tile.preset > id {
+                tile.preset.0 -= 1;
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Why a preset can't be changed or removed.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum PresetEditError {
+    /// The default presets are the same on every map (`core/map.md > DefaultTilePresets`).
+    DefaultPreset,
+    /// The map has no preset with that id.
+    Unknown,
+    /// This many tiles still use it.
+    InUse(usize),
+}
+
+impl std::fmt::Display for PresetEditError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PresetEditError::DefaultPreset => write!(f, "the default presets can't be changed"),
+            PresetEditError::Unknown => write!(f, "the map has no such preset"),
+            PresetEditError::InUse(n) => write!(f, "{n} tile(s) still use it: paint them with another preset first"),
+        }
     }
 }
 

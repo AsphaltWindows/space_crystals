@@ -1,32 +1,30 @@
-//! Replays: the scenario and the game options plus the inputs of every tick
-//! (`ARCHITECTURE.md > Commands, events and replays`). The sim is deterministic, so playing
-//! them back reproduces the game bit for bit; compare [`Sim::state_hash`] to check.
+//! Replays: the scenario (the map and the game setup, which holds the game options) plus the inputs of every tick
+//! (`ARCHITECTURE.md > Commands, events and replays`). The sim is deterministic, so playing them back reproduces the
+//! game bit for bit; compare [`Sim::state_hash`] to check.
 
 use serde::{Deserialize, Serialize};
 
 use crate::command::TickInputs;
 use crate::scenario::{Scenario, ScenarioProblem};
-use crate::sim::{Sim, SimConfig};
+use crate::sim::Sim;
 use crate::units::Tick;
 
-/// A recorded game. Serializes as `{ "scenario": …, "config": …, "inputs": […] }`, the
-/// scenario in its versioned file format.
+/// A recorded game. Serializes as `{ "scenario": { "map": …, "setup": … }, "inputs": […] }`, the map in its
+/// versioned file format.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Replay {
+    /// The map and the game setup the game started with, game options included.
     pub scenario: Scenario,
-    /// The game options the game started with ([`Sim::with_config`]).
-    pub config: SimConfig,
     /// `inputs[t]` is what the step from tick `t` to tick `t + 1` applied, empty ticks
     /// included.
     pub inputs: Vec<TickInputs>,
 }
 
 impl Replay {
-    /// An empty recording of a game that starts from `scenario` with the options `config`.
-    pub fn new(scenario: Scenario, config: SimConfig) -> Self {
+    /// An empty recording of a game that starts from `scenario`.
+    pub fn new(scenario: Scenario) -> Self {
         Self {
             scenario,
-            config,
             inputs: Vec::new(),
         }
     }
@@ -34,7 +32,7 @@ impl Replay {
     /// The game as it starts: the sim to play this replay back on with [`Replay::step`]. Panics on an invalid
     /// scenario, like [`Sim::new`].
     pub fn start(&self) -> Sim {
-        Sim::with_config(&self.scenario, self.config)
+        Sim::new(&self.scenario)
     }
 
     /// Records one step. Call it for every [`Sim::step`], in order, with the same inputs,
@@ -63,7 +61,7 @@ impl Replay {
 
     /// Plays the whole recording from the start, or lists the scenario's problems.
     pub fn try_run(&self) -> Result<Sim, Vec<ScenarioProblem>> {
-        let mut sim = Sim::try_with_config(&self.scenario, self.config)?;
+        let mut sim = Sim::try_new(&self.scenario)?;
         for inputs in &self.inputs {
             sim.step(inputs);
         }

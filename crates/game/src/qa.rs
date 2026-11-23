@@ -300,7 +300,7 @@ fn write_state_dump(path: &Path, sources: &DumpSources) -> Result<(), String> {
     let sim = sources.sim.sim();
     let dump = StateDump {
         tick: sim.tick(),
-        scenario: &sources.scenario.0.name,
+        scenario: sources.scenario.0.name(),
         players: sim.players(),
         objects: sim.objects().collect(),
         events: sim.events(),

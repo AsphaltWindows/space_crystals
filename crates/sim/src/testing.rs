@@ -29,7 +29,7 @@ use glam::Vec2;
 use crate::command::{Command, DebugCommand, PlayerCommand, TickInputs};
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
-use crate::ids::{ObjectId, PlayerId};
+use crate::ids::{ObjectId, PlayerId, SlotId};
 use crate::map::Map;
 use crate::orders::OrderKind;
 use crate::replay::Replay;
@@ -38,8 +38,8 @@ use crate::scenarios;
 use crate::sim::{Sim, SimConfig};
 use crate::units::Tick;
 
-/// Builds a test [`Scenario`] from an ASCII map ([`Map::from_ascii`]) plus spawns. It has
-/// the two players of [`scenarios::empty`] (ids 1 and 2, GDO) and seed 1.
+/// Builds a test [`Scenario`] from an ASCII map ([`Map::from_ascii`]) plus spawns. It has the two slots of
+/// [`scenarios::empty`] and its default setup: players 1 and 2, GDO, in slots 1 and 2, and seed 1.
 pub struct ScenarioBuilder {
     scenario: Scenario,
 }
@@ -49,20 +49,27 @@ impl ScenarioBuilder {
     pub fn new(ascii_map: &str) -> Self {
         let map = Map::from_ascii(ascii_map).unwrap_or_else(|e| panic!("invalid test map: {e}"));
         let mut scenario = scenarios::empty(map.width(), map.height());
-        scenario.name = "test".into();
-        scenario.map = map;
+        scenario.map.name = "test".into();
+        scenario.map.terrain = map;
         Self { scenario }
     }
 
     pub fn seed(mut self, seed: u64) -> Self {
-        self.scenario.seed = seed;
+        self.scenario.setup.seed = seed;
+        self
+    }
+
+    /// Sets the game options (by default none: debug commands off, as in a real match).
+    pub fn config(mut self, config: SimConfig) -> Self {
+        self.scenario.setup.config = config;
         self
     }
 
     /// Adds a spawn with the default per-object values of its kind; spawns get ascending ids in the order they
-    /// are added.
+    /// are added. An owner is a player of the default setup, which takes the slot with its number.
     pub fn spawn(mut self, kind: ObjectKind, owner: Option<PlayerId>, at: SpawnAt) -> Self {
-        self.scenario.spawns.push(Spawn::new(kind, owner, at));
+        let slot = owner.map(|p| SlotId(p.0));
+        self.scenario.map.spawns.push(Spawn::new(kind, slot, at));
         self
     }
 
@@ -70,7 +77,7 @@ impl ScenarioBuilder {
     pub fn spawn_with(mut self, settings: SpawnSettings, at: SpawnAt) -> Self {
         let mut spawn = Spawn::new(settings.kind(), None, at);
         spawn.settings = Some(settings);
-        self.scenario.spawns.push(spawn);
+        self.scenario.map.spawns.push(spawn);
         self
     }
 
@@ -96,16 +103,17 @@ pub struct TestSim {
 
 impl TestSim {
     /// Panics if the scenario is invalid, listing its problems. Debug commands are on
-    /// ([`SimConfig::DEBUG`]).
+    /// ([`SimConfig::DEBUG`]), whatever the scenario's setup says.
     pub fn new(scenario: Scenario) -> Self {
         Self::with_config(scenario, SimConfig::DEBUG)
     }
 
-    /// [`TestSim::new`] with the game options `config`.
-    pub fn with_config(scenario: Scenario, config: SimConfig) -> Self {
+    /// [`TestSim::new`] with the game options `config` in the scenario's setup, in place of its own.
+    pub fn with_config(mut scenario: Scenario, config: SimConfig) -> Self {
+        scenario.setup.config = config;
         Self {
-            sim: Sim::with_config(&scenario, config),
-            replay: Replay::new(scenario, config),
+            sim: Sim::new(&scenario),
+            replay: Replay::new(scenario),
             schedule: BTreeMap::new(),
             events: Vec::new(),
         }
