@@ -34,7 +34,7 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 - **Q0011** patches/stations block ground units?; Rugged impassable for RuggedTerrain=false bases (docs imply: LightInfantry 'able to traverse rugged terrain')?; pathing knows unseen enemy structures? (A true map / B explored only); underground units collide?, air crosses everything.
 - **Q0013** selection edge cases (7 points, current behaviour = SC2-like): ungroupables each own group + Tab; allies treated as enemies in box; modified clicks on enemy = plain select; empty ground click/box clears, Shift/Ctrl-click empty no-op, Shift-box does NOT add (alt B: adds like SC2), Ctrl beats Shift; InfoPanel 2+ shows ActiveGroup type+counts; SelectionPanel '2+ objects'; no other players' objects in control groups.
 - **Q0014** combat edge cases: (1) explicit Attack may target own/neutral destructibles (force-fire) — intended? alt B enemy-only; (2) target dies during Firing → shot hits nothing, attacker still does Cooldown+Reload (alt B hit lands at start of Firing); (3) Rugged bonus decided by tile under unit centre.
-- Yielding follow-ups (0022 TBD): Hold Position / busy stationary units yield? sidestep distance; allies.
+- Yielding (0023): only no-command units yield; Hold Position/busy don't; modes (Riot Shield) irrelevant; deployed Artillery Rig = fixed obstacle. TBD sidestep distance, allies. Watch: mining workers don't yield → possible clots at patches (worker collision while gathering never designed).
 
 ## Loose Ends
 
