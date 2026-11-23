@@ -6,7 +6,7 @@
 //! [`build_app`] assembles one plugin per feature module:
 //! - [`platform`]: a window, an offscreen image (QA) or no rendering at all (tests);
 //! - [`sim_driver`]: owns the `Sim` and steps it in `FixedUpdate`, 16 ticks per second;
-//! - [`input`]: raw keys and the screen edge become [`input::InputAction`]s;
+//! - [`input`]: keys, mouse and the screen edge become [`input::InputAction`]s, clicks and boxes;
 //! - [`camera`]: the world camera (28 GU wide, between the UI) and the UI camera;
 //! - [`map_render`]: the terrain mesh and the grid overlay;
 //! - [`object_render`]: placeholder visuals of sim objects;

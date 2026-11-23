@@ -132,6 +132,12 @@ pub fn visible_extent_su(viewport_size: UVec2, surface_width: u32, zoom: f32) ->
     Vec2::new(width, width * size.y / size.x)
 }
 
+/// The area the world view shows, in view space: centered on `center`, as large as the viewport shows at `zoom`.
+pub fn view_rect(size: SurfaceSize, insets: ViewportInsets, center: Vec2, zoom: f32) -> Rect {
+    let (_, viewport) = viewport_rect(size, insets);
+    Rect::from_center_half_size(center, visible_extent_su(viewport, size.physical.x, zoom) / 2.0)
+}
+
 /// How far from the view's center a cursor at `cursor` (logical pixels from the surface's top-left corner) points,
 /// in space units, wherever it is; `None` for a non-finite cursor.
 pub fn cursor_offset(cursor: Vec2, size: SurfaceSize, insets: ViewportInsets, zoom: f32) -> Option<Vec2> {

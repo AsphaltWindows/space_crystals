@@ -1,82 +1,114 @@
-//! Raw input → [`InputAction`]s (`ARCHITECTURE.md > Client architecture > Input`).
+//! The shared input layer (`ARCHITECTURE.md > Client architecture > Input`): raw keyboard and mouse input becomes
+//! game input in one place, in `PreUpdate`, before any game system runs.
 //!
-//! Binding tables turn keys and mouse buttons into actions; the screen edge pans like the arrow keys. Game systems
-//! read only [`ActionState`], which also carries the cursor's position. Tests and QA scripts inject actions and the
-//! cursor through [`InjectedActions`], never raw `ButtonInput`.
+//! - [`Bindings`] is the one rebindable table that maps keys and mouse buttons, with modifiers, to
+//!   [`InputAction`]s; the screen edge also pans, like the arrow keys. Gameplay code asks for actions, never for keys.
+//! - [`ActionState`] is this frame's game input: the actions held, just pressed and just released, the modifiers, and
+//!   the [`Pointer`] (the cursor, the view and ground points under it, whether it is over the UI, a drag box).
+//! - [`MapClick`] and [`SelectionBox`] messages report the pointer actions' clicks and boxes on the map, never over
+//!   the UI.
+//! - Tests and scripts drive all of it through [`InjectedInput`], a virtual keyboard and mouse, without winit.
+//!
+//! Timing (double taps, double-clicks) runs on `Time<Real>`, which tests advance with `TimeUpdateStrategy`. The map
+//! editor still reads raw input itself (`crate::editor::input`); it moves onto this layer later.
+
+mod actions;
+mod bindings;
+mod pointer;
 
 use std::collections::BTreeSet;
 
 use bevy::ecs::system::SystemParam;
 use bevy::input::InputSystems;
 use bevy::input_focus::InputFocus;
+use bevy::picking::PickingSystems;
 use bevy::prelude::*;
 use bevy::text::EditableText;
 use bevy::window::PrimaryWindow;
 
-/// Everything the player can ask the client to do.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum InputAction {
-    /// `core/camera.md > Panning` (bindings: Q0002).
-    PanLeft,
-    PanRight,
-    /// Towards the top of the screen (north).
-    PanUp,
-    /// Towards the bottom of the screen (south).
-    PanDown,
-    /// Show or hide the tile grid overlay.
-    ToggleGrid,
-    /// `core/camera.md > Panning > Middle-mouse grab`: while held, the map point grabbed stays under the cursor.
-    GrabPan,
-}
+pub use actions::{CommandSlot, ControlGroup, InputAction};
+pub use bindings::{Binding, Bindings, Button, Chord, DOUBLE_TAP_SECONDS, Modifiers};
+pub use pointer::{DOUBLE_CLICK_DISTANCE_PX, DOUBLE_CLICK_SECONDS, DRAG_THRESHOLD_PX, MapClick, Pointer, SelectionBox};
 
-/// The binding table. Placeholder bindings until Q0002 settles the pan inputs.
-pub const KEY_BINDINGS: &[(KeyCode, InputAction)] = &[
-    (KeyCode::ArrowLeft, InputAction::PanLeft),
-    (KeyCode::ArrowRight, InputAction::PanRight),
-    (KeyCode::ArrowUp, InputAction::PanUp),
-    (KeyCode::ArrowDown, InputAction::PanDown),
-    (KeyCode::KeyG, InputAction::ToggleGrid),
-];
+use bindings::TapTracker;
 
-/// The mouse button bindings (`core/camera.md > Panning > Middle-mouse grab`).
-pub const MOUSE_BINDINGS: &[(MouseButton, InputAction)] = &[(MouseButton::Middle, InputAction::GrabPan)];
-
-/// Screen-edge panning: a cursor this close to a window edge (logical pixels) pans that way. Placeholder until
-/// Q0002 settles the pan inputs.
+/// Screen-edge panning (`core/camera.md > Panning > Arrow keys and screen edge`): a cursor this close to a window
+/// edge (logical pixels) pans that way. Placeholder: the design gives no margin.
 pub const EDGE_PAN_MARGIN_PX: f32 = 8.0;
 
-/// This frame's actions, rebuilt every frame from raw input plus injected actions.
+/// This frame's game input, rebuilt every frame from the devices and [`InjectedInput`] through the [`Bindings`].
 #[derive(Resource, Default, Debug)]
 pub struct ActionState {
     held: BTreeSet<InputAction>,
     just_pressed: BTreeSet<InputAction>,
+    just_released: BTreeSet<InputAction>,
     cursor: Option<Vec2>,
+    modifiers: Modifiers,
+    pointer: Pointer,
 }
 
 impl ActionState {
-    /// The action is active this frame (key held, cursor at the edge, …).
+    /// The action is active this frame (key held, cursor at the edge, modifier held, …). An action is also held in
+    /// the frame it was pressed, even when its button already went up again.
     pub fn held(&self, action: InputAction) -> bool {
         self.held.contains(&action)
     }
 
-    /// The action started this frame.
+    /// The action fired this frame, or started being held (a modifier action, the screen edge).
     pub fn just_pressed(&self, action: InputAction) -> bool {
         self.just_pressed.contains(&action)
+    }
+
+    /// The action stopped being held this frame.
+    pub fn just_released(&self, action: InputAction) -> bool {
+        self.just_released.contains(&action)
+    }
+
+    /// The actions [`ActionState::just_pressed`] this frame, in [`InputAction`] order.
+    pub fn pressed_actions(&self) -> impl Iterator<Item = InputAction> + '_ {
+        self.just_pressed.iter().copied()
     }
 
     /// The cursor's position in logical pixels from the window's top-left corner, while it is over the window.
     pub fn cursor(&self) -> Option<Vec2> {
         self.cursor
     }
+
+    /// The modifier keys held.
+    pub fn modifiers(&self) -> Modifiers {
+        self.modifiers
+    }
+
+    /// Where the pointer is on the map.
+    pub fn pointer(&self) -> &Pointer {
+        &self.pointer
+    }
 }
 
-/// Actions supplied by tests and scripts. `held` stays active until removed; each `pressed` entry fires once, on
-/// the next frame, and also counts as held on that frame. `cursor`, when set, stands in for the mouse cursor.
+/// A virtual keyboard and mouse for tests and scripts, read every frame together with the real devices. Press and
+/// release buttons on `keys` and `mouse` like Bevy's `ButtonInput`: a press is seen in the next frame, and a press
+/// and release before the same frame is a tap. The layer clears their just-pressed and just-released marks after
+/// reading them, never the buttons held.
 #[derive(Resource, Default, Debug)]
-pub struct InjectedActions {
-    pub held: BTreeSet<InputAction>,
-    pub pressed: Vec<InputAction>,
+pub struct InjectedInput {
+    pub keys: ButtonInput<KeyCode>,
+    pub mouse: ButtonInput<MouseButton>,
+    /// Stands in for the mouse cursor (logical pixels from the surface's top-left corner) while set.
     pub cursor: Option<Vec2>,
+    /// The injected cursor is over a UI node (headless apps have no UI picking).
+    pub over_ui: bool,
+    /// Actions held regardless of the bindings, until removed.
+    pub held: BTreeSet<InputAction>,
+    /// Actions fired once, in the next frame, regardless of the bindings; they also count as held in that frame.
+    pub pressed: Vec<InputAction>,
+}
+
+impl InjectedInput {
+    /// Presses and releases `key` before the next frame.
+    pub fn tap_key(&mut self, key: KeyCode) {
+        self.keys.press(key);
+        self.keys.release(key);
+    }
 }
 
 /// Whether keyboard and mouse affect the game. Off in QA runs, so a stray cursor or key can't change a screenshot.
@@ -85,7 +117,8 @@ pub struct RawInput {
     pub enabled: bool,
 }
 
-/// Builds [`ActionState`] in `PreUpdate`, after Bevy has read this frame's raw input.
+/// Builds [`ActionState`] and sends the pointer messages in `PreUpdate`, after Bevy has read this frame's raw input
+/// and UI hovering.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ReadActions;
 
@@ -96,11 +129,21 @@ pub struct ActionInputPlugin {
 impl Plugin for ActionInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ActionState>()
-            .init_resource::<InjectedActions>()
+            .init_resource::<InjectedInput>()
+            .init_resource::<Bindings>()
             .insert_resource(RawInput {
                 enabled: self.raw_input,
             })
-            .add_systems(PreUpdate, update_action_state.in_set(ReadActions).after(InputSystems));
+            .add_message::<MapClick>()
+            .add_message::<SelectionBox>()
+            .add_systems(
+                PreUpdate,
+                (read_actions, pointer::track_pointer)
+                    .chain()
+                    .in_set(ReadActions)
+                    .after(InputSystems)
+                    .after(PickingSystems::Hover),
+            );
     }
 }
 
@@ -118,49 +161,106 @@ impl TextFocus<'_, '_> {
     }
 }
 
-fn update_action_state(
-    raw: Res<RawInput>,
-    keys: Option<Res<ButtonInput<KeyCode>>>,
-    mouse: Option<Res<ButtonInput<MouseButton>>>,
-    window: Query<&Window, With<PrimaryWindow>>,
-    text_focus: TextFocus,
-    mut injected: ResMut<InjectedActions>,
+/// The real keyboard, mouse and window.
+#[derive(SystemParam)]
+struct Devices<'w, 's> {
+    raw: Res<'w, RawInput>,
+    keys: Option<Res<'w, ButtonInput<KeyCode>>>,
+    mouse: Option<Res<'w, ButtonInput<MouseButton>>>,
+    window: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
+    text_focus: TextFocus<'w, 's>,
+}
+
+/// The buttons of this frame: the real devices' (while raw input is on; keys not while typing) and the injected.
+struct Buttons<'a> {
+    keys: [Option<&'a ButtonInput<KeyCode>>; 2],
+    mouse: [Option<&'a ButtonInput<MouseButton>>; 2],
+}
+
+impl Buttons<'_> {
+    fn pressed(&self, button: Button) -> bool {
+        match button {
+            Button::Key(key) => self.keys.iter().flatten().any(|keys| keys.pressed(key)),
+            Button::Mouse(b) => self.mouse.iter().flatten().any(|mouse| mouse.pressed(b)),
+        }
+    }
+
+    fn just_pressed(&self, button: Button) -> bool {
+        match button {
+            Button::Key(key) => self.keys.iter().flatten().any(|keys| keys.just_pressed(key)),
+            Button::Mouse(b) => self.mouse.iter().flatten().any(|mouse| mouse.just_pressed(b)),
+        }
+    }
+
+    fn modifiers(&self) -> Modifiers {
+        let either = |a, b| self.pressed(Button::Key(a)) || self.pressed(Button::Key(b));
+        Modifiers {
+            shift: either(KeyCode::ShiftLeft, KeyCode::ShiftRight),
+            ctrl: either(KeyCode::ControlLeft, KeyCode::ControlRight),
+            alt: either(KeyCode::AltLeft, KeyCode::AltRight),
+        }
+    }
+}
+
+/// The bindings' memory between frames.
+#[derive(Default, Debug)]
+struct BindingTracking {
+    /// The action each button that is down fired, held until the button goes up.
+    latches: Vec<(Button, InputAction)>,
+    taps: TapTracker,
+}
+
+/// Turns this frame's buttons into actions through the bindings (`ARCHITECTURE.md > Client architecture > Input`).
+fn read_actions(
+    devices: Devices,
+    bindings: Res<Bindings>,
+    time: Res<Time<Real>>,
+    mut injected: ResMut<InjectedInput>,
     mut state: ResMut<ActionState>,
+    mut tracking: Local<BindingTracking>,
 ) {
     let state = &mut *state;
-    state.held.clear();
+    let raw = devices.raw.enabled;
+    let typing = devices.text_focus.typing();
+    let window = devices.window.single().ok();
+    let previous = std::mem::take(&mut state.held);
     state.just_pressed.clear();
-    state.cursor = None;
-    if raw.enabled {
-        if let Some(mouse) = mouse {
-            for &(button, action) in MOUSE_BINDINGS {
-                if mouse.pressed(button) {
-                    state.held.insert(action);
-                }
-                if mouse.just_pressed(button) {
-                    state.just_pressed.insert(action);
-                }
+    state.just_released.clear();
+    {
+        let buttons = Buttons {
+            keys: [devices.keys.as_deref().filter(|_| raw && !typing), Some(&injected.keys)],
+            mouse: [devices.mouse.as_deref().filter(|_| raw), Some(&injected.mouse)],
+        };
+        let modifiers = buttons.modifiers();
+        state.modifiers = modifiers;
+        // A button that went up ends the action it fired (one that went down and up within this frame still
+        // counts as held in this frame, and ends in the next).
+        tracking.latches.retain(|(button, _)| buttons.pressed(*button));
+        // Each bound button that went down fires the action of its most specific binding.
+        let mut went_down: Vec<Button> = Vec::new();
+        for chord in bindings.entries().iter().filter_map(|(_, b)| b.chord()) {
+            if buttons.just_pressed(chord.button) && !went_down.contains(&chord.button) {
+                went_down.push(chord.button);
             }
         }
-        state.cursor = window.single().ok().and_then(Window::cursor_position);
-        if let Some(keys) = keys
-            && !text_focus.typing()
-        {
-            for &(key, action) in KEY_BINDINGS {
-                if keys.pressed(key) {
-                    state.held.insert(action);
-                }
-                if keys.just_pressed(key) {
-                    state.just_pressed.insert(action);
-                }
+        let now = time.elapsed_secs_f64();
+        for button in went_down {
+            let double = tracking.taps.press(button, modifiers, now);
+            if let Some(action) = bindings.resolve(button, modifiers, double) {
+                tracking.latches.push((button, action));
+                state.just_pressed.insert(action);
             }
         }
-        if let Ok(window) = window.single()
-            && window.focused
-            && let Some(cursor) = window.cursor_position()
-        {
-            state.held.extend(edge_pan_actions(cursor, window.size()));
-        }
+        state.held.extend(tracking.latches.iter().map(|(_, action)| *action));
+        state.held.extend(bindings.modifier_actions(modifiers));
+    }
+    state.cursor = window.filter(|_| raw).and_then(Window::cursor_position);
+    if raw
+        && let Some(window) = window
+        && window.focused
+        && let Some(cursor) = window.cursor_position()
+    {
+        state.held.extend(edge_pan_actions(cursor, window.size()));
     }
     state.held.extend(injected.held.iter().copied());
     for action in injected.pressed.drain(..) {
@@ -170,6 +270,11 @@ fn update_action_state(
     if injected.cursor.is_some() {
         state.cursor = injected.cursor;
     }
+    // Actions that start or stop being held (modifiers, the screen edge, injected) start and end here too.
+    state.just_pressed.extend(state.held.difference(&previous).copied());
+    state.just_released.extend(previous.difference(&state.held).copied());
+    injected.keys.clear();
+    injected.mouse.clear();
 }
 
 /// The pan actions for a cursor at `cursor` (logical pixels, origin top-left) in a window of `size`.
@@ -188,23 +293,6 @@ pub fn edge_pan_actions(cursor: Vec2, size: Vec2) -> impl Iterator<Item = InputA
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn every_action_has_exactly_one_binding() {
-        for action in [
-            InputAction::PanLeft,
-            InputAction::PanRight,
-            InputAction::PanUp,
-            InputAction::PanDown,
-            InputAction::ToggleGrid,
-            InputAction::GrabPan,
-        ] {
-            let keys = KEY_BINDINGS.iter().filter(|(_, a)| *a == action).count();
-            let buttons = MOUSE_BINDINGS.iter().filter(|(_, a)| *a == action).count();
-            assert_eq!(keys + buttons, 1, "{action:?}");
-        }
-        assert_eq!(MOUSE_BINDINGS, [(MouseButton::Middle, InputAction::GrabPan)]);
-    }
 
     #[test]
     fn screen_edges_pan_towards_that_edge() {
