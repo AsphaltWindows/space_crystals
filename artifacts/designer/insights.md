@@ -28,7 +28,7 @@
 ## Open Director Questions
 
 All non-blocking (Director proceeds on assumptions). Raised with user 2026-11-23.
-- **Q0001** art direction (projection SC1 square vs AoE2 iso, unit facings, building orientations/flips vs pre-drawn art, elevation display, pixels per tile). Needs user.
+- **Q0001** art direction — PARTLY answered (entry 0003, core/art_direction.md). Still open: elevation display; user wants AoE2-like slopes → map elevation model questions (per-tile vs corner heights, walkable slopes, building on slopes, high-ground bonus on small hills, cliffs).
 - **Q0002** input bindings (shift/ctrl/double-click, control-group keys, pan inputs/speed, queue modifier). Director assumes SC2-like. Needs user.
 - **Q0003** patch RemainingAmount (assumed 1500), Supply station DeliverySize 4 / Interval 60 s, start empty vs stocked, reference map ownership. Needs user.
 - **Q0004** map player slots / start locations / starting-base auto-layout vs per-faction layouts / pre-placed objects / map metadata. Needs user.
@@ -78,6 +78,7 @@ All non-blocking (Director proceeds on assumptions). Raised with user 2026-11-23
 - **Colonists faction — econ loop plus first combat units now defined**: Drone, Beacon, Warp In mechanic, Egress Node, Roboport, Bioport, Starting Conditions, and the first two combat units (Sabre Legionnaire, Rifle Legionnaire) are all fully stated (see colonists_objects.md summary in TOC above). Still open: Beacon's own ObjectInterfaceState (should expose Warp In as a command — never formalized which panel button/flow triggers it), Roboport's and Bioport's full ObjectInterfaceState (which panel button queues a unit into BuildQueue, how RallyPoint is set via panel — explicitly deferred by user across multiple sessions, not yet resumed), and Shield regen upgrades (still a placeholder noted in combat.md, "discuss later"). Colonists now have combat capability but still only one unit line (two forms of the same Legionnaire) — no Vehicle/Mech/Air combat units yet, unlike the analogous gaps already tracked for GDO/Syndicate. If/when new Colonists buildings are added, remember to also add their row to the Constructs List table in the Warp In section (colonists_objects.md) — cost/time is easy to forget since it lives in a separate section from the building's own stat block.
 
 ## Insights
+- Art direction (2026-11-23): square grid + 3/4 view, sprites pre-rendered from 3D models, 32 px/tile, all building orientations rendered, unit facings 16 infantry / 32 vehicles-turrets-air. See core/art_direction.md.
 
 - When a forum topic investigation is closed without a feature_request being created, the fix never reaches the pipeline. Always ensure actionable outcomes from forum discussions get formalized as feature_requests before voting to close.
 - When batching many feature_requests, note overlap with already-completed pipeline work (check `messages/task_splitter/feature_request/done/`) and flag it in the message content so downstream agents don't duplicate effort.

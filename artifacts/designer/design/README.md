@@ -10,6 +10,7 @@ Index of the design docs. Paths are relative to this folder.
 | `core/scale.md` | Units of measure: SimulationFrame (16/s), GridUnit, SpaceUnit (64 per grid unit) |
 | `core/lore.md` | Space Crystals lore, faction lore |
 | `core/camera.md` | Zoom, panning, starting position, HUD layout |
+| `core/art_direction.md` | 2.5D pixel art: square grid + 3/4 view, sprites pre-rendered from 3D models, 32 px per tile, building orientations, unit facings (16/32), elevation display |
 | `core/game_rules.md` | Defeat Condition (shared across factions) |
 | `core/entities.md` | Entity hierarchy: Faction, Player, Object Type, Structure Type, Placement Validation (incl. Worker-Built Structures), instances |
 | `core/map.md` | Tiles, tile presets (Buildable/Traversible/Rugged/Drillable/Recruitable), Space Crystals patches, Supply Delivery Stations |

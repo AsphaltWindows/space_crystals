@@ -1959,3 +1959,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - Decided (user): Artillery Rig requires Advanced Mechanics (resolves the "what else does Advanced Mechanics unlock" thread). Docs: factions/gdo/units.md, factions/gdo/structures.md. Change entry 0001.
 - Q0005 answered from the docs: hotkey letters authoritative; position words fixed; V has no standard function. Doc: systems/controls/selection_and_hud.md. Change entry 0002.
 - Q0001–Q0004 open, need user.
+- 2026-11-23T13:00:03-05:00 — Q0001 partly answered with user: square grid, 3D-rendered sprites, all building orientations, facings 16/32, 32 px/tile. New doc core/art_direction.md (+README). Change entry 0003. Elevation display in discussion (AoE2-like slopes).
