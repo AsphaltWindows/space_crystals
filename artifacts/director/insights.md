@@ -42,4 +42,5 @@
 - **Parallel coding agents use `isolation: "worktree"`**. They seed `target/` with a reflink copy (btrfs; a cold Bevy build takes ~7 min), commit on their own branch, and the Director reviews and merges.
 
 ## Lessons learned (process)
+- Agent worktrees (`isolation: "worktree"`) live in `.claude/worktrees/` (gitignored) and showed the last *pushed* commit at creation, then caught up to local master. Briefs tell agents to `git merge --ff-only master` first anyway. Check `git worktree list` after launching.
 - `git add -A <dir>` fails for an already-staged deleted directory; pass it only to `git commit -- <paths>`.

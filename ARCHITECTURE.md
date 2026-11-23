@@ -292,6 +292,8 @@ QA mode is being built in M0, and the client agent updates this section to match
   placeholder constant whose comment cites the open question (or says "unspecified"), and list it in your report.
   **Purely presentational placeholder choices** (colours, sizes and fonts of placeholder art and HUD) are yours to
   make; list them briefly.
+- In an isolated git worktree, first make sure it contains the latest local `master` (worktrees can be created
+  from the last *pushed* commit): `git merge --ff-only master`, which is a no-op when already up to date.
 - In an isolated git worktree, seed the build cache first with the command below. On btrfs it is near-instant, while
   a cold Bevy build takes about 7 minutes. If the command fails (no reflink support, e.g. tmpfs), skip seeding and
   build cold. Never fall back to a plain copy: the cache is over 5 GB.

@@ -2,3 +2,6 @@
 
 # Hook notification markers (ephemeral)
 artifacts/*/state/.notified_*
+
+# Agent worktrees (Claude Code isolation)
+.claude/worktrees/
