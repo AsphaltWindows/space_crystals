@@ -35,6 +35,10 @@ struct Hit {
     contact: Contact,
 }
 
+/// `docs/movement.md > 6.3`, rule 4: from this share of its move along the blocker's face on, a unit goes around on
+/// the side it leans to; below it the contact is head-on and `Mover::avoid_side` decides (tuning const).
+const LEAN: f32 = 0.3;
+
 /// How one unit's tick went.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(super) struct Moved {
@@ -206,14 +210,7 @@ impl World<'_> {
     /// 2. A tile first: slide, the two axis components one after the other, the larger first, each as far as it
     ///    goes.
     /// 3. A unit moving the same way (`velocity · d > 0`): follow, up to contact, no detour.
-    /// 4. A unit standing or oncoming: go around. First a **glance**: if the unit only clips the blocker (the move
-    ///    without its contact-axis component keeps at least half of its squared length), it slides along it. Else
-    ///    sidestep towards `Mover::avoid_side`: `d` turned 45°, then a step of the same length along the blocker's
-    ///    face (`d` turned 90° when it meets the face squarely; boxes are axis-aligned, so "sideways" is along the
-    ///    face, and a step that leans into the blocker would never be free). Each is taken only if wholly free. If
-    ///    both fail and `avoid_until` has passed, the side switches for at least `AVOID_COMMIT_TICKS` and its two
-    ///    are tried. A blocker that itself moves along its face is passed **behind**: once `avoid_until` has
-    ///    passed, the side switches (and commits) to the one the blocker comes from.
+    /// 4. A unit standing or oncoming: go around it ([`World::around`]).
     /// 5. All fail: up to contact, or stay.
     pub(super) fn resolve(
         &mut self,
@@ -224,11 +221,6 @@ impl World<'_> {
         tick: Tick,
         touched: &mut Vec<usize>,
     ) -> Moved {
-        let stay = |blocker| Moved {
-            pos,
-            forward: false,
-            blocker,
-        };
         if !self.tiles_free(pos, d) {
             let first = if d.x.abs() >= d.y.abs() { 0 } else { 1 };
             let mut at = self.along_axis(pos, first, d[first], touched);
@@ -241,20 +233,16 @@ impl World<'_> {
         }
         let Some(hit) = self.first_unit(pos, d) else {
             let to = snap.unwrap_or(pos + d);
-            return if self.is_free(to) {
-                Moved {
-                    pos: to,
-                    forward: true,
-                    blocker: None,
-                }
-            } else {
-                stay(None)
+            let free = self.is_free(to);
+            return Moved {
+                pos: if free { to } else { pos },
+                forward: free,
+                blocker: None,
             };
         };
         touched.push(hit.index);
         let blocker = Some(hit.index);
-        let other = self.bodies[hit.index];
-        if other.velocity.dot(d) > 0.0 {
+        if self.bodies[hit.index].velocity.dot(d) > 0.0 {
             let at = self.up_to(pos, d, hit);
             return Moved {
                 pos: at,
@@ -262,24 +250,66 @@ impl World<'_> {
                 blocker,
             };
         }
-        let axis = hit.contact.axis;
-        let mut glance = d;
-        glance[axis] = 0.0;
-        if glance.length_squared() >= 0.5 * d.length_squared() && self.clear(pos, glance, touched) {
+        if let Some((step, forward)) = self.around(pos, d, hit, mover, tick, touched) {
             return Moved {
-                pos: pos + glance,
-                forward: true,
+                pos: pos + step,
+                forward,
                 blocker,
             };
         }
-        // Straight at the blocker's face, as long as `d`: its quarter turn runs along the face.
+        Moved {
+            pos: self.up_to(pos, d, hit),
+            forward: false,
+            blocker,
+        }
+    }
+
+    /// `docs/movement.md > 6.3`, rule 4: the step that takes the unit around the standing or oncoming unit of
+    /// `hit`, and whether it gets the unit on (`Moved::forward`). `None` if there is none. Every step is taken only
+    /// if it is wholly free. Boxes are axis-aligned, so "sideways" is along the blocker's face: a step that leans
+    /// into the blocker would never be free.
+    ///
+    /// The move `d` splits into a part straight at the face and a part along it, its **lean**.
+    /// - **Glance** (the lean is at least half of `d`, squared): the unit only clips the blocker and slides along
+    ///   it, the lean alone.
+    /// - **Leaning** (the lean is at least [`LEAN`] of `d`): the unit goes around on the side it leans to: `d`
+    ///   turned 45° that way, else a whole step along the face that way. It never steps back along the face.
+    /// - **Head-on**: the side is `Mover::avoid_side`, Right for everyone at first, so head-on units pass like
+    ///   traffic: `d` turned 45°, else a whole step along the face. If both fail and `avoid_until` has passed, the
+    ///   side switches for at least `AVOID_COMMIT_TICKS` and its two steps are tried. A blocker that itself moves
+    ///   along its face is passed **behind**: once `avoid_until` has passed, the side switches (and commits) to
+    ///   the one the blocker comes from; stepping the way it goes would keep the two side by side.
+    fn around(
+        &mut self,
+        pos: Vec2,
+        d: Vec2,
+        hit: Hit,
+        mover: &mut Mover,
+        tick: Tick,
+        touched: &mut Vec<usize>,
+    ) -> Option<(Vec2, bool)> {
+        let axis = hit.contact.axis;
+        let lean = d[1 - axis];
+        let mut glance = Vec2::ZERO;
+        glance[1 - axis] = lean;
+        if lean * lean >= 0.5 * d.length_squared() && self.clear(pos, glance, touched) {
+            return Some((glance, true));
+        }
+        // Straight at the face, as long as `d`: its quarter turn is a whole step along the face.
         let mut at_face = Vec2::ZERO;
         at_face[axis] = d.length().copysign(d[axis]);
-        // A blocker moving along its face (crossing traffic, or an oncoming unit already stepping aside) is passed
-        // behind: on the side it comes from. Stepping the way it goes would keep the two side by side.
-        let across = other.velocity[1 - axis];
+        let towards = |side: Side| turned_90(at_face, side)[1 - axis];
+        if lean.abs() >= LEAN * d.length() {
+            let side = if towards(Side::Right) * lean > 0.0 {
+                Side::Right
+            } else {
+                Side::Left
+            };
+            return self.sidestep(pos, d, at_face, side, touched);
+        }
+        let across = self.bodies[hit.index].velocity[1 - axis];
         if across != 0.0 && tick >= mover.avoid_until {
-            let behind = if turned_90(at_face, Side::Right)[1 - axis] * across < 0.0 {
+            let behind = if towards(Side::Right) * across < 0.0 {
                 Side::Right
             } else {
                 Side::Left
@@ -289,35 +319,27 @@ impl World<'_> {
                 mover.avoid_until = tick.saturating_add(AVOID_COMMIT_TICKS);
             }
         }
-        let mut switched = false;
-        loop {
-            let side = mover.avoid_side;
-            if self.clear(pos, turned_45(d, side), touched) {
-                return Moved {
-                    pos: pos + turned_45(d, side),
-                    forward: true,
-                    blocker,
-                };
-            }
-            if self.clear(pos, turned_90(at_face, side), touched) {
-                return Moved {
-                    pos: pos + turned_90(at_face, side),
-                    forward: false,
-                    blocker,
-                };
-            }
-            if switched || tick < mover.avoid_until {
-                break;
-            }
-            mover.avoid_side = side.other();
-            mover.avoid_until = tick.saturating_add(AVOID_COMMIT_TICKS);
-            switched = true;
+        let step = self.sidestep(pos, d, at_face, mover.avoid_side, touched);
+        if step.is_some() || tick < mover.avoid_until {
+            return step;
         }
-        Moved {
-            pos: self.up_to(pos, d, hit),
-            forward: false,
-            blocker,
-        }
+        mover.avoid_side = mover.avoid_side.other();
+        mover.avoid_until = tick.saturating_add(AVOID_COMMIT_TICKS);
+        self.sidestep(pos, d, at_face, mover.avoid_side, touched)
+    }
+
+    /// The sidestep to `side`: `d` turned 45°, which gets the unit on, else a whole step along the blocker's face.
+    fn sidestep(
+        &mut self,
+        pos: Vec2,
+        d: Vec2,
+        at_face: Vec2,
+        side: Side,
+        touched: &mut Vec<usize>,
+    ) -> Option<(Vec2, bool)> {
+        [(turned_45(d, side), true), (turned_90(at_face, side), false)]
+            .into_iter()
+            .find(|&(step, _)| self.clear(pos, step, touched))
     }
 }
 

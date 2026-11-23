@@ -310,6 +310,14 @@ impl Mover {
         self.last_progress.max(last_repath)
     }
 
+    /// Whether the unit is on its way but hasn't got on for `HALF_STUCK_TICKS`: on the way to being stuck, or
+    /// stuck and recovering (`docs/movement.md > 6.5`). For overlays.
+    pub fn is_held_up(&self, tick: Tick) -> bool {
+        self.status == MoveStatus::Moving
+            && self.path_state == PathState::Ready
+            && tick.saturating_sub(self.stuck_clock()) >= HALF_STUCK_TICKS
+    }
+
     /// `docs/movement.md > 6.3`: whether the unit counts as stationary for the others: its locomotion is
     /// Stationary, or it found no way forward for [`JAMMED_TICKS`].
     pub fn is_stationary(&self) -> bool {
@@ -509,6 +517,8 @@ mod tests {
         assert_eq!(at, [10, 18, 34], "8 and 16 ticks apart");
         assert_eq!(mover.repath_ready_at, 34 + 32);
         assert_eq!(mover.stuck_clock(), 34, "the latest repath restarts the stuck clock");
+        mover.follow(vec![Vec2::ZERO, Vec2::ONE], Vec2::ONE, 0);
+        assert!(!mover.is_held_up(34 + HALF_STUCK_TICKS - 1) && mover.is_held_up(34 + HALF_STUCK_TICKS));
         mover.last_progress = 40;
         assert_eq!(mover.stuck_clock(), 40);
         assert_eq!(mover.repaths_left, 0);

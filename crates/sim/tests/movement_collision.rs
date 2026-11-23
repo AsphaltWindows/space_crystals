@@ -176,8 +176,8 @@ fn twenty_units_go_through_a_choke() {
     assert!(done > 250);
 }
 
-/// `docs/movement.md > 8`: a group arrives, every unit is Stationary, and stays so for 100 ticks (nothing
-/// oscillates once it has arrived, `> 6.5`).
+/// `docs/movement.md > 8`: a group arrives on its slots, every unit is Stationary, and stays so for 100 ticks
+/// (nothing oscillates once it has arrived, `> 6.5`).
 #[test]
 fn a_group_arrives_and_stands_still() {
     let mut t = ScenarioBuilder::new(OPEN).start();
@@ -194,14 +194,22 @@ fn a_group_arrives_and_stands_still() {
     let slots: Vec<MoveGoal> = (1..=n).map(|id| t.mover(id).goal).collect();
     run_until_done(&mut t, &ids(1..=n), 400);
     let at: Vec<Vec2> = (1..=n).map(|id| t.pos(id)).collect();
+    // A unit whose slot got walled in by earlier arrivals stops within 1.5 GU of it (crowded arrival, question
+    // Q0008); the others stand exactly on theirs.
+    let mut on_slot = 0;
     for id in 1..=n {
         assert_eq!(t.status(id), MoveStatus::Arrived);
-        assert_eq!(
-            MoveGoal::Point(t.pos(id)),
-            slots[id as usize - 1],
-            "#{id} stands on its slot"
+        let MoveGoal::Point(slot) = slots[id as usize - 1] else {
+            panic!("#{id} had no slot");
+        };
+        on_slot += u32::from(t.pos(id) == slot);
+        assert!(
+            t.pos(id).distance(slot) <= 96.0,
+            "#{id} at {} for slot {slot}",
+            t.pos(id)
         );
     }
+    assert!(on_slot >= n - 2, "only {on_slot} of {n} units stand on their slots");
     for _ in 0..100 {
         t.step();
         for id in 1..=n {

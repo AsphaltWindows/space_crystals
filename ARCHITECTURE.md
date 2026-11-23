@@ -185,12 +185,13 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
    - 5a `orders::update`: a unit's finished order completes and its next one starts (a move sets `Mover::go_to`,
      Stop and Hold stop it), until one is in progress, so legs follow each other without an idle tick.
    - 5b `paths::sync`: if the blocking footprints changed, rebuild the navigation grids and bump `nav_version`.
-   - 5c `paths::serve`: paths planned on an older `nav_version` are planned again; every `PathState::Wanted` becomes
-     a `nav::PathRequest`, served by `nav::serve` within `PATH_BUDGET` (group fields for move groups). A unit that
-     gets no path fails its move (`SimEvent::MoveFailed`).
-   - 5d `movement::step`: the mover, the only code that writes a unit's `pos` besides a teleport. In M1-B it is
-     naive: it follows the waypoints at top speed, first turning to face each leg (at most TurnRate per tick), and
-     arrives exactly on its goal. No unit–unit collision yet (slice D).
+   - 5c `paths::serve`: first each unit's staggered path checks, in the ticks where `(tick + id) % 4 == 0` (after
+     the ground changed, line of sight along its remaining path, and a new plan only if that is cut; the farthest
+     waypoint in sight becomes its steering target). Then every `PathState::Wanted` becomes a `nav::PathRequest`,
+     served by `nav::serve` within `PATH_BUDGET` (group fields for move groups). A unit that gets no path fails its
+     move (`SimEvent::MoveFailed`).
+   - 5d `movement::step`: steering and hard collision, the only code that writes a unit's `pos` besides a teleport
+     (see Movement and collision). Units move one after another in id order and never overlap.
    - 5e `combat::step` (slice W) and 5f `vision::update` (slice V): empty so far.
    - `update_supply_stations` (`core/map.md > SupplyDeliveryStation`).
 
@@ -238,12 +239,54 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   own slot on a square lattice around the click (retargeted into the lead unit's component), the largest silhouette
   plus `SLOT_GAP` apart. The nearest lattice points whose box is clear and in the component are the slots; the one
   farthest from the group's centroid takes its nearest unit first. The order keeps its slot (`Order::slot`).
+- **Avoid tiles** (`Mover::avoid_tiles`): a repath of a stuck unit treats them as blocked, and its smoothed path and
+  its steering stay out of them (`nav::smooth_avoiding`, `nav::segment_avoids`). If they cut every route, the unit
+  drops them and plans again.
 - **Unit boxes** never overlap blocked tiles or another unit of their layer at spawn: the gate checks debug spawns and
   teleports against the sim's grids; scenario validation and the editor check pre-placed and layout units with
   `paths::misplaced` (terrain-only grids of the classes present, plus the footprints).
 - `f32::mul_add` is a disallowed method (`docs/movement.md > 7`): write `a * b + c`.
 - Timings: `cargo test -p sc_sim --release --test nav_perf -- --ignored --nocapture`. That test's `timed` helper is
   the one place in `crates/sim` that reads the clock, behind an `#[expect]` with its reason.
+
+## Movement and collision
+
+The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice D changed it), and the code is
+`crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
+
+- **One pipeline, sequential commit** (`movement::step`, phase 5d): the step builds one spatial grid per collision
+  layer (ground, underground; air units collide with nothing) from every unit, then moves the units in id order and
+  updates the grid at each commit. A unit sees earlier units where they now are and later ones where they were.
+  The grids are scratch, rebuilt every tick and never hashed.
+- **No overlap by construction**: a position is committed only if `World::is_free` holds, the same strict predicates
+  as invariants I1 and I2 (touching is free). Contact positions are assigned from the blocker's edge
+  (`space::resting`), never accumulated. Never write `pos` anywhere else, and never loosen the predicate with an
+  epsilon.
+- **One unit's tick** (`step_unit`, `collide.rs`): turn towards the steering waypoint (at most TurnRate), then move
+  one step: free; **slide** along tiles (per axis); **follow** a unit moving the same way; **go around** a standing
+  or oncoming one (a glance along its face, a 45° step, a step along the face; to the unit's Right first, so
+  head-on units pass like traffic; a crossing unit is passed behind); else close up or stay. Within one step of the
+  goal the unit lands exactly on it. Units without a goal never move: nothing pushes (question Q0007).
+- **Collision exceptions** go in `space::blocks(mover, other)` and nowhere else (crushing will).
+- **Stuck and recovery** (`stuck.rs`, numbers from question Q0008 in `mover.rs`): progress is the remaining path
+  length; waiting behind a unit that is getting on counts. After `STUCK_TICKS` without it: arrived if the goal is
+  within `CROWDED_ARRIVAL_GU` behind stationary units, or behind members of its own order group that have arrived;
+  else a repath (`MAX_REPATHS` per leg, `REPATH_BACKOFF`), around the tile of a blocker that stands; else
+  `MoveStatus::Failed` and `SimEvent::MoveFailed`. Two units head-on in a passage too narrow to pass both fail
+  (question Q0007).
+- **Hooks for later slices**: chasing and queueing behind attackers are `stuck::queues_behind` and the
+  `MoveGoal::Object` arm of `paths::serve` (slice E); other movement models replace the "direction → facing and
+  velocity" part of `step_unit`.
+- **Counters**: `Sim::move_counters()` (sweeps and box tests of the latest tick) and `Sim::nav_counters()` are
+  output, not state. Tests assert them; `cargo test -p sc_sim --release --test movement_perf -- --ignored
+  --nocapture` prints timings.
+- **Invariants** (`docs/movement.md > 8`, `sc_sim::testing::invariants`): I1 no two units of a layer overlap; I2 no
+  ground box overlaps a blocked tile or leaves the map; I3 a unit moves at most its speed per tick; I4 every float
+  is finite; I5 a unit without a goal doesn't move; I6 repaths per leg are capped and no path request waits longer
+  than `MAX_REQUEST_AGE`; I7 an arrived unit never moves again without an order, and a unit without a goal is at
+  rest. A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
+  letters, with a legend). The check is on by default; `check_invariants(false)` turns it off for timing runs. A
+  test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each step.
 
 ## Commands, events and replays
 
@@ -359,7 +402,12 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   (`TestSim::with_config` for other options). It schedules commands with `at(tick, player, cmd)` or
   `debug_at(tick, cmd)`, and each one applies in the step that reaches that tick; `spawn_unit_at(tick, kind, owner,
   pos)` and `order_at(tick, player, units, kind, queue)` are the shortcuts for units. It advances with `step`,
-  `run(n)` and `run_until(tick)`, keeps every event with its tick, and records a `Replay` of the run.
+  `run(n)` and `run_until(tick)`, keeps every event with its tick, and records a `Replay` of the run. After every
+  tick it checks the movement invariants (see Movement and collision); `pos(id)`, `mover(id)` and `status(id)` read
+  a unit, and `ascii(focus)` draws the map.
+- **Movement scenario tests** are `crates/sim/tests/movement_collision.rs` (passing, head-on, choke, group arrival,
+  idle units, repaths, oscillation bounds, save and load in a crowd), `movement_soak.rs` (200 units, random orders,
+  2 000 ticks) and the ignored `movement_perf.rs`.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes. Every state type's hash impl
   destructures it (`hash.rs`), so a new field doesn't compile until it is hashed.
@@ -415,7 +463,8 @@ out by the same rules.
   `(kind, owner)` is shared.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
-  layer. Its one mesh is rebuilt every frame while it is shown.
+  layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
+  up, red failed, blue arrived; placeholder colours). Its one mesh is rebuilt every frame while it is shown.
 - Never make one entity per tile. Draw the terrain as one mesh or texture, or a few chunks. Fog of war will be one
   texture that is updated when visibility changes, never per-tile materials.
 - Create mesh and material handles once and cache them in a `Resource`. Never create assets per frame, per object or

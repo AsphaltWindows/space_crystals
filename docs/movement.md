@@ -17,6 +17,9 @@
 
   G13, the queue cap, is technical and set to 32. Until a question is answered, implement the default from the table, behind a named constant or switch that cites its question id.
 - **The benchmark** cited in 5.8 was a throwaway spike file and isn't in the repo.
+- **Slice D (steering and collision) is implemented.** Where the code differs from the first approved text, the
+  text below was changed and the change is marked **(D)** with its reason. The code is `crates/sim/src/movement.rs`
+  and `movement/`, `paths.rs` and `mover.rs`.
 
 Design references are `file.md > Section`, relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -96,6 +99,7 @@ pub struct Mover {
     status: MoveStatus,        // Idle | Moving | Arrived | Failed | TargetLost
     locomotion: Locomotion, orientation: Orientation,   // the design's channels
     velocity: Vec2, speed_factor: f32,                  // Riot Shield: 0.5
+    group: Option<u32>,                                 // (D) the order group of this goal, kept after it ends (6.5)
     path: Vec<Vec2>, next: u16, path_state: PathState,  // PathState: None | Wanted { since: Tick } | Ready
     nav_version: u32, planned_target: Vec2,             // staleness checks
     repaths_left: u8, repath_ready_at: Tick, avoid_tiles: Vec<TilePos> /* cap 16 */,
@@ -127,7 +131,7 @@ never move anything. Then, each walking units in id order over `..first_new`:
 |---|---|---|
 | 5a `orders::update` | Pops completed orders, runs the behaviour state machine, writes `mover.goal`, reads `mover.status` and last tick's positions and visibility | After commands, so an order acts in its own tick; before movement, so there is one writer of goals |
 | 5b `nav::sync` | If a tile-blocking object or the map changed: rebuild the NavGrids and components, bump `nav_version` | Paths below must see this tick's obstacles |
-| 5c `paths::serve` | Serves `Wanted` requests within the budget (5.5) | After goals, before steering |
+| 5c `paths::serve` | Runs the staggered path checks (5.6, 6.2), then serves `Wanted` requests within the budget (5.5) | After goals, before steering; a repath a check asks for is served in the same tick |
 | 5d `movement::step` | **The one movement pipeline**: steer, resolve collisions, commit `pos`/`facing`/`velocity`/channels, set `status` | Single place that writes `pos` |
 | 5e combat | Attack phases, hit list, damage, deaths (other slice) | Shoots from post-move positions |
 | 5f vision | Visibility per player (other slice) | Sees final positions |
@@ -140,7 +144,8 @@ never move anything. Then, each walking units in id order over `..first_new`:
 - `status` set in 5d is read by 5a next tick. A Shift-queued unit that arrives at tick `t` requests, receives and
   follows its next path at `t + 1`, so it never stands idle between waypoints.
 - **Events**: `MoveFailed { unit }` only. Indicators and paths are read from state. Per-tick counters (expansions,
-  searches, collision queries) are output outside the hash, for tests and the perf overlay.
+  searches, collision queries) are output outside the hash, for tests and the perf overlay (`Sim::nav_counters`,
+  `Sim::move_counters`).
 
 ## 5. Pathfinding
 
@@ -167,7 +172,11 @@ diagonal obstacles. Integer costs 10 and 14, octile heuristic, all `u32`: no flo
 - **Unreachable goals never search**: if the goal tile is blocked or in another component, first retarget to the
   tile of the unit's component nearest the goal (ring scan outward from the goal, ties by tile index). So no search
   can fail, and none floods the map.
-- **Avoid tiles**: a repath treats the unit's `avoid_tiles` as blocked (6.5). Only this search can fail.
+- **Avoid tiles**: a repath treats the unit's `avoid_tiles` as blocked (6.5). Only this search can fail. **(D)**
+  When it fails, the unit drops its avoid tiles and plans again in the next tick instead of failing its move: a
+  tile is 64 su and a unit 24, so avoid tiles overstate what is blocked and can't prove that there is no way. The
+  smoothed path and the steering target also stay out of the avoid tiles (`nav::smooth_avoiding`,
+  `nav::segment_avoids`); string-pulling by terrain alone pulled every detour straight again.
 
 **5.4 Smoothing and line of sight.** `nav::los(class, half, a, b)`: walk the tiles the segment crosses
 (Amanatides–Woo) and slab-test the segment against each blocked tile in their 3×3 neighbourhoods, inflated by `half`.
@@ -182,17 +191,22 @@ remains and always finishes, so every request is served within bounded time. Uni
   own tile, smoothed, with its slot as the last waypoint. The field is scratch, dropped in the same tick.
 - The budget counts expansions, never time, so it is deterministic.
 
-**5.6 Repath policy.** Per order leg, `repaths_left = MAX_REPATHS` (3, G4). Every repath waits for
+**5.6 Repath policy.** Per order leg, `repaths_left = MAX_REPATHS` (3, G4). Every counted repath waits for
 `repath_ready_at`; the backoff doubles (8, 16, 32 ticks).
 
 | Trigger | Check | Counts against the cap |
 |---|---|---|
 | Stuck (6.5) | every tick, cheap | yes; at 0 the status becomes `Failed` |
 | `nav_version` changed | once, on the unit's stagger tick: LOS along the remaining path; repath only if a segment is now blocked | no (bounded by how often the map changes) |
-| Chase target moved | target is farther than `max(1 GU, 25 % of the distance)` from `planned_target`; at most every 8 ticks | no (rate-limited) |
-| Lost LOS to the steering waypoint | on the stagger tick, after being pushed off the path by sidesteps | yes |
+| Chase target moved | target is farther than `max(1 GU, 25 % of the distance)` from `planned_target`; at most every 8 ticks | no (rate-limited); slice E |
+| Lost LOS to the steering waypoint | on the stagger tick, after being pushed off the path by sidesteps, **(D)** and only after 12 ticks without progress | yes |
 
 Stagger tick: `(tick + id) % 4 == 0`. While a chaser has LOS to its target it steers straight at it with no path.
+
+**(D)** Timing. The stuck clock restarts with every counted repath (`Mover::stuck_clock`), so each new path gets
+`STUCK_TICKS` to show progress, and the backoff only matters where it is longer (the last one). A unit that never
+gets on repaths 24, 48 and 72 ticks after its last progress and fails at 104 ticks (6.5 s), the "about 7 s" of G4.
+A unit that lost sight of its waypoint but is still getting on slides back by itself and keeps its repaths.
 
 **5.7 Dynamic obstacles.** A building placed or removed sets a dirty flag; 5b rebuilds grids and components in full
 (65k tiles, about 1 ms, and rare). Units are never in the NavGrid. Stationary units reach the search only
@@ -214,6 +228,10 @@ About 70–120 ns per expansion. Consequences: a 200-unit group order costs one 
 **Targets** (release, 500 moving units, 256×256): movement phase ≤ 1 ms; path serving ≤ 3 ms in a normal tick and
 ≤ 8 ms worst (budget plus one field); a group order of any size is pathed in the tick it is issued; whole sim tick
 ≤ 10 ms worst, leaving 6× fast-forward. Tests assert the deterministic counters, not wall time.
+**Measured after slice D** (`crates/sim/tests/movement_perf.rs`, release, two armies of 250 crossing a 256×256 map):
+the whole sim tick takes 0.19 ms on average and 0.64 ms at worst with 450 or more units moving (2.7 sweeps and 5.9
+box tests per unit and tick); the tick of a 250-unit group order (one field, 62 000 expansions, 250 smoothed paths)
+takes 6 to 10 ms.
 
 ## 6. Collision and steering
 
@@ -224,7 +242,8 @@ collision; soft separation is a velocity bias inside SeparationRadius (not M1). 
 
 **6.2 Steering target.** The farthest path waypoint with LOS, advanced on the stagger tick; a waypoint is never
 required to be touched. This keeps a group's lateral spread through corridors instead of funnelling every unit
-through the same tile centres.
+through the same tile centres. **(D)** The stagger tick scans forward from the current waypoint (at most 8), and
+every tick a waypoint within one step is passed, so a unit rounds a corner without stopping on it.
 
 **6.3 One unit's step.** `step = max_speed × speed_factor`; `d` = vector to the steering target, clamped to `step`.
 - **Arrival**: if the distance to the final goal is ≤ `step`, set `pos = goal` exactly and stop. The arrival
@@ -232,18 +251,35 @@ through the same tile centres.
   braking at `v² / (2 · decel) + v`.
 - Sweep the box along `d` and find the first blocker (earliest contact; tiles before units, then lowest id):
   1. **Nothing**: commit `d`.
-  2. **Tile or structure**: slide. Try the axis components `(d.x, 0)` and `(0, d.y)`, larger first.
+  2. **Tile or structure**: slide. **(D)** Both axis components `(d.x, 0)` and `(0, d.y)`, the larger first, each
+     as far as tiles and units allow (the usual per-axis resolution; "try one, then the other" lost the second).
   3. **Unit moving the same way** (`velocity · d > 0`): follow. Advance to contact and wait; no detour.
-  4. **Unit stationary or oncoming**: sidestep. Try `d` rotated 45° then 90° towards `avoid_side`, same length.
-     `avoid_side` starts **Right** for everyone, so head-on units pass like traffic with no randomness. Switch side
-     only if both candidates fail and `avoid_until` has passed; a switch commits for 16 ticks (no left-right flutter).
-  5. **All fail**: advance to contact or stay; `blocked_ticks += 1`.
+  4. **Unit stationary or oncoming**: go around it. **(D)** Boxes are axis-aligned, so "sideways" is along the
+     blocker's face: `d` turned 90° leans into the blocker whenever `d` isn't square to the face, and is then never
+     free. `d` splits into a part straight at the face and a part along it, its lean:
+     - *Glance* (the lean is at least half of `d`, squared): slide along the face, the lean alone.
+     - *Leaning* (the lean is at least 30 % of `d`): go around on the side the unit leans to: `d` turned 45° that
+       way, else a whole step along the face that way. Never a step back along the face.
+     - *Head-on*: `d` turned 45° towards `avoid_side`, else a whole step along the face that way. `avoid_side`
+       starts **Right** for everyone on every leg, so head-on units pass like traffic with no randomness. Switch
+       side only if both candidates fail and `avoid_until` has passed; a switch commits for 16 ticks (no left-right
+       flutter). A blocker that itself moves along its face is passed *behind*: once `avoid_until` has passed, the
+       side switches to the one the blocker comes from. Without this an eastbound unit and a crossing or
+       side-stepping one walked side by side to the map's edge.
+     Every candidate is taken only if it is wholly free.
+  5. **All fail**: advance to contact or stay; `blocked_ticks += 1`. **(D)** A whole step along a face (no
+     progress) counts as blocked too, so units dancing in a corridor count as stationary after 12 ticks.
 - Rotations use constants (`(x, y) → (−y, x)`, and `(x − y, x + y) × FRAC_1_SQRT_2`), no trigonometry. Facing follows
   the path direction, not the sidestep, turning by at most TurnRate; when the turn completes within the tick (all M1
   units) velocity is `d` itself. Other movement models replace only this "desired direction → velocity and facing"
   step; path following and collision stay shared.
 - A unit counts as **stationary** for others when its locomotion is Stationary or `blocked_ticks ≥ 12`.
 - Units with `goal = None` never move: idle units are never displaced (G2).
+- **(D) No overlap by construction, in floats.** A position is committed only if it passes the overlap predicates
+  of I1 and I2 against the tiles and every unit where it stands now (`World::is_free`); a candidate that fails by a
+  rounding corner case is dropped and the unit stays. The sweep works on the same differences as the predicate
+  (`a − b` against `half_a + half_b`), and an assigned contact that rounds to the inside is moved away float by
+  float (`space::resting`).
 
 **6.4 Group slots (G1).** At command application, for a point target and more than one unit: anchor = the click's
 tile, retargeted as in 5.3. Candidate slots spiral outward on a lattice around the click (pitch as G1); a slot is kept
@@ -255,11 +291,28 @@ handles the crowd.
 **6.5 Stuck detection and recovery.** Progress = remaining path length to the goal. `last_progress` updates when it
 beats `best_remaining` by half a step. Following a slower unit is progress. A unit is **stuck** after
 `STUCK_TICKS` = 24 without it. Then, in order:
-1. **Crowded arrival**: goal is a point within 1.5 GU and the blocker is stationary → `Arrived` (G5).
+1. **Crowded arrival**: goal is a point within 1.5 GU and the blocker is stationary → `Arrived` (G5). **(D)** Also,
+   at any distance, when the blocker arrived on a move of the same order group (`Mover::group`) and the unit has
+   already tried another way (a repath). Slots are 8 su apart, so earlier arrivals wall in the slots behind them;
+   with the radius alone, the units of a larger group that come last jostled for 6.5 s and failed. Now the group
+   fills up outwards from the slots it reached.
 2. **Queueing**: chasing a target and blocked by stationary friendly units attacking the same target → keep waiting,
-   re-check every 16 ticks; no repath, no failure.
-3. **Repath** with the tiles of the stationary blockers it touched added to `avoid_tiles`, if `repaths_left > 0`.
-4. Otherwise, or if that search fails → `Failed`; the behaviour stops and completes (`behaviors.md > Failure`).
+   re-check every 16 ticks; no repath, no failure. (Slice E; the hook is `movement::stuck::queues_behind`.)
+3. **Repath**, if `repaths_left > 0`. **(D)** The tile of the stationary unit in the way is added to `avoid_tiles`:
+   at once if that unit has no goal; if it is on its way itself (only jammed for now), from the second repath on,
+   the first being a plain retry. If the blocker stands in the unit's own tile (the start tile is never avoided),
+   the neighbouring tile on the blocker's side is taken; the goal's tile is never taken.
+4. Otherwise → `Failed`; the behaviour stops and completes (`behaviors.md > Failure`).
+
+**(D)** Three refinements, each from a failing scenario:
+- **Waiting behind a unit that is getting on is progress.** A unit blocked by one that has a goal takes over that
+  unit's `last_progress` if it is later. A queue at a choke isn't stuck while its head moves; units that block each
+  other for good share a clock that stands still. Without it, 20 units at a one-tile choke burnt their repaths
+  waiting their turn and failed.
+- **A new path is no progress.** Its first measure only sets `best_remaining`; the stuck clock restarts through the
+  repath itself (5.6), not through `last_progress`, which others take over.
+- **Grace.** A stuck unit that touches no unit in that tick (it just stepped around one) waits up to 8 ticks to
+  meet its blocker again, so that rules 1 and 3 can see it.
 
 An `Arrived` or `Failed` unit is Stationary and has no goal, so it cannot oscillate. Friendly and enemy units block
 alike; a unit reacts to an enemy only on contact, so pathing leaks nothing about unseen units.
@@ -294,6 +347,8 @@ movers in mutual head-on block exchange positions. Both fit in 6.3 without restr
   I1 no two units of a layer overlap; I2 no ground box overlaps a blocked tile or leaves the map;
   I3 `|pos − prev_pos| ≤ max_speed`; I4 all floats finite; I5 a unit with no goal doesn't move;
   I6 repaths per order ≤ `MAX_REPATHS`, request age bounded; I7 an `Arrived` unit never moves again without an order.
+  **(D)** The switch (`TestSim::check_invariants`) is on by default, so every test that uses a `TestSim` runs them;
+  `sc_sim::testing::invariants` has the checker for tests that step a bare `Sim`.
 - **Scenario tests** (`crates/sim/tests/movement_*.rs`, inline ASCII maps): straight move arrives exactly at
   `ceil(d / speed)` ticks; around a wall; through a one-tile gap; two Peacekeepers pass in a 64 su corridor; two
   Guards head-on in it both end `Failed` within a bound; 20 units through a choke all arrive within

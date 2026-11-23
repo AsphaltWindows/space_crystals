@@ -32,7 +32,7 @@ pub(crate) struct Body {
     pub velocity: Vec2,
     /// `Mover::is_stationary`.
     pub stationary: bool,
-    /// For a unit on its way (a goal and a path): the tick of its latest progress, `Mover::last_progress`. Units
+    /// For a unit on its way (it has a goal): the tick of its latest progress, `Mover::last_progress`. Units
     /// waiting behind it share it (`docs/movement.md > 6.5`).
     pub progress: Option<Tick>,
     /// For a unit whose latest move ended `Arrived`: that move's order group (`Mover::group`).

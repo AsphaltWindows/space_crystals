@@ -64,9 +64,10 @@ fn avoid_blocker(pos: Vec2, mover: &mut Mover, blocker: &Body) {
 /// A unit is **stuck** after `STUCK_TICKS` without progress, counted from its latest counted repath if that was
 /// later (`Mover::stuck_clock`): every new path gets its time. Once stuck, in order:
 /// 1. **Crowded arrival**: the goal is a point and the unit in its way is stationary, and either the goal is
-///    within `CROWDED_ARRIVAL_GU`, or that unit arrived on a move of the same order group: the unit has
-///    `Arrived` (G5). The second case lets a group fill up outwards from the slots it reached: slots are 8 su
-///    apart, so a unit whose slot got walled in by earlier arrivals can't reach it, however large the group is.
+///    within `CROWDED_ARRIVAL_GU`, or that unit arrived on a move of the same order group and this unit has
+///    already tried another way (a repath): the unit has `Arrived` (G5). The second case lets a group fill up
+///    outwards from the slots it reached: slots are 8 su apart, so a unit whose slot got walled in by earlier
+///    arrivals can't reach it, however large the group is.
 /// 2. **Queueing** ([`queues_behind`]): keep waiting.
 /// 3. **Repath**, once the backoff of the last repath is over (`docs/movement.md > 5.6`), if a repath is left.
 ///    The tile of a stationary unit in its way is added to `avoid_tiles` first ([`avoid_blocker`]): at once if
@@ -96,8 +97,9 @@ pub(super) fn after_move(pos: Vec2, mover: &mut Mover, step: f32, moved: &Moved,
         return false;
     }
     let end = mover.path.last().copied().unwrap_or(pos);
+    let first_repath = mover.repaths_left == MAX_REPATHS;
     let crowded = blocker.is_some_and(|b| {
-        let with_its_group = mover.group.is_some() && b.arrived_with == mover.group;
+        let with_its_group = !first_repath && mover.group.is_some() && b.arrived_with == mover.group;
         b.stationary && (with_its_group || pos.distance(end) <= gu(CROWDED_ARRIVAL_GU))
     });
     if matches!(mover.goal, MoveGoal::Point(_)) && crowded {
@@ -111,7 +113,6 @@ pub(super) fn after_move(pos: Vec2, mover: &mut Mover, step: f32, moved: &Moved,
         mover.finish(MoveStatus::Failed);
         return true;
     }
-    let first_repath = mover.repaths_left == MAX_REPATHS;
     if let Some(blocker) = blocker.filter(|b| b.stationary && (b.progress.is_none() || !first_repath)) {
         avoid_blocker(pos, mover, blocker);
     }

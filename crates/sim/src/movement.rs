@@ -82,7 +82,8 @@ impl Scratch {
 
 /// A unit as the others see it this tick.
 fn body_of(o: &Object, mover: &Mover, half: Vec2) -> Body {
-    let on_its_way = mover.goal != MoveGoal::None && mover.path_state == PathState::Ready;
+    // Also while it waits for a path: a unit that just planned again is still on its way.
+    let on_its_way = mover.goal != MoveGoal::None;
     Body {
         id: o.id,
         owner: o.owner,
