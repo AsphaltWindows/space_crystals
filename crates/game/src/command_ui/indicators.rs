@@ -174,14 +174,12 @@ fn own_selected<'a>(
         .filter(move |o| o.owner == Some(player))
 }
 
-/// Where the leg of a route that carries out `order` ends, ground space: the unit's own destination for a move to a
-/// point (its slot in the group, `Order::destination`), the target object where it is, else the clicked point.
+/// Where the leg of a route that carries out `order` ends, ground space: the target object where it is, else the
+/// unit's own destination (its place in the group's shape, `Order::destination`); none for Hold and Stop.
 fn waypoint(sim: &Sim, order: &Order) -> Option<Vec2> {
     match order.kind {
-        OrderKind::Move(Target::Point(_)) => order.destination(),
         OrderKind::Move(Target::Object(id)) | OrderKind::Attack(id) => sim.object(id).map(|o| o.pos),
-        OrderKind::AttackMove(at) | OrderKind::Patrol(at) => Some(at),
-        OrderKind::Hold | OrderKind::Stop => None,
+        _ => order.destination(),
     }
 }
 
