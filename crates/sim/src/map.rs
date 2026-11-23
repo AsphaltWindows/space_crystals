@@ -71,6 +71,7 @@
 //! ```
 
 mod ascii;
+mod edit;
 mod file;
 
 use glam::Vec2;

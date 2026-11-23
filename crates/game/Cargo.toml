@@ -28,6 +28,9 @@ features = [
     # 2D rendering + UI.
     "2d_bevy_render",
     "ui_bevy_render",
+    # Map editor UI: headless widgets (buttons, text input) and the pointer picking they run on.
+    "bevy_ui_widgets",
+    "ui_picking",
     "png",
 ]
 

@@ -122,17 +122,26 @@ pub struct SimDriverPlugin {
     pub player: PlayerId,
     /// Run as many ticks per frame as fit in [`FAST_FRAME_BUDGET`] instead of 16 per second.
     pub fast: bool,
+    /// Map editor: show the scenario even if it is invalid ([`Sim::preview`]), paused at tick 0. Otherwise the
+    /// scenario must be valid.
+    pub preview: bool,
 }
 
 impl Plugin for SimDriverPlugin {
     fn build(&self, app: &mut App) {
+        let sim = if self.preview {
+            Sim::preview(&self.scenario).0
+        } else {
+            Sim::new(&self.scenario)
+        };
         app.insert_resource(Time::<Fixed>::from_hz(f64::from(TICKS_PER_SECOND)))
-            .insert_resource(SimRes::new(Sim::new(&self.scenario)))
+            .insert_resource(SimRes::new(sim))
             .insert_resource(LoadedScenario(self.scenario.clone()))
             .insert_resource(LocalPlayer(self.player))
             .init_resource::<PendingCommands>()
             .init_resource::<RecordedInputs>()
             .insert_resource(SimControl {
+                paused: self.preview,
                 exact_render: self.fast,
                 ..default()
             })

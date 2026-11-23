@@ -319,5 +319,6 @@ impl TryFrom<SimState> for Sim {
     }
 }
 
+mod preview;
 #[cfg(test)]
 mod tests;

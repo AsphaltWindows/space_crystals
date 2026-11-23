@@ -6,6 +6,8 @@ use bevy::math::UVec2;
 use sc_sim::{PlayerId, Scenario, Tick, scenarios};
 
 use crate::AppConfig;
+use crate::editor::actions::EditorAction;
+use crate::editor::{EditorConfig, files};
 use crate::platform::DisplayMode;
 use crate::qa::{QaConfig, ScreenshotRequest};
 
@@ -21,6 +23,10 @@ const MAX_WINDOW_SIDE: u32 = 8192;
 pub struct CliOptions {
     pub scenario: Option<String>,
     pub map: Option<PathBuf>,
+    /// `--editor`, with the file to edit if one was given.
+    pub editor: bool,
+    pub editor_path: Option<PathBuf>,
+    pub editor_script: Option<PathBuf>,
     pub player: u8,
     pub window_size: UVec2,
     pub fast: bool,
@@ -37,6 +43,9 @@ impl Default for CliOptions {
         Self {
             scenario: None,
             map: None,
+            editor: false,
+            editor_path: None,
+            editor_script: None,
             player: 1,
             window_size: DEFAULT_WINDOW_SIZE,
             fast: false,
@@ -62,6 +71,13 @@ Game:
   --window-size <W>x<H>       Window or offscreen image size in pixels (default {w}x{h})
   --fast                      Run as many ticks per frame as possible instead of 16 per second
 
+Map editor:
+  --editor [file.json]        Edit a map file (created on the first save if it doesn't exist yet).
+                              Without a file: a new {nw}x{nh} map, saved as maps/<name>.json.
+                              With --scenario <name>: a built-in scenario, saved as maps/<name>.json.
+                              --player <n> chooses the slot that play-tests (F5) start as.
+  --editor-script <file.json> Apply a JSON list of editor actions on the first frame (QA)
+
 QA (any of these makes the run reproducible: keyboard and mouse are ignored, frames render offscreen):
   --screenshot <tick>:<path>  Save a PNG of exactly that tick (repeatable)
   --exit-at-tick <n>          Exit at tick n, once its screenshots are saved. A run without a window
@@ -72,6 +88,8 @@ QA (any of these makes the run reproducible: keyboard and mouse are ignored, fra
 
   -h, --help                  Show this help",
         names = scenarios::NAMES.join(", "),
+        nw = files::NEW_MAP_SIZE.0,
+        nh = files::NEW_MAP_SIZE.1,
         w = DEFAULT_WINDOW_SIZE.x,
         h = DEFAULT_WINDOW_SIZE.y,
     )
@@ -80,12 +98,18 @@ QA (any of these makes the run reproducible: keyboard and mouse are ignored, fra
 /// Parses the flags (without the program name).
 pub fn parse(args: &[String]) -> Result<CliOptions, String> {
     let mut options = CliOptions::default();
-    let mut args = args.iter();
+    let mut args = args.iter().peekable();
     while let Some(flag) = args.next() {
+        if flag == "--editor" {
+            options.editor = true;
+            options.editor_path = args.next_if(|a| !a.starts_with('-')).map(PathBuf::from);
+            continue;
+        }
         let mut value = || args.next().cloned().ok_or_else(|| format!("{flag} needs a value"));
         match flag.as_str() {
             "--scenario" => options.scenario = Some(value()?),
             "--map" => options.map = Some(value()?.into()),
+            "--editor-script" => options.editor_script = Some(value()?.into()),
             "--player" => options.player = parse_player(&value()?)?,
             "--window-size" => options.window_size = parse_size(&value()?)?,
             "--fast" => options.fast = true,
@@ -130,16 +154,17 @@ fn parse_screenshot(s: &str) -> Result<ScreenshotRequest, String> {
     })
 }
 
-/// Loads the scenario and checks the flags against it and each other.
+/// Loads the scenario and checks the flags against it and each other. A game's scenario must be valid; the editor
+/// opens invalid ones too, to fix them, and lists their problems.
 pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
-    let scenario = match (&options.map, &options.scenario) {
-        (Some(_), Some(_)) => return Err("--map and --scenario exclude each other".into()),
-        (Some(path), None) => load_scenario_file(path)?,
-        (None, name) => {
-            let name = name.as_deref().unwrap_or(DEFAULT_SCENARIO);
-            scenarios::by_name(name)
-                .ok_or_else(|| format!("unknown scenario {name:?}; built-in: {}", scenarios::NAMES.join(", ")))?
+    let (scenario, editor) = if options.editor {
+        let (scenario, editor) = editor_document(&options)?;
+        (scenario, Some(editor))
+    } else {
+        if options.editor_script.is_some() {
+            return Err("--editor-script needs --editor".into());
         }
+        (game_scenario(&options)?, None)
     };
     let player = PlayerId(options.player);
     if !scenario.players.iter().any(|p| p.id == player) {
@@ -184,6 +209,22 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
             late.tick
         ));
     }
+    if let Some(editor) = &editor
+        && !editor.script.contains(&EditorAction::PlayTest)
+    {
+        let late = qa
+            .screenshots
+            .iter()
+            .map(|s| s.tick)
+            .chain(qa.exit_at_tick)
+            .find(|t| *t > 0);
+        if let Some(tick) = late {
+            return Err(format!(
+                "the editor's map stays at tick 0, so tick {tick} never comes: use tick 0, or start a play-test \
+                 (PlayTest) in the --editor-script"
+            ));
+        }
+    }
     for path in qa.screenshots.iter().map(|s| &s.path).chain(&qa.dump_state) {
         create_parent_dir(path)?;
     }
@@ -194,7 +235,73 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
         window_size: options.window_size,
         qa,
         fast: options.fast,
+        editor,
     })
+}
+
+/// The scenario a game plays: `--map`, else `--scenario`, else the default. It must be valid.
+fn game_scenario(options: &CliOptions) -> Result<Scenario, String> {
+    let (scenario, source) = match (&options.map, &options.scenario) {
+        (Some(_), Some(_)) => return Err("--map and --scenario exclude each other".into()),
+        (Some(path), None) => (load_scenario_file(path)?, path.display().to_string()),
+        (None, name) => {
+            let name = name.as_deref().unwrap_or(DEFAULT_SCENARIO);
+            let scenario = scenarios::by_name(name)
+                .ok_or_else(|| format!("unknown scenario {name:?}; built-in: {}", scenarios::NAMES.join(", ")))?;
+            (scenario, format!("scenario {name:?}"))
+        }
+    };
+    let problems = scenario.validate();
+    if problems.is_empty() {
+        return Ok(scenario);
+    }
+    let list: Vec<String> = problems.iter().map(|p| format!("  - {p}")).collect();
+    Err(format!(
+        "{source} can't be played: {} problem(s)\n{}\n(fix them in the map editor: --editor <file.json>)",
+        problems.len(),
+        list.join("\n")
+    ))
+}
+
+/// The editor's document and configuration: the file of `--editor <file>` (a new map named after it if it doesn't
+/// exist yet), a built-in `--scenario`, or a new map.
+fn editor_document(options: &CliOptions) -> Result<(Scenario, EditorConfig), String> {
+    if options.map.is_some() {
+        return Err("--editor takes the file itself: --editor <file.json>".into());
+    }
+    let (width, height) = files::NEW_MAP_SIZE;
+    let (scenario, path) = match (&options.editor_path, &options.scenario) {
+        (Some(_), Some(_)) => return Err("--editor <file> and --scenario exclude each other".into()),
+        (Some(path), None) if path.exists() => (load_scenario_file(path)?, Some(path.clone())),
+        (Some(path), None) => {
+            let name = path
+                .file_stem()
+                .map_or(files::NEW_MAP_NAME.into(), |s| s.to_string_lossy());
+            (files::new_scenario(&name, width, height), Some(path.clone()))
+        }
+        (None, Some(name)) => (
+            scenarios::by_name(name)
+                .ok_or_else(|| format!("unknown scenario {name:?}; built-in: {}", scenarios::NAMES.join(", ")))?,
+            None,
+        ),
+        (None, None) => (files::new_scenario(files::NEW_MAP_NAME, width, height), None),
+    };
+    let script = match &options.editor_script {
+        Some(path) => load_editor_script(path)?,
+        None => Vec::new(),
+    };
+    let config = EditorConfig {
+        path,
+        maps_dir: files::default_maps_dir(),
+        script,
+    };
+    Ok((scenario, config))
+}
+
+/// Reads an `--editor-script`: a JSON list of `EditorAction`s, e.g. `["FitMap", {"Press": [100, 80]}, "Release"]`.
+pub fn load_editor_script(path: &Path) -> Result<Vec<EditorAction>, String> {
+    let text = std::fs::read_to_string(path).map_err(|e| format!("can't read {}: {e}", path.display()))?;
+    serde_json::from_str(&text).map_err(|e| format!("{} is not a list of editor actions: {e}", path.display()))
 }
 
 /// Reads a `Scenario` from a JSON file (the representation is `sc_sim`'s serde format).
@@ -291,6 +398,87 @@ mod tests {
         ] {
             assert!(into_config(parse(&args(bad)).unwrap()).is_err(), "{bad}");
         }
+    }
+
+    #[test]
+    fn editor_flags_parse() {
+        let o = parse(&args("--editor maps/a.json --player 2")).unwrap();
+        assert!(o.editor);
+        assert_eq!(o.editor_path, Some(PathBuf::from("maps/a.json")));
+        assert_eq!(o.player, 2);
+        let o = parse(&args("--editor --scenario empty --editor-script s.json")).unwrap();
+        assert!(o.editor && o.editor_path.is_none());
+        assert_eq!(o.editor_script, Some(PathBuf::from("s.json")));
+    }
+
+    #[test]
+    fn the_editor_starts_on_a_file_a_new_map_or_a_built_in_scenario() {
+        let dir = std::env::temp_dir().join(format!("sc_cli_editor_{}", std::process::id()));
+        let missing = dir.join("Frozen Lake.json");
+        let editor_args = |path: &Path| vec![String::from("--editor"), path.display().to_string()];
+        let config = into_config(parse(&editor_args(&missing)).unwrap()).unwrap();
+        assert_eq!(config.editor.unwrap().path, Some(missing));
+        assert_eq!(config.scenario.name, "Frozen Lake");
+        let size = (config.scenario.map.width(), config.scenario.map.height());
+        assert_eq!(size, files::NEW_MAP_SIZE);
+
+        let config = into_config(parse(&args("--editor")).unwrap()).unwrap();
+        assert_eq!(config.editor.unwrap().path, None);
+        assert_eq!(config.scenario.name, files::NEW_MAP_NAME);
+        let config = into_config(parse(&args("--editor --scenario dev_skirmish")).unwrap()).unwrap();
+        assert_eq!(config.scenario, scenarios::dev_skirmish());
+
+        // An invalid file opens in the editor, to be fixed there; the game refuses it.
+        std::fs::create_dir_all(&dir).unwrap();
+        let bad = dir.join("bad.json");
+        let mut scenario = scenarios::empty(8, 6);
+        scenario.players[1].start_location = Some(sc_sim::TilePos::new(50, 50));
+        std::fs::write(&bad, serde_json::to_string(&scenario).unwrap()).unwrap();
+        let opened = into_config(parse(&editor_args(&bad)).unwrap()).unwrap();
+        assert_eq!(opened.scenario, scenario);
+        let map_args = vec![String::from("--map"), bad.display().to_string()];
+        let error = into_config(parse(&map_args).unwrap()).unwrap_err();
+        assert!(
+            error.contains("1 problem(s)") && error.contains("start location"),
+            "{error}"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn editor_scripts_are_json_action_lists() {
+        let path = std::env::temp_dir().join(format!("sc_cli_script_{}.json", std::process::id()));
+        std::fs::write(
+            &path,
+            r#"["FitMap", {"SetTool": "Paint"}, {"Press": [100.0, 80.0]}, "Release"]"#,
+        )
+        .unwrap();
+        let script = load_editor_script(&path);
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(
+            script.unwrap(),
+            vec![
+                EditorAction::FitMap,
+                EditorAction::SetTool(crate::editor::tools::Tool::Paint),
+                EditorAction::Press(bevy::math::Vec2::new(100.0, 80.0)),
+                EditorAction::Release,
+            ]
+        );
+    }
+
+    #[test]
+    fn editor_flags_are_checked() {
+        for bad in [
+            "--editor-script s.json",
+            "--editor m.json --scenario empty",
+            "--editor --map m.json",
+            "--editor --scenario nowhere",
+            "--editor --screenshot 5:a.png",
+            "--editor --exit-at-tick 3 --headless",
+        ] {
+            assert!(into_config(parse(&args(bad)).unwrap()).is_err(), "{bad}");
+        }
+        assert!(into_config(parse(&args("--editor --headless --exit-at-tick 0")).unwrap()).is_ok());
     }
 
     #[test]

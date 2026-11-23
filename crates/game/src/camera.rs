@@ -1,8 +1,11 @@
 //! The world camera and the UI camera (`core/camera.md`, `ARCHITECTURE.md > Client architecture > Camera`).
 //!
-//! The world camera is orthographic and shows exactly [`VIEW_WIDTH_GU`] horizontally. Its viewport is the strip
-//! between the active mode's UI bars ([`ViewportInsets`]), so the visible height follows from the aspect ratio. A
-//! second, full-surface camera renders only UI, because bevy_ui lays out each root node inside its camera's viewport.
+//! The world camera is orthographic and shows exactly [`VIEW_WIDTH_GU`] horizontally. Its viewport is the area the
+//! active mode's UI leaves free ([`ViewportInsets`]), so the visible height follows from the aspect ratio. A second,
+//! full-surface camera renders only UI, because bevy_ui lays out each root node inside its camera's viewport.
+//!
+//! The game has no zoom (`core/camera.md > Zoom`). The map editor has its own: [`CameraZoom`] scales the view
+//! relative to the game's pixel scale, 28 GU across the full surface width.
 
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{ScalingMode, Viewport};
@@ -28,12 +31,26 @@ pub struct WorldCamera;
 #[derive(Component)]
 pub struct UiCamera;
 
-/// The parts of the surface covered by the active mode's UI bars, in percent of the surface height. The world
-/// view is the strip between them (`core/camera.md > Zoom`). The game HUD sets them; an editor sets its own.
+/// The parts of the surface covered by the active mode's UI, in percent of the surface height (`vh`, also for the
+/// sides). The world view is the area between them (`core/camera.md > Zoom`). The game HUD sets its top and bottom
+/// bars; the map editor also covers the sides with its panels.
 #[derive(Resource, Copy, Clone, Debug, Default, PartialEq)]
 pub struct ViewportInsets {
     pub top_vh: f32,
     pub bottom_vh: f32,
+    pub left_vh: f32,
+    pub right_vh: f32,
+}
+
+/// Map editor zoom: how many times more world the view shows than the game, whose scale is 28 GU across the full
+/// surface width (`core/camera.md > Zoom`). Always 1 in the game, which has no zoom.
+#[derive(Resource, Copy, Clone, Debug, PartialEq)]
+pub struct CameraZoom(pub f32);
+
+impl Default for CameraZoom {
+    fn default() -> Self {
+        Self(1.0)
+    }
 }
 
 /// Where the camera looks: the view's center in sim space units. The camera's transform derives from it.
@@ -47,6 +64,7 @@ pub struct GameCameraPlugin;
 impl Plugin for GameCameraPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ViewportInsets>()
+            .init_resource::<CameraZoom>()
             .add_systems(Startup, (init_camera_view, spawn_cameras))
             .add_systems(Update, pan_camera.in_set(ClientSystems::Actions))
             .add_systems(Update, apply_camera.in_set(ClientSystems::Present));
@@ -55,13 +73,12 @@ impl Plugin for GameCameraPlugin {
 
 /// `core/camera.md > Starting Position`: the map's starting camera position for the local player's slot, else the
 /// player's primary starting structure. No starting structures exist yet (they arrive with the faction
-/// milestones), so the map center stands in for them.
+/// milestones), so the slot's start location stands in for them (the Q0004 placeholder for where its base goes),
+/// and the map center for a slot without one.
 pub fn start_center(scenario: &Scenario, player: PlayerId, map: &Map) -> Vec2 {
-    scenario
-        .players
-        .iter()
-        .find(|p| p.id == player)
-        .and_then(|p| p.camera_start)
+    let slot = scenario.players.iter().find(|p| p.id == player);
+    slot.and_then(|p| p.camera_start)
+        .or_else(|| slot.and_then(|p| p.start_location).map(|t| t.center()))
         .unwrap_or_else(|| map_extent_su(map) / 2.0)
 }
 
@@ -70,23 +87,43 @@ pub fn map_extent_su(map: &Map) -> Vec2 {
     Vec2::new(map.width() as f32, map.height() as f32) * SU_PER_GU
 }
 
-/// The world camera's viewport (physical position and size): the full surface width, between the UI bars. Its
-/// edges round outwards, under the bars, so no seam shows between the view and a bar.
+/// The world camera's viewport (physical position and size): the area between the UI's insets. Its edges round
+/// outwards, under the UI, so no seam shows between the view and a bar.
 pub fn viewport_rect(size: SurfaceSize, insets: ViewportInsets) -> (UVec2, UVec2) {
-    let width = size.physical.x.max(1);
+    let width = size.physical.x.max(1) as f32;
     let height = size.physical.y.max(1) as f32;
-    let top = (height * insets.top_vh / 100.0).floor().clamp(0.0, height - 1.0);
-    let bottom = (height * (1.0 - insets.bottom_vh / 100.0))
-        .ceil()
-        .clamp(top + 1.0, height);
-    (UVec2::new(0, top as u32), UVec2::new(width, (bottom - top) as u32))
+    let vh = height / 100.0;
+    let top = (insets.top_vh * vh).floor().clamp(0.0, height - 1.0);
+    let bottom = (height - insets.bottom_vh * vh).ceil().clamp(top + 1.0, height);
+    let left = (insets.left_vh * vh).floor().clamp(0.0, width - 1.0);
+    let right = (width - insets.right_vh * vh).ceil().clamp(left + 1.0, width);
+    (
+        UVec2::new(left as u32, top as u32),
+        UVec2::new((right - left) as u32, (bottom - top) as u32),
+    )
 }
 
-/// The world area a viewport of `viewport_size` shows, in space units: 28 GU wide, height by aspect ratio.
-pub fn visible_extent_su(viewport_size: UVec2) -> Vec2 {
-    let width = gu(VIEW_WIDTH_GU);
+/// The world area a viewport of `viewport_size` shows, in space units, on a surface `surface_width` pixels wide. At
+/// zoom 1 that is the game's scale, 28 GU across the full surface width, so a full-width viewport shows exactly
+/// 28 GU. The height follows from the aspect ratio.
+pub fn visible_extent_su(viewport_size: UVec2, surface_width: u32, zoom: f32) -> Vec2 {
     let size = viewport_size.max(UVec2::ONE).as_vec2();
+    let width = gu(VIEW_WIDTH_GU) * zoom * size.x / surface_width.max(1) as f32;
     Vec2::new(width, width * size.y / size.x)
+}
+
+/// The sim position under a cursor at `cursor` (logical pixels from the surface's top-left corner), or `None`
+/// outside the world viewport. `center` is the view's clamped center ([`CameraView`]).
+pub fn cursor_to_sim(cursor: Vec2, size: SurfaceSize, insets: ViewportInsets, center: Vec2, zoom: f32) -> Option<Vec2> {
+    let (position, viewport) = viewport_rect(size, insets);
+    let local = cursor * size.scale_factor - position.as_vec2();
+    let inside = local.cmpge(Vec2::ZERO).all() && local.cmplt(viewport.as_vec2()).all();
+    if !local.is_finite() || !inside {
+        return None;
+    }
+    let su_per_pixel = visible_extent_su(viewport, size.physical.x, zoom).x / viewport.x as f32;
+    // Screen +y points down, like sim +y.
+    Some(center + (local - viewport.as_vec2() / 2.0) * su_per_pixel)
 }
 
 /// Keeps the view on the map: each axis is clamped so the view stays inside the map, or centered on the map when
@@ -138,8 +175,8 @@ fn spawn_cameras(mut commands: Commands, surface: Res<RenderSurface>) {
 }
 
 /// `core/camera.md > Panning`: pans while a pan action is held. Real time, so panning works while the sim is paused
-/// or running fast.
-fn pan_camera(actions: Res<ActionState>, time: Res<Time<Real>>, mut view: ResMut<CameraView>) {
+/// or running fast. A zoomed-out editor view pans as many pixels per second as the game's view.
+fn pan_camera(actions: Res<ActionState>, time: Res<Time<Real>>, zoom: Res<CameraZoom>, mut view: ResMut<CameraView>) {
     let mut direction = Vec2::ZERO; // sim space: +y is south
     for (action, step) in [
         (InputAction::PanLeft, Vec2::NEG_X),
@@ -152,27 +189,41 @@ fn pan_camera(actions: Res<ActionState>, time: Res<Time<Real>>, mut view: ResMut
         }
     }
     if direction != Vec2::ZERO {
-        view.center += direction.normalize() * gu(PAN_SPEED_GU_PER_SECOND) * time.delta_secs();
+        view.center += direction.normalize() * gu(PAN_SPEED_GU_PER_SECOND) * zoom.0 * time.delta_secs();
     }
 }
 
-/// Clamps the view to the map and puts the world camera's viewport and transform where they belong.
+/// Clamps the view to the map and puts the world camera's viewport, scale and transform where they belong.
 fn apply_camera(
     size: Res<SurfaceSize>,
     insets: Res<ViewportInsets>,
+    zoom: Res<CameraZoom>,
     sim: Res<SimRes>,
     mut view: ResMut<CameraView>,
-    mut camera: Query<(&mut Camera, &mut Transform), With<WorldCamera>>,
+    mut camera: Query<(&mut Camera, &mut Projection, &mut Transform), With<WorldCamera>>,
 ) {
     let (position, viewport_size) = viewport_rect(*size, *insets);
-    let visible = visible_extent_su(viewport_size);
+    let visible = visible_extent_su(viewport_size, size.physical.x, zoom.0);
     let center = clamp_center(view.center, visible, map_extent_su(sim.map()));
     if center != view.center {
         view.center = center;
     }
-    let Ok((mut camera, mut transform)) = camera.single_mut() else {
+    let Ok((mut camera, mut projection, mut transform)) = camera.single_mut() else {
         return;
     };
+    // Compared before writing, so an unchanged projection isn't marked changed.
+    let stale = match &*projection {
+        Projection::Orthographic(o) => !matches!(
+            o.scaling_mode,
+            ScalingMode::FixedHorizontal { viewport_width } if viewport_width == visible.x
+        ),
+        _ => false,
+    };
+    if stale && let Projection::Orthographic(ortho) = &mut *projection {
+        ortho.scaling_mode = ScalingMode::FixedHorizontal {
+            viewport_width: visible.x,
+        };
+    }
     let unchanged = camera
         .viewport
         .as_ref()
@@ -196,6 +247,7 @@ fn apply_camera(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sc_sim::{TilePos, scenarios};
 
     fn surface(w: u32, h: u32) -> SurfaceSize {
         SurfaceSize {
@@ -209,18 +261,71 @@ mod tests {
         let insets = ViewportInsets {
             top_vh: 4.0,
             bottom_vh: 24.0,
+            ..default()
         };
         let (pos, size) = viewport_rect(surface(1280, 720), insets);
         assert_eq!(pos, UVec2::new(0, 28)); // 28.8 rounds up under the top bar
         assert_eq!(size, UVec2::new(1280, 548 - 28)); // 547.2 rounds down under the bottom bar
         let (pos, size) = viewport_rect(surface(800, 600), ViewportInsets::default());
         assert_eq!((pos, size), (UVec2::ZERO, UVec2::new(800, 600)));
+        // Side panels: 10 vh is 60 px of a 600 px tall surface.
+        let sides = ViewportInsets {
+            left_vh: 10.0,
+            right_vh: 20.0,
+            ..default()
+        };
+        assert_eq!(
+            viewport_rect(surface(800, 600), sides),
+            (UVec2::new(60, 0), UVec2::new(800 - 60 - 120, 600))
+        );
     }
 
     #[test]
     fn view_is_28_gu_wide_and_as_tall_as_the_aspect_ratio_allows() {
-        let visible = visible_extent_su(UVec2::new(1400, 700));
+        let visible = visible_extent_su(UVec2::new(1400, 700), 1400, 1.0);
         assert_eq!(visible, Vec2::new(28.0 * 64.0, 14.0 * 64.0));
+        // A narrower viewport keeps the game's scale; zooming out shows more.
+        assert_eq!(
+            visible_extent_su(UVec2::new(700, 700), 1400, 1.0),
+            Vec2::splat(14.0 * 64.0)
+        );
+        assert_eq!(
+            visible_extent_su(UVec2::new(700, 700), 1400, 2.0),
+            Vec2::splat(28.0 * 64.0)
+        );
+    }
+
+    #[test]
+    fn the_cursor_maps_to_the_sim_point_under_it() {
+        let insets = ViewportInsets {
+            top_vh: 10.0,
+            left_vh: 20.0,
+            ..default()
+        };
+        let size = surface(1000, 500); // viewport at (100, 50), 900 × 450 px
+        let center = Vec2::new(2000.0, 1000.0);
+        let su_per_px = gu(VIEW_WIDTH_GU) / 1000.0;
+        let at = |x, y| cursor_to_sim(Vec2::new(x, y), size, insets, center, 1.0);
+        assert_eq!(at(550.0, 275.0), Some(center));
+        assert_eq!(at(100.0, 50.0), Some(center - Vec2::new(450.0, 225.0) * su_per_px));
+        assert_eq!(at(99.0, 300.0), None, "left of the viewport");
+        assert_eq!(at(500.0, 40.0), None, "under the top bar");
+        assert_eq!(at(f32::NAN, 300.0), None);
+        let zoomed = cursor_to_sim(Vec2::new(100.0, 275.0), size, insets, center, 2.0).unwrap();
+        assert_eq!(zoomed, center - Vec2::new(450.0 * su_per_px * 2.0, 0.0));
+    }
+
+    #[test]
+    fn the_start_falls_back_from_camera_start_to_start_location_to_map_center() {
+        let mut scenario = scenarios::empty(20, 10);
+        scenario.players[0].camera_start = Some(Vec2::new(100.0, 200.0));
+        scenario.players[1].start_location = Some(TilePos::new(3, 4));
+        let map = scenario.map.clone();
+        assert_eq!(start_center(&scenario, PlayerId(1), &map), Vec2::new(100.0, 200.0));
+        assert_eq!(start_center(&scenario, PlayerId(2), &map), TilePos::new(3, 4).center());
+        scenario.players[1].start_location = None;
+        assert_eq!(start_center(&scenario, PlayerId(2), &map), Vec2::new(640.0, 320.0));
+        assert_eq!(start_center(&scenario, PlayerId(9), &map), Vec2::new(640.0, 320.0));
     }
 
     #[test]

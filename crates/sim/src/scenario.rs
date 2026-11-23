@@ -10,6 +10,7 @@
 //! Reading checks the format only: run [`Scenario::validate`] (or [`crate::Sim::try_new`])
 //! before using a loaded scenario.
 
+mod edit;
 mod validate;
 
 use glam::Vec2;
@@ -22,8 +23,9 @@ use crate::map::Map;
 use crate::player::Faction;
 use crate::units::TilePos;
 
-pub(crate) use validate::place_spawn;
+pub use edit::ResizeReport;
 pub use validate::{ScenarioProblem, SpawnProblem};
+pub(crate) use validate::{locate, place_spawn};
 
 /// Version of the scenario file format. Bump it on any incompatible change.
 pub const SCENARIO_FORMAT_VERSION: u32 = 1;

@@ -5,8 +5,11 @@
 
 use std::collections::BTreeSet;
 
+use bevy::ecs::system::SystemParam;
 use bevy::input::InputSystems;
+use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
+use bevy::text::EditableText;
 use bevy::window::PrimaryWindow;
 
 /// Everything the player can ask the client to do.
@@ -88,10 +91,25 @@ impl Plugin for ActionInputPlugin {
     }
 }
 
+/// Whether a text field (the map editor's) has the keyboard: keys then type text instead of triggering actions.
+#[derive(SystemParam)]
+pub struct TextFocus<'w, 's> {
+    focus: Option<Res<'w, InputFocus>>,
+    text_fields: Query<'w, 's, (), With<EditableText>>,
+}
+
+impl TextFocus<'_, '_> {
+    pub fn typing(&self) -> bool {
+        let focused = self.focus.as_ref().and_then(|f| f.get());
+        focused.is_some_and(|e| self.text_fields.contains(e))
+    }
+}
+
 fn update_action_state(
     raw: Res<RawInput>,
     keys: Option<Res<ButtonInput<KeyCode>>>,
     window: Query<&Window, With<PrimaryWindow>>,
+    text_focus: TextFocus,
     mut injected: ResMut<InjectedActions>,
     mut state: ResMut<ActionState>,
 ) {
@@ -99,7 +117,9 @@ fn update_action_state(
     state.held.clear();
     state.just_pressed.clear();
     if raw.enabled {
-        if let Some(keys) = keys {
+        if let Some(keys) = keys
+            && !text_focus.typing()
+        {
             for &(key, action) in KEY_BINDINGS {
                 if keys.pressed(key) {
                     state.held.insert(action);

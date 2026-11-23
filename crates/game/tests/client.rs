@@ -173,8 +173,14 @@ fn the_camera_starts_at_the_players_camera_start() {
     let mut app = headless(config);
     app.update();
     assert_eq!(camera_center(&app), TilePos::new(40, 30).center());
-    // Player 1 has no camera start and no starting structure yet: the map center stands in.
+    // Player 1 has no camera start and no starting structure yet: its start location stands in.
     let mut app = headless_app(scenarios::empty(64, 48));
+    app.update();
+    assert_eq!(camera_center(&app), TilePos::new(16, 12).center());
+    // Without a start location, the map center.
+    let mut scenario = scenarios::empty(64, 48);
+    scenario.players[0].start_location = None;
+    let mut app = headless_app(scenario);
     app.update();
     assert_eq!(camera_center(&app), Vec2::new(32.0, 24.0) * 64.0);
 }
@@ -199,10 +205,12 @@ fn injected_pan_actions_move_the_camera_and_it_stays_clamped() {
         insets,
         ViewportInsets {
             top_vh: TOP_BAR_HEIGHT_VH,
-            bottom_vh: HUD_BAR_HEIGHT_VH
+            bottom_vh: HUD_BAR_HEIGHT_VH,
+            left_vh: 0.0,
+            right_vh: 0.0,
         }
     );
-    let visible = visible_extent_su(viewport_rect(size, insets).1);
+    let visible = visible_extent_su(viewport_rect(size, insets).1, size.physical.x, 1.0);
     let map = Vec2::new(64.0, 48.0) * 64.0;
     assert_eq!(camera_center(&app), Vec2::new(map.x - visible.x / 2.0, start.y));
 

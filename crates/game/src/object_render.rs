@@ -52,7 +52,7 @@ pub fn object_transform(pos: Vec2, facing: f32) -> Transform {
 }
 
 /// The placeholder shape of each object kind, centered on the object's position.
-fn placeholder_mesh(kind: ObjectKind) -> Mesh {
+pub fn placeholder_mesh(kind: ObjectKind) -> Mesh {
     match kind {
         ObjectKind::CrystalPatch => crystal_patch_mesh(),
         ObjectKind::SupplyDeliveryStation => supply_station_mesh(),

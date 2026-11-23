@@ -234,11 +234,13 @@ out by the same rules.
   per indicator, because the old prototype ran out of memory doing that.
 
 **Camera**: the camera is orthographic and shows exactly 28 GU horizontally (`core/camera.md > Zoom`; see
-`ScalingMode::FixedHorizontal`). Its viewport is the area between the top and bottom HUD bars, so the visible height
-follows from the aspect ratio. It pans with the arrow keys and at the screen edge, with bindings and speed pending in
-Q0002, and it stays clamped to the map. Centering on something snaps instantly (`core/camera.md > Panning`). The
-camera starts at `PlayerSetup::camera_start`, or else at the primary starting structure
-(`core/camera.md > Starting Position`).
+`ScalingMode::FixedHorizontal`). Its viewport is the area between the UI bars (`ViewportInsets`: the top and bottom
+HUD bars in the game, the editor's panels in the editor), so the visible height follows from the aspect ratio. It
+pans with the arrow keys and at the screen edge, with bindings and speed pending in Q0002, and it stays clamped to
+the map. Centering on something snaps instantly (`core/camera.md > Panning`). The camera starts at
+`PlayerSetup::camera_start`, or else at the primary starting structure (`core/camera.md > Starting Position`). Until
+starting structures exist, the slot's start location stands in for it, and the map centre for a slot without one
+(`camera::start_center`). Only the editor zooms (`CameraZoom`).
 
 **HUD**: built with bevy_ui (`core/camera.md > HUD Layout`). It has a top resource bar and, at the bottom, the HUD
 Bar with five fixed sections. From left to right they are Minimap, Portrait, InfoPanel, SelectionPanel and
@@ -279,7 +281,9 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | Flag | Effect |
 |---|---|
 | `--scenario <name>` | Starts a built-in scenario (`sc_sim::scenarios::NAMES`). Default `dev_skirmish`. |
-| `--map <file.json>` | Starts a `Scenario` read from JSON (`sc_sim`'s serde format) instead. Excludes `--scenario`. |
+| `--map <file.json>` | Starts a `Scenario` read from JSON (`sc_sim`'s serde format) instead. Excludes `--scenario`. Exits with code 2, listing the problems, if `Sim::try_new` rejects it. |
+| `--editor [file.json]` | Opens the map editor (see Map editor) on that file, or on a new map. |
+| `--editor-script <file.json>` | Applies a JSON list of `EditorAction`s in the editor's first frame. |
 | `--player <n>` | Shows player `n`'s view: camera start, top bar. Default 1. |
 | `--window-size <W>x<H>` | Window or offscreen image size in physical pixels. Default `1280x720`. |
 | `--fast` | Runs as many ticks per frame as fit in 50 ms instead of 16 per second. Screenshots are unchanged. |
@@ -306,6 +310,44 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
 - `--windowed` runs turn vsync off: with the display asleep, X11 paces a vsynced window at one frame per second.
 - Verify visual work yourself. Capture screenshots and look at the PNGs with the Read tool before you report.
 - To look at another part of a map, write a scenario JSON with a different `camera_start` and pass it with `--map`.
+
+## Map editor
+
+`cargo run -- --editor [file.json]` opens the map editor (`crates/game/src/editor.rs` and `editor/`). It edits a
+`Scenario` and saves it in the scenario file format above. F1 in the editor lists the mouse and keys.
+
+- **Starting**: with a file that exists, the editor opens it. With a file that doesn't exist yet, it starts a new map
+  that Ctrl+S saves there. Without a file, it starts a new 64×48 map, and `--editor --scenario <name>` opens a
+  built-in scenario. A file that doesn't parse exits with code 2. A file that parses but fails validation still
+  opens, with its problems listed, so that it can be fixed.
+- **Files**: maps live in `maps/` at the repository root (`editor::files::default_maps_dir`), and new maps are saved
+  as `maps/<name>.json`. `maps/dev_skirmish.json` is the built-in `dev_skirmish` saved by the editor. A test checks
+  that every map in `maps/` is playable and that this one still matches the built-in.
+- **Actions**: every change is an `EditorAction` (`editor/actions.rs`), queued in the `EditorActions` resource and
+  applied in `EditorSystems::Apply`. Keys, the mouse and the UI's buttons only queue actions. The edits are plain
+  functions (`editor/terrain.rs`, `editor/objects.rs`) and sim-side helpers (`Map::resize`, `Map::connected_region`,
+  `Scenario::resize_map`, `add_player`, `remove_player`).
+- **Document**: `EditorDoc` holds the scenario, its file and the undo history, with one snapshot per completed action
+  (a whole stroke, drag or field edit). When the document changes, the editor replaces the sim with
+  `Sim::preview(scenario)`. That is a sim at tick 0 that shows every spawn that fits on the map, even when the map is
+  invalid, so the game's map and object rendering show the document.
+- **Modes**: `ClientMode` is `Game`, `Editor` or `PlayTest`, and only the HUD and the editor look at it. F5 starts a
+  play-test: `Sim::try_new` on the document, as the player of the selected slot, at the game's zoom. Esc or F5 returns
+  to the editor with the document, its history and the view unchanged.
+- **Tests** (`crates/game/tests/editor/`) build a headless app with `AppConfig::editor`, push `EditorAction`s into
+  `EditorActions`, call `app.update()`, and assert on `EditorDoc`, the sim, the view and the UI state. Positions are
+  sim coordinates, such as `TilePos::center()`. Never inject raw input.
+- **QA**: `--editor-script` applies its actions in the first frame, before any screenshot. The editor's sim stays at
+  tick 0, so take screenshots at tick 0 unless the script play-tests (`"PlayTest"`).
+
+```sh
+echo '["FitMap", {"SetTool": "Paint"}, {"Press": [100.0, 80.0]}, "Release"]' > /path/to/edits.json
+cargo run -- --editor maps/dev_skirmish.json --editor-script /path/to/edits.json --screenshot 0:/path/to/editor.png
+```
+
+- **UI**: bevy_ui with Bevy's `bevy_ui_widgets` feature (headless `Button`, `TextInput` and `ScrollArea`) and
+  `ui_picking`. The player slot colours, UI sizes, `MAX_SLOTS`, `NEW_MAP_SIZE` and `MAX_MAP_SIDE` are placeholders,
+  and so are start locations (Q0004).
 
 ## Code conventions
 

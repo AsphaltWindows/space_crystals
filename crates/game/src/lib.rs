@@ -1,23 +1,25 @@
 //! # space_crystals — the Bevy client
 //!
-//! Draws the deterministic simulation (`sc_sim`), turns input into commands, and hosts the HUD and QA mode. Read
-//! `ARCHITECTURE.md > Client architecture` before changing anything here.
+//! Draws the deterministic simulation (`sc_sim`), turns input into commands, and hosts the HUD, the map editor and
+//! QA mode. Read `ARCHITECTURE.md > Client architecture` before changing anything here.
 //!
 //! [`build_app`] assembles one plugin per feature module:
 //! - [`platform`]: a window, an offscreen image (QA) or no rendering at all (tests);
 //! - [`sim_driver`]: owns the `Sim` and steps it in `FixedUpdate`, 16 ticks per second;
 //! - [`input`]: raw keys and the screen edge become [`input::InputAction`]s;
-//! - [`camera`]: the world camera (28 GU wide, between the UI bars) and the UI camera;
+//! - [`camera`]: the world camera (28 GU wide, between the UI) and the UI camera;
 //! - [`map_render`]: the terrain mesh and the grid overlay;
 //! - [`object_render`]: placeholder visuals of sim objects;
 //! - [`hud`]: the game mode's HUD frame;
+//! - [`editor`]: the map editor (`--editor`), with its own UI, tools and play-test;
 //! - [`qa`]: screenshots, exit at a tick, state dump.
 //!
-//! Everything except [`hud`] is independent of the game mode, so a map editor can reuse it with its own UI.
+//! Everything except [`hud`] and [`editor`] is independent of the mode ([`ClientMode`]).
 
 pub mod camera;
 pub mod cli;
 pub mod coords;
+pub mod editor;
 pub mod hud;
 pub mod input;
 pub mod map_render;
@@ -31,6 +33,7 @@ use bevy::prelude::*;
 use sc_sim::{PlayerId, Scenario};
 
 use crate::camera::GameCameraPlugin;
+use crate::editor::{EditorConfig, EditorPlugin};
 use crate::hud::HudPlugin;
 use crate::input::ActionInputPlugin;
 use crate::map_render::MapRenderPlugin;
@@ -52,11 +55,30 @@ pub enum ClientSystems {
     Qa,
 }
 
+/// What the client is doing.
+#[derive(Resource, Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ClientMode {
+    /// Playing a scenario.
+    Game,
+    /// Editing a map (`--editor`): the sim shows the map, paused at tick 0.
+    Editor,
+    /// Playing the edited map from the editor, which comes back afterwards.
+    PlayTest,
+}
+
+impl ClientMode {
+    /// A game is running, with the game's HUD and camera: a normal game or an editor play-test.
+    pub fn is_game(self) -> bool {
+        self != ClientMode::Editor
+    }
+}
+
 /// Everything [`build_app`] needs to know.
 #[derive(Clone, Debug)]
 pub struct AppConfig {
+    /// The scenario to play, or the map to edit.
     pub scenario: Scenario,
-    /// Whose view the client shows.
+    /// Whose view the client shows. In the editor: the slot play-tests start as.
     pub player: PlayerId,
     pub display: DisplayMode,
     /// Physical size of the window or offscreen image.
@@ -64,6 +86,8 @@ pub struct AppConfig {
     pub qa: QaConfig,
     /// Run as many ticks per frame as possible.
     pub fast: bool,
+    /// Edit `scenario` in the map editor instead of playing it.
+    pub editor: Option<EditorConfig>,
 }
 
 impl AppConfig {
@@ -76,6 +100,15 @@ impl AppConfig {
             window_size: cli::DEFAULT_WINDOW_SIZE,
             qa: QaConfig::default(),
             fast: false,
+            editor: None,
+        }
+    }
+
+    /// The map editor on `scenario` in a 1280×720 window, without QA.
+    pub fn editor(scenario: Scenario, editor: EditorConfig) -> Self {
+        Self {
+            editor: Some(editor),
+            ..Self::new(scenario)
         }
     }
 }
@@ -84,6 +117,7 @@ impl AppConfig {
 /// `App::cleanup`, which the runners otherwise call).
 pub fn build_app(config: AppConfig) -> App {
     let qa_run = config.qa.is_active();
+    let editing = config.editor.is_some();
     let mut app = App::new();
     app.add_plugins(PlatformPlugin {
         display: config.display,
@@ -101,12 +135,14 @@ pub fn build_app(config: AppConfig) -> App {
         )
             .chain(),
     )
+    .insert_resource(if editing { ClientMode::Editor } else { ClientMode::Game })
     // Mode-independent: everything a view of the map needs.
     .add_plugins((
         SimDriverPlugin {
-            scenario: config.scenario,
+            scenario: config.scenario.clone(),
             player: config.player,
             fast: config.fast,
+            preview: editing,
         },
         ActionInputPlugin { raw_input: !qa_run },
         GameCameraPlugin,
@@ -114,7 +150,13 @@ pub fn build_app(config: AppConfig) -> App {
         ObjectRenderPlugin,
         QaPlugin { config: config.qa },
     ))
-    // The game mode.
+    // The game mode; the editor hides the HUD except in its play-tests.
     .add_plugins(HudPlugin);
+    if let Some(editor) = config.editor {
+        app.add_plugins(EditorPlugin {
+            config: editor,
+            scenario: config.scenario,
+        });
+    }
     app
 }

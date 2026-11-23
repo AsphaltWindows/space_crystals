@@ -187,7 +187,7 @@ pub(crate) fn place_spawn(
 }
 
 /// Where an object with `footprint` goes when spawned `at`, if that fits the map.
-fn locate(map: &Map, footprint: Footprint, at: SpawnAt) -> Result<SpawnSpot, SpawnProblem> {
+pub(crate) fn locate(map: &Map, footprint: Footprint, at: SpawnAt) -> Result<SpawnSpot, SpawnProblem> {
     match (footprint, at) {
         (Footprint::Tiles { w, h }, SpawnAt::Tile(origin)) => {
             // 64-bit sums: no overflow, whatever the origin.

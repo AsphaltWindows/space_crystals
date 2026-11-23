@@ -7,10 +7,11 @@
 //! section shows its name.
 //!
 //! The HUD is specific to the game mode: it tells the camera which strip it leaves free through
-//! [`ViewportInsets`], and another mode (the map editor) can bring its own UI instead.
+//! [`ViewportInsets`], and another mode (the map editor) brings its own UI instead and hides the HUD.
 
 use bevy::prelude::*;
 
+use crate::ClientMode;
 use crate::camera::ViewportInsets;
 use crate::sim_driver::{LocalPlayer, SimRes};
 
@@ -84,22 +85,43 @@ pub struct TopBar;
 #[derive(Component)]
 pub struct HudBar;
 
+/// The HUD's top-level nodes: the top bar and the HUD Bar.
+#[derive(Component)]
+pub struct HudRoot;
+
 #[derive(Component)]
 struct PlayerNameText;
 
 #[derive(Component)]
 struct TickText;
 
+/// The strip the HUD leaves for the world view: everything between its two bars.
+pub const HUD_INSETS: ViewportInsets = ViewportInsets {
+    top_vh: TOP_BAR_HEIGHT_VH,
+    bottom_vh: HUD_BAR_HEIGHT_VH,
+    left_vh: 0.0,
+    right_vh: 0.0,
+};
+
 pub struct HudPlugin;
 
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(ViewportInsets {
-            top_vh: TOP_BAR_HEIGHT_VH,
-            bottom_vh: HUD_BAR_HEIGHT_VH,
-        })
-        .add_systems(Startup, spawn_hud)
-        .add_systems(Update, update_top_bar);
+        app.insert_resource(HUD_INSETS)
+            .add_systems(Startup, spawn_hud)
+            .add_systems(Update, (update_top_bar, show_hud_in_game_modes));
+    }
+}
+
+/// The HUD belongs to the game: the map editor hides it, and its play-test shows it.
+fn show_hud_in_game_modes(mode: Res<ClientMode>, mut bars: Query<&mut Visibility, With<HudRoot>>) {
+    let visibility = if mode.is_game() {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    };
+    for mut v in &mut bars {
+        v.set_if_neq(visibility);
     }
 }
 
@@ -115,6 +137,7 @@ fn spawn_hud(mut commands: Commands) {
     commands.spawn((
         Name::new("Top bar"),
         TopBar,
+        HudRoot,
         Node {
             position_type: PositionType::Absolute,
             top: px(0),
@@ -137,6 +160,7 @@ fn spawn_hud(mut commands: Commands) {
         .spawn((
             Name::new("HUD Bar"),
             HudBar,
+            HudRoot,
             Node {
                 position_type: PositionType::Absolute,
                 bottom: px(0),
