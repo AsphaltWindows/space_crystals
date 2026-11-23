@@ -23,6 +23,8 @@ pub enum InputAction {
     GrabPan,
     /// Shows or hides the tile grid overlay (a development view).
     ToggleGrid,
+    /// Shows or hides each unit's remaining path (a development view, [`crate::path_overlay`]).
+    TogglePaths,
     /// The primary pointer action: select by clicking (`systems/controls/selection_and_hud.md > MapClickSelection`)
     /// or by dragging a box (`> BoxSelection`), or pick the target of a pending command (`> AwaitingTarget`). Its
     /// clicks and boxes arrive as [`super::MapClick`]s and [`super::SelectionBox`]es.

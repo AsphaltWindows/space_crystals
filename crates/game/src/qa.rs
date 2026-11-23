@@ -11,14 +11,14 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy::window::ExitSystems;
-use sc_sim::{Map, Object, Player, PlayerId, SimEvent, Tick};
-use serde::Serialize;
+use sc_sim::{Command, Map, Object, Player, PlayerCommand, PlayerId, SimEvent, Tick};
+use serde::{Deserialize, Serialize};
 
 use crate::ClientSystems;
 use crate::camera::CameraView;
 use crate::map_render::MapView;
 use crate::platform::RenderSurface;
-use crate::sim_driver::{LoadedScenario, LocalPlayer, RecordedInputs, SimControl, SimRes};
+use crate::sim_driver::{LoadedScenario, LocalPlayer, PendingCommands, RecordedInputs, SimControl, SimRes, StepSim};
 
 /// Frames to wait at a screenshot tick before capturing. With synchronous pipeline compilation the first frame is
 /// already complete; the margin covers window setup and text layout.
@@ -37,13 +37,47 @@ pub struct QaConfig {
     pub screenshots: Vec<ScreenshotRequest>,
     pub exit_at_tick: Option<Tick>,
     pub dump_state: Option<PathBuf>,
+    /// `--commands`: player commands to apply at given ticks.
+    pub commands: Vec<TimedCommand>,
+    /// `--show-paths`: the path overlay is on from the start (QA runs ignore the keyboard). A view option: it
+    /// doesn't make a QA run by itself.
+    pub show_paths: bool,
 }
 
 impl QaConfig {
     /// Any QA flag makes a reproducible run: raw input off, offscreen rendering unless a window is asked for.
     pub fn is_active(&self) -> bool {
-        !self.screenshots.is_empty() || self.exit_at_tick.is_some() || self.dump_state.is_some()
+        !self.screenshots.is_empty()
+            || self.exit_at_tick.is_some()
+            || self.dump_state.is_some()
+            || !self.commands.is_empty()
     }
+}
+
+/// One entry of a `--commands` file: `command` from `player`, applied by the step that advances the sim to `tick`
+/// (the first is tick 1). E.g. `{"tick": 2, "player": 1, "command": {"Order": {"units": [18], "kind": {"Move":
+/// {"Point": [480, 288]}}, "queue": false}}}`. Commands go through the sim's gate like any other.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TimedCommand {
+    pub tick: Tick,
+    pub player: PlayerId,
+    pub command: Command,
+}
+
+/// Reads a `--commands` file: a JSON list of [`TimedCommand`]s, any order (the same tick keeps file order).
+pub fn load_commands(path: &Path) -> Result<Vec<TimedCommand>, String> {
+    let text = std::fs::read_to_string(path).map_err(|e| format!("can't read {}: {e}", path.display()))?;
+    let commands: Vec<TimedCommand> =
+        serde_json::from_str(&text).map_err(|e| format!("{} is not a list of timed commands: {e}", path.display()))?;
+    if let Some(early) = commands.iter().find(|c| c.tick == 0) {
+        return Err(format!(
+            "{}: a command at tick 0 ({:?}) never applies: the first step is tick 1",
+            path.display(),
+            early.command
+        ));
+    }
+    Ok(commands)
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -69,6 +103,8 @@ pub struct QaState {
     dump_state: Option<PathBuf>,
     exit_requested: bool,
     dumped: bool,
+    /// `--commands` still to apply, by tick.
+    commands: VecDeque<TimedCommand>,
     /// Screenshots written so far.
     pub saved: Vec<PathBuf>,
     /// What went wrong. Any failure makes the run exit with an error code.
@@ -79,6 +115,8 @@ impl QaState {
     pub fn new(config: QaConfig) -> Self {
         let mut screenshots = config.screenshots;
         screenshots.sort_by_key(|s| s.tick);
+        let mut commands = config.commands;
+        commands.sort_by_key(|c| c.tick); // Stable: a tick's commands keep their order.
         Self {
             pending: screenshots.into(),
             phase: CapturePhase::Idle,
@@ -86,6 +124,7 @@ impl QaState {
             dump_state: config.dump_state,
             exit_requested: false,
             dumped: false,
+            commands: commands.into(),
             saved: Vec::new(),
             failures: Vec::new(),
         }
@@ -124,6 +163,7 @@ pub struct QaPlugin {
 impl Plugin for QaPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(QaState::new(self.config.clone()))
+            .add_systems(FixedUpdate, inject_commands.before(StepSim))
             .add_systems(Startup, hold_at_next_stop)
             .add_systems(
                 Update,
@@ -132,6 +172,17 @@ impl Plugin for QaPlugin {
                     .in_set(ClientSystems::Qa),
             )
             .add_systems(Last, dump_state_on_exit.after(ExitSystems));
+    }
+}
+
+/// `--commands`: hands the commands of the next tick to the step that applies them (a held sim keeps them pending).
+fn inject_commands(mut qa: ResMut<QaState>, sim: Res<SimRes>, mut pending: ResMut<PendingCommands>) {
+    let next = sim.tick() + 1;
+    while let Some(c) = qa.commands.pop_front_if(|c| c.tick <= next) {
+        pending.0.push(PlayerCommand {
+            player: c.player,
+            command: c.command,
+        });
     }
 }
 

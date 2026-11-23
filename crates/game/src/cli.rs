@@ -35,6 +35,8 @@ pub struct CliOptions {
     pub screenshots: Vec<ScreenshotRequest>,
     pub exit_at_tick: Option<Tick>,
     pub dump_state: Option<PathBuf>,
+    pub commands: Option<PathBuf>,
+    pub show_paths: bool,
     pub windowed: bool,
     pub headless: bool,
     pub help: bool,
@@ -55,6 +57,8 @@ impl Default for CliOptions {
             screenshots: Vec::new(),
             exit_at_tick: None,
             dump_state: None,
+            commands: None,
+            show_paths: false,
             windowed: false,
             headless: false,
             help: false,
@@ -89,6 +93,9 @@ QA (any of these makes the run reproducible: keyboard and mouse are ignored, fra
   --exit-at-tick <n>          Exit at tick n, once its screenshots are saved. A run without a window
                               defaults to the last screenshot's tick.
   --dump-state <path>         Write the state as JSON when the run ends
+  --commands <file.json>      Apply player commands at given ticks: a JSON list of
+                              {{\"tick\": 2, \"player\": 1, \"command\": {{\"Order\": {{...}}}}}}
+  --show-paths                Start with the unit path overlay on (P toggles it)
   --windowed                  Show the QA run in a window instead of rendering offscreen
   --headless                  No window and no rendering at all (no screenshots)
 
@@ -123,6 +130,8 @@ pub fn parse(args: &[String]) -> Result<CliOptions, String> {
             "--screenshot" => options.screenshots.push(parse_screenshot(&value()?)?),
             "--exit-at-tick" => options.exit_at_tick = Some(parse_tick(&value()?)?),
             "--dump-state" => options.dump_state = Some(value()?.into()),
+            "--commands" => options.commands = Some(value()?.into()),
+            "--show-paths" => options.show_paths = true,
             "--windowed" => options.windowed = true,
             "--headless" => options.headless = true,
             "-h" | "--help" => options.help = true,
@@ -193,10 +202,18 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
     if options.headless && !options.screenshots.is_empty() {
         return Err("--headless renders nothing, so it can't take screenshots".into());
     }
+    if editor.is_some() && options.commands.is_some() {
+        return Err("--commands needs a game: the editor's map stays at tick 0".into());
+    }
     let mut qa = QaConfig {
         screenshots: options.screenshots,
         exit_at_tick: options.exit_at_tick,
         dump_state: options.dump_state,
+        commands: match &options.commands {
+            Some(path) => crate::qa::load_commands(path)?,
+            None => Vec::new(),
+        },
+        show_paths: options.show_paths,
     };
     let display = if options.headless {
         DisplayMode::Headless

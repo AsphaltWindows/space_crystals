@@ -198,6 +198,7 @@ impl Default for Bindings {
             (A::PanDown, Press(key(KeyCode::ArrowDown))),
             (A::GrabPan, Press(Chord::mouse(MouseButton::Middle))),
             (A::ToggleGrid, Press(key(KeyCode::KeyG))),
+            (A::TogglePaths, Press(key(KeyCode::KeyP))),
             (A::Select, Press(Chord::mouse(MouseButton::Left))),
             (A::ContextCommand, Press(Chord::mouse(MouseButton::Right))),
             (A::Cancel, Press(key(KeyCode::Escape))),
@@ -297,7 +298,7 @@ mod tests {
             press(KeyX)
         );
         assert_eq!(only(InputAction::CommandSlot(CommandSlot::RALLY_POINT)), press(KeyC));
-        assert_eq!(b.entries().len(), 14 + 4 * 10 + 12);
+        assert_eq!(b.entries().len(), 15 + 4 * 10 + 12);
     }
 
     #[test]
@@ -362,7 +363,7 @@ mod tests {
             alt: false,
         };
         assert_eq!(resolve(one, both, false), Some(InputAction::AssignGroup(group(1))));
-        assert_eq!(resolve(key(KeyCode::KeyP), Modifiers::NONE, false), None);
+        assert_eq!(resolve(key(KeyCode::KeyO), Modifiers::NONE, false), None);
         assert_eq!(
             resolve(Button::Mouse(MouseButton::Left), Modifiers::SHIFT, false),
             Some(InputAction::Select)

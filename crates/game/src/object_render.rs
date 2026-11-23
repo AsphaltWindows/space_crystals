@@ -4,27 +4,28 @@
 //! are created and despawned by diffing them against `Sim::objects()` (scenario spawns emit no events), and placed
 //! from the sim every frame at `prev_pos.lerp(pos, alpha)`, drawn at the terrain height there (a tile-based object
 //! at its footprint's height, `core/art_direction.md > Elevation Display`) and y-sorted by its ground position in the
-//! ground-object layer. Placeholder shapes stand in until the art direction (Q0001) is settled.
+//! ground-object layer. Placeholder shapes stand in until the art direction (Q0001) is settled: a unit is a shape of
+//! its own per kind, its silhouette's size, in its owner's colour, with a tick showing its facing.
 
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
-use sc_sim::{Map, ObjectId, ObjectKind, Placement};
+use sc_sim::{Map, ObjectId, ObjectKind, Placement, PlayerId};
 
 use crate::ClientSystems;
 use crate::coords::{DrawLayer, facing_to_rotation, footprint_height, ground_translation, lerp_facing};
-use crate::shapes::{ColorMesh, vertex_color_material};
+use crate::shapes::{ColorMesh, darken, vertex_color_material};
 use crate::sim_driver::{RenderAlpha, SimRes};
 
 /// Links a visual entity to the sim object it shows.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ObjectVisual(pub ObjectId);
 
-/// Mesh and material handles, created once per object kind and shared by all its visuals.
+/// Mesh and material handles, created once per object kind (and owner, for units) and shared by all its visuals.
 #[derive(Resource, Default)]
 pub struct ObjectVisualAssets {
     material: Option<Handle<ColorMaterial>>,
-    meshes: BTreeMap<ObjectKind, Handle<Mesh>>,
+    meshes: BTreeMap<(ObjectKind, Option<PlayerId>), Handle<Mesh>>,
 }
 
 /// The visual entity of each object.
@@ -61,18 +62,82 @@ pub fn object_transform(pos: Vec2, height: f32, facing: f32) -> Transform {
         .with_rotation(facing_to_rotation(facing))
 }
 
-/// The placeholder shape of each object kind, centered on the object's position.
+/// The placeholder shape of each object kind, centered on the object's position; units in the neutral colour.
 pub fn placeholder_mesh(kind: ObjectKind) -> Mesh {
+    object_mesh(kind, None)
+}
+
+/// The placeholder shape of an object of `kind` owned by `owner`. Units take their owner's colour.
+pub fn object_mesh(kind: ObjectKind, owner: Option<PlayerId>) -> Mesh {
     match kind {
         ObjectKind::CrystalPatch => crystal_patch_mesh(),
         ObjectKind::SupplyDeliveryStation => supply_station_mesh(),
-        ObjectKind::Peacekeeper | ObjectKind::Guard => {
-            let half = kind.def().half_extents().unwrap_or(Vec2::splat(12.0));
-            let mut mesh = ColorMesh::triangles();
-            mesh.rect(-half, half, 0.0, Color::srgb(0.7, 0.7, 0.7));
-            mesh.into_mesh()
-        }
+        ObjectKind::Peacekeeper => unit_mesh(kind, UnitShape::Round, player_color(owner)),
+        ObjectKind::Guard => unit_mesh(kind, UnitShape::Square, player_color(owner)),
     }
+}
+
+/// Player colours, by player number: those of the editor's slots, whose players they are by default.
+const PLAYER_COLORS: [Color; 8] = [
+    Color::srgb(0.30, 0.55, 1.00),
+    Color::srgb(1.00, 0.35, 0.30),
+    Color::srgb(0.35, 0.85, 0.40),
+    Color::srgb(1.00, 0.85, 0.25),
+    Color::srgb(0.75, 0.45, 1.00),
+    Color::srgb(0.30, 0.90, 0.90),
+    Color::srgb(1.00, 0.60, 0.20),
+    Color::srgb(1.00, 0.50, 0.80),
+];
+const NEUTRAL_COLOR: Color = Color::srgb(0.70, 0.70, 0.66);
+
+/// The colour of `owner`'s units: grey for neutral ones.
+pub fn player_color(owner: Option<PlayerId>) -> Color {
+    match owner {
+        Some(p) => PLAYER_COLORS[usize::from(p.0.max(1) - 1) % PLAYER_COLORS.len()],
+        None => NEUTRAL_COLOR,
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum UnitShape {
+    Round,
+    Square,
+}
+
+/// A unit (placeholders until Q0001 settles the art): its silhouette's size in a shape of its own, filled with its
+/// owner's colour inside a dark rim, and a light tick from its center through its front, along local +x, which the
+/// visual's rotation turns to the unit's facing.
+fn unit_mesh(kind: ObjectKind, shape: UnitShape, color: Color) -> Mesh {
+    let half = kind.def().half_extents().unwrap_or(Vec2::splat(12.0));
+    let outline = |inset: f32| -> Vec<Vec2> {
+        let h = half - Vec2::splat(inset);
+        match shape {
+            UnitShape::Round => (0..16)
+                .map(|i| {
+                    let a = i as f32 * std::f32::consts::TAU / 16.0;
+                    Vec2::new(h.x * a.cos(), h.y * a.sin())
+                })
+                .collect(),
+            UnitShape::Square => vec![
+                Vec2::new(-h.x, -h.y),
+                Vec2::new(h.x, -h.y),
+                Vec2::new(h.x, h.y),
+                Vec2::new(-h.x, h.y),
+            ],
+        }
+    };
+    let srgba = color.to_srgba();
+    let mut mesh = ColorMesh::triangles();
+    mesh.polygon(&outline(0.0), 0.0, darken(srgba, 0.45).into());
+    mesh.polygon(&outline(2.5), 0.001, color);
+    mesh.segment(
+        Vec2::ZERO,
+        Vec2::new(half.x + 5.0, 0.0),
+        3.0,
+        0.002,
+        Color::srgb(0.96, 0.96, 0.92),
+    );
+    mesh.into_mesh()
 }
 
 /// `core/map.md > SpaceCrystalsPatch` (1×1): a cluster of three cyan crystals on a dark bed.
@@ -177,10 +242,12 @@ fn sync_object_visuals(
         if visuals.by_id.contains_key(&object.id) {
             continue;
         }
+        // Only units are drawn in their owner's colour.
+        let owner = object.owner.filter(|_| object.kind.def().unit.is_some());
         let mesh = assets
             .meshes
-            .entry(object.kind)
-            .or_insert_with(|| meshes.add(placeholder_mesh(object.kind)))
+            .entry((object.kind, owner))
+            .or_insert_with(|| meshes.add(object_mesh(object.kind, owner)))
             .clone();
         let height = object_height(sim.map(), object.pos, object.placement.as_ref());
         let entity = commands
