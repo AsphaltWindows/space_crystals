@@ -1943,3 +1943,9 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23: Dust Devil renamed Twister; Artillery Tank named Artillery Rig; Rig AttackType TailDisjointed.
 - 2026-11-23: Added Prospector (Factory+AM, tracked) and Outpost structure (build radius only, uses power, permanent, any Buildable); GDOBuildArea seeded by Outposts; AM unlock note; README.
 - 2026-11-23: Bunker + First Aid Tent BuildRadiusExtension 0; noted in GDOBuildArea.
+
+## 2026-11-23 — Development process reorganization
+- User: pipeline unnecessary now; wants a long-running implementation lead agent (delegates to sub-agents) + designer session, with designer notifying it of design changes and its design questions bubbling back to the designer (technical decisions stay with it). Designer commits own doc changes.
+- Committed + pushed all design work (dd2b7e6: directory restructure, Cults tuning, GDO lore/roster); push also carried 5 earlier local pipeline-framework commits. Only artifacts/designer/ committed — agent prompts/CLAUDE.md have mixed uncommitted pipeline edits, left alone.
+- Rewrote .claude/agents/designer.md for the new model (change entries, question intake, committing; forum/feature_request/non-interactive parts removed). Implementer name is a {LEAD} placeholder pending user's pick. Insights: Pipeline Status/forum sections replaced with Development Process + Open {LEAD} Questions.
+- Implementation agent named **Director** (user's pick); placeholder replaced; designer.md committed.

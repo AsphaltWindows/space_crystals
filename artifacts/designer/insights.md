@@ -15,15 +15,11 @@
 - colonists_objects.md → factions/colonists/economy.md (Beacons, Warp In, Starting Conditions, Egress Node, refining) + structures.md (Tech Model, Portals, tech/defense buildings) + units.md (Drone, Scout, Lancer, Legionnaires, Weapon Conversion)
 - design_questions.md (empty) deleted. Plan (user): one file per unit/building later, once most units exist.
 
-## Pipeline Status
+## Development Process
 
-**As of 2026-11-15 the user is no longer running the pipeline.** Work is design-docs only: do NOT send feature_requests unless the user asks. **The game will be rebuilt from scratch once the design is complete** (user, 2026-11-16) — so the design docs must stand alone as the complete spec; design/code divergence is no longer a concern, and anything that only lives in code, old feature_requests, or QA reworks will be lost unless captured in the docs. Agent prompts + CLAUDE.md updated 2026-11-22 (user-approved) to `design/**/*.md` + README index. User doesn't expect to use the pipeline again. (22 designer feature_requests sit unconsumed in messages/task_splitter/feature_request/pending/, oldest 2026-07-26 — leave them alone.)
+**Pipeline retired (2026-11-23).** Replaced by: a concurrently running implementation lead agent (Director) that delegates to sub-agents, plus this designer session. Channels: designer writes `changes/NNNN-slug.md` (one per coherent change; template in `.claude/agents/designer.md`); Director writes `artifacts/director/questions/QNNNN-slug.md`. Answers to questions are change entries with `Answers: QNNNN`. Notifications via per-session hooks (`--agent` + `--settings`), not yet wired. **Designer commits its own doc changes** with `git commit -- artifacts/designer/`. Game still to be rebuilt from scratch, so docs must stand alone as the complete spec. Old pipeline (forum, messages, scheduler, other agent prompts) — fate not yet decided by user; 22 old feature_requests still sit unconsumed, leave them.
 
-## Urgent Forum Questions
-
-(none)
-
-## Pending Design Review
+## Open Director Questions
 
 (none)
 
