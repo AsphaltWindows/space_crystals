@@ -11,11 +11,16 @@ use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
+use crate::mover::Mover;
+use crate::nav::{Nav, NavCounters};
 use crate::object::{Object, Placement, ResourceState};
+use crate::orders::{Order, OrderGroup, OrderKind, Orders, Target, slots};
+use crate::paths::{self, NavState};
 use crate::player::Player;
 use crate::rng::Rng;
 use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
 use crate::units::Tick;
+use crate::{combat, movement, orders, vision};
 
 use gate::Checked;
 pub use gate::Reject;
@@ -53,8 +58,16 @@ pub struct Sim {
     /// `Scenario::seed`.
     rng: Rng,
     config: SimConfig,
+    /// The next order command's group (`docs/movement.md > 3`, `OrderGroup`).
+    next_group: u32,
+    /// Bumped by every rebuild of the navigation grids (phase 5b): paths planned on an older version are stale.
+    nav_version: u32,
     /// Output of the latest step only; not part of [`Sim::state_hash`].
     events: Vec<SimEvent>,
+    /// Derived from the map and the objects (`docs/movement.md > 3`): not hashed, serialized or compared, and
+    /// rebuilt on load.
+    #[serde(skip_serializing)]
+    nav: NavState,
 }
 
 impl Sim {
@@ -98,11 +111,15 @@ impl Sim {
             next_id: 1,
             rng: Rng::from_seed(scenario.seed),
             config,
+            next_group: 0,
+            nav_version: 0,
             events: Vec::new(),
+            nav: NavState::unbuilt(&scenario.map),
         };
         for (s, (pos, placement)) in scenario.spawns.iter().zip(spots) {
             sim.insert_object(s.kind, s.owner, pos, placement, s.settings.as_ref());
         }
+        sim.nav = NavState::build(&sim.map, &sim.objects);
         // Scenario spawns emit no events (`ARCHITECTURE.md > Commands, events and replays`).
         sim.events.clear();
         Ok(sim)
@@ -143,10 +160,26 @@ impl Sim {
         &self.events
     }
 
+    /// The navigation grids units path on (`docs/movement.md > 5.2`): derived from the map and the blocking
+    /// footprints, and in step with them between ticks.
+    pub fn nav(&self) -> &Nav {
+        self.nav.nav()
+    }
+
+    /// How often the grids were rebuilt since the game started (phase 5b).
+    pub fn nav_version(&self) -> u32 {
+        self.nav_version
+    }
+
+    /// The path searches of the most recent [`Sim::step`]: output for tests and overlays, not state.
+    pub fn nav_counters(&self) -> NavCounters {
+        self.nav.counters()
+    }
+
     /// FNV-1a 64 hash of the whole state: tick, map, players, objects in id order, next id,
-    /// PRNG state and config (`f32` by its bits; encoding in `hash.rs`). Events are output, not
-    /// state, so they are left out. Equal states give equal hashes on every machine, so
-    /// comparing hashes checks determinism.
+    /// PRNG state, config, next order group and nav version (`f32` by its bits; encoding in
+    /// `hash.rs`). Events are output and the grids derived data, so they are left out. Equal
+    /// states give equal hashes on every machine, so comparing hashes checks determinism.
     pub fn state_hash(&self) -> u64 {
         // Destructured without `..`: a new field fails to compile here until it is hashed.
         let Sim {
@@ -157,7 +190,10 @@ impl Sim {
             next_id,
             rng,
             config,
+            next_group,
+            nav_version,
             events: _,
+            nav: _,
         } = self;
         let mut h = StateHasher::new();
         tick.hash(&mut h);
@@ -170,6 +206,8 @@ impl Sim {
         next_id.hash(&mut h);
         rng.hash(&mut h);
         config.hash(&mut h);
+        next_group.hash(&mut h);
+        nav_version.hash(&mut h);
         h.finish()
     }
 
@@ -187,7 +225,31 @@ impl Sim {
         for cmd in &inputs.commands {
             self.apply_command(cmd);
         }
+        // Phases 5a–5f, `docs/movement.md > 4`.
+        // 5a: after the commands, so an order acts in its own tick; before movement, so goals have one writer.
+        orders::update(&mut self.objects, first_new, self.tick);
+        // 5b: the paths below must see this tick's obstacles.
+        paths::sync(&mut self.nav, &self.map, &self.objects, &mut self.nav_version);
+        // 5c: after the goals, before the movement that follows the paths.
+        paths::serve(
+            &mut self.nav,
+            &mut self.objects,
+            first_new,
+            self.nav_version,
+            self.tick,
+            &mut self.events,
+        );
+        // 5d: the one movement pipeline, the single place that moves units.
+        movement::step(&mut self.objects, first_new);
+        // 5e: shoots from the positions movement committed.
+        combat::step(&mut self.objects, first_new);
+        // 5f: sees the tick's final positions.
+        vision::update(&self.objects);
         self.update_supply_stations(first_new);
+        debug_assert!(
+            self.nav.matches(&self.objects),
+            "a blocking footprint changed after phase 5b: sync the grids again (`paths::sync`)"
+        );
     }
 
     /// `ARCHITECTURE.md > Commands, events and replays`: every command passes the gate ([`Sim::validate`]) first.
@@ -197,6 +259,7 @@ impl Sim {
             return;
         };
         match checked {
+            Checked::Order { units, kind, queue } => self.give_order(&units, kind, queue),
             Checked::Spawn {
                 kind,
                 owner,
@@ -215,7 +278,29 @@ impl Sim {
                     // No interpolation from the old position.
                     o.pos = pos;
                     o.prev_pos = pos;
+                    // A path from the old position leads nowhere now.
+                    if let Some(mover) = &mut o.mover {
+                        mover.repath(self.tick);
+                    }
                 }
+            }
+        }
+    }
+
+    /// `systems/controls/commands.md > Unit Command`: one order for each of `units` (checked: unique existing
+    /// units), sharing a new order group. A group's move to a point gives each unit its own slot
+    /// (`docs/movement.md > 6.4`). Orders only fill queues here; phase 5a starts them.
+    fn give_order(&mut self, units: &[ObjectId], kind: OrderKind, queue: bool) {
+        let group = OrderGroup(self.next_group);
+        self.next_group = self.next_group.wrapping_add(1);
+        let slots = match kind {
+            OrderKind::Move(Target::Point(click)) => slots::assign(self.nav.nav(), &self.objects, units, click),
+            _ => vec![None; units.len()],
+        };
+        for (id, slot) in units.iter().zip(slots) {
+            if let Some(orders) = self.objects.get_mut(id).and_then(|o| o.orders.as_mut()) {
+                // A full queue drops the order for this unit only.
+                orders.give(Order { kind, group, slot }, queue);
             }
         }
     }
@@ -232,7 +317,10 @@ impl Sim {
     ) -> ObjectId {
         let id = ObjectId(self.next_id);
         self.next_id += 1;
+        let def = kind.def();
         let resource = SpawnSettings::resolve(kind, settings).map(|s| s.starting_resource());
+        // Units take orders and move (`systems/units.md > Unit`); they start idle.
+        let is_unit = def.unit.is_some();
         let object = Object {
             id,
             kind,
@@ -241,9 +329,11 @@ impl Sim {
             prev_pos: pos,
             facing: 0.0,
             prev_facing: 0.0,
-            hp: kind.def().max_hp,
+            hp: def.max_hp,
             placement,
             resource,
+            orders: is_unit.then(Orders::default),
+            mover: is_unit.then(Mover::default),
         };
         self.objects.insert(id, object);
         self.events.push(SimEvent::Spawned(id));
@@ -304,6 +394,8 @@ struct SimState {
     next_id: u32,
     rng: Rng,
     config: SimConfig,
+    next_group: u32,
+    nav_version: u32,
     events: Vec<SimEvent>,
 }
 
@@ -319,6 +411,8 @@ impl TryFrom<SimState> for Sim {
             next_id,
             rng,
             config,
+            next_group,
+            nav_version,
             events,
         } = state;
         let mut objects = BTreeMap::new();
@@ -330,6 +424,8 @@ impl TryFrom<SimState> for Sim {
                 return Err(format!("object id {} appears more than once", duplicate.id.0));
             }
         }
+        // Between ticks the grids match the objects (`paths`), so rebuilding them gives the running game's.
+        let nav = NavState::build(&map, &objects);
         Ok(Sim {
             tick,
             map,
@@ -338,7 +434,10 @@ impl TryFrom<SimState> for Sim {
             next_id,
             rng,
             config,
+            next_group,
+            nav_version,
             events,
+            nav,
         })
     }
 }

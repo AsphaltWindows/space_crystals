@@ -77,6 +77,7 @@ impl SpawnSettings {
                 delivery_size: DEFAULT_DELIVERY_SIZE,
                 delivery_interval: DEFAULT_DELIVERY_INTERVAL,
             }),
+            ObjectKind::Peacekeeper | ObjectKind::Guard => None,
         }
     }
 

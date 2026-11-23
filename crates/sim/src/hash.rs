@@ -9,6 +9,8 @@
 //! Every impl destructures its type without `..`, so adding a field fails to compile until
 //! the field is hashed. Types with private fields implement [`StateHash`] in their own module.
 
+use std::collections::VecDeque;
+
 use glam::Vec2;
 
 use crate::defs::ObjectKind;
@@ -104,6 +106,16 @@ impl<T: StateHash> StateHash for Option<T> {
 }
 
 impl<T: StateHash> StateHash for Vec<T> {
+    fn hash(&self, h: &mut StateHasher) {
+        h.len(self.len());
+        for v in self {
+            v.hash(h);
+        }
+    }
+}
+
+/// Like a `Vec`: front to back, length first.
+impl<T: StateHash> StateHash for VecDeque<T> {
     fn hash(&self, h: &mut StateHasher) {
         h.len(self.len());
         for v in self {
@@ -261,6 +273,8 @@ impl StateHash for Object {
             hp,
             placement,
             resource,
+            orders,
+            mover,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -272,6 +286,9 @@ impl StateHash for Object {
         hp.hash(h);
         placement.hash(h);
         resource.hash(h);
+        // Their impls live with their types (`orders.rs`, `mover.rs`).
+        orders.hash(h);
+        mover.hash(h);
     }
 }
 

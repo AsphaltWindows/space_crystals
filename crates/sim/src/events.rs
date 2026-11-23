@@ -14,4 +14,9 @@ pub enum SimEvent {
         station: ObjectId,
         amount: u32,
     },
+    /// A unit gave up a move: it found no path (`docs/movement.md > 4`,
+    /// `systems/controls/behaviors.md > MovingToLocation > Failure`).
+    MoveFailed {
+        unit: ObjectId,
+    },
 }

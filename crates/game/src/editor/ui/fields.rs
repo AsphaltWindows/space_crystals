@@ -58,6 +58,7 @@ impl SpawnValue {
                 SpawnValue::DeliverySize,
                 SpawnValue::DeliveryInterval,
             ],
+            ObjectKind::Peacekeeper | ObjectKind::Guard => &[],
         }
     }
 

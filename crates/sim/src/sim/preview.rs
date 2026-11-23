@@ -2,6 +2,7 @@
 
 use super::{Sim, SimConfig};
 use crate::ids::ObjectId;
+use crate::paths::NavState;
 use crate::player::Player;
 use crate::rng::Rng;
 use crate::scenario::{Scenario, locate};
@@ -32,7 +33,10 @@ impl Sim {
             next_id: 1,
             rng: Rng::from_seed(scenario.seed),
             config: SimConfig::default(),
+            next_group: 0,
+            nav_version: 0,
             events: Vec::new(),
+            nav: NavState::unbuilt(&scenario.map),
         };
         let ids = scenario
             .spawns
@@ -42,6 +46,7 @@ impl Sim {
                 Some(sim.insert_object(s.kind, s.owner, pos, placement, s.settings.as_ref()))
             })
             .collect();
+        sim.nav = NavState::build(&sim.map, &sim.objects);
         sim.events.clear();
         (sim, ids)
     }

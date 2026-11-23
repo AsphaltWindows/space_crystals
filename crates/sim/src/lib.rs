@@ -11,6 +11,7 @@
 //! - Fixed 16 ticks per second; all durations are counted in ticks.
 //! - Every gameplay number cites its design section (`path/file.md > Section`).
 
+mod combat;
 pub mod command;
 pub mod defs;
 pub mod events;
@@ -18,8 +19,12 @@ pub(crate) mod hash;
 pub mod ids;
 pub mod map;
 pub mod math;
+mod movement;
+pub mod mover;
 pub mod nav;
 pub mod object;
+pub mod orders;
+mod paths;
 pub mod player;
 pub mod replay;
 pub mod rng;
@@ -29,6 +34,7 @@ pub mod sim;
 pub mod symmetry;
 pub mod testing;
 pub mod units;
+mod vision;
 
 pub use command::{Command, DebugCommand, PlayerCommand, TickInputs};
 pub use defs::{Category, Footprint, ObjectDef, ObjectKind};
@@ -36,7 +42,9 @@ pub use events::SimEvent;
 pub use glam::Vec2;
 pub use ids::{ObjectId, PlayerId};
 pub use map::{MAX_ELEVATION, MAX_TRAVERSIBLE_SLOPE, Map, Tile, TilePreset, TilePresetId};
+pub use mover::{MoveGoal, MoveStatus, Mover};
 pub use object::{Object, Placement, ResourceState, Rotation};
+pub use orders::{OrderKind, Orders, Target};
 pub use player::{Faction, Player};
 pub use replay::Replay;
 pub use rng::Rng;

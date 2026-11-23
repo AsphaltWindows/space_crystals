@@ -1,12 +1,12 @@
 //! Player input never panics the sim (`ARCHITECTURE.md > Commands, events and replays`):
-//! a long stream of random, mostly invalid debug commands runs deterministically, the
-//! commands the gate rejects change nothing, and any per-object values a file holds are
+//! a long stream of random, mostly invalid debug commands and orders runs deterministically,
+//! the commands the gate rejects change nothing, and any per-object values a file holds are
 //! handled.
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{
-    Command, DebugCommand, ObjectId, ObjectKind, PlayerCommand, PlayerId, Replay, Rng, SU_PER_GU, Sim, SimConfig,
-    SimEvent, Spawn, SpawnAt, SpawnSettings, TickInputs, TilePos, Vec2,
+    Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Replay, Rng, SU_PER_GU, Sim,
+    SimConfig, SimEvent, Spawn, SpawnAt, SpawnSettings, Target, TickInputs, TilePos, Vec2, nav,
 };
 
 const TICKS: u32 = 2000;
@@ -67,13 +67,53 @@ fn random_id(rng: &mut Rng, sim: &Sim) -> ObjectId {
     }
 }
 
+/// An order to a few ids, often the issuing player's units, sometimes anyone's or none.
+fn random_order(rng: &mut Rng, sim: &Sim, player: PlayerId) -> Command {
+    let own: Vec<ObjectId> = sim
+        .objects()
+        .filter(|o| o.owner == Some(player) && o.orders.is_some())
+        .map(|o| o.id)
+        .collect();
+    let units = (0..rng.below(6))
+        .map(|_| match (rng.below(3), own.is_empty()) {
+            (0, _) | (_, true) => random_id(rng, sim),
+            _ => own[rng.below(own.len() as u32) as usize],
+        })
+        .collect();
+    // Half of them moves to a point.
+    let kind = match rng.below(12) {
+        0 => OrderKind::Move(Target::Object(random_id(rng, sim))),
+        1 => OrderKind::Attack(random_id(rng, sim)),
+        2 => OrderKind::AttackMove(random_point(rng, sim)),
+        3 => OrderKind::Patrol(random_point(rng, sim)),
+        4 => OrderKind::Hold,
+        5 => OrderKind::Stop,
+        _ => OrderKind::Move(Target::Point(random_point(rng, sim))),
+    };
+    Command::Order {
+        units,
+        kind,
+        queue: rng.below(3) == 0,
+    }
+}
+
 fn random_command(rng: &mut Rng, sim: &Sim) -> PlayerCommand {
     let player = PlayerId(rng.below(4) as u8);
+    if rng.below(3) == 0 {
+        return PlayerCommand {
+            player,
+            command: random_order(rng, sim, player),
+        };
+    }
     let command = match rng.below(3) {
         0 => {
             let kind = ObjectKind::ALL[rng.below(ObjectKind::ALL.len() as u32) as usize];
-            let owner = (rng.below(3) == 0).then(|| PlayerId(rng.below(4) as u8));
-            let at = if rng.below(4) == 0 {
+            // Units mostly belong to someone, so that orders find them.
+            let unit = kind.def().unit.is_some();
+            let owned = if unit { rng.below(4) != 0 } else { rng.below(3) == 0 };
+            let owner = owned.then(|| PlayerId(rng.below(4) as u8));
+            // Mostly the location type of the kind's footprint: units at points, the rest on tiles.
+            let at = if unit == (rng.below(4) != 0) {
                 SpawnAt::Point(random_point(rng, sim))
             } else {
                 let map = sim.map();
@@ -98,7 +138,8 @@ fn random_command(rng: &mut Rng, sim: &Sim) -> PlayerCommand {
     }
 }
 
-/// Every object stays where the sim's rules allow it.
+/// Every object stays where the sim's rules allow it. Units (`docs/movement.md > 8`): I2, a ground unit's box
+/// overlaps no blocked tile and stays inside the map; I3, no unit moves more than its top speed in a tick.
 fn check_invariants(sim: &Sim) {
     let map = sim.map();
     for o in sim.objects() {
@@ -106,6 +147,23 @@ fn check_invariants(sim: &Sim) {
         match &o.placement {
             Some(p) => assert!(p.tiles().all(|t| map.in_bounds(t)), "{o:?}"),
             None => assert!(map.contains_point(o.pos), "{o:?}"),
+        }
+        let def = o.def();
+        if let (Some(unit), Some(silhouette)) = (&def.unit, def.silhouette()) {
+            if let Some(class) = unit.base_def().nav_class() {
+                let grid = sim
+                    .nav()
+                    .grid(class, nav::size_class(silhouette))
+                    .expect("a grid per unit type");
+                assert!(nav::box_clear(grid, silhouette / 2.0, o.pos), "I2: {o:?}");
+            }
+            let moved = o.pos.distance(o.prev_pos);
+            assert!(moved <= unit.movement.max_speed() + 1e-3, "I3: {moved} su: {o:?}");
+            let mover = o.mover.as_ref().expect("units move");
+            assert!(
+                mover.velocity.is_finite() && mover.path.iter().all(|p| p.is_finite()),
+                "{o:?}"
+            );
         }
     }
 }
@@ -116,6 +174,8 @@ struct Run {
     final_state: Sim,
     spawned: usize,
     removed: usize,
+    /// Unit steps: a unit's position changed during a tick.
+    unit_steps: usize,
 }
 
 fn fuzz_run(seed: u64) -> Run {
@@ -129,10 +189,11 @@ fn fuzz_run(seed: u64) -> Run {
     let mut sim = Sim::with_config(&scenario, SimConfig::DEBUG);
     let mut replay = Replay::new(scenario, SimConfig::DEBUG);
     let mut rng = Rng::from_seed(seed);
-    let (mut spawned, mut removed) = (0, 0);
+    let (mut spawned, mut removed, mut unit_steps) = (0, 0, 0);
     let mut hashes = Vec::new();
     for _ in 0..TICKS {
-        let commands = (0..rng.below(6)).map(|_| random_command(&mut rng, &sim)).collect();
+        // A third are orders, the rest debug commands.
+        let commands = (0..rng.below(8)).map(|_| random_command(&mut rng, &sim)).collect();
         let inputs = TickInputs { commands };
         sim.step(&inputs);
         replay.record(inputs);
@@ -141,9 +202,13 @@ fn fuzz_run(seed: u64) -> Run {
             match e {
                 SimEvent::Spawned(_) => spawned += 1,
                 SimEvent::Removed(_) => removed += 1,
-                SimEvent::SuppliesDelivered { .. } => {}
+                SimEvent::SuppliesDelivered { .. } | SimEvent::MoveFailed { .. } => {}
             }
         }
+        unit_steps += sim
+            .objects()
+            .filter(|o| o.mover.is_some() && o.pos != o.prev_pos)
+            .count();
         hashes.push(sim.state_hash());
     }
     Run {
@@ -152,6 +217,7 @@ fn fuzz_run(seed: u64) -> Run {
         final_state: sim,
         spawned,
         removed,
+        unit_steps,
     }
 }
 
@@ -165,6 +231,7 @@ fn random_debug_commands_never_panic_and_stay_deterministic() {
         first.spawned,
         first.removed
     );
+    assert!(first.unit_steps > 1000, "{} unit steps", first.unit_steps);
     let commands: usize = first.replay.inputs.iter().map(|i| i.commands.len()).sum();
     assert!(commands > 4000, "{commands} commands");
 
@@ -246,15 +313,17 @@ fn any_spawn_settings_are_handled() {
                 _ => Some(kind),
             };
             let mut value = || extremes[rng.below(extremes.len() as u32) as usize];
-            let settings = settings_kind.map(|k| match k {
-                ObjectKind::CrystalPatch => SpawnSettings::CrystalPatch {
+            let settings = settings_kind.and_then(|k| match k {
+                ObjectKind::CrystalPatch => Some(SpawnSettings::CrystalPatch {
                     starting_amount: value(),
-                },
-                ObjectKind::SupplyDeliveryStation => SpawnSettings::SupplyDeliveryStation {
+                }),
+                ObjectKind::SupplyDeliveryStation => Some(SpawnSettings::SupplyDeliveryStation {
                     starting_supplies: value(),
                     delivery_size: value(),
                     delivery_interval: value(),
-                },
+                }),
+                // Units have no per-object values.
+                ObjectKind::Peacekeeper | ObjectKind::Guard => None,
             });
             let mut spawn = Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(i * 6, 0)));
             spawn.settings = settings;

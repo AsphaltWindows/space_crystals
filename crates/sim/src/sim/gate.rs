@@ -7,9 +7,12 @@ use glam::Vec2;
 
 use super::Sim;
 use crate::command::{Command, DebugCommand, PlayerCommand};
-use crate::defs::ObjectKind;
+use crate::defs::{Domain, ObjectKind};
 use crate::ids::{ObjectId, PlayerId};
+use crate::nav;
 use crate::object::{Object, Placement};
+use crate::orders::{MAX_ORDER_UNITS, OrderKind, Target};
+use crate::paths::{blocking_footprint, box_overlaps_rect, boxes_overlap};
 use crate::scenario::{SpawnProblem, place_spawn};
 
 /// Why the sim ignores a command ([`Sim::validate`]).
@@ -31,6 +34,19 @@ pub enum Reject {
     TileObject(ObjectId),
     /// The position is not finite or lies off the map.
     OffMap,
+    /// None of the units an order names exists any more (or takes orders).
+    NoUnits,
+    /// An order names more than [`MAX_ORDER_UNITS`] units.
+    TooManyUnits,
+    /// The order's target can't be attacked: it is indestructible
+    /// (`systems/controls/commands.md > Attack`: a destructible object).
+    NotAttackable(ObjectId),
+    /// A unit's box there would overlap a blocked tile, a blocking footprint or the map's edge
+    /// (`docs/movement.md > 3`).
+    Blocked,
+    /// A unit's box there would overlap this unit of its layer, or a blocking footprint would cover this unit
+    /// (`docs/movement.md > 3`).
+    Occupied(ObjectId),
 }
 
 impl fmt::Display for Reject {
@@ -44,12 +60,23 @@ impl fmt::Display for Reject {
             Reject::OutOfIds => write!(f, "every object id is used up"),
             Reject::TileObject(id) => write!(f, "object {} is tile-based and can't move", id.0),
             Reject::OffMap => write!(f, "the position is off the map"),
+            Reject::NoUnits => write!(f, "none of the ordered units exists"),
+            Reject::TooManyUnits => write!(f, "an order may name at most {MAX_ORDER_UNITS} units"),
+            Reject::NotAttackable(id) => write!(f, "object {} can't be attacked", id.0),
+            Reject::Blocked => write!(f, "the unit doesn't fit there: blocked ground"),
+            Reject::Occupied(id) => write!(f, "unit {} is in the way", id.0),
         }
     }
 }
 
 /// A command that passed the gate, with what the checks resolved for it.
 pub(super) enum Checked {
+    /// `units`: unique, in id order, all existing units of the player.
+    Order {
+        units: Vec<ObjectId>,
+        kind: OrderKind,
+        queue: bool,
+    },
     Spawn {
         kind: ObjectKind,
         owner: Option<PlayerId>,
@@ -70,8 +97,10 @@ impl Sim {
     /// 1. the issuing player is in the game;
     /// 2. a debug command comes while [`super::SimConfig::debug`] is on;
     /// 3. every object the command refers to exists, and every object a player's own order commands belongs to
-    ///    that player (debug commands may refer to anyone's objects);
-    /// 4. the command's own rules hold: a spawn's owner and placement, a teleport to a unit and onto the map.
+    ///    that player (debug commands may refer to anyone's objects). An order drops the ids of units that no
+    ///    longer exist, and repeated ids; it is rejected if no unit remains (`docs/movement.md > 3`);
+    /// 4. the command's own rules hold: an order's size and target, a spawn's owner and placement, a teleport to a
+    ///    unit and onto the map, and a unit's box clear of blocked ground and of the units of its layer.
     pub fn validate(&self, cmd: &PlayerCommand) -> Result<(), Reject> {
         self.check(cmd).map(|_| ())
     }
@@ -82,6 +111,7 @@ impl Sim {
             return Err(Reject::UnknownPlayer(cmd.player));
         }
         match &cmd.command {
+            Command::Order { units, kind, queue } => self.check_order(cmd.player, units, *kind, *queue),
             Command::Debug(debug) => {
                 if !self.config.debug {
                     return Err(Reject::DebugDisabled);
@@ -89,6 +119,61 @@ impl Sim {
                 self.check_debug(debug)
             }
         }
+    }
+
+    /// `docs/movement.md > 3`, with the approved gate change: ids that no longer exist are dropped.
+    fn check_order(
+        &self,
+        player: PlayerId,
+        units: &[ObjectId],
+        kind: OrderKind,
+        queue: bool,
+    ) -> Result<Checked, Reject> {
+        if units.len() > MAX_ORDER_UNITS {
+            return Err(Reject::TooManyUnits);
+        }
+        let mut ids = units.to_vec();
+        ids.sort_unstable();
+        ids.dedup();
+        let mut ordered = Vec::with_capacity(ids.len());
+        for id in ids {
+            // A unit may die in the tick its order arrives: not the player's mistake.
+            let Some(o) = self.objects.get(&id) else {
+                continue;
+            };
+            if o.owner != Some(player) {
+                return Err(Reject::NotOwned(id));
+            }
+            // Only units take orders; the player's other objects ignore this one.
+            if o.orders.is_some() {
+                ordered.push(id);
+            }
+        }
+        if ordered.is_empty() {
+            return Err(Reject::NoUnits);
+        }
+        match kind {
+            OrderKind::Move(Target::Point(p)) | OrderKind::AttackMove(p) | OrderKind::Patrol(p) => {
+                // `contains_point` also rejects NaN and infinite positions.
+                if !self.map.contains_point(p) {
+                    return Err(Reject::OffMap);
+                }
+            }
+            OrderKind::Move(Target::Object(id)) => {
+                self.referenced(id, None)?;
+            }
+            OrderKind::Attack(id) => {
+                if !self.referenced(id, None)?.def().destructible {
+                    return Err(Reject::NotAttackable(id));
+                }
+            }
+            OrderKind::Hold | OrderKind::Stop => {}
+        }
+        Ok(Checked::Order {
+            units: ordered,
+            kind,
+            queue,
+        })
     }
 
     fn check_debug(&self, command: &DebugCommand) -> Result<Checked, Reject> {
@@ -101,6 +186,10 @@ impl Sim {
                 }
                 let (pos, placement) =
                     place_spawn(&self.map, kind, owner, at, |p| self.player(p).is_some()).map_err(Reject::Spawn)?;
+                match &placement {
+                    Some(placement) => self.check_footprint_clear(kind, placement)?,
+                    None => self.check_unit_fits(kind, pos, None)?,
+                }
                 Ok(Checked::Spawn {
                     kind,
                     owner,
@@ -113,15 +202,71 @@ impl Sim {
                 Ok(Checked::Remove(id))
             }
             DebugCommand::SetPosition { id, pos } => {
-                if self.referenced(id, anyone)?.placement.is_some() {
+                let object = self.referenced(id, anyone)?;
+                if object.placement.is_some() {
                     return Err(Reject::TileObject(id));
                 }
                 // `contains_point` also rejects NaN and infinite positions.
                 if !self.map.contains_point(pos) {
                     return Err(Reject::OffMap);
                 }
+                self.check_unit_fits(object.kind, pos, Some(id))?;
                 Ok(Checked::Teleport { id, pos })
             }
+        }
+    }
+
+    /// `docs/movement.md > 3`: a unit of `kind` placed at `pos` keeps the invariants: its box is clear of blocked
+    /// tiles and blocking footprints and inside the map, and overlaps no other unit of its layer (`moving` is the
+    /// unit itself, when it is teleported). Other kinds pass.
+    fn check_unit_fits(&self, kind: ObjectKind, pos: Vec2, moving: Option<ObjectId>) -> Result<(), Reject> {
+        let def = kind.def();
+        let (Some(unit), Some(silhouette)) = (&def.unit, def.silhouette()) else {
+            return Ok(());
+        };
+        let half = silhouette / 2.0;
+        let base = unit.base_def();
+        if let Some(class) = base.nav_class() {
+            let grid = self.nav.nav().grid(class, nav::size_class(silhouette));
+            if grid.is_some_and(|grid| !nav::box_clear(grid, half, pos)) {
+                return Err(Reject::Blocked);
+            }
+        }
+        // The grids catch up with this tick's spawns and removals only in phase 5b: footprints are checked
+        // directly too, so a unit can't be put on a station spawned earlier in the tick.
+        if base.domain == Domain::Ground
+            && self.objects.values().any(|o| {
+                o.placement
+                    .as_ref()
+                    .and_then(|p| blocking_footprint(o.kind, p, self.nav.nav().rules()))
+                    .is_some_and(|rect| box_overlaps_rect(pos, half, rect))
+            })
+        {
+            return Err(Reject::Blocked);
+        }
+        if base.domain.hard_collision()
+            && let Some(other) = self.objects.values().find(|o| {
+                Some(o.id) != moving
+                    && in_layer(o, base.domain).is_some_and(|other| boxes_overlap(pos, half, o.pos, other))
+            })
+        {
+            return Err(Reject::Occupied(other.id));
+        }
+        Ok(())
+    }
+
+    /// A blocking footprint must not cover a ground unit (`docs/movement.md > 3`).
+    fn check_footprint_clear(&self, kind: ObjectKind, placement: &Placement) -> Result<(), Reject> {
+        let Some(rect) = blocking_footprint(kind, placement, self.nav.nav().rules()) else {
+            return Ok(());
+        };
+        match self
+            .objects
+            .values()
+            .find(|o| in_layer(o, Domain::Ground).is_some_and(|half| box_overlaps_rect(o.pos, half, rect)))
+        {
+            Some(unit) => Err(Reject::Occupied(unit.id)),
+            None => Ok(()),
         }
     }
 
@@ -134,4 +279,11 @@ impl Sim {
             _ => Ok(object),
         }
     }
+}
+
+/// The half extents of `o`'s box if it is a unit of `domain`'s layer (`docs/movement.md > 6.1`).
+fn in_layer(o: &Object, domain: Domain) -> Option<Vec2> {
+    let def = o.def();
+    let unit = def.unit.as_ref()?;
+    (unit.base_def().domain == domain).then(|| def.half_extents()).flatten()
 }

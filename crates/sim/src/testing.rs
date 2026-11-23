@@ -24,11 +24,14 @@
 
 use std::collections::BTreeMap;
 
+use glam::Vec2;
+
 use crate::command::{Command, DebugCommand, PlayerCommand, TickInputs};
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
-use crate::ids::PlayerId;
+use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
+use crate::orders::OrderKind;
 use crate::replay::Replay;
 use crate::scenario::{Scenario, Spawn, SpawnAt, SpawnSettings};
 use crate::scenarios;
@@ -128,6 +131,31 @@ impl TestSim {
     /// [`TestSim::at`] for a debug command from player 1.
     pub fn debug_at(&mut self, tick: Tick, command: DebugCommand) -> &mut Self {
         self.at(tick, PlayerId(1), Command::Debug(command))
+    }
+
+    /// [`TestSim::debug_at`] for spawning a unit of `kind` for `owner`, centred on `pos`.
+    pub fn spawn_unit_at(&mut self, tick: Tick, kind: ObjectKind, owner: PlayerId, pos: Vec2) -> &mut Self {
+        self.debug_at(
+            tick,
+            DebugCommand::Spawn {
+                kind,
+                owner: Some(owner),
+                at: SpawnAt::Point(pos),
+            },
+        )
+    }
+
+    /// [`TestSim::at`] for `player`'s order to `units` (`Command::Order`; `queue` is Shift).
+    pub fn order_at(
+        &mut self,
+        tick: Tick,
+        player: PlayerId,
+        units: &[ObjectId],
+        kind: OrderKind,
+        queue: bool,
+    ) -> &mut Self {
+        let units = units.to_vec();
+        self.at(tick, player, Command::Order { units, kind, queue })
     }
 
     /// Advances one tick, applying the commands scheduled for it.

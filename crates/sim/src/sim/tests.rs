@@ -21,13 +21,13 @@ fn small_sim() -> Sim {
     Sim::with_config(&scenario, SimConfig::DEBUG)
 }
 
-/// Stand-in for a unit until unit types exist: an object without a tile placement.
+/// An idle Peacekeeper of player 1 at `pos`, inserted directly (no checks).
 fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
     let id = ObjectId(sim.next_id);
     sim.next_id += 1;
     let unit = Object {
         id,
-        kind: ObjectKind::CrystalPatch,
+        kind: ObjectKind::Peacekeeper,
         owner: Some(PlayerId(1)),
         pos,
         prev_pos: pos,
@@ -36,9 +36,36 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         hp: Some(40.0),
         placement: None,
         resource: None,
+        orders: Some(Orders::default()),
+        mover: Some(Mover::default()),
     };
     sim.objects.insert(id, unit);
     id
+}
+
+/// Gives unit `id` a current order, a queued one and a path, so every field of its orders and mover has a value.
+fn make_busy(sim: &mut Sim, id: u32) {
+    let order = Order {
+        kind: OrderKind::Move(Target::Point(Vec2::new(40.0, 50.0))),
+        group: OrderGroup(3),
+        slot: Some(Vec2::new(41.0, 51.0)),
+    };
+    let o = orders(sim, id);
+    o.give(order.clone(), false);
+    o.current = Some(crate::orders::ActiveOrder { order, since: 2 });
+    let pos = obj(sim, id).pos;
+    let m = mover(sim, id);
+    m.go_to(crate::mover::MoveGoal::Point(Vec2::new(41.0, 51.0)), None, 2);
+    m.follow(vec![pos, Vec2::new(41.0, 51.0)], Vec2::new(41.0, 51.0), 0);
+    m.avoid_tiles.push(TilePos::new(1, 2));
+}
+
+fn orders(sim: &mut Sim, id: u32) -> &mut Orders {
+    obj(sim, id).orders.as_mut().expect("a unit")
+}
+
+fn mover(sim: &mut Sim, id: u32) -> &mut Mover {
+    obj(sim, id).mover.as_mut().expect("a unit")
 }
 
 fn obj(sim: &mut Sim, id: u32) -> &mut Object {
@@ -88,6 +115,7 @@ type Mutation = (&'static str, fn(&mut Sim));
 fn state_hash_covers_every_field() {
     let mut base = small_sim();
     insert_unit(&mut base, Vec2::new(100.0, 100.0)); // id 3
+    make_busy(&mut base, 3);
     let mutations: Vec<Mutation> = vec![
         ("tick", |s| s.tick += 1),
         ("map", |s| {
@@ -135,6 +163,56 @@ fn state_hash_covers_every_field() {
             s.rng.next_u32();
         }),
         ("config debug", |s| s.config.debug = !s.config.debug),
+        ("next_group", |s| s.next_group += 1),
+        ("nav_version", |s| s.nav_version += 1),
+        ("orders none", |s| obj(s, 3).orders = None),
+        ("queue", |s| {
+            orders(s, 3).queue.pop_front();
+        }),
+        ("queued kind", |s| orders(s, 3).queue[0].kind = OrderKind::Hold),
+        ("queued group", |s| orders(s, 3).queue[0].group = OrderGroup(4)),
+        ("queued slot", |s| orders(s, 3).queue[0].slot = None),
+        ("move target", |s| {
+            orders(s, 3).queue[0].kind = OrderKind::Move(Target::Object(ObjectId(1)));
+        }),
+        ("current none", |s| orders(s, 3).current = None),
+        ("current since", |s| orders(s, 3).current.as_mut().unwrap().since += 1),
+        ("current order", |s| {
+            orders(s, 3).current.as_mut().unwrap().order.kind = OrderKind::Stop;
+        }),
+        ("mover none", |s| obj(s, 3).mover = None),
+        ("goal", |s| mover(s, 3).goal = crate::mover::MoveGoal::None),
+        ("status", |s| mover(s, 3).status = crate::mover::MoveStatus::Failed),
+        ("locomotion", |s| {
+            mover(s, 3).locomotion = crate::mover::Locomotion::Moving
+        }),
+        ("orientation", |s| {
+            mover(s, 3).orientation = crate::mover::Orientation::Turning(Vec2::ONE);
+        }),
+        ("velocity", |s| mover(s, 3).velocity.x += 1.0),
+        ("speed_factor", |s| mover(s, 3).speed_factor = 0.5),
+        ("path", |s| mover(s, 3).path[1].y += 1.0),
+        ("next", |s| mover(s, 3).next += 1),
+        ("path_state", |s| mover(s, 3).path_state = crate::mover::PathState::None),
+        ("path group", |s| {
+            mover(s, 3).path_state = crate::mover::PathState::Wanted {
+                since: 2,
+                group: Some(crate::nav::PathGroup {
+                    id: 1,
+                    anchor: Vec2::ZERO,
+                }),
+            };
+        }),
+        ("mover nav_version", |s| mover(s, 3).nav_version += 1),
+        ("planned_target", |s| mover(s, 3).planned_target.x += 1.0),
+        ("repaths_left", |s| mover(s, 3).repaths_left -= 1),
+        ("repath_ready_at", |s| mover(s, 3).repath_ready_at += 1),
+        ("avoid_tiles", |s| mover(s, 3).avoid_tiles.clear()),
+        ("best_remaining", |s| mover(s, 3).best_remaining = 7.0),
+        ("last_progress", |s| mover(s, 3).last_progress += 1),
+        ("blocked_ticks", |s| mover(s, 3).blocked_ticks += 1),
+        ("avoid_side", |s| mover(s, 3).avoid_side = crate::mover::Side::Left),
+        ("avoid_until", |s| mover(s, 3).avoid_until += 1),
     ];
     for (name, mutate) in mutations {
         let mut sim = base.clone();
@@ -186,8 +264,8 @@ fn a_players_orders_may_only_command_their_own_objects() {
 #[test]
 fn set_position_teleports_to_finite_points_on_the_map_only() {
     let mut sim = small_sim();
-    let unit = insert_unit(&mut sim, Vec2::new(100.0, 100.0));
-    let target = Vec2::new(300.0, 200.0);
+    let unit = insert_unit(&mut sim, Vec2::new(200.0, 50.0));
+    let target = Vec2::new(200.0, 300.0);
     sim.step(&debug(DebugCommand::SetPosition { id: unit, pos: target }));
     let o = sim.object(unit).unwrap();
     assert_eq!((o.pos, o.prev_pos), (target, target));

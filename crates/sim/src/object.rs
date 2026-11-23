@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::defs::{Footprint, ObjectDef, ObjectKind};
 use crate::ids::{ObjectId, PlayerId};
+use crate::mover::Mover;
+use crate::orders::Orders;
 use crate::units::{SU_PER_GU, TilePos};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -29,6 +31,10 @@ pub struct Object {
     pub placement: Option<Placement>,
     /// Resource node state (`core/map.md > Resource`).
     pub resource: Option<ResourceState>,
+    /// Units: the command queue and the current order (`systems/controls/commands.md > Unit Command`).
+    pub orders: Option<Orders>,
+    /// Units: movement state (`docs/movement.md > 3`).
+    pub mover: Option<Mover>,
 }
 
 impl Object {

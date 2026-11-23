@@ -66,6 +66,12 @@ pub fn placeholder_mesh(kind: ObjectKind) -> Mesh {
     match kind {
         ObjectKind::CrystalPatch => crystal_patch_mesh(),
         ObjectKind::SupplyDeliveryStation => supply_station_mesh(),
+        ObjectKind::Peacekeeper | ObjectKind::Guard => {
+            let half = kind.def().half_extents().unwrap_or(Vec2::splat(12.0));
+            let mut mesh = ColorMesh::triangles();
+            mesh.rect(-half, half, 0.0, Color::srgb(0.7, 0.7, 0.7));
+            mesh.into_mesh()
+        }
     }
 }
 
