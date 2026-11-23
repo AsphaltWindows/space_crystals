@@ -1978,3 +1978,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T14:54:17-05:00 — Rearm time per unit of ammo, per aircraft type. Docs: gdo/structures.md, gdo/units.md. Change entry 0019.
 - 2026-11-23T14:59:19-05:00 — Named GDO aircraft: Hornet (AG hover chopper), Dragonfly (AA glider). Change entry 0020.
 - 2026-11-23T15:01:20-05:00 — Artillery Rig name confirmed; fixed leftover working title in Propulsion Labs (now Dragonfly). No change entry (no behavior change; 0020 covers the rename).
+- 2026-11-23T17:57:16-05:00 — Q0007 part 1: magic box group destinations (user). Doc: commands.md (+README). Change entry 0021.
