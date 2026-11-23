@@ -28,7 +28,6 @@
 ## Open Director Questions
 
 All non-blocking; Director proceeds on its defaults (option A in each). Arrived 2026-11-23 mid-GDO-roster; raise after the support-air-unit thread. Movement/pathing cluster:
-- **Q0008** parts 1–2 ANSWERED (0024, 0025 nearest reachable point). Still ask: occupied target (A arrived if stuck within 1.5 tiles behind non-moving units / B keep trying). Note: magic-box 'converge' relies on it; overlaps Q0015.1.
 - **Q0015** magic box × yielding: (1) units arrived under a group order don't yield to still-arriving members of the same order (A) vs yield to all + shuffling (B); (2) box = unit footprints not centres (A) vs centres (B) — a line has zero-height box otherwise; (3) Shift-queued group move box from current positions (A) vs previous queued destinations (B).
 - **Q0009** range measured: A attacker centre → nearest point of target shape / B centre-centre / C edge-edge; proximity = within 8 su; silhouettes rotate with facing? (A no / B yes).
 - **Q0010** chase into fog (A go to last seen pos / B complete / C keep chasing); patrol origin at execution vs issue (docs conflict: commands.md vs behaviors.md step 1); failed patrol leg (A counts as arrived, 2 in a row end / B end).
@@ -87,7 +86,7 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 ## Insights
 - User prefers Director questions presented ONE AT A TIME, with plain explanations; they like concrete comparisons and may reference StarCraft themselves.
 - Maps (2026-11-23, entries 0007–0009, 0012; core/map_editor.md): map type chosen at creation: Skirmish Default (symmetry required, only the editable portion is drawn and the rest generated, everything mirrored; Starting Layouts = Starting Conditions only and must be complete; no slot restrictions; neutral pre-placed only) vs Custom (deferred: triggers, slot restrictions). Layouts placed from scratch, overlay editing, outdated → flag. Custom tile presets yes, custom textures later. OPEN: min/max size, max slots, slots vs symmetry, objects on the symmetry axis.
-- Movement (2026-11-23, 0021–0022): magic box group destinations; own idle units sidestep for blocked own movers; enemies never yield; moving units never swap.
+- Movement (2026-11-23, 0021–0026): stuck 1.5 s / 3 re-routes / ~7 s; unreachable → nearest reachable point; occupied → arrived within 2 GU behind non-movers; magic box group destinations; own idle units sidestep for blocked own movers; enemies never yield; moving units never swap.
 - Input defaults (2026-11-23, entries 0010/0011): SC2-like map clicks + control groups, Shift queue, arrows/edge/middle-mouse grab pan; rebinding yes, timing = Director's call.
 - Elevation model (2026-11-23): slopes have NO speed effect (user, maybe revisit after playtest); corner heights 0–16, Traversible tiles ≤1 level corner difference, bigger drops = non-Traversible (cliffs → chokepoints), elevation level = floor(height), structures on flat tiles only; patches + Supply stations flat-only too (Q0006/0013).
 - Art direction (2026-11-23): square grid + 3/4 view, sprites pre-rendered from 3D models, 32 px/tile, all building orientations rendered, unit facings 16 infantry / 32 vehicles-turrets-air. See core/art_direction.md.
