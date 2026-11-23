@@ -1982,3 +1982,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T18:26:59-05:00 — Q0012 + Q0007 answered: own idle units sidestep for blocked movers (B); no swap for movers. Doc: systems/units.md. Change entry 0022. Took in Q0014.
 - 2026-11-23T18:34:06-05:00 — Who yields: idle only; Hold/busy no; Riot Shield mode irrelevant; deployed Artillery Rig = fixed obstacle. Doc: systems/units.md. Change entry 0023.
 - 2026-11-23T18:42:44-05:00 — Q0008 part 1: stuck/give-up timings kept. Doc: behaviors.md. Change entry 0024.
+- 2026-11-23T18:49:50-05:00 — Q0008 part 2: unreachable target → nearest reachable point. Docs: behaviors.md, commands.md. Change entry 0025. Took in Q0015.

@@ -84,6 +84,9 @@ If the unit repeatedly fails to make progress toward TargetLocation, set Locomot
 
 This definition applies wherever a behavior says "repeatedly fails to make progress" (MovingToObject, AttackingObject, etc.).
 
+### Unreachable target location:
+If TargetLocation can't be reached (impassable terrain such as water or a cliff, inside a structure, or an area cut off from the unit), the unit moves to the **reachable point nearest to TargetLocation** and the behavior completes there (user, 2026-11-23). The order is never refused for being unreachable.
+
 ## MovingToObject
 Base behavior for moving to a mobile or static object instance. Similar to MovingToLocation but the target position may change over time, requiring smarter replanning.
 
