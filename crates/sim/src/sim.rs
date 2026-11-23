@@ -3,15 +3,18 @@
 use std::collections::BTreeMap;
 
 use glam::Vec2;
+use serde::{Deserialize, Serialize, Serializer};
 
 use crate::command::{Command, DebugCommand, PlayerCommand, TickInputs};
-use crate::defs::{Category, Footprint, ObjectKind};
+use crate::defs::ObjectKind;
 use crate::events::SimEvent;
+use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::object::{Object, Placement, ResourceState};
 use crate::player::Player;
-use crate::scenario::{Scenario, SpawnAt};
+use crate::rng::Rng;
+use crate::scenario::{Scenario, ScenarioProblem, SpawnAt, place_spawn};
 use crate::units::{Tick, seconds};
 
 /// Placeholder until the design gives one (question Q0003).
@@ -20,18 +23,40 @@ pub const DEFAULT_PATCH_AMOUNT: u32 = 1500;
 pub const DEFAULT_SDS_DELIVERY_SIZE: u32 = 4;
 pub const DEFAULT_SDS_DELIVERY_INTERVAL_SECONDS: f32 = 60.0;
 
+/// The whole game state. Serde (de)serializes all of it, e.g. as a JSON state dump or a
+/// save; loading checks that object ids are unique and below the next id.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "SimState")]
 pub struct Sim {
     tick: Tick,
     map: Map,
     players: Vec<Player>,
-    /// Keyed by id ⇒ iteration is always in ascending `ObjectId` order.
+    /// Keyed by id ⇒ iteration is always in ascending `ObjectId` order. Serialized as a
+    /// list in that order.
+    #[serde(serialize_with = "serialize_objects")]
     objects: BTreeMap<ObjectId, Object>,
     next_id: u32,
+    /// The only source of randomness (`ARCHITECTURE.md > Determinism`), seeded from
+    /// `Scenario::seed`.
+    rng: Rng,
+    /// Output of the latest step only; not part of [`Sim::state_hash`].
     events: Vec<SimEvent>,
 }
 
 impl Sim {
+    /// Panics if the scenario is invalid, listing its problems. Use [`Sim::try_new`] for
+    /// scenarios from files or other input.
     pub fn new(scenario: &Scenario) -> Self {
+        Self::try_new(scenario).unwrap_or_else(|problems| {
+            let problems: Vec<String> = problems.iter().map(ToString::to_string).collect();
+            panic!("invalid scenario {:?}: {}", scenario.name, problems.join("; "))
+        })
+    }
+
+    /// Starts a game, or lists everything wrong with the scenario
+    /// ([`Scenario::validate`]). Never panics.
+    pub fn try_new(scenario: &Scenario) -> Result<Self, Vec<ScenarioProblem>> {
+        let spots = scenario.spawn_spots()?;
         let players = scenario
             .players
             .iter()
@@ -47,15 +72,15 @@ impl Sim {
             players,
             objects: BTreeMap::new(),
             next_id: 1,
+            rng: Rng::from_seed(scenario.seed),
             events: Vec::new(),
         };
-        for s in &scenario.spawns {
-            if sim.spawn(s.kind, s.owner, s.at).is_none() {
-                panic!("scenario {:?}: invalid spawn {s:?}", scenario.name);
-            }
+        for (s, (pos, placement)) in scenario.spawns.iter().zip(spots) {
+            sim.insert_object(s.kind, s.owner, pos, placement);
         }
+        // Scenario spawns emit no events (`ARCHITECTURE.md > Commands, events and replays`).
         sim.events.clear();
-        sim
+        Ok(sim)
     }
 
     pub fn tick(&self) -> Tick {
@@ -88,6 +113,34 @@ impl Sim {
         &self.events
     }
 
+    /// FNV-1a 64 hash of the whole state: tick, map, players, objects in id order, next id
+    /// and PRNG state (`f32` by its bits; encoding in `hash.rs`). Events are output, not
+    /// state, so they are left out. Equal states give equal hashes on every machine, so
+    /// comparing hashes checks determinism.
+    pub fn state_hash(&self) -> u64 {
+        // Destructured without `..`: a new field fails to compile here until it is hashed.
+        let Sim {
+            tick,
+            map,
+            players,
+            objects,
+            next_id,
+            rng,
+            events: _,
+        } = self;
+        let mut h = StateHasher::new();
+        tick.hash(&mut h);
+        map.hash(&mut h);
+        players.hash(&mut h);
+        h.len(objects.len());
+        for o in objects.values() {
+            o.hash(&mut h);
+        }
+        next_id.hash(&mut h);
+        rng.hash(&mut h);
+        h.finish()
+    }
+
     /// Advance exactly one tick. Phase order is fixed and documented in ARCHITECTURE.md.
     pub fn step(&mut self, inputs: &TickInputs) {
         self.events.clear();
@@ -114,6 +167,7 @@ impl Sim {
                 }
             }
             Command::Debug(DebugCommand::SetPosition { id, pos }) => {
+                // `contains_point` also rejects NaN and infinite positions.
                 let on_map = self.map.contains_point(*pos);
                 if let Some(o) = self.objects.get_mut(id)
                     && o.placement.is_none()
@@ -128,29 +182,24 @@ impl Sim {
     }
 
     /// Create an object with its type's initial state. Returns `None`, changing
-    /// nothing, if the location doesn't suit the type, lies off the map, or the
-    /// owner is invalid.
+    /// nothing, if the location doesn't suit the type, lies off the map, the owner is
+    /// invalid ([`place_spawn`]), or every object id is used up.
     fn spawn(&mut self, kind: ObjectKind, owner: Option<PlayerId>, at: SpawnAt) -> Option<ObjectId> {
-        let def = kind.def();
-        let owner_ok = match owner {
-            // `core/map.md > Resource`: resources are never owned.
-            Some(p) => def.category != Category::Resource && self.player(p).is_some(),
-            None => true,
-        };
-        if !owner_ok {
+        if self.next_id == u32::MAX {
             return None;
         }
-        let (pos, placement) = match (def.footprint, at) {
-            (Footprint::Tiles { .. }, SpawnAt::Tile(origin)) => {
-                let p = Placement::new(origin, def.footprint);
-                if !p.tiles().all(|t| self.map.in_bounds(t)) {
-                    return None;
-                }
-                (p.center(), Some(p))
-            }
-            (Footprint::Silhouette { .. }, SpawnAt::Point(pos)) if self.map.contains_point(pos) => (pos, None),
-            _ => return None,
-        };
+        let (pos, placement) = place_spawn(&self.map, kind, owner, at, |p| self.player(p).is_some()).ok()?;
+        Some(self.insert_object(kind, owner, pos, placement))
+    }
+
+    /// Insert an object at a checked spot, with its type's initial state.
+    fn insert_object(
+        &mut self,
+        kind: ObjectKind,
+        owner: Option<PlayerId>,
+        pos: Vec2,
+        placement: Option<Placement>,
+    ) -> ObjectId {
         let id = ObjectId(self.next_id);
         self.next_id += 1;
         let resource = match kind {
@@ -172,13 +221,13 @@ impl Sim {
             prev_pos: pos,
             facing: 0.0,
             prev_facing: 0.0,
-            hp: def.max_hp,
+            hp: kind.def().max_hp,
             placement,
             resource,
         };
         self.objects.insert(id, object);
         self.events.push(SimEvent::Spawned(id));
-        Some(id)
+        id
     }
 
     /// `core/map.md > SupplyDeliveryStation`: the countdown runs only while empty.
@@ -218,3 +267,57 @@ impl Sim {
             .min_by(|a, b| a.pos.distance_squared(p).total_cmp(&b.pos.distance_squared(p)))
     }
 }
+
+fn serialize_objects<S: Serializer>(objects: &BTreeMap<ObjectId, Object>, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.collect_seq(objects.values())
+}
+
+/// The serialized form of [`Sim`], checked before it becomes one.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SimState {
+    tick: Tick,
+    map: Map,
+    players: Vec<Player>,
+    objects: Vec<Object>,
+    next_id: u32,
+    rng: Rng,
+    events: Vec<SimEvent>,
+}
+
+impl TryFrom<SimState> for Sim {
+    type Error = String;
+
+    fn try_from(state: SimState) -> Result<Self, String> {
+        let SimState {
+            tick,
+            map,
+            players,
+            objects: list,
+            next_id,
+            rng,
+            events,
+        } = state;
+        let mut objects = BTreeMap::new();
+        for o in list {
+            if o.id.0 >= next_id {
+                return Err(format!("object id {} is not below next_id {next_id}", o.id.0));
+            }
+            if let Some(duplicate) = objects.insert(o.id, o) {
+                return Err(format!("object id {} appears more than once", duplicate.id.0));
+            }
+        }
+        Ok(Sim {
+            tick,
+            map,
+            players,
+            objects,
+            next_id,
+            rng,
+            events,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests;

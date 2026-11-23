@@ -1,0 +1,282 @@
+use super::*;
+use crate::map::{Tile, TilePresetId};
+use crate::object::Rotation;
+use crate::player::Faction;
+use crate::scenario::Spawn;
+use crate::scenarios;
+use crate::units::TilePos;
+
+fn tile_spawn(kind: ObjectKind, x: i32, y: i32) -> Spawn {
+    Spawn {
+        kind,
+        owner: None,
+        at: SpawnAt::Tile(TilePos::new(x, y)),
+    }
+}
+
+/// An 8×6 map (512 × 384 su) with a patch (id 1) and a station (id 2).
+fn small_sim() -> Sim {
+    let mut scenario = scenarios::empty(8, 6);
+    scenario.spawns = vec![
+        tile_spawn(ObjectKind::CrystalPatch, 1, 1),
+        tile_spawn(ObjectKind::SupplyDeliveryStation, 4, 2),
+    ];
+    Sim::new(&scenario)
+}
+
+/// Stand-in for a unit until unit types exist: an object without a tile placement.
+fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
+    let id = ObjectId(sim.next_id);
+    sim.next_id += 1;
+    let unit = Object {
+        id,
+        kind: ObjectKind::CrystalPatch,
+        owner: Some(PlayerId(1)),
+        pos,
+        prev_pos: pos,
+        facing: 0.5,
+        prev_facing: 0.25,
+        hp: Some(40.0),
+        placement: None,
+        resource: None,
+    };
+    sim.objects.insert(id, unit);
+    id
+}
+
+fn obj(sim: &mut Sim, id: u32) -> &mut Object {
+    sim.objects.get_mut(&ObjectId(id)).expect("object exists")
+}
+
+fn placement(sim: &mut Sim) -> &mut Placement {
+    obj(sim, 1).placement.as_mut().expect("patch has a placement")
+}
+
+fn station(sim: &mut Sim) -> (&mut u32, &mut u32, &mut u32, &mut Option<u32>) {
+    match &mut obj(sim, 2).resource {
+        Some(ResourceState::SupplyStation {
+            delivery_size,
+            delivery_interval,
+            current_supplies,
+            next_delivery_in,
+        }) => (delivery_size, delivery_interval, current_supplies, next_delivery_in),
+        other => panic!("not a station: {other:?}"),
+    }
+}
+
+fn station_supplies(sim: &Sim) -> (u32, Option<u32>) {
+    match sim.object(ObjectId(2)).and_then(|o| o.resource.as_ref()) {
+        Some(ResourceState::SupplyStation {
+            current_supplies,
+            next_delivery_in,
+            ..
+        }) => (*current_supplies, *next_delivery_in),
+        other => panic!("not a station: {other:?}"),
+    }
+}
+
+fn debug(command: DebugCommand) -> TickInputs {
+    TickInputs {
+        commands: vec![PlayerCommand {
+            player: PlayerId(1),
+            command: Command::Debug(command),
+        }],
+    }
+}
+
+/// A named change to one field.
+type Mutation = (&'static str, fn(&mut Sim));
+
+#[test]
+fn state_hash_covers_every_field() {
+    let mut base = small_sim();
+    insert_unit(&mut base, Vec2::new(100.0, 100.0)); // id 3
+    let mutations: Vec<Mutation> = vec![
+        ("tick", |s| s.tick += 1),
+        ("map", |s| {
+            s.map.set_tile(TilePos::new(0, 0), Tile::new(TilePresetId::WATER, 0))
+        }),
+        ("player id", |s| s.players[0].id = PlayerId(9)),
+        ("player name", |s| s.players[0].name.push('!')),
+        ("player faction", |s| s.players[0].faction = Faction::Cults),
+        ("player removed", |s| {
+            s.players.pop();
+        }),
+        ("object removed", |s| {
+            s.objects.remove(&ObjectId(3));
+        }),
+        ("object id", |s| obj(s, 1).id = ObjectId(7)),
+        ("kind", |s| obj(s, 1).kind = ObjectKind::SupplyDeliveryStation),
+        ("owner", |s| obj(s, 1).owner = Some(PlayerId(2))),
+        ("pos x", |s| obj(s, 3).pos.x += 1.0),
+        ("pos y", |s| obj(s, 3).pos.y += 1.0),
+        ("prev_pos x", |s| obj(s, 3).prev_pos.x += 1.0),
+        ("prev_pos y", |s| obj(s, 3).prev_pos.y += 1.0),
+        ("facing", |s| obj(s, 3).facing += 0.1),
+        ("prev_facing", |s| obj(s, 3).prev_facing += 0.1),
+        ("hp value", |s| obj(s, 3).hp = Some(39.5)),
+        ("hp none", |s| obj(s, 3).hp = None),
+        ("placement none", |s| obj(s, 1).placement = None),
+        ("placement origin x", |s| placement(s).origin.x += 1),
+        ("placement origin y", |s| placement(s).origin.y += 1),
+        ("placement w", |s| placement(s).w += 1),
+        ("placement h", |s| placement(s).h += 1),
+        ("placement rotation", |s| placement(s).rotation = Rotation::R90),
+        ("placement flip_h", |s| placement(s).flip_h = true),
+        ("placement flip_v", |s| placement(s).flip_v = true),
+        ("resource none", |s| obj(s, 1).resource = None),
+        ("patch remaining", |s| {
+            obj(s, 1).resource = Some(ResourceState::CrystalPatch { remaining: 1 });
+        }),
+        ("delivery_size", |s| *station(s).0 += 1),
+        ("delivery_interval", |s| *station(s).1 += 1),
+        ("current_supplies", |s| *station(s).2 += 1),
+        ("next_delivery_in value", |s| *station(s).3 = Some(5)),
+        ("next_delivery_in none", |s| *station(s).3 = None),
+        ("next_id", |s| s.next_id += 1),
+        ("rng", |s| {
+            s.rng.next_u32();
+        }),
+    ];
+    for (name, mutate) in mutations {
+        let mut sim = base.clone();
+        mutate(&mut sim);
+        assert_ne!(sim, base, "{name}: the mutation changed nothing");
+        assert_ne!(sim.state_hash(), base.state_hash(), "{name}");
+    }
+}
+
+#[test]
+fn state_hash_ignores_events_only() {
+    let base = small_sim();
+    let mut with_event = base.clone();
+    with_event.events.push(SimEvent::Removed(ObjectId(1)));
+    assert_eq!(with_event.state_hash(), base.state_hash());
+    assert_eq!(small_sim().state_hash(), base.state_hash());
+}
+
+#[test]
+fn set_position_teleports_to_finite_points_on_the_map_only() {
+    let mut sim = small_sim();
+    let unit = insert_unit(&mut sim, Vec2::new(100.0, 100.0));
+    let target = Vec2::new(300.0, 200.0);
+    sim.step(&debug(DebugCommand::SetPosition { id: unit, pos: target }));
+    let o = sim.object(unit).unwrap();
+    assert_eq!((o.pos, o.prev_pos), (target, target));
+    let bad = [
+        Vec2::new(f32::NAN, 10.0),
+        Vec2::new(10.0, f32::NAN),
+        Vec2::splat(f32::INFINITY),
+        Vec2::new(f32::NEG_INFINITY, 10.0),
+        Vec2::new(-1.0, 10.0),
+        Vec2::new(512.0, 10.0),
+        Vec2::new(10.0, 384.0),
+    ];
+    for pos in bad {
+        sim.step(&debug(DebugCommand::SetPosition { id: unit, pos }));
+        assert_eq!(sim.object(unit).unwrap().pos, target, "{pos}");
+    }
+    // Tile-based objects keep their placement.
+    let patch = sim.object(ObjectId(1)).unwrap().pos;
+    sim.step(&debug(DebugCommand::SetPosition {
+        id: ObjectId(1),
+        pos: target,
+    }));
+    assert_eq!(sim.object(ObjectId(1)).unwrap().pos, patch);
+}
+
+#[test]
+fn station_countdown_restarts_when_emptied() {
+    let mut sim = small_sim();
+    let interval = seconds(DEFAULT_SDS_DELIVERY_INTERVAL_SECONDS);
+    for _ in 0..interval {
+        sim.step(&TickInputs::default());
+    }
+    assert_eq!(station_supplies(&sim), (DEFAULT_SDS_DELIVERY_SIZE, None));
+    // Stand-in for a future collector emptying the station between ticks.
+    *station(&mut sim).2 = 0;
+    sim.step(&TickInputs::default());
+    assert_eq!(station_supplies(&sim), (0, Some(interval - 1)));
+    for _ in 1..interval {
+        assert!(sim.events().is_empty());
+        sim.step(&TickInputs::default());
+    }
+    assert_eq!(station_supplies(&sim), (DEFAULT_SDS_DELIVERY_SIZE, None));
+    let delivered = SimEvent::SuppliesDelivered {
+        station: ObjectId(2),
+        amount: DEFAULT_SDS_DELIVERY_SIZE,
+    };
+    assert_eq!(sim.events(), [delivered]);
+}
+
+#[test]
+fn spawns_are_ignored_once_ids_run_out() {
+    let mut sim = small_sim();
+    sim.next_id = u32::MAX;
+    sim.step(&debug(DebugCommand::Spawn {
+        kind: ObjectKind::CrystalPatch,
+        owner: None,
+        at: SpawnAt::Tile(TilePos::new(0, 0)),
+    }));
+    let ids: Vec<ObjectId> = sim.objects.keys().copied().collect();
+    assert_eq!(ids, [ObjectId(1), ObjectId(2)]);
+    assert_eq!(sim.next_id, u32::MAX);
+    assert!(sim.events().is_empty());
+}
+
+#[test]
+fn try_new_and_new_agree_on_valid_scenarios() {
+    let scenario = scenarios::dev_skirmish();
+    assert_eq!(Sim::try_new(&scenario), Ok(Sim::new(&scenario)));
+}
+
+#[test]
+#[should_panic(expected = "invalid scenario \"empty\": spawn 0 (CrystalPatch): resources can't have an owner")]
+fn new_panics_listing_the_problems() {
+    let mut scenario = scenarios::empty(8, 6);
+    let mut patch = tile_spawn(ObjectKind::CrystalPatch, 0, 0);
+    patch.owner = Some(PlayerId(1));
+    scenario.spawns.push(patch);
+    Sim::new(&scenario);
+}
+
+/// JSON keeps every finite `f32` bit for bit, so a loaded state hashes the same. Random
+/// bit patterns cover subnormals, huge values and -0.0.
+#[test]
+fn json_round_trip_keeps_every_float_bit() {
+    let mut sim = small_sim();
+    let mut rng = Rng::from_seed(11);
+    let mut random_finite = || loop {
+        let v = f32::from_bits(rng.next_u32());
+        if v.is_finite() {
+            return v;
+        }
+    };
+    for _ in 0..500 {
+        let id = insert_unit(&mut sim, Vec2::new(random_finite(), random_finite()));
+        let o = obj(&mut sim, id.0);
+        o.prev_pos = Vec2::new(random_finite(), random_finite());
+        (o.facing, o.prev_facing, o.hp) = (random_finite(), -0.0, Some(random_finite()));
+    }
+    let loaded: Sim = serde_json::from_str(&serde_json::to_string(&sim).unwrap()).unwrap();
+    assert_eq!(loaded.state_hash(), sim.state_hash());
+}
+
+#[test]
+fn loading_rejects_broken_object_tables() {
+    let sim = small_sim();
+    let json = serde_json::to_value(&sim).unwrap();
+
+    let mut duplicate = json.clone();
+    let objects = duplicate["objects"].as_array_mut().unwrap();
+    objects.push(objects[0].clone());
+    let e = serde_json::from_value::<Sim>(duplicate).unwrap_err().to_string();
+    assert_eq!(e, "object id 1 appears more than once");
+
+    let mut stale_next_id = json.clone();
+    stale_next_id["next_id"] = 2.into();
+    let e = serde_json::from_value::<Sim>(stale_next_id).unwrap_err().to_string();
+    assert_eq!(e, "object id 2 is not below next_id 2");
+
+    assert_eq!(serde_json::from_value::<Sim>(json).unwrap(), sim);
+}

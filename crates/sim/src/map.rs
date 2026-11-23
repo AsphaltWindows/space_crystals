@@ -1,12 +1,89 @@
 //! Tiles and tile presets — `core/map.md`.
+//!
+//! # Text formats
+//!
+//! Each tile preset has a one-character **symbol**. The default presets
+//! (`core/map.md > DefaultTilePresets`) always use [`DEFAULT_PRESET_SYMBOLS`]:
+//!
+//! | Symbol | Preset |
+//! |---|---|
+//! | `.` | Plane |
+//! | `r` | Rugged Terrain |
+//! | `c` | Cliff |
+//! | `M` | Mountain |
+//! | `~` | Water |
+//!
+//! Custom presets get their own symbol: any printable ASCII character except space, `"`
+//! and `\` that no other preset of the map uses (see [`Map::add_preset_with_symbol`]).
+//!
+//! An elevation (`core/map.md > TilePlacement > Elevation - integer (0 to 16)`) is one
+//! base-17 digit: `0`–`9` for 0 to 9, then `a`–`g` for 10 to 16.
+//!
+//! ## ASCII maps ([`Map::from_ascii`], [`Map::to_ascii`])
+//!
+//! A tile block of preset symbols, one line per row from north to south, optionally
+//! followed by a blank line and an elevation block of the same size. Without an elevation
+//! block every tile is at elevation 0. Lines are trimmed, so the text may be indented, and
+//! leading and trailing blank lines are ignored. `from_ascii` knows the default presets
+//! only; a map with custom presets round-trips through its serde form instead.
+//!
+//! ```text
+//! ....rr~~
+//! ..cc..~~
+//! ..MM....
+//!
+//! 00000000
+//! 00110000
+//! 00220000
+//! ```
+//!
+//! ## Serde form (scenario files, saves)
+//!
+//! `Map` serializes as an object with three fields: `custom_presets`, the presets after
+//! the defaults in [`TilePresetId`] order (each with its `symbol`, `name` and flags),
+//! then `tiles` and `elevation`, the two ASCII blocks as arrays of row strings. The
+//! default presets are implied, so they always match the design. When reading,
+//! `custom_presets` and `elevation` may be omitted (none, and all at elevation 0).
+//! Pretty-printed JSON shows one map row per line:
+//!
+//! ```json
+//! {
+//!   "custom_presets": [
+//!     {
+//!       "symbol": "A",
+//!       "name": "Ash Field",
+//!       "buildable": true,
+//!       "traversible": true,
+//!       "rugged": false,
+//!       "drillable": false,
+//!       "recruitable": true
+//!     }
+//!   ],
+//!   "tiles": [
+//!     "..AA",
+//!     "~~.."
+//!   ],
+//!   "elevation": [
+//!     "0011",
+//!     "0000"
+//!   ]
+//! }
+//! ```
+
+mod ascii;
+mod file;
 
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::hash::{StateHash, StateHasher};
 use crate::units::TilePos;
 
 /// `core/map.md > Elevation - integer (0 to 16)`.
 pub const MAX_ELEVATION: u8 = 16;
+
+/// Text symbols of the default presets, in [`TilePresetId`] order (see the module docs).
+pub const DEFAULT_PRESET_SYMBOLS: [char; 5] = ['.', 'r', 'c', 'M', '~'];
 
 /// `core/map.md > TilePreset`. The texture is client-side; the sim only needs the flags.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -46,12 +123,15 @@ impl Tile {
     }
 }
 
-/// The tile grid. Row-major storage, `index = y * width + x`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// The tile grid. Row-major storage, `index = y * width + x`. Serde uses the compact
+/// text form described in the module docs.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Map {
     width: u32,
     height: u32,
     presets: Vec<TilePreset>,
+    /// Text symbol of each preset, same index as `presets`.
+    symbols: Vec<char>,
     tiles: Vec<Tile>,
 }
 
@@ -63,7 +143,8 @@ impl Map {
             width,
             height,
             presets: Self::default_presets(),
-            tiles: vec![Tile::new(TilePresetId::PLANE, 0); (width * height) as usize],
+            symbols: DEFAULT_PRESET_SYMBOLS.to_vec(),
+            tiles: vec![Tile::new(TilePresetId::PLANE, 0); width as usize * height as usize],
         }
     }
 
@@ -98,9 +179,10 @@ impl Map {
         p.x >= 0 && p.y >= 0 && (p.x as u32) < self.width && (p.y as u32) < self.height
     }
 
-    /// Whether a point (space units) lies on the map.
+    /// Whether a point (space units) lies on the map. Non-finite points (NaN, ±∞) never do.
     pub fn contains_point(&self, p: Vec2) -> bool {
-        self.in_bounds(TilePos::containing(p))
+        // `NaN as i32` is 0, so without this check NaN would land on tile (0, 0).
+        p.is_finite() && self.in_bounds(TilePos::containing(p))
     }
 
     fn index(&self, p: TilePos) -> Option<usize> {
@@ -136,14 +218,83 @@ impl Map {
         &self.presets[id.0 as usize]
     }
 
+    /// Text symbol of a preset (see the module docs). Panics for an unknown id, like [`Map::preset`].
+    pub fn preset_symbol(&self, id: TilePresetId) -> char {
+        self.symbols[id.0 as usize]
+    }
+
     /// Preset of the tile at `p`, if in bounds.
     pub fn tile_preset(&self, p: TilePos) -> Option<&TilePreset> {
         self.tile(p).map(|t| self.preset(t.preset))
     }
 
     /// Register a custom preset (`core/map.md > TilePreset`: any flag combination is valid).
+    /// Its symbol is the first free one of `A`–`Z`, `a`–`z`, `0`–`9`, then punctuation.
+    ///
+    /// Panics if every symbol is taken (87 custom presets); [`Map::add_preset_with_symbol`]
+    /// reports that as an error instead.
     pub fn add_preset(&mut self, preset: TilePreset) -> TilePresetId {
+        let symbol = ('A'..='Z')
+            .chain('a'..='z')
+            .chain('0'..='9')
+            .chain('!'..='~')
+            .find(|&c| is_valid_symbol(c) && !self.symbols.contains(&c))
+            .expect("every preset symbol is taken");
+        self.push_preset(preset, symbol)
+    }
+
+    /// Register a custom preset with a chosen text symbol. Fails if the symbol isn't a
+    /// printable ASCII character other than space, `"` and `\`, or another preset has it.
+    pub fn add_preset_with_symbol(&mut self, preset: TilePreset, symbol: char) -> Result<TilePresetId, String> {
+        check_new_symbol(&self.presets, &self.symbols, symbol)?;
+        Ok(self.push_preset(preset, symbol))
+    }
+
+    fn push_preset(&mut self, preset: TilePreset, symbol: char) -> TilePresetId {
         self.presets.push(preset);
+        self.symbols.push(symbol);
         TilePresetId((self.presets.len() - 1) as u16)
     }
 }
+
+/// Symbols that stay one aligned character in a JSON string: printable ASCII except
+/// space, `"` and `\` (JSON escapes those two).
+fn is_valid_symbol(c: char) -> bool {
+    c.is_ascii_graphic() && c != '"' && c != '\\'
+}
+
+/// Whether `symbol` can be added to a preset table whose symbols are `symbols`.
+fn check_new_symbol(presets: &[TilePreset], symbols: &[char], symbol: char) -> Result<(), String> {
+    if !is_valid_symbol(symbol) {
+        return Err(format!(
+            "invalid preset symbol {symbol:?}: use a printable ASCII character other than space, '\"' and '\\'"
+        ));
+    }
+    if let Some(i) = symbols.iter().position(|&s| s == symbol) {
+        return Err(format!(
+            "preset symbol {symbol:?} is already used by preset {:?}",
+            presets[i].name
+        ));
+    }
+    Ok(())
+}
+
+impl StateHash for Map {
+    fn hash(&self, h: &mut StateHasher) {
+        let Map {
+            width,
+            height,
+            presets,
+            symbols,
+            tiles,
+        } = self;
+        width.hash(h);
+        height.hash(h);
+        presets.hash(h);
+        symbols.hash(h);
+        tiles.hash(h);
+    }
+}
+
+#[cfg(test)]
+mod tests;

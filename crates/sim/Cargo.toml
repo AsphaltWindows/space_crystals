@@ -13,3 +13,7 @@ glam.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+# JSON round-trip tests of scenario files, saves and replays (approved for tests only).
+serde_json = "1"

@@ -1,0 +1,306 @@
+//! Canonical state hashing for [`crate::Sim::state_hash`].
+//!
+//! Each state type writes its fields to a [`StateHasher`] in a fixed little-endian encoding:
+//! integers as their bytes, `f32` as its bits (`to_bits`), `bool` as one byte, strings and
+//! sequences with their length first, `Option` and enums as a tag byte plus their fields.
+//! The hasher is FNV-1a 64, which is fully specified, so the same state gives the same hash
+//! on every machine and Rust version. `std`'s `DefaultHasher` gives no such guarantee.
+//!
+//! Every impl destructures its type without `..`, so adding a field fails to compile until
+//! the field is hashed. Types with private fields implement [`StateHash`] in their own module.
+
+use glam::Vec2;
+
+use crate::defs::ObjectKind;
+use crate::ids::{ObjectId, PlayerId};
+use crate::map::{Tile, TilePreset, TilePresetId};
+use crate::object::{Object, Placement, ResourceState, Rotation};
+use crate::player::{Faction, Player};
+use crate::units::TilePos;
+
+/// FNV-1a, 64-bit (Fowler, Noll, Vo).
+pub(crate) struct StateHasher(u64);
+
+impl StateHasher {
+    const OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
+    const PRIME: u64 = 0x0000_0100_0000_01b3;
+
+    pub(crate) fn new() -> Self {
+        Self(Self::OFFSET_BASIS)
+    }
+
+    pub(crate) fn finish(&self) -> u64 {
+        self.0
+    }
+
+    pub(crate) fn bytes(&mut self, bytes: &[u8]) {
+        for &b in bytes {
+            self.0 ^= u64::from(b);
+            self.0 = self.0.wrapping_mul(Self::PRIME);
+        }
+    }
+
+    /// Lengths and counts, as `u64` so the encoding doesn't depend on the platform.
+    pub(crate) fn len(&mut self, len: usize) {
+        (len as u64).hash(self);
+    }
+
+    pub(crate) fn tag(&mut self, tag: u8) {
+        self.bytes(&[tag]);
+    }
+}
+
+pub(crate) trait StateHash {
+    fn hash(&self, h: &mut StateHasher);
+}
+
+macro_rules! hash_le_bytes {
+    ($($t:ty),*) => {
+        $(impl StateHash for $t {
+            fn hash(&self, h: &mut StateHasher) {
+                h.bytes(&self.to_le_bytes());
+            }
+        })*
+    };
+}
+hash_le_bytes!(u8, u16, u32, u64, i32);
+
+impl StateHash for f32 {
+    fn hash(&self, h: &mut StateHasher) {
+        self.to_bits().hash(h);
+    }
+}
+
+impl StateHash for bool {
+    fn hash(&self, h: &mut StateHasher) {
+        h.tag(u8::from(*self));
+    }
+}
+
+impl StateHash for char {
+    fn hash(&self, h: &mut StateHasher) {
+        u32::from(*self).hash(h);
+    }
+}
+
+impl StateHash for String {
+    fn hash(&self, h: &mut StateHasher) {
+        h.len(self.len());
+        h.bytes(self.as_bytes());
+    }
+}
+
+impl<T: StateHash> StateHash for Option<T> {
+    fn hash(&self, h: &mut StateHasher) {
+        match self {
+            None => h.tag(0),
+            Some(v) => {
+                h.tag(1);
+                v.hash(h);
+            }
+        }
+    }
+}
+
+impl<T: StateHash> StateHash for Vec<T> {
+    fn hash(&self, h: &mut StateHasher) {
+        h.len(self.len());
+        for v in self {
+            v.hash(h);
+        }
+    }
+}
+
+impl StateHash for Vec2 {
+    fn hash(&self, h: &mut StateHasher) {
+        self.x.hash(h);
+        self.y.hash(h);
+    }
+}
+
+impl StateHash for TilePos {
+    fn hash(&self, h: &mut StateHasher) {
+        let TilePos { x, y } = self;
+        x.hash(h);
+        y.hash(h);
+    }
+}
+
+impl StateHash for ObjectId {
+    fn hash(&self, h: &mut StateHasher) {
+        self.0.hash(h);
+    }
+}
+
+impl StateHash for PlayerId {
+    fn hash(&self, h: &mut StateHasher) {
+        self.0.hash(h);
+    }
+}
+
+impl StateHash for TilePresetId {
+    fn hash(&self, h: &mut StateHasher) {
+        self.0.hash(h);
+    }
+}
+
+impl StateHash for ObjectKind {
+    fn hash(&self, h: &mut StateHasher) {
+        // Fieldless enum: the discriminant is the declaration index.
+        (*self as u32).hash(h);
+    }
+}
+
+impl StateHash for Faction {
+    fn hash(&self, h: &mut StateHasher) {
+        (*self as u32).hash(h);
+    }
+}
+
+impl StateHash for Rotation {
+    fn hash(&self, h: &mut StateHasher) {
+        (*self as u32).hash(h);
+    }
+}
+
+impl StateHash for Tile {
+    fn hash(&self, h: &mut StateHasher) {
+        let Tile { preset, elevation } = self;
+        preset.hash(h);
+        elevation.hash(h);
+    }
+}
+
+impl StateHash for TilePreset {
+    fn hash(&self, h: &mut StateHasher) {
+        let TilePreset {
+            name,
+            buildable,
+            traversible,
+            rugged,
+            drillable,
+            recruitable,
+        } = self;
+        name.hash(h);
+        buildable.hash(h);
+        traversible.hash(h);
+        rugged.hash(h);
+        drillable.hash(h);
+        recruitable.hash(h);
+    }
+}
+
+impl StateHash for Player {
+    fn hash(&self, h: &mut StateHasher) {
+        let Player { id, name, faction } = self;
+        id.hash(h);
+        name.hash(h);
+        faction.hash(h);
+    }
+}
+
+impl StateHash for Placement {
+    fn hash(&self, h: &mut StateHasher) {
+        let Placement {
+            origin,
+            w,
+            h: height,
+            rotation,
+            flip_h,
+            flip_v,
+        } = self;
+        origin.hash(h);
+        w.hash(h);
+        height.hash(h);
+        rotation.hash(h);
+        flip_h.hash(h);
+        flip_v.hash(h);
+    }
+}
+
+impl StateHash for ResourceState {
+    fn hash(&self, h: &mut StateHasher) {
+        match self {
+            ResourceState::CrystalPatch { remaining } => {
+                h.tag(0);
+                remaining.hash(h);
+            }
+            ResourceState::SupplyStation {
+                delivery_size,
+                delivery_interval,
+                current_supplies,
+                next_delivery_in,
+            } => {
+                h.tag(1);
+                delivery_size.hash(h);
+                delivery_interval.hash(h);
+                current_supplies.hash(h);
+                next_delivery_in.hash(h);
+            }
+        }
+    }
+}
+
+impl StateHash for Object {
+    fn hash(&self, h: &mut StateHasher) {
+        let Object {
+            id,
+            kind,
+            owner,
+            pos,
+            prev_pos,
+            facing,
+            prev_facing,
+            hp,
+            placement,
+            resource,
+        } = self;
+        id.hash(h);
+        kind.hash(h);
+        owner.hash(h);
+        pos.hash(h);
+        prev_pos.hash(h);
+        facing.hash(h);
+        prev_facing.hash(h);
+        hp.hash(h);
+        placement.hash(h);
+        resource.hash(h);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fnv(bytes: &[u8]) -> u64 {
+        let mut h = StateHasher::new();
+        h.bytes(bytes);
+        h.finish()
+    }
+
+    fn hash_of(v: &impl StateHash) -> u64 {
+        let mut h = StateHasher::new();
+        v.hash(&mut h);
+        h.finish()
+    }
+
+    /// Published FNV-1a 64 test vectors.
+    #[test]
+    fn fnv1a_64_test_vectors() {
+        assert_eq!(fnv(b""), 0xcbf29ce484222325);
+        assert_eq!(fnv(b"a"), 0xaf63dc4c8601ec8c);
+        assert_eq!(fnv(b"foobar"), 0x85944171f73967e8);
+    }
+
+    #[test]
+    fn encoding_separates_values() {
+        // Length prefixes: ["ab", "c"] and ["a", "bc"] must differ.
+        let a = vec!["ab".to_string(), "c".to_string()];
+        let b = vec!["a".to_string(), "bc".to_string()];
+        assert_ne!(hash_of(&a), hash_of(&b));
+        // Option tags: None and Some(0) differ.
+        assert_ne!(hash_of(&None::<u32>), hash_of(&Some(0u32)));
+        // Floats hash their bits: 0.0 and -0.0 differ.
+        assert_ne!(hash_of(&0.0f32), hash_of(&-0.0f32));
+    }
+}
