@@ -97,8 +97,8 @@ The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, th
 
 | Slice | Content | After | Model |
 |---|---|---|---|
-| B Unit foundation | unit defs (Peacekeeper, Guard), `Orders`/`Mover`, `Command::Order` plus the gate (drop dead ids), spawn overlap checks, naive mover, phase stubs, placeholder visuals | M0-E merged | Opus |
-| C Navigation | `sc_sim::nav` | none (running) | Fable |
+| B Unit foundation | unit defs (Peacekeeper, Guard), `Orders`/`Mover`, `Command::Order` plus the gate (drop dead ids), spawn overlap checks, naive mover following nav paths, phase stubs, placeholder visuals, path overlay, `--commands` QA input | running; started alongside M0-E and kept out of its files | Opus |
+| C Navigation | `sc_sim::nav` | done (`88dd9bc`) | Fable |
 | D Steering and collision | spatial grid, step/slide/follow/sidestep, group slots, stuck and recovery, invariant harness, movement scenarios | B, C; better with Q0007/Q0008 answers | Fable |
 | S Selection | clicks, box tiers, control groups, Tab cycling | B | Opus |
 | H Commands UI | command panel, right-click, cursors, indicators, Shift-queue | S | Opus |
