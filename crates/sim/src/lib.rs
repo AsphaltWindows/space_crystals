@@ -18,6 +18,7 @@ pub(crate) mod hash;
 pub mod ids;
 pub mod map;
 pub mod math;
+pub mod nav;
 pub mod object;
 pub mod player;
 pub mod replay;

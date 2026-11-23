@@ -77,15 +77,37 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - a symmetric test map.
 
   It has been told to merge M1-A from master before finishing, folding `SimConfig.debug` into the game setup, with play-tests running with debug on.
-- **M1 movement design spike** (Fable, read-only; brief `scratchpad/briefs/m1-movement-spike.md`). Output: `scratchpad/m1/movement-design.md`. It covers:
-  - requirements and design gaps;
-  - the sim data model and the movement steps in the tick;
-  - pathfinding, collision, f32 vs fixed point;
-  - tests;
-  - the M1 slicing.
-- **Next:**
-  - move the editor onto the shared input layer;
-  - then the M1 slices from the spike, once the Director has reviewed it and the Designer has answered its gap questions.
+- **M1-C navigation library: done** (`88dd9bc`, 244 tests). `sc_sim::nav` is pure and standalone:
+  - NavGrid with components, rebuilt for 3 grids in 1.9 ms;
+  - A* with retargeting;
+  - LOS (Amanatides–Woo) and bisection smoothing;
+  - group field;
+  - budgeted `serve`;
+  - Q0011 default switches.
+
+  Release perf on a 256² worst-case map:
+  - A* averages 1.8 ms on random pairs; the field takes 3.9 ms.
+  - A **200-unit group order takes 9.4 ms**, against an 8 ms target.
+  - **200 lone requests are served 4 per tick** under the 32k budget.
+
+  **Tuning in G (hardening):** cheaper smoothing, budget tuning, or caching. Size class k > 1 is basic; per-player route grids aren't built (Q0011).
+
+## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
+The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, the defaults from the doc apply.
+
+| Slice | Content | After | Model |
+|---|---|---|---|
+| B Unit foundation | unit defs (Peacekeeper, Guard), `Orders`/`Mover`, `Command::Order` plus the gate (drop dead ids), spawn overlap checks, naive mover following nav paths, phase stubs, placeholder visuals, path overlay, `--commands` QA input | running; started alongside M0-E and kept out of its files | Opus |
+| C Navigation | `sc_sim::nav` | done (`88dd9bc`) | Fable |
+| D Steering and collision | spatial grid, step/slide/follow/sidestep, group slots, stuck and recovery, invariant harness, movement scenarios | B, C; better with Q0007/Q0008 answers | Fable |
+| S Selection | clicks, box tiers, control groups, Tab cycling | B | Opus |
+| H Commands UI | command panel, right-click, cursors, indicators, Shift-queue | S | Opus |
+| V Vision | per-player visibility, ElevationModifier, fog texture | B | Opus |
+| W Combat | attack phases, hits, damage, deaths, range (Q0009) | B | Opus |
+| E Behaviours | chase, AttackMove, Patrol, Hold, Stop, auto-target and leashes | D, W, V | Fable, or Opus with a Fable review |
+| G QA and hardening | debug control of both sides, replay playback, path overlay, soak, perf, golden hashes | E, H | Opus |
+
+Also queued: moving the editor onto the shared input layer (after M0-E).
 
 ## Queued
 ### M0-E: map types and generated symmetry (in progress; details below kept for reference)
@@ -165,6 +187,11 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0004 | Map model: slots, start locations, starting bases | no | answered by 0008, 0009 and 0012 |
 | Q0005 | CommandPanel standard slots vs the 4×3 grid | no | answered by 0002 (matches assumption A) |
 | Q0006 | Do map resources need flat tiles? | no | answered by 0013 (yes, both) |
+| Q0007 | Group moves: destination slots, head-on deadlock (idle units never yield, per spec) | no (needed before D) | open |
+| Q0008 | Move failure numbers; unreachable or occupied targets | no (needed before D) | open |
+| Q0009 | Range measured to large targets; proximity; silhouette rotation | no (needed before W) | open |
+| Q0010 | Chase target lost in fog; Patrol origin; failed legs | no (needed before E) | open |
+| Q0011 | Terrain/obstacles: resources block, Rugged, routes via the true map, underground/air | no | open; C builds the defaults as switches |
 
 ## Design change entries
 Last triaged: 0020.

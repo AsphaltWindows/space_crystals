@@ -33,6 +33,9 @@ disallowed-methods = [
     { path = "f64::ln", reason = "platform-dependent result; the sim uses f32 + crate::math" },
     { path = "f64::powf", reason = "platform-dependent result; the sim uses f32 + crate::math" },
     { path = "f64::powi", reason = "differs between const-eval and runtime; multiply explicitly" },
+    # `docs/movement.md > 7`: keep float arithmetic uniform (Rust never contracts `a * b + c` on its own).
+    { path = "f32::mul_add", reason = "fused multiply-add rounds differently from `a * b + c` and is slow without FMA; write `a * b + c`" },
+    { path = "f64::mul_add", reason = "fused multiply-add rounds differently from `a * b + c`; the sim uses f32" },
     # No wall clock, no threads: the sim advances only through `Sim::step`.
     { path = "std::time::Instant::now", reason = "the sim must not read the wall clock" },
     { path = "std::time::SystemTime::now", reason = "the sim must not read the wall clock" },
