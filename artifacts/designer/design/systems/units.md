@@ -29,7 +29,8 @@ Ground and air units use different collision models.
 ### Ground Collision
 - Ground units are solid obstacles defined by their Silhouette rectangle
 - Units cannot overlap — collision is hard, not soft
-- Idle units do not move aside for other units
+- **Friendly yielding** (user, 2026-11-23, replaces "idle units do not move aside"): when a moving unit is blocked by one of its owner's **idle** units (no active command, including units that have arrived), the idle unit takes **one short sidestep** out of the way. Enemy units never yield. Two **moving** units never yield to each other or swap places, even friendly ones: if they block each other head-on (e.g. in a one-unit-wide corridor) they re-route or eventually give up (systems/controls/behaviors.md > MovingToLocation). Chokepoints and body-blocking stay meaningful.
+  - TBD: whether units on Hold Position, or stationary units busy with something else (attacking, deployed Artillery Rig, Riot Shield raised, mining, constructing), also yield; sidestep distance; whether allied (not own) units yield once teams exist.
 - Moving units must pathfind around occupied space
 - Ground units collide with other ground units and with structures
 
