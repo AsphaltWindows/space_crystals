@@ -126,11 +126,52 @@ Defines how damage is calculated for single-target and AoE attacks, including di
 ## DirectionalArmor
 For units with DirectionalArmor = true, damage is modified based on the angle of attack. The attack direction is determined by the vector from the attacker's position to the target (for single-target attacks) or from the AoE center to the target (for AoE attacks). Facing the attack source grants a damage reduction bonus, while being hit from the rear grants a damage increase penalty.
 
+The modifier is a **multiplier on damage after armor is applied** (it does not change the armor value). One global rule for every unit with DirectionalArmor = true:
+
+| Zone (angle between the unit's facing and the direction to the attack source) | Damage multiplier |
+|---|---|
+| Front: within ±45° of facing (90° arc) | × 0.75 |
+| Sides: the two 90° arcs between front and rear | × 1.0 |
+| Rear: within ±45° of directly behind (90° arc) | × 1.25 |
+
+Order of application: armor → directional multiplier → MinimumDamage.
+
 ## SingleTargetDamage
-Only valid against targets whose domain matches the attack's TargetDomain: Ground attacks can target Ground and surfaced Underground units, Air attacks can target Air units, Universal attacks can target any unit. Damage taken = Attack Damage - PointArmor. PointArmor is checked at the projectile hit location on the unit's silhouette. Directional armor modifies PointArmor based on the angle from attacker to target.
+Only valid against targets whose domain matches the attack's TargetDomain: Ground attacks can target Ground and surfaced Underground units, Air attacks can target Air units, Universal attacks can target any unit. Damage taken = max((Attack Damage × pre-armor multipliers - PointArmor) × directional multiplier, 0.5) (see DirectionalArmor and MinimumDamage; the multiplier is 1 for units without directional armor). PointArmor is checked at the projectile hit location on the unit's silhouette. The directional zone is determined by the angle from the target to the attacker.
 
 ## AoEDamage
-Damage is uniform across the AoE circle. AoE only affects units whose domain matches the attack's TargetDomain: Ground AoE hits Ground and surfaced Underground units, Air AoE hits Air units, Universal AoE hits all units regardless of domain. A unit's damage share = Attack Damage × (unit overlap area / AoE area). Effective armor = FullArmor × (unit overlap area / unit total area). Damage taken = damage share - effective armor. Directional armor modifies FullArmor based on the angle from the AoE center to the unit's center.
+Damage is uniform across the AoE circle. AoE only affects units whose domain matches the attack's TargetDomain: Ground AoE hits Ground and surfaced Underground units, Air AoE hits Air units, Universal AoE hits all units regardless of domain. A unit's damage share = Attack Damage × (unit overlap area / AoE area). Effective armor = FullArmor × (unit overlap area / unit total area). Damage taken = max((damage share × pre-armor multipliers - effective armor) × directional multiplier, 0.5 × overlap fraction), where overlap fraction = unit overlap area / unit total area (see DirectionalArmor and MinimumDamage). The directional zone is determined by the angle from the unit's center to the AoE center.
+
+## DamageModifierOrder
+All damage against HP is resolved in this order (shared by single-target and AoE):
+
+1. **Pre-armor percentage reductions** — each is a multiplier on the incoming damage (or AoE damage share). Multiple reductions **multiply** together (e.g. 50% and 20% → × 0.5 × 0.8 = 40% of the damage remains). Current sources:
+   - RuggedTerrainDefenseBonus (Light Infantry on Rugged tiles, systems/units.md)
+   - Null Chamber exit buff damage reduction (factions/syndicate/structures.md > Tunnel Expansions > Null Chamber)
+   - Peacekeeper Riot Shield, 50% while raised (factions/gdo/units.md > Peacekeeper > Riot Shield)
+2. **Armor** — subtract PointArmor (single-target) or effective FullArmor (AoE).
+3. **Post-armor multipliers** — DirectionalArmor (front × 0.75 / sides × 1.0 / rear × 1.25).
+4. **MinimumDamage** — floor of 0.5 (× overlap fraction for AoE; capped at shield overflow).
+
+Colonists Shields are resolved before all of this: Shields take incoming damage at full value, and only the overflow enters step 1.
+
+## MinimumDamage
+Every hit deals at least a minimum amount of damage, regardless of armor. HP is tracked as a fractional value (AoE damage shares and the minimum below can produce fractions).
+
+### MinimumDamage - 0.5 per hit
+- **Single-target**: the minimum is 0.5.
+- **AoE**: the minimum is 0.5 × overlap fraction — a unit entirely inside the AoE takes at least 0.5; a unit only partly inside takes at least that fraction of 0.5 (e.g. 20% inside → at least 0.1).
+- Armor and then the directional multiplier are applied first; the minimum is applied to the result.
+- **Shield overflow** (Colonists): when damage breaks through Shields, the minimum on the HP portion is capped at the overflow amount — HP damage = max(overflow - armor, min(minimum, overflow)). The minimum can never make HP damage exceed the damage that actually passed the Shields.
+
+## Shields
+A Colonists-only stat. Every Colonists unit and building has a MaxShields value in addition to MaxHP.
+
+### MaxShields - number (Colonists units/buildings only; defined per-entity alongside MaxHP)
+### ShieldRegenRate - 4 Shields per second (0.25 per frame). Constant base rate shared by all Colonists units and buildings. Shields regenerate continuously (not gated by a delay after taking damage). Upgradeable via the Fusion Core's shield upgrades (factions/colonists/structures.md > Fusion Core > Research), each level increasing the rate; per-level values TBD.
+
+### Shield Damage Resolution
+Incoming damage is applied to Shields first, at full value — PointArmor and FullArmor do NOT reduce damage against Shields. If damage exceeds current Shields, Shields drop to 0 and the remaining (overflow) damage is applied to HP using the normal SingleTargetDamage / AoEDamage armor calculations above (PointArmor for single-target, FullArmor for AoE), with the MinimumDamage capped at the overflow amount (see MinimumDamage > Shield overflow). If a unit's current Shields fully absorb the incoming damage, no HP is lost and armor is never consulted.
 
 ## LocomotionOrientationConstraints[MovementModel]
 Defines the valid combinations of Locomotion and Orientation channel states for each movement model, and the constraints on turn rate for each combination. MaxTurnRate is the ceiling on how fast the unit can turn in a given combination — the engine applies up to this rate each tick.

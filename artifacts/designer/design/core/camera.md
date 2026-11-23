@@ -15,7 +15,11 @@ The camera pans via standard pan (currently implemented as instant snap to the t
 Each player slot on a map can have an explicit starting camera position. At game start, the camera centers on:
 
 1. The **map-defined starting camera position** for the local player's slot, if one is set.
-2. Otherwise, the local player's **primary structure** — Deployment Center for GDO, starting Tunnel for Syndicate.
+2. Otherwise, the local player's **primary starting structure**:
+   - GDO: Deployment Center
+   - Syndicate: starting Tunnel
+   - Cults: starting Recruitment Hall
+   - Colonists: starting Robo Portal
 
 ## HUD Layout
 

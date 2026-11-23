@@ -1,5 +1,568 @@
 # Designer Session Log
 
+## 2026-08-06T02:27:30Z — Interactive: Colonists faction deep dive (Beacon, Warp In, Egress Node, Roboport)
+
+**Trigger**: User session, no open forum topics or pending inbox messages at start (verified via forum pass before wrap-up).
+**Loose end picked up**: Colonists faction (previously mostly open — only Prospector was fully defined).
+
+**Work done**:
+1. Confirmed with user: scrap the old "minimum Beacon spacing radius" note from `to_be_converted.md` (already correctly absent in `colonists_objects.md`); Warp In buildings only need to fit (normal footprint validation), no special radius rule.
+2. Fully stated the Beacon (Size 2x2, MaxHP 120, MaxShields 10, PointArmor 0, FullArmor 0, SightRange 4, Groupable true, BeaconCapacity 5, SymmetryType AAAA) across several rounds of Q&A.
+3. Renamed the Colonists worker unit Prospector -> Drone throughout `colonists_objects.md` and `factions.md`. Also edited two still-pending feature_requests in `messages/task_splitter/feature_request/pending/` in place (`colonists_prospector_full_definition.md`, `colonists_shields_and_prospector_beacon_deployment.md`) to use the new name, with an explanatory note, since they hadn't been picked up by task_splitter yet.
+4. Formalized the Warp In mechanic: Beacon selected -> Warp In -> pick building from Constructs list -> footprint ghost (rotate/flip) centered on Beacon, must be clear except the Beacon's own tile -> confirm consumes the Beacon and begins an in-place transformation with HP/Shields interpolation over a per-building WarpInTime -> vulnerable throughout, destroyed if killed mid-transformation, cancellable for 75% refund. Every Colonists building provides a flat 5 BeaconCapacity. Added a new "Warp In" category to `entities.md`'s Placement Validation section.
+5. Fully stated the Egress Node (Size 2x2, MaxHP 200, MaxShields 10, PointArmor 0, FullArmor 0, SightRange 3, Groupable false, SymmetryType AAAA, multi-Drone simultaneous drop-off, built via Warp In).
+6. Added the AssignedEgressNode mechanic to Drone (auto-assigns nearest Egress Node on first Gather order; new "Set Drop-off Location" command, panel button S, AwaitingTarget flow, redirects return trip without interrupting current mining/movement) and a new "Select Returning Drones" command on Egress Node (panel button F, StateOnlyTransition that only modifies ControlState.Selection — first documented example of a pure-selection command).
+7. Defined the Roboport (Colonists' Drone production structure: Size 4x4, MaxHP 600, MaxShields 20, PointArmor 1, FullArmor 16, SightRange 4, Groupable true, SymmetryType AAAA with no fixed exit side, standard BuildQueue/RallyPoint pattern like Barracks, produces Drone for 50 Space Crystals / 160 frames).
+8. Defined Colonists Starting Conditions: player starts with one pre-built Egress Node and one pre-built Roboport, each already-Warped-In and each contributing 5 BeaconCapacity.
+
+**Output**: 4 feature_requests sent to task_splitter — `colonists_beacon_stats_and_warp_in_mechanic`, `colonists_egress_node_full_stats`, `colonists_drone_assigned_egress_node_and_select_returning`, `colonists_roboport_and_starting_conditions`. Also directly edited 2 pre-existing pending feature_requests for the Prospector->Drone rename.
+**Files changed**: `artifacts/designer/design/colonists_objects.md` (extensively), `artifacts/designer/design/factions.md`, `artifacts/designer/design/entities.md`.
+**Remaining Colonists open items** (updated in insights.md Loose Ends): Beacon's own ObjectInterfaceState (should expose Warp In as a command), Roboport's full ObjectInterfaceState (production panel layout), Colonists combat units (none exist yet), Shield regen upgrades (still a placeholder).
+
+## 2026-03-28T00:00:00Z — Non-Interactive: Vote to close QA routing topic
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: `2026-03-28T00-00-00Z-automatic_qa-qa_router_patterns_too_broad.md` — automatic_qa raised that QA router patterns are too broad, routing interactive items to automatic_qa. This is a pipeline infrastructure issue, not a design concern. Voted to close.
+**Output**: No feature_requests. No design doc changes.
+
+## 2026-03-25T24:00:00Z — Non-Interactive: Re-vote on HUD/UI bugs topic (3rd time)
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: `2026-03-25T00-00-00Z-operator-hud-ui-bugs.md` — Close-vote cleared again (developer commented after last vote). Feature_request already in `done/`. Voted to close again. This topic keeps bouncing back as agents add comments that clear votes.
+**Actions**: Vote to close only.
+
+## 2026-03-25T23:45:00Z — Non-Interactive: Vote to close HUD/UI bugs topic (again)
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: `2026-03-25T00-00-00Z-operator-hud-ui-bugs.md` — My previous close-vote was cleared by subsequent comments from automatic_qa, task_splitter, and task_planner. Verified the feature_request (`designer-fix_hud_ui_bugs.md`) is already in `done/` — fully processed. All three bugs have root causes identified by other agents. Voted to close again.
+**Actions**: Vote to close only; no new feature_request needed.
+
+## 2026-03-25T23:30:00Z — Non-Interactive: Re-vote on HUD/UI bugs topic
+
+**Trigger**: Scheduler launched for open forum topic.
+
+**Actions**:
+- Read forum topic `2026-03-25T00-00-00Z-operator-hud-ui-bugs.md` — found my prior close-vote was cleared by subsequent comments from automatic_qa and task_splitter.
+- Verified the `fix_hud_ui_bugs` feature_request is already pending in task_splitter's inbox. No additional work needed.
+- Re-voted to close the topic.
+
+**Produced**: Nothing new (feature_request already sent in prior session).
+
+---
+
+## 2026-03-25T23:00:00Z — Non-Interactive: HUD/UI bugs forum topic
+
+**Trigger**: Forum topic `2026-03-25T00-00-00Z-operator-hud-ui-bugs.md` — 3 HUD bugs reported by operator.
+
+**Actions**:
+- Read forum topic and relevant design docs (`control_system.md`, `gdo_objects.md`).
+- Commented with design context for all 3 bugs (Peacekeeper missing command panel, EF button label, extra HUD tile). All are implementation bugs — design docs already specify correct behavior.
+- Voted to close.
+- Sent `feature_request` (`fix_hud_ui_bugs`) to task_splitter with bug details and QA instructions.
+
+**Produced**: 1 feature_request (`fix_hud_ui_bugs`)
+
+---
+
+## 2026-03-25T22:00:00Z — Interactive: No-op session
+
+**Trigger**: User requested recording and exit.
+**Actions**: Loaded insights, checked forum (empty), checked inboxes (empty). No design discussion occurred this session — nothing to record.
+**Produced**: Nothing.
+
+## 2026-03-25T21:00:00Z — Interactive: HUD Bar Layout
+
+**Trigger**: User asked what to work on next; chose HUD layout topic from loose ends.
+
+**Work done**:
+- User defined the bottom HUD as a horizontal bar with 5 fixed-position sections: Minimap, Portrait, InfoPanel, SelectionPanel, CommandPanel
+- Key decisions: all sections same height, positions locked regardless of selection state, panels appear/disappear in place
+- Added HUD Bar section to `control_system.md`
+- Sent feature_request `hud_bar_layout` to task_splitter
+- Updated loose ends: empty slot visuals and width proportions still TBD
+- User requested early exit before answering follow-up questions
+
+## 2026-03-25T20:00:00Z — Interactive: Interface Discussion (Brief)
+
+**Trigger**: User initiated session to discuss the interface.
+**Forum**: No open topics.
+**Discussion**: User asked about naming the bottom part of the HUD. Conversation did not progress to any design decisions. User requested session wrap-up.
+**Actions**: Added "HUD layout and naming" to loose ends in insights.
+**Produced**: No feature_requests (no design changes made).
+
+## 2026-03-25T13:00:00Z — Non-Interactive: Forum Response
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: Responded to `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` — operator-raised discussion about moving entity definitions to YAML. Commented with designer perspective: stats/attributes map well to data files (already structured that way in design docs), but behaviors and state machines should stay in Rust. Recommended phased subset approach. Noted as pending design review in insights for next interactive session.
+**Output**: No feature_requests produced (this is a discussion topic requiring user decision, not an actionable design change).
+
+## 2026-03-25T05:40:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: No pending or stuck messages in designer inbox.
+**Assessment**: Repeated no-work launch. Exiting immediately.
+
+## 2026-03-25T05:20:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: No pending or stuck messages in designer inbox.
+**Assessment**: No actionable work. Exiting immediately.
+
+## 2026-03-25T05:00:00Z — Non-Interactive: Forum Close-Vote
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: One open topic — `fix-compiler-warnings` (operator). Developer already resolved all compilation errors and warnings. No design implications. Voted to close.
+**Output**: None (no feature_requests needed).
+
+## 2026-03-25T04:20:00Z — Non-Interactive: No Work (repeated)
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: 1 open topic (`fix-compiler-warnings`) — already voted to close.
+**Messages**: No designer inbox — no pending or stuck messages.
+**Assessment**: This is the third consecutive no-work launch. Scheduler continues to launch designer with no actionable work. Per project rules, agents must not stop the scheduler. Exiting immediately.
+
+## 2026-03-25T04:00:00Z — Non-Interactive: Forum Vote
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: Voted to close `fix-compiler-warnings` topic — purely a build/code issue, already resolved by developer. No design implications.
+**Outcome**: No feature_requests produced. No design changes needed.
+
+## 2026-03-25T03:20:00Z — Non-Interactive: No Work (repeated)
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: 1 open topic (`fix-compiler-warnings`) — already voted to close.
+**Messages**: No designer inbox exists — no pending or stuck messages.
+**Assessment**: Multiple consecutive no-work launches detected in session log. Scheduler is launching designer despite no actionable work. Per project rules, agents must not stop the scheduler — flagging for user awareness.
+**Action**: Exiting.
+
+## 2026-03-25T03:00:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: 1 open topic (`fix-compiler-warnings`) — already voted to close in previous session.
+**Messages**: No pending or stuck messages.
+**Outcome**: No work to perform. Multiple consecutive no-work launches detected in log — scheduler may be misconfigured but per project rules, agents must not stop the scheduler. Exiting.
+
+## 2026-03-25T00:30:00Z — Non-Interactive: Forum Pass
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: 1 open topic found (`fix-compiler-warnings`). This is a build/code issue (E0761 ambiguous module file + 9 unused import/variable warnings) — no design input needed. Voted to close.
+**Messages**: No designer inbox. No stuck messages.
+**Outcome**: No design work required this session.
+
+## 2026-03-25T00:00:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found.
+**Messages**: No pending messages.
+**Investigation**: Checked for malformed filenames or stuck messages — none found.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-24T23:49:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found. `forum/open/` directory empty.
+**Messages**: No pending messages in `messages/designer/`.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-25T02:20:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found. `forum/open/` directory empty.
+**Messages**: No `messages/designer/` directory exists — designer has no consumed message types.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-25T02:00:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found. `forum/open/` directory empty.
+**Messages**: No pending messages in `messages/designer/`.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-25T01:40:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found. `forum/open/` directory empty.
+**Messages**: No pending messages in `messages/designer/`.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-25T01:20:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found (`forum/open/` empty).
+**Messages**: No `messages/designer/` directory — no pending messages.
+**Action**: None. No work available.
+
+## 2026-03-25T01:00:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found (`forum/open/` empty).
+**Messages**: No `messages/designer/` directory exists — no pending messages.
+**Action**: None. No work available.
+
+## 2026-03-25T00:25:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found (`forum/open/` empty).
+**Messages**: No pending messages.
+**Action**: No-work investigation completed. Clean state. No action required.
+
+## 2026-03-25T00:05:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found (`forum/open/` empty).
+**Messages**: No designer inbox exists — no pending messages.
+**Action**: No-work investigation completed. Clean state. No action required.
+
+## 2026-03-24T23:50:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found (`forum/open/` empty).
+**Messages**: No designer inbox exists — no pending messages.
+**Action**: No-work investigation completed. Clean state — no malformed files or stuck messages. No action required.
+
+## 2026-03-24T23:34:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found.
+**Messages**: No pending messages in designer inbox.
+**Action**: No work. Exiting.
+
+## 2026-03-24T23:32:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found.
+**Messages**: No pending messages in designer inbox.
+**Action**: No work. Exiting.
+
+## 2026-03-24T23:30:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found.
+**Messages**: No pending messages in designer inbox.
+**Action**: No work. Exiting.
+
+## 2026-03-24T23:28:37Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found. No topics requiring close-vote.
+**Messages**: No designer message directory exists; no pending messages.
+**Action**: No-work investigation — confirmed no malformed files or stuck messages. Nothing to do.
+
+## 2026-03-24T23:26:56Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics requiring close-vote.
+**Messages**: No designer inbox exists; no pending messages.
+**Investigation**: Checked `forum/open/` and `messages/designer/` — no malformed files or stuck messages found.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-24T23:26:05Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics requiring close-vote.
+**Messages**: No pending messages.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-25T01:00:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics requiring close-vote.
+**Messages**: No pending messages.
+**Investigation**: Checked `forum/open/` and `messages/designer/` — no malformed files or stuck messages found. All clear.
+
+## 2026-03-25T00:30:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics — `forum/open/` is empty.
+**Messages**: No designer message inbox exists.
+**Result**: No work to do. Exiting.
+
+## 2026-03-25T00:10:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics — `forum/open/` is empty.
+**Messages**: No designer message inbox exists.
+**Result**: No work to do. Exiting.
+
+## 2026-03-24T23:45:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found — `forum/open/` is empty.
+**Messages**: No designer message inbox exists.
+**Result**: No work to do. Exiting.
+
+## 2026-03-24T23:18:33Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics directory. No messages/designer/ inbox exists.
+**Outcome**: No work to do. Clean exit.
+
+## 2026-03-24T23:15:43Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found. No pending messages.
+**Outcome**: No work to do. Clean exit.
+
+## 2026-03-25T01:30:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found. No pending messages.
+**Outcome**: No work to do. Clean exit.
+
+## 2026-03-25T01:00:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found. No pending messages in designer inbox.
+**Outcome**: No work to do. Clean exit.
+
+## 2026-03-25T00:30:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found (`forum/open/` empty).
+**Messages**: No pending messages for designer (no inbox directory exists).
+**Action**: No-work investigation complete. No issues detected.
+
+## 2026-03-25T00:10:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found (`forum/open/` empty).
+**Messages**: No pending messages for designer.
+**Action**: No-work investigation complete. No issues detected.
+
+## 2026-03-24T23:50:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found (`forum/open/` empty).
+**Messages**: No pending messages for designer.
+**Action**: No-work investigation complete. No issues detected.
+
+## 2026-03-24T23:30:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found (`forum/open/` empty).
+**Messages**: No designer message inbox — no pending messages.
+**Action**: No-work investigation complete. No issues detected.
+
+## 2026-03-24T23:10:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found (`forum/open/` empty).
+**Messages**: No designer message inbox exists — no pending messages.
+**Action**: No-work investigation complete. No malformed files or stuck messages detected. No action taken.
+
+## 2026-03-24T22:53:25Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics requiring close-vote.
+**Messages**: No pending messages (designer has no message inbox as a source agent).
+**Action**: No work to perform. Exited cleanly.
+
+## 2026-03-24T22:52:45Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics requiring close-vote.
+**Messages**: No designer message directory, no pending messages.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-24T22:51:03Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics requiring close-vote.
+**Messages**: No pending messages, no designer message directory.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-24T22:50:32Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics requiring close-vote.
+**Messages**: No pending messages.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-24T22:49:11Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics requiring close-vote.
+**Messages**: No pending messages.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-24T22:48:33Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: No pending messages.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-24T23:00:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found — `forum/open/` is empty.
+**Messages**: No pending messages — `messages/designer/` does not exist.
+**Investigation**: Checked for malformed filenames or stuck messages. None found. All recent forum topics are in `forum/closed/`. No action needed.
+
+## 2026-03-24T22:43:19Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found in `forum/open/`.
+**Messages**: No pending messages for designer.
+**Action**: No work to perform. Logged and exited.
+
+## 2026-03-24T22:41:20Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found in `forum/open/`.
+**Messages**: No pending messages for designer.
+**Action**: No work to perform. Logged and exited.
+
+## 2026-03-24T22:39:50Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found in `forum/open/`.
+**Messages**: No pending messages for designer.
+**Action**: No work to perform. Logged and exited.
+
+## 2026-03-24T22:39:32Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found in `forum/open/`.
+**Messages**: No `messages/designer/` directory exists.
+**Action**: No work to perform. Logged and exited.
+
+## 2026-03-24T22:38:24Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found in `forum/open/`.
+**Messages**: No pending messages in `messages/designer/`.
+**Action**: No work to perform. Logged and exited.
+
+## 2026-03-24T22:37:11Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found in `forum/open/`.
+**Messages**: No pending messages in `messages/designer/`.
+**Action**: No work to perform. Logged and exited.
+
+## 2026-03-25T02:00:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found in `forum/open/`.
+**Messages**: No pending messages in `messages/designer/`.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-25T01:00:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: No pending messages in `messages/designer/`.
+**Action**: No work to process. Exiting.
+
+## 2026-03-25T00:30:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: No pending messages.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-25T00:00:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: No designer inbox directory; no pending messages.
+**Action**: No work to perform. Fourth consecutive no-work launch. Exiting.
+
+## 2026-03-24T23:30:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: No designer inbox directory; no pending messages.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-24T23:10:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics found in `forum/open/`.
+**Messages**: No pending messages in `messages/designer/`.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-24T22:29:44Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: No designer inbox directory; no pending messages.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-24T23:00:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: No designer inbox directory; no pending messages.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-24T22:40:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: No designer message inbox exists.
+**Action**: No work to perform. Exiting.
+
+## 2026-03-24T22:10:20Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics requiring close-vote.
+**Messages**: No designer inbox directory; no pending messages.
+**Action**: No work to perform. Exited cleanly.
+
+## 2026-03-24T22:07:02Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: No `messages/designer/` inbox exists.
+**Action**: No work to do. Clean exit.
+
+## 2026-03-24T23:00:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: No pending messages in `messages/designer/`.
+**Action**: No work to do. Clean exit.
+
+## 2026-03-24T22:00:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Actions**: Loaded insights, checked `forum/open/` (empty), confirmed no `messages/designer/` inbox exists. No forum topics requiring close-vote and no pending messages.
+**Outcome**: No-op. No actionable work detected.
+
+## 2026-03-24T14:00:00Z — Interactive: Fog of War Selectability Rules
+
+**Trigger**: User session. Resolved urgent forum question about Explored-state selectability.
+
+**Work done**:
+- Presented fog-of-war selectability options (A/B/C) to user from prior forum question
+- User decided: objects in Explored areas are NOT selectable, except SupplyDeliveryStation for GDO players only (lore + SupplyTower scheduling mechanic)
+- Added NextDeliveryTime field to SupplyDeliveryStation
+- Updated SupplyDeliveryStation InfoPanel to be visibility-context-aware (Visible shows all, Explored/GDO shows all except CurrentSupplies)
+- Updated `entities.md` with Explored Selectability section and reworked SupplyDeliveryStation InfoPanel
+- Sent feature_request `fog_of_war_selectability` to task_splitter
+- Voted to close operator refactoring forum topic (not design-relevant)
+- Re-voted to close operator unit test forum topic (not design-relevant)
+
+## 2026-03-24T13:00:00Z — Non-Interactive: Forum Pass (No Design Work)
+
+**Trigger**: Scheduler launch; two open forum topics.
+**Forum**: Topic 1 (large file refactoring) already had my close vote. Topic 2 (unit test review) is a code/architecture concern with no design implications — voted to close.
+**Messages**: No pending messages.
+**Produced**: Nothing.
+
+## 2026-03-24T12:10:00Z — Non-Interactive: Forum Pass (No Design Work)
+
+**Trigger**: Scheduler launch; one open forum topic.
+**Actions**:
+- Read forum topic `2026-03-24T12-00-00Z-operator-large-file-refactoring-plans.md` — code refactoring request directed at software_architect. No design implications.
+- Voted to close (not design-related).
+- Urgent forum question about explored-object selectability remains flagged in insights for next interactive session.
+**Output**: None (no feature_requests produced).
+
 ## 2026-03-22T16:30:00Z — Non-Interactive: Elevation Rendering Fix
 
 **Trigger**: Scheduler launch; open forum topic requesting feature_request for graphical glitches.
@@ -681,3 +1244,702 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 **Forum**: Grid lines invisible after elevation system was added — `draw_grid_lines()` hardcodes Y=0.005 but tiles now render at elevation*0.1. No design decision needed; this is an implementation regression. Commented with design context, voted to close.
 
 **Output**: Sent `feature_request` `fix_grid_lines_elevation` to task_splitter — fix grid lines to query ElevationMap and render at per-tile elevation.
+
+## 2026-03-23T23:00:00Z — Non-Interactive: Forum Pass (2 topics)
+
+**Trigger**: Scheduler launch; 2 open forum topics needing designer close-vote.
+
+**Actions**:
+1. **Extraction plate disappears on depletion** (`2026-03-23T22:40:01`): Confirmed clear design-vs-implementation bug. Design in gdo_objects.md specifies plate persists after depletion with residual mining rate. Sent feature_request `designer-fix_extraction_plate_depletion_lifecycle` to pipeline. Commented and voted to close.
+2. **Explored objects selectable** (`2026-03-23T22:40:00`): Identified as an unresolved design question -- the design docs gate InfoPanel fields on visibility but don't explicitly gate selectability on visibility state. Flagged as urgent forum question in insights for next interactive session. Commented and voted to close.
+
+**Produced**: 1 feature_request (fix_extraction_plate_depletion_lifecycle)
+
+## 2026-03-23T23:00:00Z — Non-Interactive: Forum Pass (QA Bug Reports)
+
+**Trigger**: Scheduler launch; 2 open forum topics from manual_qa.
+
+**Actions**:
+1. **InfoPanel fog-of-war visibility** (`2026-03-23T22:40:00`): Extracted the actionable part of the selectability topic — InfoPanel fields gated by visibility in design docs (SpaceCrystalsPatch RemainingAmount, SupplyDeliveryStation CurrentSupplies) are not being enforced. Sent feature_request `designer-infopanel_fog_of_war_visibility`. Commented and voted to close.
+2. **Extraction plate depletion lifecycle** (`2026-03-23T22:40:01`): Plate entity is coupled to patch entity and gets removed on depletion. Design specifies plate persists with ResidualMiningRate. Sent feature_request `designer-extraction_plate_persists_after_depletion`. Commented and voted to close.
+
+**Produced**: 2 feature_requests (infopanel_fog_of_war_visibility, extraction_plate_persists_after_depletion)
+
+**Note**: Urgent forum question about selectability in Explored areas already captured in insights from prior execution. No design doc changes made (both issues were implementation bugs against existing design).
+
+## 2026-03-23T23:00:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch.
+**Actions**: Checked forum/open/ — both topics already have designer close votes from prior session. No pending messages. No work to do.
+
+## 2026-03-24T04:00:00Z — Non-Interactive: Forum Pass (Infrastructure Topics)
+
+**Trigger**: Scheduler launch; 3 open forum topics.
+**Actions**: Reviewed all 3 topics in forum/open/:
+1. `2026-03-23T12-00-00Z-operator-automated-qa-infrastructure.md` — Automated QA infrastructure proposal. Software architect domain (testing harness, QA routing). No design implications. Voted to close.
+2. `2026-03-23T12-05-00Z-operator-update-auto-capabilities-current-state.md` — Update auto_capabilities.txt for existing test coverage. QA routing config, no design implications. Voted to close.
+3. `2026-03-23T12-10-00Z-operator-codebase-refactoring-review.md` — Codebase refactoring review. Code architecture concern, no design implications. Voted to close.
+
+**Produced**: No feature_requests (no design-relevant work found). No insights changes.
+
+## 2026-03-24T04:10:00Z — Non-Interactive: Re-vote on Forum Topics
+
+**Trigger**: Scheduler launch; 3 open forum topics in forum/open/ had lost designer's close-votes due to subsequent comments from other agents.
+
+**Actions**: Re-read all 3 topics to confirm they remain non-design concerns (testing infrastructure, QA routing config, codebase refactoring). Re-voted to close on each without adding comments (to avoid clearing other agents' votes):
+1. `2026-03-23T12-00-00Z-operator-automated-qa-infrastructure.md` — Re-voted. Topic closed (all votes received).
+2. `2026-03-23T12-05-00Z-operator-update-auto-capabilities-current-state.md` — Re-voted. Topic closed (all votes received).
+3. `2026-03-23T12-10-00Z-operator-codebase-refactoring-review.md` — Re-voted. Topic still open (awaiting other votes).
+
+**Produced**: No feature_requests. No insights changes needed.
+
+## 2026-03-24T00:00:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch.
+
+**Actions**: Checked `forum/open/` — no open topics. Checked `messages/designer/` — no pending messages and no message directory exists. No malformed filenames or stuck messages found.
+
+**Produced**: Nothing. No work available.
+
+## 2026-03-24T16:00:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch.
+
+**Actions**: Checked `forum/open/` — two open topics (large-file-refactoring-plans, unit-test-review), both already have my close vote. These are architecture/developer concerns with no design implications. Checked for pending messages — no `messages/designer/` directory exists. No malformed files or stuck messages.
+
+**Produced**: Nothing. No work available.
+
+## 2026-03-24T14:00:00Z — Non-Interactive: Forum Pass (No Design Work)
+
+**Trigger**: Scheduler launch; two open forum topics.
+
+**Forum**:
+- `2026-03-24T12-00-00Z-operator-large-file-refactoring-plans.md` — Code architecture refactoring of four oversized files. Purely technical, no design implications. Voted to close.
+- `2026-03-24T12-05-00Z-operator-unit-test-review.md` — Review of unit/integration test validity. Purely technical, no design implications. Voted to close.
+
+**Output**: No feature_requests produced. No design changes needed.
+
+## 2026-03-24T15:00:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch.
+
+**Forum**: Both open topics (`large-file-refactoring-plans`, `unit-test-review`) already had designer close votes from previous session. Both topics were closed (designer vote was already present). No new open topics.
+
+**Messages**: No designer inbox exists; no pending messages.
+
+**Output**: No work performed. Urgent forum question about explored-area selectability remains in insights for next interactive session.
+
+## 2026-03-24T18:00:00Z — Non-Interactive: Forum Pass (No Design Work)
+
+**Trigger**: Scheduler launch; one open forum topic.
+
+**Forum**: Topic `unit-test-review` is about code-level test cleanup (stale assertions, broken integration tests, constant-pinning tests). No design implications. Voted to close.
+
+**Messages**: No designer inbox exists; no pending messages.
+
+**Output**: No work performed. Urgent forum question about explored-area selectability remains in insights for next interactive session.
+
+---
+
+## 2026-03-24T19:00:00Z — Non-Interactive: Forum Close Vote Fix
+
+**Trigger**: Scheduler launch; VOTE:designer missing from Close Votes section of `unit-test-review` topic despite previous comment.
+
+**Forum**: Re-ran vote_close.sh for topic `unit-test-review`. VOTE:designer now recorded in Close Votes section alongside software_architect, task_planner, and developer.
+
+**Output**: No design work performed. Close vote recorded.
+
+## 2026-03-24T20:00:00Z — Non-Interactive: Forum Pass
+
+**Trigger**: Scheduler launch; one open forum topic missing designer close-vote.
+
+**Forum**: Reviewed `concurrent-directory-split-conflict` topic raised by developer about build-breaking file conflicts from concurrent directory split tasks. Purely technical/pipeline concern with no design implications. Voted to close.
+
+**Output**: No design work performed. Close vote recorded.
+
+## 2026-03-24T20:00:00Z — Non-Interactive: Forum Pass
+
+**Trigger**: Scheduler launch, non-interactive mode.
+**Forum**: Reviewed and voted to close `2026-03-24T13-17-00Z-developer-concurrent-directory-split-conflict.md`. This was a developer/architect concern about partial-state recovery during file reorganization tasks. No design implications -- no feature_request needed. Topic closed (all votes in).
+**Messages**: No pending messages in designer inbox.
+**Design docs**: No changes.
+
+## 2026-03-24 — Brief check-in session
+
+- Loaded insights, checked forum (no open topics).
+- Presented four loose ends to user: Cults units, Cults Armory mechanics, Cults building roster, CommandPanel R/F/V slots.
+- User decided R/F/V slot assignments should be handled per-object during individual menu layout work, not as a standalone task. Removed from loose ends.
+- User opted to pause design work for now. No design changes made, no feature_requests sent.
+
+## 2026-03-24T23:00:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics (forum/open/ empty).
+**Messages**: No designer message inbox exists.
+**Action**: No work to perform. Recurring no-work pattern observed in recent log entries — scheduler may be launching designer unnecessarily. Exiting.
+
+## 2026-03-24T23:30:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: No pending messages in `messages/designer/`.
+**Action**: No work to perform. Exited cleanly.
+
+## 2026-03-25T02:00:00Z — Non-Interactive: No Work Found
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: Designer is a source agent with no message inbox.
+**Action**: No work to perform. Exited cleanly.
+
+## 2026-03-24T13:00:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: No open topics in `forum/open/`.
+**Messages**: No pending messages.
+**Action**: No work to perform. Exited cleanly.
+
+## 2026-03-25T03:00:00Z — Non-Interactive: No Work
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: One open topic (`fix-compiler-warnings`) — already voted to close.
+**Messages**: Designer is a source agent with no message inbox.
+**Action**: No work to perform. Scheduler continues to launch designer due to open forum topic awaiting other agents' close votes — this is expected behavior, not a misconfiguration. Exited cleanly.
+
+## 2026-03-25T05:15:00Z — Non-Interactive: Forum Vote
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: One open topic (`data-driven-entity-definitions`). All agents have now weighed in with strong consensus on phased approach (stats first, defer behaviors/state machines). Already commented in prior session.
+**Action**: Voted to close the forum topic — discussion is complete, all perspectives captured. Decision requires user input (major architectural direction). Already flagged in Pending Design Review in insights for next interactive session. No design doc changes or feature_requests needed — this is a discussion awaiting user decision, not actionable work.
+**Exited cleanly.**
+
+## 2026-03-25T14:00:00Z — Non-Interactive: Forum Re-engagement
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: One open topic (`data-driven-entity-definitions`). Discussion has pivoted significantly — operator posted three new comments shifting from YAML to declarative Rust structs with per-faction/per-entity directory structure. My previous close vote was cleared by operator's comment. Topic needed re-engagement.
+**Action**: Added substantive comment addressing the refined direction. Confirmed one-file-per-entity maps 1:1 to design doc structure. Flagged cross-entity concepts (Tunnel Network, Cults Building Mechanics, shared production pattern) that need a home in the directory structure. Did not vote to close — topic is still an active discussion awaiting further team input.
+**Insights updated**: Pending Design Review entry updated to reflect the pivoted discussion.
+**No feature_requests produced** — this remains an architectural discussion, not actionable design work yet.
+**Exited cleanly.**
+
+## 2026-03-25T14:00:00Z — Non-Interactive: Forum Close Vote
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: One open topic (`data-driven-entity-definitions`). All agents have commented, broad consensus reached on declarative Rust structs with per-entity files. No new comments since my last re-engagement. Nothing substantive to add.
+**Action**: Voted to close the topic. Updated Pending Design Review in insights to note resolution.
+**No feature_requests produced** — architectural/code organization change, not a design doc change.
+**Exited cleanly.**
+
+## 2026-03-25T15:00:00Z — Non-Interactive: Forum Close Vote (re-vote)
+
+**Trigger**: Scheduler launch (non-interactive mode).
+**Forum**: One open topic (`data-driven-entity-definitions`). My previous close vote had been cleared by a subsequent operator comment (the pivot comment at 05:10:04Z). Re-read entire topic — discussion fully converged, no new substance to add beyond my two existing comments.
+**Action**: Re-voted to close. Cleaned up Pending Design Review in insights (marked as none).
+**No feature_requests produced** — architectural/code organization change, not a design doc change.
+**Exited cleanly.**
+
+
+## 2026-03-25T14:00:00Z — Non-Interactive: Forum Pass
+
+**Trigger**: Scheduler launch (non-interactive mode).
+
+**Forum**: Reviewed `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md`. The discussion had evolved significantly since my earlier two comments — the original YAML proposal was pivoted to declarative Rust structs with per-entity files organized by faction. All agents converged on a phased approach. The software architect produced a detailed trait-based architecture proposal. Since the discussion is resolved from a design perspective (architectural concern, no design doc changes needed), I voted to close.
+
+**Insights updated**: Added pending design review note about the entity definitions refactor for user awareness in next interactive session.
+
+**No feature_requests produced**: This is an architectural reorganization, not a game design change. The software architect will produce the architecture_request to drive implementation.
+
+## 2026-03-25T15:00:00Z — Non-Interactive: Forum Pass (Close Vote)
+
+**Trigger**: Scheduler launch (non-interactive mode).
+
+**Forum**: Re-read `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` (full thread). Discussion fully converged — all agents agree on declarative Rust structs, per-entity files, EntityDefinition trait hierarchy, explicit registry, phased migration. My earlier two comments (design doc mapping, cross-entity concerns) were addressed. Voted to close. Cleared the pending design review entry from insights since the topic is resolved (architectural, not design).
+
+**No feature_requests produced**: No design changes needed.
+
+## 2026-03-25T16:00:00Z — Non-Interactive: Forum Pass (Re-vote)
+
+**Trigger**: Scheduler launch (non-interactive mode).
+
+**Forum**: Re-read `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md`. My previous close vote had been cleared (likely by a subsequent comment). Discussion remains fully converged with user green light. Re-voted to close. Updated insights with note about the architectural refactor's impact on future feature_request mapping.
+
+**No feature_requests produced**: No design changes needed — this is an architectural reorganization.
+
+## 2026-03-25T22:00:00Z — Interactive: HUD Bar Confirmation
+
+**Trigger**: User initiated discussion about bottom HUD section layout.
+
+**Discussion**: User described the five HUD Bar sections (Minimap, Portrait, InfoPanel, SelectionPanel, CommandPanel) with fixed positions, same vertical height, and visibility rules. Reviewed existing `control_system.md` HUD Bar section (lines 70-86) and confirmed it already captures exactly what the user described. Presented the two remaining open questions (empty slot visual treatment, width proportions). User chose to record and exit before answering.
+
+**No design changes made**: Existing documentation already matched user's description. Updated insights loose end to note this is the second session where the sub-questions went unanswered.
+
+**No feature_requests produced**: No design changes to propagate.
+
+## 2026-03-25T23:55:00Z — Non-Interactive: Vote to close HUD/UI bugs topic (final)
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: `2026-03-25T00-00-00Z-operator-hud-ui-bugs.md` — topic had extensive root cause analysis from software_architect, task_planner, automatic_qa, and task_splitter since my last comment. My feature_request (`designer-fix_hud_ui_bugs.md`) was already sent and is in `done/`. Voted to close — no further design input needed.
+**Output**: None (feature_request already sent in prior session).
+
+## 2026-03-28T20:30:00Z — Non-Interactive: Forum pass
+
+**Trigger**: Scheduler launched for open forum topics.
+**Forum**: Read `qa_router_patterns_too_broad` topic — pipeline infrastructure issue about QA routing patterns being too broad. Not a design concern. Voted to close.
+**Output**: None. No design work needed.
+
+## 2026-03-28T21:00:00Z — Non-Interactive: Forum pass (re-launch)
+
+**Trigger**: Scheduler re-launched; prior close-vote on `qa_router_patterns_too_broad` was cleared by subsequent comments from other agents.
+**Forum**: Re-read topic — still purely a pipeline concern, no design implications. Re-voted to close.
+**Output**: None.
+
+## 2026-03-28T20:30:00Z — Non-Interactive: Forum pass (no design work)
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: Reviewed `2026-03-28T00-00-00Z-automatic_qa-qa_router_patterns_too_broad.md` — QA routing patterns too broad, causing interactive items to be misrouted to automatic_qa. This is a pipeline infrastructure issue (pipeline_builder responsibility), not a design concern. Voted to close.
+**Messages**: No pending or stuck messages.
+**Output**: None — no design changes or feature_requests needed.
+
+## 2026-03-28T12:00:00Z — Non-Interactive: Vote to close integration test compilation topic
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: Reviewed `2026-03-28T12-00-00Z-software_architect-integration-test-compilation-regression.md` — integration/scenario tests broken after entity definitions refactoring (wrong import paths, removed functions). Purely a code issue with no design implications. Software architect already sent an architecture_request. Voted to close.
+**Messages**: No pending or stuck messages.
+**Output**: None — no design changes or feature_requests needed.
+
+## 2026-03-28T20:30:00Z — Non-Interactive: Re-vote on integration test topic
+
+**Trigger**: Scheduler re-launched — close-vote was cleared by subsequent comments from task_planner and automatic_qa.
+**Forum**: Re-voted to close `2026-03-28T12-00-00Z-software_architect-integration-test-compilation-regression.md`. No new design-relevant content since prior review.
+**Output**: None.
+
+## 2026-03-28T22:30:00Z — Non-Interactive: Forum pass, no design work
+
+**Trigger**: Scheduler launched for open forum topics.
+**Actions**:
+- Topic 1 (integration test compilation regression): Already had my close-vote. No action needed.
+- Topic 2 (auto_capabilities patterns too broad): Pipeline infrastructure issue with no design implications. Voted to close.
+- No pending messages in designer inboxes.
+**Outcome**: No design work required. Session complete.
+
+## 2026-03-28T22:30:00Z — Non-Interactive: Forum pass
+
+**Trigger**: Scheduler launched for open forum topics.
+
+**Actions**:
+- Reviewed 2 open forum topics
+- Topic 1 (integration test compilation regression): Already had my close vote — no action needed.
+- Topic 2 (auto_capabilities patterns too broad): Pipeline infrastructure issue, not design-related. Problem well-understood, fix identified (pipeline_builder needs to update qa_router auto_capabilities.txt). Voted to close.
+
+**Produced**: Nothing — no design-relevant work found.
+
+## 2026-03-28T23:00:00Z — Non-Interactive: Forum pass, no design work
+
+**Trigger**: Scheduler launched for open forum topics.
+
+**Forum topics reviewed**:
+1. `2026-03-28T12-00-00Z-software_architect-integration-test-compilation-regression.md` — Integration tests broken after entity definitions refactoring. Purely a code/architecture issue (import path updates). No design implications. Voted to close.
+2. `2026-03-28T22-00-00Z-automatic_qa-auto-capabilities-patterns-too-broad.md` — QA router auto_capabilities.txt has overly broad patterns causing bounce loops. Pipeline infrastructure issue for pipeline_builder to fix. No design implications. Voted to close.
+
+**Outcome**: No design doc changes or feature_requests needed. Both topics are well-handled by other agents.
+
+## 2026-03-28T18:30:00Z — Non-Interactive: Forum pass, no actionable design work
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: 1 open topic (`auto-capabilities-still-misrouting`) — QA routing config issue, not design-related. Voted to close.
+**Messages**: No pending or active messages.
+**Outcome**: No design work required. Session complete.
+
+## 2026-03-28T20:45:00Z — Non-Interactive: Forum pass only
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: Voted to close `auto-capabilities-still-misrouting` — pipeline infrastructure issue (QA routing patterns too broad), not a design concern. Pipeline_builder needs to act.
+**Messages**: No pending or active messages in designer inboxes.
+**Outcome**: No design work required. No feature_requests produced.
+
+## 2026-03-28T21:00:00Z — Non-Interactive: Vote to close QA routing topic (repeat)
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: `2026-03-28T18-00-00Z-automatic_qa-auto-capabilities-still-misrouting.md` — pipeline routing issue (auto_capabilities.txt too broad). Not a design concern. Voted to close.
+**Output**: None. No design work needed.
+
+## 2026-03-28T21:00:00Z — Non-Interactive: Vote to close QA routing topic (repeat)
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: Voted to close `2026-03-28T18-00-00Z-automatic_qa-auto-capabilities-still-misrouting.md` — this is a pipeline_builder/operator infrastructure concern (auto_capabilities.txt routing loops), not a design matter. No design action needed.
+**Output**: None (no feature_requests produced).
+
+## 2026-03-28T21:00:00Z — Non-Interactive: Forum pass only
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: Voted to close `2026-03-28T18-00-00Z-automatic_qa-auto-capabilities-still-misrouting.md` — pipeline infrastructure issue about QA routing config, not a design concern. No design action needed.
+**Messages**: No pending messages.
+**Outcome**: No feature_requests produced. Clean exit.
+
+## 2026-03-28T19:00:00Z — Non-Interactive Session
+
+- Loaded insights. No urgent forum questions or pending design reviews.
+- Read 1 open forum topic: `auto-capabilities-still-misrouting` — pipeline infrastructure issue about QA routing patterns. Not a design concern. Voted to close.
+- No pending messages in designer inboxes.
+- No actionable work found. Opened forum topic `designer-no-work-available` to flag potential scheduler misconfiguration.
+
+## 2026-03-28T21:00:00Z — Non-Interactive: No design work in forum
+
+**Trigger**: Scheduler launched for open forum topics.
+**Forum**: 2 open topics, both pipeline infrastructure (no-work report from previous session, auto_capabilities misrouting). Neither requires design input.
+**Actions**: Voted to close both topics.
+**Output**: None — no design-relevant work found.
+
+## 2026-03-28T22:00:00Z — Non-Interactive: Forum cleanup
+
+**Trigger**: Scheduler launched for open forum topic missing designer close-vote.
+**Forum**: 2 open topics. Already voted on `auto-capabilities-still-misrouting`. Voted to close `designer-no-work-available` (4 agents already agreed it's a scheduler config issue).
+**Output**: None — no design-relevant work.
+
+## 2026-03-28T21:00:00Z — Non-Interactive: Vote to close QA routing topic (round 2)
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: Read `2026-03-28T18-00-00Z-automatic_qa-auto-capabilities-still-misrouting.md` — pipeline infrastructure issue about overly broad auto_capabilities.txt patterns causing QA item bounce loops. Not a design concern. Voted to close.
+**Messages**: No pending or active messages.
+**Outcome**: No design work needed. Session complete.
+
+## 2026-03-28T21:00:00Z — Non-Interactive: Forum pass
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: 1 open topic — `auto-capabilities-still-misrouting`. This is the same QA routing issue (auto_capabilities.txt patterns too broad). Purely a pipeline_builder concern with no design implications. Voted to close.
+**Output**: No feature_requests produced. No design changes needed.
+
+## 2026-03-28T18:30:00Z — Non-Interactive: Forum pass (no design work)
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: 1 open topic — `auto-capabilities-still-misrouting` (automatic_qa escalation about QA router config). Pure pipeline infrastructure issue, no design relevance. Voted to close.
+**Output**: None. No feature_requests produced.
+
+## 2026-03-28T22:00:00Z — Non-Interactive: No work found
+
+**Trigger**: Scheduler launch.
+**Forum**: 1 open topic (auto_capabilities misrouting) — pipeline infrastructure issue, not design-related. Voted to close.
+**Messages**: No pending or active messages.
+**Output**: None. No feature_requests produced. Possibly wrongfully started — no design work available.
+
+## 2026-03-28T22:00:00Z — Non-Interactive: Forum pass (no actionable work)
+
+**Trigger**: Scheduler launched for open forum topics.
+
+**Forum**: One topic open — `auto-capabilities-still-misrouting` (QA router config issue). Pipeline infrastructure concern, not design. Voted to close.
+
+**Output**: None. No design-relevant work found.
+
+## 2026-03-28T22:00:00Z — Non-Interactive: Forum pass only
+
+**Trigger**: Scheduler launched for open forum topic.
+
+**Forum**: Read `2026-03-28T18-00-00Z-automatic_qa-auto-capabilities-still-misrouting.md` — QA router misrouting due to overly broad auto_capabilities.txt patterns. This is a pipeline_builder/operator infrastructure issue with no design implications. Voted to close.
+
+**No messages in inboxes. No design work produced.**
+
+## 2026-03-28T20:30:00Z — Non-Interactive: Forum pass, no actionable work
+
+**Trigger**: Scheduler launched (non-interactive mode).
+**Forum**: One open topic (`auto-capabilities-critical-misrouting`) — pipeline infrastructure issue about QA routing patterns, not design-related. Voted to close.
+**Messages**: No pending or stuck messages.
+**Outcome**: No design work needed. Session complete.
+
+## 2026-03-28T22:00:00Z — Non-Interactive: Forum pass (no design work)
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: 1 open topic — `auto-capabilities-critical-misrouting` (QA router infinite bounce loop). This is a pipeline infrastructure issue (auto_capabilities.txt patterns too broad), not a design concern. Voted to close.
+**Output**: None. No feature_requests produced.
+
+## 2026-03-28T22:30:00Z — Non-Interactive: Forum pass (no design work)
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: 1 open topic — `auto-capabilities-must-be-narrowed` (QA router infinite bounce loop, 4th filing of same issue). Pipeline infrastructure issue, not design. Voted to close.
+**Output**: None. No feature_requests produced.
+
+## 2026-03-28T23:00:00Z — Non-Interactive: No design work found
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: 1 open topic (`auto-capabilities-must-be-narrowed`) — pipeline infrastructure issue about qa_router bounce loops. Not a design concern. Voted to close.
+**Messages**: No pending or active messages.
+**Output**: None. No feature_requests produced.
+
+## 2026-03-28T23:30:00Z — Non-Interactive: No design work found
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: 1 open topic (`auto-capabilities-infinite-bounce-loop`) — 5th iteration of the same pipeline infrastructure issue about qa_router auto_capabilities.txt patterns. Not a design concern; owned by pipeline_builder. Voted to close.
+**Messages**: No pending or active messages.
+**Output**: None. No feature_requests produced.
+
+## 2026-03-28T23:30:00Z — Non-Interactive: Forum pass only
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: 1 open topic — `auto-capabilities-infinite-bounce-loop`. This is a pipeline_builder infrastructure issue (QA routing patterns), not a design concern. Voted to close.
+**Output**: No feature_requests produced — no design work needed.
+
+## 2026-03-28T23:45:00Z — Non-Interactive: Forum pass, no actionable work
+
+**Trigger**: Scheduler launch.
+**Forum**: 1 open topic (`auto-capabilities-must-be-narrowed`) — pipeline infrastructure issue requiring pipeline_builder, not design. Voted to close.
+**Messages**: No pending or active messages.
+**Outcome**: No design work needed. Clean exit.
+
+## 2026-03-28T23:45:00Z — Non-Interactive: Vote to close QA routing topic (2nd)
+
+**Trigger**: Scheduler launch.
+**Forum**: 1 open topic (`auto-capabilities-must-be-narrowed`) — same pipeline infrastructure issue about broad auto_capabilities.txt patterns causing QA bounce loops. Already has 5 close-votes from other agents. Voted to close.
+**Messages**: No pending or active messages.
+**Outcome**: No design work needed. Clean exit.
+
+## 2026-03-28T23:45:00Z — Non-Interactive: Forum pass (no design work)
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: 1 open topic — `auto-capabilities-must-be-narrowed` (automatic_qa). Pipeline infrastructure issue about QA routing patterns causing bounce loops. Not a design concern. Voted to close.
+**Messages**: No pending messages.
+**Outcome**: No design work needed this session.
+
+## 2026-03-28T23:45:00Z — Non-Interactive: Vote to close auto_capabilities topic
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: `2026-03-28T23-30-00Z-automatic_qa-auto-capabilities-must-be-narrowed.md` — auto_capabilities.txt broad patterns causing infinite QA bounce loop for 6 items. This is a pipeline infrastructure issue (pipeline_builder/software_architect domain), not a design concern. Voted to close.
+**Output**: No feature_requests produced — no design relevance.
+
+## 2026-03-28T23:50:00Z — Non-Interactive: Forum pass only
+
+**Trigger**: Scheduler launched for open forum topic.
+**Forum**: Voted to close `2026-03-28T23-30-00Z-automatic_qa-auto-capabilities-must-be-narrowed.md` — pipeline infrastructure issue (auto_capabilities.txt broad patterns causing QA bounce loops) already resolved by software_architect. No design relevance.
+**Messages**: No pending or active messages.
+**Outcome**: No design work needed. Session complete.
+
+## 2026-08-05T00:00:00Z — Interactive: Cults Armory/stats resolution + Syndicate Tunnel Space rework
+
+**Trigger**: Interactive user session.
+
+**Forum/messages check**: No open forum topics missing designer close-vote. No pending messages. Found insights.md was stale — several loose ends listed as unresolved (Cults Armory training queue, Soldier/Gunner/Recruit unit definitions, outside-construction rework) already had matching feature_requests sitting unconsumed in `messages/task_splitter/feature_request/pending/` from a prior session that ended before insights.md was updated. Corrected insights.md to match actual current state before proceeding.
+
+**Cults work**:
+- Confirmed Armory training queue behavior (queueable per available Recruit, cancel returns Recruit to Armory + refunds crystals) already matched the pending feature_request — no new edit needed there.
+- Filled in Armory's building stats (MaxHP 300/PointArmor 1/FullArmor 6/SightRange 4, matching GDO Barracks).
+- Restructured Cults building costs: moved SpaceCrystalsCost off each building (RecruitmentCenter/Storage/Armory) onto a new `Constructs:` list under the Recruit's Building section (mirrors GDO's DeploymentCenter > Constructs pattern), with new BaseConstructionTime scaling rule (time-with-1-Recruit, scales down linearly with more Recruits assigned).
+- Filled in RecruitmentCenter (1000/1/16/6, 300 SC/1440 frames) and Storage (250/1/6/3, 100 SC/320 frames) stats and Constructs entries — RecruitmentCenter confirmed buildable (not just a starting structure).
+- User explicitly declined to formalize the FullArmor = PointArmor x footprint-area pattern as a rule in entities.md, despite it holding across all existing buildings — treat as informal/coincidental only.
+- Sent 2 feature_requests: `cults_armory_stats_and_building_cost_restructure`, `cults_recruitmentcenter_and_storage_stats`.
+
+**GDO/Syndicate gap review**: Confirmed no TBDs remain in gdo_objects.md or syndicate_objects.md, but surfaced 3 real gaps (Syndicate defensive structures referenced but undefined, missing Tier 2/3 Tunnel expansions, only one combat unit per faction) — logged as loose ends, not acted on yet per user's redirect to Syndicate-specific changes.
+
+**Syndicate work**:
+- Reworked Tunnel Space from a flat per-tier value (20/30/40) to a formula: (sum of unused tunnel-region grid units across all Tunnels) / 4, capped at 200. Tunnel-region = Tunnel Area minus Tunnel's own 4x4 footprint. Building expansions shrinks Tunnel Space. Overflow allowed (units never removed), same pattern as GDO Power.
+- Reduced Tunnel Area sizes from 10x10/12x12/14x14 to 8x8/10x10/12x12 (tiers 1-3) — corrected the still-pending Tunnel Space feature_request's numbers in place to match rather than sending a confusing follow-up.
+- Reduced Agent and Guard TunnelSpaceCost from 2 to 1 each.
+- Sent 2 feature_requests: `syndicate_tunnel_space_from_unused_area` (later corrected in-place for the size change), `syndicate_unit_tunnel_space_cost_reduction`.
+
+**Insights updated**: TOC entries for cults_objects.md/syndicate_objects.md refreshed, resolved loose ends removed, new gaps and process lessons added (pending-message pre-check habit, designer_notes.md is historical/non-authoritative, in-place correction of unconsumed messages).
+
+**Session ends here** — user requested insights/log update as final step.
+
+## 2026-08-05T01:00:00Z — Interactive: Colonists faction kickoff (Shields mechanic + Prospector)
+
+**Trigger**: Continuation of same interactive user session (see prior entry same day for Cults/Syndicate work).
+
+**Cults follow-up**: Reduced Recruit CarryCapacity from 4 to 2 Space Crystals per load (MiningDuration/DropOffDuration unchanged). Sent feature_request `cults_recruit_carry_capacity_reduction`.
+
+**Colonists resource rename**: Renamed "Conduits" to "Flux" in factions.md (pure rename, no mechanical change; user brainstormed options, picked Flux). Sent feature_request `colonists_rename_conduits_to_flux`.
+
+**Colonists faction kickoff** — first real content for this previously-empty faction:
+- New Shields mechanic (combat.md): Colonists-only MaxShields stat on every unit/building, regenerates continuously at 4/second (constant base rate, upgradeable later), absorbs incoming damage at full value (ignoring armor) before any overflow proceeds to HP under normal PointArmor/FullArmor rules.
+- New Beacon Deployment mechanic (new file colonists_objects.md): Prospectors deploy directly into a Beacon (unit transforms into the building, 48 frames, HP/Shields linearly interpolate throughout, vulnerable, cancellable until complete then permanent/one-way, no minimum spacing between Beacons — overrides an old to_be_converted.md note).
+- Full Prospector unit definition: first unit to use the HoverVehicle base, fully unarmed (unlike every other faction's worker), 36x36/20 HP/10 Shields/0 armor/5 sight, DragMovement stats (TurnRate 45, ForwardAcceleration 0.6, OmniDirectionalAcceleration 0.2, DragRatio 0.1 -> 8 space units/frame top speed), CarryCapacity 8/MiningDuration 32/DropOffDuration 2 frames, full ObjectInterfaceState (Deploy/Move/Stop/Gather/DropOff).
+- New Egress Node structure stubbed (crystal-export building distinct from the Beacon — Prospectors do NOT drop off at Beacons). Stats TBD.
+- Beacon itself remains a stub (stats TBD).
+- Sent feature_requests: `colonists_shields_and_prospector_beacon_deployment`, `colonists_prospector_full_definition`.
+
+**Notable process moment**: While deriving the Prospector's movement stats, formalized for the first time an explicit DragMovement equilibrium formula (MaxSpeed = (ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio) that had never been written down before. Checked it against the existing GDO SupplyChopper's stats and found it implies a MaxSpeed of 10 (never previously stated) — flagged in insights.md for a future check-in with the user rather than silently editing gdo_objects.md.
+
+**Insights updated**: TOC refreshed for combat.md/cults_objects.md/colonists_objects.md, Colonists loose end narrowed (Prospector done, Beacon/Egress Node/Warp In/shield upgrades still open), new insights added about the DragMovement formula and Prospector being the first unarmed worker/first HoverVehicle unit.
+
+**Session ends here** — user explicitly said Colonists work will resume next session.
+
+## 2026-08-06 — Session: Colonists Warp In costs
+
+- Checked forum/open/: empty. Checked messages/designer/*/pending: none. No urgent work found via automated checks.
+- Interactive session with user. User asked "did we go over the roboport?" — reviewed colonists_objects.md, confirmed Roboport stats/RallyPoint/Produces are fully stated but ObjectInterfaceState (panel layout) remains TBD. User chose to defer ObjectInterfaceState.
+- User then asked whether Warp In cost/time had been defined for Egress Node and Roboport — found they had not (Constructs List section only described the mechanism, no actual numbers for either building).
+- User supplied costs/times in seconds; confirmed 16 FPS from scale.md and converted: Egress Node 75 crystals / 320 frames (20s), Roboport 400 crystals / 640 frames (40s).
+- Added a Constructs List table to colonists_objects.md under Warp In > Constructs List, matching the existing GDO DeploymentCenter/ExtractionFacility `### Constructs:` list pattern.
+- Sent feature_request `add_colonists_warp_in_costs` to task_splitter, including a note that Starting Conditions buildings (the pre-built Egress Node + Roboport) should NOT be charged this cost since they aren't built via the Warp In flow.
+- Updated insights.md TOC entry for colonists_objects.md and the Colonists loose-end entry (added note to remember Constructs List rows when adding future buildings).
+- Session paused at user's request after this one change.
+
+## 2026-08-07 — Session: Bioport + Colonists first combat units (Legionnaire)
+
+- Checked forum/open/ (empty) and messages/designer inboxes (none) — no urgent work, proceeded straight to regular session.
+- User picked up a new Colonists building: Bioport. Gathered full stats (3x3, 250 MaxHP, 15 MaxShields, 1/9 armor, SightRange 3, Groupable true, AABB symmetry), a new exit-side rule (nearest unblocked "A" side to RallyPoint, random among unblocked if no RallyPoint/blocked), and Warp In cost (150 Space Crystals / 480 frames / 30s). Left Produces list and ObjectInterfaceState TBD pending unit design. Sent feature_request `add_colonists_bioport`.
+- User then designed the Bioport's product: originally pitched as a single unit with a switchable dual-attack ability, refined through discussion into two distinct Unit entities — Sabre Legionnaire (melee) and Rifle Legionnaire (ranged) — following the existing Cults Soldier/Gunner precedent (shared physical profile, different AttackAttributes).
+- Further refined: rather than being independently produced, only Sabre Legionnaire is Bioport-producible; Rifle Legionnaire is reached via a new Weapon Conversion mechanic (Sabre <-> Rifle, 4 frames, free, no HP/Shields interpolation needed since stats are identical, eligibility gated by reusing the existing AttackPhase.Interruptible rules from combat.md rather than new logic).
+- Collected full stat blocks for both units (base profile: HeavyInfantry, 36x36, 70 HP, 10 Shields, 0/0 armor, SightRange 5, MaxSpeed 5, BeaconCapacityCost 2 — first unit to use this stat with a real number) and both AttackAttributes sets (Sabre: FullyConnected Melee, 15 dmg, Aim3/Fire3/Cooldown1/Reload5; Rifle: FullyConnected Ranged, 10 dmg, Range 4/MinRange 0, Aim3/Fire2/Cooldown7/Reload4). Bioport production: Sabre Legionnaire only, 100 Space Crystals / 160 frames (10s).
+- Wrote all of this into colonists_objects.md: filled in Bioport's Produces list, added `## Sabre Legionnaire`, `## Rifle Legionnaire`, and `## Weapon Conversion` sections. Sent feature_request `add_colonists_legionnaire` with detailed QA instructions.
+- Updated insights.md: TOC entry for colonists_objects.md, Colonists loose-ends entry (combat units now exist, but still only one unit line — no Vehicle/Mech/Air), and two new Insights entries (Bioport exit-side rule precedent, Weapon Conversion mechanic precedent + BeaconCapacityCost first use).
+
+## 2026-08-10/11 — Session: GDO tech tree walkthrough (started, paused)
+
+- Checked forum/open/ and messages/designer inboxes: both empty, no urgent work.
+- User initiated a full GDO building/tech tree mapping session — going over general description + prerequisites for every GDO building, existing and new.
+- Scoped the session: confirmed it covers building-level prerequisites (not a separate research/upgrade tech layer), full pass planned across existing + new buildings.
+- Walked through all 5 existing GDO buildings and captured prose descriptions + confirmed prerequisites match current gdo_objects.md exactly (no mechanical changes): DeploymentCenter, PowerPlant, Barracks, ExtractionFacility, SupplyTower.
+- No design doc edits made — user deferred folding the richer descriptions into gdo_objects.md until the new buildings are also covered. No feature_request sent this session since nothing new/changed was defined for developers to implement yet.
+- Updated insights.md loose ends with a detailed "IN PROGRESS, paused mid-session" entry so the next session picks up exactly where this one left off (continuing into new GDO buildings).
+
+## 2026-09-12 — Session: GDO tech tree walkthrough (resumed and completed building list)
+
+- Checked forum/open/ (empty) and messages/designer inbox (doesn't exist / no pending) — no urgent work, resumed the GDO tech tree walkthrough paused on 2026-08-10/11.
+- User provided the full remaining building list in one pass, each with description + prerequisite + constructor: Deployment Center, Extraction Facility, Extraction Plate, Barracks, Generator (renamed from Power Plant), Arsenal (req. Barracks), Radar Station (req. Power Plant, later changed to req. Radar Station's own dependency chain), Career Campus (req. Barracks), Factory (req. Barracks), Defense System (req. Radar Station + Arsenal), Missile Turret (built by Defense System), Supply Tower, Advanced Mechanics (req. Factory), Airfield (req. Advanced Mechanics), Industrial Powerplant (req. Advanced Mechanics), Propulsion Labs (req. Airfield).
+- Clarified with user: (1) full find-and-replace rename Power Plant -> Generator, no stat changes; (2) Supply Tower's prerequisite is being redone to require Radar Station instead of Generator; (3) Missile Turret's "shoots air and ground" is deferred for full design later, but confirmed it maps to the already-existing `TargetDomain: Universal` value in combat.md — no new mechanic needed; (4) confirmed this is the complete building list; (5) prerequisites do NOT propagate transitively — each building lists only its direct requirement(s); (6) this pass is stub-only (description + Faction + TechPrerequisite), full stat blocks deferred to future sessions.
+- Edited `gdo_objects.md`: renamed PowerPlant -> Generator throughout (entity header, DeploymentCenter Constructs list, DeploymentCenter BuildMenu commands), updated SupplyTower's TechPrerequisite and DeploymentCenter Constructs-list Requires clause from Generator to Radar Station, added Radar Station/Arsenal/Career Campus/Factory/Advanced Mechanics/Airfield/Industrial Powerplant/Propulsion Labs/Defense System to DeploymentCenter's Constructs list (cost/time TBD), and appended 10 new stub sections (Arsenal, Career Campus, Factory, Radar Station, Advanced Mechanics, Airfield, Industrial Powerplant, Propulsion Labs, Defense System, Missile Turret) with description, Faction, Constructed by, and TechPrerequisite only.
+- Sent 1 feature_request: `gdo_rename_powerplant_to_generator` — scoped narrowly to the rename only, explicitly telling the developer NOT to swap SupplyTower's build-gating to Radar Station yet since Radar Station has no implementable stats, to avoid the design doc and code silently diverging or breaking the build. No feature_request sent for the 10 stub buildings themselves since they have no stats yet to implement.
+- Updated insights.md: TOC entry for gdo_objects.md, replaced the "paused mid-session" GDO tech tree loose end with a full summary of the complete tree + next-session direction (fill in stats one building at a time, watch for Arsenal/Advanced Mechanics introducing GDO's first research/upgrade mechanic which doesn't exist in the docs yet), added a new loose end tracking the SupplyTower prereq design/code divergence until Radar Station is stated, and updated the "only one combat unit per faction" loose end to note GDO's path is now designed (Factory/Airfield) though Syndicate's still isn't.
+- Session ended at user's request ("that's all for now").
+
+## 2026-10-06 → 2026-10-18 — Session: Syndicate tech tree walkthrough (started, ended abruptly)
+
+- 2026-10-06: status check only. 2026-10-11: user started Syndicate tech tree session; presented current Syndicate state and asked about prerequisite model (tier only / tier+buildings / same-Tunnel).
+- 2026-10-17: user confirmed Tunnel and 3 tiers stay; renamed Headquarters -> Hideout ("primary accommodations for Syndicate infantry", built in Tier 1 Tunnel, starting building).
+- 2026-10-18: edited syndicate_objects.md (rename + new description, stats unchanged), updated 3 pending feature_requests in place with the new name, sent feature_request `syndicate_rename_headquarters_to_hideout`. Session ended before insights/log were updated.
+
+## 2026-10-23 — Session: recovery
+
+- User asked where we left off; found the abrupt-ending session in the transcript files, verified the rename landed, and back-filled insights.md (TOC + in-progress loose end) and this log.
+- Resumed Syndicate tech tree: user confirmed Tunnel Space + Supplies rules unchanged; chose prerequisite model B (tier per building Tunnel, TechPrerequisite network-wide); prerequisite counts only when fully constructed and on map (GDO: placed); losing a prerequisite only blocks new starts. Edited entities.md (new Tech Prerequisites section), syndicate_objects.md (Expansion Requirements, ExpandMenu text, Hideout TechPrerequisite None), gdo_objects.md (Constructs note). Sent feature_request `tech_prerequisite_rules`.
+- Syndicate building list completed (stub-only, written incrementally with user approval): Optics Lab (T1), Chemical Plant (T1), Vault (T1, req. Hideout), Vehicle Assembly (T2, req. Chemical Plant), Forge (T2, req. Vehicle Assembly), Augmentation Chamber (T2, req. Hideout), Aerospace Assembly (T3, req. Forge), Orbital Command (T3, req. Aerospace Assembly), Laser Turret (surface, Agent-built, req. Optics Lab, Universal targeting, Agent-inside construction flow, Agent emerges adjacent). Orbital forces = satellites as HoverCraft Air units. Added Tech Tree Overview table (incl. Tunnel) to top of syndicate_objects.md; Tunnel gained Constructed by/TechPrerequisite lines. No feature_request for stubs (no implementable stats).
+- Session ended at user's request ("good enough, we have the tech tree"). Details/stats for GDO and Syndicate stub buildings deferred to future sessions. Feature_requests sent this session: `tech_prerequisite_rules`.
+
+## 2026-11-15 — Session: Cults tech tree (in progress, checkpoint written)
+
+- Forum/open empty; no inbox work. User asked where we left off: recapped Syndicate (Oct 23–24) and GDO (Sep) tech tree sessions, listed loose ends, and flagged 22 unconsumed designer feature_requests in task_splitter pending (oldest July). User said they are **no longer running the pipeline** — design docs only from now on; no feature_requests sent this session (recorded in insights > Pipeline Status).
+- Cults tech tree session. Decisions: every Cults unit (incl. vehicles) comes from Recruits; vehicles consume multiple Recruits (Unit Control = Recruits consumed); Recruits build every Cults building; RecruitmentCenter renamed RecruitmentHall; RecruitmentHall/Storage no prereq, Armory req. Storage; tree splits into Tech/Weaponry (Armory = T1) and Mystical/Human Enhancement branches, both buildable in one game; "tier" is descriptive only.
+- Altar (Mystical T1, req. Storage): per-unit Augmentations Enhanced Constitution / Improved Metabolism for all 4 Cults infantry (Recruit, Soldier, Gunner, spell caster). Increment system: Constitution increment = +10 MaxHP, +1 melee dmg (unarmed only); Metabolism increment = move speed + attack speed (unarmed only), values TBD. Each Augmentation = +2 own / −1 other increment. Survives Armory training (order-independent). Armory-like pool + serial queue, auto-exit to RallyPoint, 3-stage AugmentMenu (unit type → current state → augmentation, each click queues one). Fully augmented units can enter but only leave (Eject All, designer default).
+- Temple (Mystical T2, req. Altar): research; first set = Constitution L1/L2 and Metabolism L1/L2 lines (+4/−2, +6/−3). Level locked when augmentation finishes; no re-augmenting.
+- Research defined as shared rules in entities.md > Research (once per player, cost on queue, serial queue, no duplicates, levels chained, cancel/destruction = full refund, permanent) with Faction Exceptions; Cults exception: stat upgrades not retroactive.
+- Files edited: cults_objects.md (rename, Tech Tree Overview, TechPrerequisite lines, Augmentation/Altar/Temple sections, Constructs list, Recruit Enter Altar), factions.md (rename, Recruits-build-all + vehicles sentence), entities.md (Research section).
+- After the checkpoint the user added: Cults research requires Recruits inside the building with speed scaling by Recruit count; Cathedral is the last Mystical-branch building. Captured in insights, not yet in docs — follow-ups pending.
+- Continued after checkpoint: user confirmed the harsh negative increments are intentional. Defined Cults research staffing (Recruits only; BaseResearchTime with 1 Recruit; linear scaling; not consumed; pauses when empty) as a second Cults exception in entities.md > Research. Added Cathedral (Mystical T3, last, req. Temple; trains Acolyte from 1 Recruit Armory-style; Augmentation Level 2 research at the Temple now also requires owning a Cathedral) and an Acolyte stub (spell caster) to cults_objects.md; renamed "spell caster" placeholders to Acolyte; added Enter Temple/Enter Cathedral to Recruit commands; Constructs list gained Cathedral. Mystical branch building list is complete; Tech/Weaponry T2+ is next.
+- Added Cults 'Evacuation on Destruction' rule (cults_objects.md > Cults Building Mechanics): units inside any destroyed Cults building exit alive and unchanged around the footprint; all in-progress/queued training, augmentation, research orders cancelled with full refund.
+- 2026-11-16: Added Shrine (Mystical T3, sibling of Cathedral, req. Temple): Recruit-only ritual participation drives energy regen; two area abilities castable anywhere with vision — own-infantry health regen buff and own-Acolyte energy regen buff, snapshot at cast time; numbers TBD. Acolyte gained a naturally-regenerating energy pool. Recorded that Cults infantry have no natural HP regen. Evacuation rule extended to Shrine. Constructs list + Recruit Enter Shrine command added.
+- User clarified: design-only from here; game will be rebuilt from scratch once the design is complete. Updated insights Pipeline Status; dropped the SupplyTower design/code-divergence loose end (moot); added a future 'design-doc completeness audit' loose end.
+- 2026-11-16: Cults Tech/Weaponry branch written: Gunworks (T2, req. Armory; unlocks Gunner at Armory + weapon upgrade research), Chop Shop (T2 major, req. Armory; vehicles), Machine Shop (T2, req. Chop Shop; vehicle+air upgrades), Airstrip (T3 major, req. Chop Shop; aircraft), Scrap Hangar (T3, req. Airstrip; unlocks large paratrooper plane + airship at Airstrip). Armory Gunner now gated by Gunworks. entities.md: new Unit Prerequisites subsection. Overview gained tree diagram + informal-tier rule (tier anchored by unit-producing building). Syndicate Augmentation Chamber flagged for rework after Colonists tech tree.
+- 2026-11-16: Colonists economy/tech model written. User decided Colonists have NO building tech tree (any building Warped In anytime), units may have Unit Prerequisites, gating is economic via refined-resource costs. One-Drone-per-patch (any player blocks, Colonists only; seek nearest free patch else wait). Drone jobs = pick up at X / deliver to Y (feeders vs haulers separate), AssignedEgressNode generalized to AssignedDropOff (Egress Node or refinery), CarryCapacity 8 all resources. Refineries: Alloy Furnace, Essence Refinery (1:1), Flux Reactor (1A+1E->2F, separate entrances); max input/output storage, output-full pauses, input-full refuses + feeder waits + notification; specific input/output sides. Files: colonists_objects.md, factions.md, entities.md. 'Notifications' (not alerts) logged as a future topic.
+
+## 2026-11-17 — Session continued: Colonists buildings and portals (in progress)
+
+- Colonists additions decided in conversation: Starport (air units), second Bioport unit Lancer (energy-missile salvo vs ground+air, needs Exophysics Engine), Exophysics Engine (upgrades; unlocks Lancer + Skylance), Skylance (anti-air defensive structure). Defensive structures are an exception to the no-building-prerequisites rule (anti tower rush). Costs deferred until the building list is done.
+- Portal rework: "-port" buildings are portals from the homeworld; renamed to two-word names (Robo Portal, Bio Portal, Star Portal) plus new Heavy Portal (vehicles: hover, heavy = tracked). Bio Portal -> Heavy Portal -> Star Portal is a multi-stage construction (upgrade in place only, each stage replaces the previous stage's production). User decided the Robo Portal should NOT upgrade into the Bio Portal, citing a Colonists-vs-Colonists scouting problem and asking the model to work out the reason; several guesses rejected; the final analysis (permanent scouts because nothing can attack pre-Bio Portal; public all-or-nothing upgrade ending Drone production and Beacon supply; second-mover advantage -> standoff) was received with "Good stuff. That's worth recording."
+- Written to docs: colonists_objects.md (rename throughout; Tech Model + Warp In exception notes; new Portals section with upgrade line, standalone Robo Portal, Rationale, Open Questions; Heavy Portal and Star Portal stubs; Robo/Bio Portal descriptions), factions.md (upgrade-line exception note).
+- NOT yet written (awaiting go-ahead): Exophysics Engine, Lancer, Skylance, defensive-structure exception in Tech Model. Open: Heavy/Star footprint, Bio Portal cost, upgrade cost/time, whether the recorded rationale matches the user's own original reason.
+- No feature_requests sent (pipeline not running; design-only).
+- User gave their own reason for the standalone Robo Portal: nobody would build a Bio Portal, players would keep adding Robo Portals with nothing to defend against, economy goes exponential and the low-economy early game is skipped. Added as the core problem at the top of the Rationale in colonists_objects.md > Portals.
+- Wrote Exophysics Engine, Skylance, Lancer stubs and the defensive-structure prerequisite exception into colonists_objects.md.
+
+## 2026-11-18 (continued)
+- Named and wrote the Colonists anti-ground defense pair: Power Core (power-generation tech building, name chosen from power-themed options) unlocks Plasma Turret (energy beam; briefly 'Plasma Cannon'). Stubs + Constructs List rows + Tech Model example updated in colonists_objects.md. Unit unlock, upgrades, and beam mechanic left TBD. No feature_requests sent (design-only).
+
+## 2026-11-19
+- Colonists comms buildings: named Relay Array (surface-to-surface; unlocks flying Scout at Robo Portal) and Navigation Spire (lighthouse-like; unlocks large flying units). Recorded user's Operability Principle in Tech Model with table of tech buildings. Scout stub written (name/stealth TBD). Constructs rows, Robo Portal Produces, Portals table, Star Portal note updated. No feature_requests.
+- Renamed Power Core → Fusion Core throughout colonists_objects.md and insights.
+- Wrote Psionic Amplifier stub (Operability table row, Constructs row, Bio Portal Produces line, Star Portal tentative note). Discussed Fusion Core research (shields + energy weapons; missiles stay in Exophysics Engine) and armor-upgrade placement options — not yet written.
+- Wrote Structural Analyzer (armor upgrades; gates treaded vehicles at Heavy Portal; rationale for keeping refineries economic) and the research layout: Exophysics Engine missiles, Fusion Core shields + energy weapons.
+- User declared Colonists building list complete. Recorded Upgrade Layout in Tech Model; Fusion Core weapon line renamed to beam/particle; Structural Analyzer armor = infantry/vehicle/flying lines; refineries research nothing.
+- Renamed Lancer/Skylance missiles to antimatter missiles; Legionnaire weapons designated energy weapons (Fusion Core upgrades).
+- Clarified: Fusion Core / Exophysics Engine / Structural Analyzer upgrades are incremental +N stat upgrades (multi-level lines); recorded in Tech Model > Upgrade Layout.
+- Fusion Core shield upgrades = faster ShieldRegenRate (combat.md cross-ref updated).
+- Shield regen upgrades apply to units and buildings.
+- No armor upgrades for Colonists buildings.
+- Confirmed: hover vehicles need nothing beyond Heavy Portal; Colonists have no Research exceptions (noted in entities.md). Moving to Syndicate Augmentation Chamber.
+- Syndicate lore expanded in lore.md (GDO view vs reality; small trust-limited groups; imprinting paranoia). Augmentation Chamber description rewritten as a Faraday cage against imprinting; gameplay role TBD.
+- Renamed Syndicate Augmentation Chamber → Null Chamber. User framing: Syndicate heavy infantry = exoskeleton augmentation (mechanical); Null Chamber consumption effects are Spice-like (Dune), distinct from Cult morphological augmentation.
+- Stealth/detection added to loose ends (deferred to unit design). Null Chamber exit-buff idea discussed, not written.
+- Wrote Null Chamber exit buff to syndicate_objects.md (manned units, detection/sight/%DR before armor, instant refresh; numbers & research gating TBD). Logged % damage-reduction ordering/stacking as loose end.
+- Ran design-doc consistency audit across all docs. Fixed A1–A7 (user-approved: Armory ABAC; Enter generalized for Cults; camera starting structures incl. Colonists Robo Portal). Recorded B1–B13 open gaps in insights.
+- B1 resolved: MinimumDamage section in combat.md (0.5 per hit; AoE 0.5×overlap fraction; fractional HP; minimum capped at shield overflow).
+- B2 resolved: DirectionalArmor zones/multipliers in combat.md.
+- B3 resolved: Crushing rule in units.md.
+- B4 resolved: DamageModifierOrder section in combat.md.
+- B5: Starting Conditions written for all four factions (resources TBD).
+- Extraction Plate MiningRate doubled to 20 per 48 frames (user).
+- Extraction Plate ResidualMiningRate doubled to 2 per 48 frames.
+- Reverted Extraction Plate buff (back to 10 / residual 1 per 48 frames). Mining-rate balance (Drone/Recruit nerf) left open.
+- Syndicate starts with 1 Supply.
+- Cults start with 0 Space Crystals.
+
+## 2026-11-20 — GDO opening economy tuning
+- Simulated GDO opening (non-stop Generators + plates, power-aware) to tune Generator cost/time and starting crystals; analysed idle-DC vs cut-plate tension and its dependence on patches per base.
+- User decisions: Generator 100 SC / 15 s; plates unchanged (payback between Agent and Drone); cutting a plate should be the acceleration option; patch count is a map-maker dial.
+- gdo_objects.md: Generator cost 150→100, time 160→240 frames (build list + DC command); Starting resources 450 SC (Supplies TBD); new "Opening Economy Baseline" subsection (rationale, 8-patch reference base, early power pinch TBD).
+- insights.md: B5 status, GDO opening entry, cross-faction yardsticks loose end, economy-tuning insight. No feature_requests sent (per user).
+- Deployment Center Power +20 → +30 (removes the early power pinch; start = +12, inert opening never negative). 450 starting crystals re-verified; Barracks idle/cut figures updated (38 s / 35 s, ~20 SC).
+- Revised GDO start after user concern about an instant Barracks before scouting: 3 starting Extraction Plates + 100 SC (replacing 1 plate + 450 SC). Simulated three build orders (DC-optimal, EF-optimal, fastest clean Barracks) and the user's own plates-first order; opening is forgiving, power (Barracks −30) gates the Barracks behind 2 Generators. Rewrote gdo_objects.md Starting Conditions + Opening Economy Baseline. New loose end: user worried GDO economy scales too fast.
+- Plate build-time discussion (GDO vs Colonists ramp): compared 6–24 s plates; Colonists 8-patch-row saturation ≈ 18–22 working Drones (+2–3 Beacons). Undecided on plate time (user leaning longer than 12 s). Fixed stale Drone patch-saturation line in colonists_objects.md (was "3–6 Drones", from an older multi-Drone-per-patch idea).
+- Drone BeaconCapacityCost = 1 recorded in colonists_objects.md (closes half of B6).
+- GDO starting plates 3 → 2 (even start vs Colonists' 4 Drones). Re-simulated opening (6 s plates): clean Barracks ~43–45 s, all-in ~15 s at −21 power. Added gdo_objects.md > Economy Targets (GDO vs Colonists) with the user's 4 targets + reference check. Plate/Drone build times still open.
+- Extraction Plate build time 6 s → 25 s (400 frames). Re-simulated GDO opening (tight first ~30–40 s, plates-first best, Generator-first −8%, clean Barracks ~46 s, fully plated ~2:30, DC becomes bottleneck/float from ~1:00). Added income comparison table vs Colonists (target 1 roughly met). Open: 2nd Extraction Facility on the same base; tech building costs ~20–30 SC/s of build time.
+- Documented second-Extraction-Facility break-even (≈10 patches) in gdo_objects.md; user confirmed EFs plate anywhere in build area. User satisfied with Colonists–GDO crystal balance; moving on to Syndicate economy.
+- Syndicate: documented Tunnel crystal-intake cap (~16.7 SC/s per Tunnel) and that stacking two T1 Tunnels on one field is allowed (no upgrades + concentrated Supply risk; Syndicate rewarded for spreading Tunnels). syndicate_objects.md > Tunnel Area Non-Overlap Rule.
+- Syndicate: Agent crystal drop-off 3 s → 4 s (Tunnel ceiling 16.7 → 12.5 SC/s, 2–3 Agents to saturate); added distance/saturation table to syndicate_objects.md > Agent > Gathering; updated Tunnel intake note.
+- Agent crystal MiningDuration 3 s → 4 s; saturation table regenerated (2–3 Agents up to 3 grid units; ceiling still 12.5 SC/s).
+- Agent crystal MiningDuration 4 s → 5 s (80 frames) to reward Tunnels close to crystals; Agent build time 10 s → 15 s (240 frames). Saturation table + rationale regenerated.
+- Starting Space Crystals: Syndicate 100, Colonists 100 (GDO already 100, Cults 0). Colonists refined resources + GDO Supplies still TBD.
+- GDO starting Supplies deferred until GDO Supply costs are designed (noted in gdo_objects.md + insights).
+- B7 resolved: any number of Agents / Recruits may mine the same patch simultaneously (added to syndicate_objects.md Agent Gathering and cults_objects.md Recruit Gathering).
+- B6 resolved: Syndicate production checks Tunnel Space when a queued unit is about to start (queue needs only crystals); blocked queue waits, auto-resumes, cancel = full refund, raises notification; all Syndicate production buildings. syndicate_objects.md (Tunnel Space > Production and Tunnel Space, Hideout commands), factions.md SyndicateResources.
+- B8 resolved: buildings (own hall footprint, other Cults buildings, enemy buildings) never affect tile recruitability; only claiming by another Recruitment Hall does. cults_objects.md > Recruitment Hall > Effectiveness.
+- B9: Supply Chopper Cargo section added (4 infantry / 1 vehicle / Supplies, one at a time); transport mechanics deferred to unit design.
+- B10 resolved via Laser Turret rework (pop-up inside own Tunnel Areas, upright outside; Agent or Tunnel built; 1x1; conversion on Tunnel build/upgrade/destroy; Agent Build Laser Turret command, hotkey TBD). Tunnel Space formula now floor(unused/4) in syndicate_objects.md + factions.md.
+- B11 resolved: new Cults Garrison (Tech/Weaponry T2, req. Armory; Recruits garrison and fire with Soldier's attack; evacuation applies). Added to overview table, tree, evacuation list, control_system.md Enter list. Capacity/other infantry/targetability TBD.
+- Garrison: Recruits + Soldiers + Gunners may enter (not Acolytes), capacity 4, +1 grid unit Range for units inside.
+- control_system.md: BasicCombatUnit right-click own Garrison (Soldier, Gunner) → Enter.
+- Garrison: Acolytes may also enter, firing as Soldiers (like Recruits); Acolyte spellcasting from inside TBD.
+- B12 resolved: syndicate_objects.md > Tunnel Network > Losing Tunnels (last Tunnel lost = defeat; stranded units destroyed by tier). Garrison: units inside untargetable / no damage. Noted gap: no defeat conditions for other factions.
+- Defeat Condition (factions.md): lose all buildings, every faction; Syndicate expansions turn neutral when their Tunnel dies (syndicate_objects.md Losing Tunnels updated). B13 resolved: Beacon placement section in colonists_objects.md (Worker-Built Structures rules, fog-of-war orders allowed); entities.md example updated.
+- Defeat: every structure counts for all factions; Syndicate Laser Turrets survive Tunnel loss (losing last Tunnel ≠ defeat if turrets remain). Neutral expansions: visible, slow HP decay, claimed by owner of any Tunnel built over them. factions.md + syndicate_objects.md updated.
+- Defeat: every structure counts for all factions; Syndicate Laser Turrets survive Tunnel loss (losing last Tunnel ≠ defeat if turrets remain). Neutral expansions: visible, slow HP decay, claimed by owner of any Tunnel built over them. factions.md + syndicate_objects.md updated.
+- Neutral expansions: claimed only if fully covered and Tunnel tier ≥ Tier Requirement; in-progress production/research destroyed.
+- Neutral expansion claimed when covering Tunnel later upgrades enough. Colonists start Alloys/Essence/Flux = 0. Garrison + Laser Turret specifics deferred. Starting Cults economy discussion.
+- 2026-11-22: Decided: queued-but-not-started items in a destroyed Tunnel's expansions are fully refunded (syndicate_objects.md > Losing Tunnels). Cults economy discussion opened (Recruit distance table presented).
+- 2026-11-22: Cults BaseRecruitProductionTime 12 s → 9 s (144 frames); 50% example now 18 s; rationale added (cults_objects.md > RecruitmentHall). Clarified: trained units still count against originating hall capacity (already in docs).
+- 2026-11-22: Added two rationale paragraphs to cults_objects.md > BaseConstructionTime Scaling: Recruit-time as the Cults' core cost (walking distance makes fast building costlier), and crystal cost vs build time as the dial balancing Cults flexibility. Recruitment Hall unchanged (300 SC / 90 s).
+- 2026-11-22: Recruit Gathering: added MiningReach and DropOffReach (8 su each) and the expected-throughput note (1-tile gap → ~1.45 SC/s per Recruit).
+- 2026-11-22: Storage resized 3x2 ABAB → 2x2 AAAA, cost unchanged (100 SC / 20 s); rationale added (cults_objects.md > Storage).
+- 2026-11-22: Kept Recruit production at 9 s after reviewing 9/10/12 s; added note to rationale that it's a playtest dial (9–12 s) and that early 2nd-hall commitment is intended.
+- 2026-11-22: Simulated 5-min pure mining (GDO/Colonists/Cults) and earliest 2nd hall (with walking). Reverted Recruit production 9 s → 12 s (192 frames); rationale rewritten with sim findings (cults_objects.md > RecruitmentHall).
+- 2026-11-22: Cults Build Command: cost deducted when the build order is given (cults_objects.md > Build Command).
+- 2026-11-22: Cults Build Command: full refund if the order is cancelled before construction starts; after start only the building's Cancel Construction (75%).
+- 2026-11-22: Added shared WorkerReach 8 su (entities.md > SpaceCrystalsPatch) for mining/pick-up/drop-off, referenced from Drone, Agent, Recruit. Added Cults map-design guideline: balance from a fully Recruitable map, map makers tone down (cults_objects.md > RecruitmentHall).
+- 2026-11-22: Correction per user: reach is per-unit, not universal. Removed shared WorkerReach from entities.md; MiningReach/DropOffReach 8 su (placeholder) on Drone, Agent, Recruit.
+- 2026-11-22: Restructured design docs into directories (core/, systems/, systems/controls/, factions/{gdo,syndicate,cults,colonists}/, archive/) per user; added design/README.md index; rewrote cross-file refs to path form; archived designer_notes.md + to_be_converted.md; deleted empty design_questions.md. Backup of pre-split docs in session scratchpad. Insights TOC replaced with pointer to README + old→new map. Flagged: other agents' prompts glob design/*.md.
+- 2026-11-22: With user approval, updated design-doc path glob to design/**/*.md (+ README index) in all .claude/agents/*.md and CLAUDE.md. User chose to design unit rosters one faction at a time.
+- 2026-11-22: Renamed GDO 'Global Defense Ordinance' → 'Global Defense Organization' (GlobalDefenseOrganization) across factions/gdo/*.md to match lore; marked working name.
+- 2026-11-22: Expanded GDO lore in core/lore.md (treaty org with military/policing/licensing branches, conflicting goals, corruption/black market, field forces mostly licensed private paramilitaries, standardized approved equipment, player identity per scenario, Peacekeeper = sanctioned external operator, partial misnomer). Added lore line to Peacekeeper.
+- 2026-11-22: Peacekeeper: look (corporate private security) + role intent (early all-rounder, may be slightly redundant late) added to factions/gdo/units.md.
+- 2026-11-22: Peacekeeper Riot Shield toggle ability added (factions/gdo/units.md; half speed, cannot attack, 50% pre-armor damage reduction); listed in systems/combat.md DamageModifierOrder step 1.
+- 2026-11-23: Riot Shield details: all directions, toggle time (<0.5 s, TBD), must lower shield to attack, no auto-target while raised. Peacekeeper ground-only confirmed (no early air units).
+- 2026-11-23: Riot Shield: right-click on enemy while raised issues Move.
+- 2026-11-23: Added Rocketman (GDO missile infantry) to factions/gdo/units.md with Target Lock ability; Barracks Produces + W command (tentative) + Arsenal unlock note in structures.md; README updated.
+- 2026-11-23: Added Drone Operator (GDO, Barracks + Career Campus) to factions/gdo/units.md; Barracks Produces line; Career Campus unlock note; README updated.
+- 2026-11-23: Drone Operator: drone Air-domain (anti-air only), one-use melee attack = explosion, no recall, operator unarmed.
+- 2026-11-23: Drone Operator drone explosion targets Ground only.
+- 2026-11-23: Added Field Engineer skeleton (GDO, Barracks + Career Campus): Repair buildings, Build Bunker, Set up First Aid Tent.
+- 2026-11-23: Field Engineer Repair also covers vehicles.
+- 2026-11-23: Field Engineer abilities detailed (all cost SC, unarmed); Bunker + First Aid Tent structure sections added to factions/gdo/structures.md; README updated.
+- 2026-11-23: Bunker garrison rules (all GDO infantry, like Cults Garrison: untargetable, evacuate alive; own weapons, no range bonus); First Aid Tent placement any Buildable; Cults Garrison +1 range limited to Soldiers/Gunners; Enter lists + right-click updated in systems/controls.
+- 2026-11-23: Bunker: units inside cannot use abilities.
+- 2026-11-23 GDO Missile Vehicle (name TBD): Factory, WheeledVehicle, narrow-arc turret, homing (HeadDisjointed) Universal missiles, no transport. Added to units.md + Factory Produces.
+- 2026-11-23: Missile Vehicle turret TurnAngle 60° full arc (±30°), placeholder.
+- 2026-11-23: Missile Vehicle named Raptor.
+- 2026-11-23: Raptor role note: main difference from Rocketman is speed (Raptor very fast).
+- 2026-11-23: Added AA Minelayer vehicle skeleton (Factory; slower than Raptor; 360° turret, FullyConnected machine gun, Air only; lays hidden underground mines).
+- 2026-11-23: AA minelayer named Dust Devil; mine mechanics written (buy one at a time, lay anywhere w/ brief stop, hidden, activation radius + short delay, hits infantry+vehicles); wheeled.
+- 2026-11-23: Dust Devil mines max 3, starts with 3. Drone Operator drone stock max 3 → 1.
+- 2026-11-23: Dust Devil mines: friendly fire (enemy-triggered only), ground-only (air unaffected), destroyable by enemies.
+- 2026-11-23: Added Artillery Tank (name TBD) to GDO units (Factory, tracked, deploy-to-fire Ground AoE w/ friendly fire + MinRange).
+- 2026-11-23: Artillery Tank deployed turret 360°.
+- 2026-11-23: Dust Devil renamed Twister; Artillery Tank named Artillery Rig; Rig AttackType TailDisjointed.
+- 2026-11-23: Added Prospector (Factory+AM, tracked) and Outpost structure (build radius only, uses power, permanent, any Buildable); GDOBuildArea seeded by Outposts; AM unlock note; README.
+- 2026-11-23: Bunker + First Aid Tent BuildRadiusExtension 0; noted in GDOBuildArea.

@@ -38,6 +38,16 @@ Ground and air units use different collision models.
 - Air units use soft separation with other air units — a gentle repulsion force that prevents stacking but does not hard-block
 - SeparationRadius — per unit type, circular, the distance at which air-to-air repulsion activates. Must be larger than the unit's Silhouette
 
+### Crushing
+Units whose UnitBase can crush (TrackedVehicle, Mech) crush enemy units whose UnitBase has Crushable = true (Light Infantry).
+- **Effect**: instant death of the crushed unit.
+- **Trigger**: the crusher's Silhouette overlaps a crushable enemy **while the crusher is moving** (Locomotion = Moving or Reversing).
+- **Pathing exception to hard collision**: crushers may path and drive through crushable enemies — those enemies are not obstacles to them.
+- **Stationary crushers do not overlap**: a crusher that is not moving remains a normal hard obstacle; crushable units cannot walk into it.
+- **Crushable units avoid crushers**: crushable units still treat crushers as obstacles in their own pathing (they never walk into a crusher).
+- **No friendly crushing**: crushers cannot run over their own or allied crushable units; those remain hard obstacles and crushers must path around them.
+- TBD: whether a crusher turning in place (Stationary + Turning) can crush, or is blocked by, an adjacent crushable enemy.
+
 ## MovementModel
 Defines how a unit moves, turns, accelerates, and decelerates. Each UnitBase uses one of five movement models.
 
@@ -186,7 +196,7 @@ Large ground walker that can traverse rugged terrain. Crushes enemy Light Infant
 ### MovementModel - TurnRateMovement
 
 ## HoverCraft
-Air unit that hovers in place without moving. Relies on high drag to decelerate passively. Can turn in place or while moving. Typically has very narrow to narrow turret turn angles.
+Air unit that can hover in place (hold a stationary position in the air). Relies on high drag to decelerate passively. Can turn in place or while moving. Typically has very narrow to narrow turret turn angles.
 
 ### Domain - Air
 ### HasTurret - true
