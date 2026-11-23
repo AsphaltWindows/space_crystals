@@ -255,20 +255,38 @@ ls ~/.cargo/registry/src/*/bevy-0.20.1/examples/          # 2d/, ui/, time/, cam
 
 ## QA mode
 
-QA mode is being built in M0, and the client agent updates this section to match what ships. Pass the flags with
-`cargo run -- <flags>`.
+Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. The parser is `crates/game/src/cli.rs`.
 
 | Flag | Effect |
 |---|---|
-| `--scenario <name>` | Starts a built-in scenario (`sc_sim::scenarios::NAMES`). |
-| `--screenshot <tick>:<path>` | Saves a PNG screenshot at that tick. Repeatable. |
-| `--exit-at-tick <n>` | Exits when tick `n` is reached. |
-| `--dump-state <path>` | Writes the sim state as JSON. |
+| `--scenario <name>` | Starts a built-in scenario (`sc_sim::scenarios::NAMES`). Default `dev_skirmish`. |
+| `--map <file.json>` | Starts a `Scenario` read from JSON (`sc_sim`'s serde format) instead. Excludes `--scenario`. |
+| `--player <n>` | Shows player `n`'s view: camera start, top bar. Default 1. |
+| `--window-size <W>x<H>` | Window or offscreen image size in physical pixels. Default `1280x720`. |
+| `--fast` | Runs as many ticks per frame as fit in 50 ms instead of 16 per second. Screenshots are unchanged. |
+| `--screenshot <tick>:<path>` | Saves a PNG of exactly that tick. Repeatable, in any order; creates parent dirs. |
+| `--exit-at-tick <n>` | Exits at tick `n`, after its screenshots. Windowless runs default to the last screenshot's. |
+| `--dump-state <path>` | Writes the state as JSON when the run ends (fields below). |
+| `--windowed` | Shows a QA run in a window on the user's display instead of rendering offscreen. |
+| `--headless` | No window and no renderer: sim, client state and `--dump-state` only. Needs `--exit-at-tick`. |
 | Later: `--script <file>`, replays | Run scripted `InputAction`s, and replay recorded sessions. |
 
+Taking a screenshot (no window appears; about one second plus `tick / 16` seconds, or add `--fast`):
+
+```sh
+cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png --dump-state /path/to/p2.json
+```
+
+- Any of `--screenshot`, `--exit-at-tick`, `--dump-state` makes a *QA run*. It ignores keyboard and mouse, renders at
+  scale factor 1, and renders offscreen: Bevy renders into an image on this machine's GPU (Vulkan, Intel Arc), with
+  no window and no Xvfb. The sim waits at each screenshot tick until the PNG is saved, so the PNG shows that tick's
+  exact state with no interpolation. Repeated runs give byte-identical PNGs.
+- Exit codes: 0 when everything was saved, 1 when a QA step failed (the log says which), 2 for invalid flags.
+- The `--dump-state` JSON holds `tick`, `scenario`, `players`, `objects` (every field of `sc_sim::Object`), the last
+  tick's `events`, `client` (`local_player`, `camera_center` in su, `grid_visible`, `recorded_ticks`) and `map`.
+- `--windowed` runs turn vsync off: with the display asleep, X11 paces a vsynced window at one frame per second.
 - Verify visual work yourself. Capture screenshots and look at the PNGs with the Read tool before you report.
-- The game opens a real window on the user's X11 display (`DISPLAY=:0.0`), because Xvfb isn't installed. Keep QA runs
-  short with `--exit-at-tick`.
+- To look at another part of a map, write a scenario JSON with a different `camera_start` and pass it with `--map`.
 
 ## Code conventions
 
