@@ -190,27 +190,23 @@ fn text_fields_commit_before_the_next_action_and_survive_rebuilds() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Changes to the editor's UI seen by the frame's end.
+/// Changes to the editor's UI seen by the frame's end: UI entities changed or spawned.
 #[derive(Resource, Default)]
 struct UiChanges(usize);
 
-fn count_ui_changes(
-    texts: Query<(), Changed<Text>>,
-    backgrounds: Query<(), Changed<BackgroundColor>>,
-    borders: Query<(), Changed<BorderColor>>,
-    text_colors: Query<(), Changed<TextColor>>,
-    fields: Query<(), Changed<EditableText>>,
-    visibility: Query<(), Changed<Visibility>>,
-    buttons: Query<(), Added<UiAction>>,
-    mut changes: ResMut<UiChanges>,
-) {
-    changes.0 += texts.iter().count()
-        + backgrounds.iter().count()
-        + borders.iter().count()
-        + text_colors.iter().count()
-        + fields.iter().count()
-        + visibility.iter().count()
-        + buttons.iter().count();
+/// A text, a colour, a field, a visibility changed, or a button was spawned.
+type UiChanged = Or<(
+    Changed<Text>,
+    Changed<TextColor>,
+    Changed<BackgroundColor>,
+    Changed<BorderColor>,
+    Changed<EditableText>,
+    Changed<Visibility>,
+    Added<UiAction>,
+)>;
+
+fn count_ui_changes(changed: Query<(), UiChanged>, mut changes: ResMut<UiChanges>) {
+    changes.0 += changed.iter().count();
 }
 
 /// Finding 10: the panels were rebuilt and restyled on every frame.
