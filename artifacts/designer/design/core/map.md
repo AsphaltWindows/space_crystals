@@ -91,6 +91,9 @@ Structures can only be placed on **flat** tiles. Every tile of a surface structu
 
 **Exception: Syndicate underground expansions** (inside a Tunnel Area) may be placed on sloped tiles; the flatness rule doesn't apply to them (user, 2026-11-23). Their surface-related visuals on slopes are an art detail. Surface Syndicate structures (Tunnel, Laser Turret) follow the normal rule.
 
+### Map resources only on flat terrain
+**Space Crystals patches and Supply Delivery Stations** must also sit on **flat** tiles: every footprint tile flat (user, 2026-11-23, Director question Q0006). The map editor refuses them on slopes and map validation flags them. This keeps every patch usable by every faction (GDO Extraction Plates are structures and need flat ground) and keeps stations' building-like sprites level.
+
 ### Display
 See core/art_direction.md > Elevation Display.
 

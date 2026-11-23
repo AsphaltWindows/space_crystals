@@ -27,8 +27,7 @@
 
 ## Open Director Questions
 
-All non-blocking (Director proceeds on assumptions).
-- **Q0006** must crystal patches / Supply Delivery Stations sit on flat tiles? (Director assumes no.) Key implication: Extraction Plates are structures → flat-only, so a sloped patch is unminable by GDO. Raised with user 2026-11-23.
+(none)
 
 ## Loose Ends
 
@@ -78,7 +77,7 @@ All non-blocking (Director proceeds on assumptions).
 ## Insights
 - Maps (2026-11-23, entries 0007–0009, 0012; core/map_editor.md): map type chosen at creation: Skirmish Default (symmetry required, only the editable portion is drawn and the rest generated, everything mirrored; Starting Layouts = Starting Conditions only and must be complete; no slot restrictions; neutral pre-placed only) vs Custom (deferred: triggers, slot restrictions). Layouts placed from scratch, overlay editing, outdated → flag. Custom tile presets yes, custom textures later. OPEN: min/max size, max slots, slots vs symmetry, objects on the symmetry axis.
 - Input defaults (2026-11-23, entries 0010/0011): SC2-like map clicks + control groups, Shift queue, arrows/edge/middle-mouse grab pan; rebinding yes, timing = Director's call.
-- Elevation model (2026-11-23): slopes have NO speed effect (user, maybe revisit after playtest); corner heights 0–16, Traversible tiles ≤1 level corner difference, bigger drops = non-Traversible (cliffs → chokepoints), elevation level = floor(height), structures on flat tiles only.
+- Elevation model (2026-11-23): slopes have NO speed effect (user, maybe revisit after playtest); corner heights 0–16, Traversible tiles ≤1 level corner difference, bigger drops = non-Traversible (cliffs → chokepoints), elevation level = floor(height), structures on flat tiles only; patches + Supply stations flat-only too (Q0006/0013).
 - Art direction (2026-11-23): square grid + 3/4 view, sprites pre-rendered from 3D models, 32 px/tile, all building orientations rendered, unit facings 16 infantry / 32 vehicles-turrets-air. See core/art_direction.md.
 
 - When a forum topic investigation is closed without a feature_request being created, the fix never reaches the pipeline. Always ensure actionable outcomes from forum discussions get formalized as feature_requests before voting to close.

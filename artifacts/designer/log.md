@@ -1969,3 +1969,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T13:29:12-05:00 — Middle-mouse grab-and-drag panning (user). Doc: core/camera.md. Change entry 0010.
 - 2026-11-23T13:38:36-05:00 — Q0002 completed: default bindings confirmed (map clicks, control-group keys, arrows/edge pan, Shift queue), rebinding later at Director's discretion. Docs: selection_and_hud.md, commands.md, camera.md. Change entry 0011.
 - 2026-11-23T13:39:17-05:00 — Q0004 completed: map creation settings, Skirmish Default vs Custom map types, symmetry chosen at creation with generated mirror, complete restricted layouts, outdated flag, neutral-only pre-placement, custom tile presets without custom textures for now. core/map_editor.md rewritten; map.md; README. Change entry 0012 (supersedes 0009 toggle).
+- 2026-11-23T13:42:21-05:00 — Q0006 answered: patches and Supply stations flat-only (option C). Doc: core/map.md. Change entry 0013.
