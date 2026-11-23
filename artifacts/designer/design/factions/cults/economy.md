@@ -1,6 +1,8 @@
 # Cults: Economy
 
 ## Starting Conditions
+Where each starting object is placed is defined by the map's Starting Layout for this faction (core/map_editor.md > Starting Layouts).
+
 The Cults player starts with:
 - One pre-built **Recruitment Hall**
 - One pre-built **Storage**

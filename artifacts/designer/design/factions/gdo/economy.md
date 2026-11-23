@@ -1,10 +1,12 @@
 # GDO: Economy
 
 ## Starting Conditions
+Where each starting object is placed is defined by the map's Starting Layout for this faction (core/map_editor.md > Starting Layouts).
+
 The GDO player starts with:
 - One pre-built **Deployment Center**
 - One pre-built **Extraction Facility**
-- Two **Extraction Plates** already placed on Space Crystals patches near the starting base
+- Two **Extraction Plates** already placed on Space Crystals patches near the starting base (which patches: set in the map's GDO Starting Layout)
 
 Starting resources: **100 Space Crystals**. Starting Supplies: TBD (deferred until GDO Supply costs are designed). Starting power: +30 (Deployment Center) − 15 (Extraction Facility) − 6 (two plates) = **+9**. Exact placement of the starting structures and plates relative to the player's start location is defined by the map's start position.
 

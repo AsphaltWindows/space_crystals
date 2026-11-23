@@ -28,9 +28,9 @@
 ## Open Director Questions
 
 All non-blocking (Director proceeds on assumptions). Raised with user 2026-11-23.
-- **Q0004** map player slots / start locations / starting-base auto-layout vs per-faction layouts / pre-placed objects / map metadata. Needs user. User: test map starts in the corners (answered in 0007). STILL ASK: A auto-layout vs B per-faction hand layouts (I lean A).
-- **Q0002**: user asked whether controls were already specced; I showed what exists (portrait clicks, Tab, command hotkeys, CG operations w/o keys) and the gaps. Awaiting OK on Director's SC2-like defaults + middle-mouse pan? + rebinding scope.
-- **Map editor symmetry (user request 2026-11-23, not yet written)**: auto-generate rotational / horizontal / vertical / both-axes symmetric maps. Asked: 180° only or 90° too; live mirroring vs one-shot; mirror everything incl. start spots + pre-placed objects?
+- **Q0004** PARTLY answered (entry 0008, core/map_editor.md): per-faction Starting Layouts placed by map maker, overlay editing. Asked: default layout pre-filled vs from scratch; flag vs auto-fix when Starting Conditions change. Not yet asked: slot count/teams/allowed factions, pre-placed objects (neutral/owned), map metadata/size limits, custom tile presets in maps.
+- **Q0002**: user decided middle-mouse HOLD moves the camera (NOT yet written; ask drag-the-map vs joystick-style). Still awaiting OK on Director's SC2-like defaults (map Shift/Ctrl/double-click, Ctrl/Shift/# groups, arrows+edge pan, Shift queue) + rebinding scope.
+- **Map editor symmetry**: WRITTEN in core/map_editor.md (entry 0008): 180°/90° rotation, H/V/both mirrors. Still ask: live vs one-shot; what is mirrored.
 
 ## Loose Ends
 

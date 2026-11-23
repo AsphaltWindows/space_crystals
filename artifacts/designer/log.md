@@ -1964,3 +1964,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T13:17:51-05:00 — Underground expansions exempt from flat-only rule; ElevationModifier now applies to structures. Docs: core/map.md, entities.md, vision.md. Change entry 0005.
 - 2026-11-23T13:20:55-05:00 — Slopes: no movement-speed effect (user). Doc: core/map.md. Change entry 0006.
 - 2026-11-23T13:23:28-05:00 — Q0003 answered: patch StartingAmount per patch (default 1500); stations fully editor-set (StartingSupplies 0 / DeliverySize 4 / Interval 60 s defaults); test map starts in corners, test maps are Director's. Doc: core/map.md. Change entry 0007.
+- 2026-11-23T13:26:08-05:00 — Q0004 partly answered: per-faction Starting Layouts placed by map maker with overlay editing; symmetry tools (90/180 rotation, mirrors). New core/map_editor.md (+README), pointers in faction Starting Conditions. Change entry 0008. Middle-mouse pan decided, not yet written.
