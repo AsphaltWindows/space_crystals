@@ -29,7 +29,7 @@
 
 All non-blocking (Director proceeds on assumptions). Raised with user 2026-11-23.
 - **Q0004** PARTLY answered (entries 0008, 0009; core/map_editor.md): per-faction Starting Layouts placed from scratch by map maker, overlay editing, 'Skirmish Default' restriction (only Starting Conditions objects; can be turned off). Still ask: must Skirmish Default layout be complete; toggle scope; flag vs auto-fix when Starting Conditions change. Not yet asked: slot count/teams/allowed factions, pre-placed objects (neutral/owned), map metadata/size limits, custom tile presets in maps.
-- **Q0002**: user decided middle-mouse HOLD moves the camera (NOT yet written; ask drag-the-map vs joystick-style). Still awaiting OK on Director's SC2-like defaults (map Shift/Ctrl/double-click, Ctrl/Shift/# groups, arrows+edge pan, Shift queue) + rebinding scope.
+- **Q0002** PARTLY answered (entry 0010): middle-mouse = grab-and-drag pan (written in core/camera.md). Still awaiting OK on Director's SC2-like defaults (map Shift/Ctrl/double-click, Ctrl/Shift/# groups, arrows+edge pan, Shift queue) + rebinding scope.
 - **Map editor symmetry**: WRITTEN in core/map_editor.md (entry 0008): 180°/90° rotation, H/V/both mirrors. Still ask: live vs one-shot; what is mirrored.
 
 ## Loose Ends
