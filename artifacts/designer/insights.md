@@ -41,10 +41,10 @@ All non-blocking (Director proceeds on assumptions). Raised with user 2026-11-23
   - Barracks: Peacekeeper (Riot Shield), Rocketman (req. Arsenal; Target Lock), Drone Operator (req. Career Campus; 1 suicide drone), Field Engineer (req. Career Campus; repair, Bunker, First Aid Tent).
   - Factory: Raptor (fast wheeled, homing missiles), Twister (wheeled AA gun + mines), Artillery Rig (tracked, deployed TailDisjointed AoE), Prospector (req. Advanced Mechanics; deploys into Outpost = build radius only).
   - Existing older unit: Supply Chopper.
-- **Pending question to the user (asked, unanswered):** does Advanced Mechanics unlock anything besides the Prospector, or move on to the **Airfield** (aircraft), then **Propulsion Labs** (advanced aircraft)?
+- **Advanced Mechanics** now unlocks Prospector + Artillery Rig (2026-11-23, entry 0001). NEXT: **Airfield** (aircraft), then **Propulsion Labs** (advanced aircraft).
 - **GDO open items to raise during roster/numbers pass:** Rocketman — no firing while locking? units-only lock targets? (both my inferences); Prospector weapon (assumed none), deploy time, cancel; Outpost numbers; all hotkeys; all stats/costs.
 - **Cross-faction gaps surfaced by the GDO roster:** stealth & detection must now be designed (Twister mines are hidden); Syndicate has no mobile anti-air yet (raise at the Syndicate roster).
-- **Process:** pipeline is gone; no feature_requests ever. Publish a change entry (`artifacts/designer/changes/`) per confirmed design change and commit (see Development Process + my prompt). No change entries have been written yet — the first one should be for the next confirmed change (the Director starts from the docs as a whole, not from a backlog of entries).
+- **Process:** pipeline is gone; no feature_requests ever. Publish a change entry (`artifacts/designer/changes/`) per confirmed design change and commit (see Development Process + my prompt). Change entries started 2026-11-23 (0001+); the Director started from the docs as a whole.
 - **Note:** many older loose ends below still use the pre-restructure file names (gdo_objects.md, syndicate_objects.md, colonists_objects.md, cults_objects.md, control_system.md, factions.md, entities.md) — translate via the Old → new file map in the TOC section.
 
 
