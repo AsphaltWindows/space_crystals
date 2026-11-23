@@ -57,24 +57,35 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 
   The UI font has ASCII glyphs only.
 
-## In progress (two agents in parallel, in separate worktrees, kept to disjoint areas)
-- **M0-E: map types and generated symmetry.** Brief: `scratchpad/briefs/m0e-map-types.md`. It covers:
-  - the map/game-setup split: slots with start positions, camera starts and per-faction layouts (empty until M2), and slot-owned objects;
-  - the creation dialog;
-  - Skirmish Default / Custom map types;
+- **M1-A input and command foundations** (merged in `fec5aec`; 224 tests):
+  - **Input layer:** a shared input layer for the game (`ActionState`, `Pointer` with ground/view/over-UI, `MapClick` and `SelectionBox` messages, chords and double-tap/double-click on `Time<Real>`), plus headless injection.
+  - **Bindings:** one rebindable `Bindings` table with the 0011 defaults; Esc = Cancel.
+  - **Command gate:** `Sim::validate` runs inside `step`.
+  - **Debug switch:** `SimConfig { debug }` is hashed and recorded in `Replay`; `--no-debug` turns it off.
+  - **Tests:** client replay-hash and interpolation tests.
+  - **Placeholders:** drag 4 px; double tap and double click 0.4 s; double-click distance 6 px.
+  - **Open:** bindings aren't serde yet (that needs Bevy's `serialize` feature; decide when rebinding is built), and there is no rejection event.
+
+## In progress
+- **M0-E: map types and generated symmetry** (agent in a worktree; brief `scratchpad/briefs/m0e-map-types.md`). It covers:
+  - the map/game-setup split, with slots and per-faction layouts (empty until M2);
+  - the creation dialog and Skirmish Default / Custom map types;
   - generated symmetry with a locked region;
   - custom tile presets;
-  - review fixes 2, 5, 7, 10;
+  - review fixes 2, 5, 7 and 10;
   - play-tests that end with F5 only;
   - a symmetric test map.
-- **M1-A: input and command foundations.** Brief: `scratchpad/briefs/m1a-input-commands.md`. It covers:
-  - the shared input layer for the game: pointer, modifiers, chords, double-click and double-tap, drag/box, over-UI;
-  - a rebindable bindings table (0011);
-  - the sim command gate, with the debug switch carried in `SimConfig`. **The Director folds it into the game setup when integrating with M0-E.**
-  - client replay-hash and interpolation tests.
 
-  The editor stays on its own input pipeline, so it doesn't collide with M0-E.
-- **Next:** move the editor onto the shared input layer, then M1-B, units.
+  It has been told to merge M1-A from master before finishing, folding `SimConfig.debug` into the game setup, with play-tests running with debug on.
+- **M1 movement design spike** (Fable, read-only; brief `scratchpad/briefs/m1-movement-spike.md`). Output: `scratchpad/m1/movement-design.md`. It covers:
+  - requirements and design gaps;
+  - the sim data model and the movement steps in the tick;
+  - pathfinding, collision, f32 vs fixed point;
+  - tests;
+  - the M1 slicing.
+- **Next:**
+  - move the editor onto the shared input layer;
+  - then the M1 slices from the spike, once the Director has reviewed it and the Designer has answered its gap questions.
 
 ## Queued
 ### M0-E: map types and generated symmetry (in progress; details below kept for reference)
@@ -92,7 +103,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 - **Review fixes**: 2 (slot-name commit races the list rebuild), 5 (`--editor` player check), 7 (window close skips the unsaved-changes confirm; non-atomic save), 10 (per-frame UI work). Plus the editor test gaps.
 - **Layout contents, completeness and outdated flags wait for M2**, when Starting Conditions exist.
 
-### M1-A: input and command foundations (in progress)
+### M1-A: input and command foundations (done; see Built)
 - **Shared action layer**:
   - pointer state, cursor world position, modifiers, chords, drag/box state, an over-UI test;
   - one rebindable bindings table with the 0011 defaults (actual rebinding UI later).
@@ -156,7 +167,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0006 | Do map resources need flat tiles? | no | answered by 0013 (yes, both) |
 
 ## Design change entries
-Last triaged: 0019.
+Last triaged: 0020.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -170,8 +181,8 @@ Last triaged: 0019.
 | 0008 Starting layouts; symmetry tools | symmetry in progress (M0-D); layouts queued (M2) | |
 | 0009 Layouts from scratch; Skirmish Default | queued (M2); per-layout toggle superseded by 0012 | |
 | 0010 Middle-mouse grab pan | done (M0-D) | |
-| 0011 Default input bindings; rebinding | in progress (M1-A bindings table); selection/groups → M1 | answers Q0002 |
+| 0011 Default input bindings; rebinding | bindings table done (M1-A); selection/groups → M1; rebinding UI later | answers Q0002 |
 | 0012 Map types, creation, generated symmetry | in progress (M0-E); layout rules → M2 | answers Q0004 |
 | 0013 Patches and stations need flat tiles | done (M0-D) | answers Q0006 |
-| 0015–0019 GDO aircraft: assignment, ammo, return/rearm, landed = ground target, rearm time | queued (Later: air) | design stubs |
+| 0015–0020 GDO aircraft: assignment, ammo, return/rearm, landed = ground target, rearm time, names (Hornet, Dragonfly) | queued (Later: air) | design stubs |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
