@@ -34,7 +34,6 @@ All non-blocking (Director proceeds on assumptions). Raised with user 2026-11-23
 
 ## Loose Ends
 
-- **Elevation follow-up (2026-11-23)**: do slopes affect movement speed? (TBD, currently no; in discussion.) Vertical offset per level = art tuning. RESOLVED (entry 0005): underground expansions exempt from flatness; ElevationModifier applies to structures.
 
 ### >>> WHERE WE LEFT OFF (2026-11-23) — start here next session <<<
 **Current task: unit rosters, one faction at a time, GDO first.** Sketch the full roster (concepts, roles, mechanics), THEN do numbers for all GDO units, then move to the next faction. Later: split into one file per unit/building once most units exist.
@@ -79,7 +78,7 @@ All non-blocking (Director proceeds on assumptions). Raised with user 2026-11-23
 - **Colonists faction — econ loop plus first combat units now defined**: Drone, Beacon, Warp In mechanic, Egress Node, Roboport, Bioport, Starting Conditions, and the first two combat units (Sabre Legionnaire, Rifle Legionnaire) are all fully stated (see colonists_objects.md summary in TOC above). Still open: Beacon's own ObjectInterfaceState (should expose Warp In as a command — never formalized which panel button/flow triggers it), Roboport's and Bioport's full ObjectInterfaceState (which panel button queues a unit into BuildQueue, how RallyPoint is set via panel — explicitly deferred by user across multiple sessions, not yet resumed), and Shield regen upgrades (still a placeholder noted in combat.md, "discuss later"). Colonists now have combat capability but still only one unit line (two forms of the same Legionnaire) — no Vehicle/Mech/Air combat units yet, unlike the analogous gaps already tracked for GDO/Syndicate. If/when new Colonists buildings are added, remember to also add their row to the Constructs List table in the Warp In section (colonists_objects.md) — cost/time is easy to forget since it lives in a separate section from the building's own stat block.
 
 ## Insights
-- Elevation model (2026-11-23): corner heights 0–16, Traversible tiles ≤1 level corner difference, bigger drops = non-Traversible (cliffs → chokepoints), elevation level = floor(height), structures on flat tiles only.
+- Elevation model (2026-11-23): slopes have NO speed effect (user, maybe revisit after playtest); corner heights 0–16, Traversible tiles ≤1 level corner difference, bigger drops = non-Traversible (cliffs → chokepoints), elevation level = floor(height), structures on flat tiles only.
 - Art direction (2026-11-23): square grid + 3/4 view, sprites pre-rendered from 3D models, 32 px/tile, all building orientations rendered, unit facings 16 infantry / 32 vehicles-turrets-air. See core/art_direction.md.
 
 - When a forum topic investigation is closed without a feature_request being created, the fix never reaches the pipeline. Always ensure actionable outcomes from forum discussions get formalized as feature_requests before voting to close.

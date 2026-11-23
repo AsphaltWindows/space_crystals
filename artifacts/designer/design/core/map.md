@@ -73,7 +73,7 @@ Terrain height is stored at the **corners** of tiles, not per tile (decided 2026
 
 ### Flat and sloped tiles
 - **Flat tile**: all four corners have the same height. That height is the tile's level.
-- **Sloped tile**: its corners differ. Units can walk across sloped Traversible tiles. Whether slopes change movement speed is not decided yet (TBD; until then they don't).
+- **Sloped tile**: its corners differ. Units can walk across sloped Traversible tiles. **Slopes don't change movement speed**, going up or down (user, 2026-11-23: no slowdowns for now; elevation matters through ElevationModifier and cliffs). May be revisited after playtesting.
 
 ### Maximum slope
 - On a **Traversible** tile, the four corner heights may differ by **at most 1 level**. Every walkable slope is therefore a gentle hill.

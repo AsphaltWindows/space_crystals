@@ -1962,3 +1962,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T13:00:03-05:00 — Q0001 partly answered with user: square grid, 3D-rendered sprites, all building orientations, facings 16/32, 32 px/tile. New doc core/art_direction.md (+README). Change entry 0003. Elevation display in discussion (AoE2-like slopes).
 - 2026-11-23T13:11:54-05:00 — Q0001 completed: elevation = corner heights (AoE2-like slopes), ≤1 level per Traversible tile, cliffs for big drops/chokepoints, elevation level = floor, flat-only building. Docs: core/map.md, vision.md, entities.md, art_direction.md, README. Change entry 0004.
 - 2026-11-23T13:17:51-05:00 — Underground expansions exempt from flat-only rule; ElevationModifier now applies to structures. Docs: core/map.md, entities.md, vision.md. Change entry 0005.
+- 2026-11-23T13:20:55-05:00 — Slopes: no movement-speed effect (user). Doc: core/map.md. Change entry 0006.
