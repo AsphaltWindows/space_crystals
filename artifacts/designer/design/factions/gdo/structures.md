@@ -185,8 +185,8 @@ GDO aircraft production structure. Constructs aircraft and provides a landing/re
 ### TechPrerequisite - player owns at least one Advanced Mechanics
 
 ### Produces (so far):
-- Air-to-Ground Hovercraft (name TBD): cost/time TBD.
-- Air-to-Air Fighter (name TBD): cost/time TBD. Requires: player owns at least one Propulsion Labs.
+- Hornet: cost/time TBD.
+- Dragonfly: cost/time TBD. Requires: player owns at least one Propulsion Labs.
 
 ### Aircraft Support
 - **Limited ammo**: GDO aircraft carry limited ammo and **rearm at an Airfield** (the Airfield is their landing and reloading zone). Ammo per unit is on each aircraft (factions/gdo/units.md); return/rearm flow below.
