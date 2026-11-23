@@ -70,7 +70,7 @@ every run and every machine. Replays, reproducible bugs and a possible lockstep 
 - **No hash containers**: don't use `HashMap` or `HashSet`, because their iteration order is random. Use `BTreeMap`,
   `BTreeSet` or a sorted `Vec`.
 - **No outside world**: no wall clock, no threads and no OS randomness. The only source of randomness is the sim's
-  PRNG, seeded from `Scenario::seed`. The PRNG arrives in M0.
+  PRNG (`sc_sim::Rng`, PCG32), seeded from `Scenario::seed`. It is part of the hashed state.
 - **Floats**: `f32` is fine. `+ - * /`, `sqrt`, `abs`, `floor`/`round` and `as` casts give identical results
   everywhere, but transcendental functions (`sin`, `cos`, `atan2`, `exp`, `powf`, …) don't. Call them through
   `sc_sim::math`, which wraps the pure-Rust `libm` crate, and add any missing function there. `powi` is banned too,
@@ -163,8 +163,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 - `Command::Debug(DebugCommand::…)` covers `Spawn`, `Remove` and `SetPosition`, for development and QA. It bypasses
   costs and rules and is never offered in a real match. A teleport sets `prev_pos = pos`, so nothing interpolates
   across the map.
-- **Replay** = the `Scenario` plus the `TickInputs` of every tick, empty ticks included (all derive serde). The replay
-  type and its runner arrive in M0.
+- **Replay** = the `Scenario` plus the `TickInputs` of every tick, empty ticks included: `sc_sim::Replay` (serde)
+  with `record`/`step`/`run`. The client must never submit a command with a non-finite number. The sim would ignore
+  it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to load. Validate at the input layer.
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, …) are output only, for effects, sounds and UI.
   The sim never reads them. `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events
   from the scenario's initial spawns.
