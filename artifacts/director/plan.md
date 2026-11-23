@@ -114,8 +114,17 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Crowding**: dense head-on crowds clot and some moves fail, because the spec says no pushing. The evidence is in Q0012.
   - **Group arrival rule**: a unit stuck behind arrived members of its own group counts as arrived. This is a stand-in.
 
+- **M1-W combat** (merged in `dd268bc`; 428 tests):
+  - **Attack phases**: Aiming, Firing, Cooldown, Reloading, each lasting its duration in ticks. Aiming turns at TurnRate until the unit faces the target within 1°. A unit holds still while aiming, firing or cooling down (`combat::may_move`, wired into 5d).
+  - **Range**: centre to the target's nearest point (Q0009 default), MinRange, TargetDomain, and the ±1 elevation rule in `elevation.rs`, shared with vision.
+  - **Damage**: all hits of a tick apply together after everyone acts. Armor, then the directional multiplier, then minimum damage; HP is fractional.
+  - **Deaths**: one removal path, `Sim::remove_objects`. Orders and attacks on the dead target end.
+  - **Orders**: Attack on a target in range. An out-of-range target waits for E (`TODO(E)`).
+  - **Client**: `combat_effects.rs` draws tracers, death markers and HP bars (damaged units and the local selection).
+  - **Open**: edge cases went out as Q0014. A unit that moves in 5d and starts aiming in 5e can turn twice in one tick; harmless at 180°/tick, revisit in E.
+
 ## In progress (three agents in parallel, kept to disjoint areas)
-- **M1-W combat** (Opus; brief `scratchpad/briefs/m1w-combat.md`). It was told to merge master (D and S) before finishing and to wire `may_move`/`may_turn` into movement.
+- **M1-V vision and fog** (Opus; brief `scratchpad/briefs/m1v-vision.md`): per-player Unexplored/Explored/Visible tiles in phase 5f with the elevation sight rule; `Sim::visibility` and `is_visible`; one fog texture in the client; hidden enemies neither drawn nor selectable; a fog toggle and `--no-fog`.
 - **M1-H commands UI** (Opus; brief `scratchpad/briefs/m1h-commands-ui.md`):
   - the 4×3 command panel;
   - targeting modes;
@@ -125,7 +134,6 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - an axis-aligned Guard visual.
 - **M1-M magic box** (Opus; brief `scratchpad/briefs/m1m-magic-box.md`). Group destinations follow 0021 (Q0007 part 1) and replace the lattice slots.
 - **Next**:
-  - **V vision**, after W.
   - **E behaviours** (chase, AttackMove, Patrol, auto-target, leashes), after W and V.
   - **G QA and hardening**: golden hashes, perf tuning of group orders, replay playback.
 
@@ -140,8 +148,8 @@ The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, th
 | S Selection | clicks, box tiers, control groups, Tab cycling, panels, debug player switch | done (`b63e77f`) | Opus |
 | H Commands UI | command panel, right-click, cursors, indicators, Shift-queue | running | Opus |
 | M Magic box | group destinations per 0021 (replaces the 6.4 lattice) | running | Opus |
-| V Vision | per-player visibility, ElevationModifier for sight, fog texture | W (elevation helper) | Opus |
-| W Combat | attack phases, hits, damage, deaths, range (Q0009), elevation helper | running | Opus |
+| V Vision | per-player visibility, ElevationModifier for sight, fog texture | running | Opus |
+| W Combat | attack phases, hits, damage, deaths, range (Q0009), elevation helper | done (`dd268bc`) | Opus |
 | E Behaviours | chase, AttackMove, Patrol, Hold, Stop, auto-target and leashes | D, W, V | Fable, or Opus with a Fable review |
 | G QA and hardening | debug control of both sides, replay playback, path overlay, soak, perf, golden hashes | E, H | Opus |
 
@@ -208,6 +216,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0011 | Terrain/obstacles: resources block, Rugged, routes via the true map, underground/air | no | open; C builds the defaults as switches |
 | Q0012 | Crowds clot without yielding: should friendly units yield or swap? (evidence from M1-D) | no | open |
 | Q0013 | Selection edge cases: ungroupables, allies, modified clicks, empty ground, InfoPanel for 2+ objects, control groups | no | open; S built the listed defaults |
+| Q0014 | Combat edge cases: force-attacking own or neutral objects, a shot whose target dies mid-Firing, Rugged for units across tiles | no | open; W built the listed defaults |
 
 ## Design change entries
 Last triaged: 0021.

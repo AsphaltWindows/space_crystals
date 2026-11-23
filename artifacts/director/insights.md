@@ -48,6 +48,8 @@
 - **Folding design changes into a running agent with SendMessage works.** M0-D absorbed 0012/0013 and four review findings mid-task. Give exact file:line references and the fix direction.
 - **Parallel agents**: give each the other's areas as a "don't touch" list, and carry cross-cutting state (e.g. the debug switch) through a separate type, so the integration merge stays small.
 - **Typical cost**: an editor-sized task takes about 1 hour and 150–250k agent tokens; a read-only review takes about 25 minutes and 170k.
+- **M1 slice costs**: S (selection, Opus) took 41 min and 350k tokens; D (collision, Fable) 41 min and 520k; W (combat, Opus) 51 min and 210k. Three parallel worktree agents with disjoint areas, each told to merge master before finishing, integrated with no Director-side conflict work.
+- **Never `cd` in Bash, not even into `artifacts/director`**: it moves the session's working directory. Use absolute paths or a subshell.
 - **The Bevy default UI font has ASCII glyphs only** ("°" and "×" show as boxes). Use ASCII in UI text until a font is added.
 - Agent worktrees (`isolation: "worktree"`) live in `.claude/worktrees/` (gitignored) and showed the last *pushed* commit at creation, then caught up to local master. Briefs tell agents to `git merge --ff-only master` first anyway. Check `git worktree list` after launching.
 - `git add -A <dir>` fails for an already-staged deleted directory; pass it only to `git commit -- <paths>`.
