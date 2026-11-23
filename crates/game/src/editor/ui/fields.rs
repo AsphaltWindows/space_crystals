@@ -301,7 +301,9 @@ pub fn text_field(field: TextField, value: &str, width_vh: f32) -> impl Bundle {
 
 /// Commits a field on Enter or when it loses the keyboard, except to Escape. Runs before the frame's actions apply,
 /// and puts the commit first in the queue: a click that took the keyboard away applies after the text it ended
-/// (review finding: the text was lost when that click rebuilt the field's list).
+/// (review finding: the text was lost when that click rebuilt the field's list). Enter and Escape are the field's own
+/// keys, read from the keyboard like the text typed into it, not bindings: while a field has the keyboard the input
+/// layer fires none (`crate::input::TextFocus`).
 pub fn commit_fields(
     focus: Option<ResMut<InputFocus>>,
     keys: Option<Res<ButtonInput<KeyCode>>>,

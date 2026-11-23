@@ -4,12 +4,13 @@
 //! camera and object visuals: the sim shows [`sc_sim::Sim::preview`] of the map, paused at tick 0, and is replaced
 //! whenever the document changes, so the map mesh and the object visuals catch up through their usual paths.
 //!
-//! Everything the editor does is an [`actions::EditorAction`]: raw input ([`input`]), UI buttons and fields
-//! ([`ui`]), `--editor-script` files and tests queue them, and [`actions::apply_editor_actions`] applies them. On a
-//! symmetric map only the editable part is edited; after every action the locked part is generated again from it
-//! (`core/map_editor.md > Symmetry`). New maps come from the creation dialog ([`creation`]); maps may define custom
-//! tile presets ([`presets`]). F5 play-tests the map in game mode with the play-test's game setup ([`playtest`])
-//! and comes back with the document and its undo history intact.
+//! Everything the editor does is an [`actions::EditorAction`]: the shared input layer's actions and pointer
+//! ([`input`]), UI buttons and fields ([`ui`]), `--editor-script` files and tests queue them, and
+//! [`actions::apply_editor_actions`] applies them. On a symmetric map only the editable part is edited; after every
+//! action the locked part is generated again from it (`core/map_editor.md > Symmetry`). New maps come from the
+//! creation dialog ([`creation`]); maps may define custom tile presets ([`presets`]). F5 play-tests the map in game
+//! mode with the play-test's game setup ([`playtest`]) and comes back with the document and its undo history
+//! intact.
 //!
 //! Map design is `core/map.md` (tiles, presets, corner heights 0–16, resources on flat ground) and
 //! `core/map_editor.md` (map types, symmetry, player slots and their markers).
@@ -64,7 +65,7 @@ pub struct EditorConfig {
 /// the actions change the document, and the sim catches up with it before the views sync with the sim.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum EditorSystems {
-    /// Raw input → [`EditorAction`]s.
+    /// The input layer's actions and the text fields → [`EditorAction`]s.
     Input,
     /// Apply the queued actions; start or end a play-test.
     Apply,
@@ -156,7 +157,9 @@ impl Plugin for EditorPlugin {
             .add_systems(
                 Update,
                 (
-                    (input::editor_keys, input::editor_pointer, input::close_requests).in_set(EditorSystems::Input),
+                    (input::editor_keys, input::editor_pointer, input::close_requests)
+                        .chain()
+                        .in_set(EditorSystems::Input),
                     (apply_editor_actions, playtest::switch_play_test)
                         .chain()
                         .in_set(EditorSystems::Apply),

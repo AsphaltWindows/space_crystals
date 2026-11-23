@@ -1,16 +1,18 @@
-//! The bindings table (`ARCHITECTURE.md > Client architecture > Input`): every game binding in one resource, so
-//! that rebinding (`systems/controls/selection_and_hud.md > Key Rebinding`) changes data, not gameplay code.
+//! The bindings table (`ARCHITECTURE.md > Client architecture > Input`): every binding of the game and of the map
+//! editor in one resource, so that rebinding (`systems/controls/selection_and_hud.md > Key Rebinding`) changes
+//! data, not gameplay code.
 //!
 //! Each entry binds an [`InputAction`] to a key or mouse button with the modifiers held with it (a [`Chord`]), to a
-//! double tap of a chord, or to modifiers alone. A press fires at most one action, the one of its most specific
-//! binding ([`Bindings::resolve`]): so Shift + 1 adds to control group 1 instead of recalling it, while Shift + Q
-//! still presses command slot Q, with the queue modifier held.
+//! double tap of a chord, to modifiers alone, or to the mouse wheel. Only the bindings of the input context in use
+//! fire ([`InputAction::context`]). A press fires at most one action, the one of its most specific binding
+//! ([`Bindings::resolve`]): so Shift + 1 adds to control group 1 instead of recalling it, while Shift + Q still
+//! presses command slot Q, with the queue modifier held.
 
 use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
 use bevy::prelude::Resource;
 
-use super::actions::{CommandSlot, ControlGroup, InputAction};
+use super::actions::{CommandSlot, ControlGroup, EditorInput, InputAction, InputContext};
 
 /// Two presses of the same chord within this many seconds are a double tap (`> ControlGroups > Default keys`:
 /// "press the same number twice quickly"). Placeholder: the design gives no time.
@@ -101,6 +103,9 @@ pub enum Binding {
     /// Held while at least these modifiers are held: the modifier actions, such as the queue modifier. It never
     /// fires on a press and never competes with other bindings.
     Modifiers(Modifiers),
+    /// The mouse wheel, turned while at least these modifiers are held: how far it turned is the action's value in
+    /// that frame (`super::ActionState::scrolled`). A turn goes to the most specific wheel binding, like a press.
+    Wheel(Modifiers),
 }
 
 impl Binding {
@@ -108,7 +113,7 @@ impl Binding {
     pub fn chord(self) -> Option<Chord> {
         match self {
             Binding::Press(chord) | Binding::DoubleTap(chord) => Some(chord),
-            Binding::Modifiers(_) => None,
+            Binding::Modifiers(_) | Binding::Wheel(_) => None,
         }
     }
 }
@@ -146,18 +151,41 @@ impl Bindings {
         self.entries.retain(|(a, _)| *a != action);
     }
 
-    /// The action that a press of `button` fires while `modifiers` are held; `double` says whether the press
-    /// completes a double tap. Of the bindings of that button whose modifiers are all held, the one requiring the
-    /// most modifiers wins, then a double tap over a single press, then the earlier entry.
-    pub fn resolve(&self, button: Button, modifiers: Modifiers, double: bool) -> Option<InputAction> {
+    /// The entries whose actions work in `context` ([`InputAction::works_in`]), in precedence order.
+    pub fn in_context(&self, context: InputContext) -> impl Iterator<Item = (InputAction, Binding)> + '_ {
+        self.entries
+            .iter()
+            .copied()
+            .filter(move |(action, _)| action.works_in(context))
+    }
+
+    /// The action that a press of `button` fires in `context` while `modifiers` are held; `double` says whether
+    /// the press completes a double tap. Of the bindings of that button in that context whose modifiers are all
+    /// held, the one requiring the most modifiers wins, then a double tap over a single press, then the earlier
+    /// entry. Modifiers held beyond a binding's don't block it, except Ctrl for the editor's own keys
+    /// ([`InputContext::ctrl_blocks`]).
+    pub fn resolve(
+        &self,
+        context: InputContext,
+        button: Button,
+        modifiers: Modifiers,
+        double: bool,
+    ) -> Option<InputAction> {
         let mut best: Option<((u32, bool), InputAction)> = None;
-        for &(action, binding) in &self.entries {
+        for (action, binding) in self.in_context(context) {
             let (chord, is_double) = match binding {
                 Binding::Press(chord) => (chord, false),
                 Binding::DoubleTap(chord) if double => (chord, true),
-                Binding::DoubleTap(_) | Binding::Modifiers(_) => continue,
+                Binding::DoubleTap(_) | Binding::Modifiers(_) | Binding::Wheel(_) => continue,
             };
             if chord.button != button || !modifiers.contains(chord.modifiers) {
+                continue;
+            }
+            if modifiers.ctrl
+                && !chord.modifiers.ctrl
+                && matches!(button, Button::Key(_))
+                && context.ctrl_blocks(action)
+            {
                 continue;
             }
             let rank = (chord.modifiers.count(), is_double);
@@ -168,7 +196,23 @@ impl Bindings {
         best.map(|(_, action)| action)
     }
 
-    /// The actions that modifier bindings hold while `modifiers` are held.
+    /// The action that a turn of the wheel drives in `context` while `modifiers` are held: of the wheel bindings in
+    /// that context whose modifiers are all held, the one requiring the most modifiers, then the earlier entry.
+    pub fn resolve_wheel(&self, context: InputContext, modifiers: Modifiers) -> Option<InputAction> {
+        let mut best: Option<(u32, InputAction)> = None;
+        for (action, binding) in self.in_context(context) {
+            let Binding::Wheel(needed) = binding else {
+                continue;
+            };
+            let rank = needed.count();
+            if modifiers.contains(needed) && best.is_none_or(|(best_rank, _)| rank > best_rank) {
+                best = Some((rank, action));
+            }
+        }
+        best.map(|(_, action)| action)
+    }
+
+    /// The actions that modifier bindings hold while `modifiers` are held, in every context.
     pub fn modifier_actions(&self, modifiers: Modifiers) -> impl Iterator<Item = InputAction> + '_ {
         self.entries.iter().filter_map(move |&(action, binding)| match binding {
             Binding::Modifiers(m) if m != Modifiers::NONE && modifiers.contains(m) => Some(action),
@@ -185,10 +229,12 @@ impl Bindings {
 
 /// The defaults: `core/camera.md > Panning`, `systems/controls/selection_and_hud.md` (`> MapClickSelection`,
 /// `> AwaitingTarget`, `> GroupCycling`, `> ControlGroups > Default keys`, `> CommandPanel > Grid Layout`) and
-/// `systems/controls/commands.md > Unit Command` (design changes 0002, 0010 and 0011).
+/// `systems/controls/commands.md > Unit Command` (design changes 0002, 0010 and 0011); then the map editor's, which
+/// its F1 help lists (the design gives none).
 impl Default for Bindings {
     fn default() -> Self {
-        use Binding::{DoubleTap, Modifiers as Held, Press};
+        use Binding::{DoubleTap, Modifiers as Held, Press, Wheel};
+        use EditorInput as E;
         use InputAction as A;
         let key = Chord::key;
         let mut entries = vec![
@@ -218,6 +264,45 @@ impl Default for Bindings {
             ]);
         }
         entries.extend(CommandSlot::all().map(|slot| (A::CommandSlot(slot), Press(key(slot.default_key())))));
+        // The map editor's. Esc, G, the arrow keys and the middle button are the shared actions above.
+        let ctrl = |k| Press(key(k).with(Modifiers::CTRL));
+        let ctrl_shift = Modifiers {
+            shift: true,
+            ..Modifiers::CTRL
+        };
+        entries.extend(
+            [
+                (E::UseTool, Press(Chord::mouse(MouseButton::Left))),
+                (E::Eyedropper, Press(Chord::mouse(MouseButton::Right))),
+                (E::Zoom, Wheel(Modifiers::NONE)),
+                (E::SelectTool, Press(key(KeyCode::KeyV))),
+                (E::PaintTool, Press(key(KeyCode::KeyB))),
+                (E::HeightTool, Press(key(KeyCode::KeyH))),
+                (E::FillTool, Press(key(KeyCode::KeyF))),
+                (E::PlaceTool, Press(key(KeyCode::KeyO))),
+                (E::StartTool, Press(key(KeyCode::KeyL))),
+                (E::CameraTool, Press(key(KeyCode::KeyC))),
+                (E::SmallerBrush, Press(key(KeyCode::BracketLeft))),
+                (E::LargerBrush, Press(key(KeyCode::BracketRight))),
+                (E::NextHeightMode, Press(key(KeyCode::KeyE))),
+                (E::RaiseLevel, Press(key(KeyCode::Equal))),
+                (E::RaiseLevel, Press(key(KeyCode::NumpadAdd))),
+                (E::LowerLevel, Press(key(KeyCode::Minus))),
+                (E::LowerLevel, Press(key(KeyCode::NumpadSubtract))),
+                (E::ToggleSlopes, Press(key(KeyCode::KeyK))),
+                (E::FitMap, Press(key(KeyCode::Home))),
+                (E::DeleteSelection, Press(key(KeyCode::Delete))),
+                (E::DeleteSelection, Press(key(KeyCode::Backspace))),
+                (E::Undo, ctrl(KeyCode::KeyZ)),
+                (E::Redo, ctrl(KeyCode::KeyY)),
+                (E::Redo, Press(key(KeyCode::KeyZ).with(ctrl_shift))),
+                (E::Save, ctrl(KeyCode::KeyS)),
+                (E::NewMap, ctrl(KeyCode::KeyN)),
+                (E::PlayTest, Press(key(KeyCode::F5))),
+                (E::ToggleHelp, Press(key(KeyCode::F1))),
+            ]
+            .map(|(input, binding)| (A::Editor(input), binding)),
+        );
         Self { entries }
     }
 }
@@ -298,19 +383,25 @@ mod tests {
             press(KeyX)
         );
         assert_eq!(only(InputAction::CommandSlot(CommandSlot::RALLY_POINT)), press(KeyC));
-        assert_eq!(b.entries().len(), 15 + 4 * 10 + 12);
+        let game = b.entries().iter().filter(|(a, _)| !matches!(a, InputAction::Editor(_)));
+        assert_eq!(game.count(), 15 + 4 * 10 + 12);
     }
 
     #[test]
-    fn no_two_default_bindings_share_a_chord() {
+    fn no_two_default_bindings_of_a_context_share_a_chord() {
         let b = Bindings::default();
-        let mut seen: Vec<Binding> = Vec::new();
-        for &(action, binding) in b.entries() {
-            if matches!(binding, Binding::Modifiers(_)) {
-                continue;
+        for context in InputContext::ALL {
+            let mut seen: Vec<Binding> = Vec::new();
+            for (action, binding) in b.in_context(context) {
+                if matches!(binding, Binding::Modifiers(_)) {
+                    continue;
+                }
+                assert!(
+                    !seen.contains(&binding),
+                    "{context:?}: {action:?}: {binding:?} is bound twice"
+                );
+                seen.push(binding);
             }
-            assert!(!seen.contains(&binding), "{action:?}: {binding:?} is bound twice");
-            seen.push(binding);
         }
         // Every action is bound, each command slot and control group once per operation.
         for slot in CommandSlot::all() {
@@ -318,11 +409,118 @@ mod tests {
         }
     }
 
+    /// The editor's keys (its F1 help): its own in the editor, the camera's, the grid's and Cancel shared with the
+    /// game, and the play-test switch in both, so that F5 also ends a play-test.
+    #[test]
+    fn the_editor_has_its_own_bindings_and_shares_some() {
+        use InputContext::{Editor, Game};
+        let b = Bindings::default();
+        let ed = InputAction::Editor;
+        let press = |context, k, modifiers| b.resolve(context, key(k), modifiers, false);
+        assert_eq!(
+            press(Editor, KeyCode::KeyV, Modifiers::NONE),
+            Some(ed(EditorInput::SelectTool))
+        );
+        assert_eq!(
+            press(Game, KeyCode::KeyV, Modifiers::NONE),
+            Some(InputAction::CommandSlot(CommandSlot::new(2, 3).unwrap()))
+        );
+        assert_eq!(
+            press(Editor, KeyCode::KeyZ, Modifiers::NONE),
+            None,
+            "Z alone is nothing in the editor"
+        );
+        assert_eq!(
+            press(Editor, KeyCode::KeyZ, Modifiers::CTRL),
+            Some(ed(EditorInput::Undo))
+        );
+        let ctrl_shift = Modifiers {
+            shift: true,
+            ..Modifiers::CTRL
+        };
+        assert_eq!(press(Editor, KeyCode::KeyZ, ctrl_shift), Some(ed(EditorInput::Redo)));
+        assert_eq!(
+            press(Editor, KeyCode::KeyY, Modifiers::CTRL),
+            Some(ed(EditorInput::Redo))
+        );
+        assert_eq!(
+            press(Editor, KeyCode::NumpadAdd, Modifiers::NONE),
+            Some(ed(EditorInput::RaiseLevel))
+        );
+        assert_eq!(
+            press(Editor, KeyCode::Backspace, Modifiers::NONE),
+            Some(ed(EditorInput::DeleteSelection))
+        );
+        assert_eq!(
+            press(Editor, KeyCode::Digit1, Modifiers::NONE),
+            None,
+            "no control groups in the editor"
+        );
+        assert_eq!(
+            press(Game, KeyCode::F1, Modifiers::NONE),
+            None,
+            "no editor help in the game"
+        );
+        for context in InputContext::ALL {
+            assert_eq!(
+                press(context, KeyCode::Escape, Modifiers::NONE),
+                Some(InputAction::Cancel)
+            );
+            assert_eq!(
+                press(context, KeyCode::KeyG, Modifiers::NONE),
+                Some(InputAction::ToggleGrid)
+            );
+            assert_eq!(
+                press(context, KeyCode::F5, Modifiers::NONE),
+                Some(ed(EditorInput::PlayTest))
+            );
+            assert_eq!(
+                b.resolve(context, Button::Mouse(MouseButton::Middle), Modifiers::NONE, false),
+                Some(InputAction::GrabPan)
+            );
+        }
+        let left = Button::Mouse(MouseButton::Left);
+        assert_eq!(
+            b.resolve(Editor, left, Modifiers::NONE, false),
+            Some(ed(EditorInput::UseTool))
+        );
+        assert_eq!(b.resolve(Game, left, Modifiers::NONE, false), Some(InputAction::Select));
+        assert_eq!(b.resolve_wheel(Editor, Modifiers::NONE), Some(ed(EditorInput::Zoom)));
+        assert_eq!(b.resolve_wheel(Editor, Modifiers::CTRL), Some(ed(EditorInput::Zoom)));
+        assert_eq!(b.resolve_wheel(Game, Modifiers::NONE), None, "the game has no zoom");
+        // In the editor Ctrl + key is a command of its own: a held Ctrl blocks the editor's other keys, not its mouse
+        // buttons, the shared keys or anything in the game; Shift and Alt never block.
+        let ctrl = Modifiers::CTRL;
+        assert_eq!(press(Editor, KeyCode::KeyB, ctrl), None, "Ctrl + B is no Paint tool");
+        assert_eq!(press(Editor, KeyCode::F5, ctrl), None);
+        assert_eq!(
+            press(Game, KeyCode::F5, ctrl),
+            Some(ed(EditorInput::PlayTest)),
+            "a play-test"
+        );
+        assert_eq!(press(Editor, KeyCode::KeyS, ctrl_shift), Some(ed(EditorInput::Save)));
+        assert_eq!(press(Editor, KeyCode::KeyG, ctrl), Some(InputAction::ToggleGrid));
+        assert_eq!(b.resolve(Editor, left, ctrl, false), Some(ed(EditorInput::UseTool)));
+        assert_eq!(
+            press(Editor, KeyCode::Equal, Modifiers::SHIFT),
+            Some(ed(EditorInput::RaiseLevel)),
+            "+ is Shift + = on many keyboards"
+        );
+        assert_eq!(
+            press(Editor, KeyCode::KeyB, Modifiers::ALT),
+            Some(ed(EditorInput::PaintTool))
+        );
+        let slot_c = InputAction::CommandSlot(CommandSlot::new(2, 2).unwrap());
+        assert_eq!(press(Game, KeyCode::KeyC, ctrl), Some(slot_c));
+        assert_eq!(ed(EditorInput::Undo).context(), Some(Editor));
+        assert!(InputAction::Queue.works_in(Game) && !InputAction::Queue.works_in(Editor));
+    }
+
     #[test]
     fn the_most_specific_binding_wins() {
         let b = Bindings::default();
         let one = key(KeyCode::Digit1);
-        let resolve = |button, modifiers, double| b.resolve(button, modifiers, double);
+        let resolve = |button, modifiers, double| b.resolve(InputContext::Game, button, modifiers, double);
         assert_eq!(
             resolve(one, Modifiers::NONE, false),
             Some(InputAction::RecallGroup(group(1)))
@@ -393,12 +591,19 @@ mod tests {
         assert!(b.holds(InputAction::Queue, Modifiers::ALT));
         assert!(!b.holds(InputAction::Queue, Modifiers::SHIFT));
         b.unbind(InputAction::Cancel);
-        assert_eq!(b.resolve(key(KeyCode::Escape), Modifiers::NONE, false), None);
+        let game = InputContext::Game;
+        assert_eq!(b.resolve(game, key(KeyCode::Escape), Modifiers::NONE, false), None);
         b.bind(InputAction::Cancel, Binding::Press(Chord::key(KeyCode::Backquote)));
         assert_eq!(
-            b.resolve(key(KeyCode::Backquote), Modifiers::NONE, false),
+            b.resolve(game, key(KeyCode::Backquote), Modifiers::NONE, false),
             Some(InputAction::Cancel)
         );
+        // The editor's bindings are rebound the same way.
+        let zoom = InputAction::Editor(EditorInput::Zoom);
+        b.unbind(zoom);
+        b.bind(zoom, Binding::Wheel(Modifiers::CTRL));
+        assert_eq!(b.resolve_wheel(InputContext::Editor, Modifiers::NONE), None);
+        assert_eq!(b.resolve_wheel(InputContext::Editor, Modifiers::CTRL), Some(zoom));
     }
 
     #[test]

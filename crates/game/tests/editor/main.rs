@@ -1,9 +1,11 @@
-//! Headless map editor tests. They drive the editor through its action layer (`EditorActions`), never raw input
-//! (except where the keys themselves are tested), and check the document, the sim that shows it and the view
+//! Headless map editor tests. They drive the editor through its action layer (`EditorActions`), and its input
+//! through the shared input layer's virtual keyboard and mouse (`InjectedInput`), never raw input (except a text
+//! field's own keys and the window's close button), and check the document, the sim that shows it and the view
 //! (`ARCHITECTURE.md > Map editor`).
 
 mod creation;
 mod edits;
+mod input;
 mod review;
 mod session;
 mod symmetry;
@@ -11,8 +13,6 @@ mod units;
 
 use std::path::{Path, PathBuf};
 
-use bevy::input::ButtonState;
-use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use sc_sim::{MapDef, MapSettings, MapType, ObjectKind, Scenario, Sim, Spawn, SpawnAt, Symmetry, Tile, TilePos};
@@ -21,6 +21,8 @@ use space_crystals::editor::actions::{EditorAction, EditorActions};
 use space_crystals::editor::doc::EditorDoc;
 use space_crystals::editor::state::{EditorProblems, EditorSelection, EditorStatus, Selection};
 use space_crystals::editor::tools::EditorTools;
+use space_crystals::editor::ui::fields::TextField;
+use space_crystals::input::InjectedInput;
 use space_crystals::object_render::ObjectVisual;
 use space_crystals::platform::DisplayMode;
 use space_crystals::sim_driver::SimRes;
@@ -149,17 +151,26 @@ fn assert_warned(app: &App, text: &str) {
     assert!(status.message.contains(text), "{:?} lacks {text:?}", status.message);
 }
 
-/// Presses and releases `key` on the (headless) keyboard, a frame each.
-fn tap(app: &mut App, key_code: KeyCode, logical_key: Key) {
-    for state in [ButtonState::Pressed, ButtonState::Released] {
-        app.world_mut().write_message(KeyboardInput {
-            key_code,
-            logical_key: logical_key.clone(),
-            state,
-            text: None,
-            repeat: false,
-            window: Entity::PLACEHOLDER,
-        });
-        app.update();
+/// The input layer's virtual keyboard and mouse.
+fn input(app: &mut App) -> Mut<'_, InjectedInput> {
+    app.world_mut().resource_mut::<InjectedInput>()
+}
+
+/// Taps `key` on the input layer's virtual keyboard while the keys `modifiers` are held, in one frame.
+fn tap(app: &mut App, modifiers: &[KeyCode], key: KeyCode) {
+    for &m in modifiers {
+        input(app).keys.press(m);
     }
+    input(app).tap_key(key);
+    app.update();
+    for &m in modifiers {
+        input(app).keys.release(m);
+    }
+}
+
+/// The entity of the text field `which`.
+fn field(app: &mut App, which: TextField) -> Entity {
+    let mut fields = app.world_mut().query::<(Entity, &TextField)>();
+    let found = fields.iter(app.world()).find(|(_, f)| **f == which).map(|(e, _)| e);
+    found.unwrap_or_else(|| panic!("no {which:?} field"))
 }

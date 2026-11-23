@@ -19,7 +19,7 @@ use space_crystals::editor::tools::Tool;
 use space_crystals::editor::ui::UiAction;
 use space_crystals::editor::ui::fields::{SpawnValue, TextField};
 
-use super::{act, assert_warned, at, doc, editor, editor_with, problems, status, tap, temp_maps};
+use super::{act, assert_warned, at, doc, editor, editor_with, field, problems, status, tap, temp_maps};
 
 fn request_close(app: &mut App) {
     app.world_mut().write_message(WindowCloseRequested {
@@ -55,13 +55,6 @@ fn closing_the_window_asks_about_unsaved_changes() {
     assert!(app.should_exit().is_some());
 }
 
-/// The entity of the text field `which`.
-fn field(app: &mut App, which: TextField) -> Entity {
-    let mut fields = app.world_mut().query::<(Entity, &TextField)>();
-    let found = fields.iter(app.world()).find(|(_, f)| **f == which).map(|(e, _)| e);
-    found.unwrap_or_else(|| panic!("no {which:?} field"))
-}
-
 fn field_text(app: &App, entity: Entity) -> String {
     app.world().get::<EditableText>(entity).unwrap().value().to_string()
 }
@@ -79,6 +72,7 @@ fn type_into(app: &mut App, entity: Entity, text: &str) {
         .set_text(text);
 }
 
+/// A key of the real keyboard: a text field's own keys (Enter, Esc) are Bevy's keyboard input, not bindings.
 fn key(app: &mut App, key_code: KeyCode, logical_key: Key, state: ButtonState) {
     app.world_mut().write_message(KeyboardInput {
         key_code,
@@ -284,9 +278,9 @@ fn the_editor_opens_files_with_problems() {
     app.update();
     assert_eq!(*app.world().resource::<ClientMode>(), ClientMode::PlayTest);
     // F5 alone ends it (Esc is the game's Cancel).
-    tap(&mut app, KeyCode::Escape, Key::Escape);
+    tap(&mut app, &[], KeyCode::Escape);
     assert_eq!(*app.world().resource::<ClientMode>(), ClientMode::PlayTest);
-    tap(&mut app, KeyCode::F5, Key::F5);
+    tap(&mut app, &[], KeyCode::F5);
     assert_eq!(*app.world().resource::<ClientMode>(), ClientMode::Editor);
     std::fs::remove_dir_all(&dir).unwrap();
 }

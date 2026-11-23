@@ -80,9 +80,14 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - a panel scrollbar (scroll with the wheel);
     - the right panel runs past the bottom on maps with 4 or more slots.
 
+- **Editor on the shared input layer** (merged in `6bdc678`; 284 tests):
+  - Every editor key, mouse button and the wheel are `InputAction::Editor(..)` entries in `Bindings`, with an `InputContext` of Game or Editor.
+  - One over-UI test serves both modes, and focused text fields swallow typed keys.
+  - `Pointer::press` handles strokes and drags over UI.
+  - The editor QA screenshot is byte-identical to the one taken before the change.
+
 ## In progress
 - **M1-B unit foundation** (Opus, in a worktree; brief `scratchpad/briefs/m1b-unit-foundation.md`). It has been told to merge master (M0-E) before finishing, and may add unit-overlap validation.
-- **Editor onto the shared input layer** (Opus, in a worktree; brief `scratchpad/briefs/m1x-editor-input.md`). All editor keys go into the `Bindings` table; one over-UI test; focused text fields swallow keys. It stays out of M1-B's files.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
 The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, the defaults from the doc apply.

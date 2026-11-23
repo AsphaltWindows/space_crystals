@@ -397,8 +397,8 @@ out by the same rules.
   `drawn_position`: the ground point drawn at that view point. Where terrain overlaps itself on screen (a cliff or a
   hill in front of the ground behind it), the frontmost, i.e. southernmost, surface wins. It solves column by column
   (at a fixed x the drawn y is linear across a tile row) from south to north; beyond the map's edges the ground
-  continues flat. `camera::cursor_to_ground` is the cursor's ground point: hover, clicks, the editor's brush, ghosts,
-  markers and object picking all use it.
+  continues flat. The input layer's `Pointer::ground` is the cursor's ground point (`camera::cursor_to_ground`):
+  hover, clicks, the editor's brush, ghosts, markers and object picking all use it.
 - **Draw order** follows StarCraft 1. The layers are terrain < ground decals < ground objects < air < overlays, each
   with its own z band. Within a layer, z grows with **ground** y, so southern objects draw in front. Each sprite is
   anchored at its ground position, the sim `pos`, and that point drives its y-sort; it is drawn at its height
@@ -441,38 +441,56 @@ CommandPanel. All five have the same height and keep fixed horizontal slots, and
 (`systems/controls/selection_and_hud.md > HUD Bar`). bevy_ui lays out each root node inside its camera's viewport,
 so the HUD needs its own full-window UI camera (`IsDefaultUiCamera` / `UiTargetCamera`).
 
-**Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse and the screen edge into game input,
-in `PreUpdate` (`ReadActions`, after Bevy's input and UI picking), and gameplay code reads only what it produces:
-`InputAction`s, which become UI state changes and `Command`s. Never read raw keys or buttons in gameplay code.
+**Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse, the wheel and the screen edge into
+the input of the game and of the map editor, in `PreUpdate` (`ReadActions`, after Bevy's input, UI picking and the
+focused text field's key handling), and gameplay and editor code read only what it produces: `InputAction`s, which
+become UI state changes, `Command`s and `EditorAction`s. Never read raw keys, buttons, the wheel or the cursor
+elsewhere.
+- **Input contexts**: the mode picks whose bindings apply (`ClientMode::input_context`): the game's in a game and an
+  editor play-test, the editor's in the editor. An action works in its own context only (`InputAction::context`), so
+  one key can mean different things: V is a command slot in the game and the Select tool in the editor. The camera's
+  pans and grab, the grid (G), `Cancel` (Esc) and the editor's play-test switch (F5) are shared by both. A button
+  held across a context change ends its action. The editor's actions are `InputAction::Editor(EditorInput)`.
 - **Bindings table** (`input::Bindings`, a `Resource`): the one list of `(InputAction, Binding)` entries for every
-  game action. A `Binding` is `Press(Chord)`, a key or mouse button with the modifiers it needs (Q, Ctrl + 1,
-  Shift + Tab); `DoubleTap(Chord)`, the same chord pressed twice within `DOUBLE_TAP_SECONDS` with no other bound
-  button in between; or `Modifiers(..)`, held while those modifiers are, for the modifier actions (`Queue`,
-  `ToggleSelection`, `SelectSameType`). A press fires the action of its most specific binding: of the bindings whose
-  modifiers are all held, the one needing the most modifiers, then a double tap over a single press, then the
-  earlier entry. So Shift + 1 adds to group 1 instead of recalling it, while Shift + Q presses slot Q with `Queue`
-  held. The action stays held until its button goes up. `Bindings::default()` holds the design's defaults (camera
-  keys, G for the grid, P for unit paths, Select and ContextCommand on the left and right buttons, Esc to cancel,
-  Tab and Shift + Tab, the control group keys, the 4 × 3 command grid QWER/ASDF/ZXCV with the standard slots Z, X
-  and C, Shift to queue). A rebinding UI edits it with `bind` and `unbind`. It isn't serializable yet: loading it
-  from a file needs Bevy's `serialize` feature for `KeyCode` and `MouseButton`.
-- **Output**: `ActionState` (a `Resource`) holds this frame's actions (held, just pressed, just released), the
-  modifiers, the cursor in logical pixels, and the `Pointer`: the view point and the ground point
-  (`coords::ground_under`) under the cursor, whether it is over the UI (a UI node by Bevy's picking, or outside the
-  world view), and the drag box in progress. `MapClick` messages report clicks on the map: `Select` when released,
-  unless it moved further than `DRAG_THRESHOLD_PX`, and `ContextCommand` when pressed, with the modifiers and a
-  double-click flag. A `Select` drag ends as a `SelectionBox` message in view space, kept inside the world view.
-  Nothing starts over the UI. What the modifiers of a click mean comes from the table
-  (`Bindings::holds(InputAction::Queue, click.modifiers)`).
+  game and editor action. A `Binding` is `Press(Chord)`, a key or mouse button with the modifiers it needs (Q,
+  Ctrl + 1, Shift + Tab); `DoubleTap(Chord)`, the same chord pressed twice within `DOUBLE_TAP_SECONDS` with no other
+  bound button in between; `Modifiers(..)`, held while those modifiers are, for the modifier actions (`Queue`,
+  `ToggleSelection`, `SelectSameType`); or `Wheel(..)`, the mouse wheel while those modifiers are held (the editor's
+  zoom; `ActionState::scrolled` says how far it turned, in lines). A press fires the action of its most specific
+  binding in the context: of the bindings whose modifiers are all held, the one needing the most modifiers, then a
+  double tap over a single press, then the earlier entry. So Shift + 1 adds to group 1 instead of recalling it, while
+  Shift + Q presses slot Q with `Queue` held. One exception: in the editor Ctrl + key is a command of its own, so a
+  held Ctrl blocks the editor's key bindings that don't need it (Ctrl + B is nothing, not the Paint tool;
+  `InputContext::ctrl_blocks`). The action stays held until its button goes up. `Bindings::default()` holds the
+  design's defaults (camera keys, G for the grid, P for unit paths, Select and ContextCommand on the left and right
+  buttons, Esc to cancel, Tab and Shift + Tab, the control group keys, the 4 × 3 command grid QWER/ASDF/ZXCV with
+  the standard slots Z, X and C, Shift to queue) and the editor's (its F1 help lists them). A rebinding UI edits it
+  with `bind` and `unbind`. It isn't serializable yet: loading it from a file needs Bevy's `serialize` feature for
+  `KeyCode` and `MouseButton`.
+- **Output**: `ActionState` (a `Resource`) holds this frame's actions (held, just pressed, just released), the wheel's
+  turn, the modifiers, the context, the cursor in logical pixels, and the `Pointer`: the view point and the ground
+  point (`coords::ground_under`) under the cursor, whether it is over the UI (a UI node by Bevy's picking, or outside
+  the world view: the one over-UI test of the game and the editor), the press in progress and the drag box. A press of
+  `Select` or the editor's `UseTool` that goes down on the map is followed until its release (`Pointer::press`, a
+  `MapPress`: where it went down, whether it moved further than `DRAG_THRESHOLD_PX`, and the ground point under the
+  cursor now, which keeps following it over UI nodes on the world view, as the editor's drags do). `MapClick`
+  messages report clicks on the map: `Select` when released, unless it became a drag, and `ContextCommand` and the
+  editor's `Eyedropper` when pressed, with the modifiers and a double-click flag. A `Select` drag ends as a
+  `SelectionBox` message in view space, kept inside the world view. Nothing starts over the UI. What the modifiers of
+  a click mean comes from the table (`Bindings::holds(InputAction::Queue, click.modifiers)`).
+- **Text fields**: while a text field has the keyboard (`TextFocus`), and in the frame after it lost it, keys type
+  text and fire no binding, from the real keyboard or the injected one. So the Esc that gives a field up doesn't also
+  cancel. A field's own keys (Enter commits, Esc reverts) are Bevy's keyboard input, read by the field
+  (`editor/ui/fields.rs`), not bindings.
 - Double taps and double-clicks are timed on `Time<Real>`. Placeholders until the design gives values:
-  `DRAG_THRESHOLD_PX`, `DOUBLE_TAP_SECONDS`, `DOUBLE_CLICK_SECONDS`, `DOUBLE_CLICK_DISTANCE_PX`, `EDGE_PAN_MARGIN_PX`.
+  `DRAG_THRESHOLD_PX`, `DOUBLE_TAP_SECONDS`, `DOUBLE_CLICK_SECONDS`, `DOUBLE_CLICK_DISTANCE_PX`, `EDGE_PAN_MARGIN_PX`,
+  `PIXELS_PER_LINE` (wheels that report pixels).
 - **Injection**: tests and QA scripts drive the layer through `InjectedInput`, a virtual keyboard and mouse, without
   winit. Press and release its `keys` and `mouse` (`ButtonInput`s) like Bevy's; the layer clears their press marks
-  after reading them. `cursor` stands in for the mouse cursor, `over_ui` puts it over a UI node (headless apps have
-  no UI picking), and `held` and `pressed` inject actions directly, past the bindings. Never write to Bevy's own
-  `ButtonInput` resources: its input systems clear their presses before ours run. `RawInput` turns the real devices
-  off in QA runs; while a text field has the keyboard (`TextFocus`), keys type text instead.
-- The map editor still reads raw input itself (`editor/input.rs`).
+  after reading them. `wheel` turns the wheel by that many lines before the next frame, `cursor` stands in for the
+  mouse cursor, `over_ui` puts it over a UI node (headless apps have no UI picking), and `held` and `pressed` inject
+  actions directly, past the bindings. Never write to Bevy's own `ButtonInput` resources: its input systems clear
+  their presses before ours run. `RawInput` turns the real devices off in QA runs.
 
 **Bevy code**
 - Write one plugin per feature module (camera, map rendering, HUD, input, …). Keep systems small. Bevy caps a system
@@ -563,10 +581,19 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
   it and renames it over the target. `maps/dev_skirmish.json` is the built-in `dev_skirmish` saved by the editor. A
   test checks that every map in `maps/` is playable and that this one still matches the built-in.
 - **Actions**: every change is an `EditorAction` (`editor/actions.rs`), queued in the `EditorActions` resource and
-  applied in `EditorSystems::Apply`. Keys, the mouse, the UI's buttons, the text fields and the window's close button
-  only queue actions. The edits are plain functions (`editor/terrain.rs`, `editor/objects.rs`, `editor/presets.rs`,
-  `editor/document.rs`) and sim-side helpers (`Map::resize`, `Map::connected_region`, `MapDef::resize`, `add_slots`,
-  `remove_slots`, `regenerate`).
+  applied in `EditorSystems::Apply`. The input layer's actions, the UI's buttons, the text fields and the window's
+  close button only queue actions. The edits are plain functions (`editor/terrain.rs`, `editor/objects.rs`,
+  `editor/presets.rs`, `editor/document.rs`) and sim-side helpers (`Map::resize`, `Map::connected_region`,
+  `MapDef::resize`, `add_slots`, `remove_slots`, `regenerate`).
+- **Input** (`editor/input.rs`): the editor reads only the shared input layer (see Client architecture > Input), in
+  the editor's input context. Its keys are `InputAction::Editor(EditorInput)` entries of `Bindings`, rebindable like
+  the game's, and `editor_keys` turns the pressed ones into `EditorAction`s (`editor_action`). `editor_pointer` turns
+  the `Pointer` into the pointer's actions: its ground point into `Hover`; the `UseTool` press (left button,
+  `Pointer::press`) into `Press`, a `Drag` every frame to `MapPress::drag_ground` (over UI nodes on the view too, not
+  off it) and `Release`; `Eyedropper` clicks (right button, `MapClick`) into `Pick`; and the `Zoom` wheel
+  (`ActionState::scrolled`) into `Zoom` at the cursor. Over the UI nothing starts, by the layer's over-UI test (the
+  F1 help is a full-window UI node). While a text field has the keyboard no binding fires. The middle-mouse grab,
+  the arrow keys, G and Esc are the shared actions.
 - **Document**: `EditorDoc` holds the map, its file and the undo history, with one snapshot per completed action (a
   whole stroke, drag or field edit). Its dirty flag is worked out once per change, not per frame. When the document
   changes, the editor replaces the sim with `Sim::preview` of the map with its default setup. That is a sim at tick 0
@@ -594,11 +621,12 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
   in the palette, each one undo step. The default presets are fixed (shown in one line), and a preset some tile still
   uses can't be removed (the status line says how many tiles). `MAX_CUSTOM_PRESETS` and `MAX_PRESET_NAME_CHARS` are
   placeholders.
-- **Modes**: `ClientMode` is `Game`, `Editor` or `PlayTest`, and only the HUD and the editor look at it. F5 starts a
-  play-test of the document with the play-test setup (`PlayTestSetup`, the Play-test panel): each slot's faction,
-  which slot you play, the seed, and debug commands on. It is not part of the map. `Sim::try_new` must accept the
-  map; the game runs at the game's zoom. Only F5 returns (Esc is the game's Cancel), to the editor with the document,
-  its history and the view unchanged.
+- **Modes**: `ClientMode` is `Game`, `Editor` or `PlayTest`, and only the HUD, the editor and the input layer (which
+  takes the game's bindings in a play-test, the editor's in the editor) look at it. F5 starts a play-test of the
+  document with the play-test setup (`PlayTestSetup`, the Play-test panel): each slot's faction, which slot you play,
+  the seed, and debug commands on. It is not part of the map. `Sim::try_new` must accept the map; the game runs at
+  the game's zoom. Only F5 returns (Esc is the game's Cancel), to the editor with the document, its history and the
+  view unchanged.
 - **Unsaved changes**: New, Open, Quit and the window's close button (`WindowCloseRequested`, through
   `editor/input.rs::close_requests`; `platform::ConfirmClose` keeps the platform from exiting by itself) ask once with
   a status warning and go ahead when asked again, also during a play-test.
@@ -625,10 +653,12 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
   when the editor's state changed or the pointer moved over them; the texts and fields refresh only when their values
   changed. Text fields commit in `EditorSystems::Input`, before the frame's actions, so a click elsewhere (Save, a
   tool, another field) applies the typed text first; Enter commits, Esc gives up the text.
-- **Tests** (`crates/game/tests/editor/`: `session`, `edits`, `creation`, `symmetry`, `review`) build a headless app
-  with `AppConfig::editor`, push `EditorAction`s into `EditorActions`, call `app.update()`, and assert on `EditorDoc`,
-  the sim, the view and the UI state. Positions are ground points, such as `TilePos::center()`. Never inject raw
-  input, except to test the keys themselves (F5) and the window's close button (`WindowCloseRequested`).
+- **Tests** (`crates/game/tests/editor/`: `session`, `edits`, `creation`, `symmetry`, `review`, `input`) build a
+  headless app with `AppConfig::editor`, push `EditorAction`s into `EditorActions`, call `app.update()`, and assert on
+  `EditorDoc`, the sim, the view and the UI state. Positions are ground points, such as `TilePos::center()`. Tests of
+  the input itself (`input`: keys, pointer, wheel, over the UI, typing) go through the layer's `InjectedInput`
+  (`tap`, the virtual mouse, cursor and wheel). Never inject Bevy's raw input, except a text field's own keys
+  (Enter, Esc) and the window's close button (`WindowCloseRequested`).
 - **QA**: `--editor-script` applies its actions in the first frame, before any screenshot. The editor's sim stays at
   tick 0, so take screenshots at tick 0 unless the script play-tests (`"PlayTest"`).
 
