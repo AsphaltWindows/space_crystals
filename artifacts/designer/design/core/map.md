@@ -89,6 +89,8 @@ An object's **elevation level** is the terrain height at its position, **rounded
 ### Structures only on flat terrain
 Structures can only be placed on **flat** tiles. Every tile of a surface structure's footprint must be flat, in addition to being Buildable (core/entities.md > Placement Validation). Adjacent flat tiles share corners, so a connected footprint of flat tiles is always all at one level. Hills stay open ground; bases sit on flat areas.
 
+**Exception: Syndicate underground expansions** (inside a Tunnel Area) may be placed on sloped tiles; the flatness rule doesn't apply to them (user, 2026-11-23). Their surface-related visuals on slopes are an art detail. Surface Syndicate structures (Tunnel, Laser Turret) follow the normal rule.
+
 ### Display
 See core/art_direction.md > Elevation Display.
 

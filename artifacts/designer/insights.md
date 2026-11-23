@@ -34,7 +34,7 @@ All non-blocking (Director proceeds on assumptions). Raised with user 2026-11-23
 
 ## Loose Ends
 
-- **Elevation follow-ups (2026-11-23, entry 0004)**: do slopes affect movement speed (TBD, currently no)? Does the flat-only rule apply to Syndicate underground expansions (docs say surface only)? Does ElevationModifier apply to structures (vision.md says units only)? Vertical offset per level (art tuning).
+- **Elevation follow-up (2026-11-23)**: do slopes affect movement speed? (TBD, currently no; in discussion.) Vertical offset per level = art tuning. RESOLVED (entry 0005): underground expansions exempt from flatness; ElevationModifier applies to structures.
 
 ### >>> WHERE WE LEFT OFF (2026-11-23) — start here next session <<<
 **Current task: unit rosters, one faction at a time, GDO first.** Sketch the full roster (concepts, roles, mechanics), THEN do numbers for all GDO units, then move to the next faction. Later: split into one file per unit/building once most units exist.

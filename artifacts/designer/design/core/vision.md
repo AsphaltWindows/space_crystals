@@ -22,9 +22,9 @@ Objects in Explored areas are **not selectable**, with one exception:
 The tile is currently within the SightRange of one of the player's units or structures. Everything on the tile is shown in real time — terrain, structures, and units.
 
 ## ElevationModifier
-Sight range and attack range are modified by relative elevation between the source and target. This modifier only applies when both the source and target are ground or underground units. Air units are exempt from elevation modifiers in both directions (neither gain nor suffer them).
+Sight range and attack range are modified by relative elevation between the source and target. This modifier applies when both the source and target are ground or underground **objects: units and structures alike** (structures added 2026-11-23, so a defensive structure on high ground gets the bonus and one on low ground suffers the penalty). Air units are exempt from elevation modifiers in both directions (neither gain nor suffer them).
 
-### Elevation used: each object's **elevation level** = terrain height at its position rounded down (core/map.md > Elevation > Elevation level)
+### Elevation used: each object's **elevation level** = terrain height at its position rounded down (core/map.md > Elevation > Elevation level). For a surface structure this is simply the level of its flat footprint
 ### Higher ground: +1 to sight range and attack range against lower-elevation targets
 ### Lower ground: -1 to sight range and attack range against higher-elevation targets
 ### Equal elevation: no modifier
