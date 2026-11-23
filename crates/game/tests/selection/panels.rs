@@ -1,0 +1,185 @@
+//! What the selection looks like: the InfoPanel and the SelectionPanel (`> HUD Bar`, `> SelectionPanel`), clicks on
+//! portraits (`> SelectionPanel > Interactions`), and the markers under selected objects.
+
+use bevy::prelude::*;
+use space_crystals::hud::info_panel::InfoText;
+use space_crystals::hud::layout::PortraitGrid;
+use space_crystals::hud::selection_panel::{PortraitCell, SelectionPanelView};
+use space_crystals::hud::{HudSection, SectionLabel};
+use space_crystals::selection::Relation;
+use space_crystals::selection::markers::SelectionMarker;
+
+use super::*;
+use KeyCode::{AltLeft, ControlLeft, ShiftLeft, Tab};
+
+/// The InfoPanel's title and lines, while it shows something.
+fn info(app: &mut App) -> Option<(String, String)> {
+    let mut texts = app.world_mut().query::<(&InfoText, &Text, &Node)>();
+    let mut title = None;
+    let mut body = None;
+    for (which, text, node) in texts.iter(app.world()) {
+        if node.display == Display::None {
+            continue;
+        }
+        match which {
+            InfoText::Title => title = Some(text.0.clone()),
+            InfoText::Body => body = Some(text.0.clone()),
+        }
+    }
+    title.zip(body)
+}
+
+/// Whether `section` shows its name (it has nothing else to show).
+fn label_shown(app: &mut App, section: HudSection) -> bool {
+    let mut labels = app.world_mut().query::<(&SectionLabel, &Node)>();
+    labels
+        .iter(app.world())
+        .any(|(label, node)| label.0 == section && node.display != Display::None)
+}
+
+/// The portraits shown, as (object, active) in their order, from the panel's entities.
+fn portraits(app: &mut App) -> Vec<(u32, bool)> {
+    let cells = app.world().resource::<SelectionPanelView>().cells.clone();
+    let mut query = app.world_mut().query::<&PortraitCell>();
+    assert_eq!(query.iter(app.world()).count(), cells.len(), "one entity per cell");
+    cells
+        .iter()
+        .map(|cell| match *cell {
+            PortraitCell::Object { id, active, .. } => (id.0, active),
+            PortraitCell::More(_) => panic!("no overflow here"),
+        })
+        .collect()
+}
+
+/// A click on portrait `index` with the modifier keys `modifiers` held.
+fn click_portrait(app: &mut App, index: usize, modifiers: &[KeyCode]) {
+    let surface = app.world().resource::<SurfaceSize>().logical();
+    let point = PortraitGrid::on(surface).cell_rect(index).center();
+    click_screen(app, point, modifiers, 1);
+}
+
+fn markers(app: &mut App) -> Vec<(u32, Relation, bool)> {
+    let mut query = app.world_mut().query::<&SelectionMarker>();
+    let mut markers: Vec<(u32, Relation, bool)> = query
+        .iter(app.world())
+        .map(|m| (m.id.0, m.relation, m.active))
+        .collect();
+    markers.sort_by_key(|m| m.0);
+    markers
+}
+
+/// `> HUD Bar > Sections`: the InfoPanel shows from one selected object, the SelectionPanel from two.
+#[test]
+fn the_info_panel_shows_the_selected_object() {
+    let mut app = game();
+    assert_eq!(info(&mut app), None);
+    assert!(label_shown(&mut app, HudSection::InfoPanel));
+    click(&mut app, at(1), &[]);
+    assert_eq!(
+        info(&mut app),
+        Some(("Peacekeeper".into(), "Player 1\nHP 50 / 50".into()))
+    );
+    assert!(!label_shown(&mut app, HudSection::InfoPanel));
+    assert!(
+        label_shown(&mut app, HudSection::SelectionPanel),
+        "one object: no portraits"
+    );
+    click(&mut app, at(ENEMY_GUARD), &[]);
+    assert_eq!(info(&mut app), Some(("Guard".into(), "Player 2\nHP 80 / 80".into())));
+    // `core/map.md > SpaceCrystalsPatch > InfoPanel` and `> SupplyDeliveryStation > InfoPanel`.
+    click(&mut app, at(PATCH), &[]);
+    assert_eq!(
+        info(&mut app),
+        Some(("Space Crystals".into(), "Neutral\nSpace Crystals: 1500".into()))
+    );
+    click(&mut app, at(STATION), &[]);
+    let (title, lines) = info(&mut app).unwrap();
+    assert_eq!(title, "Supply Delivery Station");
+    assert!(
+        lines.starts_with("Neutral\nSupplies: 0\nDelivery size: 4\nDelivery interval: 60 s\nNext delivery in "),
+        "{lines}"
+    );
+    // Two or more: the ActiveGroup's type (placeholder).
+    click(&mut app, at(1), &[ControlLeft]);
+    assert_eq!(
+        info(&mut app),
+        Some(("Peacekeeper".into(), "3 in group\n3 selected".into()))
+    );
+    click(&mut app, Vec2::new(1500.0, 1200.0), &[]);
+    assert_eq!(info(&mut app), None);
+    assert!(label_shown(&mut app, HudSection::InfoPanel));
+}
+
+#[test]
+fn the_selection_panel_shows_two_or_more_and_highlights_the_active_group() {
+    let mut app = game();
+    click(&mut app, at(1), &[]);
+    assert!(portraits(&mut app).is_empty());
+    drag(&mut app, Vec2::new(850.0, 750.0), Vec2::new(1400.0, 1150.0));
+    // By group (type order), each by id; the active group's highlighted.
+    let pk = |id| (id, true);
+    assert_eq!(portraits(&mut app), [pk(1), pk(2), pk(5), (3, false), (4, false)]);
+    assert!(!label_shown(&mut app, HudSection::SelectionPanel));
+    tap(&mut app, &[], Tab);
+    assert_eq!(
+        portraits(&mut app),
+        [(1, false), (2, false), (5, false), (3, true), (4, true)]
+    );
+    // Down to one object, the panel empties and the InfoPanel shows it (`> SelectionPanel > Edge cases`).
+    click(&mut app, at(1), &[]);
+    assert!(portraits(&mut app).is_empty());
+    assert!(label_shown(&mut app, HudSection::SelectionPanel));
+}
+
+/// `> SelectionPanel > Interactions`, with portraits 0–4 showing units 1, 2, 5 (Peacekeepers), 3 and 4 (Guards).
+#[test]
+fn portrait_clicks_follow_the_panels_rules() {
+    let mut app = game();
+    let select_all = |app: &mut App| {
+        drag(app, Vec2::new(850.0, 750.0), Vec2::new(1400.0, 1150.0));
+        assert_eq!(selected(app), ids([1, 2, 3, 4, 5]));
+    };
+    select_all(&mut app);
+    // Alt: the camera centers on that unit, the selection stays.
+    click_portrait(&mut app, 3, &[AltLeft]);
+    assert_eq!(camera_center(&app), at(3));
+    assert_eq!(selected(&app), ids([1, 2, 3, 4, 5]));
+    click_portrait(&mut app, 1, &[ShiftLeft]);
+    assert_eq!(selected(&app), ids([1, 5, 3, 4]), "Shift removes that unit");
+    click_portrait(&mut app, 3, &[ControlLeft]);
+    assert_eq!(selected(&app), OWN_GUARDS, "Ctrl keeps that unit's type");
+    select_all(&mut app);
+    click_portrait(&mut app, 0, &[ControlLeft, ShiftLeft]);
+    assert_eq!(selected(&app), OWN_GUARDS, "Ctrl + Shift removes that unit's type");
+    select_all(&mut app);
+    click_portrait(&mut app, 4, &[]);
+    assert_eq!(selected(&app), [4], "a click keeps only that unit");
+    assert!(portraits(&mut app).is_empty());
+    // A click where no portrait is changes nothing.
+    click_portrait(&mut app, 0, &[]);
+    assert_eq!(selected(&app), [4]);
+}
+
+/// The markers under selected objects: by relation to the local player, the ActiveGroup's apart.
+#[test]
+fn markers_follow_the_selection() {
+    let mut app = game();
+    assert!(markers(&mut app).is_empty());
+    drag(&mut app, Vec2::new(850.0, 750.0), Vec2::new(1400.0, 1150.0));
+    let own = |id, active| (id, Relation::Own, active);
+    assert_eq!(
+        markers(&mut app),
+        [own(1, true), own(2, true), own(3, false), own(4, false), own(5, true)]
+    );
+    tap(&mut app, &[], Tab);
+    assert_eq!(
+        markers(&mut app),
+        [own(1, false), own(2, false), own(3, true), own(4, true), own(5, false)]
+    );
+    click(&mut app, at(ENEMY_PK), &[]);
+    assert_eq!(markers(&mut app), [(ENEMY_PK, Relation::Enemy, true)]);
+    click(&mut app, at(PATCH), &[]);
+    assert_eq!(markers(&mut app), [(PATCH, Relation::Neutral, true)]);
+    click(&mut app, Vec2::new(1500.0, 1200.0), &[]);
+    assert!(markers(&mut app).is_empty());
+}

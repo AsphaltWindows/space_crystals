@@ -228,9 +228,9 @@ impl Bindings {
 }
 
 /// The defaults: `core/camera.md > Panning`, `systems/controls/selection_and_hud.md` (`> MapClickSelection`,
-/// `> AwaitingTarget`, `> GroupCycling`, `> ControlGroups > Default keys`, `> CommandPanel > Grid Layout`) and
-/// `systems/controls/commands.md > Unit Command` (design changes 0002, 0010 and 0011); then the map editor's, which
-/// its F1 help lists (the design gives none).
+/// `> SelectionPanel > Interactions`, `> AwaitingTarget`, `> GroupCycling`, `> ControlGroups > Default keys`,
+/// `> CommandPanel > Grid Layout`) and `systems/controls/commands.md > Unit Command` (design changes 0002, 0010 and
+/// 0011), and a placeholder debug key; then the map editor's, which its F1 help lists (the design gives none).
 impl Default for Bindings {
     fn default() -> Self {
         use Binding::{DoubleTap, Modifiers as Held, Press, Wheel};
@@ -253,6 +253,9 @@ impl Default for Bindings {
             (A::Queue, Held(Modifiers::SHIFT)),
             (A::ToggleSelection, Held(Modifiers::SHIFT)),
             (A::SelectSameType, Held(Modifiers::CTRL)),
+            (A::CenterOnObject, Held(Modifiers::ALT)),
+            // Placeholder: the design has no debug keys.
+            (A::DebugSwitchPlayer, Press(key(KeyCode::F2))),
         ];
         for group in ControlGroup::all() {
             let digit = key(group.digit_key());
@@ -356,6 +359,8 @@ mod tests {
         );
         assert_eq!(only(InputAction::Queue), [Binding::Modifiers(Modifiers::SHIFT)]);
         assert_eq!(only(InputAction::SelectSameType), [Binding::Modifiers(Modifiers::CTRL)]);
+        assert_eq!(only(InputAction::CenterOnObject), [Binding::Modifiers(Modifiers::ALT)]);
+        assert_eq!(only(InputAction::DebugSwitchPlayer), press(KeyCode::F2));
         let seven = Chord::key(KeyCode::Digit7);
         assert_eq!(
             only(InputAction::AssignGroup(group(7))),
@@ -384,7 +389,7 @@ mod tests {
         );
         assert_eq!(only(InputAction::CommandSlot(CommandSlot::RALLY_POINT)), press(KeyC));
         let game = b.entries().iter().filter(|(a, _)| !matches!(a, InputAction::Editor(_)));
-        assert_eq!(game.count(), 15 + 4 * 10 + 12);
+        assert_eq!(game.count(), 17 + 4 * 10 + 12);
     }
 
     #[test]
@@ -578,6 +583,7 @@ mod tests {
             [InputAction::Queue, InputAction::ToggleSelection]
         );
         assert_eq!(held(Modifiers::CTRL), [InputAction::SelectSameType]);
+        assert_eq!(held(Modifiers::ALT), [InputAction::CenterOnObject]);
         assert!(b.holds(InputAction::Queue, Modifiers::SHIFT));
         assert!(!b.holds(InputAction::Queue, Modifiers::ALT));
         assert!(!b.holds(InputAction::Cancel, Modifiers::SHIFT), "not a modifier action");
