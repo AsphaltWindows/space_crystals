@@ -112,7 +112,7 @@ pub fn rebuild_presets(
 }
 
 /// The chosen preset's name, properties and look. A custom preset's can be changed, and it can be removed; a
-/// default preset's are shown, fixed. Keyed by the preset only: its name field stays while it is edited.
+/// default preset's are listed in one line, fixed. Keyed by the preset only: its name field stays while it is edited.
 pub fn rebuild_preset_editor(
     mut commands: Commands,
     doc: Res<EditorDoc>,
@@ -124,47 +124,53 @@ pub fn rebuild_preset_editor(
         return;
     }
     let id = tools.preset;
-    // A default preset's name is fixed: shown as a label.
-    let fixed_name = id
+    // A default preset is fixed: one line says what it is.
+    let fixed = id
         .is_default()
-        .then(|| doc.map().terrain.presets().get(id.0 as usize).map(|p| p.name.clone()))
+        .then(|| doc.map().terrain.presets().get(id.0 as usize).map(default_preset_line))
         .flatten();
-    rebuild(
-        &mut commands,
-        &list,
-        &mut shown,
-        (id, fixed_name),
-        |list, (id, fixed_name)| {
-            let id = *id;
-            match fixed_name {
-                Some(name) => {
-                    list.spawn(label(format!("{name}: a default preset, fixed"), SMALL_VH, DIM_TEXT));
-                }
-                None => {
-                    list.spawn(row()).with_children(|r| {
-                        r.spawn(label("Name", SMALL_VH, DIM_TEXT));
-                        r.spawn(text_field(TextField::PresetName(id), "", 14.0));
-                        r.spawn(small_button("Remove", EditorAction::RemovePreset(id)));
-                    });
-                }
+    rebuild(&mut commands, &list, &mut shown, (id, fixed), |list, (id, fixed)| {
+        let id = *id;
+        if let Some(line) = fixed {
+            list.spawn(label(line.clone(), SMALL_VH, DIM_TEXT));
+            return;
+        }
+        list.spawn(row()).with_children(|r| {
+            r.spawn(label("Name", SMALL_VH, DIM_TEXT));
+            r.spawn(text_field(TextField::PresetName(id), "", 14.0));
+            r.spawn(small_button("Remove", EditorAction::RemovePreset(id)));
+        });
+        list.spawn(row()).with_children(|r| {
+            for flag in PresetFlag::ALL {
+                r.spawn(small_button(flag.label(), EditorAction::TogglePresetFlag(id, flag)));
             }
-            list.spawn(row()).with_children(|r| {
-                for flag in PresetFlag::ALL {
-                    r.spawn(small_button(flag.label(), EditorAction::TogglePresetFlag(id, flag)));
-                }
-            });
-            list.spawn(row()).with_children(|r| {
-                r.spawn(label("Look", SMALL_VH, DIM_TEXT));
-                for look in TileLook::ALL {
-                    r.spawn(button_frame(EditorAction::SetPresetLook(id, look)))
-                        .with_children(|b| {
-                            b.spawn(swatch(tile_color(look, 0.0).into()));
-                            b.spawn(label(look.label(), SMALL_VH, TEXT));
-                        });
-                }
-            });
-        },
-    );
+        });
+        list.spawn(row()).with_children(|r| {
+            r.spawn(label("Look", SMALL_VH, DIM_TEXT));
+            for look in TileLook::ALL {
+                r.spawn(button_frame(EditorAction::SetPresetLook(id, look)))
+                    .with_children(|b| {
+                        b.spawn(swatch(tile_color(look, 0.0).into()));
+                        b.spawn(label(look.label(), SMALL_VH, TEXT));
+                    });
+            }
+        });
+    });
+}
+
+/// What a default preset is, in one line: its name and its properties.
+fn default_preset_line(preset: &sc_sim::TilePreset) -> String {
+    let properties: Vec<String> = PresetFlag::ALL
+        .into_iter()
+        .filter(|flag| flag.get(preset))
+        .map(|flag| flag.label().to_lowercase())
+        .collect();
+    let properties = if properties.is_empty() {
+        "no properties".into()
+    } else {
+        properties.join(", ")
+    };
+    format!("{}: a default preset, fixed; {properties}", preset.name)
 }
 
 pub fn rebuild_owners(

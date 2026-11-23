@@ -198,6 +198,7 @@ fn count_ui_changes(
     texts: Query<(), Changed<Text>>,
     backgrounds: Query<(), Changed<BackgroundColor>>,
     borders: Query<(), Changed<BorderColor>>,
+    text_colors: Query<(), Changed<TextColor>>,
     fields: Query<(), Changed<EditableText>>,
     visibility: Query<(), Changed<Visibility>>,
     buttons: Query<(), Added<UiAction>>,
@@ -206,6 +207,7 @@ fn count_ui_changes(
     changes.0 += texts.iter().count()
         + backgrounds.iter().count()
         + borders.iter().count()
+        + text_colors.iter().count()
         + fields.iter().count()
         + visibility.iter().count()
         + buttons.iter().count();

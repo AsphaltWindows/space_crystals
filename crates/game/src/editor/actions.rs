@@ -446,7 +446,7 @@ impl Editor<'_> {
         };
         let name = current.kind.def().name;
         if !map.is_spawn_editable(current) {
-            self.refuse_locked(&format!("Spawn #{spawn} ({name})"));
+            self.refuse_locked(&format!("spawn #{spawn} ({name})"));
             return;
         }
         if settings.kind() != current.kind {

@@ -378,8 +378,9 @@ pub fn refresh_fields(
             continue;
         };
         if text.value().to_string() != value {
+            // From its start: a field too short for its value shows how it begins.
             text.editor.set_text(&value);
-            text.queue_edit(TextEdit::TextEnd(false));
+            text.queue_edit(TextEdit::TextStart(false));
         }
     }
 }

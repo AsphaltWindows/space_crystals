@@ -269,9 +269,26 @@ fn spawn_status_line(commands: &mut Commands) {
         },
         BackgroundColor(PANEL_BACKGROUND),
         BorderColor::all(BORDER),
+        // The message never shrinks: when both don't fit, the info gives way, clipped at its end.
         children![
-            (StatusText::Info, label("", SMALL_VH, TEXT), TextLayout::no_wrap()),
-            (StatusText::Message, label("", SMALL_VH, TEXT), TextLayout::no_wrap()),
+            (
+                Node {
+                    flex_shrink: 1.0,
+                    min_width: px(0),
+                    overflow: Overflow::clip(),
+                    ..default()
+                },
+                children![(StatusText::Info, label("", SMALL_VH, TEXT), TextLayout::no_wrap())],
+            ),
+            (
+                StatusText::Message,
+                label("", SMALL_VH, TEXT),
+                TextLayout::no_wrap(),
+                Node {
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+            ),
         ],
     ));
 }

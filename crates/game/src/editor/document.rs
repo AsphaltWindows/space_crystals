@@ -224,7 +224,7 @@ impl Editor<'_> {
             return;
         }
         if !map.region().tile(tile) {
-            self.refuse_locked("That tile");
+            self.refuse_locked("that tile");
             return;
         }
         if map.slot(slot).is_some_and(|s| s.start != tile) {
@@ -248,7 +248,7 @@ impl Editor<'_> {
             return;
         }
         if pos.is_some_and(|p| !map.region().point(p)) {
-            self.refuse_locked("That point");
+            self.refuse_locked("that point");
             return;
         }
         if map.slot(slot).is_some_and(|s| s.camera_start != pos) {

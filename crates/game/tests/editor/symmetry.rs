@@ -142,7 +142,7 @@ fn edits_of_the_locked_part_are_refused() {
     // The generated slot's markers, the image of the patch and its values.
     act(&mut app, [A::SelectSlot(SlotId(2))]);
     assert_eq!(tools(&app).slot, SlotId(1));
-    assert_warned(&app, "Slot 2 (the image of slot 1)");
+    assert_warned(&app, "slot 2 (the image of slot 1)");
     act(&mut app, [A::SetStart(SlotId(2), TilePos::new(5, 5))]);
     assert_warned(&app, "Locked");
     act(&mut app, [A::SetCameraStart(SlotId(2), Some(at(5, 5)))]);

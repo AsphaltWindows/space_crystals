@@ -70,6 +70,8 @@ const BUTTON_PRESSED: Color = Color::srgb(0.10, 0.11, 0.14);
 const BUTTON_DISABLED: Color = Color::srgb(0.10, 0.11, 0.13);
 /// A choice that is current but can't be changed (a default preset's properties).
 const BUTTON_LIT_DISABLED: Color = Color::srgb(0.13, 0.21, 0.32);
+/// The opacity of a disabled button's text: dimmed, in its own colour.
+const DISABLED_TEXT_ALPHA: f32 = 0.35;
 
 /// The action a button queues when activated.
 #[derive(Component, Clone, Debug)]
@@ -202,9 +204,16 @@ type ButtonLook = (
     &'static mut BackgroundColor,
 );
 
-/// Colours the buttons: disabled, pressed, lit, hovered. Only the buttons whose look may have changed: all of them
-/// when the editor's state changed, else the new ones and those hovered, pressed or released (review finding).
-fn style_buttons(state: UiState, mut released: RemovedComponents<Pressed>, mut buttons: Query<ButtonLook>) {
+/// Colours the buttons: disabled (with dimmed text), pressed, lit, hovered. Only the buttons whose look may have
+/// changed: all of them when the editor's state changed, else the new ones and those hovered, pressed or released
+/// (review finding).
+fn style_buttons(
+    state: UiState,
+    mut released: RemovedComponents<Pressed>,
+    mut buttons: Query<ButtonLook>,
+    children: Query<&Children>,
+    mut texts: Query<&mut TextColor>,
+) {
     let everything = state.is_changed();
     let released: Vec<Entity> = released.read().collect();
     for (entity, action, hovered, pressed, mut background) in &mut buttons {
@@ -218,7 +227,15 @@ fn style_buttons(state: UiState, mut released: RemovedComponents<Pressed>, mut b
         }
         let hovered = hovered.is_some_and(|h| h.get());
         let lit = state.is_lit(&action.0);
-        let color = if !state.is_enabled(&action.0) {
+        let enabled = state.is_enabled(&action.0);
+        let alpha = if enabled { 1.0 } else { DISABLED_TEXT_ALPHA };
+        for child in children.get(entity).into_iter().flatten() {
+            if let Ok(mut text) = texts.get_mut(*child) {
+                let dimmed = TextColor(text.0.with_alpha(alpha));
+                text.set_if_neq(dimmed);
+            }
+        }
+        let color = if !enabled {
             if lit { BUTTON_LIT_DISABLED } else { BUTTON_DISABLED }
         } else if pressed.is_some() {
             BUTTON_PRESSED
