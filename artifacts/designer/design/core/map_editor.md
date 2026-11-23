@@ -13,7 +13,13 @@ Starting bases are **placed by the map maker per faction** (user, 2026-11-23). F
 ### Overlay editing
 The editor can show **all factions' starting layouts at the same position simultaneously, overlaid on each other**, so the map maker can define and compare the positions of all buildings and units for all factions in one place.
 
-TBD (asked, not yet answered): whether the editor drops in a default layout per faction to adjust or the maker places everything from scratch; whether objects from different factions' layouts may overlap (each layout presumably only needs to be valid on its own); per-faction layer toggles; what happens to existing maps when a faction's Starting Conditions change (flag vs auto-fix).
+### Placing from scratch
+Starting Layouts start **empty**: the map maker places every starting object by hand (no pre-filled default layout).
+
+### Skirmish Default restriction
+By default, a faction's Starting Layout is under the **Skirmish Default** restriction: the map maker can only place the objects in that faction's standard Starting Conditions (factions/*/economy.md > Starting Conditions, factions/syndicate/tunnels.md > Starting Conditions), e.g. for GDO a Deployment Center, an Extraction Facility and two Extraction Plates. The restriction **can be turned off**, allowing any objects to be placed in the layout (custom or scenario starts).
+
+TBD: whether a Skirmish Default layout must contain all of the faction's starting objects before the map is usable (and how missing ones are shown); whether the toggle is per map, per start position or per faction layout; what happens to existing Skirmish Default layouts when a faction's Starting Conditions change (flag vs auto-fix); whether layouts of different factions may overlap (assumed yes: each layout only needs to be valid on its own); per-faction layer toggles in the overlay view.
 
 ## Symmetry Tools
 The editor can make maps symmetric automatically (user, 2026-11-23). Supported symmetries:
