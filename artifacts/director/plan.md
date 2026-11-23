@@ -8,9 +8,11 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 - **Workspace scaffold** (`8ce3444`): `sc_sim` core interface — units and coordinates, ids, libm math, tile map with default presets, object defs and instances, commands, events, scenarios (`dev_skirmish`, `empty`), `Sim` tick pipeline, Supply Delivery Station countdown. Determinism lints in `crates/sim/clippy.toml`. Bevy 0.20.1 client stub.
 
 - **ARCHITECTURE.md**: the binding brief for implementing agents.
+- **M0-A sim foundation** (`1d966e3`, 66 tests): ASCII test maps; PCG32 `Rng`; `Sim::state_hash` (exhaustive, so a new field won't compile until hashed); `Sim` serde; `Replay`; `sc_sim::testing`; versioned JSON scenario files; `ObjectKind::ALL`; `Scenario::validate` and `Sim::try_new`; `PlayerSetup::start_location` (Q0004 placeholder); non-finite positions rejected.
+  - Follow-ups: a debug-spawned station delivers at spawn tick + 959, while a scenario station delivers at tick 960, because objects are updated in the tick they spawn. Settle the convention (proposed: objects spawned during a tick start updating on the next tick). Review the whole of M0 once M0-B is merged.
 
 ## In progress
-- **M0-A sim** and **M0-B client**: agents running in parallel worktrees (details under M0 below).
+- **M0-B client**: agent running in its own worktree (details under M0 below).
 
 ## Queued
 ### M0 — Foundation (next; two agents in parallel, separate worktrees)

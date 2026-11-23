@@ -49,6 +49,10 @@ pub struct ObjectDef {
 }
 
 impl ObjectKind {
+    /// Every object type, in declaration order, so tools such as the map editor's palette
+    /// list new types automatically. A test checks that it stays complete.
+    pub const ALL: &'static [ObjectKind] = &[ObjectKind::CrystalPatch, ObjectKind::SupplyDeliveryStation];
+
     pub fn def(self) -> &'static ObjectDef {
         match self {
             ObjectKind::CrystalPatch => &CRYSTAL_PATCH,
@@ -84,3 +88,68 @@ static SUPPLY_DELIVERY_STATION: ObjectDef = ObjectDef {
     sight_range: 0.0,
     max_hp: None,
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::Deserialize;
+    use serde::de::IntoDeserializer;
+    use serde::de::value::{Error as ValueError, U32Deserializer};
+
+    /// Every variant, found through serde's derived `Deserialize`, which accepts a unit
+    /// variant by its declaration index and rejects the first index past the last variant.
+    fn declared_kinds() -> Vec<ObjectKind> {
+        (0u32..)
+            .map_while(|i| {
+                let index: U32Deserializer<ValueError> = i.into_deserializer();
+                ObjectKind::deserialize(index).ok()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn all_lists_every_kind_in_declaration_order() {
+        assert!(!ObjectKind::ALL.is_empty());
+        assert_eq!(ObjectKind::ALL, declared_kinds().as_slice());
+    }
+
+    #[test]
+    fn defs_are_consistent() {
+        for &kind in ObjectKind::ALL {
+            let def = kind.def();
+            let name = def.name;
+            assert_eq!(def.kind, kind, "{name}: def of the wrong kind");
+            assert!(!name.is_empty(), "{kind:?}: empty name");
+            match def.footprint {
+                Footprint::Tiles { w, h } => {
+                    assert!((1..=16).contains(&w) && (1..=16).contains(&h), "{name}: {w}×{h} tiles");
+                    assert_ne!(def.category, Category::Unit, "{name}: units have silhouettes");
+                }
+                Footprint::Silhouette { w, h } => {
+                    assert!(
+                        w.is_finite() && w > 0.0 && h.is_finite() && h > 0.0,
+                        "{name}: {w}×{h} su"
+                    );
+                    assert_eq!(def.category, Category::Unit, "{name}: only units have silhouettes");
+                }
+            }
+            assert!(
+                def.sight_range.is_finite() && def.sight_range >= 0.0,
+                "{name}: sight range"
+            );
+            match def.max_hp {
+                Some(hp) => assert!(def.destructible && hp.is_finite() && hp > 0.0, "{name}: max HP {hp}"),
+                None => assert!(!def.destructible, "{name}: destructible without max HP"),
+            }
+            if def.category == Category::Resource {
+                // `core/map.md > Resource`: indestructible, unowned (no faction), no vision.
+                assert!(
+                    !def.destructible && def.max_hp.is_none(),
+                    "{name}: resources are indestructible"
+                );
+                assert_eq!(def.faction, None, "{name}: resources belong to no faction");
+                assert_eq!(def.sight_range, 0.0, "{name}: resources provide no vision");
+            }
+        }
+    }
+}

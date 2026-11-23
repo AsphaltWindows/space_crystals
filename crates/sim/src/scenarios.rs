@@ -18,12 +18,18 @@ pub fn by_name(name: &str) -> Option<Scenario> {
     }
 }
 
-/// A flat, featureless map with two players and no objects.
+/// A flat, featureless map with two players and no objects. The start locations (Q0004
+/// placeholder) sit a quarter of the way in from the top-left and bottom-right corners.
 pub fn empty(width: u32, height: u32) -> Scenario {
+    let map = Map::new(width, height); // Panics first if the size is 0.
+    let mut players = two_players();
+    let (x, y) = (width / 4, height / 4);
+    players[0].start_location = Some(TilePos::new(x as i32, y as i32));
+    players[1].start_location = Some(TilePos::new((width - 1 - x) as i32, (height - 1 - y) as i32));
     Scenario {
         name: "empty".into(),
-        map: Map::new(width, height),
-        players: two_players(),
+        map,
+        players,
         spawns: Vec::new(),
         seed: 1,
     }
@@ -93,8 +99,12 @@ pub fn dev_skirmish() -> Scenario {
     });
 
     let mut players = two_players();
-    players[0].camera_start = Some(TilePos::new(10, 10).center());
-    players[1].camera_start = Some(TilePos::new(53, 37).center());
+    // Start locations (Q0004 placeholder): the base areas, mirrored around the map center.
+    let starts = [TilePos::new(10, 10), TilePos::new(53, 37)];
+    for (p, start) in players.iter_mut().zip(starts) {
+        p.start_location = Some(start);
+        p.camera_start = Some(start.center());
+    }
     Scenario {
         name: "dev_skirmish".into(),
         map,
@@ -111,12 +121,14 @@ fn two_players() -> Vec<PlayerSetup> {
             name: "Player 1".into(),
             faction: Faction::Gdo,
             camera_start: None,
+            start_location: None,
         },
         PlayerSetup {
             id: PlayerId(2),
             name: "Player 2".into(),
             faction: Faction::Gdo,
             camera_start: None,
+            start_location: None,
         },
     ]
 }

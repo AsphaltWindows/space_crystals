@@ -70,7 +70,7 @@ every run and every machine. Replays, reproducible bugs and a possible lockstep 
 - **No hash containers**: don't use `HashMap` or `HashSet`, because their iteration order is random. Use `BTreeMap`,
   `BTreeSet` or a sorted `Vec`.
 - **No outside world**: no wall clock, no threads and no OS randomness. The only source of randomness is the sim's
-  PRNG, seeded from `Scenario::seed`. The PRNG arrives in M0.
+  PRNG (`sc_sim::Rng`, PCG32), seeded from `Scenario::seed`. It is part of the hashed state.
 - **Floats**: `f32` is fine. `+ - * /`, `sqrt`, `abs`, `floor`/`round` and `as` casts give identical results
   everywhere, but transcendental functions (`sin`, `cos`, `atan2`, `exp`, `powf`, …) don't. Call them through
   `sc_sim::math`, which wraps the pure-Rust `libm` crate, and add any missing function there. `powi` is banned too,
@@ -163,23 +163,42 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 - `Command::Debug(DebugCommand::…)` covers `Spawn`, `Remove` and `SetPosition`, for development and QA. It bypasses
   costs and rules and is never offered in a real match. A teleport sets `prev_pos = pos`, so nothing interpolates
   across the map.
-- **Replay** = the `Scenario` plus the `TickInputs` of every tick, empty ticks included (all derive serde). The replay
-  type and its runner arrive in M0.
+- **Replay** = the `Scenario` plus the `TickInputs` of every tick, empty ticks included: `sc_sim::Replay` (serde)
+  with `record`/`step`/`run`. The client must never submit a command with a non-finite number. The sim would ignore
+  it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to load. Validate at the input layer.
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, …) are output only, for effects, sounds and UI.
   The sim never reads them. `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events
   from the scenario's initial spawns.
 
 ## Sim scenarios and tests
 
-- A `Scenario` (`scenario.rs`) holds a name, the `Map`, the players (`PlayerSetup`, including `camera_start`), the
-  spawns and the RNG `seed`. Spawns are created in order at tick 0, so their ids ascend in list order.
+- A `Scenario` (`scenario.rs`) holds a name, the `Map`, the players (`PlayerSetup`, including `camera_start` and
+  `start_location`, a placeholder until Q0004), the spawns and the RNG `seed`. Spawns are created in order at tick 0,
+  so their ids ascend in list order.
+- `Scenario::validate()` lists every problem (`ScenarioProblem`) and never panics. `Sim::try_new` returns the problems
+  as an error and `Sim::new` panics with them, so load files and editor maps with `try_new`.
+- **Scenario files** are a `Scenario`'s serde form, written with `serde_json::to_string_pretty`. A `version` field
+  (`SCENARIO_FORMAT_VERSION`) comes first; bump it on any incompatible change. The map is stored as rows of strings in
+  the ASCII format below, with the custom presets listed by symbol. Reading rejects other versions and unknown fields.
 - Built-in scenarios live in `scenarios.rs`, behind `by_name(name)` and `NAMES`. Keep the two in sync, because the
   client's `--scenario` flag uses them. Currently there are `dev_skirmish`, a 64×48 development map the Director made
   (see Q0003), and `empty`, a 32×24 map. `scenarios::empty(w, h)` builds an empty map of any size.
 - Unit tests sit in their module (`#[cfg(test)] mod tests`). Scenario and integration tests go in `crates/sim/tests/`
   and use only the public API.
-- Build test scenarios inline from `scenarios::empty(w, h)` plus tiles and spawns, not from `dev_skirmish`'s layout.
-- A determinism test runs the same scenario and inputs twice and compares the state hashes. The hash arrives in M0.
+- Build test scenarios inline from an ASCII map or from `scenarios::empty(w, h)` plus tiles and spawns, not from
+  `dev_skirmish`'s layout.
+- **ASCII maps** (`Map::from_ascii`, `Map::to_ascii`; full rules in the `map` module docs) have one symbol per tile and
+  one line per row, north to south: `.` Plane, `r` Rugged Terrain, `c` Cliff, `M` Mountain, `~` Water. An optional
+  elevation block of the same size follows after a blank line, with one base-17 digit per tile (`0`–`9`, then `a`–`g`
+  for 10–16). Without it, every tile is at elevation 0. Lines are trimmed, so maps can be indented string literals.
+- **Test helpers** live in the public `sc_sim::testing` module, so client tests can use them too.
+  `ScenarioBuilder::new(ascii)` makes a scenario with the two players of `scenarios::empty` and seed 1. Add spawns
+  with `.spawn(..)`, then call `.build()` or `.start()`. A `TestSim` schedules commands with `at(tick, player, cmd)`
+  or `debug_at(tick, cmd)`, and each one applies in the step that reaches that tick. It advances with `step`,
+  `run(n)` and `run_until(tick)`, keeps every event with its tick, and records a `Replay` of the run.
+- **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
+  same scenario and inputs twice, or play back a `Replay`, and compare the hashes. Every state type's hash impl
+  destructures it (`hash.rs`), so a new field doesn't compile until it is hashed.
 
 ## Client architecture
 

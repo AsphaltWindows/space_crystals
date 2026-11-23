@@ -1,0 +1,297 @@
+use super::*;
+use crate::scenarios;
+
+fn hash(map: &Map) -> u64 {
+    let mut h = StateHasher::new();
+    map.hash(&mut h);
+    h.finish()
+}
+
+fn tile(map: &Map, x: i32, y: i32) -> Tile {
+    map.tile(TilePos::new(x, y)).unwrap()
+}
+
+fn custom(name: &str) -> TilePreset {
+    TilePreset {
+        name: name.into(),
+        buildable: true,
+        traversible: false,
+        rugged: true,
+        drillable: false,
+        recruitable: true,
+    }
+}
+
+fn err(ascii: &str) -> String {
+    Map::from_ascii(ascii).expect_err("the map should be rejected")
+}
+
+#[test]
+fn ascii_reads_presets_and_elevation() {
+    let map = Map::from_ascii(
+        "
+        .rcM~
+        ~Mcr.
+
+        01234
+        9abcg
+        ",
+    )
+    .unwrap();
+    assert_eq!((map.width(), map.height()), (5, 2));
+    let presets: Vec<TilePresetId> = (0..5).map(|x| tile(&map, x, 0).preset).collect();
+    use TilePresetId as P;
+    assert_eq!(presets, [P::PLANE, P::RUGGED, P::CLIFF, P::MOUNTAIN, P::WATER]);
+    assert_eq!(tile(&map, 0, 1).preset, P::WATER);
+    let elevations: Vec<u8> = (0..5).map(|x| tile(&map, x, 1).elevation).collect();
+    assert_eq!(elevations, [9, 10, 11, 12, 16]);
+    assert_eq!(tile(&map, 4, 0).elevation, 4);
+}
+
+#[test]
+fn ascii_without_elevation_block_is_flat() {
+    let map = Map::from_ascii("..\r\n~~\r\n").unwrap();
+    assert_eq!((map.width(), map.height()), (2, 2));
+    assert!(map.tiles.iter().all(|t| t.elevation == 0));
+    assert_eq!(tile(&map, 1, 1).preset, TilePresetId::WATER);
+}
+
+#[test]
+fn ascii_round_trips() {
+    let map = Map::from_ascii(".r\ncM\n~.\n\n0g\n5a\n00").unwrap();
+    assert_eq!(map.to_ascii(), ".r\ncM\n~.\n\n0g\n5a\n00\n");
+    assert_eq!(Map::from_ascii(&map.to_ascii()), Ok(map));
+    let skirmish = scenarios::dev_skirmish().map;
+    assert_eq!(Map::from_ascii(&skirmish.to_ascii()), Ok(skirmish));
+}
+
+#[test]
+fn ascii_errors_say_what_and_where() {
+    assert_eq!(err(""), "the map has no tile rows");
+    assert_eq!(err(" \n\n "), "the map has no tile rows");
+    assert_eq!(err("...\n..\n..."), "ragged tile rows: row 1 has 2 tiles, row 0 has 3");
+    assert_eq!(err("...\n.x."), "unknown tile symbol 'x' at tile (1, 1)");
+    assert_eq!(err(". ."), "unknown tile symbol ' ' at tile (1, 0)");
+    assert_eq!(
+        err("..\n..\n\n00"),
+        "the elevation block has 1 rows, the tile block has 2"
+    );
+    assert_eq!(
+        err("..\n..\n\n00\n000"),
+        "ragged elevation rows: row 1 has 3 digits, the tile rows have 2"
+    );
+    assert_eq!(
+        err("..\n\n0h"),
+        "invalid elevation digit 'h' at tile (1, 0): use 0-9 and a-g for 0 to 16"
+    );
+    assert!(err("..\n\n0A").starts_with("invalid elevation digit 'A'"));
+    assert_eq!(
+        err("..\n\n00\n\n00"),
+        "expected a tile block and an optional elevation block, found 3 blocks separated by blank lines"
+    );
+}
+
+#[test]
+fn non_finite_points_are_off_the_map() {
+    let map = Map::new(4, 3);
+    assert!(map.contains_point(Vec2::new(0.0, 0.0)));
+    assert!(map.contains_point(Vec2::new(255.9, 191.9)));
+    assert!(!map.contains_point(Vec2::new(256.0, 10.0)));
+    assert!(!map.contains_point(Vec2::new(-0.1, 10.0)));
+    for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+        assert!(!map.contains_point(Vec2::new(bad, 10.0)), "{bad}");
+        assert!(!map.contains_point(Vec2::new(10.0, bad)), "{bad}");
+        assert!(!map.contains_point(Vec2::splat(bad)), "{bad}");
+    }
+}
+
+#[test]
+fn custom_presets_get_free_symbols() {
+    let mut map = Map::new(2, 1);
+    let a = map.add_preset(custom("a"));
+    assert_eq!((a, map.preset_symbol(a)), (TilePresetId(5), 'A'));
+    let z = map.add_preset_with_symbol(custom("z"), 'B').unwrap();
+    assert_eq!(map.preset_symbol(z), 'B');
+    let c = map.add_preset(custom("c"));
+    assert_eq!(map.preset_symbol(c), 'C');
+    assert_eq!(map.preset_symbol(TilePresetId::MOUNTAIN), 'M');
+    // Taken symbols, including the defaults, are skipped.
+    for _ in 0..9 {
+        map.add_preset(custom("filler"));
+    }
+    assert_eq!(map.preset_symbol(TilePresetId(16)), 'L');
+    let after_l = map.add_preset(custom("after L"));
+    assert_eq!(map.preset_symbol(after_l), 'N');
+}
+
+#[test]
+fn invalid_or_taken_symbols_are_rejected() {
+    let mut map = Map::new(2, 1);
+    map.add_preset_with_symbol(custom("x"), 'x').unwrap();
+    for bad in [' ', '"', '\\', '\n', 'é', '\u{7f}'] {
+        let e = map.add_preset_with_symbol(custom("bad"), bad).unwrap_err();
+        assert!(e.starts_with("invalid preset symbol"), "{bad:?}: {e}");
+    }
+    assert_eq!(
+        map.add_preset_with_symbol(custom("dup"), '~').unwrap_err(),
+        "preset symbol '~' is already used by preset \"Water\""
+    );
+    assert_eq!(
+        map.add_preset_with_symbol(custom("dup"), 'x').unwrap_err(),
+        "preset symbol 'x' is already used by preset \"x\""
+    );
+    assert_eq!(map.presets().len(), 6);
+}
+
+#[test]
+fn symbols_run_out_after_87_custom_presets() {
+    let mut map = Map::new(1, 1);
+    for _ in 0..87 {
+        map.add_preset(custom("p"));
+    }
+    let mut symbols = map.symbols.clone();
+    symbols.sort_unstable();
+    symbols.dedup();
+    assert_eq!(symbols.len(), 92);
+    assert!(map.add_preset_with_symbol(custom("one more"), '!').is_err());
+}
+
+#[test]
+#[should_panic(expected = "every preset symbol is taken")]
+fn add_preset_panics_when_symbols_run_out() {
+    let mut map = Map::new(1, 1);
+    for _ in 0..88 {
+        map.add_preset(custom("p"));
+    }
+}
+
+/// A named change to one field.
+type Mutation = (&'static str, fn(&mut Map));
+
+#[test]
+fn hash_covers_every_field() {
+    let mut base = Map::from_ascii("..r\nc~M\n\n012\n000").unwrap();
+    base.add_preset(custom("custom"));
+    let mutations: Vec<Mutation> = vec![
+        ("width", |m| m.width += 1),
+        ("height", |m| m.height += 1),
+        ("preset name", |m| m.presets[1].name.push('!')),
+        ("buildable", |m| m.presets[5].buildable ^= true),
+        ("traversible", |m| m.presets[5].traversible ^= true),
+        ("rugged", |m| m.presets[5].rugged ^= true),
+        ("drillable", |m| m.presets[5].drillable ^= true),
+        ("recruitable", |m| m.presets[5].recruitable ^= true),
+        ("symbol", |m| m.symbols[5] = 'Z'),
+        ("added preset", |m| {
+            m.add_preset(custom("another"));
+        }),
+        ("tile preset", |m| {
+            m.set_tile(TilePos::new(0, 0), Tile::new(TilePresetId(5), 0))
+        }),
+        ("tile elevation", |m| {
+            m.set_tile(TilePos::new(0, 0), Tile::new(TilePresetId::PLANE, 1))
+        }),
+    ];
+    for (name, mutate) in mutations {
+        let mut m = base.clone();
+        mutate(&mut m);
+        assert_ne!(m, base, "{name}: the mutation changed nothing");
+        assert_ne!(hash(&m), hash(&base), "{name}");
+    }
+    assert_eq!(hash(&base.clone()), hash(&base));
+}
+
+fn custom_preset_map() -> Map {
+    let mut map = Map::from_ascii("..r.\n~~..\n\n0001\n0000").unwrap();
+    let ash = map
+        .add_preset_with_symbol(
+            TilePreset {
+                name: "Ash Field".into(),
+                buildable: true,
+                traversible: true,
+                rugged: false,
+                drillable: false,
+                recruitable: true,
+            },
+            '#',
+        )
+        .unwrap();
+    let ice = map.add_preset(custom("Ice"));
+    map.set_tile(TilePos::new(2, 0), Tile::new(ash, 3));
+    map.set_tile(TilePos::new(3, 1), Tile::new(ice, 16));
+    map
+}
+
+#[test]
+fn serde_form_is_rows_and_custom_presets() {
+    let json = serde_json::to_value(custom_preset_map()).unwrap();
+    assert_eq!(
+        json,
+        serde_json::json!({
+            "custom_presets": [
+                {
+                    "symbol": "#", "name": "Ash Field", "buildable": true, "traversible": true,
+                    "rugged": false, "drillable": false, "recruitable": true
+                },
+                {
+                    "symbol": "A", "name": "Ice", "buildable": true, "traversible": false,
+                    "rugged": true, "drillable": false, "recruitable": true
+                }
+            ],
+            "tiles": ["..#.", "~~.A"],
+            "elevation": ["0031", "000g"]
+        })
+    );
+}
+
+#[test]
+fn serde_round_trips_custom_presets_and_symbols() {
+    let map = custom_preset_map();
+    let json = serde_json::to_string_pretty(&map).unwrap();
+    let back: Map = serde_json::from_str(&json).unwrap();
+    assert_eq!(back, map);
+    assert_eq!(back.preset_symbol(TilePresetId(5)), '#');
+    assert_eq!(serde_json::to_string_pretty(&back).unwrap(), json);
+}
+
+#[test]
+fn serde_accepts_omitted_presets_and_elevation() {
+    let map: Map = serde_json::from_str(r#"{ "tiles": [".~", "M."] }"#).unwrap();
+    assert_eq!(map, Map::from_ascii(".~\nM.").unwrap());
+}
+
+#[test]
+fn serde_rejects_bad_maps_with_a_message() {
+    let cases = [
+        (r#"{ "tiles": [] }"#, "the map has no tile rows"),
+        (
+            r#"{ "tiles": ["..", "."] }"#,
+            "ragged tile rows: row 1 has 1 tiles, row 0 has 2",
+        ),
+        (r#"{ "tiles": ["A."] }"#, "unknown tile symbol 'A' at tile (0, 0)"),
+        (
+            r#"{ "tiles": [".."], "elevation": ["0", "0"] }"#,
+            "the elevation block has 2 rows, the tile block has 1",
+        ),
+        (
+            r#"{ "tiles": [".."], "elevation": ["0z"] }"#,
+            "invalid elevation digit 'z'",
+        ),
+        (r#"{ "tiles": [".."], "height": 1 }"#, "unknown field `height`"),
+        (r#"{ "elevation": ["00"] }"#, "missing field `tiles`"),
+        (
+            r#"{ "custom_presets": [{ "symbol": "~", "name": "Lava", "buildable": false, "traversible": false,
+                 "rugged": false, "drillable": false, "recruitable": false }], "tiles": [".."] }"#,
+            "custom preset \"Lava\": preset symbol '~' is already used by preset \"Water\"",
+        ),
+        (
+            r#"{ "custom_presets": [{ "symbol": " ", "name": "Gap", "buildable": false, "traversible": false,
+                 "rugged": false, "drillable": false, "recruitable": false }], "tiles": [".."] }"#,
+            "custom preset \"Gap\": invalid preset symbol ' '",
+        ),
+    ];
+    for (json, expected) in cases {
+        let e = serde_json::from_str::<Map>(json).unwrap_err().to_string();
+        assert!(e.contains(expected), "{json}\n  gave: {e}\n  expected: {expected}");
+    }
+}

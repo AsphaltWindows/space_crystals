@@ -14,14 +14,18 @@
 pub mod command;
 pub mod defs;
 pub mod events;
+pub(crate) mod hash;
 pub mod ids;
 pub mod map;
 pub mod math;
 pub mod object;
 pub mod player;
+pub mod replay;
+pub mod rng;
 pub mod scenario;
 pub mod scenarios;
 pub mod sim;
+pub mod testing;
 pub mod units;
 
 pub use command::{Command, DebugCommand, PlayerCommand, TickInputs};
@@ -32,6 +36,8 @@ pub use ids::{ObjectId, PlayerId};
 pub use map::{Map, Tile, TilePreset, TilePresetId};
 pub use object::{Object, Placement, ResourceState, Rotation};
 pub use player::{Faction, Player};
-pub use scenario::{PlayerSetup, Scenario, Spawn, SpawnAt};
+pub use replay::Replay;
+pub use rng::Rng;
+pub use scenario::{PlayerSetup, Scenario, ScenarioProblem, Spawn, SpawnAt, SpawnProblem};
 pub use sim::Sim;
 pub use units::{SU_PER_GU, TICKS_PER_SECOND, Tick, TilePos, gu, seconds};
