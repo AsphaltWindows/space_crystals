@@ -15,6 +15,7 @@ use crate::defs::{Category, Footprint, ObjectKind};
 use crate::ids::{PlayerId, SlotId};
 use crate::map::Map;
 use crate::object::Placement;
+use crate::paths::misplaced;
 use crate::symmetry::Symmetry;
 use crate::units::TilePos;
 
@@ -54,7 +55,9 @@ impl<T: Copy> Occupied<T> {
 
 impl MapDef {
     /// Everything that makes this map unplayable whoever plays it: the terrain (size, then the too-steep tiles row by
-    /// row), the symmetry, the slots, the pre-placed objects in order, then the Starting Layouts. Never panics.
+    /// row), the symmetry, the slots, the pre-placed objects in order, then the units among them on blocked ground
+    /// or on each other and the footprints on units (`docs/movement.md > 3`), then the Starting Layouts. Never
+    /// panics.
     pub fn validate(&self) -> Vec<ScenarioProblem> {
         let mut problems = Vec::new();
         self.check(&mut problems);
@@ -132,6 +135,22 @@ impl MapDef {
                 }
             }
         }
+        // Units: every spawn that can be placed, whoever owns it, so a game with any players passes.
+        let placed: Vec<(usize, ObjectKind, Vec2, Option<&Placement>)> = self
+            .spawns
+            .iter()
+            .zip(&spots)
+            .enumerate()
+            .filter_map(|(i, (s, spot))| {
+                let (pos, placement) = spot.as_ref()?;
+                Some((i, s.kind, *pos, placement.as_ref()))
+            })
+            .collect();
+        let objects = placed.iter().map(|&(_, kind, pos, placement)| (kind, pos, placement));
+        for (n, problem) in misplaced(&self.terrain, objects) {
+            let (spawn, kind, ..) = placed[n];
+            problems.push(ScenarioProblem::InvalidSpawn { spawn, kind, problem });
+        }
 
         for (slot, s) in self.slot_ids().zip(&self.slots) {
             for (faction, objects) in s.layouts.iter() {
@@ -171,8 +190,8 @@ impl MapDef {
 
 impl Scenario {
     /// Everything that makes this game unplayable: the map's problems ([`MapDef::validate`]), then the setup's, then
-    /// the overlaps of the Starting Layouts the players get. Empty means [`crate::Sim::try_new`] accepts it. Never
-    /// panics.
+    /// the overlaps of the Starting Layouts the players get, then their units on blocked ground or on other units
+    /// and their footprints on units. Empty means [`crate::Sim::try_new`] accepts it. Never panics.
     pub fn validate(&self) -> Vec<ScenarioProblem> {
         self.start_objects().err().unwrap_or_default()
     }
@@ -199,6 +218,8 @@ impl Scenario {
         }
 
         let mut objects = Vec::new();
+        // The Starting Layout object each start object comes from (`None` for a pre-placed one).
+        let mut from_layout = Vec::new();
         let mut occupied: Occupied<()> = Occupied::default();
         for (s, spot) in self.map.spawns.iter().zip(spots) {
             let Some((pos, placement)) = spot else {
@@ -222,6 +243,7 @@ impl Scenario {
                 placement,
                 settings: s.settings,
             });
+            from_layout.push(None);
         }
         for (player, p) in self.setup.player_ids().zip(&self.setup.players) {
             let Some(slot) = self.map.slot(p.slot) else {
@@ -247,6 +269,21 @@ impl Scenario {
                     pos,
                     placement,
                     settings: None,
+                });
+                from_layout.push(Some((p.slot, p.faction, index)));
+            }
+        }
+        // Units. The pre-placed objects passed the same check against all the map's spawns (`MapDef::check`), so
+        // only Starting Layout objects can fail it here.
+        let placed = objects.iter().map(|o| (o.kind, o.pos, o.placement.as_ref()));
+        for (n, problem) in misplaced(&self.map.terrain, placed) {
+            if let (Some(&Some((slot, faction, index))), Some(o)) = (from_layout.get(n), objects.get(n)) {
+                problems.push(ScenarioProblem::InvalidLayoutObject {
+                    slot,
+                    faction,
+                    index,
+                    kind: o.kind,
+                    problem,
                 });
             }
         }

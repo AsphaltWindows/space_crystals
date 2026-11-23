@@ -4,7 +4,7 @@ use sc_sim::map::MAX_MAP_SIDE;
 use sc_sim::scenario::MAP_FORMAT_VERSION;
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{
-    CornerPos, Faction, GameSetup, Map, MapType, ObjectId, ObjectKind, PlayerId, PlayerSetup, Scenario,
+    CornerPos, Faction, GameSetup, LayoutObject, Map, MapType, ObjectId, ObjectKind, PlayerId, PlayerSetup, Scenario,
     ScenarioProblem, SettingsProblem, Sim, SimConfig, SlotId, Spawn, SpawnAt, SpawnProblem, SpawnSettings, Symmetry,
     TilePos, Vec2, scenarios,
 };
@@ -432,6 +432,100 @@ fn overlapping_footprints() {
         s.validate(),
         [overlap(0, 1, 2, 2), overlap(0, 3, 2, 2), overlap(2, 4, 4, 0)]
     );
+}
+
+/// `docs/movement.md > 3`: a game starts with its units on open ground inside the map and apart, and no blocking
+/// footprint on a ground unit. Touching is allowed. Of two objects in conflict, the later one is reported: pre-placed
+/// objects by the map, the Starting Layouts the players get by the game.
+#[test]
+fn units_start_on_open_ground_and_apart() {
+    // 8 × 6 tiles (512 × 384 su), water on tiles (5..=6, 1..=2): x 320..448, y 64..192.
+    let mut s = ScenarioBuilder::new(
+        "
+        ........
+        .....~~.
+        .....~~.
+        ........
+        ........
+        ........
+        ",
+    )
+    .build();
+    let (pk, guard, station) = (
+        ObjectKind::Peacekeeper,
+        ObjectKind::Guard,
+        ObjectKind::SupplyDeliveryStation,
+    );
+    let unit = |kind, owner, x, y| Spawn::new(kind, owner, SpawnAt::Point(Vec2::new(x, y)));
+    // Peacekeepers are 24 × 24 su, Guards 36 × 36.
+    s.map.spawns = vec![
+        unit(pk, Some(SlotId(1)), 100.0, 100.0),
+        unit(guard, None, 100.0, 70.0), // touches 0
+        unit(pk, Some(SlotId(2)), 110.0, 120.0),
+        unit(pk, None, 384.0, 128.0),    // in the water
+        unit(pk, None, 308.0, 128.0),    // touches the water
+        unit(guard, None, 10.0, 300.0),  // across the map's edge
+        tile_spawn(station, None, 1, 1), // x, y 64..192: on 0, 1 and 2
+        unit(pk, None, 160.0, 160.0),    // on the station
+        unit(pk, None, 204.0, 160.0),    // touches the station
+    ];
+    let invalid = |spawn, kind, problem| ScenarioProblem::InvalidSpawn { spawn, kind, problem };
+    let expected = [
+        invalid(2, pk, SpawnProblem::OverlapsUnit),
+        invalid(3, pk, SpawnProblem::Blocked),
+        invalid(5, guard, SpawnProblem::Blocked),
+        invalid(6, station, SpawnProblem::CoversUnit),
+        invalid(7, pk, SpawnProblem::Blocked),
+    ];
+    assert_eq!(s.map.validate(), expected);
+    assert_eq!(s.validate(), expected);
+    assert_eq!(
+        expected[0].to_string(),
+        "spawn 2 (Peacekeeper): its box overlaps another unit's"
+    );
+
+    for i in [7, 6, 5, 3, 2] {
+        s.map.spawns.remove(i);
+    }
+    assert_eq!(s.validate(), []);
+    let sim = Sim::try_new(&s).unwrap();
+    let owners: Vec<_> = sim.objects().map(|o| (o.kind, o.owner)).collect();
+    assert_eq!(owners, [(pk, Some(PlayerId(1))), (guard, None), (pk, None), (pk, None)]);
+    assert!(sim.objects().all(|o| o.orders.is_some() && o.mover.is_some()));
+
+    // Player 1 plays GDO in slot 1. Its layout objects come after all the pre-placed ones. (Layouts hold no
+    // blocking footprints yet: stations are map resources.)
+    s.map.spawns.push(tile_spawn(station, None, 0, 4)); // x 0..128, y 256..384
+    let layout = |kind, x, y| LayoutObject {
+        kind,
+        at: SpawnAt::Point(Vec2::new(x, y)),
+        orientation: Default::default(),
+    };
+    *s.map.slots[0].layouts.get_mut(Faction::Gdo) = vec![
+        layout(pk, 300.0, 300.0),
+        layout(pk, 100.0, 100.0),    // on pre-placed spawn 0
+        layout(guard, 320.0, 300.0), // on layout object 0
+        layout(pk, 384.0, 128.0),    // in the water
+        layout(pk, 64.0, 320.0),     // on the station
+    ];
+    // Nobody plays the Syndicate in slot 1.
+    *s.map.slots[0].layouts.get_mut(Faction::Syndicate) = vec![layout(guard, 384.0, 128.0)];
+    assert_eq!(s.map.validate(), [], "on the map alone, each layout object fits");
+    let invalid = |index, kind, problem| ScenarioProblem::InvalidLayoutObject {
+        slot: SlotId(1),
+        faction: Faction::Gdo,
+        index,
+        kind,
+        problem,
+    };
+    let expected = vec![
+        invalid(1, pk, SpawnProblem::OverlapsUnit),
+        invalid(2, guard, SpawnProblem::OverlapsUnit),
+        invalid(3, pk, SpawnProblem::Blocked),
+        invalid(4, pk, SpawnProblem::Blocked),
+    ];
+    assert_eq!(s.validate(), expected);
+    assert_eq!(Sim::try_new(&s), Err(expected));
 }
 
 #[test]

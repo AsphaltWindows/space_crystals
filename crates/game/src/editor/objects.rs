@@ -156,8 +156,9 @@ fn check_fit(map: &Map, spawn: &Spawn) -> Result<(), PlaceProblem> {
 
 /// Whether `spawn` may go where it is on `map`: in the editable part, neutral on a Skirmish Default map, entirely
 /// on the map, on flat ground if its type needs it, and, with the images the map's symmetry generates for it, not
-/// overlapping the footprint of another tile-based spawn or partly overlapping an image of itself. `moving` is the
-/// spawn being moved, which doesn't count, and neither do its images.
+/// overlapping the footprint of another tile-based spawn or the box of another unit in its layer, nor partly
+/// overlapping an image of itself. `moving` is the spawn being moved, which doesn't count, and neither do its
+/// images.
 pub fn check_placement(map: &MapDef, spawn: &Spawn, moving: Option<usize>) -> Result<(), PlaceProblem> {
     if !map.is_spawn_editable(spawn) {
         return Err(PlaceProblem::Locked);
@@ -170,7 +171,9 @@ pub fn check_placement(map: &MapDef, spawn: &Spawn, moving: Option<usize>) -> Re
     let all: Vec<&Spawn> = std::iter::once(spawn).chain(&images).collect();
     let footprints: Vec<BTreeSet<TilePos>> = all.iter().map(|s| spawn_tiles(s).into_iter().collect()).collect();
     for (i, a) in footprints.iter().enumerate() {
-        if footprints[i + 1..].iter().any(|b| !a.is_disjoint(b)) {
+        if footprints[i + 1..].iter().any(|b| !a.is_disjoint(b))
+            || all[i + 1..].iter().any(|b| units_overlap(all[i], b))
+        {
             return Err(PlaceProblem::OverlapsOwnImage);
         }
     }
@@ -188,13 +191,33 @@ pub fn check_placement(map: &MapDef, spawn: &Spawn, moving: Option<usize>) -> Re
     }
     let overlap = map.spawns.iter().enumerate().find(|(j, other)| {
         !skip.contains(j)
-            && spawn_tiles(other)
+            && (spawn_tiles(other)
                 .iter()
                 .any(|t| footprints.iter().any(|f| f.contains(t)))
+                || all.iter().any(|s| units_overlap(s, other)))
     });
     match overlap {
         Some((j, _)) => Err(PlaceProblem::Overlaps(j)),
         None => Ok(()),
+    }
+}
+
+/// `docs/movement.md > 3`: whether two unit spawns' boxes overlap in a layer where units collide (touching is
+/// allowed), by the sim's test. Units on blocked ground are left to validation, which lists them.
+fn units_overlap(a: &Spawn, b: &Spawn) -> bool {
+    let unit_box = |s: &Spawn| {
+        let def = s.kind.def();
+        let SpawnAt::Point(pos) = s.at else {
+            return None;
+        };
+        let domain = def.unit.as_ref()?.base_def().domain;
+        Some((pos, def.half_extents()?, domain))
+    };
+    match (unit_box(a), unit_box(b)) {
+        (Some((pa, ha, la)), Some((pb, hb, lb))) => {
+            la == lb && la.hard_collision() && (pa.x - pb.x).abs() < ha.x + hb.x && (pa.y - pb.y).abs() < ha.y + hb.y
+        }
+        _ => false,
     }
 }
 

@@ -94,6 +94,14 @@ pub enum SpawnProblem {
     WrongSettings,
     /// One of the spawn's values makes no sense.
     InvalidSettings(SettingsProblem),
+    /// `docs/movement.md > 3`: the unit's box overlaps ground it can't stand on: impassable terrain, the map's edge
+    /// or the blocking footprint of an earlier object.
+    Blocked,
+    /// `docs/movement.md > 3`: the unit's box overlaps the box of an earlier unit of its layer (ground or
+    /// underground; touching is allowed).
+    OverlapsUnit,
+    /// `docs/movement.md > 3`: the blocking footprint covers part of an earlier ground unit's box.
+    CoversUnit,
 }
 
 impl fmt::Display for SpawnProblem {
@@ -117,6 +125,12 @@ impl fmt::Display for SpawnProblem {
             SpawnProblem::MissingSettings => write!(f, "its per-object values are missing"),
             SpawnProblem::WrongSettings => write!(f, "its per-object values belong to another kind of object"),
             SpawnProblem::InvalidSettings(problem) => write!(f, "{problem}"),
+            SpawnProblem::Blocked => write!(
+                f,
+                "its box overlaps impassable ground, the map's edge or a structure or resource"
+            ),
+            SpawnProblem::OverlapsUnit => write!(f, "its box overlaps another unit's"),
+            SpawnProblem::CoversUnit => write!(f, "its footprint covers a unit"),
         }
     }
 }

@@ -7,6 +7,7 @@ mod edits;
 mod review;
 mod session;
 mod symmetry;
+mod units;
 
 use std::path::{Path, PathBuf};
 
