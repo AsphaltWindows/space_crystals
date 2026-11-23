@@ -28,7 +28,7 @@
 ## Open Director Questions
 
 All non-blocking; Director proceeds on its defaults (option A in each). Arrived 2026-11-23 mid-GDO-roster; raise after the support-air-unit thread. Movement/pathing cluster:
-- **Q0015** points 1–2 ANSWERED (0027, 0028 silhouettes). Still ask: (3) Shift-queued group move box from current positions (A) vs previous queued destinations (B).
+- **Q0016** command UI edge cases: (1) right-click resolved command executed only by units that have it (A) vs others move/follow (B, SC2); (2) invalid target click while AwaitingTarget ignored+keep waiting (A) vs cancel vs error msg; (3) while awaiting target: other buttons disabled, box-drag does nothing, selection/active-group change cancels; (4) Shift-click in targeting queues then exits (A, docs) vs targeting stays while Shift held (B, SC2). Director: 1 and 4 matter most.
 - **Q0009** range measured: A attacker centre → nearest point of target shape / B centre-centre / C edge-edge; proximity = within 8 su; silhouettes rotate with facing? (A no / B yes).
 - **Q0010** chase into fog (A go to last seen pos / B complete / C keep chasing); patrol origin at execution vs issue (docs conflict: commands.md vs behaviors.md step 1); failed patrol leg (A counts as arrived, 2 in a row end / B end).
 - **Q0011** patches/stations block ground units?; Rugged impassable for RuggedTerrain=false bases (docs imply: LightInfantry 'able to traverse rugged terrain')?; pathing knows unseen enemy structures? (A true map / B explored only); underground units collide?, air crosses everything.
