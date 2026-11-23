@@ -86,21 +86,46 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - `Pointer::press` handles strokes and drags over UI.
   - The editor QA screenshot is byte-identical to the one taken before the change.
 
-## In progress
-- **M1-B unit foundation** (Opus, in a worktree; brief `scratchpad/briefs/m1b-unit-foundation.md`). It has been told to merge master (M0-E) before finishing, and may add unit-overlap validation.
+- **M1-B unit foundation** (merged in `259f72c`; 324 tests):
+  - **Units**: Peacekeeper and Guard, with every attribute the design gives (combat stats stored as data).
+  - **Orders and movement state**: `Orders` (cap 32) and `Mover` capabilities. `Command::Order` goes through the gate: dead ids are dropped; not-owned or empty orders are rejected.
+  - **Pipeline**: phases 5a–5f (`orders::update`, `paths::sync`, `paths::serve`, `movement::step`, plus combat and vision stubs).
+  - **Movement**: a naive mover follows nav paths with an exact arrival snap. Group slots follow `docs/movement.md` 6.4.
+  - **Validation**: units can't be placed on blocked ground or on other units. This covers debug spawns, scenarios and editor placement.
+  - **Visuals**: placeholder units (circle and square), a P path overlay, and `--commands` QA input.
+  - **Not done**: unit–unit collision (D) and the Attack/AttackMove/Patrol/Move-to-object behaviours (E).
+
+## In progress (three agents in parallel, kept to disjoint areas)
+- **M1-D steering and collision** (Fable; brief `scratchpad/briefs/m1d-steering-collision.md`): the real movement step, repath and stuck policy, the I1–I7 invariant harness, movement scenarios, soak and perf tests.
+- **M1-S selection** (Opus; brief `scratchpad/briefs/m1s-selection.md`):
+  - click, box and type selection rules;
+  - control groups and Tab cycling;
+  - markers, the SelectionPanel and InfoPanel;
+  - a debug player switch.
+- **M1-W combat** (Opus; brief `scratchpad/briefs/m1w-combat.md`):
+  - attack phases, range (Q0009 default), MinRange and TargetDomain;
+  - an `elevation.rs` helper for range and sight;
+  - hit accumulation, armor, deaths through one removal path;
+  - an in-range Attack order;
+  - tracers and HP bars.
+- **Next**:
+  - **V vision** after W (it reuses the elevation helper);
+  - **H commands UI** after S;
+  - **E behaviours** after D, W and V;
+  - **G QA and hardening** last.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
 The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, the defaults from the doc apply.
 
 | Slice | Content | After | Model |
 |---|---|---|---|
-| B Unit foundation | unit defs (Peacekeeper, Guard), `Orders`/`Mover`, `Command::Order` plus the gate (drop dead ids), spawn overlap checks, naive mover following nav paths, phase stubs, placeholder visuals, path overlay, `--commands` QA input | running; started alongside M0-E and kept out of its files | Opus |
+| B Unit foundation | unit defs, `Orders`/`Mover`, `Command::Order` plus the gate, spawn checks, naive mover, phases, visuals, path overlay, `--commands` | done (`259f72c`) | Opus |
 | C Navigation | `sc_sim::nav` | done (`88dd9bc`) | Fable |
-| D Steering and collision | spatial grid, step/slide/follow/sidestep, group slots, stuck and recovery, invariant harness, movement scenarios | B, C; better with Q0007/Q0008 answers | Fable |
-| S Selection | clicks, box tiers, control groups, Tab cycling | B | Opus |
+| D Steering and collision | spatial grid, step/slide/follow/sidestep, stuck and recovery, invariant harness, movement scenarios | running | Fable |
+| S Selection | clicks, box tiers, control groups, Tab cycling, panels, debug player switch | running | Opus |
 | H Commands UI | command panel, right-click, cursors, indicators, Shift-queue | S | Opus |
-| V Vision | per-player visibility, ElevationModifier, fog texture | B | Opus |
-| W Combat | attack phases, hits, damage, deaths, range (Q0009) | B | Opus |
+| V Vision | per-player visibility, ElevationModifier for sight, fog texture | W (elevation helper) | Opus |
+| W Combat | attack phases, hits, damage, deaths, range (Q0009), elevation helper | running | Opus |
 | E Behaviours | chase, AttackMove, Patrol, Hold, Stop, auto-target and leashes | D, W, V | Fable, or Opus with a Fable review |
 | G QA and hardening | debug control of both sides, replay playback, path overlay, soak, perf, golden hashes | E, H | Opus |
 
