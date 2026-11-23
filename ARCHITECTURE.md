@@ -144,25 +144,31 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 
 - **Core fields**: `id`, `kind`, `owner` (`None` means neutral), `pos`, `prev_pos`, `facing`, `prev_facing` and `hp`
   (`None` means indestructible).
-- **Capabilities**: today these are `placement` (the tile footprint) and `resource` (`ResourceState`). Movement,
-  weapons, production and the rest arrive as more optional fields, each with its own module. Never add them as
-  separate stores keyed by id. A system walks the objects in id order and skips those without its capability
+- **Capabilities**: today these are `placement` (the tile footprint), `resource` (`ResourceState`), and for units
+  `orders` (`Orders`, `orders.rs`: the current order and a queue of at most `MAX_QUEUED_ORDERS`) and `mover`
+  (`Mover`, `mover.rs`: goal, status, path and the replanning state of `docs/movement.md > 3`). Weapons, production
+  and the rest arrive as more optional fields, each with its own module. Never add them as separate stores keyed by
+  id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
   them through `ObjectKind::def()` or `Object::def()`. Every value cites its design section. Faction types go in
-  per-faction modules (`defs/gdo.rs`, …).
+  per-faction modules (`defs/gdo.rs`, …). A unit type also has `ObjectDef::unit: Some(UnitDef)` (`defs/units.rs`,
+  `systems/units.md`): its `UnitBase`, whose `static UnitBaseDef` holds the base's domain, movement model and flags
+  (turret, crushable, …), the attributes of that movement model (`MovementAttrs`), and its armour, turret, attack and
+  costs. Its box is its silhouette (`ObjectDef::half_extents`).
 
 **Adding an object type**
-1. Add an `ObjectKind` variant whose doc comment cites the design section.
+1. Add an `ObjectKind` variant whose doc comment cites the design section, and add it to `ObjectKind::ALL`.
 2. Add its `static ObjectDef`, with a citation for every value, and its arm in `ObjectKind::def()`. Missing numbers
    become named consts tagged with the question id.
-3. Set up its capability state in `Sim::spawn`. The `match kind` there is exhaustive, so the compiler points you to it.
+3. Set up its capability state in `Sim::insert_object` (units get idle `orders` and `mover`), and give it a
+   placeholder shape (`object_render::object_mesh`, whose `match` is exhaustive).
 4. Test it. Spawn it in a small inline scenario, then check its initial state and its behaviour.
 
 **Adding a capability**
 1. Give it its own module with its state type (deriving `Clone, Debug, PartialEq, Serialize, Deserialize`) and logic.
 2. Add `pub <name>: Option<State>` to `Object`, with a doc comment citing the design.
-3. Put its per-type parameters on `ObjectDef`, with citations, and initialize the state in `Sim::spawn`.
+3. Put its per-type parameters on `ObjectDef`, with citations, and initialize the state in `Sim::insert_object`.
 4. Insert its update phase into `Sim::step` at a deliberate position (see *Tick pipeline*).
 5. Add the `Command`s that drive it, with validation, and the `SimEvent`s the client needs.
 6. Write unit tests in the module and a scenario test in `crates/sim/tests/`.
@@ -175,22 +181,36 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 2. **Advance the tick** (`tick += 1`).
 3. **Snapshot** `pos`/`facing` into `prev_pos`/`prev_facing` for every object (the client interpolates from these).
 4. **Commands**: apply each `PlayerCommand` in `TickInputs` order (`apply_command`).
-5. **Systems**, each walking the objects in id order. Today the only one is `update_supply_stations`
-   (`core/map.md > SupplyDeliveryStation`).
+5. **Systems**, each walking the objects in id order, one function per module (`docs/movement.md > 4`):
+   - 5a `orders::update`: a unit's finished order completes and its next one starts (a move sets `Mover::go_to`,
+     Stop and Hold stop it), until one is in progress, so legs follow each other without an idle tick.
+   - 5b `paths::sync`: if the blocking footprints changed, rebuild the navigation grids and bump `nav_version`.
+   - 5c `paths::serve`: paths planned on an older `nav_version` are planned again; every `PathState::Wanted` becomes
+     a `nav::PathRequest`, served by `nav::serve` within `PATH_BUDGET` (group fields for move groups). A unit that
+     gets no path fails its move (`SimEvent::MoveFailed`).
+   - 5d `movement::step`: the mover, the only code that writes a unit's `pos` besides a teleport. In M1-B it is
+     naive: it follows the waypoints at top speed, first turning to face each leg (at most TurnRate per tick), and
+     arrives exactly on its goal. No unit–unit collision yet (slice D).
+   - 5e `combat::step` (slice W) and 5f `vision::update` (slice V): empty so far.
+   - `update_supply_stations` (`core/map.md > SupplyDeliveryStation`).
 
 - **Spawn tick**: an object that a command creates during tick `t` is first updated by the systems in tick `t + 1`.
   `step` notes `first_new = ObjectId(next_id)` before the commands, and each system walks only
   `objects.range_mut(..first_new)` (ids only grow). So a debug-spawned station with an interval of 960 delivers at
-  `t + 960`, just as a scenario station, spawned before tick 1, delivers at tick 960.
+  `t + 960`, just as a scenario station, spawned before tick 1, delivers at tick 960. An order to a unit spawned
+  earlier acts in the tick it arrives: a straight move of `d` su ordered in tick `t` arrives in tick
+  `t − 1 + ⌈d / speed⌉`.
+- **Grids match the objects between ticks**: `step` checks it in debug builds. A phase after 5b that adds or removes
+  a blocking footprint (a death in combat, a new structure) must call `paths::sync` again.
 - Insert a new phase at a deliberate position, with a comment in `step` saying why there, and update this list.
 - Commands always run before movement. There is exactly **one** movement pipeline, and all movement goes through it.
   The old prototype had two pipelines, and they raced.
 - Damage accumulates as a **list of hits** that is applied in one place. Never store it in a single slot that a second
   hit can overwrite, because the old prototype lost hits that way.
-- Lessons to apply when these systems arrive, from M1 on:
-  - **Movement**: the arrival radius must exceed one tick of travel. Otherwise units overshoot and oscillate.
-  - **Pathfinding**: cap repath attempts. A* needs a correct closed set, a best-cost map and deterministic
-    tie-breaking. Overwriting a parent at equal cost made zigzag paths.
+- Lessons from the prototype, for M1 and on:
+  - **Movement**: the arrival radius must be at least one tick of travel. Otherwise units overshoot and oscillate.
+  - **Pathfinding**: cap repath attempts (`mover::MAX_REPATHS`). A* needs a correct closed set, a best-cost map and
+    deterministic tie-breaking. Overwriting a parent at equal cost made zigzag paths.
   - **Occupancy** is domain-aware. For example, underground expansions don't block surface units.
 
 ## Navigation
@@ -210,6 +230,17 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   expansion budget, with one shared field per order group of `GROUP_FIELD_MIN` or more. A `Path` is unit state
   (serde, `PartialEq`, `StateHash`); `NavCounters` are output only.
 - **Open questions** (Q0011) are the switches `RESOURCES_BLOCK`, `RUGGED_IMPASSABLE` and `ROUTE_ON_TRUE_MAP`.
+- **In the sim** (`paths.rs`): `NavState` holds the `Nav` of every unit type's `(class, size class)` and the
+  footprints it was built from (structures and map resources block, Q0011). It is derived, like the `Nav`: not hashed,
+  compared or serialized, built when a `Sim` is created or loaded and rebuilt in phase 5b. `Sim::nav()` (the grids),
+  `nav_version()` and `nav_counters()` expose it to tests and overlays.
+- **Group slots** (`orders/slots.rs`, `docs/movement.md > 6.4`): a move of several units to a point gives each its
+  own slot on a square lattice around the click (retargeted into the lead unit's component), the largest silhouette
+  plus `SLOT_GAP` apart. The nearest lattice points whose box is clear and in the component are the slots; the one
+  farthest from the group's centroid takes its nearest unit first. The order keeps its slot (`Order::slot`).
+- **Unit boxes** never overlap blocked tiles or another unit of their layer at spawn: the gate checks debug spawns and
+  teleports against the sim's grids; scenario validation and the editor check pre-placed and layout units with
+  `paths::misplaced` (terrain-only grids of the classes present, plus the footprints).
 - `f32::mul_add` is a disallowed method (`docs/movement.md > 7`): write `a * b + c`.
 - Timings: `cargo test -p sc_sim --release --test nav_perf -- --ignored --nocapture`. That test's `timed` helper is
   the one place in `crates/sim` that reads the clock, behind an `#[expect]` with its reason.
@@ -231,6 +262,19 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   and targets may name anyone's objects), positions are finite and on the map (`OffMap`), spawns fit
   (`Spawn(SpawnProblem)`). A rejected command changes nothing, neither the state nor the events, and never panics.
   There is no rejection event yet: add one as output outside the state hash when the UI needs it.
+- **`Command::Order { units, kind, queue }`** (`systems/controls/commands.md > Unit Command`, `docs/movement.md > 3`):
+  `OrderKind` is `Move(Target)` (a point or an object), `Attack(id)`, `AttackMove(point)`, `Patrol(point)`, `Hold`
+  or `Stop`. The gate takes an order whole or not at all, but tolerates stale selections: at most `MAX_ORDER_UNITS`
+  ids (`TooManyUnits`), repeated ids count once, ids of objects that are gone and objects that take no orders are
+  dropped, and nothing left is `NoUnits`; any id of another player's object rejects it (`NotOwned`). Points must be
+  finite and on the map, target objects must exist (`UnknownObject`) and an attack's target be destructible
+  (`NotAttackable`). Without `queue` the order replaces the unit's queue and current order; with it, the order is
+  appended (a full queue drops it). Each order command is one group (`Sim::next_group`); a move to a point gives
+  each unit its slot. In M1-B only `Move` to a point, `Stop` and `Hold` behave; the others complete at once
+  (TODO slice E).
+- **Debug spawns and teleports of units** keep the unit invariants: a box on blocked ground or across the map's edge
+  is `Reject::Blocked`, one overlapping another unit of its layer `Reject::Occupied(id)`, and so is a blocking
+  footprint spawned onto a ground unit. Touching is allowed. A teleported unit plans its path again.
 - Every new command gets its rules in the gate and tests showing that its invalid forms are rejected without a panic
   and change nothing.
 - **Game options** (`SimConfig`) are part of the game setup (`GameSetup::config`, see Sim scenarios and tests): the
@@ -246,9 +290,9 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   `sc_sim::Replay` (serde) with `start`/`record`/`step`/`run`. The client must never submit a command with a
   non-finite number. The sim would reject it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to
   load. Validate at the input layer.
-- **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, …) are output only, for effects, sounds and UI.
-  The sim never reads them. `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events
-  from the scenario's initial spawns.
+- **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, …) are output only, for effects,
+  sounds and UI. The sim never reads them. `Sim::events()` holds only the latest step's events, and `Sim::new`
+  discards the events from the scenario's initial spawns.
 
 ## Sim scenarios and tests
 
@@ -267,7 +311,11 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
     the player who takes it.
 - `MapDef::validate()` and `Scenario::validate()` list every problem (`ScenarioProblem`) and never panic.
   `Sim::try_new` returns the problems as an error and `Sim::new` panics with them, so load files and editor maps with
-  `try_new`.
+  `try_new`. Units start on open ground and apart (`paths::misplaced`, in list order): a unit's box must not overlap
+  blocked tiles, the map's edge or a blocking footprint (`SpawnProblem::Blocked`) or an earlier unit of its layer
+  (`OverlapsUnit`), and a blocking footprint must not cover a ground unit (`CoversUnit`). `MapDef::validate` checks
+  the pre-placed objects; `Scenario::validate` checks the Starting Layouts of the factions played, with the map's
+  objects.
 - **Map files** are a `MapDef`'s serde form, written with `serde_json::to_string_pretty`. A `version` field
   (`MAP_FORMAT_VERSION`, now 3) comes first; bump it on any incompatible change. The terrain is stored as rows of
   strings in the ASCII format below: `tiles` (H rows of W symbols) and `heights` (H + 1 rows of W + 1 corner digits),
@@ -309,8 +357,9 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   (players 1 and 2, GDO, in slots 1 and 2) and seed 1. Add spawns with `.spawn(..)` (an owner takes the slot with its
   number), then call `.build()` or `.start()`. A `TestSim` runs with debug commands on
   (`TestSim::with_config` for other options). It schedules commands with `at(tick, player, cmd)` or
-  `debug_at(tick, cmd)`, and each one applies in the step that reaches that tick. It advances with `step`, `run(n)`
-  and `run_until(tick)`, keeps every event with its tick, and records a `Replay` of the run.
+  `debug_at(tick, cmd)`, and each one applies in the step that reaches that tick; `spawn_unit_at(tick, kind, owner,
+  pos)` and `order_at(tick, player, units, kind, queue)` are the shortcuts for units. It advances with `step`,
+  `run(n)` and `run_until(tick)`, keeps every event with its tick, and records a `Replay` of the run.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes. Every state type's hash impl
   destructures it (`hash.rs`), so a new field doesn't compile until it is hashed.
@@ -360,6 +409,13 @@ out by the same rules.
   cliff face: rock-coloured, with a stratum line at every level. Every vertex's z grows with its ground y, so with the
   depth test southern terrain overdraws the terrain behind it. The grid (G) follows the surface in the terrain's z
   band, slightly in front, so terrain in front hides it too. Both meshes are rebuilt when the sim's map changes.
+- **Units** (`object_render.rs`) are placeholder shapes until the art (Q0001): a shape per kind (Peacekeeper round,
+  Guard square) of the silhouette's size, in the owner's colour (`player_color`, the editor's slot colours), with a
+  dark rim and a light tick along the facing; the visual turns with the interpolated facing. One mesh per
+  `(kind, owner)` is shared.
+- **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
+  a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
+  layer. Its one mesh is rebuilt every frame while it is shown.
 - Never make one entity per tile. Draw the terrain as one mesh or texture, or a few chunks. Fog of war will be one
   texture that is updated when visibility changes, never per-tile materials.
 - Create mesh and material handles once and cache them in a `Resource`. Never create assets per frame, per object or
@@ -396,10 +452,10 @@ in `PreUpdate` (`ReadActions`, after Bevy's input and UI picking), and gameplay 
   modifiers are all held, the one needing the most modifiers, then a double tap over a single press, then the
   earlier entry. So Shift + 1 adds to group 1 instead of recalling it, while Shift + Q presses slot Q with `Queue`
   held. The action stays held until its button goes up. `Bindings::default()` holds the design's defaults (camera
-  keys, G for the grid, Select and ContextCommand on the left and right buttons, Esc to cancel, Tab and Shift + Tab,
-  the control group keys, the 4 × 3 command grid QWER/ASDF/ZXCV with the standard slots Z, X and C, Shift to
-  queue). A rebinding UI edits it with `bind` and `unbind`. It isn't serializable yet: loading it from a file needs
-  Bevy's `serialize` feature for `KeyCode` and `MouseButton`.
+  keys, G for the grid, P for unit paths, Select and ContextCommand on the left and right buttons, Esc to cancel,
+  Tab and Shift + Tab, the control group keys, the 4 × 3 command grid QWER/ASDF/ZXCV with the standard slots Z, X
+  and C, Shift to queue). A rebinding UI edits it with `bind` and `unbind`. It isn't serializable yet: loading it
+  from a file needs Bevy's `serialize` feature for `KeyCode` and `MouseButton`.
 - **Output**: `ActionState` (a `Resource`) holds this frame's actions (held, just pressed, just released), the
   modifiers, the cursor in logical pixels, and the `Pointer`: the view point and the ground point
   (`coords::ground_under`) under the cursor, whether it is over the UI (a UI node by Bevy's picking, or outside the
@@ -460,6 +516,8 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--screenshot <tick>:<path>` | Saves a PNG of exactly that tick. Repeatable, in any order; creates parent dirs. |
 | `--exit-at-tick <n>` | Exits at tick `n`, after its screenshots. Windowless runs default to the last screenshot's. |
 | `--dump-state <path>` | Writes the state as JSON when the run ends (fields below). |
+| `--commands <file.json>` | Applies player commands at given ticks: a JSON list of `{"tick", "player", "command"}` (`qa::TimedCommand`; `command` is a `sc_sim::Command` in serde form). Each applies in the step that reaches its tick (1 or later), a tick's commands in file order. Not with `--editor`. |
+| `--show-paths` | Starts with the unit path overlay on (P toggles it). |
 | `--windowed` | Shows a QA run in a window on the user's display instead of rendering offscreen. |
 | `--headless` | No window and no renderer: sim, client state and `--dump-state` only. Needs `--exit-at-tick`. |
 | Later: `--script <file>`, replays | Run scripted `InputAction`s, and replay recorded sessions. |
@@ -470,10 +528,10 @@ Taking a screenshot (no window appears; about one second plus `tick / 16` second
 cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png --dump-state /path/to/p2.json
 ```
 
-- Any of `--screenshot`, `--exit-at-tick`, `--dump-state` makes a *QA run*. It ignores keyboard and mouse, renders at
-  scale factor 1, and renders offscreen: Bevy renders into an image on this machine's GPU (Vulkan, Intel Arc), with
-  no window and no Xvfb. The sim waits at each screenshot tick until the PNG is saved, so the PNG shows that tick's
-  exact state with no interpolation. Repeated runs give byte-identical PNGs.
+- Any of `--screenshot`, `--exit-at-tick`, `--dump-state`, `--commands` makes a *QA run*. It ignores keyboard and
+  mouse, renders at scale factor 1, and renders offscreen: Bevy renders into an image on this machine's GPU (Vulkan,
+  Intel Arc), with no window and no Xvfb. The sim waits at each screenshot tick until the PNG is saved, so the PNG
+  shows that tick's exact state with no interpolation. Repeated runs give byte-identical PNGs.
 - Exit codes: 0 when everything was saved, 1 when a QA step failed (the log says which), 2 for invalid flags.
 - The `--dump-state` JSON holds `tick`, `scenario` (the map's name), `players`, `objects` (every field of
   `sc_sim::Object`), the last tick's `events`, `client` (`local_player`, `camera_center` as a view point in su,
@@ -482,6 +540,13 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
 - Verify visual work yourself. Capture screenshots and look at the PNGs with the Read tool before you report.
 - To look at another part of a map, give the slot a different camera start in the editor (or the file's
   `camera_start`) and pass the file with `--map`.
+- To put units on a map in a QA run, spawn them with debug commands in a `--commands` file at tick 1 and order them
+  from tick 2. Spawned objects take the ids after the starting objects, in file order (`--dump-state` lists them):
+
+  ```json
+  [{"tick": 1, "player": 1, "command": {"Debug": {"Spawn": {"kind": "Peacekeeper", "owner": 1, "at": {"Point": [1216.0, 1376.0]}}}}},
+   {"tick": 2, "player": 1, "command": {"Order": {"units": [18], "kind": {"Move": {"Point": [2016.0, 1376.0]}}, "queue": false}}}]
+  ```
 
 ## Map editor
 
