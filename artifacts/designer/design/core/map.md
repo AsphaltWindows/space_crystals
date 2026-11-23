@@ -1,7 +1,7 @@
 # Map: Tiles and Resources
 
 ## Tile
-Non-selectable visible entity which makes up the game's map. Tile properties are defined by TilePresets. Any combination of properties is valid — the default presets represent common terrain types, but custom presets with arbitrary property combinations and textures can be created via the map editor.
+Non-selectable visible entity which makes up the game's map. Tile properties are defined by TilePresets. Any combination of properties is valid — the default presets represent common terrain types, but custom presets with arbitrary property combinations can be created via the map editor (custom textures: planned for the future; see core/map_editor.md > Custom Tile Presets).
 
 ### Selectable - false
 
@@ -12,7 +12,7 @@ Non-selectable visible entity which makes up the game's map. Tile properties are
 ### Recruitable - boolean
 
 ## TilePreset
-A named tile configuration with a texture and specific property values. The texture visually communicates the tile's gameplay properties. The default presets are the standard terrain types, but map designers can define custom presets with any combination of properties and their own textures.
+A named tile configuration with a texture and specific property values. The texture visually communicates the tile's gameplay properties. The default presets are the standard terrain types, but map designers can define custom presets with any combination of properties (for now using existing textures; custom textures are planned, see core/map_editor.md > Custom Tile Presets).
 
 ### Value - TilePresetEnum
 ### Name - string
