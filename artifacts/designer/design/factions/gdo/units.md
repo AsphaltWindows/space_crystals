@@ -261,15 +261,15 @@ GDO air-superiority aircraft produced at the Airfield once the player owns Propu
 ### Faction - GlobalDefenseOrganization
 ### Produced at - Airfield
 ### TechPrerequisite - player owns at least one Propulsion Labs (see core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites)
-### UnitBase - TBD (HoverCraft or Glider)
+### UnitBase - Glider (must keep moving; circles when idle; wider turns at higher speed)
 
 ### AttackAttributes:
 - Weapon: air-to-air missiles
 - TargetDomain: Air
-- Ammo: limited (amount TBD)
+- Ammo: **5 missiles** per sortie, then it must reload at its assigned Airfield
 - AttackType, Damage, Range, timings: TBD
 
-TBD: name, UnitBase, Silhouette, MaxHP, armor, SightRange, movement values, turret, cost, build time, Unit Control cost, ObjectInterfaceState.
+TBD: name, Silhouette, MaxHP, armor, SightRange, movement values, turret, cost, build time, Unit Control cost, ObjectInterfaceState.
 
 ## SupplyChopper
 GDO supply transport air unit. An unarmed hovercraft that collects supplies from Supply Delivery Stations and delivers them to Supply Towers. Automatically picks up all available supplies when landing on a Supply Delivery Station.

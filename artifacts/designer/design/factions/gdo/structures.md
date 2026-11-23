@@ -190,7 +190,21 @@ GDO aircraft production structure. Constructs aircraft and provides a landing/re
 
 ### Aircraft Support
 - **Limited ammo**: GDO aircraft carry limited ammo and **rearm at an Airfield** (the Airfield is their landing and reloading zone). Ammo amounts per unit, rearm time and the return/rearm flow: TBD.
-- **Capacity: each Airfield supports at most 4 flying units.** (User, 2026-11-23.) TBD: how aircraft are tied to an Airfield and what happens when it's full or destroyed.
+- **Capacity: each Airfield supports at most 4 aircraft.** (User, 2026-11-23.)
+
+#### Assignment
+Every GDO aircraft is **assigned** to one Airfield (rules: user, 2026-11-23):
+- An aircraft is assigned to the Airfield that built it.
+- An aircraft lands and reloads only at its **assigned** Airfield.
+- An Airfield holds at most **4 assignments**.
+- **Reassigning**: the player can move an aircraft's assignment to another Airfield, if that Airfield has **fewer than 4** current assignments.
+- **No manual unassigning**: the player cannot unassign an aircraft (so aircraft can't be freely shuffled around).
+- **Airfield destroyed**: its aircraft become **unassigned**. An unassigned aircraft can't land to reload until it is assigned to an Airfield again.
+
+#### Production limit
+An Airfield **can't queue another aircraft** if its assignments plus the aircraft already in its production queue would exceed 4. (E.g. 3 assigned + 1 queued = full.)
+
+TBD: the reassign command (input, hotkey); whether unassigned aircraft get assigned automatically when an Airfield with space exists or only by the player; what happens to queued aircraft if reassignments fill the Airfield first (e.g. 2 assigned + 2 queued, then 2 aircraft reassigned in); rearm flow (automatic return when out of ammo? landing time, rearm time); how many aircraft can land on an Airfield at once.
 
 (Full stats TBD)
 
