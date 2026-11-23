@@ -184,6 +184,14 @@ GDO aircraft production structure. Constructs aircraft and provides a landing/re
 ### Constructed by - DeploymentCenter
 ### TechPrerequisite - player owns at least one Advanced Mechanics
 
+### Produces (so far):
+- Air-to-Ground Hovercraft (name TBD): cost/time TBD.
+- Air-to-Air Fighter (name TBD): cost/time TBD. Requires: player owns at least one Propulsion Labs.
+
+### Aircraft Support
+- **Limited ammo**: GDO aircraft carry limited ammo and **rearm at an Airfield** (the Airfield is their landing and reloading zone). Ammo amounts per unit, rearm time and the return/rearm flow: TBD.
+- **Capacity: each Airfield supports at most 4 flying units.** (User, 2026-11-23.) TBD: how aircraft are tied to an Airfield and what happens when it's full or destroyed.
+
 (Full stats TBD)
 
 ## Industrial Powerplant
@@ -196,7 +204,7 @@ GDO power generation structure. Provides power to the grid in larger quantities 
 (Full stats TBD)
 
 ## Propulsion Labs
-GDO advanced aircraft structure. Allows the building of more advanced aircraft and air units.
+GDO advanced aircraft structure. Allows the building of more advanced aircraft and air units. Unlocks the **Air-to-Air Fighter** (name TBD) at the Airfield.
 
 ### Faction - GlobalDefenseOrganization
 ### Constructed by - DeploymentCenter

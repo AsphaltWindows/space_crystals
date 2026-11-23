@@ -33,7 +33,7 @@ Index of the design docs. Paths are relative to this folder.
 | `factions/gdo/overview.md` | GDO identity and resources (Space Crystals, Supplies, Power, Unit Control) |
 | `factions/gdo/economy.md` | Starting Conditions, Opening Economy Baseline, Economy Targets (GDO vs Colonists), Generator, Extraction Facility, Extraction Plate, Supply Tower |
 | `factions/gdo/structures.md` | Deployment Center, GDO Build Area, Barracks, tech buildings, Defense System, Missile Turret, Bunker, First Aid Tent (Field Engineer-built), Outpost (Prospector-deployed build radius) |
-| `factions/gdo/units.md` | Peacekeeper (incl. Riot Shield), Rocketman (incl. Target Lock), Drone Operator (suicide drones), Field Engineer (repair buildings/vehicles, Bunker, First Aid Tent), Raptor (Factory homing-missile vehicle), Twister (Factory AA + mines), Artillery Rig (Factory, name TBD), Supply Chopper |
+| `factions/gdo/units.md` | Peacekeeper (incl. Riot Shield), Rocketman (incl. Target Lock), Drone Operator (suicide drones), Field Engineer (repair buildings/vehicles, Bunker, First Aid Tent), Raptor (Factory homing-missile vehicle), Twister (Factory AA + mines), Artillery Rig (Factory, name TBD), Air-to-Ground Hovercraft + Air-to-Air Fighter (Airfield, names TBD), Supply Chopper |
 | `factions/syndicate/overview.md` | Syndicate identity and resources (Space Crystals, Supplies, Tunnel Space) |
 | `factions/syndicate/tunnels.md` | Tunnel Network (incl. losing Tunnels, neutral expansions), Tunnel (tiers, sides, Tunnel Area, Tunnel Space) |
 | `factions/syndicate/structures.md` | Tech tree overview, Tunnel Expansions (Hideout, Null Chamber, …), Laser Turret |
