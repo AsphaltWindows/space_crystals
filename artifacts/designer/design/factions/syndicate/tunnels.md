@@ -28,6 +28,8 @@ The Tunnel is the Syndicate's core surface structure. It serves as the entry/exi
 The Syndicate player starts with one Tier 1 Tunnel and one pre-built Hideout expansion.
 
 ### Starting Conditions
+Where each starting object is placed is defined by the map's Starting Layout for this faction (core/map_editor.md > Starting Layouts).
+
 The Syndicate player starts with:
 - One pre-built **Tier 1 Tunnel** containing one pre-built **Hideout**
 - One **Agent**

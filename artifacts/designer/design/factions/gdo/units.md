@@ -194,11 +194,12 @@ GDO vehicle produced at the Factory. A little slower than the Raptor. Mounts a m
 TBD: mine cost/purchase time, laying time, activation radius, delay, explosion damage and radius, mine HP, stats, cost, build time, ObjectInterfaceState.
 
 ## Artillery Rig
-GDO artillery vehicle produced at the Factory (no Advanced Mechanics requirement). Has two modes: it cannot attack while mobile and must deploy to fire long-range area artillery. (User reference: like the StarCraft 1 Siege Tank, but with no attack in its mobile mode.)
+GDO artillery vehicle produced at the Factory; requires Advanced Mechanics. Has two modes: it cannot attack while mobile and must deploy to fire long-range area artillery. (User reference: like the StarCraft 1 Siege Tank, but with no attack in its mobile mode.)
 
 ### Entity Type - Unit
 ### Faction - GlobalDefenseOrganization
 ### Produced at - Factory
+### TechPrerequisite - player owns at least one Advanced Mechanics (see core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites)
 ### UnitBase - TrackedVehicle
 
 ### Modes

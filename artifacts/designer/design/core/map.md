@@ -61,11 +61,38 @@ A named tile configuration with a texture and specific property values. The text
 - Recruitable: false
 
 ## TilePlacement
-An instance of a TilePreset placed on the map at a specific location and elevation.
+An instance of a TilePreset placed on the map at a specific location. Its height comes from the map's corner heights (see Elevation below), not from the placement itself.
 
 ### Type - TilePresetEnum
 ### Location - Coordinates
-### Elevation - integer (0 to 16)
+
+## Elevation
+Terrain height is stored at the **corners** of tiles, not per tile (decided 2026-11-23; replaces the earlier per-tile Elevation). A map of W x H tiles has (W+1) x (H+1) corner heights. Adjacent tiles share their corners, so the terrain surface is continuous: hills and slopes form wherever corner heights differ.
+
+### CornerHeight - integer (0 to 16)
+
+### Flat and sloped tiles
+- **Flat tile**: all four corners have the same height. That height is the tile's level.
+- **Sloped tile**: its corners differ. Units can walk across sloped Traversible tiles. **Slopes don't change movement speed**, going up or down (user, 2026-11-23: no slowdowns for now; elevation matters through ElevationModifier and cliffs). May be revisited after playtesting.
+
+### Maximum slope
+- On a **Traversible** tile, the four corner heights may differ by **at most 1 level**. Every walkable slope is therefore a gentle hill.
+- Larger height differences are only allowed on **non-Traversible** tiles (e.g. Cliff). Sharp drops are made with cliffs, and **chokepoints come from cliffs combined with elevation differences** (user's intent).
+- The map editor enforces this rule.
+
+### Terrain height at a point
+The terrain height at any point is interpolated from the corners of the tile containing it. (The interpolation method is a technical choice; it must be continuous across tile edges.)
+
+### Elevation level
+An object's **elevation level** is the terrain height at its position, **rounded down** to an integer. This is the elevation used by core/vision.md > ElevationModifier. A unit walking up a slope changes level at the point where the terrain height crosses the next integer.
+
+### Structures only on flat terrain
+Structures can only be placed on **flat** tiles. Every tile of a surface structure's footprint must be flat, in addition to being Buildable (core/entities.md > Placement Validation). Adjacent flat tiles share corners, so a connected footprint of flat tiles is always all at one level. Hills stay open ground; bases sit on flat areas.
+
+**Exception: Syndicate underground expansions** (inside a Tunnel Area) may be placed on sloped tiles; the flatness rule doesn't apply to them (user, 2026-11-23). Their surface-related visuals on slopes are an art detail. Surface Syndicate structures (Tunnel, Laser Turret) follow the normal rule.
+
+### Display
+See core/art_direction.md > Elevation Display.
 
 ## Resource
 An Object Type representing a map resource node. Resources are indestructible, unowned, and provide no vision. They exist as contested map features that factions interact with through their own faction-specific mechanics.
@@ -79,14 +106,18 @@ A minable deposit of Space Crystals on the map. Factions harvest Space Crystals 
 
 ### Size - 1x1
 ### RemainingAmount - number (Space Crystals left in the patch)
+### StartingAmount - number, **set per patch in the map editor**; default for newly placed patches **1500** (placeholder, user 2026-11-23). RemainingAmount starts at this value.
 ### InfoPanel: when visible to the selecting player, displays RemainingAmount
 
 ## SupplyDeliveryStation
 A location on the map that periodically receives supply deliveries. The delivery countdown begins only once the station's current supply content reaches 0. Factions collect supplies from the station using faction-specific collection mechanics.
 
 ### Size - 2x2
-### DeliverySize - number (amount of supplies per delivery)
-### DeliveryInterval - number (time between deliveries)
+All three of the following are **set per station in the map editor** (user, 2026-11-23). The defaults for newly placed stations are placeholders:
+
+### StartingSupplies - number (CurrentSupplies at game start); default **0**. A station starting at 0 begins its first countdown at game start, so the first delivery arrives one DeliveryInterval in. A stocked station starts counting down only once it is emptied (rule above).
+### DeliverySize - number (amount of supplies per delivery); default **4**
+### DeliveryInterval - number (time between deliveries); default **60 s (960 frames)**
 ### CurrentSupplies - number (supplies currently on the station)
 ### NextDeliveryTime - number (frames until the next delivery arrives)
 

@@ -1953,3 +1953,15 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - User deleted leftover pipeline/bot files and revoked the Telegram bots. Removed empty forum/ and messages/ dirs; pruned obsolete .gitignore entries.
 - Pushed master (dd2b7e6..8084741) and tag pipeline-archive to origin.
 - Session close: added 'WHERE WE LEFT OFF' block to insights (GDO roster status, pending Advanced Mechanics/Airfield question, open GDO items, process notes); annotated stale Colonists 'Prospector' note (now Drone).
+
+## 2026-11-23T12:32:23-05:00 — Director live; Artillery Rig gate; first Director questions
+- Director started (Cargo workspace scaffolded). Took in Q0001–Q0005; last_seen_question = 5.
+- Decided (user): Artillery Rig requires Advanced Mechanics (resolves the "what else does Advanced Mechanics unlock" thread). Docs: factions/gdo/units.md, factions/gdo/structures.md. Change entry 0001.
+- Q0005 answered from the docs: hotkey letters authoritative; position words fixed; V has no standard function. Doc: systems/controls/selection_and_hud.md. Change entry 0002.
+- Q0001–Q0004 open, need user.
+- 2026-11-23T13:00:03-05:00 — Q0001 partly answered with user: square grid, 3D-rendered sprites, all building orientations, facings 16/32, 32 px/tile. New doc core/art_direction.md (+README). Change entry 0003. Elevation display in discussion (AoE2-like slopes).
+- 2026-11-23T13:11:54-05:00 — Q0001 completed: elevation = corner heights (AoE2-like slopes), ≤1 level per Traversible tile, cliffs for big drops/chokepoints, elevation level = floor, flat-only building. Docs: core/map.md, vision.md, entities.md, art_direction.md, README. Change entry 0004.
+- 2026-11-23T13:17:51-05:00 — Underground expansions exempt from flat-only rule; ElevationModifier now applies to structures. Docs: core/map.md, entities.md, vision.md. Change entry 0005.
+- 2026-11-23T13:20:55-05:00 — Slopes: no movement-speed effect (user). Doc: core/map.md. Change entry 0006.
+- 2026-11-23T13:23:28-05:00 — Q0003 answered: patch StartingAmount per patch (default 1500); stations fully editor-set (StartingSupplies 0 / DeliverySize 4 / Interval 60 s defaults); test map starts in corners, test maps are Director's. Doc: core/map.md. Change entry 0007.
+- 2026-11-23T13:26:08-05:00 — Q0004 partly answered: per-faction Starting Layouts placed by map maker with overlay editing; symmetry tools (90/180 rotation, mirrors). New core/map_editor.md (+README), pointers in faction Starting Conditions. Change entry 0008. Middle-mouse pan decided, not yet written.

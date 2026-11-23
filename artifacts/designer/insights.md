@@ -27,9 +27,13 @@
 
 ## Open Director Questions
 
-(none)
+All non-blocking (Director proceeds on assumptions). Raised with user 2026-11-23.
+- **Q0004** PARTLY answered (entry 0008, core/map_editor.md): per-faction Starting Layouts placed by map maker, overlay editing. Asked: default layout pre-filled vs from scratch; flag vs auto-fix when Starting Conditions change. Not yet asked: slot count/teams/allowed factions, pre-placed objects (neutral/owned), map metadata/size limits, custom tile presets in maps.
+- **Q0002**: user decided middle-mouse HOLD moves the camera (NOT yet written; ask drag-the-map vs joystick-style). Still awaiting OK on Director's SC2-like defaults (map Shift/Ctrl/double-click, Ctrl/Shift/# groups, arrows+edge pan, Shift queue) + rebinding scope.
+- **Map editor symmetry**: WRITTEN in core/map_editor.md (entry 0008): 180°/90° rotation, H/V/both mirrors. Still ask: live vs one-shot; what is mirrored.
 
 ## Loose Ends
+
 
 ### >>> WHERE WE LEFT OFF (2026-11-23) — start here next session <<<
 **Current task: unit rosters, one faction at a time, GDO first.** Sketch the full roster (concepts, roles, mechanics), THEN do numbers for all GDO units, then move to the next faction. Later: split into one file per unit/building once most units exist.
@@ -37,10 +41,10 @@
   - Barracks: Peacekeeper (Riot Shield), Rocketman (req. Arsenal; Target Lock), Drone Operator (req. Career Campus; 1 suicide drone), Field Engineer (req. Career Campus; repair, Bunker, First Aid Tent).
   - Factory: Raptor (fast wheeled, homing missiles), Twister (wheeled AA gun + mines), Artillery Rig (tracked, deployed TailDisjointed AoE), Prospector (req. Advanced Mechanics; deploys into Outpost = build radius only).
   - Existing older unit: Supply Chopper.
-- **Pending question to the user (asked, unanswered):** does Advanced Mechanics unlock anything besides the Prospector, or move on to the **Airfield** (aircraft), then **Propulsion Labs** (advanced aircraft)?
+- **Advanced Mechanics** now unlocks Prospector + Artillery Rig (2026-11-23, entry 0001). NEXT: **Airfield** (aircraft), then **Propulsion Labs** (advanced aircraft).
 - **GDO open items to raise during roster/numbers pass:** Rocketman — no firing while locking? units-only lock targets? (both my inferences); Prospector weapon (assumed none), deploy time, cancel; Outpost numbers; all hotkeys; all stats/costs.
 - **Cross-faction gaps surfaced by the GDO roster:** stealth & detection must now be designed (Twister mines are hidden); Syndicate has no mobile anti-air yet (raise at the Syndicate roster).
-- **Process:** pipeline is gone; no feature_requests ever. Publish a change entry (`artifacts/designer/changes/`) per confirmed design change and commit (see Development Process + my prompt). No change entries have been written yet — the first one should be for the next confirmed change (the Director starts from the docs as a whole, not from a backlog of entries).
+- **Process:** pipeline is gone; no feature_requests ever. Publish a change entry (`artifacts/designer/changes/`) per confirmed design change and commit (see Development Process + my prompt). Change entries started 2026-11-23 (0001+); the Director started from the docs as a whole.
 - **Note:** many older loose ends below still use the pre-restructure file names (gdo_objects.md, syndicate_objects.md, colonists_objects.md, cults_objects.md, control_system.md, factions.md, entities.md) — translate via the Old → new file map in the TOC section.
 
 
@@ -74,6 +78,8 @@
 - **Colonists faction — econ loop plus first combat units now defined**: Drone, Beacon, Warp In mechanic, Egress Node, Roboport, Bioport, Starting Conditions, and the first two combat units (Sabre Legionnaire, Rifle Legionnaire) are all fully stated (see colonists_objects.md summary in TOC above). Still open: Beacon's own ObjectInterfaceState (should expose Warp In as a command — never formalized which panel button/flow triggers it), Roboport's and Bioport's full ObjectInterfaceState (which panel button queues a unit into BuildQueue, how RallyPoint is set via panel — explicitly deferred by user across multiple sessions, not yet resumed), and Shield regen upgrades (still a placeholder noted in combat.md, "discuss later"). Colonists now have combat capability but still only one unit line (two forms of the same Legionnaire) — no Vehicle/Mech/Air combat units yet, unlike the analogous gaps already tracked for GDO/Syndicate. If/when new Colonists buildings are added, remember to also add their row to the Constructs List table in the Warp In section (colonists_objects.md) — cost/time is easy to forget since it lives in a separate section from the building's own stat block.
 
 ## Insights
+- Elevation model (2026-11-23): slopes have NO speed effect (user, maybe revisit after playtest); corner heights 0–16, Traversible tiles ≤1 level corner difference, bigger drops = non-Traversible (cliffs → chokepoints), elevation level = floor(height), structures on flat tiles only.
+- Art direction (2026-11-23): square grid + 3/4 view, sprites pre-rendered from 3D models, 32 px/tile, all building orientations rendered, unit facings 16 infantry / 32 vehicles-turrets-air. See core/art_direction.md.
 
 - When a forum topic investigation is closed without a feature_request being created, the fix never reaches the pipeline. Always ensure actionable outcomes from forum discussions get formalized as feature_requests before voting to close.
 - When batching many feature_requests, note overlap with already-completed pipeline work (check `messages/task_splitter/feature_request/done/`) and flag it in the message content so downstream agents don't duplicate effort.

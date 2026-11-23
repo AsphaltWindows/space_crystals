@@ -103,6 +103,8 @@ The player may cancel the Warp In at any point before it completes. Cancelling r
 Every Colonists building provides 5 BeaconCapacity — the Beacon itself, and every structure Warped In from one, since they all originate from a Beacon and retain its BeaconCapacity contribution in addition to their own new function/production capabilities.
 
 ## Starting Conditions
+Where each starting object is placed is defined by the map's Starting Layout for this faction (core/map_editor.md > Starting Layouts).
+
 The Colonists player starts with one pre-built Egress Node, one pre-built Robo Portal (see below for both), and **four Drones**. Both structures are already-Warped-In — each still provides 5 BeaconCapacity per the Beacon Capacity Retention rule (see Warp In above), same as any other Colonists building.
 
 Starting resources: **100 Space Crystals** (same as GDO and the Syndicate). Starting Alloys, Essence and Flux: **0**.
