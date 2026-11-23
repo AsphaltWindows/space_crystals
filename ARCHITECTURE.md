@@ -63,6 +63,8 @@ A task is done when all of the following hold:
 `sc_sim` guarantees that the same `Scenario` plus the same sequence of `TickInputs` produces bit-identical state on
 every run and every machine. Replays, reproducible bugs and a possible lockstep multiplayer mode depend on this.
 `crates/sim/clippy.toml` enforces the mechanical rules below as disallowed methods and types. Never `#[allow]` them.
+There is one exception: an `#[ignore]` perf test under `crates/sim/tests/` may read the clock in a single timing helper marked
+`#[expect(clippy::disallowed_methods)]`, as `nav_perf.rs` does. Its timings are printed and never asserted.
 
 - **Order**: iterate objects in `ObjectId` order. `Sim` keeps them in a `BTreeMap<ObjectId, Object>`, and ids are
   allocated in increasing order and never reused. Break ties between candidates by `ObjectId` (`Iterator::min_by`

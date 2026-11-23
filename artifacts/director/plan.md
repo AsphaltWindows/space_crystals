@@ -77,14 +77,20 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - a symmetric test map.
 
   It has been told to merge M1-A from master before finishing, folding `SimConfig.debug` into the game setup, with play-tests running with debug on.
-- **M1-C navigation library** (Fable, worktree; brief `scratchpad/briefs/m1c-navigation.md`). It builds `sc_sim::nav`, standalone and pure, per `docs/movement.md` section 5:
-  - NavGrid and components;
+- **M1-C navigation library: done** (`88dd9bc`, 244 tests). `sc_sim::nav` is pure and standalone:
+  - NavGrid with components, rebuilt for 3 grids in 1.9 ms;
   - A* with retargeting;
-  - LOS and smoothing;
-  - the group field;
-  - budgeted request serving.
+  - LOS (Amanatides–Woo) and bisection smoothing;
+  - group field;
+  - budgeted `serve`;
+  - Q0011 default switches.
 
-  It starts before B because it touches no shared code.
+  Release perf on a 256² worst-case map:
+  - A* averages 1.8 ms on random pairs; the field takes 3.9 ms.
+  - A **200-unit group order takes 9.4 ms**, against an 8 ms target.
+  - **200 lone requests are served 4 per tick** under the 32k budget.
+
+  **Tuning in G (hardening):** cheaper smoothing, budget tuning, or caching. Size class k > 1 is basic; per-player route grids aren't built (Q0011).
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
 The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, the defaults from the doc apply.
