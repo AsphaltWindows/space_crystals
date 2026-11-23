@@ -230,7 +230,7 @@ GDO power generation structure. Provides power to the grid in larger quantities 
 (Full stats TBD)
 
 ## Propulsion Labs
-GDO advanced aircraft structure. Allows the building of more advanced aircraft and air units. Unlocks the **Air-to-Air Fighter** (name TBD) at the Airfield.
+GDO advanced aircraft structure. Allows the building of more advanced aircraft and air units. Unlocks the **Dragonfly** at the Airfield.
 
 ### Faction - GlobalDefenseOrganization
 ### Constructed by - DeploymentCenter
