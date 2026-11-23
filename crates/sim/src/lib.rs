@@ -42,6 +42,7 @@ pub use events::SimEvent;
 pub use glam::Vec2;
 pub use ids::{ObjectId, PlayerId, SlotId};
 pub use map::{MAX_ELEVATION, MAX_TRAVERSIBLE_SLOPE, Map, Tile, TileLook, TilePreset, TilePresetId};
+pub use movement::MoveCounters;
 pub use mover::{MoveGoal, MoveStatus, Mover};
 pub use object::{Object, Placement, ResourceState, Rotation};
 pub use orders::{OrderKind, Orders, Target};

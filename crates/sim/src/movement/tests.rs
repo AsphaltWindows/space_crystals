@@ -1,0 +1,141 @@
+//! Unit tests of one unit's tick, without other units or tiles. The scenario tests in `crates/sim/tests/` cover
+//! collision.
+
+use super::*;
+
+const WALKER: MovementAttrs = MovementAttrs::TurnRate {
+    turn_rate: math::PI,
+    acceleration: None,
+    deceleration: None,
+    max_speed: 4.0,
+};
+
+fn walking(path: &[Vec2]) -> Mover {
+    let mut mover = Mover::default();
+    mover.go_to(MoveGoal::Point(*path.last().unwrap()), None, 1);
+    mover.follow(path.to_vec(), *path.last().unwrap(), 0);
+    mover
+}
+
+/// One tick of a lone unit that collides with nothing (as an air unit).
+fn tick(pos: &mut Vec2, facing: &mut f32, mover: &mut Mover, movement: &MovementAttrs, tick: Tick) -> bool {
+    let bodies = [Body {
+        id: ObjectId(1),
+        owner: None,
+        pos: *pos,
+        half: Vec2::splat(12.0),
+        velocity: mover.velocity,
+        stationary: mover.is_stationary(),
+        progress: None,
+        arrived_with: None,
+    }];
+    let mut counters = MoveCounters::default();
+    let mut world = World {
+        grid: None,
+        layer: None,
+        bodies: &bodies,
+        me: 0,
+        counters: &mut counters,
+    };
+    step_unit(pos, facing, mover, movement, &mut world, &mut Vec::new(), tick)
+}
+
+#[test]
+fn passes_waypoints_and_snaps_onto_the_goal() {
+    let path = [Vec2::new(0.0, 0.0), Vec2::new(6.0, 0.0), Vec2::new(6.0, 9.0)];
+    let mut mover = walking(&path);
+    let (mut pos, mut facing) = (path[0], 0.0);
+    tick(&mut pos, &mut facing, &mut mover, &WALKER, 2);
+    assert_eq!(pos, Vec2::new(4.0, 0.0));
+    assert_eq!(
+        (facing, mover.velocity, mover.locomotion),
+        (0.0, Vec2::new(4.0, 0.0), Locomotion::Moving)
+    );
+    assert_eq!(mover.orientation, Orientation::Maintaining);
+    // The corner waypoint is within one step: the unit heads for the next one without touching it.
+    tick(&mut pos, &mut facing, &mut mover, &WALKER, 3);
+    assert_eq!(mover.next, 2);
+    assert!(
+        (pos.distance(Vec2::new(4.0, 0.0)) - 4.0).abs() < 1e-5 && pos.y > 0.0,
+        "{pos}"
+    );
+    assert_eq!(mover.orientation, Orientation::Turning(path[2]));
+    tick(&mut pos, &mut facing, &mut mover, &WALKER, 4);
+    assert_eq!(mover.status, MoveStatus::Moving);
+    // The rest is within one step: arrive exactly.
+    tick(&mut pos, &mut facing, &mut mover, &WALKER, 5);
+    assert_eq!(pos, path[2]);
+    assert_eq!((mover.status, mover.goal), (MoveStatus::Arrived, MoveGoal::None));
+    assert_eq!((mover.velocity, mover.locomotion), (Vec2::ZERO, Locomotion::Stationary));
+    // And stays.
+    tick(&mut pos, &mut facing, &mut mover, &WALKER, 6);
+    assert_eq!(pos, path[2]);
+}
+
+#[test]
+fn a_slow_turn_is_made_in_place() {
+    let slow = MovementAttrs::TurnRate {
+        turn_rate: 0.5,
+        acceleration: None,
+        deceleration: None,
+        max_speed: 4.0,
+    };
+    let path = [Vec2::ZERO, Vec2::new(0.0, 100.0)];
+    let mut mover = walking(&path);
+    let (mut pos, mut facing) = (path[0], 0.0);
+    tick(&mut pos, &mut facing, &mut mover, &slow, 2);
+    assert_eq!((pos, facing), (Vec2::ZERO, 0.5));
+    assert_eq!(mover.locomotion, Locomotion::Stationary);
+    assert_eq!(mover.orientation, Orientation::Turning(path[1]));
+    tick(&mut pos, &mut facing, &mut mover, &slow, 3);
+    tick(&mut pos, &mut facing, &mut mover, &slow, 4);
+    assert_eq!(pos, Vec2::ZERO);
+    // The last 0.07 rad complete within the tick, and the unit walks.
+    tick(&mut pos, &mut facing, &mut mover, &slow, 5);
+    assert_eq!((pos, facing), (Vec2::new(0.0, 4.0), math::PI / 2.0));
+}
+
+#[test]
+fn without_a_path_the_unit_waits_and_its_stuck_clock_stands() {
+    let mut mover = Mover::default();
+    mover.go_to(MoveGoal::Point(Vec2::new(50.0, 0.0)), None, 1);
+    let (mut pos, mut facing) = (Vec2::ZERO, 1.0);
+    for t in 2..100 {
+        assert!(!tick(&mut pos, &mut facing, &mut mover, &WALKER, t));
+    }
+    assert_eq!((pos, facing, mover.status), (Vec2::ZERO, 1.0, MoveStatus::Moving));
+    assert_eq!(mover.last_progress, 99, "it moved on with the ticks");
+}
+
+/// `docs/movement.md > 6.5`, `> 5.6`: a unit that makes no progress repaths three times, 24 ticks apart and no
+/// sooner than the backoff allows, then fails.
+#[test]
+fn a_unit_without_progress_repaths_three_times_and_fails() {
+    let frozen = MovementAttrs::TurnRate {
+        turn_rate: math::PI,
+        acceleration: None,
+        deceleration: None,
+        max_speed: 0.0,
+    };
+    let path = [Vec2::ZERO, Vec2::new(500.0, 0.0)];
+    let mut mover = walking(&path);
+    let (mut pos, mut facing) = (path[0], 0.0);
+    let mut repaths = Vec::new();
+    let mut failed_at = None;
+    for t in 2..400 {
+        if matches!(mover.path_state, PathState::Wanted { .. }) {
+            // Phase 5c: the same path again.
+            repaths.push(t);
+            mover.follow(path.to_vec(), path[1], 0);
+        }
+        if tick(&mut pos, &mut facing, &mut mover, &frozen, t) {
+            failed_at = Some(t);
+            break;
+        }
+    }
+    // Stuck 24 ticks after the order (tick 1); it touches no unit, so each time it waits the 8 ticks of grace:
+    // repaths in ticks 33, 65 and 97, served a tick later, each restarting the stuck clock. Then it fails.
+    assert_eq!(repaths, [34, 66, 98]);
+    assert_eq!(failed_at, Some(129));
+    assert_eq!((mover.status, mover.goal), (MoveStatus::Failed, MoveGoal::None));
+}

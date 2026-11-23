@@ -96,6 +96,15 @@ pub fn los(grid: &NavGrid, half: Vec2, a: Vec2, b: Vec2) -> bool {
     true
 }
 
+/// Whether the segment from `a` to `b` stays out of every tile of `tiles` (touching a border is staying out). The
+/// avoid tiles of a repath (`docs/movement.md > 6.5`) are tested with it: they block the search, so the smoothed
+/// path and the steering must not cut through them either.
+pub fn segment_avoids(a: Vec2, b: Vec2, tiles: &[TilePos]) -> bool {
+    tiles
+        .iter()
+        .all(|t| !segment_enters_box(a, b - a, t.corner(), t.corner() + Vec2::splat(SU_PER_GU)))
+}
+
 /// Whether a box with half extents `half` centred on `p` overlaps no solid tile and lies inside the map.
 pub fn box_clear(grid: &NavGrid, half: Vec2, p: Vec2) -> bool {
     if !p.is_finite() {
@@ -171,6 +180,20 @@ pub(super) fn clamp_to_clear(grid: &NavGrid, half: Vec2, tile: TilePos, p: Vec2)
 /// waypoint. The next candidate is always taken as visible: it is, for a box up to one tile wide that starts
 /// clear, because neighbouring tile centres see each other and every clear point of a tile sees its centre.
 pub fn smooth(grid: &NavGrid, half: Vec2, start: Vec2, tiles: &[TilePos], goal: Vec2) -> Vec<Vec2> {
+    smooth_avoiding(grid, half, start, tiles, goal, &[])
+}
+
+/// [`smooth`] for a path searched with avoid tiles (`docs/movement.md > 5.3`): no leg of the result cuts through
+/// a tile of `avoid` ([`segment_avoids`]), so the detour the search found survives the string-pulling.
+pub fn smooth_avoiding(
+    grid: &NavGrid,
+    half: Vec2,
+    start: Vec2,
+    tiles: &[TilePos],
+    goal: Vec2,
+    avoid: &[TilePos],
+) -> Vec<Vec2> {
+    let sees = |a: Vec2, b: Vec2| los(grid, half, a, b) && segment_avoids(a, b, avoid);
     let mut points = Vec::with_capacity(tiles.len() + 2);
     points.push(start);
     points.extend(tiles.iter().map(|&t| grid.center(t)));
@@ -179,13 +202,13 @@ pub fn smooth(grid: &NavGrid, half: Vec2, start: Vec2, tiles: &[TilePos], goal: 
     let mut out = vec![start];
     let mut at = 0;
     while at < last {
-        let next = if los(grid, half, points[at], points[last]) {
+        let next = if sees(points[at], points[last]) {
             last
         } else {
             let (mut visible, mut hidden) = (at + 1, last);
             while hidden - visible > 1 {
                 let mid = visible + (hidden - visible) / 2;
-                if los(grid, half, points[at], points[mid]) {
+                if sees(points[at], points[mid]) {
                     visible = mid;
                 } else {
                     hidden = mid;
