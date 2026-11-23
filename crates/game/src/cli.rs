@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use bevy::math::UVec2;
-use sc_sim::{PlayerId, Scenario, Tick, scenarios};
+use sc_sim::{PlayerId, Scenario, SimConfig, Tick, scenarios};
 
 use crate::AppConfig;
 use crate::editor::actions::EditorAction;
@@ -30,6 +30,8 @@ pub struct CliOptions {
     pub player: u8,
     pub window_size: UVec2,
     pub fast: bool,
+    /// Debug commands are on unless `--no-debug`.
+    pub debug: bool,
     pub screenshots: Vec<ScreenshotRequest>,
     pub exit_at_tick: Option<Tick>,
     pub dump_state: Option<PathBuf>,
@@ -49,6 +51,7 @@ impl Default for CliOptions {
             player: 1,
             window_size: DEFAULT_WINDOW_SIZE,
             fast: false,
+            debug: true,
             screenshots: Vec::new(),
             exit_at_tick: None,
             dump_state: None,
@@ -70,6 +73,7 @@ Game:
   --player <n>                Show player n's view (default 1)
   --window-size <W>x<H>       Window or offscreen image size in pixels (default {w}x{h})
   --fast                      Run as many ticks per frame as possible instead of 16 per second
+  --no-debug                  Reject debug commands, as a real match does (they are on by default)
 
 Map editor:
   --editor [file.json]        Edit a map file (created on the first save if it doesn't exist yet).
@@ -113,6 +117,7 @@ pub fn parse(args: &[String]) -> Result<CliOptions, String> {
             "--player" => options.player = parse_player(&value()?)?,
             "--window-size" => options.window_size = parse_size(&value()?)?,
             "--fast" => options.fast = true,
+            "--no-debug" => options.debug = false,
             "--screenshot" => options.screenshots.push(parse_screenshot(&value()?)?),
             "--exit-at-tick" => options.exit_at_tick = Some(parse_tick(&value()?)?),
             "--dump-state" => options.dump_state = Some(value()?.into()),
@@ -235,6 +240,7 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
         window_size: options.window_size,
         qa,
         fast: options.fast,
+        sim_config: SimConfig { debug: options.debug },
         editor,
     })
 }
@@ -335,6 +341,7 @@ mod tests {
         assert_eq!(config.display, DisplayMode::Window);
         assert_eq!(config.window_size, DEFAULT_WINDOW_SIZE);
         assert!(!config.qa.is_active() && !config.fast);
+        assert_eq!(config.sim_config, SimConfig::DEBUG);
     }
 
     #[test]
@@ -352,6 +359,9 @@ mod tests {
         assert_eq!(o.screenshots[0].path, PathBuf::from("/tmp/a:b.png"));
         assert_eq!(o.exit_at_tick, Some(9));
         assert_eq!(o.dump_state, Some(PathBuf::from("d.json")));
+        assert!(o.debug);
+        let off = into_config(parse(&args("--no-debug")).unwrap()).unwrap();
+        assert_eq!(off.sim_config, SimConfig { debug: false });
     }
 
     #[test]

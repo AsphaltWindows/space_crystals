@@ -1,11 +1,12 @@
 //! Player input never panics the sim (`ARCHITECTURE.md > Commands, events and replays`):
-//! a long stream of random, mostly invalid debug commands runs deterministically, and any
-//! per-object values a file holds are handled.
+//! a long stream of random, mostly invalid debug commands runs deterministically, the
+//! commands the gate rejects change nothing, and any per-object values a file holds are
+//! handled.
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{
-    Command, DebugCommand, ObjectId, ObjectKind, PlayerCommand, PlayerId, Replay, Rng, SU_PER_GU, Sim, SimEvent, Spawn,
-    SpawnAt, SpawnSettings, TickInputs, TilePos, Vec2,
+    Command, DebugCommand, ObjectId, ObjectKind, PlayerCommand, PlayerId, Replay, Rng, SU_PER_GU, Sim, SimConfig,
+    SimEvent, Spawn, SpawnAt, SpawnSettings, TickInputs, TilePos, Vec2,
 };
 
 const TICKS: u32 = 2000;
@@ -125,8 +126,8 @@ fn fuzz_run(seed: u64) -> Run {
             SpawnAt::Tile(TilePos::new(9, 4)),
         )
         .build();
-    let mut sim = Sim::new(&scenario);
-    let mut replay = Replay::new(scenario);
+    let mut sim = Sim::with_config(&scenario, SimConfig::DEBUG);
+    let mut replay = Replay::new(scenario, SimConfig::DEBUG);
     let mut rng = Rng::from_seed(seed);
     let (mut spawned, mut removed) = (0, 0);
     let mut hashes = Vec::new();
@@ -180,6 +181,51 @@ fn random_debug_commands_never_panic_and_stay_deterministic() {
 
     let other = fuzz_run(0x0dd);
     assert_ne!(other.hashes.last(), first.hashes.last());
+}
+
+/// The command gate (`Sim::validate`): a rejected command changes nothing, neither the state nor the events. Each
+/// random command runs alone in a tick, next to a copy of the game that runs the same tick without it. With debug
+/// commands off, the gate rejects every one of them.
+#[test]
+fn rejected_commands_change_nothing() {
+    for config in [SimConfig::DEBUG, SimConfig::default()] {
+        let scenario = ScenarioBuilder::new(MAP)
+            .spawn(
+                ObjectKind::SupplyDeliveryStation,
+                None,
+                SpawnAt::Tile(TilePos::new(9, 4)),
+            )
+            .build();
+        let mut sim = Sim::with_config(&scenario, config);
+        let mut rng = Rng::from_seed(0x9a7e);
+        let (mut accepted, mut rejected) = (0, 0);
+        for _ in 0..TICKS {
+            let cmd = random_command(&mut rng, &sim);
+            let verdict = sim.validate(&cmd);
+            let mut without = sim.clone();
+            without.step(&TickInputs::default());
+            sim.step(&TickInputs {
+                commands: vec![cmd.clone()],
+            });
+            match verdict {
+                Ok(()) => accepted += 1,
+                Err(reason) => {
+                    rejected += 1;
+                    assert_eq!(sim.state_hash(), without.state_hash(), "{cmd:?}: {reason}");
+                    assert_eq!(sim, without, "{cmd:?}: {reason}");
+                }
+            }
+            check_invariants(&sim);
+        }
+        if config.debug {
+            assert!(
+                accepted > 50 && rejected > 1000,
+                "{accepted} accepted, {rejected} rejected"
+            );
+        } else {
+            assert_eq!((accepted, rejected), (0, TICKS));
+        }
+    }
 }
 
 /// Per-object values (`core/map_editor.md > Per-object Resource Values`) come from files, so any of them, of any

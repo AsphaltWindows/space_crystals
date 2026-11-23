@@ -1,6 +1,6 @@
 //! A lenient way to build a `Sim`, for tools that must show scenarios that aren't valid yet (the map editor).
 
-use super::Sim;
+use super::{Sim, SimConfig};
 use crate::ids::ObjectId;
 use crate::player::Player;
 use crate::rng::Rng;
@@ -10,7 +10,8 @@ impl Sim {
     /// A sim showing as much of `scenario` as can exist, for editors. Unlike [`Sim::try_new`] it accepts invalid
     /// scenarios: player problems are ignored, and every spawn whose footprint or point fits the map is created,
     /// even if footprints overlap or the owner is invalid. The second value maps each spawn, in order, to its
-    /// object, or to `None` if it couldn't be placed. For a valid scenario the sim equals [`Sim::try_new`]'s.
+    /// object, or to `None` if it couldn't be placed. For a valid scenario the sim equals [`Sim::try_new`]'s (the
+    /// default [`SimConfig`]).
     ///
     /// Never start a game from it: games must use [`Sim::try_new`].
     pub fn preview(scenario: &Scenario) -> (Sim, Vec<Option<ObjectId>>) {
@@ -30,6 +31,7 @@ impl Sim {
             objects: Default::default(),
             next_id: 1,
             rng: Rng::from_seed(scenario.seed),
+            config: SimConfig::default(),
             events: Vec::new(),
         };
         let ids = scenario

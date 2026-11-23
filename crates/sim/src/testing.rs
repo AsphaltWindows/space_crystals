@@ -32,7 +32,7 @@ use crate::map::Map;
 use crate::replay::Replay;
 use crate::scenario::{Scenario, Spawn, SpawnAt, SpawnSettings};
 use crate::scenarios;
-use crate::sim::Sim;
+use crate::sim::{Sim, SimConfig};
 use crate::units::Tick;
 
 /// Builds a test [`Scenario`] from an ASCII map ([`Map::from_ascii`]) plus spawns. It has
@@ -75,14 +75,15 @@ impl ScenarioBuilder {
         self.scenario
     }
 
-    /// Builds the scenario and starts a [`TestSim`] on it.
+    /// Builds the scenario and starts a [`TestSim`] on it, with debug commands on.
     pub fn start(self) -> TestSim {
         TestSim::new(self.build())
     }
 }
 
 /// A sim driven by a schedule of commands. It records a [`Replay`] of everything it runs
-/// and keeps every event, since [`Sim::events`] holds only the latest step's.
+/// and keeps every event, since [`Sim::events`] holds only the latest step's. Debug commands
+/// are on unless it starts with another [`SimConfig`] ([`TestSim::with_config`]).
 pub struct TestSim {
     sim: Sim,
     replay: Replay,
@@ -91,11 +92,17 @@ pub struct TestSim {
 }
 
 impl TestSim {
-    /// Panics if the scenario is invalid, listing its problems.
+    /// Panics if the scenario is invalid, listing its problems. Debug commands are on
+    /// ([`SimConfig::DEBUG`]).
     pub fn new(scenario: Scenario) -> Self {
+        Self::with_config(scenario, SimConfig::DEBUG)
+    }
+
+    /// [`TestSim::new`] with the game options `config`.
+    pub fn with_config(scenario: Scenario, config: SimConfig) -> Self {
         Self {
-            sim: Sim::new(&scenario),
-            replay: Replay::new(scenario),
+            sim: Sim::with_config(&scenario, config),
+            replay: Replay::new(scenario, config),
             schedule: BTreeMap::new(),
             events: Vec::new(),
         }

@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 use serde::{Deserialize, Serialize, Serializer};
 
-use crate::command::{Command, DebugCommand, PlayerCommand, TickInputs};
+use crate::command::{PlayerCommand, TickInputs};
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
@@ -14,8 +14,27 @@ use crate::map::Map;
 use crate::object::{Object, Placement, ResourceState};
 use crate::player::Player;
 use crate::rng::Rng;
-use crate::scenario::{Scenario, ScenarioProblem, SpawnAt, SpawnSettings, place_spawn};
+use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
 use crate::units::Tick;
+
+use gate::Checked;
+pub use gate::Reject;
+
+/// Game options outside the scenario, fixed when the game starts ([`Sim::with_config`]): stored and hashed in the
+/// `Sim` and recorded in a [`crate::Replay`]. They live here until the game setup (map + setup split, M0-E) holds
+/// them.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SimConfig {
+    /// `Command::Debug` is accepted (development and QA, `ARCHITECTURE.md > Commands, events and replays`). Off
+    /// by default: a real match never offers debug commands.
+    pub debug: bool,
+}
+
+impl SimConfig {
+    /// Debug commands on: development, QA and tests.
+    pub const DEBUG: SimConfig = SimConfig { debug: true };
+}
 
 /// The whole game state. Serde (de)serializes all of it, e.g. as a JSON state dump or a
 /// save; loading checks that object ids are unique and below the next id.
@@ -33,23 +52,34 @@ pub struct Sim {
     /// The only source of randomness (`ARCHITECTURE.md > Determinism`), seeded from
     /// `Scenario::seed`.
     rng: Rng,
+    config: SimConfig,
     /// Output of the latest step only; not part of [`Sim::state_hash`].
     events: Vec<SimEvent>,
 }
 
 impl Sim {
     /// Panics if the scenario is invalid, listing its problems. Use [`Sim::try_new`] for
-    /// scenarios from files or other input.
+    /// scenarios from files or other input. The default [`SimConfig`]: no debug commands.
     pub fn new(scenario: &Scenario) -> Self {
-        Self::try_new(scenario).unwrap_or_else(|problems| {
+        Self::with_config(scenario, SimConfig::default())
+    }
+
+    /// Starts a game, or lists everything wrong with the scenario
+    /// ([`Scenario::validate`]). Never panics. The default [`SimConfig`]: no debug commands.
+    pub fn try_new(scenario: &Scenario) -> Result<Self, Vec<ScenarioProblem>> {
+        Self::try_with_config(scenario, SimConfig::default())
+    }
+
+    /// [`Sim::new`] with the game options `config`.
+    pub fn with_config(scenario: &Scenario, config: SimConfig) -> Self {
+        Self::try_with_config(scenario, config).unwrap_or_else(|problems| {
             let problems: Vec<String> = problems.iter().map(ToString::to_string).collect();
             panic!("invalid scenario {:?}: {}", scenario.name, problems.join("; "))
         })
     }
 
-    /// Starts a game, or lists everything wrong with the scenario
-    /// ([`Scenario::validate`]). Never panics.
-    pub fn try_new(scenario: &Scenario) -> Result<Self, Vec<ScenarioProblem>> {
+    /// [`Sim::try_new`] with the game options `config`.
+    pub fn try_with_config(scenario: &Scenario, config: SimConfig) -> Result<Self, Vec<ScenarioProblem>> {
         let spots = scenario.spawn_spots()?;
         let players = scenario
             .players
@@ -67,6 +97,7 @@ impl Sim {
             objects: BTreeMap::new(),
             next_id: 1,
             rng: Rng::from_seed(scenario.seed),
+            config,
             events: Vec::new(),
         };
         for (s, (pos, placement)) in scenario.spawns.iter().zip(spots) {
@@ -79,6 +110,11 @@ impl Sim {
 
     pub fn tick(&self) -> Tick {
         self.tick
+    }
+
+    /// The game options this sim started with.
+    pub fn config(&self) -> SimConfig {
+        self.config
     }
 
     pub fn map(&self) -> &Map {
@@ -107,8 +143,8 @@ impl Sim {
         &self.events
     }
 
-    /// FNV-1a 64 hash of the whole state: tick, map, players, objects in id order, next id
-    /// and PRNG state (`f32` by its bits; encoding in `hash.rs`). Events are output, not
+    /// FNV-1a 64 hash of the whole state: tick, map, players, objects in id order, next id,
+    /// PRNG state and config (`f32` by its bits; encoding in `hash.rs`). Events are output, not
     /// state, so they are left out. Equal states give equal hashes on every machine, so
     /// comparing hashes checks determinism.
     pub fn state_hash(&self) -> u64 {
@@ -120,6 +156,7 @@ impl Sim {
             objects,
             next_id,
             rng,
+            config,
             events: _,
         } = self;
         let mut h = StateHasher::new();
@@ -132,6 +169,7 @@ impl Sim {
         }
         next_id.hash(&mut h);
         rng.hash(&mut h);
+        config.hash(&mut h);
         h.finish()
     }
 
@@ -152,41 +190,34 @@ impl Sim {
         self.update_supply_stations(first_new);
     }
 
-    /// Player input must never panic the sim: invalid commands are ignored.
+    /// `ARCHITECTURE.md > Commands, events and replays`: every command passes the gate ([`Sim::validate`]) first.
+    /// A rejected one changes nothing; player input never panics the sim.
     fn apply_command(&mut self, cmd: &PlayerCommand) {
-        match &cmd.command {
-            Command::Debug(DebugCommand::Spawn { kind, owner, at }) => {
-                self.spawn(*kind, *owner, *at);
+        let Ok(checked) = self.check(cmd) else {
+            return;
+        };
+        match checked {
+            Checked::Spawn {
+                kind,
+                owner,
+                pos,
+                placement,
+            } => {
+                self.insert_object(kind, owner, pos, placement, None);
             }
-            Command::Debug(DebugCommand::Remove { id }) => {
-                if self.objects.remove(id).is_some() {
-                    self.events.push(SimEvent::Removed(*id));
+            Checked::Remove(id) => {
+                if self.objects.remove(&id).is_some() {
+                    self.events.push(SimEvent::Removed(id));
                 }
             }
-            Command::Debug(DebugCommand::SetPosition { id, pos }) => {
-                // `contains_point` also rejects NaN and infinite positions.
-                let on_map = self.map.contains_point(*pos);
-                if let Some(o) = self.objects.get_mut(id)
-                    && o.placement.is_none()
-                    && on_map
-                {
-                    // A teleport: no interpolation from the old position.
-                    o.pos = *pos;
-                    o.prev_pos = *pos;
+            Checked::Teleport { id, pos } => {
+                if let Some(o) = self.objects.get_mut(&id) {
+                    // No interpolation from the old position.
+                    o.pos = pos;
+                    o.prev_pos = pos;
                 }
             }
         }
-    }
-
-    /// Create an object with its type's initial state and the default per-object values
-    /// ([`SpawnSettings::defaults`]). Returns `None`, changing nothing, if the location doesn't suit the type,
-    /// lies off the map, the owner is invalid ([`place_spawn`]), or every object id is used up.
-    fn spawn(&mut self, kind: ObjectKind, owner: Option<PlayerId>, at: SpawnAt) -> Option<ObjectId> {
-        if self.next_id == u32::MAX {
-            return None;
-        }
-        let (pos, placement) = place_spawn(&self.map, kind, owner, at, |p| self.player(p).is_some()).ok()?;
-        Some(self.insert_object(kind, owner, pos, placement, None))
     }
 
     /// Insert an object at a checked spot, with its type's initial state. Its per-object values are `settings`,
@@ -272,6 +303,7 @@ struct SimState {
     objects: Vec<Object>,
     next_id: u32,
     rng: Rng,
+    config: SimConfig,
     events: Vec<SimEvent>,
 }
 
@@ -286,6 +318,7 @@ impl TryFrom<SimState> for Sim {
             objects: list,
             next_id,
             rng,
+            config,
             events,
         } = state;
         let mut objects = BTreeMap::new();
@@ -304,11 +337,13 @@ impl TryFrom<SimState> for Sim {
             objects,
             next_id,
             rng,
+            config,
             events,
         })
     }
 }
 
+mod gate;
 mod preview;
 #[cfg(test)]
 mod tests;

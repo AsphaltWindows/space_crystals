@@ -30,7 +30,7 @@ pub mod shapes;
 pub mod sim_driver;
 
 use bevy::prelude::*;
-use sc_sim::{PlayerId, Scenario};
+use sc_sim::{PlayerId, Scenario, SimConfig};
 
 use crate::camera::GameCameraPlugin;
 use crate::editor::{EditorConfig, EditorPlugin};
@@ -86,12 +86,15 @@ pub struct AppConfig {
     pub qa: QaConfig,
     /// Run as many ticks per frame as possible.
     pub fast: bool,
+    /// The sim's options: debug commands are on unless `--no-debug` (`ARCHITECTURE.md > Commands, events and
+    /// replays`).
+    pub sim_config: SimConfig,
     /// Edit `scenario` in the map editor instead of playing it.
     pub editor: Option<EditorConfig>,
 }
 
 impl AppConfig {
-    /// Player 1's view of `scenario` in a 1280×720 window, without QA.
+    /// Player 1's view of `scenario` in a 1280×720 window, without QA, with debug commands.
     pub fn new(scenario: Scenario) -> Self {
         Self {
             scenario,
@@ -100,6 +103,7 @@ impl AppConfig {
             window_size: cli::DEFAULT_WINDOW_SIZE,
             qa: QaConfig::default(),
             fast: false,
+            sim_config: SimConfig::DEBUG,
             editor: None,
         }
     }
@@ -143,6 +147,7 @@ pub fn build_app(config: AppConfig) -> App {
             player: config.player,
             fast: config.fast,
             preview: editing,
+            config: config.sim_config,
         },
         ActionInputPlugin { raw_input: !qa_run },
         GameCameraPlugin,

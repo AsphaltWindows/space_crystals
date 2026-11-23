@@ -42,6 +42,6 @@ pub use rng::Rng;
 pub use scenario::{
     PlayerSetup, Scenario, ScenarioProblem, SettingsProblem, Spawn, SpawnAt, SpawnProblem, SpawnSettings,
 };
-pub use sim::Sim;
+pub use sim::{Reject, Sim, SimConfig};
 pub use symmetry::{MapTransform, Orientation, Symmetry};
 pub use units::{CornerPos, SU_PER_GU, TICKS_PER_SECOND, Tick, TilePos, gu, seconds};
