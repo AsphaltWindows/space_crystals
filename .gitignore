@@ -1,16 +1,5 @@
 /target
-/agents
-/agent_logs
-/project_tasks
-/completed_tasks
-run_bot.sh
-telegram_bot.yaml
-.secrets
-/telegram_bot/__pycache__/
-/.locks/
 /artifacts/developer/target/
-run_qa.log
-artifacts/manual_qa/qa_artifacts
 
 # Hook notification markers (ephemeral)
 artifacts/*/state/.notified_*
