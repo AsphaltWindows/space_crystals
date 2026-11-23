@@ -12,6 +12,8 @@
 - **Generated art with user sign-off**: per-asset review page (claude.ai artifact with a db capability: approve/reject/comment, stills + animations at game speed + in-game context screenshots); agents read verdicts back. Tooling (PixelLab MCP for directional pixel sprites; or Blender+blender-mcp+3D generator; image-model API for textures/icons) is chosen at the art milestone — user must create accounts/keys.
 - **Max agent QA-ability is a core requirement**: headless deterministic scenario tests, an in-game QA driver (scripted inputs, fast-forward, state/HUD dumps, screenshots), screenshot checks, replays of the user's sessions.
 
+- **Map editor**: built first as a dev tool (M0-C), then designed by the Designer with the user (`core/map_editor.md`: map types, creation settings, generated symmetry, per-faction Starting Layouts, custom presets). It is now a spec'd feature, so editor behaviour questions go to the Designer.
+
 ## Codebase
 - Layout and rules: see `ARCHITECTURE.md` at the repo root (the brief every sub-agent reads first).
 - `cargo run` = game; `cargo test` = both crates (both are default-members).
@@ -42,5 +44,10 @@
 - **Parallel coding agents use `isolation: "worktree"`**. They seed `target/` with a reflink copy (btrfs; a cold Bevy build takes ~7 min), commit on their own branch, and the Director reviews and merges.
 
 ## Lessons learned (process)
+- **Never `cd` in a Bash command in this session.** It moves the session's cwd (it happened three times). Use absolute paths, `git -C`, or a subshell `( cd X && ... )`.
+- **Folding design changes into a running agent with SendMessage works.** M0-D absorbed 0012/0013 and four review findings mid-task. Give exact file:line references and the fix direction.
+- **Parallel agents**: give each the other's areas as a "don't touch" list, and carry cross-cutting state (e.g. the debug switch) through a separate type, so the integration merge stays small.
+- **Typical cost**: an editor-sized task takes about 1 hour and 150–250k agent tokens; a read-only review takes about 25 minutes and 170k.
+- **The Bevy default UI font has ASCII glyphs only** ("°" and "×" show as boxes). Use ASCII in UI text until a font is added.
 - Agent worktrees (`isolation: "worktree"`) live in `.claude/worktrees/` (gitignored) and showed the last *pushed* commit at creation, then caught up to local master. Briefs tell agents to `git merge --ff-only master` first anyway. Check `git worktree list` after launching.
 - `git add -A <dir>` fails for an already-staged deleted directory; pass it only to `git commit -- <paths>`.
