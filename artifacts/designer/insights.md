@@ -28,9 +28,9 @@
 ## Open Director Questions
 
 All non-blocking (Director proceeds on assumptions). Raised with user 2026-11-23.
-- **Q0002** input bindings (shift/ctrl/double-click, control-group keys, pan inputs/speed, queue modifier). Director assumes SC2-like. Needs user.
-- **Q0003** patch RemainingAmount (assumed 1500), Supply station DeliverySize 4 / Interval 60 s, start empty vs stocked, reference map ownership. Needs user.
-- **Q0004** map player slots / start locations / starting-base auto-layout vs per-faction layouts / pre-placed objects / map metadata. Needs user.
+- **Q0004** map player slots / start locations / starting-base auto-layout vs per-faction layouts / pre-placed objects / map metadata. Needs user. User: test map starts in the corners (answered in 0007). STILL ASK: A auto-layout vs B per-faction hand layouts (I lean A).
+- **Q0002**: user asked whether controls were already specced; I showed what exists (portrait clicks, Tab, command hotkeys, CG operations w/o keys) and the gaps. Awaiting OK on Director's SC2-like defaults + middle-mouse pan? + rebinding scope.
+- **Map editor symmetry (user request 2026-11-23, not yet written)**: auto-generate rotational / horizontal / vertical / both-axes symmetric maps. Asked: 180° only or 90° too; live mirroring vs one-shot; mirror everything incl. start spots + pre-placed objects?
 
 ## Loose Ends
 

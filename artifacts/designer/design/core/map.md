@@ -106,14 +106,18 @@ A minable deposit of Space Crystals on the map. Factions harvest Space Crystals 
 
 ### Size - 1x1
 ### RemainingAmount - number (Space Crystals left in the patch)
+### StartingAmount - number, **set per patch in the map editor**; default for newly placed patches **1500** (placeholder, user 2026-11-23). RemainingAmount starts at this value.
 ### InfoPanel: when visible to the selecting player, displays RemainingAmount
 
 ## SupplyDeliveryStation
 A location on the map that periodically receives supply deliveries. The delivery countdown begins only once the station's current supply content reaches 0. Factions collect supplies from the station using faction-specific collection mechanics.
 
 ### Size - 2x2
-### DeliverySize - number (amount of supplies per delivery)
-### DeliveryInterval - number (time between deliveries)
+All three of the following are **set per station in the map editor** (user, 2026-11-23). The defaults for newly placed stations are placeholders:
+
+### StartingSupplies - number (CurrentSupplies at game start); default **0**. A station starting at 0 begins its first countdown at game start, so the first delivery arrives one DeliveryInterval in. A stocked station starts counting down only once it is emptied (rule above).
+### DeliverySize - number (amount of supplies per delivery); default **4**
+### DeliveryInterval - number (time between deliveries); default **60 s (960 frames)**
 ### CurrentSupplies - number (supplies currently on the station)
 ### NextDeliveryTime - number (frames until the next delivery arrives)
 
