@@ -7,6 +7,7 @@ use std::fmt;
 
 use glam::Vec2;
 
+use super::settings::{SettingsProblem, SpawnSettings};
 use super::{Scenario, SpawnAt};
 use crate::defs::{Category, Footprint, ObjectKind};
 use crate::ids::PlayerId;
@@ -18,6 +19,11 @@ use crate::units::TilePos;
 /// `Display` gives a message for the editor or a log.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ScenarioProblem {
+    /// A side of the map is longer than [`crate::map::MAX_MAP_SIDE`] tiles.
+    MapTooBig { width: u32, height: u32 },
+    /// `core/map.md > Elevation > Maximum slope`: this Traversible tile's corners differ by `slope` levels, more
+    /// than [`crate::map::MAX_TRAVERSIBLE_SLOPE`].
+    TooSteep { tile: TilePos, slope: u8 },
     /// More than one player has this id.
     DuplicatePlayerId(PlayerId),
     /// `core/entities.md > Player`: players are numbered from 1 to n, the number of players.
@@ -49,6 +55,14 @@ pub enum SpawnProblem {
     FootprintOffMap,
     /// The point is not finite or lies off the map.
     PointOffMap,
+    /// `core/map.md > Elevation > Map resources only on flat terrain`: this footprint tile is sloped.
+    NotFlat(TilePos),
+    /// `core/map_editor.md > Per-object Resource Values`: the spawn has no values, but its kind needs them.
+    MissingSettings,
+    /// The spawn's values belong to another kind of object.
+    WrongSettings,
+    /// One of the spawn's values makes no sense.
+    InvalidSettings(SettingsProblem),
 }
 
 impl fmt::Display for SpawnProblem {
@@ -61,6 +75,10 @@ impl fmt::Display for SpawnProblem {
             }
             SpawnProblem::FootprintOffMap => write!(f, "the footprint is not entirely on the map"),
             SpawnProblem::PointOffMap => write!(f, "the point is not finite or off the map"),
+            SpawnProblem::NotFlat(t) => write!(f, "it needs flat ground, but its tile ({}, {}) is sloped", t.x, t.y),
+            SpawnProblem::MissingSettings => write!(f, "its per-object values are missing"),
+            SpawnProblem::WrongSettings => write!(f, "its per-object values belong to another kind of object"),
+            SpawnProblem::InvalidSettings(problem) => write!(f, "{problem}"),
         }
     }
 }
@@ -68,6 +86,18 @@ impl fmt::Display for SpawnProblem {
 impl fmt::Display for ScenarioProblem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            ScenarioProblem::MapTooBig { width, height } => write!(
+                f,
+                "the map is {width} × {height} tiles, more than {max} × {max}",
+                max = crate::map::MAX_MAP_SIDE
+            ),
+            ScenarioProblem::TooSteep { tile, slope } => write!(
+                f,
+                "tile ({}, {}) is Traversible but {slope} levels steep (at most {}): flatten it or make it a cliff",
+                tile.x,
+                tile.y,
+                crate::map::MAX_TRAVERSIBLE_SLOPE
+            ),
             ScenarioProblem::DuplicatePlayerId(p) => write!(f, "player id {} is used more than once", p.0),
             ScenarioProblem::PlayerIdOutOfRange { player, players } => write!(
                 f,
@@ -98,15 +128,26 @@ impl fmt::Display for ScenarioProblem {
 pub(crate) type SpawnSpot = (Vec2, Option<Placement>);
 
 impl Scenario {
-    /// Everything that makes this scenario unplayable, players first, then spawns in
-    /// order. Empty means [`crate::Sim::try_new`] accepts it. Never panics.
+    /// Everything that makes this scenario unplayable: the map's too-steep tiles row by row, then the players,
+    /// then the spawns in order. Empty means [`crate::Sim::try_new`] accepts it. Never panics.
     pub fn validate(&self) -> Vec<ScenarioProblem> {
         self.spawn_spots().err().unwrap_or_default()
     }
 
     /// Validates the scenario. If it is valid, returns the spot of each spawn, in order.
     pub(crate) fn spawn_spots(&self) -> Result<Vec<SpawnSpot>, Vec<ScenarioProblem>> {
+        let (width, height) = (self.map.width(), self.map.height());
+        let max = crate::map::MAX_MAP_SIDE;
         let mut problems = Vec::new();
+        if width > max || height > max {
+            problems.push(ScenarioProblem::MapTooBig { width, height });
+        }
+        problems.extend(
+            self.map
+                .too_steep_tiles()
+                .into_iter()
+                .map(|(tile, slope)| ScenarioProblem::TooSteep { tile, slope }),
+        );
         let players = self.players.len();
         let mut ids = BTreeSet::new();
         for p in &self.players {
@@ -131,7 +172,9 @@ impl Scenario {
         let mut spots = Vec::with_capacity(self.spawns.len());
         let mut occupied: BTreeMap<TilePos, usize> = BTreeMap::new();
         for (i, s) in self.spawns.iter().enumerate() {
-            match place_spawn(&self.map, s.kind, s.owner, s.at, |id| ids.contains(&id)) {
+            let spot = place_spawn(&self.map, s.kind, s.owner, s.at, |id| ids.contains(&id))
+                .and_then(|spot| check_settings(s.kind, s.settings.as_ref()).map(|()| spot));
+            match spot {
                 Ok(spot) => {
                     if let Some(placement) = &spot.1 {
                         // One problem per spawn: the first tile it shares with an earlier spawn.
@@ -183,7 +226,26 @@ pub(crate) fn place_spawn(
             return Err(SpawnProblem::UnknownOwner(p));
         }
     }
-    locate(map, def.footprint, at)
+    let spot = locate(map, def.footprint, at)?;
+    // `core/map.md > Elevation > Map resources only on flat terrain`.
+    if def.needs_flat_ground
+        && let (_, Some(placement)) = &spot
+        && let Some(sloped) = placement.tiles().find(|t| !map.is_flat(*t))
+    {
+        return Err(SpawnProblem::NotFlat(sloped));
+    }
+    Ok(spot)
+}
+
+/// `core/map_editor.md > Per-object Resource Values`: a spawn of `kind` needs exactly the values of its kind, and
+/// they must make sense.
+fn check_settings(kind: ObjectKind, settings: Option<&SpawnSettings>) -> Result<(), SpawnProblem> {
+    match (SpawnSettings::defaults(kind), settings) {
+        (None, None) => Ok(()),
+        (Some(_), None) => Err(SpawnProblem::MissingSettings),
+        (_, Some(s)) if s.kind() != kind => Err(SpawnProblem::WrongSettings),
+        (_, Some(s)) => s.check().map_err(SpawnProblem::InvalidSettings),
+    }
 }
 
 /// Where an object with `footprint` goes when spawned `at`, if that fits the map.

@@ -2,16 +2,12 @@ use super::*;
 use crate::map::{Tile, TilePresetId};
 use crate::object::Rotation;
 use crate::player::Faction;
-use crate::scenario::Spawn;
+use crate::scenario::{DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, Spawn, SpawnSettings};
 use crate::scenarios;
 use crate::units::TilePos;
 
 fn tile_spawn(kind: ObjectKind, x: i32, y: i32) -> Spawn {
-    Spawn {
-        kind,
-        owner: None,
-        at: SpawnAt::Tile(TilePos::new(x, y)),
-    }
+    Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(x, y)))
 }
 
 /// An 8×6 map (512 × 384 su) with a patch (id 1) and a station (id 2).
@@ -94,7 +90,7 @@ fn state_hash_covers_every_field() {
     let mutations: Vec<Mutation> = vec![
         ("tick", |s| s.tick += 1),
         ("map", |s| {
-            s.map.set_tile(TilePos::new(0, 0), Tile::new(TilePresetId::WATER, 0))
+            s.map.set_tile(TilePos::new(0, 0), Tile::new(TilePresetId::WATER))
         }),
         ("player id", |s| s.players[0].id = PlayerId(9)),
         ("player name", |s| s.players[0].name.push('!')),
@@ -188,11 +184,11 @@ fn set_position_teleports_to_finite_points_on_the_map_only() {
 #[test]
 fn station_countdown_restarts_when_emptied() {
     let mut sim = small_sim();
-    let interval = seconds(DEFAULT_SDS_DELIVERY_INTERVAL_SECONDS);
+    let interval = DEFAULT_DELIVERY_INTERVAL;
     for _ in 0..interval {
         sim.step(&TickInputs::default());
     }
-    assert_eq!(station_supplies(&sim), (DEFAULT_SDS_DELIVERY_SIZE, None));
+    assert_eq!(station_supplies(&sim), (DEFAULT_DELIVERY_SIZE, None));
     // Stand-in for a future collector emptying the station between ticks.
     *station(&mut sim).2 = 0;
     sim.step(&TickInputs::default());
@@ -201,12 +197,38 @@ fn station_countdown_restarts_when_emptied() {
         assert!(sim.events().is_empty());
         sim.step(&TickInputs::default());
     }
-    assert_eq!(station_supplies(&sim), (DEFAULT_SDS_DELIVERY_SIZE, None));
+    assert_eq!(station_supplies(&sim), (DEFAULT_DELIVERY_SIZE, None));
     let delivered = SimEvent::SuppliesDelivered {
         station: ObjectId(2),
-        amount: DEFAULT_SDS_DELIVERY_SIZE,
+        amount: DEFAULT_DELIVERY_SIZE,
     };
     assert_eq!(sim.events(), [delivered]);
+}
+
+#[test]
+fn a_stocked_station_waits_until_emptied() {
+    let mut scenario = scenarios::empty(8, 6);
+    let mut stocked = tile_spawn(ObjectKind::SupplyDeliveryStation, 4, 2);
+    stocked.settings = Some(SpawnSettings::SupplyDeliveryStation {
+        starting_supplies: 6,
+        delivery_size: 3,
+        delivery_interval: 100,
+    });
+    scenario.spawns = vec![tile_spawn(ObjectKind::CrystalPatch, 1, 1), stocked];
+    let mut sim = Sim::new(&scenario);
+    for _ in 0..500 {
+        sim.step(&TickInputs::default());
+        assert_eq!(station_supplies(&sim), (6, None));
+    }
+    // Stand-in for a future collector emptying the station between ticks: only now does the countdown start.
+    *station(&mut sim).2 = 0;
+    for _ in 0..99 {
+        sim.step(&TickInputs::default());
+        assert!(sim.events().is_empty());
+    }
+    assert_eq!(station_supplies(&sim), (0, Some(1)));
+    sim.step(&TickInputs::default());
+    assert_eq!(station_supplies(&sim), (3, None));
 }
 
 #[test]

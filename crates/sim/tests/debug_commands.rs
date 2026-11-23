@@ -1,16 +1,22 @@
 //! `Command::Debug`: valid commands take effect, invalid ones are ignored without a panic
 //! (`ARCHITECTURE.md > Commands, events and replays`).
 
-use sc_sim::sim::DEFAULT_PATCH_AMOUNT;
+use sc_sim::scenario::DEFAULT_STARTING_AMOUNT;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{DebugCommand, ObjectId, ObjectKind, PlayerId, ResourceState, SimEvent, SpawnAt, TilePos, Vec2};
 
-/// 6 × 4 tiles, 384 × 256 su.
+/// 6 × 4 tiles, 384 × 256 su, with a low hill on the south edge whose top is corner (3, 4).
 const MAP: &str = "
     ......
     ...~~.
     ......
     ......
+
+    0000000
+    0000000
+    0000000
+    0000000
+    0001000
 ";
 
 fn tile(x: i32, y: i32) -> SpawnAt {
@@ -48,7 +54,7 @@ fn spawn_creates_objects_with_ascending_ids_and_events() {
     );
     let placement = patch.placement.unwrap();
     assert_eq!((placement.origin, placement.w, placement.h), (TilePos::new(0, 3), 1, 1));
-    let remaining = DEFAULT_PATCH_AMOUNT;
+    let remaining = DEFAULT_STARTING_AMOUNT;
     assert_eq!(patch.resource, Some(ResourceState::CrystalPatch { remaining }));
 
     let station = sim.object(ObjectId(2)).unwrap();
@@ -78,16 +84,19 @@ fn invalid_spawns_are_ignored() {
         spawn(station, None, tile(i32::MAX, i32::MAX)),
         spawn(station, None, tile(i32::MIN, i32::MIN)),
         spawn(station, None, tile(i32::MAX, 0)),
+        // `core/map.md > Elevation > Map resources only on flat terrain`: the hill's slopes.
+        spawn(patch, None, tile(2, 3)),
+        spawn(station, None, tile(2, 2)),
     ];
     for (i, command) in invalid.into_iter().enumerate() {
         t.debug_at(i as u32 + 1, command);
     }
-    let end = t.sim().tick() + 12;
+    let end = t.sim().tick() + 14;
     t.run_until(end);
     assert!(t.events().is_empty(), "{:?}", t.events());
     assert!(ids(&t).is_empty());
     // Rejected spawns use up no ids.
-    t.debug_at(13, spawn(patch, None, tile(5, 3)));
+    t.debug_at(15, spawn(patch, None, tile(5, 3)));
     t.step();
     assert_eq!(ids(&t), [1]);
 }

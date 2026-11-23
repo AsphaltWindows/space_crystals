@@ -56,4 +56,34 @@ impl TilePos {
     pub fn center(self) -> Vec2 {
         self.corner() + Vec2::splat(SU_PER_GU / 2.0)
     }
+
+    /// The tile's four corners (`core/map.md > Elevation`): north-west, north-east, south-west, south-east.
+    pub fn corners(self) -> [CornerPos; 4] {
+        let (x, y) = (self.x, self.y);
+        [
+            CornerPos::new(x, y),
+            CornerPos::new(x + 1, y),
+            CornerPos::new(x, y + 1),
+            CornerPos::new(x + 1, y + 1),
+        ]
+    }
+}
+
+/// Integer coordinate of a tile corner, where terrain heights live (`core/map.md > Elevation`). Corner `(x, y)` is
+/// the north-west corner of tile `(x, y)`, at `(64x, 64y)` su, so a `W × H` map has corners `(0..=W, 0..=H)`.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct CornerPos {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl CornerPos {
+    pub const fn new(x: i32, y: i32) -> Self {
+        Self { x, y }
+    }
+
+    /// The corner's position, in space units.
+    pub fn pos(self) -> Vec2 {
+        Vec2::new(self.x as f32 * SU_PER_GU, self.y as f32 * SU_PER_GU)
+    }
 }

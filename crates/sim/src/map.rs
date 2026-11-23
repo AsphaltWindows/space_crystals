@@ -1,4 +1,8 @@
-//! Tiles and tile presets — `core/map.md`.
+//! Tiles, tile presets and terrain heights — `core/map.md`.
+//!
+//! A `W × H` map has `W × H` tiles, each a [`TilePreset`], and `(W + 1) × (H + 1)` corner heights
+//! (`core/map.md > Elevation`): adjacent tiles share their corners, so the terrain is continuous. Height queries
+//! (interpolation, flatness, slope) are in `map/height.rs`.
 //!
 //! # Text formats
 //!
@@ -16,35 +20,40 @@
 //! Custom presets get their own symbol: any printable ASCII character except space, `"`
 //! and `\` that no other preset of the map uses (see [`Map::add_preset_with_symbol`]).
 //!
-//! An elevation (`core/map.md > TilePlacement > Elevation - integer (0 to 16)`) is one
+//! A corner height (`core/map.md > Elevation > CornerHeight - integer (0 to 16)`) is one
 //! base-17 digit: `0`–`9` for 0 to 9, then `a`–`g` for 10 to 16.
 //!
 //! ## ASCII maps ([`Map::from_ascii`], [`Map::to_ascii`])
 //!
 //! A tile block of preset symbols, one line per row from north to south, optionally
-//! followed by a blank line and an elevation block of the same size. Without an elevation
-//! block every tile is at elevation 0. Lines are trimmed, so the text may be indented, and
-//! leading and trailing blank lines are ignored. `from_ascii` knows the default presets
-//! only; a map with custom presets round-trips through its serde form instead.
+//! followed by a blank line and a **height block**: one line per corner row, north to
+//! south, with one digit per corner, so it is one row and one column larger than the tile
+//! block. Without a height block every corner is at height 0. Lines are trimmed, so the
+//! text may be indented, and leading and trailing blank lines are ignored. `from_ascii`
+//! knows the default presets only; a map with custom presets round-trips through its
+//! serde form instead. Here a column of cliffs separates low ground in the west from a
+//! plateau 2 levels up in the east:
 //!
 //! ```text
-//! ....rr~~
-//! ..cc..~~
-//! ..MM....
+//! ..c.
+//! ..c.
+//! ..c.
 //!
-//! 00000000
-//! 00110000
-//! 00220000
+//! 00022
+//! 00022
+//! 00022
+//! 00022
 //! ```
 //!
 //! ## Serde form (scenario files, saves)
 //!
 //! `Map` serializes as an object with three fields: `custom_presets`, the presets after
 //! the defaults in [`TilePresetId`] order (each with its `symbol`, `name` and flags),
-//! then `tiles` and `elevation`, the two ASCII blocks as arrays of row strings. The
-//! default presets are implied, so they always match the design. When reading,
-//! `custom_presets` and `elevation` may be omitted (none, and all at elevation 0).
-//! Pretty-printed JSON shows one map row per line:
+//! then `tiles` and `heights`, the two ASCII blocks as arrays of row strings (`H` tile
+//! rows of `W` symbols, `H + 1` corner rows of `W + 1` digits). The default presets are
+//! implied, so they always match the design. When reading, `custom_presets` and `heights`
+//! may be omitted (none, and every corner at height 0). Pretty-printed JSON shows one
+//! map row per line:
 //!
 //! ```json
 //! {
@@ -63,9 +72,10 @@
 //!     "..AA",
 //!     "~~.."
 //!   ],
-//!   "elevation": [
-//!     "0011",
-//!     "0000"
+//!   "heights": [
+//!     "00111",
+//!     "00111",
+//!     "00000"
 //!   ]
 //! }
 //! ```
@@ -73,15 +83,25 @@
 mod ascii;
 mod edit;
 mod file;
+mod height;
 
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::hash::{StateHash, StateHasher};
-use crate::units::TilePos;
+use crate::units::{CornerPos, TilePos};
 
-/// `core/map.md > Elevation - integer (0 to 16)`.
+/// `core/map.md > Elevation > CornerHeight - integer (0 to 16)`.
 pub const MAX_ELEVATION: u8 = 16;
+
+/// The longest map side, in tiles (placeholder until the design settles map sizes, `core/map_editor.md > Map
+/// Creation`). Loading checks it before allocating anything for the map, so a damaged or hostile file can't make
+/// it reserve huge amounts of memory; validation rejects bigger maps built in code.
+pub const MAX_MAP_SIDE: u32 = 256;
+
+/// `core/map.md > Elevation > Maximum slope`: on a Traversible tile, the four corner heights differ by at most 1
+/// level. Steeper tiles must be non-Traversible (cliffs).
+pub const MAX_TRAVERSIBLE_SLOPE: u8 = 1;
 
 /// Text symbols of the default presets, in [`TilePresetId`] order (see the module docs).
 pub const DEFAULT_PRESET_SYMBOLS: [char; 5] = ['.', 'r', 'c', 'M', '~'];
@@ -111,21 +131,21 @@ impl TilePresetId {
     pub const WATER: Self = Self(4);
 }
 
-/// `core/map.md > TilePlacement`: a preset at an elevation.
+/// `core/map.md > TilePlacement`: a preset at a location. Its height comes from the map's corner heights
+/// (`core/map.md > Elevation`), not from the tile.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Tile {
     pub preset: TilePresetId,
-    pub elevation: u8,
 }
 
 impl Tile {
-    pub const fn new(preset: TilePresetId, elevation: u8) -> Self {
-        Self { preset, elevation }
+    pub const fn new(preset: TilePresetId) -> Self {
+        Self { preset }
     }
 }
 
-/// The tile grid. Row-major storage, `index = y * width + x`. Serde uses the compact
-/// text form described in the module docs.
+/// The tile grid and its corner heights. Both are stored row-major: tile `(x, y)` at `y * width + x`, corner
+/// `(x, y)` at `y * (width + 1) + x`. Serde uses the compact text form described in the module docs.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Map {
     width: u32,
@@ -134,10 +154,12 @@ pub struct Map {
     /// Text symbol of each preset, same index as `presets`.
     symbols: Vec<char>,
     tiles: Vec<Tile>,
+    /// `(width + 1) × (height + 1)` corner heights, each `0..=MAX_ELEVATION` (`core/map.md > Elevation`).
+    heights: Vec<u8>,
 }
 
 impl Map {
-    /// A `width × height` map of Plane tiles at elevation 0, with the default presets.
+    /// A `width × height` map of Plane tiles with every corner at height 0, with the default presets.
     pub fn new(width: u32, height: u32) -> Self {
         assert!(width > 0 && height > 0, "map must not be empty");
         Self {
@@ -145,7 +167,8 @@ impl Map {
             height,
             presets: Self::default_presets(),
             symbols: DEFAULT_PRESET_SYMBOLS.to_vec(),
-            tiles: vec![Tile::new(TilePresetId::PLANE, 0); width as usize * height as usize],
+            tiles: vec![Tile::new(TilePresetId::PLANE); width as usize * height as usize],
+            heights: vec![0; corner_count(width, height)],
         }
     }
 
@@ -195,20 +218,39 @@ impl Map {
         self.index(p).map(|i| self.tiles[i])
     }
 
-    /// Panics if `p` is out of bounds or the tile's preset/elevation is invalid.
+    /// Panics if `p` is out of bounds or the preset is unknown.
     pub fn set_tile(&mut self, p: TilePos, tile: Tile) {
         assert!(
             (tile.preset.0 as usize) < self.presets.len(),
             "unknown preset {:?}",
             tile.preset
         );
-        assert!(
-            tile.elevation <= MAX_ELEVATION,
-            "elevation {} > {MAX_ELEVATION}",
-            tile.elevation
-        );
         let i = self.index(p).unwrap_or_else(|| panic!("tile {p:?} out of bounds"));
         self.tiles[i] = tile;
+    }
+
+    /// Whether corner `c` exists: `(0..=width, 0..=height)`.
+    pub fn corner_in_bounds(&self, c: CornerPos) -> bool {
+        c.x >= 0 && c.y >= 0 && c.x as u32 <= self.width && c.y as u32 <= self.height
+    }
+
+    fn corner_index(&self, c: CornerPos) -> Option<usize> {
+        self.corner_in_bounds(c)
+            .then(|| c.y as usize * (self.width as usize + 1) + c.x as usize)
+    }
+
+    /// The height of corner `c` (`core/map.md > Elevation > CornerHeight`), if it exists.
+    pub fn corner(&self, c: CornerPos) -> Option<u8> {
+        self.corner_index(c).map(|i| self.heights[i])
+    }
+
+    /// Panics if `c` is out of bounds or `height` is above [`MAX_ELEVATION`].
+    pub fn set_corner(&mut self, c: CornerPos, height: u8) {
+        assert!(height <= MAX_ELEVATION, "height {height} > {MAX_ELEVATION}");
+        let i = self
+            .corner_index(c)
+            .unwrap_or_else(|| panic!("corner {c:?} out of bounds"));
+        self.heights[i] = height;
     }
 
     pub fn presets(&self) -> &[TilePreset] {
@@ -288,13 +330,20 @@ impl StateHash for Map {
             presets,
             symbols,
             tiles,
+            heights,
         } = self;
         width.hash(h);
         height.hash(h);
         presets.hash(h);
         symbols.hash(h);
         tiles.hash(h);
+        heights.hash(h);
     }
+}
+
+/// How many corners a `width × height` map has.
+fn corner_count(width: u32, height: u32) -> usize {
+    (width as usize + 1) * (height as usize + 1)
 }
 
 #[cfg(test)]

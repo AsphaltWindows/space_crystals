@@ -25,6 +25,7 @@ pub mod rng;
 pub mod scenario;
 pub mod scenarios;
 pub mod sim;
+pub mod symmetry;
 pub mod testing;
 pub mod units;
 
@@ -33,11 +34,14 @@ pub use defs::{Category, Footprint, ObjectDef, ObjectKind};
 pub use events::SimEvent;
 pub use glam::Vec2;
 pub use ids::{ObjectId, PlayerId};
-pub use map::{Map, Tile, TilePreset, TilePresetId};
+pub use map::{MAX_ELEVATION, MAX_TRAVERSIBLE_SLOPE, Map, Tile, TilePreset, TilePresetId};
 pub use object::{Object, Placement, ResourceState, Rotation};
 pub use player::{Faction, Player};
 pub use replay::Replay;
 pub use rng::Rng;
-pub use scenario::{PlayerSetup, Scenario, ScenarioProblem, Spawn, SpawnAt, SpawnProblem};
+pub use scenario::{
+    PlayerSetup, Scenario, ScenarioProblem, SettingsProblem, Spawn, SpawnAt, SpawnProblem, SpawnSettings,
+};
 pub use sim::Sim;
-pub use units::{SU_PER_GU, TICKS_PER_SECOND, Tick, TilePos, gu, seconds};
+pub use symmetry::{MapTransform, Orientation, Symmetry};
+pub use units::{CornerPos, SU_PER_GU, TICKS_PER_SECOND, Tick, TilePos, gu, seconds};

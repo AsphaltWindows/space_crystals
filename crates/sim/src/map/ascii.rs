@@ -1,18 +1,18 @@
 //! The ASCII map format and the row encoding it shares with the serde form
 //! (see the `map` module docs).
 
-use super::{DEFAULT_PRESET_SYMBOLS, MAX_ELEVATION, Map, Tile, TilePreset, TilePresetId};
+use super::{DEFAULT_PRESET_SYMBOLS, MAX_ELEVATION, MAX_MAP_SIDE, Map, Tile, TilePreset, TilePresetId, corner_count};
 
-/// Elevation digits, base 17: index = elevation (`core/map.md > TilePlacement`).
-const ELEVATION_DIGITS: &str = "0123456789abcdefg";
+/// Height digits, base 17: index = height (`core/map.md > Elevation > CornerHeight`).
+const HEIGHT_DIGITS: &str = "0123456789abcdefg";
 
-fn elevation_of_digit(c: char) -> Option<u8> {
-    // `find` returns a byte offset, which equals the elevation since all digits are ASCII.
-    ELEVATION_DIGITS.find(c).map(|i| i as u8)
+fn height_of_digit(c: char) -> Option<u8> {
+    // `find` returns a byte offset, which equals the height since all digits are ASCII.
+    HEIGHT_DIGITS.find(c).map(|i| i as u8)
 }
 
-fn digit_of_elevation(elevation: u8) -> char {
-    char::from(ELEVATION_DIGITS.as_bytes()[usize::from(elevation)])
+fn digit_of_height(height: u8) -> char {
+    char::from(HEIGHT_DIGITS.as_bytes()[usize::from(height)])
 }
 
 impl Map {
@@ -36,15 +36,15 @@ impl Map {
         match blocks.as_slice() {
             [] => Err("the map has no tile rows".into()),
             [tiles] => Map::from_rows(presets, symbols, tiles, None),
-            [tiles, elevation] => Map::from_rows(presets, symbols, tiles, Some(elevation)),
+            [tiles, heights] => Map::from_rows(presets, symbols, tiles, Some(heights)),
             _ => Err(format!(
-                "expected a tile block and an optional elevation block, found {} blocks separated by blank lines",
+                "expected a tile block and an optional height block, found {} blocks separated by blank lines",
                 blocks.len()
             )),
         }
     }
 
-    /// The map in the ASCII format: the tile block, a blank line, then the elevation block.
+    /// The map in the ASCII format: the tile block, a blank line, then the height block.
     /// Custom presets appear as their symbols, which [`Map::from_ascii`] doesn't know.
     pub fn to_ascii(&self) -> String {
         let mut out = String::new();
@@ -53,37 +53,36 @@ impl Map {
             out.push('\n');
         }
         out.push('\n');
-        for row in self.elevation_rows() {
+        for row in self.height_rows() {
             out.push_str(&row);
             out.push('\n');
         }
         out
     }
 
-    /// One string of preset symbols per row, north to south.
+    /// One string of preset symbols per tile row, north to south.
     pub(super) fn tile_rows(&self) -> Vec<String> {
-        self.rows(|t| self.symbols[usize::from(t.preset.0)])
-    }
-
-    /// One string of elevation digits per row, north to south.
-    pub(super) fn elevation_rows(&self) -> Vec<String> {
-        self.rows(|t| digit_of_elevation(t.elevation))
-    }
-
-    fn rows(&self, cell: impl Fn(&Tile) -> char) -> Vec<String> {
         self.tiles
             .chunks(self.width as usize)
-            .map(|row| row.iter().map(&cell).collect())
+            .map(|row| row.iter().map(|t| self.symbols[usize::from(t.preset.0)]).collect())
             .collect()
     }
 
-    /// Builds a map from rows of preset symbols and, optionally, rows of elevation digits
+    /// One string of height digits per corner row, north to south.
+    pub(super) fn height_rows(&self) -> Vec<String> {
+        self.heights
+            .chunks(self.width as usize + 1)
+            .map(|row| row.iter().map(|&h| digit_of_height(h)).collect())
+            .collect()
+    }
+
+    /// Builds a map from rows of preset symbols and, optionally, rows of corner height digits
     /// (all 0 when `None`). `symbols[i]` is the symbol of `presets[i]`.
     pub(super) fn from_rows(
         presets: Vec<TilePreset>,
         symbols: Vec<char>,
         tile_rows: &[&str],
-        elevation_rows: Option<&[&str]>,
+        height_rows: Option<&[&str]>,
     ) -> Result<Map, String> {
         let Some(first) = tile_rows.first() else {
             return Err("the map has no tile rows".into());
@@ -93,6 +92,13 @@ impl Map {
             return Err("tile row 0 is empty".into());
         }
         let height = tile_rows.len();
+        // Before anything is allocated for the map.
+        let max = MAX_MAP_SIDE as usize;
+        if width > max || height > max {
+            return Err(format!(
+                "the map is too big: {width} × {height} tiles (at most {max} × {max})"
+            ));
+        }
         let mut tiles = Vec::with_capacity(width * height);
         for (y, row) in tile_rows.iter().enumerate() {
             let len = row.chars().count();
@@ -103,40 +109,45 @@ impl Map {
                 let Some(i) = symbols.iter().position(|&s| s == c) else {
                     return Err(format!("unknown tile symbol {c:?} at tile ({x}, {y})"));
                 };
-                tiles.push(Tile::new(TilePresetId(i as u16), 0));
+                tiles.push(Tile::new(TilePresetId(i as u16)));
             }
         }
-        if let Some(rows) = elevation_rows {
-            if rows.len() != height {
+        // Both sides are at most `MAX_MAP_SIDE`.
+        let (w, h) = (width as u32, height as u32);
+        let mut heights = vec![0; corner_count(w, h)];
+        if let Some(rows) = height_rows {
+            if rows.len() != height + 1 {
                 return Err(format!(
-                    "the elevation block has {} rows, the tile block has {height}",
-                    rows.len()
+                    "the height block has {} rows, expected {} (one per corner row: one more than the {height} tile rows)",
+                    rows.len(),
+                    height + 1
                 ));
             }
             for (y, row) in rows.iter().enumerate() {
                 let len = row.chars().count();
-                if len != width {
+                if len != width + 1 {
                     return Err(format!(
-                        "ragged elevation rows: row {y} has {len} digits, the tile rows have {width}"
+                        "height row {y} has {len} digits, expected {} (one per corner: one more than the {width} tiles of a row)",
+                        width + 1
                     ));
                 }
                 for (x, c) in row.chars().enumerate() {
-                    let Some(elevation) = elevation_of_digit(c) else {
+                    let Some(value) = height_of_digit(c) else {
                         return Err(format!(
-                            "invalid elevation digit {c:?} at tile ({x}, {y}): use 0-9 and a-g for 0 to {MAX_ELEVATION}"
+                            "invalid height digit {c:?} at corner ({x}, {y}): use 0-9 and a-g for 0 to {MAX_ELEVATION}"
                         ));
                     };
-                    tiles[y * width + x].elevation = elevation;
+                    heights[y * (width + 1) + x] = value;
                 }
             }
         }
-        let too_big = || format!("the map is too big: {width} × {height} tiles");
         Ok(Map {
-            width: u32::try_from(width).map_err(|_| too_big())?,
-            height: u32::try_from(height).map_err(|_| too_big())?,
+            width: w,
+            height: h,
             presets,
             symbols,
             tiles,
+            heights,
         })
     }
 }

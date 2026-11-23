@@ -27,14 +27,15 @@ fn err(ascii: &str) -> String {
 }
 
 #[test]
-fn ascii_reads_presets_and_elevation() {
+fn ascii_reads_presets_and_corner_heights() {
     let map = Map::from_ascii(
         "
         .rcM~
         ~Mcr.
 
-        01234
-        9abcg
+        012345
+        9abcgg
+        000000
         ",
     )
     .unwrap();
@@ -43,23 +44,27 @@ fn ascii_reads_presets_and_elevation() {
     use TilePresetId as P;
     assert_eq!(presets, [P::PLANE, P::RUGGED, P::CLIFF, P::MOUNTAIN, P::WATER]);
     assert_eq!(tile(&map, 0, 1).preset, P::WATER);
-    let elevations: Vec<u8> = (0..5).map(|x| tile(&map, x, 1).elevation).collect();
-    assert_eq!(elevations, [9, 10, 11, 12, 16]);
-    assert_eq!(tile(&map, 4, 0).elevation, 4);
+    let heights: Vec<u8> = (0..6).map(|x| map.corner(CornerPos::new(x, 1)).unwrap()).collect();
+    assert_eq!(heights, [9, 10, 11, 12, 16, 16]);
+    assert_eq!(map.corner(CornerPos::new(5, 0)), Some(5));
+    assert_eq!(map.corner(CornerPos::new(6, 0)), None, "corners go up to x = width");
+    assert_eq!(map.corner(CornerPos::new(0, 3)), None, "and to y = height");
+    assert_eq!(map.tile_corner_heights(TilePos::new(4, 0)), Some([4, 5, 16, 16]));
 }
 
 #[test]
-fn ascii_without_elevation_block_is_flat() {
+fn ascii_without_height_block_is_flat() {
     let map = Map::from_ascii("..\r\n~~\r\n").unwrap();
     assert_eq!((map.width(), map.height()), (2, 2));
-    assert!(map.tiles.iter().all(|t| t.elevation == 0));
+    assert!(map.heights.iter().all(|&h| h == 0));
+    assert_eq!(map.heights.len(), 9);
     assert_eq!(tile(&map, 1, 1).preset, TilePresetId::WATER);
 }
 
 #[test]
 fn ascii_round_trips() {
-    let map = Map::from_ascii(".r\ncM\n~.\n\n0g\n5a\n00").unwrap();
-    assert_eq!(map.to_ascii(), ".r\ncM\n~.\n\n0g\n5a\n00\n");
+    let map = Map::from_ascii(".r\ncM\n~.\n\n0g0\n5a0\n000\n123").unwrap();
+    assert_eq!(map.to_ascii(), ".r\ncM\n~.\n\n0g0\n5a0\n000\n123\n");
     assert_eq!(Map::from_ascii(&map.to_ascii()), Ok(map));
     let skirmish = scenarios::dev_skirmish().map;
     assert_eq!(Map::from_ascii(&skirmish.to_ascii()), Ok(skirmish));
@@ -73,21 +78,25 @@ fn ascii_errors_say_what_and_where() {
     assert_eq!(err("...\n.x."), "unknown tile symbol 'x' at tile (1, 1)");
     assert_eq!(err(". ."), "unknown tile symbol ' ' at tile (1, 0)");
     assert_eq!(
-        err("..\n..\n\n00"),
-        "the elevation block has 1 rows, the tile block has 2"
+        err("..\n..\n\n00\n00\n00"),
+        "height row 0 has 2 digits, expected 3 (one per corner: one more than the 2 tiles of a row)"
     );
     assert_eq!(
-        err("..\n..\n\n00\n000"),
-        "ragged elevation rows: row 1 has 3 digits, the tile rows have 2"
+        err("..\n..\n\n000\n000"),
+        "the height block has 2 rows, expected 3 (one per corner row: one more than the 2 tile rows)"
     );
     assert_eq!(
-        err("..\n\n0h"),
-        "invalid elevation digit 'h' at tile (1, 0): use 0-9 and a-g for 0 to 16"
+        err("..\n..\n\n000\n0000\n000"),
+        "height row 1 has 4 digits, expected 3 (one per corner: one more than the 2 tiles of a row)"
     );
-    assert!(err("..\n\n0A").starts_with("invalid elevation digit 'A'"));
     assert_eq!(
-        err("..\n\n00\n\n00"),
-        "expected a tile block and an optional elevation block, found 3 blocks separated by blank lines"
+        err("..\n\n00h\n000"),
+        "invalid height digit 'h' at corner (2, 0): use 0-9 and a-g for 0 to 16"
+    );
+    assert!(err("..\n\n0A0\n000").starts_with("invalid height digit 'A'"));
+    assert_eq!(
+        err("..\n\n000\n000\n\n000"),
+        "expected a tile block and an optional height block, found 3 blocks separated by blank lines"
     );
 }
 
@@ -170,7 +179,7 @@ type Mutation = (&'static str, fn(&mut Map));
 
 #[test]
 fn hash_covers_every_field() {
-    let mut base = Map::from_ascii("..r\nc~M\n\n012\n000").unwrap();
+    let mut base = Map::from_ascii("..r\nc~M\n\n0120\n0000\n0000").unwrap();
     base.add_preset(custom("custom"));
     let mutations: Vec<Mutation> = vec![
         ("width", |m| m.width += 1),
@@ -186,11 +195,9 @@ fn hash_covers_every_field() {
             m.add_preset(custom("another"));
         }),
         ("tile preset", |m| {
-            m.set_tile(TilePos::new(0, 0), Tile::new(TilePresetId(5), 0))
+            m.set_tile(TilePos::new(0, 0), Tile::new(TilePresetId(5)))
         }),
-        ("tile elevation", |m| {
-            m.set_tile(TilePos::new(0, 0), Tile::new(TilePresetId::PLANE, 1))
-        }),
+        ("corner height", |m| m.set_corner(CornerPos::new(3, 2), 1)),
     ];
     for (name, mutate) in mutations {
         let mut m = base.clone();
@@ -202,7 +209,7 @@ fn hash_covers_every_field() {
 }
 
 fn custom_preset_map() -> Map {
-    let mut map = Map::from_ascii("..r.\n~~..\n\n0001\n0000").unwrap();
+    let mut map = Map::from_ascii("..r.\n~~..\n\n00011\n00000\n00000").unwrap();
     let ash = map
         .add_preset_with_symbol(
             TilePreset {
@@ -217,8 +224,9 @@ fn custom_preset_map() -> Map {
         )
         .unwrap();
     let ice = map.add_preset(custom("Ice"));
-    map.set_tile(TilePos::new(2, 0), Tile::new(ash, 3));
-    map.set_tile(TilePos::new(3, 1), Tile::new(ice, 16));
+    map.set_tile(TilePos::new(2, 0), Tile::new(ash));
+    map.set_tile(TilePos::new(3, 1), Tile::new(ice));
+    map.set_corner(CornerPos::new(4, 2), 16);
     map
 }
 
@@ -239,7 +247,7 @@ fn serde_form_is_rows_and_custom_presets() {
                 }
             ],
             "tiles": ["..#.", "~~.A"],
-            "elevation": ["0031", "000g"]
+            "heights": ["00011", "00000", "0000g"]
         })
     );
 }
@@ -255,7 +263,7 @@ fn serde_round_trips_custom_presets_and_symbols() {
 }
 
 #[test]
-fn serde_accepts_omitted_presets_and_elevation() {
+fn serde_accepts_omitted_presets_and_heights() {
     let map: Map = serde_json::from_str(r#"{ "tiles": [".~", "M."] }"#).unwrap();
     assert_eq!(map, Map::from_ascii(".~\nM.").unwrap());
 }
@@ -270,15 +278,22 @@ fn serde_rejects_bad_maps_with_a_message() {
         ),
         (r#"{ "tiles": ["A."] }"#, "unknown tile symbol 'A' at tile (0, 0)"),
         (
-            r#"{ "tiles": [".."], "elevation": ["0", "0"] }"#,
-            "the elevation block has 2 rows, the tile block has 1",
+            r#"{ "tiles": [".."], "heights": ["000"] }"#,
+            "the height block has 1 rows, expected 2",
         ),
         (
-            r#"{ "tiles": [".."], "elevation": ["0z"] }"#,
-            "invalid elevation digit 'z'",
+            r#"{ "tiles": [".."], "heights": ["00", "00"] }"#,
+            "height row 0 has 2 digits, expected 3",
         ),
-        (r#"{ "tiles": [".."], "height": 1 }"#, "unknown field `height`"),
-        (r#"{ "elevation": ["00"] }"#, "missing field `tiles`"),
+        (
+            r#"{ "tiles": [".."], "heights": ["0z0", "000"] }"#,
+            "invalid height digit 'z'",
+        ),
+        (
+            r#"{ "tiles": [".."], "elevation": ["00"] }"#,
+            "unknown field `elevation`",
+        ),
+        (r#"{ "heights": ["000"] }"#, "missing field `tiles`"),
         (
             r#"{ "custom_presets": [{ "symbol": "~", "name": "Lava", "buildable": false, "traversible": false,
                  "rugged": false, "drillable": false, "recruitable": false }], "tiles": [".."] }"#,
@@ -294,4 +309,31 @@ fn serde_rejects_bad_maps_with_a_message() {
         let e = serde_json::from_str::<Map>(json).unwrap_err().to_string();
         assert!(e.contains(expected), "{json}\n  gave: {e}\n  expected: {expected}");
     }
+}
+
+/// A file claiming a huge map is rejected before anything is allocated for it: here 100 000 × 100 000 tiles,
+/// which would need 20 GB.
+#[test]
+fn loading_rejects_maps_over_the_largest_side_before_allocating() {
+    let huge = 100_000;
+    let wide_row = ".".repeat(huge);
+    let rows: Vec<&str> = std::iter::once(wide_row.as_str())
+        .chain(std::iter::repeat_n(".", huge - 1))
+        .collect();
+    let json = serde_json::json!({ "tiles": rows }).to_string();
+    let e = serde_json::from_str::<Map>(&json).unwrap_err().to_string();
+    assert!(
+        e.contains("the map is too big: 100000 × 100000 tiles (at most 256 × 256)"),
+        "{e}"
+    );
+    // Each side on its own.
+    let side = MAX_MAP_SIDE as usize;
+    assert!(Map::from_ascii(&".".repeat(side + 1)).unwrap_err().contains("too big"));
+    assert!(
+        Map::from_ascii(&".\n".repeat(side + 1))
+            .unwrap_err()
+            .contains("too big")
+    );
+    let largest = Map::from_ascii(&format!("{}\n", ".".repeat(side)).repeat(side)).unwrap();
+    assert_eq!((largest.width(), largest.height()), (256, 256));
 }

@@ -1,10 +1,11 @@
 //! Player input never panics the sim (`ARCHITECTURE.md > Commands, events and replays`):
-//! a long stream of random, mostly invalid debug commands runs deterministically.
+//! a long stream of random, mostly invalid debug commands runs deterministically, and any
+//! per-object values a file holds are handled.
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{
-    Command, DebugCommand, ObjectId, ObjectKind, PlayerCommand, PlayerId, Replay, Rng, SU_PER_GU, Sim, SimEvent,
-    SpawnAt, TickInputs, TilePos, Vec2,
+    Command, DebugCommand, ObjectId, ObjectKind, PlayerCommand, PlayerId, Replay, Rng, SU_PER_GU, Sim, SimEvent, Spawn,
+    SpawnAt, SpawnSettings, TickInputs, TilePos, Vec2,
 };
 
 const TICKS: u32 = 2000;
@@ -179,4 +180,56 @@ fn random_debug_commands_never_panic_and_stay_deterministic() {
 
     let other = fuzz_run(0x0dd);
     assert_ne!(other.hashes.last(), first.hashes.last());
+}
+
+/// Per-object values (`core/map_editor.md > Per-object Resource Values`) come from files, so any of them, of any
+/// kind or none, must never panic validation, the editor's preview or a running game.
+#[test]
+fn any_spawn_settings_are_handled() {
+    let extremes = [0, 1, 2, 959, 960, u32::MAX - 1, u32::MAX];
+    let mut rng = Rng::from_seed(5);
+    let (mut games, mut rejected) = (0, 0);
+    for _ in 0..200 {
+        let mut scenario = ScenarioBuilder::new(MAP).build();
+        for i in 0..3 {
+            let kind = ObjectKind::ALL[rng.below(ObjectKind::ALL.len() as u32) as usize];
+            // Mostly values of the spawn's own kind, sometimes none or another kind's.
+            let settings_kind = match rng.below(6) {
+                0 => None,
+                1 => Some(ObjectKind::ALL[rng.below(ObjectKind::ALL.len() as u32) as usize]),
+                _ => Some(kind),
+            };
+            let mut value = || extremes[rng.below(extremes.len() as u32) as usize];
+            let settings = settings_kind.map(|k| match k {
+                ObjectKind::CrystalPatch => SpawnSettings::CrystalPatch {
+                    starting_amount: value(),
+                },
+                ObjectKind::SupplyDeliveryStation => SpawnSettings::SupplyDeliveryStation {
+                    starting_supplies: value(),
+                    delivery_size: value(),
+                    delivery_interval: value(),
+                },
+            });
+            let mut spawn = Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(i * 6, 0)));
+            spawn.settings = settings;
+            scenario.spawns.push(spawn);
+        }
+        let problems = scenario.validate();
+        let (mut preview, _) = Sim::preview(&scenario);
+        preview.step(&TickInputs::default());
+        match Sim::try_new(&scenario) {
+            Ok(mut sim) => {
+                assert!(problems.is_empty());
+                for _ in 0..1000 {
+                    sim.step(&TickInputs::default());
+                }
+                games += 1;
+            }
+            Err(p) => {
+                assert_eq!(p, problems);
+                rejected += 1;
+            }
+        }
+    }
+    assert!(games > 0 && rejected > 0, "{games} games, {rejected} rejected");
 }

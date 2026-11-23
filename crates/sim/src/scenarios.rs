@@ -5,7 +5,7 @@ use crate::ids::PlayerId;
 use crate::map::{Map, Tile, TilePresetId};
 use crate::player::Faction;
 use crate::scenario::{PlayerSetup, Scenario, Spawn, SpawnAt};
-use crate::units::TilePos;
+use crate::units::{CornerPos, TilePos};
 
 /// Names accepted by [`by_name`] (e.g. for the client's `--scenario` flag).
 pub const NAMES: &[&str] = &["dev_skirmish", "empty"];
@@ -35,72 +35,90 @@ pub fn empty(width: u32, height: u32) -> Scenario {
     }
 }
 
-/// 64×48 development map: two start areas (top-left, bottom-right) with an 8-patch
-/// crystal field each (`factions/gdo/economy.md > Reference starting base`), a lake,
-/// a mountain ridge, rugged ground, a raised plateau ringed by cliffs with two ramps,
-/// and a Supply Delivery Station in the middle.
+/// 64×48 development map, point-symmetric around its center apart from the lake and the mountain. The start
+/// locations sit in the top-left and bottom-right corners, each with an 8-patch crystal field
+/// (`factions/gdo/economy.md > Reference starting base`) between it and the map edge. Terrain
+/// (`core/map.md > Elevation`): a lake, a mountain massif, rugged ground on the flanks, a gentle hill of slopes
+/// only on each side, and a central plateau 3 levels up ringed by cliffs, reached only by a slope through a
+/// 2-tile gap in the west and in the east (the chokepoints). A Supply Delivery Station stands on the plateau, in
+/// the middle of the map.
 pub fn dev_skirmish() -> Scenario {
     let (w, h) = (64, 48);
     let mut map = Map::new(w, h);
-    let mut fill = |x0: i32, y0: i32, x1: i32, y1: i32, tile: Tile| {
+    let mut fill = |x0: i32, y0: i32, x1: i32, y1: i32, preset: TilePresetId| {
         for y in y0..=y1 {
             for x in x0..=x1 {
-                let p = TilePos::new(x, y);
-                if map.in_bounds(p) {
-                    map.set_tile(p, tile);
-                }
+                map.set_tile(TilePos::new(x, y), Tile::new(preset));
             }
         }
     };
-    let plane = |e| Tile::new(TilePresetId::PLANE, e);
-    // Lake and mountain ridge between the bases.
-    fill(22, 6, 29, 13, Tile::new(TilePresetId::WATER, 0));
-    fill(36, 33, 41, 41, Tile::new(TilePresetId::MOUNTAIN, 0));
+    // Lake and mountain between the bases.
+    fill(22, 6, 29, 13, TilePresetId::WATER);
+    fill(36, 33, 41, 41, TilePresetId::MOUNTAIN);
     // Rugged ground on the flanks.
-    fill(4, 30, 12, 38, Tile::new(TilePresetId::RUGGED, 0));
-    fill(50, 8, 58, 15, Tile::new(TilePresetId::RUGGED, 0));
-    // Central plateau (elevation 2) ringed by cliffs, with ramps (elevation 1) west and east.
-    fill(26, 18, 37, 29, Tile::new(TilePresetId::CLIFF, 1));
-    fill(27, 19, 36, 28, plane(2));
-    fill(26, 23, 26, 24, plane(1));
-    fill(37, 23, 37, 24, plane(1));
-    // Lower-right corner sits one level up, so the two bases differ in elevation.
-    fill(44, 30, 63, 47, plane(1));
-    fill(44, 30, 44, 47, Tile::new(TilePresetId::CLIFF, 1));
-    fill(44, 38, 44, 39, plane(1));
+    fill(4, 30, 12, 38, TilePresetId::RUGGED);
+    fill(50, 8, 58, 15, TilePresetId::RUGGED);
+    // The central plateau: a ring of cliffs around Plane ground, with a 2-tile gap in the west and in the east.
+    fill(26, 18, 37, 29, TilePresetId::CLIFF);
+    fill(27, 19, 36, 28, TilePresetId::PLANE);
+    fill(26, 22, 26, 23, TilePresetId::PLANE);
+    fill(37, 24, 37, 25, TilePresetId::PLANE);
+
+    // The mountain rises 2 levels per corner from its edge, whose corners stay at 0 for the ground around it.
+    for y in 34..=41 {
+        for x in 37..=41 {
+            let from_edge = (x - 36).min(42 - x).min(y - 33).min(42 - y);
+            map.set_corner(CornerPos::new(x, y), 2 * from_edge as u8);
+        }
+    }
+    // Two gentle hills, 3 levels high, one level per 2 tiles: a corner is at least level k if it lies within
+    // 7 - 2k tiles of the top (integer arithmetic on squared distances).
+    for (cx, cy) in [(14, 22), (50, 26)] {
+        for y in cy - 6..=cy + 6 {
+            for x in cx - 6..=cx + 6 {
+                let d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+                let level = (1..=3).filter(|&k| d2 <= (7 - 2 * k) * (7 - 2 * k)).count();
+                map.set_corner(CornerPos::new(x, y), level as u8);
+            }
+        }
+    }
+    // Raising the plateau's top lets the slopes form in the gaps on their own; the cliffs take the rest.
+    let top = (27..=37).flat_map(|x| (19..=29).map(move |y| (CornerPos::new(x, y), 3)));
+    map.set_corner_heights(&top.collect());
 
     let mut spawns = Vec::new();
     let mut patches = |tiles: &[(i32, i32)]| {
         for &(x, y) in tiles {
-            spawns.push(Spawn {
-                kind: ObjectKind::CrystalPatch,
-                owner: None,
-                at: SpawnAt::Tile(TilePos::new(x, y)),
-            });
+            spawns.push(Spawn::new(
+                ObjectKind::CrystalPatch,
+                None,
+                SpawnAt::Tile(TilePos::new(x, y)),
+            ));
         }
     };
-    // Player 1 field: an arc above-left of the base area around (10, 10).
-    patches(&[(3, 6), (3, 7), (3, 8), (4, 4), (5, 3), (6, 3), (7, 3), (8, 3)]);
-    // Player 2 field: mirrored around the map center.
+    // Player 1's field: an arc up and left of the start.
+    patches(&[(2, 5), (2, 6), (2, 7), (3, 3), (4, 2), (5, 2), (6, 2), (7, 2)]);
+    // Player 2's field: the same, mirrored through the map center.
     patches(&[
-        (60, 41),
-        (60, 40),
-        (60, 39),
-        (59, 43),
-        (58, 44),
-        (57, 44),
-        (56, 44),
-        (55, 44),
+        (61, 42),
+        (61, 41),
+        (61, 40),
+        (60, 44),
+        (59, 45),
+        (58, 45),
+        (57, 45),
+        (56, 45),
     ]);
-    spawns.push(Spawn {
-        kind: ObjectKind::SupplyDeliveryStation,
-        owner: None,
-        at: SpawnAt::Tile(TilePos::new(31, 23)),
-    });
+    // Its 2×2 footprint is centered on the map.
+    spawns.push(Spawn::new(
+        ObjectKind::SupplyDeliveryStation,
+        None,
+        SpawnAt::Tile(TilePos::new(31, 23)),
+    ));
 
     let mut players = two_players();
-    // Start locations (Q0004 placeholder): the base areas, mirrored around the map center.
-    let starts = [TilePos::new(10, 10), TilePos::new(53, 37)];
+    // Start locations (Q0004 placeholder) in opposite corners (design change 0007), mirrored through the center.
+    let starts = [TilePos::new(8, 8), TilePos::new(55, 39)];
     for (p, start) in players.iter_mut().zip(starts) {
         p.start_location = Some(start);
         p.camera_start = Some(start.center());

@@ -165,9 +165,8 @@ impl StateHash for Rotation {
 
 impl StateHash for Tile {
     fn hash(&self, h: &mut StateHasher) {
-        let Tile { preset, elevation } = self;
+        let Tile { preset } = self;
         preset.hash(h);
-        elevation.hash(h);
     }
 }
 

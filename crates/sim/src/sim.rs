@@ -14,14 +14,8 @@ use crate::map::Map;
 use crate::object::{Object, Placement, ResourceState};
 use crate::player::Player;
 use crate::rng::Rng;
-use crate::scenario::{Scenario, ScenarioProblem, SpawnAt, place_spawn};
-use crate::units::{Tick, seconds};
-
-/// Placeholder until the design gives one (question Q0003).
-pub const DEFAULT_PATCH_AMOUNT: u32 = 1500;
-/// Placeholders until the design gives them (question Q0003).
-pub const DEFAULT_SDS_DELIVERY_SIZE: u32 = 4;
-pub const DEFAULT_SDS_DELIVERY_INTERVAL_SECONDS: f32 = 60.0;
+use crate::scenario::{Scenario, ScenarioProblem, SpawnAt, SpawnSettings, place_spawn};
+use crate::units::Tick;
 
 /// The whole game state. Serde (de)serializes all of it, e.g. as a JSON state dump or a
 /// save; loading checks that object ids are unique and below the next id.
@@ -76,7 +70,7 @@ impl Sim {
             events: Vec::new(),
         };
         for (s, (pos, placement)) in scenario.spawns.iter().zip(spots) {
-            sim.insert_object(s.kind, s.owner, pos, placement);
+            sim.insert_object(s.kind, s.owner, pos, placement, s.settings.as_ref());
         }
         // Scenario spawns emit no events (`ARCHITECTURE.md > Commands, events and replays`).
         sim.events.clear();
@@ -149,10 +143,13 @@ impl Sim {
             o.prev_pos = o.pos;
             o.prev_facing = o.facing;
         }
+        // `ARCHITECTURE.md > Tick pipeline`: objects that commands create during this tick are first updated in
+        // the next one. Ids only grow, so they are exactly the ids from here on.
+        let first_new = ObjectId(self.next_id);
         for cmd in &inputs.commands {
             self.apply_command(cmd);
         }
-        self.update_supply_stations();
+        self.update_supply_stations(first_new);
     }
 
     /// Player input must never panic the sim: invalid commands are ignored.
@@ -181,38 +178,30 @@ impl Sim {
         }
     }
 
-    /// Create an object with its type's initial state. Returns `None`, changing
-    /// nothing, if the location doesn't suit the type, lies off the map, the owner is
-    /// invalid ([`place_spawn`]), or every object id is used up.
+    /// Create an object with its type's initial state and the default per-object values
+    /// ([`SpawnSettings::defaults`]). Returns `None`, changing nothing, if the location doesn't suit the type,
+    /// lies off the map, the owner is invalid ([`place_spawn`]), or every object id is used up.
     fn spawn(&mut self, kind: ObjectKind, owner: Option<PlayerId>, at: SpawnAt) -> Option<ObjectId> {
         if self.next_id == u32::MAX {
             return None;
         }
         let (pos, placement) = place_spawn(&self.map, kind, owner, at, |p| self.player(p).is_some()).ok()?;
-        Some(self.insert_object(kind, owner, pos, placement))
+        Some(self.insert_object(kind, owner, pos, placement, None))
     }
 
-    /// Insert an object at a checked spot, with its type's initial state.
+    /// Insert an object at a checked spot, with its type's initial state. Its per-object values are `settings`,
+    /// or the kind's defaults if those are missing or belong to another kind ([`SpawnSettings::resolve`]).
     fn insert_object(
         &mut self,
         kind: ObjectKind,
         owner: Option<PlayerId>,
         pos: Vec2,
         placement: Option<Placement>,
+        settings: Option<&SpawnSettings>,
     ) -> ObjectId {
         let id = ObjectId(self.next_id);
         self.next_id += 1;
-        let resource = match kind {
-            ObjectKind::CrystalPatch => Some(ResourceState::CrystalPatch {
-                remaining: DEFAULT_PATCH_AMOUNT,
-            }),
-            ObjectKind::SupplyDeliveryStation => Some(ResourceState::SupplyStation {
-                delivery_size: DEFAULT_SDS_DELIVERY_SIZE,
-                delivery_interval: seconds(DEFAULT_SDS_DELIVERY_INTERVAL_SECONDS),
-                current_supplies: 0,
-                next_delivery_in: Some(seconds(DEFAULT_SDS_DELIVERY_INTERVAL_SECONDS)),
-            }),
-        };
+        let resource = SpawnSettings::resolve(kind, settings).map(|s| s.starting_resource());
         let object = Object {
             id,
             kind,
@@ -230,9 +219,10 @@ impl Sim {
         id
     }
 
-    /// `core/map.md > SupplyDeliveryStation`: the countdown runs only while empty.
-    fn update_supply_stations(&mut self) {
-        for o in self.objects.values_mut() {
+    /// `core/map.md > SupplyDeliveryStation`: the countdown runs only while empty. Stations from `first_new` on
+    /// were created this tick and wait for the next one.
+    fn update_supply_stations(&mut self, first_new: ObjectId) {
+        for o in self.objects.range_mut(..first_new).map(|(_, o)| o) {
             let Some(ResourceState::SupplyStation {
                 delivery_size,
                 delivery_interval,

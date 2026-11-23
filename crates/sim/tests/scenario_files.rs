@@ -3,12 +3,12 @@
 
 use sc_sim::scenario::SCENARIO_FORMAT_VERSION;
 use sc_sim::{
-    Faction, Map, ObjectKind, PlayerId, PlayerSetup, Rng, Scenario, Sim, Spawn, SpawnAt, TickInputs, TilePos,
-    TilePreset, scenarios,
+    Faction, Map, ObjectKind, PlayerId, PlayerSetup, Rng, Scenario, Sim, Spawn, SpawnAt, SpawnSettings, TickInputs,
+    TilePos, TilePreset, scenarios,
 };
 
 fn tiny_scenario() -> Scenario {
-    let mut map = Map::from_ascii("..~\n.c.\n\n001\n012").unwrap();
+    let mut map = Map::from_ascii("..~\n.c.\n\n0000\n0011\n0111").unwrap();
     let ash = TilePreset {
         name: "Ash".into(),
         buildable: true,
@@ -18,7 +18,7 @@ fn tiny_scenario() -> Scenario {
         recruitable: true,
     };
     let ash = map.add_preset_with_symbol(ash, 'a').unwrap();
-    map.set_tile(TilePos::new(0, 0), sc_sim::Tile::new(ash, 0));
+    map.set_tile(TilePos::new(0, 0), sc_sim::Tile::new(ash));
     Scenario {
         name: "tiny".into(),
         map,
@@ -33,13 +33,14 @@ fn tiny_scenario() -> Scenario {
             kind: ObjectKind::CrystalPatch,
             owner: None,
             at: SpawnAt::Tile(TilePos::new(2, 1)),
+            settings: Some(SpawnSettings::CrystalPatch { starting_amount: 900 }),
         }],
         seed: 7,
     }
 }
 
 const TINY_FILE: &str = r#"{
-  "version": 1,
+  "version": 2,
   "name": "tiny",
   "map": {
     "custom_presets": [
@@ -57,9 +58,10 @@ const TINY_FILE: &str = r#"{
       "a.~",
       ".c."
     ],
-    "elevation": [
-      "001",
-      "012"
+    "heights": [
+      "0000",
+      "0011",
+      "0111"
     ]
   },
   "players": [
@@ -83,6 +85,11 @@ const TINY_FILE: &str = r#"{
           "x": 2,
           "y": 1
         }
+      },
+      "settings": {
+        "CrystalPatch": {
+          "starting_amount": 900
+        }
       }
     }
   ],
@@ -91,7 +98,7 @@ const TINY_FILE: &str = r#"{
 
 #[test]
 fn file_format() {
-    assert_eq!(SCENARIO_FORMAT_VERSION, 1);
+    assert_eq!(SCENARIO_FORMAT_VERSION, 2);
     assert_eq!(serde_json::to_string_pretty(&tiny_scenario()).unwrap(), TINY_FILE);
     assert_eq!(serde_json::from_str::<Scenario>(TINY_FILE).unwrap(), tiny_scenario());
 }
@@ -100,9 +107,21 @@ fn file_format() {
 fn dev_skirmish_round_trips_as_a_short_readable_file() {
     let scenario = scenarios::dev_skirmish();
     let json = serde_json::to_string_pretty(&scenario).unwrap();
-    // One line per map row: 48 tile rows and 48 elevation rows, not one object per tile.
+    // One line per map row: 48 tile rows and 49 corner height rows, not one object per tile.
     let lines = json.lines().count();
-    assert!(lines < 400, "{lines} lines");
+    assert!(lines < 500, "{lines} lines");
+    let first_heights = scenario
+        .map
+        .to_ascii()
+        .split("\n\n")
+        .nth(1)
+        .unwrap()
+        .lines()
+        .next()
+        .unwrap()
+        .to_string();
+    assert_eq!(first_heights.len(), 65);
+    assert!(json.contains(&format!("      \"{first_heights}\",\n")));
     let first_row = scenario.map.to_ascii().lines().next().unwrap().to_string();
     assert!(json.contains(&format!("      \"{first_row}\",\n")));
     let back: Scenario = serde_json::from_str(&json).unwrap();
@@ -114,7 +133,7 @@ fn dev_skirmish_round_trips_as_a_short_readable_file() {
 #[test]
 fn hand_written_files_may_omit_optional_fields() {
     let json = r#"{
-        "version": 1, "name": "hand-made", "seed": 3,
+        "version": 2, "name": "hand-made", "seed": 3,
         "map": { "tiles": ["....", ".~~."] },
         "players": [ { "id": 1, "name": "Ann", "faction": "Cults" } ],
         "spawns": []
@@ -130,13 +149,16 @@ fn hand_written_files_may_omit_optional_fields() {
 fn reading_rejects_other_versions_unknown_fields_and_typos() {
     let json = serde_json::to_string(&tiny_scenario()).unwrap();
     let error = |json: &str| serde_json::from_str::<Scenario>(json).unwrap_err().to_string();
-    let v2 = json.replacen("\"version\":1", "\"version\":2", 1);
+    // Version 1 (one elevation per tile) is not read: there is no loader for old versions.
+    let v1 = json.replacen("\"version\":2", "\"version\":1", 1);
     assert!(
-        error(&v2).contains("unsupported scenario format version 2 (this build reads version 1)"),
+        error(&v1).contains("unsupported scenario format version 1 (this build reads version 2)"),
         "{}",
-        error(&v2)
+        error(&v1)
     );
-    let unversioned = json.replacen("\"version\":1,", "", 1);
+    let v3 = json.replacen("\"version\":2", "\"version\":3", 1);
+    assert!(error(&v3).contains("unsupported scenario format version 3"));
+    let unversioned = json.replacen("\"version\":2,", "", 1);
     assert!(error(&unversioned).contains("missing field `version`"));
     let extra = json.replacen("\"seed\":7", "\"seed\":7,\"extra\":0", 1);
     assert!(error(&extra).contains("unknown field `extra`"));
@@ -151,12 +173,10 @@ fn reading_rejects_other_versions_unknown_fields_and_typos() {
 #[test]
 fn damaged_files_never_panic() {
     let mut scenario = scenarios::dev_skirmish();
-    scenario.map = Map::from_ascii("..r~\n.cM.\n....\n\n0123\n4567\n89ag").unwrap();
-    let tile_spawn = |kind, x, y| Spawn {
-        kind,
-        owner: None,
-        at: SpawnAt::Tile(TilePos::new(x, y)),
-    };
+    // The patches and the station stand on flat ground (`core/map.md > Elevation > Map resources only on flat
+    // terrain`).
+    scenario.map = Map::from_ascii("..r~\n.cM.\n....\n\n11122\n11112\n01111\n01111").unwrap();
+    let tile_spawn = |kind, x, y| Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(x, y)));
     scenario.spawns = vec![
         tile_spawn(ObjectKind::CrystalPatch, 0, 0),
         tile_spawn(ObjectKind::CrystalPatch, 3, 2),

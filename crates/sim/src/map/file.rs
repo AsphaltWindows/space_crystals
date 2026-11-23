@@ -1,5 +1,5 @@
-//! `Map`'s compact serde form: custom presets with their symbols, then the tile and
-//! elevation rows as strings (see the `map` module docs).
+//! `Map`'s compact serde form: custom presets with their symbols, then the tile rows and
+//! the corner height rows as strings (see the `map` module docs).
 
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -12,9 +12,9 @@ struct MapFile {
     #[serde(default)]
     custom_presets: Vec<CustomPreset>,
     tiles: Vec<String>,
-    /// Empty when omitted: every tile at elevation 0.
+    /// One row per corner row (`core/map.md > Elevation`). Empty when omitted: every corner at height 0.
     #[serde(default)]
-    elevation: Vec<String>,
+    heights: Vec<String>,
 }
 
 /// A custom preset and its symbol in the rows.
@@ -49,7 +49,7 @@ impl Serialize for Map {
         MapFile {
             custom_presets,
             tiles: self.tile_rows(),
-            elevation: self.elevation_rows(),
+            heights: self.height_rows(),
         }
         .serialize(serializer)
     }
@@ -81,8 +81,8 @@ impl TryFrom<MapFile> for Map {
             });
         }
         let tiles: Vec<&str> = file.tiles.iter().map(String::as_str).collect();
-        let elevation: Vec<&str> = file.elevation.iter().map(String::as_str).collect();
-        let elevation = (!elevation.is_empty()).then_some(elevation.as_slice());
-        Map::from_rows(presets, symbols, &tiles, elevation)
+        let heights: Vec<&str> = file.heights.iter().map(String::as_str).collect();
+        let heights = (!heights.is_empty()).then_some(heights.as_slice());
+        Map::from_rows(presets, symbols, &tiles, heights)
     }
 }

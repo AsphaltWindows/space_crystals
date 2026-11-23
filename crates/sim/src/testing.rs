@@ -30,7 +30,7 @@ use crate::events::SimEvent;
 use crate::ids::PlayerId;
 use crate::map::Map;
 use crate::replay::Replay;
-use crate::scenario::{Scenario, Spawn, SpawnAt};
+use crate::scenario::{Scenario, Spawn, SpawnAt, SpawnSettings};
 use crate::scenarios;
 use crate::sim::Sim;
 use crate::units::Tick;
@@ -56,9 +56,18 @@ impl ScenarioBuilder {
         self
     }
 
-    /// Adds a spawn; spawns get ascending ids in the order they are added.
+    /// Adds a spawn with the default per-object values of its kind; spawns get ascending ids in the order they
+    /// are added.
     pub fn spawn(mut self, kind: ObjectKind, owner: Option<PlayerId>, at: SpawnAt) -> Self {
-        self.scenario.spawns.push(Spawn { kind, owner, at });
+        self.scenario.spawns.push(Spawn::new(kind, owner, at));
+        self
+    }
+
+    /// Adds a spawn with its own per-object values, which decide its kind.
+    pub fn spawn_with(mut self, settings: SpawnSettings, at: SpawnAt) -> Self {
+        let mut spawn = Spawn::new(settings.kind(), None, at);
+        spawn.settings = Some(settings);
+        self.scenario.spawns.push(spawn);
         self
     }
 

@@ -37,7 +37,7 @@ impl Sim {
             .iter()
             .map(|s| {
                 let (pos, placement) = locate(&sim.map, s.kind.def().footprint, s.at).ok()?;
-                Some(sim.insert_object(s.kind, s.owner, pos, placement))
+                Some(sim.insert_object(s.kind, s.owner, pos, placement, s.settings.as_ref()))
             })
             .collect();
         sim.events.clear();
@@ -55,11 +55,7 @@ mod tests {
     use crate::units::TilePos;
 
     fn patch(x: i32, y: i32) -> Spawn {
-        Spawn {
-            kind: ObjectKind::CrystalPatch,
-            owner: None,
-            at: SpawnAt::Tile(TilePos::new(x, y)),
-        }
+        Spawn::new(ObjectKind::CrystalPatch, None, SpawnAt::Tile(TilePos::new(x, y)))
     }
 
     #[test]

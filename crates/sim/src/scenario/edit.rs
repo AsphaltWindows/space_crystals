@@ -117,11 +117,7 @@ mod tests {
     use crate::units::TilePos;
 
     fn spawn(kind: ObjectKind, owner: Option<u8>, x: i32, y: i32) -> Spawn {
-        Spawn {
-            kind,
-            owner: owner.map(PlayerId),
-            at: SpawnAt::Tile(TilePos::new(x, y)),
-        }
+        Spawn::new(kind, owner.map(PlayerId), SpawnAt::Tile(TilePos::new(x, y)))
     }
 
     fn ids(s: &Scenario) -> Vec<u8> {

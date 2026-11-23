@@ -46,6 +46,8 @@ pub struct ObjectDef {
     pub sight_range: f32,
     /// `None` for indestructible types.
     pub max_hp: Option<f32>,
+    /// Every footprint tile must be flat (`core/map.md > Elevation > Map resources only on flat terrain`).
+    pub needs_flat_ground: bool,
 }
 
 impl ObjectKind {
@@ -73,6 +75,7 @@ static CRYSTAL_PATCH: ObjectDef = ObjectDef {
     groupable: false,
     sight_range: 0.0,
     max_hp: None,
+    needs_flat_ground: true, // `core/map.md > Elevation > Map resources only on flat terrain`
 };
 
 /// `core/map.md > SupplyDeliveryStation`, `> Resource`.
@@ -87,6 +90,7 @@ static SUPPLY_DELIVERY_STATION: ObjectDef = ObjectDef {
     groupable: false,
     sight_range: 0.0,
     max_hp: None,
+    needs_flat_ground: true, // `core/map.md > Elevation > Map resources only on flat terrain`
 };
 
 #[cfg(test)]
