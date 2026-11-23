@@ -273,7 +273,9 @@ impl World<'_> {
     /// - **Glance** (the lean is at least half of `d`, squared): the unit only clips the blocker and slides along
     ///   it, the lean alone.
     /// - **Leaning** (the lean is at least [`LEAN`] of `d`): the unit goes around on the side it leans to: `d`
-    ///   turned 45° that way, else a whole step along the face that way. It never steps back along the face.
+    ///   turned 45° that way, else a whole step along the face that way. It never steps back along the face: the
+    ///   side it took becomes its `Mover::avoid_side`, so when its own step along the face turns the contact
+    ///   head-on, it carries on the same way.
     /// - **Head-on**: the side is `Mover::avoid_side`, Right for everyone at first, so head-on units pass like
     ///   traffic: `d` turned 45°, else a whole step along the face. If both fail and `avoid_until` has passed, the
     ///   side switches for at least `AVOID_COMMIT_TICKS` and its two steps are tried. A blocker that itself moves
@@ -305,7 +307,11 @@ impl World<'_> {
             } else {
                 Side::Left
             };
-            return self.sidestep(pos, d, at_face, side, touched);
+            let step = self.sidestep(pos, d, at_face, side, touched);
+            if step.is_some() {
+                mover.avoid_side = side;
+            }
+            return step;
         }
         let across = self.bodies[hit.index].velocity[1 - axis];
         if across != 0.0 && tick >= mover.avoid_until {
@@ -359,5 +365,53 @@ mod tests {
         // Twice 45° is 90°.
         let twice = turned_45(south_east, Side::Right);
         assert!((twice - turned_90(east, Side::Right)).length() < 1e-5);
+    }
+
+    /// `docs/movement.md > 6.3`, rule 4: a unit going round a blocker on the side it leans to keeps that side when
+    /// its own step along the face turns the contact head-on, so it never steps back. Pressed against an idle Guard,
+    /// a unit whose lean was about [`LEAN`] stepped north as leaning, then south as head-on with `avoid_side` Left,
+    /// for good (two groups crossing in the lanes of the magic box found it, `> 6.4`).
+    #[test]
+    fn a_unit_going_round_on_its_lean_side_never_steps_back() {
+        let body = |id: u32, pos: Vec2, half: f32| Body {
+            id: crate::ids::ObjectId(id),
+            owner: None,
+            pos,
+            half: Vec2::splat(half),
+            velocity: Vec2::ZERO,
+            stationary: id == 2,
+            progress: None,
+            arrived_with: None,
+        };
+        // An idle Guard, x 502..538 and y 372..408. A Peacekeeper against its east face heads for a point north-west
+        // of it; a head-on contact would make it step south.
+        let guard = body(2, Vec2::new(520.0, 390.0), 18.0);
+        let target = Vec2::new(416.0, 352.0);
+        let mut pos = Vec2::new(550.0, 395.9);
+        let mut mover = Mover {
+            avoid_side: Side::Left,
+            ..Mover::default()
+        };
+        let (mut layer, mut counters) = (Layer::default(), MoveCounters::default());
+        for tick in 100..130 {
+            let bodies = [body(1, pos, 12.0), guard];
+            layer.reset(16, 12);
+            for (index, b) in bodies.iter().enumerate() {
+                layer.insert(index as u32, b.pos, b.half);
+            }
+            let mut world = World {
+                grid: None,
+                layer: Some(&layer),
+                bodies: &bodies,
+                me: 0,
+                counters: &mut counters,
+            };
+            let d = (target - pos).clamp_length_max(4.0);
+            let moved = world.resolve(pos, d, None, &mut mover, tick, &mut Vec::new());
+            assert!(moved.pos.y <= pos.y, "tick {tick}: from {pos} back to {}", moved.pos);
+            pos = moved.pos;
+        }
+        // Round the Guard's north-east corner and on west.
+        assert!(pos.x < 500.0 && pos.y < 360.0, "{pos}");
     }
 }

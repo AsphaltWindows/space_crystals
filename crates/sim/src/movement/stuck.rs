@@ -65,9 +65,9 @@ fn avoid_blocker(pos: Vec2, mover: &mut Mover, blocker: &Body) {
 /// later (`Mover::stuck_clock`): every new path gets its time. Once stuck, in order:
 /// 1. **Crowded arrival**: the goal is a point and the unit in its way is stationary, and either the goal is
 ///    within `CROWDED_ARRIVAL_GU`, or that unit arrived on a move of the same order group and this unit has
-///    already tried another way (a repath): the unit has `Arrived` (G5). The second case lets a group fill up
-///    outwards from the slots it reached: slots are 8 su apart, so a unit whose slot got walled in by earlier
-///    arrivals can't reach it, however large the group is.
+///    already tried another way (a repath): the unit has `Arrived` (G5). The second case lets a group that
+///    converges (a click inside its box sends every unit to the clicked point, `docs/movement.md > 6.4`) fill up
+///    outwards from that point, however large the group is: earlier arrivals wall it in for those that come later.
 /// 2. **Queueing** ([`queues_behind`]): keep waiting.
 /// 3. **Repath**, once the backoff of the last repath is over (`docs/movement.md > 5.6`), if a repath is left.
 ///    The tile of a stationary unit in its way is added to `avoid_tiles` first ([`avoid_blocker`]): at once if

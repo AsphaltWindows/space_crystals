@@ -1,7 +1,7 @@
 //! Unit moves (`systems/controls/behaviors.md > MovingToLocation`, `docs/movement.md > 4–6`): a unit follows its
 //! smoothed path at its top speed, arrives exactly, goes around walls and cliffs, plays queued orders back to back,
-//! spreads a group over its slots, replans when the ground changes, and stays deterministic across a save and
-//! between runs. Units in each other's way are in `movement_collision.rs`. Every `TestSim` checks the invariants
+//! sends a group's units to their own destinations, replans when the ground changes, and stays deterministic across
+//! a save and between runs. Units in each other's way are in `movement_collision.rs`. Every `TestSim` checks the invariants
 //! I1–I7 after each tick (`docs/movement.md > 8`).
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
@@ -235,9 +235,11 @@ fn queued_moves_are_visited_in_order() {
     assert_eq!(t.sim().tick(), 1 + 250);
 }
 
-/// `docs/movement.md > 6.4`: units ordered together get distinct slots around the click, apart.
+/// `docs/movement.md > 6.4` (`systems/controls/commands.md > Group Destinations (Magic Box)`): units ordered
+/// together to a point outside their box each get their own destination, their offset from the box's centre kept
+/// around the click, and arrive on it, apart.
 #[test]
-fn a_group_spreads_over_distinct_slots() {
+fn a_group_keeps_its_shape_around_the_click() {
     let mut t = ScenarioBuilder::new(OPEN).start();
     let starts = [v(100.0, 100.0), v(140.0, 100.0), v(100.0, 140.0), v(140.0, 140.0)];
     for p in starts {
@@ -254,14 +256,16 @@ fn a_group_spreads_over_distinct_slots() {
             orders.current.as_ref().unwrap().order.slot
         })
         .collect();
-    assert!(slots.iter().all(Option::is_some), "{slots:?}");
+    // The box is x 100..140, y 100..140, its centre (120, 120).
+    let shift = click - v(120.0, 120.0);
+    assert_eq!(slots, starts.map(|p| Some(p + shift)));
     t.run(200);
     let ends: Vec<Vec2> = (1..=4).map(|id| pos(&t, id)).collect();
     for (i, a) in ends.iter().enumerate() {
         assert_eq!(mover(&t, i as u32 + 1).status, MoveStatus::Arrived);
         assert_eq!(Some(*a), slots[i]);
-        // Slot pitch: 24 su of box plus an 8 su gap; the four nearest lattice points.
-        assert!(a.distance(click) <= 32.0 + 1e-3, "{a}");
+        // The square of 40 su is centred on the click.
+        assert!(a.distance(click) <= 20.0 * 2f32.sqrt() + 1e-3, "{a}");
         for b in &ends[i + 1..] {
             assert!(
                 (a.x - b.x).abs() >= 24.0 || (a.y - b.y).abs() >= 24.0,

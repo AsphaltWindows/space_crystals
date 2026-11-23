@@ -170,6 +170,61 @@ pub(super) fn clamp_to_clear(grid: &NavGrid, half: Vec2, tile: TilePos, p: Vec2)
     grid.center(tile)
 }
 
+/// `docs/movement.md > 6.4`, question Q0008 (gap G5, default): the point nearest to `goal` that a unit of
+/// `component` with half extents `half` can stand on. That is `goal` itself where the unit fits on a tile of the
+/// component; else, in rings of tiles outward from `goal`'s tile, the point nearest to `goal` on a tile of the
+/// component where the box is clear ([`clamp_to_clear`]), ties by tile index. The rings stop once no tile further
+/// out can hold a nearer point. Exact for boxes up to a tile wide; a wider box gets the centre of the component's
+/// nearest tile, as the path service retargets (`NavGrid::nearest_in_component`). `None` if the component doesn't
+/// exist or `goal` isn't finite. It never searches.
+pub fn reachable_point(grid: &NavGrid, component: u32, half: Vec2, goal: Vec2) -> Option<Vec2> {
+    if component == 0 || component > grid.component_count() || !goal.is_finite() {
+        return None;
+    }
+    let from = grid.clamp(grid.tile_of(goal));
+    if half.x > SU_PER_GU / 2.0 || half.y > SU_PER_GU / 2.0 {
+        let tile = grid.nearest_in_component(component, from)?;
+        return Some(if tile == from {
+            clamp_to_clear(grid, half, tile, goal)
+        } else {
+            grid.center(tile)
+        });
+    }
+    // (squared distance to `goal`, tile index, point) of the best point so far.
+    let mut best: Option<(f32, u32, Vec2)> = None;
+    let visit = |best: &mut Option<(f32, u32, Vec2)>, x: i32, y: i32| {
+        let tile = TilePos::new(x, y);
+        let Some(index) = grid.index(tile).filter(|_| grid.component(tile) == Some(component)) else {
+            return;
+        };
+        let p = clamp_to_clear(grid, half, tile, goal);
+        let candidate = (p.distance_squared(goal), index, p);
+        if best.is_none_or(|b| candidate.0.total_cmp(&b.0).then(candidate.1.cmp(&b.1)).is_lt()) {
+            *best = Some(candidate);
+        }
+    };
+    for r in 0..grid.width().max(grid.height()) as i32 {
+        // A point of a tile in ring `r` is at least `r - 1` tiles away from any point of `goal`'s tile.
+        let floor = (r - 1) as f32 * SU_PER_GU;
+        if r > 0 && best.is_some_and(|(d2, ..)| d2 <= floor * floor) {
+            break;
+        }
+        if r == 0 {
+            visit(&mut best, from.x, from.y);
+            continue;
+        }
+        for x in from.x - r..=from.x + r {
+            visit(&mut best, x, from.y - r);
+            visit(&mut best, x, from.y + r);
+        }
+        for y in from.y - r + 1..from.y + r {
+            visit(&mut best, from.x - r, y);
+            visit(&mut best, from.x + r, y);
+        }
+    }
+    best.map(|(.., p)| p)
+}
+
 /// `docs/movement.md > 5.4`: turns a tile path into waypoints by greedy string-pulling. The candidates are the
 /// exact `start`, the centre of every tile of the path, and the exact `goal`; from each kept waypoint the next
 /// one is a later candidate with line of sight. The result starts with `start`, ends with `goal`, and has at
