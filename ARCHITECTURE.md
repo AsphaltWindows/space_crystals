@@ -193,13 +193,28 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   map), and it **ignores invalid ones**. It must never panic on player input, so use checked or saturating arithmetic
   on numbers that come from input. Panics are only for programmer errors, such as an invalid scenario passed to
   `Sim::new` or an out-of-bounds `Map::set_tile`.
-- Every new command gets tests showing that its invalid forms are ignored without a panic.
+- **The command gate** (`sim/gate.rs`): `Sim::validate(&PlayerCommand) -> Result<(), Reject>` checks a command
+  against the current state without changing it, and `step` applies a command only through the same check
+  (`Sim::check`, which hands the application the objects and positions it resolved), so the two can't disagree. In
+  order: the player is in the game (`Reject::UnknownPlayer`), a debug command needs debug commands on
+  (`DebugDisabled`), then the command's own rules: every id it names exists (`UnknownObject`) and, for a player's
+  orders to objects, belongs to that player (`NotOwned`, through `Sim::referenced(id, Some(player))`; debug commands
+  and targets may name anyone's objects), positions are finite and on the map (`OffMap`), spawns fit
+  (`Spawn(SpawnProblem)`). A rejected command changes nothing, neither the state nor the events, and never panics.
+  There is no rejection event yet: add one as output outside the state hash when the UI needs it.
+- Every new command gets its rules in the gate and tests showing that its invalid forms are rejected without a panic
+  and change nothing.
+- **Game options** (`SimConfig`): given at creation (`Sim::with_config`, `try_with_config`), kept in the `Sim`,
+  hashed, and recorded in the `Replay`; scenario and map files don't hold them. `debug` turns debug commands on.
+  `Sim::new` and `SimConfig::default()` have it off, as a real match will. The client turns it on
+  (`AppConfig::sim_config`, off with `--no-debug`), and so does `TestSim::new`.
 - `Command::Debug(DebugCommand::…)` covers `Spawn`, `Remove` and `SetPosition`, for development and QA. It bypasses
-  costs and rules and is never offered in a real match. A teleport sets `prev_pos = pos`, so nothing interpolates
-  across the map.
-- **Replay** = the `Scenario` plus the `TickInputs` of every tick, empty ticks included: `sc_sim::Replay` (serde)
-  with `record`/`step`/`run`. The client must never submit a command with a non-finite number. The sim would ignore
-  it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to load. Validate at the input layer.
+  costs and rules, only works while `SimConfig::debug` is on, and is never offered in a real match. A teleport sets
+  `prev_pos = pos`, so nothing interpolates across the map.
+- **Replay** = the `Scenario` and the `SimConfig` plus the `TickInputs` of every tick, empty ticks included:
+  `sc_sim::Replay` (serde) with `start`/`record`/`step`/`run`. The client must never submit a command with a
+  non-finite number. The sim would reject it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to
+  load. Validate at the input layer.
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, …) are output only, for effects, sounds and UI.
   The sim never reads them. `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events
   from the scenario's initial spawns.
@@ -234,9 +249,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   maps can be indented string literals.
 - **Test helpers** live in the public `sc_sim::testing` module, so client tests can use them too.
   `ScenarioBuilder::new(ascii)` makes a scenario with the two players of `scenarios::empty` and seed 1. Add spawns
-  with `.spawn(..)`, then call `.build()` or `.start()`. A `TestSim` schedules commands with `at(tick, player, cmd)`
-  or `debug_at(tick, cmd)`, and each one applies in the step that reaches that tick. It advances with `step`,
-  `run(n)` and `run_until(tick)`, keeps every event with its tick, and records a `Replay` of the run.
+  with `.spawn(..)`, then call `.build()` or `.start()`. A `TestSim` runs with debug commands on
+  (`TestSim::with_config` for other options). It schedules commands with `at(tick, player, cmd)` or
+  `debug_at(tick, cmd)`, and each one applies in the step that reaches that tick. It advances with `step`, `run(n)`
+  and `run_until(tick)`, keeps every event with its tick, and records a `Replay` of the run.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes. Every state type's hash impl
   destructures it (`hash.rs`), so a new field doesn't compile until it is hashed.
@@ -310,10 +326,38 @@ CommandPanel. All five have the same height and keep fixed horizontal slots, and
 (`systems/controls/selection_and_hud.md > HUD Bar`). bevy_ui lays out each root node inside its camera's viewport,
 so the HUD needs its own full-window UI camera (`IsDefaultUiCamera` / `UiTargetCamera`).
 
-**Input**: raw Bevy input becomes our `InputAction`s through the binding tables (`KEY_BINDINGS`, `MOUSE_BINDINGS`),
-and those become UI state changes and `Command`s. `ActionState::cursor()` is the cursor in logical pixels. Tests and QA
-scripts inject `InputAction`s and a cursor (`InjectedActions`), never raw `ButtonInput`. In a headless run, injected
-presses are cleared before game systems see them.
+**Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse and the screen edge into game input,
+in `PreUpdate` (`ReadActions`, after Bevy's input and UI picking), and gameplay code reads only what it produces:
+`InputAction`s, which become UI state changes and `Command`s. Never read raw keys or buttons in gameplay code.
+- **Bindings table** (`input::Bindings`, a `Resource`): the one list of `(InputAction, Binding)` entries for every
+  game action. A `Binding` is `Press(Chord)`, a key or mouse button with the modifiers it needs (Q, Ctrl + 1,
+  Shift + Tab); `DoubleTap(Chord)`, the same chord pressed twice within `DOUBLE_TAP_SECONDS` with no other bound
+  button in between; or `Modifiers(..)`, held while those modifiers are, for the modifier actions (`Queue`,
+  `ToggleSelection`, `SelectSameType`). A press fires the action of its most specific binding: of the bindings whose
+  modifiers are all held, the one needing the most modifiers, then a double tap over a single press, then the
+  earlier entry. So Shift + 1 adds to group 1 instead of recalling it, while Shift + Q presses slot Q with `Queue`
+  held. The action stays held until its button goes up. `Bindings::default()` holds the design's defaults (camera
+  keys, G for the grid, Select and ContextCommand on the left and right buttons, Esc to cancel, Tab and Shift + Tab,
+  the control group keys, the 4 × 3 command grid QWER/ASDF/ZXCV with the standard slots Z, X and C, Shift to
+  queue). A rebinding UI edits it with `bind` and `unbind`. It isn't serializable yet: loading it from a file needs
+  Bevy's `serialize` feature for `KeyCode` and `MouseButton`.
+- **Output**: `ActionState` (a `Resource`) holds this frame's actions (held, just pressed, just released), the
+  modifiers, the cursor in logical pixels, and the `Pointer`: the view point and the ground point
+  (`coords::ground_under`) under the cursor, whether it is over the UI (a UI node by Bevy's picking, or outside the
+  world view), and the drag box in progress. `MapClick` messages report clicks on the map: `Select` when released,
+  unless it moved further than `DRAG_THRESHOLD_PX`, and `ContextCommand` when pressed, with the modifiers and a
+  double-click flag. A `Select` drag ends as a `SelectionBox` message in view space, kept inside the world view.
+  Nothing starts over the UI. What the modifiers of a click mean comes from the table
+  (`Bindings::holds(InputAction::Queue, click.modifiers)`).
+- Double taps and double-clicks are timed on `Time<Real>`. Placeholders until the design gives values:
+  `DRAG_THRESHOLD_PX`, `DOUBLE_TAP_SECONDS`, `DOUBLE_CLICK_SECONDS`, `DOUBLE_CLICK_DISTANCE_PX`, `EDGE_PAN_MARGIN_PX`.
+- **Injection**: tests and QA scripts drive the layer through `InjectedInput`, a virtual keyboard and mouse, without
+  winit. Press and release its `keys` and `mouse` (`ButtonInput`s) like Bevy's; the layer clears their press marks
+  after reading them. `cursor` stands in for the mouse cursor, `over_ui` puts it over a UI node (headless apps have
+  no UI picking), and `held` and `pressed` inject actions directly, past the bindings. Never write to Bevy's own
+  `ButtonInput` resources: its input systems clear their presses before ours run. `RawInput` turns the real devices
+  off in QA runs; while a text field has the keyboard (`TextFocus`), keys type text instead.
+- The map editor still reads raw input itself (`editor/input.rs`).
 
 **Bevy code**
 - Write one plugin per feature module (camera, map rendering, HUD, input, …). Keep systems small. Bevy caps a system
@@ -322,8 +366,11 @@ presses are cleared before game systems see them.
 - Send one-shot happenings as sim events or Bevy messages, never as marker components that are added and removed.
 
 **Client tests** advance an exact number of ticks deterministically, never by wall-clock time. Insert
-`TimeUpdateStrategy::FixedTimesteps(1)`, so that each `App::update()` runs FixedUpdate exactly once. The very first
-update only starts the clock, so assert on `Sim::tick()`, not on the number of updates.
+`TimeUpdateStrategy::FixedTimesteps(1)`, so that each `App::update()` runs FixedUpdate exactly once and real time
+advances by one tick. The very first update only starts the clock, so assert on `Sim::tick()`, not on the number of
+updates. To draw between ticks, advance by part of a tick with `TimeUpdateStrategy::ManualDuration`. A client run's
+`LoadedScenario` and `RecordedInputs` (with the sim's `SimConfig`) are a `Replay`: playing it back in a bare `Sim`
+gives the same `state_hash` at every tick.
 
 ## Bevy 0.20: verify, don't recall
 
@@ -350,6 +397,7 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--player <n>` | Shows player `n`'s view: camera start, top bar. Default 1. |
 | `--window-size <W>x<H>` | Window or offscreen image size in physical pixels. Default `1280x720`. |
 | `--fast` | Runs as many ticks per frame as fit in 50 ms instead of 16 per second. Screenshots are unchanged. |
+| `--no-debug` | Runs the game with debug commands off (`SimConfig`), as a real match will; they are on by default. |
 | `--screenshot <tick>:<path>` | Saves a PNG of exactly that tick. Repeatable, in any order; creates parent dirs. |
 | `--exit-at-tick <n>` | Exits at tick `n`, after its screenshots. Windowless runs default to the last screenshot's. |
 | `--dump-state <path>` | Writes the state as JSON when the run ends (fields below). |
