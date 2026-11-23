@@ -672,3 +672,306 @@
 - 2026-03-22T17:01:43-04:00: Produced qa_item: fix_elevation_rendering_glitches_r1
 - 2026-03-22T17:01:43-04:00: Moved all messages to done for feature: fix_elevation_rendering_glitches_r1
 - 2026-03-22T17:01:43-04:00: Aggregator pass complete
+- 2026-03-23T22:47:03-04:00: Activated feature_request: task_splitter-unit_command_system_r1.md
+- 2026-03-23T22:47:03-04:00: Activated feature_tasks: task_splitter-unit_command_system_r1.md
+- 2026-03-23T22:47:03-04:00: Aggregator pass complete
+- 2026-03-23T22:51:00-04:00: Activated task_completion: developer-hotkey_command_fix.md
+- 2026-03-23T22:51:01-04:00: Aggregator pass complete
+- 2026-03-23T22:54:01-04:00: Activated feature_request: task_splitter-extraction_plate_persists_after_depletion.md
+- 2026-03-23T22:54:01-04:00: Aggregator pass complete
+- 2026-03-23T22:54:05-04:00: Activated feature_tasks: task_splitter-extraction_plate_persists_after_depletion.md
+- 2026-03-23T22:54:05-04:00: Aggregator pass complete
+- 2026-03-23T22:57:12-04:00: Activated task_completion: developer-shift_click_queue_fix.md
+- 2026-03-23T22:57:13-04:00: Aggregator pass complete
+- 2026-03-23T22:59:39-04:00: Activated feature_request: task_splitter-fix_extraction_plate_depletion_lifecycle.md
+- 2026-03-23T22:59:39-04:00: Activated feature_tasks: task_splitter-fix_extraction_plate_depletion_lifecycle.md
+- 2026-03-23T22:59:40-04:00: Aggregator pass complete
+- 2026-03-23T23:01:21-04:00: Aggregator pass complete
+- 2026-03-23T23:02:47-04:00: Activated feature_request: task_splitter-infopanel_fog_of_war_visibility.md
+- 2026-03-23T23:02:47-04:00: Activated feature_tasks: task_splitter-infopanel_fog_of_war_visibility.md
+- 2026-03-23T23:02:47-04:00: Aggregator pass complete
+- 2026-03-23T23:03:14-04:00: Activated feature_request: task_splitter-resource_nodes_r1.md
+- 2026-03-23T23:03:14-04:00: Aggregator pass complete
+- 2026-03-23T23:03:41-04:00: Activated feature_tasks: task_splitter-resource_nodes_r1.md
+- 2026-03-23T23:03:41-04:00: Aggregator pass complete
+- 2026-03-23T23:04:17-04:00: Activated feature_request: task_splitter-infopanel_fog_of_war_visibility.md
+- 2026-03-23T23:04:18-04:00: Aggregator pass complete
+- 2026-03-23T23:04:46-04:00: Activated task_completion: developer-attack_command_rightclick_fix.md
+- 2026-03-23T23:04:48-04:00: All tasks complete for task_splitter-unit_command_system_r1.md — producing qa_item
+- 2026-03-23T23:04:48-04:00: Produced qa_item: unit_command_system_r1
+- 2026-03-23T23:04:48-04:00: Moved all messages to done for feature: unit_command_system_r1
+- 2026-03-23T23:04:48-04:00: Aggregator pass complete
+- 2026-03-23T23:04:51-04:00: Aggregator pass complete
+- 2026-03-23T23:13:18-04:00: Activated feature_request: task_splitter-gdo_barracks_r1.md
+- 2026-03-23T23:13:18-04:00: Activated feature_tasks: task_splitter-gdo_barracks_r1.md
+- 2026-03-23T23:13:19-04:00: Aggregator pass complete
+- 2026-03-23T23:25:13-04:00: Activated task_completion: developer-shift_click_queue_fix.md
+- 2026-03-23T23:25:13-04:00: Aggregator pass complete
+- 2026-03-23T23:47:27-04:00: Aggregator pass complete
+- 2026-03-23T23:47:30-04:00: Aggregator pass complete
+- 2026-03-23T23:49:14-04:00: Activated task_completion: developer-extraction_plate_depletion_lifecycle.md
+- 2026-03-23T23:49:14-04:00: All tasks complete for task_splitter-extraction_plate_persists_after_depletion.md — producing qa_item
+- 2026-03-23T23:49:14-04:00: Produced qa_item: extraction_plate_persists_after_depletion
+- 2026-03-23T23:49:14-04:00: Moved all messages to done for feature: extraction_plate_persists_after_depletion
+- 2026-03-23T23:49:15-04:00: Aggregator pass complete
+- 2026-03-23T23:50:34-04:00: Activated task_completion: developer-extraction_plate_depletion_lifecycle.md
+- 2026-03-23T23:50:34-04:00: Aggregator pass complete
+- 2026-03-23T23:50:56-04:00: Activated task_completion: developer-extraction_plate_depletion_lifecycle.md
+- 2026-03-23T23:50:57-04:00: Aggregator pass complete
+- 2026-03-23T23:55:16-04:00: Activated task_completion: developer-infopanel_fog_visibility_gate.md
+- 2026-03-23T23:55:16-04:00: Activated task_completion: developer-rally_attack_approach_path.md
+- 2026-03-23T23:55:17-04:00: All tasks complete for task_splitter-gdo_barracks_r1.md — producing qa_item
+- 2026-03-23T23:55:17-04:00: Produced qa_item: gdo_barracks_r1
+- 2026-03-23T23:55:17-04:00: Moved all messages to done for feature: gdo_barracks_r1
+- 2026-03-23T23:55:17-04:00: All tasks complete for task_splitter-infopanel_fog_of_war_visibility.md — producing qa_item
+- 2026-03-23T23:55:17-04:00: Produced qa_item: infopanel_fog_of_war_visibility
+- 2026-03-23T23:55:17-04:00: Moved all messages to done for feature: infopanel_fog_of_war_visibility
+- 2026-03-23T23:55:18-04:00: Aggregator pass complete
+- 2026-03-23T23:56:12-04:00: Aggregator pass complete
+- 2026-03-24T00:01:28-04:00: Activated feature_request: task_splitter-automated_qa_unblock.md
+- 2026-03-24T00:01:28-04:00: Activated feature_tasks: task_splitter-automated_qa_unblock.md
+- 2026-03-24T00:01:28-04:00: Aggregator pass complete
+- 2026-03-24T00:01:51-04:00: Activated feature_request: task_splitter-automated_qa_unblock.md
+- 2026-03-24T00:01:51-04:00: Activated feature_tasks: task_splitter-automated_qa_unblock.md
+- 2026-03-24T00:01:51-04:00: Aggregator pass complete
+- 2026-03-24T00:03:36-04:00: Aggregator pass complete
+- 2026-03-24T00:04:08-04:00: Activated task_completion: developer-fix_qa_test_compilation.md
+- 2026-03-24T00:04:08-04:00: Aggregator pass complete
+- 2026-03-24T00:05:29-04:00: Aggregator pass complete
+- 2026-03-24T00:05:56-04:00: All tasks complete for task_splitter-automated_qa_unblock.md — producing qa_item
+- 2026-03-24T00:05:56-04:00: Produced qa_item: automated_qa_unblock
+- 2026-03-24T00:05:56-04:00: Moved all messages to done for feature: automated_qa_unblock
+- 2026-03-24T00:05:56-04:00: Aggregator pass complete
+- 2026-03-24T00:08:13-04:00: Activated task_completion: developer-infopanel_fog_visibility_gate.md
+- 2026-03-24T00:08:13-04:00: All tasks complete for task_splitter-resource_nodes_r1.md — producing qa_item
+- 2026-03-24T00:08:13-04:00: Produced qa_item: resource_nodes_r1
+- 2026-03-24T00:08:13-04:00: Moved all messages to done for feature: resource_nodes_r1
+- 2026-03-24T00:08:13-04:00: Aggregator pass complete
+- 2026-03-24T00:08:40-04:00: Activated task_completion: developer-qa_test_compilation_fix.md
+- 2026-03-24T00:08:40-04:00: Aggregator pass complete
+- 2026-03-24T00:09:23-04:00: Aggregator pass complete
+- 2026-03-24T00:14:43-04:00: Activated feature_request: task_splitter-right_click_command_dispatch.md
+- 2026-03-24T00:14:43-04:00: Activated feature_tasks: task_splitter-right_click_command_dispatch.md
+- 2026-03-24T00:14:43-04:00: Aggregator pass complete
+- 2026-03-24T00:33:53-04:00: Activated task_completion: developer-command_context_and_issue_helper.md
+- 2026-03-24T00:33:53-04:00: Aggregator pass complete
+- 2026-03-24T00:34:15-04:00: Activated task_completion: developer-command_context_and_issue_helper.md
+- 2026-03-24T00:34:15-04:00: Aggregator pass complete
+- 2026-03-24T00:45:55-04:00: Activated task_completion: developer-extract_command_handlers_dispatch.md
+- 2026-03-24T00:45:55-04:00: All tasks complete for task_splitter-right_click_command_dispatch.md — producing qa_item
+- 2026-03-24T00:45:55-04:00: Produced qa_item: right_click_command_dispatch
+- 2026-03-24T00:45:55-04:00: Moved all messages to done for feature: right_click_command_dispatch
+- 2026-03-24T00:45:55-04:00: Aggregator pass complete
+- 2026-03-24T00:46:28-04:00: Activated task_completion: developer-extract_command_handlers_dispatch.md
+- 2026-03-24T00:46:28-04:00: Aggregator pass complete
+- 2026-03-24T00:46:56-04:00: Aggregator pass complete
+- 2026-03-24T08:44:07-04:00: Activated feature_request: task_splitter-behaviors_split.md
+- 2026-03-24T08:44:07-04:00: Aggregator pass complete
+- 2026-03-24T08:44:29-04:00: Activated feature_tasks: task_splitter-behaviors_split.md
+- 2026-03-24T08:44:29-04:00: Aggregator pass complete
+- 2026-03-24T08:45:11-04:00: Activated feature_request: task_splitter-command_panel_split.md
+- 2026-03-24T08:45:11-04:00: Activated feature_request: task_splitter-core_systems_split.md
+- 2026-03-24T08:45:11-04:00: Activated feature_tasks: task_splitter-command_panel_split.md
+- 2026-03-24T08:45:11-04:00: Aggregator pass complete
+- 2026-03-24T08:45:33-04:00: Activated feature_request: task_splitter-faction_split.md
+- 2026-03-24T08:45:33-04:00: Activated feature_tasks: task_splitter-core_systems_split.md
+- 2026-03-24T08:45:33-04:00: Activated feature_tasks: task_splitter-faction_split.md
+- 2026-03-24T08:45:33-04:00: Aggregator pass complete
+- 2026-03-24T13:04:24-04:00: Activated feature_request: task_splitter-fog_of_war_selectability.md
+- 2026-03-24T13:04:24-04:00: Activated feature_tasks: task_splitter-fog_of_war_selectability.md
+- 2026-03-24T13:04:24-04:00: Aggregator pass complete
+- 2026-03-24T13:08:22-04:00: Activated feature_request: task_splitter-test_suite_cleanup.md
+- 2026-03-24T13:08:22-04:00: Activated feature_tasks: task_splitter-test_suite_cleanup.md
+- 2026-03-24T13:08:22-04:00: Aggregator pass complete
+- 2026-03-24T13:19:52-04:00: Activated task_completion: developer-explored_selectability_rules.md
+- 2026-03-24T13:19:52-04:00: Activated task_completion: developer-test_harness_selection_fix.md
+- 2026-03-24T13:19:52-04:00: Aggregator pass complete
+- 2026-03-24T13:24:40-04:00: Activated task_completion: developer-fix_stale_test_values.md
+- 2026-03-24T13:24:40-04:00: Aggregator pass complete
+- 2026-03-24T13:25:50-04:00: Aggregator pass complete
+- 2026-03-24T13:27:56-04:00: Activated task_completion: developer-sds_infopanel_visibility_rework.md
+- 2026-03-24T13:27:56-04:00: All tasks complete for task_splitter-fog_of_war_selectability.md — producing qa_item
+- 2026-03-24T13:27:56-04:00: Produced qa_item: fog_of_war_selectability
+- 2026-03-24T13:27:56-04:00: Moved all messages to done for feature: fog_of_war_selectability
+- 2026-03-24T13:27:56-04:00: Aggregator pass complete
+- 2026-03-24T13:28:54-04:00: Activated task_completion: developer-fix_auto_targeting_and_stop_tests.md
+- 2026-03-24T13:28:54-04:00: Aggregator pass complete
+- 2026-03-24T13:29:02-04:00: Activated task_completion: developer-sds_infopanel_visibility_rework.md
+- 2026-03-24T13:29:02-04:00: Aggregator pass complete
+- 2026-03-24T13:29:24-04:00: Activated task_completion: developer-sds_infopanel_visibility_rework.md
+- 2026-03-24T13:29:24-04:00: Aggregator pass complete
+- 2026-03-24T13:31:02-04:00: Activated task_completion: developer-fix_auto_targeting_and_stop_tests.md
+- 2026-03-24T13:31:02-04:00: Aggregator pass complete
+- 2026-03-24T13:41:12-04:00: Activated task_completion: developer-command_panel_directory_split.md
+- 2026-03-24T13:41:12-04:00: Activated task_completion: developer-harden_assertions_and_cleanup.md
+- 2026-03-24T13:41:13-04:00: All tasks complete for task_splitter-test_suite_cleanup.md — producing qa_item
+- 2026-03-24T13:41:13-04:00: Produced qa_item: test_suite_cleanup
+- 2026-03-24T13:41:13-04:00: Moved all messages to done for feature: test_suite_cleanup
+- 2026-03-24T13:41:13-04:00: Aggregator pass complete
+- 2026-03-24T13:41:35-04:00: Activated task_completion: developer-command_panel_directory_split.md
+- 2026-03-24T13:41:35-04:00: Aggregator pass complete
+- 2026-03-24T13:42:02-04:00: Activated task_completion: developer-command_panel_action_decomposition.md
+- 2026-03-24T13:42:02-04:00: Activated task_completion: developer-command_panel_directory_split.md
+- 2026-03-24T13:42:02-04:00: All tasks complete for task_splitter-command_panel_split.md — producing qa_item
+- 2026-03-24T13:42:03-04:00: Produced qa_item: command_panel_split
+- 2026-03-24T13:42:03-04:00: Moved all messages to done for feature: command_panel_split
+- 2026-03-24T13:42:03-04:00: Aggregator pass complete
+- 2026-03-24T19:38:37-04:00: Activated feature_request: task_splitter-expand_command_panel_grid.md
+- 2026-03-24T19:38:37-04:00: Activated feature_tasks: task_splitter-expand_command_panel_grid.md
+- 2026-03-24T19:38:37-04:00: Aggregator pass complete
+- 2026-03-24T19:56:46-04:00: Aggregator pass complete
+- 2026-03-24T21:01:37-04:00: Activated task_completion: developer-faction_module_split.md
+- 2026-03-24T21:01:37-04:00: All tasks complete for task_splitter-faction_split.md — producing qa_item
+- 2026-03-24T21:01:37-04:00: Produced qa_item: faction_split
+- 2026-03-24T21:01:37-04:00: Moved all messages to done for feature: faction_split
+- 2026-03-24T21:01:37-04:00: Aggregator pass complete
+- 2026-03-24T21:11:46-04:00: Activated task_completion: developer-behaviors_split.md
+- 2026-03-24T21:11:46-04:00: All tasks complete for task_splitter-behaviors_split.md — producing qa_item
+- 2026-03-24T21:11:46-04:00: Produced qa_item: behaviors_split
+- 2026-03-24T21:11:46-04:00: Moved all messages to done for feature: behaviors_split
+- 2026-03-24T21:11:46-04:00: Aggregator pass complete
+- 2026-03-24T21:14:21-04:00: Activated task_completion: developer-behaviors_split.md
+- 2026-03-24T21:14:21-04:00: Activated task_completion: developer-core_systems_split.md
+- 2026-03-24T21:14:21-04:00: Activated task_completion: developer-expand_command_panel_grid.md
+- 2026-03-24T21:14:21-04:00: Activated task_completion: developer-faction_module_split.md
+- 2026-03-24T21:14:21-04:00: All tasks complete for task_splitter-core_systems_split.md — producing qa_item
+- 2026-03-24T21:14:22-04:00: Produced qa_item: core_systems_split
+- 2026-03-24T21:14:22-04:00: Moved all messages to done for feature: core_systems_split
+- 2026-03-24T21:14:22-04:00: All tasks complete for task_splitter-expand_command_panel_grid.md — producing qa_item
+- 2026-03-24T21:14:22-04:00: Produced qa_item: expand_command_panel_grid
+- 2026-03-24T21:14:22-04:00: Moved all messages to done for feature: expand_command_panel_grid
+- 2026-03-24T21:14:22-04:00: Aggregator pass complete
+- 2026-03-24T21:16:14-04:00: Activated task_completion: developer-behaviors_split.md
+- 2026-03-24T21:16:14-04:00: Aggregator pass complete
+- 2026-03-24T21:23:10-04:00: Aggregator pass complete
+- 2026-03-24T21:25:42-04:00: Activated feature_request: task_splitter-core_systems_split_r1.md
+- 2026-03-24T21:25:42-04:00: Aggregator pass complete
+- 2026-03-24T21:26:04-04:00: Activated feature_tasks: task_splitter-core_systems_split_r1.md
+- 2026-03-24T21:26:04-04:00: Aggregator pass complete
+- 2026-03-24T21:26:27-04:00: Activated feature_tasks: task_splitter-core_systems_split_r1.md
+- 2026-03-24T21:26:27-04:00: Aggregator pass complete
+- 2026-03-24T21:27:26-04:00: Aggregator pass complete
+- 2026-03-24T21:30:59-04:00: Activated task_completion: developer-fix_behavior_completion_race.md
+- 2026-03-24T21:30:59-04:00: All tasks complete for task_splitter-core_systems_split_r1.md — producing qa_item
+- 2026-03-24T21:30:59-04:00: Produced qa_item: core_systems_split_r1
+- 2026-03-24T21:30:59-04:00: Moved all messages to done for feature: core_systems_split_r1
+- 2026-03-24T21:30:59-04:00: Aggregator pass complete
+- 2026-03-24T21:31:44-04:00: Activated task_completion: developer-fix_behavior_completion_race.md
+- 2026-03-24T21:31:44-04:00: Aggregator pass complete
+- 2026-03-24T21:31:53-04:00: Aggregator pass complete
+- 2026-03-24T21:31:58-04:00: Aggregator pass complete
+- 2026-03-24T21:32:02-04:00: Aggregator pass complete
+- 2026-03-24T21:37:47-04:00: Activated feature_request: task_splitter-core_systems_split_r2.md
+- 2026-03-24T21:37:47-04:00: Activated feature_tasks: task_splitter-core_systems_split_r2.md
+- 2026-03-24T21:37:47-04:00: Aggregator pass complete
+- 2026-03-24T21:38:21-04:00: Aggregator pass complete
+- 2026-03-24T21:38:30-04:00: Aggregator pass complete
+- 2026-03-24T21:44:45-04:00: Activated task_completion: developer-fix_test_harness_selection_groups.md
+- 2026-03-24T21:44:45-04:00: Activated task_completion: developer-fix_visibility_and_st_constant.md
+- 2026-03-24T21:44:45-04:00: All tasks complete for task_splitter-core_systems_split_r2.md — producing qa_item
+- 2026-03-24T21:44:45-04:00: Produced qa_item: core_systems_split_r2
+- 2026-03-24T21:44:45-04:00: Moved all messages to done for feature: core_systems_split_r2
+- 2026-03-24T21:44:45-04:00: Aggregator pass complete
+- 2026-03-24T21:47:16-04:00: Aggregator pass complete
+- 2026-03-25T01:33:46-04:00: Activated feature_request: task_splitter-declarative-entity-definitions.md
+- 2026-03-25T01:33:46-04:00: Aggregator pass complete
+- 2026-03-25T01:34:08-04:00: Activated feature_tasks: task_splitter-declarative-entity-definitions.md
+- 2026-03-25T01:34:08-04:00: Aggregator pass complete
+- 2026-03-25T01:39:04-04:00: Activated task_completion: developer-entity_definition_foundation.md
+- 2026-03-25T01:39:04-04:00: Aggregator pass complete
+- 2026-03-25T01:45:32-04:00: Activated task_completion: developer-entity-def-pilot-peacekeeper.md
+- 2026-03-25T01:45:32-04:00: Aggregator pass complete
+- 2026-03-25T01:48:57-04:00: Activated task_completion: developer-entity_migration_gdo_units.md
+- 2026-03-25T01:48:57-04:00: Aggregator pass complete
+- 2026-03-25T01:54:37-04:00: Activated task_completion: developer-entity_migration_syndicate_units.md
+- 2026-03-25T01:54:37-04:00: Aggregator pass complete
+- 2026-03-25T02:04:28-04:00: Activated task_completion: developer-entity-migration-gdo-buildings.md
+- 2026-03-25T02:04:29-04:00: Aggregator pass complete
+- 2026-03-25T02:09:46-04:00: Activated task_completion: developer-entity_migration_cults_units.md
+- 2026-03-25T02:09:46-04:00: Aggregator pass complete
+- 2026-03-25T02:19:38-04:00: Activated task_completion: developer-entity_migration_neutral.md
+- 2026-03-25T02:19:38-04:00: Aggregator pass complete
+- 2026-03-25T02:20:23-04:00: Activated feature_request: task_splitter-hud_bar_layout.md
+- 2026-03-25T02:20:23-04:00: Aggregator pass complete
+- 2026-03-25T02:20:46-04:00: Activated feature_tasks: task_splitter-hud_bar_layout.md
+- 2026-03-25T02:20:46-04:00: Aggregator pass complete
+- 2026-03-25T02:24:32-04:00: Activated task_completion: developer-entity_migration_syndicate_buildings.md
+- 2026-03-25T02:24:32-04:00: Aggregator pass complete
+- 2026-03-25T02:29:05-04:00: Activated task_completion: developer-entity_migration_cults_buildings.md
+- 2026-03-25T02:29:05-04:00: Aggregator pass complete
+- 2026-03-25T02:33:12-04:00: Activated task_completion: developer-hud_bar_five_section_scaffold.md
+- 2026-03-25T02:33:12-04:00: Aggregator pass complete
+- 2026-03-25T02:57:31-04:00: Activated task_completion: developer-entity_registry_costs.md
+- 2026-03-25T02:57:32-04:00: Aggregator pass complete
+- 2026-03-25T03:08:54-04:00: Activated task_completion: developer-hud_bar_content_redistribution.md
+- 2026-03-25T03:08:54-04:00: Aggregator pass complete
+- 2026-03-25T03:27:28-04:00: Activated task_completion: developer-entity_registry_grid_layout.md
+- 2026-03-25T03:27:28-04:00: Aggregator pass complete
+- 2026-03-25T03:50:31-04:00: Activated task_completion: developer-entity-registry-spawn-dispatch.md
+- 2026-03-25T03:50:31-04:00: Aggregator pass complete
+- 2026-03-25T04:07:57-04:00: Activated task_completion: developer-entity_definition_cleanup.md
+- 2026-03-25T04:07:57-04:00: Aggregator pass complete
+- 2026-03-25T08:38:35-04:00: Activated feature_request: task_splitter-fix_hud_ui_bugs.md
+- 2026-03-25T08:38:35-04:00: Activated feature_tasks: task_splitter-fix_hud_ui_bugs.md
+- 2026-03-25T08:38:35-04:00: Aggregator pass complete
+- 2026-03-25T08:52:40-04:00: Activated task_completion: developer-fix_hud_ui_bugs.md
+- 2026-03-25T08:52:41-04:00: All tasks complete for task_splitter-fix_hud_ui_bugs.md — producing qa_item
+- 2026-03-25T08:52:41-04:00: Produced qa_item: fix_hud_ui_bugs
+- 2026-03-25T08:52:41-04:00: Moved all messages to done for feature: fix_hud_ui_bugs
+- 2026-03-25T08:52:41-04:00: Aggregator pass complete
+- 2026-03-28T16:00:47-04:00: Activated feature_request: task_splitter-action_channels_r1.md
+- 2026-03-28T16:00:47-04:00: Activated feature_tasks: task_splitter-action_channels_r1.md
+- 2026-03-28T16:00:47-04:00: Aggregator pass complete
+- 2026-03-28T16:04:40-04:00: Activated feature_request: task_splitter-add_cults_armory_r1.md
+- 2026-03-28T16:04:40-04:00: Aggregator pass complete
+- 2026-03-28T16:05:01-04:00: Activated feature_tasks: task_splitter-add_cults_armory_r1.md
+- 2026-03-28T16:05:02-04:00: Aggregator pass complete
+- 2026-03-28T16:06:31-04:00: Activated task_completion: developer-action-channels-targeted-attack-fix.md
+- 2026-03-28T16:06:31-04:00: Aggregator pass complete
+- 2026-03-28T16:09:01-04:00: Activated task_completion: developer-action-channels-attackmove-target-lock.md
+- 2026-03-28T16:09:01-04:00: All tasks complete for task_splitter-action_channels_r1.md — producing qa_item
+- 2026-03-28T16:09:01-04:00: Produced qa_item: action_channels_r1
+- 2026-03-28T16:09:01-04:00: Moved all messages to done for feature: action_channels_r1
+- 2026-03-28T16:09:01-04:00: Aggregator pass complete
+- 2026-03-28T16:09:23-04:00: Activated feature_request: task_splitter-agent_groupable_construction_r1.md
+- 2026-03-28T16:09:23-04:00: Activated feature_tasks: task_splitter-agent_groupable_construction_r1.md
+- 2026-03-28T16:09:23-04:00: Aggregator pass complete
+- 2026-03-28T16:11:18-04:00: Activated task_completion: developer-cults_game_start_fixes.md
+- 2026-03-28T16:11:18-04:00: All tasks complete for task_splitter-add_cults_armory_r1.md — producing qa_item
+- 2026-03-28T16:11:18-04:00: Produced qa_item: add_cults_armory_r1
+- 2026-03-28T16:11:18-04:00: Moved all messages to done for feature: add_cults_armory_r1
+- 2026-03-28T16:11:19-04:00: Aggregator pass complete
+- 2026-03-28T16:12:49-04:00: Activated task_completion: developer-agent_tunnel_placement_ghost_fix.md
+- 2026-03-28T16:12:49-04:00: All tasks complete for task_splitter-agent_groupable_construction_r1.md — producing qa_item
+- 2026-03-28T16:12:49-04:00: Produced qa_item: agent_groupable_construction_r1
+- 2026-03-28T16:12:49-04:00: Moved all messages to done for feature: agent_groupable_construction_r1
+- 2026-03-28T16:12:49-04:00: Aggregator pass complete
+- 2026-03-28T16:18:23-04:00: Activated feature_request: task_splitter-agent_interface_r1.md
+- 2026-03-28T16:18:23-04:00: Activated feature_tasks: task_splitter-agent_interface_r1.md
+- 2026-03-28T16:18:23-04:00: Aggregator pass complete
+- 2026-03-28T16:25:05-04:00: Activated task_completion: developer-agent_command_behavior_bridge.md
+- 2026-03-28T16:25:05-04:00: All tasks complete for task_splitter-agent_interface_r1.md — producing qa_item
+- 2026-03-28T16:25:05-04:00: Produced qa_item: agent_interface_r1
+- 2026-03-28T16:25:05-04:00: Moved all messages to done for feature: agent_interface_r1
+- 2026-03-28T16:25:05-04:00: Aggregator pass complete
+- 2026-03-28T16:27:42-04:00: Activated feature_request: task_splitter-agent_resource_gathering_r1.md
+- 2026-03-28T16:27:42-04:00: Activated feature_tasks: task_splitter-agent_resource_gathering_r1.md
+- 2026-03-28T16:27:42-04:00: Aggregator pass complete
+- 2026-03-28T16:29:34-04:00: Activated feature_request: task_splitter-integration-test-compilation-fix.md
+- 2026-03-28T16:29:34-04:00: Activated feature_tasks: task_splitter-integration-test-compilation-fix.md
+- 2026-03-28T16:29:34-04:00: Aggregator pass complete
+- 2026-03-28T16:33:21-04:00: Activated feature_request: task_splitter-agent_tunnel_building_r1.md
+- 2026-03-28T16:33:21-04:00: Activated feature_tasks: task_splitter-agent_tunnel_building_r1.md
+- 2026-03-28T16:33:21-04:00: Aggregator pass complete
+- 2026-03-28T16:40:28-04:00: Activated task_completion: developer-agent_rightclick_gather_fix.md
+- 2026-03-28T16:40:28-04:00: All tasks complete for task_splitter-agent_resource_gathering_r1.md — producing qa_item
+- 2026-03-28T16:40:28-04:00: Produced qa_item: agent_resource_gathering_r1
+- 2026-03-28T16:40:28-04:00: Moved all messages to done for feature: agent_resource_gathering_r1
+- 2026-03-28T16:40:28-04:00: Aggregator pass complete
+- 2026-03-28T16:46:05-04:00: Activated task_completion: developer-integration_test_compilation_fix.md
+- 2026-03-28T16:46:05-04:00: Aggregator pass complete
+- 2026-03-28T16:47:10-04:00: Activated task_completion: developer-verify_agent_tunnel_building_r1.md
+- 2026-03-28T16:47:10-04:00: All tasks complete for task_splitter-agent_tunnel_building_r1.md — producing qa_item
+- 2026-03-28T16:47:10-04:00: Produced qa_item: agent_tunnel_building_r1
+- 2026-03-28T16:47:10-04:00: Moved all messages to done for feature: agent_tunnel_building_r1
+- 2026-03-28T16:47:10-04:00: Aggregator pass complete

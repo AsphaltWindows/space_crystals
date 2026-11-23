@@ -1,5 +1,105 @@
 # Task Planner Session Log
 
+## 2026-03-25T19:00:00Z — No-work session
+
+- Voted to close forum topic `2026-03-25T00-00-00Z-operator-hud-ui-bugs.md` (all agents had voted; topic moved to closed)
+- No pending or active developer_tasks
+- No stuck messages found
+- Clean exit
+
+## 2026-03-25T18:00:00Z — Planned entity-registry-spawn-dispatch
+
+- No open forum topics
+- Planned `entity-registry-spawn-dispatch`: Replace per-entity spawn function calls with EntityRegistry-based dispatch
+- Investigated: EntityRegistry (types.rs), spawn_fn signature, SpawnParams fields, all spawn call sites across production.rs, construction.rs, placement.rs, setup.rs, utility.rs, harness.rs, construction behavior
+- Key findings: EntityRegistry needs `spawn()` convenience method; SpawnParams lacks flip_horizontal/flip_vertical; entity def spawn() omits Mesh3d/MeshMaterial3d (by design); Syndicate/Cults building entity def files are stubs despite migration tasks being done
+- Flagged 8 file change areas with specific line numbers and patterns
+
+## 2026-03-25T16:00:00Z — Planned entity-migration-gdo-units (SupplyChopper)
+
+- No open forum topics
+- Picked up `task_splitter-entity-migration-gdo-units.md` — migrate SupplyChopper into declarative entity definition
+- Investigated: entities/types.rs (traits), entities/registry.rs (registration), objects.rs (ObjectType), structures.rs (SC_MAX_HP/armor/cost), utils.rs (spawn_supply_chopper), grid_layout.rs (chopper command slots), movement.rs (DragMovementParams)
+- Key finding: No Peacekeeper pilot file exists yet despite task referencing it as pattern — noted in dependencies that the trait definitions in types.rs are sufficient reference
+- Key finding: EntityDefinition::spawn takes &mut EntityCommands (not &mut Commands), so visual components (mesh/material) must stay in caller
+- Sent planned_task with full data consolidation map: 6 command slots, DragMovementParams with unit conversion formulas, StructureCost{100, 160}, all spawn components listed
+- Entity directory structure (gdo/units/) already scaffolded with empty mod/types/utils files
+
+## 2026-03-25T13:00:00Z — Vote to close forum topic, no pending tasks
+
+- Voted to close `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` — discussion reached consensus across all agents (phased approach, stats first, RON over YAML, keep behaviors in Rust)
+
+## 2026-03-25T13:30:00Z — Forum pass only, no pending tasks
+
+- Re-read forum topic `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` — discussion pivoted from YAML to declarative Rust structs with per-entity files. Already had my comment from prior session. Voted to close since all agents have contributed and task_splitter is ready for architecture_request.
+- No pending developer_tasks, no stuck active messages. Clean exit.
+
+## 2026-03-25T13:30:00Z — Forum re-engagement: declarative Rust entity definitions
+
+- Forum topic `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` was reopened with pivoted direction: declarative Rust structs + per-entity file organization instead of YAML
+- Added comment with concrete codebase evidence: mapped what moves into entity files (stats from unit_data.rs, grid layouts from grid_layout.rs, production recipes) vs what stays out (behavior systems, state machines, ObjectEnum definitions)
+- Recommended explicit registration pattern (const DEFINITION per file, central mod.rs collects) over inventory/linkme crate magic
+- No pending developer_tasks to process
+- No pending or active developer_tasks
+- No stuck messages
+
+## 2026-03-25T12:30:00Z — Forum comment on data-driven entity definitions
+
+- Commented on `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` with codebase evidence
+- Investigated unit_data.rs, grid_layout.rs, commands.rs to map current entity definition patterns
+- Recommended phased approach: stats first (pure data), then grid layouts, defer behavior/state machines
+- No pending developer_tasks to process
+
+## 2026-03-25T04:00:00Z — No-op: no work available, killed scheduler
+
+- No open forum topics in forum/open/
+- No pending developer_tasks
+- No stuck active tasks
+- Previous session (03:00) was also a no-op
+- Killed scheduler with pkill -f run_scheduler per no-work protocol
+
+## 2026-03-25T03:00:00Z — No-op: fix_test_harness_selection_groups already planned
+
+- User requested processing of fix_test_harness_selection_groups from pending, but it was in active (stuck)
+- Investigation revealed both fix_test_harness_selection_groups and fix_visibility_and_st_constant had already been planned and moved to done in a previous session
+- Planned tasks already exist in messages/developer/planned_task/pending/
+- No work needed; no forum topics open
+
+## 2026-03-25T02:00:00Z — Planned fix_visibility_and_st_constant
+
+- Processed developer_task: fix 4 failing QA tests (3 auto-targeting + 1 constant mismatch)
+- Investigated spawn functions in game/utils.rs — none include VisibilityStateEnum, but combat auto-target system requires it as a query component
+- Confirmed ST_BUILD_FRAMES=160 mismatches DeploymentCenterState::construction_cost which returns 240 for SupplyTower
+- Sent planned_task with specific line numbers and pattern to follow for all 4 spawn functions + 2 constant changes
+- No open forum topics to process
+
+## 2026-03-24T22:00:00Z — Recovered stuck fix_behavior_completion_race
+
+- Found `task_splitter-fix_behavior_completion_race.md` already in done/ but no planned_task had been sent (previous session interrupted)
+- No forum topics open, no pending developer_tasks
+- Investigated: behavior_completion_system (movement.rs:357-388), UnitsPlugin ordering (mod.rs:15-45), existing unit tests (movement.rs:732-909)
+- Critical finding: the task's suggested guard (`if BaseBehaviorState::None { continue }`) would break the existing `stop_command_completes_when_stationary_and_stopped` test (line 790) because Stop legitimately completes with None behavior
+- Refined the guard to only skip Move/Reverse commands with None behavior, not Stop
+- Sent planned_task with corrected guard logic and new unit test recommendation
+- No forum topics needed
+
+## 2026-03-24T14:00:00Z — Planned expand_command_panel_grid
+
+- Processed developer_task `task_splitter-expand_command_panel_grid.md` (parent: `task_splitter-expand_command_panel_grid.md`)
+- Investigated all 4 files in `command_panel/` directory: grid_layout.rs, hotkeys.rs, ui_rebuild.rs, tunnel_actions.rs
+- Key finding: tunnel dynamic grids (build_tunnel_expand_grid, build_tunnel_eject_grid) use hardcoded slot/3 and slot%3 math that must change to slot/4 and slot%4
+- Key finding: F and R keys have existing non-grid uses (placement rotation, placement flip, ready-to-place shortcut) but are gated by early returns so no conflicts with grid usage
+- Updated insights with command_panel directory structure (was still referencing old monolithic file)
+- No forum topics needed — straightforward UI layout change
+
+## 2026-03-23T23:00:00Z — Planned rally_attack_approach_path
+
+- Processed developer_task `task_splitter-rally_attack_approach_path.md` (parent: `task_splitter-gdo_barracks_r1.md`)
+- Task: fix `issue_rally_command` in faction.rs to add MoveTarget+Path when issuing AttackTarget against enemy rally target
+- Investigated: faction.rs lines 425-487 (issue_rally_command), core.rs lines 339-383 (right-click attack pattern), test infrastructure (setup_production_app, spawn_production_rc)
+- Provided concrete code diff for the enemy branch fix plus test guidance using barracks production system as vehicle
+- No forum topics to address
+
 ## 2026-03-22T22:00:00Z — Forum only (no pending tasks)
 - Forum: Commented on `grid-lines-hidden-by-elevation` topic with technical analysis of fix approaches (per-cell elevation segments vs flat offset). Voted to close.
 - No pending developer_tasks to process.
@@ -1154,3 +1254,762 @@
 - No forum topics to process.
 - Planned `flatten_tile_rendering` task: Remove cuboid mesh elevation rendering, replace with flat plane at Y=0, flatten grid_line_elevation_y to constant 0.005, update/remove cuboid and elevation Y tests. All changes isolated to `map.rs`.
 - Straightforward task — no new insights needed.
+
+## 2026-03-23T23:00:00Z — hotkey_command_fix planned_task
+
+- Forum: Commented and voted to close 2 topics (fog-of-war selection, extraction plate depletion).
+- Processed developer_task: hotkey_command_fix (parent: unit_command_system_r1).
+- Root cause: system ordering bug in ui/mod.rs. `command_panel_hotkeys` has no `.after(update_command_panel_state)` constraint, so it reads stale `SelectedUnitCapabilities.owned_by_local_player` (default false). Fix is one line: add `.after()` ordering.
+- Sent planned_task to developer with full technical context including root cause, exact fix, and verification steps.
+
+## 2026-03-23T23:00:00Z — shift_click_queue_fix planned
+
+- Forum: Commented on 2 manual_qa topics (explored-objects-selectable, extraction-plate-disappears-on-depletion) with technical analysis.
+- Planned task: shift_click_queue_fix (parent: unit_command_system_r1). Root cause: ground-click handlers compute paths inline for non-shift but only push to CommandQueue for shift. No dispatch system exists to compute paths for dequeued movement commands. Fix: add `move_command_dispatch_system` with `Without<MoveTarget>` filter in CommandsPlugin, running after `command_dequeue_system`.
+- Key files: core.rs (ground-click handler lines 740-880), commands.rs (new dispatch system), mod.rs (registration).
+
+## 2026-03-23T23:00:00Z — Planned attack_command_rightclick_fix
+
+- **Forum**: Commented and voted on 2 topics: fog-of-war selectability and extraction plate depletion
+- **Task**: Planned `attack_command_rightclick_fix` from `unit_command_system_r1` rework
+- **Investigation**: Traced full attack command flow from right_click_move_command (core.rs:339) through attacking_object_behavior_system (combat/behaviors.rs:22). Identified the core architectural difference: Move does inline pathfinding, Attack delegates to combat behavior system. Analyzed system ordering (Movement → Combat with auto apply_deferred), potential timing issues, and channel sync interference. Verified Peacekeeper spawn has all required query components.
+- **Key finding**: The two-step approach (issue command in Movement set, compute path in Combat set) relies on Bevy's auto apply_deferred between ordered system sets. If this isn't working, the combat system never sees AttackTarget. Recommended inline pathfinding as fix.
+- **Insights updated**: Added Attack Command Approach Movement Pattern section
+
+## 2026-03-23T23:10:00Z — Re-sent shift_click_queue_fix planned_task
+
+- **Forum**: Both open topics (explored-objects-selectable, extraction-plate-disappears-on-depletion) already had my close votes from a prior session — confirmed.
+- **Task**: Re-processed `shift_click_queue_fix` which was in active/ directory without a corresponding planned_task in developer inbox. Produced planned_task with detailed root cause analysis and fix guidance.
+- **Key finding**: The developer_task files were in active/ (moved by a prior incomplete execution) but no planned_tasks had been produced. Completed the shift_click_queue_fix planning; attack_command_rightclick_fix was also in active/ but was processed by a concurrent session.
+- **No new insights needed** — the Shift-Queue Command Dispatch Gap insight was already present from prior investigation.
+
+## 2026-03-23T23:00:00Z — Forum votes + extraction_plate_depletion_lifecycle
+
+- **Forum**: Voted to close both open topics (explored-objects-selectable, extraction-plate-disappears-on-depletion) — had already commented in prior sessions.
+- **Cleanup**: Verified stale active/ developer_tasks (attack_command_rightclick_fix, shift_click_queue_fix) were already moved to done.
+- **Task**: Planned `extraction_plate_depletion_lifecycle` — bug fix for Extraction Plate being despawned with its depleted SpaceCrystalPatch. Three change sites: (1) depleted_patch_despawn_system must stop despawning plates, (2) extraction_plate_mining_system needs else branch for missing patch entity, (3) remove_dead_entities_system already handles missing patch gracefully. Existing test assertion must be inverted. Sent planned_task to developer.
+
+## 2026-03-24T03:00:00Z — Forum votes + duplicate task cleanup
+
+- **Forum**: Voted to close both open topics (explored-objects-selectable, extraction-plate-disappears-on-depletion) — already commented in prior sessions, designer has acknowledged both.
+- **Task**: Found `attack_command_rightclick_fix` in pending but it was already planned in a prior session — planned_task already exists at `messages/developer/planned_task/pending/`, and the developer_task was already in done/. Moved duplicate active copy to done. No new work needed.
+
+## 2026-03-24T04:00:00Z — Planned infopanel_fog_visibility_gate
+
+- **Forum**: No open topics to process.
+- **Task**: Planned `infopanel_fog_visibility_gate` — fog-of-war visibility gating for InfoPanel fields in hud.rs. Three change sites: (1) SCP info panel gates RemainingAmount/has_plate/depleted behind VisibilityStateEnum::Visible, (2) SDS info panel gates CurrentSupplies and next-delivery countdown, (3) ExtractionPlate mining section gates patch remaining amount. Requires adding FogOfWarMap + LocalPlayer as system params and GridPosition to three queries. Sent planned_task to developer.
+- **Cleanup**: Found orphan duplicate task `infopanel_fog_visibility` (not in feature_tasks manifest) — moved to done to prevent re-processing.
+
+## 2026-03-24T05:00:00Z — No-work session (forum only)
+
+- **Task**: `rally_attack_approach_path` was already processed in a prior session (done/ + planned_task pending). No new pending developer_tasks.
+- **Forum**: Processed 3 open topics:
+  - `automated-qa-infrastructure`: Voted to close (architect/developer domain, not task_planner concern).
+  - `update-auto-capabilities-current-state`: Voted to close (automatic_qa/developer domain).
+  - `codebase-refactoring-review`: Added detailed comment identifying 5 pain points from task planning perspective: core.rs right_click monolith, command_panel.rs monolithic functions, faction.rs growth, dual movement pipelines, target_info query proliferation.
+
+## 2026-03-24T03:50:00Z — No-work session (forum only)
+
+- Loaded insights; no pending developer_tasks found.
+- Forum pass: checked 3 open topics in forum/open/.
+  - `2026-03-23T12-00-00Z-operator-automated-qa-infrastructure.md`: Already had my close vote. No action needed.
+  - `2026-03-23T12-05-00Z-operator-update-auto-capabilities-current-state.md`: Already had my close vote. No action needed.
+  - `2026-03-23T12-10-00Z-operator-codebase-refactoring-review.md`: Already had my comment from a prior session. Added close vote — my input (identifying core.rs, command_panel.rs, faction.rs, dual movement pipelines, and target_info query proliferation as key pain points) is complete. Waiting on software_architect to conduct review.
+- No stuck or malformed messages found.
+
+## 2026-03-24T04:05:00Z — Forum votes only
+
+- Re-voted to close 3 open forum topics (votes had been cleared by subsequent comments from other agents):
+  - `2026-03-23T12-00-00Z-operator-automated-qa-infrastructure.md`
+  - `2026-03-23T12-05-00Z-operator-update-auto-capabilities-current-state.md`
+  - `2026-03-23T12-10-00Z-operator-codebase-refactoring-review.md`
+- No pending developer_tasks found
+- No new comments added; vote-only session to avoid clearing other agents' votes
+
+## 2026-03-24T04:15:00Z — Planned fix_qa_test_compilation
+
+- Processed developer_task `task_splitter-fix_qa_test_compilation.md` (parent: `task_splitter-automated_qa_unblock.md`)
+- Trivial fix: add missing `owned_by_local_player: true` field to 4 SelectedUnitCapabilities initializers in tests/qa/
+- Verified exact line numbers and confirmed the pattern in both test files
+- Forum: checked 1 open topic (codebase refactoring review) — already voted to close
+- No new insights needed — straightforward compilation fix
+
+## 2026-03-24T04:10:00Z — Planned qa_test_compilation_fix
+
+- Processed developer_task `task_splitter-qa_test_compilation_fix.md` (parent: `task_splitter-automated_qa_unblock.md`)
+- Investigation found compilation errors already fixed — all 4 SelectedUnitCapabilities initializers already have `owned_by_local_player: true`
+- Remaining work: remove `observe` pattern from `artifacts/qa_router/auto_capabilities.txt` (line 49)
+- Documented 9 pre-existing runtime test failures (not in scope) for developer awareness
+- Forum: 1 open topic (codebase-refactoring-review) — already voted to close, skipped
+- Added QA test infrastructure insight to insights.md
+
+## 2026-03-24T14:00:00Z — Planned command_context_and_issue_helper
+
+- Processed developer_task `task_splitter-command_context_and_issue_helper.md` (parent: `task_splitter-right_click_command_dispatch.md`)
+- Pure refactor task: extract CommandContext struct and try_issue_command helper from right_click_move_command (core.rs:243-1008)
+- Identified 13 call sites of the duplicated interruptibility/clear/issue pattern, with 2 variations (5 sites omit AttackState::default(), 8 include it)
+- Documented ground-click section as a separate pattern (pathfinding + inline insert) where helper covers only interruptibility check
+- No forum topics open, no new architectural concerns discovered
+
+## 2026-03-24T12:00:00Z — Planned extract_command_handlers_dispatch
+
+- Processed developer_task `task_splitter-extract_command_handlers_dispatch.md` (parent: `task_splitter-right_click_command_dispatch.md`)
+- Second task in the right_click_command_dispatch feature: extracts 16 handler functions from the monolithic right_click_move_command (765 lines -> under 100 lines dispatch)
+- Documented all 10 entity-click handlers and 6 ground-click handlers with their interface state return values
+- Identified shared ground-click pathfinding pattern across 6 handlers (with AttackState::default() variation)
+- Noted dependency on sibling task command_context_and_issue_helper (currently active)
+- Recommended keeping handlers as private functions in core.rs rather than moving to commands.rs
+- No forum topics open
+
+## 2026-03-24T13:00:00Z — Forum pass only (no pending tasks)
+
+- Reviewed and commented on 2 open forum topics:
+  1. `2026-03-24T12-00-00Z-operator-large-file-refactoring-plans.md` — Confirmed the four split plans align with dependency boundaries observed during planning. Voted to close (architecture_requests already queued).
+  2. `2026-03-24T12-05-00Z-operator-unit-test-review.md` — Shared observations about stale test patterns and integration test maintenance burden. Voted to close.
+- No pending developer_tasks in inbox.
+
+## 2026-03-24T14:00:00Z — Planned behaviors_split
+
+- Processed developer_task `task_splitter-behaviors_split.md` (parent: `task_splitter-behaviors_split.md`)
+- Investigated `behaviors.rs` (4,481 lines): mapped exact line boundaries for all 8 code sections and 17 test sections
+- Key finding: code is non-contiguous by domain -- `building_tunnel_behavior_system` (L1111) sits after resource gathering code, not after `building_behavior_system` (L692)
+- Key finding: `tunnel_side_world_position` needs `pub` visibility (not `pub(super)`) due to re-export chain through `units/utils.rs` to `faction.rs`
+- Verified all 25 system re-export paths needed in `behaviors/mod.rs`
+- Distributed ~2,810 lines of tests across 5 submodules with approximate sizes
+- Forum: both open topics already had my comments from prior session; directory was empty (topics likely in git staging only)
+- Sent planned_task to developer, moved developer_task to done
+
+## 2026-03-24T14:00:00Z — Planned command_panel_directory_split
+
+- Processed developer_task `task_splitter-command_panel_directory_split.md` (parent: `task_splitter-command_panel_split.md`)
+- Investigated command_panel.rs (6,357 lines): mapped all 8 public systems, ~30 private functions, and their cross-call dependencies
+- Read architecture doc `command-panel-split.md` for line ranges and submodule assignments
+- Produced detailed cross-submodule dependency map showing which functions need `pub(super)` visibility
+- Mapped test sections (delimited by `// === ... ===` comments) to their target submodules
+- 3 remaining pending tasks: command_panel_action_decomposition (depends on this), core_systems_split, faction_module_split
+
+## 2026-03-24T15:00:00Z — Planned core_systems_split
+
+- Processed developer_task `task_splitter-core_systems_split.md` (parent: `task_splitter-core_systems_split.md`)
+- Investigated core.rs (6,054 lines): verified all 7 code section boundaries match architecture doc
+- Confirmed no cross-submodule function calls exist -- each section is fully self-contained
+- Mapped test block (lines 2916-6054) to submodules: tests are non-contiguous, command_dispatch tests span 4 separate ranges
+- Identified `spawn_unit_at` test helper shared across multiple test submodules
+- Discovered rally.rs has zero tests in the existing test block
+- Verified only `units/mod.rs` has external references (17 system registrations via `systems::core::*`)
+- Produced planned_task with exact line ranges, test distribution, import guidance, and re-export list
+- 2 remaining active tasks: command_panel_action_decomposition, faction_module_split
+
+## 2026-03-24T18:00:00Z — Planned command_panel_action_decomposition
+
+- Processed developer_task `task_splitter-command_panel_action_decomposition.md` (parent: `task_splitter-command_panel_split.md`)
+- Mapped all 37 CommandButtonAction match arms to 5 categories: DC (3), Production (13), UnitCommand (19), Tunnel (6), Placement (2)
+- Documented exact line ranges, parameter needs per sub-dispatcher, and helper function dependencies
+- Noted dependency on command_panel_directory_split (actions.rs must exist first)
+- Voted to close operator unit-test-review forum topic (directed at architect/developer)
+- Remaining active tasks: command_panel_directory_split, core_systems_split, faction_module_split
+
+## 2026-03-24T19:00:00Z — No work available
+
+- Forum pass: voted to close `2026-03-24T12-05-00Z-operator-unit-test-review.md` (investigation complete, next steps clear via architecture_request)
+- No pending developer_tasks in inbox
+- No stuck messages found
+
+## 2026-03-24T20:00:00Z — Cleanup: moved stale active developer_tasks to done
+
+## 2026-03-24T21:00:00Z — Re-check core_systems_split (already completed)
+
+- User requested processing of `task_splitter-core_systems_split.md` but it was already fully processed
+- developer_task is in done/, planned_task is in developer's active/ queue
+- Forum: voted to close `2026-03-24T12-05-00Z-operator-unit-test-review.md`
+- No further action needed
+
+- User requested processing `behaviors_split` but it was already in done/ with planned_task delivered
+- Found `faction_module_split` still in active/ despite planned_task already existing in developer pending -- moved to done
+- Confirmed all 4 refactoring split tasks (behaviors_split, command_panel_directory_split, command_panel_action_decomposition, faction_module_split, core_systems_split) have planned_tasks delivered
+- core_systems_split is actively being worked on by developer (in developer/planned_task/active/)
+- No pending developer_tasks remain; no new forum topics requiring attention
+
+## 2026-03-24T13:00:00Z -- No-work session (scheduler launch)
+
+- Forum: voted to close both open topics (large-file-refactoring-plans, unit-test-review) -- both fully resolved with architecture_requests in pipeline
+- Pending developer_tasks: initially saw `behaviors_split` and `command_panel_directory_split` but these were moved by concurrent processes
+- Actual pending: `command_panel_action_decomposition` and `core_systems_split` -- both already have planned_tasks in developer's pending queue
+- Attempted to send planned_task for behaviors_split and command_panel_action_decomposition but both already existed
+- Active directory emptied during execution (concurrent agent activity)
+- Updated insights with execute_command_action decomposition details
+- No new work produced this session
+
+## 2026-03-24T13:15:00Z — Planned faction_module_split
+
+- Processed developer_task `task_splitter-faction_module_split.md` (parent: `task_splitter-faction_split.md`)
+- Investigated faction.rs (4,387 lines): mapped all 33 pub functions, 9 private functions, cross-submodule dependencies
+- Key finding: `get_power_ratio_for_owner` (power.rs) is called from construction.rs, production.rs, and resources.rs -- needs `pub(super)`
+- Key finding: `cults_construction_cancel_system` is registered in combat/mod.rs line 43, NOT in world/mod.rs -- developer must ensure re-export covers this path
+- Mapped all ~65 tests to their target submodules with line ranges
+- Forum: unit-test-review topic already has my vote, no action needed
+- Sent planned_task to developer
+
+## 2026-03-24T22:00:00Z — Re-planned faction_module_split (user-requested reprocess)
+
+- Task was re-queued to pending by user/scheduler. Produced updated planned_task with enhanced context.
+- Added comment to forum topic unit-test-review about test organization during splits.
+- Confirmed developer_task moved to done, planned_task delivered to developer pending queue.
+
+## 2026-03-24T23:00:00Z — Verified command_panel_directory_split (already processed)
+
+- Developer_task `task_splitter-command_panel_directory_split.md` was already fully processed in a prior session.
+
+## 2026-03-25T00:00:00Z — No-work pass
+
+- Forum: 1 open topic (operator-unit-test-review) already has my close vote.
+- Pending developer_tasks: 0. Active developer_tasks: 0 (both faction_module_split and command_panel_action_decomposition already in done with planned_tasks delivered).
+- No action taken.
+- Planned_task is in developer's active folder with complete content (195 lines of technical context).
+- Developer_task already in done folder.
+- Added comment to forum topic `2026-03-24T12-05-00Z-operator-unit-test-review.md` noting the command_panel split's test distribution plan addresses the test organization concern for the largest test collection.
+
+## 2026-03-25T01:00:00Z — Planned core_systems_split
+
+- User requested processing of `behaviors_split` but it was already completed (in done/ with planned_task delivered).
+- Picked up `task_splitter-core_systems_split.md` from pending instead.
+- Read architecture doc `core-systems-split.md` and analyzed full 6,054-line core.rs file.
+- Mapped all 8 submodule code boundaries, 18 import lines, test distribution across scattered ranges.
+- Key findings: command_dispatch tests are split across 4 non-adjacent ranges; crushing_system tests are sandwiched between legacy movement tests but belong in channel_locomotion.rs; no rally.rs-specific tests exist; `spawn_unit_at` test helper used across multiple test sections.
+- Sent planned_task with complete line-level technical context to developer.
+- Developer_task moved to done (possibly by concurrent process).
+
+## 2026-03-24T13:10:00Z — Planned faction_module_split
+
+- Processed developer_task `task_splitter-faction_module_split.md` (parent: `task_splitter-faction_split.md`)
+- Forum pass: only open topic already has my vote (unit-test-review), no action needed.
+- Investigated faction.rs (4,387 lines): mapped all section boundaries, function line numbers, cross-cutting helpers.
+- Identified 4 external import paths that must be preserved via mod.rs re-exports (core.rs, ui/mod.rs x2, combat/mod.rs).
+- Key cross-cutting functions: `get_power_ratio_for_owner` (used by 5 systems across 3 submodules -> power.rs), `issue_rally_command` (all callers in production.rs -> stays private).
+- Mapped all ~80 test functions to their target submodules; tests are interleaved by domain, not contiguous.
+- Sent planned_task with complete line-level mapping and test allocation guide.
+
+## 2026-03-24T13:30:00Z — No-work session (faction_module_split already done)
+
+- Scheduler launched with user claim that `command_panel_action_decomposition` was active, but actual active file was `faction_module_split`.
+- Verified `faction_module_split` was already fully processed: planned_task exists in pending, developer_task in done, log entry present.
+- No pending developer_tasks remain. No forum topics need my vote.
+- No action taken.
+
+## 2026-03-24T14:10:00Z — Planned test_harness_selection_fix
+
+- Processed developer_task `task_splitter-test_harness_selection_fix.md` (parent: `task_splitter-test_suite_cleanup.md`)
+- Forum: voted to close `2026-03-24T12-05-00Z-operator-unit-test-review.md` (investigation complete, architect produced thorough categorization, next steps clear)
+- Investigated `shared/testing/harness.rs` set_selection() method, `shared/types.rs` Selection resource and build_from_entities(), `game/types/objects.rs` ObjectInstance and ObjectEnum::object_type().groupable
+- Confirmed root cause: set_selection() only updates Selected ECS markers, never touches Selection resource groups, causing update_command_panel_state to reset interface state
+- Fix is straightforward: after inserting Selected markers, read ObjectInstance from each entity and call selection.build_from_entities()
+- No new imports needed — ObjectInstance and Selection already imported in harness.rs
+- Sent planned_task with concrete code pattern and full explanation of the Category C test failure chain
+- Added insight about test harness Selection sync requirement
+
+## 2026-03-24T17:30:00Z — Planned explored_selectability_rules
+
+- Processed developer_task `task_splitter-explored_selectability_rules.md` (parent: `task_splitter-fog_of_war_selectability.md`)
+- Forum: no new topics needing my vote (already voted on unit-test-review)
+- Investigated `game/world/resources.rs`: selection_system (line 79) and drag_box_system (line 273) fog filter logic
+- Both systems have blanket `is_neutral` bypass that must be removed, replaced with SDS+GDO+Explored exception
+- Click selection already has `Option<&SupplyDeliveryStation>` in query; drag_box_system does NOT and needs it added
+- Both systems need `Res<SelectedFaction>` added to params (already available via `crate::types::*`)
+- Test helper `fog_filter_allows` needs signature change: drop is_neutral, add is_sds + is_gdo_player params
+- Sibling task sds_infopanel_visibility_rework depends on this task but not vice versa
+
+## 2026-03-24T18:00:00Z — Planned fix_stale_test_values
+
+- Processed developer_task `task_splitter-fix_stale_test_values.md` (parent: `task_splitter-test_suite_cleanup.md`)
+- No forum topics to address
+- Investigated ST_BUILD_FRAMES constant (160) vs construction_cost() return value (240) -- constant is stale
+- Found 4 locations needing update: constant definition, lib unit test, two integration test assertions
+- Investigated tunnel production ejection test -- assertion expects surface ejection but current behavior keeps agent in tunnel network
+- Sent planned_task with all file paths, line numbers, and exact changes needed
+
+## 2026-03-24T18:00:00Z — Planned sds_infopanel_visibility_rework
+
+- Processed developer_task `task_splitter-sds_infopanel_visibility_rework.md` (parent: `task_splitter-fog_of_war_selectability.md`)
+- No open forum topics to address
+- Investigated SDS InfoPanel code in hud.rs lines 756-834, identified exact lines needing change (820-831)
+- Mapped out SelectedFaction resource (already glob-imported, needs adding as system param)
+- Identified fog state enum usage pattern and the three-state display logic needed
+- Confirmed system param count stays within Bevy 16-param limit (14 -> 15)
+- Sent planned_task with file paths, line numbers, code patterns, and test guidance
+
+## 2026-03-24T13:10:00Z — Planned fix_auto_targeting_and_stop_tests
+
+- Found test_harness_selection_fix already had a planned_task in pending and developer_task in done -- skipped
+- Processed developer_task `task_splitter-fix_auto_targeting_and_stop_tests.md` (parent: `task_splitter-test_suite_cleanup.md`)
+- Investigated base_auto_target_system (combat/systems/core.rs:474): queries &VisibilityStateEnum as required component on targets
+- Confirmed spawn_peacekeeper (game/utils.rs:399) does NOT insert VisibilityStateEnum -- root cause of Category A failures
+- Investigated stopping_behavior_system and behavior_completion_system -- confirmed Stop on stationary unit completes to Idle in 1 frame
+- Confirmed Peacekeeper has deceleration=f32::MAX (instant stop) so step_8 should work with enough frames
+- Forum topic 2026-03-24T12-05-00Z already closed (had enough votes)
+- Updated insights with VisibilityStateEnum test harness gap and Stop completion behavior
+- Sent planned_task with detailed fix guidance for all 5 tests
+
+## 2026-03-24T16:00:00Z — Planned harden_assertions_and_cleanup
+
+- Processed developer_task `task_splitter-harden_assertions_and_cleanup.md` (parent: `task_splitter-test_suite_cleanup.md`)
+- Investigated all 11 test files for soft assertion patterns -- found 3 distinct categories: world.get read-only (11 sites), world.get_mut setup (10 sites), enum variant matching (12 sites)
+- Confirmed `create_dropoff_test_world` (core.rs:3806) and `create_right_click_entity_world` (core.rs:4080) are dead code (defined but never called)
+- Confirmed `world.iter_entities()` in fix_memory_leak_oom_freeze.rs:14 should use `world.query::<&ObjectInstance>()` pattern
+- Found 8 `#[ignore]` annotations: 2 bare (basic_combat), 1 with comment (agent), 5 with comments (tunnel) -- all need `= "reason"` syntax
+- No forum topics to process
+- Added test soft assertion patterns insight
+- Sent planned_task to developer
+
+## 2026-03-24T13:10:00Z — No-op: fix_auto_targeting_and_stop_tests already completed
+
+- Launched by scheduler to process fix_auto_targeting_and_stop_tests but found it already in done/
+- Planned_task already exists at messages/developer/planned_task/pending/task_planner-fix_auto_targeting_and_stop_tests.md
+- No pending developer_tasks, no open forum topics requiring attention
+- No work performed
+
+## 2026-03-24T13:10:00Z — No-work: harden_assertions_and_cleanup already planned
+
+- Found 1 pending developer_task: task_splitter-harden_assertions_and_cleanup.md
+- Moved to active, then discovered planned_task already exists at messages/developer/planned_task/pending/task_planner-harden_assertions_and_cleanup.md
+- The developer_task had already been moved to done in a prior session; the pending copy was stale
+- No open forum topics requiring attention
+- No additional work performed
+
+## 2026-03-24T13:15:00Z — No-work: all tasks already planned
+
+- Loaded insights, checked forum/open/ (empty directory, no topics)
+- Checked pending developer_tasks: initially appeared to have 4 tasks (from stale git status snapshot), but filesystem shows pending/ and active/ both empty
+- All 4 developer_tasks (fix_auto_targeting_and_stop_tests, fix_stale_test_values, harden_assertions_and_cleanup, sds_infopanel_visibility_rework) already in done/
+- All 4 corresponding planned_tasks already in messages/developer/planned_task/pending/
+- No work to perform
+
+## 2026-03-24T18:00:00Z — Forum vote + no pending tasks
+
+- Loaded insights, checked forum/open/: one topic `2026-03-24T13-17-00Z-developer-concurrent-directory-split-conflict.md`
+- Topic already had close votes from developer and software_architect; issue resolved (command_panel split succeeded, partial-state root cause identified)
+- Added close vote for task_planner
+- Added insight about atomic file reorganization tasks with rollback/recovery steps
+- Checked pending and active developer_tasks: both empty
+- No developer_task work to perform
+
+## 2026-03-25T01:00:00Z — Planned fix_behavior_completion_race
+
+- Loaded insights, checked forum/open/: no open topics
+- Processed developer_task `task_splitter-fix_behavior_completion_race.md` (parent: `task_splitter-core_systems_split_r1.md`)
+- Investigated `behavior_completion_system` in `artifacts/developer/src/game/units/systems/behaviors/movement.rs` (line 357)
+- Confirmed `BaseBehaviorState::None` is the `#[default]` variant (behavior.rs line 38-39)
+- Confirmed system is unordered in Phase 2 group in `units/mod.rs` (line 44)
+- Produced planned_task with single-file fix: add `BaseBehaviorState::None` guard in the completion loop
+- Added insight about behavior completion race pattern
+
+## 2026-03-25T02:00:00Z — No-op: fix_behavior_completion_race already completed
+
+- Launched to process `task_splitter-fix_behavior_completion_race.md` but it was already in `done/`
+- Planned task already in `messages/developer/planned_task/pending/task_planner-fix_behavior_completion_race.md`
+- No forum topics in forum/open/
+- No work to perform
+
+## 2026-03-25T03:00:00Z — Planned fix_test_harness_selection_groups
+
+- No open forum topics
+- Processed developer_task: fix_test_harness_selection_groups (parent: core_systems_split_r2)
+- Investigated harness.rs set_selection() — confirmed it only manages Selected component, never updates Selection resource
+- Found Selection::build_from_entities() at shared/types.rs:173 as the correct API to use
+- Verified ObjectInstance and ObjectEnum::object_type().groupable pattern for group building
+- Sent planned_task with concrete implementation pattern using world.get::<ObjectInstance>(e) + build_from_entities()
+- Second pending task (fix_visibility_and_st_constant) left for next execution
+- No work to perform
+
+## 2026-03-25T13:15:00Z
+
+- **Forum**: Voted to close `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md`. Discussion matured with full team consensus on declarative Rust structs (not YAML) with per-entity file organization. No new input needed from task_planner — my earlier comments already covered the codebase impact.
+- **Tasks**: No pending developer_tasks found.
+- **Insights**: Added "Upcoming Architecture: Declarative Entity Definitions" section capturing the forum consensus and migration plan.
+
+## 2026-03-25T13:30:00Z
+
+- **Forum**: Re-read fully evolved data-driven entity definitions topic (now at declarative Rust structs + per-entity files direction after operator pivot). Added closing comment endorsing consensus. Vote cleared by comment script, re-voted to close.
+- **Tasks**: No pending developer_tasks. No stuck active tasks.
+- **Session**: Forum-only session, no task planning work needed.
+
+## 2026-03-25T14:00:00Z
+
+- **Forum**: Voted to close `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` — all agents have commented, strong consensus on phased approach (stats → command panel → defer behaviors). My prior comment already on record.
+- **Tasks**: No pending developer_tasks. No stuck active tasks.
+- **Session**: Forum-only session.
+
+## 2026-03-25T15:00:00Z
+
+- **Forum**: Voted to close `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` (re-engaged after pivot to declarative Rust structs; discussion fully converged).
+- **Task**: Planned `entity-definition-foundation` — the infrastructure task for the declarative entity definitions system. Investigated: ObjectEnum (22 variants), existing type structs (ObjectType, UnitTypeData, AttackAttributesData, StructureCost, MovementParams), game/mod.rs module structure, main.rs plugin registration, architecture doc (Option B trait hierarchy). Produced comprehensive planned_task with all file paths, import paths, type definitions, registry design, plugin pattern, and test structure.
+- **Insights**: Added "Declarative Entity Definitions System" section mapping the new architecture.
+
+## 2026-03-25T06:15:00Z
+
+- Forum: Checked `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` — already voted to close
+- Processed: `task_splitter-entity-def-pilot-peacekeeper.md` → `task_planner-entity-def-pilot-peacekeeper.md`
+- Investigated: entity definition traits (types.rs), registry (registry.rs), peacekeeper data (unit_data.rs:119-155), spawn function (utils.rs:398-493), command panel slots (grid_layout.rs:147-156), production cost (structures.rs:150-155), architecture doc
+- Key findings: spawn trait uses EntityCommands not Commands; SpawnParams lacks asset handles; Peacekeeper uses Default interface state (standard unit commands); movement params need FRAMES_PER_SECOND/SPACE_UNITS_PER_GRID_UNIT constants for calculation
+- Updated insights with peacekeeper pilot spawn caveats and command slot mapping
+
+## 2026-03-25T07:00:00Z
+
+- Forum: No open topics
+- Processed: `task_splitter-entity-migration-gdo-buildings.md` → `task_planner-entity-migration-gdo-buildings.md`
+- Investigated: 6 GDO structures (DC, PP, BK, EF, EP, ST) across structures.rs (gdo_structure_stats), objects.rs (ObjectType+symmetry), grid_layout.rs (command slots per state), utils.rs (spawn functions)
+- Key findings: DC has 4 interface states with many slots; PP/EP are Inert (no commands); EP cost comes from EF not DC; EP spawn needs attached_patch entity not in SpawnParams; all structures follow StructureDefinition trait pattern
+- Updated insights with structure migration pattern notes
+
+## 2026-03-25T17:00:00Z — Planned entity-migration-syndicate-units
+
+- No open forum topics
+- Picked up `task_splitter-entity-migration-syndicate-units` developer_task
+- Investigated: Peacekeeper pilot pattern (peacekeeper.rs), entity traits/types (entities/types.rs), registry (registry.rs), Agent spawn (utils.rs:497-592), Guard spawn (utils.rs:595-690), unit_data.rs Agent/Guard constants and data functions, grid_layout.rs Agent command slots, HeadquartersState::production_cost (structures.rs:272-284), MELEE_RANGE usage, AgentCarryState, TunnelSpaceCost, MovementParams enum
+- Key findings: Agent spawn has MELEE_RANGE override for attack range + AgentCarryState component (unique to Agent); Guard uses standard range; both have TunnelSpaceCost; Agent has 2 interface states (Default + AgentMenu) vs Guard's 1 (Default only); Agent has 9 extra constants for gathering/building
+- Sent planned_task to developer with full file-by-file technical context
+
+## 2026-03-25T19:30:00Z — Planned entity-migration-syndicate-buildings
+
+- No open forum topics
+- Picked up `task_splitter-entity-migration-syndicate-buildings` from pending (8 tasks queued)
+- Investigated: entity definition traits/registry (types.rs, registry.rs), Peacekeeper/SupplyChopper pilot patterns, syndicate_structure_stats module (structures.rs:442-465), spawn_tunnel/spawn_tunnel_under_construction/spawn_headquarters (utils.rs:694-820), grid_layout.rs Tunnel/HQ command slots, HeadquartersState::production_cost, ConstructionHP, ObjectType data for Tunnel/HQ
+- Key findings for planned_task:
+  - Tunnel cost() should return None (dynamic cost functions, not fixed StructureCost)
+  - SpawnParams lacks parent_tunnel (Entity) for HQ and build_frames for Tunnel under_construction — recommended workarounds documented
+  - Tunnel has 4 interface states with conditional slots (tunnel_is_upgrading, bk_has_queue) — condition mechanism is TODO in CommandSlotDef
+  - EjectionQueue import comes from crate::ui::types, not game::types
+- Sent planned_task to developer, moved developer_task to done
+
+## 2026-03-25T20:00:00Z — Planned entity-migration-cults-units
+
+- No open forum topics
+- Processed developer_task: entity-migration-cults-units (3 Cults unit definitions: Recruit, Soldier, Gunner)
+- Investigated: existing spawn functions in utils.rs (lines 1156-1272), ObjectType data in objects.rs (lines 303-323), grid_layout.rs CultsRecruitMenu slots (lines 169-180), training costs in structures.rs (lines 480-483), production system in faction/production.rs, Agent/Guard entity definitions as templates
+- Key findings:
+  - All 3 Cults units have placeholder spawns — minimal components, no attack data, no movement params, UnitBaseEnum::LightInfantry placeholders
+  - Recruit is unarmed, auto-produced by RC at no cost (192 frames base), has CultsRecruitMenu interface state with Construct/AssistConstruction commands
+  - Soldier/Gunner are trained from Armory at 75/100 SC costs, use Default interface state (standard unit commands)
+  - Entity definition spawn() should be comprehensive (include all gameplay components) even though current spawns are minimal
+  - No type_data or attack_data functions exist for any Cults unit — all stats are inline in spawn functions
+- Sent planned_task to developer, moved developer_task to done
+
+## 2026-03-25T21:00:00Z — Planned entity-migration-cults-buildings
+
+- No open forum topics
+- Processed developer_task: entity-migration-cults-buildings (3 Cults structures: RecruitmentCenter, Storage, Armory)
+- Investigated: cults_structure_stats module (structures.rs:468-491), spawn functions (utils.rs:952-1149), ObjectType data (objects.rs:324-344), grid_layout.rs RC/Armory command slots (lines 115-126), ArmoryState training costs (structures.rs:585-602), RecruitmentCenterState (structures.rs:536-567)
+- Key findings:
+  - RC is primary structure (4x4 AAAA, no cost, no power), 2 command slots (RcCancel + SetRallyPoint)
+  - Storage is inert (3x2 ABAB, 0 SC cost + 300 build_frames, no command slots), uses CultsConstructionState for building
+  - Armory is production (3x2 ABCB, 150 SC placeholder, 4 command slots), inserts ArmoryState + Armor component
+  - Cults have no power system — all power_value = 0
+  - SpawnParams lacks build_order for RC and flip flags for Storage/Armory — use defaults
+  - cults/buildings/mod.rs exists but is empty (just doc comment)
+- Sent planned_task to developer, moved developer_task to done
+
+## 2026-03-25T22:30:00Z — Planned entity-migration-neutral
+
+- No open forum topics
+- Processed `task_splitter-entity-migration-neutral.md` — migrate SpaceCrystalsPatch and SupplyDeliveryStation into per-entity definition files under `entities/neutral/`
+- Key finding: `EntityKind::Resource` variant exists in types.rs but `register_resource()` method is missing from EntityRegistry — developer must add it
+- Key finding: `FactionEnum` has no Neutral variant — neutral entities use `Owner::neutral()` (`Owner(None)`) for gameplay but need a convention for `BaseStats.faction`
+- Key finding: `SpawnParams` lacks resource-specific fields (remaining_amount, delivery_size, etc.) — recommended defaults in spawn() with caller override later
+- Existing spawn functions in `resources.rs` are map-level orchestrators (tile property setting, mesh/material creation) — they stay unchanged for now
+- 4 developer_tasks remain pending (grid-layout, spawn-dispatch, costs, definition-cleanup)
+- Sent planned_task to developer, moved developer_task to done
+
+## 2026-03-25T19:30:00Z — Planned entity-registry-grid-layout
+
+- No open forum topics
+- Picked up `task_splitter-entity-registry-grid-layout.md`
+- Investigated `grid_layout.rs` (155-line match, 11 conditional guards), `EntityRegistry` types, `CommandSlotDef` struct, all 3 caller sites
+- Identified the conditional slot problem: `CommandSlotDef` has no condition field (TODO at types.rs:51), but the match has 11 conditional guards (bk_has_queue, has_active_construction, caps.has_attack, etc.). Recommended adding `SlotCondition` enum
+- Identified lookup strategy: ObjectInterfaceState → ObjectEnum mapping (StructureMenu states map to specific structures, Default/AwaitingTarget use Selection::active_type())
+- Identified 3 blocking dependencies: syndicate-buildings, cults-buildings, neutral migrations must complete first (Tunnel, HQ, RC, CultsStorage, CultsArmory not yet registered)
+- 3 developer_tasks remain pending (spawn-dispatch, costs, definition-cleanup)
+- Sent planned_task to developer, moved developer_task to done
+
+## 2026-03-25T19:30:00Z — Planned hud-bar-five-section-scaffold
+
+- No open forum topics
+- Picked up `task_splitter-hud-bar-five-section-scaffold` developer_task (parent: task_splitter-hud_bar_layout.md)
+- Investigated: ui/hud.rs (setup_hud bottom panel layout lines 65-161), ui/types.rs (existing marker components), ui/mod.rs (HudPlugin system registration), control_system.md design doc (HUD Bar section), Selection resource methods
+- Produced planned_task with: 3 new marker components, restructured 5-section layout, hud_section_visibility_system using Visibility::Hidden, backward compat by dual-marking InfoPanel with UnitsGridSection
+- Added HUD Bar Layout Rework section to insights
+
+## 2026-03-25T20:00:00Z — Planned entity-registry-costs
+
+- No open forum topics
+- Picked up `task_splitter-entity-registry-costs` developer_task (parent: task_splitter-declarative-entity-definitions.md)
+- Investigated: EntityRegistry type and RegistryEntry.cost field (entities/types.rs), all fn cost() implementations across 19 entity definition files, 5 hardcoded cost methods in structures.rs (DC/BK/HQ/EF/ST), all 25+ call sites in actions.rs/helpers.rs/ui_rebuild.rs/hud.rs, Armory training cost pattern using constants
+- Verified all entity definition costs match hardcoded values (9 entity types checked)
+- Produced planned_task with: convenience method on EntityRegistry, removal of 5 static cost methods, threading Res<EntityRegistry> through 7 files, test migration strategy
+
+## 2026-03-25T18:30:00Z — Planned entity-definition-cleanup
+
+- No open forum topics
+- Picked up `task_splitter-entity-definition-cleanup` developer_task (parent: task_splitter-declarative-entity-definitions.md)
+- This is Phase 7 (Cleanup) — final task in the declarative-entity-definitions feature, depends on all 12 sibling tasks
+- Investigated: game/utils.rs (1,397 lines, 22 spawn functions to remove, keep billboard_label_system + spawn_ghost_side_labels), unit_data.rs (693 lines, thin wrappers at lines 115-217 to remove, keep shared types lines 1-114 + frames_to_seconds), objects.rs (1,312 lines, remove ObjectEnum::object_type() match lines 215-360, keep ObjectType/ObjectInstance/StructureInstance), structures.rs (2,312 lines, remove 3 stat modules lines 390-491 + cost match arms, keep all Component types), grid_layout.rs (187 lines, verify post-wiring state)
+- Mapped ~80+ caller sites across 15+ files that import from old locations
+- Verified 3 prerequisite tasks: entity-registry-costs (developer active), entity-registry-grid-layout (developer pending), entity-registry-spawn-dispatch (developer pending)
+- Produced planned_task with: per-file remove/keep guidance, all caller sites listed with replacement patterns, dependency chain documented
+
+## 2026-03-25T00:00:00Z — HUD Bar Content Redistribution
+
+- **Input**: `task_splitter-hud-bar-content-redistribution.md`
+- **Output**: `task_planner-hud-bar-content-redistribution.md` → `messages/developer/planned_task/pending/`
+- **Investigation**: Analyzed the monolithic `update_selected_units_grid_system` (660 lines, 5 render branches) in `hud.rs`. Mapped all marker components (`PortraitSection`, `InfoPanelSection`, `SelectionPanelSection`, `UnitsGridSection`), helper functions, icon/health bar markers, and the existing visibility system. Confirmed scaffold task is complete and `UnitsGridSection` backward-compat shim exists on `InfoPanelSection`. Identified system ordering requirements for `selection_portrait_click_system`.
+- **Key findings**: System splits cleanly into Portrait (active group representative), InfoPanel (single-select detail + multi-select summary), SelectionPanel (multi-select grid). Health bar update path needs splitting across InfoPanel and SelectionPanel.
+- **Insights updated**: Added HUD Bar Content System Architecture section.
+
+## 2026-03-25T00:30:00Z — Forum: HUD/UI Bugs Investigation
+
+- **Forum topic**: `2026-03-25T00-00-00Z-operator-hud-ui-bugs.md`
+- **Action**: Investigated all 3 bugs, added detailed comment with findings
+- **Bug 1 (Peacekeeper command panel)**: Static analysis shows code path is correct — Peacekeeper has Unit, falls to Default state, has 6 command slots. Needs runtime investigation.
+- **Bug 2 (EF "Build" label)**: CONFIRMED — `grid_button_label()` helpers.rs:327 catch-all for DcBuild doesn't name ExtractionFacility. One-line fix.
+- **Bug 3 (extra portrait)**: Identified shared `UnitIcon`/`StructureIcon` marker components between info panel and selection panel causing cross-contamination in rebuild logic.
+- **Insights**: Updated with bug findings section.
+- **No developer_tasks** in pending queue.
+
+## 2026-03-25T13:00:00Z — fix_hud_ui_bugs planned_task
+
+**Input:** `task_splitter-fix_hud_ui_bugs.md` (3 HUD/UI bugs)
+
+**Forum:** Voted to close `2026-03-25T00-00-00Z-operator-hud-ui-bugs.md` (already contributed analysis in prior session).
+
+**Investigation findings:**
+1. **Bug 1 (Peacekeeper no command panel):** Root cause is `owned_by_local_player` overwrite in `update_command_panel_state` (state.rs). `compute_selected_unit_capabilities()` returns default struct with `owned_by_local_player: false`, which overwrites the correctly-set `true` value. Affects ALL player-owned units, not just Peacekeeper.
+2. **Bug 2 (EF build button says "Build"):** Missing match arm in `grid_button_label()` (helpers.rs:327) for `DcBuild(ObjectEnum::ExtractionFacility)`. Cost is 200 SC (not 75 SC as task description stated — 75 is ExtractionPlate cost).
+3. **Bug 3 (Extra portrait tile):** `UnitIcon`/`StructureIcon`/`ResourceIcon` marker components shared between info panel and selection panel systems. Info panel's global queries see and despawn selection panel icons.
+
+**Output:** `planned_task` sent to developer with detailed fix guidance for all three bugs.
+**Insights updated:** Added `owned_by_local_player` overwrite bug and icon cross-contamination patterns.
+
+## 2026-03-28T00:00:00Z — action-channels-targeted-attack-fix
+
+- **Input**: `task_splitter-action-channels-targeted-attack-fix.md` — fix targeted attack pursuit
+- **Investigation**: Read `combat/systems/behaviors.rs` (attacking_object_behavior_system, lines 22-121), `combat/systems/core.rs` (attack_channel_sync_system, lines 575-631), `combat/mod.rs` (system ordering), `units/types/state/behavior.rs` (channel types), `combat/types.rs` (AttackCapability, AttackState), movement behavior patterns in `units/systems/behaviors/movement.rs`
+- **Root cause confirmed**: behavior system uses legacy MoveTarget/Path for approach but doesn't write LocomotionChannel; sync system unconditionally forces Stationary during Aiming/Firing/Cooldown
+- **Output**: `planned_task` with detailed changes for both files + type references + test guidance
+- **Forum**: No open topics to process
+- **Insight added**: Targeted Attack Channel Fix Pattern
+
+## 2026-03-28T12:00:00Z — Planned task: action-channels-attackmove-target-lock
+
+- No open forum topics to process
+- Picked up `task_splitter-action-channels-attackmove-target-lock.md` developer_task
+- Investigated `attack_move_behavior_system` in combat/systems/behaviors.rs (lines 218-373): identified leash check bug where distance-from-origin check fires during active attack cycle
+- Investigated `AttackCapability.range`, `AttackState`, `AttackPhase`, `AttackMoveOrigin` types in combat/types.rs
+- Produced planned_task with detailed modification guide: replace leash check with weapon-range-based target lock, scan-before-resume on target death, doc comment updates
+- Sent planned_task to developer
+
+## 2026-03-28T12:00:00Z — Planned cults_game_start_fixes
+
+- Processed `task_splitter-cults_game_start_fixes.md` developer_task
+- Investigated `setup.rs` (center_camera_on_start, setup_enemy_test_units) and `resources.rs` (spawn_space_crystal_patches)
+- Identified three bugs: camera wildcard match skipping Cults, hardcoded enemy positions at (50,50) overlapping Cults RC, no crystal patches near (50,50)
+- Produced planned_task with file-level context, line references, coordinate mapping, and test pattern guidance
+- No forum topics to process
+
+## 2026-03-28T12:00:00Z — Planned agent_tunnel_placement_ghost_fix
+
+- No open forum topics to process
+- Picked up `task_splitter-agent_tunnel_placement_ghost_fix` developer_task
+- Investigated `placement.rs` manage_placement_ghost match statement — confirmed missing AgentAwaitingPlacement arm at line 54
+- Verified AgentMenuState already imported, pattern identical to existing RecruitAwaitingPlacement arm
+- Sent planned_task to developer — straightforward one-line match arm addition
+- No architectural concerns discovered (no forum topic needed)
+
+### 2026-03-28T00:00:00Z
+
+- **Forum**: Commented on and voted to close `qa_router_patterns_too_broad` topic. Confirmed automatic_qa's analysis that broad single-word patterns in `auto_capabilities.txt` cause all QA items to route to automatic_qa. Supported narrowing patterns to only `cargo test`/`cargo check`/`compile`-style entries.
+- **Tasks**: No pending developer_tasks to process. No stuck active tasks found.
+
+### 2026-03-28T20:30:00Z
+
+- **Forum**: Voted to close `qa_router_patterns_too_broad` topic (already commented in prior session; consensus reached, fix is pipeline_builder's responsibility).
+- **Tasks**: No pending developer_tasks. No stuck active tasks. No-work session.
+
+### 2026-03-28T21:00:00Z
+
+- **Forum**: Voted to close `qa_router_patterns_too_broad` (consensus already reached).
+- **Task**: Planned `agent_command_behavior_bridge` — enriched with exact file paths (command_dispatch.rs, placement.rs), 5 fix locations with surrounding code context, import verification (all behavior types available via wildcard import), reference pattern (SupplyChopper), and test update suggestions. Sent as planned_task to developer.
+
+### 2026-03-28T22:00:00Z
+
+- **Forum**: Reviewed and commented on `integration-test-compilation-regression` topic. Analysis by software_architect is sound — purely import path fixes. Voted to close; architecture_request already sent to task_splitter.
+- **No pending developer_tasks** — forum engagement was the sole work item.
+
+## 2026-03-28T21:00:00Z — Forum-only session
+
+- Recorded close vote on `2026-03-28T12-00-00Z-software_architect-integration-test-compilation-regression.md` (had commented previously but vote wasn't recorded)
+- No pending developer_tasks, no stuck active tasks
+- Clean exit
+
+## 2026-03-28T22:30:00Z — No-work session (forum only)
+
+- Loaded insights (unchanged)
+- **Forum pass**:
+  - `integration-test-compilation-regression`: Already voted to close — skipped
+  - `auto-capabilities-patterns-too-broad`: New topic from automatic_qa. Confirmed the broad verb patterns route everything to automatic_qa. Commented with technical confirmation and noted pipeline_builder owns qa_router artifacts. Voted to close.
+- No pending developer_tasks — clean exit
+
+## 2026-03-28T22:30:00Z — Forum-only session
+
+- Loaded insights
+- **Forum pass**:
+  - `integration-test-compilation-regression`: Already voted — skipped
+  - `auto-capabilities-patterns-too-broad`: Already commented previously; voted to close this session
+- No pending developer_tasks, no stuck active messages — clean exit
+
+## 2026-03-28T22:30:00Z — Forum-only session
+
+- Loaded insights
+- **Forum pass**:
+  - `integration-test-compilation-regression`: Voted to close (already commented previously; architecture_request is in flight)
+  - `auto-capabilities-patterns-too-broad`: Voted to close (already commented previously; needs pipeline_builder action)
+- No pending developer_tasks, no stuck active messages — clean exit
+
+## 2026-03-28T23:00:00Z — Planned agent_rightclick_gather_fix
+
+- **Forum pass**: Both open topics already have my close vote — no action needed.
+- **Planned task**: `agent_rightclick_gather_fix` (parent: `agent_resource_gathering_r1`)
+  - Investigated command_dispatch.rs gather handler (lines 343-392) — logic correct, tests pass with mocked CursorTarget
+  - Investigated update_cursor_target (state.rs) — ray-AABB detection, no FoW filtering
+  - Verified crystal patch spawning components correct; system ordering correct
+  - Likely root cause: AABB miss in cursor target detection → falls through to ground Move
+  - Also found: missing left-click entity handler for AwaitingTarget(Gather) mode
+  - Updated insights entity-click handler order to match current line numbers
+
+## 2026-03-28T21:00:00Z — Planned integration-test-compilation-fix
+
+- Forum: Commented and voted to close `auto-capabilities-still-misrouting` (pipeline_builder/operator concern)
+- Processed `integration-test-compilation-fix` developer_task
+- Investigated actual compilation errors (ran `cargo test --test qa` and `--test scenarios`)
+- Found 7 affected files (task description listed 5 — added unit_cap_systems.rs and tunnel_expansions_and_starting_condition.rs)
+- Mapped old API → new entity definition API for all 19 errors across 7 files
+- Sent planned_task with detailed per-file fix guide including exact import paths and code patterns
+- Updated insights with QA test infrastructure section
+
+## 2026-03-28T21:00:00Z — verify_agent_tunnel_building_r1
+
+- Forum: `auto-capabilities-still-misrouting` already has my close vote from previous session — no action needed
+- Processed `verify_agent_tunnel_building_r1` developer_task (QA rework — ghost placement fix already applied)
+- Investigated placement.rs (confirmed AgentAwaitingPlacement match arm at lines 55-58), construction.rs (full build lifecycle), tunnel.rs entity def
+- Ran `cargo test --lib`: all 2103 tests pass, including 216 tunnel and 152 building tests
+- Noted pre-existing integration test compilation errors (tests/qa/, tests/scenarios/) — out of scope
+- Sent planned_task as verification-only: developer just needs to confirm tests pass and mark complete
+
+## 2026-03-28T22:00:00Z — No-work session
+
+- Forum: only open topic `auto-capabilities-still-misrouting` already has my close vote
+- No pending developer_tasks, no stuck active messages
+- Clean no-work exit
+
+## 2026-03-28T23:00:00Z — No-work session
+
+- Forum: re-recorded close vote on `auto-capabilities-still-misrouting` (previous vote wasn't persisted)
+- No pending or active developer_tasks
+- Clean no-work exit
+
+## 2026-03-28T23:30:00Z — Forum-only session
+
+- Forum: commented and voted to close `auto-capabilities-still-misrouting` topic — pipeline_builder fix for overly broad QA routing patterns
+- No pending or active developer_tasks
+- Clean exit
+
+## 2026-03-28T23:45:00Z — Forum-only session
+
+- Forum: voted to close `auto-capabilities-still-misrouting` topic (already commented previously)
+- Forum: commented and voted to close `designer-no-work-available` topic — scheduler config issue, not task_planner concern
+- No pending or active developer_tasks
+- Clean exit
+
+## 2026-03-28T24:00:00Z — No-work session
+
+- Forum: voted to close `auto-capabilities-still-misrouting` topic (already commented previously, all agents agree on fix)
+- No pending or active developer_tasks
+- Clean exit
+
+### 2026-03-28T21:00:00Z — No-work session
+
+- Loaded insights (no changes needed)
+- Forum: Voted to close `auto-capabilities-still-misrouting` topic (already commented previously, pipeline_builder concern)
+- No pending developer_tasks in inbox
+- No stuck messages in active/
+- Clean exit — no work available
+
+## 2026-03-28T18:30:00Z — Forum pass only
+
+- Engaged with forum topic `2026-03-28T18-00-00Z-automatic_qa-auto-capabilities-still-misrouting.md`: confirmed the diagnosis that `auto_capabilities.txt` has overly broad single-word verb patterns causing all qa_items to route to automatic_qa. Commented and voted to close — fix belongs to pipeline_builder.
+- No pending or active developer_tasks found. No further work to do.
+
+## 2026-03-28T21:30:00Z — No-work session
+
+- Voted to close forum topic `2026-03-28T18-00-00Z-automatic_qa-auto-capabilities-still-misrouting.md` (qa_router misrouting issue — outside task_planner domain, pipeline_builder/operator fix needed)
+- No pending developer_tasks in queue
+- No stuck messages in active/
+- Clean exit — no work available
+
+## 2026-03-28T21:30:00Z — No-work session (forum cleanup)
+
+- Voted to close forum topic `2026-03-28T18-00-00Z-automatic_qa-auto-capabilities-still-misrouting.md` (already commented previously; issue is outside task_planner domain — needs pipeline_builder/operator to fix qa_router auto_capabilities.txt)
+- No pending or active developer_tasks found
+
+## 2026-03-28T20:30:00Z — Forum-only session
+
+- Commented on and voted to close `2026-03-28T20-00-00Z-automatic_qa-auto-capabilities-critical-misrouting.md` — agreed with proposed fix to restrict auto_capabilities.txt patterns to cargo/test commands only
+- No pending developer_tasks in inbox
+
+### 2026-03-28T21:50:00Z
+- **Forum**: Voted to close `auto-capabilities-critical-misrouting` topic (already commented previously, added close vote this session)
+- **Tasks**: No pending developer_tasks in inbox; no stuck active tasks
+- **Result**: No-work session — all forum topics have my close vote, no pending messages
+
+## 2026-03-28T22:30:00Z — Forum-only session
+
+- Engaged with forum topic `2026-03-28T22-00-00Z-automatic_qa-auto-capabilities-must-be-narrowed.md`
+- Confirmed the 6 bouncing qa_items are all interactive gameplay tests with no automated test coverage
+- Agreed with proposed narrowed pattern list for auto_capabilities.txt
+- Voted to close the topic
+- No pending developer_tasks to process
+
+### 2026-03-28T22:00:00Z
+
+- **Forum**: Voted to close `auto-capabilities-must-be-narrowed` topic — already commented previously, issue is well-understood and awaiting pipeline_builder action.
+- **Tasks**: No pending developer_tasks. No stuck active tasks.
+- **Result**: No-work session (forum vote only).
+
+### 2026-03-28T23:15:00Z
+- **Forum**: Commented and voted to close `auto-capabilities-infinite-bounce-loop` topic. Agreed pipeline_builder must narrow `auto_capabilities.txt` patterns to stop infinite QA routing loop.
+- **Tasks**: No pending developer_tasks in queue. No stuck active tasks.
+- **Session**: Forum-only pass, no task planning work needed.
+
+## 2026-03-28T23:10:00Z — No-work session (forum only)
+
+- Voted to close `2026-03-28T23-00-00Z-automatic_qa-auto-capabilities-infinite-bounce-loop.md` — already commented in prior session, just needed close vote
+- No pending or active developer_tasks
+- No new forum topics requiring attention
+
+### 2026-03-28T23:45:00Z
+- **Forum**: Commented on and voted to close `auto-capabilities-must-be-narrowed` topic — agreed with automatic_qa's proposed fix to narrow qa_router patterns, noted it's pipeline_builder's domain.
+- **Tasks**: No pending developer_tasks in inbox. No stuck active tasks.
+- **Result**: Forum-only session. Exiting.
+
+### 2026-03-28T23:50:00Z
+
+- **Forum**: Voted to close `auto-capabilities-must-be-narrowed` topic (had already commented previously, just missing the close vote).
+- **Tasks**: No pending developer_tasks. No stuck active tasks.
+- **Result**: Forum-only session. No planned_tasks produced.
+
+## 2026-03-28T23:45:00Z — Forum-only session
+
+- Commented on and voted to close `2026-03-28T23-30-00Z-automatic_qa-auto-capabilities-must-be-narrowed.md` — agreed with automatic_qa's analysis that auto_capabilities.txt needs narrower patterns to stop infinite QA routing loops. Pipeline_builder's domain to fix.
+- No pending or active developer_tasks. Clean exit.
+
+### 2026-03-28T23:55:00Z
+- **Forum**: Voted to close `auto-capabilities-must-be-narrowed` topic — fix already applied by software_architect, all agents agreed on solution
+- **Tasks**: No pending or active developer_tasks found
+- **Result**: Forum-only session, no task planning needed

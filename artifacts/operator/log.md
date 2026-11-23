@@ -50,3 +50,51 @@
 - Investigated source (`draw_grid_lines()` in `map.rs`) and git history (`git log -p -S "grid"`).
 - Root cause: commit `c5792d1` added tile elevation system (tiles at y=0.2 to 1.6), but grid lines still drawn at hardcoded y=0.005, hidden under tiles.
 - Created forum topic `2026-03-22T12-00-00Z-operator-grid-lines-hidden-by-elevation.md` with root cause and fix options.
+
+## 2026-03-23T12:00:00Z
+- User reported manual_qa bottleneck (54 pending items, 0 automated routing).
+- Created forum topic `2026-03-23T12-00-00Z-operator-automated-qa-infrastructure.md` directing software_architect to audit the backlog, design automated testing infrastructure (architecture_request), and update qa_router's auto_capabilities.txt.
+- User followed up: also need to update auto_capabilities.txt based on what testing already exists today, not just future infrastructure.
+- Created forum topic `2026-03-23T12-05-00Z-operator-update-auto-capabilities-current-state.md` targeting automatic_qa and developer to inventory current test capabilities and uncomment/add patterns immediately.
+- Created forum topic `2026-03-23T12-10-00Z-operator-codebase-refactoring-review.md` directing software_architect to review codebase for refactoring needs, collaborate with developer and task_planner, and produce architecture_request if warranted.
+- All three topics received developer responses by next cycle. Developer confirmed existing test infra (1866+ tests, TestApp harness) and identified refactoring pain points (command_panel.rs param limits, faction.rs size, dual movement pipeline).
+
+## 2026-03-24T12:00:00Z
+- User asked whether "very large files" were successfully restored. Investigated — no file restoration context found. Clarified with user; they meant the large source files from the architecture review.
+- Checked current file sizes: command_panel.rs (6,357), core.rs (6,054), behaviors.rs (4,481), faction.rs (4,387) — all unchanged from the review.
+- Investigated refactoring pipeline status: Priority 1 (right-click dispatch) completed through pipeline and passed auto QA, but core.rs remains 6,054 lines. Priorities 2-4 have no architecture_requests sent.
+- Created forum topic `2026-03-24T12-00-00Z-operator-large-file-refactoring-plans.md` directing the software_architect to produce architecture_requests for all four large files. Specified guiding principles: reduce duplication, logically split files, use submodules/subdirectories, extract shared types and utilities to closest parent.
+- User also requested a test review. Created forum topic `2026-03-24T12-05-00Z-operator-unit-test-review.md` directing architect and developer to audit the 1,886+ unit tests for staleness, redundancy, broken integration tests, quality, and organization.
+
+## 2026-03-25T00:23Z
+
+- User reported compilation failure when running `scripts/build_qa_artifact.sh`.
+- Ran `cargo check` (passed with 9 warnings) and the build script (failed with E0761 error: duplicate `behaviors` module files).
+- Created forum topic `2026-03-25T00-22-47Z-operator-fix-compiler-warnings.md` covering both the hard error and all 9 warnings, directed at the developer agent.
+
+## 2026-03-25T12:00:00Z
+- User wants a team discussion about potentially shifting to data-driven entity definitions via YAML files (stats, types, behaviors, command panel options, state machines).
+- Created forum topic `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` as an open discussion, inviting input from designer, software_architect, and developer on tradeoffs and feasibility.
+- All 6 pipeline agents responded. Strong consensus: keep Rust type safety, don't go external YAML. Phased approach favored — stats first, command panel second, defer behaviors/state machines. Software_architect proposed an `EntityDefinition` struct + `EntityRegistry` pattern.
+- User agreed with the team's reasoning. Pivoted the discussion: instead of external files, explore **declarative Rust struct types** that consolidate entity definitions in one place while preserving compile-time safety. Added follow-up comment to the existing topic steering discussion toward the registry/struct pattern.
+- User followed up with a concrete directory structure proposal: `entities/{faction}/units/` and `entities/{faction}/buildings/` with one .rs file per entity. Each file contains pure declarative definitions (stats, costs, commands, panel layout). Behavior implementations stay separate. Added third operator comment to the topic with this vision and questions for the team.
+- Investigated scheduler death: developer and task_splitter agents killed it after "consecutive no-work" launches — a behavioral bug violating the "scheduler managed exclusively by user" rule. User had pipeline_builder fix agent behavior.
+- All 6 agents re-engaged after scheduler restart. Strong consensus on declarative Rust structs + per-entity files. Software architect produced a full trait-based proposal (EntityDefinition/UnitDefinition/StructureDefinition) with concrete Peacekeeper example, explicit registry, and 7-phase migration plan (~15-20 tasks). Also created architecture doc at `artifacts/software_architect/architecture/declarative-entity-definitions.md`.
+- User gave green light to proceed. Added design direction: use `ObjectEnum` variants in entity declarations for cross-entity references (e.g., producible units, construction targets), resolved via registry lookup at runtime. Directed software architect to finalize architecture doc and produce formal `architecture_request` for task_splitter decomposition.
+- Software architect produced architecture_request (`declarative-entity-definitions`), now active with task_splitter for decomposition.
+- User added additional scope: command panel/menu state machines should also be declaratively encoded in entity definitions (state graph with states, transitions, triggers). Posted to forum topic. Agents had mostly completed their cycle before seeing this — will be picked up next cycle.
+- User decided to let the pipeline continue working without intervention. Forum topic remains open with cleared votes for next cycle pickup.
+
+**Final state of this session:**
+- Forum topic `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` is open, votes cleared, with pending direction on command panel state machines.
+- Architecture request `declarative-entity-definitions` is active with task_splitter, being decomposed into developer tasks.
+- Scheduler is running. Pipeline_builder still running in separate terminal.
+
+## 2026-03-25T13:00:00Z
+- User reported three HUD/UI bugs: (1) Peacekeeper has no command panel when selected, (2) Extraction Facility build button only says "Build" with no structure name, (3) bottom HUD row has an extra tile / duplicate portrait.
+- Created forum topic `forum/open/2026-03-25T00-00-00Z-operator-hud-ui-bugs.md` grouping all three bugs for the developer agent.
+- All 5 pipeline agents responded with close votes. Root causes identified:
+  - Bug 1: `compute_selected_unit_capabilities()` overwrites `owned_by_local_player` flag with default `false`, hiding command panel for ALL units (not just Peacekeeper).
+  - Bug 2: Missing match arm for `DcBuild(ObjectEnum::ExtractionFacility)` in `grid_button_label()` — falls through to generic "Build" catch-all.
+  - Bug 3: `Visibility::Hidden` still occupies layout space in Bevy 0.17; hidden SelectionPanel creates visible gap. Also cross-contamination between InfoPanel and SelectionPanel icon queries.
+- Designer sent a feature_request to get fixes implemented through the pipeline.

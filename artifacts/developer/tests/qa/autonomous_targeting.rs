@@ -27,12 +27,11 @@ fn step_1_auto_targeting_engages_enemy() {
 
     // Check if the unit auto-acquired a target
     let world = test_app.app.world();
-    if let Some(attack_state) = world.get::<AttackState>(player_unit) {
-        // Auto-targeting should have engaged the nearby enemy
-        assert!(attack_state.current_target.is_some() || !matches!(attack_state.phase, AttackPhase::None),
-            "Idle unit near enemy should auto-engage. Phase: {:?}, target: {:?}",
-            attack_state.phase, attack_state.current_target);
-    }
+    let attack_state = world.get::<AttackState>(player_unit).expect("Entity should have AttackState component");
+    // Auto-targeting should have engaged the nearby enemy
+    assert!(attack_state.current_target.is_some() || !matches!(attack_state.phase, AttackPhase::None),
+        "Idle unit near enemy should auto-engage. Phase: {:?}, target: {:?}",
+        attack_state.phase, attack_state.current_target);
 }
 
 /// QA Step 6 [auto]: Place an idle infantry unit near an enemy. Verify BaseAutoTargeting engages the enemy.
@@ -59,11 +58,10 @@ fn step_6_infantry_auto_targeting() {
     test_app.step_n(30);
 
     let world = test_app.app.world();
-    if let Some(attack_state) = world.get::<AttackState>(infantry) {
-        assert!(attack_state.current_target.is_some(),
-            "Idle infantry near enemy should auto-target. Phase: {:?}, target: {:?}",
-            attack_state.phase, attack_state.current_target);
-    }
+    let attack_state = world.get::<AttackState>(infantry).expect("Entity should have AttackState component");
+    assert!(attack_state.current_target.is_some(),
+        "Idle infantry near enemy should auto-target. Phase: {:?}, target: {:?}",
+        attack_state.phase, attack_state.current_target);
 }
 
 /// QA Step 7 [auto]: Lure the enemy 5+ grid units from the infantry's IdleOrigin.
@@ -90,9 +88,9 @@ fn step_7_infantry_leash_back() {
     // Move enemy far away (simulating luring)
     {
         let world = test_app.app.world_mut();
-        if let Some(mut transform) = world.get_mut::<Transform>(enemy) {
-            transform.translation.x = infantry_start.x + 8.0; // 8 GU away
-        }
+        let mut transform = world.get_mut::<Transform>(enemy)
+            .expect("Enemy should have Transform component");
+        transform.translation.x = infantry_start.x + 8.0; // 8 GU away
     }
 
     // Run many frames for leash behavior

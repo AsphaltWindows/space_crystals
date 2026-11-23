@@ -1,12 +1,10 @@
 use crate::helpers::*;
-use bevy::ecs::system::RunSystemOnce;
 use space_crystals::game::types::structures::{ConstructionHP, TunnelState, tunnel_construction_cost};
 use space_crystals::game::types::factions::{Player, SyndicatePlayerResources};
 use space_crystals::game::units::types::state::{
-    BuildingTunnelBehavior, BuildTunnelPhase, InTunnelNetwork,
-    LocomotionChannel, OrientationChannel, BaseBehaviorState,
+    BuildingTunnelBehavior, BuildTunnelPhase,
 };
-use space_crystals::game::units::types::unit_data::AGENT_TUNNEL_BUILD_FRAMES;
+use space_crystals::game::entities::factions::syndicate::units::agent::AGENT_TUNNEL_BUILD_FRAMES;
 
 /// QA Step 3 [auto]: Verify the Agent becomes untargetable once embedded in the partially-built Tunnel.
 /// We directly set the agent into Constructing phase (since FixedUpdate doesn't fire reliably
@@ -469,7 +467,7 @@ fn step_10_no_double_building_at_same_location() {
     // We test that only one agent is in the Constructing phase for that tunnel
     {
         let world = test_app.app.world_mut();
-        let agent2_pos = world.get::<Transform>(agent2).unwrap().translation;
+        let _agent2_pos = world.get::<Transform>(agent2).unwrap().translation;
         // Give agent2 a BuildTunnel command to the same location as agent1
         let agent1_target = world.get::<BuildingTunnelBehavior>(agent1).unwrap().target_location;
         world.entity_mut(agent2)

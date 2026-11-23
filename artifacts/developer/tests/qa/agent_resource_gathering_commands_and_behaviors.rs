@@ -46,12 +46,16 @@ fn step_2_mining_duration_48_frames() {
 
     let gathering = h.app.world().get::<GatheringResourceBehavior>(agent);
     // After completion, should have moved to MovingToTunnel phase (or behavior removed if no tunnel)
-    if let Some(g) = gathering {
-        // Should NOT still be in Extracting phase
-        assert!(!matches!(g.phase, GatherPhase::Extracting { .. }),
-            "After 48 frames, should no longer be in Extracting phase. Got: {:?}", g.phase);
+    match gathering {
+        Some(g) => {
+            // Should NOT still be in Extracting phase
+            assert!(!matches!(g.phase, GatherPhase::Extracting { .. }),
+                "After 48 frames, should no longer be in Extracting phase. Got: {:?}", g.phase);
+        }
+        None => {
+            // Behavior was removed (no nearby tunnel) — extraction still completed successfully
+        }
     }
-    // If behavior was removed (no nearby tunnel), that also counts as extraction completing
 }
 
 /// QA Step 3 [auto]: Verify the Agent picks up 50 Space Crystals after mining completes.

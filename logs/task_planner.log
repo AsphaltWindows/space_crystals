@@ -1,0 +1,758 @@
+What would you like me to run in non-interactive mode? For example:
+- The scheduler (`scripts/run_scheduler.sh`)?
+- A specific agent from the pipeline?
+- A build/test command (`cargo build`, `cargo test`)?
+Could you clarify what you'd like me to run in non-interactive mode? For example:
+
+- The **scheduler** (`scripts/run_scheduler.sh`)?
+- A specific **agent**?
+- A **cargo build/test**?
+- Something else?
+I need a bit more context — what exactly would you like me to run in non-interactive mode? For example:
+
+- The pipeline scheduler (`scripts/run_scheduler.sh`)?
+- A specific agent?
+- A cargo build/test?
+- Something else?
+Non-interactive session complete. One open forum topic found (`fix-compiler-warnings`) — it's a build/code issue requiring no design input. Voted to close. No other work pending.
+Could you clarify what you'd like me to run in non-interactive mode? For example:
+
+- The pipeline scheduler (`scripts/run_scheduler.sh`)?
+- A specific agent?
+- A specific command or script?
+- Something else?
+The scheduler is already running — the lock file `.scheduler.lock` is held by another process. No action needed.
+There's an open forum topic requesting compilation fixes. Which agent would you like me to run as, or would you like me to just fix these compiler issues directly?
+No work found. The only open forum topic already has my close-vote. Multiple recent sessions show the same — no actionable work for the designer. Logged and exiting.
+That background task already completed and I read its output earlier — `cargo check` passed with zero errors and zero warnings. All work from the forum topic is already done. No action needed.
+No agent prompt was loaded (missing `--agent` flag), so I can't run as a specific pipeline node. Here's the current pipeline state:
+
+**Forum (open):** 1 topic — `fix-compiler-warnings` — already resolved by developer, awaiting close.
+
+**Active developer tasks (4):**
+1. `behaviors_split` — Split `behaviors.rs` (4,481 lines) into 6-file directory module
+2. `core_systems_split` — Split `core.rs` (6,054 lines) into 8-file directory module
+3. `faction_module_split` — Split `faction.rs` (4,387 lines) into 9-file directory module
+4. `expand_command_panel_grid` — Expand command panel from 3x3 to 4x3 grid
+
+All four tasks are structural refactoring with no dependencies between them. To proceed, I'd need to be launched with a specific agent prompt, e.g.:
+```
+claude -p "Run in non-interactive mode" --agent .claude/agents/developer.md
+```
+
+Which agent or task would you like me to work on?
+I'm not invoked with a specific agent prompt. Here's the current pipeline state:
+
+**Forum (open):** 1 topic — compiler warnings fix (developer already voted to close)
+
+**Active developer tasks (4):**
+- `task_planner-behaviors_split.md`
+- `task_planner-core_systems_split.md`
+- `task_planner-faction_module_split.md`
+- `task_planner-expand_command_panel_grid.md`
+
+**Pending manual QA items:** ~25 items waiting for user QA
+
+**Active completion aggregator work:** Several feature requests and task completions being tracked
+
+Which agent should I run as? The **developer** has the most active work. Alternatively I can run the **scheduler** to process the pipeline automatically.
+The developer has already resolved the forum topic (compilation error + warnings fixed) and cast a close vote. The topic just needs closure.
+
+**Pipeline summary:**
+- **No actionable work** for autonomous agents — no pending developer_task, planned_task, feature_request, or architecture_request messages.
+- **1 forum topic** resolved but not yet formally closed (awaiting close vote threshold).
+- **30 manual QA items** pending — these require interactive user sessions with the manual_qa agent.
+
+Nothing for me to execute autonomously. The pipeline is idle except for manual QA backlog.
+I need more context — what specifically would you like me to run in non-interactive mode? For example:
+
+- The scheduler (`scripts/run_scheduler.sh`)?
+- A specific agent?
+- A specific command or script?
+
+Could you clarify?
+I don't have a specific agent identity (no `--agent` flag was provided). There's work available in the pipeline:
+
+1. **Forum topic (highest priority)**: `forum/open/2026-03-25T00-22-47Z-operator-fix-compiler-warnings.md`
+2. **30 pending manual_qa items** in `messages/manual_qa/qa_item/pending/`
+
+Which agent should I run as? For example:
+- `developer` — to pick up forum topics or planned tasks
+- `manual_qa` — to process QA items (requires interactive mode)
+- `task_planner`, `task_splitter`, etc.
+
+Or did you mean to invoke a specific agent with `--agent .claude/agents/{name}.md`?
+There are 26 Claude processes running and 4 active worktrees. The codebase is being actively modified by other agents. The build errors I'm seeing are transient — caused by concurrent file modifications from worktree agents working on the faction directory split and behaviors split.
+
+**Pipeline state summary:**
+
+- **Open forum topic**: `fix-compiler-warnings` — developer has voted to close. Needs votes from: designer, software_architect, task_splitter, task_planner, automatic_qa
+- **Active worktrees**: 4 agent worktrees are running, actively modifying source files (faction split, behaviors split)
+- **Pending messages**: No pending work for processing agents (developer, task_planner, task_splitter, etc.). Only manual_qa has ~55 pending qa_items awaiting user interaction
+- **Build status**: Unstable due to concurrent worktree modifications — builds intermittently pass/fail as files are being split
+
+Since I'm not running as a specific pipeline agent, there's no actionable autonomous work I can perform. The active worktree agents are handling the in-progress refactoring, and the remaining close votes on the forum topic need to come from the specific agents (designer, software_architect, etc.) when they're scheduled.
+
+
+Could you clarify what you'd like to run in non-interactive mode? For example:
+
+- **The scheduler** (`scripts/run_scheduler.sh`)?
+- **A specific agent** from the pipeline?
+- **The game itself**?
+- Something else?
+Could you clarify what you'd like me to run in non-interactive mode? For example:
+
+- The **scheduler** (`scripts/run_scheduler.sh`) — though per project rules, that's user-managed
+- A specific **agent** to process its pending work
+- A **cargo build/test** command
+- Something else
+
+What did you have in mind?
+
+
+Could you clarify what you'd like me to run in non-interactive mode? Some possibilities:
+
+- The **scheduler** (`scripts/run_scheduler.sh`)
+- A specific **agent** from the pipeline
+- A **cargo build/test** command
+
+What did you have in mind?
+I need more context — what specifically should I run in non-interactive mode? For example:
+
+- The scheduler (`scripts/run_scheduler.sh`)?
+- A specific agent?
+- A specific command or script?
+
+Could you clarify?
+Could you clarify what you'd like me to run in non-interactive mode? For example:
+
+- The **scheduler** (`scripts/run_scheduler.sh`)?
+- A specific **agent** from the pipeline?
+- A **build/test** command for the Rust project?
+- Something else?
+
+
+Could you clarify what you mean by "run in non-interactive mode"? A few possibilities:
+
+1. **Run the scheduler** (`scripts/run_scheduler.sh`) — but per project rules, only you manage the scheduler directly
+2. **Run a specific pipeline node/agent** in autonomous mode
+3. **Run the game** (`cargo run`) from `artifacts/developer/`
+4. **Something else**
+
+What would you like me to run?
+What would you like me to run in non-interactive mode? I need a bit more context:
+
+1. **The scheduler** — `scripts/run_scheduler.sh`
+2. **A specific agent** — one of the pipeline agents (developer, task_planner, etc.)
+3. **A command or script** — a specific shell command
+
+Please clarify and I'll get it running.
+
+
+Could you clarify what you mean by "run in non-interactive mode"? Are you referring to:
+
+1. **Running the scheduler** (`scripts/run_scheduler.sh`)?
+2. **Running a specific pipeline agent** non-interactively?
+3. **Something else entirely?**
+
+Let me know and I'll proceed.
+
+No work to perform. The only open forum topic (`fix-compiler-warnings`) already has my close vote, and there are no pending messages. This is the third consecutive no-work launch — the scheduler is launching designer without actionable work. Logged and exiting.
+What would you like me to run in non-interactive mode? Could you clarify — are you referring to a specific agent, the scheduler, a build command, or something else?
+
+
+Could you clarify what you mean by "run in non-interactive mode"? Are you referring to:
+
+1. **Running the scheduler** (`scripts/run_scheduler.sh`)
+2. **Running the game** (`cargo run` in `artifacts/developer/`)
+3. **Something else**
+
+What specifically would you like me to run?
+No other pending work found (no pending messages in any inbox, no other open forum topics).
+The open forum topic has close votes from `designer` and `developer`. It still needs votes from: **software_architect**, **task_splitter**, **task_planner**, and **automatic_qa**.
+
+However, I'm not running as any specific pipeline agent — I was invoked directly without an agent prompt. I can't meaningfully act as a pipeline agent in this context.
+
+**Current pipeline state:**
+- 1 open forum topic: "Fix compilation error and all compiler warnings" — work is done (developer confirmed fix), awaiting close votes from 4 more agents
+- The scheduler should be launching those agents to process the forum topic
+
+Would you like me to:
+1. Check if there are pending messages anywhere in the pipeline?
+2. Verify the compiler fix by running `cargo check`?
+3. Something else?
+Let me know which agent you'd like me to operate as, or clarify what you'd like done.
+I don't have an agent identity assigned (no `--agent` flag). I can't determine which agent's non-interactive work to perform.
+
+Which agent should I run as? Options:
+- **designer** — forum topics only (non-interactive)
+- **software_architect** — forum topics, architectural analysis
+- **task_splitter** — decompose pending feature/architecture requests
+- **task_planner** — enrich developer tasks with codebase context
+- **developer** — implement planned tasks
+- **automatic_qa** — run automated QA checks
+- **manual_qa** — not scheduled for non-interactive mode
+
+Or I can check what pending work exists across the pipeline to help you decide.
+Non-interactive session complete. Voted to close the compiler warnings forum topic — no design work needed.
+
+
+Could you clarify what you mean by "Run in non-interactive mode"? Are you asking me to:
+
+1. **Run the scheduler** (`scripts/run_scheduler.sh`) in non-interactive mode?
+2. **Run a specific agent** from the pipeline non-interactively?
+3. Something else?
+
+A bit more context would help me do the right thing.
+I'm not running as a specific pipeline agent (no `--agent` flag). What would you like me to do? Some options:
+
+1. **Check pipeline status** — scan for pending messages, open forum topics, etc.
+2. **Run as a specific agent** — tell me which one (designer, developer, task_planner, etc.)
+3. **Something else** — just let me know
+I don't have an agent prompt loaded (no `--agent` flag), so I don't know which pipeline agent role to run as. 
+
+There's pending work for:
+- **task_planner**: 1 pending `developer_task` message
+- **manual_qa**: 57 pending `qa_item` messages (manual_qa is interactive/sink, so non-interactive mode wouldn't apply meaningfully)
+
+Which agent should I run as, or what specific work would you like me to do?
+All non-interactive pipeline work is complete. Here's a summary of what was done:
+
+1. **Task Planner** — enriched `fix_behavior_completion_race` developer task with codebase context
+2. **Developer** — implemented the fix: added a guard clause in `behavior_completion_system` to skip completion when `BaseBehaviorState::None` (behavior not yet initialized), preventing race conditions where Move/Reverse commands were immediately reset to Idle. Added 2 unit tests. All 1871 lib tests pass.
+3. **Completion Aggregator** — ran; the parent feature `core_systems_split_r1` was already fully aggregated and routed to QA.
+
+No further non-interactive work is pending. The remaining pipeline items are **50 manual QA items** awaiting interactive review.
+I wasn't invoked with a specific agent prompt (`--agent .claude/agents/{name}.md`), so I don't know which pipeline agent to run as. 
+
+Which agent should I execute as? Options from the pipeline:
+
+- **designer** — interactive source, produces feature requests
+- **software_architect** — monitors forum for architectural concerns
+- **task_splitter** — decomposes feature requests into developer tasks
+- **task_planner** — enriches developer tasks with codebase context
+- **developer** — implements planned tasks
+- **automatic_qa** — runs automated QA checks
+- **manual_qa** — interactive QA walkthrough
+- **operator** — user's direct interface (framework agent)
+- **pipeline_builder** — maintains the pipeline itself (framework agent)
+No work found. Logged and exiting.
+Session complete. Here's what I did:
+
+1. **Loaded insights** — reviewed my codebase knowledge
+2. **Forum pass** — Found one open topic (`data-driven-entity-definitions`) that needed my input
+3. **Investigated codebase** — Examined `unit_data.rs` (type data functions), `grid_layout.rs` (command panel layouts), and `commands.rs` (availability logic) to gather concrete evidence
+4. **Commented on forum topic** — Provided a detailed analysis with:
+   - Current state of entity definitions across 4 categories (stats, grid layouts, command availability, behaviors)
+   - Phased externalization recommendation (stats → grid layouts → defer behaviors)
+   - Practical impact on task planning workflow
+   - Timing assessment (3 unit types = not yet painful enough for full overhaul)
+5. **No pending developer_tasks** — nothing else to process
+6. **Updated session log**
+Session complete. Summary:
+
+1. **Loaded insights** — reviewed codebase map and patterns
+2. **Forum pass** — voted to close the data-driven entity definitions topic (all agents have commented, clear consensus on phased approach)
+3. **No pending developer_tasks** — nothing to plan
+4. Updated session log and exiting
+Session complete. Here's a summary of what I did:
+
+1. **Loaded insights** — reviewed my persistent codebase knowledge
+2. **Forum pass** — Found one open topic (`2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md`) that had been reopened after the discussion pivoted from YAML to declarative Rust structs with per-entity file organization
+3. **Investigated codebase** — Examined `unit_data.rs` (current entity definition pattern) and `grid_layout.rs` (command panel layouts) to provide concrete evidence for my comment
+4. **Added forum comment** — Weighed in on the refined direction with:
+   - Concrete mapping of what moves into per-entity files vs. what stays in behavior modules
+   - Evidence from `unit_data.rs` (lines 115-266) showing definitions already follow a per-entity pattern
+   - Recommendation for explicit registration over magic crate dependencies
+   - Assessment of how this improves my task planning workflow (one file to create vs. 5-6 files to modify)
+5. **No pending developer_tasks** — nothing in pending or stuck in active
+6. **Updated session log**
+Session complete. Here's what I did:
+
+1. **Loaded insights** — read persistent codebase knowledge
+2. **Forum pass** — Read the `data-driven-entity-definitions` topic (the only open forum topic). The discussion has fully matured with all agents weighing in on the refined direction (declarative Rust structs, per-entity file organization). I had already commented twice earlier. Voted to close since consensus is clear and actionable.
+3. **No pending tasks** — no developer_tasks in the pending queue
+4. **Updated insights** — added a new section capturing the forum consensus on declarative entity definitions architecture
+5. **Appended session log** — recorded what was done this session
+Session complete. Here's what I did:
+
+1. **Loaded insights** — reviewed my persistent codebase knowledge.
+2. **Forum pass** — Read the open forum topic `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` in full. The discussion pivoted from external YAML files to declarative Rust structs organized in per-faction/per-entity files with an explicit registry. All agents have weighed in and consensus was reached. I had already contributed my analysis in a prior session, so I **voted to close** the topic.
+3. **Checked inboxes** — No pending `developer_task` messages, no stuck active messages.
+4. **Appended session log** — Recorded the forum work and clean exit.
+
+Exiting — no further work available this execution.
+Session complete. Here's what I did:
+
+1. **Loaded insights** — reviewed my codebase map and architectural patterns
+2. **Forum pass** — Read the full `data-driven-entity-definitions` topic (693 lines, all agent comments through the YAML → declarative Rust pivot). Added a closing comment endorsing the consensus direction (EntityDefinition trait hierarchy, per-entity files, explicit registry, phased migration). Voted to close.
+3. **No pending tasks** — No developer_tasks in pending or active. No stuck work found.
+4. **Updated session log** — Appended timestamped summary.
+
+Exiting.
+**Session summary:**
+
+- **Forum**: Reviewed the open topic `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` on data-driven entity definitions. All agents (operator, automatic_qa, developer, task_splitter, designer, software_architect, and myself) have contributed substantive comments with strong consensus on a phased approach. Voted to close.
+- **Tasks**: No pending `developer_task` messages. No stuck active tasks.
+- **Outcome**: Forum-only session. Exiting cleanly.
+Done. Here's a summary of this session:
+
+1. **Forum**: Voted to close the data-driven entity definitions topic (`2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md`). The discussion had fully converged — all agents re-engaged after the pivot from YAML to declarative Rust structs, with strong consensus on the phased approach and trait-based architecture.
+
+2. **Task**: Planned `entity-definition-foundation` — the foundational infrastructure task for the declarative entity definition system. Investigated:
+   - Existing types: `ObjectEnum` (22 variants), `ObjectType`, `UnitTypeData`, `AttackAttributesData`, `StructureCost`, `MovementParams`, `ObjectInterfaceState`, `CommandButtonAction`
+   - Module structure: `game/mod.rs`, `lib.rs`, `main.rs` plugin registration pattern
+   - Architecture doc: Option B trait hierarchy (`EntityDefinition` → `UnitDefinition`/`StructureDefinition`), `EntityRegistry` design
+   
+   Produced a detailed `planned_task` with specific file paths, import paths, all new type definitions, registry implementation guidance, Bevy plugin pattern, and test structure.
+
+3. **Updated insights** with the new entity definitions system architecture mapping.
+Done. Here's a summary of this session:
+
+**Forum**: Checked the one open topic (`data-driven-entity-definitions`) — already voted to close, no action needed.
+
+**Task Processed**: `entity-def-pilot-peacekeeper` — Migrate Peacekeeper as the pilot entity for the declarative EntityDefinition/UnitDefinition trait pattern.
+
+**Investigation highlights**:
+- The trait framework (`types.rs`, `registry.rs`) is already fully implemented with `EntityDefinition`, `UnitDefinition`, `EntityRegistry`, and `EntitiesPlugin`
+- The directory structure (`entities/gdo/units/`) exists but the units `mod.rs` is empty — ready for the peacekeeper module
+- `registry.rs::build_registry()` is currently empty — needs Peacekeeper registration
+- Key API mismatch: `spawn()` trait takes `&mut EntityCommands` (no asset access) vs current `spawn_peacekeeper()` which takes `&mut Commands` + mesh/material handles — documented in plan
+- Mapped all Peacekeeper data sources: stats from `unit_data.rs`, ObjectType from `objects.rs`, cost from `structures.rs`, command slots from `grid_layout.rs`, spawn components from `utils.rs`
+
+**Output**: Sent `planned_task` to developer with full technical context including all data values, component lists, import paths, and spawn function differences.
+Session complete. Here's what I did:
+
+1. **Forum pass**: No open forum topics — nothing to engage with.
+2. **Processed `entity-migration-gdo-units`**: Migrating the SupplyChopper into a declarative entity definition file.
+   - Investigated all current SupplyChopper data sources across 6 files (objects.rs, structures.rs, utils.rs, grid_layout.rs, movement.rs, types.rs)
+   - Mapped the entity definition trait pattern from `entities/types.rs`
+   - Documented all stats, movement params (DragMovementParams with unit conversions), command slots (6 entries), production cost (100 SC / 160 frames), and spawn components
+   - Noted the EntityCommands limitation for visual components
+   - Sent the planned_task to the developer with full technical context
+3. **Updated session log** with findings.
+Done. Here's a summary of this session:
+
+**Processed**: `task_splitter-entity-migration-gdo-buildings.md` → planned task sent to developer
+
+**Investigation covered**:
+- The existing Peacekeeper entity definition pattern (the pilot implementation)
+- The `EntityDefinition` + `StructureDefinition` trait hierarchy and `EntityRegistry`
+- All 6 GDO structures' data across 4 source files (stats, ObjectType, symmetry, costs, spawn components, command slots)
+- The empty GDO buildings module scaffold ready for new files
+
+**Key context provided to developer**:
+- Exact stat values and source locations for each of the 6 structures
+- Command slot mappings per interface state (DC has 4 states, BK/EF/ST have 1 each, PP/EP are Inert)
+- Spawn function adaptation guidance (EntityCommands vs Commands, no visual components)
+- ExtractionPlate's `attached_patch` limitation with SpawnParams
+- Registry registration changes needed (count goes from 1 to 7)
+- Test pattern following Peacekeeper's example
+Task complete. Here's a summary of what I did:
+
+**Session: Planned `entity-migration-syndicate-units`**
+
+1. **No forum topics** to address — `forum/open/` is empty.
+2. **Picked up** the `entity-migration-syndicate-units` developer_task from pending.
+3. **Investigated** the codebase thoroughly:
+   - The **Peacekeeper pilot** at `entities/factions/gdo/units/peacekeeper.rs` — the canonical pattern to follow
+   - **Entity definition traits** (`EntityDefinition`, `UnitDefinition`) and registry in `entities/types.rs` and `registry.rs`
+   - **Agent spawn** (`utils.rs:497-592`) — identified critical differences: `MELEE_RANGE` override, `AgentCarryState` component, `TunnelSpaceCost`
+   - **Guard spawn** (`utils.rs:595-690`) — standard ranged attack range, no `AgentCarryState`, still has `TunnelSpaceCost`
+   - **Agent constants** in `unit_data.rs` (9 gathering/building constants + 3 shared constants)
+   - **Command panel grid** in `grid_layout.rs` — Agent has 2 interface states (Default + AgentMenu with 2 sub-states), Guard has only Default
+   - **Production costs** from `HeadquartersState::production_cost` (Agent: 100/160, Guard: 125/120)
+4. **Sent planned_task** with detailed technical context covering every file to create/modify, all import paths, ECS considerations (EntityCommands vs Commands, visual component gap), and key pitfalls (MELEE_RANGE, AgentCarryState).
+5. **Moved** developer_task to done, appended session log.
+Session complete. I planned the `entity-migration-syndicate-buildings` task:
+
+- **Investigated** the entity definition system (traits, registry, pilot patterns), Syndicate structure stats, spawn functions, command panel grid layout, and cost functions
+- **Produced** a detailed `planned_task` with:
+  - Exact source locations for all data to migrate (stats, ObjectType, costs, command slots, spawn components)
+  - Full import paths for all needed types
+  - SpawnParams limitation workarounds (HQ's parent_tunnel, Tunnel's build_frames)
+  - Tunnel's dynamic cost functions vs fixed StructureCost distinction
+  - Conditional command slot considerations
+  - Test structure following the Peacekeeper pattern
+- **7 remaining** developer_tasks in the pending queue for this feature
+Done. Session complete:
+
+- **No forum topics** to address
+- **Processed**: `entity-migration-cults-units` developer_task
+- **Produced**: `planned_task` sent to developer with detailed technical context covering all 3 Cults units (Recruit, Soldier, Gunner), including exact source data locations, trait implementation patterns, command slot mappings, spawn component gaps, cost values, and comprehensive test patterns following the Agent/Guard template
+- **Moved**: developer_task to done
+Task complete. I planned `entity-migration-cults-buildings` — investigated all 3 Cults structures (RecruitmentCenter, CultsStorage, CultsArmory), mapped their stats, costs, command slots, and spawn components from the scattered source files, and produced a detailed `planned_task` with:
+
+- **3 new files** to create (one per entity definition)
+- **2 files** to modify (cults buildings mod.rs, registry.rs)
+- Exact stat values, import paths, command slot layouts, and spawn component lists for each structure
+- Test patterns matching the GDO building reference implementation
+- Dependencies on sibling tasks (entity-registry-grid-layout, entity-definition-cleanup)
+Task complete. Here's a summary of what I did this session:
+
+1. **Forum check**: No open forum topics — nothing to address.
+2. **Picked up `entity-migration-neutral`** developer_task from pending queue.
+3. **Investigated the codebase**:
+   - Confirmed `EntityKind::Resource` exists in `types.rs` but has no `register_resource()` method — developer must add it.
+   - Read the current ObjectType data for both SpaceCrystalsPatch and SupplyDeliveryStation from `objects.rs`.
+   - Read the component definitions (`SpaceCrystalPatch`, `SupplyDeliveryStation`) from `world/types.rs`.
+   - Read the full spawn logic from `world/resources.rs` for both entity types.
+   - Studied the Peacekeeper entity definition as the canonical pattern to follow.
+   - Identified that `FactionEnum` lacks a Neutral variant — noted convention needed for `BaseStats.faction`.
+   - Identified that `SpawnParams` lacks resource-specific fields — recommended defaults approach.
+   - Confirmed `entities/neutral/mod.rs` exists but is essentially empty (just a doc comment).
+4. **Produced a `planned_task`** with comprehensive technical context: files to create/modify, exact data to migrate, the `register_resource` method pattern, import lists, test patterns, and SpawnParams gap analysis.
+5. **Moved task to done** and updated session log.
+Task complete. Here's a summary of what I did this session:
+
+1. **No forum topics** to process.
+2. **Picked up** `task_splitter-entity-registry-grid-layout.md` — replacing hardcoded command panel grid layout match with EntityRegistry lookups.
+3. **Investigated** the codebase:
+   - Read the full `grid_layout.rs` match (155 lines, 11 conditional guards across structure/unit states)
+   - Read `EntityRegistry`, `RegistryEntry`, `CommandSlotDef` types and the TODO for conditions
+   - Identified all 3 callers (hotkeys.rs, ui_rebuild.rs, helpers.rs tests)
+   - Checked which entities are registered (13) vs which still need migration (Syndicate buildings, Cults buildings, neutral)
+   - Mapped the ObjectInterfaceState → ObjectEnum lookup strategy
+   - Identified the conditional slot problem (no condition field yet) and recommended adding `SlotCondition` enum
+4. **Sent** the `planned_task` with comprehensive technical context including file paths, type references, the conditional slot problem with two options, lookup strategy, dependency chain, and test update guidance.
+5. **Moved** the developer_task to done and updated the session log.
+Session complete. Here's a summary of what I did:
+
+**Processed:** `entity-registry-spawn-dispatch` developer_task → planned_task
+
+**Investigation covered:**
+- `EntityRegistry` structure in `game/entities/types.rs` — confirmed no `spawn()` method exists yet; `spawn_fn` stored as `fn(&mut EntityCommands, SpawnParams)`
+- All ~40+ spawn call sites across 8 files: production systems (barracks, HQ, supply tower, RC, armory), construction completion, placement systems, game setup, test utility, and test harness
+- `SpawnParams` gap analysis: missing `flip_horizontal`/`flip_vertical` fields; extra params needed by HQ (`parent_tunnel`), EP (`attached_patch`), tunnel under construction (`build_frames`)
+- Entity definition spawn pattern (peacekeeper.rs, base.rs) — confirmed they insert gameplay components only, NO visual components (Mesh3d/MeshMaterial3d)
+- Syndicate and Cults building entity definition directories are stubs — flagged as warning for developer
+
+**Output:** Detailed planned_task with 10 numbered sections covering the registry method addition, all call site categories, SpawnParams extensions, post-insert patterns for extra components, and the mesh/material visual component handling strategy.
+Done. Here's a summary of this session:
+
+**Task processed**: `hud-bar-five-section-scaffold` (parent: `task_splitter-hud_bar_layout.md`)
+
+**Investigation performed**:
+- Read `ui/hud.rs` `setup_hud` to understand the current 3-section bottom panel layout (Minimap | UnitsGridSection | CommandPanel)
+- Read `ui/types.rs` for existing marker components and relevant resources
+- Read `ui/mod.rs` for HudPlugin system registration pattern
+- Read the `control_system.md` design doc's HUD Bar section for the 5-section spec and visibility rules
+- Checked `Selection` resource methods (`total_entity_count()`) and `SelectedUnitCapabilities::owned_by_local_player` for visibility logic
+- Verified `update_selected_units_grid_system` queries `With<UnitsGridSection>` to plan backward compatibility
+
+**Planned task sent** to `messages/developer/planned_task/pending/task_planner-hud-bar-five-section-scaffold.md` with:
+- 3 new marker components (`PortraitSection`, `InfoPanelSection`, `SelectionPanelSection`)
+- Detailed restructuring of `setup_hud` from 3 to 5 sections with explicit widths
+- `hud_section_visibility_system` using `Visibility::Hidden`/`Visibility::Inherited` for fixed-position layout
+- Backward compatibility: dual-marking InfoPanel with `UnitsGridSection` so existing system continues working
+- System ordering constraint: after `update_command_panel_state`
+Done. Here's a summary of this session:
+
+**Processed:** `entity-registry-costs` developer_task
+
+**Investigation performed:**
+- Verified `EntityRegistry` already stores `cost: Option<StructureCost>` in each `RegistryEntry`, populated from entity definition files' `fn cost()` implementations
+- Mapped all 5 hardcoded cost methods in `structures.rs` (`DeploymentCenterState::construction_cost`, `BarracksState::production_cost`, `HeadquartersState::production_cost`, `ExtractionFacilityState::construction_cost`, `SupplyTowerState::production_cost`)
+- Traced 25+ call sites across `actions.rs`, `helpers.rs`, `ui_rebuild.rs`, and `hud.rs`
+- Confirmed cost parity between all 9 entity definition files and hardcoded values
+- Identified the Armory special case (uses raw constants, not a `production_cost()` method)
+- Mapped the parameter threading path: `EntityRegistry` resource needs to reach `execute_command_action()` via its two callers in `hotkeys.rs`
+
+**Output:** `planned_task` sent to developer with 7 files to modify, cost parity verification, and specific line numbers for all change sites.
+Session complete. I planned the `entity-definition-cleanup` developer_task:
+
+**Summary:**
+- **Task**: Final cleanup for the declarative entity definitions feature (Phase 7) — remove all legacy spawn functions, type_data wrappers, hardcoded ObjectType match arms, structure stat modules, and cost match arms that have been superseded by the EntityRegistry and per-entity definition files.
+- **Key investigation findings**:
+  - `game/utils.rs`: 22 spawn functions to remove (~1,100 lines), keep `billboard_label_system` + `spawn_ghost_side_labels`
+  - `unit_data.rs`: Thin wrapper functions (lines 115-217) to remove, keep shared types (lines 1-114) + `frames_to_seconds`
+  - `objects.rs`: Remove `ObjectEnum::object_type()` match (lines 215-360), keep `ObjectType`/`ObjectInstance`/`StructureInstance`
+  - `structures.rs`: Remove 3 stat constant modules (lines 390-491) + cost match arms, keep all Component types
+  - `grid_layout.rs`: Verify post-wiring state
+  - ~80+ caller sites across 15+ files need import path updates
+- **Critical dependencies**: This task must wait for 3 sibling tasks to complete first (entity-registry-costs, entity-registry-grid-layout, entity-registry-spawn-dispatch)
+Done. Here's a summary of this session:
+
+**Task processed**: `hud-bar-content-redistribution`
+
+**What I did**:
+1. Loaded insights, checked forum (no open topics), found one pending developer_task
+2. Investigated `hud.rs` thoroughly — the monolithic `update_selected_units_grid_system` (lines 312-973, ~660 lines) with 5 render branches
+3. Mapped all marker components, helper functions, system registration, and dependencies
+4. Confirmed the scaffold task (`hud-bar-five-section-scaffold`) is complete — the 5-section layout exists with `UnitsGridSection` backward-compat shim
+5. Produced a detailed `planned_task` with:
+   - Exact line numbers for every code section to migrate
+   - Which system absorbs which branch of the monolithic function
+   - System ordering requirements (portrait click system must follow SelectionPanel)
+   - Query splitting guidance across the three new systems
+   - Test update requirements
+6. Sent the planned_task to developer, moved developer_task to done
+7. Updated insights with HUD architecture notes, appended session log
+Session complete. Here's a summary of what I did:
+
+**Forum work**: Investigated the 3 HUD/UI bugs reported in `2026-03-25T00-00-00Z-operator-hud-ui-bugs.md` and added a detailed technical comment:
+
+1. **Bug 1 (Peacekeeper no command panel)**: Static analysis shows the code path should work — Peacekeeper has `Unit` component, falls to `Default` interface state, has 6 command slots in the EntityRegistry. Needs runtime investigation to identify the actual cause.
+
+2. **Bug 2 (EF "Build" label)**: **Confirmed root cause** — `grid_button_label()` in `helpers.rs:327` has specific label arms for PowerPlant, Barracks, and SupplyTower but ExtractionFacility falls through to the generic `DcBuild(_) => "[{}] Build"` catch-all. Simple one-line fix.
+
+3. **Bug 3 (Extra portrait tile)**: Identified that `UnitIcon`/`StructureIcon`/`ResourceIcon` marker components are shared between the info panel and selection panel systems, causing the info panel's global queries to include selection panel icons, leading to incorrect rebuild decisions and potential duplicate/orphaned UI elements.
+
+**No pending developer_tasks** to process.
+Session complete. Here's a summary of what I did:
+
+1. **Forum**: Voted to close `2026-03-25T00-00-00Z-operator-hud-ui-bugs.md` (already contributed detailed analysis in a prior session).
+
+2. **Processed developer_task**: `task_splitter-fix_hud_ui_bugs.md` — three HUD/UI bugs.
+
+3. **Key investigation findings**:
+   - **Bug 1 (Peacekeeper no command panel)**: Identified root cause as an `owned_by_local_player` field overwrite in `update_command_panel_state` (state.rs). The function correctly sets `owned_by_local_player = true` at lines 155-157, but then `compute_selected_unit_capabilities()` returns a default struct with `owned_by_local_player: false`, and the full-struct overwrite at lines 290-292 resets it. This affects ALL player-owned units, not just Peacekeeper.
+   - **Bug 2 (EF build button label)**: Confirmed missing match arm in `grid_button_label()` at helpers.rs:327. Corrected the cost from 75 SC (ExtractionPlate) to 200 SC (ExtractionFacility).
+   - **Bug 3 (Extra portrait tile)**: Identified cross-contamination between info panel and selection panel due to shared `UnitIcon`/`StructureIcon`/`ResourceIcon` marker components with unscoped global queries.
+
+4. **Output**: Sent detailed `planned_task` to developer with specific file paths, line numbers, code snippets, and fix recommendations for all three bugs.
+**Session complete.** Here's what happened:
+
+1. **Loaded insights** — read codebase map and architectural patterns
+2. **Forum pass** — Found one open topic (`operator-hud-ui-bugs.md`). I had already contributed analysis but hadn't voted to close. Cast my close vote — all required agents had voted, so the topic moved to `closed/`.
+3. **Message check** — No pending or active `developer_task` messages. All 107 tasks are in `done/`.
+4. **No stuck messages** — Nothing in `active/` needing recovery.
+
+No work to do this session. Exiting cleanly.
+Done. Here's a summary of this session:
+
+**Processed**: `action-channels-targeted-attack-fix` developer task
+
+**Investigation**: Read the two primary files (`attacking_object_behavior_system` in behaviors.rs and `attack_channel_sync_system` in core.rs), confirmed the root cause — the behavior system uses legacy `MoveTarget/Path` for approach movement but doesn't write to `LocomotionChannel`, while the sync system unconditionally forces `LocomotionChannel::Stationary` during attack phases regardless of range.
+
+**Produced**: A detailed `planned_task` with:
+- Exact query changes needed for both systems
+- Code patterns to follow (from movement.rs, construction.rs)
+- Range-check logic for the sync system (with elevation adjustment references)
+- System ordering context
+- Test guidance for both in-range and out-of-range scenarios
+
+**Artifacts updated**: insights.md (added Targeted Attack Channel Fix Pattern section), log.md (session entry)
+Done. Here's a summary of this session:
+
+**Processed**: `action-channels-attackmove-target-lock` developer_task → planned_task
+
+**Investigation findings**:
+- The `attack_move_behavior_system` (combat/systems/behaviors.rs:218-373) has a leash check at lines 263-291 that unconditionally disengages targets when unit drifts >6.0 gu from `AttackMoveOrigin` — even during active attack cycles
+- Fix: Replace distance-from-origin check with weapon-range-based logic using `AttackCapability.range` (already in the query). Stay locked while target is alive and within `weapon_range + ATTACK_MOVE_LEASH_DISTANCE`. On target death, scan for new enemies before resuming path.
+- Key types identified: `AttackCapability.range`, `AttackState.phase`/`target_entity()`, `AttackMoveOrigin`, `AttackPhase`
+
+**Sent**: planned_task to developer with full technical context, specific line references, code sketch, and test guidance.
+Done. Here's a summary of this session:
+
+**Processed**: `task_splitter-cults_game_start_fixes.md` → `task_planner-cults_game_start_fixes.md`
+
+**Investigation findings**:
+1. **Camera bug**: `center_camera_on_start` (setup.rs:263-267) uses `_ => return` wildcard that skips Cults. Simple fix: add `FactionEnum::TheCults => ObjectEnum::RecruitmentCenter` to the match.
+2. **Enemy overlap bug**: `setup_enemy_test_units` (setup.rs:283-316) hardcodes positions at (50,50) — same as Cults RC. The `selected` resource is already a param but unused. Fix: branch on faction to choose positions.
+3. **Missing crystals**: `scp_data` array in resources.rs only has patches near (30,30). Fix: add 2-3 entries near (50,50).
+
+**Planned task sent** to developer with full file paths, line references, coordinate mapping, existing test patterns to follow, and key type references.
+Done. Here's a summary of this session:
+
+**Task processed**: `agent_tunnel_placement_ghost_fix`
+
+- **Issue**: The `manage_placement_ghost` system in `placement.rs` is missing a match arm for `AgentAwaitingPlacement`, so no ghost entity spawns when an Agent initiates Build Tunnel placement.
+- **Fix**: Add one match arm (`AgentMenu(AgentAwaitingPlacement) => placement_state.building_type`) at line 54, following the identical pattern used by `TunnelAwaitingPlacement` and `RecruitAwaitingPlacement`.
+- **Sent**: `planned_task` to developer with full technical context, file path, exact edit location, and verification steps.
+- No forum topics needed attention. No architectural concerns discovered.
+**Session complete.** Here's what I did:
+
+1. **Forum pass**: Reviewed the open topic `qa_router_patterns_too_broad` raised by automatic_qa. After investigating the routing script (`scripts/qa_router.sh`) and the `auto_capabilities.txt` patterns, I confirmed the issue — broad single-word patterns like `verify`, `select`, `click`, `press` match virtually every QA instruction, causing everything to route to automatic_qa instead of manual_qa. I commented with technical analysis and voted to close.
+
+2. **No pending developer_tasks** — nothing to plan this session.
+**Session complete.** No work to process this run:
+
+- **Forum**: Voted to close the `qa_router_patterns_too_broad` topic — consensus was already reached and I had commented in a prior session. The fix (narrowing `auto_capabilities.txt` patterns) is a pipeline_builder responsibility.
+- **Tasks**: No pending `developer_task` messages and no stuck active tasks.
+Done. Here's a summary of what I accomplished this session:
+
+1. **Forum**: Voted to close the `qa_router_patterns_too_broad` topic (consensus was already reached; fix is pipeline_builder's responsibility).
+
+2. **Task**: Planned `agent_command_behavior_bridge` — this task fixes a bug where Agent-specific commands (Gather, DropOffResources, BuildTunnel) silently do nothing because behavior components aren't inserted alongside the UnitCommand. The planned_task includes:
+   - 5 exact fix locations across `command_dispatch.rs` and `placement.rs`
+   - Verified that all needed behavior types are already accessible via existing imports
+   - Referenced the working SupplyChopper pattern as the model to follow
+   - Noted the `cmd` ownership concern in the tunnel right-click path (Fix 4)
+   - Suggested test assertions to add for behavior component presence
+Session complete. Here's what I did:
+
+1. **Forum pass**: Reviewed the open topic about integration/scenario test compilation regression. The software_architect had already analyzed the issue thoroughly (17 compilation errors across 5 files due to moved imports from the entity definitions refactoring). I commented confirming the fix strategy is sound and noting I'll provide precise import path mappings when the tasks flow through. Voted to close.
+
+2. **No pending developer_tasks** — no tasks to plan this session.
+**Session complete.** Here's what happened:
+
+- **Forum pass**: Recorded my close vote on the integration test compilation regression topic (I had commented previously but the vote wasn't captured). Topic now has 3 close votes: designer, automatic_qa, task_planner.
+- **No pending work**: No developer_tasks in pending or active queues.
+- **Session log updated** and exiting cleanly.
+**Session complete.** Here's what happened:
+
+- **Forum pass**: Engaged with the new `auto-capabilities-patterns-too-broad` topic from automatic_qa — confirmed the technical issue (broad verb patterns like "verify", "click", "select" match all QA instructions, causing interactive items to cycle through automatic_qa). Commented and voted to close.
+- **No pending developer_tasks** — nothing to plan this session.
+- Session log updated.
+**Session complete.** Summary:
+
+- **Forum**: Voted to close the `auto-capabilities-patterns-too-broad` topic (I'd already commented previously; just needed my close vote). The other topic (`integration-test-compilation-regression`) already had my vote.
+- **Tasks**: No pending `developer_task` messages to process.
+- **No stuck work** in active queues.
+
+Clean exit — no actionable work remaining.
+**Session complete.** Here's what happened:
+
+- **Forum pass**: Voted to close both open forum topics:
+  1. **Integration test compilation regression** — already commented in a prior session; the architecture_request is the right fix mechanism
+  2. **Auto capabilities patterns too broad** — already commented; needs pipeline_builder to update `auto_capabilities.txt`
+- **No pending developer_tasks** — nothing to plan this session
+- Updated session log and exited cleanly
+Session complete. Here's what I did:
+
+**Forum pass**: Both open forum topics (`integration-test-compilation-regression` and `auto-capabilities-patterns-too-broad`) already had my close vote — no action needed.
+
+**Planned task: `agent_rightclick_gather_fix`**
+
+Investigated the right-click Gather bug for Syndicate Agents on crystal patches. Key findings:
+
+1. **Command dispatch logic is correct** — the gather handler at `command_dispatch.rs:343-392` properly checks for right-click + Default mode + Agent selected, queries for SpaceCrystalPatch/SDS components, and issues `UnitCommand::Gather` + inserts `GatheringResourceBehavior`. Existing unit tests pass by mocking CursorTarget directly.
+
+2. **Cursor target detection** — `update_cursor_target` uses ray-AABB intersection. Crystal patches have `SelectionBounds::from_dimensions(0.6, 0.8, 0.6)` with 0.3 click padding. The most likely root cause is an AABB detection miss, causing the system to fall through to a ground Move command instead of Gather.
+
+3. **System ordering is correct** — UiHud (cursor detection) runs before Movement (command dispatch).
+
+4. **Secondary bug found** — No left-click entity handler exists for `AwaitingTarget(CommandType::Gather)` mode, so pressing G then left-clicking a crystal does nothing.
+
+Sent the planned_task to the developer with detailed diagnosis strategy, file paths, line numbers, and the full code flow trace.
+Session complete. Here's a summary of what was accomplished:
+
+1. **Forum**: Commented on and voted to close the `auto-capabilities-still-misrouting` topic (pipeline_builder/operator concern about QA routing loops).
+
+2. **Planned task: `integration-test-compilation-fix`**:
+   - Investigated the actual compilation errors by running `cargo test --test qa` and `cargo test --test scenarios`
+   - Discovered **7 affected files** (the task description only listed 5 — also found errors in `unit_cap_systems.rs` and `tunnel_expansions_and_starting_condition.rs`)
+   - Mapped all 19 compilation errors to their new entity definition API equivalents
+   - Produced a detailed planned_task with per-file fix guides, exact import paths, code patterns, and a reference table mapping old API → new API
+   - Key migrations: `guard_type_data()` → `SyndicateGuardDef::base_stats()`, `*State::production_cost()` → `<EntityDef>::cost()`, `spawn_syndicate_guard()` → `TestHarness::spawn_unit_at_grid()`
+Session complete. Here's what I did:
+
+1. **Forum pass**: The one open topic (`auto-capabilities-still-misrouting`) already had my close vote from a previous session — no action needed.
+
+2. **Processed `verify_agent_tunnel_building_r1`**: This is a QA rework verification task. The original QA failure was that Build Tunnel (A) didn't produce a ghost placement overlay — caused by a missing `AgentAwaitingPlacement` match arm in `manage_placement_ghost()`. That fix is already in place (placement.rs lines 55-58).
+
+   **Investigation results**:
+   - Confirmed the ghost fix is present in placement.rs
+   - Reviewed the full `building_tunnel_behavior_system` in construction.rs (MovingToSite → validation → cost deduction → spawn → Constructing → completion/destruction)
+   - Ran `cargo test --lib`: **all 2103 tests pass** (216 tunnel, 152 building)
+   - Integration tests have pre-existing compilation errors unrelated to tunnel building
+
+3. **Sent planned_task** to developer as a verification-only task — developer just needs to confirm tests pass and mark complete. No code changes expected.
+**Session complete — no work available.**
+
+- The only open forum topic (`auto-capabilities-still-misrouting`) already has my close vote from a previous session.
+- No pending `developer_task` messages in my inbox.
+- No stuck messages in `active/`.
+
+Exiting cleanly.
+**Session complete — no work available.**
+
+- **Forum**: 1 open topic (`auto-capabilities-still-misrouting`) — re-recorded my close vote which wasn't persisted from a previous session. This is a pipeline_builder/operator concern about overly broad QA routing patterns.
+- **Developer tasks**: No pending or active messages.
+- Appended session log and exiting.
+**Session complete.** 
+
+- **Forum**: Commented on and voted to close the `auto-capabilities-still-misrouting` topic. It's a pipeline_builder concern about overly broad pattern matching in `auto_capabilities.txt` that routes all QA items to automatic_qa instead of manual_qa.
+- **Tasks**: No pending or active developer_tasks to process.
+- Exiting cleanly.
+**Session complete.** Forum-only session:
+
+- **Voted to close** `auto-capabilities-still-misrouting` — already commented last session; pipeline_builder fix needed
+- **Commented and voted to close** `designer-no-work-available` — scheduler config issue, not relevant to task_planner
+- No pending developer_tasks to process
+- Updated session log and exiting
+**Session complete.** No work available this cycle:
+
+- **Forum**: Voted to close the `auto-capabilities-still-misrouting` topic (I had already commented in a previous session; all agents agree it's a pipeline_builder fix).
+- **Pending tasks**: None in `messages/task_planner/developer_task/pending/`.
+- **Active tasks**: None stuck in `messages/task_planner/developer_task/active/`.
+
+Clean exit.
+**Session complete — no work available.**
+
+- **Forum**: Voted to close the `auto-capabilities-still-misrouting` topic (already commented in a prior session; it's a pipeline_builder concern).
+- **Pending tasks**: None in inbox.
+- **Stuck messages**: None in active/.
+
+Clean exit. The scheduler can re-launch when new developer_tasks arrive.
+**Session complete.** Here's what I did:
+
+1. **Forum pass**: Engaged with the open topic about `auto_capabilities.txt` misrouting all QA items to automatic_qa. Confirmed the diagnosis — the file contains overly broad single-word patterns (`verify`, `select`, `click`, `use`, etc.) that match virtually every QA instruction. Commented with analysis and voted to close, noting the fix belongs to pipeline_builder.
+
+2. **No developer_tasks** to process — both pending and active queues are empty.
+
+Exiting after forum work.
+**Session complete.** Summary:
+
+- **Forum**: Voted to close the `auto-capabilities-still-misrouting` topic. This is a pipeline_builder/operator issue (overly broad patterns in `auto_capabilities.txt` routing all QA items to automatic_qa). Already commented in a prior session; now added close vote.
+- **Messages**: No pending `developer_task` messages in queue. No stuck messages in `active/`.
+- **Result**: Clean no-work exit.
+**Session complete.** Here's what happened:
+
+1. **Forum pass**: Voted to close the `auto-capabilities-still-misrouting` forum topic. I had already commented on it previously — the issue is a pipeline configuration problem (overly broad patterns in `auto_capabilities.txt`) that needs pipeline_builder or operator intervention, not task_planner.
+
+2. **No pending work**: No `developer_task` messages in pending or active queues.
+
+No-work session — exiting cleanly.
+**Session complete.** Here's what I did:
+
+1. **Loaded insights** — reviewed codebase map and architectural patterns
+2. **Forum pass** — Found one open topic about `auto_capabilities.txt` causing infinite QA bounce loops for 6 items. Commented in support of the proposed fix (restrict patterns to cargo/test commands only) and voted to close.
+3. **No pending developer_tasks** — inbox was empty, nothing stuck in active. Exiting cleanly.
+**Session complete.** Here's what happened:
+
+- **Forum**: Voted to close the `auto-capabilities-critical-misrouting` topic (I had already commented in a prior session; added my close vote now — 3 of the required votes are now in: automatic_qa, software_architect, task_planner).
+- **Tasks**: No pending `developer_task` messages in my inbox and no stuck active tasks.
+- **Outcome**: No-work session. Logged and exiting.
+**Session complete.** Here's what I did:
+
+1. **Loaded insights** — reviewed codebase map and patterns.
+2. **Forum pass** — Found one open topic about `auto_capabilities.txt` causing infinite QA bounce loops (6 items cycling 20+ times). I commented confirming that all affected items require interactive testing and the proposed fix is appropriate, then voted to close.
+3. **No pending developer_tasks** — nothing to plan this session.
+**Session complete.** 
+
+- **Forum**: Voted to close the `auto-capabilities-must-be-narrowed` topic. I had already commented with my technical analysis; now added my close vote since the issue is fully understood and just needs pipeline_builder to apply the fix.
+- **Tasks**: No pending `developer_task` messages and no stuck active tasks. Nothing to plan this session.
+**Session complete.** Here's what I did:
+
+1. **Forum pass**: Reviewed the open topic about `auto_capabilities.txt` causing an infinite QA bounce loop (6 items cycling 25+ times). Added a comment agreeing that pipeline_builder needs to narrow the patterns, and voted to close.
+2. **No pending tasks**: The developer_task inbox is empty — nothing to plan this execution.
+3. **Logged session**: Appended summary to `artifacts/task_planner/log.md`.
+**Session complete.** Here's what happened:
+
+- **Forum**: Voted to close the auto_capabilities infinite bounce loop topic (already commented previously — this is a pipeline_builder issue, not in my domain)
+- **Tasks**: No pending or active `developer_task` messages to process
+- **Result**: Clean no-work session; appended to log and exiting
+**Session complete.** Here's what I did:
+
+1. **Forum pass**: Engaged with the open topic about `auto_capabilities.txt` broad patterns causing QA items to bounce infinitely. Commented agreeing with the fix and voted to close — it's pipeline_builder's responsibility.
+2. **No pending tasks**: No developer_tasks waiting in my inbox, no stuck active tasks.
+3. **Updated session log** and exiting.
+**Session complete.** 
+
+- **Forum**: Voted to close the `auto-capabilities-must-be-narrowed` topic — I had already commented in a prior session but was missing my close vote. The issue requires pipeline_builder to narrow the QA routing patterns.
+- **Tasks**: No pending `developer_task` messages to process and no stuck active tasks.
+- No planned_tasks produced this session.
+**Session complete.** Here's what I did:
+
+1. **Forum pass**: Engaged with the one open topic (`auto-capabilities-must-be-narrowed`) — the automatic_qa agent flagged that overly broad patterns in `auto_capabilities.txt` are causing 6 QA items to bounce infinitely. I commented agreeing with the diagnosis and proposed fix, then voted to close. This is a pipeline_builder fix.
+
+2. **No developer_tasks** were pending or stuck in active, so no planning work was needed.
+
+Clean exit.
+**Session complete.** 
+
+- **Forum**: Voted to close the `auto-capabilities-must-be-narrowed` topic. The fix was already applied by software_architect (broad single-word patterns replaced with narrow automatable patterns in `auto_capabilities.txt`). All agents had agreed on the solution.
+- **Tasks**: No pending or active `developer_task` messages to process.
+- Appended session summary to log. Exiting.

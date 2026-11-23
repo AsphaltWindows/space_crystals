@@ -1,8 +1,8 @@
 use crate::helpers::*;
-use bevy::ecs::system::RunSystemOnce;
-use space_crystals::game::units::types::unit_data::{
-    guard_type_data, guard_attack_data, GUARD_CONTROL_COST, GUARD_TUNNEL_SPACE_COST, GUARD_RUGGED_BONUS,
+use space_crystals::game::entities::factions::syndicate::units::guard::{
+    SyndicateGuardDef, GUARD_CONTROL_COST, GUARD_TUNNEL_SPACE_COST, GUARD_RUGGED_BONUS,
 };
+use space_crystals::game::entities::types::{EntityDefinition, UnitDefinition};
 use space_crystals::game::combat::types::{AttackCapability, AttackType};
 use space_crystals::game::units::types::movement::MovementSpeed;
 use space_crystals::simulation::{FRAMES_PER_SECOND, SPACE_UNITS_PER_GRID_UNIT};
@@ -30,17 +30,12 @@ fn step_2_guard_spawn_stats() {
     let mut test_app = TestApp::new();
     test_app.step(); // startup
 
-    // Spawn a Guard using the spawn function via run_system_once
-    let guard_entity = test_app.app.world_mut().run_system_once(|
-        mut commands: Commands,
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
-    | -> Entity {
-        space_crystals::game::utils::spawn_syndicate_guard(
-            &mut commands, &mut meshes, &mut materials,
-            20, 20, Owner(Some(0)),
-        )
-    }).unwrap();
+    // Spawn a Guard using TestHarness
+    let guard_entity;
+    {
+        let mut harness = TestHarness::new(&mut test_app.app);
+        guard_entity = harness.spawn_unit_at_grid(ObjectEnum::SyndicateGuard, 20, 20, Owner(Some(0)));
+    }
 
     // Flush commands
     test_app.step();
@@ -54,10 +49,10 @@ fn step_2_guard_spawn_stats() {
     assert_eq!(obj_instance.hp, Some(80.0), "Guard HP should be 80");
 
     // Verify type data: armor
-    let type_data = guard_type_data();
-    assert_eq!(type_data.point_armor, 1, "Guard point armor should be 1");
-    assert_eq!(type_data.full_armor, 1, "Guard full armor should be 1");
-    assert_eq!(type_data.max_hp, 80, "Guard max HP from type data should be 80");
+    let base_stats = SyndicateGuardDef::base_stats();
+    assert_eq!(base_stats.point_armor, 1, "Guard point armor should be 1");
+    assert_eq!(base_stats.full_armor, 1, "Guard full armor should be 1");
+    assert_eq!(base_stats.max_hp, 80, "Guard max HP from type data should be 80");
 
     // Verify movement speed (5 SU/frame * 16 FPS / 64 SU/GU = 1.25 GU/s)
     let expected_speed = 5.0 * (FRAMES_PER_SECOND as f32) / (SPACE_UNITS_PER_GRID_UNIT as f32);
@@ -74,7 +69,7 @@ fn step_2_guard_spawn_stats() {
     assert!(matches!(attack.attack_type, AttackType::FullyConnected { .. }), "Guard should have FullyConnected attack");
 
     // Verify attack data details
-    let attack_data = guard_attack_data();
+    let attack_data = SyndicateGuardDef::attack_data().expect("Guard should have attack data");
     assert_eq!(attack_data.damage, 6);
     assert_eq!(attack_data.range, 3);
     assert_eq!(attack_data.aim_duration, 2);

@@ -178,7 +178,11 @@ fn barracks_production_increments_unit_control() {
 
         // Configure barracks production — near completion
         let mut bk_state = world.get_mut::<BarracksState>(barracks_entity).unwrap();
-        let cost = BarracksState::production_cost(&ObjectEnum::Peacekeeper).unwrap();
+        let cost = {
+            use space_crystals::game::entities::factions::gdo::units::peacekeeper::Peacekeeper;
+            use space_crystals::game::entities::types::EntityDefinition;
+            Peacekeeper::cost().unwrap()
+        };
         bk_state.current_build = Some(ObjectEnum::Peacekeeper);
         bk_state.current_build_progress = Some(cost.build_frames as f32 - 0.5);
 
@@ -237,7 +241,11 @@ fn barracks_production_spawns_even_at_cap() {
         let world = test_app.app.world_mut();
 
         let mut bk_state = world.get_mut::<BarracksState>(barracks_entity).unwrap();
-        let cost = BarracksState::production_cost(&ObjectEnum::Peacekeeper).unwrap();
+        let cost = {
+            use space_crystals::game::entities::factions::gdo::units::peacekeeper::Peacekeeper;
+            use space_crystals::game::entities::types::EntityDefinition;
+            Peacekeeper::cost().unwrap()
+        };
         bk_state.current_build = Some(ObjectEnum::Peacekeeper);
         bk_state.current_build_progress = Some(cost.build_frames as f32 - 0.5);
 

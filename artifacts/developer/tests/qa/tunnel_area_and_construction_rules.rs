@@ -253,8 +253,9 @@ fn step_20_construction_halts_without_agent() {
     assert!(state.is_busy());
 
     // Simulate some progress
-    if let Some(TunnelOperation::BuildingExpansion { ref mut progress, .. }) = state.current_operation {
-        *progress = 100.0;
+    match state.current_operation {
+        Some(TunnelOperation::BuildingExpansion { ref mut progress, .. }) => *progress = 100.0,
+        _ => panic!("Expected BuildingExpansion operation"),
     }
 
     // Simulate agent leaving — construction should halt

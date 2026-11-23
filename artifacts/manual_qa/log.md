@@ -150,3 +150,67 @@
 - QA item moved to done
 
 **Session ended** — 1 QA item processed, 1 rework sent. Remaining pending items (~44) deferred; many blocked by elevation rendering issues.
+
+## 2026-03-23T22:28 — QA Session
+
+### Forum
+- No open topics needing attention.
+- Filed 2 new forum topics:
+  - `explored-objects-selectable` — objects in fog of war selectable + show full info
+  - `extraction-plate-disappears-on-depletion` — plate vanishes when crystal patch depletes
+
+### QA Items Processed
+
+**1. unit_command_system** — ❌ Rework filed (`unit_command_system_r1`)
+- ✅ Move to ground, Move to object
+- ❌ Attack command (unit stops in place instead of pursuing)
+- ❌ Shift-click queuing (only first command executes)
+- ⛔ All hotkey-based commands blocked (hotkeys not functional)
+
+**2. resource_nodes** — ❌ Rework filed (`resource_nodes_r1`)
+- ✅ Crystal patches appear 1x1, InfoPanel shows RemainingAmount, depletion works, SDS 2x2, SDS InfoPanel, no owner/vision
+- ❌ Fog of war: RemainingAmount and CurrentSupplies shown when not visible
+- ⛔ Indestructibility blocked (attack broken), SDS delivery countdown blocked (no supply mining)
+
+**3. gdo_barracks** — ❌ Rework filed (`gdo_barracks_r1`)
+- ✅ Build from DC, 3x2 ABAC, production queue, cancel/refund, Side B spawn, rally to ground, right-click rally, power -30, build radius +2
+- ❌ Rally point on enemy: unit moves slightly then stops (same attack bug)
+- ⛔ Destroyed rally target reset blocked
+
+## 2026-03-28T15:50:00Z — QA Session (5 items)
+
+### QA Items Processed
+
+**1. action_channels** — ❌ Rework filed (`action_channels_r1`)
+- ✅ Unit stops moving when engaging via Attack-Move, faces target, Move command interrupts attack
+- ❌ Targeted attack broken (A+click unit / right-click unit — unit just stops)
+- ❌ Attack-Move doesn't maintain target lock (fires once, resumes moving)
+- ⛔ Steps 4-6 blocked (can't observe distinct phases without target lock)
+- ⛔ Steps 7-10 blocked (no turret units available)
+
+**2. add_cults_armory** — ❌ Rework filed (`add_cults_armory_r1`)
+- ⛔ All steps blocked — Cults faction has no starting buildings/units
+
+**3. agent_groupable_construction** — ❌ Rework filed (`agent_groupable_construction_r1`)
+- ✅ Agents are ungroupable, individual portraits, single Agent command panel, Tab/Shift-Tab cycling
+- ❌ Tunnel placement overlay doesn't appear — can't start construction
+- ⛔ Steps 5-7 blocked (single-Agent construction enforcement untestable)
+
+**4. agent_interface** — ❌ Rework filed (`agent_interface_r1`)
+- ✅ Panel shows Build Tunnel (A) and Drop Off Resources (B), right-click ground moves, multi-Agent move works
+- ❌ Build Tunnel (A) — no ghost placement overlay
+- ❌ Right-click crystal field — no Gather command issued
+- ❌ Right-click enemy — no Attack issued (known)
+- ⛔ Drop Off, Enter via right-click blocked by above
+
+**5. agent_resource_gathering** — ❌ Rework filed (`agent_resource_gathering_r1`)
+- ⛔ All steps blocked — right-click Gather doesn't work
+
+**6. agent_tunnel_building** — ❌ Rework filed (`agent_tunnel_building_r1`)
+- ⛔ All steps blocked — tunnel placement doesn't work
+
+### Session Summary
+- 6 QA items processed, 0 passed, 6 reworks filed
+- Key blockers: tunnel placement system, right-click gather, targeted attack
+- ~57 pending QA items remain
+- Suggestion for next session: prioritize camera/UI items (camera_pan_snap, fix_hud_ui_bugs, selection_panel) which are less likely blocked by combat/construction issues

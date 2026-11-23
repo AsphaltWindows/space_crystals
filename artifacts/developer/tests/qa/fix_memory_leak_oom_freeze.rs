@@ -8,10 +8,11 @@ fn step_2_launch_game_gdo() {
     test_app.step();
 
     // Verify the game world is populated (GDO faction start)
-    let world = test_app.app.world();
+    let world = test_app.app.world_mut();
     // Should have at least the Deployment Center spawned
     let mut has_dc = false;
-    for obj in world.iter_entities().filter_map(|e: EntityRef| world.get::<ObjectInstance>(e.id())) {
+    let mut query = world.query::<&ObjectInstance>();
+    for obj in query.iter(world) {
         if obj.object_type == ObjectEnum::DeploymentCenter {
             has_dc = true;
             break;

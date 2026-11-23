@@ -9,7 +9,7 @@ Space Crystals is an RTS game currently in early development. The project uses t
 # Project Structure
 
 - **Source code**: `artifacts/developer/` (Cargo.toml, src/, etc.)
-- **Design documents**: `artifacts/designer/design/*.md`
+- **Design documents**: `artifacts/designer/design/**/*.md` (index: `artifacts/designer/design/README.md`)
 - **Agent framework**: `framework.md`
 - **Pipeline manifest**: `pipeline.yaml`
 - **Agent prompts**: `.claude/agents/{name}.md`
@@ -35,7 +35,13 @@ Designer (interactive, 1 session -> N feature_requests)
     |
     v feature_request
 Task Splitter (1 -> M developer_tasks + forward feature_request + manifest)
+    ^                          |
+    | architecture_request     |
     |                          |
+Software Architect             |
+(forum-driven,                 |
+ reads code + design)         |
+                               |
     | developer_task           | feature_request + feature_tasks
     v                          v
 Task Planner (1:1)      Completion Aggregator (script node)
@@ -57,8 +63,11 @@ Developer (1:1) ---------------+
 ### Designer (source)
 Interactive. Collaborates with user on game design. Produces `feature_request` messages with QA instructions. Design docs live in `artifacts/designer/design/`.
 
+### Software Architect (source)
+Senior game-dev software architect. Monitors forum discussions for architectural concerns, investigates code and design, tracks recurring issues, maintains architecture docs in `artifacts/software_architect/architecture/`. Produces `architecture_request` messages to task_splitter.
+
 ### Task Splitter (processing)
-Decomposes `feature_request` into `developer_task` messages. Reads design docs and codebase for informed splits. Forwards original feature_request and a `feature_tasks` manifest to the completion aggregator.
+Decomposes `feature_request` and `architecture_request` messages into `developer_task` messages. Prioritizes architecture_requests. Reads design docs, architecture docs, and codebase for informed splits. Forwards original request and a `feature_tasks` manifest to the completion aggregator.
 
 ### Task Planner (processing)
 Enriches `developer_task` with codebase context (files, patterns, dependencies), producing `planned_task` messages.
@@ -87,6 +96,8 @@ Maintains the pipeline framework itself. Creates/modifies agent definitions, pip
 ## Scheduler
 
 `scripts/run_scheduler.sh` — runs in a continuous loop (interval configured by `scheduler_interval` in `pipeline.yaml`). Detects work for each node (forum topics or pending messages) and launches them.
+
+**The scheduler is managed exclusively by the user.** Agents must NEVER start, stop, restart, or modify the scheduler or its lock file (`.scheduler.lock`). If an agent believes the scheduler needs attention, it should open a forum topic — not take direct action.
 
 # Technical Stack
 

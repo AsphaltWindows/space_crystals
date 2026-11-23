@@ -73,3 +73,223 @@
 - 2026-03-22T15:59:38-04:00: Router pass complete
 - 2026-03-22T17:02:03-04:00: Routed to manual_qa: completion_aggregator-fix_elevation_rendering_glitches_r1.md
 - 2026-03-22T17:02:03-04:00: Router pass complete
+- 2026-03-23T22:51:21-04:00: Routed to manual_qa: completion_aggregator-agent_groupable_construction.md
+- 2026-03-23T22:51:21-04:00: Routed to manual_qa: completion_aggregator-agent_resource_gathering.md
+- 2026-03-23T22:51:21-04:00: Routed to manual_qa: completion_aggregator-agent_tunnel_building.md
+- 2026-03-23T22:51:22-04:00: Routed to manual_qa: completion_aggregator-fog_of_war_elevation.md
+- 2026-03-23T22:51:22-04:00: Routed to manual_qa: completion_aggregator-gdo_deployment_center.md
+- 2026-03-23T22:51:22-04:00: Routed to manual_qa: completion_aggregator-guard_unit.md
+- 2026-03-23T22:51:22-04:00: Routed to manual_qa: completion_aggregator-peacekeeper_unit.md
+- 2026-03-23T22:51:23-04:00: Routed to manual_qa: completion_aggregator-selection_panel.md
+- 2026-03-23T22:51:23-04:00: Routed to manual_qa: completion_aggregator-supply_chopper_commands.md
+- 2026-03-23T22:51:23-04:00: Routed to manual_qa: completion_aggregator-syndicate_headquarters_structure.md
+- 2026-03-23T22:51:23-04:00: Routed to manual_qa: completion_aggregator-syndicate_rally_point.md
+- 2026-03-23T22:51:23-04:00: Router pass complete
+- 2026-03-23T23:04:56-04:00: Routed to manual_qa: completion_aggregator-unit_command_system_r1.md
+- 2026-03-23T23:04:56-04:00: Router pass complete
+- 2026-03-23T23:04:58-04:00: Router pass complete
+- 2026-03-23T23:49:43-04:00: Routed to manual_qa: completion_aggregator-extraction_plate_persists_after_depletion.md
+- 2026-03-23T23:49:43-04:00: Router pass complete
+- 2026-03-23T23:55:43-04:00: Routed to automatic_qa: completion_aggregator-gdo_barracks_r1.md
+- 2026-03-23T23:55:43-04:00: Routed to manual_qa: completion_aggregator-infopanel_fog_of_war_visibility.md
+- 2026-03-23T23:55:43-04:00: Router pass complete
+- 2026-03-23T23:59:06-04:00: Router pass complete
+- 2026-03-24T00:06:00-04:00: Routed to automatic_qa: completion_aggregator-automated_qa_unblock.md
+- 2026-03-24T00:06:00-04:00: Router pass complete
+- 2026-03-24T00:08:16-04:00: Routed to automatic_qa: completion_aggregator-resource_nodes_r1.md
+- 2026-03-24T00:08:16-04:00: Router pass complete
+- 2026-03-24T00:46:18-04:00: Routed to automatic_qa: completion_aggregator-right_click_command_dispatch.md
+- 2026-03-24T00:46:18-04:00: Router pass complete
+- 2026-03-24T13:28:10-04:00: Routed to automatic_qa: completion_aggregator-fog_of_war_selectability.md
+- 2026-03-24T13:28:10-04:00: Router pass complete
+- 2026-03-24T13:41:17-04:00: Routed to automatic_qa: completion_aggregator-test_suite_cleanup.md
+- 2026-03-24T13:41:17-04:00: Router pass complete
+- 2026-03-24T13:42:05-04:00: Routed to manual_qa: completion_aggregator-command_panel_split.md
+- 2026-03-24T13:42:05-04:00: Router pass complete
+- 2026-03-24T21:02:01-04:00: Routed to manual_qa: completion_aggregator-faction_split.md
+- 2026-03-24T21:02:01-04:00: Router pass complete
+- 2026-03-24T21:12:07-04:00: Routed to manual_qa: completion_aggregator-behaviors_split.md
+- 2026-03-24T21:12:07-04:00: Router pass complete
+- 2026-03-24T21:14:44-04:00: Routed to automatic_qa: completion_aggregator-core_systems_split.md
+- 2026-03-24T21:14:45-04:00: Routed to automatic_qa: completion_aggregator-expand_command_panel_grid.md
+- 2026-03-24T21:14:45-04:00: Router pass complete
+- 2026-03-24T21:31:22-04:00: Routed to automatic_qa: completion_aggregator-core_systems_split_r1.md
+- 2026-03-24T21:31:22-04:00: Router pass complete
+- 2026-03-24T21:44:50-04:00: Routed to automatic_qa: completion_aggregator-core_systems_split_r2.md
+- 2026-03-24T21:44:50-04:00: Router pass complete
+- 2026-03-25T08:53:03-04:00: Routed to manual_qa: completion_aggregator-fix_hud_ui_bugs.md
+- 2026-03-25T08:53:03-04:00: Router pass complete
+- 2026-03-28T16:09:23-04:00: Routed to automatic_qa: completion_aggregator-action_channels_r1.md
+- 2026-03-28T16:09:23-04:00: Router pass complete
+- 2026-03-28T16:11:41-04:00: Routed to automatic_qa: completion_aggregator-add_cults_armory_r1.md
+- 2026-03-28T16:11:41-04:00: Router pass complete
+- 2026-03-28T16:12:04-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:12:04-04:00: Router pass complete
+- 2026-03-28T16:13:11-04:00: Routed to automatic_qa: completion_aggregator-agent_groupable_construction_r1.md
+- 2026-03-28T16:13:11-04:00: Router pass complete
+- 2026-03-28T16:13:34-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:13:34-04:00: Router pass complete
+- 2026-03-28T16:15:03-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:15:03-04:00: Router pass complete
+- 2026-03-28T16:16:32-04:00: Routed to automatic_qa: automatic_qa-add_cults_armory_r1.md
+- 2026-03-28T16:16:32-04:00: Router pass complete
+- 2026-03-28T16:18:01-04:00: Routed to automatic_qa: automatic_qa-agent_groupable_construction_r1.md
+- 2026-03-28T16:18:01-04:00: Router pass complete
+- 2026-03-28T16:19:29-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:19:29-04:00: Router pass complete
+- 2026-03-28T16:20:58-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:20:58-04:00: Router pass complete
+- 2026-03-28T16:22:49-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:22:49-04:00: Router pass complete
+- 2026-03-28T16:24:42-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:24:42-04:00: Router pass complete
+- 2026-03-28T16:25:27-04:00: Routed to automatic_qa: completion_aggregator-agent_interface_r1.md
+- 2026-03-28T16:25:27-04:00: Router pass complete
+- 2026-03-28T16:25:50-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:25:50-04:00: Router pass complete
+- 2026-03-28T16:26:57-04:00: Routed to automatic_qa: automatic_qa-agent_interface_r1.md
+- 2026-03-28T16:26:57-04:00: Router pass complete
+- 2026-03-28T16:28:50-04:00: Routed to automatic_qa: automatic_qa-add_cults_armory_r1.md
+- 2026-03-28T16:28:50-04:00: Router pass complete
+- 2026-03-28T16:30:42-04:00: Routed to automatic_qa: automatic_qa-agent_groupable_construction_r1.md
+- 2026-03-28T16:30:42-04:00: Router pass complete
+- 2026-03-28T16:32:13-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:32:13-04:00: Router pass complete
+- 2026-03-28T16:33:44-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:33:44-04:00: Router pass complete
+- 2026-03-28T16:35:14-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:35:14-04:00: Router pass complete
+- 2026-03-28T16:36:44-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:36:44-04:00: Router pass complete
+- 2026-03-28T16:37:51-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:37:51-04:00: Router pass complete
+- 2026-03-28T16:38:58-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:38:58-04:00: Router pass complete
+- 2026-03-28T16:40:06-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:40:06-04:00: Router pass complete
+- 2026-03-28T16:40:51-04:00: Routed to automatic_qa: completion_aggregator-agent_resource_gathering_r1.md
+- 2026-03-28T16:40:51-04:00: Router pass complete
+- 2026-03-28T16:42:21-04:00: Routed to automatic_qa: automatic_qa-agent_resource_gathering_r1.md
+- 2026-03-28T16:42:21-04:00: Router pass complete
+- 2026-03-28T16:43:51-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:43:51-04:00: Router pass complete
+- 2026-03-28T16:44:59-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:44:59-04:00: Router pass complete
+- 2026-03-28T16:46:49-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:46:49-04:00: Router pass complete
+- 2026-03-28T16:47:33-04:00: Routed to automatic_qa: completion_aggregator-agent_tunnel_building_r1.md
+- 2026-03-28T16:47:33-04:00: Router pass complete
+- 2026-03-28T16:47:56-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:47:56-04:00: Router pass complete
+- 2026-03-28T16:49:02-04:00: Routed to automatic_qa: automatic_qa-agent_tunnel_building_r1.md
+- 2026-03-28T16:49:02-04:00: Router pass complete
+- 2026-03-28T16:50:09-04:00: Routed to automatic_qa: automatic_qa-agent_tunnel_building_r1.md
+- 2026-03-28T16:50:09-04:00: Router pass complete
+- 2026-03-28T16:51:16-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:51:16-04:00: Router pass complete
+- 2026-03-28T16:53:06-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:53:06-04:00: Router pass complete
+- 2026-03-28T16:54:32-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:54:32-04:00: Router pass complete
+- 2026-03-28T16:55:57-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:55:57-04:00: Router pass complete
+- 2026-03-28T16:57:25-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:57:25-04:00: Router pass complete
+- 2026-03-28T16:58:32-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:58:32-04:00: Router pass complete
+- 2026-03-28T16:59:41-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T16:59:41-04:00: Router pass complete
+- 2026-03-28T17:00:49-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:00:49-04:00: Router pass complete
+- 2026-03-28T17:01:58-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:01:58-04:00: Router pass complete
+- 2026-03-28T17:03:06-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:03:06-04:00: Router pass complete
+- 2026-03-28T17:04:37-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:04:37-04:00: Router pass complete
+- 2026-03-28T17:06:08-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:06:08-04:00: Router pass complete
+- 2026-03-28T17:06:53-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:06:53-04:00: Router pass complete
+- 2026-03-28T17:08:25-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:08:25-04:00: Router pass complete
+- 2026-03-28T17:09:55-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:09:55-04:00: Router pass complete
+- 2026-03-28T17:11:25-04:00: Routed to automatic_qa: automatic_qa-agent_tunnel_building_r1.md
+- 2026-03-28T17:11:25-04:00: Router pass complete
+- 2026-03-28T17:12:34-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:12:34-04:00: Router pass complete
+- 2026-03-28T17:13:42-04:00: Routed to automatic_qa: automatic_qa-agent_tunnel_building_r1.md
+- 2026-03-28T17:13:42-04:00: Router pass complete
+- 2026-03-28T17:14:51-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:14:51-04:00: Router pass complete
+- 2026-03-28T17:15:59-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:15:59-04:00: Router pass complete
+- 2026-03-28T17:17:08-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:17:08-04:00: Router pass complete
+- 2026-03-28T17:18:16-04:00: Routed to automatic_qa: automatic_qa-add_cults_armory_r1.md
+- 2026-03-28T17:18:16-04:00: Router pass complete
+- 2026-03-28T17:19:47-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:19:47-04:00: Router pass complete
+- 2026-03-28T17:20:56-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:20:56-04:00: Router pass complete
+- 2026-03-28T17:22:04-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:22:04-04:00: Router pass complete
+- 2026-03-28T17:23:12-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:23:12-04:00: Router pass complete
+- 2026-03-28T17:24:19-04:00: Routed to automatic_qa: automatic_qa-agent_interface_r1.md
+- 2026-03-28T17:24:19-04:00: Router pass complete
+- 2026-03-28T17:25:28-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:25:28-04:00: Router pass complete
+- 2026-03-28T17:26:36-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:26:36-04:00: Router pass complete
+- 2026-03-28T17:27:45-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:27:45-04:00: Router pass complete
+- 2026-03-28T17:28:53-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:28:53-04:00: Router pass complete
+- 2026-03-28T17:30:01-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:30:01-04:00: Router pass complete
+- 2026-03-28T17:31:10-04:00: Routed to automatic_qa: automatic_qa-agent_resource_gathering_r1.md
+- 2026-03-28T17:31:10-04:00: Router pass complete
+- 2026-03-28T17:32:18-04:00: Routed to automatic_qa: automatic_qa-agent_resource_gathering_r1.md
+- 2026-03-28T17:32:18-04:00: Router pass complete
+- 2026-03-28T17:33:26-04:00: Routed to automatic_qa: automatic_qa-agent_tunnel_building_r1.md
+- 2026-03-28T17:33:26-04:00: Router pass complete
+- 2026-03-28T17:34:12-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:34:12-04:00: Router pass complete
+- 2026-03-28T17:35:42-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:35:42-04:00: Router pass complete
+- 2026-03-28T17:36:50-04:00: Routed to automatic_qa: automatic_qa-add_cults_armory_r1.md
+- 2026-03-28T17:36:50-04:00: Router pass complete
+- 2026-03-28T17:37:58-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:37:58-04:00: Router pass complete
+- 2026-03-28T17:39:28-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:39:28-04:00: Router pass complete
+- 2026-03-28T17:40:58-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:40:58-04:00: Router pass complete
+- 2026-03-28T17:42:05-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:42:05-04:00: Router pass complete
+- 2026-03-28T17:43:57-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:43:57-04:00: Router pass complete
+- 2026-03-28T17:45:05-04:00: Routed to automatic_qa: automatic_qa-agent_tunnel_building_r1.md
+- 2026-03-28T17:45:05-04:00: Router pass complete
+- 2026-03-28T17:46:14-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:46:14-04:00: Router pass complete
+- 2026-03-28T17:47:44-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:47:44-04:00: Router pass complete
+- 2026-03-28T17:48:52-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:48:52-04:00: Router pass complete
+- 2026-03-28T17:50:00-04:00: Routed to automatic_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:50:00-04:00: Router pass complete
+- 2026-03-28T17:51:29-04:00: Routed to manual_qa: automatic_qa-action_channels_r1.md
+- 2026-03-28T17:51:29-04:00: Router pass complete
+- 2026-03-28T17:52:36-04:00: Routed to manual_qa: automatic_qa-agent_groupable_construction_r1.md
+- 2026-03-28T17:52:36-04:00: Router pass complete
+- 2026-03-28T17:54:07-04:00: Routed to manual_qa: automatic_qa-add_cults_armory_r1.md
+- 2026-03-28T17:54:07-04:00: Router pass complete
+- 2026-03-28T17:55:15-04:00: Routed to manual_qa: automatic_qa-agent_interface_r1.md
+- 2026-03-28T17:55:15-04:00: Router pass complete
+- 2026-03-28T17:56:24-04:00: Routed to manual_qa: automatic_qa-agent_resource_gathering_r1.md
+- 2026-03-28T17:56:24-04:00: Router pass complete
+- 2026-03-28T17:57:09-04:00: Routed to manual_qa: automatic_qa-agent_tunnel_building_r1.md
+- 2026-03-28T17:57:09-04:00: Router pass complete

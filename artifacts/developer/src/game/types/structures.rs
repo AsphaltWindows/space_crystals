@@ -82,42 +82,15 @@ pub struct DeploymentCenterState {
 }
 
 impl DeploymentCenterState {
-    /// Get the cost data for structures the Deployment Center can build
-    pub fn construction_cost(object: &ObjectEnum) -> Option<StructureCost> {
-        match object {
-            ObjectEnum::PowerPlant => Some(StructureCost {
-                space_crystals: 150,
-                build_frames: 160,
-            }),
-            ObjectEnum::Barracks => Some(StructureCost {
-                space_crystals: 200,
-                build_frames: 160,
-            }),
-            ObjectEnum::SupplyTower => Some(StructureCost {
-                space_crystals: 200,
-                build_frames: 240,
-            }),
-            ObjectEnum::ExtractionFacility => Some(StructureCost {
-                space_crystals: 200,
-                build_frames: 320,
-            }),
-            _ => None,
-        }
-    }
-
-    /// Get the refund amount for cancellation
-    /// Full refund during construction, 75% (rounded down) when ready to place
-    pub fn cancellation_refund(&self, object: &ObjectEnum) -> Option<u32> {
-        if let Some(cost) = Self::construction_cost(object) {
-            if self.ready_to_place.is_some() {
-                // 75% refund when ready to place
-                Some((cost.space_crystals * 3) / 4)
-            } else if self.current_construction.is_some() {
-                // Full refund during construction
-                Some(cost.space_crystals)
-            } else {
-                None
-            }
+    /// Get the refund amount for cancellation using the provided cost.
+    /// Full refund during construction, 75% (rounded down) when ready to place.
+    pub fn cancellation_refund(&self, cost: &StructureCost) -> Option<u32> {
+        if self.ready_to_place.is_some() {
+            // 75% refund when ready to place
+            Some((cost.space_crystals * 3) / 4)
+        } else if self.current_construction.is_some() {
+            // Full refund during construction
+            Some(cost.space_crystals)
         } else {
             None
         }
@@ -145,17 +118,6 @@ pub struct BarracksState {
 impl BarracksState {
     /// Maximum entries in the build queue
     pub const MAX_QUEUE_SIZE: usize = 5;
-
-    /// Get the production cost for units the Barracks can produce
-    pub fn production_cost(object: &ObjectEnum) -> Option<StructureCost> {
-        match object {
-            ObjectEnum::Peacekeeper => Some(StructureCost {
-                space_crystals: 50,
-                build_frames: 80,
-            }),
-            _ => None,
-        }
-    }
 
     /// Try to add to build queue (returns false if full)
     pub fn try_queue(&mut self, object: ObjectEnum) -> bool {
@@ -199,18 +161,9 @@ pub struct ExtractionFacilityState {
 }
 
 impl ExtractionFacilityState {
-    /// Get the cost data for ExtractionPlate construction
-    pub fn construction_cost() -> StructureCost {
-        StructureCost {
-            space_crystals: 75,
-            build_frames: 96,
-        }
-    }
-
-    /// Get the refund amount for cancellation
-    /// Full refund during construction, 75% (rounded down) when ready to place
-    pub fn cancellation_refund(&self) -> Option<u32> {
-        let cost = Self::construction_cost();
+    /// Get the refund amount for cancellation using the provided cost.
+    /// Full refund during construction, 75% (rounded down) when ready to place.
+    pub fn cancellation_refund(&self, cost: &StructureCost) -> Option<u32> {
         if self.ready_to_place {
             // 75% refund when ready to place: 75 * 3 / 4 = 56
             Some((cost.space_crystals * 3) / 4)
@@ -268,21 +221,6 @@ impl HeadquartersState {
     /// Maximum entries in the build queue
     pub const MAX_QUEUE_SIZE: usize = 5;
 
-    /// Get the production cost for units the Headquarters can produce
-    pub fn production_cost(object: &ObjectEnum) -> Option<StructureCost> {
-        match object {
-            ObjectEnum::SyndicateAgent => Some(StructureCost {
-                space_crystals: 100,
-                build_frames: 160,
-            }),
-            ObjectEnum::SyndicateGuard => Some(StructureCost {
-                space_crystals: 125,
-                build_frames: 120,
-            }),
-            _ => None,
-        }
-    }
-
     /// Try to add to build queue (returns false if full)
     pub fn try_queue(&mut self, object: ObjectEnum) -> bool {
         if self.build_queue.len() >= Self::MAX_QUEUE_SIZE {
@@ -336,17 +274,6 @@ impl SupplyTowerState {
     /// Maximum entries in the build queue
     pub const MAX_QUEUE_SIZE: usize = 5;
 
-    /// Get the production cost for units the Supply Tower can produce
-    pub fn production_cost(object: &ObjectEnum) -> Option<StructureCost> {
-        match object {
-            ObjectEnum::SupplyChopper => Some(StructureCost {
-                space_crystals: 100,
-                build_frames: 160,
-            }),
-            _ => None,
-        }
-    }
-
     /// Try to add to build queue (returns false if full)
     pub fn try_queue(&mut self, object: ObjectEnum) -> bool {
         if self.build_queue.len() >= Self::MAX_QUEUE_SIZE {
@@ -386,108 +313,19 @@ pub struct SupplyChopperState {
     pub attached_tower: Option<Entity>,
 }
 
-/// Structure stat constants for GDO structures
+/// GDO structure stat constants — re-exported from entity definitions.
 pub mod gdo_structure_stats {
-    // Deployment Center
-    pub const DC_MAX_HP: f32 = 1000.0;
-    pub const DC_POINT_ARMOR: u32 = 1;
-    pub const DC_FULL_ARMOR: u32 = 16;
-    pub const DC_BUILD_RADIUS: u32 = 12;
-    pub const DC_POWER: i32 = 20;
-
-    // Power Plant
-    pub const PP_MAX_HP: f32 = 350.0;
-    pub const PP_POINT_ARMOR: u32 = 1;
-    pub const PP_FULL_ARMOR: u32 = 4;
-    pub const PP_BUILD_RADIUS: u32 = 1;
-    pub const PP_POWER: i32 = 20;
-
-    // Barracks
-    pub const BK_MAX_HP: f32 = 300.0;
-    pub const BK_POINT_ARMOR: u32 = 1;
-    pub const BK_FULL_ARMOR: u32 = 6;
-    pub const BK_BUILD_RADIUS: u32 = 2;
-    pub const BK_POWER: i32 = -30;
-
-    // Extraction Facility
-    pub const EF_MAX_HP: f32 = 500.0;
-    pub const EF_POINT_ARMOR: u32 = 1;
-    pub const EF_FULL_ARMOR: u32 = 9;
-    pub const EF_BUILD_RADIUS: u32 = 2;
-    pub const EF_POWER: i32 = -15;
-
-    // Extraction Plate
-    pub const EP_MAX_HP: f32 = 85.0;
-    pub const EP_POINT_ARMOR: u32 = 2;
-    pub const EP_FULL_ARMOR: u32 = 2;
-    pub const EP_BUILD_RADIUS: u32 = 0;
-    pub const EP_POWER: i32 = -3;
-
-    // Supply Tower
-    pub const ST_MAX_HP: f32 = 400.0;
-    pub const ST_POINT_ARMOR: u32 = 1;
-    pub const ST_FULL_ARMOR: u32 = 9;
-    pub const ST_BUILD_RADIUS: u32 = 1;
-    pub const ST_POWER: i32 = -15;
-    pub const ST_SC_COST: u32 = 200;
-    pub const ST_BUILD_FRAMES: u32 = 160;
-
-    // Supply Chopper
-    pub const SC_MAX_HP: f32 = 150.0;
-    pub const SC_POINT_ARMOR: u32 = 1;
-    pub const SC_FULL_ARMOR: u32 = 1;
+    pub use crate::game::entities::factions::gdo::buildings::types::*;
 }
 
-/// Structure stat constants for Syndicate structures
+/// Syndicate structure stat constants — re-exported from entity definitions.
 pub mod syndicate_structure_stats {
-    // Tunnel
-    pub const TUNNEL_T1_MAX_HP: f32 = 600.0;
-    pub const TUNNEL_T2_MAX_HP: f32 = 800.0;
-    pub const TUNNEL_T3_MAX_HP: f32 = 1000.0;
-    pub const TUNNEL_POINT_ARMOR: u32 = 1;
-    pub const TUNNEL_FULL_ARMOR: u32 = 16;
-    pub const TUNNEL_T1_SPACE: u32 = 20;
-    pub const TUNNEL_T2_SPACE: u32 = 30;
-    pub const TUNNEL_T3_SPACE: u32 = 40;
-    pub const TUNNEL_T1_AREA_RADIUS: u32 = 3;
-    pub const TUNNEL_T2_AREA_RADIUS: u32 = 4;
-    pub const TUNNEL_T3_AREA_RADIUS: u32 = 5;
-    pub const TUNNEL_SIGHT_RANGE: u32 = 5;
-    pub const TUNNEL_CONSTRUCTION_FRAMES: u32 = 480; // 30 seconds at 16 FPS
-    pub const TUNNEL_UPGRADE_FRAMES: u32 = 480; // 30 seconds at 16 FPS
-
-    // Headquarters
-    pub const HQ_MAX_HP: f32 = 400.0;
-    pub const HQ_POINT_ARMOR: u32 = 1;
-    pub const HQ_FULL_ARMOR: u32 = 4;
-    pub const HQ_SC_COST: u32 = 200;
-    pub const HQ_BUILD_FRAMES: u32 = 400; // 25 seconds at 16 FPS
+    pub use crate::game::entities::factions::syndicate::buildings::types::*;
 }
 
-/// Structure stat constants for Cults structures
+/// Cults structure stat constants — re-exported from entity definitions.
 pub mod cults_structure_stats {
-    // Recruitment Center
-    pub const RC_MAX_HP: f32 = 1000.0; // Same as DC (4x4 primary structure)
-    pub const RC_POINT_ARMOR: u32 = 1;
-    pub const RC_FULL_ARMOR: u32 = 16;
-
-    // Armory
-    pub const ARMORY_MAX_HP: f32 = 300.0;
-    pub const ARMORY_POINT_ARMOR: u32 = 1;
-    pub const ARMORY_FULL_ARMOR: u32 = 4;
-    pub const ARMORY_SC_COST: u32 = 150; // TBD placeholder
-    pub const ARMORY_INTERNAL_RECRUIT_CAPACITY: usize = 10;
-    pub const SOLDIER_TRAINING_COST: u32 = 75; // TBD placeholder
-    pub const SOLDIER_TRAINING_FRAMES: u32 = 160; // TBD placeholder
-    pub const GUNNER_TRAINING_COST: u32 = 100; // TBD placeholder
-    pub const GUNNER_TRAINING_FRAMES: u32 = 200; // TBD placeholder
-
-    // Storage
-    pub const STORAGE_MAX_HP: f32 = 200.0;
-    pub const STORAGE_POINT_ARMOR: u32 = 1;
-    pub const STORAGE_FULL_ARMOR: u32 = 4;
-    /// Build frames for Cults Storage with 1 Recruit (~18.75 seconds at 16fps)
-    pub const STORAGE_BUILD_FRAMES: u32 = 300;
+    pub use crate::game::entities::factions::cults::buildings::types::*;
 }
 
 // === Cults Construction ===
@@ -908,6 +746,7 @@ mod tests {
     use super::gdo_structure_stats::*;
     use super::syndicate_structure_stats::*;
     use crate::types::SymmetryTypeEnum;
+    use crate::game::entities::registry::build_registry;
 
     #[test]
     fn power_value_generator_is_positive() {
@@ -1307,31 +1146,35 @@ mod tests {
         assert!(BK_POWER < 0, "Barracks should consume power");
     }
 
-    // === DC Construction Cost Tests ===
+    // === Registry Cost Lookup Tests ===
 
     #[test]
-    fn dc_construction_cost_power_plant() {
-        let cost = DeploymentCenterState::construction_cost(&ObjectEnum::PowerPlant).unwrap();
+    fn registry_cost_power_plant() {
+        let registry = build_registry();
+        let cost = registry.cost(&ObjectEnum::PowerPlant).unwrap();
         assert_eq!(cost.space_crystals, 150);
         assert_eq!(cost.build_frames, 160);
     }
 
     #[test]
-    fn dc_construction_cost_barracks() {
-        let cost = DeploymentCenterState::construction_cost(&ObjectEnum::Barracks).unwrap();
+    fn registry_cost_barracks() {
+        let registry = build_registry();
+        let cost = registry.cost(&ObjectEnum::Barracks).unwrap();
         assert_eq!(cost.space_crystals, 200);
         assert_eq!(cost.build_frames, 160);
     }
 
     #[test]
-    fn dc_construction_cost_invalid_returns_none() {
-        assert!(DeploymentCenterState::construction_cost(&ObjectEnum::Peacekeeper).is_none());
-        assert!(DeploymentCenterState::construction_cost(&ObjectEnum::SpaceCrystalsPatch).is_none());
+    fn registry_cost_non_producible_returns_none() {
+        let registry = build_registry();
+        // Peacekeeper has a cost (50 SC) but SCP has no cost
+        assert!(registry.cost(&ObjectEnum::SpaceCrystalsPatch).is_none());
     }
 
     #[test]
-    fn dc_construction_cost_extraction_facility() {
-        let cost = DeploymentCenterState::construction_cost(&ObjectEnum::ExtractionFacility).unwrap();
+    fn registry_cost_extraction_facility() {
+        let registry = build_registry();
+        let cost = registry.cost(&ObjectEnum::ExtractionFacility).unwrap();
         assert_eq!(cost.space_crystals, 200);
         assert_eq!(cost.build_frames, 320);
     }
@@ -1340,39 +1183,45 @@ mod tests {
 
     #[test]
     fn dc_full_refund_during_construction() {
+        let registry = build_registry();
+        let cost = registry.cost(&ObjectEnum::PowerPlant).unwrap();
         let dc = DeploymentCenterState {
             current_construction: Some(ObjectEnum::PowerPlant),
             construction_progress: Some(50.0),
             ready_to_place: None,
         };
-        let refund = dc.cancellation_refund(&ObjectEnum::PowerPlant).unwrap();
+        let refund = dc.cancellation_refund(&cost).unwrap();
         assert_eq!(refund, 150); // Full refund
     }
 
     #[test]
     fn dc_partial_refund_when_ready_to_place() {
+        let registry = build_registry();
+        let cost = registry.cost(&ObjectEnum::PowerPlant).unwrap();
         let dc = DeploymentCenterState {
             current_construction: None,
             construction_progress: None,
             ready_to_place: Some(ObjectEnum::PowerPlant),
         };
-        let refund = dc.cancellation_refund(&ObjectEnum::PowerPlant).unwrap();
+        let refund = dc.cancellation_refund(&cost).unwrap();
         assert_eq!(refund, 112); // 75% of 150 = 112
     }
 
     // === Barracks Production Cost Tests ===
 
     #[test]
-    fn bk_production_cost_peacekeeper() {
-        let cost = BarracksState::production_cost(&ObjectEnum::Peacekeeper).unwrap();
+    fn registry_cost_peacekeeper() {
+        let registry = build_registry();
+        let cost = registry.cost(&ObjectEnum::Peacekeeper).unwrap();
         assert_eq!(cost.space_crystals, 50);
         assert_eq!(cost.build_frames, 80);
     }
 
     #[test]
-    fn bk_production_cost_invalid_returns_none() {
-        assert!(BarracksState::production_cost(&ObjectEnum::Barracks).is_none());
-        assert!(BarracksState::production_cost(&ObjectEnum::PowerPlant).is_none());
+    fn registry_cost_invalid_returns_none_for_dc() {
+        let registry = build_registry();
+        // DeploymentCenter is a primary structure — no build cost
+        assert!(registry.cost(&ObjectEnum::DeploymentCenter).is_none());
     }
 
     // === Barracks Queue Tests ===
@@ -1828,18 +1677,18 @@ mod tests {
     }
 
     #[test]
-    fn headquarters_production_cost_agent() {
-        let cost = HeadquartersState::production_cost(&ObjectEnum::SyndicateAgent);
-        assert!(cost.is_some());
-        let cost = cost.unwrap();
+    fn registry_cost_syndicate_agent() {
+        let registry = build_registry();
+        let cost = registry.cost(&ObjectEnum::SyndicateAgent).unwrap();
         assert_eq!(cost.space_crystals, 100);
         assert_eq!(cost.build_frames, 160);
     }
 
     #[test]
-    fn headquarters_production_cost_unknown_returns_none() {
-        assert!(HeadquartersState::production_cost(&ObjectEnum::Peacekeeper).is_none());
-        assert!(HeadquartersState::production_cost(&ObjectEnum::Tunnel).is_none());
+    fn registry_cost_tunnel_is_none() {
+        let registry = build_registry();
+        // Tunnel has dynamic cost (not stored in registry)
+        assert!(registry.cost(&ObjectEnum::Tunnel).is_none());
     }
 
     #[test]
@@ -1893,10 +1742,9 @@ mod tests {
     }
 
     #[test]
-    fn headquarters_production_cost_guard() {
-        let cost = HeadquartersState::production_cost(&ObjectEnum::SyndicateGuard);
-        assert!(cost.is_some());
-        let cost = cost.unwrap();
+    fn registry_cost_syndicate_guard() {
+        let registry = build_registry();
+        let cost = registry.cost(&ObjectEnum::SyndicateGuard).unwrap();
         assert_eq!(cost.space_crystals, 125);
         assert_eq!(cost.build_frames, 120);
     }
@@ -2052,7 +1900,7 @@ mod tests {
         assert_eq!(ST_BUILD_RADIUS, 1);
         assert_eq!(ST_POWER, -15);
         assert_eq!(ST_SC_COST, 200);
-        assert_eq!(ST_BUILD_FRAMES, 160);
+        assert_eq!(ST_BUILD_FRAMES, 240);
     }
 
     #[test]
@@ -2078,15 +1926,18 @@ mod tests {
     }
 
     #[test]
-    fn supply_tower_production_cost_chopper() {
-        let cost = SupplyTowerState::production_cost(&ObjectEnum::SupplyChopper).unwrap();
+    fn registry_cost_supply_chopper() {
+        let registry = build_registry();
+        let cost = registry.cost(&ObjectEnum::SupplyChopper).unwrap();
         assert_eq!(cost.space_crystals, 100);
         assert_eq!(cost.build_frames, 160);
     }
 
     #[test]
-    fn supply_tower_production_cost_invalid() {
-        assert!(SupplyTowerState::production_cost(&ObjectEnum::Peacekeeper).is_none());
+    fn registry_cost_recruitment_center_is_none() {
+        let registry = build_registry();
+        // RC is Cults primary structure — no build cost
+        assert!(registry.cost(&ObjectEnum::RecruitmentCenter).is_none());
     }
 
     #[test]
@@ -2145,8 +1996,9 @@ mod tests {
     }
 
     #[test]
-    fn supply_tower_construction_cost() {
-        let cost = DeploymentCenterState::construction_cost(&ObjectEnum::SupplyTower).unwrap();
+    fn registry_cost_supply_tower() {
+        let registry = build_registry();
+        let cost = registry.cost(&ObjectEnum::SupplyTower).unwrap();
         assert_eq!(cost.space_crystals, 200);
         assert_eq!(cost.build_frames, 240);
     }

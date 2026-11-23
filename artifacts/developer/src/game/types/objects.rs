@@ -213,149 +213,50 @@ impl StructureInstance {
 }
 
 impl ObjectEnum {
-    /// Get the static ObjectType data for this object
+    /// Get the static ObjectType data for this object.
+    /// Delegates to entity definition files — each variant's data is defined in
+    /// `game::entities::factions::*/` or `game::entities::neutral::*`.
     pub fn object_type(&self) -> ObjectType {
+        use crate::game::entities::types::EntityDefinition;
+        use crate::game::entities::factions::gdo::units::peacekeeper::Peacekeeper;
+        use crate::game::entities::factions::gdo::units::supply_chopper::SupplyChopper;
+        use crate::game::entities::factions::gdo::buildings::base::{DeploymentCenter, PowerPlant};
+        use crate::game::entities::factions::gdo::buildings::military::{Barracks, SupplyTowerDef};
+        use crate::game::entities::factions::gdo::buildings::extraction::{ExtractionFacility, ExtractionPlate};
+        use crate::game::entities::factions::syndicate::units::agent::SyndicateAgentDef;
+        use crate::game::entities::factions::syndicate::units::guard::SyndicateGuardDef;
+        use crate::game::entities::factions::syndicate::buildings::tunnel::TunnelDef;
+        use crate::game::entities::factions::syndicate::buildings::headquarters::HeadquartersDef;
+        use crate::game::entities::factions::cults::buildings::recruitment_center::RecruitmentCenterDef;
+        use crate::game::entities::factions::cults::buildings::storage::CultsStorageDef;
+        use crate::game::entities::factions::cults::buildings::armory::CultsArmoryDef;
+        use crate::game::entities::factions::cults::units::recruit::CultsRecruitDef;
+        use crate::game::entities::factions::cults::units::soldier::CultsSoldierDef;
+        use crate::game::entities::factions::cults::units::gunner::CultsGunnerDef;
+        use crate::game::entities::neutral::space_crystals_patch::SpaceCrystalsPatchDef;
+        use crate::game::entities::neutral::supply_delivery_station::SupplyDeliveryStationDef;
+
         match self {
-            ObjectEnum::Peacekeeper => ObjectType {
-                name: "Peacekeeper".to_string(),
-                size: (24, 24),
-                destructible: true,
-                sight_range: 5,
-                groupable: true,
-            },
-            ObjectEnum::SyndicateAgent => ObjectType {
-                name: "Agent".to_string(),
-                size: (36, 36),
-                destructible: true,
-                sight_range: 5,
-                groupable: false, // Ungroupable — each Agent is its own SelectionGroup
-            },
-            ObjectEnum::SyndicateGuard => ObjectType {
-                name: "Guard".to_string(),
-                size: (36, 36),
-                destructible: true,
-                sight_range: 5,
-                groupable: true, // Unlike Agent — Guard IS groupable
-            },
-            ObjectEnum::DeploymentCenter => ObjectType {
-                name: "Deployment Center".to_string(),
-                size: (4, 4),
-                destructible: true,
-                sight_range: 6,
-                groupable: false,
-            },
-            ObjectEnum::PowerPlant => ObjectType {
-                name: "Power Plant".to_string(),
-                size: (2, 2),
-                destructible: true,
-                sight_range: 3,
-                groupable: true,
-            },
-            ObjectEnum::Barracks => ObjectType {
-                name: "Barracks".to_string(),
-                size: (3, 2),
-                destructible: true,
-                sight_range: 4,
-                groupable: true,
-            },
-            ObjectEnum::ExtractionFacility => ObjectType {
-                name: "Extraction Facility".to_string(),
-                size: (3, 3),
-                destructible: true,
-                sight_range: 3,
-                groupable: false,
-            },
-            ObjectEnum::ExtractionPlate => ObjectType {
-                name: "Extraction Plate".to_string(),
-                size: (1, 1),
-                destructible: true,
-                sight_range: 0,
-                groupable: true,
-            },
-            ObjectEnum::SupplyTower => ObjectType {
-                name: "Supply Tower".to_string(),
-                size: (3, 3),
-                destructible: true,
-                sight_range: 4,
-                groupable: false,
-            },
-            ObjectEnum::SupplyChopper => ObjectType {
-                name: "Supply Chopper".to_string(),
-                size: (1, 1),
-                destructible: true,
-                sight_range: 5,
-                groupable: true,
-            },
-            ObjectEnum::Tunnel => ObjectType {
-                name: "Tunnel".to_string(),
-                size: (4, 4),
-                destructible: true,
-                sight_range: 5,
-                groupable: false,
-            },
-            ObjectEnum::Headquarters => ObjectType {
-                name: "Headquarters".to_string(),
-                size: (2, 2),
-                destructible: true,
-                sight_range: 0, // Underground, no surface sight
-                groupable: false, // Ungroupable — each HQ is its own SelectionGroup
-            },
-            ObjectEnum::CultsRecruit => ObjectType {
-                name: "Recruit".to_string(),
-                size: (1, 1),
-                destructible: true,
-                sight_range: 3,
-                groupable: true,
-            },
-            ObjectEnum::CultsSoldier => ObjectType {
-                name: "Soldier".to_string(),
-                size: (1, 1),
-                destructible: true,
-                sight_range: 5,
-                groupable: true,
-            },
-            ObjectEnum::CultsGunner => ObjectType {
-                name: "Gunner".to_string(),
-                size: (1, 1),
-                destructible: true,
-                sight_range: 6,
-                groupable: true,
-            },
-            ObjectEnum::RecruitmentCenter => ObjectType {
-                name: "Recruitment Center".to_string(),
-                size: (4, 4),
-                destructible: true,
-                sight_range: 6,
-                groupable: false,
-            },
-            ObjectEnum::CultsStorage => ObjectType {
-                name: "Storage".to_string(),
-                size: (3, 2),
-                destructible: true,
-                sight_range: 3,
-                groupable: true,
-            },
-            ObjectEnum::CultsArmory => ObjectType {
-                name: "Armory".to_string(),
-                size: (3, 2),
-                destructible: true,
-                sight_range: 3,
-                groupable: true,
-            },
-            ObjectEnum::SpaceCrystalsPatch => ObjectType {
-                name: "Space Crystals Patch".to_string(),
-                size: (1, 1),
-                destructible: false,
-                sight_range: 0,
-                groupable: false,
-            },
-            ObjectEnum::SupplyDeliveryStation => ObjectType {
-                name: "Supply Delivery Station".to_string(),
-                size: (2, 2),
-                destructible: false,
-                sight_range: 0,
-                groupable: false,
-            },
+            ObjectEnum::Peacekeeper => Peacekeeper::object_type(),
+            ObjectEnum::SyndicateAgent => SyndicateAgentDef::object_type(),
+            ObjectEnum::SyndicateGuard => SyndicateGuardDef::object_type(),
+            ObjectEnum::DeploymentCenter => DeploymentCenter::object_type(),
+            ObjectEnum::PowerPlant => PowerPlant::object_type(),
+            ObjectEnum::Barracks => Barracks::object_type(),
+            ObjectEnum::ExtractionFacility => ExtractionFacility::object_type(),
+            ObjectEnum::ExtractionPlate => ExtractionPlate::object_type(),
+            ObjectEnum::SupplyTower => SupplyTowerDef::object_type(),
+            ObjectEnum::SupplyChopper => SupplyChopper::object_type(),
+            ObjectEnum::Tunnel => TunnelDef::object_type(),
+            ObjectEnum::Headquarters => HeadquartersDef::object_type(),
+            ObjectEnum::CultsRecruit => CultsRecruitDef::object_type(),
+            ObjectEnum::CultsSoldier => CultsSoldierDef::object_type(),
+            ObjectEnum::CultsGunner => CultsGunnerDef::object_type(),
+            ObjectEnum::RecruitmentCenter => RecruitmentCenterDef::object_type(),
+            ObjectEnum::CultsStorage => CultsStorageDef::object_type(),
+            ObjectEnum::CultsArmory => CultsArmoryDef::object_type(),
+            ObjectEnum::SpaceCrystalsPatch => SpaceCrystalsPatchDef::object_type(),
+            ObjectEnum::SupplyDeliveryStation => SupplyDeliveryStationDef::object_type(),
         }
     }
 
@@ -428,7 +329,9 @@ impl ObjectEnum {
     /// Get the unit control cost for producing this unit type.
     /// Returns 0 for non-unit objects.
     pub fn unit_control_cost(&self) -> u32 {
-        use crate::game::units::types::unit_data::{PEACEKEEPER_CONTROL_COST, AGENT_CONTROL_COST, GUARD_CONTROL_COST};
+        use crate::game::entities::factions::gdo::units::peacekeeper::PEACEKEEPER_CONTROL_COST;
+        use crate::game::entities::factions::syndicate::units::agent::AGENT_CONTROL_COST;
+        use crate::game::entities::factions::syndicate::units::guard::GUARD_CONTROL_COST;
         match self {
             ObjectEnum::Peacekeeper => PEACEKEEPER_CONTROL_COST,
             ObjectEnum::SyndicateAgent => AGENT_CONTROL_COST,

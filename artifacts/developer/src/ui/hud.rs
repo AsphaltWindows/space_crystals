@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use crate::types::*;
 use crate::game::types::{ObjectInstance, Player, GdoPlayerResources, SyndicatePlayerResources, CultsPlayerResources, ColonistsPlayerResources, StructureInstance, PowerValue, BuildRadiusExtension, DeploymentCenterState, BarracksState, ExtractionFacilityState};
 use crate::game::types::structures::{ExtractionPlateState, SupplyTowerState};
+use crate::game::entities::EntityRegistry;
 use crate::game::world::types::{SpaceCrystalPatch, SupplyDeliveryStation};
 use crate::game::world::types::{Tile, TilePresetEnum};
 use crate::types::UnitBaseEnum;
@@ -121,7 +122,29 @@ pub fn setup_hud(
                 ));
             });
 
-            // Center section: Selected Units Grid
+            // Portrait section
+            parent.spawn((
+                Node {
+                    width: Val::Px(150.0),
+                    height: Val::Percent(100.0),
+                    padding: UiRect::all(Val::Px(5.0)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.15, 0.15, 0.15, 0.8)),
+                PortraitSection,
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Text::new("Portrait"),
+                    TextFont { font_size: 14.0, ..default() },
+                    TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                ));
+            });
+
+            // Info panel section
             parent.spawn((
                 Node {
                     flex_grow: 1.0,
@@ -133,12 +156,35 @@ pub fn setup_hud(
                     ..default()
                 },
                 BackgroundColor(Color::srgba(0.15, 0.15, 0.15, 0.8)),
-                UnitsGridSection,
+                InfoPanelSection,
             ))
             .with_children(|parent| {
                 parent.spawn((
                     Text::new("No Units Selected"),
                     TextFont { font_size: 16.0, ..default() },
+                    TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                ));
+            });
+
+            // Selection panel section
+            parent.spawn((
+                Node {
+                    width: Val::Px(250.0),
+                    height: Val::Percent(100.0),
+                    padding: UiRect::all(Val::Px(5.0)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    flex_direction: FlexDirection::Column,
+                    overflow: Overflow::clip(),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.15, 0.15, 0.15, 0.8)),
+                SelectionPanelSection,
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Text::new("Selection Panel"),
+                    TextFont { font_size: 14.0, ..default() },
                     TextColor(Color::srgb(0.7, 0.7, 0.7)),
                 ));
             });
@@ -161,6 +207,49 @@ pub fn setup_hud(
         });
 
     info!("HUD panel initialized");
+}
+
+/// System that toggles HUD section visibility based on current selection.
+/// - Minimap: always visible (no query needed)
+/// - Portrait: visible when 1+ objects selected
+/// - InfoPanel: visible when 1+ objects selected
+/// - SelectionPanel: visible when 2+ objects selected
+/// - CommandPanel: visible when 1+ player-owned objects selected
+pub fn hud_section_visibility_system(
+    selection: Res<Selection>,
+    unit_caps: Res<SelectedUnitCapabilities>,
+    mut portrait_q: Query<
+        &mut Visibility,
+        (With<PortraitSection>, Without<InfoPanelSection>, Without<SelectionPanelSection>, Without<CommandPanelSection>),
+    >,
+    mut info_q: Query<
+        &mut Visibility,
+        (With<InfoPanelSection>, Without<PortraitSection>, Without<SelectionPanelSection>, Without<CommandPanelSection>),
+    >,
+    mut selection_q: Query<
+        &mut Visibility,
+        (With<SelectionPanelSection>, Without<PortraitSection>, Without<InfoPanelSection>, Without<CommandPanelSection>),
+    >,
+    mut command_q: Query<
+        &mut Visibility,
+        (With<CommandPanelSection>, Without<PortraitSection>, Without<InfoPanelSection>, Without<SelectionPanelSection>),
+    >,
+) {
+    let total = selection.total_entity_count();
+    let owned = unit_caps.owned_by_local_player;
+
+    if let Ok(mut vis) = portrait_q.single_mut() {
+        *vis = if total >= 1 { Visibility::Inherited } else { Visibility::Hidden };
+    }
+    if let Ok(mut vis) = info_q.single_mut() {
+        *vis = if total >= 1 { Visibility::Inherited } else { Visibility::Hidden };
+    }
+    if let Ok(mut vis) = selection_q.single_mut() {
+        *vis = if total >= 2 { Visibility::Inherited } else { Visibility::Hidden };
+    }
+    if let Ok(mut vis) = command_q.single_mut() {
+        *vis = if total >= 1 && owned { Visibility::Inherited } else { Visibility::Hidden };
+    }
 }
 
 /// Minimap resolution (downsampled from full grid)
@@ -219,23 +308,153 @@ pub fn update_minimap_system(
     }
 }
 
-/// System to update the selected units grid — handles both units and structures
-pub fn update_selected_units_grid_system(
+/// System to update the Portrait section of the HUD bar.
+/// Shows the active selection group's representative portrait (color swatch + type name).
+pub fn update_portrait_section_system(
     mut commands: Commands,
-    units_grid_section: Query<Entity, With<UnitsGridSection>>,
+    portrait_section: Query<Entity, With<PortraitSection>>,
+    selected_units: Query<(Entity, &UnitType, &ObjectInstance, &Owner), (With<Unit>, With<Selected>)>,
+    selected_structures: Query<(Entity, &ObjectInstance, &Owner), (With<StructureInstance>, With<Selected>, Without<Unit>)>,
+    selected_scp: Query<(Entity, &ObjectInstance), (With<SpaceCrystalPatch>, With<Selected>, Without<Unit>, Without<StructureInstance>)>,
+    selected_sds: Query<(Entity, &ObjectInstance), (With<SupplyDeliveryStation>, With<Selected>, Without<Unit>, Without<StructureInstance>, Without<SpaceCrystalPatch>)>,
+    selection: Res<Selection>,
+) {
+    let Ok(section_entity) = portrait_section.single() else { return; };
+
+    let total = selection.total_entity_count();
+    if total == 0 {
+        return; // visibility system hides the section
+    }
+
+    if !selection.is_changed() {
+        return; // no rebuild needed
+    }
+
+    commands.entity(section_entity).despawn_children();
+
+    // Find a representative entity for the portrait
+    // For single-select: use the selected entity
+    // For multi-select: use the active group's first entity
+    let active_group = selection.active_group();
+    let active_type = selection.active_type();
+
+    // Get the representative entity's info
+    let (display_name, portrait_color, abbrev) = if let Some(active) = active_group {
+        if let Some(rep_entity) = active.entities.first() {
+            // Try to find entity info across all query types
+            if let Ok((_e, unit_type, _obj, owner)) = selected_units.get(*rep_entity) {
+                (unit_type.name.clone(), owner.color(), None)
+            } else if let Ok((_e, obj, owner)) = selected_structures.get(*rep_entity) {
+                let obj_type_data = obj.object_type.object_type();
+                let abbrev = match obj.object_type {
+                    ObjectEnum::DeploymentCenter => "DC",
+                    ObjectEnum::PowerPlant => "PP",
+                    ObjectEnum::Barracks => "BK",
+                    ObjectEnum::ExtractionFacility => "EF",
+                    ObjectEnum::ExtractionPlate => "EP",
+                    ObjectEnum::SupplyTower => "ST",
+                    ObjectEnum::Tunnel => "TN",
+                    ObjectEnum::Headquarters => "HQ",
+                    ObjectEnum::RecruitmentCenter => "RC",
+                    ObjectEnum::CultsStorage => "CS",
+                    ObjectEnum::CultsArmory => "CA",
+                    _ => "??",
+                };
+                (obj_type_data.name.to_string(), owner.color(), Some(abbrev))
+            } else if let Ok((_e, obj)) = selected_scp.get(*rep_entity) {
+                let obj_type_data = obj.object_type.object_type();
+                (obj_type_data.name.to_string(), Color::srgb(0.3, 0.8, 1.0), Some("SC"))
+            } else if let Ok((_e, obj)) = selected_sds.get(*rep_entity) {
+                let obj_type_data = obj.object_type.object_type();
+                (obj_type_data.name.to_string(), Color::srgb(0.8, 0.6, 0.2), Some("SD"))
+            } else {
+                // Fallback: use active type name
+                let name = active_type.map(|t| t.object_type().name.to_string()).unwrap_or_else(|| "Unknown".to_string());
+                (name, Color::srgb(0.5, 0.5, 0.5), None)
+            }
+        } else {
+            return;
+        }
+    } else {
+        return;
+    };
+
+    commands.entity(section_entity).with_children(|parent| {
+        // Color swatch
+        parent.spawn((
+            Node {
+                width: Val::Px(60.0),
+                height: Val::Px(60.0),
+                border: UiRect::all(Val::Px(2.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                margin: UiRect::bottom(Val::Px(6.0)),
+                ..default()
+            },
+            BackgroundColor(portrait_color),
+            BorderColor::all(Color::srgb(0.6, 0.6, 0.6)),
+        ))
+        .with_children(|swatch| {
+            if let Some(ab) = abbrev {
+                swatch.spawn((
+                    Text::new(ab),
+                    TextFont { font_size: 20.0, ..default() },
+                    TextColor(Color::srgb(1.0, 1.0, 1.0)),
+                ));
+            }
+        });
+
+        // Type name
+        let truncated_name = if display_name.len() > 16 {
+            format!("{}...", &display_name[..13])
+        } else {
+            display_name
+        };
+        parent.spawn((
+            Text::new(truncated_name),
+            TextFont { font_size: 12.0, ..default() },
+            TextColor(Color::srgb(1.0, 1.0, 1.0)),
+        ));
+
+        // Count indicator for multi-select
+        if total > 1 {
+            if let Some(active) = active_group {
+                let count = active.entities.len();
+                parent.spawn((
+                    Text::new(format!("{} selected", count)),
+                    TextFont { font_size: 10.0, ..default() },
+                    TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                    Node {
+                        margin: UiRect::top(Val::Px(2.0)),
+                        ..default()
+                    },
+                ));
+            }
+        }
+    });
+}
+
+/// System to update the Info Panel section of the HUD bar.
+/// Single-select: shows detailed stats (HP, armor, damage, speed, special properties).
+/// Multi-select: shows summary info for the active group.
+/// Nothing selected: shows "No Selection" placeholder.
+pub fn update_info_panel_section_system(
+    mut commands: Commands,
+    info_section: Query<Entity, With<InfoPanelSection>>,
     selected_units: Query<(Entity, &UnitType, &ObjectInstance, &Owner, &UnitBaseEnum, &MovementSpeed, Option<&AttackCapability>, Option<&Turret>), (With<Unit>, With<Selected>)>,
     selected_structures: Query<(Entity, &ObjectInstance, &Owner, Option<&PowerValue>, Option<&BuildRadiusExtension>, Option<&DeploymentCenterState>, Option<&BarracksState>, Option<&ExtractionFacilityState>, Option<&ExtractionPlateState>, Option<&SupplyTowerState>), (With<StructureInstance>, With<Selected>, Without<Unit>)>,
     sc_patches: Query<&SpaceCrystalPatch>,
     selected_scp: Query<(Entity, &SpaceCrystalPatch, &ObjectInstance), (With<Selected>, Without<Unit>, Without<StructureInstance>)>,
     selected_sds: Query<(Entity, &SupplyDeliveryStation, &ObjectInstance), (With<Selected>, Without<Unit>, Without<StructureInstance>, Without<SpaceCrystalPatch>)>,
-    existing_unit_icons: Query<(Entity, &UnitIcon)>,
-    existing_struct_icons: Query<(Entity, &StructureIcon)>,
-    existing_resource_icons: Query<(Entity, &ResourceIcon)>,
+    existing_unit_icons: Query<(Entity, &UnitIcon), With<InfoPanelIcon>>,
+    existing_struct_icons: Query<(Entity, &StructureIcon), With<InfoPanelIcon>>,
+    existing_resource_icons: Query<(Entity, &ResourceIcon), With<InfoPanelIcon>>,
     mut unit_health_bars: Query<(&mut Node, &UnitHealthBar), (Without<StructureHealthBar>, Without<ResourceIcon>)>,
     mut struct_health_bars: Query<(&mut Node, &StructureHealthBar), (Without<UnitHealthBar>, Without<ResourceIcon>)>,
     selection: Res<Selection>,
+    registry: Res<EntityRegistry>,
 ) {
-    let Ok(grid_entity) = units_grid_section.single() else { return; };
+    let Ok(section_entity) = info_section.single() else { return; };
 
     let unit_count = selected_units.iter().count();
     let struct_count = selected_structures.iter().count();
@@ -245,6 +464,8 @@ pub fn update_selected_units_grid_system(
     let existing_count = existing_unit_icons.iter().count() + existing_struct_icons.iter().count() + existing_resource_icons.iter().count();
     if existing_count != total_selected || selection.is_changed() {
         // Selection changed — rebuild UI
+        // Note: only despawn icon entities belonging to the info panel (single-select icons)
+        // The selection panel handles its own icons for multi-select
         for (icon_entity, _) in existing_unit_icons.iter() {
             commands.entity(icon_entity).despawn();
         }
@@ -257,8 +478,8 @@ pub fn update_selected_units_grid_system(
 
         if total_selected == 0 {
             // Nothing selected
-            commands.entity(grid_entity).despawn_children();
-            commands.entity(grid_entity).insert(Node {
+            commands.entity(section_entity).despawn_children();
+            commands.entity(section_entity).insert(Node {
                 flex_grow: 1.0,
                 height: Val::Percent(100.0),
                 padding: UiRect::all(Val::Px(5.0)),
@@ -267,7 +488,7 @@ pub fn update_selected_units_grid_system(
                 overflow: Overflow::clip(),
                 ..default()
             });
-            commands.entity(grid_entity).with_children(|parent| {
+            commands.entity(section_entity).with_children(|parent| {
                 parent.spawn((
                     Text::new("No Selection"),
                     TextFont { font_size: 16.0, ..default() },
@@ -279,8 +500,8 @@ pub fn update_selected_units_grid_system(
             let (struct_entity, obj_instance, owner, power, build_radius, dc_state, bk_state, ef_state, ep_state, st_state) = selected_structures.iter().next().unwrap();
             let obj_type_data = obj_instance.object_type.object_type();
 
-            commands.entity(grid_entity).despawn_children();
-            commands.entity(grid_entity).insert(Node {
+            commands.entity(section_entity).despawn_children();
+            commands.entity(section_entity).insert(Node {
                 flex_grow: 1.0,
                 height: Val::Percent(100.0),
                 padding: UiRect::all(Val::Px(10.0)),
@@ -292,7 +513,7 @@ pub fn update_selected_units_grid_system(
                 ..default()
             });
 
-            commands.entity(grid_entity).with_children(|parent| {
+            commands.entity(section_entity).with_children(|parent| {
                 // Left side: Structure icon with color and health bar
                 parent.spawn((
                     Node {
@@ -306,6 +527,7 @@ pub fn update_selected_units_grid_system(
                     },
                     BackgroundColor(Color::srgba(0.25, 0.25, 0.25, 0.9)),
                     StructureIcon { structure_entity: struct_entity },
+                    InfoPanelIcon,
                 ))
                 .with_children(|icon_parent| {
                     // Owner color swatch (square for structures)
@@ -440,7 +662,7 @@ pub fn update_selected_units_grid_system(
                         spawn_stat_text(stats_parent, "Status", 12.0, Color::srgb(0.9, 0.8, 0.6), None);
                         if let Some(ref building) = dc.current_construction {
                             let progress = dc.construction_progress.unwrap_or(0.0);
-                            let cost = DeploymentCenterState::construction_cost(building);
+                            let cost = registry.cost(building);
                             let total_frames = cost.map(|c| c.build_frames as f32).unwrap_or(160.0);
                             let pct = (progress / total_frames * 100.0).min(100.0);
                             let name = building.object_type().name;
@@ -457,7 +679,7 @@ pub fn update_selected_units_grid_system(
                         spawn_stat_text(stats_parent, "Production", 12.0, Color::srgb(0.9, 0.8, 0.6), None);
                         if let Some(ref building) = bk.current_build {
                             let progress = bk.current_build_progress.unwrap_or(0.0);
-                            let cost = BarracksState::production_cost(building);
+                            let cost = registry.cost(building);
                             let total_frames = cost.map(|c| c.build_frames as f32).unwrap_or(80.0);
                             let pct = (progress / total_frames * 100.0).min(100.0);
                             let name = building.object_type().name;
@@ -474,7 +696,7 @@ pub fn update_selected_units_grid_system(
                         spawn_stat_text(stats_parent, "Status", 12.0, Color::srgb(0.9, 0.8, 0.6), None);
                         if ef.current_construction {
                             let progress = ef.construction_progress.unwrap_or(0.0);
-                            let total_frames = ExtractionFacilityState::construction_cost().build_frames as f32;
+                            let total_frames = registry.cost(&ObjectEnum::ExtractionPlate).map(|c| c.build_frames as f32).unwrap_or(96.0);
                             let pct = (progress / total_frames * 100.0).min(100.0);
                             spawn_stat_text(stats_parent, &format!("  Building Plate ({:.0}%)", pct), 13.0, Color::srgb(0.9, 0.9, 0.5), None);
                         } else if ef.ready_to_place {
@@ -503,7 +725,7 @@ pub fn update_selected_units_grid_system(
                         spawn_stat_text(stats_parent, "Production", 12.0, Color::srgb(0.9, 0.8, 0.6), None);
                         if let Some(ref building) = st.current_build {
                             let progress = st.current_build_progress.unwrap_or(0.0);
-                            let cost = SupplyTowerState::production_cost(building);
+                            let cost = registry.cost(building);
                             let total_frames = cost.map(|c| c.build_frames as f32).unwrap_or(160.0);
                             let pct = (progress / total_frames * 100.0).min(100.0);
                             let name = building.object_type().name;
@@ -524,11 +746,11 @@ pub fn update_selected_units_grid_system(
                 });
             });
         } else if total_selected == 1 && unit_count == 1 {
-            // Single unit selected (existing behavior)
+            // Single unit selected
             let (unit_entity, unit_type, obj_instance, owner, unit_base, speed, attack, turret) = selected_units.iter().next().unwrap();
 
-            commands.entity(grid_entity).despawn_children();
-            commands.entity(grid_entity).insert(Node {
+            commands.entity(section_entity).despawn_children();
+            commands.entity(section_entity).insert(Node {
                 flex_grow: 1.0,
                 height: Val::Percent(100.0),
                 padding: UiRect::all(Val::Px(10.0)),
@@ -540,7 +762,7 @@ pub fn update_selected_units_grid_system(
                 ..default()
             });
 
-            commands.entity(grid_entity).with_children(|parent| {
+            commands.entity(section_entity).with_children(|parent| {
                 // Left side: Unit icon with color and health bar
                 parent.spawn((
                     Node {
@@ -554,6 +776,7 @@ pub fn update_selected_units_grid_system(
                     },
                     BackgroundColor(Color::srgba(0.25, 0.25, 0.25, 0.9)),
                     UnitIcon { unit_entity },
+                    InfoPanelIcon,
                 ))
                 .with_children(|icon_parent| {
                     icon_parent.spawn((
@@ -652,8 +875,8 @@ pub fn update_selected_units_grid_system(
             });
         } else if total_selected == 1 && resource_count == 1 {
             // Single resource entity selected (Crystal Patch or SDS)
-            commands.entity(grid_entity).despawn_children();
-            commands.entity(grid_entity).insert(Node {
+            commands.entity(section_entity).despawn_children();
+            commands.entity(section_entity).insert(Node {
                 flex_grow: 1.0,
                 height: Val::Percent(100.0),
                 padding: UiRect::all(Val::Px(10.0)),
@@ -668,7 +891,7 @@ pub fn update_selected_units_grid_system(
             // Determine which resource type is selected
             if let Some((res_entity, scp, obj_instance)) = selected_scp.iter().next() {
                 let obj_type_data = obj_instance.object_type.object_type();
-                commands.entity(grid_entity).with_children(|parent| {
+                commands.entity(section_entity).with_children(|parent| {
                     // Left side: Resource icon
                     parent.spawn((
                         Node {
@@ -682,6 +905,7 @@ pub fn update_selected_units_grid_system(
                         },
                         BackgroundColor(Color::srgba(0.25, 0.25, 0.25, 0.9)),
                         ResourceIcon { resource_entity: res_entity },
+                        InfoPanelIcon,
                     ))
                     .with_children(|icon_parent| {
                         // Crystal color swatch
@@ -743,7 +967,7 @@ pub fn update_selected_units_grid_system(
                 });
             } else if let Some((res_entity, sds, obj_instance)) = selected_sds.iter().next() {
                 let obj_type_data = obj_instance.object_type.object_type();
-                commands.entity(grid_entity).with_children(|parent| {
+                commands.entity(section_entity).with_children(|parent| {
                     // Left side: Resource icon
                     parent.spawn((
                         Node {
@@ -757,6 +981,7 @@ pub fn update_selected_units_grid_system(
                         },
                         BackgroundColor(Color::srgba(0.25, 0.25, 0.25, 0.9)),
                         ResourceIcon { resource_entity: res_entity },
+                        InfoPanelIcon,
                     ))
                     .with_children(|icon_parent| {
                         // SDS color swatch
@@ -814,57 +1039,54 @@ pub fn update_selected_units_grid_system(
                 });
             }
         } else {
-            // Multiple entities selected (units, structures, and/or resources)
-            commands.entity(grid_entity).despawn_children();
-            commands.entity(grid_entity).insert(Node {
+            // Multiple entities selected — show summary in info panel
+            commands.entity(section_entity).despawn_children();
+            commands.entity(section_entity).insert(Node {
                 flex_grow: 1.0,
                 height: Val::Percent(100.0),
-                padding: UiRect::all(Val::Px(5.0)),
-                display: Display::Grid,
-                grid_template_columns: RepeatedGridTrack::flex(4, 1.0),
-                column_gap: Val::Px(8.0),
-                row_gap: Val::Px(8.0),
+                padding: UiRect::all(Val::Px(10.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                flex_direction: FlexDirection::Column,
                 overflow: Overflow::clip(),
                 ..default()
             });
 
-            // Collect active group entities for highlight
-            let active_entities: Vec<Entity> = selection.active_group()
-                .map(|g| g.entities.clone())
-                .unwrap_or_default();
+            commands.entity(section_entity).with_children(|parent| {
+                // Active group summary
+                if let Some(active) = selection.active_group() {
+                    let type_name = active.object_type.object_type().name;
+                    parent.spawn((
+                        Text::new(type_name),
+                        TextFont { font_size: 18.0, ..default() },
+                        TextColor(Color::srgb(1.0, 1.0, 1.0)),
+                        Node {
+                            margin: UiRect::bottom(Val::Px(4.0)),
+                            ..default()
+                        },
+                    ));
+                    parent.spawn((
+                        Text::new(format!("{} in group", active.entities.len())),
+                        TextFont { font_size: 14.0, ..default() },
+                        TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                        Node {
+                            margin: UiRect::bottom(Val::Px(8.0)),
+                            ..default()
+                        },
+                    ));
+                }
 
-            // Show structures first, then units
-            let mut cards_spawned = 0;
-            for (struct_entity, obj_instance, owner, _power, _build_radius, _dc, _bk, _ef, _ep, _st) in selected_structures.iter() {
-                if cards_spawned >= 12 { break; }
-                let obj_type_data = obj_instance.object_type.object_type();
-                let in_active_group = active_entities.contains(&struct_entity);
-                spawn_selection_portrait(&mut commands, grid_entity, struct_entity, &obj_type_data.name, obj_instance, owner, true, in_active_group);
-                cards_spawned += 1;
-            }
-
-            for (unit_entity, unit_type, obj_instance, owner, _unit_base, _speed, _attack, _turret) in selected_units.iter() {
-                if cards_spawned >= 12 { break; }
-                let in_active_group = active_entities.contains(&unit_entity);
-                spawn_selection_portrait(&mut commands, grid_entity, unit_entity, &unit_type.name, obj_instance, owner, false, in_active_group);
-                cards_spawned += 1;
-            }
-
-            // Show resource entities last
-            for (res_entity, _scp, obj_instance) in selected_scp.iter() {
-                if cards_spawned >= 12 { break; }
-                let obj_type_data = obj_instance.object_type.object_type();
-                let in_active_group = active_entities.contains(&res_entity);
-                spawn_resource_portrait(&mut commands, grid_entity, res_entity, &obj_type_data.name, in_active_group);
-                cards_spawned += 1;
-            }
-            for (res_entity, _sds, obj_instance) in selected_sds.iter() {
-                if cards_spawned >= 12 { break; }
-                let obj_type_data = obj_instance.object_type.object_type();
-                let in_active_group = active_entities.contains(&res_entity);
-                spawn_resource_portrait(&mut commands, grid_entity, res_entity, &obj_type_data.name, in_active_group);
-                cards_spawned += 1;
-            }
+                // Overall selection summary
+                let mut parts = Vec::new();
+                if unit_count > 0 { parts.push(format!("{} unit{}", unit_count, if unit_count > 1 { "s" } else { "" })); }
+                if struct_count > 0 { parts.push(format!("{} structure{}", struct_count, if struct_count > 1 { "s" } else { "" })); }
+                if resource_count > 0 { parts.push(format!("{} resource{}", resource_count, if resource_count > 1 { "s" } else { "" })); }
+                parent.spawn((
+                    Text::new(format!("{} selected ({})", total_selected, parts.join(", "))),
+                    TextFont { font_size: 12.0, ..default() },
+                    TextColor(Color::srgb(0.6, 0.6, 0.6)),
+                ));
+            });
         }
     } else {
         // Update health bars for existing icons (no selection change)
@@ -880,6 +1102,80 @@ pub fn update_selected_units_grid_system(
                 node.width = Val::Percent(health_percent * 100.0);
             }
         }
+    }
+}
+
+/// System to update the Selection Panel section of the HUD bar.
+/// Shows the grid of portrait cards when 2+ entities are selected.
+pub fn update_selection_panel_section_system(
+    mut commands: Commands,
+    selection_section: Query<Entity, With<SelectionPanelSection>>,
+    selected_units: Query<(Entity, &UnitType, &ObjectInstance, &Owner), (With<Unit>, With<Selected>)>,
+    selected_structures: Query<(Entity, &ObjectInstance, &Owner), (With<StructureInstance>, With<Selected>, Without<Unit>)>,
+    selected_scp: Query<(Entity, &ObjectInstance), (With<SpaceCrystalPatch>, With<Selected>, Without<Unit>, Without<StructureInstance>)>,
+    selected_sds: Query<(Entity, &ObjectInstance), (With<SupplyDeliveryStation>, With<Selected>, Without<Unit>, Without<StructureInstance>, Without<SpaceCrystalPatch>)>,
+    selection: Res<Selection>,
+) {
+    let Ok(section_entity) = selection_section.single() else { return; };
+
+    let total = selection.total_entity_count();
+    if total < 2 {
+        return; // visibility system hides section when < 2
+    }
+
+    if !selection.is_changed() {
+        return; // no rebuild needed
+    }
+
+    commands.entity(section_entity).despawn_children();
+    commands.entity(section_entity).insert(Node {
+        width: Val::Px(250.0),
+        height: Val::Percent(100.0),
+        padding: UiRect::all(Val::Px(5.0)),
+        display: Display::Grid,
+        grid_template_columns: RepeatedGridTrack::flex(2, 1.0),
+        column_gap: Val::Px(4.0),
+        row_gap: Val::Px(4.0),
+        overflow: Overflow::clip(),
+        ..default()
+    });
+
+    // Collect active group entities for highlight
+    let active_entities: Vec<Entity> = selection.active_group()
+        .map(|g| g.entities.clone())
+        .unwrap_or_default();
+
+    // Show structures first, then units, then resources
+    let mut cards_spawned = 0;
+    for (struct_entity, obj_instance, owner) in selected_structures.iter() {
+        if cards_spawned >= 12 { break; }
+        let obj_type_data = obj_instance.object_type.object_type();
+        let in_active_group = active_entities.contains(&struct_entity);
+        spawn_selection_portrait(&mut commands, section_entity, struct_entity, &obj_type_data.name, obj_instance, owner, true, in_active_group);
+        cards_spawned += 1;
+    }
+
+    for (unit_entity, unit_type, obj_instance, owner) in selected_units.iter() {
+        if cards_spawned >= 12 { break; }
+        let in_active_group = active_entities.contains(&unit_entity);
+        spawn_selection_portrait(&mut commands, section_entity, unit_entity, &unit_type.name, obj_instance, owner, false, in_active_group);
+        cards_spawned += 1;
+    }
+
+    // Show resource entities last
+    for (res_entity, obj_instance) in selected_scp.iter() {
+        if cards_spawned >= 12 { break; }
+        let obj_type_data = obj_instance.object_type.object_type();
+        let in_active_group = active_entities.contains(&res_entity);
+        spawn_resource_portrait(&mut commands, section_entity, res_entity, &obj_type_data.name, in_active_group);
+        cards_spawned += 1;
+    }
+    for (res_entity, obj_instance) in selected_sds.iter() {
+        if cards_spawned >= 12 { break; }
+        let obj_type_data = obj_instance.object_type.object_type();
+        let in_active_group = active_entities.contains(&res_entity);
+        spawn_resource_portrait(&mut commands, section_entity, res_entity, &obj_type_data.name, in_active_group);
+        cards_spawned += 1;
     }
 }
 
@@ -1965,5 +2261,151 @@ mod tests {
         assert!((cam_x - 100.0).abs() < f32::EPSILON);
         assert!((cam_z - (-25.0)).abs() < 0.001,
             "Snap should be instant: expected -25.0, got {}", cam_z);
+    }
+
+    // === hud_section_visibility_system tests ===
+
+    use bevy::ecs::system::RunSystemOnce;
+
+    /// Helper to create a minimal world with the HUD section entities and resources.
+    /// Returns (portrait, info, selection, command) entity ids.
+    fn spawn_hud_sections(world: &mut World) -> (Entity, Entity, Entity, Entity) {
+        world.init_resource::<Selection>();
+        world.init_resource::<SelectedUnitCapabilities>();
+
+        let portrait = world.spawn((PortraitSection, Visibility::Hidden)).id();
+        let info = world.spawn((InfoPanelSection, Visibility::Hidden)).id();
+        let selection = world.spawn((SelectionPanelSection, Visibility::Hidden)).id();
+        let command = world.spawn((CommandPanelSection, Visibility::Hidden)).id();
+        (portrait, info, selection, command)
+    }
+
+    fn get_vis(world: &World, entity: Entity) -> Visibility {
+        *world.entity(entity).get::<Visibility>().unwrap()
+    }
+
+    #[test]
+    fn all_sections_hidden_when_nothing_selected() {
+        let mut world = World::new();
+        let (portrait, info, sel, cmd) = spawn_hud_sections(&mut world);
+
+        world.run_system_once(hud_section_visibility_system).unwrap();
+
+        assert_eq!(get_vis(&world, portrait), Visibility::Hidden);
+        assert_eq!(get_vis(&world, info), Visibility::Hidden);
+        assert_eq!(get_vis(&world, sel), Visibility::Hidden);
+        assert_eq!(get_vis(&world, cmd), Visibility::Hidden);
+    }
+
+    #[test]
+    fn portrait_and_info_visible_with_one_selected() {
+        let mut world = World::new();
+        let (portrait, info, sel, cmd) = spawn_hud_sections(&mut world);
+
+        let e = world.spawn_empty().id();
+        let mut selection = world.resource_mut::<Selection>();
+        selection.build_from_entities(&[(e, ObjectEnum::Peacekeeper, true)]);
+
+        world.run_system_once(hud_section_visibility_system).unwrap();
+
+        assert_eq!(get_vis(&world, portrait), Visibility::Inherited);
+        assert_eq!(get_vis(&world, info), Visibility::Inherited);
+        assert_eq!(get_vis(&world, sel), Visibility::Hidden);
+        // Not owned yet — caps not set
+        assert_eq!(get_vis(&world, cmd), Visibility::Hidden);
+    }
+
+    #[test]
+    fn selection_panel_visible_with_two_selected() {
+        let mut world = World::new();
+        let (portrait, info, sel, cmd) = spawn_hud_sections(&mut world);
+
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+        let mut selection = world.resource_mut::<Selection>();
+        selection.build_from_entities(&[
+            (e1, ObjectEnum::Peacekeeper, true),
+            (e2, ObjectEnum::Peacekeeper, true),
+        ]);
+
+        world.run_system_once(hud_section_visibility_system).unwrap();
+
+        assert_eq!(get_vis(&world, portrait), Visibility::Inherited);
+        assert_eq!(get_vis(&world, info), Visibility::Inherited);
+        assert_eq!(get_vis(&world, sel), Visibility::Inherited);
+        assert_eq!(get_vis(&world, cmd), Visibility::Hidden);
+    }
+
+    #[test]
+    fn command_panel_visible_when_owned() {
+        let mut world = World::new();
+        let (_portrait, _info, _sel, cmd) = spawn_hud_sections(&mut world);
+
+        let e = world.spawn_empty().id();
+        let mut selection = world.resource_mut::<Selection>();
+        selection.build_from_entities(&[(e, ObjectEnum::Peacekeeper, true)]);
+
+        let mut caps = world.resource_mut::<SelectedUnitCapabilities>();
+        caps.owned_by_local_player = true;
+
+        world.run_system_once(hud_section_visibility_system).unwrap();
+
+        assert_eq!(get_vis(&world, cmd), Visibility::Inherited);
+    }
+
+    #[test]
+    fn command_panel_hidden_when_not_owned() {
+        let mut world = World::new();
+        let (_portrait, _info, _sel, cmd) = spawn_hud_sections(&mut world);
+
+        let e = world.spawn_empty().id();
+        let mut selection = world.resource_mut::<Selection>();
+        selection.build_from_entities(&[(e, ObjectEnum::Peacekeeper, true)]);
+
+        let mut caps = world.resource_mut::<SelectedUnitCapabilities>();
+        caps.owned_by_local_player = false;
+
+        world.run_system_once(hud_section_visibility_system).unwrap();
+
+        assert_eq!(get_vis(&world, cmd), Visibility::Hidden);
+    }
+
+    #[test]
+    fn sections_transition_from_visible_to_hidden_on_deselect() {
+        let mut world = World::new();
+        let (portrait, info, sel, cmd) = spawn_hud_sections(&mut world);
+
+        // Start with 2 selected + owned
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+        {
+            let mut selection = world.resource_mut::<Selection>();
+            selection.build_from_entities(&[
+                (e1, ObjectEnum::Peacekeeper, true),
+                (e2, ObjectEnum::Peacekeeper, true),
+            ]);
+            let mut caps = world.resource_mut::<SelectedUnitCapabilities>();
+            caps.owned_by_local_player = true;
+        }
+
+        world.run_system_once(hud_section_visibility_system).unwrap();
+        assert_eq!(get_vis(&world, portrait), Visibility::Inherited);
+        assert_eq!(get_vis(&world, info), Visibility::Inherited);
+        assert_eq!(get_vis(&world, sel), Visibility::Inherited);
+        assert_eq!(get_vis(&world, cmd), Visibility::Inherited);
+
+        // Clear selection
+        {
+            let mut selection = world.resource_mut::<Selection>();
+            selection.clear();
+            let mut caps = world.resource_mut::<SelectedUnitCapabilities>();
+            caps.owned_by_local_player = false;
+        }
+
+        world.run_system_once(hud_section_visibility_system).unwrap();
+        assert_eq!(get_vis(&world, portrait), Visibility::Hidden);
+        assert_eq!(get_vis(&world, info), Visibility::Hidden);
+        assert_eq!(get_vis(&world, sel), Visibility::Hidden);
+        assert_eq!(get_vis(&world, cmd), Visibility::Hidden);
     }
 }

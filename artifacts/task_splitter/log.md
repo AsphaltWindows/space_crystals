@@ -1,5 +1,35 @@
 # Task Splitter Session Log
 
+## 2026-03-25T15:00:00Z — Forum vote, no pending work
+
+- **Forum**: Voted to close `hud-ui-bugs` topic — all three bugs fully analyzed by multiple agents, designer sending feature_request. My close vote was the missing one.
+- **Inboxes**: No pending architecture_requests or feature_requests. No stuck messages in active.
+- **Result**: Forum-only session, exiting.
+
+## 2026-03-25T14:00:00Z — Forum cleanup, no pending work
+
+- **Forum**: Voted to close `data-driven-entity-definitions` topic — discussion fully converged, architecture_request was already processed and split into 13 tasks in a prior session. All required votes collected; topic moved to closed.
+- **Inboxes**: No pending architecture_requests or feature_requests. No stuck active messages.
+- **Result**: No work to process. Clean exit.
+
+## 2026-03-25T13:00:00Z — No work, killed scheduler
+
+- **Forum**: `data-driven-entity-definitions` still open; already commented last session, no new discussion requiring response. Software architect hasn't weighed in yet — holding close vote.
+- **Messages**: No pending architecture_requests or feature_requests. No stuck active messages.
+- **Action**: Consecutive no-work session (previous was 2026-03-25T12:30:00Z). Killed scheduler per protocol.
+
+## 2026-03-25T12:30:00Z — Forum only, no pending work
+
+- **Forum**: Commented on `data-driven-entity-definitions` topic with task decomposition perspective — phased migration recommendation, timing concerns about large refactoring wave, what's data-drivable vs what should stay in Rust.
+- **Messages**: No architecture_requests or feature_requests pending. No stuck active messages.
+- **Action**: Forum comment only. Exiting.
+
+## 2026-03-24T22:00:00Z — Fixed stuck core_systems_split_r1 manifest
+
+- **Forum**: No open topics found.
+- **Messages**: No pending architecture_requests or feature_requests.
+- **Stuck message fix**: Found `core_systems_split_r1` had been partially processed in a prior session. The feature_request was already forwarded to completion_aggregator and the developer task (`fix_behavior_completion_race`) was already sent to task_planner, but the `feature_tasks` manifest was never sent. Sent the manifest (`task_splitter-core_systems_split_r1.md`) to completion_aggregator so the pipeline can track the single task and proceed to QA when it completes.
+
 ## 2026-03-22T17:00:00Z — Forum only, no pending work
 
 - **Forum**: Commented on `grid-lines-hidden-by-elevation` topic — confirmed not covered by existing elevation tasks (tile_elevation_rendering, elevation_cuboid_meshes). Recommended designer produce a feature_request. Voted to close.
@@ -800,3 +830,556 @@
   1. `task_splitter-flatten_tile_rendering.md` — replace cuboid with flat plane, set all tile Y=0, flatten grid line Y, update tests
 - **Forwarded**: feature_request + feature_tasks manifest to completion_aggregator
 - **Moved**: feature_request to done
+
+## 2026-03-23T12:00:00Z — Process unit_command_system_r1 rework
+
+- **Forum**: No open topics requiring attention.
+- **Feature request**: `manual_qa-unit_command_system_r1.md` — QA rework with 3 distinct failures: (1) right-click enemy attack not pursuing, (2) shift-click queue only first command, (3) all hotkeys non-functional.
+- **Investigation**: Examined core.rs right_click_move_command (attack path lines 339-358), issue_or_queue_command (utils.rs lines 153-165), command_panel_hotkeys (command_panel.rs lines 946-1166), attacking_object_behavior_system (combat/systems/behaviors.rs lines 22-121), command_dequeue_system (commands.rs lines 228-238). All code paths look structurally present — bugs are likely system ordering, guard conditions, or missing state transitions.
+- **Decision**: Split into 3 tasks aligned with the 3 QA failures — each is independently diagnosable and fixable.
+- **Tasks created** (3):
+  1. `task_splitter-attack_command_rightclick_fix.md` — fix right-click enemy attack pursuit
+  2. `task_splitter-shift_click_queue_fix.md` — fix shift-click command queuing
+  3. `task_splitter-hotkey_command_fix.md` — fix grid hotkeys (Q/W/E/A/S/D/X)
+- **Forwarded**: feature_request + feature_tasks manifest to completion_aggregator
+- **Moved**: feature_request to done
+
+## 2026-03-23T23:00:00Z — Forum votes only, no pending feature_requests
+
+- **Forum**: Commented and voted to close 2 topics:
+  1. `explored-objects-selectable` — fog-of-war selection gap. Noted splitting plan: (1) selection filtering, (2) info panel filtering. Voted to close.
+  2. `extraction-plate-disappears-on-depletion` — plate lifecycle bug. Noted this is a single-task fix. Voted to close.
+- **No pending feature_requests** to process.
+
+## 2026-03-23T23:30:00Z — Forum re-vote, no pending work
+
+- **Forum**: Re-commented and re-voted on 2 open topics (explored-objects-selectable, extraction-plate-disappears-on-depletion) — previous session had already handled these but close votes were cleared by new comments from other agents.
+- **No pending feature_requests** to process.
+
+## 2026-03-23T23:45:00Z — Forum close votes + processed extraction_plate_persists_after_depletion
+
+- **Forum**: Voted to close both remaining open topics (explored-objects-selectable, extraction-plate-disappears-on-depletion). Both closed successfully (all required votes met).
+- **Processed**: `designer-extraction_plate_persists_after_depletion.md`
+  - Bug fix: depleted_patch_despawn_system removes both patch and plate; plate should persist.
+  - Split into 1 task: `extraction_plate_depletion_lifecycle` (fix despawn system, handle missing patch in mining + destruction cleanup)
+  - Sent developer_task to task_planner, forwarded feature_request to completion_aggregator, sent feature_tasks manifest
+- **Remaining pending**: 3 feature requests (designer-fix_extraction_plate_depletion_lifecycle [duplicate], designer-infopanel_fog_of_war_visibility, manual_qa-resource_nodes_r1 [overlapping])
+
+## 2026-03-23T12:00:00Z — Duplicate cleanup
+
+- **Forum**: No open topics.
+- **Processed**: `designer-fix_extraction_plate_depletion_lifecycle.md` (DUPLICATE)
+  - Recognized as duplicate of already-processed `designer-extraction_plate_persists_after_depletion` but only AFTER sending messages (insights not read carefully enough before acting).
+  - Cleaned up: removed duplicate developer_task from task_planner/pending, removed duplicate feature_request and feature_tasks from completion_aggregator/active.
+  - Moved original feature_request to done (no new tasks created).
+  - Updated insights with duplicate resolution lesson.
+- **Remaining pending**: 2 feature requests (designer-infopanel_fog_of_war_visibility, manual_qa-resource_nodes_r1)
+
+## 2026-03-23T23:00:00Z — Processed infopanel_fog_of_war_visibility
+
+- **Forum**: No open topics.
+- **Processed**: `designer-infopanel_fog_of_war_visibility.md`
+  - Single task: `infopanel_fog_visibility_gate` — add FogOfWarMap visibility gating to InfoPanel fields in hud.rs (SpaceCrystalPatch RemainingAmount + SupplyDeliveryStation CurrentSupplies).
+  - Sent developer_task to task_planner, forwarded feature_request to completion_aggregator, sent feature_tasks manifest.
+- **Remaining pending**: 2 feature requests (manual_qa-gdo_barracks_r1, manual_qa-resource_nodes_r1). resource_nodes_r1 is a known duplicate of the just-processed feature.
+
+## 2026-03-23T23:10:00Z — Processed gdo_barracks_r1 rework
+
+- **Forum**: No open topics.
+- **Processed**: `manual_qa-gdo_barracks_r1.md` (QA rework)
+  - Root cause: `issue_rally_command` in faction.rs inserts `UnitCommand::AttackTarget` for enemy rally targets but omits `MoveTarget`/`Path` for initial approach. The right-click attack fix in core.rs added this pattern but rally command wasn't updated.
+  - Single task: `rally_attack_approach_path` — fix enemy branch in `issue_rally_command` to compute approach path (matching core.rs pattern). Shared function fixes Barracks, HQ, and Armory rally-attack simultaneously.
+  - Rally target destruction cleanup already implemented (`rally_target_cleanup_system`), just needs re-verification once attacks work.
+  - Sent developer_task to task_planner, forwarded feature_request to completion_aggregator, sent feature_tasks manifest.
+- **Remaining pending**: 0 feature requests.
+
+## 2026-03-23T12:30:00Z — Forum pass only, no pending work
+
+- **Forum**: 3 open topics, all operator-created, all primarily software_architect concerns.
+  1. `automated-qa-infrastructure`: Commented acknowledging readiness to receive architecture_request. Voted to close.
+  2. `update-auto-capabilities-current-state`: Commented noting no task splitting concern (config change). Voted to close.
+  3. `codebase-refactoring-review`: Commented with splitting predictions for identified refactoring targets (core.rs, command_panel.rs, faction.rs, movement pipeline). Voted to close.
+- **Pending messages**: 0 architecture_requests, 0 feature_requests.
+- **Insights updated**: Added note about upcoming refactoring architecture_requests and expected splitting strategies.
+
+## 2026-03-24T04:10:00Z — Architecture request: automated-qa-unblock
+
+- **Forum**: 3 open topics, all previously commented on. Voted to close all 3 (automated-qa-infrastructure, update-auto-capabilities, codebase-refactoring-review).
+- **Architecture request processed**: `software_architect-automated-qa-unblock.md`
+  - Read architecture document: `artifacts/software_architect/architecture/automated-qa-infrastructure.md`
+  - Examined codebase: auto_capabilities.txt already updated by software_architect. 4 compilation errors in tests/qa/ (missing `owned_by_local_player` field in SelectedUnitCapabilities initializers in agent_object_interface_state.rs and basic_combat_unit_interface_state.rs).
+  - Split into 1 task: `fix_qa_test_compilation` (add missing field to 4 struct initializers)
+  - Forwarded as `feature_request` to completion_aggregator: `task_splitter-automated_qa_unblock.md`
+  - Sent `feature_tasks` manifest to completion_aggregator: 1 task (`task_splitter-fix_qa_test_compilation.md`)
+  - Moved architecture_request to done.
+- **Insights updated**: Added entry for automated-qa-unblock architecture request.
+
+## 2026-03-24T04:20:00Z — Architecture request: automated-qa-unblock (completion)
+
+- **Prior session** partially processed this architecture_request (logged above) but did not complete message sending (messages not found in task_planner/completion_aggregator inboxes).
+- **Forum**: Re-checked 3 open topics. All 3 already have my close vote (automated-qa-infrastructure, update-auto-capabilities, codebase-refactoring-review).
+- **Completed message sending**:
+  - Sent developer_task `task_splitter-qa_test_compilation_fix.md` to task_planner (slug corrected from prior session's planned `fix_qa_test_compilation`)
+  - Forwarded feature_request `task_splitter-automated_qa_unblock.md` to completion_aggregator
+  - Sent feature_tasks manifest `task_splitter-automated_qa_unblock.md` to completion_aggregator (1 task: `task_splitter-qa_test_compilation_fix.md`)
+  - Architecture_request already in done/ directory
+- **Insights updated**: Corrected task slug in insights to match actual sent message.
+
+## 2026-03-24T10:00:00Z — Architecture request: right-click-command-dispatch
+
+- **Forum**: No open topics.
+- **Input**: architecture_request `software_architect-right-click-command-dispatch.md` — refactor monolithic `right_click_move_command` (~765 lines, lines 243-1008 in core.rs) into dispatch pattern.
+- **Investigation**: Read architecture doc (`right-click-command-dispatch-refactor.md`), examined full function body in core.rs (entity-click section lines 330-753, ground-click section lines 755-1008), confirmed commands.rs already exists as suitable extraction target.
+- **Decomposition**: Split into 2 sequential tasks:
+  1. `command_context_and_issue_helper` — CommandContext struct + try_issue_command helper (Phases 2+3)
+  2. `extract_command_handlers_dispatch` — Extract 16 handlers into standalone functions, main becomes dispatcher (Phase 1)
+- **Messages sent**:
+  - developer_task `task_splitter-command_context_and_issue_helper.md` to task_planner
+  - developer_task `task_splitter-extract_command_handlers_dispatch.md` to task_planner
+  - feature_request `task_splitter-right_click_command_dispatch.md` to completion_aggregator
+  - feature_tasks manifest `task_splitter-right_click_command_dispatch.md` to completion_aggregator (2 tasks)
+- **Insights updated**: Added architecture request batch 2 entry + splitting lesson for refactors.
+
+## 2026-03-24T13:00:00Z — Forum + architecture_request (behaviors-split)
+
+- **Forum**: Commented and voted to close on 2 topics:
+  - `large-file-refactoring-plans`: Acknowledged all 4 architecture_requests in my inbox, no concerns from task decomposition perspective
+  - `unit-test-review`: Noted this is architect/developer domain, test organization will be handled naturally during file splits
+- **Architecture request**: Processed `software_architect-behaviors-split.md`
+  - Read architecture doc `artifacts/software_architect/architecture/behaviors-split.md`
+  - Confirmed behaviors.rs is 4,481 lines matching the doc
+  - Decomposed as **1 task** (atomic file-to-directory split):
+    1. `behaviors_split` — Split behaviors.rs into 6 submodules (movement, tunnel_interaction, construction, resource_gathering, supply_chopper, mod.rs)
+- **Messages sent**:
+  - developer_task `task_splitter-behaviors_split.md` to task_planner
+  - feature_request `task_splitter-behaviors_split.md` to completion_aggregator
+  - feature_tasks manifest `task_splitter-behaviors_split.md` to completion_aggregator (1 task)
+- **Insights updated**: Added batch 3 architecture request entry + splitting lesson about atomic file splits.
+- **Remaining**: 3 more architecture_requests pending (command-panel-split, core-systems-split, faction-split)
+
+## 2026-03-24T13:00:00Z — Processed architecture_request: core-systems-split
+
+- **Forum**: Voted to close both open topics (large-file-refactoring-plans, unit-test-review). Already commented on both in prior session.
+- **Architecture request**: `software_architect-core-systems-split.md`
+  - Read architecture doc `artifacts/software_architect/architecture/core-systems-split.md`
+  - Verified core.rs is 6,054 lines with responsibility groups at expected line ranges
+  - Decomposed as **1 task** (atomic file-to-directory split):
+    1. `core_systems_split` — Split core.rs into 8 submodules (command_dispatch, rally, legacy_movement, channel_locomotion, occupancy, indicators, utility, mod.rs) with tests distributed to each submodule
+- **Messages sent**:
+  - developer_task `task_splitter-core_systems_split.md` to task_planner
+  - feature_request `task_splitter-core_systems_split.md` to completion_aggregator
+  - feature_tasks manifest `task_splitter-core_systems_split.md` to completion_aggregator (1 task)
+- **Insights updated**: Added architecture refactoring splitting heuristics.
+- **Remaining**: 2 more architecture_requests pending (command-panel-split, faction-split)
+
+## 2026-03-24T13:00:00Z — Process architecture_request: faction-split
+
+- **Forum**: Checked 2 open topics (large-file-refactoring-plans, unit-test-review). Already voted to close both in previous session.
+- **Architecture request**: `software_architect-faction-split.md` — split faction.rs (4,387 lines) into faction/ directory with 9 files.
+- **Investigation**:
+  - Read architecture doc at artifacts/software_architect/architecture/faction-split.md
+  - Verified faction.rs is 4,387 lines, faction/ directory does not yet exist
+  - Confirmed cross-module dependency: spawn_or_update_rally_marker and despawn_rally_marker_for imported by units/systems/core.rs
+  - Verified FactionPlugin in world/mod.rs references 25+ faction:: systems
+  - Applied existing insight: file-to-directory splits are atomic single-task work
+- **Decomposed as 1 task** (atomic file-to-directory split):
+  1. `faction_module_split` — Create faction/ directory with mod.rs + 8 submodules (setup, power, production, construction, resources, rally, placement, ejection), re-export all pub items, distribute tests
+- **Messages sent**:
+  - developer_task `task_splitter-faction_module_split.md` to task_planner
+  - feature_request `task_splitter-faction_split.md` to completion_aggregator
+  - feature_tasks manifest `task_splitter-faction_split.md` to completion_aggregator (1 task)
+- **Insights updated**: Added faction-split to batch 3 architecture requests. All 4 large-file splits now processed.
+- **Remaining**: No more architecture_requests pending. All 4 large-file refactors (behaviors, command-panel, core-systems, faction) have been decomposed and sent through the pipeline.
+
+## 2026-03-24T14:00:00Z — No-op: faction-split already processed
+
+- **Triggered by**: Scheduler requested processing of `software_architect-faction-split.md`
+- **Finding**: Already fully processed in prior session. Architecture_request is in done/, developer_task is pending at task_planner, feature_request and feature_tasks are active at completion_aggregator.
+- **Forum**: Checked 2 open topics — already voted to close both.
+- **Action**: None required.
+
+## 2026-03-24T14:15:00Z — No-op: behaviors-split already processed
+
+- **Triggered by**: Scheduler requested processing of `software_architect-behaviors-split.md`
+- **Finding**: Already fully processed in prior session. Architecture_request is in `messages/task_splitter/architecture_request/done/`. Developer_task `task_splitter-behaviors_split.md` is pending at task_planner. Feature_request and feature_tasks manifests are active at completion_aggregator.
+- **Actual state**: All 4 architecture_request inboxes (pending/active) are empty. All 4 large-file splits are in done/.
+- **Forum**: Voted to close `unit-test-review` topic (had not voted previously). `large-file-refactoring-plans` already had my close vote.
+- **Action**: None required.
+
+## 2026-03-24T15:00:00Z — No pending work, forum vote only
+
+- **Forum**: Voted to close `2026-03-24T12-00-00Z-operator-large-file-refactoring-plans.md` (had not voted previously despite earlier comment). Already voted on unit-test-review topic.
+- **Architecture requests**: None pending. All 4 large-file splits in done/. Pipeline status: behaviors_split active in task_planner; command_panel_directory_split, command_panel_action_decomposition, core_systems_split, faction_module_split pending at task_planner.
+- **Feature requests**: None pending.
+- **No-work investigation**: All message directories verified clean.
+
+## 2026-03-24T16:00:00Z — No-op: faction-split already processed
+
+- **Triggered by**: User requested processing of `software_architect-faction-split.md`
+- **Finding**: Already fully processed in prior session. Architecture_request is in `done/`. Developer_task `task_splitter-faction_module_split.md` is pending at task_planner. Feature_request and feature_tasks manifests (`task_splitter-faction_split.md`) are active at completion_aggregator.
+- **Forum**: No open topics.
+- **Action**: None required.
+
+## 2026-03-24T17:00:00Z — Re-triggered for command-panel-split
+
+- **Triggered by**: User explicitly requested processing of `software_architect-command-panel-split.md`
+- **Finding**: Message was back in pending/ despite prior sessions having processed it (tasks already in pipeline at 15:00Z session). Re-processed: moved to done, re-sent all messages.
+- **Forum**: Voted to close unit-test-review topic.
+- **Messages sent** (duplicates of prior session, pipeline is idempotent):
+  - developer_task `task_splitter-command_panel_directory_split.md` to task_planner
+  - developer_task `task_splitter-command_panel_action_decomposition.md` to task_planner
+  - feature_request `task_splitter-command_panel_split.md` to completion_aggregator
+  - feature_tasks manifest `task_splitter-command_panel_split.md` to completion_aggregator
+- **Insights**: Updated command-panel-split entry with full split rationale.
+
+## 2026-03-24T13:00:00Z — Forum only, no pending work
+
+- **Forum**: Commented on `unit-test-review` topic with preliminary task split plan (4-5 tasks along the architect's category boundaries). Voted to close -- investigation is complete, next step is architecture_request.
+- **Messages**: None (no pending architecture_requests or feature_requests).
+
+## 2026-03-24T14:00:00Z — Processed fog_of_war_selectability feature request
+
+- **Forum**: Checked `unit-test-review` topic — already voted to close in previous session.
+- **Feature Request**: `designer-fog_of_war_selectability.md`
+  - Two concerns: (1) Explored fog selectability rules (block all except SDS for GDO), (2) SDS InfoPanel visibility-context-aware rework with NextDeliveryTime always shown.
+  - Split into 2 developer_tasks:
+    1. `explored_selectability_rules` — Modify fog filters in selection_system and box_selection_system (resources.rs) to block neutrals in Explored except SDS+GDO
+    2. `sds_infopanel_visibility_rework` — Rework SDS InfoPanel in hud.rs for Visible vs Explored display, add SelectedFaction gating, show NextDeliveryTime unconditionally
+- **Messages sent**:
+  - developer_task `task_splitter-explored_selectability_rules.md` to task_planner
+  - developer_task `task_splitter-sds_infopanel_visibility_rework.md` to task_planner
+  - feature_request `task_splitter-fog_of_war_selectability.md` to completion_aggregator
+  - feature_tasks manifest `task_splitter-fog_of_war_selectability.md` to completion_aggregator
+- **Insights**: Added batch 32 entry for fog_of_war_selectability.
+
+## 2026-03-24T15:00:00Z — No-work session (fog_of_war_selectability already processed)
+
+- **Forum**: Checked `unit-test-review` topic — already has VOTE:task_splitter, skipped.
+- **Pending messages**: None in architecture_request/pending or feature_request/pending.
+- **Investigation**: `designer-fog_of_war_selectability.md` was specified as pending but found already in `done/`. All outputs confirmed in place: 2 developer_tasks in task_planner/pending, feature_request + feature_tasks in completion_aggregator/active. No action needed.
+
+## 2026-03-24T17:30:00Z — Forum vote fix, no pending work
+
+- **Forum**: Recorded VOTE:task_splitter on `2026-03-24T12-05-00Z-operator-unit-test-review.md` (vote was missing despite prior comment stating intent to close). Topic moved to closed — all required nodes had voted.
+- **Pending messages**: None in architecture_request/pending or feature_request/pending.
+- **No further action taken.**
+
+## 2026-03-24T18:00:00Z — Completed stuck architecture_request: test-suite-cleanup
+
+- **Forum**: No open topics requiring attention (forum/open/ empty).
+- **Stuck message found**: `software_architect-test-suite-cleanup.md` in `architecture_request/active/`. Previous session had sent all 4 developer_tasks to task_planner but failed to send feature_request and feature_tasks manifest to completion_aggregator.
+- **Investigated**: Confirmed all 4 tasks already exist — test_harness_selection_fix (done), fix_stale_test_values (done), fix_auto_targeting_and_stop_tests (active), harden_assertions_and_cleanup (active). No duplicate tasks needed.
+- **Sent**: feature_request `task_splitter-test_suite_cleanup.md` to completion_aggregator (forwarded architecture_request content).
+- **Sent**: feature_tasks manifest `task_splitter-test_suite_cleanup.md` to completion_aggregator (4 tasks listed).
+- **Moved**: architecture_request from active/ to done/.
+- **Updated insights** with batch 4 architecture request notes and stuck-message lesson.
+
+## 2026-03-24T19:00:00Z — No work available
+
+- **Forum**: No open topics in forum/open/ (directory empty).
+- **Architecture requests**: No pending or active messages in architecture_request/.
+- **Feature requests**: No pending or active messages in feature_request/.
+- **Investigated**: User indicated `software_architect-test-suite-cleanup.md` was active, but it was already in done/ — fully processed in previous session (4 tasks dispatched, manifest and feature_request sent to completion_aggregator).
+- **No action taken.**
+
+## 2026-03-24T21:00:00Z — Forum vote, no pending work
+
+- **Forum**: Voted to close `2026-03-24T13-17-00Z-developer-concurrent-directory-split-conflict.md`. Issue was about partial-state from interrupted directory split tasks, not true concurrency. Developer and software_architect already voted; agreed with the analysis. Key takeaway: file reorganization tasks must be atomic and idempotent (already captured in insights under architecture refactoring heuristics).
+- **Architecture requests**: None pending.
+- **Feature requests**: None pending.
+- **No tasks dispatched.**
+
+## 2026-03-24T22:00:00Z — Processed expand_command_panel_grid
+
+- **Forum**: No open topics.
+- **Architecture requests**: None pending.
+- **Feature requests**: Processed `designer-expand_command_panel_grid.md` — grid expansion from 3x3 to 4x3 (adding R/F/V hotkey column). Single developer task dispatched (all changes in command_panel/ module are tightly coupled). Forwarded feature_request and feature_tasks manifest to completion_aggregator.
+- **Tasks dispatched**: 1 (`expand_command_panel_grid`)
+
+## 2026-03-25T01:00:00Z — Processed core_systems_split_r1 (QA rework)
+
+- **Forum**: No open topics.
+- **Architecture requests**: None pending.
+- **Feature requests**: Processed `automatic_qa-core_systems_split_r1.md` — 19 QA integration tests failing with "got Some(Idle)" after issuing commands. Investigated codebase and identified root cause: `behavior_completion_system` (movement.rs:357) runs in same unordered Phase 2 group as movement behavior systems, causing race condition where freshly issued Move commands get completed before movement systems can start them. Fix: add `BaseBehaviorState::None` guard. Single developer task dispatched.
+- **Tasks dispatched**: 1 (`fix_behavior_completion_race`)
+
+## 2026-03-25T02:30:00Z — Processed core_systems_split_r2 (QA rework)
+
+- **Forum**: No open topics.
+- **Architecture requests**: None pending.
+- **Feature requests**: Processed `automatic_qa-core_systems_split_r2.md` — 6 remaining QA test failures after r1 fixed 13/19. Investigated each category: (1) set_selection() doesn't populate Selection.groups causing interface state reset, (2) spawn functions missing VisibilityStateEnum causing auto-targeting filter-out, (3) ST_BUILD_FRAMES=160 should be 240. All 3 were previously tasked in test_suite_cleanup batch but developer marked complete without implementing. Split into 2 tasks with very specific fix prescriptions to prevent repeat failure.
+- **Tasks dispatched**: 2 (`fix_test_harness_selection_groups`, `fix_visibility_and_st_constant`)
+
+## 2026-03-25T03:00:00Z — No-op: core_systems_split_r2 already processed
+
+- **Forum**: No open topics.
+- **Architecture requests**: None pending.
+- **Feature requests**: None pending. User requested processing of `automatic_qa-core_systems_split_r2.md` but it was already fully processed in prior session. Feature request in `done/`, manifest and forwarded request in completion_aggregator `pending/`, 2 developer tasks in task_planner `pending/`. No action needed.
+
+## 2026-03-25T14:00:00Z — Forum engagement: declarative entity definitions (refined direction)
+
+- **Forum**: `data-driven-entity-definitions` topic updated by operator with 3 new comments pivoting from YAML to declarative Rust structs with per-faction/per-entity directory structure. Previous close votes cleared. Added substantive comment addressing: per-entity files solve task splitting friction (single-file tasks), match design doc organization 1:1, solve large-file problem organically, migration path (one entity per task). Raised 4 open questions (registry discovery, spawn function placement, cross-entity references, task count implications).
+- **Architecture requests**: None pending.
+- **Feature requests**: None pending.
+- **Insights updated**: Added forum discussion summary and splitting implications for potential entity definition migration.
+
+## 2026-03-25T14:00:00Z — Forum engagement
+
+- **Forum**: `data-driven-entity-definitions` — discussion fully matured with comments from all agents (automatic_qa, developer, designer, task_planner, software_architect). Operator pivoted to declarative Rust, software architect provided detailed trait hierarchy proposal (EntityDefinition/UnitDefinition/StructureDefinition). Added closing comment noting readiness to split once architecture_request arrives. Voted to close.
+- **Architecture requests**: None pending.
+- **Feature requests**: None pending.
+- **Insights updated**: Updated forum entry to CONCLUDED status with software architect's final proposal details and expected splitting approach.
+
+## 2026-03-25T13:15:00Z
+
+- **Forum**: Read and voted to close `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md`. Discussion had fully converged — team consensus on declarative Rust entity definitions (per-entity files, trait-based registry, phased migration). All agents had weighed in including operator's refined direction. Next step is software architect producing formal architecture_request.
+- **Messages**: No pending architecture_requests or feature_requests.
+- **Insights**: Added note about upcoming entity definition refactor and its implications for future task splitting.
+
+## 2026-03-25T14:00:00Z
+
+- **Forum**: Voted to close `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` (was missing my close vote after operator re-engagement). Discussion fully converged; architecture_request now in hand.
+- **Architecture Request**: Processed `software_architect-declarative-entity-definitions.md`
+  - Read architecture doc at `artifacts/software_architect/architecture/declarative-entity-definitions.md`
+  - Examined codebase: 21 ObjectEnum variants, 5,948 lines across 5 files to refactor, entities/ directory doesn't exist yet
+  - Split into **13 developer_tasks**: foundation, pilot (Peacekeeper), 7 migration tasks (by faction/type), 3 consumer wiring tasks (grid-layout, spawn-dispatch, costs), 1 cleanup task
+  - Forwarded as feature_request to completion_aggregator
+  - Sent feature_tasks manifest with all 13 task filenames
+  - Moved architecture_request to done
+- **Insights**: Updated "Upcoming" section to "Active" with final task breakdown and dependency chain
+
+## 2026-03-25T15:00:00Z — Split hud_bar_layout feature_request
+
+- **Forum**: No open topics requiring attention
+- **Message**: Processed `designer-hud_bar_layout.md` from feature_request/pending
+- **Investigation**: Read control_system.md design doc (HUD Bar section), examined hud.rs (setup_hud, update_selected_units_grid_system), ui/types.rs (existing markers). Current layout: 3 sections (Minimap 200px, UnitsGridSection flex-grow, CommandPanelSection 200px). Target: 5 fixed-position sections.
+- **Split into 2 developer_tasks**:
+  1. `hud-bar-five-section-scaffold` — Restructure setup_hud to 5 sections with new marker components, add visibility system using Visibility::Hidden for slot reservation
+  2. `hud-bar-content-redistribution` — Migrate monolithic update_selected_units_grid_system into 3 per-section systems, remove old UnitsGridSection
+- Forwarded feature_request to completion_aggregator as `task_splitter-hud_bar_layout.md`
+- Sent feature_tasks manifest with both task filenames
+- Moved feature_request to done
+- **Insights**: Added batch 34 entry and HUD layout codebase patterns
+
+## 2026-03-25T15:00:00Z — Forum engagement, no pending messages
+
+- **Forum**: Commented on `hud-ui-bugs` topic with codebase investigation findings:
+  - Bug 1 (Peacekeeper no command panel): Peacekeeper logic is fully present in helpers.rs; issue likely in UI rendering/rebuild path
+  - Bug 2 (EF build button label): Found root cause — helpers.rs:327 catch-all `DcBuild(_)` lacks EF-specific label
+  - Bug 3 (extra portrait): Needs further investigation in hud.rs
+  - Recommended single developer_task for all three when feature_request arrives
+- Voted to close the topic
+- No pending architecture_requests or feature_requests
+
+## 2026-03-25T16:00:00Z — Split fix_hud_ui_bugs feature_request
+
+- **Input**: `designer-fix_hud_ui_bugs.md` — 3 HUD/UI bugs (Peacekeeper missing command panel, EF build button label, extra portrait tile)
+- **Decision**: Single developer_task (`fix_hud_ui_bugs`) — all three bugs are small fixes in closely related UI code (`ui/command_panel/` and `ui/hud.rs`), splitting further would add overhead without benefit
+- **Output**:
+  - 1 developer_task to task_planner: `task_splitter-fix_hud_ui_bugs.md`
+  - 1 feature_request forwarded to completion_aggregator: `task_splitter-fix_hud_ui_bugs.md`
+  - 1 feature_tasks manifest to completion_aggregator with 1 task
+- **Forum**: `hud-ui-bugs` topic already had my vote — no action needed
+
+
+## 2026-03-25T15:30:00Z — Forum close vote, no pending work
+
+- **Forum**: Voted to close `2026-03-25T00-00-00Z-operator-hud-ui-bugs.md` — discussion fully resolved, root causes identified for all 3 bugs, designer sending feature_request.
+- **Inboxes**: No pending architecture_requests or feature_requests. No stuck active messages.
+- **Action**: Forum vote was the productive output this session.
+
+## 2026-03-28 — action_channels_r1 rework split
+
+- **Input**: `manual_qa-action_channels_r1.md` (QA rework — targeted attack and attack-move target lock broken)
+- **Investigation**: Explored combat behavior systems, channel sync system, and attack-move leash logic
+- **Output**: 2 developer_tasks:
+  1. `action-channels-targeted-attack-fix` — Fix attack_channel_sync_system overriding locomotion when unit is out of range
+  2. `action-channels-attackmove-target-lock` — Fix leash check disengaging during multi-phase attack cycle
+- **Forwarded**: feature_request + feature_tasks manifest to completion_aggregator
+- **Forum**: No open topics requiring attention
+
+## 2026-03-28 — add_cults_armory_r1 rework split
+
+- **Input**: `manual_qa-add_cults_armory_r1.md` (QA rework — Cults faction unplayable, camera not centering, enemy overlap)
+- **Investigation**: Traced root causes in setup.rs: (1) `center_camera_on_start` ignores Cults (`_ => return`), (2) enemy test units at (50,50) overlap Cults RC, (3) no crystal patches near Cults start
+- **Output**: 1 developer_task:
+  1. `cults_game_start_fixes` — Fix camera centering for Cults, relocate enemy test units, add crystal patches near (50,50)
+- **Forwarded**: feature_request + feature_tasks manifest to completion_aggregator
+- **Forum**: No open topics
+
+## 2026-03-28 — agent_groupable_construction_r1 rework split
+
+- **Input**: `manual_qa-agent_groupable_construction_r1.md` (QA rework — Tunnel build command shows no placement overlay, blocking construction test)
+- **Investigation**: Traced to `manage_placement_ghost` in placement.rs — match on panel_state missing `AgentAwaitingPlacement` arm, falls to `_ => None`. Rest of placement flow (validation, confirmation, left-click) already handles it correctly.
+- **Output**: 1 developer_task:
+  1. `agent_tunnel_placement_ghost_fix` — Add missing match arm for AgentAwaitingPlacement in manage_placement_ghost
+- **Forwarded**: feature_request + feature_tasks manifest to completion_aggregator
+- **Forum**: No open topics
+- **Note**: 2 related reworks remain pending (agent_interface_r1, agent_resource_gathering_r1) — both report the same placement bug plus right-click Gather broken
+
+## 2026-03-28 — Session: Process agent_interface_r1
+
+**Input**: manual_qa-agent_interface_r1.md (QA rework, 3 failures)
+
+**Investigation**:
+- Checked all 3 reported failures against current codebase
+- Placement ghost: Already fixed (AgentAwaitingPlacement arm exists in placement.rs)
+- Right-click Attack: Already fixed (generic attack handler works for all units, attack_command_rightclick_fix task completed)
+- Right-click Gather: ROOT CAUSE — UnitCommand::Gather issued but GatheringResourceBehavior never inserted. Same gap for DropOffResources and BuildTunnel. Behavior systems query for behavior components, not UnitCommand variants.
+- Compare to SupplyChopper pattern which correctly inserts behavior components alongside commands
+
+**Output**:
+- 1 developer_task: task_splitter-agent_command_behavior_bridge.md → task_planner
+- 1 feature_request forwarded: task_splitter-agent_interface_r1.md → completion_aggregator
+- 1 feature_tasks manifest: task_splitter-agent_interface_r1.md → completion_aggregator
+
+**Notes**: 2 related reworks still pending (agent_resource_gathering_r1, agent_tunnel_building_r1) — both share same root cause. Will process next session.
+
+## 2026-03-28T12:00:00Z — Process agent_resource_gathering_r1 rework
+
+- **Forum**: Voted to close `qa_router_patterns_too_broad` — all agents agree patterns are too broad, pipeline_builder should fix. Topic closed with my vote.
+- **Processed**: `manual_qa-agent_resource_gathering_r1.md` (QA rework)
+- **Investigation**: Examined command_dispatch.rs gather handler (~line 343), update_cursor_target system, cursor target classification. Code looks structurally correct — gather handler should fire for right-click on NeutralObject crystal patches. Likely a hit detection or system ordering bug.
+- **Split**: 1 developer_task (debugging/fix task)
+
+**Output**:
+- 1 developer_task: task_splitter-agent_rightclick_gather_fix.md → task_planner
+- 1 feature_request forwarded: task_splitter-agent_resource_gathering_r1.md → completion_aggregator
+- 1 feature_tasks manifest: task_splitter-agent_resource_gathering_r1.md → completion_aggregator
+
+**Notes**: agent_tunnel_building_r1 still pending — will process next session. May share root cause with gather bug (entity detection).
+
+## 2026-03-28T22:30:00Z
+
+- **Forum**: Voted to close 2 topics (integration-test-compilation-regression, auto-capabilities-patterns-too-broad). Both well-discussed with consensus.
+- **Architecture request processed**: `integration-test-compilation-fix` — test compilation broken after entity definitions refactoring. 5 test files need import path updates. Split as single task (atomic — all tests must compile together).
+  - 1 developer_task: `integration-test-compilation-fix`
+  - Forwarded feature_request + feature_tasks manifest to completion_aggregator
+- **Pending feature_request remaining**: `manual_qa-agent_tunnel_building_r1.md` (will process next execution)
+
+## 2026-03-28T23:00:00Z
+
+- **Feature request processed**: `manual_qa-agent_tunnel_building_r1` — QA reported Build Tunnel ghost placement non-functional, blocking all 11 QA steps. Investigation found root cause was ALREADY FIXED: `agent_tunnel_placement_ghost_fix` (completed 336s after this rework was filed) added missing match arm in placement.rs. `agent_command_behavior_bridge` also completed, fixing behavior insertion. Created single verification task.
+  - 1 developer_task: `verify_agent_tunnel_building_r1`
+  - Forwarded feature_request + feature_tasks manifest to completion_aggregator
+- **No forum topics, no remaining pending messages**
+
+## 2026-03-28T21:00:00Z — No-work session (forum only)
+
+- **Forum**: Voted to close `auto-capabilities-still-misrouting` topic. This is a pipeline_builder concern about broad patterns in `auto_capabilities.txt` causing infinite qa_item routing loops. Analysis and fix are fully documented in the topic. Not a task_splitter concern.
+- **Inboxes**: No pending architecture_requests or feature_requests. No stuck messages in active/.
+- **Action**: None required. Clean exit.
+
+## 2026-03-28T21:00:00Z
+
+- **Forum**: Commented and voted to close `auto-capabilities-still-misrouting` topic. Pipeline_builder/operator concern about broad patterns in `auto_capabilities.txt` causing infinite qa_item routing loops. Not a task_splitter issue.
+- **Pending work**: No architecture_requests or feature_requests pending. No stuck active messages.
+- **Outcome**: Forum-only session. No tasks produced.
+
+## 2026-03-28T21:00:00Z — No-work session
+
+- **Forum**: Added missing VOTE:task_splitter to `auto-capabilities-still-misrouting` topic (comment was already present from prior session but vote wasn't recorded)
+- **Inboxes**: Both `architecture_request/pending/` and `feature_request/pending/` empty. No stuck active messages.
+- **Result**: No work to process. Forum vote was the only action.
+
+## 2026-03-28T18:30:00Z — Forum pass, no pending work
+
+- **Forum**: Commented and voted to close `auto-capabilities-still-misrouting` topic. Agreed with automatic_qa's diagnosis that overly broad patterns in `auto_capabilities.txt` are misrouting all QA items. Directed to pipeline_builder.
+- **Inboxes**: No pending architecture_requests or feature_requests. No stuck active messages.
+- **Action**: None needed beyond forum engagement.
+
+## 2026-03-28T20:55:00Z — Forum votes, no pending work
+
+- **Forum**: Voted to close both open topics (auto-capabilities-still-misrouting, designer-no-work-available). Already commented on auto-capabilities previously; designer topic is a scheduler config issue, not task_splitter domain.
+- **Inboxes**: No pending architecture_requests or feature_requests. No stuck active messages.
+- **Action**: Forum-only session.
+
+## 2026-03-28T21:10:00Z — Forum vote, no pending work
+
+- **Forum**: Voted to close `auto-capabilities-still-misrouting` (only open topic). Consensus already reached across 5 agents; pipeline_builder needs to apply the fix.
+- **Inboxes**: No pending architecture_requests or feature_requests. No stuck active messages.
+- **Action**: Forum-only session.
+
+## 2026-03-28T21:30:00Z — No work available
+
+- **Forum**: Re-voted to close `auto-capabilities-still-misrouting` (still the only open topic, previous vote confirmed added).
+- **Inboxes**: No pending architecture_requests or feature_requests. No stuck active messages.
+- **Action**: No-work session.
+
+## 2026-03-28T18:10:00Z — No-work session (forum only)
+
+- **Forum**: Commented on and voted to close `auto-capabilities-still-misrouting` topic — QA routing misconfiguration is a pipeline_builder concern, not task_splitter. Agreed with proposed fix.
+- **Inboxes**: No pending architecture_requests or feature_requests. No stuck active messages.
+- **Result**: Forum engagement only. No tasks produced.
+
+## 2026-03-28T21:30:00Z — No-work session
+
+- **Forum**: Voted to close `auto-capabilities-still-misrouting` topic (had already commented previously).
+- **Inboxes**: No pending architecture_requests or feature_requests. No stuck active messages.
+- **Result**: No work to do. Clean exit.
+
+## 2026-03-28T21:30:00Z — Non-interactive session
+
+- Loaded insights (no changes needed)
+- Forum pass: Voted to close `auto-capabilities-still-misrouting` topic — already commented previously, this is a pipeline_builder concern
+- No pending architecture_requests or feature_requests
+- No stuck messages in active directories
+- No work to process; exiting cleanly
+
+## 2026-03-28T20:10:00Z — Forum pass only
+
+- **Forum**: Commented on and voted to close `auto-capabilities-critical-misrouting` topic. The auto_capabilities.txt broad patterns are misrouting all QA items to automatic_qa. Endorsed the fix (restrict to cargo/test patterns). Not in task_splitter's domain to implement.
+- **Inboxes**: No pending architecture_requests or feature_requests. No active/stuck messages.
+- **Action**: Forum engagement only. Exiting.
+
+## 2026-03-28T22:00:00Z — Session: Forum pass only
+
+- **Forum**: Voted to close `auto-capabilities-critical-misrouting` topic. Already commented in prior session agreeing with the fix. No new insights to add.
+- **Inboxes**: No pending architecture_requests or feature_requests. No stuck active messages.
+- **Result**: Forum-only session. No task splitting performed.
+
+## 2026-03-28T22:30:00Z — Session
+
+- **Forum**: Commented on and voted to close `auto-capabilities-must-be-narrowed` topic. Agreed with automatic_qa that auto_capabilities.txt patterns are too broad, causing 6 qa_items to bounce 20+ times. Recommended pipeline_builder apply the fix.
+- **Work**: No pending architecture_requests or feature_requests. No stuck active messages.
+- **Result**: Forum-only session. No splitting work performed.
+
+## 2026-03-28T23:00:00Z — Session
+
+- **Forum**: Voted to close `auto-capabilities-must-be-narrowed` topic (had previously commented but not voted). Topic now has votes from task_planner, software_architect, and task_splitter.
+- **Work**: No pending architecture_requests or feature_requests. No stuck active messages.
+- **Result**: Forum-only session. No splitting work performed.
+
+## 2026-03-28T23:10:00Z — Forum pass only
+
+- Engaged with forum topic `2026-03-28T23-00-00Z-automatic_qa-auto-capabilities-infinite-bounce-loop.md`: auto_capabilities.txt broad patterns causing 6 qa_items to bounce infinitely. Commented that pipeline_builder owns this fix, voted to close.
+- No pending architecture_requests or feature_requests in any inbox.
+- No stuck messages in active directories.
+
+## 2026-03-28T23:45:00Z — Session
+
+- **Forum**: Voted to close `2026-03-28T23-00-00Z-automatic_qa-auto-capabilities-infinite-bounce-loop.md` (auto_capabilities.txt broad patterns causing infinite QA bounce loop — pipeline_builder responsibility). Already had my comment from prior session.
+- **Inboxes**: No pending architecture_requests or feature_requests. No stuck active messages.
+- **Result**: Forum-only session, no splitting work available.
+
+## 2026-03-28T23:45:00Z — Forum pass only
+
+- **Forum**: Commented on and voted to close `auto-capabilities-must-be-narrowed` topic. This is the 6th topic about broad auto_capabilities.txt patterns causing QA bounce loops — pipeline_builder needs to apply the fix. Not a task_splitter concern.
+- **Inboxes**: No pending architecture_requests or feature_requests. No stuck active messages.
+- **Result**: No decomposition work to do this session.
+
+## 2026-03-28T23:45:00Z — Forum pass only
+
+- **Forum**: Commented on and voted to close `auto-capabilities-must-be-narrowed` topic. Agreed with automatic_qa's diagnosis — broad single-word patterns in `auto_capabilities.txt` are routing interactive QA items to automatic_qa, causing infinite bounce loops for 6 qa_items. Fix is in pipeline_builder/software_architect domain.
+- **Work**: No pending architecture_requests or feature_requests. No stuck active messages. Session complete.
+
+## 2026-03-28T23:55:00Z — No work available
+
+- **Forum**: Checked `auto-capabilities-must-be-narrowed` — already has my close vote (from previous session). Fix confirmed applied by software_architect.
+- **Work**: No pending architecture_requests or feature_requests. No stuck active messages. Nothing to do.
+
+## 2026-03-28T23:55:00Z
+
+- **Forum**: Voted to close `auto-capabilities-must-be-narrowed` topic. Fix was already applied by software_architect. All required votes now in; topic moved to closed.
+- **Messages**: No pending architecture_requests or feature_requests.
+- **Action**: No decomposition work this session. Clean exit.

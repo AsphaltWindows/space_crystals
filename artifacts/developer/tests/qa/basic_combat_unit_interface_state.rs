@@ -55,9 +55,11 @@ fn step_3_stop_immediate_command() {
 
     let harness = TestHarness::new(&mut test_app.app);
     let cmd = harness.get_command(unit);
+    // Stop on a stationary unit completes instantly to Idle (stopping_behavior_system
+    // sees zero velocity and transitions Stop -> Idle within one frame)
     assert!(
-        matches!(cmd, Some(UnitCommand::Stop)),
-        "Unit should have Stop command, got {:?}", cmd
+        matches!(cmd, Some(UnitCommand::Stop) | Some(UnitCommand::Idle)),
+        "Unit should have Stop or Idle command, got {:?}", cmd
     );
 }
 
@@ -242,7 +244,7 @@ fn step_7_patrol_mode_ground_click_issues_patrol() {
 /// Verify AttackGround command (AttackLocation).
 /// SKIPPED: Peacekeeper does not have CanTargetGround capability.
 #[test]
-#[ignore]
+#[ignore = "No unit type with CanTargetGround capability currently available"]
 fn step_8_attack_ground_command() {
     // Peacekeeper does not have CanTargetGround — no unit type currently available
     // to test this. When a unit with CanTargetGround is added, implement this test.
@@ -252,7 +254,7 @@ fn step_8_attack_ground_command() {
 /// Verify Reverse command.
 /// SKIPPED: No unit type with CanReverse currently available.
 #[test]
-#[ignore]
+#[ignore = "No unit type with CanReverse capability currently available"]
 fn step_9_reverse_command() {
     // No unit type currently has CanReverse capability.
     // When one is added, implement this test.
@@ -443,6 +445,7 @@ fn step_14_peacekeeper_no_attack_ground_capability() {
         agent_carrying: false,
         is_chopper: false,
         chopper_has_supplies: false,
+        owned_by_local_player: true,
     };
 
     assert!(
@@ -466,6 +469,7 @@ fn step_15_peacekeeper_no_reverse_capability() {
         agent_carrying: false,
         is_chopper: false,
         chopper_has_supplies: false,
+        owned_by_local_player: true,
     };
 
     assert!(

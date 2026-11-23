@@ -18,16 +18,16 @@ fn tick_construction(app: &mut bevy::app::App) {
                 let increment = 1.0 / construction.build_frames as f32;
                 construction.progress = (construction.progress + increment).min(1.0);
 
-                if let Some(max_hp) = obj.max_hp {
-                    let new_hp = max_hp * ConstructionHP::hp_fraction(construction.progress);
-                    if let Some(current_hp) = obj.hp {
-                        if current_hp < new_hp {
-                            let prev_progress = (construction.progress - increment).max(0.0);
-                            let prev_expected = max_hp * ConstructionHP::hp_fraction(prev_progress);
-                            if current_hp >= prev_expected - 0.001 {
-                                obj.hp = Some(new_hp.min(max_hp));
-                            }
-                        }
+                let max_hp = obj.max_hp
+                    .expect("ObjectInstance should have max_hp set");
+                let new_hp = max_hp * ConstructionHP::hp_fraction(construction.progress);
+                let current_hp = obj.hp
+                    .expect("ObjectInstance should have hp set");
+                if current_hp < new_hp {
+                    let prev_progress = (construction.progress - increment).max(0.0);
+                    let prev_expected = max_hp * ConstructionHP::hp_fraction(prev_progress);
+                    if current_hp >= prev_expected - 0.001 {
+                        obj.hp = Some(new_hp.min(max_hp));
                     }
                 }
 

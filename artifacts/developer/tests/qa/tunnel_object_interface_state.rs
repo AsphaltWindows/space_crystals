@@ -203,27 +203,39 @@ fn step_11_hq_expansion_construction_takes_400_frames() {
     assert_eq!(required, 400.0, "HQ_BUILD_FRAMES should be 400");
 
     // After 1 tick, progress = 1.0, still in progress
-    if let Some(TunnelOperation::BuildingExpansion { ref mut progress, .. }) = state.current_operation {
-        *progress = 1.0;
+    match state.current_operation {
+        Some(TunnelOperation::BuildingExpansion { ref mut progress, .. }) => *progress = 1.0,
+        _ => panic!("Expected BuildingExpansion operation"),
     }
-    if let Some(TunnelOperation::BuildingExpansion { progress, .. }) = &state.current_operation {
-        assert!(*progress < required, "After 1 tick, construction should NOT be complete");
+    match &state.current_operation {
+        Some(TunnelOperation::BuildingExpansion { progress, .. }) => {
+            assert!(*progress < required, "After 1 tick, construction should NOT be complete");
+        }
+        _ => panic!("Expected BuildingExpansion operation"),
     }
 
     // After 399 ticks, still in progress
-    if let Some(TunnelOperation::BuildingExpansion { ref mut progress, .. }) = state.current_operation {
-        *progress = 399.0;
+    match state.current_operation {
+        Some(TunnelOperation::BuildingExpansion { ref mut progress, .. }) => *progress = 399.0,
+        _ => panic!("Expected BuildingExpansion operation"),
     }
-    if let Some(TunnelOperation::BuildingExpansion { progress, .. }) = &state.current_operation {
-        assert!(*progress < required, "After 399 ticks, construction should NOT be complete");
+    match &state.current_operation {
+        Some(TunnelOperation::BuildingExpansion { progress, .. }) => {
+            assert!(*progress < required, "After 399 ticks, construction should NOT be complete");
+        }
+        _ => panic!("Expected BuildingExpansion operation"),
     }
 
     // After 400 ticks, construction completes
-    if let Some(TunnelOperation::BuildingExpansion { ref mut progress, .. }) = state.current_operation {
-        *progress = 400.0;
+    match state.current_operation {
+        Some(TunnelOperation::BuildingExpansion { ref mut progress, .. }) => *progress = 400.0,
+        _ => panic!("Expected BuildingExpansion operation"),
     }
-    if let Some(TunnelOperation::BuildingExpansion { progress, .. }) = &state.current_operation {
-        assert!(*progress >= required, "After 400 ticks, construction should be complete");
+    match &state.current_operation {
+        Some(TunnelOperation::BuildingExpansion { progress, .. }) => {
+            assert!(*progress >= required, "After 400 ticks, construction should be complete");
+        }
+        _ => panic!("Expected BuildingExpansion operation"),
     }
 
     // tunnel_construction_tick_system would set current_operation = None and spawn the HQ
@@ -253,7 +265,7 @@ fn step_11_placement_returns_to_default_state() {
 // ============================================================================
 
 #[test]
-#[ignore] // Escape key not processed by command_panel_hotkeys in headless mode — verify manually
+#[ignore = "Escape key not processed in headless mode"]
 fn step_12_escape_from_awaiting_placement_goes_to_expand_menu() {
     // Escape in TunnelAwaitingPlacement -> TunnelExpandMenu
     let mut test_app = TestApp::new();
@@ -278,7 +290,7 @@ fn step_12_escape_from_awaiting_placement_goes_to_expand_menu() {
 }
 
 #[test]
-#[ignore] // Escape key not processed in headless mode
+#[ignore = "Escape key not processed in headless mode"]
 fn step_12_escape_from_expand_menu_goes_to_tunnel_idle() {
     // Escape in TunnelExpandMenu -> TunnelIdle (DefaultState)
     let mut test_app = TestApp::new();
@@ -419,7 +431,7 @@ fn step_16_rapid_queue_additions_processed_in_order() {
 // ============================================================================
 
 #[test]
-#[ignore] // Escape key not processed in headless mode
+#[ignore = "Escape key not processed in headless mode"]
 fn step_17_escape_from_eject_menu_goes_to_tunnel_idle() {
     let mut test_app = TestApp::new();
     test_app.step();
@@ -482,7 +494,7 @@ fn step_18_right_click_awaiting_placement_returns_to_expand_menu() {
 // ============================================================================
 
 #[test]
-#[ignore] // Escape key not processed in headless mode
+#[ignore = "Escape key not processed in headless mode"]
 fn escape_chain_awaiting_placement_to_expand_to_idle() {
     let mut test_app = TestApp::new();
     test_app.step();
@@ -521,7 +533,7 @@ fn escape_chain_awaiting_placement_to_expand_to_idle() {
 }
 
 #[test]
-#[ignore] // Escape key not processed in headless mode
+#[ignore = "Escape key not processed in headless mode"]
 fn escape_chain_eject_menu_to_idle() {
     let mut test_app = TestApp::new();
     test_app.step();

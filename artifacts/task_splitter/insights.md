@@ -1,5 +1,20 @@
 # Task Splitter Insights
 
+## Active: Declarative Entity Definition Refactor (split 2026-03-25)
+
+Architecture_request processed and split into 13 developer_tasks. Key details:
+- **Structure**: `src/game/entities/{faction}/{units|buildings}/{entity}.rs` — one file per entity
+- **Pattern**: EntityDefinition/UnitDefinition/StructureDefinition traits, explicit registry via `reg.register::<>()`
+- **Task breakdown (13 tasks)**:
+  1. entity-definition-foundation — traits, types, EntityRegistry, directory structure
+  2. entity-def-pilot-peacekeeper — validate pattern end-to-end
+  3-9. Per-faction entity migrations (gdo-units, gdo-buildings, syndicate-units, syndicate-buildings, cults-units, cults-buildings, neutral)
+  10-12. Consumer wiring (grid-layout, spawn-dispatch, costs) — depend on all migrations
+  13. entity-definition-cleanup — remove legacy code, update imports
+- **Dependencies**: 1→2→(3-9 parallel)→(10-12 parallel)→13
+- **Impact on future splits**: New entity feature_requests become trivially decomposable (one file = one task)
+- **21 ObjectEnum variants** across GDO (2 units + 6 buildings), Syndicate (2 units + 2 buildings), Cults (3 units + 3 buildings), Neutral (2 resources)
+
 ## Upcoming Features (from forum topics, 2026-03-19)
 
 Operator has posted 6 forum topics requesting designer to produce feature_requests. When these arrive, key splitting notes:
@@ -70,6 +85,13 @@ Operator has posted 6 forum topics requesting designer to produce feature_reques
 
 ## Already-Processed Feature Requests (continued)
 - **action-channels**: Channel components (LocomotionChannel, OrientationChannel, BaseAttackChannel, TurretOrientationChannel, TurretAttackChannel) fully defined in `game/units/types/state/behavior.rs` and spawned on units. Behaviors write to locomotion/orientation channels. BUT: no consumer systems read channels to drive movement/rotation (current systems use MoveTarget/Path pattern), and combat doesn't write to attack channels (uses AttackState/AttackPhase separately). Split into 2 tasks: action-channel-locomotion-orientation (consumer systems for movement/rotation), action-channel-attack-integration (connect combat to attack channels + turret channels).
+- **action-channels r1 (rework)**: QA found 2 bugs after initial implementation: (1) Targeted attack (Attack+click or right-click enemy) causes unit to stop in place — root cause is `attack_channel_sync_system` forcing LocomotionChannel::Stationary during Aiming/Firing/Cooldown even when unit is out of range; (2) Attack-Move fires once then resumes moving — root cause is leash check in `attack_move_behavior_system` disengaging too aggressively during multi-phase attack cycle. Split into 2 tasks: action-channels-targeted-attack-fix, action-channels-attackmove-target-lock.
+
+## Architecture Refactoring Splitting Heuristics
+- File-split refactors (single file -> directory module) should be ONE developer_task, not multiple. The entire split must be atomic since intermediate states won't compile.
+- The architecture doc provides exact line ranges -- include these in the task description for the developer.
+- Test-only import fixes after refactoring = single task (all test files must compile together, no intermediate valid state).
+- For core.rs split: 8 submodules, tests distributed to each submodule. Single task: core_systems_split.
 
 ## Codebase Patterns (action channels architecture)
 - Behaviors (Phase 2) write to LocomotionChannel/OrientationChannel
@@ -77,6 +99,10 @@ Operator has posted 6 forum topics requesting designer to produce feature_reques
 - Combat uses AttackState/AttackPhase (combat/types.rs), NOT BaseAttackChannel — needs integration
 - Turret systems (combat/turret.rs) don't use TurretAttackChannel/TurretOrientationChannel — needs integration
 - PhaseActionConstraints pattern (base_action_constraints) should be replaced by cross-channel constraint enforcement
+
+## Rework: agent_resource_gathering_r1 (2026-03-28)
+- Right-click Gather on crystal patches reported as non-functional. Code in command_dispatch.rs (line ~343) looks structurally correct. Likely a hit detection issue (AABB sizing, system ordering, or cursor target not detecting crystal patches as entities). Split as single debugging task: agent_rightclick_gather_fix.
+- Note: agent_tunnel_building_r1 is also pending with similar symptoms (Build Tunnel ghost placement doesn't appear). These may share a root cause in entity detection/spawning.
 
 ## New Batch of Foundational Features (2026-03-20)
 Large batch of ~28 foundational feature requests arrived covering: tile terrain, fog of war, resources, factions, unit bases/movement/collision, combat, locomotion, control/selection, commands, behaviors, turrets, auto-targeting, action channels, command indicators, and faction-specific units/structures. These are core engine systems — process most foundational first.
@@ -154,6 +180,15 @@ Large batch of ~28 foundational feature requests arrived covering: tile terrain,
 ## Already-Processed Feature Requests (batch 20 - Camera)
 - **camera-pan-snap**: Design doc formalization of existing behavior. Camera instant-snap centering already implemented in two places: Alt-click portrait (hud.rs selection_portrait_click_system) and double-tap control group recall (resources.rs). Both use same z_offset formula (cam.y * 25.0 / 40.0). Created a single verification task.
 
+## Already-Processed Feature Requests (rework - add_cults_armory_r1)
+- **add_cults_armory_r1**: QA blocked — Cults starts with RC at (50,50) but camera doesn't center (setup.rs `center_camera_on_start` has `_ => return` for Cults), enemy test units overlap RC position, no crystal patches nearby. Single task: cults_game_start_fixes (camera centering, enemy relocation, crystal patch placement).
+
+## Codebase Patterns (game start setup)
+- `center_camera_on_start` only handles GDO (DeploymentCenter) and Syndicate (Tunnel) — Cults/Colonists fall through to `_ => return`
+- Enemy test units hardcoded at (50,50) area — conflicts with Cults RC at same position
+- Crystal patches clustered near GDO start (30,30) — no patches near Cults/Syndicate starts
+- Each faction's game start function is in setup.rs, registered in mod.rs with `.after(map::spawn_grid)`
+
 ## Design Gap: ExtractionFacility Construction (2026-03-21) — RESOLVED
 - Designer added EF to DC Constructs list (200 SC, 320 frames) + ExtractionPlate Power -3
 - Split into 2 tasks: dc_buildmenu_add_ef (grid slot + construction_cost), extraction_plate_power_cost (PowerValue(-3) on spawn)
@@ -229,3 +264,150 @@ Large batch of ~28 foundational feature requests arrived covering: tile terrain,
 
 ## Already-Processed Feature Requests (batch 29 - grid lines elevation)
 - **fix_grid_lines_elevation**: Regression fix — draw_grid_lines() hardcodes y=0.005 but elevation system raises tiles above that. Single task: grid_lines_elevation_fix (add ElevationMap param to draw_grid_lines, draw per-cell segments at max neighbor elevation + offset).
+
+## Already-Processed Feature Requests (rework 4 - unit command system)
+- **unit_command_system_r1**: QA rework — Move commands work but 3 issues: (1) right-click enemy → unit stops instead of pursuing (AttackTarget issued but approach not working), (2) shift-click queuing → only first command executed (queue not dequeuing or ground handler not using issue_or_queue_command), (3) hotkeys non-functional (likely owned_by_local_player guard or system ordering). Split into 3 tasks: attack_command_rightclick_fix, shift_click_queue_fix, hotkey_command_fix.
+
+## Splitting Lessons (rework tasks)
+- QA rework failures that report N distinct bugs should be split into N separate tasks even when they're in the same subsystem — each bug is independently investigable and fixable
+- For bug-fix tasks, include specific file locations, line numbers, and investigation hypotheses to help the developer narrow scope quickly
+
+## Already-Processed Feature Requests (batch 30 - extraction plate depletion fix)
+- **extraction_plate_persists_after_depletion**: Bug fix — depleted_patch_despawn_system (faction.rs ~line 659) despawns both patch AND plate when remaining_amount==0. Per design, plate must persist and mine at residual rate. Single task: extraction_plate_depletion_lifecycle (fix despawn system to skip plate, handle missing patch entity in mining system, handle missing patch in destruction cleanup).
+
+## Duplicate Feature Requests Resolved
+- **designer-fix_extraction_plate_depletion_lifecycle**: Duplicate of designer-extraction_plate_persists_after_depletion. Moved to done with no new tasks. Cleaned up accidentally-created duplicate messages from completion_aggregator/task_planner.
+
+## Duplicate Feature Requests Pending
+- (none currently)
+
+## Already-Processed Feature Requests (batch 32 - fog selectability)
+- **fog_of_war_selectability**: Two changes: (1) Explored areas should block selection of all objects except SDS for GDO players, (2) SDS InfoPanel rework with visibility-context-aware display (Visible=4 fields, Explored/GDO=3 fields, NextDeliveryTime always shown). Split into 2 tasks: explored_selectability_rules (modify fog filters in both selection_system and box_selection_system in resources.rs), sds_infopanel_visibility_rework (rework SDS InfoPanel display in hud.rs with SelectedFaction gating).
+
+## Already-Processed Feature Requests (batch 31 - InfoPanel fog gating)
+- **infopanel_fog_of_war_visibility**: Single task — infopanel_fog_visibility_gate. Add FogOfWarMap + GridPosition + local player lookups to update_selected_units_grid_system in hud.rs. Gate SpaceCrystalPatch RemainingAmount and SupplyDeliveryStation CurrentSupplies behind Visible check. Also covers ExtractionPlate's attached patch display.
+- **resource_nodes_r1**: QA rework — duplicate of infopanel_fog_of_war_visibility. Both manifests point to same task (task_splitter-infopanel_fog_visibility_gate.md). When task completes, both features will be marked done by completion_aggregator.
+
+## Splitting Lessons (duplicates)
+- ALWAYS check insights for known duplicates BEFORE sending any messages. Reading insights must happen first to avoid creating duplicate tasks that need cleanup.
+
+## Already-Processed Feature Requests (rework 5 - GDO Barracks)
+- **gdo_barracks_r1**: QA rework — rally point on enemy doesn't trigger attack approach. Root cause: `issue_rally_command` in faction.rs (line ~470) inserts `UnitCommand::AttackTarget` but NOT `MoveTarget`/`Path` for initial approach. The right-click attack fix in core.rs (lines ~355-375) added this for direct right-click but rally command wasn't updated. Same function is shared by Barracks, HQ, and Armory. Rally target cleanup (destruction → reset to None) already implemented but untestable until attacks work. Single task: rally_attack_approach_path.
+
+## Codebase Patterns (rally command)
+- `issue_rally_command` in faction.rs is shared by Barracks (line 404), Headquarters (line 571), and Armory (line 2531)
+- `rally_target_cleanup_system` (line 675) handles entity destruction → rally_point=None for Barracks; HQ cleanup likely similar
+
+## Upcoming: Refactoring Architecture Requests (2026-03-23)
+- Forum topics opened by operator requesting software_architect to review codebase for refactoring
+- Key refactoring targets identified by developer + task_planner: core.rs (right-click monolith), command_panel.rs (16-param limit, monolithic actions), faction.rs (all-factions production mixing), dual movement pipeline (MoveTarget vs LocomotionChannel)
+- When architecture_requests arrive for these, expected splitting: trait/dispatch extraction for core.rs, per-state module extraction for command_panel.rs, per-faction file extraction for faction.rs, 2-3 tasks for movement pipeline unification
+- Also: automated QA infrastructure architecture_request expected — testing harness already exists (TestApp, 1866+ tests), so new work likely focused on routing/capabilities rather than building from scratch
+
+## Already-Processed Architecture Requests (batch 1)
+- **automated-qa-unblock**: Fix test compilation errors + verify qa_router capabilities. auto_capabilities.txt was already updated by software_architect directly. Only developer work: add `owned_by_local_player: true` to 4 SelectedUnitCapabilities initializers in tests/qa/ (2 in agent_object_interface_state.rs lines 653/667, 2 in basic_combat_unit_interface_state.rs lines 439/462), plus verify/fix auto_capabilities.txt content. Split into 1 task: qa_test_compilation_fix.
+
+## Already-Processed Architecture Requests (batch 2)
+- **right-click-command-dispatch**: Refactor monolithic `right_click_move_command` (lines 243-1008, ~765 lines) into dispatch pattern. Split into 2 sequential tasks:
+  1. command_context_and_issue_helper — Extract CommandContext struct + try_issue_command helper (Phases 2+3 from arch doc). Foundation work that deduplicates 10+ repeated interruptibility/clear/issue patterns and reduces parameter passing.
+  2. extract_command_handlers_dispatch — Extract all entity-click handlers (10 handlers: attack, dropoff, enter, pickup, attach, dropoff_supplies, chopper/agent/recruit/guard right-click) and ground-click handlers (6 handlers: move, patrol, attack, attack_move, attack_ground, reverse) into standalone functions. Main function becomes <100-line dispatcher.
+- Phase 4 (TargetKind enum) explicitly deferred per arch doc — optional follow-up if Phases 1-3 suffice.
+
+## Splitting Lessons (architecture refactors)
+- For pure refactors of a single function, split foundation work (helpers, structs) from extraction work — foundation first reduces complexity of extraction
+- Don't over-split refactors that touch the same function — merge conflicts between tasks are a real risk. 2 tasks is better than 4 for a single-function refactor.
+- File-to-directory module splits should be a SINGLE task — splitting one file into N submodules is atomic work that cannot be parallelized (all pieces consume the same source file)
+
+## Already-Processed Architecture Requests (batch 3 - file splits)
+- **behaviors-split**: Split behaviors.rs (4,481 lines) into behaviors/ directory with 6 submodules (movement, tunnel_interaction, construction, resource_gathering, supply_chopper, mod.rs). Pure file reorganization. Single task because the work is atomic — all submodules consume the same source file.
+- **command-panel-split**: Split command_panel.rs (6,357 lines) into command_panel/ directory with 9 files (mod.rs + grid_layout, state, ui_rebuild, hotkeys, actions, tunnel_actions, pointer, helpers). Also decomposes execute_command_action (560 lines) into 5 sub-dispatchers. Split into 2 sequential tasks: command_panel_directory_split (file reorganization + test redistribution), command_panel_action_decomposition (function decomposition into sub-dispatchers). Two tasks justified because function decomposition is a distinct analytical concern from mechanical file moves.
+- **core-systems-split**: Processed earlier (see log).
+- **faction-split**: Split faction.rs (4,387 lines) into faction/ directory with 9 files (mod.rs + setup, power, production, construction, resources, rally, placement, ejection). Single task: faction_module_split. Key cross-module dependency: spawn_or_update_rally_marker and despawn_rally_marker_for must be re-exported from mod.rs (imported by units/systems/core.rs). All 4 large-file splits now processed.
+
+## Already-Processed Architecture Requests (batch 4 - test suite cleanup)
+- **test-suite-cleanup**: 9 failing integration tests across 5 categories, 33 soft assertions, dead code, ignore annotations. Split into 4 tasks:
+  1. test_harness_selection_fix (Category D) — fix TestHarness::set_selection() to populate Selection resource groups (DONE at task_planner)
+  2. fix_stale_test_values (Categories C+E) — fix ST_BUILD_FRAMES 160→240 + production ejection test expectation (DONE at task_planner)
+  3. fix_auto_targeting_and_stop_tests (Categories A+B) — fix VisibilityStateEnum on spawned enemies + stop command test expectations (active at task_planner)
+  4. harden_assertions_and_cleanup (Phase 2+3) — 33 soft assertions→expect(), dead code removal, ignore annotations (active at task_planner)
+- NOTE: This architecture_request was stuck in active/ because prior session sent all 4 developer_tasks but failed to send feature_request + feature_tasks manifest to completion_aggregator. Fixed by sending both and moving to done.
+
+## Splitting Lessons (stuck messages)
+- When resuming a stuck architecture_request/feature_request from active/, always check what was already sent (task_planner done/pending/active) before creating duplicate tasks. Only send what's missing.
+
+## Already-Processed Feature Requests (batch 33 - command panel grid expansion)
+- **expand_command_panel_grid**: Pure layout expansion — 3x3 grid to 4x3, adding R/F/V hotkey column. All changes in command_panel/ module (grid_layout.rs, ui_rebuild.rs, hotkeys.rs). New slots unassigned for all current states. Single task because all changes are tightly coupled in one module. NOTE: R and F keys have existing non-grid uses (placement rotation/flip, ready-to-place shortcut) but these are gated by early returns in hotkeys.rs before grid_keys processing.
+
+## Already-Processed Feature Requests (rework 6 - core_systems_split)
+- **core_systems_split_r1**: QA rework — 19 integration tests failing with "got Some(Idle)" after issuing commands. Root cause: `behavior_completion_system` (movement.rs:357) resets `UnitCommand::Move` to `Idle` when `LocomotionChannel::Stationary` + zero velocity, but runs in same unordered Phase 2 group as movement behavior systems. Freshly issued commands haven't been processed by `moving_to_location_system` yet, so they have default Stationary+zero state. Fix: add `BaseBehaviorState::None` guard so completion only fires for behaviors that have actually started. Single task: fix_behavior_completion_race.
+
+## Codebase Patterns (behavior completion)
+- `behavior_completion_system` runs in Phase 2 (behavior systems), NOT Phase 3 (movement systems)
+- It checks `LocomotionChannel::Stationary` + near-zero velocity to determine "complete"
+- `BaseBehaviorState::None` is the initial state before any behavior system processes the command
+- Movement behavior systems set real states (TurnRate, FixedTurnRadius, etc.) when they first handle a command
+
+## Already-Processed Feature Requests (rework 7 - core_systems_split_r2)
+- **core_systems_split_r2**: r1 fixed 13/19 tests, 6 remain in 3 categories:
+  1. Interface state reset after selection (2 tests): set_selection() only adds Selected component, doesn't populate Selection.groups. update_command_panel_state reads groups for branching — empty groups causes Default reset. (test_harness_selection_fix task was completed in prior round but NOT actually implemented)
+  2. Auto-targeting not engaging (3 tests): spawn_peacekeeper/etc do NOT insert VisibilityStateEnum. base_auto_target_system queries it, is_valid_target requires Visible. (fix_auto_targeting_and_stop_tests task was completed but NOT actually implemented)
+  3. ST_BUILD_FRAMES=160 should be 240 (1 test): (fix_stale_test_values task was completed but NOT actually implemented)
+  - Split into 2 tasks: fix_test_harness_selection_groups (cat 1), fix_visibility_and_st_constant (cats 2+3)
+
+## Splitting Lessons (failed prior fixes)
+- Developer can mark tasks complete without implementing them. When r2/r3 reworks arrive for the same bugs, include very specific code locations and exact changes needed — don't just describe the problem, prescribe the fix with line numbers and concrete code changes.
+
+## Forum: Declarative Rust Entity Definitions (2026-03-25) — CONCLUDED
+- Operator pivoted from YAML to declarative Rust structs with per-faction/per-entity file structure
+- Proposed: src/game/entities/{faction}/units/{entity}.rs and buildings/{entity}.rs
+- Team consensus: Phase 1 = stats/costs, Phase 2 = command panel layouts, defer behaviors
+- Software architect's final proposal: EntityDefinition/UnitDefinition/StructureDefinition trait hierarchy, explicit registration (reg.register::<>()), per-entity files contain stats+costs+command_slots+spawn
+- Discovery: explicit mod.rs re-exports, no magic macros
+- Spawn functions move INTO entity files (half-data half-logic, but colocation preferred)
+- Production buildings: generic ProductionBuildingState parameterized by entity def data (eliminates ~300 lines duplication)
+- Awaiting architecture_request from software_architect to formalize and split into tasks
+- Expected splitting: 1 trait/registry infrastructure task, 1 proof-of-concept migration (Peacekeeper), then N per-entity migration tasks (parallelizable), then grid_layout consolidation, then emptied-code cleanup
+
+## Already-Processed Feature Requests (batch 34 - HUD Bar layout)
+- **hud_bar_layout**: HUD Bar restructure from 3 sections (Minimap, UnitsGridSection, CommandPanelSection) to 5 fixed-position sections (Minimap, Portrait, InfoPanel, SelectionPanel, CommandPanel) with visibility rules. Split into 2 tasks:
+  1. hud-bar-five-section-scaffold — Restructure setup_hud layout, add PortraitSection/InfoPanelSection/SelectionPanelSection markers, add hud_section_visibility_system (Visibility::Hidden for space reservation)
+  2. hud-bar-content-redistribution — Migrate update_selected_units_grid_system into 3 per-section systems (portrait, info, selection), remove old UnitsGridSection
+
+## Codebase Patterns (HUD layout)
+- setup_hud in hud.rs: spawns UI camera (Camera2d, order=1), top ResourceBar, bottom HudPanel
+- Bottom panel: currently 3 children — Minimap (200px), UnitsGridSection (flex-grow), CommandPanelSection (200px)
+- update_selected_units_grid_system is monolithic (~500+ lines) handling 0-selected, single-unit, single-structure, single-resource, and multi-select display
+- Existing markers: HudPanel, MinimapSection, UnitsGridSection, CommandPanelSection (in ui/types.rs)
+- Use Visibility::Hidden (not Display::None) for fixed-position slot reservation
+
+## Already-Processed Feature Requests (rework 8 - Agent groupable construction)
+- **agent_groupable_construction_r1**: QA rework — Groupable=false works but Tunnel build command shows no placement overlay. Root cause: `manage_placement_ghost` in placement.rs (line 36-56) match on panel_state missing `AgentAwaitingPlacement` arm — falls to `_ => None`. Single task: agent_tunnel_placement_ghost_fix (add match arm returning `placement_state.building_type`).
+
+## Codebase Patterns (placement ghost)
+- `manage_placement_ghost` (placement.rs:36-56) determines building_type via match on panel_state
+- Each AwaitingPlacement variant needs an explicit match arm — new placement modes must be added here
+- The rest of the placement flow (validation, confirmation, left-click) already handles AgentAwaitingPlacement correctly
+- Related reworks pending: agent_resource_gathering_r1, agent_tunnel_building_r1 — both share same root cause as agent_interface_r1
+
+## Already-Processed Feature Requests (rework 9 - Agent interface)
+- **agent_interface_r1**: QA rework — 3 failures: (1) Build Tunnel placement ghost missing, (2) right-click Gather broken, (3) right-click Attack broken. Investigation revealed:
+  - Placement ghost: ALREADY FIXED — AgentAwaitingPlacement arm exists in manage_placement_ghost (placement.rs line 55)
+  - Right-click Attack: ALREADY FIXED — generic attack handler (command_dispatch.rs lines 96-120) works for all units
+  - Right-click Gather (and DropOff, BuildTunnel): ROOT CAUSE FOUND — Agent commands only insert UnitCommand component, NOT the corresponding behavior components. Behavior systems query for behavior components (GatheringResourceBehavior, DroppingOffResourcesBehavior, BuildingTunnelBehavior), so commands are silently ignored.
+  - Compare to SupplyChopper pattern which inserts both UnitCommand AND behavior component at right-click time.
+  - Split into 1 task: agent_command_behavior_bridge (insert behavior components in command_dispatch.rs and placement.rs)
+
+## Codebase Patterns (command-to-behavior bridge)
+- Move: behavior system reads UnitCommand::Move directly (no behavior component needed)
+- Enter: has dedicated bridge system (enter_command_validation_system in tunnel_interaction.rs) that reads UnitCommand::Enter and inserts EnteringTunnelBehavior
+- SupplyChopper: behavior components inserted alongside commands at right-click time in command_dispatch.rs
+- Agent commands (Gather, DropOff, BuildTunnel): NO bridge — commands issued but behavior components never inserted
+- Pattern: for immediate commands (!shift_held), insert behavior alongside command. Queued commands (shift-held) need future dequeue bridge.
+
+## Shared Root Cause: agent_resource_gathering_r1, agent_tunnel_building_r1
+- Both remaining reworks (pending) share the SAME root cause as agent_interface_r1
+- agent_resource_gathering_r1: right-click Gather broken → same missing GatheringResourceBehavior insertion
+- agent_tunnel_building_r1: Build Tunnel placement broken → placement ghost is already fixed, actual construction broken by missing BuildingTunnelBehavior insertion
+- When agent_command_behavior_bridge task is implemented, all three reworks should pass QA
+- **UPDATE 2026-03-28**: agent_command_behavior_bridge AND agent_tunnel_placement_ghost_fix both completed. agent_tunnel_building_r1 rework was filed BEFORE ghost fix landed (336s earlier). Created single verification task.
+- **UPDATE 2026-03-28**: agent_resource_gathering_r1 was also already processed with a single debugging task (agent_rightclick_gather_fix)

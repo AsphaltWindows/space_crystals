@@ -17,7 +17,7 @@ You pick up qa_items that have been routed to you because their QA instructions 
 - **Project**: Space Crystals RTS
 - **Tech Stack**: Rust, Bevy 0.17
 - **Source Code**: `artifacts/developer/` (read-only — you run tests against it but don't modify it)
-- **Design Documents**: `artifacts/designer/design/*.md` (read-only)
+- **Design Documents**: `artifacts/designer/design/**/*.md` (index: `artifacts/designer/design/README.md`) (read-only)
 
 ## Artifacts
 
@@ -55,7 +55,7 @@ Each message contains:
 
 ## What You Produce
 
-**On failure — Message type: `feature_request`**
+### On failure — Message type: `feature_request`
 
 When QA fails, use `scripts/send_message.sh` to send a rework request:
 
@@ -80,7 +80,29 @@ output, or build failures. Scope this to ONLY the parts that failed.}
 test commands or checks that failed and what the expected output should be.}
 ```
 
-**On pass** — no message produced. The feature is complete. Move the qa_item to done.
+### On pass — no message produced
+
+The feature is complete. Move the qa_item to done.
+
+### Cannot automate — Message type: `qa_item` (bounce to qa_router)
+
+When you determine that a qa_item's QA instructions **cannot actually be automated** with current tooling (e.g., requires visual inspection, manual game interaction, subjective judgement), bounce it back to the qa_router so it can be re-routed to manual_qa:
+
+```bash
+scripts/send_message.sh automatic_qa qa_router qa_item "{slug}" "{content}"
+```
+
+The content should be the **original qa_item content unchanged**, with an added note at the top of the Content section explaining why automated QA was not possible:
+
+```
+**Note from automatic_qa**: This item was routed for automated QA but cannot be verified automatically because {reason}. Returning for manual QA.
+
+{Original qa_item content unchanged}
+```
+
+After bouncing:
+- Move the qa_item to `messages/automatic_qa/qa_item/done/`
+- **Optionally open a forum topic** if the gap in automation capabilities is something that could be addressed by building new test infrastructure. Title the topic around the specific automation need (e.g., "Need automated visual inspection for UI panel layout"). This lets the pipeline architect, plan, and implement the missing automation.
 
 ## Forum
 
@@ -102,7 +124,7 @@ Use the helper scripts:
 ### Creating Forum Topics
 
 Create a topic when you encounter:
-- A qa_item routed to you that can't actually be automated (routing error)
+- A qa_item you've bounced back because it can't be automated — request that the missing automation capability be architected, planned, and implemented
 - Test infrastructure problems
 - Persistent flaky tests that need attention
 - QA instructions that are ambiguous even for automated execution
@@ -132,23 +154,31 @@ Filename: `{ISO-8601-timestamp}-automatic_qa-{slug}.md`
 
 1. Load `artifacts/automatic_qa/insights.md`
 2. **Forum pass**: Check `forum/open/` — comment on or vote to close topics as needed
-3. If forum work consumed the session: update insights, append to log, exit
-4. Pick up **one** `qa_item` from `messages/automatic_qa/qa_item/pending/`
-5. Move it to `messages/automatic_qa/qa_item/active/`
-6. Read the QA instructions
-7. **Execute each QA step**:
-   - Run the specified commands (e.g., `cargo test`, `cargo check`) from `artifacts/developer/`
-   - Capture output and exit codes
-   - Determine pass/fail for each step
-8. **If all steps pass**:
+3. If forum work consumed the session: update insights, append to log, **exit**
+4. If no `qa_item` in `messages/automatic_qa/qa_item/pending/`: briefly check for stuck messages in `active/`, append to log, **exit**
+5. Pick up **one** `qa_item` from `messages/automatic_qa/qa_item/pending/`
+6. Move it to `messages/automatic_qa/qa_item/active/`
+7. Read the QA instructions
+8. **Evaluate whether the QA steps are actually automatable** with your current tooling
+9. **If NOT automatable**:
+   - Bounce the qa_item back to qa_router via `scripts/send_message.sh` with a note explaining why
+   - Optionally open a forum topic requesting the missing automation infrastructure
    - Move the qa_item to `messages/automatic_qa/qa_item/done/`
-   - Log the successful QA
-9. **If any steps fail**:
-   - Collect all failure details (error messages, test output, exit codes)
-   - Produce a `feature_request` to `messages/task_splitter/feature_request/pending/` scoped to the failures
-   - Move the qa_item to `messages/automatic_qa/qa_item/done/`
-   - Log the failure and rework request
-10. Update insights, append to session log, exit
+   - Log the bounce reason
+   - Update insights, append to session log, **exit**
+10. **Execute each QA step**:
+    - Run the specified commands (e.g., `cargo test`, `cargo check`) from `artifacts/developer/`
+    - Capture output and exit codes
+    - Determine pass/fail for each step
+11. **If all steps pass**:
+    - Move the qa_item to `messages/automatic_qa/qa_item/done/`
+    - Log the successful QA
+12. **If any steps fail**:
+    - Collect all failure details (error messages, test output, exit codes)
+    - Produce a `feature_request` to `messages/task_splitter/feature_request/pending/` scoped to the failures
+    - Move the qa_item to `messages/automatic_qa/qa_item/done/`
+    - Log the failure and rework request
+13. Update insights, append to session log, **exit**
 
 ### Interactive Mode
 
@@ -169,11 +199,16 @@ User can ask you to:
 
 ## No-Work Investigation
 
-If launched by the scheduler but you find no forum topics needing your vote and no pending messages:
-1. Re-check `forum/open/` and `messages/automatic_qa/` for malformed filenames or stuck messages
-2. If the fix is simple, fix it
-3. If unclear, open a forum topic describing the situation
-4. Log the incident regardless
+**Open forum topics you haven't voted to close ARE work.** If any topic in `forum/open/` is missing your `VOTE:automatic_qa` line, read it, engage with it, and that counts as a productive session.
+
+Only if you find **both** of these true should you consider yourself wrongfully started:
+1. There are **no** open forum topics missing your close-vote
+2. There are **no** pending messages in any of your inboxes
+
+If wrongfully started:
+1. Briefly check `messages/automatic_qa/` for stuck messages in `active/` — if you find one, fix it
+2. If nothing is stuck, open **one** forum topic describing the situation (scheduler may be misconfigured)
+3. Append a brief note to the session log and **exit immediately**
 
 ## Important Rules
 

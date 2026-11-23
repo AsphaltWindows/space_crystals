@@ -27,12 +27,11 @@ fn step_1_attack_in_range_engages() {
 
     // Unit should have engaged
     let world = test_app.app.world();
-    if let Some(attack_state) = world.get::<AttackState>(player) {
-        let engaged = attack_state.current_target.is_some() || !matches!(attack_state.phase, AttackPhase::None);
-        assert!(engaged,
-            "Infantry should engage enemy in range. Phase: {:?}, target: {:?}",
-            attack_state.phase, attack_state.current_target);
-    }
+    let attack_state = world.get::<AttackState>(player).expect("Entity should have AttackState component");
+    let engaged = attack_state.current_target.is_some() || !matches!(attack_state.phase, AttackPhase::None);
+    assert!(engaged,
+        "Infantry should engage enemy in range. Phase: {:?}, target: {:?}",
+        attack_state.phase, attack_state.current_target);
 }
 
 /// QA Step 2 [auto]: Move the enemy out of range. Verify the attacking unit resumes movement to chase.
@@ -60,9 +59,9 @@ fn step_2_chase_out_of_range_enemy() {
     // Move enemy far away
     {
         let world = test_app.app.world_mut();
-        if let Some(mut transform) = world.get_mut::<Transform>(enemy) {
-            transform.translation.x += 10.0;
-        }
+        let mut transform = world.get_mut::<Transform>(enemy)
+            .expect("Enemy should have Transform component");
+        transform.translation.x += 10.0;
     }
     test_app.step_n(10);
 
@@ -98,9 +97,9 @@ fn step_3_target_death_returns_idle() {
     // Kill the enemy
     {
         let world = test_app.app.world_mut();
-        if let Some(mut obj) = world.get_mut::<ObjectInstance>(enemy) {
-            obj.apply_damage(10000.0_f32);
-        }
+        let mut obj = world.get_mut::<ObjectInstance>(enemy)
+            .expect("Enemy should have ObjectInstance component");
+        obj.apply_damage(10000.0_f32);
     }
     test_app.step_n(10);
 
@@ -293,11 +292,10 @@ fn step_10_hold_position_engages_nearby() {
 
     // Should be engaging enemy
     let world = test_app.app.world();
-    if let Some(attack_state) = world.get::<AttackState>(player) {
-        assert!(attack_state.current_target.is_some(),
-            "HoldPosition infantry near enemy should engage. Phase: {:?}, target: {:?}",
-            attack_state.phase, attack_state.current_target);
-    }
+    let attack_state = world.get::<AttackState>(player).expect("Entity should have AttackState component");
+    assert!(attack_state.current_target.is_some(),
+        "HoldPosition infantry near enemy should engage. Phase: {:?}, target: {:?}",
+        attack_state.phase, attack_state.current_target);
 }
 
 /// QA Step 11 [auto]: Issue HoldPosition with non-turning infantry.

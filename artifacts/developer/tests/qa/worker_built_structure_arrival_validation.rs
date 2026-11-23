@@ -1,5 +1,4 @@
 use crate::helpers::*;
-use space_crystals::game::units::types::state::BuildingStructureBehavior;
 
 /// QA Step 1 [auto]: Start a game as Syndicate. Produce an Agent from the Headquarters.
 #[test]
@@ -83,7 +82,7 @@ fn step_5_build_cancelled_on_occupied_tile() {
 
     // After arrival, the build should have been cancelled due to occupied tile.
     // Agent should be idle or have had the build cancelled.
-    let h = TestHarness::new(&mut test_app.app);
+    let _h = TestHarness::new(&mut test_app.app);
     // Count tunnels at grid 25,25 — should still be 1 (no second tunnel built)
     let tunnel_count = {
         let mut count = 0;

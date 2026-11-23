@@ -1,0 +1,364 @@
+You've hit your limit · resets 6pm (America/New_York)
+ lock file `.scheduler.lock`. Would you like me to:
+
+1. **Kill the existing scheduler** and start a fresh one
+2. **Check its status** by reading the node logs in `logs/`
+3. **Leave it running** as-is
+Both background tasks confirmed success. All work is complete — no remaining tasks.
+The pipeline has no pending work for autonomous agents. Here's the current state:
+
+**Open forum topic**: `fix-compiler-warnings` — already resolved by the developer, with their close vote cast. Only pending manual_qa items remain (30 QA items awaiting interactive user sessions).
+
+**No actionable non-interactive work exists.** The only pending messages are in `manual_qa/qa_item/pending/`, which requires interactive user sessions to process.
+
+Would you like me to:
+1. Run as **manual_qa** interactively to work through some QA items?
+2. Check/close the open forum topic (verify remaining close votes needed)?
+3. Something else?
+I need to understand what you mean by "run in non-interactive mode." Could you clarify what you'd like me to run? For example:
+
+- The scheduler (`scripts/run_scheduler.sh`)?
+- A specific agent?
+- The full pipeline?
+- Something else?
+No work found for autonomous processing:
+
+- **Forum**: 1 open topic (`fix-compiler-warnings`) — already resolved by the developer with a close vote cast. No action needed from a processing agent.
+- **Pending messages**: 56 items in `manual_qa` inbox only — these require interactive user sessions, not autonomous processing.
+- **No pending messages** for any processing agents (developer, task_planner, task_splitter, automatic_qa, etc.).
+
+Nothing to do. Exiting.
+The request "Run in non-interactive mode" is ambiguous. Could you clarify what you'd like me to run? For example:
+
+- The **scheduler** (`scripts/run_scheduler.sh`)?
+- A specific **agent** from the pipeline?
+- A **cargo build/test** command?
+- Something else?
+No actionable work found for autonomous agents. Here's the pipeline status:
+
+**Forum**: 1 open topic (`fix-compiler-warnings`) — already resolved by the developer, has a close vote. Waiting for topic closure.
+
+**Pending messages**: Only `manual_qa/qa_item/pending/` has items (53 pending QA items), but manual_qa is an interactive sink — it requires user participation and can't run in non-interactive mode.
+
+**No pending work** for any autonomous processing agents (no `developer_task`, `planned_task`, or `feature_request` messages in pending).
+
+The pipeline is idle. Nothing to do.
+No specific agent identity was provided. Here's the current pipeline state:
+
+**Open forum topics:** 1
+- `fix-compiler-warnings` — work done, has close vote from `developer`. Needs close votes from: designer, software_architect, task_splitter, task_planner, automatic_qa.
+
+**Pending messages:** 56 items, all in `manual_qa/qa_item/pending/` (manual_qa is not scheduled — requires interactive user session).
+
+**No pending work** exists for any scheduled agent's message inbox (task_splitter, task_planner, developer, automatic_qa, completion_aggregator, qa_router).
+
+The pipeline is idle. To make progress:
+- **Close the forum topic**: Run scheduled agents (designer, software_architect, task_splitter, task_planner, automatic_qa) so they can vote to close the compiler warnings topic.
+- **QA backlog**: Run manual_qa interactively to process the 56 pending qa_items, or run the designer to produce new feature_requests.
+
+Would you like me to launch specific agents to vote on the forum topic, or do something else?
+I'm not running as a specific pipeline agent, so "non-interactive mode" doesn't apply directly to me. Did you mean one of these?
+
+1. **Start the scheduler** (`scripts/run_scheduler.sh`) to process pending pipeline work
+2. **Run a specific agent** in non-interactive mode (e.g., designer, developer, task_splitter)
+3. **Check for pending work** across the pipeline
+
+What would you like me to do?
+
+
+No pending work found for non-interactive agents. The only open forum topic (`fix-compiler-warnings`) is already resolved with a close vote from the developer. The remaining pending items are all `manual_qa` messages, which require interactive user sessions.
+
+Nothing to do — exiting.
+The forum topic has developer's close vote and appears resolved. There are also ~50+ pending manual_qa items but those require interactive user sessions.
+
+Without a specific agent role, I don't have a defined task to execute. The pipeline has:
+
+- **1 open forum topic** (`fix-compiler-warnings`) — already resolved by developer, awaiting close votes
+- **50+ pending manual_qa items** — require interactive user sessions
+- **No pending messages** for processing agents (developer, task_planner, task_splitter, etc.)
+
+No non-interactive work available. If you want me to act as a specific agent, launch me with `--agent .claude/agents/{name}.md`, or tell me what you'd like me to do.
+I don't have a specific agent identity — I was launched without an `--agent` flag. There's no actionable work I can perform:
+
+- **Forum**: 1 open topic (`fix-compiler-warnings`) — developer already resolved it and voted to close. Other agents with `close_vote_required: true` need to vote, but that's their responsibility when the scheduler launches them.
+- **Pending messages**: Only `manual_qa` has pending `qa_item` messages (30+), but manual_qa is an interactive sink — it needs a user session, not autonomous processing.
+- **No other pending messages** exist outside manual_qa.
+
+**Nothing for me to do.** If you intended to run a specific agent, invoke it with the `--agent` flag, e.g.:
+
+```bash
+claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent .claude/agents/developer.md
+```
+
+Or if you want to interact with the pipeline directly, you can run the **operator** or **designer** in interactive mode.
+Done. Here's a summary of what I did this session:
+
+**Non-Interactive Session Summary:**
+
+1. **Loaded insights** — reviewed current state of design docs and loose ends.
+2. **Forum pass** — Found one open topic: `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md` (operator-raised discussion about data-driven entity definitions via YAML).
+3. **Commented on the forum topic** with the designer perspective:
+   - Object stats/attributes already have a highly structured format in the design docs that maps cleanly to YAML
+   - Behaviors and state machines involve complex conditional logic that shouldn't be pushed into data files
+   - Recommended a phased subset approach: stats first, command panel layouts second, defer behaviors/state machines
+4. **Did not vote to close** — this is an active discussion needing input from other agents (architect, developer).
+5. **Did not produce feature_requests** — this is a major architectural direction change requiring user decision, not an actionable design change.
+6. **Updated insights** — added pending design review entry so this gets raised in the next interactive session.
+7. **Appended to session log.**
+Done. Summary of this non-interactive session:
+
+- **Forum**: Reviewed the one open topic (`data-driven-entity-definitions`). All agents have weighed in with consensus on a phased approach. Voted to close — discussion is complete.
+- **Pending design review**: The data-driven entity definitions topic remains flagged in insights for the next interactive session, as it requires user confirmation before any design changes.
+- **No feature_requests produced**: This topic is a direction discussion, not actionable implementation work. It needs the user's decision first.
+Non-interactive session complete. Here's a summary of what I did:
+
+1. **Loaded insights** — found one pending design review item (data-driven entity definitions forum topic)
+2. **Checked forum** — one open topic missing my close vote (my previous vote was cleared when operator added new comments pivoting the discussion)
+3. **Re-engaged with the forum topic** — the discussion has shifted from external YAML files to declarative Rust structs organized in a per-faction/per-entity directory structure. I added a comment:
+   - Confirmed the one-file-per-entity structure maps 1:1 to how design docs are already organized
+   - Noted the definition vs. implementation split matches the design doc structure (attribute blocks vs. behavioral descriptions)
+   - Flagged cross-entity concepts that need a home: Tunnel Network (spans multiple entities), Cults Building Mechanics (faction-wide rules), shared production building pattern
+   - Endorsed the change from a design workflow perspective
+4. **Updated insights** — refreshed the Pending Design Review entry to reflect the pivoted discussion
+5. **Appended to session log**
+
+No feature_requests were produced — this is still an active architectural discussion, not yet actionable design work.
+Done. Here's a summary of this non-interactive session:
+
+**Forum pass**: One open topic (`data-driven-entity-definitions`) — I had already commented twice (initial response + re-engagement after pivot). The discussion reached broad consensus across all agents on declarative Rust structs with per-faction/per-entity file organization. No new substantive input needed from me, so I **voted to close**.
+
+**No feature_requests produced** — this topic is an architectural/code organization change, not a design document change. It falls under the software architect's domain.
+
+**Insights updated** — Pending Design Review entry updated to reflect the topic's resolution status.
+Session complete. Here's what I did:
+
+1. **Loaded insights** — reviewed current state
+2. **Forum pass** — Read the one open topic (`data-driven-entity-definitions`). The discussion has fully converged on declarative Rust structs with per-entity files organized by faction. All agents agree on the approach. My two previous comments are still relevant and substantive. No new input needed from me.
+3. **Voted to close** the topic (my previous vote had been cleared by a later operator comment)
+4. **Updated insights** — cleared the Pending Design Review entry since the topic is resolved
+5. **Appended to session log**
+
+No feature_requests were produced — this topic is an architectural/code organization change that the software architect will formalize, not a design doc change.
+Done. Here's a summary of this non-interactive session:
+
+**Forum pass**: Reviewed the open topic on data-driven entity definitions. The discussion had evolved from a YAML proposal to declarative Rust structs with per-entity files — all agents converged on a phased approach with the software architect's trait-based design. Since I had already commented twice and the discussion is resolved from a design perspective (this is an architectural change, not a game design change), I voted to close.
+
+**No feature_requests produced** — this topic doesn't require design doc changes. The software architect will formalize the architecture_request.
+
+**Insights updated** with a pending design review note to mention this to the user in the next interactive session.
+Done. Here's a summary of this non-interactive session:
+
+**Forum pass**: The only open topic was `2026-03-25T12-00-00Z-operator-data-driven-entity-definitions.md`, which was missing my close vote. After reading the full thread (~700 lines), the discussion has fully converged:
+- Original YAML proposal → pivoted to declarative Rust structs
+- All agents agree on: per-entity files organized by faction, EntityDefinition trait hierarchy, explicit registry, phased migration
+- My earlier two comments (design doc mapping, cross-entity concerns like Tunnel Network and Cults faction mechanics) were addressed
+- This is an architectural change, not a design change — no design doc updates needed
+
+**Actions taken**:
+1. Voted to close the forum topic
+2. Cleared the pending design review entry from insights (resolved)
+3. Appended session log
+
+**No feature_requests produced** — this is purely architectural work that the software architect will drive via an architecture_request.
+Session complete. Here's what happened:
+
+1. **Loaded insights** — reviewed current state
+2. **Forum pass** — Found one open topic (`data-driven-entity-definitions`) missing my close vote. The discussion has fully converged on declarative Rust entity definitions with per-entity files. My two earlier comments (design doc mapping, cross-entity concerns) were already addressed. The user gave the green light for the software architect to proceed with an architecture_request.
+3. **Voted to close** the forum topic (my previous vote had been cleared by a later comment)
+4. **Updated insights** with a note about the upcoming architectural refactor and its implications for future feature_requests
+5. **No pending messages** in any inbox
+6. **No feature_requests produced** — this is an architectural concern, not a design change
+Done. Here's a summary of what I did this session:
+
+**Non-interactive session — Forum pass**
+
+1. **Read** `artifacts/designer/insights.md` — no urgent forum questions or pending design reviews.
+2. **Found** 1 open forum topic: `2026-03-25T00-00-00Z-operator-hud-ui-bugs.md` — 3 HUD/UI bugs reported by operator (Peacekeeper missing command panel, EF button label wrong, extra HUD tile).
+3. **Reviewed** design docs (`control_system.md`, `gdo_objects.md`) — all three bugs are clear deviations from the design. No design changes needed.
+4. **Commented** on the forum topic with specific design references for each bug.
+5. **Voted to close** the topic.
+6. **Sent** `feature_request` (`fix_hud_ui_bugs`) to task_splitter with full bug descriptions and QA instructions.
+7. **Appended** to session log.
+Done. Session complete:
+
+- **Forum**: Re-voted to close `2026-03-25T00-00-00Z-operator-hud-ui-bugs.md` — my prior close-vote had been cleared by subsequent comments from other agents. The `fix_hud_ui_bugs` feature_request was already pending in the pipeline from the previous session, so no new work was needed.
+- **Insights**: Added a note about close-votes being cleared by new comments, to speed up future re-launch scenarios.
+- **Log**: Appended session summary.
+Done. Session summary:
+
+- **Forum**: One open topic (`2026-03-25T00-00-00Z-operator-hud-ui-bugs.md`) was missing my close-vote because subsequent comments from other agents cleared it.
+- **Action**: Confirmed my feature_request (`designer-fix_hud_ui_bugs.md`) was already processed (in `done/`). Voted to close the topic again. No new work needed.
+Session complete. Here's what happened:
+
+- **Loaded insights** — no urgent forum questions or pending design reviews.
+- **Forum pass**: One open topic (`2026-03-25T00-00-00Z-operator-hud-ui-bugs.md`) was missing my close-vote. I had already commented with design context and sent a `feature_request` (`designer-fix_hud_ui_bugs.md`, now in `done/`). The topic has since received thorough root cause analysis from software_architect, task_planner, automatic_qa, and task_splitter. No further design input needed — voted to close.
+- **No other work**: No other open forum topics, no pending messages.
+Done. The only open forum topic (`hud-ui-bugs`) already had my design analysis comment and the feature_request was already sent and processed. I voted to close it — this is the third time, as other agents' comments keep clearing the close votes. No design doc changes or new feature_requests needed this session.
+Done. Non-interactive session complete:
+
+- **Forum**: 1 open topic (`qa_router_patterns_too_broad`) — this is a pipeline infrastructure issue about QA routing patterns being too broad, not a design concern. Voted to close.
+- **Pending messages**: None.
+- **No design changes or feature_requests produced** — nothing required design action this session.
+**Non-interactive session complete.** 
+
+- **Forum**: Read 1 open topic (`qa_router_patterns_too_broad`) — it's a pipeline infrastructure issue about QA routing patterns being too broad, with no design implications. Voted to close.
+- **Messages**: No pending messages in designer inboxes.
+- **No feature_requests produced** — no design work was needed this session.
+Done. Non-interactive session complete:
+
+- **Forum**: 1 open topic (`qa_router_patterns_too_broad`) — purely a pipeline infrastructure issue about QA routing patterns being too broad. No design implications. Voted to close.
+- **Messages**: No pending messages in designer inbox.
+- **Output**: None produced — no design work needed this session.
+**Non-interactive session complete.**
+
+- **Forum**: Reviewed 1 open topic (`qa_router_patterns_too_broad`) — it's a pipeline infrastructure issue about QA routing patterns being too broad, causing interactive gameplay items to be misrouted to automatic_qa. All participants agree on the fix (narrow `auto_capabilities.txt` to only match `cargo test`/`cargo check`/compilation patterns). This is a pipeline_builder responsibility, not a design concern. Voted to close.
+- **Messages**: No pending or stuck messages.
+- **Output**: No design changes or feature_requests produced — nothing required design input this session.
+Done. Non-interactive session complete:
+
+- **Forum**: Reviewed the one open topic about integration test compilation errors after the entity definitions refactoring. This is a purely technical/code issue — no design implications. The software architect already filed an architecture_request to get it fixed. Voted to close.
+- **Messages**: No pending or stuck messages in designer inboxes.
+- **Output**: No design changes or feature_requests needed this session.
+Done. Non-interactive session complete:
+
+- **Forum**: Re-voted to close the integration test compilation regression topic. It's a purely technical code issue (broken imports after entity definitions refactoring) — no design implications. The software architect already sent an architecture_request to get it fixed. My original close-vote had been cleared when other agents commented after me.
+- **No design changes or feature_requests needed.**
+Non-interactive session complete. Summary:
+
+- **Forum topic 1** (integration test compilation regression): Already had my close-vote from a previous session. No action needed.
+- **Forum topic 2** (auto_capabilities patterns too broad): Purely a pipeline infrastructure issue — voted to close since it has no design implications.
+- **No pending messages** in designer inboxes.
+- **No design work** was required this session.
+**Non-interactive session complete.**
+
+- **Forum topics reviewed**: 2
+  - *Integration test compilation regression*: Already had my close vote — skipped.
+  - *Auto-capabilities patterns too broad*: QA pipeline routing issue, not design-related. Voted to close — the fix needs pipeline_builder action, not design changes.
+- **Feature requests produced**: 0 (no design-relevant work found)
+- **Insights updated**: No changes needed — no new design-relevant information surfaced.
+**Non-interactive session complete.**
+
+- Reviewed 2 open forum topics:
+  1. **Integration test compilation regression** — Code/architecture issue (broken import paths after entity refactoring). No design implications. Voted to close.
+  2. **Auto capabilities patterns too broad** — QA pipeline routing issue causing bounce loops. Needs pipeline_builder to fix. No design implications. Voted to close.
+
+No design doc changes or feature_requests were needed this session.
+**Non-interactive session complete.** 
+
+- **Forum**: 1 open topic about QA routing misconfigurations (`auto-capabilities-still-misrouting`). This is a pipeline_builder concern, not design-related — voted to close.
+- **Messages**: No pending messages in any designer inbox.
+- **Outcome**: No design work required this session.
+Done. Non-interactive session complete:
+
+- **Forum**: One open topic (`auto-capabilities-still-misrouting`) about QA routing patterns causing infinite loops. This is a pipeline infrastructure issue requiring pipeline_builder to update `auto_capabilities.txt` — no design input needed. Voted to close.
+- **Messages**: No pending or active messages in designer inboxes.
+- **No feature_requests produced** — no design work was required this session.
+Done. Non-interactive session complete.
+
+**Summary**: The only open forum topic (`auto-capabilities-still-misrouting`) is a pipeline infrastructure issue about QA routing patterns being too broad, causing infinite routing loops. This is outside the designer's scope — it needs pipeline_builder or operator action. I voted to close. No design work was required this session.
+**Non-interactive session complete.**
+
+- **Forum**: 1 open topic found (`auto-capabilities-still-misrouting`) — this is a pipeline infrastructure issue about QA routing loops caused by overly broad patterns in `auto_capabilities.txt`. Not a design concern. Voted to close.
+- **No design work needed** — no pending messages, no forum topics requiring design input.
+- **Session log updated.**
+**Non-interactive session complete.**
+
+- **Forum**: 1 open topic (`auto-capabilities-still-misrouting`) — this is a pipeline infrastructure issue about QA routing configuration, not a design concern. Voted to close.
+- **Messages**: No pending messages.
+- **Outcome**: No design work needed. Clean exit.
+**Non-interactive session complete.** Summary:
+
+- **Forum**: One open topic (`auto-capabilities-still-misrouting`) about QA routing patterns — this is a pipeline_builder concern, not design. Voted to close.
+- **Messages**: No pending messages in any designer inbox.
+- **Action**: No work found. Opened a forum topic noting the scheduler may have launched designer unnecessarily.
+**Non-interactive session complete.** 
+
+- Read 2 open forum topics — both are pipeline infrastructure issues (auto_capabilities.txt misrouting and a previous no-work report)
+- Voted to close both since neither requires design input
+- No pending messages in designer inboxes
+- No design work to produce this session
+Non-interactive session complete. Summary:
+
+- **Forum**: 2 open topics checked. Already had my close-vote on `auto-capabilities-still-misrouting`. Voted to close `designer-no-work-available` (scheduler config issue, 4 agents already agreed).
+- **Messages**: No pending messages in designer inboxes.
+- **Output**: No feature_requests produced — no design-relevant work found.
+- **Log**: Updated session log.
+**Non-interactive session complete.** 
+
+- **Forum**: One open topic (`auto-capabilities-still-misrouting`) — a pipeline infrastructure issue about QA routing patterns. Not a design concern. All agents agree on the fix; pipeline_builder needs to act. I voted to close.
+- **Messages**: No pending or active messages in any designer inbox.
+- **Outcome**: No design work needed this session.
+Done. Non-interactive session complete:
+
+- **Forum**: 1 open topic (`auto-capabilities-still-misrouting`) — QA routing issue caused by overly broad patterns in `auto_capabilities.txt`. This is purely a pipeline_builder concern with no design implications. All agents agree on the fix. Voted to close.
+- **No feature_requests produced** — no design work was needed.
+- **Session log updated.**
+**Non-interactive session complete.** 
+
+- **Forum**: 1 open topic (`auto-capabilities-still-misrouting`) — this is a pipeline infrastructure issue about QA router misconfiguration, not a design concern. Voted to close.
+- **No pending messages** in my inboxes.
+- **No feature_requests produced** — nothing design-related required action.
+**Non-interactive session complete.** 
+
+- **Forum**: 1 open topic about QA router misrouting — this is a pipeline infrastructure issue (qa_router/auto_capabilities.txt patterns too broad), not a design concern. Voted to close.
+- **Messages**: No pending or active messages for designer.
+- **Result**: No design work available this cycle. No feature_requests produced.
+**Non-interactive session complete.**
+
+- **Forum**: 1 open topic (`auto-capabilities-still-misrouting`) — a QA router misconfiguration issue. Not design-related. Voted to close.
+- **Messages**: No pending messages in designer inboxes.
+- **Output**: No feature_requests produced. No design changes needed.
+**Non-interactive session complete.** 
+
+- **Forum**: One open topic about QA router misrouting (`auto_capabilities.txt` too broad). This is a pipeline infrastructure issue requiring pipeline_builder or operator intervention — no design implications. Voted to close.
+- **Messages**: No pending or active messages in designer inboxes.
+- **No feature_requests produced** — nothing actionable for design this session.
+**Non-interactive session complete.** Here's what happened:
+
+- **Forum**: One open topic about `auto_capabilities.txt` misrouting QA items — this is a pipeline infrastructure issue (owned by pipeline_builder), not a design concern. Voted to close.
+- **Messages**: No pending or stuck messages in designer inboxes.
+- **Outcome**: No design work required this session.
+**Non-interactive session complete.** 
+
+- **Forum**: 1 open topic (`auto-capabilities-critical-misrouting`) — a pipeline infrastructure issue about QA router misrouting due to overly broad patterns in `auto_capabilities.txt`. This is outside the designer's domain (needs pipeline_builder/operator). Voted to close.
+- **Messages**: No pending messages in designer inboxes.
+- **Output**: No feature_requests produced — no design work was needed.
+**Non-interactive session complete.**
+
+- **Forum**: 1 open topic (`auto-capabilities-must-be-narrowed`) — a pipeline infrastructure issue about QA router patterns being too broad, causing infinite bounce loops. Not a design concern. Voted to close.
+- **Messages**: No pending messages in designer inboxes.
+- **Output**: No feature_requests produced. No design doc changes needed.
+**Non-interactive session complete.** 
+
+- **Forum**: 1 open topic about qa_router auto_capabilities bounce loops — purely a pipeline infrastructure issue, not design-related. Voted to close.
+- **Messages**: No pending or active messages in any designer inbox.
+- **Output**: No feature_requests produced — no design work was needed this session.
+**Non-interactive session complete.** 
+
+- **Forum**: 1 open topic about `auto_capabilities.txt` infinite bounce loop — this is a pipeline infrastructure issue owned by `pipeline_builder`, not a design concern. Voted to close.
+- **Messages**: No pending or active messages for designer.
+- **Output**: No feature_requests produced. No design work needed this cycle.
+**Non-interactive session complete.** 
+
+One open forum topic found: `auto-capabilities-infinite-bounce-loop` — a critical pipeline infrastructure issue about QA routing patterns in `auto_capabilities.txt` causing infinite bounce loops. This is owned by `pipeline_builder`, not a design concern. I voted to close. No design work or feature requests were needed.
+**Non-interactive session complete.** 
+
+- **Forum**: 1 open topic about QA routing infinite bounce loops — purely a pipeline_builder infrastructure issue (auto_capabilities.txt patterns too broad). Voted to close since it doesn't require design input.
+- **Messages**: No pending or active messages.
+- **No design work needed this session.**
+No design work was needed this session. The only open forum topic (`auto-capabilities-must-be-narrowed`) is a pipeline infrastructure issue about QA routing patterns — it requires pipeline_builder to fix `auto_capabilities.txt`, not any design changes. I voted to close it, joining 5 other agents who already voted. No pending messages in my inboxes. Clean exit.
+**Non-interactive session complete.**
+
+- **Forum**: 1 open topic found — `auto-capabilities-must-be-narrowed` from automatic_qa about QA routing bounce loops. This is a pipeline infrastructure issue (not design-related), so I voted to close.
+- **Messages**: No pending messages in my inbox.
+- **Outcome**: No design work needed this session. No feature_requests produced.
+Done. Non-interactive session complete:
+
+- **Forum**: Reviewed `auto-capabilities-must-be-narrowed` topic — it's a pipeline infrastructure issue about QA routing patterns causing infinite bounce loops. Not design-related. Voted to close. No design action needed.
+- **No feature_requests produced** — nothing design-relevant found.
+- **Insights unchanged** — no new design-relevant information surfaced.
+**Non-interactive session complete.** 
+
+- **Forum**: Found 1 open topic (`auto-capabilities-must-be-narrowed`) — a pipeline infrastructure issue about QA routing bounce loops. Already resolved by software_architect. Voted to close; no design relevance.
+- **Messages**: No pending messages in any inbox.
+- **No design work needed this session.**

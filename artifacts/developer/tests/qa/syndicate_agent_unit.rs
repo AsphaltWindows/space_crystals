@@ -1,6 +1,8 @@
 use crate::helpers::*;
 use space_crystals::game::combat::types::{Armor, Silhouette, AttackCapability, AttackType};
-use space_crystals::game::units::types::unit_data::*;
+use space_crystals::game::entities::factions::syndicate::units::agent::{SyndicateAgentDef, AGENT_CONTROL_COST};
+use space_crystals::game::entities::types::EntityDefinition;
+use space_crystals::game::units::types::unit_data::UnitControlCost;
 use space_crystals::game::units::types::movement::TurnRateMovementParams;
 use space_crystals::types::{UnitBaseEnum, SightRange};
 
@@ -20,14 +22,14 @@ fn step_1_agent_spawnable_and_control_cost() {
 
     // Verify it spawns with UnitControlCost
     let world = test_app.app.world();
-    let cost = world.get::<space_crystals::game::units::types::unit_data::UnitControlCost>(agent)
+    let cost = world.get::<UnitControlCost>(agent)
         .expect("Agent should have UnitControlCost");
     assert_eq!(cost.0, AGENT_CONTROL_COST, "Agent control cost should be {}", AGENT_CONTROL_COST);
 
     // Verify static data matches design
-    let type_data = agent_type_data();
-    assert_eq!(type_data.faction, space_crystals::types::FactionEnum::TheSyndicate);
-    assert_eq!(type_data.max_hp, 75);
+    let base_stats = SyndicateAgentDef::base_stats();
+    assert_eq!(base_stats.faction, space_crystals::types::FactionEnum::TheSyndicate);
+    assert_eq!(base_stats.max_hp, 75);
 }
 
 /// QA Step 2 [auto]: Verify the Agent spawns with correct stats: 75 HP, 1/1 armor, 36x36 silhouette, SightRange 5

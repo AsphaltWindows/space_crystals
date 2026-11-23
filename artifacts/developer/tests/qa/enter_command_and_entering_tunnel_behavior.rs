@@ -1,5 +1,4 @@
 use crate::helpers::*;
-use space_crystals::game::units::types::state::InTunnelNetwork;
 use space_crystals::game::units::types::state::commands::CommandType;
 
 /// QA Step 1 [auto]: Spawn a Syndicate player with at least one Tunnel (T1) and one Agent unit on the surface.

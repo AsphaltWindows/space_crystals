@@ -76,9 +76,9 @@ fn step_3_units_stop_when_attacking() {
     // Also set the attack target directly so the attack system processes it
     {
         let world = test_app.app.world_mut();
-        if let Some(mut attack_state) = world.get_mut::<AttackState>(player_unit) {
-            attack_state.current_target = Some(AttackTarget::UnitTarget(enemy_unit));
-        }
+        let mut attack_state = world.get_mut::<AttackState>(player_unit)
+            .expect("Player unit should have AttackState component");
+        attack_state.current_target = Some(AttackTarget::UnitTarget(enemy_unit));
     }
 
     // Step enough frames for attack system to engage
@@ -86,10 +86,9 @@ fn step_3_units_stop_when_attacking() {
 
     // Check velocity is zero or near zero
     let world = test_app.app.world();
-    if let Some(vel) = world.get::<Velocity>(player_unit) {
-        let speed = vel.0.length();
-        assert!(speed < 0.01, "Unit velocity should be ~0 while attacking in range, got {}", speed);
-    }
+    let vel = world.get::<Velocity>(player_unit).expect("Entity should have Velocity component");
+    let speed = vel.0.length();
+    assert!(speed < 0.01, "Unit velocity should be ~0 while attacking in range, got {}", speed);
 }
 
 /// QA Step 4 [auto]: Verify unit velocity is zero while attacking (check that units don't drift).
@@ -114,10 +113,10 @@ fn step_4_zero_velocity_while_attacking() {
     }
     {
         let world = test_app.app.world_mut();
-        if let Some(mut attack_state) = world.get_mut::<AttackState>(player_unit) {
-            attack_state.current_target = Some(AttackTarget::UnitTarget(enemy_unit));
-            attack_state.phase = AttackPhase::Aiming;
-        }
+        let mut attack_state = world.get_mut::<AttackState>(player_unit)
+            .expect("Player unit should have AttackState component");
+        attack_state.current_target = Some(AttackTarget::UnitTarget(enemy_unit));
+        attack_state.phase = AttackPhase::Aiming;
     }
 
     test_app.step_n(3);
@@ -233,10 +232,10 @@ fn step_7_no_continued_movement_after_attack_interrupt() {
     }
     {
         let world = test_app.app.world_mut();
-        if let Some(mut attack_state) = world.get_mut::<AttackState>(player_unit) {
-            attack_state.current_target = Some(AttackTarget::UnitTarget(enemy_unit));
-            attack_state.phase = AttackPhase::Aiming;
-        }
+        let mut attack_state = world.get_mut::<AttackState>(player_unit)
+            .expect("Player unit should have AttackState component");
+        attack_state.current_target = Some(AttackTarget::UnitTarget(enemy_unit));
+        attack_state.phase = AttackPhase::Aiming;
     }
     test_app.step_n(5);
 
@@ -315,13 +314,12 @@ fn step_9_stop_in_range_and_fire() {
     let attack_phase = h.get_attack_state(player_unit);
     // The unit should either be in an attack phase or the attack state should have a target
     let world = test_app.app.world();
-    if let Some(attack_state) = world.get::<AttackState>(player_unit) {
-        let has_target = attack_state.current_target.is_some();
-        let in_attack_phase = !matches!(attack_state.phase, AttackPhase::None);
-        assert!(has_target || in_attack_phase,
-            "Unit should have target or be in attack phase after approaching. Phase: {:?}, target: {:?}",
-            attack_state.phase, attack_state.current_target);
-    }
+    let attack_state = world.get::<AttackState>(player_unit).expect("Entity should have AttackState component");
+    let has_target = attack_state.current_target.is_some();
+    let in_attack_phase = !matches!(attack_state.phase, AttackPhase::None);
+    assert!(has_target || in_attack_phase,
+        "Unit should have target or be in attack phase after approaching. Phase: {:?}, target: {:?}",
+        attack_state.phase, attack_state.current_target);
 }
 
 /// QA Step 10 [auto]: Verify auto-targeting also stops movement: place units near enemies with no explicit command.
@@ -345,16 +343,12 @@ fn step_10_auto_targeting_stops_movement() {
 
     // Check if auto-targeting engaged
     let world = test_app.app.world();
-    if let Some(attack_state) = world.get::<AttackState>(player_unit) {
-        if attack_state.current_target.is_some() {
-            // If auto-targeted, velocity should be zero
-            if let Some(vel) = world.get::<Velocity>(player_unit) {
-                let speed = vel.0.length();
-                assert!(speed < 0.1,
-                    "Unit should be stopped while auto-targeting. Speed: {}", speed);
-            }
-        }
-        // If auto-targeting didn't engage, that's also a valid test state
-        // (the feature might not be fully implemented yet)
+    let attack_state = world.get::<AttackState>(player_unit).expect("Entity should have AttackState component");
+    if attack_state.current_target.is_some() {
+        // If auto-targeted, velocity should be zero
+        let vel = world.get::<Velocity>(player_unit).expect("Entity should have Velocity component");
+        let speed = vel.0.length();
+        assert!(speed < 0.1,
+            "Unit should be stopped while auto-targeting. Speed: {}", speed);
     }
 }

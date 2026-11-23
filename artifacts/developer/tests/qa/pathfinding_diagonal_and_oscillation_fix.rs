@@ -1,6 +1,5 @@
 use crate::helpers::*;
-use space_crystals::game::units::utils::{get_neighbors, heuristic, grid_to_world};
-use space_crystals::game::units::types::movement::Path;
+use space_crystals::game::units::utils::{get_neighbors, heuristic};
 
 /// QA Step 1 [auto]: Start a new game as GDO faction.
 /// QA Step 2 [auto]: Spawn a Peacekeeper unit.

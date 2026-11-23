@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::window::WindowResolution;
 use bevy::camera::ScalingMode;
 
-use space_crystals::game::{MapPlugin, ResourcesPlugin, UnitsPlugin, CommandsPlugin, CombatPlugin, TurretPlugin, ProjectilePlugin, FactionPlugin};
+use space_crystals::game::{MapPlugin, ResourcesPlugin, UnitsPlugin, CommandsPlugin, CombatPlugin, TurretPlugin, ProjectilePlugin, FactionPlugin, EntitiesPlugin};
 use space_crystals::simulation::SimulationCorePlugin;
 #[cfg(feature = "diagnostics")]
 use space_crystals::simulation::diagnostics::PerformanceDiagnosticsPlugin;
@@ -29,7 +29,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins((SimulationCorePlugin, MapPlugin, ResourcesPlugin, UnitsPlugin, CommandsPlugin, CombatPlugin, TurretPlugin, ProjectilePlugin, FactionPlugin, HudPlugin, GamePlugin));
+        .add_plugins((SimulationCorePlugin, MapPlugin, ResourcesPlugin, UnitsPlugin, CommandsPlugin, CombatPlugin, TurretPlugin, ProjectilePlugin, FactionPlugin, EntitiesPlugin, HudPlugin, GamePlugin));
 
     #[cfg(feature = "diagnostics")]
     app.add_plugins((

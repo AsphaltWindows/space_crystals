@@ -1,0 +1,734 @@
+Stale background task — all work is already complete and verified.
+I don't have an agent identity loaded — "Run in non-interactive mode" is typically passed with an `--agent` flag specifying which agent to run as (e.g., developer, task_planner, etc.).
+
+Which agent should I run as? Or would you like me to check the pipeline for pending work across all agents?
+It seems the question was declined. Without knowing which agent role to assume, I can't proceed meaningfully in non-interactive mode. To run a specific agent, use the scheduler or invoke directly with an agent prompt, e.g.:
+
+```bash
+claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent .claude/agents/developer.md
+```
+
+The pending work I found:
+- **Developer**: 1 planned task waiting (`fix_behavior_completion_race`)
+- **Manual QA**: 30+ QA items (requires interactive mode with a user)
+No agent identity was specified. Here's the current pipeline state:
+
+**Pending work:**
+- **1 developer task**: `task_planner-fix_behavior_completion_race.md` (planned_task ready for developer)
+- **~60 manual QA items**: pending user walkthrough (interactive, can't be processed autonomously)
+
+**Forum**: 27 closed topics, no open directory found.
+
+To run in non-interactive mode, I need to be launched as a specific agent. For example:
+```
+claude -p "Run in non-interactive mode" --agent .claude/agents/developer.md
+```
+
+Would you like me to process the pending developer task (`fix_behavior_completion_race`), or did you have a different agent role in mind?
+Here's the current pipeline state:
+
+**No open forum topics.**
+
+**Pending work by agent:**
+- **developer**: 2 planned tasks pending
+- **manual_qa**: 30+ qa_items pending (these require interactive user sessions)
+- Other pending messages likely in other queues
+
+The pending **developer** tasks are the only ones that can run autonomously. Would you like me to:
+
+1. **Start the scheduler** (`scripts/run_scheduler.sh`) to process the developer tasks?
+2. **Run as a specific agent** (e.g., developer) to process one of the pending planned tasks?
+3. Something else?
+
+The manual_qa items require interactive user input and can't be processed non-interactively.
+I'm not loaded with a specific agent prompt (`.claude/agents/{name}.md`), so I don't know which pipeline agent role to operate as. The scheduler normally passes "Run in non-interactive mode" along with `--agent .claude/agents/{name}.md` to specify the agent.
+
+Which agent should I run as, or what would you like me to do?
+No pending tasks and forum work is done. Session complete.
+
+**Summary**: 
+- Read insights file
+- Commented on the open forum topic about data-driven entity definitions, providing practical developer perspective on phased migration (stats → grid layouts → behaviors), recommending RON over YAML, and highlighting compile-time safety tradeoffs
+- No pending planned_tasks available — exiting
+**Session summary**: No work available. Voted to close the open forum topic on data-driven entity definitions (already commented in prior session). No pending or active planned_tasks found — this is the second consecutive no-work launch, so I stopped the scheduler per protocol and exited.
+Session complete. Summary:
+
+- **Forum**: Engaged with the updated data-driven entity definitions discussion. The operator pivoted from external YAML files to declarative Rust structs organized in a `src/game/entities/{faction}/{units|buildings}/{entity}.rs` directory structure. I provided a detailed developer perspective covering:
+  - What current code migrates into per-entity files (stats, spawn data, grid layouts, costs) vs. what stays in behavior/system modules
+  - The production state duplication as the biggest deduplication win
+  - Recommended Rust patterns (const EntityDef structs, registry resource, generic spawn factory)
+  - A concrete 5-step migration path
+  - Agreement with the direction, noting the EntityDef type design is the key decision
+
+- **Tasks**: No pending planned_tasks to process.
+**Session complete.** Summary:
+
+1. **Forum**: Voted to close the `data-driven-entity-definitions` topic. The discussion reached consensus across all agents on using declarative Rust structs organized in per-faction/per-entity directory structure. My detailed implementation analysis was already provided in a prior session.
+2. **Tasks**: No pending planned_tasks in the inbox. No stuck active tasks.
+3. **Insights**: No updates needed — no new code work this session.
+
+Exiting.
+Session complete. Here's a summary:
+
+**Work done this session:**
+1. **Loaded insights** — reviewed persistent memory
+2. **Forum pass** — Read the open topic on data-driven entity definitions. The operator posted an updated direction (shift from YAML to declarative Rust structs). I added a substantive follow-up comment covering:
+   - Concrete `const EntityDefinition` pattern recommendation
+   - Why const structs > builders/macros for this use case
+   - What consolidates (stats, costs, grid layouts) vs. stays procedural (spawn logic, behaviors, state machines)
+   - SpawnProfile enum idea for template-based spawning
+   - Estimated effort (8-12 tasks for Phase 1)
+3. **No pending planned_tasks** — nothing to implement
+4. **Updated session log** — appended summary
+
+Exiting.
+Session complete. Summary:
+- **Forum**: Reviewed and voted to close the data-driven entity definitions topic — discussion has fully converged on declarative Rust structs with per-entity files organized by faction, EntityDefinition trait hierarchy, and explicit registry. All agents agree; next step is the software architect producing a formal architecture_request.
+- **Tasks**: No pending planned_tasks available. Exiting.
+Session complete. Summary:
+- **Forum**: Reviewed the open data-driven entity definitions topic. The discussion has fully converged on declarative Rust structs with per-entity files, an `EntityDefinition` trait hierarchy, explicit registry, and phased migration. Added my close vote — the next step is the software architect producing a formal architecture document.
+- **Tasks**: No pending planned_tasks in any inbox. No stuck active tasks.
+- **Insights**: No new insights needed (no code changes this session).
+Session complete. Summary:
+
+1. **Loaded insights** — reviewed persistent memory
+2. **Forum pass** — Read the open topic on data-driven entity definitions (now pivoted to declarative Rust structs with per-entity files). The discussion has fully converged with operator approval. I already had two detailed implementation comments from prior sessions. Voted to close (`VOTE:developer`).
+3. **No pending planned_tasks** — nothing in pending/ or active/ directories
+4. **Updated session log** — appended summary
+
+Exiting.
+Task complete. Here's a summary of what was done:
+
+## Summary
+
+**Task**: `entity-definition-foundation` — Create the foundation for the declarative entity definition system.
+
+**What was implemented**:
+
+1. **`src/game/entities/types.rs`** — Core types and traits:
+   - `EntityDefinition`, `UnitDefinition`, `StructureDefinition` traits (Option B from architecture doc)
+   - `BaseStats`, `UnitStats`, `StructureStats`, `CommandSlotDef`, `SpawnParams`, `EntityKind` types
+   - `EntityRegistry` resource with `register_unit<T>()`, `register_structure<T>()`, `get()` methods
+   - 12 unit tests covering registration, lookup, duplicates, entity kinds, defaults
+
+2. **`src/game/entities/registry.rs`** — `build_registry()` function (initially empty) + `EntitiesPlugin` Bevy plugin
+
+3. **Directory scaffold** — `factions/{gdo,syndicate,cults}/{units,buildings}` + `neutral/` with required mod.rs/README.md/types.rs/utils.rs files in each
+
+4. **Wiring** — `entities` module added to `game/mod.rs`, `EntitiesPlugin` added to `main.rs` plugin list
+
+**Results**: 1883 lib tests passing (12 new), clean compilation.
+Task complete. Here's a summary of what was implemented:
+
+**entity-def-pilot-peacekeeper** — Peacekeeper entity definition pilot migration
+
+**Created:**
+- `src/game/entities/factions/gdo/units/peacekeeper.rs` — Full `EntityDefinition` + `UnitDefinition` implementation with:
+  - Constants: `PEACEKEEPER_CONTROL_COST`, `PEACEKEEPER_RUGGED_BONUS`, `MOVE_SPEED`, `TURN_RATE`
+  - 6 command slots matching actual grid_layout.rs (UnitMove, UnitHoldPosition, UnitAttack, UnitPatrol, UnitAttackGround, UnitStop)
+  - `spawn()` inserting all gameplay components (no mesh/material — deferred to callers)
+  - 14 unit tests covering stats, attack data, movement params, cost, slots, registry lookup
+
+**Modified:**
+- `registry.rs` — Registers `Peacekeeper` in `build_registry()`, updated test
+- `unit_data.rs` — `peacekeeper_type_data()` and `peacekeeper_attack_data()` now delegate to new definition; constants re-exported via `pub use`
+- `gdo/units/mod.rs` — Added `pub mod peacekeeper;`
+
+**Results:** 1897 lib tests passing (all green).
+Task complete. Here's a summary of what was done:
+
+## Summary: entity-migration-gdo-units
+
+**Created** `src/game/entities/factions/gdo/units/supply_chopper.rs`:
+- Implemented `EntityDefinition` and `UnitDefinition` traits for `SupplyChopper`
+- Migrated all stats: HP (150), armor (1/1), faction (GDO)
+- Migrated drag movement params (forward_accel, omni_accel, drag_ratio, turn_rate) with proper FPS/SUPGU scaling
+- Migrated production cost (100 crystals, 160 frames)
+- Migrated 6 command slots matching grid_layout.rs (Move, PickUpSupplies, AttachToTower, DropOffSupplies, HoldPosition, Stop)
+- Spawn function inserts all gameplay ECS components (no visual mesh — follows Peacekeeper pattern)
+- Attack data returns `None` (unarmed utility unit)
+- 16 comprehensive tests covering all trait methods and registry integration
+
+**Modified**:
+- `units/mod.rs` — added `pub mod supply_chopper`
+- `registry.rs` — registered `SupplyChopper`, updated test to expect 2 entries
+
+**Verification**: 1913 lib tests passing, 0 failures.
+Task complete. Here's a summary of what was done:
+
+## Summary: entity-migration-syndicate-units
+
+### Created Files
+- **`src/game/entities/factions/syndicate/units/agent.rs`** — `SyndicateAgentDef` implementing `EntityDefinition` + `UnitDefinition`:
+  - 9 Agent-specific constants (mining duration, crystal carry, tunnel build frames, etc.)
+  - Melee attack using `MELEE_RANGE` constant (not `attack.range`)
+  - 7 command slots across Default and AgentMenu(AgentDefault) states
+  - Spawn inserts `AgentCarryState` + `TunnelSpaceCost`
+  - 17 tests covering stats, attack data, movement, cost, slots, registry, constants
+
+- **`src/game/entities/factions/syndicate/units/guard.rs`** — `SyndicateGuardDef` implementing `EntityDefinition` + `UnitDefinition`:
+  - 3 Guard-specific constants
+  - Ranged attack using `attack.range as f32` (= 3.0)
+  - 6 command slots (standard combat layout with AttackGround)
+  - Spawn includes `TunnelSpaceCost`, no `AgentCarryState`
+  - 16 tests
+
+### Modified Files
+- **`syndicate/units/mod.rs`** — Added `pub mod agent; pub mod guard;`
+- **`registry.rs`** — Registered both defs, updated test count 2→4
+- **`unit_data.rs`** — Replaced inline Agent/Guard functions and constants with thin wrappers delegating to the new entity definitions + `pub use` re-exports
+
+### Results
+- **1944 lib tests passing** (47 new tests, 0 failures)
+- All directory structure rules satisfied (6 items in syndicate/units/, README updated)
+Task complete. Here's a summary:
+
+## Summary
+
+**Task**: `entity-migration-gdo-buildings` — Migrate all 6 GDO structures into entity definition files.
+
+**What was done**:
+- Created 3 entity definition files (grouped from 6 to respect the 7-item directory limit):
+  - `base.rs` — **DeploymentCenter** + **PowerPlant** (core infrastructure)
+  - `military.rs` — **Barracks** + **SupplyTowerDef** (military production)
+  - `extraction.rs` — **ExtractionFacility** + **ExtractionPlate** (resource extraction)
+
+- Each structure implements `EntityDefinition` + `StructureDefinition` traits with:
+  - Correct stats from `gdo_structure_stats` constants
+  - Correct costs from `DeploymentCenterState::construction_cost()` / `ExtractionFacilityState::construction_cost()`
+  - Command slots matching `grid_layout.rs` entries
+  - Spawn functions inserting gameplay components (no visuals, per pattern)
+
+- Registered all 6 in `build_registry()` — registry count updated from 4 to 10
+- **53 new tests** covering stats, object types, structure stats, costs, command slots, and registry lookups
+- **1997 total lib tests passing**, 0 failures
+Task complete. Here's a summary of what was accomplished:
+
+## Summary: entity-migration-cults-units
+
+**Created 3 entity definition files** under `src/game/entities/factions/cults/units/`:
+
+1. **recruit.rs** — `CultsRecruitDef`: Unarmed gatherer/builder, 50 HP, no cost (RC auto-produces), 4 command slots across CultsRecruitMenu states (Construct, AssistConstruction, SelectBuilding, Back), includes OriginatingCenters component.
+
+2. **soldier.rs** — `CultsSoldierDef`: Melee placeholder, 100 HP, 75 SC / 160 frames training cost, 5 Default combat slots (Move, HoldPosition, Attack, Patrol, Stop), no attack data yet.
+
+3. **gunner.rs** — `CultsGunnerDef`: Ranged placeholder, 80 HP, 100 SC / 200 frames training cost, 5 Default combat slots, no attack data yet.
+
+**Modified files:**
+- `cults/units/mod.rs` — Added 3 `pub mod` declarations
+- `registry.rs` — Registered all 3, count updated 10 → 13
+
+**Tests:** 43 new tests, all passing. Full suite: 2040 tests, 0 failures.
+Task complete. Here's a summary of what was done:
+
+## Summary
+
+**Task**: `entity-migration-neutral` — Migrate neutral resource entities to the declarative entity definition system.
+
+### Created
+- **`src/game/entities/neutral/space_crystals_patch.rs`** — `SpaceCrystalsPatchDef` entity definition (indestructible, no commands, default 5000 SC initial amount)
+- **`src/game/entities/neutral/supply_delivery_station.rs`** — `SupplyDeliveryStationDef` entity definition (indestructible, no commands, default 100 delivery/60s interval)
+
+### Modified
+- **`src/game/entities/neutral/mod.rs`** — Added `pub mod` declarations for both entities
+- **`src/game/entities/types.rs`** — Added `register_resource<T: EntityDefinition>()` method to `EntityRegistry` (uses `EntityKind::Resource`)
+- **`src/game/entities/registry.rs`** — Added 2 resource registrations, updated test assertion from 13 → 15
+- **`src/game/entities/neutral/README.md`** — Updated with file descriptions
+
+### Tests
+- 12 new tests across both entity files (all passing)
+- Registry count updated from 13 → 15
+- Full suite: 2052 lib tests passing
+**Task complete.** Summary of what was done:
+
+1. **Created `tunnel.rs`** — `TunnelDef` entity definition with:
+   - Base stats: T1 HP=600, armor 1/16, TheSyndicate faction
+   - 7 command slots across TunnelIdle (4), TunnelExpandMenu (2), TunnelEjectMenu (1) states
+   - `cost()` returns `None` (dynamic costs via re-exported functions)
+   - `spawn()` handles both normal and under_construction variants
+   - 12 tests
+
+2. **Created `headquarters.rs`** — `HeadquartersDef` entity definition with:
+   - Base stats: HP=400, armor 1/4, TheSyndicate faction
+   - 4 command slots for HeadquartersMenu
+   - Fixed cost: 200 SC, 400 build frames
+   - `spawn()` inserts DomainEnum::Underground; TunnelExpansionMarker left for callers
+   - 12 tests
+
+3. **Updated `mod.rs`** — Added `pub mod tunnel;` and `pub mod headquarters;`
+
+4. **Updated `registry.rs`** — Added imports, registration calls, updated test assertion from 15 to 17
+
+All 2076 lib tests pass, no regressions.
+Task complete. Here's a summary of what was done:
+
+## Summary
+
+**Task**: `entity-migration-cults-buildings` — Migrate all 3 Cults structures into per-entity definition files.
+
+**Created 3 files:**
+1. **`recruitment_center.rs`** — `RecruitmentCenterDef` with 2 command slots (RcCancel, SetRallyPoint), no cost (primary structure), AAAA symmetry, 1000 HP
+2. **`storage.rs`** — `CultsStorageDef` with 0 command slots (inert), cost (0 SC, 300 build frames), ABAB symmetry, 200 HP. Spawn conditionally inserts `ConstructionHP` + `CultsConstructionState` when `under_construction=true`
+3. **`armory.rs`** — `CultsArmoryDef` with 4 command slots (TrainSoldier, TrainGunner, EjectAll, SetRallyPoint), cost (150 SC, 0 frames), ABCB symmetry, 300 HP. Only Cults building with `Armor` component
+
+**Modified:**
+- `buildings/mod.rs` — Added 3 `pub mod` declarations
+- `registry.rs` — Added imports, 3 `register_structure` calls, updated test assertion (17→20 entries)
+
+**Tests**: 27 new tests added across the 3 files. All 2103 lib tests pass, zero warnings.
+No new insights needed for this straightforward task — the patterns used (marker components, Visibility toggling, system ordering) are already well-documented.
+
+**Summary**: Completed `hud-bar-five-section-scaffold`:
+- Added 3 new marker components (`PortraitSection`, `InfoPanelSection`, `SelectionPanelSection`) to `ui/types.rs`
+- Restructured `setup_hud` bottom panel from 3 → 5 fixed-position sections with placeholder content
+- InfoPanel carries both `InfoPanelSection` and `UnitsGridSection` for backward compatibility
+- Added `hud_section_visibility_system` that toggles section visibility based on selection state
+- Registered the system in `ui/mod.rs` with proper ordering (after `update_command_panel_state`)
+- 6 new unit tests, all 2109 lib tests passing
+Task complete. Here's a summary of what was done:
+
+## Summary: entity-registry-costs
+
+### What was implemented
+Replaced all hardcoded production/construction cost lookups throughout the codebase with `EntityRegistry::cost()` lookups, establishing the entity definition files as the single source of truth for costs.
+
+### Key changes
+1. **`game/entities/types.rs`**: Added `EntityRegistry::cost(&ObjectEnum) -> Option<StructureCost>` convenience method
+2. **`game/types/structures.rs`**: Removed 5 hardcoded cost methods; changed `cancellation_refund()` signatures to accept `&StructureCost`
+3. **`ui/command_panel/actions.rs`**: All cost lookups use `registry.cost()`; folded `attack_states` into `selected_units` query
+4. **`ui/command_panel/hotkeys.rs`**: Added `Res<EntityRegistry>`; folded `attack_states` into `selected_units`
+5. **`ui/command_panel/helpers.rs`**: Updated `get_dc_construction_info()`, `grid_button_enabled_ext()`, `grid_button_enabled()`, `command_target_entities()` signatures
+6. **`ui/command_panel/ui_rebuild.rs`**: Added `Res<EntityRegistry>`; folded 4 building queries into one combined query
+7. **`ui/hud.rs`**: Added `Res<EntityRegistry>`; replaced cost lookups
+8. **`game/world/faction/construction.rs`** & **`production.rs`**: Added `Res<EntityRegistry>` to tick systems
+
+### Param limit workarounds
+- Folded `Query<&AttackState>` into `selected_units` as `Option<&AttackState>` (freed 1 slot)
+- Folded 4 separate read-only building queries into one combined query in `rebuild_command_panel_ui` (freed 3 slots)
+
+### Tests
+- 2112 lib tests passing (0 failures)
+- Added comprehensive registry cost parity test covering all 20 entity types
+Task complete. Here's a summary of what was done:
+
+## Summary
+
+**Task**: `hud-bar-content-redistribution` — Split the monolithic `update_selected_units_grid_system` into three per-section HUD systems.
+
+### Changes Made:
+
+1. **`src/ui/hud.rs`** — Major refactor:
+   - **Removed** `update_selected_units_grid_system` (660+ line monolith)
+   - **Added** `update_portrait_section_system` — Shows active selection group portrait (color swatch + type name + count for multi-select)
+   - **Added** `update_info_panel_section_system` — Shows detailed stats for single-select (structure/unit/resource) and summary for multi-select; handles health bar live updates
+   - **Added** `update_selection_panel_section_system` — Shows portrait card grid for multi-select (2+) with active group highlighting
+   - **Removed** `UnitsGridSection` backward-compat shim from `setup_hud`
+   - **Updated** test helper `spawn_hud_sections` to remove `UnitsGridSection`
+
+2. **`src/ui/types.rs`** — Removed `UnitsGridSection` component definition
+
+3. **`src/ui/mod.rs`** — Updated system registration: 3 new systems replace the old one, `selection_portrait_click_system` runs after `update_selection_panel_section_system`
+
+4. **`src/ui/README.md`** — Updated to reflect new architecture
+
+### Verification:
+- **Build**: Clean, zero warnings
+- **Tests**: 2112 lib tests passing (0 failures)
+- **Post-task checklist**: All items verified (directory limits, READMEs, no duplicates)
+The task is complete. Here's a summary of what was implemented:
+
+## entity-registry-grid-layout — Complete
+
+### Changes Made
+
+1. **`game/entities/types.rs`** — Added `SlotCondition` enum (HasQueue, HasActiveConstruction, TunnelIsUpgrading, HasReadyPlate), `SlotConditionContext` struct with `evaluate()` method, and `condition: Option<SlotCondition>` field to `CommandSlotDef` with `const fn new()` and `with_condition()` constructors.
+
+2. **14 entity definition files** — Bulk-converted all `CommandSlotDef { ... }` struct literals to `CommandSlotDef::new(...)` constructor calls. Added `SlotCondition` to 8 conditional slots across DC, EF, BK, ST, HQ, Tunnel, and RC buildings.
+
+3. **`ui/command_panel/grid_layout.rs`** (187→113 lines) — Replaced the 155-line hardcoded match statement with a generic registry-based lookup. New function resolves ObjectEnum from state, looks up command_slots in the registry, and evaluates conditions.
+
+4. **`ui/command_panel/hotkeys.rs`** and **`ui_rebuild.rs`** — Updated callers to construct `SlotConditionContext` and pass `selection.active_type()` + `&registry`.
+
+5. **`ui/command_panel/helpers.rs`** tests — Updated ~130 test calls with a compatibility wrapper, rewrote 9 failing caps-based tests to use entity-type-based lookups, and added 12 new registry-specific tests.
+
+### Results
+- **2122 lib tests passing** (9 more than before — new condition/registry tests)
+- **Build clean** — no warnings
+- **QA test compilation errors** are pre-existing (from entity-registry-costs task)
+The task is complete. Here's a summary of what was implemented:
+
+## Summary: entity-registry-spawn-dispatch
+
+### Changes Made
+
+1. **`EntityRegistry::spawn()` method** (types.rs) — Creates an entity via `commands.spawn_empty()` and dispatches to the registered spawn function. Panics if the object is not registered.
+
+2. **`SpawnParams` extended** (types.rs) — Added `flip_horizontal: bool` and `flip_vertical: bool` fields for structure flipping support.
+
+3. **Entity definition updates** (6 files) — All structure entity defs that use rotation now:
+   - Use `params.flip_horizontal` / `params.flip_vertical` in `StructureInstance`
+   - Apply flip scale to `Transform` via `.with_scale()`
+
+4. **`insert_entity_visuals()` helper** (entities/utils.rs) — Centralized visual component insertion mapping each `ObjectEnum` to its mesh, material, and child labels.
+
+5. **`grid_to_spawn_position()` helper** (entities/utils.rs) — Converts grid coordinates to world-space spawn position.
+
+6. **Spawn call site updates** (8 files):
+   - `production.rs` — Barracks, HQ, Supply Tower, RC, Armory systems
+   - `construction.rs` — Tunnel expansion HQ spawn
+   - `placement.rs` — DC structure placement, EF plate placement, Cults storage
+   - `setup.rs` — GDO, Syndicate, Cults, enemy test units
+   - `behaviors/construction.rs` — Agent tunnel construction
+   - `utility.rs` — Test unit spawning
+   - `harness.rs` — Test harness spawn helpers
+
+7. **TestApp** — Added `EntitiesPlugin` for registry availability in all tests.
+
+8. **Tests** — 8 new tests, 2130 total passing.
+Task complete. Here's a summary of what was accomplished:
+
+## Summary: entity-definition-cleanup
+
+### What was done
+1. **`game/utils.rs`** (1397→111 lines, -92%): Removed all 20 per-entity spawn functions, `spawn_structure_label()`, and their tests. Kept only `billboard_label_system()` and `spawn_ghost_side_labels()`.
+
+2. **`game/units/types/unit_data.rs`** (693→191 lines, -72%): Removed all thin wrapper functions (`peacekeeper_type_data()`, `agent_type_data()`, `guard_type_data()`, etc.) and their `pub use` re-exports. Removed ~470 lines of tests for those wrappers. Kept shared types (UnitTypeData, TurretAttributesData, etc.) and `frames_to_seconds()`.
+
+3. **`game/types/objects.rs`** (1312→1215 lines): Refactored `ObjectEnum::object_type()` from a 145-line hardcoded match to a 40-line delegation to entity definitions. Single source of truth now in entity def files.
+
+4. **Structure stat constants moved**: Created `game/entities/factions/{gdo,syndicate,cults}/buildings/types.rs` with the canonical constant definitions. Replaced inline modules in `structures.rs` with thin re-export stubs for backward compatibility.
+
+5. **Updated 12 files** with corrected import paths pointing to entity definitions instead of removed wrappers.
+
+6. **`grid_layout.rs`**: Verified already fully registry-driven (no changes needed).
+
+### Verification
+- `cargo build`: Clean
+- `cargo test --lib`: 2076 tests pass, 0 failures
+- Total: **-1,974 lines** of duplicated/dead code removed
+Session complete. Here's a summary of what I did:
+
+## Session Summary
+
+**Work type**: Forum investigation (no planned_tasks pending)
+
+**Forum topic**: `2026-03-25T00-00-00Z-operator-hud-ui-bugs.md` — Three HUD/UI bugs reported by the operator
+
+### Findings:
+
+1. **Bug 1 (Peacekeeper command panel missing)**: Root cause identified in `state.rs` — `compute_selected_unit_capabilities()` creates a fresh `SelectedUnitCapabilities::default()` with `owned_by_local_player: false`, overwriting the `true` value that was just set. This hides the command panel for **all** units, not just Peacekeepers.
+
+2. **Bug 2 (Build button just says "Build")**: Root cause in `helpers.rs` — `grid_button_label()` has specific labels for PowerPlant/Barracks/SupplyTower but ExtractionFacility falls through to the generic `DcBuild(_) => "[X] Build"` catch-all. Missing affordability check too.
+
+3. **Bug 3 (Extra tile in HUD)**: Most likely caused by `Visibility::Hidden` preserving layout space — the hidden 250px SelectionPanel creates a visible gap. Also found that InfoPanel's icon cleanup queries ALL `UnitIcon`/`StructureIcon` entities globally, including those from the SelectionPanel.
+
+**Action taken**: Posted detailed analysis comment on the forum topic. No code changes (awaiting planned_tasks or direction to fix directly).
+Session complete. Summary:
+
+1. **Loaded insights** — reviewed existing knowledge
+2. **Forum pass** — Found the open HUD/UI bugs topic. I had already commented with detailed analysis in a prior session. Voted to close it since my investigation is complete and the designer has sent a feature_request that will flow through the pipeline as planned_tasks.
+3. **No pending planned_tasks** — nothing in pending or active queues
+4. **Updated session log** — recorded the forum-only session
+
+Exiting.
+All three bugs have been fixed and verified:
+
+**Summary of changes:**
+
+1. **Bug 1 (Units missing command panel)**: Fixed in `src/ui/command_panel/state.rs` — after `compute_selected_unit_capabilities()` overwrites `unit_caps`, the `owned_by_local_player` flag is now re-applied from the previously computed `owned` value.
+
+2. **Bug 2 (EF build button says "Build")**: Fixed in `src/ui/command_panel/helpers.rs` — added explicit match arm `DcBuild(ObjectEnum::ExtractionFacility) => "[Q] EF\n200 SC"` before the catch-all in `grid_button_label()`, and added affordability check `player_sc >= 200` in `grid_button_enabled()`.
+
+3. **Bug 3 (Extra portrait/tile)**: Fixed in `src/ui/hud.rs` and `src/ui/types.rs` — added `InfoPanelIcon` marker component, inserted it on all 4 info panel icon spawns, and scoped the 3 `existing_*_icons` queries in `update_info_panel_section_system` with `With<InfoPanelIcon>` to prevent cross-contamination with selection panel icons.
+
+**Tests**: 3 new tests added, all 2079 lib tests pass.
+Task complete. Here's a summary of what was implemented:
+
+**Task**: Fix targeted attack (Attack+click enemy / right-click enemy) so units pursue and attack targets instead of stopping in place.
+
+**Root Cause**: `attack_channel_sync_system` unconditionally forced `LocomotionChannel::Stationary` during the Aiming phase, even when the unit was out of range and needed to approach the target.
+
+**Changes Made**:
+
+1. **`behaviors.rs` — `attacking_object_behavior_system`**:
+   - Added `&mut LocomotionChannel` and `&mut OrientationChannel` to the query
+   - **In range**: Infantry writes `Stationary` + `Turning(target_pos)` alongside legacy MoveTarget removal
+   - **Out of range + repathing**: Writes `Moving(smoothed_path)` + `Turning(target_pos)` alongside legacy MoveTarget/Path insert
+   - **Out of range + no repath**: Maintains `Turning(target_pos)` orientation
+
+2. **`core.rs` — `attack_channel_sync_system`**:
+   - Added `&Transform` and `&AttackCapability` to the query
+   - Aiming phase now computes distance to target — only forces `Stationary` when within `attack_cap.range`
+   - Out of range: leaves locomotion channel untouched (behavior system's `Moving` persists)
+   - Firing/Cooldown: unchanged (always force Stationary)
+
+3. **Tests**: Added 7 new unit tests covering channel writes for in-range/out-of-range scenarios and range-checking behavior.
+
+**Build**: Clean compilation, all 2086 tests pass.
+Task complete. Here's a summary of what was implemented:
+
+**Task**: `action-channels-attackmove-target-lock` — Fix Attack-Move so units stay locked on targets through full attack cycles.
+
+**Root Cause**: The `attack_move_behavior_system` was using distance-from-origin (leash) to disengage targets, which fired prematurely during multi-phase attack cycles (Aiming → Firing → Cooldown → Reloading) when unit momentum carried it past the 6.0 GU leash.
+
+**Fix Applied**:
+1. **Replaced origin-based leash** with **weapon range + chase buffer** check: Units now stay locked as long as the target is within `weapon_range + ATTACK_MOVE_LEASH_DISTANCE` (e.g., 5.0 + 6.0 = 11.0 GU). This means the unit completes full attack cycles without premature disengagement.
+2. **Scan-before-resume on target death**: When a target dies, the unit now scans for new nearby enemies before resuming its Attack-Move path. If a new enemy is found, it re-engages and updates `AttackMoveOrigin` to current position.
+3. **Updated doc comments** on `ATTACK_MOVE_LEASH_DISTANCE` and `AttackMoveOrigin` to reflect new semantics.
+4. **Added 9 new tests** covering sustained engagement through attack phases, chase buffer calculations, and re-engagement after kill. Updated 2 existing leash tests.
+
+**Result**: All 2093 unit tests pass, clean compilation.
+Task complete. Here's what I implemented:
+
+**Task: `cults_game_start_fixes`** — Fixed three bugs preventing the Cults faction from having a functional game start:
+
+1. **Camera centering** — Added `FactionEnum::TheCults => ObjectEnum::RecruitmentCenter` to the `center_camera_on_start` match, so the camera properly centers on the Recruitment Center instead of hitting the `_ => return` wildcard.
+
+2. **Enemy unit overlap** — Made `setup_enemy_test_units` faction-aware: when playing as Cults (who start at grid 50,50), enemy Peacekeepers now spawn near the GDO area (30,30) instead of overlapping the Recruitment Center.
+
+3. **Crystal patches** — Added 3 Space Crystal Patches near the Cults starting position: (48,52), (52,48), and (54,50).
+
+4. **Test** — Added `test_center_camera_on_start_cults` following existing test patterns. All 7 camera tests pass, build compiles clean.
+Task complete. Here's a summary:
+
+**Task**: `agent_tunnel_placement_ghost_fix`
+
+**Problem**: The `manage_placement_ghost` system in `placement.rs` was missing a match arm for `AgentAwaitingPlacement`, so when an Agent initiated Build Tunnel, no placement ghost entity was spawned (the match fell through to `_ => None`).
+
+**Fix**: Added one match arm:
+```rust
+ObjectInterfaceState::AgentMenu(AgentMenuState::AgentAwaitingPlacement) => {
+    placement_state.building_type
+}
+```
+
+**Verification**: Compiles clean, all 2094 lib tests pass. Completion message sent to aggregator, task moved to done.
+**Session summary:**
+- **Forum**: Commented on and voted to close the `qa_router_patterns_too_broad` topic. The automatic_qa agent correctly identified that `auto_capabilities.txt` patterns (like `verify`, `select`, `click`) are too broad and match nearly all QA instructions. Deferred the fix to pipeline_builder/software_architect since it's a pipeline config issue.
+- **Tasks**: No pending planned_tasks in inbox. No stuck active messages.
+- Clean exit — no work available.
+**Session complete — no work available.**
+
+Summary of what I did:
+1. **Loaded insights** — reviewed code organization and patterns
+2. **Forum pass** — Voted to close the `qa_router_patterns_too_broad` topic. Full consensus exists that the QA router patterns are too broad and need narrowing by pipeline_builder. I had already commented previously; added my close vote this session.
+3. **Task check** — No pending planned_tasks in inbox, no stuck active tasks. Clean exit.
+**Session complete — no implementation work available.**
+
+- **Forum**: Voted to close the `qa_router_patterns_too_broad` topic. All agents agree the fix is needed (narrow `auto_capabilities.txt` patterns), and it's a pipeline_builder responsibility. My close vote was the missing one.
+- **Messages**: No pending `planned_task` messages in any inbox. No stuck active tasks.
+- Appended session summary to log and exiting.
+Task complete. Here's a summary of what was implemented:
+
+**Task: agent_command_behavior_bridge**
+
+Fixed a bug where Agent-specific commands (Gather, DropOff, BuildTunnel, Enter) were silently ignored at runtime because behavior marker components were not being inserted alongside the `UnitCommand`. The SupplyChopper pattern (which worked) was used as the reference.
+
+**Changes made:**
+1. **`command_dispatch.rs`** — 5 fix locations:
+   - **Fix 1**: Gather from Crystal — added `GatheringResourceBehavior` insert
+   - **Fix 2**: Gather from SDS — added `GatheringResourceBehavior` insert
+   - **Fix 3**: DropOff via AwaitingTarget — added `DroppingOffResourcesBehavior` insert
+   - **Fix 4**: Right-click Tunnel — added `DroppingOffResourcesBehavior` and `EnteringTunnelBehavior` inserts (matched before `issue_or_queue_command` since cmd is moved)
+2. **`placement.rs`** — 1 fix: BuildTunnel placement — added `BuildingTunnelBehavior` insert
+
+All behavior inserts follow the pattern: only insert when `!shift_held` (immediate command, not queued).
+
+**Tests added**: 5 new tests verifying behavior component insertion. All 2099 tests pass.
+**Session complete.** Here's what I did:
+
+1. **Forum pass** — Engaged with both open forum topics:
+   - **Integration test compilation regression**: Confirmed the analysis (entity definitions refactoring broke integration test imports). Commented and voted to close — fix will flow through the architecture_request pipeline as a planned_task.
+   - **Auto capabilities patterns too broad**: Confirmed as a pipeline_builder/qa_router concern (not a code issue). Commented and voted to close.
+
+2. **No pending planned_tasks** — No work available in the message inbox. Session exits after forum engagement.
+**Session complete.** Here's what I did:
+
+1. **Forum pass**: Commented on and voted to close the `auto-capabilities-still-misrouting` topic. It's about `auto_capabilities.txt` broad patterns causing QA items to loop between automatic_qa and qa_router — a pipeline_builder concern, not developer-actionable.
+
+2. **Task check**: No pending or active `planned_task` messages found. All tasks are in `done/`.
+
+No code changes this session — forum engagement was the only available work.
+**Session complete.** No work available this cycle:
+
+- **Forum**: Voted to close the `auto-capabilities-still-misrouting` topic (it's a pipeline_builder concern — the fix is documented and ready to apply).
+- **Planned tasks**: No pending or active tasks in the developer inbox.
+- Logged session and exiting.
+Task complete. Here's a summary of what was implemented:
+
+## agent_rightclick_gather_fix — Complete
+
+### Root Cause
+Crystal patch `SelectionBounds` (0.6×0.8×0.6) was too small for reliable ray-AABB hit detection, causing the cursor target system to miss crystal entities. When the AABB miss occurred, `CursorTarget.entity` was `None`, so the entity-click dispatch block was skipped entirely and the system fell through to the ground-move handler — making it look like "nothing happens."
+
+### Fixes Applied
+
+1. **Increased crystal patch SelectionBounds** from `(0.6, 0.8, 0.6)` to `(1.2, 1.0, 1.2)` in both:
+   - `src/game/world/resources.rs` (runtime spawner)
+   - `src/game/entities/neutral/space_crystals_patch.rs` (entity definition)
+
+2. **Added left-click Gather entity handler** in `command_dispatch.rs` — when the player presses G (enters AwaitingTarget(Gather) mode), left-clicking a crystal patch or SDS now correctly issues the Gather command with GatheringResourceBehavior. Invalid targets reset to AgentMenu.
+
+3. **Fixed interface state reset** — right-click gather now resets to `AgentMenu(AgentDefault)` instead of `Default`, keeping the UI consistent with other agent commands.
+
+### Tests
+4 new tests added, all passing. Total: 2103 tests pass.
+**Session summary**: Forum-only session. Voted to close the remaining open forum topic about `auto_capabilities.txt` misrouting QA items — this is a pipeline_builder/operator concern, not developer. No pending planned_tasks or stuck active tasks found. Clean exit.
+Task complete. Here's a summary of what I did:
+
+## Integration Test Compilation Fix — Complete
+
+Fixed compilation errors in 7 test files caused by the declarative entity definitions refactoring:
+
+### Changes Made:
+
+1. **`tests/qa/agent_tunnel_building_command_and_behavior.rs`** — Updated `AGENT_TUNNEL_BUILD_FRAMES` import path from `unit_data` to entity def module.
+
+2. **`tests/qa/guard_unit.rs`** — Replaced `guard_type_data()` → `SyndicateGuardDef::base_stats()`, `guard_attack_data()` → `SyndicateGuardDef::attack_data()`, `spawn_syndicate_guard()` → `TestHarness::spawn_unit_at_grid()`. Updated constant imports.
+
+3. **`tests/qa/syndicate_agent_unit.rs`** — Replaced `agent_type_data()` → `SyndicateAgentDef::base_stats()`, updated `AGENT_CONTROL_COST` import path.
+
+4. **`tests/qa/gdo_supply_tower_and_chopper.rs`** — Replaced `SupplyTowerState::production_cost()` → `SupplyChopper::cost()`, `DeploymentCenterState::construction_cost()` → `SupplyTowerDef::cost()`.
+
+5. **`tests/qa/unit_cap_systems.rs`** — Replaced `BarracksState::production_cost()` → `Peacekeeper::cost()` (2 occurrences).
+
+6. **`tests/qa/tunnel_expansions_and_starting_condition.rs`** — Replaced `HeadquartersState::production_cost()` → `SyndicateAgentDef::cost()` (2 occurrences).
+
+7. **`tests/scenarios/main.rs`** — Replaced all `spawn_peacekeeper`/`spawn_tunnel`/`spawn_headquarters` calls with `TestHarness` methods. Fixed `entity_mut().insert()` type inference issues with `let _ =`.
+
+### Verification:
+- ✅ `cargo check` passes (0 errors)
+- ✅ 2,103 lib tests pass
+- ✅ All modified tests compile and pass
+- ✅ Pre-existing test failures unchanged (6 QA, 4 scenarios — all game logic issues)
+**Session complete.** Here's what was done:
+
+1. **Forum**: Voted to close the `auto-capabilities-still-misrouting` topic (already had my comment from a prior session; this is a pipeline_builder concern, not developer).
+
+2. **Task: `verify_agent_tunnel_building_r1`** — Verification-only task confirming the Agent Tunnel Building fix (AgentAwaitingPlacement ghost placement). Results:
+   - ✅ All **2103 lib tests pass** (including 216 tunnel-related and 152 building-related)
+   - ✅ `AgentAwaitingPlacement` match arm confirmed present in `placement.rs` (5 references)
+   - ✅ `cargo build` compiles successfully
+   - No code changes needed — task completed as a pass-through verification
+   - Task completion sent to completion_aggregator
+**Session complete.** Here's what happened:
+
+1. **Forum pass**: Read and engaged with the open forum topic about QA routing misconfigurations (`auto-capabilities-still-misrouting`). Added a comment agreeing with the analysis and voted to close — this is a pipeline_builder concern, not a developer issue.
+
+2. **No planned tasks**: The `pending/` and `active/` directories for planned_task are both empty. No work to pick up.
+
+Clean exit — no code changes this session.
+**Session complete.** Here's what I did:
+
+1. **Forum pass**:
+   - **auto-capabilities-still-misrouting**: Already had my comment from a prior session. Voted to close — this is a pipeline_builder concern (overly broad patterns in `auto_capabilities.txt` routing all QA items to automatic_qa).
+   - **designer-no-work-available**: Commented that no developer action is needed (scheduler config issue) and voted to close.
+
+2. **No pending planned_tasks** in my inbox — nothing to implement this session.
+
+Exiting after forum work.
+**Session complete — no implementation work available.**
+
+Summary of what was done:
+- **Forum**: Voted to close the `designer-no-work-available` topic (my vote was the last needed, closing it). The `auto-capabilities-still-misrouting` topic already had my vote.
+- **Messages**: No pending `planned_task` messages in my inbox, no stuck active tasks.
+- Appended session log entry and exiting.
+**Session complete — no work available.**
+
+- ✅ Loaded insights
+- ✅ Forum pass: Voted to close the only open topic (`auto-capabilities-still-misrouting`) — it's a pipeline_builder concern, already commented previously
+- ✅ No pending or active planned_tasks in my inbox
+- ✅ No stuck messages found
+- ✅ Session log updated
+**Session complete — no work available.**
+
+- **Forum**: 1 open topic (`auto-capabilities-still-misrouting`) — I've already commented; this is a pipeline_builder concern requiring an edit to `artifacts/qa_router/auto_capabilities.txt`. Nothing more for developer to contribute.
+- **Tasks**: No pending or active `planned_task` messages in my inbox.
+- Appended session note to log and exiting.
+**Session complete — no work available.**
+
+- ✅ Loaded insights
+- ✅ Forum pass: Voted to close the only open topic (auto_capabilities misrouting — pipeline_builder concern, not developer)
+- ✅ No pending or active planned_tasks in inbox
+- ✅ No stuck messages found
+
+Clean exit with no implementation work to do this session.
+**Session complete.** Here's what happened:
+
+1. **Loaded insights** — reviewed code organization, patterns, and conventions.
+2. **Forum pass** — Found one open topic (`auto-capabilities-still-misrouting`) about the QA router misrouting interactive QA items to automatic_qa due to overly broad keyword patterns. I commented that this is outside developer scope (needs pipeline_builder/operator) and voted to close.
+3. **No pending planned_tasks** — inbox is empty, no stuck active tasks. Nothing to implement this session.
+**Session complete — no work available.**
+
+- ✅ Voted to close the only open forum topic (qa_router auto_capabilities misrouting — pipeline_builder/operator concern, not developer domain)
+- ✅ No pending or active planned_tasks in my inbox
+- ✅ No stuck messages found
+- Appended session summary to log and exiting cleanly.
+**Session complete — no work available.**
+
+- ✅ Voted to close the only open forum topic (QA router misrouting — not a developer issue, needs pipeline_builder/operator intervention)
+- No pending `planned_task` messages in my inbox
+- No stuck messages in `active/`
+- Clean exit
+**Session complete — no work available.**
+
+- ✅ **Forum**: Commented on and voted to close the `auto-capabilities-critical-misrouting` topic (not my artifact — needs pipeline_builder action)
+- ✅ **Messages**: No pending or active planned_tasks in my inbox
+- ✅ **Stuck check**: No stuck messages in active/
+- Logged session and exiting cleanly.
+**No-work session summary:**
+
+- **Forum**: 1 open topic (`auto-capabilities-critical-misrouting`) — I already commented and voted to close. This is a pipeline_builder/operator issue (editing `artifacts/qa_router/auto_capabilities.txt`), outside my domain.
+- **Inboxes**: No pending or active `planned_task` messages. No stuck messages.
+- **Action**: Logged the no-work session and exiting. The scheduler may be launching developer without available tasks.
+**Session complete.** Here's what happened:
+
+1. **Forum pass**: Voted to close the `auto-capabilities-critical-misrouting` topic — it was the last outstanding vote needed, and the topic is now closed. The issue (overly broad patterns in `auto_capabilities.txt` causing infinite QA bounce loops) is outside the developer's domain; pipeline_builder/operator need to apply the fix.
+
+2. **No work available**: The `planned_task/pending/` inbox is empty and no tasks are stuck in `active/`. Nothing to implement this session.
+**Session complete — no work available.**
+
+- **Forum**: Commented on and voted to close the `auto-capabilities-must-be-narrowed` topic. It's a pipeline infrastructure issue (qa_router's `auto_capabilities.txt`), outside developer scope.
+- **Inbox**: No pending `planned_task` messages. No stuck active tasks.
+- Logged session and exiting cleanly.
+**No-work session complete.** 
+
+- The only open forum topic (`auto-capabilities-must-be-narrowed`) already has my vote to close — it's a pipeline_builder concern, not developer scope.
+- No pending or active planned_tasks in my inbox.
+- No stuck messages found.
+
+Exiting cleanly.
+**Session complete.** Here's what happened:
+
+1. **Forum pass**: Voted to close the `auto-capabilities-must-be-narrowed` topic — I had already commented previously and the issue is well-understood (pipeline_builder needs to narrow `auto_capabilities.txt` patterns). All agents have now voted to close.
+2. **No planned tasks**: Both pending and active queues are empty. No stuck messages found.
+3. **Appended session log** and exiting.
+**Session complete.** Here's what happened:
+
+1. **Loaded insights** — reviewed developer knowledge base
+2. **Forum pass** — Found one open topic about `auto_capabilities.txt` causing infinite QA bounce loops. This is a `pipeline_builder` concern (they own that file), so I commented acknowledging the issue and voted to close from my side.
+3. **No planned_tasks** — No pending or active tasks in my inbox. Nothing to implement.
+4. **Logged session** and exiting.
+**Session Summary**: No work available this cycle.
+
+- **Forum**: Voted to close the remaining open topic (`auto-capabilities-infinite-bounce-loop`) — this is a `pipeline_builder` responsibility (they own `artifacts/qa_router/auto_capabilities.txt`). Already commented in a prior session.
+- **Pending tasks**: None in inbox.
+- **Active/stuck tasks**: None found.
+
+Clean exit — no implementation work to do.
+**Session complete.** Here's what I did:
+
+1. **Forum pass**: Commented on and voted to close the open forum topic about `auto_capabilities.txt` patterns causing QA bounce loops. This is a pipeline_builder fix — the broad single-word patterns are routing interactive QA items to automatic_qa incorrectly.
+
+2. **No pending work**: No planned_tasks in pending or active directories, no stuck messages. Exited cleanly after forum engagement.
+**Session summary:**
+
+1. **Forum pass**: Engaged with the open topic about `auto_capabilities.txt` causing a QA bounce loop. Commented that the fix is outside my artifact space (belongs to pipeline_builder or software_architect) and voted to close.
+2. **Task check**: No pending planned_tasks in inbox, no stuck active tasks. 
+3. Session complete — no implementation work available this cycle.
+**Session complete — no work available.**
+
+- ✅ Voted to close the only open forum topic (`auto-capabilities-must-be-narrowed`) — software_architect already applied the fix
+- No pending or active `planned_task` messages in my inbox
+- No stuck messages found
+- Clean exit

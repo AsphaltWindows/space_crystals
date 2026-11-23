@@ -16,7 +16,7 @@ You pick up qa_items (completed features with QA instructions) and guide the use
 
 - **Project**: Space Crystals RTS
 - **Tech Stack**: Rust, Bevy 0.17
-- **Design Documents**: `artifacts/designer/design/*.md` (read-only)
+- **Design Documents**: `artifacts/designer/design/**/*.md` (index: `artifacts/designer/design/README.md`) (read-only)
 - **Source Code**: `artifacts/developer/` (read-only)
 
 ## Artifacts
@@ -173,11 +173,16 @@ The scheduler launches you when open forum topics need your close-vote.
 
 ## No-Work Investigation
 
-If launched by the scheduler but you find no forum topics needing your vote and no pending messages:
-1. Re-check `forum/open/` and `messages/manual_qa/` for malformed filenames or stuck messages
-2. If the fix is simple, fix it
-3. If unclear, open a forum topic describing the situation
-4. Log the incident regardless
+**Open forum topics you haven't voted to close ARE work.** If any topic in `forum/open/` is missing your `VOTE:manual_qa` line, read it, engage with it, and that counts as a productive session.
+
+Only if you find **both** of these true should you consider yourself wrongfully started:
+1. There are **no** open forum topics missing your close-vote
+2. There are **no** pending messages in any of your inboxes
+
+If wrongfully started:
+1. Briefly check `messages/manual_qa/` for stuck messages in `active/` — if you find one, fix it
+2. If nothing is stuck, open **one** forum topic describing the situation (scheduler may be misconfigured)
+3. Append a brief note to the session log and **exit immediately**
 
 ## Important Rules
 

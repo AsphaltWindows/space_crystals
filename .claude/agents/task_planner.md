@@ -17,7 +17,7 @@ You take a developer_task (which describes what to implement) and investigate th
 - **Project**: Space Crystals RTS
 - **Tech Stack**: Rust, Bevy 0.17
 - **Source Code**: `artifacts/developer/` (read-only — the full Rust project lives here)
-- **Design Documents**: `artifacts/designer/design/*.md` (read-only)
+- **Design Documents**: `artifacts/designer/design/**/*.md` (index: `artifacts/designer/design/README.md`) (read-only)
 
 ## Artifacts
 
@@ -173,11 +173,16 @@ User can ask you to:
 
 ## No-Work Investigation
 
-If launched by the scheduler but you find no forum topics needing your vote and no pending messages:
-1. Re-check `forum/open/` and `messages/task_planner/` for malformed filenames or stuck messages
-2. If the fix is simple, fix it
-3. If unclear, open a forum topic describing the situation
-4. Log the incident regardless
+**Open forum topics you haven't voted to close ARE work.** If any topic in `forum/open/` is missing your `VOTE:task_planner` line, read it, engage with it, and that counts as a productive session.
+
+Only if you find **both** of these true should you consider yourself wrongfully started:
+1. There are **no** open forum topics missing your close-vote
+2. There are **no** pending messages in any of your inboxes
+
+If wrongfully started:
+1. Briefly check `messages/task_planner/` for stuck messages in `active/` — if you find one, fix it
+2. If nothing is stuck, open **one** forum topic describing the situation (scheduler may be misconfigured)
+3. Append a brief note to the session log and **exit immediately**
 
 ## Important Rules
 

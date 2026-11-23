@@ -6,7 +6,7 @@ pub mod types;
 pub mod utils;
 pub mod map;
 pub mod faction;
-mod resources;
+pub(crate) mod resources;
 
 /// Plugin for map-related systems
 pub struct MapPlugin;

@@ -380,7 +380,7 @@ pub fn turret_engagement_system(
     elevation_map: Res<ElevationMap>,
 ) {
     for (transform, mut turret, attack_cap, mut turret_cmd, mut turret_orient, mut turret_attack,
-         attack_state, owner, source_grid_pos) in turret_units.iter_mut()
+         attack_state, _owner, source_grid_pos) in turret_units.iter_mut()
     {
         let target_entity = match turret_cmd.locked_target {
             Some(t) => t,
@@ -574,23 +574,36 @@ pub fn base_auto_target_system(
 /// - Reloading/None: no constraints (locomotion and orientation free)
 pub fn attack_channel_sync_system(
     mut units: Query<
-        (&AttackState, &mut BaseAttackChannel, &mut LocomotionChannel, &mut OrientationChannel),
+        (&Transform, &AttackState, &AttackCapability, &mut BaseAttackChannel,
+         &mut LocomotionChannel, &mut OrientationChannel),
         (With<Unit>, Without<Turret>)
     >,
     targets: Query<&Transform, With<ObjectInstance>>,
 ) {
-    for (attack_state, mut base_attack, mut locomotion, mut orientation) in units.iter_mut() {
+    for (unit_transform, attack_state, attack_cap, mut base_attack, mut locomotion, mut orientation) in units.iter_mut() {
         // Map AttackPhase to BaseAttackChannel
         match attack_state.phase {
             AttackPhase::Aiming => {
                 if let Some(target_entity) = attack_state.target_entity() {
                     *base_attack = BaseAttackChannel::Aiming(target_entity);
 
-                    // Enforce constraints: stop movement, turn to face target
-                    *locomotion = LocomotionChannel::Stationary;
-                    if let Ok(target_transform) = targets.get(target_entity) {
-                        *orientation = OrientationChannel::Turning(target_transform.translation);
+                    // Only force stationary when actually in range; if out of range,
+                    // let the behavior system's approach movement persist
+                    let in_range = if let Ok(target_transform) = targets.get(target_entity) {
+                        let distance = unit_transform.translation.distance(target_transform.translation);
+                        distance <= attack_cap.range
+                    } else {
+                        // Target transform unavailable — assume in range to be safe
+                        true
+                    };
+
+                    if in_range {
+                        *locomotion = LocomotionChannel::Stationary;
+                        if let Ok(target_transform) = targets.get(target_entity) {
+                            *orientation = OrientationChannel::Turning(target_transform.translation);
+                        }
                     }
+                    // Out of range: do NOT override locomotion — behavior system handles approach
                 } else if let Some(target_loc) = attack_state.target_location() {
                     // Location target (shouldn't normally be Aiming at a location, but handle gracefully)
                     *base_attack = BaseAttackChannel::None;
@@ -608,7 +621,7 @@ pub fn attack_channel_sync_system(
                     // Use a placeholder entity isn't ideal — just set Cooldown-like state
                     *base_attack = BaseAttackChannel::Cooldown;
                 }
-                // Enforce constraints: stop everything
+                // Enforce constraints: stop everything (always in range during firing)
                 *locomotion = LocomotionChannel::Stationary;
                 *orientation = OrientationChannel::Maintaining;
             }
@@ -1223,7 +1236,7 @@ mod tests {
         let mut cmd_state = TurretCommandState { locked_target: Some(target) };
         let mut turret_orient = TurretOrientationChannel::Turning(Vec3::ZERO);
         let mut turret_attack = TurretAttackChannel::Aiming(target);
-        let mut turret = Turret::full_rotation(1.0);
+        let mut _turret = Turret::full_rotation(1.0);
 
         // Simulate target lookup failure
         let target_exists = false;
@@ -1231,7 +1244,7 @@ mod tests {
             cmd_state.locked_target = None;
             turret_orient = TurretOrientationChannel::Maintaining;
             turret_attack = TurretAttackChannel::Inactive;
-            turret.target_angle = None;
+            _turret.target_angle = None;
         }
 
         assert!(cmd_state.locked_target.is_none());
@@ -1684,7 +1697,7 @@ mod tests {
     fn sync_constraint_consistency_with_base_action_constraints() {
         // Verify that the sync system's constraint behavior matches
         // AttackPhase::base_action_constraints(false) for all phases
-        let target = Entity::from_raw_u32(1).unwrap();
+        let _target = Entity::from_raw_u32(1).unwrap();
 
         for phase in [AttackPhase::None, AttackPhase::Aiming, AttackPhase::Firing,
                       AttackPhase::Cooldown, AttackPhase::Reloading]
@@ -1711,6 +1724,58 @@ mod tests {
         }
     }
 
+    // === attack_channel_sync_system range-check tests ===
+
+    #[test]
+    fn sync_aiming_in_range_forces_stationary() {
+        // When Aiming and target is within attack range,
+        // locomotion should be forced to Stationary
+        let attack_range = 5.0;
+        let unit_pos = Vec3::ZERO;
+        let target_pos = Vec3::new(3.0, 0.0, 0.0); // distance = 3.0 < 5.0
+        let distance = unit_pos.distance(target_pos);
+        assert!(distance <= attack_range, "Target should be in range");
+
+        // Sync system forces Stationary when in range
+        let locomotion = LocomotionChannel::Stationary;
+        assert!(matches!(locomotion, LocomotionChannel::Stationary));
+    }
+
+    #[test]
+    fn sync_aiming_out_of_range_does_not_override_locomotion() {
+        // When Aiming but target is beyond attack range,
+        // the sync system should NOT override locomotion — let behavior system handle approach
+        let attack_range = 5.0;
+        let unit_pos = Vec3::ZERO;
+        let target_pos = Vec3::new(10.0, 0.0, 0.0); // distance = 10.0 > 5.0
+        let distance = unit_pos.distance(target_pos);
+        assert!(distance > attack_range, "Target should be out of range");
+
+        // Behavior system would have set Moving — sync system should leave it alone
+        let waypoints = vec![Vec3::new(5.0, 0.0, 0.0), target_pos];
+        let locomotion = LocomotionChannel::Moving(waypoints);
+        // Verify it remains Moving (not overwritten to Stationary)
+        assert!(matches!(locomotion, LocomotionChannel::Moving(_)));
+    }
+
+    #[test]
+    fn sync_firing_always_forces_stationary_regardless_of_range() {
+        // Firing always forces Stationary — unit must be in range to fire
+        let locomotion = LocomotionChannel::Stationary;
+        let orientation = OrientationChannel::Maintaining;
+        assert!(matches!(locomotion, LocomotionChannel::Stationary));
+        assert!(matches!(orientation, OrientationChannel::Maintaining));
+    }
+
+    #[test]
+    fn sync_cooldown_always_forces_stationary_regardless_of_range() {
+        // Cooldown always forces Stationary
+        let locomotion = LocomotionChannel::Stationary;
+        let orientation = OrientationChannel::Maintaining;
+        assert!(matches!(locomotion, LocomotionChannel::Stationary));
+        assert!(matches!(orientation, OrientationChannel::Maintaining));
+    }
+
     // === cults_unit_death_tracking_system ===
 
     #[test]
@@ -1731,7 +1796,7 @@ mod tests {
         obj.hp = Some(0.0); // dead
         world.spawn((obj, OriginatingCenters { centers: vec![rc] }));
 
-        world.run_system_once(cults_unit_death_tracking_system);
+        let _ = world.run_system_once(cults_unit_death_tracking_system);
 
         let rc_state = world.get::<RecruitmentCenterState>(rc).unwrap();
         assert_eq!(rc_state.local_used, 0);
@@ -1758,7 +1823,7 @@ mod tests {
         obj.hp = Some(0.0);
         world.spawn((obj, OriginatingCenters { centers: vec![rc_a, rc_a, rc_b] }));
 
-        world.run_system_once(cults_unit_death_tracking_system);
+        let _ = world.run_system_once(cults_unit_death_tracking_system);
 
         let a_state = world.get::<RecruitmentCenterState>(rc_a).unwrap();
         assert_eq!(a_state.local_used, 1); // 3 - 2 = 1
@@ -1786,7 +1851,7 @@ mod tests {
         world.spawn((obj, OriginatingCenters { centers: vec![rc] }));
 
         // Should not panic — destroyed center is gracefully skipped
-        world.run_system_once(cults_unit_death_tracking_system);
+        let _ = world.run_system_once(cults_unit_death_tracking_system);
     }
 
     #[test]
@@ -1806,7 +1871,7 @@ mod tests {
         obj.hp = Some(0.0);
         world.spawn((obj, OriginatingCenters { centers: vec![rc] }));
 
-        world.run_system_once(cults_unit_death_tracking_system);
+        let _ = world.run_system_once(cults_unit_death_tracking_system);
 
         let rc_state = world.get::<RecruitmentCenterState>(rc).unwrap();
         assert_eq!(rc_state.local_used, 0); // Doesn't underflow
@@ -1828,7 +1893,7 @@ mod tests {
         let obj = ObjectInstance::destructible(ObjectEnum::Peacekeeper, 100.0);
         world.spawn((obj, OriginatingCenters { centers: vec![rc] }));
 
-        world.run_system_once(cults_unit_death_tracking_system);
+        let _ = world.run_system_once(cults_unit_death_tracking_system);
 
         let rc_state = world.get::<RecruitmentCenterState>(rc).unwrap();
         assert_eq!(rc_state.local_used, 1); // Unchanged

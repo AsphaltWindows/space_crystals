@@ -10,11 +10,13 @@ use crate::game::types::{
 use crate::game::world::types::{
     SpaceCrystalPatch, Tile, TilePresetEnum, FogOfWarMap,
 };
+use crate::game::world::resources::PreviousSelectionSnapshot;
 use crate::game::units::types::{
     movement::{Velocity, Path},
     state::{UnitCommand, BaseBehaviorState, InTunnelNetwork},
 };
-use crate::game::utils::*;
+use crate::game::entities::{EntityRegistry, SpawnParams};
+use crate::game::entities::utils::{insert_entity_visuals, grid_to_spawn_position};
 use crate::ui::types::{
     ObjectInterfaceState, CommandButtonAction, CommandButtonEnabled,
     CommandButtonCommon, GridSlot, UnitIcon, StructureIcon, ResourceIcon,
@@ -51,36 +53,25 @@ impl<'a> TestHarness<'a> {
         grid_z: i32,
         owner: Owner,
     ) -> Entity {
-        match unit_type {
-            ObjectEnum::Peacekeeper => {
-                self.app.world_mut().run_system_once(
-                    move |mut commands: Commands,
-                          mut meshes: ResMut<Assets<Mesh>>,
-                          mut materials: ResMut<Assets<StandardMaterial>>| {
-                        spawn_peacekeeper(&mut commands, &mut meshes, &mut materials, grid_x, grid_z, owner)
-                    },
-                ).unwrap()
-            }
-            ObjectEnum::SyndicateAgent => {
-                self.app.world_mut().run_system_once(
-                    move |mut commands: Commands,
-                          mut meshes: ResMut<Assets<Mesh>>,
-                          mut materials: ResMut<Assets<StandardMaterial>>| {
-                        spawn_syndicate_agent(&mut commands, &mut meshes, &mut materials, grid_x, grid_z, owner)
-                    },
-                ).unwrap()
-            }
-            ObjectEnum::SupplyChopper => {
-                self.app.world_mut().run_system_once(
-                    move |mut commands: Commands,
-                          mut meshes: ResMut<Assets<Mesh>>,
-                          mut materials: ResMut<Assets<StandardMaterial>>| {
-                        spawn_supply_chopper(&mut commands, &mut meshes, &mut materials, grid_x, grid_z, owner)
-                    },
-                ).unwrap()
-            }
-            _ => panic!("Unsupported unit type for spawn_unit_at_grid: {:?}", unit_type),
-        }
+        self.app.world_mut().run_system_once(
+            move |mut commands: Commands,
+                  mut meshes: ResMut<Assets<Mesh>>,
+                  mut materials: ResMut<Assets<StandardMaterial>>,
+                  registry: Res<EntityRegistry>| {
+                let pos = grid_to_spawn_position(grid_x, grid_z, 1.0, 1.0);
+                let entity = registry.spawn(&unit_type, &mut commands, SpawnParams {
+                    position: pos,
+                    owner,
+                    player: owner.player_number().unwrap_or(0),
+                    rotation: None,
+                    under_construction: false,
+                    flip_horizontal: false,
+                    flip_vertical: false,
+                });
+                insert_entity_visuals(&mut commands, entity, &unit_type, &owner, &mut meshes, &mut materials);
+                entity
+            },
+        ).unwrap()
     }
 
     /// Spawn a unit at a world position. Converts world coords to grid coords.
@@ -115,67 +106,28 @@ impl<'a> TestHarness<'a> {
         grid_z: i32,
         owner: Owner,
     ) -> Entity {
-        match structure_type {
-            ObjectEnum::DeploymentCenter => {
-                self.app.world_mut().run_system_once(
-                    move |mut commands: Commands,
-                          mut meshes: ResMut<Assets<Mesh>>,
-                          mut materials: ResMut<Assets<StandardMaterial>>| {
-                        spawn_deployment_center(&mut commands, &mut meshes, &mut materials, grid_x, grid_z, owner)
-                    },
-                ).unwrap()
-            }
-            ObjectEnum::PowerPlant => {
-                self.app.world_mut().run_system_once(
-                    move |mut commands: Commands,
-                          mut meshes: ResMut<Assets<Mesh>>,
-                          mut materials: ResMut<Assets<StandardMaterial>>| {
-                        spawn_power_plant(&mut commands, &mut meshes, &mut materials, grid_x, grid_z, owner,
-                            StructureRotation::R0, false, false)
-                    },
-                ).unwrap()
-            }
-            ObjectEnum::Barracks => {
-                self.app.world_mut().run_system_once(
-                    move |mut commands: Commands,
-                          mut meshes: ResMut<Assets<Mesh>>,
-                          mut materials: ResMut<Assets<StandardMaterial>>| {
-                        spawn_barracks(&mut commands, &mut meshes, &mut materials, grid_x, grid_z, owner,
-                            StructureRotation::R0, false, false)
-                    },
-                ).unwrap()
-            }
-            ObjectEnum::ExtractionFacility => {
-                self.app.world_mut().run_system_once(
-                    move |mut commands: Commands,
-                          mut meshes: ResMut<Assets<Mesh>>,
-                          mut materials: ResMut<Assets<StandardMaterial>>| {
-                        spawn_extraction_facility(&mut commands, &mut meshes, &mut materials, grid_x, grid_z, owner,
-                            StructureRotation::R0, false, false)
-                    },
-                ).unwrap()
-            }
-            ObjectEnum::Tunnel => {
-                self.app.world_mut().run_system_once(
-                    move |mut commands: Commands,
-                          mut meshes: ResMut<Assets<Mesh>>,
-                          mut materials: ResMut<Assets<StandardMaterial>>| {
-                        spawn_tunnel(&mut commands, &mut meshes, &mut materials, grid_x, grid_z, owner)
-                    },
-                ).unwrap()
-            }
-            ObjectEnum::SupplyTower => {
-                self.app.world_mut().run_system_once(
-                    move |mut commands: Commands,
-                          mut meshes: ResMut<Assets<Mesh>>,
-                          mut materials: ResMut<Assets<StandardMaterial>>| {
-                        spawn_supply_tower(&mut commands, &mut meshes, &mut materials, grid_x, grid_z, owner,
-                            StructureRotation::R0, false, false)
-                    },
-                ).unwrap()
-            }
-            _ => panic!("Unsupported structure type for spawn_structure_at_grid: {:?}. Use spawn_headquarters_at_grid or spawn_extraction_plate_at_grid for types requiring extra params.", structure_type),
-        }
+        let obj_type = structure_type.object_type();
+        let size_x = obj_type.size.0 as f32;
+        let size_z = obj_type.size.1 as f32;
+        self.app.world_mut().run_system_once(
+            move |mut commands: Commands,
+                  mut meshes: ResMut<Assets<Mesh>>,
+                  mut materials: ResMut<Assets<StandardMaterial>>,
+                  registry: Res<EntityRegistry>| {
+                let pos = grid_to_spawn_position(grid_x, grid_z, size_x, size_z);
+                let entity = registry.spawn(&structure_type, &mut commands, SpawnParams {
+                    position: pos,
+                    owner,
+                    player: owner.player_number().unwrap_or(0),
+                    rotation: None,
+                    under_construction: false,
+                    flip_horizontal: false,
+                    flip_vertical: false,
+                });
+                insert_entity_visuals(&mut commands, entity, &structure_type, &owner, &mut meshes, &mut materials);
+                entity
+            },
+        ).unwrap()
     }
 
     /// Spawn a Headquarters (underground expansion) at grid coordinates.
@@ -190,8 +142,21 @@ impl<'a> TestHarness<'a> {
         self.app.world_mut().run_system_once(
             move |mut commands: Commands,
                   mut meshes: ResMut<Assets<Mesh>>,
-                  mut materials: ResMut<Assets<StandardMaterial>>| {
-                spawn_headquarters(&mut commands, &mut meshes, &mut materials, grid_x, grid_z, owner, parent_tunnel)
+                  mut materials: ResMut<Assets<StandardMaterial>>,
+                  registry: Res<EntityRegistry>| {
+                let pos = grid_to_spawn_position(grid_x, grid_z, 2.0, 2.0);
+                let entity = registry.spawn(&ObjectEnum::Headquarters, &mut commands, SpawnParams {
+                    position: pos,
+                    owner,
+                    player: owner.player_number().unwrap_or(0),
+                    rotation: None,
+                    under_construction: false,
+                    flip_horizontal: false,
+                    flip_vertical: false,
+                });
+                insert_entity_visuals(&mut commands, entity, &ObjectEnum::Headquarters, &owner, &mut meshes, &mut materials);
+                commands.entity(entity).insert(crate::game::types::structures::TunnelExpansionMarker { parent_tunnel });
+                entity
             },
         ).unwrap()
     }
@@ -208,8 +173,25 @@ impl<'a> TestHarness<'a> {
         self.app.world_mut().run_system_once(
             move |mut commands: Commands,
                   mut meshes: ResMut<Assets<Mesh>>,
-                  mut materials: ResMut<Assets<StandardMaterial>>| {
-                spawn_extraction_plate(&mut commands, &mut meshes, &mut materials, grid_x, grid_z, owner, attached_patch)
+                  mut materials: ResMut<Assets<StandardMaterial>>,
+                  registry: Res<EntityRegistry>| {
+                let pos = grid_to_spawn_position(grid_x, grid_z, 1.0, 1.0);
+                let entity = registry.spawn(&ObjectEnum::ExtractionPlate, &mut commands, SpawnParams {
+                    position: pos,
+                    owner,
+                    player: owner.player_number().unwrap_or(0),
+                    rotation: None,
+                    under_construction: false,
+                    flip_horizontal: false,
+                    flip_vertical: false,
+                });
+                insert_entity_visuals(&mut commands, entity, &ObjectEnum::ExtractionPlate, &owner, &mut meshes, &mut materials);
+                // Override the placeholder attached_patch
+                commands.entity(entity).insert(crate::game::types::structures::ExtractionPlateState {
+                    attached_patch,
+                    mining_timer: 0.0,
+                });
+                entity
             },
         ).unwrap()
     }
@@ -279,6 +261,31 @@ impl<'a> TestHarness<'a> {
                 world.entity_mut(e).insert(Selected);
             }
         }
+
+        // Build group data for the Selection resource
+        let mut group_data: Vec<(Entity, ObjectEnum, bool)> = Vec::new();
+        for &e in entities {
+            if let Some(obj) = world.get::<ObjectInstance>(e) {
+                let groupable = obj.object_type.object_type().groupable;
+                group_data.push((e, obj.object_type, groupable));
+            }
+        }
+
+        // Update the Selection resource
+        let mut selection = world.resource_mut::<Selection>();
+        selection.build_from_entities(&group_data);
+
+        // Update PreviousSelectionSnapshot to prevent interface_state_selection_reset_system
+        // from spuriously resetting ObjectInterfaceState when selection changes during tests
+        let snapshot_types: Vec<ObjectEnum> = {
+            let selection = world.resource::<Selection>();
+            selection.groups.iter().map(|g| g.object_type).collect()
+        };
+        let snapshot_index = world.resource::<Selection>().active_group_index;
+        let mut prev = world.resource_mut::<PreviousSelectionSnapshot>();
+        prev.initialized = true;
+        prev.active_group_index = snapshot_index;
+        prev.group_types = snapshot_types;
     }
 
     /// Clear all selection — removes `Selected` from every entity.
@@ -714,7 +721,6 @@ impl<'a> TestHarness<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy::prelude::*;
 
     // Unit tests for TestHarness go here.
     // Integration tests using TestApp are in tests/scenarios/.

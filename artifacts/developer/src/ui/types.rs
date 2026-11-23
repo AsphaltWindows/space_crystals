@@ -31,9 +31,17 @@ pub struct HudPanel;
 #[derive(Component)]
 pub struct MinimapSection;
 
-/// Marker component for the selected units grid section
+/// Marker component for the portrait section (shows selected entity portrait)
 #[derive(Component)]
-pub struct UnitsGridSection;
+pub struct PortraitSection;
+
+/// Marker component for the info panel section (shows entity details)
+#[derive(Component)]
+pub struct InfoPanelSection;
+
+/// Marker component for the selection panel section (multi-select display)
+#[derive(Component)]
+pub struct SelectionPanelSection;
 
 /// Marker component for minimap tiles
 #[derive(Component)]
@@ -109,6 +117,12 @@ pub struct StructureHealthBar {
 pub struct ResourceIcon {
     pub resource_entity: Entity,
 }
+
+/// Marker to scope icon entities to the info panel (single-select display).
+/// This distinguishes info panel icons from selection panel icons so that
+/// the info panel rebuild system only despawns its own icons.
+#[derive(Component)]
+pub struct InfoPanelIcon;
 
 /// Marker component for the command panel section (right side of HUD)
 #[derive(Component)]

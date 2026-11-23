@@ -2,8 +2,7 @@ mod test_app;
 use test_app::TestApp;
 
 use bevy::prelude::*;
-use bevy::ecs::system::RunSystemOnce;
-use space_crystals::game::utils::{spawn_peacekeeper, spawn_tunnel, spawn_headquarters};
+// Old spawn functions removed — use TestHarness instead
 use space_crystals::game::units::types::state::commands::CommandType;
 use space_crystals::game::units::types::state::UnitCommand;
 use space_crystals::ui::types::ObjectInterfaceState;
@@ -19,14 +18,12 @@ fn spawn_peacekeeper_and_verify_components() {
     // Run one frame to let startup systems execute (map spawn, player setup, etc.)
     test_app.step();
 
-    // Spawn a Peacekeeper via a one-shot system
-    let spawned_entity = test_app.app.world_mut().run_system_once(
-        |mut commands: Commands,
-         mut meshes: ResMut<Assets<Mesh>>,
-         mut materials: ResMut<Assets<StandardMaterial>>| {
-            spawn_peacekeeper(&mut commands, &mut meshes, &mut materials, 32, 32, Owner(Some(0)))
-        },
-    ).unwrap();
+    // Spawn a Peacekeeper via TestHarness
+    let spawned_entity;
+    {
+        let mut harness = TestHarness::new(&mut test_app.app);
+        spawned_entity = harness.spawn_unit_at_grid(ObjectEnum::Peacekeeper, 32, 32, Owner(Some(0)));
+    }
 
     // Run another frame to flush the spawn commands
     test_app.step();
@@ -75,13 +72,10 @@ fn multi_step_stability() {
     test_app.step();
 
     // Spawn a unit
-    test_app.app.world_mut().run_system_once(
-        |mut commands: Commands,
-         mut meshes: ResMut<Assets<Mesh>>,
-         mut materials: ResMut<Assets<StandardMaterial>>| {
-            spawn_peacekeeper(&mut commands, &mut meshes, &mut materials, 30, 30, Owner(Some(0)));
-        },
-    ).unwrap();
+    {
+        let mut harness = TestHarness::new(&mut test_app.app);
+        harness.spawn_unit_at_grid(ObjectEnum::Peacekeeper, 30, 30, Owner(Some(0)));
+    }
 
     // Run 10 more frames — should not panic
     test_app.step_n(10);
@@ -104,17 +98,15 @@ fn awaiting_target_guard_prevents_selection() {
     }
 
     // Spawn a Selectable entity (unit) and manually add Selected to it
-    let unit_entity = test_app.app.world_mut().run_system_once(
-        |mut commands: Commands,
-         mut meshes: ResMut<Assets<Mesh>>,
-         mut materials: ResMut<Assets<StandardMaterial>>| {
-            spawn_peacekeeper(&mut commands, &mut meshes, &mut materials, 30, 30, Owner(Some(0)))
-        },
-    ).unwrap();
+    let unit_entity;
+    {
+        let mut harness = TestHarness::new(&mut test_app.app);
+        unit_entity = harness.spawn_unit_at_grid(ObjectEnum::Peacekeeper, 30, 30, Owner(Some(0)));
+    }
     test_app.step();
 
     // Select the unit
-    test_app.app.world_mut().entity_mut(unit_entity).insert(Selected);
+    let _ = test_app.app.world_mut().entity_mut(unit_entity).insert(Selected);
 
     // Verify unit is selected
     assert!(test_app.app.world().get::<Selected>(unit_entity).is_some(),
@@ -150,15 +142,13 @@ fn all_awaiting_target_modes_preserve_selection() {
     test_app.step();
 
     // Spawn and select a unit
-    let unit_entity = test_app.app.world_mut().run_system_once(
-        |mut commands: Commands,
-         mut meshes: ResMut<Assets<Mesh>>,
-         mut materials: ResMut<Assets<StandardMaterial>>| {
-            spawn_peacekeeper(&mut commands, &mut meshes, &mut materials, 30, 30, Owner(Some(0)))
-        },
-    ).unwrap();
+    let unit_entity;
+    {
+        let mut harness = TestHarness::new(&mut test_app.app);
+        unit_entity = harness.spawn_unit_at_grid(ObjectEnum::Peacekeeper, 30, 30, Owner(Some(0)));
+    }
     test_app.step();
-    test_app.app.world_mut().entity_mut(unit_entity).insert(Selected);
+    let _ = test_app.app.world_mut().entity_mut(unit_entity).insert(Selected);
 
     // Test each non-Default command type in AwaitingTarget
     let command_types = [
@@ -185,7 +175,7 @@ fn all_awaiting_target_modes_preserve_selection() {
 /// resets AwaitingTarget to Default before selection_system checks the guard.
 #[test]
 fn movement_runs_after_ui_hud_ordering() {
-    use space_crystals::simulation::types::DiagCategory;
+    
 
     let mut test_app = TestApp::new();
 
@@ -195,19 +185,16 @@ fn movement_runs_after_ui_hud_ordering() {
     test_app.step();
 
     // Spawn a unit and an enemy unit
-    let (unit_entity, enemy_entity) = test_app.app.world_mut().run_system_once(
-        |mut commands: Commands,
-         mut meshes: ResMut<Assets<Mesh>>,
-         mut materials: ResMut<Assets<StandardMaterial>>| {
-            let unit = spawn_peacekeeper(&mut commands, &mut meshes, &mut materials, 30, 30, Owner(Some(0)));
-            let enemy = spawn_peacekeeper(&mut commands, &mut meshes, &mut materials, 35, 30, Owner(Some(1)));
-            (unit, enemy)
-        },
-    ).unwrap();
+    let unit_entity;
+    {
+        let mut harness = TestHarness::new(&mut test_app.app);
+        unit_entity = harness.spawn_unit_at_grid(ObjectEnum::Peacekeeper, 30, 30, Owner(Some(0)));
+        let _enemy_entity = harness.spawn_unit_at_grid(ObjectEnum::Peacekeeper, 35, 30, Owner(Some(1)));
+    }
     test_app.step();
 
     // Select the unit
-    test_app.app.world_mut().entity_mut(unit_entity).insert(Selected);
+    let _ = test_app.app.world_mut().entity_mut(unit_entity).insert(Selected);
 
     // Enter AwaitingTarget(Attack) mode
     *test_app.app.world_mut().resource_mut::<ObjectInterfaceState>() =
@@ -234,15 +221,13 @@ fn spawn_headquarters_has_visual_and_components() {
     test_app.step();
 
     // First spawn a tunnel (HQ needs a parent tunnel entity)
-    let (tunnel_entity, hq_entity) = test_app.app.world_mut().run_system_once(
-        |mut commands: Commands,
-         mut meshes: ResMut<Assets<Mesh>>,
-         mut materials: ResMut<Assets<StandardMaterial>>| {
-            let tunnel = spawn_tunnel(&mut commands, &mut meshes, &mut materials, 40, 40, Owner(Some(0)));
-            let hq = spawn_headquarters(&mut commands, &mut meshes, &mut materials, 42, 38, Owner(Some(0)), tunnel);
-            (tunnel, hq)
-        },
-    ).unwrap();
+    let tunnel_entity;
+    let hq_entity;
+    {
+        let mut harness = TestHarness::new(&mut test_app.app);
+        tunnel_entity = harness.spawn_structure_at_grid(ObjectEnum::Tunnel, 40, 40, Owner(Some(0)));
+        hq_entity = harness.spawn_headquarters_at_grid(42, 38, Owner(Some(0)), tunnel_entity);
+    }
     test_app.step();
 
     let world = test_app.app.world();
@@ -289,14 +274,12 @@ fn spawn_headquarters_position_from_grid() {
     let mut test_app = TestApp::new();
     test_app.step();
 
-    let hq_entity = test_app.app.world_mut().run_system_once(
-        |mut commands: Commands,
-         mut meshes: ResMut<Assets<Mesh>>,
-         mut materials: ResMut<Assets<StandardMaterial>>| {
-            let tunnel = spawn_tunnel(&mut commands, &mut meshes, &mut materials, 40, 40, Owner(Some(0)));
-            spawn_headquarters(&mut commands, &mut meshes, &mut materials, 32, 32, Owner(Some(0)), tunnel)
-        },
-    ).unwrap();
+    let hq_entity;
+    {
+        let mut harness = TestHarness::new(&mut test_app.app);
+        let tunnel = harness.spawn_structure_at_grid(ObjectEnum::Tunnel, 40, 40, Owner(Some(0)));
+        hq_entity = harness.spawn_headquarters_at_grid(32, 32, Owner(Some(0)), tunnel);
+    }
     test_app.step();
 
     let transform = test_app.app.world().get::<Transform>(hq_entity)
@@ -313,14 +296,12 @@ fn spawn_headquarters_has_mesh_and_material() {
     let mut test_app = TestApp::new();
     test_app.step();
 
-    let hq_entity = test_app.app.world_mut().run_system_once(
-        |mut commands: Commands,
-         mut meshes: ResMut<Assets<Mesh>>,
-         mut materials: ResMut<Assets<StandardMaterial>>| {
-            let tunnel = spawn_tunnel(&mut commands, &mut meshes, &mut materials, 40, 40, Owner(Some(0)));
-            spawn_headquarters(&mut commands, &mut meshes, &mut materials, 42, 38, Owner(Some(0)), tunnel)
-        },
-    ).unwrap();
+    let hq_entity;
+    {
+        let mut harness = TestHarness::new(&mut test_app.app);
+        let tunnel = harness.spawn_structure_at_grid(ObjectEnum::Tunnel, 40, 40, Owner(Some(0)));
+        hq_entity = harness.spawn_headquarters_at_grid(42, 38, Owner(Some(0)), tunnel);
+    }
     test_app.step();
 
     let world = test_app.app.world();

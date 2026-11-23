@@ -175,8 +175,11 @@ fn step_5_headquarters_rally_point_and_agent_production() {
     test_app.step();
 
     // Verify HQ can produce SyndicateAgent (cost exists)
-    let cost = HeadquartersState::production_cost(&ObjectEnum::SyndicateAgent)
-        .expect("HQ should have a production cost for SyndicateAgent");
+    let cost = {
+        use space_crystals::game::entities::factions::syndicate::units::agent::SyndicateAgentDef;
+        use space_crystals::game::entities::types::EntityDefinition;
+        SyndicateAgentDef::cost().expect("Agent should have a cost")
+    };
     assert_eq!(cost.space_crystals, 100, "Agent production cost should be 100 SC");
     assert_eq!(cost.build_frames, 160, "Agent build time should be 160 frames");
 
@@ -338,8 +341,12 @@ fn step_10_starting_hq_immediately_functional() {
 
     // Verify it CAN produce agents (production cost exists)
     assert!(
-        HeadquartersState::production_cost(&ObjectEnum::SyndicateAgent).is_some(),
-        "HQ should be able to produce SyndicateAgent"
+        {
+            use space_crystals::game::entities::factions::syndicate::units::agent::SyndicateAgentDef;
+            use space_crystals::game::entities::types::EntityDefinition;
+            SyndicateAgentDef::cost().is_some()
+        },
+        "Agent should have a cost (HQ can produce SyndicateAgent)"
     );
 }
 
@@ -401,21 +408,20 @@ fn hq_production_ejects_agent_without_rally_point() {
         "HQ should have produced an agent (before: {}, after: {})", agents_before, agent_entities.len()
     );
 
-    // The new agent should NOT be hidden in tunnel network (no InTunnelNetwork component)
+    // The new agent should stay in the tunnel network after production
     let new_agent = agent_entities.last().unwrap();
     assert!(
-        world.get::<InTunnelNetwork>(*new_agent).is_none(),
-        "Agent should NOT be in tunnel network — should eject to surface with no rally point"
+        world.get::<InTunnelNetwork>(*new_agent).is_some(),
+        "Agent should be in tunnel network — stays in network when no rally point is set"
     );
 
-    // Agent should not be hidden
-    let visibility = world.get::<Visibility>(*new_agent);
-    if let Some(vis) = visibility {
-        assert_ne!(
-            *vis, Visibility::Hidden,
-            "Agent should be visible on the surface, not hidden"
-        );
-    }
+    // Agent should be hidden (stays in tunnel network)
+    let vis = world.get::<Visibility>(*new_agent)
+        .expect("Agent should have Visibility component");
+    assert_eq!(
+        *vis, Visibility::Hidden,
+        "Agent should be hidden — stays in tunnel network when no rally point is set"
+    );
 }
 
 /// Verify that HQ production puts agent in tunnel network when rally is set to parent tunnel

@@ -46,6 +46,9 @@ impl TestApp {
         app.init_asset::<bevy::prelude::Shader>();
         app.add_plugins(bevy::gizmos::GizmoPlugin);
 
+        // Entity registry for registry-based spawning
+        app.add_plugins(crate::game::entities::EntitiesPlugin);
+
         // Spawn a dummy PrimaryWindow entity so systems that query
         // Query<&Window, With<PrimaryWindow>> don't panic
         app.world_mut().spawn((

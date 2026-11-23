@@ -375,12 +375,13 @@ pub struct IdleOrigin(pub Vec3);
 /// Maximum distance an idle-auto-targeting unit can chase before disengaging
 pub const IDLE_LEASH_DISTANCE: f32 = 4.0;
 
-/// Maximum perpendicular distance from original path before an AttackMove unit disengages
-/// and returns to its path. 6.0 GU per design spec.
+/// Maximum chase distance beyond weapon range before an AttackMove unit disengages
+/// a fleeing target and resumes its path. 6.0 GU per design spec.
 pub const ATTACK_MOVE_LEASH_DISTANCE: f32 = 6.0;
 
-/// Component recording a unit's position/path origin during AttackMove engagement.
-/// Used for leash distance checking during AttackMove detours.
+/// Component recording a unit's engagement origin during AttackMove.
+/// Updated to current position when re-engaging a new target after a kill.
+/// Used to limit chase distance beyond weapon range.
 #[derive(Component)]
 pub struct AttackMoveOrigin(pub Vec3);
 

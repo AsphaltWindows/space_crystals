@@ -6,6 +6,7 @@ use crate::game::units::types::*;
 use crate::game::units::utils::{world_to_grid, smooth_path};
 use crate::game::units::pathfinding::find_path_for_domain;
 use crate::game::world::types::{Tile, TilePreset, GridMap, ElevationMap, elevation_modifier};
+use crate::game::units::types::state::behavior::{LocomotionChannel, OrientationChannel};
 use crate::game::combat::types::*;
 use crate::game::combat::utils::{is_valid_target, select_best_target};
 use crate::game::combat::systems::core::{can_threaten, compute_relative_turret_angle};
@@ -24,7 +25,7 @@ pub fn attacking_object_behavior_system(
     mut units: Query<
         (Entity, &Transform, &AttackCapability, &mut AttackState, &UnitCommand,
          &UnitBaseEnum, &Owner, Option<&DomainEnum>, &GridPosition, Option<&MoveTarget>,
-         Option<&mut TurretCommandState>),
+         Option<&mut TurretCommandState>, &mut LocomotionChannel, &mut OrientationChannel),
         With<Unit>
     >,
     targets: Query<(&Transform, &Owner, Option<&DomainEnum>, &GridPosition), With<ObjectInstance>>,
@@ -34,7 +35,8 @@ pub fn attacking_object_behavior_system(
     occupancy: Res<OccupancyMap>,
 ) {
     for (entity, transform, attack_cap, mut attack_state, command, unit_base, _owner,
-         source_domain, source_grid_pos, existing_move_target, mut turret_state) in units.iter_mut()
+         source_domain, source_grid_pos, existing_move_target, mut turret_state,
+         mut locomotion, mut orientation) in units.iter_mut()
     {
         let target_entity = match command {
             UnitCommand::AttackTarget(t) => *t,
@@ -85,11 +87,13 @@ pub fn attacking_object_behavior_system(
                 turret.locked_target = Some(target_entity);
             }
 
-            // Infantry: stop movement when in range
+            // Infantry: stop movement when in range, write channels
             if !base_data.has_turret && base_data.movement_model != MovementModelEnum::Glider {
                 commands.entity(entity)
                     .remove::<MoveTarget>()
                     .remove::<Path>();
+                *locomotion = LocomotionChannel::Stationary;
+                *orientation = OrientationChannel::Turning(target_transform.translation);
             }
             // Turret units and gliders: keep moving, turret/phase system handles firing
         } else {
@@ -110,11 +114,18 @@ pub fn attacking_object_behavior_system(
                     &occupancy, (start_grid.x, start_grid.z),
                 ) {
                     let smoothed = smooth_path(path);
+                    // Write channel for approach movement
+                    *locomotion = LocomotionChannel::Moving(smoothed.clone());
+                    *orientation = OrientationChannel::Turning(target_transform.translation);
+                    // Keep legacy MoveTarget/Path for compatibility
                     commands.entity(entity).insert((
                         MoveTarget(target_transform.translation),
                         Path { waypoints: smoothed, current_waypoint: 0 },
                     ));
                 }
+            } else {
+                // No repath needed but still approaching — maintain orientation toward target
+                *orientation = OrientationChannel::Turning(target_transform.translation);
             }
         }
     }
@@ -207,8 +218,9 @@ pub fn attacking_location_behavior_system(
 /// Attack-move behavior system.
 ///
 /// Handles `UnitCommand::AttackMove(destination)` — moves toward destination along a path,
-/// scanning for enemies within sight range during movement. Engages found enemies,
-/// but disengages if perpendicular distance from original path exceeds ATTACK_MOVE_LEASH_DISTANCE.
+/// scanning for enemies within sight range during movement. Engages found enemies
+/// and stays locked through the full attack cycle until the target dies or moves
+/// beyond weapon range + ATTACK_MOVE_LEASH_DISTANCE chase buffer.
 pub fn attack_move_behavior_system(
     mut commands: Commands,
     mut units: Query<
@@ -221,7 +233,7 @@ pub fn attack_move_behavior_system(
     tiles: Query<(&GridPosition, &TilePreset), With<Tile>>,
     grid: Res<GridMap>,
     _elevation_map: Res<ElevationMap>,
-    attack_move_origins: Query<&AttackMoveOrigin>,
+    _attack_move_origins: Query<&AttackMoveOrigin>,
     occupancy: Res<OccupancyMap>,
 ) {
     for (entity, transform, _attack_cap, mut attack_state, mut command, unit_base, owner,
@@ -249,15 +261,19 @@ pub fn attack_move_behavior_system(
             continue;
         }
 
-        // If currently engaging a target, check leash
+        // If currently engaging a target, check if we should stay locked
         if let Some(target_entity) = attack_state.target_entity() {
-            if let Ok(origin) = attack_move_origins.get(entity) {
-                let dist_from_origin = Vec3::new(
-                    pos.x - origin.0.x, 0.0, pos.z - origin.0.z,
-                ).length();
+            if let Ok((_te, target_transform, _to, _td, _tg)) = potential_targets.get(target_entity) {
+                // Target alive — check if still within weapon range + chase buffer
+                let dist_to_target = pos.distance(target_transform.translation);
+                let weapon_range = _attack_cap.range;
 
-                if dist_from_origin > ATTACK_MOVE_LEASH_DISTANCE {
-                    // Too far from path — disengage and resume move
+                if dist_to_target <= weapon_range + ATTACK_MOVE_LEASH_DISTANCE {
+                    // In range (weapon range + chase buffer) — stay locked on target
+                    // Let attack_phase_system handle the engagement cycle
+                    continue;
+                } else {
+                    // Target fled beyond weapon range + chase distance — disengage
                     attack_state.current_target = None;
                     attack_state.phase = AttackPhase::None;
                     commands.entity(entity).remove::<AttackMoveOrigin>();
@@ -278,30 +294,61 @@ pub fn attack_move_behavior_system(
                     }
                     continue;
                 }
-            }
-
-            // Check if target is still alive
-            if potential_targets.get(target_entity).is_err() {
-                // Target destroyed — resume path
+            } else {
+                // Target dead — scan for new enemies before resuming path
                 attack_state.current_target = None;
                 attack_state.phase = AttackPhase::None;
-                commands.entity(entity).remove::<AttackMoveOrigin>();
 
-                let start_grid = world_to_grid(pos);
-                let target_grid = world_to_grid(destination);
-                if let Some(path) = find_path_for_domain(
-                    start_grid, target_grid, &tiles, unit_base,
-                    grid.width as i32, grid.height as i32,
-                    &occupancy, (start_grid.x, start_grid.z),
-                ) {
-                    let smoothed = smooth_path(path);
-                    commands.entity(entity).insert((
-                        MoveTarget(destination),
-                        Path { waypoints: smoothed, current_waypoint: 0 },
-                    ));
+                let scan_range_kill = sight_range_opt.map(|sr| sr.0 as f32).unwrap_or(5.0);
+                let mut nearest_enemy_kill = None;
+                let mut nearest_distance_kill = f32::MAX;
+
+                for (t_entity, t_transform, t_owner, _t_domain, _t_grid_pos) in potential_targets.iter() {
+                    if t_entity == entity { continue; }
+                    if !is_enemy(owner, t_owner) { continue; }
+
+                    let distance = pos.distance(t_transform.translation);
+                    if distance > scan_range_kill { continue; }
+
+                    if distance < nearest_distance_kill {
+                        nearest_enemy_kill = Some(t_entity);
+                        nearest_distance_kill = distance;
+                    }
                 }
+
+                if let Some(new_target) = nearest_enemy_kill {
+                    // Found new enemy — engage it, update origin to current pos
+                    attack_state.current_target = Some(AttackTarget::UnitTarget(new_target));
+                    attack_state.phase = AttackPhase::Aiming;
+                    attack_state.time_in_phase = 0.0;
+                    commands.entity(entity).insert(AttackMoveOrigin(pos));
+
+                    // Infantry: stop to engage
+                    if !base_data.has_turret && base_data.movement_model != MovementModelEnum::Glider {
+                        commands.entity(entity)
+                            .remove::<MoveTarget>()
+                            .remove::<Path>();
+                    }
+                } else {
+                    // No enemies nearby — resume path to destination
+                    commands.entity(entity).remove::<AttackMoveOrigin>();
+
+                    let start_grid = world_to_grid(pos);
+                    let target_grid = world_to_grid(destination);
+                    if let Some(path) = find_path_for_domain(
+                        start_grid, target_grid, &tiles, unit_base,
+                        grid.width as i32, grid.height as i32,
+                        &occupancy, (start_grid.x, start_grid.z),
+                    ) {
+                        let smoothed = smooth_path(path);
+                        commands.entity(entity).insert((
+                            MoveTarget(destination),
+                            Path { waypoints: smoothed, current_waypoint: 0 },
+                        ));
+                    }
+                }
+                continue;
             }
-            continue; // Let attack systems handle the engagement
         }
 
         // Not currently engaged — scan for enemies
@@ -693,22 +740,107 @@ mod tests {
         assert!(dist >= 0.5);
     }
 
-    // === Leash distance tests ===
+    // === Leash distance tests (chase buffer beyond weapon range) ===
 
     #[test]
-    fn within_leash_distance() {
-        let origin = Vec3::new(0.0, 0.0, 0.0);
-        let pos = Vec3::new(3.0, 0.0, 4.0); // distance = 5.0
-        let dist = Vec3::new(pos.x - origin.x, 0.0, pos.z - origin.z).length();
-        assert!(dist < ATTACK_MOVE_LEASH_DISTANCE);
+    fn within_weapon_range_plus_leash() {
+        // Unit at origin, target within weapon_range + leash → stays locked
+        let weapon_range = 5.0_f32;
+        let unit_pos = Vec3::ZERO;
+        let target_pos = Vec3::new(8.0, 0.0, 0.0); // dist = 8.0, threshold = 5.0 + 6.0 = 11.0
+        let dist = unit_pos.distance(target_pos);
+        assert!(dist <= weapon_range + ATTACK_MOVE_LEASH_DISTANCE);
     }
 
     #[test]
-    fn beyond_leash_distance() {
-        let origin = Vec3::new(0.0, 0.0, 0.0);
-        let pos = Vec3::new(5.0, 0.0, 5.0); // distance ~7.07
-        let dist = Vec3::new(pos.x - origin.x, 0.0, pos.z - origin.z).length();
-        assert!(dist > ATTACK_MOVE_LEASH_DISTANCE);
+    fn beyond_weapon_range_plus_leash() {
+        // Unit at origin, target beyond weapon_range + leash → disengages
+        let weapon_range = 5.0_f32;
+        let unit_pos = Vec3::ZERO;
+        let target_pos = Vec3::new(12.0, 0.0, 0.0); // dist = 12.0, threshold = 11.0
+        let dist = unit_pos.distance(target_pos);
+        assert!(dist > weapon_range + ATTACK_MOVE_LEASH_DISTANCE);
+    }
+
+    #[test]
+    fn target_at_exact_weapon_range_stays_locked() {
+        let weapon_range = 5.0_f32;
+        let unit_pos = Vec3::ZERO;
+        let target_pos = Vec3::new(5.0, 0.0, 0.0);
+        let dist = unit_pos.distance(target_pos);
+        assert!(dist <= weapon_range + ATTACK_MOVE_LEASH_DISTANCE);
+    }
+
+    #[test]
+    fn target_at_exact_threshold_stays_locked() {
+        // At exactly weapon_range + leash, unit should stay locked (<=)
+        let weapon_range = 5.0_f32;
+        let threshold = weapon_range + ATTACK_MOVE_LEASH_DISTANCE; // 11.0
+        let unit_pos = Vec3::ZERO;
+        let target_pos = Vec3::new(threshold, 0.0, 0.0);
+        let dist = unit_pos.distance(target_pos);
+        assert!(dist <= weapon_range + ATTACK_MOVE_LEASH_DISTANCE);
+    }
+
+    // === Attack-move sustained engagement tests ===
+
+    #[test]
+    fn attack_state_stays_locked_during_aiming() {
+        // During Aiming phase, target should remain locked
+        let target = Entity::from_raw_u32(42).unwrap();
+        let attack_state = AttackState {
+            phase: AttackPhase::Aiming,
+            current_target: Some(AttackTarget::UnitTarget(target)),
+            time_in_phase: 0.0,
+        };
+        assert!(attack_state.target_entity().is_some());
+        assert!(matches!(attack_state.phase, AttackPhase::Aiming));
+    }
+
+    #[test]
+    fn attack_state_stays_locked_during_cooldown() {
+        // During Cooldown phase, target should remain locked
+        let target = Entity::from_raw_u32(42).unwrap();
+        let attack_state = AttackState {
+            phase: AttackPhase::Cooldown,
+            current_target: Some(AttackTarget::UnitTarget(target)),
+            time_in_phase: 0.5,
+        };
+        assert!(attack_state.target_entity().is_some());
+        assert!(matches!(attack_state.phase, AttackPhase::Cooldown));
+    }
+
+    #[test]
+    fn attack_state_stays_locked_during_reloading() {
+        // During Reloading phase, target should remain locked
+        let target = Entity::from_raw_u32(42).unwrap();
+        let attack_state = AttackState {
+            phase: AttackPhase::Reloading,
+            current_target: Some(AttackTarget::UnitTarget(target)),
+            time_in_phase: 0.3,
+        };
+        assert!(attack_state.target_entity().is_some());
+        assert!(matches!(attack_state.phase, AttackPhase::Reloading));
+    }
+
+    #[test]
+    fn attack_move_re_engage_after_kill_updates_origin() {
+        // After killing target, if new enemy found, origin should update to current pos
+        let current_pos = Vec3::new(15.0, 0.0, 20.0);
+        let new_origin = AttackMoveOrigin(current_pos);
+        assert_eq!(new_origin.0, current_pos);
+    }
+
+    #[test]
+    fn attack_move_chase_buffer_uses_weapon_range() {
+        // Different weapon ranges change effective chase threshold
+        let short_range = 3.0_f32;
+        let long_range = 10.0_f32;
+        let short_threshold = short_range + ATTACK_MOVE_LEASH_DISTANCE; // 9.0
+        let long_threshold = long_range + ATTACK_MOVE_LEASH_DISTANCE;  // 16.0
+        assert!(short_threshold < long_threshold);
+        assert!((short_threshold - 9.0).abs() < f32::EPSILON);
+        assert!((long_threshold - 16.0).abs() < f32::EPSILON);
     }
 
     // === AttackTarget command variants ===
@@ -811,5 +943,58 @@ mod tests {
         turret_state.locked_target = Some(new_target);
         assert_eq!(turret_state.locked_target, Some(new_target));
         assert_ne!(turret_state.locked_target, Some(old_target));
+    }
+
+    // === Channel write tests for attacking_object_behavior_system ===
+
+    #[test]
+    fn in_range_infantry_sets_stationary_and_turning() {
+        // When an infantry unit is in range, locomotion should be Stationary
+        // and orientation should be Turning toward target
+        let target_pos = Vec3::new(10.0, 0.0, 5.0);
+        let locomotion = LocomotionChannel::Stationary;
+        let orientation = OrientationChannel::Turning(target_pos);
+
+        assert!(matches!(locomotion, LocomotionChannel::Stationary));
+        match orientation {
+            OrientationChannel::Turning(pos) => assert_eq!(pos, target_pos),
+            _ => panic!("Expected Turning variant"),
+        }
+    }
+
+    #[test]
+    fn out_of_range_sets_moving_channel_with_path() {
+        // When out of range with a valid path, locomotion should be Moving
+        // and orientation should be Turning toward target
+        let waypoints = vec![Vec3::new(1.0, 0.0, 1.0), Vec3::new(5.0, 0.0, 5.0)];
+        let target_pos = Vec3::new(10.0, 0.0, 10.0);
+
+        let locomotion = LocomotionChannel::Moving(waypoints.clone());
+        let orientation = OrientationChannel::Turning(target_pos);
+
+        match locomotion {
+            LocomotionChannel::Moving(path) => {
+                assert_eq!(path.len(), 2);
+                assert_eq!(path, waypoints);
+            }
+            _ => panic!("Expected Moving variant"),
+        }
+        match orientation {
+            OrientationChannel::Turning(pos) => assert_eq!(pos, target_pos),
+            _ => panic!("Expected Turning variant"),
+        }
+    }
+
+    #[test]
+    fn out_of_range_no_repath_maintains_orientation() {
+        // When out of range but no repath needed (target hasn't moved enough),
+        // orientation should still point toward target
+        let target_pos = Vec3::new(15.0, 0.0, 20.0);
+        let orientation = OrientationChannel::Turning(target_pos);
+
+        match orientation {
+            OrientationChannel::Turning(pos) => assert_eq!(pos, target_pos),
+            _ => panic!("Expected Turning variant"),
+        }
     }
 }

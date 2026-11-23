@@ -1,0 +1,156 @@
+[completion_aggregator] Activated feature_request: task_splitter-expand_command_panel_grid.md
+[completion_aggregator] Activated feature_tasks: task_splitter-expand_command_panel_grid.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-faction_module_split.md
+[completion_aggregator] All tasks complete for task_splitter-faction_split.md — producing qa_item
+Message sent: /home/iv/dev/space_crystals/messages/qa_router/qa_item/pending/completion_aggregator-faction_split.md
+[completion_aggregator] Produced qa_item: faction_split
+[completion_aggregator] Moved all messages to done for feature: faction_split
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-behaviors_split.md
+[completion_aggregator] All tasks complete for task_splitter-behaviors_split.md — producing qa_item
+Message sent: /home/iv/dev/space_crystals/messages/qa_router/qa_item/pending/completion_aggregator-behaviors_split.md
+[completion_aggregator] Produced qa_item: behaviors_split
+[completion_aggregator] Moved all messages to done for feature: behaviors_split
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-behaviors_split.md
+[completion_aggregator] Activated task_completion: developer-core_systems_split.md
+[completion_aggregator] Activated task_completion: developer-expand_command_panel_grid.md
+[completion_aggregator] Activated task_completion: developer-faction_module_split.md
+[completion_aggregator] All tasks complete for task_splitter-core_systems_split.md — producing qa_item
+Message sent: /home/iv/dev/space_crystals/messages/qa_router/qa_item/pending/completion_aggregator-core_systems_split.md
+[completion_aggregator] Produced qa_item: core_systems_split
+[completion_aggregator] Moved all messages to done for feature: core_systems_split
+[completion_aggregator] All tasks complete for task_splitter-expand_command_panel_grid.md — producing qa_item
+Message sent: /home/iv/dev/space_crystals/messages/qa_router/qa_item/pending/completion_aggregator-expand_command_panel_grid.md
+[completion_aggregator] Produced qa_item: expand_command_panel_grid
+[completion_aggregator] Moved all messages to done for feature: expand_command_panel_grid
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-behaviors_split.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_request: task_splitter-core_systems_split_r1.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_tasks: task_splitter-core_systems_split_r1.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_tasks: task_splitter-core_systems_split_r1.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-fix_behavior_completion_race.md
+[completion_aggregator] All tasks complete for task_splitter-core_systems_split_r1.md — producing qa_item
+Message sent: /home/iv/dev/space_crystals/messages/qa_router/qa_item/pending/completion_aggregator-core_systems_split_r1.md
+[completion_aggregator] Produced qa_item: core_systems_split_r1
+[completion_aggregator] Moved all messages to done for feature: core_systems_split_r1
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-fix_behavior_completion_race.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_request: task_splitter-core_systems_split_r2.md
+[completion_aggregator] Activated feature_tasks: task_splitter-core_systems_split_r2.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_request: task_splitter-declarative-entity-definitions.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_tasks: task_splitter-declarative-entity-definitions.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-entity_definition_foundation.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-entity-def-pilot-peacekeeper.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-entity_migration_gdo_units.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-entity_migration_syndicate_units.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-entity-migration-gdo-buildings.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-entity_migration_cults_units.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-entity_migration_neutral.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_request: task_splitter-hud_bar_layout.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_tasks: task_splitter-hud_bar_layout.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-entity_migration_syndicate_buildings.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-entity_migration_cults_buildings.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-hud_bar_five_section_scaffold.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-entity_registry_costs.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-hud_bar_content_redistribution.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-entity_registry_grid_layout.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-entity-registry-spawn-dispatch.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-entity_definition_cleanup.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_request: task_splitter-fix_hud_ui_bugs.md
+[completion_aggregator] Activated feature_tasks: task_splitter-fix_hud_ui_bugs.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-fix_hud_ui_bugs.md
+[completion_aggregator] All tasks complete for task_splitter-fix_hud_ui_bugs.md — producing qa_item
+Message sent: /home/iv/dev/space_crystals/messages/qa_router/qa_item/pending/completion_aggregator-fix_hud_ui_bugs.md
+[completion_aggregator] Produced qa_item: fix_hud_ui_bugs
+[completion_aggregator] Moved all messages to done for feature: fix_hud_ui_bugs
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_request: task_splitter-action_channels_r1.md
+[completion_aggregator] Activated feature_tasks: task_splitter-action_channels_r1.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_request: task_splitter-add_cults_armory_r1.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_tasks: task_splitter-add_cults_armory_r1.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-action-channels-targeted-attack-fix.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-action-channels-attackmove-target-lock.md
+[completion_aggregator] All tasks complete for task_splitter-action_channels_r1.md — producing qa_item
+Message sent: /home/iv/dev/space_crystals/messages/qa_router/qa_item/pending/completion_aggregator-action_channels_r1.md
+[completion_aggregator] Produced qa_item: action_channels_r1
+[completion_aggregator] Moved all messages to done for feature: action_channels_r1
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_request: task_splitter-agent_groupable_construction_r1.md
+[completion_aggregator] Activated feature_tasks: task_splitter-agent_groupable_construction_r1.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-cults_game_start_fixes.md
+[completion_aggregator] All tasks complete for task_splitter-add_cults_armory_r1.md — producing qa_item
+Message sent: /home/iv/dev/space_crystals/messages/qa_router/qa_item/pending/completion_aggregator-add_cults_armory_r1.md
+[completion_aggregator] Produced qa_item: add_cults_armory_r1
+[completion_aggregator] Moved all messages to done for feature: add_cults_armory_r1
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-agent_tunnel_placement_ghost_fix.md
+[completion_aggregator] All tasks complete for task_splitter-agent_groupable_construction_r1.md — producing qa_item
+Message sent: /home/iv/dev/space_crystals/messages/qa_router/qa_item/pending/completion_aggregator-agent_groupable_construction_r1.md
+[completion_aggregator] Produced qa_item: agent_groupable_construction_r1
+[completion_aggregator] Moved all messages to done for feature: agent_groupable_construction_r1
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_request: task_splitter-agent_interface_r1.md
+[completion_aggregator] Activated feature_tasks: task_splitter-agent_interface_r1.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-agent_command_behavior_bridge.md
+[completion_aggregator] All tasks complete for task_splitter-agent_interface_r1.md — producing qa_item
+Message sent: /home/iv/dev/space_crystals/messages/qa_router/qa_item/pending/completion_aggregator-agent_interface_r1.md
+[completion_aggregator] Produced qa_item: agent_interface_r1
+[completion_aggregator] Moved all messages to done for feature: agent_interface_r1
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_request: task_splitter-agent_resource_gathering_r1.md
+[completion_aggregator] Activated feature_tasks: task_splitter-agent_resource_gathering_r1.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_request: task_splitter-integration-test-compilation-fix.md
+[completion_aggregator] Activated feature_tasks: task_splitter-integration-test-compilation-fix.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated feature_request: task_splitter-agent_tunnel_building_r1.md
+[completion_aggregator] Activated feature_tasks: task_splitter-agent_tunnel_building_r1.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-agent_rightclick_gather_fix.md
+[completion_aggregator] All tasks complete for task_splitter-agent_resource_gathering_r1.md — producing qa_item
+Message sent: /home/iv/dev/space_crystals/messages/qa_router/qa_item/pending/completion_aggregator-agent_resource_gathering_r1.md
+[completion_aggregator] Produced qa_item: agent_resource_gathering_r1
+[completion_aggregator] Moved all messages to done for feature: agent_resource_gathering_r1
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-integration_test_compilation_fix.md
+[completion_aggregator] Aggregator pass complete
+[completion_aggregator] Activated task_completion: developer-verify_agent_tunnel_building_r1.md
+[completion_aggregator] All tasks complete for task_splitter-agent_tunnel_building_r1.md — producing qa_item
+Message sent: /home/iv/dev/space_crystals/messages/qa_router/qa_item/pending/completion_aggregator-agent_tunnel_building_r1.md
+[completion_aggregator] Produced qa_item: agent_tunnel_building_r1
+[completion_aggregator] Moved all messages to done for feature: agent_tunnel_building_r1
+[completion_aggregator] Aggregator pass complete

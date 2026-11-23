@@ -21,6 +21,10 @@ message_types:
     description: Marker indicating a developer_task was completed. Produced by developer, consumed by completion_aggregator.
     template: templates/messages/task_completion.md
 
+  - name: architecture_request
+    description: A documented architectural refactoring proposal with references to architecture docs. Produced by software_architect, consumed by task_splitter. Prioritized over feature_requests.
+    template: templates/messages/architecture_request.md
+
   - name: qa_item
     description: A completed feature ready for QA. Contains original feature_request content and QA instructions. Produced by completion_aggregator, routed by qa_router to manual_qa or automatic_qa.
     template: templates/messages/qa_item.md
@@ -28,7 +32,7 @@ message_types:
 nodes:
   - name: designer
     type: source
-    command: claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent .claude/agents/designer.md
+    command: claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent designer
     scheduled: true
     close_vote_required: true
     description: |
@@ -61,26 +65,62 @@ nodes:
          for the next interactive session — does NOT answer design questions autonomously
       5. Appends to session log, exits
 
-  - name: task_splitter
-    type: processing
-    command: claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent .claude/agents/task_splitter.md
+  - name: software_architect
+    type: source
+    command: claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent software_architect
     scheduled: true
     close_vote_required: true
     description: |
-      Decomposes feature_request messages into developer_tasks. Reads design documents
-      and examines the codebase to ensure tasks are sensible, avoid duplicate work, and
-      minimize unnecessary special cases. Forwards the original feature_request and a
-      feature_tasks manifest to the completion_aggregator.
+      Senior game-dev software architect with RTS and Bevy expertise. Monitors forum
+      discussions for architectural concerns, investigates code and design, tracks
+      recurring issues, maintains architecture documents, and produces architecture_request
+      messages for the task_splitter to decompose into refactoring tasks.
+    consumes: []
+    produces:
+      - type: architecture_request
+        to: [task_splitter]
+        description: A documented architectural refactoring proposal referencing architecture docs in artifacts/software_architect/architecture/. At most one per execution.
+    interactive_mode: |
+      User can ask the software_architect to:
+      - Analyze specific parts of the codebase architecture
+      - Review recurring issues and propose refactors
+      - Discuss testing strategy and coverage gaps
+      - Examine Bevy/ECS patterns in use
+      - Review and update architecture documents
+    non_interactive_mode: |
+      Launched by the scheduler when open forum topics exist.
+      1. Loads insights from artifacts/software_architect/insights.md
+      2. Reads open forum topics — investigates code and design for topics in its domain
+      3. Adds comments with architectural analysis or votes to close
+      4. If forum discussions reveal actionable architectural concerns, documents them
+         in artifacts/software_architect/architecture/ and optionally produces an
+         architecture_request to task_splitter
+      5. Reviews tracked recurring issues from insights for new proposals
+      6. Appends to session log, exits
+
+  - name: task_splitter
+    type: processing
+    command: claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent task_splitter
+    scheduled: true
+    close_vote_required: true
+    description: |
+      Decomposes feature_request and architecture_request messages into developer_tasks.
+      Reads design documents, architecture documents, and examines the codebase to ensure
+      tasks are sensible, avoid duplicate work, and minimize unnecessary special cases.
+      Forwards the original request and a feature_tasks manifest to the completion_aggregator.
+      Prioritizes architecture_requests over feature_requests.
     consumes:
-      - type: feature_request
+      - type: architecture_request
         priority: 1
+      - type: feature_request
+        priority: 2
     produces:
       - type: developer_task
         to: [task_planner]
-        description: A single unit of implementation work, scoped and described. Multiple per feature_request.
+        description: A single unit of implementation work, scoped and described. Multiple per request.
       - type: feature_request
         to: [completion_aggregator]
-        description: The original feature_request forwarded unchanged.
+        description: The original feature_request forwarded unchanged (only for feature_request inputs).
       - type: feature_tasks
         to: [completion_aggregator]
         description: Manifest mapping a feature_request to its developer_task filenames.
@@ -101,7 +141,7 @@ nodes:
 
   - name: task_planner
     type: processing
-    command: claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent .claude/agents/task_planner.md
+    command: claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent task_planner
     scheduled: true
     close_vote_required: true
     description: |
@@ -132,7 +172,7 @@ nodes:
 
   - name: developer
     type: processing
-    command: claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent .claude/agents/developer.md
+    command: claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent developer
     scheduled: true
     close_vote_required: true
     description: |
@@ -201,7 +241,7 @@ nodes:
 
   - name: manual_qa
     type: sink
-    command: claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent .claude/agents/manual_qa.md
+    command: claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent manual_qa
     scheduled: false
     close_vote_required: false
     description: |
@@ -232,7 +272,7 @@ nodes:
 
   - name: automatic_qa
     type: processing
-    command: claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent .claude/agents/automatic_qa.md
+    command: claude -p "Run in non-interactive mode" --allowedTools "Read,Write,Edit,Glob,Grep,Bash" --agent automatic_qa
     scheduled: true
     close_vote_required: true
     description: |
@@ -247,6 +287,9 @@ nodes:
       - type: feature_request
         to: [task_splitter]
         description: Rework request for a failed QA item. Contains refined requirements and QA instructions scoped to what failed. Filename uses _r{N} suffix.
+      - type: qa_item
+        to: [qa_router]
+        description: Bounced qa_item that automatic_qa determined it cannot verify. Returned to qa_router with a note explaining why automation was not possible, so it can be re-routed to manual_qa.
     interactive_mode: |
       User can ask the automatic_qa agent to explain test results, re-run QA for
       a specific item, or review its QA methodology.
@@ -254,8 +297,12 @@ nodes:
       Picks up one qa_item from messages/automatic_qa/qa_item/pending/.
       1. Loads insights from artifacts/automatic_qa/insights.md
       2. Reads the qa_item QA instructions
-      3. Executes each automatable QA step (cargo test, cargo check, etc.)
-      4. On full pass: moves qa_item to done, logs completion
-      5. On failure: produces a feature_request to messages/task_splitter/feature_request/pending/
+      3. Evaluates whether the QA steps are actually automatable with current tooling
+      4. If NOT automatable: sends the qa_item back to qa_router with a note explaining
+         why, optionally opens a forum topic requesting automation infrastructure, moves
+         the qa_item to done, exits
+      5. Executes each automatable QA step (cargo test, cargo check, etc.)
+      6. On full pass: moves qa_item to done, logs completion
+      7. On failure: produces a feature_request to messages/task_splitter/feature_request/pending/
          with refined content and QA instructions scoped to the failure
-      6. Updates insights, appends to session log, exits
+      8. Updates insights, appends to session log, exits

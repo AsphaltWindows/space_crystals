@@ -12,89 +12,68 @@ if ! flock -n 9; then
 fi
 
 declare -A RUNNING_PIDS
-
-# Parse a field value for the current node from pipeline.yaml
-# Reads from the block of lines between the node's "- name:" and the next "- name:" or end of nodes section
-get_node_field() {
-    local node_name="$1"
-    local field="$2"
-    local in_node=false
-    local in_nodes=false
-
-    while IFS= read -r line; do
-        if echo "$line" | grep -q '^nodes:'; then
-            in_nodes=true
-            continue
-        fi
-        # Exit nodes section on next top-level key
-        if $in_nodes && echo "$line" | grep -q '^[a-z_]*:'; then
-            break
-        fi
-        $in_nodes || continue
-
-        # Detect node start
-        if echo "$line" | grep -q '^\s*-\?\s*name:'; then
-            local this_name
-            this_name=$(echo "$line" | sed 's/.*name:\s*//' | tr -d ' ')
-            if [ "$this_name" = "$node_name" ]; then
-                in_node=true
-            else
-                $in_node && break
-            fi
-            continue
-        fi
-        $in_node || continue
-
-        if echo "$line" | grep -q "^\s*${field}:"; then
-            echo "$line" | sed "s/.*${field}:\s*//"
-            return
-        fi
-    done < "$PIPELINE"
-}
+declare -A NODE_COMMANDS
+declare -A NODE_CLOSE_VOTES
 
 while true; do
 
-# Parse scheduled node names from pipeline.yaml
+# Parse pipeline.yaml once per cycle
 NODES=""
-IN_NODES_SECTION=false
+NODE_COMMANDS=()
+NODE_CLOSE_VOTES=()
+INTERVAL="20"
+
+IN_NODES=false
 CURRENT_NAME=""
-CURRENT_SCHEDULED=""
 
 while IFS= read -r line; do
+    # Top-level keys
     if echo "$line" | grep -q '^[a-z_]*:'; then
-        if echo "$line" | grep -q '^nodes:'; then
-            IN_NODES_SECTION=true
-        else
-            # Flush last node before leaving section
-            if $IN_NODES_SECTION && [ -n "$CURRENT_NAME" ] && [ "$CURRENT_SCHEDULED" != "false" ]; then
-                NODES="$NODES $CURRENT_NAME"
-            fi
-            IN_NODES_SECTION=false
+        # Flush previous node when leaving nodes section
+        if $IN_NODES && [ -n "$CURRENT_NAME" ]; then
+            NODES="$NODES $CURRENT_NAME"
         fi
+        if echo "$line" | grep -q '^nodes:'; then
+            IN_NODES=true
+        else
+            IN_NODES=false
+        fi
+        if echo "$line" | grep -q '^scheduler_interval:'; then
+            INTERVAL=$(echo "$line" | sed 's/.*scheduler_interval:\s*//' | tr -d ' ')
+        fi
+        CURRENT_NAME=""
         continue
     fi
-    $IN_NODES_SECTION || continue
+    $IN_NODES || continue
 
     if echo "$line" | grep -q '^\s*-\?\s*name:'; then
         # Flush previous node
-        if [ -n "$CURRENT_NAME" ] && [ "$CURRENT_SCHEDULED" != "false" ]; then
+        if [ -n "$CURRENT_NAME" ]; then
             NODES="$NODES $CURRENT_NAME"
         fi
         CURRENT_NAME=$(echo "$line" | sed 's/.*name:\s*//' | tr -d ' ')
-        CURRENT_SCHEDULED=""
-    elif echo "$line" | grep -q '^\s*scheduled:'; then
-        CURRENT_SCHEDULED=$(echo "$line" | sed 's/.*scheduled:\s*//' | tr -d ' ')
+    elif [ -n "$CURRENT_NAME" ]; then
+        if echo "$line" | grep -q '^\s*scheduled:'; then
+            val=$(echo "$line" | sed 's/.*scheduled:\s*//' | tr -d ' ')
+            if [ "$val" = "false" ]; then
+                CURRENT_NAME=""
+            fi
+        elif echo "$line" | grep -q '^\s*command:'; then
+            NODE_COMMANDS[$CURRENT_NAME]=$(echo "$line" | sed 's/.*command:\s*//')
+        elif echo "$line" | grep -q '^\s*close_vote_required:'; then
+            NODE_CLOSE_VOTES[$CURRENT_NAME]=$(echo "$line" | sed 's/.*close_vote_required:\s*//' | tr -d ' ')
+        fi
     fi
 done < "$PIPELINE"
 # Flush final node
-if $IN_NODES_SECTION && [ -n "$CURRENT_NAME" ] && [ "$CURRENT_SCHEDULED" != "false" ]; then
+if $IN_NODES && [ -n "$CURRENT_NAME" ]; then
     NODES="$NODES $CURRENT_NAME"
 fi
 
+INTERVAL="${INTERVAL:-20}"
+
 if [ -z "$NODES" ]; then
     echo "No scheduled nodes found."
-    INTERVAL=$(grep '^\s*scheduler_interval:' "$PIPELINE" | sed 's/.*scheduler_interval:\s*//' | tr -d ' ')
-    INTERVAL="${INTERVAL:-20}"
     sleep "$INTERVAL"
     continue
 fi
@@ -113,8 +92,7 @@ for NODE in $NODES; do
     HAS_WORK=false
 
     # Check forum topics if close_vote_required is not false
-    CLOSE_VOTE=$(get_node_field "$NODE" "close_vote_required")
-    if [ "$CLOSE_VOTE" != "false" ]; then
+    if [ "${NODE_CLOSE_VOTES[$NODE]:-}" != "false" ]; then
         for TOPIC in "$ROOT_DIR"/forum/open/*.md; do
             [ -f "$TOPIC" ] || continue
             if ! grep -q "^VOTE:${NODE}$" "$TOPIC"; then
@@ -145,9 +123,7 @@ for NODE in $NODES; do
 
     echo "[$NODE] Work found, launching."
 
-    # Read command from pipeline.yaml
-    NODE_CMD=$(get_node_field "$NODE" "command")
-
+    NODE_CMD="${NODE_COMMANDS[$NODE]:-}"
     if [ -z "$NODE_CMD" ]; then
         echo "[$NODE] No command defined in pipeline.yaml, skipping."
         continue
@@ -156,17 +132,16 @@ for NODE in $NODES; do
     # Launch node in background, detached from terminal
     mkdir -p "$ROOT_DIR/logs"
     (
+        exec 9>&-
         cd "$ROOT_DIR"
         export NODE_ROOT="$ROOT_DIR"
         export NODE_NAME="$NODE"
         eval "exec $NODE_CMD"
-    ) </dev/null &>"$ROOT_DIR/logs/${NODE}.log" &
+    ) </dev/null &>>"$ROOT_DIR/logs/${NODE}.log" &
     RUNNING_PIDS[$NODE]=$!
 
 done
 
 echo "Scheduler pass complete."
-INTERVAL=$(grep '^\s*scheduler_interval:' "$PIPELINE" | sed 's/.*scheduler_interval:\s*//' | tr -d ' ')
-INTERVAL="${INTERVAL:-20}"
 sleep "$INTERVAL"
 done

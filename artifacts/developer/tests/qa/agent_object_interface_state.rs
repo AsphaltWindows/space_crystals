@@ -83,7 +83,7 @@ fn step_6_agent_placement_left_click_issues_build_tunnel() {
 /// Step 7 [auto]: Agent in AgentAwaitingPlacement, press Escape.
 /// Verify interface returns to AgentDefault without issuing a command.
 #[test]
-#[ignore] // Escape key not processed by command_panel_hotkeys in headless mode (HudPlugin not loaded)
+#[ignore = "Escape key not processed in headless mode"]
 fn step_7_agent_placement_escape_cancels_without_command() {
     let mut test_app = syndicate_app();
     test_app.step();
@@ -657,6 +657,7 @@ fn agent_drop_off_disabled_when_not_carrying() {
         agent_carrying: false,
         is_chopper: false,
         chopper_has_supplies: false,
+        owned_by_local_player: true,
     };
     assert!(!caps.agent_carrying, "Drop Off button should be disabled when agent not carrying");
 }
@@ -671,6 +672,7 @@ fn agent_drop_off_enabled_when_carrying() {
         agent_carrying: true,
         is_chopper: false,
         chopper_has_supplies: false,
+        owned_by_local_player: true,
     };
     assert!(caps.agent_carrying, "Drop Off button should be enabled when agent is carrying");
 }

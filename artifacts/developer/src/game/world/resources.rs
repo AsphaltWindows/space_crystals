@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use crate::types::*;
 use crate::game::types::ObjectInstance;
 use crate::game::types::objects::StructureInstance;
-use crate::ui::types::{CursorOverUi, ObjectInterfaceState, StructureMenuState, AgentMenuState};
+use crate::ui::types::{CursorOverUi, ObjectInterfaceState, StructureMenuState};
 use super::types::*;
 use super::utils::{screen_space_hit_test, BoxCandidate, SelectionTier, closest_to_center, classify_selection_tier};
 use crate::game::units::utils::world_to_grid;
@@ -20,6 +20,10 @@ pub fn spawn_space_crystal_patches(
         ((34, 28), 2500),   // East of DC, close
         ((26, 32), 2000),   // West of DC, close
         ((32, 36), 2500),   // Southeast of DC, close
+        // Near Cults starting position (50,50)
+        ((48, 52), 2500),   // SW of RC
+        ((52, 48), 2000),   // NE of RC
+        ((54, 50), 2500),   // East of RC
         // Strategic map positions
         ((20, 20), 5000),   // NW quadrant
         ((44, 20), 3500),   // NE quadrant
@@ -62,7 +66,7 @@ pub fn spawn_space_crystal_patches(
                         has_plate: false,
                     },
                     Selectable,
-                    SelectionBounds::from_dimensions(0.6, 0.8, 0.6),
+                    SelectionBounds::from_dimensions(1.2, 1.0, 1.2),
                     GridPosition { x: grid_x, z: grid_z },
                 ));
 
@@ -1814,7 +1818,7 @@ mod tests {
 
     #[test]
     fn validation_structure_menu_dc_invalid_without_dc_state() {
-        use crate::game::types::structures::DeploymentCenterState;
+        
         let mut world = setup_test_world_with_interface_state();
 
         // DC entity WITHOUT DeploymentCenterState component

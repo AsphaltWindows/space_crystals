@@ -90,10 +90,9 @@ fn step_3_velocity_zero_when_stationary() {
 
     // Check velocity is zero for idle unit
     let world = test_app.app.world();
-    if let Some(vel) = world.get::<Velocity>(unit) {
-        assert!(vel.0.length() < 0.01,
-            "Idle unit should have zero velocity. Velocity: {:?}", vel.0);
-    }
+    let vel = world.get::<Velocity>(unit).expect("Entity should have Velocity component");
+    assert!(vel.0.length() < 0.01,
+        "Idle unit should have zero velocity. Velocity: {:?}", vel.0);
 }
 
 /// QA Step 5 [auto]: Issue Move targeting an ally's position.
@@ -161,8 +160,7 @@ fn step_8_stop_command() {
 
     // Velocity should be near zero
     let world = test_app.app.world();
-    if let Some(vel) = world.get::<Velocity>(unit) {
-        assert!(vel.0.length() < 0.1,
-            "Unit should have stopped. Velocity: {:?}", vel.0);
-    }
+    let vel = world.get::<Velocity>(unit).expect("Entity should have Velocity component");
+    assert!(vel.0.length() < 0.1,
+        "Unit should have stopped. Velocity: {:?}", vel.0);
 }

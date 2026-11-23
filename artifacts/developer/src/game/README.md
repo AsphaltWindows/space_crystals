@@ -9,3 +9,4 @@ Core game logic modules for Space Crystals RTS.
 - **combat/** — Attack systems, turrets, and projectiles
 - **units/** — Unit spawning, movement, pathfinding, and commands
 - **world/** — Map/tile system, resource nodes, faction setup, and selection
+- **entities/** — Declarative entity definition system (traits, registry, per-faction definitions)

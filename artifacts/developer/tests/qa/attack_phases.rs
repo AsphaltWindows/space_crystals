@@ -148,15 +148,14 @@ fn step_8_aiming_cancels_on_target_death() {
 
     // The attack should reset since target is dead/despawned
     let world = test_app.app.world();
-    if let Some(attack_state) = world.get::<AttackState>(player_unit) {
-        // Target should be None or phase should be None
-        let target_gone = match attack_state.current_target {
-            None => true,
-            Some(AttackTarget::UnitTarget(t)) => world.get_entity(t).is_err(),
-            Some(AttackTarget::LocationTarget(_)) => false,
-        };
-        assert!(target_gone || attack_state.phase == AttackPhase::None,
-            "Attack should cancel when target dies. Phase: {:?}, target: {:?}",
-            attack_state.phase, attack_state.current_target);
-    }
+    let attack_state = world.get::<AttackState>(player_unit).expect("Entity should have AttackState component");
+    // Target should be None or phase should be None
+    let target_gone = match attack_state.current_target {
+        None => true,
+        Some(AttackTarget::UnitTarget(t)) => world.get_entity(t).is_err(),
+        Some(AttackTarget::LocationTarget(_)) => false,
+    };
+    assert!(target_gone || attack_state.phase == AttackPhase::None,
+        "Attack should cancel when target dies. Phase: {:?}, target: {:?}",
+        attack_state.phase, attack_state.current_target);
 }

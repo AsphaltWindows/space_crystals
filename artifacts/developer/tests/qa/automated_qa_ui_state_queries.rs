@@ -2,9 +2,8 @@ use crate::helpers::*;
 use space_crystals::ui::types::{
     ObjectInterfaceState, StructureMenuState,
     CommandButtonAction, CommandButtonEnabled, CommandButtonCommon, GridSlot,
-    UnitIcon, StructureIcon, ResourceIcon,
+    UnitIcon,
 };
-use space_crystals::testing::{CommandSlotInfo, InfoPanelSnapshot};
 
 /// QA Step 1 [auto]: Spawn a Barracks, select it, advance 1 frame, call
 /// `get_interface_state()` — verify it returns
