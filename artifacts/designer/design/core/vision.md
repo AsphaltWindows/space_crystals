@@ -24,9 +24,10 @@ The tile is currently within the SightRange of one of the player's units or stru
 ## ElevationModifier
 Sight range and attack range are modified by relative elevation between the source and target. This modifier only applies when both the source and target are ground or underground units. Air units are exempt from elevation modifiers in both directions (neither gain nor suffer them).
 
+### Elevation used: each object's **elevation level** = terrain height at its position rounded down (core/map.md > Elevation > Elevation level)
 ### Higher ground: +1 to sight range and attack range against lower-elevation targets
 ### Lower ground: -1 to sight range and attack range against higher-elevation targets
 ### Equal elevation: no modifier
-### Binary: any elevation difference triggers the modifier regardless of the size of the gap
+### Binary: any difference in elevation level triggers the modifier regardless of the size of the gap
 ### Air exempt: air units ignore elevation modifiers entirely, both as source and target
-### Underground units: use the elevation of the terrain above them
+### Underground units: use the elevation level of the terrain above them

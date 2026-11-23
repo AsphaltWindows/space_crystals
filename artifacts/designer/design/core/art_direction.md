@@ -25,4 +25,8 @@ A unit's facing is continuous in the simulation (turn rates, directional armor).
 Every animation (move, attack, death, etc.) is rendered at the unit's facing count. Rendering each facing directly (rather than mirroring) keeps lighting consistent. Mirroring may be used as an optimization only if it doesn't visibly break the lighting.
 
 ## Elevation Display
-TBD (in discussion: AoE2-like sloped terrain). See core/map.md > TilePlacement > Elevation.
+AoE2-like sloped terrain (user's reference), built on corner heights (core/map.md > Elevation):
+- **Slopes** are drawn as tilted terrain and **shaded by the direction they face**: lighter facing the light, darker facing away. This is how hills read on screen.
+- **Higher terrain is drawn shifted up the screen** in proportion to its height. Units and structures are drawn at the terrain height of their position, so a unit climbing a hill visibly rises.
+- **Cliffs** (non-Traversible tiles spanning a large height difference) are drawn as cliff faces.
+- Vertical screen offset per height level: TBD (art tuning).
