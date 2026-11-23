@@ -263,6 +263,35 @@ fn a_players_orders_may_only_command_their_own_objects() {
     );
 }
 
+/// `docs/movement.md > 4`, `systems/controls/behaviors.md > MovingToLocation > Failure`: a unit that gets no path
+/// (here `PathFail::StartBlocked`: put on the station directly, which the gate and validation never allow) gives up
+/// with `MoveFailed`, stays where it is, and its order completes.
+#[test]
+fn a_move_without_a_path_fails_and_its_order_completes() {
+    let mut sim = small_sim();
+    let start = Vec2::new(320.0, 192.0); // inside the station, x 256..384, y 128..256
+    let unit = insert_unit(&mut sim, start);
+    let order = TickInputs {
+        commands: vec![PlayerCommand {
+            player: PlayerId(1),
+            command: Command::Order {
+                units: vec![unit],
+                kind: OrderKind::Move(Target::Point(Vec2::new(100.0, 300.0))),
+                queue: false,
+            },
+        }],
+    };
+    sim.step(&order);
+    assert_eq!(sim.events(), [SimEvent::MoveFailed { unit }]);
+    let o = sim.object(unit).unwrap();
+    assert_eq!(o.pos, start);
+    assert_eq!(o.mover.as_ref().unwrap().status, crate::mover::MoveStatus::Failed);
+    assert!(o.orders.as_ref().unwrap().current.is_some());
+    sim.step(&TickInputs::default());
+    assert!(sim.object(unit).unwrap().orders.as_ref().unwrap().is_idle());
+    assert!(sim.events().is_empty());
+}
+
 #[test]
 fn set_position_teleports_to_finite_points_on_the_map_only() {
     let mut sim = small_sim();
