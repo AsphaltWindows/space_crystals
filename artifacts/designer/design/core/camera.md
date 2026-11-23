@@ -11,8 +11,8 @@ The number of GridUnits visible vertically is determined by the screen's aspect 
 ### Middle-mouse grab
 Holding the **middle mouse button** grabs the map: while held, the map follows the cursor (the point grabbed stays under the cursor), like dragging a page. Releasing the button stops panning. (User, 2026-11-23.)
 
-### Other panning inputs
-Other panning inputs (arrow keys, screen-edge scrolling) and their speed: TBD (Director question Q0002).
+### Arrow keys and screen edge
+The **arrow keys** and moving the cursor to the **screen edge** also pan the camera, at a fixed speed (user, 2026-11-23). Speed value: TBD (tuning).
 
 ### Centering
 The camera pans via standard pan (currently implemented as instant snap to the target position). When the camera centers on a location — such as via Alt-click portrait in the SelectionPanel — it snaps instantly so the target is at the center of the viewport.

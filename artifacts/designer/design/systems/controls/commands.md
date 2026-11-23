@@ -1,7 +1,7 @@
 # Controls: Unit Commands
 
 ## Unit Command
-An order issued to a unit, produced by a CommandIssuingTransition from the Control System. A unit maintains a command queue; the current command is dequeued and sets the BaseCommandState, which drives the unit's behavior. When the current command's behavior completes, the next command is dequeued. Commands can be queued by the player (e.g., shift-click). Commands only mutate BaseCommandState — TurretCommandState is managed by the base behavior.
+An order issued to a unit, produced by a CommandIssuingTransition from the Control System. A unit maintains a command queue; the current command is dequeued and sets the BaseCommandState, which drives the unit's behavior. When the current command's behavior completes, the next command is dequeued. Commands are queued by holding **Shift** while issuing them (right-click, command hotkey + target click, etc.): the new command is appended to the end of the queue instead of replacing it. Without Shift, issuing a command replaces the whole queue (user, 2026-11-23). Commands only mutate BaseCommandState — TurretCommandState is managed by the base behavior.
 
 ### Value - UnitCommandEnum
 

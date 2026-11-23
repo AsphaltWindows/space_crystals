@@ -29,7 +29,6 @@
 
 All non-blocking (Director proceeds on assumptions). Raised with user 2026-11-23.
 - **Q0004** PARTLY answered (entries 0008, 0009; core/map_editor.md): per-faction Starting Layouts placed from scratch by map maker, overlay editing, 'Skirmish Default' restriction (only Starting Conditions objects; can be turned off). Still ask: must Skirmish Default layout be complete; toggle scope; flag vs auto-fix when Starting Conditions change. Not yet asked: slot count/teams/allowed factions, pre-placed objects (neutral/owned), map metadata/size limits, custom tile presets in maps.
-- **Q0002** PARTLY answered (entry 0010): middle-mouse = grab-and-drag pan (written in core/camera.md). Still awaiting OK on Director's SC2-like defaults (map Shift/Ctrl/double-click, Ctrl/Shift/# groups, arrows+edge pan, Shift queue) + rebinding scope.
 - **Map editor symmetry**: WRITTEN in core/map_editor.md (entry 0008): 180°/90° rotation, H/V/both mirrors. Still ask: live vs one-shot; what is mirrored.
 
 ## Loose Ends
@@ -78,6 +77,7 @@ All non-blocking (Director proceeds on assumptions). Raised with user 2026-11-23
 - **Colonists faction — econ loop plus first combat units now defined**: Drone, Beacon, Warp In mechanic, Egress Node, Roboport, Bioport, Starting Conditions, and the first two combat units (Sabre Legionnaire, Rifle Legionnaire) are all fully stated (see colonists_objects.md summary in TOC above). Still open: Beacon's own ObjectInterfaceState (should expose Warp In as a command — never formalized which panel button/flow triggers it), Roboport's and Bioport's full ObjectInterfaceState (which panel button queues a unit into BuildQueue, how RallyPoint is set via panel — explicitly deferred by user across multiple sessions, not yet resumed), and Shield regen upgrades (still a placeholder noted in combat.md, "discuss later"). Colonists now have combat capability but still only one unit line (two forms of the same Legionnaire) — no Vehicle/Mech/Air combat units yet, unlike the analogous gaps already tracked for GDO/Syndicate. If/when new Colonists buildings are added, remember to also add their row to the Constructs List table in the Warp In section (colonists_objects.md) — cost/time is easy to forget since it lives in a separate section from the building's own stat block.
 
 ## Insights
+- Input defaults (2026-11-23, entries 0010/0011): SC2-like map clicks + control groups, Shift queue, arrows/edge/middle-mouse grab pan; rebinding yes, timing = Director's call.
 - Elevation model (2026-11-23): slopes have NO speed effect (user, maybe revisit after playtest); corner heights 0–16, Traversible tiles ≤1 level corner difference, bigger drops = non-Traversible (cliffs → chokepoints), elevation level = floor(height), structures on flat tiles only.
 - Art direction (2026-11-23): square grid + 3/4 view, sprites pre-rendered from 3D models, 32 px/tile, all building orientations rendered, unit facings 16 infantry / 32 vehicles-turrets-air. See core/art_direction.md.
 

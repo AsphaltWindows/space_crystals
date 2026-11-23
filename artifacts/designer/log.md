@@ -1967,3 +1967,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T13:26:08-05:00 — Q0004 partly answered: per-faction Starting Layouts placed by map maker with overlay editing; symmetry tools (90/180 rotation, mirrors). New core/map_editor.md (+README), pointers in faction Starting Conditions. Change entry 0008. Middle-mouse pan decided, not yet written.
 - 2026-11-23T13:28:34-05:00 — Starting Layouts start empty; Skirmish Default restriction (user's name) limits layout to Starting Conditions objects, can be turned off. Doc: core/map_editor.md. Change entry 0009.
 - 2026-11-23T13:29:12-05:00 — Middle-mouse grab-and-drag panning (user). Doc: core/camera.md. Change entry 0010.
+- 2026-11-23T13:38:36-05:00 — Q0002 completed: default bindings confirmed (map clicks, control-group keys, arrows/edge pan, Shift queue), rebinding later at Director's discretion. Docs: selection_and_hud.md, commands.md, camera.md. Change entry 0011.
