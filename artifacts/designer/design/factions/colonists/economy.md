@@ -115,7 +115,7 @@ Damage stays taken, exactly as in Beacon Deployment > HP/Shields Interpolation: 
 (user, 2026-11-24) Same as Beacon Deployment: when the Warp In begins, the object is immediately the **target building under Warp In**, and its full footprint is claimed at once. It is the same object as the Beacon (stays selected). On cancel it shrinks back to the Beacon on the Beacon's original footprint.
 
 ### Vulnerability
-The transforming structure is vulnerable to attack for the entire Warp In duration. If destroyed mid-Warp-In, the Beacon is destroyed along with it.
+The transforming structure is vulnerable to attack for the entire Warp In duration. If destroyed mid-Warp-In, the Beacon is destroyed along with it, and there is **no refund** (user, 2026-11-24): the whole investment is lost. Unlike GDO producers (factions/gdo/structures.md > Barracks > Destroyed while producing), the unfinished building is itself on the map and is what the attacker killed; catching a Warp In is meant to be a real reward.
 
 ### Cancel Warp In
 The player may cancel the Warp In at any point before it completes. Cancelling refunds 75% of the building's resource cost (rounded down), and the structure reverts to being a normal, fully-functional Beacon (no HP/Shields loss).
