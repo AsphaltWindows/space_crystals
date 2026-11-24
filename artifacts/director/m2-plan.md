@@ -1134,3 +1134,9 @@ Buildings become targets and get panels in M2.
 | 0091, 0092 | Q0026 points 1–3 | C | The build area is square and follows the current buildings. Without a DC, the other buildings still count. Point 4 (the overlay) is still open. |
 | 0093 | Q0026 point 4 | H2 | The overlay shows the build area only. Whether a tile is valid right now shows on the ghost, tile by tile. |
 | 0094 | Q0027 point 1 | C | A ground unit of any player standing on the footprint makes those tiles invalid, and own units are not pushed aside. |
+| 0095 | Q0027 point 2 | C, F | Plates need Visible tiles too. Place `dev_skirmish`'s DCs so their sight (6 grid units plus the elevation modifier) covers the main patches. |
+| 0096 | Q0027 point 3 | A, C | No building on a resource, except a plate on a patch. Resource tiles are invalid on every ghost. |
+| 0097 | Q0027 point 4 | F, I | Starting Layout validation: the proposal, plus a rule for starting units. Read the entry. There are no visibility checks or sight warnings in the editor. |
+| 0098 | Q0028 point 1 | B, J | Plates pay in lumps of 10. The cycle timer advances by the power ratio each frame. Economy tests expect lump timings. |
+| 0099 | Q0028 points 2–4 | A, B | The last load takes what is left, then the residual 1 is mined. A depleted patch stays under its plate. A click on a covered patch selects the plate. |
+| 0100 | Q0029 point 1 | F | A defeated player's units stay but can't be controlled. Clear their command queues and refuse every command to them. Alliances are unchanged (TBD). This replaces removing the units. |
