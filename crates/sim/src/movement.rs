@@ -13,6 +13,9 @@
 //!   pass (oncoming ones, and idle groups that make way), then the rules after the sweep.
 //! - [`stuck`]: progress, stuck detection and recovery (`docs/movement.md > 6.5`).
 //! - [`yielding`]: an idle unit's sidestep for a blocked unit of its owner (`docs/movement.md > 6.6`).
+//! - [`drag`]: DragMovement, the model of the units with momentum (slice M3-G); [`follow`]: one unit's tick along
+//!   its path, shared by every model.
+//! - [`separate`]: an idle unit that overlaps another moves off it (design change 0126).
 //! - [`doorway`]: a released unit walking out of its producer's exit doorway (design change 0080), the one case in
 //!   which a unit's box overlaps a structure: `collide::World::door` is where the tiles of that building stop
 //!   blocking it.
@@ -23,12 +26,13 @@
 //! chase's progress, the occupied-target rule and queueing behind attackers are in [`stuck`].
 //!
 //! Hooks for later slices: crushing is an exception in [`space::blocks`]; other movement models replace the
-//! "desired direction → facing and velocity" part of [`step_unit`].
+//! "desired direction → facing and velocity" part of a unit's tick, as [`drag`] does in [`follow`].
 
 mod collide;
 mod doorway;
 mod drag;
 mod follow;
+mod separate;
 mod space;
 mod stuck;
 mod yielding;
@@ -293,6 +297,19 @@ pub(crate) fn step(
             if let Some(model) = Drag::of(&unit.movement, mover.speed_factor, rugged) {
                 model.coast(&mut o.pos, o.facing, mover, &mut world, &mut scratch.touched);
             }
+            false
+        } else if scratch.bodies[me].yields
+            && !coasting
+            && door.is_none()
+            && separate::step(
+                &mut o.pos,
+                mover,
+                unit.movement.max_speed() * mover.speed_factor,
+                &mut world,
+                &mut scratch.touched,
+            )
+        {
+            // An idle unit that overlaps another moves off it (design change 0126).
             false
         } else if mover.goal == MoveGoal::None && mover.sidestep.is_some() && !coasting {
             let speed = unit.movement.max_speed() * mover.speed_factor;

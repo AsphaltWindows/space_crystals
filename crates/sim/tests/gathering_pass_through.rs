@@ -1,6 +1,7 @@
 //! Gathering Drones pass through each other (slice M3-H2; design change 0106, `factions/colonists/units.md > Drone >
 //! Gathering Drones pass through each other`, `systems/units.md > UnitCollision > Ground Collision > Exception,
-//! gathering Drones` and `> Units that already overlap`): 0106's Verification, point by point. The saturated row is
+//! gathering Drones` and `> Units that already overlap`): 0106's Verification, point by point. What becomes of a
+//! Drone stopped inside another (design change 0126: idle, it moves off) is `movement_separate.rs`. The saturated row is
 //! `gathering_soak.rs`. "Recruits mining a patch still bump into each other" has no test: the Cults aren't built,
 //! and the Drone is the only worker (`WorkerDef::pass_through` is the switch a Recruit won't have).
 //!
@@ -303,42 +304,4 @@ fn a_drone_ordered_out_of_a_mining_drone_drives_out_and_collides_once_apart() {
     }
     assert!(beside >= 2.0 * HALF, "it went round the mining Drone: {beside}");
     assert_eq!(t.pos(4), west);
-}
-
-/// `> Units that already overlap`: "Nothing is pushed apart." A Drone stopped inside a mining Drone stays where it
-/// is, and the two go on ignoring each other for as long as they overlap: nothing moves either while the mining
-/// lasts, and then the miner leaves for the node through the Drone that stands in its way, unhindered. Once the two
-/// have been apart they collide like any two units (the stopped Drone, idle and its owner's, now steps aside for
-/// it), and they never overlap again.
-#[test]
-fn a_drone_stopped_inside_another_is_not_pushed_apart() {
-    let (mut t, now) = one_inside_the_other();
-    let (miner, waiter) = (t.pos(3), t.pos(4));
-    assert!(overlap(&t, 3, 4), "{miner} and {waiter}");
-    t.order_at(now + 1, P1, &[id(4)], OrderKind::Stop, false);
-    // The rest of the mining: both stand, overlapping.
-    while is_mining(&t, 3) {
-        t.step();
-        assert_eq!((t.pos(3), t.pos(4)), (miner, waiter), "tick {}", t.sim().tick());
-    }
-    assert!(t.sim().tick() > 30 && phase(&t, 4).is_none());
-    // The miner leaves through the stopped Drone: it gains speed in every tick while they overlap, as it does
-    // with nothing in its way.
-    let (mut apart, mut last) = (false, 0.0);
-    for _ in 0..600 {
-        let before = t.pos(3);
-        t.step();
-        let tick = t.sim().tick();
-        if !apart && overlap(&t, 3, 4) {
-            assert_eq!(t.pos(4), waiter, "tick {tick}: not pushed");
-            let step = t.pos(3).distance(before);
-            assert!(step > last, "tick {tick}: unhindered, {step} after {last}");
-            last = step;
-        }
-        apart |= !overlap(&t, 3, 4);
-        assert!(!(apart && overlap(&t, 3, 4)), "tick {tick}\n{}", t.ascii(Some(waiter)));
-    }
-    assert!(apart);
-    let loads = deliveries(&t, &[3]);
-    assert!(loads[0] >= 6, "{loads:?}");
 }

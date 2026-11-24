@@ -108,6 +108,7 @@ impl Invariants {
 
     fn check_units(&self, sim: &Sim, teleported: &[ObjectId]) -> Result<(), Violation> {
         let tick = sim.tick();
+        let overlapped = overlapped_before(sim, &self.seen);
         for o in sim.objects() {
             let fail = |invariant, message: String| {
                 Err(Violation {
@@ -209,6 +210,8 @@ impl Invariants {
                 );
             }
             let coasting = drag && had_momentum;
+            // An idle unit that overlapped another moves off it (design change 0126, `movement::separate`).
+            let separating = overlapped.contains(&o.id) && o.orders.as_ref().is_some_and(|orders| orders.is_idle());
             if o.pos != o.prev_pos
                 && mover.goal == MoveGoal::None
                 && !had_goal
@@ -216,12 +219,13 @@ impl Invariants {
                 && !sidestepping
                 && !leaving
                 && !coasting
+                && !separating
             {
                 return fail(
                     "I5/I7",
                     format!(
-                        "moved from {} to {} without a goal, a new order or move, a sidestep, a doorway to leave, or \
-                         momentum to brake off",
+                        "moved from {} to {} without a goal, a new order or move, a sidestep, a doorway to leave, \
+                         momentum to brake off, or a unit it overlapped to move off",
                         o.prev_pos, o.pos
                     ),
                 );
@@ -235,7 +239,7 @@ impl Invariants {
                 && mover.velocity == mover.momentum
                 && before.is_some_and(|b| mover.momentum.length_squared() < b.momentum.length_squared());
             if mover.goal == MoveGoal::None
-                && ((mover.sidestep.is_none() && mover.exit.is_none() && !at_rest && !braking)
+                && ((mover.sidestep.is_none() && mover.exit.is_none() && !at_rest && !braking && !separating)
                     || mover.path_state != PathState::None)
             {
                 return fail("I7", format!("has no goal but isn't at rest: {mover:?}"));
@@ -327,6 +331,37 @@ fn may_overlap(a: &Object, b: &Object, before: &BTreeMap<ObjectId, Seen>) -> boo
         boxes_overlap(was_a.pos, a_half, was_b.pos, b_half)
     };
     (gathered(a) && gathered(b)) || overlapped()
+}
+
+/// The units whose box overlapped another unit's of their layer a tick earlier, by what the checker saw then: those
+/// that may be moving off it now, if they are idle (design change 0126).
+fn overlapped_before(sim: &Sim, before: &BTreeMap<ObjectId, Seen>) -> Vec<ObjectId> {
+    let mut found = Vec::new();
+    for domain in [Domain::Ground, Domain::Underground] {
+        let mut boxes: Vec<(f32, Vec2, Vec2, ObjectId)> = sim
+            .objects()
+            .filter_map(|o| {
+                let def = o.def();
+                let half = def.half_extents()?;
+                let pos = before.get(&o.id)?.pos;
+                (def.unit.as_ref()?.base_def().domain == domain).then_some((pos.x - half.x, pos, half, o.id))
+            })
+            .collect();
+        boxes.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.3.cmp(&b.3)));
+        for (i, &(_, a, a_half, a_id)) in boxes.iter().enumerate() {
+            for &(low, b, b_half, b_id) in &boxes[i + 1..] {
+                if low >= a.x + a_half.x {
+                    break;
+                }
+                if boxes_overlap(a, a_half, b, b_half) {
+                    found.extend([a_id, b_id]);
+                }
+            }
+        }
+    }
+    found.sort();
+    found.dedup();
+    found
 }
 
 /// I1: no two units of a layer overlap, but for the two exceptions of [`may_overlap`].

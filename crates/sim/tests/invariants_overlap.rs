@@ -158,14 +158,15 @@ fn a_drone_that_left_its_job_for_another_order_breaks_i1_by_a_new_overlap() {
     assert!(breaks_i1(&checker, &sim, 4, pos(&sim, 3)));
 }
 
-/// Exception 2 is for a pair **that already overlapped**, and only until it has separated. Drone 4 is stopped inside
-/// the mining Drone 3: no gathering Drone any more, it may stay there and move about in it. Once the two have been
-/// apart for a tick, a new overlap between them breaks I1.
+/// Exception 2 is for a pair **that already overlapped**, and only until it has separated. Drone 4 is put on Hold
+/// Position inside the mining Drone 3: no gathering Drone any more, it may stay there and move about in it (a
+/// stopped one would be idle and move off by itself, design change 0126). Once the two have been apart for a tick,
+/// a new overlap between them breaks I1.
 #[test]
 fn a_pair_that_overlapped_is_excused_only_until_it_has_separated() {
     let mut t = field();
-    t.order_at(37, P2, &[id(4)], OrderKind::Stop, false);
-    // `TestSim` checks every tick: stopped inside Drone 3, Drone 4 breaks nothing.
+    t.order_at(37, P2, &[id(4)], OrderKind::Hold, false);
+    // `TestSim` checks every tick: holding inside Drone 3, Drone 4 breaks nothing.
     t.run_until(40);
     assert!(is_mining(t.sim(), 3) && !is_mining(t.sim(), 4));
     let sim = t.sim();
