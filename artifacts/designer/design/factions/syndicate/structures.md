@@ -57,7 +57,7 @@ The Hideout (renamed from Headquarters) is the primary accommodations for Syndic
 
 #### HideoutInstanceState:
 - RallyPoint: Coordinates | ObjectInstance | None
-- BuildQueue: array of ObjectEnum (max 20)
+- BuildQueue: array of ObjectEnum (max 20, including the unit currently in production; user, 2026-11-24)
 - CurrentBuild: ObjectEnum | None
 - CurrentBuildProgress: number (frames elapsed) | None
 

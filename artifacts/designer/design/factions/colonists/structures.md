@@ -121,7 +121,7 @@ Since the Robo Portal is fully symmetric (AAAA), it has no fixed exit side — a
 
 ### RoboPortalInstanceState:
 - RallyPoint: Coordinates | ObjectInstance | None
-- BuildQueue: array of ObjectEnum (max 20)
+- BuildQueue: array of ObjectEnum (max 20, including the unit currently in production; user, 2026-11-24)
 - CurrentBuild: ObjectEnum | None
 - CurrentBuildProgress: number (frames elapsed) | None
 
@@ -155,7 +155,7 @@ The Bio Portal has two exit-eligible sides (the "A" sides, per its AABB symmetry
 
 ### BioPortalInstanceState:
 - RallyPoint: Coordinates | ObjectInstance | None
-- BuildQueue: array of ObjectEnum (max 20)
+- BuildQueue: array of ObjectEnum (max 20, including the unit currently in production; user, 2026-11-24)
 - CurrentBuild: ObjectEnum | None
 - CurrentBuildProgress: number (frames elapsed) | None
 

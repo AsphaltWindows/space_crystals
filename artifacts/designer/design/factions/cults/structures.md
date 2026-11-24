@@ -84,7 +84,7 @@ Available unit types:
 
 ### ArmoryInstanceState:
 - StoredRecruits: list of Recruit references (max 10)
-- TrainingQueue: array of {UnitType: Soldier | Gunner, ReservedRecruit: Recruit reference} (max 20)
+- TrainingQueue: array of {UnitType: Soldier | Gunner, ReservedRecruit: Recruit reference} (max 20, including the order currently training; user, 2026-11-24)
 - CurrentTrainingProgress: number (frames elapsed for the front entry of TrainingQueue) | None
 - RallyPoint: Coordinates | ObjectInstance | None
 

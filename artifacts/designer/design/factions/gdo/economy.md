@@ -164,7 +164,7 @@ GDO supply collection structure. Serves as the drop-off point for supplies gathe
 - AttachedChopper: ObjectInstance | None (the Supply Chopper currently attached to this tower)
 - LandedChopper: ObjectInstance | None (a Supply Chopper currently landed on this tower, may differ from AttachedChopper)
 - ScheduledSDS: ObjectInstance | None (the Supply Delivery Station this tower's attached chopper is scheduled to collect from)
-- BuildQueue: array of ObjectEnum (max 20 entries)
+- BuildQueue: array of ObjectEnum (max 20 entries, including the unit currently in production; user, 2026-11-24)
 - CurrentBuild: ObjectEnum | None
 - CurrentBuildProgress: number (frames elapsed) | None
 
