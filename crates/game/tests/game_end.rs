@@ -400,7 +400,7 @@ fn a_player_defeated_with_no_ally_left_leaves_for_the_results_screen() {
         (vh(TOP_BAR_HEIGHT_VH), px(0), px(0), percent(100))
     );
     assert_eq!((background.0.alpha(), z.0), (1.0, RESULTS_Z));
-    assert!(RESULTS_Z > 0 && BANNER_Z > RESULTS_Z);
+    const { assert!(RESULTS_Z > 0 && BANNER_Z > RESULTS_Z) };
     let hud_z: Vec<i32> = world
         .query_filtered::<Option<&GlobalZIndex>, With<HudRoot>>()
         .iter(world)

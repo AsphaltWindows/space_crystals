@@ -249,9 +249,11 @@ const WIDE: &str = "
 /// for each pair of kinds and owner count. A measurement, ignored: run it in release, with
 /// `cargo test --release -p sc_sim --test movement_crowds -- --ignored --nocapture crowd_sweep`.
 ///
-/// Slice M3-V measured (2 → 3 grid units of `OCCUPIED_ARRIVAL_GU`): see `ARCHITECTURE.md > Movement and collision`.
+/// Slice M3-V measured it for 0169 (`OCCUPIED_ARRIVAL_GU` 2 → 3 grid units), of 5856 units for each owner count:
+/// Peacekeepers 8 → 0 failed, Guards 20 → 4, Peacekeepers against Guards 15 → 3; 43 → 7 in all. One owner or two
+/// makes no difference: the blocks meet only while both move, and nobody yields then.
 #[test]
-#[ignore]
+#[ignore = "a measurement; run in release with --ignored --nocapture"]
 fn crowd_sweep() {
     for owners in [P1, P2] {
         let (mut all, mut units) = (0, 0);
