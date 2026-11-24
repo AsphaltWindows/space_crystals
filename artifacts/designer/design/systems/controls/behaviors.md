@@ -38,6 +38,9 @@ When a unit has no active command (command queue empty), it scans for ValidTarge
 
 ### Global Constant: IdleLeashDistance - 4 grid units
 
+### Targets inside MinRange
+(user, 2026-11-24) Auto-targeting (BaseAutoTargeting and TurretAutonomousScanning) **skips** enemies inside the weapon's MinRange and picks one it can hit; with none, it does nothing.
+
 ### Unreachable auto-targets
 (user, 2026-11-24; for now) An auto-acquired target the unit can't reach (e.g. on a cliff with no ramp, in sight but out of weapon range) is handled by the normal rules: the unit tries to approach, gives up by the give-up rule, and **retries after 32 ticks (2 s)**. Skipping unreachable targets in favour of the next one was considered and not adopted for now.
 
@@ -163,6 +166,10 @@ Gliders cannot stop. Instead of stopping when in range, the Glider performs stra
 
 ### Failure:
 If the unit repeatedly fails to make progress toward the target, behavior complete.
+
+
+### Target inside MinRange
+(user, 2026-11-24) On an explicit Attack whose target is inside the weapon's MinRange, a unit that can move **backs off** until the target is outside MinRange, then attacks. A unit that can't move (e.g. a deployed Artillery Rig) can't carry it out: the order fails with feedback ("Target too close"; same channel as other refusals).
 
 ## AttackingLocation
 Base behavior for attacking a ground location. Only available to units whose AttackType has CanTargetGround = true.

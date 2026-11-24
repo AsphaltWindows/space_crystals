@@ -2142,3 +2142,4 @@ Q0018 pt 1: fog delay 0.5 s replaces grace period. Entry 0178.
 Q0018 pt 2: rotation 45° steps then distance. Entry 0179.
 Q0018 pt 3: leash limits chasing only; PathReference rules. Entry 0180. Q0048 arrived.
 Q0018 pt 4: unreachable auto-target retry (for now). Entry 0181.
+Q0018 pt 5: MinRange: auto skip; explicit back off or fail if immobile. Entry 0182.
