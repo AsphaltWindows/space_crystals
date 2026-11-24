@@ -50,6 +50,17 @@ Same target scanning as idle, but Locomotion is locked to Stationary. The unit n
 ### Not applicable to:
 - AttackMove, Patrol — these behaviors have their own explicit enemy scanning logic in their behavior algorithms
 
+## PathKnowledge
+Paths are planned only from what the unit's **owner knows** (user, 2026-11-23), so pathing never leaks hidden information:
+- **Terrain is always known**: tile presets, corner heights, cliffs, water and Rugged tiles are part of the map.
+- **Own structures** are always known.
+- **Other players' structures** are known only once seen. A structure the player has seen that is now covered by fog of war is treated as a **wall at its last-known position** (core/vision.md > Explored), even if it has since been destroyed, until the player sees otherwise. Structures the player has never seen are treated as open ground.
+- A unit that walks toward an obstacle it didn't know about discovers it when it comes into view and re-routes.
+
+*Implementation suggestion from the user (not a design requirement; the Director decides):* a per-player cache of known obstacles, updated when a structure enters or leaves that player's view. A cache change since a stuck unit's plan was made could justify a new path calculation.
+
+- **Map-placed objects** (crystal patches, Supply Delivery Stations) are known from the start, like terrain (user, 2026-11-23). A patch depleted out of the player's view is still treated as present until the player sees it gone.
+
 ## MovingToLocation
 Base behavior for moving to a static target location.
 

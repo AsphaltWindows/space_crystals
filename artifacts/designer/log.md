@@ -1995,3 +1995,21 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T19:18:25-05:00 — Collision response / un-sticking (velocity reset on block, blocked portion dropped); tracked pathfinding precompute note. Doc: systems/units.md. Change entry 0035 (replaces 0033 turning rule).
 - 2026-11-23T19:20:03-05:00 — Q0010.2: patrol origin at execution. Docs: commands.md, behaviors.md. Change entry 0036.
 - 2026-11-23T19:20:44-05:00 — Q0010.3: failed patrol leg = arrived, 2 in a row end. Doc: behaviors.md. Change entry 0037.
+- 2026-11-23T19:23:06-05:00 — Q0011.1: patches/stations block ground units. Doc: systems/units.md. Change entry 0038. Took in Q0017.
+- 2026-11-23T19:26:15-05:00 — Q0011.2: rugged impassable for vehicles except HoverVehicle (double drag). Doc: systems/units.md. Change entry 0039.
+- 2026-11-23T19:33:39-05:00 — Q0011.3: path knowledge per player; seen-but-fogged structures = walls; obstacle cache. Doc: behaviors.md. Change entry 0040.
+- 2026-11-23T19:34:11-05:00 — Path cache reclassified as implementation suggestion (user). Doc: behaviors.md. Change entry 0041.
+- 2026-11-23T19:40:26-05:00 — Map-placed objects known from start for pathing. Doc: behaviors.md. Change entry 0042.
+- 2026-11-23T19:41:05-05:00 — Underground units don't collide. Doc: systems/units.md. Change entry 0043.
+- 2026-11-23T19:41:33-05:00 — No surfacing onto occupied spots. Doc: systems/units.md. Change entry 0044.
+- 2026-11-23T19:42:02-05:00 — Q0011.4 air: ignore terrain, Gliders may overshoot map edge. Doc: systems/units.md. Change entry 0045. Q0011 complete.
+- 2026-11-23T19:43:01-05:00 — Surfacing reserves the spot. Doc: systems/units.md. Change entry 0046.
+- 2026-11-23T19:44:17-05:00 — Gliders outside map edge visible/attackable at nearest edge tile. Doc: systems/units.md. Change entry 0047.
+- 2026-11-23T19:44:49-05:00 — Q0013 points 1/3/6 answered from docs (ActiveGroup = SelectionGroup; SelectionPanel 'objects'). Doc: selection_and_hud.md. Change entry 0048.
+- 2026-11-23T19:49:20-05:00 — Q0013.4: Shift+box adds (never removes); empty clicks as built. Doc: selection_and_hud.md. Change entry 0049.
+- 2026-11-23T19:57:42-05:00 — Correction: empty-click rules not decided (silence ≠ agreement). Change entry 0050.
+- 2026-11-23T19:58:41-05:00 — Empty clicks decided (clear / no-op); Ctrl+Shift pending. Change entry 0051.
+- 2026-11-23T20:00:17-05:00 — Ctrl+Shift-click adds on-screen units of type. Doc: selection_and_hud.md. Change entry 0052.
+- 2026-11-23T20:01:04-05:00 — Add inputs on enemy selection do nothing. Doc: selection_and_hud.md. Change entry 0053.
+- 2026-11-23T20:01:57-05:00 — InfoPanel 2+ placeholder, bookmarked. Change entry 0054.
+- 2026-11-23T20:03:22-05:00 — SelectionPanel grouping bookmarked for HUD pass. Change entry 0055.

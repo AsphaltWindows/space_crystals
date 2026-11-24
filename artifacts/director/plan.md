@@ -169,7 +169,11 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - Explored areas show live structures and resources instead of last-known ones (F builds this);
     - the gate accepts unseen targets (E builds this).
 
-## In progress (three agents in parallel, kept to disjoint areas)
+- **M1-Q queued group destinations** (merged in `bb867a5`; 519 tests):
+  - 0030 was already true: each unit's destination is resolved at the click into `Order::slot` and never recomputed.
+  - 0029: Shift-queued orders build the box from each unit's planned end (`destinations::planned_end`). That is the destination of its last Move or AttackMove in the current order plus queue. Stop and Hold are skipped. Object targets and Patrol fall back to the current position.
+
+## In progress (two agents in parallel, kept to disjoint areas)
 - **M1-E behaviours** (Fable; brief `scratchpad/briefs/m1e-behaviours.md`):
   - AttackingObject chase, including into fog to the last seen position (0034);
   - idle auto-targeting with leash; HoldPosition;
@@ -178,7 +182,6 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - MovingToObject, with proximity 8 su edge to edge, Move to a unit as Follow, and the 2-GU rule (0032, 0033);
   - edge-to-edge range (0031) through a new `shape` module;
   - the gate rejects unseen object targets (Q0017 default).
-- **M1-Q queued group destinations** (Opus; brief `scratchpad/briefs/m1q-queued-group-destinations.md`): destinations resolved at issue and stored per unit (0030); queued orders build the box from planned end positions (0029).
 - **M1-F fog memory** (Opus; brief `scratchpad/briefs/m1f-fog-memory.md`):
   - per-player last-known records of structures and resources in the sim, hashed;
   - Explored areas draw records rather than live objects;
@@ -192,7 +195,8 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - perf tuning of group orders (a 250-unit order takes 6–10 ms);
     - steering quality for dense head-on crowds (M1-Y known issues);
     - `mover.rs` size;
-    - the turn-twice-in-a-tick note from W.
+    - the turn-twice-in-a-tick note from W;
+    - 0038 Verification tests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
 The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, the defaults from the doc apply.
@@ -210,7 +214,7 @@ The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, th
 | V Vision | per-player visibility, ElevationModifier for sight, fog texture | done (`83fec7d`) | Opus |
 | W Combat | attack phases, hits, damage, deaths, range (Q0009), elevation helper | done (`dd268bc`) | Opus |
 | E Behaviours | chase (fog: 0034), auto-target and leashes, AttackMove, Patrol (0036/0037), Hold, Stop, Follow and proximity (0032/0033), edge-to-edge range (0031), gate visibility | running | Fable |
-| Q Queued group destinations | 0029/0030 | running | Opus |
+| Q Queued group destinations | 0029/0030 | done (`bb867a5`) | Opus |
 | F Fog memory | last-known structures and resources, Explored selection, hit flash from the fog | running | Opus |
 | G QA and hardening | debug control of both sides, replay playback, soak, perf (group orders), golden hashes, crowd steering quality | E | Opus or Fable |
 
@@ -237,6 +241,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 - **buildings**: Deployment Center, Generator, Barracks, Engineering Facility, plates; power; unit control; build area
 - **placement**: ghost with rotate/flip; the **flatness rule** (every footprint tile flat, for Direct Placement, Worker-Built on arrival and Warp In; 0004)
 - **production**: queues and rally points; crystal harvesting; defeat conditions
+- **path knowledge** (0040/0041): paths planned from each player's knowledge. Terrain and own structures are always known; others' structures once seen; remembered ones are walls; units re-route on discovery. Built on M1-F's last-known records. Patch depletion reopens tiles (0038).
 - **GDO supplies**: Supply Tower, Chopper
 - **Starting Conditions and Starting Layouts** (0008, 0009, 0012):
   - layout contents, overlay editing of all faction layouts;
@@ -251,7 +256,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
 
 ### Later
-- **Vehicles**, turrets, air, area damage, research. The vehicles milestone starts with the movement model from 0033 (rotating silhouettes, oriented collision, turning near obstacles) and 0035 (acceleration and collision response), and tracked maneuver data. The Factory's Artillery Rig and Prospector need Advanced Mechanics (0001). GDO air (0014): limited ammo with rearming at an Airfield; at most 4 aircraft per Airfield; Air-to-Ground Hovercraft and Air-to-Air Fighter (needs Propulsion Labs).
+- **Vehicles**, turrets, air, area damage, research. The vehicles milestone starts with the movement model from 0033 (rotating silhouettes, oriented collision, turning near obstacles), 0035 (acceleration and collision response), 0039 (Rugged passability per base, hover drag), and tracked maneuver data. The Factory's Artillery Rig and Prospector need Advanced Mechanics (0001). GDO air (0014): limited ammo with rearming at an Airfield; at most 4 aircraft per Airfield; Air-to-Ground Hovercraft and Air-to-Air Fighter (needs Propulsion Labs).
 - **Key rebinding UI** (0011): the bindings table is built rebindable in M1-A.
 - **AI or online opponents**: decide with the user.
 - **Art pipeline** (0003):
@@ -274,7 +279,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0008 | Move failure: stuck timing, unreachable or occupied targets | no | answered by 0024 (timing), 0025 (nearest reachable point), 0026 (arrived within 2 GU behind non-moving units) |
 | Q0009 | Range measured to large targets; proximity; silhouette rotation | no | answered by 0031 (edge to edge), 0032 (proximity 8 su) and 0033 (silhouettes rotate) |
 | Q0010 | Chase target lost in fog; Patrol origin; failed legs | no | answered by 0034, 0036 and 0037 |
-| Q0011 | Terrain/obstacles: resources block, Rugged, routes via the true map, underground/air | no | open; C builds the defaults as switches |
+| Q0011 | Terrain/obstacles: resources block, Rugged, routes via the true map, underground/air | no | parts 1–3 answered: 0038 (resources block), 0039 (Rugged blocks wheeled, tracked and drill vehicles; hover crosses with double drag), 0040/0041 (paths from the owner's knowledge); part 4 (later domains) open |
 | Q0012 | Crowds clot without yielding: should friendly units yield or swap? (evidence from M1-D) | no | answered by 0022 (option B) and 0023 |
 | Q0013 | Selection edge cases: ungroupables, allies, modified clicks, empty ground, InfoPanel for 2+ objects, control groups | no | open; S built the listed defaults |
 | Q0014 | Combat edge cases: force-attacking own or neutral objects, a shot whose target dies mid-Firing, Rugged for units across tiles | no | open; W built the listed defaults |
@@ -283,7 +288,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0017 | Fog: shots from hidden attackers (hit flash vs. a partial tracer); targeting remembered structures | no | open; F and E build the stated defaults |
 
 ## Design change entries
-Last triaged: 0037.
+Last triaged: 0041.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -309,8 +314,8 @@ Last triaged: 0037.
 | 0026 Occupied target: arrived within 2 GU behind non-moving units | done (M1-Y, `bc34d02`) | replaces D's group-arrival stand-in |
 | 0027 No yielding within the same group order | done (M1-Y, `bc34d02`) | answers Q0015 point 1 |
 | 0028 Magic box drawn around silhouettes | done (M1-Y, `bc34d02`) | answers Q0015 point 2 |
-| 0029 Shift-queued group orders build the box from planned positions | in progress (M1-Q) | answers Q0015 point 3 |
-| 0030 Group destinations resolved at issue, stored per unit | in progress (M1-Q) | probably already true; Q verifies |
+| 0029 Shift-queued group orders build the box from planned positions | done (M1-Q, `bb867a5`) | answers Q0015 point 3 |
+| 0030 Group destinations resolved at issue, stored per unit | done (M1-Q, `bb867a5`) | probably already true; Q verifies |
 | 0031 Attack range measured edge to edge | in progress (M1-E) | answers Q0009 point 1; replaces default A |
 | 0032 Move to a unit = Follow; proximity 8 su edge to edge | in progress (M1-E) | answers Q0009 proximity |
 | 0033 Silhouettes rotate; 2-GU rule for static targets; follow end | split: the 2-GU rule and follow end in M1-E; **rotation queued for the vehicles milestone** | rotation can only be verified with long vehicles; square infantry is nearly unaffected |
@@ -318,4 +323,8 @@ Last triaged: 0037.
 | 0035 Collision response: blocked motion dropped, velocity to 0 | **queued for the vehicles milestone** | every Verification point needs vehicles; infantry has no acceleration, so its behaviour is unchanged |
 | 0036 Patrol origin at execution | in progress (M1-E) | answers Q0010 part 2 |
 | 0037 Patrol failed legs | in progress (M1-E) | answers Q0010 part 3 |
+| 0038 Crystal patches and supply stations block ground units | matches M1-C's default; G adds the Verification tests (path around a field, station not walkable, a removed patch reopens its tile) | answers Q0011 part 1; mining depletion is verified again with the economy |
+| 0039 Rugged terrain impassable for wheeled, tracked and drill vehicles; hover crosses with double drag | queued for the vehicles milestone | infantry unchanged (M1-C keeps Rugged passable for infantry) |
+| 0040 Pathfinding uses only what the owner knows | queued for the structures milestone (M2): per-player known-obstacle layer from M1-F's last-known records, plus a re-route on discovery | replaces default A (true map); M1 has no player-built structures, so nothing is observable yet; F was told to shape its records for it |
+| 0041 The obstacle cache is only a suggestion | noted with 0040 | how and when to re-path is the Director's call |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

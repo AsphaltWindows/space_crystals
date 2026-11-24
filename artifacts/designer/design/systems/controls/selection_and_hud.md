@@ -10,7 +10,7 @@ The client-side state of a player's control interface. Contains the player's cur
 The set of ObjectInstances currently selected by the player, grouped by object type. Each group contains references to all selected instances of that type. The ActiveGroup determines which group's commands are displayed in the command panel and which ObjectInterfaceState is active.
 
 ### Groups - array of SelectionGroup
-### ActiveGroup - ObjectEnum | None (None when selection is empty)
+### ActiveGroup - SelectionGroup | None (None when selection is empty). Usually identified by its object type; for Ungroupable objects each instance is its own SelectionGroup, so ActiveGroup points at one specific group, and GroupCycling (Tab) steps through them one by one.
 
 ### Constraints:
 - If any selected object is not owned by the player, the selection must contain exactly one object and one group
@@ -36,6 +36,16 @@ When the player drags a selection box, the objects captured are filtered by a 5-
 
 Only tier 1 (own units) produces a multi-selection. All other tiers select exactly one object — the one closest to the center of the box.
 
+### Shift + box (add)
+Holding **Shift** while dragging a box **adds** the box's result (after the priority tiers) to the current selection. The current selection **always stays selected**: Shift + box never removes anything, unlike Shift-click, which toggles (user, 2026-11-23). Objects that can't be added under Selection > Constraints (e.g. an enemy, neutral object or other player's object when own objects are selected) are not added, and the selection stays unchanged.
+
+**Adding to a non-owned selection** (user, 2026-11-23): when the current selection is a single enemy, neutral or other player's object, any add input (Shift + box, Shift-click, Ctrl+Shift-click on own units) does **nothing**: the inspected object stays selected. Use a plain click or box to select own units instead.
+
+### Empty clicks and boxes (user, 2026-11-23)
+- A plain click on empty ground, or a plain box that captures nothing, **clears** the selection.
+- Shift-click or Ctrl-click on empty ground does **nothing** (selection kept).
+- Ctrl+Shift-click on empty ground also does nothing. (Ctrl+Shift-click on an own unit: see MapClickSelection.)
+
 ## MapClickSelection
 Selection by clicking objects on the map (as opposed to portraits in the SelectionPanel). Default inputs (user, 2026-11-23):
 
@@ -45,6 +55,7 @@ Selection by clicking objects on the map (as opposed to portraits in the Selecti
 | Shift-click own unit | Toggle that unit in the selection: add it if not selected, remove it if selected |
 | Ctrl-click own unit | Select all own units of that type currently on screen |
 | Double-click own unit | Same as Ctrl-click |
+| Ctrl+Shift-click own unit | **Add** all own units of that type currently on screen to the current selection (never removes; user, 2026-11-23) |
 
 The Selection Constraints above still apply (e.g. an enemy or neutral object is always selected alone).
 
@@ -101,17 +112,22 @@ The bottom section of the screen, containing all selection-related panels. The H
 | SelectionPanel | Visible when at least 2 objects are selected |
 | CommandPanel | Visible when at least 1 player-owned object is selected |
 
+### InfoPanel with 2+ objects selected
+Placeholder (bookmarked by the user, 2026-11-23, to be designed with the HUD): shows the ActiveGroup's type, how many objects are in that group, and the total number selected.
+
 ### Layout Rules:
 - All five sections have identical vertical height
 - Horizontal positions are fixed — sections never shift when adjacent panels appear or disappear
 - When a section's visibility condition is not met, the slot remains reserved (empty space, no content)
 
 ## SelectionPanel
-Displays a grid of unit portraits for the current selection. Only visible when 2 or more units are selected. Each cell shows the portrait of one selected unit instance. Portraits belonging to the ActiveGroup are shown with a sheer highlight.
+Displays a grid of portraits for the current selection. Only visible when 2 or more objects are selected. A selection of 2+ objects always consists of the player's own objects (units and/or structures, e.g. from a control group), since other players' and neutral objects are always selected alone (Selection > Constraints). "Unit" below means any selected object. Each cell shows the portrait of one selected unit instance. Portraits belonging to the ActiveGroup are shown with a sheer highlight.
+
+**Bookmarked for the HUD pass** (user, 2026-11-23): how the SelectionPanel presents the selection's grouping (portrait arrangement by SelectionGroup, the order of groups, which also sets the GroupCycling order, and how the ActiveGroup is shown). Until then: portraits are arranged group by group, in a stable order of the implementation's choosing, with the ActiveGroup highlighted as above.
 
 ### Visibility:
-- Visible when Selection contains 2+ units
-- Hidden when Selection contains 0 or 1 units (single-unit display is handled by the InfoPanel)
+- Visible when Selection contains 2+ objects
+- Hidden when Selection contains 0 or 1 objects (single-object display is handled by the InfoPanel)
 
 ### Interactions:
 
