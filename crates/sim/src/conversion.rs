@@ -25,9 +25,8 @@
 //!   whole group in a fight, the mid-swing units a few frames later than the rest." The Convert waits as the unit's
 //!   pending ability (`combat::AttackState::pending`, [`waits_to_convert`]) while it fights on, and the first Modes
 //!   step after its Cooldown's last tick, before the Reloading that followed has run a tick, uses it, as a Convert
-//!   given in that tick would (`Sim::step_modes`). Any ability can wait so (`sim/modes.rs`: design change 0172 will
-//!   hold a Riot Shield raised mid-attack the same way, slice M3-S); the rule for "mid-attack" is
-//!   `combat::mid_attack`.
+//!   given in that tick would (`Sim::step_modes`). Any ability can wait so (`sim/modes.rs`: a Riot Shield raised
+//!   mid-attack does, design change 0172); the rule for "mid-attack" is `combat::mid_attack`.
 //! - **Converting** ([`Conversion`], `Object::conversion`; `> Convert Command`: "The unit converts in place over 4
 //!   frames", [`CONVERT_TICKS`]): it holds still. It neither moves nor turns (`combat::may_move`, `combat::may_turn`:
 //!   phase 5d holds it and keeps its goal, and the behaviours start no chase), it makes way for no one (its

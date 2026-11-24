@@ -385,7 +385,49 @@ fn the_m1_units_follow_the_design() {
         (6.0, 3.0, 4)
     );
     let shield = pk.riot_shield.unwrap();
-    assert_eq!((shield.speed_factor, shield.damage_factor), (0.5, 0.5));
+    assert_eq!(shield.damage_factor, 0.5);
     assert!(shield.toggle_ticks < 8, "under half a second (8 ticks)");
     assert_eq!((pk.unit_control_cost, gd.tunnel_space_cost), (Some(1), Some(1)));
+}
+
+/// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): Peacekeeper (Shielded)
+/// is the Peacekeeper but for its name and "what the shield changes": "MaxSpeed is halved (4 → 2 space
+/// units/frame)". Its weapon is the same, which its shield keeps it from using (`riot_shield::allows_attack`); its
+/// Unit Control is the same ("Cost and Unit Control are the same for both types"), and so is its shield, which names
+/// both types. The Barracks produces the Peacekeeper only.
+#[test]
+fn the_shielded_peacekeeper_is_the_peacekeeper_at_half_speed() {
+    use ObjectKind as K;
+    let (peacekeeper, shielded) = (K::Peacekeeper.def(), K::PeacekeeperShielded.def());
+    assert_eq!(
+        (shielded.kind, shielded.name),
+        (K::PeacekeeperShielded, "Peacekeeper (Shielded)")
+    );
+    let (pk, sh) = (peacekeeper.unit.as_ref().unwrap(), shielded.unit.as_ref().unwrap());
+    assert_eq!((pk.movement.max_speed(), sh.movement.max_speed()), (4.0, 2.0));
+    let unit = UnitDef {
+        movement: pk.movement,
+        ..sh.clone()
+    };
+    assert_eq!(&unit, pk, "the same unit but for its MaxSpeed");
+    let object = ObjectDef {
+        kind: K::Peacekeeper,
+        name: peacekeeper.name,
+        unit: Some(unit),
+        ..shielded.clone()
+    };
+    // `ObjectDef` has no `PartialEq`: its fields, all of them, as `Debug` shows them.
+    assert_eq!(
+        format!("{object:?}"),
+        format!("{peacekeeper:?}"),
+        "the same object but for its kind and name"
+    );
+    let shield = sh.riot_shield.unwrap();
+    assert_eq!(
+        (shield.lowered, shield.raised),
+        (K::Peacekeeper, K::PeacekeeperShielded)
+    );
+    let barracks = K::Barracks.def().structure.as_ref().unwrap().production.unwrap();
+    let trained: Vec<ObjectKind> = barracks.recipes.iter().map(|recipe| recipe.kind).collect();
+    assert_eq!(trained, [K::Peacekeeper]);
 }

@@ -177,11 +177,11 @@ fn idle_unit_in_a_mode(mode: Mode) -> Vec<Vec2> {
     let idle = sim.object(ObjectId(2)).unwrap();
     assert!(idle.orders.as_ref().unwrap().is_idle());
     let shield = if mode == Mode::Shielded {
-        RiotShield::Raised
+        sc_sim::ShieldMode::Raised
     } else {
-        RiotShield::Lowered
+        sc_sim::ShieldMode::Lowered
     };
-    assert_eq!(idle.riot_shield, Some(shield), "a mode, not a task");
+    assert_eq!(sc_sim::riot_shield::mode(idle), Some(shield), "a mode, not a task");
     places
 }
 

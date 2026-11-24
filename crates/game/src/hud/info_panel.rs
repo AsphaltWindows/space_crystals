@@ -25,8 +25,11 @@
 //! The design doesn't say what the InfoPanel shows for two or more objects (the SelectionPanel shows them). Until it
 //! does, a placeholder: the ActiveGroup's type, how many objects are in it and how many are selected. The group of a
 //! type's unfinished buildings (design change 0185: "as if it were another type") is named "(unfinished)".
+//!
+//! At its foot, while the pointer is over a command button, the button's hotkey and full name ([`hint`], slice M3-S).
 
 pub mod activity;
+pub mod hint;
 
 use bevy::prelude::*;
 use sc_sim::economy::Worker;
@@ -77,6 +80,7 @@ pub(super) fn spawn_content(panel: &mut EntityCommands) {
         panel.spawn((InfoText::Title, text("", TITLE_VH, TEXT_COLOR), hidden()));
         panel.spawn((InfoText::Body, text("", LABEL_VH, TEXT_COLOR), hidden()));
         panel.spawn((InfoText::Activity, text("", LABEL_VH, ACTIVITY_COLOR), hidden()));
+        hint::spawn(panel);
     });
 }
 

@@ -2,9 +2,10 @@
 //! `sc_sim::riot_shield`): an ability command raises and lowers it, each taking the toggle time, and while it is up
 //! the Peacekeeper moves at half speed, never attacks (no new Attack orders, no auto-targeting, on Hold Position
 //! neither) and takes half the damage before armor, from every side. The toggle keeps the unit's orders
-//! (`orders_kept`, design changes 0150 and 0151). The gate checks the command. A game saved mid-toggle, and a
-//! replay, play on the same. That an idle unit with its shield up still yields (design change 0023) is tested with
-//! the other yielding rules, in `movement_yield.rs`.
+//! (`orders_kept`, design changes 0150 and 0151). Shield down and shield up are two unit types, Peacekeeper and
+//! Peacekeeper (Shielded), and the toggle has its window (`toggle`, design changes 0171 to 0174). The gate checks
+//! the command. A game saved mid-toggle, and a replay, play on the same. That an idle unit with its shield up still
+//! yields (design change 0023) is tested with the other yielding rules, in `movement_yield.rs`.
 //!
 //! Every `TestSim` checks the invariants I1–I7 and V1 after each tick.
 
@@ -12,21 +13,23 @@ use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
 use sc_sim::orders::MAX_ORDER_UNITS;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
-    Ability, Command, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Reject, Replay, RiotShield, Sim,
-    SimEvent, Target, Tick, TickInputs, Vec2,
+    Ability, Command, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Reject, Replay, ShieldMode, Sim,
+    SimEvent, Target, Tick, TickInputs, Vec2, riot_shield,
 };
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
 const PK: ObjectKind = ObjectKind::Peacekeeper;
+const SHIELDED: ObjectKind = ObjectKind::PeacekeeperShielded;
 const GUARD: ObjectKind = ObjectKind::Guard;
-/// The toggle time, ticks (a placeholder: `> Toggle time` is "TBD (should be under half a second)").
+/// The toggle time, ticks (`> Toggle time`: "6 frames (0.375 s), placeholder", design change 0174).
 const T: Tick = RIOT_SHIELD_TOGGLE_TICKS;
 
 const RAISE: Ability = Ability::RiotShield { raise: true };
 const LOWER: Ability = Ability::RiotShield { raise: false };
 
 mod orders_kept;
+mod toggle;
 
 /// 16 × 8 tiles; tiles (2..=3, 1..=2) are Rugged.
 const MAP: &str = "
@@ -57,12 +60,20 @@ fn spawned(units: &[(ObjectKind, PlayerId, Vec2)], auto_targeting: bool) -> Test
     t
 }
 
-fn shield(t: &TestSim, id: u32) -> RiotShield {
-    t.sim()
-        .object(ObjectId(id))
-        .unwrap()
-        .riot_shield
-        .expect("a Riot Shield")
+/// What the Riot Shield of unit `id` is doing (`riot_shield::mode`).
+fn shield(t: &TestSim, id: u32) -> ShieldMode {
+    riot_shield::mode(t.sim().object(ObjectId(id)).unwrap()).expect("a Riot Shield")
+}
+
+/// The type of unit `id`: Peacekeeper or Peacekeeper (Shielded) (design change 0173).
+fn kind(t: &TestSim, id: u32) -> ObjectKind {
+    t.sim().object(ObjectId(id)).unwrap().kind
+}
+
+/// The speed unit `id` moves at now: its type's MaxSpeed times its speed factor, space units a tick.
+fn speed(t: &TestSim, id: u32) -> f32 {
+    let max_speed = kind(t, id).def().unit.as_ref().unwrap().movement.max_speed();
+    max_speed * t.mover(id).speed_factor
 }
 
 /// The damage of each hit on `target`, with its tick.
@@ -111,21 +122,23 @@ fn attack_order(units: &[u32], target: u32, queue: bool) -> PlayerCommand {
 }
 
 /// `> Toggle time`: raised in tick `t`, the shield is up at the end of tick `t + T − 1`; lowered, down after as
-/// long. The unit is slow from the start of the raise to the end of the lowering (placeholder: the design doesn't
-/// say what the transitions do). A second raise changes nothing, and a lowering half-way up turns back from there.
+/// long. The unit is a Peacekeeper (Shielded) from the start of the raise, a Peacekeeper from the start of the
+/// lowering (design change 0173), and slow from the start of the raise to the end of the lowering (design change
+/// 0171: "While raising **or** lowering, the Peacekeeper moves at half speed"). A second raise changes nothing, and
+/// a lowering half-way up turns back from there.
 #[test]
 fn raising_and_lowering_take_the_toggle_time() {
     let mut t = spawned(&[(PK, P1, Vec2::new(300.0, 300.0))], false);
-    let mode = |t: &TestSim| (shield(t, 1), t.mover(1).speed_factor);
+    let mode = |t: &TestSim| (shield(t, 1), kind(t, 1), speed(t, 1));
     t.run(2);
-    assert_eq!(mode(&t), (RiotShield::Lowered, 1.0));
+    assert_eq!(mode(&t), (ShieldMode::Lowered, PK, 4.0));
 
     t.ability_at(3, P1, &ids(&[1]), RAISE);
     let raising: Vec<_> = (0..T).map(|_| mode(t.step())).collect();
     let expected: Vec<_> = (1..T)
         .rev()
-        .map(|left| (RiotShield::Raising { left }, 0.5))
-        .chain([(RiotShield::Raised, 0.5)])
+        .map(|left| (ShieldMode::Raising { left }, SHIELDED, 2.0))
+        .chain([(ShieldMode::Raised, SHIELDED, 2.0)])
         .collect();
     assert_eq!(raising, expected, "up at the end of tick 3 + T − 1");
 
@@ -138,8 +151,8 @@ fn raising_and_lowering_take_the_toggle_time() {
     let lowering: Vec<_> = (0..T).map(|_| mode(t.step())).collect();
     let expected: Vec<_> = (1..T)
         .rev()
-        .map(|left| (RiotShield::Lowering { left }, 0.5))
-        .chain([(RiotShield::Lowered, 1.0)])
+        .map(|left| (ShieldMode::Lowering { left }, PK, 2.0))
+        .chain([(ShieldMode::Lowered, PK, 4.0)])
         .collect();
     assert_eq!(lowering, expected, "down at the end of tick 20 + T − 1, and fast again");
 
@@ -147,14 +160,15 @@ fn raising_and_lowering_take_the_toggle_time() {
     t.ability_at(30, P1, &ids(&[1]), RAISE)
         .ability_at(32, P1, &ids(&[1]), LOWER)
         .run_until(31);
-    assert_eq!(shield(&t, 1), RiotShield::Raising { left: T - 2 });
-    assert_eq!(mode(t.step()), (RiotShield::Lowering { left: 1 }, 0.5));
-    assert_eq!(mode(t.step()), (RiotShield::Lowered, 1.0));
+    assert_eq!(shield(&t, 1), ShieldMode::Raising { left: T - 2 });
+    assert_eq!(mode(t.step()), (ShieldMode::Lowering { left: 1 }, PK, 2.0));
+    assert_eq!(mode(t.step()), (ShieldMode::Lowered, PK, 4.0));
 }
 
 /// `> Riot Shield`: "MaxSpeed is halved (4 → 2 space units/frame)". Raised in the tick its move is ordered, a
-/// Peacekeeper walks 2 su a tick; lowered in tick 12, 4 again from tick 12 + T − 1 on. The shield doesn't touch its
-/// order.
+/// Peacekeeper walks 2 su a tick, a Peacekeeper (Shielded) at its own MaxSpeed; lowered in tick 12, a Peacekeeper
+/// again, it walks on at half speed while the shield comes down (design change 0171), and 4 again from tick
+/// 12 + T − 1 on. The shield doesn't touch its order.
 #[test]
 fn a_raised_shield_halves_the_speed() {
     let mut t = spawned(&[(PK, P1, Vec2::new(100.0, 300.0))], false);
@@ -183,7 +197,8 @@ fn a_raised_shield_halves_the_speed() {
 /// directions." A Peacekeeper's hit (Damage 10) on a Peacekeeper (PointArmor 1) takes 9; on a raised shield
 /// 10 × 0.5 − 1 = 4, from either side; on a raised shield on Rugged ground 10 × 0.5 × 0.5 − 1 = 1.5. Ordered in
 /// tick 10, the attackers hit in ticks 12 and 29 (a cycle is 17 ticks). A shield on its way up doesn't protect yet
-/// (placeholder): raised in tick 11, unit 6 takes 9 in tick 12 and 4 a cycle later.
+/// (design change 0171: "only once the shield is fully up"): raised in tick 11, unit 6 takes 9 in tick 12 and 4 a
+/// cycle later.
 #[test]
 fn a_raised_shield_halves_the_damage_before_the_armor() {
     let mut t = spawned(
@@ -262,7 +277,7 @@ fn no_attack_orders_with_the_shield_up() {
     t.ability_at(10, P1, &ids(&[1]), LOWER).run_until(10);
     assert_eq!(validate(&t, &attack_order(&[1], 3, false)), Err(Reject::CannotAttack));
     t.run_until(10 + T - 1);
-    assert_eq!(shield(&t, 1), RiotShield::Lowered);
+    assert_eq!(shield(&t, 1), ShieldMode::Lowered);
     assert_eq!(validate(&t, &attack_order(&[1], 3, false)), Ok(()));
 }
 
@@ -341,7 +356,10 @@ fn the_gate_checks_the_ability() {
     let fine = command(P1, &[42, 1, 2, 1], RAISE);
     assert_eq!(t.sim().validate(&fine), Ok(()));
     t.at(3, P1, fine.command).step();
-    assert_eq!(shield(&t, 1), RiotShield::Raising { left: T - 1 });
+    assert_eq!(
+        (kind(&t, 1), shield(&t, 1)),
+        (SHIELDED, ShieldMode::Raising { left: T - 1 })
+    );
     assert_eq!(t.sim().object(ObjectId(2)).unwrap().riot_shield, None);
 }
 
@@ -363,7 +381,7 @@ fn saved_mid_toggle_and_replayed_it_plays_on_the_same() {
         .ability_at(2, P1, &ids(&[1]), RAISE)
         .ability_at(30, P1, &ids(&[1]), LOWER)
         .run_until(4);
-    assert_eq!(shield(&t, 1), RiotShield::Raising { left: T - 3 });
+    assert_eq!(shield(&t, 1), ShieldMode::Raising { left: T - 3 });
     assert_ne!(t.pos(1), t.sim().object(ObjectId(1)).unwrap().prev_pos, "on its way");
     let json = serde_json::to_string(t.sim()).unwrap();
     let mut loaded: Sim = serde_json::from_str(&json).unwrap();
@@ -378,7 +396,7 @@ fn saved_mid_toggle_and_replayed_it_plays_on_the_same() {
         t.step();
         assert_eq!(loaded.state_hash(), t.sim().state_hash(), "tick {tick}");
     }
-    assert_eq!(shield(&t, 1), RiotShield::Lowered);
+    assert_eq!(shield(&t, 1), ShieldMode::Lowered);
     assert!(!attacks_by(&t, 1).is_empty(), "lowered, it fights");
 
     let replayed = t.replay().run();

@@ -1,12 +1,13 @@
 //! What a raised Riot Shield does to the orders a Peacekeeper takes (`factions/gdo/units.md > Peacekeeper > Riot
 //! Shield`): a right-click on an enemy has it follow a unit or move to a structure instead of attacking (design
 //! change 0074) while the others of the selection attack; an explicit Attack on an object leaves it out, on its
-//! orders (0075); an AttackMove takes it along, walking on without firing (0076). Guards stand in for the design's
+//! orders (0075); an AttackMove takes it along, walking on without firing (0076). A Peacekeeper with its shield up is
+//! a Peacekeeper (Shielded) (design change 0173), whose own panel shows no Attack. Guards stand in for the design's
 //! Rocketmen and tanks, which M1 doesn't have.
 
 use bevy::prelude::*;
 use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
-use sc_sim::{Ability, Command, ObjectId, OrderKind, PlayerId, RiotShield, Scenario, SimEvent, Spawn, Target};
+use sc_sim::{Ability, Command, ObjectId, OrderKind, PlayerId, Scenario, ShieldMode, SimEvent, Spawn, Target};
 use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelCommand, PointerDisplay};
 use space_crystals::hud::command_panel::CommandButton;
 
@@ -57,10 +58,10 @@ fn follow(id: u32) -> OrderKind {
     OrderKind::Move(Target::Object(ObjectId(id)))
 }
 
-/// The Riot Shield of Peacekeeper `id`, as the sim has it.
-fn shield(app: &App, id: u32) -> RiotShield {
+/// How far up the Riot Shield of Peacekeeper `id` is, as the sim has it.
+fn shield(app: &App, id: u32) -> ShieldMode {
     let sim = app.world().resource::<SimRes>();
-    sim.object(ObjectId(id)).unwrap().riot_shield.expect("a Peacekeeper")
+    sc_sim::riot_shield::mode(sim.object(ObjectId(id)).unwrap()).expect("a Peacekeeper")
 }
 
 /// Selects player 1's Peacekeepers `ids` and raises their shields (R); they are up when it returns.
@@ -68,7 +69,7 @@ fn raise_shields(app: &mut App, ids: &[u32]) {
     select_units(app, ids);
     tap(app, &[], KeyR);
     updates(app, RIOT_SHIELD_TOGGLE_TICKS as usize + 2);
-    assert!(ids.iter().all(|&id| shield(app, id) == RiotShield::Raised));
+    assert!(ids.iter().all(|&id| shield(app, id) == ShieldMode::Raised));
 }
 
 /// The units among `ids` that fired in `events`, in id order.
@@ -115,7 +116,7 @@ fn shielded_peacekeepers_follow_an_enemy_that_the_guards_attack() {
         },
     );
     raise_shields(&mut app, &PKS);
-    assert_eq!(shield(&app, ENEMY), RiotShield::Raised);
+    assert_eq!(shield(&app, ENEMY), ShieldMode::Raised);
     let away = Command::Order {
         units: vec![ObjectId(ENEMY)],
         kind: OrderKind::Move(Target::Point(Vec2::new(1750.0, 840.0))),
@@ -198,7 +199,7 @@ fn lowered_shields_attack_on_a_right_click_again() {
     raise_shields(&mut app, &[1, 2]);
     tap(&mut app, &[], KeyR);
     updates(&mut app, RIOT_SHIELD_TOGGLE_TICKS as usize + 2);
-    assert_eq!([shield(&app, 1), shield(&app, 2)], [RiotShield::Lowered; 2]);
+    assert_eq!([shield(&app, 1), shield(&app, 2)], [ShieldMode::Lowered; 2]);
     assert_eq!(pointer_over(&mut app, at(ENEMY_PK)), Some(PointerDisplay::Attack));
     right_click(&mut app, at(ENEMY_PK), &[]);
     assert_eq!(orders(&app), [given(&[1, 2], attack(ENEMY_PK), false)]);
@@ -246,8 +247,8 @@ fn an_attack_leaves_shielded_peacekeepers_on_their_way() {
 }
 
 /// 0075 Verifications 2 and 3: of four Peacekeepers, two shielded, Attack (A) and a click on an enemy send only
-/// the other two to attack it. With only shielded Peacekeepers selected, Attack is unavailable: its button
-/// disabled, its hotkey doing nothing.
+/// the other two to attack it. With only shielded Peacekeepers selected, Attack is unavailable: the Peacekeeper
+/// (Shielded)'s panel shows none (design change 0173), and its hotkey does nothing.
 #[test]
 fn an_attack_goes_to_the_unshielded_peacekeepers_alone() {
     let mut app = game();
@@ -266,7 +267,7 @@ fn an_attack_goes_to_the_unshielded_peacekeepers_alone() {
     assert_eq!(orders(&app), [given(&[5, fourth], attack(ENEMY_PK), false)]);
 
     select_box(&mut app, &[1, 2]);
-    assert_eq!(attack_button(&mut app), Some(ButtonLook::Disabled));
+    assert_eq!(attack_button(&mut app), None);
     tap(&mut app, &[], KeyA);
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     assert_eq!(orders(&app).len(), 1);

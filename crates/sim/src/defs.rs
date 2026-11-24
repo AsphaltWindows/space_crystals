@@ -58,6 +58,9 @@ pub enum ObjectKind {
     SabreLegionnaire,
     /// `factions/colonists/units.md > Rifle Legionnaire`
     RifleLegionnaire,
+    /// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): the Peacekeeper
+    /// with its shield up
+    PeacekeeperShielded,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -168,6 +171,7 @@ impl ObjectKind {
         ObjectKind::BioPortal,
         ObjectKind::SabreLegionnaire,
         ObjectKind::RifleLegionnaire,
+        ObjectKind::PeacekeeperShielded,
     ];
 
     pub fn def(self) -> &'static ObjectDef {
@@ -188,6 +192,7 @@ impl ObjectKind {
             ObjectKind::BioPortal => &colonists::BIO_PORTAL,
             ObjectKind::SabreLegionnaire => &colonists::SABRE_LEGIONNAIRE,
             ObjectKind::RifleLegionnaire => &colonists::RIFLE_LEGIONNAIRE,
+            ObjectKind::PeacekeeperShielded => &gdo::PEACEKEEPER_SHIELDED,
         }
     }
 

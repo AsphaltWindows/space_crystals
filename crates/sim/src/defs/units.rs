@@ -1,251 +1,19 @@
 //! Unit type definitions — `systems/units.md`, `systems/combat.md > AttackAttributes`.
 //!
-//! [`UnitBase`] has one static [`UnitBaseDef`] per base (`systems/units.md > UnitBase`). A unit type's own numbers
-//! are a [`UnitDef`] on its `ObjectDef` (`ObjectDef::unit`): its base, the attributes of the base's movement model,
-//! its turret and attack; its armour is on the `ObjectDef` itself (`ObjectDef::armor`), as structures have armour
-//! too. The faction modules (`defs/gdo.rs`, …) hold the unit types themselves.
+//! [`UnitBase`] has one static [`UnitBaseDef`] per base (`systems/units.md > UnitBase`, [`bases`]). A unit type's own
+//! numbers are a [`UnitDef`] on its `ObjectDef` (`ObjectDef::unit`): its base, the attributes of the base's movement
+//! model, its turret and attack; its armour is on the `ObjectDef` itself (`ObjectDef::armor`), as structures have
+//! armour too. The faction modules (`defs/gdo.rs`, …) hold the unit types themselves.
 //!
 //! Units of measure follow `core/scale.md`: speeds in space units per tick, accelerations in space units per tick²,
 //! turn rates in radians per tick, ranges in grid units, durations in ticks (the design's "frames").
 
-use crate::nav::NavClass;
+mod bases;
+
+pub use bases::{Domain, MovementModel, UnitBase, UnitBaseDef};
+
+use super::ObjectKind;
 use crate::units::SU_PER_GU;
-
-/// `systems/units.md > UnitBase > Domain`: where a unit exists. It is also the unit's collision layer
-/// (`docs/movement.md > 6.1`).
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Domain {
-    Ground,
-    Air,
-    Underground,
-}
-
-impl Domain {
-    /// Whether units of this layer collide hard with each other: `systems/units.md > UnitCollision > Ground
-    /// Collision`; air units only separate softly (`> Air Collision`). Underground units collide like ground units
-    /// until the design says otherwise (question Q0011, gap G14).
-    pub fn hard_collision(self) -> bool {
-        match self {
-            Domain::Ground | Domain::Underground => true,
-            Domain::Air => false,
-        }
-    }
-}
-
-/// `systems/units.md > MovementModel`: how a unit moves, turns and accelerates.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum MovementModel {
-    /// `systems/units.md > TurnRateMovement`.
-    TurnRate,
-    /// `> FixedTurnRadiusMovement`.
-    FixedTurnRadius,
-    /// `> SpeedTurnRadiusMovement`.
-    SpeedTurnRadius,
-    /// `> DragMovement`.
-    Drag,
-    /// `> GliderMovement`.
-    Glider,
-}
-
-/// `systems/units.md > UnitBase`: the nine unit bases.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum UnitBase {
-    LightInfantry,
-    HeavyInfantry,
-    WheeledVehicle,
-    TrackedVehicle,
-    DrillUnit,
-    HoverVehicle,
-    Mech,
-    HoverCraft,
-    Glider,
-}
-
-/// What a unit base is (`systems/units.md > UnitBase`): the same for every unit type of that base.
-#[derive(Clone, Debug, PartialEq)]
-pub struct UnitBaseDef {
-    pub base: UnitBase,
-    /// `> Domain`.
-    pub domain: Domain,
-    /// `> CanHaveTurret` (design change 0154, renamed from HasTurret): units of this base **can** carry a turret.
-    /// Whether one actually has one is its own TurretAttributes' ([`UnitDef::has_turret`]): the HoverVehicle base
-    /// can, and the Drone, built on it, has none.
-    pub can_have_turret: bool,
-    /// `> DirectionalArmor`.
-    pub directional_armor: bool,
-    /// `> RuggedTerrain`: the base crosses Rugged tiles (`core/map.md > TilePreset`).
-    pub rugged_terrain: bool,
-    /// `> Crushable` (`systems/units.md > UnitCollision > Crushing`).
-    pub crushable: bool,
-    /// `> CanTurnInPlace`.
-    pub can_turn_in_place: bool,
-    /// `> CanReverse`.
-    pub can_reverse: bool,
-    /// `> MovementModel`.
-    pub movement_model: MovementModel,
-}
-
-impl UnitBase {
-    /// Every base, in declaration order.
-    pub const ALL: [UnitBase; 9] = [
-        UnitBase::LightInfantry,
-        UnitBase::HeavyInfantry,
-        UnitBase::WheeledVehicle,
-        UnitBase::TrackedVehicle,
-        UnitBase::DrillUnit,
-        UnitBase::HoverVehicle,
-        UnitBase::Mech,
-        UnitBase::HoverCraft,
-        UnitBase::Glider,
-    ];
-
-    pub fn def(self) -> &'static UnitBaseDef {
-        match self {
-            UnitBase::LightInfantry => &LIGHT_INFANTRY,
-            UnitBase::HeavyInfantry => &HEAVY_INFANTRY,
-            UnitBase::WheeledVehicle => &WHEELED_VEHICLE,
-            UnitBase::TrackedVehicle => &TRACKED_VEHICLE,
-            UnitBase::DrillUnit => &DRILL_UNIT,
-            UnitBase::HoverVehicle => &HOVER_VEHICLE,
-            UnitBase::Mech => &MECH,
-            UnitBase::HoverCraft => &HOVER_CRAFT,
-            UnitBase::Glider => &GLIDER,
-        }
-    }
-}
-
-impl UnitBaseDef {
-    /// The passability rules a unit of this base paths with (`docs/movement.md > 5.2`); `None` for air units,
-    /// which cross every tile of the map (question Q0011, gap G14).
-    pub fn nav_class(&self) -> Option<NavClass> {
-        match self.domain {
-            Domain::Ground if self.rugged_terrain => Some(NavClass::GroundRugged),
-            Domain::Ground => Some(NavClass::Ground),
-            Domain::Underground => Some(NavClass::Underground),
-            Domain::Air => None,
-        }
-    }
-}
-
-/// `systems/units.md > LightInfantry`.
-static LIGHT_INFANTRY: UnitBaseDef = UnitBaseDef {
-    base: UnitBase::LightInfantry,
-    domain: Domain::Ground,
-    can_have_turret: false,
-    directional_armor: false,
-    rugged_terrain: true,
-    crushable: true,
-    can_turn_in_place: true,
-    can_reverse: false,
-    movement_model: MovementModel::TurnRate,
-};
-
-/// `systems/units.md > HeavyInfantry`.
-static HEAVY_INFANTRY: UnitBaseDef = UnitBaseDef {
-    base: UnitBase::HeavyInfantry,
-    domain: Domain::Ground,
-    can_have_turret: false,
-    directional_armor: false,
-    rugged_terrain: true,
-    crushable: false,
-    can_turn_in_place: true,
-    can_reverse: false,
-    movement_model: MovementModel::TurnRate,
-};
-
-/// `systems/units.md > WheeledVehicle`.
-static WHEELED_VEHICLE: UnitBaseDef = UnitBaseDef {
-    base: UnitBase::WheeledVehicle,
-    domain: Domain::Ground,
-    can_have_turret: true,
-    directional_armor: true,
-    rugged_terrain: false,
-    crushable: false,
-    can_turn_in_place: false,
-    can_reverse: true,
-    movement_model: MovementModel::FixedTurnRadius,
-};
-
-/// `systems/units.md > TrackedVehicle`.
-static TRACKED_VEHICLE: UnitBaseDef = UnitBaseDef {
-    base: UnitBase::TrackedVehicle,
-    domain: Domain::Ground,
-    can_have_turret: true,
-    directional_armor: true,
-    rugged_terrain: false,
-    crushable: false,
-    can_turn_in_place: true,
-    can_reverse: true,
-    movement_model: MovementModel::SpeedTurnRadius,
-};
-
-/// `systems/units.md > DrillUnit`.
-static DRILL_UNIT: UnitBaseDef = UnitBaseDef {
-    base: UnitBase::DrillUnit,
-    domain: Domain::Underground,
-    can_have_turret: true,
-    directional_armor: true,
-    rugged_terrain: false,
-    crushable: false,
-    can_turn_in_place: true,
-    can_reverse: true,
-    movement_model: MovementModel::SpeedTurnRadius,
-};
-
-/// `systems/units.md > HoverVehicle`.
-static HOVER_VEHICLE: UnitBaseDef = UnitBaseDef {
-    base: UnitBase::HoverVehicle,
-    domain: Domain::Ground,
-    can_have_turret: true,
-    directional_armor: true,
-    // `> RuggedTerrain - true, with double drag` (design change 0039): it crosses Rugged tiles, on the grids of the
-    // bases that do (`NavClass::GroundRugged`), and its DragRatio is doubled while the tile under its centre is
-    // one (`movement::drag`, slice M3-G).
-    rugged_terrain: true,
-    crushable: false,
-    can_turn_in_place: true,
-    can_reverse: false,
-    movement_model: MovementModel::Drag,
-};
-
-/// `systems/units.md > Mech`.
-static MECH: UnitBaseDef = UnitBaseDef {
-    base: UnitBase::Mech,
-    domain: Domain::Ground,
-    can_have_turret: true,
-    directional_armor: true,
-    rugged_terrain: true,
-    crushable: false,
-    can_turn_in_place: true,
-    can_reverse: false,
-    movement_model: MovementModel::TurnRate,
-};
-
-/// `systems/units.md > HoverCraft`.
-static HOVER_CRAFT: UnitBaseDef = UnitBaseDef {
-    base: UnitBase::HoverCraft,
-    domain: Domain::Air,
-    can_have_turret: true,
-    directional_armor: false,
-    rugged_terrain: false,
-    crushable: false,
-    can_turn_in_place: true,
-    can_reverse: false,
-    movement_model: MovementModel::Drag,
-};
-
-/// `systems/units.md > Glider`.
-static GLIDER: UnitBaseDef = UnitBaseDef {
-    base: UnitBase::Glider,
-    domain: Domain::Air,
-    can_have_turret: true,
-    directional_armor: false,
-    rugged_terrain: false,
-    crushable: false,
-    can_turn_in_place: false,
-    can_reverse: false,
-    movement_model: MovementModel::Glider,
-};
 
 /// `systems/units.md > Unit > UnitBaseAttributes[UnitBase]`: a unit type's movement numbers, one variant per
 /// movement model. An acceleration or deceleration of `None` is infinite: the unit reaches its speed, or stops,
@@ -415,15 +183,22 @@ pub struct AttackAttrs {
     pub reload_ticks: u32,
 }
 
-/// `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`.
+/// `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`: a Riot Shield, the same on both of the
+/// unit types it switches between (design change 0173: "shield down and shield up are two unit types [...] They share
+/// everything except what the shield changes"; `crate::riot_shield`).
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RiotShieldDef {
-    /// MaxSpeed is multiplied by this while the shield is up (the `Mover`'s speed factor).
-    pub speed_factor: f32,
-    /// Incoming damage is multiplied by this while the shield is up, before armour
-    /// (`systems/combat.md > DamageModifierOrder`, step 1).
+    /// The type of a unit whose shield is down or going down: the Peacekeeper.
+    pub lowered: ObjectKind,
+    /// The type of a unit whose shield is up or going up: Peacekeeper (Shielded), whose MaxSpeed is the lowered
+    /// type's halved ("MaxSpeed is halved (4 → 2 space units/frame)"), which a unit on its way down moves at too
+    /// (design change 0171: "While raising **or** lowering, the Peacekeeper moves at half speed (as with the shield
+    /// up)").
+    pub raised: ObjectKind,
+    /// Incoming damage is multiplied by this once the shield is all the way up, before armour
+    /// (`systems/combat.md > DamageModifierOrder`, step 1; design change 0171: "only once the shield is fully up").
     pub damage_factor: f32,
-    /// How long raising or lowering the shield takes, ticks.
+    /// How long raising or lowering the shield takes, ticks (`> Toggle time`).
     pub toggle_ticks: u32,
 }
 

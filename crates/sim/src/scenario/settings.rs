@@ -90,7 +90,8 @@ impl SpawnSettings {
             | ObjectKind::RoboPortal
             | ObjectKind::BioPortal
             | ObjectKind::SabreLegionnaire
-            | ObjectKind::RifleLegionnaire => None,
+            | ObjectKind::RifleLegionnaire
+            | ObjectKind::PeacekeeperShielded => None,
         }
     }
 

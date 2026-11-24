@@ -24,8 +24,14 @@ pub enum PanelCommand {
     Patrol,
     AttackGround,
     Stop,
-    /// `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`: raises or lowers the shields, at once.
-    RiotShield,
+    /// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): "The Peacekeeper's
+    /// panel shows **Raise Shield**": each Peacekeeper becomes a Peacekeeper (Shielded), its shield going up from
+    /// where it is, at once (`sc_sim::Ability::RiotShield`; one Firing or in Cooldown once its shot is over, design
+    /// change 0172).
+    RaiseShield,
+    /// The same's "Peacekeeper (Shielded)'s shows **Lower Shield**": each Peacekeeper (Shielded) becomes a
+    /// Peacekeeper, its shield going down from where it is, at once.
+    LowerShield,
     /// `factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`: "R: Convert to Rifle Legionnaire",
     /// and the Rifle Legionnaire's "R: Convert to Sabre Legionnaire", one command (`> Weapon Conversion > Convert
     /// Command`: "units may be mixed in selection; each converts to its respective other form"), at once
@@ -89,7 +95,7 @@ pub enum PanelCommand {
 impl PanelCommand {
     /// Whether the command awaits a target (a StateOnlyTransition to AwaitingTarget): the target commands of
     /// `> BasicCombatUnitInterfaceState > DefaultState commands`, Set Rally Point and the Drone's Set Drop-off. The
-    /// others are issued at once: HoldPosition and Stop, the Riot Shield, Convert, a producer's Train and Cancel
+    /// others are issued at once: HoldPosition and Stop, Raise and Lower Shield, Convert, a producer's Train and Cancel
     /// Production, a constructor's Construct and Cancels; or they enter a state of their own: a build menu,
     /// AwaitingPlacement; or they change the selection (the Egress Node's F).
     pub fn needs_target(self) -> bool {
@@ -103,7 +109,8 @@ impl PanelCommand {
             | PanelCommand::SetDropOff => true,
             PanelCommand::HoldPosition
             | PanelCommand::Stop
-            | PanelCommand::RiotShield
+            | PanelCommand::RaiseShield
+            | PanelCommand::LowerShield
             | PanelCommand::Convert
             | PanelCommand::Train(_)
             | PanelCommand::CancelProduction
@@ -129,23 +136,17 @@ impl PanelCommand {
         }
     }
 
-    /// The ability of an ability command issued at once (`sc_sim::Command::Ability`). A toggled one's
-    /// ([`Self::toggles`]), pressed while it is `on` (all its recipients' shields up or going up), is the one that
-    /// turns it the other way. Set Drop-off's waits for its target, the drop-off
+    /// The ability of an ability command issued at once (`sc_sim::Command::Ability`): Raise Shield's raises, Lower
+    /// Shield's lowers (each type's panel has the one that turns its shields the other way, design change 0173), and
+    /// Convert's converts. Set Drop-off's waits for its target, the drop-off
     /// (`super::super::resolution::target_resolution`).
-    pub fn ability(self, on: bool) -> Option<Ability> {
+    pub fn ability(self) -> Option<Ability> {
         match self {
-            PanelCommand::RiotShield => Some(Ability::RiotShield { raise: !on }),
+            PanelCommand::RaiseShield => Some(Ability::RiotShield { raise: true }),
+            PanelCommand::LowerShield => Some(Ability::RiotShield { raise: false }),
             PanelCommand::Convert => Some(Ability::Convert),
             _ => None,
         }
-    }
-
-    /// Whether it is a toggled ability, which is on or off: the Riot Shield (`factions/gdo/units.md > Peacekeeper >
-    /// Riot Shield (toggled ability)`). Convert is no toggle: it starts a conversion, which can't be cancelled
-    /// (`factions/colonists/units.md > Weapon Conversion > Completion`).
-    pub fn toggles(self) -> bool {
-        self == PanelCommand::RiotShield
     }
 
     /// The production command of a producer's command that needs no target (`sc_sim::Command::Production`): Train
@@ -216,7 +217,8 @@ impl PanelCommand {
     /// Whether Shift queues it (`systems/controls/commands.md > Unit Command`): the orders of units. A Shift-click on
     /// such a command's target also keeps the target awaited (`> AwaitingTarget > Shift while targeting`, design change
     /// 0070). Abilities, production and construction commands are never queued (Convert: `factions/colonists/units.md >
-    /// Weapon Conversion > Orders are kept`, design change 0151: "holding Shift changes nothing"). Set Rally Point is
+    /// Weapon Conversion > Orders are kept`, design change 0151: "holding Shift changes nothing"; the Riot Shield's
+    /// alike, `factions/gdo/units.md > Peacekeeper > Riot Shield > Not queueable`). Set Rally Point is
     /// no Unit Command: a producer has one rally point, which nothing queues (`factions/gdo/structures.md > Barracks >
     /// BarracksInstanceState`), so a Shift-click sets it like a plain click and ends the targeting. **Placeholder
     /// reading**: the design gives Shift no meaning for a rally point; this follows its rule for a builder that can't
@@ -235,7 +237,8 @@ impl PanelCommand {
             | PanelCommand::AttackGround
             | PanelCommand::Stop
             | PanelCommand::Deploy => true,
-            PanelCommand::RiotShield
+            PanelCommand::RaiseShield
+            | PanelCommand::LowerShield
             | PanelCommand::Convert
             | PanelCommand::Train(_)
             | PanelCommand::CancelProduction
@@ -255,7 +258,8 @@ impl PanelCommand {
 
     /// The button's label: a placeholder for its icon (Q0001), short enough for the button. A unit to train and a
     /// building to construct or place are named by their type's short label, as the map and the portraits show it
-    /// (`hud::selection_panel::short_label`).
+    /// (`hud::selection_panel::short_label`). Raise Shield and Lower Shield are "Raise" and "Lower", short enough to
+    /// keep the label size at 720p (slice M3-S); their full names are [`Self::name`]'s.
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -265,7 +269,8 @@ impl PanelCommand {
             PanelCommand::Patrol => "Patrol",
             PanelCommand::AttackGround => "Atk Gnd",
             PanelCommand::Stop => "Stop",
-            PanelCommand::RiotShield => "Raise Shield",
+            PanelCommand::RaiseShield => "Raise",
+            PanelCommand::LowerShield => "Lower",
             PanelCommand::Convert => "Convert",
             PanelCommand::Train(kind) => match kind {
                 ObjectKind::Peacekeeper => "Train PK",
@@ -307,6 +312,39 @@ impl PanelCommand {
             PanelCommand::Deploy => "Deploy",
             PanelCommand::SetDropOff => "Drop-off",
             PanelCommand::SelectReturningDrones => "Drones",
+        }
+    }
+
+    /// The command's full name, which its button's label may shorten ([`Self::label`]), as the design names it: what
+    /// the InfoPanel says of the button under the pointer (`crate::hud::info_panel`; no tooltip exists).
+    pub fn name(self) -> String {
+        let named = |verb: &str, kind: ObjectKind| format!("{verb} {}", kind.def().name);
+        match self {
+            PanelCommand::HoldPosition => "Hold Position".into(),
+            PanelCommand::AttackGround => "Attack Ground".into(),
+            PanelCommand::RaiseShield => "Raise Shield".into(),
+            PanelCommand::LowerShield => "Lower Shield".into(),
+            PanelCommand::Train(kind) => named("Train", kind),
+            PanelCommand::CancelProduction => "Cancel Production".into(),
+            PanelCommand::SetRallyPoint => "Set Rally Point".into(),
+            PanelCommand::BuildMenu(BuildMenu::Basic) => "Basic Construction".into(),
+            PanelCommand::BuildMenu(BuildMenu::Advanced) => "Advanced Construction".into(),
+            PanelCommand::Construct(kind) => named("Build", kind),
+            PanelCommand::CancelConstruction => "Cancel Construction".into(),
+            PanelCommand::CancelReady => "Cancel Ready Building".into(),
+            PanelCommand::PlaceReady(kind) => named("Place", kind),
+            PanelCommand::WarpIn(kind) => named("Warp In", kind),
+            PanelCommand::SetDropOff => "Set Drop-off Location".into(),
+            PanelCommand::SelectReturningDrones => "Select Returning Drones".into(),
+            PanelCommand::Move
+            | PanelCommand::Reverse
+            | PanelCommand::Attack
+            | PanelCommand::Patrol
+            | PanelCommand::Stop
+            | PanelCommand::Convert
+            | PanelCommand::Planned(_)
+            | PanelCommand::Deploy
+            | PanelCommand::CancelTransform => self.label().into(),
         }
     }
 }

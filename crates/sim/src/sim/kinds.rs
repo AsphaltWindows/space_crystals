@@ -50,10 +50,11 @@ impl Capabilities {
             attack: unit
                 .and_then(|unit| unit.attack.as_ref())
                 .map(|_| AttackState::default()),
-            // `factions/gdo/units.md > Peacekeeper > Riot Shield`: units that carry one; it starts down.
+            // `factions/gdo/units.md > Peacekeeper > Riot Shield`: units that carry one; it starts down on the
+            // Peacekeeper, up on the Peacekeeper (Shielded) (design change 0173).
             riot_shield: unit
                 .and_then(|unit| unit.riot_shield.as_ref())
-                .map(|_| RiotShield::Lowered),
+                .map(|shield| RiotShield::fresh(kind, shield)),
             // `factions/gdo/economy.md > ExtractionPlate`: a plate mines the patch under it.
             extractor: economy::mining::extractor_for(objects, kind, placement),
             // `factions/gdo/structures.md > Barracks`: a structure that produces units starts with an empty queue.
@@ -101,8 +102,11 @@ impl Sim {
     ///   the same definition keeps its state, the others start as on a new object, and those the new kind lacks go. So
     ///   a unit that stays a unit keeps its orders and its move (design change 0150: "Orders are kept"), and plans its
     ///   path again if it walks on another grid. A unit that keeps an attack keeps what it engages (its order's
-    ///   target), and its attack sequence starts again, the new weapon ready (design change 0152). A Riot Shield that
-    ///   goes takes its slowdown with it.
+    ///   target); with another weapon, its attack sequence starts again, the new weapon ready (design change 0152:
+    ///   a Weapon Conversion), and with the same one it goes on as it was, a reload or a deferred ability included (the
+    ///   Riot Shield's two types, design change 0173: "They share everything except what the shield changes"). A Riot
+    ///   Shield that the new kind shares keeps how far up it is, whose speed its caller settles (`riot_shield`); one
+    ///   that goes takes its slowdown with it.
     /// - **Paid state is never lost**: a production queue or a construction the new kind has no place for is
     ///   refunded first, as when the object leaves the game (`Sim::refund_production`, `Sim::refund_constructors`).
     /// - A [`SimEvent::KindChanged`] (after the refunds' events).
@@ -187,7 +191,10 @@ impl Sim {
                 mover.speed_factor = Mover::default().speed_factor;
             }
         }
+        let weapon_of = |def: &'static ObjectDef| unit_of(def).and_then(|u| u.attack);
+        let keeps_weapon = weapon_of(old) == weapon_of(new);
         *attack = match (attack.take(), fresh.attack) {
+            (Some(old), Some(_)) if keeps_weapon => Some(old),
             (Some(old), Some(fresh)) => Some(AttackState {
                 target: old.target,
                 ..fresh

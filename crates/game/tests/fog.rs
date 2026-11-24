@@ -9,8 +9,8 @@ use bevy::time::TimeUpdateStrategy;
 
 use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
 use sc_sim::{
-    Ability, Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, RiotShield, Scenario,
-    SimConfig, SpawnAt, Target, Tick, TilePos, scenarios,
+    Ability, Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Scenario, SimConfig,
+    SpawnAt, Target, Tick, TilePos, scenarios,
 };
 use space_crystals::cli;
 use space_crystals::combat_effects::{CombatEffects, CombatEffectsMesh, DeathMarker, shows_death, visible_spans};
@@ -224,7 +224,8 @@ fn a_hidden_enemys_shield_is_not_drawn() {
     let raised = tick(&app) + RIOT_SHIELD_TOGGLE_TICKS + 1;
     run_until(&mut app, raised);
     let sim = app.world().resource::<SimRes>();
-    assert_eq!(sim.object(ObjectId(2)).unwrap().riot_shield, Some(RiotShield::Raised));
+    let mode = sc_sim::riot_shield::mode(sim.object(ObjectId(2)).unwrap());
+    assert_eq!(mode, Some(sc_sim::ShieldMode::Raised));
     assert!(!shield_drawn(&mut app, 1), "down");
     assert!(shield_drawn(&mut app, 3), "in sight");
     assert!(!shield_drawn(&mut app, 2), "in the fog");

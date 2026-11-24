@@ -31,7 +31,7 @@ fn make_busy(sim: &mut Sim, id: u32) {
         elapsed: 1,
         pending: None,
     });
-    obj(sim, id).riot_shield = Some(RiotShield::Raising { left: 2 });
+    obj(sim, id).riot_shield = Some(RiotShield { up: 4 });
 }
 
 fn orders(sim: &mut Sim, id: u32) -> &mut Orders {
@@ -202,14 +202,14 @@ fn state_hash_covers_every_field() {
             attack(s, 3).pending = Some(Ability::RiotShield { raise: true })
         }),
         ("riot_shield none", |s| obj(s, 3).riot_shield = None),
-        ("riot_shield mode", |s| {
-            obj(s, 3).riot_shield = Some(RiotShield::Lowering { left: 2 });
+        ("riot_shield down", |s| {
+            obj(s, 3).riot_shield = Some(RiotShield { up: 0 });
         }),
-        ("riot_shield left", |s| {
-            obj(s, 3).riot_shield = Some(RiotShield::Raising { left: 3 });
+        ("riot_shield up", |s| {
+            obj(s, 3).riot_shield = Some(RiotShield { up: 3 });
         }),
-        ("riot_shield raised", |s| {
-            obj(s, 3).riot_shield = Some(RiotShield::Raised)
+        ("riot_shield all the way up", |s| {
+            obj(s, 3).riot_shield = Some(RiotShield { up: 6 })
         }),
         ("conversion none", |s| obj(s, 3).conversion = None),
         ("conversion left", |s| {

@@ -23,8 +23,8 @@ use crate::selection::GroupType;
 /// An ObjectInterfaceState template: which commands a type offers, in which slots, and how its clicks resolve.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum InterfaceTemplate {
-    /// `> BasicCombatUnitInterfaceState`: the Peacekeeper's (`factions/gdo/units.md > Peacekeeper`) and the Guard's
-    /// (`factions/syndicate/units.md > Guard`).
+    /// `> BasicCombatUnitInterfaceState`: the Peacekeeper's (`factions/gdo/units.md > Peacekeeper`), and its
+    /// shielded type's less Attack (design change 0173), and the Guard's (`factions/syndicate/units.md > Guard`).
     BasicCombatUnit,
     /// A producing structure's panel (plan decision T23), built from its `ProductionDef` ([`production_grid`]): the
     /// Barracks' (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) and the Colonists'
@@ -164,9 +164,14 @@ const EXTRACTION_FACILITY_GRID: [Option<PanelCommand>; 12] = [
     None,                                                       None, None, None,
 ];
 
-/// `factions/gdo/units.md > Peacekeeper > Riot Shield`: "TBD: hotkey". Placeholder: slot R, the first slot the
-/// BasicCombatUnit grid leaves free, where the Colonists' Legionnaires have their own command ([`CONVERT_SLOT`]).
+/// `factions/gdo/units.md > Peacekeeper > Riot Shield > Hotkey`: "**Hotkey: R** (Raise Shield on Peacekeeper, Lower
+/// Shield on Peacekeeper (Shielded)), placeholder" (design change 0174): slot R, the first slot the BasicCombatUnit
+/// grid leaves free, where the Colonists' Legionnaires have their own command ([`CONVERT_SLOT`]).
 const RIOT_SHIELD_SLOT: usize = 3;
+
+/// `> BasicCombatUnitInterfaceState > DefaultState commands`: Attack's slot, A, which the Peacekeeper (Shielded)'s
+/// panel leaves empty ([`hides_attack`]).
+const ATTACK_SLOT: usize = 4;
 
 /// `factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`: "BasicCombatUnitInterfaceState, plus:
 /// R: Convert to Rifle Legionnaire", and the Rifle Legionnaire's "R: Convert to Sabre Legionnaire".
@@ -183,6 +188,7 @@ impl InterfaceTemplate {
     pub fn of(kind: ObjectKind) -> Option<Self> {
         match kind {
             ObjectKind::Peacekeeper
+            | ObjectKind::PeacekeeperShielded
             | ObjectKind::Guard
             | ObjectKind::SabreLegionnaire
             | ObjectKind::RifleLegionnaire => Some(InterfaceTemplate::BasicCombatUnit),
@@ -222,21 +228,39 @@ pub fn can_target_ground(attack_type: AttackType) -> bool {
 }
 
 /// `kind`'s DefaultState commands, slot by slot (`CommandSlot::all` order): its template's grid, plus its own
-/// commands in slots the template leaves free (a unit that carries a Riot Shield: [`PanelCommand::RiotShield`] in
-/// R; a unit with another form, a Legionnaire: [`PanelCommand::Convert`] in R). What a constructor shows also
-/// depends on its state ([`state_grid`]).
+/// commands in slots the template leaves free: a unit that carries a Riot Shield the command that turns it, in R
+/// (`factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types`, design change 0173: "The Peacekeeper's
+/// panel shows **Raise Shield**; Peacekeeper (Shielded)'s shows **Lower Shield**": [`PanelCommand::RaiseShield`] or
+/// [`PanelCommand::LowerShield`]); a unit with another form, a Legionnaire, [`PanelCommand::Convert`] in R. These
+/// are the commands the type offers ([`offers`]); its panel may show fewer (the Peacekeeper (Shielded)'s no Attack:
+/// [`hides_attack`]), and a constructor's follows its state ([`state_grid`]).
 pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let Some(template) = InterfaceTemplate::of(kind) else {
         return [None; 12];
     };
     let mut grid = template.grid(kind);
-    if kind.def().unit.as_ref().is_some_and(|unit| unit.riot_shield.is_some()) {
-        grid[RIOT_SHIELD_SLOT] = Some(PanelCommand::RiotShield);
+    if let Some(shield) = kind.def().unit.as_ref().and_then(|unit| unit.riot_shield) {
+        grid[RIOT_SHIELD_SLOT] = Some(match kind == shield.raised {
+            true => PanelCommand::LowerShield,
+            false => PanelCommand::RaiseShield,
+        });
     }
     if conversion::converts_to(kind).is_some() {
         grid[CONVERT_SLOT] = Some(PanelCommand::Convert);
     }
     grid
+}
+
+/// Whether the panel of a `kind` ActiveGroup leaves out its Attack: the Peacekeeper (Shielded)'s
+/// (`factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types`, design change 0173: its panel "shows Lower
+/// Shield and no Attack"). The type still offers Attack ([`offers`]), so that in a selection with other units,
+/// Attack, a common command, goes to them too: an Attack on an object leaves them out (design change 0075,
+/// `super::super::resolution::unit_target_order`), and an AttackMove takes them along, walking (0076: "shielded
+/// Peacekeepers take part and simply move"), as with their shields up before the two types. A selection of them
+/// alone has no Attack, as it had none to use before (its button was disabled).
+pub fn hides_attack(kind: ObjectKind) -> bool {
+    let shield = kind.def().unit.as_ref().and_then(|unit| unit.riot_shield);
+    shield.is_some_and(|shield| kind == shield.raised)
 }
 
 /// Whether objects of `kind` construct buildings (`StructureDef::constructs`): the Deployment Center and the
@@ -271,7 +295,8 @@ pub fn menu_of(kind: ObjectKind, building: ObjectKind) -> Option<BuildMenu> {
 /// The commands a `kind` ActiveGroup shows in `interface`, slot by slot (`CommandSlot::all` order), while its
 /// constructor, if it is one, is `constructor` (the ActiveGroup is then a single instance: constructors are
 /// Ungroupable, `> SelectionGroup`, so the panel "can reliably read that instance's specific game state"):
-/// - DefaultState and AwaitingTarget: its DefaultState grid ([`grid`]);
+/// - DefaultState and AwaitingTarget: its DefaultState grid ([`grid`]), but the Peacekeeper (Shielded)'s Attack
+///   ([`hides_attack`]);
 /// - a build menu: the menu's entries ([`menu_grid`]); AwaitingPlacement: those of the state it goes back to
 ///   (`InterfaceState::back`): the Deployment Center's menu of the building, a Beacon's Warp In menu of it, the
 ///   Extraction Facility's and the Drone's DefaultState;
@@ -301,6 +326,9 @@ pub fn state_grid(
         Some(menu) => menu_grid(kind, menu),
         None => grid(kind),
     };
+    if menu.is_none() && hides_attack(kind) {
+        commands[ATTACK_SLOT] = None;
+    }
     let Some(constructor) = constructor.filter(|_| constructs(kind)) else {
         return commands;
     };

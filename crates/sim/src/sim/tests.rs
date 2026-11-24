@@ -51,7 +51,7 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         orders: Some(Orders::default()),
         mover: Some(Mover::default()),
         attack: Some(AttackState::default()),
-        riot_shield: Some(RiotShield::Lowered),
+        riot_shield: Some(RiotShield::default()),
         extractor: None,
         production: None,
         constructor: None,

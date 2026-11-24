@@ -16,7 +16,8 @@ use sc_sim::testing::ScenarioBuilder;
 use sc_sim::testing::build_order::{Books, BuildOrder, Order};
 use sc_sim::{
     Ability, Command, Faction, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, ProductionCommand, Replay,
-    RiotShield, SU_PER_GU, Scenario, Sim, SimEvent, SpawnAt, Target, Tick, TickInputs, TilePos, Vec2, scenarios,
+    SU_PER_GU, Scenario, ShieldMode, Sim, SimEvent, SpawnAt, Target, Tick, TickInputs, TilePos, Vec2, riot_shield,
+    scenarios,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -270,7 +271,8 @@ fn riot_shield() -> Game {
                 let units = units_of(sim, P1);
                 assert!(units.iter().any(|u| u.hp < Some(50.0)), "the Guard shot at them");
                 for unit in units {
-                    assert_eq!(unit.riot_shield, Some(RiotShield::Raised), "#{}", unit.id.0);
+                    assert_eq!(unit.kind, ObjectKind::PeacekeeperShielded, "#{}", unit.id.0);
+                    assert_eq!(riot_shield::mode(unit), Some(ShieldMode::Raised), "#{}", unit.id.0);
                 }
             }
         },
@@ -279,7 +281,8 @@ fn riot_shield() -> Game {
             let units = units_of(sim, P1);
             assert_eq!(units.len(), 3, "no Peacekeeper died");
             for unit in units {
-                assert_eq!(unit.riot_shield, Some(RiotShield::Lowered), "#{}", unit.id.0);
+                assert_eq!(unit.kind, PK, "#{}", unit.id.0);
+                assert_eq!(riot_shield::mode(unit), Some(ShieldMode::Lowered), "#{}", unit.id.0);
             }
         },
     }
