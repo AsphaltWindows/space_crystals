@@ -38,15 +38,8 @@
 //! (`WorkerDef::search_radius`) around itself, among the patches its owner knows that no plate covers, the nearest
 //! free one it can reach.
 //!
-//! **What the worker goes by** (design change 0139, `core/vision.md > Explored > Targeting remembered objects`:
-//! "Nothing about the real state leaks"): its patch as its owner knows it (`World::known_patch`, the target view of
-//! `crate::targets`), as every order on an object does. A patch the owner sees is the patch as it is. One out of its
-//! sight is where the owner remembers it, standing or not, mined by others or not, plated since or not; and so are
-//! the patches the worker looks round among and the objects it stands clear of on its way (`World::known_fixed`).
-//! The map's patches are known from the start (design change 0159). A Gather on a patch out of its owner's sight
-//! notes where the owner remembers it (`state::Gather::spot`), so that if the patch turns out gone once the worker
-//! sees its place, the order goes on as for a patch that ran out: there, it looks round (0139: "Gather: the redirect
-//! rules").
+//! **What the worker goes by** (design change 0139): its patch as its owner knows it, as every order on an object
+//! does (`site`).
 //!
 //! **A patch that is gone** — depleted (design change 0134), or under a plate (0137: "the patch then counts as
 //! gone for the Drones, exactly like a patch that runs out") — is treated like an occupied one. A worker that was
@@ -64,20 +57,9 @@
 //! behaviour measures them itself, each tick, on the snapshot's positions, and stops the worker when it is within
 //! reach.
 //!
-//! **Legs are moves to a point, not to the object** (a deviation from the plan's sketch, which named
-//! `MoveGoal::Object`): the point nearest to the worker where it stands against a face of the target
-//! (`legs::approach_point`). A move to an object is planned to the point nearest the object's **centre** that the
-//! unit can stand on, ties going to the lowest tile: always the north side of a patch in a row and of an Egress
-//! Node, wherever the worker comes from. A Drone south of a row of patches would walk round the row's end to mine
-//! from the north. The point nearest to the worker keeps trips straight and spreads workers along a face.
-//!
-//! **A leg to a patch that ends short of it** (the mover arrived as near as it gets behind units that won't move,
-//! `systems/controls/behaviors.md > MovingToLocation > Occupied target location`, or gave up) counts as arriving
-//! there, out of reach: "a patch the Drone can't get within MiningReach of (path blocked by units, structures or
-//! terrain) is treated like an occupied patch" (design change 0141). A leg back to the drop-off that ends short is
-//! begun again after [`LEG_RETRY_TICKS`], a back-off: what stopped it is a unit that won't move, and that is rarely
-//! gone a tick later. A worker that set off again at once would ask for a path every dozen ticks and jitter against
-//! its blocker; standing, it is a unit at rest, which the units behind it route around at once.
+//! **Legs** (`legs`) are moves to a point, not to the object. One that ends short of its patch counts as arriving
+//! there, out of reach (design change 0141); one back to the drop-off that ends short is begun again after
+//! [`LEG_RETRY_TICKS`].
 //!
 //! **Collision** (design change 0106, `factions/colonists/units.md > Drone > Gathering Drones pass through each
 //! other`): Drones on a Gather job don't collide with each other, whoever owns them ([`on_gather_job`]; the
@@ -88,6 +70,7 @@
 
 mod legs;
 mod search;
+mod site;
 
 use glam::Vec2;
 
@@ -96,14 +79,14 @@ use crate::economy::gathering::is_drop_off;
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::MoveStatus;
 use crate::object::Object;
-use crate::shape::Shape;
 use crate::units::Tick;
 
 use super::OrderKind;
 use super::state::{Behaviour, Gather, GatherPhase};
-use super::world::{KnownPatch, Unit, View, World};
-use legs::{leg, return_leg, spot_shape};
+use super::world::{Unit, View, World};
+use legs::{leg, return_leg};
 use search::{search, taken};
+use site::{Site, note_spot, site};
 
 /// `> Patch Occupancy > Waiting and re-checking`, item 2 (design change 0132): a waiting worker looks round again
 /// at this interval, in the ticks that are multiples of it. The design's placeholder: 16 frames, 1 second.
@@ -240,40 +223,6 @@ pub(super) fn run(
         }
     }
     false
-}
-
-/// The order's patch, as the worker's owner knows it (module docs: what the worker goes by).
-enum Site {
-    /// A patch workers can gather: one the owner sees, or one it remembers out of its sight (design change 0139),
-    /// which counts as standing where the owner remembers it until the owner sees its place.
-    Patch(KnownPatch),
-    /// The shape of a patch that is gone for the workers: one under a plate (0137), or one gone to the owner, where
-    /// it was (design change 0134, `state::Gather::spot`).
-    Gone(Shape),
-    /// Nothing to head for: the order names no patch the owner knows of (a Drop Off, or a save edited by hand).
-    Nowhere,
-}
-
-fn site(kind: OrderKind, state: &Gather, unit: &Unit, world: &World) -> Site {
-    let OrderKind::Gather(patch) = kind else {
-        return Site::Nowhere;
-    };
-    match world.known_patch(unit.owner, patch) {
-        Some(known) if !known.covered => Site::Patch(known),
-        Some(known) => Site::Gone(known.shape),
-        None => state.spot.map_or(Site::Nowhere, |spot| Site::Gone(spot_shape(spot))),
-    }
-}
-
-/// Design change 0139 (module docs): a Gather notes where its patch is while the patch is out of its owner's sight,
-/// so that it heads on there if the patch turns out gone (`state::Gather::spot`). In sight, it goes by the patch. A
-/// patch gone to the owner leaves the spot as it is: where the patch was (design change 0134).
-fn note_spot(kind: OrderKind, state: &mut Gather, unit: &Unit, world: &World) {
-    if let OrderKind::Gather(patch) = kind
-        && let Some(known) = world.known_patch(unit.owner, patch)
-    {
-        state.spot = (!known.seen).then_some(known.pos);
-    }
 }
 
 /// Whether the worker carries anything.

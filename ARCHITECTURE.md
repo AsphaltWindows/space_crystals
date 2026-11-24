@@ -163,8 +163,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   see *Economy > Gathering*); for an object transforming into its kind (a Beacon warping in a building, a
   Beacon deploying from a Drone), `transform` (`Transform`, `transform.rs`: what it was and where it stood, how far it
   has come, what it paid and the load a deploying Drone carried, see *Economy > Warp In* and *> Beacon Deployment*);
-  for a Legionnaire converting its weapon, `conversion` (`Conversion`, `conversion.rs`: the frames left, or a
-  conversion that waits for the unit's Cooldown, design change 0153; see *Combat > Weapon Conversion*). The rest arrives as more optional fields, each with its own module. Never add them as separate
+  for a Legionnaire converting its weapon, `conversion` (`Conversion`, `conversion.rs`: the frames left; a Convert
+  that waits for the unit's Cooldown is its attack's pending ability, design change 0153; see *Combat > Weapon
+  Conversion*). The rest arrives as more optional fields, each with its own module. Never add them as separate
   stores keyed by id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
@@ -631,7 +632,8 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
 - **Patrol** (`travel::patrol`): legs to and fro between the position where the Patrol started executing (design
   change 0036) and the destination. A failed leg counts as arrived; `PATROL_FAILED_LEGS` (2) in a row end it (design
   change 0037).
-- **Gathering** (`orders/gather.rs` with `gather/search.rs` and `gather/legs.rs`, `orders/world/gathering.rs`;
+- **Gathering** (`orders/gather.rs` with `gather/search.rs`, `gather/legs.rs` and `gather/site.rs` (the patch as
+  the owner knows it, design change 0139), `orders/world/gathering.rs`;
   slices M3-H and M3-H3, plan decision T17; `factions/colonists/units.md > Drone`, whose rules design changes 0123
   and 0127 to 0141 settled, answering question Q0037): one behaviour for the Gather and the Drop Off order, in the
   phases of `GatherPhase`: ToPatch, Waiting, Mining, ToDropOff, DroppingOff, Delivered.
@@ -1519,8 +1521,9 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   those end; its checks are invariants that survive tuning: no dangling ids, no idle unit in reach of a visible
   enemy (but one whose scan held an enemy that died in that tick), every order but Hold, Patrol and Follow ends, and
   bounded shares of refused orders, failed moves and path searches) and the ignored `behaviours_perf.rs`.
-  `riot_shield.rs` has the Riot Shield's: toggle timing, each raised-shield effect, the gate, a save in the middle
-  of a toggle and its replay, and the orders kept through a toggle (design changes 0150, 0151). Slice M3-R's:
+  `riot_shield/` has the Riot Shield's: toggle timing, each raised-shield effect, the gate, a save in the middle
+  of a toggle and its replay, and the orders kept through a toggle (`orders_kept.rs`, design changes 0150, 0151).
+  Slice M3-R's:
   `default_order.rs` (the table of unit kinds against targets, design change 0136), `remembered_targets.rs` (design
   change 0139: the gate, each order on a remembered target that stands and that was destroyed unseen, the rally
   point, no leak in lockstep games), `known_from_the_start.rs` (design change 0159's Verification),
@@ -1582,9 +1585,10 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
 - **Shields and Weapon Conversion tests** are `crates/sim/tests/shields.rs` (slice M3-B: the design's cases in a
   game, two hits in one tick, the DirectionalArmor on the overflow only, the regeneration from 0 to full in 40 ticks
   and a neutral object's, the dead gone first, the hash, saves and an older save, the Shields of a portal warping
-  in following its maximum and regenerating up to it, and a cancel's fraction with no minimum) and `conversion.rs`
-  (the 4 frames, HP and Shields kept; the gate in every attack phase, moving or idle; a mixed group; no cancel and
-  no shelter; the orders going on with the other weapon; a save and a replay). The resolution's cases are unit-tested
+  in following its maximum and regenerating up to it, and a cancel's fraction with no minimum) and `conversion/`
+  (the 4 frames, HP and Shields kept; moving or idle; a mixed group; no cancel and no shelter; the orders going on
+  with the other weapon; a save and a replay; `mid_attack.rs`: the gate in every attack phase, a Convert waiting for
+  the Cooldown's end, alone and in a group in a fight, design change 0153). The resolution's cases are unit-tested
   in `combat/damage.rs`, the regeneration in `shields.rs`, the conversion's pieces in `conversion/tests.rs`, an
   ability waiting for the Cooldown's end in `sim/modes/tests.rs` (0153). In the
   client: `tests/combat.rs` (the shield bar), `tests/commands/convert.rs` (R) and the InfoPanel's Shields line in
@@ -1633,7 +1637,7 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
   checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is
-  hashed. The golden games (`golden.rs`) pin the hashes from build to build: see Replays and golden hashes.
+  hashed, and `sim/tests/hash.rs` changes each field in turn and checks the hash changes. The golden games (`golden.rs`) pin the hashes from build to build: see Replays and golden hashes.
 
 ## Client architecture
 

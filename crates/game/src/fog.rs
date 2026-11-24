@@ -247,9 +247,7 @@ impl<'a> Sight<'a> {
 
     /// What Explored tiles show (`core/vision.md > Explored`): the records of the structures and resources the
     /// player remembers and doesn't see now, in their last-known state, one per object
-    /// ([`Sight::remembered_record`]). None while the fog doesn't apply, when every object shows as it is. The map's
-    /// neutral objects are records from the start (design change 0159), but Unexplored tiles show nothing ("fully
-    /// black — terrain, structures, and units are all hidden"): a record shows once a tile under it is Explored.
+    /// ([`Sight::remembered_record`]). None while the fog doesn't apply, when every object shows as it is.
     pub fn remembered(&self) -> impl Iterator<Item = &'a LastKnown> + use<'a> {
         let sight = *self;
         self.visions().flat_map(PlayerVision::remembered).filter(move |record| {
@@ -260,17 +258,15 @@ impl<'a> Sight<'a> {
     }
 
     /// The record shown in place of object `id` ([`Sight::remembered`]), if any: the latest of the records the
-    /// visions watched keep of it (the first of them on a tie), unless one of them sees its footprint now, or none
-    /// has explored a tile under it (a map object known from the start and never in sight, design change 0159).
+    /// visions watched keep of it (the first of them on a tie), shown while its footprint's best tile is Explored:
+    /// not while one sees it, nor while none has explored it (Unexplored is "fully black", design change 0159).
     pub fn remembered_record(&self, id: ObjectId) -> Option<&'a LastKnown> {
         let latest = self
             .visions()
             .filter_map(|v| v.record(id))
             .reduce(|latest, record| if record.seen > latest.seen { record } else { latest })?;
-        let corner = latest.placement.origin.corner();
-        let far = corner + Vec2::new(latest.placement.w as f32, latest.placement.h as f32) * SU_PER_GU;
-        let explored = || (latest.placement.tiles()).any(|tile| self.tile(tile) != VisibilityState::Unexplored);
-        (!self.visions().any(|v| v.sees_box(corner, far)) && explored()).then_some(latest)
+        let best = (latest.placement.tiles()).map(|tile| self.tile(tile)).max()?;
+        (best == VisibilityState::Explored).then_some(latest)
     }
 }
 

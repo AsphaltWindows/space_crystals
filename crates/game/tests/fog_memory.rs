@@ -183,9 +183,8 @@ fn info(app: &mut App) -> Option<(String, String)> {
 
 /// `core/vision.md > Explored`: out of sight, the patch and the station show as remembered, where they were, and
 /// their live objects stay hidden. A patch removed out of sight is still drawn; one placed out of sight isn't. The
-/// fog's debug toggle shows the live objects instead, the player switch the other player's memory: player 2 knows
-/// them from the start as the map placed them (design change 0159), but never explored their tiles, which show
-/// nothing ("fully black"). Back in sight, the removed patch is gone and the live objects show.
+/// fog's debug toggle shows the live objects instead, the player switch the other player's memory, whose Unexplored
+/// tiles stay black (design change 0159). Back in sight, the removed patch is gone and the live objects show.
 #[test]
 fn explored_tiles_draw_records_never_live_objects() {
     let mut app = world(Faction::Gdo);

@@ -186,8 +186,7 @@ fn a_unit_plans_around_its_owners_own_structures_from_the_start() {
 enum InTheGap {
     /// An enemy Generator the unit scouts first (design change 0040).
     ScoutedGenerator,
-    /// Two crystal patches of the map, which the player never sees (design change 0042), and knows from the start
-    /// (0159).
+    /// Two crystal patches of the map, never seen (design change 0042), known from the start (0159).
     MapPatches,
 }
 
@@ -291,7 +290,6 @@ fn a_unit_routes_around_a_crystal_field_it_has_never_seen() {
         builder = builder.spawn(ObjectKind::CrystalPatch, None, tile(WALL, y)); // 1–18
     }
     let mut t = builder.spawn(PK, Some(P1), SpawnAt::Point(point(WEST))).start(); // 19
-    // Known from the start by records (design change 0159), none of them seen, or refreshed since: (records, seen).
     let knowledge = |t: &TestSim| {
         let records = || t.sim().vision().player(P1).unwrap().records();
         (records().count(), records().filter(|r| r.seen > 0).count())
@@ -299,7 +297,7 @@ fn a_unit_routes_around_a_crystal_field_it_has_never_seen() {
     assert_eq!(knowledge(&t), (18, 0), "all known, none seen");
     assert!(
         t.sim().path_knowledge().player(P1).unwrap().assumed().is_empty(),
-        "nothing assumed beside the records"
+        "nothing assumed"
     );
     assert!(
         t.sim().vision().player(P2).unwrap().records().count() == 18,
