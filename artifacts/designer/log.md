@@ -2135,3 +2135,4 @@ Q0020 pt 2: Riot Shield toggle window. Entry 0171. Q0047 arrived.
 Q0020 pt 3: shield raise mid-attack deferred. Entry 0172.
 Q0020 pt 4: Peacekeeper / Peacekeeper (Shielded) two unit types. Entry 0173.
 Q0020 pt 5: toggle 6 frames, hotkey R placeholders. Entry 0174. Q0020 done.
+Q0047 pt 1: waiting buildings in fixed internal order. Entry 0175.
