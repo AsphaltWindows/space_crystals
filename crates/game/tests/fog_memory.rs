@@ -163,7 +163,8 @@ fn selected(app: &App) -> Vec<u32> {
     states.selection(P1).ids().map(|id| id.0).collect()
 }
 
-/// The InfoPanel's title and lines, while it shows something.
+/// The InfoPanel's title and lines, while it shows something. (An own structure's activity area is tested in
+/// `hud.rs`.)
 fn info(app: &mut App) -> Option<(String, String)> {
     let mut texts = app.world_mut().query::<(&InfoText, &Text, &Node)>();
     let (mut title, mut body) = (None, None);
@@ -174,6 +175,7 @@ fn info(app: &mut App) -> Option<(String, String)> {
         match which {
             InfoText::Title => title = Some(text.0.clone()),
             InfoText::Body => body = Some(text.0.clone()),
+            InfoText::Activity => {}
         }
     }
     title.zip(body)

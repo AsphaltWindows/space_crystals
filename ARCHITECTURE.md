@@ -976,9 +976,19 @@ Selection), the CommandPanel (`hud/command_panel.rs`) its commands (see Commands
 shows its name (`SectionLabel`). A selected object the player doesn't see shows its record's last-known state and a
 "Last seen … ago" line (a placeholder wording), except that a GDO player's remembered Supply Delivery Station shows
 the live station's NextDeliveryTime (`core/map.md > SupplyDeliveryStation > InfoPanel`, design change 0057), "No
-delivery scheduled" while it isn't empty, and never CurrentSupplies. The top bar shows the player and the tick; in a
-replay's playback also the replay's last tick and a note on the playback (`ReplayText`: speed, paused or end, and a
-desync in red).
+delivery scheduled" while it isn't empty, and never CurrentSupplies. A structure's panel follows design change 0105:
+the local player's own shows its HP and, in the activity area under it (`InfoText::Activity`, hidden while empty),
+what it is doing; another player's (or a neutral one) its owner and HP only. The activity's lines come from
+`hud/info_panel/activity.rs::lines`, the one extension point for them: each structure capability adds its lines there
+(construction with slice M2-H2, production with M2-H1), and nothing else of the panel changes. A plate adds the
+remaining crystals of the patch under it, for every viewer (0099). The top bar shows the player on the left, the tick
+on the right (in a replay's playback also the replay's last tick and a note on the playback, `ReplayText`: speed,
+paused or end, and a desync in red), and between them, centred, the local player's resources as their faction's
+DisplayHud lists them (`hud/resources.rs`, one `ResourceFigure` text each, `resource_bar` for their readings): for
+the GDO Space Crystals and Supplies (the banks), Power as consumed / generated (`Sim::power`), red while consumption
+exceeds generation (0090), and Unit Control as used / `UNIT_CONTROL_CAP`, read through `Sim::unit_control` alone, so
+that the queue's reserved Unit Control (0082) shows as soon as the sim counts it; the other factions Space Crystals
+only, until their own resources exist.
 
 **Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse, the wheel and the screen edge into
 the input of the game and of the map editor, in `PreUpdate` (`ReadActions`, after Bevy's input, UI picking and the

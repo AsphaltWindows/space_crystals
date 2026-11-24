@@ -12,7 +12,8 @@ use space_crystals::selection::markers::SelectionMarker;
 use super::*;
 use KeyCode::{AltLeft, ControlLeft, ShiftLeft, Tab};
 
-/// The InfoPanel's title and lines, while it shows something.
+/// The InfoPanel's title and lines, while it shows something. (An own structure's activity area is tested in
+/// `hud.rs`.)
 fn info(app: &mut App) -> Option<(String, String)> {
     let mut texts = app.world_mut().query::<(&InfoText, &Text, &Node)>();
     let mut title = None;
@@ -24,6 +25,7 @@ fn info(app: &mut App) -> Option<(String, String)> {
         match which {
             InfoText::Title => title = Some(text.0.clone()),
             InfoText::Body => body = Some(text.0.clone()),
+            InfoText::Activity => {}
         }
     }
     title.zip(body)
