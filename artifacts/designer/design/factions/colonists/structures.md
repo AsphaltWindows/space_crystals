@@ -119,6 +119,8 @@ The Colonists' Drone production structure. Produces Drones from a build queue, s
 
 Since the Robo Portal is fully symmetric (AAAA), it has no fixed exit side — a warped-in Drone may emerge from any of the 4 sides.
 
+**Which side** (user, 2026-11-24): the same rule as the Bio Portal, over all four sides: the side **closest to the RallyPoint**; with no RallyPoint, or if that side is blocked, a random unblocked side (deterministic random). "Closest" = straight-line distance from the middle of each side to the rally point (an object's centre for object rallies); ties go top, right, bottom, left (in the building's default orientation). The same measure applies to the Bio Portal's A sides.
+
 ### RoboPortalInstanceState:
 - RallyPoint: Coordinates | ObjectInstance | None
 - BuildQueue: array of ObjectEnum (max 20, including the unit currently in production; user, 2026-11-24)
