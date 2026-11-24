@@ -402,7 +402,12 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 - **`los`, `box_clear`, `smooth`**: line of sight and waypoints for a unit's box (half extents). Touching is free.
 - **`serve(nav, search, requests, PATH_BUDGET)`** serves a tick's `PathRequest`s in `(since, id)` order within the
   expansion budget, with one shared field per order group of `GROUP_FIELD_MIN` or more, anchored on the click's tile.
-  A member whose goal the anchor can't see plans alone: through the anchor it would take a detour. A `Path` is unit
+  A member whose goal the anchor can't see plans alone: through the anchor it would take a detour. The field is
+  built only as far as the members stand (`Search::field_to`: towards their tiles' bounding rectangle, until each
+  is expanded), and the members share the smoothing of the chains they share (`smooth_shared`, same waypoints as
+  `smooth`). The budget's rule is unchanged: a job starts while budget remains and always finishes.
+- **`NavGrid::open_around(p)`**: the tile of `p` and its eight neighbours are free of solid tiles. The movement
+  step asks it before `box_clear` and `los`, which hold there for a small box and a short move. A `Path` is unit
   state (serde, `PartialEq`, `StateHash`); `NavCounters` are output only.
 - **Open questions** (Q0011) are the switches `RESOURCES_BLOCK`, `RUGGED_IMPASSABLE` and `ROUTE_ON_TRUE_MAP`.
 - **In the sim** (`paths.rs`): `NavState` holds the `Nav` of every unit type's `(class, size class)` and the
@@ -430,7 +435,8 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 ## Movement and collision
 
 The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice D changed it, **(M)** where the
-magic box did, **(Y)** where friendly yielding and the answers to Q0008 did, **(Q)** where queued group orders did),
+magic box did, **(Y)** where friendly yielding and the answers to Q0008 did, **(Q)** where queued group orders did, **(G)** where
+the hardening of crowds and nav performance did),
 and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
 
 - **One pipeline, sequential commit** (`movement::step`, phase 5d): the step builds one spatial grid per collision
@@ -441,8 +447,19 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   as invariants I1 and I2 (touching is free). Contact positions are assigned from the blocker's edge
   (`space::resting`), never accumulated. Never write `pos` anywhere else, and never loosen the predicate with an
   epsilon.
+- **Lane seeking** (`World::lane`, `World::lane_step`; `docs/movement.md > 6.3`): before anything else, a unit
+  looks 4 of its lengths ahead for the units it has to pass: oncoming ones (by `Body::heading`, where they are
+  going) and idle units that yield to it. Each bars a range of sideways shifts, its lane. The unit steps, forward
+  and sideways at once, towards the nearest clear lane within 3 of its widths, or, in front of a dense group,
+  towards the middle of the widest gap; two dense groups mesh like combs and spread from the outside in. One idle
+  unit alone is no lane. The constants are the `LANE_*` in `collide.rs`. It is deterministic by sorted lanes and
+  fixed cell order, and keeps no state but `Mover::avoid_side`. Never let it write a position except through
+  `World::clear`.
+- **The grid's cells carry marks** (`Body::kinds`, `Layer::near_any`): which heading sectors and whether a yielding
+  unit were listed in a cell this tick. They only ever say "maybe", and exist so that a unit with nobody to pass
+  doesn't look at bodies. Keep them conservative: mark on every insert and whenever a body's kinds change.
 - **One unit's tick** (`step_unit`, `collide.rs`): turn towards the steering waypoint (at most TurnRate), then move
-  one step: free; **slide** along tiles (per axis); **follow** a unit moving the same way; **go around** a standing
+  one step: a lane step (above), else free; **slide** along tiles (per axis); **follow** a unit moving the same way; **go around** a standing
   or oncoming one (a glance along its face, a 45° step, a step along the face; to the side the unit leans to, which
   it keeps, else to its Right first, so head-on units pass like traffic; a crossing unit is passed behind); else
   close up or stay. Within one step of the
@@ -454,7 +471,10 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   move. `yielding::can_yield` is the one place that says who yields (an owner, no order at all, no goal, not in an
   attack sequence, `Mover::can_move`: the hook for units that can't move in their mode), and `yields_to` to whom
   (its owner's units, but not the group order it arrived with). A blocked sidestep passes the request on, at most
-  `YIELD_CHAIN_DEPTH` deep. Moving units never yield or swap.
+  `YIELD_CHAIN_DEPTH` deep. Moving units never yield or swap. A lone unit squarely in the way steps at 45° to the
+  mover's way; a unit that is only clipped, or stands in the way of a mover walking between the units of a group,
+  steps straight across it, and such a mover asks the units on both sides of its gap two steps before it reaches
+  them (`yielding::ask_ahead`): the group parts and isn't shoved along.
 - **Collision exceptions** go in `space::blocks(mover, other)` and nowhere else (crushing will).
 - **Held by its attack**: a unit whose attack sequence holds its base (`combat::may_move` or `may_turn` false: see
   *Combat*) stands for the tick and keeps its goal, path and stuck clock (`wait`), like a unit waiting for its path.
@@ -478,7 +498,7 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   (`stuck::queues_behind`): no repath, no failure.
 - **Hooks for later slices**: other movement models replace the "direction → facing and velocity" part of
   `step_unit`.
-- **Counters**: `Sim::move_counters()` (sweeps and box tests of the latest tick) and `Sim::nav_counters()` are
+- **Counters**: `Sim::move_counters()` (sweeps, box tests and lane tests of the latest tick) and `Sim::nav_counters()` are
   output, not state. Tests assert them; `cargo test -p sc_sim --release --test movement_perf -- --ignored
   --nocapture` prints timings.
 - **Invariants** (`docs/movement.md > 8`, `sc_sim::testing::invariants`): I1 no two units of a layer overlap; I2 no
