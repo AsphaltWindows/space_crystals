@@ -1,8 +1,9 @@
 //! Weapon Conversion in the command flow (slice M3-B; `factions/colonists/units.md > Sabre Legionnaire >
 //! ObjectInterfaceState`: "R: Convert to Rifle Legionnaire", `> Weapon Conversion`): R, by hotkey or button, converts
 //! the Legionnaires it goes to, one command common to both forms. It is disabled while the gate would refuse it, each
-//! of its recipients Firing, in Cooldown or converting. The converted units stay selected as their new kinds and are
-//! drawn anew (slice M3-E's response to `SimEvent::KindChanged`).
+//! of its recipients converting or waiting to (design change 0153: one Firing or in Cooldown converts once its
+//! Cooldown is over). The converted units stay selected as their new kinds and are drawn anew (slice M3-E's response
+//! to `SimEvent::KindChanged`).
 
 use bevy::prelude::*;
 use sc_sim::conversion::CONVERT_TICKS;
@@ -81,9 +82,11 @@ fn phase(app: &App, n: u32) -> Option<AttackPhase> {
     sim.object(ObjectId(n)).unwrap().attack.as_ref().and_then(|a| a.phase)
 }
 
-/// Whether the gate refuses a Convert of a unit in `phase` (`> Eligibility`).
-fn refused(phase: Option<AttackPhase>) -> bool {
-    matches!(phase, Some(AttackPhase::Firing { .. } | AttackPhase::Cooldown))
+/// Unit `n`'s conversion: `None` without one, `Some(true)` while it waits for the unit's Cooldown to end (design
+/// change 0153), `Some(false)` under way.
+fn waits(app: &App, n: u32) -> Option<bool> {
+    let sim = app.world().resource::<SimRes>();
+    sim.object(ObjectId(n)).unwrap().conversion.map(|c| c.deferred)
 }
 
 /// Runs ticks until Rifle 3's phase is `wanted`'s, which it must be within a whole sequence.
@@ -140,13 +143,15 @@ fn r_converts_each_selected_legionnaire_to_its_other_form() {
     assert_eq!(interface(&app), InterfaceState::DefaultState);
 }
 
-/// `> Weapon Conversion > Eligibility`: "may not be issued while the unit is in Firing or Cooldown". Rifle 3, alone
-/// selected, shoots Generator 4: through a whole attack sequence (Aim 3, Firing 2, Cooldown 7, Reload 4 frames), R is
-/// disabled exactly while it is Firing or in Cooldown, and pressing it then sends nothing. With Sabre 1 selected too,
-/// R stays available, and the Convert goes to both, for the gate to leave the Rifle out (question Q0042 point 9).
-/// Pressed while the Rifle reloads, R converts it.
+/// `> Weapon Conversion > Eligibility`, as design change 0153 has it: "Pressed during those phases [Firing and
+/// Cooldown], it is deferred, not rejected: the unit finishes Firing and Cooldown, then converts immediately". Rifle
+/// 3, alone selected, shoots Generator 4: through a whole attack sequence (Aim 3, Firing 2, Cooldown 7, Reload 4
+/// frames), R stays available. With Sabre 1 selected too, R pressed while the Rifle is Firing goes to both: the Sabre
+/// converts at once, the Rifle's conversion waits, and R is disabled, the gate refusing a second Convert of units
+/// converting or waiting to. The Sabre is a Rifle 4 frames on; the Rifle fires on, cools down and converts, and is a
+/// Sabre later.
 #[test]
-fn r_is_disabled_while_each_legionnaire_fires_or_cools_down() {
+fn r_is_taken_mid_attack_and_the_legionnaire_converts_after_its_cooldown() {
     let mut app = legion_game();
     select_units(&mut app, &[3]);
     let attack = sc_sim::Command::Order {
@@ -155,40 +160,36 @@ fn r_is_disabled_while_each_legionnaire_fires_or_cools_down() {
         queue: false,
     };
     submit(&mut app, P1, attack);
-    let mut looks = Vec::new();
+    let mut mid_attack = Vec::new();
     for _ in 0..20 {
         app.update();
         let phase = phase(&app, 3);
-        let expected = if refused(phase) {
-            ButtonLook::Disabled
-        } else {
-            ButtonLook::Common
-        };
-        assert_eq!(look(&mut app), Some(expected), "{phase:?}");
-        looks.push(expected);
+        assert_eq!(look(&mut app), Some(ButtonLook::Common), "{phase:?}");
+        if matches!(phase, Some(AttackPhase::Firing { .. } | AttackPhase::Cooldown)) {
+            mid_attack.push(phase);
+        }
     }
-    assert!(looks.contains(&ButtonLook::Disabled) && looks.contains(&ButtonLook::Common));
-
-    // Pressed in the first frame of Firing, R is pressed in the second: refused.
-    until(&mut app, |phase| matches!(phase, Some(AttackPhase::Firing { .. })));
-    tap(&mut app, &[], KeyR);
-    assert!(refused(phase(&app, 3)));
-    assert_eq!(abilities(&app), [], "nothing sent");
+    assert!(!mid_attack.is_empty(), "the Rifle fired and cooled down");
 
     select_units(&mut app, &[1, 3]);
     until(&mut app, |phase| matches!(phase, Some(AttackPhase::Firing { .. })));
-    assert_eq!(look(&mut app), Some(ButtonLook::Common), "the Sabre may convert");
     tap(&mut app, &[], KeyR);
     assert_eq!(abilities(&app), [converted(&[1, 3])]);
-    let sim = app.world().resource::<SimRes>();
-    let converting = [1, 3].map(|n| sim.object(ObjectId(n)).unwrap().conversion.is_some());
-    assert_eq!(converting, [true, false], "the Rifle left out");
-
-    select_units(&mut app, &[3]);
-    until(&mut app, |phase| phase == Some(AttackPhase::Reloading));
+    assert_eq!([waits(&app, 1), waits(&app, 3)], [Some(false), Some(true)]);
+    assert_eq!(look(&mut app), Some(ButtonLook::Disabled), "no second Convert");
+    updates(&mut app, CONVERT_TICKS as usize);
+    assert_eq!(
+        kinds(&app, &[1, 3]).0,
+        [RIFLE, RIFLE],
+        "the Sabre converted, the Rifle not yet"
+    );
+    for _ in 0..20 {
+        if kinds(&app, &[3]).0 == [SABRE] {
+            break;
+        }
+        app.update();
+    }
+    let both = vec![RIFLE, SABRE];
+    assert_eq!(kinds(&app, &[1, 3]), (both.clone(), both));
     assert_eq!(look(&mut app), Some(ButtonLook::Common));
-    tap(&mut app, &[], KeyR);
-    assert_eq!(abilities(&app)[1..], [converted(&[3])]);
-    updates(&mut app, CONVERT_TICKS as usize + 2);
-    assert_eq!(kinds(&app, &[3]).0, [SABRE]);
 }

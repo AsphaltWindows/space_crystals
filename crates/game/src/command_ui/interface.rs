@@ -23,7 +23,8 @@
 //! The Colonists' Legionnaires convert between their two forms with R (`factions/colonists/units.md > Weapon
 //! Conversion`, [`PanelCommand::Convert`]), a common command of a selection of both (each converts to its other
 //! form), issued at once and never queued. It is disabled while the gate would refuse it: while each of its
-//! recipients is Firing, in Cooldown or converting. The converted unit stays selected as its new type
+//! recipients is converting or waiting to (design change 0153: one pressed while Firing or in Cooldown converts once
+//! its Cooldown is over). The converted unit stays selected as its new type
 //! (`crate::selection::ControlState::set_kind`) and is drawn anew (`crate::object_render`).
 //!
 //! A Barracks (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) trains a Peacekeeper (Q)

@@ -12,8 +12,9 @@
 //! the army cap leaves a Train available, the Colonists' Beacon Capacity alike), and so is a greyed-out build menu
 //! entry (`> DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`: "Only available if player has sufficient
 //! Space Crystals"; "Other build options unavailable" while the Deployment Center constructs or holds a building
-//! ready), and so is a greyed-out Convert (`factions/colonists/units.md > Weapon Conversion > Eligibility`: not while
-//! Firing or in Cooldown; it goes to the recipients that may convert, `Reject::CannotConvert` when none may).
+//! ready), and so is a greyed-out Convert (`factions/colonists/units.md > Weapon Conversion > Eligibility`: it goes to
+//! the recipients that are neither converting nor waiting to, one Firing or in Cooldown converting once its Cooldown
+//! is over, design change 0153; `Reject::CannotConvert` when none may).
 
 use std::collections::{BTreeMap, BTreeSet};
 

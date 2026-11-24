@@ -171,7 +171,10 @@ fn state_hash_covers_every_field() {
     });
     // Shields and a conversion under way (any unit may hold them here).
     obj(&mut base, 3).shields = Some(7.5);
-    obj(&mut base, 3).conversion = Some(Conversion { left: 2 });
+    obj(&mut base, 3).conversion = Some(Conversion {
+        left: 2,
+        deferred: false,
+    });
     let mutations: Vec<Mutation> = vec![
         ("tick", |s| s.tick += 1),
         ("map", |s| {
@@ -308,7 +311,16 @@ fn state_hash_covers_every_field() {
         }),
         ("conversion none", |s| obj(s, 3).conversion = None),
         ("conversion left", |s| {
-            obj(s, 3).conversion = Some(Conversion { left: 1 })
+            obj(s, 3).conversion = Some(Conversion {
+                left: 1,
+                deferred: false,
+            })
+        }),
+        ("conversion deferred", |s| {
+            obj(s, 3).conversion = Some(Conversion {
+                left: 2,
+                deferred: true,
+            })
         }),
         ("extractor none", |s| obj(s, 4).extractor = None),
         ("extractor patch", |s| {

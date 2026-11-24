@@ -104,8 +104,9 @@ impl Sim {
             return Err(Reject::LacksAbility);
         }
         if ability == Ability::Convert {
-            // `factions/colonists/units.md > Weapon Conversion > Eligibility`: the units in Firing or Cooldown, and
-            // those converting already, are left out, and the others convert (question Q0042 point 9).
+            // `factions/colonists/units.md > Weapon Conversion > Eligibility`: those converting already, or waiting
+            // to, are left out, and the others convert; one in Firing or Cooldown after its Cooldown (design change
+            // 0153: "deferred, not rejected").
             units.retain(|id| self.objects.get(id).is_some_and(conversion::may_convert));
             if units.is_empty() {
                 return Err(Reject::CannotConvert);

@@ -123,9 +123,9 @@ pub enum Reject {
     /// A Cancel Warp In to objects none of which is transforming (`factions/colonists/economy.md > Warp In > Cancel
     /// Warp In`, `crate::transform`).
     NotTransforming,
-    /// None of the units a Convert names may convert now (`factions/colonists/units.md > Weapon Conversion >
-    /// Eligibility`, `crate::conversion`): each is Firing or in Cooldown ("the command is rejected during those
-    /// phases"), or converting already.
+    /// None of the units a Convert names may convert (`factions/colonists/units.md > Weapon Conversion >
+    /// Eligibility`, `crate::conversion`): each is converting already, or waiting to (design change 0153: one Firing
+    /// or in Cooldown converts after its Cooldown, "deferred, not rejected").
     CannotConvert,
     /// A Drop Off order to workers none of which carries anything (design change 0140: "Drop Off is only resolved
     /// for a Drone that is carrying something"; the empty ones among loaded ones are left out).

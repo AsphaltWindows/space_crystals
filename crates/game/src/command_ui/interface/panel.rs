@@ -35,8 +35,8 @@ pub enum ButtonLook {
     /// `factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`, "Only available if"; a building to
     /// construct while the bank can't pay for it, or while the constructor constructs or holds a building ready: `>
     /// DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`, "Other build options unavailable"; a Convert none
-    /// of whose recipients may convert now, all of them Firing, in Cooldown or converting:
-    /// `factions/colonists/units.md > Weapon Conversion > Eligibility`), and a command the sim has no order for yet.
+    /// of whose recipients may convert, all of them converting or waiting to: `factions/colonists/units.md > Weapon
+    /// Conversion > Eligibility`, design change 0153), and a command the sim has no order for yet.
     Disabled,
     /// In the template, but this type can't (`> BasicCombatUnitInterfaceState`: the conditional Reverse and
     /// AttackGround; a build menu none of whose buildings is in the game yet).

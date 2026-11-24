@@ -33,6 +33,7 @@ use std::collections::{BTreeMap, VecDeque};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::conversion::Conversion;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus};
@@ -258,7 +259,7 @@ pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: Object
             mover,
             attack: o.attack.as_mut(),
             may_attack: o.riot_shield.is_none_or(RiotShield::allows_attack),
-            converting: o.conversion.is_some(),
+            converting: o.conversion.is_some_and(Conversion::under_way),
             worker: o.worker.as_mut(),
         };
         update_unit(orders, &mut unit, world, &mut claims);
