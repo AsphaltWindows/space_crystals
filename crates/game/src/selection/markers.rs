@@ -7,7 +7,9 @@
 //! red, neutral yellow). Rings are drawn in the ground-decal layer, under the objects; a frame, which the object's
 //! visual would cover there, just in front of its object. The ActiveGroup's rings are solid and
 //! thick, the other groups' dashed and thin (frames: thick and thin). Meshes are made once per shape, relation and
-//! activity. A selected record (a GDO player's remembered SupplyDeliveryStation) is marked where it is shown.
+//! activity; a marker whose object changed its shape (`SimEvent::KindChanged`: a Beacon warping in a bigger
+//! building, plan decision T15) gets the mesh of its new one. A selected record (a GDO player's remembered
+//! SupplyDeliveryStation) is marked where it is shown.
 
 use std::collections::BTreeMap;
 
@@ -73,8 +75,9 @@ pub struct SelectionMarkers {
     pub by_id: BTreeMap<ObjectId, Entity>,
 }
 
-/// A marker's outline: a ring for a unit, a frame for a tile-based object of a `w` × `h` footprint.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+/// A marker's outline: a ring for a unit, a frame for a tile-based object of a `w` × `h` footprint. A component of
+/// the marker too: the shape its mesh has.
+#[derive(Component, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum MarkerShape {
     Ring(ObjectKind),
     Frame { w: u32, h: u32 },
@@ -175,7 +178,7 @@ fn sync_markers(
     shown: Shown,
     mut meshes: MarkerMeshes,
     mut index: ResMut<SelectionMarkers>,
-    mut markers: Query<(&mut SelectionMarker, &mut Mesh2d, &mut Transform)>,
+    mut markers: Query<(&mut SelectionMarker, &mut MarkerShape, &mut Mesh2d, &mut Transform)>,
 ) {
     let wanted = shown.markers();
     let keep: BTreeMap<ObjectId, ()> = wanted.iter().map(|(s, _, _)| (s.id, ())).collect();
@@ -199,9 +202,10 @@ fn sync_markers(
         };
         let transform = Transform::from_translation(view_to_world(object.drawn).extend(z));
         match index.by_id.get(&object.id).and_then(|&e| markers.get_mut(e).ok()) {
-            Some((mut current, mut mesh, mut placed)) => {
-                if *current != marker {
+            Some((mut current, mut current_shape, mut mesh, mut placed)) => {
+                if *current != marker || *current_shape != shape {
                     *current = marker;
+                    *current_shape = shape;
                     mesh.0 = meshes.mesh(shape, object.relation, active);
                 }
                 placed.set_if_neq(transform);
@@ -211,6 +215,7 @@ fn sync_markers(
                     .spawn((
                         Name::new(format!("Selection marker #{}", object.id.0)),
                         marker,
+                        shape,
                         Mesh2d(meshes.mesh(shape, object.relation, active)),
                         MeshMaterial2d(meshes.material()),
                         transform,

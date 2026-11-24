@@ -170,6 +170,27 @@ impl Selection {
         changed
     }
 
+    /// Object `id` changed its type in place, to `kind` (`SimEvent::KindChanged`, plan decision T15: a Beacon warping
+    /// in a building): it stays selected, with the same id, in its new type's group. An ActiveGroup that it leaves
+    /// empty gives way to its new group, so that the object whose panel was shown still is; otherwise the ActiveGroup
+    /// stays. Says whether anything changed. Placeholder: which group a changed object joins, beyond this, is the
+    /// selection's design (slice M3-J1).
+    pub fn set_kind(&mut self, id: ObjectId, kind: ObjectKind) -> bool {
+        let Some(member) = self.members.get_mut(&id) else {
+            return false;
+        };
+        if *member == kind {
+            return false;
+        }
+        let left = GroupKey::of(id, *member);
+        *member = kind;
+        let exists = |key: GroupKey| self.members.iter().any(|(&id, &kind)| GroupKey::of(id, kind) == key);
+        if self.active == Some(left) && !exists(left) {
+            self.active = Some(GroupKey::of(id, kind));
+        }
+        true
+    }
+
     /// `> GroupCycling`: makes the next group (`forward`) or the previous one active, in [`Selection::groups`] order,
     /// wrapping around at the ends.
     pub fn cycle(&mut self, forward: bool) -> bool {
@@ -274,6 +295,19 @@ impl ControlState {
             self.interface = InterfaceState::DefaultState;
         }
         selection || groups || reset
+    }
+
+    /// Object `id` changed its type in place, to `kind` ([`Selection::set_kind`]): selected, it stays so; the control
+    /// groups, which hold ids, keep it as they are. An ObjectInterfaceState of an ActiveGroup that the change
+    /// replaces resets to DefaultState, as in [`ControlState::retain`]: it was the old type's. Says whether anything
+    /// changed.
+    pub fn set_kind(&mut self, id: ObjectId, kind: ObjectKind) -> bool {
+        let active = self.selection.active();
+        let changed = self.selection.set_kind(id, kind);
+        if changed && self.selection.active() != active {
+            self.interface = InterfaceState::DefaultState;
+        }
+        changed
     }
 }
 
@@ -408,5 +442,38 @@ mod tests {
         assert!(state.retain(|i| i != id(1)));
         assert_eq!(state.selection.active().map(|k| k.kind), Some(GUARD));
         assert_eq!(state.interface, InterfaceState::DefaultState);
+    }
+
+    /// Plan decision T15 (`SimEvent::KindChanged`): an object that changes its type in place stays selected, with its
+    /// id, in its new type's group. An ActiveGroup it leaves empty gives way to that group; one it doesn't leave
+    /// empty stays active. The ObjectInterfaceState resets only with the ActiveGroup. Beacons 1 and 2 warp in Robo
+    /// Portals (Groupable) and an Egress Node (Ungroupable: a group of its own); a cancel turns one back.
+    #[test]
+    fn a_kind_change_keeps_the_object_selected_in_its_new_group() {
+        use ObjectKind::{Beacon, EgressNode, RoboPortal};
+        let awaiting = InterfaceState::awaiting(crate::command_ui::PanelCommand::Attack);
+        let mut state = ControlState::EMPTY;
+        state.selection = Selection::new([(id(1), Beacon), (id(2), Beacon)]);
+        state.interface = awaiting;
+        let beacons = GroupKey::of(id(1), Beacon);
+        let portals = GroupKey::of(id(1), RoboPortal);
+        assert!(state.set_kind(id(1), RoboPortal));
+        assert_eq!(state.selection.kind_of(id(1)), Some(RoboPortal));
+        assert_eq!(state.selection.active(), Some(beacons), "Beacon 2 is still in it");
+        assert_eq!(state.interface, awaiting);
+        assert!(state.set_kind(id(2), RoboPortal));
+        assert_eq!(state.selection.active(), Some(portals), "the Beacons' group is gone");
+        assert_eq!(state.selection.active_group().unwrap().instances, [id(1), id(2)]);
+        assert_eq!(state.interface, InterfaceState::DefaultState);
+        assert!(!state.set_kind(id(2), RoboPortal), "no change");
+        assert!(!state.set_kind(id(3), RoboPortal), "not selected");
+        assert!(state.set_kind(id(1), EgressNode));
+        let node = GroupKey::of(id(1), EgressNode);
+        let keys: std::collections::BTreeSet<GroupKey> = state.selection.groups().iter().map(|g| g.key).collect();
+        assert_eq!(keys, [node, portals].into(), "the Egress Node in a group of its own");
+        assert_eq!(state.selection.active(), Some(portals), "Robo Portal 2 is still in it");
+        assert!(state.set_kind(id(2), Beacon), "cancelled");
+        assert_eq!(state.selection.active(), Some(beacons));
+        assert_eq!(state.selection.ids().collect::<Vec<_>>(), [id(1), id(2)]);
     }
 }

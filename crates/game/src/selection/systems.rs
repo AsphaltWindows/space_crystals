@@ -6,9 +6,9 @@ use std::collections::BTreeSet;
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use sc_sim::{ObjectId, PlayerId, SimEvent};
+use sc_sim::{ObjectId, ObjectKind, PlayerId, SimEvent};
 
-use super::pick::selectable_id;
+use super::pick::{selectable_by, selectable_id};
 use super::rules::{ClickRoles, drawn_centroid};
 use super::{ControlStates, LocalControl};
 use crate::ClientMode;
@@ -24,8 +24,10 @@ use crate::sim_driver::{LocalPlayer, SimEventMessage, SimRes};
 /// anything else that no longer exists, and anything that player may no longer select (`pick::selectable_id`):
 /// an enemy that walks out of sight is deselected at once (a placeholder rule: the design doesn't say). A record
 /// the player may select (a GDO player's remembered SupplyDeliveryStation) stays selected even if its object is
-/// removed out of sight: the player doesn't learn of it. A replaced sim (`SimRes::generation`) starts every
-/// ControlState over, because its ids name other objects.
+/// removed out of sight: the player doesn't learn of it. An object the player sees that changed its kind in place
+/// (`SimEvent::KindChanged`, plan decision T15) stays selected as its new kind (`ControlState::set_kind`), so the
+/// panels show its new type. A replaced sim (`SimRes::generation`) starts every ControlState over, because its ids
+/// name other objects.
 pub(super) fn sync_control_states(
     sim: Res<SimRes>,
     fog: Res<FogOfWar>,
@@ -55,6 +57,17 @@ pub(super) fn sync_control_states(
             let remembered = sight.remembered_record(id).is_some();
             (remembered || !removed.contains(&id)) && selectable_id(&sim, &sight, id)
         });
+        let changed_kinds: Vec<(ObjectId, ObjectKind)> = state
+            .selection
+            .members()
+            .filter_map(|(id, kind)| {
+                let o = sim.object(id).filter(|o| o.kind != kind && selectable_by(o, &sight))?;
+                Some((id, o.kind))
+            })
+            .collect();
+        for (id, kind) in changed_kinds {
+            changed |= state.set_kind(id, kind);
+        }
     }
     if changed {
         states.set_changed();

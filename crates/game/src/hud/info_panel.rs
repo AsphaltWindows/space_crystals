@@ -103,6 +103,8 @@ struct Shown<'a> {
     kind: ObjectKind,
     owner: Option<PlayerId>,
     hp: Option<f32>,
+    /// Its MaxHP: its kind's, or while it transforms the interpolated one (`Object::max_hp`).
+    max_hp: Option<f32>,
     resource: Option<ResourceState>,
     /// The live object, when the panel shows it as it is now.
     live: Option<&'a Object>,
@@ -114,6 +116,7 @@ impl<'a> Shown<'a> {
             kind: object.kind,
             owner: object.owner,
             hp: object.hp,
+            max_hp: object.max_hp(),
             resource: object.resource.clone(),
             live: Some(object),
         }
@@ -140,6 +143,7 @@ impl<'a> Shown<'a> {
             kind: record.kind,
             owner: record.owner,
             hp: record.hp,
+            max_hp: record.kind.def().max_hp,
             resource,
             live: None,
         }
@@ -163,7 +167,7 @@ fn object_info(sim: &Sim, viewer: PlayerId, shown: Shown, record: Option<&LastKn
             None => "Neutral".to_string(),
         });
     }
-    if let (Some(hp), Some(max)) = (shown.hp, def.max_hp) {
+    if let (Some(hp), Some(max)) = (shown.hp, shown.max_hp) {
         // Fractional HP shows rounded up, so a living unit never shows 0.
         body.push(format!("HP {} / {}", hp.ceil(), max.ceil()));
     }
@@ -270,7 +274,9 @@ pub(super) fn update_info_panel(
 #[cfg(test)]
 mod tests {
     use sc_sim::testing::ScenarioBuilder;
-    use sc_sim::{Command, DebugCommand, ObjectId, PlayerCommand, SimConfig, SpawnAt, TickInputs, TilePos};
+    use sc_sim::{
+        Command, ConstructionCommand, DebugCommand, ObjectId, PlayerCommand, SimConfig, SpawnAt, TickInputs, TilePos,
+    };
 
     use super::*;
 
@@ -369,6 +375,47 @@ mod tests {
         assert_eq!(
             panel(&sim, P1, 1),
             content("Space Crystals", &["Neutral", "Space Crystals: 1500"])
+        );
+    }
+
+    /// Slice M3-E: an object being warped in shows its new type, and its HP out of its MaxHP now, interpolated
+    /// (`factions/colonists/economy.md > Warp In > HP/Shields Interpolation`): player 1's Beacon (1) warping in a Robo
+    /// Portal, 288 of its 640 frames done, has 120 + (600 - 120) × 0.45 = 336 of 336. Its owner sees the Warp In in
+    /// the activity area ([`activity`]); player 2 sees its owner instead.
+    #[test]
+    fn a_warp_in_shows_its_new_type_and_its_maximum_so_far() {
+        let mut t = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
+            .spawn(ObjectKind::Beacon, Some(P1), tile(8, 6))
+            .start();
+        let funds = DebugCommand::SetResources {
+            player: P1,
+            crystals: 1000,
+            supplies: 0,
+            alloys: 0,
+            essence: 0,
+            flux: 0,
+        };
+        let warp_in = ConstructionCommand::WarpIn {
+            kind: ObjectKind::RoboPortal,
+            origin: TilePos::new(7, 5),
+            orientation: Default::default(),
+        };
+        t.debug_at(1, funds);
+        t.at(
+            1,
+            P1,
+            Command::Construction {
+                objects: vec![ObjectId(1)],
+                command: warp_in,
+            },
+        );
+        t.run_until(288);
+        let mut own = content("Robo Portal", &["HP 336 / 336"]);
+        own.activity = vec!["Warping in: Robo Portal 45%".to_string()];
+        assert_eq!(panel(t.sim(), P1, 1), own);
+        assert_eq!(
+            panel(t.sim(), P2, 1),
+            content("Robo Portal", &["Player 1", "HP 336 / 336"])
         );
     }
 }
