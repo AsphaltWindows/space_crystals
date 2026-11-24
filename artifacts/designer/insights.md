@@ -43,7 +43,7 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 
 - **Multi-waypoint rallies** (idea, 0160): Shift kept free for it; not designed.
 - **Deferred Colonists content** (0166): when scheduled, fill placeholders for refineries + tech buildings; mechanics still needed from user: Skylance salvo, Plasma Turret beam, Scout stealth/detection, Lancer, psionic unit, Heavy/Star Portal output, research contents.
-- **Robo Portal 250** (0167): cheaper 2nd portal → earlier doubled Drone production; Economy Targets assume one portal — watch. Portals table text still calls Robo the 'cheaper kind' and Bio 'more expensive' (now inverted cost-wise) — asked user.
+- **Robo Portal 250** (0167): cheaper 2nd portal → earlier doubled Drone production; Economy Targets assume one portal — watch.
 - **Lingering build ghosts** (0125): ally visibility and reservation against allies' placements TBD (teams). **Agents** stay Ungroupable (Tab) while Drones became Groupable with 'first in selection order' Deploy — revisit whether Agents should follow the Drone model.
 
 - **Exit blocking by buildings** (0080): allowed for now; a building flush against an exit stalls the producer. Revisit (placement rule keeping exit-front tiles clear) if it proves annoying. Aircraft spawning (Airfield) and Syndicate releases not covered by Exit Doorway.
