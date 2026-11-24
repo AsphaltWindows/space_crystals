@@ -126,7 +126,7 @@ Since the Robo Portal is fully symmetric (AAAA), it has no fixed exit side — a
 - CurrentBuildProgress: number (frames elapsed) | None
 
 ### RallyPoint behavior:
-When a unit (Drone or Scout) finishes production and spawns, if RallyPoint is set, it is issued the default right-click command resolved against the RallyPoint target. For a Drone: rally on ground -> Move to location, rally on enemy -> Move to that location (Drone is unarmed and cannot attack), rally on friendly/neutral object -> Move to object. The Scout's rally behavior: TBD (also unarmed). If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None. (Same pattern as GDO's Barracks.)
+When a unit (Drone or Scout) finishes production and spawns, if RallyPoint is set, it is issued the default right-click command resolved against the RallyPoint target. For a Drone: rally on ground -> Move to location, rally on enemy -> Move to that location (Drone is unarmed and cannot attack), rally on friendly/neutral object -> Move to object. The Scout's rally behavior: TBD (also unarmed). If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None. Rally points on enemy objects turn into ground rally points when the enemy leaves sight (systems/controls/selection_and_hud.md > Rally points on enemy objects). (Same pattern as GDO's Barracks.)
 
 ### Produces:
 - Drone: 50 Space Crystals, 160 frames (10 seconds)
@@ -160,7 +160,7 @@ The Bio Portal has two exit-eligible sides (the "A" sides, per its AABB symmetry
 - CurrentBuildProgress: number (frames elapsed) | None
 
 ### RallyPoint behavior:
-When a unit finishes production and spawns, if RallyPoint is set, it is issued the default right-click command resolved against the RallyPoint target (same resolution rules as the produced unit's own Right-Click Resolution). If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None. (Same pattern as GDO's Barracks and the Colonists' own Robo Portal.)
+When a unit finishes production and spawns, if RallyPoint is set, it is issued the default right-click command resolved against the RallyPoint target (same resolution rules as the produced unit's own Right-Click Resolution). If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None. Rally points on enemy objects turn into ground rally points when the enemy leaves sight (systems/controls/selection_and_hud.md > Rally points on enemy objects). (Same pattern as GDO's Barracks and the Colonists' own Robo Portal.)
 
 ### Produces:
 - Sabre Legionnaire: 100 Space Crystals, 160 frames (10 seconds)
