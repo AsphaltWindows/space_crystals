@@ -2156,3 +2156,4 @@ Syndicate: Shadebringer added (Sludge, Cover). Entry 0189. Director Q0049–Q005
 Syndicate: Shadebringer Cover duration + charges recharged in tunnels with Vault. Entry 0190.
 Syndicate: units inside Cover smoke see nothing. Entry 0191.
 Syndicate: Sludge affects all players' units. Entry 0192.
+Syndicate: Shadebringer charges are draining tanks. Entry 0193.

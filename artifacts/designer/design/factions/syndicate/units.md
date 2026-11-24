@@ -225,7 +225,9 @@ While on, the Shadebringer leaves a **stack/wall of smoke** in its wake. Each pi
 
 ### Charges and recharging
 (user, 2026-11-25) Sludge and Cover each have their **own, separate charge**. The charges are **recharged only inside the Tunnel Network**, and only while the player owns a **Vault** (this is the Vault's "re-arming" role). Away from the tunnels, a Shadebringer that has used up a charge can't use that ability until it goes back underground.
-- TBD: what a charge is (a reservoir that drains while the toggle is on, or a number of uses); what happens when it runs out mid-use; recharge speed; whether a partly used charge recharges.
+- **Each charge is a tank** (user, 2026-11-25) that **drains while its toggle is on**. Using an ability for a short while costs only a little. When a tank runs **empty**, that ability switches off and can't be switched back on until the tank has some charge again.
+- Inside the Tunnel Network (with a Vault), the tanks **refill gradually**, partly used ones included.
+- TBD: tank size, drain rate, refill rate (numbers); whether a nearly empty tank can be switched on (minimum charge).
 
 All numbers (HP, armor, sight, speed, turn radius, TunnelSpaceCost, X, Y, Z, smoke duration, cost, build time) and hotkeys: TBD.
 
