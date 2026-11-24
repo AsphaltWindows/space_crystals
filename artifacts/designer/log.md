@@ -1987,3 +1987,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T18:52:17-05:00 — Q0015.1: arrived units don't yield to same-group arrivals. Doc: units.md. Change entry 0027.
 - 2026-11-23T18:53:22-05:00 — Q0015.2: magic box around silhouettes. Doc: commands.md. Change entry 0028.
 - 2026-11-23T18:56:56-05:00 — Q0015.3: queued group orders use planned positions for the magic box (+ fallback). Doc: commands.md. Change entry 0029. Took in Q0016.
+- 2026-11-23T19:02:16-05:00 — Clarified: group destinations resolved per unit at issue time (no recompute at dequeue). Doc: commands.md. Change entry 0030.
