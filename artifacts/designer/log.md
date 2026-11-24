@@ -2076,3 +2076,15 @@ Q0039 pt 4: Drone capacity freed at deploy start, Beacon's 5 at completion; Warp
 Q0039 pt 5: transforming structures count for defeat; cancelling last = defeated same tick. Entry 0113.
 Q0039 pt 6: load lost on deploy completion, returned on cancel. Entry 0114.
 Q0039 pt 7: Warp In destroyed = no refund. Entry 0115.
+Q0039 pt 8: transforming objects show only Cancel; functions at completion. Entry 0116. Q0039 done.
+Q0040 pt 1: Drone deploys at footprint centre (safety net if blocked while overlapping). Entry 0117.
+Q0040 pt 2: ground units block Worker-Built and Warp In placement. Entry 0118.
+Q0040 pt 3: Warp In requires Visible tiles. Entry 0119.
+Q0040 pt 4: worker-built ghost judges by player knowledge; order allowed in fog. Entry 0120.
+Q0040 pt 5: odd-sized Warp In ghost default bottom-right; rotate/flip about Beacon centre picks corner. Entry 0121.
+Q0040 pt 6: Beacons Ungroupable. Entry 0122.
+Q0040 pt 7 / Q0037 pt 12: Gather ends only when mined out (no patch within Drone's search radius), delivers first; Shift-queued orders wait. Search radius around Drone, per-unit stat, 6 GU placeholder. Entry 0123.
+Q0040 pt 8: Colonists panels; Beacon has two Warp In menus (Basic/Advanced provisional). Entry 0124. Q0045 arrived.
+Q0040 pt 9: Drones Groupable; lingering build ghosts (owner-only, reserve site); group Deploy goes to first Drone in selection order; Shift chains through Drone group (replaces 0071 for Drones). Entry 0125. Q0040 done.
+Q0045 pt 1: idle overlapping units push apart. Entry 0126.
+Q0045 pt 2 / Q0037 pt 1: Drop Off order = delivery only, then idle/next queued; passes through gathering Drones. Entry 0127. Q0045 done.

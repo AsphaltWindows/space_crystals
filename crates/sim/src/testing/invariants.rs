@@ -1,5 +1,5 @@
-//! The movement invariants I1–I7 of `docs/movement.md > 8` (I2 with its one exception, the exit doorway of design
-//! change 0080), checked from outside through the sim's public state,
+//! The movement invariants I1–I7 of `docs/movement.md > 8` (I1 with its two exceptions of design change 0106,
+//! [`may_overlap`]; I2 with its one exception, the exit doorway of design change 0080), checked from outside through the sim's public state,
 //! the vision invariant V1 (the vision kept up tick by tick is the one a fresh build gives, and every Visible tile
 //! is Explored: `vision`), the path knowledge invariant K1 (each player's planning grids are those a fresh build
 //! from the state gives: `paths`), and an ASCII picture of the map with its units for readable failures.
@@ -18,7 +18,8 @@ use crate::ids::ObjectId;
 use crate::mover::{Locomotion, MAX_REPATHS, MoveGoal, MoveStatus, Mover, PathState};
 use crate::nav;
 use crate::object::Object;
-use crate::orders::{OrderKind, Target};
+use crate::orders::{OrderKind, Target, gather};
+use crate::paths::boxes_overlap;
 use crate::production::Doorway;
 use crate::sim::Sim;
 use crate::units::{SU_PER_GU, Tick, TilePos};
@@ -47,6 +48,8 @@ struct Seen {
     repaths_left: u8,
     /// The building whose exit doorway it was still in (`Mover::exit`, design change 0080).
     exit: Option<ObjectId>,
+    /// It was a Drone on a Gather job (`orders::gather::on_gather_job`, design change 0106).
+    gathering: bool,
 }
 
 /// Checks I1–I7 between ticks. It remembers each unit's state of the tick before, so check after **every** step.
@@ -66,6 +69,7 @@ fn seen(o: &Object, mover: &Mover) -> Seen {
         sidestepping: mover.sidestep.is_some(),
         repaths_left: mover.repaths_left,
         exit: mover.exit,
+        gathering: gather::on_gather_job(o),
     }
 }
 
@@ -92,7 +96,7 @@ impl Invariants {
             .collect();
         let result = self
             .check_units(sim, &teleported)
-            .and_then(|()| no_overlaps(sim))
+            .and_then(|()| no_overlaps(sim, &self.seen))
             .and_then(|()| vision(sim))
             .and_then(|()| path_knowledge(sim));
         self.seen = Self::new(sim).seen;
@@ -265,27 +269,59 @@ fn path_knowledge(sim: &Sim) -> Result<(), Violation> {
 }
 
 /// I1: no two units of a layer with hard collision overlap. Touching is free.
-fn no_overlaps(sim: &Sim) -> Result<(), Violation> {
+/// I1's two exceptions (design change 0106): whether the units `a` and `b` of one layer, whose boxes overlap as
+/// the tick ends, may. `before` is what the checker saw of the units a tick earlier.
+///
+/// 1. **Gathering Drones** (`factions/colonists/units.md > Drone > Gathering Drones pass through each other`):
+///    both are Drones on a Gather job. The movement step saw a unit so if it is on one now, or was a tick earlier
+///    and has no order now: an order ends after the movement only by leaving the unit idle (its patch was emptied
+///    in the economy phase and none is left, `Sim::redirect_gatherers`), while an order given in this tick began
+///    before the movement and is the unit's current one. (A job that ended in the behaviours of this tick, by a
+///    Stop or for want of a drop-off, reads the same for that one tick: the check can't see the phases.)
+/// 2. **Units that already overlap** (`systems/units.md > UnitCollision > Units that already overlap`): the two
+///    overlapped a tick earlier too. They ignore each other until they have separated, so the pair may move in
+///    any way meanwhile; once apart it is held to I1 again, like every pair that never overlapped.
+///
+/// Everything else fails: two units that come to overlap, unless both are gathering Drones.
+fn may_overlap(a: &Object, b: &Object, before: &BTreeMap<ObjectId, Seen>) -> bool {
+    let gathered = |o: &Object| {
+        let idle = o.orders.as_ref().is_some_and(|orders| orders.current.is_none());
+        gather::on_gather_job(o) || (idle && before.get(&o.id).is_some_and(|seen| seen.gathering))
+    };
+    let overlapped = || {
+        let (Some(was_a), Some(was_b)) = (before.get(&a.id), before.get(&b.id)) else {
+            return false;
+        };
+        let (Some(a_half), Some(b_half)) = (a.def().half_extents(), b.def().half_extents()) else {
+            return false;
+        };
+        boxes_overlap(was_a.pos, a_half, was_b.pos, b_half)
+    };
+    (gathered(a) && gathered(b)) || overlapped()
+}
+
+/// I1: no two units of a layer overlap, but for the two exceptions of [`may_overlap`].
+fn no_overlaps(sim: &Sim, before: &BTreeMap<ObjectId, Seen>) -> Result<(), Violation> {
     for domain in [Domain::Ground, Domain::Underground] {
-        // (low x, id, position, half extents), by low x: a unit only meets those starting before its high x.
-        let mut boxes: Vec<(f32, ObjectId, Vec2, Vec2)> = sim
+        // (low x, position, half extents, the unit), by low x: a unit only meets those starting before its high x.
+        let mut boxes: Vec<(f32, Vec2, Vec2, &Object)> = sim
             .objects()
             .filter_map(|o| {
                 let def = o.def();
                 let half = def.half_extents()?;
-                (def.unit.as_ref()?.base_def().domain == domain).then_some((o.pos.x - half.x, o.id, o.pos, half))
+                (def.unit.as_ref()?.base_def().domain == domain).then_some((o.pos.x - half.x, o.pos, half, o))
             })
             .collect();
-        boxes.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
-        for (i, &(_, a_id, a, a_half)) in boxes.iter().enumerate() {
-            for &(low, b_id, b, b_half) in &boxes[i + 1..] {
+        boxes.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.3.id.cmp(&b.3.id)));
+        for (i, &(_, a, a_half, a_unit)) in boxes.iter().enumerate() {
+            for &(low, b, b_half, b_unit) in &boxes[i + 1..] {
                 if low >= a.x + a_half.x {
                     break;
                 }
-                if (a.x - b.x).abs() < a_half.x + b_half.x && (a.y - b.y).abs() < a_half.y + b_half.y {
+                if boxes_overlap(a, a_half, b, b_half) && !may_overlap(a_unit, b_unit, before) {
                     return Err(Violation {
                         invariant: "I1",
-                        message: format!("#{} at {a} and #{} at {b} overlap", a_id.0, b_id.0),
+                        message: format!("#{} at {a} and #{} at {b} overlap", a_unit.id.0, b_unit.id.0),
                         at: (a + b) / 2.0,
                     });
                 }

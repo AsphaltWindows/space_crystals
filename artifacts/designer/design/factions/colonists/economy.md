@@ -10,6 +10,8 @@ Colonists build their foundational structure, the Beacon, by having a Drone depl
 - Left-click a ground location
 - The Drone walks to the location, then begins deploying in place
 
+**Where the Drone starts deploying** (user, 2026-11-24): the Drone walks to the **centre of the Beacon's footprint** and starts deploying when it gets there. Safety net: if it is stopped by a blocker on the way while already overlapping the footprint, it starts deploying from where it stands. If it stops without overlapping the footprint, the order fails (the Drone stops and idles). The Beacon always appears on the footprint the ghost showed, wherever the Drone ended up. (In practice a blocker on the footprint makes the site invalid anyway; the safety net only matters for a blocker just outside it.)
+
 ### Placement
 Beacon deployment follows the shared Worker-Built Structures placement rules (core/entities.md > Placement Validation > Worker-Built Structures): the Beacon's 2x2 footprint must be on Buildable, unoccupied tiles. The Deploy order may target any location, including territory hidden by fog of war, like any other building order; the Drone walks there (revealing the area on its way) and validates the site on arrival. If the site is invalid on arrival, the order is cancelled and the Drone stops and idles. There is no minimum spacing from other Beacons and no range limit from other Colonists buildings.
 
@@ -45,6 +47,9 @@ The player may cancel the deployment at any point before it completes. The trans
 ### Completion
 Once the 48 frames elapse, the transformation is final and one-way. The resulting Beacon can never revert back into a Drone.
 
+### While transforming: only Cancel
+(user, 2026-11-24) A Beacon under deployment and a building under Warp In show **only the Cancel command** in their CommandPanel (no rally point, no other commands). None of the building's functions (production, accepting deliveries, research, abilities) work until the transformation completes. Exception already covered elsewhere: a building under Warp In keeps providing its 5 Beacon Capacity (Warp In > Beacon Capacity Retention). Cancel's hotkey: **X** (Cancel Deployment / Cancel Warp In; user, 2026-11-24).
+
 ### Deploying with a load
 (user, 2026-11-24) A Drone carrying a load deploys without delivering it first. The load stays with the deploying object and is **lost when deployment completes**; on **cancel** the Drone returns still carrying it.
 
@@ -64,11 +69,33 @@ The Colonists' foundational structure, created when a Drone deploys into it (see
 ### FullArmor - 0
 ### SightRange - 4 grid units
 ### Destructible - true
-### Groupable - true
+### Groupable - false
+(user, 2026-11-24) A Beacon is used up by a Warp In, like a worker used up by a build, so each Beacon is its own SelectionGroup (systems/controls/selection_and_hud.md > SelectionGroup). With several Beacons selected, Warp In applies to the Beacon the player has Tabbed to.
 ### BeaconCapacity provided - 5
 ### SymmetryType - AAAA
 
-Full ObjectInterfaceState still TBD (presumably exposes the Warp In option — see Warp In below).
+### Beacon ObjectInterfaceState
+(user, 2026-11-24) Warp In has more buildings than fit one menu (14 buildings, 11 usable slots), so the Beacon has **two Warp In menus**, like the Deployment Center's two build menus. The split and the menu names are **provisional** (user: easy to reshuffle later).
+
+DefaultState:
+```
+[Q] Warp In (Basic)   [W] Warp In (Advanced)   [E] —   [R] —
+[A] —                 [S] —                    [D] —   [F] —
+[Z] —                 [X] —                    [C] —   [V] —
+```
+Warp In (Basic): economy and production
+```
+[Q] Egress Node     [W] Robo Portal       [E] Bio Portal      [R] —
+[A] Alloy Furnace   [S] Essence Refinery  [D] Flux Reactor    [F] —
+[Z] Back            [X] —                 [C] —               [V] —
+```
+Warp In (Advanced): tech and defense (each defense next to the building it requires)
+```
+[Q] Exophysics Engine   [W] Skylance            [E] Fusion Core          [R] Plasma Turret
+[A] Relay Array         [S] Navigation Spire    [D] Psionic Amplifier    [F] Structural Analyzer
+[Z] Back                [X] —                   [C] —                    [V] —
+```
+Choosing a building enters placement (Warp In > Warp In Command). Buildings whose costs are still TBD are shown but unavailable until defined.
 
 ## Warp In
 
@@ -79,6 +106,7 @@ Colonists build every structure other than the Beacon itself by warping it in di
 - Select the Warp In option
 - Select the desired building from the Beacon's Constructs list
 - The building's footprint is shown as a ghost overlay centered on the Beacon's location. The player may rotate the ghost in 90-degree increments and flip it horizontally/vertically before confirming (see core/entities.md > Structure Type)
+- **Odd-sized buildings** (user, 2026-11-24): a building with an odd width or height (e.g. the 3x3 Bio Portal) can't be exactly centred on the 2x2 Beacon; it covers the Beacon and sticks out one extra tile on one side. The ghost starts in a **fixed default position: the extra tiles to the bottom-right**. Rotating and flipping the ghost transforms it **around the Beacon's centre**, so the extra tiles move with it: a horizontal flip moves them to the left/right, a vertical flip to the top/bottom, a 90-degree rotation to the next corner. Every corner can be reached with either orientation of the building (rotation and flip combined), so the player chooses both the corner and the building's facing with the same keys.
 - All footprint tiles must be clear (Buildable, unoccupied), with the exception of the Beacon's own footprint, which will be consumed by the transformation. If the footprint is blocked elsewhere, the ghost is tinted red and placement cannot be confirmed; if clear, it is tinted green
 - Left-click confirms the footprint and begins the transformation. The Beacon is consumed and begins transforming in place into the selected building
 

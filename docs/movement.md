@@ -344,6 +344,10 @@ pass, and the grid's hot path no longer calls `floor`.
 Ground: hard, vs ground units and the NavGrid of its class. Underground: its own layer (G14). Air: no hard
 collision; soft separation is a velocity bias inside SeparationRadius (not M1). A filter
 `blocks(mover, other) -> bool` is the single place for exceptions (crushing later).
+**(H2)** Two exceptions since slice M3-H2 (design change 0106), both read off the two bodies, no pair state: two
+Drones on a Gather job don't block each other; and two units whose boxes already overlap as the mover's turn
+begins ignore each other until they are apart, with no push-apart (`ARCHITECTURE.md > Movement and collision >
+Collision exceptions`).
 **(G)** A cell also notes the **kinds** of unit listed in it since the grid was built: the 45° sector of each
 one's heading, and whether it yields (`Body::kinds`, `Layer::near_any`). A mark is never taken back within the
 tick, so it means "maybe": lane seeking (6.3) asks the marks first and looks at the bodies only where a unit
@@ -515,7 +519,9 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
 - **Waiting behind a unit that is getting on is progress.** A unit blocked by one that has a goal takes over that
   unit's `last_progress` if it is later. A queue at a choke isn't stuck while its head moves; units that block each
   other for good share a clock that stands still. Without it, 20 units at a one-tile choke burnt their repaths
-  waiting their turn and failed.
+  waiting their turn and failed. **(H2)** Only the clock of a unit that has got on since its leg began is taken
+  over (`stuck::leads`): a new leg sets a unit's own clock and is no progress, so a blocked unit sent again and
+  again no longer keeps those behind it from looking for a way round.
 - **A new path is no progress.** Its first measure only sets `best_remaining`; **(Y)** and nothing else restarts
   the stuck clock (5.6).
 - **Grace.** A unit due for a repath or for giving up that touches no unit in that tick (it just stepped around
@@ -602,7 +608,9 @@ own turn of phase 5d.
   tiles (closed set); a straight open-map path smooths to two waypoints (no zigzag); same call twice gives the same
   path; an unreachable goal costs 0 expansions and returns the nearest reachable tile; LOS against hand-drawn corners.
 - **Invariants**, checked after every tick by a `TestSim` switch, in every scenario test:
-  I1 no two units of a layer overlap; I2 no ground box overlaps a blocked tile or leaves the map;
+  I1 no two units of a layer overlap (**(H2)** except two Drones on a Gather job, and two units that already
+  overlapped a tick earlier, until they are apart: design change 0106); I2 no ground box overlaps a blocked tile or
+  leaves the map;
   I3 `|pos − prev_pos| ≤ max_speed`; I4 all floats finite; I5 a unit with no goal doesn't move;
   I6 repaths per order ≤ `MAX_REPATHS`, request age bounded; I7 an `Arrived` unit never moves again without an order.
   **(Y)** I5 and I7 allow the one exception of 6.6: a unit without a goal may move while it has a `Mover::sidestep`,

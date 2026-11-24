@@ -15,7 +15,8 @@ The Colonists' worker unit. Gathers Space Crystals and deploys into Beacons (see
 ### FullArmor - 0
 ### SightRange - 5 grid units
 ### Destructible - true
-### Groupable - false
+### Groupable - true
+(user, 2026-11-24; was false) Bulk commands (Move, Stop, Set Drop-off) reach every selected Drone; a Deploy goes to one Drone only (systems/controls/selection_and_hud.md > SelectionGroup > Groupable workers used up by a build).
 ### BeaconCapacityCost - 1
 
 With 5 BeaconCapacity per Beacon and the Drone's own 1 freed when it starts deploying, each Beacon is a net +6: beyond the starting 10 BeaconCapacity, roughly every 6th Drone must deploy as a Beacon to keep Drone production going.
@@ -53,6 +54,7 @@ Feeding and hauling are separate jobs — the player assigns different Drones to
 
 #### Gathering Drones pass through each other
 (user, 2026-11-24) A Drone **on a Gather job** does not collide with any other Drone on a Gather job, **of any player**. "On a Gather job" covers every step of the jobs in the table above: travelling to the pick-up point, mining or picking up, waiting at an occupied patch, carrying the load and delivering it.
+- **Drop Off orders count for collision too** (user, 2026-11-24): a Drone on an explicit Drop Off order passes through gathering Drones (and they through it) on its way to deliver, since it makes the same trip. This affects collision only; the order itself is not a Gather (see Drop Off order).
 - They still collide with everything else: other units, Drones that are not on a Gather job (idle, moving, deploying), structures, patches and terrain.
 - **Drones only.** Other factions' workers (e.g. Cults Recruits) keep normal collision while mining.
 - Reason: at saturation about 24 Drones work the narrow strip between a patch row and its Egress Node, and the returning Drones converge on one node. With hard collision they would queue and jam, and the Colonists' income targets assume patch occupancy is the only limit (factions/gdo/economy.md > Economy Targets (GDO vs Colonists)).
@@ -64,6 +66,16 @@ A Space Crystals patch can be mined by **only one Drone at a time**, from **any 
 This rule applies to Drones only. Other factions' workers are not limited by it: they ignore Drones on a patch, and Drones ignore them.
 
 When a Drone arrives at an occupied patch, it goes to the **nearest unoccupied patch to itself** instead. If no patch is unoccupied, it **waits** at the current patch and mines as soon as it frees up.
+
+**Search radius** (user, 2026-11-24): a Drone only looks for another patch **within a radius around itself**. This radius is an internal per-unit stat of the Drone (stat name TBD). Value: **6 grid units (placeholder)**. Which patches count within it (e.g. only ones the player knows): TBD (Q0037 point 5).
+
+#### Drop Off order
+(user, 2026-11-24) An explicit **Drop Off** (right-click an own Egress Node or accepting refinery while carrying) is **only a delivery**, not a Gather: the Drone delivers its load and the order is **complete**. It then starts its next queued order (e.g. a Shift-queued build), or with nothing queued **becomes idle** at the drop-off point; it does not walk back to its patch. (If Drop Off counted as a Gather, an order Shift-queued behind it would wait until the field is mined out.)
+
+#### When a Gather ends
+(user, 2026-11-24) A Gather order normally never ends: the Drone repeats its trip. It **ends on its own** only when the Drone runs out of crystals to mine: its patch is gone and no patch is left within its search radius. It first **delivers any load** it carries, then becomes idle (or starts its next queued order).
+
+**Orders Shift-queued behind a Gather** wait until the Gather has ended this way, e.g. "mine this field out, then move to X". A Drone waiting at an occupied patch is still gathering. A Shift-queued Deploy behind a Gather therefore means "deploy once the field is mined out"; the user expects players rarely to do this. (Rejected: starting the queued order after the next drop-off, or after the current mining/delivery half of the trip, which could send the Drone off holding a load.)
 
 Consequence: one patch yields at most 8 crystals per 32 frames (4 Space Crystals per second) from Drones. A patch saturates at roughly (round-trip time ÷ 2 seconds) Drones, since each Drone occupies it for 2 of its trip's seconds: about 1 Drone for a patch adjacent to the drop-off, about 2 at 2 grid units, about 2.5 at 3 grid units (ignoring acceleration; slightly more once Drone acceleration is accounted for). Example: 8 patches in a row with the Egress Node 2 grid units from the row (edge to edge, centred on the long side; factions/gdo/economy.md > Economy Targets (GDO vs Colonists)) saturate at roughly 18–22 working Drones.
 
@@ -84,6 +96,14 @@ Drones can deploy into a Beacon (see Beacon Deployment above). This transformati
 ### Drone ObjectInterfaceState
 
 #### DefaultState commands:
+(Layout confirmed by user, 2026-11-24. No Hold Position, Patrol or Attack.)
+```
+[Q] Move     [W] —                 [E] —   [R] —
+[A] Deploy   [S] Set Drop-off      [D] —   [F] —
+[Z] —        [X] Stop              [C] —   [V] —
+```
+- **Q: Move** — as in BasicCombatUnitInterfaceState.
+- **X: Stop** — as in BasicCombatUnitInterfaceState.
 - **A: Deploy** — enters AwaitingPlacement for a Beacon (StateOnlyTransition). Ghost preview follows cursor, snapped to grid, tinted green when valid / red when invalid (no minimum spacing from other Beacons). Left-click valid location confirms placement and dispatches the Drone (CommandIssuingTransition, returns to DefaultState). Escape/right-click cancels back to DefaultState.
 - **S: Set Drop-off Location** — enters AwaitingTarget[SetDropOffLocation] (StateOnlyTransition). Left-click an Egress Node or own refinery sets it as the selected Drone(s)' AssignedDropOff (CommandIssuingTransition, returns to DefaultState). Does not interrupt current mining/movement — only updates AssignedDropOff (see Assigned Drop-off above). Escape/right-click cancels back to DefaultState.
 
@@ -103,7 +123,7 @@ Drones can deploy into a Beacon (see Beacon Deployment above). This transformati
 - Enemy or other object → Move to that object's location (Drone is unarmed and cannot attack)
 - Ground → Move
 
-Multiple Drones can be selected simultaneously. Right-click commands are issued to all selected Drones even though the Drone is ungroupable (no shared control panel — the panel displays one Drone's interface).
+Multiple Drones can be selected simultaneously and form one SelectionGroup (Groupable). Right-click commands and Set Drop-off go to every selected Drone; Deploy goes to one Drone (first in selection order without a Deploy; see Groupable above).
 
 ## Scout
 
