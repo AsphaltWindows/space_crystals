@@ -582,7 +582,7 @@ First playable after M2-H2.
     | H2 (0106) | done (`777b9a9`) |
     | G | running (wave 3) |
     | F | running (wave 3) |
-    | H3 (next free slot; gather rules 0123 and 0127–0133) | queued |
+    | H3 (next free slot; gather rules 0123 and 0127–0134) | queued |
     | J1, J2, K1, K2 | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
@@ -644,18 +644,18 @@ First playable after M2-H2.
 | Q0034 | Should an enemy plate's InfoPanel show its patch's remaining crystals? | no | open; M2-G shows it to everyone |
 | Q0035 | Rally point UI: Shift with rally targeting, rallying on one of several selected Barracks, feedback when pressing an unavailable command | no | open; M2-H1 built the stated current behaviour |
 | Q0036 | End of game edge cases: simultaneous last defeats, free-for-all spectating, a raised Riot Shield on defeat | no | open; M2-F2 built the stated current behaviour |
-| Q0037 | Drone gathering: the cases the loop doesn't define (13 points) | no | points 1–6 and 12 answered by 0123 and 0127–0133; others open, M3-H built the proposals |
+| Q0037 | Drone gathering: the cases the loop doesn't define (13 points) | no | points 1–7 and 12 answered by 0123 and 0127–0134; others open, M3-H built the proposals |
 | Q0038 | Gathering Drones, collision and the economy targets | was yes | answered by 0106 (pass-through), 0107 (geometry), 0108 (±15%) |
 | Q0039 | Beacon Deployment and Warp In: what the transforming object is | no (answer before M3-F) | answered by 0109–0116 |
 | Q0040 | Deploy and Warp In placement, and the Colonists panels | no | answered by 0117–0125 |
 | Q0041 | Portal exits and Beacon Capacity | no | open |
 | Q0042 | Shields, melee range and Weapon Conversion | no | open |
 | Q0043 | M3 scope: the Colonists content left TBD (FYI) | no | open |
-| Q0044 | Gathering details from the build: fog, plates, empty Drop Off, blocked Drones, redirect timing, the Egress Node's sight | no | open; M3-H built the stated current behaviour |
+| Q0044 | Gathering details from the build: fog, plates, empty Drop Off, blocked Drones, redirect timing, the Egress Node's sight | no | point 5 answered by 0134; others open; M3-H built the stated current behaviour |
 | Q0045 | Pass-through details: idle units left stacked, and the Drop Off order | no | answered by 0126 and 0127 |
 
 ## Design change entries
-Last triaged: 0133.
+Last triaged: 0134.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -786,4 +786,5 @@ Last triaged: 0133.
 | 0131 The patch search counts only known patches not under a structure | mostly built (M3-H: seen or remembered, not under a structure); queued (M3-H3: centre on the Drone per 0123, confirm with tests) | answers Q0037 point 5 |
 | 0132 A waiting Drone waits at the patch it tried, re-checks every 16 frames, and returns to the patch it last mined | queued (M3-H3) | answers Q0037 point 6 in part |
 | 0133 Which waiting Drone gets a freed patch is the implementation's choice, kept deterministic | queued (M3-H3) | answers Q0037 point 6 |
+| 0134 A depleted patch counts as occupied; Drones walking to it search on arrival | queued (M3-H3; replaces M3-H's immediate redirect) | answers Q0037 point 7 and Q0044 point 5 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
