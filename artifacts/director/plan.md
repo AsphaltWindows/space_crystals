@@ -248,6 +248,11 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - 5×5 Guard crowds;
   - F2 in playback;
   - goldens re-blessed once, with every change explained.
+- **M1-H3 command UI follow-ups** (Opus; brief `scratchpad/briefs/m1h3-command-ui-followups.md`):
+  - Shift keeps targeting active (0070);
+  - an audit that panel commands go to the whole ActiveGroup (0071);
+  - a 16 px click allowance while targeting (0073);
+  - shielded Peacekeepers follow on right-click (0074).
 - **Next**:
   - Then the M1 wrap-up: ask the user to playtest, and plan M2 with the Designer's current docs.
 
@@ -269,6 +274,7 @@ The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, th
 | E Behaviours | chase (fog: 0034), auto-target and leashes, AttackMove, Patrol (0036/0037), Hold, Stop, Follow and proximity (0032/0033), edge-to-edge range (0031), gate visibility | done (`aa5a05f`) | Fable |
 | S2 Selection follow-ups | 0048–0056 | done (`f35f0f0`) | Opus |
 | H2 Command UI follow-ups | right-click per unit (0062/0063), Mixed pointer, Attack targeting on own or neutral objects (0064), invalid-click feedback (0065), targeting rules (0066–0069), shield interplay (Q0020) | done (`2417f70`) | Opus |
+| H3 Command UI follow-ups 2 | Shift keeps targeting (0070), no smart-casting audit (0071), 16 px targeting allowance (0073), shielded units follow (0074) | running | Opus |
 | R Riot Shield | the Peacekeeper's toggled ability, end to end | done (`9aa41b6`) | Opus |
 | Q Queued group destinations | 0029/0030 | done (`bb867a5`) | Opus |
 | F Fog memory | last-known structures and resources, Explored selection, hit flash from the fog | done (`167d683`) | Opus |
@@ -299,6 +305,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 - **buildings**: Deployment Center, Generator, Barracks, Engineering Facility, plates; power; unit control; build area
 - **placement**: ghost with rotate/flip; the **flatness rule** (every footprint tile flat, for Direct Placement, Worker-Built on arrival and Warp In; 0004)
 - **production**: queues and rally points; crystal harvesting; defeat conditions
+- **placement and Shift (0071)**: placement never moves on to another worker by itself. A GDO Shift-click places once and leaves placement, like a plain click.
 - **path knowledge** (0040/0041): paths planned from each player's knowledge. Terrain and own structures are always known; others' structures once seen; remembered ones are walls; units re-route on discovery. Built on M1-F's last-known records. Patch depletion reopens tiles (0038).
 - **GDO supplies**: Supply Tower, Chopper
 - **Starting Conditions and Starting Layouts** (0008, 0009, 0012):
@@ -312,6 +319,8 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 - **M3 Colonists**: Drone, Beacon, Warp In, Egress Node, portals, Legionnaires, shields.
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
+  - Recruits are Groupable: every selected Recruit builds (0072).
+  - Shift-placement queues build orders while Shift is held, with the cost paid per order (0071).
 
 ### Later
 - **Vehicles**, turrets, air, area damage, research. The vehicles milestone starts with the movement model from 0033 (rotating silhouettes, oriented collision, turning near obstacles), 0035 (acceleration and collision response), 0039 (Rugged passability per base, hover drag), and tracked maneuver data. The Factory's Artillery Rig and Prospector need Advanced Mechanics (0001). GDO air (0014): limited ammo with rearming at an Airfield; at most 4 aircraft per Airfield; Air-to-Ground Hovercraft and Air-to-Air Fighter (needs Propulsion Labs).
@@ -347,15 +356,15 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0013 | Selection edge cases: ungroupables, allies, modified clicks, empty ground, InfoPanel for 2+ objects, control groups | no | answered by 0048–0058 |
 | Q0014 | Combat edge cases: force-attacking own or neutral objects, a shot whose target dies mid-Firing, Rugged for units across tiles | no | answered by 0059–0061 (all as built) |
 | Q0015 | Magic box meets yielding (converging groups), box from footprints vs centres, Shift-queued group moves | no | answered by 0027, 0028 and 0029 |
-| Q0016 | Command UI edge cases: who carries out a right-click, invalid targets, input while targeting, Shift keeps targeting | no | points 1–3 answered by 0062–0069 (H2); point 4 (Shift keeps targeting) open |
+| Q0016 | Command UI edge cases: who carries out a right-click, invalid targets, input while targeting, Shift keeps targeting | no | answered by 0062–0070 (H2 and H3) |
 | Q0017 | Fog: shots from hidden attackers (hit flash vs. a partial tracer); targeting remembered structures | no | open; F and E build the stated defaults |
 | Q0018 | Behaviour gaps: sight-edge flicker, rotation in target priority, AttackMove leash reference, unreachable auto-targets, MinRange, walled-out spots | no | open; E built the stated defaults |
 | Q0019 | A remembered station's delivery countdown: keep counting or freeze | no | answered by 0057: GDO sees the real timer (folded into G2) |
-| Q0020 | Riot Shield: shield Move vs 0062 Follow, transitions, raising mid-shot, mixed groups, toggle time and hotkey | no | open; R built the stated defaults |
-| Q0021 | Targeting click details: drift during a targeting click, shielded units in Attack targeting, recalling the same group | no | open; H2 built the stated current behaviour |
+| Q0020 | Riot Shield: shield Move vs 0062 Follow, transitions, raising mid-shot, mixed groups, toggle time and hotkey | no | point 1 answered by 0074 (Follow wins; H3); points 2–5 open (R built the stated defaults) |
+| Q0021 | Targeting click details: drift during a targeting click, shielded units in Attack targeting, recalling the same group | no | point 1 answered by 0073 (H3); points 2–3 open. Point 2's default became "follow" with 0074 (updated in the question) |
 
 ## Design change entries
-Last triaged: 0069.
+Last triaged: 0074.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -422,4 +431,9 @@ Last triaged: 0069.
 | 0067 Box-drag while targeting does nothing | done (M1-H2, `2417f70`) | matches the build |
 | 0068 Targeting clicks count at the press point | done (M1-H2, `2417f70`) | |
 | 0069 Selection changes while targeting: player changes cancel, deaths don't | done (M1-H2, `2417f70`) | Q0016 point 3 complete |
+| 0070 Shift keeps targeting active while held | in progress (M1-H3) | Q0016 complete; Shift released before any click: targeting continues (proposed default) |
+| 0071 No smart-casting; Shift while placing | in progress (M1-H3: panel-command audit); placement part queued (M2 construction UI: GDO leaves placement after the click; Recruit Shift-queue: M5) | |
+| 0072 Recruits are Groupable | queued (M5 Cults) | |
+| 0073 Targeting click allowance (16 px) | in progress (M1-H3) | answers Q0021 point 1 |
+| 0074 Shielded Peacekeepers follow on right-click | in progress (M1-H3) | answers Q0020 point 1; replaces the Move-to-location default |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

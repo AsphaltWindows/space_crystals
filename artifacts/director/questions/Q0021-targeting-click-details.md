@@ -20,3 +20,8 @@ These came up while building the targeting updates (M1-H2). Point 1 is the most 
 - **Point 1:** A, any press counts as a click at the press point; B, the drag rule with a larger allowance; C, the current 4-pixel rule.
 - **Point 2:** A, shielded units move (current); B, shielded units are left out of the order.
 - **Point 3:** A, only an actual change cancels (current); B, any recall cancels.
+
+## Update (2026-11-24)
+- **Point 1** is answered by 0073.
+- **Point 2.** After 0074, shielded units that are right-clicked onto an enemy unit follow it. Attack targeting uses the same rule, so after M1-H3, pressing A and clicking an enemy unit makes shielded units follow it while the others attack. That replaces "move to the clicked spot". The options for point 2 are now: A, shielded units follow (current); B, shielded units are left out of the order.
+- **Point 3** is unchanged.
