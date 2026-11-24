@@ -3,8 +3,8 @@
 //! `> Interrupted mining`, `> Other orders keep the load`, `> Gather while carrying a load`, `> Drop Off order`,
 //! `> When a Gather ends`, `> Assigned Drop-off`): one test per Verification point of design changes 0123, 0127 to
 //! 0135, 0137, 0140 and 0141 that `gathering.rs` doesn't already cover, one test binary:
-//! - `ends`: when a Gather ends (0123), what follows a Drop Off (0127), a patch that runs out under a Drone on its
-//!   way (0134);
+//! - `ends`: when a Gather ends (0123), a Deploy queued behind a Drop Off (0127), a patch that runs out under a
+//!   Drone on its way (0134);
 //! - `loads`: Gather while carrying (0128), other orders keep the load (0129), the Drop Off of a mixed group (0140);
 //! - `waiting`: waiting at a crowded patch and re-checking, returning to the last mined patch (0132), which waiting
 //!   Drone mines next (0133);

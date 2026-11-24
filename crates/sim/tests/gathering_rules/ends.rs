@@ -1,5 +1,8 @@
-//! When a Gather ends (design change 0123), what follows a Drop Off (0127), and a patch that runs out while a Drone
-//! is on its way to it (0134).
+//! When a Gather ends (design change 0123), a Deploy queued behind a Drop Off (0127), and a patch that runs out
+//! while a Drone is on its way to it (0134).
+
+use sc_sim::Faction;
+use sc_sim::deploy;
 
 use super::*;
 
@@ -65,29 +68,32 @@ fn with_the_next_patch_8_grid_units_away_the_drones_deliver_and_idle() {
 }
 
 /// Design change 0127 (its Verification: "Right-click the node, then Shift-place a Beacon: after delivering it goes
-/// to deploy"; the Deploy is slice M3-F's, so a Move stands in for it here): a Drop Off is only a delivery, and the
-/// order queued behind it starts once the load is in.
+/// to deploy"): a Drop Off is only a delivery, and the Deploy queued behind it (slice M3-F) starts once the load is
+/// in.
 #[test]
-fn an_order_queued_behind_a_drop_off_starts_once_the_load_is_delivered() {
-    // Patch 1, node 2, Drone 3.
+fn a_deploy_queued_behind_a_drop_off_starts_once_the_load_is_delivered() {
+    // Patch 1, node 2, Drone 3; the Beacon's site east of the node, in its sight.
+    let site = TilePos::new(9, 5);
     let mut t = flat(16, 10)
+        .faction(P1, Faction::Colonists)
         .spawn(PATCH, None, tile(5, 2))
         .spawn(NODE, Some(P1), tile(5, 5))
         .spawn(DRONE, Some(P1), centre(5, 4))
         .start();
     gather(&mut t, 1, P1, &[3], 1);
     let loaded = run_to(&mut t, 100, "it carries a load", |t| load(t, 3) == LOAD);
-    let away = move_to(800.0, 300.0);
+    let deploy = OrderKind::Deploy { origin: site };
     t.order_at(loaded + 1, P1, &[id(3)], OrderKind::DropOff(id(2)), false);
-    t.order_at(loaded + 1, P1, &[id(3)], away, true);
+    t.order_at(loaded + 1, P1, &[id(3)], deploy, true);
     t.run_until(loaded + 1);
     assert_eq!(order(&t, 3), Some(OrderKind::DropOff(id(2))));
-    assert_eq!(queued(&t, 3), [away]);
+    assert_eq!(queued(&t, 3), [deploy], "the gate let the Deploy through");
     run_to(&mut t, 100, "delivered", |t| !deliveries(t).is_empty());
+    assert_eq!(bank(&t, P1), BANK + LOAD);
     t.step();
-    assert_eq!(order(&t, 3), Some(away), "the queued order started");
-    run_to(&mut t, 100, "it arrived", |t| order(t, 3).is_none());
-    assert_eq!(object(&t, 3).pos, Vec2::new(800.0, 300.0));
+    assert_eq!(order(&t, 3), Some(deploy), "the queued Deploy started");
+    run_to(&mut t, 200, "it deploys", |t| object(t, 3).kind == ObjectKind::Beacon);
+    assert_eq!(object(&t, 3).placement, Some(deploy::site(site)), "on its site");
     assert_eq!(
         (deliveries(&t).len(), remaining(&t, 1)),
         (1, 1500 - LOAD),
