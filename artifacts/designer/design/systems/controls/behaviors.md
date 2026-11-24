@@ -135,6 +135,7 @@ Base behavior for attacking a destructible object instance. The unit moves towar
    - Begin attack sequence on BaseAttackChannel (infantry) or set TurretCommandState.LockedTarget = TargetObject (turret units)
 4. If target moves out of range or arc: resume MovingToObject toward TargetObject
 5. If target is destroyed: behavior complete
+6. **Target lost from vision** (user, 2026-11-23): if TargetObject is no longer visible to the unit's owner (it went into the fog of war), the unit moves to the target's **last seen position** (MovingToLocation) and the behavior completes there. It does not track the target's real position through fog. Once stopped it is idle, and normal idle auto-targeting (Idle behavior, with IdleLeashDistance) applies if the enemy is visible again.
 
 ### GliderMovement exception:
 Gliders cannot stop. Instead of stopping when in range, the Glider performs strafing runs:
