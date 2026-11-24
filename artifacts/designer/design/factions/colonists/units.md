@@ -65,6 +65,13 @@ This rule applies to Drones only. Other factions' workers are not limited by it:
 
 When a Drone arrives at an occupied patch, it goes to the **nearest unoccupied patch to itself** instead. If no patch is unoccupied, it **waits** at the current patch and mines as soon as it frees up.
 
+**Search radius** (user, 2026-11-24): a Drone only looks for another patch **within a radius around itself**. This radius is an internal per-unit stat of the Drone (stat name TBD). Value: **6 grid units (placeholder)**. Which patches count within it (e.g. only ones the player knows): TBD (Q0037 point 5).
+
+#### When a Gather ends
+(user, 2026-11-24) A Gather order normally never ends: the Drone repeats its trip. It **ends on its own** only when the Drone runs out of crystals to mine: its patch is gone and no patch is left within its search radius. It first **delivers any load** it carries, then becomes idle (or starts its next queued order).
+
+**Orders Shift-queued behind a Gather** wait until the Gather has ended this way, e.g. "mine this field out, then move to X". A Drone waiting at an occupied patch is still gathering. A Shift-queued Deploy behind a Gather therefore means "deploy once the field is mined out"; the user expects players rarely to do this. (Rejected: starting the queued order after the next drop-off, or after the current mining/delivery half of the trip, which could send the Drone off holding a load.)
+
 Consequence: one patch yields at most 8 crystals per 32 frames (4 Space Crystals per second) from Drones. A patch saturates at roughly (round-trip time ÷ 2 seconds) Drones, since each Drone occupies it for 2 of its trip's seconds: about 1 Drone for a patch adjacent to the drop-off, about 2 at 2 grid units, about 2.5 at 3 grid units (ignoring acceleration; slightly more once Drone acceleration is accounted for). Example: 8 patches in a row with the Egress Node 2 grid units from the row (edge to edge, centred on the long side; factions/gdo/economy.md > Economy Targets (GDO vs Colonists)) saturate at roughly 18–22 working Drones.
 
 #### Waiting at a Full Refinery
