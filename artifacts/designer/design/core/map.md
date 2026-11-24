@@ -126,5 +126,5 @@ All three of the following are **set per station in the map editor** (user, 2026
 
 ### InfoPanel:
 - **Visible** (any player): displays DeliverySize, DeliveryInterval, NextDeliveryTime, CurrentSupplies
-- **Explored** (GDO player only): displays DeliverySize, DeliveryInterval and the **live, true** NextDeliveryTime (CurrentSupplies is hidden). NextDeliveryTime is not frozen at the last sighting and not extrapolated: the GDO always knows the real delivery schedule (core/vision.md > Explored Selectability). When the station is not empty, no countdown is running, and the panel shows that no delivery is scheduled.
+- **Explored** (GDO player only): displays DeliverySize, DeliveryInterval and the **live, true** NextDeliveryTime (CurrentSupplies is hidden). NextDeliveryTime is not frozen at the last sighting and not extrapolated: the GDO always knows the real delivery schedule (core/vision.md > Explored Selectability). When the station is not empty, no countdown is running, and the panel shows that no delivery is scheduled. Intended side effect (user, 2026-11-23): a GDO player watching a fogged station sees its countdown start the moment someone empties it. That intel is deliberate.
 - **Explored** (non-GDO player) / **Unexplored**: not selectable, no InfoPanel

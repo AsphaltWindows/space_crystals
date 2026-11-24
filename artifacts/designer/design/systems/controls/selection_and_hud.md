@@ -34,6 +34,8 @@ When the player drags a selection box, the objects captured are filtered by a 5-
 4. Enemy buildings — single-select: the enemy building closest to the box center
 5. Neutral objects — single-select: the neutral object closest to the box center
 
+**Allied objects** (once teams exist) are other players' objects and are never multi-selected (user, 2026-11-23). For the priority tiers they are treated like enemy objects (placeholder until teams are designed).
+
 Only tier 1 (own units) produces a multi-selection. All other tiers select exactly one object — the one closest to the center of the box.
 
 ### Shift + box (add)
