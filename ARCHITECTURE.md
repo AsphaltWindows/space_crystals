@@ -372,9 +372,9 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   pick. Every unit decides on the same world, whatever its id. `World::pick` is the scan of `> BaseAutoTargeting >
   Target Selection Priority`: among the ValidTargets in reach (enemies only: another player's destructible objects
   that the unit's owner sees and its attack can target), threatening ones first, then the least rotation from the
-  unit's facing, then the smallest gap, then the lowest id. Structures can't attack, so enemy structures come after
-  the targets that shoot back; that units pick them on their own at all is question Q0030 point 1's default, a
-  placeholder. The grid holds candidates by their centres, so a scan looks as far as the unit's longest range with
+  unit's facing, then the smallest gap, then the lowest id. Enemy structures are ValidTargets too (design change
+  0103), so units attack enemy bases on their own; the structures that can't attack come after the targets that
+  shoot back. The grid holds candidates by their centres, so a scan looks as far as the unit's longest range with
   the modifier, plus its own half size and the largest candidate's (`World::candidate_half`): a footprint in reach
   is found however far its centre lies.
 - **AttackingObject** (`orders/engage.rs`): `close_in` is its core, shared by all fighting. In range (`combat::
@@ -708,8 +708,8 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   rotate and flip it and its sides, ground units walking around a footprint, PointArmor on hits, a destroyed
   Generator freeing its tiles, debug spawns kept apart but for a plate on its patch, flat ground, the optional
   orientation in files) and `structures_vision.rs` (each type's sight, the ElevationModifier, an enemy Barracks
-  remembered in the fog, a plate on a patch in maps and layouts, the targets that shoot back first, a scan reaching
-  a large footprint by its edge).
+  remembered in the fog, a plate on a patch in maps and layouts, the targets that shoot back first, idle and on an
+  AttackMove, a scan reaching a large footprint by its edge).
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
   checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is

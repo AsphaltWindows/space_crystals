@@ -262,9 +262,9 @@ impl<'a> World<'a> {
     /// 2. then the **least rotation** from the unit's facing (the turret's, once turrets have state);
     /// 3. then the **closest** (the gap between the shapes), and the lowest id.
     ///
-    /// Structures have no attack, so enemy structures come after the targets that can shoot back. That they are
-    /// picked at all is question Q0030 point 1, its default until answered (a placeholder): ValidTarget's first
-    /// condition is "a Destructible ObjectInstance", so units attack enemy buildings on their own.
+    /// Enemy structures are ValidTargets too (`systems/combat.md > ValidTarget`, design change 0103), so units
+    /// attack enemy buildings on their own; those that can't attack (all of them, so far) are non-threatening, and
+    /// come after the targets that can shoot back.
     ///
     /// Nothing while auto-targeting is off (`DebugCommand::SetAutoTargeting`).
     ///

@@ -1,14 +1,14 @@
 //! The GDO structures in sight and in mind (slice M2-A): they are sight sources with the ElevationModifier
 //! (`core/vision.md`), enemies remember them in the fog (`> Explored`), a plate shares its tile with the patch it is
 //! placed onto (`factions/gdo/economy.md > ExtractionPlate`) and nothing else overlaps (design change 0096), and
-//! units attack enemy structures on their own, after the targets that shoot back. `TestSim` checks the invariants
-//! after every tick, the vision invariant V1 included.
+//! units attack enemy structures on their own, after the targets that shoot back (design change 0103). `TestSim`
+//! checks the invariants after every tick, the vision invariant V1 included.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::vision::PlayerVision;
 use sc_sim::{
-    DebugCommand, Faction, LayoutObject, ObjectId, ObjectKind, PlayerId, ScenarioProblem, SlotId, Spawn, SpawnAt,
-    TilePos, Vec2, VisibilityState, gu,
+    DebugCommand, Faction, LayoutObject, ObjectId, ObjectKind, OrderKind, PlayerId, ScenarioProblem, SimEvent, SlotId,
+    Spawn, SpawnAt, Tick, TilePos, Vec2, VisibilityState, gu,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -253,8 +253,8 @@ fn only_a_plate_may_cover_a_resource() {
 
 /// `systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`: an idle unit takes the enemy
 /// that can shoot back first, though an enemy Generator lies closer and straight ahead; then it attacks the
-/// Generator on its own. That units attack enemy buildings at all is question Q0030 point 1's default, a
-/// placeholder until it is answered (`World::pick`).
+/// Generator on its own (design change 0103: enemy structures are ValidTargets, non-threatening while they can't
+/// attack; its verification 2).
 #[test]
 fn targets_that_shoot_back_come_first() {
     let mut t = ScenarioBuilder::new(&flat(16, 12))
@@ -266,6 +266,59 @@ fn targets_that_shoot_back_come_first() {
     assert_eq!(target(&t, 1), Some(ObjectId(3)));
     t.debug_at(4, DebugCommand::Remove { id: ObjectId(3) }).run_until(8);
     assert_eq!(target(&t, 1), Some(ObjectId(2)));
+}
+
+/// Design change 0103's verification 1: Peacekeepers on an AttackMove into an enemy base defended by a Peacekeeper
+/// shoot the defender first, then the buildings, and go on to their destination.
+#[test]
+fn an_attack_move_takes_the_defender_first_then_the_buildings() {
+    let mut t = ScenarioBuilder::new(&flat(24, 12))
+        .spawn(ObjectKind::Generator, Some(P2), tile(15, 5)) // 1: (15, 5) to (16, 6)
+        .spawn(PK, Some(P2), SpawnAt::Point(centre(12, 6))) // 2: the defender, in front of it
+        .spawn(PK, Some(P1), SpawnAt::Point(centre(3, 5))) // 3
+        .spawn(PK, Some(P1), SpawnAt::Point(centre(3, 7))) // 4
+        .start();
+    let destination = centre(21, 6);
+    t.order_at(
+        1,
+        P1,
+        &[ObjectId(3), ObjectId(4)],
+        OrderKind::AttackMove(destination),
+        false,
+    );
+    t.run_until(1000);
+    let died = |id: u32| {
+        let tick = t.events().iter().find_map(|(tick, e)| match e {
+            SimEvent::Died { id: dead, .. } if *dead == ObjectId(id) => Some(*tick),
+            _ => None,
+        });
+        tick.unwrap_or_else(|| panic!("{id} is destroyed"))
+    };
+    let (defender, generator) = (died(2), died(1));
+    let hits_on = |target: u32| -> Vec<Tick> {
+        let by_attackers = |attacker: &ObjectId| [ObjectId(3), ObjectId(4)].contains(attacker);
+        t.events()
+            .iter()
+            .filter_map(|(tick, e)| match e {
+                SimEvent::Hit {
+                    attacker, target: hit, ..
+                } if by_attackers(attacker) && *hit == ObjectId(target) => Some(*tick),
+                _ => None,
+            })
+            .collect()
+    };
+    assert!(!hits_on(2).is_empty());
+    let first_on_generator = hits_on(1)[0];
+    assert!(
+        defender < first_on_generator && first_on_generator < generator,
+        "{defender}, {first_on_generator}"
+    );
+    // Each at its own place of the group's destination (the magic box keeps their offsets), done.
+    for id in [3, 4] {
+        let unit = object(&t, id);
+        assert!(unit.orders.as_ref().unwrap().is_idle(), "{id} is done");
+        assert!(unit.pos.distance(destination) <= gu(1.0), "{id} at {}", unit.pos);
+    }
 }
 
 /// 20 × 10 tiles: level 1 up to corner column 8, level 0 from column 9 on (column 8 is the ramp).
