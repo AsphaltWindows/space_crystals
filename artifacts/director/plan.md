@@ -289,12 +289,18 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Tests.** 0098 v1–v2, 0099 v1–v2, 0042 v2 (a depletion in the fog), 0089, 0090 and 0077 are verified.
   - **Goldens.** Re-blessed, because banks and extractors are now hashed. Play is identical.
 
+- **M2-G HUD** (merged in `69e80a1`; 767 tests; client only):
+  - **Resource bar** (`hud/resources.rs`): Space Crystals, Supplies, Power as consumed/generated (red when over), and Unit Control through `Sim::unit_control`. The top bar has three columns.
+  - **Structure InfoPanels** (0105):
+    - own: name, HP and an activity area, filled by `hud/info_panel/activity.rs::lines`, which is the hook for H1 and H2;
+    - others: name, owner and HP;
+    - a plate also shows its patch's crystals (0099), to every viewer; see Q0034.
+
 ## In progress
 - **M2 wave 3** (common brief `scratchpad/briefs/m2-w3-common.md`, plus one brief per slice):
   - **M2-D1 construction** (Opus);
   - **M2-D2 production** (Fable): queue, Unit Control, rally point, exit doorway;
   - **M2-F1 game start** (Opus): Starting Conditions, layout rules, `dev_skirmish` GDO layouts, camera;
-  - **M2-G HUD** (Opus): resources bar, structure InfoPanels.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2-B, M2-C and M2-E** together after M2-A.
@@ -384,7 +390,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | M2-D2 | Production: Barracks queue, rally point, exit spawn, Unit Control | B | Fable (exit doorway: a unit overlapping its producer, the collision exception, invariants) | running |
 | M2-F1 | Game start: Starting Conditions, layout rules (restriction, completeness, outdated), game-start banks, camera on the DC, the `dev_skirmish` GDO layouts | B, C | Opus | running |
 | M2-F2 | Game end: defeat (units become neutral and repath), game over when one side remains, spectating with team vision, the defeat and victory banner | B | Opus | queued (wave 4) |
-| M2-G | HUD: resources bar, structure InfoPanels (the banner moved to M2-F2) | B | Opus | running |
+| M2-G | HUD: resources bar, structure InfoPanels (the banner moved to M2-F2) | B | Opus | done (`69e80a1`) |
 | M2-H1 | Production UI: generalised command UI, Barracks panel, rally point | D2 | Opus | queued |
 | M2-I | Editor: Starting Layout editing | F | Opus | queued |
 | M2-H2 | Construction UI: build menu, ghost, area overlay, rotate and flip, side labels | C, D1, H1 | Opus | queued |
@@ -451,6 +457,7 @@ First playable after M2-H2.
 | Q0031 | A Move or Follow aimed at a selected unit itself (it currently follows itself forever) | no | open; default: the clicked unit is left out |
 | Q0032 | Arrival radius behind an occupied destination: 2 or 3 grid units (data from G3) | no | open; M1 keeps 2 |
 | Q0033 | Path knowledge, blocked to open: a destination behind a gone obstacle, shortcuts when a wall is seen gone, map-placed structures | no | open; M2-E built the stated current behaviour |
+| Q0034 | Should an enemy plate's InfoPanel show its patch's remaining crystals? | no | open; M2-G shows it to everyone |
 
 ## Design change entries
 Last triaged: 0105.
@@ -540,7 +547,7 @@ Last triaged: 0105.
 | 0087 Rally point indicators | queued (M2-H1) | |
 | 0088 Rally on an enemy becomes a ground rally when the enemy leaves sight | queued (M2-D2, M2-H1) | rally on a remembered structure TBD (Q0017 point 2) |
 | 0089 Power penalty scope, ratio and timing | done (M2-B, `39bcf66`) | matches the plan |
-| 0090 Power display: used / available | queued (M2-G) | replaces "current / total" |
+| 0090 Power display: used / available | done (M2-B accessor, M2-G display, `69e80a1`) | replaces "current / total" |
 | 0091 GDO build area is square | queued (M2-C) | matches the plan |
 | 0092 GDO build area follows the current buildings | queued (M2-C) | matches the plan |
 | 0093 Build area overlay shows the area only | queued (M2-H2) | answers Q0026 point 4; matches the plan |
@@ -555,5 +562,5 @@ Last triaged: 0105.
 | 0102 Defeated players in team games watch with team vision | queued (M2-F) | closes 0101's TBD |
 | 0103 Enemy structures are valid automatic targets | done (M2-A, `cbeb804`) | answers Q0030 point 1; matches M1 |
 | 0104 Deployment Center has two build menus | queued (M2-H2) | answers Q0030 point 2; M2 needs only Generator, Barracks and EF in BuildMenu[Basic] |
-| 0105 Default InfoPanel for structures | queued (M2-G) | answers Q0030 point 3, as proposed |
+| 0105 Default InfoPanel for structures | done (M2-G, `69e80a1`; activity lines come with H1 and H2) | answers Q0030 point 3, as proposed |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
