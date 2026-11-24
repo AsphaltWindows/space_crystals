@@ -323,11 +323,19 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Mini-oracle on `dev_skirmish`.** The Barracks starts at 48.1 s.
   - **Goldens.** Re-blessed once for the hashed constructor field. Play is identical.
 
+- **M2-H1 production UI** (merged in `eccaaa6`; 855 tests; client only):
+  - **Panel.** `UnitCommand` became `PanelCommand`, adding Train, CancelProduction and SetRallyPoint. `command_ui/interface.rs` is split into commands, templates, conditions and panel. The Barracks panel is Q Train, X Cancel, C Rally.
+  - **Train.** One press sends one `Command::Production` to every selected Barracks. Buttons are available per `Sim::validate` on the exact command.
+  - **Rally points.** Set by right-click or by C. Rallying on the Barracks itself clears it. Indicators per 0087 and 0088.
+  - **Activity and feedback.** InfoPanel lines show training progress, the queue and the rally point. Refusals show "Not enough Space Crystals" or "Unit Control limit reached".
+  - **Open.** Shift with rallies, rallying on one of several selected Barracks, and feedback for a disabled button went out as Q0035.
+  - **Flaky test.** `games_are_recorded_as_they_run_and_when_the_app_exits` flaked once under load: `load_replay` returned an Err. M2-I is fixing it.
+
 ## In progress
 - **M2 wave 4** (common brief `scratchpad/briefs/m2-w4-common.md`):
-  - **M2-H1 production UI** (Opus): `PanelCommand`, the Barracks panel, the production right-click, rally indicators, the production activity lines;
   - **M2-F2 game end** (Opus): defeat to neutral, game over, spectating, banners;
-  - **M2-I editor layouts** (Opus): layout editing, orientation, plates on patches, plus a fix for the flaky replay test.
+  - **M2-I editor layouts** (Opus): layout editing, orientation, plates on patches, plus fixes for two flaky replay tests.
+  - **M2-H2 construction UI** (Opus; brief `scratchpad/briefs/m2h2-construction-ui.md`): DC and EF panels, build menus (0104), the ghost with per-tile validity, the area overlay (0093), rotate and flip, side labels. This gives the first playable.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2-B, M2-C and M2-E** together after M2-A.
@@ -418,9 +426,9 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | M2-F1 | Game start: Starting Conditions, layout rules (restriction, completeness, outdated), game-start banks, camera on the DC, the `dev_skirmish` GDO layouts | B, C | Opus | done (`d5a7d29`) |
 | M2-F2 | Game end: defeat (units become neutral and repath), game over when one side remains, spectating with team vision, the defeat and victory banner | B | Opus | running |
 | M2-G | HUD: resources bar, structure InfoPanels (the banner moved to M2-F2) | B | Opus | done (`69e80a1`) |
-| M2-H1 | Production UI: generalised command UI, Barracks panel, rally point | D2 | Opus | running |
+| M2-H1 | Production UI: generalised command UI, Barracks panel, rally point | D2 | Opus | done (`eccaaa6`) |
 | M2-I | Editor: Starting Layout editing | F | Opus | running |
-| M2-H2 | Construction UI: build menu, ghost, area overlay, rotate and flip, side labels | C, D1, H1 | Opus | queued |
+| M2-H2 | Construction UI: build menu, ghost, area overlay, rotate and flip, side labels | C, D1, H1 | Opus | running |
 | M2-J | M2 QA: economy oracle, `gdo_opening` golden, screenshots, structure perf | all | Opus | queued |
 
 First playable after M2-H2.
@@ -485,6 +493,7 @@ First playable after M2-H2.
 | Q0032 | Arrival radius behind an occupied destination: 2 or 3 grid units (data from G3) | no | open; M1 keeps 2 |
 | Q0033 | Path knowledge, blocked to open: a destination behind a gone obstacle, shortcuts when a wall is seen gone, map-placed structures | no | open; M2-E built the stated current behaviour |
 | Q0034 | Should an enemy plate's InfoPanel show its patch's remaining crystals? | no | open; M2-G shows it to everyone |
+| Q0035 | Rally point UI: Shift with rally targeting, rallying on one of several selected Barracks, feedback when pressing an unavailable command | no | open; M2-H1 built the stated current behaviour |
 
 ## Design change entries
 Last triaged: 0105.
@@ -567,12 +576,12 @@ Last triaged: 0105.
 | 0080 Exit doorway: units appear half inside; production pauses while it is occupied | done (M2-D2, `1a64e75`) | answers Q0023 points 2–3; replaces the nearest-free-spot default |
 | 0081 Queue limit of 20 includes the unit in production | done (M2-D2, `1a64e75`) | |
 | 0082 GDO Unit Control reserved when a unit is queued | done (M2-D2, `1a64e75`) | |
-| 0083 Group production: least remaining work pays first | done (M2-D2, `1a64e75`; UI parts in M2-H1) | replaces the fixed-order default |
+| 0083 Group production: least remaining work pays first | done (sim M2-D2; UI M2-H1, `eccaaa6`) | replaces the fixed-order default |
 | 0084 Destroyed GDO producers refund as if cancelled | done (M2-D2 producers, M2-D1 constructors, `fda74d3`) | |
 | 0085 Finished unit waiting inside is refunded if the building dies | done (M2-D2, `1a64e75`) | |
-| 0086 Rally point on the building itself clears it | done (M2-D2, `1a64e75`; UI parts in M2-H1) | |
-| 0087 Rally point indicators | queued (M2-H1) | |
-| 0088 Rally on an enemy becomes a ground rally when the enemy leaves sight | done (M2-D2, `1a64e75`; UI parts in M2-H1) | rally on a remembered structure TBD (Q0017 point 2) |
+| 0086 Rally point on the building itself clears it | done (sim M2-D2; UI M2-H1, `eccaaa6`) | |
+| 0087 Rally point indicators | done (sim M2-D2; UI M2-H1, `eccaaa6`) | |
+| 0088 Rally on an enemy becomes a ground rally when the enemy leaves sight | done (sim M2-D2; UI M2-H1, `eccaaa6`) | rally on a remembered structure TBD (Q0017 point 2) |
 | 0089 Power penalty scope, ratio and timing | done (M2-B, `39bcf66`) | matches the plan |
 | 0090 Power display: used / available | done (M2-B accessor, M2-G display, `69e80a1`) | replaces "current / total" |
 | 0091 GDO build area is square | queued (M2-C) | matches the plan |
