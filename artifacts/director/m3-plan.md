@@ -1257,9 +1257,14 @@ The Barracks keeps its side doorway (0080). |
 | 0174 | Q0020 | S | Toggle time 6 ticks (0.375 s); hotkey R for both commands. |
 | 0175 | Q0047 | V | As built (M3-P): the lowest id starts first. V updates the doc comments. |
 | 0176 | Q0047 | V | Point 2 as built: no start while a building can't progress at power 0. Point 3: a capacity cost of 0 always passes (`cost == 0 \|\| free >= cost`), for every faction. |
-| 0177 | Q0017 | L | Shots are drawn only over tiles Visible to the viewer, so they appear from the fog edge. An attacker outside the victim's vision is revealed to the victim's owner for 24 ticks after each shot. Revealed means fully visible: selectable, targetable, and used by auto-targeting. Stealth is TBD. |
-| 0178 | Q0018 | L | Fog delay: a tile that leaves all sight stays Visible for 8 ticks (a per-player "last seen" tick per tile). There is no separate grace period in Attack or Follow. The 0177 reveal has its own, independent timer. |
-| 0179 | Q0018 | L | Target priority compares the needed rotation in 45° steps; within the lowest step the closest wins, then a fixed order. This applies to turret scanning and base auto-targeting. |
+| 0177 | Q0017 | L1 | Shots are drawn only over tiles Visible to the viewer, so they appear from the fog edge. An attacker outside the victim's vision is revealed to the victim's owner for 24 ticks after each shot. Revealed means fully visible: selectable, targetable, and used by auto-targeting. Stealth is TBD. |
+| 0178 | Q0018 | L1 | Fog delay: a tile that leaves all sight stays Visible for 8 ticks (a per-player "last seen" tick per tile). There is no separate grace period in Attack or Follow. The 0177 reveal has its own, independent timer. |
+| 0179 | Q0018 | L2 | Target priority compares the needed rotation in 45° steps; within the lowest step the closest wins, then a fixed order. This applies to turret scanning and base auto-targeting. |
+| 0180 | Q0018 | L2 | The AttackMove leash limits chasing only: targets in weapon range are always fought. A unit doesn't move more than 6 GU from PathReference to chase; out-of-range targets that would need that are dropped. PathReference is the route planned at the start, kept after fights, and replaced when a blockage forces a detour. |
+| 0181 | Q0018 | — | As built: an unreachable auto-target is approached, given up, and retried after 32 ticks. |
+| 0182 | Q0018 | L2 | Auto-targeting skips targets inside MinRange. An explicit Attack on a target that close backs a mobile unit off until it is outside MinRange, then it attacks. An immobile unit (a deployed Artillery Rig) fails the order with "Target too close". |
+| 0183 | Q0018 | — | As built with 0169: a unit walled out of its group spot counts as arrived within 3 GU. |
+| 0184 | Q0048 | — | As built (M3-J1): another command pressed while targeting shows "Cancel the current command first", and targeting continues. |
 
 ## 9. Notes from merged slices for later slices
 
@@ -1285,3 +1290,4 @@ The Barracks keeps its side doorway (0080). |
 | M3-H3 | R, J2, K1 | `Gather::spot` and `live_target` make the Gather the one order that may name a gone object; R unifies it with the target view. Waiting Drones re-check in global 16-tick phases. The gate's `NothingToDeliver` refuses an empty Drone's Drop Off. The search reads vision memory, which R seeds (0159). The curve fell about 1/s at 20–24 Drones from the 0132 re-check. |
 | M3-P | J1, D2, K1 | `sim/producers/step.rs` runs the production-start check, and `Production::blocked` is the wait at 0%. `SimEvent::ProductionWaiting` feeds the feedback band, which is the channel J1's 0162 feedback uses. M3-D's over-capacity test moved to `tests/production/capacity.rs`. |
 | M3-J1 | J2, S, K2 | `Placing` has a `Builder`. The ghosts reuse `warp_in_check` and `deploy_check`, and lingering ghosts read `pending_deploys`. 0162 goes through `CommandRefused` in the feedback band. Client tests are in `tests/commands/colonists/`. The two readings in Q0048 are doc-commented. The highlighted "Warp RP" button wraps (cosmetic). |
+| M3-D2 | J2, K2 | `production/exit/energy.rs` holds the doorway, and `ExitDoor {Side, Centre}` feeds the release, movement, `serve.rs::doorway_start` and the invariants. Doorway units walk out along `Mover::exit_heading` via `World::straight`, and they are excluded from `can_yield`. A half-out unit's new order fails until its exit point is clear. The client draws units under structures, so a unit crossing the portal is hidden (K2). |
