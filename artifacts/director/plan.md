@@ -281,10 +281,20 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Layouts.** A layout's area is its DC's alone (`core/map_editor.md`).
   - **Speed.** 9 µs per check.
 
+- **M2-B economy core** (merged in `39bcf66`; 756 tests):
+  - **Banks.** `Player { crystals, supplies }`, with checked spending, saturating credit, and `economy::Refund::{Full, Ready}`.
+  - **Power.** `Sim::power(p) -> PowerSummary { generated, consumed }`. `ratio()` is ⌈g·2^16/c⌉, capped at 1. Producers are never slowed.
+  - **Unit Control.** `Sim::unit_control(p)`, capped at 200. `economy::unit_control::reserved` is the hook for D2.
+  - **Mining.** `Object::extractor` and `StructureDef::mining`. Loads come in lumps every 48 ticks, scaled by the power ratio (0098), and follow 0099's last-load and residual rules. A depleted patch goes when its plate goes, in the same tick (0038). The economy step runs between 5e and 5f.
+  - **Tests.** 0098 v1–v2, 0099 v1–v2, 0042 v2 (a depletion in the fog), 0089, 0090 and 0077 are verified.
+  - **Goldens.** Re-blessed, because banks and extractors are now hashed. Play is identical.
+
 ## In progress
-- **M2 wave 2** (common brief `scratchpad/briefs/m2-common.md`, plus one brief per slice):
-  - **M2-B economy core** (Opus): banks, power and penalty, Unit Control, plate mining in lumps, depletion.
-- **Wave 3, briefs ready** (`scratchpad/briefs/m2-w3-common.md`, `m2d1-*`, `m2d2-*`, `m2f1-*`, `m2g-*`): launch D1, D2 (Fable), F1 and G once M2-B merges. Check that the B API named in the common brief matches B's report.
+- **M2 wave 3** (common brief `scratchpad/briefs/m2-w3-common.md`, plus one brief per slice):
+  - **M2-D1 construction** (Opus);
+  - **M2-D2 production** (Fable): queue, Unit Control, rally point, exit doorway;
+  - **M2-F1 game start** (Opus): Starting Conditions, layout rules, `dev_skirmish` GDO layouts, camera;
+  - **M2-G HUD** (Opus): resources bar, structure InfoPanels.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2-B, M2-C and M2-E** together after M2-A.
@@ -367,14 +377,14 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Slice | Content | After | Model | Status |
 |---|---|---|---|---|
 | M2-A | Structure foundation: 5 kinds, stat blocks, armour, orientation and sides, blocking, vision, records, combat, placeholder visuals, oriented debug spawn | G3 | Opus | done (`cbeb804`) |
-| M2-B | Economy core: banks, power and penalty, Unit Control, plate mining and depletion, the economy step | A | Opus | running |
+| M2-B | Economy core: banks, power and penalty, Unit Control, plate mining and depletion, the economy step | A | Opus | done (`39bcf66`) |
 | M2-C | Build area and placement validation | A | Opus | done (`0f8cc70`) |
 | M2-E | Path knowledge: per-player planning grids, re-route on discovery | A | Fable | done (`f76db38`) |
-| M2-D1 | Construction: DC and EF, Construct, Cancel, Place, refunds | B, C | Opus | queued |
-| M2-D2 | Production: Barracks queue, rally point, exit spawn, Unit Control | B | Fable (exit doorway: a unit overlapping its producer, the collision exception, invariants) | queued |
-| M2-F1 | Game start: Starting Conditions, layout rules (restriction, completeness, outdated), game-start banks, camera on the DC, the `dev_skirmish` GDO layouts | B, C | Opus | queued |
+| M2-D1 | Construction: DC and EF, Construct, Cancel, Place, refunds | B, C | Opus | running |
+| M2-D2 | Production: Barracks queue, rally point, exit spawn, Unit Control | B | Fable (exit doorway: a unit overlapping its producer, the collision exception, invariants) | running |
+| M2-F1 | Game start: Starting Conditions, layout rules (restriction, completeness, outdated), game-start banks, camera on the DC, the `dev_skirmish` GDO layouts | B, C | Opus | running |
 | M2-F2 | Game end: defeat (units become neutral and repath), game over when one side remains, spectating with team vision, the defeat and victory banner | B | Opus | queued (wave 4) |
-| M2-G | HUD: resources bar, structure InfoPanels (the banner moved to M2-F2) | B | Opus | queued |
+| M2-G | HUD: resources bar, structure InfoPanels (the banner moved to M2-F2) | B | Opus | running |
 | M2-H1 | Production UI: generalised command UI, Barracks panel, rally point | D2 | Opus | queued |
 | M2-I | Editor: Starting Layout editing | F | Opus | queued |
 | M2-H2 | Construction UI: build menu, ghost, area overlay, rotate and flip, side labels | C, D1, H1 | Opus | queued |
@@ -517,7 +527,7 @@ Last triaged: 0105.
 | 0074 Shielded Peacekeepers follow on right-click | done (M1-H3, `80b3d88`) | answers Q0020 point 1; replaces the Move-to-location default |
 | 0075 Shielded Peacekeepers are left out of explicit Attack | done (M1-H3, `80b3d88`) | answers Q0021 point 2; differs from right-click on purpose |
 | 0076 AttackMove goes to every unit, including units that can't attack | done (M1-H3, `80b3d88`) | closes 0075's TBD; check that the sim gate doesn't drop shielded units from AttackMove |
-| 0077 GDO supply loop deferred; Starting Supplies 0 | queued (M2-B, M2-G) | answers Q0022; matches the plan |
+| 0077 GDO supply loop deferred; Starting Supplies 0 | done (M2-B, `39bcf66`) | answers Q0022; matches the plan |
 | 0078 Any control-group recall resets menus | done (M1-H3, `80b3d88`) | answers Q0021 point 3 |
 | 0079 Side lettering convention; Barracks 3 wide × 2 tall | in progress (M2-A) | answers Q0023 point 1 |
 | 0080 Exit doorway: units appear half inside; production pauses while it is occupied | queued (M2-D2; needs a collision exception for the releasing building) | answers Q0023 points 2–3; replaces the nearest-free-spot default |
@@ -529,7 +539,7 @@ Last triaged: 0105.
 | 0086 Rally point on the building itself clears it | queued (M2-D2, M2-H1) | |
 | 0087 Rally point indicators | queued (M2-H1) | |
 | 0088 Rally on an enemy becomes a ground rally when the enemy leaves sight | queued (M2-D2, M2-H1) | rally on a remembered structure TBD (Q0017 point 2) |
-| 0089 Power penalty scope, ratio and timing | queued (M2-B) | matches the plan |
+| 0089 Power penalty scope, ratio and timing | done (M2-B, `39bcf66`) | matches the plan |
 | 0090 Power display: used / available | queued (M2-G) | replaces "current / total" |
 | 0091 GDO build area is square | queued (M2-C) | matches the plan |
 | 0092 GDO build area follows the current buildings | queued (M2-C) | matches the plan |
@@ -538,8 +548,8 @@ Last triaged: 0105.
 | 0095 Extraction Plates need visible tiles | queued (M2-C; the `dev_skirmish` DC's sight must cover its main patches, M2-F) | answers Q0027 point 2 |
 | 0096 No buildings on resources, except plates on patches | done in M2-A (`cbeb804`) for spawns; M2-C for the placement check | answers Q0027 point 3 |
 | 0097 Starting Layout validation | queued (M2-F, M2-I) | answers Q0027 point 4: the proposal plus a rule for starting units |
-| 0098 Plates pay in lumps; the cycle timer advances by the power ratio | queued (M2-B, M2-J) | answers Q0028 point 1 |
-| 0099 Plate depletion: last partial load, depleted patch stays under its plate, the pick selects the plate | pick done in M2-A (`cbeb804`); mining in M2-B | answers Q0028 points 2–4 |
+| 0098 Plates pay in lumps; the cycle timer advances by the power ratio | done (M2-B, `39bcf66`) | answers Q0028 point 1 |
+| 0099 Plate depletion: last partial load, depleted patch stays under its plate, the pick selects the plate | done (pick: M2-A; mining: M2-B, `39bcf66`) | answers Q0028 points 2–4 |
 | 0100 A defeated player's units stay but can't be controlled | superseded by 0101 (units become neutral) | answers Q0029 point 1; replaces removing the units |
 | 0101 On defeat, units become neutral; the game ends when one side remains | queued (M2-F) | answers Q0029 points 1–2 |
 | 0102 Defeated players in team games watch with team vision | queued (M2-F) | closes 0101's TBD |
