@@ -62,6 +62,23 @@ impl PlayTestSetup {
     pub fn local_player(&self) -> PlayerId {
         PlayerId(self.slot.0)
     }
+
+    /// A play-test's game of `map`: the map with [`PlayTestSetup::game_setup`].
+    pub fn scenario(&self, map: &MapDef) -> Scenario {
+        Scenario {
+            map: map.clone(),
+            setup: self.game_setup(map),
+        }
+    }
+
+    /// Everything that keeps a play-test of `map` from starting, which the Problems list shows
+    /// ([`Scenario::validate`]): the map's problems ([`MapDef::validate`]), then the game's, such as the layouts of
+    /// different slots in each other's way (`ScenarioProblem::LayoutOverlap`), which the sim lists once the map has
+    /// none of its own. So they show as soon as they are found, not only when F5 is refused (slice M2-J2, M2-I's
+    /// finding).
+    pub fn problems(&self, map: &MapDef) -> Vec<ScenarioProblem> {
+        self.scenario(map).validate()
+    }
 }
 
 impl Editor<'_> {
@@ -144,10 +161,7 @@ pub fn switch_play_test(
     match *mode {
         ClientMode::Editor => {
             let map = doc.map();
-            let scenario = Scenario {
-                map: map.clone(),
-                setup: setup.game_setup(map),
-            };
+            let scenario = setup.scenario(map);
             // The game only runs valid scenarios. The refusal says what to fix first in the Problems list's words
             // (slice M2-I: on a new Skirmish Default map, exactly what each layout lacks).
             let sim = match Sim::try_new(&scenario) {

@@ -98,7 +98,8 @@ impl EditorFiles {
     }
 }
 
-/// `MapDef::validate()` of the document, as last shown.
+/// Everything that keeps a play-test of the document from starting, as last shown
+/// (`playtest::PlayTestSetup::problems`): the map's problems, then the game's.
 #[derive(Resource, Default, Debug)]
 pub struct EditorProblems(pub Vec<ScenarioProblem>);
 

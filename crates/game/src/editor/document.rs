@@ -27,7 +27,7 @@ impl Editor<'_> {
             self.status.error(format!("Save failed: {error}"));
             return;
         }
-        let problems = map.validate().len();
+        let problems = self.playtest.problems(map).len();
         let shown = files::display_path(&path);
         self.doc.mark_saved(path);
         self.files.refresh();
@@ -65,7 +65,7 @@ impl Editor<'_> {
         }
         match files::load(&path) {
             Ok(map) => {
-                let problems = map.validate().len();
+                let problems = self.playtest.problems(&map).len();
                 self.start_document(map, Some(path.clone()));
                 let shown = files::display_path(&path);
                 if problems == 0 {

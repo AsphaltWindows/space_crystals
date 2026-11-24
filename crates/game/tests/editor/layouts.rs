@@ -509,6 +509,64 @@ fn the_place_tool_puts_plates_onto_uncovered_patches() {
         ],
     );
     assert_eq!(doc(&app).spawns, [patch(5, 5), plate], "no other building on a patch");
+    // A plate on bare ground goes in, but the map lists it in the sim's words (`factions/gdo/economy.md >
+    // ExtractionPlate`, slice M2-J2: the rule of a layout's plate and a game's placement), and doesn't play.
+    act(&mut app, [A::SetKind(PLATE), A::Press(at(9, 5)), A::Release]);
+    assert_eq!(doc(&app).spawns.len(), 3);
+    let line = "spawn 2 (ExtractionPlate): an Extraction Plate goes onto a Space Crystals patch";
+    assert_eq!(texts_under::<ProblemList>(&mut app), [line]);
+    act(&mut app, [A::PlayTest]);
+    assert_eq!(
+        status_message(&app),
+        (StatusLevel::Error, format!("Can't play-test: {line}"))
+    );
+}
+
+/// Slice M2-J2 (M2-I's finding): the layouts of two slots in each other's way are listed under Problems as soon as
+/// they are, like every other problem, not only when F5 is refused: the list says what keeps the play-test's game
+/// from starting (`Scenario::validate`, with the play-test's setup). Each layout is valid on its own (`> Overlay
+/// editing`), so the Layout tool takes the object. With slot 2 playing a faction whose layout there is empty,
+/// nothing is in the way any more.
+#[test]
+fn layouts_in_each_others_way_are_listed_at_once() {
+    let mut app = editor(scenarios::empty_map(32, 24), &temp_maps("layout_overlap"));
+    act(&mut app, [A::SetLayoutFaction(Faction::Gdo), A::SetLayoutKind(DC)]);
+    click(&mut app, spot(2, 2, 4, 4));
+    assert_eq!(problems(&app), []);
+    act(
+        &mut app,
+        [
+            A::SelectSlot(S2),
+            A::SetLayoutFaction(Faction::Gdo),
+            A::SetLayoutKind(DC),
+        ],
+    );
+    click(&mut app, spot(4, 3, 4, 4)); // (4, 3) to (7, 6), over slot 1's from (2, 2) to (5, 5)
+    assert_eq!(
+        (gdo(&app, S1), gdo(&app, S2)),
+        (vec![laid(DC, 2, 2, UNTURNED)], vec![laid(DC, 4, 3, UNTURNED)])
+    );
+    let overlap = ScenarioProblem::LayoutOverlap {
+        slot: S2,
+        faction: Faction::Gdo,
+        index: 0,
+        tile: TilePos::new(4, 3),
+    };
+    assert_eq!(problems(&app), [overlap]);
+    let line = "S2 GDO layout, Deployment Center: overlaps another object at tile (4, 3)";
+    assert_eq!(texts_under::<ProblemList>(&mut app), [line]);
+    act(&mut app, [A::PlayTest]);
+    assert_eq!(*app.world().resource::<ClientMode>(), ClientMode::Editor);
+    assert_eq!(
+        status_message(&app),
+        (StatusLevel::Error, format!("Can't play-test: {line}"))
+    );
+
+    act(&mut app, [A::SetPlayTestFaction(S2, Faction::Syndicate)]);
+    assert_eq!(problems(&app), []);
+    assert_eq!(texts_under::<ProblemList>(&mut app), ["None: the map is playable"]);
+    act(&mut app, [A::PlayTest]);
+    assert_eq!(*app.world().resource::<ClientMode>(), ClientMode::PlayTest);
 }
 
 /// `> Outdated layouts`: a layout that doesn't hold the faction's current Starting Conditions is flagged until the

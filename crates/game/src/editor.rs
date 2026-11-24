@@ -125,11 +125,11 @@ fn starting_status(map: &MapDef, path: Option<&std::path::Path>, problems: usize
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
         let map = &self.scenario.map;
-        let problems = map.validate();
-        // Logged at startup (`log_starting_status`): a headless run's logger arrives after the plugins are built.
-        let status = starting_status(map, self.config.path.as_deref(), problems.len());
         let player = app.world().resource::<LocalPlayer>().0;
         let playtest = play_test_setup(&self.scenario, SlotId(player.0));
+        let problems = playtest.problems(map);
+        // Logged at startup (`log_starting_status`): a headless run's logger arrives after the plugins are built.
+        let status = starting_status(map, self.config.path.as_deref(), problems.len());
         let tools = EditorTools {
             slot: map.source_slot(playtest.slot),
             ..default()
@@ -168,7 +168,13 @@ impl Plugin for EditorPlugin {
                     (apply_editor_actions, playtest::switch_play_test)
                         .chain()
                         .in_set(EditorSystems::Apply),
-                    (sync_preview, set_insets, update_layout_preview, input::report_placing)
+                    (
+                        sync_preview,
+                        sync_problems,
+                        set_insets,
+                        update_layout_preview,
+                        input::report_placing,
+                    )
                         .in_set(EditorSystems::Sync),
                 ),
             )
@@ -186,9 +192,9 @@ fn log_starting_status(status: Res<EditorStatus>) {
 type PreviewKey = (u64, Option<Faction>);
 
 /// In the editor, the sim shows the document: whenever the document changes, a fresh [`Sim::preview`] of its map
-/// replaces the sim (which rebuilds the map mesh and the object visuals) and the problems are listed again. Its
-/// players are those of the map's default setup, or, while the Layout tool edits a faction's layouts, all of that
-/// faction ([`layouts::preview_scenario`]). A play-test replaces the sim; when it ends, the preview is checked again.
+/// replaces the sim (which rebuilds the map mesh and the object visuals). Its players are those of the map's default
+/// setup, or, while the Layout tool edits a faction's layouts, all of that faction ([`layouts::preview_scenario`]).
+/// A play-test replaces the sim; when it ends, the preview is checked again.
 fn sync_preview(
     mode: Res<ClientMode>,
     doc: Res<EditorDoc>,
@@ -196,7 +202,6 @@ fn sync_preview(
     mut synced: Local<Option<PreviewKey>>,
     mut sim: ResMut<SimRes>,
     mut loaded: ResMut<LoadedScenario>,
-    mut problems: ResMut<EditorProblems>,
 ) {
     if *mode != ClientMode::Editor {
         *synced = None;
@@ -209,12 +214,6 @@ fn sync_preview(
     }
     let before = synced.replace(key);
     let map = doc.map();
-    if before.is_none_or(|(revision, _)| revision != doc.revision()) {
-        let found = map.validate();
-        if problems.0 != found {
-            problems.0 = found;
-        }
-    }
     // The setup counts only while a faction is or was previewed: until the first edit, the editor shows the setup
     // it was started with.
     let faction_shown = faction.is_some() || before.is_some_and(|(_, f)| f.is_some());
@@ -222,6 +221,30 @@ fn sync_preview(
     if loaded.0.map != *map || (faction_shown && loaded.0.setup != scenario.setup) {
         sim.replace(Sim::preview(&scenario).0);
         loaded.0 = scenario;
+    }
+}
+
+/// The Problems list follows the document and the play-test's setup: whenever either changes in the editor, and when
+/// a play-test ends, the problems are listed again ([`PlayTestSetup::problems`]: what keeps a play-test from
+/// starting, the layouts of different slots in each other's way included).
+fn sync_problems(
+    mode: Res<ClientMode>,
+    doc: Res<EditorDoc>,
+    setup: Res<PlayTestSetup>,
+    mut listed: Local<Option<u64>>,
+    mut problems: ResMut<EditorProblems>,
+) {
+    if *mode != ClientMode::Editor {
+        *listed = None;
+        return;
+    }
+    if *listed == Some(doc.revision()) && !setup.is_changed() {
+        return;
+    }
+    *listed = Some(doc.revision());
+    let found = setup.problems(doc.map());
+    if problems.0 != found {
+        problems.0 = found;
     }
 }
 
