@@ -1166,6 +1166,13 @@ About 50 TBD notes in the Colonists docs are concentrated in the tech tier. M3 i
 | 0113 | Q0039 point 5 | E, F | Transforming structures count for defeat. Cancelling a deployment that was the player's only building defeats them in that tick; the cancel is never refused. |
 | 0114 | Q0039 point 6 | F | A loaded Drone deploys without a detour. The load is kept during deployment, lost on completion, and returned on cancel. |
 | 0115 | Q0039 point 7 | E | A building destroyed mid-Warp-In refunds nothing: both the Beacon and the cost are lost. A cancel keeps its 75%. M2's 0084 refund must not fire for a portal still warping in. |
+| 0116 | Q0039 point 8 | E, J1 | A transforming object shows only Cancel, with no rally. Production, drop-off, research and abilities start at completion; only the 5 Beacon Capacity is active during a Warp In. Drones can't deliver to an Egress Node under Warp In. |
+| 0117 | Q0040 point 1 | F | The Drone moves to the footprint centre and deploys on arrival. If it is blocked while overlapping the footprint, it deploys there; if it stops without overlapping, the order fails and it idles. The Beacon goes on the ghost's footprint. |
+| 0118 | Q0040 point 2 | E, F | "Unoccupied" includes ground units of any player for every placement method. The building worker itself doesn't count, and air and underground units never block. |
+| 0119 | Q0040 point 3 | E, J1 | **Changed from the proposal:** every Warp In tile must be Visible, as in Direct Placement. A non-Visible tile is red whatever stands there. |
+| 0120 | Q0040 point 4 | F, J1 | The Worker-Built ghost follows the player's knowledge: remembered terrain and structures count, hidden units are ignored, and never-explored tiles pass. The order is always allowed; the truth is checked on arrival. |
+| 0121 | Q0040 point 5 | E, J1 | **Replaces cursor snapping.** An odd-size footprint has its extras at the bottom-right by default; turns and flips transform it about the Beacon centre, and the exit sides rotate with it. **Director:** the sim derives the footprint from (Beacon, kind, orientation) in one function shared by the gate and the ghost, and `WarpIn` carries no `origin` (amends T22). |
+| 0122 | Q0040 point 6 | E, J1 | Beacons are Ungroupable: each is its own SelectionGroup, and Warp In applies to the Tabbed-to Beacon. |
 
 ## 9. Notes from merged slices for later slices
 
