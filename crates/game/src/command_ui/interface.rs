@@ -153,7 +153,13 @@ impl InterfaceTemplate {
     pub fn of(kind: ObjectKind) -> Option<Self> {
         match kind {
             ObjectKind::Peacekeeper | ObjectKind::Guard => Some(InterfaceTemplate::BasicCombatUnit),
-            ObjectKind::CrystalPatch | ObjectKind::SupplyDeliveryStation => None,
+            ObjectKind::CrystalPatch
+            | ObjectKind::SupplyDeliveryStation
+            | ObjectKind::DeploymentCenter
+            | ObjectKind::Generator
+            | ObjectKind::Barracks
+            | ObjectKind::ExtractionFacility
+            | ObjectKind::ExtractionPlate => None,
         }
     }
 

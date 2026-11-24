@@ -4,6 +4,7 @@
 
 use std::collections::BTreeSet;
 
+use bevy::mesh::VertexAttributeValues;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
@@ -13,9 +14,10 @@ use sc_sim::{
 };
 use space_crystals::camera::{CameraView, ViewportInsets, cursor_to_ground, viewport_rect};
 use space_crystals::coords::{drawn_position, lift};
+use space_crystals::hud::selection_panel::short_label;
 use space_crystals::input::InputAction;
 use space_crystals::map_render::{GridOverlay, MapRenderAssets, MapView};
-use space_crystals::object_render::{FacingTick, ObjectVisuals};
+use space_crystals::object_render::{FacingTick, ObjectVisuals, StructureTag};
 use space_crystals::platform::SurfaceSize;
 use space_crystals::sim_driver::{PendingCommands, RecordedInputs, RenderAlpha, SimRes, load_scenario};
 
@@ -82,6 +84,7 @@ fn every_object_has_a_visual_until_it_is_removed() {
             kind: ObjectKind::CrystalPatch,
             owner: None,
             at: SpawnAt::Tile(TilePos::new(12, 3)),
+            orientation: Default::default(),
         }));
     app.update();
     assert_eq!(visual_ids(&mut app), sim_ids(&app));
@@ -105,6 +108,85 @@ fn southern_objects_draw_in_front() {
     assert_eq!(z(&app, 1), z(&app, 2));
 }
 
+/// The lowest and the highest corner of the box around a visual's mesh, in the visual's space.
+fn mesh_bounds(app: &App, entity: Entity) -> (Vec3, Vec3) {
+    let handle = &app.world().get::<Mesh2d>(entity).expect("a mesh").0;
+    let mesh = app.world().resource::<Assets<Mesh>>().get(handle).unwrap();
+    let Some(VertexAttributeValues::Float32x3(positions)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) else {
+        panic!("a 2D mesh has positions");
+    };
+    let bounds = (Vec3::INFINITY, Vec3::NEG_INFINITY);
+    positions
+        .iter()
+        .map(|&p| Vec3::from(p))
+        .fold(bounds, |(lo, hi), p| (lo.min(p), hi.max(p)))
+}
+
+/// The structure tags among `entity`'s children: whose they are, and what they say.
+fn tags(app: &App, entity: Entity) -> Vec<(ObjectId, String)> {
+    let world = app.world();
+    let Some(children) = world.get::<Children>(entity) else {
+        return Vec::new();
+    };
+    let tag = |child| {
+        Some((
+            world.get::<StructureTag>(child)?.0,
+            world.get::<Text2d>(child)?.0.clone(),
+        ))
+    };
+    children.iter().filter_map(tag).collect()
+}
+
+/// A structure is drawn as placed: its footprint, turned, a little inside its edge (8 su, clear of the selection
+/// frame), with a tag naming its type. In the QA map, slot 2's Barracks is turned a quarter (2 × 3 tiles, not 3 ×
+/// 2). Map resources have no tag; a plate draws over the patch it covers.
+#[test]
+fn structures_are_drawn_as_placed_with_a_tag() {
+    let mut app = headless_app(scenarios::dev_structures());
+    updates(&mut app, 2);
+    let objects: Vec<_> = app
+        .world()
+        .resource::<SimRes>()
+        .objects()
+        .map(|o| (o.id, o.kind, o.placement))
+        .collect();
+    let visuals = app.world().resource::<ObjectVisuals>().by_id.clone();
+    let mut sizes = BTreeSet::new();
+    for (id, kind, placement) in objects {
+        let entity = visuals[&id];
+        if kind.def().structure.is_none() {
+            assert_eq!(tags(&app, entity), [], "{kind:?}");
+            continue;
+        }
+        let placement = placement.unwrap();
+        let half = Vec2::new(placement.w as f32, placement.h as f32) * 32.0 - 8.0;
+        let (lo, hi) = mesh_bounds(&app, entity);
+        assert_eq!((lo.truncate(), hi.truncate()), (-half, half), "{kind:?}");
+        assert_eq!(tags(&app, entity), [(id, short_label(kind).to_string())]);
+        if kind == ObjectKind::Barracks {
+            sizes.insert((placement.w, placement.h));
+        }
+    }
+    assert_eq!(sizes, BTreeSet::from([(3, 2), (2, 3)]));
+    // Where the mesh of object `id` starts and ends in depth.
+    let depth = |id| {
+        let anchor = app.world().get::<Transform>(visuals[&id]).unwrap().translation.z;
+        let (lo, hi) = mesh_bounds(&app, visuals[&id]);
+        (anchor + lo.z, anchor + hi.z)
+    };
+    let sim = app.world().resource::<SimRes>();
+    let plates: Vec<_> = sim
+        .objects()
+        .filter(|o| o.kind == ObjectKind::ExtractionPlate)
+        .collect();
+    assert_eq!(plates.len(), 2);
+    for plate in plates {
+        let covered = |o: &&sc_sim::Object| o.kind == ObjectKind::CrystalPatch && o.placement == plate.placement;
+        let patch = sim.objects().find(covered).unwrap();
+        assert!(depth(plate.id).0 > depth(patch.id).1, "the plate over its patch");
+    }
+}
+
 /// A Peacekeeper's visual turns with its facing. A Guard's square stays axis-aligned like its collision box, and only
 /// its facing tick turns.
 #[test]
@@ -116,6 +198,7 @@ fn a_guards_square_stays_axis_aligned_and_only_its_tick_turns() {
             kind,
             owner: Some(PlayerId(1)),
             at: SpawnAt::Point(at),
+            orientation: Default::default(),
         })
     };
     let move_to = |id, to| PlayerCommand {

@@ -103,6 +103,11 @@ pub fn short_label(kind: ObjectKind) -> &'static str {
         ObjectKind::SupplyDeliveryStation => "SDS",
         ObjectKind::Peacekeeper => "PK",
         ObjectKind::Guard => "GD",
+        ObjectKind::DeploymentCenter => "DC",
+        ObjectKind::Generator => "GN",
+        ObjectKind::Barracks => "BR",
+        ObjectKind::ExtractionFacility => "EF",
+        ObjectKind::ExtractionPlate => "EP",
     }
 }
 

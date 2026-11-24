@@ -363,6 +363,7 @@ fn a_new_footprint_on_the_route_makes_the_unit_replan() {
                 kind: ObjectKind::SupplyDeliveryStation,
                 owner: None,
                 at: SpawnAt::Tile(TilePos::new(8, 3)), // x 512..640, y 192..320
+                orientation: Default::default(),
             },
         );
     t.run(9);

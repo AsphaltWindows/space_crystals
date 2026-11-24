@@ -24,7 +24,12 @@ fn tile(x: i32, y: i32) -> SpawnAt {
 }
 
 fn spawn(kind: ObjectKind, owner: Option<PlayerId>, at: SpawnAt) -> DebugCommand {
-    DebugCommand::Spawn { kind, owner, at }
+    DebugCommand::Spawn {
+        kind,
+        owner,
+        at,
+        orientation: Default::default(),
+    }
 }
 
 fn ids(t: &TestSim) -> Vec<u32> {

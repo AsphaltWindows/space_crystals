@@ -20,6 +20,7 @@ fn scripted_commands(frame: u32) -> Vec<PlayerCommand> {
             kind,
             owner: None,
             at: SpawnAt::Tile(TilePos::new(x, y)),
+            orientation: Default::default(),
         })
     };
     let stranger = PlayerCommand {

@@ -177,6 +177,7 @@ fn pending_commands_apply_on_the_next_tick() {
         kind: ObjectKind::CrystalPatch,
         owner: None,
         at: SpawnAt::Tile(TilePos::new(3, 4)),
+        orientation: Default::default(),
     });
     app.world_mut().resource_mut::<PendingCommands>().0.push(spawn.clone());
     app.world_mut().resource_mut::<Messages<SimEventMessage>>().clear();

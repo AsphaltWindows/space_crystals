@@ -201,12 +201,21 @@ impl Selectables {
     }
 
     /// The object a click at the view point `view` picks: of the objects whose drawn box (grown by
-    /// [`PICK_SLOP_SU`]) contains it, the one drawn in front (the southernmost, then the later id).
+    /// [`PICK_SLOP_SU`]) contains it, the one drawn in front (the southernmost), then anything but a map resource,
+    /// then the later id. A plate and the patch it covers are drawn as one, and the click selects the plate: the
+    /// covered patch can't be selected on its own (`factions/gdo/economy.md > ExtractionPlate > Selecting a covered
+    /// patch`, design change 0099).
     pub fn at(&self, view: Vec2) -> Option<&Selectable> {
+        let over_resources = |o: &Selectable| o.category() != Category::Resource;
         self.objects
             .iter()
             .filter(|o| o.rect.inflate(PICK_SLOP_SU).contains(view))
-            .max_by(|a, b| a.depth.total_cmp(&b.depth).then(a.id.cmp(&b.id)))
+            .max_by(|a, b| {
+                a.depth
+                    .total_cmp(&b.depth)
+                    .then(over_resources(a).cmp(&over_resources(b)))
+                    .then(a.id.cmp(&b.id))
+            })
     }
 
     /// `> BoxSelection`: the objects a box (view space) selects. Of the objects whose drawn box overlaps it, only
@@ -335,6 +344,19 @@ mod tests {
         let east_of_1 = |dx: f32| Vec2::new(100.0 + 12.0 + PICK_SLOP_SU + dx, 92.0);
         assert_eq!(objects.at(east_of_1(-0.5)).map(|o| o.id), Some(ObjectId(1)));
         assert_eq!(objects.at(east_of_1(0.5)), None);
+    }
+
+    /// Design change 0099: a click on a plate's tile selects the plate, never the patch it covers, whichever of
+    /// them came first.
+    #[test]
+    fn a_click_on_a_covered_patch_picks_its_plate() {
+        let tile = Vec2::new(96.0, 96.0);
+        let patch = |id| object(id, ObjectKind::CrystalPatch, Relation::Neutral, tile);
+        let plate = |id| object(id, ObjectKind::ExtractionPlate, Relation::Enemy, tile);
+        for objects in [vec![patch(1), plate(2)], vec![plate(1), patch(2)]] {
+            let objects = Selectables::from_objects(objects);
+            assert_eq!(objects.at(tile).map(|o| o.kind), Some(ObjectKind::ExtractionPlate));
+        }
     }
 
     #[test]

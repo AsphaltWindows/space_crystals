@@ -435,6 +435,7 @@ fn spawns_are_ignored_once_ids_run_out() {
         kind: ObjectKind::CrystalPatch,
         owner: None,
         at: SpawnAt::Tile(TilePos::new(0, 0)),
+        orientation: Default::default(),
     });
     assert_eq!(sim.validate(&spawn.commands[0]), Err(Reject::OutOfIds));
     sim.step(&spawn);

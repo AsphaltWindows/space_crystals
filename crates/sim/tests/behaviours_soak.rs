@@ -197,6 +197,7 @@ fn spawn(t: &mut TestSim, rng: &mut Rng) {
                 kind,
                 owner: Some(owner),
                 at: SpawnAt::Point(at + jitter),
+                orientation: Default::default(),
             }),
         };
         if spawned < UNITS && t.sim().validate(&spawn).is_ok() {
@@ -213,6 +214,7 @@ fn spawn(t: &mut TestSim, rng: &mut Rng) {
                 kind,
                 owner: None,
                 at: SpawnAt::Tile(tile),
+                orientation: Default::default(),
             },
         );
     }

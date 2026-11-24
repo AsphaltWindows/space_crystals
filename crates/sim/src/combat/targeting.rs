@@ -123,7 +123,7 @@ pub(super) struct TargetView {
     pub elevation: Elevation,
     /// `systems/combat.md > DamageModifierOrder` 1: the product of its pre-armor multipliers where it stands.
     pub pre_armor: f32,
-    /// `systems/units.md > Unit > PointArmor`; 0 for objects without unit attributes.
+    /// `systems/units.md > Unit > PointArmor`, and a structure's own PointArmor (`ObjectDef::armor`).
     pub point_armor: f32,
     /// `systems/units.md > UnitBase > DirectionalArmor`.
     pub directional_armor: bool,
@@ -148,7 +148,7 @@ impl Targets {
                     domain: object_domain(o),
                     elevation: Elevation::of_object(map, o),
                     pre_armor: pre_armor_multiplier(map, o),
-                    point_armor: unit.map_or(0.0, |u| u.point_armor),
+                    point_armor: o.def().armor.point,
                     directional_armor: unit.is_some_and(|u| u.base_def().directional_armor),
                 }
             })

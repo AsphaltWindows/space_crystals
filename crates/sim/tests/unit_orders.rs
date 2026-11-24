@@ -54,6 +54,7 @@ fn spawn(kind: ObjectKind, owner: Option<PlayerId>, p: Vec2) -> PlayerCommand {
         kind,
         owner,
         at: SpawnAt::Point(p),
+        orientation: Default::default(),
     })
 }
 
@@ -75,6 +76,7 @@ fn two_units() -> TestSim {
                 kind: ObjectKind::CrystalPatch,
                 owner: None,
                 at: SpawnAt::Tile(TilePos::new(10, 6)),
+                orientation: Default::default(),
             },
         )
         .run(1);
@@ -315,6 +317,7 @@ fn spawns_and_teleports_keep_units_apart_and_on_open_ground() {
             kind: ObjectKind::CrystalPatch,
             owner: None,
             at: SpawnAt::Tile(TilePos::new(x, y)),
+            orientation: Default::default(),
         })
     };
     assert_eq!(sim.validate(&patch(1, 1)), Err(Reject::Occupied(ObjectId(1))));

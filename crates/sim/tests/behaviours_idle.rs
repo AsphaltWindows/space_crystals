@@ -240,6 +240,7 @@ fn own_and_neutral_units_are_never_picked_and_a_move_doesnt_engage() {
                 kind: GUARD,
                 owner: None,
                 at: SpawnAt::Point(v(300.0, 600.0)),
+                orientation: Default::default(),
             },
         );
     t.run_until(60);

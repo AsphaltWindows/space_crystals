@@ -33,6 +33,7 @@ pub mod rng;
 pub mod scenario;
 pub mod scenarios;
 pub mod shape;
+pub mod sides;
 pub mod sim;
 pub mod symmetry;
 pub mod testing;
@@ -41,7 +42,7 @@ pub mod vision;
 
 pub use combat::{AttackPhase, AttackState};
 pub use command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs};
-pub use defs::{Category, Footprint, ObjectDef, ObjectKind};
+pub use defs::{Armor, Category, Footprint, ObjectDef, ObjectKind, StructureDef, SymmetryType};
 pub use events::SimEvent;
 pub use glam::Vec2;
 pub use ids::{ObjectId, PlayerId, SlotId};
@@ -59,6 +60,7 @@ pub use scenario::{
     SettingsProblem, Slot, Spawn, SpawnAt, SpawnProblem, SpawnSettings, StartingLayouts,
 };
 pub use shape::Shape;
+pub use sides::{SideLetter, sides};
 pub use sim::{Reject, Sim, SimConfig};
 pub use symmetry::{EditableRegion, MapTransform, Orientation, Symmetry};
 pub use units::{CornerPos, SU_PER_GU, TICKS_PER_SECOND, Tick, TilePos, gu, seconds};

@@ -1,10 +1,11 @@
-//! GDO object types — `factions/gdo/`.
+//! GDO object types — `factions/gdo/`: its units (`units.md`) and its structures (`structures.md`, `economy.md`).
 
+use super::structures::{StructureDef, SymmetryType};
 use super::units::{
     AttackAttrs, AttackType, FullyConnectedSubtype, MovementAttrs, RiotShieldDef, TargetDomain, TargetType, UnitBase,
     UnitDef,
 };
-use super::{Category, Footprint, ObjectDef, ObjectKind};
+use super::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
 use crate::player::Faction;
 
@@ -24,6 +25,10 @@ pub(super) static PEACEKEEPER: ObjectDef = ObjectDef {
     groupable: true,                                       // Groupable - true
     sight_range: 5.0,                                      // SightRange - 5 grid units
     max_hp: Some(50.0),                                    // MaxHP - 50
+    armor: Armor {
+        point: 1.0, // PointArmor - 1
+        full: 1.0,  // FullArmor - 1
+    },
     needs_flat_ground: false,
     unit: Some(UnitDef {
         base: UnitBase::LightInfantry, // UnitBase - LightInfantry
@@ -35,8 +40,6 @@ pub(super) static PEACEKEEPER: ObjectDef = ObjectDef {
             max_speed: 4.0,     // MaxSpeed: 4 space units/frame
         },
         rugged_terrain_defense_bonus: Some(0.5), // RuggedTerrainDefenseBonus: 50%
-        point_armor: 1.0,                        // PointArmor - 1
-        full_armor: 1.0,                         // FullArmor - 1
         turret: None,                            // TurretAttributes - None
         attack: Some(AttackAttrs {
             // FullyConnected; its Range of 4 grid units makes it the Ranged subtype (`systems/combat.md >
@@ -60,5 +63,133 @@ pub(super) static PEACEKEEPER: ObjectDef = ObjectDef {
             damage_factor: 0.5, // Incoming damage is halved, a 50% pre-armor reduction
             toggle_ticks: RIOT_SHIELD_TOGGLE_TICKS,
         }),
+    }),
+    structure: None,
+};
+
+/// `factions/gdo/structures.md > DeploymentCenter`.
+pub(super) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
+    kind: ObjectKind::DeploymentCenter,
+    name: "Deployment Center",
+    faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization
+    category: Category::Structure,
+    footprint: Footprint::Tiles { w: 4, h: 4 }, // Size - 4x4 grid units
+    selectable: true,                           // `core/entities.md > Object Type > Selectable - true`
+    destructible: true,                         // Destructible - true
+    groupable: false,                           // Groupable - false
+    sight_range: 6.0,                           // SightRange - 6 grid units
+    max_hp: Some(1000.0),                       // MaxHP - 1000
+    armor: Armor {
+        point: 1.0, // PointArmor - 1
+        full: 16.0, // FullArmor - 16
+    },
+    needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
+    unit: None,
+    structure: Some(StructureDef {
+        symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
+        build_radius_extension: 12,   // BuildRadiusExtension - 12 grid units
+        power: 30,                    // Power - +30
+    }),
+};
+
+/// `factions/gdo/economy.md > Generator`.
+pub(super) static GENERATOR: ObjectDef = ObjectDef {
+    kind: ObjectKind::Generator,
+    name: "Generator",
+    faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization
+    category: Category::Structure,
+    footprint: Footprint::Tiles { w: 2, h: 2 }, // Size - 2x2 grid units
+    selectable: true,                           // `core/entities.md > Object Type > Selectable - true`
+    destructible: true,                         // Destructible - true
+    groupable: true,                            // Groupable - true
+    sight_range: 3.0,                           // SightRange - 3 grid units
+    max_hp: Some(350.0),                        // MaxHP - 350
+    armor: Armor {
+        point: 1.0, // PointArmor - 1
+        full: 4.0,  // FullArmor - 4
+    },
+    needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
+    unit: None,
+    structure: Some(StructureDef {
+        symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
+        build_radius_extension: 1,    // BuildRadiusExtension - 1 grid unit
+        power: 20,                    // Power - +20
+    }),
+};
+
+/// `factions/gdo/structures.md > Barracks`.
+pub(super) static BARRACKS: ObjectDef = ObjectDef {
+    kind: ObjectKind::Barracks,
+    name: "Barracks",
+    faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization
+    category: Category::Structure,
+    // Size - 2x3 grid units (2 tall, 3 wide in the default orientation; design change 0079).
+    footprint: Footprint::Tiles { w: 3, h: 2 },
+    selectable: true,    // `core/entities.md > Object Type > Selectable - true`
+    destructible: true,  // Destructible - true
+    groupable: true,     // Groupable - true
+    sight_range: 4.0,    // SightRange - 4 grid units
+    max_hp: Some(300.0), // MaxHP - 300
+    armor: Armor {
+        point: 1.0, // PointArmor - 1
+        full: 6.0,  // FullArmor - 6
+    },
+    needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
+    unit: None,
+    structure: Some(StructureDef {
+        symmetry: SymmetryType::ABAC, // SymmetryType - ABAC (top A, right B, bottom A, left C)
+        build_radius_extension: 2,    // BuildRadiusExtension - 2 grid units
+        power: -30,                   // Power - -30
+    }),
+};
+
+/// `factions/gdo/economy.md > ExtractionFacility`.
+pub(super) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
+    kind: ObjectKind::ExtractionFacility,
+    name: "Extraction Facility",
+    faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization
+    category: Category::Structure,
+    footprint: Footprint::Tiles { w: 3, h: 3 }, // Size - 3x3 grid units
+    selectable: true,                           // `core/entities.md > Object Type > Selectable - true`
+    destructible: true,                         // Destructible - true
+    groupable: false,                           // Groupable - false
+    sight_range: 3.0,                           // SightRange - 3 grid units
+    max_hp: Some(500.0),                        // MaxHP - 500
+    armor: Armor {
+        point: 1.0, // PointArmor - 1
+        full: 9.0,  // FullArmor - 9
+    },
+    needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
+    unit: None,
+    structure: Some(StructureDef {
+        symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
+        build_radius_extension: 2,    // BuildRadiusExtension - 2 grid units
+        power: -15,                   // Power - -15
+    }),
+};
+
+/// `factions/gdo/economy.md > ExtractionPlate`: placed onto a Space Crystals Patch, which it shares its tile with
+/// (`ObjectKind::may_overlap`).
+pub(super) static EXTRACTION_PLATE: ObjectDef = ObjectDef {
+    kind: ObjectKind::ExtractionPlate,
+    name: "Extraction Plate",
+    faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization
+    category: Category::Structure,
+    footprint: Footprint::Tiles { w: 1, h: 1 }, // Size - 1x1 grid unit
+    selectable: true,                           // `core/entities.md > Object Type > Selectable - true`
+    destructible: true,                         // Destructible - true
+    groupable: true,                            // Groupable - true
+    sight_range: 0.0,                           // SightRange - 0
+    max_hp: Some(85.0),                         // MaxHP - 85
+    armor: Armor {
+        point: 2.0, // PointArmor - 2
+        full: 2.0,  // FullArmor - 2
+    },
+    needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
+    unit: None,
+    structure: Some(StructureDef {
+        symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
+        build_radius_extension: 0,    // BuildRadiusExtension - 0
+        power: -3,                    // Power - -3
     }),
 };

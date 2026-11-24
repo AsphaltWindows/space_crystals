@@ -55,6 +55,7 @@ fn spawn(app: &mut App, kind: ObjectKind, owner: PlayerId, at: Vec2) {
         kind,
         owner: Some(owner),
         at,
+        orientation: Default::default(),
     };
     submit(app, P1, Command::Debug(command));
 }

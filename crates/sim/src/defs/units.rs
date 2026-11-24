@@ -2,7 +2,8 @@
 //!
 //! [`UnitBase`] has one static [`UnitBaseDef`] per base (`systems/units.md > UnitBase`). A unit type's own numbers
 //! are a [`UnitDef`] on its `ObjectDef` (`ObjectDef::unit`): its base, the attributes of the base's movement model,
-//! its armour, turret and attack. The faction modules (`defs/gdo.rs`, …) hold the unit types themselves.
+//! its turret and attack; its armour is on the `ObjectDef` itself (`ObjectDef::armor`), as structures have armour
+//! too. The faction modules (`defs/gdo.rs`, …) hold the unit types themselves.
 //!
 //! Units of measure follow `core/scale.md`: speeds in space units per tick, accelerations in space units per tick²,
 //! turn rates in radians per tick, ranges in grid units, durations in ticks (the design's "frames").
@@ -420,10 +421,6 @@ pub struct UnitDef {
     /// `systems/units.md > LightInfantry > RuggedTerrainDefenseBonus`: the fraction of damage taken off on Rugged
     /// tiles. Light infantry only.
     pub rugged_terrain_defense_bonus: Option<f32>,
-    /// `> PointArmor`.
-    pub point_armor: f32,
-    /// `> FullArmor`.
-    pub full_armor: f32,
     /// `> TurretAttributes[UnitBase]`: `None` without a turret.
     pub turret: Option<TurretAttrs>,
     /// `> AttackAttributes`: `None` for units that can't attack.

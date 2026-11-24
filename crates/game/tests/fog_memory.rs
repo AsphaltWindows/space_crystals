@@ -9,14 +9,14 @@ use bevy::time::TimeUpdateStrategy;
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{
-    Command, DebugCommand, Faction, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, ResourceState, Spawn,
-    SpawnAt, SpawnSettings, TICKS_PER_SECOND, Tick, TilePos, scenarios,
+    Command, DebugCommand, Faction, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, ResourceState, Rotation,
+    SlotId, Spawn, SpawnAt, SpawnSettings, TICKS_PER_SECOND, Tick, TilePos, scenarios,
 };
 use space_crystals::combat_effects::{CombatEffects, HIT_FLASH_TICKS, ShotView, shot_view, shows_tracer};
 use space_crystals::fog::Sight;
 use space_crystals::hud::info_panel::{InfoText, NO_DELIVERY};
 use space_crystals::input::InjectedInput;
-use space_crystals::object_render::{ObjectVisuals, RememberedVisual, RememberedVisuals};
+use space_crystals::object_render::{ObjectVisuals, RememberedVisual, RememberedVisuals, StructureTag};
 use space_crystals::platform::DisplayMode;
 use space_crystals::selection::markers::SelectionMarkers;
 use space_crystals::selection::{ControlStates, Selectables, Selection};
@@ -73,6 +73,7 @@ fn spawn_unit(app: &mut App, owner: PlayerId, x: i32, y: i32) {
             kind: ObjectKind::Peacekeeper,
             owner: Some(owner),
             at,
+            orientation: Default::default(),
         },
     );
 }
@@ -207,7 +208,15 @@ fn explored_tiles_draw_records_never_live_objects() {
     debug(&mut app, DebugCommand::Remove { id: ObjectId(PATCH) });
     let at = SpawnAt::Tile(TilePos::new(6, 4));
     let kind = ObjectKind::CrystalPatch;
-    debug(&mut app, DebugCommand::Spawn { kind, owner: None, at });
+    debug(
+        &mut app,
+        DebugCommand::Spawn {
+            kind,
+            owner: None,
+            at,
+            orientation: Default::default(),
+        },
+    );
     app.update();
     let placed = 4;
     assert!(app.world().resource::<SimRes>().object(ObjectId(PATCH)).is_none());
@@ -232,6 +241,69 @@ fn explored_tiles_draw_records_never_live_objects() {
     assert!(
         sim.vision().player(P1).unwrap().record(ObjectId(PATCH)).is_none(),
         "seen gone"
+    );
+}
+
+/// The tag among `entity`'s children ([`StructureTag`]): whose it is, what it says, and its colour.
+fn tag(app: &App, entity: Entity) -> Option<(ObjectId, String, Color)> {
+    let world = app.world();
+    world.get::<Children>(entity)?.iter().find_map(|child| {
+        let tag = world.get::<StructureTag>(child)?;
+        Some((
+            tag.0,
+            world.get::<Text2d>(child)?.0.clone(),
+            world.get::<TextColor>(child)?.0,
+        ))
+    })
+}
+
+/// An enemy structure seen and then out of sight shows as last seen, like a map resource: where it stands, as placed
+/// (a Barracks turned a quarter), in its owner's colour, with its tag; dimmed, the tag too.
+#[test]
+fn a_remembered_enemy_structure_shows_as_placed_with_its_tag() {
+    let mut scenario = scenarios::empty(24, 16);
+    let mut barracks = Spawn::new(ObjectKind::Barracks, Some(SlotId(2)), SpawnAt::Tile(TilePos::new(8, 4)));
+    barracks.orientation.rotation = Rotation::R90; // (8, 4) to (9, 6)
+    scenario.map.spawns = vec![barracks];
+    let mut app = headless(AppConfig::new(scenario));
+    // Looking only: units attack enemy structures on their own (`World::pick`).
+    debug(&mut app, DebugCommand::SetAutoTargeting { on: false });
+    spawn_unit(&mut app, P1, 5, 7); // 2: sees the Barracks
+    app.update();
+    let barracks = 1;
+    assert!(drawn(&app, barracks));
+    assert_eq!(remembered(&app), [0_u32; 0]);
+    let live = app.world().resource::<ObjectVisuals>().by_id[&ObjectId(barracks)];
+    let (id, label, bright) = tag(&app, live).expect("a live structure has its tag");
+    assert_eq!((id, label.as_str()), (ObjectId(barracks), "BR"));
+
+    let pos = centre(20, 7);
+    debug(&mut app, DebugCommand::SetPosition { id: ObjectId(2), pos });
+    app.update();
+    assert!(!drawn(&app, barracks));
+    assert_eq!(remembered(&app), [barracks]);
+    let memory = app.world().resource::<RememberedVisuals>().by_id[&ObjectId(barracks)];
+    assert_eq!(translation(&app, memory), translation(&app, live), "where it stands");
+    let mesh = |entity| app.world().get::<Mesh2d>(entity).unwrap().0.clone();
+    assert_eq!(
+        mesh(memory),
+        mesh(live),
+        "the same shape, as placed, in its owner's colour"
+    );
+    let material = |entity| {
+        app.world()
+            .get::<MeshMaterial2d<ColorMaterial>>(entity)
+            .unwrap()
+            .0
+            .clone()
+    };
+    assert_ne!(material(memory), material(live), "dimmed");
+    let (id, label, dim) = tag(&app, memory).expect("a remembered structure has its tag");
+    assert_eq!((id, label.as_str()), (ObjectId(barracks), "BR"));
+    let (bright, dim) = (bright.to_srgba(), dim.to_srgba());
+    assert!(
+        dim.red < bright.red && dim.green < bright.green && dim.blue < bright.blue,
+        "{dim:?}"
     );
 }
 

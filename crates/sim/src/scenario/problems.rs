@@ -44,7 +44,8 @@ pub enum ScenarioProblem {
         kind: ObjectKind,
         problem: SpawnProblem,
     },
-    /// The tile footprints of the spawns at these indices share `tile`.
+    /// The tile footprints of the spawns at these indices share `tile`, and only a plate and its patch may
+    /// (`ObjectKind::may_overlap`).
     OverlappingFootprints { first: usize, second: usize, tile: TilePos },
     /// Object `index` of a slot's Starting Layout for `faction` can't be created.
     InvalidLayoutObject {
@@ -54,7 +55,8 @@ pub enum ScenarioProblem {
         kind: ObjectKind,
         problem: SpawnProblem,
     },
-    /// Object `index` of the Starting Layout a player gets overlaps a pre-placed object or another starting object.
+    /// Object `index` of the Starting Layout a player gets overlaps a pre-placed object or another starting object
+    /// (only a plate may overlap, the patch it is placed onto: `ObjectKind::may_overlap`).
     LayoutOverlap {
         slot: SlotId,
         faction: Faction,
@@ -86,7 +88,8 @@ pub enum SpawnProblem {
     FootprintOffMap,
     /// The point is not finite or lies off the map.
     PointOffMap,
-    /// `core/map.md > Elevation > Map resources only on flat terrain`: this footprint tile is sloped.
+    /// `core/map.md > Elevation > Structures only on flat terrain`, `> Map resources only on flat terrain`: this
+    /// footprint tile is sloped.
     NotFlat(TilePos),
     /// `core/map_editor.md > Per-object Resource Values`: the spawn has no values, but its kind needs them.
     MissingSettings,

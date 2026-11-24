@@ -55,6 +55,46 @@ fn dev_skirmish_layout() {
     assert_eq!(kinds, expected);
 }
 
+/// The QA map of the GDO structures: one of each for each player, a plate on a patch in each base.
+#[test]
+fn dev_structures_layout() {
+    use ObjectKind::{Barracks, CrystalPatch, DeploymentCenter, ExtractionFacility, ExtractionPlate, Generator};
+    let scenario = scenarios::dev_structures();
+    assert_eq!(scenario.map.map_type, MapType::Custom);
+    let sim = Sim::new(&scenario);
+    for player in [PlayerId(1), PlayerId(2)] {
+        let mut kinds: Vec<ObjectKind> = sim
+            .objects()
+            .filter(|o| o.owner == Some(player))
+            .map(|o| o.kind)
+            .collect();
+        kinds.sort();
+        let expected = [
+            DeploymentCenter,
+            Generator,
+            Barracks,
+            ExtractionFacility,
+            ExtractionPlate,
+        ];
+        assert_eq!(kinds, expected, "{player:?}");
+        let plate = sim
+            .objects()
+            .find(|o| o.owner == Some(player) && o.kind == ExtractionPlate)
+            .unwrap();
+        let under = sim
+            .objects()
+            .filter(|o| o.kind == CrystalPatch && o.placement == plate.placement)
+            .count();
+        assert_eq!(under, 1, "{player:?}'s plate is on a patch");
+    }
+    let barracks: Vec<_> = sim
+        .objects()
+        .filter(|o| o.kind == Barracks)
+        .map(|o| o.placement.map(|p| (p.w, p.h)))
+        .collect();
+    assert_eq!(barracks, [Some((3, 2)), Some((2, 3))], "unturned, and turned 90°");
+}
+
 #[test]
 fn empty_maps_of_any_size_are_valid() {
     for (w, h) in [(1, 1), (2, 3), (32, 24), (5, 200)] {

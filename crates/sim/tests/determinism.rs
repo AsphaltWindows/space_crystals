@@ -14,6 +14,7 @@ fn spawn(kind: ObjectKind, x: i32, y: i32) -> DebugCommand {
         kind,
         owner: None,
         at: SpawnAt::Tile(TilePos::new(x, y)),
+        orientation: Default::default(),
     }
 }
 

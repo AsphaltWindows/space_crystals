@@ -299,6 +299,7 @@ fn an_object_spawned_on_the_path_forces_exactly_one_repath() {
         kind: ObjectKind::SupplyDeliveryStation,
         owner: None,
         at: SpawnAt::Tile(tile),
+        orientation: Default::default(),
     };
     let mut t = ScenarioBuilder::new(OPEN).start();
     t.without_auto_targeting();

@@ -123,9 +123,9 @@ The design is `core/map.md`, and the code is `crates/sim/src/map.rs` and `map/`.
 - **Maximum slope**: a Traversible tile may slope at most `MAX_TRAVERSIBLE_SLOPE` (1) level; `is_too_steep` and
   `too_steep_tiles` find violations, and `MapDef::validate` lists them (`ScenarioProblem::TooSteep`). Non-Traversible
   tiles (Cliff, Mountain, Water) may be as steep as they like.
-- **Map resources need flat ground** (`core/map.md > Elevation > Map resources only on flat terrain`): every footprint
-  tile of a kind with `ObjectDef::needs_flat_ground` must be flat. Validation flags it (`SpawnProblem::NotFlat`) and
-  `Command::Debug(Spawn)` refuses it. Structures don't check flatness yet.
+- **Map resources and structures need flat ground** (`core/map.md > Elevation > Map resources only on flat terrain`,
+  `> Structures only on flat terrain`): every footprint tile of a kind with `ObjectDef::needs_flat_ground` must be
+  flat. Validation flags it (`SpawnProblem::NotFlat`) and `Command::Debug(Spawn)` refuses it.
 - **Height edits**: `Map::set_corner_heights(targets)` pins the target corners and moves every other corner as little
   as needed for the maximum slope (two corners are linked when they share a Traversible tile, so slopes cascade
   outwards, AoE2-style, and stop at non-Traversible tiles). It returns the corners it changed. On a map without
@@ -158,15 +158,35 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   them through `ObjectKind::def()` or `Object::def()`. Every value cites its design section. Faction types go in
   per-faction modules (`defs/gdo.rs`, …). A unit type also has `ObjectDef::unit: Some(UnitDef)` (`defs/units.rs`,
   `systems/units.md`): its `UnitBase`, whose `static UnitBaseDef` holds the base's domain, movement model and flags
-  (turret, crushable, …), the attributes of that movement model (`MovementAttrs`), and its armour, turret, attack and
-  costs. Its box is its silhouette (`ObjectDef::half_extents`).
+  (turret, crushable, …), the attributes of that movement model (`MovementAttrs`), and its turret, attack and costs.
+  Its box is its silhouette (`ObjectDef::half_extents`). Armour (`ObjectDef::armor`, an `Armor` of PointArmor and
+  FullArmor) is the same for units and structures; map resources have `Armor::NONE`.
+- **Structures** (`defs/structures.rs`, `defs/gdo.rs`; `factions/gdo/structures.md`, `factions/gdo/economy.md`): the
+  GDO's Deployment Center, Generator, Barracks, Extraction Facility and Extraction Plate (slice M2-A; their
+  `ObjectKind`s follow the M1 ones, because the state hash numbers kinds in declaration order). A structure type has
+  `ObjectDef::structure: Some(StructureDef)` (its `SymmetryType`, BuildRadiusExtension and Power, for the later
+  slices) and a tile footprint, `ObjectDef::tile_size` as unturned; its `Placement` holds it as placed, `w` and `h`
+  swapped by a quarter turn, with the orientation it was placed in (`Placement::orientation`). It has HP, armour and
+  a SightRange, and no orders, mover or attack, so behaviours, movement and combat pass it by.
+- **Sides** (`sides.rs`, design change 0079): `sides(kind, orientation)` gives the letters of a structure's sides
+  that face north, east, south and west (`[SideLetter; 4]`, `None` for other objects). Unturned, the letters of its
+  `SymmetryType` (AAAA to ABCD) run clockwise from the top side; a flip mirrors them, then the rotation turns them
+  with the building. A Barracks (ABAC) has its exit B on the east side unturned, on the south side turned 90°
+  clockwise.
+- **Footprints don't overlap** (design change 0096: no buildings on resources), with one exception, the pair of an
+  Extraction Plate and the uncovered crystal patch it is placed onto (`ObjectKind::may_overlap`;
+  `factions/gdo/economy.md > ExtractionPlate`). Scenario validation (`scenario/validate/occupied.rs`, for the map's
+  objects and the Starting Layouts alike) and debug spawns (`Reject::Overlaps`) apply it. Nothing requires a plate
+  to be on a patch yet.
 
 **Adding an object type**
 1. Add an `ObjectKind` variant whose doc comment cites the design section, and add it to `ObjectKind::ALL`.
 2. Add its `static ObjectDef`, with a citation for every value, and its arm in `ObjectKind::def()`. Missing numbers
    become named consts tagged with the question id.
 3. Set up its capability state in `Sim::insert_object` (units get idle `orders` and `mover`), and give it a
-   placeholder shape (`object_render::object_mesh`, whose `match` is exhaustive).
+   placeholder shape (`object_render::object_mesh`, whose `match` is exhaustive). The other exhaustive matches on
+   kinds name the rest: its short label (`hud::selection_panel::short_label`), its per-object values
+   (`SpawnSettings::defaults`, the editor's `fields.rs`) and its interface (`command_ui/interface.rs`).
 4. Test it. Spawn it in a small inline scenario, then check its initial state and its behaviour.
 
 **Adding a capability**
@@ -271,7 +291,9 @@ ticks spent in it. Hashed and serialized like all state.
   lands at the end of Firing as a `Hit` on the tick's list. The list is applied once all have acted, so every hit
   counts, including those on a unit another hit has killed and those of a unit that dies in the same tick.
   `hit_damage` follows `> SingleTargetDamage` and `> DamageModifierOrder` (pre-armor multipliers, PointArmor,
-  directional multiplier, MinimumDamage); HP is fractional, nothing is rounded. An object at 0 HP or less dies.
+  directional multiplier, MinimumDamage); HP is fractional, nothing is rounded. PointArmor is the target's
+  `ObjectDef::armor`, a structure's too: a Peacekeeper's 10 damage takes 9 HP off a Generator and 8 off a plate. An
+  object at 0 HP or less dies; a structure that dies frees its tiles (the navigation grids are rebuilt).
 - **Removal path**: `Sim::remove_objects` (`sim/removal.rs`) is the one way objects leave the game, for deaths and
   debug removals alike. It emits `Removed` and clears every reference to the removed: a current order naming one
   completes, queued ones are dropped, a move towards one ends `TargetLost`, an attack on one stops (an aim is
@@ -294,11 +316,11 @@ ticks spent in it. Hashed and serialized like all state.
 Slices V and F (`vision.rs`, `vision/`; `core/vision.md`). Every tile is `VisibilityState::Unexplored`, `Explored`
 or `Visible` for each player, and each player remembers the structures and resources it has seen.
 
-- **Sources**: every object with an owner and a SightRange above 0; vision goes to its owner. Each sees a disc
-  around its centre: a tile is seen when its centre (`TILE_SIGHT_POINT`) lies within the SightRange, boundary
-  included, with the ElevationModifier between the object's elevation and the tile's level at its centre
-  (`elevation::sight_range`: +1 GU towards lower tiles, −1 towards higher, none for air). No line of sight: terrain
-  blocks nothing.
+- **Sources**: every object with an owner and a SightRange above 0 (units and structures; an Extraction Plate has
+  none); vision goes to its owner. Each sees a disc around its centre (a structure's: its footprint's centre): a
+  tile is seen when its centre (`TILE_SIGHT_POINT`) lies within the SightRange, boundary included, with the
+  ElevationModifier between the object's elevation and the tile's level at its centre (`elevation::sight_range`: +1
+  GU towards lower tiles, −1 towards higher, none for air). No line of sight: terrain blocks nothing.
 - **Incremental stamps**: each source keeps its `Eye` (owner, centre, SightRange, elevation) and the sorted tiles
   it stamped. In 5f a source whose eye is unchanged costs nothing; one that changed stamps again and only the
   difference changes the per-player counts of sources seeing each tile; a source that is gone takes its tiles away.
@@ -350,7 +372,11 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   pick. Every unit decides on the same world, whatever its id. `World::pick` is the scan of `> BaseAutoTargeting >
   Target Selection Priority`: among the ValidTargets in reach (enemies only: another player's destructible objects
   that the unit's owner sees and its attack can target), threatening ones first, then the least rotation from the
-  unit's facing, then the smallest gap, then the lowest id.
+  unit's facing, then the smallest gap, then the lowest id. Structures can't attack, so enemy structures come after
+  the targets that shoot back; that units pick them on their own at all is question Q0030 point 1's default, a
+  placeholder. The grid holds candidates by their centres, so a scan looks as far as the unit's longest range with
+  the modifier, plus its own half size and the largest candidate's (`World::candidate_half`): a footprint in reach
+  is found however far its centre lies.
 - **AttackingObject** (`orders/engage.rs`): `close_in` is its core, shared by all fighting. In range (`combat::
   reaches`) the unit stops and phase 5e attacks; out of range it heads for the target with `MoveGoal::Object`,
   starting only while `combat::may_move` holds. An **Attack order** adds its ends: the target destroyed (the removal
@@ -529,7 +555,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   (`DebugDisabled`), then the command's own rules: every id it names exists (`UnknownObject`) and, for a player's
   orders to objects, belongs to that player (`NotOwned`, through `Sim::referenced(id, Some(player))`; debug commands
   and targets may name anyone's objects), positions are finite and on the map (`OffMap`), an order's target
-  object is in the issuing player's sight (`NotVisible`, below), spawns fit (`Spawn(SpawnProblem)`). A rejected command changes nothing, neither the state nor the events, and never panics.
+  object is in the issuing player's sight (`NotVisible`, below), spawns fit (`Spawn(SpawnProblem)`) and keep apart
+  from other footprints (`Overlaps(id)`, see Object model). A rejected command changes nothing, neither the state
+  nor the events, and never panics.
   There is no rejection event yet: add one as output outside the state hash when the UI needs it.
 - **`Command::Order { units, kind, queue }`** (`systems/controls/commands.md > Unit Command`, `docs/movement.md > 3`):
   `OrderKind` is `Move(Target)` (a point or an object), `Attack(id)`, `AttackMove(point)`, `Patrol(point)`, `Hold`
@@ -565,7 +593,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   (`AppConfig::new`; off with `--no-debug`), editor play-tests run with it on, and so does `TestSim::new`
   (`TestSim::with_config` or `ScenarioBuilder::config` for other options).
 - `Command::Debug(DebugCommand::…)` covers `Spawn`, `Remove`, `SetPosition` and `SetAutoTargeting` (see
-  *Behaviours*), for development and QA. It bypasses costs and rules, only works while `SimConfig::debug` is on, and
+  *Behaviours*), for development and QA. `Spawn` places a tile-based object in an `orientation`
+  (`BuildingOrientation`), which files may leave out: unturned is the default and isn't written, so replays from
+  before it load unchanged. It bypasses costs and rules, only works while `SimConfig::debug` is on, and
   is never offered in a real match. A teleport sets `prev_pos = pos`, so nothing interpolates across the map.
 - **Replay** = the `Scenario` (the map and the game setup, game options included) plus the `TickInputs` of every
   tick, empty ticks included, and state-hash checkpoints: `sc_sim::Replay` (serde) with `start`/`record`/`step`/`run`,
@@ -599,9 +629,10 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   `Sim::try_new` returns the problems as an error and `Sim::new` panics with them, so load files and editor maps with
   `try_new`. Units start on open ground and apart (`paths::misplaced`, in list order): a unit's box must not overlap
   blocked tiles, the map's edge or a blocking footprint (`SpawnProblem::Blocked`) or an earlier unit of its layer
-  (`OverlapsUnit`), and a blocking footprint must not cover a ground unit (`CoversUnit`). `MapDef::validate` checks
-  the pre-placed objects; `Scenario::validate` checks the Starting Layouts of the factions played, with the map's
-  objects.
+  (`OverlapsUnit`), and a blocking footprint must not cover a ground unit (`CoversUnit`). Footprints keep apart
+  (`OverlappingFootprints`, `LayoutOverlap`), but for a plate on an uncovered patch (see Object model).
+  `MapDef::validate` checks the pre-placed objects; `Scenario::validate` checks the Starting Layouts of the factions
+  played, with the map's objects.
 - **Map files** are a `MapDef`'s serde form, written with `serde_json::to_string_pretty`. A `version` field
   (`MAP_FORMAT_VERSION`, now 3) comes first; bump it on any incompatible change. The terrain is stored as rows of
   strings in the ASCII format below: `tiles` (H rows of W symbols) and `heights` (H + 1 rows of W + 1 corner digits),
@@ -626,9 +657,10 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
 - Built-in scenarios live in `scenarios.rs`, behind `by_name(name)` and `NAMES`, each with its default setup. Keep
   the two in sync, because the client's `--scenario` flag uses them. Currently there are `dev_skirmish`, a 64×48
   Skirmish Default development map (Q0003) with 180° symmetry: starts in opposite corners, gentle hills of slopes
-  only, and a central plateau ringed by cliffs with a ramp up through a gap in the west and in the east; and `empty`,
-  a flat 32×24 Custom map without symmetry. `scenarios::empty(w, h)` builds an empty scenario of any size,
-  `empty_map(w, h)` its map.
+  only, and a central plateau ringed by cliffs with a ramp up through a gap in the west and in the east;
+  `dev_structures`, a flat 30×12 Custom QA map with one of each GDO structure for each of two players (a plate on a
+  patch in each base, slot 2's Barracks turned 90°); and `empty`, a flat 32×24 Custom map without symmetry.
+  `scenarios::empty(w, h)` builds an empty scenario of any size, `empty_map(w, h)` its map.
 - Unit tests sit in their module (`#[cfg(test)] mod tests`). Scenario and integration tests go in `crates/sim/tests/`
   and use only the public API.
 - Build test scenarios inline from an ASCII map or from `scenarios::empty(w, h)` plus tiles and spawns, not from
@@ -672,6 +704,12 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
 - **Resource collision tests** are `crates/sim/tests/resources_block.rs` (design change 0038's verification: units
   path around a crystal field, can't walk across a Supply Delivery Station, and walk through the tile of a patch
   removed by a debug command, standing in for depletion).
+- **Structure tests** are `crates/sim/tests/structures.rs` (each type's stat block, the Barracks in all 16 ways to
+  rotate and flip it and its sides, ground units walking around a footprint, PointArmor on hits, a destroyed
+  Generator freeing its tiles, debug spawns kept apart but for a plate on its patch, flat ground, the optional
+  orientation in files) and `structures_vision.rs` (each type's sight, the ElevationModifier, an enemy Barracks
+  remembered in the fog, a plate on a patch in maps and layouts, the targets that shoot back first, a scan reaching
+  a large footprint by its edge).
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
   checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is
@@ -733,10 +771,15 @@ out by the same rules.
   Guard square) of the silhouette's size, in the owner's colour (`player_color`, the editor's slot colours), with a
   dark rim and a light tick along the facing; the visual turns with the interpolated facing. The Guard's square
   doesn't: it stays axis-aligned like its collision box, and only its tick turns (a `FacingTick` child,
-  `body_turns`). One mesh per `(kind, owner)` is shared, and one tick mesh per kind. A unit that carries a Riot
-  Shield has a `RiotShieldVisual` child: a pale arc in front of it, hidden while the shield is down, growing to its
-  full size as it goes up. It is `Visibility::Hidden` or `Inherited`, never `Visible`, so the fog that hides its unit
-  hides it too.
+  `body_turns`). One mesh per `MeshKey` (kind, owner, and a structure's size as placed) is shared, and one tick mesh
+  per kind. A unit that carries a Riot Shield has a `RiotShieldVisual` child: a pale arc in front of it, hidden while
+  the shield is down, growing to its full size as it goes up. It is `Visibility::Hidden` or `Inherited`, never
+  `Visible`, so the fog that hides its unit hides it too.
+- **Structures** (`object_render/structures.rs`) are placeholders too: the footprint as placed, in the owner's colour
+  inside a dark rim, drawn `INSET_SU` (8) inside its edge so that a selection frame shows around it, and over a map
+  resource's placeholder (a plate covers its patch). A `StructureTag` child, a `Text2d` of the type's short label
+  (`hud::selection_panel::short_label`), names it; the fog hides it with its structure. A remembered structure
+  (`remembered.rs`) looks the same, in its owner's colour, dimmed, its tag too.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
@@ -867,9 +910,10 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   its own objects, others on Visible tiles; on Explored ones only a remembered Supply Delivery Station, at its
   record, and only for a GDO player, `remembered_selectable_by`, `core/vision.md > Explored Selectability`; with
   the fog off, everything), each object's box as it is drawn: interpolated, lifted by the height it stands at, in
-  view space. A click picks the frontmost box under it
-  (grown by `PICK_SLOP_SU`); a box (the input layer's `SelectionBox`) applies the priority tiers. `Relation::of`
-  says own, enemy or neutral (no teams yet, so no allies); allies would count with enemies in the tiers.
+  view space. A click picks the frontmost box under it (grown by `PICK_SLOP_SU`), and of boxes drawn at one depth
+  anything before a map resource, so a click on a covered patch's tile picks its plate (design change 0099); a box
+  (the input layer's `SelectionBox`) applies the priority tiers. `Relation::of` says own, enemy or neutral (no teams
+  yet, so no allies); allies would count with enemies in the tiers.
 - **Rules** (`selection/rules.rs`, pure and unit tested): map clicks, boxes, portrait clicks, control group keys and
   Tab on a `ControlState`, under the Constraints: another player's object or a resource is only ever selected alone,
   and any click on one selects it alone (design change 0048). On an own unit a click selects it, Shift toggles it,
@@ -1173,8 +1217,10 @@ unchecked.
   listed as a problem. The overlay previews each dab: the tiles, the corners it sets (white) and the ones the cascade
   moves (amber), from where they are drawn now to where they will be, and in red the tiles a paint would refuse.
 - **Objects**: Place refuses spots off the map, overlapping another footprint or its own image, in the locked part,
-  or, for resources, on a sloped tile (the ghost turns red). New objects get `SpawnSettings::defaults`; selecting one
-  shows its values as text fields (the interval in seconds), which commit `SetSpawnSettings`, one undo step each.
+  or, for resources and structures, on a sloped tile (the ghost turns red). Structures are placed unturned, and a
+  plate can't go onto a patch here yet (rotate and flip come with slice M2-I). New objects get
+  `SpawnSettings::defaults`; selecting one shows its values as text fields (the interval in seconds), which commit
+  `SetSpawnSettings`, one undo step each.
 - **View**: G toggles the grid, K the slope tint (flat green, sloped amber, too steep red, in the terrain's z band).
   The middle-mouse grab pans as in the game. The status line shows the tile under the cursor with its preset, the
   interpolated height there, its level, whether the tile is flat, sloped or too steep, and whether it is locked.

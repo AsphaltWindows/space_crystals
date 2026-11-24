@@ -72,6 +72,7 @@ fn spawn(app: &mut App, kind: ObjectKind, owner: PlayerId, x: i32, y: i32) {
         kind,
         owner: Some(owner),
         at: SpawnAt::Point(centre(x, y)),
+        orientation: Default::default(),
     };
     submit(app, P1, Command::Debug(command));
 }

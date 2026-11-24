@@ -2,17 +2,20 @@
 //! every slot).
 
 use crate::defs::ObjectKind;
+use crate::ids::SlotId;
 use crate::map::{Map, Tile, TilePresetId};
-use crate::scenario::{MapDef, MapType, Scenario, Slot, Spawn, SpawnAt};
+use crate::object::Rotation;
+use crate::scenario::{BuildingOrientation, MapDef, MapType, Scenario, Slot, Spawn, SpawnAt};
 use crate::symmetry::Symmetry;
-use crate::units::{CornerPos, TilePos};
+use crate::units::{CornerPos, SU_PER_GU, TilePos};
 
 /// Names accepted by [`by_name`] (e.g. for the client's `--scenario` flag).
-pub const NAMES: &[&str] = &["dev_skirmish", "empty"];
+pub const NAMES: &[&str] = &["dev_skirmish", "dev_structures", "empty"];
 
 pub fn by_name(name: &str) -> Option<Scenario> {
     match name {
         "dev_skirmish" => Some(dev_skirmish()),
+        "dev_structures" => Some(dev_structures()),
         "empty" => Some(empty(32, 24)),
         _ => None,
     }
@@ -40,6 +43,67 @@ pub fn empty_map(width: u32, height: u32) -> MapDef {
         symmetry: Symmetry::None,
         slots: starts.into_iter().map(Slot::new).collect(),
         spawns: Vec::new(),
+    }
+}
+
+/// [`dev_structures_map`] with its default setup.
+pub fn dev_structures() -> Scenario {
+    Scenario::new(dev_structures_map())
+}
+
+/// 30 × 12 flat Custom QA map with one of each GDO structure for each of its two slots: slot 1's base in the west,
+/// slot 2's in the east, 10 open tiles apart, each with three crystal patches and a plate on one of them
+/// (`factions/gdo/economy.md > ExtractionPlate`). Slot 1's Barracks is unturned (its exit side B faces east), slot
+/// 2's turned 90° clockwise (B faces south). Both cameras start at the middle of the map, where the view shows both
+/// bases.
+pub fn dev_structures_map() -> MapDef {
+    use ObjectKind::{Barracks, CrystalPatch, DeploymentCenter, ExtractionFacility, ExtractionPlate, Generator};
+    let (w, h) = (30, 12);
+    let mut spawns = Vec::new();
+    let mut place = |kind, slot: Option<u8>, x, y, rotation| {
+        let mut spawn = Spawn::new(kind, slot.map(SlotId), SpawnAt::Tile(TilePos::new(x, y)));
+        spawn.orientation = BuildingOrientation {
+            rotation,
+            ..Default::default()
+        };
+        spawns.push(spawn);
+    };
+    // Slot 1, in the west.
+    place(DeploymentCenter, Some(1), 1, 1, Rotation::R0); // (1, 1) to (4, 4)
+    place(Generator, Some(1), 6, 1, Rotation::R0); // (6, 1) to (7, 2)
+    place(Barracks, Some(1), 6, 4, Rotation::R0); // (6, 4) to (8, 5)
+    place(ExtractionFacility, Some(1), 1, 7, Rotation::R0); // (1, 7) to (3, 9)
+    for x in 5..=7 {
+        place(CrystalPatch, None, x, 8, Rotation::R0);
+    }
+    place(ExtractionPlate, Some(1), 5, 8, Rotation::R0);
+    // Slot 2, in the east.
+    place(DeploymentCenter, Some(2), 25, 7, Rotation::R0); // (25, 7) to (28, 10)
+    place(Generator, Some(2), 19, 2, Rotation::R0); // (19, 2) to (20, 3)
+    place(Barracks, Some(2), 19, 7, Rotation::R90); // (19, 7) to (20, 9)
+    place(ExtractionFacility, Some(2), 26, 1, Rotation::R0); // (26, 1) to (28, 3)
+    for x in 22..=24 {
+        place(CrystalPatch, None, x, 5, Rotation::R0);
+    }
+    place(ExtractionPlate, Some(2), 23, 5, Rotation::R0);
+
+    let middle = glam::Vec2::new(w as f32, h as f32) * (SU_PER_GU / 2.0);
+    let slots = [TilePos::new(5, 6), TilePos::new(24, 4)]
+        .into_iter()
+        .map(|start| {
+            let mut slot = Slot::new(start);
+            slot.camera_start = Some(middle);
+            slot
+        })
+        .collect();
+    MapDef {
+        map_type: MapType::Custom,
+        name: "dev_structures".into(),
+        description: "QA map: one of each GDO structure for each of two players.".into(),
+        terrain: Map::new(w, h),
+        symmetry: Symmetry::None,
+        slots,
+        spawns,
     }
 }
 

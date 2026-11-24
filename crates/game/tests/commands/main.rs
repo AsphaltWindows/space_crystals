@@ -275,7 +275,12 @@ fn spawn(app: &mut App, kind: ObjectKind, owner: Option<PlayerId>, at: Vec2) -> 
     submit(
         app,
         PlayerId(1),
-        Command::Debug(DebugCommand::Spawn { kind, owner, at }),
+        Command::Debug(DebugCommand::Spawn {
+            kind,
+            owner,
+            at,
+            orientation: Default::default(),
+        }),
     );
     updates(app, 2);
     let sim = app.world().resource::<SimRes>();

@@ -129,6 +129,7 @@ fn a_gdo_player_may_target_a_supply_station_it_has_explored() {
         kind,
         owner: None,
         at: SpawnAt::Tile(TilePos::new(x, y)),
+        orientation: Default::default(),
     };
     t.without_auto_targeting()
         .debug_at(1, tiles(ObjectKind::SupplyDeliveryStation, 5, 4)) // 1: near the units
@@ -198,6 +199,7 @@ fn a_station_the_gdo_player_never_saw_is_no_target_on_explored_ground() {
         kind: ObjectKind::SupplyDeliveryStation,
         owner: None,
         at: SpawnAt::Tile(TilePos::new(3, 4)),
+        orientation: Default::default(),
     };
     t.debug_at(3, station).step(); // 3, on the tiles unit 1 explored at tick 1
     assert_eq!(t.sim().object(id(3)).unwrap().kind, ObjectKind::SupplyDeliveryStation);

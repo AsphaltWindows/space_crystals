@@ -1,8 +1,9 @@
 //! What Explored tiles show of the structures and resources the local player remembers (`core/vision.md >
 //! Explored`: "shown in their last-known state (may have been destroyed or changed since)"): one visual per record
-//! the local player's sight shows (`fog::Sight::remembered`), in its kind's placeholder shape, where the record has
-//! its footprint, dimmed as the fog dims the terrain. The live objects there stay hidden (`fog`), so the view never
-//! shows what the player doesn't see. With the fog off there are none: every object shows as it is.
+//! the local player's sight shows (`fog::Sight::remembered`), in its kind's placeholder shape (a structure's in its
+//! owner's colour, with its tag), where the record has its footprint, dimmed as the fog dims the terrain. The live
+//! objects there stay hidden (`fog`), so the view never shows what the player doesn't see. With the fog off there
+//! are none: every object shows as it is.
 //!
 //! Synced only when what it shows may change: the sim, the local player, the fog or the mode, and within a sim the
 //! player's tiles or records (`PlayerVision::revision`, `PlayerVision::records_revision`).
@@ -13,7 +14,7 @@ use bevy::prelude::*;
 use sc_sim::vision::LastKnown;
 use sc_sim::{ObjectId, ObjectKind, Placement, PlayerId};
 
-use super::{ObjectVisualAssets, object_height, object_transform, visual_mesh};
+use super::{MeshKey, ObjectVisualAssets, object_height, object_transform, structures, visual_mesh};
 use crate::fog::{EXPLORED_ALPHA, LocalSight};
 use crate::sim_driver::SimRes;
 
@@ -26,7 +27,7 @@ pub struct RememberedVisual(pub ObjectId);
 pub struct RememberedVisuals {
     pub by_id: BTreeMap<ObjectId, Entity>,
     /// What each visual was made from.
-    made: BTreeMap<ObjectId, (ObjectKind, Placement)>,
+    made: BTreeMap<ObjectId, (ObjectKind, Option<PlayerId>, Placement)>,
     /// What the visuals show.
     shown: Option<Shown>,
 }
@@ -42,12 +43,13 @@ struct Shown {
     revisions: Option<(u32, u32)>,
 }
 
-/// The material of a record's visual: the vertex colours dimmed as the fog dims the Explored terrain under it
-/// ([`EXPLORED_ALPHA`] of black over it, in linear colour). Placeholder: the design doesn't say how remembered
-/// objects look.
+/// How much of its colour a record's visual keeps: the fog's [`EXPLORED_ALPHA`] of black over it, as over the
+/// Explored terrain under it. Placeholder: the design doesn't say how remembered objects look.
+const KEPT: f32 = 1.0 - EXPLORED_ALPHA;
+
+/// The material of a record's visual: the vertex colours dimmed by [`KEPT`] (in linear colour).
 fn dimmed_material() -> ColorMaterial {
-    let kept = 1.0 - EXPLORED_ALPHA;
-    ColorMaterial::from_color(Color::linear_rgb(kept, kept, kept))
+    ColorMaterial::from_color(Color::linear_rgb(KEPT, KEPT, KEPT))
 }
 
 /// Spawns a visual for each record the local player's sight shows, and despawns those of records it no longer
@@ -77,7 +79,7 @@ pub(super) fn sync_remembered_visuals(
     by_id.retain(|id, entity| {
         let keep = wanted
             .get(id)
-            .is_some_and(|r| made.get(id) == Some(&(r.kind, r.placement)));
+            .is_some_and(|r| made.get(id) == Some(&(r.kind, r.owner, r.placement)));
         if !keep {
             commands.entity(*entity).despawn();
             made.remove(id);
@@ -93,11 +95,12 @@ pub(super) fn sync_remembered_visuals(
             .dimmed
             .get_or_insert_with(|| materials.add(dimmed_material()))
             .clone();
-        // Records are of structures and resources, which are drawn in no owner's colour.
+        // Records are of structures, in their owner's colour, and resources.
+        let key = MeshKey::of(record.kind, record.owner, Some(&record.placement));
         let mesh = assets
             .meshes
-            .entry((record.kind, None))
-            .or_insert_with(|| meshes.add(visual_mesh(record.kind, None)))
+            .entry(key)
+            .or_insert_with(|| meshes.add(visual_mesh(key)))
             .clone();
         let pos = record.pos();
         let height = object_height(sim.map(), pos, Some(&record.placement));
@@ -111,8 +114,13 @@ pub(super) fn sync_remembered_visuals(
                 Visibility::Inherited,
             ))
             .id();
+        if let Some(size) = key.size {
+            // The text's colour, in sRGB, darkened about as much as the material darkens the mesh.
+            let dim = KEPT.powf(1.0 / 2.2);
+            commands.spawn((structures::tag(id, record.kind, size, dim), ChildOf(entity)));
+        }
         by_id.insert(id, entity);
-        made.insert(id, (record.kind, record.placement));
+        made.insert(id, (record.kind, record.owner, record.placement));
     }
     visuals.shown = Some(shown);
 }

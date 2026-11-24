@@ -120,6 +120,7 @@ fn attack_targeting_takes_own_and_neutral_destructible_objects() {
         kind: ObjectKind::Peacekeeper,
         owner: None,
         at: SpawnAt::Point(neutral_at),
+        orientation: Default::default(),
     };
     submit(&mut app, PlayerId(1), Command::Debug(spawn));
     updates(&mut app, 2);

@@ -5,8 +5,9 @@
 
 use sc_sim::testing::{self, ScenarioBuilder};
 use sc_sim::{
-    Ability, Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Replay, Rng, SU_PER_GU,
-    Sim, SimConfig, SimEvent, Spawn, SpawnAt, SpawnSettings, Target, TickInputs, TilePos, Vec2, nav,
+    Ability, BuildingOrientation, Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId,
+    Replay, Rng, Rotation, SU_PER_GU, Sim, SimConfig, SimEvent, Spawn, SpawnAt, SpawnSettings, Target, TickInputs,
+    TilePos, Vec2, nav,
 };
 
 const TICKS: u32 = 2000;
@@ -127,7 +128,12 @@ fn random_command(rng: &mut Rng, sim: &Sim) -> PlayerCommand {
     }
     let command = match rng.below(3) {
         0 => {
-            let kind = ObjectKind::ALL[rng.below(ObjectKind::ALL.len() as u32) as usize];
+            // A unit half the time, so that the stream keeps units moving; else any kind, structures included.
+            let kind = if rng.below(2) == 0 {
+                [ObjectKind::Peacekeeper, ObjectKind::Guard][rng.below(2) as usize]
+            } else {
+                ObjectKind::ALL[rng.below(ObjectKind::ALL.len() as u32) as usize]
+            };
             // Units mostly belong to someone, so that orders find them.
             let unit = kind.def().unit.is_some();
             let owned = if unit { rng.below(4) != 0 } else { rng.below(3) == 0 };
@@ -142,7 +148,18 @@ fn random_command(rng: &mut Rng, sim: &Sim) -> PlayerCommand {
                     tile_coord(rng, map.height()),
                 ))
             };
-            DebugCommand::Spawn { kind, owner, at }
+            // Any of the 16 ways to turn a footprint (structures turn; the rest ignore it or keep it).
+            let orientation = BuildingOrientation {
+                rotation: [Rotation::R0, Rotation::R90, Rotation::R180, Rotation::R270][rng.below(4) as usize],
+                flip_h: rng.below(2) == 0,
+                flip_v: rng.below(2) == 0,
+            };
+            DebugCommand::Spawn {
+                kind,
+                owner,
+                at,
+                orientation,
+            }
         }
         1 => DebugCommand::Remove {
             id: random_id(rng, sim),
@@ -350,8 +367,14 @@ fn any_spawn_settings_are_handled() {
                     delivery_size: value(),
                     delivery_interval: value(),
                 }),
-                // Units have no per-object values.
-                ObjectKind::Peacekeeper | ObjectKind::Guard => None,
+                // Units and structures have no per-object values.
+                ObjectKind::Peacekeeper
+                | ObjectKind::Guard
+                | ObjectKind::DeploymentCenter
+                | ObjectKind::Generator
+                | ObjectKind::Barracks
+                | ObjectKind::ExtractionFacility
+                | ObjectKind::ExtractionPlate => None,
             });
             let mut spawn = Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(i * 6, 0)));
             spawn.settings = settings;

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
 use crate::orders::OrderKind;
-use crate::scenario::SpawnAt;
+use crate::scenario::{BuildingOrientation, SpawnAt};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Command {
@@ -46,11 +46,16 @@ pub enum Ability {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum DebugCommand {
     /// Spawn an object for any owner, bypassing costs and placement rules. A unit's box must be clear of blocked
-    /// tiles and of the other units of its layer; a blocking footprint must not cover a unit.
+    /// tiles and of the other units of its layer; a blocking footprint must not cover a unit; a footprint must not
+    /// overlap another, except a plate's its patch's (`ObjectKind::may_overlap`); a structure needs flat ground.
     Spawn {
         kind: ObjectKind,
         owner: Option<PlayerId>,
         at: SpawnAt,
+        /// How a tile-based object is turned (`core/entities.md > Structure Type`); units ignore it. Optional in
+        /// files, so that the replays recorded before it existed still load.
+        #[serde(default, skip_serializing_if = "BuildingOrientation::is_default")]
+        orientation: BuildingOrientation,
     },
     /// Remove an object outright.
     Remove { id: ObjectId },

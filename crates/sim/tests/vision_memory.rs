@@ -154,6 +154,7 @@ fn an_object_placed_in_the_fog_stays_unknown() {
             kind: ObjectKind::CrystalPatch,
             owner: None,
             at,
+            orientation: Default::default(),
         },
     )
     .run_until(10);

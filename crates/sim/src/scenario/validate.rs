@@ -1,8 +1,9 @@
 //! Validation of maps and game setups: problems are listed, never panicked on, so a bad map file can't crash the
 //! editor or the game.
 
-use std::collections::btree_map::Entry;
-use std::collections::{BTreeMap, BTreeSet};
+mod occupied;
+
+use std::collections::BTreeSet;
 
 use glam::Vec2;
 
@@ -17,7 +18,7 @@ use crate::map::Map;
 use crate::object::Placement;
 use crate::paths::misplaced;
 use crate::symmetry::Symmetry;
-use crate::units::TilePos;
+use occupied::Occupied;
 
 /// Where a valid object goes: its center and, for tile-based types, its placement.
 pub(crate) type SpawnSpot = (Vec2, Option<Placement>);
@@ -29,28 +30,6 @@ pub(crate) struct StartObject {
     pub pos: Vec2,
     pub placement: Option<Placement>,
     pub settings: Option<SpawnSettings>,
-}
-
-/// The tiles taken so far, each by the first object on it: finds overlaps.
-#[derive(Default)]
-struct Occupied<T>(BTreeMap<TilePos, T>);
-
-impl<T: Copy> Occupied<T> {
-    /// Takes the tiles of `placement` for `owner`; the first tile someone else had, with that one.
-    fn take(&mut self, placement: &Placement, owner: T) -> Option<(T, TilePos)> {
-        let mut overlap = None;
-        for tile in placement.tiles() {
-            match self.0.entry(tile) {
-                Entry::Vacant(e) => {
-                    e.insert(owner);
-                }
-                Entry::Occupied(e) => {
-                    overlap.get_or_insert((*e.get(), tile));
-                }
-            }
-        }
-        overlap
-    }
 }
 
 impl MapDef {
@@ -117,9 +96,10 @@ impl MapDef {
                 .and_then(|spot| check_settings(s.kind, s.settings.as_ref()).map(|()| spot));
             match spot {
                 Ok(spot) => {
-                    // One problem per spawn: the first tile it shares with an earlier spawn.
+                    // One problem per spawn: the first tile it shares with an earlier spawn, unless it is a plate on
+                    // its patch.
                     if let Some(placement) = &spot.1
-                        && let Some((first, tile)) = occupied.take(placement, i)
+                        && let Some((first, tile)) = occupied.take(s.kind, placement, i)
                     {
                         problems.push(ScenarioProblem::OverlappingFootprints { first, second: i, tile });
                     }
@@ -226,7 +206,7 @@ impl Scenario {
                 continue;
             };
             if let Some(placement) = &placement {
-                occupied.take(placement, ());
+                occupied.take(s.kind, placement, ());
             }
             let owner = match s.owner {
                 None => None,
@@ -254,7 +234,7 @@ impl Scenario {
                     continue;
                 };
                 if let Some(placement) = &placement
-                    && let Some(((), tile)) = occupied.take(placement, ())
+                    && let Some(((), tile)) = occupied.take(o.kind, placement, ())
                 {
                     problems.push(ScenarioProblem::LayoutOverlap {
                         slot: p.slot,
@@ -295,13 +275,14 @@ impl Scenario {
     }
 }
 
-/// Checks one object owned by a player against the map. Scenario validation and the debug `Spawn` command both use
-/// it, so they accept the same objects (only scenarios also reject overlapping footprints).
+/// Checks one object owned by a player against the map, turned by `orientation`. The debug `Spawn` command uses it,
+/// so that it accepts the objects scenario validation does (the gate checks the other objects in the way itself).
 pub(crate) fn place_spawn(
     map: &Map,
     kind: ObjectKind,
     owner: Option<PlayerId>,
     at: SpawnAt,
+    orientation: BuildingOrientation,
     is_player: impl Fn(PlayerId) -> bool,
 ) -> Result<SpawnSpot, SpawnProblem> {
     if let Some(p) = owner {
@@ -313,7 +294,7 @@ pub(crate) fn place_spawn(
             return Err(SpawnProblem::UnknownOwner(p));
         }
     }
-    place_object(map, kind, at, BuildingOrientation::default())
+    place_object(map, kind, at, orientation)
 }
 
 /// Checks a Starting Layout object, which its player owns, against the map.
@@ -338,7 +319,7 @@ fn place_object(
 ) -> Result<SpawnSpot, SpawnProblem> {
     let def = kind.def();
     let spot = locate_oriented(map, def.footprint, at, orientation)?;
-    // `core/map.md > Elevation > Map resources only on flat terrain`.
+    // `core/map.md > Elevation > Structures only on flat terrain`, `> Map resources only on flat terrain`.
     if def.needs_flat_ground
         && let (_, Some(placement)) = &spot
         && let Some(sloped) = placement.tiles().find(|t| !map.is_flat(*t))
@@ -400,6 +381,7 @@ pub(crate) fn locate_oriented(
 mod tests {
     use super::*;
     use crate::object::Rotation;
+    use crate::units::TilePos;
 
     const UNIT: Footprint = Footprint::Silhouette { w: 20.0, h: 20.0 };
     const BLOCK: Footprint = Footprint::Tiles { w: 2, h: 3 };

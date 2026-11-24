@@ -3,7 +3,7 @@
 use super::units::{
     AttackAttrs, AttackType, FullyConnectedSubtype, MovementAttrs, TargetDomain, TargetType, UnitBase, UnitDef,
 };
-use super::{Category, Footprint, ObjectDef, ObjectKind};
+use super::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
 use crate::player::Faction;
 
@@ -21,6 +21,10 @@ pub(super) static GUARD: ObjectDef = ObjectDef {
     groupable: true,    // Groupable - true
     sight_range: 5.0,   // SightRange - 5 (grid units, `core/scale.md > GridUnit`)
     max_hp: Some(80.0), // MaxHP - 80
+    armor: Armor {
+        point: 1.0, // PointArmor - 1
+        full: 1.0,  // FullArmor - 1
+    },
     needs_flat_ground: false,
     unit: Some(UnitDef {
         base: UnitBase::HeavyInfantry, // UnitBase - HeavyInfantry
@@ -32,8 +36,6 @@ pub(super) static GUARD: ObjectDef = ObjectDef {
             max_speed: 5.0,     // MaxSpeed: 5 space units/frame
         },
         rugged_terrain_defense_bonus: None, // only LightInfantry has it
-        point_armor: 1.0,                   // PointArmor - 1
-        full_armor: 1.0,                    // FullArmor - 1
         turret: None,                       // TurretAttributes - None
         attack: Some(AttackAttrs {
             // FullyConnected; its Range of 3 grid units makes it the Ranged subtype (`systems/combat.md >
@@ -54,4 +56,5 @@ pub(super) static GUARD: ObjectDef = ObjectDef {
         tunnel_space_cost: Some(1), // TunnelSpaceCost - 1
         riot_shield: None,
     }),
+    structure: None,
 };

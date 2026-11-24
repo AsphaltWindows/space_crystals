@@ -70,7 +70,13 @@ impl SpawnValue {
                 SpawnValue::DeliverySize,
                 SpawnValue::DeliveryInterval,
             ],
-            ObjectKind::Peacekeeper | ObjectKind::Guard => &[],
+            ObjectKind::Peacekeeper
+            | ObjectKind::Guard
+            | ObjectKind::DeploymentCenter
+            | ObjectKind::Generator
+            | ObjectKind::Barracks
+            | ObjectKind::ExtractionFacility
+            | ObjectKind::ExtractionPlate => &[],
         }
     }
 

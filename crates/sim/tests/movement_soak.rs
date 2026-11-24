@@ -73,6 +73,7 @@ fn soak(seed: u64) -> TestSim {
                 kind,
                 owner: Some(PlayerId(1 + (spawned % 2) as u8)),
                 at: SpawnAt::Point(at + jitter),
+                orientation: Default::default(),
             }),
         };
         if spawned < UNITS && t.sim().validate(&spawn).is_ok() {
@@ -108,6 +109,7 @@ fn soak(seed: u64) -> TestSim {
                     kind: ObjectKind::SupplyDeliveryStation,
                     owner: None,
                     at: SpawnAt::Tile(TilePos::containing(random_point(&mut rng))),
+                    orientation: Default::default(),
                 },
             ),
             _ => {

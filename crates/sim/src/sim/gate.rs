@@ -58,6 +58,9 @@ pub enum Reject {
     /// A unit's box there would overlap this unit of its layer, or a blocking footprint would cover this unit
     /// (`docs/movement.md > 3`).
     Occupied(ObjectId),
+    /// A footprint there would overlap this object's (`core/entities.md > Placement Validation`): only a plate
+    /// shares its tile, with the uncovered patch it is placed onto (`ObjectKind::may_overlap`).
+    Overlaps(ObjectId),
 }
 
 impl fmt::Display for Reject {
@@ -79,6 +82,7 @@ impl fmt::Display for Reject {
             Reject::CannotAttack => write!(f, "none of the units can attack with its shield up"),
             Reject::Blocked => write!(f, "the unit doesn't fit there: blocked ground"),
             Reject::Occupied(id) => write!(f, "unit {} is in the way", id.0),
+            Reject::Overlaps(id) => write!(f, "the footprint overlaps object {}", id.0),
         }
     }
 }
@@ -122,8 +126,9 @@ impl Sim {
     ///    (`docs/movement.md > 3`);
     /// 4. the command's own rules hold: an order's size and target (which the player must see,
     ///    [`Reject::NotVisible`]), and for an Attack, units that can attack now ([`Reject::CannotAttack`]); the units
-    ///    of an ability that have it ([`Reject::LacksAbility`]); a spawn's owner and placement, a teleport to a unit
-    ///    and onto the map, and a unit's box clear of blocked ground and of the units of its layer.
+    ///    of an ability that have it ([`Reject::LacksAbility`]); a spawn's owner and placement (a footprint apart
+    ///    from the others but for a plate on its patch, [`Reject::Overlaps`]), a teleport to a unit and onto the
+    ///    map, and a unit's box clear of blocked ground and of the units of its layer.
     pub fn validate(&self, cmd: &PlayerCommand) -> Result<(), Reject> {
         self.check(cmd).map(|_| ())
     }
@@ -271,14 +276,23 @@ impl Sim {
         // Debug commands act on anyone's objects.
         let anyone = None;
         match *command {
-            DebugCommand::Spawn { kind, owner, at } => {
+            DebugCommand::Spawn {
+                kind,
+                owner,
+                at,
+                orientation,
+            } => {
                 if self.next_id == u32::MAX {
                     return Err(Reject::OutOfIds);
                 }
+                let is_player = |p| self.player(p).is_some();
                 let (pos, placement) =
-                    place_spawn(&self.map, kind, owner, at, |p| self.player(p).is_some()).map_err(Reject::Spawn)?;
+                    place_spawn(&self.map, kind, owner, at, orientation, is_player).map_err(Reject::Spawn)?;
                 match &placement {
-                    Some(placement) => self.check_footprint_clear(kind, placement)?,
+                    Some(placement) => {
+                        self.check_footprint_apart(kind, placement)?;
+                        self.check_footprint_clear(kind, placement)?;
+                    }
                     None => self.check_unit_fits(kind, pos, None)?,
                 }
                 Ok(Checked::Spawn {
@@ -348,6 +362,20 @@ impl Sim {
     }
 
     /// A blocking footprint must not cover a ground unit (`docs/movement.md > 3`).
+    /// `core/entities.md > Placement Validation`: a footprint of `kind` at `placement` overlaps no other footprint,
+    /// a structure's or a map resource's (design change 0096: no buildings on resources), except that a plate goes
+    /// onto an uncovered patch ([`ObjectKind::may_overlap`]). Else the first object in the way, by id.
+    fn check_footprint_apart(&self, kind: ObjectKind, placement: &Placement) -> Result<(), Reject> {
+        let in_the_way = self
+            .objects
+            .values()
+            .find(|o| !kind.may_overlap(o.kind) && o.placement.as_ref().is_some_and(|other| other.overlaps(placement)));
+        match in_the_way {
+            Some(other) => Err(Reject::Overlaps(other.id)),
+            None => Ok(()),
+        }
+    }
+
     fn check_footprint_clear(&self, kind: ObjectKind, placement: &Placement) -> Result<(), Reject> {
         let Some(rect) = blocking_footprint(kind, placement, self.nav.nav().rules()) else {
             return Ok(());

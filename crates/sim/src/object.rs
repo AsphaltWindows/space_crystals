@@ -13,6 +13,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::mover::Mover;
 use crate::orders::Orders;
 use crate::riot_shield::RiotShield;
+use crate::scenario::BuildingOrientation;
 use crate::units::{SU_PER_GU, TilePos};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -99,6 +100,24 @@ impl Placement {
     pub fn tiles(&self) -> impl Iterator<Item = TilePos> + '_ {
         let o = self.origin;
         (0..self.h as i32).flat_map(move |dy| (0..self.w as i32).map(move |dx| TilePos::new(o.x + dx, o.y + dy)))
+    }
+
+    /// Whether it covers a tile that `other` covers.
+    pub fn overlaps(&self, other: &Placement) -> bool {
+        // 64-bit ends: no overflow, wherever a footprint lies.
+        let span = |start: i32, len: u32| (i64::from(start), i64::from(start) + i64::from(len));
+        let apart = |(a0, a1): (i64, i64), (b0, b1): (i64, i64)| a1 <= b0 || b1 <= a0;
+        !(apart(span(self.origin.x, self.w), span(other.origin.x, other.w))
+            || apart(span(self.origin.y, self.h), span(other.origin.y, other.h)))
+    }
+
+    /// How it is turned (`core/entities.md > Structure Type`).
+    pub fn orientation(&self) -> BuildingOrientation {
+        BuildingOrientation {
+            rotation: self.rotation,
+            flip_h: self.flip_h,
+            flip_v: self.flip_v,
+        }
     }
 }
 

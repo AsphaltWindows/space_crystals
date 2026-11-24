@@ -98,6 +98,7 @@ fn spawn_tiles(t: &mut TestSim, tick: Tick, kind: ObjectKind, x: i32, y: i32) {
             kind,
             owner: None,
             at: SpawnAt::Tile(TilePos::new(x, y)),
+            orientation: Default::default(),
         },
     );
 }

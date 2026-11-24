@@ -57,6 +57,7 @@ fn qa_commands_apply_at_their_ticks_and_the_overlay_shows_the_paths() {
             kind: ObjectKind::Peacekeeper,
             owner: Some(PlayerId(1)),
             at: SpawnAt::Point(Vec2::new(x, 100.0)),
+            orientation: Default::default(),
         })
     };
     let order = Command::Order {

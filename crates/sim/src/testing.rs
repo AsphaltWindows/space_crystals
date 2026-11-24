@@ -15,6 +15,7 @@
 //!     kind: ObjectKind::CrystalPatch,
 //!     owner: None,
 //!     at: SpawnAt::Tile(TilePos::new(3, 0)),
+//!     orientation: Default::default(),
 //! });
 //! test.run(5);
 //! assert_eq!(test.sim().tick(), 5);
@@ -184,6 +185,7 @@ impl TestSim {
                 kind,
                 owner: Some(owner),
                 at: SpawnAt::Point(pos),
+                orientation: Default::default(),
             },
         )
     }
@@ -364,11 +366,23 @@ pub fn every_command() -> Vec<Command> {
                 kind: ObjectKind::Peacekeeper,
                 owner: Some(PlayerId(1)),
                 at: SpawnAt::Point(point),
+                orientation: Default::default(),
             },
             DebugCommand::Spawn {
                 kind: ObjectKind::SupplyDeliveryStation,
                 owner: None,
                 at: SpawnAt::Tile(crate::units::TilePos::new(3, 4)),
+                orientation: Default::default(),
+            },
+            DebugCommand::Spawn {
+                kind: ObjectKind::Barracks,
+                owner: Some(PlayerId(2)),
+                at: SpawnAt::Tile(crate::units::TilePos::new(6, 1)),
+                orientation: crate::scenario::BuildingOrientation {
+                    rotation: crate::object::Rotation::R90,
+                    flip_h: true,
+                    flip_v: false,
+                },
             },
             DebugCommand::Remove { id: ObjectId(2) },
             DebugCommand::SetPosition {

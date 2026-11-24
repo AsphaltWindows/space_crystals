@@ -88,6 +88,7 @@ fn script(tick: Tick) -> Vec<PlayerCommand> {
                 kind: ObjectKind::Guard,
                 owner: Some(P2),
                 at: SpawnAt::Point(centre(12, 8)),
+                orientation: Default::default(),
             }),
         }],
         90 => vec![order(P1, &[1, 2], OrderKind::Attack(ObjectId(3)))],

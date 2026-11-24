@@ -20,6 +20,7 @@ fn patch_at(x: i32, y: i32) -> DebugCommand {
         kind: ObjectKind::CrystalPatch,
         owner: None,
         at: SpawnAt::Tile(TilePos::new(x, y)),
+        orientation: Default::default(),
     }
 }
 
@@ -166,9 +167,16 @@ fn the_gate_checks_the_player_then_the_debug_option_then_the_command() {
         on.sim().validate(&from(2, move_patch)),
         Err(Reject::TileObject(ObjectId(1)))
     );
+    // Footprints keep apart (`core/entities.md > Placement Validation`), but for a plate on an uncovered patch.
     assert_eq!(
         on.sim().validate(&from(1, patch_at(0, 0))),
-        Ok(()),
-        "overlapping footprints are fine for debug spawns"
+        Err(Reject::Overlaps(ObjectId(1)))
     );
+    let plate_at = |x, y| DebugCommand::Spawn {
+        kind: ObjectKind::ExtractionPlate,
+        owner: Some(PlayerId(1)),
+        at: SpawnAt::Tile(TilePos::new(x, y)),
+        orientation: Default::default(),
+    };
+    assert_eq!(on.sim().validate(&from(1, plate_at(1, 0))), Ok(()));
 }

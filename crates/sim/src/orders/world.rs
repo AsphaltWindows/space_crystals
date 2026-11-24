@@ -117,6 +117,9 @@ pub(crate) struct World<'a> {
     /// Indices into `views` of the objects a scan can pick (destructible, with an owner), by cell, in id order
     /// within each.
     candidates: Vec<u32>,
+    /// The largest half extent of a candidate's shape, space units: a structure's footprint can be much larger
+    /// than a unit.
+    candidate_half: f32,
     cells_wide: u32,
     cells_high: u32,
 }
@@ -159,6 +162,7 @@ impl<'a> World<'a> {
             views,
             cell_starts: vec![0; (cells_wide * cells_high) as usize + 1],
             candidates: Vec::new(),
+            candidate_half: 0.0,
             cells_wide,
             cells_high,
         };
@@ -167,6 +171,8 @@ impl<'a> World<'a> {
         for v in world.views.iter().filter(|v| is_candidate(v)) {
             let cell = world.cell_of(v.pos);
             world.cell_starts[cell + 1] += 1;
+            let (lo, hi) = v.shape.bounds();
+            world.candidate_half = world.candidate_half.max(((hi - lo) / 2.0).max_element());
         }
         for i in 1..world.cell_starts.len() {
             world.cell_starts[i] += world.cell_starts[i - 1];
@@ -256,6 +262,10 @@ impl<'a> World<'a> {
     /// 2. then the **least rotation** from the unit's facing (the turret's, once turrets have state);
     /// 3. then the **closest** (the gap between the shapes), and the lowest id.
     ///
+    /// Structures have no attack, so enemy structures come after the targets that can shoot back. That they are
+    /// picked at all is question Q0030 point 1, its default until answered (a placeholder): ValidTarget's first
+    /// condition is "a Destructible ObjectInstance", so units attack enemy buildings on their own.
+    ///
     /// Nothing while auto-targeting is off (`DebugCommand::SetAutoTargeting`).
     ///
     /// `facing_only`: a non-turret unit that can't turn in place engages only what it already faces
@@ -264,10 +274,11 @@ impl<'a> World<'a> {
         let attrs = unit.attrs().filter(|_| self.auto_targeting)?;
         unit.owner?;
         let my_domain = unit.unit_def()?.base_def().domain;
-        // Everything a scan can reach lies within the unit's longest range, plus the modifier and the two half
-        // shapes: the cells that box touches, and their neighbours for objects centred just outside.
+        // Everything a scan can reach lies within the unit's longest range, plus the modifier, of the unit's shape:
+        // its centre lies within that and the two half shapes along each axis, in the cells this box touches.
         let longest = unit.kind.def().sight_range.max(attrs.range) + elevation::ELEVATION_MODIFIER;
-        let radius = gu(longest + CELL_TILES as f32 / 2.0);
+        let own_half = unit.kind.def().half_extents().unwrap_or(Vec2::ZERO).max_element();
+        let radius = gu(longest) + own_half + self.candidate_half;
         let (x0, x1) = (
             self.cell_coord(unit.pos.x - radius, self.cells_wide),
             self.cell_coord(unit.pos.x + radius, self.cells_wide),

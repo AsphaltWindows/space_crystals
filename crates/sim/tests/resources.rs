@@ -121,6 +121,7 @@ fn the_patch_amount_comes_from_the_spawn() {
             kind: ObjectKind::CrystalPatch,
             owner: None,
             at: tile(2, 1),
+            orientation: Default::default(),
         },
     );
     t.run(100);
@@ -151,6 +152,7 @@ fn objects_spawned_by_a_command_are_first_updated_in_the_next_tick() {
             kind: ObjectKind::SupplyDeliveryStation,
             owner: None,
             at: tile(2, 0),
+            orientation: Default::default(),
         },
     );
     t.run_until(spawned_in);

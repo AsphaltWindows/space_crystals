@@ -7,17 +7,19 @@
 //! ground-object layer. Placeholder shapes stand in until the art direction (Q0001) is settled: a unit is a shape of
 //! its own per kind, its silhouette's size, in its owner's colour, with a tick showing its facing. The Guard's square
 //! stays axis-aligned, like its collision box, and only its tick turns ([`FacingTick`]). A Peacekeeper's raised Riot
-//! Shield is a pale arc in front of it ([`RiotShieldVisual`]), growing out of its body as the shield goes up.
+//! Shield is a pale arc in front of it ([`RiotShieldVisual`]), growing out of its body as the shield goes up. A
+//! structure is its footprint as placed, in its owner's colour, with a tag naming its type ([`structures`]).
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).
 
 mod remembered;
+mod structures;
 
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
-use sc_sim::{Map, ObjectId, ObjectKind, Placement, PlayerId};
+use sc_sim::{Category, Map, ObjectId, ObjectKind, Placement, PlayerId};
 
 use crate::ClientSystems;
 use crate::coords::{DrawLayer, facing_to_rotation, footprint_height, ground_translation, lerp_facing};
@@ -40,14 +42,37 @@ pub struct FacingTick(pub ObjectId);
 pub struct RiotShieldVisual(pub ObjectId);
 
 pub use remembered::{RememberedVisual, RememberedVisuals};
+pub use structures::StructureTag;
 
-/// Mesh and material handles, created once per object kind (and owner, for units) and shared by all its visuals.
+/// What the mesh of an object's visual depends on ([`MeshKey::of`]).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct MeshKey {
+    kind: ObjectKind,
+    /// The owner whose colour it is drawn in: a unit's or a structure's; none for map resources.
+    owner: Option<PlayerId>,
+    /// A structure's size as placed (`Placement::w`, `Placement::h`, turned).
+    size: Option<(u32, u32)>,
+}
+
+impl MeshKey {
+    fn of(kind: ObjectKind, owner: Option<PlayerId>, placement: Option<&Placement>) -> Self {
+        let def = kind.def();
+        Self {
+            kind,
+            owner: owner.filter(|_| def.category != Category::Resource),
+            size: placement.filter(|_| def.structure.is_some()).map(|p| (p.w, p.h)),
+        }
+    }
+}
+
+/// Mesh and material handles, created once per object kind (and owner, for units and structures, and size as
+/// placed, for structures) and shared by all its visuals.
 #[derive(Resource, Default)]
 pub struct ObjectVisualAssets {
     material: Option<Handle<ColorMaterial>>,
     /// The remembered objects' material ([`remembered`]).
     dimmed: Option<Handle<ColorMaterial>>,
-    meshes: BTreeMap<(ObjectKind, Option<PlayerId>), Handle<Mesh>>,
+    meshes: BTreeMap<MeshKey, Handle<Mesh>>,
     ticks: BTreeMap<ObjectKind, Handle<Mesh>>,
     shields: BTreeMap<ObjectKind, Handle<Mesh>>,
 }
@@ -95,18 +120,28 @@ pub fn object_transform(pos: Vec2, height: f32, facing: f32) -> Transform {
         .with_rotation(facing_to_rotation(facing))
 }
 
-/// The placeholder shape of each object kind, centered on the object's position; units in the neutral colour.
+/// The placeholder shape of each object kind, centered on the object's position; units and structures in the
+/// neutral colour, structures unturned.
 pub fn placeholder_mesh(kind: ObjectKind) -> Mesh {
     object_mesh(kind, None)
 }
 
-/// The placeholder shape of an object of `kind` owned by `owner`. Units take their owner's colour.
+/// The placeholder shape of an object of `kind` owned by `owner`, a structure unturned. Units and structures take
+/// their owner's colour.
 pub fn object_mesh(kind: ObjectKind, owner: Option<PlayerId>) -> Mesh {
     match kind {
         ObjectKind::CrystalPatch => crystal_patch_mesh(),
         ObjectKind::SupplyDeliveryStation => supply_station_mesh(),
         ObjectKind::Peacekeeper => unit_mesh(kind, UnitShape::Round, player_color(owner), true),
         ObjectKind::Guard => unit_mesh(kind, UnitShape::Square, player_color(owner), true),
+        ObjectKind::DeploymentCenter
+        | ObjectKind::Generator
+        | ObjectKind::Barracks
+        | ObjectKind::ExtractionFacility
+        | ObjectKind::ExtractionPlate => {
+            let (w, h) = kind.def().tile_size().unwrap_or((1, 1));
+            structures::structure_mesh(w, h, player_color(owner))
+        }
     }
 }
 
@@ -116,11 +151,14 @@ fn body_turns(kind: ObjectKind) -> bool {
     kind != ObjectKind::Guard
 }
 
-/// The mesh of an object's visual: its placeholder shape, without the tick if its body doesn't turn.
-fn visual_mesh(kind: ObjectKind, owner: Option<PlayerId>) -> Mesh {
-    match kind {
-        ObjectKind::Guard => unit_mesh(kind, UnitShape::Square, player_color(owner), false),
-        _ => object_mesh(kind, owner),
+/// The mesh of an object's visual: its placeholder shape, without the tick if its body doesn't turn, a structure
+/// in its size as placed.
+fn visual_mesh(key: MeshKey) -> Mesh {
+    let MeshKey { kind, owner, size } = key;
+    match (kind, size) {
+        (ObjectKind::Guard, _) => unit_mesh(kind, UnitShape::Square, player_color(owner), false),
+        (_, Some((w, h))) => structures::structure_mesh(w, h, player_color(owner)),
+        (_, None) => object_mesh(kind, owner),
     }
 }
 
@@ -137,7 +175,7 @@ const PLAYER_COLORS: [Color; 8] = [
 ];
 const NEUTRAL_COLOR: Color = Color::srgb(0.70, 0.70, 0.66);
 
-/// The colour of `owner`'s units: grey for neutral ones.
+/// The colour of `owner`'s units and structures: grey for neutral ones.
 pub fn player_color(owner: Option<PlayerId>) -> Color {
     match owner {
         Some(p) => PLAYER_COLORS[usize::from(p.0.max(1) - 1) % PLAYER_COLORS.len()],
@@ -335,12 +373,11 @@ fn sync_object_visuals(
         if visuals.by_id.contains_key(&object.id) {
             continue;
         }
-        // Only units are drawn in their owner's colour.
-        let owner = object.owner.filter(|_| object.kind.def().unit.is_some());
+        let key = MeshKey::of(object.kind, object.owner, object.placement.as_ref());
         let mesh = assets
             .meshes
-            .entry((object.kind, owner))
-            .or_insert_with(|| meshes.add(visual_mesh(object.kind, owner)))
+            .entry(key)
+            .or_insert_with(|| meshes.add(visual_mesh(key)))
             .clone();
         let height = object_height(sim.map(), object.pos, object.placement.as_ref());
         let turns = body_turns(object.kind);
@@ -353,6 +390,9 @@ fn sync_object_visuals(
                 object_transform(object.pos, height, if turns { object.facing } else { 0.0 }),
             ))
             .id();
+        if let Some(size) = key.size {
+            commands.spawn((structures::tag(object.id, object.kind, size, 1.0), ChildOf(entity)));
+        }
         if !turns {
             let tick = assets
                 .ticks
