@@ -73,18 +73,23 @@ fn perf_500_units_on_256() {
     t.step();
     assert_eq!(t.sim().objects().count(), UNITS as usize);
 
-    // The two group orders: one field each (`docs/movement.md > 5.5`). A field is more than the tick's budget, so
-    // the second group is pathed in the next tick ("budget plus one field" is the worst tick of 5.8).
-    for group in 1..=2 {
+    // The two group orders: one field each (`docs/movement.md > 5.5`). (G) A field reaches only as far as its
+    // group stands, so both may fit into the budget of one tick; a field that is more than the budget leaves the
+    // second group to the next tick ("budget plus one field" is the worst tick of 5.8).
+    let mut fields = 0;
+    while fields < 2 {
         let ((), took) = timed(|| {
             t.step();
         });
         let nav = t.sim().nav_counters();
-        assert_eq!((nav.fields, nav.searches), (1, 0));
-        assert!(nav.expansions <= (SIDE * SIDE) as u32);
+        assert!(nav.fields >= 1 && nav.searches == 0, "{nav:?}");
+        assert!(nav.expansions <= nav.fields * (SIDE * SIDE) as u32);
+        fields += nav.fields;
         println!(
-            "order tick {group} (1 field, {} expansions, 250 paths): {:.2} ms",
+            "order tick ({} field(s), {} expansions, {} paths): {:.2} ms",
+            nav.fields,
             nav.expansions,
+            nav.fields * UNITS / 2,
             took.as_secs_f64() * 1e3
         );
     }

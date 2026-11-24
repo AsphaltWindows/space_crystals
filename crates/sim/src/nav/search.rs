@@ -53,7 +53,31 @@ pub struct Search {
     avoid: Vec<u32>,
     /// `(anchor index, width, height)` of the field the arrays hold now, if any.
     field: Option<(u32, u32, u32)>,
+    /// Per tile: the generation in which it was a target of [`Search::field_to`].
+    targets: Vec<u32>,
     counters: NavCounters,
+}
+
+/// What a search heads for: it decides the heuristic and when the search stops.
+#[derive(Copy, Clone)]
+enum Aim {
+    /// A\*: the octile distance to this tile; stops when it is expanded.
+    Tile(u32),
+    /// Dijkstra over the whole component: no heuristic, never stops early.
+    Everything,
+    /// (G) A field for `left` target tiles (marked in `Search::targets`) inside the inclusive tile rectangle
+    /// `x0..=x1 × y0..=y1`: the octile distance to the rectangle; stops when every target is expanded.
+    Targets {
+        x0: i32,
+        y0: i32,
+        x1: i32,
+        y1: i32,
+        left: u32,
+    },
+}
+
+fn octile(dx: u32, dy: u32) -> u32 {
+    STEP_COST * dx.max(dy) + (DIAGONAL_COST - STEP_COST) * dx.min(dy)
 }
 
 impl Search {
@@ -82,19 +106,31 @@ impl Search {
         self.field = None;
     }
 
-    /// The one search loop. With a goal it is A\* with the octile heuristic and stops when the goal is expanded;
-    /// without one the heuristic is 0 and it runs until the component is exhausted (Dijkstra).
-    fn run(&mut self, grid: &NavGrid, start: u32, goal: Option<u32>) -> bool {
+    /// The one search loop, after [`Search::begin`]. Towards [`Aim::Tile`] it is A\* with the octile heuristic and
+    /// stops when the goal is expanded; with [`Aim::Everything`] the heuristic is 0 and it runs until the
+    /// component is exhausted (Dijkstra); towards [`Aim::Targets`] the heuristic is the octile distance to the
+    /// targets' rectangle, and it stops when every target is expanded. Each heuristic is consistent, so an
+    /// expanded node has its final cost and parent. Returns whether it stopped at what it aimed for.
+    fn run(&mut self, grid: &NavGrid, start: u32, aim: Aim) -> bool {
         let (w, h) = (grid.width() as i32, grid.height() as i32);
-        self.begin((w * h) as usize);
         let generation = self.generation;
-        let goal_xy = goal.map(|g| (g as i32 % w, g as i32 / w));
-        let heuristic = |x: i32, y: i32| match goal_xy {
-            Some((gx, gy)) => {
-                let (dx, dy) = ((x - gx).unsigned_abs(), (y - gy).unsigned_abs());
-                STEP_COST * dx.max(dy) + (DIAGONAL_COST - STEP_COST) * dx.min(dy)
+        let goal = match aim {
+            Aim::Tile(goal) => Some(goal),
+            Aim::Everything | Aim::Targets { .. } => None,
+        };
+        let mut targets_left = match aim {
+            Aim::Targets { left, .. } => left,
+            Aim::Tile(_) | Aim::Everything => 0,
+        };
+        let heuristic = |x: i32, y: i32| match aim {
+            Aim::Tile(goal) => {
+                let (gx, gy) = (goal as i32 % w, goal as i32 / w);
+                octile((x - gx).unsigned_abs(), (y - gy).unsigned_abs())
             }
-            None => 0,
+            Aim::Everything => 0,
+            Aim::Targets { x0, y0, x1, y1, .. } => {
+                octile((x0 - x).max(x - x1).max(0) as u32, (y0 - y).max(y - y1).max(0) as u32)
+            }
         };
         let start_h = heuristic(start as i32 % w, start as i32 / w);
         self.nodes[start as usize] = Node {
@@ -114,6 +150,12 @@ impl Search {
             self.counters.expansions += 1;
             if goal == Some(index) {
                 return true;
+            }
+            if targets_left > 0 && self.targets[index as usize] == generation {
+                targets_left -= 1;
+                if targets_left == 0 {
+                    return true;
+                }
             }
             let (x, y) = (index as i32 % w, index as i32 / w);
             let mut free = [false; 4];
@@ -190,7 +232,8 @@ impl Search {
             return None;
         }
         self.counters.searches += 1;
-        if !self.run(grid, start, Some(goal)) {
+        self.begin((grid.width() * grid.height()) as usize);
+        if !self.run(grid, start, Aim::Tile(goal)) {
             return None;
         }
         let mut path = self.chain(grid, goal);
@@ -207,7 +250,50 @@ impl Search {
         };
         self.avoid.clear();
         self.counters.fields += 1;
-        self.run(grid, anchor, None);
+        self.begin((grid.width() * grid.height()) as usize);
+        self.run(grid, anchor, Aim::Everything);
+        self.field = Some((anchor, grid.width(), grid.height()));
+        true
+    }
+
+    /// (G) `docs/movement.md > 5.5`: the field of [`Search::field`], built only as far as the tiles in `targets`
+    /// need it: the search heads for the targets' bounding rectangle and stops when each of them is expanded.
+    /// [`Search::field_path`] then answers for the targets (and for whatever else was expanded on the way) with
+    /// paths of the same cost as the whole field's. A group standing together far from its anchor pays for the
+    /// tiles between the two, not for the map. A target that is blocked or in another component is never
+    /// reached: the search then covers the whole component, like [`Search::field`]. Returns `false`, without
+    /// searching, if the anchor is blocked.
+    pub fn field_to(&mut self, grid: &NavGrid, anchor: TilePos, targets: &[TilePos]) -> bool {
+        let Some(anchor) = grid.index(anchor).filter(|&i| !grid.blocked_at(i)) else {
+            return false;
+        };
+        self.avoid.clear();
+        self.counters.fields += 1;
+        let len = (grid.width() * grid.height()) as usize;
+        self.begin(len);
+        // `begin` starts the generations again when the grid's size changes: so do the marks.
+        if self.targets.len() != len || self.generation == 1 {
+            self.targets.clear();
+            self.targets.resize(len, 0);
+        }
+        let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
+        let mut left = 0;
+        for &tile in targets {
+            let Some(index) = grid.index(tile) else {
+                continue;
+            };
+            (x0, y0, x1, y1) = (x0.min(tile.x), y0.min(tile.y), x1.max(tile.x), y1.max(tile.y));
+            if self.targets[index as usize] != self.generation {
+                self.targets[index as usize] = self.generation;
+                left += 1;
+            }
+        }
+        let aim = if left == 0 {
+            Aim::Everything
+        } else {
+            Aim::Targets { x0, y0, x1, y1, left }
+        };
+        self.run(grid, anchor, aim);
         self.field = Some((anchor, grid.width(), grid.height()));
         true
     }

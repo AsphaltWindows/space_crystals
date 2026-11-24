@@ -1,10 +1,12 @@
 //! Path requests, results and the per-tick budget — `docs/movement.md > 5.5`.
 
+use std::collections::BTreeMap;
+
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use super::los::clamp_to_clear;
-use super::{GROUP_FIELD_MIN, Nav, NavClass, NavCounters, NavGrid, Search, los, smooth, smooth_avoiding};
+use super::{GROUP_FIELD_MIN, Nav, NavClass, NavCounters, NavGrid, Search, los, smooth_avoiding};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::units::{Tick, TilePos};
@@ -267,6 +269,9 @@ fn field_members(
 
 /// One field from the group's `anchor`, then a path per member (`docs/movement.md > 5.5`): the parent chain from
 /// its own tile to the anchor tile, whose centre sees its goal, smoothed. The members share a component.
+///
+/// (G) The field is built only as far as the members stand ([`Search::field_to`]), and the members share the
+/// smoothing of the chains they share ([`smooth_shared`]).
 fn field_paths(
     grid: &NavGrid,
     search: &mut Search,
@@ -274,19 +279,134 @@ fn field_paths(
     anchor: TilePos,
     members: &[FieldMember],
 ) -> Vec<Path> {
-    search.field(grid, anchor);
+    let starts: Vec<TilePos> = members
+        .iter()
+        .map(|member| grid.tile_of(requests[member.index].start))
+        .collect();
+    search.field_to(grid, anchor, &starts);
+    let mut legs = BTreeMap::new();
     members
         .iter()
-        .map(|member| {
+        .zip(&starts)
+        .map(|(member, &from)| {
             let request = &requests[member.index];
             let tiles = search
-                .field_path(grid, grid.tile_of(request.start))
+                .field_path(grid, from)
                 .expect("the field covers the members' component")
                 .tiles;
             Path {
-                waypoints: smooth(grid, request.half, request.start, &tiles, member.goal),
+                waypoints: smooth_shared(grid, request.half, request.start, &tiles, member.goal, &mut legs),
                 retargeted: member.retargeted,
             }
         })
         .collect()
+}
+
+/// (G) [`smooth`] for the members of one field, with the same result. The paths of a field are chains of one
+/// tree, so from a tile on, two members walk the same tiles; and the waypoint that follows a tile's centre, the
+/// farthest centre of its chain that it sees, depends on that chain alone as long as the member's own goal is
+/// out of sight. `legs` remembers it per tile (how many tiles ahead it lies) for boxes of `half`, so each leg is
+/// searched once for the whole group instead of once per member. A member's first leg, from its exact position,
+/// and its last, to its own goal, are its own. Use one `legs` per field and box size.
+fn smooth_shared(
+    grid: &NavGrid,
+    half: Vec2,
+    start: Vec2,
+    tiles: &[TilePos],
+    goal: Vec2,
+    legs: &mut BTreeMap<(u32, u32, u32), usize>,
+) -> Vec<Vec2> {
+    let sees = |a: Vec2, b: Vec2| los(grid, half, a, b);
+    // The candidates of `smooth`: the start, the centre of every tile, the goal.
+    let last = tiles.len() + 1;
+    let point = |i: usize| match i {
+        0 => start,
+        i if i == last => goal,
+        i => grid.center(tiles[i - 1]),
+    };
+    let mut out = vec![start];
+    let mut at = 0;
+    while at < last {
+        let from = point(at);
+        let next = if sees(from, goal) {
+            last
+        } else {
+            let key = (at > 0)
+                .then(|| grid.index(tiles[at - 1]))
+                .flatten()
+                .map(|tile| (tile, half.x.to_bits(), half.y.to_bits()));
+            let known = key.and_then(|key| legs.get(&key).copied());
+            let ahead = known.unwrap_or_else(|| {
+                let (mut visible, mut hidden) = (at + 1, last);
+                while hidden - visible > 1 {
+                    let mid = visible + (hidden - visible) / 2;
+                    if sees(from, point(mid)) {
+                        visible = mid;
+                    } else {
+                        hidden = mid;
+                    }
+                }
+                visible - at
+            });
+            if let (Some(key), None) = (key, known) {
+                legs.insert(key, ahead);
+            }
+            at + ahead
+        };
+        if next == last || point(next) != out[out.len() - 1] {
+            out.push(point(next));
+        }
+        at = next;
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::map::Map;
+    use crate::nav::{NavRules, smooth};
+    use crate::rng::Rng;
+
+    /// (G) Sharing the legs between the members of a field changes no path: on seeded random maps every member's
+    /// waypoints are those of [`smooth`].
+    #[test]
+    fn shared_smoothing_gives_the_waypoints_of_smooth() {
+        let half = Vec2::splat(12.0);
+        for seed in 1..=6 {
+            let mut rng = Rng::from_seed(seed);
+            let rows: Vec<String> = (0..24)
+                .map(|_| (0..24).map(|_| if rng.below(100) < 18 { 'c' } else { '.' }).collect())
+                .collect();
+            let map = Map::from_ascii(&rows.join("\n")).unwrap();
+            let grid = NavGrid::build(&map, NavClass::Ground, 1, &[], NavRules::default());
+            let free = |rng: &mut Rng| loop {
+                let tile = TilePos::new(rng.below(24) as i32, rng.below(24) as i32);
+                if !grid.is_blocked(tile) {
+                    break tile;
+                }
+            };
+            let anchor = free(&mut rng);
+            let froms: Vec<TilePos> = (0..60)
+                .map(|_| free(&mut rng))
+                .filter(|&from| grid.component(from) == grid.component(anchor))
+                .collect();
+            let mut search = Search::new();
+            assert!(search.field_to(&grid, anchor, &froms));
+            let mut legs = BTreeMap::new();
+            let mut paths = 0;
+            for from in froms {
+                let tiles = search.field_path(&grid, from).unwrap().tiles;
+                let start = clamp_to_clear(&grid, half, from, grid.center(from) + Vec2::new(9.0, -7.0));
+                let goal = clamp_to_clear(&grid, half, anchor, grid.center(anchor) + Vec2::new(-5.0, 11.0));
+                assert_eq!(
+                    smooth_shared(&grid, half, start, &tiles, goal, &mut legs),
+                    smooth(&grid, half, start, &tiles, goal),
+                    "seed {seed}: {from:?} -> {anchor:?}"
+                );
+                paths += 1;
+            }
+            assert!(paths > 10 && !legs.is_empty(), "seed {seed}");
+        }
+    }
 }
