@@ -114,12 +114,46 @@
         "x": 8,
         "y": 8
       },
-      "camera_start": [
-        544.0,
-        544.0
-      ],
+      "camera_start": null,
       "layouts": {
-        "Gdo": [],
+        "Gdo": [
+          {
+            "kind": "DeploymentCenter",
+            "at": {
+              "Tile": {
+                "x": 5,
+                "y": 5
+              }
+            }
+          },
+          {
+            "kind": "ExtractionFacility",
+            "at": {
+              "Tile": {
+                "x": 9,
+                "y": 1
+              }
+            }
+          },
+          {
+            "kind": "ExtractionPlate",
+            "at": {
+              "Tile": {
+                "x": 6,
+                "y": 2
+              }
+            }
+          },
+          {
+            "kind": "ExtractionPlate",
+            "at": {
+              "Tile": {
+                "x": 7,
+                "y": 2
+              }
+            }
+          }
+        ],
         "Syndicate": [],
         "Cults": [],
         "Colonists": []
@@ -130,12 +164,66 @@
         "x": 55,
         "y": 39
       },
-      "camera_start": [
-        3552.0,
-        2528.0
-      ],
+      "camera_start": null,
       "layouts": {
-        "Gdo": [],
+        "Gdo": [
+          {
+            "kind": "DeploymentCenter",
+            "at": {
+              "Tile": {
+                "x": 55,
+                "y": 39
+              }
+            },
+            "orientation": {
+              "rotation": "R180",
+              "flip_h": false,
+              "flip_v": false
+            }
+          },
+          {
+            "kind": "ExtractionFacility",
+            "at": {
+              "Tile": {
+                "x": 52,
+                "y": 44
+              }
+            },
+            "orientation": {
+              "rotation": "R180",
+              "flip_h": false,
+              "flip_v": false
+            }
+          },
+          {
+            "kind": "ExtractionPlate",
+            "at": {
+              "Tile": {
+                "x": 57,
+                "y": 45
+              }
+            },
+            "orientation": {
+              "rotation": "R180",
+              "flip_h": false,
+              "flip_v": false
+            }
+          },
+          {
+            "kind": "ExtractionPlate",
+            "at": {
+              "Tile": {
+                "x": 56,
+                "y": 45
+              }
+            },
+            "orientation": {
+              "rotation": "R180",
+              "flip_h": false,
+              "flip_v": false
+            }
+          }
+        ],
         "Syndicate": [],
         "Cults": [],
         "Colonists": []

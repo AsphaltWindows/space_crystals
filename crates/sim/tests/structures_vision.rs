@@ -7,8 +7,8 @@
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::vision::PlayerVision;
 use sc_sim::{
-    DebugCommand, Faction, LayoutObject, ObjectId, ObjectKind, OrderKind, PlayerId, ScenarioProblem, SimEvent, SlotId,
-    Spawn, SpawnAt, Tick, TilePos, Vec2, VisibilityState, gu,
+    DebugCommand, Faction, LayoutObject, ObjectId, ObjectKind, OrderKind, PlacementCheck, PlayerId, ScenarioProblem,
+    SimEvent, SlotId, Spawn, SpawnAt, Tick, TilePos, TileProblem, Vec2, VisibilityState, gu,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -214,14 +214,18 @@ fn only_a_plate_may_cover_a_resource() {
         [overlap(0, 2, 2, 2), overlap(1, 3, 9, 3), overlap(2, 4, 2, 2)]
     );
 
-    // From a Starting Layout: a plate on the map's patch is fine, a Generator over the station is not.
+    // From a Starting Layout: a plate on the map's patch is fine, a Generator over the station is not (the rules of a
+    // layout, design change 0097: the plate and the Generator in the area of the layout's own Deployment Center).
     s.map.spawns.truncate(2);
     let layout = |kind, x, y| LayoutObject {
         kind,
         at: tile(x, y),
         orientation: Default::default(),
     };
-    *s.map.slots[0].layouts.get_mut(Faction::Gdo) = vec![layout(ObjectKind::ExtractionPlate, 2, 2)];
+    *s.map.slots[0].layouts.get_mut(Faction::Gdo) = vec![
+        layout(ObjectKind::ExtractionPlate, 2, 2),
+        layout(ObjectKind::DeploymentCenter, 3, 4), // (3, 4) to (6, 7)
+    ];
     assert_eq!(s.validate(), []);
     let sim = sc_sim::Sim::try_new(&s).unwrap();
     let on_tile: Vec<_> = sim
@@ -242,11 +246,15 @@ fn only_a_plate_may_cover_a_resource() {
         .push(layout(ObjectKind::Generator, 7, 1));
     assert_eq!(
         s.validate(),
-        [ScenarioProblem::LayoutOverlap {
+        [ScenarioProblem::LayoutPlacement {
             slot: SlotId(1),
             faction: Faction::Gdo,
-            index: 1,
-            tile: TilePos::new(8, 2),
+            index: 2,
+            kind: ObjectKind::Generator,
+            check: PlacementCheck {
+                tiles: vec![(TilePos::new(8, 2), TileProblem::Resource)],
+                whole: vec![],
+            },
         }]
     );
 }

@@ -9,6 +9,13 @@
 //! A [`Scenario`] is the pair, everything [`crate::Sim::try_new`] needs: "a map and its players", as it was before
 //! the two were split, so replays, the client and tests still start games from a `Scenario`.
 //!
+//! # Starting Conditions and Starting Layouts
+//!
+//! A game starts each player with their faction's Starting Conditions ([`StartingConditions`]: the banks, and the
+//! objects their faction's Starting Layout at their slot places). Validation holds every layout to its faction's
+//! placement rules, and on a Skirmish Default map to its Starting Conditions, complete; "outdated" layouts are
+//! derived (see `starting.rs`).
+//!
 //! # Map files
 //!
 //! A [`MapDef`] is the map editor's file format. It serializes as an object whose first field is `version`
@@ -26,6 +33,7 @@ mod mapdef;
 mod problems;
 mod settings;
 mod setup;
+mod starting;
 mod validate;
 
 use serde::{Deserialize, Serialize};
@@ -42,6 +50,7 @@ pub use settings::{
     SettingsProblem, SpawnSettings,
 };
 pub use setup::{DEFAULT_SEED, GameSetup, PlayerSetup};
+pub use starting::StartingConditions;
 pub(crate) use validate::{locate_oriented, place_spawn};
 
 use crate::map::Map;

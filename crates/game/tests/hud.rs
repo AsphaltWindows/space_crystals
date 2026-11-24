@@ -172,22 +172,13 @@ fn selected(app: &App) -> Vec<u32> {
 
 /// `factions/gdo/overview.md > DisplayHud` at the start of a game (design change 0090's first verification: "Power
 /// 21/30"; 0077: "Supplies show 0"), and the crystals after the plates' first payout, at tick 48 (the M2 plan's
-/// acceptance for slice G). The banks start at 0 until the Starting Conditions fill them (slice M2-F1): a debug
-/// command gives player 1 its 100.
+/// acceptance for slice G), starting from the Starting Conditions' 100 Space Crystals (slice M2-F1).
 #[test]
 fn the_bar_shows_the_gdo_resources_and_the_first_payout() {
     let mut app = game();
     assert_eq!(
         bar(&mut app),
-        ["Space Crystals 0", "Supplies 0", "Power 21/30", "Unit Control 0/200"]
-    );
-    debug(
-        &mut app,
-        DebugCommand::SetResources {
-            player: P1,
-            crystals: 100,
-            supplies: 0,
-        },
+        ["Space Crystals 100", "Supplies 0", "Power 21/30", "Unit Control 0/200"]
     );
     run_until(&mut app, 47);
     assert_eq!(bar(&mut app)[0], "Space Crystals 100");
@@ -261,7 +252,7 @@ fn the_bar_follows_the_local_player() {
     assert_eq!(app.world().resource::<LocalPlayer>().0, P2);
     assert_eq!(
         bar(&mut app),
-        ["Space Crystals 0", "Supplies 0", "Power 3/20", "Unit Control 0/200"]
+        ["Space Crystals 100", "Supplies 0", "Power 3/20", "Unit Control 0/200"]
     );
     let mut nobody = game_as(scenario(), PlayerId(3));
     assert!(bar(&mut nobody).is_empty());

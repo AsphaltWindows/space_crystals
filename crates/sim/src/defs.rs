@@ -297,6 +297,23 @@ mod tests {
                 assert!(def.faction.is_some(), "{name}: structures belong to a faction");
                 assert!(def.needs_flat_ground, "{name}: structures stand on flat ground");
                 assert!(def.selectable, "{name}: selectable");
+                // `Constructs`: buildings of the constructor's own faction, each listed once, each taking time, and
+                // short enough for their progress in fixed point (`crate::construction`).
+                for (i, recipe) in structure.constructs.iter().enumerate() {
+                    let built = recipe.kind.def();
+                    assert!(
+                        built.structure.is_some() && built.faction == def.faction,
+                        "{name} constructs {:?}",
+                        recipe.kind
+                    );
+                    let longest = u32::MAX / crate::economy::RATIO_ONE;
+                    assert!((1..=longest).contains(&recipe.frames), "{name}: {recipe:?}");
+                    assert!(
+                        structure.constructs[..i].iter().all(|r| r.kind != recipe.kind),
+                        "{name} lists {:?} twice",
+                        recipe.kind
+                    );
+                }
             }
             // Exactly the units have unit attributes, and their movement attributes are their base's model.
             assert_eq!(
@@ -394,6 +411,22 @@ mod tests {
                 cycle_ticks: 48,
             });
             assert_eq!(mining, expected, "{kind:?}");
+        }
+        // `factions/gdo/structures.md > DeploymentCenter > Constructs` and `factions/gdo/economy.md >
+        // ExtractionFacility > Constructs`: the two constructors, with each building's cost and time.
+        let recipe = |kind, cost, frames| Recipe { kind, cost, frames };
+        for &kind in ObjectKind::ALL {
+            let constructs = kind.def().structure.as_ref().map_or(&[][..], |s| s.constructs);
+            let expected = match kind {
+                K::DeploymentCenter => vec![
+                    recipe(K::Generator, 100, 240),
+                    recipe(K::Barracks, 200, 160),
+                    recipe(K::ExtractionFacility, 200, 320),
+                ],
+                K::ExtractionFacility => vec![recipe(K::ExtractionPlate, 75, 400)],
+                _ => vec![],
+            };
+            assert_eq!(constructs, expected.as_slice(), "{kind:?}");
         }
     }
 

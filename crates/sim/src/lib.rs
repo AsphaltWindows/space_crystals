@@ -13,6 +13,7 @@
 
 pub mod combat;
 pub mod command;
+pub mod construction;
 pub mod defs;
 pub mod economy;
 pub mod elevation;
@@ -45,6 +46,7 @@ pub mod vision;
 
 pub use combat::{AttackPhase, AttackState};
 pub use command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs};
+pub use construction::{ConstructionCommand, Constructor};
 pub use defs::{
     Armor, Category, Footprint, MiningDef, ObjectDef, ObjectKind, ProductionDef, Recipe, StructureDef, SymmetryType,
 };
@@ -57,7 +59,7 @@ pub use movement::MoveCounters;
 pub use mover::{MoveGoal, MoveStatus, Mover};
 pub use object::{Object, Placement, ResourceState, Rotation};
 pub use orders::{OrderKind, Orders, Target};
-pub use placement::{BuildArea, PlacementCheck, TileProblem, WholeProblem};
+pub use placement::{BuildArea, PlacementCheck, PlacementProblem, TileProblem, WholeProblem};
 pub use player::{Faction, Player};
 pub use production::{Doorway, Production, ProductionCommand, ProductionStatus, QUEUE_LIMIT, Rally, Refusal};
 pub use replay::{Checkpoint, Desync, Replay, ReplayError};
@@ -65,7 +67,7 @@ pub use riot_shield::RiotShield;
 pub use rng::Rng;
 pub use scenario::{
     BuildingOrientation, GameSetup, LayoutObject, MapDef, MapSettings, MapType, PlayerSetup, Scenario, ScenarioProblem,
-    SettingsProblem, Slot, Spawn, SpawnAt, SpawnProblem, SpawnSettings, StartingLayouts,
+    SettingsProblem, Slot, Spawn, SpawnAt, SpawnProblem, SpawnSettings, StartingConditions, StartingLayouts,
 };
 pub use shape::Shape;
 pub use sides::{SideLetter, sides};

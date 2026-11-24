@@ -191,7 +191,8 @@ fn dev_skirmish_resources_start_full_and_empty() {
                 );
                 stations += 1;
             }
-            None => panic!("{:?} has no resource state", o.id),
+            // The players' starting bases, from the map's Starting Layouts (slice M2-F1).
+            None => assert!(o.owner.is_some(), "{:?} has no resource state", o.id),
         }
     }
     assert_eq!((patches, stations), (16, 1));

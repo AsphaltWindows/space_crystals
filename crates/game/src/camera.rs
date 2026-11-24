@@ -87,12 +87,17 @@ impl Plugin for GameCameraPlugin {
 }
 
 /// `core/camera.md > Starting Position`: the map's starting camera position for the local player's slot, else the
-/// player's primary starting structure. No starting structures exist yet (they arrive with the faction
-/// milestones), so the slot's start position stands in for them, and the map center for a player the setup doesn't
-/// have (or whose slot the map lacks). A ground point: the camera centers on its [`start_view`].
+/// player's primary starting structure (the GDO's Deployment Center), where their Starting Layout places it
+/// ([`Scenario::primary_structure`]). A player without one (a faction whose Starting Conditions aren't implemented
+/// yet, or a layout without it) starts at their slot's start position, and a player the setup doesn't have (or
+/// whose slot the map lacks) at the map center. A ground point: the camera centers on its [`start_view`].
 pub fn start_center(scenario: &Scenario, player: PlayerId, map: &Map) -> Vec2 {
     let slot = scenario.setup.player(player).and_then(|p| scenario.map.slot(p.slot));
-    slot_center(slot, map)
+    match (slot.and_then(|s| s.camera_start), scenario.primary_structure(player)) {
+        (Some(camera_start), _) => camera_start,
+        (None, Some(structure)) => structure,
+        (None, None) => slot_center(slot, map),
+    }
 }
 
 /// [`start_center`] for a slot: its camera start, else its start position, else (no slot) the map center.
@@ -454,6 +459,7 @@ mod tests {
 
     #[test]
     fn the_start_falls_back_from_camera_start_to_start_position_to_map_center() {
+        // (Between the two, the Deployment Center: see the client's camera tests.)
         let mut scenario = scenarios::empty(20, 10);
         scenario.map.slots[0].camera_start = Some(Vec2::new(100.0, 200.0));
         scenario.map.slots[1].start = TilePos::new(3, 4);
