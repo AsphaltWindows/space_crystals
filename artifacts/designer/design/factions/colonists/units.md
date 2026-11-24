@@ -91,6 +91,14 @@ Drones can deploy into a Beacon (see Beacon Deployment above). This transformati
 ### Drone ObjectInterfaceState
 
 #### DefaultState commands:
+(Layout confirmed by user, 2026-11-24. No Hold Position, Patrol or Attack.)
+```
+[Q] Move     [W] —                 [E] —   [R] —
+[A] Deploy   [S] Set Drop-off      [D] —   [F] —
+[Z] —        [X] Stop              [C] —   [V] —
+```
+- **Q: Move** — as in BasicCombatUnitInterfaceState.
+- **X: Stop** — as in BasicCombatUnitInterfaceState.
 - **A: Deploy** — enters AwaitingPlacement for a Beacon (StateOnlyTransition). Ghost preview follows cursor, snapped to grid, tinted green when valid / red when invalid (no minimum spacing from other Beacons). Left-click valid location confirms placement and dispatches the Drone (CommandIssuingTransition, returns to DefaultState). Escape/right-click cancels back to DefaultState.
 - **S: Set Drop-off Location** — enters AwaitingTarget[SetDropOffLocation] (StateOnlyTransition). Left-click an Egress Node or own refinery sets it as the selected Drone(s)' AssignedDropOff (CommandIssuingTransition, returns to DefaultState). Does not interrupt current mining/movement — only updates AssignedDropOff (see Assigned Drop-off above). Escape/right-click cancels back to DefaultState.
 
