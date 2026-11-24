@@ -539,9 +539,11 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
     one it takes the owner's nearest, and with none the order ends and the worker idles with its load.
   - **A patch that leaves the game** sends its gatherers on first (`Sim::redirect_gatherers`, in the removal path):
     to another patch, or to deliver what they carry and idle.
-  - **Workers collide like every ground unit and, having an order, never yield** (question Q0038 point 1, open and
-    blocking). **Crowds gridlock**: see *Economy > Gathering*. Don't work around it in the behaviour, and don't
-    exempt workers in `movement/`: that waits for the answer.
+  - **Workers collide like every ground unit and, having an order, never yield**: design change 0106 (gathering
+    Drones pass through each other, the answer to question Q0038 point 1) arrived while slice M3-H was built and
+    **is not built yet**. **Crowds gridlock** until it is: see *Economy > Gathering*. Don't work around that in
+    the behaviour. 0106 goes into `movement::space::blocks`, with its rule for units that already overlap and
+    invariant I1's exception for them, as a slice of its own.
 - **Not active during Move**: a Move never engages, and neither does the walk back to an IdleOrigin or to a last
   seen position.
 - **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): `GIVE_UP_RETRY_TICKS`
@@ -802,7 +804,7 @@ GDOResources`, `factions/gdo/economy.md`). Production has a section of its own.
   Crystals per second. On the reference field (8 patches in a row, the node 2 GU south of the middle) the income
   peaks at about 14 per second with 8 to 10 Drones, and **from 12 Drones the field gridlocks under hard collision**:
   with 24 nothing is delivered after the first minute (the design expects about 32 per second). The acceptance test
-  for that is in the file, ignored until question Q0038 is answered.
+  for that is in the file, ignored until design change 0106 is built.
 - **Removal** (`Sim::remove_objects`): a plate takes its patch along if that is depleted, in the same tick, which
   opens the tile (design change 0038; the caller's grid sync covers it); a patch with crystals left stays, uncovered.
   A plate whose patch is removed (only a debug command does that) loses its extractor. `testing::referenced_ids`
@@ -1174,8 +1176,7 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   changing nothing; a Drone rallied on a patch; a game replayed and saved in its middle) and
   `gathering_soak.rs` (the four starting Drones for 5 minutes; 24 Drones losing nothing and keeping the invariants;
   the smallest gridlock found, pinned; ignored: the plan's acceptance that every one of 24 Drones delivers every
-  30 s, which fails under hard collision, and `saturation_curve`, which prints the measurements for question
-  Q0038).
+  30 s, which fails under hard collision, and `saturation_curve`, which prints the measurements).
 - **Game end tests** are `crates/sim/tests/game_end.rs` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and a last defeat shared by two; no producer handed

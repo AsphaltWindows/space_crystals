@@ -1,7 +1,9 @@
 //! The gathering soak (slice M3-H's acceptance; question Q0038): Drones on the reference field of
-//! `factions/gdo/economy.md > Economy Targets (GDO vs Colonists)` — "8 adjacent patches, Egress Node 2 grid units
-//! from the row's center" (edge to edge, Q0038 point 2) — under hard collision with workers that never yield, as the
-//! design reads today (Q0038 point 1, open and blocking).
+//! `factions/gdo/economy.md > Economy Targets (GDO vs Colonists) > Reference geometry` (design change 0107: 8
+//! adjacent patches in a row, the Egress Node centred on the row's long side, 2 grid units from it edge to edge) —
+//! under **hard collision with workers that never yield**, the rules this slice was told to build. Design change
+//! 0106, the answer to Q0038 point 1, lets gathering Drones pass through each other; it arrived while the slice was
+//! built and is not built yet (`orders::gather`, module docs).
 //!
 //! **What holds, and is asserted here**: the four starting Drones gather without a hitch; however crowded the field,
 //! no Space Crystal is lost or made, no state names an object that is gone, and the movement invariants hold
@@ -12,9 +14,9 @@
 //! mined stands against its patch, the next Drone for that patch stands behind it, their neighbours stand left and
 //! right, and nobody yields or swaps (`systems/units.md > UnitCollision > Ground Collision`: "Two moving units never
 //! yield to each other or swap places", and a unit with a command never yields). That test is here and ignored
-//! (`the_soak_of_24_drones_keeps_every_drone_delivering`), to be turned on when Q0038 is answered; the smallest jam
-//! found is pinned by `three_drones_per_patch_gridlock_under_hard_collision`, and `saturation_curve` prints the
-//! measurements for the Designer:
+//! (`the_soak_of_24_drones_keeps_every_drone_delivering`), to be turned on when design change 0106 is built; the
+//! smallest jam found is pinned by `three_drones_per_patch_gridlock_under_hard_collision`, and `saturation_curve`
+//! prints the measurements:
 //!
 //! ```sh
 //! cargo test -p sc_sim --release --test gathering_soak -- --ignored --nocapture --test-threads=1 saturation_curve
@@ -69,7 +71,7 @@ impl Field {
         }
     }
 
-    /// The reference field with its 8 patches (Q0038 point 2), the Drones ordered as [`Field::order`] says.
+    /// The reference field with its 8 patches (design change 0107), the Drones ordered as [`Field::order`] says.
     fn reference(drones: u32, spread: bool) -> Self {
         let mut field = Self::new(8, drones);
         field.order(spread);
@@ -199,7 +201,7 @@ fn four_drones_gather_for_five_minutes_without_a_hitch() {
     }
 }
 
-/// The soak's safety half, which holds whatever Q0038's answer: 24 Drones on the 8 patches for 5 minutes, sent by
+/// The soak's safety half, which holds however Drones collide: 24 Drones on the 8 patches for 5 minutes, sent by
 /// one right-click. No Space Crystal is lost or made, every Drone still has its job, no state names an object that
 /// is gone, and the invariants hold in the crowd (`TestSim`, every tick).
 #[test]
@@ -215,10 +217,10 @@ fn the_soak_of_24_drones_loses_nothing_and_keeps_the_invariants() {
 }
 
 /// Slice M3-H's acceptance for the soak (plan §3.3 H): "24 Drones on 8 patches for 5 minutes. No deadlock: every
-/// Drone delivers at least once every 30 s." **It fails under hard collision** (module docs; question Q0038 point
-/// 1): the field gridlocks in the first minute.
+/// Drone delivers at least once every 30 s." **It fails under hard collision** (module docs): the field gridlocks
+/// in the first minute. To be turned on with design change 0106.
 #[test]
-#[ignore = "fails under hard collision with workers that never yield: question Q0038 point 1"]
+#[ignore = "fails under hard collision with workers that never yield: design change 0106 isn't built yet"]
 fn the_soak_of_24_drones_keeps_every_drone_delivering() {
     for spread in [false, true] {
         let soak = soak(8, 24, spread);
@@ -226,13 +228,13 @@ fn the_soak_of_24_drones_keeps_every_drone_delivering() {
     }
 }
 
-/// The smallest jam found, pinned for question Q0038: 3 adjacent patches with the Egress Node 2 grid units south of
+/// The smallest jam found, pinned: 3 adjacent patches with the Egress Node 2 grid units south of
 /// them and 9 Drones, three sent to each patch. They mine a load or two, then stand in each other's way for good: a
 /// loaded Drone against its patch, the Drones for that patch behind and beside it. From 50 s to 5 minutes nearly
 /// nothing is delivered, where 3 patches give Drones 12 Space Crystals per second.
 ///
 /// This pins the game as it is, not as it should be: it is to go, with the ignored acceptance test above turned on
-/// in its place, when Q0038's answer changes how gathering Drones collide.
+/// in its place, when design change 0106 is built and gathering Drones pass through each other.
 #[test]
 fn three_drones_per_patch_gridlock_under_hard_collision() {
     let soak = soak(3, 9, true);
@@ -256,7 +258,7 @@ fn timed<T>(work: impl FnOnce() -> T) -> (T, Duration) {
     (result, start.elapsed())
 }
 
-/// The measurements for question Q0038, printed: the income and the worst delivery gap by the number of Drones on
+/// The measurements of the field under hard collision, printed: the income and the worst delivery gap by the number of Drones on
 /// the reference field, for both ways of ordering them; rows of 1 to 8 patches with two and three Drones a patch;
 /// and the tick cost of the 24-Drone soak.
 #[test]

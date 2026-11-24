@@ -41,13 +41,16 @@
 //! (`movement::stuck`: they take over its progress clock, which every new leg starts afresh). Standing, it is a
 //! unit without a goal, which they route around.
 //!
-//! **Collision** is as the design reads today (question Q0038 point 1, open and blocking): workers collide with
-//! each other like all ground units, and a worker on a job has an active command, so it never yields
+//! **Collision: design change 0106 is not built yet.** It answers question Q0038 point 1 (`factions/colonists/
+//! units.md > Gathering Drones pass through each other`: Drones on a Gather job don't collide with each other) and
+//! arrived while this slice was built, which was told to build the rules as they read before it. So workers still
+//! collide with each other like all ground units, and a worker on a job has an active command, so it never yields
 //! (`systems/units.md > UnitCollision > Ground Collision > Who yields`), whether it mines, waits or travels.
 //! **Crowds gridlock under these rules**: from about one and a half Drones a patch on a row of patches, a Drone
 //! that has mined can't leave for the Drones waiting behind and beside it, and none of them gives way
-//! (`tests/gathering_soak.rs` has the measurements and the smallest jam). Nothing here works around it: that
-//! waits for Q0038's answer.
+//! (`tests/gathering_soak.rs` has the measurements and the smallest jam). Nothing here works around it. 0106 is
+//! the fix: an exception in `movement::space::blocks` for two units on a Gather job, with 0106's rule for units
+//! that already overlap, in a slice of its own.
 
 use glam::Vec2;
 

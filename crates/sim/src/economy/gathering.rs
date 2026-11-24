@@ -30,7 +30,7 @@
 //!
 //! **Trip times on the stand-in mover** (8 space units per tick at once, turning 45° a tick before it moves; plan
 //! decision T25; pinned by `tests/gathering.rs`, to be measured again when slice M3-G brings DragMovement): with the
-//! patch 2 grid units from the Egress Node, edge to edge (question Q0038 point 2), one Drone alone delivers a load
+//! patch 2 grid units from the Egress Node, edge to edge (design change 0107), one Drone alone delivers a load
 //! every **60 ticks** (3.75 s): 32 of mining, 2 of unloading and two legs of 13 ticks each, 3 to turn round where
 //! it stands and 10 to cover 80 su. A leg is 80 su and not the 128 of the 2 grid units: the Drone's own 36 su come
 //! off, and it stops when it is within reach, up to 8 su short at each end. That is 2.13 Space Crystals per second

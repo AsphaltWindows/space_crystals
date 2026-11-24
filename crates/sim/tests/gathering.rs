@@ -129,7 +129,7 @@ fn mines_from(t: &mut TestSim, n: u32) -> Tick {
     run_to(t, 400, "it mines", |t| is_mining(t, n))
 }
 
-/// The reference geometry of one trip (question Q0038 point 2): a patch at tile (5, 2) and an Egress Node 2 grid
+/// The reference geometry of one trip (design change 0107): a patch at tile (5, 2) and an Egress Node 2 grid
 /// units south of it, edge to edge, with a Drone of player 1 between them. Ids: patch 1, node 2, Drone 3.
 fn one_patch(amount: u32) -> ScenarioBuilder {
     flat(16, 10)
