@@ -426,10 +426,21 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Perf** (A/B): movement 0.421 → 0.430 ms a tick. The 24-Drone soak costs 13 µs a tick.
   - **Open.** The dead-centre steering oscillation went to G; two design details went out as Q0045.
 
+- **M3-D portals** (merged in `20f584e`; 1025 tests):
+  - **Exits (T19).** `ProductionDef::exits` is an `ExitRule`.
+    - The Barracks keeps `Side(B)`.
+    - The portals use `Nearest(&[A])`: every side for the Robo Portal (Q0041 point 3), and the 2 A sides for the Bio Portal.
+    - A unit leaves by the door closest to the rally point, or else a random unblocked door. `Rng::below` is drawn only when two or more doors qualify.
+    - A portal pauses only when every door is occupied.
+  - **Rally.** A unit that can't attack, rallied on an enemy, moves to the point.
+  - **Panel (T23).** The Production panel is built from `ProductionDef` for the Barracks and both portals: Q trains, X cancels, C sets the rally. It matches 0124. The unavailable W/E slots wait for J2.
+  - **Fixed.** `Door::room_before` counted units behind a door as standing in front of it, which held releases 1–3 ticks. The same latent M2 bug could stall a Barracks.
+  - **Reading.** When every free door is obstructed but none is occupied, the unit is still released, since the design pauses only when every door is occupied.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M3-E transformations and Warp In** (Opus): splits `sim/gate.rs` first. The Director added the generic client response to `KindChanged` to E.
-  - **M3-D portals** (Opus; brief `scratchpad/briefs/m3d-portals.md`): exit rules (T19), unarmed rally, the data-driven Production panel.
+  - **M3-B Shields and Weapon Conversion** (Opus; brief `scratchpad/briefs/m3b-shields-conversion.md`): Shields, regen, Convert, and the current Shields that follow E's transforms (0110, 0111). It merges E when E lands.
   - **M3-G Drone movement** (Fable; brief `scratchpad/briefs/m3g-drag-movement.md`): DragMovement, 0035's response for Drag units, hover on Rugged, H2's steering oscillation, and the saturation curve with momentum.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
@@ -551,10 +562,13 @@ First playable after M2-H2.
     | H | done (`5bd3b69`) |
     | C | done (`5c75d40`) |
     | E | running (wave 2) |
-    | D | running (wave 3) |
+    | D | done (`20f584e`) |
+    | B | running (wave 3) |
     | H2 (0106) | done (`777b9a9`) |
     | G | running (wave 3) |
-    | B (next free slot), F (after E; also takes 0123), J1, J2, K1, K2 | queued |
+    | F (after E; Deploy, with 0125's reservation and the Drone's Groupable flag) | queued |
+    | H3 (after E; gather rules 0123 and 0127–0130) | queued |
+    | J1, J2, K1, K2 | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -615,18 +629,18 @@ First playable after M2-H2.
 | Q0034 | Should an enemy plate's InfoPanel show its patch's remaining crystals? | no | open; M2-G shows it to everyone |
 | Q0035 | Rally point UI: Shift with rally targeting, rallying on one of several selected Barracks, feedback when pressing an unavailable command | no | open; M2-H1 built the stated current behaviour |
 | Q0036 | End of game edge cases: simultaneous last defeats, free-for-all spectating, a raised Riot Shield on defeat | no | open; M2-F2 built the stated current behaviour |
-| Q0037 | Drone gathering: the cases the loop doesn't define (13 points) | no | point 12 answered by 0123 (replaces the proposal); point 5 in part (radius around the Drone, a per-unit stat); other points open, M3-H built the proposals |
+| Q0037 | Drone gathering: the cases the loop doesn't define (13 points) | no | points 1–4 and 12 answered by 0123 and 0127–0130; point 5 in part; others open, M3-H built the proposals |
 | Q0038 | Gathering Drones, collision and the economy targets | was yes | answered by 0106 (pass-through), 0107 (geometry), 0108 (±15%) |
 | Q0039 | Beacon Deployment and Warp In: what the transforming object is | no (answer before M3-F) | answered by 0109–0116 |
-| Q0040 | Deploy and Warp In placement, and the Colonists panels | no | points 1–7 answered by 0117–0123; points 8–9 open |
+| Q0040 | Deploy and Warp In placement, and the Colonists panels | no | answered by 0117–0125 |
 | Q0041 | Portal exits and Beacon Capacity | no | open |
 | Q0042 | Shields, melee range and Weapon Conversion | no | open |
 | Q0043 | M3 scope: the Colonists content left TBD (FYI) | no | open |
 | Q0044 | Gathering details from the build: fog, plates, empty Drop Off, blocked Drones, redirect timing, the Egress Node's sight | no | open; M3-H built the stated current behaviour |
-| Q0045 | Pass-through details: idle units left stacked, and the Drop Off order | no | open; M3-H2 built the stated current behaviour |
+| Q0045 | Pass-through details: idle units left stacked, and the Drop Off order | no | answered by 0126 and 0127 |
 
 ## Design change entries
-Last triaged: 0123.
+Last triaged: 0130.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -746,5 +760,12 @@ Last triaged: 0123.
 | 0120 The Worker-Built ghost in fog uses the player's knowledge | queued (M3-F gate, M3-J1 ghost) | answers Q0040 point 4 |
 | 0121 Odd-size Warp In: extras at the bottom-right, turned and flipped about the Beacon centre | in progress (M3-E: footprint derived in the sim; the command drops `origin`); ghost queued (M3-J1) | answers Q0040 point 5; replaces cursor snapping |
 | 0122 Beacons are Ungroupable | in progress (M3-E: the def flag); Tab behaviour queued (M3-J1) | answers Q0040 point 6 |
-| 0123 A Gather ends only when no patch is left within the Drone's search radius; queued orders wait | queued (M3-F) | answers Q0040 point 7 and Q0037 point 12; Q0037 point 5 in part; replaces the after-the-next-drop-off proposal |
+| 0123 A Gather ends only when no patch is left within the Drone's search radius; queued orders wait | queued (M3-H3) | answers Q0040 point 7 and Q0037 point 12; Q0037 point 5 in part; replaces the after-the-next-drop-off proposal |
+| 0124 Colonists panels: two Warp In menus on the Beacon; Cancel only while transforming; portal, Drone and Egress Node grids | portal grids done (M3-D, `20f584e`); Beacon menus and Cancel queued (M3-J1); Drone panel, Egress Node F and the unavailable W/E portal slots queued (M3-J1, M3-J2) | answers Q0040 point 8 |
+| 0125 Lingering build ghosts; Drones Groupable; a Deploy goes to one Drone of a group; Shift-placement chains through the group | queued: Groupable flag and site reservation in the sim (M3-F); ghosts, dispatch and chaining in the client (M3-J1) | answers Q0040 point 9; replaces 0071 for Drones |
+| 0126 Idle overlapping units push apart; units with orders are never moved | in progress (M3-G, folded in) | answers Q0045 point 1; amends 0106 |
+| 0127 Drop Off is only a delivery; the Drone then idles at the drop-off or starts its next order | queued (M3-H3); its pass-through is already built (M3-H2) | answers Q0045 point 2 and Q0037 point 1; replaces the return-to-patch proposal |
+| 0128 A loaded Drone sent to Gather skips mining at the new patch and goes to deliver | queued (M3-H3) | answers Q0037 point 2 |
+| 0129 Other orders keep the load | queued (M3-H3: confirm with a test) | answers Q0037 point 3 |
+| 0130 Interrupted mining gives no partial load; the patch frees at once | queued (M3-H3: confirm with a test) | answers Q0037 point 4 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
