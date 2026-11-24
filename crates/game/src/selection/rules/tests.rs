@@ -8,6 +8,7 @@ fn row(units: &[(u32, ObjectKind, Relation)]) -> Selectables {
     let unit = |&(n, kind, relation): &(u32, ObjectKind, Relation)| Selectable {
         id: ObjectId(n),
         kind,
+        unfinished: false,
         relation,
         drawn: at(n),
         rect: Rect::from_center_half_size(at(n), Vec2::splat(12.0)),

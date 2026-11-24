@@ -2,12 +2,13 @@
 //! 4 × 3 grid (`crate::command_ui::interface::panel`), shown while everything selected is the local player's.
 //!
 //! Placeholder buttons until the art exists (Q0001): a short label in the middle and the slot's hotkey, from the
-//! bindings, in the top-left corner. Each look has its colours: common commands blue, group commands violet (the
-//! design wants the two "visually distinguished"), the PendingCommand lit up in yellow, disabled commands grey and
-//! dim (a Train or a Cancel Production the command gate would refuse too: `crate::command_ui::Conditions`),
-//! unavailable ones near-black with a dark red border, Back slate. A toggle that is on (the Riot Shields up)
-//! has a thick green border, and its label says what pressing it does. A click on a button is a press of its slot,
-//! handled with the hotkeys (`crate::command_ui`), which finds the button by the same geometry ([`CommandGrid`]).
+//! bindings, in the top-left corner. A label never wraps: one too long for its button at the label size is drawn
+//! smaller, to fit on one line ([`label_px`]). Each look has its colours: common commands blue, group commands violet
+//! (the design wants the two "visually distinguished"), the PendingCommand lit up in yellow, disabled commands grey
+//! and dim (a Train or a Cancel Production the command gate would refuse too: `crate::command_ui::Conditions`),
+//! unavailable ones near-black with a dark red border, Back slate. A toggle that is on (the Riot Shields up) has a
+//! thick green border, and its label says what pressing it does. A click on a button is a press of its slot, handled
+//! with the hotkeys (`crate::command_ui`), which finds the button by the same geometry ([`CommandGrid`]).
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -25,6 +26,14 @@ use crate::sim_driver::{LocalPlayer, SimRes};
 /// Sizes of a button's label and hotkey (placeholders).
 const LABEL_VH: f32 = 1.5;
 const HOTKEY_VH: f32 = 1.2;
+/// The room a label leaves on each side, inside the button's border (placeholder).
+const LABEL_MARGIN_VH: f32 = 0.2;
+/// The advance of every glyph of the HUD's font, in ems: Bevy's default font, Fira Mono, is monospaced, 600 units to
+/// its em of 1000.
+const GLYPH_ADVANCE_EM: f32 = 0.6;
+/// The borders of a button, and of a lit one: the PendingCommand, a toggle that is on.
+const BORDER_PX: f32 = 1.0;
+const LIT_BORDER_PX: f32 = 2.0;
 /// The border of a toggle that is on (placeholder).
 const ON_BORDER: Color = Color::srgb(0.45, 0.95, 0.55);
 
@@ -146,7 +155,8 @@ pub(super) fn update_command_panel(
             ))
             .id();
         let hotkey = view.hotkeys.get(slot_index(slot)).cloned().unwrap_or_default();
-        spawn_button_content(&mut commands, entity, button, hotkey);
+        let label_size = label_px(button.label(), rect.width(), surface);
+        spawn_button_content(&mut commands, entity, button, label_size, hotkey);
         entities.push(entity);
     }
     view.entities = entities;
@@ -191,7 +201,7 @@ fn button_node(at: Vec2, side: f32, shown: PanelSlot) -> impl Bundle {
             top: px(at.y),
             width: px(side),
             height: px(side),
-            border: UiRect::all(px(if lit { 2.0 } else { 1.0 })),
+            border: UiRect::all(px(if lit { LIT_BORDER_PX } else { BORDER_PX })),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -201,10 +211,28 @@ fn button_node(at: Vec2, side: f32, shown: PanelSlot) -> impl Bundle {
     )
 }
 
-/// A button's label in the middle and its hotkey in the top-left corner.
-fn spawn_button_content(commands: &mut Commands, button: Entity, shown: PanelSlot, hotkey: String) {
+/// The font size, in logical pixels, of `label` on a button of side `side` on a surface of `surface` logical pixels:
+/// the label size, or less for a label too long for one line at that size, which then fills the room inside the
+/// thicker border of a lit button and the margins, so that a label keeps its size when its button lights up. Any
+/// label fits, its glyphs all as wide (the font is monospaced: [`GLYPH_ADVANCE_EM`]).
+fn label_px(label: &str, side: f32, surface: Vec2) -> f32 {
+    let vh = surface.y / 100.0;
+    let room = side - 2.0 * (LIT_BORDER_PX + LABEL_MARGIN_VH * vh);
+    let ems = GLYPH_ADVANCE_EM * label.chars().count().max(1) as f32;
+    (LABEL_VH * vh).min(room / ems).max(0.0)
+}
+
+/// A button's label in the middle, of `label_size` logical pixels ([`label_px`]), and its hotkey in the top-left
+/// corner. Neither wraps.
+fn spawn_button_content(commands: &mut Commands, button: Entity, shown: PanelSlot, label_size: f32, hotkey: String) {
     let (_, _, color) = colors(shown.look);
-    commands.spawn((text(shown.label(), LABEL_VH, color), ChildOf(button)));
+    commands.spawn((
+        Text::new(shown.label()),
+        TextFont::from_font_size(FontSize::Px(label_size)),
+        TextColor(color),
+        TextLayout::no_wrap(),
+        ChildOf(button),
+    ));
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,
@@ -213,13 +241,127 @@ fn spawn_button_content(commands: &mut Commands, button: Entity, shown: PanelSlo
             ..default()
         },
         text(hotkey, HOTKEY_VH, color.with_alpha(0.8)),
+        TextLayout::no_wrap(),
         ChildOf(button),
     ));
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
+    use sc_sim::ObjectKind;
+
     use super::*;
+    use crate::command_ui::PanelButton;
+    use crate::command_ui::interface::{BuildMenu, TRANSFORMING_GRID, commands, grid, menu_grid};
+
+    /// Every label a command button can show: of each command of each type's panels in any state (its DefaultState
+    /// grid, its build or Warp In menus, what it constructs, places or warps in and the Cancels: [`commands`]; an
+    /// unfinished building's Cancel), a toggle's when it is on, and Back.
+    fn every_label() -> BTreeSet<&'static str> {
+        let label = |button, on| {
+            let look = ButtonLook::Common;
+            PanelSlot {
+                button,
+                look,
+                on,
+                why: None,
+            }
+            .label()
+        };
+        let mut labels = BTreeSet::from([label(PanelButton::Back, false)]);
+        for &kind in ObjectKind::ALL {
+            let menus = BuildMenu::ALL.map(|menu| menu_grid(kind, menu));
+            let grids = [grid(kind), TRANSFORMING_GRID].into_iter().chain(menus);
+            for command in grids.flatten().flatten().chain(commands(kind)) {
+                for on in [false, true] {
+                    labels.insert(label(PanelButton::Command(command), on));
+                }
+            }
+        }
+        labels
+    }
+
+    /// M3-U: the highlighted "Warp RP" of a Beacon's Warp In menu wrapped onto two lines, and the labels of 8 or
+    /// more characters did whether lit or not. Every label fits its button on one line, lit or not, on surfaces of
+    /// any size and shape, at the label size or smaller; the short ones keep the label size, and a label doesn't
+    /// change its size when its button lights up.
+    #[test]
+    fn every_label_fits_its_button_on_one_line() {
+        let labels = every_label();
+        for label in [
+            "Warp RP",
+            "Train SL",
+            "Advanced",
+            "Raise Shield",
+            "Lower Shield",
+            "Cancel Ready",
+            "Back",
+        ] {
+            assert!(labels.contains(label), "{label} is shown");
+        }
+        let surfaces = [
+            Vec2::new(1280.0, 720.0),
+            Vec2::new(800.0, 600.0),
+            Vec2::new(1366.0, 768.0),
+            Vec2::new(1920.0, 1080.0),
+            Vec2::new(2560.0, 1080.0),
+            Vec2::new(3840.0, 2160.0),
+            Vec2::new(1080.0, 1920.0),
+        ];
+        for surface in surfaces {
+            let side = CommandGrid::on(surface).cell;
+            for label in &labels {
+                let size = label_px(label, side, surface);
+                let width = GLYPH_ADVANCE_EM * size * label.chars().count() as f32;
+                assert!(
+                    width <= side - 2.0 * LIT_BORDER_PX,
+                    "{label} on {surface}: {width} in {side}"
+                );
+                assert!(
+                    size > 0.0 && size <= LABEL_VH * (surface.y / 100.0),
+                    "{label} on {surface}: {size}"
+                );
+            }
+            let full = LABEL_VH * (surface.y / 100.0);
+            for label in ["Cancel", "Attack", "Rally", "Back"] {
+                assert_eq!(label_px(label, side, surface), full, "{label} on {surface}");
+            }
+        }
+        // On the default surface, a label of 7 characters loses less than a tenth of the label size, one of 12
+        // under half.
+        let surface = Vec2::new(1280.0, 720.0);
+        let side = CommandGrid::on(surface).cell;
+        let ratio = |label| label_px(label, side, surface) / (LABEL_VH * 7.2);
+        assert!(ratio("Warp RP") > 0.9, "{}", ratio("Warp RP"));
+        assert!(ratio("Raise Shield") > 0.5, "{}", ratio("Raise Shield"));
+    }
+
+    /// The font the labels are measured for: Bevy's default, every glyph [`GLYPH_ADVANCE_EM`] wide (its `hmtx`
+    /// table's advances, of its `head` table's units to the em, but the null glyph's).
+    #[test]
+    fn the_hud_font_is_monospaced_at_the_advance_the_labels_are_measured_with() {
+        let font = bevy::text::DEFAULT_FONT_DATA;
+        let u16_at = |at: usize| u16::from_be_bytes([font[at], font[at + 1]]);
+        let u32_at = |at: usize| u32::from_be_bytes([font[at], font[at + 1], font[at + 2], font[at + 3]]);
+        let table = |tag: &[u8; 4]| {
+            (0..usize::from(u16_at(4)))
+                .map(|i| 12 + 16 * i)
+                .find(|&record| &font[record..record + 4] == tag)
+                .map(|record| u32_at(record + 8) as usize)
+                .expect("the font has the table")
+        };
+        let units_per_em = f32::from(u16_at(table(b"head") + 18));
+        let metrics = usize::from(u16_at(table(b"hhea") + 34));
+        let advances: BTreeSet<u16> = (0..metrics).map(|i| u16_at(table(b"hmtx") + 4 * i)).collect();
+        assert_eq!(
+            advances,
+            BTreeSet::from([0, 600]),
+            "the null glyph's and all the others'"
+        );
+        assert_eq!(600.0 / units_per_em, GLYPH_ADVANCE_EM);
+    }
 
     #[test]
     fn hotkey_labels_name_the_bound_key() {

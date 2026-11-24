@@ -151,13 +151,10 @@ pub struct Conditions {
     /// The selected units' modes.
     pub modes: Modes,
     /// The state of the ActiveGroup's constructor, if it is one: a Deployment Center or an Extraction Facility, one
-    /// instance (they are Ungroupable), whose panel follows it (`super::state_grid`).
+    /// instance (they are Ungroupable), whose panel follows it (`super::state_grid`). Whether the ActiveGroup
+    /// transforms is its key's (`crate::selection::GroupKey::unfinished`, design change 0185: the unfinished
+    /// buildings of a type form a group of their own, whose panel is the Cancel alone).
     pub constructor: Option<Constructor>,
-    /// Every object of the ActiveGroup transforms (design change 0116): its panel is the Cancel alone
-    /// (`super::TRANSFORMING_GRID`). **Reading**: a group of portals of which only some transform (they are
-    /// Groupable) shows the portal panel, whose commands the gate gives to the working ones only (production and the
-    /// rally start at completion).
-    pub transforming: bool,
     /// The production and construction commands and the Convert the gate would refuse now, for the objects they go
     /// to ([`recipients`]).
     refused: BTreeMap<PanelCommand, Reject>,
@@ -176,7 +173,7 @@ impl Conditions {
     pub fn of(sim: &Sim, player: PlayerId, selection: &Selection) -> Self {
         let commands = selection
             .active()
-            .map(|active| commands(active.kind))
+            .map(|active| commands(active.group_type()))
             .unwrap_or_default();
         let returning = commands
             .contains(&PanelCommand::SelectReturningDrones)
@@ -221,36 +218,22 @@ impl Conditions {
             .as_ref()
             .and_then(|group| group.instances.first().copied())
             .and_then(|id| sim.object(id)?.constructor);
-        let transforming = group.is_some_and(|group| {
-            group
-                .instances
-                .iter()
-                .all(|&id| sim.object(id).is_some_and(Object::is_transforming))
-        });
         Self {
             modes: Modes::of(sim, selection),
             constructor,
-            transforming,
             refused,
             returning,
         }
     }
 
-    /// These modes, no constructor, nothing transforming and no command refused: for the unit tests.
+    /// These modes, no constructor and no command refused: for the unit tests.
     pub fn with_modes(modes: Modes) -> Self {
         Self {
             modes,
             constructor: None,
-            transforming: false,
             refused: BTreeMap::new(),
             returning: Vec::new(),
         }
-    }
-
-    /// The same, with the whole ActiveGroup transforming: for the unit tests.
-    pub fn while_transforming(mut self) -> Self {
-        self.transforming = true;
-        self
     }
 
     /// The same, with the ActiveGroup's constructor in state `constructor`: for the unit tests.

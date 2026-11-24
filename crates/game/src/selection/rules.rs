@@ -48,7 +48,10 @@ pub fn fits_constraints(ids: &[ObjectId], objects: &Selectables) -> bool {
 
 /// The selection of these objects (those of them that may be selected), its first group active.
 fn selection_of(ids: impl IntoIterator<Item = ObjectId>, objects: &Selectables) -> Selection {
-    Selection::new(ids.into_iter().filter_map(|id| objects.get(id).map(|o| (id, o.kind))))
+    Selection::new(
+        ids.into_iter()
+            .filter_map(|id| objects.get(id).map(|o| (id, o.group_type()))),
+    )
 }
 
 /// The view point at the centroid of where these objects are drawn: what the camera centers on for them.
@@ -159,7 +162,7 @@ impl ControlState {
         }
         let mut changed = false;
         for object in added {
-            changed |= self.selection.insert(object.id, object.kind);
+            changed |= self.selection.insert(object.id, object.group_type());
         }
         changed
     }
@@ -172,21 +175,24 @@ impl ControlState {
     /// - Alt: no change; returns the view point to center the camera on (where the unit is drawn). Alt wins over
     ///   the other modifiers (placeholder: the design doesn't combine them).
     ///
-    /// Fewer than 2 objects left hide the panel, and none left is an empty selection (`> Edge cases`).
+    /// Its type is the one it groups as: the unfinished buildings of a type count "as if [they were] another type"
+    /// (`> SelectionGroup > Unfinished buildings form their own group`, design change 0185), so Ctrl keeps, and
+    /// Ctrl + Shift removes, the finished or the unfinished ones of the type, as the portrait's own are (literal
+    /// reading). Fewer than 2 objects left hide the panel, and none left is an empty selection (`> Edge cases`).
     pub fn click_portrait(&mut self, objects: &Selectables, id: ObjectId, roles: ClickRoles) -> Option<Vec2> {
-        let kind = self.selection.kind_of(id)?;
+        let ty = self.selection.type_of(id)?;
         if roles.center {
             return objects.get(id).map(|o| o.drawn);
         }
         match (roles.same_type, roles.toggle) {
             (true, true) => {
-                self.selection.retain(|_, k| k != kind);
+                self.selection.retain(|_, t| t != ty);
             }
             (true, false) => {
                 let same: Vec<ObjectId> = self
                     .selection
-                    .members()
-                    .filter(|&(_, k)| k == kind)
+                    .member_types()
+                    .filter(|&(_, t)| t == ty)
                     .map(|(i, _)| i)
                     .collect();
                 self.select(selection_of(same, objects));

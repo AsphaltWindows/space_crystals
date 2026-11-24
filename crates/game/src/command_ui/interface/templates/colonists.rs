@@ -6,7 +6,7 @@
 //! Production template (`super::production_grid`, slice M3-D), with their units not in the game yet in their slots
 //! ([`planned_units`]).
 
-use sc_sim::{ObjectKind, deploy, transform};
+use sc_sim::{ObjectKind, transform};
 
 use super::super::{BuildMenu, PanelCommand};
 
@@ -170,7 +170,8 @@ pub(super) const EGRESS_NODE_GRID: [Option<PanelCommand>; 12] = [
 
 /// `> While transforming: only Cancel` (design change 0116): "A Beacon under deployment and a building under Warp In
 /// show only the Cancel command in their CommandPanel (no rally point, no other commands)", in X ("Cancel's hotkey:
-/// X").
+/// X"): the panel of their group, the unfinished buildings of a type (design change 0185: "with its own panel (e.g.
+/// Cancel only)").
 #[rustfmt::skip]
 pub const TRANSFORMING_GRID: [Option<PanelCommand>; 12] = [
     None, None,                                None, None,
@@ -181,14 +182,4 @@ pub const TRANSFORMING_GRID: [Option<PanelCommand>; 12] = [
 /// Whether objects of `kind` warp buildings in: the Beacon, with its Constructs List (`StructureDef::warp_in`).
 pub(super) fn warps_in(kind: ObjectKind) -> bool {
     !transform::warp_in_recipes(kind).is_empty()
-}
-
-/// Whether an object of `kind` may be transforming into it (`sc_sim::Object::is_transforming`), and so show
-/// [`TRANSFORMING_GRID`]: the Beacon, which a Drone deploys into (`factions/colonists/economy.md > Beacon
-/// Deployment`), and every building a Beacon warps in (`> Warp In > Constructs List`).
-pub(super) fn becomes(kind: ObjectKind) -> bool {
-    kind == deploy::BEACON_DEPLOYMENT.kind
-        || ObjectKind::ALL
-            .iter()
-            .any(|&beacon| transform::warp_in_recipe(beacon, kind).is_some())
 }

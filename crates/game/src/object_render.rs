@@ -6,16 +6,18 @@
 //! (`SimEvent::KindChanged`, plan decision T15) gets its new kind's mesh, size and tag, a transformation's start
 //! and end change its tint, and a defeated player's units turn neutral (`core/game_rules.md > On Defeat`). Placed
 //! from the sim every frame at `prev_pos.lerp(pos, alpha)`, drawn at the terrain height there (a tile-based object
-//! at its footprint's height, `core/art_direction.md > Elevation Display`) and y-sorted by its ground position in the
-//! ground-object layer. Placeholder shapes stand in until the art direction (Q0001) is settled ([`units`]): a unit is
-//! a shape of its own per kind, its silhouette's size, in its owner's colour, with a tick showing its facing. A square
-//! or octagonal body (the Guard's, the Colonists' units') stays axis-aligned, like its collision box, and only its
-//! tick turns ([`FacingTick`]); the Colonists' units carry a tag naming their type ([`UnitTag`]). A Peacekeeper's
-//! raised Riot Shield is a pale arc in front of it ([`RiotShieldVisual`]), growing out of its body as the shield goes
-//! up. A worker that carries a load shows a crystal shard on its body ([`LoadMarker`], slice M3-J2). A structure is
-//! its footprint as placed, in its owner's colour, with a tag naming its type ([`structures`]).
-//! An object transforming into its kind (`Object::transform`: a building being warped in) is tinted towards a pale
-//! cyan until it is complete ([`transforming_color`]). The map resources have shapes of their own ([`resources`]).
+//! at its footprint's height, `core/art_direction.md > Elevation Display`) and y-sorted by its ground position in its
+//! layer: the units' above the structures' and map resources', so that a unit crossing a footprint (out of a portal's
+//! energy doorway) stays in sight ([`draw_layer`]). Placeholder shapes stand in until the art direction (Q0001) is
+//! settled ([`units`]): a unit is a shape of its own per kind, its silhouette's size, in its owner's colour, with a
+//! tick showing its facing. A square or octagonal body (the Guard's, the Colonists' units') stays axis-aligned, like
+//! its collision box, and only its tick turns ([`FacingTick`]); the Colonists' units carry a tag naming their type
+//! ([`UnitTag`]). A Peacekeeper's raised Riot Shield is a pale arc in front of it ([`RiotShieldVisual`]), growing out
+//! of its body as the shield goes up. A worker that carries a load shows a crystal shard on its body ([`LoadMarker`],
+//! slice M3-J2). A structure is its footprint as placed, in its owner's colour, with a tag naming its type
+//! ([`structures`]). An object transforming into its kind (`Object::transform`: a building being warped in)
+//! is tinted towards a pale cyan until it is complete ([`transforming_color`]). The map resources have shapes of their
+//! own ([`resources`]).
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).
@@ -141,10 +143,21 @@ pub fn object_height(map: &Map, pos: Vec2, placement: Option<&Placement>) -> f32
     }
 }
 
-/// The transform of a visual anchored at ground position `pos`, standing at `height` levels, with sim facing
-/// `facing`.
-pub fn object_transform(pos: Vec2, height: f32, facing: f32) -> Transform {
-    Transform::from_translation(ground_translation(DrawLayer::GroundObjects, pos, height))
+/// The layer the visuals of objects of `kind` are drawn in: a unit's above every tile-based object's
+/// ([`DrawLayer::GroundUnits`]), so that a unit is never hidden under a structure, also while it crosses one's
+/// footprint (a unit walking out of a portal's energy doorway, slice M3-D2); structures and map resources y-sorted
+/// among themselves ([`DrawLayer::GroundObjects`]), a plate over the patch it covers (`structures`).
+pub fn draw_layer(kind: ObjectKind) -> DrawLayer {
+    match kind.def().category {
+        Category::Unit => DrawLayer::GroundUnits,
+        Category::Structure | Category::Resource => DrawLayer::GroundObjects,
+    }
+}
+
+/// The transform of the visual of an object of `kind` anchored at ground position `pos`, standing at `height` levels,
+/// with sim facing `facing`: y-sorted by its ground position in its kind's layer ([`draw_layer`]).
+pub fn object_transform(kind: ObjectKind, pos: Vec2, height: f32, facing: f32) -> Transform {
+    Transform::from_translation(ground_translation(draw_layer(kind), pos, height))
         .with_rotation(facing_to_rotation(facing))
 }
 
@@ -305,7 +318,7 @@ fn sync_object_visuals(
                 ObjectVisual(object.id),
                 Mesh2d(mesh),
                 MeshMaterial2d(material.clone()),
-                object_transform(object.pos, height, facing),
+                object_transform(object.kind, object.pos, height, facing),
             ))
             .id();
         if let Some(size) = key.size {
@@ -381,7 +394,7 @@ fn place_object_visuals(
         let facing = lerp_facing(object.prev_facing, object.facing, alpha.0);
         let height = object_height(sim.map(), pos, object.placement.as_ref());
         let facing = if body_turns(object.kind) { facing } else { 0.0 };
-        transform.set_if_neq(object_transform(pos, height, facing));
+        transform.set_if_neq(object_transform(object.kind, pos, height, facing));
     }
     for (tick, mut transform) in &mut ticks {
         let Some(object) = sim.object(tick.0) else {

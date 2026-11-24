@@ -157,11 +157,21 @@ pub fn lerp_facing(from: f32, to: f32, alpha: f32) -> f32 {
 
 /// Draw layers in StarCraft 1 order, back to front. Each has its own z band; within a band, z grows with the ground
 /// y, so that southern objects draw in front, and southern terrain over the northern terrain it overlaps on screen.
+/// Ground units draw above the tile-based objects, whatever their depths: a unit is never hidden under a structure,
+/// also while it overlaps its footprint (a unit that appears at a portal's centre and walks out across it, slice
+/// M3-D2's energy doorway). Their selection rings lie between the two.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DrawLayer {
     Terrain,
+    /// Decals on the ground, under every object (none yet).
     GroundDecals,
+    /// The tile-based objects, structures and map resources (live, and the records of the remembered ones), and the
+    /// selection frames inside their footprints.
     GroundObjects,
+    /// The selection rings of ground units: under the units, over the structures they may stand on.
+    UnitDecals,
+    /// Ground units.
+    GroundUnits,
     Air,
     Overlays,
 }
@@ -183,8 +193,10 @@ impl DrawLayer {
             DrawLayer::Terrain => 0.0,
             DrawLayer::GroundDecals => 1.0,
             DrawLayer::GroundObjects => 2.0,
-            DrawLayer::Air => 3.0,
-            DrawLayer::Overlays => 4.0,
+            DrawLayer::UnitDecals => 3.0,
+            DrawLayer::GroundUnits => 4.0,
+            DrawLayer::Air => 5.0,
+            DrawLayer::Overlays => 6.0,
         };
         -500.0 + index * Z_BAND
     }
@@ -343,8 +355,26 @@ mod tests {
         let south = DrawLayer::GroundObjects.z_at(640.0);
         assert!(south > north);
         // The deepest point of a huge map stays below the next layer.
-        assert!(DrawLayer::GroundObjects.z_at(1024.0 * 64.0) < DrawLayer::Air.base_z());
+        let layers = [
+            DrawLayer::Terrain,
+            DrawLayer::GroundDecals,
+            DrawLayer::GroundObjects,
+            DrawLayer::UnitDecals,
+            DrawLayer::GroundUnits,
+            DrawLayer::Air,
+            DrawLayer::Overlays,
+        ];
+        for pair in layers.windows(2) {
+            assert!(
+                pair[0] < pair[1] && pair[0].z_at(1024.0 * 64.0) < pair[1].base_z(),
+                "{pair:?}"
+            );
+        }
         assert!(DrawLayer::Terrain.base_z() > -1000.0 && DrawLayer::Overlays.z_at(65_536.0) < 1000.0);
+        // A unit is drawn above a structure whatever their depths, and its ring between the two.
+        let structure = DrawLayer::GroundObjects.z_at(640.0) + 0.01;
+        let ring = DrawLayer::UnitDecals.z_at(64.0);
+        assert!(structure < ring && ring < DrawLayer::GroundUnits.z_at(64.0));
         // Lifted by its height, sorted by its ground.
         let t = ground_translation(DrawLayer::GroundObjects, Vec2::new(10.0, 100.0), 2.0);
         assert_eq!(

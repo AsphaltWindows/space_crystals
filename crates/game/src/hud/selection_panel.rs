@@ -6,7 +6,9 @@
 //! The portraits are arranged group by group, in the order of the selection's groups ([`Selection::groups`]), which
 //! is the order Tab and Shift-Tab cycle in, and each group's by id: the placeholder of design change 0055 until the
 //! HUD pass. Placeholders until the portraits' art exists (Q0001): a cell shows the type's shape in its owner's
-//! colour (round Peacekeeper, square Guard, as on the map) over a short label of its type. When more objects are
+//! colour (round Peacekeeper, square Guard, as on the map) over a short label of its type; an unfinished building's
+//! (design change 0185: its own group, after the finished ones of its type) is dimmed as the map dims it while it
+//! transforms (`crate::object_render::transforming_color`). When more objects are
 //! selected than cells fit, the last cell shows how many more there are, highlighted like the ActiveGroup's portraits
 //! when it hides some of them, and does nothing when clicked (the design is silent).
 
@@ -19,7 +21,7 @@ use super::{HudSection, SectionLabel, show_node, text};
 use crate::ClientMode;
 use crate::camera::CameraView;
 use crate::input::{ActionState, Bindings, InputAction};
-use crate::object_render::player_color;
+use crate::object_render::{player_color, transforming_color};
 use crate::platform::SurfaceSize;
 use crate::selection::{ClickRoles, ControlStates, LocalControl, Selection};
 use crate::sim_driver::{LocalPlayer, SimRes};
@@ -37,10 +39,12 @@ const SHAPE_PERCENT: f32 = 48.0;
 /// What a portrait cell shows.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum PortraitCell {
-    /// A selected object; `active` while it belongs to the ActiveGroup.
+    /// A selected object; `active` while it belongs to the ActiveGroup; `unfinished` while it is under construction
+    /// or transformation, in its type's unfinished group (design change 0185).
     Object {
         id: ObjectId,
         kind: ObjectKind,
+        unfinished: bool,
         active: bool,
     },
     /// The last cell, when the selection holds more objects than the grid fits: how many more, and whether any of
@@ -78,11 +82,13 @@ pub fn portraits(selection: &Selection, capacity: usize) -> Vec<PortraitCell> {
         .into_iter()
         .flat_map(|group| {
             let active = active == Some(group.key);
-            let kind = group.kind();
-            group
-                .instances
-                .into_iter()
-                .map(move |id| PortraitCell::Object { id, kind, active })
+            let (kind, unfinished) = (group.kind(), group.is_unfinished());
+            group.instances.into_iter().map(move |id| PortraitCell::Object {
+                id,
+                kind,
+                unfinished,
+                active,
+            })
         })
         .collect();
     if cells.len() > capacity {
@@ -206,8 +212,10 @@ fn cell_node(at: Vec2, side: f32, active: bool) -> impl Bundle {
 /// A cell's shape and label.
 fn spawn_cell_content(commands: &mut Commands, cell: Entity, shown: PortraitCell, sim: &SimRes) {
     match shown {
-        PortraitCell::Object { id, kind, .. } => {
-            let owner = sim.object(id).and_then(|o| o.owner);
+        PortraitCell::Object {
+            id, kind, unfinished, ..
+        } => {
+            let owner = player_color(sim.object(id).and_then(|o| o.owner));
             commands.spawn((
                 Node {
                     width: percent(SHAPE_PERCENT),
@@ -219,7 +227,7 @@ fn spawn_cell_content(commands: &mut Commands, cell: Entity, shown: PortraitCell
                     },
                     ..default()
                 },
-                BackgroundColor(player_color(owner)),
+                BackgroundColor(if unfinished { transforming_color(owner) } else { owner }),
                 ChildOf(cell),
             ));
             commands.spawn((text(short_label(kind), CELL_LABEL_VH, CELL_TEXT), ChildOf(cell)));
@@ -286,6 +294,7 @@ mod tests {
             [1, 2].map(|i| PortraitCell::Object {
                 id: ObjectId(i),
                 kind: PK,
+                unfinished: false,
                 active: true
             })
         );
@@ -371,6 +380,39 @@ mod tests {
             cells[9],
             PortraitCell::More { count: 3, active: true },
             "the Guards are all hidden"
+        );
+    }
+
+    /// Design change 0185: 2 finished Bio Portals and 1 warping in, two groups; the unfinished one's portrait comes
+    /// after the finished ones' and is marked, and Tab highlights it alone.
+    #[test]
+    fn an_unfinished_buildings_portrait_comes_in_a_group_of_its_own() {
+        let bio = ObjectKind::BioPortal;
+        let unfinished = crate::selection::GroupType::unfinished(bio);
+        let mut selection = Selection::new([
+            (ObjectId(3), unfinished),
+            (ObjectId(4), bio.into()),
+            (ObjectId(5), bio.into()),
+        ]);
+        let cells = |selection: &Selection| -> Vec<(u32, bool, bool)> {
+            portraits(selection, 10)
+                .into_iter()
+                .map(|cell| match cell {
+                    PortraitCell::Object {
+                        id, unfinished, active, ..
+                    } => (id.0, unfinished, active),
+                    PortraitCell::More { .. } => unreachable!(),
+                })
+                .collect()
+        };
+        assert_eq!(
+            cells(&selection),
+            [(4, false, true), (5, false, true), (3, true, false)]
+        );
+        selection.cycle(true);
+        assert_eq!(
+            cells(&selection),
+            [(4, false, false), (5, false, false), (3, true, true)]
         );
     }
 }

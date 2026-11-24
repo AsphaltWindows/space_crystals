@@ -431,7 +431,7 @@ fn a_drone_that_deploys_stays_selected_as_its_beacon() {
 }
 
 /// `> ObjectInterfaceState`: a placement goes back to DefaultState once it no longer holds: the one Drone placing
-/// becomes a Beacon, which is then the ActiveGroup (`ControlState::set_kind`), and its panel is X Cancel.
+/// becomes a Beacon, which is then the ActiveGroup (`ControlState::set_type`), and its panel is X Cancel.
 #[test]
 fn the_placement_ends_when_its_last_drone_becomes_a_beacon() {
     let mut app = drone_game();

@@ -9,6 +9,7 @@ use sc_sim::ConstructionCommand;
 use super::*;
 use crate::command_ui::resolution::UnitCapabilities;
 use crate::editor::orientation::Turn;
+use crate::selection::GroupType;
 
 const BEACON: ObjectKind = ObjectKind::Beacon;
 const DRONE: ObjectKind = ObjectKind::Drone;
@@ -164,13 +165,14 @@ fn a_deploy_goes_to_one_drone_in_portrait_order() {
 }
 
 /// Design change 0116: "A Beacon under deployment and a building under Warp In show only the Cancel command in their
-/// CommandPanel (no rally point, no other commands)", "Cancel's hotkey: X", issued at once. Their menus, placements
-/// and targets no longer hold, and a right-click resolves nothing for them.
+/// CommandPanel (no rally point, no other commands)", "Cancel's hotkey: X", issued at once: the panel of the group of
+/// a type's unfinished buildings (design change 0185). Their menus, placements and targets no longer hold, and a
+/// right-click resolves nothing for them.
 #[test]
 fn whatever_transforms_shows_only_cancel() {
-    let transforming = Conditions::default().while_transforming();
+    let transforming = Conditions::default();
     for kind in [BEACON, ROBO_PORTAL, ObjectKind::BioPortal, ObjectKind::EgressNode] {
-        let selection = Selection::new([(id(1), kind)]);
+        let selection = Selection::new([(id(1), GroupType::unfinished(kind))]);
         let shown_panel = panel(&selection, InterfaceState::DefaultState, &transforming);
         let cancel = PanelButton::Command(PanelCommand::CancelTransform);
         assert_eq!(shown(&shown_panel), [(X, cancel, ButtonLook::Common)], "{kind:?}");
@@ -182,14 +184,18 @@ fn whatever_transforms_shows_only_cancel() {
         assert_eq!(press(&shown_panel, CommandSlot::RALLY_POINT), SlotPress::Nothing);
     }
     let beacon = Selection::new([(id(1), BEACON)]);
+    let deploying = Selection::new([(id(1), GroupType::unfinished(BEACON))]);
     let menu = InterfaceState::BuildMenu(BuildMenu::Basic);
-    assert!(!still_valid(menu, &beacon, true, &transforming));
+    assert!(still_valid(menu, &beacon, true, &transforming));
+    assert!(!still_valid(menu, &deploying, true, &transforming));
     let placing = InterfaceState::AwaitingPlacement(Placing::warp_in(id(1), ROBO_PORTAL));
-    assert!(!still_valid(placing, &beacon, true, &transforming));
+    assert!(still_valid(placing, &beacon, true, &transforming));
+    assert!(!still_valid(placing, &deploying, true, &transforming));
     let portal = Selection::new([(id(2), ROBO_PORTAL)]);
+    let warping = Selection::new([(id(2), GroupType::unfinished(ROBO_PORTAL))]);
     let rally = InterfaceState::awaiting(PanelCommand::SetRallyPoint);
-    assert!(still_valid(rally, &portal, true, &Conditions::default()));
-    assert!(!still_valid(rally, &portal, true, &transforming), "no rally point");
+    assert!(still_valid(rally, &portal, true, &transforming));
+    assert!(!still_valid(rally, &warping, true, &transforming), "no rally point");
 
     let modes = Modes::default().with_transforming([id(2)]);
     assert_eq!(UnitCapabilities::of(id(2), ROBO_PORTAL, &modes).template, None);
@@ -197,11 +203,45 @@ fn whatever_transforms_shows_only_cancel() {
     assert_eq!(working, Some(InterfaceTemplate::Production));
 }
 
+/// Design change 0185: 2 finished Bio Portals and 1 warping in are two groups, each with its panel. The finished
+/// group's commands go to the finished portals only, group commands (the unfinished one doesn't offer them); Tab to
+/// the other group shows only X Cancel, which goes to the portal warping in.
+#[test]
+fn finished_and_unfinished_portals_have_their_own_panels() {
+    use PanelCommand::{CancelProduction, CancelTransform, SetRallyPoint, Train};
+    let bio = ObjectKind::BioPortal;
+    let sabre = ObjectKind::SabreLegionnaire;
+    let mut portals = Selection::new([
+        (id(1), bio.into()),
+        (id(2), bio.into()),
+        (id(3), GroupType::unfinished(bio)),
+    ]);
+    let conditions = Conditions::default();
+    let finished = panel(&portals, InterfaceState::DefaultState, &conditions);
+    let c = PanelButton::Command;
+    assert_eq!(
+        shown(&finished),
+        [
+            (slot(0, 0), c(Train(sabre)), ButtonLook::Group),
+            (X, c(CancelProduction), ButtonLook::Group),
+            (CommandSlot::RALLY_POINT, c(SetRallyPoint), ButtonLook::Group),
+        ]
+    );
+    for command in [Train(sabre), SetRallyPoint, CancelProduction] {
+        assert_eq!(recipients(&portals, command), [id(1), id(2)], "{command:?}");
+    }
+    assert!(portals.cycle(true));
+    let unfinished = panel(&portals, InterfaceState::DefaultState, &conditions);
+    assert_eq!(shown(&unfinished), [(X, c(CancelTransform), ButtonLook::Group)]);
+    assert_eq!(recipients(&portals, CancelTransform), [id(3)]);
+    assert_eq!(press(&unfinished, slot(0, 0)), SlotPress::Nothing);
+}
+
 /// Every command a Colonists type may show, in any state (`commands`), which the panel's conditions ask the gate
-/// about: the Beacon's menus, its three Warp Ins and the Cancel of its deployment; a portal's production and the
-/// Cancel of its Warp In; the Drone's four, no Cancel (it never transforms itself, its Beacon does); the Egress
-/// Node's F and the Cancel of its Warp In. They go to the ActiveGroup only (`PanelCommand::instance_only`), but the
-/// Drone's.
+/// about: the Beacon's menus and its three Warp Ins; a portal's production; the Drone's four, no Cancel (it never
+/// transforms itself, its Beacon does); the Egress Node's F. An unfinished Beacon, portal or node, in a group of its
+/// own (design change 0185), shows its Cancel alone. They go to the ActiveGroup only (`PanelCommand::instance_only`),
+/// but the Drone's.
 #[test]
 fn the_colonists_commands() {
     use PanelCommand::{
@@ -217,15 +257,17 @@ fn the_colonists_commands() {
         WarpIn(ObjectKind::EgressNode),
         WarpIn(ROBO_PORTAL),
         WarpIn(ObjectKind::BioPortal),
-        CancelTransform,
     ];
     assert_eq!(commands(BEACON), sorted(beacon));
-    assert!(commands(ROBO_PORTAL).contains(&CancelTransform));
+    assert!(commands(ROBO_PORTAL).contains(&PanelCommand::Train(DRONE)));
+    assert!(!commands(ROBO_PORTAL).contains(&CancelTransform));
+    for kind in [BEACON, ROBO_PORTAL, ObjectKind::EgressNode] {
+        assert_eq!(commands(GroupType::unfinished(kind)), [CancelTransform], "{kind:?}");
+        assert!(offers(GroupType::unfinished(kind), CancelTransform) && !offers(kind, CancelTransform));
+    }
+    assert!(!offers(GroupType::unfinished(ROBO_PORTAL), PanelCommand::Train(DRONE)));
     assert_eq!(commands(DRONE), sorted(vec![Move, Deploy, Stop, SetDropOff]));
-    assert_eq!(
-        commands(ObjectKind::EgressNode),
-        sorted(vec![SelectReturningDrones, CancelTransform])
-    );
+    assert_eq!(commands(ObjectKind::EgressNode), [SelectReturningDrones]);
     for command in [WarpIn(ROBO_PORTAL), Deploy, CancelTransform, SelectReturningDrones] {
         assert!(command.instance_only(), "{command:?}");
     }
