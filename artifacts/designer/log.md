@@ -2145,3 +2145,4 @@ Q0018 pt 4: unreachable auto-target retry (for now). Entry 0181.
 Q0018 pt 5: MinRange: auto skip; explicit back off or fail if immobile. Entry 0182.
 Q0018 pt 6: covered by 3 GU radius. Entry 0183. Q0018 done.
 Q0048 pt 1: feedback while targeting. Entry 0184.
+Q0048 pt 2: unfinished buildings own SelectionGroup. Entry 0185. Q0048 done.

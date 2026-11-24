@@ -35,6 +35,8 @@ Rationale (user): smart-casting makes mass use of abilities effortless, which co
 
 To use a Groupable unit's ability on only one instance, the player selects that instance alone (e.g. left-click its portrait in the SelectionPanel).
 
+**Unfinished buildings form their own group** (user, 2026-11-24): a building still under construction or transformation (e.g. a portal being warped in, a Cults building under construction) forms a **separate SelectionGroup** from finished buildings of the same type, as if it were another type, with its own panel (e.g. Cancel only: factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel). When it completes, it joins the finished group. Example: 2 finished Bio Portals + 1 warping in → two groups; Tab between them.
+
 **Groupable workers used up by a build** (user, 2026-11-24): the **Colonists Drone is Groupable** (so bulk commands such as Set Drop-off reach every selected Drone), even though each Deploy uses up one Drone. A Deploy order given to a group of Drones goes to **one Drone only: the first in selection order** (the SelectionGroup's portrait order in the SelectionPanel) that can still take it:
 - a plain click goes to the first Drone in the group (replacing its orders, like any plain order);
 - a Shift-click goes to the first Drone that has **no Deploy in its queue yet**, since a Drone that will already have become a Beacon can't deploy again (user: "the game should understand that after the first drone it won't exist"). See AwaitingTarget > Shift while placing.
