@@ -61,3 +61,5 @@
 - **Bevy 0.20 quirk:** a `Text2d` changed in a frame in which no camera saw any sprite or text is never laid out. Labels that must update anywhere use `NoFrustumCulling`, stay visible, and are emptied rather than hidden (M2-H2 ghost labels).
 - **Agents' "readings to confirm":** sort each into design (a question with the built behaviour as the current behaviour) or technical (decide, and note it in the plan). Don't let them pile up in reports.
 - **Split a slice** when part of it can start early (J1 ran during wave 4) or needs a quiet machine (J2's perf).
+- **Ignored tests rot silently.** `nav_perf::knowledge_rebuilds_256` failed on master from M2-F2 until M2-J2, because `cargo test` skips `#[ignore]`. After a slice that changes game rules (defeat, economy), and at every milestone end, run `cargo test --release --workspace -- --ignored` with `--test-threads=1` on a quiet machine.
+

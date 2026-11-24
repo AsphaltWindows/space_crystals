@@ -375,16 +375,25 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Bevy quirk.** A `Text2d` changed in a frame when no camera saw text or sprites is lost. The ghost labels use `NoFrustumCulling`, stay visible, and are emptied rather than hidden.
   - **Placeholders.** A sim-refused Place returns to DefaultState with the building still ready. The ghost and overlay looks and the texts.
 
+- **M2-J2 final QA** (merged in `3d98e29`; 926 tests). **M2 is complete.**
+  - **Fixes:**
+    - `placement::Onto` is now the single plate-on-patch rule, used by placement checks, layouts and `MapDef::validate`; a map-placed plate off a patch reports `SpawnProblem::NotOnPatch`.
+    - The editor's Problems list is recomputed live (`sync_problems`), so `LayoutOverlap` shows up at once.
+    - Defeat while placing is tested.
+  - **Perf** (release, load 1.4 on 8 CPUs):
+    - new `structures_perf` (4 bases × about 40 structures, 400 units): 0.28 ms mean; worst 7.8 ms in tick 1 from 20 group orders, 2.4 ms after that;
+    - per-phase timings come from `Sim::step_observed` with `Phase`;
+    - against `80b3d88`: movement +4%, behaviours +1.5%; no regressions.
+    - `nav_perf::knowledge_rebuilds_256` had been failing since F2, unnoticed, because it's an ignored test; now fixed.
+  - **Walkthrough.** 24 screenshots through the real UI, from the build menu to VICTORY at tick 3211, using one `SetResources`.
+  - **Docs.** ARCHITECTURE.md reviewed. Playtest notes are in `docs/playtest/m2.md`.
+
 ## In progress
-- **M2-J2 final QA** (Opus; brief `scratchpad/briefs/m2j2-final-qa.md`), running alone so the perf numbers are clean:
-  - fixes: `MapDef::validate` for map-placed plates off a patch; the editor listing `LayoutOverlap` live;
-  - `structures_perf`, and every release perf test re-measured;
-  - the walkthrough screenshots, through to VICTORY;
-  - the ARCHITECTURE review;
-  - playtest notes in `docs/playtest/m2.md`.
+- Nothing is running.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
-  - **M2 playtest** with the user, using J2's notes. M2 has been playable since `2d507b4`.
+  - **M2 playtest** with the user, using `docs/playtest/m2.md`.
+  - **M3 Colonists**: a read-only planning spike first, like M2's.
   - **Fix the Move-onto-itself bug** per Q0031's answer, in the next sim or command-UI slice.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -432,7 +441,7 @@ Units: Peacekeeper (GDO) and Guard (Syndicate). The work:
 
 A movement design spike may come first. Fable is reserved for pathfinding, movement and collision.
 
-### M2: GDO base and economy (planned; spec: `artifacts/director/m2-plan.md`)
+### M2: GDO base and economy (**done** at `3d98e29`; spec: `artifacts/director/m2-plan.md`)
 - **Scope**:
   - the Deployment Center, Generator, Barracks, Extraction Facility and Extraction Plates;
   - Space Crystals, power with its penalty, and Unit Control;
@@ -476,7 +485,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | M2-I | Editor: Starting Layout editing | F | Opus | done (`6ae2b02`) |
 | M2-H2 | Construction UI: build menu, ghost, area overlay, rotate and flip, side labels | C, D1, H1 | Opus | done (`2d507b4`) |
 | M2-J1 | M2 sim QA: the economy oracle with documented tolerances, the `gdo_opening` golden, a tighter `behaviours_soak` check, F1's double layout report | B, D1, D2, F1 | Opus | done (`c2b2a17`) |
-| M2-J2 | M2 QA, the rest: fix `MapDef::validate` for map-placed plates off a patch (ignored repro); `structures_perf`; perf re-measured on a quiet machine; walkthrough screenshots; ARCHITECTURE review; playtest notes | all | Opus | running |
+| M2-J2 | M2 QA, the rest: fix `MapDef::validate` for map-placed plates off a patch (ignored repro); `structures_perf`; perf re-measured on a quiet machine; walkthrough screenshots; ARCHITECTURE review; playtest notes | all | Opus | done (`3d98e29`) |
 
 First playable after M2-H2.
 

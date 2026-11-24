@@ -22,4 +22,5 @@
   - a shared temp directory caused the replay flake;
   - never start a command with a bare `cd`;
   - the Bevy `Text2d` layout quirk.
+- **M2 complete** at `3d98e29`: J2's final QA merged, with 926 tests, a 24-step walkthrough to VICTORY, clean perf, and `docs/playtest/m2.md`. Next: the M1/M2 playtest with the user, and the M3 planning spike.
 
