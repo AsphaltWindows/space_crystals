@@ -308,7 +308,10 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 ## In progress
 - **M2 wave 3** (common brief `scratchpad/briefs/m2-w3-common.md`, plus one brief per slice):
   - **M2-D1 construction** (Opus);
-  - **M2-F1 game start** (Opus): Starting Conditions, layout rules, `dev_skirmish` GDO layouts, camera;
+  - **M2-F1 game start** (Opus): Starting Conditions, layout rules, `dev_skirmish` GDO layouts, camera.
+- **M2 wave 4** (common brief `scratchpad/briefs/m2-w4-common.md`):
+  - **M2-H1 production UI** (Opus): `PanelCommand`, the Barracks panel, the production right-click, rally indicators, the production activity lines;
+  - **M2-F2 game end** (Opus): defeat to neutral, game over, spectating, banners.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2-B, M2-C and M2-E** together after M2-A.
@@ -397,9 +400,9 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | M2-D1 | Construction: DC and EF, Construct, Cancel, Place, refunds | B, C | Opus | running |
 | M2-D2 | Production: Barracks queue, rally point, exit spawn, Unit Control | B | Fable (exit doorway: a unit overlapping its producer, the collision exception, invariants) | done (`1a64e75`) |
 | M2-F1 | Game start: Starting Conditions, layout rules (restriction, completeness, outdated), game-start banks, camera on the DC, the `dev_skirmish` GDO layouts | B, C | Opus | running |
-| M2-F2 | Game end: defeat (units become neutral and repath), game over when one side remains, spectating with team vision, the defeat and victory banner | B | Opus | queued (wave 4) |
+| M2-F2 | Game end: defeat (units become neutral and repath), game over when one side remains, spectating with team vision, the defeat and victory banner | B | Opus | running |
 | M2-G | HUD: resources bar, structure InfoPanels (the banner moved to M2-F2) | B | Opus | done (`69e80a1`) |
-| M2-H1 | Production UI: generalised command UI, Barracks panel, rally point | D2 | Opus | queued |
+| M2-H1 | Production UI: generalised command UI, Barracks panel, rally point | D2 | Opus | running |
 | M2-I | Editor: Starting Layout editing | F | Opus | queued |
 | M2-H2 | Construction UI: build menu, ghost, area overlay, rotate and flip, side labels | C, D1, H1 | Opus | queued |
 | M2-J | M2 QA: economy oracle, `gdo_opening` golden, screenshots, structure perf | all | Opus | queued |
