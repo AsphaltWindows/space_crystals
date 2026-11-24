@@ -339,14 +339,21 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Tests.** Some fuzz and vision tests now give player 2 an out-of-sight Generator so their games don't end mid-script.
   - **Open.** Three readings went out as Q0036: simultaneous last defeats (no winner), free-for-all spectating (own memories only), a shield left raised.
 
+- **M2-I editor layouts** (merged in `6ae2b02`; 893 tests; client only):
+  - **Layout tool (T).** A slot and faction picker. On Skirmish maps the palette offers only the Starting Conditions, with counts left. Objects can be placed, dragged, deleted, turned (R, Shift+R) and flipped (F, Shift+F).
+  - **Checks.** Placement is checked by the sim's `MapDef::validate`; the editor has no rules of its own and no sight checks (0097).
+  - **Display.** Other factions' layouts are dimmed, and the DC's build area is outlined. Problems are grouped into one line per layout, and a refused F5 shows that line. The outdated flag is shown, and plates go onto uncovered patches.
+  - **Shared input.** `Placing`, `Bindings::resolve_placing` and `InputAction::is_placement` were added to `input/bindings.rs`; H2 reuses them.
+  - **Replay flakes fixed.** The two recording tests shared a temp folder; now there is one per test, with 0 failures in 449 parallel runs. The recorder's temp file is now named per process.
+  - **Found.** The sim accepts a layout plate that isn't on a patch; J1 fixes it. The editor reports `LayoutOverlap` between slots only when F5 is refused, which is left for a later editor pass.
+
 ## In progress
 - **M2 wave 4** (common brief `scratchpad/briefs/m2-w4-common.md`):
-  - **M2-I editor layouts** (Opus): layout editing, orientation, plates on patches, plus fixes for two flaky replay tests.
   - **M2-H2 construction UI** (Opus; brief `scratchpad/briefs/m2h2-construction-ui.md`): DC and EF panels, build menus (0104), the ghost with per-tile validity, the area overlay (0093), rotate and flip, side labels. This gives the first playable.
   - **M2-J1 sim QA** (Opus): the economy oracle against `factions/gdo/economy.md > Opening Economy Baseline`, the `gdo_opening` golden, a tighter `behaviours_soak` check, and F1's double layout report.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
-  - **M2-J2** after H2, I and J1 merge. Run it with no other agents building, so the perf numbers are clean.
+  - **M2-J2** after H2 and J1 merge. Run it with no other agents building, so the perf numbers are clean.
   - **Then the M2 playtest** with the user.
   - **Fix the Move-onto-itself bug** per Q0031's answer, in the next sim or command-UI slice.
 
@@ -436,7 +443,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | M2-F2 | Game end: defeat (units become neutral and repath), game over when one side remains, spectating with team vision, the defeat and victory banner | B | Opus | done (`e3f67a9`) |
 | M2-G | HUD: resources bar, structure InfoPanels (the banner moved to M2-F2) | B | Opus | done (`69e80a1`) |
 | M2-H1 | Production UI: generalised command UI, Barracks panel, rally point | D2 | Opus | done (`eccaaa6`) |
-| M2-I | Editor: Starting Layout editing | F | Opus | running |
+| M2-I | Editor: Starting Layout editing | F | Opus | done (`6ae2b02`) |
 | M2-H2 | Construction UI: build menu, ghost, area overlay, rotate and flip, side labels | C, D1, H1 | Opus | running |
 | M2-J1 | M2 sim QA: the economy oracle with documented tolerances, the `gdo_opening` golden, a tighter `behaviours_soak` check, F1's double layout report | B, D1, D2, F1 | Opus | running |
 | M2-J2 | M2 QA, the rest: `structures_perf`, perf re-measured on a quiet machine, walkthrough screenshots, ARCHITECTURE review, playtest notes | all | Opus | queued |
@@ -514,15 +521,15 @@ Last triaged: 0105.
 | 0001 Artillery Rig requires Advanced Mechanics | queued (Later: Factory) | |
 | 0002 CommandPanel slots by hotkey | queued (M1 command panel) | answers Q0005 |
 | 0003 Art direction | queued (art pipeline) | confirms the square grid and SC1-style client conventions |
-| 0004 Corner-height elevation | done (M0-D); flatness for structures → M2; ElevationModifier → M1 | |
+| 0004 Corner-height elevation | done (terrain M0-D; ElevationModifier M1-V `83fec7d`; structure flatness M2-C `0f8cc70`) | |
 | 0005 Underground exemption; structures get ElevationModifier | queued (M1, M4) | |
 | 0006 Slopes don't affect speed | queued (M1, a check only) | confirms the default |
 | 0007 Per-object resource values | done (M0-D) | answers Q0003 |
-| 0008 Starting layouts; symmetry tools | symmetry in progress (M0-D); layouts queued (M2) | |
-| 0009 Layouts from scratch; Skirmish Default | queued (M2); per-layout toggle superseded by 0012 | |
+| 0008 Starting layouts; symmetry tools | done (symmetry M0-D/M0-E; layouts: sim M2-F1 `d5a7d29`, editor M2-I `6ae2b02`) | |
+| 0009 Layouts from scratch; Skirmish Default | done (rules M2-F1 `d5a7d29`, editor M2-I `6ae2b02`); per-layout toggle superseded by 0012 | |
 | 0010 Middle-mouse grab pan | done (M0-D) | |
 | 0011 Default input bindings; rebinding | bindings table done (M1-A); selection/groups → M1; rebinding UI later | answers Q0002 |
-| 0012 Map types, creation, generated symmetry | in progress (M0-E); layout rules → M2 | answers Q0004 |
+| 0012 Map types, creation, generated symmetry | done (map types and symmetry M0-E; layout rules M2-F1; editor M2-I `6ae2b02`) | answers Q0004 |
 | 0013 Patches and stations need flat tiles | done (M0-D) | answers Q0006 |
 | 0015–0020 GDO aircraft: assignment, ammo, return/rearm, landed = ground target, rearm time, names (Hornet, Dragonfly) | queued (Later: air) | design stubs |
 | 0021 Group destinations: magic box | done (M1-M, `93e53ca`); footprint follow-up in M1-Y (Q0015) | answers Q0007 part 1; replaces the lattice default |
@@ -601,7 +608,7 @@ Last triaged: 0105.
 | 0094 Ground units on the footprint block Direct Placement | queued (M2-C) | answers Q0027 point 1; matches the plan |
 | 0095 Extraction Plates need visible tiles | done (M2-C check; M2-F1 layouts and `dev_skirmish`, `d5a7d29`) | answers Q0027 point 2 |
 | 0096 No buildings on resources, except plates on patches | done in M2-A (`cbeb804`) for spawns; M2-C for the placement check | answers Q0027 point 3 |
-| 0097 Starting Layout validation | done (M2-C check; M2-F1 layouts and `dev_skirmish`, `d5a7d29`) | answers Q0027 point 4: the proposal plus a rule for starting units |
+| 0097 Starting Layout validation | done (M2-C check; M2-F1 layouts and `dev_skirmish`; M2-I editor `6ae2b02`) | answers Q0027 point 4: the proposal plus a rule for starting units |
 | 0098 Plates pay in lumps; the cycle timer advances by the power ratio | done (M2-B, `39bcf66`) | answers Q0028 point 1 |
 | 0099 Plate depletion: last partial load, depleted patch stays under its plate, the pick selects the plate | done (pick: M2-A; mining: M2-B, `39bcf66`) | answers Q0028 points 2–4 |
 | 0100 A defeated player's units stay but can't be controlled | superseded by 0101 (units become neutral) | answers Q0029 point 1; replaces removing the units |
