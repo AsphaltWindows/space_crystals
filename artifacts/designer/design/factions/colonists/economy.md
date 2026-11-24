@@ -10,6 +10,8 @@ Colonists build their foundational structure, the Beacon, by having a Drone depl
 - Left-click a ground location
 - The Drone walks to the location, then begins deploying in place
 
+**Where the Drone starts deploying** (user, 2026-11-24): the Drone walks to the **centre of the Beacon's footprint** and starts deploying when it gets there. Safety net: if it is stopped by a blocker on the way while already overlapping the footprint, it starts deploying from where it stands. If it stops without overlapping the footprint, the order fails (the Drone stops and idles). The Beacon always appears on the footprint the ghost showed, wherever the Drone ended up. (In practice a blocker on the footprint makes the site invalid anyway; the safety net only matters for a blocker just outside it.)
+
 ### Placement
 Beacon deployment follows the shared Worker-Built Structures placement rules (core/entities.md > Placement Validation > Worker-Built Structures): the Beacon's 2x2 footprint must be on Buildable, unoccupied tiles. The Deploy order may target any location, including territory hidden by fog of war, like any other building order; the Drone walks there (revealing the area on its way) and validates the site on arrival. If the site is invalid on arrival, the order is cancelled and the Drone stops and idles. There is no minimum spacing from other Beacons and no range limit from other Colonists buildings.
 
@@ -44,6 +46,9 @@ The player may cancel the deployment at any point before it completes. The trans
 
 ### Completion
 Once the 48 frames elapse, the transformation is final and one-way. The resulting Beacon can never revert back into a Drone.
+
+### While transforming: only Cancel
+(user, 2026-11-24) A Beacon under deployment and a building under Warp In show **only the Cancel command** in their CommandPanel (no rally point, no other commands). None of the building's functions (production, accepting deliveries, research, abilities) work until the transformation completes. Exception already covered elsewhere: a building under Warp In keeps providing its 5 Beacon Capacity (Warp In > Beacon Capacity Retention). Cancel's hotkey: TBD (see the Colonists panels).
 
 ### Deploying with a load
 (user, 2026-11-24) A Drone carrying a load deploys without delivering it first. The load stays with the deploying object and is **lost when deployment completes**; on **cancel** the Drone returns still carrying it.
@@ -115,7 +120,7 @@ Damage stays taken, exactly as in Beacon Deployment > HP/Shields Interpolation: 
 (user, 2026-11-24) Same as Beacon Deployment: when the Warp In begins, the object is immediately the **target building under Warp In**, and its full footprint is claimed at once. It is the same object as the Beacon (stays selected). On cancel it shrinks back to the Beacon on the Beacon's original footprint.
 
 ### Vulnerability
-The transforming structure is vulnerable to attack for the entire Warp In duration. If destroyed mid-Warp-In, the Beacon is destroyed along with it.
+The transforming structure is vulnerable to attack for the entire Warp In duration. If destroyed mid-Warp-In, the Beacon is destroyed along with it, and there is **no refund** (user, 2026-11-24): the whole investment is lost. Unlike GDO producers (factions/gdo/structures.md > Barracks > Destroyed while producing), the unfinished building is itself on the map and is what the attacker killed; catching a Warp In is meant to be a real reward.
 
 ### Cancel Warp In
 The player may cancel the Warp In at any point before it completes. Cancelling refunds 75% of the building's resource cost (rounded down), and the structure reverts to being a normal, fully-functional Beacon (no HP/Shields loss).
