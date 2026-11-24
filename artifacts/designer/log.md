@@ -2006,3 +2006,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T19:43:01-05:00 — Surfacing reserves the spot. Doc: systems/units.md. Change entry 0046.
 - 2026-11-23T19:44:17-05:00 — Gliders outside map edge visible/attackable at nearest edge tile. Doc: systems/units.md. Change entry 0047.
 - 2026-11-23T19:44:49-05:00 — Q0013 points 1/3/6 answered from docs (ActiveGroup = SelectionGroup; SelectionPanel 'objects'). Doc: selection_and_hud.md. Change entry 0048.
+- 2026-11-23T19:49:20-05:00 — Q0013.4: Shift+box adds (never removes); empty clicks as built. Doc: selection_and_hud.md. Change entry 0049.
