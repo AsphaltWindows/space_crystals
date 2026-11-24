@@ -58,7 +58,11 @@ fn a_drone_accelerates_to_eight_brakes_and_lands_on_its_goal() {
     let mut speeds = Vec::new();
     while t.status(1) != MoveStatus::Arrived {
         let d = step(&mut t);
-        assert!(d.x >= 0.0 && d.y == 0.0, "tick {}: straight on, never back: {d}", t.sim().tick());
+        assert!(
+            d.x >= 0.0 && d.y == 0.0,
+            "tick {}: straight on, never back: {d}",
+            t.sim().tick()
+        );
         assert!(t.pos(1).x <= goal.x, "tick {}: past its goal", t.sim().tick());
         speeds.push(d.x);
         assert!(speeds.len() < 400, "{}", t.ascii(None));
@@ -96,7 +100,9 @@ fn a_drone_accelerates_to_eight_brakes_and_lands_on_its_goal() {
 /// goes, and arrives exactly.
 #[test]
 fn a_drone_turns_as_it_moves() {
-    let mut t = flat(16, 5).spawn(DRONE, Some(P1), SpawnAt::Point(centre(12, 2))).start();
+    let mut t = flat(16, 5)
+        .spawn(DRONE, Some(P1), SpawnAt::Point(centre(12, 2)))
+        .start();
     let goal = centre(2, 2); // west; the Drone faces east
     move_to(&mut t, 1, goal);
     let mut facings = Vec::new();
@@ -139,7 +145,11 @@ fn a_drone_stopped_in_full_flight_brakes_to_a_stop() {
         }
         ticks += 1;
         assert_eq!(mover.locomotion, Locomotion::Stopping, "tick {}", t.sim().tick());
-        assert!(d.x > 0.0 && d.x < last, "tick {}: slower every tick: {d}", t.sim().tick());
+        assert!(
+            d.x > 0.0 && d.x < last,
+            "tick {}: slower every tick: {d}",
+            t.sim().tick()
+        );
         assert_eq!((mover.velocity, mover.momentum), (d, d));
         last = d.x;
     }
@@ -181,11 +191,18 @@ fn a_drone_crosses_rugged_terrain_at_half_speed() {
     }
     assert_eq!(t.pos(1), goal);
     let fastest = |speeds: &[f32]| speeds.iter().copied().fold(0.0, f32::max);
-    assert!(fastest(&before) > 7.9, "up to speed before the strip: {}", fastest(&before));
+    assert!(
+        fastest(&before) > 7.9,
+        "up to speed before the strip: {}",
+        fastest(&before)
+    );
     // It comes in at 8 and is braked by the drag: within 1 % of 4 from a third of the strip on.
     let settled = &inside[inside.len() / 3..];
     assert!(settled.iter().all(|&s| (3.96..=4.04).contains(&s)), "{inside:?}");
-    assert!(inside.windows(2).all(|pair| pair[1] <= pair[0] + 1e-3), "it only slows in there");
+    assert!(
+        inside.windows(2).all(|pair| pair[1] <= pair[0] + 1e-3),
+        "it only slows in there"
+    );
     // And back up to speed beyond it.
     assert!(fastest(&after) > 7.9, "{}", fastest(&after));
     assert!(after[..20].windows(2).all(|pair| pair[1] > pair[0]), "{after:?}");
@@ -256,7 +273,11 @@ fn a_drone_pressed_against_a_wall_creeps_away_along_it() {
     while t.status(1) != MoveStatus::Arrived {
         let d = step(&mut t);
         assert_eq!(d.y, 0.0, "along the wall");
-        assert!(d.x <= last * 0.9 + 0.8 + 1e-3, "tick {}: {d} after {last}", t.sim().tick());
+        assert!(
+            d.x <= last * 0.9 + 0.8 + 1e-3,
+            "tick {}: {d} after {last}",
+            t.sim().tick()
+        );
         last = d.x;
         assert!(t.sim().tick() < 200, "{}", t.ascii(None));
     }
@@ -293,17 +314,29 @@ fn a_drone_comes_to_rest_within_reach_of_its_patch_and_its_node() {
         let before = phase(&t);
         let d = step(&mut t);
         let (y, now) = (t.pos(1).y, phase(&t));
-        assert!(y > patch_edge && y < node_edge, "tick {}: it touched: {y}", t.sim().tick());
+        assert!(
+            y > patch_edge && y < node_edge,
+            "tick {}: it touched: {y}",
+            t.sim().tick()
+        );
         if before.as_ref().map(std::mem::discriminant) != now.as_ref().map(std::mem::discriminant) {
             under_way = false;
         }
         match now {
             Some(GatherPhase::ToPatch) => {
-                assert!(!under_way || d.y <= 0.0, "tick {}: back from the patch: {d}", t.sim().tick());
+                assert!(
+                    !under_way || d.y <= 0.0,
+                    "tick {}: back from the patch: {d}",
+                    t.sim().tick()
+                );
                 under_way |= d.y < 0.0;
             }
             Some(GatherPhase::ToDropOff) => {
-                assert!(!under_way || d.y >= 0.0, "tick {}: back from the node: {d}", t.sim().tick());
+                assert!(
+                    !under_way || d.y >= 0.0,
+                    "tick {}: back from the node: {d}",
+                    t.sim().tick()
+                );
                 under_way |= d.y > 0.0;
             }
             Some(GatherPhase::Mining { .. }) => {
@@ -336,7 +369,13 @@ fn a_save_in_full_flight_continues_identically() {
     let at_rest = serde_json::to_string(t.sim()).unwrap();
     assert!(!at_rest.contains("momentum"), "left out while zero");
     move_to(&mut t, 1, centre(22, 2));
-    t.order_at(1, P1, &[ObjectId(2)], OrderKind::Move(Target::Point(centre(22, 5))), false);
+    t.order_at(
+        1,
+        P1,
+        &[ObjectId(2)],
+        OrderKind::Move(Target::Point(centre(22, 5))),
+        false,
+    );
     t.order_at(30, P1, &[ObjectId(2)], OrderKind::Stop, false);
     t.run_until(33);
     assert!(t.mover(1).momentum.x > 7.0 && t.mover(2).momentum.x > 3.0);
@@ -362,14 +401,22 @@ fn a_save_in_full_flight_continues_identically() {
 fn edited(sim: &Sim, n: u32, edit: impl FnOnce(&mut serde_json::Value)) -> Sim {
     let mut json = serde_json::to_value(sim).expect("a state serializes");
     let objects = json["objects"].as_array_mut().expect("the objects are a list");
-    edit(objects.iter_mut().find(|o| o["id"] == n).expect("the unit is in the state"));
+    edit(
+        objects
+            .iter_mut()
+            .find(|o| o["id"] == n)
+            .expect("the unit is in the state"),
+    );
     serde_json::from_value(json).expect("the edited state loads")
 }
 
 /// The invariant the checker, which last saw `before`, finds broken in `after`, if any of I1 to I7.
 fn broken(before: &Sim, after: &Sim) -> Option<&'static str> {
     let result = Invariants::new(before).check(after, &TickInputs::default());
-    result.err().map(|violation| violation.invariant).filter(|i| i.starts_with('I'))
+    result
+        .err()
+        .map(|violation| violation.invariant)
+        .filter(|i| i.starts_with('I'))
 }
 
 /// **Negative tests** of the amended I5 and I7 (`docs/movement.md > 8`): the exception is for a DragMovement unit
@@ -384,7 +431,13 @@ fn only_a_braking_drag_unit_moves_without_a_goal() {
         .spawn(DRONE, Some(P1), SpawnAt::Point(centre(2, 5)))
         .start();
     t.without_auto_targeting();
-    t.order_at(1, P1, &[ObjectId(3)], OrderKind::Move(Target::Point(centre(22, 5))), false);
+    t.order_at(
+        1,
+        P1,
+        &[ObjectId(3)],
+        OrderKind::Move(Target::Point(centre(22, 5))),
+        false,
+    );
     t.order_at(40, P1, &[ObjectId(3)], OrderKind::Stop, false);
     t.run_until(42);
     let before = t.sim().clone();

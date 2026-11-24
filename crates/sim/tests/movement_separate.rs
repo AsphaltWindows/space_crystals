@@ -73,7 +73,10 @@ fn two_idle_drones_inside_each_other_drift_apart() {
     assert!(a != first && b != second, "both moved: {a} and {b}");
     // Just until clear: their boxes touch, on the axis they parted along.
     let d = (a - b).abs();
-    assert!(d.max_element() >= 2.0 * HALF && d.max_element() < 2.0 * HALF + 0.01, "{d}");
+    assert!(
+        d.max_element() >= 2.0 * HALF && d.max_element() < 2.0 * HALF + 0.01,
+        "{d}"
+    );
     for _ in 0..40 {
         t.step();
         assert_eq!((t.pos(3), t.pos(4)), (a, b), "tick {}: they stand", t.sim().tick());
@@ -95,7 +98,12 @@ fn a_drone_stopped_inside_a_mining_drone_moves_off_alone() {
         // Until its mining is done, when it leaves for the node by itself.
         if is_mining(&t, 3) {
             assert_eq!(t.pos(3), miner, "tick {}: the mining Drone isn't moved", t.sim().tick());
-            assert_ne!(t.pos(4), waiter, "tick {}: the stopped one is on its way out", t.sim().tick());
+            assert_ne!(
+                t.pos(4),
+                waiter,
+                "tick {}: the stopped one is on its way out",
+                t.sim().tick()
+            );
         }
         assert!(ticks <= 18, "{}", t.ascii(None));
     }
@@ -106,7 +114,10 @@ fn a_drone_stopped_inside_a_mining_drone_moves_off_alone() {
         t.step();
         assert!(!overlap(&t, 3, 4), "tick {}\n{}", t.sim().tick(), t.ascii(Some(off)));
     }
-    assert!(t.sim().player(P1).unwrap().crystals > 100, "the miner went on delivering");
+    assert!(
+        t.sim().player(P1).unwrap().crystals > 100,
+        "the miner went on delivering"
+    );
 }
 
 /// "Units with an active command (incl. Hold Position, mining) are not moved": a Drone on Hold Position inside a
@@ -150,11 +161,9 @@ fn separates_within(sim: &mut Sim, half: f32, limit: Tick) -> Tick {
     let mut invariants = Invariants::new(sim);
     let stacked = |sim: &Sim| {
         let at: Vec<Vec2> = sim.objects().map(|o| o.pos).collect();
-        at.iter().enumerate().any(|(i, a)| {
-            at[i + 1..]
-                .iter()
-                .any(|b| (*a - *b).abs().max_element() < 2.0 * half)
-        })
+        at.iter()
+            .enumerate()
+            .any(|(i, a)| at[i + 1..].iter().any(|b| (*a - *b).abs().max_element() < 2.0 * half))
     };
     for tick in 1..=limit {
         sim.step(&TickInputs::default());
@@ -195,4 +204,34 @@ fn a_stack_of_idle_units_on_one_point_separates_within_the_bound() {
 fn a_stack_in_a_corner_separates_too() {
     let mut sim = stack(DRONE, 4, Vec2::new(HALF, HALF));
     separates_within(&mut sim, HALF, 18 * 3 * 2);
+}
+
+/// **Negative test** of I5/I7's exception for separating units (`docs/movement.md > 8`): it is for a unit without a
+/// command that overlapped another. A Drone on Hold Position inside a mining Drone that moves all the same breaks
+/// the invariant, and so does an idle Drone that overlaps nobody. The state is edited, as in
+/// `invariants_overlap.rs`: the movement step never does this.
+#[test]
+fn only_an_idle_unit_that_overlapped_another_moves_off() {
+    let mut t = one_inside_the_other();
+    let now = t.sim().tick();
+    t.order_at(now + 1, P1, &[id(4)], OrderKind::Hold, false);
+    // Drone 5 stands idle, clear of everything.
+    t.spawn_unit_at(now + 1, DRONE, P1, Vec2::new(700.0, 400.0));
+    t.run_until(now + 3);
+    let before = t.sim().clone();
+    t.step();
+    let moved = |n: u32| {
+        let mut json = serde_json::to_value(t.sim()).expect("a state serializes");
+        let objects = json["objects"].as_array_mut().expect("the objects are a list");
+        let object = objects
+            .iter_mut()
+            .find(|o| o["id"] == n)
+            .expect("the unit is in the state");
+        object["pos"][0] = (object["pos"][0].as_f64().unwrap() + 2.0).into();
+        let after: Sim = serde_json::from_value(json).expect("the edited state loads");
+        let result = Invariants::new(&before).check(&after, &TickInputs::default());
+        result.err().map(|violation| violation.invariant)
+    };
+    assert_eq!(moved(4), Some("I5/I7"), "on Hold, inside another");
+    assert_eq!(moved(5), Some("I5/I7"), "idle, overlapping nobody");
 }

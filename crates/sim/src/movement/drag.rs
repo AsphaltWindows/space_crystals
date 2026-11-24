@@ -39,7 +39,8 @@
 //!
 //! **Without a goal** ([`Drag::coast`]) a unit that still has momentum brakes to a stop the same way, moving
 //! meanwhile (`Locomotion::Stopping`): a Stop order, an arrival within reach of an object, a failed move. It is
-//! the one way a unit without a goal moves besides a sidestep and a doorway (invariants I5 and I7).
+//! one of the ways a unit without a goal moves, with a sidestep, a doorway and a step off a unit it overlaps
+//! (invariants I5 and I7).
 //!
 //! Float rules (`docs/movement.md > 7`): `+ − × ÷` and `sqrt` only, but for the facing's unit vector, which goes
 //! through `sc_sim::math`. Every position is committed through the same predicates as any other move

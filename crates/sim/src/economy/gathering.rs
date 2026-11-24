@@ -28,14 +28,14 @@
 //!   (design change 0038). A patch under a GDO plate stays (`factions/gdo/economy.md > ExtractionPlate`); workers
 //!   don't gather those (question Q0037 point 11).
 //!
-//! **Trip times on the stand-in mover** (8 space units per tick at once, turning 45° a tick before it moves; plan
-//! decision T25; pinned by `tests/gathering.rs`, to be measured again when slice M3-G brings DragMovement): with the
-//! patch 2 grid units from the Egress Node, edge to edge (design change 0107), one Drone alone delivers a load
-//! every **60 ticks** (3.75 s): 32 of mining, 2 of unloading and two legs of 13 ticks each, 3 to turn round where
-//! it stands and 10 to cover 80 su. A leg is 80 su and not the 128 of the 2 grid units: the Drone's own 36 su come
-//! off, and it stops when it is within reach, up to 8 su short at each end. That is 2.13 Space Crystals per second
-//! for one Drone; the design's table has 1.5 for each of the four starting Drones (6.1 in all), which is what
-//! trips of about 84 ticks give.
+//! **Trip times with DragMovement** (slice M3-G, plan decision T25; pinned by `tests/gathering.rs`): with the patch
+//! 2 grid units from the Egress Node, edge to edge (design change 0107), one Drone alone delivers a load every
+//! **81 ticks** (5.06 s): 31 of mining after the tick it begins, 2 of unloading and two legs of 24 ticks each. A
+//! leg is about 85 su and not the 128 of the 2 grid units: the Drone's own 36 su come off, and it begins its work
+//! when it comes within reach, 8 su short, while it brakes off the last of its speed. It never reaches its top
+//! speed on a leg (it peaks near 6 su a tick). That is 1.58 Space Crystals per second for one Drone; the design's
+//! table has 1.5 for each of the four starting Drones (6.1 in all). On the stand-in mover the Drone had before
+//! (top speed at once) a trip took 60 ticks.
 //!
 //! **Crowds**: `tests/gathering_soak.rs`, and the note on collision in `orders::gather`.
 

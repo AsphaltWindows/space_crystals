@@ -56,13 +56,13 @@ use crate::production::Doorway;
 use crate::shape::Shape;
 use crate::units::Tick;
 
+use crate::units::TilePos;
 use collide::World;
 use drag::Drag;
 #[cfg(test)]
 use follow::step_unit;
 use follow::step_unit_on;
 use space::{Body, Layer};
-use crate::units::TilePos;
 
 /// The work of one movement phase: output for tests and the perf overlay, never part of the state or its hash
 /// (`docs/movement.md > 4`).

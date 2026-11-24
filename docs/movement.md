@@ -48,6 +48,11 @@
   collide on, and one set per player, which its units plan on (5.2, 5.7), and made the staggered check follow the
   owner's knowledge (5.6). Its changes are marked **(K)**. The code is `crates/sim/src/paths.rs` and `paths/`
   (`knowledge.rs` has the rules), `nav/grid.rs` (`NavGrid::restamp`) and `nav/serve.rs` (`serve_on`).
+- **DragMovement is built, and idle units that overlap move apart** (slice M3-G; plan decision T25, design
+  changes 0035 and 0039 for hover units, and 0126): 6.7 is the model, 6.8 the separation, and I3, I5 and I7 are
+  amended in 8. Its changes are marked **(M3-G)**. The code is `crates/sim/src/movement/drag.rs`, `follow.rs`
+  (one unit's tick, split from `movement.rs`) and `separate.rs`, `Mover::momentum`, and one steering rule for
+  units with momentum in `movement/collide.rs` (`World::around`, the near side).
 
 Design references are `file.md > Section`, relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -363,7 +368,8 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
 **6.3 One unit's step.** `step = max_speed × speed_factor`; `d` = vector to the steering target, clamped to `step`.
 - **Arrival**: if the distance to the final goal is ≤ `step`, set `pos = goal` exactly and stop. The arrival
   radius is one tick of travel by construction, so overshoot is impossible. A finite-deceleration model starts
-  braking at `v² / (2 · decel) + v`.
+  braking at `v² / (2 · decel) + v`. **(M3-G)** DragMovement's `step` is its approach speed (6.7), which falls to
+  the distance itself next to the goal: the same rule lands it.
 - **(G) Lane seeking** (`World::lane`, `World::lane_step`), before the sweep. Two dense groups that met head-on
   jammed: 14 of 36 Peacekeepers in blocks 40 su apart gave up, 18 with two owners. Both groups are moving, so
   nobody yields (design change 0022), and the rules below only act on contact, one blocker at a time. Now a unit
@@ -423,6 +429,15 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
        flutter). A blocker that itself moves along its face is passed *behind*: once `avoid_until` has passed, the
        side switches to the one the blocker comes from. Without this an eastbound unit and a crossing or
        side-stepping one walked side by side to the map's edge.
+     - **(M3-G) The near side, for a unit with momentum at a blocker that stands**: it goes round on the side of
+       the blocker's middle it is on, the shorter way, whatever its lean; `avoid_side` decides only dead in the
+       middle; if that side is shut it takes the other and commits for 16 ticks. Slice M3-H2 found a gatherer
+       stepping to and fro in front of an enemy's Drone parked on its line, for good: its target lay so close
+       behind the Drone that every step aside turned its lean back across the face. Seen from the blocker's
+       middle the side never changes. It is for units with momentum only: one that stops within the tick loses
+       a few steps by the lean rule (and the goldens of M1 and M2 hold it to that rule), one with momentum lost
+       all its speed at every turn and delivered one load a minute. Now it delivers 10 or 11 where the free
+       strip gives 12, wherever the Drone is parked (`tests/gathering_pass_through.rs`).
      Every candidate is taken only if it is wholly free.
   5. **All fail**: advance to contact or stay; `blocked_ticks += 1`. **(D)** A whole step along a face (no
      progress) counts as blocked too, so units dancing in a corridor count as stationary after 12 ticks.
@@ -431,9 +446,12 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
   units) velocity is `d` itself. **(G)** TurnRate is one budget per tick: the aim in phase 5e turns a unit only by
   what this turn left of it (`movement::Turns`), so a unit that moved never turns more than its TurnRate in a tick. Other movement models replace only this "desired direction → velocity and facing"
   step; path following and collision stay shared.
+  **(M3-G)** For a unit with momentum a step aside (along the face, or across to a lane: `Moved::aside`) isn't
+  blocked while the unit moves: it needs about a dozen ticks for what the others do in four, and would count as
+  jammed, and as arrived behind an occupied target (6.5 rule 1), just as it gets round.
 - A unit counts as **stationary** for others when its locomotion is Stationary or `blocked_ticks ≥ 12`.
 - **(Y)** A unit with `goal = None` moves only by its own sidestep for a blocked unit of its owner (6.6); nothing
-  pushes it.
+  pushes it. **(M3-G)** And by braking off its momentum (6.7), or off a unit it overlaps (6.8).
 - **(D) No overlap by construction, in floats.** A position is committed only if it passes the overlap predicates
   of I1 and I2 against the tiles and every unit where it stands now (`World::is_free`); a candidate that fails by a
   rounding corner case is dropped and the unit stays. The sweep works on the same differences as the predicate
@@ -585,6 +603,66 @@ own turn of phase 5d.
   side. An idle unit plugging a passage as narrow as itself has nowhere to step and stays an ordinary blocker.
   Swapping of two moving units is not built (0022 rules it out).
 
+**6.7 DragMovement. (M3-G)** `systems/units.md > DragMovement`, `> HoverVehicle`; plan decision T25; the code is
+`movement/drag.rs`. The model of the units that keep their velocity from tick to tick (`Mover::momentum`): the
+Drone. It replaces only the "desired direction → velocity and facing" step of 6.3.
+- **The integration scheme**, fixed, once per tick and in this order:
+  1. **Turn** towards the step the unit wants (below), at most TurnRate. It never stands to turn
+     (`systems/combat.md > LocomotionOrientationConstraints[DragMovement]`). Three quarters of the Drone's thrust
+     is forward thrust, so it faces the way it pushes: along its path in the open, along a blocker's face while
+     it goes round it.
+  2. **Drag**: `v ← v × (1 − DragRatio)`, the ratio doubled while the tile under the unit's centre is Rugged
+     (`> HoverVehicle > RuggedTerrain`, `> Which tile counts`; design change 0039).
+  3. **Thrust**: `v ← v + a`. The thrusts a unit can make are every vector of at most
+     OmniDirectionalAcceleration, plus between nothing and ForwardAcceleration along its facing; `a` is the one
+     that brings `v` nearest to the velocity it wants. Steps 2 and 3 are `v ← v + a − DragRatio × v`: drag is
+     taken on the velocity the tick began with, so thrust and drag balance at `(Omni + Forward) / DragRatio`, the
+     design's MaxSpeed: 8 su a tick for the Drone, 4 on Rugged. From rest the speed is `8 × (1 − 0.9ⁿ)` after `n`
+     ticks: 0.8, 1.52, 2.17, …, within 1 % of 8 after 44.
+  4. **Position**: `pos ← pos + v`, as far as tiles and units allow: the whole move if it is free, else its two
+     axis components one after the other (`World::shuffle`). **What an obstacle blocks is dropped, and the
+     velocity with it** (`systems/units.md > UnitCollision > Collision Response (Un-sticking)`, design change
+     0035): the momentum kept is the displacement made. So a unit sliding along a wall keeps its speed along it,
+     and one stopped dead starts again from 0, at single-tick acceleration. 0035 says "its velocity is set to 0";
+     per axis is the reading that lets a hover unit slide, and what is dropped is exactly what was blocked.
+- **What it wants**: the step that 6.3's rules give a unit without momentum, at the approach speed. The rules
+  run first, as a probe (lane seeking, slide, follow, go around), and the thrust steers the velocity towards the
+  step they return. If the thrust reaches it, that step is the move as it is. So the collision rules, the
+  yielding requests and the stuck clock are the same for every model.
+- **Braking and arrival**: the unit brakes with its omni-directional thrust against its motion, facing the way
+  it goes. The **approach speed** for a remaining path length `D` is the highest speed `s` such that a step of
+  `s` followed by braking in every tick (`v ← v × keep − brake`) stops within `D`; it is built from the goal
+  backwards (`drag::approach_speed`), with `+ − × ÷` only. Braking therefore begins when the stopping distance
+  reaches the remaining path, and within `brake / keep` of the goal the speed is the distance itself: the unit
+  lands exactly on the goal at a speed one tick of braking takes away, and is at rest. The plan uses 15/16 of the
+  thrust (`PLANNED_BRAKE`): the reserve absorbs the rounding of positions, which would otherwise push the unit
+  past its goal by a rounding error. **Bounds for the Drone** from top speed: it begins to brake 51 su before
+  its goal (one more step, then 43 su in 16 ticks); stopped without a goal it stands within 42 su and 16 ticks.
+- **Without a goal** (a Stop, an arrival within reach of an object, a failed move, a held base) a unit with
+  momentum brakes the same way and moves meanwhile: `Locomotion::Stopping`, slower every tick. `Mover::stop` and
+  `finish` leave the momentum to the movement step.
+- **Reach**: an object goal, and a worker's leg, end when the unit comes within reach, at the approach speed of
+  that distance (about 2.5 su a tick at 8 su); it brakes off the rest while its work has begun, and stops short of
+  the object, as planned for the path's end.
+- **Corners** are taken at speed: the approach speed looks at the path's whole length, not at its turns. The
+  unit swings wide, or meets the wall beyond the corner and loses what the wall blocks. Slowing for corners is
+  not built.
+- **Kinematic steps**: a yielding unit's sidestep (6.6), the walk out of an exit doorway and the step off an
+  overlapped unit (6.8) are plain steps for every model, without momentum.
+- **State**: `Mover::momentum`, serialized and hashed only while it isn't zero, so the states of games without
+  such a unit hash as they did (the goldens of M1 and M2 are unchanged).
+
+**6.8 Idle units that overlap move apart. (M3-G)** Design change 0126 (`systems/units.md > UnitCollision > Units
+that already overlap > Idle units push apart`); the code is `movement/separate.rs`. A unit that yields (6.6: no
+command at all) and is at rest, whose box overlaps another unit's of its layer, moves off it in its own turn:
+away from the overlapping unit with the lowest id, along the axis on which it is out soonest, 2 su a tick
+(`SEPARATE_SPEED_SU`, *placeholder*), no farther than to where the two boxes touch. Where the two centres
+coincide on an axis the lower id goes the negative way and the higher the positive. If it can't move that way
+(a tile, a unit it doesn't overlap), it tries the other axis, then the ways back through the unit. Two idle
+units both move; a unit with a command (Hold Position, mining, any order) never does. The step is committed
+through the same predicates as every move, so it brings no new overlap. `n` units stacked on one point come
+apart within `18 × (n − 1)` ticks for Drones, 12 each for Peacekeepers.
+
 ## 7. Numbers: f32, not fixed point
 
 **Decision: keep `f32` under the current rules, and keep every discrete decision in the pathfinder in integers.**
@@ -615,6 +693,19 @@ own turn of phase 5d.
   I6 repaths per order ≤ `MAX_REPATHS`, request age bounded; I7 an `Arrived` unit never moves again without an order.
   **(Y)** I5 and I7 allow the one exception of 6.6: a unit without a goal may move while it has a `Mover::sidestep`,
   and only a unit without a goal and without an order may have one.
+  **(M3-G)** Amended for DragMovement and for 0126:
+  - **I3**: for a DragMovement unit `max_speed` is the model's maximum, `(Omni + Forward) / DragRatio` on open
+    ground, without the mover's `speed_factor`: a mode that slows such a unit only weakens its thrust, and the
+    speed it has decays. For every other unit it is `max_speed × speed_factor`, as before.
+  - **I5 and I7, braking**: a DragMovement unit without a goal may move in a tick if it had momentum a tick
+    earlier, and may be other than at rest only if it is `Stopping`, its `velocity` equals its `momentum`, and
+    that is **shorter than a tick earlier**. So it brakes to a stop and nothing else: one that keeps its speed,
+    gains speed or moves while claiming to stand fails, and so does a unit of any other model that has momentum
+    at all (`tests/movement_drag.rs`, from the wrong side).
+  - **I5 and I7, separating**: a unit without a goal may move, and be other than at rest, if it has no command
+    and its box overlapped another unit's a tick earlier (6.8).
+  - **I1** is unchanged: DragMovement adds no way for two boxes to come to overlap (every position is committed
+    through `World::is_free`), and a separating pair is covered by "already overlapped a tick earlier".
   **(D)** The switch (`TestSim::check_invariants`) is on by default, so every test that uses a `TestSim` runs them;
   `sc_sim::testing::invariants` has the checker for tests that step a bare `Sim`.
 - **Scenario tests** (`crates/sim/tests/movement_*.rs`, inline ASCII maps): straight move arrives exactly at
@@ -643,6 +734,12 @@ own turn of phase 5d.
   on purpose. `World::lane` has its own unit test. Nav: a group's field costs at most the component; shared smoothing
   gives the waypoints of `smooth`; `open_around` implies `box_clear` and `los`; the cells' marks never miss a heading
   that counts as oncoming.
+  **(M3-G)** DragMovement (`crates/sim/tests/movement_drag.rs`, `movement/drag/tests.rs`): the speed curve from
+  rest and its equilibrium; braking within the bound and an exact landing; a Stop in full flight; a Rugged strip
+  at 4 su a tick and back to 8; a wall met at speed, and the creep along a wall from rest (0035); rest within
+  reach of a patch and a node without touching them or turning back; a save in full flight. Separation
+  (`movement_separate.rs`, 0126's Verification): two idle Drones drift apart, one stopped inside a mining Drone
+  moves off alone, one on Hold stays, stacks of 2 to 8 on one point and in a corner come apart within the bound.
 - **Oscillation**: distance travelled ≤ 1.5 × path length + c; reversals of velocity along the path ≤ a small bound.
 - **Determinism**: same run twice, per-tick hashes equal; replay round trip; **save at tick k, load, continue**:
   hashes equal (catches hidden unserialized state); **golden hashes** for three scenarios as committed constants.

@@ -173,13 +173,23 @@ fn a_gathering_drone_bumps_into_an_idle_drone_parked_dead_in_its_way() {
         for tick in 1..=960 {
             t.step();
             assert!(!overlap(&t, 3, 4), "{offset}, tick {tick}\n{}", t.ascii(Some(parked)));
-            assert_eq!(t.pos(4), parked, "{offset}, tick {tick}: nothing moves the parked Drone");
-            assert!(phase(&t, 3).is_some(), "{offset}, tick {tick}: a Gather never ends on its own");
+            assert_eq!(
+                t.pos(4),
+                parked,
+                "{offset}, tick {tick}: nothing moves the parked Drone"
+            );
+            assert!(
+                phase(&t, 3).is_some(),
+                "{offset}, tick {tick}: a Gather never ends on its own"
+            );
             if (t.pos(3).y - parked.y).abs() < HALF {
                 widest = widest.max((t.pos(3).x - parked.x).abs());
             }
         }
-        assert!(widest >= 2.0 * HALF, "{offset}: it passed beside the parked Drone: {widest}");
+        assert!(
+            widest >= 2.0 * HALF,
+            "{offset}: it passed beside the parked Drone: {widest}"
+        );
         let loads = deliveries(&t, &[3]);
         assert!(loads[0] >= 10, "{offset}: it gets round and delivers: {loads:?}");
     }
@@ -254,7 +264,10 @@ fn a_drone_ordered_out_of_a_mining_drone_drives_out_and_collides_once_apart() {
         t.step();
         let step = t.pos(4) - before;
         if apart_at.is_none() {
-            assert!(step.x > last, "tick {tick}: faster every tick, unhindered: {step} after {last}");
+            assert!(
+                step.x > last,
+                "tick {tick}: faster every tick, unhindered: {step} after {last}"
+            );
             last = step.x;
         }
         assert_eq!(t.pos(3), miner, "tick {tick}: the mining Drone isn't shoved");

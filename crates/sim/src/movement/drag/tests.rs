@@ -145,10 +145,7 @@ fn the_approach_speed_is_the_highest_the_unit_still_stops_from() {
         for step in 0..4000 {
             let dist = step as f32 * 0.025;
             let speed = model.approach(dist);
-            assert!(
-                speed >= before && speed <= model.top,
-                "it only grows with the distance"
-            );
+            assert!(speed >= before && speed <= model.top, "it only grows with the distance");
             before = speed;
             if dist <= last {
                 assert_eq!(speed, dist.min(model.top));
@@ -156,19 +153,13 @@ fn the_approach_speed_is_the_highest_the_unit_still_stops_from() {
             }
             let (stops_in, _) = braking(&model, brake, speed);
             if speed < model.top {
-                assert!(
-                    (speed + stops_in - dist).abs() < 2e-3,
-                    "{dist}: {speed} + {stops_in}"
-                );
+                assert!((speed + stops_in - dist).abs() < 2e-3, "{dist}: {speed} + {stops_in}");
             } else {
                 assert!(speed + stops_in <= dist + 2e-3);
             }
             // The next tick's speed is within reach of braking.
             let next = model.approach(dist - speed);
-            assert!(
-                next >= speed * model.keep - brake - 1e-4,
-                "{dist}: {speed} then {next}"
-            );
+            assert!(next >= speed * model.keep - brake - 1e-4, "{dist}: {speed} then {next}");
         }
     }
 }

@@ -314,7 +314,10 @@ fn a_drone_accelerates_to_eight_space_units_a_frame() {
     }
     assert_eq!(t.status(1), MoveStatus::Arrived);
     assert_eq!(t.pos(1), goal);
-    assert!((steps[0] - 0.8).abs() < 1e-3 && (steps[1] - 1.52).abs() < 1e-3, "{steps:?}");
+    assert!(
+        (steps[0] - 0.8).abs() < 1e-3 && (steps[1] - 1.52).abs() < 1e-3,
+        "{steps:?}"
+    );
     let fastest = steps.iter().copied().fold(0.0, f32::max);
     assert!((7.92..=8.0).contains(&fastest), "{fastest}");
 }

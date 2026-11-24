@@ -37,13 +37,7 @@ pub const SEPARATE_SPEED_SU: f32 = 2.0;
 
 /// One tick of an idle unit at rest (module docs): if its box overlaps another unit's, it takes a step off it.
 /// Returns whether it overlapped one, moved or not. `speed` is its own, space units per tick.
-pub(super) fn step(
-    pos: &mut Vec2,
-    mover: &mut Mover,
-    speed: f32,
-    world: &mut World,
-    touched: &mut Vec<usize>,
-) -> bool {
+pub(super) fn step(pos: &mut Vec2, mover: &mut Mover, speed: f32, world: &mut World, touched: &mut Vec<usize>) -> bool {
     let (Some(layer), me) = (world.layer, *world.body()) else {
         return false;
     };
