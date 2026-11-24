@@ -10,7 +10,7 @@ The client-side state of a player's control interface. Contains the player's cur
 The set of ObjectInstances currently selected by the player, grouped by object type. Each group contains references to all selected instances of that type. The ActiveGroup determines which group's commands are displayed in the command panel and which ObjectInterfaceState is active.
 
 ### Groups - array of SelectionGroup
-### ActiveGroup - ObjectEnum | None (None when selection is empty)
+### ActiveGroup - SelectionGroup | None (None when selection is empty). Usually identified by its object type; for Ungroupable objects each instance is its own SelectionGroup, so ActiveGroup points at one specific group, and GroupCycling (Tab) steps through them one by one.
 
 ### Constraints:
 - If any selected object is not owned by the player, the selection must contain exactly one object and one group
@@ -107,11 +107,11 @@ The bottom section of the screen, containing all selection-related panels. The H
 - When a section's visibility condition is not met, the slot remains reserved (empty space, no content)
 
 ## SelectionPanel
-Displays a grid of unit portraits for the current selection. Only visible when 2 or more units are selected. Each cell shows the portrait of one selected unit instance. Portraits belonging to the ActiveGroup are shown with a sheer highlight.
+Displays a grid of portraits for the current selection. Only visible when 2 or more objects are selected. A selection of 2+ objects always consists of the player's own objects (units and/or structures, e.g. from a control group), since other players' and neutral objects are always selected alone (Selection > Constraints). "Unit" below means any selected object. Each cell shows the portrait of one selected unit instance. Portraits belonging to the ActiveGroup are shown with a sheer highlight.
 
 ### Visibility:
-- Visible when Selection contains 2+ units
-- Hidden when Selection contains 0 or 1 units (single-unit display is handled by the InfoPanel)
+- Visible when Selection contains 2+ objects
+- Hidden when Selection contains 0 or 1 objects (single-object display is handled by the InfoPanel)
 
 ### Interactions:
 
