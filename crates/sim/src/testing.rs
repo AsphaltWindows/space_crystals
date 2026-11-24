@@ -304,6 +304,9 @@ pub fn every_command() -> Vec<Command> {
         OrderKind::Stop,
         OrderKind::Gather(ObjectId(4)),
         OrderKind::DropOff(ObjectId(5)),
+        OrderKind::Deploy {
+            origin: crate::units::TilePos::new(7, 3),
+        },
     ];
     let mut commands: Vec<Command> = kinds
         .into_iter()
@@ -422,7 +425,8 @@ pub fn every_command() -> Vec<Command> {
                 | OrderKind::Hold
                 | OrderKind::Stop
                 | OrderKind::Gather(_)
-                | OrderKind::DropOff(_) => {}
+                | OrderKind::DropOff(_)
+                | OrderKind::Deploy { .. } => {}
             },
             Command::Ability {
                 ability: Ability::RiotShield { .. } | Ability::SetDropOff(_),

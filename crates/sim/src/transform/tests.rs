@@ -163,6 +163,7 @@ fn damage_is_carried_through_unchanged() {
         progress: 0,
         total: 48,
         paid: 0,
+        load: 0,
     };
     let drone_to_beacon = (20.0, 120.0);
     assert_eq!(follow(&mut deploying(), drone_to_beacon, 10.0, 48), 110.0);

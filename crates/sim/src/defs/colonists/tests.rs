@@ -103,8 +103,8 @@ fn the_drone_follows_the_design() {
         (def.max_hp, def.max_shields, def.armor, def.sight_range),
         (Some(20.0), Some(10.0), Armor { point: 0.0, full: 0.0 }, 5.0)
     );
-    // Destructible - true, Groupable - false
-    assert_eq!((def.destructible, def.groupable, def.selectable), (true, false, true));
+    // Destructible - true, Groupable - true (design change 0125)
+    assert_eq!((def.destructible, def.groupable, def.selectable), (true, true, true));
     let unit = def.unit.as_ref().unwrap();
     // UnitBase - HoverVehicle, BeaconCapacityCost - 1
     assert_eq!(

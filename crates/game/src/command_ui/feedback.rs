@@ -16,7 +16,10 @@
 //!   leaves the building ready to place and the player in DefaultState, where the valid click left them (`>
 //!   AwaitingPlacement`: it "returns to DefaultState"); the ready building's slot enters placement again. Both say
 //!   why: the placement check's first problem ([`placement_text`]). Placeholders: the design gives no message for
-//!   either.
+//!   either;
+//! - a Deploy that failed at the end of the Drone's walk (`SimEvent::DeployFailed`, slice M3-F; `factions/colonists/
+//!   economy.md > Beacon Deployment > Placement`): what the check found on arrival, as for a building, or that the
+//!   Drone didn't get to its site ([`deploy_failed_text`]). Placeholders too.
 //!
 //! The message ([`INVALID_TARGET_TEXT`], [`NO_CRYSTALS_TEXT`], an [`army_cap_text`] or a [`placement_text`]) shows
 //! over the world view, centred just above the HUD Bar, on a dark band, for [`FEEDBACK_TICKS`] after the latest cause;
@@ -25,7 +28,9 @@
 
 use bevy::picking::Pickable;
 use bevy::prelude::*;
-use sc_sim::{ArmyResource, Faction, PlacementProblem, Refusal, SimEvent, Tick, TileProblem, WholeProblem};
+use sc_sim::{
+    ArmyResource, Faction, PlacementCheck, PlacementProblem, Refusal, SimEvent, Tick, TileProblem, WholeProblem,
+};
 
 use super::{InvalidPlacement, InvalidTarget};
 use crate::hud::HUD_BAR_HEIGHT_VH;
@@ -45,6 +50,8 @@ pub const BEACON_CAPACITY_TEXT: &str = "Beacon Capacity limit reached";
 /// The message of a building that can't be placed for no rule the check names (the sim refused the command
 /// otherwise). Placeholder wording, like those of [`placement_text`].
 pub const CANNOT_PLACE_TEXT: &str = "Cannot place there";
+/// The message of a Deploy whose Drone stopped short of its site (design change 0117). Placeholder wording.
+pub const SITE_UNREACHED_TEXT: &str = "Could not reach the site";
 /// Placeholder look: amber text on a dark band, this far above the HUD Bar (percent of the surface height).
 const TEXT_COLOR: Color = Color::srgb(1.0, 0.80, 0.30);
 const BAND_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
@@ -159,8 +166,18 @@ pub fn placement_text(problem: Option<PlacementProblem>) -> &'static str {
             TileProblem::Structure => "Blocked by a structure",
             TileProblem::Resource => "Blocked by a resource",
             TileProblem::Unit => "Blocked by a unit",
+            TileProblem::Reserved => "A building is already ordered there",
         },
         None => CANNOT_PLACE_TEXT,
+    }
+}
+
+/// The message of a Deploy that failed on arrival (`SimEvent::DeployFailed`): the first problem the check of its site
+/// found ([`placement_text`]), or, with none, that the Drone stopped short of the footprint.
+pub fn deploy_failed_text(problems: &PlacementCheck) -> &'static str {
+    match problems.first_problem() {
+        Some(problem) => placement_text(Some(problem)),
+        None => SITE_UNREACHED_TEXT,
     }
 }
 
@@ -191,6 +208,9 @@ fn show_feedback(
         SimEvent::PlacementRefused {
             constructor, problems, ..
         } if own(*constructor) => Some((message.tick, placement_text(problems.first_problem()))),
+        SimEvent::DeployFailed { drone, problems, .. } if own(*drone) => {
+            Some((message.tick, deploy_failed_text(problems)))
+        }
         _ => None,
     });
     let latest = clicks.chain(placements).chain(refusals).max_by_key(|&(tick, _)| tick);

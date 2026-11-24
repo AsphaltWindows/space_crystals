@@ -60,6 +60,8 @@ impl Sim {
                 self.check_drop_off(player, node)?;
                 ordered = self.workers_among(ordered)?;
             }
+            // `factions/colonists/economy.md > Beacon Deployment` (`sim/deploy.rs`): one Drone takes it.
+            OrderKind::Deploy { origin } => ordered = self.check_deploy(ordered, origin, queue)?,
         }
         Ok(Checked::Order {
             units: ordered,

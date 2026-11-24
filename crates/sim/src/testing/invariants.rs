@@ -361,7 +361,7 @@ fn floats_finite(o: &Object) -> bool {
                     OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => {
                         true
                     }
-                    OrderKind::Gather(_) | OrderKind::DropOff(_) => true,
+                    OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => true,
                 }
         })
     });

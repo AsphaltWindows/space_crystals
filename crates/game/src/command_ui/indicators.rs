@@ -116,8 +116,11 @@ impl Plugin for IndicatorsPlugin {
 /// The colour of an order's indicator (`> Indicator assignments`); none for orders without a target.
 pub fn order_color(kind: OrderKind) -> Option<Color> {
     match kind {
-        // A worker's Gather and Drop Off show as a Move to their object until slice M3-J2 gives them their own.
-        OrderKind::Move(_) | OrderKind::Gather(_) | OrderKind::DropOff(_) => Some(MOVE_COLOR),
+        // A worker's Gather and Drop Off show as a Move to their object until slice M3-J2 gives them their own, and
+        // a Deploy as a Move to its site's centre beside its ghost (slice M3-J1).
+        OrderKind::Move(_) | OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => {
+            Some(MOVE_COLOR)
+        }
         OrderKind::Attack(_) => Some(ATTACK_COLOR),
         OrderKind::AttackMove(_) | OrderKind::Patrol(_) => Some(AGGRESSIVE_COLOR),
         OrderKind::Hold | OrderKind::Stop => None,
@@ -138,6 +141,10 @@ pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator>
             Some(Indicator::Location { at, color })
         }
         OrderKind::Attack(id) => seen(sim, sight, id).map(|_| Indicator::Object { id, color }),
+        OrderKind::Deploy { origin } => Some(Indicator::Location {
+            at: sc_sim::deploy::site(origin).center(),
+            color,
+        }),
         OrderKind::Hold | OrderKind::Stop => None,
     }
 }

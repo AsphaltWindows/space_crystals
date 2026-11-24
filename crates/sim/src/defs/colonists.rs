@@ -32,10 +32,10 @@ pub(super) static DRONE: ObjectDef = ObjectDef {
     footprint: Footprint::Silhouette { w: 36.0, h: 36.0 }, // Silhouette - 36x36 space units (square)
     selectable: true,                                      // `core/entities.md > Object Type > Selectable - true`
     destructible: true,                                    // Destructible - true
-    groupable: false,                                      // Groupable - false
-    sight_range: 5.0,                                      // SightRange - 5 grid units
-    max_hp: Some(20.0),                                    // MaxHP - 20
-    max_shields: Some(10.0),                               // MaxShields - 10
+    groupable: true,         // Groupable - true (design change 0125: "Drone Groupable: false → true")
+    sight_range: 5.0,        // SightRange - 5 grid units
+    max_hp: Some(20.0),      // MaxHP - 20
+    max_shields: Some(10.0), // MaxShields - 10
     armor: Armor {
         point: 0.0, // PointArmor - 0
         full: 0.0,  // FullArmor - 0

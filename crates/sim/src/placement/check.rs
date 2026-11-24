@@ -47,6 +47,18 @@ pub enum Mode<'a> {
     /// every footprint tile must be Visible to `player` in `vision`, as the latest tick left it; an Extraction
     /// Plate's too (design change 0095), and a Warp In's (design change 0119).
     Command { vision: &'a Vision, player: PlayerId },
+    /// A worker-built structure's order, its gate and its ghost (plan decision T16; `core/entities.md > Placement
+    /// Validation > Worker-Built Structures`, design change 0120: "The ghost judges by what the player knows"; slice
+    /// M3-F, `crate::Sim::deploy_check`). The caller gives the occupants `player` knows of: its own objects, the others
+    /// it sees now, and its records of the structures and resources out of its sight, as they were when last seen
+    /// ("units hidden in fog are ignored"). On a tile `player` has never explored in `vision`, what stands there and
+    /// the ground are unknown, and the tile "passes": only the player's own reservations
+    /// ([`TileProblem::Reserved`]) count there. The map's edge is known: a tile off the map never passes.
+    Known { vision: &'a Vision, player: PlayerId },
+    /// A worker's check of its site on arrival (`> Worker-Built Structures`: "validates on arrival"; `> Lingering build
+    /// ghosts`: "No visibility requirement on arrival (the worker is physically present)"): the truth, with no sight
+    /// rule.
+    Arrival,
     /// An object of a Starting Layout (`core/map_editor.md > Starting Layouts > Layout validation`, design change
     /// 0097): the faction's "normal in-game placement rules, minus visibility", as nothing is "visible" in the editor.
     /// The build area to reach is the layout's own ([`BuildArea::of_layout`]).
@@ -69,6 +81,12 @@ pub enum Method {
     /// "a tile that isn't is red on the ghost", whatever stands there), the Beacon's own included (its owner's
     /// Beacon always sees them). There is no build area.
     WarpIn { beacon: Placement },
+    /// `> Worker-Built Structures` (slice M3-F, a Drone deploying a Beacon, `crate::deploy`): built by a worker on a
+    /// site it walks to. The tile rules of a Direct Placement, sight aside (the [`Mode`] decides what is seen), and no
+    /// build area ("no range limit from other Colonists buildings", `factions/colonists/economy.md > Beacon Deployment
+    /// > Placement`). "The building worker itself (e.g. the deploying Drone) doesn't count" (design change 0118): the
+    /// caller leaves it out of the occupants, as a Warp In's caller leaves out its Beacon.
+    WorkerBuilt,
 }
 
 /// What a placement is checked against besides the objects on the map: the ground, the build area the footprint
@@ -106,11 +124,16 @@ pub enum TileProblem {
     /// A ground unit's box overlaps the tile, whoever owns it: units are never pushed aside, and air and underground
     /// units don't count (design change 0094).
     Unit,
+    /// One of the placing player's pending worker builds covers the tile (`core/entities.md > Placement Validation >
+    /// Lingering build ghosts`: it "reserves the site against the owner's further placements: a new ghost overlapping
+    /// it is invalid", design change 0125; slice M3-F: a Deploy, current or queued, `crate::Sim::pending_deploys`).
+    /// The tile's only problem on ground the player never explored ([`Mode::Known`]).
+    Reserved,
 }
 
 impl TileProblem {
     /// Every problem, in the order they are listed.
-    pub const ALL: [TileProblem; 7] = [
+    pub const ALL: [TileProblem; 8] = [
         TileProblem::OffMap,
         TileProblem::NotBuildable,
         TileProblem::NotFlat,
@@ -118,6 +141,7 @@ impl TileProblem {
         TileProblem::Structure,
         TileProblem::Resource,
         TileProblem::Unit,
+        TileProblem::Reserved,
     ];
 
     /// Its bit in a tile's set of problems.
@@ -199,10 +223,24 @@ pub fn footprint_size(kind: ObjectKind, orientation: BuildingOrientation) -> Opt
 /// `core/entities.md > Placement Validation`: everything that keeps a structure of `kind` from being placed at `site`
 /// with the top-left tile of its footprint at `origin`, turned by `orientation`, among `occupants`: everything on
 /// the map, the object being placed excepted (a Warp In's Beacon may be among them: its tiles break no rule). The
-/// answer depends on its inputs only, whatever the occupants' order. Never panics, whatever the origin.
+/// answer depends on its inputs only, whatever the occupants' order. Never panics, whatever the origin. With no
+/// reservations: [`check_reserving`].
 pub fn check(
     site: &Site<'_>,
     occupants: impl IntoIterator<Item = Occupant>,
+    kind: ObjectKind,
+    origin: TilePos,
+    orientation: BuildingOrientation,
+) -> PlacementCheck {
+    check_reserving(site, occupants, &[], kind, origin, orientation)
+}
+
+/// [`check`], with the footprints the placing player has `reserved` for its pending worker builds
+/// ([`TileProblem::Reserved`], design change 0125): a Deploy's and a Warp In's (slice M3-F).
+pub fn check_reserving(
+    site: &Site<'_>,
+    occupants: impl IntoIterator<Item = Occupant>,
+    reserved: &[Placement],
     kind: ObjectKind,
     origin: TilePos,
     orientation: BuildingOrientation,
@@ -267,6 +305,20 @@ pub fn check(
                 }
             }
         }
+    }
+    for reserved in reserved {
+        let rect = TileRect::new(reserved.origin, reserved.w, reserved.h);
+        if overlap(rect, footprint.rect()) {
+            footprint.mark(&mut found, TileProblem::Reserved, |tile| {
+                overlap(rect, TileRect::new(tile, 1, 1))
+            });
+        }
+    }
+    if let Mode::Known { vision, player } = site.mode {
+        // Design change 0120: "Never-explored tiles pass".
+        footprint.keep_only(&mut found, TileProblem::Reserved.bit(), |tile| {
+            map.in_bounds(tile) && vision.state(player, tile) == VisibilityState::Unexplored
+        });
     }
     let hidden = TileProblem::NotVisible.bit();
     if let Method::WarpIn { beacon } = site.method {
@@ -396,6 +448,7 @@ impl fmt::Display for TileProblem {
             TileProblem::Structure => "under a structure",
             TileProblem::Resource => "under a resource",
             TileProblem::Unit => "under a ground unit",
+            TileProblem::Reserved => "under a building already ordered",
         })
     }
 }

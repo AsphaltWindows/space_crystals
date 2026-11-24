@@ -1105,6 +1105,7 @@ fn a_transforming_beacon_warps_nothing_in() {
         progress: 10 * RATIO_ONE,
         total: 48,
         paid: 0,
+        load: 0,
     };
     let sim = edited(t.sim(), 1, "transform", serde_json::to_value(&deploying).unwrap());
     assert!(sim.object(id(1)).unwrap().is_transforming());

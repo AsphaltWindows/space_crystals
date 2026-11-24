@@ -11,11 +11,13 @@
 //!   Hold Position;
 //! - [`travel`]: MovingToObject (Follow for a unit), AttackMovingToLocation and Patrolling;
 //! - Move to a point, and Stop, need only the mover's status;
-//! - [`gather`]: a worker's job, the Gather and Drop Off orders of `factions/colonists/units.md > Drone`.
+//! - [`gather`]: a worker's job, the Gather and Drop Off orders of `factions/colonists/units.md > Drone`;
+//! - [`deploy`]: a Drone's walk to the site of the Beacon it deploys into (`crate::deploy`).
 //!
 //! Their working state ([`state`], the design's BaseBehaviorState) is part of the order, or of the unit while it
 //! has none ([`Orders::auto`]).
 
+mod deploy;
 pub(crate) mod destinations;
 mod engage;
 pub(crate) mod gather;
@@ -34,7 +36,7 @@ use crate::mover::{MoveGoal, MoveStatus};
 use crate::nav::PathGroup;
 use crate::object::Object;
 use crate::riot_shield::RiotShield;
-use crate::units::Tick;
+use crate::units::{Tick, TilePos};
 
 use state::{Approach, AttackOrder, Leg, Patrol};
 pub use state::{Auto, Behaviour};
@@ -103,6 +105,9 @@ pub enum OrderKind {
     /// `> Unit Commands > Drop Off Resources`: a worker delivers the load it carries to this drop-off of its
     /// owner's, an Egress Node ([`gather`]).
     DropOff(ObjectId),
+    /// `factions/colonists/economy.md > Beacon Deployment > Deploy Command`: a Drone walks to the site of a Beacon
+    /// whose footprint's top-left tile is `origin` and deploys into it there (`crate::deploy`, [`deploy`]).
+    Deploy { origin: TilePos },
 }
 
 /// One unit's order.
@@ -124,7 +129,7 @@ impl Order {
                 Some(self.slot.unwrap_or(click))
             }
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => None,
-            OrderKind::Gather(_) | OrderKind::DropOff(_) => None,
+            OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => None,
         }
     }
 
@@ -136,7 +141,7 @@ impl Order {
             | OrderKind::Gather(id)
             | OrderKind::DropOff(id) => Some(id),
             OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
-            OrderKind::Hold | OrderKind::Stop => None,
+            OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } => None,
         }
     }
 }
@@ -287,7 +292,7 @@ fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour {
         // The others set off in their first tick ([`run`]), from a standstill.
         OrderKind::Attack(_) | OrderKind::Move(Target::Object(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => {
         }
-        OrderKind::Gather(_) | OrderKind::DropOff(_) => {}
+        OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => {}
     }
     unit.mover.stop();
     match order.kind {
@@ -311,6 +316,8 @@ fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour {
         }
         // `factions/colonists/units.md > Drone > Gathering`: the worker's job.
         OrderKind::Gather(_) | OrderKind::DropOff(_) => Behaviour::Gather(gather::begin(order.kind, unit, world)),
+        // `factions/colonists/economy.md > Beacon Deployment > Deploy Command`: to the footprint's centre.
+        OrderKind::Deploy { origin } => Behaviour::Deploy(deploy::begin(origin, unit, tick)),
     }
 }
 
@@ -341,9 +348,12 @@ fn run(active: &mut ActiveOrder, queued: bool, unit: &mut Unit, world: &World, c
         (OrderKind::Gather(_) | OrderKind::DropOff(_), Behaviour::Gather(state)) => {
             gather::run(&mut order.kind, state, unit, queued, world, claims)
         }
+        // The walk to the site; the step right after this phase ends the order (`Sim::step_deployments`).
+        (OrderKind::Deploy { origin }, Behaviour::Deploy(state)) => deploy::run(origin, state, unit),
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
-        | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _) => true,
+        | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)
+        | (OrderKind::Deploy { .. }, _) => true,
     }
 }
 
@@ -396,6 +406,10 @@ impl StateHash for OrderKind {
             OrderKind::DropOff(id) => {
                 h.tag(7);
                 id.hash(h);
+            }
+            OrderKind::Deploy { origin } => {
+                h.tag(8);
+                origin.hash(h);
             }
         }
     }

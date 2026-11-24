@@ -44,8 +44,8 @@
 //!   paid for, so the refunds of a destroyed producer or constructor (design changes 0084, 0085) find nothing to
 //!   give back, a portal's included.
 //!
-//! **For slice M3-F**, which deploys a Drone into a Beacon with the same state: the Drone is `from`, with no
-//! `from_placement`; its load goes into [`Transform`] as a field of its own (with `#[serde(default)]`).
+//! **Beacon Deployment** (slice M3-F, `crate::deploy`) uses the same state: the Drone is `from`, with no
+//! `from_placement`, and its load is kept in [`Transform::load`] for a cancel.
 
 use serde::{Deserialize, Serialize};
 
@@ -72,6 +72,11 @@ pub struct Transform {
     pub total: u32,
     /// The Space Crystals it paid when it started, of which a cancel refunds 75% (`> Cancel Warp In`).
     pub paid: u32,
+    /// The load the Drone of a deployment carried as it began (`> Beacon Deployment > Deploying with a load`, design
+    /// change 0114: "The load stays with the deploying object and is lost when deployment completes; on cancel the
+    /// Drone returns still carrying it"; slice M3-F, `crate::deploy`); 0 for a Warp In. Optional in files.
+    #[serde(default)]
+    pub load: u32,
 }
 
 impl Transform {
@@ -84,6 +89,7 @@ impl Transform {
             progress: 0,
             total: recipe.frames,
             paid: recipe.cost,
+            load: 0,
         }
     }
 
@@ -149,12 +155,14 @@ impl StateHash for Transform {
             progress,
             total,
             paid,
+            load,
         } = self;
         from.hash(h);
         from_placement.hash(h);
         progress.hash(h);
         total.hash(h);
         paid.hash(h);
+        load.hash(h);
     }
 }
 

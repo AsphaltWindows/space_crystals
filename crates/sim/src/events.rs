@@ -143,17 +143,30 @@ pub enum SimEvent {
         to: ObjectKind,
     },
     /// Object `id` finished transforming into its kind `kind` (`crate::transform`): a building warped in from a
-    /// Beacon (`factions/colonists/economy.md > Warp In`) now works.
+    /// Beacon (`factions/colonists/economy.md > Warp In`) now works, a Beacon deployed from a Drone (`> Beacon
+    /// Deployment`, `crate::deploy`) is one for good.
     TransformCompleted {
         id: ObjectId,
         kind: ObjectKind,
     },
     /// Object `id` gave up transforming into a `kind` by a command, and `refund` Space Crystals went back to its
-    /// owner (`factions/colonists/economy.md > Warp In > Cancel Warp In`: 75% of the cost, rounded down). Its
-    /// `KindChanged` back to what it was follows.
+    /// owner (`factions/colonists/economy.md > Warp In > Cancel Warp In`: 75% of the cost, rounded down; nothing for
+    /// a deployment, which costs nothing, `> Cancel Deployment`). Its `KindChanged` back to what it was follows.
     TransformCancelled {
         id: ObjectId,
         kind: ObjectKind,
         refund: u32,
+    },
+    /// Drone `drone`'s Deploy failed at the end of its walk (`factions/colonists/economy.md > Beacon Deployment >
+    /// Placement`: "If the site is invalid on arrival, the order is cancelled and the Drone stops and idles";
+    /// `crate::deploy`, slice M3-F): the Beacon was to go on the footprint whose top-left tile is `origin`.
+    /// `problems` are those the check of the site found on arrival, on the truth (design change 0120: a structure
+    /// hidden in the fog, say; 0118: a ground unit on the footprint), and none if the Drone stopped short of the
+    /// footprint (design change 0117: "If it stops without overlapping the footprint, the order fails"). For the
+    /// feedback line (plan decision on notifications: M2's line until they are designed).
+    DeployFailed {
+        drone: ObjectId,
+        origin: TilePos,
+        problems: PlacementCheck,
     },
 }

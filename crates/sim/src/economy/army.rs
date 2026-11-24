@@ -7,7 +7,9 @@
 //! - **Colonists: Beacon Capacity** (`factions/colonists/overview.md > ColonistResources > Beacon Capacity`): "Each
 //!   Beacon provides a certain amount of Beacon Capacity. Total Beacon Capacity caps at 200. Each Colonist unit has
 //!   a Beacon Capacity cost." Every Colonists building provides 5 (`factions/colonists/economy.md > Warp In > Beacon
-//!   Capacity Retention`), so what is available is min(200, 5 × the player's Colonists structures).
+//!   Capacity Retention`), so what is available is min(200, 5 × the player's Colonists structures), a Beacon under
+//!   deployment left out: its 5 comes with completion (`> Beacon Deployment > Beacon Capacity during deployment`,
+//!   design change 0112), while the Drone it was costs nothing from the deployment's first frame on, being a Beacon.
 //! - **The Syndicate and the Cults** have none yet: their Tunnel Space and Unit Control come with their milestones
 //!   ([`ArmyResource::of`]), and nothing caps their armies until then.
 //!
@@ -158,12 +160,12 @@ pub(crate) fn unit_control_used<'a>(objects: impl IntoIterator<Item = &'a Object
 
 /// Whether `o` provides Beacon Capacity to its owner: a Colonists structure (`factions/colonists/economy.md > Warp In >
 /// Beacon Capacity Retention`), complete or warping in ("throughout a Warp In", design change 0112; plan decision
-/// T20). Every one is, until Beacon Deployment exists: a Beacon under deployment is a Beacon from its first frame
-/// (plan decision T15, design change 0109), and its 5 arrives only on completion (`> Beacon Deployment > Beacon
-/// Capacity during deployment`, 0112), so slice M3-F, which builds the deployment, excludes it here.
+/// T20), but for a Beacon under deployment ([`Object::is_deploying`], slice M3-F): a Beacon from its first frame (plan
+/// decision T15, design change 0109), whose 5 arrives only on completion (`> Beacon Deployment > Beacon Capacity
+/// during deployment`, 0112: "The Beacon's 5 is provided only on completion").
 fn provides_capacity(o: &Object) -> bool {
     let def = o.kind.def();
-    def.category == Category::Structure && def.faction == Some(Faction::Colonists)
+    def.category == Category::Structure && def.faction == Some(Faction::Colonists) && !o.is_deploying()
 }
 
 #[cfg(test)]

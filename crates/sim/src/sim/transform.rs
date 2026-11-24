@@ -137,6 +137,10 @@ impl Sim {
         if let Some(o) = self.objects.get_mut(&id) {
             o.transform = None;
             o.hp = hp;
+            // A deployment's Drone "returns still carrying" its load (design change 0114, `crate::deploy`).
+            if let Some(worker) = &mut o.worker {
+                worker.load = t.load;
+            }
         }
     }
 
@@ -192,7 +196,7 @@ impl Sim {
 /// Train and no rally either: "no Set Rally Point"), its construction and its mining, which completion gives it as
 /// a new object of its kind has them ([`Sim::complete_transform`]). What its kind does by itself, such as an Egress
 /// Node taking drop-offs (`sim/workers.rs`), checks [`Object::is_transforming`].
-fn hold_back(o: &mut Object) {
+pub(super) fn hold_back(o: &mut Object) {
     o.production = None;
     o.constructor = None;
     o.extractor = None;
