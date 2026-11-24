@@ -2070,3 +2070,4 @@ Gathering Drones (any player, every step of a Gather job) pass through each othe
 Q0038 pt 2: reference check geometry = 2 GU edge to edge, node centred on the row's long side. Files: factions/gdo/economy.md, factions/colonists/units.md. Entry 0107.
 Q0038 pt 3: oracle tolerance ±15% + targets 1–4; reference layout is a benchmark only. File: factions/gdo/economy.md. Entry 0108. Q0038 done.
 Q0039 pt 1: deploying Drone / warping Beacon is the target structure from the first frame (footprint claimed, same object). File: factions/colonists/economy.md. Entry 0109.
+Q0039 pt 2: interpolation sets max; current rises by same amount (damage stays). Entry 0110.
