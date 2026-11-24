@@ -218,8 +218,8 @@ fn unit_is_consistent(def: &ObjectDef, unit: &UnitDef) {
         of(Faction::Colonists),
         "{name}: BeaconCapacityCost"
     );
-    // `systems/combat.md > FullyConnected > Melee`: "Fixed short range (adjacent contact)", the one placeholder Range
-    // of every melee attack (question Q0042 point 5), and nothing nearer to keep out.
+    // `systems/combat.md > FullyConnected > Melee`: "Short reach: 8 space units for all melee attacks", the one
+    // placeholder Range of every melee attack (design change 0149), and nothing nearer to keep out.
     if let Some(attack) = &unit.attack
         && attack.attack_type == AttackType::FullyConnected(FullyConnectedSubtype::Melee)
     {

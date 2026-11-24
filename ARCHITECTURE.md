@@ -448,10 +448,10 @@ ticks spent in it. Hashed and serialized like all state.
 - **ElevationModifier** (`elevation.rs`, shared with vision): `Elevation::of` an object is its elevation level (the
   height rounded down), or `Exempt` for air units; `modifier(source, target)` is +1/−1/0 grid unit, binary.
   `attack_range` and `sight_range` apply it; melee attacks don't take it.
-- **Melee** (`systems/combat.md > FullyConnected > Melee`: "adjacent contact"; the Sabre Legionnaire): every melee
-  attack has the Range `defs::MELEE_CONTACT_GU`, a gap of 8 su, the one that counts as Proximity
-  (`orders::PROXIMITY_SU`), and no MinRange (`defs_are_consistent` checks both). It is a placeholder (question Q0042
-  point 5): exactly 0 would be fragile, since a unit closing in may stop a little short of touching. `max_range`
+- **Melee** (`systems/combat.md > FullyConnected > Melee`: "Short reach: 8 space units"; the Sabre Legionnaire):
+  every melee attack has the Range `defs::MELEE_CONTACT_GU`, a gap of 8 su, the one that counts as Proximity
+  (`orders::PROXIMITY_SU`), and no MinRange (`defs_are_consistent` checks both). It is a placeholder (design change
+  0149): exactly 0 would be fragile, since a unit closing in may stop a little short of touching. `max_range`
   gives melee no ElevationModifier.
 - **Hits** (`combat/damage.rs`): every attacker acts against one snapshot of the targets, and an attack's effect
   lands at the end of Firing as a `Hit` on the tick's list. The list is applied once all have acted, so every hit
@@ -1021,12 +1021,12 @@ section of its own.
   footprint, wherever it stood, the same object (0109: its footprint claimed in 5b of that tick), transforming `from`
   the Drone without `from_placement` (`deploy::BEACON_DEPLOYMENT`: 48 frames, no cost), its first frame that tick;
   else the order fails, the Drone idles and its next queued order starts (`SimEvent::DeployFailed`, its problems
-  empty if the Drone stopped short). Its HP interpolate from 20 to 120 as a Warp In's do; only Cancel Deployment
-  (`CancelTransform`, 0116) applies, and turns it back into the Drone at the footprint's centre, with no order and
-  the fraction of its HP (0111). It frees the Drone's 1 Beacon Capacity as it starts and provides the Beacon's 5 only
-  at completion (`Object::is_deploying`, `economy::army`; a cancel takes the 1 back even over the cap, 0112). It
-  counts for defeat (0113). The Drone's load stays in `Transform::load`, is lost at completion and returns with a
-  cancel (0114).
+  empty if the Drone stopped short). Its HP interpolate from 20 to 120, and its Shields, kept from the Drone, follow
+  their maximum (10 to 10), as a Warp In's do; only Cancel Deployment (`CancelTransform`, 0116) applies, and turns it
+  back into the Drone at the footprint's centre, with no order and the fractions of its HP and Shields (0111). It
+  frees the Drone's 1 Beacon Capacity as it starts and provides the Beacon's 5 only at completion
+  (`Object::is_deploying`, `economy::army`; a cancel takes the 1 back even over the cap, 0112). It counts for defeat
+  (0113). The Drone's load stays in `Transform::load`, is lost at completion and returns with a cancel (0114).
 - **Adding to the economy** (slices M2-D2, M2-F): put the new step into `economy::step` at its numbered place, advance
   progress by `PowerSummary::speed` from the tick the command applies (*Recipe timing*), take costs with
   `spend_crystals` when the command applies, and give refunds through `Refund`; `construction.rs` is the pattern.
@@ -1463,16 +1463,16 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   replay, and a fuzz of the gate). The arithmetic and the footprint are unit-tested in `transform/tests.rs`. In the
   client: `tests/client/visuals.rs` (a visual rebuilt and tinted), `tests/selection/panels.rs` (a selected Beacon
   through its Warp In), and the InfoPanel's line in `hud/info_panel` and `activity.rs`.
-- **Beacon Deployment tests** (slice M3-F) are `crates/sim/tests/deploy.rs` (the walk to the footprint's centre and
-  the start on arrival, the 48 frames, the HP from 20 to 120 and damage carried through (0110), Beacon Capacity 10/10
-  to 9/10 to 9/15 and a cancel to 11/10 (0112), the cancel's fractions and place (0109, 0111), the load lost or
-  returned (0114), defeat (0113), a destruction, the footprint claimed, auto-targeting taking the footprint, Shift, a
-  save and a replay) and `crates/sim/tests/deploy_gate.rs` (one Drone per Deploy; the gate on what the player knows,
-  remembered buildings, hidden units and never-explored ground (0120); failures on arrival for a structure, a unit
-  of either player, a patch, a Drone walled off, and a Drone blocked while overlapping that deploys (0117, 0118);
-  only Cancel on a deploying Beacon (0116); the reservations and `Sim::pending_deploys` (0125); a fuzz of the gate
-  and the arrival). Unit tests: `deploy.rs`'s, `placement/tests.rs` (reservations, `Mode::Known`) and
-  `transform/tests.rs` (the load hashed).
+- **Beacon Deployment tests** (slice M3-F) are `crates/sim/tests/deploy.rs` (the walk to the footprint's centre and the
+  start on arrival, the 48 frames, the HP from 20 to 120 and damage carried through (0110), Beacon Capacity 10/10 to
+  9/10 to 9/15 and a cancel to 11/10 (0112), the cancel's fractions of HP and Shields and its place (0109, 0111), the
+  Drone's Shields kept as it starts, the load lost or returned (0114), defeat (0113), a destruction, the footprint
+  claimed, auto-targeting taking the footprint, Shift, a save and a replay) and `crates/sim/tests/deploy_gate.rs` (one
+  Drone per Deploy; the gate on what the player knows, remembered buildings, hidden units and never-explored ground
+  (0120); failures on arrival for a structure, a unit of either player, a patch, a Drone walled off, and a Drone blocked
+  while overlapping that deploys (0117, 0118); only Cancel on a deploying Beacon (0116); the reservations and
+  `Sim::pending_deploys` (0125); a fuzz of the gate and the arrival). Unit tests: `deploy.rs`'s, `placement/tests.rs`
+  (reservations, `Mode::Known`) and `transform/tests.rs` (the load hashed).
 - **Game end tests** are `crates/sim/tests/game_end.rs` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and a last defeat shared by two; no producer handed

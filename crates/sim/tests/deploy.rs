@@ -1,10 +1,10 @@
-//! Beacon Deployment (slice M3-F; `factions/colonists/economy.md > Beacon Deployment`, `sc_sim::deploy`): a Drone
-//! walks to a site and transforms in place into a Beacon over 48 frames. One test per acceptance point of the plan
+//! Beacon Deployment (slice M3-F; `factions/colonists/economy.md > Beacon Deployment`, `sc_sim::deploy`): a Drone walks
+//! to a site and transforms in place into a Beacon over 48 frames. One test per acceptance point of the plan
 //! (`artifacts/director/m3-plan.md` §3.3 F) and per Verification point of design changes 0109 to 0114 that concerns a
-//! deployment: the walk and the start on arrival, the timing, the HP and the Beacon Capacity, the cancel and its
-//! fractions, the load, defeat, a destruction, the footprint claimed, Shift, saves and replays. The gate (what the
-//! player knows, the reservations of design change 0125, the commands a deploying Beacon refuses) and the failures on
-//! arrival are `tests/deploy_gate.rs`'. The walks are measured by their outcomes, never by their ticks: the Drone's
+//! deployment: the walk and the start on arrival, the timing, the HP, the Shields and the Beacon Capacity, the cancel
+//! and its fractions, the load, defeat, a destruction, the footprint claimed, Shift, saves and replays. The gate (what
+//! the player knows, the reservations of design change 0125, the commands a deploying Beacon refuses) and the failures
+//! on arrival are `tests/deploy_gate.rs`'. The walks are measured by their outcomes, never by their ticks: the Drone's
 //! DragMovement (slice M3-G) sets their pace. `TestSim` checks the movement invariants after every tick.
 
 use sc_sim::deploy::{self, DEPLOYMENT_FRAMES};
@@ -314,6 +314,62 @@ fn a_cancel_turns_it_back_into_the_drone_with_the_fraction_of_its_hp() {
             };
             assert_ne!(sim.validate(&spawn), Err(Reject::Blocked), "{tile:?}");
         }
+    }
+}
+
+/// The Shields of a deployment (`crate::shields`, slice M3-B; `> HP/Shields Interpolation`: "Shields stay at 10", the
+/// Drone's MaxShields and the Beacon's). Drone 2, its Shields set to 0 a tile from its site's centre (edited into a
+/// save, as no command deals an exact amount), begins deploying with what it had, not the Beacon's full 10, and they go
+/// on regenerating, 0.25 a frame up to the maximum now (`systems/combat.md > Shields > ShieldRegenRate`, design changes
+/// 0110 and 0146). Design change 0111, "Shields by the same fraction (no minimum needed)": cancelled halfway with 4 of
+/// its 10, it is a Drone with 4 of its 10, and with none, a Drone with none, unlike the HP's 1. Each is 0.25 more at
+/// the end of the cancel's tick, as Shields regenerate after the commands.
+#[test]
+fn a_deployment_keeps_the_shields_and_a_cancel_their_fraction() {
+    let shields = |sim: &Sim| sim.object(id(2)).unwrap().shields.unwrap();
+    let mut t = base().start();
+    t.step();
+    next(&mut t, order(&[2], deploy_at(SITE), false));
+    let centre = deploy::site(SITE).center();
+    while object(&t, 2).pos.distance(centre) > SU_PER_GU {
+        assert!(t.sim().tick() < 600, "it gets there");
+        t.step();
+    }
+    assert_eq!(object(&t, 2).kind, Drone, "still walking");
+    let mut sim = edited(t.sim(), 2, "shields", serde_json::json!(0.0));
+    let mut before = shields(&sim);
+    while sim.object(id(2)).unwrap().kind == Drone {
+        assert!(sim.tick() < 600, "it deploys");
+        before = shields(&sim);
+        sim.step(&TickInputs::default());
+    }
+    assert!(
+        before < 9.75,
+        "the walk is shorter than the Shields take to come back: {before}"
+    );
+    assert_eq!(shields(&sim), before + 0.25, "kept, and regenerating");
+    sim.step(&TickInputs::default());
+    assert_eq!(shields(&sim), before + 0.5);
+    assert_eq!(sim.object(id(2)).unwrap().max_shields(), Some(10.0));
+
+    let mut t = base().start();
+    let start = deployed(&mut t);
+    t.run_until(start + 23);
+    let o = object(&t, 2);
+    assert_eq!((o.max_shields(), o.shields), (Some(10.0), Some(10.0)), "halfway");
+    for (beacon, drone) in [(4.0, 4.0), (0.0, 0.0)] {
+        let mut sim = edited(t.sim(), 2, "shields", serde_json::json!(beacon));
+        let cmd = PlayerCommand {
+            player: P1,
+            command: cancel(&[2]),
+        };
+        sim.step(&TickInputs { commands: vec![cmd] });
+        let o = sim.object(id(2)).unwrap();
+        assert_eq!(
+            (o.kind, o.shields, o.max_shields()),
+            (Drone, Some(drone + 0.25), Some(10.0)),
+            "from {beacon}"
+        );
     }
 }
 
