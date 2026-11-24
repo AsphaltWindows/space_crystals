@@ -10,6 +10,8 @@
 //! - **Waypoints**: while the Queue modifier (Shift) is held, each selected unit's route from where it is drawn
 //!   through the targets of its current and queued orders, as dashed lines, each leg in its order's colour, with
 //!   the queued orders' markers.
+//! - **Rally points** ([`rally`], design change 0087): each selected producer's rally point, a marker with a line
+//!   from the building to it; none while it has no rally point.
 //!
 //! Colours follow `> Color language`: green for Move, red for Attack, orange for AttackMove and Patrol. A target
 //! object marks nothing, and ends no route leg, while the fog of war hides it from the local player
@@ -18,6 +20,8 @@
 //! alpha-blended mesh in the overlays layer, between the path overlay and the combat effects, rebuilt every frame
 //! while anything shows. Flashes age by the sim's ticks and the render alpha, so a QA screenshot of a tick (alpha 1)
 //! always shows them alike.
+
+pub mod rally;
 
 use std::collections::BTreeSet;
 use std::f32::consts::TAU;
@@ -36,6 +40,8 @@ use crate::selection::ControlStates;
 use crate::shapes::ColorMesh;
 use crate::sim_driver::{RenderAlpha, SimRes};
 use crate::{ClientMode, ClientSystems};
+
+pub use rally::{RallyIndicator, rally_indicators};
 
 /// How long the flash of a given order lasts, ticks. Placeholder: the design gives none.
 pub const FLASH_TICKS: u32 = 8;
@@ -248,8 +254,8 @@ fn flash_progress(sim: &Sim, alpha: f32, tick: Tick) -> f32 {
     ((sim.tick().saturating_sub(tick) as f32 + alpha - 1.0) / FLASH_TICKS as f32).clamp(0.0, 1.0)
 }
 
-/// Rebuilds the indicators' mesh: the routes at the back, then the markers, then the flashes. Hidden while nothing
-/// shows, and outside the game modes.
+/// Rebuilds the indicators' mesh: the routes and the rally lines at the back, then the markers (the orders' and the
+/// rally points'), then the flashes. Hidden while nothing shows, and outside the game modes.
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 fn draw_indicators(
     mode: Res<ClientMode>,
@@ -274,7 +280,12 @@ fn draw_indicators(
                 route(&mut mesh, sim, &sight, o, alpha.0, z);
             }
         }
-        for indicator in selection_indicators(sim, &sight, &states, queued) {
+        let rallies = rally_indicators(sim, &sight, &states);
+        for rally in &rallies {
+            rally::draw_line(&mut mesh, sim, rally, alpha.0, z);
+        }
+        let markers = selection_indicators(sim, &sight, &states, queued);
+        for indicator in markers.into_iter().chain(rallies.iter().map(|rally| rally.marker)) {
             marker(&mut mesh, sim, indicator, alpha.0, 0.0, 1.0, z);
         }
         for flash in &indicators.flashes {
@@ -339,10 +350,7 @@ fn marker(mesh: &mut ColorMesh, sim: &Sim, indicator: Indicator, alpha: f32, gro
             };
             let pos = o.prev_pos.lerp(o.pos, alpha);
             let height = object_height(sim.map(), pos, o.placement.as_ref());
-            let (center, half) = match &o.placement {
-                Some(p) => (p.center(), Vec2::new(p.w as f32, p.h as f32) * SU_PER_GU / 2.0),
-                None => (pos, o.def().half_extents().unwrap_or(Vec2::splat(SU_PER_GU / 4.0))),
-            };
+            let (center, half) = object_box(o, alpha);
             let center = view_to_world(drawn_at_height(center, height));
             ring(
                 mesh,
@@ -352,6 +360,30 @@ fn marker(mesh: &mut ColorMesh, sim: &Sim, indicator: Indicator, alpha: f32, gro
                 z,
                 color.with_alpha(opacity),
             );
+        }
+    }
+}
+
+/// The box an Object marker surrounds: its centre (ground space, where the object is drawn at the render `alpha`)
+/// and its half extents, su. A structure's footprint, else the type's box.
+fn object_box(o: &Object, alpha: f32) -> (Vec2, Vec2) {
+    match &o.placement {
+        Some(p) => (p.center(), Vec2::new(p.w as f32, p.h as f32) * SU_PER_GU / 2.0),
+        None => (
+            o.prev_pos.lerp(o.pos, alpha),
+            o.def().half_extents().unwrap_or(Vec2::splat(SU_PER_GU / 4.0)),
+        ),
+    }
+}
+
+/// Where `indicator`'s marker is, ground space, and its ring's radius at rest, su, as [`marker`] draws it at the
+/// render `alpha`; none for an Object marker whose object is gone.
+fn marker_ring(sim: &Sim, indicator: Indicator, alpha: f32) -> Option<(Vec2, f32)> {
+    match indicator {
+        Indicator::Location { at, .. } => Some((at, LOCATION_RADIUS)),
+        Indicator::Object { id, .. } => {
+            let (center, half) = object_box(sim.object(id)?, alpha);
+            Some((center, half.length() + OBJECT_GAP))
         }
     }
 }

@@ -267,9 +267,9 @@ fn the_bar_follows_the_local_player() {
     assert!(bar(&mut nobody).is_empty());
 }
 
-/// Design change 0105: the local player's own structure shows its name and HP, and no activity yet (no structure
-/// constructs or produces at this point); another player's its name, owner and HP. Ids by clicks, as a player picks
-/// them.
+/// Design change 0105: the local player's own structure shows its name and HP, and no activity while it has none to
+/// show (the Deployment Center's construction lines come with slice M2-H2); another player's its name, owner and HP.
+/// Ids by clicks, as a player picks them.
 #[test]
 fn own_and_other_players_structures_have_their_info_panels() {
     let mut app = game();
@@ -286,6 +286,60 @@ fn own_and_other_players_structures_have_their_info_panels() {
     click(&mut app, tile_center(6, 5));
     assert_eq!(selected(&app), [ENEMY_GENERATOR]);
     assert_eq!(info(&mut app), panel("Generator", "HP 350 / 350"));
+}
+
+/// Design change 0105's verifications through the panel, with the fog of war: player 1's Barracks, selected by a click
+/// while it produces, shows its unit in production with the progress, the queue length and the rally point in the
+/// activity area; to player 2, who sees it from its Generator, it shows its owner and HP only ("no production or
+/// queue information"). The lines themselves are `activity`'s unit test.
+#[test]
+fn an_own_producing_barracks_shows_its_activity_to_its_owner_only() {
+    use sc_sim::{ObjectId, ProductionCommand, Target};
+    let mut app = game();
+    spawn(&mut app, ObjectKind::Barracks, P1, tile(9, 4)); // (9, 4) to (11, 5)
+    spawn(&mut app, ObjectKind::Generator, P1, tile(14, 1));
+    spawn(&mut app, ObjectKind::Generator, P1, tile(17, 1));
+    assert_eq!(bar(&mut app)[2], "Power 51/70", "full speed");
+    debug(
+        &mut app,
+        DebugCommand::SetResources {
+            player: P1,
+            crystals: 1000,
+            supplies: 0,
+        },
+    );
+    let barracks = ObjectId(10);
+    let production = |command| PlayerCommand {
+        player: P1,
+        command: Command::Production {
+            objects: vec![barracks],
+            command,
+        },
+    };
+    let rally = ProductionCommand::SetRally(Target::Point(tile_center(15, 5)));
+    let train = ProductionCommand::Train(ObjectKind::Peacekeeper);
+    app.world_mut().resource_mut::<PendingCommands>().0.extend([
+        production(train),
+        production(train),
+        production(rally),
+    ]);
+    click(&mut app, tile_center(10, 4));
+    assert_eq!(selected(&app), [barracks.0]);
+    let (title, body, activity) = info(&mut app);
+    assert_eq!(
+        (title.as_deref(), body.as_deref()),
+        (Some("Barracks"), Some("HP 300 / 300"))
+    );
+    let activity = activity.expect("an activity area");
+    let lines: Vec<&str> = activity.lines().collect();
+    assert!(lines[0].starts_with("Training Peacekeeper: "), "{lines:?}");
+    assert_eq!(lines[1..], ["Queue: 2 / 20", "Rally point: ground"]);
+
+    app.world_mut().resource_mut::<InjectedInput>().tap_key(KeyCode::F2);
+    app.update();
+    click(&mut app, tile_center(10, 4));
+    assert_eq!(selected(&app), [barracks.0]);
+    assert_eq!(info(&mut app), panel("Barracks", "Player 1\nHP 300 / 300"));
 }
 
 /// Design change 0099's third verification: a click on a plate's tile selects the plate, and its panel shows the

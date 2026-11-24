@@ -8,7 +8,7 @@
 //!   which slots;
 //! - [`conditions`]: what the game allows the selection's commands now ([`Conditions`]): the units' modes, and the
 //!   command gate's answer to each production command;
-//! - [`panel`]: the panel a selection gets, what pressing a slot does, and who receives a command;
+//! - [`panel`](mod@panel): the panel a selection gets, what pressing a slot does, and who receives a command;
 //! - here: the ObjectInterfaceState itself ([`InterfaceState`]), and whether it still holds ([`still_valid`]).
 //!
 //! The Peacekeeper's Riot Shield (`factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`) is a
@@ -57,7 +57,7 @@ pub enum InterfaceState {
     DefaultState,
     /// `> AwaitingTarget[CommandType]`: the PendingCommand waits for a left-click on its target: a unit command's,
     /// or a producer's rally point (`factions/gdo/structures.md > Barracks`: "C: Set Rally Point: enters
-    /// AwaitingTarget[SetRallyPoint]").
+    /// AwaitingTarget\[SetRallyPoint\]").
     AwaitingTarget {
         /// The PendingCommand.
         pending: PanelCommand,

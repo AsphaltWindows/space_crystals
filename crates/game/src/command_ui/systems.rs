@@ -6,11 +6,11 @@
 //! the indicators. A click whose units get different orders gives one order per distinct order
 //! ([`super::resolution::group_orders`]). A command issued with the Queue modifier held (Shift) is queued
 //! (`systems/controls/commands.md > Unit Command`), else it replaces the units' orders. Abilities (the Riot Shield)
-//! go as `Command::Ability`, at once and never queued. A producer's commands (`factions/gdo/structures.md > Barracks
-//! > ObjectInterfaceState[Barracks]`) go as one `Command::Production` to all the producers they are issued to, also
-//! never queued: Train and Cancel Production at once, the rally point on a right-click or a click while Set Rally
-//! Point awaits its target. The sim decides which producers a Train reaches (design change 0083); the client sends
-//! it to all of them (no smart-casting, design changes 0071 and 0075).
+//! go as `Command::Ability`, at once and never queued. A producer's commands
+//! (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) go as one `Command::Production` to all
+//! the producers they are issued to, also never queued: Train and Cancel Production at once, the rally point on a
+//! right-click or a click while Set Rally Point awaits its target. The sim decides which producers a Train reaches
+//! (design change 0083); the client sends it to all of them (no smart-casting, design changes 0071 and 0075).
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;

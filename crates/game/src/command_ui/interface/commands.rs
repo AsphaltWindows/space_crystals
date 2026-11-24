@@ -30,9 +30,9 @@ pub enum PanelCommand {
 }
 
 impl PanelCommand {
-    /// Whether the command awaits a target (a StateOnlyTransition to AwaitingTarget): `> BasicCombatUnitInterfaceState
-    /// > DefaultState commands`' target commands, and Set Rally Point. The others are issued at once: HoldPosition
-    /// and Stop, the Riot Shield, and a producer's Train and Cancel Production.
+    /// Whether the command awaits a target (a StateOnlyTransition to AwaitingTarget): the target commands of
+    /// `> BasicCombatUnitInterfaceState > DefaultState commands`, and Set Rally Point. The others are issued at once:
+    /// HoldPosition and Stop, the Riot Shield, and a producer's Train and Cancel Production.
     pub fn needs_target(self) -> bool {
         match self {
             PanelCommand::Move

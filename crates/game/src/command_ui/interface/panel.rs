@@ -1,5 +1,5 @@
 //! The command panel a selection gets (`systems/controls/selection_and_hud.md > CommandPanel`): what each slot shows
-//! ([`panel`]), what pressing it does ([`press`]) and who receives its command ([`recipients`]).
+//! ([`panel`](fn@panel)), what pressing it does ([`press`]) and who receives its command ([`recipients`]).
 
 use std::collections::BTreeSet;
 
@@ -142,7 +142,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
 /// What pressing a slot (its hotkey or its button) does.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SlotPress {
-    /// A StateOnlyTransition to AwaitingTarget[command].
+    /// A StateOnlyTransition to AwaitingTarget\[command\].
     AwaitTarget(PanelCommand),
     /// A CommandIssuingTransition: the command's order, at once.
     Issue(PanelCommand, OrderKind),

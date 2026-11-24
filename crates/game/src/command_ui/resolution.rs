@@ -331,7 +331,7 @@ impl PointerDisplay {
 
     /// The PointerDisplayType of what a click gives an object: its order's, or Move for a rally point (`> Resolution
     /// Rules > DefaultState`: "Selection is a production building: Move (rally point)"; `> AwaitingTarget[CommandType]`:
-    /// "AwaitingTarget[SetRallyPoint] over ground or object: Move").
+    /// "AwaitingTarget\[SetRallyPoint\] over ground or object: Move").
     pub fn of(resolved: Resolved) -> Self {
         match resolved {
             Resolved::Order(kind) => Self::of_order(kind),
