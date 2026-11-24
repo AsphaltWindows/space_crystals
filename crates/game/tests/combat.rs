@@ -94,10 +94,16 @@ fn effects_visible(app: &mut App) -> bool {
 /// A Peacekeeper and a Guard, 160 su apart, attack each other: their first shots land 2 ticks after the orders
 /// (Aim 2, Firing 1) and leave tracers for `TRACER_TICKS`; the hits leave HP bars; the Guard's tenth hit kills the
 /// Peacekeeper, which leaves a marker for `DEATH_MARKER_TICKS`. A selected unit shows its HP bar even at full HP.
-/// A second Peacekeeper of player 1 stands by, so that player 1 still sees the Guard once the first is dead.
+/// A second Peacekeeper of player 1 stands by, so that player 1 still sees the Guard once the first is dead; with
+/// auto-targeting off (a debug command), it only watches.
 #[test]
 fn shots_hits_and_deaths_show_for_their_ticks() {
     let mut app = headless_app();
+    submit(
+        &mut app,
+        P1,
+        Command::Debug(DebugCommand::SetAutoTargeting { on: false }),
+    );
     app.update();
     spawn(&mut app, ObjectKind::Peacekeeper, P1, Vec2::new(300.0, 300.0));
     spawn(&mut app, ObjectKind::Guard, P2, Vec2::new(460.0, 300.0));

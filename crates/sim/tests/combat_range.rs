@@ -1,12 +1,15 @@
-//! What an attack reaches (`systems/combat.md > AttackAttributes`, `> ValidTarget`): Range measured from the
-//! attacker's centre to the nearest point of the target (question Q0009, default A), MinRange, TargetDomain, and the
-//! ElevationModifier (`core/vision.md > ElevationModifier`) at the exact edge of a level.
+//! What an attack reaches (`systems/combat.md > AttackAttributes`, `> ValidTarget`): Range measured edge to edge,
+//! the gap between the attacker's shape and the target's (`> Range Measurement`, design change 0031), MinRange,
+//! TargetDomain, and the ElevationModifier (`core/vision.md > ElevationModifier`) at the exact edge of a level.
+//!
+//! Both units stand on Hold Position, so neither moves: the attacker engages what its weapon reaches from where it
+//! stands (`systems/controls/behaviors.md > HoldingPosition`), which is the range check alone.
 
-use sc_sim::combat::{self, RangeMeasure};
+use sc_sim::combat;
 use sc_sim::defs::{AttackType, Domain, FullyConnectedSubtype, TargetDomain};
 use sc_sim::elevation::Elevation;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::{ObjectId, ObjectKind, OrderKind, PlayerId, SimEvent, Tick, Vec2, gu};
+use sc_sim::{ObjectId, ObjectKind, OrderKind, PlayerId, Shape, SimEvent, Tick, Vec2, gu};
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
@@ -27,18 +30,20 @@ const RAMP: &str = "
 ";
 
 /// `attacker` (player 1, id 1) at `attacker_at` and `target` (player 2, id 2) at `target_at`, spawned in tick 1;
-/// the attacker is ordered to attack in tick 2, and the game runs to tick 10. The ticks of its attacks.
+/// both are ordered to hold their position in tick 2, and the game runs to tick 10. The ticks of the attacker's
+/// attacks.
 fn attacks(map: &str, attacker: (ObjectKind, Vec2), target: (ObjectKind, Vec2)) -> (TestSim, Vec<Tick>) {
     let mut t = ScenarioBuilder::new(map).start();
     t.spawn_unit_at(1, attacker.0, P1, attacker.1)
         .spawn_unit_at(1, target.0, P2, target.1)
-        .order_at(2, P1, &[ATTACKER], OrderKind::Attack(TARGET), false)
+        .order_at(2, P1, &[ATTACKER], OrderKind::Hold, false)
+        .order_at(2, P2, &[TARGET], OrderKind::Hold, false)
         .run_until(10);
     assert!(t.sim().object(TARGET).is_some(), "both spawned");
     let ticks = t
         .events()
         .iter()
-        .filter(|(_, e)| matches!(e, SimEvent::Attacked { .. }))
+        .filter(|(_, e)| matches!(e, SimEvent::Attacked { attacker, .. } if *attacker == ATTACKER))
         .map(|&(tick, _)| tick)
         .collect();
     (t, ticks)
@@ -54,26 +59,41 @@ fn can_attack_now(t: &TestSim) -> bool {
     )
 }
 
-/// Question Q0009, default A: from the attacker's centre to the nearest point of the target's silhouette. A
-/// Peacekeeper (Range 4 grid units, 256 su) reaches a Guard (36 su wide) whose near edge is exactly 256 su away,
-/// and not one 1 su further.
+/// Design change 0031: Range is the gap between the two shapes. A Peacekeeper (Range 4 grid units, 256 su; 24 su
+/// wide) reaches a Guard (36 su wide) when the gap between their edges is exactly 256 su, and not 1 su further.
 #[test]
-fn range_reaches_the_nearest_point_of_the_target() {
-    assert_eq!(combat::RANGE_MEASURE, RangeMeasure::CentreToNearestPoint);
+fn range_is_the_gap_between_the_edges() {
     let flat = RAMP.split("\n\n").next().unwrap();
     let pk = (ObjectKind::Peacekeeper, Vec2::new(100.0, 96.0));
-    let (t, ticks) = attacks(flat, pk, (ObjectKind::Guard, Vec2::new(100.0 + 256.0 + 18.0, 96.0)));
+    let guard_at = |gap: f32| (ObjectKind::Guard, Vec2::new(100.0 + 12.0 + gap + 18.0, 96.0));
+    let (t, ticks) = attacks(flat, pk, guard_at(256.0));
     assert!(can_attack_now(&t));
     assert_eq!(ticks, [4]);
-    let (t, ticks) = attacks(flat, pk, (ObjectKind::Guard, Vec2::new(100.0 + 257.0 + 18.0, 96.0)));
+    let (t, ticks) = attacks(flat, pk, guard_at(257.0));
     assert!(!can_attack_now(&t));
     assert_eq!(ticks, [] as [Tick; 0]);
-    // Diagonally, past the corner of the silhouette: 3-4-5.
-    let corner = Vec2::new(100.0 + 153.6 + 18.0, 96.0 + 204.8 + 18.0);
-    assert!(
-        (combat::distance_to_box(pk.1, corner - 18.0, corner + 18.0) - 256.0).abs() < 1e-3,
-        "the nearest point is the corner"
+    // Diagonally, between the two nearest corners: 3-4-5.
+    let shape = |(kind, at): (ObjectKind, Vec2)| Shape::silhouette(kind, at, 0.0);
+    let diagonal = (
+        ObjectKind::Guard,
+        pk.1 + Vec2::new(12.0 + 153.6 + 18.0, 12.0 + 204.8 + 18.0),
     );
+    assert!((shape(pk).gap(&shape(diagonal)) - 256.0).abs() < 1e-3);
+}
+
+/// Design change 0031's Verification, as far as today's units go: an attacker's own body doesn't eat into its
+/// range. The wide Guard (Range 3, 36 su) and the narrow Peacekeeper (Range 4, 24 su) each start firing when the
+/// gap between the edges reaches their Range, whatever their own width.
+#[test]
+fn an_attackers_own_size_doesnt_change_its_range() {
+    let flat = RAMP.split("\n\n").next().unwrap();
+    // The Guard attacks; the Peacekeeper on Hold would fire back, which changes nothing here.
+    let guard = (ObjectKind::Guard, Vec2::new(100.0, 96.0));
+    let pk_at = |gap: f32| (ObjectKind::Peacekeeper, Vec2::new(100.0 + 18.0 + gap + 12.0, 96.0));
+    let (_, ticks) = attacks(flat, guard, pk_at(192.0));
+    assert_eq!(ticks, [4], "Range 3 from its edge");
+    let (_, ticks) = attacks(flat, guard, pk_at(193.0));
+    assert_eq!(ticks, [] as [Tick; 0]);
 }
 
 /// `systems/controls/behaviors.md > AttackingObject` 2: the target must be beyond MinRange. No M1 unit has one, so
@@ -119,8 +139,8 @@ fn target_domain() {
 
 /// `core/vision.md > ElevationModifier`: +1 grid unit from higher ground, −1 from lower ground, by elevation level,
 /// the height rounded down. A Peacekeeper one su below the top of the ramp (height 63/64, level 0) doesn't reach a
-/// Guard on level 0 whose edge is 288 su (4.5 grid units) away; at the top (height exactly 1, level 1) it does, and
-/// a step further too.
+/// Guard on level 0 across a gap of 275 su (4.3 grid units); at the top (height exactly 1, level 1) it does, and a
+/// step further too.
 #[test]
 fn higher_ground_adds_one_grid_unit_from_the_exact_level() {
     let guard = (ObjectKind::Guard, Vec2::new(512.0 - 288.0 - 18.0, 96.0));
@@ -136,8 +156,8 @@ fn higher_ground_adds_one_grid_unit_from_the_exact_level() {
     assert_eq!(ticks, [4]);
 }
 
-/// The other way round: a Guard (Range 3) on level 0 reaches a Peacekeeper 160 su (2.5 grid units) away on the ramp
-/// while it is on level 0, and not once it stands on level 1 (2 grid units).
+/// The other way round: a Guard (Range 3) on level 0 reaches a Peacekeeper across a gap of 141 su (2.2 grid units)
+/// on the ramp while it is on level 0, and not once it stands on level 1 (2 grid units).
 #[test]
 fn lower_ground_takes_one_grid_unit_off_from_the_exact_level() {
     let guard = (ObjectKind::Guard, Vec2::new(512.0 - 12.0 - 160.0, 96.0));

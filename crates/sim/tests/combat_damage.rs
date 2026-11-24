@@ -1,6 +1,9 @@
 //! Damage and death (`systems/combat.md > SingleTargetDamage`, `> DamageModifierOrder`, `> MinimumDamage`,
 //! `ARCHITECTURE.md > Combat`): armor and the rugged-terrain bonus, the tick's hits applied together, death at 0 HP
 //! and the one removal path that leaves no reference to the dead behind.
+//!
+//! Idle units fight on their own (`systems/controls/behaviors.md > BaseAutoTargeting`), so a unit that must not
+//! shoot is put on Hold Position beyond its own Range, or spawned only when its turn comes.
 
 use sc_sim::combat::{self, AttackPhase};
 use sc_sim::testing::{self, ScenarioBuilder, TestSim};
@@ -68,12 +71,13 @@ fn died(t: &TestSim) -> Vec<(Tick, ObjectId)> {
 /// `> SingleTargetDamage`: (Damage × pre-armor multipliers − PointArmor) × directional multiplier, at least 0.5.
 /// A Peacekeeper (Damage 10) takes 9 from a Guard's 80 HP (PointArmor 1); a Guard (Damage 6) takes 5 from a
 /// Peacekeeper's 50, and on Rugged ground the Peacekeeper's RuggedTerrainDefenseBonus halves the damage before the
-/// armor: 6 × 0.5 − 1 = 2. The Guard, heavy infantry, has no such bonus.
+/// armor: 6 × 0.5 − 1 = 2. The Guard, heavy infantry, has no such bonus. (Guard 5, with no order, fights back at
+/// the Peacekeeper on the Rugged ground too.)
 #[test]
 fn armor_and_the_rugged_terrain_bonus() {
     let mut t = spawned(&[
-        (ObjectKind::Peacekeeper, P1, Vec2::new(400.0, 100.0)), // 1, plain
-        (ObjectKind::Guard, P2, Vec2::new(550.0, 100.0)),       // 2, plain
+        (ObjectKind::Peacekeeper, P1, Vec2::new(800.0, 400.0)), // 1, plain, out of sight of the others
+        (ObjectKind::Guard, P2, Vec2::new(950.0, 400.0)),       // 2, plain
         (ObjectKind::Peacekeeper, P1, Vec2::new(160.0, 100.0)), // 3, Rugged
         (ObjectKind::Guard, P2, Vec2::new(160.0, 280.0)),       // 4, plain
         (ObjectKind::Guard, P2, Vec2::new(220.0, 160.0)),       // 5, Rugged
@@ -85,11 +89,11 @@ fn armor_and_the_rugged_terrain_bonus() {
     t.run_until(4);
     assert_eq!(hits_on(&t, 2), [(4, 9.0)]);
     assert_eq!(hits_on(&t, 1), [(4, 5.0)]);
-    assert_eq!(hits_on(&t, 3), [(4, 2.0)], "rugged: halved before the armor");
+    assert_eq!(hits_on(&t, 3), [(4, 2.0), (4, 2.0)], "rugged: halved before the armor");
     assert_eq!(hits_on(&t, 5), [(4, 9.0)], "heavy infantry: no bonus");
     assert_eq!(
         [hp(&t, 1), hp(&t, 2), hp(&t, 3), hp(&t, 5)],
-        [Some(45.0), Some(71.0), Some(48.0), Some(71.0)]
+        [Some(45.0), Some(71.0), Some(46.0), Some(71.0)]
     );
     // The attack event carries both positions, for the client's tracer.
     assert!(t.events().contains(&(
@@ -97,8 +101,8 @@ fn armor_and_the_rugged_terrain_bonus() {
         SimEvent::Attacked {
             attacker: ObjectId(1),
             target: ObjectId(2),
-            from: Vec2::new(400.0, 100.0),
-            to: Vec2::new(550.0, 100.0),
+            from: Vec2::new(800.0, 400.0),
+            to: Vec2::new(950.0, 400.0),
         }
     )));
 }
@@ -166,23 +170,26 @@ fn zero_hp_is_death() {
 
 /// The tick's hits are applied together, once every unit has acted. Two hits of 9 in one tick take a Guard with 17
 /// HP down although neither would alone; and two Peacekeepers in a duel kill each other in the same tick, each one's
-/// last shot landing although it dies in that tick.
+/// last shot landing although it dies in that tick. The Guard holds its position beyond its own Range (3 grid
+/// units) and within the Peacekeepers' (4), so it never fires.
 #[test]
 fn hits_in_one_tick_all_count() {
     let mut t = spawned(&[
         (ObjectKind::Peacekeeper, P1, Vec2::new(400.0, 300.0)), // 1
-        (ObjectKind::Peacekeeper, P1, Vec2::new(400.0, 400.0)), // 2
-        (ObjectKind::Guard, P2, Vec2::new(550.0, 350.0)),       // 3
+        (ObjectKind::Guard, P2, Vec2::new(650.0, 300.0)),       // 2: a gap of 220 su
     ]);
-    attack(&mut t, 2, P1, &[1], 3, false);
-    // Unit 1 hits in ticks 4, 21, …, 106 (7 hits: 63) and 123; unit 2, ordered in 121, hits in 123 too.
-    attack(&mut t, 121, P1, &[2], 3, false);
+    t.order_at(2, P2, &ids(&[2]), OrderKind::Hold, false);
+    attack(&mut t, 2, P1, &[1], 2, false);
+    // Unit 1 hits in ticks 4, 21, …, 106 (7 hits: 63) and 123; unit 3 arrives in tick 120 and, ordered in 121,
+    // hits in 123 too.
+    t.spawn_unit_at(120, ObjectKind::Peacekeeper, P1, Vec2::new(400.0, 400.0));
+    attack(&mut t, 121, P1, &[3], 2, false);
     t.run_until(122);
-    assert_eq!(hp(&t, 3), Some(17.0));
+    assert_eq!(hp(&t, 2), Some(17.0));
     t.run_until(123);
-    let last: Vec<(Tick, f32)> = hits_on(&t, 3).into_iter().filter(|&(tick, _)| tick == 123).collect();
+    let last: Vec<(Tick, f32)> = hits_on(&t, 2).into_iter().filter(|&(tick, _)| tick == 123).collect();
     assert_eq!(last, [(123, 9.0), (123, 9.0)]);
-    assert_eq!(died(&t), [(123, ObjectId(3))]);
+    assert_eq!(died(&t), [(123, ObjectId(2))]);
 
     let mut duel = spawned(&[
         (ObjectKind::Peacekeeper, P1, Vec2::new(400.0, 300.0)),
@@ -206,19 +213,21 @@ fn references_to(sim: &Sim, id: ObjectId) -> Vec<ObjectId> {
 
 /// A death goes through the removal path: the object is gone, and so is every reference to it. The orders naming it
 /// complete (the current one) or are dropped (queued ones), and the next order starts; attacks on it stop. A debug
-/// removal takes the same path.
+/// removal takes the same path. The Guards hold their position beyond their own Range and within the Peacekeepers',
+/// so they never fire; Peacekeeper 4 holds out of everyone's range; 7 and 8 arrive just before their orders.
 #[test]
 fn death_removes_the_object_and_every_reference_to_it() {
     let mut t = spawned(&[
         (ObjectKind::Peacekeeper, P1, Vec2::new(400.0, 200.0)), // 1
         (ObjectKind::Peacekeeper, P1, Vec2::new(400.0, 260.0)), // 2
         (ObjectKind::Peacekeeper, P1, Vec2::new(400.0, 320.0)), // 3
-        (ObjectKind::Peacekeeper, P1, Vec2::new(400.0, 380.0)), // 4
-        (ObjectKind::Guard, P2, Vec2::new(560.0, 290.0)),       // 5
-        (ObjectKind::Guard, P2, Vec2::new(560.0, 360.0)),       // 6
-        (ObjectKind::Peacekeeper, P1, Vec2::new(400.0, 140.0)), // 7
-        (ObjectKind::Peacekeeper, P1, Vec2::new(400.0, 80.0)),  // 8
+        (ObjectKind::Peacekeeper, P1, Vec2::new(100.0, 450.0)), // 4
+        (ObjectKind::Guard, P2, Vec2::new(630.0, 260.0)),       // 5
+        (ObjectKind::Guard, P2, Vec2::new(630.0, 330.0)),       // 6
     ]);
+    t.order_at(2, P2, &ids(&[5, 6]), OrderKind::Hold, false);
+    t.spawn_unit_at(36, ObjectKind::Peacekeeper, P1, Vec2::new(400.0, 140.0)); // 7
+    t.spawn_unit_at(37, ObjectKind::Peacekeeper, P1, Vec2::new(400.0, 80.0)); // 8
     // 1–3 attack Guard 5 (27 a volley: dead on the third, in tick 38); 2 then attacks Guard 6.
     attack(&mut t, 2, P1, &[1, 2, 3], 5, false);
     attack(&mut t, 2, P1, &[2], 6, true);

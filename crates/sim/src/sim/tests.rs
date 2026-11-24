@@ -57,7 +57,11 @@ fn make_busy(sim: &mut Sim, id: u32) {
     };
     let o = orders(sim, id);
     o.give(order.clone(), false);
-    o.current = Some(crate::orders::ActiveOrder { order, since: 2 });
+    o.current = Some(crate::orders::ActiveOrder {
+        order,
+        since: 2,
+        state: crate::orders::Behaviour::Plain,
+    });
     let pos = obj(sim, id).pos;
     let m = mover(sim, id);
     m.go_to(crate::mover::MoveGoal::Point(Vec2::new(41.0, 51.0)), None, 2);
@@ -178,6 +182,7 @@ fn state_hash_covers_every_field() {
         }),
         ("config debug", |s| s.config.debug = !s.config.debug),
         ("next_group", |s| s.next_group += 1),
+        ("auto_targeting", |s| s.auto_targeting = !s.auto_targeting),
         ("nav_version", |s| s.nav_version += 1),
         ("orders none", |s| obj(s, 3).orders = None),
         ("queue", |s| {

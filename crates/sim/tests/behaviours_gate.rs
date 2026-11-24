@@ -1,0 +1,181 @@
+//! The command gate's rule for object targets (question Q0017, point 2, its default; `core/vision.md > Explored
+//! Selectability`): an Attack or a Move on an object is taken only while the issuing player sees the object. The
+//! one exception is the design's: a GDO player may target a Supply Delivery Station on Explored ground.
+
+use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::{
+    Command, DebugCommand, Faction, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Reject, SpawnAt, Target,
+    TickInputs, TilePos, Vec2, VisibilityState,
+};
+
+const P1: PlayerId = PlayerId(1);
+const P2: PlayerId = PlayerId(2);
+const PK: ObjectKind = ObjectKind::Peacekeeper;
+
+/// 40 × 12 open tiles.
+fn open() -> String {
+    "........................................\n".repeat(12)
+}
+
+fn v(x: f32, y: f32) -> Vec2 {
+    Vec2::new(x, y)
+}
+
+fn id(n: u32) -> ObjectId {
+    ObjectId(n)
+}
+
+fn order(player: PlayerId, unit: u32, kind: OrderKind, queue: bool) -> PlayerCommand {
+    PlayerCommand {
+        player,
+        command: Command::Order {
+            units: vec![id(unit)],
+            kind,
+            queue,
+        },
+    }
+}
+
+fn attack(n: u32) -> OrderKind {
+    OrderKind::Attack(id(n))
+}
+
+fn move_on(n: u32) -> OrderKind {
+    OrderKind::Move(Target::Object(id(n)))
+}
+
+/// Steps `t` with `cmd` and checks the gate's verdict; a rejected command changes nothing (compared with a copy that
+/// ran the tick without it).
+#[track_caller]
+fn apply(t: &mut TestSim, cmd: PlayerCommand, expected: Result<(), Reject>) {
+    assert_eq!(t.sim().validate(&cmd), expected, "{cmd:?}");
+    let mut without = t.sim().clone();
+    without.step(&TickInputs::default());
+    let tick = t.sim().tick() + 1;
+    t.at(tick, cmd.player, cmd.command.clone()).step();
+    if expected.is_err() {
+        assert_eq!(t.sim().state_hash(), without.state_hash(), "{cmd:?}");
+        assert_eq!(t.sim(), &without, "{cmd:?}");
+    }
+}
+
+fn state(t: &TestSim, player: PlayerId, n: u32) -> VisibilityState {
+    t.sim().vision().object_state(player, t.sim().object(id(n)).unwrap())
+}
+
+/// The brief's "the gate rejecting unseen targets": an enemy out of sight can't be attacked or followed, plainly or
+/// queued; one in sight can; the player's own units always can.
+#[test]
+fn orders_on_units_out_of_sight_are_rejected() {
+    let mut t = ScenarioBuilder::new(&open()).start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, PK, P1, v(200.0, 300.0)) // 1
+        .spawn_unit_at(1, PK, P2, v(450.0, 300.0)) // 2, in sight of 1
+        .spawn_unit_at(1, PK, P2, v(1500.0, 300.0)) // 3, out of sight
+        .spawn_unit_at(1, PK, P1, v(200.0, 600.0)) // 4
+        .run(1);
+    assert_eq!(state(&t, P1, 2), VisibilityState::Visible);
+    assert_eq!(state(&t, P1, 3), VisibilityState::Unexplored);
+    for queue in [false, true] {
+        for kind in [attack(3), move_on(3)] {
+            apply(&mut t, order(P1, 1, kind, queue), Err(Reject::NotVisible(id(3))));
+        }
+        for kind in [attack(2), move_on(2), move_on(4), attack(4)] {
+            apply(&mut t, order(P1, 1, kind, queue), Ok(()));
+        }
+    }
+    // Each player has its own sight: player 2's far unit doesn't see what its near one does.
+    apply(&mut t, order(P2, 3, attack(1), false), Ok(()));
+    apply(&mut t, order(P2, 3, attack(4), false), Err(Reject::NotVisible(id(4))));
+    // The other rules come first.
+    apply(
+        &mut t,
+        order(P1, 1, attack(99), false),
+        Err(Reject::UnknownObject(id(99))),
+    );
+    apply(&mut t, order(P1, 2, attack(3), false), Err(Reject::NotOwned(id(2))));
+}
+
+/// An enemy that was seen and isn't any more (its tiles are Explored) is out of sight like any other: the order is
+/// rejected, where an order given while it was in sight was taken.
+#[test]
+fn a_unit_seen_before_is_no_target_once_it_is_out_of_sight() {
+    let mut t = ScenarioBuilder::new(&open()).start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, PK, P1, v(200.0, 300.0))
+        .spawn_unit_at(1, PK, P2, v(450.0, 300.0))
+        .run(1);
+    apply(&mut t, order(P1, 1, OrderKind::Stop, false), Ok(()));
+    let away = DebugCommand::SetPosition {
+        id: id(1),
+        pos: v(200.0, 700.0),
+    };
+    t.debug_at(t.sim().tick() + 1, away).step();
+    assert_eq!(state(&t, P1, 2), VisibilityState::Explored);
+    apply(&mut t, order(P1, 1, attack(2), false), Err(Reject::NotVisible(id(2))));
+    apply(&mut t, order(P1, 1, move_on(2), true), Err(Reject::NotVisible(id(2))));
+}
+
+/// `core/vision.md > Explored Selectability`: a Supply Delivery Station on Explored ground can be targeted by a GDO
+/// player, and by nobody else; a crystal patch there by nobody; neither on Unexplored ground. In sight, anyone may
+/// move to either.
+#[test]
+fn a_gdo_player_may_target_a_supply_station_it_has_explored() {
+    let mut scenario = ScenarioBuilder::new(&open()).build();
+    scenario.setup.players[1].faction = Faction::Syndicate;
+    let mut t = TestSim::new(scenario);
+    let tiles = |kind, x, y| DebugCommand::Spawn {
+        kind,
+        owner: None,
+        at: SpawnAt::Tile(TilePos::new(x, y)),
+    };
+    t.without_auto_targeting()
+        .debug_at(1, tiles(ObjectKind::SupplyDeliveryStation, 5, 4)) // 1: near the units
+        .debug_at(1, tiles(ObjectKind::CrystalPatch, 5, 7)) // 2: near the units
+        .debug_at(1, tiles(ObjectKind::SupplyDeliveryStation, 30, 4)) // 3: never seen
+        .spawn_unit_at(1, PK, P1, v(200.0, 350.0)) // 4, GDO
+        .spawn_unit_at(1, ObjectKind::Guard, P2, v(200.0, 420.0)) // 5, Syndicate
+        .run(1);
+    assert_eq!(t.sim().player(P1).unwrap().faction, Faction::Gdo);
+    assert_eq!(t.sim().player(P2).unwrap().faction, Faction::Syndicate);
+    for (player, unit) in [(P1, 4), (P2, 5)] {
+        assert_eq!(state(&t, player, 1), VisibilityState::Visible);
+        assert_eq!(state(&t, player, 3), VisibilityState::Unexplored);
+        apply(&mut t, order(player, unit, move_on(1), true), Ok(()));
+        apply(&mut t, order(player, unit, move_on(2), true), Ok(()));
+        apply(
+            &mut t,
+            order(player, unit, move_on(3), false),
+            Err(Reject::NotVisible(id(3))),
+        );
+        // Indestructible, whoever sees it.
+        apply(
+            &mut t,
+            order(player, unit, attack(1), false),
+            Err(Reject::NotAttackable(id(1))),
+        );
+    }
+    // Both walk away, far out of sight: the station and the patch are on Explored ground now.
+    let tick = t.sim().tick() + 1;
+    for (unit, x) in [(4, 1100.0), (5, 1200.0)] {
+        let pos = v(x, 600.0);
+        t.debug_at(tick, DebugCommand::SetPosition { id: id(unit), pos })
+            .order_at(tick, PlayerId(unit as u8 - 3), &[id(unit)], OrderKind::Stop, false);
+    }
+    t.step();
+    for player in [P1, P2] {
+        assert_eq!(state(&t, player, 1), VisibilityState::Explored);
+        assert_eq!(state(&t, player, 2), VisibilityState::Explored);
+    }
+    apply(&mut t, order(P1, 4, move_on(1), false), Ok(()));
+    apply(&mut t, order(P2, 5, move_on(1), false), Err(Reject::NotVisible(id(1))));
+    apply(&mut t, order(P1, 4, move_on(2), false), Err(Reject::NotVisible(id(2))));
+    apply(&mut t, order(P2, 5, move_on(2), false), Err(Reject::NotVisible(id(2))));
+    apply(&mut t, order(P1, 4, move_on(3), false), Err(Reject::NotVisible(id(3))));
+    // The GDO unit walks back to the station it remembers, and its order completes there.
+    t.run(500);
+    let unit = t.sim().object(id(4)).unwrap();
+    assert!(unit.orders.as_ref().unwrap().is_idle());
+    let station = sc_sim::Shape::of(t.sim().object(id(1)).unwrap());
+    assert!(sc_sim::Shape::of(unit).gap(&station) <= sc_sim::orders::PROXIMITY_SU);
+}

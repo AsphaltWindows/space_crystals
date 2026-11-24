@@ -62,9 +62,11 @@ fn pos(t: &TestSim, id: u32) -> Vec2 {
 }
 
 /// Units 1 (player 1, at (100, 100)) and 2 (player 2, at (100, 300)), Peacekeepers, spawned in tick 1, plus a
-/// crystal patch (id 3) on tile (10, 6).
+/// crystal patch (id 3) on tile (10, 6), out of both units' sight. Auto-targeting is off: these tests are about
+/// the orders, not the fight the two would pick.
 fn two_units() -> TestSim {
     let mut t = ScenarioBuilder::new(MAP).start();
+    t.without_auto_targeting();
     t.spawn_unit_at(1, ObjectKind::Peacekeeper, P1, v(100.0, 100.0))
         .spawn_unit_at(1, ObjectKind::Peacekeeper, P2, v(100.0, 300.0))
         .debug_at(
@@ -195,8 +197,14 @@ fn order_targets_must_exist_and_lie_on_the_map() {
     apply(&mut t, order(P1, &[1], OrderKind::Attack(ObjectId(2)), false), Ok(()));
     apply(
         &mut t,
-        order(P1, &[1], OrderKind::Move(Target::Object(ObjectId(3))), false),
+        order(P1, &[1], OrderKind::Move(Target::Object(ObjectId(2))), false),
         Ok(()),
+    );
+    // Question Q0017, point 2: a target must be in the player's sight (`tests/behaviours_gate.rs` has the rest).
+    apply(
+        &mut t,
+        order(P1, &[1], OrderKind::Move(Target::Object(ObjectId(3))), false),
+        Err(Reject::NotVisible(ObjectId(3))),
     );
 }
 
@@ -274,6 +282,7 @@ fn hold_stays_put_until_a_new_order_replaces_it() {
 #[test]
 fn spawns_and_teleports_keep_units_apart_and_on_open_ground() {
     let mut t = ScenarioBuilder::new(MAP).start();
+    t.without_auto_targeting();
     t.spawn_unit_at(1, ObjectKind::Peacekeeper, P1, v(100.0, 100.0)).run(1);
     let sim = t.sim();
     let check = |kind, p| sim.validate(&spawn(kind, Some(P1), p));

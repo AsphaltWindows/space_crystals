@@ -63,6 +63,9 @@ pub struct Sim {
     next_group: u32,
     /// Bumped by every rebuild of the navigation grids (phase 5b): paths planned on an older version are stale.
     nav_version: u32,
+    /// Whether units acquire targets by themselves (`systems/controls/behaviors.md > BaseAutoTargeting`): on,
+    /// unless a debug command turned it off (`DebugCommand::SetAutoTargeting`).
+    auto_targeting: bool,
     /// Output of the latest step only; not part of [`Sim::state_hash`].
     events: Vec<SimEvent>,
     /// Each player's vision as of the end of the latest tick (`vision`): the Explored tiles are history, hashed and
@@ -128,6 +131,7 @@ impl Sim {
             config: scenario.setup.config,
             next_group: 0,
             nav_version: 0,
+            auto_targeting: true,
             events: Vec::new(),
             nav: NavState::unbuilt(&scenario.map.terrain),
         }
@@ -193,6 +197,11 @@ impl Sim {
     }
 
     /// How often the grids were rebuilt since the game started (phase 5b).
+    /// Whether units acquire targets by themselves: on, unless `DebugCommand::SetAutoTargeting` turned it off.
+    pub fn auto_targeting(&self) -> bool {
+        self.auto_targeting
+    }
+
     pub fn nav_version(&self) -> u32 {
         self.nav_version
     }
@@ -225,6 +234,7 @@ impl Sim {
             config,
             next_group,
             nav_version,
+            auto_targeting,
             events: _,
             vision,
             nav: _,
@@ -242,6 +252,7 @@ impl Sim {
         config.hash(&mut h);
         next_group.hash(&mut h);
         nav_version.hash(&mut h);
+        auto_targeting.hash(&mut h);
         vision.hash(&mut h);
         h.finish()
     }
@@ -262,7 +273,9 @@ impl Sim {
         }
         // Phases 5a–5f, `docs/movement.md > 4`.
         // 5a: after the commands, so an order acts in its own tick; before movement, so goals have one writer.
-        orders::update(&mut self.objects, first_new, self.tick);
+        // The behaviours read the positions and the vision the last tick left (5f).
+        let world = orders::world::World::new(&self.map, &self.vision, &self.objects, self.tick, self.auto_targeting);
+        orders::update(&mut self.objects, first_new, &world);
         // 5b: the paths below must see this tick's obstacles.
         paths::sync(&mut self.nav, &self.map, &self.objects, &mut self.nav_version);
         // 5c: after the goals, before the movement that follows the paths.
@@ -332,6 +345,7 @@ impl Sim {
                     }
                 }
             }
+            Checked::AutoTargeting(on) => self.auto_targeting = on,
         }
     }
 
@@ -457,6 +471,7 @@ struct SimState {
     config: SimConfig,
     next_group: u32,
     nav_version: u32,
+    auto_targeting: bool,
     events: Vec<SimEvent>,
     vision: Vec<vision::SavedVision>,
 }
@@ -475,6 +490,7 @@ impl TryFrom<SimState> for Sim {
             config,
             next_group,
             nav_version,
+            auto_targeting,
             events,
             vision: saved,
         } = state;
@@ -502,6 +518,7 @@ impl TryFrom<SimState> for Sim {
             config,
             next_group,
             nav_version,
+            auto_targeting,
             events,
             vision,
             nav,

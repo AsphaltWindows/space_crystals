@@ -81,10 +81,6 @@ pub const AVOID_COMMIT_TICKS: Tick = 16;
 /// arrived (`docs/movement.md > 6.5`, rule 1).
 pub const OCCUPIED_ARRIVAL_GU: f32 = 2.0;
 
-/// `docs/movement.md > 6.5`, rule 2: a unit queueing behind friendly attackers checks again after this many ticks.
-/// Slice E uses it (chasing); tuning const.
-pub const QUEUE_RECHECK_TICKS: Tick = 16;
-
 /// What a unit is asked to reach (`docs/movement.md > 3`).
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum MoveGoal {
@@ -93,8 +89,10 @@ pub enum MoveGoal {
     None,
     /// A point, space units.
     Point(Vec2),
-    /// An object, until the unit is within `reach` space units of it (`systems/controls/behaviors.md >
-    /// MovingToObject`; measured as in G7, question Q0009). Behaviours use it from slice E on.
+    /// An object, until the gap between the unit's shape and the object's is at most `reach` space units, edge to
+    /// edge (`systems/controls/behaviors.md > MovingToObject > Proximity`; `shape`). The path is kept aimed at the
+    /// object as it moves (`paths::chase_check`). The behaviours' chases and follows (`orders::engage`,
+    /// `orders::travel`).
     Object { id: ObjectId, reach: f32 },
 }
 
@@ -106,7 +104,8 @@ pub enum MoveStatus {
     Idle,
     /// On the way, or waiting for its path.
     Moving,
-    /// Reached the goal, or the reachable point nearest to it (G5, question Q0008).
+    /// Reached the goal, or the reachable point nearest to it (design change 0025), or stopped within 2 grid units
+    /// of it behind units that won't move (design changes 0026, 0032 and 0033).
     Arrived,
     /// Gave up: no path, or stuck with no repath left (`systems/controls/behaviors.md > MovingToLocation >
     /// Failure`; the numbers are design change 0024). Two units head-on in a passage too narrow to pass both end here

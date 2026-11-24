@@ -184,7 +184,12 @@ mod tests {
     fn orders(current: Option<Order>, queued: Vec<Order>) -> Orders {
         Orders {
             queue: queued.into(),
-            current: current.map(|order| ActiveOrder { order, since: 1 }),
+            current: current.map(|order| ActiveOrder {
+                order,
+                since: 1,
+                state: Default::default(),
+            }),
+            auto: Default::default(),
         }
     }
 

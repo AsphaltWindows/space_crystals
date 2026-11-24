@@ -253,6 +253,7 @@ mod tests {
         hold.orders.as_mut().unwrap().current = Some(crate::orders::ActiveOrder {
             order: order(OrderKind::Hold),
             since: 1,
+            state: crate::orders::Behaviour::Hold { target: None },
         });
         assert!(!yields(&hold), "Hold Position is a command");
         let mut queued = idle.clone();

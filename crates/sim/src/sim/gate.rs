@@ -13,7 +13,9 @@ use crate::nav;
 use crate::object::{Object, Placement};
 use crate::orders::{MAX_ORDER_UNITS, OrderKind, Target};
 use crate::paths::{blocking_footprint, box_overlaps_rect, boxes_overlap};
+use crate::player::Faction;
 use crate::scenario::{SpawnProblem, place_spawn};
+use crate::vision::VisibilityState;
 
 /// Why the sim ignores a command ([`Sim::validate`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -41,6 +43,9 @@ pub enum Reject {
     /// The order's target can't be attacked: it is indestructible
     /// (`systems/controls/commands.md > Attack`: a destructible object).
     NotAttackable(ObjectId),
+    /// The order's target isn't in the issuing player's sight (`core/vision.md > Explored Selectability`; question
+    /// Q0017, point 2).
+    NotVisible(ObjectId),
     /// A unit's box there would overlap a blocked tile, a blocking footprint or the map's edge
     /// (`docs/movement.md > 3`).
     Blocked,
@@ -63,6 +68,7 @@ impl fmt::Display for Reject {
             Reject::NoUnits => write!(f, "none of the ordered units exists"),
             Reject::TooManyUnits => write!(f, "an order may name at most {MAX_ORDER_UNITS} units"),
             Reject::NotAttackable(id) => write!(f, "object {} can't be attacked", id.0),
+            Reject::NotVisible(id) => write!(f, "object {} is out of sight", id.0),
             Reject::Blocked => write!(f, "the unit doesn't fit there: blocked ground"),
             Reject::Occupied(id) => write!(f, "unit {} is in the way", id.0),
         }
@@ -88,6 +94,7 @@ pub(super) enum Checked {
         id: ObjectId,
         pos: Vec2,
     },
+    AutoTargeting(bool),
 }
 
 impl Sim {
@@ -99,8 +106,9 @@ impl Sim {
     /// 3. every object the command refers to exists, and every object a player's own order commands belongs to
     ///    that player (debug commands may refer to anyone's objects). An order drops the ids of units that no
     ///    longer exist, and repeated ids; it is rejected if no unit remains (`docs/movement.md > 3`);
-    /// 4. the command's own rules hold: an order's size and target, a spawn's owner and placement, a teleport to a
-    ///    unit and onto the map, and a unit's box clear of blocked ground and of the units of its layer.
+    /// 4. the command's own rules hold: an order's size and target (which the player must see,
+    ///    [`Reject::NotVisible`]), a spawn's owner and placement, a teleport to a unit and onto the map, and a
+    ///    unit's box clear of blocked ground and of the units of its layer.
     pub fn validate(&self, cmd: &PlayerCommand) -> Result<(), Reject> {
         self.check(cmd).map(|_| ())
     }
@@ -160,12 +168,14 @@ impl Sim {
                 }
             }
             OrderKind::Move(Target::Object(id)) => {
-                self.referenced(id, None)?;
+                self.check_target_seen(player, self.referenced(id, None)?)?;
             }
             OrderKind::Attack(id) => {
-                if !self.referenced(id, None)?.def().destructible {
+                let target = self.referenced(id, None)?;
+                if !target.def().destructible {
                     return Err(Reject::NotAttackable(id));
                 }
+                self.check_target_seen(player, target)?;
             }
             OrderKind::Hold | OrderKind::Stop => {}
         }
@@ -174,6 +184,27 @@ impl Sim {
             kind,
             queue,
         })
+    }
+
+    /// Question Q0017, point 2 (its default, until answered): an order may target an object only while the issuing
+    /// player sees it: a tile it covers is Visible. The one exception is the design's
+    /// (`core/vision.md > Explored Selectability`): a GDO player may target a Supply Delivery Station on Explored
+    /// ground. Anything else out of sight, a remembered structure included, is `Reject::NotVisible`; the client
+    /// makes a right-click on one a Move to that spot.
+    fn check_target_seen(&self, player: PlayerId, target: &Object) -> Result<(), Reject> {
+        let seen = match self.vision.object_state(player, target) {
+            VisibilityState::Visible => true,
+            VisibilityState::Explored => {
+                target.kind == ObjectKind::SupplyDeliveryStation
+                    && self.player(player).is_some_and(|p| p.faction == Faction::Gdo)
+            }
+            VisibilityState::Unexplored => false,
+        };
+        if seen {
+            Ok(())
+        } else {
+            Err(Reject::NotVisible(target.id))
+        }
     }
 
     fn check_debug(&self, command: &DebugCommand) -> Result<Checked, Reject> {
@@ -213,6 +244,7 @@ impl Sim {
                 self.check_unit_fits(object.kind, pos, Some(id))?;
                 Ok(Checked::Teleport { id, pos })
             }
+            DebugCommand::SetAutoTargeting { on } => Ok(Checked::AutoTargeting(on)),
         }
     }
 

@@ -11,8 +11,10 @@ use crate::orders::{Order, OrderKind, Target};
 impl Sim {
     /// Removes the objects `ids` (those that exist), each with a `SimEvent::Removed`, in id order. Then, for every
     /// other object: an order naming one of them completes if it is the current order and is dropped if queued
-    /// (`systems/controls/behaviors.md > AttackingObject` 5: the target destroyed, the behaviour is complete); a move
-    /// towards one ends as `MoveStatus::TargetLost`; an attack on one stops (`combat::AttackState::forget`).
+    /// (`systems/controls/behaviors.md > AttackingObject` 5: the target destroyed, the behaviour is complete; `>
+    /// MovingToObject > Completion`: a Follow ends when its target dies); a behaviour that engaged one by itself
+    /// drops it (`Orders::forget`); a move towards one ends as `MoveStatus::TargetLost`; an attack on one stops
+    /// (`combat::AttackState::forget`).
     ///
     /// The grids aren't touched: phase 5b catches up with a footprint that went away, and a removal after it must
     /// sync them (`paths::sync`).
@@ -40,6 +42,8 @@ fn forget(o: &mut Object, gone: &[ObjectId]) {
             orders.current = None;
         }
         orders.queue.retain(|order| !names_gone(order));
+        // The enemies its behaviours engaged by themselves (`orders::state`).
+        orders.forget(&is_gone);
     }
     if let Some(mover) = &mut o.mover
         && let MoveGoal::Object { id, .. } = mover.goal
@@ -69,10 +73,12 @@ mod tests {
     use crate::combat::{AttackPhase, AttackState};
     use crate::defs::ObjectKind;
     use crate::ids::PlayerId;
-    use crate::orders::{ActiveOrder, OrderGroup};
+    use crate::orders::state::Pursuit;
+    use crate::orders::{ActiveOrder, Auto, Behaviour, OrderGroup};
     use crate::scenarios;
 
-    /// Every kind of reference, including a move towards an object, which no behaviour gives yet (slice E).
+    /// Every kind of reference: orders, a move towards an object, an attack, and what the behaviours engaged by
+    /// themselves.
     #[test]
     fn removal_clears_every_reference_to_the_removed() {
         let mut sim = Sim::new(&scenarios::empty(8, 6));
@@ -96,6 +102,7 @@ mod tests {
         orders.current = Some(ActiveOrder {
             order: order(OrderKind::Move(Target::Object(b))),
             since: 1,
+            state: Behaviour::default(),
         });
         let point = order(OrderKind::Move(Target::Point(Vec2::ONE)));
         orders
@@ -108,6 +115,28 @@ mod tests {
             phase: Some(AttackPhase::Aiming { target: b }),
             elapsed: 1,
         });
+        // Unit c holds its position and engaged b by itself; the idle unit d went for b on its own.
+        let d = sim.insert_object(
+            ObjectKind::Peacekeeper,
+            Some(PlayerId(1)),
+            Vec2::new(400.0, 100.0),
+            None,
+            None,
+        );
+        sim.objects.get_mut(&c).unwrap().orders.as_mut().unwrap().current = Some(ActiveOrder {
+            order: order(OrderKind::Hold),
+            since: 1,
+            state: Behaviour::Hold { target: Some(b) },
+        });
+        sim.objects.get_mut(&d).unwrap().orders.as_mut().unwrap().auto = Auto::Engaging {
+            pursuit: Pursuit {
+                target: b,
+                chasing: true,
+            },
+            origin: Vec2::ZERO,
+        };
+        assert_eq!(crate::testing::referenced_ids(&sim.objects[&c]), [b]);
+        assert_eq!(crate::testing::referenced_ids(&sim.objects[&d]), [b]);
         sim.events.clear();
 
         sim.remove_objects(&[b, ObjectId(99), b]);
@@ -120,6 +149,12 @@ mod tests {
         let mover = o.mover.as_ref().unwrap();
         assert_eq!((mover.goal, mover.status), (MoveGoal::None, MoveStatus::TargetLost));
         assert_eq!(o.attack, Some(AttackState::default()));
-        assert!(sim.objects.contains_key(&c));
+        let held = sim.objects[&c].orders.as_ref().unwrap();
+        assert!(matches!(
+            held.current.as_ref().map(|active| &active.state),
+            Some(Behaviour::Hold { target: None })
+        ));
+        assert_eq!(sim.objects[&d].orders.as_ref().unwrap().auto, Auto::default());
+        assert_eq!(crate::testing::dangling_references(&sim), []);
     }
 }

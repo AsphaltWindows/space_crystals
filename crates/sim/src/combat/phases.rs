@@ -9,7 +9,7 @@
 use glam::Vec2;
 
 use super::damage::{Hit, directional_multiplier, hit_damage};
-use super::targeting::{TargetView, Targets, domain_allows, range_distance, within_range};
+use super::targeting::{TargetView, Targets, domain_allows, reaches};
 use super::{AttackPhase, AttackState};
 use crate::defs::{AttackAttrs, ObjectKind, UnitDef};
 use crate::elevation::Elevation;
@@ -17,6 +17,7 @@ use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::math::{self, PI};
+use crate::shape::Shape;
 use crate::vision::PlayerVision;
 
 /// `systems/controls/behaviors.md > AttackingObject` 2: a unit attacking from its base must face its target ("unit
@@ -29,8 +30,8 @@ pub const FACING_TOLERANCE: f32 = PI / 180.0;
 pub(super) struct Shooter<'a> {
     pub id: ObjectId,
     pub pos: Vec2,
-    /// Half its silhouette (`RangeMeasure::EdgeToEdge` measures from it).
-    half: Vec2,
+    /// Its shape: Range is measured from its edge (`systems/combat.md > Range Measurement`).
+    shape: Shape,
     elevation: Elevation,
     pub attrs: &'a AttackAttrs,
     /// Radians per tick (`systems/combat.md > LocomotionOrientationConstraints`); `None` for the movement models
@@ -43,11 +44,16 @@ pub(super) struct Shooter<'a> {
 }
 
 impl<'a> Shooter<'a> {
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the attacking object, split into the parts its sequence reads"
+    )]
     pub(super) fn new(
         map: &Map,
         id: ObjectId,
         kind: ObjectKind,
         pos: Vec2,
+        facing: f32,
         unit: &UnitDef,
         attrs: &'a AttackAttrs,
         sight: Option<&'a PlayerVision>,
@@ -55,7 +61,7 @@ impl<'a> Shooter<'a> {
         Self {
             id,
             pos,
-            half: kind.def().half_extents().unwrap_or(Vec2::ZERO),
+            shape: Shape::silhouette(kind, pos, facing),
             elevation: Elevation::of(map, kind, pos),
             attrs,
             turn_rate: unit.movement.turn_rate(),
@@ -73,13 +79,13 @@ impl<'a> Shooter<'a> {
     /// `systems/combat.md > ValidTarget` 2: whether its owner sees `t` (a tile `t` covers is Visible). Phase 5e
     /// reads the vision phase 5f left at the end of the last tick (`docs/movement.md > 4`).
     fn sees(&self, t: &TargetView) -> bool {
-        self.sight.is_some_and(|v| v.sees_box(t.lo, t.hi))
+        let (lo, hi) = t.shape.bounds();
+        self.sight.is_some_and(|v| v.sees_box(lo, hi))
     }
 
     /// Whether `t` is within its Range and beyond its MinRange from where it stands.
     fn reaches(&self, t: &TargetView) -> bool {
-        let distance = range_distance(self.pos, self.half, t.lo, t.hi);
-        within_range(self.attrs, distance, self.elevation, t.elevation)
+        reaches(self.attrs, &self.shape, self.elevation, &t.shape, t.elevation)
     }
 
     /// The direction to `t`'s centre, or `None` if it is right here.
@@ -139,8 +145,8 @@ pub(super) fn run(
     events: &mut Vec<SimEvent>,
 ) {
     // A target this unit can't attack at all (gone, itself, or in a domain its attack can't reach) is dropped, and
-    // the order that engaged it completes (`orders::update`). One its owner doesn't see stays engaged: the order
-    // waits (chasing it to where it was last seen is the behaviours', question Q0010).
+    // the order that engaged it completes (`orders::update`). One its owner doesn't see stays engaged here: what
+    // to do about it is the behaviour's (`orders::engage`, design change 0034).
     if let Some(target) = state.target
         && !targets.get(target).is_some_and(|t| shooter.can_target(t))
     {
@@ -312,7 +318,7 @@ mod tests {
         let (map, targets, vision) = world(bearing);
         let unit = ObjectKind::Peacekeeper.def().unit.clone().unwrap();
         let sight = vision.player(MINE);
-        let mut shooter = Shooter::new(&map, ME, ObjectKind::Peacekeeper, Vec2::ZERO, &unit, attrs, sight);
+        let mut shooter = Shooter::new(&map, ME, ObjectKind::Peacekeeper, Vec2::ZERO, 0.0, &unit, attrs, sight);
         shooter.turn_rate = Some(turn_rate);
         let mut state = AttackState::default();
         state.engage(Some(FOE));
@@ -368,9 +374,27 @@ mod tests {
         let unit = ObjectKind::Peacekeeper.def().unit.clone().unwrap();
         let attrs = attrs(2, 1, 0, 30);
         let at = Vec2::ZERO;
-        let sees = Shooter::new(&map, ME, ObjectKind::Peacekeeper, at, &unit, &attrs, seen.player(MINE));
-        let doesnt = Shooter::new(&map, ME, ObjectKind::Peacekeeper, at, &unit, &attrs, blind.player(MINE));
-        let ownerless = Shooter::new(&map, ME, ObjectKind::Peacekeeper, at, &unit, &attrs, None);
+        let sees = Shooter::new(
+            &map,
+            ME,
+            ObjectKind::Peacekeeper,
+            at,
+            0.0,
+            &unit,
+            &attrs,
+            seen.player(MINE),
+        );
+        let doesnt = Shooter::new(
+            &map,
+            ME,
+            ObjectKind::Peacekeeper,
+            at,
+            0.0,
+            &unit,
+            &attrs,
+            blind.player(MINE),
+        );
+        let ownerless = Shooter::new(&map, ME, ObjectKind::Peacekeeper, at, 0.0, &unit, &attrs, None);
         let mut state = AttackState::default();
         state.engage(Some(FOE));
         let (mut facing, mut hits) = (0.0, Vec::new());

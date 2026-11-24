@@ -30,6 +30,10 @@
 - **Shift-queued group orders follow the design** (design changes 0029 and 0030): slice Q builds the magic box of
   a queued order at the units' planned end positions, and confirmed that destinations are resolved at the click
   and kept per unit (6.4). Its changes are marked **(Q)**. The code is `crates/sim/src/orders/destinations.rs`.
+- **Object goals and the behaviours are built** (design changes 0031–0034, 0036 and 0037, answering G7–G9; G6 is
+  answered by 0033 and waits for the vehicles milestone): slice E gave `MoveGoal::Object` its meaning (3, 5.6, 6.5)
+  and built the behaviours that set goals (`ARCHITECTURE.md > Behaviours`). Its changes are marked **(E)**. The code
+  is `crates/sim/src/orders/`, `shape.rs`, `paths.rs` (`chase_check`), `movement.rs` and `movement/stuck.rs`.
 
 Design references are `file.md > Section`, relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -70,10 +74,10 @@ Top five first. Each default is what this design implements until answered.
 | G3 | With hard collision and no yielding, two units meeting head-on in a corridor too narrow to pass (two Guards, 72 su, in one tile) deadlock. Is "both give up and stop" intended? | **(Y) Answered by 0022**: yes, both give up; moving units never yield or swap |
 | G4 | "Repeatedly fails to make progress" has no numbers. | **(Y) Answered by 0024** with these numbers: stuck after 24 ticks without progress; at most 3 repaths per order after waits of 8, 16 and 32 ticks; then fail (about 7 s in total). The schedule is 5.6 |
 | G5 | Move target that cannot be reached (cliff, water, inside a structure, cut-off area), or whose point is occupied by a unit that won't move. | **(Y) Answered by 0025 and 0026**: go to the reachable point nearest the target and complete there; arrived when stuck within **2 GU** of the goal behind units that aren't moving (6.5, rule 1) |
-| G6 | Does the Silhouette rectangle rotate with facing? All specified ones are square. | Axis-aligned, never rotates. Must be answered before the first non-square unit |
-| G7 | How are Range and "within proximity" measured for large targets? | From the unit's centre to the nearest point of the target's silhouette or footprint. Proximity: boxes within 8 su (as MiningReach) |
-| G8 | The attack target leaves the attacker's owner's vision during a chase. | Go to its last seen position, then the order completes |
-| G9 | Patrol: is the origin the position at issue or when a Shift-queued Patrol starts (`commands.md > Patrol` vs `behaviors.md > Patrolling` step 1)? What if a leg fails? | When it starts executing. A failed leg counts as arrived; two failed legs in a row end the Patrol |
+| G6 | Does the Silhouette rectangle rotate with facing? All specified ones are square. | **(E) Answered by 0033**: it rotates with the facing. Not built: it waits for the vehicles milestone, with oriented collision. Until then boxes are axis-aligned, and `shape.rs` is the one place that changes |
+| G7 | How are Range and "within proximity" measured for large targets? | **(E) Answered by 0031 and 0032**: edge to edge, the gap between the two shapes (`shape::Shape::gap`), for Range, MinRange and proximity; proximity is a gap of 8 su. The default here was centre to nearest point |
+| G8 | The attack target leaves the attacker's owner's vision during a chase. | **(E) Answered by 0034**, as proposed: go to its last seen position, then the order completes. A Follow of an enemy ends the same way |
+| G9 | Patrol: is the origin the position at issue or when a Shift-queued Patrol starts (`commands.md > Patrol` vs `behaviors.md > Patrolling` step 1)? What if a leg fails? | **(E) Answered by 0036 and 0037**, as proposed: when it starts executing. A failed leg counts as arrived; two failed legs in a row end the Patrol |
 | G10 | Do map resources (patch, station) block ground units? "Structures" doesn't name them. | Yes, their footprints block |
 | G11 | RuggedTerrain = false: is a Rugged tile impassable for that base? Implied, never stated. | Yes, impassable |
 | G12 | Do units path with knowledge of structures their owner has never seen? | Yes, the true map, in M1 |
@@ -98,7 +102,9 @@ pub enum NavClass { Ground, GroundRugged, Underground }  // passability predicat
 // size class: u8 = ceil(max(silhouette w, h) / 64 su); 1 for every unit specified so far.
 
 // orders.rs: the command queue and behaviour state (commands.md, behaviors.md)
-pub struct Orders { queue: VecDeque<Order> /* cap MAX_QUEUED_ORDERS */, current: Option<ActiveOrder> }
+pub struct Orders { queue: VecDeque<Order> /* cap MAX_QUEUED_ORDERS */, current: Option<ActiveOrder>,
+                    auto: Auto /* (E) what the unit does on its own without an order */ }
+pub struct ActiveOrder { order: Order, since: Tick, state: Behaviour /* (E) the behaviour's working state */ }
 pub struct Order { kind: OrderKind, group: OrderGroup /* units of one command share it */,
                    slot: Option<Vec2> /* (M) this unit's own destination by the magic box (6.4); None: the click */ }
 pub enum OrderKind { Move(Target), Attack(ObjectId), AttackMove(Vec2), Patrol(Vec2), Hold, Stop }
@@ -106,7 +112,7 @@ pub enum Target { Point(Vec2), Object(ObjectId) }  // the point is the click
 
 // mover.rs: goal in, motion out. Behaviours write `goal` and read `status`; nothing else moves a unit.
 pub struct Mover {
-    goal: MoveGoal,            // None | Point(Vec2) | Object { id, reach: f32 }
+    goal: MoveGoal,            // None | Point(Vec2) | Object { id, reach: f32 } (E): reach is a gap between shapes
     status: MoveStatus,        // Idle | Moving | Arrived | Failed | TargetLost
     locomotion: Locomotion, orientation: Orientation,   // the design's channels
     velocity: Vec2, speed_factor: f32,                  // Riot Shield: 0.5
@@ -141,7 +147,7 @@ Phases 1–4 stay as they are. Order commands (phase 4) only write `Orders` queu
 
 | Phase | Does | Why here |
 |---|---|---|
-| 5a `orders::update` | Pops completed orders, runs the behaviour state machine, writes `mover.goal`, reads `mover.status` and last tick's positions and visibility | After commands, so an order acts in its own tick; before movement, so there is one writer of goals |
+| 5a `orders::update` | Pops completed orders, runs the behaviour state machine, writes `mover.goal`, reads `mover.status` and last tick's positions and visibility. **(E)** Every behaviour reads one snapshot of the objects, taken before any of them runs (`orders::world::World`) | After commands, so an order acts in its own tick; before movement, so there is one writer of goals |
 | 5b `nav::sync` | If a tile-blocking object or the map changed: rebuild the NavGrids and components, bump `nav_version` | Paths below must see this tick's obstacles |
 | 5c `paths::serve` | Runs the staggered path checks (5.6, 6.2), then serves `Wanted` requests within the budget (5.5) | After goals, before steering; a repath a check asks for is served in the same tick |
 | 5d `movement::step` | **The one movement pipeline**: steer, resolve collisions, commit `pos`/`facing`/`velocity`/channels, set `status` | Single place that writes `pos` |
@@ -216,10 +222,18 @@ repath waits `REPATH_WAITS` (8, 16, 32 ticks) since the unit became stuck or sin
 |---|---|---|
 | Stuck (6.5) | every tick, cheap | yes; with none left, `Failed` 24 ticks after the last one |
 | `nav_version` changed | once, on the unit's stagger tick: LOS along the remaining path; repath only if a segment is now blocked | no (bounded by how often the map changes) |
-| Chase target moved | target is farther than `max(1 GU, 25 % of the distance)` from `planned_target`; at most every 8 ticks | no (rate-limited); slice E |
+| Chase target moved **(E)** | on the stagger tick (`paths::chase_check`): with a clear line for its box, the unit's path becomes the one leg straight to the target, no search; without one, a new plan once the target is farther than `max(1 GU, 25 % of the distance)` from `planned_target`, at most every 8 ticks | no (rate-limited) |
 | Lost LOS to the steering waypoint | on the stagger tick, after being pushed off the path by sidesteps, **(Y)** and only when a stuck repath is due (the schedule below; slice D had 12 ticks without progress) | yes |
 
 Stagger tick: `(tick + id) % 4 == 0`. While a chaser has LOS to its target it steers straight at it with no path.
+
+**(E) Object goals.** A path to an object is planned to the point nearest its centre that the unit can stand on
+(`nav::reachable_point`, as for an unreachable point, 6.4): for a structure or a map resource, whose own tiles are
+blocked, that is right at its wall, within proximity. `planned_target` notes where the object's centre was. The unit
+has `Arrived` when the gap between its shape and the object's is within the goal's `reach` (checked before it
+moves); at the end of its path if the object is still where the path was planned to (the nearest point it can
+reach: design change 0025); or by rule 1 of 6.5. At the end of a path to an object that has moved on, it plans
+again (not counted). An object that is gone ends the move `TargetLost`.
 
 **(Y)** Timing, as design change 0024 words it (`systems/controls/behaviors.md > MovingToLocation > Failure`). A
 unit is **stuck** when 24 ticks have passed without progress (`Mover::is_stuck`; nothing restarts that clock but
@@ -351,7 +365,10 @@ order (Move to a point, AttackMove, Patrol) to more than one unit gives each uni
 - The box has no size limit (TBD in the design): a widely scattered selection mostly converges.
 
 **6.5 Stuck detection and recovery.** Progress = remaining path length to the goal. `last_progress` updates when it
-beats `best_remaining` by half a step. Following a slower unit is progress. A unit is **stuck** after
+beats `best_remaining` by half a step. Following a slower unit is progress. **(E)** Towards an object that is
+moving (a unit that moved this tick or the last), progress is moving forward at all: the object may be as fast as
+the unit, and the path is re-aimed as it moves, so its length says nothing; towards an object at rest it is the
+remaining path length, measured afresh from when it came to rest. A unit is **stuck** after
 `STUCK_TICKS` = 24 without it. Then, in order:
 1. **(Y) Occupied target** (design change 0026, `systems/controls/behaviors.md > MovingToLocation > Occupied target
    location`): the goal is a point within `OCCUPIED_ARRIVAL_GU` = 2 GU, and the unit in the way is stationary and
@@ -362,9 +379,13 @@ beats `best_remaining` by half a step. Following a slower unit is progress. A un
    never move on): the unit has arrived once it found no way forward for `JAMMED_TICKS` = 12 in a row. Behind a
    stationary unit that has a goal (jammed for now) it applies when the unit is stuck, 8 ticks before the first
    repath. Slice D's stand-in "arrived at any distance behind a unit of its own order group, after a repath" is
-   gone: a unit shut out farther than 2 GU from its destination re-routes and fails.
-2. **Queueing**: chasing a target and blocked by stationary friendly units attacking the same target → keep waiting,
-   re-check every 16 ticks; no repath, no failure. (Slice E; the hook is `movement::stuck::queues_behind`.)
+   gone: a unit shut out farther than 2 GU from its destination re-routes and fails. **(E)** For an object goal the
+   rule is the same, the 2 GU measured as the gap between the unit's shape and the object's (design changes 0032
+   and 0033, "Blocked near the target"). What `Arrived` then means is the behaviour's: a static target completes
+   the order, a followed unit is waited for where the follower stands, until it moves.
+2. **Queueing (E)**: a unit chasing the target its attack engages, blocked by a stationary unit of its owner whose
+   attack engages the same target → keep waiting; no repath, no failure (`movement::stuck::queues_behind`). The
+   check is a few comparisons, so it runs every tick the unit is stuck instead of every 16.
 3. **Repath**, if `repaths_left > 0`, when its wait is over (5.6). **(D)** The tile of the stationary unit in the way is added to `avoid_tiles`:
    at once if that unit has no goal; if it is on its way itself (only jammed for now), from the second repath on,
    the first being a plain retry. If the blocker stands in the unit's own tile (the start tile is never avoided),
@@ -481,6 +502,17 @@ own turn of phase 5d.
   move ends within `GIVE_UP_TICKS` and the grace of its last progress, and of the moves that end at most 60 % fail
   in a seed and 35 % overall (16 % with yielding, 32 % before).
 - **Perf**: an `#[ignore]` test printing ms per tick for 500 units on 256×256, plus CI assertions on the counters.
+- **(E) Behaviours** (`crates/sim/tests/behaviours_*.rs`, the Verification lists of 0031–0034, 0036 and 0037): an
+  attacker stops when the gap between the edges is its Range; a chase around a corner until the target is
+  destroyed; a target lost in the fog is followed to its last seen position; a target across a moat ends the order
+  at the water's edge; a second attacker queues behind the first for longer than a stuck move lasts; an idle unit
+  chases to its leash and returns; Hold never moves; a follower keeps up, waits within 8 su, and waits behind a
+  plugged corridor without re-routing; a patch ringed by units is reached within 2 GU; an AttackMove group
+  engages and resumes; a Patrol cycles, engages, starts where the order before it ended, turns around after a
+  failed leg and ends after two. A soak of 120 units fighting under random orders of every kind keeps the
+  invariants, leaves no dangling id and asks for few paths. **I5–I7 changed**: a leg is one `Mover::go_to`, an
+  order's or a behaviour's, so a unit may also move, and get its repaths back, when a behaviour began a move in
+  that tick.
 - **QA**: `TestSim::ascii()` renders the map with units as letters for readable failures; a client path overlay
   (waypoints, destinations, status colours) behind a debug key and flag; client replay playback (`--replay <file>`), so a
   failing sim test's `Replay` can be screenshotted with `--screenshot`.

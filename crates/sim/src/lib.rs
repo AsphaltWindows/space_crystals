@@ -31,6 +31,7 @@ pub mod replay;
 pub mod rng;
 pub mod scenario;
 pub mod scenarios;
+pub mod shape;
 pub mod sim;
 pub mod symmetry;
 pub mod testing;
@@ -55,6 +56,7 @@ pub use scenario::{
     BuildingOrientation, GameSetup, LayoutObject, MapDef, MapSettings, MapType, PlayerSetup, Scenario, ScenarioProblem,
     SettingsProblem, Slot, Spawn, SpawnAt, SpawnProblem, SpawnSettings, StartingLayouts,
 };
+pub use shape::Shape;
 pub use sim::{Reject, Sim, SimConfig};
 pub use symmetry::{EditableRegion, MapTransform, Orientation, Symmetry};
 pub use units::{CornerPos, SU_PER_GU, TICKS_PER_SECOND, Tick, TilePos, gu, seconds};

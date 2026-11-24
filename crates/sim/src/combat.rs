@@ -13,15 +13,17 @@
 //! - **Deaths**: an object at 0 HP or less dies (`SimEvent::Died`). `step` returns the dead, and `Sim::step`
 //!   removes them through the one removal path (`Sim::remove_objects`), which clears every reference to them.
 //! - **Queries**: [`may_move`] and [`may_turn`] say whether a unit's attack sequence lets it move or turn this tick.
-//!   The movement step holds a unit that may not (phase 5d); the behaviours will read them too (slice E).
+//!   The movement step holds a unit that may not (phase 5d), and the behaviours start a chase only when it may
+//!   (`orders::engage`).
 //! - **Vision** (`systems/combat.md > ValidTarget` 2): a sequence starts, and Aiming goes on, only while the unit's
-//!   owner sees the target, by the vision phase 5f left at the end of the last tick (`vision`). A target out of
-//!   sight stays engaged and its order waits; the behaviours will chase it to where it was last seen (question
-//!   Q0010, slice E).
+//!   owner sees the target, by the vision phase 5f left at the end of the last tick (`vision`). What a unit does
+//!   about a target out of range or out of sight is its behaviour's (`orders::engage`: it closes in, or goes to
+//!   where the target was last seen).
+//! - **Range** (`> Range Measurement`, design change 0031): edge to edge, the gap between the attacker's shape and
+//!   the target's (`shape`); [`reaches`] is the one check.
 //!
-//! Not built yet: chasing a target out of range or out of sight, AttackMove, auto-targeting and leashes (slice E),
-//! turrets, projectiles and location targets (the disjointed attack types), AoE damage, the Riot Shield and
-//! Shields.
+//! Not built yet: turrets, projectiles and location targets (the disjointed attack types), AoE damage, the Riot
+//! Shield and Shields.
 
 mod damage;
 mod phases;
@@ -31,6 +33,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
@@ -44,8 +47,7 @@ pub use damage::{
 };
 pub use phases::FACING_TOLERANCE;
 pub use targeting::{
-    RANGE_MEASURE, RangeMeasure, can_attack_now, distance_to_box, domain_allows, max_range, object_box, object_domain,
-    within_range,
+    can_attack_now, domain_allows, max_range, object_box, object_domain, reaches, reaches_point, within_range,
 };
 
 /// `systems/combat.md > AttackPhase`, one value of the design's BaseAttackChannel (`systems/controls/behaviors.md >
@@ -129,10 +131,10 @@ impl AttackState {
 /// tick. A unit that attacks from its base can't move while Aiming, Firing or in Cooldown; it may while Reloading
 /// and when no sequence runs. A turret unit's base always may (`> TurretSource`, `TurretSourceBaseActions`), and so
 /// may every object without an attack. The movement step (5d) holds a unit that may not, keeping its goal; the
-/// behaviours (5a, slice E) shouldn't start a chase then. Before 5e it reads the phase the last tick left, which is
-/// the one this tick runs in; a Stop or a new target in 5a has already cancelled an aim.
+/// behaviours (5a) don't start a chase then. Before 5e it reads the phase the last tick left, which is the one
+/// this tick runs in; a Stop or a new target in 5a has already cancelled an aim.
 pub fn may_move(o: &Object) -> bool {
-    base_is_free(o)
+    base_is_free(o.kind, o.attack.as_ref())
 }
 
 /// `systems/combat.md > AttackPhase > UnitBaseSourceActions`: whether anything but the attack may turn `o`'s base
@@ -140,15 +142,16 @@ pub fn may_move(o: &Object) -> bool {
 /// BaseAiming`: the orientation is overridden), nor in Firing and Cooldown, when the orientation is locked
 /// (`> BaseFiring`, `> BaseCooldown`). Turret units' bases are always free (`> TurretSource`).
 pub fn may_turn(o: &Object) -> bool {
-    base_is_free(o)
+    base_is_free(o.kind, o.attack.as_ref())
 }
 
-/// Both rules come to the same in the design's phase table: the base is either free or held by the attack.
-fn base_is_free(o: &Object) -> bool {
-    let Some(state) = &o.attack else {
+/// Both rules come to the same in the design's phase table: the base is either free or held by the attack. For a
+/// unit of `kind` whose attack is in `state` (the behaviours hold a unit's parts, not the object).
+pub(crate) fn base_is_free(kind: ObjectKind, state: Option<&AttackState>) -> bool {
+    let Some(state) = state else {
         return true;
     };
-    let turret = o.def().unit.as_ref().is_some_and(|unit| unit.base_def().has_turret);
+    let turret = kind.def().unit.as_ref().is_some_and(|unit| unit.base_def().has_turret);
     turret || matches!(state.phase, None | Some(AttackPhase::Reloading))
 }
 
@@ -185,7 +188,7 @@ pub(crate) fn step(
             continue;
         };
         let sight = o.owner.and_then(|owner| vision.player(owner));
-        let shooter = phases::Shooter::new(map, o.id, o.kind, o.pos, unit, attrs, sight);
+        let shooter = phases::Shooter::new(map, o.id, o.kind, o.pos, o.facing, unit, attrs, sight);
         phases::run(state, &mut o.facing, &shooter, &targets, &mut hits, events);
     }
     damage::apply(objects, &hits, events)

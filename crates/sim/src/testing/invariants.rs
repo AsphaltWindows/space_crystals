@@ -42,8 +42,6 @@ struct Seen {
     /// It was taking a sidestep for a blocked unit of its owner (design change 0022).
     sidestepping: bool,
     repaths_left: u8,
-    /// The tick its current order started, the leg's identity.
-    leg: Option<Tick>,
 }
 
 /// Checks I1–I7 between ticks. It remembers each unit's state of the tick before, so check after **every** step.
@@ -62,7 +60,6 @@ fn seen(o: &Object, mover: &Mover) -> Seen {
         had_goal: mover.goal != MoveGoal::None,
         sidestepping: mover.sidestep.is_some(),
         repaths_left: mover.repaths_left,
-        leg: leg_of(o),
     }
 }
 
@@ -143,11 +140,16 @@ impl Invariants {
             let had_goal = before.is_some_and(|b| b.had_goal);
             let sidestepping = before.is_some_and(|b| b.sidestepping);
             let order_started = leg_of(o) == Some(tick);
-            if o.pos != o.prev_pos && mover.goal == MoveGoal::None && !had_goal && !order_started && !sidestepping {
+            // A leg is one `Mover::go_to`: an order's move, or one a behaviour starts (a chase, a Patrol's next
+            // leg, the way back to an IdleOrigin). `go_to` in this tick left a full count and its tick behind,
+            // also when the move ended in the same tick.
+            let new_leg = mover.repaths_left == MAX_REPATHS && mover.last_repath == tick;
+            let began = order_started || new_leg;
+            if o.pos != o.prev_pos && mover.goal == MoveGoal::None && !had_goal && !began && !sidestepping {
                 return fail(
                     "I5/I7",
                     format!(
-                        "moved from {} to {} without a goal, a new order or a sidestep",
+                        "moved from {} to {} without a goal, a new order or move, or a sidestep",
                         o.prev_pos, o.pos
                     ),
                 );
@@ -172,10 +174,10 @@ impl Invariants {
             if mover.repaths_left > MAX_REPATHS {
                 return fail("I6", format!("has {} repaths left", mover.repaths_left));
             }
+            // Only a new leg gives repaths back.
             if let Some(before) = before
-                && before.leg.is_some()
-                && before.leg == leg_of(o)
                 && mover.repaths_left > before.repaths_left
+                && !new_leg
             {
                 return fail(
                     "I6",

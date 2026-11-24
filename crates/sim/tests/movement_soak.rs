@@ -56,6 +56,7 @@ fn random_point(rng: &mut Rng) -> Vec2 {
 fn soak(seed: u64) -> TestSim {
     let mut rng = Rng::from_seed(seed);
     let mut t = ScenarioBuilder::new(&random_map(&mut rng)).seed(seed).start();
+    t.without_auto_targeting();
     // Whole-number positions on a loose lattice; the first 200 that stand on open ground.
     let mut spawned = 0;
     for cell in 0..24 * 12 {
