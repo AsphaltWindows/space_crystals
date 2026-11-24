@@ -69,10 +69,11 @@ fn died(t: &TestSim) -> Vec<(Tick, ObjectId)> {
 }
 
 /// `> SingleTargetDamage`: (Damage × pre-armor multipliers − PointArmor) × directional multiplier, at least 0.5.
-/// A Peacekeeper (Damage 10) takes 9 from a Guard's 80 HP (PointArmor 1); a Guard (Damage 6) takes 5 from a
-/// Peacekeeper's 50, and on Rugged ground the Peacekeeper's RuggedTerrainDefenseBonus halves the damage before the
-/// armor: 6 × 0.5 − 1 = 2. The Guard, heavy infantry, has no such bonus. (Guard 5, with no order, fights back at
-/// the Peacekeeper on the Rugged ground too.)
+/// A Peacekeeper (Damage 10) takes 9 from a Guard's 80 HP (PointArmor 1); a Guard (Damage 18, design change 0186)
+/// takes 17 from a Peacekeeper's 50, and on Rugged ground the Peacekeeper's RuggedTerrainDefenseBonus halves the
+/// damage before the armor: 18 × 0.5 − 1 = 8. The Guard, heavy infantry, has no such bonus. (Guard 5, with no order,
+/// fights back at the Peacekeeper on the Rugged ground too. The Peacekeepers' hits land in tick 4, after their Aim
+/// of 2 ticks; the Guards' in tick 6, after their 4.)
 #[test]
 fn armor_and_the_rugged_terrain_bonus() {
     let mut t = spawned(&[
@@ -86,14 +87,14 @@ fn armor_and_the_rugged_terrain_bonus() {
     attack(&mut t, 2, P2, &[2], 1, false);
     attack(&mut t, 2, P2, &[4], 3, false);
     attack(&mut t, 2, P1, &[3], 5, false);
-    t.run_until(4);
+    t.run_until(6);
     assert_eq!(hits_on(&t, 2), [(4, 9.0)]);
-    assert_eq!(hits_on(&t, 1), [(4, 5.0)]);
-    assert_eq!(hits_on(&t, 3), [(4, 2.0), (4, 2.0)], "rugged: halved before the armor");
+    assert_eq!(hits_on(&t, 1), [(6, 17.0)]);
+    assert_eq!(hits_on(&t, 3), [(6, 8.0), (6, 8.0)], "rugged: halved before the armor");
     assert_eq!(hits_on(&t, 5), [(4, 9.0)], "heavy infantry: no bonus");
     assert_eq!(
         [hp(&t, 1), hp(&t, 2), hp(&t, 3), hp(&t, 5)],
-        [Some(45.0), Some(71.0), Some(46.0), Some(71.0)]
+        [Some(33.0), Some(71.0), Some(34.0), Some(71.0)]
     );
     // The attack event carries both positions, for the client's tracer.
     assert!(t.events().contains(&(
@@ -124,49 +125,56 @@ fn minimum_damage_and_directional_armor() {
     );
 }
 
-/// A Guard's hits (5) bring a Peacekeeper's 50 HP to exactly 0 on the tenth: that is death.
+/// A Guard's hit (17) and seven of a Peacekeeper's (9 each) bring a Guard's 80 HP to exactly 0, the last in tick
+/// 106: that is death. (Since the Guard's laser rifle, design change 0186, no one unit's hits add up to the MaxHP of
+/// a Peacekeeper or a Guard: the Guard attacker stops after its first hit. With auto-targeting off, the target
+/// doesn't fight back.)
 #[test]
 fn zero_hp_is_death() {
     let mut t = spawned(&[
-        (ObjectKind::Guard, P2, Vec2::new(400.0, 300.0)),
-        (ObjectKind::Peacekeeper, P1, Vec2::new(550.0, 300.0)),
+        (ObjectKind::Guard, P2, Vec2::new(400.0, 300.0)),       // 1
+        (ObjectKind::Peacekeeper, P2, Vec2::new(400.0, 400.0)), // 2
+        (ObjectKind::Guard, P1, Vec2::new(550.0, 300.0)),       // 3
     ]);
-    attack(&mut t, 2, P2, &[1], 2, false);
-    t.run_until(75);
-    assert_eq!(hp(&t, 2), Some(5.0));
-    t.run_until(76);
-    assert_eq!(hits_on(&t, 2).len(), 10);
-    assert_eq!(died(&t), [(76, ObjectId(2))]);
-    assert!(t.sim().object(ObjectId(2)).is_none());
+    t.without_auto_targeting();
+    attack(&mut t, 2, P2, &[1, 2], 3, false);
+    t.order_at(10, P2, &ids(&[1]), OrderKind::Stop, false);
+    t.run_until(105);
+    assert_eq!(hits_on(&t, 3).iter().filter(|&&(_, damage)| damage == 17.0).count(), 1);
+    assert_eq!(hp(&t, 3), Some(9.0));
+    t.run_until(106);
+    assert_eq!(hits_on(&t, 3).len(), 8);
+    assert_eq!(died(&t), [(106, ObjectId(3))]);
+    assert!(t.sim().object(ObjectId(3)).is_none());
     let last: Vec<&SimEvent> = t
         .events()
         .iter()
-        .filter(|(tick, _)| *tick == 76)
+        .filter(|(tick, _)| *tick == 106)
         .map(|(_, e)| e)
         .collect();
     assert_eq!(
         last[1..],
         [
             &SimEvent::Hit {
-                attacker: ObjectId(1),
-                target: ObjectId(2),
-                damage: 5.0,
+                attacker: ObjectId(2),
+                target: ObjectId(3),
+                damage: 9.0,
                 shield_damage: 0.0,
             },
             &SimEvent::Died {
-                id: ObjectId(2),
-                kind: ObjectKind::Peacekeeper,
+                id: ObjectId(3),
+                kind: ObjectKind::Guard,
                 owner: Some(P1),
                 pos: Vec2::new(550.0, 300.0),
             },
-            &SimEvent::Removed(ObjectId(2)),
+            &SimEvent::Removed(ObjectId(3)),
         ],
         "attack, hit, death, removal: {last:?}"
     );
-    // The Guard's order is complete, and its attack has nothing left to aim at.
-    let guard = t.sim().object(ObjectId(1)).unwrap();
-    assert!(guard.orders.as_ref().unwrap().is_idle());
-    assert_eq!(guard.attack.as_ref().unwrap().target, None);
+    // The Peacekeeper's order is complete, and its attack has nothing left to aim at.
+    let pk = t.sim().object(ObjectId(2)).unwrap();
+    assert!(pk.orders.as_ref().unwrap().is_idle());
+    assert_eq!(pk.attack.as_ref().unwrap().target, None);
 }
 
 /// The tick's hits are applied together, once every unit has acted. Two hits of 9 in one tick take a Guard with 17

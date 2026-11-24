@@ -25,16 +25,19 @@
 //! - a Deploy that failed at the end of the Drone's walk (`SimEvent::DeployFailed`, slice M3-F; `factions/colonists/
 //!   economy.md > Beacon Deployment > Placement`): what the check found on arrival, as for a building, or that the
 //!   Drone didn't get to its site ([`deploy_failed_text`]). Placeholders too;
+//! - an Attack whose unit can't move and whose target is inside its MinRange (`SimEvent::TargetTooClose`;
+//!   `systems/controls/behaviors.md > AttackingObject > Target inside MinRange`, design change 0182: "the order
+//!   fails with feedback ("Target too close"; same channel as other refusals)"): [`TARGET_TOO_CLOSE_TEXT`];
 //! - a greyed-out button pressed, or its hotkey (`systems/controls/selection_and_hud.md > CommandPanel > Pressing an
 //!   unavailable command`, design change 0162: "nothing is issued, and the player gets the same feedback as when an
 //!   order is refused, naming the reason (e.g. "Not enough Space Crystals", "Queue is full")"), and a Warp In whose
 //!   click the sim refused (`super::CommandRefused`): the button's reason ([`unavailable_text`]), placeholder
 //!   wordings but the design's two.
 //!
-//! The message ([`INVALID_TARGET_TEXT`], [`NO_CRYSTALS_TEXT`], an [`army_cap_text`], a [`placement_text`] or an
-//! [`unavailable_text`]) shows over the world view, centred just above the HUD Bar, on a dark band, for
-//! [`FEEDBACK_TICKS`] after the latest cause; a new one replaces it. It ages by the sim's ticks, so a QA screenshot of
-//! a tick always shows it alike. It never takes the pointer: clicks pass through it to the map.
+//! The message ([`INVALID_TARGET_TEXT`], [`NO_CRYSTALS_TEXT`], an [`army_cap_text`], a [`placement_text`], an
+//! [`unavailable_text`] or [`TARGET_TOO_CLOSE_TEXT`]) shows over the world view, centred just above the HUD Bar, on a
+//! dark band, for [`FEEDBACK_TICKS`] after the latest cause; a new one replaces it. It ages by the sim's ticks, so a
+//! QA screenshot of a tick always shows it alike. It never takes the pointer: clicks pass through it to the map.
 
 use bevy::picking::Pickable;
 use bevy::prelude::*;
@@ -86,6 +89,9 @@ pub const NOT_FOR_TYPE_TEXT: &str = "Not available for this unit";
 pub const NOT_YET_TEXT: &str = "Not available yet";
 /// The message of a refusal the others don't name. Placeholder wording.
 pub const CANNOT_DO_TEXT: &str = "Cannot do that now";
+/// The message of an Attack its unit can't carry out, the target inside its MinRange and the unit unable to move
+/// (`SimEvent::TargetTooClose`). The design's wording (design change 0182).
+pub const TARGET_TOO_CLOSE_TEXT: &str = "Target too close";
 /// Placeholder look: amber text on a dark band, this far above the HUD Bar (percent of the surface height).
 const TEXT_COLOR: Color = Color::srgb(1.0, 0.80, 0.30);
 const BAND_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
@@ -282,6 +288,7 @@ fn show_feedback(
         SimEvent::DeployFailed { drone, problems, .. } if own(*drone) => {
             Some((message.tick, deploy_failed_text(problems)))
         }
+        SimEvent::TargetTooClose { unit, .. } if own(*unit) => Some((message.tick, TARGET_TOO_CLOSE_TEXT)),
         _ => None,
     });
     let latest = clicks

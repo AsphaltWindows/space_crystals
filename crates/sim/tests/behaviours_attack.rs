@@ -79,12 +79,13 @@ fn approach(attacker: ObjectKind) -> TestSim {
 /// Design change 0031's Verification, with today's units: an attacker walks up until the **gap between the edges**
 /// is its Range and stops there, not when its centre is that far from the target's centre or its edge; and a wider
 /// attacker's own body doesn't eat into its range. The Peacekeeper (Range 4) stops with a gap of 4 grid units to
-/// the Guard, the Guard (Range 3) with a gap of 3 to its target.
+/// the Guard, the Guard (Range 3) with a gap of 3 to its target. (Two Guards in range of each other trade hits of 17
+/// until both fall, shortly before tick 200: tick 150 sees them fighting.)
 #[test]
 fn an_attacker_stops_when_the_gap_between_the_edges_is_its_range() {
     for (attacker, range, step) in [(PK, 4.0, 4.0), (GUARD, 3.0, 5.0)] {
         let mut t = approach(attacker);
-        t.run_until(200);
+        t.run_until(150);
         let stopped = gap(&t, 1, 2);
         assert!(
             stopped <= gu(range) && stopped > gu(range) - step,
@@ -95,9 +96,11 @@ fn an_attacker_stops_when_the_gap_between_the_edges_is_its_range() {
         assert_eq!(current(&t, 1), Some(OrderKind::Attack(id(2))));
         let shots = attack_ticks(&t, 1);
         assert!(!shots.is_empty(), "and attacks from there");
-        // It aims in the tick it comes into range: the first hit lands two ticks after its last step.
+        // It aims in the tick it comes into range: the first hit lands its AimDuration after its last step (2 ticks
+        // for the Peacekeeper, 4 for the Guard).
         let arrival = ((gap_at_start(attacker) - gu(range)) / step).ceil() as Tick + 1;
-        assert_eq!(shots[0], arrival + 2, "{attacker:?}");
+        let aim = attacker.def().unit.as_ref().unwrap().attack.unwrap().aim_ticks;
+        assert_eq!(shots[0], arrival + Tick::from(aim), "{attacker:?}");
         assert_eq!(pos(&t, 2), v(900.0, 300.0), "the Guard on Hold never moved");
     }
 }
@@ -140,7 +143,8 @@ fn an_attacker_chases_a_moving_target_until_it_is_destroyed() {
         "it followed around the corner: {hunter}"
     );
     assert!(is_idle(&t, 1), "the target is destroyed: the behaviour is complete");
-    assert!(attack_ticks(&t, 1).len() >= 6, "{:?}", attack_ticks(&t, 1));
+    // Three hits of 17 (design change 0186) take the Peacekeeper's 50 HP.
+    assert_eq!(attack_ticks(&t, 1).len(), 3, "{:?}", attack_ticks(&t, 1));
 }
 
 /// Design change 0034's Verification: "Attack a fast enemy that runs out of sight: your unit runs to where it
@@ -304,9 +308,9 @@ const CORRIDOR: &str = "
 /// `docs/movement.md > 6.5`, rule 2 (queueing): a unit chasing the target of its attack, blocked by a unit of its
 /// owner that stands attacking the same target, keeps waiting: no re-route, no failure, however long the fight
 /// lasts. Two Guards attack a Peacekeeper down a corridor; the second can't get into range past the first, which
-/// fights for well over the 104 ticks after which a stuck move gives up (on Rugged ground the Peacekeeper takes 2
-/// a hit). When the target is destroyed, both orders complete. (Auto-targeting is off, so the target doesn't fight
-/// back and the scout that sees it doesn't join in.)
+/// fights for longer than the 104 ticks after which a stuck move gives up (on Rugged ground the Peacekeeper takes 8 a
+/// hit, 18 × 0.5 − 1: seven hits, one every 24 ticks). When the target is destroyed, both orders complete.
+/// (Auto-targeting is off, so the target doesn't fight back and the scout that sees it doesn't join in.)
 #[test]
 fn an_attacker_queues_behind_its_owners_attackers_of_the_same_target() {
     let mut t = ScenarioBuilder::new(CORRIDOR).start();
@@ -336,7 +340,7 @@ fn an_attacker_queues_behind_its_owners_attackers_of_the_same_target() {
             waited += 1;
         }
     }
-    assert!(waited > 150, "it queued for {waited} ticks");
+    assert!(waited > 120, "it queued for {waited} ticks");
     assert!(gap(&t, 1, 2) == 0.0, "still right behind it");
     assert_eq!(attack_ticks(&t, 2), [] as [Tick; 0], "it never got into range");
     assert_eq!(t.mover(2).repaths_left, sc_sim::mover::MAX_REPATHS, "no re-route");

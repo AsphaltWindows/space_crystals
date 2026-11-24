@@ -66,7 +66,8 @@ pub use damage::{
 };
 pub use phases::FACING_TOLERANCE;
 pub use targeting::{
-    can_attack_now, domain_allows, max_range, object_box, object_domain, reaches, reaches_point, within_range,
+    can_attack_now, domain_allows, inside_min_range, max_range, object_box, object_domain, reaches, reaches_point,
+    within_range,
 };
 
 /// `systems/combat.md > AttackPhase`, one value of the design's BaseAttackChannel (`systems/controls/behaviors.md >

@@ -245,7 +245,7 @@ fn fog_chase() -> Game {
 /// Player 1 raises the Riot Shields of three Peacekeepers (ids 1–3, `Command::Ability`) and walks them, at half
 /// speed, up to a Guard (player 2, id 4), which shoots at them: behind their shields they don't shoot back. On the
 /// way #3 lowers its shield and raises it again before it is down. At tick [`SHIELDS_DOWN`] all three lower their
-/// shields, and then they kill the Guard.
+/// shields, and then they kill the Guard; with its laser rifle (design change 0186) it takes #2 with it.
 fn riot_shield() -> Game {
     let mut builder = ScenarioBuilder::new(&open(16, 10));
     for y in [4, 5, 6] {
@@ -277,7 +277,8 @@ fn riot_shield() -> Game {
         expect: |sim| {
             assert!(sim.object(ObjectId(4)).is_none(), "the Guard is dead");
             let units = units_of(sim, P1);
-            assert_eq!(units.len(), 3, "no Peacekeeper died");
+            let ids: Vec<u32> = units.iter().map(|unit| unit.id.0).collect();
+            assert_eq!(ids, [1, 3], "the Guard killed #2");
             for unit in units {
                 assert_eq!(unit.riot_shield, Some(RiotShield::Lowered), "#{}", unit.id.0);
             }

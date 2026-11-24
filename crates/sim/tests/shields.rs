@@ -98,8 +98,8 @@ fn a_sabre_strike_takes_a_legionnaires_shields_and_five_hp() {
 }
 
 /// The design's fourth case in a game: Shields that take a whole hit leave the HP alone, and armour is never
-/// consulted, so the MinimumDamage doesn't apply either. A Guard's 6 on a Robo Portal's 20 Shields (PointArmor 1)
-/// takes 6 Shields and no HP.
+/// consulted, so the MinimumDamage doesn't apply either. A Guard's 18 (design change 0186) on a Robo Portal's 20
+/// Shields (PointArmor 1) takes 18 Shields and no HP.
 #[test]
 fn shields_that_take_a_whole_hit_leave_the_hp_alone() {
     let mut t = colonists(ScenarioBuilder::new(&flat(16, 10)))
@@ -113,11 +113,11 @@ fn shields_that_take_a_whole_hit_leave_the_hp_alone() {
         t.step();
     }
     let (_, _, shields, hp) = hits_on(&t, 1)[0];
-    assert_eq!((shields, hp), (6.0, 0.0));
+    assert_eq!((shields, hp), (18.0, 0.0));
     let portal = object(t.sim(), 1);
     assert_eq!(
         (portal.shields, portal.hp),
-        (Some(14.0 + SHIELD_REGEN_PER_TICK), Some(600.0))
+        (Some(2.0 + SHIELD_REGEN_PER_TICK), Some(600.0))
     );
 }
 

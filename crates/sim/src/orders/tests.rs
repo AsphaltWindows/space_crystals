@@ -9,6 +9,10 @@ use crate::mover::Mover;
 use crate::paths::NavState;
 use crate::vision::Vision;
 
+mod leash;
+mod min_range;
+mod priority;
+
 fn order(kind: OrderKind) -> Order {
     Order {
         kind,

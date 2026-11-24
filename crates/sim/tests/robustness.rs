@@ -293,7 +293,8 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::ResourcesDelivered { .. }
                 | SimEvent::TransformCompleted { .. }
                 | SimEvent::TransformCancelled { .. }
-                | SimEvent::DeployFailed { .. } => {}
+                | SimEvent::DeployFailed { .. }
+                | SimEvent::TargetTooClose { .. } => {}
             }
         }
         unit_steps += sim

@@ -8,10 +8,14 @@
 //! ([`idle`]) and AttackMove (`travel`) run it on the enemies they acquire themselves; Hold Position ([`hold`])
 //! never moves.
 
-use crate::combat::reaches;
+use glam::Vec2;
+
+use crate::combat::{inside_min_range, max_range, reaches};
+use crate::defs::AttackAttrs;
 use crate::ids::ObjectId;
+use crate::math;
 use crate::mover::{MoveGoal, MoveStatus};
-use crate::units::gu;
+use crate::units::{SU_PER_GU, gu};
 
 use super::state::{AttackOrder, Auto, Pursuit};
 use super::travel::{approach, walk_to_remembered};
@@ -98,6 +102,8 @@ pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world
 ///   Move to it would ([`approach`]: it follows a unit, and goes up to anything else and waits there), and the
 ///   order never completes for it; once the shield is down the unit engages the target again. Leaving sight ends it
 ///   as above.
+/// - **A target inside the unit's MinRange** (design change 0182): the unit backs off, or the order fails
+///   ([`too_close`]).
 /// - `> Failure`: the approach gave up ([`Closing::GaveUp`]).
 pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, world: &World) -> bool {
     if state.lost {
@@ -107,6 +113,7 @@ pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, wor
     if let Known::Remembered { position, .. } = known {
         unit.engage(None);
         state.chasing = false;
+        state.backing_off = None;
         state.on_hold = None;
         return walk_to_remembered(unit, &mut state.remembered, position, world);
     }
@@ -115,6 +122,7 @@ pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, wor
     {
         state.remembered = false;
         state.chasing = false;
+        state.backing_off = None;
         state.last_seen = Some(target.pos);
         let follow = state.on_hold.get_or_insert_with(Default::default);
         approach(unit, id, follow, world);
@@ -128,7 +136,7 @@ pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, wor
                 unit.engage(Some(id));
             }
             if !unit.attack.as_ref().is_some_and(|attack| attack.target == Some(id)) {
-                if state.chasing {
+                if state.chasing || state.backing_off.is_some() {
                     unit.mover.stop();
                 }
                 return true;
@@ -142,6 +150,7 @@ pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, wor
             }
             unit.engage(None);
             state.chasing = false;
+            state.backing_off = None;
             state.on_hold = None;
             return match state.last_seen {
                 Some(at) => {
@@ -156,13 +165,19 @@ pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, wor
             };
         }
         Known::Gone | Known::Remembered { .. } => {
-            if state.chasing {
+            if state.chasing || state.backing_off.is_some() {
                 unit.mover.stop();
             }
             return true;
         }
     };
     state.last_seen = Some(target.pos);
+    if let Some(attrs) = unit.attrs()
+        && inside_min_range(attrs, unit.shape().gap(&target.shape))
+    {
+        return too_close(unit, attrs, state, target, world);
+    }
+    state.backing_off = None;
     match close_in(unit, &mut state.chasing, target, world) {
         Closing::InRange | Closing::Approaching => false,
         Closing::GaveUp => {
@@ -170,6 +185,66 @@ pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, wor
             true
         }
     }
+}
+
+/// `> AttackingObject > Target inside MinRange` (design change 0182): one tick of an Attack order whose target is
+/// inside the unit's MinRange, too close to hit. Returns whether the order is complete.
+/// - **A unit that can move backs off** "until the target is outside MinRange, then attacks": it walks straight away
+///   from the target ([`back_off_spot`]) once its attack sequence lets it move (`combat::may_move`), and [`attack`]
+///   goes on as ever once the target is outside MinRange ([`close_in`] stops it in range). A back-off that ended
+///   with the target still inside starts again from where the unit stands if the target moved meanwhile (it follows
+///   the unit); if it didn't, the unit is as far as it gets from it, and gives the target up (`> Failure`): backed
+///   against a cliff, say.
+/// - **A unit that can't move** (`Mover::can_move`: a deployed Artillery Rig, when there is one; a unit converting
+///   its weapon too, while it does, though none has a MinRange) "can't carry it out: the order fails with feedback
+///   ("Target too close"; same channel as other refusals)". Behaviours don't report: it marks the order
+///   ([`AttackOrder::too_close`]), and the step right after this phase ends it with a `SimEvent::TargetTooClose`
+///   (`Sim::step_too_close`).
+fn too_close(unit: &mut Unit, attrs: &AttackAttrs, state: &mut AttackOrder, target: &View, world: &World) -> bool {
+    let max_speed = unit.unit_def().map_or(0.0, |def| def.movement.max_speed());
+    if !unit.mover.can_move(max_speed) {
+        unit.engage(None);
+        unit.halt();
+        state.chasing = false;
+        state.too_close = true;
+        return false;
+    }
+    if std::mem::take(&mut state.chasing) {
+        // It came too close while the unit went for it.
+        unit.mover.stop();
+    }
+    if let Some(from) = state.backing_off {
+        if unit.mover.status == MoveStatus::Moving {
+            return false;
+        }
+        if target.pos == from {
+            state.backing_off = None;
+            unit.engage(None);
+            return true;
+        }
+    }
+    if unit.may_move() {
+        let spot = back_off_spot(unit, attrs, target, world);
+        unit.mover.go_to(MoveGoal::Point(spot), None, world.tick);
+        state.backing_off = Some(target.pos);
+    }
+    false
+}
+
+/// Where a unit backs off to from `target`, inside its MinRange ([`too_close`]): straight away from it (straight back
+/// from one right on top of it), as far as to bring the gap between them to the middle of the band from MinRange to
+/// Range, so that whatever the shapes make of the distance walked the unit passes through the band, where [`close_in`]
+/// stops it. Within the map; the path ends as near as the unit gets (`> MovingToLocation > Unreachable target
+/// location`).
+fn back_off_spot(unit: &Unit, attrs: &AttackAttrs, target: &View, world: &World) -> Vec2 {
+    let gap = unit.shape().gap(&target.shape);
+    let near = gu(attrs.min_range);
+    let far = max_range(attrs, world.elevation(unit), target.elevation).max(near);
+    let away = (unit.pos - target.pos)
+        .try_normalize()
+        .unwrap_or_else(|| -math::facing_vector(unit.facing));
+    let size = Vec2::new(world.map.width() as f32, world.map.height() as f32) * SU_PER_GU;
+    (unit.pos + away * ((near + far) / 2.0 - gap).max(1.0)).clamp(Vec2::ZERO, size)
 }
 
 /// `> HoldingPosition`, `> BaseAutoTargeting > Active during HoldPosition`: one tick. Locomotion stays Stationary:
@@ -198,7 +273,7 @@ pub(super) fn hold(unit: &mut Unit, target: &mut Option<ObjectId>, world: &World
         let facing_only = unit
             .unit_def()
             .is_some_and(|def| !def.has_turret() && !def.base_def().can_turn_in_place);
-        *target = world.pick(unit, Scan::Weapon, None, facing_only);
+        *target = world.pick(unit, Scan::Weapon, facing_only, |_| true);
         if target.is_some() {
             unit.engage(*target);
         }
@@ -211,9 +286,9 @@ pub(super) fn hold(unit: &mut Unit, target: &mut Option<ObjectId>, world: &World
 ///   ended (its target died, say) ends here too.
 /// - **Engaging**: AttackingObject on the acquired enemy ([`close_in`]). Farther than IdleLeashDistance from the
 ///   IdleOrigin, it disengages and returns there (MovingToLocation). If the target is destroyed or leaves SightRange
-///   (or is no longer a ValidTarget), the unit is idle again where it stands, with a new IdleOrigin next time. A
-///   target it can't get to is left alone for [`GIVE_UP_RETRY_TICKS`], so the unit doesn't set off for it tick after
-///   tick.
+///   (or is no longer a ValidTarget, or comes inside the unit's MinRange: design change 0182, `Scan::Sight`), the
+///   unit is idle again where it stands, with a new IdleOrigin next time. A target it can't get to is left alone for
+///   [`GIVE_UP_RETRY_TICKS`] (design change 0181), so the unit doesn't set off for it tick after tick.
 /// - **Returning**: no scanning (`> Not active during: Move`); idle again once the move ends.
 pub(super) fn idle(unit: &mut Unit, auto: &mut Auto, world: &World) {
     // Returning → Watching → Engaging at most: each pass moves on by one.
@@ -227,7 +302,7 @@ pub(super) fn idle(unit: &mut Unit, auto: &mut Auto, world: &World) {
                 let ignored = ignored.filter(|&(_, until)| world.tick < until);
                 *auto = Auto::Watching { ignored };
                 let skip = ignored.map(|(id, _)| id);
-                let Some(target) = world.pick(unit, Scan::Sight, skip, false) else {
+                let Some(target) = world.pick(unit, Scan::Sight, false, |c| Some(c.view.id) != skip) else {
                     return;
                 };
                 unit.engage(Some(target));

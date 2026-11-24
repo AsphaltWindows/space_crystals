@@ -2,8 +2,9 @@
 //! duration in ticks, the unit faces its target before it fires, and only Aiming and Reloading can be interrupted.
 //!
 //! The target holds its position (`systems/controls/behaviors.md > HoldingPosition`), so it never moves; it may fire
-//! back, which changes nothing here. A unit left without an order looks for a target by itself (`>
-//! BaseAutoTargeting`), so the tests that need the attacker to stay disengaged send it away with a Move.
+//! back, which changes nothing here as long as the attacker lives (a test that runs longer than a Guard target takes
+//! to kill the attacker keeps it beyond the Guard's Range). A unit left without an order looks for a target by itself
+//! (`> BaseAutoTargeting`), so the tests that need the attacker to stay disengaged send it away with a Move.
 
 use sc_sim::combat::{self, AttackPhase};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
@@ -63,10 +64,11 @@ fn may_move(t: &TestSim, id: ObjectId) -> bool {
 
 /// `factions/gdo/units.md > Peacekeeper`: Aim 2, Firing 1, Cooldown 2, Reload 12, a period of 17 ticks. Ordered in
 /// tick 2, it aims in ticks 2–3, fires in 4 (the hit lands at its end), cools down in 5–6 and reloads in 7–18; the
-/// next sequence starts in 19.
+/// next sequence starts in 19. The Guard holds 200 su off, beyond its own Range (3 grid units): its hits of 17 would
+/// kill the Peacekeeper before its fourth shot.
 #[test]
 fn peacekeeper_attacks_every_17_ticks() {
-    let mut t = engage(ObjectKind::Peacekeeper, ObjectKind::Guard, Vec2::new(350.0, 250.0));
+    let mut t = engage(ObjectKind::Peacekeeper, ObjectKind::Guard, Vec2::new(430.0, 250.0));
     let expected = [
         (2, Some(AttackPhase::Aiming { target: TARGET }), 1),
         (3, Some(AttackPhase::Firing { target: Some(TARGET) }), 0),
@@ -85,12 +87,30 @@ fn peacekeeper_attacks_every_17_ticks() {
     assert_eq!(attack_ticks(&t, ATTACKER), [4, 21, 38, 55]);
 }
 
-/// `factions/syndicate/units.md > Guard`: Aim 2, Firing 1, Cooldown 1, Reload 4, a period of 8 ticks.
+/// `factions/syndicate/units.md > Guard`, its laser rifle (design change 0186): Aim 4, Firing 1, Cooldown 3, Reload
+/// 16, a period of 24 ticks. Ordered in tick 2, it aims in ticks 2–5, fires in 6, cools down in 7–9 and reloads in
+/// 10–25; the next sequence starts in 26. Its third hit of 17 kills the Peacekeeper (50 HP, PointArmor 1).
 #[test]
-fn guard_attacks_every_8_ticks() {
+fn guard_attacks_every_24_ticks() {
     let mut t = engage(ObjectKind::Guard, ObjectKind::Peacekeeper, Vec2::new(350.0, 250.0));
-    t.run_until(36);
-    assert_eq!(attack_ticks(&t, ATTACKER), [4, 12, 20, 28, 36]);
+    let expected = [
+        (2, Some(AttackPhase::Aiming { target: TARGET }), 1),
+        (4, Some(AttackPhase::Aiming { target: TARGET }), 3),
+        (5, Some(AttackPhase::Firing { target: Some(TARGET) }), 0),
+        (6, Some(AttackPhase::Cooldown), 0),
+        (8, Some(AttackPhase::Cooldown), 2),
+        (9, Some(AttackPhase::Reloading), 0),
+        (24, Some(AttackPhase::Reloading), 15),
+        (25, None, 0),
+        (26, Some(AttackPhase::Aiming { target: TARGET }), 1),
+    ];
+    for (tick, phase_after, elapsed) in expected {
+        t.run_until(tick);
+        assert_eq!(phase(&t, ATTACKER), (phase_after, elapsed), "after tick {tick}");
+    }
+    t.run_until(60);
+    assert_eq!(attack_ticks(&t, ATTACKER), [6, 30, 54]);
+    assert!(t.sim().object(TARGET).is_none(), "dead");
 }
 
 /// `systems/controls/behaviors.md > AttackingObject` 2: a unit attacking from its base turns to face its target
@@ -193,7 +213,9 @@ fn firing_and_cooldown_run_on_through_a_new_order() {
     assert_eq!(mover.goal, MoveGoal::Point(Vec2::new(900.0, 450.0)), "the move waits");
     t.run_until(7);
     assert!(pos(&t).x > start.x, "it leaves once it reloads: {}", pos(&t));
-    t.run_until(60);
+    // Three periods: no sequence followed. (Not much longer: the Guard on Hold, which it walks past, shoots it with
+    // its hits of 17, design change 0186.)
+    t.run_until(53);
     assert_eq!(attack_ticks(&t, ATTACKER), [4], "disengaged");
     assert_eq!(t.sim().object(ATTACKER).unwrap().attack.as_ref().unwrap().target, None);
 }
