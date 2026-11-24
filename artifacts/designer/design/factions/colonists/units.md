@@ -18,7 +18,7 @@ The Colonists' worker unit. Gathers Space Crystals and deploys into Beacons (see
 ### Groupable - false
 ### BeaconCapacityCost - 1
 
-With 5 BeaconCapacity per Beacon and the Drone's own 1 freed when it deploys, each Beacon is a net +6: beyond the starting 10 BeaconCapacity, roughly every 6th Drone must deploy as a Beacon to keep Drone production going.
+With 5 BeaconCapacity per Beacon and the Drone's own 1 freed when it starts deploying, each Beacon is a net +6: beyond the starting 10 BeaconCapacity, roughly every 6th Drone must deploy as a Beacon to keep Drone production going.
 
 ### UnitBaseAttributes[HoverVehicle]:
 - TurnRate: 45 degrees/frame

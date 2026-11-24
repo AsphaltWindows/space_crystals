@@ -148,9 +148,10 @@ fn scenarios_are_a_map_and_a_setup() {
 fn dev_skirmish_round_trips_as_a_short_readable_file() {
     let map = scenarios::dev_skirmish().map;
     let json = serde_json::to_string_pretty(&map).unwrap();
-    // One line per map row: 48 tile rows and 49 corner height rows, not one object per tile.
+    // One line per map row: 48 tile rows and 49 corner height rows, not one object per tile. The two slots' GDO and
+    // Colonists layouts take about 250 lines.
     let lines = json.lines().count();
-    assert!(lines < 600, "{lines} lines");
+    assert!(lines < 800, "{lines} lines");
     let ascii = map.terrain.to_ascii();
     let first_heights = ascii.split("\n\n").nth(1).unwrap().lines().next().unwrap().to_string();
     assert_eq!(first_heights.len(), 65);

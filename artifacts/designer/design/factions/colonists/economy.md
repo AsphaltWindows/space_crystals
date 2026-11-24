@@ -10,6 +10,8 @@ Colonists build their foundational structure, the Beacon, by having a Drone depl
 - Left-click a ground location
 - The Drone walks to the location, then begins deploying in place
 
+**Where the Drone starts deploying** (user, 2026-11-24): the Drone walks to the **centre of the Beacon's footprint** and starts deploying when it gets there. Safety net: if it is stopped by a blocker on the way while already overlapping the footprint, it starts deploying from where it stands. If it stops without overlapping the footprint, the order fails (the Drone stops and idles). The Beacon always appears on the footprint the ghost showed, wherever the Drone ended up. (In practice a blocker on the footprint makes the site invalid anyway; the safety net only matters for a blocker just outside it.)
+
 ### Placement
 Beacon deployment follows the shared Worker-Built Structures placement rules (core/entities.md > Placement Validation > Worker-Built Structures): the Beacon's 2x2 footprint must be on Buildable, unoccupied tiles. The Deploy order may target any location, including territory hidden by fog of war, like any other building order; the Drone walks there (revealing the area on its way) and validates the site on arrival. If the site is invalid on arrival, the order is cancelled and the Drone stops and idles. There is no minimum spacing from other Beacons and no range limit from other Colonists buildings.
 
@@ -21,6 +23,9 @@ Beacon deployment follows the shared Worker-Built Structures placement rules (co
 - It is a **structure** on its 2x2 footprint: the footprint is claimed immediately, units can't walk onto it, it can't move, and every rule that treats structures and units differently (targeting, auto-targeting, placement) treats it as a structure.
 - It is the **same object** as the Drone, so it stays selected (and stays in any control group the Drone was in).
 - On **cancel**, it turns back into the Drone, standing at the centre of the footprint.
+
+### Beacon Capacity during deployment
+(user, 2026-11-24) The Drone's 1 Beacon Capacity is **freed as soon as deployment starts** (it is already a Beacon, see A Beacon from the first frame). The Beacon's 5 is provided only on **completion**. Cancelling takes the 1 back, even if that puts the player over capacity (factions/colonists/overview.md > Beacon Capacity > Over capacity). Example: at 10/10 a Drone deploys (9/10), a new Drone is queued (10/10), then the deploy is cancelled → 11/10.
 
 ### HP/Shields Interpolation
 During deployment, the transforming unit's HP and Shields each linearly interpolate from the Drone's own MaxHP/MaxShields toward the Beacon's MaxHP/MaxShields as deployment progresses:
@@ -37,8 +42,16 @@ The transforming unit is vulnerable to attack for the entire deployment duration
 ### Cancel Deployment
 The player may cancel the deployment at any point before it completes. The transformation reverses immediately and the unit reverts to being a normal, fully-functional Drone (no HP/Shields loss).
 
+**HP and Shields on cancel** (user, 2026-11-24): the Drone returns with its own maxima and the **same fraction** of HP and Shields the Beacon had at the moment of cancelling. Example: cancelled at 90/120 HP (75%) → Drone at 15/20. Cancelling never kills: the result is at least 1 HP. Rejected: restoring the values from when deployment started (deploying would be a free damage sponge, since cancelling costs nothing), and subtracting what the interpolation added (could kill on cancel).
+
 ### Completion
 Once the 48 frames elapse, the transformation is final and one-way. The resulting Beacon can never revert back into a Drone.
+
+### While transforming: only Cancel
+(user, 2026-11-24) A Beacon under deployment and a building under Warp In show **only the Cancel command** in their CommandPanel (no rally point, no other commands). None of the building's functions (production, accepting deliveries, research, abilities) work until the transformation completes. Exception already covered elsewhere: a building under Warp In keeps providing its 5 Beacon Capacity (Warp In > Beacon Capacity Retention). Cancel's hotkey: TBD (see the Colonists panels).
+
+### Deploying with a load
+(user, 2026-11-24) A Drone carrying a load deploys without delivering it first. The load stays with the deploying object and is **lost when deployment completes**; on **cancel** the Drone returns still carrying it.
 
 ### Placement
 Beacons may be placed adjacent to or near other Beacons — there is no minimum spacing requirement between them.
@@ -107,13 +120,17 @@ Damage stays taken, exactly as in Beacon Deployment > HP/Shields Interpolation: 
 (user, 2026-11-24) Same as Beacon Deployment: when the Warp In begins, the object is immediately the **target building under Warp In**, and its full footprint is claimed at once. It is the same object as the Beacon (stays selected). On cancel it shrinks back to the Beacon on the Beacon's original footprint.
 
 ### Vulnerability
-The transforming structure is vulnerable to attack for the entire Warp In duration. If destroyed mid-Warp-In, the Beacon is destroyed along with it.
+The transforming structure is vulnerable to attack for the entire Warp In duration. If destroyed mid-Warp-In, the Beacon is destroyed along with it, and there is **no refund** (user, 2026-11-24): the whole investment is lost. Unlike GDO producers (factions/gdo/structures.md > Barracks > Destroyed while producing), the unfinished building is itself on the map and is what the attacker killed; catching a Warp In is meant to be a real reward.
 
 ### Cancel Warp In
 The player may cancel the Warp In at any point before it completes. Cancelling refunds 75% of the building's resource cost (rounded down), and the structure reverts to being a normal, fully-functional Beacon (no HP/Shields loss).
 
+HP and Shields on cancel work as in Beacon Deployment > Cancel Deployment: the Beacon returns with the same fraction of HP and Shields the building had, at least 1 HP (user, 2026-11-24). Example: cancelled at 50% HP → Beacon at 60/120.
+
 ### Beacon Capacity Retention
 Every Colonists building provides 5 BeaconCapacity — the Beacon itself, and every structure Warped In from one, since they all originate from a Beacon and retain its BeaconCapacity contribution in addition to their own new function/production capabilities.
+
+The 5 is provided **throughout a Warp In** as well: a Beacon being warped in keeps providing it the whole time (user, 2026-11-24).
 
 ## Starting Conditions
 Where each starting object is placed is defined by the map's Starting Layout for this faction (core/map_editor.md > Starting Layouts).

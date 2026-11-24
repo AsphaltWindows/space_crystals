@@ -16,7 +16,7 @@ use crate::object::{Object, Placement};
 use crate::orders::{MAX_ORDER_UNITS, OrderKind, Target};
 use crate::paths::{blocking_footprint, box_overlaps_rect, boxes_overlap};
 use crate::placement::PlacementProblem;
-use crate::player::Faction;
+use crate::player::{Banks, Faction};
 use crate::riot_shield;
 use crate::scenario::{SpawnProblem, place_spawn};
 use crate::vision::VisibilityState;
@@ -80,8 +80,10 @@ pub enum Reject {
     /// has sufficient Space Crystals", `factions/gdo/structures.md > DeploymentCenter >
     /// ObjectInterfaceState[DeploymentCenter]`).
     InsufficientCrystals,
-    /// The unit would take the player's Unit Control past the cap (`factions/gdo/overview.md > GDOResources > Unit
-    /// Control`, design change 0082).
+    /// The unit would take the player's army cap past what is available (plan decision T20, `economy::army`): the
+    /// GDO's Unit Control (`factions/gdo/overview.md > GDOResources > Unit Control`, design change 0082) or the
+    /// Colonists' Beacon Capacity (`factions/colonists/overview.md > ColonistResources > Beacon Capacity`). M2's
+    /// name, kept for every faction's cap.
     UnitControlCap,
     /// Cancel Production: no producer has anything queued.
     NothingQueued,
@@ -140,7 +142,7 @@ impl fmt::Display for Reject {
             Reject::CannotProduce(kind) => write!(f, "none of the producers trains a {}", kind.def().name),
             Reject::QueueFull => write!(f, "the build queue is full"),
             Reject::InsufficientCrystals => write!(f, "not enough Space Crystals"),
-            Reject::UnitControlCap => write!(f, "not enough Unit Control"),
+            Reject::UnitControlCap => write!(f, "the army cap (Unit Control, Beacon Capacity) is reached"),
             Reject::NothingQueued => write!(f, "nothing is queued"),
             Reject::NoConstructor => write!(f, "none of the objects is a constructor of the player's"),
             Reject::SeveralConstructors => write!(f, "a building is placed by one constructor"),
@@ -184,8 +186,7 @@ pub(super) enum Checked {
     /// `player`: in the game.
     SetResources {
         player: PlayerId,
-        crystals: u32,
-        supplies: u32,
+        banks: Banks,
     },
     /// `player`'s production command, with what its checks resolved (`sim/producers.rs`).
     Production {
@@ -442,15 +443,21 @@ impl Sim {
                 player,
                 crystals,
                 supplies,
+                alloys,
+                essence,
+                flux,
             } => {
                 if self.player(player).is_none() {
                     return Err(Reject::UnknownPlayer(player));
                 }
-                Ok(Checked::SetResources {
-                    player,
+                let banks = Banks {
                     crystals,
                     supplies,
-                })
+                    alloys,
+                    essence,
+                    flux,
+                };
+                Ok(Checked::SetResources { player, banks })
             }
         }
     }

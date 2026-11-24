@@ -70,6 +70,17 @@ fn west_base() -> Vec<LayoutObject> {
     vec![laid(DC, 1, 1), laid(EF, 6, 1), laid(PLATE, 1, 8), laid(PLATE, 2, 8)]
 }
 
+/// A Colonists base in the north-west of a map (`factions/colonists/economy.md > Starting Conditions`, slice M3-C):
+/// the Egress Node from (1, 1) to (2, 2), the Robo Portal from (4, 1) to (7, 4), and four Drones on the centres of
+/// tiles (1, 5) to (2, 6).
+fn west_colonists() -> Vec<LayoutObject> {
+    let mut base = vec![laid(ObjectKind::EgressNode, 1, 1), laid(ObjectKind::RoboPortal, 4, 1)];
+    for (x, y) in [(1.5, 5.5), (2.5, 5.5), (1.5, 6.5), (2.5, 6.5)] {
+        base.push(unit_at(ObjectKind::Drone, point(x, y)));
+    }
+    base
+}
+
 /// Each player's banks: Space Crystals and Supplies.
 fn banks(sim: &Sim) -> Vec<(u32, u32)> {
     sim.players().iter().map(|p| (p.crystals, p.supplies)).collect()
@@ -145,10 +156,11 @@ fn a_game_starts_with_each_players_starting_conditions() {
 }
 
 /// Design changes 0009 and 0012 (`core/map_editor.md > Starting Layouts > Skirmish Default restriction`): a new
-/// Skirmish Default map's layouts are empty, and it can't be played until the GDO's is complete at every start; the
-/// 180° symmetry mirrors a layout onto the opposite start, turning its buildings; a third plate, a Barracks, or
-/// anything in the layout of a faction not implemented yet (T11), is beyond the Starting Conditions; an owned object
-/// outside the layouts is refused. A Custom map has no such restriction.
+/// Skirmish Default map's layouts are empty, and it can't be played until the GDO's and the Colonists' (slice M3-C,
+/// plan decision T24) are complete at every start; the 180° symmetry mirrors a layout onto the opposite start,
+/// turning its buildings; a third plate, a Barracks, or anything in the layout of a faction not implemented yet (T11),
+/// is beyond the Starting Conditions; an owned object outside the layouts is refused. A Custom map has no such
+/// restriction.
 #[test]
 fn skirmish_default_layouts_hold_exactly_the_starting_conditions() {
     let mut map = MapSettings {
@@ -159,20 +171,27 @@ fn skirmish_default_layouts_hold_exactly_the_starting_conditions() {
     .create()
     .unwrap();
     assert_eq!((map.map_type, map.slots.len()), (MapType::SkirmishDefault, 2));
-    let missing = |slot, kind, missing| ScenarioProblem::LayoutMissing {
+    let lacks = |slot, faction, kind, missing| ScenarioProblem::LayoutMissing {
         slot: SlotId(slot),
-        faction: Faction::Gdo,
+        faction,
         kind,
         missing,
     };
-    let empty = vec![
-        missing(1, DC, 1),
-        missing(1, EF, 1),
-        missing(1, PLATE, 2),
-        missing(2, DC, 1),
-        missing(2, EF, 1),
-        missing(2, PLATE, 2),
-    ];
+    let missing = |slot, kind, missing| lacks(slot, Faction::Gdo, kind, missing);
+    let colonists = |slot| {
+        [
+            (ObjectKind::EgressNode, 1),
+            (ObjectKind::RoboPortal, 1),
+            (ObjectKind::Drone, 4),
+        ]
+        .map(|(kind, n)| lacks(slot, Faction::Colonists, kind, n))
+    };
+    let empty: Vec<ScenarioProblem> = [missing(1, DC, 1), missing(1, EF, 1), missing(1, PLATE, 2)]
+        .into_iter()
+        .chain(colonists(1))
+        .chain([missing(2, DC, 1), missing(2, EF, 1), missing(2, PLATE, 2)])
+        .chain(colonists(2))
+        .collect();
     assert_eq!(map.validate(), empty);
     assert_eq!(
         empty[2].to_string(),
@@ -184,6 +203,9 @@ fn skirmish_default_layouts_hold_exactly_the_starting_conditions() {
     // The west half is the editable part: its patches and the first slot's layout are mirrored onto the east half.
     map.spawns = vec![patch(1, 8), patch(2, 8), patch(3, 8)];
     *map.slots[0].layouts.get_mut(Faction::Gdo) = west_base();
+    map.regenerate();
+    assert_eq!(map.validate(), [colonists(1), colonists(2)].concat());
+    *map.slots[0].layouts.get_mut(Faction::Colonists) = west_colonists();
     map.regenerate();
     assert_eq!(map.validate(), []);
     let r180 = |kind, x, y| turned(kind, x, y, Rotation::R180);

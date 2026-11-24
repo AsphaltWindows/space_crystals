@@ -20,6 +20,7 @@ use space_crystals::editor::tools::Tool;
 use space_crystals::editor::ui::lists::ProblemList;
 use space_crystals::editor::ui::starting::LayoutPanel;
 
+use super::colonists::with_colonists;
 use super::{
     act, assert_warned, at, created, doc, editor, patch, problems, selection, sim, status, tap, temp_maps, tools,
 };
@@ -46,7 +47,7 @@ fn turned(rotation: Rotation, flip_h: bool) -> BuildingOrientation {
 }
 
 /// A flat Skirmish Default map, as the creation dialog makes it.
-fn skirmish(width: u32, height: u32, slots: usize, symmetry: Symmetry) -> MapDef {
+pub(super) fn skirmish(width: u32, height: u32, slots: usize, symmetry: Symmetry) -> MapDef {
     MapSettings {
         map_type: MapType::SkirmishDefault,
         width,
@@ -61,18 +62,18 @@ fn skirmish(width: u32, height: u32, slots: usize, symmetry: Symmetry) -> MapDef
 }
 
 /// `map` with crystal patches on `tiles` and their images.
-fn with_patches(mut map: MapDef, tiles: &[(i32, i32)]) -> MapDef {
+pub(super) fn with_patches(mut map: MapDef, tiles: &[(i32, i32)]) -> MapDef {
     map.spawns.extend(tiles.iter().map(|&(x, y)| patch(x, y)));
     map.regenerate();
     map
 }
 
 /// The point where a press puts a `w` × `h` footprint's top-left tile at (`x`, `y`): the footprint's center.
-fn spot(x: i32, y: i32, w: u32, h: u32) -> Vec2 {
+pub(super) fn spot(x: i32, y: i32, w: u32, h: u32) -> Vec2 {
     TilePos::new(x, y).corner() + Vec2::new(w as f32, h as f32) * SU_PER_GU / 2.0
 }
 
-fn laid(kind: ObjectKind, x: i32, y: i32, orientation: BuildingOrientation) -> LayoutObject {
+pub(super) fn laid(kind: ObjectKind, x: i32, y: i32, orientation: BuildingOrientation) -> LayoutObject {
     LayoutObject {
         kind,
         at: SpawnAt::Tile(TilePos::new(x, y)),
@@ -85,12 +86,12 @@ fn gdo(app: &App, slot: SlotId) -> Vec<LayoutObject> {
 }
 
 /// A click of the Layout tool at `pos`.
-fn click(app: &mut App, pos: Vec2) {
+pub(super) fn click(app: &mut App, pos: Vec2) {
     act(app, [A::Hover(Some(pos)), A::Press(pos), A::Release]);
 }
 
 /// The texts of the UI under the node marked `M`, in order.
-fn texts_under<M: Component>(app: &mut App) -> Vec<String> {
+pub(super) fn texts_under<M: Component>(app: &mut App) -> Vec<String> {
     app.update(); // The lists rebuild after the actions, their texts appear a frame later.
     let mut roots = app.world_mut().query_filtered::<Entity, With<M>>();
     let root = roots.single(app.world()).unwrap();
@@ -296,11 +297,15 @@ fn skirmish_layouts_take_only_the_starting_conditions() {
 
 /// 0012 and the slice's acceptance: a new Skirmish Default map says what each layout lacks, in the Problems list and
 /// when a play-test is refused, until it is complete; then it saves, opens and play-tests with every player's base.
-/// The images of slot 1's layout in slot 2 follow it, turned half around.
+/// The images of slot 1's layout in slot 2 follow it, turned half around. (The Colonists' layout is given here;
+/// `colonists.rs` places one.)
 #[test]
 fn a_new_skirmish_map_lists_what_its_layouts_lack_until_it_plays() {
     let dir = temp_maps("layout_complete");
-    let map = with_patches(skirmish(32, 24, 2, Symmetry::Rotate180), &[(3, 3), (4, 3)]);
+    let map = with_colonists(with_patches(
+        skirmish(32, 24, 2, Symmetry::Rotate180),
+        &[(3, 3), (4, 3)],
+    ));
     let mut app = editor(map, &dir);
     let missing = "S1 GDO layout: add Deployment Center, Extraction Facility, Extraction Plate x2 (Layout tool, T); \
                    S2 follows";
@@ -574,7 +579,10 @@ fn layouts_in_each_others_way_are_listed_at_once() {
 /// has.
 #[test]
 fn outdated_layouts_are_flagged_until_fixed() {
-    let mut map = with_patches(skirmish(32, 24, 2, Symmetry::Rotate180), &[(3, 3), (4, 3)]);
+    let mut map = with_colonists(with_patches(
+        skirmish(32, 24, 2, Symmetry::Rotate180),
+        &[(3, 3), (4, 3)],
+    ));
     *map.slot_mut(S1).unwrap().layouts.get_mut(Faction::Gdo) = vec![
         laid(DC, 2, 6, UNTURNED),
         laid(EF, 7, 6, UNTURNED),

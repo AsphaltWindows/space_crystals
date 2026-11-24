@@ -3,6 +3,7 @@
 //! field's own keys and the window's close button), and check the document, the sim that shows it and the view
 //! (`ARCHITECTURE.md > Map editor`).
 
+mod colonists;
 mod creation;
 mod edits;
 mod input;

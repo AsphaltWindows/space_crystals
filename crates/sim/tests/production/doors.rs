@@ -18,6 +18,9 @@ pub(super) fn queue(t: &mut TestSim, producer: ObjectId, n: usize) {
             player: P1,
             crystals: 10_000,
             supplies: 0,
+            alloys: 0,
+            essence: 0,
+            flux: 0,
         },
     );
     for _ in 0..n {

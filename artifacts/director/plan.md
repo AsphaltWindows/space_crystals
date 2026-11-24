@@ -394,11 +394,25 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **`Sim::change_kind`** (`sim/kinds.rs`) keeps the id and owner, rebuilds the capabilities, refunds a queue or construction, keeps orders, mover and target, and emits `KindChanged`.
   - **Client.** Placeholder meshes with tags; the Legionnaires use BasicCombatUnit. Goldens unchanged.
 
+- **M3-H gathering** (Fable; merged in `5bd3b69`; 972 tests):
+  - **Commands and state.** `OrderKind::Gather` and `DropOff`, `Object::worker`, `Ability::SetDropOff`, and gate rules in `sim/workers.rs`.
+  - **Timed work and depletion.** Mining and drop-off are timed in `economy/gathering.rs`, with the bank credit and `ResourcesDelivered`. Depletion goes through the removal path, with `redirect_gatherers`.
+  - **Rally and placeholders.** A rally on a patch gives Gather. Q0037's proposals are built and cited.
+  - **Trip time** on the stand-in mover, with the patch 2 GU from the node: 60 ticks, 2.13 crystals per second per Drone.
+  - **Soak under hard collision** (before 0106): 8 Drones 14.3/s; 12 Drones 9.8/s; 24 Drones gridlock at 0/s. The minimal jam is pinned, and 0106 answered the question.
+  - **Found.** A blocked unit inherits the blocker's progress clock in `movement::stuck`; H2 checks it. Six open details went out as Q0044.
+
+- **M3-C Colonists start** (merged in `5c75d40`; 988 tests):
+  - **Army caps and banks.** `economy/army.rs` holds `ArmyCap` and `Sim::army_cap`, giving GDO Unit Control and Colonists Beacon Capacity. Syndicate and Cults are uncapped for now. Banks gain Alloys, Essence and Flux.
+  - **Start.** The Colonists Starting Conditions: Egress Node, Robo Portal, 4 Drones, 100 SC; capacity 4/10. `dev_skirmish` has Colonists layouts in both slots (Egress Node (4,4), Robo Portal (6,6)).
+  - **Client.** `--factions`, the Colonists bar, and the over-capacity red counter (0112). The camera starts on the Robo Portal.
+  - **Tests and docs.** `ScenarioBuilder::faction`. ARCHITECTURE.md gets an "Adding a faction" checklist. The goldens were re-blessed for the bank fields.
+
 ## In progress
 - **M3 wave 2** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
-  - **M3-C Colonists start** (Opus): army caps, banks, Starting Conditions, `dev_skirmish` Colonists layouts, `--factions`, the Colonists bar.
   - **M3-E transformations and Warp In** (Opus): splits `sim/gate.rs` first. The Director added the generic client response to `KindChanged` to E.
-  - **M3-H gathering** (Fable): the loop, then a soak that reports income and jams for Q0038. It may split off the crowding work as H2.
+  - **M3-D portals** (Opus; brief `scratchpad/briefs/m3d-portals.md`): exit rules (T19), unarmed rally, the data-driven Production panel.
+  - **M3-H2 Drone pass-through** (Fable; brief `scratchpad/briefs/m3h2-drone-pass-through.md`): 0106's pass-through and overlap rules, the invariant exceptions, the `movement::stuck` finding, and the saturation curve. G starts after it, because both own `movement*`.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2 playtest** with the user, using `docs/playtest/m2.md`.
@@ -516,8 +530,12 @@ First playable after M2-H2.
     | Slice | Status |
     |---|---|
     | A | done (`a22aa2d`) |
-    | C, E, H | running (wave 2) |
-    | B, D, F, G, J1, J2, K1, K2 | queued |
+    | H | done (`5bd3b69`) |
+    | C | done (`5c75d40`) |
+    | E | running (wave 2) |
+    | D | running (wave 3) |
+    | H2 (0106) | running |
+    | B (next free slot), F (after E), G (after H2), J1, J2, K1, K2 | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -579,15 +597,16 @@ First playable after M2-H2.
 | Q0035 | Rally point UI: Shift with rally targeting, rallying on one of several selected Barracks, feedback when pressing an unavailable command | no | open; M2-H1 built the stated current behaviour |
 | Q0036 | End of game edge cases: simultaneous last defeats, free-for-all spectating, a raised Riot Shield on defeat | no | open; M2-F2 built the stated current behaviour |
 | Q0037 | Drone gathering: the cases the loop doesn't define (13 points) | no | open; M3-H builds the proposals |
-| Q0038 | Gathering Drones, collision and the economy targets | **yes** (M3-H final behaviour, M3-K1) | open |
-| Q0039 | Beacon Deployment and Warp In: what the transforming object is | no (answer before M3-F) | open |
+| Q0038 | Gathering Drones, collision and the economy targets | was yes | answered by 0106 (pass-through), 0107 (geometry), 0108 (±15%) |
+| Q0039 | Beacon Deployment and Warp In: what the transforming object is | no (answer before M3-F) | points 1–7 answered by 0109–0115; point 8 open |
 | Q0040 | Deploy and Warp In placement, and the Colonists panels | no | open |
 | Q0041 | Portal exits and Beacon Capacity | no | open |
 | Q0042 | Shields, melee range and Weapon Conversion | no | open |
 | Q0043 | M3 scope: the Colonists content left TBD (FYI) | no | open |
+| Q0044 | Gathering details from the build: fog, plates, empty Drop Off, blocked Drones, redirect timing, the Egress Node's sight | no | open; M3-H built the stated current behaviour |
 
 ## Design change entries
-Last triaged: 0105.
+Last triaged: 0115.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -690,4 +709,14 @@ Last triaged: 0105.
 | 0103 Enemy structures are valid automatic targets | done (M2-A, `cbeb804`) | answers Q0030 point 1; matches M1 |
 | 0104 Deployment Center has two build menus | done (M2-H2, `2d507b4`) | answers Q0030 point 2; M2 needs only Generator, Barracks and EF in BuildMenu[Basic] |
 | 0105 Default InfoPanel for structures | done (M2-G `69e80a1`; activity lines M2-H1 `eccaaa6`, M2-H2 `2d507b4`) | answers Q0030 point 3, as proposed |
+| 0106 Gathering Drones pass through each other; the general overlap rule | in progress (M3-H2) | answers Q0038 point 1 |
+| 0107 Reference check geometry: a 2-GU gap, edge to edge | done in M3-H's tests (`5bd3b69`); queued (M3-K1) | answers Q0038 point 2 |
+| 0108 Economy check tolerance ±15%; the reference layout is only a benchmark | queued (M3-K1) | answers Q0038 point 3 |
+| 0109 The transforming object is the target structure from the first frame | in progress (M3-E; then M3-F) | answers Q0039 point 1 |
+| 0110 Damage stays taken during the transform interpolation | in progress (M3-E; then M3-F) | answers Q0039 point 2 |
+| 0111 A transform cancel keeps the HP and Shields fraction, at least 1 HP | in progress (M3-E; then M3-F) | answers Q0039 point 3 |
+| 0112 Beacon Capacity during Deploy and Warp In; over capacity allowed and shown red | red counter and blocked production done (M3-C, `5c75d40`); Warp In in progress (M3-E); deploy queued (M3-F) | answers Q0039 point 4, and Q0041 point 2 in effect |
+| 0113 Structures under transformation count for defeat | in progress (M3-E); deploy-cancel case queued (M3-F) | answers Q0039 point 5 |
+| 0114 A Drone deploying with a load keeps it; lost on completion, returned on cancel | queued (M3-F) | answers Q0039 point 6 |
+| 0115 A building destroyed mid-Warp-In refunds nothing | in progress (M3-E) | answers Q0039 point 7 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

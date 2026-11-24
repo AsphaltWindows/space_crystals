@@ -170,6 +170,9 @@ fn game() -> (TestSim, Vec<Side>) {
             player: side.player,
             crystals: 100_000,
             supplies: 0,
+            alloys: 0,
+            essence: 0,
+            flux: 0,
         };
         t.at(1, side.player, Command::Debug(resources));
         for _ in 0..5 {

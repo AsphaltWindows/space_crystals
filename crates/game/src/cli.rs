@@ -1,16 +1,23 @@
-//! Command-line flags, parsed by hand. `ARCHITECTURE.md > QA mode` documents them for agents.
+//! Command-line flags, parsed by hand. `ARCHITECTURE.md > QA mode` documents them for agents; [`usage`] is the help
+//! text.
+
+mod usage;
+mod values;
 
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use bevy::math::UVec2;
-use sc_sim::{MapDef, PlayerId, Scenario, SimConfig, Tick, scenarios};
+use sc_sim::{Faction, GameSetup, MapDef, PlayerId, Scenario, SimConfig, Tick, scenarios};
 
 use crate::editor::actions::EditorAction;
 use crate::editor::{EditorConfig, files};
 use crate::platform::DisplayMode;
 use crate::qa::{QaConfig, ScreenshotRequest};
 use crate::{AppConfig, PlaybackSource, replay};
+
+pub use usage::usage;
+use values::{parse_factions, parse_player, parse_screenshot, parse_size, parse_tick};
 
 /// The scenario `cargo run` starts without flags.
 pub const DEFAULT_SCENARIO: &str = "dev_skirmish";
@@ -24,6 +31,9 @@ const MAX_WINDOW_SIDE: u32 = 8192;
 pub struct CliOptions {
     pub scenario: Option<String>,
     pub map: Option<PathBuf>,
+    /// `--factions`: the faction of each slot's player, in slot order (plan decision T24); `None` for the default
+    /// setup, a GDO player in every slot.
+    pub factions: Option<Vec<Faction>>,
     /// `--editor`, with the file to edit if one was given.
     pub editor: bool,
     pub editor_path: Option<PathBuf>,
@@ -57,6 +67,7 @@ impl Default for CliOptions {
         Self {
             scenario: None,
             map: None,
+            factions: None,
             editor: false,
             editor_path: None,
             editor_script: None,
@@ -81,62 +92,6 @@ impl Default for CliOptions {
     }
 }
 
-pub fn usage() -> String {
-    format!(
-        "\
-Usage: cargo run -- [flags]
-
-Game:
-  --scenario <name>           Start a built-in map: {names} (default {DEFAULT_SCENARIO})
-  --map <file.json>           Start a map file instead
-                              (both with the default setup: a GDO player in every slot, player n in slot n)
-  --player <n>                Show player n's view (default 1)
-  --window-size <W>x<H>       Window or offscreen image size in pixels (default {w}x{h})
-  --fast                      Run as many ticks per frame as possible instead of 16 per second
-  --no-debug                  Reject debug commands, as a real match does (they are on by default)
-
-Map editor:
-  --editor [file.json]        Edit a map file (created on the first save if it doesn't exist yet).
-                              Without a file: a new {nw}x{nh} map, saved as maps/<name>.json.
-                              With --scenario <name>: a built-in map, saved as maps/<name>.json.
-                              --player <n> chooses the slot that play-tests (F5) start as.
-                              Play-tests take debug commands unless --no-debug.
-  --editor-script <file.json> Apply a JSON list of editor actions on the first frame (QA)
-
-Replays (a game is recorded to {replays}/<UTC time>_<map>.json; not the editor and its play-tests):
-  --replay <file.json>        Play a recorded game back, with its own map and game options; it pauses at
-                              the end. Keys (placeholders): Space pauses and resumes, . plays one tick,
-                              - and = change the speed (x0.5, x1, x2, x4, max), F2 switches the player, F3
-                              the fog. --fast starts at max speed. The QA flags below work with it.
-  --record <file.json>        Record the game to this file instead (QA runs record only with this flag)
-  --no-record                 Don't record the game
-
-QA (any of these makes the run reproducible: keyboard and mouse are ignored, frames render offscreen):
-  --screenshot <tick>:<path>  Save a PNG of exactly that tick (repeatable)
-  --exit-at-tick <n>          Exit at tick n, once its screenshots are saved. A run without a window
-                              defaults to the last screenshot's tick, or else to the end of the --replay.
-  --dump-state <path>         Write the state as JSON when the run ends
-  --commands <file.json>      Apply player commands at given ticks: a JSON list of
-                              {{\"tick\": 2, \"player\": 1, \"command\": {{\"Order\": {{...}}}}}}
-  --input-script <file.json>  Drive the virtual keyboard and mouse at given ticks: a JSON list of
-                              {{\"tick\": 3, \"cursor\": [640, 300], \"press\": [\"MouseLeft\"], \"tap\": [],
-                              \"release\": []}} (buttons: MouseLeft, ShiftLeft, Digit1, KeyA, F2, Tab, ...)
-  --show-paths                Start with the unit path overlay on (P toggles it)
-  --no-fog                    Start with the fog of war off: show everything (F3 toggles it; needs debug
-                              commands or a --replay, display only)
-  --windowed                  Show the QA run in a window instead of rendering offscreen
-  --headless                  No window and no rendering at all (no screenshots)
-
-  -h, --help                  Show this help",
-        names = scenarios::NAMES.join(", "),
-        replays = replay::REPLAYS_DIR,
-        nw = files::NEW_MAP_SIZE.0,
-        nh = files::NEW_MAP_SIZE.1,
-        w = DEFAULT_WINDOW_SIZE.x,
-        h = DEFAULT_WINDOW_SIZE.y,
-    )
-}
-
 /// Parses the flags (without the program name).
 pub fn parse(args: &[String]) -> Result<CliOptions, String> {
     let mut options = CliOptions::default();
@@ -151,6 +106,7 @@ pub fn parse(args: &[String]) -> Result<CliOptions, String> {
         match flag.as_str() {
             "--scenario" => options.scenario = Some(value()?),
             "--map" => options.map = Some(value()?.into()),
+            "--factions" => options.factions = Some(parse_factions(&value()?)?),
             "--editor-script" => options.editor_script = Some(value()?.into()),
             "--player" => options.player = parse_player(&value()?)?,
             "--window-size" => options.window_size = parse_size(&value()?)?,
@@ -175,38 +131,9 @@ pub fn parse(args: &[String]) -> Result<CliOptions, String> {
     Ok(options)
 }
 
-fn parse_tick(s: &str) -> Result<Tick, String> {
-    s.parse().map_err(|_| format!("{s:?} is not a tick number"))
-}
-
-fn parse_player(s: &str) -> Result<u8, String> {
-    match s.parse::<u8>() {
-        Ok(n) if n >= 1 => Ok(n),
-        _ => Err(format!("{s:?} is not a player number (1, 2, …)")),
-    }
-}
-
-fn parse_size(s: &str) -> Result<UVec2, String> {
-    let error = || format!("{s:?} is not a size like 1280x720");
-    let (w, h) = s.split_once(['x', 'X']).ok_or_else(error)?;
-    let side = |v: &str| v.parse::<u32>().ok().filter(|n| (1..=MAX_WINDOW_SIDE).contains(n));
-    Ok(UVec2::new(side(w).ok_or_else(error)?, side(h).ok_or_else(error)?))
-}
-
-fn parse_screenshot(s: &str) -> Result<ScreenshotRequest, String> {
-    let (tick, path) = s
-        .split_once(':')
-        .filter(|(_, path)| !path.is_empty())
-        .ok_or_else(|| format!("{s:?} is not <tick>:<path>"))?;
-    Ok(ScreenshotRequest {
-        tick: parse_tick(tick)?,
-        path: path.into(),
-    })
-}
-
 /// Loads the map, or the replay, and checks the flags against it and each other. A game's map gets the default
-/// setup (a GDO player in every slot) and must be valid; the editor opens invalid maps too, to fix them, and lists
-/// their problems. A replay brings its scenario, game options included.
+/// setup (a GDO player in every slot), or the factions of `--factions`, and must be valid; the editor opens invalid
+/// maps too, to fix them, and lists their problems. A replay brings its scenario, players and game options included.
 pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
     let player = PlayerId(options.player);
     if options.editor_script.is_some() && !options.editor {
@@ -345,12 +272,13 @@ fn playback_source(options: &CliOptions, path: &Path) -> Result<PlaybackSource, 
         (options.editor, "--editor"),
         (options.scenario.is_some(), "--scenario"),
         (options.map.is_some(), "--map"),
+        (options.factions.is_some(), "--factions"),
         (!options.debug, "--no-debug"),
         (options.commands.is_some(), "--commands"),
     ];
     if let Some((_, flag)) = conflicts.into_iter().find(|(given, _)| *given) {
         return Err(format!(
-            "--replay plays the recorded game with its own map, game options and commands: not with {flag}"
+            "--replay plays the recorded game with its own map, players, game options and commands: not with {flag}"
         ));
     }
     let replay = replay::load_replay(path)?;
@@ -391,10 +319,10 @@ fn record_file(
     }
 }
 
-/// The scenario a game plays: the map of `--map`, else of `--scenario`, else the default, with the default setup.
-/// It must be valid.
+/// The scenario a game plays: the map of `--map`, else of `--scenario`, else the default, with the default setup or
+/// with the factions of `--factions` (the slots it doesn't name get the GDO). It must be valid.
 fn game_scenario(options: &CliOptions) -> Result<Scenario, String> {
-    let (scenario, source) = match (&options.map, &options.scenario) {
+    let (mut scenario, source) = match (&options.map, &options.scenario) {
         (Some(_), Some(_)) => return Err("--map and --scenario exclude each other".into()),
         (Some(path), None) => (Scenario::new(load_map_file(path)?), path.display().to_string()),
         (None, name) => {
@@ -404,6 +332,17 @@ fn game_scenario(options: &CliOptions) -> Result<Scenario, String> {
             (scenario, format!("scenario {name:?}"))
         }
     };
+    if let Some(factions) = &options.factions {
+        // Plan decision T24: `--factions` picks each slot's faction, as the editor's play-test setup does.
+        let slots = scenario.map.slots.len();
+        if factions.len() > slots {
+            return Err(format!(
+                "--factions names {} factions, and {source} has {slots} slot(s)",
+                factions.len()
+            ));
+        }
+        scenario.setup = GameSetup::per_slot(&scenario.map, factions, scenario.setup.seed);
+    }
     let problems = scenario.validate();
     if problems.is_empty() {
         return Ok(scenario);
@@ -421,6 +360,9 @@ fn game_scenario(options: &CliOptions) -> Result<Scenario, String> {
 fn editor_document(options: &CliOptions) -> Result<(MapDef, EditorConfig), String> {
     if options.map.is_some() {
         return Err("--editor takes the file itself: --editor <file.json>".into());
+    }
+    if options.factions.is_some() {
+        return Err("--factions sets up a game: the editor's play-tests have their own setup".into());
     }
     let (map, path) = match (&options.editor_path, &options.scenario) {
         (Some(_), Some(_)) => return Err("--editor <file> and --scenario exclude each other".into()),

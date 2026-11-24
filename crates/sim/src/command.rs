@@ -92,12 +92,21 @@ pub enum DebugCommand {
     /// unit already engaged stays engaged. For tests and QA runs that look at movement between the units of
     /// different players without the fight that would follow.
     SetAutoTargeting { on: bool },
-    /// Set `player`'s banks: Space Crystals and Supplies (`factions/gdo/overview.md > GDOResources`), whoever
-    /// issues it. For tests and QA runs of the economy; a game's starting banks come from the Starting Conditions.
+    /// Set `player`'s banks: Space Crystals and Supplies (`factions/gdo/overview.md > GDOResources`), and Alloys,
+    /// Essence and Flux (`factions/colonists/overview.md > ColonistResources`, plan decision T21), whoever issues it.
+    /// For tests and QA runs of the economy; a game's starting banks come from the Starting Conditions.
     SetResources {
         player: PlayerId,
         crystals: u32,
         supplies: u32,
+        /// Optional in files (0), as are `essence` and `flux`, so that the replays recorded before they existed still
+        /// load.
+        #[serde(default)]
+        alloys: u32,
+        #[serde(default)]
+        essence: u32,
+        #[serde(default)]
+        flux: u32,
     },
 }
 

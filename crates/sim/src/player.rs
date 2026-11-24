@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::PlayerId;
+use crate::scenario::StartingConditions;
 use crate::units::Tick;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -23,9 +24,9 @@ impl Faction {
     pub const ALL: &'static [Faction] = &[Faction::Gdo, Faction::Syndicate, Faction::Cults, Faction::Colonists];
 }
 
-/// Per-player simulation state: who the player is, their banks (`factions/gdo/overview.md > GDOResources`) and
-/// whether they are defeated. Power and Unit Control are not stored: they follow from the player's objects
-/// (`crate::economy`).
+/// Per-player simulation state: who the player is, their banks (`factions/gdo/overview.md > GDOResources`,
+/// `factions/colonists/overview.md > ColonistResources`) and whether they are defeated. Power and the army caps are
+/// not stored: they follow from the player's objects (`crate::economy`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Player {
     pub id: PlayerId,
@@ -40,6 +41,17 @@ pub struct Player {
     /// Supplies yet (design change 0077), so only `DebugCommand::SetResources` changes it.
     #[serde(default)]
     pub supplies: u32,
+    /// The Colonists' refined resources (`factions/colonists/overview.md > ColonistResources > Alloys`, `> Essence`,
+    /// `> Flux`; plan decision T21): counters only, at 0 from the start (`factions/colonists/economy.md > Starting
+    /// Conditions`: "Starting Alloys, Essence and Flux: 0"), until refining exists (question Q0043 point 1); only
+    /// `DebugCommand::SetResources` changes them. Every player has them, as every player has Supplies. Optional in
+    /// files, so that states saved before they existed still load.
+    #[serde(default)]
+    pub alloys: u32,
+    #[serde(default)]
+    pub essence: u32,
+    #[serde(default)]
+    pub flux: u32,
     /// The tick in which the player was defeated (`core/game_rules.md > Defeat Condition`, plan decision T8:
     /// their owned-structure count dropped to 0, `economy::defeat`); `None` while they are in the game. Final: a
     /// defeated player stays defeated (`> On Defeat`). Optional in files, so that states saved before it existed
@@ -48,7 +60,60 @@ pub struct Player {
     pub defeated_at: Option<Tick>,
 }
 
+/// A player's five banks at once: what `DebugCommand::SetResources` sets ([`Player::set_banks`]).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct Banks {
+    pub crystals: u32,
+    pub supplies: u32,
+    pub alloys: u32,
+    pub essence: u32,
+    pub flux: u32,
+}
+
 impl Player {
+    /// A player of `faction` as a game starts them: in the game, their Space Crystals and Supplies at the faction's
+    /// Starting Conditions (`factions/gdo/economy.md > Starting Conditions`, `factions/colonists/economy.md >
+    /// Starting Conditions`: 100 Space Crystals each), 0 for a faction not implemented yet (plan decision T11), and
+    /// the refined resources at 0 (T21).
+    pub fn starting(id: PlayerId, name: String, faction: Faction) -> Self {
+        let start = StartingConditions::of(faction);
+        Self {
+            id,
+            name,
+            faction,
+            crystals: start.map_or(0, |s| s.crystals),
+            supplies: start.map_or(0, |s| s.supplies),
+            alloys: 0,
+            essence: 0,
+            flux: 0,
+            defeated_at: None,
+        }
+    }
+
+    /// The player's banks.
+    pub fn banks(&self) -> Banks {
+        Banks {
+            crystals: self.crystals,
+            supplies: self.supplies,
+            alloys: self.alloys,
+            essence: self.essence,
+            flux: self.flux,
+        }
+    }
+
+    /// Sets all of the player's banks (`DebugCommand::SetResources`).
+    pub fn set_banks(&mut self, banks: Banks) {
+        let Banks {
+            crystals,
+            supplies,
+            alloys,
+            essence,
+            flux,
+        } = banks;
+        (self.crystals, self.supplies) = (crystals, supplies);
+        (self.alloys, self.essence, self.flux) = (alloys, essence, flux);
+    }
+
     /// Whether the player has been defeated ([`Player::defeated_at`]): the gate refuses all their commands.
     pub fn is_defeated(&self) -> bool {
         self.defeated_at.is_some()
@@ -86,12 +151,8 @@ mod tests {
 
     fn player(crystals: u32) -> Player {
         Player {
-            id: PlayerId(1),
-            name: "P".into(),
-            faction: Faction::Gdo,
             crystals,
-            supplies: 0,
-            defeated_at: None,
+            ..Player::starting(PlayerId(1), "P".into(), Faction::Gdo)
         }
     }
 
@@ -119,6 +180,32 @@ mod tests {
         let json = r#"{"id": 2, "name": "Old", "faction": "Gdo"}"#;
         let p: Player = serde_json::from_str(json).unwrap();
         assert_eq!((p.id, p.crystals, p.supplies, p.defeated_at), (PlayerId(2), 0, 0, None));
+        assert_eq!(p.banks(), Banks::default());
+    }
+
+    /// A game starts each player at their faction's Starting Conditions, the refined resources at 0 (plan decision
+    /// T21); a faction not implemented yet starts with nothing (T11). `set_banks` sets all five.
+    #[test]
+    fn players_start_with_their_factions_banks() {
+        let start = |faction| Player::starting(PlayerId(1), "P".into(), faction).banks();
+        let hundred = Banks {
+            crystals: 100,
+            ..Banks::default()
+        };
+        assert_eq!(start(Faction::Gdo), hundred);
+        assert_eq!(start(Faction::Colonists), hundred);
+        assert_eq!(start(Faction::Syndicate), Banks::default());
+        let mut p = player(5);
+        let set = Banks {
+            crystals: 1,
+            supplies: 2,
+            alloys: 3,
+            essence: 4,
+            flux: 5,
+        };
+        p.set_banks(set);
+        assert_eq!(p.banks(), set);
+        assert_eq!((p.alloys, p.essence, p.flux), (3, 4, 5));
     }
 
     #[test]

@@ -454,6 +454,9 @@ fn set_crystals(app: &mut App, crystals: u32) {
         player,
         crystals,
         supplies: 0,
+        alloys: 0,
+        essence: 0,
+        flux: 0,
     };
     submit(app, player, Command::Debug(set));
     app.update();

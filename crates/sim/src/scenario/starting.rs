@@ -1,10 +1,10 @@
 //! Starting Conditions (slice M2-F1, plan decision T11): what each faction starts a game with
-//! (`factions/gdo/economy.md > Starting Conditions`), and what that means for a map's Starting Layouts
-//! (`core/map_editor.md > Starting Layouts`).
+//! (`factions/gdo/economy.md > Starting Conditions`, `factions/colonists/economy.md > Starting Conditions`), and what
+//! that means for a map's Starting Layouts (`core/map_editor.md > Starting Layouts`).
 //!
-//! - **The table** ([`StartingConditions::of`]) lives in the sim. The GDO's is implemented. The other factions' come
-//!   with their milestones (M3 to M5), and until then a faction without a table counts as "not implemented yet"
-//!   (T11).
+//! - **The table** ([`StartingConditions::of`]) lives in the sim. The GDO's and the Colonists' (slice M3-C) are
+//!   implemented. The Syndicate's and the Cults' come with their milestones (M4, M5), and until then a faction
+//!   without a table counts as "not implemented yet" (T11).
 //! - **Game start**: a player's banks start at their faction's Starting Conditions (`crate::Sim::try_new`), and their
 //!   objects are those of their faction's Starting Layout at their slot (`Scenario::start_objects`).
 //! - **Skirmish Default restriction** (`core/map_editor.md > Starting Layouts > Skirmish Default restriction`, design
@@ -61,14 +61,32 @@ static GDO: StartingConditions = StartingConditions {
     primary: ObjectKind::DeploymentCenter,
 };
 
+/// `factions/colonists/economy.md > Starting Conditions`: "one pre-built Egress Node, one pre-built Robo Portal [...]
+/// and **four Drones**"; "Starting resources: **100 Space Crystals**". The Colonists have no Supplies, so 0; their
+/// "Starting Alloys, Essence and Flux: **0**" are every player's (`crate::Player::starting`, plan decision T21). The
+/// two structures "are already-Warped-In": each provides its 5 Beacon Capacity from the start (`crate::economy::
+/// army`), 10 in all, of which the Drones use 4.
+static COLONISTS: StartingConditions = StartingConditions {
+    objects: &[
+        (ObjectKind::EgressNode, 1),
+        (ObjectKind::RoboPortal, 1),
+        (ObjectKind::Drone, 4),
+    ],
+    crystals: 100,
+    supplies: 0,
+    // `core/camera.md > Starting Position`: "Colonists: starting Robo Portal".
+    primary: ObjectKind::RoboPortal,
+};
+
 impl StartingConditions {
     /// `faction`'s Starting Conditions, or `None` while the faction isn't implemented yet (plan decision T11): the
-    /// Syndicate's, the Cults' and the Colonists' starting objects (Tunnel and Agents, Recruitment Hall and Recruits,
-    /// Robo Portal and Drones) don't exist in the sim before their milestones.
+    /// Syndicate's and the Cults' starting objects (Tunnel and Agents, Recruitment Hall and Recruits) don't exist in
+    /// the sim before their milestones.
     pub fn of(faction: Faction) -> Option<&'static StartingConditions> {
         match faction {
             Faction::Gdo => Some(&GDO),
-            Faction::Syndicate | Faction::Cults | Faction::Colonists => None,
+            Faction::Colonists => Some(&COLONISTS),
+            Faction::Syndicate | Faction::Cults => None,
         }
     }
 
@@ -187,9 +205,10 @@ pub(super) fn restriction(
 
 impl Scenario {
     /// `core/camera.md > Starting Position`: the centre of `player`'s primary starting structure (the GDO's
-    /// Deployment Center), where the game will create it: the first object of that kind in the Starting Layout of
-    /// the player's faction at their slot. `None` when the player isn't in the setup, their slot isn't on the map,
-    /// their faction isn't implemented yet, or the layout holds no such object that fits the map.
+    /// Deployment Center, the Colonists' Robo Portal), where the game will create it: the first object of that kind in
+    /// the Starting Layout of the player's faction at their slot. `None` when the player isn't in the setup, their
+    /// slot isn't on the map, their faction isn't implemented yet, or the layout holds no such object that fits the
+    /// map.
     pub fn primary_structure(&self, player: PlayerId) -> Option<Vec2> {
         let p = self.setup.player(player)?;
         let slot = self.map.slot(p.slot)?;
@@ -215,10 +234,12 @@ mod tests {
     }
 
     /// `factions/gdo/economy.md > Starting Conditions`: a Deployment Center, an Extraction Facility, two plates and
-    /// 100 Space Crystals (Supplies 0, design change 0077); the other factions aren't implemented yet (T11).
+    /// 100 Space Crystals (Supplies 0, design change 0077); `factions/colonists/economy.md > Starting Conditions`: an
+    /// Egress Node, a Robo Portal, four Drones and 100 Space Crystals, the camera on the Robo Portal (`core/camera.md
+    /// > Starting Position`). The Syndicate and the Cults aren't implemented yet (T11).
     #[test]
-    fn only_the_gdo_has_starting_conditions_so_far() {
-        use ObjectKind::{DeploymentCenter, ExtractionFacility, ExtractionPlate};
+    fn the_gdo_and_the_colonists_have_starting_conditions() {
+        use ObjectKind::{DeploymentCenter, Drone, EgressNode, ExtractionFacility, ExtractionPlate, RoboPortal};
         let gdo = StartingConditions::of(Faction::Gdo).unwrap();
         assert_eq!(
             gdo.objects,
@@ -229,7 +250,14 @@ mod tests {
             [ExtractionPlate, ObjectKind::Barracks, ObjectKind::Peacekeeper].map(|k| gdo.count(k)),
             [2, 0, 0]
         );
-        for &faction in &Faction::ALL[1..] {
+        let colonists = StartingConditions::of(Faction::Colonists).unwrap();
+        assert_eq!(colonists.objects, [(EgressNode, 1), (RoboPortal, 1), (Drone, 4)]);
+        assert_eq!(
+            (colonists.crystals, colonists.supplies, colonists.primary),
+            (100, 0, RoboPortal)
+        );
+        assert_eq!([Drone, ObjectKind::Beacon].map(|k| colonists.count(k)), [4, 0]);
+        for faction in [Faction::Syndicate, Faction::Cults] {
             assert_eq!(StartingConditions::of(faction), None, "{faction:?}");
         }
     }
