@@ -113,6 +113,8 @@ Syndicate equipment storage warehouse for re-arming Syndicate forces.
 
 Syndicate production building that assembles Syndicate ground vehicles.
 
+Produces (2026-11-25): **Assault Bike** (factions/syndicate/units.md). Costs, times and panel layout: TBD.
+
 #### Entity Type - Structure Type (Underground)
 #### Tier Requirement - 2
 #### TechPrerequisite - player owns at least one Chemical Plant (anywhere in the Tunnel Network)

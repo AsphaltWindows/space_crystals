@@ -175,3 +175,27 @@ Agents construct Tunnels and surface defensive structures (see Surface Defensive
 #### Cancel Construction
 While a Tunnel is under initial construction (Agent inside, not yet operational), the owning player may cancel it:
 - **X: Cancel Construction**: cancels the in-progress initial build (CommandIssuingTransition). The Agent survives and emerges at the location. Full refund of Supplies cost. Only available while the Tunnel is under initial construction — mutually exclusive with the post-operational **X: Cancel Upgrade** command, since a Tunnel is never in both states at once.
+
+## Assault Bike
+(user, 2026-11-25) Syndicate fast attack vehicle. The **fastest wheeled vehicle in the game**, with a **relatively wide turning radius** for a fast vehicle (and, being wheeled, it can't turn on the spot). Armed with a **mortar**: like the Grenadier's grenade (slow, dodgeable explosive projectile with area damage) but with **slightly longer range**. The mortar sits on a **turret with a narrow turn angle**: it can aim a little to either side of the bike's facing, but the bike must still roughly point toward its target. Ground only (assumed, like the Grenadier); can Attack Ground.
+
+### Entity Type - Unit
+### Faction - TheSyndicate
+### UnitBase - WheeledVehicle (exits only through Tier 2+ Tunnels)
+### Produced at - Vehicle Assembly
+### Groupable - true (assumed)
+
+### TurretAttributes:
+- TurnAngle: narrow (value TBD)
+
+### AttackAttributes:
+- AttackType: DoublyDisjointed (mortar; slow projectile to the target's position at the end of Aiming; can be dodged)
+- TargetDomain: Ground (assumed)
+- TargetType: AoE
+- Range: slightly longer than the Grenadier's
+- CanTargetGround: true (derived)
+
+All numbers (HP, armor, sight, speed, turn radius, turret turn angle and rate, TunnelSpaceCost, damage, AoE radius, range, projectile speed, timings, cost, build time): TBD.
+
+### ObjectInterfaceState: BasicCombatUnitInterfaceState
+
