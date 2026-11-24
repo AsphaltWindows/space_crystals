@@ -91,7 +91,8 @@ pub enum Locomotion {
     Moving,
     /// Moving backwards along the path (bases with CanReverse only; none in M1).
     Reversing,
-    /// Slowing down to a stop. With infinite deceleration (every M1 unit) it never lasts beyond the tick.
+    /// Slowing down to a stop. With infinite deceleration (every M1 unit) it never lasts beyond the tick. A
+    /// DragMovement unit without a goal is Stopping while it brakes off its [`Mover::momentum`] (slice M3-G).
     Stopping,
     /// Not moving.
     #[default]
@@ -195,6 +196,18 @@ pub struct Mover {
     /// states saved before it existed still load.
     #[serde(default)]
     pub exit: Option<ObjectId>,
+    /// The velocity a unit with momentum carries into its next tick, space units per tick (slice M3-G:
+    /// `systems/units.md > DragMovement`, `movement::drag`): its latest displacement, with whatever an obstacle
+    /// blocked of it dropped (design change 0035). Always zero for the models that stop within the tick. Unlike
+    /// `velocity` it outlives the goal: [`Mover::stop`] and [`Mover::finish`] leave it, and the movement step
+    /// brakes the unit to a stop from it (`Locomotion::Stopping`). Left out of files while zero, so that states
+    /// saved before it existed still load, and of the hash while zero (`mover/hash.rs`).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub momentum: Vec2,
+}
+
+fn is_zero(v: &Vec2) -> bool {
+    *v == Vec2::ZERO
 }
 
 impl Default for Mover {
@@ -224,6 +237,7 @@ impl Default for Mover {
             avoid_until: 0,
             sidestep: None,
             exit: None,
+            momentum: Vec2::ZERO,
         }
     }
 }
@@ -250,7 +264,8 @@ impl Mover {
 
     /// No goal: the unit stops where it is (instantly, with infinite deceleration) and stands still. `status`
     /// becomes `Idle`. A sidestep ends too: every order stops or sends the unit, and a unit with an order doesn't
-    /// yield (design change 0023).
+    /// yield (design change 0023). A unit with [`Mover::momentum`] keeps it: from its next turn in phase 5d it
+    /// brakes to a stop (`movement::drag`), and only then is at rest.
     pub fn stop(&mut self) {
         self.sidestep = None;
         self.goal = MoveGoal::None;

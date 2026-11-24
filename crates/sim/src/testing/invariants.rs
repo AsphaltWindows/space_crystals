@@ -7,13 +7,14 @@
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
 //! [`Invariants`] and calls [`Invariants::check`] after each step.
 
+mod picture;
+
 use std::collections::BTreeMap;
-use std::fmt::Write as _;
 
 use glam::Vec2;
 
 use crate::command::{Command, DebugCommand, TickInputs};
-use crate::defs::Domain;
+use crate::defs::{Domain, MovementModel};
 use crate::ids::ObjectId;
 use crate::mover::{Locomotion, MAX_REPATHS, MoveGoal, MoveStatus, Mover, PathState};
 use crate::nav;
@@ -22,11 +23,13 @@ use crate::orders::{OrderKind, Target, gather};
 use crate::paths::boxes_overlap;
 use crate::production::Doorway;
 use crate::sim::Sim;
-use crate::units::{SU_PER_GU, Tick, TilePos};
+use crate::units::Tick;
 
 /// I6: a path request is served within this many ticks. Requests are served oldest first and at least one per
 /// tick (`docs/movement.md > 5.5`), so this bounds how far a test's scenario may fall behind, not the sim.
 pub const MAX_REQUEST_AGE: Tick = 32;
+
+pub use picture::ascii;
 
 /// A broken invariant.
 #[derive(Clone, Debug, PartialEq)]
@@ -50,6 +53,8 @@ struct Seen {
     exit: Option<ObjectId>,
     /// It was a Drone on a Gather job (`orders::gather::on_gather_job`, design change 0106).
     gathering: bool,
+    /// The velocity it carried into the next tick (`Mover::momentum`, slice M3-G).
+    momentum: Vec2,
 }
 
 /// Checks I1–I7 between ticks. It remembers each unit's state of the tick before, so check after **every** step.
@@ -70,6 +75,7 @@ fn seen(o: &Object, mover: &Mover) -> Seen {
         repaths_left: mover.repaths_left,
         exit: mover.exit,
         gathering: gather::on_gather_job(o),
+        momentum: mover.momentum,
     }
 }
 
@@ -105,6 +111,7 @@ impl Invariants {
 
     fn check_units(&self, sim: &Sim, teleported: &[ObjectId]) -> Result<(), Violation> {
         let tick = sim.tick();
+        let overlapped = overlapped_before(sim, &self.seen);
         for o in sim.objects() {
             let fail = |invariant, message: String| {
                 Err(Violation {
@@ -164,8 +171,11 @@ impl Invariants {
                     }
                 }
             }
-            // I3: a unit moves at most its speed per tick.
-            let step = unit.movement.max_speed() * mover.speed_factor;
+            // I3: a unit moves at most its speed per tick. (M3-G) For a unit with momentum that is its model's
+            // maximum, where thrust and drag balance on open ground (`MovementAttrs::max_speed`): a mode that
+            // slows the unit only weakens its thrust, and the speed it has decays.
+            let drag = unit.movement.model() == MovementModel::Drag;
+            let step = unit.movement.max_speed() * if drag { 1.0 } else { mover.speed_factor };
             let moved = o.pos.distance(o.prev_pos);
             if moved > step * 1.0001 + 1e-3 {
                 return fail("I3", format!("moved {moved} su in one tick, more than its {step}"));
@@ -193,20 +203,47 @@ impl Invariants {
             // also when the move ended in the same tick.
             let new_leg = mover.repaths_left == MAX_REPATHS && mover.last_repath == tick;
             let began = order_started || new_leg;
-            if o.pos != o.prev_pos && mover.goal == MoveGoal::None && !had_goal && !began && !sidestepping && !leaving {
+            // (M3-G) A DragMovement unit that still had momentum brakes to a stop, moving meanwhile
+            // (`movement::drag`, `docs/movement.md > 6.7`). No other model has momentum, ever.
+            let had_momentum = before.is_some_and(|b| b.momentum != Vec2::ZERO);
+            if mover.momentum != Vec2::ZERO && !drag {
+                return fail(
+                    "I5/I7",
+                    format!("has momentum, which its movement model has none of: {mover:?}"),
+                );
+            }
+            let coasting = drag && had_momentum;
+            // An idle unit that overlapped another moves off it (design change 0126, `movement::separate`).
+            let separating = overlapped.contains(&o.id) && o.orders.as_ref().is_some_and(|orders| orders.is_idle());
+            if o.pos != o.prev_pos
+                && mover.goal == MoveGoal::None
+                && !had_goal
+                && !began
+                && !sidestepping
+                && !leaving
+                && !coasting
+                && !separating
+            {
                 return fail(
                     "I5/I7",
                     format!(
-                        "moved from {} to {} without a goal, a new order or move, a sidestep, or a doorway to leave",
+                        "moved from {} to {} without a goal, a new order or move, a sidestep, a doorway to leave, \
+                         momentum to brake off, or a unit it overlapped to move off",
                         o.prev_pos, o.pos
                     ),
                 );
             }
             // A finished move leaves the unit standing (`docs/movement.md > 6.5`), and so does a finished sidestep.
+            // (M3-G) But a DragMovement unit braking off its momentum: it is Stopping, its velocity is that
+            // momentum, and it is slower than a tick before, every tick, so it does come to rest.
+            let at_rest = mover.velocity == Vec2::ZERO && mover.locomotion == Locomotion::Stationary;
+            let braking = drag
+                && mover.locomotion == Locomotion::Stopping
+                // Or it met an obstacle in this tick, which left it no velocity (design change 0035).
+                && (mover.velocity == mover.momentum || mover.momentum == Vec2::ZERO)
+                && before.is_some_and(|b| mover.velocity.length_squared() < b.momentum.length_squared());
             if mover.goal == MoveGoal::None
-                && ((mover.sidestep.is_none()
-                    && mover.exit.is_none()
-                    && (mover.velocity != Vec2::ZERO || mover.locomotion != Locomotion::Stationary))
+                && ((mover.sidestep.is_none() && mover.exit.is_none() && !at_rest && !braking && !separating)
                     || mover.path_state != PathState::None)
             {
                 return fail("I7", format!("has no goal but isn't at rest: {mover:?}"));
@@ -300,6 +337,37 @@ fn may_overlap(a: &Object, b: &Object, before: &BTreeMap<ObjectId, Seen>) -> boo
     (gathered(a) && gathered(b)) || overlapped()
 }
 
+/// The units whose box overlapped another unit's of their layer a tick earlier, by what the checker saw then: those
+/// that may be moving off it now, if they are idle (design change 0126).
+fn overlapped_before(sim: &Sim, before: &BTreeMap<ObjectId, Seen>) -> Vec<ObjectId> {
+    let mut found = Vec::new();
+    for domain in [Domain::Ground, Domain::Underground] {
+        let mut boxes: Vec<(f32, Vec2, Vec2, ObjectId)> = sim
+            .objects()
+            .filter_map(|o| {
+                let def = o.def();
+                let half = def.half_extents()?;
+                let pos = before.get(&o.id)?.pos;
+                (def.unit.as_ref()?.base_def().domain == domain).then_some((pos.x - half.x, pos, half, o.id))
+            })
+            .collect();
+        boxes.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.3.cmp(&b.3)));
+        for (i, &(_, a, a_half, a_id)) in boxes.iter().enumerate() {
+            for &(low, b, b_half, b_id) in &boxes[i + 1..] {
+                if low >= a.x + a_half.x {
+                    break;
+                }
+                if boxes_overlap(a, a_half, b, b_half) {
+                    found.extend([a_id, b_id]);
+                }
+            }
+        }
+    }
+    found.sort();
+    found.dedup();
+    found
+}
+
 /// I1: no two units of a layer overlap, but for the two exceptions of [`may_overlap`].
 fn no_overlaps(sim: &Sim, before: &BTreeMap<ObjectId, Seen>) -> Result<(), Violation> {
     for domain in [Domain::Ground, Domain::Underground] {
@@ -344,6 +412,7 @@ fn floats_finite(o: &Object) -> bool {
             MoveGoal::Object { reach, .. } => reach.is_finite(),
         };
         goal && m.velocity.is_finite()
+            && m.momentum.is_finite()
             && m.speed_factor.is_finite()
             && m.planned_target.is_finite()
             && m.best_remaining.is_finite()
@@ -371,110 +440,4 @@ fn floats_finite(o: &Object) -> bool {
         .and_then(|production| production.rally)
         .is_none_or(|rally| rally.point().is_finite());
     core && mover && orders && rally
-}
-
-/// Characters per tile across and down: a character cell is 16 × 32 su, roughly square on a terminal.
-const CELLS: (i32, i32) = (4, 2);
-/// The picture shows at most this many tiles; a larger map is cut to a window around the focus.
-const WINDOW: (i32, i32) = (30, 20);
-
-/// An ASCII picture of the map and its units (`docs/movement.md > 8`): four characters by two per tile. `.` is
-/// open ground, `:` Rugged Terrain, `#` a tile nothing walks on, `%` a blocking footprint. Each unit is a letter
-/// (`A`–`Z`, then `a`–`z`, by id) on the cells its box covers, `*` where two units claim one cell; the legend
-/// below lists every unit shown. A map larger than 30 × 20 tiles is cut to a window around `focus` (the map's
-/// middle without one).
-pub fn ascii(sim: &Sim, focus: Option<Vec2>) -> String {
-    let map = sim.map();
-    let (w, h) = (map.width() as i32, map.height() as i32);
-    let focus = TilePos::containing(focus.unwrap_or(Vec2::new(w as f32, h as f32) * (SU_PER_GU / 2.0)));
-    let origin = |centre: i32, size: i32, window: i32| (centre - window / 2).clamp(0, (size - window).max(0));
-    let (x0, y0) = (origin(focus.x, w, WINDOW.0), origin(focus.y, h, WINDOW.1));
-    let (cols, rows) = (w.min(WINDOW.0) * CELLS.0, h.min(WINDOW.1) * CELLS.1);
-    let cell = Vec2::new(SU_PER_GU / CELLS.0 as f32, SU_PER_GU / CELLS.1 as f32);
-    let corner = TilePos::new(x0, y0).corner();
-
-    let mut picture = vec![vec!['.'; cols as usize]; rows as usize];
-    for (row, line) in picture.iter_mut().enumerate() {
-        for (col, c) in line.iter_mut().enumerate() {
-            let tile = TilePos::new(x0 + col as i32 / CELLS.0, y0 + row as i32 / CELLS.1);
-            let preset = map.tile_preset(tile).expect("inside the window");
-            *c = if !preset.traversible {
-                '#'
-            } else if preset.rugged {
-                ':'
-            } else {
-                '.'
-            };
-        }
-    }
-    let mut paint = |lo: Vec2, hi: Vec2, centre: Vec2, with: char, over_units: bool| {
-        let inside = |v: Vec2| ((v - corner) / cell).floor();
-        let (c0, c1, at) = (
-            inside(lo + cell / 2.0 - 0.01),
-            inside(hi - cell / 2.0 + 0.01),
-            inside(centre),
-        );
-        let (c0, c1) = (c0.min(at), c1.max(at));
-        for row in c0.y as i32..=c1.y as i32 {
-            for col in c0.x as i32..=c1.x as i32 {
-                if row < 0 || col < 0 || row >= rows || col >= cols {
-                    continue;
-                }
-                let c = &mut picture[row as usize][col as usize];
-                *c = if over_units && (c.is_ascii_alphabetic() || *c == '*') {
-                    '*'
-                } else {
-                    with
-                };
-            }
-        }
-    };
-    for o in sim.objects() {
-        if let Some(placement) = &o.placement {
-            let lo = placement.origin.corner();
-            let hi = lo + Vec2::new(placement.w as f32, placement.h as f32) * SU_PER_GU;
-            paint(lo, hi, placement.center(), '%', false);
-        }
-    }
-    let mut legend = String::new();
-    let letters: Vec<char> = ('A'..='Z').chain('a'..='z').collect();
-    let mut units = 0;
-    for o in sim.objects() {
-        let (Some(half), Some(mover)) = (o.def().half_extents(), &o.mover) else {
-            continue;
-        };
-        let letter = letters[units % letters.len()];
-        units += 1;
-        let tile = TilePos::containing(o.pos);
-        if tile.x < x0 || tile.y < y0 || tile.x >= x0 + WINDOW.0 || tile.y >= y0 + WINDOW.1 {
-            continue;
-        }
-        paint(o.pos - half, o.pos + half, o.pos, letter, true);
-        let _ = writeln!(
-            legend,
-            "{letter} #{} {:?} p{} at ({:.2}, {:.2}) {:?} goal {:?} next {}/{} blocked {} repaths left {}",
-            o.id.0,
-            o.kind,
-            o.owner.map_or(0, |p| p.0),
-            o.pos.x,
-            o.pos.y,
-            mover.status,
-            mover.goal,
-            mover.next,
-            mover.path.len(),
-            mover.blocked_ticks,
-            mover.repaths_left,
-        );
-    }
-    let mut out = format!(
-        "tick {}, tiles ({x0}, {y0}) to ({}, {}):\n",
-        sim.tick(),
-        x0 + cols / CELLS.0 - 1,
-        y0 + rows / CELLS.1 - 1
-    );
-    for line in picture {
-        out.extend(line);
-        out.push('\n');
-    }
-    out + &legend
 }

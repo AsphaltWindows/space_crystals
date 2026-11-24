@@ -22,8 +22,8 @@ const PATCH: ObjectKind = ObjectKind::CrystalPatch;
 const LOAD: u32 = 8;
 const MINING: Tick = 32;
 const DROP_OFF: Tick = 2;
-/// One trip of the reference geometry on the stand-in mover (`economy/gathering.rs`, module docs).
-const TRIP: Tick = 60;
+/// One trip of the reference geometry with DragMovement (`economy/gathering.rs`, module docs).
+const TRIP: Tick = 81;
 
 fn flat(w: usize, h: usize) -> ScenarioBuilder {
     ScenarioBuilder::new(&vec![".".repeat(w); h].join("\n"))
@@ -140,15 +140,15 @@ fn one_patch(amount: u32) -> ScenarioBuilder {
 
 /// Slice H's first acceptance point: one Drone, the patch 2 grid units from the node. It mines for 32 frames, the
 /// patch loses 8 as the mining ends, it unloads for 2 frames, and the bank rises by 8 at the end of each drop-off.
-/// The trip time on the stand-in mover is pinned here and recorded in `economy/gathering.rs`: 60 ticks.
+/// The trip time with DragMovement (slice M3-G) is pinned here and recorded in `economy/gathering.rs`: 81 ticks.
 #[test]
 fn one_drone_carries_loads_of_eight_from_the_patch_to_the_node() {
     let mut t = one_patch(1500).start();
     let start = bank(&t, P1);
     gather(&mut t, 1, P1, &[3], 1);
-    // The first leg: 80 su at 8 su a tick, no turn to make.
+    // The first leg: from rest to within reach of the patch, 73 su, turning north as it sets off.
     let began = mines_from(&mut t, 3);
-    assert_eq!(began, 11);
+    assert_eq!(began, 20);
     assert_eq!(drop_off(&t, 3), Some(id(2)), "auto-assigned: the nearest Egress Node");
     assert_eq!(object(&t, 3).worker.unwrap().patch, Some(id(1)));
     // `> Gathering`: MiningDuration. The load is taken as the mining ends, in the economy phase.
@@ -165,17 +165,17 @@ fn one_drone_carries_loads_of_eight_from_the_patch_to_the_node() {
     });
     assert_eq!(
         unloading,
-        began + MINING + 13,
-        "3 ticks to turn round, 10 to cover 80 su"
+        began + MINING - 1 + 24,
+        "24 ticks from the patch to within reach of the node: thrust, top speed never reached, braking"
     );
     assert_eq!((load(&t, 3), bank(&t, P1)), (LOAD, start));
     t.run(DROP_OFF - 1);
     assert_eq!((load(&t, 3), bank(&t, P1)), (0, start + LOAD));
     assert_eq!(deliveries(&t), [(unloading + 1, 3, 2, LOAD)]);
-    // And again, for good: a delivery every 60 ticks.
+    // And again, for good: a delivery every 81 ticks.
     t.run_until(unloading + 1 + 5 * TRIP);
     let ticks: Vec<Tick> = deliveries(&t).iter().map(|d| d.0).collect();
-    assert_eq!(ticks, [57, 117, 177, 237, 297, 357]);
+    assert_eq!(ticks, [76, 157, 238, 319, 400, 481]);
     assert_eq!(bank(&t, P1), start + 6 * LOAD);
     assert_eq!(
         remaining(&t, 1) + load(&t, 3) + 6 * LOAD,
@@ -215,7 +215,9 @@ fn of_two_drones_arriving_together_the_lower_id_mines_and_the_other_goes_to_the_
     assert_eq!(phase(&t, 6), Some(GatherPhase::ToPatch));
     assert_eq!(object(&t, 6).worker.unwrap().patch, Some(id(2)));
     let other = mines_from(&mut t, 6);
-    assert!(other > arrived && is_mining(&t, 5), "both mine, each its own patch");
+    // (By then Drone 5 may be on its way to the node: Drone 6 has to turn its momentum round first.)
+    assert!(other > arrived, "both mine, each its own patch");
+    assert_eq!(object(&t, 5).worker.unwrap().patch, Some(id(1)));
     assert_eq!(remaining(&t, 3), 1500, "nobody went to the farther one");
 }
 
@@ -329,7 +331,7 @@ fn set_drop_off_redirects_the_return_without_interrupting_the_mining() {
 
 /// The Drones' grid.
 fn blocked(t: &TestSim, x: i32, y: i32) -> bool {
-    let grid = t.sim().nav().grid(NavClass::Ground, 1).expect("the Drone's grid");
+    let grid = t.sim().nav().grid(NavClass::GroundRugged, 1).expect("the Drone's grid");
     grid.is_blocked(TilePos::new(x, y))
 }
 
@@ -397,8 +399,11 @@ fn with_no_patch_left_a_drone_delivers_its_load_and_idles() {
     );
     assert_eq!(object(&t, 3).worker.unwrap().patch, None);
     assert_eq!(dangling_references(t.sim()), []);
-    t.step();
+    // It was on its way back to the patch: it brakes to a stop where it is (DragMovement, slice M3-G).
+    let from = object(&t, 3).pos;
+    t.run(16);
     assert_eq!(object(&t, 3).pos, object(&t, 3).prev_pos, "it stands");
+    assert!(object(&t, 3).pos.distance(from) <= 42.0, "within its stopping distance");
     run_to(&mut t, 200, "the last load delivered", |t| deliveries(t).len() == 2);
     t.run(2);
     assert_eq!((order(&t, 3), order(&t, 4)), (None, None), "idle");

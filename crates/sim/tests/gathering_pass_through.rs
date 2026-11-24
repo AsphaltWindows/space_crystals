@@ -1,6 +1,7 @@
 //! Gathering Drones pass through each other (slice M3-H2; design change 0106, `factions/colonists/units.md > Drone >
 //! Gathering Drones pass through each other`, `systems/units.md > UnitCollision > Ground Collision > Exception,
-//! gathering Drones` and `> Units that already overlap`): 0106's Verification, point by point. The saturated row is
+//! gathering Drones` and `> Units that already overlap`): 0106's Verification, point by point. What becomes of a
+//! Drone stopped inside another (design change 0126: idle, it moves off) is `movement_separate.rs`. The saturated row is
 //! `gathering_soak.rs`. "Recruits mining a patch still bump into each other" has no test: the Cults aren't built,
 //! and the Drone is the only worker (`WorkerDef::pass_through` is the switch a Recruit won't have).
 //!
@@ -18,8 +19,6 @@ const NODE: ObjectKind = ObjectKind::EgressNode;
 const PATCH: ObjectKind = ObjectKind::CrystalPatch;
 /// Half the Drone's Silhouette, 36 × 36 space units.
 const HALF: f32 = 18.0;
-/// The Drone's speed on the stand-in mover, space units per tick.
-const SPEED: f32 = 8.0;
 
 fn flat(w: usize, h: usize) -> ScenarioBuilder {
     ScenarioBuilder::new(&vec![".".repeat(w); h].join("\n"))
@@ -136,7 +135,7 @@ fn strip_with_a_parked_drone(owner: PlayerId, parked: Vec2) -> TestSim {
 /// 0106's Verification: "An idle Drone parked in the strip: gathering Drones path around it / bump into it." An
 /// enemy's idle Drone never yields, so it stands where it is for good, half across the gatherer's way. The gatherer
 /// never enters its box (the test looks itself, and so does I1 after every tick), goes round it on every trip, and
-/// keeps delivering: 14 loads a minute, where the free strip gives 16.
+/// keeps delivering: 11 loads a minute, where the free strip gives 12 (DragMovement, slice M3-G).
 #[test]
 fn gathering_drones_go_around_an_idle_drone_parked_in_the_strip() {
     let parked = Vec2::new(336.0, 256.0);
@@ -154,24 +153,45 @@ fn gathering_drones_go_around_an_idle_drone_parked_in_the_strip() {
     }
     assert!(widest >= 2.0 * HALF, "it passed beside the parked Drone: {widest}");
     let loads = deliveries(&t, &[3]);
-    assert!(loads[0] >= 12, "it keeps delivering on the longer way: {loads:?}");
+    assert!(loads[0] >= 10, "it keeps delivering on the longer way: {loads:?}");
 }
 
-/// The same with the enemy's Drone parked dead on the gatherer's line: "bump into it". The gatherer never enters
-/// its box and keeps its job, but it doesn't get round for a long time: its target is so close behind the Drone
-/// that each step aside turns its lean back the other way (`docs/movement.md > 6.3`, rule 4), until it counts as
-/// arrived behind a unit that won't move and tries again (`orders::gather`, a leg that ends short). **This pins the
-/// collision, not the steering**: no delivery is asserted, and the steering is slice M3-G's (reported there).
+/// The same with the enemy's Drone parked dead on the gatherer's line, or nearly: "bump into it". The gatherer
+/// never enters its box, keeps its job, and **gets round it on every trip** (slice M3-G; on the stand-in mover
+/// slice M3-H2 found it stepping to and fro in front of the Drone and delivering one load a minute at best). Its
+/// target is so close behind the parked Drone that each step aside turns its lean back the other way
+/// (`docs/movement.md > 6.3`, rule 4); a unit with momentum goes round a standing unit on the side of its middle
+/// it is on, and stays on that side. 9 loads a minute or more wherever the Drone is parked, where the free strip
+/// gives 12: each bump takes all its speed (design change 0035).
 #[test]
 fn a_gathering_drone_bumps_into_an_idle_drone_parked_dead_in_its_way() {
-    let parked = Vec2::new(352.0, 256.0);
-    let mut t = strip_with_a_parked_drone(P2, parked);
-    gather(&mut t, 1, P1, &[3], 1);
-    for tick in 1..=960 {
-        t.step();
-        assert!(!overlap(&t, 3, 4), "tick {tick}\n{}", t.ascii(Some(parked)));
-        assert_eq!(t.pos(4), parked, "tick {tick}: nothing moves the parked Drone");
-        assert!(phase(&t, 3).is_some(), "tick {tick}: a Gather never ends on its own");
+    for offset in [0.0, 1.0, -1.0, 4.0, -4.0, 8.0, -8.0, 16.0] {
+        let parked = Vec2::new(352.0 + offset, 256.0);
+        let mut t = strip_with_a_parked_drone(P2, parked);
+        gather(&mut t, 1, P1, &[3], 1);
+        let mut widest: f32 = 0.0;
+        for tick in 1..=960 {
+            t.step();
+            assert!(!overlap(&t, 3, 4), "{offset}, tick {tick}\n{}", t.ascii(Some(parked)));
+            assert_eq!(
+                t.pos(4),
+                parked,
+                "{offset}, tick {tick}: nothing moves the parked Drone"
+            );
+            assert!(
+                phase(&t, 3).is_some(),
+                "{offset}, tick {tick}: a Gather never ends on its own"
+            );
+            if (t.pos(3).y - parked.y).abs() < HALF {
+                widest = widest.max((t.pos(3).x - parked.x).abs());
+            }
+        }
+        assert!(
+            widest >= 2.0 * HALF,
+            "{offset}: it passed beside the parked Drone: {widest}"
+        );
+        let loads = deliveries(&t, &[3]);
+        assert!(loads[0] >= 9, "{offset}: it gets round and delivers: {loads:?}");
     }
 }
 
@@ -189,20 +209,12 @@ fn an_idle_drone_of_the_gatherers_owner_steps_aside_and_is_never_entered() {
     }
     assert_ne!(t.pos(4), parked, "it made way");
     let loads = deliveries(&t, &[3]);
-    assert!(loads[0] >= 12, "{loads:?}");
+    assert!(loads[0] >= 10, "{loads:?}");
 }
 
-/// 0106's Verification: "Select a Drone overlapping another mining Drone and order Move: it drives out without
-/// being blocked or shoving the other; once apart, they collide normally" (`systems/units.md > UnitCollision >
-/// Units that already overlap`). Two Drones on one patch: the first mines, the second waits inside it.
-/// - Ordered to Move, the waiting Drone is no gathering Drone any more and overlaps one: the two ignore each other
-///   until they have separated. It turns east and leaves at full speed, and the mining Drone neither moves nor
-///   stops mining.
-/// - Apart, they collide: sent back through the mining Drone, it goes round it and never enters its box again (I1
-///   would fail too: the pair didn't overlap the tick before).
-#[test]
-fn a_drone_ordered_out_of_a_mining_drone_drives_out_and_collides_once_apart() {
-    // Ids: patch 1, node 2, Drones 3 and 4.
+/// Two Drones of player 1 on one patch (ids: patch 1, node 2, Drones 3 and 4), stepped until Drone 3 mines with
+/// Drone 4 waiting inside it and both at rest. Returns the tick.
+fn one_inside_the_other() -> (TestSim, Tick) {
     let mut t = flat(14, 10)
         .spawn(PATCH, None, tile(6, 2))
         .spawn(NODE, Some(P1), tile(6, 5))
@@ -210,10 +222,11 @@ fn a_drone_ordered_out_of_a_mining_drone_drives_out_and_collides_once_apart() {
         .spawn(DRONE, Some(P1), at(420.0, 294.0))
         .start();
     gather(&mut t, 1, P1, &[3, 4], 1);
-    for _ in 0..12 {
+    let at_rest = |t: &TestSim| t.mover(3).momentum == Vec2::ZERO && t.mover(4).momentum == Vec2::ZERO;
+    while !(is_mining(&t, 3) && at_rest(&t)) {
         t.step();
+        assert!(t.sim().tick() < 40, "{}", t.ascii(None));
     }
-    assert!(is_mining(&t, 3), "{:?}", phase(&t, 3));
     assert!(
         matches!(phase(&t, 4), Some(GatherPhase::Waiting { .. })),
         "{:?}",
@@ -224,19 +237,38 @@ fn a_drone_ordered_out_of_a_mining_drone_drives_out_and_collides_once_apart() {
         (miner - waiter).abs().max_element() < HALF,
         "one inside the other: {miner} and {waiter}"
     );
+    let tick = t.sim().tick();
+    (t, tick)
+}
+
+/// 0106's Verification: "Select a Drone overlapping another mining Drone and order Move: it drives out without
+/// being blocked or shoving the other; once apart, they collide normally" (`systems/units.md > UnitCollision >
+/// Units that already overlap`). Two Drones on one patch: the first mines, the second waits inside it.
+/// - Ordered to Move, the waiting Drone is no gathering Drone any more and overlaps one: the two ignore each other
+///   until they have separated. It sets off east at once and gains speed in every tick until it is out (nothing
+///   takes its velocity, as a unit in its way would), and the mining Drone neither moves nor stops mining.
+/// - Apart, they collide: stopped east of the patch and sent back west the next time Drone 3 mines, through where
+///   it stands, it goes round it and never enters its box again (I1 would fail too: the pair didn't overlap the
+///   tick before).
+#[test]
+fn a_drone_ordered_out_of_a_mining_drone_drives_out_and_collides_once_apart() {
+    let (mut t, now) = one_inside_the_other();
+    let (miner, waiter) = (t.pos(3), t.pos(4));
 
     // Out to the east.
     let east = waiter + Vec2::new(160.0, 0.0);
-    move_to(&mut t, 13, P1, 4, east);
-    let (mut left_at, mut apart_at) = (None, None);
-    for tick in 13..=22 {
+    move_to(&mut t, now + 1, P1, 4, east);
+    let (mut last, mut apart_at) = (0.0, None);
+    for tick in now + 1..=now + 12 {
         let before = t.pos(4);
         t.step();
         let step = t.pos(4) - before;
-        // It turns on the spot first (the order's tick, and its TurnRate), then never stands again.
-        if left_at.is_some() || step != Vec2::ZERO {
-            assert_eq!(step, Vec2::new(SPEED, 0.0), "tick {tick}: at full speed, straight out");
-            left_at.get_or_insert(tick);
+        if apart_at.is_none() {
+            assert!(
+                step.x > last,
+                "tick {tick}: faster every tick, unhindered: {step} after {last}"
+            );
+            last = step.x;
         }
         assert_eq!(t.pos(3), miner, "tick {tick}: the mining Drone isn't shoved");
         assert!(is_mining(&t, 3), "tick {tick}");
@@ -244,73 +276,45 @@ fn a_drone_ordered_out_of_a_mining_drone_drives_out_and_collides_once_apart() {
             apart_at = Some(tick);
         }
     }
-    let left_at = left_at.expect("it left");
-    assert!(left_at <= 15, "{left_at}");
-    // 36 space units less the 4 they started apart, at 8 a tick: apart with its fourth step.
-    assert_eq!(apart_at, Some(left_at + 3));
+    // 36 space units less the 4 they started apart: 12 ticks from rest, turning east as it goes.
+    assert!(apart_at.is_some(), "it got out: {} and {miner}", t.pos(4));
+    // It stops just east of the mining Drone.
+    t.order_at(now + 13, P1, &[id(4)], OrderKind::Stop, false);
+    while t.sim().tick() < now + 13 || t.mover(4).momentum != Vec2::ZERO {
+        t.step();
+        assert!(!overlap(&t, 3, 4), "tick {}", t.sim().tick());
+    }
 
-    // Back west, through where the mining Drone stands: it is solid now.
-    let west = Vec2::new(miner.x - 160.0, miner.y);
-    move_to(&mut t, 23, P1, 4, west);
-    let mut beside: f32 = 0.0;
-    for tick in 23..=44 {
-        t.step();
-        assert!(!overlap(&t, 3, 4), "tick {tick}\n{}", t.ascii(Some(miner)));
-        if is_mining(&t, 3) {
-            assert_eq!(t.pos(3), miner, "tick {tick}");
-        }
-        if (t.pos(4).x - miner.x).abs() < HALF {
-            beside = beside.max((t.pos(4).y - miner.y).abs());
-        }
-    }
-    assert!(beside >= 2.0 * HALF, "it went round the mining Drone: {beside}");
-    for _ in 0..40 {
-        t.step();
-    }
-    assert_eq!((t.status(4), t.pos(4)), (MoveStatus::Arrived, west));
-}
-
-/// `> Units that already overlap`: "Nothing is pushed apart." A Drone stopped inside a mining Drone stays where it
-/// is, and the two go on ignoring each other for as long as they overlap: nothing moves either while the mining
-/// lasts, and then the miner leaves for the node through the Drone that stands in its way, unhindered. Once the two
-/// have been apart they collide like any two units (the stopped Drone, idle and its owner's, now steps aside for
-/// it), and they never overlap again.
-#[test]
-fn a_drone_stopped_inside_another_is_not_pushed_apart() {
-    let mut t = flat(14, 10)
-        .spawn(PATCH, None, tile(6, 2))
-        .spawn(NODE, Some(P1), tile(6, 5))
-        .spawn(DRONE, Some(P1), at(416.0, 250.0))
-        .spawn(DRONE, Some(P1), at(420.0, 294.0))
-        .start();
-    gather(&mut t, 1, P1, &[3, 4], 1);
-    for _ in 0..12 {
-        t.step();
-    }
-    let (miner, waiter) = (t.pos(3), t.pos(4));
-    assert!(is_mining(&t, 3) && overlap(&t, 3, 4), "{miner} and {waiter}");
-    t.order_at(13, P1, &[id(4)], OrderKind::Stop, false);
-    // The rest of the mining: both stand, overlapping.
+    // Drone 3 delivers its load and comes back to mine. Then back west, through where it stands: it is solid now.
     while is_mining(&t, 3) {
         t.step();
-        assert_eq!((t.pos(3), t.pos(4)), (miner, waiter), "tick {}", t.sim().tick());
     }
-    assert!(t.sim().tick() > 30 && phase(&t, 4).is_none());
-    // The miner leaves through the stopped Drone: every step it takes while they overlap is a whole one.
-    let mut apart = false;
-    for _ in 0..600 {
-        let before = t.pos(3);
+    while !is_mining(&t, 3) {
+        t.step();
+        assert!(!overlap(&t, 3, 4), "tick {}", t.sim().tick());
+        assert!(t.sim().tick() < now + 200, "{}", t.ascii(Some(miner)));
+    }
+    let west = Vec2::new(miner.x - 120.0, t.pos(3).y);
+    let back = t.sim().tick() + 1;
+    move_to(&mut t, back, P1, 4, west);
+    // Where Drone 3 came to rest at the patch: from then on it must not be moved.
+    let mut rests_at = None;
+    let mut beside: f32 = 0.0;
+    while t.status(4) != MoveStatus::Arrived {
         t.step();
         let tick = t.sim().tick();
-        if !apart && overlap(&t, 3, 4) {
-            assert_eq!(t.pos(4), waiter, "tick {tick}: not pushed");
-            let step = t.pos(3).distance(before);
-            assert!(step == 0.0 || step > SPEED - 0.01, "tick {tick}: unhindered, {step}");
+        let miner = t.pos(3);
+        assert!(!overlap(&t, 3, 4), "tick {tick}\n{}", t.ascii(Some(miner)));
+        if is_mining(&t, 3) {
+            if t.mover(3).momentum == Vec2::ZERO {
+                assert_eq!(*rests_at.get_or_insert(miner), miner, "tick {tick}: not shoved");
+            }
+            if (t.pos(4).x - miner.x).abs() < HALF {
+                beside = beside.max((t.pos(4).y - miner.y).abs());
+            }
         }
-        apart |= !overlap(&t, 3, 4);
-        assert!(!(apart && overlap(&t, 3, 4)), "tick {tick}\n{}", t.ascii(Some(waiter)));
+        assert!(tick < back + 120, "{}", t.ascii(Some(miner)));
     }
-    assert!(apart);
-    let loads = deliveries(&t, &[3]);
-    assert!(loads[0] >= 8, "{loads:?}");
+    assert!(beside >= 2.0 * HALF, "it went round the mining Drone: {beside}");
+    assert_eq!(t.pos(4), west);
 }
