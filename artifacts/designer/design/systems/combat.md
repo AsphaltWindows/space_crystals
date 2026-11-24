@@ -16,6 +16,13 @@ Combat statistics for a unit that can attack. Only present on units that can att
 ### CooldownDuration - number
 ### ReloadDuration - number
 
+### Range Measurement
+Range and MinRange are measured **edge to edge** (user, 2026-11-23): the shortest distance between the attacker's shape and the target's shape, i.e. the gap between them. Shapes are a unit's Silhouette and a structure's footprint. "Range 5" means the gap between attacker and target is at most 5 grid units.
+- Big targets are not harder to reach than small ones, and a big attacker's or turret's own body doesn't eat into its range.
+- Melee (adjacent contact) is a gap of about 0.
+- Ground-location targets (Attack Ground, TailDisjointed artillery): measured from the attacker's shape to the target point.
+- ElevationModifier adds to Range as before (core/vision.md > ElevationModifier).
+
 ## AttackPhase
 An attack sequence consists of four phases executed in order. Each phase has a duration and determines what actions the attacking unit or turret may perform.
 
