@@ -204,8 +204,22 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Already matched**: 0048, 0051 and 0054.
   - **Kept as built, since the design is silent**: Shift+double-click adds the type; Ctrl on a box does nothing.
 
-## In progress (four agents in parallel, kept to disjoint areas)
-- **M1-R Riot Shield** (Opus; brief `scratchpad/briefs/m1r-riot-shield.md`): the shield mode in the sim (effects, gate, hash), the panel button and hotkey, right-click while shielded, and a visual.
+- **M1-R Riot Shield** (merged in `9aa41b6`; 598 tests):
+  - **Mode**: a `riot_shield` capability with the states Lowered, Raising, Raised and Lowering, advanced in a new Modes phase before 5a.
+  - **Command**: `Command::Ability { units, ability: RiotShield { raise } }`. It is not an order kind, because a mode isn't a task (0023).
+  - **While up**: half speed and no attacking, from the start of raising to the end of lowering. Attack orders drop shielded units; there is no auto-targeting. Damage taken is halved before armor, only while fully Raised.
+  - **Client**: an R button (Raise or Lower Shield). Shielded units right-clicked on an enemy move to the spot. A pale arc shows the raised shield.
+  - **Open**: placeholders and the 0062 conflict went out as Q0020. The shield is not yet blocked inside a Bunker (a TODO in the gate).
+
+## In progress (three agents in parallel, kept to disjoint areas)
+- **M1-H2 command UI follow-ups** (Opus; brief `scratchpad/briefs/m1h2-command-ui-followups.md`), covering 0062–0069:
+  - right-click per unit, where units unable to obey move or follow (0062/0063);
+  - the Mixed pointer;
+  - Attack targeting on own or neutral objects (0064);
+  - invalid-click feedback (0065);
+  - targeting at the press point (0068);
+  - only player-driven selection changes cancel targeting (0069);
+  - the shield's Move wins over Follow (Q0020 default).
 - **M1-G1 crowds and nav perf** (Fable; brief `scratchpad/briefs/m1g1-crowds-and-nav-perf.md`):
   - Dense head-on crowds: target under 3 of 36 failing.
   - Pass-through shoving.
@@ -238,8 +252,8 @@ The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, th
 | W Combat | attack phases, hits, damage, deaths, range (Q0009), elevation helper | done (`dd268bc`) | Opus |
 | E Behaviours | chase (fog: 0034), auto-target and leashes, AttackMove, Patrol (0036/0037), Hold, Stop, Follow and proximity (0032/0033), edge-to-edge range (0031), gate visibility | done (`aa5a05f`) | Fable |
 | S2 Selection follow-ups | 0048–0056 | done (`f35f0f0`) | Opus |
-| H2 Command UI follow-ups | right-click per unit with move/follow for units that can't (0062/0063), Mixed cursor, Attack targeting on own/neutral (0064), invalid-target feedback (0065) | after R (both touch `resolution.rs`) | Opus |
-| R Riot Shield | the Peacekeeper's toggled ability, end to end | running | Opus |
+| H2 Command UI follow-ups | right-click per unit (0062/0063), Mixed pointer, Attack targeting on own or neutral objects (0064), invalid-click feedback (0065), targeting rules (0066–0069), shield interplay (Q0020) | running | Opus |
+| R Riot Shield | the Peacekeeper's toggled ability, end to end | done (`9aa41b6`) | Opus |
 | Q Queued group destinations | 0029/0030 | done (`bb867a5`) | Opus |
 | F Fog memory | last-known structures and resources, Explored selection, hit flash from the fog | done (`167d683`) | Opus |
 | G1 Crowds and nav perf | head-on crowd steering, pass-through shoving, nav_perf, group-order and battle spikes | running | Fable |
@@ -317,13 +331,14 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0013 | Selection edge cases: ungroupables, allies, modified clicks, empty ground, InfoPanel for 2+ objects, control groups | no | answered by 0048–0058 |
 | Q0014 | Combat edge cases: force-attacking own or neutral objects, a shot whose target dies mid-Firing, Rugged for units across tiles | no | answered by 0059–0061 (all as built) |
 | Q0015 | Magic box meets yielding (converging groups), box from footprints vs centres, Shift-queued group moves | no | answered by 0027, 0028 and 0029 |
-| Q0016 | Command UI edge cases: who carries out a right-click, invalid targets, input while targeting, Shift keeps targeting | no | points 1–2 answered by 0062, 0063 and 0065 (H2); points 3–4 open |
+| Q0016 | Command UI edge cases: who carries out a right-click, invalid targets, input while targeting, Shift keeps targeting | no | points 1–3 answered by 0062–0069 (H2); point 4 (Shift keeps targeting) open |
 | Q0017 | Fog: shots from hidden attackers (hit flash vs. a partial tracer); targeting remembered structures | no | open; F and E build the stated defaults |
 | Q0018 | Behaviour gaps: sight-edge flicker, rotation in target priority, AttackMove leash reference, unreachable auto-targets, MinRange, walled-out spots | no | open; E built the stated defaults |
 | Q0019 | A remembered station's delivery countdown: keep counting or freeze | no | answered by 0057: GDO sees the real timer (folded into G2) |
+| Q0020 | Riot Shield: shield Move vs 0062 Follow, transitions, raising mid-shot, mixed groups, toggle time and hotkey | no | open; R built the stated defaults |
 
 ## Design change entries
-Last triaged: 0065.
+Last triaged: 0069.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -382,8 +397,12 @@ Last triaged: 0065.
 | 0059 Explicit Attack may target own and neutral objects; right-click doesn't | matches the build | answers Q0014 point 1 |
 | 0060 Hits land at the end of Firing; overkill wastes the shot | matches the build | answers Q0014 point 2 |
 | 0061 Rugged effects use the centre tile | matches the build | answers Q0014 point 3 |
-| 0062 Right-click: units that can't carry it out move or follow | queued (H2) | answers Q0016 point 1 |
-| 0063 Right-click resolves per unit; Mixed cursor | queued (H2) | |
-| 0064 Attack targeting accepts own and neutral destructibles | queued (H2): pointer; the gate already allows it | |
-| 0065 Invalid target click: ignored, targeting stays, with feedback | queued (H2) | answers Q0016 point 2 |
+| 0062 Right-click: units that can't carry it out move or follow | in progress (M1-H2) | answers Q0016 point 1 |
+| 0063 Right-click resolves per unit; Mixed cursor | in progress (M1-H2) | |
+| 0064 Attack targeting accepts own and neutral destructibles | in progress (M1-H2) | |
+| 0065 Invalid target click: ignored, targeting stays, with feedback | in progress (M1-H2) | answers Q0016 point 2 |
+| 0066 While targeting, other commands are unavailable | in progress (M1-H2 confirms with a test) | answers Q0016 point 3, first part; matches the build |
+| 0067 Box-drag while targeting does nothing | in progress (M1-H2 confirms with a test) | matches the build |
+| 0068 Targeting clicks count at the press point | in progress (M1-H2) | |
+| 0069 Selection changes while targeting: player changes cancel, deaths don't | in progress (M1-H2) | Q0016 point 3 complete |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
