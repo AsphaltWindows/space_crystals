@@ -61,6 +61,7 @@ While the shield is **down**, the Peacekeeper behaves normally.
 - While raising **or** lowering, the Peacekeeper moves at half speed (as with the shield up) and **cannot attack**.
 - The 50% damage reduction applies **only once the shield is fully up**; a half-raised shield gives none.
 - Pressing the toggle again mid-way **reverses from the current point** (halfway up → lowering takes only the half it already moved).
+- **Pressed mid-attack** (user, 2026-11-24): pressed during the Firing or Cooldown phase (not interruptible), the raise is **deferred**: the shot finishes, then the shield starts rising immediately. Same as the Legionnaires' Convert (factions/colonists/units.md > Weapon Conversion > Eligibility), so one press raises a whole fighting group.
 
 **Right-click on an enemy while the shield is up** (user, 2026-11-24): the Peacekeeper can't attack, so it does what any unit that can't carry out a right-click does (systems/controls/selection_and_hud.md > RightClickResolution): it **follows** an enemy unit (Move to that unit) and moves to an enemy structure. In a mixed group, the other units attack while the shielded Peacekeepers stay with them.
 

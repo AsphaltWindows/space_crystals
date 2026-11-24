@@ -2132,3 +2132,4 @@ Q0031: follow itself = Stop. Entry 0168.
 Q0032: arrival radius 3 GU (both behaviours). Entry 0169. Q0046 arrived.
 Q0046: drop-off destroyed mid-trip -> switch at once (detection Director's call). Entry 0170.
 Q0020 pt 2: Riot Shield toggle window. Entry 0171. Q0047 arrived.
+Q0020 pt 3: shield raise mid-attack deferred. Entry 0172.
