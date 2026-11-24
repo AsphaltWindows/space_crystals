@@ -297,6 +297,9 @@ fn an_own_producing_barracks_shows_its_activity_to_its_owner_only() {
             player: P1,
             crystals: 1000,
             supplies: 0,
+            alloys: 0,
+            essence: 0,
+            flux: 0,
         },
     );
     let barracks = ObjectId(10);

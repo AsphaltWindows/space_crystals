@@ -230,6 +230,9 @@ fn a_random_game_around_the_doorways_keeps_every_invariant() {
                         player,
                         crystals: 400,
                         supplies: 0,
+                        alloys: 0,
+                        essence: 0,
+                        flux: 0,
                     },
                 );
             }

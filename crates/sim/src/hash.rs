@@ -218,6 +218,9 @@ impl StateHash for Player {
             faction,
             crystals,
             supplies,
+            alloys,
+            essence,
+            flux,
             defeated_at,
         } = self;
         id.hash(h);
@@ -225,6 +228,9 @@ impl StateHash for Player {
         faction.hash(h);
         crystals.hash(h);
         supplies.hash(h);
+        alloys.hash(h);
+        essence.hash(h);
+        flux.hash(h);
         defeated_at.hash(h);
     }
 }

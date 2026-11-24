@@ -53,6 +53,9 @@ fn set_resources(player: PlayerId, crystals: u32, supplies: u32) -> DebugCommand
         player,
         crystals,
         supplies,
+        alloys: 0,
+        essence: 0,
+        flux: 0,
     }
 }
 

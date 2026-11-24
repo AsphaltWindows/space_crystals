@@ -22,6 +22,9 @@ pub(super) fn crystals(player: PlayerId, crystals: u32) -> DebugCommand {
         player,
         crystals,
         supplies: 0,
+        alloys: 0,
+        essence: 0,
+        flux: 0,
     }
 }
 

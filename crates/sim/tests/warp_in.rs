@@ -54,12 +54,15 @@ fn warp(kind: ObjectKind, origin: TilePos) -> ConstructionCommand {
     }
 }
 
-/// Sets `player`'s bank to `crystals` (no Supplies).
+/// Sets `player`'s bank to `crystals` (nothing else).
 fn fund(player: PlayerId, crystals: u32) -> DebugCommand {
     DebugCommand::SetResources {
         player,
         crystals,
         supplies: 0,
+        alloys: 0,
+        essence: 0,
+        flux: 0,
     }
 }
 

@@ -116,8 +116,9 @@ pub fn dev_skirmish() -> Scenario {
 /// 64×48 Skirmish Default development map with 180° symmetry: its west half is built here and the east half
 /// generated from it ([`MapDef::regenerate`]), so it is symmetric by construction. The two slots start in the
 /// top-left and bottom-right corners, each with an 8-patch crystal field (`factions/gdo/economy.md > Reference
-/// starting base`) between the start and the map edge, and a GDO Starting Layout (Deployment Center, Extraction
-/// Facility and two plates) whose Deployment Center sees and reaches the whole field. Terrain (`core/map.md >
+/// starting base`) between the start and the map edge, a GDO Starting Layout (Deployment Center, Extraction
+/// Facility and two plates) whose Deployment Center sees and reaches the whole field, and a Colonists one (Egress
+/// Node, Robo Portal and four Drones) whose Egress Node stands within the field's arc. Terrain (`core/map.md >
 /// Elevation`): a lake and a mountain
 /// massif on each side, rugged ground on the flanks, a gentle hill of slopes only on each side, and a central
 /// plateau 3 levels up ringed by cliffs, reached only by a slope through a 2-tile gap in the west and in the east
@@ -195,6 +196,27 @@ pub fn dev_skirmish_map() -> MapDef {
         laid(ObjectKind::ExtractionFacility, 9, 1),
         laid(ObjectKind::ExtractionPlate, 6, 2),
         laid(ObjectKind::ExtractionPlate, 7, 2),
+    ];
+    // The first slot's Colonists Starting Layout (`factions/colonists/economy.md > Starting Conditions`; slice M3-C,
+    // the second slot's is its image): the Egress Node on (4, 4) to (5, 5), inside the field's arc, its centre 2.1 to
+    // 3.5 grid units from those of the eight patches; the Robo Portal on (6, 6) to (9, 9), south-east of the node; the
+    // four Drones south-west of the node, centred 1 grid unit apart around (4, 9.5) grid units, clear of the node's
+    // sides (2.7 grid units below its south side) and of every side of the portal, the doors it will exit by (1.2
+    // west of its west side), so that the gatherers set off from there and the portal's Drones come out. They stand
+    // on the unit-start rule's open ground (`docs/movement.md > 3`). No camera start: the camera starts on the Robo
+    // Portal (`core/camera.md > Starting Position`).
+    let drone = |x: f32, y: f32| LayoutObject {
+        kind: ObjectKind::Drone,
+        at: SpawnAt::Point(glam::Vec2::new(x, y) * SU_PER_GU),
+        orientation: BuildingOrientation::default(),
+    };
+    *slot.layouts.get_mut(Faction::Colonists) = vec![
+        laid(ObjectKind::EgressNode, 4, 4),
+        laid(ObjectKind::RoboPortal, 6, 6),
+        drone(3.5, 9.0),
+        drone(4.5, 9.0),
+        drone(3.5, 10.0),
+        drone(4.5, 10.0),
     ];
 
     let mut dev = MapDef {

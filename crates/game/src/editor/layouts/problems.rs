@@ -166,26 +166,29 @@ mod tests {
             .collect()
     }
 
-    /// A new Skirmish Default map: one line per edited layout, saying exactly what to add, with its images folded
-    /// in.
+    /// A new Skirmish Default map: one line per edited layout of an implemented faction (the GDO's and the
+    /// Colonists', plan decision T24), saying exactly what to add, with its images folded in.
     #[test]
     fn a_new_map_says_what_to_add_where() {
         let map = new_map(2, Symmetry::Rotate180);
-        assert_eq!(map.validate().len(), 6, "3 kinds missing at 2 slots");
+        assert_eq!(map.validate().len(), 12, "3 kinds missing per faction at 2 slots");
         assert_eq!(
             texts(&map),
             [
-                "S1 GDO layout: add Deployment Center, Extraction Facility, Extraction Plate x2 (Layout tool, T); S2 follows"
+                "S1 GDO layout: add Deployment Center, Extraction Facility, Extraction Plate x2 (Layout tool, T); S2 follows",
+                "S1 Colonists layout: add Egress Node, Robo Portal, Drone x4 (Layout tool, T); S2 follows"
             ]
         );
         let four = new_map(8, Symmetry::MirrorBothAxes);
         let lines = texts(&four);
-        assert_eq!(lines.len(), 2, "{lines:?}");
+        assert_eq!(lines.len(), 4, "{lines:?}");
         assert!(lines[0].starts_with("S1 GDO layout: add ") && lines[0].ends_with("; S2, S3, S4 follow"));
-        assert!(lines[1].starts_with("S5 GDO layout: add ") && lines[1].ends_with("; S6, S7, S8 follow"));
+        assert!(lines[1].starts_with("S1 Colonists layout: add ") && lines[1].ends_with("; S2, S3, S4 follow"));
+        assert!(lines[2].starts_with("S5 GDO layout: add ") && lines[2].ends_with("; S6, S7, S8 follow"));
+        assert!(lines[3].starts_with("S5 Colonists layout: add ") && lines[3].ends_with("; S6, S7, S8 follow"));
         // A click on a line focuses its first problem.
         let indices: Vec<usize> = problem_lines(&four, &four.validate()).iter().map(|l| l.index).collect();
-        assert_eq!(indices, [0, 12]);
+        assert_eq!(indices, [0, 3, 24, 27]);
     }
 
     /// An object that breaks a rule is named with its layout and the rule.

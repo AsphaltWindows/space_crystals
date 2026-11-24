@@ -745,26 +745,35 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
 
 ## Economy
 
-The players' banks, power and Unit Control, the plates' mining, construction, and defeat and the end of the game
-(`economy.rs`, `economy/`, `construction.rs`; slices M2-B, M2-D1 and M2-F2; `factions/gdo/overview.md >
-GDOResources`, `factions/gdo/economy.md`). Production has a section of its own.
+The players' banks, power and army caps, the plates' mining, construction, and defeat and the end of the game
+(`economy.rs`, `economy/`, `construction.rs`; slices M2-B, M2-D1, M2-F2 and M3-C; `factions/gdo/overview.md >
+GDOResources`, `factions/gdo/economy.md`, `factions/colonists/overview.md > ColonistResources`). Production has a
+section of its own.
 
-- **Banks** are the only resources stored: `Player::crystals` and `Player::supplies` (`u32`, hashed, and
-  `#[serde(default)]` so that older states load). A game starts them at the player's faction's Starting Conditions
-  (`StartingConditions`, slice M2-F1; see *Sim scenarios and tests*): a GDO player's at 100 Space Crystals and 0
-  Supplies, those of a faction not implemented yet at 0. `DebugCommand::SetResources` sets them. Pay with
+- **Banks** are the only resources stored: `Player::crystals` and `Player::supplies`, and the Colonists' refined
+  banks `Player::alloys`, `essence` and `flux` (slice M3-C, plan decision T21; nothing earns or costs them yet). All
+  are `u32`, hashed, and `#[serde(default)]` so that older states load. A game starts them at the player's faction's
+  Starting Conditions (`Player::starting`, `StartingConditions`, slice M2-F1; see *Sim scenarios and tests*): a GDO or
+  Colonists player's at 100 Space Crystals and the rest at 0, those of a faction not implemented yet at 0.
+  `DebugCommand::SetResources` sets all five (`Player::set_banks`; the refined ones `serde(default)` in command files
+  too), and `Player::banks` reads them as one `Banks`. Pay with
   `Player::spend_crystals`, which refuses when the bank is short and leaves it as it was; credit with
   `Player::credit_crystals`, which saturates (only a debug command fills a bank that far, and input never panics the
   sim). Every refund goes through `economy::Refund` (`Full`, or `Ready`: 75 %
   rounded down). Supplies are a counter only: nothing costs them yet (design change 0077).
-- **Power and Unit Control are derived** from the objects whenever they are asked for, never stored, so they can't
+- **Power and the army caps are derived** from the objects whenever they are asked for, never stored, so they can't
   drift (plan decision T7). `Sim::power(player)` is a `PowerSummary`: `generated` and `consumed`, the HUD's
-  used / available (design change 0090). `Sim::unit_control(player)` is the UnitControlCost of the player's units, out
-  of `UNIT_CONTROL_CAP`, plus what the units in their producers' queues reserve (design change 0082,
-  `unit_control::reserved`: a unit counts from the moment it is queued, the one in production and one waiting
-  inside included). A building counts from the tick it is placed until the tick
-  it leaves the game, that one excluded (design change 0089), because it is among the objects in between. Each call
-  walks the objects once.
+  used / available (design change 0090). `Sim::army_cap(player)` is an `ArmyCap { resource, used, available }` for
+  the player's faction (`economy/army.rs`, plan decision T20; `None` for the Syndicate and the Cults until their
+  milestones): the GDO's Unit Control, out of `UNIT_CONTROL_CAP`, and the Colonists' Beacon Capacity, out of
+  min(`BEACON_CAPACITY_CAP`, `BEACON_CAPACITY_PER_BUILDING` × their Colonists structures). Used is the
+  `ArmyResource::cost_of` of the player's units plus what the units in their producers' queues reserve (design
+  change 0082; Q0041 point 1 for Beacon Capacity: a unit counts from the moment it is queued, the one in production
+  and one waiting inside included). Capacity that falls below what is used leaves the units and the queues alone
+  and refuses new units (design change 0112; the queues, Q0041 point 2). `Sim::unit_control(player)` is the GDO's
+  used figure alone, which the HUD reads. A building counts from the tick it is placed until the tick it leaves the
+  game, that one excluded (design change 0089), because it is among the objects in between. Each call walks the
+  objects once.
 - **Speed in fixed point** (plan decision T6): `RATIO_ONE` (2^16) is 100 %. `PowerSummary::ratio()` is
   `min(RATIO_ONE, ⌈generated × 2^16 / consumed⌉)`, and `RATIO_ONE` without consumers. `PowerSummary::speed(kind)` is
   what a structure of that kind advances in a tick: the ratio for a consumer (negative Power), `RATIO_ONE` for any
@@ -864,13 +873,15 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   its total, and `waiting`.
 - **Commands**: `Command::Production { objects, command }` with `ProductionCommand::Train(kind)`,
   `CancelProduction` and `SetRally(Target)`; the gate's rules are in *Commands, events and replays*.
-- **Costs** (plan decision T7): a unit's Space Crystals are paid and its Unit Control reserved when it is queued
-  (design change 0082). Cancelling refunds in full (`Refund::Full`) and takes the last entry. When a producer
+- **Costs** (plan decision T7): a unit's Space Crystals are paid and its army cap (Unit Control, Beacon Capacity; see
+  *Economy*) reserved when it is queued (design change 0082). A unit past the cap is refused for every faction with
+  the same reason (`Reject::UnitControlCap`, `Refusal::UnitControl`, plan decision T20). Cancelling refunds in full
+  (`Refund::Full`) and takes the last entry. When a producer
   leaves the game, destroyed or removed, `Sim::remove_objects` refunds its whole queue the same way, a finished
   unit waiting inside included (design changes 0084, 0085; `Sim::refund_production`).
 - **Group production** (design change 0083): a `Train` to several producers serves them by the work they have
   queued, least first (`Production::remaining_work`: remaining production time, a placeholder reading), ties by
-  id, each check counting what the ones before it took, until a cost check (crystals, Unit Control) fails. A full
+  id, each check counting what the ones before it took, until a cost check (crystals, the army cap) fails. A full
   queue is passed over. The others get `SimEvent::ProductionRefused`.
 - **The step** (`Sim::step_production`, see *Tick pipeline*): the unit in production advances by
   `PowerSummary::speed` (design change 0089), capped at its total. Trained in tick `t` at full power, a
@@ -1020,7 +1031,8 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
     or owned by a slot).
   - The **game setup** (`GameSetup`) says who plays: the players (`PlayerSetup`: name, faction, slot), the RNG seed
     and the game options (`SimConfig`). `Scenario::new(map)` gives every slot a GDO player (`GameSetup::default_for`),
-    as `--map` and `--scenario` do; the editor's play-test panel builds its own.
+    as `--map` and `--scenario` do (`--factions` picks each slot's, `GameSetup::per_slot`); the editor's play-test
+    panel builds its own.
   - `Sim::try_new` creates the map's objects first, in list order (so their ids ascend in it), leaving out those of
     slots no player takes, then each player's Starting Layout for its faction at its slot. A slot's objects belong to
     the player who takes it.
@@ -1038,9 +1050,11 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   (`InvalidLayoutObject`), and nothing else. Layouts of different factions may overlap. `Scenario::validate` adds the
   layouts of the players of one game in each other's way, once the map has no problems of its own.
 - **Starting Conditions** (`scenario/starting.rs`, slice M2-F1, plan decision T11): `StartingConditions::of(faction)`
-  is a faction's table (`factions/gdo/economy.md > Starting Conditions`): its starting objects with their counts, its
-  starting banks, and its primary structure, which the camera starts on. A faction without one (all but the GDO in
-  M2) is "not implemented yet". A game starts each player's banks from it. On a Skirmish Default map
+  is a faction's table (`factions/gdo/economy.md > Starting Conditions`; the Colonists' since slice M3-C,
+  `factions/colonists/economy.md > Starting Conditions`: an Egress Node, a Robo Portal and four Drones): its starting
+  objects with their counts, its starting banks, and its primary structure, which the camera starts on. A faction
+  without one (the Syndicate and the Cults) is "not implemented yet". A game starts each player's banks from it
+  (`Player::starting`). On a Skirmish Default map
   (`> Skirmish Default restriction`, design changes 0009 and 0012) a layout holds only its faction's Starting
   Conditions objects, no more of a kind than they do (`LayoutExtra`; for a faction not implemented yet, nothing), and
   every implemented faction's layout is complete at every start (`LayoutMissing`), so a new Skirmish Default map isn't
@@ -1072,9 +1086,11 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
 - Built-in scenarios live in `scenarios.rs`, behind `by_name(name)` and `NAMES`, each with its default setup. Keep
   the two in sync, because the client's `--scenario` flag uses them. Currently there are `dev_skirmish`, a 64×48
   Skirmish Default development map (Q0003) with 180° symmetry: starts in opposite corners, each with a GDO Starting
-  Layout whose Deployment Center sees and reaches its 8-patch field (design change 0095) and two plates on it, gentle
-  hills of slopes only, and a central plateau ringed by cliffs with a ramp up through a gap in the west and in the
-  east (`maps/dev_skirmish.json` is the same map, which a test checks);
+  Layout whose Deployment Center sees and reaches its 8-patch field (design change 0095) and two plates on it, and a
+  Colonists one (slice M3-C, plan decision T24: the Egress Node on tile (4, 4) within the field's arc, the Robo
+  Portal on (6, 6), the Drones at points clear of the node's sides and the portal's), gentle hills of slopes only,
+  and a central plateau ringed by cliffs with a ramp up through a gap in the west and in the east
+  (`maps/dev_skirmish.json` is the same map, which a test checks);
   `dev_structures`, a flat 30×12 Custom QA map with one of each GDO structure for each of two players (a plate on a
   patch in each base, slot 2's Barracks turned 90°); and `empty`, a flat 32×24 Custom map without symmetry.
   `scenarios::empty(w, h)` builds an empty scenario of any size, `empty_map(w, h)` its map.
@@ -1088,8 +1104,9 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   per **corner** (`0`–`9`, then `a`–`g` for 10–16). Without it, every corner is at height 0. Lines are trimmed, so
   maps can be indented string literals.
 - **Test helpers** live in the public `sc_sim::testing` module, so client tests can use them too.
-  `ScenarioBuilder::new(ascii)` makes a scenario with the two slots of `scenarios::empty` and its default setup
-  (players 1 and 2, GDO, in slots 1 and 2) and seed 1. Add spawns with `.spawn(..)` (an owner takes the slot with its
+  `ScenarioBuilder::new(ascii)` (`testing/builder.rs`) makes a scenario with the two slots of `scenarios::empty` and
+  its default setup (players 1 and 2, GDO, in slots 1 and 2) and seed 1; `.faction(player, faction)` picks another
+  faction for a player (plan decision T27). Add spawns with `.spawn(..)` (an owner takes the slot with its
   number), then call `.build()` or `.start()`. A `TestSim` runs with debug commands on
   (`TestSim::with_config` for other options). It schedules commands with `at(tick, player, cmd)` or
   `debug_at(tick, cmd)`, and each one applies in the step that reaches that tick; `spawn_unit_at(tick, kind, owner,
@@ -1157,7 +1174,10 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   the Skirmish Default restriction and completeness, the layout rules of design change 0097, a layout plate off its
   patch refused by the game's rule, a pre-placed one by the same rule, two players' layouts in each other's way, the
   outdated flag, and `dev_skirmish`'s bases seeing and reaching their fields) and the unit tests of
-  `scenario/starting.rs` (the table, and a layout made for other Starting Conditions).
+  `scenario/starting.rs` (the table, and a layout made for other Starting Conditions). `colonists_start.rs` (slice
+  M3-C) has the Colonists' start on `dev_skirmish` in either slot, its Drones clear of the node and the portal, the
+  validation of every faction combination and of an incomplete layout, and Beacon Capacity: six Drones queued and
+  the seventh refused, group production up to the cap, a fall in capacity, and the refined banks.
 - **Structure tests** are `crates/sim/tests/structures.rs` (each type's stat block, the Barracks in all 16 ways to
   rotate and flip it and its sides, ground units walking around a footprint, PointArmor on hits, a destroyed
   Generator freeing its tiles, debug spawns kept apart but for a plate on its patch, flat ground, the optional
@@ -1304,8 +1324,9 @@ stays reachable). The middle-mouse grab (`core/camera.md > Panning > Middle-mous
 view point grabbed on the press exactly under the cursor while the button is held, and stops on the release; the
 game and the editor share it. Centering on something snaps instantly (`core/camera.md > Panning`). The camera starts
 at the local player's slot's camera start (`Slot::camera_start`), or else on the primary starting structure
-(`core/camera.md > Starting Position`): the GDO's Deployment Center, where the player's Starting Layout places it
-(`Scenario::primary_structure`). Without one (a faction not implemented yet, or a layout without it) the slot's
+(`core/camera.md > Starting Position`): the GDO's Deployment Center or the Colonists' Robo Portal, where the player's
+Starting Layout places it (`Scenario::primary_structure`). Without one (a faction not implemented yet, or a layout
+without it) the slot's
 start position stands in, and the map centre for a player without a slot (`camera::start_center`, shown through
 `start_view`). Only the editor zooms (`CameraZoom`).
 
@@ -1336,8 +1357,10 @@ speed, paused or end, and a desync in red), and between them, centred, the local
 DisplayHud lists them (`hud/resources.rs`, one `ResourceFigure` text each, `resource_bar` for their readings): for
 the GDO Space Crystals and Supplies (the banks), Power as consumed / generated (`Sim::power`), red while consumption
 exceeds generation (0090), and Unit Control as used / `UNIT_CONTROL_CAP`, read through `Sim::unit_control` alone, so
-that the queue's reserved Unit Control (0082) shows as soon as the sim counts it; the other factions Space Crystals
-only, until their own resources exist. At the end of the game a banner across the world view (`hud/outcome.rs`,
+that the queue's reserved Unit Control (0082) shows as soon as the sim counts it; for the Colonists (slice M3-C,
+`factions/colonists/overview.md > DisplayHud`) Space Crystals, Alloys, Essence and Flux, and Beacon Capacity as used
+/ available (`Sim::army_cap`; red over capacity, 0112), with no Power; the other factions Space Crystals only, until
+their own resources exist. At the end of the game a banner across the world view (`hud/outcome.rs`,
 placeholder look and wording) shows the local player's `Banner`: VICTORY for the winners, DEFEAT for everyone else,
 and DEFEATED with a spectating line while a defeated player watches the game go on. A defeated player, and everyone
 once the game is over, gives no commands: the command UI's input set doesn't run (`outcome::may_command`), and
@@ -1561,9 +1584,10 @@ M2-H2).
   striped in the Attack red and the Move green (`MIXED_COLORS`, `MIXED_STRIPE_PX`). The invalid-target feedback
   (`command_ui/feedback.rs`) is the message `INVALID_TARGET_TEXT` above the HUD Bar for `FEEDBACK_TICKS` sim ticks
   after the latest `InvalidTarget` (`TargetFeedback`), never in the pointer's way (`Pickable::IGNORE`). The same
-  band gives the insufficient-resources feedback (0083): `NO_CRYSTALS_TEXT` or `UNIT_CONTROL_TEXT` after the sim's
-  `ProductionRefused` for a local player's producer that a Train didn't reach for want of crystals or Unit Control
-  (a full queue gives none), and a placement's (`placement_text`, the check's first problem): an `InvalidPlacement`
+  band gives the insufficient-resources feedback (0083): `NO_CRYSTALS_TEXT`, or for the army cap the player's
+  faction's (`army_cap_text`: `UNIT_CONTROL_TEXT`, `BEACON_CAPACITY_TEXT`), after the sim's `ProductionRefused` for
+  a local player's producer that a Train didn't reach for want of crystals or army cap (a full queue gives none),
+  and a placement's (`placement_text`, the check's first problem): an `InvalidPlacement`
   or the sim's `PlacementRefused`.
 - **Placement visuals** (`placement.rs`, `placement/`): while the local player places a building (`placing_now`: a
   game mode, AwaitingPlacement, a commandable selection). `PlacementGhost` holds the `Ghost` under the cursor (the
@@ -1617,6 +1641,7 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 |---|---|
 | `--scenario <name>` | Starts a built-in scenario (`sc_sim::scenarios::NAMES`) with its default setup. Default `dev_skirmish`. |
 | `--map <file.json>` | Plays a map file (a `MapDef`, see Sim scenarios and tests) instead, with the default setup: a GDO player in every slot. Excludes `--scenario`. Exits with code 2, listing the problems, if `Sim::try_new` rejects it. |
+| `--factions <f1,f2,...>` | The factions of the players in slots 1, 2, … (`gdo`, `colonists`, `syndicate`, `cults`, any case), for the default `--scenario`, a named one or a `--map`; the slots not named stay GDO (`GameSetup::per_slot`). More factions than slots is an error. Not with `--editor` or `--replay` (a replay records its setup). |
 | `--editor [file.json]` | Opens the map editor (see Map editor) on that file, or on a new map. |
 | `--editor-script <file.json>` | Applies a JSON list of `EditorAction`s in the editor's first frame. |
 | `--player <n>` | Shows player `n`'s view: camera start, top bar. Default 1. In the editor: the slot play-tests start as. |
@@ -1632,7 +1657,7 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--no-fog` | Starts with the fog of war off: the client shows everything (F3 toggles it). Display only; not with `--no-debug`. |
 | `--windowed` | Shows a QA run in a window on the user's display instead of rendering offscreen. |
 | `--headless` | No window and no renderer: sim, client state and `--dump-state` only. Needs `--exit-at-tick`. |
-| `--replay <file.json>` | Plays a recorded game back (see Replays and golden hashes) with its own map and game options: not with `--scenario`, `--map`, `--editor`, `--no-debug` or `--commands`. Pauses at the end, so no tick of the other flags may come after it. The other QA flags work with it. |
+| `--replay <file.json>` | Plays a recorded game back (see Replays and golden hashes) with its own map, players and game options: not with `--scenario`, `--map`, `--factions`, `--editor`, `--no-debug` or `--commands`. Pauses at the end, so no tick of the other flags may come after it. The other QA flags work with it. |
 | `--record <file.json>` | Records the game to that file. A game is recorded to `replays/` anyway; a QA run only with this flag. Not with `--editor` or `--replay`. |
 | `--no-record` | Doesn't record the game. |
 
@@ -1768,8 +1793,9 @@ unchecked.
   a 90°-rotated map can only be resized to another square.
 - **Map types** (`core/map_editor.md > Map Types`): on a Skirmish Default map, objects outside the Starting Layouts
   are neutral, so the editor offers no owner and refuses owned ones (`PlaceProblem::OwnedOnSkirmishMap`). Custom maps
-  have no restrictions. A new Skirmish Default map lists its empty GDO layouts as problems (`LayoutMissing`), so it
-  can't be play-tested until they are placed with the Layout tool (see Starting Layouts below).
+  have no restrictions. A new Skirmish Default map lists its empty GDO and Colonists layouts as problems
+  (`LayoutMissing`), so it can't be play-tested until they are placed with the Layout tool (see Starting Layouts
+  below).
 - **Starting Layouts** (`editor/layouts.rs` and `layouts/`, slice M2-I; `core/map_editor.md > Starting Layouts`,
   design changes 0008, 0009, 0012 and 0097): the Layout tool (T) edits the layout of `EditorTools::faction` at
   `EditorTools::slot`, an editable slot (the generated ones follow it, turned to match). A click places
@@ -1780,6 +1806,8 @@ unchecked.
   - **What it offers** (`layouts::palette`): on a Skirmish Default map the faction's Starting Conditions with how many
     the layout may still take (a placed kind moves the tool on to the next one missing); on a Custom map every kind a
     player may own; for a faction without Starting Conditions nothing ("not implemented yet", plan decision T11).
+    Structures snap to tiles and units, such as the Colonists' Drones, go at the point clicked (`objects::snap_spawn`;
+    `tests/editor/colonists.rs`).
   - **Checks** (`layouts/check.rs::check_object`): the editor's own rules first (the Starting Conditions' kinds and
     counts on a Skirmish Default map, the editable part, no overlap with the object's own image), then the sim's:
     `MapDef::validate` of the map with the object in place, keeping only that object's problems. The sim is the
@@ -1852,7 +1880,7 @@ unchecked.
   changed. Text fields commit in `EditorSystems::Input`, before the frame's actions, so a click elsewhere (Save, a
   tool, another field) applies the typed text first; Enter commits, Esc gives up the text.
 - **Tests** (`crates/game/tests/editor/`: `session`, `edits`, `map_edits`, `creation`, `symmetry`, `review`, `input`,
-  `units`, `layouts`)
+  `units`, `layouts`, `colonists`)
   build a headless app with `AppConfig::editor`, push `EditorAction`s into `EditorActions`, call `app.update()`, and
   assert on `EditorDoc`, the sim, the view and the UI state. Positions are ground points, such as
   `TilePos::center()`. Tests of the input itself (`input`: keys, pointer, wheel, over the UI, typing) go through the
@@ -1872,6 +1900,39 @@ cargo run -- --editor maps/dev_skirmish.json --editor-script /path/to/edits.json
   on maps with many slots. Its font has ASCII glyphs only, so UI texts stay ASCII ("Rotate 90", not "90°"). The
   player slot colours, the overlay, locked-part, slope tint, dimmed-layout and build-area colours, the scrollbar's,
   UI sizes, `NEW_MAP_SIZE`, `MAX_DESCRIPTION_CHARS` and the sim's creation limits are placeholders.
+
+## Adding a faction
+
+What a faction needs before players can start with it, in the order M3 (the Colonists) built it. Started by slice
+M3-C; the M3 slices after it add their steps (plan `artifacts/director/m3-plan.md`).
+
+1. **Defs** (`defs/<faction>.rs`, see Object model; slice M3-A): its kinds at the end of `ObjectKind` (the state
+   hash numbers kinds in declaration order), one `static ObjectDef` each with `faction: Some(..)`, each unit's
+   army-cap cost in its `UnitDef`, and every exhaustive match over `ObjectKind` (sim and client) decided. The
+   client draws each kind (`object_render.rs`, `object_render/units.rs`), and the editor's unit palette lists the
+   faction's units by itself.
+2. **Banks**: a resource the faction stores is a `Player` field (`u32`, hashed in `hash.rs`, `#[serde(default)]`),
+   in `Banks` and `DebugCommand::SetResources` (`serde(default)` there too, so older command files load). Re-bless
+   the goldens (`> Replays and golden hashes`).
+3. **Starting Conditions** (`scenario/starting.rs`): a `static StartingConditions` table and its arm in
+   `StartingConditions::of`. A game then starts the player's banks from it (`Player::starting`), and the camera on
+   its primary structure (`Scenario::primary_structure`).
+4. **Layouts**: from then on every Skirmish Default map needs the faction's layout at every start (plan decisions
+   T11, T24): `scenarios::dev_skirmish_map` (slot 1's; `MapDef::regenerate` makes the images), every Skirmish
+   Default file in `maps/` (place them with the editor's Layout tool and save;
+   `the_maps_in_the_repository_are_playable` says which), and the tests that build a Skirmish Default map and expect
+   it playable (the editor's use `tests/editor/colonists.rs::with_colonists`). Check each layout with
+   `MapDef::validate` (its structures by `placement::check_layout`, its units by the unit-start rule), and keep the
+   starting units clear of the structures' sides and exits.
+5. **Army cap** (`economy/army.rs`): the faction's `ArmyResource` (`ArmyResource::of`, `name`, `cost_of`, and what
+   is available in `cap`), or none. The gate's refusal stays the one for every faction (`Reject::UnitControlCap`,
+   `Refusal::UnitControl`); the client's `army_cap_text` names the faction's resource.
+6. **HUD figures** (`hud/resources.rs`): the faction's `ResourceFigure`s in its DisplayHud order (`ResourceFigure::of`)
+   and each new figure's reading in `resource_bar`, in ASCII.
+7. **Templates** (`command_ui/interface/templates.rs`): `InterfaceTemplate::of(kind)` for each kind with a command
+   panel, `None` until its slice builds one.
+8. **Tests and QA**: `ScenarioBuilder::faction` sets a test player's faction (plan decision T27), and
+   `cargo run -- --factions <f1,f2>` starts a game with it, which its replay records.
 
 ## Code conventions
 

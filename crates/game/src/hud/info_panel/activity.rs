@@ -145,6 +145,9 @@ mod tests {
                 player: P1,
                 crystals: 1000,
                 supplies: 0,
+                alloys: 0,
+                essence: 0,
+                flux: 0,
             },
         );
         for _ in 0..3 {

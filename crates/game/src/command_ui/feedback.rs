@@ -3,11 +3,12 @@
 //!   target clicks`, design change 0065): the click is ignored, the target is still awaited, and the player gets
 //!   "short feedback (an 'invalid target' message and/or sound; exact form TBD, ties into the future notification
 //!   system)";
-//! - a Train that some of its producers didn't queue for want of Space Crystals or Unit Control (`> SelectionGroup >
-//!   No smart-casting > Group production with limited resources`, design change 0083): "The others don't queue, and
-//!   the player gets insufficient-resources feedback". The sim tells which (`SimEvent::ProductionRefused`); a full
-//!   queue is no resource, and gives none. A Train that no producer would queue is never sent: its button is
-//!   disabled (`super::interface::Conditions`);
+//! - a Train that some of its producers didn't queue for want of Space Crystals or room under the army cap, Unit
+//!   Control or the Colonists' Beacon Capacity (`> SelectionGroup > No smart-casting > Group production with limited
+//!   resources`, design change 0083; plan decision T20: one refusal, the faction's name in the feedback): "The others
+//!   don't queue, and the player gets insufficient-resources feedback". The sim tells which
+//!   (`SimEvent::ProductionRefused`); a full queue is no resource, and gives none. A Train that no producer would
+//!   queue is never sent: its button is disabled (`super::interface::Conditions`);
 //! - a building that can't be placed (`factions/gdo/structures.md > DeploymentCenter >
 //!   ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`): a left-click where the ghost is invalid sends
 //!   nothing and placement goes on (`super::InvalidPlacement`), and a Place that the sim refused as it applied it,
@@ -17,14 +18,14 @@
 //!   why: the placement check's first problem ([`placement_text`]). Placeholders: the design gives no message for
 //!   either.
 //!
-//! The message ([`INVALID_TARGET_TEXT`], [`NO_CRYSTALS_TEXT`], [`UNIT_CONTROL_TEXT`] or a [`placement_text`]) shows
+//! The message ([`INVALID_TARGET_TEXT`], [`NO_CRYSTALS_TEXT`], an [`army_cap_text`] or a [`placement_text`]) shows
 //! over the world view, centred just above the HUD Bar, on a dark band, for [`FEEDBACK_TICKS`] after the latest cause;
 //! a new one replaces it. It ages by the sim's ticks, so a QA screenshot of a tick always shows it alike. It never
 //! takes the pointer: clicks pass through it to the map.
 
 use bevy::picking::Pickable;
 use bevy::prelude::*;
-use sc_sim::{PlacementProblem, Refusal, SimEvent, Tick, TileProblem, WholeProblem};
+use sc_sim::{ArmyResource, Faction, PlacementProblem, Refusal, SimEvent, Tick, TileProblem, WholeProblem};
 
 use super::{InvalidPlacement, InvalidTarget};
 use crate::hud::HUD_BAR_HEIGHT_VH;
@@ -38,7 +39,9 @@ pub const INVALID_TARGET_TEXT: &str = "Invalid target";
 /// The messages of a Train that producers didn't queue for want of a resource (design change 0083). Placeholder
 /// wordings.
 pub const NO_CRYSTALS_TEXT: &str = "Not enough Space Crystals";
+/// The army cap's (plan decision T20: one refusal, the faction's name in the feedback; [`army_cap_text`]).
 pub const UNIT_CONTROL_TEXT: &str = "Unit Control limit reached";
+pub const BEACON_CAPACITY_TEXT: &str = "Beacon Capacity limit reached";
 /// The message of a building that can't be placed for no rule the check names (the sim refused the command
 /// otherwise). Placeholder wording, like those of [`placement_text`].
 pub const CANNOT_PLACE_TEXT: &str = "Cannot place there";
@@ -120,12 +123,21 @@ fn spawn_feedback(mut commands: Commands) {
 }
 
 /// The message of a producer that didn't queue a unit others of its command took (design change 0083): for want of
-/// Space Crystals or Unit Control; none for a full queue.
-fn refusal_text(reason: Refusal) -> Option<&'static str> {
+/// Space Crystals or room under the army cap of `faction`, the producer's owner's; none for a full queue.
+fn refusal_text(reason: Refusal, faction: Option<Faction>) -> Option<&'static str> {
     match reason {
         Refusal::Crystals => Some(NO_CRYSTALS_TEXT),
-        Refusal::UnitControl => Some(UNIT_CONTROL_TEXT),
+        Refusal::UnitControl => Some(army_cap_text(faction.and_then(ArmyResource::of))),
         Refusal::QueueFull => None,
+    }
+}
+
+/// The message of a unit refused for the army cap (`Refusal::UnitControl`, the one refusal of every faction's cap,
+/// plan decision T20), named after the cap of the player's faction: Unit Control, or the Colonists' Beacon Capacity.
+pub fn army_cap_text(resource: Option<ArmyResource>) -> &'static str {
+    match resource {
+        Some(ArmyResource::BeaconCapacity) => BEACON_CAPACITY_TEXT,
+        Some(ArmyResource::UnitControl) | None => UNIT_CONTROL_TEXT,
     }
 }
 
@@ -172,9 +184,10 @@ fn show_feedback(
         .read()
         .map(|click| (click.tick, placement_text(click.problem)));
     let own = |id| sim.object(id).is_some_and(|o| o.owner == Some(player.0));
+    let faction = sim.player(player.0).map(|p| p.faction);
     let refusals = events.read().filter_map(|message| match &message.event {
         SimEvent::ProductionRefused { producer, reason, .. } if own(*producer) => {
-            Some((message.tick, refusal_text(*reason)?))
+            Some((message.tick, refusal_text(*reason, faction)?))
         }
         SimEvent::PlacementRefused {
             constructor, problems, ..

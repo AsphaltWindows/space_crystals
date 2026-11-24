@@ -11,6 +11,7 @@ use crate::ids::ObjectId;
 use crate::nav;
 use crate::object::{Object, Placement};
 use crate::paths::{blocking_footprint, box_overlaps_rect, boxes_overlap};
+use crate::player::Banks;
 use crate::scenario::place_spawn;
 use crate::sim::{Reject, Sim};
 
@@ -73,15 +74,21 @@ impl Sim {
                 player,
                 crystals,
                 supplies,
+                alloys,
+                essence,
+                flux,
             } => {
                 if self.player(player).is_none() {
                     return Err(Reject::UnknownPlayer(player));
                 }
-                Ok(Checked::SetResources {
-                    player,
+                let banks = Banks {
                     crystals,
                     supplies,
-                })
+                    alloys,
+                    essence,
+                    flux,
+                };
+                Ok(Checked::SetResources { player, banks })
             }
         }
     }
