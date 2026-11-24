@@ -198,6 +198,7 @@ For all unit-producing structures, right-click from DefaultState sets the rally 
 - Right-click Ground: sets rally point to that location
 - Right-click Object: sets rally point to that object
 - Right-click the building itself: **clears** the rally point (RallyPoint = None; user, 2026-11-24)
+- **Several producers selected** (user, 2026-11-24): each applies these rules for itself. Right-clicking one of them clears that building's rally point, and the others rally to the clicked building (Move to object).
 
 ### Shift and rally points
 (user, 2026-11-24) A producer has a single rally point, so **Shift does nothing special** for rallies: a Shift-click (after C) or Shift+right-click sets the rally point and ends targeting, exactly like a plain click (an exception to AwaitingTarget > Shift while targeting). Shift is left free for possible multi-waypoint rallies later (not designed).
