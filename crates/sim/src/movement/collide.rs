@@ -60,6 +60,10 @@ pub(super) struct Moved {
     pub forward: bool,
     /// The unit (index into `bodies`) that blocked the way to the steering target, if one did.
     pub blocker: Option<usize>,
+    /// (M3-G) The step is one aside: along its blocker's face, or straight across to a lane. It doesn't get the
+    /// unit on (`forward` is false), but it is how the unit gets round. A unit with momentum needs many ticks for
+    /// it, and isn't blocked while it makes them (`super::follow`).
+    pub aside: bool,
 }
 
 /// `(x, y)` turned 45° towards `side`, same length. Constants, no trigonometry (`docs/movement.md > 6.3`).
@@ -277,6 +281,7 @@ impl World<'_> {
     /// 3. A unit moving the same way (`velocity · d > 0`): follow, up to contact, no detour.
     /// 4. A unit standing or oncoming: go around it ([`World::around`]).
     /// 5. All fail: up to contact, or stay.
+    #[cfg(test)]
     pub(super) fn resolve(
         &mut self,
         pos: Vec2,
@@ -286,6 +291,25 @@ impl World<'_> {
         tick: Tick,
         touched: &mut Vec<usize>,
     ) -> Moved {
+        self.resolve_for(pos, d, snap, mover, tick, touched, false)
+    }
+
+    /// [`World::resolve`] for a unit that goes round a standing unit on the **near side** if `near_side`
+    /// ([`World::around`]): the units with momentum (slice M3-G).
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one unit's move, and how its model goes round a blocker"
+    )]
+    pub(super) fn resolve_for(
+        &mut self,
+        pos: Vec2,
+        d: Vec2,
+        snap: Option<Vec2>,
+        mover: &mut Mover,
+        tick: Tick,
+        touched: &mut Vec<usize>,
+        near_side: bool,
+    ) -> Moved {
         if !self.tiles_free(pos, d) {
             let first = if d.x.abs() >= d.y.abs() { 0 } else { 1 };
             let mut at = self.along_axis(pos, first, d[first], touched);
@@ -294,6 +318,7 @@ impl World<'_> {
                 pos: at,
                 forward: at != pos,
                 blocker: touched.first().copied(),
+                aside: false,
             };
         }
         let Some(hit) = self.first_unit(pos, d) else {
@@ -303,6 +328,7 @@ impl World<'_> {
                 pos: if free { to } else { pos },
                 forward: free,
                 blocker: None,
+                aside: false,
             };
         };
         touched.push(hit.index);
@@ -313,19 +339,22 @@ impl World<'_> {
                 pos: at,
                 forward: at != pos,
                 blocker,
+                aside: false,
             };
         }
-        if let Some((step, forward)) = self.around(pos, d, hit, mover, tick, touched) {
+        if let Some((step, forward)) = self.around(pos, d, hit, mover, tick, touched, near_side) {
             return Moved {
                 pos: pos + step,
                 forward,
                 blocker,
+                aside: !forward,
             };
         }
         Moved {
             pos: self.up_to(pos, d, hit),
             forward: false,
             blocker,
+            aside: false,
         }
     }
 
@@ -346,6 +375,17 @@ impl World<'_> {
     ///   side switches for at least `AVOID_COMMIT_TICKS` and its two steps are tried. A blocker that itself moves
     ///   along its face is passed **behind**: once `avoid_until` has passed, the side switches (and commits) to
     ///   the one the blocker comes from; stepping the way it goes would keep the two side by side.
+    /// - **(M3-G) The near side**, for a unit with momentum (`near_side`) at a blocker that stands: it goes round
+    ///   on the side of the blocker's middle it is on, the shorter way, whatever its lean, and `avoid_side` only
+    ///   decides when it is dead in the middle. Seen from that side it never changes: a step aside doesn't turn
+    ///   it back, as the lean does when the target is close behind the blocker (the target then lies back across
+    ///   the face, and the unit stepped to and fro for good). A unit that stops within the tick loses a few steps
+    ///   that way; one with momentum loses all its speed at each turn, and never got round. If that side is shut,
+    ///   it takes the other and keeps to it for `AVOID_COMMIT_TICKS`, like a head-on unit.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one unit's move, and how its model goes round a blocker"
+    )]
     fn around(
         &mut self,
         pos: Vec2,
@@ -354,6 +394,7 @@ impl World<'_> {
         mover: &mut Mover,
         tick: Tick,
         touched: &mut Vec<usize>,
+        near_side: bool,
     ) -> Option<(Vec2, bool)> {
         let axis = hit.contact.axis;
         let lean = d[1 - axis];
@@ -366,7 +407,17 @@ impl World<'_> {
         let mut at_face = Vec2::ZERO;
         at_face[axis] = d.length().copysign(d[axis]);
         let towards = |side: Side| turned_90(at_face, side)[1 - axis];
-        if lean.abs() >= LEAN * d.length() {
+        let standing = self.bodies[hit.index].velocity == Vec2::ZERO;
+        if near_side && standing {
+            let offset = pos[1 - axis] - self.bodies[hit.index].pos[1 - axis];
+            if offset != 0.0 && tick >= mover.avoid_until {
+                mover.avoid_side = if towards(Side::Right) * offset > 0.0 {
+                    Side::Right
+                } else {
+                    Side::Left
+                };
+            }
+        } else if lean.abs() >= LEAN * d.length() {
             let side = if towards(Side::Right) * lean > 0.0 {
                 Side::Right
             } else {

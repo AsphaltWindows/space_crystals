@@ -91,7 +91,7 @@ fn assert_legionnaire(kind: ObjectKind) -> AttackAttrs {
 }
 
 /// `factions/colonists/units.md > Drone`: unarmed, on the HoverVehicle base, with DragMovement attributes whose
-/// equilibrium is 8 space units per frame (the speed of the stand-in mover, plan decision T25).
+/// equilibrium is 8 space units per frame (`movement::drag`, slice M3-G).
 #[test]
 fn the_drone_follows_the_design() {
     let def = ObjectKind::Drone.def();

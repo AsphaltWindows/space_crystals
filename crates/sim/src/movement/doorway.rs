@@ -58,12 +58,14 @@ pub(super) fn leave(
             pos: if free { at } else { *pos },
             forward: free,
             blocker: None,
+            aside: false,
         }
     } else {
         Moved {
             pos: world.shuffle(*pos, d, touched),
             forward: false,
             blocker: touched.first().copied(),
+            aside: false,
         }
     };
     yielding::ask(world, *pos, d, &moved, false, mover, requests);

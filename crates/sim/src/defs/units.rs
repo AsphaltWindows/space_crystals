@@ -196,9 +196,10 @@ static HOVER_VEHICLE: UnitBaseDef = UnitBaseDef {
     domain: Domain::Ground,
     has_turret: true,
     directional_armor: true,
-    // `> RuggedTerrain - true, with double drag`: crossing Rugged tiles waits for DragMovement (slice M3-G). Until
-    // then the Drone moves on the stand-in, to which Rugged tiles stay impassable (plan decision T25).
-    rugged_terrain: false,
+    // `> RuggedTerrain - true, with double drag` (design change 0039): it crosses Rugged tiles, on the grids of the
+    // bases that do (`NavClass::GroundRugged`), and its DragRatio is doubled while the tile under its centre is
+    // one (`movement::drag`, slice M3-G).
+    rugged_terrain: true,
     crushable: false,
     can_turn_in_place: true,
     can_reverse: false,

@@ -27,6 +27,8 @@
 
 mod collide;
 mod doorway;
+mod drag;
+mod follow;
 mod space;
 mod stuck;
 mod yielding;
@@ -40,6 +42,7 @@ use crate::defs::{Domain, MovementAttrs, UnitDef};
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::map::Map;
+#[cfg(test)]
 use crate::math;
 use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState};
 use crate::nav::{self, Nav};
@@ -50,7 +53,12 @@ use crate::shape::Shape;
 use crate::units::Tick;
 
 use collide::World;
+use drag::Drag;
+#[cfg(test)]
+use follow::step_unit;
+use follow::step_unit_on;
 use space::{Body, Layer};
+use crate::units::TilePos;
 
 /// The work of one movement phase: output for tests and the perf overlay, never part of the state or its hash
 /// (`docs/movement.md > 4`).
@@ -271,12 +279,22 @@ pub(crate) fn step(
             counters: &mut scratch.counters,
         };
         let mut turned = 0.0;
+        // (M3-G) A unit with momentum brakes it off before anything else (`drag`), and its drag is doubled on
+        // Rugged terrain: the tile under its centre (`systems/units.md > Which tile counts`).
+        let rugged = matches!(unit.movement, MovementAttrs::Drag { .. })
+            && map
+                .tile_preset(TilePos::containing(o.pos))
+                .is_some_and(|preset| preset.rugged);
+        let coasting = mover.momentum != Vec2::ZERO;
         let failed = if held {
             // A unit in an attack sequence is busy: it doesn't yield (design change 0023).
             mover.sidestep = None;
             wait(mover, tick);
+            if let Some(model) = Drag::of(&unit.movement, mover.speed_factor, rugged) {
+                model.coast(&mut o.pos, o.facing, mover, &mut world, &mut scratch.touched);
+            }
             false
-        } else if mover.goal == MoveGoal::None && mover.sidestep.is_some() {
+        } else if mover.goal == MoveGoal::None && mover.sidestep.is_some() && !coasting {
             let speed = unit.movement.max_speed() * mover.speed_factor;
             yielding::sidestep(
                 &mut o.pos,
@@ -287,7 +305,7 @@ pub(crate) fn step(
                 &mut scratch.requests,
             );
             false
-        } else if let Some(door) = door.filter(|_| mover.goal == MoveGoal::None) {
+        } else if let Some(door) = door.filter(|_| mover.goal == MoveGoal::None && !coasting) {
             doorway::leave(
                 &mut o.pos,
                 &mut o.facing,
@@ -301,12 +319,13 @@ pub(crate) fn step(
             );
             false
         } else {
-            step_unit(
+            step_unit_on(
                 &mut o.pos,
                 &mut o.facing,
                 &mut turned,
                 mover,
                 &unit.movement,
+                rugged,
                 &mut world,
                 &mut scratch.touched,
                 &mut scratch.requests,
@@ -326,7 +345,7 @@ pub(crate) fn step(
         let mover = o.mover.as_mut().expect("units have movers");
         if door.is_some_and(|door| !door.holds(o.pos, half)) {
             mover.exit = None;
-            if mover.goal == MoveGoal::None && mover.sidestep.is_none() {
+            if mover.goal == MoveGoal::None && mover.sidestep.is_none() && mover.momentum == Vec2::ZERO {
                 stand(mover);
             }
         }
@@ -362,148 +381,6 @@ fn wait(mover: &mut Mover, tick: Tick) {
     if mover.goal != MoveGoal::None {
         mover.last_progress = mover.last_progress.saturating_add(1).min(tick);
     }
-}
-
-/// One unit's tick (`docs/movement.md > 6.2`, `> 6.3`). Returns whether its move failed this tick.
-///
-/// - Without a goal, or while waiting for its path, the unit stands still (`> 5.5`). Only its own sidestep moves
-///   an idle unit (`yielding`); nothing pushes it.
-/// - **Steering target**: the path's waypoint `Mover::next`. A waypoint within one step is passed without being
-///   touched; the staggered check in phase 5c moves on to the farthest waypoint in sight.
-/// - **Facing** (`systems/combat.md > LocomotionOrientationConstraints[TurnRateMovement]`): the unit turns towards
-///   the steering target, at most TurnRate per tick, and moves only once it faces it. Every M1 unit turns 180°
-///   per tick, so its turn always completes. The facing follows the path, not a sidestep. The angle turned goes to
-///   `turned`: the aim in phase 5e has only the rest of the tick's TurnRate ([`Turns`]).
-/// - **Arrival**: when the goal is within one step and the way is free, the unit stands exactly on it and stops
-///   with `status = Arrived`. The arrival radius is one tick of travel, so it never overshoots.
-/// - **An object goal** (`chased`; `systems/controls/behaviors.md > MovingToObject`): the unit has `Arrived` as soon
-///   as the gap between its shape and the object's is within the goal's `reach`. Its path leads to where the
-///   object was when it was planned (phase 5c keeps it up to date, `paths::chase_check`): at its end the unit has
-///   `Arrived` too if the object is still there (it stands on the reachable point nearest to it, design change
-///   0025), and plans again if the object has moved on. An object that is gone ends the move `TargetLost`.
-/// - Otherwise it moves `step = MaxSpeed × speed_factor` towards the target: a step towards a lane clear of the
-///   units it has to pass, if there are some ahead ([`World::lane_step`]), else by the rules of
-///   [`World::resolve`]. It asks the idle units of its owner in its way to step aside ([`yielding::ask`], and
-///   [`yielding::ask_ahead`] for a group it walks through), then its progress is measured ([`stuck`]).
-#[expect(
-    clippy::too_many_arguments,
-    reason = "the unit's state, split into the borrows the step holds"
-)]
-fn step_unit(
-    pos: &mut Vec2,
-    facing: &mut f32,
-    turned: &mut f32,
-    mover: &mut Mover,
-    movement: &MovementAttrs,
-    world: &mut World,
-    touched: &mut Vec<usize>,
-    requests: &mut Vec<yielding::Request>,
-    chased: Option<&Chased>,
-    engaged: &[Option<ObjectId>],
-    tick: Tick,
-) -> bool {
-    if let MoveGoal::Object { reach, .. } = mover.goal {
-        let Some(chased) = chased else {
-            mover.finish(MoveStatus::TargetLost);
-            return false;
-        };
-        if Shape::rect(*pos, world.body().half).gap(&chased.shape) <= reach {
-            mover.finish(MoveStatus::Arrived);
-            return false;
-        }
-    }
-    if mover.goal == MoveGoal::None || mover.path_state != PathState::Ready {
-        wait(mover, tick);
-        return false;
-    }
-    world.counters.steered += 1;
-    let step = movement.max_speed() * mover.speed_factor;
-    let last_index = mover.path.len().saturating_sub(1);
-    while usize::from(mover.next) < last_index && pos.distance(mover.path[usize::from(mover.next)]) <= step {
-        mover.next += 1;
-    }
-    let Some(&target) = mover.path.get(usize::from(mover.next)) else {
-        // An empty path: the unit is where it ends.
-        mover.finish(MoveStatus::Arrived);
-        return false;
-    };
-    let to = target - *pos;
-    let dist = to.length();
-    // TODO(movement models): only TurnRateMovement (every M1 unit) is modelled; the others turn without limit here.
-    let mut turning = false;
-    if dist > 0.0 {
-        let wanted = math::wrap_angle(math::vector_angle(to));
-        // Phase 5d turns a unit first in the tick: the whole budget is left.
-        let turn = math::turn_toward(facing, wanted, turn_rate(movement));
-        *turned = turn.angle;
-        if !turn.done {
-            // Turning in place for the whole tick.
-            stand(mover);
-            mover.orientation = Orientation::Turning(target);
-            return false;
-        }
-        turning = turn.angle != 0.0;
-    }
-    let arriving = usize::from(mover.next) == last_index && dist <= step;
-    let d = if dist > step { to * (step / dist) } else { to };
-    touched.clear();
-    // (G) First a step towards a lane clear of the units it has to pass, if there are some ahead; else the rules
-    // after the sweep (`docs/movement.md > 6.3`). The idle units it is about to walk into are asked to part.
-    let (shift, lane) = if arriving {
-        (None, None)
-    } else {
-        // The end of its way, if it is steering at it.
-        let to_goal = if usize::from(mover.next) == last_index {
-            dist
-        } else {
-            f32::INFINITY
-        };
-        world.lane_step(*pos, d, to_goal, chased.map(|chased| chased.id), mover, touched)
-    };
-    if let Some(shift) = shift {
-        yielding::ask_ahead(world, d, shift, mover, requests);
-    }
-    let moved = lane.unwrap_or_else(|| {
-        touched.clear();
-        world.resolve(*pos, d, arriving.then_some(target), mover, tick, touched)
-    });
-    let from = *pos;
-    // The unit it heads for isn't in its way: it is where the unit is going.
-    let blocked_by_goal = chased
-        .zip(moved.blocker)
-        .is_some_and(|(chased, blocker)| world.bodies[blocker].id == chased.id);
-    if !blocked_by_goal {
-        yielding::ask(world, from, d, &moved, shift.is_some(), mover, requests);
-    }
-    *pos = moved.pos;
-    if arriving && moved.pos == target {
-        match chased {
-            // The object moved on while the unit walked to where it was: plan again (not a counted repath).
-            Some(chased) if chased.pos != mover.planned_target => {
-                stand(mover);
-                mover.repath(tick);
-            }
-            _ => mover.finish(MoveStatus::Arrived),
-        }
-        return false;
-    }
-    mover.velocity = *pos - from;
-    mover.locomotion = if mover.velocity == Vec2::ZERO {
-        Locomotion::Stationary
-    } else {
-        Locomotion::Moving
-    };
-    mover.orientation = if turning {
-        Orientation::Turning(target)
-    } else {
-        Orientation::Maintaining
-    };
-    mover.blocked_ticks = if moved.forward {
-        0
-    } else {
-        mover.blocked_ticks.saturating_add(1)
-    };
-    stuck::after_move(*pos, mover, step, &moved, world, chased, engaged, tick)
 }
 
 #[cfg(test)]

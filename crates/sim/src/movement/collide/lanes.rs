@@ -275,6 +275,7 @@ impl World<'_> {
                 pos: pos + both,
                 forward: true,
                 blocker: None,
+                aside: false,
             };
             return (Some(shift), Some(moved));
         }
@@ -284,6 +285,7 @@ impl World<'_> {
             pos: pos + aside,
             forward: false,
             blocker,
+            aside: true,
         });
         (Some(shift), moved)
     }

@@ -13,7 +13,7 @@ use std::fmt::Write as _;
 use glam::Vec2;
 
 use crate::command::{Command, DebugCommand, TickInputs};
-use crate::defs::Domain;
+use crate::defs::{Domain, MovementModel};
 use crate::ids::ObjectId;
 use crate::mover::{Locomotion, MAX_REPATHS, MoveGoal, MoveStatus, Mover, PathState};
 use crate::nav;
@@ -50,6 +50,8 @@ struct Seen {
     exit: Option<ObjectId>,
     /// It was a Drone on a Gather job (`orders::gather::on_gather_job`, design change 0106).
     gathering: bool,
+    /// The velocity it carried into the next tick (`Mover::momentum`, slice M3-G).
+    momentum: Vec2,
 }
 
 /// Checks I1–I7 between ticks. It remembers each unit's state of the tick before, so check after **every** step.
@@ -70,6 +72,7 @@ fn seen(o: &Object, mover: &Mover) -> Seen {
         repaths_left: mover.repaths_left,
         exit: mover.exit,
         gathering: gather::on_gather_job(o),
+        momentum: mover.momentum,
     }
 }
 
@@ -164,8 +167,11 @@ impl Invariants {
                     }
                 }
             }
-            // I3: a unit moves at most its speed per tick.
-            let step = unit.movement.max_speed() * mover.speed_factor;
+            // I3: a unit moves at most its speed per tick. (M3-G) For a unit with momentum that is its model's
+            // maximum, where thrust and drag balance on open ground (`MovementAttrs::max_speed`): a mode that
+            // slows the unit only weakens its thrust, and the speed it has decays.
+            let drag = unit.movement.model() == MovementModel::Drag;
+            let step = unit.movement.max_speed() * if drag { 1.0 } else { mover.speed_factor };
             let moved = o.pos.distance(o.prev_pos);
             if moved > step * 1.0001 + 1e-3 {
                 return fail("I3", format!("moved {moved} su in one tick, more than its {step}"));
@@ -193,20 +199,43 @@ impl Invariants {
             // also when the move ended in the same tick.
             let new_leg = mover.repaths_left == MAX_REPATHS && mover.last_repath == tick;
             let began = order_started || new_leg;
-            if o.pos != o.prev_pos && mover.goal == MoveGoal::None && !had_goal && !began && !sidestepping && !leaving {
+            // (M3-G) A DragMovement unit that still had momentum brakes to a stop, moving meanwhile
+            // (`movement::drag`, `docs/movement.md > 6.7`). No other model has momentum, ever.
+            let had_momentum = before.is_some_and(|b| b.momentum != Vec2::ZERO);
+            if mover.momentum != Vec2::ZERO && !drag {
+                return fail(
+                    "I5/I7",
+                    format!("has momentum, which its movement model has none of: {mover:?}"),
+                );
+            }
+            let coasting = drag && had_momentum;
+            if o.pos != o.prev_pos
+                && mover.goal == MoveGoal::None
+                && !had_goal
+                && !began
+                && !sidestepping
+                && !leaving
+                && !coasting
+            {
                 return fail(
                     "I5/I7",
                     format!(
-                        "moved from {} to {} without a goal, a new order or move, a sidestep, or a doorway to leave",
+                        "moved from {} to {} without a goal, a new order or move, a sidestep, a doorway to leave, or \
+                         momentum to brake off",
                         o.prev_pos, o.pos
                     ),
                 );
             }
             // A finished move leaves the unit standing (`docs/movement.md > 6.5`), and so does a finished sidestep.
+            // (M3-G) But a DragMovement unit braking off its momentum: it is Stopping, its velocity is that
+            // momentum, and it is slower than a tick before, every tick, so it does come to rest.
+            let at_rest = mover.velocity == Vec2::ZERO && mover.locomotion == Locomotion::Stationary;
+            let braking = drag
+                && mover.locomotion == Locomotion::Stopping
+                && mover.velocity == mover.momentum
+                && before.is_some_and(|b| mover.momentum.length_squared() < b.momentum.length_squared());
             if mover.goal == MoveGoal::None
-                && ((mover.sidestep.is_none()
-                    && mover.exit.is_none()
-                    && (mover.velocity != Vec2::ZERO || mover.locomotion != Locomotion::Stationary))
+                && ((mover.sidestep.is_none() && mover.exit.is_none() && !at_rest && !braking)
                     || mover.path_state != PathState::None)
             {
                 return fail("I7", format!("has no goal but isn't at rest: {mover:?}"));
@@ -344,6 +373,7 @@ fn floats_finite(o: &Object) -> bool {
             MoveGoal::Object { reach, .. } => reach.is_finite(),
         };
         goal && m.velocity.is_finite()
+            && m.momentum.is_finite()
             && m.speed_factor.is_finite()
             && m.planned_target.is_finite()
             && m.best_remaining.is_finite()

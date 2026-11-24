@@ -19,7 +19,7 @@ use crate::shape::Shape;
 use crate::units::{Tick, TilePos, gu};
 
 /// The length of the path still ahead of a unit at `pos` heading for waypoint `next`.
-fn remaining(pos: Vec2, path: &[Vec2], next: usize) -> f32 {
+pub(super) fn remaining(pos: Vec2, path: &[Vec2], next: usize) -> f32 {
     let Some(ahead) = path.get(next..).filter(|ahead| !ahead.is_empty()) else {
         return 0.0;
     };

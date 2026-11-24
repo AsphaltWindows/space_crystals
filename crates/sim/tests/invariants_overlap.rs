@@ -65,7 +65,7 @@ fn is_mining(sim: &Sim, n: u32) -> bool {
 
 /// A patch at tile (6, 2) and an Egress Node of player 1 south of it. Drone 3 of player 1 mines the patch and Drone
 /// 4 of player 2 waits for it, inside Drone 3; Drone 5 of player 1 and Peacekeeper 6 stand idle to the east. The
-/// state after 12 ticks.
+/// state after 36 ticks: the two Drones have come to rest (they brake, slice M3-G), and Drone 3 mines on.
 fn field() -> TestSim {
     let mut t = ScenarioBuilder::new(&vec![".".repeat(14); 10].join("\n"))
         .spawn(ObjectKind::CrystalPatch, None, SpawnAt::Tile(TilePos::new(6, 2)))
@@ -78,7 +78,7 @@ fn field() -> TestSim {
     t.without_auto_targeting();
     t.order_at(1, P1, &[id(3)], OrderKind::Gather(id(1)), false);
     t.order_at(1, P2, &[id(4)], OrderKind::Gather(id(1)), false);
-    t.run_until(12);
+    t.run_until(36);
     assert!(is_mining(t.sim(), 3));
     t
 }
@@ -164,9 +164,9 @@ fn a_drone_that_left_its_job_for_another_order_breaks_i1_by_a_new_overlap() {
 #[test]
 fn a_pair_that_overlapped_is_excused_only_until_it_has_separated() {
     let mut t = field();
-    t.order_at(13, P2, &[id(4)], OrderKind::Stop, false);
+    t.order_at(37, P2, &[id(4)], OrderKind::Stop, false);
     // `TestSim` checks every tick: stopped inside Drone 3, Drone 4 breaks nothing.
-    t.run_until(16);
+    t.run_until(40);
     assert!(is_mining(t.sim(), 3) && !is_mining(t.sim(), 4));
     let sim = t.sim();
     let miner = pos(sim, 3);

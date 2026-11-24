@@ -2,8 +2,8 @@
 //! `structures.md`), with their full stat blocks (slice M3-A).
 //!
 //! What the stat blocks name and nothing reads yet: MaxShields (no Shields until slice M3-B), BeaconCapacityCost
-//! (M3-C), the Beacon's Warp In list (M3-E) and the HoverVehicle's DragMovement attributes (M3-G: until then the
-//! Drone moves on the stand-in, plan decision T25). "BeaconCapacity provided - 5" is no field: every Colonists
+//! (M3-C), the Beacon's Warp In list (M3-E). The HoverVehicle's DragMovement attributes are the Drone's movement
+//! (`movement::drag`, slice M3-G). "BeaconCapacity provided - 5" is no field: every Colonists
 //! building provides it (`economy.md > Warp In > Beacon Capacity Retention`), a faction rule M3-C derives (plan
 //! decision T14).
 //!
@@ -21,9 +21,9 @@ use crate::math::PI;
 use crate::player::Faction;
 use crate::sides::SideLetter;
 
-/// `factions/colonists/units.md > Drone`: the worker, unarmed. It moves on the stand-in until slice M3-G builds
-/// DragMovement (plan decision T25): the movement step reads only its top speed (`MovementAttrs::max_speed`, the
-/// equilibrium of 8 space units/frame, reached and lost at once) and its TurnRate.
+/// `factions/colonists/units.md > Drone`: the worker, unarmed. It moves by DragMovement (`movement::drag`, slice
+/// M3-G, plan decision T25): it thrusts up to the equilibrium of 8 space units/frame (`MovementAttrs::max_speed`),
+/// 4 on Rugged terrain, and brakes with its omni-directional thrust.
 pub(super) static DRONE: ObjectDef = ObjectDef {
     kind: ObjectKind::Drone,
     name: "Drone",
