@@ -28,7 +28,17 @@ Ground and air units use different collision models.
 
 ### Silhouette Rotation
 A unit's Silhouette **rotates with its facing** (user, 2026-11-23). A long vehicle facing north is tall and narrow; facing east it is wide and flat. Collision, crushing, range measurement and proximity all use the rotated shape. A long unit fits through a narrow gap only when pointed through it.
-- **Turning near obstacles**: with hard collision, a unit can't rotate into an orientation where its rotated Silhouette would overlap an obstacle (structure, impassable terrain, another ground unit). It must move to free space first. Pathfinding must account for room to turn.
+- **Turning near obstacles**: see Collision Response (Un-sticking) below. Blocked units don't freeze; they creep and turn out of the contact.
+
+### Collision Response (Un-sticking)
+How a ground unit's movement resolves against obstacles each simulation frame (user, 2026-11-23). It is equivalent to **running into the wall every frame**:
+1. **Velocity**: add this frame's acceleration to the unit's velocity (per its MovementModel), and compute this frame's turn (heading change).
+2. **Displacement**: compute the displacement from the velocity and apply it, together with the turn, to get the new position and facing.
+3. **Blocked**: if the movement runs into an obstacle (structure, impassable terrain, another ground unit), the **blocked portion of the movement is dropped** (the unit stops at contact instead of overlapping) and its **velocity is set to 0**.
+
+Consequence: a unit pressed against an obstacle restarts from 0 every frame, so it moves at **single-frame-acceleration speed**. It creeps, but it keeps making its turn while the blocked part of each step is discarded. It gradually scrapes around the obstacle until it is free, then accelerates normally. This matters most for units that can't turn in place (WheeledVehicle: turning needs forward motion), which would otherwise jam against walls.
+
+Applies to all ground units. Overlap caused by the rotation itself (a corner sweeping into a wall) follows the same principle: the blocked part is discarded and the unit never ends up overlapping. The exact geometric method is a technical choice.
 
 ### Ground Collision
 - Ground units are solid obstacles defined by their Silhouette rectangle
@@ -87,6 +97,8 @@ Unit can rotate in place by spinning treads in opposite directions. Turn radius 
 ### Acceleration - number
 ### Deceleration - number
 ### MaxSpeed - number
+
+**Pathfinding note** (user, 2026-11-23): tracked units can reach the same place along many different paths by trading speed for turning rate (slow down for a sharp turn vs keep speed on a wide arc). To choose the optimal path, the implementation may use **pre-computed values** (e.g. tables of maneuvers: time and space needed to turn by a given angle from a given speed).
 
 ## DragMovement
 Unit accelerates with thrust. OmniDirectionalAcceleration provides thrust in any direction. ForwardAcceleration provides additional thrust in the unit's forward facing only. Total forward thrust is OmniDirectionalAcceleration + ForwardAcceleration. Drag continuously opposes movement, and effective maximum speed is reached when total thrust and drag reach equilibrium (MaxSpeed = (OmniDirectionalAcceleration + ForwardAcceleration) / DragRatio). Air units typically have high drag and high acceleration, relying on drag alone to stop. Ground hover units have lower drag and actively thrust in the opposing direction to decelerate and change direction.

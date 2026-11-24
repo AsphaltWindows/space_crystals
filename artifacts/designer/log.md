@@ -1992,3 +1992,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T19:08:12-05:00 — Q0009 proximity: 8 su; Move to unit = Follow; 2-GU blocked rule for followed units. Docs: behaviors.md, commands.md. Change entry 0032.
 - 2026-11-23T19:11:01-05:00 — Q0009.2: silhouettes rotate (B); 2-GU rule for static targets; follow-end confirmed. Docs: units.md, behaviors.md. Change entry 0033.
 - 2026-11-23T19:14:28-05:00 — Q0010.1: chase into fog → last seen position. Doc: behaviors.md. Change entry 0034.
+- 2026-11-23T19:18:25-05:00 — Collision response / un-sticking (velocity reset on block, blocked portion dropped); tracked pathfinding precompute note. Doc: systems/units.md. Change entry 0035 (replaces 0033 turning rule).
