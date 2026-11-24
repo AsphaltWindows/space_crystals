@@ -1164,4 +1164,5 @@ Buildings become targets and get panels in M2.
 | M2-D2 | H1 | API: `Sim::production_status`, plus `Command::Production { objects, command: Train(kind) | CancelProduction | SetRally(Target) }`. A rally on the building itself clears it. |
 | M2-D1 | H2 | API: `construction::recipes`/`recipe`, `Constructor::{current, ready, frames_done}`, `Sim::validate`, `PlacementCheck::first_problem`. Events: `PlacementRefused`, `ConstructionCompleted`, `StructurePlaced`, `ConstructionCancelled { refund }`. Place takes exactly one constructor. |
 | Director | all | Recipe timing: an order applied in tick t starts progress that tick; a recipe of N frames completes at the end of t+N−1, and the result is usable from t+N (ARCHITECTURE.md > Economy > Recipe timing). |
+| Director | J | J is split. **J1** (sim QA: the oracle, `gdo_opening`, the soak check) runs alongside F2, H2 and I. **J2** (`structures_perf`, quiet-machine perf, walkthrough screenshots, the ARCHITECTURE review, playtest notes) runs after everything merges, with no other agents building. |
 

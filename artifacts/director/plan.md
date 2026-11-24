@@ -336,6 +336,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **M2-F2 game end** (Opus): defeat to neutral, game over, spectating, banners;
   - **M2-I editor layouts** (Opus): layout editing, orientation, plates on patches, plus fixes for two flaky replay tests.
   - **M2-H2 construction UI** (Opus; brief `scratchpad/briefs/m2h2-construction-ui.md`): DC and EF panels, build menus (0104), the ghost with per-tile validity, the area overlay (0093), rotate and flip, side labels. This gives the first playable.
+  - **M2-J1 sim QA** (Opus): the economy oracle against `factions/gdo/economy.md > Opening Economy Baseline`, the `gdo_opening` golden, a tighter `behaviours_soak` check, and F1's double layout report.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2-B, M2-C and M2-E** together after M2-A.
@@ -429,7 +430,8 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | M2-H1 | Production UI: generalised command UI, Barracks panel, rally point | D2 | Opus | done (`eccaaa6`) |
 | M2-I | Editor: Starting Layout editing | F | Opus | running |
 | M2-H2 | Construction UI: build menu, ghost, area overlay, rotate and flip, side labels | C, D1, H1 | Opus | running |
-| M2-J | M2 QA: economy oracle, `gdo_opening` golden, screenshots, structure perf | all | Opus | queued |
+| M2-J1 | M2 sim QA: the economy oracle with documented tolerances, the `gdo_opening` golden, a tighter `behaviours_soak` check, F1's double layout report | B, D1, D2, F1 | Opus | running |
+| M2-J2 | M2 QA, the rest: `structures_perf`, perf re-measured on a quiet machine, walkthrough screenshots, ARCHITECTURE review, playtest notes | all | Opus | queued |
 
 First playable after M2-H2.
 
