@@ -2138,3 +2138,4 @@ Q0020 pt 5: toggle 6 frames, hotkey R placeholders. Entry 0174. Q0020 done.
 Q0047 pt 1: waiting buildings in fixed internal order. Entry 0175.
 Q0047 pts 2-3: no start without progress; zero-cost always passes. Entry 0176. Q0047 done.
 Q0017 pt 1: shots visible over Visible tiles; attacker revealed 1.5 s placeholder, targetable. Entry 0177. Q0017 done.
+Q0018 pt 1: fog delay 0.5 s replaces grace period. Entry 0178.

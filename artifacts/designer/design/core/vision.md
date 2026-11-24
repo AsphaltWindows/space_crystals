@@ -26,6 +26,12 @@ Objects in Explored areas are **not selectable**, with one exception:
 ## Visible
 The tile is currently within the SightRange of one of the player's units or structures. Everything on the tile is shown in real time — terrain, structures, and units.
 
+### Fog delay
+(user, 2026-11-24) When a tile leaves the SightRange of all the player's units and structures, it **stays Visible for 0.5 seconds (8 frames), placeholder**, before turning Explored. If it comes back into sight within that time, it simply stays Visible.
+- Fog closes in softly behind moving units.
+- A target at the very edge of sight doesn't blink in and out of view, so chases at the edge of sight stay smooth (this replaces a separate "grace period" for lost targets in AttackingObject / Follow; Q0018).
+- No information leak: during the delay the tile is genuinely Visible, so units only act on what the player can see.
+
 ## Attacks from outside vision
 (user, 2026-11-24)
 - **Shots are drawn where they travel through vision**: a shot, tracer or projectile is visible to a player only along the part of its path that crosses tiles **Visible** to that player. A shot fired from the fog at your unit is seen coming out of the fog edge, which shows its direction.
