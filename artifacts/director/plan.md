@@ -676,9 +676,9 @@ First playable after M2-H2.
     | J2 (after R; with 0155) | queued |
     | V | done (`9516a0f`) |
     | U (0185 unfinished groups; units above portals; test splits; labels) | running (wave 4) |
-    | S (after R; Riot Shield as two unit types: 0171–0174; brief to write) | queued |
+    | S (after R and U; Riot Shield as two unit types: 0171–0174; brief `scratchpad/briefs/m3s-riot-shield-two-types.md`) | queued |
     | L1 (vision: 0177 attacker reveal and clipped shots, 0178 fog delay) | running (wave 4) |
-    | L2 (after R; behaviours: 0179 rotation steps, 0180 AttackMove leash, 0182 MinRange, 0186 Guard attack numbers; brief to write) | queued |
+    | L2 (after R; behaviours: 0179 rotation steps, 0180 AttackMove leash, 0182 MinRange, 0186 Guard attack numbers; brief `scratchpad/briefs/m3l2-targeting-behaviours.md`) | queued |
     | K1, K2 (K2 also: a half-out unit can attack; 0170 event-driven) | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
