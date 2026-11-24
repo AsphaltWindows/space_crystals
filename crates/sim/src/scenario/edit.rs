@@ -132,6 +132,16 @@ mod tests {
         Spawn::new(kind, owner.map(SlotId), SpawnAt::Tile(TilePos::new(x, y)))
     }
 
+    /// Whether the only problems of `map`, a new Skirmish Default map, are its Starting Layouts: they start empty
+    /// (design change 0009), and such a map is played with each one complete (design change 0012).
+    fn only_layouts_missing(map: &MapDef) -> bool {
+        let problems = map.validate();
+        !problems.is_empty()
+            && problems
+                .iter()
+                .all(|p| matches!(p, ScenarioProblem::LayoutMissing { .. }))
+    }
+
     #[test]
     fn slots_are_added_and_removed_in_whole_sets_of_images() {
         let mut map = MapSettings {
@@ -145,7 +155,7 @@ mod tests {
         .unwrap();
         assert_eq!(map.add_slots(), Some(SlotId(5)));
         assert_eq!(map.slots.len(), 8);
-        assert!(map.validate().is_empty(), "{:?}", map.validate());
+        assert!(only_layouts_missing(&map), "{:?}", map.validate());
         assert_eq!(map.add_slots(), None, "at most {MAX_SLOTS}");
         // Removing slot 7 removes its set, slots 5 to 8.
         assert_eq!(map.remove_slots(SlotId(7)), Some(0));
@@ -215,6 +225,6 @@ mod tests {
         .unwrap();
         symmetric.resize(24, 16);
         assert_eq!(symmetric.first_asymmetry(), None);
-        assert!(symmetric.validate().is_empty(), "{:?}", symmetric.validate());
+        assert!(only_layouts_missing(&symmetric), "{:?}", symmetric.validate());
     }
 }

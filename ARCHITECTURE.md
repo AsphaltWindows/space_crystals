@@ -672,10 +672,12 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
 `factions/gdo/overview.md > GDOResources`, `factions/gdo/economy.md`).
 
 - **Banks** are the only resources stored: `Player::crystals` and `Player::supplies` (`u32`, hashed, and
-  `#[serde(default)]` so that older states load). A game starts them at 0 until the Starting Conditions (slice M2-F);
-  `DebugCommand::SetResources` sets them. Pay with `Player::spend_crystals`, which refuses when the bank is short and
-  leaves it as it was; credit with `Player::credit_crystals`, which saturates (only a debug command fills a bank that
-  far, and input never panics the sim). Every refund goes through `economy::Refund` (`Full`, or `Ready`: 75 %
+  `#[serde(default)]` so that older states load). A game starts them at the player's faction's Starting Conditions
+  (`StartingConditions`, slice M2-F1; see *Sim scenarios and tests*): a GDO player's at 100 Space Crystals and 0
+  Supplies, those of a faction not implemented yet at 0. `DebugCommand::SetResources` sets them. Pay with
+  `Player::spend_crystals`, which refuses when the bank is short and leaves it as it was; credit with
+  `Player::credit_crystals`, which saturates (only a debug command fills a bank that far, and input never panics the
+  sim). Every refund goes through `economy::Refund` (`Full`, or `Ready`: 75 %
   rounded down). Supplies are a counter only: nothing costs them yet (design change 0077).
 - **Power and Unit Control are derived** from the objects whenever they are asked for, never stored, so they can't
   drift (plan decision T7). `Sim::power(player)` is a `PowerSummary`: `generated` and `consumed`, the HUD's
@@ -889,8 +891,23 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   blocked tiles, the map's edge or a blocking footprint (`SpawnProblem::Blocked`) or an earlier unit of its layer
   (`OverlapsUnit`), and a blocking footprint must not cover a ground unit (`CoversUnit`). Footprints keep apart
   (`OverlappingFootprints`, `LayoutOverlap`), but for a plate on an uncovered patch (see Object model).
-  `MapDef::validate` checks the pre-placed objects; `Scenario::validate` checks the Starting Layouts of the factions
-  played, with the map's objects.
+  `MapDef::validate` checks the pre-placed objects, then every Starting Layout of every slot on its own
+  (`scenario/validate/layouts.rs`; `core/map_editor.md > Starting Layouts > Layout validation`, design change 0097):
+  among the map's objects, its structures by their faction's placement rules minus sight (`placement::check_layout`,
+  `LayoutPlacement`; the GDO's need the area of the layout's own Deployment Center), its units by the unit-start rule
+  (`InvalidLayoutObject`), and nothing else. Layouts of different factions may overlap. `Scenario::validate` adds the
+  layouts of the players of one game in each other's way.
+- **Starting Conditions** (`scenario/starting.rs`, slice M2-F1, plan decision T11): `StartingConditions::of(faction)`
+  is a faction's table (`factions/gdo/economy.md > Starting Conditions`): its starting objects with their counts, its
+  starting banks, and its primary structure, which the camera starts on. A faction without one (all but the GDO in
+  M2) is "not implemented yet". A game starts each player's banks from it. On a Skirmish Default map
+  (`> Skirmish Default restriction`, design changes 0009 and 0012) a layout holds only its faction's Starting
+  Conditions objects, no more of a kind than they do (`LayoutExtra`; for a faction not implemented yet, nothing), and
+  every implemented faction's layout is complete at every start (`LayoutMissing`), so a new Skirmish Default map isn't
+  playable until its layouts are placed. "Outdated" layouts (`MapDef::outdated_layouts`: holding objects, but not
+  exactly the current Starting Conditions) are derived, never stored, so the map format stays at 3. When a faction
+  gets its table, every Skirmish Default map in `maps/` needs its layouts (`the_maps_in_the_repository_are_playable`
+  says which).
 - **Map files** are a `MapDef`'s serde form, written with `serde_json::to_string_pretty`. A `version` field
   (`MAP_FORMAT_VERSION`, now 3) comes first; bump it on any incompatible change. The terrain is stored as rows of
   strings in the ASCII format below: `tiles` (H rows of W symbols) and `heights` (H + 1 rows of W + 1 corner digits),
@@ -914,8 +931,10 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   its editable part generates; validation flags it (`ScenarioProblem::NotSymmetric`).
 - Built-in scenarios live in `scenarios.rs`, behind `by_name(name)` and `NAMES`, each with its default setup. Keep
   the two in sync, because the client's `--scenario` flag uses them. Currently there are `dev_skirmish`, a 64×48
-  Skirmish Default development map (Q0003) with 180° symmetry: starts in opposite corners, gentle hills of slopes
-  only, and a central plateau ringed by cliffs with a ramp up through a gap in the west and in the east;
+  Skirmish Default development map (Q0003) with 180° symmetry: starts in opposite corners, each with a GDO Starting
+  Layout whose Deployment Center sees and reaches its 8-patch field (design change 0095) and two plates on it, gentle
+  hills of slopes only, and a central plateau ringed by cliffs with a ramp up through a gap in the west and in the
+  east (`maps/dev_skirmish.json` is the same map, which a test checks);
   `dev_structures`, a flat 30×12 Custom QA map with one of each GDO structure for each of two players (a plate on a
   patch in each base, slot 2's Barracks turned 90°); and `empty`, a flat 32×24 Custom map without symmetry.
   `scenarios::empty(w, h)` builds an empty scenario of any size, `empty_map(w, h)` its map.
@@ -978,6 +997,10 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   each problem of the check and one refused by an earlier command of its tick, destroyed constructors' refunds by a
   debug removal and in combat, a fuzz of the gate, a save and a replay, and the clean Barracks opening as a
   mini-oracle: started in tick 769, ready in 929).
+- **Game start tests** are `crates/sim/tests/game_start.rs` (slice M2-F1: each player's Starting Layout and banks,
+  the Skirmish Default restriction and completeness, the layout rules of design change 0097, two players' layouts in
+  each other's way, the outdated flag, and `dev_skirmish`'s bases seeing and reaching their fields) and the unit tests
+  of `scenario/starting.rs` (the table, and a layout made for other Starting Conditions).
 - **Structure tests** are `crates/sim/tests/structures.rs` (each type's stat block, the Barracks in all 16 ways to
   rotate and flip it and its sides, ground units walking around a footprint, PointArmor on hits, a destroyed
   Generator freeing its tiles, debug spawns kept apart but for a plate on its patch, flat ground, the optional
@@ -1093,10 +1116,11 @@ area (`coords::drawn_bounds`, from its highest-drawn to its lowest-drawn corner,
 stays reachable). The middle-mouse grab (`core/camera.md > Panning > Middle-mouse grab`, `camera::GrabPan`) keeps the
 view point grabbed on the press exactly under the cursor while the button is held, and stops on the release; the
 game and the editor share it. Centering on something snaps instantly (`core/camera.md > Panning`). The camera starts
-at the local player's slot's camera start (`Slot::camera_start`), or else at the primary starting structure
-(`core/camera.md > Starting Position`). Until starting structures exist, the slot's start position stands in for
-it, and the map centre for a player without a slot (`camera::start_center`, shown through `start_view`). Only the
-editor zooms (`CameraZoom`).
+at the local player's slot's camera start (`Slot::camera_start`), or else on the primary starting structure
+(`core/camera.md > Starting Position`): the GDO's Deployment Center, where the player's Starting Layout places it
+(`Scenario::primary_structure`). Without one (a faction not implemented yet, or a layout without it) the slot's
+start position stands in, and the map centre for a player without a slot (`camera::start_center`, shown through
+`start_view`). Only the editor zooms (`CameraZoom`).
 
 **HUD**: built with bevy_ui (`core/camera.md > HUD Layout`). It has a top resource bar and, at the bottom, the HUD
 Bar with five fixed sections. From left to right they are Minimap, Portrait, InfoPanel, SelectionPanel and
@@ -1468,7 +1492,9 @@ unchecked.
   a 90°-rotated map can only be resized to another square.
 - **Map types** (`core/map_editor.md > Map Types`): on a Skirmish Default map, objects outside the Starting Layouts
   are neutral, so the editor offers no owner and refuses owned ones (`PlaceProblem::OwnedOnSkirmishMap`). Custom maps
-  have no restrictions.
+  have no restrictions. A new Skirmish Default map lists its empty GDO layouts as problems (`LayoutMissing`), so it
+  can't be play-tested until they are placed: the editor shows each slot's GDO layout (its preview has the default
+  setup), but edits layouts only from slice M2-I on.
 - **Symmetry**: the editor edits only the editable part (`MapDef::region`); the locked part is dimmed
   (`overlay/tints.rs`), and the generated slots' markers are drawn faded. Every edit of the locked part is
   refused with a status message that names it: strokes and fills there, placing, moving or selecting what lies there,

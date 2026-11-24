@@ -1,5 +1,5 @@
-//! Banks, power and Unit Control (slice M2-B; `factions/gdo/overview.md > GDOResources`): the banks start empty and
-//! `DebugCommand::SetResources` sets them; power and Unit Control follow the objects, counting a building from the
+//! Banks, power and Unit Control (slice M2-B; `factions/gdo/overview.md > GDOResources`): the banks start at the
+//! Starting Conditions (slice M2-F1) and `DebugCommand::SetResources` sets them; power and Unit Control follow the objects, counting a building from the
 //! tick it is placed until the tick it is destroyed (design change 0089); and a game with mining is deterministic:
 //! hashed, serialized and replayed.
 
@@ -70,13 +70,13 @@ fn payouts(t: &mut TestSim, player: PlayerId, end: Tick) -> Vec<(Tick, u32)> {
     list
 }
 
-/// The banks start at 0 (Supplies: design change 0077; the Starting Conditions' 100 Space Crystals come with slice
-/// M2-F), and `SetResources` sets any player's, whoever issues it. Income into a full bank saturates instead of
-/// panicking.
+/// The banks start at the GDO Starting Conditions, 100 Space Crystals and 0 Supplies (`factions/gdo/economy.md >
+/// Starting Conditions`; Supplies: design change 0077), and `SetResources` sets any player's, whoever issues it.
+/// Income into a full bank saturates instead of panicking.
 #[test]
-fn the_banks_start_empty_and_set_resources_sets_them() {
+fn the_banks_start_at_the_starting_conditions_and_set_resources_sets_them() {
     let mut t = base().start();
-    assert_eq!((banks(t.sim(), P1), banks(t.sim(), P2)), ((0, 0), (0, 0)));
+    assert_eq!((banks(t.sim(), P1), banks(t.sim(), P2)), ((100, 0), (100, 0)));
     t.debug_at(2, set_resources(P2, 100, 7))
         .debug_at(3, set_resources(P1, u32::MAX - 15, 1));
     t.run_until(3);

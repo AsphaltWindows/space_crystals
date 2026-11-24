@@ -7,8 +7,10 @@ use glam::Vec2;
 use super::create::MAX_SLOTS;
 use super::generate::Asymmetry;
 use super::settings::SettingsProblem;
+use super::starting::StartingConditions;
 use crate::defs::ObjectKind;
 use crate::ids::{PlayerId, SlotId};
+use crate::placement::{PlacementCheck, TileProblem};
 use crate::player::Faction;
 use crate::units::TilePos;
 
@@ -62,6 +64,36 @@ pub enum ScenarioProblem {
         faction: Faction,
         index: usize,
         tile: TilePos,
+    },
+    /// `core/map_editor.md > Starting Layouts > Layout validation` (design change 0097): structure `index` of a slot's
+    /// Starting Layout for `faction` breaks the faction's placement rules, minus sight, among the map's pre-placed
+    /// objects and the rest of its layout ([`crate::placement::check_layout`]); `check` says how.
+    LayoutPlacement {
+        slot: SlotId,
+        faction: Faction,
+        index: usize,
+        kind: ObjectKind,
+        check: PlacementCheck,
+    },
+    /// `> Skirmish Default restriction` (design changes 0009, 0012): on a Skirmish Default map, object `index` of a
+    /// slot's layout for `faction` is beyond the faction's Starting Conditions, which hold `allowed` objects of its
+    /// kind: 0 for a kind they don't hold, and for a faction whose Starting Conditions aren't implemented yet (plan
+    /// decision T11). Of more objects of a kind than allowed, the later ones are reported.
+    LayoutExtra {
+        slot: SlotId,
+        faction: Faction,
+        index: usize,
+        kind: ObjectKind,
+        allowed: u32,
+    },
+    /// `> Skirmish Default restriction`: on a Skirmish Default map, a slot's layout for `faction` lacks `missing`
+    /// objects of `kind` of the faction's Starting Conditions, and the map can't be played until it is complete.
+    /// Only implemented factions' layouts are checked (plan decision T11).
+    LayoutMissing {
+        slot: SlotId,
+        faction: Faction,
+        kind: ObjectKind,
+        missing: u32,
     },
     /// A game needs at least one player.
     NoPlayers,
@@ -136,6 +168,25 @@ impl fmt::Display for SpawnProblem {
             SpawnProblem::CoversUnit => write!(f, "its footprint covers a unit"),
         }
     }
+}
+
+/// What a failed placement check says, short: the footprint's problems, then each tile problem at its first tile
+/// with how many more tiles have it ("not buildable ground at tile (3, 4) and 8 more tiles").
+fn placement_text(check: &PlacementCheck) -> String {
+    let mut parts: Vec<String> = check.whole.iter().map(ToString::to_string).collect();
+    for problem in TileProblem::ALL {
+        let mut tiles = check.tiles.iter().filter(|(_, p)| *p == problem).map(|(t, _)| t);
+        let Some(first) = tiles.next() else {
+            continue;
+        };
+        let more = match tiles.count() {
+            0 => String::new(),
+            1 => " and 1 more tile".into(),
+            n => format!(" and {n} more tiles"),
+        };
+        parts.push(format!("{problem} at tile ({}, {}){more}", first.x, first.y));
+    }
+    parts.join("; ")
 }
 
 impl fmt::Display for Asymmetry {
@@ -215,6 +266,54 @@ impl fmt::Display for ScenarioProblem {
                 f,
                 "slot {} {faction:?} layout object {index} overlaps another object at tile ({}, {})",
                 slot.0, tile.x, tile.y
+            ),
+            ScenarioProblem::LayoutPlacement {
+                slot,
+                faction,
+                index,
+                kind,
+                check,
+            } => write!(
+                f,
+                "slot {} {faction:?} layout object {index} ({kind:?}): {}",
+                slot.0,
+                placement_text(check)
+            ),
+            ScenarioProblem::LayoutExtra {
+                slot,
+                faction,
+                index,
+                kind,
+                allowed,
+            } => {
+                write!(f, "slot {} {faction:?} layout object {index} ({kind:?}): ", slot.0)?;
+                match (StartingConditions::of(*faction), allowed) {
+                    (None, _) => write!(
+                        f,
+                        "the {faction:?} Starting Conditions aren't implemented yet: a Skirmish Default layout of \
+                         the faction stays empty"
+                    ),
+                    (Some(_), 0) => write!(
+                        f,
+                        "not in the {faction:?} Starting Conditions: a Skirmish Default layout holds only those"
+                    ),
+                    (Some(_), n) => write!(
+                        f,
+                        "beyond the {n} of the {faction:?} Starting Conditions: a Skirmish Default layout holds only \
+                         those"
+                    ),
+                }
+            }
+            ScenarioProblem::LayoutMissing {
+                slot,
+                faction,
+                kind,
+                missing,
+            } => write!(
+                f,
+                "slot {} {faction:?} layout lacks {missing} {kind:?} of the Starting Conditions: a Skirmish Default \
+                 map is played with every layout complete",
+                slot.0
             ),
             ScenarioProblem::NoPlayers => write!(f, "the game has no players"),
             ScenarioProblem::UnknownSlot { player, slot } => {

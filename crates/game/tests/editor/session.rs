@@ -36,8 +36,11 @@ fn the_editor_shows_the_map_without_the_game_hud() {
     app.update();
     assert_eq!(sim(&app).tick(), 0);
     assert_eq!(*sim(&app).map(), scenarios::dev_skirmish_map().terrain);
+    // The pre-placed objects, and the starting base of each player of the default setup: its slot's GDO layout.
     let spawns = doc(&app).spawns.len();
-    assert_eq!(visual_count(&mut app), spawns);
+    let bases: usize = doc(&app).slots.iter().map(|s| s.layouts.get(Faction::Gdo).len()).sum();
+    assert_eq!((spawns, bases), (17, 8));
+    assert_eq!(visual_count(&mut app), spawns + bases);
 }
 
 #[test]

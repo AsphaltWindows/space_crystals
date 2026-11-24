@@ -177,5 +177,13 @@ fn symmetric_and_skirmish_maps_take_units_with_their_images() {
     );
     assert_eq!(tools(&app).owner, None, "neutral objects only");
     assert_eq!(doc(&app).spawns, [unit(GUARD, None, p), unit(GUARD, None, image(p))]);
-    assert_eq!(problems(&app), []);
+    // Only the Starting Layouts, which a new map's are, lack anything (design changes 0009 and 0012).
+    let problems = problems(&app);
+    assert!(
+        !problems.is_empty()
+            && problems
+                .iter()
+                .all(|p| matches!(p, ScenarioProblem::LayoutMissing { .. })),
+        "{problems:?}"
+    );
 }

@@ -67,7 +67,7 @@ pub use riot_shield::RiotShield;
 pub use rng::Rng;
 pub use scenario::{
     BuildingOrientation, GameSetup, LayoutObject, MapDef, MapSettings, MapType, PlayerSetup, Scenario, ScenarioProblem,
-    SettingsProblem, Slot, Spawn, SpawnAt, SpawnProblem, SpawnSettings, StartingLayouts,
+    SettingsProblem, Slot, Spawn, SpawnAt, SpawnProblem, SpawnSettings, StartingConditions, StartingLayouts,
 };
 pub use shape::Shape;
 pub use sides::{SideLetter, sides};

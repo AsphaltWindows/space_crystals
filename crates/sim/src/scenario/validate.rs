@@ -1,6 +1,7 @@
 //! Validation of maps and game setups: problems are listed, never panicked on, so a bad map file can't crash the
 //! editor or the game.
 
+mod layouts;
 mod occupied;
 
 use std::collections::BTreeSet;
@@ -35,8 +36,9 @@ pub(crate) struct StartObject {
 impl MapDef {
     /// Everything that makes this map unplayable whoever plays it: the terrain (size, then the too-steep tiles row by
     /// row), the symmetry, the slots, the pre-placed objects in order, then the units among them on blocked ground
-    /// or on each other and the footprints on units (`docs/movement.md > 3`), then the Starting Layouts. Never
-    /// panics.
+    /// or on each other and the footprints on units (`docs/movement.md > 3`), then the Starting Layouts: every
+    /// layout on its own, with its faction's placement rules, and on a Skirmish Default map its Starting Conditions,
+    /// complete (`validate/layouts.rs`). Never panics.
     pub fn validate(&self) -> Vec<ScenarioProblem> {
         let mut problems = Vec::new();
         self.check(&mut problems);
@@ -132,21 +134,7 @@ impl MapDef {
             problems.push(ScenarioProblem::InvalidSpawn { spawn, kind, problem });
         }
 
-        for (slot, s) in self.slot_ids().zip(&self.slots) {
-            for (faction, objects) in s.layouts.iter() {
-                for (index, o) in objects.iter().enumerate() {
-                    if let Err(problem) = place_layout_object(&self.terrain, o.kind, o.at, o.orientation) {
-                        problems.push(ScenarioProblem::InvalidLayoutObject {
-                            slot,
-                            faction,
-                            index,
-                            kind: o.kind,
-                            problem,
-                        });
-                    }
-                }
-            }
-        }
+        self.check_layouts(&spots, problems);
         spots
     }
 
@@ -169,9 +157,10 @@ impl MapDef {
 }
 
 impl Scenario {
-    /// Everything that makes this game unplayable: the map's problems ([`MapDef::validate`]), then the setup's, then
-    /// the overlaps of the Starting Layouts the players get, then their units on blocked ground or on other units
-    /// and their footprints on units. Empty means [`crate::Sim::try_new`] accepts it. Never panics.
+    /// Everything that makes this game unplayable: the map's problems ([`MapDef::validate`], which checks every
+    /// Starting Layout on its own), then the setup's, then the overlaps of the Starting Layouts the players get, then
+    /// their units on blocked ground or on other units and their footprints on units: the layouts of different
+    /// players in each other's way. Empty means [`crate::Sim::try_new`] accepts it. Never panics.
     pub fn validate(&self) -> Vec<ScenarioProblem> {
         self.start_objects().err().unwrap_or_default()
     }
@@ -253,8 +242,8 @@ impl Scenario {
                 from_layout.push(Some((p.slot, p.faction, index)));
             }
         }
-        // Units. The pre-placed objects passed the same check against all the map's spawns (`MapDef::check`), so
-        // only Starting Layout objects can fail it here.
+        // Units. The pre-placed objects passed the same check against all the map's spawns, and each layout against
+        // them (`MapDef::check`), so only objects of two players' layouts in each other's way can fail it here.
         let placed = objects.iter().map(|o| (o.kind, o.pos, o.placement.as_ref()));
         for (n, problem) in misplaced(&self.map.terrain, placed) {
             if let (Some(&Some((slot, faction, index))), Some(o)) = (from_layout.get(n), objects.get(n)) {
