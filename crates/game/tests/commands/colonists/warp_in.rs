@@ -288,9 +288,9 @@ fn the_warp_in_goes_to_the_beacon_tabbed_to() {
 
 /// Design change 0116: "A Beacon under deployment and a building under Warp In show only the Cancel command in their
 /// CommandPanel (no rally point, no other commands)": the Robo Portal warping in shows X alone; C does nothing, nor
-/// does a right-click, whose pointer previews nothing; X cancels the Warp In, and it is a Beacon again. **Reading**:
-/// selected with a working Robo Portal, in one group (Groupable), it shows the portal's panel, whose commands go to
-/// the working one.
+/// does a right-click, whose pointer previews nothing; X cancels the Warp In, and it is a Beacon again. Selected with
+/// a working Robo Portal, it is a group of its own (design change 0185), which stays active, still with X alone, and
+/// Tab shows the working portal's panel.
 #[test]
 fn a_portal_warping_in_shows_only_cancel_and_sets_no_rally_point() {
     let mut app = warp_in_game(1000);
@@ -314,6 +314,11 @@ fn a_portal_warping_in_shows_only_cancel_and_sets_no_rally_point() {
 
     add_box(&mut app, ROBO_PORTAL_AT);
     assert_eq!(selected(&app), [BEACON_A, ROBO_PORTAL]);
+    assert_eq!(
+        buttons(&mut app),
+        [(X, c(CancelTransform), ButtonLook::Group, "Cancel")]
+    );
+    tap(&mut app, &[], Tab);
     let shown = buttons(&mut app);
     let train = c(PanelCommand::Train(ObjectKind::Drone));
     assert_eq!(

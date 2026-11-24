@@ -1542,9 +1542,9 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   idle units, repaths, oscillation bounds, save and load in a crowd), `group_destinations.rs` (the magic box; a
   group crowding its own spots, 0183),
   `queued_group_destinations.rs` (Shift-queued group orders),
-  `movement_yield.rs` (friendly yielding, occupied targets, the give-up schedule; 0169's 3 GU for a point and for a
-  structure), `movement_crowds.rs` (blocks meeting head-on, a group through an idle block, dense blocks of any
-  shape; the ignored crowd sweep), `movement_soak.rs` (200 units,
+  `movement_yield/` (who yields, a group order's units, the give-up schedule, occupied targets; 0169's 3 GU for a
+  point and for a structure), `movement_crowds.rs` (blocks meeting head-on, a group through an idle block, dense
+  blocks of any shape; the ignored crowd sweep), `movement_soak.rs` (200 units,
   random orders, 2 000 ticks; bounds on the share of failed moves), `movement_stuck.rs` (whose progress a waiting
   unit shares: a unit behind one whose legs begin again finds its way round), `invariants_overlap.rs` (I1's two
   exceptions and nothing more, on edited states) and the ignored `movement_perf.rs`.
@@ -1669,11 +1669,11 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and the draws of 0163: two players defeated in one
   tick, and the last two of three; no producer handed over; a save across a defeat and the end, and old saves) and,
-  in the client, `crates/game/tests/game_end.rs` (the banners, Draw for everyone; the stop, the saved recording,
-  QA's end; the results screen of 0164 in a three-player game, under the debug player switch and in a replay, the
-  draw seen from it; the spectator's fog) with the unit tests of `hud/results.rs` (who leaves, allies included,
-  which the sim can't make yet). The fuzz games of `robustness.rs` give each player a base it can't remove, so that
-  they never end.
+  in the client, `crates/game/tests/game_end/` (`outcome`: the banners, Draw for everyone, the stop; `recording`:
+  the saved recording, QA's end; `results`: the results screen of 0164 in a three-player game, under the debug
+  player switch and in a replay, the draw seen from it, the spectator's fog) with the unit tests of `hud/results.rs`
+  (who leaves, allies included, which the sim can't make yet). The fuzz games of `robustness.rs` give each player a
+  base it can't remove, so that they never end.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
   checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is
@@ -1722,10 +1722,16 @@ out by the same rules.
   (at a fixed x the drawn y is linear across a tile row) from south to north; beyond the map's edges the ground
   continues flat. The input layer's `Pointer::ground` is the cursor's ground point (`camera::cursor_to_ground`):
   hover, clicks, the editor's brush, ghosts, markers and object picking all use it.
-- **Draw order** follows StarCraft 1. The layers are terrain < ground decals < ground objects < air < overlays, each
-  with its own z band. Within a layer, z grows with **ground** y, so southern objects draw in front. Each sprite is
-  anchored at its ground position, the sim `pos`, and that point drives its y-sort; it is drawn at its height
-  (`ground_translation`; a tile-based object at its footprint's mean corner height, `footprint_height`).
+- **Draw order** follows StarCraft 1. The layers (`coords::DrawLayer`) are terrain < ground decals < ground objects
+  < unit decals < ground units < air < overlays, each with its own z band. Within a layer, z grows with **ground** y,
+  so southern objects draw in front. Each sprite is anchored at its ground position, the sim `pos`, and that point
+  drives its y-sort; it is drawn at its height (`ground_translation`; a tile-based object at its footprint's mean
+  corner height, `footprint_height`). The tile-based objects (structures, map resources, the records of remembered
+  ones) are ground objects, sorted among themselves (a plate over its patch: `structures::BASE_Z`); units are drawn
+  above them whatever the depths (`object_render::draw_layer`, slice M3-U), so a unit crossing a footprint, as one
+  leaving a portal's energy doorway does, is never hidden under it (`tests/selection/draw_order.rs`). Selection rings
+  are unit decals, between the two; frames lie with their structures; ghosts, HP bars, path and command indicators are
+  overlays, above everything.
 - **Terrain** (`map_render.rs`): one mesh. A flat tile is a quad, a sloped one four triangles around its center (at
   the corners' mean height), each shaded by Lambert's law towards `LIGHT_TOWARDS` (a placeholder: from the north-west,
   45° up), so flat ground keeps its colour. A non-Traversible tile at least `CLIFF_MIN_SLOPE` levels steep reads as a
@@ -1831,7 +1837,9 @@ its recipe's, whole percent rounded down), or the building ready to place. A tra
 (`activity::transformation`, first; slice M3-E) is the building it becomes and its progress, "Warping in: Robo Portal
 45%" ("Deploying" from a unit, slice M3-F), and its HP is out of its interpolated MaxHP (`Object::max_hp`), as its HP
 bar is. A plate
-adds the remaining crystals of the patch under it, for every viewer (0099). The top bar shows the player on the left,
+adds the remaining crystals of the patch under it, for every viewer (0099). The group of a type's unfinished buildings
+(0185) is "(unfinished)" in the InfoPanel's title, and its portraits are dimmed as the map dims a transforming
+object (`PortraitCell::Object::unfinished`, `transforming_color`). The top bar shows the player on the left,
 the tick on the right (in a replay's playback also the replay's last tick and a note on the playback, `ReplayText`:
 speed, paused or end, and a desync in red), and between them, centred, the local player's resources as their faction's
 DisplayHud lists them (`hud/resources.rs`, one `ResourceFigure` text each, `resource_bar` for their readings): for
@@ -1925,21 +1933,27 @@ elsewhere.
 **Selection** (`selection.rs`, `selection/`; `systems/controls/selection_and_hud.md`): client UI state, never sim
 state. `ControlStates` holds every player's `ControlState`, a `Selection`, 10 control groups and the
 ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the local player's (`LocalPlayer`).
-- **Model** (`selection/model.rs`): a selection is a set of object ids with their kinds. Its SelectionGroups are
-  derived: one per type, each by id, and one per instance of an ungroupable type (the map resources, which are
-  never selected with other objects, design change 0048; the Colonists' Egress Node and Beacon, 0122; the Drone is
-  Groupable, 0125). They
-  come in one stable order, by `ObjectKind` and then by instance (`Selection::groups`), which is the order of the
-  SelectionPanel's portraits and of Tab and Shift + Tab (the
-  placeholder of 0055). The ActiveGroup is one SelectionGroup, named by its `GroupKey` (0048): Tab and Shift + Tab
-  cycle it with wrap-around, adding objects keeps it, and it falls back to the first group when its group empties. At
-  most `MAX_SELECTED` objects (a placeholder: the order limit).
+- **Model** (`selection/model.rs`): a selection is a set of object ids with the types they group as, a `GroupType`:
+  the kind, and whether the object is unfinished, a building under construction or transformation
+  (`Object::is_transforming`: a Beacon a Drone deploys into, a building warped in). Its SelectionGroups are derived:
+  one per `GroupType`, each by id, and one per instance of an ungroupable type (the map resources, which are never
+  selected with other objects, design change 0048; the Colonists' Egress Node and Beacon, 0122; the Drone is
+  Groupable, 0125). So a type's unfinished buildings are a group of their own, "as if it were another type", with
+  their own panel (only Cancel), and one that completes joins the finished group (0185: the group key is "(type,
+  finished?)"). A new dimension of the key goes into `GroupType`, which the rules, the panel (`offers`, `commands`)
+  and the HUD read; a new kind needs nothing (0173's Peacekeeper (Shielded) is one). The groups come in one stable
+  order, by the `GroupKey`: `ObjectKind`, the finished before the unfinished, then the instance (`Selection::groups`),
+  which is the order of the SelectionPanel's portraits and of Tab and Shift + Tab (the placeholder of 0055). The
+  ActiveGroup is one SelectionGroup, named by its `GroupKey` (0048): Tab and Shift + Tab cycle it with wrap-around,
+  adding objects keeps it, and it falls back to the first group when its group empties. At most `MAX_SELECTED`
+  objects (a placeholder: the order limit).
 - **Picking** (`selection/pick.rs`): `Selectables` is what the local player may select this frame (`selectable_by`:
   its own objects, others on Visible tiles; on Explored ones only a remembered Supply Delivery Station, at its
   record, and only for a GDO player, `remembered_selectable_by`, `core/vision.md > Explored Selectability`; with
   the fog off, everything), each object's box as it is drawn: interpolated, lifted by the height it stands at, in
-  view space. A click picks the frontmost box under it (grown by `PICK_SLOP_SU`), and of boxes drawn at one depth
-  anything before a map resource, so a click on a covered patch's tile picks its plate (design change 0099); a box
+  view space. A click picks the frontmost box under it (grown by `PICK_SLOP_SU`): a unit before a tile-based
+  object, which it is drawn above (see Draw order), then the southernmost, and of boxes drawn at one depth anything
+  before a map resource, so a click on a covered patch's tile picks its plate (design change 0099); a box
   (the input layer's `SelectionBox`) applies the priority tiers. `Relation::of` says own, enemy or neutral (no teams
   yet, so no allies); allies would count with enemies in the tiers. `Selectables::target_at` picks a target the same
   way among the selectables and the records the player remembers but may not select (design change 0139:
@@ -1956,14 +1970,16 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   another player's or a neutral object selected change nothing (0056). What the modifiers of a click or a box mean
   comes from the bindings (`ClickRoles`; Shift is `ToggleSelection`, the add inputs' modifier). Every rule the design
   leaves open is marked as a placeholder where it is made.
-- **Systems** (`SelectionSystems`): `Sync` (in `SyncSim`) removes objects that left the sim from every selection
-  and group in the frame of their tick (`SimEvent::Removed`, deaths included, and anything else gone; a station
-  the player still selects by its record stays), and those their player may no longer select (an enemy that walked
-  into the fog; a placeholder, the design is silent). A selected object the player sees that changed its kind in
-  place stays selected as its new kind (`ControlState::set_kind`: an ActiveGroup it leaves empty gives way to its new
-  group, and the ObjectInterfaceState resets with the ActiveGroup). `Sync` also
-  starts every state over when the sim is replaced (`SimRes::generation`). `Input` (in `Actions`) applies map
-  clicks, boxes, the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the
+- **Systems** (`SelectionSystems`): `Sync` (in `SyncSim`) removes objects that left the sim from every selection and
+  group in the frame of their tick (`SimEvent::Removed`, deaths included, and anything else gone; a station the player
+  still selects by its record stays), and those their player may no longer select (an enemy that walked into the fog;
+  a placeholder, the design is silent). A selected object the player sees whose `GroupType` changed in place, a new
+  kind (`SimEvent::KindChanged`) or a building that completes or starts transforming, stays selected as its new type
+  (`ControlState::set_type`). The ActiveGroup stays while it exists (`> ObjectInterfaceState`: a change the player
+  didn't make keeps the state unless the ActiveGroup becomes empty); one the object leaves empty gives way to the
+  object's new group (a placeholder: the design is silent), and the ObjectInterfaceState resets with the ActiveGroup.
+  `Sync` also starts every state over when the sim is replaced (`SimRes::generation`). `Input` (in `Actions`) applies
+  map clicks, boxes, the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the
   debug player switch (F2, only while `SimConfig::debug`: the client acts as the next player, so "own" and the state
   in use change; a replay's playback switches without debug commands too). The HUD's portrait clicks run after it.
   Systems change a state only through `LocalControl::update`, which marks `ControlStates` changed only on a real
@@ -1971,12 +1987,12 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   control group's recall puts it back even when the selection stays the same (`ControlState::recall_group`, design
   change 0078). While a target is awaited, map clicks and boxes select nothing (the drag box isn't drawn): the
   left-click is the target's.
-- **Visuals** (`selection/markers.rs`): one marker entity per selected object: a ring around a unit, in the
-  ground-decal layer under it, or a frame inside a footprint, which the object's visual would hide there, so it is
-  drawn just in front of the object (`FRAME_Z`: half a su of ground y, under the objects south of it); coloured by
-  relation, the ActiveGroup's solid and the others' dashed; meshes cached per shape, relation and activity, and a
-  marker whose object changed its shape (a kind changed in place) takes its new shape's mesh. The drag
-  box is four edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set.
+- **Visuals** (`selection/markers.rs`): one marker entity per selected object: a ring around a unit, in the unit-decal
+  layer under it (over the structures), or a frame inside a footprint, which the object's visual would hide there, so
+  it is drawn just in front of the object (`FRAME_Z`: half a su of ground y, under the objects south of it); coloured
+  by relation, the ActiveGroup's solid and the others' dashed; meshes cached per shape, relation and activity, and a
+  marker whose object changed its shape (a kind changed in place) takes its new shape's mesh. The drag box is four
+  edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set.
 
 **Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/selection_and_hud.md > ObjectInterfaceState`
 to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units,
@@ -2093,18 +2109,22 @@ their producing structures and their constructors, and the Colonists' Beacons an
   first with no Deploy, among `Sim::pending_deploys` and the Deploys still in `PendingCommands`, `deploying`). A
   click gives that one Drone `OrderKind::Deploy { origin }`, queued with Shift; Shift-placement stays (`queued:
   true`) while another Drone of the group has none, and letting go of Shift ends it (`end_queued_placement`).
-  Whatever transforms (`Object::is_transforming`): `Conditions::transforming` (every object of the ActiveGroup)
-  gives the panel `TRANSFORMING_GRID`, X `CancelTransform` alone (`ConstructionCommand::CancelTransform`, to the
-  ActiveGroup), `Modes::transforming` gives the object no template in the resolution (no right-click, no rally
-  point), and `still_valid` ends a transforming Beacon's menu or placement. A Drone that deploys stays selected as
-  its Beacon in a group of its own (`ControlState::set_kind`), and a Drones' placement ends once the ActiveGroup is
-  no longer Drones. A greyed-out button (design change 0162) keeps its reason (`PanelSlot::why`, a
+  Whatever transforms (`Object::is_transforming`) is unfinished, in its type's unfinished group (design change
+  0185, `GroupType`): that group's key gives the panel `TRANSFORMING_GRID`, X `CancelTransform` alone
+  (`ConstructionCommand::CancelTransform`, to the ActiveGroup), as `offers` and `commands` of an unfinished
+  `GroupType` give the Cancel and nothing else, so the finished group's commands never go to it and `still_valid`
+  ends a transforming Beacon's menu or placement; `Modes::transforming` gives the object no template in the
+  resolution (no right-click, no rally point). A Drone that deploys stays selected as its Beacon in a group of its
+  own (`ControlState::set_type`), and a Drones' placement ends once the ActiveGroup is no longer Drones. A greyed-out button (design change 0162) keeps its reason (`PanelSlot::why`, a
   `WhyUnavailable`: the gate's `Reject`, the shields, a command awaiting its target, the type, not in the game
   yet); pressing it, by hotkey or click, issues nothing and sends `CommandRefused`, whose message
   (`feedback::unavailable_text`) the feedback band shows.
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command (`PanelSlot::label`: a toggle says what pressing it does) and its hotkey from the
-  bindings, and a toggle that is on has a thick green border. The indicators (`command_ui/indicators.rs`) are
+  bindings, and a toggle that is on has a thick green border. A label never wraps (`TextLayout::no_wrap`): one too
+  long for its button at `LABEL_VH` is drawn smaller to fit on one line inside a lit button's thicker border
+  (`label_px`, from the default font's fixed advance, 0.6 em, which a unit test checks against the font), so a label
+  keeps its size when its button lights up. The indicators (`command_ui/indicators.rs`) are
   one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
   (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow

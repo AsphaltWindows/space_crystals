@@ -22,7 +22,8 @@
 //! keeps no Shields (`sc_sim::vision::LastKnown`), so it shows none.
 //!
 //! The design doesn't say what the InfoPanel shows for two or more objects (the SelectionPanel shows them). Until it
-//! does, a placeholder: the ActiveGroup's type, how many objects are in it and how many are selected.
+//! does, a placeholder: the ActiveGroup's type, how many objects are in it and how many are selected. The group of a
+//! type's unfinished buildings (design change 0185: "as if it were another type") is named "(unfinished)".
 
 pub mod activity;
 
@@ -91,8 +92,12 @@ pub fn info_text(sim: &Sim, sight: &Sight, selection: &Selection) -> Option<Info
         return Some(object_info(sim, sight.player(), shown, Some(record)));
     }
     let group = selection.active_group()?;
+    let name = group.kind().def().name;
     Some(InfoContent {
-        title: group.kind().def().name.to_string(),
+        title: match group.is_unfinished() {
+            true => format!("{name} (unfinished)"),
+            false => name.to_string(),
+        },
         body: vec![
             format!("{} in group", group.instances.len()),
             format!("{} selected", selection.len()),

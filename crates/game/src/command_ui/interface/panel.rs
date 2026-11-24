@@ -113,8 +113,9 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
 
 /// `> CommandPanel`: the commands of the ActiveGroup's ObjectInterfaceState in their slots, for a commandable
 /// selection ([`commandable`]): those of its state ([`state_grid`]: a constructor's follow what it constructs and
-/// the menu that is open), or only X Cancel while the whole ActiveGroup transforms ([`TRANSFORMING_GRID`], design
-/// change 0116). A common command ([`is_common`]) and a group command look different; in AwaitingTarget the
+/// the menu that is open), or only X Cancel for the group of a type's unfinished buildings ([`TRANSFORMING_GRID`],
+/// design changes 0116 and 0185: under construction or transformation, they form a group of their own, "with its own
+/// panel"). A common command ([`is_common`]) and a group command look different; in AwaitingTarget the
 /// PendingCommand is marked and the others wait, in AwaitingPlacement the building being placed is marked
 /// (`super::Placing::command`) and the others wait, and in every state but DefaultState Z is Back (`> Standard Slot
 /// Assignments`). What the game allows now ([`Conditions`]) disables a command it doesn't let go to its recipients
@@ -125,7 +126,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
     let Some(active) = selection.active() else {
         return panel;
     };
-    let grid = if conditions.transforming {
+    let grid = if active.unfinished {
         TRANSFORMING_GRID
     } else {
         state_grid(active.kind, interface, conditions.constructor)
@@ -134,7 +135,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
         let Some(command) = command else {
             continue;
         };
-        let (look, why) = if !offers(active.kind, command) {
+        let (look, why) = if !offers(active.group_type(), command) {
             (ButtonLook::Unavailable, Some(not_offered(command)))
         } else {
             match interface {
@@ -257,12 +258,13 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
 }
 
 /// `> CommandPanel`: whether `command` is a common command of `selection`, "available to every object in Selection"
-/// and issued to all of them: every selected object offers it, and it isn't one instance's own
-/// (`PanelCommand::instance_only`), unless the ActiveGroup is all there is to it. Otherwise it is a group command.
+/// and issued to all of them: every selected object offers it (an unfinished building only its Cancel, design change
+/// 0185), and it isn't one instance's own (`PanelCommand::instance_only`), unless the ActiveGroup is all there is to
+/// it. Otherwise it is a group command.
 pub fn is_common(selection: &Selection, command: PanelCommand) -> bool {
     selection
-        .members()
-        .all(|(id, kind)| offers(kind, command) && (!command.instance_only() || selection.in_active_group(id)))
+        .member_types()
+        .all(|(id, ty)| offers(ty, command) && (!command.instance_only() || selection.in_active_group(id)))
 }
 
 /// `> CommandPanel`: who a panel command goes to: "Clicking a common command issues it to all selected objects.
@@ -271,13 +273,14 @@ pub fn is_common(selection: &Selection, command: PanelCommand) -> bool {
 /// never a single member picked out; only a unit that can't carry the command out is left out of it (a raised Riot
 /// Shield under an explicit Attack: `super::super::resolution::unit_target_order`). Every panel command, by hotkey
 /// or button, goes to these objects: a Train to every Barracks of the ActiveGroup, which the sim serves least work
-/// first as far as the player can pay (design change 0083). A constructor's command goes to the ActiveGroup, the one
+/// first as far as the player can pay (design change 0083), but never to an unfinished one, which is in a group of
+/// its own and offers its Cancel alone (design change 0185). A constructor's command goes to the ActiveGroup, the one
 /// Deployment Center or Extraction Facility whose state the panel shows ([`is_common`]).
 pub fn recipients(selection: &Selection, command: PanelCommand) -> Vec<ObjectId> {
     let common = is_common(selection, command);
     selection
-        .members()
-        .filter(|&(id, kind)| offers(kind, command) && (common || selection.in_active_group(id)))
+        .member_types()
+        .filter(|&(id, ty)| offers(ty, command) && (common || selection.in_active_group(id)))
         .map(|(id, _)| id)
         .collect()
 }

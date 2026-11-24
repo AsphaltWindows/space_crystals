@@ -4,6 +4,7 @@
 //! (`ARCHITECTURE.md > Client architecture > Client tests`). The fog of war is off (`--no-fog`), so that player 1
 //! can select what it doesn't see: what the fog hides from the selection is tested in `fog.rs`.
 
+mod draw_order;
 mod groups;
 mod map;
 mod panels;

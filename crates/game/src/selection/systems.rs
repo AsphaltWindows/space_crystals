@@ -6,11 +6,11 @@ use std::collections::BTreeSet;
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use sc_sim::{ObjectId, ObjectKind, PlayerId, SimEvent};
+use sc_sim::{ObjectId, PlayerId, SimEvent};
 
 use super::pick::{selectable_by, selectable_id};
 use super::rules::{ClickRoles, drawn_centroid};
-use super::{ControlStates, LocalControl};
+use super::{ControlStates, GroupType, LocalControl};
 use crate::ClientMode;
 use crate::camera::{CameraView, CameraZoom, ViewportInsets, view_rect};
 use crate::fog::{FogOfWar, Sight};
@@ -25,9 +25,10 @@ use crate::sim_driver::{LocalPlayer, SimEventMessage, SimRes};
 /// an enemy that walks out of sight is deselected at once (a placeholder rule: the design doesn't say). A record
 /// the player may select (a GDO player's remembered SupplyDeliveryStation) stays selected even if its object is
 /// removed out of sight: the player doesn't learn of it. An object the player sees that changed its kind in place
-/// (`SimEvent::KindChanged`, plan decision T15) stays selected as its new kind (`ControlState::set_kind`), so the
-/// panels show its new type. A replaced sim (`SimRes::generation`) starts every ControlState over, because its ids
-/// name other objects.
+/// (`SimEvent::KindChanged`, plan decision T15), or that started or stopped being unfinished (design change 0185: a
+/// building whose Warp In completes or is cancelled), stays selected as the type it groups as now
+/// (`ControlState::set_type`), so the panels show its new group. A replaced sim (`SimRes::generation`) starts every
+/// ControlState over, because its ids name other objects.
 pub(super) fn sync_control_states(
     sim: Res<SimRes>,
     fog: Res<FogOfWar>,
@@ -57,16 +58,16 @@ pub(super) fn sync_control_states(
             let remembered = sight.remembered_record(id).is_some();
             (remembered || !removed.contains(&id)) && selectable_id(&sim, &sight, id)
         });
-        let changed_kinds: Vec<(ObjectId, ObjectKind)> = state
+        let changed_types: Vec<(ObjectId, GroupType)> = state
             .selection
-            .members()
-            .filter_map(|(id, kind)| {
-                let o = sim.object(id).filter(|o| o.kind != kind && selectable_by(o, &sight))?;
-                Some((id, o.kind))
+            .member_types()
+            .filter_map(|(id, ty)| {
+                let now = sim.object(id).filter(|o| selectable_by(o, &sight)).map(GroupType::of)?;
+                (now != ty).then_some((id, now))
             })
             .collect();
-        for (id, kind) in changed_kinds {
-            changed |= state.set_kind(id, kind);
+        for (id, ty) in changed_types {
+            changed |= state.set_type(id, ty);
         }
     }
     if changed {
