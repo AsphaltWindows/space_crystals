@@ -1060,6 +1060,7 @@ fn the_clients_recording_replays_to_the_same_state_hashes() {
         let replay = Replay {
             scenario: app.world().resource::<LoadedScenario>().0.clone(),
             inputs: app.world().resource::<RecordedInputs>().ticks.clone(),
+            checkpoints: Vec::new(),
         };
         assert_eq!(replay.scenario.setup.config, sim_config);
         let mut bare = replay.start();

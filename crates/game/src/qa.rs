@@ -26,6 +26,7 @@ use crate::fog::FogOfWar;
 use crate::input::ReadActions;
 use crate::map_render::MapView;
 use crate::platform::RenderSurface;
+use crate::replay::{Playback, Recorder};
 use crate::selection::ControlStates;
 use crate::sim_driver::{LoadedScenario, LocalPlayer, PendingCommands, RecordedInputs, SimControl, SimRes, StepSim};
 
@@ -344,6 +345,8 @@ pub struct DumpSources<'w> {
     map_view: Option<Res<'w, MapView>>,
     control: Option<Res<'w, ControlStates>>,
     fog: Option<Res<'w, FogOfWar>>,
+    playback: Option<Res<'w, Playback>>,
+    recorder: Option<Res<'w, Recorder>>,
 }
 
 /// The `--dump-state` file: the sim state through its public accessors, plus the client's view of it.
@@ -374,6 +377,21 @@ pub struct ClientDump {
     /// The local player's records of the structures and resources it has seen (`PlayerVision::records`), by id:
     /// what its Explored tiles show of them.
     pub last_known: Vec<LastKnown>,
+    /// The file the game is recorded to, if it is (`crate::replay::record`).
+    pub recording: Option<PathBuf>,
+    /// `--replay`: the replay played back (`crate::replay::playback`).
+    pub replay: Option<ReplayDump>,
+}
+
+/// The replay played back, in the state dump.
+#[derive(Serialize)]
+pub struct ReplayDump {
+    pub file: PathBuf,
+    /// Its last tick, where the playback pauses.
+    pub end_tick: Tick,
+    pub checkpoints: usize,
+    /// The first checkpoint the game didn't match (`sc_sim::Desync`), if one didn't.
+    pub desync: Option<String>,
 }
 
 fn write_state_dump(path: &Path, sources: &DumpSources) -> Result<(), String> {
@@ -398,6 +416,13 @@ fn write_state_dump(path: &Path, sources: &DumpSources) -> Result<(), String> {
                 .vision()
                 .player(sources.player.0)
                 .map_or_else(Vec::new, |v| v.records().cloned().collect()),
+            recording: sources.recorder.as_ref().map(|r| r.path.clone()),
+            replay: sources.playback.as_ref().map(|p| ReplayDump {
+                file: p.file.clone(),
+                end_tick: p.end_tick(),
+                checkpoints: p.replay.checkpoints.len(),
+                desync: p.desync.map(|d| d.to_string()),
+            }),
         },
         map: sim.map(),
     };

@@ -1,8 +1,8 @@
 //! What the client shows of the structures and resources the local player remembers (`core/vision.md > Explored`):
 //! Explored tiles show their records, as last seen, never the live objects there; only a GDO player may select a
-//! remembered SupplyDeliveryStation (`> Explored Selectability`), whose InfoPanel shows it as last seen; and a unit
-//! hit from the fog flashes, with no tracer (Q0017 point 1's assumption). Headless, one tick per update, as in
-//! `fog.rs`.
+//! remembered SupplyDeliveryStation (`> Explored Selectability`), whose InfoPanel shows it as last seen but with the
+//! station's real delivery timer (design change 0057); and a unit hit from the fog flashes, with no tracer (Q0017
+//! point 1's assumption). Headless, one tick per update, as in `fog.rs`.
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
@@ -10,14 +10,15 @@ use bevy::time::TimeUpdateStrategy;
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{
     Command, DebugCommand, Faction, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, ResourceState, Spawn,
-    SpawnAt, TICKS_PER_SECOND, Tick, TilePos, scenarios,
+    SpawnAt, SpawnSettings, TICKS_PER_SECOND, Tick, TilePos, scenarios,
 };
 use space_crystals::combat_effects::{CombatEffects, HIT_FLASH_TICKS, ShotView, shot_view, shows_tracer};
 use space_crystals::fog::Sight;
-use space_crystals::hud::info_panel::InfoText;
+use space_crystals::hud::info_panel::{InfoText, NO_DELIVERY};
 use space_crystals::input::InjectedInput;
 use space_crystals::object_render::{ObjectVisuals, RememberedVisual, RememberedVisuals};
 use space_crystals::platform::DisplayMode;
+use space_crystals::selection::markers::SelectionMarkers;
 use space_crystals::selection::{ControlStates, Selectables, Selection};
 use space_crystals::sim_driver::{LocalPlayer, PendingCommands, SimRes};
 use space_crystals::{AppConfig, build_app};
@@ -84,14 +85,20 @@ fn tap(app: &mut App, key: KeyCode) {
 }
 
 /// A flat 24 × 16 map with a crystal patch on tile (8, 4) and a station on (8, 10)–(9, 11); player 1, of `faction`,
-/// has a scout (a Peacekeeper, SightRange 5) on (5, 7), which sees both.
+/// has a scout (a Peacekeeper, SightRange 5) on (5, 7), which sees both. The station has its default values: empty,
+/// counting down to its first delivery.
 fn world(faction: Faction) -> App {
+    let station = SpawnSettings::defaults(ObjectKind::SupplyDeliveryStation).unwrap();
+    world_with(faction, station)
+}
+
+/// [`world`], with the station's values.
+fn world_with(faction: Faction, station: SpawnSettings) -> App {
     let mut scenario = scenarios::empty(24, 16);
     let tile = |kind, x, y| Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(x, y)));
-    scenario.map.spawns = vec![
-        tile(ObjectKind::CrystalPatch, 8, 4),
-        tile(ObjectKind::SupplyDeliveryStation, 8, 10),
-    ];
+    let mut station_spawn = tile(ObjectKind::SupplyDeliveryStation, 8, 10);
+    station_spawn.settings = Some(station);
+    scenario.map.spawns = vec![tile(ObjectKind::CrystalPatch, 8, 4), station_spawn];
     scenario.setup.players[0].faction = faction;
     let mut app = headless(AppConfig::new(scenario));
     spawn_unit(&mut app, P1, 5, 7);
@@ -230,7 +237,8 @@ fn explored_tiles_draw_records_never_live_objects() {
 
 /// `core/vision.md > Explored Selectability`: a GDO player may select the station on Explored tiles, by its record,
 /// and keeps it selected when it leaves; a click there picks it. Its InfoPanel shows the station as last seen,
-/// without CurrentSupplies, and when that was.
+/// without CurrentSupplies, and when that was, but with the live station's delivery countdown, not the one last seen
+/// (`core/map.md > SupplyDeliveryStation > InfoPanel > Explored`, design change 0057).
 #[test]
 fn gdo_players_select_a_remembered_station() {
     let mut app = world(Faction::Gdo);
@@ -268,7 +276,6 @@ fn gdo_players_select_a_remembered_station() {
     else {
         panic!("the station counts down");
     };
-    let seconds = |ticks: u32| ticks.div_ceil(TICKS_PER_SECOND);
     assert!(seconds(then) > seconds(now), "{then} {now}");
     let ago = seconds(sim.tick() - record.seen);
     let (title, body) = info(&mut app).unwrap();
@@ -277,9 +284,141 @@ fn gdo_players_select_a_remembered_station() {
         body,
         format!(
             "Neutral\nDelivery size: 4\nDelivery interval: 60 s\nNext delivery in {} s\nLast seen {ago} s ago",
-            seconds(then)
+            seconds(now)
         )
     );
+}
+
+/// A selected structure's frame lies inside its footprint, which the structure's visual covers: it draws in front
+/// of the structure, live or remembered, and behind a unit south of it.
+#[test]
+fn a_selected_stations_frame_draws_over_the_station() {
+    let mut app = world(Faction::Gdo);
+    select(&mut app, STATION);
+    scout_to(&mut app, 8, 13);
+    let z = |app: &App, entity| translation(app, entity).z;
+    let marker = app.world().resource::<SelectionMarkers>().by_id[&ObjectId(STATION)];
+    let live = app.world().resource::<ObjectVisuals>().by_id.clone();
+    assert!(drawn(&app, STATION));
+    assert!(z(&app, marker) > z(&app, live[&ObjectId(STATION)]), "over the station");
+    assert!(
+        z(&app, marker) < z(&app, live[&ObjectId(SCOUT)]),
+        "under the scout south of it"
+    );
+
+    scout_to(&mut app, 20, 7);
+    assert_eq!(remembered(&app), [PATCH, STATION]);
+    let marker = app.world().resource::<SelectionMarkers>().by_id[&ObjectId(STATION)];
+    let record = app.world().resource::<RememberedVisuals>().by_id[&ObjectId(STATION)];
+    assert!(z(&app, marker) > z(&app, record), "over the remembered station");
+}
+
+/// A number of ticks in whole seconds, rounded up, as the InfoPanel shows them.
+fn seconds(ticks: u32) -> u32 {
+    ticks.div_ceil(TICKS_PER_SECOND)
+}
+
+/// The station's supplies and delivery countdown, live.
+fn station_state(app: &App) -> (u32, Option<u32>) {
+    let sim = app.world().resource::<SimRes>();
+    match sim.object(ObjectId(STATION)).unwrap().resource {
+        Some(ResourceState::SupplyStation {
+            current_supplies,
+            next_delivery_in,
+            ..
+        }) => (current_supplies, next_delivery_in),
+        ref other => panic!("{other:?}"),
+    }
+}
+
+/// The InfoPanel's lines, but for the last one (the placeholder note of when the station was last seen).
+fn remembered_info(app: &mut App) -> Vec<String> {
+    let (_, body) = info(app).expect("the station is selected");
+    let (lines, last) = body.rsplit_once('\n').unwrap();
+    assert!(last.starts_with("Last seen "), "{body}");
+    lines.lines().map(str::to_string).collect()
+}
+
+/// Empties the station, as an enemy picking its supplies up will (supply pickup doesn't exist yet): the sim is
+/// replaced by an edited state dump of itself. Its next tick starts the countdown. A replaced sim starts the
+/// selection over, so this selects the station again.
+fn empty_station(app: &mut App) {
+    let mut state = serde_json::to_value(app.world().resource::<SimRes>().sim()).unwrap();
+    let objects = state["objects"].as_array_mut().unwrap();
+    let station = objects.iter_mut().find(|o| o["id"] == STATION).unwrap();
+    station["resource"]["SupplyStation"]["current_supplies"] = 0.into();
+    let sim = serde_json::from_value(state).unwrap();
+    app.world_mut().resource_mut::<SimRes>().replace(sim);
+    app.update();
+    select(app, STATION);
+}
+
+/// Design change 0057's verification (`core/map.md > SupplyDeliveryStation > InfoPanel > Explored`): a GDO player
+/// sees a stocked station, which runs no countdown, and leaves. Out of sight, someone empties it: the panel switches
+/// from no delivery scheduled to the live countdown, which runs down to the actual delivery; then no delivery is
+/// scheduled again. CurrentSupplies stays hidden all along. (Other factions can't select it there:
+/// `other_factions_cannot_select_a_remembered_station`.)
+#[test]
+fn a_gdo_player_sees_a_remembered_stations_real_delivery_timer() {
+    const INTERVAL: u32 = 64;
+    let station = SpawnSettings::SupplyDeliveryStation {
+        starting_supplies: 4,
+        delivery_size: 4,
+        delivery_interval: INTERVAL,
+    };
+    let mut app = world_with(Faction::Gdo, station);
+    select(&mut app, STATION);
+    let stocked = ["Neutral", "Delivery size: 4", "Delivery interval: 4 s", NO_DELIVERY];
+    let (_, body) = info(&mut app).unwrap();
+    assert_eq!(
+        body,
+        format!("Neutral\nSupplies: 4\nDelivery size: 4\nDelivery interval: 4 s\n{NO_DELIVERY}")
+    );
+
+    scout_to(&mut app, 20, 7);
+    let left = tick(&app);
+    run_until(&mut app, left + 20);
+    assert_eq!(remembered(&app), [PATCH, STATION]);
+    assert_eq!(remembered_info(&mut app), stocked);
+
+    empty_station(&mut app);
+    assert_eq!(remembered(&app), [PATCH, STATION], "still out of sight");
+    assert_eq!(selected(&app), [STATION]);
+    let record = app
+        .world()
+        .resource::<SimRes>()
+        .vision()
+        .player(P1)
+        .unwrap()
+        .record(ObjectId(STATION));
+    assert!(
+        matches!(
+            record.unwrap().resource,
+            Some(ResourceState::SupplyStation {
+                current_supplies: 4,
+                next_delivery_in: None,
+                ..
+            })
+        ),
+        "the record still has it stocked"
+    );
+    let (supplies, Some(countdown)) = station_state(&app) else {
+        panic!("the emptied station counts down");
+    };
+    assert_eq!(supplies, 0);
+    assert!(countdown < INTERVAL, "running: {countdown}");
+    let due = tick(&app) + countdown;
+    while tick(&app) < due {
+        let (_, Some(countdown)) = station_state(&app) else {
+            panic!("no delivery before {due}: {}", tick(&app));
+        };
+        let mut counting = stocked.map(str::to_string).to_vec();
+        counting[3] = format!("Next delivery in {} s", seconds(countdown));
+        assert_eq!(remembered_info(&mut app), counting, "tick {}", tick(&app));
+        app.update();
+    }
+    assert_eq!(station_state(&app), (4, None), "delivered when the panel said");
+    assert_eq!(remembered_info(&mut app), stocked);
 }
 
 /// Other factions may not select a remembered station: it leaves the selection when its tiles turn Explored.

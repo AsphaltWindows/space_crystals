@@ -1,6 +1,7 @@
 //! The command gate's rule for object targets (question Q0017, point 2, its default; `core/vision.md > Explored
 //! Selectability`): an Attack or a Move on an object is taken only while the issuing player sees the object. The
-//! one exception is the design's: a GDO player may target a Supply Delivery Station on Explored ground.
+//! one exception is the design's: a GDO player may target a Supply Delivery Station on Explored ground, by its
+//! last-known record of the station.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
@@ -178,4 +179,51 @@ fn a_gdo_player_may_target_a_supply_station_it_has_explored() {
     assert!(unit.orders.as_ref().unwrap().is_idle());
     let station = sc_sim::Shape::of(t.sim().object(id(1)).unwrap());
     assert!(sc_sim::Shape::of(unit).gap(&station) <= sc_sim::orders::PROXIMITY_SU);
+}
+
+/// `core/vision.md > Explored Selectability`: the GDO exception goes by what the player knows, its last-known record
+/// of the station, not by the live station's tiles. A station debug-spawned on tiles the player explored earlier
+/// lies on Explored ground, but the player never saw it: it has no record, so it is no target until the player sees
+/// it (the gate used to take it: its tiles are Explored). Once seen, it stays a target out of sight.
+#[test]
+fn a_station_the_gdo_player_never_saw_is_no_target_on_explored_ground() {
+    let mut t = ScenarioBuilder::new(&open()).start();
+    let far = v(2000.0, 350.0);
+    t.without_auto_targeting()
+        .spawn_unit_at(1, PK, P1, v(200.0, 350.0)) // 1, GDO
+        .spawn_unit_at(1, ObjectKind::Guard, P2, v(2000.0, 600.0)) // 2, far away
+        .run(1);
+    t.debug_at(2, DebugCommand::SetPosition { id: id(1), pos: far }).step();
+    let station = DebugCommand::Spawn {
+        kind: ObjectKind::SupplyDeliveryStation,
+        owner: None,
+        at: SpawnAt::Tile(TilePos::new(3, 4)),
+    };
+    t.debug_at(3, station).step(); // 3, on the tiles unit 1 explored at tick 1
+    assert_eq!(t.sim().object(id(3)).unwrap().kind, ObjectKind::SupplyDeliveryStation);
+    assert_eq!(state(&t, P1, 3), VisibilityState::Explored);
+    let vision = |t: &TestSim| t.sim().vision().player(P1).unwrap().record(id(3)).cloned();
+    assert_eq!(vision(&t), None, "placed on Explored tiles: unknown to the player");
+    for queue in [false, true] {
+        apply(&mut t, order(P1, 1, move_on(3), queue), Err(Reject::NotVisible(id(3))));
+    }
+
+    // The unit comes back and sees it: now the player knows it, and it stays a target once out of sight again.
+    let near = DebugCommand::SetPosition {
+        id: id(1),
+        pos: v(200.0, 600.0),
+    };
+    t.debug_at(t.sim().tick() + 1, near).step();
+    assert_eq!(state(&t, P1, 3), VisibilityState::Visible);
+    assert!(vision(&t).is_some());
+    apply(&mut t, order(P1, 1, move_on(3), false), Ok(()));
+    let tick = t.sim().tick() + 1;
+    t.debug_at(tick, DebugCommand::SetPosition { id: id(1), pos: far })
+        .order_at(tick, P1, &[id(1)], OrderKind::Stop, false)
+        .step();
+    assert_eq!(state(&t, P1, 3), VisibilityState::Explored);
+    assert_eq!(vision(&t).map(|r| r.kind), Some(ObjectKind::SupplyDeliveryStation));
+    apply(&mut t, order(P1, 1, move_on(3), false), Ok(()));
+    // A Syndicate player's records don't make it a target (the exception is the GDO's).
+    apply(&mut t, order(P2, 2, move_on(3), false), Err(Reject::NotVisible(id(3))));
 }

@@ -504,7 +504,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
 - **Targets must be seen** (question Q0017 point 2, its default; `core/vision.md > Explored Selectability`): an
   Attack or a Move on an object is taken only while the issuing player sees it (a tile it covers is Visible), else
   `Reject::NotVisible`. The exception is the design's: a GDO player may target a Supply Delivery Station on Explored
-  ground. The check is on the sim's vision, whatever the client draws (`--no-fog` is display only). A queued order
+  ground, through its last-known record of it (`PlayerVision::remembered_record`), as the client selects it there: a
+  station it never saw, e.g. one debug-spawned on Explored ground, is no target. The check is on the sim's vision,
+  whatever the client draws (`--no-fog` is display only). A queued order
   passed the gate when it was given; what its behaviour does if the target is out of sight when its turn comes is
   in *Behaviours*.
 - **Debug spawns and teleports of units** keep the unit invariants: a box on blocked ground or across the map's edge
@@ -521,8 +523,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   *Behaviours*), for development and QA. It bypasses costs and rules, only works while `SimConfig::debug` is on, and
   is never offered in a real match. A teleport sets `prev_pos = pos`, so nothing interpolates across the map.
 - **Replay** = the `Scenario` (the map and the game setup, game options included) plus the `TickInputs` of every
-  tick, empty ticks included:
-  `sc_sim::Replay` (serde) with `start`/`record`/`step`/`run`. The client must never submit a command with a
+  tick, empty ticks included, and state-hash checkpoints: `sc_sim::Replay` (serde) with `start`/`record`/`step`/`run`,
+  and `record_checked`/`verify`/`run_checked` for the checkpoints (see Replays and golden hashes, which also covers
+  the client's recording and playback). The client must never submit a command with a
   non-finite number. The sim would reject it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to
   load. Validate at the input layer.
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`, …) are
@@ -607,14 +610,19 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   chase, the last seen position, a target out of reach, queueing), `behaviours_idle.rs` (acquiring by priority,
   the leash and the return, Hold, Move doesn't engage, the auto-targeting switch), `behaviours_travel.rs` (Follow,
   static objects, AttackMove groups and the leash, a fight replayed and saved in its middle),
-  `behaviours_patrol.rs`, `behaviours_gate.rs` (targets must be seen), `behaviours_soak.rs` (120 units fighting
+  `behaviours_patrol.rs`, `behaviours_gate.rs` (targets must be seen; a GDO player's remembered station, by its
+  record), `behaviours_soak.rs` (120 units fighting
   under random orders of every kind; no dangling ids, no path-request storms) and the ignored `behaviours_perf.rs`.
   Measured (release, 500 units on 256 × 256): 0.12 ms a tick with everyone idle, 0.14 ms on Hold in sight of the
   enemy, 0.5 ms on average in a battle of 250 against 250; the worst ticks, 4.4 ms, are those in which a group's
   path field is built (four or more of its units resuming their AttackMove in one tick).
+- **Resource collision tests** are `crates/sim/tests/resources_block.rs` (design change 0038's verification: units
+  path around a crystal field, can't walk across a Supply Delivery Station, and walk through the tile of a patch
+  removed by a debug command, standing in for depletion).
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
-  same scenario and inputs twice, or play back a `Replay`, and compare the hashes. Every state type's hash impl
-  destructures it (`hash.rs`), so a new field doesn't compile until it is hashed.
+  same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
+  checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is
+  hashed. The golden games (`golden.rs`) pin the hashes from build to build: see Replays and golden hashes.
 
 ## Client architecture
 
@@ -630,6 +638,11 @@ out by the same rules.
   tick's `TickInputs`, which is what a replay records.
 - Read `Sim::events()` in the same system, right after `step`, and forward them, for example as Bevy `Message`s. The
   next step clears them, and FixedUpdate can run several times in one frame.
+- `SimControl` says whether the step may run: `paused`, `step_once` (one step while paused, then it clears itself)
+  and QA's `hold_at`. `Pace` says how fast, changeable at any time: `Scaled(f)` runs `f` × 16 ticks per second of
+  real time through `Time<Virtual>`'s relative speed, `Max` (`--fast`) as many ticks per frame as fit in
+  `FAST_FRAME_BUDGET`, drawn exactly at their ticks. A replay's playback controls both (see Replays and golden
+  hashes).
 
 **Visuals**
 - The sim is the source of truth. Visuals are separate entities, each linked to its object by an
@@ -687,7 +700,8 @@ out by the same rules.
   by tile, in the terrain's z band `FOG_Z` in front of it (so no cliff stratum shows through), and one texture of
   one black texel per tile (`UNEXPLORED_ALPHA`, `EXPLORED_ALPHA`, clear when Visible), sampled linearly. The texture
   is written only when `PlayerVision::revision`, the local player or the sim changes, the mesh only with the map.
-  `FogOfWar` turns it off for QA (`--no-fog`, the debug key F3): display only, the sim computes every player's
+  `FogOfWar` turns it off for QA (`--no-fog`, the debug key F3, which a replay's playback takes without debug
+  commands too): display only, the sim computes every player's
   vision anyway. The editor shows no fog; its play-tests do.
 - Never make one entity per tile. Draw the terrain as one mesh or texture, or a few chunks; the fog of war is one
   texture, never per-tile materials.
@@ -718,7 +732,11 @@ finds the portrait under a click, because headless tests have no UI picking (and
 The InfoPanel (`hud/info_panel.rs`) and the SelectionPanel (`hud/selection_panel.rs`) show the selection (see
 Selection), the CommandPanel (`hud/command_panel.rs`) its commands (see Commands UI); a section with nothing to show
 shows its name (`SectionLabel`). A selected object the player doesn't see shows its record's last-known state and a
-"Last seen … ago" line (a placeholder wording).
+"Last seen … ago" line (a placeholder wording), except that a GDO player's remembered Supply Delivery Station shows
+the live station's NextDeliveryTime (`core/map.md > SupplyDeliveryStation > InfoPanel`, design change 0057), "No
+delivery scheduled" while it isn't empty, and never CurrentSupplies. The top bar shows the player and the tick; in a
+replay's playback also the replay's last tick and a note on the playback (`ReplayText`: speed, paused or end, and a
+desync in red).
 
 **Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse, the wheel and the screen edge into
 the input of the game and of the map editor, in `PreUpdate` (`ReadActions`, after Bevy's input, UI picking and the
@@ -747,7 +765,8 @@ elsewhere.
   with `bind` and `unbind`. It isn't serializable yet: loading it from a file needs Bevy's `serialize` feature for
   `KeyCode` and `MouseButton`. The selection adds `CenterOnObject` (Alt) to the modifier actions, for clicks on
   portraits, and F2 for the debug player switch, the fog of war F3 for its debug toggle (placeholders: the design
-  has no debug keys).
+  has no debug keys), and the replay playback keys of the game's context: Space pauses and resumes, `.` plays one
+  tick, `-` and `=` change the speed (`ReplayPause`, `ReplayStep`, `ReplaySlower`, `ReplayFaster`; placeholders).
 - **Output**: `ActionState` (a `Resource`) holds this frame's actions (held, just pressed, just released), the wheel's
   turn, the modifiers, the context, the cursor in logical pixels, and the `Pointer`: the view point and the ground
   point (`coords::ground_under`) under the cursor, whether it is over the UI (a UI node by Bevy's picking, or outside
@@ -798,13 +817,14 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   starts every state over when the sim is replaced (`SimRes::generation`). `Input` (in `Actions`) applies map
   clicks, boxes, the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the
   debug player switch (F2, only while `SimConfig::debug`: the client acts as the next player, so "own" and the state
-  in use change). The HUD's portrait clicks run after it. Systems change a state only through
+  in use change; a replay's playback switches without debug commands too). The HUD's portrait clicks run after it. Systems change a state only through
   `LocalControl::update`, which marks `ControlStates` changed only on a real change, and puts the
   ObjectInterfaceState back to DefaultState when the Selection or its ActiveGroup changes. While a target is
   awaited, map clicks and boxes select nothing (the drag box isn't drawn): the left-click is the target's.
-- **Visuals** (`selection/markers.rs`): one marker entity per selected object in the ground-decal layer, under the
-  object (a ring around a unit, a frame inside a footprint), coloured by relation, the ActiveGroup's solid and the
-  others' dashed; meshes cached per shape, relation and activity. The drag box is four edges of one shared mesh in
+- **Visuals** (`selection/markers.rs`): one marker entity per selected object: a ring around a unit, in the
+  ground-decal layer under it, or a frame inside a footprint, which the object's visual would hide there, so it is
+  drawn just in front of the object (`FRAME_Z`: half a su of ground y, under the objects south of it); coloured by
+  relation, the ActiveGroup's solid and the others' dashed; meshes cached per shape, relation and activity. The drag box is four edges of one shared mesh in
   the overlay layer, shown while `Pointer::drag_box` is set.
 
 **Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/selection_and_hud.md > ObjectInterfaceState`
@@ -845,7 +865,8 @@ to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how th
 advances by one tick. The very first update only starts the clock, so assert on `Sim::tick()`, not on the number of
 updates. To draw between ticks, advance by part of a tick with `TimeUpdateStrategy::ManualDuration`. A client run's
 `LoadedScenario` (whose setup holds the game options) and `RecordedInputs` are a `Replay`: playing it back in a bare
-`Sim` gives the same `state_hash` at every tick.
+`Sim` gives the same `state_hash` at every tick. `tests/replay.rs` records games through the client and plays them
+back (`AppConfig::record`, `AppConfig::playback`).
 
 ## Bevy 0.20: verify, don't recall
 
@@ -874,7 +895,7 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--fast` | Runs as many ticks per frame as fit in 50 ms instead of 16 per second. Screenshots are unchanged. |
 | `--no-debug` | Runs the game with debug commands off (the setup's `SimConfig`), as a real match will; they are on by default. |
 | `--screenshot <tick>:<path>` | Saves a PNG of exactly that tick. Repeatable, in any order; creates parent dirs. |
-| `--exit-at-tick <n>` | Exits at tick `n`, after its screenshots. Windowless runs default to the last screenshot's. |
+| `--exit-at-tick <n>` | Exits at tick `n`, after its screenshots. Windowless runs default to the last screenshot's, or else to the `--replay`'s end. |
 | `--dump-state <path>` | Writes the state as JSON when the run ends (fields below). |
 | `--commands <file.json>` | Applies player commands at given ticks: a JSON list of `{"tick", "player", "command"}` (`qa::TimedCommand`; `command` is a `sc_sim::Command` in serde form). Each applies in the step that reaches its tick (1 or later), a tick's commands in file order. Not with `--editor`. |
 | `--input-script <file.json>` | Drives the virtual keyboard and mouse (`InjectedInput`) at given ticks: a JSON list of `{"tick", "cursor", "press", "tap", "release"}` (`qa::InputStep`; buttons by name: `MouseLeft`, `ControlLeft`, `Digit1`, `KeyQ`, `F2`, …). The sim waits at each step's tick until it is applied, so a button held across steps drags and a chord spans steps (Ctrl + 1: `press` Ctrl and `tap` 1, release Ctrl in a later step). Not with `--editor`. |
@@ -882,7 +903,9 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--no-fog` | Starts with the fog of war off: the client shows everything (F3 toggles it). Display only; not with `--no-debug`. |
 | `--windowed` | Shows a QA run in a window on the user's display instead of rendering offscreen. |
 | `--headless` | No window and no renderer: sim, client state and `--dump-state` only. Needs `--exit-at-tick`. |
-| Later: replays | Replay recorded sessions. |
+| `--replay <file.json>` | Plays a recorded game back (see Replays and golden hashes) with its own map and game options: not with `--scenario`, `--map`, `--editor`, `--no-debug` or `--commands`. Pauses at the end, so no tick of the other flags may come after it. The other QA flags work with it. |
+| `--record <file.json>` | Records the game to that file. A game is recorded to `replays/` anyway; a QA run only with this flag. Not with `--editor` or `--replay`. |
+| `--no-record` | Doesn't record the game. |
 
 Taking a screenshot (no window appears; about one second plus `tick / 16` seconds, or add `--fast`):
 
@@ -897,8 +920,9 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
 - Exit codes: 0 when everything was saved, 1 when a QA step failed (the log says which), 2 for invalid flags.
 - The `--dump-state` JSON holds `tick`, `scenario` (the map's name), `players`, `objects` (every field of
   `sc_sim::Object`), the last tick's `events`, `client` (`local_player`, `camera_center` as a view point in su,
-  `grid_visible`, `fog_of_war`, `recorded_ticks`, the local player's `selection` and `last_known` records) and
-  `map` (the terrain).
+  `grid_visible`, `fog_of_war`, `recorded_ticks`, the local player's `selection` and `last_known` records, the
+  `recording` file, and in a playback `replay`: its `file`, `end_tick`, number of `checkpoints` and the `desync`, if
+  any) and `map` (the terrain).
 - `--windowed` runs turn vsync off: with the display asleep, X11 paces a vsynced window at one frame per second.
 - Verify visual work yourself. Capture screenshots and look at the PNGs with the Read tool before you report.
 - To look at another part of a map, give the slot a different camera start in the editor (or the file's
@@ -910,6 +934,51 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
   [{"tick": 1, "player": 1, "command": {"Debug": {"Spawn": {"kind": "Peacekeeper", "owner": 1, "at": {"Point": [1216.0, 1376.0]}}}}},
    {"tick": 2, "player": 1, "command": {"Order": {"units": [18], "kind": {"Move": {"Point": [2016.0, 1376.0]}}, "queue": false}}}]
   ```
+
+## Replays and golden hashes
+
+A replay file is `sc_sim::Replay` as JSON: `scenario` (the map in its file format and the game setup, game options
+included), `inputs` (the `TickInputs` of every tick: `inputs[t]` is what the step from tick `t` to `t + 1` applied)
+and `checkpoints` (`{"tick", "hash"}`: `Sim::state_hash` at the end of that tick, ascending). The client writes it
+with one line per tick (`replay::replay_json`), as the golden files are; a file without `checkpoints` still plays,
+unchecked.
+
+- **Checkpoints** (`sc_sim::replay`): `Replay::record_checked` notes one at tick 0 and every `CHECKPOINT_INTERVAL`
+  (64) ticks, and `Replay::checkpoint` one at the last tick (the client, whenever it writes the file).
+  `Replay::verify(&sim)` compares a sim played back to some tick with that tick's checkpoint, and
+  `Replay::run_checked` plays a whole replay that way. A `Desync { tick, expected, actual, previous }` names the first
+  checkpoint that differs and the one before it, which matched: the game diverged in between.
+- **Recording** (`crates/game/src/replay/record.rs`): every game the client plays is recorded, not the map editor, its
+  play-tests or a playback. The file is `--record`'s, else `replays/<UTC date>_<time>_<map>.json` under the working
+  directory (git-ignored; `_2`, `_3`, … when taken). It is written when the game starts, every `AUTOSAVE_TICKS` (160)
+  ticks and when the app exits (window closed, Ctrl+C, a QA run's end), atomically (`files::write_atomically`), so a
+  crash loses a few seconds at most. QA runs record only with `--record`; `--no-record` turns recording off. Should
+  the sim be replaced (`SimRes::generation`), the recording ends there.
+- **Playback** (`--replay`, `crates/game/src/replay/playback.rs`): the game starts from the replay's scenario with its
+  game options, and each step applies the recorded inputs of its tick and nothing else. The local player can't give
+  commands: the command UI's input set (`CommandUiSystems::Input`) doesn't run, and anything else pending is dropped.
+  It pauses at the end. The game is checked against the checkpoints at tick 0 and after every step; the first desync
+  is logged as an error, fails a QA run (exit code 1) and shows in red in the top bar, and the playback goes on.
+  Controls (Game context, placeholder keys): Space pauses and resumes, `.` plays one tick and pauses, `-` and `=`
+  step through the speeds ×0.5, ×1, ×2, ×4 and max (`playback::SPEEDS`; `--fast` starts at max), F2 switches the
+  player and F3 the fog, also when the recorded game had no debug commands. The top bar shows "Replay x2", ", paused"
+  or ", end", and "Tick n / end". Screenshots, `--exit-at-tick`, `--dump-state`, `--input-script` (to press the
+  playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
+  told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
+- **Golden hashes** (`crates/sim/tests/golden.rs`): five scripted games, a 3v3 duel, a 40-unit AttackMove battle, a
+  12-unit group move through a choke, a patrol that meets an enemy and a chase into the fog, are blessed as replays
+  with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. The test plays each game
+  from its definition, checks that the definition still is the blessed one, and compares the checkpoints; a mismatch
+  fails with the first diverging tick and the last one that matched. Each game also asserts what it is about (one
+  side of the duel is gone, the group passed the choke, …), so a re-bless can't hide a broken game. Any change to the
+  sim's rules or state changes the hashes: when the change is intended, re-bless and commit the files with it:
+
+  ```sh
+  SC_BLESS=1 cargo test -p sc_sim golden
+  ```
+
+  The suite runs in well under a second in debug. The golden files are replays, so the client plays them:
+  `cargo run -- --replay crates/sim/tests/golden/duel_3v3.json` (the camera starts over the map's middle).
 
 ## Map editor
 

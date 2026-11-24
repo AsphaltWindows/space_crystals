@@ -4,8 +4,9 @@
 //! SpaceCrystalsPatch > InfoPanel`, `> SupplyDeliveryStation > InfoPanel`).
 //!
 //! An object the local player selected through its record (`core/vision.md > Explored Selectability`: a GDO player's
-//! SupplyDeliveryStation on Explored tiles) shows as last seen, without CurrentSupplies (`core/map.md >
-//! SupplyDeliveryStation > InfoPanel > Explored`), and with a placeholder note of how long ago that was.
+//! SupplyDeliveryStation on Explored tiles) shows as last seen, without CurrentSupplies, and with a placeholder note of
+//! how long ago that was; but a GDO player always knows a station's real delivery schedule, so its NextDeliveryTime
+//! is the live station's (`core/map.md > SupplyDeliveryStation > InfoPanel > Explored`, design change 0057).
 //!
 //! The design doesn't say what the InfoPanel shows for two or more objects (the SelectionPanel shows them). Until it
 //! does, a placeholder: the ActiveGroup's type, how many objects are in it and how many are selected.
@@ -22,6 +23,9 @@ use crate::{ClientMode, hud::HudSection};
 
 /// Size of the InfoPanel's title (placeholder).
 const TITLE_VH: f32 = 2.2;
+/// A station's NextDeliveryTime while it isn't empty: no countdown runs (`core/map.md > SupplyDeliveryStation >
+/// InfoPanel`, design change 0057).
+pub const NO_DELIVERY: &str = "No delivery scheduled";
 
 /// The InfoPanel's texts.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
@@ -55,12 +59,12 @@ pub fn info_text(sim: &Sim, sight: &Sight, selection: &Selection) -> Option<(Str
                 kind: object.kind,
                 owner: object.owner,
                 hp: object.hp,
-                resource: object.resource.as_ref(),
+                resource: object.resource.clone(),
             };
             return Some(object_info(sim, shown, None));
         }
         let record = sight.remembered_record(first)?;
-        return Some(object_info(sim, Shown::remembered(record), Some(record)));
+        return Some(object_info(sim, Shown::remembered(sim, sight, record), Some(record)));
     }
     let group = selection.active_group()?;
     let lines = format!("{} in group\n{} selected", group.instances.len(), selection.len());
@@ -68,27 +72,44 @@ pub fn info_text(sim: &Sim, sight: &Sight, selection: &Selection) -> Option<(Str
 }
 
 /// What one object's panel is made from: the live object, or the record shown in its place.
-struct Shown<'a> {
+struct Shown {
     kind: ObjectKind,
     owner: Option<PlayerId>,
     hp: Option<f32>,
-    resource: Option<&'a ResourceState>,
+    resource: Option<ResourceState>,
 }
 
-impl<'a> Shown<'a> {
-    fn remembered(record: &'a LastKnown) -> Self {
+impl Shown {
+    /// `record` as the player whose `sight` this is knows it: as last seen, except a station's NextDeliveryTime for a
+    /// GDO player, who always knows the real delivery schedule, whatever it sees (`core/map.md >
+    /// SupplyDeliveryStation > InfoPanel > Explored`, design change 0057): the live station's, not frozen at the
+    /// last sighting and not extrapolated from it. So the countdown of a station emptied in the fog starts on the
+    /// panel when it starts (intended, design change 0058). Anyone else sees the last-known value (no one else can
+    /// select a remembered station, `core/vision.md > Explored Selectability`). A station gone from the game (only a
+    /// debug removal takes one away) keeps its last-known schedule: a placeholder, the design has no such case.
+    fn remembered(sim: &Sim, sight: &Sight, record: &LastKnown) -> Self {
+        let mut resource = record.resource.clone();
+        if let Some(ResourceState::SupplyStation { next_delivery_in, .. }) = &mut resource
+            && sight.is_gdo()
+            && let Some(ResourceState::SupplyStation {
+                next_delivery_in: live, ..
+            }) = sim.object(record.id).and_then(|o| o.resource.as_ref())
+        {
+            *next_delivery_in = *live;
+        }
         Self {
             kind: record.kind,
             owner: record.owner,
             hp: record.hp,
-            resource: record.resource.as_ref(),
+            resource,
         }
     }
 }
 
 /// `core/entities.md > Object Type > InfoPanel`: what one object's panel shows. From a `record` (an Explored area:
 /// `core/map.md > SupplyDeliveryStation > InfoPanel > Explored`), the state last seen without CurrentSupplies, and
-/// how long ago that was (placeholder note).
+/// how long ago that was (placeholder note). A station that isn't empty runs no countdown: no delivery is scheduled
+/// (`> SupplyDeliveryStation`, the doc's wording).
 fn object_info(sim: &Sim, shown: Shown, record: Option<&LastKnown>) -> (String, String) {
     let mut lines = vec![match shown.owner {
         Some(owner) => sim
@@ -101,8 +122,8 @@ fn object_info(sim: &Sim, shown: Shown, record: Option<&LastKnown>) -> (String, 
         lines.push(format!("HP {} / {}", hp.ceil(), max.ceil()));
     }
     match shown.resource {
-        Some(&ResourceState::CrystalPatch { remaining }) => lines.push(format!("Space Crystals: {remaining}")),
-        Some(&ResourceState::SupplyStation {
+        Some(ResourceState::CrystalPatch { remaining }) => lines.push(format!("Space Crystals: {remaining}")),
+        Some(ResourceState::SupplyStation {
             delivery_size,
             delivery_interval,
             current_supplies,
@@ -115,7 +136,7 @@ fn object_info(sim: &Sim, shown: Shown, record: Option<&LastKnown>) -> (String, 
             lines.push(format!("Delivery interval: {}", seconds(delivery_interval)));
             lines.push(match next_delivery_in {
                 Some(ticks) => format!("Next delivery in {}", seconds(ticks)),
-                None => "Next delivery: when emptied".to_string(),
+                None => NO_DELIVERY.to_string(),
             });
         }
         None => {}

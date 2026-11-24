@@ -81,16 +81,26 @@ impl RecordedInputs {
 #[derive(Resource, Default, Debug)]
 pub struct SimControl {
     pub paused: bool,
+    /// One step while paused (replay playback's single step): the step system clears it once it has stepped.
+    pub step_once: bool,
     /// Step up to this tick, then wait. QA holds the sim at each screenshot tick until the capture is saved.
     pub hold_at: Option<Tick>,
-    /// Draw objects exactly at their tick positions, never between ticks (`--fast`).
-    pub exact_render: bool,
 }
 
 impl SimControl {
     pub fn may_step(&self, tick: Tick) -> bool {
-        !self.paused && self.hold_at.is_none_or(|hold| tick < hold)
+        (!self.paused || self.step_once) && self.hold_at.is_none_or(|hold| tick < hold)
     }
+}
+
+/// How fast the sim runs, changeable at any time (replay playback's speeds).
+#[derive(Resource, Copy, Clone, Debug, PartialEq)]
+pub enum Pace {
+    /// This many times [`TICKS_PER_SECOND`] ticks per second of real time: 1 is the game's speed.
+    Scaled(f32),
+    /// As many ticks per frame as fit in [`FAST_FRAME_BUDGET`] (`--fast`). Objects are drawn exactly at their
+    /// tick positions, never between ticks.
+    Max,
 }
 
 /// This frame's interpolation factor between each object's `prev_pos` (0) and `pos` (1). It is 1 while the sim
@@ -109,18 +119,20 @@ pub struct SimEventMessage {
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StepSim;
 
-/// `--fast`: virtual time runs this much faster than real time, so each frame owes the fixed loop far more ticks than
-/// it can run in [`FAST_FRAME_BUDGET`].
+/// [`Pace::Max`]: virtual time runs this much faster than real time, so each frame owes the fixed loop far more ticks
+/// than it can run in [`FAST_FRAME_BUDGET`].
 const FAST_TIME_SCALE: f32 = 100_000.0;
-/// The most virtual time one `--fast` frame may add (`Time<Virtual>::max_delta`).
+/// The most virtual time one [`Pace::Max`] frame may add (`Time<Virtual>::max_delta`).
 const FAST_MAX_DELTA: Duration = Duration::from_secs(3600);
-/// Wall-clock time a `--fast` frame spends stepping before it presents a frame.
+/// The most virtual time a frame may add at a [`Pace::Scaled`] pace: Bevy's default.
+const SCALED_MAX_DELTA: Duration = Duration::from_millis(250);
+/// Wall-clock time a [`Pace::Max`] frame spends stepping before it presents a frame.
 pub const FAST_FRAME_BUDGET: Duration = Duration::from_millis(50);
 
 pub struct SimDriverPlugin {
     pub scenario: Scenario,
     pub player: PlayerId,
-    /// Run as many ticks per frame as fit in [`FAST_FRAME_BUDGET`] instead of 16 per second.
+    /// Start at [`Pace::Max`]: as many ticks per frame as fit in [`FAST_FRAME_BUDGET`] instead of 16 per second.
     pub fast: bool,
     /// Map editor: show the scenario even if it is invalid ([`Sim::preview`]), paused at tick 0. Otherwise the
     /// scenario must be valid.
@@ -142,19 +154,22 @@ impl Plugin for SimDriverPlugin {
             .init_resource::<RecordedInputs>()
             .insert_resource(SimControl {
                 paused: self.preview,
-                exact_render: self.fast,
                 ..default()
             })
+            .insert_resource(if self.fast { Pace::Max } else { Pace::Scaled(1.0) })
+            .init_resource::<FastFrame>()
             .insert_resource(RenderAlpha(1.0))
             .add_message::<SimEventMessage>()
-            .add_systems(FixedUpdate, step_sim.in_set(StepSim))
+            .add_systems(Startup, apply_pace)
+            .add_systems(PreUpdate, (apply_pace, begin_fast_frame.run_if(at_max_pace)).chain())
+            .add_systems(
+                FixedUpdate,
+                (
+                    step_sim.in_set(StepSim),
+                    end_fast_steps.after(StepSim).run_if(at_max_pace),
+                ),
+            )
             .add_systems(Update, update_render_alpha.in_set(ClientSystems::SyncSim));
-        if self.fast {
-            app.init_resource::<FastFrame>()
-                .add_systems(Startup, speed_up_virtual_time)
-                .add_systems(PreUpdate, begin_fast_frame)
-                .add_systems(FixedUpdate, end_fast_steps.after(StepSim));
-        }
     }
 }
 
@@ -168,16 +183,20 @@ pub fn load_scenario(world: &mut World, mut scenario: Scenario) {
     world.insert_resource(LoadedScenario(scenario));
 }
 
-/// One tick: drain the pending commands into `TickInputs`, step, record, forward the events.
+/// One tick: drain the pending commands into `TickInputs`, step, record, forward the events. A single step
+/// ([`SimControl::step_once`]) is used up.
 fn step_sim(
     mut sim: ResMut<SimRes>,
     mut pending: ResMut<PendingCommands>,
     mut recorded: ResMut<RecordedInputs>,
-    control: Res<SimControl>,
+    mut control: ResMut<SimControl>,
     mut events: MessageWriter<SimEventMessage>,
 ) {
     if !control.may_step(sim.tick()) {
         return;
+    }
+    if control.step_once {
+        control.step_once = false;
     }
     let inputs = TickInputs {
         commands: std::mem::take(&mut pending.0),
@@ -194,14 +213,15 @@ fn step_sim(
 }
 
 /// `ARCHITECTURE.md > Client architecture > Visuals > Interpolation`: `Time<Fixed>::overstep_fraction()`, read in
-/// `Update`, unless the sim stands still or exact rendering is on.
+/// `Update`, unless the sim stands still (paused, or held) or runs at [`Pace::Max`], which draws exact ticks.
 fn update_render_alpha(
     fixed: Res<Time<Fixed>>,
     control: Res<SimControl>,
+    pace: Res<Pace>,
     sim: Res<SimRes>,
     mut alpha: ResMut<RenderAlpha>,
 ) {
-    let a = if control.exact_render || !control.may_step(sim.tick()) {
+    let a = if *pace == Pace::Max || control.paused || !control.may_step(sim.tick()) {
         1.0
     } else {
         fixed.overstep_fraction().clamp(0.0, 1.0)
@@ -214,9 +234,28 @@ struct FastFrame {
     deadline: Option<Instant>,
 }
 
-fn speed_up_virtual_time(mut time: ResMut<Time<Virtual>>) {
-    time.set_max_delta(FAST_MAX_DELTA);
-    time.set_relative_speed(FAST_TIME_SCALE);
+fn at_max_pace(pace: Res<Pace>) -> bool {
+    *pace == Pace::Max
+}
+
+/// Sets the speed of virtual time, which drives the fixed loop, when the [`Pace`] changes. A scaled pace drops the
+/// time the loop still owes, so leaving [`Pace::Max`] doesn't run a burst of ticks.
+fn apply_pace(pace: Res<Pace>, mut time: ResMut<Time<Virtual>>, mut fixed: ResMut<Time<Fixed>>) {
+    if !pace.is_changed() {
+        return;
+    }
+    match *pace {
+        Pace::Scaled(factor) => {
+            time.set_max_delta(SCALED_MAX_DELTA);
+            time.set_relative_speed(factor);
+            let owed = fixed.overstep();
+            fixed.discard_overstep(owed);
+        }
+        Pace::Max => {
+            time.set_max_delta(FAST_MAX_DELTA);
+            time.set_relative_speed(FAST_TIME_SCALE);
+        }
+    }
 }
 
 fn begin_fast_frame(mut frame: ResMut<FastFrame>) {
