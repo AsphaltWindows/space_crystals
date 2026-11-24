@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use glam::Vec2;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use crate::command::{Ability, PlayerCommand, TickInputs};
 use crate::defs::ObjectKind;
@@ -21,11 +21,12 @@ use crate::player::Player;
 use crate::rng::Rng;
 use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
 use crate::units::{Tick, TilePos};
-use crate::vision::{self, VisibilityState, Vision};
+use crate::vision::{VisibilityState, Vision};
 use crate::{combat, movement, orders, riot_shield};
 
 use gate::Checked;
 pub use gate::Reject;
+use load::{SimState, serialize_objects};
 
 /// Game options, chosen with the rest of the game setup ([`crate::GameSetup::config`]) and fixed when the game
 /// starts: stored and hashed in the `Sim`, so a [`crate::Replay`] (map, setup and inputs) brings them back.
@@ -473,79 +474,8 @@ impl Sim {
     }
 }
 
-fn serialize_objects<S: Serializer>(objects: &BTreeMap<ObjectId, Object>, serializer: S) -> Result<S::Ok, S::Error> {
-    serializer.collect_seq(objects.values())
-}
-
-/// The serialized form of [`Sim`], checked before it becomes one.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct SimState {
-    tick: Tick,
-    map: Map,
-    players: Vec<Player>,
-    objects: Vec<Object>,
-    next_id: u32,
-    rng: Rng,
-    config: SimConfig,
-    next_group: u32,
-    nav_version: u32,
-    auto_targeting: bool,
-    events: Vec<SimEvent>,
-    vision: Vec<vision::SavedVision>,
-}
-
-impl TryFrom<SimState> for Sim {
-    type Error = String;
-
-    fn try_from(state: SimState) -> Result<Self, String> {
-        let SimState {
-            tick,
-            map,
-            players,
-            objects: list,
-            next_id,
-            rng,
-            config,
-            next_group,
-            nav_version,
-            auto_targeting,
-            events,
-            vision: saved,
-        } = state;
-        let mut objects = BTreeMap::new();
-        for o in list {
-            if o.id.0 >= next_id {
-                return Err(format!("object id {} is not below next_id {next_id}", o.id.0));
-            }
-            if let Some(duplicate) = objects.insert(o.id, o) {
-                return Err(format!("object id {} appears more than once", duplicate.id.0));
-            }
-        }
-        // Between ticks the grids match the objects (`paths`), so rebuilding them gives the running game's.
-        let nav = NavState::build(&map, &objects);
-        // The Visible tiles follow from the objects, which is how phase 5f left them.
-        let ids: Vec<PlayerId> = players.iter().map(|p| p.id).collect();
-        let vision = vision::load(&map, &ids, saved, tick, objects.values())?;
-        Ok(Sim {
-            tick,
-            map,
-            players,
-            objects,
-            next_id,
-            rng,
-            config,
-            next_group,
-            nav_version,
-            auto_targeting,
-            events,
-            vision,
-            nav,
-        })
-    }
-}
-
 mod gate;
+mod load;
 mod preview;
 mod removal;
 #[cfg(test)]

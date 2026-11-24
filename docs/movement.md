@@ -37,7 +37,7 @@
 - **Crowds and nav performance are hardened** (slice G1; no design rule changed): units seek lanes among the units
   they have to pass (6.3), an idle group parts for a group that walks through it instead of being shoved along
   (6.6), and a group's field is built only as far as the group stands (5.5). Its changes are marked **(G)**. The
-  code is `crates/sim/src/movement/collide.rs` (`World::lane`), `movement/yielding.rs` (`ask_ahead`),
+  code is `crates/sim/src/movement/collide/lanes.rs` (`World::lane`), `movement/yielding.rs` (`ask_ahead`),
   `movement/space.rs` (the cells' marks), `nav/search.rs` (`Search::field_to`) and `nav/serve.rs`
   (`smooth_shared`).
 
@@ -354,7 +354,7 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
     cells are visited in a fixed order; every decision compares `f32`s made with `+ − ×` only (the heading test
     is in squares, without a root); nothing is kept between ticks except `avoid_side`, which was state already.
   - **One idle unit alone** in the way is no lane: the unit walks on and asks it to step aside (6.6), as before.
-  - **Results** (`movement_yield.rs`, `movement_collision.rs`): 18 v 18 Peacekeepers 40 su apart: 0 of 36 fail
+  - **Results** (`movement_crowds.rs`): 18 v 18 Peacekeepers 40 su apart: 0 of 36 fail
     (14 before; 18 with two owners). Over 192 layouts of two blocks (Peacekeepers and Guards, three shapes, gaps
     of 8 to 24 su, four offsets, one and two owners) 1.4 % of the units fail, 8 of 50 at worst, where 22 % did,
     and 40 of 50 at worst. The soak's failed moves fall from 223 to 81 of about 1 080.
@@ -577,21 +577,20 @@ own turn of phase 5d.
   **(Y)** Yielding, occupied targets and the schedule (`crates/sim/tests/movement_yield.rs`, the Verification lists
   of 0022–0027): a unit walks through its owner's idle group and around an enemy's; two own units head-on in a
   corridor both give up; Hold units, attacking units and units that can't move don't budge; a slowed unit yields at
-  its speed; twelve units converge without shuffling or re-routing and then step aside for another unit; a unit
-  three tiles behind a wall of Hold units re-routes and gives up, one within 2 GU arrives; a boxed-in unit repaths
-  at 32, 48 and 80 ticks and gives up at 104; a unit blocked for 20 ticks never repaths; a save in the middle of a
-  sidestep continues identically. The 18-v-18 runs print their counts. **(Q)** Shift-queued group orders
-  (`crates/sim/tests/queued_group_destinations.rs`, the Verification lists of 0029 and 0030): a line queued far
-  north and back returns as the same line; a queued converge followed by a far queued click moves the blob as a
+  its speed; twelve units converge without shuffling or re-routing and then step aside for another unit; a unit three
+  tiles behind a wall of Hold units re-routes and gives up, one within 2 GU arrives; a boxed-in unit repaths at 32,
+  48 and 80 ticks and gives up at 104; a unit blocked for 20 ticks never repaths; a save in the middle of a sidestep
+  continues identically. The 18-v-18 runs (`movement_crowds.rs`) print their counts. **(Q)** Shift-queued group
+  orders (`crates/sim/tests/queued_group_destinations.rs`, the Verification lists of 0029 and 0030): a line queued
+  far north and back returns as the same line; a queued converge followed by a far queued click moves the blob as a
   blob; a mixed line queued north and back turns at different times and ends in its line; a unit removed on the way
-  leaves the others' spots unchanged.
-  **(G)** Crowds (`movement_yield.rs`, `movement_collision.rs`): two blocks of 18 meet head-on and at most 2 of
-  36 give up, with one owner and with two; dense blocks of other shapes and of Guards pass with at most a fifth
-  failing; a group walks through its owner's idle block of the same width, which ends within 96 su of its
-  places (40 su on average) with everyone standing, and an enemy's block never moves. The bounds are loose on
-  purpose. `World::lane` has its own unit test. Nav: a group's field costs at most the component; shared smoothing
-  gives the waypoints of `smooth`; `open_around` implies `box_clear` and `los`; the cells' marks never miss a
-  heading that counts as oncoming.
+  leaves the others' spots unchanged. **(G)** Crowds (`crates/sim/tests/movement_crowds.rs`): two blocks of 18 meet
+  head-on and at most 2 of 36 give up, with one owner and with two; dense blocks of other shapes and of Guards pass
+  with at most a fifth failing; a group walks through its owner's idle block of the same width, which ends within 96
+  su of its places (40 su on average) with everyone standing, and an enemy's block never moves. The bounds are loose
+  on purpose. `World::lane` has its own unit test. Nav: a group's field costs at most the component; shared smoothing
+  gives the waypoints of `smooth`; `open_around` implies `box_clear` and `los`; the cells' marks never miss a heading
+  that counts as oncoming.
 - **Oscillation**: distance travelled ≤ 1.5 × path length + c; reversals of velocity along the path ≤ a small bound.
 - **Determinism**: same run twice, per-tick hashes equal; replay round trip; **save at tick k, load, continue**:
   hashes equal (catches hidden unserialized state); **golden hashes** for three scenarios as committed constants.

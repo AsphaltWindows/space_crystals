@@ -6,6 +6,7 @@
 mod creation;
 mod edits;
 mod input;
+mod map_edits;
 mod review;
 mod session;
 mod symmetry;
