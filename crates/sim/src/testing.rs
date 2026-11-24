@@ -23,6 +23,7 @@
 //! assert_eq!(test.replay().run().state_hash(), test.sim().state_hash());
 //! ```
 
+pub mod build_order;
 pub mod invariants;
 
 use std::collections::BTreeMap;

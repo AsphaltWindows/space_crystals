@@ -342,6 +342,103 @@ fn each_layout_follows_its_factions_placement_rules_without_sight() {
     );
 }
 
+/// A layout structure over one of its layout's units is one problem, the structure's placement problem
+/// (`TileProblem::Unit`), whichever of the two comes first in the layout: the unit-start rule doesn't report the
+/// unit as blocked by it as well. A unit on impassable ground, or over a pre-placed structure, is still the unit's
+/// problem.
+#[test]
+fn a_layout_structure_over_a_layout_unit_is_reported_once() {
+    let mut s = ScenarioBuilder::new(&flat(24, 12))
+        .spawn(ObjectKind::Generator, None, tile(16, 8)) // 0: (16, 8) to (17, 9)
+        .build();
+    fn gdo(s: &mut Scenario) -> &mut Vec<LayoutObject> {
+        s.map.slots[0].layouts.get_mut(Faction::Gdo)
+    }
+    let unit = unit_at(PK, TilePos::new(7, 7).center());
+    let over_unit = |index| ScenarioProblem::LayoutPlacement {
+        slot: SlotId(1),
+        faction: Faction::Gdo,
+        index,
+        kind: EF,
+        check: PlacementCheck {
+            tiles: vec![(TilePos::new(7, 7), TileProblem::Unit)],
+            whole: vec![],
+        },
+    };
+    // The Extraction Facility from (6, 6) to (8, 8), before the unit and after it.
+    *gdo(&mut s) = vec![laid(DC, 1, 1), laid(EF, 6, 6), unit.clone()];
+    assert_eq!(s.map.validate(), [over_unit(1)]);
+    *gdo(&mut s) = vec![laid(DC, 1, 1), unit.clone(), laid(EF, 6, 6)];
+    assert_eq!(s.map.validate(), [over_unit(2)]);
+    // A unit over the pre-placed Generator is the unit's problem, after a layout structure as well.
+    *gdo(&mut s) = vec![
+        laid(DC, 1, 1),
+        laid(EF, 6, 6),
+        unit_at(PK, TilePos::new(16, 8).center()),
+    ];
+    let blocked = ScenarioProblem::InvalidLayoutObject {
+        slot: SlotId(1),
+        faction: Faction::Gdo,
+        index: 2,
+        kind: PK,
+        problem: SpawnProblem::Blocked,
+    };
+    assert_eq!(s.map.validate(), [blocked]);
+}
+
+/// A layout's plate goes exactly onto a patch (`factions/gdo/economy.md > ExtractionPlate`: "Placed onto a Space
+/// Crystal Patch"): one off its patch is the plate's [`ScenarioProblem::LayoutPlacement`], by the rule a game's
+/// placement uses, `WholeProblem::NotOnPatch` of the placement check that both modes share (design change 0097), so
+/// the two can't drift apart. `dev_skirmish`'s layouts, plates on patches, are valid, the built-in map and its file.
+#[test]
+fn a_layout_plate_goes_onto_a_patch_by_the_games_rule() {
+    let mut map = scenarios::empty_map(24, 12);
+    map.spawns = vec![patch(1, 8), patch(2, 8)];
+    *map.slots[0].layouts.get_mut(Faction::Gdo) = west_base();
+    assert_eq!(map.validate(), []);
+    // The second plate a tile east of its patch, on open ground in the build area.
+    map.slots[0].layouts.get_mut(Faction::Gdo)[3] = laid(PLATE, 3, 8);
+    let off = ScenarioProblem::LayoutPlacement {
+        slot: SlotId(1),
+        faction: Faction::Gdo,
+        index: 3,
+        kind: PLATE,
+        check: PlacementCheck {
+            tiles: vec![],
+            whole: vec![WholeProblem::NotOnPatch],
+        },
+    };
+    assert_eq!(map.validate(), std::slice::from_ref(&off));
+    assert_eq!(
+        off.to_string(),
+        "slot 1 Gdo layout object 3 (ExtractionPlate): an Extraction Plate goes onto a Space Crystals patch"
+    );
+    // In a game from the valid layout, the placement check refuses the same tile for the same reason.
+    map.slots[0].layouts.get_mut(Faction::Gdo)[3] = laid(PLATE, 2, 8);
+    let sim = Sim::try_new(&Scenario::new(map)).unwrap();
+    let in_game = sim.placement_check(P1, PLATE, TilePos::new(3, 8), BuildingOrientation::default());
+    assert_eq!(in_game.whole, [WholeProblem::NotOnPatch]);
+
+    assert_eq!(scenarios::dev_skirmish().validate(), []);
+    let file: sc_sim::MapDef = serde_json::from_str(include_str!("../../../maps/dev_skirmish.json")).unwrap();
+    assert_eq!(file.validate(), []);
+}
+
+/// Bug (M2-I's finding, "the sim accepts pre-placed plates off a patch"; for the Director): a plate pre-placed on the
+/// map, not in a layout, passes the map's validation off a patch, and the game starts it on none, so it never mines.
+/// A layout's plate is refused there (above). Whether a pre-placed plate must go onto a patch, and with which
+/// `SpawnProblem`, is the Director's call; this test expects only that the map is refused.
+#[test]
+#[ignore = "bug: MapDef::validate accepts a pre-placed Extraction Plate that isn't on a patch"]
+fn a_pre_placed_plate_off_a_patch_is_refused() {
+    let mut map = scenarios::empty_map(24, 12); // a Custom map, where player-owned objects may be pre-placed
+    map.spawns = vec![patch(1, 8), Spawn::new(PLATE, Some(SlotId(1)), tile(3, 8))];
+    let sim = Sim::try_new(&Scenario::new(map.clone())).unwrap();
+    let plate = sim.objects().find(|o| o.kind == PLATE).unwrap();
+    assert!(plate.extractor.is_none(), "on no patch");
+    assert_ne!(map.validate(), [], "a pre-placed plate off a patch");
+}
+
 /// Each layout is valid on its own, but the players of one game get theirs together: one in another's way keeps the
 /// game from starting (`Scenario::validate`), not the map.
 #[test]

@@ -14,11 +14,12 @@
 
 use std::collections::BTreeSet;
 
+use sc_sim::elevation::{Elevation, sight_range};
 use sc_sim::orders::Auto;
 use sc_sim::testing::{self, ScenarioBuilder, TestSim};
 use sc_sim::{
-    Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Rng, SU_PER_GU, Sim,
-    SimEvent, SpawnAt, Target, TilePos, Vec2, combat,
+    Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Rng, SU_PER_GU, Shape,
+    Sim, SimEvent, SpawnAt, Target, TilePos, Vec2, combat,
 };
 
 const SIDE: i32 = 40;
@@ -81,6 +82,9 @@ struct Outcome {
     searches: u64,
     /// The times an idle unit acquired an enemy by itself.
     acquired: u32,
+    /// The idle units in reach of an enemy whose engagement was checked in the next tick, and those excused because
+    /// an enemy their scan took in died in that tick.
+    checks: (u32, u32),
     /// The ticks after the last order until every order that ends by itself had ended; `None` if some never did.
     settled: Option<u32>,
     t: TestSim,
@@ -98,7 +102,8 @@ fn soak(seed: u64) -> Outcome {
     assert_eq!(t.sim().objects().filter(|o| o.mover.is_some()).count(), UNITS as usize);
 
     let (mut next_order, mut taken, mut tried, mut ordered, mut searches) = (2, 0, 0, 0, 0_u64);
-    let (mut in_reach, mut engaging, mut acquired) = (Vec::new(), BTreeSet::new(), 0);
+    let (mut engaging, mut acquired, mut checks) = (BTreeSet::new(), 0, (0, 0));
+    let mut in_reach: Vec<(ObjectId, Vec<ObjectId>)> = Vec::new();
     let mut settled = None;
     while t.sim().tick() < TICKS + settle_ticks() {
         let tick = t.sim().tick() + 1;
@@ -133,13 +138,25 @@ fn soak(seed: u64) -> Outcome {
             }
         }
         // An idle unit that ended the last tick in reach of an enemy has engaged one, unless an order came first.
-        // Not checked in a tick with a death: the enemy it engaged in 5a may have died in 5e, which leaves it
-        // watching again (the removal path), with the next enemy for the next tick.
-        let died = sim.events().iter().any(|e| matches!(e, SimEvent::Died { .. }));
-        for id in in_reach.into_iter().filter(|_| !died) {
+        // Not checked for a unit one of whose scan's enemies died in this tick: the enemy it engaged in 5a may have
+        // died in 5e, which leaves it watching again (the removal path), with the next enemy for the next tick.
+        let died: BTreeSet<ObjectId> = sim
+            .events()
+            .iter()
+            .filter_map(|e| match e {
+                SimEvent::Died { id, .. } => Some(*id),
+                _ => None,
+            })
+            .collect();
+        for (id, scanned) in in_reach {
+            if scanned.iter().any(|enemy| died.contains(enemy)) {
+                checks.1 += 1;
+                continue;
+            }
             let Some(orders) = sim.object(id).and_then(|o| o.orders.as_ref()) else {
                 continue;
             };
+            checks.0 += 1;
             assert!(
                 !orders.is_idle() || matches!(orders.auto, Auto::Engaging { .. }),
                 "seed {seed}, tick {tick}: #{} stays idle in reach of an enemy: {:?}",
@@ -174,6 +191,7 @@ fn soak(seed: u64) -> Outcome {
         failed: count(|e| matches!(e, SimEvent::MoveFailed { .. })),
         searches,
         acquired,
+        checks,
         settled,
         t,
     }
@@ -269,13 +287,14 @@ fn random_order(t: &TestSim, rng: &mut Rng) -> Option<(PlayerId, Command)> {
 /// The idle units that end the tick watching (`systems/controls/behaviors.md > BaseAutoTargeting > Active during
 /// Idle`) with an enemy in reach that they may pick: one their attack reaches where both stand, which their owner
 /// sees (`combat::can_attack_now`), and which isn't the one they gave up on for the next tick
-/// (`orders::GIVE_UP_RETRY_TICKS`). Nobody, while auto-targeting is off.
+/// (`orders::GIVE_UP_RETRY_TICKS`). Nobody, while auto-targeting is off. Each comes with the enemies its scan
+/// takes in ([`scanned`]): the one it engages in the next tick is among them.
 ///
 /// An idle unit scans its SightRange, which takes in its Range, so in the next tick each of them engages an enemy,
 /// unless an order comes first. Not yet in this one: phase 5a decides from where the units stood when the tick
 /// began, so an enemy that walked into range in 5d, or a unit whose order ended in this tick, waits for the next.
 /// Returning units don't scan (`> Not active during: Move`), and engaging ones are busy.
-fn idle_in_reach(sim: &Sim) -> Vec<ObjectId> {
+fn idle_in_reach(sim: &Sim) -> Vec<(ObjectId, Vec<ObjectId>)> {
     let next = sim.tick() + 1;
     sim.objects()
         .filter(|o| {
@@ -293,7 +312,26 @@ fn idle_in_reach(sim: &Sim) -> Vec<ObjectId> {
                         && combat::can_attack_now(sim.map(), sim.vision(), o, e)
                 })
         })
-        .map(|o| o.id)
+        .map(|o| (o.id, scanned(sim, o)))
+        .collect()
+}
+
+/// The enemies an idle unit's scan in the next tick takes in, of which it engages the best (`orders::world::World::
+/// pick` with the sight scan): the other players' destructible objects whose shapes lie within its SightRange, edge
+/// to edge, with the ElevationModifier, where everything stands as the tick ends, which is where phase 5a of the
+/// next tick sees them. More than it may pick, as neither sight nor domain is checked: only a death among them
+/// excuses the unit.
+fn scanned(sim: &Sim, unit: &sc_sim::Object) -> Vec<ObjectId> {
+    let (map, shape) = (sim.map(), Shape::of(unit));
+    let source = Elevation::of_object(map, unit);
+    sim.objects()
+        .filter(|e| {
+            let reach = sight_range(unit.def().sight_range, source, Elevation::of_object(map, e));
+            e.owner.is_some_and(|other| Some(other) != unit.owner)
+                && e.hp.is_some()
+                && shape.gap(&Shape::of(e)) <= sc_sim::gu(reach)
+        })
+        .map(|e| e.id)
         .collect()
 }
 
@@ -321,18 +359,20 @@ fn running(sim: &Sim) -> Vec<(ObjectId, Option<OrderKind>)> {
 
 #[test]
 fn units_fighting_under_random_orders_keep_the_invariants() {
-    let mut acquired = 0;
+    let (mut acquired, mut checked) = (0, 0);
     for seed in [1, 2, 3] {
         let run = soak(seed);
         let alive = run.t.sim().objects().filter(|o| o.mover.is_some()).count();
         let ticks = run.t.sim().tick();
         println!(
-            "seed {seed}: {} shots, {} deaths, {alive} units left; {} enemies acquired by idle units; {} of {} orders \
-             taken, for {} units; {} moves failed; {} path searches in {ticks} ticks; every order ended {:?} ticks \
-             after the last",
+            "seed {seed}: {} shots, {} deaths, {alive} units left; {} enemies acquired by idle units, {} idle units \
+             in reach checked, {} excused by a death; {} of {} orders taken, for {} units; {} moves failed; {} path \
+             searches in {ticks} ticks; every order ended {:?} ticks after the last",
             run.shots,
             run.deaths,
             run.acquired,
+            run.checks.0,
+            run.checks.1,
             run.taken.0,
             run.taken.1,
             run.ordered,
@@ -349,6 +389,7 @@ fn units_fighting_under_random_orders_keep_the_invariants() {
         // It was a fight.
         assert!(run.shots > 0 && run.deaths > 0, "seed {seed}");
         acquired += run.acquired;
+        checked += run.checks.0;
         // The gate refuses fewer than half of the orders (a target out of sight, say).
         assert!(run.taken.0 * 2 > run.taken.1, "seed {seed}: {:?}", run.taken);
         // Fewer than one in ten of the units ordered fails a move.
@@ -370,5 +411,5 @@ fn units_fighting_under_random_orders_keep_the_invariants() {
         }
     }
     // Idle units met enemies, so the check that they engage them did check something.
-    assert!(acquired > 0);
+    assert!(acquired > 0 && checked > 0);
 }

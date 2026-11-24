@@ -347,13 +347,31 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Replay flakes fixed.** The two recording tests shared a temp folder; now there is one per test, with 0 failures in 449 parallel runs. The recorder's temp file is now named per process.
   - **Found.** The sim accepts a layout plate that isn't on a patch; J1 fixes it. The editor reports `LayoutOverlap` between slots only when F5 is refused, which is left for a later editor pass.
 
+- **M2-J1 sim QA** (merged in `c2b2a17`; 901 tests):
+  - **Economy oracle** (`crates/sim/tests/economy_oracle.rs`) on `dev_skirmish`, using the `testing::build_order` driver. Measured vs design:
+
+    | Check | Measured | Design |
+    |---|---|---|
+    | Fully plated | 2:32 | about 2:30 |
+    | Bank at 1:30 / 2:00 | 280 / 555 | about 300 / 600 |
+    | Generator-first opening | plate 12.0 s later, 9.4% less mined by 3:00 | about 11 s, about 8% |
+    | Clean Barracks | starts 48.1 s, ready 58.0 s | about 48 / 58 with lumps |
+    | All-in Barracks | starts 15.1 s at power −21, production at 58.8% | about 15 s, about 59% |
+
+    - **Differences:** lumps of 10 shift the design's continuous-income timings by about 2 s, which the design anticipates.
+    - **Exact checks:** costs, build frames, the power ratio, lumps, cycles (±1 tick) and refunds.
+    - **Tolerances:** documented, and proven with mutations.
+  - **Golden `gdo_opening`** (2:45). Player 1 plays the clean Barracks, then sends 10 Peacekeepers that destroy 4 of player 2's plates. Player 2 is not defeated. Both players play through the golden `Script` hook. There are now 7 goldens.
+  - **Soak.** `behaviours_soak` now excuses only units whose scan lost an enemy that tick. It exposed nothing.
+  - **Fix.** A layout structure over a layout unit is reported once. A layout plate off a patch was already refused, and is now pinned by a test.
+  - **Bug, for J2.** `MapDef::validate` accepts a map-placed (non-layout) plate off a patch. The ignored repro is `game_start.rs::a_pre_placed_plate_off_a_patch_is_refused`.
+
 ## In progress
 - **M2 wave 4** (common brief `scratchpad/briefs/m2-w4-common.md`):
   - **M2-H2 construction UI** (Opus; brief `scratchpad/briefs/m2h2-construction-ui.md`): DC and EF panels, build menus (0104), the ghost with per-tile validity, the area overlay (0093), rotate and flip, side labels. This gives the first playable.
-  - **M2-J1 sim QA** (Opus): the economy oracle against `factions/gdo/economy.md > Opening Economy Baseline`, the `gdo_opening` golden, a tighter `behaviours_soak` check, and F1's double layout report.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
-  - **M2-J2** after H2 and J1 merge. Run it with no other agents building, so the perf numbers are clean.
+  - **M2-J2** after H2 merges. Run it with no other agents building, so the perf numbers are clean.
   - **Then the M2 playtest** with the user.
   - **Fix the Move-onto-itself bug** per Q0031's answer, in the next sim or command-UI slice.
 
@@ -445,8 +463,8 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | M2-H1 | Production UI: generalised command UI, Barracks panel, rally point | D2 | Opus | done (`eccaaa6`) |
 | M2-I | Editor: Starting Layout editing | F | Opus | done (`6ae2b02`) |
 | M2-H2 | Construction UI: build menu, ghost, area overlay, rotate and flip, side labels | C, D1, H1 | Opus | running |
-| M2-J1 | M2 sim QA: the economy oracle with documented tolerances, the `gdo_opening` golden, a tighter `behaviours_soak` check, F1's double layout report | B, D1, D2, F1 | Opus | running |
-| M2-J2 | M2 QA, the rest: `structures_perf`, perf re-measured on a quiet machine, walkthrough screenshots, ARCHITECTURE review, playtest notes | all | Opus | queued |
+| M2-J1 | M2 sim QA: the economy oracle with documented tolerances, the `gdo_opening` golden, a tighter `behaviours_soak` check, F1's double layout report | B, D1, D2, F1 | Opus | done (`c2b2a17`) |
+| M2-J2 | M2 QA, the rest: fix `MapDef::validate` for map-placed plates off a patch (ignored repro); `structures_perf`; perf re-measured on a quiet machine; walkthrough screenshots; ARCHITECTURE review; playtest notes | all | Opus | queued |
 
 First playable after M2-H2.
 
@@ -609,7 +627,7 @@ Last triaged: 0105.
 | 0095 Extraction Plates need visible tiles | done (M2-C check; M2-F1 layouts and `dev_skirmish`, `d5a7d29`) | answers Q0027 point 2 |
 | 0096 No buildings on resources, except plates on patches | done in M2-A (`cbeb804`) for spawns; M2-C for the placement check | answers Q0027 point 3 |
 | 0097 Starting Layout validation | done (M2-C check; M2-F1 layouts and `dev_skirmish`; M2-I editor `6ae2b02`) | answers Q0027 point 4: the proposal plus a rule for starting units |
-| 0098 Plates pay in lumps; the cycle timer advances by the power ratio | done (M2-B, `39bcf66`) | answers Q0028 point 1 |
+| 0098 Plates pay in lumps; the cycle timer advances by the power ratio | done (M2-B lumps; M2-J1 oracle, `c2b2a17`) | answers Q0028 point 1 |
 | 0099 Plate depletion: last partial load, depleted patch stays under its plate, the pick selects the plate | done (pick: M2-A; mining: M2-B, `39bcf66`) | answers Q0028 points 2–4 |
 | 0100 A defeated player's units stay but can't be controlled | superseded by 0101 (units become neutral) | answers Q0029 point 1; replaces removing the units |
 | 0101 On defeat, units become neutral; the game ends when one side remains | done (M2-F2, `e3f67a9`) | answers Q0029 points 1–2 |

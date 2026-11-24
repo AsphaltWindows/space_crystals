@@ -28,8 +28,9 @@ impl MapDef {
     ///   within the build area of the layout's own Deployment Center;
     /// - for a unit, the unit-start rule (`paths::misplaced`, `docs/movement.md > 3`; design change 0097: "starting
     ///   units can't stand on structures or impassable tiles"), against the map's pre-placed objects and the layout's
-    ///   objects before it ([`ScenarioProblem::InvalidLayoutObject`]). A structure over a unit is the structure's
-    ///   placement problem ([`crate::TileProblem::Unit`]), whatever their order.
+    ///   units before it ([`ScenarioProblem::InvalidLayoutObject`]). A structure of the layout over a unit is the
+    ///   structure's placement problem ([`crate::TileProblem::Unit`]), whatever their order, and only that: the
+    ///   layout's structures stay out of the unit-start rule, so the unit isn't reported as blocked by it too.
     ///
     /// Then, on a Skirmish Default map, the kinds the layout of an implemented faction lacks
     /// ([`ScenarioProblem::LayoutMissing`]). `spots` are where the map's pre-placed objects stand, `None` for those
@@ -104,28 +105,29 @@ impl MapDef {
                         ));
                     }
                 }
-                // Only a layout with units needs the unit-start rule, whose grids cost a build each.
-                if laid.iter().any(|(_, o)| is_unit(o.kind)) {
+                // The unit-start rule, for the layout's units only: one of its structures over a unit is the
+                // structure's placement problem above, and is reported once. Only a layout with units needs it, as
+                // its grids cost a build each.
+                let units: Vec<(usize, Occupant)> = laid.iter().copied().filter(|(_, o)| is_unit(o.kind)).collect();
+                if !units.is_empty() {
                     let all = placed
                         .iter()
                         .copied()
-                        .chain(laid.iter().map(|(_, o)| (o.kind, o.pos, o.placement.as_ref())));
+                        .chain(units.iter().map(|(_, o)| (o.kind, o.pos, o.placement.as_ref())));
                     for (n, problem) in misplaced(&self.terrain, all) {
-                        let Some(&(index, o)) = n.checked_sub(placed.len()).and_then(|j| laid.get(j)) else {
+                        let Some(&(index, o)) = n.checked_sub(placed.len()).and_then(|j| units.get(j)) else {
                             continue; // a pre-placed object's, which the map's own check reports
                         };
-                        if is_unit(o.kind) {
-                            found.push((
+                        found.push((
+                            index,
+                            ScenarioProblem::InvalidLayoutObject {
+                                slot,
+                                faction,
                                 index,
-                                ScenarioProblem::InvalidLayoutObject {
-                                    slot,
-                                    faction,
-                                    index,
-                                    kind: o.kind,
-                                    problem,
-                                },
-                            ));
-                        }
+                                kind: o.kind,
+                                problem,
+                            },
+                        ));
                     }
                 }
                 found.sort_by_key(|&(index, _)| index);
