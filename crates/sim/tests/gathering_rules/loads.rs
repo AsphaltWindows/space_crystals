@@ -1,5 +1,5 @@
-//! Loads: a Gather while carrying (design change 0128), other orders keep the load (0129), and the Drop Off of a
-//! group of loaded and empty Drones (0140).
+//! Loads: a Gather while carrying (design change 0128), other orders keep the load (0129), the Drop Off of a group
+//! of loaded and empty Drones (0140), and the last load of a patch (0138).
 
 use sc_sim::Reject;
 
@@ -151,4 +151,36 @@ fn a_mixed_group_s_drop_off_goes_to_its_loaded_drones_only() {
             object(&t, n).pos
         );
     }
+}
+
+/// Design change 0138 (`> Last load of a patch`; its Verification: "A patch with 3 left: the Drone mines 2 s,
+/// carries 3, the patch disappears"), and `> When a Gather ends` (0123): with no patch left the Gather ends once
+/// the 3 are delivered.
+#[test]
+fn a_patch_with_3_left_gives_a_load_of_3_after_the_full_mining() {
+    // Patch 1 holds 3, node 2, Drone 3.
+    let mut t = flat(16, 10)
+        .spawn_with(patch_of(3), tile(5, 2))
+        .spawn(NODE, Some(P1), tile(5, 5))
+        .spawn(DRONE, Some(P1), centre(5, 4))
+        .start();
+    gather(&mut t, 1, P1, &[3], 1);
+    let began = run_to(&mut t, 400, "it mines", |t| is_mining(t, 3));
+    t.run_until(began + MINING - 2);
+    assert_eq!(
+        (load(&t, 3), remaining(&t, 1)),
+        (0, 3),
+        "2 seconds, the full MiningDuration"
+    );
+    t.step();
+    assert_eq!(load(&t, 3), 3);
+    assert!(!exists(&t, 1), "the patch is gone");
+    run_to(&mut t, 100, "delivered", |t| !deliveries(t).is_empty());
+    assert_eq!(
+        order(&t, 3),
+        Some(OrderKind::Gather(id(1))),
+        "still gathering as it unloads"
+    );
+    t.step();
+    assert_eq!((order(&t, 3), load(&t, 3), bank(&t, P1)), (None, 0, BANK + 3));
 }

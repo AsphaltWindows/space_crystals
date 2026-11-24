@@ -464,32 +464,6 @@ fn a_drop_off_order_delivers_the_load_and_the_drone_idles_at_the_node() {
     assert!(at.distance(node) < 96.0, "beside node 3: {at:?}, the node at {node:?}");
 }
 
-/// Design change 0138 (its Verification: "A patch with 3 left: the Drone mines 2 s, carries 3, the patch
-/// disappears"), and `> When a Gather ends` (0123): with no patch left the Gather ends once the 3 are delivered.
-#[test]
-fn a_patch_with_3_left_gives_a_load_of_3_after_the_full_mining() {
-    let mut t = one_patch(3).start();
-    gather(&mut t, 1, P1, &[3], 1);
-    let began = mines_from(&mut t, 3);
-    t.run_until(began + MINING - 2);
-    assert_eq!(
-        (load(&t, 3), remaining(&t, 1)),
-        (0, 3),
-        "2 seconds, the full MiningDuration"
-    );
-    t.step();
-    assert_eq!(load(&t, 3), 3);
-    assert!(t.sim().object(id(1)).is_none(), "the patch is gone");
-    run_to(&mut t, 100, "delivered", |t| !deliveries(t).is_empty());
-    assert_eq!(
-        order(&t, 3),
-        Some(OrderKind::Gather(id(1))),
-        "still gathering as it unloads"
-    );
-    t.step();
-    assert_eq!((order(&t, 3), load(&t, 3), bank(&t, P1)), (None, 0, 103));
-}
-
 /// Design change 0135 (`> Assigned Drop-off > Drop-off gone`): a Drone whose Egress Node is destroyed assigns the
 /// nearest one as it starts its return; with none left it idles holding its load, and delivers it when it is sent
 /// gathering again (0128: to the patch first, where it turns round without mining).
@@ -560,36 +534,6 @@ fn interrupted_mining_collects_nothing_and_frees_the_patch_at_once() {
     assert_eq!(phase(&t, 4), Some(GatherPhase::Mining { done: 1 }));
     t.run_until(began + 20 + MINING - 1);
     assert_eq!((load(&t, 4), remaining(&t, 1)), (LOAD, 1500 - LOAD));
-}
-
-/// `> When a Gather ends` (design change 0123; its Verification: "Shift-queue a Move behind a Gather: the Drone
-/// keeps mining until its field is exhausted, delivers its last load, then moves"): the queued order waits for the
-/// Gather to end on its own, which it does once no patch is left within the Drone's search radius.
-#[test]
-fn an_order_queued_behind_a_gather_waits_until_the_field_is_mined_out() {
-    // Patch 1 holds 16, node 2, Drone 3; patch 4, two tiles east of patch 1, holds 8.
-    let mut t = one_patch(16).spawn_with(patch_of(8), tile(7, 2)).start();
-    gather(&mut t, 1, P1, &[3], 1);
-    let away = OrderKind::Move(Target::Point(Vec2::new(800.0, 288.0)));
-    t.order_at(5, P1, &[id(3)], away, true);
-    run_to(&mut t, 100, "delivered", |t| !deliveries(t).is_empty());
-    t.step();
-    assert_eq!(order(&t, 3), Some(OrderKind::Gather(id(1))), "back for more");
-    run_to(&mut t, 300, "patch 1 is mined out", |t| t.sim().object(id(1)).is_none());
-    t.step();
-    assert_eq!(order(&t, 3), Some(OrderKind::Gather(id(4))), "on at the other patch");
-    let last = run_to(&mut t, 300, "the field is mined out", |t| {
-        t.sim().object(id(4)).is_none()
-    });
-    assert_eq!(load(&t, 3), LOAD);
-    run_to(&mut t, 100, "the last load delivered", |t| deliveries(t).len() == 3);
-    assert!(deliveries(&t).iter().all(|d| d.3 == LOAD), "{:?}", deliveries(&t));
-    assert!(t.sim().tick() > last);
-    t.step();
-    assert_eq!(order(&t, 3), Some(away), "the queued order started");
-    run_to(&mut t, 100, "it arrived", |t| order(t, 3).is_none());
-    assert_eq!(object(&t, 3).pos, Vec2::new(800.0, 288.0));
-    assert_eq!(bank(&t, P1), 100 + 24);
 }
 
 fn command(player: PlayerId, command: Command) -> PlayerCommand {

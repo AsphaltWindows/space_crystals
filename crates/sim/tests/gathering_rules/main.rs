@@ -2,10 +2,11 @@
 //! `factions/colonists/units.md > Drone`: `> Patch Occupancy (one Drone per patch)`, `> Last load of a patch`,
 //! `> Interrupted mining`, `> Other orders keep the load`, `> Gather while carrying a load`, `> Drop Off order`,
 //! `> When a Gather ends`, `> Assigned Drop-off`): one test per Verification point of design changes 0123, 0127 to
-//! 0135, 0137, 0140 and 0141 that `gathering.rs` doesn't already cover, one test binary:
+//! 0135, 0137, 0138, 0140 and 0141 that `gathering.rs` doesn't already cover, one test binary:
 //! - `ends`: when a Gather ends (0123), a Deploy queued behind a Drop Off (0127), a patch that runs out under a
 //!   Drone on its way (0134);
-//! - `loads`: Gather while carrying (0128), other orders keep the load (0129), the Drop Off of a mixed group (0140);
+//! - `loads`: Gather while carrying (0128), other orders keep the load (0129), the Drop Off of a mixed group (0140),
+//!   the last load of a patch (0138);
 //! - `waiting`: waiting at a crowded patch and re-checking, returning to the last mined patch (0132), which waiting
 //!   Drone mines next (0133);
 //! - `reach`: a patch walled off by units or by terrain (0141);
@@ -13,12 +14,9 @@
 //!   (0137);
 //! - `drop_offs`: a group's node destroyed, then every node, then a node warped in (0135).
 //!
-//! `gathering.rs` has the others: 0123's queued Move
-//! (`an_order_queued_behind_a_gather_waits_until_the_field_is_mined_out`), 0130
-//! (`interrupted_mining_collects_nothing_and_frees_the_patch_at_once`), 0134's last patch
-//! (`with_no_patch_left_a_drone_delivers_its_load_and_idles`) and 0138
-//! (`a_patch_with_3_left_gives_a_load_of_3_after_the_full_mining`). Every test runs under the invariants of
-//! `TestSim`, checked after every tick.
+//! `gathering.rs` has the others: 0130 (`interrupted_mining_collects_nothing_and_frees_the_patch_at_once`) and
+//! 0134's last patch (`with_no_patch_left_a_drone_delivers_its_load_and_idles`). Every test runs under the
+//! invariants of `TestSim`, checked after every tick.
 
 mod drop_offs;
 mod ends;

@@ -6,6 +6,39 @@ use sc_sim::deploy;
 
 use super::*;
 
+/// Design change 0123 (its Verification: "Shift-queue a Move behind a Gather: the Drone keeps mining until its
+/// field is exhausted, delivers its last load, then moves"): the queued order waits for the Gather to end on its
+/// own, which it does once no patch is left within the Drone's search radius.
+#[test]
+fn an_order_queued_behind_a_gather_waits_until_the_field_is_mined_out() {
+    // Patch 1 holds 16, node 2, Drone 3; patch 4, two tiles east of patch 1, holds 8.
+    let mut t = flat(16, 10)
+        .spawn_with(patch_of(16), tile(5, 2))
+        .spawn(NODE, Some(P1), tile(5, 5))
+        .spawn(DRONE, Some(P1), centre(5, 4))
+        .spawn_with(patch_of(8), tile(7, 2))
+        .start();
+    gather(&mut t, 1, P1, &[3], 1);
+    let away = move_to(800.0, 288.0);
+    t.order_at(5, P1, &[id(3)], away, true);
+    run_to(&mut t, 100, "delivered", |t| !deliveries(t).is_empty());
+    t.step();
+    assert_eq!(order(&t, 3), Some(OrderKind::Gather(id(1))), "back for more");
+    run_to(&mut t, 300, "patch 1 is mined out", |t| !exists(t, 1));
+    t.step();
+    assert_eq!(order(&t, 3), Some(OrderKind::Gather(id(4))), "on at the other patch");
+    let last = run_to(&mut t, 300, "the field is mined out", |t| !exists(t, 4));
+    assert_eq!(load(&t, 3), LOAD);
+    run_to(&mut t, 100, "the last load delivered", |t| deliveries(t).len() == 3);
+    assert!(deliveries(&t).iter().all(|d| d.3 == LOAD), "{:?}", deliveries(&t));
+    assert!(t.sim().tick() > last);
+    t.step();
+    assert_eq!(order(&t, 3), Some(away), "the queued order started");
+    run_to(&mut t, 100, "it arrived", |t| order(t, 3).is_none());
+    assert_eq!(object(&t, 3).pos, Vec2::new(800.0, 288.0));
+    assert_eq!(bank(&t, P1), BANK + 24);
+}
+
 /// Design change 0123 (its Verification: "A Drone waiting at an occupied patch with a queued order keeps waiting"):
 /// a Drone waiting is still gathering, so the order queued behind its Gather waits, trip after trip.
 #[test]

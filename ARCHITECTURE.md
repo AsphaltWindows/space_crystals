@@ -1468,15 +1468,14 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   in `combat/damage.rs`, the regeneration in `shields.rs`, the conversion's pieces in `conversion/tests.rs`. In the
   client: `tests/combat.rs` (the shield bar), `tests/commands/convert.rs` (R) and the InfoPanel's Shields line in
   `hud/info_panel`.
-- **Gathering tests** are `crates/sim/tests/gathering.rs` (slices M3-H and M3-H3: one Drone's trip, pinned at 60
+- **Gathering tests** are `crates/sim/tests/gathering.rs` (slices M3-H and M3-H3: one Drone's trip, pinned at 81
   ticks; two Drones arriving together; waiting, the lowest id mining next; an enemy Drone on the patch; Set
   Drop-off Location in the middle of mining and of a return; depletion and the Drones going on at another patch,
-  or delivering and idling when no patch is left; the last load of 3; the Drop Off order and the idling at the
-  node; a lost Egress Node; interrupted mining; an order queued behind a Gather until the field is mined out;
-  every invalid worker command refused and changing nothing; a Drone rallied on a patch; a game replayed and saved
-  in its middle), `gathering_rules/` (slice M3-H3, one binary: a test per Verification point of design changes
-  0123 and 0127 to 0141 that `gathering.rs` doesn't cover, in modules by topic: `ends`, `loads`, `waiting`,
-  `reach`, `knowledge`, `drop_offs`; 0136 and 0139 are slice M3-R's) and
+  or delivering and idling when no patch is left; the Drop Off order and the idling at the node; a lost Egress
+  Node; interrupted mining; every invalid worker command refused and changing nothing; a Drone rallied on a patch;
+  a game replayed and saved in its middle), `gathering_rules/` (slice M3-H3, one binary: a test per Verification
+  point of design changes 0123 and 0127 to 0141 that `gathering.rs` doesn't cover, in modules by topic: `ends`,
+  `loads`, `waiting`, `reach`, `knowledge`, `drop_offs`; 0136 and 0139 are slice M3-R's) and
   `gathering_soak.rs` (the four starting Drones for 5 minutes; 24 Drones for 5 minutes, every one delivering at
   least every 30 s, the saturated income, nothing lost; the income growing with the Drones up to saturation; 9
   Drones on 3 patches, once the smallest gridlock, with a steady income; ignored: `saturation_curve`, which prints
