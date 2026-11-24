@@ -27,6 +27,9 @@
   answering G2–G5 and question Q0015): slice Y built 6.6, changed 5.6 and 6.5, and drew the magic box around the
   silhouettes (6.4). Its changes are marked **(Y)**. The code is `crates/sim/src/movement/yielding.rs`,
   `movement/stuck.rs` and `mover.rs`.
+- **Shift-queued group orders follow the design** (design changes 0029 and 0030): slice Q builds the magic box of
+  a queued order at the units' planned end positions, and confirmed that destinations are resolved at the click
+  and kept per unit (6.4). Its changes are marked **(Q)**. The code is `crates/sim/src/orders/destinations.rs`.
 
 Design references are `file.md > Section`, relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -319,8 +322,22 @@ order (Move to a point, AttackMove, Patrol) to more than one unit gives each uni
   them converges it.
 - **Click outside: keep the arrangement.** Every unit goes to its position plus the vector from the box's centre to
   the click, so the group arrives in the shape it had.
-- **No formation movement**: each unit goes at its own speed, and a mixed group strings out. The box comes from the
-  positions when the command applies, for a Shift-queued order too.
+- **No formation movement**: each unit goes at its own speed, and a mixed group strings out.
+- **(Q) Resolved at the click** (design change 0030): the destinations are computed once, as the command applies,
+  queued or not, and each unit keeps its own in its order (`Order::slot`). A unit starts a queued leg alone, when
+  its earlier orders are done, and nothing recomputes its destination then: as a group of one it would converge on
+  the click. So the shape appears at every destination, a unit that falls short of a spot still heads for its own
+  spot on the next leg, and a member that dies on the way moves nobody's spot. Slice M already worked this way.
+- **(Q) Shift-queued orders: the box at the planned ends** (design change 0029, `destinations::planned_end`). For a
+  queued order, each unit's position, for the box and for its offset, is where its earlier orders leave it: the
+  destination of its last order that moves it, the current one included, if that order ends at a known location
+  (a Move to a point or an AttackMove: its own spot, or the click it converges on). Stop and Hold move nobody, so
+  the order before them decides. If no order moves the unit, or the last one ends somewhere unknown (an Attack or
+  a Move to an object; a Patrol, which never completes), its current position stands in, 0029's fallback. The
+  silhouettes are put at these positions (0028). So "far north, then back" brings a line back as the line; and
+  after a queued converge the box is one silhouette around the converge point, so the next queued click outside
+  it sends every unit to that click, and the blob moves on as a blob. Slice M took the current positions for
+  queued orders too. A destination is still made reachable from the unit's current position (its component).
 - **Unreachable destinations** (**(Y)** design change 0025 confirms this: the reachable point nearest the target): a
   destination beyond the map's edge is clamped so that the unit's box lies inside the map. A destination the unit
   can't stand on (a blocked tile, a box not clear of one, another component) moves to the nearest point it can stand
@@ -452,7 +469,11 @@ own turn of phase 5d.
   its speed; twelve units converge without shuffling or re-routing and then step aside for another unit; a unit
   three tiles behind a wall of Hold units re-routes and gives up, one within 2 GU arrives; a boxed-in unit repaths
   at 32, 48 and 80 ticks and gives up at 104; a unit blocked for 20 ticks never repaths; a save in the middle of a
-  sidestep continues identically. The 18-v-18 runs print their counts.
+  sidestep continues identically. The 18-v-18 runs print their counts. **(Q)** Shift-queued group orders
+  (`crates/sim/tests/queued_group_destinations.rs`, the Verification lists of 0029 and 0030): a line queued far
+  north and back returns as the same line; a queued converge followed by a far queued click moves the blob as a
+  blob; a mixed line queued north and back turns at different times and ends in its line; a unit removed on the way
+  leaves the others' spots unchanged.
 - **Oscillation**: distance travelled ≤ 1.5 × path length + c; reversals of velocity along the path ≤ a small bound.
 - **Determinism**: same run twice, per-tick hashes equal; replay round trip; **save at tick k, load, continue**:
   hashes equal (catches hidden unserialized state); **golden hashes** for three scenarios as committed constants.
