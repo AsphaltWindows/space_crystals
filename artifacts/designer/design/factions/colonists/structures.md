@@ -132,7 +132,13 @@ When a unit (Drone or Scout) finishes production and spawns, if RallyPoint is se
 - Drone: 50 Space Crystals, 160 frames (10 seconds)
 - Scout: cost/time TBD. Unit Prerequisite: player owns at least one Relay Array.
 
-Full ObjectInterfaceState (production commands, panel layout) still TBD.
+### Robo Portal ObjectInterfaceState
+(user, 2026-11-24) Standard production panel, same conventions as GDO's Barracks:
+```
+[Q] Drone     [W] Scout   [E] —                  [R] —
+[A] —         [S] —       [D] —                  [F] —
+[Z] —         [X] Cancel Production   [C] Set Rally Point   [V] —
+```
 
 ## Bio Portal
 
@@ -169,7 +175,13 @@ When a unit finishes production and spawns, if RallyPoint is set, it is issued t
 
 Rifle Legionnaire is not directly produced — it is reached only by converting an existing Sabre Legionnaire (see Weapon Conversion below).
 
-Full ObjectInterfaceState (production commands, panel layout) still TBD.
+### Bio Portal ObjectInterfaceState
+(user, 2026-11-24) Standard production panel, same conventions as GDO's Barracks:
+```
+[Q] Sabre Legionnaire   [W] Lancer              [E] Psionic unit (TBD)   [R] —
+[A] —                   [S] —                   [D] —                    [F] —
+[Z] —                   [X] Cancel Production   [C] Set Rally Point      [V] —
+```
 
 ## Heavy Portal
 
