@@ -18,7 +18,6 @@ use crate::orders::{Order, OrderGroup, OrderKind, Target, destinations};
 use crate::paths::knowledge::PathKnowledge;
 use crate::paths::{self, NavState};
 use crate::player::Player;
-use crate::production;
 use crate::rng::Rng;
 use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
 use crate::units::{Tick, TilePos};
@@ -384,7 +383,7 @@ impl Sim {
         self.vision.remember(self.tick, |id| self.objects.get(&id));
         // Rally points on enemies follow them only while their owner sees them (design change 0088): on the
         // vision this tick leaves.
-        production::rally::follow(&mut self.objects, &self.vision);
+        self.follow_targets();
         // Path knowledge, after everything it follows from (the objects, the vision and its records): what each
         // player has seen by now of the map's resources, then its grids for the next tick's plans, rebuilt at most
         // once per player and tick. Nothing after this may change the objects or the vision.

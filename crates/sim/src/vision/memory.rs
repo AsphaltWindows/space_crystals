@@ -256,6 +256,9 @@ pub(super) struct Memory {
     in_sight: BTreeSet<ObjectId>,
     /// Bumped whenever a record comes, goes or moves. Output, not state.
     revision: u32,
+    /// The records the latest update dropped because the player saw their place without their object
+    /// ([`PlayerVision::seen_gone`]), by ascending id. Scratch: the sim reads it in the same tick.
+    seen_gone: Vec<ObjectId>,
 }
 
 impl Memory {
@@ -266,6 +269,7 @@ impl Memory {
             bits: TileBits::new(tiles),
             in_sight: BTreeSet::new(),
             revision: 0,
+            seen_gone: Vec::new(),
         }
     }
 }
@@ -292,6 +296,15 @@ impl PlayerVision {
     /// The player's record of object `id` if the object is out of its sight now: what the views show of it.
     pub fn remembered_record(&self, id: ObjectId) -> Option<&LastKnown> {
         self.record(id).filter(|r| !self.sees_footprint(r.placement))
+    }
+
+    /// The objects whose records the latest update ([`super::Vision::update`], phase 5f) dropped because the player
+    /// saw their place without them (`core/vision.md > Explored`: gone, or no longer there), by ascending id. Until
+    /// then the player remembered them there, and the orders and rally points that name one went on as if it stood
+    /// (design change 0139): the sim ends them in the same tick (`Sim::follow_targets`). Scratch, not state: a
+    /// loaded save starts with none, so read it only within the tick of the update.
+    pub fn seen_gone(&self) -> &[ObjectId] {
+        &self.memory.seen_gone
     }
 
     /// Changes whenever one of the player's records comes, goes or moves (a counter, wrapping), not when one is only
@@ -327,6 +340,7 @@ impl PlayerVision {
     /// changed (on the tiles that flipped, and the footprints that came or went), and drops the records of objects
     /// the player now sees gone.
     pub(super) fn catch_up(&mut self, footprints: &Footprints, changes: &Changes) {
+        self.memory.seen_gone.clear();
         let mut flips = std::mem::take(&mut self.flips);
         for &(id, _) in &changes.removed {
             self.memory.in_sight.remove(&id);
@@ -354,6 +368,8 @@ impl PlayerVision {
         }
         flips.clear();
         self.flips = flips;
+        self.memory.seen_gone.sort_unstable();
+        self.memory.seen_gone.dedup();
     }
 
     /// The object `id` standing on `placement` is in the player's sight while a tile under it is Visible.
@@ -373,6 +389,7 @@ impl PlayerVision {
         };
         if footprints.placement(id) != Some(record.placement) && self.sees_footprint(record.placement) {
             self.forget(id);
+            self.memory.seen_gone.push(id);
         }
     }
 

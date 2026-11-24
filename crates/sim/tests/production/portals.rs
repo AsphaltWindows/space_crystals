@@ -402,10 +402,11 @@ fn the_bio_portal_releases_its_units_only_from_its_a_sides_in_all_eight_orientat
     }
 }
 
-/// `> Robo Portal > RallyPoint behavior`: "For a Drone: ... rally on enemy -> Move to that location (Drone is unarmed
-/// and cannot attack)"; the Bio Portal's Sabre, armed, gets the default right-click command on it: Attack (`> Bio
-/// Portal > RallyPoint behavior`). The enemy is a GDO Generator east of the portal, which a Drone of player 1 keeps
-/// in sight.
+/// Design change 0136 (`systems/controls/selection_and_hud.md > What a rally point makes a new unit do`): a new unit
+/// gets its own default right-click command on the rally target. The Drone, unarmed, moves to an enemy structure
+/// ("Enemy or other object → Move to it: Follow if it is a unit, Move to its location otherwise", `> Drone >
+/// Right-Click Resolution`); the Bio Portal's Sabre, armed, attacks it. The enemy is a GDO Generator east of the
+/// portal, which a Drone of player 1 keeps in sight.
 #[test]
 fn a_drone_rallied_on_an_enemy_moves_to_it_and_a_sabre_attacks_it() {
     // The Generator on tiles (18, 7) to (19, 8): its centre (1216, 512). The Drone south of it.
@@ -430,7 +431,7 @@ fn a_drone_rallied_on_an_enemy_moves_to_it_and_a_sabre_attacks_it() {
     );
     assert_eq!(
         order_of(&t, exits[0].unit),
-        Some(OrderKind::Move(Target::Point(generator)))
+        Some(OrderKind::Move(Target::Object(enemy)))
     );
 
     let mut t = bio_portal(Rotation::R0, false, enemy_and_eyes);

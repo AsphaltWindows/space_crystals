@@ -29,10 +29,11 @@ fn base_flags_follow_the_design() {
         .collect();
     assert_eq!(air, [UnitBase::HoverCraft, UnitBase::Glider]);
     assert_eq!(UnitBase::DrillUnit.def().domain, Domain::Underground);
-    // Infantry has no turret; every vehicle, mech and aircraft has one.
+    // `systems/units.md > UnitBase > CanHaveTurret` (design change 0154): infantry can't carry a turret; every
+    // vehicle, mech and aircraft base can.
     for base in UnitBase::ALL {
         let infantry = matches!(base, UnitBase::LightInfantry | UnitBase::HeavyInfantry);
-        assert_eq!(base.def().has_turret, !infantry, "{base:?}");
+        assert_eq!(base.def().can_have_turret, !infantry, "{base:?}");
     }
 }
 

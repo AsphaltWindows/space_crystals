@@ -1,5 +1,8 @@
 //! The one way objects leave the game: destroyed in combat (phase 5e) or removed by a debug command. Whatever the
-//! cause, every reference other objects hold to them goes too, so no state ever names an object that is gone.
+//! cause, every reference other objects hold to them goes too, so no state ever names an object that is gone, but
+//! for one exception (design change 0139: nothing about the real state leaks): an order or a rally point on an object
+//! its holder's owner remembers out of its sight goes on as if the object stood, until the owner sees its place
+//! ([`Sim::follow_targets`], at the end of the tick).
 
 use super::Sim;
 use crate::economy;
@@ -7,7 +10,8 @@ use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus};
 use crate::object::Object;
-use crate::orders::Order;
+use crate::orders::{Order, OrderKind, Target};
+use crate::production;
 
 impl Sim {
     /// Removes the objects `ids` (those that exist), each with a `SimEvent::Removed`, in id order. Then, for every
@@ -34,6 +38,13 @@ impl Sim {
     /// (`Sim::redirect_gatherers`, question Q0037 point 7); a worker forgets a drop-off and a patch that are gone
     /// (`Worker::forget`).
     ///
+    /// Design change 0139 (`core/vision.md > Explored > Targeting remembered objects`: "Nothing about the real state
+    /// leaks"): an Attack and a Move to an object, current or queued, and a rally point, on an object their holder's
+    /// owner remembers out of its sight (`PlayerVision::remembered_record`, by the vision the last tick left) stay:
+    /// the behaviours go on to its last-known position, and end once the owner sees its place
+    /// ([`Sim::follow_targets`]). Everything else lets go of it, the move and the attack included, which never name
+    /// a remembered object (`orders::travel::walk_to_remembered`). A Gather is left to the gathering rules.
+    ///
     /// The grids aren't touched: phase 5b catches up with a footprint that went away, and a removal after it must
     /// sync them (`paths::sync`).
     pub(super) fn remove_objects(&mut self, ids: &[ObjectId]) {
@@ -56,16 +67,59 @@ impl Sim {
             return;
         }
         self.events.extend(gone.iter().map(|&id| SimEvent::Removed(id)));
+        let vision = &self.vision;
         for o in self.objects.values_mut() {
-            forget(o, &gone);
+            let owner_vision = o.owner.and_then(|owner| vision.player(owner));
+            let remembered = |id: ObjectId| owner_vision.is_some_and(|v| v.remembered_record(id).is_some());
+            forget(o, &gone, remembered);
         }
+    }
+
+    /// The end of the tick, on the vision it leaves (`Sim::step`, after `Vision::remember`): the orders and rally
+    /// points that name an object follow what their owner knows of it.
+    /// - Design change 0139: an object a player remembered, and whose place it now sees without it
+    ///   (`PlayerVision::seen_gone`), is gone to that player: its orders that name it end "the way it would for a
+    ///   vanished target" ("the unit stops there and takes its next queued order or idles": the current one completes
+    ///   where the unit is, a queued one is dropped), and its rally points on it reset to None. An object that still
+    ///   exists elsewhere (its footprint changed) is left to the view of it (`TargetView`).
+    /// - Design change 0088: a rally point on an enemy unit turns into a ground rally point once the unit leaves its
+    ///   owner's sight (`production::rally::follow`).
+    pub(super) fn follow_targets(&mut self) {
+        for vision in self.vision.players() {
+            let gone: Vec<ObjectId> = vision
+                .seen_gone()
+                .iter()
+                .copied()
+                .filter(|id| !self.objects.contains_key(id))
+                .collect();
+            if gone.is_empty() {
+                continue;
+            }
+            let player = vision.player();
+            for o in self.objects.values_mut().filter(|o| o.owner == Some(player)) {
+                forget_seen_gone(o, &gone);
+            }
+        }
+        production::rally::follow(&mut self.objects, &self.vision);
     }
 }
 
-/// `o` drops every reference to the objects `gone` (sorted by id).
-fn forget(o: &mut Object, gone: &[ObjectId]) {
+/// Whether `order` goes on after its target is removed, while its holder's owner remembers the target out of its sight
+/// (design change 0139, [`Sim::remove_objects`]): an Attack and a Move to an object, whose behaviours go to a
+/// remembered target's last-known position. A Gather is left to the gathering rules.
+fn outlives_its_target(order: &Order) -> bool {
+    matches!(order.kind, OrderKind::Attack(_) | OrderKind::Move(Target::Object(_)))
+}
+
+/// `o` drops every reference to the objects `gone` (sorted by id), but for its orders and rally point on one that
+/// `remembered` holds for (its owner remembers it out of its sight, design change 0139).
+fn forget(o: &mut Object, gone: &[ObjectId], remembered: impl Fn(ObjectId) -> bool) {
     let is_gone = |id: ObjectId| gone.binary_search(&id).is_ok();
-    let names_gone = |order: &Order| order.target().is_some_and(is_gone);
+    let names_gone = |order: &Order| {
+        order
+            .target()
+            .is_some_and(|id| is_gone(id) && !(outlives_its_target(order) && remembered(id)))
+    };
     if let Some(orders) = &mut o.orders {
         if orders.current.as_ref().is_some_and(|active| names_gone(&active.order)) {
             orders.current = None;
@@ -87,9 +141,10 @@ fn forget(o: &mut Object, gone: &[ObjectId]) {
         o.extractor = None;
     }
     // A rally point on an object that is gone resets to None (`factions/gdo/structures.md > Barracks > RallyPoint
-    // behavior`; for an enemy only while its owner saw it, `production::rally::follow`).
+    // behavior`; for an enemy unit only while its owner saw it, `production::rally::follow`), but for one on a
+    // remembered object (design change 0139: "A rally point on an enemy structure stays on it after it leaves sight").
     if let Some(production) = &mut o.production {
-        production.forget(is_gone);
+        production.forget(|id| is_gone(id) && !remembered(id));
     }
     if let Some(worker) = &mut o.worker {
         worker.forget(&is_gone);
@@ -99,6 +154,28 @@ fn forget(o: &mut Object, gone: &[ObjectId]) {
         && mover.exit.is_some_and(is_gone)
     {
         mover.exit = None;
+    }
+}
+
+/// [`Sim::follow_targets`]: `o`'s owner has seen the objects `gone` (sorted by id) gone, which it remembered until
+/// now: its orders that name one end, the current one where the unit is, and its rally point on one resets.
+fn forget_seen_gone(o: &mut Object, gone: &[ObjectId]) {
+    let is_gone = |id: ObjectId| gone.binary_search(&id).is_ok();
+    let names_gone = |order: &Order| order.target().is_some_and(is_gone);
+    if let Some(orders) = &mut o.orders {
+        if orders.current.as_ref().is_some_and(|active| names_gone(&active.order)) {
+            orders.current = None;
+            // The walk to the last-known position, a move to a point, stops there.
+            if let Some(mover) = &mut o.mover
+                && mover.goal != MoveGoal::None
+            {
+                mover.stop();
+            }
+        }
+        orders.queue.retain(|order| !names_gone(order));
+    }
+    if let Some(production) = &mut o.production {
+        production.forget(is_gone);
     }
 }
 
@@ -177,6 +254,7 @@ mod tests {
         sim.events.clear();
 
         sim.remove_objects(&[b, ObjectId(99), b]);
+        // (No player has a record of a unit, so nothing here outlives it.)
         assert_eq!(sim.events, [SimEvent::Removed(b)], "once, and only what existed");
         assert!(!sim.objects.contains_key(&b));
         let o = &sim.objects[&a];

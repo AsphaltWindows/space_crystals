@@ -1,5 +1,6 @@
 //! The gate's checks of a player's orders and abilities (`Command::Order`, `Command::Ability`;
-//! `docs/movement.md > 3`), and of what an order may target: what the player sees.
+//! `docs/movement.md > 3`). What an order may target is what the player sees or remembers (design change 0139,
+//! `gate/targets.rs`).
 
 use super::Checked;
 use crate::command::Ability;
@@ -33,15 +34,17 @@ impl Sim {
                     return Err(Reject::OffMap);
                 }
             }
+            // Design change 0139: an object the player sees or remembers (`Sim::check_target_known`).
             OrderKind::Move(Target::Object(id)) => {
-                self.check_target_seen(player, self.referenced(id, None)?)?;
+                self.check_target_known(player, id)?;
             }
             OrderKind::Attack(id) => {
-                let target = self.referenced(id, None)?;
-                if !target.def().destructible {
+                // A remembered object by its record (`Sim::known_kind`): whether it still stands, the gate doesn't
+                // tell.
+                if !self.known_kind(player, id)?.def().destructible {
                     return Err(Reject::NotAttackable(id));
                 }
-                self.check_target_seen(player, target)?;
+                self.check_target_known(player, id)?;
                 // `factions/gdo/units.md > Peacekeeper > Riot Shield`: "Attack orders are not possible" while the
                 // shield is up ("the player must lower the shield before ordering an attack"): those units ignore it.
                 ordered.retain(|id| self.objects.get(id).is_some_and(riot_shield::allows_attack));
@@ -113,14 +116,13 @@ impl Sim {
         Ok(Checked::Ability { units, ability })
     }
 
-    /// Question Q0017, point 2 (its default, until answered): an order may target an object only while the issuing
-    /// player sees it: a tile it covers is Visible. The one exception is the design's
-    /// (`core/vision.md > Explored Selectability`): a GDO player may target a Supply Delivery Station on Explored
-    /// ground, the one its Explored tiles show: by its last-known record of the station
-    /// (`PlayerVision::remembered_record`), as the client selects it, never by the live tiles. A station that came
-    /// onto Explored tiles while the player looked away (a debug spawn) has no record, so the player doesn't know of
-    /// it until it sees it. Anything else out of sight, a remembered structure included, is `Reject::NotVisible`;
-    /// the client makes a right-click on one a Move to that spot.
+    /// The Gather order's target rule, question Q0017 point 2's default (the others follow its answer, design change
+    /// 0139: `Sim::check_target_known`; Gather does once slice M3-H3's gathering rules are in): an order may target
+    /// an object only while the issuing player sees it: a tile it covers is Visible. The one exception is the
+    /// design's (`core/vision.md > Explored Selectability`): a GDO player may target a Supply Delivery Station on
+    /// Explored ground, the one its Explored tiles show: by its last-known record of the station
+    /// (`PlayerVision::remembered_record`), as the client selects it, never by the live tiles. Anything else out of
+    /// sight is `Reject::NotVisible`.
     pub(in crate::sim) fn check_target_seen(&self, player: PlayerId, target: &Object) -> Result<(), Reject> {
         let seen = self.vision.object_state(player, target) == VisibilityState::Visible
             || self.player(player).is_some_and(|p| p.faction == Faction::Gdo)

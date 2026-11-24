@@ -168,7 +168,8 @@ pub(crate) fn base_is_free(kind: ObjectKind, state: Option<&AttackState>) -> boo
     let Some(state) = state else {
         return true;
     };
-    let turret = kind.def().unit.as_ref().is_some_and(|unit| unit.base_def().has_turret);
+    // Design change 0154: the attack source is the turret if the unit has one (its TurretAttributes), else the base.
+    let turret = kind.def().unit.as_ref().is_some_and(|unit| unit.has_turret());
     turret || matches!(state.phase, None | Some(AttackPhase::Reloading))
 }
 

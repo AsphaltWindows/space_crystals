@@ -279,10 +279,41 @@ pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
 }
 
 /// Every reference to an object that no longer exists, as `(holder, missing)` pairs ([`referenced_ids`]). The
-/// removal path (`Sim::remove_objects`) leaves none behind.
+/// removal path (`Sim::remove_objects`) leaves none behind, but for an Attack, a Move to an object and a rally point
+/// on one the holder's owner still has a record of (design change 0139): they go on until the owner sees its place.
 pub fn dangling_references(sim: &Sim) -> Vec<(ObjectId, ObjectId)> {
     sim.objects()
-        .flat_map(|o| referenced_ids(o).into_iter().map(move |id| (o.id, id)))
+        .flat_map(|o| {
+            let mut ids = referenced_ids(o);
+            let remembers = |id| {
+                o.owner
+                    .and_then(|p| sim.vision().player(p))
+                    .is_some_and(|v| v.record(id).is_some())
+            };
+            let orders = o
+                .orders
+                .iter()
+                .flat_map(|orders| orders.current.iter().map(|a| &a.order).chain(&orders.queue));
+            let outliving = orders.filter_map(|order| match order.kind {
+                OrderKind::Attack(id) | OrderKind::Move(Target::Object(id)) => Some(id),
+                _ => None,
+            });
+            let rally = o.production.as_ref().and_then(|p| p.rally);
+            let rallied = rally.and_then(|rally| {
+                if let Rally::Object { id, .. } = rally {
+                    Some(id)
+                } else {
+                    None
+                }
+            });
+            // One reference each, so that a move or an attack still naming the object is caught.
+            for id in outliving.chain(rallied).filter(|&id| remembers(id)).collect::<Vec<_>>() {
+                if let Some(i) = ids.iter().position(|&r| r == id) {
+                    ids.swap_remove(i);
+                }
+            }
+            ids.into_iter().map(move |id| (o.id, id))
+        })
         .filter(|&(_, id)| sim.object(id).is_none())
         .collect()
 }

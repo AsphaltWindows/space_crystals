@@ -67,8 +67,10 @@ pub struct UnitBaseDef {
     pub base: UnitBase,
     /// `> Domain`.
     pub domain: Domain,
-    /// `> HasTurret`.
-    pub has_turret: bool,
+    /// `> CanHaveTurret` (design change 0154, renamed from HasTurret): units of this base **can** carry a turret.
+    /// Whether one actually has one is its own TurretAttributes' ([`UnitDef::has_turret`]): the HoverVehicle base
+    /// can, and the Drone, built on it, has none.
+    pub can_have_turret: bool,
     /// `> DirectionalArmor`.
     pub directional_armor: bool,
     /// `> RuggedTerrain`: the base crosses Rugged tiles (`core/map.md > TilePreset`).
@@ -129,7 +131,7 @@ impl UnitBaseDef {
 static LIGHT_INFANTRY: UnitBaseDef = UnitBaseDef {
     base: UnitBase::LightInfantry,
     domain: Domain::Ground,
-    has_turret: false,
+    can_have_turret: false,
     directional_armor: false,
     rugged_terrain: true,
     crushable: true,
@@ -142,7 +144,7 @@ static LIGHT_INFANTRY: UnitBaseDef = UnitBaseDef {
 static HEAVY_INFANTRY: UnitBaseDef = UnitBaseDef {
     base: UnitBase::HeavyInfantry,
     domain: Domain::Ground,
-    has_turret: false,
+    can_have_turret: false,
     directional_armor: false,
     rugged_terrain: true,
     crushable: false,
@@ -155,7 +157,7 @@ static HEAVY_INFANTRY: UnitBaseDef = UnitBaseDef {
 static WHEELED_VEHICLE: UnitBaseDef = UnitBaseDef {
     base: UnitBase::WheeledVehicle,
     domain: Domain::Ground,
-    has_turret: true,
+    can_have_turret: true,
     directional_armor: true,
     rugged_terrain: false,
     crushable: false,
@@ -168,7 +170,7 @@ static WHEELED_VEHICLE: UnitBaseDef = UnitBaseDef {
 static TRACKED_VEHICLE: UnitBaseDef = UnitBaseDef {
     base: UnitBase::TrackedVehicle,
     domain: Domain::Ground,
-    has_turret: true,
+    can_have_turret: true,
     directional_armor: true,
     rugged_terrain: false,
     crushable: false,
@@ -181,7 +183,7 @@ static TRACKED_VEHICLE: UnitBaseDef = UnitBaseDef {
 static DRILL_UNIT: UnitBaseDef = UnitBaseDef {
     base: UnitBase::DrillUnit,
     domain: Domain::Underground,
-    has_turret: true,
+    can_have_turret: true,
     directional_armor: true,
     rugged_terrain: false,
     crushable: false,
@@ -194,7 +196,7 @@ static DRILL_UNIT: UnitBaseDef = UnitBaseDef {
 static HOVER_VEHICLE: UnitBaseDef = UnitBaseDef {
     base: UnitBase::HoverVehicle,
     domain: Domain::Ground,
-    has_turret: true,
+    can_have_turret: true,
     directional_armor: true,
     // `> RuggedTerrain - true, with double drag` (design change 0039): it crosses Rugged tiles, on the grids of the
     // bases that do (`NavClass::GroundRugged`), and its DragRatio is doubled while the tile under its centre is
@@ -210,7 +212,7 @@ static HOVER_VEHICLE: UnitBaseDef = UnitBaseDef {
 static MECH: UnitBaseDef = UnitBaseDef {
     base: UnitBase::Mech,
     domain: Domain::Ground,
-    has_turret: true,
+    can_have_turret: true,
     directional_armor: true,
     rugged_terrain: true,
     crushable: false,
@@ -223,7 +225,7 @@ static MECH: UnitBaseDef = UnitBaseDef {
 static HOVER_CRAFT: UnitBaseDef = UnitBaseDef {
     base: UnitBase::HoverCraft,
     domain: Domain::Air,
-    has_turret: true,
+    can_have_turret: true,
     directional_armor: false,
     rugged_terrain: false,
     crushable: false,
@@ -236,7 +238,7 @@ static HOVER_CRAFT: UnitBaseDef = UnitBaseDef {
 static GLIDER: UnitBaseDef = UnitBaseDef {
     base: UnitBase::Glider,
     domain: Domain::Air,
-    has_turret: true,
+    can_have_turret: true,
     directional_armor: false,
     rugged_terrain: false,
     crushable: false,
@@ -335,7 +337,8 @@ impl MovementAttrs {
     }
 }
 
-/// `systems/units.md > TurretAttributes`: only units whose base has a turret.
+/// `systems/units.md > TurretAttributes`: only on units whose base can carry a turret (`UnitBaseDef::can_have_turret`),
+/// and a unit of such a base may still have none (design change 0154).
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct TurretAttrs {
     /// `> TurnAngle`: the full arc, radians, at most a full turn.
@@ -475,6 +478,13 @@ pub struct UnitDef {
 impl UnitDef {
     pub fn base_def(&self) -> &'static UnitBaseDef {
         self.base.def()
+    }
+
+    /// Whether the unit has a turret: its TurretAttributes are set (design change 0154, `systems/units.md >
+    /// CanHaveTurret`: "whether a particular unit actually has one is set by its own TurretAttributes"). Its attack
+    /// source is then the turret, otherwise its base (`systems/combat.md > AttackAttributes`).
+    pub fn has_turret(&self) -> bool {
+        self.turret.is_some()
     }
 }
 

@@ -3,8 +3,10 @@
 //!
 //! [`close_in`] is the core of AttackingObject (steps 1 to 4): approach the target until the attack reaches it,
 //! stand while it does, and go after it again when it leaves range. The Attack order ([`attack`]) adds the order's
-//! ends (the target destroyed, lost from vision, or out of reach for good); idle units ([`idle`]) and AttackMove
-//! (`travel`) run it on the enemies they acquire themselves; Hold Position ([`hold`]) never moves.
+//! ends (the target destroyed, lost from vision, or out of reach for good), its walk to a target its owner only
+//! remembers (design change 0139) and its wait behind a raised Riot Shield (design change 0150); idle units
+//! ([`idle`]) and AttackMove (`travel`) run it on the enemies they acquire themselves; Hold Position ([`hold`])
+//! never moves.
 
 use crate::combat::reaches;
 use crate::ids::ObjectId;
@@ -12,7 +14,8 @@ use crate::mover::{MoveGoal, MoveStatus};
 use crate::units::gu;
 
 use super::state::{AttackOrder, Auto, Pursuit};
-use super::world::{Scan, Unit, View, World};
+use super::travel::{approach, walk_to_remembered};
+use super::world::{Known, Scan, Unit, View, World};
 use super::{GIVE_UP_RETRY_TICKS, IDLE_LEASH_GU};
 
 /// How an approach stands after [`close_in`].
@@ -74,45 +77,91 @@ pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world
     Closing::Approaching
 }
 
-/// `> AttackingObject`: one tick of an Attack order on `id`. Returns whether the behaviour is complete.
+/// `> AttackingObject`: one tick of an Attack order on `id`, as the unit's owner knows the target
+/// ([`World::known`]). Returns whether the behaviour is complete.
 /// - Step 5: the target is destroyed (the removal path completes the order, `Sim::remove_objects`), or the unit
 ///   can't attack it at all (phase 5e dropped it, or the unit has no attack).
-/// - Step 6 (design change 0034): the target is no longer visible to the unit's owner. The unit moves to its
-///   **last seen position** (MovingToLocation) and the order completes there; it is never tracked through the fog,
-///   even if it comes back into sight on the way. A target the owner never saw while the order ran (a queued Attack
-///   whose target left sight before its turn) has no such position, and the order completes at once: a
-///   placeholder, the design doesn't say.
+/// - Step 6 (design change 0034): the target is no longer visible to the unit's owner, and isn't remembered (a
+///   unit). The unit moves to its **last seen position** (MovingToLocation) and the order completes there; it is
+///   never tracked through the fog, even if it comes back into sight on the way. A target the owner never saw while
+///   the order ran (a queued Attack whose target left sight before its turn) has no such position, and the order
+///   completes at once: a placeholder, the design doesn't say.
+/// - **A remembered target** (design change 0139, `core/vision.md > Explored > Targeting remembered objects`): the
+///   owner doesn't see it, but remembers it (a structure). "The order goes to the object's last-known position"
+///   ([`walk_to_remembered`]), with nothing engaged, so that phase 5e reads nothing of it: the walk is the same
+///   whether or not the target still stands. Once the owner sees it, the unit engages it again and attacks; once the
+///   owner sees its place without it, the order ends where the unit is ("the unit stops there and takes its next
+///   queued order or idles": `Sim::follow_targets`). A walk that ends without the owner seeing it (no way there)
+///   ends the order.
+/// - **The Riot Shield** (design change 0150: "Explicit Attack → follows the target while shielded, resumes
+///   attacking when lowered"): while the unit may not attack, the order is on hold. The unit follows the target as a
+///   Move to it would ([`approach`]: it follows a unit, and goes up to anything else and waits there), and the
+///   order never completes for it; once the shield is down the unit engages the target again. Leaving sight ends it
+///   as above.
 /// - `> Failure`: the approach gave up ([`Closing::GaveUp`]).
 pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, world: &World) -> bool {
     if state.lost {
         return unit.mover.status != MoveStatus::Moving;
     }
-    let engaged = unit.attack.as_ref().is_some_and(|attack| attack.target == Some(id));
-    let Some(target) = world.get(id).filter(|_| engaged) else {
-        if state.chasing {
-            unit.mover.stop();
-        }
-        return true;
-    };
-    if !world.sees(unit.owner, target) {
-        if !unit.may_move() {
-            // Firing and Cooldown run on; the unit sets off when they are over.
-            return false;
-        }
+    let known = world.known(unit.owner, id);
+    if let Known::Remembered { position, .. } = known {
         unit.engage(None);
         state.chasing = false;
-        return match state.last_seen {
-            Some(at) => {
-                unit.mover.go_to(MoveGoal::Point(at), None, world.tick);
-                state.lost = true;
-                false
-            }
-            None => {
-                unit.halt();
-                true
-            }
-        };
+        state.on_hold = None;
+        return walk_to_remembered(unit, &mut state.remembered, position, world);
     }
+    if let Known::Seen(target) = known
+        && !unit.may_attack
+    {
+        state.remembered = false;
+        state.chasing = false;
+        state.last_seen = Some(target.pos);
+        let follow = state.on_hold.get_or_insert_with(Default::default);
+        approach(unit, id, follow, world);
+        return false;
+    }
+    let target = match known {
+        Known::Seen(target) => {
+            // Back from the walk to a remembered target, or from behind the shield: the unit engages its target
+            // again (the move it was on isn't the approach of `close_in`).
+            if std::mem::take(&mut state.remembered) | state.on_hold.take().is_some() {
+                unit.engage(Some(id));
+            }
+            if !unit.attack.as_ref().is_some_and(|attack| attack.target == Some(id)) {
+                if state.chasing {
+                    unit.mover.stop();
+                }
+                return true;
+            }
+            target
+        }
+        Known::Gone if state.on_hold.is_some() || unit.attack.as_ref().is_some_and(|a| a.target == Some(id)) => {
+            if !unit.may_move() {
+                // Firing and Cooldown run on; the unit sets off when they are over.
+                return false;
+            }
+            unit.engage(None);
+            state.chasing = false;
+            state.on_hold = None;
+            return match state.last_seen {
+                Some(at) => {
+                    unit.mover.go_to(MoveGoal::Point(at), None, world.tick);
+                    state.lost = true;
+                    false
+                }
+                None => {
+                    unit.halt();
+                    true
+                }
+            };
+        }
+        Known::Gone | Known::Remembered { .. } => {
+            if state.chasing {
+                unit.mover.stop();
+            }
+            return true;
+        }
+    };
     state.last_seen = Some(target.pos);
     match close_in(unit, &mut state.chasing, target, world) {
         Closing::InRange | Closing::Approaching => false,
@@ -145,10 +194,10 @@ pub(super) fn hold(unit: &mut Unit, target: &mut Option<ObjectId>, world: &World
         }
     }
     if target.is_none() {
-        let facing_only = unit.unit_def().is_some_and(|def| {
-            let base = def.base_def();
-            !base.has_turret && !base.can_turn_in_place
-        });
+        // Design change 0154: a unit has a turret by its own TurretAttributes, not by its base's CanHaveTurret.
+        let facing_only = unit
+            .unit_def()
+            .is_some_and(|def| !def.has_turret() && !def.base_def().can_turn_in_place);
         *target = world.pick(unit, Scan::Weapon, None, facing_only);
         if target.is_some() {
             unit.engage(*target);

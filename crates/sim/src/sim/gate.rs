@@ -8,6 +8,7 @@
 
 mod debug;
 mod orders;
+mod targets;
 
 use std::fmt;
 

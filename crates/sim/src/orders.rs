@@ -14,6 +14,8 @@
 //! - [`gather`]: a worker's job, the Gather and Drop Off orders of `factions/colonists/units.md > Drone`;
 //! - [`deploy`]: a Drone's walk to the site of the Beacon it deploys into (`crate::deploy`).
 //!
+//! What a unit does by default against a target, a right-click's and a rally point's order, is [`resolution`]'s.
+//!
 //! Their working state ([`state`], the design's BaseBehaviorState) is part of the order, or of the unit while it
 //! has none ([`Orders::auto`]).
 
@@ -21,6 +23,7 @@ mod deploy;
 pub(crate) mod destinations;
 mod engage;
 pub(crate) mod gather;
+pub mod resolution;
 pub mod state;
 mod travel;
 pub(crate) mod world;
