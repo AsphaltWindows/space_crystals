@@ -1265,6 +1265,8 @@ The Barracks keeps its side doorway (0080). |
 | 0182 | Q0018 | L2 | Auto-targeting skips targets inside MinRange. An explicit Attack on a target that close backs a mobile unit off until it is outside MinRange, then it attacks. An immobile unit (a deployed Artillery Rig) fails the order with "Target too close". |
 | 0183 | Q0018 | — | As built with 0169: a unit walled out of its group spot counts as arrived within 3 GU. |
 | 0184 | Q0048 | — | As built (M3-J1): another command pressed while targeting shows "Cancel the current command first", and targeting continues. |
+| 0185 | Q0048 | U | Any building under construction or transformation forms its own SelectionGroup (key: type, finished?), with its own panel (Cancel only); it joins the finished group on completion. |
+| 0186 | — | L2, M4 | Guard: laser rifle, Universal domain, cannot miss, 18 damage, Aim 4 / Fire 1 / Cooldown 3 / Reload 16 (one shot every 24 ticks), range 3 GU, needs an Optics Lab (M4). Agent: pistol, ground only, 5 damage, range 2 GU, one shot every 20 ticks (M4). |
 
 ## 9. Notes from merged slices for later slices
 
@@ -1291,3 +1293,4 @@ The Barracks keeps its side doorway (0080). |
 | M3-P | J1, D2, K1 | `sim/producers/step.rs` runs the production-start check, and `Production::blocked` is the wait at 0%. `SimEvent::ProductionWaiting` feeds the feedback band, which is the channel J1's 0162 feedback uses. M3-D's over-capacity test moved to `tests/production/capacity.rs`. |
 | M3-J1 | J2, S, K2 | `Placing` has a `Builder`. The ghosts reuse `warp_in_check` and `deploy_check`, and lingering ghosts read `pending_deploys`. 0162 goes through `CommandRefused` in the feedback band. Client tests are in `tests/commands/colonists/`. The two readings in Q0048 are doc-commented. The highlighted "Warp RP" button wraps (cosmetic). |
 | M3-D2 | J2, K2 | `production/exit/energy.rs` holds the doorway, and `ExitDoor {Side, Centre}` feeds the release, movement, `serve.rs::doorway_start` and the invariants. Doorway units walk out along `Mover::exit_heading` via `World::straight`, and they are excluded from `can_yield`. A half-out unit's new order fails until its exit point is clear. The client draws units under structures, so a unit crossing the portal is hidden (K2). |
+| M3-V | K1, K2 | `Outcome::is_draw` is derived, not stored. The results screen is in `hud/results.rs`. `OCCUPIED_ARRIVAL_GU` is 3.0. The zero-cost rule is in `ArmyCap::fits`. The crowd sweep is the ignored test `movement_crowds.rs::crowd_sweep`. |

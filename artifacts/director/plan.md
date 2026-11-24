@@ -529,11 +529,20 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Unchanged.** The Barracks keeps its side doorway. Perf (`structures_perf`, `movement_perf`) shows no regression.
   - **Readings.** A release also waits while a unit overlaps the centre box. The rally order is given at release. A half-out unit's new order fails until its exit point is clear. K2 checks that it can still attack, which `structures.md` requires.
 
+- **M3-V game end, costs, arrival radius, zero-cost capacity** (merged in `9516a0f`; 1213 tests; goldens unchanged):
+  - **Draw (0163).** `Outcome::is_draw` is derived, and everyone sees DRAW.
+  - **Results screen (0164).** `hud/results.rs` shows DEFEATED, the name and faction, and the defeat time. It is rebuilt every frame, so F2 and replays work.
+  - **Robo Portal (0167)** costs 250, refund 187.
+  - **Arrival radius (0169).** `OCCUPIED_ARRIVAL_GU` is 3.0, for points and objects. Crowd-sweep failures went from 43 to 7, kept as the ignored `movement_crowds.rs::crowd_sweep`.
+  - **Zero-cost capacity (0176 point 3)** is in `ArmyCap::fits`. The `step.rs` comments cite 0175 and 0176.
+  - **Soak seed.** The `production/stalls.rs` soak seed is now 0xd00d, because the old seed gave no waits at 3 GU.
+  - **Placeholders.** The results screen's contents, and the end banner over it.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M3-L1 fog delay and attacker reveal** (Opus; brief `scratchpad/briefs/m3l1-vision.md`): 0177, 0178.
   - **M3-R one default-order rule, remembered targets, Riot Shield orders** (Opus; brief `scratchpad/briefs/m3r-default-order-remembered-targets.md`): 0136, 0139, 0150–0151 (shield part). Gather on a remembered patch waits for H3.
-  - **M3-V game end, costs, arrival radius, zero-cost capacity** (Opus; brief `scratchpad/briefs/m3v-game-end-and-costs.md`): 0163 draw, 0164 results screen, 0167 Robo Portal 250, 0169 arrival radius 3 GU, 0175–0176 capacity.
+  - **M3-U unfinished groups and polish** (Opus; brief `scratchpad/briefs/m3u-unfinished-groups-and-polish.md`): 0185, units drawn above portals, two test-file splits, button labels.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2 playtest** with the user, using `docs/playtest/m2.md`.
@@ -665,12 +674,13 @@ First playable after M2-H2.
     | D2 | done (`3576cbe`) |
     | P | done (`9f63a5f`) |
     | J2 (after R; with 0155) | queued |
-    | V (0163, 0164, 0167, 0169, 0175–0176) | running (wave 4) |
+    | V | done (`9516a0f`) |
+    | U (0185 unfinished groups; units above portals; test splits; labels) | running (wave 4) |
     | S (after R; Riot Shield as two unit types: 0171–0174; brief to write) | queued |
     | L1 (vision: 0177 attacker reveal and clipped shots, 0178 fog delay) | running (wave 4) |
-    | L2 (after R; behaviours: 0179 rotation steps, 0180 AttackMove leash, 0182 MinRange; brief to write) | queued |
-    | K1, K2 (K2 also: draw a unit crossing a portal footprint above the portal; a half-out unit can attack; 0170 event-driven) | queued |
-- **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
+    | L2 (after R; behaviours: 0179 rotation steps, 0180 AttackMove leash, 0182 MinRange, 0186 Guard attack numbers; brief to write) | queued |
+    | K1, K2 (K2 also: a half-out unit can attack; 0170 event-driven) | queued |
+- **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, and 0186's Optics Lab gate and Agent pistol. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
   - Shift-placement queues build orders while Shift is held, with the cost paid per order (0071).
@@ -741,10 +751,10 @@ First playable after M2-H2.
 | Q0045 | Pass-through details: idle units left stacked, and the Drop Off order | no | answered by 0126 and 0127 |
 | Q0046 | A Drone's drop-off destroyed while it is on its way back | no | answered by 0170 (as built) |
 | Q0047 | Waiting for capacity: several waiting buildings, no power, zero-cost units | no | answered by 0175 (as built) and 0176 (point 3 in M3-V) |
-| Q0048 | Pressing other commands while targeting (0066 vs 0162); a portal group only partly warping in | no | point 1 answered by 0184 (as built); point 2 open |
+| Q0048 | Pressing other commands while targeting (0066 vs 0162); a portal group only partly warping in | no | answered: point 1 by 0184 (as built), point 2 by 0185 (M3-U) |
 
 ## Design change entries
-Last triaged: 0184.
+Last triaged: 0186.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -904,26 +914,28 @@ Last triaged: 0184.
 | 0160 Shift with the rally point sets it and ends targeting | done (as built, M2-H1) | answers Q0035 point 1 |
 | 0161 A rally on one of several selected producers: per-building rules | done (as built, M2-H1) | answers Q0035 point 2 |
 | 0162 A greyed-out button or hotkey gives the refusal feedback with its reason | done (M3-J1 `864c13f`: `CommandRefused` in the feedback band) | answers Q0035 point 3 |
-| 0163 Every remaining side defeated in one tick: a draw | queued (new slice M3-V) | answers Q0036 point 1 |
-| 0164 Defeated with no undefeated allies: leave to a results screen | queued (M3-V) | answers Q0036 point 2 |
+| 0163 Every remaining side defeated in one tick: a draw | done (M3-V, `9516a0f`: `Outcome::is_draw`, derived) | answers Q0036 point 1 |
+| 0164 Defeated with no undefeated allies: leave to a results screen | done (M3-V, `9516a0f`: `hud/results.rs`; the team case is unit-tested only, since there are no teams yet) | answers Q0036 point 2 |
 | 0165 Defeat clears orders but not modes | done (as built, M2-F2) | answers Q0036 point 3 |
 | 0166 M3 scope confirmed as proposed; deferred content listed | done (the M3 plan) | answers Q0043 points 1, 3, 4; placeholder numbers or questions when deferred content is scheduled |
-| 0167 Robo Portal costs 250 (was 400); Bio Portal stays 150 | queued (M3-V); watch it in K1 | answers Q0043 point 2 |
+| 0167 Robo Portal costs 250 (was 400); Bio Portal stays 150 | done (M3-V, `9516a0f`; refund 187); watch it in K1 | answers Q0043 point 2 |
 | 0168 A Move or Follow whose target is the unit itself is a Stop | in progress (M3-R, folded in) | answers Q0031; fixes M1-G3's self-follow |
-| 0169 Arrival radius 3 GU (was 2) for MovingToLocation and MovingToObject | queued (M3-V) | answers Q0032 |
+| 0169 Arrival radius 3 GU (was 2) for MovingToLocation and MovingToObject | done (M3-V, `9516a0f`: `OCCUPIED_ARRIVAL_GU` 3.0; crowd-sweep failures 43 → 7) | answers Q0032 |
 | 0170 A drop-off destroyed mid-return: the Drone switches at once to the nearest own node | done (as built, M3-H3 `1e43600`); an event-driven check instead of the per-tick one queued (M3-K2) | answers Q0046 |
 | 0171 Riot Shield toggle window: half speed and no attacking while toggling; damage reduction only when fully up; a second press reverses from the current point | queued (M3-S) | answers Q0020 point 2 |
 | 0172 A shield toggle pressed mid-shot waits for Cooldown to end, then starts | queued (M3-S) | answers Q0020 point 3; like Convert's 0153 |
 | 0173 Peacekeeper and Peacekeeper (Shielded) are two unit types; the type changes at the start of the toggle | queued (M3-S) | answers Q0020 point 4 |
 | 0174 Shield toggle 6 ticks (0.375 s), hotkey R for Raise and Lower | queued (M3-S) | answers Q0020 point 5 |
 | 0175 Several buildings waiting for capacity: the lowest id starts first | done (as built, M3-P `9f63a5f`); doc comments updated in M3-V | answers Q0047 point 1 |
-| 0176 No start at power 0 (as built); a capacity cost of 0 always passes | point 2 done (as built, M3-P); point 3 in progress (M3-V) | answers Q0047 points 2–3 |
+| 0176 No start at power 0 (as built); a capacity cost of 0 always passes | done (point 2 as built, M3-P; point 3 M3-V `9516a0f`, in `ArmyCap::fits`) | answers Q0047 points 2–3 |
 | 0177 Shots drawn only over Visible tiles; an attacker outside the victim's vision is revealed to the victim's owner for 24 ticks after each shot | in progress (M3-L1) | answers Q0017 point 1 |
 | 0178 Fog delay: a tile stays Visible for 8 ticks after it leaves all sight | in progress (M3-L1) | answers Q0018 point 1 |
 | 0179 Target priority by rotation in 45° steps, then closest, then a fixed order | queued (M3-L2, after R) | answers Q0018 point 2 |
 | 0180 AttackMove leash limits chasing only: targets in weapon range are always fought; PathReference kept after fights, replaced by a blockage detour | queued (M3-L2, after R) | answers Q0018 point 3 |
 | 0181 Unreachable auto-targets: approach, give up, retry after 32 ticks | done (as built) | answers Q0018 point 4 |
 | 0182 MinRange: auto-targeting skips targets inside it; an explicit Attack backs a mobile unit off, and fails for an immobile one with "Target too close" | queued (M3-L2, after R) | answers Q0018 point 5 |
-| 0183 A unit walled out of its group spot counts as arrived within the 3 GU radius | done with 0169 (M3-V) | answers Q0018 point 6 |
+| 0183 A unit walled out of its group spot counts as arrived within the 3 GU radius | done with 0169 (M3-V, `9516a0f`; tested with 7 Guards) | answers Q0018 point 6 |
 | 0184 Another command pressed while targeting: "Cancel the current command first" | done (as built, M3-J1 `864c13f`) | answers Q0048 point 1 |
+| 0185 Unfinished buildings form their own SelectionGroup (key: type, finished?) | in progress (M3-U) | answers Q0048 point 2; replaces M3-J1's reading |
+| 0186 Syndicate Guard: laser rifle, Universal, 18 damage every 24 ticks, needs an Optics Lab; Agent: pistol, ground only, 5 damage every 20 ticks | Guard attack numbers queued (M3-L2); Optics Lab gate, Hideout and Agent queued (M4) | user redesign |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
