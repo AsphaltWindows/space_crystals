@@ -2105,3 +2105,4 @@ Q0044 pt 4: unreachable patch = occupied (redirect/wait/re-check). Entry 0141. Q
 Q0041 pt 1: Beacon Capacity reserved on queue. Entry 0142.
 Q0041 pts 1-2: capacity reserved at production start for GDO and Colonists (Syndicate model); replaces 0082 and 0142. Entry 0143.
 Q0041 pts 3-4: Robo Portal exit = closest side to rally, else random unblocked. Entry 0144.
+Q0041 pts 5-6: portal energy doorway at centre, open-direction arc, toward rally, go around; replaces 0144. Entry 0145. Q0041 done.
