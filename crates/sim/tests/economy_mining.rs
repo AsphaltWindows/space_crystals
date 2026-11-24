@@ -8,7 +8,7 @@ use sc_sim::nav::NavClass;
 use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references};
 use sc_sim::{
     DebugCommand, Faction, LayoutObject, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, ResourceState,
-    SimEvent, SpawnAt, SpawnSettings, Target, Tick, TilePos,
+    SimEvent, SpawnAt, SpawnSettings, Target, Tick, TilePos, VisibilityState,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -165,12 +165,13 @@ fn a_ratio_change_keeps_the_cycle_s_progress() {
 /// `PatchDepleted` comes once, with the load that emptied it.
 #[test]
 fn a_patch_pays_ten_then_the_rest_then_the_residual() {
-    for (amount, loads) in [
-        (25, [10, 10, 5, 1, 1, 1]),
-        (15, [10, 5, 1, 1, 1, 1]),
-        (20, [10, 10, 1, 1, 1, 1]),
-        (10, [10, 1, 1, 1, 1, 1]),
-        (1, [1, 1, 1, 1, 1, 1]),
+    // The patch's starting amount, the six loads it pays, and the cycle whose load empties it.
+    for (amount, loads, emptied) in [
+        (25, [10, 10, 5, 1, 1, 1], 3),
+        (15, [10, 5, 1, 1, 1, 1], 2),
+        (20, [10, 10, 1, 1, 1, 1], 2),
+        (10, [10, 1, 1, 1, 1, 1], 1),
+        (1, [1, 1, 1, 1, 1, 1], 1),
     ] {
         let mut t = ScenarioBuilder::new(&flat(10, 8))
             .spawn_with(patch(amount), tile(1, 6)) // 1
@@ -181,29 +182,17 @@ fn a_patch_pays_ten_then_the_rest_then_the_residual() {
         let expected: Vec<(Tick, u32)> = (1..=6).zip(loads).map(|(k, load)| (48 * k, load)).collect();
         assert_eq!(pays, expected, "a patch of {amount}");
         assert_eq!(remaining(&t, 1), 0, "a patch of {amount}: never below 0");
-        let emptied = (1..=6).zip(loads).scan(amount, |left, (k, load)| {
-            *left -= load.min(*left);
-            Some((k, *left))
-        });
-        let at = emptied
-            .filter(|&(_, left)| left == 0)
-            .map(|(k, _)| 48 * k)
-            .next()
-            .unwrap();
-        let depleted = |e: &SimEvent| {
-            *e == SimEvent::PatchDepleted {
-                patch: ObjectId(1),
-                plate: ObjectId(3),
-            }
+        let depleted: Vec<_> = t
+            .events()
+            .iter()
+            .filter(|(_, e)| matches!(e, SimEvent::PatchDepleted { .. }))
+            .cloned()
+            .collect();
+        let event = SimEvent::PatchDepleted {
+            patch: ObjectId(1),
+            plate: ObjectId(3),
         };
-        assert_eq!(ticks_of(&t, depleted), [at], "a patch of {amount}");
-        assert!(matches!(
-            t.events()
-                .iter()
-                .filter(|(_, e)| matches!(e, SimEvent::PatchDepleted { .. }))
-                .count(),
-            1
-        ));
+        assert_eq!(depleted, [(48 * emptied, event)], "a patch of {amount}");
         assert!(
             t.sim().object(ObjectId(1)).is_some() && blocked(&t, 1, 6),
             "it stays under its plate"
@@ -294,6 +283,61 @@ fn a_plate_destroyed_on_a_depleted_patch_takes_it_along() {
     assert!(through, "it walked through the patch's tile");
     assert_eq!(t.status(6), MoveStatus::Arrived);
     assert!(t.pos(6).distance(beyond) < 1.0, "{}", t.pos(6));
+}
+
+/// Design change 0042's second verification with the mining itself ("A patch mined out in the fog is still routed
+/// around until a unit sees its tile"; `path_knowledge.rs` has it with a debug removal): player 2's plate mines out a
+/// map patch of 10 in tick 48 and is removed in tick 50, taking the patch along, which opens the true grid at once.
+/// Player 1, who never saw either, still assumes the patch there, its planning grid blocked, until its Peacekeeper
+/// comes in sight of the tile.
+#[test]
+fn a_patch_mined_out_in_the_fog_is_assumed_until_its_tile_is_seen() {
+    let mut t = ScenarioBuilder::new(&flat(40, 10))
+        .spawn_with(patch(10), tile(30, 5)) // 1
+        .spawn(ObjectKind::Generator, Some(P2), tile(36, 1)) // 2
+        .spawn(PLATE, Some(P2), tile(30, 5)) // 3
+        .spawn(
+            ObjectKind::Peacekeeper,
+            Some(P1),
+            SpawnAt::Point(TilePos::new(2, 5).center()),
+        ) // 4
+        .start();
+    t.without_auto_targeting()
+        .debug_at(50, DebugCommand::Remove { id: ObjectId(3) });
+    let assumed = |t: &TestSim| -> Vec<ObjectId> {
+        let knowledge = t.sim().path_knowledge().player(P1).unwrap();
+        knowledge.assumed().iter().map(|a| a.id).collect()
+    };
+    let known_blocked = |t: &TestSim| {
+        let grid = t.sim().known_nav(P1).unwrap().grid(NavClass::GroundRugged, 1).unwrap();
+        grid.is_blocked(TilePos::new(30, 5))
+    };
+    assert_eq!(assumed(&t), [ObjectId(1)]);
+    t.run_until(50);
+    assert_eq!(bank(&t, P2), 10, "mined out in tick 48");
+    assert!(
+        t.sim().object(ObjectId(1)).is_none() && !blocked(&t, 30, 5),
+        "gone with its plate"
+    );
+    assert!(
+        known_blocked(&t) && assumed(&t) == [ObjectId(1)],
+        "player 1 didn't see it go"
+    );
+
+    // Towards the tile, until it comes into sight (a Peacekeeper sees 5 tiles): the assumption ends in that tick.
+    let sees = |t: &TestSim| t.sim().vision().state(P1, TilePos::new(30, 5)) == VisibilityState::Visible;
+    let lookout = TilePos::new(26, 5).center();
+    t.order_at(51, P1, &[ObjectId(4)], OrderKind::Move(Target::Point(lookout)), false);
+    while !sees(&t) {
+        assert!(
+            known_blocked(&t) && assumed(&t) == [ObjectId(1)],
+            "tick {}",
+            t.sim().tick()
+        );
+        assert!(t.sim().tick() < 1000, "the Peacekeeper should see the tile by now");
+        t.step();
+    }
+    assert!(!known_blocked(&t) && assumed(&t).is_empty());
 }
 
 /// The same through a debug removal of the plate, in the command phase: the depleted patch goes in the same tick,

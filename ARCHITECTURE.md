@@ -168,9 +168,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   GDO's Deployment Center, Generator, Barracks, Extraction Facility and Extraction Plate (slice M2-A; their
   `ObjectKind`s follow the M1 ones, because the state hash numbers kinds in declaration order). A structure type has
   `ObjectDef::structure: Some(StructureDef)` (its `SymmetryType`, BuildRadiusExtension and Power, and the plate's
-  `MiningDef` in `StructureDef::mining`, see *Economy*) and a tile footprint, `ObjectDef::tile_size` as unturned; its `Placement` holds it as placed, `w` and `h`
-  swapped by a quarter turn, with the orientation it was placed in (`Placement::orientation`). It has HP, armour and
-  a SightRange, and no orders, mover or attack, so behaviours, movement and combat pass it by.
+  `MiningDef` in `StructureDef::mining`, see *Economy*) and a tile footprint, `ObjectDef::tile_size` as unturned;
+  its `Placement` holds it as placed, `w` and `h` swapped by a quarter turn, with the orientation it was placed in
+  (`Placement::orientation`). It has HP, armour and a SightRange, and no orders, mover or attack, so behaviours,
+  movement and combat pass it by.
 - **Sides** (`sides.rs`, design change 0079): `sides(kind, orientation)` gives the letters of a structure's sides
   that face north, east, south and west (`[SideLetter; 4]`, `None` for other objects). Unturned, the letters of its
   `SymmetryType` (AAAA to ABCD) run clockwise from the top side; a flip mirrors them, then the rotation turns them
@@ -700,9 +701,8 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   would reject it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to load. Validate at the
   input layer.
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`,
-  `PatchDepleted`, …) are
-  output only, for effects, sounds and UI. The sim never reads them. `Sim::events()` holds only the latest step's events, and `Sim::new`
-  discards the events from the scenario's initial spawns.
+  `PatchDepleted`, …) are output only, for effects, sounds and UI. The sim never reads them. `Sim::events()` holds
+  only the latest step's events, and `Sim::new` discards the events from the scenario's initial spawns.
 
 ## Sim scenarios and tests
 
@@ -805,7 +805,8 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
 - **Economy tests** are `crates/sim/tests/economy_mining.rs` (lumps every 48 ticks and the first 48 ticks after
   placement, the cycles under the power penalty and across a change of ratio, the loads down to the residual, a plate
   gone from a patch with crystals left or from a depleted one, by a debug removal or in combat, after which a unit
-  walks through the opened tile, and the links in any order) and `economy_resources.rs` (the banks and
+  walks through the opened tile, a patch mined out in the fog that another player assumes until it sees the tile
+  (design change 0042), and the links in any order) and `economy_resources.rs` (the banks and
   `SetResources`, power and the ticks a building counts in, Unit Control, a mining game replayed and saved).
 - **Structure tests** are `crates/sim/tests/structures.rs` (each type's stat block, the Barracks in all 16 ways to
   rotate and flip it and its sides, ground units walking around a footprint, PointArmor on hits, a destroyed
