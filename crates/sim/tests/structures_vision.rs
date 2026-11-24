@@ -120,6 +120,9 @@ fn an_enemy_barracks_is_remembered_in_the_fog() {
     let mut t = ScenarioBuilder::new(&flat(32, 10))
         .spawn(ObjectKind::Barracks, Some(P2), tile(12, 4)) // 1: (12, 4) to (14, 5)
         .spawn(PK, Some(P1), SpawnAt::Point(centre(8, 5))) // 2: sees it
+        // Player 2's other building, never in player 1's sight: losing the Barracks doesn't defeat them (plan
+        // decision T8), and the game goes on.
+        .spawn(ObjectKind::Generator, Some(P2), tile(20, 0)) // 3
         .start();
     // Looking only: no shot at the Barracks (they attack enemy buildings, `targets_that_shoot_back_come_first`).
     t.without_auto_targeting();

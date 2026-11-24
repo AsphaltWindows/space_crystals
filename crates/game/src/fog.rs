@@ -7,14 +7,20 @@
 //!   `PlayerVision::remembered`); on Unexplored tiles nothing (`> Unexplored`). The object visuals
 //!   ([`hide_unseen_objects`], `object_render::remembered`), the combat effects, the path overlay, the command
 //!   indicators, the InfoPanel and the selection (`selection::pick`) all ask it.
+//! - **Spectating** (`core/game_rules.md > End of Game`, "Defeated before the end", design change 0102): a defeated
+//!   player watches with their allies' vision, never a full map reveal. A sight looks through the union of the
+//!   visions it watches ([`Sight::watching`]): a tile shows in the best state any of them gives it, and an object
+//!   remembered by several shows as last seen. The sim has no teams yet, so a defeated player has no allies and
+//!   watches their own vision alone, which has no Visible tile left: they own nothing.
 //! - **The fog layer**: one mesh over the whole map and one texture of one texel per tile, never an entity or a
 //!   material per tile (`ARCHITECTURE.md > Client architecture > Visuals`). The mesh follows the terrain's surface
 //!   tile by tile as the terrain mesh draws it (a quad per flat tile, four triangles around the centre of a sloped
 //!   one), in front of it in the terrain's z band ([`FOG_Z`]): objects stand on it. Each texel is black, with [`UNEXPLORED_ALPHA`] for an Unexplored tile, [`EXPLORED_ALPHA`] for an
 //!   Explored one and none for a Visible one, sampled linearly so the edges soften across a tile
 //!   ([`FOG_SOFT_EDGES`]).
-//!   The texture is written only when what it shows changes: the local player's tiles (`PlayerVision::revision`),
-//!   the local player, or the sim (`SimRes::generation`); the mesh and the texture's size only with the map.
+//!   The texture is written only when what it shows changes: the tiles of the visions the local player watches
+//!   (`Sight::revision`), the local player, or the sim (`SimRes::generation`); the mesh and the texture's size only
+//!   with the map.
 //! - **Off** ([`FogOfWar`]): `--no-fog` and the debug toggle (F3, a placeholder key, only while debug commands are
 //!   on, or in a replay's playback) turn it off for QA: then the client shows and lets the player select
 //!   everything, as if every tile were Visible. The map editor never shows fog; its play-tests do.
@@ -29,7 +35,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::sprite_render::AlphaMode2d;
 use sc_sim::vision::{LastKnown, PlayerVision};
-use sc_sim::{Faction, Map, Object, ObjectId, PlayerId, SU_PER_GU, Sim, TilePos, VisibilityState};
+use sc_sim::{Faction, Map, Object, ObjectId, Player, PlayerId, SU_PER_GU, Sim, TilePos, VisibilityState};
 
 use crate::coords::DrawLayer;
 use crate::input::{ActionState, InputAction};
@@ -69,8 +75,8 @@ impl FogOfWar {
     }
 }
 
-/// What one player sees of the sim, as the client shows it (`core/vision.md`): through its vision while the fog
-/// applies, everything as if Visible while it doesn't.
+/// What one player sees of the sim, as the client shows it (`core/vision.md`): while the fog applies, through the
+/// visions they watch ([`Sight::new`]); everything as if Visible while it doesn't.
 #[derive(Copy, Clone, Debug)]
 pub struct Sight<'a> {
     player: PlayerId,
@@ -80,24 +86,114 @@ pub struct Sight<'a> {
 
 #[derive(Copy, Clone, Debug)]
 struct Fogged<'a> {
-    /// The player's vision; `None` for a player who isn't in the game, who sees nothing.
-    vision: Option<&'a PlayerVision>,
+    /// Every player's vision, in the sim's player order (`Vision::players`).
+    visions: &'a [PlayerVision],
+    /// The ones the player watches through. None for a player who isn't in the game: they see nothing.
+    watched: Watched,
     /// The player plays the GDO (`core/vision.md > Explored Selectability`).
     gdo: bool,
 }
 
+/// Which of the sim's visions a [`Sight`] watches through: bit `i` for the vision of the sim's `i`-th player
+/// (`Vision::players`), for as many players as a game can have. Part of [`Sight::revision`], so that a view keyed on
+/// it redraws when whom the sight watches changes.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct Watched([u64; 4]);
+
+impl Watched {
+    fn contains(self, i: usize) -> bool {
+        self.0.get(i / 64).is_some_and(|word| (word >> (i % 64)) & 1 == 1)
+    }
+
+    fn insert(&mut self, i: usize) {
+        if let Some(word) = self.0.get_mut(i / 64) {
+            *word |= 1 << (i % 64);
+        }
+    }
+}
+
+/// A [`Sight`]'s revision ([`Sight::revision`], [`Sight::records_revision`]): whom it watches, and the sum (wrapping)
+/// of a counter of each vision it watches. It changes whenever what those visions show may have changed.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Revision {
+    pub watched: Watched,
+    pub sum: u32,
+}
+
 impl<'a> Sight<'a> {
-    /// `player`'s sight in `sim`: through its vision if `fog` applies ([`FogOfWar::applies`]).
+    /// `player`'s sight in `sim`, through the visions they watch if `fog` applies ([`FogOfWar::applies`]): their
+    /// own, and while they are defeated their allies' too (design change 0102: "their fog is the union of their
+    /// allies' vision", [`Sim::allies`]). A reading: their own vision stays in the union. Since they own nothing it
+    /// has no Visible tile, so it adds only what they explored and remember themselves, and a defeated player
+    /// without allies (every player until the sim has teams) keeps their map rather than seeing it go black.
     pub fn new(sim: &'a Sim, player: PlayerId, fog: bool) -> Self {
-        let fog = fog.then(|| Fogged {
-            vision: sim.vision().player(player),
-            gdo: sim.player(player).is_some_and(|p| p.faction == Faction::Gdo),
+        if sim.player(player).is_some_and(Player::is_defeated) {
+            let mut viewers = vec![player];
+            viewers.extend(sim.allies(player));
+            Self::watching(sim, player, &viewers, fog)
+        } else {
+            Self::watching(sim, player, &[player], fog)
+        }
+    }
+
+    /// `player`'s sight through the visions of `viewers` if `fog` applies: what their union shows (design change
+    /// 0102). A tile is in the best state any of them gives it, an object in the best state of its tiles, and an
+    /// object out of sight of all of them shows as the latest record any of them keeps of it.
+    pub fn watching(sim: &'a Sim, player: PlayerId, viewers: &[PlayerId], fog: bool) -> Self {
+        let fog = fog.then(|| {
+            let visions = sim.vision().players();
+            let mut watched = Watched::default();
+            for (i, vision) in visions.iter().enumerate() {
+                if viewers.contains(&vision.player()) {
+                    watched.insert(i);
+                }
+            }
+            Fogged {
+                visions,
+                watched,
+                gdo: sim.player(player).is_some_and(|p| p.faction == Faction::Gdo),
+            }
         });
         Self { player, fog }
     }
 
     pub fn player(&self) -> PlayerId {
         self.player
+    }
+
+    /// The visions it watches through; none while the fog doesn't apply.
+    fn visions(&self) -> impl Iterator<Item = &'a PlayerVision> + use<'a> {
+        self.fog.into_iter().flat_map(|f| {
+            f.visions
+                .iter()
+                .enumerate()
+                .filter(move |&(i, _)| f.watched.contains(i))
+                .map(|(_, vision)| vision)
+        })
+    }
+
+    /// Changes whenever the state of a tile it shows may have changed: whom it watches, and the sum of their
+    /// `PlayerVision::revision`s (each only grows). `None` while the fog doesn't apply.
+    pub fn revision(&self) -> Option<Revision> {
+        let f = self.fog?;
+        let sum = self.visions().fold(0u32, |sum, v| sum.wrapping_add(v.revision()));
+        Some(Revision {
+            watched: f.watched,
+            sum,
+        })
+    }
+
+    /// [`Sight::revision`] for the records it shows: whom it watches and the sum of their
+    /// `PlayerVision::records_revision`s.
+    pub fn records_revision(&self) -> Option<Revision> {
+        let f = self.fog?;
+        let sum = self
+            .visions()
+            .fold(0u32, |sum, v| sum.wrapping_add(v.records_revision()));
+        Some(Revision {
+            watched: f.watched,
+            sum,
+        })
     }
 
     /// Whether the fog applies: `false` while everything shows.
@@ -110,12 +206,24 @@ impl<'a> Sight<'a> {
         self.fog.is_some_and(|f| f.gdo)
     }
 
-    /// How the player sees `tile`.
+    /// How the player sees `tile`: its best state among the visions watched.
     pub fn tile(&self, tile: TilePos) -> VisibilityState {
         match self.fog {
             None => VisibilityState::Visible,
-            Some(f) => f.vision.map_or(VisibilityState::Unexplored, |v| v.state(tile)),
+            Some(_) => self.best(|v| v.state(tile)),
         }
+    }
+
+    /// The best of `state` among the visions watched; Unexplored with none.
+    fn best(&self, state: impl Fn(&PlayerVision) -> VisibilityState) -> VisibilityState {
+        let mut best = VisibilityState::Unexplored;
+        for vision in self.visions() {
+            best = best.max(state(vision));
+            if best == VisibilityState::Visible {
+                break;
+            }
+        }
+        best
     }
 
     /// How the player sees the tile holding the ground point `ground`.
@@ -127,7 +235,7 @@ impl<'a> Sight<'a> {
     pub fn object(&self, object: &Object) -> VisibilityState {
         match self.fog {
             None => VisibilityState::Visible,
-            Some(f) => f.vision.map_or(VisibilityState::Unexplored, |v| v.object_state(object)),
+            Some(_) => self.best(|v| v.object_state(object)),
         }
     }
 
@@ -138,15 +246,27 @@ impl<'a> Sight<'a> {
     }
 
     /// What Explored tiles show (`core/vision.md > Explored`): the records of the structures and resources the
-    /// player remembers and doesn't see now, in their last-known state, by id. None while the fog doesn't apply,
-    /// when every object shows as it is.
+    /// player remembers and doesn't see now, in their last-known state, one per object
+    /// ([`Sight::remembered_record`]). None while the fog doesn't apply, when every object shows as it is.
     pub fn remembered(&self) -> impl Iterator<Item = &'a LastKnown> + use<'a> {
-        self.fog.and_then(|f| f.vision).into_iter().flat_map(|v| v.remembered())
+        let sight = *self;
+        self.visions().flat_map(PlayerVision::remembered).filter(move |record| {
+            sight
+                .remembered_record(record.id)
+                .is_some_and(|shown| std::ptr::eq(shown, *record))
+        })
     }
 
-    /// The record shown in place of object `id` ([`Sight::remembered`]), if any.
+    /// The record shown in place of object `id` ([`Sight::remembered`]), if any: the latest of the records the
+    /// visions watched keep of it (the first of them on a tie), unless one of them sees its footprint now.
     pub fn remembered_record(&self, id: ObjectId) -> Option<&'a LastKnown> {
-        self.fog?.vision?.remembered_record(id)
+        let latest = self
+            .visions()
+            .filter_map(|v| v.record(id))
+            .reduce(|latest, record| if record.seen > latest.seen { record } else { latest })?;
+        let corner = latest.placement.origin.corner();
+        let far = corner + Vec2::new(latest.placement.w as f32, latest.placement.h as f32) * SU_PER_GU;
+        (!self.visions().any(|v| v.sees_box(corner, far))).then_some(latest)
     }
 }
 
@@ -203,8 +323,8 @@ pub struct FogView {
 struct FogKey {
     generation: u32,
     player: PlayerId,
-    /// The player's `PlayerVision::revision`; `None` for a player who isn't in the game.
-    revision: Option<u32>,
+    /// The sight's [`Sight::revision`]: whom it watches, and their tiles.
+    revision: Option<Revision>,
     map_build: Option<u32>,
 }
 
@@ -235,15 +355,22 @@ pub fn fog_alpha(state: VisibilityState) -> f32 {
     }
 }
 
-/// The texels of a `width` × `height` map as `vision` sees it (row by row from the north-west corner, RGBA8): black,
-/// with each tile's [`fog_alpha`]. Without a vision, every tile is Unexplored.
-pub fn fog_texels(vision: Option<&PlayerVision>, width: u32, height: u32) -> Vec<u8> {
+/// The texels of a `width` × `height` map as `sight` sees it (row by row from the north-west corner, RGBA8): black,
+/// with each tile's [`fog_alpha`], its best state among the visions the sight watches. Watching none, every tile is
+/// Unexplored; without the fog, every tile is Visible.
+pub fn fog_texels(sight: &Sight, width: u32, height: u32) -> Vec<u8> {
     let tiles = width as usize * height as usize;
     let texel = |state| [0, 0, 0, (fog_alpha(state) * 255.0).round() as u8];
-    match vision {
-        Some(v) => v.states().take(tiles).flat_map(texel).collect(),
-        None => [texel(VisibilityState::Unexplored)].repeat(tiles).concat(),
+    if !sight.is_fogged() {
+        return [texel(VisibilityState::Visible)].repeat(tiles).concat();
     }
+    let mut states = vec![VisibilityState::Unexplored; tiles];
+    for vision in sight.visions() {
+        for (best, state) in states.iter_mut().zip(vision.states()) {
+            *best = (*best).max(state);
+        }
+    }
+    states.into_iter().flat_map(texel).collect()
 }
 
 /// A texture of `texels` for a `width` × `height` map ([`FOG_SOFT_EDGES`]).
@@ -319,7 +446,8 @@ fn spawn_fog(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let mesh = meshes.add(placeholder_mesh());
-    let texture = images.add(fog_image(fog_texels(None, 1, 1), 1, 1));
+    let unexplored = [0, 0, 0, (fog_alpha(VisibilityState::Unexplored) * 255.0).round() as u8].to_vec();
+    let texture = images.add(fog_image(unexplored, 1, 1));
     let material = materials.add(ColorMaterial {
         color: Color::WHITE,
         alpha_mode: AlphaMode2d::Blend,
@@ -360,7 +488,8 @@ fn update_fog_layer(
     let Some(assets) = assets else {
         return;
     };
-    let fogged = sight.get().is_fogged();
+    let seen = sight.get();
+    let fogged = seen.is_fogged();
     for mut visibility in &mut layer {
         visibility.set_if_neq(if fogged {
             Visibility::Inherited
@@ -381,18 +510,16 @@ fn update_fog_layer(
     if !fogged {
         return;
     }
-    let player = sight.player.0;
-    let vision = sim.vision().player(player);
     let key = FogKey {
         generation: sim.generation(),
-        player,
-        revision: vision.map(PlayerVision::revision),
+        player: seen.player(),
+        revision: seen.revision(),
         map_build,
     };
     if view.shown == Some(key) {
         return;
     }
-    let texels = fog_texels(vision, map.width(), map.height());
+    let texels = fog_texels(&seen, map.width(), map.height());
     let resized = images
         .get(&assets.texture)
         .is_none_or(|image| image.width() != map.width().max(1) || image.height() != map.height().max(1));

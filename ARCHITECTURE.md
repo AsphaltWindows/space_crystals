@@ -249,7 +249,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
 
 1. **Clear events**, so that `Sim::events()` holds only this tick's events.
 2. **Advance the tick** (`tick += 1`).
-3. **Snapshot** `pos`/`facing` into `prev_pos`/`prev_facing` for every object (the client interpolates from these).
+3. **Snapshot** `pos`/`facing` into `prev_pos`/`prev_facing` for every object (the client interpolates from these),
+   and note who owns a structure as the tick starts (`economy::defeat::structure_owners`, for the defeat check).
 4. **Commands**: apply each `PlayerCommand` in `TickInputs` order (`apply_command`). Each passes the gate against
    the state the commands before it left, so a cost is paid from the bank as they left it and a Place is checked
    with the footprints they placed (see *Economy > Construction*).
@@ -278,13 +279,17 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      that a building destroyed in the tick counts for nothing in it; before 5f, so that what it brings into the game
      is seen in its own tick. In order: every player's power (the structures this tick's commands placed included),
      the constructors (`construction::step`; when a recipe's frames count: *Economy > Recipe timing*), the plates'
-     mining, the defeat check (M2-F).
+     mining.
    - Producers, `Sim::step_production` (slice M2-D2, see *Production*): part of the economy phase, run right after
      `economy::step` and not inside it, because a finished unit is inserted into the game (`Sim::insert_object`).
      The unit in production advances, and a finished one is released into its exit doorway, or held while that is
      occupied. Nothing in `economy::step` reads what the producers write, or the other way round, so the order
      between the two is free. After 5d, so a released unit never moves in its own tick; before 5f, so it is seen
      in it.
+   - Defeat, `economy::defeat::step` (slice M2-F2, plan decision T8, see *Economy > Defeat and the end of the
+     game*): the economy phase's last step, run by `step` after the producers, so that every way a structure left
+     the game in the tick counts (the commands' removals, 5e's deaths). Before 5f, so that the units a defeat makes
+     neutral are nobody's eyes in its own tick.
    - 5f `Vision::update`: every player's sight from the objects as the tick leaves them, those this tick's commands
      spawned included (see Vision). Combat in 5e reads the vision of the tick before.
    - `update_supply_stations` (`core/map.md > SupplyDeliveryStation`).
@@ -733,6 +738,27 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
 - **Adding to the economy** (slices M2-D2, M2-F): put the new step into `economy::step` at its numbered place, advance
   progress by `PowerSummary::speed` from the tick the command applies (*Recipe timing*), take costs with
   `spend_crystals` when the command applies, and give refunds through `Refund`; `construction.rs` is the pattern.
+- **Defeat and the end of the game** (`economy/defeat.rs`, slice M2-F2, plan decision T8; `core/game_rules.md >
+  Defeat Condition`, `> On Defeat`, `> End of Game`; design changes 0100 to 0102):
+  - **Defeat**: a player is defeated in the tick their count of owned structures drops to 0 (every structure
+    counts, plates included): `defeat::step` compares the owners of structures as the tick started with those as it
+    ends, so a player who never owned a structure (a sandbox's) is never defeated, and nobody is once the game is
+    over. `Player::defeated_at` (hashed, `#[serde(default)]`), `SimEvent::PlayerDefeated`.
+  - **On defeat** (0101): the player's remaining objects, units only since they own no structure, become neutral
+    (`owner: None`): orders cleared, attack disengaged, mover stopped, and `Mover::repath` (see *Navigation > Path
+    knowledge > No owner*). Neutral, they give no vision, never auto-target and are never auto-targeted, never
+    yield, and any player may destroy them with an explicit Attack. A raised Riot Shield stays raised, and an
+    attack already Firing or in Cooldown runs its course. No producer is ever handed over: a defeated player owns
+    none. The gate refuses every command of a defeated player (`Reject::Defeated`), and a debug spawn of an object
+    for them, so a defeated player owns nothing for good.
+  - **Sides**: the sim has no team or alliance data yet (fixed teams are deferred, `core/map_editor.md > Map Types >
+    Custom`), so every player is their own side (`defeat::allied`) and `Sim::allies` is empty. Teams go there.
+  - **The end**: the defeat that leaves at most one side standing ends the game in its tick: `Sim::outcome()` is
+    `Outcome { tick, winners }` (hashed, serialized, `#[serde(default)]`), after the tick's `PlayerDefeated`s comes
+    `SimEvent::GameOver { winners }`. The winners are the side left standing, its defeated members included;
+    nobody wins when the last sides fall in the same tick (a placeholder: the design doesn't say). From then on the
+    gate refuses every command (`Reject::GameOver`). The sim would step on if asked; the client stops it (see
+    *Client architecture > Sim driver*).
 
 ## Production
 
@@ -796,7 +822,8 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
 - **The command gate** (`sim/gate.rs`): `Sim::validate(&PlayerCommand) -> Result<(), Reject>` checks a command
   against the current state without changing it, and `step` applies a command only through the same check
   (`Sim::check`, which hands the application the objects and positions it resolved), so the two can't disagree. In
-  order: the player is in the game (`Reject::UnknownPlayer`), a debug command needs debug commands on
+  order: the player is in the game (`Reject::UnknownPlayer`), the game isn't over (`GameOver`) and the player isn't
+  defeated (`Defeated`, see *Economy > Defeat and the end of the game*), a debug command needs debug commands on
   (`DebugDisabled`), then the command's own rules: every id it names exists (`UnknownObject`) and, for a player's
   orders to objects, belongs to that player (`NotOwned`, through `Sim::referenced(id, Some(player))`; debug commands
   and targets may name anyone's objects), positions are finite and on the map (`OffMap`), an order's target
@@ -876,9 +903,9 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   ±∞, so the replay file would fail to load. Validate at the input layer.
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`,
   `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `UnitProduced`,
-  `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, …) are output only, for
-  effects, sounds and UI. The sim never reads them. `Sim::events()` holds only the latest step's events, and `Sim::new`
-  discards the events from the scenario's initial spawns.
+  `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
+  `GameOver`, …) are output only, for effects, sounds and UI. The sim never reads them. `Sim::events()` holds only
+  the latest step's events, and `Sim::new` discards the events from the scenario's initial spawns.
 
 ## Sim scenarios and tests
 
@@ -1018,6 +1045,12 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   remembered in the fog, a plate on a patch in maps and layouts, the targets that shoot back first, idle and on an
   AttackMove, a scan reaching a large footprint by its edge). The placement tests are listed under *Placement and the
   build area*.
+- **Game end tests** are `crates/sim/tests/game_end.rs` (defeat by a removal and in combat, plates counting; no
+  defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
+  refused; a 1v1, three players defeated one after the other, and a last defeat shared by two; no producer handed
+  over; a save across a defeat and the end, and old saves) and, in the client, `crates/game/tests/game_end.rs` (the
+  banners, the stop, the saved recording, QA's end, the spectator's fog). The fuzz games of `robustness.rs` give
+  each player a base it can't remove, so that they never end.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
   checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is
@@ -1038,12 +1071,13 @@ out by the same rules.
 - Read `Sim::events()` in the same system, right after `step`, and forward them, for example as Bevy `Message`s. The
   next step clears them, and FixedUpdate can run several times in one frame.
 - `SimControl` says whether the step may run: `paused`, `step_once` (one step while paused, then it clears itself)
-  and QA's `hold_at`. `Pace` says how fast, changeable at any time: `Scaled(f)` runs `f` × 16 ticks per second of
-  real time through `Time<Virtual>`'s relative speed, `Max` (`--fast`) as many ticks per frame as fit in
-  `FAST_FRAME_BUDGET`, drawn exactly at their ticks. A change applies in `PostUpdate` (`apply_pace`), so the next
-  frame's time update already goes at the new pace, and at a scaled pace the fixed loop never owes more than a
-  frame's worth (`limit_fixed_loop`: 250 ms of scaled time), so leaving `Max` runs no burst of ticks. A replay's
-  playback controls both (see Replays and golden hashes).
+  and QA's `hold_at`; never once the game is over (`SimControl::may_step`, `Sim::outcome`: "the game stops",
+  `core/game_rules.md > End of Game`), so a finished game stands at its last tick. `Pace` says how fast, changeable
+  at any time: `Scaled(f)` runs `f` × 16 ticks per second of real time through `Time<Virtual>`'s relative speed,
+  `Max` (`--fast`) as many ticks per frame as fit in `FAST_FRAME_BUDGET`, drawn exactly at their ticks. A change
+  applies in `PostUpdate` (`apply_pace`), so the next frame's time update already goes at the new pace, and at a
+  scaled pace the fixed loop never owes more than a frame's worth (`limit_fixed_loop`: 250 ms of scaled time), so
+  leaving `Max` runs no burst of ticks. A replay's playback controls both (see Replays and golden hashes).
 
 **Visuals**
 - The sim is the source of truth. Visuals are separate entities, each linked to its object by an
@@ -1108,7 +1142,12 @@ out by the same rules.
   the command indicators ask it too. The fog layer is one mesh that follows the terrain's surface tile
   by tile, in the terrain's z band `FOG_Z` in front of it (so no cliff stratum shows through), and one texture of
   one black texel per tile (`UNEXPLORED_ALPHA`, `EXPLORED_ALPHA`, clear when Visible), sampled linearly. The texture
-  is written only when `PlayerVision::revision`, the local player or the sim changes, the mesh only with the map.
+  is written only when `Sight::revision`, the local player or the sim changes, the mesh only with the map.
+  A `Sight` looks through the union of the visions it watches (`Sight::watching`): a tile in the best state any of
+  them gives it, an object out of sight of all of them as the latest record any of them keeps. A player watches
+  their own vision, and a defeated one their allies' too (`Sight::new`, `Sim::allies`; design change 0102: never a
+  full map reveal); `Sight::revision` holds whom it watches. Without teams a defeated player watches their own
+  vision alone, which has no Visible tile left.
   `FogOfWar` turns it off for QA (`--no-fog`, the debug key F3, which a replay's playback takes without debug
   commands too): display only, the sim computes every player's
   vision anyway. The editor shows no fog; its play-tests do.
@@ -1158,7 +1197,11 @@ DisplayHud lists them (`hud/resources.rs`, one `ResourceFigure` text each, `reso
 the GDO Space Crystals and Supplies (the banks), Power as consumed / generated (`Sim::power`), red while consumption
 exceeds generation (0090), and Unit Control as used / `UNIT_CONTROL_CAP`, read through `Sim::unit_control` alone, so
 that the queue's reserved Unit Control (0082) shows as soon as the sim counts it; the other factions Space Crystals
-only, until their own resources exist.
+only, until their own resources exist. At the end of the game a banner across the world view (`hud/outcome.rs`,
+placeholder look and wording) shows the local player's `Banner`: VICTORY for the winners, DEFEAT for everyone else,
+and DEFEATED with a spectating line while a defeated player watches the game go on. A defeated player, and everyone
+once the game is over, gives no commands: the command UI's input set doesn't run (`outcome::may_command`), and
+nothing is `commandable` after the end.
 
 **Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse, the wheel and the screen edge into
 the input of the game and of the map editor, in `PreUpdate` (`ReadActions`, after Bevy's input, UI picking and the
@@ -1303,7 +1346,7 @@ and their producing structures, through one command flow (plan decision T10, sli
   which the sim walks on without engaging (0076: the sim's gate drops shielded units from Attack only). The pointer
   previews the set of per-unit right-click actions: one shows its pointer, several show `Mixed` (0063); while a target
   is awaited, the pending command's look over a target it can use, else Inactive. Nothing is commandable unless the
-  whole selection is the player's (`commandable`).
+  whole selection is the player's, nor once the game is over (`commandable`).
 - **Systems** (`CommandUiSystems`): `Validate` (in `SyncSim`, after the selection's sync) ends an AwaitingTarget that
   no longer holds. `Input` (in `Actions`, after the selection's input) turns Esc, the command hotkeys
   (`InputAction::CommandSlot`), clicks on the panel (found by `CommandGrid`), left-clicks on the map while a target is
@@ -1417,6 +1460,8 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
   machine's GPU (Vulkan, Intel Arc), with no window and no Xvfb. The sim waits at each screenshot tick until the PNG
   is saved, so the PNG shows that tick's exact state with no interpolation. Repeated runs give byte-identical PNGs.
 - Exit codes: 0 when everything was saved, 1 when a QA step failed (the log says which), 2 for invalid flags.
+- Once the game is over the sim steps no more: the screenshots, input steps and exit scheduled after its last tick
+  happen at that tick (`qa::stop_at_game_end`, logged).
 - The `--dump-state` JSON holds `tick`, `scenario` (the map's name), `players`, `objects` (every field of
   `sc_sim::Object`), the last tick's `events`, `client` (`local_player`, `camera_center` as a view point in su,
   `grid_visible`, `fog_of_war`, `recorded_ticks`, the local player's `selection` and `last_known` records, the
@@ -1450,13 +1495,15 @@ unchecked.
 - **Recording** (`crates/game/src/replay/record.rs`): every game the client plays is recorded, not the map editor, its
   play-tests or a playback. The file is `--record`'s, else `replays/<UTC date>_<time>_<map>.json` under the working
   directory (git-ignored; `_2`, `_3`, … when taken). It is written when the game starts, every `AUTOSAVE_TICKS` (160)
-  ticks and when the app exits (window closed, Ctrl+C, a QA run's end), atomically (`files::write_atomically`), so a
-  crash loses a few seconds at most. QA runs record only with `--record`; `--no-record` turns recording off. Should
-  the sim be replaced (`SimRes::generation`), the recording ends there.
+  ticks, at the end of the game (complete, with a checkpoint of its last tick: `Recorder::is_finished`,
+  `core/game_rules.md > End of Game`) and when the app exits (window closed, Ctrl+C, a QA run's end), atomically
+  (`files::write_atomically`), so a crash loses a few seconds at most. QA runs record only with `--record`;
+  `--no-record` turns recording off. Should the sim be replaced (`SimRes::generation`), the recording ends there.
 - **Playback** (`--replay`, `crates/game/src/replay/playback.rs`): the game starts from the replay's scenario with its
   game options, and each step applies the recorded inputs of its tick and nothing else. The local player can't give
   commands: the command UI's input set (`CommandUiSystems::Input`) doesn't run, and anything else pending is dropped.
-  It pauses at the end. The game is checked against the checkpoints at tick 0 and after every step; the first desync
+  It pauses at the end, or where its game ended (a recording made outside the client may go on after it). The game
+  is checked against the checkpoints at tick 0 and after every step; the first desync
   is logged as an error, fails a QA run (exit code 1) and shows in red in the top bar, and the playback goes on.
   Controls (Game context, placeholder keys): Space pauses and resumes, `.` plays one tick and pauses, `-` and `=`
   step through the speeds ×0.5, ×1, ×2, ×4 and max (`playback::SPEEDS`; `--fast` starts at max), F2 switches the
