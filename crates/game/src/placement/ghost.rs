@@ -25,7 +25,8 @@
 //!   whole ghost;
 //! - the letter of each side at its edge, inside the footprint (`sc_sim::sides`), except on a single tile, whose
 //!   sides are all alike (the Extraction Plate's AAAA); and the building's tag in the middle, as its placeholder on
-//!   the map shows it (`crate::hud::selection_panel::short_label`);
+//!   the map shows it (`crate::hud::selection_panel::short_label`), a Warp In's a little below it, clear of the tag
+//!   of the Beacon under the ghost ([`TAG_BELOW_SU`]);
 //! - over everything on the map, under the command indicators: it is the cursor.
 
 use bevy::camera::visibility::NoFrustumCulling;
@@ -64,6 +65,9 @@ const TAG_SU: f32 = 22.0;
 const SMALL_TAG_SU: f32 = 15.0;
 /// How far inside its edge a side letter's centre lies, space units.
 const SIDE_INSET_SU: f32 = 13.0;
+/// How far south of the middle a Warp In ghost's tag stands, space units: between the tag of the Beacon under it, at
+/// the Beacon's centre, and the south side's letter, on the Egress Node's 2 × 2 too.
+const TAG_BELOW_SU: f32 = 26.0;
 /// The ghost's z over the overlays' band base: above everything on the map, under the command indicators and the
 /// drag box (`DrawLayer::Overlays`). The letters lie just above it; the outline over the tiles.
 const GHOST_Z: f32 = -2.0;
@@ -83,6 +87,8 @@ pub struct Ghost {
     pub check: PlacementCheck,
     /// The letters of its sides facing north, east, south and west, as turned (`sc_sim::sides`).
     pub sides: Option<[SideLetter; 4]>,
+    /// A Warp In's ghost, which stands on its Beacon (design change 0121).
+    pub on_beacon: bool,
 }
 
 impl Ghost {
@@ -95,6 +101,7 @@ impl Ghost {
             size: placing.size()?,
             check,
             sides: sides(placing.kind, placing.orientation),
+            on_beacon: matches!(placing.builder, Builder::Beacon(_)),
         })
     }
 
@@ -137,7 +144,8 @@ impl Ghost {
     }
 
     /// The text of each of its labels, and the ground point where it stands: the side letters facing north, east,
-    /// south and west, inside their edges (none on a single tile), then the tag in the middle.
+    /// south and west, inside their edges (none on a single tile), then the tag in the middle (a Warp In's
+    /// [`TAG_BELOW_SU`] south of it).
     pub fn labels(&self) -> [Option<(String, Vec2)>; 5] {
         let (w, h) = (self.size.0 as f32 * SU_PER_GU, self.size.1 as f32 * SU_PER_GU);
         let nw = self.origin.corner();
@@ -148,6 +156,7 @@ impl Ghost {
             nw + Vec2::new(SIDE_INSET_SU, h / 2.0),
         ];
         let lettered = self.size.0.max(self.size.1) > 1;
+        let tag_below = if self.on_beacon { TAG_BELOW_SU } else { 0.0 };
         let side = |i: usize| {
             let letters = self.sides.filter(|_| lettered)?;
             Some((format!("{:?}", letters[i]), mids[i]))
@@ -157,7 +166,7 @@ impl Ghost {
             side(1),
             side(2),
             side(3),
-            Some((short_label(self.kind).to_string(), self.center())),
+            Some((short_label(self.kind).to_string(), self.center() + Vec2::Y * tag_below)),
         ]
     }
 }

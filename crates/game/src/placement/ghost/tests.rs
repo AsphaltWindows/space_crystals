@@ -106,6 +106,23 @@ fn a_warp_in_ghost_shows_a_tile_out_of_sight_red() {
     assert_eq!(shown.edge_color(), INVALID_EDGE);
 }
 
+/// A Warp In's ghost covers its Beacon, whose tag shows at the Beacon's centre: the ghost's own tag stands a little
+/// south of the middle, clear of it, and north of the south side's letter; any other ghost's in the middle.
+#[test]
+fn a_warp_in_ghosts_tag_clears_the_beacons() {
+    let tag = |g: &Ghost| g.labels()[4].clone().expect("a tag").1;
+    let unchecked = PlacementCheck::default;
+    let node = ghost(Placing::warp_in(ObjectId(1), ObjectKind::EgressNode), unchecked());
+    let middle = TilePos::new(3, 2).corner() + Vec2::splat(SU_PER_GU);
+    assert_eq!(tag(&node), middle + Vec2::new(0.0, TAG_BELOW_SU));
+    let (tag_top, tag_bottom) = (tag(&node).y - TAG_SU / 2.0, tag(&node).y + TAG_SU / 2.0);
+    let south = node.labels()[2].clone().expect("a side letter").1.y;
+    assert!(tag_bottom <= south - SIDE_SU / 2.0, "clear of the south letter");
+    assert!(tag_top >= middle.y + TAG_SU / 2.0, "clear of the Beacon's tag");
+    let generator = ghost(Placing::new(ObjectId(1), ObjectKind::Generator), unchecked());
+    assert_eq!(tag(&generator), middle);
+}
+
 /// [`check_now`] asks each builder's own check: a Warp In the Beacon's (`Sim::warp_in_check`); the Drones' the one of
 /// the Drone the click would go to (`Sim::deploy_check`, design changes 0120 and 0125). Drone 3 is ordered to deploy
 /// at `site`: a plain click there would go to it again and replace its order, green; a Shift-click to Drone 4, the
