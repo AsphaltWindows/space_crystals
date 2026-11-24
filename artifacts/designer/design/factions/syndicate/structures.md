@@ -103,6 +103,8 @@ Syndicate tech building enabling the Syndicate's explosives and propulsion techn
 
 Syndicate equipment storage warehouse for re-arming Syndicate forces.
 
+Prerequisite for the **Shadebringer** (2026-11-25).
+
 #### Entity Type - Structure Type (Underground)
 #### Tier Requirement - 1
 #### TechPrerequisite - player owns at least one Hideout (anywhere in the Tunnel Network)
@@ -113,7 +115,7 @@ Syndicate equipment storage warehouse for re-arming Syndicate forces.
 
 Syndicate production building that assembles Syndicate ground vehicles.
 
-Produces (2026-11-25): **Assault Bike** (factions/syndicate/units.md). Costs, times and panel layout: TBD.
+Produces (2026-11-25): **Assault Bike**, **Shadebringer** (requires a Vault) (factions/syndicate/units.md). Costs, times and panel layout: TBD.
 
 #### Entity Type - Structure Type (Underground)
 #### Tier Requirement - 2
