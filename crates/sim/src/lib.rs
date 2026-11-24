@@ -70,7 +70,10 @@ pub use object::{Object, Placement, ResourceState, Rotation};
 pub use orders::{OrderKind, Orders, Target};
 pub use placement::{BuildArea, PlacementCheck, PlacementProblem, TileProblem, WholeProblem};
 pub use player::{Banks, Faction, Player};
-pub use production::{Door, Doorway, Production, ProductionCommand, ProductionStatus, QUEUE_LIMIT, Rally, Refusal};
+pub use production::{
+    Door, Doorway, EnergyDoorway, ExitDoor, Production, ProductionCommand, ProductionStatus, QUEUE_LIMIT, Rally,
+    Refusal,
+};
 pub use replay::{Checkpoint, Desync, Replay, ReplayError};
 pub use riot_shield::RiotShield;
 pub use rng::Rng;

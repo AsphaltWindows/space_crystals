@@ -150,15 +150,15 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
         }
     }
     // `Produces`: units of the producer's own faction, each listed once, each taking time, out of sides its
-    // SymmetryType has: a `Side` rule's letter names exactly one side (the Barracks' B), each letter of a `Nearest`
-    // rule at least one (plan decision T19).
+    // SymmetryType has: a `Side` rule's letter names exactly one side (the Barracks' B), each open letter of a
+    // `Centre` rule at least one (plan decision T19; the portals' energy doorway, design change 0145).
     if let Some(production) = &structure.production {
         let letters = structure.symmetry.letters();
         let count = |letter| letters.iter().filter(|&&l| l == letter).count();
         match production.exits {
             ExitRule::Side(letter) => assert_eq!(count(letter), 1, "{name}: exit side {letter:?}"),
-            ExitRule::Nearest(exits) => {
-                assert!(!exits.is_empty(), "{name}: no exit");
+            ExitRule::Centre(exits) => {
+                assert!(!exits.is_empty(), "{name}: no open side");
                 for &letter in exits {
                     assert!(count(letter) >= 1, "{name}: exit side {letter:?}");
                 }

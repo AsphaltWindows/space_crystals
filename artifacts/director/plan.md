@@ -514,11 +514,26 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Unchanged.** The goldens and the economy oracle; `structures_perf` shows no regression.
   - **Open details.** Lowest id first, no start at power 0, and a zero cost still waits: Q0047.
 
+- **M3-J1 Warp In and Deploy UI** (merged in `864c13f`; 1195 tests; client only, goldens unchanged):
+  - **Beacon.** Q Basic and W Advanced Warp In menus; buildings not in the game hold unavailable slots. The Warp In ghost stands on the Beacon (`warp_in_footprint`), turns and flips about its centre with R/F, and is checked by `warp_in_check`. Tab picks which Beacon gets it.
+  - **Drone.** Q Move, A Deploy, X Stop. The Deploy ghost follows the cursor, checked by `deploy_check` for the Drone the click goes to. Shift chains through the group (0125). Lingering ghosts show the local player's `pending_deploys`.
+  - **Transforming objects** show Cancel (X) only (0116). **0162:** a greyed-out button or hotkey sends `CommandRefused`, shown in the feedback band.
+  - **Structure.** `Placing` has a `Builder` (constructor, Drones, Beacon). The panel tests were split under T28; client tests are in `tests/commands/colonists/`.
+  - **Readings.** Another command pressed while targeting says "Cancel the current command first", and a portal group only partly warping in shows the portal panel: both in Q0048.
+  - **Cosmetic.** The highlighted "Warp RP" button wraps onto two lines.
+
+- **M3-D2 portal energy doorway** (merged in `3576cbe`; 1202 tests; goldens unchanged):
+  - **0145.** `ExitRule::Centre` replaces `Nearest`. `production/exit/energy.rs` (`EnergyDoorway`) takes the open arc from the placed sides.
+  - **Heading.** Toward the rally point if that way out is free; else the nearest free open direction (32 headings, ties clockwise); else the nearest open one. With no rally point it draws with `Rng::below`.
+  - **Walking out.** Units walk out straight along `Mover::exit_heading` (hashed only while set). A unit that can't get out stays half out, as `structures.md` says.
+  - **Unchanged.** The Barracks keeps its side doorway. Perf (`structures_perf`, `movement_perf`) shows no regression.
+  - **Readings.** A release also waits while a unit overlaps the centre box. The rally order is given at release. A half-out unit's new order fails until its exit point is clear. K2 checks that it can still attack, which `structures.md` requires.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
-  - **M3-D2 portal energy doorway** (Opus; brief `scratchpad/briefs/m3d2-portal-energy-doorway.md`): 0145, which replaces M3-D's side doors for portals.
+  - **M3-L1 fog delay and attacker reveal** (Opus; brief `scratchpad/briefs/m3l1-vision.md`): 0177, 0178.
   - **M3-R one default-order rule, remembered targets, Riot Shield orders** (Opus; brief `scratchpad/briefs/m3r-default-order-remembered-targets.md`): 0136, 0139, 0150–0151 (shield part). Gather on a remembered patch waits for H3.
-  - **M3-J1 Warp In and Deploy UI** (Opus; brief `scratchpad/briefs/m3j1-warp-in-deploy-ui.md`): the Beacon menus, ghosts, Deploy dispatch and chaining, lingering ghosts, Cancel-only panels, and the unavailable-button feedback (0162).
+  - **M3-V game end, costs, arrival radius, zero-cost capacity** (Opus; brief `scratchpad/briefs/m3v-game-end-and-costs.md`): 0163 draw, 0164 results screen, 0167 Robo Portal 250, 0169 arrival radius 3 GU, 0175–0176 capacity.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2 playtest** with the user, using `docs/playtest/m2.md`.
@@ -645,13 +660,16 @@ First playable after M2-H2.
     | F | done (`ff119a8`) |
     | G | done (`5d61dc7`) |
     | H3 | done (`1e43600`) |
-    | J1 | running (wave 4) |
+    | J1 | done (`864c13f`) |
     | R | running (wave 3; the Gather part after H3) |
-    | D2 | running (wave 4) |
+    | D2 | done (`3576cbe`) |
     | P | done (`9f63a5f`) |
     | J2 (after R; with 0155) | queued |
-    | V (next free slot; brief `scratchpad/briefs/m3v-game-end-and-costs.md`: 0163, 0164, 0167, 0169) | queued |
-    | K1, K2 | queued |
+    | V (0163, 0164, 0167, 0169, 0175–0176) | running (wave 4) |
+    | S (after R; Riot Shield as two unit types: 0171–0174; brief to write) | queued |
+    | L1 (vision: 0177 attacker reveal and clipped shots, 0178 fog delay) | running (wave 4) |
+    | L2 (after R; behaviours: 0179 rotation steps, 0180 AttackMove leash, 0182 MinRange; brief to write) | queued |
+    | K1, K2 (K2 also: draw a unit crossing a portal footprint above the portal; a half-out unit can attack; 0170 event-driven) | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -692,10 +710,10 @@ First playable after M2-H2.
 | Q0014 | Combat edge cases: force-attacking own or neutral objects, a shot whose target dies mid-Firing, Rugged for units across tiles | no | answered by 0059–0061 (all as built) |
 | Q0015 | Magic box meets yielding (converging groups), box from footprints vs centres, Shift-queued group moves | no | answered by 0027, 0028 and 0029 |
 | Q0016 | Command UI edge cases: who carries out a right-click, invalid targets, input while targeting, Shift keeps targeting | no | answered by 0062–0070 (H2 and H3) |
-| Q0017 | Fog: shots from hidden attackers (hit flash vs. a partial tracer); targeting remembered structures | no | point 2 answered by 0139 (M3-R); point 1 open; F and E build the stated defaults |
-| Q0018 | Behaviour gaps: sight-edge flicker, rotation in target priority, AttackMove leash reference, unreachable auto-targets, MinRange, walled-out spots | no | open; E built the stated defaults |
+| Q0017 | Fog: shots from hidden attackers (hit flash vs. a partial tracer); targeting remembered structures | no | answered: point 1 by 0177 (M3-L), point 2 by 0139 (M3-R) |
+| Q0018 | Behaviour gaps: sight-edge flicker, rotation in target priority, AttackMove leash reference, unreachable auto-targets, MinRange, walled-out spots | no | answered: points 1–2 by 0178 (M3-L1) and 0179 (M3-L2), points 3–6 by 0180–0183 |
 | Q0019 | A remembered station's delivery countdown: keep counting or freeze | no | answered by 0057: GDO sees the real timer (folded into G2) |
-| Q0020 | Riot Shield: shield Move vs 0062 Follow, transitions, raising mid-shot, mixed groups, toggle time and hotkey | no | point 1 answered by 0074 (Follow wins; H3); points 2–5 open (R built the stated defaults) |
+| Q0020 | Riot Shield: shield Move vs 0062 Follow, transitions, raising mid-shot, mixed groups, toggle time and hotkey | no | answered: point 1 by 0074 (H3); points 2–5 by 0171–0174 (M3-S) |
 | Q0021 | Targeting click details: drift during a targeting click, shielded units in Attack targeting, recalling the same group | no | answered by 0073, 0075 and 0078 (H3) |
 | Q0022 | GDO supplies: Supply Tower prerequisite and cost, Chopper flight, Starting Supplies | no | answered by 0077: the supply loop is deferred, Starting Supplies are 0 |
 | Q0023 | Barracks footprint, side letters and exit; blocked exits | no | answered by 0079 (sides, Barracks 3 wide) and 0080 (exit doorway) |
@@ -722,10 +740,11 @@ First playable after M2-H2.
 | Q0044 | Gathering details from the build: fog, plates, empty Drop Off, blocked Drones, redirect timing, the Egress Node's sight | no | answered by 0134, 0137 and 0139–0141 |
 | Q0045 | Pass-through details: idle units left stacked, and the Drop Off order | no | answered by 0126 and 0127 |
 | Q0046 | A Drone's drop-off destroyed while it is on its way back | no | answered by 0170 (as built) |
-| Q0047 | Waiting for capacity: several waiting buildings, no power, zero-cost units | no | open; M3-P built the stated current behaviour |
+| Q0047 | Waiting for capacity: several waiting buildings, no power, zero-cost units | no | answered by 0175 (as built) and 0176 (point 3 in M3-V) |
+| Q0048 | Pressing other commands while targeting (0066 vs 0162); a portal group only partly warping in | no | point 1 answered by 0184 (as built); point 2 open |
 
 ## Design change entries
-Last triaged: 0170.
+Last triaged: 0184.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -838,16 +857,16 @@ Last triaged: 0170.
 | 0113 Structures under transformation count for defeat | Warp In done (M3-E, `68ee747`); deploy cancel done (M3-F, `ff119a8`) | answers Q0039 point 5 |
 | 0114 A Drone deploying with a load keeps it; lost on completion, returned on cancel | done (M3-F, `ff119a8`) | answers Q0039 point 6 |
 | 0115 A building destroyed mid-Warp-In refunds nothing | done (M3-E, `68ee747`) | answers Q0039 point 7 |
-| 0116 Transforming objects show only Cancel; functions start at completion | sim done (M3-E, M3-F `ff119a8`); Cancel-only panel queued (M3-J1) | answers Q0039 point 8 |
+| 0116 Transforming objects show only Cancel; functions start at completion | done (sim M3-E, M3-F `ff119a8`; Cancel-only panel M3-J1 `864c13f`) | answers Q0039 point 8 |
 | 0117 Deploy start position: the footprint centre, or stopped while overlapping it | done (M3-F, `ff119a8`) | answers Q0040 point 1 |
 | 0118 Ground units block Worker-Built and Warp In sites | done (M3-E, M3-F `ff119a8`; air and underground untested, none exist yet) | answers Q0040 point 2 |
-| 0119 Warp In needs Visible tiles | sim done (M3-E, `68ee747`); ghost queued (M3-J1) | answers Q0040 point 3; differs from the proposal |
-| 0120 The Worker-Built ghost in fog uses the player's knowledge | gate done (M3-F, `ff119a8`); ghost queued (M3-J1) | answers Q0040 point 4 |
-| 0121 Odd-size Warp In: extras at the bottom-right, turned and flipped about the Beacon centre | sim done (M3-E, `68ee747`: `transform::warp_in_footprint`, `WarpIn` has no origin); ghost queued (M3-J1) | answers Q0040 point 5; replaces cursor snapping |
-| 0122 Beacons are Ungroupable | def done (M3-E, `68ee747`); Tab behaviour queued (M3-J1) | answers Q0040 point 6 |
+| 0119 Warp In needs Visible tiles | done (sim M3-E `68ee747`; ghost M3-J1 `864c13f`) | answers Q0040 point 3; differs from the proposal |
+| 0120 The Worker-Built ghost in fog uses the player's knowledge | done (gate M3-F `ff119a8`; ghost M3-J1 `864c13f`) | answers Q0040 point 4 |
+| 0121 Odd-size Warp In: extras at the bottom-right, turned and flipped about the Beacon centre | done (sim M3-E `68ee747`: `transform::warp_in_footprint`, `WarpIn` has no origin; ghost M3-J1 `864c13f`) | answers Q0040 point 5; replaces cursor snapping |
+| 0122 Beacons are Ungroupable | done (def M3-E `68ee747`; Tab picks the Beacon, M3-J1 `864c13f`) | answers Q0040 point 6 |
 | 0123 A Gather ends only when no patch is left within the Drone's search radius; queued orders wait | done (M3-H3, `1e43600`) | answers Q0040 point 7 and Q0037 point 12; Q0037 point 5 in part; replaces the after-the-next-drop-off proposal |
-| 0124 Colonists panels: two Warp In menus on the Beacon; Cancel only while transforming; portal, Drone and Egress Node grids | portal grids done (M3-D, `20f584e`); Beacon menus and Cancel queued (M3-J1); Drone panel, Egress Node F and the unavailable W/E portal slots queued (M3-J1, M3-J2) | answers Q0040 point 8 |
-| 0125 Lingering build ghosts; Drones Groupable; a Deploy goes to one Drone of a group; Shift-placement chains through the group | sim done (M3-F, `ff119a8`: Groupable Drones, `Sim::pending_deploys`, `TileProblem::Reserved`); ghosts, dispatch and chaining queued (M3-J1) | answers Q0040 point 9; replaces 0071 for Drones |
+| 0124 Colonists panels: two Warp In menus on the Beacon; Cancel only while transforming; portal, Drone and Egress Node grids | portal grids done (M3-D, `20f584e`); Beacon menus and Cancel done (M3-J1 `864c13f`); Drone panel S slot, Egress Node F and the unavailable W/E portal slots queued (M3-J2) | answers Q0040 point 8 |
+| 0125 Lingering build ghosts; Drones Groupable; a Deploy goes to one Drone of a group; Shift-placement chains through the group | done (sim M3-F `ff119a8`: Groupable Drones, `Sim::pending_deploys`, `TileProblem::Reserved`; ghosts, dispatch and chaining M3-J1 `864c13f`) | answers Q0040 point 9; replaces 0071 for Drones |
 | 0126 Idle overlapping units push apart; units with orders are never moved | done (M3-G, `5d61dc7`) | answers Q0045 point 1; amends 0106 |
 | 0127 Drop Off is only a delivery; the Drone then idles at the drop-off or starts its next order | done (M3-H3, `1e43600`) | answers Q0045 point 2 and Q0037 point 1; replaces the return-to-patch proposal |
 | 0128 A loaded Drone sent to Gather skips mining at the new patch and goes to deliver | done (M3-H3, `1e43600`) | answers Q0037 point 2 |
@@ -866,8 +885,8 @@ Last triaged: 0170.
 | 0141 An unreachable patch is handled like an occupied one; the Drone never gives up | done (M3-H3, `1e43600`) | answers Q0044 point 4 |
 | 0142 Beacon Capacity reserved at queue time | superseded by 0143 | answered Q0041 point 1 |
 | 0143 Capacity (Unit Control and Beacon Capacity) is taken when production starts, not at queue time; a producer without room waits at 0% | done (M3-P, `9f63a5f`) | answers Q0041 points 1–2; replaces 0082 and 0142 |
-| 0144 Robo Portal exits: the Bio Portal's rule on all four sides, closest by side midpoint, ties top, right, bottom, left | built (M3-D, `20f584e`); superseded by 0145 | answers Q0041 points 3–4 |
-| 0145 Portal energy doorway: units appear at the portal's centre and leave in any open direction, straight toward the rally point if possible | queued (new slice M3-D2; replaces M3-D's door choice for portals; the Barracks keeps its doorway) | answers Q0041 points 5–6; replaces 0144 |
+| 0144 Robo Portal exits: the Bio Portal's rule on all four sides, closest by side midpoint, ties top, right, bottom, left | built (M3-D, `20f584e`); superseded by 0145 (done, M3-D2 `3576cbe`) | answers Q0041 points 3–4 |
+| 0145 Portal energy doorway: units appear at the portal's centre and leave in any open direction, straight toward the rally point if possible | done (M3-D2, `3576cbe`; the Barracks keeps its side doorway) | answers Q0041 points 5–6; replaces 0144 |
 | 0146 Shields regenerate for neutral and transforming objects | done (M3-B, `61aa089`) | answers Q0042 points 1–2 |
 | 0147 Modifiers skip Shields; only the overflow takes them | done (M3-B, `61aa089`) | answers Q0042 point 3 |
 | 0148 Shield bar above HP; "Shields a / b" in the InfoPanel | done (M3-B, `61aa089`); styling waits for the HUD pass | answers Q0042 point 4 |
@@ -884,7 +903,7 @@ Last triaged: 0170.
 | 0159 Neutral map-placed objects are known from the start (pathing and memory); starting layouts are not | in progress (M3-R, folded in: seed memory records) | answers Q0033 point 3 |
 | 0160 Shift with the rally point sets it and ends targeting | done (as built, M2-H1) | answers Q0035 point 1 |
 | 0161 A rally on one of several selected producers: per-building rules | done (as built, M2-H1) | answers Q0035 point 2 |
-| 0162 A greyed-out button or hotkey gives the refusal feedback with its reason | in progress (M3-J1, folded in) | answers Q0035 point 3 |
+| 0162 A greyed-out button or hotkey gives the refusal feedback with its reason | done (M3-J1 `864c13f`: `CommandRefused` in the feedback band) | answers Q0035 point 3 |
 | 0163 Every remaining side defeated in one tick: a draw | queued (new slice M3-V) | answers Q0036 point 1 |
 | 0164 Defeated with no undefeated allies: leave to a results screen | queued (M3-V) | answers Q0036 point 2 |
 | 0165 Defeat clears orders but not modes | done (as built, M2-F2) | answers Q0036 point 3 |
@@ -893,4 +912,18 @@ Last triaged: 0170.
 | 0168 A Move or Follow whose target is the unit itself is a Stop | in progress (M3-R, folded in) | answers Q0031; fixes M1-G3's self-follow |
 | 0169 Arrival radius 3 GU (was 2) for MovingToLocation and MovingToObject | queued (M3-V) | answers Q0032 |
 | 0170 A drop-off destroyed mid-return: the Drone switches at once to the nearest own node | done (as built, M3-H3 `1e43600`); an event-driven check instead of the per-tick one queued (M3-K2) | answers Q0046 |
+| 0171 Riot Shield toggle window: half speed and no attacking while toggling; damage reduction only when fully up; a second press reverses from the current point | queued (M3-S) | answers Q0020 point 2 |
+| 0172 A shield toggle pressed mid-shot waits for Cooldown to end, then starts | queued (M3-S) | answers Q0020 point 3; like Convert's 0153 |
+| 0173 Peacekeeper and Peacekeeper (Shielded) are two unit types; the type changes at the start of the toggle | queued (M3-S) | answers Q0020 point 4 |
+| 0174 Shield toggle 6 ticks (0.375 s), hotkey R for Raise and Lower | queued (M3-S) | answers Q0020 point 5 |
+| 0175 Several buildings waiting for capacity: the lowest id starts first | done (as built, M3-P `9f63a5f`); doc comments updated in M3-V | answers Q0047 point 1 |
+| 0176 No start at power 0 (as built); a capacity cost of 0 always passes | point 2 done (as built, M3-P); point 3 in progress (M3-V) | answers Q0047 points 2–3 |
+| 0177 Shots drawn only over Visible tiles; an attacker outside the victim's vision is revealed to the victim's owner for 24 ticks after each shot | in progress (M3-L1) | answers Q0017 point 1 |
+| 0178 Fog delay: a tile stays Visible for 8 ticks after it leaves all sight | in progress (M3-L1) | answers Q0018 point 1 |
+| 0179 Target priority by rotation in 45° steps, then closest, then a fixed order | queued (M3-L2, after R) | answers Q0018 point 2 |
+| 0180 AttackMove leash limits chasing only: targets in weapon range are always fought; PathReference kept after fights, replaced by a blockage detour | queued (M3-L2, after R) | answers Q0018 point 3 |
+| 0181 Unreachable auto-targets: approach, give up, retry after 32 ticks | done (as built) | answers Q0018 point 4 |
+| 0182 MinRange: auto-targeting skips targets inside it; an explicit Attack backs a mobile unit off, and fails for an immobile one with "Target too close" | queued (M3-L2, after R) | answers Q0018 point 5 |
+| 0183 A unit walled out of its group spot counts as arrived within the 3 GU radius | done with 0169 (M3-V) | answers Q0018 point 6 |
+| 0184 Another command pressed while targeting: "Cancel the current command first" | done (as built, M3-J1 `864c13f`) | answers Q0048 point 1 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

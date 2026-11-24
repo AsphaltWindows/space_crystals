@@ -38,6 +38,12 @@ When a unit has no active command (command queue empty), it scans for ValidTarge
 
 ### Global Constant: IdleLeashDistance - 4 grid units
 
+### Targets inside MinRange
+(user, 2026-11-24) Auto-targeting (BaseAutoTargeting and TurretAutonomousScanning) **skips** enemies inside the weapon's MinRange and picks one it can hit; with none, it does nothing.
+
+### Unreachable auto-targets
+(user, 2026-11-24; for now) An auto-acquired target the unit can't reach (e.g. on a cliff with no ramp, in sight but out of weapon range) is handled by the normal rules: the unit tries to approach, gives up by the give-up rule, and **retries after 32 ticks (2 s)**. Skipping unreachable targets in favour of the next one was considered and not adopted for now.
+
 ### Active during HoldPosition:
 Same target scanning as idle, but Locomotion is locked to Stationary. The unit never chases. For turret units, the turret engages within range and arc. For non-turret units with CanTurnInPlace, Orientation = Turning(enemy position) and engage via BaseAttackChannel. For non-turret units without CanTurnInPlace, can only engage targets already in the unit's current facing and weapon range. If the target leaves range, disengage immediately.
 
@@ -161,6 +167,10 @@ Gliders cannot stop. Instead of stopping when in range, the Glider performs stra
 ### Failure:
 If the unit repeatedly fails to make progress toward the target, behavior complete.
 
+
+### Target inside MinRange
+(user, 2026-11-24) On an explicit Attack whose target is inside the weapon's MinRange, a unit that can move **backs off** until the target is outside MinRange, then attacks. A unit that can't move (e.g. a deployed Artillery Rig) can't carry it out: the order fails with feedback ("Target too close"; same channel as other refusals).
+
 ## AttackingLocation
 Base behavior for attacking a ground location. Only available to units whose AttackType has CanTargetGround = true.
 
@@ -210,7 +220,7 @@ Base behavior for moving to a target location while engaging enemies encountered
 - MovingToLocation sub-behavior state (for pathing to TargetLocation)
 - AttackingObject sub-behavior state (when engaged with a target)
 - CurrentTarget: ObjectInstance | None
-- PathReference: the planned path to TargetLocation (used for leash distance calculation)
+- PathReference: the path planned when the AttackMove started (used for leash distance calculation). It is **not** replaced after fights (the walking path is re-planned, the leash line isn't), so fights can't drag the unit progressively off course. It **is** replaced when the unit has to re-route because its way is **blocked** (a detour), so the unit can fight and chase normally along the detour (user, 2026-11-24).
 
 ### Algorithm:
 1. Begin MovingToLocation toward TargetLocation
@@ -219,7 +229,7 @@ Base behavior for moving to a target location while engaging enemies encountered
    - If enemy detected: set CurrentTarget, switch to AttackingObject sub-behavior targeting CurrentTarget
    - For turret units: set TurretCommandState.LockedTarget = CurrentTarget
 3. While engaged with CurrentTarget:
-   - If unit's perpendicular distance from PathReference exceeds AttackMoveLeashDistance: disengage, clear CurrentTarget, resume MovingToLocation from current position toward TargetLocation (recompute path)
+   - **The leash limits chasing only** (user, 2026-11-24): a CurrentTarget **within weapon range is always fought**, wherever the unit is. The unit does not **move** to chase a target if that would take it beyond AttackMoveLeashDistance (perpendicular distance from PathReference). If the target is out of weapon range and can only be reached by going beyond the leash: disengage, clear CurrentTarget, resume MovingToLocation from current position toward TargetLocation (recompute path). So an attack-moving unit is never shot without fighting back by an enemy it can reach from where it is; it only ignores enemies that outrange it from beyond the leash.
    - If CurrentTarget is destroyed: clear CurrentTarget, resume MovingToLocation from current position toward TargetLocation (recompute path)
 4. When unit arrives at TargetLocation: behavior complete
 

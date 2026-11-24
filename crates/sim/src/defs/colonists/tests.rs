@@ -249,7 +249,8 @@ fn the_egress_node_follows_the_design() {
     assert_eq!((structure.production, structure.warp_in), (None, &[][..]));
 }
 
-/// `factions/colonists/structures.md > Robo Portal`: it produces Drones, out of any of its four sides (all A).
+/// `factions/colonists/structures.md > Robo Portal`: it produces Drones, which leave its energy doorway in any
+/// direction, out through its four sides (all A, all open: design change 0145).
 #[test]
 fn the_robo_portal_follows_the_design() {
     let structure = assert_structure(
@@ -268,7 +269,7 @@ fn the_robo_portal_follows_the_design() {
     assert_eq!(
         (production.exits, production.recipes),
         (
-            ExitRule::Nearest(&[SideLetter::A]),
+            ExitRule::Centre(&[SideLetter::A]),
             &[Recipe {
                 kind: ObjectKind::Drone,
                 cost: 50,
@@ -278,8 +279,9 @@ fn the_robo_portal_follows_the_design() {
     );
 }
 
-/// `factions/colonists/structures.md > Bio Portal`: it produces Sabre Legionnaires through one of its A sides
-/// (`> Exit Behavior`), never Rifle Legionnaires ("Not directly produced").
+/// `factions/colonists/structures.md > Bio Portal`: it produces Sabre Legionnaires, which leave its energy doorway
+/// through its two A sides (`> Exit Behavior`, design change 0145), never Rifle Legionnaires ("Not directly
+/// produced").
 #[test]
 fn the_bio_portal_follows_the_design() {
     let structure = assert_structure(
@@ -299,7 +301,7 @@ fn the_bio_portal_follows_the_design() {
     assert_eq!(
         (production.exits, production.recipes),
         (
-            ExitRule::Nearest(&[SideLetter::A]),
+            ExitRule::Centre(&[SideLetter::A]),
             &[Recipe {
                 kind: ObjectKind::SabreLegionnaire,
                 cost: 100,

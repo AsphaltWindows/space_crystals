@@ -179,6 +179,23 @@ impl Drag {
         (moved, turned)
     }
 
+    /// (M3-D2) Steps 1 to 3 for a unit held to the line along the unit vector `dir`: one leaving a portal's energy
+    /// doorway (`super::doorway::emerge`, design change 0145). It turns towards `dir`, at most `turn_rate`, and
+    /// thrusts to bring its velocity, from `momentum`, nearest to `want` along the line. What drag and thrust leave
+    /// across the line is dropped, so it never leaves the line. Returns its speed along `dir` for this tick (0 or
+    /// more; `want` when the thrust reaches it) and the angle it turned.
+    pub(super) fn along(&self, dir: Vec2, want: f32, facing: &mut f32, turn_rate: f32, momentum: Vec2) -> (f32, f32) {
+        let turned = math::turn_toward(facing, math::wrap_angle(math::vector_angle(dir)), turn_rate).angle;
+        let kept = momentum * self.keep;
+        let (thrust, reached) = self.thrust(dir * want - kept, math::facing_vector(*facing));
+        let speed = if reached {
+            want
+        } else {
+            (kept + thrust).dot(dir).max(0.0)
+        };
+        (speed, turned)
+    }
+
     /// Steps 2 to 4 for a unit that isn't steering this tick (no goal, no path yet, held by its attack) and still
     /// has momentum: it brakes, thrusting against its motion, and moves by what is left, as far as tiles and
     /// units allow. It stands once a tick's thrust takes all that the drag left, or when it meets a tile or a

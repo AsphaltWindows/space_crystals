@@ -13,7 +13,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::mover::{MoveGoal, MoveStatus, PathState, STAGGER};
 use crate::nav::{self, PathFail, PathRequest};
 use crate::object::Object;
-use crate::production::Doorway;
+use crate::production::ExitDoor;
 use crate::units::Tick;
 
 /// Where the object a unit heads for was when its path was planned, else `goal`.
@@ -26,8 +26,10 @@ fn planned_goal_of_direct(aimed_at: &[(ObjectId, Vec2)], id: ObjectId, goal: Vec
 /// `core/entities.md > Structure Type > Exit Doorway` (design change 0080): where the path of unit `o` starts if it
 /// is still in the exit doorway of the building that released it (`Mover::exit`): the first of the doorway's ways
 /// out (`Doorway::ways_out`: straight out, then in front of each tile of the exit side) where its box is clear on
-/// the grid it plans on. `None` for any other unit, and for one with no way out that its owner knows of: its
-/// request then fails like any from a blocked tile, and the unit waits in the doorway (`movement::doorway::leave`).
+/// the grid it plans on. (M3-D2) Out of a portal's energy doorway (design change 0145), the one way out: where its
+/// walk along its heading (`Mover::exit_heading`) comes clear of the footprint (`EnergyDoorway::outside`). `None`
+/// for any other unit, and for one with no way out that its owner knows of: its request then fails like any from a
+/// blocked tile, and the unit waits in the doorway (`movement::doorway::leave`, `movement::doorway::emerge`).
 fn doorway_start(
     state: &NavState,
     objects: &BTreeMap<ObjectId, Object>,
@@ -36,13 +38,20 @@ fn doorway_start(
     size: u8,
     half: Vec2,
 ) -> Option<Vec2> {
-    let building = objects.get(&o.mover.as_ref()?.exit?)?;
-    let door = Doorway::of(building).filter(|door| door.holds(o.pos, half))?;
-    door.ways_out(o.pos, half).into_iter().find(|&way| {
+    let mover = o.mover.as_ref()?;
+    let building = objects.get(&mover.exit?)?;
+    let clear = |way: Vec2| {
         state
             .plan_grid(o.owner, class, size, way)
             .is_some_and(|(_, grid)| nav::box_clear(grid, half, way))
-    })
+    };
+    match ExitDoor::of(building).filter(|door| door.holds(o.pos, half))? {
+        ExitDoor::Side(door) => door.ways_out(o.pos, half).into_iter().find(|&way| clear(way)),
+        ExitDoor::Centre(portal) => {
+            let heading = portal.heading_of(o.pos, mover.exit_heading);
+            Some(portal.outside(o.pos, heading, half)).filter(|&way| clear(way))
+        }
+    }
 }
 
 /// How a wanted path turned out without a search.

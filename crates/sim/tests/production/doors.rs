@@ -1,7 +1,7 @@
-//! Helpers for the doorway tests (`exit`, `stalls`).
+//! Helpers for the doorway tests (`exit`, `stalls`, `portals`).
 
 use sc_sim::testing::TestSim;
-use sc_sim::{DebugCommand, Door, Doorway, ObjectId, ProductionCommand, Sim, SimEvent, Target, Tick, Vec2};
+use sc_sim::{DebugCommand, Door, Doorway, ExitDoor, ObjectId, ProductionCommand, Sim, SimEvent, Target, Tick, Vec2};
 
 use super::{P1, PK, production};
 
@@ -68,12 +68,13 @@ pub(super) fn waiting(sim: &Sim, producer: ObjectId) -> bool {
     sim.production_status(producer).is_some_and(|status| status.waiting)
 }
 
-/// Steps once and checks the doorway rule from outside, for every Peacekeeper of player 1: a unit overlaps a
-/// Barracks only while it is that Barracks' released unit, and one that is out never overlaps a Barracks again.
+/// Steps once and checks the doorway rule from outside, for every unit: a unit overlaps a producer (a Barracks, a
+/// portal: design changes 0080 and 0145) only while it is that producer's released unit, and one that is out never
+/// overlaps a producer again.
 pub(super) fn step_checked(t: &mut TestSim, out: &mut Vec<ObjectId>) {
     t.step();
     let sim = t.sim();
-    let doors: Vec<(ObjectId, Doorway)> = sim.objects().filter_map(|o| Some((o.id, Doorway::of(o)?))).collect();
+    let doors: Vec<(ObjectId, ExitDoor)> = sim.objects().filter_map(|o| Some((o.id, ExitDoor::of(o)?))).collect();
     for o in sim.objects().filter(|o| o.mover.is_some()) {
         let exit = o.mover.as_ref().unwrap().exit;
         let half = o.def().half_extents().unwrap();
