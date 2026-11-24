@@ -43,6 +43,10 @@ Reference check (8 adjacent patches in a row, Egress Node 2 grid units from the 
 
 **Reference geometry** (user, 2026-11-24): the Egress Node sits on the row's **long side, centred along it**, with a **2-grid-unit gap of open ground between the node's edge and the edge of the row's middle patches** (edge to edge, not centre to centre).
 
+**A benchmark, not a rule** (user, 2026-11-24): this layout is only the balancing test setup. Maps place patches however they like and players build their Egress Node wherever they want; incomes on other layouts differ, as intended.
+
+**Matching the table in a simulated check** (user, 2026-11-24): on the reference layout, targets 1–4 must hold and each income figure must be within **±15%** of the table. A larger gap is brought back to the designer with the measured table; game numbers are not adjusted to force a match.
+
 | Time | Colonists income | GDO income |
 |---|---|---|
 | 0:00 | 6.1 | 6.7 |
