@@ -73,6 +73,8 @@ When a Drone arrives at an occupied patch, it goes to the **nearest unoccupied p
 3. If that patch is occupied again by the time it arrives, it starts over at step 1 from there.
 4. **Several Drones waiting at the same patch:** which one mines next doesn't matter to the design (user, 2026-11-24). The implementation picks whatever rule is cheapest, as long as it is deterministic.
 
+**A patch that runs out** (user, 2026-11-24): a depleted patch is treated like an occupied one, so the redirect rule above applies. Drones **already waiting** at it look for another patch right away. Drones **walking to it** keep going to where it was and look for another patch **on arrival**, so the search radius is centred on the field, not on wherever the Drone was when the patch ran out. If no patch is found, the Gather ends (When a Gather ends).
+
 **Returning to the last mined patch** (user, 2026-11-24): after delivering a load, a Drone heads back to the patch where it **last successfully mined**, not necessarily the patch it was first ordered to.
 
 **Search radius** (user, 2026-11-24): a Drone only looks for another patch **within a radius around itself**. This radius is an internal per-unit stat of the Drone (stat name TBD). Value: **6 grid units (placeholder)**. Only patches the **player knows** (currently visible, or remembered from earlier sight) and **not covered by a structure** (e.g. a GDO Extraction Plate) count (user, 2026-11-24); a Drone never "finds" a patch hidden in fog.
