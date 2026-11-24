@@ -45,6 +45,9 @@ The player may cancel the deployment at any point before it completes. The trans
 ### Completion
 Once the 48 frames elapse, the transformation is final and one-way. The resulting Beacon can never revert back into a Drone.
 
+### While transforming: only Cancel
+(user, 2026-11-24) A Beacon under deployment and a building under Warp In show **only the Cancel command** in their CommandPanel (no rally point, no other commands). None of the building's functions (production, accepting deliveries, research, abilities) work until the transformation completes. Exception already covered elsewhere: a building under Warp In keeps providing its 5 Beacon Capacity (Warp In > Beacon Capacity Retention). Cancel's hotkey: TBD (see the Colonists panels).
+
 ### Deploying with a load
 (user, 2026-11-24) A Drone carrying a load deploys without delivering it first. The load stays with the deploying object and is **lost when deployment completes**; on **cancel** the Drone returns still carrying it.
 

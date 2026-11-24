@@ -2076,3 +2076,4 @@ Q0039 pt 4: Drone capacity freed at deploy start, Beacon's 5 at completion; Warp
 Q0039 pt 5: transforming structures count for defeat; cancelling last = defeated same tick. Entry 0113.
 Q0039 pt 6: load lost on deploy completion, returned on cancel. Entry 0114.
 Q0039 pt 7: Warp In destroyed = no refund. Entry 0115.
+Q0039 pt 8: transforming objects show only Cancel; functions at completion. Entry 0116. Q0039 done.
