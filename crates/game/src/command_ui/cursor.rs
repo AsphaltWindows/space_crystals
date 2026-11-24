@@ -24,10 +24,11 @@ use bevy::window::{CursorIcon, CustomCursor, CustomCursorImage, PrimaryWindow, S
 use super::indicators::{AGGRESSIVE_COLOR, ATTACK_COLOR, MOVE_COLOR};
 use super::interface::{InterfaceState, active_template, commandable};
 use super::resolution::{CursorTarget, PointerDisplay, pointer_display};
+use crate::fog::LocalSight;
 use crate::input::{ActionState, RawInput};
 use crate::selection::markers::relation_color;
 use crate::selection::{ControlStates, Relation, Selectables};
-use crate::sim_driver::{LocalPlayer, RenderAlpha, SimRes};
+use crate::sim_driver::RenderAlpha;
 use crate::{ClientMode, ClientSystems};
 
 /// The side of a cursor image, pixels.
@@ -98,22 +99,24 @@ impl Plugin for CursorPlugin {
     }
 }
 
-/// `> PointerDisplayType > Resolution Rules`: from the local player's ControlState and what is under the cursor.
+/// `> PointerDisplayType > Resolution Rules`: from the local player's ControlState and what is under the cursor,
+/// among the objects it may select: the fog of war hides the others (`crate::fog`).
 fn update_pointer_look(
     mode: Res<ClientMode>,
     actions: Res<ActionState>,
-    sim: Res<SimRes>,
+    sight: LocalSight,
     alpha: Res<RenderAlpha>,
     states: Res<ControlStates>,
-    player: Res<LocalPlayer>,
     mut look: ResMut<PointerLook>,
 ) {
     let pointer = actions.pointer();
     let new = match (pointer.view, pointer.ground) {
         (Some(view), Some(ground)) if mode.is_game() && !pointer.over_ui => {
-            let state = states.of(player.0);
-            let objects = Selectables::new(&sim, player.0, alpha.0);
-            let template = active_template(&state.selection).filter(|_| commandable(&sim, player.0, &state.selection));
+            let (sim, sight) = (sight.sim(), sight.get());
+            let player = sight.player();
+            let state = states.of(player);
+            let objects = Selectables::new(sim, &sight, alpha.0);
+            let template = active_template(&state.selection).filter(|_| commandable(sim, player, &state.selection));
             let target = CursorTarget::at(&objects, view, ground);
             PointerLook {
                 display: Some(pointer_display(template, state.interface, target)),

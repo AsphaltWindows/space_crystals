@@ -1,13 +1,15 @@
 //! The unit path overlay, a development view toggled with [`InputAction::TogglePaths`] (or shown from the start with
 //! `--show-paths`): each unit's remaining path as a thin line from where the unit is drawn through its remaining
 //! waypoints (`docs/movement.md > 6`), lifted by the terrain's height along the way, in the unit's colour; and a
-//! frame around each unit in the colour of its move's status ([`status_color`], `docs/movement.md > 8`).
+//! frame around each unit in the colour of its move's status ([`status_color`], `docs/movement.md > 8`). Only for
+//! the units the local player is shown (`crate::fog::Sight::shows`): the fog of war hides the others' paths too.
 
 use bevy::prelude::*;
 use sc_sim::{Map, MoveStatus, Mover, Tick};
 
 use crate::ClientSystems;
 use crate::coords::{DrawLayer, drawn_position, view_to_world};
+use crate::fog::LocalSight;
 use crate::input::{ActionState, InputAction};
 use crate::object_render::player_color;
 use crate::shapes::{ColorMesh, lighten, vertex_color_material};
@@ -93,6 +95,7 @@ fn draw_paths(
     overlay: Res<PathOverlay>,
     sim: Res<SimRes>,
     alpha: Res<RenderAlpha>,
+    sight: LocalSight,
     mut meshes: ResMut<Assets<Mesh>>,
     mut entity: Query<(&Mesh2d, &mut Visibility), With<PathOverlayMesh>>,
 ) {
@@ -103,7 +106,8 @@ fn draw_paths(
     if overlay.visible {
         let map = sim.map();
         let z = DrawLayer::Overlays.base_z();
-        for object in sim.objects() {
+        let sight = sight.get();
+        for object in sim.objects().filter(|o| sight.shows(o)) {
             let Some(mover) = &object.mover else {
                 continue;
             };

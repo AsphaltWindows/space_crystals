@@ -21,6 +21,7 @@ pub use input_script::{InputStep, load_input_script};
 
 use crate::ClientSystems;
 use crate::camera::CameraView;
+use crate::fog::FogOfWar;
 use crate::input::ReadActions;
 use crate::map_render::MapView;
 use crate::platform::RenderSurface;
@@ -49,6 +50,9 @@ pub struct QaConfig {
     /// `--show-paths`: the path overlay is on from the start (QA runs ignore the keyboard). A view option: it
     /// doesn't make a QA run by itself.
     pub show_paths: bool,
+    /// `--no-fog`: the fog of war is off from the start (`crate::fog::FogOfWar`). A view option, like
+    /// `show_paths`.
+    pub no_fog: bool,
     /// `--input-script`: the virtual keyboard and mouse at given ticks.
     pub input_script: Vec<InputStep>,
 }
@@ -338,6 +342,7 @@ pub struct DumpSources<'w> {
     camera: Option<Res<'w, CameraView>>,
     map_view: Option<Res<'w, MapView>>,
     control: Option<Res<'w, ControlStates>>,
+    fog: Option<Res<'w, FogOfWar>>,
 }
 
 /// The `--dump-state` file: the sim state through its public accessors, plus the client's view of it.
@@ -359,6 +364,8 @@ pub struct ClientDump {
     /// Camera center in sim space units.
     pub camera_center: Option<Vec2>,
     pub grid_visible: bool,
+    /// Whether the fog of war is on (`--no-fog`, the debug toggle).
+    pub fog_of_war: bool,
     /// Ticks whose inputs are recorded for a replay.
     pub recorded_ticks: usize,
     /// The local player's selection.
@@ -377,6 +384,7 @@ fn write_state_dump(path: &Path, sources: &DumpSources) -> Result<(), String> {
             local_player: sources.player.0,
             camera_center: sources.camera.as_ref().map(|c| c.center),
             grid_visible: sources.map_view.as_ref().is_some_and(|v| v.grid_visible),
+            fog_of_war: sources.fog.as_ref().is_some_and(|f| f.enabled),
             recorded_ticks: sources.recorded.ticks.len(),
             selection: sources
                 .control

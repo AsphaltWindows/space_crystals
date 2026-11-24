@@ -31,9 +31,10 @@ pub use model::{ControlGroups, ControlState, GroupKey, MAX_SELECTED, Selection, 
 pub use pick::{PICK_SLOP_SU, Relation, Selectable, Selectables};
 pub use rules::ClickRoles;
 
-use crate::ClientSystems;
 use crate::command_ui::InterfaceState;
+use crate::fog::{FogOfWar, Sight};
 use crate::sim_driver::{LocalPlayer, RenderAlpha, SimRes};
+use crate::{ClientMode, ClientSystems};
 
 /// Every player's ControlState (`> ControlState`: per player). The local player's is the one the input changes
 /// and the HUD shows ([`ControlStates::of`] with `LocalPlayer`).
@@ -73,6 +74,8 @@ pub struct LocalControl<'w> {
     alpha: Res<'w, RenderAlpha>,
     player: Res<'w, LocalPlayer>,
     states: ResMut<'w, ControlStates>,
+    fog: Res<'w, FogOfWar>,
+    mode: Res<'w, ClientMode>,
 }
 
 impl LocalControl<'_> {
@@ -93,7 +96,8 @@ impl LocalControl<'_> {
 
     /// What the local player can select, as this frame draws it.
     pub fn objects(&self) -> Selectables {
-        Selectables::new(&self.sim, self.player.0, self.alpha.0)
+        let sight = Sight::new(&self.sim, self.player.0, self.fog.applies(*self.mode));
+        Selectables::new(&self.sim, &sight, self.alpha.0)
     }
 
     /// Applies `change` to the local player's ControlState. A change of the Selection or of its ActiveGroup resets

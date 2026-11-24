@@ -87,6 +87,9 @@ pub enum InputAction {
     /// Debug only (`ARCHITECTURE.md > Commands, events and replays`, `SimConfig::debug`): the local client acts as the
     /// next player, so one client can control both sides. Placeholder binding: the design has no debug keys.
     DebugSwitchPlayer,
+    /// Debug only, like [`InputAction::DebugSwitchPlayer`]: turns the fog of war off and on (`crate::fog`), a view
+    /// option for QA. Placeholder binding.
+    DebugToggleFog,
     /// The map editor's input (`ARCHITECTURE.md > Map editor`).
     Editor(EditorInput),
 }

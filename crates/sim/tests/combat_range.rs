@@ -46,7 +46,12 @@ fn attacks(map: &str, attacker: (ObjectKind, Vec2), target: (ObjectKind, Vec2)) 
 
 fn can_attack_now(t: &TestSim) -> bool {
     let sim = t.sim();
-    combat::can_attack_now(sim.map(), sim.object(ATTACKER).unwrap(), sim.object(TARGET).unwrap())
+    combat::can_attack_now(
+        sim.map(),
+        sim.vision(),
+        sim.object(ATTACKER).unwrap(),
+        sim.object(TARGET).unwrap(),
+    )
 }
 
 /// Question Q0009, default A: from the attacker's centre to the nearest point of the target's silhouette. A

@@ -8,20 +8,26 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use sc_sim::{ObjectId, PlayerId, SimEvent};
 
+use super::pick::selectable_by;
 use super::rules::{ClickRoles, drawn_centroid};
 use super::{ControlStates, LocalControl};
+use crate::ClientMode;
 use crate::camera::{CameraView, CameraZoom, ViewportInsets, view_rect};
 use crate::command_ui::InterfaceState;
+use crate::fog::{FogOfWar, Sight};
 use crate::input::{ActionState, Bindings, InputAction, MapClick, SelectionBox};
 use crate::platform::SurfaceSize;
 use crate::sim_driver::{LocalPlayer, SimEventMessage, SimRes};
 
 /// `> ControlState`: validated against the game state every tick. Removed objects (`SimEvent::Removed`, which
 /// combat's deaths send too) leave every player's selection and control groups in the frame of their tick; so does
-/// anything else that no longer exists. A replaced sim (`SimRes::generation`) starts every ControlState over,
-/// because its ids name other objects.
+/// anything else that no longer exists, and anything that player may no longer select (`pick::selectable_by`):
+/// an enemy that walks out of sight is deselected at once (a placeholder rule: the design doesn't say). A replaced
+/// sim (`SimRes::generation`) starts every ControlState over, because its ids name other objects.
 pub(super) fn sync_control_states(
     sim: Res<SimRes>,
+    fog: Res<FogOfWar>,
+    mode: Res<ClientMode>,
     mut events: MessageReader<SimEventMessage>,
     mut states: ResMut<ControlStates>,
 ) {
@@ -37,12 +43,14 @@ pub(super) fn sync_control_states(
         states.generation = Some(sim.generation());
         return;
     }
-    if removed.is_empty() && !sim.is_changed() {
+    if removed.is_empty() && !sim.is_changed() && !fog.is_changed() && !mode.is_changed() {
         return;
     }
     let mut changed = false;
-    for state in states.bypass_change_detection().by_player.values_mut() {
-        changed |= state.retain(|id| !removed.contains(&id) && sim.object(id).is_some());
+    for (&player, state) in &mut states.bypass_change_detection().by_player {
+        let sight = Sight::new(&sim, player, fog.applies(*mode));
+        changed |=
+            state.retain(|id| !removed.contains(&id) && sim.object(id).is_some_and(|o| selectable_by(o, &sight)));
     }
     if changed {
         states.set_changed();

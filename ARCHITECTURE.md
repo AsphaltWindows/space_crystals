@@ -196,7 +196,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
      (see Movement and collision). Units move one after another in id order and never overlap.
    - 5e `combat::step`: attack phases, the tick's list of hits applied together, deaths (see *Combat*). The dead
      leave through `Sim::remove_objects`, then `paths::sync` runs again in case a footprint went with them.
-   - 5f `vision::update` (slice V): empty so far.
+   - 5f `Vision::update`: every player's sight from the objects as the tick leaves them, those this tick's commands
+     spawned included (see Vision). Combat in 5e reads the vision of the tick before.
    - `update_supply_stations` (`core/map.md > SupplyDeliveryStation`).
 
 - **Spawn tick**: an object that a command creates during tick `t` is first updated by the systems in tick `t + 1`.
@@ -238,7 +239,11 @@ ticks spent in it. Hashed and serialized like all state.
   turn twice in a tick; harmless while every M1 unit turns 180° per tick.
 - **Range** (`combat/targeting.rs`): from the attacker's centre to the nearest point of the target's silhouette or
   footprint (`RANGE_MEASURE`, question Q0009's default); within Range and beyond MinRange, both inclusive; the
-  TargetDomain must allow the target's domain. `can_attack_now(map, attacker, target)` is the check for behaviours.
+  TargetDomain must allow the target's domain. `can_attack_now(map, vision, attacker, target)` is the check for
+  behaviours: in range and seen.
+- **Vision** (`systems/combat.md > ValidTarget` 2): a sequence starts, and an aim goes on, only while the attacker's
+  owner sees the target (`PlayerVision::sees_box`), by the vision 5f left at the end of the tick before. A target
+  out of sight stays engaged and its Attack order waits, as for one out of range; a neutral attacker sees nothing.
 - **ElevationModifier** (`elevation.rs`, shared with vision): `Elevation::of` an object is its elevation level (the
   height rounded down), or `Exempt` for air units; `modifier(source, target)` is +1/−1/0 grid unit, binary.
   `attack_range` and `sight_range` apply it; melee attacks don't take it.
@@ -252,7 +257,34 @@ ticks spent in it. Hashed and serialized like all state.
   completes, queued ones are dropped, a move towards one ends `TargetLost`, an attack on one stops (an aim is
   cancelled, a shot being fired hits nothing). `testing::dangling_references` checks that none are left.
 - **Not yet**: chasing, AttackMove, auto-targeting and leashes (slice E: the Attack order waits while its target is
-  out of range, `TODO(E): chase`), vision checks on targets (slice V), turrets, projectiles, AoE, Riot Shield.
+  out of range, `TODO(E): chase`), turrets, projectiles, AoE, Riot Shield.
+
+## Vision
+
+Slice V (`vision.rs`, `vision/sight.rs`; `core/vision.md`). Every tile is `VisibilityState::Unexplored`, `Explored`
+or `Visible` for each player.
+
+- **Sources**: every object with an owner and a SightRange above 0; vision goes to its owner. Each sees a disc
+  around its centre: a tile is seen when its centre (`TILE_SIGHT_POINT`) lies within the SightRange, boundary
+  included, with the ElevationModifier between the object's elevation and the tile's level at its centre
+  (`elevation::sight_range`: +1 GU towards lower tiles, −1 towards higher, none for air). No line of sight: terrain
+  blocks nothing.
+- **Incremental stamps**: each source keeps its `Eye` (owner, centre, SightRange, elevation) and the sorted tiles
+  it stamped. In 5f a source whose eye is unchanged costs nothing; one that changed stamps again and only the
+  difference changes the per-player counts of sources seeing each tile; a source that is gone takes its tiles away.
+  A tile is Visible while its count is above 0, and Explored once it has been Visible. `PlayerVision::revision`
+  changes when any of the player's tiles changes state, so views redraw only then. Measured (`tests/vision_perf.rs`,
+  ignored, release): 500 moving units on 256 × 256, 0.17 ms per tick on average, 0.2 ms at the 99th percentile.
+- **State**: the Explored bits are history, so they are hashed and serialized (each player's rows of `#` and `.`).
+  Eyes, stamps and counts are derived: a loaded save rebuilds them from the objects (`vision::load`), and invariant
+  V1 (`testing::invariants`) rebuilds them from scratch and compares.
+- **Queries**: `Sim::vision()`, `Sim::visibility(player, tile)` and `Sim::is_visible(player, object)`: an object is
+  seen when any tile it covers is Visible (its silhouette box or footprint, `combat::object_box`).
+  `Vision::player(id)` gives a `PlayerVision` with `state`, `states` (row-major, for the client's fog texture),
+  `object_state`, `sees` and `sees_box`.
+- **Not yet**: the chase to a target's last seen position (slice E, Q0010's default: the behaviour records the
+  position itself); the last-known state of structures and resources on Explored tiles (the client shows them as
+  they are now).
 
 ## Navigation
 
@@ -529,8 +561,18 @@ out by the same rules.
   (`TRACER_TICKS`), HP bars over damaged units, a fading marker for each `SimEvent::Died` (`DEATH_MARKER_TICKS`).
   One alpha-blended mesh in the overlays layer, rebuilt every frame while anything shows; effects age by the sim's
   tick and the render alpha, so screenshots stay deterministic.
-- Never make one entity per tile. Draw the terrain as one mesh or texture, or a few chunks. Fog of war will be one
-  texture that is updated when visibility changes, never per-tile materials.
+- **Fog of war** (`fog.rs`, `core/vision.md`): `Sight` says what the local player is shown: its own objects, and
+  everything on its Visible tiles; on Explored tiles the terrain, structures and resources but no other player's
+  units; on Unexplored tiles nothing. Object visuals it doesn't show get `Visibility::Hidden`; tracers, death
+  markers, HP bars, the path overlay, the selection (`selectable_by`) and with it what a click or the pointer
+  targets, and the command indicators ask it too. The fog layer is one mesh that follows the terrain's surface tile
+  by tile, in the terrain's z band `FOG_Z` in front of it (so no cliff stratum shows through), and one texture of
+  one black texel per tile (`UNEXPLORED_ALPHA`, `EXPLORED_ALPHA`, clear when Visible), sampled linearly. The texture
+  is written only when `PlayerVision::revision`, the local player or the sim changes, the mesh only with the map.
+  `FogOfWar` turns it off for QA (`--no-fog`, the debug key F3): display only, the sim computes every player's
+  vision anyway. The editor shows no fog; its play-tests do.
+- Never make one entity per tile. Draw the terrain as one mesh or texture, or a few chunks; the fog of war is one
+  texture, never per-tile materials.
 - Create mesh and material handles once and cache them in a `Resource`. Never create assets per frame, per object or
   per indicator, because the old prototype ran out of memory doing that.
 
@@ -585,7 +627,8 @@ elsewhere.
   the standard slots Z, X and C, Shift to queue) and the editor's (its F1 help lists them). A rebinding UI edits it
   with `bind` and `unbind`. It isn't serializable yet: loading it from a file needs Bevy's `serialize` feature for
   `KeyCode` and `MouseButton`. The selection adds `CenterOnObject` (Alt) to the modifier actions, for clicks on
-  portraits, and F2 for the debug player switch (a placeholder: the design has no debug keys).
+  portraits, and F2 for the debug player switch, the fog of war F3 for its debug toggle (placeholders: the design
+  has no debug keys).
 - **Output**: `ActionState` (a `Resource`) holds this frame's actions (held, just pressed, just released), the wheel's
   turn, the modifiers, the context, the cursor in logical pixels, and the `Pointer`: the view point and the ground
   point (`coords::ground_under`) under the cursor, whether it is over the UI (a UI node by Bevy's picking, or outside
@@ -618,24 +661,26 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   per type, in `ObjectKind` order (an ungroupable object, a patch or a station, is a group alone), each by id; the
   ActiveGroup is a group key, which Tab and Shift + Tab cycle with wrap-around and which falls back to the first group
   when its group empties. At most `MAX_SELECTED` objects (a placeholder: the order limit).
-- **Picking** (`selection/pick.rs`): `Selectables` is what the local player may select this frame (`selectable_by`,
-  the hook for vision's Explored rule), each object's box as it is drawn: interpolated, lifted by the height it
-  stands at, in view space. A click picks the frontmost box under it (grown by `PICK_SLOP_SU`); a box (the input
-  layer's `SelectionBox`) applies the priority tiers. `Relation::of` says own, enemy or neutral (no teams yet, so no
-  allies); allies would count with enemies in the tiers.
+- **Picking** (`selection/pick.rs`): `Selectables` is what the local player may select this frame (`selectable_by`:
+  its own objects, others on Visible tiles, on Explored ones only a Supply Delivery Station and only for a GDO
+  player, `core/vision.md > Explored Selectability`; with the fog off, everything), each object's box as it is
+  drawn: interpolated, lifted by the height it stands at, in view space. A click picks the frontmost box under it
+  (grown by `PICK_SLOP_SU`); a box (the input layer's `SelectionBox`) applies the priority tiers. `Relation::of`
+  says own, enemy or neutral (no teams yet, so no allies); allies would count with enemies in the tiers.
 - **Rules** (`selection/rules.rs`, pure and unit tested): map clicks, boxes, portrait clicks, control group keys and
   Tab on a `ControlState`, under the Constraints (another player's object or a resource is only ever selected alone).
   What a click's modifiers mean comes from the bindings (`ClickRoles`). Every rule the design leaves open is marked
   as a placeholder where it is made.
 - **Systems** (`SelectionSystems`): `Sync` (in `SyncSim`) removes objects that left the sim from every selection
-  and group in the frame of their tick (`SimEvent::Removed`, deaths included, and anything else gone), and starts
-  every state over when the sim is replaced (`SimRes::generation`). `Input` (in `Actions`) applies map clicks, boxes,
-  the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the debug player switch
-  (F2, only while `SimConfig::debug`: the client acts as the next player, so "own" and the state in use change). The
-  HUD's portrait clicks run after it. Systems change a state only through `LocalControl::update`, which marks
-  `ControlStates` changed only on a real change, and puts the ObjectInterfaceState back to DefaultState when the
-  Selection or its ActiveGroup changes. While a target is awaited, map clicks and boxes select nothing (the drag box
-  isn't drawn): the left-click is the target's.
+  and group in the frame of their tick (`SimEvent::Removed`, deaths included, and anything else gone), and those
+  their player may no longer select (an enemy that walked into the fog; a placeholder, the design is silent), and
+  starts every state over when the sim is replaced (`SimRes::generation`). `Input` (in `Actions`) applies map
+  clicks, boxes, the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the
+  debug player switch (F2, only while `SimConfig::debug`: the client acts as the next player, so "own" and the state
+  in use change). The HUD's portrait clicks run after it. Systems change a state only through
+  `LocalControl::update`, which marks `ControlStates` changed only on a real change, and puts the
+  ObjectInterfaceState back to DefaultState when the Selection or its ActiveGroup changes. While a target is
+  awaited, map clicks and boxes select nothing (the drag box isn't drawn): the left-click is the target's.
 - **Visuals** (`selection/markers.rs`): one marker entity per selected object in the ground-decal layer, under the
   object (a ring around a unit, a frame inside a footprint), coloured by relation, the ActiveGroup's solid and the
   others' dashed; meshes cached per shape, relation and activity. The drag box is four edges of one shared mesh in
@@ -661,9 +706,9 @@ to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how th
   one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
   (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow
-  `> Color language`. The pointer (`command_ui/cursor.rs`) shows the `PointerLook`: images drawn in code and cached
-  per look, set as the window's `CursorIcon`, and drawn as a UI node at the injected cursor in QA runs, which render
-  no system cursor.
+  `> Color language`; a target object the fog hides gets no marker and ends no leg (`Sight::shows`). The pointer
+  (`command_ui/cursor.rs`) shows the `PointerLook`: images drawn in code and cached per look, set as the window's
+  `CursorIcon`, and drawn as a UI node at the injected cursor in QA runs, which render no system cursor.
 - The design leaves some things open (labels, colours, the flash, the cursor's shapes, who carries out a
   right-click, what an invalid target click does); each placeholder is marked where it is made.
 
@@ -712,6 +757,7 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--commands <file.json>` | Applies player commands at given ticks: a JSON list of `{"tick", "player", "command"}` (`qa::TimedCommand`; `command` is a `sc_sim::Command` in serde form). Each applies in the step that reaches its tick (1 or later), a tick's commands in file order. Not with `--editor`. |
 | `--input-script <file.json>` | Drives the virtual keyboard and mouse (`InjectedInput`) at given ticks: a JSON list of `{"tick", "cursor", "press", "tap", "release"}` (`qa::InputStep`; buttons by name: `MouseLeft`, `ControlLeft`, `Digit1`, `KeyQ`, `F2`, …). The sim waits at each step's tick until it is applied, so a button held across steps drags and a chord spans steps (Ctrl + 1: `press` Ctrl and `tap` 1, release Ctrl in a later step). Not with `--editor`. |
 | `--show-paths` | Starts with the unit path overlay on (P toggles it). |
+| `--no-fog` | Starts with the fog of war off: the client shows everything (F3 toggles it). Display only; not with `--no-debug`. |
 | `--windowed` | Shows a QA run in a window on the user's display instead of rendering offscreen. |
 | `--headless` | No window and no renderer: sim, client state and `--dump-state` only. Needs `--exit-at-tick`. |
 | Later: replays | Replay recorded sessions. |
@@ -729,7 +775,7 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
 - Exit codes: 0 when everything was saved, 1 when a QA step failed (the log says which), 2 for invalid flags.
 - The `--dump-state` JSON holds `tick`, `scenario` (the map's name), `players`, `objects` (every field of
   `sc_sim::Object`), the last tick's `events`, `client` (`local_player`, `camera_center` as a view point in su,
-  `grid_visible`, `recorded_ticks`, the local player's `selection`) and `map` (the terrain).
+  `grid_visible`, `fog_of_war`, `recorded_ticks`, the local player's `selection`) and `map` (the terrain).
 - `--windowed` runs turn vsync off: with the display asleep, X11 paces a vsynced window at one frame per second.
 - Verify visual work yourself. Capture screenshots and look at the PNGs with the Read tool before you report.
 - To look at another part of a map, give the slot a different camera start in the editor (or the file's

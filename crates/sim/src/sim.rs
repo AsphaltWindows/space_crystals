@@ -20,8 +20,9 @@ use crate::paths::{self, NavState};
 use crate::player::Player;
 use crate::rng::Rng;
 use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
-use crate::units::Tick;
-use crate::{combat, movement, orders, vision};
+use crate::units::{Tick, TilePos};
+use crate::vision::{self, VisibilityState, Vision};
+use crate::{combat, movement, orders};
 
 use gate::Checked;
 pub use gate::Reject;
@@ -64,6 +65,9 @@ pub struct Sim {
     nav_version: u32,
     /// Output of the latest step only; not part of [`Sim::state_hash`].
     events: Vec<SimEvent>,
+    /// Each player's vision as of the end of the latest tick (`vision`): the Explored tiles are history, hashed and
+    /// serialized; the Visible ones follow from the objects and are rebuilt on load.
+    vision: Vision,
     /// Derived from the map and the objects (`docs/movement.md > 3`): not hashed, serialized or compared, and
     /// rebuilt on load.
     #[serde(skip_serializing)]
@@ -91,6 +95,8 @@ impl Sim {
             sim.insert_object(o.kind, o.owner, o.pos, o.placement, o.settings.as_ref());
         }
         sim.nav = NavState::build(&sim.map, &sim.objects);
+        // The starting objects' vision: tick 0 already shows what they see.
+        sim.vision.update(&sim.map, sim.objects.values());
         // Scenario spawns emit no events (`ARCHITECTURE.md > Commands, events and replays`).
         sim.events.clear();
         Ok(sim)
@@ -109,10 +115,11 @@ impl Sim {
                 name: p.name.clone(),
                 faction: p.faction,
             })
-            .collect();
+            .collect::<Vec<Player>>();
         Self {
             tick: 0,
             map: scenario.map.terrain.clone(),
+            vision: Vision::new(&scenario.map.terrain, players.iter().map(|p| p.id)),
             players,
             objects: BTreeMap::new(),
             next_id: 1,
@@ -166,6 +173,24 @@ impl Sim {
         self.nav.nav()
     }
 
+    /// Every player's vision at the end of the latest tick (`core/vision.md`): tile states, which objects each
+    /// player sees, and a revision per player that changes with its tiles.
+    pub fn vision(&self) -> &Vision {
+        &self.vision
+    }
+
+    /// `core/vision.md > VisibilityState`: how `player` sees `tile` at the end of the latest tick. Unexplored off
+    /// the map and for a player who isn't in the game.
+    pub fn visibility(&self, player: PlayerId, tile: TilePos) -> VisibilityState {
+        self.vision.state(player, tile)
+    }
+
+    /// Whether `player` sees `object` at the end of the latest tick: a tile it covers is Visible
+    /// ([`crate::vision::PlayerVision::object_state`]).
+    pub fn is_visible(&self, player: PlayerId, object: &Object) -> bool {
+        self.vision.sees(player, object)
+    }
+
     /// How often the grids were rebuilt since the game started (phase 5b).
     pub fn nav_version(&self) -> u32 {
         self.nav_version
@@ -183,9 +208,10 @@ impl Sim {
     }
 
     /// FNV-1a 64 hash of the whole state: tick, map, players, objects in id order, next id,
-    /// PRNG state, config, next order group and nav version (`f32` by its bits; encoding in
-    /// `hash.rs`). Events are output and the grids derived data, so they are left out. Equal
-    /// states give equal hashes on every machine, so comparing hashes checks determinism.
+    /// PRNG state, config, next order group, nav version and each player's Explored tiles (`f32` by
+    /// its bits; encoding in `hash.rs`). Events are output, and the grids and the Visible tiles
+    /// derived data, so they are left out. Equal states give equal hashes on every machine, so
+    /// comparing hashes checks determinism.
     pub fn state_hash(&self) -> u64 {
         // Destructured without `..`: a new field fails to compile here until it is hashed.
         let Sim {
@@ -199,6 +225,7 @@ impl Sim {
             next_group,
             nav_version,
             events: _,
+            vision,
             nav: _,
         } = self;
         let mut h = StateHasher::new();
@@ -214,6 +241,7 @@ impl Sim {
         config.hash(&mut h);
         next_group.hash(&mut h);
         nav_version.hash(&mut h);
+        vision.hash(&mut h);
         h.finish()
     }
 
@@ -258,13 +286,14 @@ impl Sim {
         );
         // 5e: shoots from the positions movement committed. The dead leave through the removal path; a footprint
         // they leave behind no longer blocks, so the grids follow as in 5b.
-        let dead = combat::step(&mut self.objects, &self.map, first_new, &mut self.events);
+        // It reads the vision of the end of the last tick (5f below), as the design's ValidTarget asks.
+        let dead = combat::step(&mut self.objects, &self.map, &self.vision, first_new, &mut self.events);
         if !dead.is_empty() {
             self.remove_objects(&dead);
             paths::sync(&mut self.nav, &self.map, &self.objects, &mut self.nav_version);
         }
-        // 5f: sees the tick's final positions.
-        vision::update(&self.objects);
+        // 5f: sees the tick's final positions, this tick's new objects included.
+        self.vision.update(&self.map, self.objects.values());
         self.update_supply_stations(first_new);
         debug_assert!(
             self.nav.matches(&self.objects),
@@ -424,6 +453,7 @@ struct SimState {
     next_group: u32,
     nav_version: u32,
     events: Vec<SimEvent>,
+    vision: Vec<vision::ExploredRows>,
 }
 
 impl TryFrom<SimState> for Sim {
@@ -441,6 +471,7 @@ impl TryFrom<SimState> for Sim {
             next_group,
             nav_version,
             events,
+            vision: explored,
         } = state;
         let mut objects = BTreeMap::new();
         for o in list {
@@ -453,6 +484,9 @@ impl TryFrom<SimState> for Sim {
         }
         // Between ticks the grids match the objects (`paths`), so rebuilding them gives the running game's.
         let nav = NavState::build(&map, &objects);
+        // The Visible tiles follow from the objects, which is how phase 5f left them.
+        let ids: Vec<PlayerId> = players.iter().map(|p| p.id).collect();
+        let vision = vision::load(&map, &ids, explored, objects.values())?;
         Ok(Sim {
             tick,
             map,
@@ -464,6 +498,7 @@ impl TryFrom<SimState> for Sim {
             next_group,
             nav_version,
             events,
+            vision,
             nav,
         })
     }

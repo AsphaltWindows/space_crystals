@@ -3,7 +3,8 @@
 //! `systems/controls/commands.md > Unit Command`). Every input arrives through `InjectedInput`, the virtual keyboard
 //! and mouse, and goes through the input layer's bindings like a player's would; each `App::update` is one tick
 //! and 1/16 s of real time (`ARCHITECTURE.md > Client architecture > Client tests`). The orders given are read back
-//! from the recorded inputs, as the sim received them.
+//! from the recorded inputs, as the sim received them. The fog of war is off (`--no-fog`), so that player 1 can
+//! target what it doesn't see: what the fog hides from the command flow is tested in `fog.rs`.
 
 mod indicators;
 mod panel;
@@ -78,10 +79,12 @@ fn scenario() -> Scenario {
     scenario
 }
 
-/// A headless game of [`scenario`] as player 1, debug commands on, the camera at [`VIEW_CENTER`].
+/// A headless game of [`scenario`] as player 1, debug commands on, the camera at [`VIEW_CENTER`], without the fog
+/// of war.
 fn game() -> App {
     let mut config = AppConfig::new(scenario());
     config.display = DisplayMode::Headless;
+    config.qa.no_fog = true;
     let mut app = build_app(config);
     app.insert_resource(TimeUpdateStrategy::FixedTimesteps(1));
     app.finish();

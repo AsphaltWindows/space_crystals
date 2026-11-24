@@ -13,6 +13,7 @@ use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::object::Object;
 use crate::units::{SU_PER_GU, gu};
+use crate::vision::Vision;
 
 /// How Range and MinRange are measured (question Q0009, `docs/movement.md > 2`, gap G7): the options the question
 /// offers.
@@ -106,10 +107,11 @@ pub fn within_range(attrs: &AttackAttrs, distance: f32, source: Elevation, targe
 }
 
 /// Whether `attacker` could attack `target` where both stand now: it has an attack, `target` is destructible and
-/// not `attacker` itself, the attack's TargetDomain allows it, and it is within Range and beyond MinRange. Facing is
-/// not required: Aiming turns the unit (`systems/combat.md > Aiming`). Neither is vision yet (TODO(slice V):
-/// `> ValidTarget` 2). For the behaviours (slice E: chase until this holds) and tests.
-pub fn can_attack_now(map: &Map, attacker: &Object, target: &Object) -> bool {
+/// not `attacker` itself, the attacker's owner sees it in `vision` (`systems/combat.md > ValidTarget` 2; a unit
+/// without an owner sees nothing), the attack's TargetDomain allows it, and it is within Range and beyond MinRange.
+/// Facing is not required: Aiming turns the unit (`systems/combat.md > Aiming`). For the behaviours (slice E: chase
+/// until this holds) and tests.
+pub fn can_attack_now(map: &Map, vision: &Vision, attacker: &Object, target: &Object) -> bool {
     let Some(attrs) = attacker.def().unit.as_ref().and_then(|unit| unit.attack.as_ref()) else {
         return false;
     };
@@ -117,6 +119,7 @@ pub fn can_attack_now(map: &Map, attacker: &Object, target: &Object) -> bool {
     let half = attacker.def().half_extents().unwrap_or(Vec2::ZERO);
     target.id != attacker.id
         && target.hp.is_some()
+        && attacker.owner.is_some_and(|owner| vision.sees(owner, target))
         && domain_allows(attrs.target_domain, object_domain(target))
         && within_range(
             attrs,

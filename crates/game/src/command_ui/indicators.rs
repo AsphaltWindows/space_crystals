@@ -11,10 +11,12 @@
 //!   through the targets of its current and queued orders, as dashed lines, each leg in its order's colour, with
 //!   the queued orders' markers.
 //!
-//! Colours follow `> Color language`: green for Move, red for Attack, orange for AttackMove and Patrol. Everything is
-//! one alpha-blended mesh in the overlays layer, between the path overlay and the combat effects, rebuilt every
-//! frame while anything shows. Flashes age by the sim's ticks and the render alpha, so a QA screenshot of a tick
-//! (alpha 1) always shows them alike.
+//! Colours follow `> Color language`: green for Move, red for Attack, orange for AttackMove and Patrol. A target
+//! object marks nothing, and ends no route leg, while the fog of war hides it from the local player
+//! (`crate::fog::Sight::shows`): the indicators would give away where it is. Everything is one alpha-blended mesh
+//! in the overlays layer, between the path overlay and the combat effects, rebuilt every frame while anything
+//! shows. Flashes age by the sim's ticks and the render alpha, so a QA screenshot of a tick (alpha 1) always shows
+//! them alike.
 
 use std::collections::BTreeSet;
 use std::f32::consts::TAU;
@@ -25,11 +27,12 @@ use sc_sim::{Map, Object, ObjectId, OrderKind, SU_PER_GU, Sim, Target, Tick};
 
 use super::OrderIssued;
 use crate::coords::{DrawLayer, drawn_at_height, drawn_position, view_to_world};
+use crate::fog::{LocalSight, Sight};
 use crate::input::{ActionState, InputAction};
 use crate::object_render::object_height;
 use crate::selection::ControlStates;
 use crate::shapes::ColorMesh;
-use crate::sim_driver::{LocalPlayer, RenderAlpha, SimRes};
+use crate::sim_driver::{RenderAlpha, SimRes};
 use crate::{ClientMode, ClientSystems};
 
 /// How long the flash of a given order lasts, ticks. Placeholder: the design gives none.
@@ -114,39 +117,39 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
 
 /// The indicator of an order (`> Indicator assignments`): a Location for Move, AttackMove and Patrol (a Move to an
 /// object at the object, wherever it is now), an Object for Attack; none for orders without a target, or whose
-/// target is gone.
-pub fn indicator(sim: &Sim, kind: OrderKind) -> Option<Indicator> {
+/// target is gone or hidden from `sight`.
+pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator> {
     let color = order_color(kind)?;
     match kind {
         OrderKind::Move(Target::Point(at)) | OrderKind::AttackMove(at) | OrderKind::Patrol(at) => {
             Some(Indicator::Location { at, color })
         }
         OrderKind::Move(Target::Object(id)) => {
-            let at = sim.object(id)?.pos;
+            let at = shown(sim, sight, id)?.pos;
             Some(Indicator::Location { at, color })
         }
-        OrderKind::Attack(id) => sim.object(id).map(|_| Indicator::Object { id, color }),
+        OrderKind::Attack(id) => shown(sim, sight, id).map(|_| Indicator::Object { id, color }),
         OrderKind::Hold | OrderKind::Stop => None,
     }
 }
 
-/// The indicators of the current orders of the local player's selected units, and of their queued orders too while
-/// `queued`, each target once.
-pub fn selection_indicators(
-    sim: &Sim,
-    states: &ControlStates,
-    player: sc_sim::PlayerId,
-    queued: bool,
-) -> Vec<Indicator> {
+/// Object `id`, if it exists and `sight` shows it.
+fn shown<'a>(sim: &'a Sim, sight: &Sight, id: ObjectId) -> Option<&'a Object> {
+    sim.object(id).filter(|o| sight.shows(o))
+}
+
+/// The indicators of the current orders of the selected units of the player whose `sight` this is, and of their
+/// queued orders too while `queued`, each target once.
+pub fn selection_indicators(sim: &Sim, sight: &Sight, states: &ControlStates, queued: bool) -> Vec<Indicator> {
     let mut seen = BTreeSet::new();
     let mut indicators = Vec::new();
-    for o in own_selected(sim, states, player) {
+    for o in own_selected(sim, states, sight.player()) {
         let Some(orders) = &o.orders else {
             continue;
         };
         let queue = orders.queue.iter().filter(|_| queued);
         for order in orders.current.iter().map(|current| &current.order).chain(queue) {
-            let Some(indicator) = indicator(sim, order.kind) else {
+            let Some(indicator) = indicator(sim, sight, order.kind) else {
                 continue;
             };
             let key = match indicator {
@@ -175,10 +178,11 @@ fn own_selected<'a>(
 }
 
 /// Where the leg of a route that carries out `order` ends, ground space: the target object where it is, else the
-/// unit's own destination (its place in the group's shape, `Order::destination`); none for Hold and Stop.
-fn waypoint(sim: &Sim, order: &Order) -> Option<Vec2> {
+/// unit's own destination (its place in the group's shape, `Order::destination`); none for Hold and Stop, and for
+/// a target hidden from `sight`.
+fn waypoint(sim: &Sim, sight: &Sight, order: &Order) -> Option<Vec2> {
     match order.kind {
-        OrderKind::Move(Target::Object(id)) | OrderKind::Attack(id) => sim.object(id).map(|o| o.pos),
+        OrderKind::Move(Target::Object(id)) | OrderKind::Attack(id) => shown(sim, sight, id).map(|o| o.pos),
         _ => order.destination(),
     }
 }
@@ -237,11 +241,10 @@ fn flash_progress(sim: &Sim, alpha: f32, tick: Tick) -> f32 {
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 fn draw_indicators(
     mode: Res<ClientMode>,
-    sim: Res<SimRes>,
+    local: LocalSight,
     alpha: Res<RenderAlpha>,
     actions: Res<ActionState>,
     states: Res<ControlStates>,
-    player: Res<LocalPlayer>,
     indicators: Res<CommandIndicators>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut entity: Query<(&Mesh2d, &mut Visibility), With<IndicatorMesh>>,
@@ -251,21 +254,22 @@ fn draw_indicators(
     };
     let mut mesh = ColorMesh::triangles();
     if mode.is_game() {
+        let (sim, sight) = (local.sim(), local.get());
         let z = DrawLayer::Overlays.base_z() + INDICATORS_Z;
         let queued = actions.held(InputAction::Queue);
         if queued {
-            for o in own_selected(&sim, &states, player.0) {
-                route(&mut mesh, &sim, o, alpha.0, z);
+            for o in own_selected(sim, &states, sight.player()) {
+                route(&mut mesh, sim, &sight, o, alpha.0, z);
             }
         }
-        for indicator in selection_indicators(&sim, &states, player.0, queued) {
-            marker(&mut mesh, &sim, indicator, alpha.0, 0.0, 1.0, z);
+        for indicator in selection_indicators(sim, &sight, &states, queued) {
+            marker(&mut mesh, sim, indicator, alpha.0, 0.0, 1.0, z);
         }
         for flash in &indicators.flashes {
-            let progress = flash_progress(&sim, alpha.0, flash.tick);
-            if let Some(indicator) = indicator(&sim, flash.kind) {
+            let progress = flash_progress(sim, alpha.0, flash.tick);
+            if let Some(indicator) = indicator(sim, &sight, flash.kind) {
                 let fade = 1.0 - progress;
-                marker(&mut mesh, &sim, indicator, alpha.0, FLASH_REACH * fade, fade, z);
+                marker(&mut mesh, sim, indicator, alpha.0, FLASH_REACH * fade, fade, z);
             }
         }
     }
@@ -280,14 +284,14 @@ fn draw_indicators(
 }
 
 /// A unit's route: dashed legs from where it is drawn through the waypoints of its current and queued orders.
-fn route(mesh: &mut ColorMesh, sim: &Sim, o: &Object, alpha: f32, z: f32) {
+fn route(mesh: &mut ColorMesh, sim: &Sim, sight: &Sight, o: &Object, alpha: f32, z: f32) {
     let Some(orders) = &o.orders else {
         return;
     };
     let mut from = o.prev_pos.lerp(o.pos, alpha);
     let current = orders.current.iter().map(|current| &current.order);
     for order in current.chain(&orders.queue) {
-        let (Some(to), Some(color)) = (waypoint(sim, order), order_color(order.kind)) else {
+        let (Some(to), Some(color)) = (waypoint(sim, sight, order), order_color(order.kind)) else {
             continue;
         };
         dashed_on_terrain(mesh, sim.map(), from, to, z, color.with_alpha(ROUTE_ALPHA));

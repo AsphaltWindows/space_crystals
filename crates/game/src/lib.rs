@@ -11,6 +11,7 @@
 //! - [`camera`]: the world camera (28 GU wide, between the UI) and the UI camera;
 //! - [`map_render`]: the terrain mesh and the grid overlay;
 //! - [`object_render`]: placeholder visuals of sim objects;
+//! - [`fog`]: the fog of war: what the local player sees, the fog layer over the terrain, and hiding the rest;
 //! - [`path_overlay`]: the units' remaining paths, a development view;
 //! - [`combat_effects`]: placeholder combat feedback: tracers, HP bars, death markers;
 //! - [`selection`]: the players' selections and control groups (client-side UI state), and their markers;
@@ -29,6 +30,7 @@ pub mod combat_effects;
 pub mod command_ui;
 pub mod coords;
 pub mod editor;
+pub mod fog;
 pub mod hud;
 pub mod input;
 pub mod map_render;
@@ -47,6 +49,7 @@ use crate::camera::GameCameraPlugin;
 use crate::combat_effects::CombatEffectsPlugin;
 use crate::command_ui::CommandUiPlugin;
 use crate::editor::{EditorConfig, EditorPlugin};
+use crate::fog::FogPlugin;
 use crate::hud::HudPlugin;
 use crate::input::{ActionInputPlugin, InputContext};
 use crate::map_render::MapRenderPlugin;
@@ -181,6 +184,9 @@ pub fn build_app(config: AppConfig) -> App {
             visible: config.qa.show_paths,
         },
         CombatEffectsPlugin,
+        FogPlugin {
+            enabled: !config.qa.no_fog,
+        },
         QaPlugin { config: config.qa },
         SelectionPlugin,
         CommandUiPlugin,

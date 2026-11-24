@@ -7,16 +7,18 @@ use space_crystals::command_ui::cursor::PointerLook;
 use space_crystals::command_ui::indicators::{
     ATTACK_COLOR, CommandIndicators, FLASH_TICKS, Indicator, IndicatorMesh, MOVE_COLOR, selection_indicators,
 };
+use space_crystals::fog::Sight;
 use space_crystals::selection::Relation;
 
 use super::*;
 use KeyCode::{KeyA, ShiftLeft};
 
-/// The local player's indicators now, with the queued orders' or without.
+/// The local player's indicators now, with the queued orders' or without (no fog: see `main.rs`).
 fn indicators(app: &App, queued: bool) -> Vec<Indicator> {
     let world = app.world();
     let states = world.resource::<ControlStates>();
-    selection_indicators(world.resource::<SimRes>(), states, local_player(app), queued)
+    let sim = world.resource::<SimRes>();
+    selection_indicators(sim, &Sight::new(sim, local_player(app), false), states, queued)
 }
 
 fn flashes(app: &App) -> Vec<OrderKind> {
