@@ -1,7 +1,8 @@
 //! Placeholder combat feedback (`systems/combat.md`; the art waits on Q0001): a short tracer from the attacker to
 //! its target for each attack that takes effect (`SimEvent::Attacked`), or a flash of the unit hit when the tracer
-//! is hidden, HP bars over damaged and selected objects, and a fading marker where an object died
-//! (`SimEvent::Died`).
+//! is hidden, HP bars over damaged and selected objects, with a shield bar above the HP bar of an object that has
+//! Shields (`systems/combat.md > Shields`, slice M3-B; the proposal of question Q0042 point 4, a placeholder), and a
+//! fading marker where an object died (`SimEvent::Died`).
 //!
 //! Everything is one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while anything
 //! shows. Effects age by the sim's ticks plus the render alpha, so a QA screenshot of a tick (alpha 1) always shows
@@ -34,10 +35,13 @@ pub const DEATH_MARKER_TICKS: u32 = 40;
 /// A shot leaves a unit this far up the screen from its ground point, su, as from its body rather than its feet.
 const MUZZLE_LIFT: f32 = 8.0;
 /// HP bars: height, gap above the corners of the unit's silhouette (clear of a selection ring, which lies 7 su
-/// outside them: `selection::markers`), and the narrowest bar, su.
+/// outside them: `selection::markers`), and the narrowest bar, su. A shield bar is as high, right above the HP bar,
+/// their frames shared.
 const BAR_HEIGHT: f32 = 4.0;
 const BAR_GAP: f32 = 9.0;
 const BAR_MIN_WIDTH: f32 = 24.0;
+/// A shield bar's fill (placeholder colour, until the art direction: Q0001).
+const SHIELD_FILL: Color = Color::srgb(0.35, 0.72, 1.0);
 /// Above the path overlay, in the overlays layer.
 const EFFECTS_Z: f32 = 1.0;
 
@@ -70,12 +74,15 @@ pub struct CombatEffects {
     generation: Option<u32>,
 }
 
-/// An HP bar: centred on `center` (view space), `width` su wide, `fraction` of it full.
+/// An HP bar: centred on `center` (view space), `width` su wide, `fraction` of it full; with a shield bar above it,
+/// `shields` of it full, for an object that has Shields.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct HpBar {
     pub center: Vec2,
     pub width: f32,
     pub fraction: f32,
+    /// The share of its MaxShields its Shields fill (`Object::shields`), if it has Shields.
+    pub shields: Option<f32>,
 }
 
 /// The entity holding the effects mesh.
@@ -104,14 +111,18 @@ fn shows(sim: &Sim, tick: Tick, ticks: u32) -> bool {
     tick <= sim.tick() && sim.tick() - tick < ticks
 }
 
-/// The HP bars to draw: one over each object that is damaged or `selected`, at its interpolated position, among
-/// those `sight` sees. Out of its MaxHP now: a transforming object's interpolated one (`Object::max_hp`).
+/// The HP bars to draw: one over each object that is damaged (its HP or its Shields short of their maximum) or
+/// `selected`, at its interpolated position, among those `sight` sees. Out of its MaxHP and MaxShields now: a
+/// transforming object's interpolated ones (`Object::max_hp`, `Object::max_shields`).
 pub fn hp_bars(sim: &Sim, sight: &Sight, alpha: f32, selected: impl Fn(ObjectId) -> bool) -> Vec<HpBar> {
     sim.objects()
         .filter(|o| sight.sees(o))
         .filter_map(|o| {
             let (hp, max_hp) = (o.hp?, o.max_hp()?);
-            (hp < max_hp || selected(o.id)).then(|| hp_bar(sim.map(), o, alpha, hp / max_hp))
+            let shields = o.shields.zip(o.max_shields()).filter(|&(_, max)| max > 0.0);
+            let damaged = hp < max_hp || shields.is_some_and(|(shields, max)| shields < max);
+            let shields = shields.map(|(shields, max)| shields / max);
+            (damaged || selected(o.id)).then(|| hp_bar(sim.map(), o, alpha, hp / max_hp, shields))
         })
         .collect()
 }
@@ -148,7 +159,7 @@ pub fn shows_death(sight: &Sight, death: &DeathMarker) -> bool {
     death.owner == Some(sight.player()) || sight.at(death.pos) == VisibilityState::Visible
 }
 
-fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32) -> HpBar {
+fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32, shields: Option<f32>) -> HpBar {
     let pos = o.prev_pos.lerp(o.pos, alpha);
     let half = o.def().half_extents().unwrap_or(Vec2::splat(BAR_MIN_WIDTH / 2.0));
     let drawn = drawn_at_height(pos, object_height(map, pos, o.placement.as_ref()));
@@ -156,6 +167,7 @@ fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32) -> HpBar {
         center: drawn - Vec2::new(0.0, half.length() + BAR_GAP + BAR_HEIGHT / 2.0),
         width: (half.x * 2.0).max(BAR_MIN_WIDTH),
         fraction: fraction.clamp(0.0, 1.0),
+        shields: shields.map(|shields| shields.clamp(0.0, 1.0)),
     }
 }
 
@@ -328,21 +340,32 @@ fn death_marker(mesh: &mut ColorMesh, map: &Map, death: &DeathMarker, fade: f32,
     }
 }
 
-/// A dark frame around the bar's fill: green above 60%, yellow above 30%, red below.
+/// A dark frame around the bar's fill: green above 60%, yellow above 30%, red below. The shield bar, if any, right
+/// above it, its fill in [`SHIELD_FILL`].
 fn hp_bar_shape(mesh: &mut ColorMesh, bar: HpBar, z: f32) {
-    let half = Vec2::new(bar.width / 2.0, BAR_HEIGHT / 2.0);
     let center = view_to_world(bar.center);
+    let fill = match bar.fraction {
+        f if f > 0.6 => Color::srgb(0.30, 0.85, 0.30),
+        f if f > 0.3 => Color::srgb(0.95, 0.80, 0.20),
+        _ => Color::srgb(0.95, 0.25, 0.20),
+    };
+    bar_shape(mesh, center, bar.width, bar.fraction, fill, z);
+    if let Some(shields) = bar.shields {
+        let above = center + Vec2::new(0.0, BAR_HEIGHT + 1.0);
+        bar_shape(mesh, above, bar.width, shields, SHIELD_FILL, z);
+    }
+}
+
+/// A bar centred on `center` (Bevy world space), `width` su wide: a dark frame, `fraction` of it filled in `fill`
+/// from the left.
+fn bar_shape(mesh: &mut ColorMesh, center: Vec2, width: f32, fraction: f32, fill: Color, z: f32) {
+    let half = Vec2::new(width / 2.0, BAR_HEIGHT / 2.0);
     mesh.rect(
         center - half - 1.0,
         center + half + 1.0,
         z,
         Color::srgb(0.05, 0.05, 0.05),
     );
-    let fill = match bar.fraction {
-        f if f > 0.6 => Color::srgb(0.30, 0.85, 0.30),
-        f if f > 0.3 => Color::srgb(0.95, 0.80, 0.20),
-        _ => Color::srgb(0.95, 0.25, 0.20),
-    };
     let left = center - half;
-    mesh.rect(left, left + Vec2::new(bar.width * bar.fraction, BAR_HEIGHT), z, fill);
+    mesh.rect(left, left + Vec2::new(width * fraction, BAR_HEIGHT), z, fill);
 }

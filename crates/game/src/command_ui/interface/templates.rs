@@ -6,6 +6,7 @@
 
 use sc_sim::ObjectKind;
 use sc_sim::construction::{self, Constructor};
+use sc_sim::conversion;
 use sc_sim::defs::AttackType;
 
 use super::{InterfaceState, PanelCommand};
@@ -141,16 +142,18 @@ const EXTRACTION_FACILITY_GRID: [Option<PanelCommand>; 12] = [
 ];
 
 /// `factions/gdo/units.md > Peacekeeper > Riot Shield`: "TBD: hotkey". Placeholder: slot R, the first slot the
-/// BasicCombatUnit grid leaves free, where the Colonists' Legionnaires have their own command
-/// (`factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`: "BasicCombatUnitInterfaceState, plus:
-/// R: Convert").
+/// BasicCombatUnit grid leaves free, where the Colonists' Legionnaires have their own command ([`CONVERT_SLOT`]).
 const RIOT_SHIELD_SLOT: usize = 3;
+
+/// `factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`: "BasicCombatUnitInterfaceState, plus:
+/// R: Convert to Rifle Legionnaire", and the Rifle Legionnaire's "R: Convert to Sabre Legionnaire".
+const CONVERT_SLOT: usize = 3;
 
 impl InterfaceTemplate {
     /// The template of `kind`'s ObjectInterfaceState; none for types without commands: the map resources, and the
     /// structures that have none (the Generator, the Extraction Plate). The Legionnaires' is
     /// "BasicCombatUnitInterfaceState, plus" their R (`factions/colonists/units.md > Sabre Legionnaire >
-    /// ObjectInterfaceState`; Convert comes with slice M3-B). Every type that produces units has the Production
+    /// ObjectInterfaceState`: Convert, [`grid`]). Every type that produces units has the Production
     /// template. The other Colonists types have none until slices M3-J1 and J2 build theirs (plan decision T23).
     pub fn of(kind: ObjectKind) -> Option<Self> {
         match kind {
@@ -192,7 +195,8 @@ pub fn can_target_ground(attack_type: AttackType) -> bool {
 
 /// `kind`'s DefaultState commands, slot by slot (`CommandSlot::all` order): its template's grid, plus its own
 /// commands in slots the template leaves free (a unit that carries a Riot Shield: [`PanelCommand::RiotShield`] in
-/// R). What a constructor shows also depends on its state ([`state_grid`]).
+/// R; a unit with another form, a Legionnaire: [`PanelCommand::Convert`] in R). What a constructor shows also
+/// depends on its state ([`state_grid`]).
 pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let Some(template) = InterfaceTemplate::of(kind) else {
         return [None; 12];
@@ -200,6 +204,9 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let mut grid = template.grid(kind);
     if kind.def().unit.as_ref().is_some_and(|unit| unit.riot_shield.is_some()) {
         grid[RIOT_SHIELD_SLOT] = Some(PanelCommand::RiotShield);
+    }
+    if conversion::converts_to(kind).is_some() {
+        grid[CONVERT_SLOT] = Some(PanelCommand::Convert);
     }
     grid
 }

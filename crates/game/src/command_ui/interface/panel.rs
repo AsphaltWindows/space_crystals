@@ -34,8 +34,9 @@ pub enum ButtonLook {
     /// Unit Control; Cancel Production with nothing queued: `factions/gdo/structures.md > Barracks >
     /// ObjectInterfaceState[Barracks]`, "Only available if"; a building to construct while the bank can't pay for it,
     /// or while the constructor constructs or holds a building ready: `> DeploymentCenter >
-    /// ObjectInterfaceState[DeploymentCenter]`, "Other build options unavailable"), and a command the sim has no
-    /// order for yet.
+    /// ObjectInterfaceState[DeploymentCenter]`, "Other build options unavailable"; a Convert none of whose
+    /// recipients may convert now, all of them Firing, in Cooldown or converting: `factions/colonists/units.md >
+    /// Weapon Conversion > Eligibility`), and a command the sim has no order for yet.
     Disabled,
     /// In the template, but this type can't (`> BasicCombatUnitInterfaceState`: the conditional Reverse and
     /// AttackGround; a build menu none of whose buildings is in the game yet).
@@ -108,7 +109,7 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
 /// PendingCommand is marked and the others wait, in AwaitingPlacement the building being placed is marked and the
 /// others wait, and in every state but DefaultState Z is Back (`> Standard Slot Assignments`). What the game allows
 /// now ([`Conditions`]) disables a command it doesn't let go to its recipients (Attack with every shield up, a Train,
-/// a Cancel Production or a constructor's command the gate would refuse), and turns the Riot Shield on.
+/// a Cancel Production, a constructor's command or a Convert the gate would refuse), and turns the Riot Shield on.
 pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Conditions) -> Panel {
     let mut panel = Panel::default();
     let Some(active) = selection.active() else {
@@ -139,7 +140,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
             }
         };
         let button = PanelButton::Command(command);
-        let on = command.ability(false).is_some() && conditions.modes.shields_up(&recipients(selection, command));
+        let on = command.toggles() && conditions.modes.shields_up(&recipients(selection, command));
         panel.set(slot, PanelSlot { button, look, on });
     }
     if interface != InterfaceState::DefaultState {

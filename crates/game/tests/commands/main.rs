@@ -14,13 +14,14 @@
 //! indicators.
 //!
 //! The Colonists' portals (slice M3-D) show the same production panel, built from their recipes: `portals`, on a
-//! Colonists field of their own.
+//! Colonists field of their own. The Legionnaires' Weapon Conversion (slice M3-B), R: `convert`, on another.
 //!
 //! The construction UI of slice M2-H2 (the Deployment Center's build menu, the Extraction Facility's plate, and
 //! AwaitingPlacement with its ghost and the build area overlay) plays on a base of its own: `construction`.
 
 mod click_allowance;
 mod construction;
+mod convert;
 mod indicators;
 mod panel;
 mod portals;

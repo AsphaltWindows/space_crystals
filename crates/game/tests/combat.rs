@@ -1,5 +1,6 @@
 //! Combat feedback in the client (`combat_effects`): a tracer for each shot, HP bars over damaged and selected units
-//! and a marker where a unit died, each kept for its number of ticks. Headless, one tick per update, as in
+//! (with shield bars over those that have Shields) and a marker where a unit died, each kept for its number of
+//! ticks. Headless, one tick per update, as in
 //! `client.rs`. How the fog of war hides them is tested in `fog.rs`.
 
 use bevy::prelude::*;
@@ -155,4 +156,43 @@ fn shots_hits_and_deaths_show_for_their_ticks() {
     run_until(&mut app, death + DEATH_MARKER_TICKS);
     assert!(effects(&app).deaths.is_empty(), "faded");
     assert!(effects_visible(&mut app), "the Guard's HP bar stays");
+}
+
+/// Slice M3-B (`systems/combat.md > Shields`; question Q0042 point 4, a placeholder: "a bar above the HP bar"): an
+/// object that has Shields gets a shield bar with its HP bar, filled with the share of its MaxShields it has left, and
+/// shows them while its Shields alone are short; one without Shields has no shield bar. Player 2's Guard shoots
+/// player 1's Sabre Legionnaire, 160 su off: its 6 take 6 of the Sabre's 10 Shields and no HP, so the Sabre's bars
+/// show with its HP full, and 0.25 of the Shields back by the end of the tick (`> ShieldRegenRate`). Once the Guard
+/// stops, the Shields regenerate to full and the bars go; a selected Guard shows its HP bar alone.
+#[test]
+fn an_object_with_shields_shows_a_shield_bar_above_its_hp_bar() {
+    const SABRE: ObjectId = ObjectId(1);
+    let mut app = headless_app();
+    submit(
+        &mut app,
+        P1,
+        Command::Debug(DebugCommand::SetAutoTargeting { on: false }),
+    );
+    app.update();
+    spawn(&mut app, ObjectKind::SabreLegionnaire, P1, Vec2::new(300.0, 300.0));
+    spawn(&mut app, ObjectKind::Guard, P2, Vec2::new(460.0, 300.0));
+    app.update();
+    let spawned = tick(&app);
+    assert!(bars(&app).is_empty(), "full HP and Shields");
+    attack(&mut app, P2, GUARD, SABRE);
+    run_until(&mut app, spawned + 3);
+    let shown: Vec<(f32, Option<f32>)> = bars(&app).iter().map(|bar| (bar.fraction, bar.shields)).collect();
+    assert_eq!(shown, [(1.0, Some(4.25 / 10.0))], "the Sabre's, its HP full");
+
+    let stop = Command::Order {
+        units: vec![GUARD],
+        kind: OrderKind::Stop,
+        queue: false,
+    };
+    submit(&mut app, P2, stop);
+    run_until(&mut app, spawned + 3 + 8 + 24);
+    assert!(bars(&app).is_empty(), "the Shields are full again");
+    app.world_mut().resource_mut::<ControlStates>().of_mut(P1).selection = Selection::new([(GUARD, ObjectKind::Guard)]);
+    let shown: Vec<(f32, Option<f32>)> = bars(&app).iter().map(|bar| (bar.fraction, bar.shields)).collect();
+    assert_eq!(shown, [(1.0, None)]);
 }
