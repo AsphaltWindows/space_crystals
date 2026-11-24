@@ -995,6 +995,13 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   tick it checks the movement invariants (see Movement and collision); `pos(id)`, `mover(id)` and `status(id)` read
   a unit, and `ascii(focus)` draws the map. Units of different players fight when they see each other: a test
   about anything else calls `without_auto_targeting()` first, or keeps them apart or on Hold out of range.
+  `testing::build_order` plays a player's opening by script (slice M2-J1), with the player's own commands through
+  the gate: a `BuildOrder` is tracks of `Order`s (a building for one of the player's constructors, a unit for a
+  producer) in priority order, and `commands(&sim)` gives the commands for the next tick: each ready building placed
+  at the first origin, row by row, that the placement check takes (`first_spot`), then each track's next order once
+  the bank covers it and its builder is free. `Books::open` before a step and `close` after it check a player's bank:
+  it changed by what the plates mined (read off their patches), less what the step's orders paid, plus the refunds
+  its events report.
 - **Movement scenario tests** are `crates/sim/tests/movement_collision.rs` (passing, head-on, choke, group arrival,
   idle units, repaths, oscillation bounds, save and load in a crowd), `group_destinations.rs` (the magic box),
   `queued_group_destinations.rs` (Shift-queued group orders),
@@ -1008,8 +1015,8 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   `behaviours_patrol.rs`, `behaviours_gate.rs` (targets must be seen; a GDO player's remembered station, by its
   record), `behaviours_soak.rs` (120 units fighting under random orders of every kind, then without orders until
   those end; its checks are invariants that survive tuning: no dangling ids, no idle unit in reach of a visible
-  enemy, every order but Hold, Patrol and Follow ends, and bounded shares of refused orders, failed moves and path
-  searches) and the ignored `behaviours_perf.rs`.
+  enemy (but one whose scan held an enemy that died in that tick), every order but Hold, Patrol and Follow ends, and
+  bounded shares of refused orders, failed moves and path searches) and the ignored `behaviours_perf.rs`.
   `riot_shield.rs` has the Riot Shield's: toggle timing, each raised-shield effect, the gate, a save in the middle
   of a toggle and its replay.
   Measured (release, 500 units on 256 × 256): 0.12 ms a tick with everyone idle, 0.14 ms on Hold in sight of the
@@ -1032,11 +1039,22 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   680 ticks at 30/51 beside an unslowed Deployment Center, the refunds and their events, every refused command changing
   nothing, a group command in id order, a Place in its orientation with power, area and grids following, a refused Place
   for each problem of the check and one refused by an earlier command of its tick, destroyed constructors' refunds by a
-  debug removal and in combat, a fuzz of the gate, a save and a replay, and the clean Barracks opening from
-  `dev_skirmish`'s starting base as a mini-oracle: started in tick 769, ready at the end of 928).
+  debug removal and in combat, a fuzz of the gate, a save and a replay). The clean Barracks opening, which slice
+  M2-D1 measured there first, is the economy oracle's.
+- **The economy oracle** is `crates/sim/tests/economy_oracle.rs` (slice M2-J1): GDO openings on
+  `maps/dev_skirmish.json` from its real start, played with `testing::build_order` (player 2 idle), against
+  `factions/gdo/economy.md > Opening Economy Baseline` and the GDO income of `> Economy Targets`: plates first (the
+  reference line: income at the table's times, plates every 25 s, fully plated at about 2:30, the float at 1:30 and
+  2:00), Generator first, the fastest clean Barracks (pinned: started in tick 769, ready at the end of 928), the
+  all-in Barracks at −21, and the refunds. Income is the average over the 9 s (3 lump cycles) ending at a time; the
+  tolerances on the design's trickle figures are named where they are used (a plate's first lump 3 s after it
+  lands, a wait for money up to one cycle longer, a bank under a trickle's by less than a lump per plate), while
+  costs, build times, lumps and the power penalty are checked exactly. `--nocapture` prints each line's timeline.
 - **Game start tests** are `crates/sim/tests/game_start.rs` (slice M2-F1: each player's Starting Layout and banks,
-  the Skirmish Default restriction and completeness, the layout rules of design change 0097, two players' layouts in
-  each other's way, the outdated flag, and `dev_skirmish`'s bases seeing and reaching their fields) and the unit tests
+  the Skirmish Default restriction and completeness, the layout rules of design change 0097, a layout plate off its
+  patch refused by the game's rule, two players' layouts in each other's way, the outdated flag, and `dev_skirmish`'s
+  bases seeing and reaching their fields; ignored, a pre-placed plate off a patch, which validation still accepts:
+  a bug left to the Director) and the unit tests
   of `scenario/starting.rs` (the table, and a layout made for other Starting Conditions).
 - **Structure tests** are `crates/sim/tests/structures.rs` (each type's stat block, the Barracks in all 16 ways to
   rotate and flip it and its sides, ground units walking around a footprint, PointArmor on hits, a destroyed
@@ -1512,16 +1530,23 @@ unchecked.
   or ", end", and "Tick n / end". Screenshots, `--exit-at-tick`, `--dump-state`, `--input-script` (to press the
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
-- **Golden hashes** (`crates/sim/tests/golden.rs`): six scripted games, a 3v3 duel, a 40-unit AttackMove battle, a
-  12-unit group move through a choke, a patrol that meets an enemy, a chase into the fog, and three Peacekeepers that
+- **Golden hashes** (`crates/sim/tests/golden.rs`): seven games, a 3v3 duel, a 40-unit AttackMove battle, a
+  12-unit group move through a choke, a patrol that meets an enemy, a chase into the fog, three Peacekeepers that
   raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under fire and lower
-  them to kill it, are blessed as replays with a checkpoint every 32 ticks and at the end, in
-  `crates/sim/tests/golden/<name>.json`. The test plays each game from its definition, checks that the definition
-  still is the blessed one, and compares the checkpoints; a mismatch fails with the first diverging tick and the
-  last one that matched. Each game also asserts what it is about, at its end (`expect`: one side of the duel is
-  gone, the group passed the choke, …) and along the way (`during`: the shielded Peacekeepers held their fire), so
-  a re-bless can't hide a broken game. Any change to the sim's rules or state changes the hashes: when the change is
-  intended, re-bless and commit the files with it:
+  them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1 plays the
+  fastest clean Barracks and rallies ten Peacekeepers to player 2's crystal field, where they destroy four plates,
+  while player 2 plates its field and builds Generators), are blessed as replays with a checkpoint every 32 ticks and
+  at the end, in `crates/sim/tests/golden/<name>.json`. The test plays each game from its definition, checks that the
+  definition still is the blessed one, and compares the checkpoints; a mismatch fails with the first diverging tick
+  and the last one that matched. Each game also asserts what it is about, at its end (`expect`: one side of the duel
+  is gone, the group passed the choke, …) and along the way (`during`: the shielded Peacekeepers held their fire), so
+  a re-bless can't hide a broken game. `gdo_opening`'s players play by script (a `Script`, here two
+  `testing::build_order`s), which gives their commands before each step from the game as it is and checks what it
+  saw at the end: both players' books balance every step, the patch of a destroyed plate keeps what it held until a
+  plate covers it again, player 2's income falls (210 crystals in the 9 s before its first plate fell, 130 in the
+  last 9) and it is not defeated. Its commands are recorded like the others', so the file plays back without the
+  script; as they follow the game, they are compared after the checkpoints, not as its definition. Any change to the
+  sim's rules or state changes the hashes: when the change is intended, re-bless and commit the files with it:
 
   ```sh
   SC_BLESS=1 cargo test -p sc_sim golden
