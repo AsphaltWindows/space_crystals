@@ -192,7 +192,8 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - perf tuning of group orders (a 250-unit order takes 6–10 ms);
     - steering quality for dense head-on crowds (M1-Y known issues);
     - `mover.rs` size;
-    - the turn-twice-in-a-tick note from W.
+    - the turn-twice-in-a-tick note from W;
+    - 0038 Verification tests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
 The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, the defaults from the doc apply.
@@ -274,7 +275,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0008 | Move failure: stuck timing, unreachable or occupied targets | no | answered by 0024 (timing), 0025 (nearest reachable point), 0026 (arrived within 2 GU behind non-moving units) |
 | Q0009 | Range measured to large targets; proximity; silhouette rotation | no | answered by 0031 (edge to edge), 0032 (proximity 8 su) and 0033 (silhouettes rotate) |
 | Q0010 | Chase target lost in fog; Patrol origin; failed legs | no | answered by 0034, 0036 and 0037 |
-| Q0011 | Terrain/obstacles: resources block, Rugged, routes via the true map, underground/air | no | open; C builds the defaults as switches |
+| Q0011 | Terrain/obstacles: resources block, Rugged, routes via the true map, underground/air | no | part 1 answered by 0038 (patches and stations block ground units, as built); Rugged passability, unseen-structure pathing and later domains open; C built the defaults as switches |
 | Q0012 | Crowds clot without yielding: should friendly units yield or swap? (evidence from M1-D) | no | answered by 0022 (option B) and 0023 |
 | Q0013 | Selection edge cases: ungroupables, allies, modified clicks, empty ground, InfoPanel for 2+ objects, control groups | no | open; S built the listed defaults |
 | Q0014 | Combat edge cases: force-attacking own or neutral objects, a shot whose target dies mid-Firing, Rugged for units across tiles | no | open; W built the listed defaults |
@@ -283,7 +284,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0017 | Fog: shots from hidden attackers (hit flash vs. a partial tracer); targeting remembered structures | no | open; F and E build the stated defaults |
 
 ## Design change entries
-Last triaged: 0037.
+Last triaged: 0038.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -318,4 +319,5 @@ Last triaged: 0037.
 | 0035 Collision response: blocked motion dropped, velocity to 0 | **queued for the vehicles milestone** | every Verification point needs vehicles; infantry has no acceleration, so its behaviour is unchanged |
 | 0036 Patrol origin at execution | in progress (M1-E) | answers Q0010 part 2 |
 | 0037 Patrol failed legs | in progress (M1-E) | answers Q0010 part 3 |
+| 0038 Crystal patches and supply stations block ground units | matches M1-C's default; G adds the Verification tests (path around a field, station not walkable, a removed patch reopens its tile) | answers Q0011 part 1; mining depletion is verified again with the economy |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
