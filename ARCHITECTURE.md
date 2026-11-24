@@ -153,10 +153,11 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   yielding unit; `mover/` holds the stuck schedule, the sidestep and the hash), for units that
   can attack, `attack` (`AttackState`, `combat.rs`: see *Combat*) and, for units that carry a Riot Shield,
   `riot_shield` (`RiotShield`, `riot_shield.rs`: the shield's mode, see *Combat*); for a plate on a patch,
-  `extractor` (`Extractor`, `economy/mining.rs`: the patch it mines and its cycle, see *Economy*). Production and the
-  rest arrive as more optional fields, each with its own module. Never add them as separate stores keyed by
-  id. A system walks the objects in id order and skips those without its capability
-  (`let Some(..) = &mut o.resource else { continue };`).
+  `extractor` (`Extractor`, `economy/mining.rs`: the patch it mines and its cycle, see *Economy*); for a structure that
+  constructs buildings, `constructor` (`Constructor`, `construction.rs`: idle, constructing or holding a building
+  ready to place, see *Economy*). Production and the rest arrive as more optional fields, each with its own module.
+  Never add them as separate stores keyed by id. A system walks the objects in id order and skips those without its
+  capability (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
   them through `ObjectKind::def()` or `Object::def()`. Every value cites its design section. Faction types go in
   per-faction modules (`defs/gdo.rs`, …). A unit type also has `ObjectDef::unit: Some(UnitDef)` (`defs/units.rs`,
@@ -167,8 +168,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 - **Structures** (`defs/structures.rs`, `defs/gdo.rs`; `factions/gdo/structures.md`, `factions/gdo/economy.md`): the
   GDO's Deployment Center, Generator, Barracks, Extraction Facility and Extraction Plate (slice M2-A; their
   `ObjectKind`s follow the M1 ones, because the state hash numbers kinds in declaration order). A structure type has
-  `ObjectDef::structure: Some(StructureDef)` (its `SymmetryType`, BuildRadiusExtension and Power, and the plate's
-  `MiningDef` in `StructureDef::mining`, see *Economy*) and a tile footprint, `ObjectDef::tile_size` as unturned;
+  `ObjectDef::structure: Some(StructureDef)` (its `SymmetryType`, BuildRadiusExtension and Power, the plate's
+  `MiningDef` in `StructureDef::mining`, and a constructor's `Constructs` list of `Recipe`s in
+  `StructureDef::constructs`, see *Economy*) and a tile footprint, `ObjectDef::tile_size` as unturned;
   its `Placement` holds it as placed, `w` and `h` swapped by a quarter turn, with the orientation it was placed in
   (`Placement::orientation`). It has HP, armour and a SightRange, and no orders, mover or attack, so behaviours,
   movement and combat pass it by.
@@ -246,7 +248,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
 1. **Clear events**, so that `Sim::events()` holds only this tick's events.
 2. **Advance the tick** (`tick += 1`).
 3. **Snapshot** `pos`/`facing` into `prev_pos`/`prev_facing` for every object (the client interpolates from these).
-4. **Commands**: apply each `PlayerCommand` in `TickInputs` order (`apply_command`).
+4. **Commands**: apply each `PlayerCommand` in `TickInputs` order (`apply_command`). Each passes the gate against
+   the state the commands before it left, so a cost is paid from the bank as they left it and a Place is checked
+   with the footprints they placed (see *Economy > Construction*).
 5. **Systems**, each walking the objects in id order, one function per module (`docs/movement.md > 4`):
    - Modes, `riot_shield::step`: a Riot Shield on its way up or down goes on one tick. After the commands, so that
      a toggle counts from its own tick; before 5a, so that the behaviours, the movement and the combat of the tick
@@ -271,7 +275,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    - Economy, `economy::step` (plan decision T5, see *Economy*): after 5e's removals and their `paths::sync`, so
      that a building destroyed in the tick counts for nothing in it; before 5f, so that what it brings into the game
      is seen in its own tick. In order: every player's power (the structures this tick's commands placed included),
-     the constructors (slice M2-D1) and producers (M2-D2), the plates' mining, the defeat check (M2-F).
+     the constructors (`construction::step`; a construction ordered in tick `t` counts its frames from `t + 1`) and
+     producers (M2-D2), the plates' mining, the defeat check (M2-F).
    - 5f `Vision::update`: every player's sight from the objects as the tick leaves them, those this tick's commands
      spawned included (see Vision). Combat in 5e reads the vision of the tick before.
    - `update_supply_stations` (`core/map.md > SupplyDeliveryStation`).
@@ -665,9 +670,25 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   opens the tile (design change 0038; the caller's grid sync covers it); a patch with crystals left stays, uncovered.
   A plate whose patch is removed (only a debug command does that) loses its extractor. `testing::referenced_ids`
   lists the extractor's patch, so `dangling_references` checks it.
-- **Adding to the economy** (slices M2-D1, M2-D2, M2-F): put the new step into `economy::step` at its numbered
-  place, advance progress by `PowerSummary::speed`, take costs with `spend_crystals` when the command applies, and give
-  refunds through `Refund`.
+- **Construction** (`construction.rs`, `sim/construction.rs`; slice M2-D1; `factions/gdo/structures.md >
+  DeploymentCenter`, `factions/gdo/economy.md > ExtractionFacility`): a structure type with a `Constructs` list
+  (`StructureDef::constructs`: each `Recipe` a building, its cost and its frames) is a constructor, and its object has
+  a `Constructor`: `Idle`, `Constructing { kind, since, progress }` or `Ready { kind }`, one building at a time and one
+  ready at most (design change 0071). `Command::Construction` drives it (see *Commands, events and replays*):
+  Construct pays the cost as it applies, the cancels refund through `Refund` (`Full` while constructing, `Ready` once
+  ready), and so does a constructor that leaves the game (design change 0084, in `Sim::remove_objects`, for a
+  destruction and a debug removal alike). Each tick `construction::step` advances a construction by its constructor's
+  `PowerSummary::speed`: the Deployment Center, a producer, at full speed whatever the power, the Extraction Facility
+  at the ratio (design change 0089); at `ticks × RATIO_ONE` it is ready (`SimEvent::ConstructionCompleted`). Its
+  frames count from the tick after the command, so a Generator (240 frames) ordered in tick `t` is ready in tick
+  `t + 240`, a plate at 30/51 in `t + 680`. Place inserts the ready building where `Sim::placement_check` allows it
+  as the command applies (plan decision T4): it counts for power and the build area at once, the true grids take it in
+  phase 5b of its tick and its owner's planning grids at the end of it, and it works from the next tick on.
+  `construction::recipes(kind)`, `Constructor::{current, ready, frames_done}` and `Sim::validate` are what a client
+  needs for its menus. Not built: tech prerequisites (no building with a cost has one yet) and ConstructionHP.
+- **Adding to the economy** (slices M2-D2, M2-F): put the new step into `economy::step` at its numbered place, advance
+  progress by `PowerSummary::speed`, take costs with `spend_crystals` when the command applies, and give refunds
+  through `Refund`; `construction.rs` is the pattern.
 
 ## Commands, events and replays
 
@@ -687,7 +708,9 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   object is in the issuing player's sight (`NotVisible`, below), spawns fit (`Spawn(SpawnProblem)`) and keep apart
   from other footprints (`Overlaps(id)`, see Object model). A rejected command changes nothing, neither the state
   nor the events, and never panics.
-  There is no rejection event yet: add one as output outside the state hash when the UI needs it.
+  The one rejection the sim reports is a Place the placement check refuses (plan decision T4): the client checked it
+  before sending it, so the game changed in between, and `SimEvent::PlacementRefused` (output, outside the state
+  hash) says why (`Sim::report_refusal`). Add another such event only when the UI needs it.
 - **`Command::Order { units, kind, queue }`** (`systems/controls/commands.md > Unit Command`, `docs/movement.md > 3`):
   `OrderKind` is `Move(Target)` (a point or an object), `Attack(id)`, `AttackMove(point)`, `Patrol(point)`, `Hold`
   or `Stop`. The gate takes an order whole or not at all, but tolerates stale selections: at most `MAX_ORDER_UNITS`
@@ -703,6 +726,18 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   group and a replay mean the same whatever each unit's mode. The gate tolerates stale selections as for orders
   (`TooManyUnits`, repeats, gone ids, `NotOwned`, `NoUnits`) and drops the units without the ability
   (`Reject::LacksAbility` when none is left).
+- **`Command::Construction { objects, command }`** (`construction.rs`, `sim/construction.rs`): the player's
+  constructors carry out a `ConstructionCommand`: `Construct(kind)`, `CancelConstruction`, `CancelReady` or
+  `Place { origin, orientation }` (the top-left tile of the turned footprint; the orientation optional in files, as
+  for a debug spawn). The gate tolerates stale selections as for orders (`TooManyUnits`, repeats, gone ids, the
+  player's objects that construct nothing; `NotOwned` for anyone else's, `NoConstructor` when none is left), then
+  goes through them in id order: a Construct starts at each one that has the building on its list, is idle and can
+  pay from what the ones before it left, and is rejected with the first one's reason if none can
+  (`CannotConstruct(kind)`, `ConstructorBusy(id)`, `NotEnoughCrystals`); a cancel goes to each one with something to
+  cancel (`NotConstructing`, `NothingReady`). A Place names one constructor (`SeveralConstructors`; design change
+  0071) holding a ready building (`NothingReady`), and is rejected with the placement check's first problem
+  (`Unplaceable(PlacementProblem)`), which is reported (above). Each object of a command is one constructor; the
+  client sends a command to the group the design says (no smart-casting, design change 0071).
 - **Targets must be seen** (question Q0017 point 2, its default; `core/vision.md > Explored Selectability`): an
   Attack or a Move on an object is taken only while the issuing player sees it (a tile it covers is Visible), else
   `Reject::NotVisible`. The exception is the design's: a GDO player may target a Supply Delivery Station on Explored
@@ -731,13 +766,15 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   tick, empty ticks included, and state-hash checkpoints: `sc_sim::Replay` (serde) with `start`/`record`/`step`/`run`,
   and `record_checked`/`verify`/`run_checked` for the checkpoints (see Replays and golden hashes, which also covers
   the client's recording and playback). A replay keeps every command whole: `testing::every_command` lists one of
-  each kind (every variant of `Command`, `OrderKind`, `Target`, `Ability`, `DebugCommand` and `SpawnAt`), and the
+  each kind (every variant of `Command`, `OrderKind`, `Target`, `Ability`, `ConstructionCommand`, `DebugCommand` and
+  `SpawnAt`), and the
   format tests round-trip it through the sim's serde and the client's file; its match stops compiling when a variant
   is added, so add the new one to it. The client must never submit a command with a non-finite number. The sim
   would reject it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to load. Validate at the
   input layer.
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`,
-  `PatchDepleted`, …) are output only, for effects, sounds and UI. The sim never reads them. `Sim::events()` holds
+  `PatchDepleted`, `ConstructionCompleted`, `StructurePlaced`, `PlacementRefused`, …) are output only, for effects,
+  sounds and UI. The sim never reads them. `Sim::events()` holds
   only the latest step's events, and `Sim::new` discards the events from the scenario's initial spawns.
 
 ## Sim scenarios and tests
@@ -844,6 +881,12 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   walks through the opened tile, a patch mined out in the fog that another player assumes until it sees the tile
   (design change 0042), and the links in any order) and `economy_resources.rs` (the banks and
   `SetResources`, power and the ticks a building counts in, Unit Control, a mining game replayed and saved).
+- **Construction tests** are `crates/sim/tests/construction.rs` (each building's frames at full power and the plate's
+  680 ticks at 30/51 beside an unslowed Deployment Center, the refunds, every refused command changing nothing, a
+  group command in id order, a Place in its orientation with power, area and grids following, a refused Place for
+  each problem of the check and one refused by an earlier command of its tick, destroyed constructors' refunds by a
+  debug removal and in combat, a fuzz of the gate, a save and a replay, and the clean Barracks opening as a
+  mini-oracle: started in tick 769, ready in 929).
 - **Structure tests** are `crates/sim/tests/structures.rs` (each type's stat block, the Barracks in all 16 ways to
   rotate and flip it and its sides, ground units walking around a footprint, PointArmor on hits, a destroyed
   Generator freeing its tiles, debug spawns kept apart but for a plate on its patch, flat ground, the optional

@@ -6,6 +6,7 @@ use std::fmt;
 use glam::Vec2;
 
 use super::Sim;
+use super::construction::Resolved;
 use crate::command::{Ability, Command, DebugCommand, PlayerCommand};
 use crate::defs::{Domain, ObjectKind};
 use crate::ids::{ObjectId, PlayerId};
@@ -13,6 +14,7 @@ use crate::nav;
 use crate::object::{Object, Placement};
 use crate::orders::{MAX_ORDER_UNITS, OrderKind, Target};
 use crate::paths::{blocking_footprint, box_overlaps_rect, boxes_overlap};
+use crate::placement::PlacementProblem;
 use crate::player::Faction;
 use crate::riot_shield;
 use crate::scenario::{SpawnProblem, place_spawn};
@@ -61,6 +63,27 @@ pub enum Reject {
     /// A footprint there would overlap this object's (`core/entities.md > Placement Validation`): only a plate
     /// shares its tile, with the uncovered patch it is placed onto (`ObjectKind::may_overlap`).
     Overlaps(ObjectId),
+    /// None of the objects a construction command names is one of the player's constructors that exists
+    /// (`crate::construction`).
+    NoConstructor,
+    /// A Place names more than one constructor: one building is placed by one constructor (design change 0071).
+    SeveralConstructors,
+    /// The building isn't on the constructor's `Constructs` list (`factions/gdo/structures.md > DeploymentCenter >
+    /// Constructs`, `factions/gdo/economy.md > ExtractionFacility > Constructs`).
+    CannotConstruct(ObjectKind),
+    /// The constructor is constructing, or holds a building ready to place: "Other build options unavailable"
+    /// (`> ObjectInterfaceState[DeploymentCenter]`).
+    ConstructorBusy(ObjectId),
+    /// The player's bank doesn't cover the cost: "Only available if player has sufficient Space Crystals".
+    NotEnoughCrystals,
+    /// A Cancel Construction to a constructor that isn't constructing.
+    NotConstructing,
+    /// A Cancel Ready Building or a Place to a constructor that holds no building ready to place.
+    NothingReady,
+    /// The ready building can't be placed there (`core/entities.md > Placement Validation`, `crate::placement`): the
+    /// first problem the placement check finds. When a Place is refused for this as it applies, the sim says why
+    /// (`SimEvent::PlacementRefused`).
+    Unplaceable(PlacementProblem),
 }
 
 impl fmt::Display for Reject {
@@ -83,6 +106,14 @@ impl fmt::Display for Reject {
             Reject::Blocked => write!(f, "the unit doesn't fit there: blocked ground"),
             Reject::Occupied(id) => write!(f, "unit {} is in the way", id.0),
             Reject::Overlaps(id) => write!(f, "the footprint overlaps object {}", id.0),
+            Reject::NoConstructor => write!(f, "none of the objects is a constructor of the player's"),
+            Reject::SeveralConstructors => write!(f, "a building is placed by one constructor"),
+            Reject::CannotConstruct(kind) => write!(f, "the constructor doesn't construct a {}", kind.def().name),
+            Reject::ConstructorBusy(id) => write!(f, "constructor {} is busy", id.0),
+            Reject::NotEnoughCrystals => write!(f, "not enough Space Crystals"),
+            Reject::NotConstructing => write!(f, "nothing is under construction"),
+            Reject::NothingReady => write!(f, "no building is ready to place"),
+            Reject::Unplaceable(problem) => write!(f, "the building can't go there: {problem}"),
         }
     }
 }
@@ -118,6 +149,11 @@ pub(super) enum Checked {
         crystals: u32,
         supplies: u32,
     },
+    /// `player`'s constructors carry out what the construction checks resolved (`sim/construction.rs`).
+    Construction {
+        player: PlayerId,
+        resolved: Resolved,
+    },
 }
 
 impl Sim {
@@ -126,16 +162,17 @@ impl Sim {
     /// order, it checks that:
     /// 1. the issuing player is in the game;
     /// 2. a debug command comes while [`super::SimConfig::debug`] is on;
-    /// 3. every object the command refers to exists, and every object a player's own order or ability commands
-    ///    belongs to that player (debug commands may refer to anyone's objects). An order or an ability drops the
-    ///    ids of units that no longer exist, and repeated ids; it is rejected if no unit remains
-    ///    (`docs/movement.md > 3`);
+    /// 3. every object the command refers to exists, and every object a player's own order, ability or construction
+    ///    command commands belongs to that player (debug commands may refer to anyone's objects). An order, an
+    ///    ability or a construction command drops the ids of objects that no longer exist, and repeated ids; an order
+    ///    is rejected if no unit remains (`docs/movement.md > 3`);
     /// 4. the command's own rules hold: an order's size and target (which the player must see,
     ///    [`Reject::NotVisible`]), and for an Attack, units that can attack now ([`Reject::CannotAttack`]); the units
-    ///    of an ability that have it ([`Reject::LacksAbility`]); a spawn's owner and placement (a footprint apart
-    ///    from the others but for a plate on its patch, [`Reject::Overlaps`]), a teleport to a unit and onto the
-    ///    map, a unit's box clear of blocked ground and of the units of its layer, and the player whose banks a
-    ///    debug command sets.
+    ///    of an ability that have it ([`Reject::LacksAbility`]); the constructors of a construction command that can
+    ///    carry it out, the bank that pays and the placement check of a Place (`sim/construction.rs`); a spawn's owner
+    ///    and placement (a footprint apart from the others but for a plate on its patch, [`Reject::Overlaps`]), a
+    ///    teleport to a unit and onto the map, a unit's box clear of blocked ground and of the units of its layer,
+    ///    and the player whose banks a debug command sets.
     pub fn validate(&self, cmd: &PlayerCommand) -> Result<(), Reject> {
         self.check(cmd).map(|_| ())
     }
@@ -148,6 +185,7 @@ impl Sim {
         match &cmd.command {
             Command::Order { units, kind, queue } => self.check_order(cmd.player, units, *kind, *queue),
             Command::Ability { units, ability } => self.check_ability(cmd.player, units, *ability),
+            Command::Construction { objects, command } => self.check_construction(cmd.player, objects, *command),
             Command::Debug(debug) => {
                 if !self.config.debug {
                     return Err(Reject::DebugDisabled);
@@ -205,7 +243,7 @@ impl Sim {
     /// The player's units among `units` that `keep` keeps, unique and in id order: at most [`MAX_ORDER_UNITS`] ids,
     /// none of them someone else's. Ids that no longer exist are dropped (a unit may die in the tick its command
     /// arrives: not the player's mistake), and so are the player's objects that `keep` leaves out.
-    fn own_units(
+    pub(super) fn own_units(
         &self,
         player: PlayerId,
         units: &[ObjectId],

@@ -8,6 +8,7 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::construction::ConstructionCommand;
 use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
 use crate::orders::OrderKind;
@@ -30,6 +31,15 @@ pub enum Command {
     /// longer exist, repeated ids and units without the ability are dropped; the command is rejected if no unit
     /// remains or one belongs to someone else.
     Ability { units: Vec<ObjectId>, ability: Ability },
+    /// The player's constructors `objects` (the Deployment Center, the Extraction Facility) carry out `command`
+    /// (`crate::construction`; `factions/gdo/structures.md > DeploymentCenter`, `factions/gdo/economy.md >
+    /// ExtractionFacility`), each in id order that can. Ids that no longer exist, repeated ids and objects that
+    /// construct nothing are dropped; the command is rejected if none of the rest can carry it out, or one of the
+    /// objects belongs to someone else. A Place names one constructor.
+    Construction {
+        objects: Vec<ObjectId>,
+        command: ConstructionCommand,
+    },
     /// Development / QA only — never offered to players in a real match.
     Debug(DebugCommand),
 }

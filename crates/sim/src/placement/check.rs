@@ -146,6 +146,27 @@ impl PlacementCheck {
     pub fn tile_is_valid(&self, tile: TilePos) -> bool {
         self.problems_at(tile).next().is_none()
     }
+
+    /// The first rule the placement breaks, for a short answer such as the command gate's
+    /// (`crate::Reject::Unplaceable`): the footprint's first as a whole, else its first tile's, in the order they are
+    /// listed. `None` if it is valid.
+    pub fn first_problem(&self) -> Option<PlacementProblem> {
+        let whole = self.whole.first().map(|&problem| PlacementProblem::Whole(problem));
+        whole.or_else(|| {
+            self.tiles
+                .first()
+                .map(|&(tile, problem)| PlacementProblem::Tile(tile, problem))
+        })
+    }
+}
+
+/// One rule a placement breaks ([`PlacementCheck::first_problem`]).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PlacementProblem {
+    /// A rule the footprint breaks as a whole.
+    Whole(WholeProblem),
+    /// A rule this footprint tile breaks.
+    Tile(TilePos, TileProblem),
 }
 
 /// The size `(w, h)` in tiles of `kind`'s footprint turned by `orientation`: its size in the default orientation,
@@ -360,5 +381,14 @@ impl fmt::Display for WholeProblem {
             WholeProblem::OutsideBuildArea => "no tile is in the build area",
             WholeProblem::NotOnPatch => "an Extraction Plate goes onto a Space Crystals patch",
         })
+    }
+}
+
+impl fmt::Display for PlacementProblem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PlacementProblem::Whole(problem) => write!(f, "{problem}"),
+            PlacementProblem::Tile(tile, problem) => write!(f, "tile ({}, {}) is {problem}", tile.x, tile.y),
+        }
     }
 }

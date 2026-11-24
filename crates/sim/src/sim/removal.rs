@@ -22,6 +22,9 @@ impl Sim {
     /// destruction), which opens its tile (design change 0038); a patch with crystals left stays, uncovered. A plate
     /// whose patch is removed from under it (a debug command) mines nothing from then on.
     ///
+    /// A constructor refunds its construction or its ready building to its owner as if cancelled (design change 0084,
+    /// `Sim::refund_constructors`).
+    ///
     /// The grids aren't touched: phase 5b catches up with a footprint that went away, and a removal after it must
     /// sync them (`paths::sync`).
     pub(super) fn remove_objects(&mut self, ids: &[ObjectId]) {
@@ -32,6 +35,7 @@ impl Sim {
         );
         gone.sort_unstable();
         gone.dedup();
+        self.refund_constructors(&gone);
         gone.retain(|id| self.objects.remove(id).is_some());
         if gone.is_empty() {
             return;

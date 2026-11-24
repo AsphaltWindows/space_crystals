@@ -1,6 +1,6 @@
 //! GDO object types — `factions/gdo/`: its units (`units.md`) and its structures (`structures.md`, `economy.md`).
 
-use super::structures::{MiningDef, StructureDef, SymmetryType};
+use super::structures::{MiningDef, Recipe, StructureDef, SymmetryType};
 use super::units::{
     AttackAttrs, AttackType, FullyConnectedSubtype, MovementAttrs, RiotShieldDef, TargetDomain, TargetType, UnitBase,
     UnitDef,
@@ -90,6 +90,25 @@ pub(super) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         build_radius_extension: 12,   // BuildRadiusExtension - 12 grid units
         power: 30,                    // Power - +30
         mining: None,
+        // Constructs: the three buildings with a cost and a time. The design's others (Supply Tower, Arsenal, …) have
+        // none yet (TBD); their Requires clauses (`core/tech_and_research.md > Tech Prerequisites`) come with them.
+        constructs: &[
+            Recipe {
+                kind: ObjectKind::Generator,
+                crystals: 100, // Generator: 100 Space Crystals,
+                ticks: 240,    // 240 frames (15 seconds)
+            },
+            Recipe {
+                kind: ObjectKind::Barracks,
+                crystals: 200, // Barracks: 200 Space Crystals,
+                ticks: 160,    // 160 frames (10 seconds)
+            },
+            Recipe {
+                kind: ObjectKind::ExtractionFacility,
+                crystals: 200, // Extraction Facility: 200 Space Crystals,
+                ticks: 320,    // 320 frames (20 seconds)
+            },
+        ],
     }),
 };
 
@@ -116,6 +135,7 @@ pub(super) static GENERATOR: ObjectDef = ObjectDef {
         build_radius_extension: 1,    // BuildRadiusExtension - 1 grid unit
         power: 20,                    // Power - +20
         mining: None,
+        constructs: &[],
     }),
 };
 
@@ -143,6 +163,7 @@ pub(super) static BARRACKS: ObjectDef = ObjectDef {
         build_radius_extension: 2,    // BuildRadiusExtension - 2 grid units
         power: -30,                   // Power - -30
         mining: None,
+        constructs: &[],
     }),
 };
 
@@ -169,6 +190,12 @@ pub(super) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
         build_radius_extension: 2,    // BuildRadiusExtension - 2 grid units
         power: -15,                   // Power - -15
         mining: None,
+        // Constructs
+        constructs: &[Recipe {
+            kind: ObjectKind::ExtractionPlate,
+            crystals: 75, // Extraction Plate: 75 Space Crystals,
+            ticks: 400,   // 400 frames (25 seconds)
+        }],
     }),
 };
 
@@ -200,5 +227,6 @@ pub(super) static EXTRACTION_PLATE: ObjectDef = ObjectDef {
             residual: 1,     // ResidualMiningRate - 1 Space Crystal per 48 frames (3 seconds)
             cycle_ticks: 48, // "per 48 frames"
         }),
+        constructs: &[],
     }),
 };

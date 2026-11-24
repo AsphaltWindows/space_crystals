@@ -1,6 +1,7 @@
 //! The attributes of structure types (`core/entities.md > Structure Type`). The faction modules (`defs/gdo.rs`, …)
 //! hold the structure types themselves.
 
+use super::ObjectKind;
 use crate::sides::SideLetter;
 
 /// A structure type's own attributes; the attributes every object type has, armour included, are on its
@@ -18,6 +19,21 @@ pub struct StructureDef {
     /// How the type mines the Space Crystals patch it stands on (`crate::economy::mining`): the Extraction Plate's
     /// rates, `None` for every other structure.
     pub mining: Option<MiningDef>,
+    /// `Constructs`: the buildings the type constructs, one at a time (`crate::construction`), with their costs and
+    /// times. A type with any is a constructor (`Object::constructor`); empty for the others.
+    pub constructs: &'static [Recipe],
+}
+
+/// One entry of a constructor's `Constructs` list (`factions/gdo/structures.md > DeploymentCenter > Constructs`,
+/// `factions/gdo/economy.md > ExtractionFacility > Constructs`): a building, what it costs and how long it takes.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Recipe {
+    /// The building constructed.
+    pub kind: ObjectKind,
+    /// Its Space Crystals cost, paid when the construction starts.
+    pub crystals: u32,
+    /// Its construction time at full speed, frames (ticks).
+    pub ticks: u32,
 }
 
 /// A mining structure's rates (`factions/gdo/economy.md > ExtractionPlate`): it pays its owner a load at the end of

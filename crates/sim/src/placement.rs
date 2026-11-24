@@ -45,7 +45,10 @@ mod check;
 mod tests;
 
 pub use build_area::{BuildArea, seeds_build_area};
-pub use check::{Mode, Occupant, PlacementCheck, Site, TileProblem, WholeProblem, check, check_layout, footprint_size};
+pub use check::{
+    Mode, Occupant, PlacementCheck, PlacementProblem, Site, TileProblem, WholeProblem, check, check_layout,
+    footprint_size,
+};
 
 use crate::defs::ObjectKind;
 use crate::ids::PlayerId;

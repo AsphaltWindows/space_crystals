@@ -8,6 +8,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::combat::AttackState;
+use crate::construction::Constructor;
 use crate::defs::{Footprint, ObjectDef, ObjectKind};
 use crate::economy::Extractor;
 use crate::ids::{ObjectId, PlayerId};
@@ -48,6 +49,11 @@ pub struct Object {
     /// (`factions/gdo/economy.md > ExtractionPlate`; `economy::mining`). `None` for everything else, a plate on bare
     /// ground included.
     pub extractor: Option<Extractor>,
+    /// A structure that constructs buildings, the Deployment Center and the Extraction Facility: what it is
+    /// building, or the building it holds ready to place (`factions/gdo/structures.md > DeploymentCenter >
+    /// DeploymentCenterInstanceState`, `factions/gdo/economy.md > ExtractionFacility`; `construction`). `None` for
+    /// everything else.
+    pub constructor: Option<Constructor>,
 }
 
 impl Object {

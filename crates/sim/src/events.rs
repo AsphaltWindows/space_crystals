@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
+use crate::placement::PlacementCheck;
+use crate::scenario::BuildingOrientation;
+use crate::units::TilePos;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum SimEvent {
@@ -50,5 +53,29 @@ pub enum SimEvent {
     PatchDepleted {
         patch: ObjectId,
         plate: ObjectId,
+    },
+    /// `constructor` finished its CurrentConstruction, a `kind`: it now holds it ready to place (ReadyToPlace;
+    /// `factions/gdo/structures.md > DeploymentCenter`, `crate::construction`).
+    ConstructionCompleted {
+        constructor: ObjectId,
+        kind: ObjectKind,
+    },
+    /// `constructor` placed its ready building, which is now the object `structure` (its `Spawned` event comes
+    /// first).
+    StructurePlaced {
+        constructor: ObjectId,
+        structure: ObjectId,
+    },
+    /// A Place that the placement check refused when it was applied (plan decision T4): `constructor` keeps its
+    /// ready `kind`, which was to go with the top-left tile of its footprint at `origin`, turned by `orientation`,
+    /// and `problems` says why. The one command the sim reports refusing (`Sim::validate` gives
+    /// `Reject::Unplaceable`); the client validates a Place before it sends it, so this tells it that the game
+    /// changed in between, e.g. a unit walked onto the footprint.
+    PlacementRefused {
+        constructor: ObjectId,
+        kind: ObjectKind,
+        origin: TilePos,
+        orientation: BuildingOrientation,
+        problems: PlacementCheck,
     },
 }

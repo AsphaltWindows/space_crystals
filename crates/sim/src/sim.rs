@@ -305,7 +305,13 @@ impl Sim {
         }
         // The economy (plan decision T5): after 5e, so that the buildings destroyed this tick count for nothing in
         // it; before 5f, so that what it brings into the game is seen in its own tick.
-        economy::step(&mut self.objects, &mut self.players, first_new, &mut self.events);
+        economy::step(
+            &mut self.objects,
+            &mut self.players,
+            first_new,
+            self.tick,
+            &mut self.events,
+        );
         // 5f: sees the tick's final positions, this tick's new objects included.
         self.vision.update(&self.map, self.objects.values());
         self.update_supply_stations(first_new);
@@ -323,10 +329,12 @@ impl Sim {
     }
 
     /// `ARCHITECTURE.md > Commands, events and replays`: every command passes the gate ([`Sim::validate`]) first.
-    /// A rejected one changes nothing; player input never panics the sim.
+    /// A rejected one changes nothing; player input never panics the sim. The one rejection the sim reports is a
+    /// Place the placement check refuses (plan decision T4, `Sim::report_refusal`).
     fn apply_command(&mut self, cmd: &PlayerCommand) {
-        let Ok(checked) = self.check(cmd) else {
-            return;
+        let checked = match self.check(cmd) {
+            Ok(checked) => checked,
+            Err(reject) => return self.report_refusal(cmd, reject),
         };
         match checked {
             Checked::Order { units, kind, queue } => self.give_order(&units, kind, queue),
@@ -366,6 +374,7 @@ impl Sim {
                 crystals,
                 supplies,
             } => self.set_resources(player, crystals, supplies),
+            Checked::Construction { player, resolved } => self.apply_construction(player, resolved),
         }
     }
 
@@ -443,6 +452,9 @@ impl Sim {
                 .map(|_| riot_shield::RiotShield::Lowered),
             // `factions/gdo/economy.md > ExtractionPlate`: a plate mines the patch under it.
             extractor: economy::mining::extractor_for(&self.objects, kind, placement.as_ref()),
+            // `factions/gdo/structures.md > DeploymentCenter`, `factions/gdo/economy.md > ExtractionFacility`: a
+            // constructor starts idle.
+            constructor: crate::construction::constructor_for(kind),
         };
         self.objects.insert(id, object);
         if is_patch {
@@ -492,6 +504,7 @@ impl Sim {
     }
 }
 
+mod construction;
 mod gate;
 mod load;
 mod navigation;

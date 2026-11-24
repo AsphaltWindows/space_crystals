@@ -11,7 +11,7 @@
 //!   comes into being; it pays its owner in lumps at the end of each cycle (design change 0098), and the removal
 //!   path takes a depleted patch away with its plate (`Sim::remove_objects`).
 //! - **The phase** ([`step`]) runs after phase 5e and before 5f (plan decision T5, `ARCHITECTURE.md > Tick
-//!   pipeline`).
+//!   pipeline`). The constructors' progress is part of it (`crate::construction`, slice M2-D1).
 //!
 //! Everything is integer: rates are fixed point, [`RATIO_ONE`] being 100% (plan decision T6).
 
@@ -29,22 +29,26 @@ use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::object::Object;
 use crate::player::Player;
+use crate::units::Tick;
 
-/// The economy phase of one tick (plan decision T5), after the deaths of phase 5e: a building destroyed in this tick
-/// counts for nothing in it, one placed by this tick's commands counts already (`factions/gdo/overview.md >
+/// The economy phase of tick `tick` (plan decision T5), after the deaths of phase 5e: a building destroyed in this
+/// tick counts for nothing in it, one placed by this tick's commands counts already (`factions/gdo/overview.md >
 /// GDOResources > Power > When a building's Power counts`: from the tick it is placed until the tick it is
 /// destroyed). In order:
 /// 1. every player's power, from the structures present ([`PowerSummary`]);
-/// 2. (slice M2-D1) the constructors, then (M2-D2) the producers, each at its speed ([`PowerSummary::speed`]);
+/// 2. the constructors (`crate::construction::step`), then (M2-D2) the producers, each at its speed
+///    ([`PowerSummary::speed`]);
 /// 3. the plates mine (`mining::step`), the plates created this tick from the next one on;
 /// 4. (M2-F) the defeat check.
 pub(crate) fn step(
     objects: &mut BTreeMap<ObjectId, Object>,
     players: &mut [Player],
     first_new: ObjectId,
+    tick: Tick,
     events: &mut Vec<SimEvent>,
 ) {
     let power = power::summaries(objects.values());
+    crate::construction::step(objects, &power, first_new, tick, events);
     mining::step(objects, players, &power, first_new, events);
 }
 

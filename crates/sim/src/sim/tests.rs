@@ -3,6 +3,7 @@ mod turns;
 use super::*;
 use crate::combat::{AttackPhase, AttackState};
 use crate::command::{Command, DebugCommand};
+use crate::construction::Constructor;
 use crate::ids::SlotId;
 use crate::map::{Tile, TilePresetId};
 use crate::object::Rotation;
@@ -47,6 +48,7 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         attack: Some(AttackState::default()),
         riot_shield: Some(RiotShield::Lowered),
         extractor: None,
+        constructor: None,
     };
     sim.objects.insert(id, unit);
     id
@@ -135,6 +137,10 @@ fn debug(command: DebugCommand) -> TickInputs {
 /// A named change to one field.
 type Mutation = (&'static str, fn(&mut Sim));
 
+fn constructing(kind: ObjectKind, since: Tick, progress: u32) -> Constructor {
+    Constructor::Constructing { kind, since, progress }
+}
+
 #[test]
 fn state_hash_covers_every_field() {
     let mut base = small_sim();
@@ -150,6 +156,11 @@ fn state_hash_covers_every_field() {
         None,
     );
     obj(&mut base, plate.0).extractor.as_mut().unwrap().cycle = 7;
+    // Construction states (any object may hold one here): the unit building a Generator, the plate holding one ready.
+    obj(&mut base, 3).constructor = Some(constructing(ObjectKind::Generator, 2, 5));
+    obj(&mut base, plate.0).constructor = Some(Constructor::Ready {
+        kind: ObjectKind::Generator,
+    });
     let mutations: Vec<Mutation> = vec![
         ("tick", |s| s.tick += 1),
         ("map", |s| {
@@ -287,6 +298,27 @@ fn state_hash_covers_every_field() {
             obj(s, 4).extractor.as_mut().unwrap().patch = ObjectId(2);
         }),
         ("extractor cycle", |s| obj(s, 4).extractor.as_mut().unwrap().cycle += 1),
+        ("constructor none", |s| obj(s, 3).constructor = None),
+        ("constructor idle", |s| obj(s, 3).constructor = Some(Constructor::Idle)),
+        ("constructing kind", |s| {
+            obj(s, 3).constructor = Some(constructing(ObjectKind::Barracks, 2, 5));
+        }),
+        ("constructing since", |s| {
+            obj(s, 3).constructor = Some(constructing(ObjectKind::Generator, 3, 5));
+        }),
+        ("constructing progress", |s| {
+            obj(s, 3).constructor = Some(constructing(ObjectKind::Generator, 2, 6));
+        }),
+        ("constructor ready", |s| {
+            obj(s, 3).constructor = Some(Constructor::Ready {
+                kind: ObjectKind::Generator,
+            });
+        }),
+        ("ready kind", |s| {
+            obj(s, 4).constructor = Some(Constructor::Ready {
+                kind: ObjectKind::Barracks,
+            });
+        }),
     ];
     for (name, mutate) in mutations {
         let mut sim = base.clone();
