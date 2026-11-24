@@ -299,8 +299,14 @@ pub(super) fn march(unit: &mut Unit, leg: &mut Leg, group: Option<PathGroup>, wo
     let Some(attrs) = unit.attrs() else {
         return LegStatus::Running;
     };
-    let admit =
-        |c: &Candidate| c.in_range || (!leg.leaves_alone(c.view.id) && leashed(unit, attrs, leg, c.view, c.gap, world));
+    // Where the unit stands is the same for every candidate: a unit beyond the leash goes after none ([`leashed`]).
+    let on_leash = within_leash(unit.pos, leg);
+    let admit = |c: &Candidate| {
+        c.in_range
+            || (on_leash
+                && !leg.leaves_alone(c.view.id)
+                && within_leash(attack_spot(unit, attrs, c.view, c.gap, world), leg))
+    };
     if let Some(target) = world.pick(unit, Scan::Sight, false, admit)
         && let Some(view) = world.get(target)
     {
@@ -359,11 +365,19 @@ fn pursue(unit: &mut Unit, leg: &mut Leg, pursuit: &mut Pursuit, world: &World) 
 /// line to the target. The gap shrinks no faster than the unit walks and a path may bend, so the unit may have to go
 /// a little farther; once it stands beyond the leash, it lets go ([`pursue`]).
 fn leashed(unit: &Unit, attrs: &AttackAttrs, leg: &Leg, target: &View, gap: f32, world: &World) -> bool {
-    let leash = gu(ATTACK_MOVE_LEASH_GU);
+    within_leash(unit.pos, leg) && within_leash(attack_spot(unit, attrs, target, gap, world), leg)
+}
+
+/// Where `unit` would attack `target` from, `gap` away, by the estimate of [`leashed`].
+fn attack_spot(unit: &Unit, attrs: &AttackAttrs, target: &View, gap: f32, world: &World) -> Vec2 {
     let reach = max_range(attrs, world.elevation(unit), target.elevation);
     let toward = (target.pos - unit.pos).normalize_or_zero();
-    let spot = unit.pos + toward * (gap - reach).max(0.0);
-    distance_to_route(unit.pos, &leg.reference) <= leash && distance_to_route(spot, &leg.reference) <= leash
+    unit.pos + toward * (gap - reach).max(0.0)
+}
+
+/// Whether `p` is within AttackMoveLeashDistance of the leg's PathReference.
+fn within_leash(p: Vec2, leg: &Leg) -> bool {
+    distance_to_route(p, &leg.reference) <= gu(ATTACK_MOVE_LEASH_GU)
 }
 
 /// `> Patrolling`: one tick. Returns whether the Patrol is over.
