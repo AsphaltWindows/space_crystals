@@ -12,6 +12,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::object::Object;
 use crate::paths::NavState;
+use crate::paths::knowledge::PathKnowledge;
 use crate::player::Player;
 use crate::rng::Rng;
 use crate::units::Tick;
@@ -40,6 +41,7 @@ pub(super) struct SimState {
     auto_targeting: bool,
     events: Vec<SimEvent>,
     vision: Vec<vision::SavedVision>,
+    path_knowledge: PathKnowledge,
 }
 
 impl TryFrom<SimState> for Sim {
@@ -59,6 +61,7 @@ impl TryFrom<SimState> for Sim {
             auto_targeting,
             events,
             vision: saved,
+            path_knowledge,
         } = state;
         let mut objects = BTreeMap::new();
         for o in list {
@@ -69,11 +72,13 @@ impl TryFrom<SimState> for Sim {
                 return Err(format!("object id {} appears more than once", duplicate.id.0));
             }
         }
-        // Between ticks the grids match the objects (`paths`), so rebuilding them gives the running game's.
-        let nav = NavState::build(&map, &objects);
         // The Visible tiles follow from the objects, which is how phase 5f left them.
         let ids: Vec<PlayerId> = players.iter().map(|p| p.id).collect();
         let vision = vision::load(&map, &ids, saved, tick, objects.values())?;
+        // Between ticks the true grids match the objects and each player's what it knows (`paths`), so rebuilding
+        // them gives the running game's.
+        path_knowledge.check(&ids, &map)?;
+        let nav = NavState::build(&map, &objects, &vision, &path_knowledge);
         Ok(Sim {
             tick,
             map,
@@ -87,6 +92,7 @@ impl TryFrom<SimState> for Sim {
             auto_targeting,
             events,
             vision,
+            path_knowledge,
             nav,
         })
     }

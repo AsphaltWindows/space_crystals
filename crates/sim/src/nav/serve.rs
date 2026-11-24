@@ -149,6 +149,21 @@ pub fn find_path(
 /// - The budget counts expansions, never time, so the outcome is deterministic. `requests` may come in any
 ///   order; ids must be unique.
 pub fn serve(nav: &Nav, search: &mut Search, requests: &[PathRequest], budget: u32) -> ServeOutput {
+    serve_on(&[nav], &vec![0; requests.len()], search, requests, budget)
+}
+
+/// [`serve`] for requests that plan on different sets of grids: request `i` on `navs[on[i]]`, all within the one
+/// budget and in the one `(since, id)` order. The sim plans each unit on what its owner knows
+/// (`systems/controls/behaviors.md > PathKnowledge`), so a tick's requests are spread over the players' grids.
+/// A group field serves only members of one set of grids. `on` has an index into `navs` for every request.
+pub fn serve_on(
+    navs: &[&Nav],
+    on: &[usize],
+    search: &mut Search,
+    requests: &[PathRequest],
+    budget: u32,
+) -> ServeOutput {
+    assert_eq!(on.len(), requests.len(), "one set of grids per request");
     let before = search.counters();
     let spent = |search: &Search| search.counters().expansions - before.expansions;
     let mut order: Vec<usize> = (0..requests.len()).collect();
@@ -163,7 +178,7 @@ pub fn serve(nav: &Nav, search: &mut Search, requests: &[PathRequest], budget: u
             break;
         }
         let request = &requests[i];
-        let Some(grid) = nav.grid(request.class, request.size.max(1)) else {
+        let Some(grid) = navs[on[i]].grid(request.class, request.size.max(1)) else {
             done[i] = true;
             served.push(Served {
                 id: request.id,
@@ -172,7 +187,7 @@ pub fn serve(nav: &Nav, search: &mut Search, requests: &[PathRequest], budget: u
             });
             continue;
         };
-        let field = field_members(grid, requests, &order, &done, i);
+        let field = field_members(grid, requests, on, &order, &done, i);
         if let Some((anchor, members)) = field.filter(|(_, members)| members.len() >= GROUP_FIELD_MIN) {
             for (member, path) in members
                 .iter()
@@ -215,8 +230,8 @@ struct FieldMember {
 
 /// The field request `i` would share (`docs/movement.md > 5.5`): its anchor tile, and the pending requests that
 /// would share it, `i` first and the others in serving order, each with its goal resolved. `None` if `i` can't use
-/// one. The members share a group id, class, size class and component and have no avoid tiles, and the anchor
-/// tile's centre sees each one's goal for its box.
+/// one. The members share a group id, their set of grids (`on`), class, size class and component and have no avoid
+/// tiles, and the anchor tile's centre sees each one's goal for its box.
 ///
 /// A member whose goal the anchor can't see plans alone. With the magic box (`docs/movement.md > 6.4`) a
 /// unit's destination is its own place in the group's shape, which may lie behind an obstacle from the click, for
@@ -225,6 +240,7 @@ struct FieldMember {
 fn field_members(
     grid: &NavGrid,
     requests: &[PathRequest],
+    on: &[usize],
     order: &[usize],
     done: &[bool],
     i: usize,
@@ -258,6 +274,7 @@ fn field_members(
         let other = &requests[j];
         j != i
             && !done[j]
+            && on[j] == on[i]
             && other.group.is_some_and(|g| g.id == group.id)
             && other.avoid.is_empty()
             && (other.class, other.size.max(1)) == (grid.class(), grid.size())

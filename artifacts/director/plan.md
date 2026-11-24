@@ -256,8 +256,28 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Any control group recall** resets menus (0078).
   - **Waits for M2**: 0074 Verification 2, the enemy-structure case.
 
+- **M2-A structure foundation** (merged in `cbeb804`; 692 tests):
+  - The DC, Generator, Barracks, EF and plate are sim objects. `StructureDef` and `SymmetryType` live in `defs/structures.rs`, and `Armor` moved to `ObjectDef`.
+  - `sides(kind, orientation)` follows 0079. The Barracks is [A,B,A,C] at R0, with B facing east.
+  - `ObjectKind::may_overlap` allows only a plate on an uncovered patch. Debug spawns refuse overlaps (`Reject::Overlaps`).
+  - Placeholder meshes with type tags; remembered structures are drawn dimmed. A click on a covered patch picks the plate (0099). Enemy structures are auto-targets (0103). QA scenario `dev_structures`.
+  - Fixed: `World::pick`'s scan radius missed large footprints.
+  - No golden changed.
+
+- **M2-E path knowledge** (Fable; merged in `f76db38`; 704 tests):
+  - **Knowledge.** `paths/knowledge.rs` holds `PathKnowledge`, which is hashed, serialized and checked on load: per player, a version plus the starting resources the player still assumes are there.
+  - **Grids.** Players' known grids are built lazily: own footprints, plus records, plus assumed resources. Planning uses the owner's grids: serve, staggered checks, chase line of sight, `reachable_point` and the magic box. Movement, the gate and I2 use the true grids.
+  - **Sync timing.** Known grids sync once per tick, at the end, after `Vision::remember`. That deviates from the plan's 5b, so that save and load stay exact.
+  - **Ownerless and neutral units** plan on the true grids.
+  - **`NavGrid::restamp`** uses union-find labelling and takes 0.17 ms per grid, against 1.4 ms for a full rebuild. In the 10-deaths case seen by 4 players, the tick takes 1.0 ms with 5 rebuilds (the target was 5 ms). The worst tick overall is 3.7 ms, at tick 1 with 412 spawns.
+  - **Housekeeping.** New invariant K1: each player's grids equal a fresh build. `paths.rs` is split into `paths/` and `sim/navigation.rs`. `ROUTE_ON_TRUE_MAP` is deleted.
+  - **Goldens.** Re-blessed, because the hash now includes path knowledge. Play is identical.
+  - **Open.** The blocked-to-open cases went out as Q0033.
+
 ## In progress
-- **M2-A structure foundation** (Opus; brief `scratchpad/briefs/m2a-structure-foundation.md`; spec `m2-plan.md` §3.3 A plus §8): the five GDO structure kinds; blocking, vision, records, combat; `sides` per 0079; placeholder visuals.
+- **M2 wave 2** (common brief `scratchpad/briefs/m2-common.md`, plus one brief per slice):
+  - **M2-B economy core** (Opus): banks, power and penalty, Unit Control, plate mining in lumps, depletion.
+  - **M2-C placement** (Opus): the build area and one pure placement check, with the 0091–0097 rules.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2-B, M2-C and M2-E** together after M2-A.
@@ -339,10 +359,10 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 
 | Slice | Content | After | Model | Status |
 |---|---|---|---|---|
-| M2-A | Structure foundation: 5 kinds, stat blocks, armour, orientation and sides, blocking, vision, records, combat, placeholder visuals, oriented debug spawn | G3 | Opus | running |
-| M2-B | Economy core: banks, power and penalty, Unit Control, plate mining and depletion, the economy step | A | Opus | queued |
-| M2-C | Build area and placement validation | A | Opus | queued |
-| M2-E | Path knowledge: per-player planning grids, re-route on discovery | A | Fable | queued |
+| M2-A | Structure foundation: 5 kinds, stat blocks, armour, orientation and sides, blocking, vision, records, combat, placeholder visuals, oriented debug spawn | G3 | Opus | done (`cbeb804`) |
+| M2-B | Economy core: banks, power and penalty, Unit Control, plate mining and depletion, the economy step | A | Opus | running |
+| M2-C | Build area and placement validation | A | Opus | running |
+| M2-E | Path knowledge: per-player planning grids, re-route on discovery | A | Fable | done (`f76db38`) |
 | M2-D1 | Construction: DC and EF, Construct, Cancel, Place, refunds | B, C | Opus | queued |
 | M2-D2 | Production: Barracks queue, rally point, exit spawn, Unit Control | B | Opus | queued |
 | M2-F | Start and end of a game: Starting Conditions, layouts, defeat, `dev_skirmish` GDO layout | B, C | Opus | queued |
@@ -408,13 +428,14 @@ First playable after M2-H2.
 | Q0026 | GDO build area: shape, shrinking, no DC, overlay | no | answered by 0091, 0092 and 0093 (square, follows the current buildings, overlay shows the area only) |
 | Q0027 | Placement: units under the footprint, plates in fog, buildings on resources, layout rules | no | answered by 0094–0097 (M2-A, M2-C, M2-F, M2-I) |
 | Q0028 | Mining: lumps or trickle, last partial load, depleted patch under a plate, selecting a covered patch | no | answered by 0098 (lumps) and 0099 (M2-A, M2-B) |
-| Q0029 | What defeat does: the remaining units, victory and game end | no | point 1 answered by 0100 (units stay but can't be controlled; M2-F); point 2 (victory and game end) open |
-| Q0030 | Structures as targets (auto-targeting buildings), build menu slots, building InfoPanels | no | open |
+| Q0029 | What defeat does: the remaining units, victory and game end | no | answered by 0100–0102: units become neutral, the game ends when one side remains, defeated players watch with team vision (M2-F) |
+| Q0030 | Structures as targets (auto-targeting buildings), build menu slots, building InfoPanels | no | answered by 0103 (structures are auto-targets; done in M2-A), 0104 (DC has two build menus; M2-H2), 0105 (structure InfoPanels; M2-G) |
 | Q0031 | A Move or Follow aimed at a selected unit itself (it currently follows itself forever) | no | open; default: the clicked unit is left out |
 | Q0032 | Arrival radius behind an occupied destination: 2 or 3 grid units (data from G3) | no | open; M1 keeps 2 |
+| Q0033 | Path knowledge, blocked to open: a destination behind a gone obstacle, shortcuts when a wall is seen gone, map-placed structures | no | open; M2-E built the stated current behaviour |
 
 ## Design change entries
-Last triaged: 0100.
+Last triaged: 0105.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -451,9 +472,9 @@ Last triaged: 0100.
 | 0037 Patrol failed legs | done (M1-E, `aa5a05f`) | answers Q0010 part 3 |
 | 0038 Crystal patches and supply stations block ground units | done (M1-C rule; Verification tests in M1-G2, `52f20a8`) | answers Q0011 part 1; mining depletion is verified again with the economy |
 | 0039 Rugged terrain impassable for wheeled, tracked and drill vehicles; hover crosses with double drag | queued for the vehicles milestone | infantry unchanged (M1-C keeps Rugged passable for infantry) |
-| 0040 Pathfinding uses only what the owner knows | queued for the structures milestone (M2): per-player known-obstacle layer from M1-F's last-known records, plus a re-route on discovery | replaces default A (true map); M1 has no player-built structures, so nothing is observable yet; F was told to shape its records for it |
-| 0041 The obstacle cache is only a suggestion | noted with 0040 | how and when to re-path is the Director's call |
-| 0042 Map-placed patches and stations known from the start | with 0040 in M2 | confirms the 0040 assumption |
+| 0040 Pathfinding uses only what the owner knows | done (M2-E, `f76db38`) | replaces default A (true map); M1 has no player-built structures, so nothing is observable yet; F was told to shape its records for it |
+| 0041 The obstacle cache is only a suggestion | done (M2-E, `f76db38`) | how and when to re-path is the Director's call |
+| 0042 Map-placed patches and stations known from the start | done (M2-E, `f76db38`) | confirms the 0040 assumption |
 | 0043 Underground units don't collide with each other | queued (Later: underground) | |
 | 0044 No surfacing onto occupied spots | queued (Later: underground) | |
 | 0045 Air units ignore terrain; Gliders may leave the map edge briefly | queued (Later: air) | Q0011 fully answered |
@@ -507,9 +528,14 @@ Last triaged: 0100.
 | 0093 Build area overlay shows the area only | queued (M2-H2) | answers Q0026 point 4; matches the plan |
 | 0094 Ground units on the footprint block Direct Placement | queued (M2-C) | answers Q0027 point 1; matches the plan |
 | 0095 Extraction Plates need visible tiles | queued (M2-C; the `dev_skirmish` DC's sight must cover its main patches, M2-F) | answers Q0027 point 2 |
-| 0096 No buildings on resources, except plates on patches | in progress (M2-A), and M2-C | answers Q0027 point 3 |
+| 0096 No buildings on resources, except plates on patches | done in M2-A (`cbeb804`) for spawns; M2-C for the placement check | answers Q0027 point 3 |
 | 0097 Starting Layout validation | queued (M2-F, M2-I) | answers Q0027 point 4: the proposal plus a rule for starting units |
 | 0098 Plates pay in lumps; the cycle timer advances by the power ratio | queued (M2-B, M2-J) | answers Q0028 point 1 |
-| 0099 Plate depletion: last partial load, depleted patch stays under its plate, the pick selects the plate | in progress (M2-A, the pick), and M2-B | answers Q0028 points 2–4 |
-| 0100 A defeated player's units stay but can't be controlled | queued (M2-F) | answers Q0029 point 1; replaces removing the units |
+| 0099 Plate depletion: last partial load, depleted patch stays under its plate, the pick selects the plate | pick done in M2-A (`cbeb804`); mining in M2-B | answers Q0028 points 2–4 |
+| 0100 A defeated player's units stay but can't be controlled | superseded by 0101 (units become neutral) | answers Q0029 point 1; replaces removing the units |
+| 0101 On defeat, units become neutral; the game ends when one side remains | queued (M2-F) | answers Q0029 points 1–2 |
+| 0102 Defeated players in team games watch with team vision | queued (M2-F) | closes 0101's TBD |
+| 0103 Enemy structures are valid automatic targets | done (M2-A, `cbeb804`) | answers Q0030 point 1; matches M1 |
+| 0104 Deployment Center has two build menus | queued (M2-H2) | answers Q0030 point 2; M2 needs only Generator, Barracks and EF in BuildMenu[Basic] |
+| 0105 Default InfoPanel for structures | queued (M2-G) | answers Q0030 point 3, as proposed |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

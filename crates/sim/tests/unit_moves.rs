@@ -349,8 +349,10 @@ fn an_unreachable_goal_is_retargeted() {
     assert_eq!(end, TilePos::containing(end).center());
 }
 
-/// `docs/movement.md > 5.7`, `> 5.6`: a station spawned across the route rebuilds the grids (a new `nav_version`);
-/// on its next staggered check the unit finds its path cut, replans and goes around it.
+/// `docs/movement.md > 5.7`, `> 5.6`, `systems/controls/behaviors.md > PathKnowledge`: a station spawned across the
+/// route rebuilds the true grids at once (a new `nav_version`), but the unit's owner knows nothing of it until the
+/// unit sees it. Then its knowledge has a new version, and on its next staggered check the unit finds its path cut,
+/// replans and goes around it.
 #[test]
 fn a_new_footprint_on_the_route_makes_the_unit_replan() {
     let mut t = ScenarioBuilder::new(OPEN).start();
@@ -371,9 +373,22 @@ fn a_new_footprint_on_the_route_makes_the_unit_replan() {
     t.step();
     assert_eq!(t.sim().objects().count(), 2, "the station");
     assert_eq!(t.sim().nav_version(), 1);
-    // Unit 1 checks in the ticks where `(tick + 1) % 4 == 0`: tick 11.
+    // The station is out of the Peacekeeper's sight (5 GU), so nothing changes for it until it gets there.
+    let known = |t: &TestSim| t.sim().path_knowledge().version(P1).unwrap();
+    assert_eq!(known(&t), 0);
+    while known(&t) == 0 {
+        assert!(t.sim().tick() < 200);
+        assert_eq!((mover(&t, 1).nav_version, mover(&t, 1).path.len()), (0, 2));
+        t.step();
+    }
+    let seen_from = pos(&t, 1);
+    assert!(
+        seen_from.x < 512.0 - 4.0 * 64.0 && seen_from.x > 512.0 - 6.0 * 64.0,
+        "{seen_from}"
+    );
+    // Unit 1 checks in the ticks where `(tick + 1) % 4 == 0`: within 4 ticks.
     assert_eq!((mover(&t, 1).nav_version, mover(&t, 1).path.len()), (0, 2));
-    t.step();
+    t.run(4);
     let replanned = mover(&t, 1);
     assert_eq!(replanned.nav_version, 1);
     assert!(replanned.path.len() > 2, "{:?}", replanned.path);
