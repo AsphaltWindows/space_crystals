@@ -2112,3 +2112,4 @@ Q0042 pt 4: shields bar above HP, InfoPanel line. Entry 0148.
 Q0042 pt 5: melee reach 8 su placeholder. Entry 0149.
 Q0042 pt 6: Convert and Riot Shield keep orders; shielded Attack on hold (follow), resumes on lower. Entry 0150.
 Q0042 pt 7: Convert/Riot Shield not queueable. Entry 0151.
+Q0042 pt 8: new weapon starts ready after Convert. Entry 0152.
