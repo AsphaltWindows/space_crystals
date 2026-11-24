@@ -255,3 +255,39 @@ fn the_warp_in_footprint_follows_the_beacon_and_the_orientation() {
         assert!(p.origin.x >= i32::MAX - 2 && p.origin.y <= i32::MIN + 1, "{o:?}: {p:?}");
     }
 }
+
+fn hash_of(transform: &Transform) -> u64 {
+    let mut h = StateHasher::new();
+    transform.hash(&mut h);
+    h.finish()
+}
+
+/// Every field of a transformation is state, the load a deploying Drone keeps (design change 0114) included: each
+/// one changes the hash.
+#[test]
+fn the_hash_covers_every_field() {
+    let t = Transform {
+        load: 8,
+        ..warping(RoboPortal)
+    };
+    let changed = [
+        Transform { from: EgressNode, ..t },
+        Transform {
+            from_placement: None,
+            ..t
+        },
+        Transform {
+            progress: t.progress + 1,
+            ..t
+        },
+        Transform {
+            total: t.total + 1,
+            ..t
+        },
+        Transform { paid: t.paid + 1, ..t },
+        Transform { load: 7, ..t },
+    ];
+    for other in changed {
+        assert_ne!(hash_of(&other), hash_of(&t), "{other:?}");
+    }
+}

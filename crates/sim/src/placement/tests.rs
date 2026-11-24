@@ -15,7 +15,7 @@ use ObjectKind::{
     Barracks, CrystalPatch, DeploymentCenter, ExtractionFacility, ExtractionPlate, Generator, Guard, Peacekeeper,
     SupplyDeliveryStation,
 };
-use TileProblem::{NotBuildable, NotFlat, NotVisible, OffMap, Resource, Structure, Unit};
+use TileProblem::{NotBuildable, NotFlat, NotVisible, OffMap, Reserved, Resource, Structure, Unit};
 use WholeProblem::{NotAStructure, NotOnPatch, OutsideBuildArea};
 
 fn t(x: i32, y: i32) -> TilePos {
@@ -436,4 +436,69 @@ fn problems_come_in_a_fixed_order() {
     assert_eq!(check.tiles, expected);
     let reversed: Vec<Occupant> = occupants.into_iter().rev().collect();
     assert_eq!(place(&map, &area, &reversed, DeploymentCenter, 0, 0), check);
+}
+
+/// Design change 0125 (`> Lingering build ghosts`): the tiles of the sites the placing player has reserved are
+/// `Reserved`, in their place among the other problems; a site only touching the footprint reserves none of it.
+#[test]
+fn tiles_under_reserved_sites() {
+    let (map, area) = open(16, 16);
+    let site = Site {
+        map: &map,
+        area: &area,
+        mode: Mode::Layout,
+        method: Method::WorkerBuilt,
+    };
+    let beacon = |x, y| Placement::new(t(x, y), ObjectKind::Beacon.def().footprint);
+    let reserved = [beacon(5, 5), beacon(2, 4)];
+    let unturned = BuildingOrientation::default();
+    let check = check_reserving(
+        &site,
+        [on(CrystalPatch, 4, 5)],
+        &reserved,
+        ObjectKind::Beacon,
+        t(4, 4),
+        unturned,
+    );
+    assert_eq!(check.tiles, [(t(4, 5), Resource), (t(5, 5), Reserved)]);
+    assert!(check_reserving(&site, [], &reserved, ObjectKind::Beacon, t(7, 7), unturned).is_valid());
+}
+
+/// `Mode::Known` (plan decision T16; design change 0120: "The ghost judges by what the player knows"): what stands on
+/// a tile the player never explored, and the ground, pass; its reservations and the map's edge never do. Player 1's
+/// Generator at (4, 4) explored the Mountain at (7, 5), not the one at (20, 4) nor player 2's Barracks at (18, 10).
+#[test]
+fn never_explored_tiles_pass_but_reservations() {
+    let mut rows = vec![".".repeat(24); 16];
+    rows[5].replace_range(7..8, "M");
+    rows[4].replace_range(20..21, "M");
+    let scenario = ScenarioBuilder::new(&rows.join("\n"))
+        .spawn(Generator, Some(PlayerId(1)), crate::SpawnAt::Tile(t(4, 4)))
+        .spawn(Barracks, Some(PlayerId(2)), crate::SpawnAt::Tile(t(18, 10)))
+        .build();
+    let sim = Sim::new(&scenario);
+    let area = BuildArea::default();
+    let known = Site {
+        map: sim.map(),
+        area: &area,
+        mode: Mode::Known {
+            vision: sim.vision(),
+            player: PlayerId(1),
+        },
+        method: Method::WorkerBuilt,
+    };
+    let unturned = BuildingOrientation::default();
+    let reserved = [Placement::new(t(20, 5), ObjectKind::Beacon.def().footprint)];
+    let beacon = |x, y| {
+        let objects = sim.objects().map(Occupant::of);
+        check_reserving(&known, objects, &reserved, ObjectKind::Beacon, t(x, y), unturned)
+    };
+    assert_eq!(sim.visibility(PlayerId(1), t(7, 5)), VisibilityState::Visible);
+    assert_eq!(beacon(6, 5).tiles, [(t(7, 5), NotBuildable)]);
+    assert!(beacon(20, 2).is_valid() && beacon(18, 10).is_valid(), "never explored");
+    assert_eq!(beacon(20, 4).tiles, [(t(20, 5), Reserved), (t(21, 5), Reserved)]);
+    assert_eq!(
+        beacon(23, 15).tiles,
+        [(t(24, 15), OffMap), (t(23, 16), OffMap), (t(24, 16), OffMap)]
+    );
 }

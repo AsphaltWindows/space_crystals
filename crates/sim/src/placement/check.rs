@@ -83,9 +83,10 @@ pub enum Method {
     WarpIn { beacon: Placement },
     /// `> Worker-Built Structures` (slice M3-F, a Drone deploying a Beacon, `crate::deploy`): built by a worker on a
     /// site it walks to. The tile rules of a Direct Placement, sight aside (the [`Mode`] decides what is seen), and no
-    /// build area ("no range limit from other Colonists buildings", `factions/colonists/economy.md > Beacon Deployment
-    /// > Placement`). "The building worker itself (e.g. the deploying Drone) doesn't count" (design change 0118): the
-    /// caller leaves it out of the occupants, as a Warp In's caller leaves out its Beacon.
+    /// build area ("no range limit from other Colonists buildings",
+    /// `factions/colonists/economy.md > Beacon Deployment > Placement`). "The building worker itself (e.g. the
+    /// deploying Drone) doesn't count" (design change 0118): the caller leaves it out of the occupants, as a Warp In's
+    /// caller leaves out its Beacon.
     WorkerBuilt,
 }
 

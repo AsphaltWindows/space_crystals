@@ -159,9 +159,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   production and its rally point, see *Production*); for a structure that constructs buildings, `constructor`
   (`Constructor`, `construction.rs`: idle, constructing or holding a building ready to place, see *Economy*); for
   a worker, the Drone, `worker` (`Worker`, `economy/gathering.rs`: its load, its AssignedDropOff and the patch it
-  gathers, see *Economy > Gathering*); for an object transforming into its kind (a Beacon warping in a building),
-  `transform` (`Transform`, `transform.rs`: what it was and where it stood, how far it has come and what it paid, see
-  *Economy > Warp In*). The rest arrives as more optional fields, each with its own module. Never add them as
+  gathers, see *Economy > Gathering*); for an object transforming into its kind (a Beacon warping in a building, a
+  Beacon deploying from a Drone), `transform` (`Transform`, `transform.rs`: what it was and where it stood, how far it
+  has come, what it paid and the load a deploying Drone carried, see *Economy > Warp In* and *> Beacon Deployment*).
+  The rest arrives as more optional fields, each with its own module. Never add them as
   separate stores keyed by id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
@@ -203,7 +204,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   queue, a construction) is refunded first, as on removal. Call it before 5b (in the commands phase, or a step
   right after 5a), or sync the grids yourself (`paths::sync`). A caller whose new kind isn't functional yet (a
   building warping in) holds its functions back itself. Slice E's Warp In and its cancel are its first callers
-  (`sim/transform.rs`), slices B and F follow; `sim/kinds/tests.rs` unit-tests it. The client rebuilds the visuals of
+  (`sim/transform.rs`), slice F's deployment the next (`sim/deploy.rs`, the step right after 5a), slice B follows; `sim/kinds/tests.rs` unit-tests it. The client rebuilds the visuals of
   a changed object and keeps it selected (see *Commands, events and replays > Events*).
 - **Sides** (`sides.rs`, design change 0079): `sides(kind, orientation)` gives the letters of a structure's sides
   that face north, east, south and west (`[SideLetter; 4]`, `None` for other objects). Unturned, the letters of its
@@ -252,7 +253,7 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   Starting Layout: no sight (design change 0097). A game asks `Sim::placement_check(player, kind, origin,
   orientation)`, a layout object `placement::check_layout(map, others, layout, index)`.
 - **Out**: a `PlacementCheck`: the `TileProblem`s of each footprint tile (off the map, not Buildable, sloped, not
-  Visible, under a structure, under a resource, under a ground unit), row by row and in that order, and the
+  Visible, under a structure, under a resource, under a ground unit, reserved), row by row and in that order, and the
   `WholeProblem`s (not a structure, outside the build area, a plate not on a patch). Valid means both are empty: the
   ghost shows the tiles' problems tile by tile, and the gate refuses a placement with any problem. The check reads
   the true state, but a tile the player doesn't see has `NotVisible` as its only problem, so it tells nothing the fog
@@ -270,7 +271,17 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   build area. A Warp In's footprint is never chosen: `transform::warp_in_footprint(beacon, kind, orientation)`
   derives it (0121: centred on the Beacon; an odd-sized building's extra row and column at the bottom-right, turned
   and flipped about the Beacon's centre as the building's sides are), and `Sim::warp_in_check(beacon, kind,
-  orientation)` checks it. The gate and the Warp In ghost (slice M3-J1) call those two.
+  orientation)` checks it. The gate and the Warp In ghost (slice M3-J1) call those two. `Method::WorkerBuilt`
+  (slice M3-F; `> Worker-Built Structures`, a Drone's Deploy) has the tile rules without a build area; the caller
+  leaves the worker out of the occupants (0118). Its order is judged in `Mode::Known { vision, player }` (0120: what
+  the player knows: its own objects, the others it sees, its records of structures and resources in the fog; a tile
+  never explored passes, but for the reservations), its arrival in `Mode::Arrival` (the truth, no sight rule).
+  `Sim::deploy_check(drone, origin, queued)` is the order's check, for the gate and the Deploy ghost (M3-J1).
+- **Reservations** (design change 0125, `> Lingering build ghosts`): each Deploy ordered and not yet started,
+  current or Shift-queued, reserves its site against its owner's further placements, a Deploy's and a Warp In's
+  (`TileProblem::Reserved`, through `placement::check_reserving`; a Deploy without Shift replaces its Drone's orders,
+  so that Drone's own sites don't count). They are derived from the order queues (`Sim::pending_deploys(player)`,
+  for the ghosts of M3-J1), never stored; another player's never count, and they block no unit.
 - **The build area** (`BuildArea`, `Sim::build_area(player)`; `factions/gdo/structures.md > GDOBuildArea`) is the
   union of one rectangle per GDO building the player owns: its footprint grown by its BuildRadiusExtension on every
   side, clamped to the map (design change 0091: square). A building with an extension of 0, the plate, adds nothing.
@@ -283,8 +294,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   scenarios and tests*).
 - **Tests**: `src/placement/tests.rs` (each rule on the pure check), `placement/build_area.rs`'s (the 28 × 28 area,
   each kind's extension, the runs), `tests/placement.rs` (the verification points of design changes 0004 and 0091 to
-  0097 in games and layouts, determinism, a save), `tests/warp_in.rs` (the Warp In method, see *Economy > Warp In*)
-  and the ignored `tests/placement_perf.rs`. Measured (release, 769 objects,
+  0097 in games and layouts, determinism, a save), `tests/warp_in.rs` (the Warp In method, see *Economy > Warp In*),
+  `tests/deploy_gate.rs` (the worker-built method, its modes and the reservations) and the ignored `tests/placement_perf.rs`. Measured (release, 769 objects,
   101 buildings of the player's; slice M2-J2, on a quiet machine): 4 µs a check, 2 µs a build area.
 
 ## Tick pipeline
@@ -307,6 +318,10 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      (see *Behaviours*). They write goals (`Mover::go_to`, `stop`) and the target the attack engages. Everything
      they read of other objects comes from one snapshot taken first (`orders::world::World`): the positions and the
      vision the last tick left.
+   - Deployments, `Sim::step_deployments` (slice M3-F, see *Economy > Beacon Deployment*): part of 5a, right after
+     `orders::update`, in id order. Each Drone whose walk to its site ended this tick deploys there (a change of kind:
+     before 5b, which claims the footprint) or fails its order (`SimEvent::DeployFailed`): the changes of kind and
+     the events that a behaviour may not make.
    - 5b `paths::sync`: if the blocking footprints changed, rebuild the true navigation grids and bump
      `nav_version`.
    - 5c `paths::serve`: first each unit's staggered path checks, in the ticks where `(tick + id) % 4 == 0` (after
@@ -860,7 +875,8 @@ section of its own.
   used / available (design change 0090). `Sim::army_cap(player)` is an `ArmyCap { resource, used, available }` for
   the player's faction (`economy/army.rs`, plan decision T20; `None` for the Syndicate and the Cults until their
   milestones): the GDO's Unit Control, out of `UNIT_CONTROL_CAP`, and the Colonists' Beacon Capacity, out of
-  min(`BEACON_CAPACITY_CAP`, `BEACON_CAPACITY_PER_BUILDING` × their Colonists structures). Used is the
+  min(`BEACON_CAPACITY_CAP`, `BEACON_CAPACITY_PER_BUILDING` × their Colonists structures, a Beacon under deployment
+  left out until it completes: design change 0112, *Beacon Deployment*). Used is the
   `ArmyResource::cost_of` of the player's units plus what the units in their producers' queues reserve (design
   change 0082; Q0041 point 1 for Beacon Capacity: a unit counts from the moment it is queued, the one in production
   and one waiting inside included). Capacity that falls below what is used leaves the units and the queues alone
@@ -953,7 +969,23 @@ section of its own.
   Capacity (0112). `ConstructionCommand::CancelTransform` turns every transforming object named back into what it
   was, on its old tiles, with the fraction of its HP it had and at least 1 (`transform::keep_fraction`, 0111), and
   refunds `Refund::Ready` of what it paid (`SimEvent::TransformCancelled`); a destroyed one refunds nothing (0115).
-  Slice M3-F's deployment reuses `Transform`: `from` a Drone, without `from_placement`, its load a field of its own.
+- **Beacon Deployment** (`deploy.rs`, `orders/deploy.rs`, `sim/deploy.rs`; slice M3-F, plan decisions T15 to T17;
+  `factions/colonists/economy.md > Beacon Deployment`, design changes 0109 to 0120 and 0125): a Drone walks to a site
+  and transforms in place into a Beacon, by the Warp In's machinery. `OrderKind::Deploy { origin }` (the Beacon's
+  2 × 2 footprint, `deploy::site`, never turned; Shift queues it) goes to one Drone; the gate checks its site on what
+  the player knows (see *Placement and the build area > Methods*). In phase 5a the Drone heads for the footprint's
+  centre (`orders::deploy`); its walk is over once its move ended, or when it found no way forward for `JAMMED_TICKS`
+  while overlapping the footprint (0117). Then `Sim::step_deployments` (see *Tick pipeline*) checks the site on the
+  truth: if the Drone overlaps the footprint (`deploy::on_site`) and it passes, the Drone becomes the Beacon on the
+  footprint, wherever it stood, the same object (0109: its footprint claimed in 5b of that tick), transforming `from`
+  the Drone without `from_placement` (`deploy::BEACON_DEPLOYMENT`: 48 frames, no cost), its first frame that tick;
+  else the order fails, the Drone idles and its next queued order starts (`SimEvent::DeployFailed`, its problems
+  empty if the Drone stopped short). Its HP interpolate from 20 to 120 as a Warp In's do; only Cancel Deployment
+  (`CancelTransform`, 0116) applies, and turns it back into the Drone at the footprint's centre, with no order and
+  the fraction of its HP (0111). It frees the Drone's 1 Beacon Capacity as it starts and provides the Beacon's 5 only
+  at completion (`Object::is_deploying`, `economy::army`; a cancel takes the 1 back even over the cap, 0112). It
+  counts for defeat (0113). The Drone's load stays in `Transform::load`, is lost at completion and returns with a
+  cancel (0114).
 - **Adding to the economy** (slices M2-D2, M2-F): put the new step into `economy::step` at its numbered place, advance
   progress by `PowerSummary::speed` from the tick the command applies (*Recipe timing*), take costs with
   `spend_crystals` when the command applies, and give refunds through `Refund`; `construction.rs` is the pattern.
@@ -1097,7 +1129,10 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   finite and on the map, target objects must exist (`UnknownObject`) and an attack's target be destructible
   (`NotAttackable`). A Gather's target is a Space Crystals patch with no plate on it (`NotGatherable`) that the
   player sees, a Drop Off's a drop-off of the player's own (`NotDropOff`), and only the workers among the units
-  take either (`NoWorkers` if there is none; `sim/workers.rs`). Without `queue` the order replaces the unit's queue and current order; with it, the order is
+  take either (`NoWorkers` if there is none; `sim/workers.rs`). `Deploy { origin }` (slice M3-F, see *Economy >
+  Beacon Deployment*) goes to the one Drone among the units (`NoWorkers` if none, `SeveralConstructors` if more: the
+  client picks one, design change 0125), with a site allowed as far as the player knows, its pending sites reserved
+  (`Unplaceable(PlacementProblem)`, not reported: `Sim::deploy_check`). Without `queue` the order replaces the unit's queue and current order; with it, the order is
   appended (a full queue drops it). Each order command is one group (`Sim::next_group`); a location order gives
   each unit of a group its own destination (the magic box, see *Navigation*). What each order does is in
   *Behaviours*.
@@ -1169,8 +1204,9 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`,
   `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `UnitProduced`,
   `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
-  `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, …) are output only, for
-  effects, sounds and UI. The sim never reads them.
+  `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, `DeployFailed`, …) are
+  output only, for effects, sounds and UI. The sim never reads them. `DeployFailed { drone, origin, problems }` (slice
+  M3-F) is a Deploy that failed on arrival; the client's feedback line says why (`command_ui/feedback.rs`).
   `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events from the scenario's
   initial spawns. `KindChanged { id, from, to }` (`Sim::change_kind`) says that an object changed its kind in place.
   The client's response (slice M3-E) reads the objects themselves, so a replay's jump or a loaded game gets it too:
@@ -1372,6 +1408,16 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   replay, and a fuzz of the gate). The arithmetic and the footprint are unit-tested in `transform/tests.rs`. In the
   client: `tests/client/visuals.rs` (a visual rebuilt and tinted), `tests/selection/panels.rs` (a selected Beacon
   through its Warp In), and the InfoPanel's line in `hud/info_panel` and `activity.rs`.
+- **Beacon Deployment tests** (slice M3-F) are `crates/sim/tests/deploy.rs` (the walk to the footprint's centre and
+  the start on arrival, the 48 frames, the HP from 20 to 120 and damage carried through (0110), Beacon Capacity 10/10
+  to 9/10 to 9/15 and a cancel to 11/10 (0112), the cancel's fractions and place (0109, 0111), the load lost or
+  returned (0114), defeat (0113), a destruction, the footprint claimed, auto-targeting taking the footprint, Shift, a
+  save and a replay) and `crates/sim/tests/deploy_gate.rs` (one Drone per Deploy; the gate on what the player knows,
+  remembered buildings, hidden units and never-explored ground (0120); failures on arrival for a structure, a unit
+  of either player, a patch, a Drone walled off, and a Drone blocked while overlapping that deploys (0117, 0118);
+  only Cancel on a deploying Beacon (0116); the reservations and `Sim::pending_deploys` (0125); a fuzz of the gate
+  and the arrival). Unit tests: `deploy.rs`'s, `placement/tests.rs` (reservations, `Mode::Known`) and
+  `transform/tests.rs` (the load hashed).
 - **Game end tests** are `crates/sim/tests/game_end.rs` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and a last defeat shared by two; no producer handed
@@ -1619,7 +1665,8 @@ state. `ControlStates` holds every player's `ControlState`, a `Selection`, 10 co
 ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the local player's (`LocalPlayer`).
 - **Model** (`selection/model.rs`): a selection is a set of object ids with their kinds. Its SelectionGroups are
   derived: one per type, each by id, and one per instance of an ungroupable type (the map resources, which are
-  never selected with other objects, design change 0048; the Colonists' Drone, Egress Node and Beacon, 0122). They
+  never selected with other objects, design change 0048; the Colonists' Egress Node and Beacon, 0122; the Drone is
+  Groupable, 0125). They
   come in one stable order, by `ObjectKind` and then by instance (`Selection::groups`), which is the order of the
   SelectionPanel's portraits and of Tab and Shift + Tab (the
   placeholder of 0055). The ActiveGroup is one SelectionGroup, named by its `GroupKey` (0048): Tab and Shift + Tab
