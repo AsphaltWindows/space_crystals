@@ -1,6 +1,9 @@
 //! Attack sequences (`systems/combat.md > AttackPhase`, `ARCHITECTURE.md > Combat`): each phase lasts exactly its
 //! duration in ticks, the unit faces its target before it fires, and only Aiming and Reloading can be interrupted.
-//! Attack orders without the approach of slice E: a unit attacks a target in range and stands still otherwise.
+//!
+//! The target holds its position (`systems/controls/behaviors.md > HoldingPosition`), so it never moves; it may fire
+//! back, which changes nothing here. A unit left without an order looks for a target by itself (`>
+//! BaseAutoTargeting`), so the tests that need the attacker to stay disengaged send it away with a Move.
 
 use sc_sim::combat::{self, AttackPhase};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
@@ -26,12 +29,13 @@ const MAP: &str = "
 ";
 
 /// An `attacker` of player 1 (id 1) at (200, 250), facing east, and a `target` of player 2 (id 2) at `target_at`,
-/// both spawned in tick 1; the attacker is ordered to attack in tick 2.
+/// both spawned in tick 1; in tick 2 the attacker is ordered to attack and the target to hold its position.
 fn engage(attacker: ObjectKind, target: ObjectKind, target_at: Vec2) -> TestSim {
     let mut t = ScenarioBuilder::new(MAP).start();
     t.spawn_unit_at(1, attacker, P1, Vec2::new(200.0, 250.0))
         .spawn_unit_at(1, target, P2, target_at)
-        .order_at(2, P1, &[ATTACKER], OrderKind::Attack(TARGET), false);
+        .order_at(2, P1, &[ATTACKER], OrderKind::Attack(TARGET), false)
+        .order_at(2, P2, &[TARGET], OrderKind::Hold, false);
     t
 }
 
@@ -118,20 +122,37 @@ fn the_unit_turns_to_face_its_target_while_aiming() {
 }
 
 /// `systems/combat.md > Aiming > Interruptible - true`: another command cancels the attack before anything is
-/// fired.
+/// fired. A Move takes the unit away without a shot (`systems/controls/behaviors.md > BaseAutoTargeting > Not active
+/// during: Move`). After a Stop the unit has no order, acquires the enemy in sight by itself in the same tick, and
+/// aims afresh: its shot lands a tick later than the one the Stop interrupted.
 #[test]
 fn a_new_order_interrupts_aiming() {
     let mut t = engage(ObjectKind::Peacekeeper, ObjectKind::Guard, Vec2::new(350.0, 250.0));
-    t.order_at(3, P1, &[ATTACKER], OrderKind::Stop, false);
+    let away = OrderKind::Move(Target::Point(Vec2::new(200.0, 480.0)));
+    t.order_at(3, P1, &[ATTACKER], away, false);
+    t.run_until(3);
+    assert_eq!(phase(&t, ATTACKER), (None, 0));
     t.run_until(40);
     assert_eq!(attack_ticks(&t, ATTACKER), [] as [Tick; 0]);
-    assert_eq!(phase(&t, ATTACKER), (None, 0));
+    assert_eq!(t.sim().object(ATTACKER).unwrap().attack.as_ref().unwrap().target, None);
+
+    let mut t = engage(ObjectKind::Peacekeeper, ObjectKind::Guard, Vec2::new(350.0, 250.0));
+    t.order_at(3, P1, &[ATTACKER], OrderKind::Stop, false);
+    t.run_until(3);
     assert!(t.sim().object(ATTACKER).unwrap().orders.as_ref().unwrap().is_idle());
+    assert_eq!(
+        phase(&t, ATTACKER),
+        (Some(AttackPhase::Aiming { target: TARGET }), 1),
+        "a new aim, begun in the tick of the Stop"
+    );
+    t.run_until(10);
+    assert_eq!(attack_ticks(&t, ATTACKER), [5]);
 }
 
 /// `systems/combat.md > Firing`, `> Cooldown`: neither can be interrupted. A Stop given in the tick the unit fires
 /// doesn't stop the shot, nor the cooldown after it; the unit can't move until it reloads (`> UnitBaseSource`): the
-/// movement step holds it with its goal. But the attack is disengaged: no further sequence follows.
+/// movement step holds it with its goal. But the attack is disengaged: no further sequence follows while the unit
+/// walks away.
 #[test]
 fn firing_and_cooldown_run_on_through_a_new_order() {
     let mut t = engage(ObjectKind::Peacekeeper, ObjectKind::Guard, Vec2::new(350.0, 250.0));
@@ -140,7 +161,7 @@ fn firing_and_cooldown_run_on_through_a_new_order() {
         5,
         P1,
         &[ATTACKER],
-        OrderKind::Move(Target::Point(Vec2::new(200.0, 400.0))),
+        OrderKind::Move(Target::Point(Vec2::new(900.0, 450.0))),
         false,
     );
     t.run_until(2);
@@ -169,9 +190,9 @@ fn firing_and_cooldown_run_on_through_a_new_order() {
     assert!(may_move(&t, ATTACKER), "free while reloading");
     assert_eq!(pos(&t), start, "held in place");
     let mover = t.sim().object(ATTACKER).unwrap().mover.as_ref().unwrap();
-    assert_eq!(mover.goal, MoveGoal::Point(Vec2::new(200.0, 400.0)), "the move waits");
+    assert_eq!(mover.goal, MoveGoal::Point(Vec2::new(900.0, 450.0)), "the move waits");
     t.run_until(7);
-    assert!(pos(&t).y > start.y, "it leaves once it reloads: {}", pos(&t));
+    assert!(pos(&t).x > start.x, "it leaves once it reloads: {}", pos(&t));
     t.run_until(60);
     assert_eq!(attack_ticks(&t, ATTACKER), [4], "disengaged");
     assert_eq!(t.sim().object(ATTACKER).unwrap().attack.as_ref().unwrap().target, None);
@@ -191,44 +212,44 @@ fn an_interrupted_reload_keeps_counting() {
 }
 
 /// `systems/combat.md > Aiming`: the target must stay valid throughout; one that leaves the range cancels the aim.
-/// Until slice E the unit doesn't follow (TODO(E): chase): the order waits, and the attack resumes when the target
-/// is back in range.
+/// The unit goes after it (`systems/controls/behaviors.md > AttackingObject` 4) and attacks again once the gap
+/// between their edges is back within its Range, 4 grid units.
 #[test]
-fn a_target_leaving_range_cancels_the_aim_and_the_order_waits() {
+fn a_target_leaving_range_cancels_the_aim_and_the_unit_goes_after_it() {
     let mut t = engage(ObjectKind::Peacekeeper, ObjectKind::Guard, Vec2::new(350.0, 250.0));
-    let away = |pos| DebugCommand::SetPosition { id: TARGET, pos };
-    t.debug_at(3, away(Vec2::new(900.0, 250.0)));
-    t.debug_at(30, away(Vec2::new(350.0, 250.0)));
-    t.run_until(29);
-    assert_eq!(attack_ticks(&t, ATTACKER), [] as [Tick; 0]);
-    assert_eq!(phase(&t, ATTACKER), (None, 0));
+    // A gap of 280 su: beyond its Range (256), still in its owner's sight.
+    let away = Vec2::new(200.0 + 12.0 + 280.0 + 18.0, 250.0);
+    t.debug_at(3, DebugCommand::SetPosition { id: TARGET, pos: away });
+    t.run_until(3);
+    assert_eq!(phase(&t, ATTACKER), (None, 0), "the aim is cancelled");
+    assert_eq!(t.sim().object(ATTACKER).unwrap().pos, Vec2::new(200.0, 250.0));
+    t.run_until(40);
     let unit = t.sim().object(ATTACKER).unwrap();
-    assert_eq!(unit.pos, Vec2::new(200.0, 250.0), "it stands");
+    // 4 su a tick from tick 4 on (in tick 3 it was still aiming): after 6 steps, in tick 9, the gap is 256, and
+    // it aims at once.
+    assert_eq!(unit.pos, Vec2::new(224.0, 250.0), "it stops as soon as it is in range");
     assert_eq!(
         unit.orders.as_ref().unwrap().current.as_ref().map(|a| a.order.kind),
         Some(OrderKind::Attack(TARGET)),
-        "the order waits"
     );
-    t.run_until(40);
-    assert_eq!(attack_ticks(&t, ATTACKER), [32]);
+    assert_eq!(attack_ticks(&t, ATTACKER), [11, 28]);
 }
 
-/// Out of range from the start: the unit stands and waits (TODO(E): chase); placed in range, it attacks.
+/// Out of range from the start (`> AttackingObject` 1): the unit approaches until the target is in range, then
+/// attacks; in range from the start, it attacks from where it stands.
 #[test]
-fn out_of_range_the_unit_stands_in_range_it_attacks() {
+fn out_of_range_the_unit_closes_in_and_in_range_it_attacks() {
     let mut far = engage(
         ObjectKind::Peacekeeper,
         ObjectKind::Guard,
-        Vec2::new(200.0 + gu(6.0), 250.0),
+        Vec2::new(200.0 + 12.0 + 270.0 + 18.0, 250.0),
     );
     far.run_until(50);
-    assert_eq!(attack_ticks(&far, ATTACKER), [] as [Tick; 0]);
     let unit = far.sim().object(ATTACKER).unwrap();
-    assert_eq!(
-        (unit.pos, unit.prev_pos),
-        (Vec2::new(200.0, 250.0), Vec2::new(200.0, 250.0))
-    );
-    assert!(!unit.orders.as_ref().unwrap().is_idle(), "the order waits");
+    assert_eq!(unit.pos, Vec2::new(216.0, 250.0), "four steps close the gap to 254 su");
+    // It moves in ticks 2 to 5 and aims in the tick it comes into range.
+    assert_eq!(attack_ticks(&far, ATTACKER), [7, 24, 41]);
+    assert!(!unit.orders.as_ref().unwrap().is_idle());
 
     let mut near = engage(
         ObjectKind::Peacekeeper,
@@ -237,6 +258,7 @@ fn out_of_range_the_unit_stands_in_range_it_attacks() {
     );
     near.run_until(50);
     assert_eq!(attack_ticks(&near, ATTACKER), [4, 21, 38]);
+    assert_eq!(near.sim().object(ATTACKER).unwrap().pos, Vec2::new(200.0, 250.0));
 }
 
 /// `systems/combat.md > ValidTarget`: a unit can't attack itself; the order completes at once.
@@ -244,13 +266,12 @@ fn out_of_range_the_unit_stands_in_range_it_attacks() {
 fn a_unit_ordered_to_attack_itself_drops_the_order() {
     let mut t = engage(ObjectKind::Peacekeeper, ObjectKind::Guard, Vec2::new(350.0, 250.0));
     t.order_at(3, P1, &[ATTACKER], OrderKind::Attack(ATTACKER), false);
-    t.run_until(10);
+    t.run_until(3);
+    assert_eq!(phase(&t, ATTACKER), (None, 0), "the aim at the Guard was interrupted");
+    t.run_until(4);
     let unit = t.sim().object(ATTACKER).unwrap();
     assert!(unit.orders.as_ref().unwrap().is_idle());
-    assert_eq!(unit.attack.as_ref().unwrap().target, None);
-    assert_eq!(
-        attack_ticks(&t, ATTACKER),
-        [] as [Tick; 0],
-        "the aim at the Guard was interrupted"
-    );
+    // Without an order it picks the Guard again by itself, and its shot lands two ticks late.
+    t.run_until(10);
+    assert_eq!(attack_ticks(&t, ATTACKER), [6]);
 }

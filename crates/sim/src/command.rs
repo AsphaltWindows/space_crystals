@@ -42,6 +42,12 @@ pub enum DebugCommand {
     /// Teleport an object (units only make sense; tile objects keep their placement). A unit's box must be clear
     /// there, as for a spawn; a moving unit plans its path again from there.
     SetPosition { id: ObjectId, pos: Vec2 },
+    /// Turn auto-targeting off or on for every unit in the game (`Sim::auto_targeting`; on when a game starts).
+    /// While it is off no unit acquires a target by itself: not when idle, on Hold Position, on an AttackMove or on
+    /// a Patrol (`systems/controls/behaviors.md > BaseAutoTargeting`). Attack orders work as ever, and a target a
+    /// unit already engaged stays engaged. For tests and QA runs that look at movement between the units of
+    /// different players without the fight that would follow.
+    SetAutoTargeting { on: bool },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

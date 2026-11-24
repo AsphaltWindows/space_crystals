@@ -7,13 +7,15 @@
 
 use glam::Vec2;
 
+use super::Chased;
 use super::collide::{Moved, World};
 use super::space::Body;
 use super::yielding::yields_to;
-use crate::ids::PlayerId;
+use crate::ids::{ObjectId, PlayerId};
 use crate::mover::{
     JAMMED_TICKS, MAX_AVOID_TILES, MAX_REPATHS, MoveGoal, MoveStatus, Mover, OCCUPIED_ARRIVAL_GU, STUCK_GRACE_TICKS,
 };
+use crate::shape::Shape;
 use crate::units::{Tick, TilePos, gu};
 
 /// The length of the path still ahead of a unit at `pos` heading for waypoint `next`.
@@ -25,13 +27,18 @@ fn remaining(pos: Vec2, path: &[Vec2], next: usize) -> f32 {
     pos.distance(ahead[0]) + rest
 }
 
-/// `docs/movement.md > 6.5`, rule 2 — **the hook for slice E**: a unit chasing a target, blocked by stationary
-/// friendly units that attack the same target, queues: it keeps waiting and checks again every
-/// `mover::QUEUE_RECHECK_TICKS`, with no repath and no failure. Nothing chases yet, so nothing queues.
-fn queues_behind(_mover: &Mover, _blocker: Option<&Body>) -> bool {
-    // TODO(slice E): `MoveGoal::Object` with an attack order, the blocker friendly, stationary and attacking the
-    // same target.
-    false
+/// `docs/movement.md > 6.5`, rule 2: a unit chasing the target of its attack (`chased`, which its attack engages),
+/// blocked by a stationary unit of its owner that attacks the same target, **queues**: it keeps waiting, with no
+/// repath and no failure, until the unit ahead moves on or the target dies. `engaged` lists what each body's attack
+/// engages; the unit's own index and `blocker` index it. (The check is a few comparisons, so it runs every tick the
+/// unit is stuck; `mover::QUEUE_RECHECK_TICKS` isn't needed.)
+fn queues_behind(chased: Option<&Chased>, engaged: &[Option<ObjectId>], world: &World, blocker: Option<usize>) -> bool {
+    let (Some(chased), Some(blocker)) = (chased, blocker) else {
+        return false;
+    };
+    let (me, other) = (world.body(), &world.bodies[blocker]);
+    let attacks = |index: usize| engaged.get(index).copied().flatten() == Some(chased.id);
+    attacks(world.me) && attacks(blocker) && me.owner.is_some() && other.owner == me.owner && other.stationary
 }
 
 /// Notes the tile of the stationary unit in the way as one to avoid (`docs/movement.md > 6.5`, rule 3). A tile is
@@ -58,6 +65,9 @@ fn avoid_blocker(pos: Vec2, mover: &mut Mover, blocker: &Body) {
 /// `systems/controls/behaviors.md > MovingToLocation > Occupied target location` (design change 0026): whether the
 /// unit at `pos`, blocked by `blocker` this tick, counts as arrived. It is within `OCCUPIED_ARRIVAL_GU` of its
 /// destination, and the unit in its way isn't moving and won't move for it.
+/// - **An object goal** (`> MovingToObject > Completion`, "Blocked near the target"; design changes 0032 and 0033):
+///   the same rule, the 2 grid units measured as the gap between the unit's shape and the object's (`chased`).
+///   What reaching it means is the behaviour's: a followed unit is waited for, a static target completes the order.
 /// - **Yielding comes first** (design changes 0022, 0023): a blocker that yields to this unit has been asked to step
 ///   aside, and a unit whose blocker steps aside isn't stuck. So the rule is for blockers that stay: units that
 ///   arrived with its own group order (0027), units on Hold, busy units, enemies, units that can't move, and a
@@ -66,12 +76,24 @@ fn avoid_blocker(pos: Vec2, mover: &mut Mover, blocker: &Body) {
 ///   when the unit is stuck (`Mover::is_stuck`, 24 ticks), which is 8 ticks before its first attempt at another
 ///   route; or already when it found no way forward for `JAMMED_TICKS` in a row behind a unit that has no goal of
 ///   its own, which will never move on. So it never re-routes here.
-fn target_is_occupied(pos: Vec2, mover: &Mover, blocker: Option<&Body>, owner: Option<PlayerId>, tick: Tick) -> bool {
-    let (MoveGoal::Point(_), Some(blocker)) = (mover.goal, blocker) else {
+fn target_is_occupied(
+    pos: Vec2,
+    half: Vec2,
+    mover: &Mover,
+    chased: Option<&Chased>,
+    blocker: Option<&Body>,
+    owner: Option<PlayerId>,
+    tick: Tick,
+) -> bool {
+    let Some(blocker) = blocker else {
         return false;
     };
-    let end = mover.path.last().copied().unwrap_or(pos);
-    if !blocker.stationary || yields_to(blocker, owner, mover.group) || pos.distance(end) > gu(OCCUPIED_ARRIVAL_GU) {
+    let distance = match (mover.goal, chased) {
+        (MoveGoal::Point(_), _) => pos.distance(mover.path.last().copied().unwrap_or(pos)),
+        (MoveGoal::Object { .. }, Some(chased)) => Shape::rect(pos, half).gap(&chased.shape),
+        (MoveGoal::Object { .. }, None) | (MoveGoal::None, _) => return false,
+    };
+    if !blocker.stationary || yields_to(blocker, owner, mover.group) || distance > gu(OCCUPIED_ARRIVAL_GU) {
         return false;
     }
     mover.is_stuck(tick) || (blocker.progress.is_none() && mover.blocked_ticks >= JAMMED_TICKS)
@@ -79,8 +101,13 @@ fn target_is_occupied(pos: Vec2, mover: &Mover, blocker: Option<&Body>, owner: O
 
 /// After a unit's move in tick `tick` (`docs/movement.md > 6.5`). Returns whether the move failed.
 ///
-/// **Progress** is the remaining path length: `last_progress` moves on when it beats `best_remaining` by half a
-/// step. A new path measures afresh but is no progress by itself. Following a slower unit is progress, and so is
+/// **Progress towards an object** (`chased`, a `MoveGoal::Object`) is getting on at all: the object may move as
+/// fast as the unit, and the path is re-aimed at it as it moves, so its remaining length says nothing. Such a unit
+/// makes progress in every tick it moves forward (`Moved::forward`), and is stuck when units or terrain have kept
+/// it from that for `STUCK_TICKS`.
+///
+/// **Progress** to a point is the remaining path length: `last_progress` moves on when it beats `best_remaining` by
+/// half a step. A new path measures afresh but is no progress by itself. Following a slower unit is progress, and so is
 /// **waiting behind a unit that is getting on**: a unit blocked by one that is on its way takes over that unit's
 /// `last_progress` if it is later. So a queue at a choke isn't stuck while its head moves, and units that block
 /// each other for good share a clock that stands still. (On one path `best_remaining` only falls, and repaths
@@ -89,7 +116,8 @@ fn target_is_occupied(pos: Vec2, mover: &Mover, blocker: Option<&Body>, owner: O
 /// In order:
 /// 1. **Occupied target** ([`target_is_occupied`], design change 0026): the unit has `Arrived`.
 /// 2. Not **stuck** (`Mover::is_stuck`, design change 0024: `STUCK_TICKS` without getting closer): carry on.
-/// 3. **Queueing** ([`queues_behind`]): keep waiting.
+/// 3. **Queueing** ([`queues_behind`]): a unit chasing its attack's target behind its owner's attackers keeps
+///    waiting.
 /// 4. **Another route**, when its wait is over (`Mover::recovery_due`: 8, 16 and 32 ticks after the unit became
 ///    stuck or after the attempt before), if an attempt is left. The tile of a stationary unit in its way is added
 ///    to `avoid_tiles` first ([`avoid_blocker`]): at once if that unit has no goal of its own; if it is on its way
@@ -102,10 +130,29 @@ fn target_is_occupied(pos: Vec2, mover: &Mover, blocker: Option<&Body>, owner: O
 ///
 /// A unit due for 4 or 5 that touches no unit in this tick (it stepped around one) waits up to `STUCK_GRACE_TICKS`
 /// to meet its blocker again, so that rules 1 and 4 can see it.
-pub(super) fn after_move(pos: Vec2, mover: &mut Mover, step: f32, moved: &Moved, world: &World, tick: Tick) -> bool {
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one unit's move and what the step knows of the object it heads for"
+)]
+pub(super) fn after_move(
+    pos: Vec2,
+    mover: &mut Mover,
+    step: f32,
+    moved: &Moved,
+    world: &World,
+    chased: Option<&Chased>,
+    engaged: &[Option<ObjectId>],
+    tick: Tick,
+) -> bool {
     let blocker = moved.blocker.map(|index| &world.bodies[index]);
     let left = remaining(pos, &mover.path, usize::from(mover.next));
-    if mover.best_remaining == f32::MAX {
+    if matches!(mover.goal, MoveGoal::Object { .. }) {
+        if moved.forward {
+            mover.last_progress = tick;
+        } else if let Some(ahead) = blocker.and_then(|b| b.progress) {
+            mover.last_progress = mover.last_progress.max(ahead.min(tick));
+        }
+    } else if mover.best_remaining == f32::MAX {
         // The first measure on a new path: where the unit starts from, no progress yet.
         mover.best_remaining = left;
     } else if left < mover.best_remaining - step * 0.5 {
@@ -114,11 +161,12 @@ pub(super) fn after_move(pos: Vec2, mover: &mut Mover, step: f32, moved: &Moved,
     } else if let Some(ahead) = blocker.and_then(|b| b.progress) {
         mover.last_progress = mover.last_progress.max(ahead.min(tick));
     }
-    if target_is_occupied(pos, mover, blocker, world.body().owner, tick) {
+    let me = world.body();
+    if target_is_occupied(pos, me.half, mover, chased, blocker, me.owner, tick) {
         mover.finish(MoveStatus::Arrived);
         return false;
     }
-    if !mover.is_stuck(tick) || queues_behind(mover, blocker) {
+    if !mover.is_stuck(tick) || queues_behind(chased, engaged, world, moved.blocker) {
         return false;
     }
     let due = mover.recovery_due();

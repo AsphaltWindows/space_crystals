@@ -11,8 +11,10 @@ use crate::orders::{Order, OrderKind, Target};
 impl Sim {
     /// Removes the objects `ids` (those that exist), each with a `SimEvent::Removed`, in id order. Then, for every
     /// other object: an order naming one of them completes if it is the current order and is dropped if queued
-    /// (`systems/controls/behaviors.md > AttackingObject` 5: the target destroyed, the behaviour is complete); a move
-    /// towards one ends as `MoveStatus::TargetLost`; an attack on one stops (`combat::AttackState::forget`).
+    /// (`systems/controls/behaviors.md > AttackingObject` 5: the target destroyed, the behaviour is complete; `>
+    /// MovingToObject > Completion`: a Follow ends when its target dies); a behaviour that engaged one by itself
+    /// drops it (`Orders::forget`); a move towards one ends as `MoveStatus::TargetLost`; an attack on one stops
+    /// (`combat::AttackState::forget`).
     ///
     /// The grids aren't touched: phase 5b catches up with a footprint that went away, and a removal after it must
     /// sync them (`paths::sync`).
@@ -40,6 +42,8 @@ fn forget(o: &mut Object, gone: &[ObjectId]) {
             orders.current = None;
         }
         orders.queue.retain(|order| !names_gone(order));
+        // The enemies its behaviours engaged by themselves (`orders::state`).
+        orders.forget(&is_gone);
     }
     if let Some(mover) = &mut o.mover
         && let MoveGoal::Object { id, .. } = mover.goal
@@ -69,7 +73,7 @@ mod tests {
     use crate::combat::{AttackPhase, AttackState};
     use crate::defs::ObjectKind;
     use crate::ids::PlayerId;
-    use crate::orders::{ActiveOrder, OrderGroup};
+    use crate::orders::{ActiveOrder, Behaviour, OrderGroup};
     use crate::scenarios;
 
     /// Every kind of reference, including a move towards an object, which no behaviour gives yet (slice E).
@@ -96,6 +100,7 @@ mod tests {
         orders.current = Some(ActiveOrder {
             order: order(OrderKind::Move(Target::Object(b))),
             since: 1,
+            state: Behaviour::default(),
         });
         let point = order(OrderKind::Move(Target::Point(Vec2::ONE)));
         orders

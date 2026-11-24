@@ -31,6 +31,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
@@ -44,8 +45,7 @@ pub use damage::{
 };
 pub use phases::FACING_TOLERANCE;
 pub use targeting::{
-    RANGE_MEASURE, RangeMeasure, can_attack_now, distance_to_box, domain_allows, max_range, object_box, object_domain,
-    within_range,
+    can_attack_now, domain_allows, max_range, object_box, object_domain, reaches, reaches_point, within_range,
 };
 
 /// `systems/combat.md > AttackPhase`, one value of the design's BaseAttackChannel (`systems/controls/behaviors.md >
@@ -132,7 +132,7 @@ impl AttackState {
 /// behaviours (5a, slice E) shouldn't start a chase then. Before 5e it reads the phase the last tick left, which is
 /// the one this tick runs in; a Stop or a new target in 5a has already cancelled an aim.
 pub fn may_move(o: &Object) -> bool {
-    base_is_free(o)
+    base_is_free(o.kind, o.attack.as_ref())
 }
 
 /// `systems/combat.md > AttackPhase > UnitBaseSourceActions`: whether anything but the attack may turn `o`'s base
@@ -140,15 +140,16 @@ pub fn may_move(o: &Object) -> bool {
 /// BaseAiming`: the orientation is overridden), nor in Firing and Cooldown, when the orientation is locked
 /// (`> BaseFiring`, `> BaseCooldown`). Turret units' bases are always free (`> TurretSource`).
 pub fn may_turn(o: &Object) -> bool {
-    base_is_free(o)
+    base_is_free(o.kind, o.attack.as_ref())
 }
 
-/// Both rules come to the same in the design's phase table: the base is either free or held by the attack.
-fn base_is_free(o: &Object) -> bool {
-    let Some(state) = &o.attack else {
+/// Both rules come to the same in the design's phase table: the base is either free or held by the attack. For a
+/// unit of `kind` whose attack is in `state` (the behaviours hold a unit's parts, not the object).
+pub(crate) fn base_is_free(kind: ObjectKind, state: Option<&AttackState>) -> bool {
+    let Some(state) = state else {
         return true;
     };
-    let turret = o.def().unit.as_ref().is_some_and(|unit| unit.base_def().has_turret);
+    let turret = kind.def().unit.as_ref().is_some_and(|unit| unit.base_def().has_turret);
     turret || matches!(state.phase, None | Some(AttackPhase::Reloading))
 }
 
@@ -185,7 +186,7 @@ pub(crate) fn step(
             continue;
         };
         let sight = o.owner.and_then(|owner| vision.player(owner));
-        let shooter = phases::Shooter::new(map, o.id, o.kind, o.pos, unit, attrs, sight);
+        let shooter = phases::Shooter::new(map, o.id, o.kind, o.pos, o.facing, unit, attrs, sight);
         phases::run(state, &mut o.facing, &shooter, &targets, &mut hits, events);
     }
     damage::apply(objects, &hits, events)

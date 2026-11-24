@@ -26,7 +26,7 @@ use crate::nav::{
 };
 use crate::object::{Object, Placement};
 use crate::scenario::SpawnProblem;
-use crate::units::{SU_PER_GU, Tick};
+use crate::units::{SU_PER_GU, Tick, gu};
 
 // `nav::ROUTE_ON_TRUE_MAP` (question Q0011, gap G12): routes are planned on the true map, so the blocking
 // footprints are every blocking object's, whoever has seen it. Planning on what each player has seen needs grids
@@ -236,6 +236,13 @@ pub(crate) fn sync(state: &mut NavState, map: &Map, objects: &BTreeMap<ObjectId,
     *nav_version = nav_version.wrapping_add(1);
 }
 
+/// Where the object a unit heads for was when its path was planned, else `goal`.
+fn planned_goal_of_direct(aimed_at: &[(ObjectId, Vec2)], id: ObjectId, goal: Vec2) -> Vec2 {
+    aimed_at
+        .binary_search_by_key(&id, |&(chaser, _)| chaser)
+        .map_or(goal, |i| aimed_at[i].1)
+}
+
 /// How a wanted path turned out without a search.
 enum Direct {
     /// Nothing to plan: the goal is gone.
@@ -291,9 +298,54 @@ fn staggered_check(grid: &NavGrid, pos: Vec2, half: Vec2, mover: &mut Mover, nav
     }
 }
 
+/// `docs/movement.md > 5.6`, "Chase target moved": a path to an object is planned again once the object is farther
+/// than this from where it was when the path was planned, grid units (tuning const of the movement design) ...
+pub const CHASE_REPLAN_GU: f32 = 1.0;
+
+/// ... or than this share of the unit's distance to it, whichever is more (`docs/movement.md > 5.6`; tuning const).
+pub const CHASE_REPLAN_SHARE: f32 = 0.25;
+
+/// `docs/movement.md > 5.6`: a chase is planned again at most this often, ticks (a multiple of [`STAGGER`]; tuning
+/// const). It doesn't count against the repath cap.
+pub const CHASE_REPLAN_TICKS: Tick = 8;
+
+/// `docs/movement.md > 5.6`, "Chase target moved" — the staggered check of a unit heading for an object
+/// (`MoveGoal::Object`) that is now at `target`, run before [`staggered_check`]:
+///
+/// - **In sight** (a straight line the unit's box can walk, clear of its avoid tiles): the unit steers straight at
+///   the object, with no path search: its path becomes the one leg from where it is to the object.
+/// - **Out of sight**: it keeps the path it has while the object stays near where the path leads (within
+///   [`CHASE_REPLAN_GU`] or [`CHASE_REPLAN_SHARE`] of the distance), and plans again once it has moved farther, at
+///   most every [`CHASE_REPLAN_TICKS`]. These repaths don't count against the cap: the rate limit bounds them.
+///
+/// `grid` is `None` for air units, which always fly straight.
+fn chase_check(grid: Option<&NavGrid>, pos: Vec2, half: Vec2, mover: &mut Mover, target: Vec2, due: bool, tick: Tick) {
+    if mover.planned_target == target {
+        return;
+    }
+    let in_sight = grid.is_none_or(|grid| nav::los(grid, half, pos, target))
+        && nav::segment_avoids(pos, target, &mover.avoid_tiles);
+    if in_sight {
+        mover.path.clear();
+        mover.path.extend([pos, target]);
+        mover.next = 1;
+        mover.planned_target = target;
+        return;
+    }
+    let moved = target.distance(mover.planned_target);
+    if due && moved > gu(CHASE_REPLAN_GU).max(CHASE_REPLAN_SHARE * pos.distance(target)) {
+        mover.repath(tick);
+    }
+}
+
 /// Phase 5c (`docs/movement.md > 4`, `> 5.5`): run the staggered path checks ([`staggered_check`]), then serve the
 /// units' path requests in `(since, id)` order within `nav::PATH_BUDGET`, units of one order group sharing a field.
 /// Units before `first_new` only. A unit that can't get a path fails its move (`SimEvent::MoveFailed`).
+///
+/// **Object goals** (`MoveGoal::Object`): the path is planned to the point nearest the object's centre that the
+/// unit can stand on (`nav::reachable_point`: right at the wall of a structure or map resource, which blocks its
+/// own tiles), and `Mover::planned_target` notes where the object was. [`chase_check`] keeps the path up to date
+/// as the object moves.
 pub(crate) fn serve(
     state: &mut NavState,
     objects: &mut BTreeMap<ObjectId, Object>,
@@ -302,11 +354,23 @@ pub(crate) fn serve(
     tick: Tick,
     events: &mut Vec<SimEvent>,
 ) {
+    let staggered = |id: ObjectId| tick.wrapping_add(id.0).is_multiple_of(STAGGER);
+    // Where the objects being chased are now, by chaser, in id order.
+    let chased: Vec<(ObjectId, Vec2)> = objects
+        .range(..first_new)
+        .filter_map(|(_, o)| {
+            let mover = o.mover.as_ref().filter(|m| m.path_state == PathState::Ready)?;
+            let MoveGoal::Object { id, .. } = mover.goal else {
+                return None;
+            };
+            Some((o.id, objects.get(&id).filter(|_| staggered(o.id))?.pos))
+        })
+        .collect();
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
         let Some(mover) = &mut o.mover else {
             continue;
         };
-        if mover.path_state != PathState::Ready || tick.wrapping_add(o.id.0) % STAGGER != 0 {
+        if mover.path_state != PathState::Ready || !staggered(o.id) {
             continue;
         }
         let def = o.kind.def();
@@ -314,6 +378,14 @@ pub(crate) fn serve(
             let class = unit.base_def().nav_class()?;
             Some((state.nav.grid(class, nav::size_class(silhouette))?, silhouette / 2.0))
         });
+        if let Ok(i) = chased.binary_search_by_key(&o.id, |&(chaser, _)| chaser) {
+            let half = def.half_extents().unwrap_or(Vec2::ZERO);
+            let due = tick.wrapping_add(o.id.0).is_multiple_of(CHASE_REPLAN_TICKS);
+            chase_check(grid.map(|(grid, _)| grid), o.pos, half, mover, chased[i].1, due, tick);
+            if mover.path_state != PathState::Ready {
+                continue;
+            }
+        }
         match grid {
             Some((grid, half)) => staggered_check(grid, o.pos, half, mover, nav_version, tick),
             // Air units fly straight: nothing on the ground changes their path.
@@ -323,6 +395,8 @@ pub(crate) fn serve(
 
     let mut requests: Vec<PathRequest> = Vec::new();
     let mut direct: Vec<(ObjectId, Direct)> = Vec::new();
+    // For the units heading for an object: where it is now, in id order.
+    let mut aimed_at: Vec<(ObjectId, Vec2)> = Vec::new();
     for o in objects.range(..first_new).map(|(_, o)| o) {
         let Some(mover) = &o.mover else {
             continue;
@@ -330,26 +404,36 @@ pub(crate) fn serve(
         let PathState::Wanted { since, group } = mover.path_state else {
             continue;
         };
+        let def = o.def();
+        let (Some(unit), Some(silhouette)) = (&def.unit, def.silhouette()) else {
+            continue;
+        };
+        let class = unit.base_def().nav_class();
         let goal = match mover.goal {
             MoveGoal::None => {
                 direct.push((o.id, Direct::NoGoal));
                 continue;
             }
             MoveGoal::Point(p) => p,
-            // TODO(slice E): chasing, reach and the planned-target check (`docs/movement.md > 5.6`).
             MoveGoal::Object { id, .. } => match objects.get(&id) {
-                Some(target) => target.pos,
+                Some(target) => {
+                    aimed_at.push((o.id, target.pos));
+                    // The nearest point to it the unit can stand on: a structure's own tiles are blocked.
+                    class
+                        .and_then(|class| state.nav.grid(class, nav::size_class(silhouette)))
+                        .and_then(|grid| {
+                            let component = grid.component(grid.tile_of(o.pos))?;
+                            nav::reachable_point(grid, component, silhouette / 2.0, target.pos)
+                        })
+                        .unwrap_or(target.pos)
+                }
                 None => {
                     direct.push((o.id, Direct::TargetLost));
                     continue;
                 }
             },
         };
-        let def = o.def();
-        let (Some(unit), Some(silhouette)) = (&def.unit, def.silhouette()) else {
-            continue;
-        };
-        match unit.base_def().nav_class() {
+        match class {
             Some(class) => requests.push(PathRequest {
                 id: o.id,
                 since,
@@ -373,8 +457,11 @@ pub(crate) fn serve(
 
     let output = nav::serve(&state.nav, &mut state.search, &requests, nav::PATH_BUDGET);
     state.counters = output.counters;
-    // `requests` is in id order.
+    // `requests` is in id order. A path to an object notes where the object was, not the point beside it.
     let planned_goal = |id: ObjectId| {
+        if let Ok(i) = aimed_at.binary_search_by_key(&id, |&(chaser, _)| chaser) {
+            return aimed_at[i].1;
+        }
         let i = requests
             .binary_search_by_key(&id, |r| r.id)
             .expect("served ids were requested");
@@ -407,7 +494,9 @@ pub(crate) fn serve(
         match outcome {
             Direct::NoGoal => mover.path_state = PathState::None,
             Direct::TargetLost => mover.finish(MoveStatus::TargetLost),
-            Direct::Straight { path, goal } => mover.follow(path, goal, nav_version),
+            Direct::Straight { path, goal } => {
+                mover.follow(path, planned_goal_of_direct(&aimed_at, id, goal), nav_version)
+            }
         }
     }
 }

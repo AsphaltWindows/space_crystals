@@ -102,6 +102,7 @@ fn blob_place(i: u32) -> Vec2 {
 /// 1 to 25. Unit 26, of player 1, stands west of it and is ordered straight through it in tick 2.
 fn walk_through_a_blob_of(owner: PlayerId) -> TestSim {
     let mut t = ScenarioBuilder::new(OPEN).start();
+    t.without_auto_targeting();
     for i in 0..25 {
         t.spawn_unit_at(1, PK, owner, blob_place(i));
     }
@@ -158,6 +159,7 @@ fn a_unit_paths_around_an_enemy_idle_group() {
 #[test]
 fn two_own_units_head_on_in_a_corridor_both_give_up() {
     let mut t = ScenarioBuilder::new(CORRIDOR).start();
+    t.without_auto_targeting();
     let (west, east) = (v(96.0, 96.0), v(928.0, 96.0));
     t.spawn_unit_at(1, GUARD, P1, west)
         .spawn_unit_at(1, GUARD, P1, east)
@@ -178,6 +180,7 @@ fn two_own_units_head_on_in_a_corridor_both_give_up() {
 /// units 1 to 8. Unit 9, of player 1, comes from the west.
 fn hold_wall() -> TestSim {
     let mut t = ScenarioBuilder::new(PASSAGE).start();
+    t.without_auto_targeting();
     for i in 0..8 {
         t.spawn_unit_at(1, PK, P1, v(500.0, 76.0 + 24.0 * i as f32));
     }
@@ -246,6 +249,7 @@ fn a_unit_stopped_within_two_grid_units_behind_units_that_wont_move_has_arrived(
 #[test]
 fn a_unit_attacking_from_where_it_stands_doesnt_budge() {
     let mut t = ScenarioBuilder::new(OPEN).start();
+    t.without_auto_targeting();
     let (attacker, target) = (v(400.0, 300.0), v(400.0, 150.0));
     t.spawn_unit_at(1, PK, P1, attacker)
         .spawn_unit_at(1, GUARD, P2, target)
@@ -273,6 +277,7 @@ fn a_unit_attacking_from_where_it_stands_doesnt_budge() {
 /// way.
 fn idle_unit_in_a_mode(factor: f32) -> Vec<Vec2> {
     let mut t = ScenarioBuilder::new(OPEN).start();
+    t.without_auto_targeting();
     t.spawn_unit_at(1, PK, P1, v(300.0, 300.0))
         .spawn_unit_at(1, PK, P1, v(400.0, 300.0))
         .run(1);
@@ -338,6 +343,7 @@ const CONVERGE_ON: Vec2 = Vec2::new(390.0, 260.0);
 /// point inside their box; unit 13 of player 1 stands apart.
 fn converging() -> TestSim {
     let mut t = ScenarioBuilder::new(OPEN).start();
+    t.without_auto_targeting();
     for i in 0..12 {
         t.spawn_unit_at(
             1,
@@ -417,6 +423,7 @@ fn a_settled_group_steps_aside_for_another_unit_of_its_owner() {
 #[test]
 fn a_boxed_in_unit_gives_up_after_about_seven_seconds() {
     let mut t = ScenarioBuilder::new(OPEN).start();
+    t.without_auto_targeting();
     let at = v(500.0, 300.0);
     t.spawn_unit_at(1, PK, P1, at);
     for (dx, dy) in [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)] {
@@ -453,6 +460,7 @@ fn a_boxed_in_unit_gives_up_after_about_seven_seconds() {
 #[test]
 fn a_unit_blocked_for_less_than_the_stuck_time_carries_on_without_re_routing() {
     let mut t = ScenarioBuilder::new(CORRIDOR).start();
+    t.without_auto_targeting();
     let goal = v(900.0, 96.0);
     t.spawn_unit_at(1, PK, P1, v(100.0, 96.0))
         .spawn_unit_at(1, GUARD, P2, v(500.0, 96.0))
@@ -529,6 +537,7 @@ fn eighteen_meet_eighteen_head_on() {
     for spacing in [40.0, 56.0] {
         for other in [P1, P2] {
             let mut t = ScenarioBuilder::new(OPEN).start();
+            t.without_auto_targeting();
             let (west, east) = (v(200.0, 384.0), v(824.0, 384.0));
             spawn_block(&mut t, P1, west, spacing);
             spawn_block(&mut t, other, east, spacing);
@@ -561,6 +570,7 @@ fn eighteen_walk_through_eighteen_idle() {
     let mut failed_by_owner = Vec::new();
     for owner in [P1, P2] {
         let mut t = ScenarioBuilder::new(OPEN).start();
+        t.without_auto_targeting();
         spawn_block(&mut t, P1, v(200.0, 384.0), 40.0);
         spawn_block(&mut t, owner, v(512.0, 384.0), 40.0);
         t.order_at(2, P1, &ids(1..=18), move_to(v(824.0, 384.0)), false);

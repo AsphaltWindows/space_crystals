@@ -46,6 +46,8 @@ fn tick(pos: &mut Vec2, facing: &mut f32, mover: &mut Mover, movement: &Movement
         &mut world,
         &mut Vec::new(),
         &mut Vec::new(),
+        None,
+        &[],
         tick,
     )
 }

@@ -12,9 +12,13 @@
 //! - [`stuck`]: progress, stuck detection and recovery (`docs/movement.md > 6.5`).
 //! - [`yielding`]: an idle unit's sidestep for a blocked unit of its owner (`docs/movement.md > 6.6`).
 //!
-//! Hooks for later slices: chasing a moving target and queueing behind attackers (slice E) are in [`stuck`];
-//! crushing is an exception in [`space::blocks`]; other movement models replace the "desired direction → facing
-//! and velocity" part of [`step_unit`].
+//! **Object goals** (`MoveGoal::Object`, slice E): the step looks up the object each such unit heads for
+//! ([`Chased`]). The unit has arrived once the gap between the two shapes is within the goal's `reach`, or at the
+//! end of its path when the object hasn't moved since it was planned (the nearest point it can reach); the
+//! chase's progress, the occupied-target rule and queueing behind attackers are in [`stuck`].
+//!
+//! Hooks for later slices: crushing is an exception in [`space::blocks`]; other movement models replace the
+//! "desired direction → facing and velocity" part of [`step_unit`].
 
 mod collide;
 mod space;
@@ -34,6 +38,7 @@ use crate::math;
 use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState};
 use crate::nav::{self, Nav};
 use crate::object::Object;
+use crate::shape::Shape;
 use crate::units::Tick;
 
 use collide::World;
@@ -65,12 +70,27 @@ fn layer_of(domain: Domain) -> Option<usize> {
     }
 }
 
+/// The object a unit heads for (`MoveGoal::Object`), as phase 5d finds it this tick.
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct Chased {
+    pub id: ObjectId,
+    /// Its centre: what paths to it are planned to (`Mover::planned_target`).
+    pub pos: Vec2,
+    /// Reach and the occupied-target rule are measured to its edge (`shape`, design changes 0031–0033).
+    pub shape: Shape,
+}
+
 /// The scratch of phase 5d (`docs/movement.md > 3`): rebuilt from the objects every tick. Kept between ticks only
 /// to reuse its allocations.
 #[derive(Debug, Default)]
 pub(crate) struct Scratch {
     /// Every unit, in id order.
     bodies: Vec<Body>,
+    /// For each of `bodies`: the object it heads for, if its goal is one that exists.
+    chased: Vec<Option<Chased>>,
+    /// For each of `bodies`: the target its attack engages (`AttackState::target`), for queueing behind attackers
+    /// (`stuck`).
+    engaged: Vec<Option<ObjectId>>,
     layers: [Layer; LAYERS],
     /// Units in the way of the unit being moved.
     touched: Vec<usize>,
@@ -126,6 +146,8 @@ pub(crate) fn step(
 ) {
     scratch.counters = MoveCounters::default();
     scratch.bodies.clear();
+    scratch.chased.clear();
+    scratch.engaged.clear();
     scratch.requests.clear();
     for layer in &mut scratch.layers {
         layer.reset(map.width(), map.height());
@@ -137,6 +159,15 @@ pub(crate) fn step(
         let mover = o.mover.as_ref().expect("units have movers");
         let index = scratch.bodies.len() as u32;
         scratch.bodies.push(body_of(o, mover, unit, half));
+        scratch.chased.push(match mover.goal {
+            MoveGoal::Object { id, .. } => objects.get(&id).map(|target| Chased {
+                id,
+                pos: target.pos,
+                shape: Shape::of(target),
+            }),
+            MoveGoal::None | MoveGoal::Point(_) => None,
+        });
+        scratch.engaged.push(o.attack.as_ref().and_then(|attack| attack.target));
         if let Some(layer) = layer_of(unit.base_def().domain) {
             scratch.layers[layer].insert(index, o.pos, half);
         }
@@ -194,6 +225,8 @@ pub(crate) fn step(
                 &mut world,
                 &mut scratch.touched,
                 &mut scratch.requests,
+                scratch.chased[me].as_ref(),
+                &scratch.engaged,
                 tick,
             )
         };
@@ -241,6 +274,11 @@ fn wait(mover: &mut Mover, tick: Tick) {
 ///   per tick, so its turn always completes. The facing follows the path, not a sidestep.
 /// - **Arrival**: when the goal is within one step and the way is free, the unit stands exactly on it and stops
 ///   with `status = Arrived`. The arrival radius is one tick of travel, so it never overshoots.
+/// - **An object goal** (`chased`; `systems/controls/behaviors.md > MovingToObject`): the unit has `Arrived` as soon
+///   as the gap between its shape and the object's is within the goal's `reach`. Its path leads to where the
+///   object was when it was planned (phase 5c keeps it up to date, `paths::chase_check`): at its end the unit has
+///   `Arrived` too if the object is still there (it stands on the reachable point nearest to it, design change
+///   0025), and plans again if the object has moved on. An object that is gone ends the move `TargetLost`.
 /// - Otherwise it moves `step = MaxSpeed × speed_factor` towards the target by the rules of
 ///   [`World::resolve`], asks an idle unit of its owner in its way to step aside ([`yielding::ask`]), then its
 ///   progress is measured ([`stuck`]).
@@ -256,8 +294,20 @@ fn step_unit(
     world: &mut World,
     touched: &mut Vec<usize>,
     requests: &mut Vec<yielding::Request>,
+    chased: Option<&Chased>,
+    engaged: &[Option<ObjectId>],
     tick: Tick,
 ) -> bool {
+    if let MoveGoal::Object { reach, .. } = mover.goal {
+        let Some(chased) = chased else {
+            mover.finish(MoveStatus::TargetLost);
+            return false;
+        };
+        if Shape::rect(*pos, world.body().half).gap(&chased.shape) <= reach {
+            mover.finish(MoveStatus::Arrived);
+            return false;
+        }
+    }
     if mover.goal == MoveGoal::None || mover.path_state != PathState::Ready {
         wait(mover, tick);
         return false;
@@ -298,10 +348,23 @@ fn step_unit(
     touched.clear();
     let moved = world.resolve(*pos, d, arriving.then_some(target), mover, tick, touched);
     let from = *pos;
-    yielding::ask(world, from, d, &moved, mover, requests);
+    // The unit it heads for isn't in its way: it is where the unit is going.
+    let blocked_by_goal = chased
+        .zip(moved.blocker)
+        .is_some_and(|(chased, blocker)| world.bodies[blocker].id == chased.id);
+    if !blocked_by_goal {
+        yielding::ask(world, from, d, &moved, mover, requests);
+    }
     *pos = moved.pos;
     if arriving && moved.pos == target {
-        mover.finish(MoveStatus::Arrived);
+        match chased {
+            // The object moved on while the unit walked to where it was: plan again (not a counted repath).
+            Some(chased) if chased.pos != mover.planned_target => {
+                stand(mover);
+                mover.repath(tick);
+            }
+            _ => mover.finish(MoveStatus::Arrived),
+        }
         return false;
     }
     mover.velocity = *pos - from;
@@ -320,7 +383,7 @@ fn step_unit(
     } else {
         mover.blocked_ticks.saturating_add(1)
     };
-    stuck::after_move(*pos, mover, step, &moved, world, tick)
+    stuck::after_move(*pos, mover, step, &moved, world, chased, engaged, tick)
 }
 
 #[cfg(test)]

@@ -3,8 +3,10 @@
 //! `systems/controls/commands.md > Unit Command`). Every input arrives through `InjectedInput`, the virtual keyboard
 //! and mouse, and goes through the input layer's bindings like a player's would; each `App::update` is one tick
 //! and 1/16 s of real time (`ARCHITECTURE.md > Client architecture > Client tests`). The orders given are read back
-//! from the recorded inputs, as the sim received them. The fog of war is off (`--no-fog`), so that player 1 can
-//! target what it doesn't see: what the fog hides from the command flow is tested in `fog.rs`.
+//! from the recorded inputs, as the sim received them. The fog of war is off (`--no-fog`), so that everything is
+//! drawn and can be clicked; what the fog hides from the command flow is tested in `fog.rs`. The sim takes an order
+//! on an object only while the player sees it, so player 1 has scouts off screen, in sight of every target; and
+//! auto-targeting is off (a debug command), so that nobody fights while the orders are given.
 
 mod indicators;
 mod panel;
@@ -14,7 +16,8 @@ mod targeting;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use sc_sim::{
-    Command, ObjectId, ObjectKind, OrderKind, PlayerId, Scenario, SlotId, Spawn, SpawnAt, Target, TilePos, scenarios,
+    Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Scenario, SlotId, Spawn, SpawnAt,
+    Target, TilePos, scenarios,
 };
 use space_crystals::camera::{CameraView, ViewportInsets, viewport_rect, visible_extent_su};
 use space_crystals::command_ui::InterfaceState;
@@ -53,6 +56,10 @@ fn at(id: u32) -> Vec2 {
         9 => Vec2::new(3000.0, 800.0),
         10 => Vec2::new(2200.0, 1100.0),
         11 => Vec2::new(28.0, 11.0) * 64.0,
+        // Player 1's scouts, off screen: in sight of the enemy units, of the station and of the patch.
+        12 => Vec2::new(2275.0, 500.0),
+        13 => Vec2::new(1790.0, 500.0),
+        14 => Vec2::new(1632.0, 1300.0),
         _ => panic!("no object {id}"),
     }
 }
@@ -74,13 +81,16 @@ fn scenario() -> Scenario {
         unit(Peacekeeper, 1, 9),
         unit(Peacekeeper, 2, 10),
         Spawn::new(SupplyDeliveryStation, None, SpawnAt::Tile(TilePos::new(27, 10))),
+        unit(Peacekeeper, 1, 12),
+        unit(Peacekeeper, 1, 13),
+        unit(Peacekeeper, 1, 14),
     ]);
     assert_eq!(scenario.validate(), vec![]);
     scenario
 }
 
 /// A headless game of [`scenario`] as player 1, debug commands on, the camera at [`VIEW_CENTER`], without the fog
-/// of war.
+/// of war and without auto-targeting.
 fn game() -> App {
     let mut config = AppConfig::new(scenario());
     config.display = DisplayMode::Headless;
@@ -89,6 +99,10 @@ fn game() -> App {
     app.insert_resource(TimeUpdateStrategy::FixedTimesteps(1));
     app.finish();
     app.cleanup();
+    app.world_mut().resource_mut::<PendingCommands>().0.push(PlayerCommand {
+        player: PlayerId(1),
+        command: Command::Debug(DebugCommand::SetAutoTargeting { on: false }),
+    });
     app.update();
     app.world_mut().resource_mut::<CameraView>().center = VIEW_CENTER;
     updates(&mut app, 2);

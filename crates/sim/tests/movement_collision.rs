@@ -74,6 +74,7 @@ fn run_until_done(t: &mut TestSim, units: &[ObjectId], max_tick: u32) -> u32 {
 #[test]
 fn two_peacekeepers_pass_each_other_in_a_corridor() {
     let mut t = ScenarioBuilder::new(CORRIDOR).start();
+    t.without_auto_targeting();
     let (west, east) = (v(96.0, 96.0), v(928.0, 96.0));
     t.spawn_unit_at(1, PK, P1, west)
         .spawn_unit_at(1, PK, P2, east)
@@ -105,6 +106,7 @@ fn two_peacekeepers_pass_each_other_in_a_corridor() {
 #[test]
 fn two_guards_head_on_in_a_corridor_both_fail() {
     let mut t = ScenarioBuilder::new(CORRIDOR).start();
+    t.without_auto_targeting();
     let (west, east) = (v(96.0, 96.0), v(928.0, 96.0));
     t.spawn_unit_at(1, GUARD, P1, west)
         .spawn_unit_at(1, GUARD, P2, east)
@@ -180,6 +182,7 @@ fn twenty_units_go_through_a_choke() {
 #[test]
 fn a_group_arrives_and_stands_still() {
     let mut t = ScenarioBuilder::new(OPEN).start();
+    t.without_auto_targeting();
     let mut n = 0;
     for col in 0..4 {
         for row in 0..3 {
@@ -219,6 +222,7 @@ fn a_group_arrives_and_stands_still() {
 #[test]
 fn an_idle_unit_in_the_way_steps_aside_if_it_is_the_movers_own() {
     let mut t = ScenarioBuilder::new(OPEN).start();
+    t.without_auto_targeting();
     let (start, idle, goal) = (v(100.0, 300.0), v(400.0, 300.0), v(800.0, 300.0));
     t.spawn_unit_at(1, PK, P1, start)
         .spawn_unit_at(1, GUARD, P1, idle)
@@ -296,6 +300,7 @@ fn an_object_spawned_on_the_path_forces_exactly_one_repath() {
         at: SpawnAt::Tile(tile),
     };
     let mut t = ScenarioBuilder::new(OPEN).start();
+    t.without_auto_targeting();
     let goal = v(928.0, 224.0);
     t.spawn_unit_at(1, PK, P1, v(96.0, 224.0))
         .order_at(2, P1, &[ObjectId(1)], move_to(goal), false)
@@ -323,6 +328,7 @@ fn an_object_spawned_on_the_path_forces_exactly_one_repath() {
 #[test]
 fn queued_waypoints_are_visited_in_order_under_collision() {
     let mut t = ScenarioBuilder::new(OPEN).start();
+    t.without_auto_targeting();
     let stops = [v(500.0, 100.0), v(500.0, 500.0), v(120.0, 500.0)];
     t.spawn_unit_at(1, PK, P1, v(100.0, 100.0))
         .spawn_unit_at(1, GUARD, P2, v(300.0, 104.0)) // idle on the first leg
@@ -351,6 +357,7 @@ fn queued_waypoints_are_visited_in_order_under_collision() {
 #[test]
 fn units_dont_oscillate() {
     let mut t = ScenarioBuilder::new(OPEN).start();
+    t.without_auto_targeting();
     // Two groups of eight cross each other's way, around a few idle units in the middle.
     let mut n = 0;
     for i in 0..8 {
@@ -420,6 +427,7 @@ fn units_dont_oscillate() {
 fn a_save_in_a_crowd_continues_identically() {
     let crowd = || {
         let mut t = ScenarioBuilder::new(CORRIDOR).seed(3).start();
+        t.without_auto_targeting();
         for i in 0..4 {
             t.spawn_unit_at(1, PK, P1, v(96.0 + 60.0 * i as f32, 84.0 + 8.0 * i as f32));
             t.spawn_unit_at(
@@ -468,6 +476,7 @@ fn a_save_in_a_crowd_continues_identically() {
 #[test]
 fn a_group_move_costs_one_field_and_bounded_sweeps() {
     let mut t = ScenarioBuilder::new(OPEN).start();
+    t.without_auto_targeting();
     let mut n = 0;
     for col in 0..6 {
         for row in 0..5 {

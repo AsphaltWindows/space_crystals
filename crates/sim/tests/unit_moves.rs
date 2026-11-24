@@ -383,6 +383,7 @@ fn a_new_footprint_on_the_route_makes_the_unit_replan() {
 /// Units on the move, in a group and with queued orders: the schedule of the save and determinism tests.
 fn busy() -> TestSim {
     let mut t = ScenarioBuilder::new(OPEN).seed(7).start();
+    t.without_auto_targeting();
     for (i, p) in [v(100.0, 100.0), v(140.0, 100.0), v(100.0, 140.0)]
         .into_iter()
         .enumerate()

@@ -169,6 +169,13 @@ impl TestSim {
         self.at(tick, PlayerId(1), Command::Debug(command))
     }
 
+    /// Turns auto-targeting off from tick 1 on (`DebugCommand::SetAutoTargeting`), for a test of movement between
+    /// the units of different players: left to themselves they would fight (`systems/controls/behaviors.md >
+    /// BaseAutoTargeting`). Call it before the first step.
+    pub fn without_auto_targeting(&mut self) -> &mut Self {
+        self.debug_at(1, DebugCommand::SetAutoTargeting { on: false })
+    }
+
     /// [`TestSim::debug_at`] for spawning a unit of `kind` for `owner`, centred on `pos`.
     pub fn spawn_unit_at(&mut self, tick: Tick, kind: ObjectKind, owner: PlayerId, pos: Vec2) -> &mut Self {
         self.debug_at(
@@ -276,8 +283,9 @@ impl TestSim {
     }
 }
 
-/// The objects `o` refers to, in no particular order: those its orders (current and queued) name, its move's goal
-/// object, and its attack's target and the target of its attack phase.
+/// The objects `o` refers to, in no particular order: those its orders (current and queued) name, those its
+/// behaviours engaged by themselves, its move's goal object, and its attack's target and the target of its attack
+/// phase.
 pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
     let mut ids = Vec::new();
     if let Some(orders) = &o.orders {
@@ -291,6 +299,7 @@ pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
                 ids.push(id);
             }
         }
+        ids.extend(orders.behaviour_targets());
     }
     if let Some(MoveGoal::Object { id, .. }) = o.mover.as_ref().map(|m| m.goal) {
         ids.push(id);

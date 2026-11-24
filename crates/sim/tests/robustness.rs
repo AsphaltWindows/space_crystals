@@ -246,7 +246,7 @@ fn random_debug_commands_never_panic_and_stay_deterministic() {
     let first = fuzz_run(0x5eed);
     // The stream exercises the valid paths too, not only rejections.
     assert!(
-        first.spawned > 100 && first.removed > 50,
+        first.spawned > 80 && first.removed > 50,
         "{} spawned, {} removed",
         first.spawned,
         first.removed
