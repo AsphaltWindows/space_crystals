@@ -2028,3 +2028,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T20:46:27-05:00 — Targeting click at press point. Change entry 0068.
 - 2026-11-23T20:49:36-05:00 — Q0016.3c: selection changes while targeting. Doc: selection_and_hud.md. Change entry 0069.
 - 2026-11-23: Q0016 point 4 answered: Shift keeps targeting active until released (B). Doc: systems/controls/selection_and_hud.md > AwaitingTarget (Shift while targeting). Entry 0070. Q0020, Q0021 arrived; logged in insights.
+- 2026-11-24: No smart-casting principle (Groupable fixed per type; workers + casters Ungroupable; player toggle parked); Shift while placing (chain only when builder takes more orders). Docs: selection_and_hud.md > SelectionGroup > No smart-casting, AwaitingTarget > Shift while placing; core/entities.md Groupable. Entry 0071.

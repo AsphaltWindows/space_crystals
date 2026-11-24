@@ -24,6 +24,19 @@ A group of selected ObjectInstances that share the same object type. For Groupab
 ### Type - ObjectEnum
 ### Instances - array of ObjectInstance references
 
+### No smart-casting
+A command issued from the command panel (hotkey or button) goes to **every instance in the ActiveGroup**. The game **never hands a group's command to just one member** on the player's behalf ("smart-casting"), for any command (user, 2026-11-23).
+
+Rationale (user): smart-casting makes mass use of abilities effortless, which constrains how powerful unit abilities can realistically be. Workers follow the same rule.
+
+**Individual use is done through Groupable** (user, 2026-11-23). Groupable is fixed per object type, chosen by the design:
+- **Groupable = false** for units whose commands are used **one unit at a time**: **workers** (each build or deploy order needs one specific worker) and **caster-type units** (one cast should spend one unit's energy, not the whole group's). Each instance is its own SelectionGroup, so the player casts with one unit, presses **Tab** to the next, and casts again, with no mouse reselection. This is the intended middle ground: easier than picking units out with the mouse, harder than smart-casting.
+- **Groupable = true** for units whose abilities are normally used **all together** (e.g. the Peacekeeper's Riot Shield).
+
+To use a Groupable unit's ability on only one instance, the player selects that instance alone (e.g. left-click its portrait in the SelectionPanel).
+
+Considered and **parked** (user, 2026-11-23): a player-controlled toggle of a type's grouping (e.g. from the SelectionPanel portraits). Start with the fixed per-type flag; revisit if needed.
+
 ## BoxSelection
 When the player drags a selection box, the objects captured are filtered by a 5-tier priority system. The highest-priority tier containing any objects wins; all lower tiers are excluded.
 
@@ -196,7 +209,13 @@ An ObjectInterfaceState entered after the player selects a command that requires
 - **Player-initiated** selection or ActiveGroup changes (control group recall, Tab / Shift-Tab, portrait clicks) **cancel** targeting, per ObjectInterfaceState's reset rule.
 - **Automatic removals** (a selected unit dies, or leaves the selection by entering a building, transport or tunnel) do **not** cancel targeting. Targeting is only cancelled if the **whole ActiveGroup** is gone, since nothing would be left to carry out the command.
 
-**Shift while targeting** (user, 2026-11-23): a Shift-click on a valid target **queues** the command (systems/controls/commands.md > Unit Command) and targeting **stays active while Shift is held**, so the player can place several targets or waypoints in a row with one command keypress (e.g. A, then Shift-click, Shift-click, Shift-click). Each Shift-click queues one more command. Targeting ends (back to DefaultState) when Shift is **released** after at least one queued click. A click without Shift issues the command and ends targeting as usual. TBD: releasing Shift before any target was clicked (presumably targeting simply continues, since nothing was issued); whether Shift-placing structures (AwaitingPlacement) works the same way.
+**Shift while targeting** (user, 2026-11-23): a Shift-click on a valid target **queues** the command (systems/controls/commands.md > Unit Command) and targeting **stays active while Shift is held**, so the player can place several targets or waypoints in a row with one command keypress (e.g. A, then Shift-click, Shift-click, Shift-click). Each Shift-click queues one more command. Targeting ends (back to DefaultState) when Shift is **released** after at least one queued click. A click without Shift issues the command and ends targeting as usual. TBD: releasing Shift before any target was clicked (presumably targeting simply continues, since nothing was issued).
+
+**Shift while placing** (AwaitingPlacement; user, 2026-11-23): the same rule applies. A Shift-click on a valid spot queues the build order and placement **stays active while Shift is held**, so one builder can be given several buildings in a row; releasing Shift ends placement. This only applies when the builder **can carry out more queued buildings**: e.g. a Cults Recruit builds one and walks to the next (each order's cost is paid when it is given: factions/cults/economy.md > Build Command). When the builder **can't**, a Shift-click sends it and ends placement like a plain click:
+- an Agent goes inside the structure it builds (factions/syndicate/units.md > Tunnel Construction Flow), and a Drone becomes the Beacon (factions/colonists/units.md), so each takes exactly one placement;
+- a GDO Deployment Center or Extraction Facility only ever has one building ready to place.
+
+Placement **never moves on to another selected worker** automatically (No smart-casting, above): to place with the next Agent or Drone, the player presses Tab and issues the next order.
 
 **Invalid target clicks** (user, 2026-11-23): a left-click on a target the pending command can't use (shown by the Inactive pointer) is **ignored**. Targeting stays active and waits for a valid target, and the player gets short **feedback** (an "invalid target" message and/or sound; exact form TBD, ties into the future notification system).
 

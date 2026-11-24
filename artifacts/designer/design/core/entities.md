@@ -43,7 +43,7 @@ Selectable visible entity, instances of which exist in the game at some coordina
 ### InfoPanel - (owner: (PlayerNumber | None), seelctor: Player) -> Display
 ### Destructible - boolean
 ### SightRange - number (vision is provided to the owning player when the instance has an Owner)
-### Groupable - boolean (if false, each instance is always in its own SelectionGroup even when selected with other instances of the same type)
+### Groupable - boolean (if false, each instance is always in its own SelectionGroup even when selected with other instances of the same type). Workers and caster-type units are Ungroupable; see systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting
 
 ## Structure Type
 An Object Type of a building, an instance of which may appear on the game's map. During placement, the player can rotate the building in 90-degree increments and flip it across the horizontal or vertical axis. This gives up to 8 possible orientations for fully asymmetric buildings (ABCD), fewer for more symmetric types.
