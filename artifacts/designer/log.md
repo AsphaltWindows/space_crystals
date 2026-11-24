@@ -2026,3 +2026,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T20:44:54-05:00 — Q0016.3a: no command switching while targeting. Doc: selection_and_hud.md. Change entry 0066.
 - 2026-11-23T20:45:39-05:00 — Q0016.3b: drag while targeting does nothing. Change entry 0067.
 - 2026-11-23T20:46:27-05:00 — Targeting click at press point. Change entry 0068.
+- 2026-11-23T20:49:36-05:00 — Q0016.3c: selection changes while targeting. Doc: selection_and_hud.md. Change entry 0069.
