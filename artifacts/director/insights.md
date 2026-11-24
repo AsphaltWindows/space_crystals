@@ -63,3 +63,7 @@
 - **Split a slice** when part of it can start early (J1 ran during wave 4) or needs a quiet machine (J2's perf).
 - **Ignored tests rot silently.** `nav_perf::knowledge_rebuilds_256` failed on master from M2-F2 until M2-J2, because `cargo test` skips `#[ignore]`. After a slice that changes game rules (defeat, economy), and at every milestone end, run `cargo test --release --workspace -- --ignored` with `--test-threads=1` on a quiet machine.
 
+- **Quote design text in briefs; don't paraphrase it.** M3-G's brief said "velocity along it zeroed" (per axis) where 0035 says "set velocity to 0" (all of it). The agent built the paraphrase, and had to be resumed to fix it before the merge.
+- **Every scripted text replacement asserts it matched exactly once** (`assert s.count(old) == 1`). An unasserted `str.replace` on a brief silently did nothing, and the error only surfaced later.
+- **The Designer answers questions within the hour,** often while the slice that raised them is still running. Triage at every hook notice, and fold answers into briefs that haven't launched yet (M3-V took 0169, 0175–0176 and 0183 that way). Slices waiting on a busy area split: M3-L became L1 (vision, now) and L2 (orders, after R).
+- **Free slots go to small client or polish slices** (M3-U) when every queued slice waits on one running slice (R).
