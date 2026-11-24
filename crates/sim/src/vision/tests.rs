@@ -416,3 +416,34 @@ fn a_shot_from_outside_vision_reveals_the_attacker() {
     end_of(&mut vision, 72 + REVEAL_TICKS, &victim, &sniper);
     assert!(!vision.sees(P1, &sniper));
 }
+
+/// The tiles that linger and the reveals are history: two visions that differ in either alone hash apart.
+#[test]
+fn the_fog_delay_and_the_reveals_are_hashed() {
+    use crate::hash::{StateHash, StateHasher};
+    let hash = |vision: &Vision| {
+        let mut h = StateHasher::new();
+        vision.hash(&mut h);
+        h.finish()
+    };
+    let map = Map::new(20, 10);
+    let scout = unit(1, ObjectKind::Peacekeeper, Some(P1), centre(5, 5));
+    let sniper = unit(2, ObjectKind::Guard, Some(P2), centre(15, 5));
+    let mut stayed = Vision::new(&map, [P1, P2]);
+    stayed.update(&map, [&scout, &sniper], 1);
+    let mut left = stayed.clone();
+    stayed.update(&map, [&scout, &sniper], 2);
+    left.update(&map, [&sniper], 2);
+    // The disc's 81 tiles but one row off the map's south edge.
+    assert_eq!(
+        (visible(&stayed, P1), visible(&left, P1)),
+        (80, 80),
+        "the same tiles Visible"
+    );
+    assert_eq!((lingering(&stayed, P1), lingering(&left, P1)), (0, 80));
+    assert_ne!(hash(&stayed), hash(&left));
+    let mut revealed = stayed.clone();
+    revealed.reveal(P1, &sniper, 2);
+    assert_eq!(hash(&stayed.clone()), hash(&stayed));
+    assert_ne!(hash(&revealed), hash(&stayed));
+}

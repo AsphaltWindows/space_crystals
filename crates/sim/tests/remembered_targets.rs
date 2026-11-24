@@ -10,9 +10,10 @@
 //! Every `TestSim` checks the invariants I1–I7 and V1 after each tick.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references};
+use sc_sim::vision::FOG_DELAY_TICKS;
 use sc_sim::{
     Command, DebugCommand, MoveGoal, Object, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId,
-    ProductionCommand, Reject, SimEvent, SpawnAt, Target, TargetView, TilePos, Vec2,
+    ProductionCommand, Reject, SimEvent, SpawnAt, Target, TargetView, Tick, TilePos, Vec2,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -28,6 +29,11 @@ const GENERATOR: ObjectId = ObjectId(5);
 const LAST_KNOWN: Vec2 = Vec2::new(2240.0, 320.0);
 /// Where unit 1's queued Move goes.
 const BACK: Vec2 = Vec2::new(1200.0, 700.0);
+/// The scout that saw the Generator is removed in tick 2: the Generator's tiles stay Visible for the fog delay
+/// (design change 0178), and player 1 remembers it out of its sight from this tick on.
+const REMEMBERED: Tick = 2 + FOG_DELAY_TICKS;
+/// The tick of [`ordered`]'s orders.
+const ORDERED: Tick = REMEMBERED + 1;
 
 fn id(n: u32) -> ObjectId {
     ObjectId(n)
@@ -50,8 +56,8 @@ fn order(units: &[u32], kind: OrderKind, queue: bool) -> PlayerCommand {
 
 /// 40 × 24 open tiles. Player 1's Peacekeepers 1 to 3 in the west (the mover south of the others, out of their way);
 /// its scout 4 by player 2's Generator 5 in the east in tick 1, removed in tick 2, so that player 1 remembers the
-/// Generator out of its sight; and player 2's Generator 6 in the south, which nobody sees, so that player 2 keeps a
-/// structure when 5 goes. No unit fights by itself.
+/// Generator out of its sight (from tick [`REMEMBERED`], run to); and player 2's Generator 6 in the south, which
+/// nobody sees, so that player 2 keeps a structure when 5 goes. No unit fights by itself.
 fn remembered() -> TestSim {
     let builder = ScenarioBuilder::new(&format!("{}\n", ".".repeat(40)).repeat(24))
         .spawn(PK, Some(P1), SpawnAt::Point(Vec2::new(200.0, 300.0)))
@@ -64,7 +70,10 @@ fn remembered() -> TestSim {
     t.without_auto_targeting();
     t.run(1);
     assert!(t.sim().is_visible(P1, t.sim().object(GENERATOR).unwrap()));
-    t.debug_at(2, DebugCommand::Remove { id: id(4) }).run_until(2);
+    t.debug_at(2, DebugCommand::Remove { id: id(4) })
+        .run_until(REMEMBERED - 1);
+    assert_eq!(t.sim().target_view(P1, GENERATOR), TargetView::Visible, "the fog delay");
+    t.run_until(REMEMBERED);
     assert_eq!(
         t.sim().target_view(P1, GENERATOR),
         TargetView::Remembered {
@@ -75,8 +84,8 @@ fn remembered() -> TestSim {
     t
 }
 
-/// In tick 3: the attackers get their default right-click order on the Generator, an Attack, unit 1 with a Move
-/// queued after it, and the mover a Move to it.
+/// In tick [`ORDERED`]: the attackers get their default right-click order on the Generator, an Attack, unit 1 with a
+/// Move queued after it, and the mover a Move to it.
 fn ordered(t: &mut TestSim) {
     let kind = t.sim().default_order(id(1), Target::Object(GENERATOR));
     assert_eq!(
@@ -93,9 +102,9 @@ fn ordered(t: &mut TestSim) {
         ),
     ] {
         assert_eq!(t.sim().validate(&cmd), Ok(()), "{cmd:?} (queued: {queue})");
-        t.at(3, P1, cmd.command);
+        t.at(ORDERED, P1, cmd.command);
     }
-    t.run_until(3);
+    t.run_until(ORDERED);
 }
 
 fn unit(t: &TestSim, n: u32) -> &Object {
@@ -126,7 +135,7 @@ fn peacekeepers_walk_to_a_remembered_building_and_attack_it_if_it_stands() {
     let mut t = remembered();
     ordered(&mut t);
     let mut seen = None;
-    for tick in 4..900 {
+    for tick in ORDERED + 1..900 {
         t.step();
         if t.sim().is_visible(P1, t.sim().object(GENERATOR).unwrap()) {
             seen = Some(tick);
@@ -163,7 +172,7 @@ fn peacekeepers_walk_to_a_remembered_building_and_attack_it_if_it_stands() {
 
 /// Design change 0139, "Nothing about the real state leaks", and its Verification: "Right-click a remembered enemy
 /// building with Peacekeepers: they walk there and attack if it still stands, or stop on arrival if it was destroyed
-/// unseen." Two games: in the second the Generator is destroyed in the fog in tick 4, after the orders. Until the
+/// unseen." Two games: in the second the Generator is destroyed in the fog in the tick after the orders. Until the
 /// units see its place, they walk the same in both, tick by tick (position, move and orders), with the Generator
 /// Remembered to player 1 in both, the same default order on it, and the gate taking the same orders on it. In the
 /// game where it is gone, seeing its place ends the orders on it there: the attacker without a queue and the mover
@@ -174,7 +183,7 @@ fn the_walk_to_a_remembered_building_is_the_same_whether_or_not_it_stands() {
     for t in &mut games {
         ordered(t);
     }
-    games[1].debug_at(4, DebugCommand::Remove { id: GENERATOR });
+    games[1].debug_at(ORDERED + 1, DebugCommand::Remove { id: GENERATOR });
     let [standing, gone] = &mut games[..] else {
         unreachable!()
     };
@@ -186,7 +195,7 @@ fn the_walk_to_a_remembered_building_is_the_same_whether_or_not_it_stands() {
         },
     };
     let mut seen_gone = None;
-    for tick in 4..900 {
+    for tick in ORDERED + 1..900 {
         standing.step();
         gone.step();
         assert_eq!(dangling_references(gone.sim()), [], "tick {tick}");
@@ -278,11 +287,13 @@ fn the_gate_takes_remembered_objects_by_their_records() {
             },
         )
         .order_at(2, P1, &[id(1)], OrderKind::Stop, false)
-        .run_until(2);
+        .run_until(REMEMBERED);
         assert!(matches!(t.sim().target_view(P1, patch), TargetView::Remembered { .. }));
     }
-    games[1].debug_at(3, DebugCommand::Remove { id: patch }).run_until(3);
-    games[0].run_until(3);
+    games[1]
+        .debug_at(REMEMBERED + 1, DebugCommand::Remove { id: patch })
+        .run_until(REMEMBERED + 1);
+    games[0].run_until(REMEMBERED + 1);
     for t in &games {
         let sim = t.sim();
         assert_eq!(
