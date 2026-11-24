@@ -219,7 +219,8 @@ While on, the Shadebringer leaves a **trail of sludge** on the ground in its wak
 ### Cover (toggle)
 While on, the Shadebringer leaves a **stack/wall of smoke** in its wake. Each piece of smoke **lasts a set number of seconds** (TBD) and then clears. The smoke **blocks line of sight into it and behind it** for every unit except **satellites**: it's not possible to see into the smoke, or past it, from the other side.
 - This is the **first sight-blocking mechanic** in the game: elsewhere vision is a plain radius (core/vision.md).
-- TBD: the smoke's duration and width/height; whether units inside the smoke can see out; whether structures' sight is blocked too; whether the two toggles can be on at the same time.
+- **Units inside the smoke can't see anything** (user, 2026-11-25): a unit standing in smoke provides no vision at all, not even of the smoke around it.
+- TBD: the smoke's duration and width/height; whether structures' sight is blocked too; whether the two toggles can be on at the same time.
 
 ### Charges and recharging
 (user, 2026-11-25) Sludge and Cover each have their **own, separate charge**. The charges are **recharged only inside the Tunnel Network**, and only while the player owns a **Vault** (this is the Vault's "re-arming" role). Away from the tunnels, a Shadebringer that has used up a charge can't use that ability until it goes back underground.
