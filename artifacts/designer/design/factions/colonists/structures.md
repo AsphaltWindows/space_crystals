@@ -119,6 +119,8 @@ The Colonists' Drone production structure. Produces Drones from a build queue, s
 
 Since the Robo Portal is fully symmetric (AAAA), it has no fixed exit side — a warped-in Drone may emerge from any of the 4 sides.
 
+**Which side** (user, 2026-11-24): the same rule as the Bio Portal, over all four sides: the side **closest to the RallyPoint**; with no RallyPoint, or if that side is blocked, a random unblocked side (deterministic random). "Closest" = straight-line distance from the middle of each side to the rally point (an object's centre for object rallies); ties go top, right, bottom, left (in the building's default orientation). The same measure applies to the Bio Portal's A sides.
+
 ### RoboPortalInstanceState:
 - RallyPoint: Coordinates | ObjectInstance | None
 - BuildQueue: array of ObjectEnum (max 20, including the unit currently in production; user, 2026-11-24)
@@ -126,7 +128,7 @@ Since the Robo Portal is fully symmetric (AAAA), it has no fixed exit side — a
 - CurrentBuildProgress: number (frames elapsed) | None
 
 ### RallyPoint behavior:
-When a unit (Drone or Scout) finishes production and spawns, if RallyPoint is set, it is issued the default right-click command resolved against the RallyPoint target. For a Drone: rally on ground -> Move to location, rally on enemy -> Move to that location (Drone is unarmed and cannot attack), rally on friendly/neutral object -> Move to object. The Scout's rally behavior: TBD (also unarmed). If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None. Rally points on enemy objects turn into ground rally points when the enemy leaves sight (systems/controls/selection_and_hud.md > Rally points on enemy objects). (Same pattern as GDO's Barracks.)
+When a unit (Drone or Scout) finishes production and spawns, if RallyPoint is set, it is issued its own default right-click command resolved against the RallyPoint target (systems/controls/selection_and_hud.md > What a rally point makes a new unit do). E.g. a Drone rallied on a patch Gathers it. If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None. Rally points on enemy objects turn into ground rally points when the enemy leaves sight (systems/controls/selection_and_hud.md > Rally points on enemy objects). (Same pattern as GDO's Barracks.)
 
 ### Produces:
 - Drone: 50 Space Crystals, 160 frames (10 seconds)

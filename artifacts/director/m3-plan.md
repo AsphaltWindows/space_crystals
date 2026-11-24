@@ -1196,6 +1196,30 @@ Buildings and units whose costs are TBD show in their slot, unavailable. A trans
 | 0129 | Q0037 point 3 | H3 | The load is cleared only by a delivery or by deploy completion (0114), never by a change of order. |
 | 0130 | Q0037 point 4 | H3 | Mining interrupted before 32 frames gives no partial load, and the patch frees at once. |
 | 0131 | Q0037 point 5 | H3 | Within the Drone's search radius (centred on the Drone, 0123), only patches the player knows, visible or remembered, and not under a structure qualify. M3-H already filters this way, but around the patch; H3 re-centres it and tests that a never-seen patch is never chosen. |
+| 0132 | Q0037 point 6 in part | H3 | With no free patch in range, a Drone waits **at the patch it tried** (within MiningReach) and mines it when it frees. It re-checks every 16 frames (placeholder) for a freed patch nearby and goes there; occupied again on arrival, it starts over from there. After each delivery it returns to the patch where it **last mined**. |
+| 0133 | Q0037 point 6 | H3 | Which waiting Drone gets a freed patch is the implementation's choice, kept deterministic. **Director:** in id order, the lowest-id waiting Drone whose re-check sees the patch free claims it. |
+| 0134 | Q0037 point 7; Q0044 point 5 | H3 | **Replaces the immediate redirect.** A depleted patch counts as occupied. Waiting Drones search at once. Drones walking to it go on to its spot and search on arrival, because the radius is centred on the Drone. Finding nothing ends the Gather (0123): deliver, then idle or start the next order. |
+| 0135 | Q0037 point 8 | H3 | The proposal: when the return trip starts, a missing AssignedDropOff is replaced by the nearest own Egress Node. With none, the Drone idles holding its load. |
+| 0136 | Q0037 points 9–10 | R, J2 | A rally always gives the new unit its own default right-click command against the target, using RightClickResolution with 0062's fallback. There are no per-building rally lists: a Drone rallied on a patch Gathers, and on an enemy unit Follows it. 0088 still applies to units. **Director:** one pure sim function, from unit and target to the default order, serves both the rally and the client's right-click. |
+| 0137 | Q0044 point 2; Q0037 point 11 | H3 | As built. A mining Drone doesn't block a plate. A plated patch is gone for Drones, and a Drone mid-mining collects nothing. Units on the footprint still block. |
+| 0138 | Q0037 point 13 | H3 | As built: the full 32 frames, taking the remaining crystals (fewer than 8); the patch depletes. |
+| 0139 | Q0017 point 2; Q0044 points 1 and 6 | R, J2 | **Replaces "object targets only when visible".** Remembered structures and objects can be targeted by right-click, Attack, Gather, Move to object and rally, but are still not selectable.
+- The order goes to the last-known position. On sight, it carries on if the object is still there, and ends as for a vanished target if not.
+- There are no leaks: everything treats the remembered object as present until it is seen otherwise.
+- A rally on an enemy *structure* stays on it when it leaves sight. 0088's ground rally is for units only. |
+| 0140 | Q0044 point 3 | H3, J2 | There is no empty Drop Off order: an empty Drone right-clicking its own node gets a Move there. **Director:** the gate drops empty Drones from a Drop Off command. |
+| 0141 | Q0044 point 4 | H3 | An unreachable patch is handled like an occupied one. The search skips it; with no reachable free patch, the Drone waits as close as it can and re-checks every 16 frames. It never gives up. |
+| 0142 | Q0041 point 1 | (none) | Superseded by 0143. |
+| 0143 | Q0041 points 1–2 | P, F, J2 | **Replaces 0082 and 0142, for every faction.**
+- Queuing needs only the cost and a queue slot, with no capacity check.
+- At production start, the unit needs free capacity ≥ its cost, and it then counts as used. HUD "used" = alive + in production.
+- Without room, the producer waits at 0% with the unit at the front, starts automatically when room appears, and raises a notification (system TBD). A cancel gives a full refund.
+- A unit in production always finishes.
+- A destroyed producer releases only its in-production unit.
+- The Barracks' Q and W no longer depend on Unit Control, and 0083 ignores it.
+
+**Director:** a new slice, M3-P, after F. |
+| 0144 | Q0041 points 3–4 | D | As built: the Bio Portal's rule on all four sides of the Robo Portal, closest by side midpoint, ties top, right, bottom, left. |
 
 ## 9. Notes from merged slices for later slices
 
@@ -1213,3 +1237,6 @@ Buildings and units whose costs are TBD show in their slot, unavailable. A trans
 | M3-H2 | G, K1 | Stand-in curve (income per second): 4 → 8.3, 8 → 15.1, 12 → 22.0, 16 → 26.8, 20 → 32.0, 24 → 32.0. That is ahead of the design below saturation (+17% at 16 Drones, +35% at 4); G re-measures with momentum. |
 | M3-H2 | G | Steering: a non-yielding unit parked dead-centre on a gatherer's line, with the target close behind it, flips the rule-4 lean on every sidestep, so the Drone oscillates. A "never step back along the face" fix broke `a_line_clicked_on_itself_closes_up` and 2 goldens, so it was reverted. |
 | M3-D | J2, K1, every producer | `ExitRule`, `Doorway`, `door_at` and `exit::choose` live in `production/exit.rs`. `Rng::below(n)` is drawn only when n ≥ 2 (ARCHITECTURE > Production, Determinism). `Door::room_before` was fixed: units behind a door no longer hold releases. When every free door is obstructed (not occupied), the unit is still released. The panel is built from `ProductionDef`; 0124's unavailable W/E slots are J2's. |
+| M3-E | F, B, J1 | `Transform` is general: from a Drone, `from_placement` is None. `follow_max` and `keep_fraction` (1-HP floor, HP only) serve B's Shields. A deploying Beacon must stay out of `provides_capacity` (F). While transforming, production is None (`NoProducers`), and drop-off and the nearest-node search skip the object. `Sim::warp_in_check` and `transform::warp_in_footprint` are for J1's ghost. The client response to `KindChanged` is generic: `MeshKey`, then `ControlState::set_kind`. |
+| M3-G | H3, K1 | With DragMovement (before the 0035 correction), income per second at 4, 8, 12, 16, 20 and 24 Drones is 6.34, 11.65, 17.54, 23.10, 25.44 and 27.10. The design's table gives 6.1 (4 Drones), 23 (16) and 32 (24). 24 Drones are 15.3% under, and one Drone went 578 ticks without delivering because the nearest-unoccupied redirect bounced it along the row. 0132's wait-at-the-patch rule (H3) should fix that; K1 judges against 0108. |
+| M3-G | all | One nav grid per set again (`GroundRugged, 1`), so nav rebuilds are back to about 1.1 ms. **Accepted deviation from T28:** `Mover::momentum` is hashed and serialized only while it is non-zero, so the goldens are stable. Sidestep, doorway exit and 0126 separation stay kinematic. Braking uses omni thrust at 15/16. Neutral units never separate, because `can_yield` needs an owner. |

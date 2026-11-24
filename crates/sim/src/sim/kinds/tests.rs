@@ -165,7 +165,7 @@ fn a_drone_becomes_a_beacon_in_place_and_back() {
     );
     assert_ne!(sim.state_hash(), hash);
     step(&mut sim, &mut invariants, Vec::new());
-    let grid = sim.nav().grid(NavClass::Ground, 1).unwrap();
+    let grid = sim.nav().grid(NavClass::GroundRugged, 1).unwrap();
     assert!(
         footprint.tiles().all(|tile| grid.is_blocked(tile)),
         "the footprint blocks"
@@ -194,7 +194,7 @@ fn a_drone_becomes_a_beacon_in_place_and_back() {
         step(&mut sim, &mut invariants, Vec::new());
     }
     assert!(object(&sim, 1).pos.x > 400.0, "it moved off: {}", object(&sim, 1).pos);
-    let grid = sim.nav().grid(NavClass::Ground, 1).unwrap();
+    let grid = sim.nav().grid(NavClass::GroundRugged, 1).unwrap();
     assert!(footprint.tiles().all(|tile| !grid.is_blocked(tile)));
 }
 

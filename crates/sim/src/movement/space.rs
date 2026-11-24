@@ -60,7 +60,8 @@ pub(crate) struct Body {
 ///    is remembered: [`overlaps`] is the predicate of invariant I1, so a pair is ignored exactly while I1 would
 ///    name it. Only rule 1 ever lets two boxes come to overlap, so the pairs this rule covers are those rule 1 left
 ///    behind (a Drone whose job ended inside another) and they only ever part. While it lasts, either may move
-///    freely through the other, deeper in too.
+///    freely through the other, deeper in too. An idle one moves off by itself (design change 0126,
+///    `super::separate`); nothing moves a unit that has a command.
 ///
 /// A unit ignored for a move is ignored for the whole of it: the sweeps, the lanes and [`overlaps`] at the
 /// position it commits all ask here. So a move never brings two units to overlap unless one of the two rules

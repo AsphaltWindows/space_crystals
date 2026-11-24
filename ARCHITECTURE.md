@@ -186,11 +186,11 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   exactly the Colonists' kinds; Shields arrive with M3-B), `UnitDef::beacon_capacity_cost` (M3-C) and
   `StructureDef::warp_in`, the Beacon's Constructs List (M3-E). `warp_in` is not `constructs`, so the Beacon is no
   GDO-style constructor (plan decision T14). Their structures have no Power and no build area. The portals produce
-  through their A sides, all four of the Robo Portal's (slice M3-D, see *Production*). Until DragMovement (M3-G),
-  the Drone, a HoverVehicle, moves on the stand-in, which reads only `MovementAttrs::max_speed` (the DragMovement
-  equilibrium, `(ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio` = 8 su per tick) and its TurnRate;
-  Rugged tiles stay impassable to it (`HOVER_VEHICLE.rugged_terrain` is false, plan decision T25). Its base gives the
-  navigation a `(Ground, 1)` grid next to the light infantry's `(GroundRugged, 1)`.
+  through their A sides, all four of the Robo Portal's (slice M3-D, see *Production*). The Drone, a
+  HoverVehicle, moves by DragMovement (slice M3-G, see *Movement and collision > Movement models*): its equilibrium
+  is `(ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio` = 8 su per tick (`MovementAttrs::max_speed`).
+  It crosses Rugged tiles with double drag (`HOVER_VEHICLE.rugged_terrain`, design change 0039), on the light
+  infantry's `(GroundRugged, 1)` grid.
 - **Changing kind** (`sim/kinds.rs`, plan decision T15): an object that transforms (a Drone deploying into a Beacon,
   a Beacon warping in a building, a Legionnaire converting its weapon) stays the same object, its id included.
   `Sim::change_kind(id, kind, placement)` is the one place a kind changes, and it emits `SimEvent::KindChanged`. It
@@ -641,7 +641,9 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
     `Mover::repath`, since the unit's path was planned on other grids.
   - Measured (`tests/nav_perf.rs`, ignored, release; 4 players, 412 units and 160 patches on 256 × 256): the tick
     in which ten Generators go in sight of all four players rebuilds 5 sets of grids and takes 1.0 ms; the worst
-    tick after it, with the units' path checks, 1.3 ms.
+    tick after it, with the units' path checks, 1.3 ms. A set holds one grid, `(GroundRugged, 1)`: every unit
+    type built so far crosses Rugged terrain and is at most a tile wide, the Drone included (a HoverVehicle,
+    design change 0039; on its stand-in mover it had a grid of its own, which doubled every set).
 - **Group destinations** (`orders/destinations.rs`, `docs/movement.md > 6.4`, the design's magic box): a location
   order (Move to a point, AttackMove, Patrol) to several units looks at the bounding box of their silhouettes
   (design change 0028). A click inside it sends every unit to the click; outside, each unit goes to the click plus
@@ -671,7 +673,8 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 
 The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice D changed it, **(M)** where the
 magic box did, **(Y)** where friendly yielding and the answers to Q0008 did, **(Q)** where queued group orders did, **(G)** where
-the hardening of crowds and nav performance did, **(H2)** where gathering Drones passing through each other did),
+the hardening of crowds and nav performance did, **(H2)** where gathering Drones passing through each other did,
+**(M3-G)** where DragMovement and idle units moving apart did),
 and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
 
 - **One pipeline, sequential commit** (`movement::step`, phase 5d): the step builds one spatial grid per collision
@@ -698,7 +701,8 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   or oncoming one (a glance along its face, a 45° step, a step along the face; to the side the unit leans to, which
   it keeps, else to its Right first, so head-on units pass like traffic; a crossing unit is passed behind); else
   close up or stay. Within one step of the
-  goal the unit lands exactly on it. A unit without a goal moves only by its own sidestep (below): nothing pushes.
+  goal the unit lands exactly on it. A unit without a goal moves only by its own sidestep (below), by braking off
+  its momentum, or off a unit it overlaps (*Movement models*, *Idle units that overlap*): nothing pushes.
 - **Friendly yielding** (`yielding.rs`, `docs/movement.md > 6.6`; design changes 0022, 0023, 0027): a moving unit
   asks the idle unit of its owner that blocked its way to step aside. Requests are collected during the step and
   applied after it in the order made (the lowest id that asked wins); the unit then takes one short sidestep
@@ -721,7 +725,8 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   - **Units that already overlap** (`> Units that already overlap`): two bodies whose boxes overlap as the mover's
     turn begins don't block each other. `space::overlaps` is I1's own predicate, so the pair is ignored exactly
     while I1 would name it, and normal collision is back the moment the boxes are apart (touching is apart).
-    Nothing pushes them apart, and either may move any way meanwhile. Only the first exception ever brings two
+    Nothing pushes them apart, and either may move any way meanwhile; an idle one moves off by itself (design
+    change 0126, below). Only the first exception ever brings two
     boxes to overlap, so in today's game such a pair is two Drones of which one left its job; the rule itself asks
     nothing about the units' kinds.
   A later exception (crushing) is one more clause there. A slice that adds a way for two boxes to come to overlap
@@ -766,8 +771,49 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   towards a moving object is moving forward at all; towards one at rest it is measured as to a point. A unit
   chasing its attack's target behind stationary attackers of its owner on the same target **queues**
   (`stuck::queues_behind`): no repath, no failure.
-- **Hooks for later slices**: other movement models replace the "direction → facing and velocity" part of
-  `step_unit`.
+- **Movement models** (`movement/follow.rs`, `movement/drag.rs`; `docs/movement.md > 6.7`): path following, lane
+  seeking, the rules after the sweep, yielding and the stuck clock are shared (`follow`), and a model replaces only
+  the "direction → facing and velocity" part. Two are built: the units that stop within the tick (every GDO unit
+  and the Legionnaires: the step the rules give is their move) and **DragMovement** (the Drone, slice M3-G, plan
+  decision T25).
+  - **The integration scheme is fixed**: turn (at most TurnRate, towards the step the unit wants; it never stands
+    to turn), drag (`v ← v × (1 − DragRatio)`, the ratio doubled while the tile under the unit's centre is Rugged:
+    design change 0039), thrust (`v ← v + a`: OmniDirectionalAcceleration any way plus up to ForwardAcceleration
+    along the facing, whichever brings `v` nearest to what the unit wants), position (`pos ← pos + v` as far as
+    tiles and units allow). Drag is taken on the velocity the tick began with, so the equilibrium is the design's
+    MaxSpeed `(Omni + Forward) / DragRatio`: 8 su a tick for the Drone, 4 on Rugged.
+  - **What it wants** is the step the shared rules give a unit without momentum, at the **approach speed**
+    (`drag::approach_speed`): the highest speed from which braking with the omni-directional thrust still stops
+    it within the path that is left. So braking begins when the stopping distance reaches the remaining path
+    (51 su before the goal from top speed), and the last step lands exactly on the goal. No overshoot.
+  - **Blocked means from rest** (`systems/units.md > UnitCollision > Collision Response (Un-sticking)`, design
+    change 0035): a move that runs into a tile or a unit goes as far as it can, and the unit's **whole velocity is
+    then 0**, not only the part into the obstacle. Where the rules' step is a slide along tiles (`Moved::slid`),
+    the unit thrusts at the step it asked for, into the tile, and meets it every tick: it creeps along the wall
+    at single-tick acceleration (0.8 su for the Drone) until its way is free, then accelerates normally. That
+    creep is progress for the stuck clock wherever it gets closer (`movement/follow/tests.rs`). A wall it only
+    touches, a unit it passes through (`space::blocks`) and a unit it moves off (0126) are no obstacles. A debug
+    teleport zeroes the velocity too.
+  - **`Mover::momentum`** is the velocity carried into the next tick: the displacement the unit made, or zero if
+    it was blocked. It is hashed and
+    serialized **only while it isn't zero**, so states of games without such a unit hash and load as before the
+    field existed. `Mover::stop` and `finish` leave it: a unit without a goal that still has some brakes to a
+    stop, `Locomotion::Stopping` (within 42 su and 16 ticks from top speed). **Never zero it to stop a unit**, and
+    never read `velocity` for it: `velocity` is the tick's displacement and `stop` clears it.
+  - **Going round a standing unit**: a unit with momentum takes the side of the blocker's middle it is on
+    (`World::around`, `near_side`), whatever its lean, and a step aside doesn't count as blocked while the unit
+    moves (`Moved::aside`): the manoeuvre takes it a dozen ticks, and turning back costs it all its speed.
+  - **Kinematic for every model**: a yielding unit's sidestep, the walk out of an exit doorway and an idle
+    unit's step off a unit it overlaps are plain steps without momentum. A corner is taken at speed: the unit
+    swings wide, or meets the wall beyond and starts again from rest.
+  - The other three models aren't built: their units would move like the first kind.
+- **Idle units that overlap move apart** (`movement/separate.rs`; design change 0126, which amends 0106's "nothing
+  is pushed apart"): in its turn, a unit that yields (`yielding::can_yield`: no command at all) and is at rest
+  takes a step off the lowest-id unit its box overlaps, along the axis it is out soonest, at
+  `SEPARATE_SPEED_SU` (2 su a tick, a placeholder), no farther than to where the boxes touch. Where two centres
+  coincide the lower id goes west or north. Units with a command are never moved (Hold, a Gather, any order).
+  The step goes through `World::shuffle`, so it never enters a unit it doesn't already overlap; `n` units stacked
+  on one point are apart within `18 × (n − 1)` ticks for Drones.
 - **Counters**: `Sim::move_counters()` (sweeps, box tests and lane tests of the latest tick) and `Sim::nav_counters()` are
   output, not state. Tests assert them; `cargo test -p sc_sim --release --test movement_perf -- --ignored
   --nocapture` prints timings.
@@ -779,11 +825,14 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   ground box overlaps a blocked tile or leaves the map, except a unit in an exit doorway (`Mover::exit`), which
   overlaps the tiles of the building that released it and no other blocked tile, overlaps that footprint for as
   long as `exit` is set, never moves deeper in, and never comes to be in a doorway by moving; I3 a unit moves at most its speed per tick; I4 every float
-  is finite; I5 a unit without a goal doesn't move; I6 repaths per leg are capped and no path request waits longer
+  is finite (I3's speed is the model's maximum for a unit with momentum: a mode that slows it only weakens its thrust); I5 a unit without a goal doesn't move; I6 repaths per leg are capped and no path request waits longer
   than `MAX_REQUEST_AGE`; I7 an arrived unit never moves again without an order or a move of its behaviour, and a
   unit without a goal is at rest. A leg is one `Mover::go_to`: an order's move, or one a behaviour starts (a chase,
   a Patrol's next leg, the way back to an IdleOrigin). The exceptions to I5 and I7 are a unit taking its sidestep,
-  which must have neither a goal nor an order, and a unit walking out of an exit doorway. K1 (`paths`): each player's known grids are those a fresh build
+  which must have neither a goal nor an order, a unit walking out of an exit doorway, **(M3-G)** a DragMovement
+  unit braking off the momentum it had (it must be `Stopping`, its velocity its momentum, and slower than a tick
+  before; no other model may ever have momentum), and an idle unit that overlapped another a tick earlier, moving
+  off it (design change 0126). K1 (`paths`): each player's known grids are those a fresh build
   from the state gives. A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
   letters, with a legend). The check is on by default; `check_invariants(false)` turns it off for timing runs. A
   test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each step.
@@ -853,17 +902,18 @@ section of its own.
   that reaches its drop-off in tick `t` is paid at the end of `t + 1` (`SimEvent::ResourcesDelivered`). A patch
   emptied this way leaves the map in the same tick, unless a plate stands on it; workers never gather a plated
   patch. `Sim::returning_drones(node)` is the Egress Node's F.
-  **Measured on the stand-in mover** (`tests/gathering.rs`, `tests/gathering_soak.rs`; again when slice M3-G brings
-  DragMovement): one Drone with its patch 2 GU from the node, edge to edge, delivers every 60 ticks, 2.13 Space
-  Crystals per second. On the reference field (8 patches in a row, the node 2 GU south of the middle), with
-  gathering Drones passing through each other (design change 0106), nothing jams and every Drone keeps delivering:
-  4, 8, 12, 16, 20 and 24 Drones dealt out over the patches give 8.3, 15.1, 22.0, 26.8, 32.0 and 32.0 per second,
-  and the longest any Drone goes without a delivery is 70, 82, 140, 200, 167 and 141 ticks; sent by one right-click
-  they give 8.2, 15.0, 21.9, 27.4, 28.9 and 32.0, with gaps of 85 to 284 ticks (the acceptance bound is 480, 30 s).
-  The 24-Drone soak costs 13 µs a tick in release.
-  The patches are the only limit: 8 of them give 32 per second (the design's "fully saturated ≈ 32 (~24 working
-  Drones)"). Below saturation the stand-in is ahead of the table (16 Drones: 27 for the table's 23), as expected
-  until M3-G. Under hard collision, as slice M3-H first had it, the field gridlocked from 12 Drones on.
+  **Measured with DragMovement** (slice M3-G; `tests/gathering.rs`, `tests/gathering_soak.rs`; nothing is tuned to
+  the design's table): one Drone with its patch 2 GU from the node, edge to edge, delivers every 81 ticks, 1.58
+  Space Crystals per second (60 ticks on the stand-in mover it had before). On the reference field (8 patches in a
+  row, the node 2 GU south of the middle), with gathering Drones passing through each other (design change 0106),
+  nothing jams: 4, 8, 12, 16, 20 and 24 Drones dealt out over the patches give 6.3, 11.7, 17.9, 23.1, 25.6 and
+  27.3 per second (the stand-in: 8.3, 15.1, 22.0, 26.8, 32.0, 32.0; the design's table: 6.1 for 4, 23 for 16, 32
+  for about 24). Two findings for slice K1's oracle: 24 Drones don't saturate 8 patches (rows of up to 6 patches
+  with three Drones each do), and a Drone sent on from an occupied patch to the nearest free one often finds that
+  taken too when it gets there: dealt out, the longest one of 24 went between two deliveries was 357 to 578 ticks across
+  builds of slice M3-G (the acceptance bound was 480, 30 s; the soak asserts 640 for that case). The 24-Drone soak costs 25 µs a tick
+  in release (13 µs on the stand-in, measured side by side: a Drone's tick is the rules' step and then its own).
+  Under hard collision, as slice M3-H first had it, the field gridlocked from 12 Drones on.
 - **Removal** (`Sim::remove_objects`): a plate takes its patch along if that is depleted, in the same tick, which
   opens the tile (design change 0038; the caller's grid sync covers it); a patch with crystals left stays, uncovered.
   A plate whose patch is removed (only a debug command does that) loses its extractor. `testing::referenced_ids`

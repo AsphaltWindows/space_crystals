@@ -41,7 +41,7 @@ To use a Groupable unit's ability on only one instance, the player selects that 
 
 The other Drones are untouched. This is a deliberate **exception to No smart-casting**: the rule exists to stop effortless mass use of abilities (power), which a worker's deploy doesn't have, and one Beacon can only ever take one Drone. Every ordered build is shown as a lingering ghost (core/entities.md > Placement Validation > Lingering build ghosts).
 
-**Group production with limited resources** (user, 2026-11-24): when a production command (e.g. Q: Peacekeeper) goes to several selected production buildings and the player can't pay for all of them (crystals, GDO Unit Control or any other cost), **as many as possible** queue it. The buildings are served in order of **least work queued first**: the least total remaining production time in their queue (including the unit in production), ties broken in a fixed, deterministic order. The rest don't queue (insufficient-resources feedback). This spreads production across idle buildings first, without picking a single building for the player.
+**Group production with limited resources** (user, 2026-11-24): when a production command (e.g. Q: Peacekeeper) goes to several selected production buildings and the player can't pay for all of them (crystals or any other resource paid at queue time; unit capacity is not checked when queuing), **as many as possible** queue it. The buildings are served in order of **least work queued first**: the least total remaining production time in their queue (including the unit in production), ties broken in a fixed, deterministic order. The rest don't queue (insufficient-resources feedback). This spreads production across idle buildings first, without picking a single building for the player.
 
 Considered and **parked** (user, 2026-11-23): a player-controlled toggle of a type's grouping (e.g. from the SelectionPanel portraits). Start with the fixed per-type flag; revisit if needed.
 
@@ -199,11 +199,14 @@ For all unit-producing structures, right-click from DefaultState sets the rally 
 - Right-click Object: sets rally point to that object
 - Right-click the building itself: **clears** the rally point (RallyPoint = None; user, 2026-11-24)
 
+### What a rally point makes a new unit do
+(user, 2026-11-24) A unit that spawns with a rally point set **always** gets its **own default right-click command** resolved against the rally target (RightClickResolution, including the rule for units that can't carry out the resolved command). No per-building lists override this. Examples: a Drone rallied on a crystal patch **Gathers** it; a Drone rallied on an enemy unit **follows** it (unarmed, so it can't attack); a Peacekeeper rallied on an enemy attacks it.
+
 ### Rally points on enemy objects
 (user, 2026-11-24) A rally point on an enemy object only follows that object **while the owner can see it**. As soon as the enemy object leaves the owner's sight, the rally point **turns into a ground rally point at its last-seen position**. So:
 - A unit produced while the enemy is visible attacks it; one produced after the enemy was lost from sight moves to the last-seen position (matching chasing a target into the fog: systems/controls/behaviors.md > AttackingObject).
 - An enemy dying unseen in the fog doesn't change the rally point, so the rally marker never reveals hidden information. (The "reset to None when the object no longer exists" rule applies to own and neutral objects, and to enemies only while visible.)
-- Rallying on a remembered (fogged) enemy structure: TBD with Director question Q0017 point 2.
+- **Remembered enemy structures** (user, 2026-11-24): a rally point can be set on a remembered (fogged) enemy structure, since remembered objects can be targeted (core/vision.md > Explored > Targeting remembered objects). Structures don't move, so a rally on an enemy structure stays on it when it leaves sight (as a remembered target) instead of becoming a ground rally. New units get their default command against it (e.g. attack it once they see it; if it turns out to be gone, they stop there).
 
 ## DefaultState
 The default ObjectInterfaceState for a selection. The command panel displays available commands. Right-click performs a context-sensitive command based on what is under the cursor. Command hotkeys or button clicks initiate transitions to AwaitingTarget or issue immediate commands.

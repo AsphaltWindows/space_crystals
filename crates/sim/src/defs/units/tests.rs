@@ -13,7 +13,13 @@ fn base_flags_follow_the_design() {
     let rugged: Vec<UnitBase> = UnitBase::ALL.into_iter().filter(|b| b.def().rugged_terrain).collect();
     assert_eq!(
         rugged,
-        [UnitBase::LightInfantry, UnitBase::HeavyInfantry, UnitBase::Mech]
+        [
+            UnitBase::LightInfantry,
+            UnitBase::HeavyInfantry,
+            // "RuggedTerrain - true, with double drag" (design change 0039).
+            UnitBase::HoverVehicle,
+            UnitBase::Mech
+        ]
     );
     let crushable: Vec<UnitBase> = UnitBase::ALL.into_iter().filter(|b| b.def().crushable).collect();
     assert_eq!(crushable, [UnitBase::LightInfantry]);
@@ -34,6 +40,7 @@ fn base_flags_follow_the_design() {
 fn nav_classes_follow_domain_and_rugged_terrain() {
     assert_eq!(UnitBase::LightInfantry.def().nav_class(), Some(NavClass::GroundRugged));
     assert_eq!(UnitBase::Mech.def().nav_class(), Some(NavClass::GroundRugged));
+    assert_eq!(UnitBase::HoverVehicle.def().nav_class(), Some(NavClass::GroundRugged));
     assert_eq!(UnitBase::WheeledVehicle.def().nav_class(), Some(NavClass::Ground));
     assert_eq!(UnitBase::DrillUnit.def().nav_class(), Some(NavClass::Underground));
     assert_eq!(UnitBase::Glider.def().nav_class(), None);

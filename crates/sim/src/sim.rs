@@ -438,6 +438,8 @@ impl Sim {
                     // A path from the old position leads nowhere now.
                     if let Some(mover) = &mut o.mover {
                         mover.repath(self.tick);
+                        // Nor does it arrive with the speed it had (`Mover::momentum`, slice M3-G).
+                        mover.momentum = glam::Vec2::ZERO;
                     }
                 }
             }

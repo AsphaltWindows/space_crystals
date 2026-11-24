@@ -99,6 +99,7 @@ impl StateHash for Mover {
             avoid_until,
             sidestep,
             exit,
+            momentum,
         } = self;
         goal.hash(h);
         status.hash(h);
@@ -122,6 +123,13 @@ impl StateHash for Mover {
         avoid_until.hash(h);
         sidestep.hash(h);
         exit.hash(h);
+        // (M3-G) Only while the unit has some: the models that stop within the tick never do, so the states of
+        // games without a DragMovement unit hash as they did before the field existed (the goldens of M1 and
+        // M2 stand). A state with momentum differs from the same state without by the tag and the vector.
+        if *momentum != glam::Vec2::ZERO {
+            h.tag(1);
+            momentum.hash(h);
+        }
     }
 }
 

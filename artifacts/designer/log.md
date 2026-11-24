@@ -2094,3 +2094,14 @@ Q0037 pt 4: interrupted mining collects nothing, patch frees. Entry 0130.
 Q0037 pt 5: known, uncovered patches only. Entry 0131.
 Q0037 pt 6 (partly): waiting at tried patch, periodic re-check, return to last mined patch. Entry 0132.
 Q0037 pt 6: waiter order = implementation's choice (deterministic). Entry 0133.
+Q0037 pt 7 / Q0044 pt 5: depleted patch, walking Drones redirect on arrival. Entry 0134.
+Q0037 pt 8: missing drop-off -> nearest Egress Node, else idle holding load. Entry 0135.
+Q0037 pts 9-10: rally always = unit's default right-click (Drone on patch Gathers; on enemy unit Follows). Entry 0136.
+Q0044 pt 2 / Q0037 pt 11: plate can be placed on a patch a Drone mines; plated patch gone for Drones. Entry 0137.
+Q0037 pt 13: Drone last load takes remainder. Entry 0138. Q0037 done.
+Q0044 pts 1,6 / Q0017 pt 2: remembered objects targetable (incl. rally on remembered enemy structures). Entry 0139.
+Q0044 pt 3: empty Drone right-click node = Move. Entry 0140.
+Q0044 pt 4: unreachable patch = occupied (redirect/wait/re-check). Entry 0141. Q0044 done.
+Q0041 pt 1: Beacon Capacity reserved on queue. Entry 0142.
+Q0041 pts 1-2: capacity reserved at production start for GDO and Colonists (Syndicate model); replaces 0082 and 0142. Entry 0143.
+Q0041 pts 3-4: Robo Portal exit = closest side to rally, else random unblocked. Entry 0144.

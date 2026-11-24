@@ -67,7 +67,9 @@ fn seen(t: &TestSim, player: PlayerId) -> Vec<TilePos> {
 /// Each of the seven kinds spawns for player 1 from the scenario and for player 2 by a debug spawn, turned a quarter
 /// clockwise: its owner, its MaxHP, a structure's footprint at its centre and its sides, and the capabilities its
 /// kind has. A unit takes orders and moves; a Legionnaire has its weapon, the Drone none; a portal produces. Every
-/// structure blocks its tiles on every ground grid, the Drone's (`(Ground, 1)`, new with it) included.
+/// structure blocks its tiles on every ground grid. There is one: the Drone, a HoverVehicle, crosses Rugged terrain
+/// (design change 0039) and so shares `(GroundRugged, 1)` with the infantry, as in M2 (slice M3-G; on the stand-in
+/// it had a grid of its own, `(Ground, 1)`, which doubled every set of grids).
 #[test]
 fn each_kind_spawns_for_two_owners() {
     let mut builder = ScenarioBuilder::new(&flat(44, 14));
@@ -92,8 +94,7 @@ fn each_kind_spawns_for_two_owners() {
     assert_eq!(t.sim().objects().count(), 14);
     let grids = t.sim().nav().grids();
     let keys: Vec<(NavClass, u8)> = grids.iter().map(|g| (g.class(), g.size())).collect();
-    assert!(keys.contains(&(NavClass::Ground, 1)), "{keys:?}");
-    assert!(keys.contains(&(NavClass::GroundRugged, 1)), "{keys:?}");
+    assert_eq!(keys, [(NavClass::GroundRugged, 1)]);
     for o in t.sim().objects() {
         let (owner, i) = if o.id.0 <= 7 {
             (P1, o.id.0 as usize - 1)
@@ -292,15 +293,16 @@ fn a_rifle_legionnaire_fires_at_four_grid_units_with_the_elevation_modifier() {
     );
 }
 
-/// `factions/colonists/units.md > Drone`, on the stand-in until DragMovement (plan decision T25): it moves at its
-/// top speed, the DragMovement equilibrium `(ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio` =
-/// (0.6 + 0.2) / 0.1 = 8 space units/frame, from the first frame; a Peacekeeper moves 4.
+/// `factions/colonists/units.md > Drone`: it moves by DragMovement (slice M3-G; `tests/movement_drag.rs` has the
+/// model's own tests). From rest it gains 0.8 space units/frame in its first frame and approaches the equilibrium
+/// `(ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio` = (0.6 + 0.2) / 0.1 = 8 space units/frame
+/// without ever passing it; a Peacekeeper moves 4 from its first frame.
 #[test]
-fn a_drone_moves_eight_space_units_a_frame() {
+fn a_drone_accelerates_to_eight_space_units_a_frame() {
     let mut t = ScenarioBuilder::new(&flat(24, 5))
         .spawn(ObjectKind::Drone, Some(P1), SpawnAt::Point(centre(1, 2))) // 1: (96, 160), facing east
         .start();
-    let goal = centre(20, 2); // 1216 su = 152 × 8 east
+    let goal = centre(20, 2); // 1216 su east
     t.order_at(1, P1, &[ObjectId(1)], OrderKind::Move(Target::Point(goal)), false);
     let mut steps = Vec::new();
     for _ in 0..200 {
@@ -312,7 +314,12 @@ fn a_drone_moves_eight_space_units_a_frame() {
     }
     assert_eq!(t.status(1), MoveStatus::Arrived);
     assert_eq!(t.pos(1), goal);
-    assert_eq!(steps, vec![8.0; 152]);
+    assert!(
+        (steps[0] - 0.8).abs() < 1e-3 && (steps[1] - 1.52).abs() < 1e-3,
+        "{steps:?}"
+    );
+    let fastest = steps.iter().copied().fold(0.0, f32::max);
+    assert!((7.92..=8.0).contains(&fastest), "{fastest}");
 }
 
 /// `systems/units.md > UnitCollision > Ground Collision`: a Drone walks around a Robo Portal (4 × 4 tiles) in its way,
