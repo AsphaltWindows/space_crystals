@@ -23,7 +23,7 @@ An offset destination that is unreachable is handled like any unreachable locati
 TBD: whether the box has a size limit (for widely scattered selections the box covers most of the map, so most clicks converge).
 
 ## Move
-Order the unit to move to a target location or object.
+Order the unit to move to a target location or object. Moving to a **unit** makes the ordered unit **follow** it until given another order (systems/controls/behaviors.md > MovingToObject > Completion). Right-clicking one of your own units therefore makes the selected units follow it.
 
 ### Sets BaseCommandState:
 - CommandType = Move
