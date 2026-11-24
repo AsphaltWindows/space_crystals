@@ -784,8 +784,9 @@ elsewhere.
   cursor now, which keeps following it over UI nodes on the world view, as the editor's drags do). `MapClick`
   messages report clicks on the map: `Select` when released, unless it became a drag, and `ContextCommand` and the
   editor's `Eyedropper` when pressed, with the modifiers and a double-click flag. A `Select` drag ends as a
-  `SelectionBox` message in view space, kept inside the world view. Nothing starts over the UI. What the modifiers of
-  a click mean comes from the table (`Bindings::holds(InputAction::Queue, click.modifiers)`).
+  `SelectionBox` message in view space, kept inside the world view, with the modifiers held at its release. Nothing
+  starts over the UI. What the modifiers of a click or a box mean comes from the table
+  (`Bindings::holds(InputAction::Queue, click.modifiers)`).
 - **Text fields**: while a text field has the keyboard (`TextFocus`), and in the frame after it lost it, keys type
   text and fire no binding, from the real keyboard or the injected one. So the Esc that gives a field up doesn't also
   cancel. A field's own keys (Enter commits, Esc reverts) are Bevy's keyboard input, read by the field
@@ -803,10 +804,13 @@ elsewhere.
 **Selection** (`selection.rs`, `selection/`; `systems/controls/selection_and_hud.md`): client UI state, never sim
 state. `ControlStates` holds every player's `ControlState`, a `Selection`, 10 control groups and the
 ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the local player's (`LocalPlayer`).
-- **Model** (`selection/model.rs`): a selection is a set of object ids with their kinds. Its groups are derived, one
-  per type, in `ObjectKind` order (an ungroupable object, a patch or a station, is a group alone), each by id; the
-  ActiveGroup is a group key, which Tab and Shift + Tab cycle with wrap-around and which falls back to the first group
-  when its group empties. At most `MAX_SELECTED` objects (a placeholder: the order limit).
+- **Model** (`selection/model.rs`): a selection is a set of object ids with their kinds. Its SelectionGroups are
+  derived: one per type, each by id, and one per instance of an ungroupable type (only resources so far, which are
+  never selected with other objects, design change 0048). They come in one stable order, by `ObjectKind` and then by
+  instance (`Selection::groups`), which is the order of the SelectionPanel's portraits and of Tab and Shift + Tab (the
+  placeholder of 0055). The ActiveGroup is one SelectionGroup, named by its `GroupKey` (0048): Tab and Shift + Tab
+  cycle it with wrap-around, adding objects keeps it, and it falls back to the first group when its group empties. At
+  most `MAX_SELECTED` objects (a placeholder: the order limit).
 - **Picking** (`selection/pick.rs`): `Selectables` is what the local player may select this frame (`selectable_by`:
   its own objects, others on Visible tiles; on Explored ones only a remembered Supply Delivery Station, at its
   record, and only for a GDO player, `remembered_selectable_by`, `core/vision.md > Explored Selectability`; with
@@ -815,9 +819,16 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   (grown by `PICK_SLOP_SU`); a box (the input layer's `SelectionBox`) applies the priority tiers. `Relation::of`
   says own, enemy or neutral (no teams yet, so no allies); allies would count with enemies in the tiers.
 - **Rules** (`selection/rules.rs`, pure and unit tested): map clicks, boxes, portrait clicks, control group keys and
-  Tab on a `ControlState`, under the Constraints (another player's object or a resource is only ever selected alone).
-  What a click's modifiers mean comes from the bindings (`ClickRoles`). Every rule the design leaves open is marked
-  as a placeholder where it is made.
+  Tab on a `ControlState`, under the Constraints: another player's object or a resource is only ever selected alone,
+  and any click on one selects it alone (design change 0048). On an own unit a click selects it, Shift toggles it,
+  Ctrl or a double-click selects its type on screen, and Ctrl + Shift adds that type (0052). A box selects what its
+  tiers give, and Shift + box adds that (0049). The add inputs all go through `ControlState::add_to_selection`: they
+  remove nothing and add nothing the Constraints forbid, so they do nothing while another player's or a neutral
+  object is selected (0053). A plain click on empty ground or an empty box clears the selection; a modified click
+  there or an empty Shift + box changes nothing (0051). Control groups take only own objects: Assign and Add with
+  another player's or a neutral object selected change nothing (0056). What the modifiers of a click or a box mean
+  comes from the bindings (`ClickRoles`; Shift is `ToggleSelection`, the add inputs' modifier). Every rule the design
+  leaves open is marked as a placeholder where it is made.
 - **Systems** (`SelectionSystems`): `Sync` (in `SyncSim`) removes objects that left the sim from every selection
   and group in the frame of their tick (`SimEvent::Removed`, deaths included, and anything else gone; a station
   the player still selects by its record stays), and those their player may no longer select (an enemy that walked

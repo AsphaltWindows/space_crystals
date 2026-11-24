@@ -168,7 +168,13 @@ fn double_click(app: &mut App, view: Vec2) {
 
 /// A box dragged with the left button from the view point `from` to `to`: down, moved, up, a frame each.
 fn drag(app: &mut App, from: Vec2, to: Vec2) {
+    drag_with(app, from, to, &[]);
+}
+
+/// [`drag`] with the modifier keys `modifiers` held from before the press until after the release.
+fn drag_with(app: &mut App, from: Vec2, to: Vec2, modifiers: &[KeyCode]) {
     let (from, to) = (screen_at(app, from), screen_at(app, to));
+    press_keys(app, modifiers);
     input(app).cursor = Some(from);
     input(app).mouse.press(MouseButton::Left);
     app.update();
@@ -176,6 +182,7 @@ fn drag(app: &mut App, from: Vec2, to: Vec2) {
     app.update();
     input(app).mouse.release(MouseButton::Left);
     app.update();
+    release_keys(app, modifiers);
     pause(app);
 }
 

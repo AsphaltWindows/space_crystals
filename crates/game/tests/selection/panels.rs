@@ -46,7 +46,7 @@ fn portraits(app: &mut App) -> Vec<(u32, bool)> {
         .iter()
         .map(|cell| match *cell {
             PortraitCell::Object { id, active, .. } => (id.0, active),
-            PortraitCell::More(_) => panic!("no overflow here"),
+            PortraitCell::More { .. } => panic!("no overflow here"),
         })
         .collect()
 }
@@ -99,7 +99,7 @@ fn the_info_panel_shows_the_selected_object() {
         lines.starts_with("Neutral\nSupplies: 0\nDelivery size: 4\nDelivery interval: 60 s\nNext delivery in "),
         "{lines}"
     );
-    // Two or more: the ActiveGroup's type (placeholder).
+    // Two or more: the ActiveGroup's type (the placeholder kept by design change 0054).
     click(&mut app, at(1), &[ControlLeft]);
     assert_eq!(
         info(&mut app),
@@ -129,6 +129,39 @@ fn the_selection_panel_shows_two_or_more_and_highlights_the_active_group() {
     click(&mut app, at(1), &[]);
     assert!(portraits(&mut app).is_empty());
     assert!(label_shown(&mut app, HudSection::SelectionPanel));
+}
+
+/// `> SelectionPanel` (design change 0055): the portraits come group by group, in one order whatever order the
+/// objects were selected in, and Tab and Shift-Tab move the ActiveGroup's highlight along it, wrapping around.
+#[test]
+fn tab_and_shift_tab_follow_the_order_of_the_portraits() {
+    let mut app = game();
+    let order = |app: &mut App| portraits(app).into_iter().map(|(id, _)| id).collect::<Vec<_>>();
+    let highlighted = |app: &mut App| {
+        let cells = portraits(app).into_iter();
+        cells
+            .filter(|&(_, active)| active)
+            .map(|(id, _)| id)
+            .collect::<Vec<_>>()
+    };
+    // The Guards first, then the Peacekeepers added: the panel still shows the Peacekeepers first.
+    click(&mut app, at(3), &[ControlLeft]);
+    click(&mut app, at(1), &[ControlLeft, ShiftLeft]);
+    assert_eq!(order(&mut app), [1, 2, 5, 3, 4]);
+    assert_eq!(
+        highlighted(&mut app),
+        OWN_GUARDS,
+        "the Guards are still the ActiveGroup"
+    );
+    tap(&mut app, &[], Tab);
+    assert_eq!(highlighted(&mut app), OWN_PKS, "past the last group, the first");
+    tap(&mut app, &[], Tab);
+    assert_eq!(highlighted(&mut app), OWN_GUARDS);
+    tap(&mut app, &[ShiftLeft], Tab);
+    assert_eq!(highlighted(&mut app), OWN_PKS);
+    tap(&mut app, &[ShiftLeft], Tab);
+    assert_eq!(highlighted(&mut app), OWN_GUARDS, "before the first group, the last");
+    assert_eq!(order(&mut app), [1, 2, 5, 3, 4], "cycling keeps the order");
 }
 
 /// `> SelectionPanel > Interactions`, with portraits 0–4 showing units 1, 2, 5 (Peacekeepers), 3 and 4 (Guards).
