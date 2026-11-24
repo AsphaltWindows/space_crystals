@@ -50,6 +50,8 @@
 - **Typical cost**: an editor-sized task takes about 1 hour and 150–250k agent tokens; a read-only review takes about 25 minutes and 170k.
 - **M1 slice costs**: S (selection, Opus) took 41 min and 350k tokens; D (collision, Fable) 41 min and 520k; W (combat, Opus) 51 min and 210k. Three parallel worktree agents with disjoint areas, each told to merge master before finishing, integrated with no Director-side conflict work.
 - **Never `cd` in Bash, not even into `artifacts/director`**: it moves the session's working directory. Use absolute paths or a subshell.
+- **Merge pipelines must fail loudly.** `git merge --ff-only X | tail -1 && git worktree remove ... && git branch -D X` took the exit status from `tail`. When master had moved, the merge failed, yet the branch was deleted anyway; the work was recovered from the commit id. Use `set -o pipefail`, or don't pipe the merge.
+- **Deferring design changes until they can be verified**: 0033 rotation and 0035 collision response need long or accelerating units to test, so they wait for the vehicles milestone. This is recorded in plan.md.
 - **The Bevy default UI font has ASCII glyphs only** ("°" and "×" show as boxes). Use ASCII in UI text until a font is added.
 - Agent worktrees (`isolation: "worktree"`) live in `.claude/worktrees/` (gitignored) and showed the last *pushed* commit at creation, then caught up to local master. Briefs tell agents to `git merge --ff-only master` first anyway. Check `git worktree list` after launching.
 - `git add -A <dir>` fails for an already-staged deleted directory; pass it only to `git commit -- <paths>`.

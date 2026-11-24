@@ -146,17 +146,53 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - Patrol origin isn't kept in the sim (E).
     - The UI edge cases went out as Q0016.
 
-## In progress (two agents in parallel, kept to disjoint areas)
-- **M1-V vision and fog** (Opus; brief `scratchpad/briefs/m1v-vision.md`): per-player Unexplored/Explored/Visible tiles in phase 5f with the elevation sight rule; `Sim::visibility` and `is_visible`; one fog texture in the client; hidden enemies neither drawn nor selectable; a fog toggle and `--no-fog`.
-- **M1-Y friendly yielding** (Fable; brief `scratchpad/briefs/m1y-friendly-yielding.md`):
-  - idle own units sidestep for blocked movers (0022/0023), with the Q0015 assumption for converging groups;
-  - stuck and give-up timing per 0024;
-  - magic-box footprints (Q0015);
-  - a robust soak test.
+- **M1-Y friendly yielding** (merged in `bc34d02`; 490 tests):
+  - **Who yields** (`movement/yielding.rs`): an idle own unit with no orders, no attack phase and able to move. Hold Position counts as an order. Units never yield to the group order they arrived with (0027).
+  - **Sidestep**: 45°, only as far as clears the lane, chained up to 4 units deep, with no return trip.
+  - **Stuck schedule (0024)**: stuck at 24 ticks; re-routes at 32, 48 and 80; Failed at 104.
+  - **Arrival (0026)**: a unit within 2 GU behind non-moving blockers counts as arrived. It arrives after 12 ticks when the blocker has no goal, otherwise at the stuck point. This replaces D's group-arrival stand-in.
+  - **Magic box (0028)**: it bounds unit silhouettes.
+  - **Soak test**: failed share dropped from 32% to 16%, and the test now asserts bounded ratios.
+  - **Known issues** (for G):
+    - tight own groups crossing head-on still jam, 14 of 36 failing at a 16 su gap;
+    - walking through an idle group of the same width shoves it about 4 tiles;
+    - an idle unit in a corridor as narrow as itself can't sidestep.
+- **M1-V vision and fog** (merged in `83fec7d`; 513 tests):
+  - **Vision state**: per player and tile: Unexplored, Explored or Visible.
+  - **Sight rule**: tile centre within range, inclusive, with the elevation ±1 rule; no line of sight.
+  - **Updates**: incremental; only moved objects are restamped.
+  - **Hashing and checks**: Explored is hashed and saved; Visible is rebuilt on load. Invariant V1 checks it each tick.
+  - **Perf**: 0.17 ms per tick with 500 units.
+  - **Combat**: attacks need the target seen last tick.
+  - **Client**: one fog mesh with one texel per tile, softened; hidden enemies are not drawn, selected, targeted or marked; F3 toggles fog; `--no-fog`.
+  - **Gaps**:
+    - Explored areas show live structures and resources instead of last-known ones (F builds this);
+    - the gate accepts unseen targets (E builds this).
+
+## In progress (three agents in parallel, kept to disjoint areas)
+- **M1-E behaviours** (Fable; brief `scratchpad/briefs/m1e-behaviours.md`):
+  - AttackingObject chase, including into fog to the last seen position (0034);
+  - idle auto-targeting with leash; HoldPosition;
+  - AttackMove with leash;
+  - Patrol, with origin at execution (0036) and failed legs (0037);
+  - MovingToObject, with proximity 8 su edge to edge, Move to a unit as Follow, and the 2-GU rule (0032, 0033);
+  - edge-to-edge range (0031) through a new `shape` module;
+  - the gate rejects unseen object targets (Q0017 default).
+- **M1-Q queued group destinations** (Opus; brief `scratchpad/briefs/m1q-queued-group-destinations.md`): destinations resolved at issue and stored per unit (0030); queued orders build the box from planned end positions (0029).
+- **M1-F fog memory** (Opus; brief `scratchpad/briefs/m1f-fog-memory.md`):
+  - per-player last-known records of structures and resources in the sim, hashed;
+  - Explored areas draw records rather than live objects;
+  - the GDO station's Explored selection and InfoPanel;
+  - a hit flash for shots from the fog (Q0017 default).
 - **Next**:
-  - **E behaviours** (chase, AttackMove, Patrol, auto-target, leashes): after V and Y, since it shares `orders.rs` with Y.
   - **R Riot Shield mode**: after E.
-  - **G QA and hardening**: golden hashes, perf tuning of group orders, replay playback.
+  - **G QA and hardening**, after E:
+    - golden hashes;
+    - replay playback;
+    - perf tuning of group orders (a 250-unit order takes 6–10 ms);
+    - steering quality for dense head-on crowds (M1-Y known issues);
+    - `mover.rs` size;
+    - the turn-twice-in-a-tick note from W.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
 The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, the defaults from the doc apply.
@@ -170,11 +206,13 @@ The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, th
 | H Commands UI | command panel, right-click, cursors, indicators, Shift-queue | done (`a71cee1`) | Opus |
 | R Riot Shield mode | the Peacekeeper's Riot Shield as sim state, command and hotkey; shielded speed and right-click per the design | after E (it touches orders) | Opus |
 | M Magic box | group destinations per 0021 (replaces the 6.4 lattice) | done (`93e53ca`) | Opus |
-| Y Friendly yielding | idle own units sidestep (0022/0023), stuck timing (0024), box footprints (Q0015), robust soak | running | Fable |
-| V Vision | per-player visibility, ElevationModifier for sight, fog texture | running | Opus |
+| Y Friendly yielding | idle own units sidestep (0022/0023), stuck timing (0024), box silhouettes (0028), robust soak | done (`bc34d02`) | Fable |
+| V Vision | per-player visibility, ElevationModifier for sight, fog texture | done (`83fec7d`) | Opus |
 | W Combat | attack phases, hits, damage, deaths, range (Q0009), elevation helper | done (`dd268bc`) | Opus |
-| E Behaviours | chase, AttackMove, Patrol, Hold, Stop, auto-target and leashes | D, W, V | Fable, or Opus with a Fable review |
-| G QA and hardening | debug control of both sides, replay playback, path overlay, soak, perf, golden hashes | E, H | Opus |
+| E Behaviours | chase (fog: 0034), auto-target and leashes, AttackMove, Patrol (0036/0037), Hold, Stop, Follow and proximity (0032/0033), edge-to-edge range (0031), gate visibility | running | Fable |
+| Q Queued group destinations | 0029/0030 | running | Opus |
+| F Fog memory | last-known structures and resources, Explored selection, hit flash from the fog | running | Opus |
+| G QA and hardening | debug control of both sides, replay playback, soak, perf (group orders), golden hashes, crowd steering quality | E | Opus or Fable |
 
 After B: start D, S, V and W in parallel; then H, E, G.
 
@@ -213,7 +251,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
 
 ### Later
-- **Vehicles**, turrets, air, area damage, research. The Factory's Artillery Rig and Prospector need Advanced Mechanics (0001). GDO air (0014): limited ammo with rearming at an Airfield; at most 4 aircraft per Airfield; Air-to-Ground Hovercraft and Air-to-Air Fighter (needs Propulsion Labs).
+- **Vehicles**, turrets, air, area damage, research. The vehicles milestone starts with the movement model from 0033 (rotating silhouettes, oriented collision, turning near obstacles) and 0035 (acceleration and collision response), and tracked maneuver data. The Factory's Artillery Rig and Prospector need Advanced Mechanics (0001). GDO air (0014): limited ammo with rearming at an Airfield; at most 4 aircraft per Airfield; Air-to-Ground Hovercraft and Air-to-Air Fighter (needs Propulsion Labs).
 - **Key rebinding UI** (0011): the bindings table is built rebindable in M1-A.
 - **AI or online opponents**: decide with the user.
 - **Art pipeline** (0003):
@@ -234,17 +272,18 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0006 | Do map resources need flat tiles? | no | answered by 0013 (yes, both) |
 | Q0007 | Group moves: destination slots, head-on deadlock, do idle units yield | no | answered: part 1 by 0021 (magic box); parts 2 and 3 by 0022 (no swapping; idle own units yield) |
 | Q0008 | Move failure: stuck timing, unreachable or occupied targets | no | answered by 0024 (timing), 0025 (nearest reachable point), 0026 (arrived within 2 GU behind non-moving units) |
-| Q0009 | Range measured to large targets; proximity; silhouette rotation | no (needed before W) | open |
-| Q0010 | Chase target lost in fog; Patrol origin; failed legs | no (needed before E) | open |
+| Q0009 | Range measured to large targets; proximity; silhouette rotation | no | answered by 0031 (edge to edge), 0032 (proximity 8 su) and 0033 (silhouettes rotate) |
+| Q0010 | Chase target lost in fog; Patrol origin; failed legs | no | answered by 0034, 0036 and 0037 |
 | Q0011 | Terrain/obstacles: resources block, Rugged, routes via the true map, underground/air | no | open; C builds the defaults as switches |
 | Q0012 | Crowds clot without yielding: should friendly units yield or swap? (evidence from M1-D) | no | answered by 0022 (option B) and 0023 |
 | Q0013 | Selection edge cases: ungroupables, allies, modified clicks, empty ground, InfoPanel for 2+ objects, control groups | no | open; S built the listed defaults |
 | Q0014 | Combat edge cases: force-attacking own or neutral objects, a shot whose target dies mid-Firing, Rugged for units across tiles | no | open; W built the listed defaults |
-| Q0015 | Magic box meets yielding (converging groups), box from footprints vs centres, Shift-queued group moves | no | points 1–2 answered by 0027 and 0028 (as assumed); point 3 open |
+| Q0015 | Magic box meets yielding (converging groups), box from footprints vs centres, Shift-queued group moves | no | answered by 0027, 0028 and 0029 |
 | Q0016 | Command UI edge cases: who carries out a right-click, invalid targets, input while targeting, Shift keeps targeting | no | open; H built the listed defaults |
+| Q0017 | Fog: shots from hidden attackers (hit flash vs. a partial tracer); targeting remembered structures | no | open; F and E build the stated defaults |
 
 ## Design change entries
-Last triaged: 0028.
+Last triaged: 0037.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -263,11 +302,20 @@ Last triaged: 0028.
 | 0013 Patches and stations need flat tiles | done (M0-D) | answers Q0006 |
 | 0015–0020 GDO aircraft: assignment, ammo, return/rearm, landed = ground target, rearm time, names (Hornet, Dragonfly) | queued (Later: air) | design stubs |
 | 0021 Group destinations: magic box | done (M1-M, `93e53ca`); footprint follow-up in M1-Y (Q0015) | answers Q0007 part 1; replaces the lattice default |
-| 0022 Friendly idle units sidestep for blocked movers | in progress (M1-Y) | answers Q0012, Q0007 parts 2–3 |
-| 0023 Who yields: idle only; modes don't matter; deployed Artillery Rig fixed | in progress (M1-Y) | the Artillery Rig part is a hook until vehicles |
-| 0024 Stuck 1.5 s, 3 re-route tries, give up | in progress (M1-Y) | answers Q0008 part 1; M1-Y reconciles D's schedule |
-| 0025 Unreachable move target goes to the nearest reachable point | folded into M1-Y (verification tests) | already built by M1-M (`nav::reachable_point`) |
-| 0026 Occupied target: arrived within 2 GU behind non-moving units | folded into M1-Y | replaces D's group-arrival stand-in |
-| 0027 No yielding within the same group order | folded into M1-Y | answers Q0015 point 1 |
-| 0028 Magic box drawn around silhouettes | folded into M1-Y | answers Q0015 point 2 |
+| 0022 Friendly idle units sidestep for blocked movers | done (M1-Y, `bc34d02`) | answers Q0012, Q0007 parts 2–3 |
+| 0023 Who yields: idle only; modes don't matter; deployed Artillery Rig fixed | done (M1-Y, `bc34d02`) | the Artillery Rig part is a hook until vehicles |
+| 0024 Stuck 1.5 s, 3 re-route tries, give up | done (M1-Y, `bc34d02`) | answers Q0008 part 1; M1-Y reconciles D's schedule |
+| 0025 Unreachable move target goes to the nearest reachable point | done (M1-Y, `bc34d02`) | already built by M1-M (`nav::reachable_point`) |
+| 0026 Occupied target: arrived within 2 GU behind non-moving units | done (M1-Y, `bc34d02`) | replaces D's group-arrival stand-in |
+| 0027 No yielding within the same group order | done (M1-Y, `bc34d02`) | answers Q0015 point 1 |
+| 0028 Magic box drawn around silhouettes | done (M1-Y, `bc34d02`) | answers Q0015 point 2 |
+| 0029 Shift-queued group orders build the box from planned positions | in progress (M1-Q) | answers Q0015 point 3 |
+| 0030 Group destinations resolved at issue, stored per unit | in progress (M1-Q) | probably already true; Q verifies |
+| 0031 Attack range measured edge to edge | in progress (M1-E) | answers Q0009 point 1; replaces default A |
+| 0032 Move to a unit = Follow; proximity 8 su edge to edge | in progress (M1-E) | answers Q0009 proximity |
+| 0033 Silhouettes rotate; 2-GU rule for static targets; follow end | split: the 2-GU rule and follow end in M1-E; **rotation queued for the vehicles milestone** | rotation can only be verified with long vehicles; square infantry is nearly unaffected |
+| 0034 Attack target lost into fog: last seen position | in progress (M1-E) | answers Q0010 part 1 |
+| 0035 Collision response: blocked motion dropped, velocity to 0 | **queued for the vehicles milestone** | every Verification point needs vehicles; infantry has no acceleration, so its behaviour is unchanged |
+| 0036 Patrol origin at execution | in progress (M1-E) | answers Q0010 part 2 |
+| 0037 Patrol failed legs | in progress (M1-E) | answers Q0010 part 3 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
