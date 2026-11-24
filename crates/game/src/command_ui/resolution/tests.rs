@@ -63,7 +63,7 @@ const BUILDING: UnitCapabilities = UnitCapabilities {
 };
 /// A producing structure, a Barracks.
 const PRODUCER: UnitCapabilities = UnitCapabilities {
-    template: Some(InterfaceTemplate::Barracks),
+    template: Some(InterfaceTemplate::Production),
     ..BUILDING
 };
 

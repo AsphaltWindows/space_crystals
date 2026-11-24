@@ -48,7 +48,7 @@ The player may cancel the deployment at any point before it completes. The trans
 Once the 48 frames elapse, the transformation is final and one-way. The resulting Beacon can never revert back into a Drone.
 
 ### While transforming: only Cancel
-(user, 2026-11-24) A Beacon under deployment and a building under Warp In show **only the Cancel command** in their CommandPanel (no rally point, no other commands). None of the building's functions (production, accepting deliveries, research, abilities) work until the transformation completes. Exception already covered elsewhere: a building under Warp In keeps providing its 5 Beacon Capacity (Warp In > Beacon Capacity Retention). Cancel's hotkey: TBD (see the Colonists panels).
+(user, 2026-11-24) A Beacon under deployment and a building under Warp In show **only the Cancel command** in their CommandPanel (no rally point, no other commands). None of the building's functions (production, accepting deliveries, research, abilities) work until the transformation completes. Exception already covered elsewhere: a building under Warp In keeps providing its 5 Beacon Capacity (Warp In > Beacon Capacity Retention). Cancel's hotkey: **X** (Cancel Deployment / Cancel Warp In; user, 2026-11-24).
 
 ### Deploying with a load
 (user, 2026-11-24) A Drone carrying a load deploys without delivering it first. The load stays with the deploying object and is **lost when deployment completes**; on **cancel** the Drone returns still carrying it.
@@ -74,7 +74,28 @@ The Colonists' foundational structure, created when a Drone deploys into it (see
 ### BeaconCapacity provided - 5
 ### SymmetryType - AAAA
 
-Full ObjectInterfaceState still TBD (presumably exposes the Warp In option — see Warp In below).
+### Beacon ObjectInterfaceState
+(user, 2026-11-24) Warp In has more buildings than fit one menu (14 buildings, 11 usable slots), so the Beacon has **two Warp In menus**, like the Deployment Center's two build menus. The split and the menu names are **provisional** (user: easy to reshuffle later).
+
+DefaultState:
+```
+[Q] Warp In (Basic)   [W] Warp In (Advanced)   [E] —   [R] —
+[A] —                 [S] —                    [D] —   [F] —
+[Z] —                 [X] —                    [C] —   [V] —
+```
+Warp In (Basic): economy and production
+```
+[Q] Egress Node     [W] Robo Portal       [E] Bio Portal      [R] —
+[A] Alloy Furnace   [S] Essence Refinery  [D] Flux Reactor    [F] —
+[Z] Back            [X] —                 [C] —               [V] —
+```
+Warp In (Advanced): tech and defense (each defense next to the building it requires)
+```
+[Q] Exophysics Engine   [W] Skylance            [E] Fusion Core          [R] Plasma Turret
+[A] Relay Array         [S] Navigation Spire    [D] Psionic Amplifier    [F] Structural Analyzer
+[Z] Back                [X] —                   [C] —                    [V] —
+```
+Choosing a building enters placement (Warp In > Warp In Command). Buildings whose costs are still TBD are shown but unavailable until defined.
 
 ## Warp In
 

@@ -1173,6 +1173,28 @@ About 50 TBD notes in the Colonists docs are concentrated in the tech tier. M3 i
 | 0120 | Q0040 point 4 | F, J1 | The Worker-Built ghost follows the player's knowledge: remembered terrain and structures count, hidden units are ignored, and never-explored tiles pass. The order is always allowed; the truth is checked on arrival. |
 | 0121 | Q0040 point 5 | E, J1 | **Replaces cursor snapping.** An odd-size footprint has its extras at the bottom-right by default; turns and flips transform it about the Beacon centre, and the exit sides rotate with it. **Director:** the sim derives the footprint from (Beacon, kind, orientation) in one function shared by the gate and the ghost, and `WarpIn` carries no `origin` (amends T22). |
 | 0122 | Q0040 point 6 | E, J1 | Beacons are Ungroupable: each is its own SelectionGroup, and Warp In applies to the Tabbed-to Beacon. |
+| 0123 | Q0040 point 7; Q0037 point 12, and point 5 in part | F | **Replaces the after-the-next-drop-off proposal.** A Gather ends on its own only when the Drone's patch is gone and no patch at all is within its search radius. The Drone then delivers any load and starts the next queued order (Deploy included) or idles. A Drone waiting at an occupied patch is still gathering. The radius is centred on the Drone, not the patch: a per-unit Drone stat, 6 GU placeholder. Today it is `orders/gather.rs::REDIRECT_RADIUS_GU`, centred on `around`. |
+| 0124 | Q0040 point 8 | D, J1, J2 | **Amends J1's single menu.** The Beacon has Q Warp In (Basic) and W Warp In (Advanced):
+- Basic: Q Egress Node, W Robo Portal, E Bio Portal, A Alloy Furnace, S Essence Refinery, D Flux Reactor, Z Back.
+- Advanced: eight buildings, Q to F, then Z.
+
+Buildings and units whose costs are TBD show in their slot, unavailable. A transforming object shows only X Cancel. The other grids:
+- Robo Portal: Q Drone, W Scout, X, C.
+- Bio Portal: Q Sabre, W Lancer, E psionic unit, X, C.
+- Drone: Q Move, A Deploy, S Set Drop-off, X Stop.
+- Egress Node: F Select Returning Drones. |
+| 0125 | Q0040 point 9 | F, J1 | **Changes J1's Deploy dispatch.**
+- Drones become Groupable.
+- A Deploy given to a group goes to one Drone: the first in selection order (a plain click), or the first with no Deploy queued (a Shift-click).
+- Shift-placement chains through the group and ends once every Drone has a Deploy. A single Drone ends after one Shift-click.
+- Every ordered worker build leaves a lingering ghost, owner-only, until construction starts, is cancelled or replaced, or fails. It reserves its site against the owner's further placements but doesn't block units.
+
+**Director:** the sim derives the ghosts from pending Deploy orders, current and queued, and the gate refuses an owner's Deploy whose footprint overlaps one of them, so validity is the same for every client. The client draws them. Agents and Recruits follow when those factions are built. |
+| 0126 | Q0045 point 1 | G | An idle unit overlapping another moves off on its own until clear, and two idle units both move. Units with an active command (Hold Position and mining included) are never moved. Amends 0106's "nothing is pushed apart". |
+| 0127 | Q0045 point 2; Q0037 point 1 | H3 | **Replaces the return-to-patch proposal.** An explicit Drop Off is only a delivery. Then the order completes: the next queued order starts, or the Drone idles at the drop-off. A Drone on Drop Off passes through gathering Drones (already built). |
+| 0128 | Q0037 point 2 | H3 | **Replaces deliver-first.** A loaded Drone sent to Gather goes to the new patch or refinery and skips mining there, without taking occupancy. It then delivers as if it had just mined the load, and continues the loop. |
+| 0129 | Q0037 point 3 | H3 | The load is cleared only by a delivery or by deploy completion (0114), never by a change of order. |
+| 0130 | Q0037 point 4 | H3 | Mining interrupted before 32 frames gives no partial load, and the patch frees at once. |
 
 ## 9. Notes from merged slices for later slices
 
@@ -1186,3 +1208,7 @@ About 50 TBD notes in the Colonists docs are concentrated in the tech tier. M3 i
 | M3-H | H2, G | A unit blocked by one "on its way" inherits that unit's progress clock (`movement::stuck`). Restarted legs can then keep the units behind from re-routing. H worked around it with `LEG_RETRY_TICKS` = 32. Legs are `MoveGoal::Point` to the nearest open face, because an object goal always planned to the north side. |
 | M3-H | C, E, K1 | `gathering::step` credits banks with `credit_crystals`. Removing the last Egress Node defeats a player who owns no other structure. On the stand-in mover, one Drone at the reference gap delivers every 60 ticks (2.13/s). |
 | M3-C | F, D, K1 | `army_cap` counts own Colonists structures by kind, so a Beacon under deployment counts as 5 until F excludes it (0112). `ScenarioBuilder::faction` builds Colonists tests. The M2 refusal names (`UnitControlCap`) serve every faction. |
+| M3-H2 | G, every slice | Pass-through lives in `movement::space::blocks`, and I1's exceptions in `invariants::may_overlap`: any new way for boxes to overlap must extend it, with a negative test. A Drop Off order counts as a gathering job (Q0045). `stuck::leads` changed crowd paths: the battle perf scenario takes 1070 ticks instead of 880. |
+| M3-H2 | G, K1 | Stand-in curve (income per second): 4 → 8.3, 8 → 15.1, 12 → 22.0, 16 → 26.8, 20 → 32.0, 24 → 32.0. That is ahead of the design below saturation (+17% at 16 Drones, +35% at 4); G re-measures with momentum. |
+| M3-H2 | G | Steering: a non-yielding unit parked dead-centre on a gatherer's line, with the target close behind it, flips the rule-4 lean on every sidestep, so the Drone oscillates. A "never step back along the face" fix broke `a_line_clicked_on_itself_closes_up` and 2 goldens, so it was reverted. |
+| M3-D | J2, K1, every producer | `ExitRule`, `Doorway`, `door_at` and `exit::choose` live in `production/exit.rs`. `Rng::below(n)` is drawn only when n ≥ 2 (ARCHITECTURE > Production, Determinism). `Door::room_before` was fixed: units behind a door no longer hold releases. When every free door is obstructed (not occupied), the unit is still released. The panel is built from `ProductionDef`; 0124's unavailable W/E slots are J2's. |

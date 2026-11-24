@@ -249,7 +249,7 @@ fn the_egress_node_follows_the_design() {
     assert_eq!((structure.production, structure.warp_in), (None, &[][..]));
 }
 
-/// `factions/colonists/structures.md > Robo Portal`: it produces Drones; its exit is one side until slice M3-D.
+/// `factions/colonists/structures.md > Robo Portal`: it produces Drones, out of any of its four sides (all A).
 #[test]
 fn the_robo_portal_follows_the_design() {
     let structure = assert_structure(
@@ -266,9 +266,9 @@ fn the_robo_portal_follows_the_design() {
     // Produces: "Drone: 50 Space Crystals, 160 frames (10 seconds)" (the Scout's cost and time are TBD).
     let production = structure.production.unwrap();
     assert_eq!(
-        (production.exit, production.recipes),
+        (production.exits, production.recipes),
         (
-            SideLetter::A,
+            ExitRule::Nearest(&[SideLetter::A]),
             &[Recipe {
                 kind: ObjectKind::Drone,
                 cost: 50,
@@ -278,8 +278,8 @@ fn the_robo_portal_follows_the_design() {
     );
 }
 
-/// `factions/colonists/structures.md > Bio Portal`: it produces Sabre Legionnaires through one of its A sides (one
-/// side until slice M3-D), never Rifle Legionnaires ("Not directly produced").
+/// `factions/colonists/structures.md > Bio Portal`: it produces Sabre Legionnaires through one of its A sides
+/// (`> Exit Behavior`), never Rifle Legionnaires ("Not directly produced").
 #[test]
 fn the_bio_portal_follows_the_design() {
     let structure = assert_structure(
@@ -297,9 +297,9 @@ fn the_bio_portal_follows_the_design() {
     // unit's cost and time are TBD).
     let production = structure.production.unwrap();
     assert_eq!(
-        (production.exit, production.recipes),
+        (production.exits, production.recipes),
         (
-            SideLetter::A,
+            ExitRule::Nearest(&[SideLetter::A]),
             &[Recipe {
                 kind: ObjectKind::SabreLegionnaire,
                 cost: 100,

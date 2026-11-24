@@ -48,6 +48,10 @@ pub fn is_enemy(player: Option<PlayerId>, target: &Object) -> bool {
 /// Attack, if the unit can attack and the object can be destroyed, else Move to it. Any other object: Move to it
 /// (Follow, for a unit). `None` if the object is gone.
 ///
+/// A unit that can't attack, rallied on an enemy, gets Move to where the rally shows the enemy (`Rally::point`,
+/// where its owner last saw it): "rally on enemy -> Move to that location (Drone is unarmed and cannot attack)"
+/// (`factions/colonists/structures.md > Robo Portal > RallyPoint behavior`; plan decision T19).
+///
 /// A worker (`is_worker`) rallied on a Space Crystals patch it can gather gets Gather, its default right-click
 /// there (`factions/colonists/units.md > Drone > Right-Click Resolution`; question Q0037 point 9, its proposal:
 /// `factions/colonists/structures.md > Robo Portal > RallyPoint behavior` also lists "Move to object" for it).
@@ -60,11 +64,13 @@ pub(crate) fn order_for(
 ) -> Option<OrderKind> {
     match *rally {
         Rally::Point(p) => Some(OrderKind::Move(Target::Point(p))),
-        Rally::Object { id, .. } => {
+        Rally::Object { id, at } => {
             let target = objects.get(&id)?;
             Some(if is_worker && gatherable(objects, id) {
                 OrderKind::Gather(id)
-            } else if is_enemy(owner, target) && can_attack && target.def().destructible {
+            } else if is_enemy(owner, target) && !can_attack {
+                OrderKind::Move(Target::Point(at))
+            } else if is_enemy(owner, target) && target.def().destructible {
                 OrderKind::Attack(id)
             } else {
                 OrderKind::Move(Target::Object(id))

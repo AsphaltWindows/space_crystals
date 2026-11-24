@@ -293,6 +293,35 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
     assert!(still_valid(rally, &barracks, true, &full));
 }
 
+/// Plan decision T23: every type that produces units has the Production template, its grid built from its
+/// `ProductionDef`: its units in Q, W and on, X Cancel Production and C Set Rally Point. The Barracks' is the grid of
+/// `> ObjectInterfaceState[Barracks]`; the Robo Portal trains the Drone in Q, the Bio Portal the Sabre Legionnaire
+/// (design change 0124).
+#[test]
+fn every_producer_gets_the_production_panel_of_its_recipes() {
+    use PanelCommand::{CancelProduction, SetRallyPoint, Train};
+    for &kind in ObjectKind::ALL {
+        let production = kind.def().structure.as_ref().and_then(|s| s.production.as_ref());
+        assert_eq!(
+            InterfaceTemplate::of(kind) == Some(InterfaceTemplate::Production),
+            production.is_some(),
+            "{kind:?}"
+        );
+    }
+    let produces = |unit| {
+        let mut grid = [None; 12];
+        grid[0] = Some(Train(unit));
+        grid[slot_index(CommandSlot::CANCEL_PRODUCTION)] = Some(CancelProduction);
+        grid[slot_index(CommandSlot::RALLY_POINT)] = Some(SetRallyPoint);
+        grid
+    };
+    assert_eq!(grid(BARRACKS), produces(PK));
+    assert_eq!(grid(ObjectKind::RoboPortal), produces(ObjectKind::Drone));
+    assert_eq!(grid(ObjectKind::BioPortal), produces(ObjectKind::SabreLegionnaire));
+    let labels = [PK, ObjectKind::Drone, ObjectKind::SabreLegionnaire].map(|unit| Train(unit).label());
+    assert_eq!(labels, ["Train PK", "Train DR", "Train SL"]);
+}
+
 /// Design changes 0081 and 0082 (`> ObjectInterfaceState[Barracks]`: "Only available if BuildQueue has fewer than
 /// 20 entries and player has sufficient Space Crystals and Unit Control"; "Only available if BuildQueue is not
 /// empty"): a production command the command gate would refuse is disabled, and pressing it does nothing; the

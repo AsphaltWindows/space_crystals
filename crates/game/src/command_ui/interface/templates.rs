@@ -17,9 +17,12 @@ pub enum InterfaceTemplate {
     /// `> BasicCombatUnitInterfaceState`: the Peacekeeper's (`factions/gdo/units.md > Peacekeeper`) and the Guard's
     /// (`factions/syndicate/units.md > Guard`).
     BasicCombatUnit,
-    /// `factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`: a producing structure's panel, and
-    /// its right-click sets the rally point (`> CommandPanel > Production Building Default Right-Click`).
-    Barracks,
+    /// A producing structure's panel (plan decision T23), built from its `ProductionDef` ([`production_grid`]): the
+    /// Barracks' (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) and the Colonists'
+    /// portals' (`factions/colonists/structures.md > Robo Portal ObjectInterfaceState`, `> Bio Portal
+    /// ObjectInterfaceState`, design change 0124: "Standard production panel, same conventions as GDO's Barracks").
+    /// Its right-click sets the rally point (`> CommandPanel > Production Building Default Right-Click`).
+    Production,
     /// `factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`: its DefaultState
     /// opens the build menus, whose entries construct; once a building is ready, its entry enters AwaitingPlacement.
     /// It produces no units and has no right-click.
@@ -81,19 +84,38 @@ const BASIC_COMBAT_UNIT_GRID: [Option<PanelCommand>; 12] = {
     ]
 };
 
-/// `factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]` with `> Standard Slot Assignments`:
-/// Q Build Peacekeeper, X Cancel Production, C Set Rally Point; Z is Back while a target is awaited. "W: Build
-/// Rocketman (hotkey tentative)" stays empty: the Rocketman isn't in the game yet (its cost and time are TBD, and so
-/// is its Arsenal; M2 plan § 1.2), so its button is hidden.
-#[rustfmt::skip]
-const BARRACKS_GRID: [Option<PanelCommand>; 12] = {
-    use PanelCommand::{CancelProduction, SetRallyPoint, Train};
-    [
-        Some(Train(ObjectKind::Peacekeeper)), None,                   None,                None,
-        None,                                 None,                   None,                None,
-        None,                                 Some(CancelProduction), Some(SetRallyPoint), None,
-    ]
-};
+/// How many units a producing structure's panel trains: one in each of Q, W, E, R, A, S, D and F; the bottom row is
+/// `> Standard Slot Assignments`' (Z Back, X Cancel Production, C Set Rally Point).
+const TRAIN_SLOTS: usize = 8;
+
+/// A producing structure's DefaultState commands (plan decision T23): Train each of the units of its `ProductionDef`,
+/// in the design's order, from Q on (Q, W, E, R, then A, S, D, F); X Cancel Production and C Set Rally Point
+/// (`> Standard Slot Assignments`); Z is Back while a target is awaited.
+///
+/// - The Barracks: Q Build Peacekeeper, X, C (`factions/gdo/structures.md > Barracks >
+///   ObjectInterfaceState[Barracks]`). "W: Build Rocketman (hotkey tentative)" stays empty: the Rocketman isn't in
+///   the game yet (its cost and time are TBD, and so is its Arsenal; M2 plan § 1.2), so it isn't among the recipes
+///   and its button is hidden.
+/// - The Robo Portal: Q Drone, X, C; the Bio Portal: Q Sabre Legionnaire, X, C (`factions/colonists/structures.md >
+///   Robo Portal ObjectInterfaceState`, `> Bio Portal ObjectInterfaceState`, design change 0124). Their W Scout, W
+///   Lancer and E psionic unit aren't in the game (their stats, cost and time are TBD), so they aren't among the
+///   recipes and their slots stay empty, as the Rocketman's does; 0124 has them "appear in their slot but
+///   unavailable", which waits for those units to exist (reported to the Director).
+fn production_grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
+    let mut grid = [None; 12];
+    let production = kind.def().structure.as_ref().and_then(|s| s.production.as_ref());
+    let recipes = production.map_or(&[][..], |production| production.recipes);
+    debug_assert!(
+        recipes.len() <= TRAIN_SLOTS,
+        "{kind:?} trains more units than its panel has slots"
+    );
+    for (slot, recipe) in grid.iter_mut().zip(recipes.iter().take(TRAIN_SLOTS)) {
+        *slot = Some(PanelCommand::Train(recipe.kind));
+    }
+    grid[slot_index(CommandSlot::CANCEL_PRODUCTION)] = Some(PanelCommand::CancelProduction);
+    grid[slot_index(CommandSlot::RALLY_POINT)] = Some(PanelCommand::SetRallyPoint);
+    grid
+}
 
 /// `> ObjectInterfaceState[DeploymentCenter] > DefaultState commands` (design change 0104): "Q: Basic Construction"
 /// and "W: Advanced Construction", which open the build menus. Its X, Cancel Construction or Cancel Ready Building,
@@ -128,15 +150,17 @@ impl InterfaceTemplate {
     /// The template of `kind`'s ObjectInterfaceState; none for types without commands: the map resources, and the
     /// structures that have none (the Generator, the Extraction Plate). The Legionnaires' is
     /// "BasicCombatUnitInterfaceState, plus" their R (`factions/colonists/units.md > Sabre Legionnaire >
-    /// ObjectInterfaceState`; Convert comes with slice M3-B). The other Colonists types have none until slices M3-D,
-    /// J1 and J2 build theirs (plan decision T23).
+    /// ObjectInterfaceState`; Convert comes with slice M3-B). Every type that produces units has the Production
+    /// template. The other Colonists types have none until slices M3-J1 and J2 build theirs (plan decision T23).
     pub fn of(kind: ObjectKind) -> Option<Self> {
         match kind {
             ObjectKind::Peacekeeper
             | ObjectKind::Guard
             | ObjectKind::SabreLegionnaire
             | ObjectKind::RifleLegionnaire => Some(InterfaceTemplate::BasicCombatUnit),
-            ObjectKind::Barracks => Some(InterfaceTemplate::Barracks),
+            ObjectKind::Barracks | ObjectKind::RoboPortal | ObjectKind::BioPortal => {
+                Some(InterfaceTemplate::Production)
+            }
             ObjectKind::DeploymentCenter => Some(InterfaceTemplate::DeploymentCenter),
             ObjectKind::ExtractionFacility => Some(InterfaceTemplate::ExtractionFacility),
             ObjectKind::CrystalPatch
@@ -145,19 +169,18 @@ impl InterfaceTemplate {
             | ObjectKind::ExtractionPlate
             | ObjectKind::Drone
             | ObjectKind::Beacon
-            | ObjectKind::EgressNode
-            | ObjectKind::RoboPortal
-            | ObjectKind::BioPortal => None,
+            | ObjectKind::EgressNode => None,
         }
     }
 
-    /// Its DefaultState's commands, slot by slot (`CommandSlot::all` order).
-    pub fn grid(self) -> &'static [Option<PanelCommand>; 12] {
+    /// Its DefaultState's commands for a `kind` object, slot by slot (`CommandSlot::all` order): the Production
+    /// template's come from the type's `ProductionDef` ([`production_grid`]).
+    pub fn grid(self, kind: ObjectKind) -> [Option<PanelCommand>; 12] {
         match self {
-            InterfaceTemplate::BasicCombatUnit => &BASIC_COMBAT_UNIT_GRID,
-            InterfaceTemplate::Barracks => &BARRACKS_GRID,
-            InterfaceTemplate::DeploymentCenter => &DEPLOYMENT_CENTER_GRID,
-            InterfaceTemplate::ExtractionFacility => &EXTRACTION_FACILITY_GRID,
+            InterfaceTemplate::BasicCombatUnit => BASIC_COMBAT_UNIT_GRID,
+            InterfaceTemplate::Production => production_grid(kind),
+            InterfaceTemplate::DeploymentCenter => DEPLOYMENT_CENTER_GRID,
+            InterfaceTemplate::ExtractionFacility => EXTRACTION_FACILITY_GRID,
         }
     }
 }
@@ -174,7 +197,7 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let Some(template) = InterfaceTemplate::of(kind) else {
         return [None; 12];
     };
-    let mut grid = *template.grid();
+    let mut grid = template.grid(kind);
     if kind.def().unit.as_ref().is_some_and(|unit| unit.riot_shield.is_some()) {
         grid[RIOT_SHIELD_SLOT] = Some(PanelCommand::RiotShield);
     }

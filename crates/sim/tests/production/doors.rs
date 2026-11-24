@@ -1,7 +1,7 @@
 //! Helpers for the doorway tests (`exit`, `stalls`).
 
 use sc_sim::testing::TestSim;
-use sc_sim::{DebugCommand, Doorway, ObjectId, ProductionCommand, Sim, SimEvent, Target, Tick, Vec2};
+use sc_sim::{DebugCommand, Door, Doorway, ObjectId, ProductionCommand, Sim, SimEvent, Target, Tick, Vec2};
 
 use super::{P1, PK, production};
 
@@ -51,8 +51,16 @@ pub(super) fn exit_of(sim: &Sim, unit: ObjectId) -> Option<ObjectId> {
     sim.object(unit).unwrap().mover.as_ref().unwrap().exit
 }
 
-pub(super) fn door_of(sim: &Sim, building: ObjectId) -> Doorway {
-    Doorway::of(sim.object(building).unwrap()).unwrap()
+/// The one door of `building`, a Barracks.
+pub(super) fn door_of(sim: &Sim, building: ObjectId) -> Door {
+    let doors = doors_of(sim, building);
+    assert_eq!(doors.len(), 1, "one door");
+    doors[0]
+}
+
+/// The doors of `building`: top, right, bottom, left as it is placed.
+pub(super) fn doors_of(sim: &Sim, building: ObjectId) -> Vec<Door> {
+    Doorway::of(sim.object(building).unwrap()).unwrap().doors().collect()
 }
 
 /// Whether the finished unit of `producer` waits inside.

@@ -48,7 +48,8 @@ pub use combat::{AttackPhase, AttackState};
 pub use command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs};
 pub use construction::{ConstructionCommand, Constructor};
 pub use defs::{
-    Armor, Category, Footprint, MiningDef, ObjectDef, ObjectKind, ProductionDef, Recipe, StructureDef, SymmetryType,
+    Armor, Category, ExitRule, Footprint, MiningDef, ObjectDef, ObjectKind, ProductionDef, Recipe, StructureDef,
+    SymmetryType,
 };
 pub use economy::{
     ArmyCap, ArmyResource, BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, Extractor, Outcome, PowerSummary,
@@ -64,7 +65,7 @@ pub use object::{Object, Placement, ResourceState, Rotation};
 pub use orders::{OrderKind, Orders, Target};
 pub use placement::{BuildArea, PlacementCheck, PlacementProblem, TileProblem, WholeProblem};
 pub use player::{Banks, Faction, Player};
-pub use production::{Doorway, Production, ProductionCommand, ProductionStatus, QUEUE_LIMIT, Rally, Refusal};
+pub use production::{Door, Doorway, Production, ProductionCommand, ProductionStatus, QUEUE_LIMIT, Rally, Refusal};
 pub use replay::{Checkpoint, Desync, Replay, ReplayError};
 pub use riot_shield::RiotShield;
 pub use rng::Rng;

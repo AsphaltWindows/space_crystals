@@ -49,15 +49,14 @@ pub struct MiningDef {
     pub cycle_ticks: u32,
 }
 
-/// A producing structure's recipes and its exit (`factions/gdo/structures.md > Barracks > Produces`,
+/// A producing structure's recipes and its exits (`factions/gdo/structures.md > Barracks > Produces`,
 /// `core/entities.md > Structure Type > Exit Doorway`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ProductionDef {
-    /// The side its units leave through, as its SymmetryType letters it (`crate::sides::sides` says where that
-    /// side faces once the building is placed): the exit doorway is in the middle of this side. A letter that
-    /// several sides share (the portals' A) names the first of them clockwise from north as placed: a placeholder
-    /// until slice M3-D gives the portals their exit rule (plan decision T19).
-    pub exit: SideLetter,
+    /// The sides its units leave through, as its SymmetryType letters them (`crate::sides::sides` says where each
+    /// side faces once the building is placed), and how it picks one of several: the exit doorway is in the middle
+    /// of the side (`crate::production::Doorway`).
+    pub exits: ExitRule,
     /// What it can produce, in the order of the design's list.
     pub recipes: &'static [Recipe],
 }
@@ -66,6 +65,31 @@ impl ProductionDef {
     /// The recipe for a unit of `kind`, if the type produces it.
     pub fn recipe(&self, kind: ObjectKind) -> Option<&'static Recipe> {
         self.recipes.iter().find(|recipe| recipe.kind == kind)
+    }
+}
+
+/// Which sides of a producing structure its units leave through (plan decision T19; `core/entities.md > Structure
+/// Type > Exit Doorway`: "Buildings with several exit-eligible sides (e.g. Colonists Bio Portal, Robo Portal) choose
+/// the side by their own rules"). Each exit side has its doorway, and the building releases each finished unit
+/// through one of them (`crate::production::exit`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ExitRule {
+    /// One exit side, the only one its SymmetryType letters so: the Barracks' B ("Units exit from one of the short
+    /// sides (B side ...)", `factions/gdo/structures.md > Barracks`).
+    Side(SideLetter),
+    /// Every side lettered with one of these is exit-eligible, and each unit leaves through the one closest to the
+    /// RallyPoint, or a random unblocked one (`factions/colonists/structures.md > Bio Portal > Exit Behavior`): the
+    /// portals' A sides.
+    Nearest(&'static [SideLetter]),
+}
+
+impl ExitRule {
+    /// Whether a side lettered `letter` is an exit.
+    pub fn includes(self, letter: SideLetter) -> bool {
+        match self {
+            ExitRule::Side(exit) => exit == letter,
+            ExitRule::Nearest(exits) => exits.contains(&letter),
+        }
     }
 }
 
