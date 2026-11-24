@@ -16,6 +16,7 @@ use super::MoveCounters;
 use super::space::{Body, Contact, Layer, blocks, overlaps, resting, sweep};
 use crate::mover::{AVOID_COMMIT_TICKS, Mover, Side};
 use crate::nav::{self, NavGrid};
+use crate::production::Doorway;
 use crate::units::{SU_PER_GU, Tick};
 
 pub(crate) use lanes::Lane;
@@ -29,6 +30,9 @@ pub(super) struct World<'a> {
     pub bodies: &'a [Body],
     /// The moving unit's index in `bodies`.
     pub me: usize,
+    /// The exit doorway the moving unit is still in, if it is one a producer released and not yet clear of the
+    /// footprint (`Mover::exit`; `core/entities.md > Structure Type > Exit Doorway`, design change 0080).
+    pub door: Option<Doorway>,
     /// Scratch of [`World::lane`].
     pub lanes: &'a mut Vec<Lane>,
     pub counters: &'a mut MoveCounters,
@@ -78,8 +82,22 @@ impl World<'_> {
         &self.bodies[self.me]
     }
 
+    /// **The one collision exception against tiles** (design change 0080): for a unit still in the exit doorway
+    /// of the building that released it, whether its box may be at `to`, coming from `from`. That building's
+    /// tiles don't block it, every other blocked tile does, and it may only come out of the footprint
+    /// (`Doorway::allows`). `None` for every other unit: the tiles block it as they are.
+    fn door_free(&self, from: Vec2, to: Vec2) -> Option<bool> {
+        let door = self.door?;
+        let half = self.body().half;
+        Some(door.allows(from, to, half) && self.grid.is_none_or(|grid| door.box_clear(grid, half, to)))
+    }
+
     /// Whether the unit's box can travel from `pos` along `d` without entering a blocked tile or leaving the map.
     fn tiles_free(&mut self, pos: Vec2, d: Vec2) -> bool {
+        // A step out of a doorway is shorter than the box: where it ends decides.
+        if let Some(free) = self.door_free(pos, pos + d) {
+            return free;
+        }
         let Some(grid) = self.grid else {
             return true;
         };
@@ -137,7 +155,11 @@ impl World<'_> {
         let clear = |grid: &NavGrid| {
             (me.half.max_element() <= SU_PER_GU && grid.open_around(pos)) || nav::box_clear(grid, me.half, pos)
         };
-        if !pos.is_finite() || self.grid.is_some_and(|grid| !clear(grid)) {
+        // The unit in a doorway is measured from where its tick began: never deeper in than that.
+        let door = Some(who)
+            .filter(|&who| who == self.me)
+            .and_then(|_| self.door_free(me.pos, pos));
+        if !pos.is_finite() || !door.unwrap_or_else(|| self.grid.is_none_or(clear)) {
             return false;
         }
         let Some(layer) = self.layer else {
@@ -194,7 +216,12 @@ impl World<'_> {
         let half = self.body().half;
         let mut to = pos;
         to[axis] += amount;
-        if let Some(grid) = self.grid
+        if let Some(free) = self.door_free(pos, to) {
+            // In a doorway the unit takes the step or stays: it doesn't rest against the tiles beside it.
+            if !free {
+                return pos;
+            }
+        } else if let Some(grid) = self.grid
             && !nav::box_clear(grid, half, to)
         {
             // The step is shorter than a tile, so the box runs into the next row or column of tiles: it rests on
@@ -439,6 +466,7 @@ mod tests {
                 layer: Some(&layer),
                 bodies: &bodies,
                 me: 0,
+                door: None,
                 lanes: &mut lanes,
                 counters: &mut counters,
             };

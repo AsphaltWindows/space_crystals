@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::player::Faction;
 
 pub use gdo::RIOT_SHIELD_TOGGLE_TICKS;
-pub use structures::{MiningDef, StructureDef, SymmetryType};
+pub use structures::{MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType};
 pub use units::{
     AttackAttrs, AttackType, Domain, FullyConnectedSubtype, MovementAttrs, MovementModel, RiotShieldDef, TargetDomain,
     TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef,

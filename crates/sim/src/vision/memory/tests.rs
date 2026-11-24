@@ -22,6 +22,7 @@ fn object(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Obje
         attack: None,
         riot_shield: None,
         extractor: None,
+        production: None,
     }
 }
 

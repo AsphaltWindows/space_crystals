@@ -12,6 +12,9 @@
 //!   pass (oncoming ones, and idle groups that make way), then the rules after the sweep.
 //! - [`stuck`]: progress, stuck detection and recovery (`docs/movement.md > 6.5`).
 //! - [`yielding`]: an idle unit's sidestep for a blocked unit of its owner (`docs/movement.md > 6.6`).
+//! - [`doorway`]: a released unit walking out of its producer's exit doorway (design change 0080), the one case in
+//!   which a unit's box overlaps a structure: `collide::World::door` is where the tiles of that building stop
+//!   blocking it.
 //!
 //! **Object goals** (`MoveGoal::Object`): the step looks up the object each such unit heads for
 //! ([`Chased`]). The unit has arrived once the gap between the two shapes is within the goal's `reach`, or at the
@@ -22,6 +25,7 @@
 //! "desired direction → facing and velocity" part of [`step_unit`].
 
 mod collide;
+mod doorway;
 mod space;
 mod stuck;
 mod yielding;
@@ -39,6 +43,7 @@ use crate::math;
 use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState};
 use crate::nav::{self, Nav};
 use crate::object::Object;
+use crate::production::Doorway;
 use crate::shape::Shape;
 use crate::units::Tick;
 
@@ -117,6 +122,8 @@ pub(crate) struct Scratch {
     bodies: Vec<Body>,
     /// For each of `bodies`: the object it heads for, if its goal is one that exists.
     chased: Vec<Option<Chased>>,
+    /// For each of `bodies`: the exit doorway it is still in (`Mover::exit`, design change 0080).
+    doors: Vec<Option<Doorway>>,
     /// For each of `bodies`: the target its attack engages (`AttackState::target`), for queueing behind attackers
     /// (`stuck`).
     engaged: Vec<Option<ObjectId>>,
@@ -195,6 +202,7 @@ pub(crate) fn step(
     scratch.bodies.clear();
     scratch.chased.clear();
     scratch.engaged.clear();
+    scratch.doors.clear();
     scratch.requests.clear();
     scratch.turns.0.clear();
     for layer in &mut scratch.layers {
@@ -216,6 +224,9 @@ pub(crate) fn step(
             MoveGoal::None | MoveGoal::Point(_) => None,
         });
         scratch.engaged.push(o.attack.as_ref().and_then(|attack| attack.target));
+        // Only while its box still overlaps the footprint (a teleport may have taken it away).
+        let door = mover.exit.and_then(|building| Doorway::of(objects.get(&building)?));
+        scratch.doors.push(door.filter(|door| door.holds(o.pos, half)));
         if let Some(layer) = layer_of(unit.base_def().domain) {
             let kinds = scratch.bodies[index as usize].kinds();
             scratch.layers[layer].insert(index, o.pos, half, kinds);
@@ -240,6 +251,10 @@ pub(crate) fn step(
         let base = unit.base_def();
         let layer = layer_of(base.domain);
         let from = o.pos;
+        let door = scratch.doors[me];
+        if door.is_none() {
+            mover.exit = None;
+        }
         let mut world = World {
             grid: base
                 .nav_class()
@@ -247,6 +262,7 @@ pub(crate) fn step(
             layer: layer.map(|l| &scratch.layers[l]),
             bodies: &scratch.bodies,
             me,
+            door,
             lanes: &mut scratch.lanes,
             counters: &mut scratch.counters,
         };
@@ -262,6 +278,19 @@ pub(crate) fn step(
                 &mut o.pos,
                 mover,
                 speed,
+                &mut world,
+                &mut scratch.touched,
+                &mut scratch.requests,
+            );
+            false
+        } else if let Some(door) = door.filter(|_| mover.goal == MoveGoal::None) {
+            doorway::leave(
+                &mut o.pos,
+                &mut o.facing,
+                &mut turned,
+                mover,
+                &unit.movement,
+                &door,
                 &mut world,
                 &mut scratch.touched,
                 &mut scratch.requests,
@@ -287,6 +316,15 @@ pub(crate) fn step(
         }
         if turned > 0.0 {
             scratch.turns.0.push((o.id, turned));
+        }
+        // Out of the doorway: from now on the building blocks the unit like everything else, for good (design
+        // change 0080). One that walked out without a goal stands there.
+        let mover = o.mover.as_mut().expect("units have movers");
+        if door.is_some_and(|door| !door.holds(o.pos, half)) {
+            mover.exit = None;
+            if mover.goal == MoveGoal::None && mover.sidestep.is_none() {
+                stand(mover);
+            }
         }
         // Commit: later units see this one where it is now.
         let mover = o.mover.as_ref().expect("units have movers");

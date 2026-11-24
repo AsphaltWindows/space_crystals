@@ -47,6 +47,7 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         attack: Some(AttackState::default()),
         riot_shield: Some(RiotShield::Lowered),
         extractor: None,
+        production: None,
     };
     sim.objects.insert(id, unit);
     id

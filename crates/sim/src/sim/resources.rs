@@ -15,7 +15,8 @@ impl Sim {
     }
 
     /// The Unit Control `player` uses at the end of the latest tick (`> Unit Control`): the UnitControlCost of their
-    /// units, out of [`economy::UNIT_CONTROL_CAP`].
+    /// units and of the units queued at their producers (design change 0082: reserved when queued), out of
+    /// [`economy::UNIT_CONTROL_CAP`]. The HUD's "used" figure.
     pub fn unit_control(&self, player: PlayerId) -> u32 {
         economy::unit_control::used(self.objects.values(), player)
     }

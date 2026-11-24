@@ -48,6 +48,7 @@ fn turning_tick(
         layer: None,
         bodies: &bodies,
         me: 0,
+        door: None,
         lanes: &mut Vec::new(),
         counters: &mut counters,
     };

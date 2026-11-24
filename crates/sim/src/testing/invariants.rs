@@ -1,4 +1,5 @@
-//! The movement invariants I1–I7 of `docs/movement.md > 8`, checked from outside through the sim's public state,
+//! The movement invariants I1–I7 of `docs/movement.md > 8` (I2 with its one exception, the exit doorway of design
+//! change 0080), checked from outside through the sim's public state,
 //! the vision invariant V1 (the vision kept up tick by tick is the one a fresh build gives, and every Visible tile
 //! is Explored: `vision`), the path knowledge invariant K1 (each player's planning grids are those a fresh build
 //! from the state gives: `paths`), and an ASCII picture of the map with its units for readable failures.
@@ -18,6 +19,7 @@ use crate::mover::{Locomotion, MAX_REPATHS, MoveGoal, MoveStatus, Mover, PathSta
 use crate::nav;
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
+use crate::production::Doorway;
 use crate::sim::Sim;
 use crate::units::{SU_PER_GU, Tick, TilePos};
 
@@ -43,6 +45,8 @@ struct Seen {
     /// It was taking a sidestep for a blocked unit of its owner (design change 0022).
     sidestepping: bool,
     repaths_left: u8,
+    /// The building whose exit doorway it was still in (`Mover::exit`, design change 0080).
+    exit: Option<ObjectId>,
 }
 
 /// Checks I1–I7 between ticks. It remembers each unit's state of the tick before, so check after **every** step.
@@ -61,6 +65,7 @@ fn seen(o: &Object, mover: &Mover) -> Seen {
         had_goal: mover.goal != MoveGoal::None,
         sidestepping: mover.sidestep.is_some(),
         repaths_left: mover.repaths_left,
+        exit: mover.exit,
     }
 }
 
@@ -112,11 +117,47 @@ impl Invariants {
             let (Some(unit), Some(half), Some(mover)) = (&def.unit, def.half_extents(), &o.mover) else {
                 continue;
             };
-            // I2: a ground box overlaps no blocked tile and stays on the map.
-            if let Some(class) = unit.base_def().nav_class() {
-                let grid = sim.nav().grid(class, nav::size_class(half * 2.0));
-                if grid.is_some_and(|grid| !nav::box_clear(grid, half, o.pos)) {
-                    return fail("I2", format!("at {} overlaps a blocked tile or the map's edge", o.pos));
+            let before = self.seen.get(&o.id);
+            // I2: a ground box overlaps no blocked tile and stays on the map. The one exception (design change
+            // 0080, `core/entities.md > Structure Type > Exit Doorway`): a unit that a producer released, while
+            // its box still overlaps that building's footprint (`Mover::exit`), overlaps that footprint's tiles
+            // and no other blocked tile; and from tick to tick it only comes out (`Doorway::allows`).
+            let grid = unit
+                .base_def()
+                .nav_class()
+                .and_then(|class| sim.nav().grid(class, nav::size_class(half * 2.0)));
+            match mover.exit {
+                None => {
+                    if grid.is_some_and(|grid| !nav::box_clear(grid, half, o.pos)) {
+                        return fail("I2", format!("at {} overlaps a blocked tile or the map's edge", o.pos));
+                    }
+                }
+                Some(building) => {
+                    let Some(door) = sim.object(building).and_then(Doorway::of) else {
+                        return fail("I2", format!("is in the doorway of #{}, which has none", building.0));
+                    };
+                    if !door.holds(o.pos, half) {
+                        return fail(
+                            "I2",
+                            format!("at {} is out of the doorway of #{} but still exempt", o.pos, building.0),
+                        );
+                    }
+                    if grid.is_some_and(|grid| !door.box_clear(grid, half, o.pos)) {
+                        return fail(
+                            "I2",
+                            format!("at {} in a doorway overlaps a blocked tile of another object", o.pos),
+                        );
+                    }
+                    let came_from = before.filter(|b| b.exit == Some(building) && !teleported.contains(&o.id));
+                    if let Some(b) = came_from
+                        && !door.allows(b.pos, o.pos, half)
+                    {
+                        return fail("I2", format!("went from {} back into its doorway, to {}", b.pos, o.pos));
+                    }
+                    // Only the units a producer just released come into being inside a footprint.
+                    if before.is_none_or(|b| b.exit != Some(building)) && o.prev_pos != o.pos {
+                        return fail("I2", format!("entered the doorway of #{} from outside", building.0));
+                    }
                 }
             }
             // I3: a unit moves at most its speed per tick.
@@ -125,7 +166,6 @@ impl Invariants {
             if moved > step * 1.0001 + 1e-3 {
                 return fail("I3", format!("moved {moved} su in one tick, more than its {step}"));
             }
-            let before = self.seen.get(&o.id);
             if let Some(before) = before
                 && before.pos != o.prev_pos
                 && !teleported.contains(&o.id)
@@ -141,17 +181,19 @@ impl Invariants {
             // taking a sidestep.
             let had_goal = before.is_some_and(|b| b.had_goal);
             let sidestepping = before.is_some_and(|b| b.sidestepping);
+            // A unit in an exit doorway walks out of it by itself (design changes 0080 and 0086).
+            let leaving = before.is_some_and(|b| b.exit.is_some());
             let order_started = leg_of(o) == Some(tick);
             // A leg is one `Mover::go_to`: an order's move, or one a behaviour starts (a chase, a Patrol's next
             // leg, the way back to an IdleOrigin). `go_to` in this tick left a full count and its tick behind,
             // also when the move ended in the same tick.
             let new_leg = mover.repaths_left == MAX_REPATHS && mover.last_repath == tick;
             let began = order_started || new_leg;
-            if o.pos != o.prev_pos && mover.goal == MoveGoal::None && !had_goal && !began && !sidestepping {
+            if o.pos != o.prev_pos && mover.goal == MoveGoal::None && !had_goal && !began && !sidestepping && !leaving {
                 return fail(
                     "I5/I7",
                     format!(
-                        "moved from {} to {} without a goal, a new order or move, or a sidestep",
+                        "moved from {} to {} without a goal, a new order or move, a sidestep, or a doorway to leave",
                         o.prev_pos, o.pos
                     ),
                 );
@@ -159,6 +201,7 @@ impl Invariants {
             // A finished move leaves the unit standing (`docs/movement.md > 6.5`), and so does a finished sidestep.
             if mover.goal == MoveGoal::None
                 && ((mover.sidestep.is_none()
+                    && mover.exit.is_none()
                     && (mover.velocity != Vec2::ZERO || mover.locomotion != Locomotion::Stationary))
                     || mover.path_state != PathState::None)
             {
@@ -285,7 +328,12 @@ fn floats_finite(o: &Object) -> bool {
                 }
         })
     });
-    core && mover && orders
+    let rally = o
+        .production
+        .as_ref()
+        .and_then(|production| production.rally)
+        .is_none_or(|rally| rally.point().is_finite());
+    core && mover && orders && rally
 }
 
 /// Characters per tile across and down: a character cell is 16 × 32 su, roughly square on a terminal.
