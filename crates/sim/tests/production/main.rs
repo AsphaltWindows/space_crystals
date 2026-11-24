@@ -8,6 +8,7 @@
 //! - `stalls`: blocked doorways (production pauses, design change 0085's refund), saves, and a long random game;
 //! - `portals`: the Robo Portal and the Bio Portal (`factions/colonists/structures.md`, plan decision T19): which of
 //!   their doors a unit leaves by, their pause, rally points on enemies, refunds and Beacon Capacity;
+//! - `drone_rally`: a Robo Portal rallied on an enemy unit, whose Drones follow it (design change 0136);
 //! - `capacity`: the army caps checked when production starts, for the GDO and the Colonists (design change 0143,
 //!   slice M3-P): the waits at 0%, the notification, a unit in production that always finishes, the refunds.
 //!
@@ -16,6 +17,7 @@
 
 mod capacity;
 mod doors;
+mod drone_rally;
 mod exit;
 mod portals;
 mod queue;

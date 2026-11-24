@@ -15,27 +15,38 @@
 //! ready), and so is a greyed-out Convert (`factions/colonists/units.md > Weapon Conversion > Eligibility`: not while
 //! Firing or in Cooldown; it goes to the recipients that may convert, `Reject::CannotConvert` when none may).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use sc_sim::{Command, Constructor, ObjectId, PlayerCommand, PlayerId, Reject, RiotShield, Sim};
 
 use super::{PanelCommand, commands, recipients};
 use crate::selection::Selection;
 
-/// What the selected units' modes let them do now: their Riot Shields (`factions/gdo/units.md > Peacekeeper > Riot
-/// Shield`), by id, as the sim has them.
+/// What the selected units' modes let them do now, as the sim has them: their Riot Shields (`factions/gdo/units.md >
+/// Peacekeeper > Riot Shield`), by id, and which of the workers carry a load, which a right-click on a drop-off reads
+/// (`factions/colonists/units.md > Drone > Right-Click Resolution`: "Own Egress Node (carrying resources)").
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Modes {
     shields: BTreeMap<ObjectId, RiotShield>,
+    loaded: BTreeSet<ObjectId>,
 }
 
 impl Modes {
     /// The modes of `selection`'s objects in `sim`.
     pub fn of(sim: &Sim, selection: &Selection) -> Self {
-        selection
+        let mut modes: Self = selection
             .ids()
             .filter_map(|id| Some((id, sim.object(id)?.riot_shield?)))
-            .collect()
+            .collect();
+        modes.loaded = (selection.ids())
+            .filter(|&id| (sim.object(id)).is_some_and(|o| o.worker.is_some_and(|worker| worker.load > 0)))
+            .collect();
+        modes
+    }
+
+    /// Whether `id` is a worker that carries a load.
+    pub fn carries(&self, id: ObjectId) -> bool {
+        self.loaded.contains(&id)
     }
 
     /// Whether `id` may attack now: not while its Riot Shield is up, nor on its way up or down
@@ -57,6 +68,7 @@ impl FromIterator<(ObjectId, RiotShield)> for Modes {
     fn from_iter<I: IntoIterator<Item = (ObjectId, RiotShield)>>(shields: I) -> Self {
         Self {
             shields: shields.into_iter().collect(),
+            loaded: BTreeSet::new(),
         }
     }
 }

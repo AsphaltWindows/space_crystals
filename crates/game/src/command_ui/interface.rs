@@ -18,7 +18,7 @@
 //! to, or lowers them when all of them are up or on their way up ([`Modes`]), and the button says which. While a
 //! unit's shield is up it can't attack: Attack is disabled when none of its recipients can, an explicit Attack
 //! leaves it out (`super::resolution::unit_target_order`), and a right-click on an enemy sends it after the enemy
-//! instead (`super::resolution::order_without_attack`).
+//! instead (`super::resolution::unit_right_click`).
 //!
 //! The Colonists' Legionnaires convert between their two forms with R (`factions/colonists/units.md > Weapon
 //! Conversion`, [`PanelCommand::Convert`]), a common command of a selection of both (each converts to its other

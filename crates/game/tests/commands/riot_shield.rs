@@ -148,6 +148,43 @@ fn with_their_shields_up_peacekeepers_follow_the_enemy_they_are_sent_at() {
     assert_eq!(current, follow);
 }
 
+/// Design change 0150 (`factions/gdo/units.md > Peacekeeper > Riot Shield > Orders are kept`): the toggle is a mode
+/// switch. With Peacekeepers walking a Shift-queued route, R and Shift + R raise and lower their shields and give no
+/// order: each keeps its current order and its queue ("Shift has no effect").
+#[test]
+fn toggling_the_shield_keeps_the_orders_shift_or_not() {
+    let mut app = game();
+    select_box(&mut app, &[1, 2]);
+    let (first, second) = (Vec2::new(2000.0, 1200.0), Vec2::new(1300.0, 1200.0));
+    right_click(&mut app, first, &[]);
+    right_click(&mut app, second, &[ShiftLeft]);
+    let given_so_far = orders(&app);
+    let route = |app: &App, id: u32| {
+        let orders = object_orders(app, id);
+        (orders.current.map(|active| active.order.kind), orders.queue.len())
+    };
+    let before = [route(&app, 1), route(&app, 2)];
+    assert!(
+        before.iter().all(|&(current, queued)| current.is_some() && queued == 1),
+        "{before:?}"
+    );
+    for modifiers in [&[][..], &[ShiftLeft][..], &[][..], &[ShiftLeft][..]] {
+        tap(&mut app, modifiers, KeyR);
+        toggle_time(&mut app);
+        assert_eq!([route(&app, 1), route(&app, 2)], before, "{modifiers:?}");
+    }
+    assert_eq!(orders(&app), given_so_far, "no order given");
+    assert_eq!(
+        abilities(&app),
+        [
+            used(&[1, 2], RAISE),
+            used(&[1, 2], LOWER),
+            used(&[1, 2], RAISE),
+            used(&[1, 2], LOWER)
+        ]
+    );
+}
+
 /// In a selection whose Guards can attack, Attack stays: a click on an enemy in AwaitingTarget[Attack] sends the
 /// Guards to attack it and leaves the shielded Peacekeepers out (design change 0075); a right-click on one sends
 /// the Guards to attack it and has the Peacekeepers follow it (0074). Each click gives one order per distinct order,

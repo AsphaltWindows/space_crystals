@@ -3,13 +3,17 @@
 //! here; the systems apply it to clicks (`systems.rs`) and to the pointer ([`super::cursor`]).
 //!
 //! - **Right-click** (design changes 0062 and 0063): each selected object resolves it for itself, by its own
-//!   template and capabilities ([`object_right_click`]), whichever group is active. A unit gets an order
-//!   ([`unit_right_click`]): one that can't carry out the resolved command moves to the location or to the object
-//!   instead, following a unit ([`move_to`]); so does a unit whose Riot Shield keeps it from attacking
-//!   ([`order_without_attack`], design change 0074). The orders go out grouped, one per distinct order
-//!   ([`group_orders`]). A producing structure sets its rally point on what was clicked ([`rally_target`],
-//!   `> Production Building Default Right-Click`): the ground, any object, or itself, which clears it (design change
-//!   0086).
+//!   template and capabilities ([`object_right_click`]), whichever group is active. A unit gets its default command
+//!   on what is under the cursor ([`unit_right_click`]): the sim's one rule, `sc_sim::orders::resolution::resolve`,
+//!   the rally point's too (design change 0136), on what the unit can do and what the player knows of the target
+//!   (`Sim::aimed`: an object it sees, or one it remembers, design change 0139). A unit that can't carry out the
+//!   command moves to the location or to the object instead, following a unit; so does a unit whose Riot Shield
+//!   keeps it from attacking (design change 0074); a Drone gathers a patch (`factions/colonists/units.md > Drone >
+//!   Right-Click Resolution`). The orders go out grouped, one per distinct order ([`group_orders`]). A producing
+//!   structure sets its rally point on what was clicked ([`rally_target`], `> Production Building Default
+//!   Right-Click`): the ground, any object, or itself, which clears it (design change 0086).
+//! - **What a click is on** ([`MapTarget`], `> CursorTarget`): an object the player may select, or a record of one it
+//!   remembers, which it may target but not select (design change 0139); else the ground.
 //! - **Left-click while a target is awaited** ([`target_resolution`]): the PendingCommand's order for the target
 //!   ([`target_order`]); Attack takes any destructible object, own and neutral ones too (design changes 0059 and
 //!   0064). It goes to every unit of the command's recipients, except that an explicit Attack leaves out the units
@@ -23,9 +27,9 @@
 use std::collections::BTreeSet;
 
 use bevy::math::Vec2;
-use sc_sim::combat::{domain_allows, object_domain};
-use sc_sim::defs::{Domain, TargetDomain};
-use sc_sim::{ObjectId, ObjectKind, OrderKind, Sim, Target};
+use sc_sim::defs::Domain;
+use sc_sim::orders::resolution::{Abilities, Aim, Aimed, resolve};
+use sc_sim::{ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target};
 
 use super::interface::{InterfaceState, InterfaceTemplate, Modes, PanelCommand};
 use crate::selection::{Relation, Selectables, Selection};
@@ -43,10 +47,10 @@ pub enum CursorTarget {
 }
 
 impl CursorTarget {
-    /// What is under the view point `view`, whose ground point is `ground`: the object a click there picks
-    /// (`Selectables::at`, as for selecting), else the ground.
+    /// What is under the view point `view`, whose ground point is `ground`: the object a click there targets
+    /// (`Selectables::target_at`: one the player may select, or a record it may only target), else the ground.
     pub fn at(objects: &Selectables, view: Vec2, ground: Vec2) -> Self {
-        match objects.at(view) {
+        match objects.target_at(view) {
             Some(object) => match object.relation {
                 Relation::Enemy => CursorTarget::EnemyObject(object.id),
                 Relation::Own | Relation::Ally => CursorTarget::FriendlyObject(object.id),
@@ -68,35 +72,27 @@ impl CursorTarget {
 }
 
 /// What a click, or the pointer, is on, as the resolution needs it: the [`CursorTarget`], the ground point under
-/// the cursor, and what an attack would need to know of the object there.
+/// the cursor, and the object there as the player knows it.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MapTarget {
     pub target: CursorTarget,
     /// The ground point under the cursor: where a Move to the location goes.
     pub ground: Vec2,
-    /// The object can be attacked: its type is destructible (`systems/controls/commands.md > Attack`: "a specific
-    /// destructible object instance"). False over the ground.
-    pub destructible: bool,
-    /// The domain the object is targeted in (`sc_sim::combat::object_domain`; Ground for the ground, and for a
-    /// structure the player remembers).
-    pub domain: Domain,
+    /// The object under the cursor as the player knows it (`Sim::aimed`): one it sees, as it is, or one it remembers,
+    /// by its record (design change 0139). `None` over the ground, and over an object the player knows nothing of,
+    /// which only the fog's debug toggle shows.
+    pub aimed: Option<Aimed>,
 }
 
 impl MapTarget {
-    /// What is under the view point `view`, whose ground point is `ground`: the object a click there picks among
-    /// `objects` ([`CursorTarget::at`]), as `sim` has it, else the ground.
-    pub fn at(sim: &Sim, objects: &Selectables, view: Vec2, ground: Vec2) -> Self {
+    /// What is under the view point `view`, whose ground point is `ground`: the object a click there targets among
+    /// `objects` ([`CursorTarget::at`]), as `player` knows it in `sim`, else the ground.
+    pub fn at(sim: &Sim, player: PlayerId, objects: &Selectables, view: Vec2, ground: Vec2) -> Self {
         let target = CursorTarget::at(objects, view, ground);
-        let kind = target.object().and_then(|id| objects.get(id)).map(|o| o.kind);
-        let domain = target
-            .object()
-            .and_then(|id| sim.object(id))
-            .map_or(Domain::Ground, object_domain);
         Self {
             target,
             ground,
-            destructible: kind.is_some_and(|kind| kind.def().destructible),
-            domain,
+            aimed: target.object().and_then(|id| sim.aimed(player, id)),
         }
     }
 
@@ -105,9 +101,20 @@ impl MapTarget {
         Self {
             target: CursorTarget::Ground(point),
             ground: point,
-            destructible: false,
-            domain: Domain::Ground,
+            aimed: None,
         }
+    }
+
+    /// The object can be attacked: its type is destructible (`systems/controls/commands.md > Attack`: "a specific
+    /// destructible object instance"). False over the ground.
+    pub fn destructible(&self) -> bool {
+        self.aimed.is_some_and(|aimed| aimed.destructible)
+    }
+
+    /// The domain the object is targeted in (`sc_sim::combat::object_domain`): Ground over the ground, and for a
+    /// structure the player remembers.
+    pub fn domain(&self) -> Domain {
+        self.aimed.map_or(Domain::Ground, |aimed| aimed.domain)
     }
 }
 
@@ -116,40 +123,34 @@ impl MapTarget {
 /// structure, whose right-click sets its rally point.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct UnitCapabilities {
-    /// Its type's ObjectInterfaceState template, which resolves the right-click; none for a type without commands,
-    /// which a right-click leaves alone (design change 0062: "Buildings in the selection aren't affected"). A
-    /// producing structure has its own (`> Production Building Default Right-Click`): **placeholder reading**, 0062
-    /// is read as the buildings without a right-click of their own, so a Barracks selected with units sets its rally
-    /// point as the units take their orders.
+    /// Its type's ObjectInterfaceState template; none for a type whose panel isn't built yet (the Drone's, slice
+    /// M3-J2) and for one without commands. A producing structure's right-click sets its rally point (`> Production
+    /// Building Default Right-Click`): **placeholder reading**, design change 0062 ("Buildings in the selection
+    /// aren't affected") is read as the buildings without a right-click of their own, so a Barracks selected with
+    /// units sets its rally point as the units take their orders. A constructor's does nothing.
     pub template: Option<InterfaceTemplate>,
-    /// The TargetDomain of its type's attack (`systems/combat.md > AttackAttributes`); none without an attack.
-    pub attack: Option<TargetDomain>,
-    /// Its mode lets it attack now: not while its Riot Shield is up or on its way ([`Modes::can_attack`]).
-    pub may_attack: bool,
+    /// What a unit can do, as its default command reads it (`sc_sim::orders::resolution::Abilities`); none for an
+    /// object that isn't a unit.
+    pub abilities: Option<Abilities>,
 }
 
 impl UnitCapabilities {
-    /// Those of the selected object `id`, of type `kind`, whose mode is in `modes`.
+    /// Those of the selected object `id`, of type `kind`, whose mode and load are in `modes`.
     pub fn of(id: ObjectId, kind: ObjectKind, modes: &Modes) -> Self {
         Self {
             template: InterfaceTemplate::of(kind),
-            attack: kind
-                .def()
-                .unit
-                .as_ref()
-                .and_then(|unit| unit.attack)
-                .map(|attack| attack.target_domain),
-            may_attack: modes.can_attack(id),
+            abilities: kind.def().unit.as_ref().map(|unit| Abilities {
+                attack: unit.attack.map(|attack| attack.target_domain),
+                may_attack: modes.can_attack(id),
+                worker: unit.worker.is_some(),
+                carrying: modes.carries(id),
+            }),
         }
     }
 
-    /// Whether it could attack the object under `target`, whatever its mode: it has an attack, the object is
-    /// destructible, and the attack's TargetDomain allows the object's domain (`systems/combat.md > ValidTarget` 3;
-    /// the cursor reaches only objects the player sees, `> ValidTarget` 2).
-    pub fn can_attack(&self, target: &MapTarget) -> bool {
-        target.target.object().is_some()
-            && target.destructible
-            && self.attack.is_some_and(|domain| domain_allows(domain, target.domain))
+    /// Its mode lets it attack now: not while its Riot Shield is up or on its way ([`Modes::can_attack`]).
+    pub fn may_attack(&self) -> bool {
+        self.abilities.is_none_or(|abilities| abilities.may_attack)
     }
 }
 
@@ -159,26 +160,6 @@ pub fn capabilities(selection: &Selection, modes: &Modes) -> Vec<(ObjectId, Unit
         .members()
         .map(|(id, kind)| (id, UnitCapabilities::of(id, kind, modes)))
         .collect()
-}
-
-/// `> RightClickResolution` by a template: the command a right-click on `target` resolves to, and its order. A
-/// producing structure's right-click gives no order but its rally point ([`object_right_click`]); a constructor's
-/// gives nothing (it produces no units: `> Production Building Default Right-Click` isn't its).
-pub fn right_click(template: InterfaceTemplate, target: CursorTarget) -> Option<(PanelCommand, OrderKind)> {
-    match template {
-        // `> BasicCombatUnitInterfaceState > RightClickResolution`. Enter (own Tunnel, Altar, Garrison, Bunker): none
-        // of those exists yet.
-        InterfaceTemplate::BasicCombatUnit => Some(match target {
-            CursorTarget::EnemyObject(id) => (PanelCommand::Attack, OrderKind::Attack(id)),
-            CursorTarget::Ground(point) => (PanelCommand::Move, OrderKind::Move(Target::Point(point))),
-            CursorTarget::FriendlyObject(id) | CursorTarget::NeutralObject(id) => {
-                (PanelCommand::Move, OrderKind::Move(Target::Object(id)))
-            }
-        }),
-        InterfaceTemplate::Production | InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility => {
-            None
-        }
-    }
 }
 
 /// What a click gives one selected object: a unit's order, or a producer's rally point.
@@ -194,20 +175,20 @@ pub enum Resolved {
 /// `> RightClickResolution` for one selected object: a unit's order ([`unit_right_click`]), or, for a producing
 /// structure, its rally point on what is under the cursor (`> Production Building Default Right-Click`: "Right-click
 /// Ground: sets rally point to that location; Right-click Object: sets rally point to that object; Right-click the
-/// building itself: clears the rally point"). Nothing for a constructor (it produces no units), nor for an object
-/// without a template.
+/// building itself: clears the rally point"). Nothing for a constructor (it produces no units), nor for any other
+/// object that isn't a unit.
 pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Option<Resolved> {
-    match object.template? {
-        InterfaceTemplate::BasicCombatUnit => unit_right_click(object, target).map(Resolved::Order),
-        InterfaceTemplate::Production => Some(Resolved::Rally(rally_target(target))),
-        InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility => None,
+    match object.template {
+        Some(InterfaceTemplate::Production) => Some(Resolved::Rally(rally_target(target))),
+        Some(InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility) => None,
+        Some(InterfaceTemplate::BasicCombatUnit) | None => unit_right_click(object, target).map(Resolved::Order),
     }
 }
 
 /// The rally point a click on `target` sets (`> Production Building Default Right-Click`, `> Standard Slot
 /// Assignments > C`): the ground point, or the object, whoever owns it. Which objects the player may rally on, the
 /// sim decides (`Sim::validate`): one it sees, the producer itself (which clears the rally point, design change
-/// 0086), and one it remembers in the fog, which becomes a ground rally point (the sim's placeholder for Q0017).
+/// 0086), and one it remembers, on which the rally point stays while it is out of sight (design change 0139).
 pub fn rally_target(target: &MapTarget) -> Target {
     match target.target.object() {
         Some(id) => Target::Object(id),
@@ -215,23 +196,26 @@ pub fn rally_target(target: &MapTarget) -> Target {
     }
 }
 
-/// `> RightClickResolution` for one selected unit (design changes 0062 and 0063): the order `unit` gets for a
-/// right-click on `target`. Its template resolves the command ([`right_click`]); a unit that can carry it out gets
-/// its order. One that can't moves to the target instead ([`move_to`]); one kept from an Attack only by its Riot
-/// Shield gets [`order_without_attack`]. Every unit can move, so a Move is always carried out. Nothing for an object
-/// without a template.
+/// `> RightClickResolution` for one selected unit (design changes 0062, 0063 and 0136): the order `unit` gets for a
+/// right-click on `target`, its default command there: the sim's rule (`sc_sim::orders::resolution::resolve`, which
+/// a rally point's new unit goes by too), on what the unit can do and the target as the player knows it
+/// ([`MapTarget::aimed`]). A unit that can't carry out the command it would get moves to the target instead, a unit
+/// whose Riot Shield is up too (design change 0074: it follows an enemy unit, and moves to an enemy structure, so that
+/// in a mixed group the shield wall stays with the units that attack; an explicit Attack leaves it out instead,
+/// [`unit_target_order`], design change 0075). Over an object the player knows nothing of, a Move to it
+/// ([`move_to`]), which the sim refuses. Nothing for an object that isn't a unit.
 pub fn unit_right_click(unit: UnitCapabilities, target: &MapTarget) -> Option<OrderKind> {
-    let (command, kind) = right_click(unit.template?, target.target)?;
-    Some(match command {
-        PanelCommand::Attack if !unit.can_attack(target) => move_to(target),
-        PanelCommand::Attack if !unit.may_attack => order_without_attack(target),
-        _ => kind,
-    })
+    let abilities = unit.abilities?;
+    let aim = match (target.target, target.aimed) {
+        (CursorTarget::Ground(point), _) => Aim::Ground(point),
+        (_, Some(aimed)) => Aim::Object(aimed),
+        (_, None) => return Some(move_to(target)),
+    };
+    Some(resolve(abilities, aim))
 }
 
-/// Design change 0062: what a unit that can't carry out a right-click's command does instead. It moves to the
-/// location, or to the object, which follows a unit (`systems/controls/behaviors.md > MovingToObject`), so that the
-/// group stays together.
+/// Design change 0062: what a unit does on a target it can't act on: it moves to the location, or to the object,
+/// which follows a unit (`systems/controls/behaviors.md > MovingToObject`), so that the group stays together.
 pub fn move_to(target: &MapTarget) -> OrderKind {
     OrderKind::Move(match target.target.object() {
         Some(id) => Target::Object(id),
@@ -239,25 +223,15 @@ pub fn move_to(target: &MapTarget) -> OrderKind {
     })
 }
 
-/// The Riot Shield's right-click rule (design change 0074, `factions/gdo/units.md > Peacekeeper > Riot Shield`:
-/// "Right-click on an enemy while the shield is up"): the order a unit whose shield keeps it from attacking gets for a
-/// right-click that would attack `target`. It does what any unit that can't carry out a right-click does (design
-/// change 0062, [`move_to`]): it follows an enemy unit, and moves to an enemy structure, so that in a mixed group the
-/// shield wall stays with the units that attack. The one place of that rule ([`unit_right_click`]). An explicit
-/// Attack has its own: it leaves such a unit out ([`unit_target_order`], design change 0075).
-pub fn order_without_attack(target: &MapTarget) -> OrderKind {
-    move_to(target)
-}
-
 /// The order one of a targeting click's recipients takes, when the click gives `kind` ([`target_order`]): design
 /// change 0075 (`factions/gdo/units.md > Peacekeeper > Riot Shield > Explicit Attack`): a unit whose mode keeps it
 /// from attacking (its Riot Shield up or on its way) is left out of an explicit Attack, on any object, and keeps its
 /// orders; the units that can attack carry it out. Every other order goes to every recipient, an AttackMove too
 /// (design change 0076, `systems/controls/commands.md > AttackMove > Units that can't attack`: it plays out as a
-/// move for a unit that can't attack). Unlike the right-click ([`order_without_attack`]), on purpose.
+/// move for a unit that can't attack). Unlike the right-click ([`unit_right_click`]), on purpose.
 pub fn unit_target_order(unit: UnitCapabilities, kind: OrderKind) -> Option<OrderKind> {
     match kind {
-        OrderKind::Attack(_) if !unit.may_attack => None,
+        OrderKind::Attack(_) if !unit.may_attack() => None,
         _ => Some(kind),
     }
 }
@@ -278,14 +252,15 @@ pub fn group_orders(orders: impl IntoIterator<Item = (ObjectId, OrderKind)>) -> 
 
 /// `> BasicCombatUnitInterfaceState > AwaitingTarget[..] resolution`: the order a left-click on `target` gives
 /// while `pending` awaits it, if the target is valid. Attack takes any destructible object, an own or a neutral one
-/// too (force-attack, `systems/controls/commands.md > Attack`, design changes 0059 and 0064), and the ground, for an
-/// AttackMove. Reverse and AttackGround have no order in the sim yet.
+/// too (force-attack, `systems/controls/commands.md > Attack`, design changes 0059 and 0064), one the player
+/// remembers too (design change 0139), and the ground, for an AttackMove. Reverse and AttackGround have no order in
+/// the sim yet.
 pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKind> {
     use CursorTarget::{EnemyObject, FriendlyObject, Ground, NeutralObject};
     match (pending, target.target) {
         (PanelCommand::Attack, Ground(point)) => Some(OrderKind::AttackMove(point)),
         (PanelCommand::Attack, EnemyObject(id) | FriendlyObject(id) | NeutralObject(id)) => {
-            target.destructible.then_some(OrderKind::Attack(id))
+            target.destructible().then_some(OrderKind::Attack(id))
         }
         (PanelCommand::Move, Ground(point)) => Some(OrderKind::Move(Target::Point(point))),
         (PanelCommand::Move, EnemyObject(id) | FriendlyObject(id) | NeutralObject(id)) => {

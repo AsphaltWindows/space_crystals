@@ -1,3 +1,5 @@
+use sc_sim::defs::TargetDomain;
+
 use super::*;
 
 fn id(n: u32) -> ObjectId {
@@ -6,13 +8,21 @@ fn id(n: u32) -> ObjectId {
 
 const P: Vec2 = Vec2::new(300.0, 200.0);
 
-/// `target` under the cursor at [`P`]: an object destructible or not, in `domain`.
+/// `target` under the cursor at [`P`], as the player knows it: an object destructible or not, in `domain`, an enemy
+/// if it is under the cursor as one. Neither a patch to gather nor a drop-off ([`patch`], [`own_node`]).
 fn on(target: CursorTarget, destructible: bool, domain: Domain) -> MapTarget {
+    let id = target.object().expect("an object");
     MapTarget {
         target,
         ground: P,
-        destructible,
-        domain,
+        aimed: Some(Aimed {
+            id,
+            enemy: matches!(target, CursorTarget::EnemyObject(_)),
+            destructible,
+            domain,
+            gatherable: false,
+            drop_off: false,
+        }),
     }
 }
 
@@ -30,41 +40,77 @@ fn own() -> MapTarget {
 fn neutral_unit() -> MapTarget {
     on(CursorTarget::NeutralObject(id(9)), true, Domain::Ground)
 }
+/// A Space Crystals patch, free to gather.
 fn patch() -> MapTarget {
-    on(CursorTarget::NeutralObject(id(8)), false, Domain::Ground)
+    let mut patch = on(CursorTarget::NeutralObject(id(8)), false, Domain::Ground);
+    patch.aimed = patch.aimed.map(|aimed| Aimed {
+        gatherable: true,
+        ..aimed
+    });
+    patch
 }
 fn aircraft() -> MapTarget {
     on(CursorTarget::EnemyObject(id(7)), true, Domain::Air)
 }
+/// The player's own Egress Node, which takes loads.
+fn own_node() -> MapTarget {
+    let mut node = on(CursorTarget::FriendlyObject(id(3)), true, Domain::Ground);
+    node.aimed = node.aimed.map(|aimed| Aimed {
+        drop_off: true,
+        ..aimed
+    });
+    node
+}
+
+/// A unit of the BasicCombatUnit template with an attack in `attack`, whose mode lets it attack or not.
+const fn combat_unit(attack: Option<TargetDomain>, may_attack: bool) -> UnitCapabilities {
+    UnitCapabilities {
+        template: Some(InterfaceTemplate::BasicCombatUnit),
+        abilities: Some(Abilities {
+            attack,
+            may_attack,
+            worker: false,
+            carrying: false,
+        }),
+    }
+}
 
 /// A combat unit with a ground attack, the Peacekeeper's and the Guard's.
-const ARMED: UnitCapabilities = UnitCapabilities {
-    template: Some(InterfaceTemplate::BasicCombatUnit),
-    attack: Some(TargetDomain::Ground),
-    may_attack: true,
-};
+const ARMED: UnitCapabilities = combat_unit(Some(TargetDomain::Ground), true);
 /// The same with its Riot Shield up.
-const SHIELDED: UnitCapabilities = UnitCapabilities {
-    may_attack: false,
-    ..ARMED
-};
+const SHIELDED: UnitCapabilities = combat_unit(Some(TargetDomain::Ground), false);
 /// One without an attack, like the design's Supply Chopper (none exists yet).
-const UNARMED: UnitCapabilities = UnitCapabilities { attack: None, ..ARMED };
+const UNARMED: UnitCapabilities = combat_unit(None, true);
 /// One that attacks anything.
-const UNIVERSAL: UnitCapabilities = UnitCapabilities {
-    attack: Some(TargetDomain::Universal),
-    ..ARMED
+const UNIVERSAL: UnitCapabilities = combat_unit(Some(TargetDomain::Universal), true);
+/// A Drone: a worker without an attack, whose panel isn't built yet (no template, slice M3-J2); and one with a load.
+const DRONE: UnitCapabilities = UnitCapabilities {
+    template: None,
+    abilities: Some(Abilities {
+        attack: None,
+        may_attack: true,
+        worker: true,
+        carrying: false,
+    }),
+};
+const LOADED_DRONE: UnitCapabilities = UnitCapabilities {
+    template: None,
+    abilities: Some(Abilities {
+        attack: None,
+        may_attack: true,
+        worker: true,
+        carrying: true,
+    }),
 };
 /// An object without commands: a building.
 const BUILDING: UnitCapabilities = UnitCapabilities {
     template: None,
-    attack: None,
-    may_attack: true,
+    abilities: None,
 };
 /// A producing structure, a Barracks.
 const PRODUCER: UnitCapabilities = UnitCapabilities {
     template: Some(InterfaceTemplate::Production),
-    ..BUILDING
+    abilities: None,
 };
 
 fn object(n: u32) -> OrderKind {
@@ -74,13 +120,11 @@ fn object(n: u32) -> OrderKind {
 /// `> BasicCombatUnitInterfaceState > RightClickResolution` and `> AwaitingTarget[..] resolution`.
 #[test]
 fn clicks_resolve_by_what_is_under_the_cursor() {
-    use CursorTarget::{EnemyObject, FriendlyObject, Ground, NeutralObject};
-    let template = InterfaceTemplate::BasicCombatUnit;
-    let right = |target| right_click(template, target).map(|(_, kind)| kind);
-    assert_eq!(right(Ground(P)), Some(OrderKind::Move(Target::Point(P))));
-    assert_eq!(right(EnemyObject(id(6))), Some(OrderKind::Attack(id(6))));
-    assert_eq!(right(FriendlyObject(id(2))), Some(object(2)));
-    assert_eq!(right(NeutralObject(id(8))), Some(object(8)));
+    let right = |target: MapTarget| unit_right_click(ARMED, &target);
+    assert_eq!(right(MapTarget::ground(P)), Some(OrderKind::Move(Target::Point(P))));
+    assert_eq!(right(enemy()), Some(OrderKind::Attack(id(6))));
+    assert_eq!(right(own()), Some(object(2)));
+    assert_eq!(right(patch()), Some(object(8)));
 
     let ground = MapTarget::ground(P);
     let left = |pending, target: MapTarget| target_order(pending, &target);
@@ -110,8 +154,8 @@ fn clicks_resolve_by_what_is_under_the_cursor() {
 /// (0076), goes to it as to the others.
 #[test]
 fn a_raised_shield_follows_on_a_right_click_and_is_left_out_of_an_explicit_attack() {
-    assert_eq!(order_without_attack(&enemy()), object(6));
-    assert_eq!(order_without_attack(&enemy_structure()), object(5));
+    assert_eq!(unit_right_click(SHIELDED, &enemy()), Some(object(6)));
+    assert_eq!(unit_right_click(SHIELDED, &enemy_structure()), Some(object(5)));
     for kind in [OrderKind::Attack(id(6)), OrderKind::Attack(id(2))] {
         assert_eq!(unit_target_order(SHIELDED, kind), None, "{kind:?}");
         assert_eq!(unit_target_order(ARMED, kind), Some(kind));
@@ -162,6 +206,36 @@ fn each_unit_resolves_a_right_click_for_itself() {
         assert_eq!(resolved(unit, patch()), Some(object(8)));
     }
     assert_eq!(resolved(BUILDING, MapTarget::ground(P)), None);
+}
+
+/// `factions/colonists/units.md > Drone > Right-Click Resolution`, by the sim's one rule (design change 0136): a
+/// patch gives Gather, the player's own node Drop Off while the Drone carries a load and a Move there without one
+/// (design change 0140), an enemy a Move to it (unarmed: it follows a unit), the ground a Move. A target the player
+/// remembers resolves as one it sees, by what it knows (design change 0139); one it knows nothing of (only the fog's
+/// debug toggle shows it) gives a Move to it, which the sim refuses.
+#[test]
+fn a_drone_resolves_a_right_click_by_its_own_table() {
+    let resolved = |unit, target: MapTarget| unit_right_click(unit, &target);
+    for drone in [DRONE, LOADED_DRONE] {
+        assert_eq!(resolved(drone, patch()), Some(OrderKind::Gather(id(8))));
+        assert_eq!(resolved(drone, enemy()), Some(object(6)), "follows");
+        assert_eq!(resolved(drone, enemy_structure()), Some(object(5)));
+        assert_eq!(
+            resolved(drone, MapTarget::ground(P)),
+            Some(OrderKind::Move(Target::Point(P)))
+        );
+        assert_eq!(
+            object_right_click(drone, &patch()),
+            Some(Resolved::Order(OrderKind::Gather(id(8))))
+        );
+    }
+    assert_eq!(resolved(LOADED_DRONE, own_node()), Some(OrderKind::DropOff(id(3))));
+    assert_eq!(resolved(DRONE, own_node()), Some(object(3)));
+    assert_eq!(resolved(ARMED, own_node()), Some(object(3)));
+    let unknown = MapTarget { aimed: None, ..enemy() };
+    assert_eq!(resolved(ARMED, unknown), Some(object(6)));
+    assert_eq!(resolved(DRONE, unknown), Some(object(6)));
+    assert_eq!(right_click_display(&[DRONE], &patch()), PointerDisplay::Move);
 }
 
 /// One order per distinct order, in the order each first comes, each to its units in their order.

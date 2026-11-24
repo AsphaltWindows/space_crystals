@@ -16,6 +16,9 @@
 //! The Colonists' portals (slice M3-D) show the same production panel, built from their recipes: `portals`, on a
 //! Colonists field of their own. The Legionnaires' Weapon Conversion (slice M3-B), R: `convert`, on another.
 //!
+//! Remembered targets with the fog of war on, rally points by the units' own default commands and a right-click on a
+//! selected unit (slice M3-R): `remembered`.
+//!
 //! The construction UI of slice M2-H2 (the Deployment Center's build menu, the Extraction Facility's plate, and
 //! AwaitingPlacement with its ghost and the build area overlay) plays on a base of its own: `construction`.
 
@@ -27,6 +30,7 @@ mod panel;
 mod portals;
 mod production;
 mod rally;
+mod remembered;
 mod right_click;
 mod riot_shield;
 mod shield_orders;

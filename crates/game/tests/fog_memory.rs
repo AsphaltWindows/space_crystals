@@ -183,8 +183,9 @@ fn info(app: &mut App) -> Option<(String, String)> {
 
 /// `core/vision.md > Explored`: out of sight, the patch and the station show as remembered, where they were, and
 /// their live objects stay hidden. A patch removed out of sight is still drawn; one placed out of sight isn't. The
-/// fog's debug toggle shows the live objects instead, the player switch the other player's memory. Back in sight,
-/// the removed patch is gone and the live objects show.
+/// fog's debug toggle shows the live objects instead, the player switch the other player's memory: player 2 never
+/// saw them, and knows them from the start as the map placed them (design change 0159). Back in sight, the removed
+/// patch is gone and the live objects show.
 #[test]
 fn explored_tiles_draw_records_never_live_objects() {
     let mut app = world(Faction::Gdo);
@@ -232,7 +233,11 @@ fn explored_tiles_draw_records_never_live_objects() {
     assert_eq!(remembered(&app), [PATCH, STATION]);
     tap(&mut app, KeyCode::F2);
     assert_eq!(app.world().resource::<LocalPlayer>().0, P2);
-    assert_eq!(remembered(&app), [0_u32; 0], "player 2 never saw them");
+    assert_eq!(
+        remembered(&app),
+        [PATCH, STATION],
+        "player 2 knows the map's from the start"
+    );
     tap(&mut app, KeyCode::F2);
     assert_eq!(remembered(&app), [PATCH, STATION]);
 

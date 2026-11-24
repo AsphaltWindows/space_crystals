@@ -113,9 +113,10 @@ impl Plugin for CursorPlugin {
 }
 
 /// `> PointerDisplayType > Resolution Rules`: from the local player's ControlState and what is under the cursor,
-/// among the objects it may select: the fog of war hides the others (`crate::fog`). In DefaultState each selected
-/// unit resolves the right-click for itself, with its mode (the Riot Shield), and the pointer shows the one thing
-/// they would all do, or Mixed (design change 0063).
+/// among the objects it may select and the records of those it remembers, which it may target (design change 0139):
+/// the fog of war hides the others (`crate::fog`). In DefaultState each selected unit resolves the right-click for
+/// itself, with its mode (the Riot Shield), and the pointer shows the one thing they would all do, or Mixed (design
+/// change 0063).
 fn update_pointer_look(
     mode: Res<ClientMode>,
     actions: Res<ActionState>,
@@ -140,13 +141,13 @@ fn update_pointer_look(
             } else {
                 Vec::new()
             };
-            let target = MapTarget::at(sim, &objects, view, ground);
+            let target = MapTarget::at(sim, player, &objects, view, ground);
             let placing = state.interface.placing().is_some();
             PointerLook {
                 display: Some(pointer_display(state.interface, &units, &target)),
                 targeting: state.interface.pending().is_some(),
                 placing,
-                hovered: objects.at(view).filter(|_| !placing).map(|o| o.relation),
+                hovered: objects.target_at(view).filter(|_| !placing).map(|o| o.relation),
             }
         }
         _ => PointerLook::default(),
