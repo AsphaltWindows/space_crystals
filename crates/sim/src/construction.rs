@@ -141,14 +141,13 @@ pub enum ConstructionCommand {
     },
     /// `factions/colonists/economy.md > Warp In > Warp In Command` (plan decision T22, `crate::transform`): "Left-click
     /// confirms the footprint and begins the transformation. The Beacon is consumed and begins transforming in place
-    /// into the selected building": a `kind` from the Beacon's Constructs List, with the top-left tile of its
-    /// footprint at `origin`, turned by `orientation` (optional in files, unturned by default). One Beacon, not
-    /// transforming, while the bank covers the cost, which it pays at once, and where the placement check allows the
-    /// Warp In when the command applies (`crate::placement::Method::WarpIn`: centred on the Beacon, every tile but
-    /// the Beacon's own clear). Centring the ghost on the Beacon is the client's.
+    /// into the selected building": a `kind` from the Beacon's Constructs List, turned by `orientation` (optional in
+    /// files, unturned by default). No position: the footprint follows from the Beacon and the orientation
+    /// (`crate::transform::warp_in_footprint`, design change 0121). One Beacon, not transforming, while the bank
+    /// covers the cost, which it pays at once, and where the placement check allows the Warp In when the command
+    /// applies (`crate::placement::Method::WarpIn`: every tile Visible, every tile but the Beacon's own clear).
     WarpIn {
         kind: ObjectKind,
-        origin: TilePos,
         #[serde(default, skip_serializing_if = "BuildingOrientation::is_default")]
         orientation: BuildingOrientation,
     },

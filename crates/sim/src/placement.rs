@@ -12,15 +12,17 @@
 //!
 //! **Methods** (plan decision T16): the [`Site`] also says how the structure comes to stand ([`Method`]), and the
 //! one check applies that method's rules. [`Method::Direct`] is the GDO's Direct Placement, as below. A Warp In
-//! ([`Method::WarpIn`], slice M3-E; `core/entities.md > Placement Validation > Warp In`) has the same tile rules but
-//! sight, none on the tiles of the Beacon it consumes, no build area, and must be centred on its Beacon
-//! ([`WholeProblem::NotOnBeacon`]); a game asks [`Sim::warp_in_check`].
+//! ([`Method::WarpIn`], slice M3-E; `core/entities.md > Placement Validation > Warp In`) has the same tile rules,
+//! sight included (design change 0119), none but sight on the tiles of the Beacon it consumes, and no build area;
+//! its footprint is derived from the Beacon (`crate::transform::warp_in_footprint`, design change 0121), and a game
+//! asks [`Sim::warp_in_check`].
 //!
 //! **The rules**, in the order the problems are listed:
 //! - each footprint tile: on the map; Buildable (`core/map.md > TilePreset`); flat (`core/map.md > Elevation >
 //!   Structures only on flat terrain`, for the kinds with `ObjectDef::needs_flat_ground`, every structure so far);
 //!   Visible to the placing player, in a game only (`> Direct Placement`; Extraction Plates too, design change
-//!   0095), and if it isn't, that is the tile's only problem, so the check tells nothing the fog hides; covered by
+//!   0095; a Warp In's too, 0119), and if it isn't, that is the tile's only problem, so the check tells nothing the
+//!   fog hides; covered by
 //!   no other footprint, a structure's (`> Direct Placement`: "no existing structure overlap") or a map resource's
 //!   (`> All placement methods: no buildings on resources`, design change 0096), but for a plate on a patch:
 //!   [`ObjectKind::may_overlap`], the one rule of shared tiles, which map validation and debug spawns apply too;
@@ -63,6 +65,7 @@ use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
 use crate::scenario::BuildingOrientation;
 use crate::sim::Sim;
+use crate::transform::warp_in_footprint;
 use crate::units::TilePos;
 
 impl Sim {
@@ -94,21 +97,24 @@ impl Sim {
     }
 
     /// `core/entities.md > Placement Validation > Warp In`: everything that keeps Beacon `beacon` from warping in a
-    /// structure of `kind` now, with the top-left tile of its footprint at `origin`, turned by `orientation` ([`check`]
-    /// with [`Method::WarpIn`] in [`Mode::Command`], slice M3-E): on the truth, every object as it is now but the
-    /// Beacon, whose tiles the building takes over, with no sight and no build area. The command gate asks it when a
-    /// `ConstructionCommand::WarpIn` applies, and the Warp In ghost can ask it every frame (slice M3-J1). Whether the
-    /// Beacon may warp in a `kind` at all (its Constructs List, the bank) is the gate's. `None` if `beacon` is no
-    /// object of a player's with a footprint.
+    /// structure of `kind` now, turned by `orientation`, on the footprint that follows from them
+    /// ([`crate::transform::warp_in_footprint`], design change 0121), by [`check`] with [`Method::WarpIn`] in
+    /// [`Mode::Command`] (slice M3-E): every object as it is now but the Beacon, whose tiles the building takes over,
+    /// and the sight of the Beacon's owner as the latest tick left it (design change 0119: "every footprint tile must
+    /// be Visible to the player"), with no build area. The command gate asks it when a `ConstructionCommand::WarpIn`
+    /// applies, and the Warp In ghost can ask it every frame (slice M3-J1). Whether the Beacon may warp in a `kind` at
+    /// all (its Constructs List, the bank) is the gate's. `None` if `beacon` is no object of a player's with a
+    /// footprint.
     pub fn warp_in_check(
         &self,
         beacon: ObjectId,
         kind: ObjectKind,
-        origin: TilePos,
         orientation: BuildingOrientation,
     ) -> Option<PlacementCheck> {
         let o = self.object(beacon)?;
         let (player, placement) = (o.owner?, o.placement?);
+        // A kind without a footprint is no structure, wherever the check looks.
+        let origin = warp_in_footprint(&placement, kind, orientation).map_or(placement.origin, |p| p.origin);
         let area = BuildArea::default();
         let site = Site {
             map: self.map(),

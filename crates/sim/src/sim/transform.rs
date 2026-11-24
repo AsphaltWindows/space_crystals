@@ -10,10 +10,8 @@ use crate::economy::{RATIO_ONE, Refund};
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, Placement};
-use crate::placement::footprint_size;
 use crate::scenario::BuildingOrientation;
 use crate::transform::{self, MIN_HP_AFTER_CANCEL, Transform, follow_max, keep_fraction};
-use crate::units::TilePos;
 
 impl Sim {
     /// The Beacon of a Warp In among `objects` (plan decision T22: "names one Beacon, as Place names one
@@ -33,14 +31,14 @@ impl Sim {
     /// one Beacon of the player's ([`Sim::warper`]), complete, not transforming ([`Reject::ConstructorBusy`]: a
     /// Beacon still being deployed, slice M3-F); `kind` on its Constructs List ([`Reject::CannotConstruct`]); a bank
     /// that covers the cost as the command applies, after the earlier commands of the tick
-    /// ([`Reject::InsufficientCrystals`]); and the footprint allowed for a Warp In by the placement check on the
-    /// truth ([`Sim::warp_in_check`]: else [`Reject::Unplaceable`] with its first problem).
+    /// ([`Reject::InsufficientCrystals`]); and the footprint, derived from the Beacon ([`transform::warp_in_footprint`],
+    /// design change 0121), allowed for a Warp In by the placement check ([`Sim::warp_in_check`]: else
+    /// [`Reject::Unplaceable`] with its first problem, a tile out of the player's sight included, design change 0119).
     pub(super) fn check_warp_in(
         &self,
         player: PlayerId,
         objects: &[ObjectId],
         kind: ObjectKind,
-        origin: TilePos,
         orientation: BuildingOrientation,
     ) -> Result<Resolved, Reject> {
         let beacon = self.warper(player, objects)?;
@@ -53,21 +51,16 @@ impl Sim {
             return Err(Reject::InsufficientCrystals);
         }
         let check = self
-            .warp_in_check(beacon, kind, origin, orientation)
+            .warp_in_check(beacon, kind, orientation)
             .ok_or(Reject::NoConstructor)?;
         if let Some(problem) = check.first_problem() {
             return Err(Reject::Unplaceable(problem));
         }
         // A valid footprint is a structure's.
-        let (w, h) = footprint_size(kind, orientation).ok_or(Reject::CannotConstruct(kind))?;
-        let placement = Placement {
-            origin,
-            w,
-            h,
-            rotation: orientation.rotation,
-            flip_h: orientation.flip_h,
-            flip_v: orientation.flip_v,
-        };
+        let placement = o
+            .placement
+            .and_then(|beacon| transform::warp_in_footprint(&beacon, kind, orientation))
+            .ok_or(Reject::CannotConstruct(kind))?;
         Ok(Resolved::WarpIn {
             beacon,
             kind,

@@ -107,7 +107,8 @@ pub enum SimEvent {
     /// and `problems` says why. The one command the sim reports refusing (`Sim::validate` gives
     /// `Reject::Unplaceable`); the client validates a Place before it sends it, so this tells it that the game
     /// changed in between, e.g. a unit walked onto the footprint. A Warp In refused the same way says so too: its
-    /// Beacon is the `constructor`, and stays a Beacon (`Sim::warp_in_check`, slice M3-E).
+    /// Beacon is the `constructor`, and stays a Beacon, and `origin` is that of the footprint derived from it
+    /// (`crate::transform::warp_in_footprint`, design change 0121; `Sim::warp_in_check`, slice M3-E).
     PlacementRefused {
         constructor: ObjectId,
         kind: ObjectKind,

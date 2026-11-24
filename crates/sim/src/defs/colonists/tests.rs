@@ -203,7 +203,7 @@ fn the_legionnaires_two_forms_differ_only_in_their_weapon() {
 }
 
 /// `factions/colonists/economy.md > Beacon`, and its Warp In list (`> Warp In > Constructs List`): the three
-/// buildings with a cost and a WarpInTime.
+/// buildings with a cost and a WarpInTime. Ungroupable (design change 0122: "Beacon Groupable true → false").
 #[test]
 fn the_beacon_follows_the_design() {
     let structure = assert_structure(
@@ -214,7 +214,7 @@ fn the_beacon_follows_the_design() {
         10.0,
         (0.0, 0.0),
         4.0,
-        true,
+        false,
     );
     assert_eq!(structure.production, None);
     let recipe = |kind, cost, frames| Recipe { kind, cost, frames };

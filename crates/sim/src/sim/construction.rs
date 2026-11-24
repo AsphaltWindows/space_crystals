@@ -15,6 +15,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::object::Placement;
 use crate::placement::footprint_size;
 use crate::scenario::BuildingOrientation;
+use crate::transform;
 use crate::units::TilePos;
 
 /// A construction command that passed the gate, with what its checks resolved.
@@ -82,11 +83,9 @@ impl Sim {
             ConstructionCommand::Place { origin, orientation } => {
                 self.check_place(player, objects, origin, orientation)?
             }
-            ConstructionCommand::WarpIn {
-                kind,
-                origin,
-                orientation,
-            } => self.check_warp_in(player, objects, kind, origin, orientation)?,
+            ConstructionCommand::WarpIn { kind, orientation } => {
+                self.check_warp_in(player, objects, kind, orientation)?
+            }
             ConstructionCommand::CancelTransform => self.check_cancel_transform(player, objects)?,
         };
         Ok(Checked::Construction { player, resolved })
@@ -266,14 +265,13 @@ impl Sim {
                     (constructor, kind, origin, orientation, problems)
                 })
             }
-            ConstructionCommand::WarpIn {
-                kind,
-                origin,
-                orientation,
-            } => self.warper(cmd.player, objects).ok().and_then(|beacon| {
-                let problems = self.warp_in_check(beacon, kind, origin, orientation)?;
-                Some((beacon, kind, origin, orientation, problems))
-            }),
+            ConstructionCommand::WarpIn { kind, orientation } => {
+                self.warper(cmd.player, objects).ok().and_then(|beacon| {
+                    let problems = self.warp_in_check(beacon, kind, orientation)?;
+                    let footprint = transform::warp_in_footprint(&self.object(beacon)?.placement?, kind, orientation)?;
+                    Some((beacon, kind, footprint.origin, orientation, problems))
+                })
+            }
             _ => None,
         };
         if let Some((constructor, kind, origin, orientation, problems)) = refused {

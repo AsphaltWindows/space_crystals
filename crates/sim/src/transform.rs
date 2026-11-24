@@ -28,10 +28,13 @@
 //!   construction's (`ARCHITECTURE.md > Economy > Recipe timing`): ordered in tick `t`, a WarpInTime of `N` frames is
 //!   complete at the end of tick `t + N - 1`, and the building works from tick `t + N`. Completion clears
 //!   `Object::transform` and turns its functions on, with a `SimEvent::TransformCompleted`.
-//! - **The commands** (plan decision T22): `ConstructionCommand::WarpIn` names one Beacon, which pays the building's
-//!   cost at once (`> Constructs List`) and becomes the building on the footprint it confirmed, which the placement
-//!   check allows for the Warp In method (`crate::placement::Method::WarpIn`, plan decision T16);
-//!   `ConstructionCommand::CancelTransform` goes to every transforming object it names (`> Cancel Warp In`): "refunds
+//! - **The commands** (plan decision T22): `ConstructionCommand::WarpIn` names one Beacon, a building and its
+//!   orientation, no position: the footprint is derived from the Beacon ([`warp_in_footprint`], design change 0121:
+//!   centred on it, an odd-sized building's extras at the bottom-right, turned and flipped about its centre). The
+//!   Beacon pays the building's cost at once (`> Constructs List`) and becomes the building on that footprint, where
+//!   the placement check allows the Warp In method (`crate::placement::Method::WarpIn`, plan decision T16: every tile
+//!   Visible, design change 0119; the Beacon's own tiles consumed, the others clear of ground units of any player,
+//!   0118); `ConstructionCommand::CancelTransform` goes to every transforming object it names (`> Cancel Warp In`): "refunds
 //!   75% of the building's resource cost (rounded down), and the structure reverts to being a normal,
 //!   fully-functional Beacon" on its old tiles (design change 0109), keeping the fraction of its HP it had, at least
 //!   1 ([`keep_fraction`], design change 0111), with a `SimEvent::TransformCancelled`. Both apply in the commands
@@ -50,6 +53,9 @@ use crate::defs::{ObjectKind, Recipe};
 use crate::economy::RATIO_ONE;
 use crate::hash::{StateHash, StateHasher};
 use crate::object::{Object, Placement};
+use crate::scenario::BuildingOrientation;
+use crate::symmetry::Orientation;
+use crate::units::TilePos;
 
 /// An object's transformation into its kind (module docs): `Object::transform` while it runs, `None` otherwise.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -217,6 +223,43 @@ pub fn warp_in_recipes(kind: ObjectKind) -> &'static [Recipe] {
 /// The entry for `kind` on the Warp In list of an object of kind `beacon`, if `kind` is on it.
 pub fn warp_in_recipe(beacon: ObjectKind, kind: ObjectKind) -> Option<&'static Recipe> {
     warp_in_recipes(beacon).iter().find(|r| r.kind == kind)
+}
+
+/// `factions/colonists/economy.md > Warp In > Warp In Command` (design change 0121): the footprint of a `kind`
+/// building warped in on the Beacon standing at `beacon`, turned by `orientation`. It is derived, never chosen: the
+/// command carries no position, and there is no snapping to the cursor. In the default orientation the footprint is
+/// "centered on the Beacon's location"; an odd-sized building, which can't be (the 3 × 3 Bio Portal on the 2 × 2
+/// Beacon), "starts with its extra row and column at the bottom-right". Turning and flipping the building turn and
+/// flip that footprint about the Beacon's centre, as they turn its sides (`Orientation::of_building`,
+/// `crate::sides`), so that the extras move with the sides: a horizontal flip takes the extra column to the left, a
+/// vertical flip the extra row to the top, each quarter turn the extras to the next corner clockwise. An
+/// even-sized building is centred exactly in every orientation: the Egress Node (2 × 2) on the Beacon's own tiles,
+/// the Robo Portal (4 × 4) one tile beyond them all round. The command gate, [`crate::Sim::warp_in_check`] and the
+/// Warp In ghost (slice M3-J1) all take the footprint from here. `None` for a kind without a tile footprint (a
+/// unit); a footprint that would lie past the tile coordinates stops at their edge (it is off the map anyway).
+pub fn warp_in_footprint(beacon: &Placement, kind: ObjectKind, orientation: BuildingOrientation) -> Option<Placement> {
+    let (w, h) = kind.def().tile_size()?;
+    // In half tiles: the Beacon's centre along each axis, and, unturned, the building's centre's offset from it:
+    // none if it fits, else half a tile towards +x or +y (east, south).
+    let centre = |start: i32, len: u32| 2 * i64::from(start) + i64::from(len);
+    let (cx, cy) = (centre(beacon.origin.x, beacon.w), centre(beacon.origin.y, beacon.h));
+    let offset = ((cx - i64::from(w)).rem_euclid(2), (cy - i64::from(h)).rem_euclid(2));
+    let turn = Orientation::of_building(orientation.rotation, orientation.flip_h, orientation.flip_v);
+    let (dx, dy) = turn.apply(offset);
+    let (w, h) = if orientation.swaps_axes() { (h, w) } else { (w, h) };
+    // The top-left tile of a building `len` long whose centre is `d` half tiles from `c`: exact for the Beacon's 2 × 2.
+    let start = |c: i64, d: i64, len: u32| {
+        let start = (c + d - i64::from(len)).div_euclid(2);
+        i32::try_from(start).unwrap_or(if start < 0 { i32::MIN } else { i32::MAX })
+    };
+    Some(Placement {
+        origin: TilePos::new(start(cx, dx, w), start(cy, dy, h)),
+        w,
+        h,
+        rotation: orientation.rotation,
+        flip_h: orientation.flip_h,
+        flip_v: orientation.flip_v,
+    })
 }
 
 #[cfg(test)]

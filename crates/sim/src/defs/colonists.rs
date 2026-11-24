@@ -190,10 +190,10 @@ pub(super) static BEACON: ObjectDef = ObjectDef {
     footprint: Footprint::Tiles { w: 2, h: 2 }, // Size - 2x2 grid units
     selectable: true,                           // `core/entities.md > Object Type > Selectable - true`
     destructible: true,                         // Destructible - true
-    groupable: true,                            // Groupable - true
-    sight_range: 4.0,                           // SightRange - 4 grid units
-    max_hp: Some(120.0),                        // MaxHP - 120
-    max_shields: Some(10.0),                    // MaxShields - 10
+    groupable: false, // Groupable - false (design change 0122: "used up by its Warp In, like a worker")
+    sight_range: 4.0, // SightRange - 4 grid units
+    max_hp: Some(120.0), // MaxHP - 120
+    max_shields: Some(10.0), // MaxShields - 10
     armor: Armor {
         point: 0.0, // PointArmor - 0
         full: 0.0,  // FullArmor - 0

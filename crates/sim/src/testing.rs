@@ -342,12 +342,10 @@ pub fn every_command() -> Vec<Command> {
             },
             ConstructionCommand::WarpIn {
                 kind: ObjectKind::RoboPortal,
-                origin: crate::units::TilePos::new(4, 3),
                 orientation: Default::default(),
             },
             ConstructionCommand::WarpIn {
                 kind: ObjectKind::BioPortal,
-                origin: crate::units::TilePos::new(2, 7),
                 orientation: crate::scenario::BuildingOrientation {
                     rotation: crate::object::Rotation::R90,
                     flip_h: true,

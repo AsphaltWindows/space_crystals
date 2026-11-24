@@ -200,3 +200,57 @@ fn a_cancel_keeps_the_fraction() {
         "no maximum to take a fraction of"
     );
 }
+
+/// Design change 0121 ([`warp_in_footprint`]): on a 2 × 2 Beacon at (8, 6), in every one of the 16 orientations, an
+/// Egress Node covers the Beacon's own tiles and a Robo Portal one tile beyond them all round; a Bio Portal covers
+/// the Beacon and one extra column and row, at the bottom-right unturned, moved by the flips and turns as the
+/// building's sides are (flipped first, then turned clockwise). Each footprint carries its orientation, and has its
+/// size turned. A unit has none, and a Beacon at the edge of the tile coordinates gives one without overflowing.
+#[test]
+fn the_warp_in_footprint_follows_the_beacon_and_the_orientation() {
+    use crate::object::Rotation::{R0, R90, R180, R270};
+    let beacon = Placement::new(TilePos::new(8, 6), Beacon.def().footprint);
+    let turned = |rotation, flip_h, flip_v| BuildingOrientation {
+        rotation,
+        flip_h,
+        flip_v,
+    };
+    let every: Vec<BuildingOrientation> = [R0, R90, R180, R270]
+        .into_iter()
+        .flat_map(|r| [(false, false), (true, false), (false, true), (true, true)].map(|(h, v)| turned(r, h, v)))
+        .collect();
+    let at = |kind, orientation| warp_in_footprint(&beacon, kind, orientation).unwrap();
+    for &o in &every {
+        let egress = at(EgressNode, o);
+        assert_eq!((egress.origin, egress.w, egress.h), (TilePos::new(8, 6), 2, 2), "{o:?}");
+        let robo = at(RoboPortal, o);
+        assert_eq!((robo.origin, robo.w, robo.h), (TilePos::new(7, 5), 4, 4), "{o:?}");
+        let bio = at(BioPortal, o);
+        assert_eq!((bio.w, bio.h, bio.orientation()), (3, 3, o));
+        assert!(
+            beacon.tiles().all(|tile| bio.tiles().any(|t| t == tile)),
+            "{o:?}: over the Beacon"
+        );
+    }
+    // The Bio Portal's top-left tile, by the corner its extras are at.
+    let (bottom_right, bottom_left, top_left, top_right) = (
+        TilePos::new(8, 6),
+        TilePos::new(7, 6),
+        TilePos::new(7, 5),
+        TilePos::new(8, 5),
+    );
+    let corners = |flip_h, flip_v| [R0, R90, R180, R270].map(|r| at(BioPortal, turned(r, flip_h, flip_v)).origin);
+    assert_eq!(corners(false, false), [bottom_right, bottom_left, top_left, top_right]);
+    assert_eq!(corners(true, false), [bottom_left, top_left, top_right, bottom_right]);
+    assert_eq!(corners(false, true), [top_right, bottom_right, bottom_left, top_left]);
+    assert_eq!(corners(true, true), [top_left, top_right, bottom_right, bottom_left]);
+    assert_eq!(
+        warp_in_footprint(&beacon, ObjectKind::Drone, BuildingOrientation::default()),
+        None
+    );
+    let far = Placement::new(TilePos::new(i32::MAX - 1, i32::MIN), Beacon.def().footprint);
+    for &o in &every {
+        let p = warp_in_footprint(&far, BioPortal, o).unwrap();
+        assert!(p.origin.x >= i32::MAX - 2 && p.origin.y <= i32::MIN + 1, "{o:?}: {p:?}");
+    }
+}

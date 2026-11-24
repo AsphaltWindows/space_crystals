@@ -1,19 +1,22 @@
 //! Warp In (slice M3-E; `factions/colonists/economy.md > Warp In`, `core/entities.md > Placement Validation > Warp
 //! In`): a Beacon transforms in place into an Egress Node, a Robo Portal or a Bio Portal. One test per acceptance
 //! point of the plan (`artifacts/director/m3-plan.md` §3.3 E): the timings, the interpolated maxima and the damage
-//! carried through them (design change 0110), the footprint, its ring and its claim from the first frame (design
-//! change 0109), the cancel, the destruction, the gate against `Sim::warp_in_check`, saves and replays; and the gate's
-//! rules, fuzzed. The scenarios are built with test maps and spawns, not with the Colonists' Starting Conditions.
+//! carried through them (design change 0110), the footprint derived from the Beacon (design change 0121), its ring
+//! (ground units block it, 0118), its sight (0119) and its claim from the first frame (0109), the cancel, the
+//! destruction, the gate against `Sim::warp_in_check`, saves and replays; and the gate's rules, fuzzed. The
+//! scenarios are built with test maps and spawns, not with the Colonists' Starting Conditions.
 //! `TestSim` checks the movement invariants after every tick.
 
 use sc_sim::economy::{RATIO_ONE, Refund};
 use sc_sim::placement::{self, Method, Mode, Occupant, Site};
+use sc_sim::sides::DIRECTIONS;
 use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references};
+use sc_sim::transform::warp_in_footprint;
 use sc_sim::{
     Ability, BuildArea, BuildingOrientation, Command, ConstructionCommand, DebugCommand, Faction, Object, ObjectId,
-    ObjectKind, OrderKind, PlacementCheck, PlacementProblem, PlayerCommand, PlayerId, ProductionCommand, Reject,
-    Replay, Rng, Rotation, SU_PER_GU, Sim, SimConfig, SimEvent, SpawnAt, Target, Tick, TickInputs, TilePos,
-    TileProblem, Transform, Vec2, WholeProblem,
+    ObjectKind, OrderKind, Placement, PlacementCheck, PlacementProblem, PlayerCommand, PlayerId, ProductionCommand,
+    Reject, Replay, Rng, Rotation, SU_PER_GU, SideLetter, Sim, SimConfig, SimEvent, SpawnAt, Target, Tick, TickInputs,
+    TilePos, TileProblem, Transform, Vec2, sides,
 };
 
 use ConstructionCommand::{CancelTransform, WarpIn};
@@ -46,13 +49,26 @@ fn construction(objects: &[u32], command: ConstructionCommand) -> Command {
     }
 }
 
-/// A Warp In of `kind` with the top-left tile of its footprint at `origin`, unturned.
-fn warp(kind: ObjectKind, origin: TilePos) -> ConstructionCommand {
+/// A Warp In of `kind`, unturned: its footprint follows from the Beacon (design change 0121).
+fn warp(kind: ObjectKind) -> ConstructionCommand {
     WarpIn {
         kind,
-        origin,
         orientation: BuildingOrientation::default(),
     }
+}
+
+/// Every orientation a building can be given: the four turns, each with or without either flip.
+fn every_orientation() -> Vec<BuildingOrientation> {
+    [Rotation::R0, Rotation::R90, Rotation::R180, Rotation::R270]
+        .into_iter()
+        .flat_map(|rotation| {
+            [(false, false), (true, false), (false, true), (true, true)].map(|(flip_h, flip_v)| BuildingOrientation {
+                rotation,
+                flip_h,
+                flip_v,
+            })
+        })
+        .collect()
 }
 
 /// Sets `player`'s bank to `crystals` (nothing else).
@@ -167,8 +183,8 @@ fn base() -> ScenarioBuilder {
 #[derive(Copy, Clone)]
 struct Building {
     kind: ObjectKind,
-    /// The top-left tile of its footprint centred on Beacon 1 (`> Warp In Command`: "centered on the Beacon's
-    /// location").
+    /// The top-left tile of its footprint on Beacon 1, unturned (`> Warp In Command`: "centered on the Beacon's
+    /// location"; an odd-sized one with its extras at the bottom-right, design change 0121).
     origin: (i32, i32),
     cost: u32,
     /// Its WarpInTime.
@@ -194,7 +210,7 @@ const BUILDINGS: [Building; 3] = [
     },
     Building {
         kind: BioPortal,
-        origin: (7, 5),
+        origin: (8, 6),
         cost: 150,
         frames: 480,
         unit: Some(ObjectKind::SabreLegionnaire),
@@ -216,8 +232,7 @@ fn warp_ins_take_their_warp_in_time_and_work_from_the_next_tick() {
     } in BUILDINGS
     {
         let mut t = base().start();
-        t.debug_at(1, fund(P1, 1000))
-            .at(1, P1, construction(&[1], warp(kind, at(x, y))));
+        t.debug_at(1, fund(P1, 1000)).at(1, P1, construction(&[1], warp(kind)));
         t.step();
         assert_eq!(bank(&t, P1), 1000 - cost, "{kind:?}: paid at once");
         assert!(
@@ -302,21 +317,14 @@ fn warp_ins_take_their_warp_in_time_and_work_from_the_next_tick() {
 /// itself; the command's tick is the first frame.
 #[test]
 fn hp_and_shields_interpolate_by_the_formulas() {
-    for Building {
-        kind,
-        origin: (x, y),
-        frames,
-        ..
-    } in BUILDINGS
-    {
+    for Building { kind, frames, .. } in BUILDINGS {
         let (to_hp, to_shields) = (kind.def().max_hp.unwrap(), kind.def().max_shields.unwrap());
         let mut t = base().start();
         assert_eq!(
             (object(&t, 1).max_hp(), object(&t, 1).max_shields()),
             (Some(120.0), Some(10.0))
         );
-        t.debug_at(1, fund(P1, 1000))
-            .at(1, P1, construction(&[1], warp(kind, at(x, y))));
+        t.debug_at(1, fund(P1, 1000)).at(1, P1, construction(&[1], warp(kind)));
         t.step();
         let first = 120.0 + (to_hp - 120.0) / frames as f32;
         assert!(
@@ -339,7 +347,7 @@ fn hp_and_shields_interpolate_by_the_formulas() {
     }
     let mut t = base().start();
     t.debug_at(1, fund(P1, 1000))
-        .at(1, P1, construction(&[1], warp(RoboPortal, at(7, 5))));
+        .at(1, P1, construction(&[1], warp(RoboPortal)));
     t.run_until(320);
     let o = object(&t, 1);
     assert_eq!((o.hp, o.max_shields()), (Some(360.0), Some(15.0)), "the plan's example");
@@ -391,7 +399,7 @@ fn a_damaged_beacon_keeps_its_deficit_through_the_warp_in() {
     let deficit = 120.0 - object(&t, 1).hp.unwrap();
     assert!(deficit >= 40.0 && deficit % 10.0 == 0.0, "{deficit}");
     let start = tick + 2;
-    t.at(start, P1, construction(&[1], warp(RoboPortal, at(7, 5))));
+    t.at(start, P1, construction(&[1], warp(RoboPortal)));
     for frames in [1, 160, 320, 639, 640] {
         t.run_until(start + frames - 1);
         let o = object(&t, 1);
@@ -408,7 +416,7 @@ fn shot_at() -> TestSim {
     let mut t = base().start();
     t.without_auto_targeting()
         .debug_at(1, fund(P1, 1000))
-        .at(1, P1, construction(&[1], warp(RoboPortal, at(7, 5))))
+        .at(1, P1, construction(&[1], warp(RoboPortal)))
         .spawn_unit_at(1, Peacekeeper, P2, at(12, 7).center())
         .order_at(100, P2, &[id(6)], OrderKind::Attack(id(1)), false)
         .order_at(130, P2, &[id(6)], OrderKind::Stop, false);
@@ -417,9 +425,11 @@ fn shot_at() -> TestSim {
 
 /// The plan's acceptance, "Footprints" (`core/entities.md > Placement Validation > Warp In`): a 4 × 4 Robo Portal
 /// centred on a 2 × 2 Beacon needs its ring of 12 tiles clear: "All footprint tiles must be Buildable, flat and
-/// unoccupied, except for the Beacon's own footprint". A unit (the player's own), a patch or a structure on the ring
-/// refuses it, with that tile's problem, and the sim says so (`SimEvent::PlacementRefused`, the Beacon as the
-/// constructor); the Beacon's own tiles are ignored, even when the check is shown the Beacon.
+/// unoccupied, except for the Beacon's own footprint". A ground unit of any player (design change 0118: "a ground
+/// unit of any player on the footprint makes those tiles invalid"; air and underground units, which never block,
+/// don't exist yet), a patch or a structure on the ring refuses it, with that tile's problem, and the sim says so
+/// (`SimEvent::PlacementRefused`, the Beacon as the constructor); the Beacon's own tiles are ignored, even when the
+/// check is shown the Beacon.
 #[test]
 fn a_robo_portal_needs_its_ring_of_twelve_tiles_clear() {
     let footprint: Vec<TilePos> = (5..9).flat_map(|y| (7..11).map(move |x| at(x, y))).collect();
@@ -427,9 +437,7 @@ fn a_robo_portal_needs_its_ring_of_twelve_tiles_clear() {
     let ring: Vec<TilePos> = footprint.iter().copied().filter(|t| !beacon.contains(t)).collect();
     assert_eq!(ring.len(), 12);
     let t = base().start();
-    let check = t
-        .sim()
-        .warp_in_check(id(1), RoboPortal, at(7, 5), BuildingOrientation::default());
+    let check = t.sim().warp_in_check(id(1), RoboPortal, BuildingOrientation::default());
     assert_eq!(check, Some(PlacementCheck::default()), "a clear ring");
     // The pure check shown everything, the Beacon included, says the same.
     let area = BuildArea::default();
@@ -453,6 +461,16 @@ fn a_robo_portal_needs_its_ring_of_twelve_tiles_clear() {
                 orientation: BuildingOrientation::default(),
             },
             at(7, 5),
+            TileProblem::Unit,
+        ),
+        (
+            DebugCommand::Spawn {
+                kind: ObjectKind::SabreLegionnaire,
+                owner: Some(P2),
+                at: SpawnAt::Point(at(10, 7).center()),
+                orientation: BuildingOrientation::default(),
+            },
+            at(10, 7),
             TileProblem::Unit,
         ),
         (
@@ -484,13 +502,13 @@ fn a_robo_portal_needs_its_ring_of_twelve_tiles_clear() {
         let first = PlacementProblem::Tile(on, problem);
         let check = t
             .sim()
-            .warp_in_check(id(1), RoboPortal, at(7, 5), BuildingOrientation::default())
+            .warp_in_check(id(1), RoboPortal, BuildingOrientation::default())
             .unwrap();
         assert_eq!(check.tiles, [(on, problem)], "only the ring tile");
         let refusal = assert_rejected(
             &mut t,
             P1,
-            construction(&[1], warp(RoboPortal, at(7, 5))),
+            construction(&[1], warp(RoboPortal)),
             Reject::Unplaceable(first),
         );
         assert_eq!(
@@ -505,55 +523,164 @@ fn a_robo_portal_needs_its_ring_of_twelve_tiles_clear() {
         );
         assert_eq!(object(&t, 1).kind, Beacon, "still a Beacon");
         // The smaller Egress Node, on the Beacon's own tiles, still warps in.
-        next(&mut t, construction(&[1], warp(EgressNode, at(8, 6))));
+        next(&mut t, construction(&[1], warp(EgressNode)));
         assert_eq!(object(&t, 1).kind, EgressNode, "{problem:?}");
     }
 }
 
-/// `> Warp In Command`: the footprint is "centered on the Beacon's location" ([`WholeProblem::NotOnBeacon`]): over the
-/// 2 × 2 Beacon 1, a 2 × 2 Egress Node and a 4 × 4 Robo Portal have one footprint each, a 3 × 3 Bio Portal four, the
-/// four that cover the Beacon (placeholder: question Q0040 point 5), in any orientation. Anywhere else is refused.
+/// Design change 0121 (`> Warp In > Warp In Command`: "an odd-sized footprint (3x3 Bio Portal on a 2x2 Beacon) starts
+/// with its extra row/column to the bottom-right. Rotate and flip transform the ghost around the Beacon's centre"),
+/// each point of its Verification, with Warp Ins on Beacon 1 at (8, 6): the Bio Portal covers the Beacon plus one
+/// extra column right and one extra row below; a horizontal flip moves the column left, a vertical flip the row up;
+/// each quarter turn moves the extras to the next corner clockwise, "and exit sides rotate accordingly": its exit
+/// sides, the A sides (`> Exit Behavior`), are the top and the right unturned, and in every orientation one of them
+/// faces the extras and the other faces away from them along the other axis, as the right side and the top do
+/// unturned. The Egress Node and the Robo Portal are centred exactly in every orientation. The command names no
+/// position: the footprint is `transform::warp_in_footprint`'s, which the check and the ghost share.
 #[test]
-fn a_warp_in_is_centred_on_its_beacon() {
-    let t = base().start();
-    let turnings: Vec<BuildingOrientation> = [Rotation::R0, Rotation::R90, Rotation::R180, Rotation::R270]
-        .into_iter()
-        .flat_map(|rotation| {
-            [(false, false), (true, false), (false, true), (true, true)].map(|(flip_h, flip_v)| BuildingOrientation {
-                rotation,
-                flip_h,
-                flip_v,
-            })
-        })
-        .collect();
-    for (kind, valid) in [
-        (EgressNode, vec![at(8, 6)]),
-        (RoboPortal, vec![at(7, 5)]),
-        (BioPortal, vec![at(7, 5), at(8, 5), at(7, 6), at(8, 6)]),
-    ] {
-        for &orientation in &turnings {
-            for y in 2..11 {
-                for x in 4..13 {
-                    let check = t.sim().warp_in_check(id(1), kind, at(x, y), orientation).unwrap();
-                    if valid.contains(&at(x, y)) {
-                        assert!(check.is_valid(), "{kind:?} at ({x}, {y}): {check:?}");
-                    } else {
-                        assert_eq!(
-                            check.first_problem(),
-                            Some(PlacementProblem::Whole(WholeProblem::NotOnBeacon)),
-                            "{kind:?} at ({x}, {y})"
-                        );
-                    }
-                }
+fn a_warp_in_footprint_is_derived_from_its_beacon_and_its_orientation() {
+    use Rotation::{R0, R90, R180, R270};
+    let turned = |rotation, flip_h, flip_v| BuildingOrientation {
+        rotation,
+        flip_h,
+        flip_v,
+    };
+    // Where Beacon 1 warps in `kind` turned by `orientation`.
+    let warped = |kind, orientation| -> Placement {
+        let mut t = base().start();
+        t.debug_at(1, fund(P1, 1000))
+            .at(1, P1, construction(&[1], WarpIn { kind, orientation }));
+        t.step();
+        let o = object(&t, 1);
+        assert_eq!(o.kind, kind, "{orientation:?}");
+        let placement = o.placement.unwrap();
+        assert_eq!(placement.orientation(), orientation);
+        let beacon = transform(&t, 1).from_placement.unwrap();
+        assert_eq!(warp_in_footprint(&beacon, kind, orientation), Some(placement));
+        placement
+    };
+    // The Bio Portal's top-left tile, by the corner its extras are at.
+    let (bottom_right, bottom_left, top_left, top_right) = (at(8, 6), at(7, 6), at(7, 5), at(8, 5));
+    let corner = |rotation, flip_h, flip_v| {
+        let p = warped(BioPortal, turned(rotation, flip_h, flip_v));
+        assert_eq!((p.w, p.h), (3, 3));
+        p.origin
+    };
+    assert_eq!(
+        corner(R0, false, false),
+        bottom_right,
+        "an extra column right, an extra row below"
+    );
+    assert_eq!(
+        corner(R0, true, false),
+        bottom_left,
+        "H flip: the extra column moves left"
+    );
+    assert_eq!(corner(R0, false, true), top_right, "V flip: the extra row moves up");
+    assert_eq!(
+        [R0, R90, R180, R270].map(|rotation| corner(rotation, false, false)),
+        [bottom_right, bottom_left, top_left, top_right],
+        "each quarter turn clockwise: the next corner clockwise"
+    );
+    for orientation in every_orientation() {
+        let p = warped(BioPortal, orientation);
+        // Which way the extras lie from the Beacon's centre, (9, 7), along each axis.
+        let (dx, dy) = (
+            i64::from((2 * p.origin.x + 3 - 18).signum()),
+            i64::from((2 * p.origin.y + 3 - 14).signum()),
+        );
+        let exits: Vec<(i64, i64)> = DIRECTIONS
+            .into_iter()
+            .zip(sides(BioPortal, orientation).unwrap())
+            .filter(|&(_, letter)| letter == SideLetter::A)
+            .map(|(direction, _)| direction)
+            .collect();
+        let towards = exits.iter().find(|d| [(dx, 0), (0, dy)].contains(d));
+        let away = exits.iter().find(|d| [(-dx, 0), (0, -dy)].contains(d));
+        let (Some(towards), Some(away)) = (towards, away) else {
+            panic!("{orientation:?}: exit sides {exits:?}, extras towards ({dx}, {dy})");
+        };
+        assert_ne!(towards.0 == 0, away.0 == 0, "{orientation:?}: on the two axes");
+        for (kind, origin, size) in [(EgressNode, at(8, 6), 2), (RoboPortal, at(7, 5), 4)] {
+            if orientation.rotation == R90 || orientation.flip_h {
+                let p = warped(kind, orientation);
+                assert_eq!((p.origin, p.w, p.h), (origin, size, size), "{kind:?} {orientation:?}");
             }
         }
     }
     // An object that doesn't exist has no Warp In to check.
+    let t = base().start();
     assert_eq!(
         t.sim()
-            .warp_in_check(id(99), EgressNode, at(8, 6), BuildingOrientation::default()),
+            .warp_in_check(id(99), EgressNode, BuildingOrientation::default()),
         None
     );
+}
+
+/// Design change 0119 (`core/entities.md > Placement Validation > Warp In`: "as in Direct Placement, every footprint
+/// tile must be Visible to the player"; its Verification: "If any footprint tile is not Visible (test setup), it's red
+/// regardless of what stands there"). Beacon 7, which a debug spawn puts down in the tick of the Warp In, hasn't
+/// looked around yet: the check takes the sight the latest tick left (`Sim::warp_in_check`), and player 1 then sees
+/// none of the Robo Portal's footprint around it. The gate refuses it with Direct Placement's visibility problem
+/// ([`TileProblem::NotVisible`]), every tile's only one: player 2's Peacekeeper 6 standing on the footprint, out of
+/// player 1's sight, shows as nothing else, so the check gives nothing away. A tick later the Beacon sees its
+/// surroundings: the Peacekeeper's tile alone is refused, as occupied ([`TileProblem::Unit`]), and the Egress Node,
+/// on the Beacon's own tiles, warps in.
+#[test]
+fn a_warp_in_needs_every_tile_visible() {
+    let mut t = base()
+        .spawn(Peacekeeper, Some(P2), SpawnAt::Point(at(2, 13).center()))
+        .start();
+    t.debug_at(1, fund(P1, 1000));
+    t.step();
+    let footprint: Vec<TilePos> = (10..14).flat_map(|y| (2..6).map(move |x| at(x, y))).collect();
+    assert!(
+        footprint
+            .iter()
+            .all(|&tile| t.sim().visibility(P1, tile) != sc_sim::VisibilityState::Visible),
+        "player 1 sees none of it"
+    );
+    let tick = t.sim().tick() + 1;
+    t.debug_at(
+        tick,
+        DebugCommand::Spawn {
+            kind: Beacon,
+            owner: Some(P1),
+            at: tile(3, 11),
+            orientation: BuildingOrientation::default(),
+        },
+    )
+    .at(tick, P1, construction(&[7], warp(RoboPortal)))
+    .step();
+    assert_eq!((object(&t, 7).kind, bank(&t, P1)), (Beacon, 1000), "refused");
+    let refused = t.sim().events().iter().find_map(|e| match e {
+        SimEvent::PlacementRefused {
+            constructor,
+            kind,
+            origin,
+            problems,
+            ..
+        } => Some((*constructor, *kind, *origin, problems.clone())),
+        _ => None,
+    });
+    let hidden = PlacementCheck {
+        tiles: footprint.iter().map(|&tile| (tile, TileProblem::NotVisible)).collect(),
+        whole: Vec::new(),
+    };
+    assert_eq!(refused, Some((id(7), RoboPortal, at(2, 10), hidden)));
+    let check = t
+        .sim()
+        .warp_in_check(id(7), RoboPortal, BuildingOrientation::default())
+        .unwrap();
+    assert_eq!(check.tiles, [(at(2, 13), TileProblem::Unit)], "it sees now");
+    assert_rejected(
+        &mut t,
+        P1,
+        construction(&[7], warp(RoboPortal)),
+        Reject::Unplaceable(PlacementProblem::Tile(at(2, 13), TileProblem::Unit)),
+    );
+    next(&mut t, construction(&[7], warp(EgressNode)));
+    assert_eq!(object(&t, 7).kind, EgressNode);
 }
 
 /// Design change 0109 (`> Warp In > The target building from the first frame`), its Verification: "Warp In a 3x3
@@ -595,7 +722,7 @@ fn the_whole_footprint_is_solid_from_the_first_frame() {
         assert_eq!(solid(&t), beacon_tiles, "{kind:?}: the Beacon's 2 × 2 only");
         let goal = at(13, 7).center();
         let tick = t.sim().tick() + 1;
-        t.at(tick, P1, construction(&[1], warp(kind, origin)))
+        t.at(tick, P1, construction(&[1], warp(kind)))
             .order_at(tick, P1, &[id(6)], OrderKind::Move(Target::Point(goal)), false)
             .step();
         assert_eq!(
@@ -634,7 +761,7 @@ fn an_egress_node_being_warped_in_takes_no_drop_off() {
         .spawn(CrystalPatch, None, tile(5, 10))
         .start();
     t.debug_at(1, fund(P1, 75))
-        .at(1, P1, construction(&[1], warp(EgressNode, at(8, 6))));
+        .at(1, P1, construction(&[1], warp(EgressNode)));
     t.step();
     let drone = [id(6)];
     let drop_off = PlayerCommand {
@@ -683,12 +810,11 @@ fn an_egress_node_being_warped_in_takes_no_drop_off() {
 #[test]
 fn a_cancel_refunds_75_percent_and_the_beacon_returns() {
     for (b, refund) in BUILDINGS.into_iter().zip([56, 300, 112]) {
-        let (kind, (x, y), cost) = (b.kind, b.origin, b.cost);
+        let (kind, cost) = (b.kind, b.cost);
         assert_eq!(Refund::Ready.of(cost), refund);
         let mut t = base().start();
         let before = object(&t, 1).clone();
-        t.debug_at(1, fund(P1, 1000))
-            .at(1, P1, construction(&[1], warp(kind, at(x, y))));
+        t.debug_at(1, fund(P1, 1000)).at(1, P1, construction(&[1], warp(kind)));
         t.run_until(99);
         next(&mut t, construction(&[1], CancelTransform));
         assert_eq!(cancellations(&t), [(100, 1, kind, refund)]);
@@ -707,7 +833,7 @@ fn a_cancel_refunds_75_percent_and_the_beacon_returns() {
         assert_eq!(o.max_hp(), Some(120.0));
         let again = PlayerCommand {
             player: P1,
-            command: construction(&[1], warp(kind, at(x, y))),
+            command: construction(&[1], warp(kind)),
         };
         assert_eq!(t.sim().validate(&again), Ok(()), "a Beacon again");
     }
@@ -736,7 +862,7 @@ fn a_cancel_keeps_the_fraction_of_hp() {
 fn a_cancel_at_half_hp_leaves_a_beacon_at_60_and_a_nearly_dead_one_alive() {
     let mut t = base().start();
     t.debug_at(1, fund(P1, 1000))
-        .at(1, P1, construction(&[1], warp(RoboPortal, at(7, 5))));
+        .at(1, P1, construction(&[1], warp(RoboPortal)));
     t.run_until(160);
     assert_eq!(object(&t, 1).max_hp(), Some(240.0));
     let cancel = TickInputs {
@@ -766,7 +892,7 @@ fn a_building_being_warped_in_keeps_providing_beacon_capacity() {
     let available = |t: &TestSim| t.sim().army_cap(P1).map(|cap| cap.available);
     let mut t = base().start();
     t.debug_at(1, fund(P1, 1000))
-        .at(2, P1, construction(&[1], warp(RoboPortal, at(7, 5))));
+        .at(2, P1, construction(&[1], warp(RoboPortal)));
     t.step();
     assert_eq!(available(&t), Some(10), "two Beacons");
     while t.sim().tick() < 700 {
@@ -776,7 +902,7 @@ fn a_building_being_warped_in_keeps_providing_beacon_capacity() {
     assert_eq!(completions(&t), [(641, 1, RoboPortal)]);
     let mut t = base().start();
     t.debug_at(1, fund(P1, 1000))
-        .at(1, P1, construction(&[1], warp(BioPortal, at(7, 5))))
+        .at(1, P1, construction(&[1], warp(BioPortal)))
         .debug_at(100, DebugCommand::Remove { id: id(1) });
     t.run_until(99);
     assert_eq!(available(&t), Some(10));
@@ -794,7 +920,7 @@ fn a_building_being_warped_in_keeps_its_owner_undefeated() {
         .spawn(Generator, Some(P2), tile(20, 12))
         .start();
     t.debug_at(1, fund(P1, 75))
-        .at(1, P1, construction(&[1], warp(EgressNode, at(8, 6))));
+        .at(1, P1, construction(&[1], warp(EgressNode)));
     for _ in 0..400 {
         t.step();
         assert!(!t.sim().player(P1).unwrap().is_defeated(), "tick {}", t.sim().tick());
@@ -821,7 +947,7 @@ fn a_portal_destroyed_mid_warp_in_refunds_nothing() {
         let attackers: Vec<ObjectId> = (4..=9).map(id).collect();
         t.without_auto_targeting()
             .debug_at(1, fund(P1, 1000))
-            .at(1, P1, construction(&[1], warp(kind, at(7, 5))))
+            .at(1, P1, construction(&[1], warp(kind)))
             .order_at(2, P2, &attackers, OrderKind::Attack(id(1)), false);
         while t.sim().object(id(1)).is_some() {
             t.step();
@@ -849,8 +975,8 @@ fn a_cancel_goes_to_every_transforming_object_named() {
     let mut t = base().start();
     t.debug_at(1, fund(P1, 1000))
         .debug_at(1, fund(P2, 1000))
-        .at(1, P1, construction(&[1], warp(EgressNode, at(8, 6))))
-        .at(1, P2, construction(&[4], warp(EgressNode, at(16, 12))));
+        .at(1, P1, construction(&[1], warp(EgressNode)))
+        .at(1, P2, construction(&[4], warp(EgressNode)));
     t.step();
     assert_rejected(
         &mut t,
@@ -865,13 +991,13 @@ fn a_cancel_goes_to_every_transforming_object_named() {
         Reject::NotOwned(id(4)),
     );
     assert_rejected(&mut t, P1, construction(&[], CancelTransform), Reject::NotTransforming);
-    next(&mut t, construction(&[1], warp(RoboPortal, at(7, 5))));
+    next(&mut t, construction(&[1], warp(RoboPortal)));
     assert_eq!(
         object(&t, 1).kind,
         EgressNode,
         "a building being warped in warps nothing in"
     );
-    next(&mut t, construction(&[2], warp(RoboPortal, at(15, 5))));
+    next(&mut t, construction(&[2], warp(RoboPortal)));
     assert_eq!(object(&t, 2).kind, RoboPortal);
     next(&mut t, construction(&[3, 2, 1, 2, 99], CancelTransform));
     let tick = t.sim().tick();
@@ -900,7 +1026,7 @@ fn a_destroyed_warp_in_is_lost_and_its_last_structure_defeats_its_owner() {
     let mut t = builder.start();
     t.without_auto_targeting()
         .debug_at(1, fund(P1, 75))
-        .at(1, P1, construction(&[1], warp(EgressNode, at(8, 6))))
+        .at(1, P1, construction(&[1], warp(EgressNode)))
         .order_at(2, P2, &[id(3), id(4), id(5), id(6)], OrderKind::Attack(id(1)), false);
     let mut died = None;
     for _ in 0..300 {
@@ -936,15 +1062,15 @@ fn a_destroyed_warp_in_is_lost_and_its_last_structure_defeats_its_owner() {
 
 /// The gate's other rules for a Warp In (`Sim::validate`): one Beacon of the player's ([`Reject::NoConstructor`],
 /// [`Reject::SeveralConstructors`], [`Reject::NotOwned`]), a building on its Constructs List
-/// ([`Reject::CannotConstruct`]), a bank that covers the cost as the command applies, after the earlier commands of
-/// the tick ([`Reject::InsufficientCrystals`]), and a footprint centred on it. A refused command changes nothing,
-/// but a refused footprint is reported.
+/// ([`Reject::CannotConstruct`]), and a bank that covers the cost as the command applies, after the earlier commands
+/// of the tick ([`Reject::InsufficientCrystals`]). A refused command changes nothing (a refused footprint, which is
+/// also reported, is the footprint tests').
 #[test]
 fn refused_warp_ins_change_nothing() {
     let mut t = base().start();
     t.debug_at(1, fund(P1, 399));
     t.step();
-    let robo = |objects: &[u32]| construction(objects, warp(RoboPortal, at(7, 5)));
+    let robo = |objects: &[u32]| construction(objects, warp(RoboPortal));
     assert_rejected(&mut t, P1, robo(&[]), Reject::NoConstructor);
     assert_rejected(&mut t, P1, robo(&[3]), Reject::NoConstructor);
     assert_rejected(&mut t, P1, robo(&[99]), Reject::NoConstructor);
@@ -952,23 +1078,15 @@ fn refused_warp_ins_change_nothing() {
     assert_rejected(&mut t, P1, robo(&[1, 4]), Reject::NotOwned(id(4)));
     assert_rejected(&mut t, P2, robo(&[1]), Reject::NotOwned(id(1)));
     for kind in [ObjectKind::Barracks, Beacon, Generator] {
-        let command = construction(&[1], warp(kind, at(8, 6)));
+        let command = construction(&[1], warp(kind));
         assert_rejected(&mut t, P1, command, Reject::CannotConstruct(kind));
     }
     assert_rejected(&mut t, P1, robo(&[1]), Reject::InsufficientCrystals);
-    let off = construction(&[1], warp(EgressNode, at(9, 6)));
-    let refusal = assert_rejected(
-        &mut t,
-        P1,
-        off,
-        Reject::Unplaceable(PlacementProblem::Whole(WholeProblem::NotOnBeacon)),
-    );
-    assert!(matches!(refusal, Some(SimEvent::PlacementRefused { constructor, .. }) if constructor == id(1)));
     // Two Warp Ins in one tick, a bank for one: the second Beacon's is refused, and it stays a Beacon.
     let tick = t.sim().tick() + 1;
     t.debug_at(tick, fund(P1, 200))
-        .at(tick, P1, construction(&[1], warp(BioPortal, at(7, 5))))
-        .at(tick, P1, construction(&[2], warp(EgressNode, at(16, 6))))
+        .at(tick, P1, construction(&[1], warp(BioPortal)))
+        .at(tick, P1, construction(&[2], warp(EgressNode)))
         .step();
     assert_eq!((object(&t, 1).kind, object(&t, 2).kind), (BioPortal, Beacon));
     assert_eq!(bank(&t, P1), 50, "the Egress Node's 75 wasn't there any more");
@@ -992,63 +1110,49 @@ fn a_transforming_beacon_warps_nothing_in() {
     assert!(sim.object(id(1)).unwrap().is_transforming());
     let cmd = PlayerCommand {
         player: P1,
-        command: construction(&[1], warp(EgressNode, at(8, 6))),
+        command: construction(&[1], warp(EgressNode)),
     };
     assert_eq!(sim.validate(&cmd), Err(Reject::ConstructorBusy(id(1))));
 }
 
 /// The plan's acceptance, "Consistency": the gate refuses a Warp In for its footprint exactly when
-/// `Sim::warp_in_check` finds a problem, with its first one, for every building, every orientation and every origin
-/// around Beacon 1, with a unit, a patch and a structure about.
+/// `Sim::warp_in_check` finds a problem, with its first one, for both of player 1's Beacons, every building and every
+/// orientation, with a unit, a patch and a structure about that block some of the footprints: Beacon 1's Robo Portal
+/// and three corners of its Bio Portal, Beacon 2's Robo Portal and two corners of its Bio Portal.
 #[test]
 fn the_gate_and_the_warp_in_check_agree() {
     let mut t = base()
-        .spawn(Peacekeeper, Some(P2), SpawnAt::Point(at(11, 6).center()))
-        .spawn(CrystalPatch, None, tile(6, 9))
-        .spawn(Generator, Some(P2), tile(9, 2))
+        .spawn(Peacekeeper, Some(P2), SpawnAt::Point(at(7, 6).center()))
+        .spawn(CrystalPatch, None, tile(10, 8))
+        .spawn(Generator, Some(P2), tile(17, 8))
         .start();
     t.debug_at(1, fund(P1, 1000));
     t.step();
     let (mut valid, mut refused) = (0, 0);
-    for kind in [EgressNode, RoboPortal, BioPortal] {
-        for rotation in [Rotation::R0, Rotation::R90, Rotation::R180, Rotation::R270] {
-            for (flip_h, flip_v) in [(false, false), (true, true)] {
-                let orientation = BuildingOrientation {
-                    rotation,
-                    flip_h,
-                    flip_v,
+    for beacon in [1, 2] {
+        for kind in [EgressNode, RoboPortal, BioPortal] {
+            for orientation in every_orientation() {
+                let check = t.sim().warp_in_check(id(beacon), kind, orientation).unwrap();
+                let cmd = PlayerCommand {
+                    player: P1,
+                    command: construction(&[beacon], WarpIn { kind, orientation }),
                 };
-                for y in 3..10 {
-                    for x in 5..12 {
-                        let check = t.sim().warp_in_check(id(1), kind, at(x, y), orientation).unwrap();
-                        let cmd = PlayerCommand {
-                            player: P1,
-                            command: construction(
-                                &[1],
-                                WarpIn {
-                                    kind,
-                                    origin: at(x, y),
-                                    orientation,
-                                },
-                            ),
-                        };
-                        let verdict = t.sim().validate(&cmd);
-                        match check.first_problem() {
-                            None => {
-                                valid += 1;
-                                assert_eq!(verdict, Ok(()), "{kind:?} at ({x}, {y})");
-                            }
-                            Some(problem) => {
-                                refused += 1;
-                                assert_eq!(verdict, Err(Reject::Unplaceable(problem)), "{kind:?} at ({x}, {y})");
-                            }
-                        }
+                let verdict = t.sim().validate(&cmd);
+                match check.first_problem() {
+                    None => {
+                        valid += 1;
+                        assert_eq!(verdict, Ok(()), "{beacon}: {kind:?} {orientation:?}");
+                    }
+                    Some(problem) => {
+                        refused += 1;
+                        let expected = Err(Reject::Unplaceable(problem));
+                        assert_eq!(verdict, expected, "{beacon}: {kind:?} {orientation:?}");
                     }
                 }
             }
         }
     }
-    assert!(valid > 0 && refused > valid, "{valid} valid, {refused} refused");
+    assert_eq!((valid, refused), (16 + 4 + 16 + 8, 16 + 12 + 16 + 8));
 }
 
 /// A game saved in the middle of its Warp Ins loads and goes on exactly as the running one; the replay of its
@@ -1058,11 +1162,11 @@ fn warp_ins_go_on_alike_after_a_save_and_in_a_replay() {
     let mut t = base().start();
     t.debug_at(1, fund(P1, 1000))
         .debug_at(1, fund(P2, 1000))
-        .at(1, P1, construction(&[1], warp(RoboPortal, at(7, 5))))
-        .at(2, P1, construction(&[2], warp(BioPortal, at(16, 6))))
-        .at(3, P2, construction(&[4], warp(EgressNode, at(16, 12))))
+        .at(1, P1, construction(&[1], warp(RoboPortal)))
+        .at(2, P1, construction(&[2], warp(BioPortal)))
+        .at(3, P2, construction(&[4], warp(EgressNode)))
         .at(250, P1, construction(&[2], CancelTransform))
-        .at(260, P1, construction(&[2], warp(EgressNode, at(16, 6))))
+        .at(260, P1, construction(&[2], warp(EgressNode)))
         .at(700, P1, train(&[1], Drone));
     t.run_until(200);
     let saved = serde_json::to_string(t.sim()).unwrap();
@@ -1084,7 +1188,7 @@ fn warp_ins_go_on_alike_after_a_save_and_in_a_replay() {
 }
 
 /// The gate, fuzzed: random Warp Ins and cancels from any player (in the game or not) to any ids, of any kind,
-/// anywhere and turned anyhow, with Beacons spawned and objects removed now and then, never panic; a rejected one
+/// turned anyhow, with Beacons spawned anywhere and objects removed now and then, never panic; a rejected one
 /// changes nothing, but a footprint the placement check refuses, which only reports `PlacementRefused`. Each command
 /// runs alone in a tick, next to a copy of the game that runs the same tick without it. Twice from the same seed, the
 /// runs are identical, and the recorded commands replay to the same state.
@@ -1167,23 +1271,14 @@ fn random_command(rng: &mut Rng, sim: &Sim) -> PlayerCommand {
             } else {
                 [EgressNode, RoboPortal, BioPortal][rng.below(3) as usize]
             };
-            let (objects, origin) = match beacons.is_empty() || rng.below(5) == 0 {
-                true => (
-                    vec![ObjectId(rng.below(30) + 1)],
-                    at(rng.below(26) as i32 - 2, rng.below(18) as i32 - 2),
-                ),
-                false => {
-                    let beacon = beacons[rng.below(beacons.len() as u32) as usize];
-                    let p = beacon.placement.unwrap();
-                    let o = at(p.origin.x - rng.below(3) as i32, p.origin.y - rng.below(3) as i32);
-                    (vec![beacon.id], o)
-                }
+            let objects = match beacons.is_empty() || rng.below(5) == 0 {
+                true => vec![ObjectId(rng.below(30) + 1)],
+                false => vec![beacons[rng.below(beacons.len() as u32) as usize].id],
             };
             Command::Construction {
                 objects,
                 command: WarpIn {
                     kind,
-                    origin,
                     orientation: turned(rng),
                 },
             }
@@ -1247,11 +1342,16 @@ fn warp_in_fuzz(seed: u64) -> (Counts, Vec<u64>, Replay) {
                 _ => {}
             }
         }
-        // A transforming object is always the building of its Warp In, standing over where its Beacon stood.
+        // A transforming object is always the building of its Warp In, on the footprint of its Beacon's.
         for o in sim.objects().filter(|o| o.is_transforming()) {
             let (w, p) = (o.transform.as_ref().unwrap(), o.placement.unwrap());
             let from = w.from_placement.unwrap();
-            assert!(from.overlaps(&p), "#{}: {p:?} over {from:?}", o.id.0);
+            assert_eq!(
+                warp_in_footprint(&from, o.kind, p.orientation()),
+                Some(p),
+                "#{}: over {from:?}",
+                o.id.0
+            );
             assert_eq!(w.from, Beacon);
             assert!(
                 o.production.is_none() && o.constructor.is_none(),

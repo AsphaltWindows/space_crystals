@@ -446,25 +446,26 @@ mod tests {
 
     /// Plan decision T15 (`SimEvent::KindChanged`): an object that changes its type in place stays selected, with its
     /// id, in its new type's group. An ActiveGroup it leaves empty gives way to that group; one it doesn't leave
-    /// empty stays active. The ObjectInterfaceState resets only with the ActiveGroup. Beacons 1 and 2 warp in Robo
-    /// Portals (Groupable) and an Egress Node (Ungroupable: a group of its own); a cancel turns one back.
+    /// empty stays active. The ObjectInterfaceState resets only with the ActiveGroup. Beacons 1 and 2 (Ungroupable,
+    /// design change 0122: a group each) warp in Robo Portals (Groupable: one group for both) and an Egress Node
+    /// (Ungroupable); a cancel turns one back.
     #[test]
     fn a_kind_change_keeps_the_object_selected_in_its_new_group() {
         use ObjectKind::{Beacon, EgressNode, RoboPortal};
         let awaiting = InterfaceState::awaiting(crate::command_ui::PanelCommand::Attack);
         let mut state = ControlState::EMPTY;
         state.selection = Selection::new([(id(1), Beacon), (id(2), Beacon)]);
-        state.interface = awaiting;
-        let beacons = GroupKey::of(id(1), Beacon);
+        assert_eq!(state.selection.active(), Some(GroupKey::of(id(1), Beacon)));
         let portals = GroupKey::of(id(1), RoboPortal);
+        state.interface = awaiting;
         assert!(state.set_kind(id(1), RoboPortal));
         assert_eq!(state.selection.kind_of(id(1)), Some(RoboPortal));
-        assert_eq!(state.selection.active(), Some(beacons), "Beacon 2 is still in it");
-        assert_eq!(state.interface, awaiting);
-        assert!(state.set_kind(id(2), RoboPortal));
-        assert_eq!(state.selection.active(), Some(portals), "the Beacons' group is gone");
-        assert_eq!(state.selection.active_group().unwrap().instances, [id(1), id(2)]);
+        assert_eq!(state.selection.active(), Some(portals), "Beacon 1's group is gone");
         assert_eq!(state.interface, InterfaceState::DefaultState);
+        state.interface = awaiting;
+        assert!(state.set_kind(id(2), RoboPortal));
+        assert_eq!(state.selection.active_group().unwrap().instances, [id(1), id(2)]);
+        assert_eq!(state.interface, awaiting, "the ActiveGroup stays");
         assert!(!state.set_kind(id(2), RoboPortal), "no change");
         assert!(!state.set_kind(id(3), RoboPortal), "not selected");
         assert!(state.set_kind(id(1), EgressNode));
@@ -473,7 +474,7 @@ mod tests {
         assert_eq!(keys, [node, portals].into(), "the Egress Node in a group of its own");
         assert_eq!(state.selection.active(), Some(portals), "Robo Portal 2 is still in it");
         assert!(state.set_kind(id(2), Beacon), "cancelled");
-        assert_eq!(state.selection.active(), Some(beacons));
+        assert_eq!(state.selection.active(), Some(GroupKey::of(id(2), Beacon)));
         assert_eq!(state.selection.ids().collect::<Vec<_>>(), [id(1), id(2)]);
     }
 }

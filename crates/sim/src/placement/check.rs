@@ -43,9 +43,9 @@ impl Occupant {
 /// How a placement is checked: in a game, or for a Starting Layout.
 #[derive(Copy, Clone, Debug)]
 pub enum Mode<'a> {
-    /// A player's Direct Placement in a game (`core/entities.md > Placement Validation > Direct Placement`): every
-    /// footprint tile must be Visible to `player` in `vision`, as the latest tick left it; an Extraction Plate's too
-    /// (design change 0095).
+    /// A player's placement in a game (`core/entities.md > Placement Validation > Direct Placement`, `> Warp In`):
+    /// every footprint tile must be Visible to `player` in `vision`, as the latest tick left it; an Extraction
+    /// Plate's too (design change 0095), and a Warp In's (design change 0119).
     Command { vision: &'a Vision, player: PlayerId },
     /// An object of a Starting Layout (`core/map_editor.md > Starting Layouts > Layout validation`, design change
     /// 0097): the faction's "normal in-game placement rules, minus visibility", as nothing is "visible" in the editor.
@@ -61,11 +61,13 @@ pub enum Method {
     /// the build area for a GDO building.
     Direct,
     /// `> Warp In` (`factions/colonists/economy.md > Warp In`): the Beacon standing at `beacon` transforms in place
-    /// into the structure. Every footprint tile must be Buildable, flat and unoccupied "except for the Beacon's own
-    /// footprint, which will be consumed by the transformation": the tiles under `beacon` break no rule. A ground
-    /// unit occupies its tiles, as for a Direct Placement (placeholder: question Q0040 point 2). No tile needs to be
-    /// Visible (placeholder: Q0040 point 3) and there is no build area. The footprint is centred on the Beacon
-    /// ([`WholeProblem::NotOnBeacon`]).
+    /// into the structure, on the footprint `crate::transform::warp_in_footprint` derives from it (design change
+    /// 0121), which the caller checks. Every footprint tile must be Buildable, flat and unoccupied "except for the
+    /// Beacon's own footprint, which will be consumed by the transformation": the tiles under `beacon` break no rule
+    /// but sight. A ground unit of any player occupies its tiles, air and underground units never do (design change
+    /// 0118), as for a Direct Placement. Every tile must be Visible, as for a Direct Placement (design change 0119:
+    /// "a tile that isn't is red on the ghost", whatever stands there), the Beacon's own included (its owner's
+    /// Beacon always sees them). There is no build area.
     WarpIn { beacon: Placement },
 }
 
@@ -91,9 +93,9 @@ pub enum TileProblem {
     NotBuildable,
     /// The tile is sloped (`core/map.md > Elevation > Structures only on flat terrain`).
     NotFlat,
-    /// The tile isn't Visible to the placing player (in a game, for a Direct Placement only). It is then the tile's
-    /// only problem: what stands on a tile the player doesn't see, and the terrain of one they never saw, is hidden
-    /// from them (`core/vision.md > VisibilityStateEnum`), and the tile is invalid anyway.
+    /// The tile isn't Visible to the placing player (in a game: a Direct Placement or a Warp In, design change
+    /// 0119). It is then the tile's only problem: what stands on a tile the player doesn't see, and the terrain of one
+    /// they never saw, is hidden from them (`core/vision.md > VisibilityStateEnum`), and the tile is invalid anyway.
     NotVisible,
     /// Another structure's footprint covers the tile ("no existing structure overlap"), whoever owns it: a plate on
     /// the patch, for another plate.
@@ -137,11 +139,6 @@ pub enum WholeProblem {
     /// AwaitingPlacement`: "Left-click Space Crystal Patch within GDO build area that does not already have a plate").
     /// A patch that has a plate is the [`TileProblem::Structure`] of that plate.
     NotOnPatch,
-    /// A Warp In's footprint isn't centred on its Beacon (`factions/colonists/economy.md > Warp In > Warp In Command`:
-    /// the ghost is "centered on the Beacon's location"): its centre must lie within half a tile of the Beacon's
-    /// along each axis. A 4 x 4 or a 2 x 2 building has one such footprint over a 2 x 2 Beacon, a 3 x 3 one four,
-    /// those that cover it (placeholder: question Q0040 point 5; which of the four the ghost shows is the client's).
-    NotOnBeacon,
 }
 
 /// Everything that keeps a placement from being valid ([`check`]): nothing, if it is.
@@ -222,8 +219,7 @@ pub fn check(
     // Each footprint tile's problems, as bits, row by row.
     let mut found = vec![0u8; footprint.len()];
     let map = site.map;
-    // `> Direct Placement`: "all footprint tiles must be in the Visible state"; no other method has the rule.
-    let needs_sight = site.method == Method::Direct;
+    // `> Direct Placement`: "all footprint tiles must be in the Visible state"; `> Warp In` too (design change 0119).
     for (i, tile) in footprint.tiles() {
         if !map.in_bounds(tile) {
             found[i] |= TileProblem::OffMap.bit();
@@ -236,7 +232,6 @@ pub fn check(
             found[i] |= TileProblem::NotFlat.bit();
         }
         if let Mode::Command { vision, player } = site.mode
-            && needs_sight
             && vision.state(player, tile) != VisibilityState::Visible
         {
             found[i] |= TileProblem::NotVisible.bit();
@@ -273,12 +268,13 @@ pub fn check(
             }
         }
     }
-    if let Method::WarpIn { beacon } = site.method {
-        // "Except for the Beacon's own footprint, which will be consumed by the transformation."
-        let consumed = TileRect::new(beacon.origin, beacon.w, beacon.h);
-        footprint.clear(&mut found, |tile| overlap(consumed, TileRect::new(tile, 1, 1)));
-    }
     let hidden = TileProblem::NotVisible.bit();
+    if let Method::WarpIn { beacon } = site.method {
+        // "Except for the Beacon's own footprint, which will be consumed by the transformation": every rule but
+        // sight, which is every tile's (design change 0119).
+        let consumed = TileRect::new(beacon.origin, beacon.w, beacon.h);
+        footprint.keep_only(&mut found, hidden, |tile| overlap(consumed, TileRect::new(tile, 1, 1)));
+    }
     let tiles = footprint
         .tiles()
         .flat_map(|(i, tile)| {
@@ -295,11 +291,6 @@ pub fn check(
     }
     if !onto.is_kept() {
         whole.push(WholeProblem::NotOnPatch);
-    }
-    if let Method::WarpIn { beacon } = site.method
-        && !footprint.is_centred_on(&beacon)
-    {
-        whole.push(WholeProblem::NotOnBeacon);
     }
     PlacementCheck { tiles, whole }
 }
@@ -385,21 +376,13 @@ impl Footprint {
         }
     }
 
-    /// Takes every problem off the tiles that `exempt` picks.
-    fn clear(self, found: &mut [u8], exempt: impl Fn(TilePos) -> bool) {
+    /// Takes every problem but those of the bits `kept` off the tiles that `exempt` picks.
+    fn keep_only(self, found: &mut [u8], kept: u8, exempt: impl Fn(TilePos) -> bool) {
         for (i, tile) in self.tiles() {
             if exempt(tile) {
-                found[i] = 0;
+                found[i] &= kept;
             }
         }
-    }
-
-    /// Whether its centre lies within half a tile of `other`'s along each axis ([`WholeProblem::NotOnBeacon`]): in
-    /// half tiles, in 64 bits, so that no footprint overflows.
-    fn is_centred_on(self, other: &Placement) -> bool {
-        let centre = |start: i32, len: u32| 2 * i64::from(start) + i64::from(len);
-        (centre(self.origin.x, self.w) - centre(other.origin.x, other.w)).abs() <= 1
-            && (centre(self.origin.y, self.h) - centre(other.origin.y, other.h)).abs() <= 1
     }
 }
 
@@ -423,7 +406,6 @@ impl fmt::Display for WholeProblem {
             WholeProblem::NotAStructure => "only structures are placed",
             WholeProblem::OutsideBuildArea => "no tile is in the build area",
             WholeProblem::NotOnPatch => "an Extraction Plate goes onto a Space Crystals patch",
-            WholeProblem::NotOnBeacon => "a building warps in centred on its Beacon",
         })
     }
 }

@@ -24,7 +24,7 @@ pub enum Phase {
     Combat,
     /// The dead leave the game and the true grids follow their footprints (5e).
     Deaths,
-    /// The economy: construction, mining, then the producers (plan decision T5).
+    /// The economy: construction, mining, the workers, the transformations, then the producers (plan decision T5).
     Economy,
     /// The defeat check's second walk, which ends the economy phase.
     Defeat,

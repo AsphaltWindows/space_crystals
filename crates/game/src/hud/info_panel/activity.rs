@@ -275,7 +275,6 @@ mod tests {
         );
         let warp_in = ConstructionCommand::WarpIn {
             kind: ObjectKind::RoboPortal,
-            origin: TilePos::new(7, 5),
             orientation: Default::default(),
         };
         t.at(1, P1, construction(warp_in));
