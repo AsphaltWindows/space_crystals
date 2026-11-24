@@ -4,8 +4,11 @@
 //! - **The link** ([`Extractor`], `Object::extractor`): a structure that mines (`StructureDef::mining`: the plate)
 //!   and the Space Crystals patch under it are linked as soon as both are in the game, whichever came first
 //!   ([`extractor_for`] when the plate comes, [`link_patch`] when the patch does), so a map may list them in either
-//!   order. A plate on bare ground (only a debug spawn puts one there) has no extractor and mines nothing, and so
-//!   does a plate whose patch a debug command removed: the removal path drops the link (`Sim::remove_objects`).
+//!   order. **Not design** (the design always has a patch under a plate; reported to the Director): a plate on bare
+//!   ground (nothing requires a plate to be on a patch yet: a map or a debug spawn may put one there) has no
+//!   extractor and mines nothing, not even the residual rate, and so does a plate whose patch a debug command
+//!   removed (the removal path drops the link, `Sim::remove_objects`) and a plate without an owner, which has no
+//!   bank to pay.
 //! - **Cycles** (design change 0098, `> Paid in lumps`): a plate pays its whole load at once at the end of each
 //!   48-frame cycle. The cycle advances by the owner's power ratio each tick (`> PowerPenalty`; the ratio in
 //!   [`crate::economy::RATIO_ONE`]s, plan decision T6), the remainder carried over into the next cycle, so the lumps

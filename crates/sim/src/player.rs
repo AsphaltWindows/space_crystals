@@ -43,7 +43,9 @@ pub struct Player {
 impl Player {
     /// Pays `amount` Space Crystals into the bank (mining, refunds). A bank already near the top saturates instead
     /// of overflowing: only a debug command fills one that far (`ARCHITECTURE.md > Commands, events and replays`:
-    /// numbers that come from input never panic the sim).
+    /// numbers that come from input never panic the sim). So, unlike plan decision T7's sketch, no `debug_assert`
+    /// guards the saturation: `DebugCommand::SetResources` may set a bank to `u32::MAX`, and the plates then pay
+    /// into it.
     pub fn credit_crystals(&mut self, amount: u32) {
         self.crystals = self.crystals.saturating_add(amount);
     }

@@ -3,7 +3,9 @@
 //! buildings." When it is negative, the consumers work slower, at the speed ratio.
 //!
 //! Derived from the objects, never stored (plan decision T7): a structure counts from the tick it is placed until
-//! the tick it is destroyed (design change 0089, point 4), simply because it is among the objects in between.
+//! the tick it is destroyed (design change 0089, point 4), simply because it is among the objects in between. The
+//! tick of its placement counts and the tick of its destruction doesn't: the economy phase runs after the tick's
+//! commands and deaths (plan decision T5, which 0089 confirms).
 
 use std::collections::BTreeMap;
 
