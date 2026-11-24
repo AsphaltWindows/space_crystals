@@ -14,18 +14,20 @@
 //!
 //! `saturation_curve` prints the measurements. **With DragMovement** (slice M3-G, plan decision T25; nothing here
 //! is tuned to the design's table, `factions/gdo/economy.md > Economy Targets (GDO vs Colonists)`) the reference
-//! field gives, dealt out, per second: 6.3 with 4 Drones (the table: 6.1), 11.7 with 8, 17.5 with 12, 23.1 with 16
-//! (the table: 23 at 2 Drones per patch), 25.4 with 20 and 27.1 with 24 (the table: 32 for about 24 working
+//! field gives, dealt out, per second: 6.3 with 4 Drones (the table: 6.1), 11.7 with 8, 17.9 with 12, 23.1 with 16
+//! (the table: 23 at 2 Drones per patch), 25.6 with 20 and 27.3 with 24 (the table: 32 for about 24 working
 //! Drones). On the stand-in mover slice M3-H2 measured 8.3, 15.1, 22.0, 26.8, 32.0 and 32.0: about 30 % high
 //! below saturation, as T25 estimated. Two findings at the crowded end, both for the oracle of slice K1:
 //! - **24 Drones don't saturate 8 patches**: rows of up to 6 patches with three Drones each are mined without a
-//!   break (4 per second and patch), 7 give 24.0 of 28 and 8 give 27.1 of 32. The outer patches' trips are longer
+//!   break (4 per second and patch), 7 give about 24 of 28 and 8 give 27.3 of 32. The outer patches' trips are longer
 //!   than three Drones cover.
 //! - **Drones sent on from patch to patch** (`factions/colonists/units.md > Patch Occupancy`: "When a Drone arrives
 //!   at an occupied patch, it goes to the nearest unoccupied patch to itself instead"): with momentum the patch it
-//!   is sent to is often taken by the time it gets there, and it is sent on again. In the dealt-out field of 24 one
-//!   Drone flew along the row for 578 ticks (36 s) between two deliveries, where the plan's bound for the soak is
-//!   30 s. It is no jam: every Drone moves, and the income is steady. [`CROWDED_GAP`] is the bound asserted there.
+//!   is sent to is often taken by the time it gets there, and it is sent on again. In the dealt-out field of 24 the
+//!   longest a Drone went between two deliveries was 357 ticks in the final build and 578 (36 s) in an earlier
+//!   one of this slice, where the plan's bound for the soak is 30 s: the figure swings with any change to the
+//!   movement. It is no jam: every Drone moves, and the income is steady. [`CROWDED_GAP`] is the bound asserted
+//!   there.
 //!
 //! ```sh
 //! cargo test -p sc_sim --release --test gathering_soak -- --ignored --nocapture --test-threads=1 saturation_curve
@@ -45,7 +47,8 @@ const SOAK_TICKS: Tick = 4800;
 const SETTLED: Tick = 800;
 /// The plan's bound for the soak: "every Drone delivers at least once every 30 s".
 const DELIVERY_GAP: Tick = 480;
-/// The bound for 24 Drones dealt out over the 8 patches, 40 s (module docs, the second finding): measured 578.
+/// The bound for 24 Drones dealt out over the 8 patches, 40 s (module docs, the second finding): measured 357 to
+/// 578 across builds.
 const CROWDED_GAP: Tick = 640;
 
 /// A field: `patches` patches in a row at tiles (8 - patches / 2 .., 3), the Egress Node at tiles (7..9, 6..8), 2

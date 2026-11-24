@@ -64,6 +64,10 @@ pub(super) struct Moved {
     /// unit on (`forward` is false), but it is how the unit gets round. A unit with momentum needs many ticks for
     /// it, and isn't blocked while it makes them (`super::follow`).
     pub aside: bool,
+    /// (M3-G) The step is a slide along tiles: the way to the steering target ran into a blocked tile or the map's
+    /// edge, and the step is what was left of it. A unit with momentum makes the move it asked for itself and
+    /// meets the tile (`super::drag`, design change 0035).
+    pub slid: bool,
 }
 
 /// `(x, y)` turned 45° towards `side`, same length. Constants, no trigonometry (`docs/movement.md > 6.3`).
@@ -319,6 +323,7 @@ impl World<'_> {
                 forward: at != pos,
                 blocker: touched.first().copied(),
                 aside: false,
+                slid: true,
             };
         }
         let Some(hit) = self.first_unit(pos, d) else {
@@ -329,6 +334,7 @@ impl World<'_> {
                 forward: free,
                 blocker: None,
                 aside: false,
+                slid: false,
             };
         };
         touched.push(hit.index);
@@ -340,6 +346,7 @@ impl World<'_> {
                 forward: at != pos,
                 blocker,
                 aside: false,
+                slid: false,
             };
         }
         if let Some((step, forward)) = self.around(pos, d, hit, mover, tick, touched, near_side) {
@@ -348,6 +355,7 @@ impl World<'_> {
                 forward,
                 blocker,
                 aside: !forward,
+                slid: false,
             };
         }
         Moved {
@@ -355,6 +363,7 @@ impl World<'_> {
             forward: false,
             blocker,
             aside: false,
+            slid: false,
         }
     }
 

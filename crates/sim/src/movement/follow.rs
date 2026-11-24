@@ -217,7 +217,7 @@ fn follow(
     let moved = match model {
         Some(model) => {
             *steered = true;
-            let turn = model.drive(from, facing, turn_rate(movement), moved, mover, world, touched);
+            let turn = model.drive(from, facing, turn_rate(movement), d, moved, mover, world, touched);
             *turned = turn.1;
             turning = turn.1 != 0.0;
             turn.0
@@ -259,3 +259,6 @@ fn follow(
     };
     stuck::after_move(*pos, mover, step, &moved, world, chased, engaged, tick)
 }
+
+#[cfg(test)]
+mod tests;

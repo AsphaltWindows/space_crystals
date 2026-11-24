@@ -59,6 +59,7 @@ pub(super) fn leave(
             forward: free,
             blocker: None,
             aside: false,
+            slid: false,
         }
     } else {
         Moved {
@@ -66,6 +67,7 @@ pub(super) fn leave(
             forward: false,
             blocker: touched.first().copied(),
             aside: false,
+            slid: false,
         }
     };
     yielding::ask(world, *pos, d, &moved, false, mover, requests);

@@ -215,7 +215,9 @@ fn of_two_drones_arriving_together_the_lower_id_mines_and_the_other_goes_to_the_
     assert_eq!(phase(&t, 6), Some(GatherPhase::ToPatch));
     assert_eq!(object(&t, 6).worker.unwrap().patch, Some(id(2)));
     let other = mines_from(&mut t, 6);
-    assert!(other > arrived && is_mining(&t, 5), "both mine, each its own patch");
+    // (By then Drone 5 may be on its way to the node: Drone 6 has to turn its momentum round first.)
+    assert!(other > arrived, "both mine, each its own patch");
+    assert_eq!(object(&t, 5).worker.unwrap().patch, Some(id(1)));
     assert_eq!(remaining(&t, 3), 1500, "nobody went to the farther one");
 }
 

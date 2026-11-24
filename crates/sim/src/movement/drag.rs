@@ -16,11 +16,12 @@
 //!    only. Steps 2 and 3 together are `v ← v + a − DragRatio × v`: the drag is taken on the velocity the tick
 //!    began with, so thrust and drag balance at `(Omni + Forward) / DragRatio`, the design's MaxSpeed
 //!    (8 su per tick for the Drone, 4 on Rugged).
-//! 4. **Position**: `pos ← pos + v`, as far as tiles and units allow. What an obstacle blocks of the move is
-//!    dropped, and the velocity with it (`systems/units.md > UnitCollision > Collision Response (Un-sticking)`,
-//!    design change 0035): the momentum the unit keeps is the displacement it made, so a unit that slides along a
-//!    wall keeps its speed along it and loses the rest, and one stopped dead starts again from zero, at
-//!    single-tick acceleration.
+//! 4. **Position**: `pos ← pos + v`, as far as tiles and units allow. If the move runs into an obstacle, "the
+//!    blocked portion of the movement is dropped … and its velocity is set to 0" (`systems/units.md >
+//!    UnitCollision > Collision Response (Un-sticking)`, design change 0035): all of it, not only the part into
+//!    the obstacle. "A unit pressed against an obstacle restarts from 0 every frame, so it moves at
+//!    single-frame-acceleration speed … It gradually scrapes around the obstacle until it is free, then
+//!    accelerates normally." A unit it passes through is no obstacle.
 //!
 //! **What the unit wants** is the step a unit without momentum would take ([`Drag::drive`]): the shared rules
 //! turn the way to the steering waypoint into a step of the **approach speed** (lane steps, slides, steps around
@@ -123,11 +124,17 @@ impl Drag {
     }
 
     /// Steps 2 to 4 for a unit on its way: `probe` is the step from `from` that the shared rules gave a unit
-    /// without momentum, at the approach speed. The unit thrusts towards that step. If its thrust reaches it, the
-    /// step is the unit's move as it is (the rules already found it free, and an arrival lands exactly);
-    /// otherwise it moves by the velocity it got, as far as tiles and units allow, the two axes one after the
-    /// other where the whole move isn't free ([`World::shuffle`]: what is blocked is dropped, design change
-    /// 0035). The displacement made is the momentum kept. `touched` is scratch.
+    /// without momentum, at the approach speed, for the step `asked` of them. The unit thrusts towards that step.
+    /// If its thrust reaches it, the step is the unit's move as it is (the rules already found it free, and an
+    /// arrival lands exactly); otherwise it moves by the velocity it got, as far as tiles and units allow, the two
+    /// axes one after the other where the whole move isn't free ([`World::shuffle`]).
+    ///
+    /// **Blocked** (design change 0035): if the move runs into a tile or a unit, what was blocked of it is
+    /// dropped and **the momentum is zero**: the unit starts again from rest in its next tick. Where the rules'
+    /// step is itself a slide along tiles (`Moved::slid`), the unit thrusts towards the step it asked for, into
+    /// the tile, and meets it: "running into the wall every frame", it creeps along the wall at single-tick
+    /// acceleration until its way is free. A unit it passes through (`space::blocks`) is no obstacle and takes
+    /// nothing. `touched` is scratch.
     #[expect(
         clippy::too_many_arguments,
         reason = "the unit's state, split into the borrows the step holds"
@@ -137,13 +144,14 @@ impl Drag {
         from: Vec2,
         facing: &mut f32,
         turn_rate: f32,
+        asked: Vec2,
         probe: Moved,
         mover: &mut Mover,
         world: &mut World,
         touched: &mut Vec<usize>,
     ) -> (Moved, f32) {
         // Step 1: it turns towards the step it wants, to put its forward thrust behind it.
-        let step = probe.pos - from;
+        let step = if probe.slid { asked } else { probe.pos - from };
         let turned = if step == Vec2::ZERO {
             0.0
         } else {
@@ -151,26 +159,30 @@ impl Drag {
         };
         let kept = mover.momentum * self.keep;
         let (thrust, reached) = self.thrust(step - kept, math::facing_vector(*facing));
-        if reached {
+        if reached && !probe.slid {
             mover.momentum = step;
             return (probe, turned);
         }
+        let velocity = if reached { step } else { kept + thrust };
         touched.clear();
-        let pos = world.shuffle(from, kept + thrust, touched);
-        mover.momentum = pos - from;
+        let pos = world.shuffle(from, velocity, touched);
+        // The whole move, or it met something: then it has no velocity left.
+        mover.momentum = if pos == from + velocity { pos - from } else { Vec2::ZERO };
         let moved = Moved {
             pos,
             // Getting on is the rules' word, as long as the unit moved at all.
             forward: probe.forward && pos != from,
             blocker: probe.blocker.or(touched.first().copied()),
             aside: probe.aside,
+            slid: probe.slid,
         };
         (moved, turned)
     }
 
     /// Steps 2 to 4 for a unit that isn't steering this tick (no goal, no path yet, held by its attack) and still
     /// has momentum: it brakes, thrusting against its motion, and moves by what is left, as far as tiles and
-    /// units allow. It stands once a tick's thrust takes all that the drag left. The facing stays as it is.
+    /// units allow. It stands once a tick's thrust takes all that the drag left, or when it meets a tile or a
+    /// unit (design change 0035: no velocity is left). The facing stays as it is.
     pub(super) fn coast(
         &self,
         pos: &mut Vec2,
@@ -185,13 +197,18 @@ impl Drag {
         let kept = mover.momentum * self.keep;
         let (thrust, stopped) = self.thrust(-kept, math::facing_vector(facing));
         let from = *pos;
+        let velocity = if stopped { Vec2::ZERO } else { kept + thrust };
         if !stopped {
             touched.clear();
-            *pos = world.shuffle(from, kept + thrust, touched);
+            *pos = world.shuffle(from, velocity, touched);
         }
-        mover.momentum = *pos - from;
-        mover.velocity = mover.momentum;
-        mover.locomotion = if mover.momentum == Vec2::ZERO {
+        mover.velocity = *pos - from;
+        mover.momentum = if *pos == from + velocity {
+            *pos - from
+        } else {
+            Vec2::ZERO
+        };
+        mover.locomotion = if mover.velocity == Vec2::ZERO {
             Locomotion::Stationary
         } else {
             Locomotion::Stopping

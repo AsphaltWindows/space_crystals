@@ -208,13 +208,13 @@ fn a_drone_crosses_rugged_terrain_at_half_speed() {
     assert!(after[..20].windows(2).all(|pair| pair[1] > pair[0]), "{after:?}");
 }
 
-/// Acceptance, **Collision** (design change 0035, the points that apply to a hover unit: "the blocked portion of
-/// the movement is dropped … and its velocity is set to 0"): a Drone flying east at speed is sent round a corner
-/// to the north. Its momentum carries it into the wall beyond the corner. It never overlaps the wall (I2, every
-/// tick); against it, it has no velocity into it and keeps what it has along it, and it creeps on round the corner
-/// and arrives.
+/// Acceptance, **Collision** (design change 0035: "If the movement hits an obstacle, drop the blocked portion (no
+/// overlap) and set velocity to 0"): a Drone flying east at speed is sent round a corner to the north. Its
+/// momentum carries it into the wall beyond the corner. It goes as far as the wall and never into it (I2, every
+/// tick), and **all its velocity is gone**, what it had along the wall too: it starts north again from rest, at
+/// single-tick acceleration, and accelerates normally from there.
 #[test]
-fn a_drone_that_meets_a_wall_at_speed_slides_along_it() {
+fn a_drone_that_meets_a_wall_at_speed_loses_all_its_velocity() {
     // An L-shaped passage: east along row 6, then north along column 14. The wall east of column 14 is Mountain.
     let map = [
         "MMMMMMMMMMMMMM.M",
@@ -233,32 +233,42 @@ fn a_drone_that_meets_a_wall_at_speed_slides_along_it() {
     move_to(&mut t, 1, goal);
     // The east wall begins at x = 15 × 64: the Drone's centre rests 18 su before it.
     let against = 15.0 * 64.0 - HALF;
-    let (mut came_at, mut slid) = (Vec2::ZERO, None);
+    let (mut came_at, mut after) = (Vec2::ZERO, Vec::new());
     while t.status(1) != MoveStatus::Arrived {
         let before = t.mover(1).momentum;
         let d = step(&mut t);
         assert!(t.pos(1).x <= against, "tick {}: in the wall", t.sim().tick());
-        if t.status(1) != MoveStatus::Arrived {
-            assert_eq!(t.mover(1).momentum, d, "its momentum is the move it made");
-        }
-        if t.pos(1).x == against && slid.is_none() && before.x > 0.0 {
-            // The tick it met the wall: it went as far as the wall, and on along it.
+        if came_at == Vec2::ZERO && t.pos(1).x == against {
+            // The tick it met the wall: it went as far as the wall, and has no velocity left.
             came_at = before;
-            slid = Some(d);
-        } else if t.pos(1).x == against {
-            assert_eq!(d.x, 0.0, "tick {}: no velocity into the wall", t.sim().tick());
+            assert!(
+                d.x > 0.0 && d.x < before.x * 0.9,
+                "the blocked part is dropped: {d} of {before}"
+            );
+            assert_eq!(t.mover(1).momentum, Vec2::ZERO, "tick {}", t.sim().tick());
+        } else if came_at != Vec2::ZERO {
+            after.push(d);
         }
         assert!(t.sim().tick() < 400, "{}", t.ascii(None));
     }
-    let slid = slid.expect("its momentum carried it into the wall");
-    assert!(came_at.x > 6.0, "it came at speed: {came_at}");
-    assert!(slid.x < came_at.x * 0.9 && slid.y < came_at.y, "{came_at} then {slid}");
+    assert!(
+        came_at.x > 6.0 && came_at.y < 0.0,
+        "it came at speed, turning north: {came_at}"
+    );
+    // From rest: 0.8 su in the first tick, however fast it was going north already, and faster every tick.
+    assert!(after[0].length() <= 0.8 + 1e-3, "{:?}", &after[..4]);
+    assert!(
+        after[..20].windows(2).all(|pair| pair[1].y < pair[0].y),
+        "{:?}",
+        &after[..20]
+    );
     assert_eq!(t.pos(1), goal);
 }
 
-/// The 0035 creep itself: a Drone at rest against a wall, ordered to a point it can only reach along the wall,
-/// starts "from 0", at single-tick acceleration, and gets away along it. Every step is at most what one tick's
-/// thrust adds to what the drag left of the last.
+/// A wall the Drone only touches is no obstacle to a move along it (touching is free): at rest against a wall
+/// and ordered along it, it accelerates as in the open. Every step is at most what one tick's thrust adds to what
+/// the drag left of the last. (The creep of a Drone whose way leads into the wall is
+/// `movement/follow/tests.rs`.)
 #[test]
 fn a_drone_pressed_against_a_wall_creeps_away_along_it() {
     let map = ["......", "......", "MMMMMM", "MMMMMM"];
@@ -478,4 +488,30 @@ fn only_a_braking_drag_unit_moves_without_a_goal() {
     // I3 holds a Drone to its model's maximum.
     let jumped = edited(after, 3, |o| moved(o, 6.0));
     assert_eq!(broken(&before, &jumped), Some("I3"));
+}
+
+/// A debug teleport takes the unit's momentum: it doesn't arrive with the speed it had, and starts again from rest
+/// towards its goal.
+#[test]
+fn a_teleported_drone_starts_again_from_rest() {
+    let mut t = flat(24, 8).spawn(DRONE, Some(P1), SpawnAt::Point(centre(1, 2))).start();
+    move_to(&mut t, 1, centre(22, 2));
+    t.run_until(40);
+    assert!(t.mover(1).momentum.x > 7.0);
+    let to = centre(3, 5);
+    t.debug_at(
+        41,
+        sc_sim::DebugCommand::SetPosition {
+            id: ObjectId(1),
+            pos: to,
+        },
+    );
+    t.step();
+    let step = t.pos(1) - to;
+    assert!(step.length() <= 0.8 + 1e-3, "from rest: {step}");
+    assert_eq!(t.mover(1).momentum, step);
+    for _ in 0..300 {
+        t.step();
+    }
+    assert_eq!((t.status(1), t.pos(1)), (MoveStatus::Arrived, centre(22, 2)));
 }

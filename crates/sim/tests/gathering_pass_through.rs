@@ -161,8 +161,8 @@ fn gathering_drones_go_around_an_idle_drone_parked_in_the_strip() {
 /// slice M3-H2 found it stepping to and fro in front of the Drone and delivering one load a minute at best). Its
 /// target is so close behind the parked Drone that each step aside turns its lean back the other way
 /// (`docs/movement.md > 6.3`, rule 4); a unit with momentum goes round a standing unit on the side of its middle
-/// it is on, and stays on that side. 10 loads a minute or more wherever the Drone is parked, where the free strip
-/// gives 12.
+/// it is on, and stays on that side. 9 loads a minute or more wherever the Drone is parked, where the free strip
+/// gives 12: each bump takes all its speed (design change 0035).
 #[test]
 fn a_gathering_drone_bumps_into_an_idle_drone_parked_dead_in_its_way() {
     for offset in [0.0, 1.0, -1.0, 4.0, -4.0, 8.0, -8.0, 16.0] {
@@ -191,7 +191,7 @@ fn a_gathering_drone_bumps_into_an_idle_drone_parked_dead_in_its_way() {
             "{offset}: it passed beside the parked Drone: {widest}"
         );
         let loads = deliveries(&t, &[3]);
-        assert!(loads[0] >= 10, "{offset}: it gets round and delivers: {loads:?}");
+        assert!(loads[0] >= 9, "{offset}: it gets round and delivers: {loads:?}");
     }
 }
 

@@ -786,8 +786,16 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
     (`drag::approach_speed`): the highest speed from which braking with the omni-directional thrust still stops
     it within the path that is left. So braking begins when the stopping distance reaches the remaining path
     (51 su before the goal from top speed), and the last step lands exactly on the goal. No overshoot.
-  - **`Mover::momentum`** is the velocity carried into the next tick: the displacement the unit made, so what an
-    obstacle blocked is dropped and the velocity along it with it (design change 0035). It is hashed and
+  - **Blocked means from rest** (`systems/units.md > UnitCollision > Collision Response (Un-sticking)`, design
+    change 0035): a move that runs into a tile or a unit goes as far as it can, and the unit's **whole velocity is
+    then 0**, not only the part into the obstacle. Where the rules' step is a slide along tiles (`Moved::slid`),
+    the unit thrusts at the step it asked for, into the tile, and meets it every tick: it creeps along the wall
+    at single-tick acceleration (0.8 su for the Drone) until its way is free, then accelerates normally. That
+    creep is progress for the stuck clock wherever it gets closer (`movement/follow/tests.rs`). A wall it only
+    touches, a unit it passes through (`space::blocks`) and a unit it moves off (0126) are no obstacles. A debug
+    teleport zeroes the velocity too.
+  - **`Mover::momentum`** is the velocity carried into the next tick: the displacement the unit made, or zero if
+    it was blocked. It is hashed and
     serialized **only while it isn't zero**, so states of games without such a unit hash and load as before the
     field existed. `Mover::stop` and `finish` leave it: a unit without a goal that still has some brakes to a
     stop, `Locomotion::Stopping` (within 42 su and 16 ticks from top speed). **Never zero it to stop a unit**, and
@@ -797,7 +805,7 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
     moves (`Moved::aside`): the manoeuvre takes it a dozen ticks, and turning back costs it all its speed.
   - **Kinematic for every model**: a yielding unit's sidestep, the walk out of an exit doorway and an idle
     unit's step off a unit it overlaps are plain steps without momentum. A corner is taken at speed: the unit
-    swings wide, or meets the wall beyond and loses what the wall blocks.
+    swings wide, or meets the wall beyond and starts again from rest.
   - The other three models aren't built: their units would move like the first kind.
 - **Idle units that overlap move apart** (`movement/separate.rs`; design change 0126, which amends 0106's "nothing
   is pushed apart"): in its turn, a unit that yields (`yielding::can_yield`: no command at all) and is at rest
@@ -898,12 +906,12 @@ section of its own.
   the design's table): one Drone with its patch 2 GU from the node, edge to edge, delivers every 81 ticks, 1.58
   Space Crystals per second (60 ticks on the stand-in mover it had before). On the reference field (8 patches in a
   row, the node 2 GU south of the middle), with gathering Drones passing through each other (design change 0106),
-  nothing jams: 4, 8, 12, 16, 20 and 24 Drones dealt out over the patches give 6.3, 11.7, 17.5, 23.1, 25.4 and
-  27.1 per second (the stand-in: 8.3, 15.1, 22.0, 26.8, 32.0, 32.0; the design's table: 6.1 for 4, 23 for 16, 32
+  nothing jams: 4, 8, 12, 16, 20 and 24 Drones dealt out over the patches give 6.3, 11.7, 17.9, 23.1, 25.6 and
+  27.3 per second (the stand-in: 8.3, 15.1, 22.0, 26.8, 32.0, 32.0; the design's table: 6.1 for 4, 23 for 16, 32
   for about 24). Two findings for slice K1's oracle: 24 Drones don't saturate 8 patches (rows of up to 6 patches
   with three Drones each do), and a Drone sent on from an occupied patch to the nearest free one often finds that
-  taken too when it gets there: dealt out, one of 24 went 578 ticks between two deliveries (the acceptance bound
-  was 480, 30 s; it holds up to 22 Drones and for 24 sent by one right-click). The 24-Drone soak costs 25 µs a tick
+  taken too when it gets there: dealt out, the longest one of 24 went between two deliveries was 357 to 578 ticks across
+  builds of slice M3-G (the acceptance bound was 480, 30 s; the soak asserts 640 for that case). The 24-Drone soak costs 25 µs a tick
   in release (13 µs on the stand-in, measured side by side: a Drone's tick is the rules' step and then its own).
   Under hard collision, as slice M3-H first had it, the field gridlocked from 12 Drones on.
 - **Removal** (`Sim::remove_objects`): a plate takes its patch along if that is depleted, in the same tick, which

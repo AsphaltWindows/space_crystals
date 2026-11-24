@@ -239,8 +239,9 @@ impl Invariants {
             let at_rest = mover.velocity == Vec2::ZERO && mover.locomotion == Locomotion::Stationary;
             let braking = drag
                 && mover.locomotion == Locomotion::Stopping
-                && mover.velocity == mover.momentum
-                && before.is_some_and(|b| mover.momentum.length_squared() < b.momentum.length_squared());
+                // Or it met an obstacle in this tick, which left it no velocity (design change 0035).
+                && (mover.velocity == mover.momentum || mover.momentum == Vec2::ZERO)
+                && before.is_some_and(|b| mover.velocity.length_squared() < b.momentum.length_squared());
             if mover.goal == MoveGoal::None
                 && ((mover.sidestep.is_none() && mover.exit.is_none() && !at_rest && !braking && !separating)
                     || mover.path_state != PathState::None)

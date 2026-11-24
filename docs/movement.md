@@ -436,7 +436,7 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
        behind the Drone that every step aside turned its lean back across the face. Seen from the blocker's
        middle the side never changes. It is for units with momentum only: one that stops within the tick loses
        a few steps by the lean rule (and the goldens of M1 and M2 hold it to that rule), one with momentum lost
-       all its speed at every turn and delivered one load a minute. Now it delivers 10 or 11 where the free
+       all its speed at every turn and delivered one load a minute. Now it delivers 9 to 11 where the free
        strip gives 12, wherever the Drone is parked (`tests/gathering_pass_through.rs`).
      Every candidate is taken only if it is wholly free.
   5. **All fail**: advance to contact or stay; `blocked_ticks += 1`. **(D)** A whole step along a face (no
@@ -620,11 +620,20 @@ Drone. It replaces only the "desired direction → velocity and facing" step of 
      design's MaxSpeed: 8 su a tick for the Drone, 4 on Rugged. From rest the speed is `8 × (1 − 0.9ⁿ)` after `n`
      ticks: 0.8, 1.52, 2.17, …, within 1 % of 8 after 44.
   4. **Position**: `pos ← pos + v`, as far as tiles and units allow: the whole move if it is free, else its two
-     axis components one after the other (`World::shuffle`). **What an obstacle blocks is dropped, and the
-     velocity with it** (`systems/units.md > UnitCollision > Collision Response (Un-sticking)`, design change
-     0035): the momentum kept is the displacement made. So a unit sliding along a wall keeps its speed along it,
-     and one stopped dead starts again from 0, at single-tick acceleration. 0035 says "its velocity is set to 0";
-     per axis is the reading that lets a hover unit slide, and what is dropped is exactly what was blocked.
+     axis components one after the other (`World::shuffle`). **If the move runs into an obstacle, the blocked
+     part is dropped and the velocity is set to 0** (`systems/units.md > UnitCollision > Collision Response
+     (Un-sticking)`, design change 0035): the whole velocity, also what the unit had along the obstacle. Otherwise
+     the momentum kept is the displacement made.
+     - **The creep**: where 6.3's step is a slide along tiles (rule 2, `Moved::slid`), the unit thrusts towards
+       the step it asked for, into the tile, and meets it: "running into the wall every frame". It restarts from
+       0 every tick and creeps along the wall at single-tick acceleration (0.8 su for the Drone, where it flies
+       at 8) while it turns, until its way is free; then it accelerates normally.
+     - **Progress**: the creep shortens the remaining path, which is what 6.5 measures, so a unit scraping free
+       is never stuck and never gives up (0035's Implementation impact; `movement/follow/tests.rs`: 400 ticks
+       along a wall, progress noted at least every 8).
+     - **No obstacles**: a wall or a unit the box only touches (touching is free), a unit it passes through
+       (`space::blocks`: gathering Drones, units that already overlap) and a unit it moves off (6.8).
+     - A debug teleport zeroes the velocity as well.
 - **What it wants**: the step that 6.3's rules give a unit without momentum, at the approach speed. The rules
   run first, as a probe (lane seeking, slide, follow, go around), and the thrust steers the velocity towards the
   step they return. If the thrust reaches it, that step is the move as it is. So the collision rules, the
@@ -645,7 +654,7 @@ Drone. It replaces only the "desired direction → velocity and facing" step of 
   that distance (about 2.5 su a tick at 8 su); it brakes off the rest while its work has begun, and stops short of
   the object, as planned for the path's end.
 - **Corners** are taken at speed: the approach speed looks at the path's whole length, not at its turns. The
-  unit swings wide, or meets the wall beyond the corner and loses what the wall blocks. Slowing for corners is
+  unit swings wide, or meets the wall beyond the corner and starts again from rest. Slowing for corners is
   not built.
 - **Kinematic steps**: a yielding unit's sidestep (6.6), the walk out of an exit doorway and the step off an
   overlapped unit (6.8) are plain steps for every model, without momentum.
@@ -698,8 +707,8 @@ apart within `18 × (n − 1)` ticks for Drones, 12 each for Peacekeepers.
     ground, without the mover's `speed_factor`: a mode that slows such a unit only weakens its thrust, and the
     speed it has decays. For every other unit it is `max_speed × speed_factor`, as before.
   - **I5 and I7, braking**: a DragMovement unit without a goal may move in a tick if it had momentum a tick
-    earlier, and may be other than at rest only if it is `Stopping`, its `velocity` equals its `momentum`, and
-    that is **shorter than a tick earlier**. So it brakes to a stop and nothing else: one that keeps its speed,
+    earlier, and may be other than at rest only if it is `Stopping`, its `velocity` equals its `momentum` (or the
+    momentum is zero: it met an obstacle in this tick), and it is **shorter than the momentum a tick earlier**. So it brakes to a stop and nothing else: one that keeps its speed,
     gains speed or moves while claiming to stand fails, and so does a unit of any other model that has momentum
     at all (`tests/movement_drag.rs`, from the wrong side).
   - **I5 and I7, separating**: a unit without a goal may move, and be other than at rest, if it has no command
@@ -736,7 +745,8 @@ apart within `18 × (n − 1)` ticks for Drones, 12 each for Peacekeepers.
   that counts as oncoming.
   **(M3-G)** DragMovement (`crates/sim/tests/movement_drag.rs`, `movement/drag/tests.rs`): the speed curve from
   rest and its equilibrium; braking within the bound and an exact landing; a Stop in full flight; a Rugged strip
-  at 4 su a tick and back to 8; a wall met at speed, and the creep along a wall from rest (0035); rest within
+  at 4 su a tick and back to 8; a wall met at speed takes all its velocity, and the creep along a wall is
+  progress for 400 ticks (0035); a teleport; rest within
   reach of a patch and a node without touching them or turning back; a save in full flight. Separation
   (`movement_separate.rs`, 0126's Verification): two idle Drones drift apart, one stopped inside a mining Drone
   moves off alone, one on Hold stays, stacks of 2 to 8 on one point and in a corner come apart within the bound.
