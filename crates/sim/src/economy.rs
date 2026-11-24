@@ -13,7 +13,7 @@
 //! - **Defeat** (`defeat.rs`, slice M2-F2): the last step of the phase. A player who loses their last structure is
 //!   defeated, their units become neutral, and the defeat that leaves one side standing ends the game.
 //! - **The phase** ([`step`]) runs after phase 5e and before 5f (plan decision T5, `ARCHITECTURE.md > Tick
-//!   pipeline`).
+//!   pipeline`). The constructors' progress is part of it (`crate::construction`, slice M2-D1).
 //!
 //! Everything is integer: rates are fixed point, [`RATIO_ONE`] being 100% (plan decision T6).
 
@@ -39,7 +39,8 @@ use crate::player::Player;
 /// GDOResources > Power > When a building's Power counts`: from the tick it is placed until the tick it is
 /// destroyed). In order:
 /// 1. every player's power, from the structures present ([`PowerSummary`]);
-/// 2. (slice M2-D1) the constructors, then (M2-D2) the producers, each at its speed ([`PowerSummary::speed`]);
+/// 2. the constructors (`crate::construction::step`), then (M2-D2) the producers, each at its speed
+///    ([`PowerSummary::speed`]);
 /// 3. the plates mine (`mining::step`), the plates created this tick from the next one on;
 /// 4. the defeat check, after the producers (`defeat::step`, called by `Sim::step`, which keeps the game's outcome).
 pub(crate) fn step(
@@ -49,6 +50,7 @@ pub(crate) fn step(
     events: &mut Vec<SimEvent>,
 ) {
     let power = power::summaries(objects.values());
+    crate::construction::step(objects, &power, first_new, events);
     mining::step(objects, players, &power, first_new, events);
 }
 

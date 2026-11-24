@@ -37,21 +37,29 @@ fn dev_skirmish_layout() {
     let starts: Vec<_> = map.slots.iter().map(|s| s.start).collect();
     // In opposite corners, images of each other.
     assert_eq!(starts, [TilePos::new(8, 8), TilePos::new(55, 39)]);
-    assert_eq!(map.slots[1].camera_start, Some(TilePos::new(55, 39).center()));
+    // The cameras start on the Deployment Centers (`core/camera.md > Starting Position`).
+    assert!(map.slots.iter().all(|s| s.camera_start.is_none()));
     let sim = Sim::new(&scenario);
     // Spawns get ascending ids in list order: the west half's patches and the central station, then the patches'
-    // images (the station is its own image).
-    let kinds: Vec<_> = sim.objects().map(|o| (o.id, o.kind)).collect();
-    let expected: Vec<_> = (1..=17)
+    // images (the station is its own image). Then each player's GDO Starting Layout (`factions/gdo/economy.md >
+    // Starting Conditions`; the layouts are in `game_start.rs`).
+    let kinds: Vec<_> = sim.objects().map(|o| (o.id, o.kind, o.owner)).collect();
+    let mut expected: Vec<_> = (1..=17)
         .map(|i| {
             let kind = if i == 9 {
                 ObjectKind::SupplyDeliveryStation
             } else {
                 ObjectKind::CrystalPatch
             };
-            (ObjectId(i), kind)
+            (ObjectId(i), kind, None)
         })
         .collect();
+    use ObjectKind::{DeploymentCenter, ExtractionFacility, ExtractionPlate};
+    for player in [PlayerId(1), PlayerId(2)] {
+        for kind in [DeploymentCenter, ExtractionFacility, ExtractionPlate, ExtractionPlate] {
+            expected.push((ObjectId(expected.len() as u32 + 1), kind, Some(player)));
+        }
+    }
     assert_eq!(kinds, expected);
 }
 
@@ -197,7 +205,7 @@ fn skirmish_default_restrictions() {
 
 /// `docs/movement.md > 3`: a game starts with its units on open ground inside the map and apart, and no blocking
 /// footprint on a ground unit. Touching is allowed. Of two objects in conflict, the later one is reported: pre-placed
-/// objects by the map, the Starting Layouts the players get by the game.
+/// objects, and each Starting Layout on its own, by the map; the layouts of different players by the game.
 #[test]
 fn units_start_on_open_ground_and_apart() {
     // 8 × 6 tiles (512 × 384 su), water on tiles (5..=6, 1..=2): x 320..448, y 64..192.
@@ -254,8 +262,9 @@ fn units_start_on_open_ground_and_apart() {
     assert_eq!(owners, [(pk, Some(PlayerId(1))), (guard, None), (pk, None), (pk, None)]);
     assert!(sim.objects().all(|o| o.orders.is_some() && o.mover.is_some()));
 
-    // Player 1 plays GDO in slot 1. Its layout objects come after all the pre-placed ones. (Layouts hold no
-    // blocking footprints yet: stations are map resources.)
+    // Each Starting Layout on its own, whoever plays (`core/map_editor.md > Starting Layouts > Layout validation`,
+    // design change 0097): its units come after all the pre-placed objects. (Layouts hold no blocking footprints
+    // here: stations are map resources.)
     s.map.spawns.push(tile_spawn(station, None, 0, 4)); // x 0..128, y 256..384
     let layout = |kind, x, y| LayoutObject {
         kind,
@@ -269,22 +278,40 @@ fn units_start_on_open_ground_and_apart() {
         layout(pk, 384.0, 128.0),    // in the water
         layout(pk, 64.0, 320.0),     // on the station
     ];
-    // Nobody plays the Syndicate in slot 1.
-    *s.map.slots[0].layouts.get_mut(Faction::Syndicate) = vec![layout(guard, 384.0, 128.0)];
-    assert_eq!(s.map.validate(), [], "on the map alone, each layout object fits");
-    let invalid = |index, kind, problem| ScenarioProblem::InvalidLayoutObject {
+    // Nobody plays the Syndicate in slot 1. Its layout may overlap the GDO's (`> Overlay editing`).
+    *s.map.slots[0].layouts.get_mut(Faction::Syndicate) = vec![
+        layout(guard, 384.0, 128.0), // in the water
+        layout(guard, 300.0, 300.0), // on the GDO layout's object 0
+    ];
+    let invalid = |faction, index, kind, problem| ScenarioProblem::InvalidLayoutObject {
         slot: SlotId(1),
-        faction: Faction::Gdo,
+        faction,
         index,
         kind,
         problem,
     };
     let expected = vec![
-        invalid(1, pk, SpawnProblem::OverlapsUnit),
-        invalid(2, guard, SpawnProblem::OverlapsUnit),
-        invalid(3, pk, SpawnProblem::Blocked),
-        invalid(4, pk, SpawnProblem::Blocked),
+        invalid(Faction::Gdo, 1, pk, SpawnProblem::OverlapsUnit),
+        invalid(Faction::Gdo, 2, guard, SpawnProblem::OverlapsUnit),
+        invalid(Faction::Gdo, 3, pk, SpawnProblem::Blocked),
+        invalid(Faction::Gdo, 4, pk, SpawnProblem::Blocked),
+        invalid(Faction::Syndicate, 0, guard, SpawnProblem::Blocked),
     ];
+    assert_eq!(s.map.validate(), expected);
     assert_eq!(s.validate(), expected);
     assert_eq!(Sim::try_new(&s), Err(expected));
+
+    // The layouts of the players of one game, each valid on its own, in each other's way: the game's problem.
+    *s.map.slots[0].layouts.get_mut(Faction::Gdo) = vec![layout(pk, 300.0, 300.0)];
+    s.map.slots[0].layouts.get_mut(Faction::Syndicate).clear();
+    *s.map.slots[1].layouts.get_mut(Faction::Gdo) = vec![layout(guard, 320.0, 300.0)];
+    assert_eq!(s.map.validate(), []);
+    let expected = vec![ScenarioProblem::InvalidLayoutObject {
+        slot: SlotId(2),
+        faction: Faction::Gdo,
+        index: 0,
+        kind: guard,
+        problem: SpawnProblem::OverlapsUnit,
+    }];
+    assert_eq!(s.validate(), expected);
 }

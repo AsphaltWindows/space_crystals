@@ -255,9 +255,11 @@ pub fn problem_focus(map: &MapDef, problem: &ScenarioProblem) -> (Option<Vec2>, 
             (center, Some(*spawn))
         }
         ScenarioProblem::OverlappingFootprints { second, tile, .. } => (clamp(tile.center()), Some(*second)),
-        ScenarioProblem::InvalidLayoutObject { slot, .. } | ScenarioProblem::LayoutOverlap { slot, .. } => {
-            (slot_spot(*slot), None)
-        }
+        ScenarioProblem::InvalidLayoutObject { slot, .. }
+        | ScenarioProblem::LayoutOverlap { slot, .. }
+        | ScenarioProblem::LayoutPlacement { slot, .. }
+        | ScenarioProblem::LayoutExtra { slot, .. }
+        | ScenarioProblem::LayoutMissing { slot, .. } => (slot_spot(*slot), None),
         ScenarioProblem::UnknownSlot { slot, .. } | ScenarioProblem::SlotTaken { slot, .. } => (slot_spot(*slot), None),
         ScenarioProblem::MapTooBig { .. }
         | ScenarioProblem::SkirmishWithoutSymmetry

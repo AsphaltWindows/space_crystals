@@ -22,6 +22,11 @@ pub struct StructureDef {
     /// How the type mines the Space Crystals patch it stands on (`crate::economy::mining`): the Extraction Plate's
     /// rates, `None` for every other structure.
     pub mining: Option<MiningDef>,
+    /// `Constructs`: the buildings the type constructs, one at a time (`crate::construction`), with their costs and
+    /// times (`factions/gdo/structures.md > DeploymentCenter > Constructs`, `factions/gdo/economy.md >
+    /// ExtractionFacility > Constructs`). A type with any is a constructor (`Object::constructor`); empty for the
+    /// others.
+    pub constructs: &'static [Recipe],
 }
 
 /// A mining structure's rates (`factions/gdo/economy.md > ExtractionPlate`): it pays its owner a load at the end of
@@ -54,13 +59,14 @@ impl ProductionDef {
     }
 }
 
-/// One entry of a producer's `Produces` list: "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)".
+/// One entry of a producer's `Produces` list: "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)"; or of a
+/// constructor's `Constructs` list: "Generator: 100 Space Crystals, 240 frames (15 seconds)".
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Recipe {
     pub kind: ObjectKind,
-    /// Space Crystals, paid when the unit is queued.
+    /// Space Crystals, paid when the unit is queued or the construction starts.
     pub cost: u32,
-    /// The production time at full power, ticks.
+    /// The production or construction time at full power, ticks.
     pub frames: u32,
 }
 

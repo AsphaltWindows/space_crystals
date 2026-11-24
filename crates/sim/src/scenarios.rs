@@ -5,7 +5,8 @@ use crate::defs::ObjectKind;
 use crate::ids::SlotId;
 use crate::map::{Map, Tile, TilePresetId};
 use crate::object::Rotation;
-use crate::scenario::{BuildingOrientation, MapDef, MapType, Scenario, Slot, Spawn, SpawnAt};
+use crate::player::Faction;
+use crate::scenario::{BuildingOrientation, LayoutObject, MapDef, MapType, Scenario, Slot, Spawn, SpawnAt};
 use crate::symmetry::Symmetry;
 use crate::units::{CornerPos, SU_PER_GU, TilePos};
 
@@ -115,7 +116,9 @@ pub fn dev_skirmish() -> Scenario {
 /// 64×48 Skirmish Default development map with 180° symmetry: its west half is built here and the east half
 /// generated from it ([`MapDef::regenerate`]), so it is symmetric by construction. The two slots start in the
 /// top-left and bottom-right corners, each with an 8-patch crystal field (`factions/gdo/economy.md > Reference
-/// starting base`) between the start and the map edge. Terrain (`core/map.md > Elevation`): a lake and a mountain
+/// starting base`) between the start and the map edge, and a GDO Starting Layout (Deployment Center, Extraction
+/// Facility and two plates) whose Deployment Center sees and reaches the whole field. Terrain (`core/map.md >
+/// Elevation`): a lake and a mountain
 /// massif on each side, rugged ground on the flanks, a gentle hill of slopes only on each side, and a central
 /// plateau 3 levels up ringed by cliffs, reached only by a slope through a 2-tile gap in the west and in the east
 /// (the chokepoints). A Supply Delivery Station stands on the plateau, in the middle of the map.
@@ -173,10 +176,26 @@ pub fn dev_skirmish_map() -> MapDef {
         None,
         SpawnAt::Tile(TilePos::new(31, 23)),
     ));
-    // Starts in opposite corners (design change 0007).
+    // Starts in opposite corners (design change 0007). The first slot's GDO Starting Layout (`factions/gdo/
+    // economy.md > Starting Conditions`; the second slot's is its image): the Deployment Center on (5, 5) to (8, 8),
+    // inside the field's arc, so that its sight of 6 grid units covers every patch of the field (design change 0095:
+    // their centres lie 4.5 to 5.2 grid units from its centre, all at level 0) and its build area holds all eight
+    // (`> Opening Economy Baseline > Reference starting base`); the Extraction Facility on (9, 1) to (11, 3), past the
+    // east end of the field's northern row; the two plates on that row's eastern patches, (6, 2) and (7, 2). No
+    // camera start: the camera starts on the Deployment Center (`core/camera.md > Starting Position`).
     let start = TilePos::new(8, 8);
     let mut slot = Slot::new(start);
-    slot.camera_start = Some(start.center());
+    let laid = |kind, x, y| LayoutObject {
+        kind,
+        at: SpawnAt::Tile(TilePos::new(x, y)),
+        orientation: BuildingOrientation::default(),
+    };
+    *slot.layouts.get_mut(Faction::Gdo) = vec![
+        laid(ObjectKind::DeploymentCenter, 5, 5),
+        laid(ObjectKind::ExtractionFacility, 9, 1),
+        laid(ObjectKind::ExtractionPlate, 6, 2),
+        laid(ObjectKind::ExtractionPlate, 7, 2),
+    ];
 
     let mut dev = MapDef {
         map_type: MapType::SkirmishDefault,

@@ -283,7 +283,11 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::ProductionCancelled { .. }
                 | SimEvent::UnitProduced { .. }
                 | SimEvent::PlayerDefeated { .. }
-                | SimEvent::GameOver { .. } => {}
+                | SimEvent::GameOver { .. }
+                | SimEvent::ConstructionCompleted { .. }
+                | SimEvent::ConstructionCancelled { .. }
+                | SimEvent::StructurePlaced { .. }
+                | SimEvent::PlacementRefused { .. } => {}
             }
         }
         unit_steps += sim
@@ -339,7 +343,8 @@ fn random_debug_commands_never_panic_and_stay_deterministic() {
 
 /// The command gate (`Sim::validate`): a rejected command changes nothing, neither the state nor the events. Each
 /// random command runs alone in a tick, next to a copy of the game that runs the same tick without it. With debug
-/// commands off, the gate rejects every one of them.
+/// commands off, the gate rejects every one of them. (The construction commands have their own such test, with the
+/// one rejection the sim reports: `tests/construction.rs`.)
 #[test]
 fn rejected_commands_change_nothing() {
     for config in [SimConfig::DEBUG, SimConfig::default()] {

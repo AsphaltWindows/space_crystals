@@ -31,9 +31,9 @@ pub struct Player {
     pub id: PlayerId,
     pub name: String,
     pub faction: Faction,
-    /// `> Space Crystals`: the bank. A game starts it at 0 until the Starting Conditions set it (slice M2-F;
-    /// `factions/gdo/economy.md > Starting Conditions`); `DebugCommand::SetResources` sets it. Optional in files, so
-    /// that states saved before it existed still load.
+    /// `> Space Crystals`: the bank. A game starts it at the player's faction's Starting Conditions (slice M2-F1;
+    /// `factions/gdo/economy.md > Starting Conditions`: 100, `crate::StartingConditions`);
+    /// `DebugCommand::SetResources` sets it. Optional in files, so that states saved before it existed still load.
     #[serde(default)]
     pub crystals: u32,
     /// `> Supplies`: a counter only. The GDO supply loop is deferred, Starting Supplies are 0 and nothing costs

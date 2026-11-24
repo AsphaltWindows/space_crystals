@@ -55,3 +55,6 @@
 - **The Bevy default UI font has ASCII glyphs only** ("°" and "×" show as boxes). Use ASCII in UI text until a font is added.
 - Agent worktrees (`isolation: "worktree"`) live in `.claude/worktrees/` (gitignored) and showed the last *pushed* commit at creation, then caught up to local master. Briefs tell agents to `git merge --ff-only master` first anyway. Check `git worktree list` after launching.
 - `git add -A <dir>` fails for an already-staged deleted directory; pass it only to `git commit -- <paths>`.
+- **Tests must not depend on machine speed.** With several agents building in parallel, the load average reaches about 22. Wall-clock assumptions then flake: "one update at Max pace reaches the end" failed under load. So did perf numbers: master's `movement_perf` measured from 0.57 to 3.7 ms mean. Judge a perf change only by interleaved A/B runs against master, and take absolute numbers on a quiet machine.
+- **Never `cd` into a worktree either.** `cd $WT && cargo …` moves the session's cwd. Use a subshell `( cd $WT && … )` or `-C`/`--manifest-path`.
+

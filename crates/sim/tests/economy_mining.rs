@@ -15,6 +15,8 @@ const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
 const PLATE: ObjectKind = ObjectKind::ExtractionPlate;
 const DC: ObjectKind = ObjectKind::DeploymentCenter;
+/// What a GDO player's bank holds when the game starts (`factions/gdo/economy.md > Starting Conditions`).
+const START: u32 = 100;
 
 fn flat(w: usize, h: usize) -> String {
     vec![".".repeat(w); h].join("\n")
@@ -107,7 +109,7 @@ fn plates_pay_in_lumps_every_48_ticks() {
     assert_eq!(t.sim().power(P1).ratio(), RATIO_ONE);
     assert_eq!(payouts(&mut t, P1, 200), [(48, 20), (96, 20), (144, 20), (192, 20)]);
     assert_eq!((remaining(&t, 1), remaining(&t, 2)), (1460, 1460));
-    assert_eq!(bank(&t, P2), 0, "nothing for the other player");
+    assert_eq!(bank(&t, P2), START, "nothing for the other player");
 }
 
 /// `> Paid in lumps`: "A new plate's first payment comes 48 frames after it is placed": a plate placed in tick 10
@@ -238,7 +240,11 @@ fn a_plate_destroyed_on_a_depleted_patch_takes_it_along() {
         .start();
     t.without_auto_targeting();
     t.run_until(48);
-    assert_eq!((bank(&t, P2), remaining(&t, 1)), (10, 0), "mined out in tick 48");
+    assert_eq!(
+        (bank(&t, P2), remaining(&t, 1)),
+        (START + 10, 0),
+        "mined out in tick 48"
+    );
     t.order_at(
         49,
         P1,
@@ -314,7 +320,7 @@ fn a_patch_mined_out_in_the_fog_is_assumed_until_its_tile_is_seen() {
     };
     assert_eq!(assumed(&t), [ObjectId(1)]);
     t.run_until(50);
-    assert_eq!(bank(&t, P2), 10, "mined out in tick 48");
+    assert_eq!(bank(&t, P2), START + 10, "mined out in tick 48");
     assert!(
         t.sim().object(ObjectId(1)).is_none() && !blocked(&t, 30, 5),
         "gone with its plate"
@@ -377,9 +383,10 @@ fn a_patch_removed_from_under_its_plate_stops_the_plate() {
 }
 
 /// The link between a plate and its patch comes when both are in the game, in whatever order (module docs of
-/// `economy::mining`): a map that lists the plate first, a Starting Layout's plate on a map patch, a patch spawned
-/// under a plate that stood on bare ground (which mined nothing), and its first load 48 ticks after. A plate without
-/// an owner mines for nobody.
+/// `economy::mining`): a map that lists the plate first, a Starting Layout's plate on a map patch (listed before the
+/// layout's Deployment Center, whose build area it needs: design change 0097), a patch spawned under a plate that
+/// stood on bare ground (which mined nothing), and its first load 48 ticks after. A plate without an owner mines for
+/// nobody.
 #[test]
 fn plates_link_to_their_patch_in_any_order() {
     let mut scenario = ScenarioBuilder::new(&flat(12, 8))
@@ -390,22 +397,26 @@ fn plates_link_to_their_patch_in_any_order() {
         .spawn(ObjectKind::CrystalPatch, None, tile(9, 6)) // 5, for a neutral plate
         .spawn(PLATE, None, tile(9, 6)) // 6
         .build();
-    scenario.map.slots[0].layouts.get_mut(Faction::Gdo).push(LayoutObject {
-        kind: PLATE,
-        at: tile(3, 6),
+    let laid = |kind, x, y| LayoutObject {
+        kind,
+        at: tile(x, y),
         orientation: Default::default(),
-    }); // 7
+    };
+    *scenario.map.slots[0].layouts.get_mut(Faction::Gdo) = vec![
+        laid(PLATE, 3, 6), // 7
+        laid(DC, 6, 1),    // 8: (6, 1) to (9, 4)
+    ];
     let mut t = TestSim::new(scenario);
     let patch_of = |t: &TestSim, id: u32| t.sim().object(ObjectId(id)).unwrap().extractor.map(|e| e.patch);
     assert_eq!(patch_of(&t, 2), Some(ObjectId(3)));
     assert_eq!(patch_of(&t, 7), Some(ObjectId(4)));
     assert_eq!(patch_of(&t, 6), Some(ObjectId(5)));
-    t.debug_at(5, spawn(PLATE, Some(P1), 5, 6)) // 8, on bare ground
-        .debug_at(20, spawn(ObjectKind::CrystalPatch, None, 5, 6)); // 9, under it
+    t.debug_at(5, spawn(PLATE, Some(P1), 5, 6)) // 9, on bare ground
+        .debug_at(20, spawn(ObjectKind::CrystalPatch, None, 5, 6)); // 10, under it
     t.run_until(19);
-    assert_eq!(patch_of(&t, 8), None);
+    assert_eq!(patch_of(&t, 9), None);
     assert_eq!(payouts(&mut t, P1, 100), [(48, 20), (68, 10), (96, 20)]);
-    assert_eq!(patch_of(&t, 8), Some(ObjectId(9)));
+    assert_eq!(patch_of(&t, 9), Some(ObjectId(10)));
     assert_eq!(remaining(&t, 5), 1500, "the neutral plate mines nothing");
-    assert_eq!(bank(&t, P2), 0);
+    assert_eq!(bank(&t, P2), START);
 }

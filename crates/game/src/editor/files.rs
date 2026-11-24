@@ -132,7 +132,7 @@ pub fn display_path(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sc_sim::{MapType, Symmetry, scenarios};
+    use sc_sim::{Faction, MapType, ObjectKind, ScenarioProblem, Symmetry, scenarios};
 
     fn temp_dir(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("sc_editor_files_{tag}_{}", std::process::id()));
@@ -164,7 +164,8 @@ mod tests {
     }
 
     /// The map the editor starts with is the creation dialog's default: a 64x48 Skirmish Default map for two with
-    /// 180 degree symmetry.
+    /// 180 degree symmetry. Its Starting Layouts start empty (design change 0009), so all it lacks to be played is
+    /// the GDO's at each start (0012).
     #[test]
     fn a_new_map_has_the_default_settings() {
         let map = new_map(" ");
@@ -176,7 +177,33 @@ mod tests {
             (map.map_type, map.symmetry, map.slots.len()),
             (MapType::SkirmishDefault, Symmetry::Rotate180, 2)
         );
-        assert_eq!(map.validate(), []);
+        let missing: Vec<_> = map
+            .validate()
+            .into_iter()
+            .map(|p| match p {
+                ScenarioProblem::LayoutMissing {
+                    slot, faction, kind, ..
+                } => (slot.0, faction, kind),
+                other => panic!("{other}"),
+            })
+            .collect();
+        let (dc, ef, plate) = (
+            ObjectKind::DeploymentCenter,
+            ObjectKind::ExtractionFacility,
+            ObjectKind::ExtractionPlate,
+        );
+        let gdo = Faction::Gdo;
+        assert_eq!(
+            missing,
+            [
+                (1, gdo, dc),
+                (1, gdo, ef),
+                (1, gdo, plate),
+                (2, gdo, dc),
+                (2, gdo, ef),
+                (2, gdo, plate)
+            ]
+        );
     }
 
     /// Review finding: saving replaces the file whole or not at all, and leaves no temporary file.

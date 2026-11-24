@@ -3,12 +3,13 @@
 
 use bevy::prelude::*;
 
-use sc_sim::{PlayerId, TilePos, scenarios};
+use sc_sim::{Faction, LayoutObject, ObjectKind, PlayerId, SpawnAt, TilePos, scenarios};
 use space_crystals::AppConfig;
-use space_crystals::camera::{GrabPan, ViewportInsets, cursor_to_view, viewport_rect, visible_extent_su};
+use space_crystals::camera::{GrabPan, ViewportInsets, cursor_to_view, start_center, viewport_rect, visible_extent_su};
 use space_crystals::hud::{HUD_BAR_HEIGHT_VH, TOP_BAR_HEIGHT_VH};
 use space_crystals::input::InputAction;
 use space_crystals::platform::SurfaceSize;
+use space_crystals::sim_driver::SimRes;
 
 use super::{camera_center, centered_scenario, headless, headless_app, hold, press, set_cursor, updates};
 
@@ -21,11 +22,44 @@ fn the_camera_starts_at_the_players_camera_start() {
     let mut app = headless(config);
     app.update();
     assert_eq!(camera_center(&app), TilePos::new(40, 30).center());
-    // Player 1's slot has no camera start, and there is no starting structure yet: its start position stands in.
+    // Player 1's slot has no camera start, and its layout no Deployment Center: its start position stands in.
     // (The map center, for a player without a slot, is tested in `camera.rs`.)
     let mut app = headless_app(scenarios::empty(64, 48));
     app.update();
     assert_eq!(camera_center(&app), TilePos::new(16, 12).center());
+}
+
+/// `core/camera.md > Starting Position`: without a camera start, the camera starts on the player's primary starting
+/// structure, the GDO's Deployment Center, where their Starting Layout puts it. A camera start comes first, and a
+/// player of a faction whose Starting Conditions aren't implemented yet starts at their slot's start position.
+#[test]
+fn the_camera_starts_on_the_players_deployment_center() {
+    let mut scenario = scenarios::empty(64, 48);
+    let dc = LayoutObject {
+        kind: ObjectKind::DeploymentCenter,
+        at: SpawnAt::Tile(TilePos::new(20, 15)), // (20, 15) to (23, 18)
+        orientation: Default::default(),
+    };
+    *scenario.map.slots[0].layouts.get_mut(Faction::Gdo) = vec![dc.clone()];
+    let on_dc = Vec2::new(22.0, 17.0) * 64.0;
+    let mut app = headless_app(scenario.clone());
+    app.update();
+    assert_eq!(app.world().resource::<SimRes>().objects().next().unwrap().pos, on_dc);
+    assert_eq!(camera_center(&app), on_dc);
+
+    let map = scenario.map.terrain.clone();
+    *scenario.map.slots[1].layouts.get_mut(Faction::Gdo) = vec![dc];
+    scenario.map.slots[0].camera_start = Some(TilePos::new(40, 30).center());
+    assert_eq!(
+        start_center(&scenario, PlayerId(1), &map),
+        TilePos::new(40, 30).center()
+    );
+    assert_eq!(start_center(&scenario, PlayerId(2), &map), on_dc);
+    scenario.setup.players[1].faction = Faction::Syndicate;
+    assert_eq!(
+        start_center(&scenario, PlayerId(2), &map),
+        TilePos::new(47, 35).center()
+    );
 }
 
 #[test]

@@ -305,10 +305,38 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Perf.** The first numbers, 0.88 ms mean and 10 ms worst, were machine load (load average about 22). Interleaved runs against master were within 2%. Absolute numbers will be re-measured on a quiet machine in M2-J.
   - **Goldens.** Re-blessed for the new hashed fields. Play is identical.
 
+- **M2-F1 game start** (merged in `d5a7d29`; 817 tests):
+  - **Starting state.** `scenario/starting.rs` holds the Starting Conditions table: GDO gets DC, EF, 2 plates, 100 SC and Supplies 0; other factions are `None`. Banks are set at game start.
+  - **Layout validation.** `scenario/validate/layouts.rs` validates every layout on its own: `check_layout` for structures, `misplaced` for units (0097). On Skirmish Default, `LayoutExtra` and `LayoutMissing` apply to implemented factions only. `MapDef::outdated_layouts` is derived.
+  - **Camera.** It starts on the camera start, else the DC, else the slot start.
+  - **`dev_skirmish`.** The DC is at (5,5), the EF at (9,1), and plates on (6,2) and (7,2). Slot 2 is the R180 image. All 8 patches are within the DC's sight (0095) and build area. Director approved.
+  - **Goldens.** Re-blessed, because banks now start at 100.
+  - **Found.** `replay.rs::playback_pauses_steps_and_changes_speed` flakes under machine load: it assumes one update at Max pace reaches the end. M2-I fixes it.
+  - **Known gap.** New Skirmish Default maps can't be play-tested until M2-I adds layout editing.
+
+- **M2-D1 construction** (merged in `fda74d3`; 838 tests):
+  - **State.** `Object::constructor`: `Idle | Constructing { kind, progress } | Ready { kind }`, with recipes in `StructureDef::constructs`.
+  - **Commands.** `Command::Construction { objects, command: Construct | CancelConstruction | CancelReady | Place }`. Cost is paid when the command applies. Refunds are Full, or Ready at 75% rounded down; destruction refunds the same way (0084).
+  - **Placing.** Place re-runs `placement::check`. A refusal keeps the building Ready and emits `PlacementRefused`. A Place naming several constructors is refused.
+  - **Events.** `ConstructionCompleted`, `StructurePlaced` and `ConstructionCancelled { refund }`.
+  - **Recipe timing** (decided by the Director; ARCHITECTURE.md > Economy > Recipe timing). Progress starts in the tick the order applies. A recipe of N frames ordered at t completes at the end of t+N−1, and the result is usable from t+N. D2 already worked this way.
+  - **Mini-oracle on `dev_skirmish`.** The Barracks starts at 48.1 s.
+  - **Goldens.** Re-blessed once for the hashed constructor field. Play is identical.
+
+- **M2-H1 production UI** (merged in `eccaaa6`; 855 tests; client only):
+  - **Panel.** `UnitCommand` became `PanelCommand`, adding Train, CancelProduction and SetRallyPoint. `command_ui/interface.rs` is split into commands, templates, conditions and panel. The Barracks panel is Q Train, X Cancel, C Rally.
+  - **Train.** One press sends one `Command::Production` to every selected Barracks. Buttons are available per `Sim::validate` on the exact command.
+  - **Rally points.** Set by right-click or by C. Rallying on the Barracks itself clears it. Indicators per 0087 and 0088.
+  - **Activity and feedback.** InfoPanel lines show training progress, the queue and the rally point. Refusals show "Not enough Space Crystals" or "Unit Control limit reached".
+  - **Open.** Shift with rallies, rallying on one of several selected Barracks, and feedback for a disabled button went out as Q0035.
+  - **Flaky test.** `games_are_recorded_as_they_run_and_when_the_app_exits` flaked once under load: `load_replay` returned an Err. M2-I is fixing it.
+
 ## In progress
-- **M2 wave 3** (common brief `scratchpad/briefs/m2-w3-common.md`, plus one brief per slice):
-  - **M2-D1 construction** (Opus);
-  - **M2-F1 game start** (Opus): Starting Conditions, layout rules, `dev_skirmish` GDO layouts, camera;
+- **M2 wave 4** (common brief `scratchpad/briefs/m2-w4-common.md`):
+  - **M2-F2 game end** (Opus): defeat to neutral, game over, spectating, banners;
+  - **M2-I editor layouts** (Opus): layout editing, orientation, plates on patches, plus fixes for two flaky replay tests.
+  - **M2-H2 construction UI** (Opus; brief `scratchpad/briefs/m2h2-construction-ui.md`): DC and EF panels, build menus (0104), the ghost with per-tile validity, the area overlay (0093), rotate and flip, side labels. This gives the first playable.
+  - **M2-J1 sim QA** (Opus): the economy oracle against `factions/gdo/economy.md > Opening Economy Baseline`, the `gdo_opening` golden, a tighter `behaviours_soak` check, and F1's double layout report.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2-B, M2-C and M2-E** together after M2-A.
@@ -394,15 +422,16 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | M2-B | Economy core: banks, power and penalty, Unit Control, plate mining and depletion, the economy step | A | Opus | done (`39bcf66`) |
 | M2-C | Build area and placement validation | A | Opus | done (`0f8cc70`) |
 | M2-E | Path knowledge: per-player planning grids, re-route on discovery | A | Fable | done (`f76db38`) |
-| M2-D1 | Construction: DC and EF, Construct, Cancel, Place, refunds | B, C | Opus | running |
+| M2-D1 | Construction: DC and EF, Construct, Cancel, Place, refunds | B, C | Opus | done (`fda74d3`) |
 | M2-D2 | Production: Barracks queue, rally point, exit spawn, Unit Control | B | Fable (exit doorway: a unit overlapping its producer, the collision exception, invariants) | done (`1a64e75`) |
-| M2-F1 | Game start: Starting Conditions, layout rules (restriction, completeness, outdated), game-start banks, camera on the DC, the `dev_skirmish` GDO layouts | B, C | Opus | running |
-| M2-F2 | Game end: defeat (units become neutral and repath), game over when one side remains, spectating with team vision, the defeat and victory banner | B | Opus | queued (wave 4) |
+| M2-F1 | Game start: Starting Conditions, layout rules (restriction, completeness, outdated), game-start banks, camera on the DC, the `dev_skirmish` GDO layouts | B, C | Opus | done (`d5a7d29`) |
+| M2-F2 | Game end: defeat (units become neutral and repath), game over when one side remains, spectating with team vision, the defeat and victory banner | B | Opus | running |
 | M2-G | HUD: resources bar, structure InfoPanels (the banner moved to M2-F2) | B | Opus | done (`69e80a1`) |
-| M2-H1 | Production UI: generalised command UI, Barracks panel, rally point | D2 | Opus | queued |
-| M2-I | Editor: Starting Layout editing | F | Opus | queued |
-| M2-H2 | Construction UI: build menu, ghost, area overlay, rotate and flip, side labels | C, D1, H1 | Opus | queued |
-| M2-J | M2 QA: economy oracle, `gdo_opening` golden, screenshots, structure perf | all | Opus | queued |
+| M2-H1 | Production UI: generalised command UI, Barracks panel, rally point | D2 | Opus | done (`eccaaa6`) |
+| M2-I | Editor: Starting Layout editing | F | Opus | running |
+| M2-H2 | Construction UI: build menu, ghost, area overlay, rotate and flip, side labels | C, D1, H1 | Opus | running |
+| M2-J1 | M2 sim QA: the economy oracle with documented tolerances, the `gdo_opening` golden, a tighter `behaviours_soak` check, F1's double layout report | B, D1, D2, F1 | Opus | running |
+| M2-J2 | M2 QA, the rest: `structures_perf`, perf re-measured on a quiet machine, walkthrough screenshots, ARCHITECTURE review, playtest notes | all | Opus | queued |
 
 First playable after M2-H2.
 
@@ -466,6 +495,7 @@ First playable after M2-H2.
 | Q0032 | Arrival radius behind an occupied destination: 2 or 3 grid units (data from G3) | no | open; M1 keeps 2 |
 | Q0033 | Path knowledge, blocked to open: a destination behind a gone obstacle, shortcuts when a wall is seen gone, map-placed structures | no | open; M2-E built the stated current behaviour |
 | Q0034 | Should an enemy plate's InfoPanel show its patch's remaining crystals? | no | open; M2-G shows it to everyone |
+| Q0035 | Rally point UI: Shift with rally targeting, rallying on one of several selected Barracks, feedback when pressing an unavailable command | no | open; M2-H1 built the stated current behaviour |
 
 ## Design change entries
 Last triaged: 0105.
@@ -548,21 +578,21 @@ Last triaged: 0105.
 | 0080 Exit doorway: units appear half inside; production pauses while it is occupied | done (M2-D2, `1a64e75`) | answers Q0023 points 2–3; replaces the nearest-free-spot default |
 | 0081 Queue limit of 20 includes the unit in production | done (M2-D2, `1a64e75`) | |
 | 0082 GDO Unit Control reserved when a unit is queued | done (M2-D2, `1a64e75`) | |
-| 0083 Group production: least remaining work pays first | done (M2-D2, `1a64e75`; UI parts in M2-H1) | replaces the fixed-order default |
-| 0084 Destroyed GDO producers refund as if cancelled | producers done (M2-D2, `1a64e75`); constructors in M2-D1 | |
+| 0083 Group production: least remaining work pays first | done (sim M2-D2; UI M2-H1, `eccaaa6`) | replaces the fixed-order default |
+| 0084 Destroyed GDO producers refund as if cancelled | done (M2-D2 producers, M2-D1 constructors, `fda74d3`) | |
 | 0085 Finished unit waiting inside is refunded if the building dies | done (M2-D2, `1a64e75`) | |
-| 0086 Rally point on the building itself clears it | done (M2-D2, `1a64e75`; UI parts in M2-H1) | |
-| 0087 Rally point indicators | queued (M2-H1) | |
-| 0088 Rally on an enemy becomes a ground rally when the enemy leaves sight | done (M2-D2, `1a64e75`; UI parts in M2-H1) | rally on a remembered structure TBD (Q0017 point 2) |
+| 0086 Rally point on the building itself clears it | done (sim M2-D2; UI M2-H1, `eccaaa6`) | |
+| 0087 Rally point indicators | done (sim M2-D2; UI M2-H1, `eccaaa6`) | |
+| 0088 Rally on an enemy becomes a ground rally when the enemy leaves sight | done (sim M2-D2; UI M2-H1, `eccaaa6`) | rally on a remembered structure TBD (Q0017 point 2) |
 | 0089 Power penalty scope, ratio and timing | done (M2-B, `39bcf66`) | matches the plan |
 | 0090 Power display: used / available | done (M2-B accessor, M2-G display, `69e80a1`) | replaces "current / total" |
 | 0091 GDO build area is square | queued (M2-C) | matches the plan |
 | 0092 GDO build area follows the current buildings | queued (M2-C) | matches the plan |
 | 0093 Build area overlay shows the area only | queued (M2-H2) | answers Q0026 point 4; matches the plan |
 | 0094 Ground units on the footprint block Direct Placement | queued (M2-C) | answers Q0027 point 1; matches the plan |
-| 0095 Extraction Plates need visible tiles | queued (M2-C; the `dev_skirmish` DC's sight must cover its main patches, M2-F) | answers Q0027 point 2 |
+| 0095 Extraction Plates need visible tiles | done (M2-C check; M2-F1 layouts and `dev_skirmish`, `d5a7d29`) | answers Q0027 point 2 |
 | 0096 No buildings on resources, except plates on patches | done in M2-A (`cbeb804`) for spawns; M2-C for the placement check | answers Q0027 point 3 |
-| 0097 Starting Layout validation | queued (M2-F, M2-I) | answers Q0027 point 4: the proposal plus a rule for starting units |
+| 0097 Starting Layout validation | done (M2-C check; M2-F1 layouts and `dev_skirmish`, `d5a7d29`) | answers Q0027 point 4: the proposal plus a rule for starting units |
 | 0098 Plates pay in lumps; the cycle timer advances by the power ratio | done (M2-B, `39bcf66`) | answers Q0028 point 1 |
 | 0099 Plate depletion: last partial load, depleted patch stays under its plate, the pick selects the plate | done (pick: M2-A; mining: M2-B, `39bcf66`) | answers Q0028 points 2–4 |
 | 0100 A defeated player's units stay but can't be controlled | superseded by 0101 (units become neutral) | answers Q0029 point 1; replaces removing the units |

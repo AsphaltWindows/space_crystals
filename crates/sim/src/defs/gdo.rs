@@ -92,6 +92,25 @@ pub(super) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         power: 30,                    // Power - +30
         production: None,
         mining: None,
+        // Constructs: the three buildings with a cost and a time. The design's others (Supply Tower, Arsenal, …) have
+        // none yet (TBD); their Requires clauses (`core/tech_and_research.md > Tech Prerequisites`) come with them.
+        constructs: &[
+            Recipe {
+                kind: ObjectKind::Generator,
+                cost: 100,   // Generator: 100 Space Crystals,
+                frames: 240, // 240 frames (15 seconds)
+            },
+            Recipe {
+                kind: ObjectKind::Barracks,
+                cost: 200,   // Barracks: 200 Space Crystals,
+                frames: 160, // 160 frames (10 seconds)
+            },
+            Recipe {
+                kind: ObjectKind::ExtractionFacility,
+                cost: 200,   // Extraction Facility: 200 Space Crystals,
+                frames: 320, // 320 frames (20 seconds)
+            },
+        ],
     }),
 };
 
@@ -119,6 +138,7 @@ pub(super) static GENERATOR: ObjectDef = ObjectDef {
         power: 20,                    // Power - +20
         production: None,
         mining: None,
+        constructs: &[],
     }),
 };
 
@@ -154,6 +174,7 @@ pub(super) static BARRACKS: ObjectDef = ObjectDef {
             }],
         }),
         mining: None,
+        constructs: &[],
     }),
 };
 
@@ -181,6 +202,12 @@ pub(super) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
         power: -15,                   // Power - -15
         production: None,
         mining: None,
+        // Constructs
+        constructs: &[Recipe {
+            kind: ObjectKind::ExtractionPlate,
+            cost: 75,    // Extraction Plate: 75 Space Crystals,
+            frames: 400, // 400 frames (25 seconds)
+        }],
     }),
 };
 
@@ -213,5 +240,6 @@ pub(super) static EXTRACTION_PLATE: ObjectDef = ObjectDef {
             residual: 1,     // ResidualMiningRate - 1 Space Crystal per 48 frames (3 seconds)
             cycle_ticks: 48, // "per 48 frames"
         }),
+        constructs: &[],
     }),
 };

@@ -8,6 +8,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::combat::AttackState;
+use crate::construction::Constructor;
 use crate::defs::{Footprint, ObjectDef, ObjectKind};
 use crate::economy::Extractor;
 use crate::ids::{ObjectId, PlayerId};
@@ -54,6 +55,12 @@ pub struct Object {
     /// states saved before it existed still load.
     #[serde(default)]
     pub production: Option<Production>,
+    /// A structure that constructs buildings, the Deployment Center and the Extraction Facility: what it is
+    /// building, or the building it holds ready to place (`factions/gdo/structures.md > DeploymentCenter >
+    /// DeploymentCenterInstanceState`, `factions/gdo/economy.md > ExtractionFacility`; `construction`). `None` for
+    /// everything else. Optional in files, so that states saved before it existed still load.
+    #[serde(default)]
+    pub constructor: Option<Constructor>,
 }
 
 impl Object {

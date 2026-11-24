@@ -21,7 +21,7 @@ use crate::paths::{self, NavState};
 use crate::player::Player;
 use crate::production::{self, Production};
 use crate::rng::Rng;
-use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
+use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings, StartingConditions};
 use crate::units::{Tick, TilePos};
 use crate::vision::{VisibilityState, Vision};
 use crate::{combat, economy, movement, orders, riot_shield};
@@ -99,7 +99,8 @@ impl Sim {
     /// Starts a game of the scenario's map with its game setup (players, seed and game options), or lists everything
     /// wrong with either ([`Scenario::validate`]). The map's pre-placed objects come first, those of slots that no
     /// player takes left out, then each player's Starting Layout for their faction at their slot; objects a slot
-    /// owns belong to the player who takes it. Never panics.
+    /// owns belong to the player who takes it, and the banks start at their faction's [`StartingConditions`]. Never
+    /// panics.
     pub fn try_new(scenario: &Scenario) -> Result<Self, Vec<ScenarioProblem>> {
         let objects = scenario.start_objects()?;
         let mut sim = Self::empty(scenario);
@@ -122,9 +123,9 @@ impl Sim {
                 id,
                 name: p.name.clone(),
                 faction: p.faction,
-                // The Starting Conditions' banks come with slice M2-F.
-                crystals: 0,
-                supplies: 0,
+                // `factions/gdo/economy.md > Starting Conditions`; 0 for a faction not implemented yet (T11).
+                crystals: StartingConditions::of(p.faction).map_or(0, |s| s.crystals),
+                supplies: StartingConditions::of(p.faction).map_or(0, |s| s.supplies),
                 defeated_at: None,
             })
             .collect::<Vec<Player>>();
@@ -370,10 +371,12 @@ impl Sim {
     }
 
     /// `ARCHITECTURE.md > Commands, events and replays`: every command passes the gate ([`Sim::validate`]) first.
-    /// A rejected one changes nothing; player input never panics the sim.
+    /// A rejected one changes nothing; player input never panics the sim. The one rejection the sim reports is a
+    /// Place the placement check refuses (plan decision T4, `Sim::report_refusal`).
     fn apply_command(&mut self, cmd: &PlayerCommand) {
-        let Ok(checked) = self.check(cmd) else {
-            return;
+        let checked = match self.check(cmd) {
+            Ok(checked) => checked,
+            Err(reject) => return self.report_refusal(cmd, reject),
         };
         match checked {
             Checked::Order { units, kind, queue } => self.give_order(&units, kind, queue),
@@ -414,6 +417,7 @@ impl Sim {
                 supplies,
             } => self.set_resources(player, crystals, supplies),
             Checked::Production { player, plan } => self.apply_production(player, plan),
+            Checked::Construction { player, resolved } => self.apply_construction(player, resolved),
         }
     }
 
@@ -497,6 +501,9 @@ impl Sim {
                 .as_ref()
                 .and_then(|structure| structure.production.as_ref())
                 .map(|_| Production::default()),
+            // `factions/gdo/structures.md > DeploymentCenter`, `factions/gdo/economy.md > ExtractionFacility`: a
+            // constructor starts idle.
+            constructor: crate::construction::constructor_for(kind),
         };
         self.objects.insert(id, object);
         if is_patch {
@@ -546,6 +553,7 @@ impl Sim {
     }
 }
 
+mod construction;
 mod gate;
 mod load;
 mod navigation;

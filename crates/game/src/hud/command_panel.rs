@@ -4,7 +4,8 @@
 //! Placeholder buttons until the art exists (Q0001): a short label in the middle and the slot's hotkey, from the
 //! bindings, in the top-left corner. Each look has its colours: common commands blue, group commands violet (the
 //! design wants the two "visually distinguished"), the PendingCommand lit up in yellow, disabled commands grey and
-//! dim, unavailable ones near-black with a dark red border, Back slate. A toggle that is on (the Riot Shields up)
+//! dim (a Train or a Cancel Production the command gate would refuse too: `crate::command_ui::Conditions`),
+//! unavailable ones near-black with a dark red border, Back slate. A toggle that is on (the Riot Shields up)
 //! has a thick green border, and its label says what pressing it does. A click on a button is a press of its slot,
 //! handled with the hotkeys (`crate::command_ui`), which finds the button by the same geometry ([`CommandGrid`]).
 
@@ -15,7 +16,7 @@ use super::layout::{CommandGrid, SECTION_BORDER_PX, section_rect};
 use super::{HudSection, SectionLabel, show_node, text};
 use crate::ClientMode;
 use crate::command_ui::interface::{commandable, panel, slot_index};
-use crate::command_ui::{ButtonLook, Modes, Panel, PanelSlot};
+use crate::command_ui::{ButtonLook, Conditions, Panel, PanelSlot};
 use crate::input::{Bindings, Button, CommandSlot, InputAction};
 use crate::platform::SurfaceSize;
 use crate::selection::ControlStates;
@@ -89,8 +90,8 @@ impl PanelSource<'_> {
     fn panel(&self) -> Panel {
         let state = self.states.of(self.player.0);
         if self.mode.is_game() && commandable(&self.sim, self.player.0, &state.selection) {
-            let modes = Modes::of(&self.sim, &state.selection);
-            panel(&state.selection, state.interface, &modes)
+            let conditions = Conditions::of(&self.sim, self.player.0, &state.selection);
+            panel(&state.selection, state.interface, &conditions)
         } else {
             Panel::default()
         }

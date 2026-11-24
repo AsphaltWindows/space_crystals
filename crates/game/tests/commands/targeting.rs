@@ -8,15 +8,15 @@
 use bevy::prelude::*;
 use sc_sim::{Command, ObjectId, OrderKind, Target};
 use space_crystals::command_ui::feedback::{FEEDBACK_TICKS, INVALID_TARGET_TEXT, TargetFeedback, TargetFeedbackView};
-use space_crystals::command_ui::{ButtonLook, InterfaceState, UnitCommand};
+use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelCommand};
 use space_crystals::hud::command_panel::CommandButton;
 use space_crystals::selection::Relation;
 
 use super::*;
 use KeyCode::{ControlLeft, Digit1, Digit2, Escape, KeyA, KeyE, KeyQ, KeyR, KeyS, KeyX, KeyZ, ShiftLeft, Tab};
 
-const AWAIT_ATTACK: InterfaceState = InterfaceState::awaiting(UnitCommand::Attack);
-const AWAIT_PATROL: InterfaceState = InterfaceState::awaiting(UnitCommand::Patrol);
+const AWAIT_ATTACK: InterfaceState = InterfaceState::awaiting(PanelCommand::Attack);
+const AWAIT_PATROL: InterfaceState = InterfaceState::awaiting(PanelCommand::Patrol);
 
 fn attack(id: u32) -> OrderKind {
     OrderKind::Attack(ObjectId(id))
@@ -363,7 +363,7 @@ fn a_shift_click_queues_the_targeted_order() {
     app.update();
     click(&mut app, Vec2::new(1200.0, 1000.0), &[]);
     let queued = InterfaceState::AwaitingTarget {
-        pending: UnitCommand::Move,
+        pending: PanelCommand::Move,
         queued: true,
     };
     assert_eq!(interface(&app), queued, "Shift still held");
