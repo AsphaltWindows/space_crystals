@@ -2371,11 +2371,11 @@ unchecked.
   games play `dev_skirmish` with player 1 as the Colonists, by `testing::colonists::skirmish`: in
   `colonists_opening` (to 1:50) player 1 gathers, trains Drones, deploys, warps in a Bio Portal on its first Beacon,
   trains two Sabre Legionnaires and converts the first; in `colonists_vs_gdo` (to 3:00) it trains eight Sabres and
-  converts each to a Rifle Legionnaire to wait east of the Bio Portal, while player 2 plays `gdo_opening`'s Barracks line and sends its ten Peacekeepers to
-  player 1's field in two waves of AttackMove: the Colonists' Shields take hits and units die on both sides. Both
-  players' books balance every step, the Drones' deliveries included, and every command the scripts give is one the
-  gate takes. Any change to the sim's rules or state changes the hashes: when the change is intended, re-bless and
-  commit the files with it:
+  converts each to a Rifle Legionnaire to wait east of the Bio Portal, while player 2 plays `gdo_opening`'s Barracks
+  line and sends its ten Peacekeepers to player 1's field in two waves of AttackMove: the Colonists' Shields take
+  hits and units die on both sides. Both players' books balance every step, the Drones' deliveries included, and
+  every command the scripts give is one the gate takes. Any change to the sim's rules or state changes the hashes:
+  when the change is intended, re-bless and commit the files with it:
 
   ```sh
   SC_BLESS=1 cargo test -p sc_sim golden
