@@ -298,6 +298,7 @@ impl StateHash for Object {
             extractor,
             production,
             constructor,
+            transform,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -310,7 +311,7 @@ impl StateHash for Object {
         placement.hash(h);
         resource.hash(h);
         // Their impls live with their types (`orders.rs`, `mover.rs`, `combat.rs`, `riot_shield.rs`,
-        // `economy/mining.rs`, `production.rs`, `construction.rs`).
+        // `economy/mining.rs`, `production.rs`, `construction.rs`, `transform.rs`).
         orders.hash(h);
         mover.hash(h);
         attack.hash(h);
@@ -318,6 +319,7 @@ impl StateHash for Object {
         extractor.hash(h);
         production.hash(h);
         constructor.hash(h);
+        transform.hash(h);
     }
 }
 

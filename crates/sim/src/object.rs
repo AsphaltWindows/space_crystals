@@ -17,6 +17,7 @@ use crate::orders::Orders;
 use crate::production::Production;
 use crate::riot_shield::RiotShield;
 use crate::scenario::BuildingOrientation;
+use crate::transform::Transform;
 use crate::units::{SU_PER_GU, TilePos};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -61,6 +62,12 @@ pub struct Object {
     /// everything else. Optional in files, so that states saved before it existed still load.
     #[serde(default)]
     pub constructor: Option<Constructor>,
+    /// An object transforming into its kind, a building being warped in from a Beacon: what it was, its progress
+    /// and what it paid (`factions/colonists/economy.md > Warp In`, plan decision T15; `transform`, which also gives
+    /// its interpolated maxima, `Object::max_hp`). `None` for everything else. Optional in files, so that states
+    /// saved before it existed still load.
+    #[serde(default)]
+    pub transform: Option<Transform>,
 }
 
 impl Object {

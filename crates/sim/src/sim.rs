@@ -354,6 +354,9 @@ impl Sim {
         // it; before 5f, so that what it brings into the game is seen in its own tick.
         observe(Phase::Economy);
         economy::step(&mut self.objects, &mut self.players, first_new, &mut self.events);
+        // The transformations (slice M3-E, `crate::transform`), part of the economy phase after construction (plan
+        // decision T5's position): here, because completing one turns its functions on from the sim's objects.
+        self.step_transforms(first_new);
         // The producers (slice M2-D2), part of the economy phase: here, not inside `economy::step`, because a
         // finished unit is inserted into the game. Before 5f, so that it is seen in its own tick.
         self.step_production(first_new);
@@ -514,6 +517,7 @@ impl Sim {
             extractor,
             production,
             constructor,
+            transform: None,
         };
         self.objects.insert(id, object);
         if is_patch {
@@ -575,3 +579,4 @@ mod removal;
 mod resources;
 #[cfg(test)]
 mod tests;
+mod transform;

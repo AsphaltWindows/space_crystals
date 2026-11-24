@@ -53,6 +53,7 @@ fn place(map: &Map, area: &BuildArea, occupants: &[Occupant], kind: ObjectKind, 
         map,
         area,
         mode: Mode::Layout,
+        method: Method::Direct,
     };
     check(
         &site,
@@ -104,6 +105,7 @@ fn tiles_off_the_map() {
         map: &map,
         area: &area,
         mode: Mode::Layout,
+        method: Method::Direct,
     };
     assert!(check_at(&site, Barracks, t(6, 5), turned).is_valid());
     assert_eq!(
@@ -227,6 +229,7 @@ fn tiles_out_of_sight() {
             vision: sim.vision(),
             player,
         },
+        method: Method::Direct,
     };
     // An Extraction Facility at (6, 3) is partly in the Generator's sight of 3.
     let check = check_at(&in_game(P1), ExtractionFacility, t(6, 3), unturned);

@@ -1,5 +1,7 @@
 //! The construction commands in a game (`crate::construction`, slice M2-D1): their rules in the command gate, what
-//! applying them does, the refusal a Place reports, and the refunds of the constructors that leave the game.
+//! applying them does, the refusal a Place reports, and the refunds of the constructors that leave the game. The
+//! Warp In and its cancel are construction commands too, whose rules and effects are the transformations'
+//! (`sim/transform.rs`, slice M3-E).
 
 use glam::Vec2;
 
@@ -32,6 +34,15 @@ pub(super) enum Resolved {
         pos: Vec2,
         placement: Placement,
     },
+    /// `beacon` pays for `kind` and starts warping it in at `placement` (`sim/transform.rs`).
+    WarpIn {
+        beacon: ObjectId,
+        kind: ObjectKind,
+        placement: Placement,
+    },
+    /// Each of `objects`, in id order, cancels its transformation, with the refund that goes with it
+    /// (`sim/transform.rs`).
+    CancelTransform { objects: Vec<ObjectId> },
 }
 
 impl Sim {
@@ -46,7 +57,9 @@ impl Sim {
     /// - **Cancel Ready Building**: each one holding a building ready, else [`Reject::NothingReady`];
     /// - **Place**: one constructor ([`Reject::SeveralConstructors`]) holding a building ready
     ///   ([`Reject::NothingReady`]), which the placement check allows there now ([`Sim::placement_check`]: else
-    ///   [`Reject::Unplaceable`] with its first problem).
+    ///   [`Reject::Unplaceable`] with its first problem);
+    /// - **Warp In** and **Cancel Warp In**: the Beacon's and the transforming objects' rules (`Sim::check_warp_in`,
+    ///   `Sim::check_cancel_transform`).
     pub(super) fn check_construction(
         &self,
         player: PlayerId,
@@ -69,6 +82,12 @@ impl Sim {
             ConstructionCommand::Place { origin, orientation } => {
                 self.check_place(player, objects, origin, orientation)?
             }
+            ConstructionCommand::WarpIn {
+                kind,
+                origin,
+                orientation,
+            } => self.check_warp_in(player, objects, kind, origin, orientation)?,
+            ConstructionCommand::CancelTransform => self.check_cancel_transform(player, objects)?,
         };
         Ok(Checked::Construction { player, resolved })
     }
@@ -217,35 +236,55 @@ impl Sim {
                 let structure = self.insert_object(kind, Some(player), pos, Some(placement), None);
                 self.events.push(SimEvent::StructurePlaced { constructor, structure });
             }
+            Resolved::WarpIn {
+                beacon,
+                kind,
+                placement,
+            } => self.start_warp_in(player, beacon, kind, placement),
+            Resolved::CancelTransform { objects } => {
+                for id in objects {
+                    self.cancel_transform(id);
+                }
+            }
         }
     }
 
     /// Plan decision T4: a Place that the placement check refuses as it applies changes nothing (the building stays
     /// ready to place), and the sim reports it, with every problem the check finds there
-    /// (`SimEvent::PlacementRefused`), so that the client can tell the player. Every other rejection is silent.
+    /// (`SimEvent::PlacementRefused`), so that the client can tell the player. A Warp In refused so (slice M3-E)
+    /// is reported the same way, with its Beacon as the constructor ([`Sim::warp_in_check`]). Every other
+    /// rejection is silent.
     pub(super) fn report_refusal(&mut self, cmd: &PlayerCommand, reject: Reject) {
-        let (
-            Reject::Unplaceable(_),
-            Command::Construction {
-                objects,
-                command: ConstructionCommand::Place { origin, orientation },
-            },
-        ) = (reject, &cmd.command)
-        else {
+        let (Reject::Unplaceable(_), Command::Construction { objects, command }) = (reject, &cmd.command) else {
             return;
         };
-        // The gate's constructor and building, from the same state.
-        let Ok((constructor, kind)) = self.placer(cmd.player, objects) else {
-            return;
+        // The gate's constructor and building, and its check, from the same state.
+        let refused = match *command {
+            ConstructionCommand::Place { origin, orientation } => {
+                self.placer(cmd.player, objects).ok().map(|(constructor, kind)| {
+                    let problems = self.placement_check(cmd.player, kind, origin, orientation);
+                    (constructor, kind, origin, orientation, problems)
+                })
+            }
+            ConstructionCommand::WarpIn {
+                kind,
+                origin,
+                orientation,
+            } => self.warper(cmd.player, objects).ok().and_then(|beacon| {
+                let problems = self.warp_in_check(beacon, kind, origin, orientation)?;
+                Some((beacon, kind, origin, orientation, problems))
+            }),
+            _ => None,
         };
-        let problems = self.placement_check(cmd.player, kind, *origin, *orientation);
-        self.events.push(SimEvent::PlacementRefused {
-            constructor,
-            kind,
-            origin: *origin,
-            orientation: *orientation,
-            problems,
-        });
+        if let Some((constructor, kind, origin, orientation, problems)) = refused {
+            self.events.push(SimEvent::PlacementRefused {
+                constructor,
+                kind,
+                origin,
+                orientation,
+                problems,
+            });
+        }
     }
 
     /// Design change 0084 (`factions/gdo/structures.md > DeploymentCenter > Cancellation`: "Destroyed while

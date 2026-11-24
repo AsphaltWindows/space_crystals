@@ -288,7 +288,9 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::ConstructionCancelled { .. }
                 | SimEvent::StructurePlaced { .. }
                 | SimEvent::PlacementRefused { .. }
-                | SimEvent::KindChanged { .. } => {}
+                | SimEvent::KindChanged { .. }
+                | SimEvent::TransformCompleted { .. }
+                | SimEvent::TransformCancelled { .. } => {}
             }
         }
         unit_steps += sim

@@ -138,6 +138,7 @@ pub fn placement_text(problem: Option<PlacementProblem>) -> &'static str {
             WholeProblem::NotAStructure => CANNOT_PLACE_TEXT,
             WholeProblem::OutsideBuildArea => "Outside the build area",
             WholeProblem::NotOnPatch => "Must be placed on a crystal patch",
+            WholeProblem::NotOnBeacon => "Must be centred on the Beacon",
         },
         Some(PlacementProblem::Tile(_, problem)) => match problem {
             TileProblem::OffMap => "Outside the map",

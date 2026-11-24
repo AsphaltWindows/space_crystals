@@ -90,7 +90,7 @@ impl Sim {
     /// - **Kept**: its id, owner and facing. Its position, unless it gets a placement: a tile-based object stands at
     ///   its placement's centre (`Placement::center`), and jumps there, as a teleport does (`prev_pos` too). Its HP,
     ///   at most the new kind's MaxHP: a transformation in progress sets its interpolated HP itself
-    ///   (`factions/colonists/economy.md > Beacon Deployment > HP/Shields Interpolation`, question Q0039).
+    ///   (`factions/colonists/economy.md > Beacon Deployment > HP/Shields Interpolation`, design change 0110).
     /// - **Capabilities**, rebuilt from the new kind's definition ([`Capabilities::fresh`]): one the old kind had
     ///   with the same definition keeps its state, the others start as on a new object, and those the new kind
     ///   lacks go. So a unit that stays a unit keeps its orders and its move (question Q0042 point 6), and plans its
@@ -103,16 +103,9 @@ impl Sim {
     ///
     /// The new kind counts from the change on, its footprint and its capabilities included (T15: "the object is
     /// the target kind from the first frame"); a caller whose object isn't functional yet (a building warping in)
-    /// holds those back itself. Phase 5b brings the grids up to date with the footprint, so a kind changes before
-    /// it, in the commands phase or in a step right after 5a, or the caller syncs them (`paths::sync`). Map resources
-    /// never change kind.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "slices M3-B, E and F call it: Weapon Conversion, Warp In, Beacon Deployment"
-        )
-    )]
+    /// holds those back itself, and keeps its `Object::transform` (`sim/transform.rs`: a Warp In and its cancel).
+    /// Phase 5b brings the grids up to date with the footprint, so a kind changes before it, in the commands phase
+    /// or in a step right after 5a, or the caller syncs them (`paths::sync`). Map resources never change kind.
     pub(crate) fn change_kind(&mut self, id: ObjectId, kind: ObjectKind, placement: Option<Placement>) -> bool {
         let Some(o) = self.objects.get(&id) else {
             return false;
@@ -160,6 +153,7 @@ impl Sim {
             extractor,
             production,
             constructor,
+            transform: _,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {

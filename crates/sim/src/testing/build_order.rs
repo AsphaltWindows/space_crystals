@@ -265,7 +265,7 @@ pub struct Books {
     bank: u32,
     /// What each patch under one of the player's plates holds.
     reserves: BTreeMap<ObjectId, u32>,
-    /// The player's constructors and producers, whose refunds go to them.
+    /// The player's constructors, producers and transforming objects, whose refunds go to them.
     builders: BTreeSet<ObjectId>,
 }
 
@@ -280,7 +280,8 @@ pub struct Entry {
     pub paid: Vec<(ObjectId, u32)>,
     /// What the player's commands paid.
     pub spent: u32,
-    /// What came back: the `SimEvent::ConstructionCancelled` and `SimEvent::ProductionCancelled` of their buildings.
+    /// What came back: the `SimEvent::ConstructionCancelled`, `SimEvent::ProductionCancelled` and
+    /// `SimEvent::TransformCancelled` of their buildings.
     pub refunded: u32,
 }
 
@@ -300,7 +301,9 @@ impl Books {
             .collect();
         let builders = sim
             .objects()
-            .filter(|o| o.owner == Some(player) && (o.constructor.is_some() || o.production.is_some()))
+            .filter(|o| {
+                o.owner == Some(player) && (o.constructor.is_some() || o.production.is_some() || o.is_transforming())
+            })
             .map(|o| o.id)
             .collect();
         Self {
@@ -339,7 +342,8 @@ impl Books {
                 }
                 | SimEvent::ProductionCancelled {
                     producer: by, refund, ..
-                } => self.builders.contains(&by).then_some(refund),
+                }
+                | SimEvent::TransformCancelled { id: by, refund, .. } => self.builders.contains(&by).then_some(refund),
                 _ => None,
             })
             .sum();

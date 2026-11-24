@@ -24,6 +24,7 @@ fn unit(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Object
         extractor: None,
         production: None,
         constructor: None,
+        transform: None,
     }
 }
 

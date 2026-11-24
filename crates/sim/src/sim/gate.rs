@@ -89,15 +89,18 @@ pub enum Reject {
     /// Cancel Production: no producer has anything queued.
     NothingQueued,
     /// None of the objects a construction command names is one of the player's constructors that exists
-    /// (`crate::construction`).
+    /// (`crate::construction`); for a Warp In, one of the player's Beacons (`crate::transform`).
     NoConstructor,
-    /// A Place names more than one constructor: one building is placed by one constructor (design change 0071).
+    /// A Place names more than one constructor: one building is placed by one constructor (design change 0071); a
+    /// Warp In more than one Beacon: one Beacon becomes the building (plan decision T22).
     SeveralConstructors,
     /// The building isn't on the constructor's `Constructs` list (`factions/gdo/structures.md > DeploymentCenter >
-    /// Constructs`, `factions/gdo/economy.md > ExtractionFacility > Constructs`).
+    /// Constructs`, `factions/gdo/economy.md > ExtractionFacility > Constructs`), or on the Beacon's
+    /// (`factions/colonists/economy.md > Warp In > Constructs List`).
     CannotConstruct(ObjectKind),
     /// The constructor is constructing, or holds a building ready to place: "Other build options unavailable"
-    /// (`> ObjectInterfaceState[DeploymentCenter]`).
+    /// (`> ObjectInterfaceState[DeploymentCenter]`); the Beacon of a Warp In is transforming itself (a Beacon still
+    /// being deployed, slice M3-F).
     ConstructorBusy(ObjectId),
     /// A Cancel Construction to a constructor that isn't constructing.
     NotConstructing,
@@ -105,8 +108,11 @@ pub enum Reject {
     NothingReady,
     /// The ready building can't be placed there (`core/entities.md > Placement Validation`, `crate::placement`): the
     /// first problem the placement check finds. When a Place is refused for this as it applies, the sim says why
-    /// (`SimEvent::PlacementRefused`).
+    /// (`SimEvent::PlacementRefused`); a Warp In the same.
     Unplaceable(PlacementProblem),
+    /// A Cancel Warp In to objects none of which is transforming (`factions/colonists/economy.md > Warp In > Cancel
+    /// Warp In`, `crate::transform`).
+    NotTransforming,
 }
 
 impl fmt::Display for Reject {
@@ -144,6 +150,7 @@ impl fmt::Display for Reject {
             Reject::NotConstructing => write!(f, "nothing is under construction"),
             Reject::NothingReady => write!(f, "no building is ready to place"),
             Reject::Unplaceable(problem) => write!(f, "the building can't go there: {problem}"),
+            Reject::NotTransforming => write!(f, "nothing is transforming"),
         }
     }
 }
@@ -206,7 +213,8 @@ impl Sim {
     ///    [`Reject::NotVisible`]), and for an Attack, units that can attack now ([`Reject::CannotAttack`]); the units
     ///    of an ability that have it ([`Reject::LacksAbility`]); the producers of a production command and what they
     ///    can queue (`sim/producers.rs`); the constructors of a construction command that can carry it out, the bank
-    ///    that pays and the placement check of a Place (`sim/construction.rs`); a spawn's owner and placement (a
+    ///    that pays and the placement check of a Place (`sim/construction.rs`), and the same of a Warp In's Beacon,
+    ///    or the transforming objects a cancel goes to (`sim/transform.rs`); a spawn's owner and placement (a
     ///    footprint apart from the others but for a plate on its patch, [`Reject::Overlaps`]), a teleport to a unit
     ///    and onto the map, a unit's box clear of blocked ground and of the units of its layer, and the player whose
     ///    banks a debug command sets.
