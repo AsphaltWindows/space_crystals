@@ -57,6 +57,7 @@ pub(super) static GUARD: ObjectDef = ObjectDef {
         tunnel_space_cost: Some(1), // TunnelSpaceCost - 1
         beacon_capacity_cost: None,
         riot_shield: None,
+        worker: None,
     }),
     structure: None,
 };

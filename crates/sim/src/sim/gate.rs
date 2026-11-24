@@ -100,6 +100,14 @@ pub enum Reject {
     NotConstructing,
     /// A Cancel Ready Building or a Place to a constructor that holds no building ready to place.
     NothingReady,
+    /// None of the units a Gather or a Drop Off order names is a worker (`factions/colonists/units.md > Drone`).
+    NoWorkers,
+    /// A Gather's target isn't a Space Crystals patch that workers can gather: another object, or a patch under a
+    /// mining structure (question Q0037 point 11).
+    NotGatherable(ObjectId),
+    /// The target of a Drop Off order or of Set Drop-off Location isn't a drop-off of the player's, an own Egress
+    /// Node (`factions/colonists/units.md > Drone > Assigned Drop-off`).
+    NotDropOff(ObjectId),
     /// The ready building can't be placed there (`core/entities.md > Placement Validation`, `crate::placement`): the
     /// first problem the placement check finds. When a Place is refused for this as it applies, the sim says why
     /// (`SimEvent::PlacementRefused`).
@@ -140,6 +148,9 @@ impl fmt::Display for Reject {
             Reject::ConstructorBusy(id) => write!(f, "constructor {} is busy", id.0),
             Reject::NotConstructing => write!(f, "nothing is under construction"),
             Reject::NothingReady => write!(f, "no building is ready to place"),
+            Reject::NoWorkers => write!(f, "none of the units is a worker"),
+            Reject::NotGatherable(id) => write!(f, "object {} can't be gathered", id.0),
+            Reject::NotDropOff(id) => write!(f, "object {} is no drop-off of the player's", id.0),
             Reject::Unplaceable(problem) => write!(f, "the building can't go there: {problem}"),
         }
     }
@@ -274,6 +285,16 @@ impl Sim {
                 }
             }
             OrderKind::Hold | OrderKind::Stop => {}
+            // `factions/colonists/units.md > Drone > Unit Commands` (`sim/workers.rs`): the workers among the
+            // units take it, the others ignore it.
+            OrderKind::Gather(patch) => {
+                self.check_gather(player, patch)?;
+                ordered = self.workers_among(ordered)?;
+            }
+            OrderKind::DropOff(node) => {
+                self.check_drop_off(player, node)?;
+                ordered = self.workers_among(ordered)?;
+            }
         }
         Ok(Checked::Order {
             units: ordered,
@@ -321,10 +342,14 @@ impl Sim {
     fn check_ability(&self, player: PlayerId, units: &[ObjectId], ability: Ability) -> Result<Checked, Reject> {
         let has = |o: &Object| match ability {
             Ability::RiotShield { .. } => o.riot_shield.is_some(),
+            Ability::SetDropOff(_) => o.worker.is_some(),
         };
         let own = self.own_units(player, units, |_| true)?;
         if own.is_empty() {
             return Err(Reject::NoUnits);
+        }
+        if let Ability::SetDropOff(node) = ability {
+            self.check_drop_off(player, node)?;
         }
         let units: Vec<ObjectId> = own
             .into_iter()

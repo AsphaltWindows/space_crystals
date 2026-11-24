@@ -52,6 +52,7 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         extractor: None,
         production: None,
         constructor: None,
+        worker: None,
     };
     sim.objects.insert(id, unit);
     id

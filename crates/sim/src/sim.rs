@@ -353,7 +353,13 @@ impl Sim {
         // The economy (plan decision T5): after 5e, so that the buildings destroyed this tick count for nothing in
         // it; before 5f, so that what it brings into the game is seen in its own tick.
         observe(Phase::Economy);
-        economy::step(&mut self.objects, &mut self.players, first_new, &mut self.events);
+        let depleted = economy::step(&mut self.objects, &mut self.players, first_new, &mut self.events);
+        // `core/map.md > SpaceCrystalsPatch`: the patches the workers emptied disappear, and their tiles open
+        // (design change 0038), so the grids follow as after 5e's deaths.
+        if !depleted.is_empty() {
+            self.remove_objects(&depleted);
+            paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
+        }
         // The producers (slice M2-D2), part of the economy phase: here, not inside `economy::step`, because a
         // finished unit is inserted into the game. Before 5f, so that it is seen in its own tick.
         self.step_production(first_new);
@@ -408,6 +414,13 @@ impl Sim {
                     };
                     match ability {
                         Ability::RiotShield { raise } => riot_shield::toggle(o, raise),
+                        // `factions/colonists/units.md > Drone > Assigned Drop-off`: it "only updates
+                        // AssignedDropOff"; the worker's order goes on.
+                        Ability::SetDropOff(node) => {
+                            if let Some(worker) = &mut o.worker {
+                                worker.drop_off = Some(node);
+                            }
+                        }
                     }
                 }
             }
@@ -463,6 +476,7 @@ impl Sim {
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => {
                 vec![None; units.len()]
             }
+            OrderKind::Gather(_) | OrderKind::DropOff(_) => vec![None; units.len()],
         };
         for (id, slot) in units.iter().zip(slots) {
             if let Some(orders) = self.objects.get_mut(id).and_then(|o| o.orders.as_mut()) {
@@ -495,6 +509,7 @@ impl Sim {
             extractor,
             production,
             constructor,
+            worker,
         } = kinds::Capabilities::fresh(&self.objects, kind, placement.as_ref());
         let object = Object {
             id,
@@ -514,6 +529,7 @@ impl Sim {
             extractor,
             production,
             constructor,
+            worker,
         };
         self.objects.insert(id, object);
         if is_patch {
@@ -575,3 +591,4 @@ mod removal;
 mod resources;
 #[cfg(test)]
 mod tests;
+mod workers;

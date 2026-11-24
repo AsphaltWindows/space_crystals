@@ -32,6 +32,9 @@ pub struct StructureDef {
     /// [`StructureDef::constructs`], which makes its type a GDO-style constructor (plan decision T14). Data only
     /// until slice M3-E warps them in.
     pub warp_in: &'static [Recipe],
+    /// Whether workers deliver their loads to the type (`factions/colonists/economy.md > Egress Node > Drop Off`:
+    /// "the only way resources enter the player's resource pool"; `crate::economy::gathering`).
+    pub drop_off: bool,
 }
 
 /// A mining structure's rates (`factions/gdo/economy.md > ExtractionPlate`): it pays its owner a load at the end of

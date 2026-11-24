@@ -423,6 +423,21 @@ pub struct RiotShieldDef {
     pub toggle_ticks: u32,
 }
 
+/// `factions/colonists/units.md > Drone > Gathering`: what makes a unit type a worker (`crate::economy::gathering`).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct WorkerDef {
+    /// CarryCapacity: the most it carries of a resource in one load.
+    pub carry_capacity: u32,
+    /// MiningDuration, ticks.
+    pub mining_ticks: u32,
+    /// DropOffDuration, ticks.
+    pub drop_off_ticks: u32,
+    /// MiningReach, space units: it can mine once its Silhouette is within this of the patch's edge.
+    pub mining_reach: f32,
+    /// DropOffReach, space units: within this of the drop-off point's edge.
+    pub drop_off_reach: f32,
+}
+
 /// A unit type's own attributes (`systems/units.md > Unit`); the attributes every object type has are on its
 /// `ObjectDef`.
 #[derive(Clone, Debug, PartialEq)]
@@ -447,6 +462,8 @@ pub struct UnitDef {
     pub beacon_capacity_cost: Option<u32>,
     /// `factions/gdo/units.md > Peacekeeper > Riot Shield`.
     pub riot_shield: Option<RiotShieldDef>,
+    /// `factions/colonists/units.md > Drone > Gathering`: `None` for units that gather nothing.
+    pub worker: Option<WorkerDef>,
 }
 
 impl UnitDef {

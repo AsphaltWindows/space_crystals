@@ -66,6 +66,7 @@ pub(super) static PEACEKEEPER: ObjectDef = ObjectDef {
             damage_factor: 0.5, // Incoming damage is halved, a 50% pre-armor reduction
             toggle_ticks: RIOT_SHIELD_TOGGLE_TICKS,
         }),
+        worker: None,
     }),
     structure: None,
 };
@@ -115,6 +116,7 @@ pub(super) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
             },
         ],
         warp_in: &[],
+        drop_off: false,
     }),
 };
 
@@ -145,6 +147,7 @@ pub(super) static GENERATOR: ObjectDef = ObjectDef {
         mining: None,
         constructs: &[],
         warp_in: &[],
+        drop_off: false,
     }),
 };
 
@@ -183,6 +186,7 @@ pub(super) static BARRACKS: ObjectDef = ObjectDef {
         mining: None,
         constructs: &[],
         warp_in: &[],
+        drop_off: false,
     }),
 };
 
@@ -218,6 +222,7 @@ pub(super) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
             frames: 400, // 400 frames (25 seconds)
         }],
         warp_in: &[],
+        drop_off: false,
     }),
 };
 
@@ -253,5 +258,6 @@ pub(super) static EXTRACTION_PLATE: ObjectDef = ObjectDef {
         }),
         constructs: &[],
         warp_in: &[],
+        drop_off: false,
     }),
 };

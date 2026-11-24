@@ -306,6 +306,7 @@ mod tests {
                     extractor: None,
                     production: None,
                     constructor: None,
+                    worker: None,
                 },
             );
         }
