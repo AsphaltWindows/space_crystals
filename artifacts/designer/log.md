@@ -2049,3 +2049,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Q0025 pts 1,2,4: power producers never slowed (A); ratio gen/cons capped; power counts placement→destruction. Entry 0089.
 - 2026-11-24: Q0025 pt 3: Power display used/available (red when over), like other capacity counters. Entry 0090. Q0025 done.
 - 2026-11-24: Q0026 pt 1: GDO build area square. Entry 0091.
+- 2026-11-24: Q0026 pts 2-3: build area = union of current buildings (shrinks; no DC still OK). Entry 0092.
