@@ -314,9 +314,16 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Found.** `replay.rs::playback_pauses_steps_and_changes_speed` flakes under machine load: it assumes one update at Max pace reaches the end. M2-I fixes it.
   - **Known gap.** New Skirmish Default maps can't be play-tested until M2-I adds layout editing.
 
+- **M2-D1 construction** (merged in `fda74d3`; 838 tests):
+  - **State.** `Object::constructor`: `Idle | Constructing { kind, progress } | Ready { kind }`, with recipes in `StructureDef::constructs`.
+  - **Commands.** `Command::Construction { objects, command: Construct | CancelConstruction | CancelReady | Place }`. Cost is paid when the command applies. Refunds are Full, or Ready at 75% rounded down; destruction refunds the same way (0084).
+  - **Placing.** Place re-runs `placement::check`. A refusal keeps the building Ready and emits `PlacementRefused`. A Place naming several constructors is refused.
+  - **Events.** `ConstructionCompleted`, `StructurePlaced` and `ConstructionCancelled { refund }`.
+  - **Recipe timing** (decided by the Director; ARCHITECTURE.md > Economy > Recipe timing). Progress starts in the tick the order applies. A recipe of N frames ordered at t completes at the end of t+N−1, and the result is usable from t+N. D2 already worked this way.
+  - **Mini-oracle on `dev_skirmish`.** The Barracks starts at 48.1 s.
+  - **Goldens.** Re-blessed once for the hashed constructor field. Play is identical.
+
 ## In progress
-- **M2 wave 3** (common brief `scratchpad/briefs/m2-w3-common.md`, plus one brief per slice):
-  - **M2-D1 construction** (Opus);
 - **M2 wave 4** (common brief `scratchpad/briefs/m2-w4-common.md`):
   - **M2-H1 production UI** (Opus): `PanelCommand`, the Barracks panel, the production right-click, rally indicators, the production activity lines;
   - **M2-F2 game end** (Opus): defeat to neutral, game over, spectating, banners;
@@ -406,7 +413,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | M2-B | Economy core: banks, power and penalty, Unit Control, plate mining and depletion, the economy step | A | Opus | done (`39bcf66`) |
 | M2-C | Build area and placement validation | A | Opus | done (`0f8cc70`) |
 | M2-E | Path knowledge: per-player planning grids, re-route on discovery | A | Fable | done (`f76db38`) |
-| M2-D1 | Construction: DC and EF, Construct, Cancel, Place, refunds | B, C | Opus | running |
+| M2-D1 | Construction: DC and EF, Construct, Cancel, Place, refunds | B, C | Opus | done (`fda74d3`) |
 | M2-D2 | Production: Barracks queue, rally point, exit spawn, Unit Control | B | Fable (exit doorway: a unit overlapping its producer, the collision exception, invariants) | done (`1a64e75`) |
 | M2-F1 | Game start: Starting Conditions, layout rules (restriction, completeness, outdated), game-start banks, camera on the DC, the `dev_skirmish` GDO layouts | B, C | Opus | done (`d5a7d29`) |
 | M2-F2 | Game end: defeat (units become neutral and repath), game over when one side remains, spectating with team vision, the defeat and victory banner | B | Opus | running |
@@ -561,7 +568,7 @@ Last triaged: 0105.
 | 0081 Queue limit of 20 includes the unit in production | done (M2-D2, `1a64e75`) | |
 | 0082 GDO Unit Control reserved when a unit is queued | done (M2-D2, `1a64e75`) | |
 | 0083 Group production: least remaining work pays first | done (M2-D2, `1a64e75`; UI parts in M2-H1) | replaces the fixed-order default |
-| 0084 Destroyed GDO producers refund as if cancelled | producers done (M2-D2, `1a64e75`); constructors in M2-D1 | |
+| 0084 Destroyed GDO producers refund as if cancelled | done (M2-D2 producers, M2-D1 constructors, `fda74d3`) | |
 | 0085 Finished unit waiting inside is refunded if the building dies | done (M2-D2, `1a64e75`) | |
 | 0086 Rally point on the building itself clears it | done (M2-D2, `1a64e75`; UI parts in M2-H1) | |
 | 0087 Rally point indicators | queued (M2-H1) | |
