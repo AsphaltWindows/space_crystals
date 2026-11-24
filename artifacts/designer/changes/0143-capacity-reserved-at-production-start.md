@@ -17,6 +17,6 @@
 - 0083 (group production with limited resources) no longer considers Unit Control.
 
 ## Verification
-- GDO at 198/200: queue three Peacekeepers (2 UC each?) — all queue; the first starts (200/200), the next waits at 0% with a notification; kill a unit and it starts.
+- GDO near the 200 cap: queue more Peacekeepers than fit — all queue (crystals paid); those that fit start, the next one waits at 0% with a notification; kill a unit and it starts.
 - Colonists at 10/10: queue Drones freely; the portal waits; deploy a Beacon → production resumes.
 - Destroy a Beacon while a Drone is at 60%: it finishes (over capacity shown red); the next one waits.
