@@ -58,6 +58,7 @@ fn tick(orders: &mut Orders, mover: &mut Mover, attack: Option<&mut AttackState>
     let vision = Vision::new(&map, [PlayerId(1)]);
     let world = World::new(&map, &vision, &BTreeMap::new(), tick, true);
     let mut unit = Unit {
+        id: ObjectId(1),
         owner: Some(PlayerId(1)),
         kind: ObjectKind::Peacekeeper,
         pos: Vec2::new(40.0, 40.0),
@@ -65,8 +66,9 @@ fn tick(orders: &mut Orders, mover: &mut Mover, attack: Option<&mut AttackState>
         mover,
         attack,
         may_attack: true,
+        worker: None,
     };
-    update_unit(orders, &mut unit, &world);
+    update_unit(orders, &mut unit, &world, &mut gather::Claims::default());
 }
 
 #[test]
@@ -126,14 +128,18 @@ fn stop_completes_at_once_and_hold_never_does() {
 fn attack_engages_its_target_and_another_order_disengages() {
     let mut mover = Mover::default();
     let mut attack = AttackState::default();
+    // An empty world: no order here looks at it as it starts.
+    let map = Map::from_ascii("....\n....").unwrap();
+    let vision = Vision::new(&map, [PlayerId(1)]);
+    let world = |tick| World::new(&map, &vision, &BTreeMap::new(), tick, true);
     let mut state = start(
         &order(OrderKind::Attack(ObjectId(3))),
         &mut unit(&mut mover, Some(&mut attack)),
-        2,
+        &world(2),
     );
     assert_eq!(attack.target, Some(ObjectId(3)));
     assert_eq!(state, Behaviour::Attack(AttackOrder::default()));
-    state = start(&move_to(5.0, 5.0), &mut unit(&mut mover, Some(&mut attack)), 3);
+    state = start(&move_to(5.0, 5.0), &mut unit(&mut mover, Some(&mut attack)), &world(3));
     assert_eq!(
         (attack.target, state),
         (None, Behaviour::Plain),
@@ -151,6 +157,7 @@ fn attack_engages_its_target_and_another_order_disengages() {
 
 fn unit<'a>(mover: &'a mut Mover, attack: Option<&'a mut AttackState>) -> Unit<'a> {
     Unit {
+        id: ObjectId(1),
         owner: Some(PlayerId(1)),
         kind: ObjectKind::Peacekeeper,
         pos: Vec2::new(40.0, 40.0),
@@ -158,6 +165,7 @@ fn unit<'a>(mover: &'a mut Mover, attack: Option<&'a mut AttackState>) -> Unit<'
         mover,
         attack,
         may_attack: true,
+        worker: None,
     }
 }
 

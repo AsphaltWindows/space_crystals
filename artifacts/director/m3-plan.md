@@ -1154,8 +1154,22 @@ About 50 TBD notes in the Colonists docs are concentrated in the tech tier. M3 i
 
 ## 8. Design answers received after planning (they override the defaults above)
 
-None yet.
+| Entry | Answers | Slices | What it settles |
+|---|---|---|---|
+| 0106 | Q0038 point 1 | H2, G, K1 | Gathering Drones of any player pass through each other at every step of the job. They still collide with everything else. General rule: two ground units found overlapping ignore each other until separated, with no push-apart. |
+| 0107 | Q0038 point 2 | H, K1 | The reference geometry: 8 patches in a row, the 2x2 node centred on the long side, a 2-GU gap edge to edge. |
+| 0108 | Q0038 point 3 | K1 | Targets 1–4 must hold, and each income figure within ±15% of the table. A larger gap goes back as a question with the measured table. The reference layout is only a benchmark: no gameplay rule may assume it. |
+| 0109 | Q0039 point 1 | E, F | The object is the target structure from the first frame, with its footprint claimed at once. A cancel reverts it (Drone at the footprint centre; Beacon on its original footprint). |
+| 0110 | Q0039 point 2 | E, F | Each frame, `current += (newMax − oldMax)`: damage stays taken, including damage from before the transformation, and is never rescaled. Shields regenerate up to the current maximum. |
 
 ## 9. Notes from merged slices for later slices
 
-None yet.
+| From | For | Note |
+|---|---|---|
+| M3-A | E, F, B | `change_kind` keeps orders, mover and attack target, refunds a production queue or construction, and only clamps HP. Callers decide what a transformation clears (unit to structure in F), and interpolate HP and Shields (Q0039). |
+| M3-A | G | The Drone's (Ground, 1) grid doubles every grid set: nav rebuild 1.0 → 1.4–1.7 ms. G's GroundRugged hover class should remove it. Verify the grid-set count returns to M2's, and re-measure `nav_perf`. |
+| M3-A | D | Portals exit through their first A side, clockwise from north, until D's exit rules. |
+| Director | B, J1 | E builds the generic client response to `KindChanged` (visuals rebuilt, selection kept). B reuses it for Convert; J1 adds selection regrouping. |
+| Director | all of wave 2 | E splits `sim/gate.rs` by command family. C and H port their gate edits when merging master. |
+| M3-H | H2, G | A unit blocked by one "on its way" inherits that unit's progress clock (`movement::stuck`). Restarted legs can then keep the units behind from re-routing. H worked around it with `LEG_RETRY_TICKS` = 32. Legs are `MoveGoal::Point` to the nearest open face, because an object goal always planned to the north side. |
+| M3-H | C, E, K1 | `gathering::step` credits banks with `credit_crystals`. Removing the last Egress Node defeats a player who owns no other structure. On the stand-in mover, one Drone at the reference gap delivers every 60 ticks (2.13/s). |

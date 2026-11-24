@@ -61,6 +61,10 @@ pub enum Ability {
     /// (`crate::riot_shield`). The command says which, rather than "toggle", so that it means the same to every unit
     /// of a group and when it arrives twice; the client works it out from the shields it toggles.
     RiotShield { raise: bool },
+    /// `factions/colonists/units.md > Drone > Assigned Drop-off > Set Drop-off Location command`: the workers'
+    /// AssignedDropOff becomes this drop-off of their owner's, an Egress Node. It "does not interrupt the Drone's
+    /// current action": a return trip under way turns to it (`crate::orders::gather`).
+    SetDropOff(ObjectId),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

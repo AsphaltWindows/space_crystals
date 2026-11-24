@@ -156,7 +156,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   `extractor` (`Extractor`, `economy/mining.rs`: the patch it mines and its cycle, see *Economy*); for a structure
   that produces units, `production` (`Production`, `production.rs`: its queue, the progress of the unit in
   production and its rally point, see *Production*); for a structure that constructs buildings, `constructor`
-  (`Constructor`, `construction.rs`: idle, constructing or holding a building ready to place, see *Economy*). The
+  (`Constructor`, `construction.rs`: idle, constructing or holding a building ready to place, see *Economy*); for
+  a worker, the Drone, `worker` (`Worker`, `economy/gathering.rs`: its load, its AssignedDropOff and the patch it
+  gathers, see *Economy > Gathering*). The
   rest arrives as more optional fields, each with its own module. Never add them as separate stores keyed by id. A
   system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
@@ -308,7 +310,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      that a building destroyed in the tick counts for nothing in it; before 5f, so that what it brings into the game
      is seen in its own tick. In order: every player's power (the structures this tick's commands placed included),
      the constructors (`construction::step`; when a recipe's frames count: *Economy > Recipe timing*), the plates'
-     mining.
+     mining, the workers' timed work (`gathering::step`, slice M3-H: mining takes its load from the patch, a
+     drop-off pays the bank). `economy::step` returns the patches the workers emptied, and `step` takes them out
+     through `Sim::remove_objects` and syncs the grids again, as after 5e's deaths.
    - Producers, `Sim::step_production` (slice M2-D2, see *Production*): part of the economy phase, run right after
      `economy::step` and not inside it, because a finished unit is inserted into the game (`Sim::insert_object`).
      The unit in production advances, and a finished one is released into its exit doorway, or held while that is
@@ -479,7 +483,7 @@ current order's, or the idle one. A behaviour never moves or shoots anything its
 the target the attack engages, and reads `Mover::status` and the snapshot.
 
 - **State** (`orders/state.rs`, the design's BaseBehaviorState): `ActiveOrder::state` (`Behaviour`: `Plain`,
-  `Attack`, `Approach`, `AttackMove`, `Patrol`, `Hold`) and `Orders::auto` (`Auto`: what a unit without an order
+  `Attack`, `Approach`, `AttackMove`, `Patrol`, `Hold`, `Gather`) and `Orders::auto` (`Auto`: what a unit without an order
   does: `Watching`, `Engaging`, `Returning`). Hashed and serialized like all state; every order that starts resets
   `auto`. A state names objects only by id, and the removal path clears them (`Orders::forget`).
 - **The snapshot** (`orders/world.rs`): `World` holds a `View` of every object (position, shape, owner, domain,
@@ -516,6 +520,30 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
 - **Patrol** (`travel::patrol`): legs to and fro between the position where the Patrol started executing (design
   change 0036) and the destination. A failed leg counts as arrived; `PATROL_FAILED_LEGS` (2) in a row end it (design
   change 0037).
+- **Gathering** (`orders/gather.rs`, slice M3-H, plan decision T17; `factions/colonists/units.md > Drone`, whose
+  open cases follow question Q0037's proposals, each marked with its point): one behaviour for the Gather and the
+  Drop Off order, in the phases of `GatherPhase`: ToPatch, Waiting, Mining, ToDropOff, DroppingOff, Delivered.
+  - **Occupancy is derived, never stored on the patch**: a patch is taken while a worker of any player mines it (the
+    snapshot's `World::patch_mined`), once a worker with a lower id claimed it in this tick (`gather::Claims`, the
+    one thing of 5a that isn't the snapshot), or while another worker is first in line for it
+    (`World::first_waiter`: the longest wait, then the lowest id). An arrival at a taken patch moves the **order
+    itself** on to the nearest free patch its owner knows within `REDIRECT_RADIUS_GU` (6, a placeholder), so
+    `OrderKind::Gather` always names the patch the worker heads for; with none, it waits where it stands.
+  - **Legs are moves to a point** the behaviour picks, where the worker stands against the nearest open face of
+    its target (`gather::approach_point`), and the behaviour measures MiningReach and DropOffReach itself. Not
+    `MoveGoal::Object`: that is planned to the point nearest the object's centre, the north side of every patch
+    and node. A leg that ends short of its target is tried again after `LEG_RETRY_TICKS` (32, a placeholder) of
+    standing; a Gather never fails or ends on its own, except with orders queued behind it, which start after its
+    next drop-off.
+  - **The return** reads the worker's AssignedDropOff every tick, so `Ability::SetDropOff` redirects it; without
+    one it takes the owner's nearest, and with none the order ends and the worker idles with its load.
+  - **A patch that leaves the game** sends its gatherers on first (`Sim::redirect_gatherers`, in the removal path):
+    to another patch, or to deliver what they carry and idle.
+  - **Workers collide like every ground unit and, having an order, never yield**: design change 0106 (gathering
+    Drones pass through each other, the answer to question Q0038 point 1) arrived while slice M3-H was built and
+    **is not built yet**. **Crowds gridlock** until it is: see *Economy > Gathering*. Don't work around that in
+    the behaviour. 0106 goes into `movement::space::blocks`, with its rule for units that already overlap and
+    invariant I1's exception for them, as a slice of its own.
 - **Not active during Move**: a Move never engages, and neither does the walk back to an IdleOrigin or to a last
   seen position.
 - **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): `GIVE_UP_RETRY_TICKS`
@@ -766,6 +794,25 @@ section of its own.
   `cycle_ticks × RATIO_ONE` (48 frames), the plate pays its owner a whole load: 10 while the patch holds 10, then what
   is left, then the residual 1 forever (design changes 0098, 0099; `SimEvent::PatchDepleted` when the patch reaches
   0, and it stays under the plate). Spawn-tick rule: a plate placed in tick `t` pays first in tick `t + 48`.
+- **Gathering** (`economy/gathering.rs`, `orders/gather.rs`, `sim/workers.rs`; slice M3-H, plan decision T17;
+  `factions/colonists/units.md > Drone > Gathering`, `factions/colonists/economy.md > Egress Node > Drop Off`): a
+  unit type with a `WorkerDef` (`UnitDef::worker`: the Drone's CarryCapacity 8, MiningDuration 32, DropOffDuration 2
+  and the two reaches of 8 su) is a worker, and a structure type with `StructureDef::drop_off` (the Egress Node)
+  takes its loads. `Object::worker` (`Worker`) holds only what outlives an order: the load, the AssignedDropOff
+  and the patch of its latest Gather. The job is an order and its behaviour (see *Behaviours > Gathering*), and
+  **the timed work is part of the order's state** (`GatherPhase::Mining { done }`, `DroppingOff { done }`), so an
+  order that ends takes its unfinished work along and frees the patch at once. `gathering::step` counts the
+  frames in the economy phase, by *Recipe timing*: a worker that reaches its patch in tick `t` holds its load
+  (`min(8, remaining)`, taken from the patch) at the end of tick `t + 31` and the patch is free in `t + 32`; one
+  that reaches its drop-off in tick `t` is paid at the end of `t + 1` (`SimEvent::ResourcesDelivered`). A patch
+  emptied this way leaves the map in the same tick, unless a plate stands on it; workers never gather a plated
+  patch. `Sim::returning_drones(node)` is the Egress Node's F.
+  **Measured on the stand-in mover** (`tests/gathering.rs`, `tests/gathering_soak.rs`; again when slice M3-G brings
+  DragMovement): one Drone with its patch 2 GU from the node, edge to edge, delivers every 60 ticks, 2.13 Space
+  Crystals per second. On the reference field (8 patches in a row, the node 2 GU south of the middle) the income
+  peaks at about 14 per second with 8 to 10 Drones, and **from 12 Drones the field gridlocks under hard collision**:
+  with 24 nothing is delivered after the first minute (the design expects about 32 per second). The acceptance test
+  for that is in the file, ignored until design change 0106 is built.
 - **Removal** (`Sim::remove_objects`): a plate takes its patch along if that is depleted, in the same tick, which
   opens the tile (design change 0038; the caller's grid sync covers it); a patch with crystals left stays, uncovered.
   A plate whose patch is removed (only a debug command does that) loses its extractor. `testing::referenced_ids`
@@ -851,7 +898,8 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   free. So at most one unit overlaps a building at a time.
 - **Rally points** (`production/rally.rs`): `Rally::Point` or `Rally::Object { id, at }`. A released unit gets the
   order `rally::order_for` gives, through `Sim::give_order` like a player's: Move to the point; Attack an enemy
-  object (if the unit attacks and the object is destructible); Move to any other object. Without a rally point it
+  object (if the unit attacks and the object is destructible); Gather, for a worker on a patch it can gather
+  (question Q0037 point 9); Move to any other object. Without a rally point it
   walks out of the doorway and stops (design change 0086). The producer itself as the target clears the rally. A
   rally on an object that is removed resets to None (`Production::forget`). A rally on an **enemy** follows it only
   while the owner sees it: at the end of each tick `rally::follow` notes where the owner sees it, or turns the rally
@@ -889,18 +937,23 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   before sending it, so the game changed in between, and `SimEvent::PlacementRefused` (output, outside the state
   hash) says why (`Sim::report_refusal`). Add another such event only when the UI needs it.
 - **`Command::Order { units, kind, queue }`** (`systems/controls/commands.md > Unit Command`, `docs/movement.md > 3`):
-  `OrderKind` is `Move(Target)` (a point or an object), `Attack(id)`, `AttackMove(point)`, `Patrol(point)`, `Hold`
-  or `Stop`. The gate takes an order whole or not at all, but tolerates stale selections: at most `MAX_ORDER_UNITS`
+  `OrderKind` is `Move(Target)` (a point or an object), `Attack(id)`, `AttackMove(point)`, `Patrol(point)`, `Hold`,
+  `Stop`, and for workers `Gather(patch)` and `DropOff(node)` (`factions/colonists/units.md > Drone > Unit
+  Commands`). The gate takes an order whole or not at all, but tolerates stale selections: at most `MAX_ORDER_UNITS`
   ids (`TooManyUnits`), repeated ids count once, ids of objects that are gone and objects that take no orders are
   dropped, and nothing left is `NoUnits`; any id of another player's object rejects it (`NotOwned`). Points must be
   finite and on the map, target objects must exist (`UnknownObject`) and an attack's target be destructible
-  (`NotAttackable`). Without `queue` the order replaces the unit's queue and current order; with it, the order is
+  (`NotAttackable`). A Gather's target is a Space Crystals patch with no plate on it (`NotGatherable`) that the
+  player sees, a Drop Off's a drop-off of the player's own (`NotDropOff`), and only the workers among the units
+  take either (`NoWorkers` if there is none; `sim/workers.rs`). Without `queue` the order replaces the unit's queue and current order; with it, the order is
   appended (a full queue drops it). Each order command is one group (`Sim::next_group`); a location order gives
   each unit of a group its own destination (the magic box, see *Navigation*). What each order does is in
   *Behaviours*.
 - **`Command::Ability { units, ability }`**: the units use an ability at once, beside their orders: no queue, no
   Shift, no group, and their orders go on. `Ability::RiotShield { raise }` says which way rather than "toggle", so a
-  group and a replay mean the same whatever each unit's mode. The gate tolerates stale selections as for orders
+  group and a replay mean the same whatever each unit's mode. `Ability::SetDropOff(node)` sets the workers'
+  AssignedDropOff to a drop-off of the player's own (`NotDropOff`), and "does not interrupt the Drone's current
+  action" (`factions/colonists/units.md > Drone > Assigned Drop-off`). The gate tolerates stale selections as for orders
   (`TooManyUnits`, repeats, gone ids, `NotOwned`, `NoUnits`) and drops the units without the ability
   (`Reject::LacksAbility` when none is left).
 - **`Command::Production { objects, command }`** (`factions/gdo/structures.md > Barracks >
@@ -959,7 +1012,7 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`,
   `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `UnitProduced`,
   `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
-  `GameOver`, `KindChanged`, …) are output only, for effects, sounds and UI. The sim never reads them.
+  `GameOver`, `KindChanged`, `ResourcesDelivered`, …) are output only, for effects, sounds and UI. The sim never reads them.
   `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events from the scenario's
   initial spawns. `KindChanged { id, from, to }` (`Sim::change_kind`) tells the client to re-mesh an object and
   regroup the selection; that response arrives with its first caller, slice M3-B.
@@ -1134,6 +1187,15 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   ElevationModifier, the Rifle Legionnaire's Range with it, the Drone's 8 su per tick and its path around a Robo
   Portal). Their stat blocks against the design are in `defs/colonists/tests.rs`, and `Sim::change_kind` is
   unit-tested in `sim/kinds/tests.rs`.
+- **Gathering tests** are `crates/sim/tests/gathering.rs` (slice M3-H: one Drone's trip, pinned at 60 ticks; two
+  Drones arriving together; waiting in the order they came; an enemy Drone on the patch; Set Drop-off Location in
+  the middle of mining and of a return; depletion with the partial last load, the opened tile and the redirect, or
+  the delivery and the idling when no patch is left; the Drop Off order and the way back to the patch; a lost
+  Egress Node; interrupted mining; an order queued behind a Gather; every invalid worker command refused and
+  changing nothing; a Drone rallied on a patch; a game replayed and saved in its middle) and
+  `gathering_soak.rs` (the four starting Drones for 5 minutes; 24 Drones losing nothing and keeping the invariants;
+  the smallest gridlock found, pinned; ignored: the plan's acceptance that every one of 24 Drones delivers every
+  30 s, which fails under hard collision, and `saturation_curve`, which prints the measurements).
 - **Game end tests** are `crates/sim/tests/game_end.rs` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and a last defeat shared by two; no producer handed

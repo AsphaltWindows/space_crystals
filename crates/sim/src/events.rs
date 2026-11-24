@@ -124,6 +124,13 @@ pub enum SimEvent {
     GameOver {
         winners: Vec<PlayerId>,
     },
+    /// `worker` finished unloading at `drop_off`, and `amount` Space Crystals entered its owner's bank
+    /// (`factions/colonists/economy.md > Egress Node > Drop Off`; `crate::economy::gathering`).
+    ResourcesDelivered {
+        worker: ObjectId,
+        drop_off: ObjectId,
+        amount: u32,
+    },
     /// Object `id` changed its kind in place, from `from` to `to`, and is still the same object (plan decision T15,
     /// `Sim::change_kind`): a Drone deploying into a Beacon, a Beacon warping in a building, a Legionnaire converting
     /// its weapon, or one of these cancelled. For the client to re-mesh the object and regroup the selection (slice

@@ -248,21 +248,13 @@ impl TestSim {
 
 /// The objects `o` refers to, in no particular order: those its orders (current and queued) name, those its
 /// behaviours engaged by themselves, its move's goal object, its attack's target and the target of its attack
-/// phase, the patch a plate mines, the object a producer's rally point is on, and the building whose exit doorway a
-/// unit is leaving.
+/// phase, the patch a plate mines, the object a producer's rally point is on, the building whose exit doorway a
+/// unit is leaving, and a worker's drop-off and patch.
 pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
     let mut ids = Vec::new();
     if let Some(orders) = &o.orders {
-        let kinds = orders
-            .current
-            .iter()
-            .map(|active| active.order.kind)
-            .chain(orders.queue.iter().map(|order| order.kind));
-        for kind in kinds {
-            if let OrderKind::Attack(id) | OrderKind::Move(Target::Object(id)) = kind {
-                ids.push(id);
-            }
-        }
+        let orders_named = orders.current.iter().map(|active| &active.order).chain(&orders.queue);
+        ids.extend(orders_named.filter_map(|order| order.target()));
         ids.extend(orders.behaviour_targets());
     }
     if let Some(MoveGoal::Object { id, .. }) = o.mover.as_ref().map(|m| m.goal) {
@@ -279,6 +271,10 @@ pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
         ids.push(id);
     }
     ids.extend(o.mover.as_ref().and_then(|mover| mover.exit));
+    if let Some(worker) = &o.worker {
+        ids.extend(worker.drop_off);
+        ids.extend(worker.patch);
+    }
     ids
 }
 
@@ -306,6 +302,8 @@ pub fn every_command() -> Vec<Command> {
         OrderKind::Patrol(point),
         OrderKind::Hold,
         OrderKind::Stop,
+        OrderKind::Gather(ObjectId(4)),
+        OrderKind::DropOff(ObjectId(5)),
     ];
     let mut commands: Vec<Command> = kinds
         .into_iter()
@@ -321,6 +319,10 @@ pub fn every_command() -> Vec<Command> {
         units: units.clone(),
         ability: Ability::RiotShield { raise },
     }));
+    commands.push(Command::Ability {
+        units: units.clone(),
+        ability: Ability::SetDropOff(ObjectId(5)),
+    });
     commands.extend(
         [
             ConstructionCommand::Construct(ObjectKind::Generator),
@@ -405,10 +407,12 @@ pub fn every_command() -> Vec<Command> {
                 | OrderKind::AttackMove(_)
                 | OrderKind::Patrol(_)
                 | OrderKind::Hold
-                | OrderKind::Stop => {}
+                | OrderKind::Stop
+                | OrderKind::Gather(_)
+                | OrderKind::DropOff(_) => {}
             },
             Command::Ability {
-                ability: Ability::RiotShield { .. },
+                ability: Ability::RiotShield { .. } | Ability::SetDropOff(_),
                 ..
             } => {}
             Command::Production { command, .. } => match command {

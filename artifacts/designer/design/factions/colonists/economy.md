@@ -16,6 +16,15 @@ Beacon deployment follows the shared Worker-Built Structures placement rules (co
 ### Deployment Duration
 48 frames (3 seconds).
 
+### A Beacon from the first frame
+(user, 2026-11-24) The moment deployment begins, the Drone **becomes a Beacon under deployment**:
+- It is a **structure** on its 2x2 footprint: the footprint is claimed immediately, units can't walk onto it, it can't move, and every rule that treats structures and units differently (targeting, auto-targeting, placement) treats it as a structure.
+- It is the **same object** as the Drone, so it stays selected (and stays in any control group the Drone was in).
+- On **cancel**, it turns back into the Drone, standing at the centre of the footprint.
+
+### Beacon Capacity during deployment
+(user, 2026-11-24) The Drone's 1 Beacon Capacity is **freed as soon as deployment starts** (it is already a Beacon, see A Beacon from the first frame). The Beacon's 5 is provided only on **completion**. Cancelling takes the 1 back, even if that puts the player over capacity (factions/colonists/overview.md > Beacon Capacity > Over capacity). Example: at 10/10 a Drone deploys (9/10), a new Drone is queued (10/10), then the deploy is cancelled → 11/10.
+
 ### HP/Shields Interpolation
 During deployment, the transforming unit's HP and Shields each linearly interpolate from the Drone's own MaxHP/MaxShields toward the Beacon's MaxHP/MaxShields as deployment progresses:
 - HP = Drone MaxHP + (Beacon MaxHP - Drone MaxHP) x progress
@@ -23,11 +32,15 @@ During deployment, the transforming unit's HP and Shields each linearly interpol
 
 Where progress is frames elapsed / 48, from 0.0 to 1.0.
 
+**Damage stays taken** (user, 2026-11-24): the formulas give the **maximum** HP and Shields. Each frame the current value rises by the same amount as the maximum does, so damage taken before or during deployment is carried through unchanged. Example: halfway (max 70 HP) it takes 30 damage, leaving 40/70; it completes at 90/120. A Drone that starts deploying at 10/20 HP completes at 110/120. Shields regenerate normally, up to the current maximum.
+
 ### Vulnerability
 The transforming unit is vulnerable to attack for the entire deployment duration. If destroyed mid-deployment, both the Drone and the in-progress Beacon are lost.
 
 ### Cancel Deployment
 The player may cancel the deployment at any point before it completes. The transformation reverses immediately and the unit reverts to being a normal, fully-functional Drone (no HP/Shields loss).
+
+**HP and Shields on cancel** (user, 2026-11-24): the Drone returns with its own maxima and the **same fraction** of HP and Shields the Beacon had at the moment of cancelling. Example: cancelled at 90/120 HP (75%) → Drone at 15/20. Cancelling never kills: the result is at least 1 HP. Rejected: restoring the values from when deployment started (deploying would be a free damage sponge, since cancelling costs nothing), and subtracting what the interpolation added (could kill on cancel).
 
 ### Completion
 Once the 48 frames elapse, the transformation is final and one-way. The resulting Beacon can never revert back into a Drone.
@@ -93,14 +106,23 @@ During the Warp In, the transforming structure's HP and Shields each linearly in
 
 Where progress is frames elapsed / WarpInTime, from 0.0 to 1.0. (Same formula pattern as Beacon Deployment.)
 
+Damage stays taken, exactly as in Beacon Deployment > HP/Shields Interpolation: the formulas give the maximum, and the current value rises by the same amount each frame (user, 2026-11-24).
+
+### The target building from the first frame
+(user, 2026-11-24) Same as Beacon Deployment: when the Warp In begins, the object is immediately the **target building under Warp In**, and its full footprint is claimed at once. It is the same object as the Beacon (stays selected). On cancel it shrinks back to the Beacon on the Beacon's original footprint.
+
 ### Vulnerability
 The transforming structure is vulnerable to attack for the entire Warp In duration. If destroyed mid-Warp-In, the Beacon is destroyed along with it.
 
 ### Cancel Warp In
 The player may cancel the Warp In at any point before it completes. Cancelling refunds 75% of the building's resource cost (rounded down), and the structure reverts to being a normal, fully-functional Beacon (no HP/Shields loss).
 
+HP and Shields on cancel work as in Beacon Deployment > Cancel Deployment: the Beacon returns with the same fraction of HP and Shields the building had, at least 1 HP (user, 2026-11-24). Example: cancelled at 50% HP → Beacon at 60/120.
+
 ### Beacon Capacity Retention
 Every Colonists building provides 5 BeaconCapacity — the Beacon itself, and every structure Warped In from one, since they all originate from a Beacon and retain its BeaconCapacity contribution in addition to their own new function/production capabilities.
+
+The 5 is provided **throughout a Warp In** as well: a Beacon being warped in keeps providing it the whole time (user, 2026-11-24).
 
 ## Starting Conditions
 Where each starting object is placed is defined by the map's Starting Layout for this faction (core/map_editor.md > Starting Layouts).

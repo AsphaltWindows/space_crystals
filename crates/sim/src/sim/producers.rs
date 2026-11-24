@@ -370,7 +370,8 @@ impl Sim {
             }
         }
         self.events.push(SimEvent::UnitProduced { producer, unit: id });
-        let order = rally.and_then(|rally| rally::order_for(&rally, Some(owner), unit.attack.is_some(), &self.objects));
+        let (armed, worker) = (unit.attack.is_some(), unit.worker.is_some());
+        let order = rally.and_then(|rally| rally::order_for(&rally, Some(owner), armed, worker, &self.objects));
         if let Some(kind) = order {
             self.give_order(&[id], kind, false);
         }

@@ -7,7 +7,7 @@ use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus};
 use crate::object::Object;
-use crate::orders::{Order, OrderKind, Target};
+use crate::orders::Order;
 
 impl Sim {
     /// Removes the objects `ids` (those that exist), each with a `SimEvent::Removed`, in id order. Then, for every
@@ -30,6 +30,10 @@ impl Sim {
     /// A constructor refunds its construction or its ready building to its owner as if cancelled (design change 0084,
     /// `Sim::refund_constructors`).
     ///
+    /// A worker gathering at a patch that goes is sent to another first, or its order ends
+    /// (`Sim::redirect_gatherers`, question Q0037 point 7); a worker forgets a drop-off and a patch that are gone
+    /// (`Worker::forget`).
+    ///
     /// The grids aren't touched: phase 5b catches up with a footprint that went away, and a removal after it must
     /// sync them (`paths::sync`).
     pub(super) fn remove_objects(&mut self, ids: &[ObjectId]) {
@@ -40,6 +44,9 @@ impl Sim {
         );
         gone.sort_unstable();
         gone.dedup();
+        // The workers gathering at a patch that goes: on to another one, while this one is still there to measure
+        // from (`Sim::redirect_gatherers`).
+        self.redirect_gatherers(&gone);
         for &id in &gone {
             self.refund_production(id);
         }
@@ -58,7 +65,7 @@ impl Sim {
 /// `o` drops every reference to the objects `gone` (sorted by id).
 fn forget(o: &mut Object, gone: &[ObjectId]) {
     let is_gone = |id: ObjectId| gone.binary_search(&id).is_ok();
-    let names_gone = |order: &Order| order_target(order).is_some_and(is_gone);
+    let names_gone = |order: &Order| order.target().is_some_and(is_gone);
     if let Some(orders) = &mut o.orders {
         if orders.current.as_ref().is_some_and(|active| names_gone(&active.order)) {
             orders.current = None;
@@ -84,20 +91,14 @@ fn forget(o: &mut Object, gone: &[ObjectId]) {
     if let Some(production) = &mut o.production {
         production.forget(is_gone);
     }
+    if let Some(worker) = &mut o.worker {
+        worker.forget(&is_gone);
+    }
     // The building whose doorway a unit stood in: nothing is left to overlap.
     if let Some(mover) = &mut o.mover
         && mover.exit.is_some_and(is_gone)
     {
         mover.exit = None;
-    }
-}
-
-/// The object an order names, if any.
-fn order_target(order: &Order) -> Option<ObjectId> {
-    match order.kind {
-        OrderKind::Move(Target::Object(id)) | OrderKind::Attack(id) => Some(id),
-        OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
-        OrderKind::Hold | OrderKind::Stop => None,
     }
 }
 
@@ -110,7 +111,7 @@ mod tests {
     use crate::defs::ObjectKind;
     use crate::ids::PlayerId;
     use crate::orders::state::Pursuit;
-    use crate::orders::{ActiveOrder, Auto, Behaviour, OrderGroup};
+    use crate::orders::{ActiveOrder, Auto, Behaviour, OrderGroup, OrderKind, Target};
     use crate::scenarios;
 
     /// Every kind of reference: orders, a move towards an object, an attack, and what the behaviours engaged by

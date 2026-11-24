@@ -327,7 +327,8 @@ impl PointerDisplay {
     /// AwaitingTarget[CommandType]`: Attack over ground "will issue AttackMove"). No click gives Hold or Stop.
     pub fn of_order(kind: OrderKind) -> Self {
         match kind {
-            OrderKind::Move(_) => PointerDisplay::Move,
+            // Slice M3-J2 resolves a worker's right-clicks and gives them their pointers.
+            OrderKind::Move(_) | OrderKind::Gather(_) | OrderKind::DropOff(_) => PointerDisplay::Move,
             OrderKind::Attack(_) | OrderKind::AttackMove(_) => PointerDisplay::Attack,
             OrderKind::Patrol(_) => PointerDisplay::Patrol,
             OrderKind::Hold | OrderKind::Stop => PointerDisplay::Inactive,
