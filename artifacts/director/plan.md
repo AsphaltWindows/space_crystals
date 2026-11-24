@@ -389,11 +389,10 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Docs.** ARCHITECTURE.md reviewed. Playtest notes are in `docs/playtest/m2.md`.
 
 ## In progress
-- Nothing is running.
+- **M3-P Colonists planning spike** (Opus, read-only; brief `scratchpad/briefs/m3-planning-spike.md`). It writes `scratchpad/m3/m3-plan.md` and drafts design questions from Q0037. M3 implementation waits for the user's go-ahead after the M2 playtest.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2 playtest** with the user, using `docs/playtest/m2.md`.
-  - **M3 Colonists**: a read-only planning spike first, like M2's.
   - **Fix the Move-onto-itself bug** per Q0031's answer, in the next sim or command-UI slice.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
