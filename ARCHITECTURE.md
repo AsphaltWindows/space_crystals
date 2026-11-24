@@ -303,7 +303,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      gets no path fails its move (`SimEvent::MoveFailed`). Each unit checks and plans on its owner's known grids,
      as of the end of the last tick (see *Navigation > Path knowledge*).
    - 5d `movement::step`: steering and hard collision, the only code that writes a unit's `pos` besides a teleport
-     (see Movement and collision). Units move one after another in id order and never overlap.
+     (see Movement and collision). Units move one after another in id order and never come to overlap, gathering
+     Drones apart (design change 0106).
    - 5e `combat::step`: attack phases, the tick's list of hits applied together, deaths (see *Combat*). The dead
      leave through `Sim::remove_objects`, then `paths::sync` runs again in case a footprint went with them.
    - Economy, `economy::step` (plan decision T5, see *Economy*): after 5e's removals and their `paths::sync`, so
@@ -539,11 +540,10 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
     one it takes the owner's nearest, and with none the order ends and the worker idles with its load.
   - **A patch that leaves the game** sends its gatherers on first (`Sim::redirect_gatherers`, in the removal path):
     to another patch, or to deliver what they carry and idle.
-  - **Workers collide like every ground unit and, having an order, never yield**: design change 0106 (gathering
-    Drones pass through each other, the answer to question Q0038 point 1) arrived while slice M3-H was built and
-    **is not built yet**. **Crowds gridlock** until it is: see *Economy > Gathering*. Don't work around that in
-    the behaviour. 0106 goes into `movement::space::blocks`, with its rule for units that already overlap and
-    invariant I1's exception for them, as a slice of its own.
+  - **Gathering Drones pass through each other** (design change 0106; `gather::on_gather_job`, see *Movement and
+    collision > Collision exceptions*): a worker of a type with `WorkerDef::pass_through` (the Drone) whose current
+    order is a Gather or a Drop Off. They collide with everything else and, having an order, never yield. A leg
+    that ends short (behind a unit that won't move) begins again after `LEG_RETRY_TICKS`, a back-off.
 - **Not active during Move**: a Move never engages, and neither does the walk back to an IdleOrigin or to a last
   seen position.
 - **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): `GIVE_UP_RETRY_TICKS`
@@ -653,7 +653,7 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 
 The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice D changed it, **(M)** where the
 magic box did, **(Y)** where friendly yielding and the answers to Q0008 did, **(Q)** where queued group orders did, **(G)** where
-the hardening of crowds and nav performance did),
+the hardening of crowds and nav performance did, **(H2)** where gathering Drones passing through each other did),
 and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
 
 - **One pipeline, sequential commit** (`movement::step`, phase 5d): the step builds one spatial grid per collision
@@ -661,7 +661,7 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   updates the grid at each commit. A unit sees earlier units where they now are and later ones where they were.
   The grids are scratch, rebuilt every tick and never hashed.
 - **No overlap by construction**: a position is committed only if `World::is_free` holds, the same strict predicates
-  as invariants I1 and I2 (touching is free). Contact positions are assigned from the blocker's edge
+  as invariants I1 and I2 (touching is free), with the exceptions of `space::blocks` below and no other. Contact positions are assigned from the blocker's edge
   (`space::resting`), never accumulated. Never write `pos` anywhere else, and never loosen the predicate with an
   epsilon.
 - **Lane seeking** (`World::lane`, `World::lane_step`; `docs/movement.md > 6.3`): before anything else, a unit
@@ -692,7 +692,22 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   mover's way; a unit that is only clipped, or stands in the way of a mover walking between the units of a group,
   steps straight across it, and such a mover asks the units on both sides of its gap two steps before it reaches
   them (`yielding::ask_ahead`): the group parts and isn't shoved along.
-- **Collision exceptions** between units go in `space::blocks(mover, other)` and nowhere else (crushing will).
+- **Collision exceptions** between units go in `space::blocks(mover, other)` and nowhere else (crushing will). The
+  sweeps, lane seeking and `World::is_free` all ask it, so a unit ignored for a move is ignored for the whole of it.
+  It is asked last, after the box test (few units near a move are in its way). Two exceptions (design change 0106,
+  slice M3-H2), both read off the bodies each tick, with **no pair state**:
+  - **Gathering Drones** (`systems/units.md > UnitCollision > Ground Collision > Exception, gathering Drones`):
+    two bodies with `Body::gathers` (`orders::gather::on_gather_job`: a Drone whose current order is a Gather or a
+    Drop Off, at every step of the job) don't block each other, whoever owns them. A gathering Drone and any other
+    unit block each other as ever, an idle Drone included.
+  - **Units that already overlap** (`> Units that already overlap`): two bodies whose boxes overlap as the mover's
+    turn begins don't block each other. `space::overlaps` is I1's own predicate, so the pair is ignored exactly
+    while I1 would name it, and normal collision is back the moment the boxes are apart (touching is apart).
+    Nothing pushes them apart, and either may move any way meanwhile. Only the first exception ever brings two
+    boxes to overlap, so in today's game such a pair is two Drones of which one left its job; the rule itself asks
+    nothing about the units' kinds.
+  A later exception (crushing) is one more clause there. A slice that adds a way for two boxes to come to overlap
+  must add it to `testing::invariants::may_overlap` too, or I1 fails.
 - **The exit doorway** (`core/entities.md > Structure Type > Exit Doorway`, design change 0080; `production/exit.rs`)
   is the one exception against tiles, and the one case in which a unit's box overlaps a structure. A unit a producer
   released has `Mover::exit`, the building's id, while its box still overlaps that footprint. For that unit
@@ -716,6 +731,13 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   last progress. **Occupied target**: within `OCCUPIED_ARRIVAL_GU` (2) of its goal behind a stationary unit that
   won't yield to it, the unit has arrived instead, without a repath: when stuck, or after `JAMMED_TICKS` without a
   way forward if the blocker has no goal. Two moving units head-on in a passage too narrow to pass both fail.
+- **Whose progress a waiting unit shares** (`stuck::leads`, slice M3-H2): a unit blocked by one that is on its way
+  takes over that unit's `last_progress`, but only if that unit **has got on since its leg began**. `Mover::go_to`
+  sets a unit's own clock to the tick of the order, and that is no progress: before this rule, a blocked unit whose
+  legs began again and again (a behaviour trying again, a player clicking on it) renewed the clock of every unit
+  behind it, and none of them ever looked for a way round (`tests/movement_stuck.rs`). It is read off the mover
+  (`repaths_left < MAX_REPATHS || last_progress > last_repath`), with no field of its own. A behaviour may begin a
+  leg again as often as it likes; it need not stand in between for the sake of the units behind.
 - **Object goals** (`MoveGoal::Object { id, reach }`, `docs/movement.md > 5.6`, `> 6.5`): the path is planned to
   the point nearest the object's centre that the unit can stand on (right at a structure's wall), and kept aimed at
   the object as it moves (`paths::chase_check`, on the stagger tick: straight at it while the unit's box has a
@@ -730,7 +752,11 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
 - **Counters**: `Sim::move_counters()` (sweeps, box tests and lane tests of the latest tick) and `Sim::nav_counters()` are
   output, not state. Tests assert them; `cargo test -p sc_sim --release --test movement_perf -- --ignored
   --nocapture` prints timings.
-- **Invariants** (`docs/movement.md > 8`, `sc_sim::testing::invariants`): I1 no two units of a layer overlap; I2 no
+- **Invariants** (`docs/movement.md > 8`, `sc_sim::testing::invariants`): I1 no two units of a layer overlap, except
+  (design change 0106, `invariants::may_overlap`) two Drones on a Gather job, and two units that already overlapped
+  a tick earlier, until they have been apart (a Drone counts as on its job for the tick in which the job ended
+  without another order: a patch emptied in the economy phase ends it after the movement). Any other overlap fails,
+  the first tick it exists (`tests/invariants_overlap.rs` puts units where they must not be and asks the checker); I2 no
   ground box overlaps a blocked tile or leaves the map, except a unit in an exit doorway (`Mover::exit`), which
   overlaps the tiles of the building that released it and no other blocked tile, overlaps that footprint for as
   long as `exit` is set, never moves deeper in, and never comes to be in a doorway by moving; I3 a unit moves at most its speed per tick; I4 every float
@@ -801,10 +827,12 @@ GDOResources`, `factions/gdo/economy.md`). Production has a section of its own.
   patch. `Sim::returning_drones(node)` is the Egress Node's F.
   **Measured on the stand-in mover** (`tests/gathering.rs`, `tests/gathering_soak.rs`; again when slice M3-G brings
   DragMovement): one Drone with its patch 2 GU from the node, edge to edge, delivers every 60 ticks, 2.13 Space
-  Crystals per second. On the reference field (8 patches in a row, the node 2 GU south of the middle) the income
-  peaks at about 14 per second with 8 to 10 Drones, and **from 12 Drones the field gridlocks under hard collision**:
-  with 24 nothing is delivered after the first minute (the design expects about 32 per second). The acceptance test
-  for that is in the file, ignored until design change 0106 is built.
+  Crystals per second. On the reference field (8 patches in a row, the node 2 GU south of the middle), with
+  gathering Drones passing through each other (design change 0106), nothing jams and every Drone keeps delivering:
+  SATURATION_CURVE
+  The patches are the only limit: 8 of them give 32 per second (the design's "fully saturated ≈ 32 (~24 working
+  Drones)"). Below saturation the stand-in is ahead of the table (16 Drones: 27 for the table's 23), as expected
+  until M3-G. Under hard collision, as slice M3-H first had it, the field gridlocked from 12 Drones on.
 - **Removal** (`Sim::remove_objects`): a plate takes its patch along if that is depleted, in the same tick, which
   opens the tile (design change 0038; the caller's grid sync covers it); a patch with crystals left stays, uncovered.
   A plate whose patch is removed (only a debug command does that) loses its extractor. `testing::referenced_ids`
@@ -1108,7 +1136,9 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   `queued_group_destinations.rs` (Shift-queued group orders),
   `movement_yield.rs` (friendly yielding, occupied targets, the give-up schedule), `movement_crowds.rs` (blocks
   meeting head-on, a group through an idle block, dense blocks of any shape), `movement_soak.rs` (200 units,
-  random orders, 2 000 ticks; bounds on the share of failed moves) and the ignored `movement_perf.rs`.
+  random orders, 2 000 ticks; bounds on the share of failed moves), `movement_stuck.rs` (whose progress a waiting
+  unit shares: a unit behind one whose legs begin again finds its way round), `invariants_overlap.rs` (I1's two
+  exceptions and nothing more, on edited states) and the ignored `movement_perf.rs`.
 - **Behaviour scenario tests** are `crates/sim/tests/behaviours_attack.rs` (the approach to a gap of Range, the
   chase, the last seen position, a target out of reach, queueing), `behaviours_idle.rs` (acquiring by priority,
   the leash and the return, Hold, Move doesn't engage, the auto-targeting switch), `behaviours_travel.rs` (Follow,
@@ -1174,9 +1204,12 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   the delivery and the idling when no patch is left; the Drop Off order and the way back to the patch; a lost
   Egress Node; interrupted mining; an order queued behind a Gather; every invalid worker command refused and
   changing nothing; a Drone rallied on a patch; a game replayed and saved in its middle) and
-  `gathering_soak.rs` (the four starting Drones for 5 minutes; 24 Drones losing nothing and keeping the invariants;
-  the smallest gridlock found, pinned; ignored: the plan's acceptance that every one of 24 Drones delivers every
-  30 s, which fails under hard collision, and `saturation_curve`, which prints the measurements).
+  `gathering_soak.rs` (the four starting Drones for 5 minutes; 24 Drones for 5 minutes, every one delivering at
+  least every 30 s, the saturated income, nothing lost; the income growing with the Drones up to saturation; 9
+  Drones on 3 patches, once the smallest gridlock, with a steady income; ignored: `saturation_curve`, which prints
+  the measurements) and `gathering_pass_through.rs` (design change 0106's Verification: two players' Drones on one
+  row; an idle Drone parked in the strip, an enemy's and the gatherer's own; a Drone ordered out of a mining Drone,
+  and solid once apart; a Drone stopped inside another, not pushed apart).
 - **Game end tests** are `crates/sim/tests/game_end.rs` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and a last defeat shared by two; no producer handed

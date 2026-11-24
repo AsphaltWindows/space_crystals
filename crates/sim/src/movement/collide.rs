@@ -3,7 +3,8 @@
 //!
 //! Every position this module returns passed [`World::is_free`], the exact predicates of invariants I1 and I2
 //! (`docs/movement.md > 8`), against the tiles and against every unit at the position it has right now. Units are
-//! committed one after another, so no two ever overlap, by construction (`docs/movement.md > 4`). When a candidate
+//! committed one after another, so no two ever come to overlap, by construction (`docs/movement.md > 4`), but
+//! those `space::blocks` lets through each other (design change 0106). When a candidate
 //! fails that test (a rounding corner case), the unit stays where it is, which is free by induction.
 
 mod lanes;
@@ -121,13 +122,17 @@ impl World<'_> {
         let mut tests = 0;
         layer.near(lo, hi, |index| {
             let other = &self.bodies[index as usize];
-            if !blocks(&me, other) {
+            if other.id == me.id {
                 return;
             }
             tests += 1;
             let Some(contact) = sweep(pos, d, other.pos, me.half + other.half) else {
                 return;
             };
+            // The exceptions last: few of the units near a move are in its way (`blocks` is a box test more).
+            if !blocks(&me, other) {
+                return;
+            }
             let earlier = best.is_none_or(|b| {
                 contact.t < b.contact.t || (contact.t == b.contact.t && other.id < self.bodies[b.index].id)
             });
@@ -168,7 +173,7 @@ impl World<'_> {
         let mut free = true;
         layer.near(pos - me.half, pos + me.half, |index| {
             let other = &self.bodies[index as usize];
-            free &= !(blocks(me, other) && overlaps(pos, me.half, other));
+            free &= !(overlaps(pos, me.half, other) && blocks(me, other));
         });
         free
     }

@@ -83,7 +83,7 @@ pub(crate) fn on_gather_job(o: &Object) -> bool {
         worker.is_some_and(|worker| worker.pass_through)
     };
     let current = o.orders.as_ref().and_then(|orders| orders.current.as_ref());
-    current.is_some_and(|active| matches!(active.state, Behaviour::Gather(_))) && passes()
+    o.worker.is_some() && current.is_some_and(|active| matches!(active.state, Behaviour::Gather(_))) && passes()
 }
 
 /// `> Patch Occupancy (one Drone per patch)`: the patches claimed so far in this tick's phase 5a, by the workers

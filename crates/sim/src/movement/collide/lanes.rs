@@ -126,7 +126,7 @@ impl World<'_> {
             let other = &bodies[index as usize];
             let oncoming = other.heads_against(ahead, LANE_ONCOMING_COS);
             let standing = !oncoming && yields_to(other, me.owner, group);
-            if !blocks(&me, other) || !(oncoming || standing) || aim == Some(other.id) {
+            if !(oncoming || standing) || aim == Some(other.id) || !blocks(&me, other) {
                 return None;
             }
             let to = other.pos - pos;
