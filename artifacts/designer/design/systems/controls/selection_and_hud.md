@@ -112,6 +112,9 @@ The bottom section of the screen, containing all selection-related panels. The H
 | SelectionPanel | Visible when at least 2 objects are selected |
 | CommandPanel | Visible when at least 1 player-owned object is selected |
 
+### InfoPanel with 2+ objects selected
+Placeholder (bookmarked by the user, 2026-11-23, to be designed with the HUD): shows the ActiveGroup's type, how many objects are in that group, and the total number selected.
+
 ### Layout Rules:
 - All five sections have identical vertical height
 - Horizontal positions are fixed — sections never shift when adjacent panels appear or disappear

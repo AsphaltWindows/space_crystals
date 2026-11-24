@@ -2011,3 +2011,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T19:58:41-05:00 — Empty clicks decided (clear / no-op); Ctrl+Shift pending. Change entry 0051.
 - 2026-11-23T20:00:17-05:00 — Ctrl+Shift-click adds on-screen units of type. Doc: selection_and_hud.md. Change entry 0052.
 - 2026-11-23T20:01:04-05:00 — Add inputs on enemy selection do nothing. Doc: selection_and_hud.md. Change entry 0053.
+- 2026-11-23T20:01:57-05:00 — InfoPanel 2+ placeholder, bookmarked. Change entry 0054.
