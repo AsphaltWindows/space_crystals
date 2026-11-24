@@ -210,7 +210,7 @@ Base behavior for moving to a target location while engaging enemies encountered
 - MovingToLocation sub-behavior state (for pathing to TargetLocation)
 - AttackingObject sub-behavior state (when engaged with a target)
 - CurrentTarget: ObjectInstance | None
-- PathReference: the planned path to TargetLocation (used for leash distance calculation)
+- PathReference: the path planned when the AttackMove started (used for leash distance calculation). It is **not** replaced after fights (the walking path is re-planned, the leash line isn't), so fights can't drag the unit progressively off course. It **is** replaced when the unit has to re-route because its way is **blocked** (a detour), so the unit can fight and chase normally along the detour (user, 2026-11-24).
 
 ### Algorithm:
 1. Begin MovingToLocation toward TargetLocation
@@ -219,7 +219,7 @@ Base behavior for moving to a target location while engaging enemies encountered
    - If enemy detected: set CurrentTarget, switch to AttackingObject sub-behavior targeting CurrentTarget
    - For turret units: set TurretCommandState.LockedTarget = CurrentTarget
 3. While engaged with CurrentTarget:
-   - If unit's perpendicular distance from PathReference exceeds AttackMoveLeashDistance: disengage, clear CurrentTarget, resume MovingToLocation from current position toward TargetLocation (recompute path)
+   - **The leash limits chasing only** (user, 2026-11-24): a CurrentTarget **within weapon range is always fought**, wherever the unit is. The unit does not **move** to chase a target if that would take it beyond AttackMoveLeashDistance (perpendicular distance from PathReference). If the target is out of weapon range and can only be reached by going beyond the leash: disengage, clear CurrentTarget, resume MovingToLocation from current position toward TargetLocation (recompute path). So an attack-moving unit is never shot without fighting back by an enemy it can reach from where it is; it only ignores enemies that outrange it from beyond the leash.
    - If CurrentTarget is destroyed: clear CurrentTarget, resume MovingToLocation from current position toward TargetLocation (recompute path)
 4. When unit arrives at TargetLocation: behavior complete
 
