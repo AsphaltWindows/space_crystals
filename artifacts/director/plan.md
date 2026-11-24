@@ -538,10 +538,19 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Soak seed.** The `production/stalls.rs` soak seed is now 0xd00d, because the old seed gave no waits at 3 GU.
   - **Placeholders.** The results screen's contents, and the end banner over it.
 
+- **M3-R one default-order rule, remembered targets, Riot Shield orders** (merged in `e2975db`; 1243 tests):
+  - **One rule (0136).** `orders::resolution::resolve` decides every default order. `Sim::default_order`, `Sim::rally_order` and the client's `command_ui/resolution.rs` all use it. A rally gives the new unit its own right-click order at release, keeping M3-D2's timing.
+  - **Remembered targets (0139).** `targets::TargetView` (seen, remembered or gone). The gate takes seen or remembered targets. An order goes to the last-known position, and ends as for a vanished target when the record is dropped.
+  - **Riot Shield orders (0150, 0151).** Orders are kept: Attack runs as a Follow while shielded, and Shift does nothing. `riot_shield::allows_attack` and `is_going_up` are the one shield check, for M3-S.
+  - **Deferred Convert (0153).** A Convert pressed mid-attack waits in `AttackState::pending`, applied in `step_modes`. The pending ability is reusable for M3-S's 0172.
+  - **CanHaveTurret (0154).** **Seeded records (0159):** `Vision::seed`; path knowledge no longer assumes objects. **Self-follow (0168)** is a Stop.
+  - **Goldens.** `gdo_opening` was re-blessed for 0159 only; the per-tick object digests are unchanged. Perf: B/A 0.94–1.02.
+  - **Found.** An AttackMove can loop forever: on `behaviours_soak` seed 1 a Guard takes and drops an edge-of-sight target every other tick. The soak now runs seeds 2–4, and M3-L2 fixes the loop. Master's soak also fails seeds 8, 12, 21 and 34 of 1–40: M3-X.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M3-L1 fog delay and attacker reveal** (Opus; brief `scratchpad/briefs/m3l1-vision.md`): 0177, 0178.
-  - **M3-R one default-order rule, remembered targets, Riot Shield orders** (Opus; brief `scratchpad/briefs/m3r-default-order-remembered-targets.md`): 0136, 0139, 0150–0151 (shield part). Gather on a remembered patch waits for H3.
+  - **M3-J2 gathering UI** (Opus; brief `scratchpad/briefs/m3j2-gathering-ui.md`): the Drone's right-click checked against the design, pointers, Set Drop-off, Egress Node F, the carried load, 0124 grids, 0155 plate panel, `docs/playtest/m3.md`.
   - **M3-U unfinished groups and polish** (Opus; brief `scratchpad/briefs/m3u-unfinished-groups-and-polish.md`): 0185, units drawn above portals, two test-file splits, button labels.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
@@ -670,15 +679,16 @@ First playable after M2-H2.
     | G | done (`5d61dc7`) |
     | H3 | done (`1e43600`) |
     | J1 | done (`864c13f`) |
-    | R | running (wave 3; the Gather part after H3) |
+    | R | done (`e2975db`) |
     | D2 | done (`3576cbe`) |
     | P | done (`9f63a5f`) |
-    | J2 (after R; with 0124, 0136, 0139, 0140, 0155; brief `scratchpad/briefs/m3j2-gathering-ui.md`) | queued |
+    | J2 (0124, 0136, 0139, 0140, 0155) | running (wave 5) |
     | V | done (`9516a0f`) |
     | U (0185 unfinished groups; units above portals; test splits; labels) | running (wave 4) |
-    | S (after R and U; Riot Shield as two unit types: 0171–0174; brief `scratchpad/briefs/m3s-riot-shield-two-types.md`) | queued |
+    | S (after U; Riot Shield as two unit types: 0171–0174; brief `scratchpad/briefs/m3s-riot-shield-two-types.md`) | queued |
     | L1 (vision: 0177 attacker reveal and clipped shots, 0178 fog delay) | running (wave 4) |
-    | L2 (after R; behaviours: 0179 rotation steps, 0180 AttackMove leash, 0182 MinRange, 0186 Guard attack numbers; brief `scratchpad/briefs/m3l2-targeting-behaviours.md`) | queued |
+    | L2 (next free slot; behaviours: 0179 rotation steps, 0180 AttackMove leash, 0182 MinRange, 0186 Guard attack numbers, the AttackMove loop on soak seed 1; brief `scratchpad/briefs/m3l2-targeting-behaviours.md`) | queued |
+    | X (after L1 and L2; Fable: soak robustness over seeds 1–40; master fails 8, 12, 21 idle-mover, 34 settle bound) | queued |
     | K1, K2 (K2 also: a half-out unit can attack; 0170 event-driven) | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
@@ -752,6 +762,7 @@ First playable after M2-H2.
 | Q0046 | A Drone's drop-off destroyed while it is on its way back | no | answered by 0170 (as built) |
 | Q0047 | Waiting for capacity: several waiting buildings, no power, zero-cost units | no | answered by 0175 (as built) and 0176 (point 3 in M3-V) |
 | Q0048 | Pressing other commands while targeting (0066 vs 0162); a portal group only partly warping in | no | answered: point 1 by 0184 (as built), point 2 by 0185 (M3-U) |
+| Q0049 | Convert pressed again while a conversion waits for Cooldown (0153) | no | open; M3-R leaves waiting units out |
 
 ## Design change entries
 Last triaged: 0188.
@@ -887,10 +898,10 @@ Last triaged: 0188.
 | 0133 Which waiting Drone gets a freed patch is the implementation's choice, kept deterministic | done (M3-H3, `1e43600`) | answers Q0037 point 6 |
 | 0134 A depleted patch counts as occupied; Drones walking to it search on arrival | done (M3-H3, `1e43600`) | answers Q0037 point 7 and Q0044 point 5 |
 | 0135 A missing drop-off is replaced by the nearest own Egress Node when the return trip starts; with none, the Drone idles holding its load | done (M3-H3, `1e43600`) | answers Q0037 point 8 |
-| 0136 A rally gives the new unit its default right-click command against the rally target; one rule for every producer | queued (M3-R; replaces M3-D's "unarmed unit rallied on an enemy moves to the point": a Drone follows an enemy unit) | answers Q0037 points 9–10 |
+| 0136 A rally gives the new unit its default right-click command against the rally target; one rule for every producer | done (M3-R, `e2975db`: `orders::resolution::resolve`, `Sim::rally_order`; given at release) | answers Q0037 points 9–10 |
 | 0137 A Drone mining a patch doesn't block a plate; a plated patch is gone for Drones | done (M3-H3, `1e43600`) | answers Q0044 point 2 and Q0037 point 11 |
 | 0138 The last load takes the full 32 frames and the remaining crystals | done (M3-H3, `1e43600`) | answers Q0037 point 13 |
-| 0139 Remembered objects can be targeted: orders go to the last-known position and resolve on sight | queued (M3-R: gate, orders, rally and the client's right-click) | answers Q0017 point 2, Q0044 points 1 and 6; replaces M2's "object targets only when visible" |
+| 0139 Remembered objects can be targeted: orders go to the last-known position and resolve on sight | done (M3-R, `e2975db`: `targets::TargetView`; the gate takes seen or remembered targets) | answers Q0017 point 2, Q0044 points 1 and 6; replaces M2's "object targets only when visible" |
 | 0140 No empty Drop Off order: an empty Drone right-clicking its own node moves there | sim done (M3-H3, `1e43600`: `NothingToDeliver`); the right-click queued (M3-J2) | answers Q0044 point 3 |
 | 0141 An unreachable patch is handled like an occupied one; the Drone never gives up | done (M3-H3, `1e43600`) | answers Q0044 point 4 |
 | 0142 Beacon Capacity reserved at queue time | superseded by 0143 | answered Q0041 point 1 |
@@ -901,16 +912,16 @@ Last triaged: 0188.
 | 0147 Modifiers skip Shields; only the overflow takes them | done (M3-B, `61aa089`) | answers Q0042 point 3 |
 | 0148 Shield bar above HP; "Shields a / b" in the InfoPanel | done (M3-B, `61aa089`); styling waits for the HUD pass | answers Q0042 point 4 |
 | 0149 Melee reach: 8 su edge to edge for every melee attack | done (placeholder 8 su since M3-A; citations fixed in M3-F, `ff119a8`) | answers Q0042 point 5 |
-| 0150 Convert and the Riot Shield are mode switches: orders stay | Convert done (M3-B, `61aa089`); Riot Shield in progress (M3-R) | answers Q0042 point 6 |
-| 0151 Mode switches happen at once; Shift has no effect | Convert done (M3-B, `61aa089`); Riot Shield in progress (M3-R) | answers Q0042 point 7 |
+| 0150 Convert and the Riot Shield are mode switches: orders stay | done (Convert M3-B `61aa089`; Riot Shield M3-R `e2975db`) | answers Q0042 point 6 |
+| 0151 Mode switches happen at once; Shift has no effect | done (Convert M3-B `61aa089`; Riot Shield M3-R `e2975db`) | answers Q0042 point 7 |
 | 0152 A converted Legionnaire's weapon starts ready | done (M3-B, `61aa089`) | answers Q0042 point 8 |
-| 0153 Convert pressed during Firing or Cooldown happens right after Cooldown ends | in progress (M3-R, folded in; replaces M3-B's leave-out) | answers Q0042 point 9 |
-| 0154 The flag is CanHaveTurret; a unit has a turret only if TurretAttributes are set | in progress (M3-R, folded in: the rename and the Drone counted as unarmed) | answers Q0042 point 10 |
+| 0153 Convert pressed during Firing or Cooldown happens right after Cooldown ends | done (M3-R, `e2975db`: `AttackState::pending`, applied in `step_modes`); second press: Q0049 | answers Q0042 point 9 |
+| 0154 The flag is CanHaveTurret; a unit has a turret only if TurretAttributes are set | done (M3-R, `e2975db`: CanHaveTurret; the turret is the attack source; the Drone is unarmed) | answers Q0042 point 10 |
 | 0155 A plate's remaining crystals are shown only to its owner | queued (M3-J2) | answers Q0034; changes M2-G |
 | 0156 A destination resolved at order time is final, even when the obstacle is later seen gone | done (M2-E, as built) | answers Q0033 point 1 |
 | 0157 No re-plan when a remembered obstacle is seen gone | superseded by 0158 | answered Q0033 point 2 |
 | 0158 Route recalculation timing is the Director's choice: no perf issues, predictable movement | done (M2-E's behaviour kept; the Director may change it later without a question) | answers Q0033 point 2 |
-| 0159 Neutral map-placed objects are known from the start (pathing and memory); starting layouts are not | in progress (M3-R, folded in: seed memory records) | answers Q0033 point 3 |
+| 0159 Neutral map-placed objects are known from the start (pathing and memory); starting layouts are not | done (M3-R, `e2975db`: `Vision::seed`; records stay hidden on Unexplored tiles) | answers Q0033 point 3 |
 | 0160 Shift with the rally point sets it and ends targeting | done (as built, M2-H1) | answers Q0035 point 1 |
 | 0161 A rally on one of several selected producers: per-building rules | done (as built, M2-H1) | answers Q0035 point 2 |
 | 0162 A greyed-out button or hotkey gives the refusal feedback with its reason | done (M3-J1 `864c13f`: `CommandRefused` in the feedback band) | answers Q0035 point 3 |
@@ -919,7 +930,7 @@ Last triaged: 0188.
 | 0165 Defeat clears orders but not modes | done (as built, M2-F2) | answers Q0036 point 3 |
 | 0166 M3 scope confirmed as proposed; deferred content listed | done (the M3 plan) | answers Q0043 points 1, 3, 4; placeholder numbers or questions when deferred content is scheduled |
 | 0167 Robo Portal costs 250 (was 400); Bio Portal stays 150 | done (M3-V, `9516a0f`; refund 187); watch it in K1 | answers Q0043 point 2 |
-| 0168 A Move or Follow whose target is the unit itself is a Stop | in progress (M3-R, folded in) | answers Q0031; fixes M1-G3's self-follow |
+| 0168 A Move or Follow whose target is the unit itself is a Stop | done (M3-R, `e2975db`: `follow_itself.rs`) | answers Q0031; fixes M1-G3's self-follow |
 | 0169 Arrival radius 3 GU (was 2) for MovingToLocation and MovingToObject | done (M3-V, `9516a0f`: `OCCUPIED_ARRIVAL_GU` 3.0; crowd-sweep failures 43 → 7) | answers Q0032 |
 | 0170 A drop-off destroyed mid-return: the Drone switches at once to the nearest own node | done (as built, M3-H3 `1e43600`); an event-driven check instead of the per-tick one queued (M3-K2) | answers Q0046 |
 | 0171 Riot Shield toggle window: half speed and no attacking while toggling; damage reduction only when fully up; a second press reverses from the current point | queued (M3-S) | answers Q0020 point 2 |
