@@ -9,6 +9,8 @@
 use sc_sim::{BuildingOrientation, Category, ObjectKind, Rotation};
 use serde::{Deserialize, Serialize};
 
+use crate::input::{EditorInput, InputAction};
+
 /// A quarter turn or a flip of the structure being placed.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Turn {
@@ -29,6 +31,20 @@ impl Turn {
         Turn::FlipHorizontal,
         Turn::FlipVertical,
     ];
+
+    /// The turn of a placement key ([`InputAction::is_placement`]): R, Shift+R, F and Shift+F while a structure is
+    /// being placed, in the editor and in the game's AwaitingPlacement alike (`crate::command_ui`). `None` for every
+    /// other action.
+    pub fn of_action(action: InputAction) -> Option<Turn> {
+        use EditorInput as E;
+        match action {
+            InputAction::Editor(E::RotateClockwise) => Some(Turn::Clockwise),
+            InputAction::Editor(E::RotateCounterClockwise) => Some(Turn::CounterClockwise),
+            InputAction::Editor(E::FlipHorizontal) => Some(Turn::FlipHorizontal),
+            InputAction::Editor(E::FlipVertical) => Some(Turn::FlipVertical),
+            _ => None,
+        }
+    }
 
     /// The button's label, with its key.
     pub fn label(self) -> &'static str {

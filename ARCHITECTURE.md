@@ -1189,7 +1189,9 @@ what it is doing; another player's (or a neutral one) its owner and HP only. The
 `hud/info_panel/activity.rs::lines`, the one extension point for them: each structure capability adds its lines there
 (construction with slice M2-H2, production with M2-H1), and nothing else of the panel changes. A producer's
 (`activity::production`) are the unit in production and its progress from `Sim::production_status` (100% while it
-waits at the doorway, 0085), the queue against `QUEUE_LIMIT`, and the rally point (placeholder wordings). A plate
+waits at the doorway, 0085), the queue against `QUEUE_LIMIT`, and the rally point (placeholder wordings). A
+constructor's (`activity::construction`, first) are the building under construction and its progress (frames done of
+its recipe's, whole percent rounded down), or the building ready to place. A plate
 adds the remaining crystals of the patch under it, for every viewer (0099). The top bar shows the player on the left,
 the tick on the right (in a replay's playback also the replay's last tick and a note on the playback, `ReplayText`:
 speed, paused or end, and a desync in red), and between them, centred, the local player's resources as their faction's
@@ -1211,7 +1213,8 @@ elsewhere.
 - **Input contexts**: the mode picks whose bindings apply (`ClientMode::input_context`): the game's in a game and an
   editor play-test, the editor's in the editor. An action works in its own context only (`InputAction::context`), so
   one key can mean different things: V is a command slot in the game and the Select tool in the editor. The camera's
-  pans and grab, the grid (G), `Cancel` (Esc) and the editor's play-test switch (F5) are shared by both. A button
+  pans and grab, the grid (G), `Cancel` (Esc), the editor's play-test switch (F5) and the placement keys (below) are
+  shared by both. A button
   held across a context change ends its action. The editor's actions are `InputAction::Editor(EditorInput)`.
 - **Bindings table** (`input::Bindings`, a `Resource`): the one list of `(InputAction, Binding)` entries for every
   game and editor action. A `Binding` is `Press(Chord)`, a key or mouse button with the modifiers it needs (Q,
@@ -1227,9 +1230,12 @@ elsewhere.
   Shift + R, F and Shift + F that turn the structure being placed) take a press only while `Placing` says a structure
   is being placed, and then win over the press's other bindings, which they override (`Bindings::resolve_placing`):
   F flips then, and chooses the Fill tool otherwise. Whoever places reports `Placing` (the editor's
-  `editor::input::report_placing`); a frame's input follows the report of the frame before. The game's placement
-  ghost can join by adding its actions to `is_placement` and reporting `Placing`. The action stays held until its
-  button goes up. `Bindings::default()` holds the
+  `editor::input::report_placing`, in the editor only); a frame's input follows the report of the frame before. The
+  game's AwaitingPlacement shares them (slice M2-H2, risk R11): the four belong to no context, so in a game they turn
+  the ghost over the command slots R and F (the editor's `Turn`), and the game reports `Placing` from the local
+  ControlState (`command_ui` `report_placing`, in the game modes, outside the command input set, so the keys end with
+  the placement whatever stops the input). Shift + R and Shift + F are theirs while placing, not slot R or F with
+  `Queue` held. The action stays held until its button goes up. `Bindings::default()` holds the
   design's defaults (camera keys, G for the grid, P for unit paths, Select and ContextCommand on the left and right
   buttons, Esc to cancel, Tab and Shift + Tab, the control group keys, the 4 × 3 command grid QWER/ASDF/ZXCV with
   the standard slots Z, X and C, Shift to queue) and the editor's (its F1 help lists them). A rebinding UI edits it
@@ -1315,8 +1321,9 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   box is four edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set.
 
 **Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/selection_and_hud.md > ObjectInterfaceState`
-to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units
-and their producing structures, through one command flow (plan decision T10, slice M2-H1).
+to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units,
+their producing structures and their constructors, through one command flow (plan decision T10, slices M2-H1 and
+M2-H2).
 - **Rules** (pure and unit tested): `command_ui/interface.rs` and its children (`commands.rs`, `templates.rs`,
   `conditions.rs`, `panel.rs`) have the `PanelCommand`s (the units' and the producers' commands), the `InterfaceState`
   (DefaultState, or AwaitingTarget of a command, `queued` once a Shift-click has queued it: design change 0070) in
@@ -1379,6 +1386,26 @@ and their producing structures, through one command flow (plan decision T10, sli
   Shift held or not. The player's changes of the selection or the ActiveGroup cancel targeting
   (`LocalControl::update`), and so does every control group recall, of the same selection too (0078); removals by
   the game (deaths) don't, unless the whole ActiveGroup is gone (`ControlState::retain`).
+- **Construction** (slice M2-H2; `factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState
+  [DeploymentCenter]`, design change 0104; `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState
+  [ExtractionFacility]`): the constructors' commands are `PanelCommand`s too: `BuildMenu(menu)` (the Deployment
+  Center's Q Basic and W Advanced, unavailable while none of its buildings is in the game), `Construct(kind)`,
+  `CancelConstruction` and `CancelReady` (X), and `PlaceReady(kind)`, "Select completed building", which takes its
+  building's slot once it is ready. `InterfaceState` adds `BuildMenu(menu)` and `AwaitingPlacement(Placing
+  { constructor, kind, orientation })`. A constructor's panel follows its state (`state_grid`, from
+  `Conditions::constructor`, the ActiveGroup's one instance's `Constructor`), and its commands are that instance's
+  own (`PanelCommand::instance_only`): they go to the active constructor only, never to the other selected ones. A
+  construction command is one `Command::Construction` (`OrderOutbox::construct`, validated like the others), and
+  Construct and the Cancels return to DefaultState. Back, Esc and a right-click go back one state
+  (`InterfaceState::back`): from AwaitingPlacement to the Deployment Center's build menu or the Extraction Facility's
+  DefaultState, from a build menu to DefaultState. While placing, the placement keys turn the ghost (`turn_ghost`,
+  see Input), and a left-click on the map places it if `Sim::placement_check` allows it now: one Place at the
+  footprint centred under the cursor (`Placing::origin_under`), as turned, and back to DefaultState; a Shift-click
+  the same (0071); elsewhere nothing is sent, placing goes on, and an `InvalidPlacement` message says why. A Place
+  the sim refuses as it applies it (`SimEvent::PlacementRefused`) leaves the building ready and the player in
+  DefaultState. A build menu leaves the map's clicks to the selection; AwaitingPlacement takes them
+  (`InterfaceState::takes_map_clicks`). `Validate` ends a build menu the ActiveGroup doesn't have, a placement whose
+  constructor isn't active or holds the building no more, and both when the selection isn't commandable.
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command (`PanelSlot::label`: a toggle says what pressing it does) and its hotkey from the
   bindings, and a toggle that is on has a thick green border. The indicators (`command_ui/indicators.rs`) are
@@ -1397,10 +1424,25 @@ and their producing structures, through one command flow (plan decision T10, sli
   after the latest `InvalidTarget` (`TargetFeedback`), never in the pointer's way (`Pickable::IGNORE`). The same
   band gives the insufficient-resources feedback (0083): `NO_CRYSTALS_TEXT` or `UNIT_CONTROL_TEXT` after the sim's
   `ProductionRefused` for a local player's producer that a Train didn't reach for want of crystals or Unit Control
-  (a full queue gives none).
+  (a full queue gives none), and a placement's (`placement_text`, the check's first problem): an `InvalidPlacement`
+  or the sim's `PlacementRefused`.
+- **Placement visuals** (`placement.rs`, `placement/`): while the local player places a building (`placing_now`: a
+  game mode, AwaitingPlacement, a commandable selection). `PlacementGhost` holds the `Ghost` under the cursor (the
+  footprint as turned, the `PlacementCheck` there now, the side letters of `sc_sim::sides`), worked out every frame;
+  its one mesh is rebuilt in place, under one handle, only when that changed: each tile on the terrain's surface,
+  green or red by its own problems, red throughout when the footprint breaks a whole rule (0093), and an outline
+  green or red for the verdict; five `Text2d` labels carry the side letters (0079) and the building's tag, never
+  hidden and never culled, only emptied (Bevy lays a `Text2d` out only while a camera saw a sprite or a text the frame
+  before, and drops a change made in a frame without one: a text that changes must keep one in view). It lies
+  over the map's other overlays, under the indicators: it is the cursor, so no pointer shows over the map
+  (`PointerLook::placing`). `BuildAreaOverlay` shows `Sim::build_area`, the area only, as one mesh in the terrain's
+  z band just in front of the fog layer (`overlay::AREA_Z`), rebuilt only when the area differs from the one it last
+  drew (`BuildArea: PartialEq`) or the map meshes were rebuilt (`MapView::builds`).
 - The design leaves some things open (labels, colours, the flash, the cursor's shapes and the Mixed look, the
   invalid-target and insufficient-resources feedbacks' form and duration, the targeting click allowance's value, when
-  Shift counts for a targeting click, Shift with a rally point); each placeholder is marked where it is made.
+  Shift counts for a targeting click, Shift with a rally point; the ghost's and the overlay's looks, the placement
+  messages, the orientation a placement starts with, the hidden slots of buildings not yet in the game); each
+  placeholder is marked where it is made.
 
 **Bevy code**
 - Write one plugin per feature module (camera, map rendering, HUD, input, …). Keep systems small. Bevy caps a system

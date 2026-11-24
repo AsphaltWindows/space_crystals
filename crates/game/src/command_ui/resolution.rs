@@ -162,7 +162,8 @@ pub fn capabilities(selection: &Selection, modes: &Modes) -> Vec<(ObjectId, Unit
 }
 
 /// `> RightClickResolution` by a template: the command a right-click on `target` resolves to, and its order. A
-/// producing structure's right-click gives no order but its rally point ([`object_right_click`]).
+/// producing structure's right-click gives no order but its rally point ([`object_right_click`]); a constructor's
+/// gives nothing (it produces no units: `> Production Building Default Right-Click` isn't its).
 pub fn right_click(template: InterfaceTemplate, target: CursorTarget) -> Option<(PanelCommand, OrderKind)> {
     match template {
         // `> BasicCombatUnitInterfaceState > RightClickResolution`. Enter (own Tunnel, Altar, Garrison, Bunker): none
@@ -174,7 +175,9 @@ pub fn right_click(template: InterfaceTemplate, target: CursorTarget) -> Option<
                 (PanelCommand::Move, OrderKind::Move(Target::Object(id)))
             }
         }),
-        InterfaceTemplate::Barracks => None,
+        InterfaceTemplate::Barracks | InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility => {
+            None
+        }
     }
 }
 
@@ -191,11 +194,13 @@ pub enum Resolved {
 /// `> RightClickResolution` for one selected object: a unit's order ([`unit_right_click`]), or, for a producing
 /// structure, its rally point on what is under the cursor (`> Production Building Default Right-Click`: "Right-click
 /// Ground: sets rally point to that location; Right-click Object: sets rally point to that object; Right-click the
-/// building itself: clears the rally point"). Nothing for an object without a template.
+/// building itself: clears the rally point"). Nothing for a constructor (it produces no units), nor for an object
+/// without a template.
 pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Option<Resolved> {
     match object.template? {
         InterfaceTemplate::BasicCombatUnit => unit_right_click(object, target).map(Resolved::Order),
         InterfaceTemplate::Barracks => Some(Resolved::Rally(rally_target(target))),
+        InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility => None,
     }
 }
 
@@ -341,7 +346,9 @@ impl PointerDisplay {
 }
 
 /// `> PointerDisplayType > Resolution Rules` over `target`, for the selected `units` (none: nothing commandable is
-/// selected, `> CommandPanel`).
+/// selected, `> CommandPanel`). In a build menu a right-click only goes back: Inactive (placeholder: the rules list
+/// no build menu). AwaitingPlacement has "No pointer display type — the building ghost preview serves as the
+/// cursor" (`super::cursor` shows none): Inactive here.
 pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], target: &MapTarget) -> PointerDisplay {
     if units.is_empty() {
         return PointerDisplay::Inactive;
@@ -349,6 +356,7 @@ pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], ta
     match interface {
         InterfaceState::DefaultState => right_click_display(units, target),
         InterfaceState::AwaitingTarget { pending, .. } => awaiting_display(pending, target),
+        InterfaceState::BuildMenu(_) | InterfaceState::AwaitingPlacement(_) => PointerDisplay::Inactive,
     }
 }
 

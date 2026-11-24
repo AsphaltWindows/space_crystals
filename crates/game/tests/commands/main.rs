@@ -12,8 +12,12 @@
 //! `> Production Building Default Right-Click`) plays on the same field with player 1's Barracks added
 //! ([`production_scenario`]): `production` for Train and Cancel Production, `rally` for the rally points and their
 //! indicators.
+//!
+//! The construction UI of slice M2-H2 (the Deployment Center's build menu, the Extraction Facility's plate, and
+//! AwaitingPlacement with its ghost and the build area overlay) plays on a base of its own: `construction`.
 
 mod click_allowance;
+mod construction;
 mod indicators;
 mod panel;
 mod production;

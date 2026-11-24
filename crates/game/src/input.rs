@@ -146,9 +146,10 @@ pub struct RawInput {
 }
 
 /// Whether a structure is being placed, as the placement's owner last reported it: the map editor while its
-/// placement tools hold a structure (`crate::editor::input::report_placing`). While it is, the placement actions'
-/// bindings take their presses first (`Bindings::resolve_placing`); the input of a frame follows the report of the
-/// frame before.
+/// placement tools hold a structure (`crate::editor::input::report_placing`, in the editor only), the game while the
+/// local player places a building in AwaitingPlacement (`crate::command_ui`, in the game modes only). While it is,
+/// the placement actions' bindings take their presses first (`Bindings::resolve_placing`); the input of a frame
+/// follows the report of the frame before.
 #[derive(Resource, Default, Debug, PartialEq, Eq)]
 pub struct Placing(pub bool);
 

@@ -235,17 +235,69 @@ fn placement_keys_work_only_while_placing_and_override_the_others() {
         Some(ed(EditorInput::FillTool)),
         "resolve: nothing is being placed"
     );
-    // The other keys work as ever while placing; Ctrl still blocks the editor's keys; the game's keys are its own.
+    // The other keys work as ever while placing; Ctrl still blocks the editor's keys.
     assert_eq!(
         press(KeyCode::KeyV, Modifiers::NONE, true),
         Some(ed(EditorInput::SelectTool))
     );
     assert_eq!(press(KeyCode::KeyR, Modifiers::CTRL, true), None);
-    assert_eq!(
-        b.resolve_placing(Game, key(KeyCode::KeyR), Modifiers::NONE, false, true),
-        Some(InputAction::CommandSlot(CommandSlot::new(0, 3).unwrap()))
-    );
     assert!(ed(EditorInput::FlipVertical).is_placement() && !ed(EditorInput::FillTool).is_placement());
+    // One definition for the game and the editor: the placement keys work in either context.
+    for action in [
+        EditorInput::RotateClockwise,
+        EditorInput::RotateCounterClockwise,
+        EditorInput::FlipHorizontal,
+        EditorInput::FlipVertical,
+    ] {
+        assert!(ed(action).works_in(Game) && ed(action).works_in(Editor), "{action:?}");
+    }
+}
+
+/// Risk R11 (plan decision T10): in the game's AwaitingPlacement (`factions/gdo/structures.md > DeploymentCenter >
+/// ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`) R and F turn the ghost instead of pressing the command
+/// slots R and F, and Shift + R and Shift + F turn it the other way although Shift is the Queue modifier; otherwise R
+/// and F are the command slots, with or without Shift (Shift + R is slot R with the queue modifier held), and Shift
+/// still holds Queue in both.
+#[test]
+fn the_games_placement_keys_turn_the_ghost_over_the_command_slots() {
+    use InputContext::Game;
+    let b = Bindings::default();
+    let ed = InputAction::Editor;
+    let press = |k, modifiers, placing| b.resolve_placing(Game, key(k), modifiers, false, placing);
+    let (none, shift) = (Modifiers::NONE, Modifiers::SHIFT);
+    let slot_r = InputAction::CommandSlot(CommandSlot::new(0, 3).unwrap());
+    let slot_f = InputAction::CommandSlot(CommandSlot::new(1, 3).unwrap());
+    // Placing.
+    assert_eq!(press(KeyCode::KeyR, none, true), Some(ed(EditorInput::RotateClockwise)));
+    assert_eq!(
+        press(KeyCode::KeyR, shift, true),
+        Some(ed(EditorInput::RotateCounterClockwise))
+    );
+    assert_eq!(press(KeyCode::KeyF, none, true), Some(ed(EditorInput::FlipHorizontal)));
+    assert_eq!(press(KeyCode::KeyF, shift, true), Some(ed(EditorInput::FlipVertical)));
+    // In the game a held modifier is a role and never blocks: Ctrl + R still turns.
+    assert_eq!(
+        press(KeyCode::KeyR, Modifiers::CTRL, true),
+        Some(ed(EditorInput::RotateClockwise))
+    );
+    // The other keys are the game's as ever: Q, Z (Back), X, Esc.
+    assert_eq!(
+        press(KeyCode::KeyQ, none, true),
+        Some(InputAction::CommandSlot(CommandSlot::new(0, 0).unwrap()))
+    );
+    assert_eq!(
+        press(KeyCode::KeyZ, none, true),
+        Some(InputAction::CommandSlot(CommandSlot::BACK))
+    );
+    assert_eq!(press(KeyCode::Escape, none, true), Some(InputAction::Cancel));
+    // Not placing.
+    assert_eq!(press(KeyCode::KeyR, none, false), Some(slot_r));
+    assert_eq!(press(KeyCode::KeyR, shift, false), Some(slot_r));
+    assert_eq!(press(KeyCode::KeyF, none, false), Some(slot_f));
+    assert_eq!(press(KeyCode::KeyF, shift, false), Some(slot_f));
+    assert_eq!(b.resolve(Game, key(KeyCode::KeyR), none, false), Some(slot_r));
+    // Shift holds Queue whatever is placed: the placement keys are presses, Queue a modifier binding.
+    assert!(b.holds(InputAction::Queue, shift));
 }
 
 #[test]

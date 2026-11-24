@@ -2,13 +2,15 @@
 //! ObjectInterfaceState, the command panel a selection gets and who receives a command. Unit tested here; the
 //! systems apply them to the local player's ControlState. What a click resolves to is [`super::resolution`].
 //!
-//! - [`commands`]: the panel's commands ([`PanelCommand`]), for units and producing structures alike (plan decision
-//!   T10), and what each gives the sim: an order, an ability or a production command;
+//! - [`commands`]: the panel's commands ([`PanelCommand`]), for units, producing structures and constructors alike
+//!   (plan decision T10), and what each gives the sim: an order, an ability, a production or a construction command;
 //! - [`templates`]: the ObjectInterfaceState templates ([`InterfaceTemplate`]): which commands a type offers, in
-//!   which slots;
-//! - [`conditions`]: what the game allows the selection's commands now ([`Conditions`]): the units' modes, and the
-//!   command gate's answer to each production command;
+//!   which slots, and how a constructor's follow its state and its build menus ([`state_grid`]);
+//! - [`conditions`]: what the game allows the selection's commands now ([`Conditions`]): the units' modes, the
+//!   ActiveGroup's constructor state, and the command gate's answer to each production and construction command;
 //! - [`panel`](mod@panel): the panel a selection gets, what pressing a slot does, and who receives a command;
+//! - [`placing`]: AwaitingPlacement's building ([`Placing`]), where its ghost stands and how the placement keys
+//!   turn it;
 //! - here: the ObjectInterfaceState itself ([`InterfaceState`]), and whether it still holds ([`still_valid`]).
 //!
 //! The Peacekeeper's Riot Shield (`factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`) is a
@@ -22,22 +24,37 @@
 //! and cancels the last unit queued (X), at once, and awaits the target of its rally point (C); a Train or a Cancel
 //! Production that the command gate would refuse shows disabled ([`Conditions`]: the same predicates as the gate).
 //!
+//! A Deployment Center (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`,
+//! design change 0104) opens BuildMenu\[Basic\] (Q) and BuildMenu\[Advanced\] (W, unavailable while none of its
+//! buildings is in the game); a menu's entry constructs its building and returns to DefaultState; once the building
+//! is ready, its entry enters AwaitingPlacement; X cancels the construction, or the building ready to place. An
+//! Extraction Facility (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`)
+//! does the same with its plate from DefaultState: Q builds it, then places it. Their commands go to the one
+//! instance whose state the panel shows ([`recipients`]).
+//!
 //! No smart-casting (`> SelectionGroup > No smart-casting`, design changes 0071 and 0075): a panel command goes to
 //! every object it is issued to ([`recipients`]), a Train to every selected Barracks, whose payments the sim orders
 //! (design change 0083).
 //!
-//! While a target is awaited, the other commands are unavailable (`> AwaitingTarget > Other commands while
-//! targeting`, design change 0066): the panel shows them disabled, and their hotkeys and buttons do nothing.
+//! While a target is awaited or a building is placed, the other commands are unavailable (`> AwaitingTarget > Other
+//! commands while targeting`, design change 0066): the panel shows them disabled, and their hotkeys and buttons do
+//! nothing.
 
 pub mod commands;
 pub mod conditions;
 pub mod panel;
+pub mod placing;
 pub mod templates;
 
 pub use commands::PanelCommand;
 pub use conditions::{Conditions, Modes};
-pub use panel::{ButtonLook, Panel, PanelButton, PanelSlot, SlotPress, commandable, panel, press, recipients};
-pub use templates::{InterfaceTemplate, can_target_ground, grid, offers, slot_index};
+pub use panel::{
+    ButtonLook, Panel, PanelButton, PanelSlot, SlotPress, commandable, is_common, panel, press, recipients,
+};
+pub use placing::Placing;
+pub use templates::{
+    BuildMenu, InterfaceTemplate, can_target_ground, commands, grid, menu_of, offers, slot_index, state_grid,
+};
 
 use crate::input::CommandSlot;
 use crate::selection::Selection;
@@ -45,11 +62,8 @@ use crate::selection::Selection;
 /// `> ObjectInterfaceState[ObjectEnum]`: where the ActiveGroup's command flow stands. It belongs to each player's
 /// ControlState (`crate::selection::ControlState::interface`), and goes back to DefaultState when the Selection or
 /// the ActiveGroup changes (`crate::selection::LocalControl::update`), or when it no longer holds for the game
-/// ([`still_valid`]).
-///
-/// The construction UI (slice M2-H2) adds its states beside these: the Deployment Center's build menus
-/// (`factions/gdo/structures.md > DeploymentCenter`, design change 0104) and the placement of a building ready to
-/// place. The production UI needs none of its own: Set Rally Point awaits its target like a unit command.
+/// ([`still_valid`]). The production UI needs no state of its own: Set Rally Point awaits its target like a unit
+/// command.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub enum InterfaceState {
     /// `> DefaultState`.
@@ -67,6 +81,13 @@ pub enum InterfaceState {
         /// simply continues").
         queued: bool,
     },
+    /// `factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`: one of the
+    /// Deployment Center's build menus is open (design change 0104), in whichever state the Deployment Center is:
+    /// idle, constructing or holding a building ready.
+    BuildMenu(BuildMenu),
+    /// `> AwaitingPlacement`: the ghost of a building ready to place follows the cursor, and a left-click on a valid
+    /// spot places it (`crate::placement`).
+    AwaitingPlacement(Placing),
 }
 
 impl InterfaceState {
@@ -78,15 +99,55 @@ impl InterfaceState {
     /// The PendingCommand, while a target is awaited.
     pub fn pending(self) -> Option<PanelCommand> {
         match self {
-            InterfaceState::DefaultState => None,
             InterfaceState::AwaitingTarget { pending, .. } => Some(pending),
+            InterfaceState::DefaultState | InterfaceState::BuildMenu(_) | InterfaceState::AwaitingPlacement(_) => None,
+        }
+    }
+
+    /// The building being placed, in AwaitingPlacement.
+    pub fn placing(self) -> Option<Placing> {
+        match self {
+            InterfaceState::AwaitingPlacement(placing) => Some(placing),
+            _ => None,
+        }
+    }
+
+    /// Whether the state takes the left-clicks on the map as its own, a target or a placement, so that they select
+    /// nothing, and a drag on the map does nothing (`> AwaitingTarget > Dragging while targeting`, design change
+    /// 0067; the same for a placement). A build menu leaves the map's clicks to the selection.
+    pub fn takes_map_clicks(self) -> bool {
+        matches!(
+            self,
+            InterfaceState::AwaitingTarget { .. } | InterfaceState::AwaitingPlacement(_)
+        )
+    }
+
+    /// The state before this one, which Back (Z), Esc and a right-click return to (`> Standard Slot Assignments >
+    /// Z`: "In any multi-stage menu (BuildMenu, ExpandMenu, EjectMenu, AwaitingTarget, AwaitingPlacement), Z returns
+    /// to the previous state (StateOnlyTransition). Equivalent to Escape or right-click cancel."): from
+    /// AwaitingPlacement of a Deployment Center's building, its build menu (`> AwaitingPlacement`: "Escape/right-click:
+    /// returns to BuildMenu"); from anything else DefaultState: the Extraction Facility's AwaitingPlacement
+    /// ("Escape/right-click: returns to DefaultState"), a build menu ("Escape/right-click: returns to DefaultState"),
+    /// AwaitingTarget.
+    pub fn back(self, selection: &Selection) -> InterfaceState {
+        match self {
+            InterfaceState::AwaitingPlacement(placing) => selection
+                .active()
+                .and_then(|active| menu_of(active.kind, placing.kind))
+                .map_or(InterfaceState::DefaultState, InterfaceState::BuildMenu),
+            _ => InterfaceState::DefaultState,
         }
     }
 }
 
-/// `> ObjectInterfaceState`: whether `interface` still holds for `selection` (validated every frame): AwaitingTarget
-/// while the selection is commandable and its ActiveGroup still offers the PendingCommand, which the game still
-/// allows (`conditions`: an Attack while some recipient can attack).
+/// `> ObjectInterfaceState`: whether `interface` still holds for `selection` (validated every frame), while the
+/// selection is commandable (a defeated player's and everyone's after the end of the game is not):
+/// - AwaitingTarget while its ActiveGroup still offers the PendingCommand, which the game still allows
+///   (`conditions`: an Attack while some recipient can attack);
+/// - a build menu while the ActiveGroup is a Deployment Center: the menu stays open while its state changes
+///   (a construction that completes shows its building ready in the menu);
+/// - AwaitingPlacement while the ActiveGroup is the constructor, which still holds the building ready
+///   (`conditions`: its state).
 pub fn still_valid(
     interface: InterfaceState,
     selection: &Selection,
@@ -101,6 +162,17 @@ pub fn still_valid(
                     &panel(selection, InterfaceState::DefaultState, conditions),
                     command_slot(selection, pending),
                 ) == SlotPress::AwaitTarget(pending)
+        }
+        InterfaceState::BuildMenu(menu) => {
+            commandable
+                && selection
+                    .active()
+                    .is_some_and(|active| offers(active.kind, PanelCommand::BuildMenu(menu)))
+        }
+        InterfaceState::AwaitingPlacement(placing) => {
+            commandable
+                && selection.in_active_group(placing.constructor)
+                && conditions.constructor.and_then(|c| c.ready()) == Some(placing.kind)
         }
     }
 }

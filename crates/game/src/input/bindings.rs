@@ -330,7 +330,8 @@ impl Default for Bindings {
                 (E::NewMap, ctrl(KeyCode::KeyN)),
                 (E::PlayTest, Press(key(KeyCode::F5))),
                 (E::ToggleHelp, Press(key(KeyCode::F1))),
-                // Placement actions: only while a structure is being placed, over F's Fill tool.
+                // Placement actions: only while a structure is being placed, over F's Fill tool in the editor and over
+                // the command slots R and F in the game's AwaitingPlacement (they work in both contexts).
                 (E::RotateClockwise, Press(key(KeyCode::KeyR))),
                 (
                     E::RotateCounterClockwise,

@@ -81,19 +81,20 @@ pub fn editor_action(action: InputAction, tools: &EditorTools) -> Option<EditorA
         E::NewMap => A::NewMap,
         E::PlayTest => A::PlayTest,
         E::ToggleHelp => A::ToggleHelp,
-        E::RotateClockwise => A::Turn(Turn::Clockwise),
-        E::RotateCounterClockwise => A::Turn(Turn::CounterClockwise),
-        E::FlipHorizontal => A::Turn(Turn::FlipHorizontal),
-        E::FlipVertical => A::Turn(Turn::FlipVertical),
+        E::RotateClockwise | E::RotateCounterClockwise | E::FlipHorizontal | E::FlipVertical => {
+            A::Turn(Turn::of_action(action)?)
+        }
         E::UseTool | E::Eyedropper | E::Zoom => return None,
     })
 }
 
 /// Tells the input layer whether a structure is being placed ([`Placing`]): in the editor, while the Place or the
-/// Layout tool holds one ([`EditorTools::places_structure`]). Then the placement keys turn it.
+/// Layout tool holds one ([`EditorTools::places_structure`]). Then the placement keys turn it. Only in the editor: in
+/// its play-tests the game reports its own placements (`crate::command_ui`).
 pub fn report_placing(mode: Res<ClientMode>, tools: Res<EditorTools>, mut placing: ResMut<Placing>) {
-    let wanted = Placing(*mode == ClientMode::Editor && tools.places_structure());
-    placing.set_if_neq(wanted);
+    if *mode == ClientMode::Editor {
+        placing.set_if_neq(Placing(tools.places_structure()));
+    }
 }
 
 /// The window's close button (review finding: it closed the editor without asking about unsaved changes). Several

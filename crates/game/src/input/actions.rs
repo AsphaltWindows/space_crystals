@@ -108,13 +108,16 @@ pub enum InputAction {
 
 impl InputAction {
     /// The input context whose bindings fire the action, or `None` for both: the camera's pans and grab, the grid,
-    /// Cancel (Esc cancels in the game and in the editor alike) and the play-test switch, which must work in the
-    /// editor and in its play-tests. Every other action belongs to the game or to the editor.
+    /// Cancel (Esc cancels in the game and in the editor alike), the play-test switch, which must work in the
+    /// editor and in its play-tests, and the placement keys ([`InputAction::is_placement`]), which turn the
+    /// structure being placed in the editor and in the game's AwaitingPlacement alike. Every other action belongs
+    /// to the game or to the editor.
     pub fn context(self) -> Option<InputContext> {
         use InputAction as A;
         match self {
             A::PanLeft | A::PanRight | A::PanUp | A::PanDown | A::GrabPan | A::ToggleGrid | A::Cancel => None,
             A::Editor(EditorInput::PlayTest) => None,
+            placement if placement.is_placement() => None,
             A::Editor(_) => Some(InputContext::Editor),
             // Selection, commands, control groups, the modifiers: the game's.
             _ => Some(InputContext::Game),
@@ -128,8 +131,12 @@ impl InputAction {
 
     /// Whether the action turns the structure being placed. Its bindings take a press only while one is
     /// ([`super::Placing`]), and then before every other binding of that press, which they override: in the editor F
-    /// flips while a structure is being placed and chooses the Fill tool otherwise, as the game's placement keys
-    /// override its command slots (`> AwaitingPlacement`).
+    /// flips while a structure is being placed and chooses the Fill tool otherwise; in the game R and F turn the
+    /// ghost of the building being placed (`factions/gdo/structures.md > DeploymentCenter >
+    /// ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`) instead of pressing the command slots R and F,
+    /// and Shift + R and Shift + F turn it the other way, the Shift that is otherwise the Queue modifier (plan
+    /// decision T10, risk R11). One definition of the placement keys for both: these actions work in either context
+    /// ([`InputAction::context`]).
     pub fn is_placement(self) -> bool {
         use EditorInput as E;
         matches!(
@@ -187,7 +194,8 @@ pub enum EditorInput {
     /// game's placement ghost (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]
     /// > AwaitingPlacement`: "R rotates the ghost 90 degrees clockwise, Shift+R rotates 90 degrees counter-clockwise
     /// ... F flips the ghost horizontally, Shift+F flips vertically"), as `core/map_editor.md` gives none. These four
-    /// are placement actions ([`InputAction::is_placement`]).
+    /// are placement actions ([`InputAction::is_placement`]), shared with the game, whose AwaitingPlacement turns
+    /// its ghost with them (`crate::command_ui`).
     RotateClockwise,
     /// While a structure is being placed: turns it a quarter turn counter-clockwise.
     RotateCounterClockwise,

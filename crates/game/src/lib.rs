@@ -16,6 +16,7 @@
 //! - [`combat_effects`]: placeholder combat feedback: tracers, HP bars, death markers;
 //! - [`selection`]: the players' selections and control groups (client-side UI state), and their markers;
 //! - [`command_ui`]: orders from the command panel, right-clicks and targeting; command indicators and cursors;
+//! - [`placement`]: the placement ghost of the building being placed, and the build area overlay;
 //! - [`hud`]: the game mode's HUD frame, with the InfoPanel, the SelectionPanel and the CommandPanel;
 //! - [`editor`]: the map editor (`--editor`), with its own UI, tools and play-test;
 //! - [`qa`]: screenshots, exit at a tick, state dump, commands and input at given ticks;
@@ -37,6 +38,7 @@ pub mod input;
 pub mod map_render;
 pub mod object_render;
 pub mod path_overlay;
+pub mod placement;
 pub mod platform;
 pub mod qa;
 pub mod replay;
@@ -59,6 +61,7 @@ use crate::input::{ActionInputPlugin, InputContext};
 use crate::map_render::MapRenderPlugin;
 use crate::object_render::ObjectRenderPlugin;
 use crate::path_overlay::PathOverlayPlugin;
+use crate::placement::PlacementPlugin;
 use crate::platform::{DisplayMode, PlatformPlugin};
 use crate::qa::{QaConfig, QaPlugin};
 use crate::replay::{PlaybackPlugin, RecordPlugin};
@@ -221,6 +224,7 @@ pub fn build_app(config: AppConfig) -> App {
         QaPlugin { config: config.qa },
         SelectionPlugin,
         CommandUiPlugin,
+        PlacementPlugin,
     ))
     // The game mode; the editor hides the HUD except in its play-tests.
     .add_plugins(HudPlugin);

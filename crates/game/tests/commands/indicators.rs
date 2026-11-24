@@ -113,6 +113,7 @@ fn the_pointer_previews_what_a_click_would_do() {
     let look = |display, targeting, hovered| PointerLook {
         display: Some(display),
         targeting,
+        placing: false,
         hovered,
     };
     let ground = Vec2::new(1500.0, 1000.0);

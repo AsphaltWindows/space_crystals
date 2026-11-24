@@ -17,7 +17,6 @@ use sc_sim::{ObjectId, ObjectKind, SU_PER_GU};
 
 use super::ControlStates;
 use super::pick::{Relation, Selectable};
-use crate::command_ui::InterfaceState;
 use crate::coords::{DrawLayer, view_to_world};
 use crate::fog::LocalSight;
 use crate::input::ActionState;
@@ -285,8 +284,9 @@ fn draw_drag_box(
     player: Res<LocalPlayer>,
     mut edges: Query<(&DragBoxEdge, &mut Transform, &mut Visibility)>,
 ) {
-    // A box selects nothing while a target is awaited (`super::systems::select_on_map`): none is drawn then.
-    let targeting = states.of(player.0).interface != InterfaceState::DefaultState;
+    // A box selects nothing while a target is awaited or a building placed (`super::systems::select_on_map`): none is
+    // drawn then.
+    let targeting = states.of(player.0).interface.takes_map_clicks();
     let dragged = actions.pointer().drag_box.filter(|_| mode.is_game() && !targeting);
     for (edge, mut transform, mut visibility) in &mut edges {
         let Some(rect) = dragged else {

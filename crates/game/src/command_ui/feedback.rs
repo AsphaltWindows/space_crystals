@@ -7,18 +7,26 @@
 //!   No smart-casting > Group production with limited resources`, design change 0083): "The others don't queue, and
 //!   the player gets insufficient-resources feedback". The sim tells which (`SimEvent::ProductionRefused`); a full
 //!   queue is no resource, and gives none. A Train that no producer would queue is never sent: its button is
-//!   disabled (`super::interface::Conditions`).
+//!   disabled (`super::interface::Conditions`);
+//! - a building that can't be placed (`factions/gdo/structures.md > DeploymentCenter >
+//!   ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`): a left-click where the ghost is invalid sends
+//!   nothing and placement goes on (`super::InvalidPlacement`), and a Place that the sim refused as it applied it,
+//!   the game having changed since the click (`SimEvent::PlacementRefused`, e.g. a unit walked onto the footprint),
+//!   leaves the building ready to place and the player in DefaultState, where the valid click left them (`>
+//!   AwaitingPlacement`: it "returns to DefaultState"); the ready building's slot enters placement again. Both say
+//!   why: the placement check's first problem ([`placement_text`]). Placeholders: the design gives no message for
+//!   either.
 //!
-//! The message ([`INVALID_TARGET_TEXT`], [`NO_CRYSTALS_TEXT`] or [`UNIT_CONTROL_TEXT`]) shows over the world view,
-//! centred just above the HUD Bar, on a dark band, for [`FEEDBACK_TICKS`] after the latest cause; a new one replaces
-//! it. It ages by the sim's ticks, so a QA screenshot of a tick always shows it alike. It never takes the pointer:
-//! clicks pass through it to the map.
+//! The message ([`INVALID_TARGET_TEXT`], [`NO_CRYSTALS_TEXT`], [`UNIT_CONTROL_TEXT`] or a [`placement_text`]) shows
+//! over the world view, centred just above the HUD Bar, on a dark band, for [`FEEDBACK_TICKS`] after the latest cause;
+//! a new one replaces it. It ages by the sim's ticks, so a QA screenshot of a tick always shows it alike. It never
+//! takes the pointer: clicks pass through it to the map.
 
 use bevy::picking::Pickable;
 use bevy::prelude::*;
-use sc_sim::{Refusal, SimEvent, Tick};
+use sc_sim::{PlacementProblem, Refusal, SimEvent, Tick, TileProblem, WholeProblem};
 
-use super::InvalidTarget;
+use super::{InvalidPlacement, InvalidTarget};
 use crate::hud::HUD_BAR_HEIGHT_VH;
 use crate::sim_driver::{LocalPlayer, SimEventMessage, SimRes};
 use crate::{ClientMode, ClientSystems};
@@ -31,6 +39,9 @@ pub const INVALID_TARGET_TEXT: &str = "Invalid target";
 /// wordings.
 pub const NO_CRYSTALS_TEXT: &str = "Not enough Space Crystals";
 pub const UNIT_CONTROL_TEXT: &str = "Unit Control limit reached";
+/// The message of a building that can't be placed for no rule the check names (the sim refused the command
+/// otherwise). Placeholder wording, like those of [`placement_text`].
+pub const CANNOT_PLACE_TEXT: &str = "Cannot place there";
 /// Placeholder look: amber text on a dark band, this far above the HUD Bar (percent of the surface height).
 const TEXT_COLOR: Color = Color::srgb(1.0, 0.80, 0.30);
 const BAND_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
@@ -118,29 +129,58 @@ fn refusal_text(reason: Refusal) -> Option<&'static str> {
     }
 }
 
-/// Takes the frame's invalid clicks and the local player's producers' refusals, and shows the latest one's message
-/// for [`FEEDBACK_TICKS`].
+/// The message of a building that can't be placed, by the first rule its placement breaks
+/// (`sc_sim::PlacementCheck::first_problem`; `core/entities.md > Placement Validation`). Placeholder wordings: the
+/// design gives none.
+pub fn placement_text(problem: Option<PlacementProblem>) -> &'static str {
+    match problem {
+        Some(PlacementProblem::Whole(problem)) => match problem {
+            WholeProblem::NotAStructure => CANNOT_PLACE_TEXT,
+            WholeProblem::OutsideBuildArea => "Outside the build area",
+            WholeProblem::NotOnPatch => "Must be placed on a crystal patch",
+        },
+        Some(PlacementProblem::Tile(_, problem)) => match problem {
+            TileProblem::OffMap => "Outside the map",
+            TileProblem::NotBuildable => "Cannot build on this ground",
+            TileProblem::NotFlat => "Ground is not flat",
+            TileProblem::NotVisible => "Cannot build where you cannot see",
+            TileProblem::Structure => "Blocked by a structure",
+            TileProblem::Resource => "Blocked by a resource",
+            TileProblem::Unit => "Blocked by a unit",
+        },
+        None => CANNOT_PLACE_TEXT,
+    }
+}
+
+/// Takes the frame's invalid clicks (on a target, or a placement) and the local player's producers' and
+/// constructors' refusals, and shows the latest one's message for [`FEEDBACK_TICKS`].
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 fn show_feedback(
     mode: Res<ClientMode>,
     sim: Res<SimRes>,
     player: Res<LocalPlayer>,
     mut invalid: MessageReader<InvalidTarget>,
+    mut unplaceable: MessageReader<InvalidPlacement>,
     mut events: MessageReader<SimEventMessage>,
     mut feedback: ResMut<TargetFeedback>,
     mut views: Query<&mut Visibility, With<TargetFeedbackView>>,
     mut texts: Query<&mut Text, With<FeedbackText>>,
 ) {
     let clicks = invalid.read().map(|click| (click.tick, INVALID_TARGET_TEXT));
-    let refusals = events.read().filter_map(|message| match message.event {
-        SimEvent::ProductionRefused { producer, reason, .. }
-            if sim.object(producer).is_some_and(|o| o.owner == Some(player.0)) =>
-        {
-            Some((message.tick, refusal_text(reason)?))
+    let placements = unplaceable
+        .read()
+        .map(|click| (click.tick, placement_text(click.problem)));
+    let own = |id| sim.object(id).is_some_and(|o| o.owner == Some(player.0));
+    let refusals = events.read().filter_map(|message| match &message.event {
+        SimEvent::ProductionRefused { producer, reason, .. } if own(*producer) => {
+            Some((message.tick, refusal_text(*reason)?))
         }
+        SimEvent::PlacementRefused {
+            constructor, problems, ..
+        } if own(*constructor) => Some((message.tick, placement_text(problems.first_problem()))),
         _ => None,
     });
-    let latest = clicks.chain(refusals).max_by_key(|&(tick, _)| tick);
+    let latest = clicks.chain(placements).chain(refusals).max_by_key(|&(tick, _)| tick);
     let generation = Some(sim.generation());
     let earlier = feedback
         .since

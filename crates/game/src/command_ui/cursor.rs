@@ -8,7 +8,9 @@
 //! AttackGround crimson; Mixed, "a generic hybrid cursor" whose visual is TBD, striped in the Attack red and the Move
 //! green), with a dot in the relation's colour (own green, enemy red, neutral yellow, as the selection markers) while
 //! it points at an object. With nothing to preview (Inactive, no object, no target awaited) and over the UI, a window
-//! shows the system's arrow.
+//! shows the system's arrow. While a building is placed there is no pointer over the map (`> Resolution Rules >
+//! AwaitingPlacement`: "No pointer display type — the building ghost preview serves as the cursor";
+//! `crate::placement`): a window hides its cursor there.
 //!
 //! A window takes the image as its cursor (`CursorIcon`, Bevy's custom cursors). QA runs ignore the real mouse and
 //! render offscreen, where no system cursor is drawn: there the image is a UI node at the injected cursor
@@ -20,10 +22,10 @@ use bevy::asset::RenderAssetUsages;
 use bevy::picking::Pickable;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-use bevy::window::{CursorIcon, CustomCursor, CustomCursorImage, PrimaryWindow, SystemCursorIcon};
+use bevy::window::{CursorIcon, CursorOptions, CustomCursor, CustomCursorImage, PrimaryWindow, SystemCursorIcon};
 
 use super::indicators::{AGGRESSIVE_COLOR, ATTACK_COLOR, MOVE_COLOR};
-use super::interface::{InterfaceState, Modes, commandable};
+use super::interface::{Modes, commandable};
 use super::resolution::{MapTarget, PointerDisplay, UnitCapabilities, capabilities, pointer_display};
 use crate::fog::LocalSight;
 use crate::input::{ActionState, RawInput};
@@ -52,14 +54,20 @@ pub struct PointerLook {
     pub display: Option<PointerDisplay>,
     /// A target is awaited (`> AwaitingTarget`): a crosshair instead of an arrow.
     pub targeting: bool,
-    /// How the object under the cursor relates to the local player.
+    /// A building is placed (`> AwaitingPlacement`) and the cursor is over the map: no pointer, the ghost is the
+    /// cursor (`crate::placement`).
+    pub placing: bool,
+    /// How the object under the cursor relates to the local player; none while a building is placed.
     pub hovered: Option<Relation>,
 }
 
 impl PointerLook {
     /// Nothing to preview: a plain arrow, the system's in a window.
     pub fn is_plain(&self) -> bool {
-        matches!(self.display, None | Some(PointerDisplay::Inactive)) && !self.targeting && self.hovered.is_none()
+        matches!(self.display, None | Some(PointerDisplay::Inactive))
+            && !self.targeting
+            && !self.placing
+            && self.hovered.is_none()
     }
 
     /// The pixel of its image that points.
@@ -133,10 +141,12 @@ fn update_pointer_look(
                 Vec::new()
             };
             let target = MapTarget::at(sim, &objects, view, ground);
+            let placing = state.interface.placing().is_some();
             PointerLook {
                 display: Some(pointer_display(state.interface, &units, &target)),
-                targeting: state.interface != InterfaceState::DefaultState,
-                hovered: objects.at(view).map(|o| o.relation),
+                targeting: state.interface.pending().is_some(),
+                placing,
+                hovered: objects.at(view).filter(|_| !placing).map(|o| o.relation),
             }
         }
         _ => PointerLook::default(),
@@ -144,21 +154,33 @@ fn update_pointer_look(
     look.set_if_neq(new);
 }
 
-/// A window shows the look as its cursor while the real mouse drives the game.
+/// The primary window's cursor: the window, its cursor image and whether it shows.
+type WindowCursor = (Entity, Option<&'static CursorIcon>, Option<&'static mut CursorOptions>);
+
+/// A window shows the look as its cursor while the real mouse drives the game, and hides it while a building is
+/// placed over the map.
 fn set_window_cursor(
     mut commands: Commands,
     raw: Res<RawInput>,
     look: Res<PointerLook>,
     mut images: ResMut<CursorImages>,
     mut assets: ResMut<Assets<Image>>,
-    windows: Query<(Entity, Option<&CursorIcon>), With<PrimaryWindow>>,
+    mut windows: Query<WindowCursor, With<PrimaryWindow>>,
 ) {
     if !raw.enabled {
         return;
     }
-    let Ok((window, current)) = windows.single() else {
+    let Ok((window, current, options)) = windows.single_mut() else {
         return;
     };
+    if let Some(mut options) = options
+        && options.visible == look.placing
+    {
+        options.visible = !look.placing;
+    }
+    if look.placing {
+        return;
+    }
     let icon = if look.is_plain() {
         CursorIcon::System(SystemCursorIcon::Default)
     } else {
@@ -190,7 +212,8 @@ fn spawn_cursor_sprite(mut commands: Commands) {
     ));
 }
 
-/// QA runs: the look as a UI node at the injected cursor, in the game modes.
+/// QA runs: the look as a UI node at the injected cursor, in the game modes; none while a building is placed over
+/// the map.
 fn place_cursor_sprite(
     raw: Res<RawInput>,
     mode: Res<ClientMode>,
@@ -203,7 +226,10 @@ fn place_cursor_sprite(
     let Ok((mut node, mut image, mut visibility)) = sprite.single_mut() else {
         return;
     };
-    let Some(cursor) = actions.cursor().filter(|_| !raw.enabled && mode.is_game()) else {
+    let Some(cursor) = actions
+        .cursor()
+        .filter(|_| !raw.enabled && mode.is_game() && !look.placing)
+    else {
         visibility.set_if_neq(Visibility::Hidden);
         return;
     };
@@ -345,6 +371,7 @@ mod tests {
         let attack = PointerLook {
             display: Some(PointerDisplay::Attack),
             targeting: true,
+            placing: false,
             hovered: None,
         };
         let image = cursor_image(attack);
@@ -353,6 +380,7 @@ mod tests {
         let over_enemy = PointerLook {
             display: Some(PointerDisplay::Attack),
             targeting: false,
+            placing: false,
             hovered: Some(Relation::Enemy),
         };
         let image = cursor_image(over_enemy);
@@ -372,6 +400,7 @@ mod tests {
         let mixed = PointerLook {
             display: Some(PointerDisplay::Mixed),
             targeting: false,
+            placing: false,
             hovered: Some(Relation::Enemy),
         };
         let image = cursor_image(mixed);

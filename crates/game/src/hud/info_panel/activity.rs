@@ -6,22 +6,46 @@
 //!
 //! **The extension point** for the structures' activities: [`lines`] gives the area's lines, one capability of the
 //! structure after another, in this order, and the panel shows them as they come:
-//! - construction (the constructor capability of slice M2-D1; its lines come with the construction UI, slice
-//!   M2-H2): the building under construction and its progress, or the building ready to place;
+//! - construction (the constructor capability of slice M2-D1, [`construction`]): the building under construction
+//!   and its progress, or the building ready to place;
 //! - production (the production capability of slice M2-D2, [`production`]): the unit in production and its
 //!   progress, the queue length, and the rally point.
 //!
 //! Lines read only the sim and the structure, so a test can check them without the UI. Their wording is a
 //! placeholder until the panel's layout exists (Q0001).
 
-use sc_sim::{Object, PlayerId, QUEUE_LIMIT, Rally, Sim};
+use sc_sim::construction::recipe;
+use sc_sim::{Constructor, Object, PlayerId, QUEUE_LIMIT, Rally, Sim};
 
 use crate::selection::Relation;
 
 /// What `structure`, one of the local player's own, is doing, one line per item, for the activity area (module docs):
 /// empty while it has nothing to show.
 pub fn lines(sim: &Sim, structure: &Object) -> Vec<String> {
-    production(sim, structure)
+    let mut lines = construction(structure);
+    lines.extend(production(sim, structure));
+    lines
+}
+
+/// A constructor's line (`factions/gdo/structures.md > DeploymentCenter > DeploymentCenterInstanceState`,
+/// `factions/gdo/economy.md > ExtractionFacility`; design change 0105: "construction [...] progress [...] a
+/// ready-to-place building"): the building under construction (CurrentConstruction) with its progress
+/// (ConstructionProgress, "frames elapsed", of its recipe's frames), or the building ready to place (ReadyToPlace).
+/// Nothing for an idle constructor, nor for a structure that constructs nothing.
+pub fn construction(structure: &Object) -> Vec<String> {
+    match structure.constructor {
+        Some(Constructor::Constructing { kind, .. }) => {
+            let done = structure.constructor.and_then(|c| c.frames_done()).unwrap_or(0);
+            // Whole percent, rounded down: 100% only once it is ready.
+            let percent = match recipe(structure.kind, kind).map_or(0, |r| r.frames) {
+                0 => 100,
+                frames => u64::from(done.min(frames)) * 100 / u64::from(frames),
+            };
+            vec![format!("Constructing {}: {percent}%", kind.def().name)]
+        }
+        Some(Constructor::Ready { kind }) => vec![format!("{} ready to place", kind.def().name)],
+        Some(Constructor::Idle) | None => Vec::new(),
+    }
 }
 
 /// A producer's lines (`factions/gdo/structures.md > Barracks > BarracksInstanceState`): while it has a BuildQueue,
@@ -73,7 +97,8 @@ fn rally_line(sim: &Sim, owner: Option<PlayerId>, rally: Rally) -> String {
 mod tests {
     use sc_sim::testing::ScenarioBuilder;
     use sc_sim::{
-        Command, DebugCommand, ObjectId, ObjectKind, PlayerId, ProductionCommand, SpawnAt, Target, TilePos, Vec2,
+        Command, ConstructionCommand, DebugCommand, ObjectId, ObjectKind, PlayerId, ProductionCommand, SpawnAt, Target,
+        TilePos, Vec2,
     };
 
     use super::*;
@@ -170,5 +195,32 @@ mod tests {
         assert_eq!(shown(t.sim()), ["Training Peacekeeper: 100%", "Queue: 2 / 20"]);
         let generator = t.sim().object(ObjectId(3)).unwrap();
         assert_eq!(lines(t.sim(), generator), Vec::<String>::new(), "it produces nothing");
+    }
+
+    /// Design change 0105: an own constructor shows its construction and its progress, then the building ready to
+    /// place. Player 1's Deployment Center (1) constructs a Generator (240 frames at full power: its own +30 power
+    /// covers it), which is ready after 240 frames.
+    #[test]
+    fn a_constructor_shows_its_construction_then_its_ready_building() {
+        let dc = ObjectId(1);
+        let mut t = ScenarioBuilder::new(&vec![".".repeat(30); 16].join("\n"))
+            .spawn(ObjectKind::DeploymentCenter, Some(P1), tile(1, 1))
+            .start();
+        let shown = |sim: &Sim| lines(sim, sim.object(dc).unwrap());
+        assert_eq!(shown(t.sim()), Vec::<String>::new(), "idle");
+        t.at(
+            1,
+            P1,
+            Command::Construction {
+                objects: vec![dc],
+                command: ConstructionCommand::Construct(ObjectKind::Generator),
+            },
+        );
+        t.run_until(1);
+        assert_eq!(shown(t.sim()), ["Constructing Generator: 0%"]);
+        t.run_until(121);
+        assert_eq!(shown(t.sim()), ["Constructing Generator: 50%"]);
+        t.run_until(400);
+        assert_eq!(shown(t.sim()), ["Generator ready to place"]);
     }
 }

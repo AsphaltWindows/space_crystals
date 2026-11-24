@@ -1,26 +1,31 @@
-//! How the local player commands their units and producing structures (`systems/controls/selection_and_hud.md >
-//! ObjectInterfaceState`, `> CommandPanel`, `> DefaultState`, `> RightClickResolution`, `> Production Building
-//! Default Right-Click`, `> AwaitingTarget`, `> PointerDisplayType`, `> CommandIndicators`;
-//! `systems/controls/commands.md > Unit Command`; `factions/gdo/structures.md > Barracks >
-//! ObjectInterfaceState[Barracks]`).
+//! How the local player commands their units, producing structures and constructors
+//! (`systems/controls/selection_and_hud.md > ObjectInterfaceState`, `> CommandPanel`, `> DefaultState`,
+//! `> RightClickResolution`, `> Production Building Default Right-Click`, `> AwaitingTarget`, `> PointerDisplayType`,
+//! `> CommandIndicators`; `systems/controls/commands.md > Unit Command`; `factions/gdo/structures.md > Barracks >
+//! ObjectInterfaceState[Barracks]`, `> DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`;
+//! `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`).
 //!
-//! - [`interface`]: the rules as plain data: the panel's commands ([`PanelCommand`], for units and producers alike:
-//!   plan decision T10), the ObjectInterfaceState of each ControlState, the command panel a selection gets and who
-//!   receives a command, the Peacekeeper's Riot Shield toggle in R with what a raised shield allows, and the
-//!   production commands the command gate would refuse, which show disabled ([`interface::Conditions`]);
+//! - [`interface`]: the rules as plain data: the panel's commands ([`PanelCommand`], for units, producers and
+//!   constructors alike: plan decision T10), the ObjectInterfaceState of each ControlState (with the Deployment
+//!   Center's build menus and AwaitingPlacement), the command panel a selection gets and who receives a command, the
+//!   Peacekeeper's Riot Shield toggle in R with what a raised shield allows, and the production and construction
+//!   commands the command gate would refuse, which show disabled ([`interface::Conditions`]);
 //! - [`resolution`]: what a click on the map resolves to, object by object for a right-click (a unit's order, or a
 //!   producer's rally point), and the PointerDisplayType that previews it;
 //! - the systems (`systems.rs`): command hotkeys and panel clicks, left-clicks while a target is awaited (at the
 //!   press point, within [`TARGETING_CLICK_ALLOWANCE_PX`]; Shift-clicks queue and keep the target awaited until
-//!   Shift is let go), right-clicks and Esc change the local player's ObjectInterfaceState and give orders
-//!   (`Command::Order` in `PendingCommands`, with `queue` while the Queue modifier, Shift, is held), abilities
-//!   (`Command::Ability`) and production commands (`Command::Production`: Train, Cancel Production and the rally
-//!   point); every frame the state is checked against the game and falls back to DefaultState when it no longer
-//!   holds;
+//!   Shift is let go) or while a building is placed, the placement keys, right-clicks and Esc change the local
+//!   player's ObjectInterfaceState and give orders (`Command::Order` in `PendingCommands`, with `queue` while the
+//!   Queue modifier, Shift, is held), abilities (`Command::Ability`), production commands (`Command::Production`:
+//!   Train, Cancel Production and the rally point) and construction commands (`Command::Construction`: Construct,
+//!   the Cancels and Place); every frame the state is checked against the game and falls back to DefaultState when
+//!   it no longer holds, and the input layer takes the placement keys while a building is placed
+//!   (`crate::input::Placing`, the editor's keys);
 //! - [`indicators`]: markers at the targets of the selected units' orders, a flash where an order was just given,
 //!   the queued waypoints as lines while Shift is held, and the rally points of the selected producers;
-//! - [`feedback`]: the message after a click on an invalid target;
-//! - [`cursor`]: the pointer's look, from the PointerDisplayType.
+//! - [`feedback`]: the message after a click on an invalid target, a placement that can't be made, and a refusal;
+//! - [`cursor`]: the pointer's look, from the PointerDisplayType; none while a building is placed, whose ghost is the
+//!   cursor (`crate::placement`).
 //!
 //! The panel's buttons belong to the HUD (`crate::hud::command_panel`); a click on one is a press of its slot, like
 //! its hotkey.
@@ -33,10 +38,11 @@ pub mod resolution;
 mod systems;
 
 use bevy::prelude::*;
-use sc_sim::{ObjectId, OrderKind, Tick};
+use sc_sim::{ObjectId, OrderKind, PlacementProblem, Tick};
 
 pub use interface::{
-    ButtonLook, Conditions, InterfaceState, InterfaceTemplate, Modes, Panel, PanelButton, PanelCommand, PanelSlot,
+    BuildMenu, ButtonLook, Conditions, InterfaceState, InterfaceTemplate, Modes, Panel, PanelButton, PanelCommand,
+    PanelSlot, Placing,
 };
 pub use resolution::{CursorTarget, MapTarget, PointerDisplay, Resolved, UnitCapabilities};
 pub use systems::TARGETING_CLICK_ALLOWANCE_PX;
@@ -65,6 +71,17 @@ pub struct InvalidTarget {
     pub tick: Tick,
 }
 
+/// `> AwaitingPlacement`: a left-click where the building can't be placed now, which sent nothing; placement goes on.
+/// For the feedback ([`feedback`]).
+#[derive(Message, Copy, Clone, Debug, PartialEq)]
+pub struct InvalidPlacement {
+    /// Why not: the placement check's first problem (`sc_sim::PlacementCheck::first_problem`); `None` when the check
+    /// allowed it but the sim wouldn't take the command.
+    pub problem: Option<PlacementProblem>,
+    /// The sim's tick when it was clicked.
+    pub tick: Tick,
+}
+
 /// Order of the command flow's `Update` systems.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CommandUiSystems {
@@ -72,7 +89,7 @@ pub enum CommandUiSystems {
     /// selection has caught up with it).
     Validate,
     /// The frame's input becomes transitions and orders (in `ClientSystems::Actions`, after the selection's input:
-    /// a left-click on the map selects only while no target is awaited).
+    /// a left-click on the map selects only while no target is awaited and no building placed).
     Input,
 }
 
@@ -82,6 +99,7 @@ impl Plugin for CommandUiPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<OrderIssued>()
             .add_message::<InvalidTarget>()
+            .add_message::<InvalidPlacement>()
             .init_resource::<systems::TargetPress>()
             .configure_sets(
                 Update,
@@ -100,13 +118,23 @@ impl Plugin for CommandUiPlugin {
                 Update,
                 (
                     systems::end_queued_targeting,
-                    systems::cancel_targeting,
+                    systems::cancel_on_escape,
                     systems::press_command_slots,
+                    systems::turn_ghost,
                     systems::click_targets,
+                    systems::place_on_click,
                     systems::right_click_orders,
                 )
                     .chain()
                     .in_set(CommandUiSystems::Input),
+            )
+            // Not in `CommandUiSystems::Input`, which stops when the player may no longer command
+            // (`crate::hud::outcome::may_command`) and during a playback: the placement keys end with the placement.
+            .add_systems(
+                Update,
+                systems::report_placing
+                    .in_set(ClientSystems::Actions)
+                    .after(CommandUiSystems::Input),
             )
             .add_plugins((
                 indicators::IndicatorsPlugin,

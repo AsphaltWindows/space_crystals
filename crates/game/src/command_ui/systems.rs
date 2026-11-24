@@ -10,26 +10,34 @@
 //! (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) go as one `Command::Production` to all
 //! the producers they are issued to, also never queued: Train and Cancel Production at once, the rally point on a
 //! right-click or a click while Set Rally Point awaits its target. The sim decides which producers a Train reaches
-//! (design change 0083); the client sends it to all of them (no smart-casting, design changes 0071 and 0075).
+//! (design change 0083); the client sends it to all of them (no smart-casting, design changes 0071 and 0075). A
+//! constructor's commands (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`,
+//! `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`) go as
+//! `Command::Construction` to the one constructor of the ActiveGroup, never queued: Construct and the Cancels at
+//! once, Place on a left-click in AwaitingPlacement, only where the placement check allows it now.
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use sc_sim::{Ability, Command, ObjectId, OrderKind, PlayerCommand, PlayerId, ProductionCommand, Target};
+use sc_sim::{
+    Ability, Command, ConstructionCommand, ObjectId, OrderKind, PlayerCommand, PlayerId, ProductionCommand, Target,
+};
 
 use super::interface::{
-    Conditions, InterfaceState, Modes, PanelCommand, SlotPress, commandable, panel, press, recipients, still_valid,
+    Conditions, InterfaceState, Modes, PanelCommand, Placing, SlotPress, commandable, panel, press, recipients,
+    still_valid,
 };
 use super::resolution::{
     MapTarget, Resolved, UnitCapabilities, capabilities, group_orders, object_right_click, target_resolution,
     unit_target_order,
 };
-use super::{InvalidTarget, OrderIssued};
+use super::{InvalidPlacement, InvalidTarget, OrderIssued};
 use crate::ClientMode;
+use crate::editor::orientation::Turn;
 use crate::hud::layout::CommandGrid;
-use crate::input::{ActionState, Bindings, CommandSlot, InputAction, MapClick, MapPress};
+use crate::input::{self, ActionState, Bindings, CommandSlot, InputAction, MapClick, MapPress};
 use crate::platform::SurfaceSize;
-use crate::selection::LocalControl;
-use crate::sim_driver::{PendingCommands, SimRes};
+use crate::selection::{ControlStates, LocalControl};
+use crate::sim_driver::{LocalPlayer, PendingCommands, SimRes};
 
 /// `> AwaitingTarget > Dragging while targeting` (design change 0073): while a target is awaited, a press of the
 /// Select action that moves at most this far (logical pixels) before its release is a targeting click, at the press
@@ -136,6 +144,34 @@ impl OrderOutbox<'_> {
         true
     }
 
+    /// `player`'s constructors among `objects` carry out `command` (`Command::Construction`), one command for all of
+    /// them, at once: construction isn't queued. Nothing when none of them is the player's constructor, or when the
+    /// sim would reject it (`Sim::validate`, the predicates the panel greys its buttons out by: e.g. too few Space
+    /// Crystals, a constructor already busy, nothing to cancel; a Place the placement check refuses).
+    fn construct(&mut self, player: PlayerId, objects: Vec<ObjectId>, command: ConstructionCommand) -> bool {
+        let objects: Vec<ObjectId> = objects
+            .into_iter()
+            .filter(|&id| {
+                self.sim
+                    .object(id)
+                    .is_some_and(|o| o.owner == Some(player) && o.constructor.is_some())
+            })
+            .collect();
+        if objects.is_empty() {
+            return false;
+        }
+        let sent = PlayerCommand {
+            player,
+            command: Command::Construction { objects, command },
+        };
+        if let Err(reject) = self.sim.validate(&sent) {
+            debug!("construction command {command:?} not given: {reject}");
+            return false;
+        }
+        self.pending.0.push(sent);
+        true
+    }
+
     /// The units among `units` that are `player`'s and take orders.
     fn own_units(&self, player: PlayerId, units: Vec<ObjectId>) -> Vec<ObjectId> {
         units
@@ -190,9 +226,11 @@ impl PressedTarget {
 }
 
 /// `> ObjectInterfaceState`: "Each tick, the ObjectInterfaceState is validated against the active SelectionGroup's
-/// game state": an AwaitingTarget whose command the ActiveGroup no longer offers, or whose selection is no longer
-/// all the player's, goes back to DefaultState. A selected unit that died has already left the selection
-/// (`crate::selection`), and with the ActiveGroup left the target is still awaited (design change 0069).
+/// game state": an AwaitingTarget whose command the ActiveGroup no longer offers, a build menu whose ActiveGroup is
+/// no Deployment Center, an AwaitingPlacement whose constructor no longer holds the building ready, or any of them
+/// whose selection is no longer commandable (no longer all the player's, or the game is over: design change 0101),
+/// goes back to DefaultState. A selected unit that died has already left the selection (`crate::selection`), and with
+/// the ActiveGroup left the target is still awaited (design change 0069).
 pub(super) fn validate_interface(mut control: LocalControl) {
     let state = control.state();
     if state.interface == InterfaceState::DefaultState {
@@ -205,11 +243,15 @@ pub(super) fn validate_interface(mut control: LocalControl) {
     }
 }
 
-/// `> AwaitingTarget`: "Escape or right-click cancels via a StateOnlyTransition back to DefaultState". Esc is the
+/// `> AwaitingTarget`: "Escape or right-click cancels via a StateOnlyTransition back to DefaultState"; in the other
+/// multi-stage states Esc goes back one state (`InterfaceState::back`): from AwaitingPlacement to the Deployment
+/// Center's build menu or the Extraction Facility's DefaultState, from a build menu to DefaultState. Esc is the
 /// Cancel action; right-click is [`right_click_orders`], Back (Z) [`press_command_slots`].
-pub(super) fn cancel_targeting(actions: Res<ActionState>, mut control: LocalControl) {
-    if actions.just_pressed(InputAction::Cancel) && control.state().interface != InterfaceState::DefaultState {
-        control.update(|state| state.interface = InterfaceState::DefaultState);
+pub(super) fn cancel_on_escape(actions: Res<ActionState>, mut control: LocalControl) {
+    let state = control.state();
+    if actions.just_pressed(InputAction::Cancel) && state.interface != InterfaceState::DefaultState {
+        let back = state.interface.back(&state.selection);
+        control.update(|state| state.interface = back);
     }
 }
 
@@ -217,9 +259,13 @@ pub(super) fn cancel_targeting(actions: Res<ActionState>, mut control: LocalCont
 /// Select action over the button, found by the panel's geometry like the SelectionPanel's portraits) enters
 /// AwaitingTarget for a command that needs a target, or issues an immediate one: a common command to the whole
 /// selection, a group command to the ActiveGroup (`> CommandPanel`), a Train or a Cancel Production to every
-/// producer among them as one command. Back (Z) returns to DefaultState. While a target is awaited the other
-/// commands are unavailable (design change 0066), and so is a production command the gate would refuse (design
-/// changes 0081 and 0082): [`press`] finds nothing to do for them.
+/// producer among them as one command. A constructor's enter its build menu (`InterfaceState::BuildMenu`) or the
+/// placement of its building ready to place (`InterfaceState::AwaitingPlacement`), or give its one constructor a
+/// construction command and return to DefaultState ("CommandIssuingTransition, returns to DefaultState"). Back (Z)
+/// returns to the previous state. While a target is awaited or a building placed the other commands are unavailable
+/// (design change 0066), and so is a production or construction command the gate would refuse (design changes 0081
+/// and 0082): [`press`] finds nothing to do for them. Nothing while the selection isn't commandable (a defeated
+/// player's, or anyone's once the game is over).
 pub(super) fn press_command_slots(
     actions: Res<ActionState>,
     mode: Res<ClientMode>,
@@ -267,11 +313,117 @@ pub(super) fn press_command_slots(
                 let producers = recipients(&state.selection, command);
                 outbox.produce(player, producers, production);
             }
+            SlotPress::Construct(command, construction) => {
+                let constructors = recipients(&state.selection, command);
+                if outbox.construct(player, constructors, construction) {
+                    control.update(|state| state.interface = InterfaceState::DefaultState);
+                }
+            }
+            SlotPress::OpenMenu(menu) => {
+                control.update(|state| state.interface = InterfaceState::BuildMenu(menu));
+            }
+            SlotPress::AwaitPlacement(kind) => {
+                // The one constructor of the ActiveGroup, which holds the building ready.
+                if let [constructor] = recipients(&state.selection, PanelCommand::PlaceReady(kind))[..] {
+                    let placing = Placing::new(constructor, kind);
+                    control.update(|state| state.interface = InterfaceState::AwaitingPlacement(placing));
+                }
+            }
             SlotPress::Back => {
-                control.update(|state| state.interface = InterfaceState::DefaultState);
+                let back = state.interface.back(&state.selection);
+                control.update(|state| state.interface = back);
             }
             SlotPress::Nothing => {}
         }
+    }
+}
+
+/// `> AwaitingPlacement`: "R rotates the ghost 90 degrees clockwise, Shift+R rotates 90 degrees counter-clockwise.
+/// [...] F flips the ghost horizontally, Shift+F flips vertically": the placement keys, which the input layer fires
+/// in place of the command slots R and F while a building is placed ([`report_placing`]), the editor's own
+/// (`InputAction::is_placement`, `Turn::of_action`).
+pub(super) fn turn_ghost(actions: Res<ActionState>, mut control: LocalControl) {
+    let Some(placing) = control.state().interface.placing() else {
+        return;
+    };
+    let turned = actions
+        .pressed_actions()
+        .filter_map(Turn::of_action)
+        .fold(placing, Placing::turned);
+    if turned != placing {
+        control.update(|state| state.interface = InterfaceState::AwaitingPlacement(turned));
+    }
+}
+
+/// `> AwaitingPlacement`: "Left-click valid location within build radius: places building at the ghost's position
+/// and rotation, clears ReadyToPlace (CommandIssuingTransition, returns to DefaultState)". A left-click on the map
+/// (the Select action's click, at the point where it went down) places the ghost there
+/// ([`Placing::origin_under`]) if the placement check allows it now (`Sim::placement_check`, the rules the ghost
+/// shows): one `ConstructionCommand::Place` to the one constructor, and back to DefaultState. The sim checks it
+/// again as it applies (`SimEvent::PlacementRefused`, `super::feedback`).
+///
+/// - **An invalid click** sends nothing and placement goes on (M2 plan, H2: "cannot be confirmed"), with a short
+///   message ([`InvalidPlacement`]; placeholder: the design gives feedback for invalid target clicks, `>
+///   AwaitingTarget > Invalid target clicks`, and is silent for placement).
+/// - **Shift** (`> AwaitingTarget > Shift while placing`, design change 0071): a GDO constructor "only ever has one
+///   building ready to place", so a Shift-click places it and ends placement like a plain click.
+/// - Nothing while the selection isn't commandable (a defeated player's, or anyone's once the game is over), and
+///   placement then ends ([`validate_interface`]).
+pub(super) fn place_on_click(
+    mut clicks: MessageReader<MapClick>,
+    mut control: LocalControl,
+    mut outbox: OrderOutbox,
+    mut invalid: MessageWriter<InvalidPlacement>,
+) {
+    let clicks: Vec<MapClick> = clicks
+        .read()
+        .filter(|click| click.action == InputAction::Select)
+        .copied()
+        .collect();
+    for click in clicks {
+        let state = control.state();
+        let player = control.player();
+        let Some(placing) = state.interface.placing() else {
+            return;
+        };
+        if !commandable(control.sim(), player, &state.selection) {
+            return;
+        }
+        let Some(origin) = placing.origin_under(click.ground) else {
+            continue;
+        };
+        let check = control
+            .sim()
+            .placement_check(player, placing.kind, origin, placing.orientation);
+        let place = ConstructionCommand::Place {
+            origin,
+            orientation: placing.orientation,
+        };
+        if check.is_valid() && outbox.construct(player, vec![placing.constructor], place) {
+            control.update(|state| state.interface = InterfaceState::DefaultState);
+        } else {
+            invalid.write(InvalidPlacement {
+                problem: check.first_problem(),
+                tick: control.sim().tick(),
+            });
+        }
+    }
+}
+
+/// Tells the input layer whether the local player places a building (`crate::input::Placing`), so that from the next
+/// frame's input on R, Shift+R, F and Shift+F are the placement keys, which turn the ghost, instead of the command
+/// slots R and F (plan decision T10, risk R11), as they turn the editor's structures. In the game modes only: the
+/// editor reports its own placements (`crate::editor::input::report_placing`). Every other state ends it, so the
+/// keys never outlive the placement: it runs even while the command input doesn't (once the game is over, for a
+/// defeated player, during a playback), when the placement ends ([`validate_interface`]).
+pub(super) fn report_placing(
+    mode: Res<ClientMode>,
+    player: Res<LocalPlayer>,
+    states: Res<ControlStates>,
+    mut placing: ResMut<input::Placing>,
+) {
+    if mode.is_game() {
+        placing.set_if_neq(input::Placing(states.of(player.0).interface.placing().is_some()));
     }
 }
 
@@ -390,7 +542,9 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
 /// `Command::Production` (`> Production Building Default Right-Click`; on a producer itself, which clears its rally
 /// point: design change 0086), whatever the Queue modifier. Objects without commands do nothing. Nothing unless the
 /// selection is all the player's (`> CommandPanel`). While a target is awaited, a right-click anywhere, over the HUD
-/// too, cancels instead (`> AwaitingTarget`).
+/// too, cancels instead (`> AwaitingTarget`), and in the other multi-stage states it goes back one state
+/// (`InterfaceState::back`: "Escape/right-click: returns to BuildMenu" from the Deployment Center's AwaitingPlacement,
+/// "returns to DefaultState" from a build menu and from the Extraction Facility's AwaitingPlacement).
 pub(super) fn right_click_orders(
     actions: Res<ActionState>,
     mut clicks: MessageReader<MapClick>,
@@ -403,9 +557,11 @@ pub(super) fn right_click_orders(
         .filter(|click| click.action == InputAction::ContextCommand)
         .copied()
         .collect();
-    if control.state().interface != InterfaceState::DefaultState {
+    let state = control.state();
+    if state.interface != InterfaceState::DefaultState {
         if actions.just_pressed(InputAction::ContextCommand) {
-            control.update(|state| state.interface = InterfaceState::DefaultState);
+            let back = state.interface.back(&state.selection);
+            control.update(|state| state.interface = back);
         }
         return;
     }
