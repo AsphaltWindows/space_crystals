@@ -39,7 +39,6 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 
 ## Loose Ends
 
-- **Team games, defeated player before the end** (0101): proposed keep watching with team vision only (no full reveal: voice-chat cheating). Ask.
 
 - **Exit blocking by buildings** (0080): allowed for now; a building flush against an exit stalls the producer. Revisit (placement rule keeping exit-front tiles clear) if it proves annoying. Aircraft spawning (Airfield) and Syndicate releases not covered by Exit Doorway.
 
