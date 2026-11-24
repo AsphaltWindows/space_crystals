@@ -673,7 +673,7 @@ First playable after M2-H2.
     | R | running (wave 3; the Gather part after H3) |
     | D2 | done (`3576cbe`) |
     | P | done (`9f63a5f`) |
-    | J2 (after R; with 0155) | queued |
+    | J2 (after R; with 0124, 0136, 0139, 0140, 0155; brief `scratchpad/briefs/m3j2-gathering-ui.md`) | queued |
     | V | done (`9516a0f`) |
     | U (0185 unfinished groups; units above portals; test splits; labels) | running (wave 4) |
     | S (after R and U; Riot Shield as two unit types: 0171–0174; brief `scratchpad/briefs/m3s-riot-shield-two-types.md`) | queued |
