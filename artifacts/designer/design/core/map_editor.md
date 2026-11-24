@@ -36,6 +36,13 @@ Starting Layouts start **empty**: the map maker places every starting object by 
 ### Overlay editing
 The editor can show **all factions' starting layouts at the same start position simultaneously, overlaid on each other**, so the map maker can define and compare the positions of all buildings and units for all factions in one place. Layouts of different factions **may overlap** each other; each faction's layout only needs to be valid on its own (normal placement rules for that faction's objects).
 
+### Layout validation
+(user, 2026-11-24) Each faction's layout is checked with that faction's **normal in-game placement rules, minus visibility** (nothing is "visible" in the editor). For GDO:
+- tiles Buildable and flat; no overlaps, except Extraction Plates on patches; no buildings on resources (core/entities.md > Placement Validation);
+- the Extraction Facility and plates must lie within the build area of the Deployment Center placed **in the same layout**.
+
+Starting **units** can't stand on structures or impassable tiles. There are no further checks or warnings (e.g. none about patches outside the starting DC's sight): map makers can place layouts however they like within these rules.
+
 ### Skirmish Default restriction
 On a Skirmish Default map, each faction's Starting Layout may contain **only** the objects in that faction's standard Starting Conditions (e.g. for GDO a Deployment Center, an Extraction Facility and two Extraction Plates), and it **must be complete**: every starting object of every faction placed at every start position. The editor shows what is still missing, and the map cannot be played until all layouts are complete.
 
