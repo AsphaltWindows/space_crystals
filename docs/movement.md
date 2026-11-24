@@ -358,8 +358,14 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
     (14 before; 18 with two owners). Over 192 layouts of two blocks (Peacekeepers and Guards, three shapes, gaps
     of 8 to 24 su, four offsets, one and two owners) 1.4 % of the units fail, 8 of 50 at worst, where 22 % did,
     and 40 of 50 at worst. The soak's failed moves fall from 223 to 81 of about 1 080.
-  - **Known limits**: Guards in deep square blocks (5 × 5) still lose a few units. In a passage too narrow for
-    two lanes nothing changes: head-on movers fail there, by design.
+  - **Known limits**: in a passage too narrow for two lanes nothing changes: head-on movers fail there, by
+    design. **(G)** Blocks of Guards lost a few units, but never in the crossing: none of the sweep's failures
+    has an oncoming unit near it. The crossing reorders a block, and its late units find their places walled
+    off by the group's earlier arrivals, which don't make way (0027), with 16 su between two Guards and a Guard
+    36 su wide; stopped farther than 2 GU from their places, they gave up (6.5, rule 1). Their re-route now goes
+    round the whole group (6.5, rule 3): over the 192 layouts 0.7 % of the units fail, 4 of 50 at worst, and
+    Guard blocks of 5 × 5 lose 20 of 800 units where they lost 38 (3 × 6: none, where 5). What is left are places
+    the group closes in on every side: no route reaches them, and nor does 0026's placeholder radius of 2 GU.
 - Sweep the box along `d` and find the first blocker (earliest contact; tiles before units, then lowest id):
   1. **Nothing**: commit `d`.
   2. **Tile or structure**: slide. **(D)** Both axis components `(d.x, 0)` and `(0, d.y)`, the larger first, each
@@ -464,7 +470,11 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
 3. **Repath**, if `repaths_left > 0`, when its wait is over (5.6). **(D)** The tile of the stationary unit in the way is added to `avoid_tiles`:
    at once if that unit has no goal; if it is on its way itself (only jammed for now), from the second repath on,
    the first being a plain retry. If the blocker stands in the unit's own tile (the start tile is never avoided),
-   the neighbouring tile on the blocker's side is taken; the goal's tile is never taken.
+   the neighbouring tile on the blocker's side is taken; the goal's tile is never taken. **(G)** If that unit
+   arrived with this unit's own group order (it won't make way, 0027, and nor will the others that did), the tiles
+   of all the units that arrived with that order are added, the nearest first, up to the cap of 16
+   (`stuck::avoid_group`): the new route goes round the group and comes at the unit's place from its open side,
+   where a route round the one blocker led into the next.
 4. Otherwise, 24 ticks after the last repath → `Failed`; the behaviour stops and completes (`behaviors.md >
    Failure`).
 
@@ -598,7 +608,8 @@ own turn of phase 5d.
 - **Soak**: seeded random orders, 200 units, random maps, 2 000 ticks: invariants hold, no panic. **(Y)** Every
   move ends within `GIVE_UP_TICKS` and the grace of its last progress, and of the moves that end at most 60 % fail
   in a seed and 35 % overall (16 % with yielding, 32 % before; **(G)** 7 % with lane seeking: 38, 9 and 34 failed
-  moves in the three seeds, where 105, 54 and 64 failed).
+  moves in the three seeds, where 105, 54 and 64 failed; 8 % with the re-route round the group, 40, 9 and 43,
+  within the spread of the seeds: over 64 seeds 2 918 moves failed where 2 850 did, and 63 more arrived).
 - **Perf**: an `#[ignore]` test printing ms per tick for 500 units on 256×256, plus CI assertions on the counters.
 - **(E) Behaviours** (`crates/sim/tests/behaviours_*.rs`, the Verification lists of 0031–0034, 0036 and 0037): an
   attacker stops when the gap between the edges is its Range; a chase around a corner until the target is
