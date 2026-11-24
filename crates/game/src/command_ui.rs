@@ -1,20 +1,24 @@
-//! How the local player orders their units (`systems/controls/selection_and_hud.md > ObjectInterfaceState`,
-//! `> CommandPanel`, `> DefaultState`, `> RightClickResolution`, `> AwaitingTarget`, `> PointerDisplayType`,
-//! `> CommandIndicators`; `systems/controls/commands.md > Unit Command`).
+//! How the local player commands their units and producing structures (`systems/controls/selection_and_hud.md >
+//! ObjectInterfaceState`, `> CommandPanel`, `> DefaultState`, `> RightClickResolution`, `> Production Building
+//! Default Right-Click`, `> AwaitingTarget`, `> PointerDisplayType`, `> CommandIndicators`;
+//! `systems/controls/commands.md > Unit Command`; `factions/gdo/structures.md > Barracks >
+//! ObjectInterfaceState[Barracks]`).
 //!
-//! - [`interface`]: the rules as plain data: the unit commands, the ObjectInterfaceState of each ControlState, the
-//!   command panel a selection gets and who receives a command, and the Peacekeeper's Riot Shield toggle in R with
-//!   what a raised shield allows ([`interface::Modes`]);
-//! - [`resolution`]: what a click on the map resolves to, unit by unit for a right-click, and the
-//!   PointerDisplayType that previews it;
+//! - [`interface`]: the rules as plain data: the panel's commands ([`PanelCommand`], for units and producers alike:
+//!   plan decision T10), the ObjectInterfaceState of each ControlState, the command panel a selection gets and who
+//!   receives a command, the Peacekeeper's Riot Shield toggle in R with what a raised shield allows, and the
+//!   production commands the command gate would refuse, which show disabled ([`interface::Conditions`]);
+//! - [`resolution`]: what a click on the map resolves to, object by object for a right-click (a unit's order, or a
+//!   producer's rally point), and the PointerDisplayType that previews it;
 //! - the systems (`systems.rs`): command hotkeys and panel clicks, left-clicks while a target is awaited (at the
 //!   press point, within [`TARGETING_CLICK_ALLOWANCE_PX`]; Shift-clicks queue and keep the target awaited until
 //!   Shift is let go), right-clicks and Esc change the local player's ObjectInterfaceState and give orders
-//!   (`Command::Order` in `PendingCommands`, with `queue` while the Queue modifier, Shift, is held) and abilities
-//!   (`Command::Ability`); every frame the state is checked against the game and falls back to DefaultState when it
-//!   no longer holds;
+//!   (`Command::Order` in `PendingCommands`, with `queue` while the Queue modifier, Shift, is held), abilities
+//!   (`Command::Ability`) and production commands (`Command::Production`: Train, Cancel Production and the rally
+//!   point); every frame the state is checked against the game and falls back to DefaultState when it no longer
+//!   holds;
 //! - [`indicators`]: markers at the targets of the selected units' orders, a flash where an order was just given,
-//!   and the queued waypoints as lines while Shift is held;
+//!   the queued waypoints as lines while Shift is held, and the rally points of the selected producers;
 //! - [`feedback`]: the message after a click on an invalid target;
 //! - [`cursor`]: the pointer's look, from the PointerDisplayType.
 //!
@@ -31,8 +35,10 @@ mod systems;
 use bevy::prelude::*;
 use sc_sim::{ObjectId, OrderKind, Tick};
 
-pub use interface::{ButtonLook, InterfaceState, InterfaceTemplate, Modes, Panel, PanelButton, PanelSlot, UnitCommand};
-pub use resolution::{CursorTarget, MapTarget, PointerDisplay, UnitCapabilities};
+pub use interface::{
+    ButtonLook, Conditions, InterfaceState, InterfaceTemplate, Modes, Panel, PanelButton, PanelCommand, PanelSlot,
+};
+pub use resolution::{CursorTarget, MapTarget, PointerDisplay, Resolved, UnitCapabilities};
 pub use systems::TARGETING_CLICK_ALLOWANCE_PX;
 
 use crate::ClientSystems;
@@ -49,11 +55,12 @@ pub struct OrderIssued {
 }
 
 /// `> AwaitingTarget > Invalid target clicks` (design change 0065): a left-click on a target the pending command
-/// can't use, which gave nothing; the target is still awaited. For the feedback ([`feedback`]).
+/// can't use, which gave nothing (no order, nor a rally point the sim would take); the target is still awaited. For
+/// the feedback ([`feedback`]).
 #[derive(Message, Copy, Clone, Debug, PartialEq)]
 pub struct InvalidTarget {
     /// The PendingCommand.
-    pub command: UnitCommand,
+    pub command: PanelCommand,
     /// The sim's tick when it was clicked.
     pub tick: Tick,
 }

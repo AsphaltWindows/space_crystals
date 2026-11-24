@@ -2,19 +2,23 @@
 //! CursorTarget`, `> RightClickResolution`, `> AwaitingTarget`, `> PointerDisplayType`), as plain data. Unit tested
 //! here; the systems apply it to clicks (`systems.rs`) and to the pointer ([`super::cursor`]).
 //!
-//! - **Right-click** (design changes 0062 and 0063): each selected unit resolves it for itself, by its own template
-//!   and capabilities ([`unit_right_click`]), whichever group is active. A unit that can't carry out the resolved
-//!   command moves to the location or to the object instead, following a unit ([`move_to`]); so does a unit whose
-//!   Riot Shield keeps it from attacking ([`order_without_attack`], design change 0074). The orders go out grouped,
-//!   one per distinct order ([`group_orders`]).
-//! - **Left-click while a target is awaited**: the PendingCommand's order for the target ([`target_order`]); Attack
-//!   takes any destructible object, own and neutral ones too (design changes 0059 and 0064). It goes to every unit
-//!   of the command's recipients, except that an explicit Attack leaves out the units whose Riot Shield keeps them
-//!   from attacking ([`unit_target_order`], design change 0075); an AttackMove goes to all of them (design change
-//!   0076).
-//! - **The pointer** ([`pointer_display`]): in DefaultState the one thing the selected units would all do on a
-//!   right-click, or Mixed when they would do different things; while a target is awaited, the pending command's
-//!   look over a valid target, else Inactive.
+//! - **Right-click** (design changes 0062 and 0063): each selected object resolves it for itself, by its own
+//!   template and capabilities ([`object_right_click`]), whichever group is active. A unit gets an order
+//!   ([`unit_right_click`]): one that can't carry out the resolved command moves to the location or to the object
+//!   instead, following a unit ([`move_to`]); so does a unit whose Riot Shield keeps it from attacking
+//!   ([`order_without_attack`], design change 0074). The orders go out grouped, one per distinct order
+//!   ([`group_orders`]). A producing structure sets its rally point on what was clicked ([`rally_target`],
+//!   `> Production Building Default Right-Click`): the ground, any object, or itself, which clears it (design change
+//!   0086).
+//! - **Left-click while a target is awaited** ([`target_resolution`]): the PendingCommand's order for the target
+//!   ([`target_order`]); Attack takes any destructible object, own and neutral ones too (design changes 0059 and
+//!   0064). It goes to every unit of the command's recipients, except that an explicit Attack leaves out the units
+//!   whose Riot Shield keeps them from attacking ([`unit_target_order`], design change 0075); an AttackMove goes to
+//!   all of them (design change 0076). Set Rally Point takes the ground or any object, as the right-click does.
+//! - **The pointer** ([`pointer_display`]): in DefaultState the one thing the selected objects would all do on a
+//!   right-click, or Mixed when they would do different things (a rally point shows Move: `> Resolution Rules >
+//!   DefaultState`, "Selection is a production building: Move (rally point)"); while a target is awaited, the
+//!   pending command's look over a valid target, else Inactive.
 
 use std::collections::BTreeSet;
 
@@ -23,7 +27,7 @@ use sc_sim::combat::{domain_allows, object_domain};
 use sc_sim::defs::{Domain, TargetDomain};
 use sc_sim::{ObjectId, ObjectKind, OrderKind, Sim, Target};
 
-use super::interface::{InterfaceState, InterfaceTemplate, Modes, UnitCommand};
+use super::interface::{InterfaceState, InterfaceTemplate, Modes, PanelCommand};
 use crate::selection::{Relation, Selectables, Selection};
 
 /// `> CursorTarget`: what is under the cursor when it clicks.
@@ -108,11 +112,15 @@ impl MapTarget {
 }
 
 /// A selected object as a right-click resolves it for itself (`> RightClickResolution`: "Each selected unit resolves
-/// the right-click for itself, against its own capabilities, not the ActiveGroup's").
+/// the right-click for itself, against its own capabilities, not the ActiveGroup's"): a unit, or a producing
+/// structure, whose right-click sets its rally point.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct UnitCapabilities {
     /// Its type's ObjectInterfaceState template, which resolves the right-click; none for a type without commands,
-    /// which a right-click leaves alone (design change 0062: "Buildings in the selection aren't affected").
+    /// which a right-click leaves alone (design change 0062: "Buildings in the selection aren't affected"). A
+    /// producing structure has its own (`> Production Building Default Right-Click`): **placeholder reading**, 0062
+    /// is read as the buildings without a right-click of their own, so a Barracks selected with units sets its rally
+    /// point as the units take their orders.
     pub template: Option<InterfaceTemplate>,
     /// The TargetDomain of its type's attack (`systems/combat.md > AttackAttributes`); none without an attack.
     pub attack: Option<TargetDomain>,
@@ -153,18 +161,52 @@ pub fn capabilities(selection: &Selection, modes: &Modes) -> Vec<(ObjectId, Unit
         .collect()
 }
 
-/// `> RightClickResolution` by a template: the command a right-click on `target` resolves to, and its order.
-pub fn right_click(template: InterfaceTemplate, target: CursorTarget) -> Option<(UnitCommand, OrderKind)> {
+/// `> RightClickResolution` by a template: the command a right-click on `target` resolves to, and its order. A
+/// producing structure's right-click gives no order but its rally point ([`object_right_click`]).
+pub fn right_click(template: InterfaceTemplate, target: CursorTarget) -> Option<(PanelCommand, OrderKind)> {
     match template {
         // `> BasicCombatUnitInterfaceState > RightClickResolution`. Enter (own Tunnel, Altar, Garrison, Bunker): none
         // of those exists yet.
         InterfaceTemplate::BasicCombatUnit => Some(match target {
-            CursorTarget::EnemyObject(id) => (UnitCommand::Attack, OrderKind::Attack(id)),
-            CursorTarget::Ground(point) => (UnitCommand::Move, OrderKind::Move(Target::Point(point))),
+            CursorTarget::EnemyObject(id) => (PanelCommand::Attack, OrderKind::Attack(id)),
+            CursorTarget::Ground(point) => (PanelCommand::Move, OrderKind::Move(Target::Point(point))),
             CursorTarget::FriendlyObject(id) | CursorTarget::NeutralObject(id) => {
-                (UnitCommand::Move, OrderKind::Move(Target::Object(id)))
+                (PanelCommand::Move, OrderKind::Move(Target::Object(id)))
             }
         }),
+        InterfaceTemplate::Barracks => None,
+    }
+}
+
+/// What a click gives one selected object: a unit's order, or a producer's rally point.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Resolved {
+    /// A unit's order (`Command::Order`).
+    Order(OrderKind),
+    /// A producer's rally point (`ProductionCommand::SetRally`): the ground or an object, the producer itself to
+    /// clear it (design change 0086).
+    Rally(Target),
+}
+
+/// `> RightClickResolution` for one selected object: a unit's order ([`unit_right_click`]), or, for a producing
+/// structure, its rally point on what is under the cursor (`> Production Building Default Right-Click`: "Right-click
+/// Ground: sets rally point to that location; Right-click Object: sets rally point to that object; Right-click the
+/// building itself: clears the rally point"). Nothing for an object without a template.
+pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Option<Resolved> {
+    match object.template? {
+        InterfaceTemplate::BasicCombatUnit => unit_right_click(object, target).map(Resolved::Order),
+        InterfaceTemplate::Barracks => Some(Resolved::Rally(rally_target(target))),
+    }
+}
+
+/// The rally point a click on `target` sets (`> Production Building Default Right-Click`, `> Standard Slot
+/// Assignments > C`): the ground point, or the object, whoever owns it. Which objects the player may rally on, the
+/// sim decides (`Sim::validate`): one it sees, the producer itself (which clears the rally point, design change
+/// 0086), and one it remembers in the fog, which becomes a ground rally point (the sim's placeholder for Q0017).
+pub fn rally_target(target: &MapTarget) -> Target {
+    match target.target.object() {
+        Some(id) => Target::Object(id),
+        None => Target::Point(target.ground),
     }
 }
 
@@ -176,8 +218,8 @@ pub fn right_click(template: InterfaceTemplate, target: CursorTarget) -> Option<
 pub fn unit_right_click(unit: UnitCapabilities, target: &MapTarget) -> Option<OrderKind> {
     let (command, kind) = right_click(unit.template?, target.target)?;
     Some(match command {
-        UnitCommand::Attack if !unit.can_attack(target) => move_to(target),
-        UnitCommand::Attack if !unit.may_attack => order_without_attack(target),
+        PanelCommand::Attack if !unit.can_attack(target) => move_to(target),
+        PanelCommand::Attack if !unit.may_attack => order_without_attack(target),
         _ => kind,
     })
 }
@@ -233,19 +275,30 @@ pub fn group_orders(orders: impl IntoIterator<Item = (ObjectId, OrderKind)>) -> 
 /// while `pending` awaits it, if the target is valid. Attack takes any destructible object, an own or a neutral one
 /// too (force-attack, `systems/controls/commands.md > Attack`, design changes 0059 and 0064), and the ground, for an
 /// AttackMove. Reverse and AttackGround have no order in the sim yet.
-pub fn target_order(pending: UnitCommand, target: &MapTarget) -> Option<OrderKind> {
+pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKind> {
     use CursorTarget::{EnemyObject, FriendlyObject, Ground, NeutralObject};
     match (pending, target.target) {
-        (UnitCommand::Attack, Ground(point)) => Some(OrderKind::AttackMove(point)),
-        (UnitCommand::Attack, EnemyObject(id) | FriendlyObject(id) | NeutralObject(id)) => {
+        (PanelCommand::Attack, Ground(point)) => Some(OrderKind::AttackMove(point)),
+        (PanelCommand::Attack, EnemyObject(id) | FriendlyObject(id) | NeutralObject(id)) => {
             target.destructible.then_some(OrderKind::Attack(id))
         }
-        (UnitCommand::Move, Ground(point)) => Some(OrderKind::Move(Target::Point(point))),
-        (UnitCommand::Move, EnemyObject(id) | FriendlyObject(id) | NeutralObject(id)) => {
+        (PanelCommand::Move, Ground(point)) => Some(OrderKind::Move(Target::Point(point))),
+        (PanelCommand::Move, EnemyObject(id) | FriendlyObject(id) | NeutralObject(id)) => {
             Some(OrderKind::Move(Target::Object(id)))
         }
-        (UnitCommand::Patrol, Ground(point)) => Some(OrderKind::Patrol(point)),
+        (PanelCommand::Patrol, Ground(point)) => Some(OrderKind::Patrol(point)),
         _ => None,
+    }
+}
+
+/// `> AwaitingTarget[..] resolution` for any PendingCommand: what a left-click on `target` gives, if the target is
+/// valid. A unit command's order ([`target_order`]), or the rally point of Set Rally Point, which takes the ground
+/// and any object (`factions/gdo/structures.md > Barracks`: "Left-click ground or object sets the rally point";
+/// `> Standard Slot Assignments > C`: the building itself clears it).
+pub fn target_resolution(pending: PanelCommand, target: &MapTarget) -> Option<Resolved> {
+    match pending {
+        PanelCommand::SetRallyPoint => Some(Resolved::Rally(rally_target(target))),
+        _ => target_order(pending, target).map(Resolved::Order),
     }
 }
 
@@ -275,6 +328,16 @@ impl PointerDisplay {
             OrderKind::Hold | OrderKind::Stop => PointerDisplay::Inactive,
         }
     }
+
+    /// The PointerDisplayType of what a click gives an object: its order's, or Move for a rally point (`> Resolution
+    /// Rules > DefaultState`: "Selection is a production building: Move (rally point)"; `> AwaitingTarget[CommandType]`:
+    /// "AwaitingTarget[SetRallyPoint] over ground or object: Move").
+    pub fn of(resolved: Resolved) -> Self {
+        match resolved {
+            Resolved::Order(kind) => Self::of_order(kind),
+            Resolved::Rally(_) => PointerDisplay::Move,
+        }
+    }
 }
 
 /// `> PointerDisplayType > Resolution Rules` over `target`, for the selected `units` (none: nothing commandable is
@@ -290,14 +353,14 @@ pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], ta
 }
 
 /// `> Resolution Rules > DefaultState` and `> Mixed Right-Click Preview` (design change 0063): the right-click
-/// preview, from the action each of `units` would take ([`unit_right_click`]). One action shows its pointer, more
-/// than one Mixed, none Inactive. An action is a PointerDisplayType, so a Move to the location and a Follow are both
-/// Move.
+/// preview, from the action each of `units` would take ([`object_right_click`]). One action shows its pointer, more
+/// than one Mixed, none Inactive. An action is a PointerDisplayType, so a Move to the location, a Follow and a
+/// rally point are all Move.
 pub fn right_click_display(units: &[UnitCapabilities], target: &MapTarget) -> PointerDisplay {
     let actions: BTreeSet<PointerDisplay> = units
         .iter()
-        .filter_map(|&unit| unit_right_click(unit, target))
-        .map(PointerDisplay::of_order)
+        .filter_map(|&unit| object_right_click(unit, target))
+        .map(PointerDisplay::of)
         .collect();
     let mut actions = actions.into_iter();
     match (actions.next(), actions.next()) {
@@ -309,264 +372,13 @@ pub fn right_click_display(units: &[UnitCapabilities], target: &MapTarget) -> Po
 
 /// `> Resolution Rules > AwaitingTarget[CommandType]`: the pending command's look over a target it can use, else
 /// Inactive. AttackGround and Reverse, which have no order yet, by the design's rows for the ground.
-fn awaiting_display(pending: UnitCommand, target: &MapTarget) -> PointerDisplay {
+fn awaiting_display(pending: PanelCommand, target: &MapTarget) -> PointerDisplay {
     match (pending, target.target) {
-        (UnitCommand::AttackGround, CursorTarget::Ground(_)) => PointerDisplay::AttackGround,
-        (UnitCommand::Reverse, CursorTarget::Ground(_)) => PointerDisplay::Move,
-        _ => target_order(pending, target).map_or(PointerDisplay::Inactive, PointerDisplay::of_order),
+        (PanelCommand::AttackGround, CursorTarget::Ground(_)) => PointerDisplay::AttackGround,
+        (PanelCommand::Reverse, CursorTarget::Ground(_)) => PointerDisplay::Move,
+        _ => target_resolution(pending, target).map_or(PointerDisplay::Inactive, PointerDisplay::of),
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn id(n: u32) -> ObjectId {
-        ObjectId(n)
-    }
-
-    const P: Vec2 = Vec2::new(300.0, 200.0);
-
-    /// `target` under the cursor at [`P`]: an object destructible or not, in `domain`.
-    fn on(target: CursorTarget, destructible: bool, domain: Domain) -> MapTarget {
-        MapTarget {
-            target,
-            ground: P,
-            destructible,
-            domain,
-        }
-    }
-
-    /// An enemy ground unit, an enemy structure (none exists in M1: a destructible enemy object of the Ground
-    /// domain, a structure's), an own unit, a neutral one, a crystal patch and an enemy aircraft.
-    fn enemy() -> MapTarget {
-        on(CursorTarget::EnemyObject(id(6)), true, Domain::Ground)
-    }
-    fn enemy_structure() -> MapTarget {
-        on(CursorTarget::EnemyObject(id(5)), true, Domain::Ground)
-    }
-    fn own() -> MapTarget {
-        on(CursorTarget::FriendlyObject(id(2)), true, Domain::Ground)
-    }
-    fn neutral_unit() -> MapTarget {
-        on(CursorTarget::NeutralObject(id(9)), true, Domain::Ground)
-    }
-    fn patch() -> MapTarget {
-        on(CursorTarget::NeutralObject(id(8)), false, Domain::Ground)
-    }
-    fn aircraft() -> MapTarget {
-        on(CursorTarget::EnemyObject(id(7)), true, Domain::Air)
-    }
-
-    /// A combat unit with a ground attack, the Peacekeeper's and the Guard's.
-    const ARMED: UnitCapabilities = UnitCapabilities {
-        template: Some(InterfaceTemplate::BasicCombatUnit),
-        attack: Some(TargetDomain::Ground),
-        may_attack: true,
-    };
-    /// The same with its Riot Shield up.
-    const SHIELDED: UnitCapabilities = UnitCapabilities {
-        may_attack: false,
-        ..ARMED
-    };
-    /// One without an attack, like the design's Supply Chopper (none exists yet).
-    const UNARMED: UnitCapabilities = UnitCapabilities { attack: None, ..ARMED };
-    /// One that attacks anything.
-    const UNIVERSAL: UnitCapabilities = UnitCapabilities {
-        attack: Some(TargetDomain::Universal),
-        ..ARMED
-    };
-    /// An object without commands: a building.
-    const BUILDING: UnitCapabilities = UnitCapabilities {
-        template: None,
-        attack: None,
-        may_attack: true,
-    };
-
-    fn object(n: u32) -> OrderKind {
-        OrderKind::Move(Target::Object(id(n)))
-    }
-
-    /// `> BasicCombatUnitInterfaceState > RightClickResolution` and `> AwaitingTarget[..] resolution`.
-    #[test]
-    fn clicks_resolve_by_what_is_under_the_cursor() {
-        use CursorTarget::{EnemyObject, FriendlyObject, Ground, NeutralObject};
-        let template = InterfaceTemplate::BasicCombatUnit;
-        let right = |target| right_click(template, target).map(|(_, kind)| kind);
-        assert_eq!(right(Ground(P)), Some(OrderKind::Move(Target::Point(P))));
-        assert_eq!(right(EnemyObject(id(6))), Some(OrderKind::Attack(id(6))));
-        assert_eq!(right(FriendlyObject(id(2))), Some(object(2)));
-        assert_eq!(right(NeutralObject(id(8))), Some(object(8)));
-
-        let ground = MapTarget::ground(P);
-        let left = |pending, target: MapTarget| target_order(pending, &target);
-        assert_eq!(left(UnitCommand::Attack, enemy()), Some(OrderKind::Attack(id(6))));
-        assert_eq!(left(UnitCommand::Attack, ground), Some(OrderKind::AttackMove(P)));
-        // Force-attack (0059, 0064): own and neutral destructible objects too, never an indestructible one.
-        assert_eq!(left(UnitCommand::Attack, own()), Some(OrderKind::Attack(id(2))));
-        assert_eq!(
-            left(UnitCommand::Attack, neutral_unit()),
-            Some(OrderKind::Attack(id(9)))
-        );
-        assert_eq!(left(UnitCommand::Attack, patch()), None);
-        assert_eq!(left(UnitCommand::Move, ground), Some(OrderKind::Move(Target::Point(P))));
-        assert_eq!(left(UnitCommand::Move, enemy()), Some(object(6)));
-        assert_eq!(left(UnitCommand::Move, patch()), Some(object(8)));
-        assert_eq!(left(UnitCommand::Patrol, ground), Some(OrderKind::Patrol(P)));
-        assert_eq!(left(UnitCommand::Patrol, enemy()), None);
-        assert_eq!(left(UnitCommand::AttackGround, ground), None, "no sim order yet");
-    }
-
-    /// The Riot Shield's two rules. A right-click that would attack sends a shielded unit after the target instead
-    /// (design change 0074): it follows a unit and moves to a structure. An explicit Attack leaves it out (0075), on
-    /// any object, own ones too (force-attack); every other order of a targeting click, an AttackMove included
-    /// (0076), goes to it as to the others.
-    #[test]
-    fn a_raised_shield_follows_on_a_right_click_and_is_left_out_of_an_explicit_attack() {
-        assert_eq!(order_without_attack(&enemy()), object(6));
-        assert_eq!(order_without_attack(&enemy_structure()), object(5));
-        for kind in [OrderKind::Attack(id(6)), OrderKind::Attack(id(2))] {
-            assert_eq!(unit_target_order(SHIELDED, kind), None, "{kind:?}");
-            assert_eq!(unit_target_order(ARMED, kind), Some(kind));
-        }
-        let everyone = [
-            OrderKind::AttackMove(P),
-            OrderKind::Move(Target::Point(P)),
-            object(6),
-            OrderKind::Patrol(P),
-            OrderKind::Hold,
-            OrderKind::Stop,
-        ];
-        for kind in everyone {
-            for unit in [ARMED, SHIELDED, UNARMED] {
-                assert_eq!(unit_target_order(unit, kind), Some(kind), "{unit:?} {kind:?}");
-            }
-        }
-    }
-
-    /// Design changes 0062, 0063 and 0074: every unit resolves a right-click for itself. On an enemy, a unit that
-    /// can attack it attacks; one that can't (no attack, or not in the target's domain) follows it, and so does one
-    /// whose shield is up: it follows an enemy unit, and moves to an enemy structure. The ground, own and neutral
-    /// objects give everyone a Move. An object without commands does nothing.
-    #[test]
-    fn each_unit_resolves_a_right_click_for_itself() {
-        let attack = OrderKind::Attack(id(6));
-        let spot = OrderKind::Move(Target::Point(P));
-        let resolved = |unit, target: MapTarget| unit_right_click(unit, &target);
-        assert_eq!(resolved(ARMED, enemy()), Some(attack));
-        assert_eq!(resolved(UNARMED, enemy()), Some(object(6)), "follows");
-        assert_eq!(resolved(SHIELDED, enemy()), Some(object(6)), "follows");
-        assert_eq!(resolved(ARMED, enemy_structure()), Some(OrderKind::Attack(id(5))));
-        assert_eq!(resolved(SHIELDED, enemy_structure()), Some(object(5)), "moves to it");
-        assert_eq!(resolved(BUILDING, enemy()), None);
-        // 0062: "ground-only Peacekeepers when the target is an aircraft" follow it.
-        assert_eq!(resolved(ARMED, aircraft()), Some(object(7)));
-        assert_eq!(resolved(UNIVERSAL, aircraft()), Some(OrderKind::Attack(id(7))));
-        // A shielded unit that couldn't attack the target anyway follows it, like the others that can't.
-        assert_eq!(resolved(SHIELDED, aircraft()), Some(object(7)));
-        for unit in [ARMED, UNARMED, SHIELDED] {
-            assert_eq!(resolved(unit, MapTarget::ground(P)), Some(spot));
-            assert_eq!(
-                resolved(unit, own()),
-                Some(object(2)),
-                "0059: a right-click never attacks"
-            );
-            assert_eq!(resolved(unit, neutral_unit()), Some(object(9)));
-            assert_eq!(resolved(unit, patch()), Some(object(8)));
-        }
-        assert_eq!(resolved(BUILDING, MapTarget::ground(P)), None);
-    }
-
-    /// One order per distinct order, in the order each first comes, each to its units in their order.
-    #[test]
-    fn orders_go_out_grouped() {
-        let attack = OrderKind::Attack(id(6));
-        let spot = OrderKind::Move(Target::Point(P));
-        let orders = [(1, spot), (2, attack), (3, object(6)), (4, attack), (5, spot)].map(|(n, kind)| (id(n), kind));
-        assert_eq!(
-            group_orders(orders),
-            [
-                (spot, vec![id(1), id(5)]),
-                (attack, vec![id(2), id(4)]),
-                (object(6), vec![id(3)])
-            ]
-        );
-        assert_eq!(group_orders([]), []);
-    }
-
-    /// `> PointerDisplayType > Resolution Rules`.
-    #[test]
-    fn the_pointer_previews_what_a_click_would_do() {
-        use PointerDisplay as D;
-        let unit = [ARMED];
-        let ground = MapTarget::ground(Vec2::ZERO);
-        let default = InterfaceState::DefaultState;
-        assert_eq!(pointer_display(default, &[], &enemy()), D::Inactive, "nothing selected");
-        assert_eq!(pointer_display(default, &unit, &enemy()), D::Attack);
-        assert_eq!(pointer_display(default, &unit, &ground), D::Move);
-        assert_eq!(pointer_display(default, &unit, &own()), D::Move);
-        assert_eq!(pointer_display(default, &unit, &patch()), D::Move);
-        assert_eq!(
-            pointer_display(default, &[SHIELDED], &enemy()),
-            D::Move,
-            "shields up: a right-click follows"
-        );
-        let awaiting = InterfaceState::awaiting;
-        assert_eq!(
-            pointer_display(awaiting(UnitCommand::Attack), &unit, &ground),
-            D::Attack
-        );
-        assert_eq!(
-            pointer_display(awaiting(UnitCommand::Attack), &unit, &enemy()),
-            D::Attack
-        );
-        // 0064: force-attack on own and neutral destructible objects; an indestructible one is no target.
-        assert_eq!(pointer_display(awaiting(UnitCommand::Attack), &unit, &own()), D::Attack);
-        assert_eq!(
-            pointer_display(awaiting(UnitCommand::Attack), &unit, &neutral_unit()),
-            D::Attack
-        );
-        assert_eq!(
-            pointer_display(awaiting(UnitCommand::Attack), &unit, &patch()),
-            D::Inactive
-        );
-        assert_eq!(pointer_display(awaiting(UnitCommand::Move), &unit, &enemy()), D::Move);
-        assert_eq!(
-            pointer_display(awaiting(UnitCommand::Patrol), &unit, &ground),
-            D::Patrol
-        );
-        assert_eq!(
-            pointer_display(awaiting(UnitCommand::Patrol), &unit, &patch()),
-            D::Inactive
-        );
-        assert_eq!(
-            pointer_display(awaiting(UnitCommand::AttackGround), &unit, &ground),
-            D::AttackGround
-        );
-        assert_eq!(pointer_display(awaiting(UnitCommand::Reverse), &unit, &ground), D::Move);
-        assert_eq!(
-            pointer_display(awaiting(UnitCommand::Reverse), &unit, &enemy()),
-            D::Inactive
-        );
-    }
-
-    /// `> Mixed Right-Click Preview` (design change 0063): the pointer shows what the units would do, or Mixed when
-    /// they would do different things. Moving to a spot and following are both Move.
-    #[test]
-    fn units_that_would_do_different_things_show_the_mixed_pointer() {
-        use PointerDisplay as D;
-        let preview = |units: &[UnitCapabilities], target: MapTarget| right_click_display(units, &target);
-        assert_eq!(preview(&[ARMED, ARMED], enemy()), D::Attack);
-        assert_eq!(preview(&[ARMED, UNARMED], enemy()), D::Mixed);
-        assert_eq!(preview(&[SHIELDED, ARMED], enemy()), D::Mixed);
-        assert_eq!(preview(&[SHIELDED, UNARMED], enemy()), D::Move);
-        assert_eq!(preview(&[ARMED, UNARMED, BUILDING], MapTarget::ground(P)), D::Move);
-        assert_eq!(
-            preview(&[ARMED, BUILDING], enemy()),
-            D::Attack,
-            "a building does nothing"
-        );
-        assert_eq!(preview(&[BUILDING], enemy()), D::Inactive);
-        assert_eq!(preview(&[], enemy()), D::Inactive);
-    }
-}
+mod tests;

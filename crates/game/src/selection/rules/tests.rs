@@ -231,7 +231,7 @@ fn portrait_clicks_follow_the_panels_rules() {
 fn a_recall_resets_the_interface_state() {
     let objects = row(&[(1, PK, Relation::Own), (2, GUARD, Relation::Own)]);
     let (one, two) = (ControlGroup::new(1).unwrap(), ControlGroup::new(2).unwrap());
-    let awaiting = InterfaceState::awaiting(crate::command_ui::UnitCommand::Attack);
+    let awaiting = InterfaceState::awaiting(crate::command_ui::PanelCommand::Attack);
     let mut state = ControlState {
         selection: selection_of([ObjectId(1), ObjectId(2)], &objects),
         ..ControlState::default()

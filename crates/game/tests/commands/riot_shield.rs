@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
 use sc_sim::{Ability, ObjectId, OrderKind, PlayerId, RiotShield, Target};
 use space_crystals::command_ui::cursor::PointerLook;
-use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, PanelSlot, PointerDisplay, UnitCommand};
+use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, PanelCommand, PanelSlot, PointerDisplay};
 use space_crystals::hud::command_panel::{CommandButton, CommandPanelView};
 use space_crystals::object_render::{ObjectVisuals, RiotShieldVisual};
 
@@ -69,7 +69,7 @@ fn the_hotkey_and_the_button_raise_and_lower_the_shields() {
     let mut app = game();
     select_box(&mut app, &[1, 2]);
     let shown = button(&mut app, r()).expect("a button in R");
-    assert_eq!(shown.button, PanelButton::Command(UnitCommand::RiotShield));
+    assert_eq!(shown.button, PanelButton::Command(PanelCommand::RiotShield));
     assert_eq!(
         (shown.look, shown.on, shown.label()),
         (ButtonLook::Common, false, "Raise Shield")
@@ -160,7 +160,7 @@ fn a_mixed_selection_attacks_with_the_units_that_can() {
     toggle_time(&mut app);
     assert_eq!(button(&mut app, slot(1, 0)).map(|b| b.look), Some(ButtonLook::Common));
     tap(&mut app, &[], KeyA);
-    assert_eq!(interface(&app), InterfaceState::awaiting(UnitCommand::Attack));
+    assert_eq!(interface(&app), InterfaceState::awaiting(PanelCommand::Attack));
     click(&mut app, at(ENEMY_PK), &[]);
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     right_click(&mut app, at(ENEMY_GUARD), &[]);

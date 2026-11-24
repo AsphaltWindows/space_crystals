@@ -6,15 +6,15 @@
 use bevy::prelude::*;
 use sc_sim::{ObjectId, OrderKind, SimEvent};
 use space_crystals::command_ui::feedback::{FEEDBACK_TICKS, TargetFeedback};
-use space_crystals::command_ui::{InterfaceState, UnitCommand};
+use space_crystals::command_ui::{InterfaceState, PanelCommand};
 
 use super::*;
 use KeyCode::{Escape, KeyA, KeyQ, ShiftLeft};
 
-const AWAIT_ATTACK: InterfaceState = InterfaceState::awaiting(UnitCommand::Attack);
+const AWAIT_ATTACK: InterfaceState = InterfaceState::awaiting(PanelCommand::Attack);
 /// Attack awaiting its target after a Shift-click queued it.
 const QUEUED_ATTACK: InterfaceState = InterfaceState::AwaitingTarget {
-    pending: UnitCommand::Attack,
+    pending: PanelCommand::Attack,
     queued: true,
 };
 
@@ -103,7 +103,7 @@ fn shift_clicks_queue_move_waypoints() {
     for waypoint in waypoints {
         bare_click(&mut app, waypoint);
         let queued = InterfaceState::AwaitingTarget {
-            pending: UnitCommand::Move,
+            pending: PanelCommand::Move,
             queued: true,
         };
         assert_eq!(interface(&app), queued);
