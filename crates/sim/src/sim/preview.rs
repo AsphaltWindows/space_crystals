@@ -2,7 +2,6 @@
 
 use super::Sim;
 use crate::ids::ObjectId;
-use crate::paths::NavState;
 use crate::scenario::{Scenario, locate_oriented};
 
 impl Sim {
@@ -40,10 +39,7 @@ impl Sim {
                 }
             }
         }
-        sim.nav = NavState::build(&sim.map, &sim.objects);
-        sim.vision.update(&sim.map, sim.objects.values());
-        sim.vision.remember(sim.tick, |id| sim.objects.get(&id));
-        sim.events.clear();
+        sim.settle_start();
         (sim, ids)
     }
 }

@@ -216,12 +216,14 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
      (see *Behaviours*). They write goals (`Mover::go_to`, `stop`) and the target the attack engages. Everything
      they read of other objects comes from one snapshot taken first (`orders::world::World`): the positions and the
      vision the last tick left.
-   - 5b `paths::sync`: if the blocking footprints changed, rebuild the navigation grids and bump `nav_version`.
+   - 5b `paths::sync`: if the blocking footprints changed, rebuild the true navigation grids and bump
+     `nav_version`.
    - 5c `paths::serve`: first each unit's staggered path checks, in the ticks where `(tick + id) % 4 == 0` (after
-     the ground changed, line of sight along its remaining path, and a new plan only if that is cut; the farthest
-     waypoint in sight becomes its steering target). Then every `PathState::Wanted` becomes a `nav::PathRequest`,
-     served by `nav::serve` within `PATH_BUDGET` (group fields for move groups). A unit that gets no path fails its
-     move (`SimEvent::MoveFailed`).
+     its owner's path knowledge changed, line of sight along its remaining path, and a new plan only if that is
+     cut; the farthest waypoint in sight becomes its steering target). Then every `PathState::Wanted` becomes a
+     `nav::PathRequest`, served by `nav::serve_on` within `PATH_BUDGET` (group fields for move groups). A unit that
+     gets no path fails its move (`SimEvent::MoveFailed`). Each unit checks and plans on its owner's known grids,
+     as of the end of the last tick (see *Navigation > Path knowledge*).
    - 5d `movement::step`: steering and hard collision, the only code that writes a unit's `pos` besides a teleport
      (see Movement and collision). Units move one after another in id order and never overlap.
    - 5e `combat::step`: attack phases, the tick's list of hits applied together, deaths (see *Combat*). The dead
@@ -229,8 +231,12 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
    - 5f `Vision::update`: every player's sight from the objects as the tick leaves them, those this tick's commands
      spawned included (see Vision). Combat in 5e reads the vision of the tick before.
    - `update_supply_stations` (`core/map.md > SupplyDeliveryStation`).
-   - `Vision::remember`, last: each player's records of the structures and resources in its sight take the tick's
+   - `Vision::remember`: each player's records of the structures and resources in its sight take the tick's
      final state, the deliveries included (see Vision).
+   - Path knowledge, last (`PathKnowledge::observe`, `paths::sync_known`): each player stops assuming the map
+     resources whose place it now sees, and a player whose known footprints changed gets a new knowledge version
+     and its planning grids rebuilt, at most once per player and tick. After everything it follows from: the
+     objects, the vision and its records. Nothing after it may change any of them.
 
 - **Spawn tick**: an object that a command creates during tick `t` is first updated by the systems in tick `t + 1`.
   `step` notes `first_new = ObjectId(next_id)` before the commands, and each system walks only
@@ -238,8 +244,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   `t + 960`, just as a scenario station, spawned before tick 1, delivers at tick 960. An order to a unit spawned
   earlier acts in the tick it arrives: a straight move of `d` su ordered in tick `t` arrives in tick
   `t − 1 + ⌈d / speed⌉`.
-- **Grids match the objects between ticks**: `step` checks it in debug builds. A phase after 5b that adds or removes
-  a blocking footprint (a death in combat, a new structure) must call `paths::sync` again.
+- **Grids match the state between ticks**: the true grids match the objects (`step` checks it in debug builds),
+  and each player's known grids match what it knows (invariant K1). A phase after 5b that adds or removes a
+  blocking footprint (a death in combat, a new structure) must call `paths::sync` again; the known grids follow at
+  the end of the tick.
 - Insert a new phase at a deliberate position, with a comment in `step` saying why there, and update this list.
 - Commands always run before movement. There is exactly **one** movement pipeline, and all movement goes through it.
   The old prototype had two pipelines, and they raced.
@@ -352,10 +360,10 @@ or `Visible` for each player, and each player remembers the structures and resou
   `remembered_record(id)` (those not in sight, which Explored tiles show), `record_tiles` and `is_record_tile` (the
   tiles under any record) and `records_revision` (changes when a record comes, goes or moves; not when only its
   state changes).
-- **Not yet**: paths planned from what each player knows (design changes 0040 and 0042, with player-built
-  structures): other players' structures from `record_tiles`, stale when `records_revision` changes; the player's
-  own from the live objects, as they are never recorded. Map-placed patches and stations, known from the start for
-  paths (0042), are records only once seen.
+- **Paths** are planned from what each player knows (design changes 0040 and 0042; *Navigation > Path knowledge*):
+  the records' footprints are the other players' structures and the resources it knows of; its own come from the
+  live objects, as they are never recorded. Map-placed patches and stations, known from the start for paths, are
+  records only once seen: until then `PathKnowledge` holds them, so the fog shows nothing of them.
 
 ## Behaviours
 
@@ -424,8 +432,10 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 
 - **`Nav`** holds one `NavGrid` per `(NavClass, size class)`: a blocked bit and a component label per tile. It is
   derived data, never hashed or serialized. `Nav::rebuild(map, blockers)` rebuilds it in full when the map or a
-  blocking footprint changes. The caller chooses the blocking footprints (`NavRules::footprint_blocks`). Units are
-  never in a grid.
+  blocking footprint changes; `Nav::restamp(blockers)` is the same for an unchanged map, keeping the terrain's
+  part (about 0.17 ms a grid on 256 × 256, against 1.4 ms). The caller chooses the blocking footprints
+  (`NavRules::footprint_blocks`). Units are never in a grid. Components are labelled by runs of free tiles, in the
+  row-major order of their first tiles.
 - **`Search`** is the scratch for `astar` and the Dijkstra `field`. Keep one and reuse it; nothing carries over
   between searches. Searches are integer-only. An unreachable goal never searches: retarget it first
   (`NavGrid::nearest_in_component`), as `find_path` does.
@@ -436,14 +446,49 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   built only as far as the members stand (`Search::field_to`: towards their tiles' bounding rectangle, until each
   is expanded), and the members share the smoothing of the chains they share (`smooth_shared`, same waypoints as
   `smooth`). The budget's rule is unchanged: a job starts while budget remains and always finishes.
+  `serve_on(navs, on, ..)` is the same for requests that plan on different sets of grids (the sim's: one per
+  player), in the one order and budget; a field serves members of one set only.
 - **`NavGrid::open_around(p)`**: the tile of `p` and its eight neighbours are free of solid tiles. The movement
   step asks it before `box_clear` and `los`, which hold there for a small box and a short move. A `Path` is unit
   state (serde, `PartialEq`, `StateHash`); `NavCounters` are output only.
-- **Open questions** (Q0011) are the switches `RESOURCES_BLOCK`, `RUGGED_IMPASSABLE` and `ROUTE_ON_TRUE_MAP`.
-- **In the sim** (`paths.rs`): `NavState` holds the `Nav` of every unit type's `(class, size class)` and the
-  footprints it was built from (structures and map resources block, Q0011). It is derived, like the `Nav`: not hashed,
-  compared or serialized, built when a `Sim` is created or loaded and rebuilt in phase 5b. `Sim::nav()` (the grids),
-  `nav_version()` and `nav_counters()` expose it to tests and overlays.
+- **Switches** of Q0011's answers: `RESOURCES_BLOCK` (design change 0038) and `RUGGED_IMPASSABLE` (0039).
+- **In the sim** (`paths.rs`, `paths/`): `NavState` holds the **true grids**, the `Nav` of every unit type's
+  `(class, size class)` under every blocking footprint (structures and map resources), and each player's **known
+  grids** (below). It is derived, like the `Nav`: not hashed, compared or serialized, built when a `Sim` is
+  created or loaded. The true grids are rebuilt in phase 5b; `Sim::nav()` (the true grids), `nav_version()`,
+  `nav_counters()` and `nav_rebuilds()` (sets of grids the latest step rebuilt) expose it to tests and overlays.
+- **Path knowledge** (`paths/knowledge.rs`; `systems/controls/behaviors.md > PathKnowledge`, design changes 0040
+  to 0042): paths are planned only from what the unit's owner knows, and units collide with what is there.
+  - **What a player knows** to block the ground, besides the terrain: the footprints it owns; those of its
+    vision's records (seen and not seen gone, so a structure destroyed in the fog stays a wall at its last-known
+    position, and one never seen is open ground); and the map's resources it hasn't seen the place of yet, which
+    it assumes (`PlayerKnowledge::assumed`: every resource the game started with, dropped the first time a tile
+    under it is Visible; from then on the record says what the player knows). Only resources are "known from the
+    start": a structure a Custom map pre-places is known to the others once seen.
+  - **State**: `Sim::path_knowledge()` (`PathKnowledge`: per player the assumed resources and a `version`, which
+    counts the changes of the set of footprints it knows) is history, hashed and serialized; a save's is checked
+    on load. The known grids (`Sim::known_nav(player)`) are derived from it, the objects and the vision.
+  - **Plan on knowledge, collide on truth**: `NavState::planning(owner)` and `plan_grid` give the grids a unit
+    plans on. Path requests, the staggered checks, a chase's line of sight and the nearest reachable point of a
+    destination or an object goal use them. The movement step, the gate's spawn and teleport checks, scenario
+    validation and invariant I2 use the true grids. Never plan on `Sim::nav()` for a player's unit, and never
+    collide on a known grid.
+  - **Re-route on discovery**: `Mover::nav_version` is the owner's knowledge version the path was planned on. On
+    its staggered tick a unit whose owner's version moved on checks its remaining path on the known grid and plans
+    again if it is cut, not counted against the repath cap. So a unit heading for a wall it didn't know about
+    plans again within 4 ticks of its owner seeing it.
+  - **Timing**: the known grids are brought up to date once per tick, at its end (*Tick pipeline*), so during a
+    tick they are those of the end of the tick before (an own structure placed by a command joins them at the end
+    of its tick), each player's are rebuilt at most once per tick, and a loaded save rebuilds exactly the running
+    game's. A resource seen for the first time moves from assumed to remembered without a rebuild.
+  - **Lazy**: a player's grids exist only while it has a unit that walks on a grid; `ensure_known` builds them
+    for an order in the tick of its first unit's spawn.
+  - **No owner**: a neutral unit (and a defeated player's, design change 0101) plans on the true grids by
+    `nav_version`: it has nobody's knowledge and sees nothing. Code that changes a unit's owner should call
+    `Mover::repath`, since the unit's path was planned on other grids.
+  - Measured (`tests/nav_perf.rs`, ignored, release; 4 players, 412 units and 160 patches on 256 × 256): the tick
+    in which ten Generators go in sight of all four players rebuilds 5 sets of grids and takes 1.0 ms; the worst
+    tick after it, with the units' path checks, 1.3 ms.
 - **Group destinations** (`orders/destinations.rs`, `docs/movement.md > 6.4`, the design's magic box): a location
   order (Move to a point, AttackMove, Patrol) to several units looks at the bounding box of their silhouettes
   (design change 0028). A click inside it sends every unit to the click; outside, each unit goes to the click plus
@@ -536,7 +581,8 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   than `MAX_REQUEST_AGE`; I7 an arrived unit never moves again without an order or a move of its behaviour, and a
   unit without a goal is at rest. A leg is one `Mover::go_to`: an order's move, or one a behaviour starts (a chase,
   a Patrol's next leg, the way back to an IdleOrigin). The one exception to I5 and I7 is a unit taking its sidestep,
-  which must have neither a goal nor an order. A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
+  which must have neither a goal nor an order. K1 (`paths`): each player's known grids are those a fresh build
+  from the state gives. A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
   letters, with a legend). The check is on by default; `check_invariants(false)` turns it off for timing runs. A
   test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each step.
 
@@ -704,6 +750,10 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
 - **Resource collision tests** are `crates/sim/tests/resources_block.rs` (design change 0038's verification: units
   path around a crystal field, can't walk across a Supply Delivery Station, and walk through the tile of a patch
   removed by a debug command, standing in for depletion).
+- **Path knowledge tests** are `crates/sim/tests/path_knowledge.rs` (the verification points of design changes
+  0040 and 0042: a hidden wall of enemy buildings, a scouted building destroyed out of sight, a crystal field never
+  seen, a patch gone in the fog; own structures; an unseen structure is open ground for plans and solid for
+  units; lazy grids; saves with stale knowledge) and the ignored `nav_perf.rs` (`knowledge_rebuilds_256`).
 - **Structure tests** are `crates/sim/tests/structures.rs` (each type's stat block, the Barracks in all 16 ways to
   rotate and flip it and its sides, ground units walking around a footprint, PointArmor on hits, a destroyed
   Generator freeing its tiles, debug spawns kept apart but for a plate on its patch, flat ground, the optional

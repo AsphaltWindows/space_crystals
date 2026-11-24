@@ -133,7 +133,10 @@ fn soak(seed: u64) -> Outcome {
             }
         }
         // An idle unit that ended the last tick in reach of an enemy has engaged one, unless an order came first.
-        for id in in_reach {
+        // Not checked in a tick with a death: the enemy it engaged in 5a may have died in 5e, which leaves it
+        // watching again (the removal path), with the next enemy for the next tick.
+        let died = sim.events().iter().any(|e| matches!(e, SimEvent::Died { .. }));
+        for id in in_reach.into_iter().filter(|_| !died) {
             let Some(orders) = sim.object(id).and_then(|o| o.orders.as_ref()) else {
                 continue;
             };

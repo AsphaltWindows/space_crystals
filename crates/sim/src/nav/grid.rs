@@ -15,6 +15,9 @@ pub struct NavGrid {
     size: u8,
     width: u32,
     height: u32,
+    /// The terrain's part of `solid`: the tile is impassable for the class whatever stands on it. It changes only
+    /// with the map, so a rebuild for other footprints starts from it ([`NavGrid::restamp`]).
+    terrain: Vec<bool>,
     /// The tile itself is impassable for the class. Line of sight tests boxes against these.
     solid: Vec<bool>,
     /// (G) The tile and its eight neighbours are all on the map and none is solid ([`NavGrid::open_around`]).
@@ -37,103 +40,189 @@ impl NavGrid {
     pub fn build(map: &Map, class: NavClass, size: u8, blockers: &[TileRect], rules: NavRules) -> Self {
         let size = size.max(1);
         let (width, height) = (map.width(), map.height());
-        let (w, h) = (width as usize, height as usize);
-        let mut solid = Vec::with_capacity(w * h);
+        let mut terrain = Vec::with_capacity(width as usize * height as usize);
         for y in 0..height as i32 {
             for x in 0..width as i32 {
                 let preset = map.tile_preset(TilePos::new(x, y)).expect("in bounds");
-                solid.push(match class {
+                terrain.push(match class {
                     NavClass::Ground => !preset.traversible || (preset.rugged && rules.rugged_impassable),
                     NavClass::GroundRugged => !preset.traversible,
                     NavClass::Underground => !preset.drillable,
                 });
             }
         }
-        if class != NavClass::Underground {
-            for rect in blockers {
-                let x0 = i64::from(rect.origin.x).max(0);
-                let y0 = i64::from(rect.origin.y).max(0);
-                let x1 = (i64::from(rect.origin.x) + i64::from(rect.w)).min(i64::from(width));
-                let y1 = (i64::from(rect.origin.y) + i64::from(rect.h)).min(i64::from(height));
-                for y in y0..y1 {
-                    for x in x0..x1 {
-                        solid[y as usize * w + x as usize] = true;
-                    }
-                }
-            }
-        }
-        let open = (0..w * h)
-            .map(|i| {
-                let (x, y) = (i % w, i / w);
-                x > 0
-                    && y > 0
-                    && x + 1 < w
-                    && y + 1 < h
-                    && (y - 1..=y + 1).all(|ny| !solid[ny * w + x - 1..=ny * w + x + 1].iter().any(|&s| s))
-            })
-            .collect();
-        let k = size as usize;
-        let blocked = if k == 1 {
-            solid.clone()
-        } else {
-            let mut blocked = vec![true; w * h];
-            for y in 0..h {
-                for x in 0..w {
-                    let fits = x + k <= w && y + k <= h;
-                    blocked[y * w + x] =
-                        !fits || (y..y + k).any(|by| solid[by * w + x..by * w + x + k].iter().any(|&s| s));
-                }
-            }
-            blocked
-        };
         let mut grid = Self {
             class,
             size,
             width,
             height,
-            solid,
-            open,
-            blocked,
+            terrain,
+            solid: Vec::new(),
+            open: Vec::new(),
+            blocked: Vec::new(),
             component: Vec::new(),
             components: 0,
             passable: 0,
         };
-        grid.label_components();
+        grid.restamp(blockers);
         grid
     }
 
-    /// Flood fill from row-major seeds, so labels are deterministic. Two tiles are connected when orthogonally
-    /// adjacent: a diagonal step needs both orthogonal neighbours free (`docs/movement.md > 5.3`), so it never
-    /// connects more than orthogonal steps do.
-    fn label_components(&mut self) {
+    /// `docs/movement.md > 5.7`: the grid of the same terrain under other blocking footprints, as
+    /// [`NavGrid::build`] would make it. The terrain's part is kept, so this is the cheap rebuild for a map that
+    /// didn't change (timings: `tests/nav_perf.rs`).
+    pub fn restamp(&mut self, blockers: &[TileRect]) {
         let (w, h) = (self.width as usize, self.height as usize);
-        self.component = vec![0; w * h];
-        self.components = 0;
-        self.passable = 0;
-        let mut stack = Vec::new();
-        for seed in 0..w * h {
-            if self.blocked[seed] || self.component[seed] != 0 {
-                continue;
-            }
-            self.components += 1;
-            self.component[seed] = self.components;
-            stack.push(seed);
-            while let Some(i) = stack.pop() {
-                self.passable += 1;
-                let (x, y) = (i % w, i / w);
-                let neighbours = [
-                    (x + 1 < w).then(|| i + 1),
-                    (y + 1 < h).then(|| i + w),
-                    (x > 0).then(|| i - 1),
-                    (y > 0).then(|| i - w),
-                ];
-                for n in neighbours.into_iter().flatten() {
-                    if !self.blocked[n] && self.component[n] == 0 {
-                        self.component[n] = self.components;
-                        stack.push(n);
+        self.solid.clone_from(&self.terrain);
+        if self.class != NavClass::Underground {
+            for rect in blockers {
+                let x0 = i64::from(rect.origin.x).clamp(0, w as i64) as usize;
+                let y0 = i64::from(rect.origin.y).clamp(0, h as i64) as usize;
+                let x1 = (i64::from(rect.origin.x) + i64::from(rect.w)).clamp(0, w as i64) as usize;
+                let y1 = (i64::from(rect.origin.y) + i64::from(rect.h)).clamp(0, h as i64) as usize;
+                if x0 < x1 {
+                    for y in y0..y1 {
+                        self.solid[y * w + x0..y * w + x1].fill(true);
                     }
                 }
             }
+        }
+        self.mark_open();
+        let k = self.size as usize;
+        if k == 1 {
+            self.blocked.clone_from(&self.solid);
+        } else {
+            self.blocked.clear();
+            self.blocked.resize(w * h, true);
+            for y in 0..h {
+                for x in 0..w {
+                    let fits = x + k <= w && y + k <= h;
+                    self.blocked[y * w + x] =
+                        !fits || (y..y + k).any(|by| self.solid[by * w + x..by * w + x + k].iter().any(|&s| s));
+                }
+            }
+        }
+        self.label_components();
+    }
+
+    /// `open` from `solid`: a tile is open when it isn't on the map's edge and no tile of the 3 × 3 block around it
+    /// is solid. Two passes, along the rows and then across them, so the work is a few sweeps over the tiles.
+    fn mark_open(&mut self) {
+        let (w, h) = (self.width as usize, self.height as usize);
+        self.open.clear();
+        self.open.resize(w * h, false);
+        if w < 3 || h < 3 {
+            return;
+        }
+        // `open[i]` first holds "the tile and its two neighbours in the row are free", false in the edge columns.
+        for (open, solid) in self.open.chunks_exact_mut(w).zip(self.solid.chunks_exact(w)) {
+            for ((o, a), (b, c)) in open[1..w - 1]
+                .iter_mut()
+                .zip(&solid[..w - 2])
+                .zip(solid[1..w - 1].iter().zip(&solid[2..]))
+            {
+                *o = !(*a | *b | *c);
+            }
+        }
+        // Then the rows above and below must be as free: top-down, with a copy of the row above as it was. The
+        // edge rows are never open.
+        let mut above: Vec<bool> = self.open[..w].to_vec();
+        let mut here: Vec<bool> = vec![false; w];
+        self.open[..w].fill(false);
+        for y in 1..h - 1 {
+            here.copy_from_slice(&self.open[y * w..(y + 1) * w]);
+            let (row, below) = self.open[y * w..(y + 2) * w].split_at_mut(w);
+            for ((o, a), b) in row.iter_mut().zip(&above).zip(below.iter()) {
+                *o &= *a & *b;
+            }
+            std::mem::swap(&mut above, &mut here);
+        }
+        self.open[(h - 1) * w..].fill(false);
+    }
+
+    /// The components, labelled in the row-major order of their first tiles, so labels are deterministic. Two
+    /// tiles are connected when orthogonally adjacent: a diagonal step needs both orthogonal neighbours free
+    /// (`docs/movement.md > 5.3`), so it never connects more than orthogonal steps do.
+    ///
+    /// It works on runs of free tiles: each run of a row joins the runs of the row above that it touches
+    /// (union-find over provisional labels), then the runs get their component's final label in the order they
+    /// were found. That gives the labels of a flood fill from row-major seeds in a fraction of its time, which
+    /// matters because every grid is labelled again whenever a footprint changes, for the true map and for each
+    /// player's knowledge (`paths::knowledge`).
+    fn label_components(&mut self) {
+        /// The root of `label`, halving the path to it.
+        fn find(parent: &mut [u32], mut label: u32) -> u32 {
+            while parent[label as usize] != label {
+                let up = parent[parent[label as usize] as usize];
+                parent[label as usize] = up;
+                label = up;
+            }
+            label
+        }
+        let (w, h) = (self.width as usize, self.height as usize);
+        self.component.clear();
+        self.component.resize(w * h, 0);
+        self.components = 0;
+        self.passable = 0;
+        // `parent[label]`: union-find over provisional labels from 1; a root is its own parent, and of two roots
+        // joined the smaller label stays the root.
+        let mut parent: Vec<u32> = vec![0];
+        // Every run as (first tile index, length, provisional label), in row-major order.
+        let mut runs: Vec<(u32, u32, u32)> = Vec::new();
+        // The runs of the row above and of this row as (x0, x1, label), `x1` exclusive.
+        let mut above: Vec<(u32, u32, u32)> = Vec::new();
+        let mut here: Vec<(u32, u32, u32)> = Vec::new();
+        for y in 0..h {
+            let row = &self.blocked[y * w..(y + 1) * w];
+            here.clear();
+            let mut next_above = 0;
+            let mut x = 0;
+            while x < w {
+                if row[x] {
+                    x += 1;
+                    continue;
+                }
+                let x0 = x;
+                while x < w && !row[x] {
+                    x += 1;
+                }
+                let (x0, x1) = (x0 as u32, x as u32);
+                while next_above < above.len() && above[next_above].1 <= x0 {
+                    next_above += 1;
+                }
+                let mut label = 0;
+                let mut touching = next_above;
+                while touching < above.len() && above[touching].0 < x1 {
+                    let root = find(&mut parent, above[touching].2);
+                    if label == 0 {
+                        label = root;
+                    } else if root != label {
+                        let (low, high) = (label.min(root), label.max(root));
+                        parent[high as usize] = low;
+                        label = low;
+                    }
+                    touching += 1;
+                }
+                // The last run it touches may reach over the next run of this row too.
+                next_above = touching.saturating_sub(1).max(next_above);
+                if label == 0 {
+                    label = parent.len() as u32;
+                    parent.push(label);
+                }
+                here.push((x0, x1, label));
+                runs.push(((y * w) as u32 + x0, x1 - x0, label));
+            }
+            std::mem::swap(&mut above, &mut here);
+        }
+        let mut finals: Vec<u32> = vec![0; parent.len()];
+        for (start, len, label) in runs {
+            let root = find(&mut parent, label) as usize;
+            if finals[root] == 0 {
+                self.components += 1;
+                finals[root] = self.components;
+            }
+            self.component[start as usize..(start + len) as usize].fill(finals[root]);
+            self.passable += len;
         }
     }
 

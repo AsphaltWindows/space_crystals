@@ -382,3 +382,61 @@ fn open_ground_is_clear_without_a_look_at_the_tiles() {
         assert!(!grid.open_around(p), "{p}");
     }
 }
+
+/// `docs/movement.md > 5.2`: the labels are those of a flood fill from row-major seeds, on maps of every density
+/// and odd shapes, with footprints on them; and `restamp` for other footprints is exactly a fresh build.
+#[test]
+fn components_match_a_flood_fill_from_row_major_seeds() {
+    let mut rng = Rng::from_seed(4042);
+    let rules = NavRules::default();
+    for round in 0..120 {
+        let (w, h) = (1 + rng.below(40), 1 + rng.below(40));
+        let map = random_map(&mut rng, w, h, [0, 5, 20, 40, 50, 60, 80, 100][round % 8]);
+        let rects = |rng: &mut Rng| -> Vec<TileRect> {
+            (0..rng.below(6))
+                .map(|_| {
+                    let origin = t(rng.below(w + 4) as i32 - 2, rng.below(h + 4) as i32 - 2);
+                    TileRect::new(origin, rng.below(5), rng.below(5))
+                })
+                .collect()
+        };
+        let (first, second) = (rects(&mut rng), rects(&mut rng));
+        for size in [1, 2] {
+            let mut grid = NavGrid::build(&map, NavClass::Ground, size, &first, rules);
+            for blockers in [&first, &second] {
+                grid.restamp(blockers);
+                assert_eq!(grid, NavGrid::build(&map, NavClass::Ground, size, blockers, rules));
+                // The oracle: a flood fill over orthogonal neighbours, seeded in row-major order.
+                let (w, h) = (w as i32, h as i32);
+                let mut labels = vec![0u32; (w * h) as usize];
+                let mut count = 0;
+                for seed in 0..w * h {
+                    if grid.is_blocked(t(seed % w, seed / w)) || labels[seed as usize] != 0 {
+                        continue;
+                    }
+                    count += 1;
+                    labels[seed as usize] = count;
+                    let mut stack = vec![seed];
+                    while let Some(i) = stack.pop() {
+                        let (x, y) = (i % w, i / w);
+                        for (nx, ny) in [(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)] {
+                            if !grid.is_blocked(t(nx, ny)) && labels[(ny * w + nx) as usize] == 0 {
+                                labels[(ny * w + nx) as usize] = count;
+                                stack.push(ny * w + nx);
+                            }
+                        }
+                    }
+                }
+                assert_eq!(grid.component_count(), count);
+                assert_eq!(
+                    grid.passable_count(),
+                    labels.iter().filter(|&&label| label != 0).count() as u32
+                );
+                for i in 0..w * h {
+                    let label = labels[i as usize];
+                    assert_eq!(grid.component(t(i % w, i / w)), (label != 0).then_some(label));
+                }
+            }
+        }
+    }
+}

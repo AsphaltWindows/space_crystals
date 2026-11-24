@@ -11,11 +11,10 @@ use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
-use crate::movement::MoveCounters;
 use crate::mover::Mover;
-use crate::nav::{Nav, NavCounters};
 use crate::object::{Object, Placement, ResourceState};
 use crate::orders::{Order, OrderGroup, OrderKind, Orders, Target, destinations};
+use crate::paths::knowledge::PathKnowledge;
 use crate::paths::{self, NavState};
 use crate::player::Player;
 use crate::rng::Rng;
@@ -72,8 +71,11 @@ pub struct Sim {
     /// Each player's vision as of the end of the latest tick (`vision`): the Explored tiles are history, hashed and
     /// serialized; the Visible ones follow from the objects and are rebuilt on load.
     vision: Vision,
-    /// Derived from the map and the objects (`docs/movement.md > 3`): not hashed, serialized or compared, and
-    /// rebuilt on load.
+    /// What each player knows to stand in the way of its units' paths, beyond its vision's records
+    /// (`systems/controls/behaviors.md > PathKnowledge`): history, hashed and serialized.
+    path_knowledge: PathKnowledge,
+    /// Derived from the map, the objects and what each player knows (`docs/movement.md > 3`, `paths`): not hashed,
+    /// serialized or compared, and rebuilt on load.
     #[serde(skip_serializing)]
     nav: NavState,
 }
@@ -98,12 +100,7 @@ impl Sim {
         for o in objects {
             sim.insert_object(o.kind, o.owner, o.pos, o.placement, o.settings.as_ref());
         }
-        sim.nav = NavState::build(&sim.map, &sim.objects);
-        // The starting objects' vision: tick 0 already shows what they see, and remembers what it saw.
-        sim.vision.update(&sim.map, sim.objects.values());
-        sim.vision.remember(sim.tick, |id| sim.objects.get(&id));
-        // Scenario spawns emit no events (`ARCHITECTURE.md > Commands, events and replays`).
-        sim.events.clear();
+        sim.settle_start();
         Ok(sim)
     }
 
@@ -134,6 +131,7 @@ impl Sim {
             nav_version: 0,
             auto_targeting: true,
             events: Vec::new(),
+            path_knowledge: PathKnowledge::default(),
             nav: NavState::unbuilt(&scenario.map.terrain),
         }
     }
@@ -173,12 +171,6 @@ impl Sim {
         &self.events
     }
 
-    /// The navigation grids units path on (`docs/movement.md > 5.2`): derived from the map and the blocking
-    /// footprints, and in step with them between ticks.
-    pub fn nav(&self) -> &Nav {
-        self.nav.nav()
-    }
-
     /// Every player's vision at the end of the latest tick (`core/vision.md`): tile states, which objects each
     /// player sees, and a revision per player that changes with its tiles.
     pub fn vision(&self) -> &Vision {
@@ -197,30 +189,14 @@ impl Sim {
         self.vision.sees(player, object)
     }
 
-    /// How often the grids were rebuilt since the game started (phase 5b).
     /// Whether units acquire targets by themselves: on, unless `DebugCommand::SetAutoTargeting` turned it off.
     pub fn auto_targeting(&self) -> bool {
         self.auto_targeting
     }
 
-    pub fn nav_version(&self) -> u32 {
-        self.nav_version
-    }
-
-    /// The path searches of the most recent [`Sim::step`]: output for tests and overlays, not state.
-    pub fn nav_counters(&self) -> NavCounters {
-        self.nav.counters()
-    }
-
-    /// The collision work of the most recent [`Sim::step`]'s movement phase: output for tests and overlays, not
-    /// state.
-    pub fn move_counters(&self) -> MoveCounters {
-        self.nav.move_counters()
-    }
-
     /// FNV-1a 64 hash of the whole state: tick, map, players, objects in id order, next id,
-    /// PRNG state, config, next order group, nav version and each player's Explored tiles (`f32` by
-    /// its bits; encoding in `hash.rs`). Events are output, and the grids and the Visible tiles
+    /// PRNG state, config, next order group, nav version, each player's Explored tiles and records and its path
+    /// knowledge (`f32` by its bits; encoding in `hash.rs`). Events are output, and the grids and the Visible tiles
     /// derived data, so they are left out. Equal states give equal hashes on every machine, so
     /// comparing hashes checks determinism.
     pub fn state_hash(&self) -> u64 {
@@ -238,6 +214,7 @@ impl Sim {
             auto_targeting,
             events: _,
             vision,
+            path_knowledge,
             nav: _,
         } = self;
         let mut h = StateHasher::new();
@@ -255,12 +232,14 @@ impl Sim {
         nav_version.hash(&mut h);
         auto_targeting.hash(&mut h);
         vision.hash(&mut h);
+        path_knowledge.hash(&mut h);
         h.finish()
     }
 
     /// Advance exactly one tick. Phase order is fixed and documented in ARCHITECTURE.md.
     pub fn step(&mut self, inputs: &TickInputs) {
         self.events.clear();
+        self.nav.begin_tick();
         self.tick += 1;
         for o in self.objects.values_mut() {
             o.prev_pos = o.pos;
@@ -280,13 +259,15 @@ impl Sim {
         // The behaviours read the positions and the vision the last tick left (5f).
         let world = orders::world::World::new(&self.map, &self.vision, &self.objects, self.tick, self.auto_targeting);
         orders::update(&mut self.objects, first_new, &world);
-        // 5b: the paths below must see this tick's obstacles.
-        paths::sync(&mut self.nav, &self.map, &self.objects, &mut self.nav_version);
-        // 5c: after the goals, before the movement that follows the paths.
+        // 5b: the movement below must collide with this tick's obstacles (the true grids).
+        paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
+        // 5c: after the goals, before the movement that follows the paths. Each unit plans on what its owner knew
+        // at the end of the last tick (`paths::knowledge`).
         paths::serve(
             &mut self.nav,
             &mut self.objects,
             first_new,
+            &self.path_knowledge,
             self.nav_version,
             self.tick,
             &mut self.events,
@@ -317,13 +298,18 @@ impl Sim {
         );
         if !dead.is_empty() {
             self.remove_objects(&dead);
-            paths::sync(&mut self.nav, &self.map, &self.objects, &mut self.nav_version);
+            paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
         }
         // 5f: sees the tick's final positions, this tick's new objects included.
         self.vision.update(&self.map, self.objects.values());
         self.update_supply_stations(first_new);
         // Last: the records of what each player sees keep the tick's final state, the deliveries included.
         self.vision.remember(self.tick, |id| self.objects.get(&id));
+        // Path knowledge, after everything it follows from (the objects, the vision and its records): what each
+        // player has seen by now of the map's resources, then its grids for the next tick's plans, rebuilt at most
+        // once per player and tick. Nothing after this may change the objects or the vision.
+        self.path_knowledge.observe(&self.vision);
+        paths::sync_known(&mut self.nav, &self.objects, &self.vision, &mut self.path_knowledge);
         debug_assert!(
             self.nav.matches(&self.objects),
             "a blocking footprint changed after phase 5b: sync the grids again (`paths::sync`)"
@@ -383,7 +369,12 @@ impl Sim {
         self.next_group = self.next_group.wrapping_add(1);
         let slots = match kind {
             OrderKind::Move(Target::Point(click)) | OrderKind::AttackMove(click) | OrderKind::Patrol(click) => {
-                destinations::assign(self.nav.nav(), &self.map, &self.objects, units, click, queue)
+                // One player's units (the gate), sent by what that player knows of the ground.
+                let owner = units.first().and_then(|id| self.objects.get(id)).and_then(|o| o.owner);
+                if let Some(player) = owner {
+                    self.nav.ensure_known(player);
+                }
+                destinations::assign(self.nav.planning(owner), &self.map, &self.objects, units, click, queue)
             }
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => {
                 vec![None; units.len()]
@@ -485,6 +476,7 @@ impl Sim {
 
 mod gate;
 mod load;
+mod navigation;
 mod preview;
 mod removal;
 #[cfg(test)]

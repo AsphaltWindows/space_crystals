@@ -15,6 +15,9 @@
   | G8–G9 | Q0010 |
   | G10–G12, G14 | Q0011 |
 
+  Q0011 is answered for G10 (design change 0038: resources block), G11 (0039: Rugged is impassable for those
+  bases) and G12 (0040 to 0042: path knowledge, below); G14 is still open.
+
   G13, the queue cap, is technical and set to 32. Until a question is answered, implement the default from the table, behind a named constant or switch that cites its question id.
 - **The benchmark** cited in 5.8 was a throwaway spike file and isn't in the repo.
 - **Slice D (steering and collision) is implemented.** Where the code differs from the first approved text, the
@@ -40,6 +43,11 @@
   code is `crates/sim/src/movement/collide/lanes.rs` (`World::lane`), `movement/yielding.rs` (`ask_ahead`),
   `movement/space.rs` (the cells' marks), `nav/search.rs` (`Search::field_to`) and `nav/serve.rs`
   (`smooth_shared`).
+- **Paths are planned from what the owner knows** (design changes 0040, 0041 and 0042, answering G12;
+  `systems/controls/behaviors.md > PathKnowledge`): slice M2-E split the grids into the true ones, which units
+  collide on, and one set per player, which its units plan on (5.2, 5.7), and made the staggered check follow the
+  owner's knowledge (5.6). Its changes are marked **(K)**. The code is `crates/sim/src/paths.rs` and `paths/`
+  (`knowledge.rs` has the rules), `nav/grid.rs` (`NavGrid::restamp`) and `nav/serve.rs` (`serve_on`).
 
 Design references are `file.md > Section`, relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -86,7 +94,7 @@ Top five first. Each default is what this design implements until answered.
 | G9 | Patrol: is the origin the position at issue or when a Shift-queued Patrol starts (`commands.md > Patrol` vs `behaviors.md > Patrolling` step 1)? What if a leg fails? | **(E) Answered by 0036 and 0037**, as proposed: when it starts executing. A failed leg counts as arrived; two failed legs in a row end the Patrol |
 | G10 | Do map resources (patch, station) block ground units? "Structures" doesn't name them. | Yes, their footprints block |
 | G11 | RuggedTerrain = false: is a Rugged tile impassable for that base? Implied, never stated. | Yes, impassable |
-| G12 | Do units path with knowledge of structures their owner has never seen? | Yes, the true map, in M1 |
+| G12 | Do units path with knowledge of structures their owner has never seen? | **(K) Answered by 0040, 0041 and 0042**: no. Paths are planned from what the owner knows: terrain, its own structures, others' structures once seen (a wall at the last-known position until seen otherwise) and the map's resources from the start (5.2, 5.6, 5.7). The default here was the true map |
 | G13 | Command queue length. Orders queued behind Patrol or Hold never run. | Cap 32 *(technical)*; the rest as written |
 | G14 | Underground units: do they collide with each other? Can air cross every tile? | Not M1. Assume hard collision among themselves; air crosses everything inside the map |
 
@@ -138,7 +146,10 @@ pub struct Mover {
 - **Derived, not hashed** (`#[serde(skip)]`, rebuilt on load and on change, excluded from `PartialEq`): the `NavGrid`s
   and their component labels. **Scratch** (rebuilt every tick, carries nothing across ticks): the spatial grids and
   the A* arrays. A save/load test (section 8) proves neither leaks into behaviour.
-- `Sim` gains `next_group: u32` and `nav_version: u32` (hashed).
+- `Sim` gains `next_group: u32` and `nav_version: u32` (hashed). **(K)** And `path_knowledge` (hashed and
+  serialized: history): per player, the map resources it still assumes and the version of its knowledge.
+  `Mover::nav_version` holds the owner's knowledge version the path was planned on (the true grids' `nav_version`
+  for a unit without an owner).
 - **Commands**: `Command::Order { units: Vec<ObjectId>, kind, queue: bool }`. Gate: owner check per unit, target
   finite and on the map, at most `MAX_ORDER_UNITS`, duplicates dropped. **Proposed gate change for the Director**:
   ids that no longer exist are *dropped* rather than rejecting the command (a unit can die in the tick the order
@@ -154,11 +165,12 @@ Phases 1–4 stay as they are. Order commands (phase 4) only write `Orders` queu
 | Phase | Does | Why here |
 |---|---|---|
 | 5a `orders::update` | Pops completed orders, runs the behaviour state machine, writes `mover.goal`, reads `mover.status` and last tick's positions and visibility. **(E)** Every behaviour reads one snapshot of the objects, taken before any of them runs (`orders::world::World`) | After commands, so an order acts in its own tick; before movement, so there is one writer of goals |
-| 5b `nav::sync` | If a tile-blocking object or the map changed: rebuild the NavGrids and components, bump `nav_version` | Paths below must see this tick's obstacles |
-| 5c `paths::serve` | Runs the staggered path checks (5.6, 6.2), then serves `Wanted` requests within the budget (5.5) | After goals, before steering; a repath a check asks for is served in the same tick |
+| 5b `paths::sync` | If a tile-blocking object changed: rebuild the **true** NavGrids and components, bump `nav_version` **(K)** | The movement below must collide with this tick's obstacles |
+| 5c `paths::serve` | Runs the staggered path checks (5.6, 6.2), then serves `Wanted` requests within the budget (5.5). **(K)** Each unit on its owner's known grids, as of the end of the last tick | After goals, before steering; a repath a check asks for is served in the same tick |
 | 5d `movement::step` | **The one movement pipeline**: steer, resolve collisions, commit `pos`/`facing`/`velocity`/channels, set `status` | Single place that writes `pos` |
 | 5e combat | Attack phases, hit list, damage, deaths (other slice) | Shoots from post-move positions |
 | 5f vision | Visibility per player (other slice) | Sees final positions |
+| end: path knowledge **(K)** | `PathKnowledge::observe`, then `paths::sync_known`: each player whose known footprints changed gets a new knowledge version and its grids rebuilt | After the vision and its records, which it follows from; once per tick, so a player's grids are rebuilt at most once per tick and between ticks they follow from the state alone |
 
 - 5d builds the spatial grids first from **all** units, including this tick's spawns (obstacles, though not updated),
   then moves units one by one, updating the grid at each commit. A unit tests against movers already at their new
@@ -184,6 +196,14 @@ A Dijkstra field is used only to mass-produce paths for group orders (5.5).
 - `Ground`: blocked if not Traversible, or Rugged (G11), or under a blocking footprint. `GroundRugged`: not
   Traversible, or under a footprint. `Underground`: not Drillable. Blocking footprints: surface structures and
   resources (G10), never underground expansions. Slopes never matter.
+- **(K) Whose footprints.** The sim keeps the **true grids** (every blocking footprint) and one set of **known
+  grids per player** (`systems/controls/behaviors.md > PathKnowledge`): the footprints the player owns, those of
+  its vision's records (seen, and not seen gone: `core/vision.md > Explored`), and the map's resources it hasn't
+  seen the place of yet, which it assumes to be where the map put them (design change 0042). Planning reads the
+  owner's known grids: path requests, the staggered checks, a chase's line of sight, `reachable_point` for
+  destinations and object goals. Collision reads the true grids: the movement step (section 6), the spawn and
+  teleport checks, invariant I2. A unit without an owner plans on the true grids. A player's grids are built
+  lazily, with its first unit that walks on one.
 - Size class `k > 1`: a tile is passable if the `k × k` block anchored on it is (true-clearance); M1 only builds `k = 1`.
 - Map edge: a unit's box stays inside the map; tiles outside are blocked.
 
@@ -243,7 +263,7 @@ repath waits `REPATH_WAITS` (8, 16, 32 ticks) since the unit became stuck or sin
 | Trigger | Check | Counts against the cap |
 |---|---|---|
 | Stuck (6.5) | every tick, cheap | yes; with none left, `Failed` 24 ticks after the last one |
-| `nav_version` changed | once, on the unit's stagger tick: LOS along the remaining path; repath only if a segment is now blocked | no (bounded by how often the map changes) |
+| **(K)** The owner's knowledge version changed (`PlayerKnowledge::version`; `nav_version` for a unit without an owner) | once, on the unit's stagger tick: LOS along the remaining path on the owner's known grid; repath only if a segment is now blocked. This is the re-route on discovery: the unit plans again within 4 ticks of its owner seeing an obstacle on its way | no (bounded by how often the knowledge changes) |
 | Chase target moved **(E)** | on the stagger tick (`paths::chase_check`): with a clear line for its box, the unit's path becomes the one leg straight to the target, no search; without one, a new plan once the target is farther than `max(1 GU, 25 % of the distance)` from `planned_target`, at most every 8 ticks | no (rate-limited) |
 | Lost LOS to the steering waypoint | on the stagger tick, after being pushed off the path by sidesteps, **(Y)** and only when a stuck repath is due (the schedule below; slice D had 12 ticks without progress) | yes |
 
@@ -270,6 +290,19 @@ getting on slides back by itself and keeps its repaths.
 **5.7 Dynamic obstacles.** A building placed or removed sets a dirty flag; 5b rebuilds grids and components in full
 (65k tiles, about 1 ms, and rare). Units are never in the NavGrid. Stationary units reach the search only
 through `avoid_tiles`.
+
+**(K)** With path knowledge one death can change five sets of grids (the true ones and four players'), so a
+rebuild had to get cheaper. A grid keeps its terrain's part and is stamped again with the footprints
+(`NavGrid::restamp`), and the components are labelled by runs of free tiles with a union-find, which gives the
+same labels as the flood fill (first tiles in row-major order). The true grids are rebuilt in 5b, and again after
+a death in 5e. Each player's known grids are rebuilt at the end of the tick, when the set of footprints it knows
+changed, so at most once per player and tick; a map resource seen for the first time changes nothing (the same
+footprint, now remembered instead of assumed). During a tick a player's grids are those of the end of the tick
+before: an own structure placed by a command joins them at the end of its tick. **Measured**
+(`tests/nav_perf.rs`, release, 256 × 256): one grid restamped in 0.17 ms on the bad-case map of 5.8 (1.4 ms for
+the build it replaces); with 4 players, 412 units (400 on the move) and 160 patches, the tick in which ten
+Generators go in sight of all four players rebuilds 5 sets of grids and takes 1.0 ms in all, the worst tick of
+the units' path checks after it 1.3 ms, against 0.27 ms for the ticks before.
 
 **5.8 Performance.** Measured with a throwaway benchmark (`scratchpad/m1/bench/astar.rs`: this exact A\* on 256×256,
 10 % random obstacles plus six map-high walls with one gap each, a deliberately bad case):
