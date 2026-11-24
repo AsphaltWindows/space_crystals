@@ -116,8 +116,8 @@ Each buildable structure has a Space Crystals (or other resource) cost and a War
 | Building | Cost | WarpInTime |
 |----------|------|------------|
 | Egress Node | 75 Space Crystals | 320 frames (20 seconds) |
-| Robo Portal | 400 Space Crystals | 640 frames (40 seconds) |
-| Bio Portal | 150 Space Crystals | 480 frames (30 seconds) |
+| Robo Portal | 250 Space Crystals (was 400; user, 2026-11-24) | 640 frames (40 seconds) |
+| Bio Portal | 150 Space Crystals (kept; user, 2026-11-24: with the Beacon's Drone, ≈ 200 effective, level with GDO's Barracks) | 480 frames (30 seconds) |
 | Alloy Furnace | TBD | TBD |
 | Essence Refinery | TBD | TBD |
 | Flux Reactor | TBD | TBD |
