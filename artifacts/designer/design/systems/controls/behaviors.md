@@ -219,11 +219,11 @@ Same as MovingToLocation.
 ## Patrolling
 Base behavior for moving back and forth between two locations while engaging enemies encountered along the way. Combines AttackMovingToLocation with automatic waypoint cycling.
 
-### Reads: BaseCommandState.TargetLocation (patrol destination), unit's position at time of command (patrol origin)
+### Reads: BaseCommandState.TargetLocation (patrol destination), unit's position when the Patrol starts executing (patrol origin)
 
 ### BaseBehaviorState contains:
 - AttackMovingToLocation sub-behavior state
-- PatrolOrigin: Coordinates (unit's position when the Patrol command was issued)
+- PatrolOrigin: Coordinates (unit's position when the Patrol **starts executing**, not when it was issued; for a Shift-queued Patrol that is where the previous queued order ended. User, 2026-11-23)
 - PatrolDestination: Coordinates (BaseCommandState.TargetLocation)
 - CurrentLeg: origin-to-destination | destination-to-origin
 

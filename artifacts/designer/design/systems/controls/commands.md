@@ -55,7 +55,7 @@ Order the unit to move to a target location, engaging enemies encountered along 
 - TargetObject = None
 
 ## Patrol
-Order the unit to move back and forth between its current location and a target location, engaging enemies encountered along the way.
+Order the unit to move back and forth between its location **when the Patrol starts executing** (for a queued Patrol: where the previous order ended) and a target location, engaging enemies encountered along the way.
 
 ### Sets BaseCommandState:
 - CommandType = Patrol
