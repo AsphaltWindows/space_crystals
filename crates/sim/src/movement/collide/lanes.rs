@@ -309,6 +309,8 @@ mod tests {
             progress: None,
             arrived_with: None,
             yields,
+            gathers: false,
+            leads: true,
         }
     }
 

@@ -41,6 +41,8 @@ fn turning_tick(
         progress: None,
         arrived_with: None,
         yields: false,
+        gathers: false,
+        leads: true,
     }];
     let mut counters = MoveCounters::default();
     let mut world = World {

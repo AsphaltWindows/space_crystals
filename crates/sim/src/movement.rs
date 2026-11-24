@@ -43,6 +43,7 @@ use crate::math;
 use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState};
 use crate::nav::{self, Nav};
 use crate::object::Object;
+use crate::orders::gather;
 use crate::production::Doorway;
 use crate::shape::Shape;
 use crate::units::Tick;
@@ -173,6 +174,8 @@ fn body_of(o: &Object, mover: &Mover, unit: &UnitDef, half: Vec2) -> Body {
         progress: on_its_way.then_some(mover.last_progress),
         arrived_with: mover.group.filter(|_| mover.status == MoveStatus::Arrived),
         yields: yielding::can_yield(o, mover, unit),
+        gathers: gather::on_gather_job(o),
+        leads: stuck::leads(mover),
     }
 }
 

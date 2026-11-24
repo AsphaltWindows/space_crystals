@@ -1,22 +1,20 @@
-//! The gathering soak (slice M3-H's acceptance; question Q0038): Drones on the reference field of
-//! `factions/gdo/economy.md > Economy Targets (GDO vs Colonists) > Reference geometry` (design change 0107: 8
-//! adjacent patches in a row, the Egress Node centred on the row's long side, 2 grid units from it edge to edge) —
-//! under **hard collision with workers that never yield**, the rules this slice was told to build. Design change
-//! 0106, the answer to Q0038 point 1, lets gathering Drones pass through each other; it arrived while the slice was
-//! built and is not built yet (`orders::gather`, module docs).
+//! The gathering soak (slices M3-H and M3-H2; design changes 0106 and 0107): Drones on the reference field of
+//! `factions/gdo/economy.md > Economy Targets (GDO vs Colonists) > Reference geometry` (8 adjacent patches in a row,
+//! the Egress Node centred on the row's long side, 2 grid units from it edge to edge).
 //!
-//! **What holds, and is asserted here**: the four starting Drones gather without a hitch; however crowded the field,
-//! no Space Crystal is lost or made, no state names an object that is gone, and the movement invariants hold
-//! (`TestSim` checks them every tick).
+//! Gathering Drones pass through each other (`factions/colonists/units.md > Drone > Gathering Drones pass through
+//! each other`, design change 0106), so a patch's occupancy is the only limit: nothing jams however crowded the
+//! field, every Drone keeps delivering, and at saturation the field gives what its patches give, 4 Space Crystals
+//! per second each. Under hard collision, as slice M3-H first built it, the field gridlocked from 12 Drones on.
 //!
-//! **What doesn't hold**: the plan's acceptance for the soak, "24 Drones on 8 patches for 5 minutes. No deadlock:
-//! every Drone delivers at least once every 30 s". Under hard collision the field **gridlocks**: a Drone that has
-//! mined stands against its patch, the next Drone for that patch stands behind it, their neighbours stand left and
-//! right, and nobody yields or swaps (`systems/units.md > UnitCollision > Ground Collision`: "Two moving units never
-//! yield to each other or swap places", and a unit with a command never yields). That test is here and ignored
-//! (`the_soak_of_24_drones_keeps_every_drone_delivering`), to be turned on when design change 0106 is built; the
-//! smallest jam found is pinned by `three_drones_per_patch_gridlock_under_hard_collision`, and `saturation_curve`
-//! prints the measurements:
+//! **Asserted here**: the four starting Drones; 24 Drones for 5 minutes with every Drone delivering at least once
+//! every 30 s (the plan's acceptance for the soak, 0106's Verification), the income of the saturated field, no
+//! Space Crystal lost or made and no dangling reference; the field that was the smallest gridlock; and the
+//! movement invariants throughout (`TestSim`, every tick: I1 lets only gathering Drones overlap).
+//!
+//! `saturation_curve` prints the measurements. **The Drones still move on the stand-in** (plan decision T25: top
+//! speed at once, until slice M3-G builds DragMovement), so below saturation the incomes are above the design's
+//! table; they are to be measured again then, and nothing here is tuned to them.
 //!
 //! ```sh
 //! cargo test -p sc_sim --release --test gathering_soak -- --ignored --nocapture --test-threads=1 saturation_curve
@@ -201,48 +199,66 @@ fn four_drones_gather_for_five_minutes_without_a_hitch() {
     }
 }
 
-/// The soak's safety half, which holds however Drones collide: 24 Drones on the 8 patches for 5 minutes, sent by
-/// one right-click. No Space Crystal is lost or made, every Drone still has its job, no state names an object that
-/// is gone, and the invariants hold in the crowd (`TestSim`, every tick).
+/// 0106's Verification, "Saturate a patch row with ~24 Drones: they cross each other freely between the row and
+/// the Egress Node, no jams; income approaches the Economy Targets table", and the plan's acceptance for the soak
+/// (§3.3 H): "24 Drones on 8 patches for 5 minutes. No deadlock: every Drone delivers at least once every 30 s."
+/// Sent by one right-click and dealt out over the patches alike.
+/// - The income is the table's "fully saturated ≈ 32 per second (~24 working Drones)": every patch is mined without
+///   a break, 4 Space Crystals per second each.
+/// - No Space Crystal is lost or made, every Drone still has its job, no state names an object that is gone, and
+///   the invariants hold in the crowd (`TestSim`, every tick).
 #[test]
-fn the_soak_of_24_drones_loses_nothing_and_keeps_the_invariants() {
-    let mut field = Field::reference(24, false);
-    let before = field.crystals();
-    for until in (0..=SOAK_TICKS).step_by(400).skip(1) {
-        field.t.run_until(until);
-        assert_eq!(field.crystals(), before, "tick {until}");
-        assert_eq!(dangling_references(field.t.sim()), [], "tick {until}");
-    }
-    assert_eq!(field.measure(SETTLED).idle, 0, "a Gather never ends on its own");
-}
-
-/// Slice M3-H's acceptance for the soak (plan §3.3 H): "24 Drones on 8 patches for 5 minutes. No deadlock: every
-/// Drone delivers at least once every 30 s." **It fails under hard collision** (module docs): the field gridlocks
-/// in the first minute. To be turned on with design change 0106.
-#[test]
-#[ignore = "fails under hard collision with workers that never yield: design change 0106 isn't built yet"]
 fn the_soak_of_24_drones_keeps_every_drone_delivering() {
     for spread in [false, true] {
-        let soak = soak(8, 24, spread);
+        let mut field = Field::reference(24, spread);
+        let before = field.crystals();
+        for until in (0..=SOAK_TICKS).step_by(400).skip(1) {
+            field.t.run_until(until);
+            assert_eq!(field.crystals(), before, "spread {spread}, tick {until}");
+            assert_eq!(dangling_references(field.t.sim()), [], "spread {spread}, tick {until}");
+        }
+        let soak = field.measure(SETTLED);
         assert!(soak.worst_gap <= DELIVERY_GAP, "spread {spread}: {soak:?}");
+        assert!((31.0..=32.1).contains(&soak.per_second), "spread {spread}: {soak:?}");
+        assert_eq!(soak.idle, 0, "a Gather never ends on its own: {soak:?}");
     }
 }
 
-/// The smallest jam found, pinned: 3 adjacent patches with the Egress Node 2 grid units south of
-/// them and 9 Drones, three sent to each patch. They mine a load or two, then stand in each other's way for good: a
-/// loaded Drone against its patch, the Drones for that patch behind and beside it. From 50 s to 5 minutes nearly
-/// nothing is delivered, where 3 patches give Drones 12 Space Crystals per second.
-///
-/// This pins the game as it is, not as it should be: it is to go, with the ignored acceptance test above turned on
-/// in its place, when design change 0106 is built and gathering Drones pass through each other.
+/// The saturation curve of the reference field: each Drone adds income until the patches are mined without a break,
+/// and nowhere does a crowd give less than a smaller one did (under hard collision the income fell from 10 Drones
+/// on, and to nothing with 24). 2 Drones a patch give at least the table's 23 per second.
 #[test]
-fn three_drones_per_patch_gridlock_under_hard_collision() {
-    let soak = soak(3, 9, true);
-    assert!(soak.per_second < 1.0, "{soak:?}");
-    assert!(
-        soak.worst_gap > 2400,
-        "a Drone went half the run without a delivery: {soak:?}"
-    );
+fn the_income_of_the_reference_field_grows_with_its_drones_up_to_saturation() {
+    let mut last = 0.0;
+    for drones in [4, 8, 12, 16, 20, 24] {
+        let soak = soak(8, drones, true);
+        assert!(soak.worst_gap <= DELIVERY_GAP, "{soak:?}");
+        assert!(soak.per_second > last - 0.1, "{soak:?} after {last} per second");
+        if drones == 16 {
+            assert!(soak.per_second >= 23.0, "{soak:?}");
+        }
+        last = soak.per_second;
+    }
+    assert!(last >= 31.0, "saturated: {last} per second");
+}
+
+/// The field that was the smallest gridlock under hard collision (slice M3-H pinned it): 3 adjacent patches with the
+/// Egress Node 2 grid units south of them and 9 Drones, three sent to each patch. Now they wait, mine and deliver
+/// inside each other, and the income is steady: what 3 patches give, 12 Space Crystals per second, in every one of
+/// the run's minutes, with no Drone left out.
+#[test]
+fn three_drones_per_patch_give_a_steady_income() {
+    let mut field = Field::new(3, 9);
+    field.order(true);
+    for minute in 1..=5 {
+        field.t.run_until(minute * 960);
+        let soak = field.measure((minute - 1) * 960);
+        // The first minute includes the walk to the patches.
+        let least = if minute == 1 { 10.0 } else { 11.5 };
+        assert!((least..=12.5).contains(&soak.per_second), "minute {minute}: {soak:?}");
+    }
+    let soak = field.measure(SETTLED);
+    assert!(soak.worst_gap <= DELIVERY_GAP, "{soak:?}");
     assert_eq!(soak.idle, 0, "they all still have their Gather: {soak:?}");
 }
 
@@ -258,7 +274,7 @@ fn timed<T>(work: impl FnOnce() -> T) -> (T, Duration) {
     (result, start.elapsed())
 }
 
-/// The measurements of the field under hard collision, printed: the income and the worst delivery gap by the number of Drones on
+/// The measurements of the field, printed: the income and the worst delivery gap by the number of Drones on
 /// the reference field, for both ways of ordering them; rows of 1 to 8 patches with two and three Drones a patch;
 /// and the tick cost of the 24-Drone soak.
 #[test]

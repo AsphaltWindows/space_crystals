@@ -27,6 +27,27 @@ fn remaining(pos: Vec2, path: &[Vec2], next: usize) -> f32 {
     pos.distance(ahead[0]) + rest
 }
 
+/// (M3-H2) Whether the units waiting behind a unit on its way share its progress clock ([`after_move`]): it **has
+/// got on since its leg began**. A new leg sets the unit's own clock to the tick it begins (`Mover::go_to`), which
+/// is right for the unit (it is stuck only `STUCK_TICKS` after it was sent) but is no progress: an order isn't.
+/// Until this rule, those behind it took that clock over all the same, so a unit whose legs kept beginning again
+/// without it ever moving on (a worker trying its patch again, a blocked unit the player keeps clicking on)
+/// renewed their clocks with every leg, and none of them ever looked for a way round it.
+///
+/// Read off the state, with no field of its own: on a leg without a counted repath, `last_repath` is the tick the
+/// leg began, and `last_progress` is later only if the unit got on, took over the clock of a unit ahead that did,
+/// or stood waiting for its path or its attack (`super::wait` runs the clock on; a path normally comes in the
+/// tick it is asked for, so that is rare, and it then counts as before this rule). After a counted repath the unit
+/// was stuck on this leg and its clock is old: it is shared as before.
+pub(super) fn leads(mover: &Mover) -> bool {
+    mover.repaths_left < MAX_REPATHS || mover.last_progress > mover.last_repath
+}
+
+/// The progress clock `blocker` shares with a unit waiting behind it: `Body::progress`, if it [`leads`].
+fn shared_progress(blocker: &Body) -> Option<Tick> {
+    blocker.progress.filter(|_| blocker.leads)
+}
+
 /// `docs/movement.md > 6.5`, rule 2: a unit chasing the target of its attack (`chased`, which its attack engages),
 /// blocked by a stationary unit of its owner that attacks the same target, **queues**: it keeps waiting, with no
 /// repath and no failure, until the unit ahead moves on or the target dies. `engaged` lists what each body's attack
@@ -127,8 +148,8 @@ fn target_is_occupied(
 ///
 /// **Progress** to a point is the remaining path length: `last_progress` moves on when it beats `best_remaining` by
 /// half a step. A new path measures afresh but is no progress by itself. Following a slower unit is progress, and so is
-/// **waiting behind a unit that is getting on**: a unit blocked by one that is on its way takes over that unit's
-/// `last_progress` if it is later. So a queue at a choke isn't stuck while its head moves, and units that block
+/// **waiting behind a unit that is getting on**: a unit blocked by one that is on its way and has got on since its
+/// leg began ([`leads`]) takes over that unit's `last_progress` if it is later. So a queue at a choke isn't stuck while its head moves, and units that block
 /// each other for good share a clock that stands still. (On one path `best_remaining` only falls, and repaths
 /// are capped, so the progress of a whole crowd is finite: nothing keeps a deadlock alive.)
 ///
@@ -176,7 +197,7 @@ pub(super) fn after_move(
         mover.best_remaining = f32::MAX;
         if moved.forward {
             mover.last_progress = tick;
-        } else if let Some(ahead) = blocker.and_then(|b| b.progress) {
+        } else if let Some(ahead) = blocker.and_then(shared_progress) {
             mover.last_progress = mover.last_progress.max(ahead.min(tick));
         }
     } else if mover.best_remaining == f32::MAX {
@@ -185,7 +206,7 @@ pub(super) fn after_move(
     } else if left < mover.best_remaining - step * 0.5 {
         mover.best_remaining = left;
         mover.last_progress = tick;
-    } else if let Some(ahead) = blocker.and_then(|b| b.progress) {
+    } else if let Some(ahead) = blocker.and_then(shared_progress) {
         mover.last_progress = mover.last_progress.max(ahead.min(tick));
     }
     let me = world.body();
@@ -228,6 +249,28 @@ mod tests {
         assert_eq!(remaining(Vec2::ZERO, &[], 0), 0.0);
     }
 
+    /// (M3-H2) A unit's progress clock counts for those behind it once it has got on since its leg began: not on
+    /// the tick it was sent, nor while it only stands blocked; from its first progress on, and for good after a
+    /// counted repath (it was stuck on this leg, and its clock is old).
+    #[test]
+    fn a_unit_leads_once_it_has_got_on_since_its_leg_began() {
+        let goal = Vec2::new(500.0, 0.0);
+        let mut mover = Mover::default();
+        mover.go_to(MoveGoal::Point(goal), None, 40);
+        assert!(!leads(&mover), "a new leg is no progress");
+        mover.follow(vec![Vec2::ZERO, goal], goal, 0);
+        assert!(!leads(&mover), "nor is its path");
+        mover.last_progress = 41;
+        assert!(leads(&mover));
+        // Sent again: the clock is its own again.
+        mover.go_to(MoveGoal::Point(goal), None, 60);
+        assert!(!leads(&mover));
+        // Stuck, it looks for another route at tick 92: that clock is shared, old as it is.
+        assert!(mover.counted_repath(92));
+        assert_eq!((mover.last_progress, mover.last_repath), (60, 92));
+        assert!(leads(&mover));
+    }
+
     /// (G) A unit shut out by its own group avoids the tiles of all the units that arrived with that order, the
     /// nearest first, up to the cap; never its goal's tile, nor units of another order.
     #[test]
@@ -243,6 +286,8 @@ mod tests {
             progress: None,
             arrived_with,
             yields: true,
+            gathers: false,
+            leads: true,
         };
         // The unit stands in tile (1, 1) and goes to tile (7, 1).
         let pos = Vec2::new(100.0, 96.0);
