@@ -51,6 +51,13 @@ Feeding and hauling are separate jobs — the player assigns different Drones to
 - MiningReach: 8 space units — a Drone can mine once its Silhouette is within 8 su of the patch's edge (placeholder)
 - DropOffReach: 8 space units — within 8 su of the drop-off point's edge (placeholder)
 
+#### Gathering Drones pass through each other
+(user, 2026-11-24) A Drone **on a Gather job** does not collide with any other Drone on a Gather job, **of any player**. "On a Gather job" covers every step of the jobs in the table above: travelling to the pick-up point, mining or picking up, waiting at an occupied patch, carrying the load and delivering it.
+- They still collide with everything else: other units, Drones that are not on a Gather job (idle, moving, deploying), structures, patches and terrain.
+- **Drones only.** Other factions' workers (e.g. Cults Recruits) keep normal collision while mining.
+- Reason: at saturation about 24 Drones work the narrow strip between a patch row and its Egress Node, and the returning Drones converge on one node. With hard collision they would queue and jam, and the Colonists' income targets assume patch occupancy is the only limit (factions/gdo/economy.md > Economy Targets (GDO vs Colonists)).
+- A Drone that leaves its Gather job while overlapping another unit follows the overlap rule in systems/units.md > UnitCollision > Units that already overlap.
+
 #### Patch Occupancy (one Drone per patch)
 A Space Crystals patch can be mined by **only one Drone at a time**, from **any player** — an enemy Drone mining a patch blocks your Drones too. A patch is occupied while a Drone is mining it (Drones travelling to it do not count).
 
