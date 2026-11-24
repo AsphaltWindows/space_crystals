@@ -304,6 +304,8 @@ impl Sim {
         orders::update(&mut self.objects, first_new, &world);
         // The Drones that got to their sites in 5a deploy, or their orders fail; before 5b claims the footprints.
         self.step_deployments(first_new);
+        // The Attacks 5a found a unit can't carry out, its target too close (design change 0182), fail.
+        self.step_too_close(first_new);
         // 5b: the movement below must collide with this tick's obstacles (the true grids).
         observe(Phase::NavSync);
         paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
@@ -589,5 +591,6 @@ mod removal;
 mod resources;
 #[cfg(test)]
 mod tests;
+mod too_close;
 mod transform;
 mod workers;

@@ -49,9 +49,9 @@ fn duel() -> TestSim {
     t
 }
 
-/// The Guard wins: it takes the Peacekeeper's 50 HP in ten hits of 5, one every 8 ticks (the last in tick 76),
-/// while the Peacekeeper lands five hits of 9 in that time, one every 17 ticks. Two runs agree tick by tick, and
-/// the replay ends in the same state.
+/// The Guard wins: it takes the Peacekeeper's 50 HP in three hits of 17, one every 24 ticks (the last in tick 54;
+/// its laser rifle, design change 0186), while the Peacekeeper lands three hits of 9 in that time, one every 17
+/// ticks. Two runs agree tick by tick, and the replay ends in the same state.
 #[test]
 fn peacekeeper_against_guard_ends_the_same_way_every_time() {
     let run = || {
@@ -64,9 +64,9 @@ fn peacekeeper_against_guard_ends_the_same_way_every_time() {
     assert_eq!(first_hashes, second_hashes);
     assert_eq!(first.events(), second.events());
     assert_eq!(first.sim(), second.sim());
-    assert_eq!(died(&first), [(76, ObjectId(1))]);
+    assert_eq!(died(&first), [(54, ObjectId(1))]);
     let guard = first.sim().object(ObjectId(2)).unwrap();
-    assert_eq!(guard.hp, Some(35.0));
+    assert_eq!(guard.hp, Some(53.0));
     assert!(
         guard.orders.as_ref().unwrap().is_idle(),
         "its order completed with the kill"
@@ -97,13 +97,13 @@ fn three_on_three() -> TestSim {
     t
 }
 
-/// Saved in tick 11, with the Guards about to fire and the Peacekeepers reloading, the game loads into the same
+/// Saved in tick 29, with the Guards about to fire and the Peacekeepers reloading, the game loads into the same
 /// state and runs on tick by tick as the original does, events included, to the end of the fight: the middle Guard
-/// falls in tick 38, Peacekeepers 1 and 3 in 76 and the last one in 100.
+/// falls in tick 38, Peacekeepers 1 and 3 in 54 and the last one in 78.
 #[test]
 fn a_fight_saved_mid_way_continues_the_same_after_loading() {
     let mut t = three_on_three();
-    t.run_until(11);
+    t.run_until(29);
     let phase = |sim: &Sim, id: u32| sim.object(ObjectId(id)).unwrap().attack.clone().unwrap().phase;
     assert_eq!(
         phase(t.sim(), 4),
@@ -129,9 +129,9 @@ fn a_fight_saved_mid_way_continues_the_same_after_loading() {
             _ => None,
         }));
     }
-    assert_eq!(deaths, [(38, 5), (76, 1), (76, 3), (100, 2)]);
+    assert_eq!(deaths, [(38, 5), (54, 1), (54, 3), (78, 2)]);
     let hp = |id: u32| loaded.object(ObjectId(id)).and_then(|o| o.hp);
-    assert_eq!((hp(4), hp(6)), (Some(17.0), Some(80.0)));
+    assert_eq!((hp(4), hp(6)), (Some(62.0), Some(80.0)));
 }
 
 /// A random brawl: two jittered columns of eight Peacekeepers and eight Guards, 120 su apart, given random attack

@@ -1,11 +1,12 @@
 //! The behaviours' working state — the design's BaseBehaviorState (`systems/controls/behaviors.md >
 //! BaseBehaviorState`): what a behaviour keeps from tick to tick. It is state like any other: serialized and
-//! hashed, so a save loaded in the middle of a fight continues identically.
+//! hashed, so a save loaded in the middle of a fight continues identically ([`hash`]).
+
+mod hash;
 
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
-use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::units::Tick;
 
@@ -42,8 +43,9 @@ impl Default for Auto {
 
 /// `> AttackingObject`: the state of an Attack order.
 ///
-/// The fields M3-R added (`remembered`, `on_hold`) are left out of files while they are unset, and out of the hash
-/// ([`StateHash`] below), so that states saved before they existed still load and the goldens of M1 and M2 stand.
+/// The fields M3-R and M3-L2 added (`remembered`, `on_hold`, `backing_off`, `too_close`) are left out of files while
+/// they are unset, and out of the hash ([`hash`]), so that states saved before they existed still load and the goldens
+/// of M1 and M2 stand.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AttackOrder {
     /// The unit's current move is the approach to the target.
@@ -62,6 +64,15 @@ pub struct AttackOrder {
     /// it may.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_hold: Option<Approach>,
+    /// Design change 0182 (`> AttackingObject > Target inside MinRange`): the target is inside the unit's MinRange,
+    /// and the unit's current move is its back-off from it (`orders::engage`), given when the target stood here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backing_off: Option<Vec2>,
+    /// Design change 0182: the target is inside the unit's MinRange and the unit can't move to back off, so it can't
+    /// carry the order out. The step right after phase 5a ends the order, with the "Target too close" feedback
+    /// (`Sim::step_too_close`).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub too_close: bool,
 }
 
 /// `> MovingToObject`: the state of a Move to an object.
@@ -90,12 +101,16 @@ fn is_false(b: &bool) -> bool {
 
 /// `> AttackMovingToLocation`: one leg towards a point, engaging enemies on the way. An AttackMove order is one
 /// leg; a Patrol is one after another.
+///
+/// The fields M3-L2 added (`walking`, `resumed`, `dropped`) are left out of files while they are unset, and out of
+/// the hash ([`hash`]), as [`AttackOrder`]'s.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Leg {
     /// TargetLocation: this unit's own destination.
     pub to: Vec2,
-    /// PathReference: the route first planned for the leg, from where it began; the leash is measured from it.
-    /// Until the path is there (`planned`), the straight line.
+    /// PathReference (design change 0180): the route planned when the leg began, from where it began; the leash is
+    /// measured from it. Until the path is there (`planned`), the straight line. Kept after a fight (the walking path
+    /// is planned again, `walking`), and replaced by the new path when the leg's own move re-routes, a detour.
     pub reference: Vec<Vec2>,
     /// `reference` is the planned path.
     pub planned: bool,
@@ -103,7 +118,20 @@ pub struct Leg {
     pub marching: bool,
     /// CurrentTarget.
     pub engaged: Option<Pursuit>,
+    /// A target the unit gave up on (`> BaseAutoTargeting > Unreachable auto-targets`, design change 0181).
     pub ignored: Ignored,
+    /// Design change 0180: the path of the leg's own move while that isn't `reference`: the one planned after a fight,
+    /// which doesn't replace the reference. Empty while the move's path is the reference, or has yet to come.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub walking: Vec<Vec2>,
+    /// The leg's own move was given again after a fight, and its path is yet to come: it will be `walking`.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub resumed: bool,
+    /// The targets the unit let go of while they still lived (out of reach within the leash, or lost from sight on
+    /// the way), oldest first, at most `orders::travel::MAX_DROPPED`. It leaves them alone for the rest of the leg,
+    /// but within weapon range (`orders::travel::march`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dropped: Vec<ObjectId>,
 }
 
 /// `> Patrolling`.
@@ -221,7 +249,9 @@ pub enum Behaviour {
 impl Leg {
     /// The object ids the leg refers to.
     fn targets(&self) -> impl Iterator<Item = ObjectId> + '_ {
-        (self.engaged.iter().map(|p| p.target)).chain(self.ignored.iter().map(|&(id, _)| id))
+        let ignored = self.ignored.iter().map(|&(id, _)| id);
+        let dropped = self.dropped.iter().copied();
+        (self.engaged.iter().map(|p| p.target)).chain(ignored).chain(dropped)
     }
 
     fn forget(&mut self, is_gone: &impl Fn(ObjectId) -> bool) {
@@ -229,6 +259,7 @@ impl Leg {
             self.engaged = None;
         }
         forget_ignored(&mut self.ignored, is_gone);
+        self.dropped.retain(|&dropped| !is_gone(dropped));
     }
 }
 
@@ -290,200 +321,6 @@ impl Auto {
             Auto::Watching { ignored } => forget_ignored(ignored, is_gone),
             Auto::Engaging { pursuit, .. } if is_gone(pursuit.target) => *self = Auto::default(),
             Auto::Engaging { .. } | Auto::Returning => {}
-        }
-    }
-}
-
-impl StateHash for Pursuit {
-    fn hash(&self, h: &mut StateHasher) {
-        let Pursuit { target, chasing } = self;
-        target.hash(h);
-        chasing.hash(h);
-    }
-}
-
-fn hash_ignored(ignored: &Ignored, h: &mut StateHasher) {
-    match ignored {
-        None => h.tag(0),
-        Some((id, until)) => {
-            h.tag(1);
-            id.hash(h);
-            until.hash(h);
-        }
-    }
-}
-
-impl StateHash for Auto {
-    fn hash(&self, h: &mut StateHasher) {
-        match self {
-            Auto::Watching { ignored } => {
-                h.tag(0);
-                hash_ignored(ignored, h);
-            }
-            Auto::Engaging { pursuit, origin } => {
-                h.tag(1);
-                pursuit.hash(h);
-                origin.hash(h);
-            }
-            Auto::Returning => h.tag(2),
-        }
-    }
-}
-
-impl StateHash for AttackOrder {
-    fn hash(&self, h: &mut StateHasher) {
-        let AttackOrder {
-            chasing,
-            last_seen,
-            lost,
-            remembered,
-            on_hold,
-        } = self;
-        chasing.hash(h);
-        last_seen.hash(h);
-        lost.hash(h);
-        // (M3-R) Only while set, as `Mover::momentum` (`mover/hash.rs`): an Attack that never went for a remembered
-        // target nor waited behind a Riot Shield hashes as it did before the fields existed (the goldens stand). A
-        // state with one differs from the same state without by its tag and value.
-        if *remembered {
-            h.tag(1);
-        }
-        if let Some(follow) = on_hold {
-            h.tag(2);
-            follow.hash(h);
-        }
-    }
-}
-
-impl StateHash for Approach {
-    fn hash(&self, h: &mut StateHasher) {
-        let Approach {
-            moving,
-            parked,
-            last_seen,
-            lost,
-            remembered,
-        } = self;
-        moving.hash(h);
-        parked.hash(h);
-        last_seen.hash(h);
-        lost.hash(h);
-        // (M3-R) Only while set, as `AttackOrder`'s.
-        if *remembered {
-            h.tag(1);
-        }
-    }
-}
-
-impl StateHash for Leg {
-    fn hash(&self, h: &mut StateHasher) {
-        let Leg {
-            to,
-            reference,
-            planned,
-            marching,
-            engaged,
-            ignored,
-        } = self;
-        to.hash(h);
-        reference.hash(h);
-        planned.hash(h);
-        marching.hash(h);
-        engaged.hash(h);
-        hash_ignored(ignored, h);
-    }
-}
-
-impl StateHash for Patrol {
-    fn hash(&self, h: &mut StateHasher) {
-        let Patrol {
-            origin,
-            destination,
-            outbound,
-            failed_legs,
-            leg,
-        } = self;
-        origin.hash(h);
-        destination.hash(h);
-        outbound.hash(h);
-        failed_legs.hash(h);
-        leg.hash(h);
-    }
-}
-
-impl StateHash for GatherPhase {
-    fn hash(&self, h: &mut StateHasher) {
-        match self {
-            GatherPhase::ToPatch => h.tag(0),
-            GatherPhase::Waiting { since } => {
-                h.tag(1);
-                since.hash(h);
-            }
-            GatherPhase::Mining { done } => {
-                h.tag(2);
-                done.hash(h);
-            }
-            GatherPhase::ToDropOff => h.tag(3),
-            GatherPhase::DroppingOff { done } => {
-                h.tag(4);
-                done.hash(h);
-            }
-            GatherPhase::Delivered => h.tag(5),
-        }
-    }
-}
-
-impl StateHash for Gather {
-    fn hash(&self, h: &mut StateHasher) {
-        let Gather {
-            phase,
-            node,
-            moving,
-            retry_at,
-            spot,
-            ending,
-        } = self;
-        phase.hash(h);
-        node.hash(h);
-        moving.hash(h);
-        retry_at.hash(h);
-        spot.hash(h);
-        ending.hash(h);
-    }
-}
-
-impl StateHash for Behaviour {
-    fn hash(&self, h: &mut StateHasher) {
-        match self {
-            Behaviour::Plain => h.tag(0),
-            Behaviour::Attack(state) => {
-                h.tag(1);
-                state.hash(h);
-            }
-            Behaviour::Approach(state) => {
-                h.tag(2);
-                state.hash(h);
-            }
-            Behaviour::AttackMove(leg) => {
-                h.tag(3);
-                leg.hash(h);
-            }
-            Behaviour::Patrol(patrol) => {
-                h.tag(4);
-                patrol.hash(h);
-            }
-            Behaviour::Hold { target } => {
-                h.tag(5);
-                target.hash(h);
-            }
-            Behaviour::Gather(gather) => {
-                h.tag(6);
-                gather.hash(h);
-            }
-            Behaviour::Deploy(Deploy { arrived }) => {
-                h.tag(7);
-                arrived.hash(h);
-            }
         }
     }
 }

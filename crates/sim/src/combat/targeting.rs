@@ -63,7 +63,14 @@ pub fn max_range(attrs: &AttackAttrs, source: Elevation, target: Elevation) -> f
 /// MinRange (`systems/controls/behaviors.md > AttackingObject` 2). The ElevationModifier changes the Range only.
 /// Both bounds are inclusive: a placeholder reading, the design doesn't say.
 pub fn within_range(attrs: &AttackAttrs, distance: f32, source: Elevation, target: Elevation) -> bool {
-    distance >= gu(attrs.min_range) && distance <= max_range(attrs, source, target)
+    !inside_min_range(attrs, distance) && distance <= max_range(attrs, source, target)
+}
+
+/// Whether a target `distance` space units away (the gap between the two shapes) is inside the attack's MinRange,
+/// too close to hit (`systems/combat.md > AttackAttributes`; design change 0182 says what the behaviours do about
+/// it). A target exactly at MinRange isn't: [`within_range`] takes both bounds.
+pub fn inside_min_range(attrs: &AttackAttrs, distance: f32) -> bool {
+    distance < gu(attrs.min_range)
 }
 
 /// `systems/combat.md > AttackAttributes > Range Measurement` (design change 0031): whether an attack with `attrs`

@@ -577,11 +577,19 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Goldens.** Only `riot_shield` was re-blessed, at its shield-up checkpoints. Perf is unchanged.
   - **Readings.** Q0053: orders while lowering, Lower during a waiting raise, the ActiveGroup during a deferred raise.
 
+- **M3-L2 target priority, AttackMove leash, MinRange, Guard laser** (merged in `f039e5c`; 1314 tests):
+  - **0179.** `World::pick` ranks targets by `rotation_step` (45° steps), then distance, then id.
+  - **0180.** A target in weapon range is always fought. An out-of-range one is chased only within 6 GU of the PathReference. The reference is kept after fights and replaced by a new path mid-leg.
+  - **Loop fix.** A target dropped while alive is left alone for the rest of the leg (`Leg::dropped`), which ends soak seed 1's loop and seed 29's two-target variant. It isn't in the design: Q0054.
+  - **0182.** Scans skip targets inside MinRange. An explicit Attack backs a mobile unit off to the middle of the band; an immobile one gets `SimEvent::TargetTooClose`, shown as "Target too close". Test-only defs are in `defs/test_defs.rs`.
+  - **0186.** The Guard's laser: 18 damage, 4/1/3/16, Universal.
+  - **Goldens.** duel_3v3, riot_shield, patrol, attack_move_battle and gdo_opening were re-blessed, each change traced to its entry.
+  - **Soak.** Seed 1 is back in `behaviours_soak`, and an ignored `soak_sweep` covers seeds 1–40. Only seed 5 fails, on the settle bound with units still walking, not looping (master failed 5, 8, 11 and 34). Perf: same per-tick cost, longer battles.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M3-K2a fixes** (Opus; brief `scratchpad/briefs/m3k2a-fixes.md`): the 0139 marker leak, event-driven drop-off reassignment (0170), a half-out unit attacking, readable labels at 720p, the `fog_memory.rs` split, `is_going_up`.
   - **M3-K1 Colonists economy oracle** (Opus; brief `scratchpad/briefs/m3k1-colonists-oracle.md`): targets 1–4 and the income table within ±15% (0107, 0108), the saturation curve, goldens `colonists_opening` and `colonists_vs_gdo`.
-  - **M3-L2 targeting behaviours** (Opus; brief `scratchpad/briefs/m3l2-targeting-behaviours.md`): 0179, 0180, 0182, 0186 Guard numbers, and the AttackMove loop on soak seed 1.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2 playtest** with the user, using `docs/playtest/m2.md`.
@@ -718,10 +726,9 @@ First playable after M2-H2.
     | S | done (`08f09a6`) |
     | K2a (fixes: 0139 marker leak, 0170 by event, half-out attack, labels, `fog_memory.rs` split) | running (wave 5) |
     | L1 | done (`aeb54ae`) |
-    | L2 (0179, 0180, 0182, 0186 Guard numbers, the AttackMove loop) | running (wave 5) |
-    | X (after L1 and L2; Fable: soak robustness over seeds 1–40; master fails 8, 12, 21 idle-mover, 34 settle bound) | queued |
+    | L2 | done (`f039e5c`) |
     | K1 (0107, 0108, saturation curve, two goldens) | running (wave 5) |
-    | K2 (final QA: ignored perf tests, playtest notes for M3, QA screenshots of each feature, `docs/playtest/m2.md` refresh; after L2, X, K1, K2a) | queued |
+    | K2 (final QA: soak seed 5's settle bound (`soak_sweep`); ignored perf tests, playtest notes for M3, QA screenshots of each feature, `docs/playtest/m2.md` refresh; after K1 and K2a) | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -799,9 +806,10 @@ First playable after M2-H2.
 | Q0051 | A target that outruns sight is lost at once, despite the fog delay | no | open; M3-L1 lingers tiles only |
 | Q0052 | Gathering UI: a Drone's right-click on enemies, the Set Drop-off pointer, who sees a Drone's load, Gather indicators | no | open; M3-J2 built the stated current behaviour |
 | Q0053 | Riot Shield toggle edge cases: orders while lowering, Lower during a waiting raise, the ActiveGroup during a deferred raise | no | open; M3-S built the stated current behaviour |
+| Q0054 | AttackMove: a dropped target not chased again on that leg; the MinRange back-off spot; a cornered unit | no | open; M3-L2 built the stated current behaviour |
 
 ## Design change entries
-Last triaged: 0195.
+Last triaged: 0196.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -977,15 +985,15 @@ Last triaged: 0195.
 | 0176 No start at power 0 (as built); a capacity cost of 0 always passes | done (point 2 as built, M3-P; point 3 M3-V `9516a0f`, in `ArmyCap::fits`) | answers Q0047 points 2–3 |
 | 0177 Shots drawn only over Visible tiles; an attacker outside the victim's vision is revealed to the victim's owner for 24 ticks after each shot | done (M3-L1, `aeb54ae`: `vision/reveal.rs`, `REVEAL_TICKS` 24; tracers cut at Visible tile edges) | answers Q0017 point 1 |
 | 0178 Fog delay: a tile stays Visible for 8 ticks after it leaves all sight | done (M3-L1, `aeb54ae`: `vision/linger.rs`, `FOG_DELAY_TICKS` 8); a target outrunning sight: Q0051 | answers Q0018 point 1 |
-| 0179 Target priority by rotation in 45° steps, then closest, then a fixed order | queued (M3-L2, after R) | answers Q0018 point 2 |
-| 0180 AttackMove leash limits chasing only: targets in weapon range are always fought; PathReference kept after fights, replaced by a blockage detour | queued (M3-L2, after R) | answers Q0018 point 3 |
+| 0179 Target priority by rotation in 45° steps, then closest, then a fixed order | done (M3-L2, `f039e5c`: `rotation_step`; exactly 45° is step 0) | answers Q0018 point 2 |
+| 0180 AttackMove leash limits chasing only: targets in weapon range are always fought; PathReference kept after fights, replaced by a blockage detour | done (M3-L2, `f039e5c`: `travel::pursue`; the dropped-target rule is Q0054) | answers Q0018 point 3 |
 | 0181 Unreachable auto-targets: approach, give up, retry after 32 ticks | done (as built) | answers Q0018 point 4 |
-| 0182 MinRange: auto-targeting skips targets inside it; an explicit Attack backs a mobile unit off, and fails for an immobile one with "Target too close" | queued (M3-L2, after R) | answers Q0018 point 5 |
+| 0182 MinRange: auto-targeting skips targets inside it; an explicit Attack backs a mobile unit off, and fails for an immobile one with "Target too close" | done (M3-L2, `f039e5c`: back-off, `Sim::step_too_close`, `SimEvent::TargetTooClose`; back-off spot is Q0054) | answers Q0018 point 5 |
 | 0183 A unit walled out of its group spot counts as arrived within the 3 GU radius | done with 0169 (M3-V, `9516a0f`; tested with 7 Guards) | answers Q0018 point 6 |
 | 0184 Another command pressed while targeting: "Cancel the current command first" | done (as built, M3-J1 `864c13f`) | answers Q0048 point 1 |
 | 0185 Unfinished buildings form their own SelectionGroup (key: type, finished?) | done (M3-U, `d3814be`: `GroupKey { kind, unfinished, instance }`; the ActiveGroup on completion is Q0050) | answers Q0048 point 2; replaces M3-J1's reading |
-| 0186 Syndicate Guard: laser rifle, Universal, 18 damage every 24 ticks, needs an Optics Lab; Agent: pistol, ground only, 5 damage every 20 ticks | Guard attack numbers queued (M3-L2); Optics Lab gate, Hideout and Agent queued (M4) | user redesign |
+| 0186 Syndicate Guard: laser rifle, Universal, 18 damage every 24 ticks, needs an Optics Lab; Agent: pistol, ground only, 5 damage every 20 ticks | Guard laser done (M3-L2, `f039e5c`); Optics Lab gate, Hideout and Agent queued (M4) | user redesign |
 | 0187 Syndicate Grenadier: slow, dodgeable AoE grenade, ground only, Attack Ground; Hideout E, needs a Chemical Plant | queued (M4; concept only, numbers TBD) | user addition |
 | 0188 Syndicate Assault Bike: fastest wheeled vehicle, wide turns, mortar on a narrow-angle turret | queued (M4; concept only, numbers TBD) | user addition |
-| 0189–0195 Syndicate Shadebringer: support vehicle with Sludge (slows everyone, laid behind it) and Cover (smoke that blocks line of sight and blinds units inside); separate tanks refilled in the Tunnel Network with a Vault | queued (M4; concept only, numbers and several rules TBD; line-of-sight blocking is new to the vision model) | user additions |
+| 0189–0196 Syndicate Shadebringer: support vehicle with Sludge (slows everyone except hover and air, Drill Units only on the surface (0196), laid behind it) and Cover (smoke that blocks line of sight and blinds units inside); separate tanks refilled in the Tunnel Network with a Vault | queued (M4; concept only, numbers and several rules TBD; line-of-sight blocking is new to the vision model) | user additions |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

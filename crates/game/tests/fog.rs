@@ -332,7 +332,8 @@ fn combat_in_the_fog_shows_nothing() {
 
     order(&mut app, P2, 2, OrderKind::Attack(ObjectId(3)));
     let ordered = tick(&app);
-    run_until(&mut app, ordered + 4);
+    // The Guard's shot lands after its Aim of 4 ticks (design change 0186).
+    run_until(&mut app, ordered + 6);
     assert!(
         !app.world().resource::<CombatEffects>().tracers.is_empty(),
         "they fight"

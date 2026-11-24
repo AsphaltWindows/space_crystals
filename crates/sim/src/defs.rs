@@ -9,6 +9,8 @@ mod colonists;
 mod gdo;
 mod structures;
 mod syndicate;
+#[cfg(test)]
+pub(crate) mod test_defs;
 mod units;
 
 use glam::Vec2;
@@ -175,6 +177,11 @@ impl ObjectKind {
     ];
 
     pub fn def(self) -> &'static ObjectDef {
+        // The sim's own unit tests may give a kind other numbers (`test_defs`).
+        #[cfg(test)]
+        if let Some(def) = test_defs::get(self) {
+            return def;
+        }
         match self {
             ObjectKind::CrystalPatch => &CRYSTAL_PATCH,
             ObjectKind::SupplyDeliveryStation => &SUPPLY_DELIVERY_STATION,

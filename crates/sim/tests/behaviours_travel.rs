@@ -386,10 +386,12 @@ fn an_attack_move_group_engages_on_the_way_and_resumes() {
     assert!(exact >= 4, "{exact} of 6 stand on their own place");
 }
 
-/// `> AttackMovingToLocation` 3: "If unit's perpendicular distance from PathReference exceeds
-/// AttackMoveLeashDistance: disengage … resume MovingToLocation". A Guard attack-moves east; a Peacekeeper it
-/// acquires on the way runs south, a little slower than the Guard follows. 6 grid units off its route the Guard
-/// lets go and walks on to its destination.
+/// `> AttackMovingToLocation` 3 (design change 0180): "The unit does not move to chase a target if that would take it
+/// beyond AttackMoveLeashDistance (perpendicular distance from PathReference). If the target is out of weapon range
+/// and can only be reached by going beyond the leash: disengage … resume MovingToLocation". A Guard attack-moves
+/// east; a Peacekeeper it acquires on the way runs south, a little slower than the Guard follows. The Guard goes
+/// after it up to its leash, 6 grid units off its route (a step past it at most: it closes in step by step), lets
+/// go there and walks on to its destination. (`tests/attack_move_leash.rs` has the rest of 0180.)
 #[test]
 fn an_attack_move_breaks_off_at_its_leash_and_goes_on() {
     let mut t = ScenarioBuilder::new(&open()).start();
@@ -410,8 +412,8 @@ fn an_attack_move_breaks_off_at_its_leash_and_goes_on() {
     assert!(chased, "it went for the Peacekeeper");
     let leash = gu(ATTACK_MOVE_LEASH_GU);
     assert!(
-        farthest > leash && farthest <= leash + 5.0,
-        "it left its route by {farthest} su, a step past the leash of {leash}"
+        farthest > leash - 5.0 && farthest <= leash + 5.0,
+        "it left its route by {farthest} su, within a step of the leash of {leash}"
     );
     assert_eq!(pos(&t, 1), to, "and went on to its destination");
     assert!(exists(&t, 2), "the Peacekeeper got away");

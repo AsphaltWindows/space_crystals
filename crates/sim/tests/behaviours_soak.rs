@@ -360,55 +360,15 @@ fn running(sim: &Sim) -> Vec<(ObjectId, Option<OrderKind>)> {
 #[test]
 fn units_fighting_under_random_orders_keep_the_invariants() {
     let (mut acquired, mut checked) = (0, 0);
-    // Not seed 1, since design change 0168: from its tick 67 a unit that a random Move sent after itself stops, and
-    // the game that follows runs into an AttackMove that never ends. A unit acquires an enemy at the edge of its
-    // owner's sight, its path to it leads out of that sight, so it disengages, walks back and acquires it again,
-    // every other tick: a flaw of the AttackMove's disengage rule (`orders::travel::march`, step 3), not of a seed.
-    for seed in [2, 3, 4] {
+    // Seed 1 ran into an AttackMove that never ended (after design change 0168): a unit acquired an enemy at the edge
+    // of its owner's sight, its path to it led out of that sight, so it disengaged, walked back and acquired it again,
+    // every other tick. A target the unit let go of is now left alone for the rest of the leg (`orders::travel::march`;
+    // `tests/attack_move_leash.rs` has the loop on its own, and with two targets taken in turn, seed 29's).
+    for seed in [1, 2, 3, 4] {
         let run = soak(seed);
-        let alive = run.t.sim().objects().filter(|o| o.mover.is_some()).count();
-        let ticks = run.t.sim().tick();
-        println!(
-            "seed {seed}: {} shots, {} deaths, {alive} units left; {} enemies acquired by idle units, {} idle units \
-             in reach checked, {} excused by a death; {} of {} orders taken, for {} units; {} moves failed; {} path \
-             searches in {ticks} ticks; every order ended {:?} ticks after the last",
-            run.shots,
-            run.deaths,
-            run.acquired,
-            run.checks.0,
-            run.checks.1,
-            run.taken.0,
-            run.taken.1,
-            run.ordered,
-            run.failed,
-            run.searches,
-            run.settled
-        );
-        // Every order ends, but those that last until the next one.
-        assert!(
-            run.settled.is_some(),
-            "seed {seed}: orders still running: {:?}",
-            running(run.t.sim())
-        );
-        // It was a fight.
-        assert!(run.shots > 0 && run.deaths > 0, "seed {seed}");
+        check(seed, &run);
         acquired += run.acquired;
         checked += run.checks.0;
-        // The gate refuses fewer than half of the orders (a target out of sight, say).
-        assert!(run.taken.0 * 2 > run.taken.1, "seed {seed}: {:?}", run.taken);
-        // Fewer than one in ten of the units ordered fails a move.
-        assert!(
-            run.failed * 10 < run.ordered as usize,
-            "seed {seed}: {} of {} failed",
-            run.failed,
-            run.ordered
-        );
-        // No behaviour plans afresh every tick: on average a unit asks for a path far less than once in 10 ticks.
-        assert!(
-            run.searches < u64::from(UNITS * ticks / 10),
-            "seed {seed}: {} searches",
-            run.searches
-        );
         if seed == 2 {
             assert_eq!(soak(seed).hash, run.hash, "the same seed again");
             assert_eq!(run.t.replay().run().state_hash(), run.hash, "and its replay");
@@ -416,4 +376,68 @@ fn units_fighting_under_random_orders_keep_the_invariants() {
     }
     // Idle units met enemies, so the check that they engage them did check something.
     assert!(acquired > 0 && checked > 0);
+}
+
+/// What every seed's run must come to.
+fn check(seed: u64, run: &Outcome) {
+    let alive = run.t.sim().objects().filter(|o| o.mover.is_some()).count();
+    let ticks = run.t.sim().tick();
+    println!(
+        "seed {seed}: {} shots, {} deaths, {alive} units left; {} enemies acquired by idle units, {} idle units in \
+         reach checked, {} excused by a death; {} of {} orders taken, for {} units; {} moves failed; {} path searches \
+         in {ticks} ticks; every order ended {:?} ticks after the last",
+        run.shots,
+        run.deaths,
+        run.acquired,
+        run.checks.0,
+        run.checks.1,
+        run.taken.0,
+        run.taken.1,
+        run.ordered,
+        run.failed,
+        run.searches,
+        run.settled
+    );
+    // Every order ends, but those that last until the next one.
+    assert!(
+        run.settled.is_some(),
+        "seed {seed}: orders still running: {:?}",
+        running(run.t.sim())
+    );
+    // It was a fight.
+    assert!(run.shots > 0 && run.deaths > 0, "seed {seed}");
+    // The gate refuses fewer than half of the orders (a target out of sight, say).
+    assert!(run.taken.0 * 2 > run.taken.1, "seed {seed}: {:?}", run.taken);
+    // Fewer than one in ten of the units ordered fails a move.
+    assert!(
+        run.failed * 10 < run.ordered as usize,
+        "seed {seed}: {} of {} failed",
+        run.failed,
+        run.ordered
+    );
+    // No behaviour plans afresh every tick: on average a unit asks for a path far less than once in 10 ticks.
+    assert!(
+        run.searches < u64::from(UNITS * ticks / 10),
+        "seed {seed}: {} searches",
+        run.searches
+    );
+}
+
+/// The soak over seeds 1 to 40, each run on its own, its outcome printed: which seeds fail, and how. Ignored: about
+/// ten times the soak's own time. `cargo test -p sc_sim --release --test behaviours_soak -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn soak_sweep() {
+    let mut failed = Vec::new();
+    for seed in 1..=40 {
+        let outcome = std::panic::catch_unwind(|| check(seed, &soak(seed)));
+        if let Err(cause) = outcome {
+            let cause = (cause.downcast_ref::<String>().cloned())
+                .or_else(|| cause.downcast_ref::<&str>().map(|s| s.to_string()))
+                .unwrap_or_default();
+            println!("seed {seed} FAILED: {}", cause.lines().next().unwrap_or_default());
+            failed.push(seed);
+        }
+    }
+    println!("failed: {failed:?}");
 }

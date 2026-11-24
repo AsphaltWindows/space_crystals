@@ -38,20 +38,21 @@ pub(super) static GUARD: ObjectDef = ObjectDef {
         },
         rugged_terrain_defense_bonus: None, // only LightInfantry has it
         turret: None,                       // TurretAttributes - None
+        // The laser rifle (design change 0186): one shot every 24 frames, instant hit; the numbers are placeholders.
         attack: Some(AttackAttrs {
-            // FullyConnected; its Range of 3 grid units makes it the Ranged subtype (`systems/combat.md >
-            // FullyConnected > Melee` is adjacent contact).
+            // FullyConnected (laser; instant hit, cannot miss); its Range of 3 grid units makes it the Ranged subtype
+            // (`systems/combat.md > FullyConnected > Melee` is adjacent contact).
             attack_type: AttackType::FullyConnected(FullyConnectedSubtype::Ranged),
-            target_domain: TargetDomain::Ground,   // TargetDomain: Ground
-            target_type: TargetType::SingleTarget, // TargetType: SingleTarget
-            damage: 6.0,                           // Damage: 6
-            range: 3.0,                            // Range: 3 grid units
-            min_range: 0.0,                        // MinRange: 0
-            projectile_speed: None,                // FullyConnected: no projectile
-            aim_ticks: 2,                          // AimDuration: 2 frames
-            firing_ticks: 1,                       // FiringDuration: 1 frame
-            cooldown_ticks: 1,                     // CooldownDuration: 1 frame
-            reload_ticks: 4,                       // ReloadDuration: 4 frames
+            target_domain: TargetDomain::Universal, // TargetDomain: Universal (ground and air)
+            target_type: TargetType::SingleTarget,  // TargetType: SingleTarget
+            damage: 18.0,                           // Damage: 18 (placeholder)
+            range: 3.0,                             // Range: 3 grid units
+            min_range: 0.0,                         // MinRange: 0
+            projectile_speed: None,                 // FullyConnected: no projectile
+            aim_ticks: 4,                           // AimDuration: 4 frames (placeholder)
+            firing_ticks: 1,                        // FiringDuration: 1 frame (placeholder)
+            cooldown_ticks: 3,                      // CooldownDuration: 3 frames (placeholder)
+            reload_ticks: 16,                       // ReloadDuration: 16 frames (placeholder)
         }),
         unit_control_cost: None,
         tunnel_space_cost: Some(1), // TunnelSpaceCost - 1
