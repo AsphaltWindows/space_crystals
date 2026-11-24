@@ -270,7 +270,7 @@ pub(super) fn update_info_panel(
 #[cfg(test)]
 mod tests {
     use sc_sim::testing::ScenarioBuilder;
-    use sc_sim::{ObjectId, SpawnAt, TilePos};
+    use sc_sim::{Command, DebugCommand, ObjectId, PlayerCommand, SimConfig, SpawnAt, TickInputs, TilePos};
 
     use super::*;
 
@@ -289,11 +289,13 @@ mod tests {
     }
 
     /// Ids 1–3 patches; player 1's Barracks 4 and plate 5 (on patch 1); player 2's Generator 6 and plate 7 (on patch
-    /// 2); a neutral plate 8 on patch 3; a plate of player 1's on bare ground, 9. All in plain sight of both players:
-    /// the panel is about who owns what, the fog's part is tested with the client.
+    /// 2); a neutral plate 8 on patch 3; a plate of player 1's on bare ground, 9, which only a debug spawn puts there
+    /// (map validation refuses it), in tick 1. All in plain sight of both players: the panel is about who owns what,
+    /// the fog's part is tested with the client.
     fn sim() -> Sim {
         use ObjectKind::{Barracks, CrystalPatch, ExtractionPlate, Generator};
         let scenario = ScenarioBuilder::new(&vec![".".repeat(16); 8].join("\n"))
+            .config(SimConfig::DEBUG)
             .spawn(CrystalPatch, None, tile(1, 5))
             .spawn(CrystalPatch, None, tile(3, 5))
             .spawn(CrystalPatch, None, tile(5, 5))
@@ -302,9 +304,23 @@ mod tests {
             .spawn(Generator, Some(P2), tile(6, 1))
             .spawn(ExtractionPlate, Some(P2), tile(3, 5))
             .spawn(ExtractionPlate, None, tile(5, 5))
-            .spawn(ExtractionPlate, Some(P1), tile(9, 5))
             .build();
-        Sim::new(&scenario)
+        let mut sim = Sim::new(&scenario);
+        let spawn = DebugCommand::Spawn {
+            kind: ExtractionPlate,
+            owner: Some(P1),
+            at: tile(9, 5),
+            orientation: Default::default(),
+        };
+        let command = PlayerCommand {
+            player: P1,
+            command: Command::Debug(spawn),
+        };
+        sim.step(&TickInputs {
+            commands: vec![command],
+        });
+        assert_eq!(sim.object(ObjectId(9)).map(|o| o.kind), Some(ExtractionPlate));
+        sim
     }
 
     /// The panel of object `id` alone, as `viewer` sees it without the fog.

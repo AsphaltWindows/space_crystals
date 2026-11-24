@@ -80,13 +80,16 @@ fn a_peacekeeper_takes_80_ticks_at_full_power() {
 }
 
 /// Plan acceptance and design change 0089: production is slowed by the power ratio. With the Extraction Facility
-/// and two plates the player consumes 51 of its 30: "at ratio 30/51 it takes exactly 136 ticks".
+/// and two plates (on their patches, as a map's plates go) the player consumes 51 of its 30: "at ratio 30/51 it
+/// takes exactly 136 ticks".
 #[test]
 fn production_is_slowed_by_the_power_ratio() {
     let mut t = base()
         .spawn(ObjectKind::ExtractionFacility, Some(P1), tile(14, 10))
         .spawn(ObjectKind::ExtractionPlate, Some(P1), tile(20, 12))
         .spawn(ObjectKind::ExtractionPlate, Some(P1), tile(22, 12))
+        .spawn(ObjectKind::CrystalPatch, None, tile(20, 12))
+        .spawn(ObjectKind::CrystalPatch, None, tile(22, 12))
         .start();
     let power = t.sim().power(P1);
     assert_eq!((power.generated, power.consumed), (30, 51));

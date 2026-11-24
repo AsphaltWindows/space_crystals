@@ -10,14 +10,16 @@ use glam::Vec2;
 
 use super::Scenario;
 use super::create::{MAX_SLOTS, slot_count_fits};
-use super::mapdef::{BuildingOrientation, MapDef, MapType, SpawnAt};
+use super::mapdef::{BuildingOrientation, MapDef, MapType, Spawn, SpawnAt};
 use super::problems::{ScenarioProblem, SpawnProblem};
 use super::settings::SpawnSettings;
 use crate::defs::{Category, Footprint, ObjectKind};
 use crate::ids::{PlayerId, SlotId};
 use crate::map::Map;
+use crate::nav::TileRect;
 use crate::object::Placement;
 use crate::paths::misplaced;
+use crate::placement::{Occupant, Onto};
 use crate::symmetry::Symmetry;
 use occupied::Occupied;
 
@@ -35,10 +37,11 @@ pub(crate) struct StartObject {
 
 impl MapDef {
     /// Everything that makes this map unplayable whoever plays it: the terrain (size, then the too-steep tiles row by
-    /// row), the symmetry, the slots, the pre-placed objects in order, then the units among them on blocked ground
-    /// or on each other and the footprints on units (`docs/movement.md > 3`), then the Starting Layouts: every
-    /// layout on its own, with its faction's placement rules, and on a Skirmish Default map its Starting Conditions,
-    /// complete (`validate/layouts.rs`). Never panics.
+    /// row), the symmetry, the slots, the pre-placed objects in order, then the plates among them off a patch
+    /// (`placement::Onto`, the placement check's rule), then the units among them on blocked ground or on each other
+    /// and the footprints on units (`docs/movement.md > 3`), then the Starting Layouts: every layout on its own, with
+    /// its faction's placement rules, and on a Skirmish Default map its Starting Conditions, complete
+    /// (`validate/layouts.rs`). Never panics.
     pub fn validate(&self) -> Vec<ScenarioProblem> {
         let mut problems = Vec::new();
         self.check(&mut problems);
@@ -117,6 +120,15 @@ impl MapDef {
                 }
             }
         }
+        for i in self.off_patch(&spots) {
+            let kind = self.spawns[i].kind;
+            let problem = SpawnProblem::NotOnPatch;
+            problems.push(ScenarioProblem::InvalidSpawn {
+                spawn: i,
+                kind,
+                problem,
+            });
+        }
         // Units: every spawn that can be placed, whoever owns it, so a game with any players passes.
         let placed: Vec<(usize, ObjectKind, Vec2, Option<&Placement>)> = self
             .spawns
@@ -136,6 +148,49 @@ impl MapDef {
 
         self.check_layouts(&spots, problems);
         spots
+    }
+
+    /// The pre-placed objects, by index, that don't stand on what they go onto: a plate that isn't exactly on a
+    /// patch among the others that can be placed (`factions/gdo/economy.md > ExtractionPlate`, "Placed onto a Space
+    /// Crystal Patch"). The placement check's rule ([`Onto`]), so that a map, a Starting Layout and a game's
+    /// placement can't disagree; a game would start such a plate on nothing, and it would never mine.
+    fn off_patch(&self, spots: &[Option<SpawnSpot>]) -> Vec<usize> {
+        let occupant = |(s, spot): (&Spawn, &Option<SpawnSpot>)| {
+            let (pos, placement) = spot.as_ref()?;
+            Some(Occupant {
+                kind: s.kind,
+                pos: *pos,
+                placement: *placement,
+            })
+        };
+        let all: Vec<Option<Occupant>> = self.spawns.iter().zip(spots).map(occupant).collect();
+        let mut off = Vec::new();
+        for (i, o) in all.iter().enumerate() {
+            let Some(Occupant {
+                kind,
+                placement: Some(p),
+                ..
+            }) = o
+            else {
+                continue;
+            };
+            let mut onto = Onto::new(*kind, TileRect::new(p.origin, p.w, p.h));
+            if onto.is_kept() {
+                continue;
+            }
+            for other in all
+                .iter()
+                .enumerate()
+                .filter(|&(j, _)| j != i)
+                .filter_map(|(_, o)| o.as_ref())
+            {
+                onto.see(other);
+            }
+            if !onto.is_kept() {
+                off.push(i);
+            }
+        }
+        off
     }
 
     /// Whether a pre-placed object of `kind` may have `owner`.

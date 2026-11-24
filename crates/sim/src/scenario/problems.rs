@@ -10,7 +10,7 @@ use super::settings::SettingsProblem;
 use super::starting::StartingConditions;
 use crate::defs::ObjectKind;
 use crate::ids::{PlayerId, SlotId};
-use crate::placement::{PlacementCheck, TileProblem};
+use crate::placement::{PlacementCheck, TileProblem, WholeProblem};
 use crate::player::Faction;
 use crate::units::TilePos;
 
@@ -123,6 +123,9 @@ pub enum SpawnProblem {
     /// `core/map.md > Elevation > Structures only on flat terrain`, `> Map resources only on flat terrain`: this
     /// footprint tile is sloped.
     NotFlat(TilePos),
+    /// `factions/gdo/economy.md > ExtractionPlate`, "Placed onto a Space Crystal Patch": the pre-placed Extraction
+    /// Plate isn't exactly on one, by the placement check's rule ([`crate::placement::Onto`]).
+    NotOnPatch,
     /// `core/map_editor.md > Per-object Resource Values`: the spawn has no values, but its kind needs them.
     MissingSettings,
     /// The spawn's values belong to another kind of object.
@@ -157,6 +160,7 @@ impl fmt::Display for SpawnProblem {
             SpawnProblem::FootprintOffMap => write!(f, "the footprint is not entirely on the map"),
             SpawnProblem::PointOffMap => write!(f, "the point is not finite or off the map"),
             SpawnProblem::NotFlat(t) => write!(f, "it needs flat ground, but its tile ({}, {}) is sloped", t.x, t.y),
+            SpawnProblem::NotOnPatch => write!(f, "{}", WholeProblem::NotOnPatch),
             SpawnProblem::MissingSettings => write!(f, "its per-object values are missing"),
             SpawnProblem::WrongSettings => write!(f, "its per-object values belong to another kind of object"),
             SpawnProblem::InvalidSettings(problem) => write!(f, "{problem}"),

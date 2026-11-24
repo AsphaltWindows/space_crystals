@@ -24,7 +24,8 @@
 //!   (`factions/gdo/structures.md > GDOBuildArea`), except for the Deployment Center, which seeds the area
 //!   ([`seeds_build_area`]); for an Extraction Plate, exactly onto a Space Crystals Patch
 //!   (`factions/gdo/economy.md > ExtractionFacility > AwaitingPlacement`), which must have no plate yet: a covered
-//!   patch is a tile under a structure.
+//!   patch is a tile under a structure. That rule is [`Onto`], which map validation also applies to the map's
+//!   pre-placed objects, the one placement rule they follow besides the shared tiles.
 //!
 //! **The build area** ([`BuildArea`], [`Sim::build_area`]): the union of the parts each of the player's GDO
 //! buildings adds, its footprint grown by its BuildRadiusExtension, square (design change 0091). It is derived from
@@ -46,7 +47,7 @@ mod tests;
 
 pub use build_area::{BuildArea, seeds_build_area};
 pub use check::{
-    Mode, Occupant, PlacementCheck, PlacementProblem, Site, TileProblem, WholeProblem, check, check_layout,
+    Mode, Occupant, Onto, PlacementCheck, PlacementProblem, Site, TileProblem, WholeProblem, check, check_layout,
     footprint_size,
 };
 

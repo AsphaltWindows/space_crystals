@@ -61,24 +61,34 @@ fn blocked(t: &TestSim, x: i32, y: i32) -> bool {
 }
 
 /// Each structure type spawns with its stat block, from a scenario and by a debug spawn: its owner, its MaxHP, its
-/// footprint at its centre, its sides; and nothing a unit has (no orders, movement or weapon).
+/// footprint at its centre, its sides; and nothing a unit has (no orders, movement or weapon). The scenario's plate
+/// goes onto a patch (`factions/gdo/economy.md > ExtractionPlate`), the map's sixth object; a debug spawn needn't.
 #[test]
 fn each_structure_spawns_with_its_stat_block() {
     let mut builder = ScenarioBuilder::new(&flat(30, 12));
     for (i, kind) in STRUCTURES.into_iter().enumerate() {
         builder = builder.spawn(kind, Some(P1), tile(1 + 5 * i as i32, 1));
     }
-    let mut t = builder.start();
+    let plate = STRUCTURES
+        .iter()
+        .position(|&k| k == ObjectKind::ExtractionPlate)
+        .unwrap();
+    let mut t = builder
+        .spawn(ObjectKind::CrystalPatch, None, tile(1 + 5 * plate as i32, 1))
+        .start();
     for (i, kind) in STRUCTURES.into_iter().enumerate() {
         let at = tile(1 + 5 * i as i32, 6);
         t.debug_at(1, spawn(kind, Some(P2), at, BuildingOrientation::default()));
     }
     t.run_until(1);
-    assert_eq!(t.sim().objects().count(), 10);
-    for o in t.sim().objects() {
+    assert_eq!(t.sim().objects().count(), 11);
+    for o in t.sim().objects().filter(|o| o.kind != ObjectKind::CrystalPatch) {
         let def = o.kind.def();
-        let i = (o.id.0 as usize - 1) % 5;
-        let (owner, row) = if o.id.0 <= 5 { (P1, 1) } else { (P2, 6) };
+        let (owner, row, i) = if o.id.0 <= 5 {
+            (P1, 1, o.id.0 as usize - 1)
+        } else {
+            (P2, 6, o.id.0 as usize - 7)
+        };
         assert_eq!((o.kind, o.owner), (STRUCTURES[i], Some(owner)), "{o:?}");
         assert_eq!(o.hp, def.max_hp, "{:?}", o.kind);
         let placement = o.placement.expect("tile-based");

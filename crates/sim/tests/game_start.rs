@@ -424,19 +424,39 @@ fn a_layout_plate_goes_onto_a_patch_by_the_games_rule() {
     assert_eq!(file.validate(), []);
 }
 
-/// Bug (M2-I's finding, "the sim accepts pre-placed plates off a patch"; for the Director): a plate pre-placed on the
-/// map, not in a layout, passes the map's validation off a patch, and the game starts it on none, so it never mines.
-/// A layout's plate is refused there (above). Whether a pre-placed plate must go onto a patch, and with which
-/// `SpawnProblem`, is the Director's call; this test expects only that the map is refused.
+/// A plate pre-placed on the map, not in a layout, goes onto a patch too (`factions/gdo/economy.md >
+/// ExtractionPlate`: "Placed onto a Space Crystal Patch"; M2-I's finding, fixed in slice M2-J2), by the rule of a
+/// layout's plate and a game's placement (`placement::Onto`), so the three can't drift apart. One off its patch is
+/// its spawn's `SpawnProblem::NotOnPatch`, and the game doesn't start: it would start the plate on nothing, and the
+/// plate would never mine. On its patch it is valid, before or after the patch in the list, owned or neutral.
 #[test]
-#[ignore = "bug: MapDef::validate accepts a pre-placed Extraction Plate that isn't on a patch"]
 fn a_pre_placed_plate_off_a_patch_is_refused() {
     let mut map = scenarios::empty_map(24, 12); // a Custom map, where player-owned objects may be pre-placed
     map.spawns = vec![patch(1, 8), Spawn::new(PLATE, Some(SlotId(1)), tile(3, 8))];
+    let off = |spawn| ScenarioProblem::InvalidSpawn {
+        spawn,
+        kind: PLATE,
+        problem: SpawnProblem::NotOnPatch,
+    };
+    assert_eq!(map.validate(), [off(1)]);
+    assert_eq!(
+        off(1).to_string(),
+        "spawn 1 (ExtractionPlate): an Extraction Plate goes onto a Space Crystals patch"
+    );
+    assert_eq!(Sim::try_new(&Scenario::new(map.clone())).err(), Some(vec![off(1)]));
+
+    map.spawns[1].at = tile(1, 8);
+    map.spawns.swap(0, 1);
+    assert_eq!(map.validate(), []);
     let sim = Sim::try_new(&Scenario::new(map.clone())).unwrap();
-    let plate = sim.objects().find(|o| o.kind == PLATE).unwrap();
-    assert!(plate.extractor.is_none(), "on no patch");
-    assert_ne!(map.validate(), [], "a pre-placed plate off a patch");
+    assert!(
+        sim.objects().any(|o| o.kind == PLATE && o.extractor.is_some()),
+        "it mines its patch"
+    );
+    map.spawns[0].owner = None;
+    assert_eq!(map.validate(), []);
+    map.spawns[0].at = tile(5, 8);
+    assert_eq!(map.validate(), [off(0)], "a neutral plate off its patch");
 }
 
 /// Each layout is valid on its own, but the players of one game get theirs together: one in another's way keeps the

@@ -195,6 +195,7 @@ pub fn check(
         };
     };
     let footprint = Footprint { origin, w, h };
+    let mut onto = Onto::new(kind, footprint.rect());
     // Each footprint tile's problems, as bits, row by row.
     let mut found = vec![0u8; footprint.len()];
     let map = site.map;
@@ -215,12 +216,11 @@ pub fn check(
             found[i] |= TileProblem::NotVisible.bit();
         }
     }
-    let mut on_patch = false;
     for o in occupants {
+        onto.see(&o);
         match &o.placement {
             Some(placement) => {
                 let rect = TileRect::new(placement.origin, placement.w, placement.h);
-                on_patch |= goes_onto(kind, o.kind) && rect == footprint.rect();
                 // The one rule of which footprints may share tiles, as for map objects and debug spawns.
                 if kind.may_overlap(o.kind) {
                     continue;
@@ -262,10 +262,48 @@ pub fn check(
     if needs_build_area(kind) && !site.area.reaches(footprint.rect()) {
         whole.push(WholeProblem::OutsideBuildArea);
     }
-    if goes_onto_patch(kind) && !on_patch {
+    if !onto.is_kept() {
         whole.push(WholeProblem::NotOnPatch);
     }
     PlacementCheck { tiles, whole }
+}
+
+/// What a structure goes onto, the one statement of the rule (`factions/gdo/economy.md > ExtractionPlate`: "Placed
+/// onto a Space Crystal Patch"): an Extraction Plate goes exactly over a Space Crystals Patch, and nothing else goes
+/// onto anything. Shown everything else on the map, in any order ([`Onto::see`]), it says whether a footprint keeps
+/// the rule ([`Onto::is_kept`]). Every way a structure comes to stand asks it, so they can't drift apart: [`check`]
+/// for a game's placements and the Starting Layouts' ([`WholeProblem::NotOnPatch`]), and map validation for the
+/// map's pre-placed objects, which follow no other placement rule (`SpawnProblem::NotOnPatch`). Whether the patch
+/// has a plate already is the rule of shared tiles ([`ObjectKind::may_overlap`]).
+#[derive(Copy, Clone, Debug)]
+pub struct Onto {
+    kind: ObjectKind,
+    footprint: TileRect,
+    kept: bool,
+}
+
+impl Onto {
+    /// The rule for a structure of `kind` covering `footprint`, before anything is seen: kept, but by a plate.
+    pub fn new(kind: ObjectKind, footprint: TileRect) -> Self {
+        Self {
+            kind,
+            footprint,
+            kept: !goes_onto_patch(kind),
+        }
+    }
+
+    /// Takes `other` into account: a patch exactly under the plate keeps the rule.
+    pub fn see(&mut self, other: &Occupant) {
+        self.kept |= goes_onto(self.kind, other.kind)
+            && other
+                .placement
+                .is_some_and(|p| TileRect::new(p.origin, p.w, p.h) == self.footprint);
+    }
+
+    /// Whether the footprint keeps the rule, given what was seen.
+    pub fn is_kept(&self) -> bool {
+        self.kept
+    }
 }
 
 /// [`Mode::Layout`] for object `index` of a Starting Layout (`core/map_editor.md > Starting Layouts > Layout

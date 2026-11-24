@@ -76,9 +76,11 @@ fn structures_see_with_their_sight_range() {
         (ObjectKind::ExtractionFacility, 3.0),
         (ObjectKind::ExtractionPlate, 0.0),
     ] {
-        let mut t = ScenarioBuilder::new(&flat(24, 20))
-            .spawn(kind, Some(P1), tile(9, 8))
-            .start();
+        let mut builder = ScenarioBuilder::new(&flat(24, 20)).spawn(kind, Some(P1), tile(9, 8));
+        if kind == ObjectKind::ExtractionPlate {
+            builder = builder.spawn(ObjectKind::CrystalPatch, None, tile(9, 8)); // a plate goes onto a patch
+        }
+        let mut t = builder.start();
         t.run_until(1);
         let at = object(&t, 1).pos;
         let expected: Vec<TilePos> = (0..20)
@@ -193,7 +195,8 @@ fn a_plate_on_a_patch() {
 
 /// Design change 0096 (`core/entities.md > Placement Validation > All placement methods: no buildings on
 /// resources`): a structure over a patch or a station makes a map invalid, and so does one in a Starting Layout; a
-/// plate on an uncovered patch is valid, also from a layout. The debug spawn's side is in `structures.rs`.
+/// plate on an uncovered patch is valid, also from a layout, and one on no patch isn't (`factions/gdo/economy.md >
+/// ExtractionPlate`, slice M2-J2). The debug spawn's side is in `structures.rs`.
 #[test]
 fn only_a_plate_may_cover_a_resource() {
     let gdo = |kind, x, y| Spawn::new(kind, Some(SlotId(1)), tile(x, y));
@@ -205,16 +208,21 @@ fn only_a_plate_may_cover_a_resource() {
         gdo(ObjectKind::Generator, 1, 1),        // 2: over the patch at (2, 2)
         gdo(ObjectKind::Barracks, 9, 3),         // 3: over the station at (9, 3)
         gdo(ObjectKind::ExtractionPlate, 2, 2),  // 4: on the patch, which the Generator covers too
-        gdo(ObjectKind::ExtractionPlate, 10, 6), // 5: on no patch: no rule against it yet
+        gdo(ObjectKind::ExtractionPlate, 10, 6), // 5: on no patch
     ]);
     let overlap = |first, second, x, y| ScenarioProblem::OverlappingFootprints {
         first,
         second,
         tile: TilePos::new(x, y),
     };
+    let off_patch = ScenarioProblem::InvalidSpawn {
+        spawn: 5,
+        kind: ObjectKind::ExtractionPlate,
+        problem: sc_sim::SpawnProblem::NotOnPatch,
+    };
     assert_eq!(
         s.validate(),
-        [overlap(0, 2, 2, 2), overlap(1, 3, 9, 3), overlap(2, 4, 2, 2)]
+        [overlap(0, 2, 2, 2), overlap(1, 3, 9, 3), overlap(2, 4, 2, 2), off_patch]
     );
 
     // From a Starting Layout: a plate on the map's patch is fine, a Generator over the station is not (the rules of a
