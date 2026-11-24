@@ -14,7 +14,7 @@
 use super::structures::{ProductionDef, Recipe, StructureDef, SymmetryType};
 use super::units::{
     AttackAttrs, AttackType, FullyConnectedSubtype, MELEE_CONTACT_GU, MovementAttrs, TargetDomain, TargetType,
-    UnitBase, UnitDef,
+    UnitBase, UnitDef, WorkerDef,
 };
 use super::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
@@ -59,6 +59,14 @@ pub(super) static DRONE: ObjectDef = ObjectDef {
         tunnel_space_cost: None,
         beacon_capacity_cost: Some(1), // BeaconCapacityCost - 1
         riot_shield: None,
+        // `> Gathering`
+        worker: Some(WorkerDef {
+            carry_capacity: 8,   // CarryCapacity: 8 per load
+            mining_ticks: 32,    // MiningDuration: 32 frames
+            drop_off_ticks: 2,   // DropOffDuration: 2 frames
+            mining_reach: 8.0,   // MiningReach: 8 space units (the design's placeholder)
+            drop_off_reach: 8.0, // DropOffReach: 8 space units (the design's placeholder)
+        }),
     }),
     structure: None,
 };
@@ -113,6 +121,7 @@ pub(super) static SABRE_LEGIONNAIRE: ObjectDef = ObjectDef {
         tunnel_space_cost: None,
         beacon_capacity_cost: Some(2), // BeaconCapacityCost - 2
         riot_shield: None,
+        worker: None,
     }),
     structure: None,
 };
@@ -165,6 +174,7 @@ pub(super) static RIFLE_LEGIONNAIRE: ObjectDef = ObjectDef {
         tunnel_space_cost: None,
         beacon_capacity_cost: Some(2), // BeaconCapacityCost - 2
         riot_shield: None,
+        worker: None,
     }),
     structure: None,
 };
@@ -215,6 +225,7 @@ pub(super) static BEACON: ObjectDef = ObjectDef {
                 frames: 480, // 480 frames (30 seconds)
             },
         ],
+        drop_off: false,
     }),
 };
 
@@ -245,6 +256,7 @@ pub(super) static EGRESS_NODE: ObjectDef = ObjectDef {
         mining: None,
         constructs: &[],
         warp_in: &[],
+        drop_off: true, // `economy.md > Egress Node > Drop Off`
     }),
 };
 
@@ -285,6 +297,7 @@ pub(super) static ROBO_PORTAL: ObjectDef = ObjectDef {
         mining: None,
         constructs: &[],
         warp_in: &[],
+        drop_off: false,
     }),
 };
 
@@ -327,6 +340,7 @@ pub(super) static BIO_PORTAL: ObjectDef = ObjectDef {
         mining: None,
         constructs: &[],
         warp_in: &[],
+        drop_off: false,
     }),
 };
 

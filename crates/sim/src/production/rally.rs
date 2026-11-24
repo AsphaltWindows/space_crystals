@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::economy::gathering::gatherable;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::Object;
@@ -46,17 +47,24 @@ pub fn is_enemy(player: Option<PlayerId>, target: &Object) -> bool {
 /// rally point: the default right-click command on the rally's target. Ground: Move there. An enemy object:
 /// Attack, if the unit can attack and the object can be destroyed, else Move to it. Any other object: Move to it
 /// (Follow, for a unit). `None` if the object is gone.
+///
+/// A worker (`is_worker`) rallied on a Space Crystals patch it can gather gets Gather, its default right-click
+/// there (`factions/colonists/units.md > Drone > Right-Click Resolution`; question Q0037 point 9, its proposal:
+/// `factions/colonists/structures.md > Robo Portal > RallyPoint behavior` also lists "Move to object" for it).
 pub(crate) fn order_for(
     rally: &Rally,
     owner: Option<PlayerId>,
     can_attack: bool,
+    is_worker: bool,
     objects: &BTreeMap<ObjectId, Object>,
 ) -> Option<OrderKind> {
     match *rally {
         Rally::Point(p) => Some(OrderKind::Move(Target::Point(p))),
         Rally::Object { id, .. } => {
             let target = objects.get(&id)?;
-            Some(if is_enemy(owner, target) && can_attack && target.def().destructible {
+            Some(if is_worker && gatherable(objects, id) {
+                OrderKind::Gather(id)
+            } else if is_enemy(owner, target) && can_attack && target.def().destructible {
                 OrderKind::Attack(id)
             } else {
                 OrderKind::Move(Target::Object(id))

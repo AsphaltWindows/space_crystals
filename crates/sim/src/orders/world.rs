@@ -14,15 +14,20 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::math;
 use crate::mover::Mover;
-use crate::object::Object;
+use crate::object::{Object, ResourceState};
 use crate::shape::Shape;
 use crate::units::{SU_PER_GU, Tick, gu};
 use crate::vision::Vision;
+
+use super::OrderKind;
+use super::state::{Behaviour, GatherPhase};
+use crate::economy::Worker;
 
 /// An object as the behaviours see it this tick.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct View {
     pub id: ObjectId,
+    pub kind: ObjectKind,
     pub owner: Option<PlayerId>,
     /// Its centre.
     pub pos: Vec2,
@@ -33,6 +38,8 @@ pub(crate) struct View {
     pub destructible: bool,
     /// Whether it is a unit: a Move to it follows it (`systems/controls/behaviors.md > MovingToObject > Completion`).
     pub is_unit: bool,
+    /// Whether it is a Space Crystals patch (`core/map.md > SpaceCrystalsPatch`), which workers gather.
+    pub is_patch: bool,
     /// The TargetDomain of its attack, if it has one: whom it threatens (`> TurretAutonomousScanning`, priority 1).
     threat: Option<TargetDomain>,
 }
@@ -42,6 +49,7 @@ const CELL_TILES: u32 = 4;
 
 /// The unit whose behaviour runs: its own object, split into what the behaviours read and what they write.
 pub(crate) struct Unit<'a> {
+    pub id: ObjectId,
     pub owner: Option<PlayerId>,
     pub kind: ObjectKind,
     pub pos: Vec2,
@@ -50,6 +58,8 @@ pub(crate) struct Unit<'a> {
     pub attack: Option<&'a mut AttackState>,
     /// Whether its mode lets it attack now: not while its Riot Shield is up (`riot_shield::allows_attack`).
     pub may_attack: bool,
+    /// A worker's load, patch and drop-off (`economy::gathering`).
+    pub worker: Option<&'a mut Worker>,
 }
 
 impl Unit<'_> {
@@ -122,6 +132,19 @@ pub(crate) struct World<'a> {
     candidate_half: f32,
     cells_wide: u32,
     cells_high: u32,
+    /// Indices into `views` of the Space Crystals patches and of the drop-offs, in id order: what a worker's scans
+    /// look at (`orders::gather`). They run on events only: an arrival at an occupied patch, a return without a
+    /// drop-off.
+    patches: Vec<u32>,
+    drop_offs: Vec<u32>,
+    /// `factions/colonists/units.md > Drone > Patch Occupancy (one Drone per patch)`: the patches a worker was
+    /// mining as the phase began, sorted.
+    mined: Vec<ObjectId>,
+    /// The patches under a mining structure (a GDO plate: question Q0037 point 11), sorted.
+    covered: Vec<ObjectId>,
+    /// The workers waiting at an occupied patch, as `(patch, since, worker)`, sorted: a patch's first entry is next
+    /// in line (question Q0037 point 6).
+    waiters: Vec<(ObjectId, Tick, ObjectId)>,
 }
 
 impl<'a> World<'a> {
@@ -136,6 +159,7 @@ impl<'a> World<'a> {
             .values()
             .map(|o| View {
                 id: o.id,
+                kind: o.kind,
                 owner: o.owner,
                 pos: o.pos,
                 shape: Shape::of(o),
@@ -143,6 +167,7 @@ impl<'a> World<'a> {
                 elevation: Elevation::of_object(map, o),
                 destructible: o.hp.is_some(),
                 is_unit: o.mover.is_some(),
+                is_patch: matches!(o.resource, Some(ResourceState::CrystalPatch { .. })),
                 threat: o
                     .def()
                     .unit
@@ -165,7 +190,43 @@ impl<'a> World<'a> {
             candidate_half: 0.0,
             cells_wide,
             cells_high,
+            patches: Vec::new(),
+            drop_offs: Vec::new(),
+            mined: Vec::new(),
+            covered: Vec::new(),
+            waiters: Vec::new(),
         };
+        for (index, o) in objects.values().enumerate() {
+            if world.views[index].is_patch {
+                world.patches.push(index as u32);
+            }
+            // An Egress Node being warped in takes nothing until it is complete (placeholder: question Q0039 point
+            // 8, `crate::transform`).
+            if o.def().structure.as_ref().is_some_and(|structure| structure.drop_off) && !o.is_transforming() {
+                world.drop_offs.push(index as u32);
+            }
+            world.covered.extend(o.extractor.map(|extractor| extractor.patch));
+            let job = o
+                .worker
+                .as_ref()
+                .and(o.orders.as_ref())
+                .and_then(|orders| orders.current.as_ref());
+            if let Some(active) = job
+                && let (OrderKind::Gather(patch), Behaviour::Gather(gather)) = (active.order.kind, &active.state)
+            {
+                match gather.phase {
+                    GatherPhase::Mining { .. } => world.mined.push(patch),
+                    GatherPhase::Waiting { since } => world.waiters.push((patch, since, o.id)),
+                    GatherPhase::ToPatch
+                    | GatherPhase::ToDropOff
+                    | GatherPhase::DroppingOff { .. }
+                    | GatherPhase::Delivered => {}
+                }
+            }
+        }
+        world.mined.sort_unstable();
+        world.covered.sort_unstable();
+        world.waiters.sort_unstable();
         // A counting sort by cell keeps the id order within each cell.
         let is_candidate = |v: &View| v.destructible && v.owner.is_some();
         for v in world.views.iter().filter(|v| is_candidate(v)) {
@@ -209,6 +270,51 @@ impl<'a> World<'a> {
         owner
             .and_then(|owner| self.vision.player(owner))
             .is_some_and(|sight| sight.sees_box(lo, hi))
+    }
+
+    /// Whether `owner` knows of `view`, a structure or a map resource: it sees it now, or remembers it (its
+    /// vision's record, `core/vision.md > Explored`). Nobody's units know nothing.
+    pub(crate) fn knows(&self, owner: Option<PlayerId>, view: &View) -> bool {
+        let (lo, hi) = view.shape.bounds();
+        owner
+            .and_then(|owner| self.vision.player(owner))
+            .is_some_and(|sight| sight.sees_box(lo, hi) || sight.record(view.id).is_some())
+    }
+
+    /// The objects that stand where they are, structures and map resources, in id order.
+    pub(crate) fn fixed(&self) -> impl Iterator<Item = &View> + '_ {
+        self.views.iter().filter(|view| !view.is_unit)
+    }
+
+    /// The Space Crystals patches, in id order.
+    pub(crate) fn patches(&self) -> impl Iterator<Item = &View> + '_ {
+        self.patches.iter().map(|&index| &self.views[index as usize])
+    }
+
+    /// The structures that take workers' loads, in id order.
+    pub(crate) fn drop_offs(&self) -> impl Iterator<Item = &View> + '_ {
+        self.drop_offs.iter().map(|&index| &self.views[index as usize])
+    }
+
+    /// `> Patch Occupancy (one Drone per patch)`: whether a worker, of any player, was mining `patch` as the
+    /// phase began.
+    pub(crate) fn patch_mined(&self, patch: ObjectId) -> bool {
+        self.mined.binary_search(&patch).is_ok()
+    }
+
+    /// Whether a mining structure stands on `patch` (question Q0037 point 11).
+    pub(crate) fn patch_covered(&self, patch: ObjectId) -> bool {
+        self.covered.binary_search(&patch).is_ok()
+    }
+
+    /// The worker next in line at `patch`: the one that has waited longest, the lowest id among equals (question
+    /// Q0037 point 6).
+    pub(crate) fn first_waiter(&self, patch: ObjectId) -> Option<ObjectId> {
+        let first = self.waiters.partition_point(|&(p, ..)| p < patch);
+        self.waiters
+            .get(first)
+            .filter(|&&(p, ..)| p == patch)
+            .map(|&(.., id)| id)
     }
 
     pub(crate) fn elevation(&self, unit: &Unit) -> Elevation {

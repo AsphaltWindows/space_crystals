@@ -106,6 +106,14 @@ pub enum Reject {
     NotConstructing,
     /// A Cancel Ready Building or a Place to a constructor that holds no building ready to place.
     NothingReady,
+    /// None of the units a Gather or a Drop Off order names is a worker (`factions/colonists/units.md > Drone`).
+    NoWorkers,
+    /// A Gather's target isn't a Space Crystals patch that workers can gather: another object, or a patch under a
+    /// mining structure (question Q0037 point 11).
+    NotGatherable(ObjectId),
+    /// The target of a Drop Off order or of Set Drop-off Location isn't a drop-off of the player's, an own Egress
+    /// Node (`factions/colonists/units.md > Drone > Assigned Drop-off`).
+    NotDropOff(ObjectId),
     /// The ready building can't be placed there (`core/entities.md > Placement Validation`, `crate::placement`): the
     /// first problem the placement check finds. When a Place is refused for this as it applies, the sim says why
     /// (`SimEvent::PlacementRefused`); a Warp In the same.
@@ -149,6 +157,9 @@ impl fmt::Display for Reject {
             Reject::ConstructorBusy(id) => write!(f, "constructor {} is busy", id.0),
             Reject::NotConstructing => write!(f, "nothing is under construction"),
             Reject::NothingReady => write!(f, "no building is ready to place"),
+            Reject::NoWorkers => write!(f, "none of the units is a worker"),
+            Reject::NotGatherable(id) => write!(f, "object {} can't be gathered", id.0),
+            Reject::NotDropOff(id) => write!(f, "object {} is no drop-off of the player's", id.0),
             Reject::Unplaceable(problem) => write!(f, "the building can't go there: {problem}"),
             Reject::NotTransforming => write!(f, "nothing is transforming"),
         }

@@ -50,6 +50,16 @@ impl Sim {
                 }
             }
             OrderKind::Hold | OrderKind::Stop => {}
+            // `factions/colonists/units.md > Drone > Unit Commands` (`sim/workers.rs`): the workers among the
+            // units take it, the others ignore it.
+            OrderKind::Gather(patch) => {
+                self.check_gather(player, patch)?;
+                ordered = self.workers_among(ordered)?;
+            }
+            OrderKind::DropOff(node) => {
+                self.check_drop_off(player, node)?;
+                ordered = self.workers_among(ordered)?;
+            }
         }
         Ok(Checked::Order {
             units: ordered,
@@ -72,10 +82,14 @@ impl Sim {
     ) -> Result<Checked, Reject> {
         let has = |o: &Object| match ability {
             Ability::RiotShield { .. } => o.riot_shield.is_some(),
+            Ability::SetDropOff(_) => o.worker.is_some(),
         };
         let own = self.own_units(player, units, |_| true)?;
         if own.is_empty() {
             return Err(Reject::NoUnits);
+        }
+        if let Ability::SetDropOff(node) = ability {
+            self.check_drop_off(player, node)?;
         }
         let units: Vec<ObjectId> = own
             .into_iter()

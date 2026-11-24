@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::combat::AttackState;
 use crate::construction::Constructor;
 use crate::defs::{Footprint, ObjectDef, ObjectKind};
-use crate::economy::Extractor;
+use crate::economy::{Extractor, Worker};
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::Mover;
 use crate::orders::Orders;
@@ -62,6 +62,11 @@ pub struct Object {
     /// everything else. Optional in files, so that states saved before it existed still load.
     #[serde(default)]
     pub constructor: Option<Constructor>,
+    /// A worker, the Drone: the load it carries, its AssignedDropOff and the patch it gathers
+    /// (`factions/colonists/units.md > Drone > Gathering`, `> Assigned Drop-off`; `economy::gathering`). `None` for
+    /// everything else. Optional in files, so that states saved before it existed still load.
+    #[serde(default)]
+    pub worker: Option<Worker>,
     /// An object transforming into its kind, a building being warped in from a Beacon: what it was, its progress
     /// and what it paid (`factions/colonists/economy.md > Warp In`, plan decision T15; `transform`, which also gives
     /// its interpolated maxima, `Object::max_hp`). `None` for everything else. Optional in files, so that states

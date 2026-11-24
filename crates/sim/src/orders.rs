@@ -10,13 +10,15 @@
 //! - [`engage`]: AttackingObject (the approach, the chase and its ends), idle auto-targeting with its leash, and
 //!   Hold Position;
 //! - [`travel`]: MovingToObject (Follow for a unit), AttackMovingToLocation and Patrolling;
-//! - Move to a point, and Stop, need only the mover's status.
+//! - Move to a point, and Stop, need only the mover's status;
+//! - [`gather`]: a worker's job, the Gather and Drop Off orders of `factions/colonists/units.md > Drone`.
 //!
 //! Their working state ([`state`], the design's BaseBehaviorState) is part of the order, or of the unit while it
 //! has none ([`Orders::auto`]).
 
 pub(crate) mod destinations;
 mod engage;
+pub(crate) mod gather;
 pub mod state;
 mod travel;
 pub(crate) mod world;
@@ -94,6 +96,13 @@ pub enum OrderKind {
     Hold,
     /// `> Stop`.
     Stop,
+    /// `factions/colonists/units.md > Drone > Unit Commands > Gather`: a worker gathers from a Space Crystals patch
+    /// and delivers to its AssignedDropOff, again and again ([`gather`]). The patch is the one the worker heads for
+    /// now: the order follows it to another when its patch is occupied or gone.
+    Gather(ObjectId),
+    /// `> Unit Commands > Drop Off Resources`: a worker delivers the load it carries to this drop-off of its
+    /// owner's, an Egress Node ([`gather`]).
+    DropOff(ObjectId),
 }
 
 /// One unit's order.
@@ -115,6 +124,19 @@ impl Order {
                 Some(self.slot.unwrap_or(click))
             }
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => None,
+            OrderKind::Gather(_) | OrderKind::DropOff(_) => None,
+        }
+    }
+
+    /// The object the order names, if any.
+    pub fn target(&self) -> Option<ObjectId> {
+        match self.kind {
+            OrderKind::Move(Target::Object(id))
+            | OrderKind::Attack(id)
+            | OrderKind::Gather(id)
+            | OrderKind::DropOff(id) => Some(id),
+            OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
+            OrderKind::Hold | OrderKind::Stop => None,
         }
     }
 }
@@ -189,11 +211,14 @@ impl Orders {
 /// objects comes from one snapshot, `world`, taken from `objects` just before: the positions the last tick left and
 /// the vision of its phase 5f.
 pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId, world: &World) {
+    // `factions/colonists/units.md > Drone > Patch Occupancy (one Drone per patch)`: in id order within the tick.
+    let mut claims = gather::Claims::default();
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
         let (Some(orders), Some(mover)) = (&mut o.orders, &mut o.mover) else {
             continue;
         };
         let mut unit = Unit {
+            id: o.id,
             owner: o.owner,
             kind: o.kind,
             pos: o.pos,
@@ -201,16 +226,17 @@ pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: Object
             mover,
             attack: o.attack.as_mut(),
             may_attack: o.riot_shield.is_none_or(RiotShield::allows_attack),
+            worker: o.worker.as_mut(),
         };
-        update_unit(orders, &mut unit, world);
+        update_unit(orders, &mut unit, world, &mut claims);
     }
 }
 
-fn update_unit(orders: &mut Orders, unit: &mut Unit, world: &World) {
+fn update_unit(orders: &mut Orders, unit: &mut Unit, world: &World, claims: &mut gather::Claims) {
     // Each pass completes an order or starts one from the queue, which is bounded, so this ends.
     loop {
         if let Some(active) = &mut orders.current {
-            if !run(active, unit, world) {
+            if !run(active, !orders.queue.is_empty(), unit, world, claims) {
                 return;
             }
             orders.current = None;
@@ -221,7 +247,7 @@ fn update_unit(orders: &mut Orders, unit: &mut Unit, world: &World) {
             return;
         };
         orders.auto = Auto::default();
-        let state = start(&order, unit, world.tick);
+        let state = start(&order, unit, world);
         orders.current = Some(ActiveOrder {
             order,
             since: world.tick,
@@ -240,7 +266,8 @@ fn path_group(order: &Order, click: Vec2) -> PathGroup {
 }
 
 /// A behaviour begins (`systems/controls/behaviors.md`): its state as it starts. [`run`] follows in the same tick.
-fn start(order: &Order, unit: &mut Unit, tick: Tick) -> Behaviour {
+fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour {
+    let tick: Tick = world.tick;
     // `> AttackingObject`: the attack engages the order's target; every other order disengages it (interrupting an
     // attack being aimed, `systems/combat.md > Aiming`) and whatever the unit had acquired by itself.
     unit.engage(match order.kind {
@@ -260,6 +287,7 @@ fn start(order: &Order, unit: &mut Unit, tick: Tick) -> Behaviour {
         // The others set off in their first tick ([`run`]), from a standstill.
         OrderKind::Attack(_) | OrderKind::Move(Target::Object(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => {
         }
+        OrderKind::Gather(_) | OrderKind::DropOff(_) => {}
     }
     unit.mover.stop();
     match order.kind {
@@ -281,12 +309,15 @@ fn start(order: &Order, unit: &mut Unit, tick: Tick) -> Behaviour {
                 leg: Leg::new(unit.pos, destination),
             })
         }
+        // `factions/colonists/units.md > Drone > Gathering`: the worker's job.
+        OrderKind::Gather(_) | OrderKind::DropOff(_) => Behaviour::Gather(gather::begin(order.kind, unit, world)),
     }
 }
 
 /// One tick of the current order's behaviour. Returns whether it is complete, so that the next order may start.
-fn run(active: &mut ActiveOrder, unit: &mut Unit, world: &World) -> bool {
-    let order = &active.order;
+/// `queued`: orders wait behind it.
+fn run(active: &mut ActiveOrder, queued: bool, unit: &mut Unit, world: &World, claims: &mut gather::Claims) -> bool {
+    let order = &mut active.order;
     match (order.kind, &mut active.state) {
         // `> MovingToLocation`: complete when stopped at the target, or after failing to make progress
         // (`> Failure`).
@@ -306,9 +337,13 @@ fn run(active: &mut ActiveOrder, unit: &mut Unit, world: &World) -> bool {
         (OrderKind::Patrol(click), Behaviour::Patrol(state)) => {
             travel::patrol(unit, state, path_group(order, click), world)
         }
+        // A worker's job; the behaviour moves the order on to another patch as it must.
+        (OrderKind::Gather(_) | OrderKind::DropOff(_), Behaviour::Gather(state)) => {
+            gather::run(&mut order.kind, state, unit, queued, world, claims)
+        }
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
-        | (OrderKind::Move(Target::Object(_)), _) => true,
+        | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _) => true,
     }
 }
 
@@ -354,6 +389,14 @@ impl StateHash for OrderKind {
             }
             OrderKind::Hold => h.tag(4),
             OrderKind::Stop => h.tag(5),
+            OrderKind::Gather(id) => {
+                h.tag(6);
+                id.hash(h);
+            }
+            OrderKind::DropOff(id) => {
+                h.tag(7);
+                id.hash(h);
+            }
         }
     }
 }

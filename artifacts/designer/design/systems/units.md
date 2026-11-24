@@ -50,6 +50,8 @@ Applies to all ground units. Overlap caused by the rotation itself (a corner swe
   - **No yielding within the same group order**: a unit that has arrived under a group order (one order given to several units at once, systems/controls/commands.md > Group Destinations) does **not** yield to members of that same order that are still arriving. They stop against it (see systems/controls/behaviors.md > MovingToLocation > Occupied target location). It yields normally to every other own unit. This lasts until the unit receives a new order (user, 2026-11-23).
   - TBD: sidestep distance; whether allied (not own) units yield once teams exist.
 - Moving units must pathfind around occupied space
+- **Exception, gathering Drones**: Drones on a Gather job pass through each other, of any player (factions/colonists/units.md > Gathering Drones pass through each other).
+- **Units that already overlap** (user, 2026-11-24): two ground units that overlap without being allowed to (e.g. a Drone ordered to Move while it sits inside another Drone it had passed through) **ignore each other until they have separated**; from then on, normal collision applies between them. Nothing is pushed apart.
 - Ground units collide with other ground units, with structures, and with **Space Crystals patches and Supply Delivery Stations** (their footprints are solid; user, 2026-11-23). A depleted patch disappears and its tile opens up, so the map's paths can change during a game.
 
 ### Underground Collision

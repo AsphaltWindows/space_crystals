@@ -20,7 +20,7 @@ pub use gdo::RIOT_SHIELD_TOGGLE_TICKS;
 pub use structures::{MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType};
 pub use units::{
     AttackAttrs, AttackType, Domain, FullyConnectedSubtype, MELEE_CONTACT_GU, MovementAttrs, MovementModel,
-    RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef,
+    RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef, WorkerDef,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

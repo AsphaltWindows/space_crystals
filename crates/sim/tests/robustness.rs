@@ -289,6 +289,7 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::StructurePlaced { .. }
                 | SimEvent::PlacementRefused { .. }
                 | SimEvent::KindChanged { .. }
+                | SimEvent::ResourcesDelivered { .. }
                 | SimEvent::TransformCompleted { .. }
                 | SimEvent::TransformCancelled { .. } => {}
             }

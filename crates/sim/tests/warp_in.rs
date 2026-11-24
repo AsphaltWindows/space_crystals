@@ -10,7 +10,7 @@ use sc_sim::economy::{RATIO_ONE, Refund};
 use sc_sim::placement::{self, Method, Mode, Occupant, Site};
 use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references};
 use sc_sim::{
-    BuildArea, BuildingOrientation, Command, ConstructionCommand, DebugCommand, Object, ObjectId, ObjectKind,
+    Ability, BuildArea, BuildingOrientation, Command, ConstructionCommand, DebugCommand, Object, ObjectId, ObjectKind,
     OrderKind, PlacementCheck, PlacementProblem, PlayerCommand, PlayerId, ProductionCommand, Reject, Replay, Rng,
     Rotation, SU_PER_GU, Sim, SimConfig, SimEvent, SpawnAt, Target, Tick, TickInputs, TilePos, TileProblem, Transform,
     Vec2, WholeProblem,
@@ -587,6 +587,59 @@ fn the_whole_footprint_is_solid_from_the_first_frame() {
         assert_eq!((o.kind, o.placement), (Beacon, beacon), "{kind:?}");
         assert_eq!(solid(&t), beacon_tiles, "{kind:?}: the Beacon's 2 × 2 again");
     }
+}
+
+/// Question Q0039 point 8 (placeholder: "its functions (production, drop-off) start at completion"): an Egress Node
+/// being warped in takes no drop-off. Player 1's Drone 6 can't be sent to it, nor given it as its AssignedDropOff
+/// ([`Reject::NotDropOff`]); sent to gather patch 7 next to it, it mines a load and, with no drop-off to go back to,
+/// idles with it (question Q0037 point 8). Once the node is complete, it delivers there.
+#[test]
+fn an_egress_node_being_warped_in_takes_no_drop_off() {
+    let mut t = base()
+        .spawn(Drone, Some(P1), SpawnAt::Point(at(6, 9).center()))
+        .spawn(CrystalPatch, None, tile(5, 10))
+        .start();
+    t.debug_at(1, fund(P1, 75))
+        .at(1, P1, construction(&[1], warp(EgressNode, at(8, 6))));
+    t.step();
+    let drone = [id(6)];
+    let drop_off = PlayerCommand {
+        player: P1,
+        command: Command::Order {
+            units: drone.to_vec(),
+            kind: OrderKind::DropOff(id(1)),
+            queue: false,
+        },
+    };
+    let assign = PlayerCommand {
+        player: P1,
+        command: Command::Ability {
+            units: drone.to_vec(),
+            ability: Ability::SetDropOff(id(1)),
+        },
+    };
+    assert_eq!(t.sim().validate(&drop_off), Err(Reject::NotDropOff(id(1))));
+    assert_eq!(t.sim().validate(&assign), Err(Reject::NotDropOff(id(1))));
+    t.order_at(2, P1, &drone, OrderKind::Gather(id(7)), false);
+    t.run_until(200);
+    let o = object(&t, 6);
+    let worker = o.worker.unwrap();
+    assert_eq!(
+        (worker.load, worker.drop_off),
+        (8, None),
+        "a load, and nowhere to take it"
+    );
+    assert!(o.orders.as_ref().unwrap().current.is_none(), "idle");
+    t.run_until(320);
+    assert!(!object(&t, 1).is_transforming());
+    assert_eq!(t.sim().validate(&assign), Ok(()));
+    next(&mut t, drop_off.command);
+    t.run(200);
+    let delivered = t
+        .events()
+        .iter()
+        .any(|(_, e)| matches!(e, SimEvent::ResourcesDelivered { worker, drop_off, amount: 8 } if *worker == id(6) && *drop_off == id(1)));
+    assert!(delivered, "delivered at the complete Egress Node");
 }
 
 /// The plan's acceptance, "Cancel" (`> Cancel Warp In`: "Cancelling refunds 75% of the building's resource cost

@@ -13,7 +13,7 @@ use super::Sim;
 use crate::combat::AttackState;
 use crate::construction::{self, Constructor};
 use crate::defs::{Category, ObjectDef, ObjectKind};
-use crate::economy::{self, Extractor};
+use crate::economy::{self, Extractor, Worker};
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::mover::Mover;
@@ -33,6 +33,7 @@ pub(super) struct Capabilities {
     pub extractor: Option<Extractor>,
     pub production: Option<Production>,
     pub constructor: Option<Constructor>,
+    pub worker: Option<Worker>,
 }
 
 impl Capabilities {
@@ -64,6 +65,8 @@ impl Capabilities {
             // `factions/gdo/structures.md > DeploymentCenter`, `factions/gdo/economy.md > ExtractionFacility`: a
             // constructor starts idle.
             constructor: construction::constructor_for(kind),
+            // `factions/colonists/units.md > Drone > Gathering`: a worker starts empty, with no drop-off assigned.
+            worker: unit.and_then(|unit| unit.worker).map(|_| Worker::default()),
         }
     }
 }
@@ -153,6 +156,7 @@ impl Sim {
             extractor,
             production,
             constructor,
+            worker,
             transform: _,
         } = o;
         *object_kind = kind;
@@ -187,6 +191,9 @@ impl Sim {
         *extractor = rebuilt(extractor.take(), fresh.extractor, mining_of(old) == mining_of(new));
         *production = rebuilt(production.take(), fresh.production, keeps_production);
         *constructor = rebuilt(constructor.take(), fresh.constructor, keeps_constructor);
+        // A worker that stays one keeps its load and its drop-off; a Drone that becomes a Beacon loses what it
+        // carried with the capability.
+        *worker = rebuilt(worker.take(), fresh.worker, true);
         self.events.push(SimEvent::KindChanged { id, from, to: kind });
         true
     }

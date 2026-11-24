@@ -39,6 +39,7 @@ fn object(kind: ObjectKind, transform: Option<Transform>) -> Object {
         extractor: None,
         production: None,
         constructor: None,
+        worker: None,
         transform,
     }
 }

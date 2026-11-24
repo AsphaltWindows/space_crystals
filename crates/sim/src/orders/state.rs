@@ -97,6 +97,60 @@ pub struct Patrol {
     pub leg: Leg,
 }
 
+/// Where a worker is in its job (`factions/colonists/units.md > Drone > Gathering`: "pick up at X, deliver to Y";
+/// `orders::gather`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GatherPhase {
+    /// On its way to the order's patch.
+    ToPatch,
+    /// At an occupied patch with no other patch free, since tick `since` (`> Patch Occupancy (one Drone per
+    /// patch)`: it "waits at the current patch and mines as soon as it frees up").
+    Waiting { since: Tick },
+    /// Mining the order's patch, which it occupies: `done` of MiningDuration frames
+    /// (`economy::gathering::step` counts them and takes the load).
+    Mining { done: u32 },
+    /// Carrying its load to the drop-off.
+    ToDropOff,
+    /// Unloading at [`Gather::node`]: `done` of DropOffDuration frames (`economy::gathering::step` counts them and
+    /// credits the bank).
+    DroppingOff { done: u32 },
+    /// The load was delivered in the last tick's economy phase: the behaviour decides what comes next.
+    Delivered,
+}
+
+/// The state of a Gather or a Drop Off order (`orders::gather`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Gather {
+    pub phase: GatherPhase,
+    /// The drop-off the worker is returning to, or unloading at: its AssignedDropOff as the return leg read it
+    /// (`> Assigned Drop-off`), or a Drop Off order's own.
+    pub node: Option<ObjectId>,
+    /// The unit's current move is this phase's leg, so the mover's status is the leg's outcome.
+    pub moving: bool,
+    /// A leg of this phase ended short of its target: the next one begins no sooner than this tick
+    /// (`orders::gather::LEG_RETRY_TICKS`). 0 while no leg has.
+    pub retry_at: Tick,
+}
+
+impl Gather {
+    /// A job that begins in `phase`.
+    pub fn new(phase: GatherPhase) -> Self {
+        Self {
+            phase,
+            node: None,
+            moving: false,
+            retry_at: 0,
+        }
+    }
+
+    /// The job goes on in `phase`, whose leg hasn't begun.
+    pub fn enter(&mut self, phase: GatherPhase) {
+        self.phase = phase;
+        self.moving = false;
+        self.retry_at = 0;
+    }
+}
+
 /// The state of the current order's behaviour.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum Behaviour {
@@ -111,6 +165,8 @@ pub enum Behaviour {
     Hold {
         target: Option<ObjectId>,
     },
+    /// A worker's job, for a Gather and a Drop Off order alike (`factions/colonists/units.md > Drone > Gathering`).
+    Gather(Gather),
 }
 
 impl Leg {
@@ -141,6 +197,7 @@ impl Behaviour {
             Behaviour::AttackMove(leg) => leg.targets().collect(),
             Behaviour::Patrol(patrol) => patrol.leg.targets().collect(),
             Behaviour::Hold { target } => target.iter().copied().collect(),
+            Behaviour::Gather(gather) => gather.node.iter().copied().collect(),
         }
     }
 
@@ -154,6 +211,15 @@ impl Behaviour {
             Behaviour::Hold { target } => {
                 if target.is_some_and(is_gone) {
                     *target = None;
+                }
+            }
+            // The drop-off is gone: the return leg picks another, and an unloading starts over there
+            // (`orders::gather`, `economy::gathering::step`).
+            Behaviour::Gather(gather) => {
+                if gather.node.is_some_and(is_gone) {
+                    gather.node = None;
+                    gather.moving = false;
+                    gather.retry_at = 0;
                 }
             }
         }
@@ -278,6 +344,43 @@ impl StateHash for Patrol {
     }
 }
 
+impl StateHash for GatherPhase {
+    fn hash(&self, h: &mut StateHasher) {
+        match self {
+            GatherPhase::ToPatch => h.tag(0),
+            GatherPhase::Waiting { since } => {
+                h.tag(1);
+                since.hash(h);
+            }
+            GatherPhase::Mining { done } => {
+                h.tag(2);
+                done.hash(h);
+            }
+            GatherPhase::ToDropOff => h.tag(3),
+            GatherPhase::DroppingOff { done } => {
+                h.tag(4);
+                done.hash(h);
+            }
+            GatherPhase::Delivered => h.tag(5),
+        }
+    }
+}
+
+impl StateHash for Gather {
+    fn hash(&self, h: &mut StateHasher) {
+        let Gather {
+            phase,
+            node,
+            moving,
+            retry_at,
+        } = self;
+        phase.hash(h);
+        node.hash(h);
+        moving.hash(h);
+        retry_at.hash(h);
+    }
+}
+
 impl StateHash for Behaviour {
     fn hash(&self, h: &mut StateHasher) {
         match self {
@@ -301,6 +404,10 @@ impl StateHash for Behaviour {
             Behaviour::Hold { target } => {
                 h.tag(5);
                 target.hash(h);
+            }
+            Behaviour::Gather(gather) => {
+                h.tag(6);
+                gather.hash(h);
             }
         }
     }
