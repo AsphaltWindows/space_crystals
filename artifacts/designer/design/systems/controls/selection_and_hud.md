@@ -25,7 +25,7 @@ A group of selected ObjectInstances that share the same object type. For Groupab
 ### Instances - array of ObjectInstance references
 
 ### No smart-casting
-A command issued from the command panel (hotkey or button) goes to **every instance in the ActiveGroup**. The game **never hands a group's command to just one member** on the player's behalf ("smart-casting"), for any command (user, 2026-11-23).
+A command issued from the command panel (hotkey or button) goes to **every instance it is issued to** (the whole Selection for a common command, the whole ActiveGroup for a group command; see CommandPanel). The game **never hands a group's command to just one member** on the player's behalf ("smart-casting"), for any command (user, 2026-11-23).
 
 Rationale (user): smart-casting makes mass use of abilities effortless, which constrains how powerful unit abilities can realistically be. Workers follow the same rule.
 

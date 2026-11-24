@@ -2032,3 +2032,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Recruits made Groupable (C): Construct/Assist go to all selected Recruits; Agents/Drones stay Ungroupable. Docs: cults/units.md Recruit, selection_and_hud.md No smart-casting + Shift while placing, core/entities.md. Entry 0072.
 - 2026-11-24: Q0021 pt 1: targeting click allowance 16 px (B). Doc: selection_and_hud.md > Dragging while targeting. Entry 0073.
 - 2026-11-24: Q0020 pt 1: shielded Peacekeepers right-clicked on enemy follow (B, 0062 wins). Doc: gdo/units.md > Riot Shield. Entry 0074.
+- 2026-11-24: Q0021 pt 2: shielded Peacekeepers left out of explicit Attack (B), differs from right-click follow. Doc: gdo/units.md > Riot Shield; wording fix in No smart-casting. Entry 0075.
