@@ -386,6 +386,59 @@ fn a_layout_structure_over_a_layout_unit_is_reported_once() {
     assert_eq!(s.map.validate(), [blocked]);
 }
 
+/// A layout's plate goes exactly onto a patch (`factions/gdo/economy.md > ExtractionPlate`: "Placed onto a Space
+/// Crystal Patch"): one off its patch is the plate's [`ScenarioProblem::LayoutPlacement`], by the rule a game's
+/// placement uses, `WholeProblem::NotOnPatch` of the placement check that both modes share (design change 0097), so
+/// the two can't drift apart. `dev_skirmish`'s layouts, plates on patches, are valid, the built-in map and its file.
+#[test]
+fn a_layout_plate_goes_onto_a_patch_by_the_games_rule() {
+    let mut map = scenarios::empty_map(24, 12);
+    map.spawns = vec![patch(1, 8), patch(2, 8)];
+    *map.slots[0].layouts.get_mut(Faction::Gdo) = west_base();
+    assert_eq!(map.validate(), []);
+    // The second plate a tile east of its patch, on open ground in the build area.
+    map.slots[0].layouts.get_mut(Faction::Gdo)[3] = laid(PLATE, 3, 8);
+    let off = ScenarioProblem::LayoutPlacement {
+        slot: SlotId(1),
+        faction: Faction::Gdo,
+        index: 3,
+        kind: PLATE,
+        check: PlacementCheck {
+            tiles: vec![],
+            whole: vec![WholeProblem::NotOnPatch],
+        },
+    };
+    assert_eq!(map.validate(), std::slice::from_ref(&off));
+    assert_eq!(
+        off.to_string(),
+        "slot 1 Gdo layout object 3 (ExtractionPlate): an Extraction Plate goes onto a Space Crystals patch"
+    );
+    // In a game from the valid layout, the placement check refuses the same tile for the same reason.
+    map.slots[0].layouts.get_mut(Faction::Gdo)[3] = laid(PLATE, 2, 8);
+    let sim = Sim::try_new(&Scenario::new(map)).unwrap();
+    let in_game = sim.placement_check(P1, PLATE, TilePos::new(3, 8), BuildingOrientation::default());
+    assert_eq!(in_game.whole, [WholeProblem::NotOnPatch]);
+
+    assert_eq!(scenarios::dev_skirmish().validate(), []);
+    let file: sc_sim::MapDef = serde_json::from_str(include_str!("../../../maps/dev_skirmish.json")).unwrap();
+    assert_eq!(file.validate(), []);
+}
+
+/// Bug (M2-I's finding, "the sim accepts pre-placed plates off a patch"; for the Director): a plate pre-placed on the
+/// map, not in a layout, passes the map's validation off a patch, and the game starts it on none, so it never mines.
+/// A layout's plate is refused there (above). Whether a pre-placed plate must go onto a patch, and with which
+/// `SpawnProblem`, is the Director's call; this test expects only that the map is refused.
+#[test]
+#[ignore = "bug: MapDef::validate accepts a pre-placed Extraction Plate that isn't on a patch"]
+fn a_pre_placed_plate_off_a_patch_is_refused() {
+    let mut map = scenarios::empty_map(24, 12); // a Custom map, where player-owned objects may be pre-placed
+    map.spawns = vec![patch(1, 8), Spawn::new(PLATE, Some(SlotId(1)), tile(3, 8))];
+    let sim = Sim::try_new(&Scenario::new(map.clone())).unwrap();
+    let plate = sim.objects().find(|o| o.kind == PLATE).unwrap();
+    assert!(plate.extractor.is_none(), "on no patch");
+    assert_ne!(map.validate(), [], "a pre-placed plate off a patch");
+}
+
 /// Each layout is valid on its own, but the players of one game get theirs together: one in another's way keeps the
 /// game from starting (`Scenario::validate`), not the map.
 #[test]
