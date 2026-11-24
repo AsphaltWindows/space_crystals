@@ -2152,3 +2152,10 @@ All Director questions through Q0048 answered (0106–0185). Next: GDO roster/nu
 Syndicate: Guard laser universal req Optics Lab; Agent pistol ground. Entry 0186.
 Syndicate: Grenadier added. Entry 0187.
 Syndicate: Assault Bike added. Entry 0188.
+Syndicate: Shadebringer added (Sludge, Cover). Entry 0189. Director Q0049–Q0051 noted.
+Syndicate: Shadebringer Cover duration + charges recharged in tunnels with Vault. Entry 0190.
+Syndicate: units inside Cover smoke see nothing. Entry 0191.
+Syndicate: Sludge affects all players' units. Entry 0192.
+Syndicate: Shadebringer charges are draining tanks. Entry 0193.
+Syndicate: Shadebringer not immune to own sludge, laid behind it. Entry 0194.
+Syndicate: smoke blocks structures' sight; both toggles at once. Entry 0195.

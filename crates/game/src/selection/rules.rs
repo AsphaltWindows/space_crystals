@@ -131,6 +131,17 @@ impl ControlState {
         self.select(selection_of(boxed, objects))
     }
 
+    /// A command that selects (`factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`, F:
+    /// "Replaces the current Selection with all Drones whose AssignedDropOff is this Egress Node"; slice M3-J2): the
+    /// selection becomes the objects `ids` that the player may select, its first group active. Nothing changes when
+    /// none of them may be selected, or when the Constraints forbid them together. Says whether the selection
+    /// changed.
+    pub fn replace_selection(&mut self, ids: impl IntoIterator<Item = ObjectId>, objects: &Selectables) -> bool {
+        let selection = selection_of(ids, objects);
+        let ids: Vec<ObjectId> = selection.ids().collect();
+        !selection.is_empty() && fits_constraints(&ids, objects) && self.select(selection)
+    }
+
     /// The add inputs (`> BoxSelection > Shift + box (add)`, `> MapClickSelection`; design changes 0049, 0052 and
     /// 0053): adds the objects `ids` that the player may select to the selection, which keeps everything it holds and
     /// its ActiveGroup. Under the Constraints nothing is added when that would put a non-owned object together with

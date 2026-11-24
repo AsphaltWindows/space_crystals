@@ -117,6 +117,11 @@ pub(super) fn end_queued_targeting(actions: Res<ActionState>, pressed: Res<Targe
 ///   every selected producer of the ActiveGroup, as one `Command::Production`; a click on the producer itself clears
 ///   its rally point (design change 0086). A rally point isn't queued, so a Shift-click sets it and ends the
 ///   targeting like a plain click ([`PanelCommand::queues`], a placeholder reading).
+/// - **Set Drop-off** (`factions/colonists/units.md > Drone ObjectInterfaceState > S: Set Drop-off Location`, slice
+///   M3-J2): a click on an own Egress Node makes it the AssignedDropOff of every selected Drone, as one
+///   `Command::Ability` (question Q0040 point 9), and returns to DefaultState ("CommandIssuingTransition"); a
+///   Shift-click too, like a rally point's. Their orders go on (`sc_sim::Ability::SetDropOff`: "Does not interrupt
+///   current mining/movement"). Anything else is an invalid target.
 pub(super) fn click_targets(
     actions: Res<ActionState>,
     mut pressed: ResMut<TargetPress>,
@@ -162,9 +167,9 @@ pub(super) fn click_targets(
 }
 
 /// Gives what the targeting click `click` resolves to ([`target_resolution`]) to its command's recipients: an order
-/// to each unit as [`unit_target_order`] has it, queued if it was a Shift-click, or the rally point to all the
-/// producers. Whether anything was given: nothing for a target the command can't use, nor when the sim would take
-/// none of it.
+/// to each unit as [`unit_target_order`] has it, queued if it was a Shift-click, the rally point to all the
+/// producers, or the ability to all the units. Whether anything was given: nothing for a target the command can't
+/// use, nor when the sim would take none of it.
 fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: PressedTarget) -> bool {
     let state = control.state();
     let recipients = recipients(&state.selection, click.pending);
@@ -184,6 +189,7 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
         Some(Resolved::Rally(target)) => {
             outbox.produce(control.player(), recipients, ProductionCommand::SetRally(target))
         }
+        Some(Resolved::Ability(ability)) => outbox.use_ability(control.player(), recipients, ability),
     }
 }
 
@@ -237,7 +243,8 @@ pub(super) fn right_click_orders(
                 Some(Resolved::Order(kind)) => orders.push((id, kind)),
                 // Every producer rallies on the same target: what was clicked.
                 Some(Resolved::Rally(on)) => rally.get_or_insert_with(|| (on, Vec::new())).1.push(id),
-                None => {}
+                // No right-click uses an ability.
+                Some(Resolved::Ability(_)) | None => {}
             }
         }
         let queue = bindings.holds(InputAction::Queue, click.modifiers);

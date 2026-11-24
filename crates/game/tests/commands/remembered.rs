@@ -274,14 +274,18 @@ fn a_barracks_rallied_on_an_enemy_sends_its_peacekeepers_to_attack_it() {
 }
 
 /// The acceptance of slice M3-R for 0139: "scout a field and leave, then right-click a greyed patch with Drones: they
-/// walk there and mine". Both get a Gather on the patch (its pointer is Move until slice M3-J2's GatherResources);
-/// the first there mines it, the other finds it taken and goes on to the next patch of the field (design change
-/// 0132).
+/// walk there and mine". Both get a Gather on the patch, which the pointer previews as GatherResources (slice M3-J2,
+/// `> PointerDisplayType > Resolution Rules`: "Cursor over resource (resource gatherer selected)"); the first there
+/// mines it, the other finds it taken and goes on to the next patch of the field (design change 0132).
 #[test]
 fn drones_right_clicked_on_a_greyed_patch_walk_there_and_mine() {
     let mut app = colonists_field();
     select_around(&mut app, &[Vec2::new(900.0, 800.0), Vec2::new(900.0, 880.0)], &DRONES);
-    assert_eq!(pointer_over(&mut app, PATCH_A_AT), Some(PointerDisplay::Move));
+    assert_eq!(
+        pointer_over(&mut app, PATCH_A_AT),
+        Some(PointerDisplay::GatherResources)
+    );
+
     right_click(&mut app, PATCH_A_AT, &[]);
     assert_eq!(
         orders(&app).last(),

@@ -3,8 +3,8 @@
 //! clicks resolve (`super::super::resolution`). A constructor's panel also follows its state and the menu that is
 //! open ([`state_grid`]): the Deployment Center's build menus ([`BuildMenu`], design change 0104) and the Extraction
 //! Facility's plate (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`). The
-//! Colonists' Beacon has two Warp In menus built the same way, the Drone its Deploy, and an object that transforms
-//! shows only its Cancel ([`colonists`], slice M3-J1).
+//! Colonists' Beacon has two Warp In menus built the same way, the Drone its Deploy and its Set Drop-off, the Egress
+//! Node its F, and an object that transforms shows only its Cancel ([`colonists`], slices M3-J1 and M3-J2).
 
 mod colonists;
 
@@ -42,10 +42,13 @@ pub enum InterfaceTemplate {
     /// `factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState` (design change 0124): its DefaultState
     /// opens the two Warp In menus, whose entries enter the Warp In's placement on the Beacon. No right-click.
     Beacon,
-    /// `factions/colonists/units.md > Drone ObjectInterfaceState`: Q Move, A Deploy, X Stop. Its right-click
-    /// (`> Right-Click Resolution`: Gather, Drop Off, Move) is the sim's one rule, as every unit's
-    /// (`crate::command_ui::resolution::unit_right_click`, slice M3-R); its S, F and load marker are slice M3-J2's.
+    /// `factions/colonists/units.md > Drone ObjectInterfaceState`: Q Move, A Deploy, S Set Drop-off, X Stop. Its
+    /// right-click (`> Right-Click Resolution`: Gather, Drop Off, Move, Follow) is the sim's one rule, as every
+    /// unit's (`crate::command_ui::resolution::unit_right_click`, slice M3-R).
     Drone,
+    /// `factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`: "F: Select Returning Drones"
+    /// (slice M3-J2). No right-click.
+    EgressNode,
 }
 
 /// The Deployment Center's build menus (`> ObjectInterfaceState[DeploymentCenter]`, design change 0104: "the DC's
@@ -114,11 +117,11 @@ const TRAIN_SLOTS: usize = 8;
 ///   ObjectInterfaceState[Barracks]`). "W: Build Rocketman (hotkey tentative)" stays empty: the Rocketman isn't in
 ///   the game yet (its cost and time are TBD, and so is its Arsenal; M2 plan § 1.2), so it isn't among the recipes
 ///   and its button is hidden.
-/// - The Robo Portal: Q Drone, X, C; the Bio Portal: Q Sabre Legionnaire, X, C (`factions/colonists/structures.md >
-///   Robo Portal ObjectInterfaceState`, `> Bio Portal ObjectInterfaceState`, design change 0124). Their W Scout, W
-///   Lancer and E psionic unit aren't in the game (their stats, cost and time are TBD), so they aren't among the
-///   recipes and their slots stay empty, as the Rocketman's does; 0124 has them "appear in their slot but
-///   unavailable", which waits for those units to exist (reported to the Director).
+/// - The Robo Portal: Q Drone, W Scout, X, C; the Bio Portal: Q Sabre Legionnaire, W Lancer, E psionic unit, X, C
+///   (`factions/colonists/structures.md > Robo Portal ObjectInterfaceState`, `> Bio Portal ObjectInterfaceState`,
+///   design change 0124). The Scout, the Lancer and the psionic unit aren't in the game (their stats, cost and time
+///   are TBD), so they aren't among the recipes: 0124 has them show in their slot, unavailable
+///   ([`PanelCommand::Planned`], `colonists::planned_units`; slice M3-J2).
 fn production_grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let mut grid = [None; 12];
     let production = kind.def().structure.as_ref().and_then(|s| s.production.as_ref());
@@ -129,6 +132,9 @@ fn production_grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     );
     for (slot, recipe) in grid.iter_mut().zip(recipes.iter().take(TRAIN_SLOTS)) {
         *slot = Some(PanelCommand::Train(recipe.kind));
+    }
+    for &(slot, planned) in colonists::planned_units(kind) {
+        grid[slot] = grid[slot].or(Some(PanelCommand::Planned(planned)));
     }
     grid[slot_index(CommandSlot::CANCEL_PRODUCTION)] = Some(PanelCommand::CancelProduction);
     grid[slot_index(CommandSlot::RALLY_POINT)] = Some(PanelCommand::SetRallyPoint);
@@ -171,9 +177,9 @@ impl InterfaceTemplate {
     /// structures that have none (the Generator, the Extraction Plate). The Legionnaires' is
     /// "BasicCombatUnitInterfaceState, plus" their R (`factions/colonists/units.md > Sabre Legionnaire >
     /// ObjectInterfaceState`: Convert, [`grid`]). Every type that produces units has the Production
-    /// template. The Egress Node has none until slice M3-J2 builds its F (plan decision T23). Whatever its type, an
-    /// object that transforms shows only its Cancel ([`TRANSFORMING_GRID`], `super::panel`) and resolves no
-    /// right-click (`super::super::resolution::UnitCapabilities::of`).
+    /// template; the Egress Node has its own, its F (slice M3-J2). Whatever its type, an object that transforms shows
+    /// only its Cancel ([`TRANSFORMING_GRID`], `super::panel`) and resolves no right-click
+    /// (`super::super::resolution::UnitCapabilities::of`).
     pub fn of(kind: ObjectKind) -> Option<Self> {
         match kind {
             ObjectKind::Peacekeeper
@@ -187,11 +193,11 @@ impl InterfaceTemplate {
             ObjectKind::ExtractionFacility => Some(InterfaceTemplate::ExtractionFacility),
             ObjectKind::Beacon => Some(InterfaceTemplate::Beacon),
             ObjectKind::Drone => Some(InterfaceTemplate::Drone),
+            ObjectKind::EgressNode => Some(InterfaceTemplate::EgressNode),
             ObjectKind::CrystalPatch
             | ObjectKind::SupplyDeliveryStation
             | ObjectKind::Generator
-            | ObjectKind::ExtractionPlate
-            | ObjectKind::EgressNode => None,
+            | ObjectKind::ExtractionPlate => None,
         }
     }
 
@@ -205,6 +211,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::ExtractionFacility => EXTRACTION_FACILITY_GRID,
             InterfaceTemplate::Beacon => colonists::BEACON_GRID,
             InterfaceTemplate::Drone => colonists::DRONE_GRID,
+            InterfaceTemplate::EgressNode => colonists::EGRESS_NODE_GRID,
         }
     }
 }
@@ -356,10 +363,10 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
 /// what its grid has ([`grid`]), and a conditional command only when the type can (`> BasicCombatUnitInterfaceState`:
 /// Reverse with the UnitBase's CanReverse, AttackGround with the AttackType's CanTargetGround). A constructor offers
 /// its own buildings (its `Constructs` list) and its Cancels, a Beacon the buildings of its Constructs List; a
-/// building that isn't in the game is offered by no one (design change 0124: "shown but unavailable"). A build menu is
-/// offered while it shows something, so the Deployment Center's W, Advanced Construction, shows unavailable: none of
-/// its buildings exists yet, and they are hidden (design change 0104: "greyed placeholders"); the Beacon's Warp In
-/// (Advanced) opens, on its unavailable buildings.
+/// building or a unit that isn't in the game is offered by no one (design change 0124: "shown but unavailable"). A
+/// build menu is offered while it shows something, so the Deployment Center's W, Advanced Construction, shows
+/// unavailable: none of its buildings exists yet, and they are hidden (design change 0104: "greyed placeholders"); the
+/// Beacon's Warp In (Advanced) opens, on its unavailable buildings.
 pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {

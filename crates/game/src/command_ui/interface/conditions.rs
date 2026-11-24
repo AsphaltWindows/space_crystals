@@ -19,7 +19,8 @@
 //! building would stand, the ghost shows).
 //!
 //! Every greyed-out button has its reason ([`WhyUnavailable`], from the same check that greys it), which pressing it
-//! shows (design change 0162).
+//! shows (design change 0162). The Egress Node's F shows only while the node has Drones to select
+//! (`factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`, [`Conditions::shows`]).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -137,8 +138,8 @@ pub enum WhyUnavailable {
     /// The type can't carry it out (`> BasicCombatUnitInterfaceState`: Reverse without CanReverse, AttackGround
     /// without CanTargetGround).
     NotForThisType,
-    /// It isn't in the game yet: a building whose costs are TBD (design change 0124), a build menu none of whose
-    /// buildings is, an order the sim has none of (Reverse, AttackGround).
+    /// It isn't in the game yet: a building or a unit whose costs are TBD (design change 0124), a build menu none of
+    /// whose buildings is, an order the sim has none of (Reverse, AttackGround).
     NotYet,
 }
 
@@ -157,6 +158,9 @@ pub struct Conditions {
     /// The production and construction commands and the Convert the gate would refuse now, for the objects they go
     /// to ([`recipients`]).
     refused: BTreeMap<PanelCommand, Reject>,
+    /// The Drones the active Egress Node's F selects (`sc_sim::Sim::returning_drones`), in id order: none while the
+    /// ActiveGroup isn't a node that offers F.
+    returning: Vec<ObjectId>,
 }
 
 impl Conditions {
@@ -170,6 +174,12 @@ impl Conditions {
         let commands = selection
             .active()
             .map(|active| commands(active.group_type()))
+            .unwrap_or_default();
+        let returning = commands
+            .contains(&PanelCommand::SelectReturningDrones)
+            .then(|| recipients(selection, PanelCommand::SelectReturningDrones))
+            .and_then(|nodes| nodes.first().copied())
+            .map(|node| sim.returning_drones(node))
             .unwrap_or_default();
         let refused = commands
             .into_iter()
@@ -212,6 +222,7 @@ impl Conditions {
             modes: Modes::of(sim, selection),
             constructor,
             refused,
+            returning,
         }
     }
 
@@ -221,6 +232,7 @@ impl Conditions {
             modes,
             constructor: None,
             refused: BTreeMap::new(),
+            returning: Vec::new(),
         }
     }
 
@@ -234,6 +246,25 @@ impl Conditions {
     pub fn refusing(mut self, command: PanelCommand, reject: Reject) -> Self {
         self.refused.insert(command, reject);
         self
+    }
+
+    /// The same, with the Drones `drones` returning to the active Egress Node: for the unit tests.
+    pub fn with_returning(mut self, drones: Vec<ObjectId>) -> Self {
+        self.returning = drones;
+        self
+    }
+
+    /// The Drones the active Egress Node's F selects, in id order.
+    pub fn returning(&self) -> &[ObjectId] {
+        &self.returning
+    }
+
+    /// Whether `command` shows in its slot now: the Egress Node's F only while there are Drones for it to select
+    /// (`factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`: "Only available if at least
+    /// one such Drone exists", read as hidden otherwise, as the ExtractionFacility's Cancels are "Only visible
+    /// when"), anything else always.
+    pub fn shows(&self, command: PanelCommand) -> bool {
+        command != PanelCommand::SelectReturningDrones || !self.returning.is_empty()
     }
 
     /// Why the gate would refuse production or construction command or Convert `command` now, if it would.

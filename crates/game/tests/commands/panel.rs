@@ -99,7 +99,7 @@ fn a_mixed_selection_shows_the_basic_combat_unit_grid() {
 /// `factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`: "BasicCombatUnitInterfaceState, plus" R,
 /// Convert (slice M3-B, `convert`): both Legionnaires show the Guard's grid with Convert in R. The portals show the
 /// production panel (slice M3-D, `portals`), the Beacon and the Drone their own (slice M3-J1, `warp_in`, `deploy`);
-/// the Egress Node shows no commands until slice M3-J2 builds its F.
+/// the Egress Node its F (slice M3-J2, `colonists::gathering`).
 #[test]
 fn the_legionnaires_show_the_basic_combat_unit_grid() {
     use space_crystals::command_ui::interface::templates::{InterfaceTemplate, grid};
@@ -109,7 +109,9 @@ fn the_legionnaires_show_the_basic_combat_unit_grid() {
         assert_eq!(InterfaceTemplate::of(kind), Some(InterfaceTemplate::BasicCombatUnit));
         assert_eq!(grid(kind), legionnaire, "{kind:?}");
     }
-    assert_eq!(grid(ObjectKind::EgressNode), [None; 12]);
+    let f = grid(ObjectKind::EgressNode);
+    assert_eq!(f[7], Some(PanelCommand::SelectReturningDrones));
+    assert_eq!(f.iter().flatten().count(), 1);
 }
 
 /// `> CommandPanel`: the panel shows only while every selected object is the local player's.

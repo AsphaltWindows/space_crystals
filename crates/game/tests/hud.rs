@@ -1,6 +1,6 @@
 //! The HUD of slice M2-G, headless (`ARCHITECTURE.md > Client architecture > Client tests`): the resource bar in the
 //! top bar (`factions/gdo/overview.md > DisplayHud`; design changes 0077, 0090 and 0143) and the structures'
-//! InfoPanels (design changes 0099 and 0105), with the fog of war on. Each `App::update` is one tick; clicks come
+//! InfoPanels (design changes 0099, 0105 and 0155), with the fog of war on. Each `App::update` is one tick; clicks come
 //! through the virtual mouse (`InjectedInput`).
 
 use bevy::prelude::*;
@@ -337,12 +337,15 @@ fn an_own_producing_barracks_shows_its_activity_to_its_owner_only() {
     assert_eq!(info(&mut app), panel("Barracks", "Player 1\nHP 300 / 300"));
 }
 
-/// Design change 0099's third verification: a click on a plate's tile selects the plate, and its panel shows the
-/// crystals left in the patch under it, which go down with every load; another player's plate shows them too
-/// (`factions/gdo/economy.md > ExtractionPlate > InfoPanel`).
+/// Design change 0099's third verification, as 0155 limits it (slice M3-J2): a click on a plate's tile selects the
+/// plate, and its panel shows its owner the crystals left in the patch under it, which go down with every load
+/// (`factions/gdo/economy.md > ExtractionPlate > InfoPanel`); another player's plate shows its name, owner and HP
+/// only, the reduced panel of another player's structure (0105). Player 2 (F2) sees its own plate's crystals and
+/// not player 1's, which a Generator of its own (10) beside them lets it see.
 #[test]
-fn a_plate_shows_the_crystals_left_in_its_patch() {
+fn only_its_owner_sees_the_crystals_left_under_a_plate() {
     let mut app = game();
+    spawn(&mut app, ObjectKind::Generator, P2, tile(1, 10));
     click(&mut app, tile_center(1, 8));
     assert_eq!(selected(&app), [PLATE]);
     assert_eq!(
@@ -356,8 +359,19 @@ fn a_plate_shows_the_crystals_left_in_its_patch() {
     );
     click(&mut app, tile_center(5, 7));
     assert_eq!(selected(&app), [ENEMY_PLATE]);
-    assert_eq!(
-        info(&mut app),
-        panel("Extraction Plate", "Player 2\nHP 85 / 85\nSpace Crystals: 1490")
+    assert_eq!(info(&mut app), panel("Extraction Plate", "Player 2\nHP 85 / 85"));
+
+    app.world_mut().resource_mut::<InjectedInput>().tap_key(KeyCode::F2);
+    app.update();
+    click(&mut app, tile_center(5, 7));
+    assert_eq!(selected(&app), [ENEMY_PLATE]);
+    let (_, body, _) = info(&mut app);
+    let body = body.expect("lines");
+    assert!(
+        body.starts_with("HP 85 / 85\nSpace Crystals: "),
+        "its own plate: {body:?}"
     );
+    click(&mut app, tile_center(1, 8));
+    assert_eq!(selected(&app), [PLATE]);
+    assert_eq!(info(&mut app), panel("Extraction Plate", "Player 1\nHP 85 / 85"));
 }

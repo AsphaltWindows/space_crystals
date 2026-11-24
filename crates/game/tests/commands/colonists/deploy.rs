@@ -63,15 +63,16 @@ fn queued() -> Placing {
     }
 }
 
-/// `> Drone ObjectInterfaceState > DefaultState commands`: Q Move, A Deploy, X Stop (S, Set Drop-off, is slice
-/// M3-J2's). A enters AwaitingPlacement for a Beacon, the placement keys on and no pointer over the map: the ghost,
+/// `> Drone ObjectInterfaceState > DefaultState commands`: Q Move, A Deploy, S Set Drop-off (slice M3-J2's
+/// `gathering`), X Stop. A enters AwaitingPlacement for a Beacon, the placement keys on and no pointer over the map:
+/// the ghost,
 /// 2 × 2, follows the cursor snapped to the grid, the footprint whose centre is nearest it, and shows nothing over the
 /// HUD. A click sends the Drone a Deploy there ("Left-click on a valid location issues the Deploy order"), and back to
 /// DefaultState; its site lingers as a ghost.
 #[test]
 fn a_drone_deploys_where_its_ghost_snaps_under_the_cursor() {
     use ButtonLook::{Back, Common, Disabled, Pending};
-    use PanelCommand::{Deploy, Move, Stop};
+    use PanelCommand::{Deploy, Move, SetDropOff, Stop};
     let mut app = drone_game();
     click(&mut app, drone_at(3), &[]);
     assert_eq!(selected(&app), [3]);
@@ -82,6 +83,7 @@ fn a_drone_deploys_where_its_ghost_snaps_under_the_cursor() {
         [
             (slot(0, 0), c(Move), Common, "Move"),
             (slot(1, 0), c(Deploy), Common, "Deploy"),
+            (slot(1, 1), c(SetDropOff), Common, "Drop-off"),
             (x, c(Stop), Common, "Stop"),
         ]
     );
@@ -92,10 +94,12 @@ fn a_drone_deploys_where_its_ghost_snaps_under_the_cursor() {
         [
             (slot(0, 0), c(Move), Disabled, "Move"),
             (slot(1, 0), c(Deploy), Pending, "Deploy"),
+            (slot(1, 1), c(SetDropOff), Disabled, "Drop-off"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
             (x, c(Stop), Disabled, "Stop"),
         ]
     );
+
     hover(&mut app, middle(SITES[0], SIZE));
     let shown = ghost(&app).expect("a ghost");
     assert_eq!(
