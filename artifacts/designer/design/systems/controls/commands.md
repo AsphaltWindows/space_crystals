@@ -10,6 +10,10 @@ When a location-targeted movement order (Move, Attack Move, Patrol) is given to 
 - **The box** is the bounding rectangle around the **full Silhouettes** (collision shapes) of the units receiving the order, not just their centre points, so a click on or between the units of a straight line counts as inside. The group's centre (used for offsets) is the centre of this box (user, 2026-11-23).
 - **Click outside the box: keep the arrangement.** Each unit's destination is the click point plus that unit's current offset from the group's center. The group arrives in the same shape it had (a line stays a line).
 - **Click inside the box: converge.** Every unit's destination is the clicked point itself. The units gather around it, stopping where the crowd blocks them (see systems/controls/behaviors.md > MovingToLocation for when a blocked unit stops).
+- **Queued (Shift) group orders: the box is built from where the units will be** (user, 2026-11-23). For a Shift-queued order, each unit's position for the box and offsets is the **destination of its last queued movement order** (the place it will be standing when this order starts), not its current position. Example: queue a group to X, then back to the start. The return trip is outside the box around X, so the group returns in formation instead of converging. If the previous queued move was a converge, all planned destinations are one point and the future box is tiny, so the next queued click moves the group on as the blob it will be.
+  - This assumes every unit reaches its planned spot. If a unit falls short (blocked, stuck, crowd), it still walks to its pre-computed spot on the next leg and rejoins the shape there.
+  - Fallback: a unit with no queued order that ends at a known location (empty queue, or its last queued order targets an object, e.g. Attack a unit or Move to an object) uses its current position.
+- **Destinations are resolved when the order is given** (user, 2026-11-23). At the moment of the click, the game computes every unit's own destination (offset point, or the converge point) for the whole group and stores that **resolved destination** in each unit's command queue. A unit later executes it alone, whenever it reaches that point in its queue, with no recalculation. The group shape therefore appears at each destination even though units travel and start legs individually. (Recomputing when each unit starts the leg would break this: each unit would be a group of one and everyone would converge on the click point.)
 - **No formation movement:** each unit travels to its destination at its own speed. The group does not wait for its slowest member and strings out if speeds differ.
 
 Rejected alternative (user): a fresh compact grid of spots around the click point. It felt "a little bit too random from a player's perspective".
@@ -19,7 +23,7 @@ An offset destination that is unreachable is handled like any unreachable locati
 TBD: whether the box has a size limit (for widely scattered selections the box covers most of the map, so most clicks converge).
 
 ## Move
-Order the unit to move to a target location or object.
+Order the unit to move to a target location or object. Moving to a **unit** makes the ordered unit **follow** it until given another order (systems/controls/behaviors.md > MovingToObject > Completion). Right-clicking one of your own units therefore makes the selected units follow it.
 
 ### Sets BaseCommandState:
 - CommandType = Move
