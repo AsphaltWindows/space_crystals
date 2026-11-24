@@ -13,14 +13,19 @@
 //!
 //! The window's close button becomes [`EditorAction::Quit`], which asks a second time when there are unsaved
 //! changes (`crate::platform::ConfirmClose`).
+//!
+//! While the Place or the Layout tool holds a structure, the editor tells the layer so ([`report_placing`]), and
+//! R, Shift+R, F and Shift+F turn it (`super::orientation`) instead of whatever else they are bound to (F: the Fill
+//! tool), like the game's placement ghost.
 
 use bevy::prelude::*;
 use bevy::window::WindowCloseRequested;
 
 use super::actions::{EditorAction, EditorActions};
+use super::orientation::Turn;
 use super::tools::{EditorTools, Tool};
 use crate::ClientMode;
-use crate::input::{ActionState, EditorInput, InputAction, MapClick, Pointer};
+use crate::input::{ActionState, EditorInput, InputAction, MapClick, Placing, Pointer};
 
 /// Zoom per wheel line: one line up shows this fraction of the map shown before.
 const ZOOM_PER_LINE: f32 = 0.85;
@@ -61,6 +66,7 @@ pub fn editor_action(action: InputAction, tools: &EditorTools) -> Option<EditorA
         E::PlaceTool => A::SetTool(Tool::Place),
         E::StartTool => A::SetTool(Tool::Start),
         E::CameraTool => A::SetTool(Tool::CameraStart),
+        E::LayoutTool => A::SetTool(Tool::Layout),
         E::SmallerBrush => A::SetBrush(tools.stepped_brush(-1)),
         E::LargerBrush => A::SetBrush(tools.stepped_brush(1)),
         E::NextHeightMode => A::SetElevationMode(tools.elevation_mode.next()),
@@ -75,8 +81,19 @@ pub fn editor_action(action: InputAction, tools: &EditorTools) -> Option<EditorA
         E::NewMap => A::NewMap,
         E::PlayTest => A::PlayTest,
         E::ToggleHelp => A::ToggleHelp,
+        E::RotateClockwise => A::Turn(Turn::Clockwise),
+        E::RotateCounterClockwise => A::Turn(Turn::CounterClockwise),
+        E::FlipHorizontal => A::Turn(Turn::FlipHorizontal),
+        E::FlipVertical => A::Turn(Turn::FlipVertical),
         E::UseTool | E::Eyedropper | E::Zoom => return None,
     })
+}
+
+/// Tells the input layer whether a structure is being placed ([`Placing`]): in the editor, while the Place or the
+/// Layout tool holds one ([`EditorTools::places_structure`]). Then the placement keys turn it.
+pub fn report_placing(mode: Res<ClientMode>, tools: Res<EditorTools>, mut placing: ResMut<Placing>) {
+    let wanted = Placing(*mode == ClientMode::Editor && tools.places_structure());
+    placing.set_if_neq(wanted);
 }
 
 /// The window's close button (review finding: it closed the editor without asking about unsaved changes). Several
@@ -183,6 +200,7 @@ mod tests {
             (KeyCode::KeyO, Tool::Place),
             (KeyCode::KeyL, Tool::Start),
             (KeyCode::KeyC, Tool::CameraStart),
+            (KeyCode::KeyT, Tool::Layout),
         ];
         for (k, tool) in tool_keys {
             assert_eq!(key(k, none), Some(EditorAction::SetTool(tool)), "{k:?}");
@@ -209,5 +227,26 @@ mod tests {
         // The pointer's actions are the pointer system's.
         assert_eq!(editor_action(InputAction::Editor(EditorInput::UseTool), &tools), None);
         assert_eq!(editor_action(InputAction::Select, &tools), None);
+        // While a structure is being placed, R and F turn it (and F isn't the Fill tool).
+        let placing = |k, modifiers| {
+            let action = bindings.resolve_placing(InputContext::Editor, Button::Key(k), modifiers, false, true)?;
+            editor_action(action, &tools)
+        };
+        let shift = Modifiers::SHIFT;
+        assert_eq!(placing(KeyCode::KeyR, none), Some(EditorAction::Turn(Turn::Clockwise)));
+        assert_eq!(
+            placing(KeyCode::KeyR, shift),
+            Some(EditorAction::Turn(Turn::CounterClockwise))
+        );
+        assert_eq!(
+            placing(KeyCode::KeyF, none),
+            Some(EditorAction::Turn(Turn::FlipHorizontal))
+        );
+        assert_eq!(
+            placing(KeyCode::KeyF, shift),
+            Some(EditorAction::Turn(Turn::FlipVertical))
+        );
+        assert_eq!(placing(KeyCode::KeyV, none), Some(EditorAction::SetTool(Tool::Select)));
+        assert_eq!(key(KeyCode::KeyR, none), None, "R is nothing otherwise");
     }
 }

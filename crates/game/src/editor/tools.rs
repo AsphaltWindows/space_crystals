@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 use sc_sim::map::MAX_ELEVATION;
-use sc_sim::{ObjectKind, SlotId, Symmetry, TilePresetId};
+use sc_sim::{BuildingOrientation, Faction, ObjectKind, SlotId, Symmetry, TilePresetId};
 use serde::{Deserialize, Serialize};
 
 /// What a click on the map does.
@@ -22,10 +22,14 @@ pub enum Tool {
     Start,
     /// Place the chosen slot's camera start (`core/camera.md > Starting Position`).
     CameraStart,
+    /// Edit the chosen slot's Starting Layout of the chosen faction (`core/map_editor.md > Starting Layouts`, slice
+    /// M2-I: `super::layouts`): a click on one of its objects selects it and drags it, a click elsewhere places the
+    /// chosen object type there.
+    Layout,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 7] = [
+    pub const ALL: [Tool; 8] = [
         Tool::Select,
         Tool::Paint,
         Tool::Elevation,
@@ -33,6 +37,7 @@ impl Tool {
         Tool::Place,
         Tool::Start,
         Tool::CameraStart,
+        Tool::Layout,
     ];
 
     pub fn label(self) -> &'static str {
@@ -44,6 +49,7 @@ impl Tool {
             Tool::Place => "Place",
             Tool::Start => "Start",
             Tool::CameraStart => "Camera",
+            Tool::Layout => "Layout",
         }
     }
 
@@ -118,8 +124,16 @@ pub struct EditorTools {
     /// The owner of placed objects: neutral or a player slot. Resources are always placed neutral, and Skirmish
     /// Default maps take neutral objects only (`core/map_editor.md > Map Types`).
     pub owner: Option<SlotId>,
-    /// The slot whose markers the marker tools place: an editable one on a symmetric map.
+    /// The slot whose markers the marker tools place and whose Starting Layouts the Layout tool edits: an editable
+    /// one on a symmetric map.
     pub slot: SlotId,
+    /// The faction whose Starting Layout at `slot` the Layout tool edits.
+    pub faction: Faction,
+    /// The object type the Layout tool places.
+    pub layout_kind: ObjectKind,
+    /// How the Place and Layout tools turn the structures they place (R, Shift+R, F, Shift+F): other objects are
+    /// never turned.
+    pub orientation: BuildingOrientation,
 }
 
 impl Default for EditorTools {
@@ -133,6 +147,9 @@ impl Default for EditorTools {
             kind: ObjectKind::ALL[0],
             owner: None,
             slot: SlotId(1),
+            faction: Faction::Gdo,
+            layout_kind: ObjectKind::DeploymentCenter,
+            orientation: BuildingOrientation::default(),
         }
     }
 }
@@ -142,6 +159,28 @@ impl EditorTools {
     pub fn stepped_brush(&self, step: i32) -> u32 {
         let i = BRUSH_SIZES.iter().position(|&b| b == self.brush).unwrap_or(1) as i32;
         BRUSH_SIZES[(i + step).clamp(0, BRUSH_SIZES.len() as i32 - 1) as usize]
+    }
+
+    /// The object type the active tool places, if it places objects: the Place tool's or the Layout tool's.
+    pub fn placed_kind(&self) -> Option<ObjectKind> {
+        match self.tool {
+            Tool::Place => Some(self.kind),
+            Tool::Layout => Some(self.layout_kind),
+            _ => None,
+        }
+    }
+
+    /// How the active tool turns what it places: [`EditorTools::orientation`] for a structure, unturned otherwise.
+    pub fn placed_orientation(&self) -> BuildingOrientation {
+        match self.placed_kind() {
+            Some(kind) if super::orientation::turns(kind) => self.orientation,
+            _ => BuildingOrientation::default(),
+        }
+    }
+
+    /// Whether the active tool places a structure, which R, Shift+R, F and Shift+F turn (`crate::input::Placing`).
+    pub fn places_structure(&self) -> bool {
+        self.placed_kind().is_some_and(super::orientation::turns)
     }
 }
 

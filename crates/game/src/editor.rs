@@ -8,9 +8,10 @@
 //! ([`input`]), UI buttons and fields ([`ui`]), `--editor-script` files and tests queue them, and
 //! [`actions::apply_editor_actions`] applies them. On a symmetric map only the editable part is edited; after every
 //! action the locked part is generated again from it (`core/map_editor.md > Symmetry`). New maps come from the
-//! creation dialog ([`creation`]); maps may define custom tile presets ([`presets`]). F5 play-tests the map in game
-//! mode with the play-test's game setup ([`playtest`]) and comes back with the document and its undo history
-//! intact.
+//! creation dialog ([`creation`]); maps may define custom tile presets ([`presets`]). Each slot's Starting Layouts
+//! are edited with the Layout tool ([`layouts`]), and the structures the tools place are turned with R and F
+//! ([`orientation`]). F5 play-tests the map in game mode with the play-test's game setup ([`playtest`]) and comes
+//! back with the document and its undo history intact.
 //!
 //! Map design is `core/map.md` (tiles, presets, corner heights 0–16, resources on flat ground) and
 //! `core/map_editor.md` (map types, symmetry, player slots and their markers).
@@ -22,7 +23,9 @@ pub mod document;
 pub mod files;
 pub mod gesture;
 pub mod input;
+pub mod layouts;
 pub mod objects;
+pub mod orientation;
 pub mod overlay;
 pub mod playtest;
 pub mod presets;
@@ -41,6 +44,7 @@ use self::actions::{EditorAction, EditorActions, PendingConfirmation, PlayTestRe
 use self::creation::NewMapDialog;
 use self::doc::EditorDoc;
 use self::gesture::Gesture;
+use self::layouts::check::{LayoutPreview, update_layout_preview};
 use self::playtest::PlayTestSetup;
 use self::state::{EditorCursor, EditorFiles, EditorProblems, EditorSelection, EditorStatus, EditorUi, StatusLevel};
 use self::tools::EditorTools;
@@ -148,6 +152,7 @@ impl Plugin for EditorPlugin {
             .init_resource::<PlayTestRequest>()
             .init_resource::<PendingConfirmation>()
             .init_resource::<playtest::PlayTestState>()
+            .init_resource::<LayoutPreview>()
             .configure_sets(
                 Update,
                 (EditorSystems::Input, EditorSystems::Apply, EditorSystems::Sync)
@@ -163,7 +168,8 @@ impl Plugin for EditorPlugin {
                     (apply_editor_actions, playtest::switch_play_test)
                         .chain()
                         .in_set(EditorSystems::Apply),
-                    (sync_preview, set_insets).in_set(EditorSystems::Sync),
+                    (sync_preview, set_insets, update_layout_preview, input::report_placing)
+                        .in_set(EditorSystems::Sync),
                 ),
             )
             .add_systems(Startup, log_starting_status)
@@ -175,27 +181,45 @@ fn log_starting_status(status: Res<EditorStatus>) {
     status.log();
 }
 
+/// What the editor's preview was last brought up to date with: the document's revision, and the faction whose
+/// layouts it shows instead of the GDO's ([`layouts::previewed_faction`]).
+type PreviewKey = (u64, Option<Faction>);
+
 /// In the editor, the sim shows the document: whenever the document changes, a fresh [`Sim::preview`] of its map
-/// replaces the sim (which rebuilds the map mesh and the object visuals) and the problems are listed again.
+/// replaces the sim (which rebuilds the map mesh and the object visuals) and the problems are listed again. Its
+/// players are those of the map's default setup, or, while the Layout tool edits a faction's layouts, all of that
+/// faction ([`layouts::preview_scenario`]). A play-test replaces the sim; when it ends, the preview is checked again.
 fn sync_preview(
     mode: Res<ClientMode>,
     doc: Res<EditorDoc>,
-    mut synced: Local<Option<u64>>,
+    tools: Res<EditorTools>,
+    mut synced: Local<Option<PreviewKey>>,
     mut sim: ResMut<SimRes>,
     mut loaded: ResMut<LoadedScenario>,
     mut problems: ResMut<EditorProblems>,
 ) {
-    if *mode != ClientMode::Editor || *synced == Some(doc.revision()) {
+    if *mode != ClientMode::Editor {
+        *synced = None;
         return;
     }
-    *synced = Some(doc.revision());
-    let map = doc.map();
-    let found = map.validate();
-    if problems.0 != found {
-        problems.0 = found;
+    let faction = layouts::previewed_faction(&tools);
+    let key = (doc.revision(), faction);
+    if *synced == Some(key) {
+        return;
     }
-    if loaded.0.map != *map {
-        let scenario = Scenario::new(map.clone());
+    let before = synced.replace(key);
+    let map = doc.map();
+    if before.is_none_or(|(revision, _)| revision != doc.revision()) {
+        let found = map.validate();
+        if problems.0 != found {
+            problems.0 = found;
+        }
+    }
+    // The setup counts only while a faction is or was previewed: until the first edit, the editor shows the setup
+    // it was started with.
+    let faction_shown = faction.is_some() || before.is_some_and(|(_, f)| f.is_some());
+    let scenario = layouts::preview_scenario(map, faction);
+    if loaded.0.map != *map || (faction_shown && loaded.0.setup != scenario.setup) {
         sim.replace(Sim::preview(&scenario).0);
         loaded.0 = scenario;
     }

@@ -1,7 +1,9 @@
 //! The ghosts of the object about to be placed and its images, and the labels of the slots' markers.
 
+use std::f32::consts::FRAC_PI_2;
+
 use bevy::prelude::*;
-use sc_sim::{ObjectKind, SU_PER_GU, SlotId, SpawnAt};
+use sc_sim::{BuildingOrientation, ObjectKind, SU_PER_GU, SlotId, SpawnAt};
 
 use super::previews::placements;
 use super::{OverlayAssets, slot_color, su_per_pixel};
@@ -9,6 +11,7 @@ use crate::ClientMode;
 use crate::camera::{CameraZoom, ViewportInsets};
 use crate::coords::{DrawLayer, drawn_at_height, drawn_position, footprint_height, view_to_world};
 use crate::editor::doc::EditorDoc;
+use crate::editor::layouts::check::LayoutPreview;
 use crate::editor::objects;
 use crate::editor::state::EditorCursor;
 use crate::editor::tools::{EditorTools, Tool};
@@ -29,12 +32,16 @@ pub struct Ghost {
 #[derive(Component)]
 pub struct SlotLabel;
 
+/// The ghosts of what the Place tool or the Layout tool would place: the object, then its images, each where it
+/// would lie, turned (a structure's placeholder is a rectangle centred on it, so a quarter turn is the turn of its
+/// visual), and whether it may go there.
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 pub(super) fn place_ghosts(
     mode: Res<ClientMode>,
     doc: Res<EditorDoc>,
     tools: Res<EditorTools>,
     cursor: Res<EditorCursor>,
+    layout: Res<LayoutPreview>,
     assets: Res<OverlayAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut ghost_meshes: Local<Vec<(ObjectKind, Handle<Mesh>)>>,
@@ -47,14 +54,29 @@ pub(super) fn place_ghosts(
     )>,
 ) {
     // Review finding: only when something they show changed.
-    if !(mode.is_changed() || doc.is_changed() || tools.is_changed() || cursor.is_changed()) {
+    if !(mode.is_changed() || doc.is_changed() || tools.is_changed() || cursor.is_changed() || layout.is_changed()) {
         return;
     }
-    let shown = match (*mode, tools.tool, cursor.0) {
-        (ClientMode::Editor, Tool::Place, Some(pos)) => placements(doc.map(), &tools, pos),
-        _ => Vec::new(),
+    let (kind, shown): (ObjectKind, Vec<(SpawnAt, BuildingOrientation, bool)>) = match (*mode, tools.tool, cursor.0) {
+        (ClientMode::Editor, Tool::Place, Some(pos)) => (
+            tools.kind,
+            placements(doc.map(), &tools, pos)
+                .into_iter()
+                .map(|(at, orientation, problem)| (at, orientation, problem.is_none()))
+                .collect(),
+        ),
+        (ClientMode::Editor, Tool::Layout, Some(_)) => match &layout.0 {
+            Some(ghost) => (
+                ghost.kind,
+                std::iter::once((ghost.at, ghost.orientation))
+                    .chain(ghost.images.iter().copied())
+                    .map(|(at, orientation)| (at, orientation, ghost.verdict.is_ok()))
+                    .collect(),
+            ),
+            None => (tools.layout_kind, Vec::new()),
+        },
+        _ => (tools.kind, Vec::new()),
     };
-    let kind = tools.kind;
     let mesh = match ghost_meshes.iter().find(|(k, _)| *k == kind) {
         Some((_, handle)) => handle.clone(),
         None => {
@@ -65,27 +87,29 @@ pub(super) fn place_ghosts(
     };
     let map = &doc.map().terrain;
     for (ghost, mut mesh2d, mut material, mut transform, mut visibility) in &mut ghosts {
-        let Some(&(at, problem)) = shown.get(ghost.image) else {
+        let Some(&(at, orientation, fits)) = shown.get(ghost.image) else {
             visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
         // Standing where the object would: on its footprint's height.
-        let height = match (at, objects::tile_size(kind)) {
+        let rect = objects::spawn_rect(kind, at, orientation);
+        let height = match (at, objects::oriented_size(kind, orientation)) {
             (SpawnAt::Tile(o), Some((w, h))) => footprint_height(map, o, w, h),
-            _ => map.height_at(objects::spawn_rect(kind, at).center()),
+            _ => map.height_at(rect.center()),
         };
-        let center = drawn_at_height(objects::spawn_rect(kind, at).center(), height);
+        let center = drawn_at_height(rect.center(), height);
         let z = DrawLayer::Overlays.base_z() - 1.0;
-        transform.set_if_neq(Transform::from_translation(view_to_world(center).extend(z)));
+        let turn = if orientation.swaps_axes() {
+            Quat::from_rotation_z(FRAC_PI_2)
+        } else {
+            Quat::IDENTITY
+        };
+        transform.set_if_neq(Transform::from_translation(view_to_world(center).extend(z)).with_rotation(turn));
         if mesh2d.0 != mesh {
             mesh2d.0 = mesh.clone();
         }
         // `core/map.md > Elevation > Map resources only on flat terrain`: red on any sloped footprint tile too.
-        let wanted = if problem.is_none() {
-            &assets.ghost_ok
-        } else {
-            &assets.ghost_bad
-        };
+        let wanted = if fits { &assets.ghost_ok } else { &assets.ghost_bad };
         if material.0 != *wanted {
             material.0 = wanted.clone();
         }

@@ -1,7 +1,8 @@
 //! The editor's UI (bevy_ui with the headless `bevy_ui_widgets`): a toolbar at the top, the palette on the left
-//! (terrain and custom presets, height, objects, owner, player slots), the map's properties, the play-test setup,
-//! validation and files on the right, a status line at the bottom, and the creation dialog for new maps over it
-//! all. Sizes are in `vh` like the game HUD's; colours and sizes are placeholders.
+//! (terrain and custom presets, height, objects, owner, player slots, Starting Layouts), the map's properties,
+//! validation, the play-test setup and files on the right, both panels scrolled with the wheel and a scrollbar, a
+//! status line at the bottom, and the creation dialog for new maps over it all. Sizes are in `vh` like the game
+//! HUD's; colours and sizes are placeholders.
 //!
 //! Every button carries the [`EditorAction`] it queues ([`UiAction`]) and lights up when that action's choice is
 //! the current one. Text fields commit on Enter or when they lose the keyboard, and revert on Escape
@@ -13,6 +14,7 @@ pub mod dialog;
 pub mod fields;
 pub mod layout;
 pub mod lists;
+pub mod starting;
 pub mod texts;
 
 use bevy::ecs::system::SystemParam;
@@ -102,6 +104,8 @@ impl Plugin for EditorUiPlugin {
                         lists::rebuild_files,
                         lists::rebuild_problems,
                         lists::rebuild_spawn_fields,
+                        starting::rebuild_layout_panel,
+                        starting::reveal_section,
                     ),
                     fields::refresh_fields,
                     (
@@ -160,6 +164,8 @@ impl UiState<'_> {
             EditorAction::SetKind(kind) => tools.kind == *kind,
             EditorAction::SetOwner(owner) => tools.owner == *owner,
             EditorAction::SelectSlot(slot) => tools.slot == *slot,
+            EditorAction::SetLayoutFaction(faction) => tools.faction == *faction,
+            EditorAction::SetLayoutKind(kind) => tools.layout_kind == *kind,
             EditorAction::TogglePresetFlag(id, flag) => preset(id).is_some_and(|p| flag.get(p)),
             EditorAction::SetPresetLook(id, look) => preset(id).is_some_and(|p| p.look == *look),
             EditorAction::SetPlayTestSlot(slot) => self.playtest.slot == *slot,
@@ -181,6 +187,14 @@ impl UiState<'_> {
             EditorAction::Undo => self.doc.can_undo(),
             EditorAction::Redo => self.doc.can_redo(),
             EditorAction::DeleteSelected => self.selection.0.is_some(),
+            // Only structures turn (`crate::editor::orientation`).
+            EditorAction::Turn(_) => self.tools.places_structure(),
+            // A Skirmish Default layout takes no more of a kind than its Starting Conditions hold.
+            EditorAction::SetLayoutKind(kind) => {
+                crate::editor::layouts::palette(self.doc.map(), self.tools.slot, self.tools.faction)
+                    .iter()
+                    .any(|e| e.kind == *kind && e.left != Some(0))
+            }
             // The default presets are fixed.
             EditorAction::TogglePresetFlag(id, _)
             | EditorAction::SetPresetLook(id, _)

@@ -17,6 +17,7 @@ use super::{
 use crate::editor::actions::EditorAction;
 use crate::editor::doc::EditorDoc;
 use crate::editor::files;
+use crate::editor::layouts::problems::{ProblemLine, problem_lines};
 use crate::editor::objects::faction_name;
 use crate::editor::overlay::slot_color;
 use crate::editor::playtest::PlayTestSetup;
@@ -53,7 +54,7 @@ pub struct ProblemList;
 pub struct SpawnFieldList;
 
 /// Replaces the children of the single `L` list when `wanted` differs from what it shows.
-fn rebuild<L: Component, T: PartialEq>(
+pub(super) fn rebuild<L: Component, T: PartialEq>(
     commands: &mut Commands,
     list: &Query<Entity, With<L>>,
     shown: &mut Option<T>,
@@ -374,24 +375,27 @@ pub fn rebuild_spawn_fields(
     });
 }
 
+/// The validation problems, a line each, or one line for several that one fix mends (slice M2-I: what a layout
+/// lacks, `crate::editor::layouts::problems`). A click on a line focuses its problem.
 pub fn rebuild_problems(
     mut commands: Commands,
+    doc: Res<EditorDoc>,
     problems: Res<EditorProblems>,
     list: Query<Entity, With<ProblemList>>,
-    mut shown: Local<Option<Vec<String>>>,
+    mut shown: Local<Option<Vec<ProblemLine>>>,
 ) {
     if shown.is_some() && !problems.is_changed() {
         return;
     }
-    let texts = problems.0.iter().map(ToString::to_string).collect();
-    rebuild(&mut commands, &list, &mut shown, texts, |list, texts| {
-        if texts.is_empty() {
+    let lines = problem_lines(doc.map(), &problems.0);
+    rebuild(&mut commands, &list, &mut shown, lines, |list, lines| {
+        if lines.is_empty() {
             list.spawn(label("None: the map is playable", SMALL_VH, OK_TEXT));
         }
-        for (i, text) in texts.iter().enumerate() {
+        for line in lines {
             list.spawn((
-                button_frame(EditorAction::FocusProblem(i)),
-                children![label(text.clone(), SMALL_VH, ERROR_TEXT)],
+                button_frame(EditorAction::FocusProblem(line.index)),
+                children![label(line.text.clone(), SMALL_VH, ERROR_TEXT)],
             ));
         }
     });

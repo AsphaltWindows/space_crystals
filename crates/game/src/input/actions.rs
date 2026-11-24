@@ -125,6 +125,18 @@ impl InputAction {
     pub fn works_in(self, context: InputContext) -> bool {
         self.context().is_none_or(|c| c == context)
     }
+
+    /// Whether the action turns the structure being placed. Its bindings take a press only while one is
+    /// ([`super::Placing`]), and then before every other binding of that press, which they override: in the editor F
+    /// flips while a structure is being placed and chooses the Fill tool otherwise, as the game's placement keys
+    /// override its command slots (`> AwaitingPlacement`).
+    pub fn is_placement(self) -> bool {
+        use EditorInput as E;
+        matches!(
+            self,
+            InputAction::Editor(E::RotateClockwise | E::RotateCounterClockwise | E::FlipHorizontal | E::FlipVertical)
+        )
+    }
 }
 
 /// What the map editor can be asked to do with a key, a mouse button or the wheel (`ARCHITECTURE.md > Map editor`;
@@ -148,6 +160,8 @@ pub enum EditorInput {
     PlaceTool,
     StartTool,
     CameraTool,
+    /// The Starting Layout tool (`core/map_editor.md > Starting Layouts`).
+    LayoutTool,
     SmallerBrush,
     LargerBrush,
     /// Switches the height tool to its next mode (Set, Raise, Lower).
@@ -169,6 +183,18 @@ pub enum EditorInput {
     /// where Esc is the game's Cancel.
     PlayTest,
     ToggleHelp,
+    /// While a structure is being placed: turns it a quarter turn clockwise. The editor places with the keys of the
+    /// game's placement ghost (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]
+    /// > AwaitingPlacement`: "R rotates the ghost 90 degrees clockwise, Shift+R rotates 90 degrees counter-clockwise
+    /// ... F flips the ghost horizontally, Shift+F flips vertically"), as `core/map_editor.md` gives none. These four
+    /// are placement actions ([`InputAction::is_placement`]).
+    RotateClockwise,
+    /// While a structure is being placed: turns it a quarter turn counter-clockwise.
+    RotateCounterClockwise,
+    /// While a structure is being placed: mirrors it left and right, as seen.
+    FlipHorizontal,
+    /// While a structure is being placed: mirrors it top and bottom, as seen.
+    FlipVertical,
 }
 
 /// One of the 10 control groups (`systems/controls/selection_and_hud.md > ControlGroups`), numbered 0–9 like their

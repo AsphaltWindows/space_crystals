@@ -10,9 +10,10 @@
 use std::collections::BTreeSet;
 
 use bevy::prelude::*;
-use sc_sim::{Category, CornerPos, SU_PER_GU, SlotId, Spawn, SpawnAt, TilePos};
+use sc_sim::{Category, CornerPos, Faction, SU_PER_GU, SlotId, Spawn, SpawnAt, TilePos};
 
 use super::actions::Editor;
+use super::layouts::{self, layout_name};
 use super::objects;
 use super::state::Selection;
 use super::terrain;
@@ -40,6 +41,13 @@ pub enum GestureKind {
     MoveSpawn { index: usize, offset: Vec2 },
     /// Dragging a slot's start position or camera start.
     MoveMarker(Selection),
+    /// Dragging object `index` of a Starting Layout (`super::layouts`): its center sits at the cursor plus `offset`.
+    MoveLayoutObject {
+        slot: SlotId,
+        faction: Faction,
+        index: usize,
+        offset: Vec2,
+    },
 }
 
 impl Editor<'_> {
@@ -56,7 +64,7 @@ impl Editor<'_> {
             Tool::Paint | Tool::Elevation | Tool::Fill | Tool::Start => !region.tile(tile),
             Tool::CameraStart => !region.point(pos),
             // Placements and selections check what they touch.
-            Tool::Place | Tool::Select => false,
+            Tool::Place | Tool::Select | Tool::Layout => false,
         };
         if locked {
             self.refuse_locked("that tile");
@@ -87,10 +95,11 @@ impl Editor<'_> {
             }
             Tool::Place => {
                 self.doc.begin_edit();
-                let at = objects::snap_spawn(self.tools.kind, pos);
+                let at = objects::snap_spawn(self.tools.kind, self.tools.placed_orientation(), pos);
                 self.gesture.0 = Some(GestureKind::Place { last: at });
                 self.place(at, true);
             }
+            Tool::Layout => self.press_layout(pos),
             Tool::Start | Tool::CameraStart => {
                 let slot = self.tools.slot;
                 if !self.slot_editable(slot) {
@@ -130,13 +139,19 @@ impl Editor<'_> {
                 }
             }
             GestureKind::Place { last } => {
-                let at = objects::snap_spawn(self.tools.kind, pos);
+                let at = objects::snap_spawn(self.tools.kind, self.tools.placed_orientation(), pos);
                 if at != last && self.place(at, false) {
                     self.gesture.0 = Some(GestureKind::Place { last: at });
                 }
             }
             GestureKind::MoveSpawn { index, offset } => self.move_spawn(index, pos + offset),
             GestureKind::MoveMarker(marker) => self.move_marker(marker, pos),
+            GestureKind::MoveLayoutObject {
+                slot,
+                faction,
+                index,
+                offset,
+            } => self.move_layout_object(slot, faction, index, pos + offset),
         }
     }
 
@@ -241,6 +256,7 @@ impl Editor<'_> {
                 self.selection.0 = None;
                 self.set_camera_start(slot, None);
             }
+            Selection::LayoutObject { slot, faction, index } => self.delete_layout_object(slot, faction, index),
         }
     }
 
@@ -287,7 +303,7 @@ impl Editor<'_> {
             }
             Some(index) => {
                 let spawn = &map.spawns[index];
-                let center = objects::spawn_rect(spawn.kind, spawn.at).center();
+                let center = objects::spawn_rect(spawn.kind, spawn.at, spawn.orientation).center();
                 self.selection.0 = Some(Selection::Spawn(index));
                 self.doc.begin_edit();
                 self.gesture.0 = Some(GestureKind::MoveSpawn {
@@ -295,7 +311,16 @@ impl Editor<'_> {
                     offset: center - pos,
                 });
             }
-            None => self.selection.0 = None,
+            None => {
+                self.selection.0 = None;
+                // The preview shows the GDO's layouts, which the Layout tool edits.
+                if let Some(slot) = layouts::layout_slot_at(map, Faction::Gdo, pos) {
+                    let name = layout_name(map.source_slot(slot), Faction::Gdo);
+                    self.status.info(format!(
+                        "That is in a Starting Layout: the Layout tool (T) edits the {name}"
+                    ));
+                }
+            }
         }
     }
 
@@ -335,16 +360,20 @@ impl Editor<'_> {
         terrain::raise_or_set(self.doc.map_mut(), &fresh, mode, level);
     }
 
-    /// Places the chosen object type at `at` with its kind's default values; the editor generates its images.
-    /// Returns whether the object was placed. `report` says why not in the status line (the press does, a drag
-    /// skips bad spots silently).
+    /// Places the chosen object type at `at` with its kind's default values, a structure turned as chosen
+    /// ([`super::tools::EditorTools::placed_orientation`]); the editor generates its images. Returns whether the
+    /// object was placed. `report` says why not in the status line (the press does, a drag skips bad spots
+    /// silently).
     fn place(&mut self, at: SpawnAt, report: bool) -> bool {
         let kind = self.tools.kind;
         let owner = match kind.def().category {
             Category::Resource => None, // `core/map.md > Resource`: always neutral.
             _ => self.tools.owner,
         };
-        let spawn = Spawn::new(kind, owner, at);
+        let spawn = Spawn {
+            orientation: self.tools.placed_orientation(),
+            ..Spawn::new(kind, owner, at)
+        };
         if let Err(problem) = objects::check_placement(self.doc.map(), &spawn, None) {
             if report {
                 self.status.warn(problem.message(kind));
@@ -362,7 +391,7 @@ impl Editor<'_> {
         let Some(spawn) = map.spawns.get(index) else {
             return;
         };
-        let at = objects::dragged_spawn(&map.terrain, spawn.kind, center);
+        let at = objects::dragged_spawn(&map.terrain, spawn.kind, spawn.orientation, center);
         let moved = Spawn { at, ..spawn.clone() };
         if spawn.at != at && objects::check_placement(map, &moved, Some(index)).is_ok() {
             self.doc.map_mut().spawns[index].at = at;
@@ -378,7 +407,7 @@ impl Editor<'_> {
         let (slot, start) = match marker {
             Selection::Start(slot) => (slot, true),
             Selection::CameraStart(slot) => (slot, false),
-            Selection::Spawn(_) => return,
+            Selection::Spawn(_) | Selection::LayoutObject { .. } => return,
         };
         let Some(current) = map.slot(slot) else {
             return;

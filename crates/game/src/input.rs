@@ -145,6 +145,13 @@ pub struct RawInput {
     pub enabled: bool,
 }
 
+/// Whether a structure is being placed, as the placement's owner last reported it: the map editor while its
+/// placement tools hold a structure (`crate::editor::input::report_placing`). While it is, the placement actions'
+/// bindings take their presses first (`Bindings::resolve_placing`); the input of a frame follows the report of the
+/// frame before.
+#[derive(Resource, Default, Debug, PartialEq, Eq)]
+pub struct Placing(pub bool);
+
 /// Builds [`ActionState`] and sends the pointer messages in `PreUpdate`, after Bevy has read this frame's raw input
 /// and UI hovering, and after the focused text field has seen this frame's keys (it gives up the keyboard on Esc).
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
@@ -159,6 +166,7 @@ impl Plugin for ActionInputPlugin {
         app.init_resource::<ActionState>()
             .init_resource::<InjectedInput>()
             .init_resource::<Bindings>()
+            .init_resource::<Placing>()
             .insert_resource(RawInput {
                 enabled: self.raw_input,
             })
@@ -190,7 +198,8 @@ impl TextFocus<'_, '_> {
     }
 }
 
-/// The real keyboard, mouse and window, and the mode, whose input context decides which bindings apply.
+/// The real keyboard, mouse and window, the mode, whose input context decides which bindings apply, and whether a
+/// structure is being placed.
 #[derive(SystemParam)]
 struct Devices<'w, 's> {
     raw: Res<'w, RawInput>,
@@ -200,6 +209,7 @@ struct Devices<'w, 's> {
     window: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
     text_focus: TextFocus<'w, 's>,
     mode: Option<Res<'w, ClientMode>>,
+    placing: Option<Res<'w, Placing>>,
 }
 
 impl Devices<'_, '_> {
@@ -305,9 +315,10 @@ fn read_actions(
             }
         }
         let now = time.elapsed_secs_f64();
+        let placing = devices.placing.as_deref().is_some_and(|p| p.0);
         for button in went_down {
             let double = tracking.taps.press(button, modifiers, now);
-            if let Some(action) = bindings.resolve(context, button, modifiers, double) {
+            if let Some(action) = bindings.resolve_placing(context, button, modifiers, double, placing) {
                 tracking.latches.push((button, action));
                 state.just_pressed.insert(action);
             }
