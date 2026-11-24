@@ -5,13 +5,13 @@
 //! - **a structure** (`> Default InfoPanel for structures`, design change 0105): one of the local player's own shows
 //!   its HP and, in the activity area under it, what it is doing ([`activity`]); another player's, or a neutral one,
 //!   shows its owner ("Neutral") and HP only, never what it is doing. An object that has Shields (the Colonists',
-//!   `systems/combat.md > Shields`, slice M3-B) shows them under its HP, "Shields a / b" (the proposal of question
-//!   Q0042 point 4, a placeholder). A type's own section adds to that, whoever
-//!   looks: the Extraction Plate shows the remaining Space Crystals of the patch under it
-//!   (`factions/gdo/economy.md > ExtractionPlate > InfoPanel`, design change 0099), with the line the patch's own
-//!   panel has, since a covered patch can't be selected on its own (`> Selecting a covered patch`) and anyone who
-//!   sees the patch may see its RemainingAmount (`core/map.md > SpaceCrystalsPatch > InfoPanel`). The plate's own
-//!   section doesn't limit it to its owner, so another player's plate shows it too (the most literal reading);
+//!   `systems/combat.md > Shields > Display`, slice M3-B, design change 0148: "Shields current/max" next to the HP
+//!   line) shows them on the line after its HP, "Shields a / b". A type's own section adds to that, whoever looks: the
+//!   Extraction Plate shows the remaining Space Crystals of the patch under it (`factions/gdo/economy.md >
+//!   ExtractionPlate > InfoPanel`, design change 0099), with the line the patch's own panel has, since a covered patch
+//!   can't be selected on its own (`> Selecting a covered patch`) and anyone who sees the patch may see its
+//!   RemainingAmount (`core/map.md > SpaceCrystalsPatch > InfoPanel`). The plate's own section doesn't limit it to its
+//!   owner, so another player's plate shows it too (the most literal reading);
 //! - **a map resource**: "Neutral" and its state (`core/map.md > SpaceCrystalsPatch > InfoPanel`, `>
 //!   SupplyDeliveryStation > InfoPanel`).
 //!
@@ -433,9 +433,9 @@ mod tests {
         );
     }
 
-    /// Question Q0042 point 4 (a placeholder): "Shields a/b" in the InfoPanel, under the HP, for an object that has
-    /// Shields, rounded up as the HP are; one without (a Peacekeeper) shows none. Player 1's Sabre Legionnaire (1),
-    /// its Shields at 2.25 of 10 (a saved state edited), and player 2's Peacekeeper (2).
+    /// `systems/combat.md > Shields > Display` (design change 0148): "Shields current/max" next to the HP line, for an
+    /// object that has Shields, rounded up as the HP are; one without (a Peacekeeper) shows none. Player 1's Sabre
+    /// Legionnaire (1), its Shields at 2.25 of 10 (a saved state edited), and player 2's Peacekeeper (2).
     #[test]
     fn an_object_with_shields_shows_them_under_its_hp() {
         let t = ScenarioBuilder::new(&vec![".".repeat(16); 8].join("\n"))

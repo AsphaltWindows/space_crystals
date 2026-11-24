@@ -1,8 +1,8 @@
-//! Placeholder combat feedback (`systems/combat.md`; the art waits on Q0001): a short tracer from the attacker to
-//! its target for each attack that takes effect (`SimEvent::Attacked`), or a flash of the unit hit when the tracer
-//! is hidden, HP bars over damaged and selected objects, with a shield bar above the HP bar of an object that has
-//! Shields (`systems/combat.md > Shields`, slice M3-B; the proposal of question Q0042 point 4, a placeholder), and a
-//! fading marker where an object died (`SimEvent::Died`).
+//! Placeholder combat feedback (`systems/combat.md`; the art waits on Q0001): a short tracer from the attacker to its
+//! target for each attack that takes effect (`SimEvent::Attacked`), or a flash of the unit hit when the tracer is
+//! hidden, HP bars over damaged and selected objects, with a shield bar above the HP bar of an object that has Shields
+//! (`systems/combat.md > Shields > Display`, slice M3-B, design change 0148: "a shield bar sits directly above the HP
+//! bar"; its styling waits for the HUD pass), and a fading marker where an object died (`SimEvent::Died`).
 //!
 //! Everything is one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while anything
 //! shows. Effects age by the sim's ticks plus the render alpha, so a QA screenshot of a tick (alpha 1) always shows

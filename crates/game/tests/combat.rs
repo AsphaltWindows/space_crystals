@@ -158,12 +158,13 @@ fn shots_hits_and_deaths_show_for_their_ticks() {
     assert!(effects_visible(&mut app), "the Guard's HP bar stays");
 }
 
-/// Slice M3-B (`systems/combat.md > Shields`; question Q0042 point 4, a placeholder: "a bar above the HP bar"): an
-/// object that has Shields gets a shield bar with its HP bar, filled with the share of its MaxShields it has left, and
-/// shows them while its Shields alone are short; one without Shields has no shield bar. Player 2's Guard shoots
-/// player 1's Sabre Legionnaire, 160 su off: its 6 take 6 of the Sabre's 10 Shields and no HP, so the Sabre's bars
-/// show with its HP full, and 0.25 of the Shields back by the end of the tick (`> ShieldRegenRate`). Once the Guard
-/// stops, the Shields regenerate to full and the bars go; a selected Guard shows its HP bar alone.
+/// Slice M3-B (`systems/combat.md > Shields > Display`, design change 0148: "a shield bar sits directly above the HP
+/// bar of every object with Shields"): an object that has Shields gets a shield bar with its HP bar, filled with the
+/// share of its MaxShields it has left, and shows them while its Shields alone are short; one without Shields has no
+/// shield bar. Player 2's Guard shoots player 1's Sabre Legionnaire, 160 su off: its 6 take 6 of the Sabre's 10 Shields
+/// and no HP, so the Sabre's bars show with its HP full, and 0.25 of the Shields back by the end of the tick (`>
+/// ShieldRegenRate`). Once the Guard stops, the Shields regenerate to full and the bars go; a selected Guard shows its
+/// HP bar alone.
 #[test]
 fn an_object_with_shields_shows_a_shield_bar_above_its_hp_bar() {
     const SABRE: ObjectId = ObjectId(1);

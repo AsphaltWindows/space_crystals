@@ -97,12 +97,12 @@ impl Sim {
     ///   interpolated values itself (`factions/colonists/economy.md > Beacon Deployment > HP/Shields Interpolation`,
     ///   design change 0110), and a Weapon Conversion's forms have the same maxima (`crate::conversion`). A
     ///   conversion or a transformation under way is its caller's to end.
-    /// - **Capabilities**, rebuilt from the new kind's definition ([`Capabilities::fresh`]): one the old kind had
-    ///   with the same definition keeps its state, the others start as on a new object, and those the new kind
-    ///   lacks go. So a unit that stays a unit keeps its orders and its move (question Q0042 point 6), and plans its
+    /// - **Capabilities**, rebuilt from the new kind's definition ([`Capabilities::fresh`]): one the old kind had with
+    ///   the same definition keeps its state, the others start as on a new object, and those the new kind lacks go. So
+    ///   a unit that stays a unit keeps its orders and its move (design change 0150: "Orders are kept"), and plans its
     ///   path again if it walks on another grid. A unit that keeps an attack keeps what it engages (its order's
-    ///   target), and its attack sequence starts again, the new weapon ready (Q0042 point 8). A Riot Shield that
-    ///   goes takes its slowdown with it.
+    ///   target), and its attack sequence starts again, the new weapon ready (question Q0042 point 8). A Riot Shield
+    ///   that goes takes its slowdown with it.
     /// - **Paid state is never lost**: a production queue or a construction the new kind has no place for is
     ///   refunded first, as when the object leaves the game (`Sim::refund_production`, `Sim::refund_constructors`).
     /// - A [`SimEvent::KindChanged`] (after the refunds' events).

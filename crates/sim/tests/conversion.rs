@@ -1,7 +1,7 @@
 //! Weapon Conversion in the game (slice M3-B; `factions/colonists/units.md > Weapon Conversion`, plan decision T26):
 //! its timing and what the unit keeps, who may convert, a mixed group, no cancel and no shelter, the orders that go on
-//! (question Q0042 point 6), saves and replays. Its pieces are `conversion`'s unit tests. `TestSim` checks the
-//! movement invariants after every tick.
+//! (`> Orders are kept`, design change 0150), saves and replays. Its pieces are `conversion`'s unit tests. `TestSim`
+//! checks the movement invariants after every tick.
 
 use sc_sim::conversion::CONVERT_TICKS;
 use sc_sim::shields::SHIELD_REGEN_PER_TICK;
@@ -266,11 +266,11 @@ fn a_conversion_cannot_be_cancelled_and_the_unit_stays_attackable() {
     assert_eq!(object(t.sim(), 1).conversion, None);
 }
 
-/// Question Q0042 point 6 (a placeholder): "the orders stay. The unit holds still for 4 frames, then carries on with
-/// the other weapon". Player 1's Sabre 1, walking east, converts in tick 10: it stands from tick 10 to 13 with its
-/// Move order still on, then walks on as a Rifle from tick 14 and arrives. Player 1's Rifle, shooting player 2's
-/// Peacekeeper from within its 4 grid units, converts while Reloading: as a Sabre it closes in on the same target
-/// and strikes it (Damage 15 less PointArmor 1), its Attack order unchanged.
+/// `> Weapon Conversion > Orders are kept` (design change 0150): "The unit holds still for the 4 frames, then carries
+/// on with its current orders using the other weapon". Player 1's Sabre 1, walking east, converts in tick 10: it stands
+/// from tick 10 to 13 with its Move order still on, then walks on as a Rifle from tick 14 and arrives. Player 1's
+/// Rifle, shooting player 2's Peacekeeper from within its 4 grid units, converts while Reloading: as a Sabre it closes
+/// in on the same target and strikes it (Damage 15 less PointArmor 1), its Attack order unchanged.
 #[test]
 fn orders_stay_and_the_unit_carries_on_with_its_other_weapon() {
     let to = Vec2::new(900.0, 100.0);

@@ -67,7 +67,7 @@ pub enum Ability {
     SetDropOff(ObjectId),
     /// `factions/colonists/units.md > Weapon Conversion > Convert Command`: each unit converts in place to its other
     /// form, a Sabre Legionnaire to a Rifle Legionnaire and the other way round, over 4 frames (`crate::conversion`,
-    /// plan decision T26). Its orders stay (question Q0042 point 6).
+    /// plan decision T26). Its orders stay (`> Weapon Conversion > Orders are kept`, design change 0150).
     Convert,
 }
 

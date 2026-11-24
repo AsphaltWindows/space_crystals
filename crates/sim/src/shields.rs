@@ -16,11 +16,12 @@
 //!   first one left.
 //! - **Regeneration** ([`step`]): `> ShieldRegenRate`, 0.25 per frame ([`SHIELD_REGEN_PER_TICK`]), "continuously (not
 //!   gated by a delay after taking damage)", up to the maximum now ([`Object::max_shields`]): while the object
-//!   transforms, the interpolated one (design change 0110: "Shields regenerate normally up to the current maximum";
-//!   question Q0042 point 2). It runs right after phase 5e's dead have left the game and before the economy
-//!   (`ARCHITECTURE.md > Tick pipeline`), so the dead never regenerate and a unit hit in a tick already regenerates
-//!   in it. Whoever owns the object: a defeated player's objects, which have become neutral (`core/game_rules.md >
-//!   On Defeat`), regenerate as well (a placeholder, question Q0042 point 1).
+//!   transforms, the interpolated one (design changes 0110: "Shields regenerate normally up to the current maximum",
+//!   and 0146). It runs right after phase 5e's dead have left the game and before the economy (`ARCHITECTURE.md > Tick
+//!   pipeline`), so the dead never regenerate and a unit hit in a tick already regenerates in it. Whoever owns the
+//!   object: a defeated player's objects, which have become neutral (`core/game_rules.md > On Defeat`), regenerate as
+//!   well (`> ShieldRegenRate`: "Regeneration applies to every object with Shields, including neutral ones", design
+//!   change 0146).
 //!
 //! TODO(Fusion Core): the Fusion Core's shield upgrades raise the rate (`> ShieldRegenRate`: "each level increasing
 //! the rate; per-level values TBD", `factions/colonists/structures.md > Fusion Core > Research`).

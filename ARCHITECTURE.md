@@ -201,7 +201,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   to the new MaxShields (a kind without any has none, one that gains them starts full). It rebuilds the
   capabilities from the new def with `kinds::Capabilities::fresh`, which `Sim::insert_object` uses as well: a
   capability whose def part is unchanged keeps its state, a new one starts fresh, one the new kind lacks goes. A
-  unit that stays a unit keeps its orders and its move (question Q0042 point 6), replanning if its grid changes; a
+  unit that stays a unit keeps its orders and its move (design change 0150), replanning if its grid changes; a
   kept attack keeps its target and restarts its sequence. Paid state the new kind has no place for (a production
   queue, a construction) is refunded first, as on removal. Call it before 5b (in the commands phase, or a step
   right after 5a), or sync the grids yourself (`paths::sync`). A caller whose new kind isn't functional yet (a
@@ -452,13 +452,13 @@ ticks spent in it. Hashed and serialized like all state.
   applied, hit by hit, so the second hit of a tick meets the Shields the first left. The Shields take the damage
   first, at full value; an overflow goes through `hit_damage` with the MinimumDamage capped at it (`> MinimumDamage
   > Shield overflow`: 10.25 on 10 Shields and PointArmor 1 takes 0.25 HP); a hit the Shields take whole costs no HP,
-  and no armour is consulted. The pre-armor multipliers and the DirectionalArmor touch the overflow only (question
-  Q0042 point 3, a placeholder). `SimEvent::Hit` says what each hit took (`damage` of the HP, `shield_damage`). The
-  Shields regenerate 0.25 a tick (`SHIELD_REGEN_PER_TICK`; `> ShieldRegenRate`: "continuously (not gated by a delay
-  after taking damage)") up to the maximum now, a neutral object's too (Q0042 point 1), in their own step (see *Tick
-  pipeline*). A transforming object's follow its interpolated maximum as its HP do and regenerate up to it (design
-  change 0110, `transform::follow_max`; Q0042 point 2), and a cancel keeps their fraction, with no minimum (0111,
-  `transform::keep_fraction`). The vision's records keep no Shields. The placeholders are listed in the module docs.
+  and no armour is consulted. No modifier touches the Shields: the pre-armor multipliers and the DirectionalArmor
+  touch the overflow only (design change 0147). `SimEvent::Hit` says what each hit took (`damage` of the HP,
+  `shield_damage`). The Shields regenerate 0.25 a tick (`SHIELD_REGEN_PER_TICK`; `> ShieldRegenRate`:
+  "continuously (not gated by a delay after taking damage)") up to the maximum now, a neutral object's too (design
+  change 0146), in their own step (see *Tick pipeline*). A transforming object's follow its interpolated maximum as
+  its HP do and regenerate up to it (design changes 0110 and 0146, `transform::follow_max`), and a cancel keeps
+  their fraction, with no minimum (0111, `transform::keep_fraction`). The vision's records keep no Shields.
 - **Weapon Conversion** (`conversion.rs`, `sim/modes.rs`; `factions/colonists/units.md > Weapon Conversion`, plan
   decision T26): `Ability::Convert` makes each Sabre Legionnaire it goes to a Rifle Legionnaire and each Rifle a
   Sabre (`conversion::converts_to`). The gate drops the units without another form (`Reject::LacksAbility` when none
@@ -470,7 +470,8 @@ ticks spent in it. Hashed and serialized like all state.
   Vulnerability`). Converted in tick `t`, it holds through tick `t + 3`, and the Modes step of `t + 4` makes it its
   other form through `Sim::change_kind`, HP and Shields unchanged (their maxima are equal), so it moves and fights as
   that from `t + 4`. Nothing cancels it (`> Completion`): a second Convert is refused, a Stop changes nothing. The
-  orders stay, and it carries on with the other weapon (Q0042 point 6). Convert isn't queued (Q0042 point 7).
+  orders stay, and it carries on with the other weapon (`> Orders are kept`, design change 0150). Convert isn't
+  queued (Q0042 point 7).
 - **Removal path**: `Sim::remove_objects` (`sim/removal.rs`) is the one way objects leave the game, for deaths and
   debug removals alike. It emits `Removed` and clears every reference to the removed: a current order naming one
   completes, queued ones are dropped, a move towards one ends `TargetLost`, an attack on one stops (an aim is
@@ -1519,9 +1520,9 @@ out by the same rules.
 - **Combat effects** (`combat_effects.rs`, placeholders until Q0001): a tracer for each `SimEvent::Attacked`
   (`TRACER_TICKS`), or a flash of the object hit if the local player sees it but not the tracer, an attacker in the
   fog (`shot_view`, `HIT_FLASH_TICKS`; Q0017 point 1's assumption), HP bars over damaged and selected units, with
-  a shield bar right above for an object that has Shields (`SHIELD_FILL`, a placeholder colour; question Q0042 point
-  4), shown too while only its Shields are down, and a fading marker for each `SimEvent::Died`
-  (`DEATH_MARKER_TICKS`).
+  a shield bar right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change
+  0148; `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and a fading marker for
+  each `SimEvent::Died` (`DEATH_MARKER_TICKS`).
   One alpha-blended mesh in the overlays layer, rebuilt every frame while anything shows; effects age by the sim's
   tick and the render alpha, so screenshots stay deterministic.
 - **Fog of war** (`fog.rs`, `core/vision.md`): `Sight` says what the local player is shown: its own objects, and

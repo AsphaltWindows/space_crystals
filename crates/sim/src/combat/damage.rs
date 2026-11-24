@@ -68,16 +68,16 @@ fn hp_damage(damage: f32, pre_armor: f32, point_armor: f32, directional: f32, mi
     ((damage * pre_armor - point_armor) * directional).max(minimum)
 }
 
-/// What `hit` takes from a target with `shields` (its current Shields; `None` for an object without them, which
-/// takes [`hit_damage`]). `> Shields > Shield Damage Resolution`: "Incoming damage is applied to Shields first, at
-/// full value — PointArmor and FullArmor do NOT reduce damage against Shields. If damage exceeds current Shields,
-/// Shields drop to 0 and the remaining (overflow) damage is applied to HP using the normal SingleTargetDamage [...]
-/// armor calculations above [...], with the MinimumDamage capped at the overflow amount [...]. If a unit's current
-/// Shields fully absorb the incoming damage, no HP is lost and armor is never consulted." So the overflow goes
-/// through the steps of `> DamageModifierOrder` ("Colonists Shields are resolved before all of this [...] only the
-/// overflow enters step 1"), with the minimum `min(MinimumDamage, overflow)` (`> MinimumDamage > Shield overflow`:
-/// "HP damage = max(overflow - armor, min(minimum, overflow))"). The pre-armor multipliers and the directional one
-/// touch the overflow only, never the Shields (a placeholder reading of "at full value", question Q0042 point 3).
+/// What `hit` takes from a target with `shields` (its current Shields; `None` for an object without them, which takes
+/// [`hit_damage`]). `> Shields > Shield Damage Resolution`: "Incoming damage is applied to Shields first, at full value
+/// — PointArmor and FullArmor do NOT reduce damage against Shields. If damage exceeds current Shields, Shields drop to
+/// 0 and the remaining (overflow) damage is applied to HP using the normal SingleTargetDamage [...] armor calculations
+/// above [...], with the MinimumDamage capped at the overflow amount [...]. If a unit's current Shields fully absorb
+/// the incoming damage, no HP is lost and armor is never consulted." So the overflow goes through the steps of `>
+/// DamageModifierOrder` ("Colonists Shields are resolved before all of this [...] only the overflow enters step 1"),
+/// with the minimum `min(MinimumDamage, overflow)` (`> MinimumDamage > Shield overflow`: "HP damage = max(overflow -
+/// armor, min(minimum, overflow))"). The pre-armor multipliers and the directional one touch the overflow only, never
+/// the Shields (`> DamageModifierOrder`: "no modifier of any step touches Shields", design change 0147).
 pub fn resolve(hit: &Hit, shields: Option<f32>) -> Taken {
     let Some(shields) = shields else {
         return Taken {
@@ -262,8 +262,8 @@ mod tests {
         assert_eq!(resolve(&hit(3.0, 5.0), None), taken(0.0, MINIMUM_DAMAGE));
     }
 
-    /// `> Shield Damage Resolution`: Shields take a hit "at full value"; the pre-armor multipliers and the
-    /// DirectionalArmor touch the overflow only (a placeholder reading, question Q0042 point 3).
+    /// `> DamageModifierOrder` (design change 0147): "no modifier of any step touches Shields"; the pre-armor
+    /// multipliers and the DirectionalArmor touch the overflow only.
     #[test]
     fn the_multipliers_touch_the_overflow_only() {
         let rear = Hit {

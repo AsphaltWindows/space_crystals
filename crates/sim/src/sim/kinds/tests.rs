@@ -56,8 +56,8 @@ fn object(sim: &Sim, id: u32) -> &Object {
 }
 
 /// `> Weapon Conversion`: a Sabre Legionnaire that becomes a Rifle Legionnaire is the same unit, where it was, with its
-/// HP, its orders and its move (question Q0042 point 6); its weapon is the Rifle's, ready (Q0042 point 8), aimed at
-/// what its order engages. So it carries on with the order and fires its rifle.
+/// HP, its orders and its move (design change 0150); its weapon is the Rifle's, ready (question Q0042 point 8), aimed
+/// at what its order engages. So it carries on with the order and fires its rifle.
 #[test]
 fn a_legionnaire_changes_its_weapon_and_carries_on_with_its_order() {
     let mut sim = sim(&[

@@ -4,9 +4,9 @@
 //!
 //! - **An ability, not an order** (T26): `Ability::Convert` (`> Convert Command`: "Issue the Convert command (panel
 //!   button R)") applies at once, with the tick's commands (`Sim::use_ability`), and leaves the unit's orders as they
-//!   are: "the orders stay. The unit holds still for 4 frames, then carries on with the other weapon" (a placeholder,
-//!   question Q0042 point 6). Nothing queues it, so Shift means nothing for it (Q0042 point 7). It has "No resource
-//!   cost" (`> Cost`).
+//!   are (`> Orders are kept`, design change 0150): "The unit holds still for the 4 frames, then carries on with its
+//!   current orders using the other weapon". Nothing queues it, so Shift means nothing for it (a placeholder, question
+//!   Q0042 point 7). It has "No resource cost" (`> Cost`).
 //! - **Who converts** (`> Eligibility`; the gate, `sim/gate/orders.rs`): the player's units that have another form
 //!   ([`converts_to`]: "units may be mixed in selection; each converts to its respective other form") and may convert
 //!   now ([`may_convert`]): "it may be issued freely while the unit is idle, moving, or in the Aiming or Reloading

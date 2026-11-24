@@ -156,11 +156,11 @@ fn the_second_hit_of_a_tick_meets_the_shields_the_first_left() {
     assert_eq!((rifle.shields, rifle.hp), (Some(SHIELD_REGEN_PER_TICK), Some(60.0)));
 }
 
-/// Question Q0042 point 3 (a placeholder): "The Drone's DirectionalArmor (HoverVehicle) applies to the overflow
-/// only". Player 2's Peacekeeper shoots player 1's Drone from behind (× 1.25): its first 10 take the Drone's 10
-/// Shields and nothing else, where 12.5 would have broken through. The second, 17 ticks later (the Peacekeeper's
-/// AimDuration 2, FiringDuration 1, CooldownDuration 2 and ReloadDuration 12), meets the 4.25 Shields that came back,
-/// and its overflow of 5.75 takes 5.75 × 1.25 HP.
+/// Design change 0147's Verification: "Hit a shielded Drone from behind for less than its Shields: Shields lose exactly
+/// the damage. Hit it for more: only the overflow gets the rear × 1.25 (after armor)". Player 2's Peacekeeper shoots
+/// player 1's Drone from behind (× 1.25): its first 10 take the Drone's 10 Shields and nothing else, where 12.5 would
+/// have broken through. The second, 17 ticks later (the Peacekeeper's AimDuration 2, FiringDuration 1, CooldownDuration
+/// 2 and ReloadDuration 12), meets the 4.25 Shields that came back, and its overflow of 5.75 takes 5.75 × 1.25 HP.
 #[test]
 fn directional_armour_touches_the_overflow_only() {
     let mut t = colonists(ScenarioBuilder::new(&flat(16, 10)))
@@ -185,8 +185,8 @@ fn directional_armour_touches_the_overflow_only() {
 }
 
 /// `> ShieldRegenRate`, the plan's acceptance "Regen": 0.25 a tick, so 0 to 10 in 40 ticks, and never above the
-/// maximum. A neutral object's Shields regenerate too (question Q0042 point 1, a placeholder: a defeated player's
-/// objects become no one's, `core/game_rules.md > On Defeat`).
+/// maximum. A neutral object's Shields regenerate too (design change 0146: "including neutral ones"; a defeated
+/// player's objects become no one's, `core/game_rules.md > On Defeat`).
 #[test]
 fn shields_regenerate_from_nothing_to_full_in_40_ticks() {
     let t = colonists(ScenarioBuilder::new(&flat(12, 6)))
@@ -300,12 +300,12 @@ fn warping_portal() -> TestSim {
     t
 }
 
-/// The brief's acceptance "During a transformation" (design change 0110: "Shields regenerate normally up to the
-/// current maximum"; "current += (newMax − oldMax) each frame"; question Q0042 point 2): undamaged, the portal's
-/// Shields are its interpolated maximum all the way, 15 at 50%, 20 at the end. Emptied at 50%, each tick they
-/// regenerate 0.25, up to the maximum then, and follow its rise of 1/64 a frame, so they gain 17/64 a tick until
-/// they meet it, 60 ticks on, and from then on stay exactly at it, never above. Every value is a whole number of
-/// 64ths, so the arithmetic is exact.
+/// The brief's acceptance "During a transformation" (design change 0110: "Shields regenerate normally up to the current
+/// maximum"; "current += (newMax − oldMax) each frame"; design change 0146): undamaged, the portal's Shields are its
+/// interpolated maximum all the way, 15 at 50%, 20 at the end. Emptied at 50%, each tick they regenerate 0.25, up to
+/// the maximum then, and follow its rise of 1/64 a frame, so they gain 17/64 a tick until they meet it, 60 ticks on,
+/// and from then on stay exactly at it, never above. Every value is a whole number of 64ths, so the arithmetic is
+/// exact.
 #[test]
 fn shields_follow_their_maximum_through_a_warp_in_and_regenerate_up_to_it() {
     let mut t = warping_portal();
