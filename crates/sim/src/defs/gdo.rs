@@ -1,6 +1,6 @@
 //! GDO object types — `factions/gdo/`: its units (`units.md`) and its structures (`structures.md`, `economy.md`).
 
-use super::structures::{MiningDef, StructureDef, SymmetryType};
+use super::structures::{MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType};
 use super::units::{
     AttackAttrs, AttackType, FullyConnectedSubtype, MovementAttrs, RiotShieldDef, TargetDomain, TargetType, UnitBase,
     UnitDef,
@@ -8,6 +8,7 @@ use super::units::{
 use super::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
 use crate::player::Faction;
+use crate::sides::SideLetter;
 
 /// `factions/gdo/units.md > Peacekeeper > Riot Shield`: "raising and lowering the shield takes a short time …
 /// Exact value TBD (should be under half a second)". Placeholder, unspecified: 6 ticks (0.375 s).
@@ -89,6 +90,7 @@ pub(super) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 12,   // BuildRadiusExtension - 12 grid units
         power: 30,                    // Power - +30
+        production: None,
         mining: None,
     }),
 };
@@ -115,6 +117,7 @@ pub(super) static GENERATOR: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 1,    // BuildRadiusExtension - 1 grid unit
         power: 20,                    // Power - +20
+        production: None,
         mining: None,
     }),
 };
@@ -142,6 +145,14 @@ pub(super) static BARRACKS: ObjectDef = ObjectDef {
         symmetry: SymmetryType::ABAC, // SymmetryType - ABAC (top A, right B, bottom A, left C)
         build_radius_extension: 2,    // BuildRadiusExtension - 2 grid units
         power: -30,                   // Power - -30
+        production: Some(ProductionDef {
+            exit: SideLetter::B, // "Units exit from one of the short sides (B side ...)"
+            recipes: &[Recipe {
+                kind: ObjectKind::Peacekeeper, // Produces: "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)"
+                cost: 50,
+                frames: 80,
+            }],
+        }),
         mining: None,
     }),
 };
@@ -168,6 +179,7 @@ pub(super) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 2,    // BuildRadiusExtension - 2 grid units
         power: -15,                   // Power - -15
+        production: None,
         mining: None,
     }),
 };
@@ -195,6 +207,7 @@ pub(super) static EXTRACTION_PLATE: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 0,    // BuildRadiusExtension - 0
         power: -3,                    // Power - -3
+        production: None,
         mining: Some(MiningDef {
             load: 10,        // MiningRate - 10 Space Crystals per 48 frames (3 seconds)
             residual: 1,     // ResidualMiningRate - 1 Space Crystal per 48 frames (3 seconds)

@@ -98,6 +98,7 @@ impl StateHash for Mover {
             avoid_side,
             avoid_until,
             sidestep,
+            exit,
         } = self;
         goal.hash(h);
         status.hash(h);
@@ -120,6 +121,7 @@ impl StateHash for Mover {
         avoid_side.hash(h);
         avoid_until.hash(h);
         sidestep.hash(h);
+        exit.hash(h);
     }
 }
 

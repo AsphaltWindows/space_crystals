@@ -22,6 +22,11 @@ impl Sim {
     /// destruction), which opens its tile (design change 0038); a patch with crystals left stays, uncovered. A plate
     /// whose patch is removed from under it (a debug command) mines nothing from then on.
     ///
+    /// A producer's whole queue is refunded as if cancelled, a finished unit waiting inside for the doorway included
+    /// (design changes 0084 and 0085, `Sim::refund_production`); the Unit Control it reserved goes with the queue.
+    /// A rally point on a removed object resets to None, and a unit in the doorway of a removed building is an
+    /// ordinary unit from then on.
+    ///
     /// The grids aren't touched: phase 5b catches up with a footprint that went away, and a removal after it must
     /// sync them (`paths::sync`).
     pub(super) fn remove_objects(&mut self, ids: &[ObjectId]) {
@@ -32,6 +37,9 @@ impl Sim {
         );
         gone.sort_unstable();
         gone.dedup();
+        for &id in &gone {
+            self.refund_production(id);
+        }
         gone.retain(|id| self.objects.remove(id).is_some());
         if gone.is_empty() {
             return;
@@ -66,6 +74,17 @@ fn forget(o: &mut Object, gone: &[ObjectId]) {
     }
     if o.extractor.is_some_and(|extractor| is_gone(extractor.patch)) {
         o.extractor = None;
+    }
+    // A rally point on an object that is gone resets to None (`factions/gdo/structures.md > Barracks > RallyPoint
+    // behavior`; for an enemy only while its owner saw it, `production::rally::follow`).
+    if let Some(production) = &mut o.production {
+        production.forget(is_gone);
+    }
+    // The building whose doorway a unit stood in: nothing is left to overlap.
+    if let Some(mover) = &mut o.mover
+        && mover.exit.is_some_and(is_gone)
+    {
+        mover.exit = None;
     }
 }
 

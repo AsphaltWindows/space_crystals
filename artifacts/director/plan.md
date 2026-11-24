@@ -296,10 +296,18 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - others: name, owner and HP;
     - a plate also shows its patch's crystals (0099), to every viewer; see Q0034.
 
+- **M2-D2 production** (Fable; merged in `1a64e75`; 807 tests):
+  - **Commands.** `Command::Production { objects, command: Train | CancelProduction | SetRally }`. Also `Object::production`, `StructureDef::production`, `Sim::production_status`, and the events Queued, Refused, Cancelled and UnitProduced.
+  - **Queue.** The limit of 20 includes the current unit (0081). Unit Control is reserved at queue time (0082). When several Barracks are pressed, the least remaining work pays first (0083). Destruction refunds the queue (0084, 0085). Production is slowed by power (0089).
+  - **Rally points.** Ground, unit, self-clear (0086), and an enemy that leaves sight becomes a ground rally (0088). A rally on a remembered structure becomes a ground rally at the record's centre, a placeholder for Q0017 point 2.
+  - **Exit doorway (0080).** `Mover::exit` is hashed. `World::door_free` lets a unit only come out, through side B. I2, I5 and I7 allow exactly that. Paths start at the first clear way out. A unit spawns as far out as there is room. Tested in 8 orientations, walled in and freed, mid-exit saves, and a 3,000-tick random game.
+  - **Deviations.** Producers run in `Sim::step_production` right after `economy::step`. A blocked rally Move fails after 104 ticks, and the unit then goes idle.
+  - **Perf.** The first numbers, 0.88 ms mean and 10 ms worst, were machine load (load average about 22). Interleaved runs against master were within 2%. Absolute numbers will be re-measured on a quiet machine in M2-J.
+  - **Goldens.** Re-blessed for the new hashed fields. Play is identical.
+
 ## In progress
 - **M2 wave 3** (common brief `scratchpad/briefs/m2-w3-common.md`, plus one brief per slice):
   - **M2-D1 construction** (Opus);
-  - **M2-D2 production** (Fable): queue, Unit Control, rally point, exit doorway;
   - **M2-F1 game start** (Opus): Starting Conditions, layout rules, `dev_skirmish` GDO layouts, camera;
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
@@ -387,7 +395,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | M2-C | Build area and placement validation | A | Opus | done (`0f8cc70`) |
 | M2-E | Path knowledge: per-player planning grids, re-route on discovery | A | Fable | done (`f76db38`) |
 | M2-D1 | Construction: DC and EF, Construct, Cancel, Place, refunds | B, C | Opus | running |
-| M2-D2 | Production: Barracks queue, rally point, exit spawn, Unit Control | B | Fable (exit doorway: a unit overlapping its producer, the collision exception, invariants) | running |
+| M2-D2 | Production: Barracks queue, rally point, exit spawn, Unit Control | B | Fable (exit doorway: a unit overlapping its producer, the collision exception, invariants) | done (`1a64e75`) |
 | M2-F1 | Game start: Starting Conditions, layout rules (restriction, completeness, outdated), game-start banks, camera on the DC, the `dev_skirmish` GDO layouts | B, C | Opus | running |
 | M2-F2 | Game end: defeat (units become neutral and repath), game over when one side remains, spectating with team vision, the defeat and victory banner | B | Opus | queued (wave 4) |
 | M2-G | HUD: resources bar, structure InfoPanels (the banner moved to M2-F2) | B | Opus | done (`69e80a1`) |
@@ -537,15 +545,15 @@ Last triaged: 0105.
 | 0077 GDO supply loop deferred; Starting Supplies 0 | done (M2-B, `39bcf66`) | answers Q0022; matches the plan |
 | 0078 Any control-group recall resets menus | done (M1-H3, `80b3d88`) | answers Q0021 point 3 |
 | 0079 Side lettering convention; Barracks 3 wide × 2 tall | in progress (M2-A) | answers Q0023 point 1 |
-| 0080 Exit doorway: units appear half inside; production pauses while it is occupied | queued (M2-D2; needs a collision exception for the releasing building) | answers Q0023 points 2–3; replaces the nearest-free-spot default |
-| 0081 Queue limit of 20 includes the unit in production | queued (M2-D2) | |
-| 0082 GDO Unit Control reserved when a unit is queued | queued (M2-D2, M2-G) | |
-| 0083 Group production: least remaining work pays first | queued (M2-D2, M2-H1) | replaces the fixed-order default |
-| 0084 Destroyed GDO producers refund as if cancelled | queued (M2-D1, M2-D2) | |
-| 0085 Finished unit waiting inside is refunded if the building dies | queued (M2-D2) | |
-| 0086 Rally point on the building itself clears it | queued (M2-D2, M2-H1) | |
+| 0080 Exit doorway: units appear half inside; production pauses while it is occupied | done (M2-D2, `1a64e75`) | answers Q0023 points 2–3; replaces the nearest-free-spot default |
+| 0081 Queue limit of 20 includes the unit in production | done (M2-D2, `1a64e75`) | |
+| 0082 GDO Unit Control reserved when a unit is queued | done (M2-D2, `1a64e75`) | |
+| 0083 Group production: least remaining work pays first | done (M2-D2, `1a64e75`; UI parts in M2-H1) | replaces the fixed-order default |
+| 0084 Destroyed GDO producers refund as if cancelled | producers done (M2-D2, `1a64e75`); constructors in M2-D1 | |
+| 0085 Finished unit waiting inside is refunded if the building dies | done (M2-D2, `1a64e75`) | |
+| 0086 Rally point on the building itself clears it | done (M2-D2, `1a64e75`; UI parts in M2-H1) | |
 | 0087 Rally point indicators | queued (M2-H1) | |
-| 0088 Rally on an enemy becomes a ground rally when the enemy leaves sight | queued (M2-D2, M2-H1) | rally on a remembered structure TBD (Q0017 point 2) |
+| 0088 Rally on an enemy becomes a ground rally when the enemy leaves sight | done (M2-D2, `1a64e75`; UI parts in M2-H1) | rally on a remembered structure TBD (Q0017 point 2) |
 | 0089 Power penalty scope, ratio and timing | done (M2-B, `39bcf66`) | matches the plan |
 | 0090 Power display: used / available | done (M2-B accessor, M2-G display, `69e80a1`) | replaces "current / total" |
 | 0091 GDO build area is square | queued (M2-C) | matches the plan |

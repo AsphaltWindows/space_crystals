@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
 use crate::orders::OrderKind;
+use crate::production::ProductionCommand;
 use crate::scenario::{BuildingOrientation, SpawnAt};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -30,6 +31,15 @@ pub enum Command {
     /// longer exist, repeated ids and units without the ability are dropped; the command is rejected if no unit
     /// remains or one belongs to someone else.
     Ability { units: Vec<ObjectId>, ability: Ability },
+    /// The player's producing structures among `objects` take `command` (`factions/gdo/structures.md > Barracks >
+    /// ObjectInterfaceState[Barracks]`; `production`): train a unit, cancel the last one queued, or set the rally
+    /// point. Every producer of the selection receives it (`systems/controls/selection_and_hud.md > SelectionGroup >
+    /// No smart-casting`). Ids that no longer exist, repeated ids and the player's objects that produce nothing are
+    /// dropped; the command is rejected if no producer remains or one belongs to someone else.
+    Production {
+        objects: Vec<ObjectId>,
+        command: ProductionCommand,
+    },
     /// Development / QA only — never offered to players in a real match.
     Debug(DebugCommand),
 }

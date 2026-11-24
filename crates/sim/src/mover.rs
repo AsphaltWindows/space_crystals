@@ -188,6 +188,13 @@ pub struct Mover {
     /// Friendly yielding (design change 0022): the sidestep the unit is taking for a blocked unit of its owner.
     /// Only a unit without a goal and without an order has one; an order ends it.
     pub sidestep: Option<Sidestep>,
+    /// The producing structure whose exit doorway the unit is still in: it was released there and its box still
+    /// overlaps the footprint (`core/entities.md > Structure Type > Exit Doorway`, design change 0080;
+    /// `production::Doorway`). While it is set, that footprint's tiles don't block the unit, which may only come
+    /// out; phase 5d clears it once the unit is clear of the footprint, for good. Optional in files, so that
+    /// states saved before it existed still load.
+    #[serde(default)]
+    pub exit: Option<ObjectId>,
 }
 
 impl Default for Mover {
@@ -216,6 +223,7 @@ impl Default for Mover {
             avoid_side: Side::Right,
             avoid_until: 0,
             sidestep: None,
+            exit: None,
         }
     }
 }

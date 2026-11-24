@@ -6,6 +6,7 @@ use std::fmt;
 use glam::Vec2;
 
 use super::Sim;
+use super::producers::ProductionPlan;
 use crate::command::{Ability, Command, DebugCommand, PlayerCommand};
 use crate::defs::{Domain, ObjectKind};
 use crate::ids::{ObjectId, PlayerId};
@@ -61,6 +62,20 @@ pub enum Reject {
     /// A footprint there would overlap this object's (`core/entities.md > Placement Validation`): only a plate
     /// shares its tile, with the uncovered patch it is placed onto (`ObjectKind::may_overlap`).
     Overlaps(ObjectId),
+    /// None of the objects a production command names produces units (or exists any more).
+    NoProducers,
+    /// None of the producers can produce a unit of this kind (`factions/gdo/structures.md > Barracks > Produces`).
+    CannotProduce(ObjectKind),
+    /// The BuildQueue of every producer that could train the unit is full (design change 0081: 20 with the unit in
+    /// production).
+    QueueFull,
+    /// The player's Space Crystals don't cover the unit.
+    InsufficientCrystals,
+    /// The unit would take the player's Unit Control past the cap (`factions/gdo/overview.md > GDOResources > Unit
+    /// Control`, design change 0082).
+    UnitControlCap,
+    /// Cancel Production: no producer has anything queued.
+    NothingQueued,
 }
 
 impl fmt::Display for Reject {
@@ -83,6 +98,12 @@ impl fmt::Display for Reject {
             Reject::Blocked => write!(f, "the unit doesn't fit there: blocked ground"),
             Reject::Occupied(id) => write!(f, "unit {} is in the way", id.0),
             Reject::Overlaps(id) => write!(f, "the footprint overlaps object {}", id.0),
+            Reject::NoProducers => write!(f, "none of the objects produces units"),
+            Reject::CannotProduce(kind) => write!(f, "none of the producers trains a {}", kind.def().name),
+            Reject::QueueFull => write!(f, "the build queue is full"),
+            Reject::InsufficientCrystals => write!(f, "not enough Space Crystals"),
+            Reject::UnitControlCap => write!(f, "not enough Unit Control"),
+            Reject::NothingQueued => write!(f, "nothing is queued"),
         }
     }
 }
@@ -118,6 +139,11 @@ pub(super) enum Checked {
         crystals: u32,
         supplies: u32,
     },
+    /// `player`'s production command, with what its checks resolved (`sim/producers.rs`).
+    Production {
+        player: PlayerId,
+        plan: ProductionPlan,
+    },
 }
 
 impl Sim {
@@ -148,6 +174,7 @@ impl Sim {
         match &cmd.command {
             Command::Order { units, kind, queue } => self.check_order(cmd.player, units, *kind, *queue),
             Command::Ability { units, ability } => self.check_ability(cmd.player, units, *ability),
+            Command::Production { objects, command } => self.check_production(cmd.player, objects, *command),
             Command::Debug(debug) => {
                 if !self.config.debug {
                     return Err(Reject::DebugDisabled);
@@ -205,7 +232,7 @@ impl Sim {
     /// The player's units among `units` that `keep` keeps, unique and in id order: at most [`MAX_ORDER_UNITS`] ids,
     /// none of them someone else's. Ids that no longer exist are dropped (a unit may die in the tick its command
     /// arrives: not the player's mistake), and so are the player's objects that `keep` leaves out.
-    fn own_units(
+    pub(super) fn own_units(
         &self,
         player: PlayerId,
         units: &[ObjectId],
@@ -264,7 +291,7 @@ impl Sim {
     /// onto Explored tiles while the player looked away (a debug spawn) has no record, so the player doesn't know of
     /// it until it sees it. Anything else out of sight, a remembered structure included, is `Reject::NotVisible`;
     /// the client makes a right-click on one a Move to that spot.
-    fn check_target_seen(&self, player: PlayerId, target: &Object) -> Result<(), Reject> {
+    pub(super) fn check_target_seen(&self, player: PlayerId, target: &Object) -> Result<(), Reject> {
         let seen = self.vision.object_state(player, target) == VisibilityState::Visible
             || self.player(player).is_some_and(|p| p.faction == Faction::Gdo)
                 && self

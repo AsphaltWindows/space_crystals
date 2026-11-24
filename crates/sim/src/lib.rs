@@ -29,6 +29,7 @@ pub mod orders;
 mod paths;
 pub mod placement;
 pub mod player;
+pub mod production;
 pub mod replay;
 pub mod riot_shield;
 pub mod rng;
@@ -44,7 +45,9 @@ pub mod vision;
 
 pub use combat::{AttackPhase, AttackState};
 pub use command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs};
-pub use defs::{Armor, Category, Footprint, MiningDef, ObjectDef, ObjectKind, StructureDef, SymmetryType};
+pub use defs::{
+    Armor, Category, Footprint, MiningDef, ObjectDef, ObjectKind, ProductionDef, Recipe, StructureDef, SymmetryType,
+};
 pub use economy::{Extractor, PowerSummary, UNIT_CONTROL_CAP};
 pub use events::SimEvent;
 pub use glam::Vec2;
@@ -56,6 +59,7 @@ pub use object::{Object, Placement, ResourceState, Rotation};
 pub use orders::{OrderKind, Orders, Target};
 pub use placement::{BuildArea, PlacementCheck, TileProblem, WholeProblem};
 pub use player::{Faction, Player};
+pub use production::{Doorway, Production, ProductionCommand, ProductionStatus, QUEUE_LIMIT, Rally, Refusal};
 pub use replay::{Checkpoint, Desync, Replay, ReplayError};
 pub use riot_shield::RiotShield;
 pub use rng::Rng;

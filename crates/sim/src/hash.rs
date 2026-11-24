@@ -294,6 +294,7 @@ impl StateHash for Object {
             attack,
             riot_shield,
             extractor,
+            production,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -312,6 +313,8 @@ impl StateHash for Object {
         attack.hash(h);
         riot_shield.hash(h);
         extractor.hash(h);
+        // `production.rs`.
+        production.hash(h);
     }
 }
 
