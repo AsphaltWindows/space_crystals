@@ -10,6 +10,8 @@ Colonists build their foundational structure, the Beacon, by having a Drone depl
 - Left-click a ground location
 - The Drone walks to the location, then begins deploying in place
 
+**Where the Drone starts deploying** (user, 2026-11-24): the Drone walks to the **centre of the Beacon's footprint** and starts deploying when it gets there. Safety net: if it is stopped by a blocker on the way while already overlapping the footprint, it starts deploying from where it stands. If it stops without overlapping the footprint, the order fails (the Drone stops and idles). The Beacon always appears on the footprint the ghost showed, wherever the Drone ended up. (In practice a blocker on the footprint makes the site invalid anyway; the safety net only matters for a blocker just outside it.)
+
 ### Placement
 Beacon deployment follows the shared Worker-Built Structures placement rules (core/entities.md > Placement Validation > Worker-Built Structures): the Beacon's 2x2 footprint must be on Buildable, unoccupied tiles. The Deploy order may target any location, including territory hidden by fog of war, like any other building order; the Drone walks there (revealing the area on its way) and validates the site on arrival. If the site is invalid on arrival, the order is cancelled and the Drone stops and idles. There is no minimum spacing from other Beacons and no range limit from other Colonists buildings.
 
