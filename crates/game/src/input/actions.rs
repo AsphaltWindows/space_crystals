@@ -77,7 +77,10 @@ pub enum InputAction {
     /// Modifier: `systems/controls/commands.md > Unit Command`: a command issued while it is held is appended to
     /// the queue instead of replacing it.
     Queue,
-    /// Modifier: `> MapClickSelection`: a click toggles an own unit in the selection.
+    /// Modifier of the selection's add inputs (design changes 0049, 0052 and 0053): a click toggles an own unit in
+    /// the selection (`> MapClickSelection`), a box adds what it selects (`> BoxSelection > Shift + box (add)`), and
+    /// with [`InputAction::SelectSameType`] a click adds all own units of that type on screen. On a portrait, it
+    /// removes (`> SelectionPanel > Interactions`).
     ToggleSelection,
     /// Modifier: `> MapClickSelection`: a click selects all own units of that type on screen.
     SelectSameType,

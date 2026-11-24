@@ -77,9 +77,10 @@ impl WorldView<'_> {
     }
 }
 
-/// `> MapClickSelection` and `> BoxSelection`: the `Select` action's clicks and boxes on the map. While a target is
-/// awaited (`> AwaitingTarget`), a left-click on the map is the target (`crate::command_ui`) and selects nothing, and
-/// neither does a box (placeholder: the design doesn't say what a drag does then).
+/// `> MapClickSelection` and `> BoxSelection`: the `Select` action's clicks and boxes on the map, each with the roles
+/// of the modifiers it was sent with. While a target is awaited (`> AwaitingTarget`), a left-click on the map is the
+/// target (`crate::command_ui`) and selects nothing, and neither does a box (placeholder: the design doesn't say what
+/// a drag does then).
 pub(super) fn select_on_map(
     mut clicks: MessageReader<MapClick>,
     mut boxes: MessageReader<SelectionBox>,
@@ -104,7 +105,7 @@ pub(super) fn select_on_map(
             state.click(&objects, click.view, roles, click.double, visible);
         }
         for dragged in &boxes {
-            state.select_box(&objects, dragged.rect);
+            state.select_box(&objects, dragged.rect, ClickRoles::of(&bindings, dragged.modifiers));
         }
     });
 }
@@ -136,7 +137,9 @@ pub(super) fn control_group_keys(actions: Res<ActionState>, mut control: LocalCo
         let mut center = None;
         for action in pressed {
             match action {
-                A::AssignGroup(group) => state.assign_group(group),
+                A::AssignGroup(group) => {
+                    state.assign_group(group, &objects);
+                }
                 A::AddToGroup(group) => {
                     state.add_to_group(group, &objects);
                 }
