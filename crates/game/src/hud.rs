@@ -3,8 +3,9 @@
 //! A top resource bar and, at the bottom, the HUD Bar with its five sections in fixed slots, left to right. All
 //! sections share one height, and a slot stays reserved while its panel has nothing to show. Sizes are in percent
 //! of the surface height (`vh`), so the HUD scales with the window and the world view between the bars keeps its
-//! shape at every resolution. The top bar shows the player and the tick, and while a replay plays back
-//! (`crate::replay::playback`) its last tick, speed and state, and a desync. The sections are placed at the rectangles
+//! shape at every resolution. The top bar shows the player, their resources as their faction's DisplayHud lists them
+//! ([`resources`]) and the tick, and while a replay plays back (`crate::replay::playback`) its last tick, speed and
+//! state, and a desync. The sections are placed at the rectangles
 //! of [`layout`], which also find the portrait or the command button under a click. Two panels show the selection:
 //! the InfoPanel ([`info_panel`]) and the SelectionPanel ([`selection_panel`]); the CommandPanel
 //! ([`command_panel`]) shows the commands for it (`crate::command_ui`). The others show their names, and so do these
@@ -16,6 +17,7 @@
 pub mod command_panel;
 pub mod info_panel;
 pub mod layout;
+pub mod resources;
 pub mod selection_panel;
 
 use bevy::prelude::*;
@@ -137,6 +139,8 @@ impl Plugin for HudPlugin {
             .init_resource::<command_panel::CommandPanelView>()
             .add_systems(Startup, spawn_hud)
             .add_systems(Update, (update_top_bar, update_replay_note, show_hud_in_game_modes))
+            // After the frame's input, which may switch the local player.
+            .add_systems(Update, resources::update_resource_bar.in_set(ClientSystems::Present))
             // `> SelectionPanel > Interactions`: after the map's clicks and the keys of the same frame.
             .add_systems(
                 Update,
@@ -179,36 +183,52 @@ fn text(content: impl Into<String>, size_vh: f32, color: Color) -> impl Bundle {
 }
 
 fn spawn_hud(mut commands: Commands, size: Res<SurfaceSize>) {
-    commands.spawn((
-        Name::new("Top bar"),
-        TopBar,
-        HudRoot,
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(0),
-            left: px(0),
-            width: percent(100),
-            height: vh(TOP_BAR_HEIGHT_VH),
-            padding: UiRect::horizontal(vh(1.2)),
-            flex_direction: FlexDirection::Row,
-            justify_content: JustifyContent::SpaceBetween,
-            align_items: AlignItems::Center,
-            ..default()
-        },
-        BackgroundColor(BAR_BACKGROUND),
-        children![
-            (PlayerNameText, text("", 2.0, TEXT_COLOR)),
-            (
-                ReplayText,
-                text("", 2.0, TEXT_COLOR),
-                Node {
-                    display: Display::None,
-                    ..default()
-                }
-            ),
-            (TickText, text("", 2.0, TEXT_COLOR)),
-        ],
-    ));
+    commands
+        .spawn((
+            Name::new("Top bar"),
+            TopBar,
+            HudRoot,
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(0),
+                left: px(0),
+                width: percent(100),
+                height: vh(TOP_BAR_HEIGHT_VH),
+                padding: UiRect::horizontal(vh(1.2)),
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(BAR_BACKGROUND),
+        ))
+        .with_children(|bar| {
+            // The player's name on the left and the tick on the right take equal shares of the width the resources
+            // leave, so the resources stay in the middle, whatever the texts beside them say.
+            let side = |justify_content| Node {
+                flex_grow: 1.0,
+                flex_basis: px(0),
+                flex_direction: FlexDirection::Row,
+                justify_content,
+                align_items: AlignItems::Center,
+                column_gap: vh(2.0),
+                ..default()
+            };
+            bar.spawn(side(JustifyContent::Start))
+                .with_child((PlayerNameText, text("", 2.0, TEXT_COLOR)));
+            resources::spawn_bar(bar);
+            bar.spawn(side(JustifyContent::End)).with_children(|right| {
+                right.spawn((
+                    ReplayText,
+                    text("", 2.0, TEXT_COLOR),
+                    Node {
+                        display: Display::None,
+                        ..default()
+                    },
+                ));
+                right.spawn((TickText, text("", 2.0, TEXT_COLOR)));
+            });
+        });
     commands
         .spawn((
             Name::new("HUD Bar"),
