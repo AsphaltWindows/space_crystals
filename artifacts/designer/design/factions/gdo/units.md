@@ -64,6 +64,8 @@ While the shield is **down**, the Peacekeeper behaves normally.
 - an **AttackMove** or Patrol: while the shield is up it only moves (systems/controls/commands.md > AttackMove > Units that can't attack); once lowered it engages along the way again.
 Same principle as the Colonists' Weapon Conversion (factions/colonists/units.md > Weapon Conversion > Orders are kept).
 
+**Not queueable** (user, 2026-11-24): the toggle always happens immediately; holding Shift changes nothing.
+
 TBD: hotkey.
 
 ### ObjectInterfaceState: BasicCombatUnitInterfaceState
