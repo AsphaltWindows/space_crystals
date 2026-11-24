@@ -190,6 +190,8 @@ An ObjectInterfaceState entered after the player selects a command that requires
 
 **Other commands while targeting** (user, 2026-11-23): while a target is awaited, the command panel shows the pending command and Back/Cancel (Z). The other commands are **unavailable**: pressing their hotkeys or buttons does nothing. To change commands, the player cancels first (Escape, right-click or Z), then picks the new command.
 
+**Dragging while targeting** (user, 2026-11-23): a left-button drag while a target is awaited does **nothing**: no selection box is drawn, nothing is selected, and targeting stays active. TBD: where a click with slight mouse movement counts (press point vs release point).
+
 **Invalid target clicks** (user, 2026-11-23): a left-click on a target the pending command can't use (shown by the Inactive pointer) is **ignored**. Targeting stays active and waits for a valid target, and the player gets short **feedback** (an "invalid target" message and/or sound; exact form TBD, ties into the future notification system).
 
 ### PendingCommand - CommandType
