@@ -7,6 +7,11 @@
 //! ground-object layer. Placeholder shapes stand in until the art direction (Q0001) is settled: a unit is a shape of
 //! its own per kind, its silhouette's size, in its owner's colour, with a tick showing its facing. The Guard's square
 //! stays axis-aligned, like its collision box, and only its tick turns ([`FacingTick`]).
+//!
+//! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
+//! the records of what it remembers instead, as visuals of their own ([`remembered`]).
+
+mod remembered;
 
 use std::collections::BTreeMap;
 
@@ -27,10 +32,14 @@ pub struct ObjectVisual(pub ObjectId);
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct FacingTick(pub ObjectId);
 
+pub use remembered::{RememberedVisual, RememberedVisuals};
+
 /// Mesh and material handles, created once per object kind (and owner, for units) and shared by all its visuals.
 #[derive(Resource, Default)]
 pub struct ObjectVisualAssets {
     material: Option<Handle<ColorMaterial>>,
+    /// The remembered objects' material ([`remembered`]).
+    dimmed: Option<Handle<ColorMaterial>>,
     meshes: BTreeMap<(ObjectKind, Option<PlayerId>), Handle<Mesh>>,
     ticks: BTreeMap<ObjectKind, Handle<Mesh>>,
 }
@@ -49,8 +58,12 @@ impl Plugin for ObjectRenderPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ObjectVisualAssets>()
             .init_resource::<ObjectVisuals>()
+            .init_resource::<RememberedVisuals>()
             .add_systems(Update, sync_object_visuals.in_set(ClientSystems::SyncSim))
-            .add_systems(Update, place_object_visuals.in_set(ClientSystems::Present));
+            .add_systems(
+                Update,
+                (place_object_visuals, remembered::sync_remembered_visuals).in_set(ClientSystems::Present),
+            );
     }
 }
 

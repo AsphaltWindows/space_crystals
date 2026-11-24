@@ -265,6 +265,7 @@ fn combat_in_the_fog_shows_nothing() {
         let tracer = |from, to| Tracer {
             tick: 1,
             owner: Some(P2),
+            target: ObjectId(1),
             from,
             to,
         };

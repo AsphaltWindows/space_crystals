@@ -1,9 +1,11 @@
 //! What the local player can select and where it is drawn (`ARCHITECTURE.md > Client architecture > Visuals`):
 //! picking by click and by box (`systems/controls/selection_and_hud.md > MapClickSelection`, `> BoxSelection`) in
-//! view space, against each object's box as it is drawn this frame, lifted by its terrain height.
+//! view space, against each object's box as it is drawn this frame, lifted by its terrain height. The live objects
+//! the player sees count, and on Explored tiles the records shown in their place (`fog::Sight::remembered`).
 
 use bevy::math::{Rect, Vec2};
-use sc_sim::{Category, Object, ObjectId, ObjectKind, PlayerId, SU_PER_GU, Sim, VisibilityState};
+use sc_sim::vision::LastKnown;
+use sc_sim::{Category, Map, Object, ObjectId, ObjectKind, Placement, PlayerId, SU_PER_GU, Sim, VisibilityState};
 
 use crate::coords::drawn_at_height;
 use crate::fog::Sight;
@@ -36,23 +38,29 @@ impl Relation {
     }
 }
 
-/// Whether the player whose `sight` this is may select `object` now: its type must be Selectable, and
-/// `core/vision.md > Explored Selectability`: the player's own objects and objects on a tile it sees (Visible) are,
-/// objects in Explored areas are not (but a SupplyDeliveryStation is, for GDO players), and nothing in Unexplored
-/// ones is. An object counts as in the best state among the tiles it covers. With the fog off, everything counts as
-/// Visible.
+/// Whether the player whose `sight` this is may select the live `object` now: its type must be Selectable, and the
+/// object the player's own or on a tile it sees (Visible; an object counts as in the best state among the tiles it
+/// covers). With the fog off, everything counts as Visible. Objects in Explored areas are shown, and selected, by
+/// their records ([`remembered_selectable_by`]); nothing in Unexplored ones is.
 pub fn selectable_by(object: &Object, sight: &Sight) -> bool {
-    if !object.def().selectable {
-        return false;
-    }
-    if object.owner == Some(sight.player()) {
-        return true;
-    }
-    match sight.object(object) {
-        VisibilityState::Visible => true,
-        VisibilityState::Explored => object.kind == ObjectKind::SupplyDeliveryStation && sight.is_gdo(),
-        VisibilityState::Unexplored => false,
-    }
+    object.def().selectable
+        && (object.owner == Some(sight.player()) || sight.object(object) == VisibilityState::Visible)
+}
+
+/// `core/vision.md > Explored Selectability`: whether the player whose `sight` this is may select `record`, one of
+/// the records its Explored tiles show (`fog::Sight::remembered`). Objects in Explored areas are not selectable,
+/// except a SupplyDeliveryStation for GDO players.
+pub fn remembered_selectable_by(record: &LastKnown, sight: &Sight) -> bool {
+    record.def().selectable && record.kind == ObjectKind::SupplyDeliveryStation && sight.is_gdo()
+}
+
+/// Whether the player whose `sight` this is may select object `id` now, live ([`selectable_by`]) or by the record
+/// shown in its place ([`remembered_selectable_by`]).
+pub fn selectable_id(sim: &Sim, sight: &Sight, id: ObjectId) -> bool {
+    sim.object(id).is_some_and(|o| selectable_by(o, sight))
+        || sight
+            .remembered_record(id)
+            .is_some_and(|r| remembered_selectable_by(r, sight))
 }
 
 /// An object the local player can select, as it is drawn this frame.
@@ -72,17 +80,38 @@ pub struct Selectable {
 
 impl Selectable {
     /// The selectable view of `object`, drawn at `pos` (its interpolated position).
-    pub fn of(object: &Object, player: PlayerId, map: &sc_sim::Map, pos: Vec2) -> Self {
-        let height = object_height(map, pos, object.placement.as_ref());
-        let (center, half) = match &object.placement {
-            Some(p) => (p.center(), Vec2::new(p.w as f32, p.h as f32) * SU_PER_GU / 2.0),
-            None => (pos, object.def().half_extents().unwrap_or(Vec2::splat(SU_PER_GU / 4.0))),
-        };
-        let drawn = drawn_at_height(center, height);
+    pub fn of(object: &Object, player: PlayerId, map: &Map, pos: Vec2) -> Self {
+        let relation = Relation::of(player, object.owner);
+        if let Some(p) = &object.placement {
+            return Self::placed(object.id, object.kind, relation, p, map);
+        }
+        let half = object.def().half_extents().unwrap_or(Vec2::splat(SU_PER_GU / 4.0));
+        let drawn = drawn_at_height(pos, object_height(map, pos, None));
         Self {
             id: object.id,
             kind: object.kind,
-            relation: Relation::of(player, object.owner),
+            relation,
+            drawn,
+            rect: Rect::from_center_half_size(drawn, half),
+            depth: pos.y,
+        }
+    }
+
+    /// The selectable view of `record`, drawn where the record has its footprint (`object_render::remembered`).
+    pub fn remembered(record: &LastKnown, player: PlayerId, map: &Map) -> Self {
+        let relation = Relation::of(player, record.owner);
+        Self::placed(record.id, record.kind, relation, &record.placement, map)
+    }
+
+    /// A tile-based object, drawn over its footprint at the footprint's height.
+    fn placed(id: ObjectId, kind: ObjectKind, relation: Relation, placement: &Placement, map: &Map) -> Self {
+        let center = placement.center();
+        let half = Vec2::new(placement.w as f32, placement.h as f32) * SU_PER_GU / 2.0;
+        let drawn = drawn_at_height(center, object_height(map, center, Some(placement)));
+        Self {
+            id,
+            kind,
+            relation,
             drawn,
             rect: Rect::from_center_half_size(drawn, half),
             depth: center.y,
@@ -137,14 +166,22 @@ pub struct Selectables {
 impl Selectables {
     /// Every object of `sim` that the player whose `sight` this is may select ([`selectable_by`]), drawn where the
     /// frame draws it: at `prev_pos.lerp(pos, alpha)` (`ARCHITECTURE.md > Client architecture > Visuals >
-    /// Interpolation`).
+    /// Interpolation`); and the records shown in place of objects that it may select
+    /// ([`remembered_selectable_by`]), where they show them.
     pub fn new(sim: &Sim, sight: &Sight, alpha: f32) -> Self {
         let player = sight.player();
-        let objects = sim
+        let live = sim
             .objects()
             .filter(|o| selectable_by(o, sight))
-            .map(|o| Selectable::of(o, player, sim.map(), o.prev_pos.lerp(o.pos, alpha)))
-            .collect();
+            .map(|o| Selectable::of(o, player, sim.map(), o.prev_pos.lerp(o.pos, alpha)));
+        let remembered = sight
+            .remembered()
+            .filter(|r| remembered_selectable_by(r, sight))
+            .map(|r| Selectable::remembered(r, player, sim.map()));
+        let mut objects: Vec<Selectable> = live.chain(remembered).collect();
+        // A record shows only while its object isn't seen, so an id comes once; were it twice, the live one counts.
+        objects.sort_by_key(|o| o.id);
+        objects.dedup_by_key(|o| o.id);
         Self { objects }
     }
 

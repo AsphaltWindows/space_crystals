@@ -3,15 +3,21 @@
 //! selected object's name, its owner, its HP when it has any, and a map resource's state (`core/map.md >
 //! SpaceCrystalsPatch > InfoPanel`, `> SupplyDeliveryStation > InfoPanel`).
 //!
+//! An object the local player selected through its record (`core/vision.md > Explored Selectability`: a GDO player's
+//! SupplyDeliveryStation on Explored tiles) shows as last seen, without CurrentSupplies (`core/map.md >
+//! SupplyDeliveryStation > InfoPanel > Explored`), and with a placeholder note of how long ago that was.
+//!
 //! The design doesn't say what the InfoPanel shows for two or more objects (the SelectionPanel shows them). Until it
 //! does, a placeholder: the ActiveGroup's type, how many objects are in it and how many are selected.
 
 use bevy::prelude::*;
-use sc_sim::{Object, PlayerId, ResourceState, Sim, TICKS_PER_SECOND};
+use sc_sim::vision::LastKnown;
+use sc_sim::{ObjectKind, PlayerId, ResourceState, Sim, TICKS_PER_SECOND};
 
 use super::{LABEL_VH, SectionLabel, TEXT_COLOR, set_text, show_node, text};
+use crate::fog::{LocalSight, Sight};
 use crate::selection::{ControlStates, Selection};
-use crate::sim_driver::{LocalPlayer, SimRes};
+use crate::sim_driver::LocalPlayer;
 use crate::{ClientMode, hud::HudSection};
 
 /// Size of the InfoPanel's title (placeholder).
@@ -38,42 +44,73 @@ pub(super) fn spawn_content(panel: &mut EntityCommands) {
     });
 }
 
-/// What the InfoPanel shows for `selection`, as `player` sees it: a title and the lines under it. `None` while
-/// nothing is selected, which hides the panel.
-pub fn info_text(sim: &Sim, player: PlayerId, selection: &Selection) -> Option<(String, String)> {
+/// What the InfoPanel shows for `selection`, as the player whose `sight` this is sees it: a title and the lines
+/// under it. `None` while nothing is selected, which hides the panel.
+pub fn info_text(sim: &Sim, sight: &Sight, selection: &Selection) -> Option<(String, String)> {
     let mut ids = selection.ids();
     let first = ids.next()?;
     if ids.next().is_none() {
-        return sim.object(first).map(|object| object_info(sim, player, object));
+        if let Some(object) = sim.object(first).filter(|o| sight.sees(o)) {
+            let shown = Shown {
+                kind: object.kind,
+                owner: object.owner,
+                hp: object.hp,
+                resource: object.resource.as_ref(),
+            };
+            return Some(object_info(sim, shown, None));
+        }
+        let record = sight.remembered_record(first)?;
+        return Some(object_info(sim, Shown::remembered(record), Some(record)));
     }
     let group = selection.active_group()?;
     let lines = format!("{} in group\n{} selected", group.instances.len(), selection.len());
     Some((group.kind().def().name.to_string(), lines))
 }
 
-/// `core/entities.md > Object Type > InfoPanel`: what one object's panel shows. Everything is visible to everyone
-/// until vision exists (slice V), so `_player` doesn't change it yet (`core/map.md > SupplyDeliveryStation >
-/// InfoPanel` hides CurrentSupplies in Explored areas).
-fn object_info(sim: &Sim, _player: PlayerId, object: &Object) -> (String, String) {
-    let mut lines = vec![match object.owner {
+/// What one object's panel is made from: the live object, or the record shown in its place.
+struct Shown<'a> {
+    kind: ObjectKind,
+    owner: Option<PlayerId>,
+    hp: Option<f32>,
+    resource: Option<&'a ResourceState>,
+}
+
+impl<'a> Shown<'a> {
+    fn remembered(record: &'a LastKnown) -> Self {
+        Self {
+            kind: record.kind,
+            owner: record.owner,
+            hp: record.hp,
+            resource: record.resource.as_ref(),
+        }
+    }
+}
+
+/// `core/entities.md > Object Type > InfoPanel`: what one object's panel shows. From a `record` (an Explored area:
+/// `core/map.md > SupplyDeliveryStation > InfoPanel > Explored`), the state last seen without CurrentSupplies, and
+/// how long ago that was (placeholder note).
+fn object_info(sim: &Sim, shown: Shown, record: Option<&LastKnown>) -> (String, String) {
+    let mut lines = vec![match shown.owner {
         Some(owner) => sim
             .player(owner)
             .map_or_else(|| format!("Player {}", owner.0), |p| p.name.clone()),
         None => "Neutral".to_string(),
     }];
-    if let (Some(hp), Some(max)) = (object.hp, object.def().max_hp) {
+    if let (Some(hp), Some(max)) = (shown.hp, shown.kind.def().max_hp) {
         // Fractional HP shows rounded up, so a living unit never shows 0.
         lines.push(format!("HP {} / {}", hp.ceil(), max.ceil()));
     }
-    match object.resource {
-        Some(ResourceState::CrystalPatch { remaining }) => lines.push(format!("Space Crystals: {remaining}")),
-        Some(ResourceState::SupplyStation {
+    match shown.resource {
+        Some(&ResourceState::CrystalPatch { remaining }) => lines.push(format!("Space Crystals: {remaining}")),
+        Some(&ResourceState::SupplyStation {
             delivery_size,
             delivery_interval,
             current_supplies,
             next_delivery_in,
         }) => {
-            lines.push(format!("Supplies: {current_supplies}"));
+            if record.is_none() {
+                lines.push(format!("Supplies: {current_supplies}"));
+            }
             lines.push(format!("Delivery size: {delivery_size}"));
             lines.push(format!("Delivery interval: {}", seconds(delivery_interval)));
             lines.push(match next_delivery_in {
@@ -83,7 +120,13 @@ fn object_info(sim: &Sim, _player: PlayerId, object: &Object) -> (String, String
         }
         None => {}
     }
-    (object.def().name.to_string(), lines.join("\n"))
+    if let Some(record) = record {
+        lines.push(format!(
+            "Last seen {} ago",
+            seconds(sim.tick().saturating_sub(record.seen))
+        ));
+    }
+    (shown.kind.def().name.to_string(), lines.join("\n"))
 }
 
 /// A number of ticks as whole seconds, rounded up (placeholder format).
@@ -93,19 +136,19 @@ fn seconds(ticks: u32) -> String {
 
 /// Shows the local player's selection in the InfoPanel, or the section's name while nothing is selected.
 pub(super) fn update_info_panel(
-    sim: Res<SimRes>,
+    sight: LocalSight,
     mode: Res<ClientMode>,
     player: Res<LocalPlayer>,
     states: Res<ControlStates>,
     mut texts: Query<(&InfoText, &mut Text, &mut Node)>,
     mut labels: Query<(&SectionLabel, &mut Node), Without<InfoText>>,
 ) {
-    if !sim.is_changed() && !player.is_changed() && !states.is_changed() && !mode.is_changed() {
+    if !sight.is_changed() && !states.is_changed() {
         return;
     }
     let info = mode
         .is_game()
-        .then(|| info_text(&sim, player.0, states.selection(player.0)))
+        .then(|| info_text(sight.sim(), &sight.get(), states.selection(player.0)))
         .flatten();
     for (label, mut node) in &mut labels {
         if label.0 == HudSection::InfoPanel {

@@ -1,6 +1,7 @@
 //! Placeholder combat feedback (`systems/combat.md`; the art waits on Q0001): a short tracer from the attacker to
-//! its target for each attack that takes effect (`SimEvent::Attacked`), HP bars over damaged and selected objects,
-//! and a fading marker where an object died (`SimEvent::Died`).
+//! its target for each attack that takes effect (`SimEvent::Attacked`), or a flash of the unit hit when the tracer
+//! is hidden, HP bars over damaged and selected objects, and a fading marker where an object died
+//! (`SimEvent::Died`).
 //!
 //! Everything is one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while anything
 //! shows. Effects age by the sim's ticks plus the render alpha, so a QA screenshot of a tick (alpha 1) always shows
@@ -8,7 +9,9 @@
 //!
 //! The fog of war hides what the local player doesn't see (`crate::fog`; placeholder rules, the design is silent):
 //! a tracer shows only if both its ends lie on Visible tiles, a death marker only on a Visible tile or for one of
-//! the player's own objects, and an HP bar only over an object the player sees (`Sight::sees`).
+//! the player's own objects, and an HP bar only over an object the player sees (`Sight::sees`). A unit the player
+//! sees, hit by an attack whose tracer it doesn't show (an attacker in the fog), flashes instead ([`shot_view`]; the
+//! assumption of question Q0017 point 1: the hit shows, the attacker's position doesn't).
 
 use bevy::prelude::*;
 use sc_sim::{Map, Object, ObjectId, ObjectKind, PlayerId, Sim, SimEvent, Tick, VisibilityState};
@@ -23,6 +26,9 @@ use crate::sim_driver::{RenderAlpha, SimEventMessage, SimRes};
 
 /// How long a tracer shows, ticks. Placeholder until the art direction (Q0001).
 pub const TRACER_TICKS: u32 = 5;
+/// How long a unit hit from the fog flashes, ticks ([`shot_view`]). Placeholder until the art direction (Q0001) and
+/// Q0017.
+pub const HIT_FLASH_TICKS: u32 = 5;
 /// How long a death marker shows, ticks. Placeholder until the art direction (Q0001).
 pub const DEATH_MARKER_TICKS: u32 = 40;
 /// A shot leaves a unit this far up the screen from its ground point, su, as from its body rather than its feet.
@@ -40,6 +46,8 @@ const EFFECTS_Z: f32 = 1.0;
 pub struct Tracer {
     pub tick: Tick,
     pub owner: Option<PlayerId>,
+    /// The object hit, which flashes if the tracer is hidden ([`shot_view`]).
+    pub target: ObjectId,
     pub from: Vec2,
     pub to: Vec2,
 }
@@ -115,6 +123,26 @@ pub fn shows_tracer(sight: &Sight, tracer: &Tracer) -> bool {
         .all(|&p| sight.at(p) == VisibilityState::Visible)
 }
 
+/// How a shot shows ([`shot_view`]).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum ShotView<'a> {
+    /// Its tracer.
+    Tracer,
+    /// A flash of the object it hit.
+    Flash(&'a Object),
+}
+
+/// How `sight` shows the shot of `tracer` now: its tracer for [`TRACER_TICKS`] if [`shows_tracer`]; else, if the
+/// player sees the object it hit, a flash of that object for [`HIT_FLASH_TICKS`] (`core/vision.md`: an attacker in
+/// the fog stays hidden; Q0017 point 1's assumption); else nothing.
+pub fn shot_view<'a>(sim: &'a Sim, sight: &Sight, tracer: &Tracer) -> Option<ShotView<'a>> {
+    if shows_tracer(sight, tracer) {
+        return shows(sim, tracer.tick, TRACER_TICKS).then_some(ShotView::Tracer);
+    }
+    let hit = sim.object(tracer.target).filter(|o| sight.sees(o))?;
+    shows(sim, tracer.tick, HIT_FLASH_TICKS).then_some(ShotView::Flash(hit))
+}
+
 /// Whether `sight` shows `death`: one of the player's own objects, or on a Visible tile.
 pub fn shows_death(sight: &Sight, death: &DeathMarker) -> bool {
     death.owner == Some(sight.player()) || sight.at(death.pos) == VisibilityState::Visible
@@ -160,11 +188,17 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
     }
     for message in messages.read() {
         match message.event {
-            SimEvent::Attacked { attacker, from, to, .. } => {
+            SimEvent::Attacked {
+                attacker,
+                target,
+                from,
+                to,
+            } => {
                 let owner = sim.object(attacker).and_then(|o| o.owner);
                 effects.tracers.push(Tracer {
                     tick: message.tick,
                     owner,
+                    target,
                     from,
                     to,
                 });
@@ -178,12 +212,14 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
             _ => {}
         }
     }
-    effects.tracers.retain(|t| shows(&sim, t.tick, TRACER_TICKS));
+    effects
+        .tracers
+        .retain(|t| shows(&sim, t.tick, TRACER_TICKS.max(HIT_FLASH_TICKS)));
     effects.deaths.retain(|d| shows(&sim, d.tick, DEATH_MARKER_TICKS));
 }
 
-/// Rebuilds the effects mesh: death markers at the back, then tracers, then HP bars (alpha blending draws a mesh's
-/// triangles in order), each only where the local player sees it. Hidden while nothing shows.
+/// Rebuilds the effects mesh: death markers at the back, then tracers and hit flashes, then HP bars (alpha blending
+/// draws a mesh's triangles in order), each only where the local player sees it. Hidden while nothing shows.
 fn draw_effects(
     sim: Res<SimRes>,
     alpha: Res<RenderAlpha>,
@@ -203,9 +239,24 @@ fn draw_effects(
         let fade = 1.0 - age(&sim, alpha.0, death.tick) / DEATH_MARKER_TICKS as f32;
         death_marker(&mut mesh, sim.map(), death, fade, z);
     }
-    for tracer in effects.tracers.iter().filter(|t| shows_tracer(&sight, t)) {
-        let fade = 1.0 - age(&sim, alpha.0, tracer.tick) / TRACER_TICKS as f32;
-        tracer_line(&mut mesh, sim.map(), tracer, fade, z);
+    for tracer in &effects.tracers {
+        let elapsed = age(&sim, alpha.0, tracer.tick);
+        match shot_view(&sim, &sight, tracer) {
+            Some(ShotView::Tracer) => {
+                tracer_line(&mut mesh, sim.map(), tracer, 1.0 - elapsed / TRACER_TICKS as f32, z);
+            }
+            Some(ShotView::Flash(hit)) => {
+                hit_flash(
+                    &mut mesh,
+                    sim.map(),
+                    hit,
+                    alpha.0,
+                    1.0 - elapsed / HIT_FLASH_TICKS as f32,
+                    z,
+                );
+            }
+            None => {}
+        }
     }
     let selection = states.selection(sight.player());
     for bar in hp_bars(&sim, &sight, alpha.0, |id| selection.contains(id)) {
@@ -233,6 +284,29 @@ fn tracer_line(mesh: &mut ColorMesh, map: &Map, tracer: &Tracer, fade: f32, z: f
     let glow = lighten(player_color(tracer.owner).to_srgba(), 0.3).with_alpha(0.45 * fade);
     mesh.segment(from, to, 5.0, z, glow.into());
     mesh.segment(from, to, 2.0, z, Color::srgba(1.0, 0.96, 0.7, fade));
+}
+
+/// A unit hit from the fog: a pale glow over its body inside a red ring, both fading out, where it is drawn.
+/// Placeholder look.
+fn hit_flash(mesh: &mut ColorMesh, map: &Map, hit: &Object, alpha: f32, fade: f32, z: f32) {
+    let fade = fade.clamp(0.0, 1.0);
+    let pos = hit.prev_pos.lerp(hit.pos, alpha);
+    let center = view_to_world(drawn_at_height(pos, object_height(map, pos, hit.placement.as_ref())));
+    let radius = hit.def().half_extents().map_or(12.0, |h| h.length()) + 2.0;
+    let around = |r: f32| -> Vec<Vec2> {
+        (0..16)
+            .map(|i| {
+                let a = i as f32 * std::f32::consts::TAU / 16.0;
+                center + Vec2::new(a.cos(), a.sin()) * r
+            })
+            .collect()
+    };
+    mesh.polygon(&around(radius), z, Color::srgba(1.0, 0.96, 0.8, 0.75 * fade));
+    let ring = around(radius + 3.0);
+    for (i, &a) in ring.iter().enumerate() {
+        let b = ring[(i + 1) % ring.len()];
+        mesh.segment(a, b, 2.5, z, Color::srgba(1.0, 0.3, 0.2, fade));
+    }
 }
 
 /// A dark scorch with a cross in the dead object's colour, fading out.

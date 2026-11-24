@@ -2,10 +2,11 @@
 //! tick (`Sim::vision`). Display only: the sim computes every player's vision whatever the client shows.
 //!
 //! - **What shows** ([`Sight`]): with the fog on, the local player sees its own objects and everything on its
-//!   Visible tiles in real time (`> Visible`); on Explored tiles it sees the terrain and the structures and
-//!   resources there, not other players' units (`> Explored`); on Unexplored tiles nothing (`> Unexplored`). The
-//!   object visuals ([`hide_unseen_objects`]), the combat effects, the path overlay and the selection
-//!   (`selection::pick::selectable_by`) all ask it.
+//!   Visible tiles in real time (`> Visible`); on Explored tiles the terrain, and the structures and resources it
+//!   remembers in their last-known state, never the live objects there (`> Explored`: the sim's records,
+//!   `PlayerVision::remembered`); on Unexplored tiles nothing (`> Unexplored`). The object visuals
+//!   ([`hide_unseen_objects`], `object_render::remembered`), the combat effects, the path overlay, the command
+//!   indicators, the InfoPanel and the selection (`selection::pick`) all ask it.
 //! - **The fog layer**: one mesh over the whole map and one texture of one texel per tile, never an entity or a
 //!   material per tile (`ARCHITECTURE.md > Client architecture > Visuals`). The mesh follows the terrain's surface
 //!   tile by tile as the terrain mesh draws it (a quad per flat tile, four triangles around the centre of a sloped
@@ -18,8 +19,7 @@
 //!   on) turn it off for QA: then the client shows and lets the player select everything, as if every tile were
 //!   Visible. The map editor never shows fog; its play-tests do.
 //!
-//! Placeholders, the design being silent on how fog looks: the Explored dimming, the soft edges, and that
-//! structures and resources on Explored tiles show as they are now rather than as last seen.
+//! Placeholders, the design being silent on how fog looks: the Explored dimming and the soft edges.
 
 use bevy::asset::RenderAssetUsages;
 use bevy::ecs::system::SystemParam;
@@ -28,8 +28,8 @@ use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::sprite_render::AlphaMode2d;
-use sc_sim::vision::PlayerVision;
-use sc_sim::{Faction, Map, Object, PlayerId, SU_PER_GU, Sim, TilePos, VisibilityState};
+use sc_sim::vision::{LastKnown, PlayerVision};
+use sc_sim::{Faction, Map, Object, ObjectId, PlayerId, SU_PER_GU, Sim, TilePos, VisibilityState};
 
 use crate::coords::DrawLayer;
 use crate::input::{ActionState, InputAction};
@@ -130,16 +130,22 @@ impl<'a> Sight<'a> {
         }
     }
 
-    /// Whether the player sees `object` as it is now: its own objects, and the others on a Visible tile.
+    /// Whether the player sees `object` as it is now: its own objects, and the others on a Visible tile. The views
+    /// draw only these of the live objects; Explored tiles show [records](Sight::remembered) instead.
     pub fn sees(&self, object: &Object) -> bool {
         object.owner == Some(self.player) || self.object(object) == VisibilityState::Visible
     }
 
-    /// Whether the views draw `object`: what the player [sees](Sight::sees), and the structures and resources it
-    /// has explored (`core/vision.md > Explored`). Placeholder: those show as they are now; the design wants their
-    /// last-known state.
-    pub fn shows(&self, object: &Object) -> bool {
-        self.sees(object) || (object.def().unit.is_none() && self.object(object) == VisibilityState::Explored)
+    /// What Explored tiles show (`core/vision.md > Explored`): the records of the structures and resources the
+    /// player remembers and doesn't see now, in their last-known state, by id. None while the fog doesn't apply,
+    /// when every object shows as it is.
+    pub fn remembered(&self) -> impl Iterator<Item = &'a LastKnown> + use<'a> {
+        self.fog.and_then(|f| f.vision).into_iter().flat_map(|v| v.remembered())
+    }
+
+    /// The record shown in place of object `id` ([`Sight::remembered`]), if any.
+    pub fn remembered_record(&self, id: ObjectId) -> Option<&'a LastKnown> {
+        self.fog?.vision?.remembered_record(id)
     }
 }
 
@@ -160,6 +166,12 @@ impl LocalSight<'_> {
     /// The sim it looks at.
     pub fn sim(&self) -> &Sim {
         &self.sim
+    }
+
+    /// Whether what it shows may have changed since the system last ran: the sim, the local player, the fog or the
+    /// mode changed.
+    pub fn is_changed(&self) -> bool {
+        self.sim.is_changed() || self.player.is_changed() || self.fog.is_changed() || self.mode.is_changed()
     }
 }
 
@@ -394,8 +406,9 @@ fn update_fog_layer(
     view.texture_writes += 1;
 }
 
-/// Hides the visual of every object the local player isn't shown ([`Sight::shows`]). Visuals of a headless app
-/// have no `Visibility` until this gives them one.
+/// Hides the visual of every object the local player doesn't see ([`Sight::sees`]): on Explored tiles too, where
+/// the records show instead (`object_render::remembered`). Visuals of a headless app have no `Visibility` until this
+/// gives them one.
 fn hide_unseen_objects(
     mut commands: Commands,
     sight: LocalSight,
@@ -403,7 +416,7 @@ fn hide_unseen_objects(
 ) {
     let seen = sight.get();
     for (entity, visual, visibility) in &mut visuals {
-        let shown = sight.sim.object(visual.0).is_some_and(|o| seen.shows(o));
+        let shown = sight.sim.object(visual.0).is_some_and(|o| seen.sees(o));
         let wanted = if shown {
             Visibility::Inherited
         } else {
