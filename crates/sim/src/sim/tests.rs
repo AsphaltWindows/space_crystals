@@ -4,6 +4,7 @@ use super::*;
 use crate::combat::{AttackPhase, AttackState};
 use crate::command::{Command, DebugCommand};
 use crate::construction::Constructor;
+use crate::conversion::Conversion;
 use crate::ids::SlotId;
 use crate::map::{Tile, TilePresetId};
 use crate::mover::Mover;
@@ -43,6 +44,7 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         facing: 0.5,
         prev_facing: 0.25,
         hp: Some(40.0),
+        shields: None,
         placement: None,
         resource: None,
         orders: Some(Orders::default()),
@@ -54,6 +56,7 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         constructor: None,
         worker: None,
         transform: None,
+        conversion: None,
     };
     sim.objects.insert(id, unit);
     id
@@ -166,6 +169,9 @@ fn state_hash_covers_every_field() {
     obj(&mut base, plate.0).constructor = Some(Constructor::Ready {
         kind: ObjectKind::Generator,
     });
+    // Shields and a conversion under way (any unit may hold them here).
+    obj(&mut base, 3).shields = Some(7.5);
+    obj(&mut base, 3).conversion = Some(Conversion { left: 2 });
     let mutations: Vec<Mutation> = vec![
         ("tick", |s| s.tick += 1),
         ("map", |s| {
@@ -193,6 +199,8 @@ fn state_hash_covers_every_field() {
         ("prev_facing", |s| obj(s, 3).prev_facing += 0.1),
         ("hp value", |s| obj(s, 3).hp = Some(39.5)),
         ("hp none", |s| obj(s, 3).hp = None),
+        ("shields value", |s| obj(s, 3).shields = Some(7.25)),
+        ("shields none", |s| obj(s, 3).shields = None),
         ("placement none", |s| obj(s, 1).placement = None),
         ("placement origin x", |s| placement(s).origin.x += 1),
         ("placement origin y", |s| placement(s).origin.y += 1),
@@ -297,6 +305,10 @@ fn state_hash_covers_every_field() {
         }),
         ("riot_shield raised", |s| {
             obj(s, 3).riot_shield = Some(RiotShield::Raised)
+        }),
+        ("conversion none", |s| obj(s, 3).conversion = None),
+        ("conversion left", |s| {
+            obj(s, 3).conversion = Some(Conversion { left: 1 })
         }),
         ("extractor none", |s| obj(s, 4).extractor = None),
         ("extractor patch", |s| {

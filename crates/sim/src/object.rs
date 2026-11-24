@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::combat::AttackState;
 use crate::construction::Constructor;
+use crate::conversion::Conversion;
 use crate::defs::{Footprint, ObjectDef, ObjectKind};
 use crate::economy::{Extractor, Worker};
 use crate::ids::{ObjectId, PlayerId};
@@ -34,6 +35,12 @@ pub struct Object {
     pub prev_facing: f32,
     /// Current HP of destructible objects. Fractional (`systems/combat.md > MinimumDamage`).
     pub hp: Option<f32>,
+    /// Current Shields (`systems/combat.md > Shields`; plan decision T18; `shields`): `Some` for an object whose
+    /// kind has MaxShields, the Colonists' units and buildings, from 0 to its maximum now (`Object::max_shields`);
+    /// `None` for everything else. Fractional, as HP. Optional in files: an object saved before it existed loads with
+    /// full Shields (`sim/load.rs`).
+    #[serde(default)]
+    pub shields: Option<f32>,
     /// Footprint of tile-based objects (structures, resources).
     pub placement: Option<Placement>,
     /// Resource node state (`core/map.md > Resource`).
@@ -73,6 +80,11 @@ pub struct Object {
     /// saved before it existed still load.
     #[serde(default)]
     pub transform: Option<Transform>,
+    /// A Legionnaire converting to its other form: the frames it has left (`factions/colonists/units.md > Weapon
+    /// Conversion`, plan decision T26; `conversion`). `None` for everything else. Optional in files, so that states
+    /// saved before it existed still load.
+    #[serde(default)]
+    pub conversion: Option<Conversion>,
 }
 
 impl Object {

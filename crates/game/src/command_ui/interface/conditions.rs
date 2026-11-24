@@ -1,7 +1,7 @@
 //! What the game allows a selection's commands now, as the sim has it (`systems/controls/selection_and_hud.md >
 //! CommandPanel`: "derived from ControlState and game state each tick"): the selected units' modes ([`Modes`]), the
 //! ActiveGroup's constructor state, and the command gate's answer to each production and construction command the
-//! ActiveGroup offers ([`Conditions`]).
+//! ActiveGroup offers, and to its Convert ([`Conditions`]).
 //!
 //! A button is available exactly when the sim would take its command now (plan decision T10: "button availability
 //! uses the same `sc_sim` predicates as the gate"): the panel asks `Sim::validate` with the command it would send,
@@ -10,7 +10,9 @@
 //! sufficient Space Crystals and Unit Control"; "X: Cancel Production [...] Only available if BuildQueue is not
 //! empty"; design changes 0081 and 0082), and so is a greyed-out build menu entry (`> DeploymentCenter >
 //! ObjectInterfaceState[DeploymentCenter]`: "Only available if player has sufficient Space Crystals"; "Other build
-//! options unavailable" while the Deployment Center constructs or holds a building ready).
+//! options unavailable" while the Deployment Center constructs or holds a building ready), and so is a greyed-out
+//! Convert (`factions/colonists/units.md > Weapon Conversion > Eligibility`: not while Firing or in Cooldown; it goes
+//! to the recipients that may convert, `Reject::CannotConvert` when none may).
 
 use std::collections::BTreeMap;
 
@@ -59,7 +61,8 @@ impl FromIterator<(ObjectId, RiotShield)> for Modes {
 }
 
 /// What the game allows a selection's commands now: its units' [`Modes`], the ActiveGroup's constructor state, and
-/// each production or construction command the ActiveGroup may show that the command gate would refuse, with why.
+/// each production or construction command or Convert the ActiveGroup may show that the command gate would refuse,
+/// with why.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Conditions {
     /// The selected units' modes.
@@ -67,15 +70,16 @@ pub struct Conditions {
     /// The state of the ActiveGroup's constructor, if it is one: a Deployment Center or an Extraction Facility, one
     /// instance (they are Ungroupable), whose panel follows it (`super::state_grid`).
     pub constructor: Option<Constructor>,
-    /// The production and construction commands the gate would refuse now, for the objects they go to
-    /// ([`recipients`]).
+    /// The production and construction commands and the Convert the gate would refuse now, for the objects they go
+    /// to ([`recipients`]).
     refused: BTreeMap<PanelCommand, Reject>,
 }
 
 impl Conditions {
     /// The conditions of `player`'s `selection` in `sim`: the modes, the ActiveGroup's constructor state, and
-    /// `Sim::validate`'s answer to the `Command::Production` or `Command::Construction` each such command the
-    /// ActiveGroup may show would send ([`commands`]).
+    /// `Sim::validate`'s answer to the `Command::Production`, `Command::Construction` or `Command::Ability` each such
+    /// command the ActiveGroup may show would send ([`commands`]). A toggled ability's is never refused: the gate
+    /// takes it whenever a recipient carries it.
     pub fn of(sim: &Sim, player: PlayerId, selection: &Selection) -> Self {
         let commands = selection
             .active()
@@ -90,10 +94,15 @@ impl Conditions {
                         objects,
                         command: production,
                     }
-                } else {
+                } else if let Some(construction) = command.construction() {
                     Command::Construction {
                         objects,
-                        command: command.construction()?,
+                        command: construction,
+                    }
+                } else {
+                    Command::Ability {
+                        units: objects,
+                        ability: command.ability(false).filter(|_| !command.toggles())?,
                     }
                 };
                 let sent = PlayerCommand { player, command: sent };
@@ -132,14 +141,15 @@ impl Conditions {
         self
     }
 
-    /// Why the gate would refuse production or construction command `command` now, if it would.
+    /// Why the gate would refuse production or construction command or Convert `command` now, if it would.
     pub fn refusal(&self, command: PanelCommand) -> Option<Reject> {
         self.refused.get(&command).copied()
     }
 
     /// Whether the game lets `command` go to its recipients in `selection` now: Attack while one of them can attack
     /// (`factions/gdo/units.md > Peacekeeper > Riot Shield`: "the player must lower the shield before ordering an
-    /// attack"), a production or construction command while the gate would take it, anything else always.
+    /// attack"), a production or construction command or a Convert while the gate would take it, anything else
+    /// always.
     pub fn allows(&self, selection: &Selection, command: PanelCommand) -> bool {
         match command {
             PanelCommand::Attack => recipients(selection, command)

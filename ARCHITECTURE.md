@@ -145,8 +145,9 @@ The design is `core/map.md`, and the code is `crates/sim/src/map.rs` and `map/`.
 Units, structures and resources are all `Object`s (`object.rs`, `core/entities.md > Object Instance`). The layout is
 "ECS-lite": a plain struct with core fields plus one `Option` per capability.
 
-- **Core fields**: `id`, `kind`, `owner` (`None` means neutral), `pos`, `prev_pos`, `facing`, `prev_facing` and `hp`
-  (`None` means indestructible).
+- **Core fields**: `id`, `kind`, `owner` (`None` means neutral), `pos`, `prev_pos`, `facing`, `prev_facing`, `hp`
+  (`None` means indestructible) and `shields` (the current Shields of an object whose kind has MaxShields, the
+  Colonists' kinds; `None` for the rest; see *Combat > Shields*).
 - **Capabilities**: today these are `placement` (the tile footprint), `resource` (`ResourceState`), and for units
   `orders` (`Orders`, `orders.rs`: the current order with its behaviour's state, a queue of at most
   `MAX_QUEUED_ORDERS`, and what the unit does on its own while it has none; see *Behaviours*), `mover`
@@ -161,9 +162,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   a worker, the Drone, `worker` (`Worker`, `economy/gathering.rs`: its load, its AssignedDropOff and the patch it
   gathers, see *Economy > Gathering*); for an object transforming into its kind (a Beacon warping in a building),
   `transform` (`Transform`, `transform.rs`: what it was and where it stood, how far it has come and what it paid, see
-  *Economy > Warp In*). The rest arrives as more optional fields, each with its own module. Never add them as
-  separate stores keyed by id. A system walks the objects in id order and skips those without its capability
-  (`let Some(..) = &mut o.resource else { continue };`).
+  *Economy > Warp In*); for a Legionnaire converting its weapon, `conversion` (`Conversion`, `conversion.rs`: the
+  frames left, see *Combat > Weapon Conversion*). The rest arrives as more optional fields, each with its own
+  module. Never add them as separate stores keyed by id. A system walks the objects in id order and skips those
+  without its capability (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
   them through `ObjectKind::def()` or `Object::def()`. Every value cites its design section. Faction types go in
   per-faction modules (`defs/gdo.rs`, …). A unit type also has `ObjectDef::unit: Some(UnitDef)` (`defs/units.rs`,
@@ -182,11 +184,11 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   movement and combat pass it by.
 - **The Colonists** (`defs/colonists.rs`; `factions/colonists/units.md`, `factions/colonists/economy.md`, slice M3-A):
   the Drone, the Beacon, the Egress Node, the Robo Portal, the Bio Portal and the Sabre and Rifle Legionnaires, after
-  the M2 kinds. Three def fields are data only until their slices: `ObjectDef::max_shields` (MaxShields, set for
-  exactly the Colonists' kinds; Shields arrive with M3-B), `UnitDef::beacon_capacity_cost` (M3-C) and
-  `StructureDef::warp_in`, the Beacon's Constructs List (M3-E). `warp_in` is not `constructs`, so the Beacon is no
-  GDO-style constructor (plan decision T14). Their structures have no Power and no build area. The portals produce
-  through their A sides, all four of the Robo Portal's (slice M3-D, see *Production*). The Drone, a
+  the M2 kinds. Three def fields came before their slices: `ObjectDef::max_shields` (MaxShields, set for exactly
+  the Colonists' kinds; their Shields came with M3-B, see *Combat > Shields*), `UnitDef::beacon_capacity_cost`
+  (M3-C) and `StructureDef::warp_in`, the Beacon's Constructs List (M3-E). `warp_in` is not `constructs`, so the
+  Beacon is no GDO-style constructor (plan decision T14). Their structures have no Power and no build area. The
+  portals produce through their A sides, all four of the Robo Portal's (slice M3-D, see *Production*). The Drone, a
   HoverVehicle, moves by DragMovement (slice M3-G, see *Movement and collision > Movement models*): its equilibrium
   is `(ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio` = 8 su per tick (`MovementAttrs::max_speed`).
   It crosses Rugged tiles with double drag (`HOVER_VEHICLE.rugged_terrain`, design change 0039), on the light
@@ -195,15 +197,17 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   a Beacon warping in a building, a Legionnaire converting its weapon) stays the same object, its id included.
   `Sim::change_kind(id, kind, placement)` is the one place a kind changes, and it emits `SimEvent::KindChanged`. It
   keeps the id, owner and facing; the position too, unless the object gets a placement, whose centre it then jumps
-  to (`prev_pos` too); and the HP, clamped to the new MaxHP (callers interpolate HP themselves). It rebuilds the
+  to (`prev_pos` too); the HP, clamped to the new MaxHP (callers interpolate HP themselves); and the Shields, clamped
+  to the new MaxShields (a kind without any has none, one that gains them starts full). It rebuilds the
   capabilities from the new def with `kinds::Capabilities::fresh`, which `Sim::insert_object` uses as well: a
   capability whose def part is unchanged keeps its state, a new one starts fresh, one the new kind lacks goes. A
-  unit that stays a unit keeps its orders and its move (question Q0042 point 6), replanning if its grid changes; a
+  unit that stays a unit keeps its orders and its move (design change 0150), replanning if its grid changes; a
   kept attack keeps its target and restarts its sequence. Paid state the new kind has no place for (a production
   queue, a construction) is refunded first, as on removal. Call it before 5b (in the commands phase, or a step
   right after 5a), or sync the grids yourself (`paths::sync`). A caller whose new kind isn't functional yet (a
   building warping in) holds its functions back itself. Slice E's Warp In and its cancel are its first callers
-  (`sim/transform.rs`), slices B and F follow; `sim/kinds/tests.rs` unit-tests it. The client rebuilds the visuals of
+  (`sim/transform.rs`), then slice B's Weapon Conversion (`sim/modes.rs`); F follows. `sim/kinds/tests.rs`
+  unit-tests it. The client rebuilds the visuals of
   a changed object and keeps it selected (see *Commands, events and replays > Events*).
 - **Sides** (`sides.rs`, design change 0079): `sides(kind, orientation)` gives the letters of a structure's sides
   that face north, east, south and west (`[SideLetter; 4]`, `None` for other objects). Unturned, the letters of its
@@ -299,9 +303,12 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    the state the commands before it left, so a cost is paid from the bank as they left it and a Place is checked
    with the footprints they placed (see *Economy > Construction*).
 5. **Systems**, each walking the objects in id order, one function per module (`docs/movement.md > 4`):
-   - Modes, `riot_shield::step`: a Riot Shield on its way up or down goes on one tick. After the commands, so that
-     a toggle counts from its own tick; before 5a, so that the behaviours, the movement and the combat of the tick
-     all see the mode it leaves.
+   - Modes, `Sim::step_modes` (`sim/modes.rs`, beside `Sim::use_ability`, which applies the ability commands): a
+     Riot Shield on its way up or down goes on one tick (`riot_shield::step`), and a Weapon Conversion one frame; a
+     conversion whose frames are done makes the unit its other form there (`conversion::step`, `Sim::change_kind`;
+     see *Combat > Weapon Conversion*). After the commands, so that a toggle or a Convert counts from its own tick;
+     before 5a, so that the behaviours, the movement and the combat of the tick all see the mode it leaves, and the
+     new kind is in place before 5b.
    - 5a `orders::update`: a unit's finished order completes and its next one starts, until one is in progress, so
      legs follow each other without an idle tick; then that order's behaviour runs for the tick, or the idle one
      (see *Behaviours*). They write goals (`Mover::go_to`, `stop`) and the target the attack engages. Everything
@@ -320,6 +327,11 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      Drones apart (design change 0106).
    - 5e `combat::step`: attack phases, the tick's list of hits applied together, deaths (see *Combat*). The dead
      leave through `Sim::remove_objects`, then `paths::sync` runs again in case a footprint went with them.
+   - Shields, `shields::step` (slice M3-B, see *Combat > Shields*): every object's Shields regenerate
+     `SHIELD_REGEN_PER_TICK`, up to its MaxShields now (`Object::max_shields`). Right after 5e's removals, so that the
+     dead regenerate nothing and a hit's tick ends with the regeneration on top of it; before the economy, so that a
+     transforming object regenerates up to the maximum its tick began with, which `Sim::step_transforms` then raises,
+     its Shields with it.
    - Economy, `economy::step` (plan decision T5, see *Economy*): after 5e's removals and their `paths::sync`, so
      that a building destroyed in the tick counts for nothing in it; before 5f, so that what it brings into the game
      is seen in its own tick. In order: every player's power (the structures this tick's commands placed included),
@@ -398,7 +410,8 @@ ticks spent in it. Hashed and serialized like all state.
   within `FACING_TOLERANCE`. Aiming and Reloading are interruptible: another order, or a target that is gone or out
   of range, cancels an aim; a reload keeps counting. Firing and Cooldown run on whatever happens.
 - **Queries**: `combat::may_move(&Object)` and `may_turn(&Object)`: whether the attack leaves the base free to move
-  or turn this tick (`> UnitBaseSource`: not while Aiming, Firing or in Cooldown; turret units always). Phase 5d
+  or turn this tick (`> UnitBaseSource`: not while Aiming, Firing or in Cooldown; turret units always), and never
+  while the unit converts its weapon (see Weapon Conversion). Phase 5d
   holds a unit that may not: it stands, keeping its goal, path and stuck clock (`movement::wait`). The behaviours
   start a chase only when `may_move` holds.
 - **One turn budget per tick**: a unit turns at most its TurnRate per tick in all. Phase 5d turns it first and notes
@@ -432,6 +445,32 @@ ticks spent in it. Hashed and serialized like all state.
   directional multiplier, MinimumDamage); HP is fractional, nothing is rounded. PointArmor is the target's
   `ObjectDef::armor`, a structure's too: a Peacekeeper's 10 damage takes 9 HP off a Generator and 8 off a plate. An
   object at 0 HP or less dies; a structure that dies frees its tiles (the navigation grids are rebuilt).
+- **Shields** (`shields.rs`, `combat/damage.rs`; `systems/combat.md > Shields`, slice M3-B, plan decision T18): an
+  object whose kind has MaxShields (the Colonists') has `Object::shields`, full when it is inserted (and when a save
+  from before Shields loads). A `Hit` carries the raw damage and the target's modifiers as the shot saw them
+  (pre-armor multiplier, PointArmor, directional multiplier), and `damage::resolve` settles it when the list is
+  applied, hit by hit, so the second hit of a tick meets the Shields the first left. The Shields take the damage
+  first, at full value; an overflow goes through `hit_damage` with the MinimumDamage capped at it (`> MinimumDamage
+  > Shield overflow`: 10.25 on 10 Shields and PointArmor 1 takes 0.25 HP); a hit the Shields take whole costs no HP,
+  and no armour is consulted. No modifier touches the Shields: the pre-armor multipliers and the DirectionalArmor
+  touch the overflow only (design change 0147). `SimEvent::Hit` says what each hit took (`damage` of the HP,
+  `shield_damage`). The Shields regenerate 0.25 a tick (`SHIELD_REGEN_PER_TICK`; `> ShieldRegenRate`:
+  "continuously (not gated by a delay after taking damage)") up to the maximum now, a neutral object's too (design
+  change 0146), in their own step (see *Tick pipeline*). A transforming object's follow its interpolated maximum as
+  its HP do and regenerate up to it (design changes 0110 and 0146, `transform::follow_max`), and a cancel keeps
+  their fraction, with no minimum (0111, `transform::keep_fraction`). The vision's records keep no Shields.
+- **Weapon Conversion** (`conversion.rs`, `sim/modes.rs`; `factions/colonists/units.md > Weapon Conversion`, plan
+  decision T26): `Ability::Convert` makes each Sabre Legionnaire it goes to a Rifle Legionnaire and each Rifle a Sabre
+  (`conversion::converts_to`). The gate drops the units without another form (`Reject::LacksAbility` when none has one)
+  and those Firing, in Cooldown or converting (`conversion::may_convert`, `> Eligibility`; `Reject::CannotConvert` when
+  none is left, question Q0042 point 9). A Convert cancels an Aim or a Reload, keeping the target (design change 0152:
+  the new weapon starts ready), and starts `Object::conversion` for `CONVERT_TICKS`, 4 frames: the unit holds still and
+  doesn't turn (`may_move`, `may_turn`; its behaviours see it can't move; `Mover::speed_factor` 0, so it yields to
+  nobody), its attack idles, and it can be attacked throughout (`> Vulnerability`). Converted in tick `t`, it holds
+  through tick `t + 3`, and the Modes step of `t + 4` makes it its other form through `Sim::change_kind`, HP and Shields
+  unchanged (their maxima are equal), so it moves and fights as that from `t + 4`. Nothing cancels it (`> Completion`):
+  a second Convert is refused, a Stop changes nothing. The orders stay, and it carries on with the other weapon (`>
+  Orders are kept`, design change 0150). Convert isn't queued (design change 0151: "holding Shift changes nothing").
 - **Removal path**: `Sim::remove_objects` (`sim/removal.rs`) is the one way objects leave the game, for deaths and
   debug removals alike. It emits `Removed` and clears every reference to the removed: a current order naming one
   completes, queued ones are dropped, a move towards one ends `TargetLost`, an attack on one stops (an aim is
@@ -947,11 +986,13 @@ section of its own.
   *Recipe timing*: ordered in tick `t`, a WarpInTime of `N` frames completes at the end of `t + N − 1`
   (`SimEvent::TransformCompleted`) and the building works from `t + N`. Its maxima interpolate
   (`Object::max_hp`, `Object::max_shields`: "Beacon MaxHP + (Building MaxHP − Beacon MaxHP) × progress"), and its
-  HP rises by what its maximum rises (`transform::follow_max`, 0110: damage stays taken, whenever it was taken).
+  HP and Shields rise by what their maxima rise (`transform::follow_max`, 0110: damage stays taken, whenever it was
+  taken; the Shields since slice M3-B, which regenerate up to the maximum now).
   Until it is complete it holds its functions back (0116: no production, drop-off, rally or abilities; the gate
   refuses a Train, a rally and a drop-off at it), but it counts for defeat (0113) and keeps providing its 5 Beacon
   Capacity (0112). `ConstructionCommand::CancelTransform` turns every transforming object named back into what it
-  was, on its old tiles, with the fraction of its HP it had and at least 1 (`transform::keep_fraction`, 0111), and
+  was, on its old tiles, with the fraction of its HP it had and at least 1, and the fraction of its Shields with no
+  minimum (`transform::keep_fraction`, 0111), and
   refunds `Refund::Ready` of what it paid (`SimEvent::TransformCancelled`); a destroyed one refunds nothing (0115).
   Slice M3-F's deployment reuses `Transform`: `from` a Drone, without `from_placement`, its load a field of its own.
 - **Adding to the economy** (slices M2-D2, M2-F): put the new step into `economy::step` at its numbered place, advance
@@ -1105,9 +1146,11 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   Shift, no group, and their orders go on. `Ability::RiotShield { raise }` says which way rather than "toggle", so a
   group and a replay mean the same whatever each unit's mode. `Ability::SetDropOff(node)` sets the workers'
   AssignedDropOff to a drop-off of the player's own (`NotDropOff`), and "does not interrupt the Drone's current
-  action" (`factions/colonists/units.md > Drone > Assigned Drop-off`). The gate tolerates stale selections as for orders
+  action" (`factions/colonists/units.md > Drone > Assigned Drop-off`). `Ability::Convert` converts Legionnaires (see
+  *Combat > Weapon Conversion*). The gate tolerates stale selections as for orders
   (`TooManyUnits`, repeats, gone ids, `NotOwned`, `NoUnits`) and drops the units without the ability
-  (`Reject::LacksAbility` when none is left).
+  (`Reject::LacksAbility` when none is left); a Convert also drops those that may not convert now
+  (`Reject::CannotConvert` when none is left).
 - **`Command::Production { objects, command }`** (`factions/gdo/structures.md > Barracks >
   ObjectInterfaceState[Barracks]`, see *Production*): the producers are the player's objects among `objects` that
   produce units, found as an order's units are (stale and repeated ids dropped, `NotOwned`); none is
@@ -1172,11 +1215,14 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, …) are output only, for
   effects, sounds and UI. The sim never reads them.
   `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events from the scenario's
-  initial spawns. `KindChanged { id, from, to }` (`Sim::change_kind`) says that an object changed its kind in place.
+  initial spawns. `Hit { attacker, target, damage, shield_damage }` says what a hit took of the target's HP and of
+  its Shields (see *Combat > Shields*). `KindChanged { id, from, to }` (`Sim::change_kind`) says that an object
+  changed its kind in place.
   The client's response (slice M3-E) reads the objects themselves, so a replay's jump or a loaded game gets it too:
   the object's visual is made anew with the new kind's mesh, size and tag (*Client architecture > Visuals*), it
   stays selected with the same id as its new kind and its marker takes its new shape (*Selection*), and the panels
-  re-resolve its type. The Warp In's own interface (its ghost, Cancel on its panel) is slice M3-J1's.
+  re-resolve its type. The Warp In's own interface (its ghost, Cancel on its panel) is slice M3-J1's; a converted
+  Legionnaire (slice M3-B) gets the same response and nothing else.
 
 ## Sim scenarios and tests
 
@@ -1350,6 +1396,15 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   ElevationModifier, the Rifle Legionnaire's Range with it, the Drone's 8 su per tick and its path around a Robo
   Portal). Their stat blocks against the design are in `defs/colonists/tests.rs`, and `Sim::change_kind` is
   unit-tested in `sim/kinds/tests.rs`.
+- **Shields and Weapon Conversion tests** are `crates/sim/tests/shields.rs` (slice M3-B: the design's cases in a
+  game, two hits in one tick, the DirectionalArmor on the overflow only, the regeneration from 0 to full in 40 ticks
+  and a neutral object's, the dead gone first, the hash, saves and an older save, the Shields of a portal warping
+  in following its maximum and regenerating up to it, and a cancel's fraction with no minimum) and `conversion.rs`
+  (the 4 frames, HP and Shields kept; the gate in every attack phase, moving or idle; a mixed group; no cancel and
+  no shelter; the orders going on with the other weapon; a save and a replay). The resolution's cases are unit-tested
+  in `combat/damage.rs`, the regeneration in `shields.rs`, the conversion's pieces in `conversion/tests.rs`. In the
+  client: `tests/combat.rs` (the shield bar), `tests/commands/convert.rs` (R) and the InfoPanel's Shields line in
+  `hud/info_panel`.
 - **Gathering tests** are `crates/sim/tests/gathering.rs` (slice M3-H: one Drone's trip, pinned at 60 ticks; two
   Drones arriving together; waiting in the order they came; an enemy Drone on the patch; Set Drop-off Location in
   the middle of mining and of a return; depletion with the partial last load, the opened tile and the redirect, or
@@ -1463,7 +1518,9 @@ out by the same rules.
   up, red failed, blue arrived; placeholder colours). Its one mesh is rebuilt every frame while it is shown.
 - **Combat effects** (`combat_effects.rs`, placeholders until Q0001): a tracer for each `SimEvent::Attacked`
   (`TRACER_TICKS`), or a flash of the object hit if the local player sees it but not the tracer, an attacker in the
-  fog (`shot_view`, `HIT_FLASH_TICKS`; Q0017 point 1's assumption), HP bars over damaged units, a fading marker for
+  fog (`shot_view`, `HIT_FLASH_TICKS`; Q0017 point 1's assumption), HP bars over damaged and selected units, with
+  a shield bar right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change
+  0148; `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and a fading marker for
   each `SimEvent::Died` (`DEATH_MARKER_TICKS`).
   One alpha-blended mesh in the overlays layer, rebuilt every frame while anything shows; effects age by the sim's
   tick and the render alpha, so screenshots stay deterministic.
@@ -1682,12 +1739,14 @@ M2-H2).
   awaited) and who receives a command (`recipients`: a common one the whole selection, a group one the whole
   ActiveGroup, by hotkey or button; never some of them, no smart-casting, 0071, apart from the units that can't carry
   it out, which the resolution leaves out). A type's grid is its template's plus its own commands (`grid`: the Riot
-  Shield in R for a unit that carries one, a placeholder slot). `Modes` holds the selected units' modes as the sim has
+  Shield in R for a unit that carries one, a placeholder slot; Convert in R for the Legionnaires, one command common
+  to a selection of both forms). `Modes` holds the selected units' modes as the sim has
   them: the Riot Shield button is on, and lowers the shields, while all its recipients' are up or going up, else it
   raises them; Attack is disabled while none of its recipients can attack. `Conditions` holds the `Modes` and what
   the command gate refuses: a production command is disabled exactly when `Sim::validate` refuses the
   `Command::Production` pressing it would send (the gate's own predicates, no copy of them: crystals, Unit Control, a
-  full queue, nothing to cancel; 0081, 0082). `command_ui/resolution.rs` has what a click
+  full queue, nothing to cancel; 0081, 0082), and so is Convert, by its `Command::Ability` (every recipient Firing,
+  in Cooldown or converting). `command_ui/resolution.rs` has what a click
   resolves to and the `PointerDisplay` that previews it. A `MapTarget` is what is under the cursor (`CursorTarget`),
   with the ground point there and, for an object, whether it is destructible and its domain. A right-click resolves
   per unit (design changes 0062, 0063), whichever group is active: `UnitCapabilities` (the unit's template, its

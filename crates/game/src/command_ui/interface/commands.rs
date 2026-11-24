@@ -22,6 +22,11 @@ pub enum PanelCommand {
     Stop,
     /// `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`: raises or lowers the shields, at once.
     RiotShield,
+    /// `factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`: "R: Convert to Rifle Legionnaire",
+    /// and the Rifle Legionnaire's "R: Convert to Sabre Legionnaire", one command (`> Weapon Conversion > Convert
+    /// Command`: "units may be mixed in selection; each converts to its respective other form"), at once
+    /// (`sc_sim::Ability::Convert`).
+    Convert,
     /// `> ObjectInterfaceState[Barracks]`: "Q: Build Peacekeeper": pays for a unit of this kind and adds it to the
     /// BuildQueue, at once (`sc_sim::ProductionCommand::Train`).
     Train(ObjectKind),
@@ -51,8 +56,8 @@ pub enum PanelCommand {
 impl PanelCommand {
     /// Whether the command awaits a target (a StateOnlyTransition to AwaitingTarget): the target commands of
     /// `> BasicCombatUnitInterfaceState > DefaultState commands`, and Set Rally Point. The others are issued at once:
-    /// HoldPosition and Stop, the Riot Shield, a producer's Train and Cancel Production, a constructor's Construct
-    /// and Cancels; or they enter a state of their own: a build menu, AwaitingPlacement.
+    /// HoldPosition and Stop, the Riot Shield, Convert, a producer's Train and Cancel Production, a constructor's
+    /// Construct and Cancels; or they enter a state of their own: a build menu, AwaitingPlacement.
     pub fn needs_target(self) -> bool {
         match self {
             PanelCommand::Move
@@ -64,6 +69,7 @@ impl PanelCommand {
             PanelCommand::HoldPosition
             | PanelCommand::Stop
             | PanelCommand::RiotShield
+            | PanelCommand::Convert
             | PanelCommand::Train(_)
             | PanelCommand::CancelProduction
             | PanelCommand::BuildMenu(_)
@@ -83,13 +89,21 @@ impl PanelCommand {
         }
     }
 
-    /// The ability of a toggled command, pressed while it is `on` (all its recipients' shields up or going up):
-    /// the one that turns it the other way.
+    /// The ability of an ability command (`sc_sim::Command::Ability`). A toggled one's ([`Self::toggles`]), pressed
+    /// while it is `on` (all its recipients' shields up or going up), is the one that turns it the other way.
     pub fn ability(self, on: bool) -> Option<Ability> {
         match self {
             PanelCommand::RiotShield => Some(Ability::RiotShield { raise: !on }),
+            PanelCommand::Convert => Some(Ability::Convert),
             _ => None,
         }
+    }
+
+    /// Whether it is a toggled ability, which is on or off: the Riot Shield (`factions/gdo/units.md > Peacekeeper >
+    /// Riot Shield (toggled ability)`). Convert is no toggle: it starts a conversion, which can't be cancelled
+    /// (`factions/colonists/units.md > Weapon Conversion > Completion`).
+    pub fn toggles(self) -> bool {
+        self == PanelCommand::RiotShield
     }
 
     /// The production command of a producer's command that needs no target (`sc_sim::Command::Production`): Train
@@ -136,13 +150,14 @@ impl PanelCommand {
     }
 
     /// Whether Shift queues it (`systems/controls/commands.md > Unit Command`): the orders of units. A Shift-click on
-    /// such a command's target also keeps the target awaited (`> AwaitingTarget > Shift while targeting`, design
-    /// change 0070). Abilities, production and construction commands are never queued. Set Rally Point is no Unit
-    /// Command: a producer has one rally point, which nothing queues (`factions/gdo/structures.md > Barracks >
+    /// such a command's target also keeps the target awaited (`> AwaitingTarget > Shift while targeting`, design change
+    /// 0070). Abilities, production and construction commands are never queued (Convert: `factions/colonists/units.md >
+    /// Weapon Conversion > Orders are kept`, design change 0151: "holding Shift changes nothing"). Set Rally Point is
+    /// no Unit Command: a producer has one rally point, which nothing queues (`factions/gdo/structures.md > Barracks >
     /// BarracksInstanceState`), so a Shift-click sets it like a plain click and ends the targeting. **Placeholder
-    /// reading**: the design gives Shift no meaning for a rally point; this follows its rule for a builder that
-    /// can't carry out more queued buildings (`> Shift while placing`: "a Shift-click sends it and ends placement
-    /// like a plain click").
+    /// reading**: the design gives Shift no meaning for a rally point; this follows its rule for a builder that can't
+    /// carry out more queued buildings (`> Shift while placing`: "a Shift-click sends it and ends placement like a
+    /// plain click").
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -153,6 +168,7 @@ impl PanelCommand {
             | PanelCommand::AttackGround
             | PanelCommand::Stop => true,
             PanelCommand::RiotShield
+            | PanelCommand::Convert
             | PanelCommand::Train(_)
             | PanelCommand::CancelProduction
             | PanelCommand::SetRallyPoint
@@ -177,6 +193,7 @@ impl PanelCommand {
             PanelCommand::AttackGround => "Atk Gnd",
             PanelCommand::Stop => "Stop",
             PanelCommand::RiotShield => "Raise Shield",
+            PanelCommand::Convert => "Convert",
             PanelCommand::Train(kind) => match kind {
                 ObjectKind::Peacekeeper => "Train PK",
                 ObjectKind::Drone => "Train DR",

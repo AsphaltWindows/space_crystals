@@ -452,11 +452,39 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Goldens.** Re-blessed for the hashed `Object::transform`; the inputs are unchanged. Perf A/B shows no regression.
   - **Open.** A portal under Warp In still shows the portal panel; the Cancel-only panel is J1's (0124). A defeated player's units get visuals in the neutral colour.
 
+- **M3-G Drone movement** (Fable; merged in `5d61dc7`; 1082 tests):
+  - **DragMovement (T25).** `movement.rs` is split into `follow.rs` and `drag.rs`. The fixed scheme is turn → drag → thrust → position, with braking planned from the stopping distance. Equilibrium speed is 8, or 4 on Rugged with double drag. The stop takes 42 su and 16 ticks.
+  - **0035.** Any blocked move zeroes the whole momentum, and a Drone creeps at 0.8 su a tick along a wall without tripping the stuck rule. A debug teleport zeroes momentum too.
+  - **0126.** `movement/separate.rs`: an idle unit that yields steps off the lowest-id unit it overlaps, at 2 su a tick, until the boxes touch. Units with orders are never moved, and stacks of up to 8 separate.
+  - **Steering.** H2's dead-centre oscillation is fixed for momentum units: at least 9 loads a minute at every offset, against 0–1 before.
+  - **Nav.** One grid per set again (`GroundRugged, 1`), so nav rebuilds take 1.0–1.1 ms instead of 1.5–1.8.
+  - **Curve** (income per second, worst gap in ticks):
+
+    | Drones | 4 | 8 | 12 | 16 | 20 | 24 |
+    |---|---|---|---|---|---|---|
+    | Income | 6.34 | 11.65 | 17.86 | 23.10 | 25.57 | 27.26 |
+    | Worst gap | 90 | 104 | 130 | 127 | 305 | 357 |
+
+    The design's table gives 6.1, 23 and 32. 24 Drones are 15% under, and a redirect bounce remains; H3's 0132 rule should end it.
+  - **Perf.** `movement_perf` shows no difference. The 24-Drone soak costs 25 µs a tick against 13.7 before.
+  - **Accepted deviations.**
+    - Momentum is hashed only while non-zero.
+    - The Drone faces the step it wants.
+    - Sidestep, exit and separation stay kinematic.
+    - Corners are taken at speed.
+    - Neutral units never separate.
+
+- **M3-B Shields and Weapon Conversion** (merged in `61aa089`; 1111 tests):
+  - **Shields (T18).** `Object::shields` is hashed. In `damage::resolve`, Shields absorb first at full value, and only the overflow takes modifiers, armour, direction and the minimum (0147). `Phase::Shields` regenerates 0.25 a tick up to `max_shields()`, for neutral and transforming objects too (0146). During a Warp In, Shields follow the maximum, and a cancel keeps their fraction (0110, 0111).
+  - **Convert (T26).** `Ability::Convert` takes 4 ticks. Orders are kept (0150), Shift queues nothing (0151), and the new weapon starts ready (0152). In a group, units in Firing or Cooldown are left out (Q0042 point 9 proposal).
+  - **Client.** A shield bar above the HP bar, "Shields a / b" in the InfoPanel (0148), and R Convert.
+  - **Code.** The Modes step moved to `sim/modes.rs`. The goldens were re-blessed for the new hashed fields; the games are otherwise identical. `behaviours_perf` shows no measurable difference.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M3-F Beacon Deployment** (Opus; brief `scratchpad/briefs/m3f-beacon-deployment.md`): the sim side of deployment, with 0109–0114, 0116–0118, 0120, and 0125's Groupable flag and site reservation.
-  - **M3-B Shields and Weapon Conversion** (Opus; brief `scratchpad/briefs/m3b-shields-conversion.md`): Shields, regen, Convert, and the current Shields that follow E's transforms (0110, 0111). It merges E when E lands.
-  - **M3-G Drone movement** (Fable; brief `scratchpad/briefs/m3g-drag-movement.md`): DragMovement, 0035's response for Drag units, hover on Rugged, H2's steering oscillation, and the saturation curve with momentum.
+  - **M3-R one default-order rule, remembered targets, Riot Shield orders** (Opus; brief `scratchpad/briefs/m3r-default-order-remembered-targets.md`): 0136, 0139, 0150–0151 (shield part). Gather on a remembered patch waits for H3.
+  - **M3-H3 gathering rules** (Opus; brief `scratchpad/briefs/m3h3-gathering-rules.md`): 0123, 0127–0138, 0140 and 0141; ends the redirect bounce at 24 Drones.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2 playtest** with the user, using `docs/playtest/m2.md`.
@@ -578,12 +606,13 @@ First playable after M2-H2.
     | C | done (`5c75d40`) |
     | E | done (`68ee747`) |
     | D | done (`20f584e`) |
-    | B | running (wave 3) |
+    | B | done (`61aa089`) |
     | H2 (0106) | done (`777b9a9`) |
     | F | running (wave 3) |
-    | G | correcting 0035 (velocity to 0) before merge |
-    | H3 (after G merges; brief `scratchpad/briefs/m3h3-gathering-rules.md`; gather rules 0123, 0127–0138, 0140, 0141) | queued |
-    | R (after H3, or earlier with the gather part last; brief `scratchpad/briefs/m3r-default-order-remembered-targets.md`; 0136, 0139) | queued |
+    | G | done (`5d61dc7`) |
+    | H3 | running (wave 3) |
+    | R | running (wave 3; the Gather part after H3) |
+    | D2 (next free slot; 0145, the portal energy doorway) | queued |
     | P (after F; 0143: capacity taken at production start, for every faction) | queued |
     | J1 (after F), J2 (after R), K1, K2 | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
@@ -650,14 +679,14 @@ First playable after M2-H2.
 | Q0038 | Gathering Drones, collision and the economy targets | was yes | answered by 0106 (pass-through), 0107 (geometry), 0108 (±15%) |
 | Q0039 | Beacon Deployment and Warp In: what the transforming object is | no (answer before M3-F) | answered by 0109–0116 |
 | Q0040 | Deploy and Warp In placement, and the Colonists panels | no | answered by 0117–0125 |
-| Q0041 | Portal exits and Beacon Capacity | no | points 1–4 answered by 0143 and 0144; points 5–6 open (built as proposed) |
-| Q0042 | Shields, melee range and Weapon Conversion | no | open |
+| Q0041 | Portal exits and Beacon Capacity | no | answered by 0143–0145 |
+| Q0042 | Shields, melee range and Weapon Conversion | no | points 1–8 answered by 0146–0152; point 9 open (M3-B built the proposal) |
 | Q0043 | M3 scope: the Colonists content left TBD (FYI) | no | open |
 | Q0044 | Gathering details from the build: fog, plates, empty Drop Off, blocked Drones, redirect timing, the Egress Node's sight | no | answered by 0134, 0137 and 0139–0141 |
 | Q0045 | Pass-through details: idle units left stacked, and the Drop Off order | no | answered by 0126 and 0127 |
 
 ## Design change entries
-Last triaged: 0144.
+Last triaged: 0152.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -734,7 +763,7 @@ Last triaged: 0144.
 | 0077 GDO supply loop deferred; Starting Supplies 0 | done (M2-B, `39bcf66`) | answers Q0022; matches the plan |
 | 0078 Any control-group recall resets menus | done (M1-H3, `80b3d88`) | answers Q0021 point 3 |
 | 0079 Side lettering convention; Barracks 3 wide × 2 tall | done (`sides` M2-A `cbeb804`; ghost labels M2-H2 `2d507b4`) | answers Q0023 point 1 |
-| 0080 Exit doorway: units appear half inside; production pauses while it is occupied | done (M2-D2, `1a64e75`) | answers Q0023 points 2–3; replaces the nearest-free-spot default |
+| 0080 Exit doorway: units appear half inside; production pauses while it is occupied | done (M2-D2, `1a64e75`) | answers Q0023 points 2–3; replaces the nearest-free-spot default; portals get their own energy doorway (0145) |
 | 0081 Queue limit of 20 includes the unit in production | done (M2-D2, `1a64e75`) | |
 | 0082 GDO Unit Control reserved when a unit is queued | done (M2-D2, `1a64e75`); superseded by 0143 (queued, M3-P) | |
 | 0083 Group production: least remaining work pays first | done (sim M2-D2; UI M2-H1, `eccaaa6`) | replaces the fixed-order default; 0143 removes Unit Control from it (M3-P) |
@@ -764,8 +793,8 @@ Last triaged: 0144.
 | 0107 Reference check geometry: a 2-GU gap, edge to edge | done in M3-H's tests (`5bd3b69`); queued (M3-K1) | answers Q0038 point 2 |
 | 0108 Economy check tolerance ±15%; the reference layout is only a benchmark | queued (M3-K1) | answers Q0038 point 3 |
 | 0109 The transforming object is the target structure from the first frame | Warp In done (M3-E, `68ee747`); deploy in progress (M3-F) | answers Q0039 point 1 |
-| 0110 Damage stays taken during the transform interpolation | HP done (M3-E, `68ee747`); Shields in progress (M3-B); deploy in progress (M3-F) | answers Q0039 point 2 |
-| 0111 A transform cancel keeps the HP and Shields fraction, at least 1 HP | HP done (M3-E, `68ee747`); Shields in progress (M3-B); deploy in progress (M3-F) | answers Q0039 point 3 |
+| 0110 Damage stays taken during the transform interpolation | HP done (M3-E); Shields done (M3-B, `61aa089`); deploy in progress (M3-F) | answers Q0039 point 2 |
+| 0111 A transform cancel keeps the HP and Shields fraction, at least 1 HP | HP done (M3-E); Shields done (M3-B, `61aa089`); deploy in progress (M3-F) | answers Q0039 point 3 |
 | 0112 Beacon Capacity during Deploy and Warp In; over capacity allowed and shown red | red counter done (M3-C); Warp In done (M3-E, `68ee747`); deploy in progress (M3-F) | answers Q0039 point 4, and Q0041 point 2 in effect |
 | 0113 Structures under transformation count for defeat | Warp In done (M3-E, `68ee747`); deploy cancel in progress (M3-F) | answers Q0039 point 5 |
 | 0114 A Drone deploying with a load keeps it; lost on completion, returned on cancel | in progress (M3-F) | answers Q0039 point 6 |
@@ -780,7 +809,7 @@ Last triaged: 0144.
 | 0123 A Gather ends only when no patch is left within the Drone's search radius; queued orders wait | queued (M3-H3) | answers Q0040 point 7 and Q0037 point 12; Q0037 point 5 in part; replaces the after-the-next-drop-off proposal |
 | 0124 Colonists panels: two Warp In menus on the Beacon; Cancel only while transforming; portal, Drone and Egress Node grids | portal grids done (M3-D, `20f584e`); Beacon menus and Cancel queued (M3-J1); Drone panel, Egress Node F and the unavailable W/E portal slots queued (M3-J1, M3-J2) | answers Q0040 point 8 |
 | 0125 Lingering build ghosts; Drones Groupable; a Deploy goes to one Drone of a group; Shift-placement chains through the group | in progress: Groupable flag and site reservation (M3-F); ghosts, dispatch and chaining queued (M3-J1) | answers Q0040 point 9; replaces 0071 for Drones |
-| 0126 Idle overlapping units push apart; units with orders are never moved | in progress (M3-G, folded in) | answers Q0045 point 1; amends 0106 |
+| 0126 Idle overlapping units push apart; units with orders are never moved | done (M3-G, `5d61dc7`) | answers Q0045 point 1; amends 0106 |
 | 0127 Drop Off is only a delivery; the Drone then idles at the drop-off or starts its next order | queued (M3-H3); its pass-through is already built (M3-H2) | answers Q0045 point 2 and Q0037 point 1; replaces the return-to-patch proposal |
 | 0128 A loaded Drone sent to Gather skips mining at the new patch and goes to deliver | queued (M3-H3) | answers Q0037 point 2 |
 | 0129 Other orders keep the load | queued (M3-H3: confirm with a test) | answers Q0037 point 3 |
@@ -798,5 +827,13 @@ Last triaged: 0144.
 | 0141 An unreachable patch is handled like an occupied one; the Drone never gives up | queued (M3-H3; replaces retry-forever) | answers Q0044 point 4 |
 | 0142 Beacon Capacity reserved at queue time | superseded by 0143 | answered Q0041 point 1 |
 | 0143 Capacity (Unit Control and Beacon Capacity) is taken when production starts, not at queue time; a producer without room waits at 0% | queued (new slice M3-P, after F; M3-F re-briefed for its 0112 test) | answers Q0041 points 1–2; replaces 0082 and 0142 |
-| 0144 Robo Portal exits: the Bio Portal's rule on all four sides, closest by side midpoint, ties top, right, bottom, left | done (M3-D, `20f584e`) | answers Q0041 points 3–4 |
+| 0144 Robo Portal exits: the Bio Portal's rule on all four sides, closest by side midpoint, ties top, right, bottom, left | built (M3-D, `20f584e`); superseded by 0145 | answers Q0041 points 3–4 |
+| 0145 Portal energy doorway: units appear at the portal's centre and leave in any open direction, straight toward the rally point if possible | queued (new slice M3-D2; replaces M3-D's door choice for portals; the Barracks keeps its doorway) | answers Q0041 points 5–6; replaces 0144 |
+| 0146 Shields regenerate for neutral and transforming objects | done (M3-B, `61aa089`) | answers Q0042 points 1–2 |
+| 0147 Modifiers skip Shields; only the overflow takes them | done (M3-B, `61aa089`) | answers Q0042 point 3 |
+| 0148 Shield bar above HP; "Shields a / b" in the InfoPanel | done (M3-B, `61aa089`); styling waits for the HUD pass | answers Q0042 point 4 |
+| 0149 Melee reach: 8 su edge to edge for every melee attack | done (placeholder already 8 su, M3-A); doc citations queued (M3-F) | answers Q0042 point 5 |
+| 0150 Convert and the Riot Shield are mode switches: orders stay | Convert done (M3-B, `61aa089`); Riot Shield in progress (M3-R) | answers Q0042 point 6 |
+| 0151 Mode switches happen at once; Shift has no effect | Convert done (M3-B, `61aa089`); Riot Shield in progress (M3-R) | answers Q0042 point 7 |
+| 0152 A converted Legionnaire's weapon starts ready | done (M3-B, `61aa089`) | answers Q0042 point 8 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

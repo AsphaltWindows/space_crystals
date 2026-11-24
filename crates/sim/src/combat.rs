@@ -11,6 +11,9 @@
 //! - **Hits** (`damage`): an attack's effect lands at the end of its Firing phase, as a [`Hit`] on this tick's
 //!   list. The list is applied in one place once every unit has acted, so two hits in one tick both count, whatever
 //!   the order of their attackers (`ARCHITECTURE.md > Tick pipeline`).
+//! - **Shields** (`systems/combat.md > Shields`, `crate::shields`; plan decision T18): a hit on a Colonists object
+//!   takes its Shields first, at full value, and only the overflow goes on to the HP ([`resolve`]), as the list is
+//!   applied: the second hit of a tick meets the Shields the first one left.
 //! - **Deaths**: an object at 0 HP or less dies (`SimEvent::Died`). `step` returns the dead, and `Sim::step`
 //!   removes them through the one removal path (`Sim::remove_objects`), which clears every reference to them.
 //! - **Queries**: [`may_move`] and [`may_turn`] say whether a unit's attack sequence lets it move or turn this tick.
@@ -28,7 +31,11 @@
 //!   aim, while Firing and Cooldown run on. Its raised shield halves the hits against it before armour
 //!   ([`pre_armor_multiplier`]).
 //!
-//! Not built yet: turrets, projectiles and location targets (the disjointed attack types), AoE damage, and Shields.
+//! - **Weapon Conversion** (`factions/colonists/units.md > Weapon Conversion`, `crate::conversion`): a unit
+//!   converting its weapon neither moves nor turns ([`may_move`], [`may_turn`]) and attacks nothing: this phase
+//!   skips it, and its attack sequence, interrupted when the conversion started, begins again with the new weapon.
+//!
+//! Not built yet: turrets, projectiles and location targets (the disjointed attack types), and AoE damage.
 
 mod damage;
 mod phases;
@@ -38,6 +45,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::conversion;
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
@@ -49,8 +57,8 @@ use crate::riot_shield::RiotShield;
 use crate::vision::Vision;
 
 pub use damage::{
-    DIRECTIONAL_FRONT, DIRECTIONAL_HALF_ARC, DIRECTIONAL_REAR, DIRECTIONAL_SIDE, Hit, MINIMUM_DAMAGE,
-    directional_multiplier, hit_damage, pre_armor_multiplier,
+    DIRECTIONAL_FRONT, DIRECTIONAL_HALF_ARC, DIRECTIONAL_REAR, DIRECTIONAL_SIDE, Hit, MINIMUM_DAMAGE, Taken,
+    directional_multiplier, hit_damage, pre_armor_multiplier, resolve,
 };
 pub use phases::FACING_TOLERANCE;
 pub use targeting::{
@@ -139,17 +147,19 @@ impl AttackState {
 /// and when no sequence runs. A turret unit's base always may (`> TurretSource`, `TurretSourceBaseActions`), and so
 /// may every object without an attack. The movement step (5d) holds a unit that may not, keeping its goal; the
 /// behaviours (5a) don't start a chase then. Before 5e it reads the phase the last tick left, which is the one
-/// this tick runs in; a Stop or a new target in 5a has already cancelled an aim.
+/// this tick runs in; a Stop or a new target in 5a has already cancelled an aim. A unit that converts its weapon
+/// holds still whatever its attack (`conversion`: "The unit converts in place").
 pub fn may_move(o: &Object) -> bool {
-    base_is_free(o.kind, o.attack.as_ref())
+    base_is_free(o.kind, o.attack.as_ref()) && !conversion::is_converting(o)
 }
 
 /// `systems/combat.md > AttackPhase > UnitBaseSourceActions`: whether anything but the attack may turn `o`'s base
 /// this tick. Not while Aiming, when the attack turns the base to face its target (`systems/controls/behaviors.md >
 /// BaseAiming`: the orientation is overridden), nor in Firing and Cooldown, when the orientation is locked
-/// (`> BaseFiring`, `> BaseCooldown`). Turret units' bases are always free (`> TurretSource`).
+/// (`> BaseFiring`, `> BaseCooldown`). Turret units' bases are always free (`> TurretSource`). Nor while it converts
+/// its weapon (`conversion`).
 pub fn may_turn(o: &Object) -> bool {
-    base_is_free(o.kind, o.attack.as_ref())
+    base_is_free(o.kind, o.attack.as_ref()) && !conversion::is_converting(o)
 }
 
 /// Both rules come to the same in the design's phase table: the base is either free or held by the attack. For a
@@ -187,6 +197,11 @@ pub(crate) fn step(
     let targets = targeting::Targets::snapshot(map, objects);
     let mut hits = Vec::new();
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
+        // `factions/colonists/units.md > Weapon Conversion`: a unit converting its weapon attacks nothing; what it
+        // engages waits for the new weapon (`conversion`).
+        if conversion::is_converting(o) {
+            continue;
+        }
         let Some(state) = &mut o.attack else {
             continue;
         };

@@ -83,6 +83,7 @@ fn with_no_patch_left_a_job_ends_or_delivers_its_load_first() {
             mover: &mut mover,
             attack: None,
             may_attack: true,
+            converting: false,
             worker: Some(&mut worker),
         };
         let (_, mut state) = job(phase);

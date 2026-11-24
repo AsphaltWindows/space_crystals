@@ -132,7 +132,7 @@ Determines a Unit's movement behavior, physical characteristics, and interaction
 
 ### Value - UnitBaseEnum
 ### Domain - Ground | Air | Underground
-### HasTurret - boolean
+### CanHaveTurret - boolean (renamed from HasTurret, user 2026-11-24: whether units of this base **can** carry a turret; whether a particular unit actually has one is set by its own TurretAttributes, e.g. the unarmed Drone's are None)
 ### DirectionalArmor - boolean
 ### RuggedTerrain - boolean (can the unit enter Rugged tiles? If false, Rugged tiles are **impassable** for it, like any non-Traversible tile: its Silhouette may never overlap a Rugged tile. User, 2026-11-23. Ground domain only: air units ignore terrain, so this flag has no effect for them)
 ### Crushable - boolean
@@ -145,7 +145,7 @@ Determines a Unit's movement behavior, physical characteristics, and interaction
 Ground infantry unit. Small, responsive, and able to traverse rugged terrain. Receives a damage reduction bonus on rugged terrain. Can be crushed by Tracked Vehicles and Mechs.
 
 ### Domain - Ground
-### HasTurret - false
+### CanHaveTurret - false
 ### DirectionalArmor - false
 ### RuggedTerrain - true
 ### Crushable - true
@@ -160,7 +160,7 @@ Ground infantry unit. Small, responsive, and able to traverse rugged terrain. Re
 Ground infantry unit. Sturdier than Light Infantry and cannot be crushed. Traverses rugged terrain but does not receive a defensive bonus there.
 
 ### Domain - Ground
-### HasTurret - false
+### CanHaveTurret - false
 ### DirectionalArmor - false
 ### RuggedTerrain - true
 ### Crushable - false
@@ -172,7 +172,7 @@ Ground infantry unit. Sturdier than Light Infantry and cannot be crushed. Traver
 Ground vehicle that behaves like a simple car. Cannot turn in place, has a fixed turn radius, and can reverse. Has directional armor with frontal damage reduction and rear damage increase. Typically has wide to full turret turn angles.
 
 ### Domain - Ground
-### HasTurret - true
+### CanHaveTurret - true
 ### DirectionalArmor - true
 ### RuggedTerrain - false
 ### Crushable - false
@@ -184,7 +184,7 @@ Ground vehicle that behaves like a simple car. Cannot turn in place, has a fixed
 Ground vehicle on treads. Can rotate in place by spinning treads in opposite directions. Turn radius widens with speed. Crushes enemy Light Infantry. Has directional armor with frontal damage reduction and rear damage increase. Typically has wide to full turret turn angles.
 
 ### Domain - Ground
-### HasTurret - true
+### CanHaveTurret - true
 ### DirectionalArmor - true
 ### RuggedTerrain - false
 ### Crushable - false
@@ -196,7 +196,7 @@ Ground vehicle on treads. Can rotate in place by spinning treads in opposite dir
 Underground variant of a tracked vehicle. Operates underground and is visible while subterranean. Can travel across all drillable tiles while underground. Cannot fire while underground. Has an above-ground mode in which it is stationary or behaves as tracked. Has directional armor with frontal damage reduction and rear damage increase. Typically has wide to full turret turn angles.
 
 ### Domain - Underground
-### HasTurret - true
+### CanHaveTurret - true
 ### DirectionalArmor - true
 ### RuggedTerrain - false
 ### Crushable - false
@@ -208,7 +208,7 @@ Underground variant of a tracked vehicle. Operates underground and is visible wh
 Ground vehicle that hovers above the surface. Accelerates omni-directionally with thrust and uses a combination of drag and opposing thrust to decelerate and change direction. Feels momentum-heavy and slidey. Has directional armor with frontal damage reduction and rear damage increase. Typically has wide to full turret turn angles.
 
 ### Domain - Ground
-### HasTurret - true
+### CanHaveTurret - true
 ### DirectionalArmor - true
 ### RuggedTerrain - true, with **double drag**: while over Rugged terrain, the HoverVehicle's DragRatio is doubled (halving its effective MaxSpeed and making it decelerate faster). No defense bonus. (User, 2026-11-23.)
 ### Crushable - false
@@ -220,7 +220,7 @@ Ground vehicle that hovers above the surface. Accelerates omni-directionally wit
 Large ground walker that can traverse rugged terrain. Crushes enemy Light Infantry. Has directional armor with frontal damage reduction and rear damage increase. Typically has very narrow to narrow turret turn angles.
 
 ### Domain - Ground
-### HasTurret - true
+### CanHaveTurret - true
 ### DirectionalArmor - true
 ### RuggedTerrain - true
 ### Crushable - false
@@ -232,7 +232,7 @@ Large ground walker that can traverse rugged terrain. Crushes enemy Light Infant
 Air unit that can hover in place (hold a stationary position in the air). Relies on high drag to decelerate passively. Can turn in place or while moving. Typically has very narrow to narrow turret turn angles.
 
 ### Domain - Air
-### HasTurret - true
+### CanHaveTurret - true
 ### DirectionalArmor - false
 ### RuggedTerrain - false
 ### Crushable - false
@@ -244,7 +244,7 @@ Air unit that can hover in place (hold a stationary position in the air). Relies
 Air unit that must always maintain movement to stay airborne. Circles at idle speed when not given orders. Cannot turn in place or stop. Turn radius widens at higher speeds due to centripetal acceleration constraints. Typically has very narrow to narrow turret turn angles.
 
 ### Domain - Air
-### HasTurret - true
+### CanHaveTurret - true
 ### DirectionalArmor - false
 ### RuggedTerrain - false
 ### Crushable - false
@@ -253,7 +253,7 @@ Air unit that must always maintain movement to stay airborne. Circles at idle sp
 ### MovementModel - GliderMovement
 
 ## TurretAttributes
-Physical rotation properties of a unit's turret. Only present on units whose UnitBase has HasTurret = true. The turret is centered on the unit's facing direction, with TurnAngle split equally clockwise and counter-clockwise from center.
+Physical rotation properties of a unit's turret. Only present on units whose UnitBase has CanHaveTurret = true; a unit of such a base may still have TurretAttributes = None (no turret). The turret is centered on the unit's facing direction, with TurnAngle split equally clockwise and counter-clockwise from center.
 
 ### TurnAngle - number (degrees, full arc, max 360)
 ### TurnRate - number

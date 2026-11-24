@@ -30,6 +30,7 @@ fn object(kind: ObjectKind, transform: Option<Transform>) -> Object {
         facing: 0.0,
         prev_facing: 0.0,
         hp: kind.def().max_hp,
+        shields: kind.def().max_shields,
         placement: None,
         resource: None,
         orders: None,
@@ -41,6 +42,7 @@ fn object(kind: ObjectKind, transform: Option<Transform>) -> Object {
         constructor: None,
         worker: None,
         transform,
+        conversion: None,
     }
 }
 

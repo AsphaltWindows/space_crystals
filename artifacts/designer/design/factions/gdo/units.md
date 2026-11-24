@@ -59,6 +59,13 @@ While the shield is **down**, the Peacekeeper behaves normally.
 
 **Right-click on an enemy while the shield is up** (user, 2026-11-24): the Peacekeeper can't attack, so it does what any unit that can't carry out a right-click does (systems/controls/selection_and_hud.md > RightClickResolution): it **follows** an enemy unit (Move to that unit) and moves to an enemy structure. In a mixed group, the other units attack while the shielded Peacekeepers stay with them.
 
+**Orders are kept** (user, 2026-11-24): raising or lowering the shield is a mode switch, not an order; the Peacekeeper's orders stay. An order it can't carry out while shielded is **on hold**, not dropped:
+- an explicit **Attack** order: while the shield is up it follows the target (as with a right-click while shielded); when the shield is lowered it **resumes attacking** that target;
+- an **AttackMove** or Patrol: while the shield is up it only moves (systems/controls/commands.md > AttackMove > Units that can't attack); once lowered it engages along the way again.
+Same principle as the Colonists' Weapon Conversion (factions/colonists/units.md > Weapon Conversion > Orders are kept).
+
+**Not queueable** (user, 2026-11-24): the toggle always happens immediately; holding Shift changes nothing.
+
 TBD: hotkey.
 
 ### ObjectInterfaceState: BasicCombatUnitInterfaceState

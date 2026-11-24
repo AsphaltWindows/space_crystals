@@ -308,7 +308,7 @@ fn four_bases_and_400_units() {
     );
 
     println!("every tick, by phase:");
-    let lines: [(&str, &[Phase]); 13] = [
+    let lines: [(&str, &[Phase]); 14] = [
         ("whole tick", &Phase::ALL[..PHASES]),
         ("defeat check, walk 1 (owners)", &[Phase::DefeatOwners]),
         ("commands", &[Phase::Commands]),
@@ -318,6 +318,7 @@ fn four_bases_and_400_units() {
         ("movement (5d)", &[Phase::Movement]),
         ("combat (5e)", &[Phase::Combat]),
         ("deaths and true grids (5e)", &[Phase::Deaths]),
+        ("shield regen", &[Phase::Shields]),
         ("economy", &[Phase::Economy]),
         ("defeat check, walk 2", &[Phase::Defeat]),
         ("vision (5f) and records", &[Phase::Vision]),

@@ -295,6 +295,7 @@ impl StateHash for Object {
             facing,
             prev_facing,
             hp,
+            shields,
             placement,
             resource,
             orders,
@@ -306,6 +307,7 @@ impl StateHash for Object {
             constructor,
             worker,
             transform,
+            conversion,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -315,10 +317,12 @@ impl StateHash for Object {
         facing.hash(h);
         prev_facing.hash(h);
         hp.hash(h);
+        shields.hash(h);
         placement.hash(h);
         resource.hash(h);
         // Their impls live with their types (`orders.rs`, `mover.rs`, `combat.rs`, `riot_shield.rs`,
-        // `economy/mining.rs`, `production.rs`, `construction.rs`, `economy/gathering.rs`, `transform.rs`).
+        // `economy/mining.rs`, `production.rs`, `construction.rs`, `economy/gathering.rs`, `transform.rs`,
+        // `conversion.rs`).
         orders.hash(h);
         mover.hash(h);
         attack.hash(h);
@@ -328,6 +332,7 @@ impl StateHash for Object {
         constructor.hash(h);
         worker.hash(h);
         transform.hash(h);
+        conversion.hash(h);
     }
 }
 
