@@ -55,6 +55,7 @@ Applies to all ground units. Overlap caused by the rotation itself (a corner swe
 ### Underground Collision
 - Underground units **do not collide with each other** (user, 2026-11-23): they pass through one another freely, so underground traffic never jams.
 - **Surfacing**: an underground unit is **not allowed to surface** where its Silhouette would overlap an above-ground unit (user, 2026-11-23), nor a structure or terrain impassable for its surface form. It stays underground until the player surfaces it somewhere clear. It neither waits automatically nor gets moved to another spot.
+- **Reserved while surfacing**: once a unit has started surfacing, its surface footprint is **reserved**. Ground units treat it as occupied (an obstacle) and can't move onto it, and nothing can be built there, until surfacing completes (user, 2026-11-23).
 
 ### Air Collision
 - Air units ignore terrain: they can fly over every tile of the map (user, 2026-11-23).
