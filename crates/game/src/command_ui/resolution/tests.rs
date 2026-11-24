@@ -1,3 +1,5 @@
+mod gathering;
+
 use sc_sim::defs::TargetDomain;
 
 use super::*;
@@ -235,7 +237,7 @@ fn a_drone_resolves_a_right_click_by_its_own_table() {
     let unknown = MapTarget { aimed: None, ..enemy() };
     assert_eq!(resolved(ARMED, unknown), Some(object(6)));
     assert_eq!(resolved(DRONE, unknown), Some(object(6)));
-    assert_eq!(right_click_display(&[DRONE], &patch()), PointerDisplay::Move);
+    assert_eq!(right_click_display(&[DRONE], &patch()), PointerDisplay::GatherResources);
 }
 
 /// Slice M3-J1's objects without a right-click: the Beacon, and an object that transforms (a Beacon deploying, a

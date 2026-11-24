@@ -116,8 +116,9 @@ impl Plugin for IndicatorsPlugin {
 /// The colour of an order's indicator (`> Indicator assignments`); none for orders without a target.
 pub fn order_color(kind: OrderKind) -> Option<Color> {
     match kind {
-        // A worker's Gather and Drop Off show as a Move to their object until slice M3-J2 gives them their own, and
-        // a Deploy as a Move to its site's centre beside its ghost (slice M3-J1).
+        // `> Indicator assignments` has no row for a worker's Gather and Drop Off: placeholder, they show as the
+        // Move to their object they begin with, a green Location marker at it (slice M3-J2); a Deploy as a Move to
+        // its site's centre beside its ghost (slice M3-J1).
         OrderKind::Move(_) | OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => {
             Some(MOVE_COLOR)
         }

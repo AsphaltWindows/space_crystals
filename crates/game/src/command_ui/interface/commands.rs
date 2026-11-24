@@ -11,9 +11,10 @@ use super::{BuildMenu, Planned};
 /// (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`, `> Standard Slot Assignments`), and
 /// those of the constructors (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`,
 /// `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`), and the Colonists'
-/// Beacon, Drone and transforming objects (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`,
-/// `factions/colonists/units.md > Drone ObjectInterfaceState`, `factions/colonists/economy.md > Beacon Deployment >
-/// While transforming: only Cancel`; slice M3-J1, design change 0124).
+/// Beacon, Drone, Egress Node and transforming objects (`factions/colonists/economy.md > Beacon > Beacon
+/// ObjectInterfaceState`, `factions/colonists/units.md > Drone ObjectInterfaceState`, `factions/colonists/economy.md >
+/// Egress Node > Egress Node ObjectInterfaceState`, `> Beacon Deployment > While transforming: only Cancel`; slices
+/// M3-J1 and M3-J2, design change 0124).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -59,8 +60,8 @@ pub enum PanelCommand {
     /// AwaitingPlacement of the building on the Beacon (a StateOnlyTransition), where a click warps it in
     /// (`sc_sim::ConstructionCommand::WarpIn`).
     WarpIn(ObjectKind),
-    /// A Warp In menu's building that isn't in the game yet (design change 0124: "Buildings whose costs are still TBD
-    /// are shown but unavailable until defined"): it holds its slot and does nothing.
+    /// A Warp In menu's building, or a portal's unit, that isn't in the game yet (design change 0124: "Buildings and
+    /// units whose costs are TBD show in their slot, unavailable"): it holds its slot and does nothing.
     Planned(Planned),
     /// `factions/colonists/units.md > Drone ObjectInterfaceState > A: Deploy`: "enters AwaitingPlacement for a Beacon
     /// (StateOnlyTransition)", where a click sends one Drone of the group to deploy there (design change 0125,
@@ -70,13 +71,27 @@ pub enum PanelCommand {
     /// and Cancel Warp In (design change 0116), the one command of an object that transforms, at once
     /// (`sc_sim::ConstructionCommand::CancelTransform`; `> Cancel Deployment`, `> Warp In > Cancel Warp In`).
     CancelTransform,
+    /// `factions/colonists/units.md > Drone ObjectInterfaceState > S: Set Drop-off Location`: "enters
+    /// AwaitingTarget\[SetDropOffLocation\] (StateOnlyTransition)", where a left-click on the player's own Egress
+    /// Node (or refinery, none in the game yet) "sets it as the selected Drone(s)' AssignedDropOff
+    /// (CommandIssuingTransition, returns to DefaultState)" (`sc_sim::Ability::SetDropOff`, slice M3-J2): every
+    /// selected Drone's (`> Right-Click Resolution`: "Right-click commands and Set Drop-off go to every selected
+    /// Drone"; question Q0040 point 9). It "does not interrupt current mining/movement": their orders go on.
+    SetDropOff,
+    /// `factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState > F: Select Returning Drones`:
+    /// "Immediate command (StateOnlyTransition). Replaces the current Selection with all Drones whose AssignedDropOff
+    /// is this Egress Node and which are currently executing a Gather command" (`sc_sim::Sim::returning_drones`,
+    /// slice M3-J2). "Only available if at least one such Drone exists": it shows only then
+    /// (`super::Conditions::shows`).
+    SelectReturningDrones,
 }
 
 impl PanelCommand {
     /// Whether the command awaits a target (a StateOnlyTransition to AwaitingTarget): the target commands of
-    /// `> BasicCombatUnitInterfaceState > DefaultState commands`, and Set Rally Point. The others are issued at once:
-    /// HoldPosition and Stop, the Riot Shield, Convert, a producer's Train and Cancel Production, a constructor's
-    /// Construct and Cancels; or they enter a state of their own: a build menu, AwaitingPlacement.
+    /// `> BasicCombatUnitInterfaceState > DefaultState commands`, Set Rally Point and the Drone's Set Drop-off. The
+    /// others are issued at once: HoldPosition and Stop, the Riot Shield, Convert, a producer's Train and Cancel
+    /// Production, a constructor's Construct and Cancels; or they enter a state of their own: a build menu,
+    /// AwaitingPlacement; or they change the selection (the Egress Node's F).
     pub fn needs_target(self) -> bool {
         match self {
             PanelCommand::Move
@@ -84,7 +99,8 @@ impl PanelCommand {
             | PanelCommand::Attack
             | PanelCommand::Patrol
             | PanelCommand::AttackGround
-            | PanelCommand::SetRallyPoint => true,
+            | PanelCommand::SetRallyPoint
+            | PanelCommand::SetDropOff => true,
             PanelCommand::HoldPosition
             | PanelCommand::Stop
             | PanelCommand::RiotShield
@@ -99,7 +115,8 @@ impl PanelCommand {
             | PanelCommand::WarpIn(_)
             | PanelCommand::Planned(_)
             | PanelCommand::Deploy
-            | PanelCommand::CancelTransform => false,
+            | PanelCommand::CancelTransform
+            | PanelCommand::SelectReturningDrones => false,
         }
     }
 
@@ -112,8 +129,10 @@ impl PanelCommand {
         }
     }
 
-    /// The ability of an ability command (`sc_sim::Command::Ability`). A toggled one's ([`Self::toggles`]), pressed
-    /// while it is `on` (all its recipients' shields up or going up), is the one that turns it the other way.
+    /// The ability of an ability command issued at once (`sc_sim::Command::Ability`). A toggled one's
+    /// ([`Self::toggles`]), pressed while it is `on` (all its recipients' shields up or going up), is the one that
+    /// turns it the other way. Set Drop-off's waits for its target, the drop-off
+    /// (`super::super::resolution::target_resolution`).
     pub fn ability(self, on: bool) -> Option<Ability> {
         match self {
             PanelCommand::RiotShield => Some(Ability::RiotShield { raise: !on }),
@@ -153,7 +172,8 @@ impl PanelCommand {
     }
 
     /// Whether the sim has a command for it yet: Reverse and AttackGround have no order (`sc_sim::OrderKind`), and a
-    /// building that isn't in the game has none at all.
+    /// building or a unit that isn't in the game has none at all. A StateOnlyTransition needs none (a build menu, the
+    /// Egress Node's F).
     pub fn has_sim_command(self) -> bool {
         !matches!(
             self,
@@ -175,7 +195,8 @@ impl PanelCommand {
     /// order from the panel goes only to the active Recruit"), and a Beacon's Warp In (design change 0122: "Warp In
     /// applies to the Beacon the player has Tabbed to"). Such a command goes to the ActiveGroup only, never to the
     /// other selected instances of its type (`super::recipients`). So do a Deploy, which one Drone of the ActiveGroup
-    /// takes (design change 0125), and the Cancel of the objects that transform, whose panel shows it.
+    /// takes (design change 0125), the Cancel of the objects that transform, whose panel shows it, and the Egress
+    /// Node's F, which selects the Drones of "this Egress Node" (Ungroupable: the one Tabbed to).
     pub fn instance_only(self) -> bool {
         matches!(
             self,
@@ -188,6 +209,7 @@ impl PanelCommand {
                 | PanelCommand::Planned(_)
                 | PanelCommand::Deploy
                 | PanelCommand::CancelTransform
+                | PanelCommand::SelectReturningDrones
         )
     }
 
@@ -200,7 +222,9 @@ impl PanelCommand {
     /// reading**: the design gives Shift no meaning for a rally point; this follows its rule for a builder that can't
     /// carry out more queued buildings (`> Shift while placing`: "a Shift-click sends it and ends placement like a
     /// plain click"). A Deploy is a unit's order too, which Shift queues as it is placed (`> Shift while placing >
-    /// Exception, Drones`, design change 0125).
+    /// Exception, Drones`, design change 0125). Set Drop-off is an ability, which "only updates AssignedDropOff": a
+    /// Shift-click sets it and ends the targeting like a plain click, as a rally point's (the same placeholder
+    /// reading).
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -223,7 +247,9 @@ impl PanelCommand {
             | PanelCommand::PlaceReady(_)
             | PanelCommand::WarpIn(_)
             | PanelCommand::Planned(_)
-            | PanelCommand::CancelTransform => false,
+            | PanelCommand::CancelTransform
+            | PanelCommand::SetDropOff
+            | PanelCommand::SelectReturningDrones => false,
         }
     }
 
@@ -277,8 +303,10 @@ impl PanelCommand {
                 // Nothing else is warped in yet.
                 _ => kind.def().name,
             },
-            PanelCommand::Planned(building) => building.label(),
+            PanelCommand::Planned(planned) => planned.label(),
             PanelCommand::Deploy => "Deploy",
+            PanelCommand::SetDropOff => "Drop-off",
+            PanelCommand::SelectReturningDrones => "Drones",
         }
     }
 }

@@ -1,17 +1,18 @@
 //! The InfoPanel (`systems/controls/selection_and_hud.md > HUD Bar`, `core/entities.md > Object Type > InfoPanel`):
 //! shown while at least one object is selected. Placeholder text until the panel's art and layout exist: the
 //! selected object's name as the title, and under it what the panel shows of it ([`InfoContent`]):
-//! - **a unit**: its owner and HP;
+//! - **a unit**: its owner and HP; one of the local player's own workers also what it carries and where it delivers
+//!   it ([`worker_lines`], slice M3-J2);
 //! - **a structure** (`> Default InfoPanel for structures`, design change 0105): one of the local player's own shows
 //!   its HP and, in the activity area under it, what it is doing ([`activity`]); another player's, or a neutral one,
 //!   shows its owner ("Neutral") and HP only, never what it is doing. An object that has Shields (the Colonists',
 //!   `systems/combat.md > Shields > Display`, slice M3-B, design change 0148: "Shields current/max" next to the HP
-//!   line) shows them on the line after its HP, "Shields a / b". A type's own section adds to that, whoever looks: the
-//!   Extraction Plate shows the remaining Space Crystals of the patch under it (`factions/gdo/economy.md >
+//!   line) shows them on the line after its HP, "Shields a / b". A type's own section adds to that: the Extraction
+//!   Plate shows its owner the remaining Space Crystals of the patch under it (`factions/gdo/economy.md >
 //!   ExtractionPlate > InfoPanel`, design change 0099), with the line the patch's own panel has, since a covered patch
-//!   can't be selected on its own (`> Selecting a covered patch`) and anyone who sees the patch may see its
-//!   RemainingAmount (`core/map.md > SpaceCrystalsPatch > InfoPanel`). The plate's own section doesn't limit it to its
-//!   owner, so another player's plate shows it too (the most literal reading);
+//!   can't be selected on its own (`> Selecting a covered patch`). Only its owner (design change 0155, slice M3-J2):
+//!   anyone else gets the reduced panel, name, owner and HP, as for any other player's structure; an uncovered patch
+//!   still shows its count to everyone (`core/map.md > SpaceCrystalsPatch > InfoPanel`);
 //! - **a map resource**: "Neutral" and its state (`core/map.md > SpaceCrystalsPatch > InfoPanel`, `>
 //!   SupplyDeliveryStation > InfoPanel`).
 //!
@@ -28,6 +29,7 @@
 pub mod activity;
 
 use bevy::prelude::*;
+use sc_sim::economy::Worker;
 use sc_sim::vision::LastKnown;
 use sc_sim::{Object, ObjectKind, PlayerId, ResourceState, Sim, TICKS_PER_SECOND};
 
@@ -210,9 +212,14 @@ fn object_info(sim: &Sim, viewer: PlayerId, shown: Shown, record: Option<&LastKn
         }
         None => {}
     }
-    // `factions/gdo/economy.md > ExtractionPlate > InfoPanel`: the patch's line, as its own panel has it.
-    if let Some(remaining) = shown.live.and_then(|plate| crystals_under(sim, plate)) {
+    // `factions/gdo/economy.md > ExtractionPlate > InfoPanel`: the patch's line, as its own panel has it, for the
+    // plate's owner only (design change 0155).
+    let owned = shown.live.filter(|o| o.owner == Some(viewer));
+    if let Some(remaining) = owned.and_then(|plate| crystals_under(sim, plate)) {
         body.push(format!("Space Crystals: {remaining}"));
+    }
+    if let Some(worker) = owned.and_then(|o| o.worker) {
+        body.extend(worker_lines(sim, worker));
     }
     if let Some(record) = record {
         body.push(format!(
@@ -229,6 +236,22 @@ fn object_info(sim: &Sim, viewer: PlayerId, shown: Shown, record: Option<&LastKn
         body,
         activity,
     }
+}
+
+/// What one of the local player's own workers carries, and where it delivers it (slice M3-J2): "Carrying 8 Space
+/// Crystals" while it carries a load (`factions/colonists/units.md > Drone > Gathering`), and its AssignedDropOff's
+/// name while it has one (`> Assigned Drop-off`). Placeholder lines, and only its owner sees them, as only a
+/// structure's owner sees what it is doing (design change 0105; the design doesn't say what a worker's panel
+/// shows). Its load shows on its body to everyone (`crate::object_render::LoadMarker`).
+fn worker_lines(sim: &Sim, worker: Worker) -> Vec<String> {
+    let mut lines = Vec::new();
+    if worker.load > 0 {
+        lines.push(format!("Carrying {} Space Crystals", worker.load));
+    }
+    if let Some(node) = worker.drop_off.and_then(|id| sim.object(id)) {
+        lines.push(format!("Drop-off: {}", node.def().name));
+    }
+    lines
 }
 
 /// The Space Crystals left in the patch under `plate`, a structure that mines (`factions/gdo/economy.md >
@@ -291,176 +314,4 @@ pub(super) fn update_info_panel(
 }
 
 #[cfg(test)]
-mod tests {
-    use sc_sim::testing::ScenarioBuilder;
-    use sc_sim::{
-        Command, ConstructionCommand, DebugCommand, ObjectId, PlayerCommand, SimConfig, SpawnAt, TickInputs, TilePos,
-    };
-
-    use super::*;
-
-    const P1: PlayerId = PlayerId(1);
-    const P2: PlayerId = PlayerId(2);
-
-    #[test]
-    fn seconds_round_up() {
-        assert_eq!(seconds(960), "60 s");
-        assert_eq!(seconds(1), "1 s");
-        assert_eq!(seconds(0), "0 s");
-    }
-
-    fn tile(x: i32, y: i32) -> SpawnAt {
-        SpawnAt::Tile(TilePos::new(x, y))
-    }
-
-    /// Ids 1–3 patches; player 1's Barracks 4 and plate 5 (on patch 1); player 2's Generator 6 and plate 7 (on patch
-    /// 2); a neutral plate 8 on patch 3; a plate of player 1's on bare ground, 9, which only a debug spawn puts there
-    /// (map validation refuses it), in tick 1. All in plain sight of both players: the panel is about who owns what,
-    /// the fog's part is tested with the client.
-    fn sim() -> Sim {
-        use ObjectKind::{Barracks, CrystalPatch, ExtractionPlate, Generator};
-        let scenario = ScenarioBuilder::new(&vec![".".repeat(16); 8].join("\n"))
-            .config(SimConfig::DEBUG)
-            .spawn(CrystalPatch, None, tile(1, 5))
-            .spawn(CrystalPatch, None, tile(3, 5))
-            .spawn(CrystalPatch, None, tile(5, 5))
-            .spawn(Barracks, Some(P1), tile(1, 1))
-            .spawn(ExtractionPlate, Some(P1), tile(1, 5))
-            .spawn(Generator, Some(P2), tile(6, 1))
-            .spawn(ExtractionPlate, Some(P2), tile(3, 5))
-            .spawn(ExtractionPlate, None, tile(5, 5))
-            .build();
-        let mut sim = Sim::new(&scenario);
-        let spawn = DebugCommand::Spawn {
-            kind: ExtractionPlate,
-            owner: Some(P1),
-            at: tile(9, 5),
-            orientation: Default::default(),
-        };
-        let command = PlayerCommand {
-            player: P1,
-            command: Command::Debug(spawn),
-        };
-        sim.step(&TickInputs {
-            commands: vec![command],
-        });
-        assert_eq!(sim.object(ObjectId(9)).map(|o| o.kind), Some(ExtractionPlate));
-        sim
-    }
-
-    /// The panel of object `id` alone, as `viewer` sees it without the fog.
-    fn panel(sim: &Sim, viewer: PlayerId, id: u32) -> InfoContent {
-        let kind = sim.object(ObjectId(id)).unwrap().kind;
-        let selection = Selection::new([(ObjectId(id), kind)]);
-        info_text(sim, &Sight::new(sim, viewer, false), &selection).unwrap()
-    }
-
-    fn content(title: &str, body: &[&str]) -> InfoContent {
-        InfoContent {
-            title: title.into(),
-            body: body.iter().map(|line| line.to_string()).collect(),
-            activity: Vec::new(),
-        }
-    }
-
-    /// Design change 0105: an own structure shows its name, HP and activity (none here: the Barracks is idle and has
-    /// no rally point; a busy one's is `activity`'s); another player's its name, owner and HP only, whichever player
-    /// looks.
-    #[test]
-    fn structures_show_their_owner_only_to_other_players() {
-        let sim = sim();
-        assert_eq!(panel(&sim, P1, 4), content("Barracks", &["HP 300 / 300"]));
-        assert_eq!(panel(&sim, P2, 4), content("Barracks", &["Player 1", "HP 300 / 300"]));
-        assert_eq!(panel(&sim, P2, 6), content("Generator", &["HP 350 / 350"]));
-        assert_eq!(panel(&sim, P1, 6), content("Generator", &["Player 2", "HP 350 / 350"]));
-    }
-
-    /// Design change 0099 (`factions/gdo/economy.md > ExtractionPlate > InfoPanel`): a plate shows the remaining
-    /// crystals of the patch under it, to its owner and to everyone else, a neutral plate's too; one on bare ground
-    /// has none to show. A patch shows its own, as before.
-    #[test]
-    fn a_plate_shows_the_crystals_left_in_its_patch() {
-        let sim = sim();
-        let plate = |owner: &[&str]| {
-            let mut body: Vec<&str> = owner.to_vec();
-            body.extend(["HP 85 / 85", "Space Crystals: 1500"]);
-            content("Extraction Plate", &body)
-        };
-        assert_eq!(panel(&sim, P1, 5), plate(&[]));
-        assert_eq!(panel(&sim, P2, 5), plate(&["Player 1"]));
-        assert_eq!(panel(&sim, P1, 7), plate(&["Player 2"]));
-        assert_eq!(panel(&sim, P1, 8), plate(&["Neutral"]), "a neutral plate mines nothing");
-        assert_eq!(panel(&sim, P1, 9), content("Extraction Plate", &["HP 85 / 85"]));
-        assert_eq!(
-            panel(&sim, P1, 1),
-            content("Space Crystals", &["Neutral", "Space Crystals: 1500"])
-        );
-    }
-
-    /// Slice M3-E: an object being warped in shows its new type, and its HP out of its MaxHP now, interpolated
-    /// (`factions/colonists/economy.md > Warp In > HP/Shields Interpolation`): player 1's Beacon (1) warping in a Robo
-    /// Portal, 288 of its 640 frames done, has 120 + (600 - 120) × 0.45 = 336 of 336, and Shields 10 + (20 - 10) ×
-    /// 0.45 = 14.5 of 14.5, shown rounded up (slice M3-B). Its owner sees the Warp In in the activity area
-    /// ([`activity`]); player 2 sees its owner instead.
-    #[test]
-    fn a_warp_in_shows_its_new_type_and_its_maximum_so_far() {
-        let mut t = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
-            .spawn(ObjectKind::Beacon, Some(P1), tile(8, 6))
-            .start();
-        let funds = DebugCommand::SetResources {
-            player: P1,
-            crystals: 1000,
-            supplies: 0,
-            alloys: 0,
-            essence: 0,
-            flux: 0,
-        };
-        let warp_in = ConstructionCommand::WarpIn {
-            kind: ObjectKind::RoboPortal,
-            orientation: Default::default(),
-        };
-        t.debug_at(1, funds);
-        t.at(
-            1,
-            P1,
-            Command::Construction {
-                objects: vec![ObjectId(1)],
-                command: warp_in,
-            },
-        );
-        t.run_until(288);
-        let mut own = content("Robo Portal", &["HP 336 / 336", "Shields 15 / 15"]);
-        own.activity = vec!["Warping in: Robo Portal 45%".to_string()];
-        assert_eq!(panel(t.sim(), P1, 1), own);
-        assert_eq!(
-            panel(t.sim(), P2, 1),
-            content("Robo Portal", &["Player 1", "HP 336 / 336", "Shields 15 / 15"])
-        );
-    }
-
-    /// `systems/combat.md > Shields > Display` (design change 0148): "Shields current/max" next to the HP line, for an
-    /// object that has Shields, rounded up as the HP are; one without (a Peacekeeper) shows none. Player 1's Sabre
-    /// Legionnaire (1), its Shields at 2.25 of 10 (a saved state edited), and player 2's Peacekeeper (2).
-    #[test]
-    fn an_object_with_shields_shows_them_under_its_hp() {
-        let t = ScenarioBuilder::new(&vec![".".repeat(16); 8].join("\n"))
-            .spawn(
-                ObjectKind::SabreLegionnaire,
-                Some(P1),
-                SpawnAt::Point(Vec2::new(160.0, 160.0)),
-            )
-            .spawn(
-                ObjectKind::Peacekeeper,
-                Some(P2),
-                SpawnAt::Point(Vec2::new(544.0, 160.0)),
-            )
-            .start();
-        let mut state = serde_json::to_value(t.sim()).unwrap();
-        let objects = state["objects"].as_array_mut().unwrap();
-        let sabre = objects.iter_mut().find(|o| o["id"] == 1).unwrap();
-        sabre["shields"] = serde_json::json!(2.25);
-        let sim: Sim = serde_json::from_value(state).unwrap();
-        assert_eq!(panel(&sim, P1, 1).body, ["Player 1", "HP 70 / 70", "Shields 3 / 10"]);
-        assert_eq!(panel(&sim, P1, 2).body, ["Player 2", "HP 50 / 50"]);
-    }
-}
+mod tests;

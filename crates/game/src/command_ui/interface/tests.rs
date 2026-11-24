@@ -1,5 +1,6 @@
 mod colonists;
 mod construction;
+mod gathering;
 
 use sc_sim::defs::AttackType;
 use sc_sim::{Ability, ObjectId, ObjectKind, OrderKind, ProductionCommand, Reject, RiotShield};
@@ -296,11 +297,12 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
 
 /// Plan decision T23: every type that produces units has the Production template, its grid built from its
 /// `ProductionDef`: its units in Q, W and on, X Cancel Production and C Set Rally Point. The Barracks' is the grid of
-/// `> ObjectInterfaceState[Barracks]`; the Robo Portal trains the Drone in Q, the Bio Portal the Sabre Legionnaire
-/// (design change 0124).
+/// `> ObjectInterfaceState[Barracks]`; the Robo Portal trains the Drone in Q, the Bio Portal the Sabre Legionnaire,
+/// and their units not in the game yet hold their slots (design change 0124: the Robo Portal's W Scout, the Bio
+/// Portal's W Lancer and E psionic unit; `gathering` has their panel).
 #[test]
 fn every_producer_gets_the_production_panel_of_its_recipes() {
-    use PanelCommand::{CancelProduction, SetRallyPoint, Train};
+    use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint, Train};
     for &kind in ObjectKind::ALL {
         let production = kind.def().structure.as_ref().and_then(|s| s.production.as_ref());
         assert_eq!(
@@ -309,16 +311,25 @@ fn every_producer_gets_the_production_panel_of_its_recipes() {
             "{kind:?}"
         );
     }
-    let produces = |unit| {
+    let produces = |unit, planned: &[Planned]| {
         let mut grid = [None; 12];
         grid[0] = Some(Train(unit));
+        for (slot, &planned) in grid[1..].iter_mut().zip(planned) {
+            *slot = Some(P(planned));
+        }
         grid[slot_index(CommandSlot::CANCEL_PRODUCTION)] = Some(CancelProduction);
         grid[slot_index(CommandSlot::RALLY_POINT)] = Some(SetRallyPoint);
         grid
     };
-    assert_eq!(grid(BARRACKS), produces(PK));
-    assert_eq!(grid(ObjectKind::RoboPortal), produces(ObjectKind::Drone));
-    assert_eq!(grid(ObjectKind::BioPortal), produces(ObjectKind::SabreLegionnaire));
+    assert_eq!(grid(BARRACKS), produces(PK, &[]));
+    assert_eq!(
+        grid(ObjectKind::RoboPortal),
+        produces(ObjectKind::Drone, &[Planned::Scout])
+    );
+    assert_eq!(
+        grid(ObjectKind::BioPortal),
+        produces(ObjectKind::SabreLegionnaire, &[Planned::Lancer, Planned::PsionicUnit])
+    );
     let labels = [PK, ObjectKind::Drone, ObjectKind::SabreLegionnaire].map(|unit| Train(unit).label());
     assert_eq!(labels, ["Train PK", "Train DR", "Train SL"]);
 }

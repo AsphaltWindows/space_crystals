@@ -1753,7 +1753,9 @@ out by the same rules.
   (`transforming_color`, a placeholder until the art). The map resources' shapes are in
   `object_render/resources.rs`. A unit that carries a Riot Shield has a `RiotShieldVisual` child: a pale arc in
   front of it, hidden while the shield is down, growing to its full size as it goes up. It is `Visibility::Hidden` or
-  `Inherited`, never `Visible`, so the fog that hides its unit hides it too.
+  `Inherited`, never `Visible`, so the fog that hides its unit hides it too. A worker has a `LoadMarker` child
+  (`object_render/load.rs`, slice M3-J2, a placeholder): a crystal shard in the crystals' cyan with a dark rim at
+  the top right of its body, shown the same way while it carries a load (`carries`), to every player who sees it.
 - **Structures** (`object_render/structures.rs`) are placeholders too: the footprint as placed, in the owner's colour
   inside a dark rim, drawn `INSET_SU` (8) inside its edge so that a selection frame shows around it, and over a map
   resource's placeholder (a plate covers its patch). A `StructureTag` child, a `Text2d` of the type's short label
@@ -1837,8 +1839,11 @@ its recipe's, whole percent rounded down), or the building ready to place. A tra
 (`activity::transformation`, first; slice M3-E) is the building it becomes and its progress, "Warping in: Robo Portal
 45%" ("Deploying" from a unit, slice M3-F), and its HP is out of its interpolated MaxHP (`Object::max_hp`), as its HP
 bar is. A plate
-adds the remaining crystals of the patch under it, for every viewer (0099). The group of a type's unfinished buildings
-(0185) is "(unfinished)" in the InfoPanel's title, and its portraits are dimmed as the map dims a transforming
+adds the remaining crystals of the patch under it for its owner only (0099 as design change 0155 limits it, slice
+M3-J2): another player's plate is another player's structure, its owner and HP; an uncovered patch shows its count to
+everyone. A worker of the local player's adds what it carries, "Carrying 8 Space Crystals", and its AssignedDropOff,
+"Drop-off: Egress Node" (`worker_lines`, placeholder lines its owner alone sees). The group of a type's unfinished
+buildings (0185) is "(unfinished)" in the InfoPanel's title, and its portraits are dimmed as the map dims a transforming
 object (`PortraitCell::Object::unfinished`, `transforming_color`). The top bar shows the player on the left,
 the tick on the right (in a replay's playback also the replay's last tick and a note on the playback, `ReplayText`:
 speed, paused or end, and a desync in red), and between them, centred, the local player's resources as their faction's
@@ -2004,8 +2009,9 @@ their producing structures and their constructors, and the Colonists' Beacons an
   each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the Peacekeeper's and the Guard's BasicCombatUnit grid;
   every producer's Production grid, built from its `ProductionDef` (plan decision T23): its units' Train from Q on,
   Cancel Production in X, Set Rally Point in C, so the Barracks trains the Peacekeeper in Q, the Robo Portal the
-  Drone and the Bio Portal the Sabre Legionnaire, design change 0124; a unit not in the game yet, such as the
-  Rocketman, the Scout or the Lancer, has no button),
+  Drone and the Bio Portal the Sabre Legionnaire, design change 0124; the Rocketman, not in the game yet, has no
+  button, while the portals' units not in the game yet hold their slots unavailable, 0124's "W Scout" and "W Lancer,
+  E psionic unit", as `PanelCommand::Planned`, slice M3-J2),
   the `Panel` a selection gets (common, group, pending, disabled and unavailable buttons; Back in Z while a target is
   awaited) and who receives a command (`recipients`: a common one the whole selection, a group one the whole
   ActiveGroup, by hotkey or button; never some of them, no smart-casting, 0071, apart from the units that can't carry
@@ -2026,10 +2032,10 @@ their producing structures and their constructors, and the Colonists' Beacons an
   unit's template and the sim's `Abilities`: its attack's TargetDomain, whether its mode lets it attack, whether it is
   a worker and carries a load): an enemy it can attack gives Attack, a patch Gather for a Drone, anything else a Move
   to it, which follows a unit (a shielded Peacekeeper follows an enemy, 0074; a right-click on a selected unit makes
-  it stop and the others follow it, 0168); the ground a Move. A Drone (`InterfaceTemplate::Drone`) resolves by its
-  own table, the sim's too, and its Gather previews as Move (its S, F and load marker are slice M3-J2's); the Beacon
-  has no right-click, nor has an object that transforms (no template, no abilities: slice M3-J1); objects without
-  commands do nothing. A producer's right-click sets its rally point
+  it stop and the others follow it, 0168); the ground a Move. A Drone (`InterfaceTemplate::Drone`) resolves by the
+  same rule (see Gathering below); the Beacon and the Egress Node have no right-click, nor has an object that
+  transforms (no template, no abilities: slice M3-J1); objects without commands do nothing. A producer's right-click
+  sets its rally point
   (`object_right_click` gives a `Resolved::Rally` beside the units' `Resolved::Order`s, so a mixed selection does
   both, 0062; `rally_target`: the object under the cursor, else the ground point; the producer itself clears it,
   0086); Set Rally Point's targeting click resolves the same way (`target_resolution`), and the pointer shows Move
@@ -2102,8 +2108,8 @@ their producing structures and their constructors, and the Colonists' Beacons an
   `ConstructionCommand::WarpIn` if `Sim::warp_in_check` allows it (`OrderOutbox::try_construct`; a gate refusal,
   the bank short since the entry was pressed, says why and placement goes on), and Back returns to its menu. A
   menu entry is greyed out by the gate's answer to its Warp In unturned, `Unplaceable` left out: the ghost shows
-  where it can't stand. The Drone's grid (`InterfaceTemplate::Drone`) is Q Move, A Deploy, X Stop (S is slice
-  M3-J2's; its right-click is the sim's rule, slice M3-R); A enters `AwaitingPlacement` with `Builder::Drones { queued }`: the ghost
+  where it can't stand. The Drone's grid (`InterfaceTemplate::Drone`) is Q Move, A Deploy, S Set Drop-off, X Stop (S
+  and the right-click: Gathering below); A enters `AwaitingPlacement` with `Builder::Drones { queued }`: the ghost
   under the cursor, checked by `Sim::deploy_check` for the Drone the click would go to (`deploy_recipient`: a plain
   click's the ActiveGroup's first Drone in portrait order, whose orders the Deploy replaces; a Shift-click's the
   first with no Deploy, among `Sim::pending_deploys` and the Deploys still in `PendingCommands`, `deploying`). A
@@ -2119,6 +2125,22 @@ their producing structures and their constructors, and the Colonists' Beacons an
   `WhyUnavailable`: the gate's `Reject`, the shields, a command awaiting its target, the type, not in the game
   yet); pressing it, by hotkey or click, issues nothing and sends `CommandRefused`, whose message
   (`feedback::unavailable_text`) the feedback band shows.
+- **Gathering** (slice M3-J2; `factions/colonists/units.md > Drone > Right-Click Resolution`, `> Set Drop-off
+  Location`, `factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`; design changes 0124,
+  0136, 0139, 0140, 0155): a Drone's right-click is the sim's one rule, per unit like every unit's: a patch (seen or
+  remembered) gives Gather, an own drop-off a carrying Drone's `DropOff` and an empty one's Move to it (0140: no empty
+  Drop Off), anything else a Move to it, a unit followed; the pointer previews Gather as GatherResources and Drop Off
+  as ReturnResources ("Cursor over resource (resource gatherer selected)", "Cursor over drop-off point (resource
+  gatherer carrying resources)"), so Drones that would do both show Mixed. S, Set Drop-off (`PanelCommand::SetDropOff`,
+  a common command: every selected Drone's, Q0040 point 9), awaits a target: an own Egress Node that isn't
+  transforming (`drop_off_target`, the `Aimed::drop_off` the gate checks) resolves to `Resolved::Ability`, one
+  `Command::Ability` of `Ability::SetDropOff` that only updates the AssignedDropOff, the orders going on; anything
+  else is an invalid target, and the pointer over a node shows ReturnResources (a placeholder: the rules have no
+  AwaitingTarget\[SetDropOffLocation\] row). The Egress Node's grid (`InterfaceTemplate::EgressNode`) has F, Select
+  Returning Drones (`PanelCommand::SelectReturningDrones`), a StateOnlyTransition (`SlotPress::SelectReturningDrones`,
+  then `ControlState::replace_selection`) that replaces the selection with the node's `Sim::returning_drones`
+  (`Conditions::returning`, asked for the ActiveGroup's node: `instance_only`); the button shows only while there are
+  some (`Conditions::shows`). Its label, "Drones", keeps the full label size at 720p.
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command (`PanelSlot::label`: a toggle says what pressing it does) and its hotkey from the
   bindings, and a toggle that is on has a thick green border. A label never wraps (`TextLayout::no_wrap`): one too
@@ -2132,10 +2154,13 @@ their producing structures and their constructors, and the Colonists' Beacons an
   a remembered one is marked at its record. The selected own producers' rally points (`indicators/rally.rs`, design
   changes 0087, 0088) show a marker, green on the ground and around an own or neutral object, red around an enemy
   (the sim turns an enemy rally point it loses sight of into a ground one, so the marker turns green there), and a
-  solid line from the footprint's edge to it; nothing while the producer isn't selected or has none. The pointer
+  solid line from the footprint's edge to it; nothing while the producer isn't selected or has none; a portal rallied
+  on a patch rings the patch in green (slice M3-J2). A Gather or a Drop Off is marked as a Move to its object, a green
+  Location marker (placeholders: the design gives them no indicator). The pointer
   (`command_ui/cursor.rs`) shows the `PointerLook`: images drawn in code and cached per look, set as the window's
   `CursorIcon`, and drawn as a UI node at the injected cursor in QA runs, which render no system cursor; Mixed is
-  striped in the Attack red and the Move green (`MIXED_COLORS`, `MIXED_STRIPE_PX`). The invalid-target feedback
+  striped in the Attack red and the Move green (`MIXED_COLORS`, `MIXED_STRIPE_PX`), GatherResources is the crystals'
+  cyan (`GATHER_COLOR`) and ReturnResources gold (`RETURN_COLOR`). The invalid-target feedback
   (`command_ui/feedback.rs`) is the message `INVALID_TARGET_TEXT` above the HUD Bar for `FEEDBACK_TICKS` sim ticks
   after the latest `InvalidTarget` (`TargetFeedback`), never in the pointer's way (`Pickable::IGNORE`). The same
   band gives the insufficient-resources feedback (0083): `NO_CRYSTALS_TEXT` after the sim's `ProductionRefused` for
