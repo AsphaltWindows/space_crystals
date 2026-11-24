@@ -21,8 +21,13 @@
 //!
 //! The construction UI of slice M2-H2 (the Deployment Center's build menu, the Extraction Facility's plate, and
 //! AwaitingPlacement with its ghost and the build area overlay) plays on a base of its own: `construction`.
+//!
+//! The Colonists' Deploy and Warp In (slice M3-J1: the Drone's and the Beacon's panels, their ghosts, the lingering
+//! ghosts, whatever transforms showing only Cancel, and what a greyed-out button says): `colonists`, on a Colonists
+//! field.
 
 mod click_allowance;
+mod colonists;
 mod construction;
 mod convert;
 mod indicators;

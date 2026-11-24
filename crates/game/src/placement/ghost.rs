@@ -4,11 +4,18 @@
 //! Visible, unoccupied, not a resource) is shown per tile on the ghost" (design change 0093). "Side labels (A/B/C/D
 //! per SymmetryType) are displayed on the ghost and update with rotation/flipping" (design change 0079).
 //!
-//! [`PlacementGhost`] holds what it shows ([`Ghost`]): the footprint under the cursor ([`Placing::origin_under`]),
-//! turned as the player turned it, and the placement check now (`Sim::placement_check`, the rules the command gate
-//! applies), worked out every frame while a building is placed and the cursor is over the map. Its one mesh is
-//! rebuilt in place, under one handle, only when that changes; its letters are five text entities spawned once,
-//! emptied rather than hidden when they show nothing ([`spawn_ghost`] says why).
+//! [`PlacementGhost`] holds what it shows ([`Ghost`]): the footprint where its builder puts it (`Placing::origin`:
+//! under the cursor, or on the Beacon of a Warp In), turned as the player turned it, and the check its click would
+//! face now ([`check_now`], the rules the command gate applies), worked out every frame while a building is placed
+//! and, but for a Warp In, the cursor is over the map. Its one mesh is rebuilt in place, under one handle, only when
+//! that changes; its letters are five text entities spawned once, emptied rather than hidden when they show nothing
+//! ([`spawn_ghost`] says why).
+//!
+//! The Colonists' ghosts (slice M3-J1): a Drone's Beacon follows the cursor, green as far as the player knows (design
+//! change 0120: `Sim::deploy_check`, which also makes it red over a lingering ghost, a Reserved tile); a Warp In's
+//! building stands on its Beacon, centred, an odd size's extras to the bottom-right, and turns about the Beacon's
+//! centre (design change 0121: "moving the mouse never changes the ghost"), red where blocked or not Visible (design
+//! change 0119: `Sim::warp_in_check`).
 //!
 //! The look, placeholders until the art (Q0001):
 //! - each footprint tile lies on the terrain as the terrain mesh draws it, green if it breaks no rule of its own, red
@@ -18,24 +25,29 @@
 //!   whole ghost;
 //! - the letter of each side at its edge, inside the footprint (`sc_sim::sides`), except on a single tile, whose
 //!   sides are all alike (the Extraction Plate's AAAA); and the building's tag in the middle, as its placeholder on
-//!   the map shows it (`crate::hud::selection_panel::short_label`);
+//!   the map shows it (`crate::hud::selection_panel::short_label`), a Warp In's a little below it, clear of the tag
+//!   of the Beacon under the ghost ([`TAG_BELOW_SU`]);
 //! - over everything on the map, under the command indicators: it is the cursor.
 
 use bevy::camera::visibility::NoFrustumCulling;
 use bevy::prelude::*;
 use bevy::sprite_render::AlphaMode2d;
-use sc_sim::{BuildingOrientation, CornerPos, Map, ObjectKind, PlacementCheck, SU_PER_GU, SideLetter, TilePos, sides};
+use sc_sim::{
+    BuildingOrientation, CornerPos, Map, ObjectKind, PlacementCheck, PlayerCommand, PlayerId, SU_PER_GU, SideLetter,
+    Sim, TilePos, sides,
+};
 
 use super::placing_now;
 use crate::ClientMode;
-use crate::command_ui::Placing;
+use crate::command_ui::interface::{deploy_recipient, deploying};
+use crate::command_ui::{Builder, Placing};
 use crate::coords::{DrawLayer, drawn_at_height, view_to_world};
 use crate::hud::selection_panel::short_label;
-use crate::input::ActionState;
+use crate::input::{ActionState, InputAction};
 use crate::map_render::tile_surface;
-use crate::selection::ControlStates;
+use crate::selection::{ControlStates, Selection};
 use crate::shapes::ColorMesh;
-use crate::sim_driver::{LocalPlayer, SimRes};
+use crate::sim_driver::{LocalPlayer, PendingCommands, SimRes};
 
 /// A footprint tile that breaks no rule, and one that breaks one (placeholder colours).
 pub const VALID_FILL: Color = Color::srgba(0.25, 0.95, 0.35, 0.45);
@@ -53,6 +65,9 @@ const TAG_SU: f32 = 22.0;
 const SMALL_TAG_SU: f32 = 15.0;
 /// How far inside its edge a side letter's centre lies, space units.
 const SIDE_INSET_SU: f32 = 13.0;
+/// How far south of the middle a Warp In ghost's tag stands, space units: between the tag of the Beacon under it, at
+/// the Beacon's centre, and the south side's letter, on the Egress Node's 2 × 2 too.
+const TAG_BELOW_SU: f32 = 26.0;
 /// The ghost's z over the overlays' band base: above everything on the map, under the command indicators and the
 /// drag box (`DrawLayer::Overlays`). The letters lie just above it; the outline over the tiles.
 const GHOST_Z: f32 = -2.0;
@@ -68,10 +83,12 @@ pub struct Ghost {
     pub orientation: BuildingOrientation,
     /// The footprint's size as turned, `(w, h)` tiles.
     pub size: (u32, u32),
-    /// Everything that keeps the placement from being valid now (`Sim::placement_check`).
+    /// Everything that keeps the placement from being valid now ([`check_now`]).
     pub check: PlacementCheck,
     /// The letters of its sides facing north, east, south and west, as turned (`sc_sim::sides`).
     pub sides: Option<[SideLetter; 4]>,
+    /// A Warp In's ghost, which stands on its Beacon (design change 0121).
+    pub on_beacon: bool,
 }
 
 impl Ghost {
@@ -84,6 +101,7 @@ impl Ghost {
             size: placing.size()?,
             check,
             sides: sides(placing.kind, placing.orientation),
+            on_beacon: matches!(placing.builder, Builder::Beacon(_)),
         })
     }
 
@@ -126,7 +144,8 @@ impl Ghost {
     }
 
     /// The text of each of its labels, and the ground point where it stands: the side letters facing north, east,
-    /// south and west, inside their edges (none on a single tile), then the tag in the middle.
+    /// south and west, inside their edges (none on a single tile), then the tag in the middle (a Warp In's
+    /// [`TAG_BELOW_SU`] south of it).
     pub fn labels(&self) -> [Option<(String, Vec2)>; 5] {
         let (w, h) = (self.size.0 as f32 * SU_PER_GU, self.size.1 as f32 * SU_PER_GU);
         let nw = self.origin.corner();
@@ -137,6 +156,7 @@ impl Ghost {
             nw + Vec2::new(SIDE_INSET_SU, h / 2.0),
         ];
         let lettered = self.size.0.max(self.size.1) > 1;
+        let tag_below = if self.on_beacon { TAG_BELOW_SU } else { 0.0 };
         let side = |i: usize| {
             let letters = self.sides.filter(|_| lettered)?;
             Some((format!("{:?}", letters[i]), mids[i]))
@@ -146,13 +166,13 @@ impl Ghost {
             side(1),
             side(2),
             side(3),
-            Some((short_label(self.kind).to_string(), self.center())),
+            Some((short_label(self.kind).to_string(), self.center() + Vec2::Y * tag_below)),
         ]
     }
 }
 
 /// What the placement ghost shows now ([`Ghost`]), `None` while it shows nothing: nothing is being placed, or the
-/// cursor isn't over the map.
+/// cursor isn't over the map (but for a Warp In).
 #[derive(Resource, Debug, Default)]
 pub struct PlacementGhost {
     pub shown: Option<Ghost>,
@@ -214,27 +234,61 @@ pub(super) fn spawn_ghost(
     commands.insert_resource(GhostAssets { mesh });
 }
 
-/// Works out the ghost under the cursor while the local player places a building ([`placing_now`]) and the cursor
-/// is over the map: its footprint, as turned, and the placement check there now.
+/// Works out the ghost while the local player places a building ([`placing_now`]): its footprint where its builder
+/// puts it (`Placing::origin`: under the cursor while it is over the map; a Warp In's on its Beacon, wherever the
+/// cursor is), as turned, and the check its click would face there now ([`check_now`], with Shift as it is held).
 pub(super) fn update_ghost(
     mode: Res<ClientMode>,
     actions: Res<ActionState>,
     sim: Res<SimRes>,
     player: Res<LocalPlayer>,
     states: Res<ControlStates>,
+    pending: Res<PendingCommands>,
     mut ghost: ResMut<PlacementGhost>,
 ) {
     let pointer = actions.pointer();
     let over_map = !pointer.over_ui && pointer.view.is_some();
-    let shown = placing_now(*mode, &sim, player.0, &states)
-        .filter(|_| over_map)
-        .and_then(|placing| {
-            let origin = placing.origin_under(pointer.ground?)?;
-            let check = sim.placement_check(player.0, placing.kind, origin, placing.orientation);
-            Ghost::of(placing, origin, check)
-        });
+    let ground = pointer.ground.filter(|_| over_map);
+    let queue = actions.held(InputAction::Queue);
+    let selection = &states.of(player.0).selection;
+    let shown = placing_now(*mode, &sim, player.0, &states).and_then(|placing| {
+        let origin = placing.origin(&sim, ground)?;
+        let check = check_now(&sim, player.0, selection, placing, origin, queue, &pending.0)?;
+        Ghost::of(placing, origin, check)
+    });
     if ghost.shown != shown {
         ghost.shown = shown;
+    }
+}
+
+/// The check that a click on `player`'s ghost of `placing` at `origin` would face now, by its builder:
+/// - a constructor's building: `Sim::placement_check` (the tiles in sight, the build area);
+/// - a Warp In: `Sim::warp_in_check` (the tiles in sight, design change 0119: a tile out of sight is red; the
+///   Beacon's own footprint consumed);
+/// - the Drones' Beacon: `Sim::deploy_check`, as far as the player knows (design change 0120), for the Drone the
+///   click would go to (`deploy_recipient`, Shift as `queue` says; the first one when none of them could take a
+///   Shift-click's), whose sites a plain click's order replaces; the lingering ghosts' sites (the player's pending
+///   Deploys, those sent for the next tick among `unsent` included) are reserved (design change 0125).
+///
+/// `None` when the builder is gone, or the ActiveGroup no longer has a Drone.
+pub fn check_now(
+    sim: &Sim,
+    player: PlayerId,
+    selection: &Selection,
+    placing: Placing,
+    origin: TilePos,
+    queue: bool,
+    unsent: &[PlayerCommand],
+) -> Option<PlacementCheck> {
+    match placing.builder {
+        Builder::Constructor(_) => Some(sim.placement_check(player, placing.kind, origin, placing.orientation)),
+        Builder::Beacon(beacon) => sim.warp_in_check(beacon, placing.kind, placing.orientation),
+        Builder::Drones { .. } => {
+            let deploying = deploying(sim, player, unsent);
+            let drone = deploy_recipient(selection, queue, &deploying)
+                .or_else(|| deploy_recipient(selection, false, &deploying))?;
+            sim.deploy_check(drone, origin, queue)
+        }
     }
 }
 
@@ -333,95 +387,4 @@ pub fn ghost_mesh(map: &Map, ghost: &Ghost) -> ColorMesh {
 }
 
 #[cfg(test)]
-mod tests {
-    use sc_sim::{ObjectId, TileProblem, WholeProblem};
-
-    use super::*;
-    use crate::editor::orientation::Turn;
-
-    fn ghost(placing: Placing, check: PlacementCheck) -> Ghost {
-        Ghost::of(placing, TilePos::new(3, 2), check).unwrap()
-    }
-
-    /// Design change 0093: each tile shows its own validity, and a ghost invalid as a whole is red throughout; the
-    /// outline gives the verdict.
-    #[test]
-    fn tiles_are_green_or_red_by_their_rules() {
-        let generator = Placing::new(ObjectId(1), ObjectKind::Generator);
-        let valid = ghost(generator, PlacementCheck::default());
-        assert_eq!(valid.tiles().count(), 4);
-        assert!(valid.tiles().all(|t| valid.tile_is_green(t)));
-        assert_eq!(valid.edge_color(), VALID_EDGE);
-        let blocked = TilePos::new(4, 3);
-        let one_tile = ghost(
-            generator,
-            PlacementCheck {
-                tiles: vec![(blocked, TileProblem::Unit)],
-                whole: Vec::new(),
-            },
-        );
-        let red: Vec<TilePos> = one_tile.tiles().filter(|&t| !one_tile.tile_is_green(t)).collect();
-        assert_eq!(red, [blocked]);
-        assert_eq!(one_tile.tile_color(blocked), INVALID_FILL);
-        assert_eq!(one_tile.edge_color(), INVALID_EDGE);
-        let outside = ghost(
-            generator,
-            PlacementCheck {
-                tiles: Vec::new(),
-                whole: vec![WholeProblem::OutsideBuildArea],
-            },
-        );
-        assert!(outside.tiles().all(|t| !outside.tile_is_green(t)));
-    }
-
-    /// Design change 0079: the Barracks (3 wide, 2 tall, ABAC) shows A on top, B on the right, A at the bottom and C
-    /// on the left; turned clockwise it is 2 wide and 3 tall, with B at the bottom. A plate's single tile has no
-    /// letters.
-    #[test]
-    fn side_letters_follow_the_turns() {
-        let barracks = Placing::new(ObjectId(1), ObjectKind::Barracks);
-        let letters = |g: &Ghost| g.labels().map(|l| l.map(|(text, _)| text));
-        let plain = ghost(barracks, PlacementCheck::default());
-        assert_eq!(plain.size, (3, 2));
-        let some = |s: &str| Some(s.to_string());
-        assert_eq!(
-            letters(&plain),
-            [some("A"), some("B"), some("A"), some("C"), some("BR")]
-        );
-        let turned = ghost(barracks.turned(Turn::Clockwise), PlacementCheck::default());
-        assert_eq!(turned.size, (2, 3));
-        assert_eq!(
-            letters(&turned),
-            [some("C"), some("A"), some("B"), some("A"), some("BR")]
-        );
-        let flipped = ghost(barracks.turned(Turn::FlipHorizontal), PlacementCheck::default());
-        assert_eq!(
-            letters(&flipped),
-            [some("A"), some("C"), some("A"), some("B"), some("BR")]
-        );
-        let plate = ghost(
-            Placing::new(ObjectId(1), ObjectKind::ExtractionPlate),
-            PlacementCheck::default(),
-        );
-        assert_eq!(letters(&plate), [None, None, None, None, some("EP")]);
-        // The letters stand inside their edges: north on top, east on the right.
-        let labels = plain.labels();
-        let (north, east) = (labels[0].clone().unwrap().1, labels[1].clone().unwrap().1);
-        assert!(north.y < plain.center().y && east.x > plain.center().x);
-    }
-
-    /// A flat tile is a quad, a sloped one four triangles; the outline is a quad per tile edge around the footprint.
-    #[test]
-    fn the_mesh_lies_on_the_terrain() {
-        // Only corner (6, 4) is raised: tile (5, 3) slopes.
-        let map =
-            Map::from_ascii("......\n......\n......\n......\n\n0000000\n0000000\n0000000\n0000000\n0000001").unwrap();
-        let generator = Placing::new(ObjectId(1), ObjectKind::Generator);
-        let flat = ghost(generator, PlacementCheck::default());
-        // 4 quads, then 8 tile edges.
-        assert_eq!(ghost_mesh(&map, &flat).vertex_count(), 4 * 4 + 8 * 4);
-        // At (4, 2) its south-east tile (5, 3) slopes.
-        let sloped = Ghost::of(generator, TilePos::new(4, 2), PlacementCheck::default()).unwrap();
-        assert_eq!(ghost_mesh(&map, &sloped).vertex_count(), 3 * 4 + 4 * 3 + 8 * 4);
-    }
-}
+mod tests;

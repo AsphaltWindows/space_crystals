@@ -17,13 +17,13 @@ When the turret has no locked target (TurretCommandState.LockedTarget = None), i
 
 ### Target Selection Priority:
 1. **Threatening units first**: Prefer ValidTargets whose AttackAttributes.TargetDomain includes this unit's domain (Ground, Air, or Universal). These are units that have the capability to attack this unit.
-2. **Least rotation**: Among equal-priority targets, prefer the target requiring the least turret rotation from the turret's current facing.
-3. **Closest distance**: Among targets requiring equal rotation, prefer the closest target by distance.
+2. **Least rotation, in coarse steps**: Among equal-priority targets, prefer the target requiring the least turret rotation from the turret's current facing, compared in **45° steps** (user, 2026-11-24; placeholder): the rotation needed (either direction, 0–180°) is grouped as 0–45°, 45–90°, 90–135°, 135–180°, and targets in the same step count as equal rotation.
+3. **Closest distance**: Among targets in the same rotation step, prefer the closest target by distance. (Example: an enemy at max range straight ahead and an adjacent enemy 5° to the side are in the same step, so the adjacent one is chosen.) Remaining ties: a fixed deterministic order.
 
 ### Algorithm:
 1. Gather all ValidTarget enemies within Range and within TurnAngle arc
 2. Partition into threatening (can target this unit's domain) and non-threatening
-3. From the highest-priority non-empty partition, select the target with least required turret rotation, breaking ties by closest distance
+3. From the highest-priority non-empty partition, select the target in the lowest 45° rotation step, breaking ties by closest distance
 4. Set TurretCommandState.LockedTarget to the selected target
 5. If no valid targets exist, turret remains inactive (TurretAttackChannel = TurretInactive)
 

@@ -46,6 +46,12 @@ Role intent: in the early game the Peacekeeper should feel like a great all-roun
 ### Riot Shield (toggled ability)
 The Peacekeeper carries a riot shield that can be raised or lowered (toggle).
 
+**Two unit types** (user, 2026-11-24): shield down and shield up are **two unit types**, **Peacekeeper** and **Peacekeeper (Shielded)**, like the Sabre and Rifle Legionnaire (factions/colonists/units.md > Weapon Conversion). They share everything except what the shield changes (below). Raising or lowering the shield switches the unit's type.
+- In a selection, the two types form **separate SelectionGroups**; the shield command goes to the ActiveGroup. Example: 6 shielded + 4 unshielded selected → two groups; Tab to the 4, raise → all 10 are one type and form one group.
+- The Peacekeeper's panel shows **Raise Shield**; Peacekeeper (Shielded)'s shows **Lower Shield** and no Attack.
+- The type switches **when the toggle starts** (designer's reading, so the opposite command is immediately available to reverse mid-way, see During the toggle).
+- The Barracks produces the unshielded Peacekeeper. Cost and Unit Control are the same for both types.
+
 While the shield is **up**:
 - MaxSpeed is halved (4 → 2 space units/frame).
 - The Peacekeeper **cannot attack**.
@@ -55,7 +61,13 @@ While the shield is **up**:
 
 While the shield is **down**, the Peacekeeper behaves normally.
 
-**Toggle time:** raising and lowering the shield takes a short time, so it cannot be flicked on and off between enemy shots. Exact value TBD (should be under half a second).
+**Toggle time:** raising and lowering the shield takes a short time, so it cannot be flicked on and off between enemy shots. **6 frames (0.375 s), placeholder** (user, 2026-11-24; should stay under half a second).
+
+**During the toggle** (user, 2026-11-24):
+- While raising **or** lowering, the Peacekeeper moves at half speed (as with the shield up) and **cannot attack**.
+- The 50% damage reduction applies **only once the shield is fully up**; a half-raised shield gives none.
+- Pressing the toggle again mid-way **reverses from the current point** (halfway up → lowering takes only the half it already moved).
+- **Pressed mid-attack** (user, 2026-11-24): pressed during the Firing or Cooldown phase (not interruptible), the raise is **deferred**: the shot finishes, then the shield starts rising immediately. Same as the Legionnaires' Convert (factions/colonists/units.md > Weapon Conversion > Eligibility), so one press raises a whole fighting group.
 
 **Right-click on an enemy while the shield is up** (user, 2026-11-24): the Peacekeeper can't attack, so it does what any unit that can't carry out a right-click does (systems/controls/selection_and_hud.md > RightClickResolution): it **follows** an enemy unit (Move to that unit) and moves to an enemy structure. In a mixed group, the other units attack while the shielded Peacekeepers stay with them.
 
@@ -66,7 +78,7 @@ Same principle as the Colonists' Weapon Conversion (factions/colonists/units.md 
 
 **Not queueable** (user, 2026-11-24): the toggle always happens immediately; holding Shift changes nothing.
 
-TBD: hotkey.
+**Hotkey: R** (Raise Shield on Peacekeeper, Lower Shield on Peacekeeper (Shielded)), placeholder (user, 2026-11-24).
 
 ### ObjectInterfaceState: BasicCombatUnitInterfaceState
 

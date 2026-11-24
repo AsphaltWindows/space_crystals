@@ -2,12 +2,19 @@
 //! which commands a type offers, in which slots of the 4 × 3 grid (`> CommandPanel > Grid Layout`), and how its
 //! clicks resolve (`super::super::resolution`). A constructor's panel also follows its state and the menu that is
 //! open ([`state_grid`]): the Deployment Center's build menus ([`BuildMenu`], design change 0104) and the Extraction
-//! Facility's plate (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`).
+//! Facility's plate (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`). The
+//! Colonists' Beacon has two Warp In menus built the same way, the Drone its Deploy, and an object that transforms
+//! shows only its Cancel ([`colonists`], slice M3-J1).
+
+mod colonists;
 
 use sc_sim::ObjectKind;
 use sc_sim::construction::{self, Constructor};
 use sc_sim::conversion;
 use sc_sim::defs::AttackType;
+use sc_sim::transform;
+
+pub use colonists::{Planned, TRANSFORMING_GRID};
 
 use super::{InterfaceState, PanelCommand};
 use crate::input::CommandSlot;
@@ -31,11 +38,20 @@ pub enum InterfaceTemplate {
     /// `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`: its DefaultState
     /// builds the Extraction Plate, then places it. No right-click.
     ExtractionFacility,
+    /// `factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState` (design change 0124): its DefaultState
+    /// opens the two Warp In menus, whose entries enter the Warp In's placement on the Beacon. No right-click.
+    Beacon,
+    /// `factions/colonists/units.md > Drone ObjectInterfaceState`: Q Move, A Deploy, X Stop. Its right-click
+    /// (`> Right-Click Resolution`: Gather, Drop Off, Move) is the sim's one rule, as every unit's
+    /// (`crate::command_ui::resolution::unit_right_click`, slice M3-R); its S, F and load marker are slice M3-J2's.
+    Drone,
 }
 
 /// The Deployment Center's build menus (`> ObjectInterfaceState[DeploymentCenter]`, design change 0104: "the DC's
 /// buildings don't fit one 12-slot panel, so they are split"). Their idle, constructing and ready states work the
-/// same ([`state_grid`]).
+/// same ([`state_grid`]). The Colonists' Beacon has two Warp In menus "like the Deployment Center's two build menus"
+/// (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`): Warp In (Basic) and Warp In (Advanced),
+/// whose entries are its own ([`menu_grid`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BuildMenu {
     /// BuildMenu\[Basic\], "Q: Basic Construction".
@@ -65,7 +81,7 @@ const ADVANCED_MENU: [Option<ObjectKind>; 12] = [None; 12];
 impl BuildMenu {
     pub const ALL: [BuildMenu; 2] = [BuildMenu::Basic, BuildMenu::Advanced];
 
-    /// Its entries, slot by slot (`CommandSlot::all` order): the buildings it constructs.
+    /// The Deployment Center's entries, slot by slot (`CommandSlot::all` order): the buildings it constructs.
     pub fn entries(self) -> &'static [Option<ObjectKind>; 12] {
         match self {
             BuildMenu::Basic => &BASIC_MENU,
@@ -154,7 +170,9 @@ impl InterfaceTemplate {
     /// structures that have none (the Generator, the Extraction Plate). The Legionnaires' is
     /// "BasicCombatUnitInterfaceState, plus" their R (`factions/colonists/units.md > Sabre Legionnaire >
     /// ObjectInterfaceState`: Convert, [`grid`]). Every type that produces units has the Production
-    /// template. The other Colonists types have none until slices M3-J1 and J2 build theirs (plan decision T23).
+    /// template. The Egress Node has none until slice M3-J2 builds its F (plan decision T23). Whatever its type, an
+    /// object that transforms shows only its Cancel ([`TRANSFORMING_GRID`], `super::panel`) and resolves no
+    /// right-click (`super::super::resolution::UnitCapabilities::of`).
     pub fn of(kind: ObjectKind) -> Option<Self> {
         match kind {
             ObjectKind::Peacekeeper
@@ -166,12 +184,12 @@ impl InterfaceTemplate {
             }
             ObjectKind::DeploymentCenter => Some(InterfaceTemplate::DeploymentCenter),
             ObjectKind::ExtractionFacility => Some(InterfaceTemplate::ExtractionFacility),
+            ObjectKind::Beacon => Some(InterfaceTemplate::Beacon),
+            ObjectKind::Drone => Some(InterfaceTemplate::Drone),
             ObjectKind::CrystalPatch
             | ObjectKind::SupplyDeliveryStation
             | ObjectKind::Generator
             | ObjectKind::ExtractionPlate
-            | ObjectKind::Drone
-            | ObjectKind::Beacon
             | ObjectKind::EgressNode => None,
         }
     }
@@ -184,6 +202,8 @@ impl InterfaceTemplate {
             InterfaceTemplate::Production => production_grid(kind),
             InterfaceTemplate::DeploymentCenter => DEPLOYMENT_CENTER_GRID,
             InterfaceTemplate::ExtractionFacility => EXTRACTION_FACILITY_GRID,
+            InterfaceTemplate::Beacon => colonists::BEACON_GRID,
+            InterfaceTemplate::Drone => colonists::DRONE_GRID,
         }
     }
 }
@@ -217,10 +237,26 @@ fn constructs(kind: ObjectKind) -> bool {
     !construction::recipes(kind).is_empty()
 }
 
-/// The build menu of a `kind` constructor that holds `building` (the Deployment Center's), if it has one.
+/// The entries of a `kind` object's build menu `menu`, slot by slot (`CommandSlot::all` order): a Beacon's Warp In
+/// menu (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`: every building of the design's
+/// menu, those not in the game unavailable), else the Deployment Center's menu, its buildings to construct.
+pub fn menu_grid(kind: ObjectKind, menu: BuildMenu) -> [Option<PanelCommand>; 12] {
+    if colonists::warps_in(kind) {
+        colonists::warp_in_menu(menu)
+    } else {
+        menu.entries().map(|entry| entry.map(PanelCommand::Construct))
+    }
+}
+
+/// The build menu of a `kind` object whose `building` is placed (the Deployment Center's, holding it ready; a
+/// Beacon's, warping it in), if it has one.
 pub fn menu_of(kind: ObjectKind, building: ObjectKind) -> Option<BuildMenu> {
     BuildMenu::ALL.into_iter().find(|&menu| {
-        grid(kind).contains(&Some(PanelCommand::BuildMenu(menu))) && menu.entries().contains(&Some(building))
+        grid(kind).contains(&Some(PanelCommand::BuildMenu(menu)))
+            && menu_grid(kind, menu)
+                .iter()
+                .flatten()
+                .any(|entry| entry.building() == Some(building))
     })
 }
 
@@ -228,8 +264,9 @@ pub fn menu_of(kind: ObjectKind, building: ObjectKind) -> Option<BuildMenu> {
 /// constructor, if it is one, is `constructor` (the ActiveGroup is then a single instance: constructors are
 /// Ungroupable, `> SelectionGroup`, so the panel "can reliably read that instance's specific game state"):
 /// - DefaultState and AwaitingTarget: its DefaultState grid ([`grid`]);
-/// - a build menu: the menu's entries; AwaitingPlacement: those of the state it goes back to
-///   (`InterfaceState::back`): the Deployment Center's menu of the building, the Extraction Facility's DefaultState;
+/// - a build menu: the menu's entries ([`menu_grid`]); AwaitingPlacement: those of the state it goes back to
+///   (`InterfaceState::back`): the Deployment Center's menu of the building, a Beacon's Warp In menu of it, the
+///   Extraction Facility's and the Drone's DefaultState;
 /// - a constructor's building ready to place takes its entry's slot, as "Select completed building" (design change
 ///   0104; the Extraction Facility's "Q: Place Plate"), and its X is Cancel Construction while it constructs and
 ///   Cancel Ready Building while it holds a building ready, and empty while it is idle (`> DefaultState commands`:
@@ -253,7 +290,7 @@ pub fn state_grid(
         InterfaceState::DefaultState | InterfaceState::AwaitingTarget { .. } => None,
     };
     let mut commands = match menu {
-        Some(menu) => menu.entries().map(|entry| entry.map(PanelCommand::Construct)),
+        Some(menu) => menu_grid(kind, menu),
         None => grid(kind),
     };
     let Some(constructor) = constructor.filter(|_| constructs(kind)) else {
@@ -284,9 +321,18 @@ pub fn state_grid(
 }
 
 /// Every command `kind` may show, in any state ([`state_grid`]): its DefaultState grid, and a constructor's
-/// buildings to construct and to place, and its two Cancels. In order, each once.
+/// buildings to construct and to place, and its two Cancels; a Beacon's buildings to warp in; the Cancel of a type
+/// that may be transforming ([`TRANSFORMING_GRID`]). In order, each once.
 pub fn commands(kind: ObjectKind) -> Vec<PanelCommand> {
     let mut commands: Vec<PanelCommand> = grid(kind).into_iter().flatten().collect();
+    commands.extend(
+        transform::warp_in_recipes(kind)
+            .iter()
+            .map(|r| PanelCommand::WarpIn(r.kind)),
+    );
+    if colonists::becomes(kind) {
+        commands.push(PanelCommand::CancelTransform);
+    }
     if constructs(kind) {
         for recipe in construction::recipes(kind) {
             commands.extend([
@@ -303,9 +349,12 @@ pub fn commands(kind: ObjectKind) -> Vec<PanelCommand> {
 
 /// Whether objects of `kind` offer `command`: their grid has it ([`grid`]), and a conditional one only when the
 /// type can (`> BasicCombatUnitInterfaceState`: Reverse with the UnitBase's CanReverse, AttackGround with the
-/// AttackType's CanTargetGround). A constructor offers its own buildings (its `Constructs` list) and its Cancels; a
-/// build menu is offered while something in it is in the game, so the Deployment Center's W, Advanced Construction,
-/// shows unavailable: none of its buildings exists yet (design change 0104: "greyed placeholders").
+/// AttackType's CanTargetGround). A constructor offers its own buildings (its `Constructs` list) and its Cancels, a
+/// Beacon the buildings of its Constructs List, a type that may be transforming its Cancel; a building that isn't in
+/// the game is offered by no one (design change 0124: "shown but unavailable"). A build menu is offered while it
+/// shows something, so the Deployment Center's W, Advanced Construction, shows unavailable: none of its buildings
+/// exists yet, and they are hidden (design change 0104: "greyed placeholders"); the Beacon's Warp In (Advanced) opens,
+/// on its unavailable buildings.
 pub fn offers(kind: ObjectKind, command: PanelCommand) -> bool {
     match command {
         PanelCommand::Construct(building) | PanelCommand::PlaceReady(building) => {
@@ -313,13 +362,11 @@ pub fn offers(kind: ObjectKind, command: PanelCommand) -> bool {
         }
         PanelCommand::CancelConstruction | PanelCommand::CancelReady => return constructs(kind),
         PanelCommand::BuildMenu(menu) => {
-            return grid(kind).contains(&Some(command))
-                && menu
-                    .entries()
-                    .iter()
-                    .flatten()
-                    .any(|&building| construction::recipe(kind, building).is_some());
+            return grid(kind).contains(&Some(command)) && menu_grid(kind, menu).iter().any(Option::is_some);
         }
+        PanelCommand::WarpIn(building) => return transform::warp_in_recipe(kind, building).is_some(),
+        PanelCommand::Planned(_) => return false,
+        PanelCommand::CancelTransform => return colonists::becomes(kind),
         _ => {}
     }
     if !grid(kind).contains(&Some(command)) {

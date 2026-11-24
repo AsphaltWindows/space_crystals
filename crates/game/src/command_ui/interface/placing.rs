@@ -1,27 +1,60 @@
 //! AwaitingPlacement's building (`factions/gdo/structures.md > DeploymentCenter >
 //! ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`, `factions/gdo/economy.md > ExtractionFacility >
-//! ObjectInterfaceState[ExtractionFacility] > AwaitingPlacement`): which one is placed ([`Placing`]), where its ghost
-//! stands under the cursor ([`Placing::origin_under`]), and how the placement keys turn it ([`Placing::turned`]). The
-//! ghost and the build area overlay that show it are `crate::placement`'s.
+//! ObjectInterfaceState[ExtractionFacility] > AwaitingPlacement`, `factions/colonists/units.md > Drone
+//! ObjectInterfaceState > A: Deploy`, `factions/colonists/economy.md > Warp In > Warp In Command`): which one is
+//! placed and who builds it ([`Placing`], [`Builder`]; plan decision T23), where its ghost stands
+//! ([`Placing::origin`]), and how the placement keys turn it ([`Placing::turned`]). A Deploy given to a group of
+//! Drones goes to one of them ([`deploy_recipient`], design change 0125). The ghost and the build area overlay that
+//! show it are `crate::placement`'s.
 //!
 //! The placement keys are the ones the map editor turns its structures with, one definition for both: the shared
 //! placement actions of the input layer (`crate::input::InputAction::is_placement`, which take R, Shift+R, F and
 //! Shift+F while the game reports a placement, `crate::input::Placing`), and their turns
 //! (`crate::editor::orientation::Turn`: as seen on the map).
 
+use std::collections::BTreeSet;
+
 use bevy::math::Vec2;
 use sc_sim::placement::footprint_size;
-use sc_sim::{BuildingOrientation, ObjectId, ObjectKind, SU_PER_GU, TilePos};
+use sc_sim::{
+    BuildingOrientation, Command, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, SU_PER_GU, Sim, TilePos,
+    deploy, transform,
+};
 
+use super::PanelCommand;
 use crate::editor::orientation::Turn;
+use crate::selection::Selection;
 
-/// `> AwaitingPlacement`: the building ready to place that the local player is placing (plan decision T10).
+/// Who builds the building placed (plan decision T23: "a constructor, a worker or a Beacon"), which decides where its
+/// ghost stands, what checks it and what a click sends.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Builder {
+    /// A GDO constructor holding the building ready: the ActiveGroup's one Deployment Center or Extraction Facility
+    /// (`core/entities.md > Placement Validation > Direct Placement`: the ghost under the cursor,
+    /// `Sim::placement_check`, `ConstructionCommand::Place`). Placement never moves on to another one
+    /// (`> SelectionGroup > No smart-casting`, design change 0071).
+    Constructor(ObjectId),
+    /// The Colonists' Drones of the ActiveGroup, one of which each click sends to deploy into a Beacon (`> Worker-Built
+    /// Structures`: the ghost under the cursor, `Sim::deploy_check`, `OrderKind::Deploy`; [`deploy_recipient`]).
+    Drones {
+        /// A Shift-click has sent a Deploy and a Drone of the group has none yet (`systems/controls/selection_and_hud.md
+        /// > AwaitingTarget > Shift while placing > Exception, Drones`, design change 0125): "Shift-placement stays
+        /// active and each Shift-click goes to the next Drone", while Shift is held; letting go of it ends placement
+        /// (`> Shift while placing`: "releasing Shift ends placement").
+        queued: bool,
+    },
+    /// A Beacon warping the building in on itself (`> Warp In`): the ghost is the footprint derived from the Beacon
+    /// and the orientation (`sc_sim::transform::warp_in_footprint`, design change 0121: "No cursor snapping"),
+    /// wherever the cursor is; `Sim::warp_in_check`, `ConstructionCommand::WarpIn`.
+    Beacon(ObjectId),
+}
+
+/// `> AwaitingPlacement`: the building that the local player is placing, and who builds it (plan decisions T10,
+/// T23).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Placing {
-    /// The constructor holding it ready: the ActiveGroup's one Deployment Center or Extraction Facility. Placement
-    /// never moves on to another one (`> SelectionGroup > No smart-casting`, design change 0071).
-    pub constructor: ObjectId,
-    /// The ready building.
+    pub builder: Builder,
+    /// The building placed: the ready one, the Beacon a Drone deploys into, the one a Beacon warps in.
     pub kind: ObjectKind,
     /// How the ghost is turned (`core/entities.md > Structure Type`: flipped first, then rotated clockwise), which a
     /// click places it with. Unturned as placement starts (placeholder: the design doesn't say whether the last
@@ -33,10 +66,46 @@ impl Placing {
     /// The placement of `constructor`'s ready `kind`, unturned.
     pub fn new(constructor: ObjectId, kind: ObjectKind) -> Self {
         Self {
-            constructor,
+            builder: Builder::Constructor(constructor),
             kind,
             orientation: BuildingOrientation::default(),
         }
+    }
+
+    /// The placement of the Beacon a Drone of the ActiveGroup deploys into (`factions/colonists/units.md > Drone
+    /// ObjectInterfaceState > A: Deploy`), no Deploy sent yet.
+    pub fn deploy() -> Self {
+        Self {
+            builder: Builder::Drones { queued: false },
+            kind: deploy::BEACON_DEPLOYMENT.kind,
+            orientation: BuildingOrientation::default(),
+        }
+    }
+
+    /// The placement of the `kind` that Beacon `beacon` warps in, unturned: centred on the Beacon, an odd size's
+    /// extras at the bottom-right (`> Warp In Command`, design change 0121).
+    pub fn warp_in(beacon: ObjectId, kind: ObjectKind) -> Self {
+        Self {
+            builder: Builder::Beacon(beacon),
+            kind,
+            orientation: BuildingOrientation::default(),
+        }
+    }
+
+    /// The panel command whose slot the placement belongs to, which the panel marks while it lasts: the ready
+    /// building's, the Deploy, the menu entry of the building warped in.
+    pub fn command(self) -> PanelCommand {
+        match self.builder {
+            Builder::Constructor(_) => PanelCommand::PlaceReady(self.kind),
+            Builder::Drones { .. } => PanelCommand::Deploy,
+            Builder::Beacon(_) => PanelCommand::WarpIn(self.kind),
+        }
+    }
+
+    /// Whether the ghost follows the cursor ("follows cursor, snapped to grid"): all but a Warp In's, which stays on
+    /// its Beacon.
+    pub fn follows_cursor(self) -> bool {
+        !matches!(self.builder, Builder::Beacon(_))
     }
 
     /// The footprint's size `(w, h)` in tiles, as turned: "Non-square buildings swap footprint dimensions when
@@ -59,13 +128,64 @@ impl Placing {
         Some(TilePos::new(snap(ground.x, w), snap(ground.y, h)))
     }
 
+    /// The top-left tile of the ghost's footprint in `sim`, the cursor on the ground point `ground` if it is over the
+    /// map: under the cursor ([`Placing::origin_under`]), or for a Warp In the footprint derived from the Beacon as
+    /// it stands (`sc_sim::transform::warp_in_footprint`, design change 0121: "moving the mouse never changes the
+    /// ghost"), wherever the cursor is. `None` without a footprint: no cursor over the map, a Beacon gone.
+    pub fn origin(self, sim: &Sim, ground: Option<Vec2>) -> Option<TilePos> {
+        match self.builder {
+            Builder::Beacon(beacon) => {
+                let placement = sim.object(beacon)?.placement?;
+                transform::warp_in_footprint(&placement, self.kind, self.orientation).map(|p| p.origin)
+            }
+            Builder::Constructor(_) | Builder::Drones { .. } => self.origin_under(ground?),
+        }
+    }
+
     /// The same, with the ghost turned by `turn`: "R rotates the ghost 90 degrees clockwise, Shift+R rotates 90
     /// degrees counter-clockwise. [...] F flips the ghost horizontally, Shift+F flips vertically", as seen on the
-    /// map, whichever way it is turned already.
+    /// map, whichever way it is turned already; a Warp In's about the Beacon's centre (design change 0121,
+    /// [`Placing::origin`]). A Deploy's Beacon isn't turned: the order has no orientation (`sc_sim::deploy::site`),
+    /// and its sides are all alike (AAAA).
     pub fn turned(self, turn: Turn) -> Self {
+        if matches!(self.builder, Builder::Drones { .. }) {
+            return self;
+        }
         Self {
             orientation: turn.apply(self.orientation),
             ..self
         }
     }
+}
+
+/// Design change 0125 (`systems/controls/selection_and_hud.md > SelectionGroup > Groupable workers used up by a
+/// build`): the Drone of the ActiveGroup that a Deploy goes to, "the first in selection order (the SelectionGroup's
+/// portrait order in the SelectionPanel) that can still take it": for a plain click the first one, whose orders the
+/// Deploy replaces; for a Shift-click (`queue`) "the first Drone that has no Deploy in its queue yet", one not among
+/// `deploying` ([`deploying`]). None when the ActiveGroup is no Drones, or no Drone of it can take a Shift-click's.
+pub fn deploy_recipient(selection: &Selection, queue: bool, deploying: &BTreeSet<ObjectId>) -> Option<ObjectId> {
+    let group = selection.active_group().filter(|g| deploy::deploys(g.kind()))?;
+    group.instances.into_iter().find(|id| !queue || !deploying.contains(id))
+}
+
+/// The Drones of `player`'s that have a Deploy, current or queued: those the sim has (`Sim::pending_deploys`), and
+/// those named by a Deploy among the commands `unsent` that the sim hasn't applied yet (the client's
+/// `PendingCommands`), so that two Shift-clicks before the next tick go to two Drones.
+pub fn deploying(sim: &Sim, player: PlayerId, unsent: &[PlayerCommand]) -> BTreeSet<ObjectId> {
+    let sent = unsent
+        .iter()
+        .filter(|c| c.player == player)
+        .flat_map(|c| match &c.command {
+            Command::Order {
+                units,
+                kind: OrderKind::Deploy { .. },
+                ..
+            } => units.clone(),
+            _ => Vec::new(),
+        });
+    sim.pending_deploys(player)
+        .into_iter()
+        .map(|(drone, _)| drone)
+        .chain(sent)
+        .collect()
 }

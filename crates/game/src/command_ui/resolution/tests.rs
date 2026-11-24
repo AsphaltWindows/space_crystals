@@ -83,9 +83,9 @@ const SHIELDED: UnitCapabilities = combat_unit(Some(TargetDomain::Ground), false
 const UNARMED: UnitCapabilities = combat_unit(None, true);
 /// One that attacks anything.
 const UNIVERSAL: UnitCapabilities = combat_unit(Some(TargetDomain::Universal), true);
-/// A Drone: a worker without an attack, whose panel isn't built yet (no template, slice M3-J2); and one with a load.
+/// A Drone: a worker without an attack, of the Drone's template (slice M3-J1); and one with a load.
 const DRONE: UnitCapabilities = UnitCapabilities {
-    template: None,
+    template: Some(InterfaceTemplate::Drone),
     abilities: Some(Abilities {
         attack: None,
         may_attack: true,
@@ -94,7 +94,7 @@ const DRONE: UnitCapabilities = UnitCapabilities {
     }),
 };
 const LOADED_DRONE: UnitCapabilities = UnitCapabilities {
-    template: None,
+    template: Some(InterfaceTemplate::Drone),
     abilities: Some(Abilities {
         attack: None,
         may_attack: true,
@@ -236,6 +236,22 @@ fn a_drone_resolves_a_right_click_by_its_own_table() {
     assert_eq!(resolved(ARMED, unknown), Some(object(6)));
     assert_eq!(resolved(DRONE, unknown), Some(object(6)));
     assert_eq!(right_click_display(&[DRONE], &patch()), PointerDisplay::Move);
+}
+
+/// Slice M3-J1's objects without a right-click: the Beacon, and an object that transforms (a Beacon deploying, a
+/// portal under Warp In: no rally point, design change 0116), which gets neither a template nor abilities.
+#[test]
+fn the_beacon_and_a_transforming_object_resolve_nothing() {
+    let modes = Modes::default().with_transforming([id(2)]);
+    let beacon = UnitCapabilities::of(id(3), ObjectKind::Beacon, &modes);
+    assert_eq!(beacon.template, Some(InterfaceTemplate::Beacon));
+    assert_eq!(object_right_click(beacon, &enemy()), None);
+    for kind in [ObjectKind::RoboPortal, ObjectKind::Beacon] {
+        let transforming = UnitCapabilities::of(id(2), kind, &modes);
+        assert_eq!((transforming.template, transforming.abilities), (None, None), "{kind:?}");
+        assert_eq!(object_right_click(transforming, &patch()), None, "{kind:?}");
+        assert_ne!(UnitCapabilities::of(id(3), kind, &modes).template, None, "{kind:?}");
+    }
 }
 
 /// One order per distinct order, in the order each first comes, each to its units in their order.

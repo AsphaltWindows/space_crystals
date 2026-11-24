@@ -3,7 +3,10 @@
 
 use sc_sim::{Ability, ConstructionCommand, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand, Sim};
 
-use super::{BuildMenu, Conditions, InterfaceState, PanelCommand, offers, slot_index, state_grid};
+use super::{
+    BuildMenu, Conditions, InterfaceState, PanelCommand, TRANSFORMING_GRID, WhyUnavailable, offers, slot_index,
+    state_grid,
+};
 use crate::input::CommandSlot;
 use crate::selection::Selection;
 
@@ -36,10 +39,12 @@ pub enum ButtonLook {
     /// construct while the bank can't pay for it, or while the constructor constructs or holds a building ready: `>
     /// DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`, "Other build options unavailable"; a Convert none
     /// of whose recipients may convert, all of them converting or waiting to: `factions/colonists/units.md > Weapon
-    /// Conversion > Eligibility`, design change 0153), and a command the sim has no order for yet.
+    /// Conversion > Eligibility`, design change 0153; a Warp In while the Beacon deploys or the bank can't pay for
+    /// it), and a command the sim has no order for yet.
     Disabled,
     /// In the template, but this type can't (`> BasicCombatUnitInterfaceState`: the conditional Reverse and
-    /// AttackGround; a build menu none of whose buildings is in the game yet).
+    /// AttackGround; a build menu none of whose buildings is in the game yet; a building of the Beacon's Warp In
+    /// menus that isn't in the game yet, design change 0124).
     Unavailable,
     /// The Back button.
     Back,
@@ -53,6 +58,9 @@ pub struct PanelSlot {
     /// A toggled command that is on: the Riot Shields it goes to are all up or on their way up
     /// ([`super::Modes`]).
     pub on: bool,
+    /// Why a disabled or unavailable button is greyed out, which pressing it says (design change 0162); none for
+    /// the others.
+    pub why: Option<WhyUnavailable>,
 }
 
 impl PanelSlot {
@@ -105,53 +113,76 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
 
 /// `> CommandPanel`: the commands of the ActiveGroup's ObjectInterfaceState in their slots, for a commandable
 /// selection ([`commandable`]): those of its state ([`state_grid`]: a constructor's follow what it constructs and
-/// the menu that is open). A common command ([`is_common`]) and a group command look different; in AwaitingTarget the
-/// PendingCommand is marked and the others wait, in AwaitingPlacement the building being placed is marked and the
-/// others wait, and in every state but DefaultState Z is Back (`> Standard Slot Assignments`). What the game allows
-/// now ([`Conditions`]) disables a command it doesn't let go to its recipients (Attack with every shield up, a Train,
-/// a Cancel Production, a constructor's command or a Convert the gate would refuse), and turns the Riot Shield on.
+/// the menu that is open), or only X Cancel while the whole ActiveGroup transforms ([`TRANSFORMING_GRID`], design
+/// change 0116). A common command ([`is_common`]) and a group command look different; in AwaitingTarget the
+/// PendingCommand is marked and the others wait, in AwaitingPlacement the building being placed is marked
+/// (`super::Placing::command`) and the others wait, and in every state but DefaultState Z is Back (`> Standard Slot
+/// Assignments`). What the game allows now ([`Conditions`]) disables a command it doesn't let go to its recipients
+/// (Attack with every shield up, a Train, a Cancel Production, a constructor's command, a Warp In or a Convert the
+/// gate would refuse), and turns the Riot Shield on. Each greyed-out button says why ([`PanelSlot::why`]).
 pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Conditions) -> Panel {
     let mut panel = Panel::default();
     let Some(active) = selection.active() else {
         return panel;
     };
-    for (slot, command) in CommandSlot::all().zip(state_grid(active.kind, interface, conditions.constructor)) {
+    let grid = if conditions.transforming {
+        TRANSFORMING_GRID
+    } else {
+        state_grid(active.kind, interface, conditions.constructor)
+    };
+    for (slot, command) in CommandSlot::all().zip(grid) {
         let Some(command) = command else {
             continue;
         };
-        let look = if !offers(active.kind, command) {
-            ButtonLook::Unavailable
+        let (look, why) = if !offers(active.kind, command) {
+            (ButtonLook::Unavailable, Some(not_offered(command)))
         } else {
             match interface {
-                InterfaceState::AwaitingTarget { pending, .. } if pending == command => ButtonLook::Pending,
-                InterfaceState::AwaitingPlacement(placing) if command == PanelCommand::PlaceReady(placing.kind) => {
-                    ButtonLook::Pending
+                InterfaceState::AwaitingTarget { pending, .. } if pending == command => (ButtonLook::Pending, None),
+                InterfaceState::AwaitingPlacement(placing) if command == placing.command() => {
+                    (ButtonLook::Pending, None)
                 }
-                InterfaceState::AwaitingTarget { .. } | InterfaceState::AwaitingPlacement(_) => ButtonLook::Disabled,
+                InterfaceState::AwaitingTarget { .. } | InterfaceState::AwaitingPlacement(_) => {
+                    (ButtonLook::Disabled, Some(WhyUnavailable::Waiting))
+                }
                 InterfaceState::DefaultState | InterfaceState::BuildMenu(_) => {
-                    if !command.has_sim_command() || !conditions.allows(selection, command) {
-                        ButtonLook::Disabled
+                    let why = (!command.has_sim_command())
+                        .then_some(WhyUnavailable::NotYet)
+                        .or_else(|| conditions.unavailable(selection, command));
+                    if why.is_some() {
+                        (ButtonLook::Disabled, why)
                     } else if is_common(selection, command) {
-                        ButtonLook::Common
+                        (ButtonLook::Common, None)
                     } else {
-                        ButtonLook::Group
+                        (ButtonLook::Group, None)
                     }
                 }
             }
         };
         let button = PanelButton::Command(command);
         let on = command.toggles() && conditions.modes.shields_up(&recipients(selection, command));
-        panel.set(slot, PanelSlot { button, look, on });
+        panel.set(slot, PanelSlot { button, look, on, why });
     }
     if interface != InterfaceState::DefaultState {
         let back = PanelSlot {
             button: PanelButton::Back,
             look: ButtonLook::Back,
             on: false,
+            why: None,
         };
         panel.set(CommandSlot::BACK, back);
     }
     panel
+}
+
+/// Why a command the ActiveGroup's type doesn't offer is unavailable ([`offers`]): Reverse and AttackGround are the
+/// type's conditional commands; anything else isn't in the game yet (a building of the Beacon's menus, a build menu
+/// with none of its buildings).
+fn not_offered(command: PanelCommand) -> WhyUnavailable {
+    match command {
+        PanelCommand::Reverse | PanelCommand::AttackGround => WhyUnavailable::NotForThisType,
+        _ => WhyUnavailable::NotYet,
+    }
 }
 
 /// What pressing a slot (its hotkey or its button) does.
@@ -172,21 +203,28 @@ pub enum SlotPress {
     OpenMenu(BuildMenu),
     /// A StateOnlyTransition to AwaitingPlacement of the ready building, a `kind`.
     AwaitPlacement(ObjectKind),
+    /// A StateOnlyTransition to AwaitingPlacement of a `kind` that the active Beacon warps in.
+    AwaitWarpIn(ObjectKind),
+    /// A StateOnlyTransition to AwaitingPlacement of the Beacon one of the active Drones deploys into.
+    AwaitDeploy,
     /// Back to the previous state (`InterfaceState::back`).
     Back,
-    /// Nothing: an empty slot, or a button that can't be pressed now.
+    /// Nothing: an empty slot, or a button that can't be pressed now (a greyed-out one says why:
+    /// [`PanelSlot::why`]).
     Nothing,
 }
 
 /// `> DefaultState`: "Command hotkeys or button clicks initiate transitions to AwaitingTarget or issue immediate
-/// commands"; a constructor's enter its build menus and AwaitingPlacement or issue construction commands;
-/// `> Standard Slot Assignments > Z`: Back.
+/// commands"; a constructor's enter its build menus and AwaitingPlacement or issue construction commands, a
+/// Beacon's its Warp In menus and a Warp In's placement, a Drone's Deploy its placement; `> Standard Slot
+/// Assignments > Z`: Back.
 pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
     match panel.get(slot) {
         Some(PanelSlot {
             button: PanelButton::Command(command),
             look: ButtonLook::Common | ButtonLook::Group,
             on,
+            ..
         }) => {
             if command.needs_target() {
                 SlotPress::AwaitTarget(command)
@@ -202,6 +240,10 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
                 SlotPress::OpenMenu(menu)
             } else if let PanelCommand::PlaceReady(kind) = command {
                 SlotPress::AwaitPlacement(kind)
+            } else if let PanelCommand::WarpIn(kind) = command {
+                SlotPress::AwaitWarpIn(kind)
+            } else if command == PanelCommand::Deploy {
+                SlotPress::AwaitDeploy
             } else {
                 SlotPress::Nothing
             }

@@ -123,8 +123,8 @@ impl MapTarget {
 /// structure, whose right-click sets its rally point.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct UnitCapabilities {
-    /// Its type's ObjectInterfaceState template; none for a type whose panel isn't built yet (the Drone's, slice
-    /// M3-J2) and for one without commands. A producing structure's right-click sets its rally point (`> Production
+    /// Its type's ObjectInterfaceState template; none for a type without commands and for an object that transforms
+    /// (slice M3-J1). A producing structure's right-click sets its rally point (`> Production
     /// Building Default Right-Click`): **placeholder reading**, design change 0062 ("Buildings in the selection
     /// aren't affected") is read as the buildings without a right-click of their own, so a Barracks selected with
     /// units sets its rally point as the units take their orders. A constructor's does nothing.
@@ -135,11 +135,14 @@ pub struct UnitCapabilities {
 }
 
 impl UnitCapabilities {
-    /// Those of the selected object `id`, of type `kind`, whose mode and load are in `modes`.
+    /// Those of the selected object `id`, of type `kind`, whose mode and load are in `modes`. An object that
+    /// transforms resolves nothing (`factions/colonists/economy.md > Beacon Deployment > While transforming: only
+    /// Cancel`, design change 0116: "no rally point"): a portal under Warp In sets no rally point (slice M3-J1).
     pub fn of(id: ObjectId, kind: ObjectKind, modes: &Modes) -> Self {
+        let transforming = modes.transforming(id);
         Self {
-            template: InterfaceTemplate::of(kind),
-            abilities: kind.def().unit.as_ref().map(|unit| Abilities {
+            template: InterfaceTemplate::of(kind).filter(|_| !transforming),
+            abilities: (kind.def().unit.as_ref()).filter(|_| !transforming).map(|unit| Abilities {
                 attack: unit.attack.map(|attack| attack.target_domain),
                 may_attack: modes.can_attack(id),
                 worker: unit.worker.is_some(),
@@ -180,8 +183,17 @@ pub enum Resolved {
 pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Option<Resolved> {
     match object.template {
         Some(InterfaceTemplate::Production) => Some(Resolved::Rally(rally_target(target))),
-        Some(InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility) => None,
-        Some(InterfaceTemplate::BasicCombatUnit) | None => unit_right_click(object, target).map(Resolved::Order),
+        // A constructor produces no units, and the Beacon has no right-click.
+        Some(InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility | InterfaceTemplate::Beacon) => {
+            None
+        }
+        // A unit's default command, by the sim's one rule: the BasicCombatUnit's table and the Drone's own
+        // (`factions/colonists/units.md > Drone > Right-Click Resolution`; slice M3-R: "Scout a field and leave, then
+        // right-click a greyed patch with Drones"; the Drone's other UI is slice M3-J2's). Without a template, an
+        // object that transforms, which resolves nothing (`unit_right_click`: it has no abilities then).
+        Some(InterfaceTemplate::BasicCombatUnit | InterfaceTemplate::Drone) | None => {
+            unit_right_click(object, target).map(Resolved::Order)
+        }
     }
 }
 
