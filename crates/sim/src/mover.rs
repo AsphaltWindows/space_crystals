@@ -161,7 +161,9 @@ pub struct Mover {
     /// Index into `path` of the waypoint the unit is heading for.
     pub next: u16,
     pub path_state: PathState,
-    /// The sim's `nav_version` when the path was planned; a different one means the obstacles changed.
+    /// The version of its owner's path knowledge when the path was planned (`PlayerKnowledge::version`; the sim's
+    /// `nav_version` for a unit without an owner): a different one means the obstacles its owner knows of changed,
+    /// and the unit checks its path again (`systems/controls/behaviors.md > PathKnowledge`).
     pub nav_version: u32,
     /// The point the path was planned to.
     pub planned_target: Vec2,
@@ -258,7 +260,7 @@ impl Mover {
     }
 
     /// Phase 5c hands the unit its path: waypoints from the unit's position to the goal, planned to
-    /// `planned_target` on the grids of `nav_version`. Progress is measured afresh on the new path, but the stuck
+    /// `planned_target` on its owner's grids of knowledge version `nav_version`. Progress is measured afresh on the new path, but the stuck
     /// clock (`last_progress`) runs on: a new path alone is no progress (`docs/movement.md > 6.5`).
     pub fn follow(&mut self, path: Vec<Vec2>, planned_target: Vec2, nav_version: u32) {
         // Head for the first waypoint after the start.

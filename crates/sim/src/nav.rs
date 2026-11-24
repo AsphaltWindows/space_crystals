@@ -7,7 +7,8 @@
 //! - [`Search`] (5.3): the A\* scratch arrays; [`Search::astar`] and the Dijkstra [`Search::field`] share one loop.
 //! - [`los`] and [`smooth`] (5.4): line of sight for a box, and string-pulling of a tile path into waypoints
 //!   ([`smooth_avoiding`] keeps a repath's detour around its avoid tiles).
-//! - [`find_path`] and [`serve`] (5.5): one path, and a tick's requests within the expansion budget.
+//! - [`find_path`] and [`serve`] (5.5): one path, and a tick's requests within the expansion budget
+//!   ([`serve_on`] when they plan on several sets of grids: the sim keeps one per player, for what each knows).
 //! - [`reachable_point`] (6.4): where a group member goes when its own destination is out of its reach.
 //!
 //! Every discrete decision of a search (costs, heap keys, tie-breaks, retargeting) is integer arithmetic. Floats
@@ -31,7 +32,7 @@ use crate::units::{SU_PER_GU, TilePos};
 pub use grid::NavGrid;
 pub use los::{box_clear, los, reachable_point, segment_avoids, smooth, smooth_avoiding};
 pub use search::{Search, TilePath};
-pub use serve::{Path, PathFail, PathGroup, PathRequest, ServeOutput, Served, find_path, serve};
+pub use serve::{Path, PathFail, PathGroup, PathRequest, ServeOutput, Served, find_path, serve, serve_on};
 
 /// `docs/movement.md > 5.5`: node expansions per tick within which the path server starts jobs (tuning const).
 pub const PATH_BUDGET: u32 = 32_000;
@@ -53,12 +54,6 @@ pub const RESOURCES_BLOCK: bool = true;
 /// Whether a Rugged tile is impassable for a base with RuggedTerrain = false. Default until question Q0011
 /// (gap G11) is answered: yes.
 pub const RUGGED_IMPASSABLE: bool = true;
-
-/// Whether routes are planned on the true map, including structures the owner has never seen. Default until
-/// question Q0011 (gap G12) is answered: yes. The caller reads this switch when it collects the blocking
-/// footprints: `true` means every blocking object, whoever has seen it. `false` would need grids per player and
-/// isn't built.
-pub const ROUTE_ON_TRUE_MAP: bool = true;
 
 /// Which tiles a unit may stand on (`docs/movement.md > 3`, `core/map.md > Tile`). Air units need no grid.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -171,6 +166,15 @@ impl Nav {
     pub fn rebuild(&mut self, map: &Map, blockers: &[TileRect]) {
         for grid in &mut self.grids {
             *grid = NavGrid::build(map, grid.class(), grid.size(), blockers, self.rules);
+        }
+    }
+
+    /// `docs/movement.md > 5.7`: the rebuild after the blocking footprints changed on a map that didn't
+    /// ([`NavGrid::restamp`]): the grids [`Nav::rebuild`] makes on the map they were built from, without reading
+    /// the terrain again.
+    pub fn restamp(&mut self, blockers: &[TileRect]) {
+        for grid in &mut self.grids {
+            grid.restamp(blockers);
         }
     }
 

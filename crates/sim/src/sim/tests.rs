@@ -202,6 +202,7 @@ fn state_hash_covers_every_field() {
         ("next_group", |s| s.next_group += 1),
         ("auto_targeting", |s| s.auto_targeting = !s.auto_targeting),
         ("nav_version", |s| s.nav_version += 1),
+        ("path knowledge version", |s| s.path_knowledge.bump(PlayerId(1))),
         ("orders none", |s| obj(s, 3).orders = None),
         ("queue", |s| {
             orders(s, 3).queue.pop_front();

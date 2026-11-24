@@ -291,8 +291,9 @@ fn searches(t: &mut TestSim, ticks: u32) -> u32 {
     searches
 }
 
-/// `docs/movement.md > 5.6`: when the ground changes, a unit checks line of sight along its remaining path on its
-/// staggered tick. An object off the path costs no search; one on it costs exactly one.
+/// `docs/movement.md > 5.6`: when what its owner knows of the ground changes, a unit checks line of sight along its
+/// remaining path on its staggered tick. An object off the path costs no search; one on it costs exactly one, once
+/// the owner has seen it (`systems/controls/behaviors.md > PathKnowledge`).
 #[test]
 fn an_object_spawned_on_the_path_forces_exactly_one_repath() {
     let station = |tile: TilePos| DebugCommand::Spawn {
@@ -310,10 +311,24 @@ fn an_object_spawned_on_the_path_forces_exactly_one_repath() {
         .debug_at(30, station(TilePos::new(8, 3))); // across it: x 512..640, y 192..320
     assert_eq!(searches(&mut t, 9), 1, "the order's path");
     assert_eq!(searches(&mut t, 20), 0, "the first station is off the path");
-    assert_eq!((t.sim().nav_version(), t.mover(1).nav_version), (1, 1));
+    // The true grids follow at once; the unit's owner knows of a station only once the unit sees it, 5 GU away.
+    let known = |t: &TestSim| t.sim().path_knowledge().version(P1).unwrap();
+    assert_eq!((t.sim().nav_version(), known(&t), t.mover(1).nav_version), (1, 0, 0));
     assert_eq!(t.mover(1).path.len(), 2);
-    assert_eq!(searches(&mut t, 8), 1, "the second one cuts it");
-    assert_eq!((t.sim().nav_version(), t.mover(1).nav_version), (2, 2));
+    assert_eq!(searches(&mut t, 1), 0);
+    assert_eq!(
+        (t.sim().nav_version(), known(&t)),
+        (2, 0),
+        "the second one, across the path"
+    );
+    // The one across the path comes into sight first, straight ahead.
+    while known(&t) == 0 {
+        assert!(t.sim().tick() < 200);
+        assert_eq!(searches(&mut t, 1), 0);
+    }
+    assert_eq!(t.mover(1).path.len(), 2, "not replanned before its next check");
+    assert_eq!(searches(&mut t, 4), 1, "it cuts the path");
+    assert_eq!(t.mover(1).nav_version, 1);
     assert!(t.mover(1).path.len() > 2);
     assert_eq!(t.mover(1).repaths_left, MAX_REPATHS, "not counted against the cap");
     let mut rest = 0;
@@ -322,6 +337,7 @@ fn an_object_spawned_on_the_path_forces_exactly_one_repath() {
         rest += searches(&mut t, 1);
     }
     assert_eq!(rest, 0);
+    assert_eq!(known(&t), 1, "the station to the south never came into sight");
     assert_eq!((t.pos(1), t.status(1)), (goal, MoveStatus::Arrived));
 }
 
