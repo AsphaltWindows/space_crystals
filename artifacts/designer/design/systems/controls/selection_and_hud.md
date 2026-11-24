@@ -24,6 +24,21 @@ A group of selected ObjectInstances that share the same object type. For Groupab
 ### Type - ObjectEnum
 ### Instances - array of ObjectInstance references
 
+### No smart-casting
+A command issued from the command panel (hotkey or button) goes to **every instance it is issued to** (the whole Selection for a common command, the whole ActiveGroup for a group command; see CommandPanel). The game **never hands a group's command to just one member** on the player's behalf ("smart-casting"), for any command (user, 2026-11-23).
+
+Rationale (user): smart-casting makes mass use of abilities effortless, which constrains how powerful unit abilities can realistically be. Workers follow the same rule.
+
+**Individual use is done through Groupable** (user, 2026-11-23). Groupable is fixed per object type, chosen by the design:
+- **Groupable = false** for units whose commands are used **one unit at a time**: **workers that are used up by a build** (Syndicate Agent, Colonists Drone: each build or deploy order needs one specific worker) and **caster-type units** (one cast should spend one unit's energy, not the whole group's). Each instance is its own SelectionGroup, so the player casts with one unit, presses **Tab** to the next, and casts again, with no mouse reselection. This is the intended middle ground: easier than picking units out with the mouse, harder than smart-casting.
+- **Groupable = true** for units whose abilities are normally used **all together** (e.g. the Peacekeeper's Riot Shield), including workers that **share** a build: Cults Recruits all build the same building together, so Construct goes to every selected Recruit (user, 2026-11-24).
+
+To use a Groupable unit's ability on only one instance, the player selects that instance alone (e.g. left-click its portrait in the SelectionPanel).
+
+**Group production with limited resources** (user, 2026-11-24): when a production command (e.g. Q: Peacekeeper) goes to several selected production buildings and the player can't pay for all of them (crystals, GDO Unit Control or any other cost), **as many as possible** queue it. The buildings are served in order of **least work queued first**: the least total remaining production time in their queue (including the unit in production), ties broken in a fixed, deterministic order. The rest don't queue (insufficient-resources feedback). This spreads production across idle buildings first, without picking a single building for the player.
+
+Considered and **parked** (user, 2026-11-23): a player-controlled toggle of a type's grouping (e.g. from the SelectionPanel portraits). Start with the fixed per-type flag; revisit if needed.
+
 ## BoxSelection
 When the player drags a selection box, the objects captured are filtered by a 5-tier priority system. The highest-priority tier containing any objects wins; all lower tiers are excluded.
 
@@ -84,7 +99,7 @@ A set of 10 saved selections (indexed 0-9) stored per player as part of ControlS
 All default inputs in the controls docs (map clicks, control-group keys, command panel hotkeys, camera panning, command queueing) are **defaults**. Players will be able to **rebind** them; when rebinding is added is up to implementation scheduling (user, 2026-11-23).
 
 ## ObjectInterfaceState[ObjectEnum]
-The current state of the command flow for the active selection group. Parameterized by ObjectEnum — each object type defines its own concrete set of interface states and transitions. Reset to the default state when the player changes the Selection or ActiveGroup (automatic removals such as deaths don't reset it unless the ActiveGroup becomes empty; see AwaitingTarget > Selection changes while targeting). The available InterfaceTransitions from any given ObjectInterfaceState depend on the game state of the instances in the active SelectionGroup. Each tick, the ObjectInterfaceState is validated against the active SelectionGroup's game state — if the current state is no longer valid (e.g., a structure's construction completed, changing what commands are available), it resets to the default state. For Ungroupable objects, the SelectionGroup always contains exactly one instance, so the ObjectInterfaceState can reliably read that instance's specific game state.
+The current state of the command flow for the active selection group. Parameterized by ObjectEnum — each object type defines its own concrete set of interface states and transitions. Reset to the default state when the player changes the Selection or ActiveGroup, **and on every control group recall even if it gives the same selection** (user, 2026-11-24: a recall refreshes the selection, and all menus reset; players shouldn't be pressing group keys in the middle of a multi-step command). This applies to every non-default state: AwaitingTarget, AwaitingPlacement, BuildMenu and other sub-menus (automatic removals such as deaths don't reset it unless the ActiveGroup becomes empty; see AwaitingTarget > Selection changes while targeting). The available InterfaceTransitions from any given ObjectInterfaceState depend on the game state of the instances in the active SelectionGroup. Each tick, the ObjectInterfaceState is validated against the active SelectionGroup's game state — if the current state is no longer valid (e.g., a structure's construction completed, changing what commands are available), it resets to the default state. For Ungroupable objects, the SelectionGroup always contains exactly one instance, so the ObjectInterfaceState can reliably read that instance's specific game state.
 
 ## InterfaceTransition
 A transition from one ControlState to another, triggered by player input. Each InterfaceTransition either only modifies the ControlState or also issues a Command to the selected objects.
@@ -169,13 +184,20 @@ Certain slots have standardized functions across all object types that use them.
 
 - **Z (bottom row, 1st slot / bottom-left)**: Back / Cancel menu. In any multi-stage menu (BuildMenu, ExpandMenu, EjectMenu, AwaitingTarget, AwaitingPlacement), Z returns to the previous state (StateOnlyTransition). Equivalent to Escape or right-click cancel.
 - **X (bottom row, 2nd slot)**: Cancel Production / Cancel Upgrade. In production buildings, cancels the last queued item and refunds cost. In structures with upgrades, cancels the in-progress upgrade and refunds cost.
-- **C (bottom row, 3rd slot)**: Set Rally Point. In unit-producing structures, enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState).
+- **C (bottom row, 3rd slot)**: Set Rally Point. In unit-producing structures, enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState). Clicking the **producing building itself** clears the rally point (RallyPoint = None; user, 2026-11-24).
 - **V (bottom row, 4th slot / bottom-right)**: no standard function; free for object-specific commands.
 
 ### Production Building Default Right-Click
 For all unit-producing structures, right-click from DefaultState sets the rally point:
 - Right-click Ground: sets rally point to that location
 - Right-click Object: sets rally point to that object
+- Right-click the building itself: **clears** the rally point (RallyPoint = None; user, 2026-11-24)
+
+### Rally points on enemy objects
+(user, 2026-11-24) A rally point on an enemy object only follows that object **while the owner can see it**. As soon as the enemy object leaves the owner's sight, the rally point **turns into a ground rally point at its last-seen position**. So:
+- A unit produced while the enemy is visible attacks it; one produced after the enemy was lost from sight moves to the last-seen position (matching chasing a target into the fog: systems/controls/behaviors.md > AttackingObject).
+- An enemy dying unseen in the fog doesn't change the rally point, so the rally marker never reveals hidden information. (The "reset to None when the object no longer exists" rule applies to own and neutral objects, and to enemies only while visible.)
+- Rallying on a remembered (fogged) enemy structure: TBD with Director question Q0017 point 2.
 
 ## DefaultState
 The default ObjectInterfaceState for a selection. The command panel displays available commands. Right-click performs a context-sensitive command based on what is under the cursor. Command hotkeys or button clicks initiate transitions to AwaitingTarget or issue immediate commands.
@@ -186,15 +208,23 @@ Context-sensitive command issued by right-clicking from DefaultState. The comman
 **Units that can't carry out the resolved command** (user, 2026-11-23): every selected unit acts on a right-click. Units that have the resolved command carry it out. Units that can't, e.g. an unarmed Supply Chopper, or ground-only Peacekeepers when the target is an aircraft, **move to or follow the target instead**: Move to the location, or Follow a unit (systems/controls/behaviors.md > MovingToObject). The group stays together.
 
 ## AwaitingTarget[CommandType]
-An ObjectInterfaceState entered after the player selects a command that requires a target. The command panel indicates which command is pending. Left-clicking a valid target issues the command via a CommandIssuingTransition and returns to DefaultState. The target may resolve to a different command than the one that initiated the state, depending on what is under the cursor. Escape or right-click cancels via a StateOnlyTransition back to DefaultState.
+An ObjectInterfaceState entered after the player selects a command that requires a target. The command panel indicates which command is pending. Left-clicking a valid target issues the command via a CommandIssuingTransition and returns to DefaultState (except while Shift is held; see Shift while targeting). The target may resolve to a different command than the one that initiated the state, depending on what is under the cursor. Escape or right-click cancels via a StateOnlyTransition back to DefaultState.
 
 **Other commands while targeting** (user, 2026-11-23): while a target is awaited, the command panel shows the pending command and Back/Cancel (Z). The other commands are **unavailable**: pressing their hotkeys or buttons does nothing. To change commands, the player cancels first (Escape, right-click or Z), then picks the new command.
 
-**Dragging while targeting** (user, 2026-11-23): a left-button drag while a target is awaited does **nothing**: no selection box is drawn, nothing is selected, and targeting stays active. A targeting click counts at the **press point** (where the button went down), even if the mouse moves before release (user, 2026-11-23). The command matches what was under the cursor when the player committed (e.g. pressing on an enemy and releasing on the ground still issues Attack on that enemy).
+**Dragging while targeting** (user, 2026-11-23): a left-button drag while a target is awaited does **nothing**. While targeting, a press and release only counts as a **drag** if the mouse moved more than a **larger click allowance** between press and release: **16 pixels** (placeholder, half a tile; user, 2026-11-24), instead of the normal drag threshold. Within the allowance it is a targeting click, so a slightly sloppy click on a moving enemy isn't lost; a deliberate drag away before release is a way to abort a press on the wrong target. On a drag: no selection box is drawn, nothing is selected, and targeting stays active. A targeting click counts at the **press point** (where the button went down), even if the mouse moves before release (user, 2026-11-23). The command matches what was under the cursor when the player committed (e.g. pressing on an enemy and releasing on the ground still issues Attack on that enemy).
 
 **Selection changes while targeting** (user, 2026-11-23):
-- **Player-initiated** selection or ActiveGroup changes (control group recall, Tab / Shift-Tab, portrait clicks) **cancel** targeting, per ObjectInterfaceState's reset rule.
+- **Player-initiated** selection or ActiveGroup changes (control group recall, Tab / Shift-Tab, portrait clicks) **cancel** targeting, per ObjectInterfaceState's reset rule. A control group recall cancels it **even if it recalls exactly the current selection** (user, 2026-11-24).
 - **Automatic removals** (a selected unit dies, or leaves the selection by entering a building, transport or tunnel) do **not** cancel targeting. Targeting is only cancelled if the **whole ActiveGroup** is gone, since nothing would be left to carry out the command.
+
+**Shift while targeting** (user, 2026-11-23): a Shift-click on a valid target **queues** the command (systems/controls/commands.md > Unit Command) and targeting **stays active while Shift is held**, so the player can place several targets or waypoints in a row with one command keypress (e.g. A, then Shift-click, Shift-click, Shift-click). Each Shift-click queues one more command. Targeting ends (back to DefaultState) when Shift is **released** after at least one queued click. A click without Shift issues the command and ends targeting as usual. TBD: releasing Shift before any target was clicked (presumably targeting simply continues, since nothing was issued).
+
+**Shift while placing** (AwaitingPlacement; user, 2026-11-23): the same rule applies. A Shift-click on a valid spot queues the build order and placement **stays active while Shift is held**, so one builder can be given several buildings in a row; releasing Shift ends placement. This only applies when the builder **can carry out more queued buildings**: e.g. Cults Recruits (the whole selected group) build one and walk together to the next (each order's cost is paid when it is given: factions/cults/economy.md > Build Command). When the builder **can't**, a Shift-click sends it and ends placement like a plain click:
+- an Agent goes inside the structure it builds (factions/syndicate/units.md > Tunnel Construction Flow), and a Drone becomes the Beacon (factions/colonists/units.md), so each takes exactly one placement;
+- a GDO Deployment Center or Extraction Facility only ever has one building ready to place.
+
+Placement **never moves on to another selected worker** automatically (No smart-casting, above): to place with the next Agent or Drone, the player presses Tab and issues the next order.
 
 **Invalid target clicks** (user, 2026-11-23): a left-click on a target the pending command can't use (shown by the Inactive pointer) is **ignored**. Targeting stays active and waits for a valid target, and the player gets short **feedback** (an "invalid target" message and/or sound; exact form TBD, ties into the future notification system).
 
@@ -339,6 +369,11 @@ A marker surrounding the target object's perimeter.
 | Patrol (destination) | Location | Orange |
 | Reverse | Location | Green |
 | Enter | Object | Green |
+| Rally point (ground) | Location | Green |
+| Rally point (own or neutral object) | Object | Green |
+| Rally point (enemy object) | Object | Red |
+
+**Rally points** (user, 2026-11-24): shown while the producing building is selected, with a **line** from the building to the rally point so distant or off-screen rally points are easy to follow. A cleared rally point (None) shows nothing.
 
 ### Color language:
 - Green = peaceful movement

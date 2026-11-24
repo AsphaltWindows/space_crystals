@@ -51,6 +51,8 @@ Order the unit to attack a specific ground location. Only available to units who
 ## AttackMove
 Order the unit to move to a target location, engaging enemies encountered along the way.
 
+**Units that can't attack** (user, 2026-11-24): AttackMove is still issued to units that can't attack, whether they have no attack at all (e.g. an unarmed Supply Chopper) or can't attack right now (a Peacekeeper with its Riot Shield up). For them it simply never finds anything to engage, so it plays out as a move to the location. This keeps a mixed army together on an attack-move. Since they never stop to fight, such units may arrive ahead of the units that do.
+
 ### Sets BaseCommandState:
 - CommandType = AttackMove
 - TargetLocation = location

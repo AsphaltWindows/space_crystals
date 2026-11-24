@@ -54,8 +54,8 @@ Every Cults unit, including vehicles and aircraft, is made from Recruits. Vehicl
 Training building where Recruits are converted into combat units. Recruits enter through one side and trained units exit from the opposite side. The Armory maintains an internal pool of Recruits that can be trained into Soldiers or Gunners.
 
 ### Faction - TheCults
-### Size - 3x2 grid units
-### SymmetryType - ABAC
+### Size - 2x3 grid units (2 tall, 3 wide in the default orientation)
+### SymmetryType - ABAC (top A, right B, bottom A, left C; core/entities.md > Structure Type > Side lettering convention)
 ### MaxHP - 300
 ### PointArmor - 1
 ### FullArmor - 6
@@ -69,7 +69,7 @@ Space Crystals cost and construction time are listed under the Recruit's Constru
 ### EntranceSide - one short side (B)
 ### ExitSide - opposite short side (C)
 
-Recruits enter through the entrance side. Trained units and ejected Recruits exit through the exit side.
+Recruits enter through the entrance side. Trained units and ejected Recruits exit through the exit side, one at a time through the exit doorway (core/entities.md > Structure Type > Exit Doorway).
 
 ### InternalRecruitCapacity - 10
 
@@ -84,7 +84,7 @@ Available unit types:
 
 ### ArmoryInstanceState:
 - StoredRecruits: list of Recruit references (max 10)
-- TrainingQueue: array of {UnitType: Soldier | Gunner, ReservedRecruit: Recruit reference} (max 20)
+- TrainingQueue: array of {UnitType: Soldier | Gunner, ReservedRecruit: Recruit reference} (max 20, including the order currently training; user, 2026-11-24)
 - CurrentTrainingProgress: number (frames elapsed for the front entry of TrainingQueue) | None
 - RallyPoint: Coordinates | ObjectInstance | None
 

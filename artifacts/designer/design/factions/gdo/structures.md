@@ -1,11 +1,11 @@
 # GDO: Structures
 
 ## Barracks
-GDO infantry production structure. Produces infantry units from a build queue. Units exit from one of the short sides (B side).
+GDO infantry production structure. Produces infantry units from a build queue. Units exit from one of the short sides (B side, the right end in the default orientation), through the exit doorway (core/entities.md > Structure Type > Exit Doorway).
 
 ### Faction - GlobalDefenseOrganization
-### Size - 3x2 grid units
-### SymmetryType - ABAC
+### Size - 2x3 grid units (2 tall, 3 wide in the default orientation)
+### SymmetryType - ABAC (top A, right B, bottom A, left C; core/entities.md > Structure Type > Side lettering convention)
 ### MaxHP - 300
 ### PointArmor - 1
 ### FullArmor - 6
@@ -17,12 +17,15 @@ GDO infantry production structure. Produces infantry units from a build queue. U
 
 ### BarracksInstanceState:
 - RallyPoint: Coordinates | ObjectInstance | None
-- BuildQueue: array of ObjectEnum (max 20)
+- BuildQueue: array of ObjectEnum (max 20, including the unit currently in production; user, 2026-11-24)
 - CurrentBuild: ObjectEnum | None
 - CurrentBuildProgress: number (frames elapsed) | None
 
+### Destroyed while producing (user, 2026-11-24):
+If a Barracks is destroyed, its whole BuildQueue (including the unit in production) is refunded **as if cancelled**: full Space Crystals cost, and Unit Control released. The same applies to every GDO producer and constructor (e.g. an Extraction Facility constructing a plate, an Airfield's queue). Matches research (core/tech_and_research.md > Research > Shared Rules). This includes a unit that is **finished but still fully inside** (production at 100%, waiting because the exit doorway is occupied; core/entities.md > Structure Type > Exit Doorway): it is refunded like the rest of the queue (user, 2026-11-24). A unit already standing in the doorway is a normal unit and is not affected.
+
 ### RallyPoint behavior:
-When a unit finishes production and spawns, if RallyPoint is set, it is issued the default right-click command resolved against the RallyPoint target. Rally on ground -> Move to location, rally on enemy -> Attack, rally on friendly/neutral object -> Move to object. If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None.
+When a unit finishes production and spawns, if RallyPoint is set, it is issued the default right-click command resolved against the RallyPoint target. Rally on ground -> Move to location, rally on enemy -> Attack, rally on friendly/neutral object -> Move to object. If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None. Rally points on enemy objects turn into ground rally points when the enemy leaves sight (systems/controls/selection_and_hud.md > Rally points on enemy objects).
 
 ### Produces:
 - Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)
@@ -85,6 +88,7 @@ GDO primary construction structure. Constructs buildings one at a time, which mu
 ### Cancellation:
 - Cancel during construction: full refund of Space Crystals cost
 - Cancel when ready to place: 75% refund of Space Crystals cost (rounded down)
+- **Destroyed** while constructing or holding a ready building: refunded **as if cancelled** (full during construction, 75% rounded down when ready to place) (user, 2026-11-24)
 
 ### ObjectInterfaceState[DeploymentCenter]:
 

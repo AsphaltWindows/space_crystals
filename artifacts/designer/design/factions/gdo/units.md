@@ -51,12 +51,13 @@ While the shield is **up**:
 - The Peacekeeper **cannot attack**.
 - Incoming damage is halved — a 50% **pre-armor** reduction (step 1 of systems/combat.md > DamageModifierOrder), multiplying with other pre-armor reductions. The reduction applies to damage from **all directions**.
 - Attack orders are not possible: the player must lower the shield before ordering an attack. The Peacekeeper does not auto-target enemies while the shield is up.
+- **Explicit Attack (A + click) in a mixed selection** (user, 2026-11-24): Peacekeepers whose shield is up are **left out** of the order and keep their current orders; the units that can attack carry it out. This follows the CommandPanel rule that a command goes only to objects that can carry it out (systems/controls/selection_and_hud.md > CommandPanel). It applies per unit, so in a Peacekeeper group with some shields up and some down, only the lowered ones attack. Note the difference from right-click (below), where shielded Peacekeepers follow. A + click on **ground** (AttackMove) is different: shielded Peacekeepers take part and simply move, never stopping to fight (systems/controls/commands.md > AttackMove > Units that can't attack).
 
 While the shield is **down**, the Peacekeeper behaves normally.
 
 **Toggle time:** raising and lowering the shield takes a short time, so it cannot be flicked on and off between enemy shots. Exact value TBD (should be under half a second).
 
-**Right-click on an enemy while the shield is up** issues a Move order to that location instead of an Attack.
+**Right-click on an enemy while the shield is up** (user, 2026-11-24): the Peacekeeper can't attack, so it does what any unit that can't carry out a right-click does (systems/controls/selection_and_hud.md > RightClickResolution): it **follows** an enemy unit (Move to that unit) and moves to an enemy structure. In a mixed group, the other units attack while the shielded Peacekeepers stay with them.
 
 TBD: hotkey.
 

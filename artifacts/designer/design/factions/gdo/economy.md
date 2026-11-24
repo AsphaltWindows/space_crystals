@@ -8,7 +8,7 @@ The GDO player starts with:
 - One pre-built **Extraction Facility**
 - Two **Extraction Plates** already placed on Space Crystals patches near the starting base (which patches: set in the map's GDO Starting Layout)
 
-Starting resources: **100 Space Crystals**. Starting Supplies: TBD (deferred until GDO Supply costs are designed). Starting power: +30 (Deployment Center) − 15 (Extraction Facility) − 6 (two plates) = **+9**. Exact placement of the starting structures and plates relative to the player's start location is defined by the map's start position.
+Starting resources: **100 Space Crystals**. Starting Supplies: **0** (placeholder; revisit when GDO Supply costs are designed, user 2026-11-24). Starting power: +30 (Deployment Center) − 15 (Extraction Facility) − 6 (two plates) = **+9**. Exact placement of the starting structures and plates relative to the player's start location is defined by the map's start position.
 
 ### Opening Economy Baseline
 GDO's early game is bounded by two build queues that should not sit idle: the Deployment Center (buildings) and the Extraction Facility (Extraction Plates, i.e. economy growth). Design goals for the opening:
@@ -164,7 +164,7 @@ GDO supply collection structure. Serves as the drop-off point for supplies gathe
 - AttachedChopper: ObjectInstance | None (the Supply Chopper currently attached to this tower)
 - LandedChopper: ObjectInstance | None (a Supply Chopper currently landed on this tower, may differ from AttachedChopper)
 - ScheduledSDS: ObjectInstance | None (the Supply Delivery Station this tower's attached chopper is scheduled to collect from)
-- BuildQueue: array of ObjectEnum (max 20 entries)
+- BuildQueue: array of ObjectEnum (max 20 entries, including the unit currently in production; user, 2026-11-24)
 - CurrentBuild: ObjectEnum | None
 - CurrentBuildProgress: number (frames elapsed) | None
 

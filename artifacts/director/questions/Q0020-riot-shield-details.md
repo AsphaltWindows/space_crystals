@@ -1,6 +1,6 @@
 # Q0020: Riot Shield details, and a conflict with 0062
 
-- **Date**: 2026-11-23T23:05:00-05:00
+- **Date**: 2026-11-23T21:04:52-05:00
 - **Blocking**: no. The Riot Shield is built with the behaviour listed under each point.
 - **Docs**: `factions/gdo/units.md > Peacekeeper > Riot Shield`, change 0062 (right-click: units that can't carry out the command move or follow)
 
