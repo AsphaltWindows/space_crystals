@@ -41,6 +41,9 @@ impl Default for Auto {
 }
 
 /// `> AttackingObject`: the state of an Attack order.
+///
+/// The fields M3-R added (`remembered`, `on_hold`) are left out of files while they are unset, and out of the hash
+/// ([`StateHash`] below), so that states saved before they existed still load and the goldens of M1 and M2 stand.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AttackOrder {
     /// The unit's current move is the approach to the target.
@@ -49,9 +52,21 @@ pub struct AttackOrder {
     pub last_seen: Option<Vec2>,
     /// The target went out of the owner's sight: the unit walks to `last_seen`, and the order completes there.
     pub lost: bool,
+    /// Design change 0139: the owner doesn't see the target but remembers it (a structure), and the unit's current
+    /// move is its walk to the target's last-known position. It engages nothing meanwhile, and engages the target
+    /// again once the owner sees it.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub remembered: bool,
+    /// Design change 0150: the unit may not attack now (its Riot Shield is up), so the order is on hold: the unit
+    /// follows the target as a Move to it would (`orders::travel::approach`), with this state, and attacks again once
+    /// it may.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_hold: Option<Approach>,
 }
 
 /// `> MovingToObject`: the state of a Move to an object.
+///
+/// Its `remembered` (slice M3-R) is left out of files while unset, and out of the hash, as [`AttackOrder`]'s.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Approach {
     /// The unit's current move is the approach to the object.
@@ -63,6 +78,14 @@ pub struct Approach {
     pub last_seen: Option<Vec2>,
     /// The followed unit went out of the owner's sight: the unit walks to `last_seen`, and the order completes.
     pub lost: bool,
+    /// Design change 0139: the owner doesn't see the object but remembers it (a structure or a resource), and the
+    /// unit's current move is its walk to the object's last-known position.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub remembered: bool,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 /// `> AttackMovingToLocation`: one leg towards a point, engaging enemies on the way. An AttackMove order is one
@@ -101,7 +124,7 @@ pub struct Patrol {
 /// `orders::gather`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GatherPhase {
-    /// On its way to the order's patch, or to where it was ([`Gather::spot`]).
+    /// On its way to the order's patch, or to its spot ([`Gather::spot`]).
     ToPatch,
     /// At an occupied patch with no other patch free, or as close as it got to a patch it can't reach, since tick
     /// `since` (`> Patch Occupancy (one Drone per patch)`: it "waits right at the patch it tried to mine, within
@@ -132,10 +155,12 @@ pub struct Gather {
     /// The leg to the drop-off ended short of it: the next one begins no sooner than this tick
     /// (`orders::gather::LEG_RETRY_TICKS`). 0 while no leg has.
     pub retry_at: Tick,
-    /// Design change 0134 (`factions/colonists/units.md > Patch Occupancy > A patch that runs out`): where the
-    /// order's patch was, its centre, once the patch has left the game. The worker heads there and looks for
-    /// another patch when it gets there. Meanwhile the order names a patch that is gone, the one order that may
-    /// (`orders::ActiveOrder::live_target`). `None` while the patch is there. Optional in files.
+    /// Where the order's patch is, its centre, while the worker can't go by the patch itself: out of its owner's
+    /// sight, where the owner remembers it (design change 0139), and once it has left the game, where it was (design
+    /// change 0134, `factions/colonists/units.md > Patch Occupancy > A patch that runs out`). Gone to the owner, the
+    /// patch is "treated like an occupied one": the worker heads for its spot and looks for another patch there.
+    /// Meanwhile the order may name a patch that is gone (`orders::Order::outlives_target`). `None` while the owner
+    /// sees the patch. Optional in files.
     #[serde(default)]
     pub spot: Option<Vec2>,
     /// Design change 0123 (`> When a Gather ends`): the worker found no patch left within its search radius. It
@@ -311,10 +336,22 @@ impl StateHash for AttackOrder {
             chasing,
             last_seen,
             lost,
+            remembered,
+            on_hold,
         } = self;
         chasing.hash(h);
         last_seen.hash(h);
         lost.hash(h);
+        // (M3-R) Only while set, as `Mover::momentum` (`mover/hash.rs`): an Attack that never went for a remembered
+        // target nor waited behind a Riot Shield hashes as it did before the fields existed (the goldens stand). A
+        // state with one differs from the same state without by its tag and value.
+        if *remembered {
+            h.tag(1);
+        }
+        if let Some(follow) = on_hold {
+            h.tag(2);
+            follow.hash(h);
+        }
     }
 }
 
@@ -325,11 +362,16 @@ impl StateHash for Approach {
             parked,
             last_seen,
             lost,
+            remembered,
         } = self;
         moving.hash(h);
         parked.hash(h);
         last_seen.hash(h);
         lost.hash(h);
+        // (M3-R) Only while set, as `AttackOrder`'s.
+        if *remembered {
+            h.tag(1);
+        }
     }
 }
 

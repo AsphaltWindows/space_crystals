@@ -1,9 +1,10 @@
 //! The Peacekeeper's Riot Shield (`factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`;
 //! `sc_sim::riot_shield`): an ability command raises and lowers it, each taking the toggle time, and while it is up
-//! the Peacekeeper moves at half speed, never attacks (no Attack orders, no auto-targeting, on Hold Position
-//! neither) and takes half the damage before armor, from every side. The gate checks the command. A game saved
-//! mid-toggle, and a replay, play on the same. That an idle unit with its shield up still yields (design change
-//! 0023) is tested with the other yielding rules, in `movement_yield.rs`.
+//! the Peacekeeper moves at half speed, never attacks (no new Attack orders, no auto-targeting, on Hold Position
+//! neither) and takes half the damage before armor, from every side. The toggle keeps the unit's orders
+//! (`orders_kept`, design changes 0150 and 0151). The gate checks the command. A game saved mid-toggle, and a
+//! replay, play on the same. That an idle unit with its shield up still yields (design change 0023) is tested with
+//! the other yielding rules, in `movement_yield.rs`.
 //!
 //! Every `TestSim` checks the invariants I1–I7 and V1 after each tick.
 
@@ -24,6 +25,8 @@ const T: Tick = RIOT_SHIELD_TOGGLE_TICKS;
 
 const RAISE: Ability = Ability::RiotShield { raise: true };
 const LOWER: Ability = Ability::RiotShield { raise: false };
+
+mod orders_kept;
 
 /// 16 × 8 tiles; tiles (2..=3, 1..=2) are Rugged.
 const MAP: &str = "
@@ -298,32 +301,6 @@ fn no_auto_targeting_with_the_shield_up() {
     assert_eq!(attacks_by(&t, 1).first(), Some(&(down + 2)));
     assert_eq!(attacks_by(&t, 3).first(), Some(&(down + 2)));
     assert_eq!(attacks_by(&t, 2), Vec::<Tick>::new());
-}
-
-/// Raising the shield during an Attack order ends the attack: the order completes (the unit can't attack its target
-/// any more, `systems/controls/behaviors.md > AttackingObject`) and the unit stands idle with nothing engaged.
-/// Raised while still aiming, nothing is fired (`systems/combat.md > Aiming`: interruptible); raised while
-/// reloading, the shot fired before stays the only one.
-#[test]
-fn raising_the_shield_ends_an_attack() {
-    for (raised, hits) in [(3, vec![]), (8, vec![(4, 9.0)])] {
-        let mut t = spawned(
-            &[
-                (PK, P1, Vec2::new(300.0, 300.0)),    // 1
-                (GUARD, P2, Vec2::new(530.0, 300.0)), // 2, beyond its own Range of 1
-            ],
-            false,
-        );
-        let order = attack_order(&[1], 2, false);
-        t.at(2, P1, order.command)
-            .ability_at(raised, P1, &ids(&[1]), RAISE)
-            .run_until(raised);
-        let unit = t.sim().object(ObjectId(1)).unwrap();
-        assert!(unit.orders.as_ref().unwrap().is_idle(), "raised in tick {raised}");
-        assert_eq!(unit.attack.as_ref().unwrap().target, None);
-        t.run_until(60);
-        assert_eq!(hits_on(&t, 2), hits, "raised in tick {raised}");
-    }
 }
 
 /// The gate (`Sim::validate`): an ability names only the player's own units, at most `MAX_ORDER_UNITS` of them; ids

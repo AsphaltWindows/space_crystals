@@ -51,8 +51,8 @@ pub(super) static DRONE: ObjectDef = ObjectDef {
             turn_rate: PI / 4.0,                // TurnRate: 45 degrees/frame
         },
         rugged_terrain_defense_bonus: None, // only LightInfantry has it
-        // TurretAttributes - None: the HoverVehicle base can carry a turret, and the Drone has none (question Q0042
-        // point 10).
+        // TurretAttributes - None: the HoverVehicle base can carry a turret (CanHaveTurret), and the Drone has none
+        // (design change 0154): it is unarmed.
         turret: None,
         attack: None, // AttackAttributes - None (unarmed)
         unit_control_cost: None,

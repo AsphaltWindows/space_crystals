@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::construction::ConstructionCommand;
 use crate::defs::ObjectKind;
+use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::orders::OrderKind;
 use crate::production::ProductionCommand;
@@ -69,6 +70,23 @@ pub enum Ability {
     /// form, a Sabre Legionnaire to a Rifle Legionnaire and the other way round, over 4 frames (`crate::conversion`,
     /// plan decision T26). Its orders stay (`> Weapon Conversion > Orders are kept`, design change 0150).
     Convert,
+}
+
+/// An ability waiting for a unit's attack is state (`crate::combat::AttackState::pending`).
+impl StateHash for Ability {
+    fn hash(&self, h: &mut StateHasher) {
+        match *self {
+            Ability::RiotShield { raise } => {
+                h.tag(0);
+                raise.hash(h);
+            }
+            Ability::SetDropOff(node) => {
+                h.tag(1);
+                node.hash(h);
+            }
+            Ability::Convert => h.tag(2),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

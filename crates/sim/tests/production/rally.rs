@@ -1,5 +1,7 @@
 //! Rally points: `factions/gdo/structures.md > Barracks > RallyPoint behavior`,
-//! `systems/controls/selection_and_hud.md > Rally points on enemy objects` (design changes 0086 and 0088).
+//! `systems/controls/selection_and_hud.md > Rally points on enemy objects`, `> What a rally point makes a new unit do`
+//! (design changes 0086, 0088 and 0136), and on remembered structures (`core/vision.md > Explored > Targeting
+//! remembered objects`, design change 0139).
 
 use sc_sim::testing::{TestSim, dangling_references};
 use sc_sim::{DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, Rally, SimEvent, Target, Tick, Vec2};
@@ -237,33 +239,146 @@ fn a_rally_on_an_enemy_that_leaves_sight_becomes_a_ground_rally() {
     assert_eq!(t.pos(unit.0), last_seen, "the next unit walks there");
 }
 
-/// Design change 0088's TBD, the placeholder: a rally on a remembered enemy structure out of sight is a ground
-/// rally at its last-known position. One the player never saw is no target.
-#[test]
-fn a_rally_on_a_remembered_enemy_structure_is_a_ground_rally() {
-    // A scout of player 1 next to player 2's Generator, far from the Barracks.
+/// Player 2's Generator (3) on tiles (24, 10) to (25, 11), its centre (1600, 704), far from the Barracks, with a scout
+/// of player 1 (4) next to it, which walks away in tick 3; and a Generator of player 2's (5) far in the other corner,
+/// which nobody sees, so that player 2 has a structure left when the first goes. No unit fights by itself.
+fn remembered_generator() -> TestSim {
     let mut t = base()
         .spawn(ObjectKind::Generator, Some(P2), tile(24, 10))
         .spawn(PK, Some(P1), at(1480.0, 700.0))
+        .spawn(ObjectKind::Generator, Some(P2), tile(0, 14))
         .start();
     t.without_auto_targeting();
-    let (generator, scout) = (ObjectId(3), ObjectId(4));
-    t.run(2);
-    assert!(t.sim().is_visible(P1, t.sim().object(generator).unwrap()));
-    t.order_at(
-        3,
-        P1,
-        &[scout],
-        OrderKind::Move(Target::Point(Vec2::new(900.0, 900.0))),
-        false,
+    t.debug_at(1, crystals(P1, 50));
+    let away = OrderKind::Move(Target::Point(Vec2::new(900.0, 900.0)));
+    t.order_at(3, P1, &[ObjectId(4)], away, false);
+    t
+}
+
+/// Design change 0139: "A rally point on an enemy structure stays on it after it leaves sight", and design change
+/// 0136: a new unit gets its own default right-click command on it. Set while the scout sees the Generator, the rally
+/// stays on it, at its last-known position, once nobody sees it; set on it while it is out of sight, the same. The
+/// Peacekeeper trained then gets Attack, walks there and, once it sees the Generator, shoots it.
+#[test]
+fn a_rally_on_an_enemy_structure_stays_on_it_out_of_sight_and_new_units_attack_it() {
+    let generator = ObjectId(3);
+    let on_it = Some(Rally::Object {
+        id: generator,
+        at: Vec2::new(1600.0, 704.0),
+    });
+    for set_in_sight in [true, false] {
+        let mut t = remembered_generator();
+        let tick = if set_in_sight { 2 } else { 201 };
+        t.at(tick, P1, rally(&[BARRACKS], Target::Object(generator)));
+        t.run_until(200);
+        assert!(!t.sim().is_visible(P1, t.sim().object(generator).unwrap()));
+        assert!(
+            t.sim()
+                .vision()
+                .player(P1)
+                .unwrap()
+                .remembered_record(generator)
+                .is_some()
+        );
+        t.at(201, P1, train(&[BARRACKS]));
+        t.run_until(201);
+        assert_eq!(rally_of(t.sim(), BARRACKS), on_it, "set in sight: {set_in_sight}");
+        t.run_until(290);
+        let (_, unit) = first_unit(&t);
+        assert_eq!(
+            t.sim()
+                .object(unit)
+                .unwrap()
+                .orders
+                .as_ref()
+                .unwrap()
+                .current
+                .as_ref()
+                .map(|a| a.order.kind),
+            Some(OrderKind::Attack(generator)),
+            "the default right-click command on the rally target"
+        );
+        let shot = (290..900).find(|_| {
+            t.step();
+            t.events()
+                .iter()
+                .any(|(_, e)| matches!(e, SimEvent::Attacked { attacker, target, .. } if *attacker == unit && *target == generator))
+        });
+        assert!(
+            shot.is_some(),
+            "it walks there and shoots the Generator (set in sight: {set_in_sight})"
+        );
+        assert_eq!(rally_of(t.sim(), BARRACKS), on_it);
+    }
+}
+
+/// Design change 0139: "Nothing about the real state leaks: [...] any rally marker treat[s] the remembered object as
+/// present until the player sees otherwise." The Generator is destroyed in the fog right after the rally is set on
+/// it: the rally stays on it, and the Peacekeeper trained walks to it with its Attack exactly as it does in a game
+/// where the Generator stands, tick by tick, until it sees the Generator's place. Then, in the game where it is gone,
+/// the rally resets to None ("the order ends the way it would for a vanished target") and the unit stops where it
+/// is, its order over; where it stands, the unit goes on with its Attack.
+#[test]
+fn a_rally_on_a_structure_destroyed_unseen_holds_until_its_place_is_seen() {
+    let generator = ObjectId(3);
+    let mut games: Vec<TestSim> = (0..2).map(|_| remembered_generator()).collect();
+    for t in &mut games {
+        t.at(201, P1, rally(&[BARRACKS], Target::Object(generator)));
+        t.at(201, P1, train(&[BARRACKS]));
+        t.run_until(200);
+    }
+    games[1].debug_at(202, DebugCommand::Remove { id: generator });
+    let [standing, gone] = &mut games[..] else {
+        unreachable!()
+    };
+    let remembers = |t: &TestSim| t.sim().vision().player(P1).unwrap().record(generator).is_some();
+    let mut seen_gone = None;
+    for tick in 201..900 {
+        standing.step();
+        gone.step();
+        assert_eq!(dangling_references(gone.sim()), [], "tick {tick}");
+        let units: Vec<_> = [&*standing, &*gone]
+            .map(|t| {
+                produced(t)
+                    .first()
+                    .map(|&(_, _, unit)| t.sim().object(ObjectId(unit)).cloned().unwrap())
+            })
+            .into_iter()
+            .collect();
+        if let (Some(a), Some(b)) = (&units[0], &units[1]) {
+            assert_eq!(a.pos, b.pos, "tick {tick}");
+            if remembers(gone) {
+                assert_eq!(a.orders, b.orders, "tick {tick}");
+                assert_eq!(a.mover, b.mover, "tick {tick}");
+            }
+        }
+        if !remembers(gone) {
+            seen_gone = Some(tick);
+            break;
+        }
+        assert_eq!(
+            rally_of(gone.sim(), BARRACKS),
+            rally_of(standing.sim(), BARRACKS),
+            "tick {tick}"
+        );
+        assert!(matches!(rally_of(gone.sim(), BARRACKS), Some(Rally::Object { id, .. }) if id == generator));
+    }
+    let seen_gone = seen_gone.expect("the unit sees the Generator's place");
+    assert!(
+        produced(gone).first().is_some_and(|&(tick, _, _)| tick < seen_gone),
+        "the unit was on its way"
     );
-    t.run_until(200);
-    assert!(!t.sim().is_visible(P1, t.sim().object(generator).unwrap()));
-    t.at(201, P1, rally(&[BARRACKS], Target::Object(generator)));
-    t.run(1);
-    // The Generator covers tiles (24, 10) and (25, 11).
+    let unit = ObjectId(produced(gone)[0].2);
+    assert_eq!(rally_of(gone.sim(), BARRACKS), None, "seen gone in tick {seen_gone}");
+    let o = gone.sim().object(unit).unwrap();
+    assert!(o.orders.as_ref().unwrap().is_idle(), "its Attack ended");
+    assert_eq!(o.mover.as_ref().unwrap().goal, sc_sim::MoveGoal::None, "it stops there");
+    assert!(standing.sim().is_visible(P1, standing.sim().object(generator).unwrap()));
+    let o = standing.sim().object(unit).unwrap();
     assert_eq!(
-        rally_of(t.sim(), BARRACKS),
-        Some(Rally::Point(Vec2::new(1600.0, 704.0)))
+        o.orders.as_ref().unwrap().current.as_ref().map(|a| a.order.kind),
+        Some(OrderKind::Attack(generator))
     );
+    gone.run(20);
+    assert_eq!(gone.pos(unit.0), o.pos, "it stood where it saw the place");
 }

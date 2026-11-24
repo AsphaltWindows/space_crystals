@@ -18,7 +18,7 @@ use crate::nav;
 use crate::object::Object;
 use crate::orders::Target;
 use crate::paths::boxes_overlap;
-use crate::production::{Door, ExitDoor, Production, ProductionCommand, ProductionStatus, Rally, Refusal, rally};
+use crate::production::{Door, ExitDoor, Production, ProductionCommand, ProductionStatus, Rally, Refusal};
 
 /// When something stands right in front of the doorway, the released unit stands this far from it, space units,
 /// so that no rounding makes the two boxes overlap (a technical margin: a sixty-fourth of a space unit).
@@ -111,18 +111,12 @@ impl Sim {
                 }
                 ProductionPlan::SetRally(producers, Target::Point(p))
             }
+            // Design change 0139: on an object the player sees or remembers (`Sim::check_target_known`).
             ProductionCommand::SetRally(Target::Object(id)) => {
-                let target = self.referenced(id, None)?;
-                let itself = producers == [id];
-                let target = match self.check_target_seen(player, target) {
-                    _ if itself => Target::Object(id),
-                    Ok(()) => Target::Object(id),
-                    Err(unseen) => {
-                        let record = self.vision.player(player).and_then(|v| v.remembered_record(id));
-                        Target::Point(record.ok_or(unseen)?.placement.center())
-                    }
-                };
-                ProductionPlan::SetRally(producers, target)
+                if producers != [id] {
+                    self.check_target_known(player, id)?;
+                }
+                ProductionPlan::SetRally(producers, Target::Object(id))
             }
         };
         Ok(Checked::Production { player, plan })
@@ -252,10 +246,7 @@ impl Sim {
                         // Design change 0086: "Setting a production building's rally point on the building itself
                         // clears it (RallyPoint = None)."
                         Target::Object(target) if target == id => None,
-                        Target::Object(target) => self
-                            .objects
-                            .get(&target)
-                            .map(|o| Rally::Object { id: target, at: o.pos }),
+                        Target::Object(target) => self.rally_on(player, target),
                     };
                     if let Some(production) = self.objects.get_mut(&id).and_then(|o| o.production.as_mut()) {
                         production.rally = rally;
@@ -363,9 +354,7 @@ impl Sim {
             }
         }
         self.events.push(SimEvent::UnitProduced { producer, unit: id });
-        let (armed, worker) = (unit.attack.is_some(), unit.worker.is_some());
-        let order = rally.and_then(|rally| rally::order_for(&rally, Some(owner), armed, worker, &self.objects));
-        if let Some(kind) = order {
+        if let Some(kind) = rally.and_then(|rally| self.rally_order(id, rally)) {
             self.give_order(&[id], kind, false);
         }
     }

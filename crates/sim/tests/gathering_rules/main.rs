@@ -12,7 +12,9 @@
 //! - `reach`: a patch walled off by units or by terrain (0141);
 //! - `knowledge`: only known patches count, never a plated one (0131), and a plate placed on a patch being mined
 //!   (0137);
-//! - `drop_offs`: a group's node destroyed, then every node, then a node warped in (0135).
+//! - `drop_offs`: a group's node destroyed, then every node, then a node warped in (0135);
+//! - `remembered` (slice M3-R): a Gather on a patch out of sight, by what the player knows of it (0139), and the
+//!   map's patches, known from the start (0159).
 //!
 //! `gathering.rs` has the others: 0130 (`interrupted_mining_collects_nothing_and_frees_the_patch_at_once`) and
 //! 0134's last patch (`with_no_patch_left_a_drone_delivers_its_load_and_idles`). Every test runs under the
@@ -23,6 +25,7 @@ mod ends;
 mod knowledge;
 mod loads;
 mod reach;
+mod remembered;
 mod waiting;
 
 use sc_sim::orders::state::{Behaviour, GatherPhase};

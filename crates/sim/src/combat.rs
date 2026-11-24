@@ -45,6 +45,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::command::Ability;
 use crate::conversion;
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
@@ -53,7 +54,7 @@ use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::movement;
 use crate::object::Object;
-use crate::riot_shield::RiotShield;
+use crate::riot_shield;
 use crate::vision::Vision;
 
 pub use damage::{
@@ -94,6 +95,15 @@ impl AttackPhase {
     }
 }
 
+/// Whether an attack phase that can't be interrupted is under way on `o`: Firing or Cooldown (`systems/combat.md >
+/// AttackPhase > Interruptible`). A mode switch pressed now waits for it ([`AttackState::pending`], design change
+/// 0153). Idle, moving, Aiming and Reloading are all fine.
+pub fn mid_attack(o: &Object) -> bool {
+    (o.attack.as_ref())
+        .and_then(|attack| attack.phase)
+        .is_some_and(|phase| !phase.interruptible())
+}
+
 /// A unit's attack capability (`systems/combat.md > AttackAttributes`: only units that can attack have one).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AttackState {
@@ -104,6 +114,15 @@ pub struct AttackState {
     pub phase: Option<AttackPhase>,
     /// Ticks spent in `phase` so far.
     pub elapsed: u32,
+    /// An ability the unit was given while an attack phase that can't be interrupted was under way ([`mid_attack`]),
+    /// which waits for it: a Convert pressed while Firing or in Cooldown (design change 0153,
+    /// `factions/colonists/units.md > Weapon Conversion > Eligibility`: "the unit finishes Firing and Cooldown, then
+    /// converts immediately (instead of starting its Reloading phase)"). The first Modes step after the Cooldown's
+    /// last tick uses it, before the Reloading that followed has run a tick (`Sim::step_modes`); which abilities wait
+    /// is `Sim::use_ability`'s (design change 0172 will hold a Riot Shield raised mid-attack the same way, slice
+    /// M3-S). One at a time. Left out of files while unset, and out of the hash, so older states load and hash alike.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending: Option<Ability>,
 }
 
 impl AttackState {
@@ -168,7 +187,8 @@ pub(crate) fn base_is_free(kind: ObjectKind, state: Option<&AttackState>) -> boo
     let Some(state) = state else {
         return true;
     };
-    let turret = kind.def().unit.as_ref().is_some_and(|unit| unit.base_def().has_turret);
+    // Design change 0154: the attack source is the turret if the unit has one (its TurretAttributes), else the base.
+    let turret = kind.def().unit.as_ref().is_some_and(|unit| unit.has_turret());
     turret || matches!(state.phase, None | Some(AttackPhase::Reloading))
 }
 
@@ -202,6 +222,7 @@ pub(crate) fn step(
         if conversion::is_converting(o) {
             continue;
         }
+        let may_attack = riot_shield::allows_attack(o);
         let Some(state) = &mut o.attack else {
             continue;
         };
@@ -211,7 +232,7 @@ pub(crate) fn step(
         let Some(attrs) = &unit.attack else {
             continue;
         };
-        if !o.riot_shield.is_none_or(RiotShield::allows_attack) {
+        if !may_attack {
             state.engage(None);
         }
         let sight = o.owner.and_then(|owner| vision.player(owner));
@@ -241,10 +262,18 @@ impl StateHash for AttackPhase {
 
 impl StateHash for AttackState {
     fn hash(&self, h: &mut StateHasher) {
-        let AttackState { target, phase, elapsed } = self;
+        let AttackState {
+            target,
+            phase,
+            elapsed,
+            pending,
+        } = self;
         target.hash(h);
         phase.hash(h);
         elapsed.hash(h);
+        if let Some(ability) = pending {
+            ability.hash(h);
+        }
     }
 }
 
@@ -257,6 +286,7 @@ mod tests {
             target: target.map(ObjectId),
             phase,
             elapsed: 1,
+            pending: None,
         }
     }
 

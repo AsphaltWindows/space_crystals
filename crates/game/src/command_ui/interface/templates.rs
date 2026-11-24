@@ -43,7 +43,8 @@ pub enum InterfaceTemplate {
     /// opens the two Warp In menus, whose entries enter the Warp In's placement on the Beacon. No right-click.
     Beacon,
     /// `factions/colonists/units.md > Drone ObjectInterfaceState`: Q Move, A Deploy, X Stop. Its right-click
-    /// (`> Right-Click Resolution`: Gather, Drop Off, Move) is slice M3-J2's: none until then.
+    /// (`> Right-Click Resolution`: Gather, Drop Off, Move) is the sim's one rule, as every unit's
+    /// (`crate::command_ui::resolution::unit_right_click`, slice M3-R); its S, F and load marker are slice M3-J2's.
     Drone,
 }
 

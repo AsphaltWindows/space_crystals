@@ -1,7 +1,9 @@
 //! What the local player can select and where it is drawn (`ARCHITECTURE.md > Client architecture > Visuals`):
 //! picking by click and by box (`systems/controls/selection_and_hud.md > MapClickSelection`, `> BoxSelection`) in
 //! view space, against each object's box as it is drawn this frame, lifted by its terrain height. The live objects
-//! the player sees count, and on Explored tiles the records shown in their place (`fog::Sight::remembered`).
+//! the player sees count, and on Explored tiles the records shown in their place (`fog::Sight::remembered`). What a
+//! click may target takes in the records the player may not select too (design change 0139: remembered structures
+//! and objects "can be targeted [...] but are still not selectable", [`Selectables::target_at`]).
 
 use bevy::math::{Rect, Vec2};
 use sc_sim::vision::LastKnown;
@@ -174,10 +176,13 @@ impl BoxTier {
     }
 }
 
-/// The objects the local player can select this frame, in id order.
+/// The objects the local player can select this frame, in id order, and the records it may only target.
 #[derive(Clone, Debug, Default)]
 pub struct Selectables {
     objects: Vec<Selectable>,
+    /// The records shown in place of objects that the player may target but not select (design change 0139), in id
+    /// order: where they show them.
+    targets: Vec<Selectable>,
 }
 
 impl Selectables {
@@ -191,21 +196,30 @@ impl Selectables {
             .objects()
             .filter(|o| selectable_by(o, sight))
             .map(|o| Selectable::of(o, player, sim.map(), o.prev_pos.lerp(o.pos, alpha)));
-        let remembered = sight
-            .remembered()
-            .filter(|r| remembered_selectable_by(r, sight))
+        let (remembered, targets): (Vec<&LastKnown>, Vec<&LastKnown>) =
+            sight.remembered().partition(|r| remembered_selectable_by(r, sight));
+        let remembered = remembered
+            .into_iter()
             .map(|r| Selectable::remembered(r, player, sim.map()));
         let mut objects: Vec<Selectable> = live.chain(remembered).collect();
         // A record shows only while its object isn't seen, so an id comes once; were it twice, the live one counts.
         objects.sort_by_key(|o| o.id);
         objects.dedup_by_key(|o| o.id);
-        Self { objects }
+        let mut targets: Vec<Selectable> = (targets.into_iter())
+            .filter(|r| objects.binary_search_by_key(&r.id, |o| o.id).is_err())
+            .map(|r| Selectable::remembered(r, player, sim.map()))
+            .collect();
+        targets.sort_by_key(|o| o.id);
+        Self { objects, targets }
     }
 
-    /// A set of objects as given (tests), sorted by id.
+    /// A set of objects as given (tests), sorted by id, with no records to target.
     pub fn from_objects(mut objects: Vec<Selectable>) -> Self {
         objects.sort_by_key(|o| o.id);
-        Self { objects }
+        Self {
+            objects,
+            targets: Vec::new(),
+        }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Selectable> + '_ {
@@ -223,16 +237,15 @@ impl Selectables {
     /// covered patch can't be selected on its own (`factions/gdo/economy.md > ExtractionPlate > Selecting a covered
     /// patch`, design change 0099).
     pub fn at(&self, view: Vec2) -> Option<&Selectable> {
-        let over_resources = |o: &Selectable| o.category() != Category::Resource;
-        self.objects
-            .iter()
-            .filter(|o| o.rect.inflate(PICK_SLOP_SU).contains(view))
-            .max_by(|a, b| {
-                a.depth
-                    .total_cmp(&b.depth)
-                    .then(over_resources(a).cmp(&over_resources(b)))
-                    .then(a.id.cmp(&b.id))
-            })
+        pick(self.objects.iter(), view)
+    }
+
+    /// The object a click at the view point `view` targets (`systems/controls/selection_and_hud.md > CursorTarget`):
+    /// as [`Selectables::at`] picks, among the objects the player may select and the records it may only target
+    /// (design change 0139: remembered structures and objects "can be targeted by right-click and by targeted
+    /// commands (Attack, Gather, Move to object, rally points), but are still not selectable").
+    pub fn target_at(&self, view: Vec2) -> Option<&Selectable> {
+        pick(self.objects.iter().chain(&self.targets), view)
     }
 
     /// `> BoxSelection`: the objects a box (view space) selects. Of the objects whose drawn box overlaps it, only
@@ -267,6 +280,19 @@ impl Selectables {
             .map(|o| o.id)
             .collect()
     }
+}
+
+/// Of `objects`, the one a click at the view point `view` picks ([`Selectables::at`]).
+fn pick<'a>(objects: impl Iterator<Item = &'a Selectable>, view: Vec2) -> Option<&'a Selectable> {
+    let over_resources = |o: &Selectable| o.category() != Category::Resource;
+    objects
+        .filter(|o| o.rect.inflate(PICK_SLOP_SU).contains(view))
+        .max_by(|a, b| {
+            a.depth
+                .total_cmp(&b.depth)
+                .then(over_resources(a).cmp(&over_resources(b)))
+                .then(a.id.cmp(&b.id))
+        })
 }
 
 /// Whether two rectangles share any area or edge.

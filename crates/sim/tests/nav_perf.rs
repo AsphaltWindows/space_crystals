@@ -433,7 +433,12 @@ fn knowledge_rebuilds_256() {
     for tick in 1..=DEATHS_AT + 60 {
         if tick == DEATHS_AT {
             before = versions(&sim);
-            let records = |p: u8| sim.sim().vision().player(PlayerId(p)).unwrap().records().count();
+            // The Generators' records: each player also has those of the 160 patches, known from the start (design
+            // change 0159).
+            let records = |p: u8| {
+                let sight = sim.sim().vision().player(PlayerId(p)).unwrap();
+                sight.records().filter(|r| r.kind == ObjectKind::Generator).count()
+            };
             assert_eq!(
                 [records(2), records(3), records(4)],
                 [10; 3],

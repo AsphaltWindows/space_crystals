@@ -1,14 +1,16 @@
 //! Weapon Conversion in the game (slice M3-B; `factions/colonists/units.md > Weapon Conversion`, plan decision T26):
 //! its timing and what the unit keeps, who may convert, a mixed group, no cancel and no shelter, the orders that go on
-//! (`> Orders are kept`, design change 0150), saves and replays. Its pieces are `conversion`'s unit tests. `TestSim`
-//! checks the movement invariants after every tick.
+//! (`> Orders are kept`, design change 0150), saves and replays; `mid_attack`: a Convert pressed mid-attack, which
+//! waits for the Cooldown's end (design change 0153). Its pieces are `conversion`'s unit tests. `TestSim` checks the
+//! movement invariants after every tick.
 
-use sc_sim::conversion::CONVERT_TICKS;
+use sc_sim::combat;
+use sc_sim::conversion::{self, CONVERT_TICKS};
 use sc_sim::shields::SHIELD_REGEN_PER_TICK;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
     Ability, AttackPhase, Command, Faction, Object, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Reject,
-    Replay, Sim, SimEvent, SpawnAt, Target, Tick, TickInputs, Vec2,
+    Replay, Sim, SimEvent, SpawnAt, Target, Tick, TickInputs, TilePos, Vec2,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -16,6 +18,8 @@ const P2: PlayerId = PlayerId(2);
 const SABRE: ObjectKind = ObjectKind::SabreLegionnaire;
 const RIFLE: ObjectKind = ObjectKind::RifleLegionnaire;
 const PK: ObjectKind = ObjectKind::Peacekeeper;
+
+mod mid_attack;
 
 fn flat(w: usize, h: usize) -> String {
     vec![".".repeat(w); h].join("\n")
@@ -93,6 +97,15 @@ fn phase(sim: &Sim, n: u32) -> Option<AttackPhase> {
     object(sim, n).attack.as_ref().and_then(|attack| attack.phase)
 }
 
+/// `o`'s conversion: `Some(true)` while its Convert waits for its Cooldown's end (design change 0153: the unit's
+/// pending ability), `Some(false)` under way, `None` without one.
+fn waits(o: &Object) -> Option<bool> {
+    match conversion::waits_to_convert(o) {
+        true => Some(true),
+        false => o.conversion.map(|_| false),
+    }
+}
+
 /// The plan's acceptance: "A Sabre becomes a Rifle in 4 ticks, keeping HP and Shields" (`> Convert Command`: "The
 /// unit converts in place over 4 frames"; `> HP/Shields`: "current HP/Shields values carry over unchanged"). Player
 /// 1's Sabre, at 35 HP and 3 Shields, converts in tick 2: it is a Sabre converting, frame by frame, through tick 5,
@@ -135,59 +148,6 @@ fn a_sabre_becomes_a_rifle_in_four_ticks_keeping_its_hp_and_shields() {
     }
     let mover = object(&sim, 1).mover.as_ref().unwrap();
     assert!(mover.can_move(5.0), "at full speed again");
-}
-
-/// The plan's acceptance: "The command is rejected in Firing and Cooldown, and accepted while Aiming, Reloading,
-/// moving or idle" (`> Eligibility`: "interrupting that phase immediately"). Player 1's Rifle 1 shoots player 2's
-/// Peacekeeper 2, which stands by, through a whole attack sequence: the gate takes a Convert of it when it is idle,
-/// Aiming or Reloading, and refuses it in Firing and Cooldown (`Reject::CannotConvert`); a group with an idle Sabre 3
-/// goes to the Sabre only then (question Q0042 point 9). Converted while Reloading, its reload ends at once.
-#[test]
-fn convert_is_refused_while_firing_or_cooling_down() {
-    let mut t = builder()
-        .spawn(RIFLE, Some(P1), point(200.0, 192.0)) // 1
-        .spawn(PK, Some(P2), point(400.0, 192.0)) // 2, in range
-        .spawn(SABRE, Some(P1), point(200.0, 300.0)) // 3
-        .start();
-    t.without_auto_targeting()
-        .order_at(2, P1, &[id(1)], OrderKind::Attack(id(2)), false);
-    t.run_until(1);
-    assert_eq!(check(t.sim(), &[1]), Ok(()), "idle");
-    let mut seen = Vec::new();
-    while seen.len() < 4 {
-        assert!(t.sim().tick() < 40, "a whole sequence: {seen:?}");
-        t.step();
-        let Some(phase) = phase(t.sim(), 1) else {
-            continue;
-        };
-        let expected = match phase {
-            AttackPhase::Aiming { .. } | AttackPhase::Reloading => Ok(()),
-            AttackPhase::Firing { .. } | AttackPhase::Cooldown => Err(Reject::CannotConvert),
-        };
-        assert_eq!(check(t.sim(), &[1]), expected, "{phase:?}");
-        assert_eq!(check(t.sim(), &[1, 3]), Ok(()), "{phase:?}: the Sabre converts anyway");
-        if expected.is_err() {
-            // The group's Convert leaves the Rifle out.
-            let mut sim = t.sim().clone();
-            step(&mut sim, vec![convert(&[1, 3])]);
-            let converting = [1, 3].map(|n| object(&sim, n).conversion.is_some());
-            assert_eq!(converting, [false, true], "{phase:?}");
-        }
-        let name = format!("{phase:?}")
-            .chars()
-            .take_while(|c| c.is_alphabetic())
-            .collect::<String>();
-        if !seen.contains(&name) {
-            seen.push(name);
-        }
-    }
-    assert_eq!(seen, ["Aiming", "Firing", "Cooldown", "Reloading"]);
-    // In Reloading now: the group's Convert goes to both, and the reload ends.
-    let tick = t.sim().tick() + 1;
-    t.at(tick, P1, convert(&[1, 3])).step();
-    let sim = t.sim();
-    assert!(object(sim, 1).conversion.is_some() && object(sim, 3).conversion.is_some());
-    assert_eq!(phase(sim, 1), None, "the reload is over");
 }
 
 /// `> Eligibility`: "it may be issued freely while the unit is [...] moving". The Convert of a moving Sabre is taken.

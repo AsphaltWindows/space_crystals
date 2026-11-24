@@ -12,10 +12,11 @@
 //! the army cap leaves a Train available, the Colonists' Beacon Capacity alike), and so is a greyed-out build menu
 //! entry (`> DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`: "Only available if player has sufficient
 //! Space Crystals"; "Other build options unavailable" while the Deployment Center constructs or holds a building
-//! ready), and so is a greyed-out Convert (`factions/colonists/units.md > Weapon Conversion > Eligibility`: not while
-//! Firing or in Cooldown; it goes to the recipients that may convert, `Reject::CannotConvert` when none may), and a
-//! greyed-out Warp In menu entry (`factions/colonists/economy.md > Warp In`: the Beacon busy deploying, or too few
-//! Space Crystals; where the building would stand, the ghost shows).
+//! ready), and so is a greyed-out Convert (`factions/colonists/units.md > Weapon Conversion > Eligibility`: it goes to
+//! the recipients that are neither converting nor waiting to, one Firing or in Cooldown converting once its Cooldown
+//! is over, design change 0153; `Reject::CannotConvert` when none may), and a greyed-out Warp In menu entry
+//! (`factions/colonists/economy.md > Warp In`: the Beacon busy deploying, or too few Space Crystals; where the
+//! building would stand, the ghost shows).
 //!
 //! Every greyed-out button has its reason ([`WhyUnavailable`], from the same check that greys it), which pressing it
 //! shows (design change 0162).
@@ -24,32 +25,53 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use sc_sim::{
     BuildingOrientation, Command, ConstructionCommand, Constructor, Object, ObjectId, PlayerCommand, PlayerId, Reject,
-    RiotShield, Sim,
+    RiotShield, Sim, riot_shield,
 };
 
 use super::{PanelCommand, commands, recipients};
 use crate::selection::Selection;
 
-/// What the selected units' modes let them do now: their Riot Shields (`factions/gdo/units.md > Peacekeeper > Riot
-/// Shield`), by id, as the sim has them, and which of the selected objects transform (`sc_sim::Object::transform`).
+/// What the selected units' modes let them do now, as the sim has them: their Riot Shields (`factions/gdo/units.md >
+/// Peacekeeper > Riot Shield`), by the sim's own queries (`sc_sim::riot_shield::allows_attack` and `::is_going_up`,
+/// so that the panel and the right-click never judge a shield otherwise than the gate), which of the workers carry a
+/// load, which a right-click on a drop-off reads (`factions/colonists/units.md > Drone > Right-Click Resolution`:
+/// "Own Egress Node (carrying resources)"), and which of the selected objects transform (`sc_sim::Object::transform`).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Modes {
-    shields: BTreeMap<ObjectId, RiotShield>,
+    /// The units with a Riot Shield, by id: whether it is up or on its way up.
+    shields: BTreeMap<ObjectId, bool>,
+    /// The units whose Riot Shield keeps them from attacking now.
+    held: BTreeSet<ObjectId>,
+    loaded: BTreeSet<ObjectId>,
     transforming: BTreeSet<ObjectId>,
 }
 
 impl Modes {
     /// The modes of `selection`'s objects in `sim`.
     pub fn of(sim: &Sim, selection: &Selection) -> Self {
-        let mut modes: Self = selection
-            .ids()
-            .filter_map(|id| Some((id, sim.object(id)?.riot_shield?)))
+        let mut modes = Self::default();
+        let objects = || selection.ids().filter_map(|id| sim.object(id));
+        modes.shields = (objects())
+            .filter(|o| o.riot_shield.is_some())
+            .map(|o| (o.id, riot_shield::is_going_up(o)))
+            .collect();
+        modes.held = (objects())
+            .filter(|o| !riot_shield::allows_attack(o))
+            .map(|o| o.id)
+            .collect();
+        modes.loaded = (selection.ids())
+            .filter(|&id| (sim.object(id)).is_some_and(|o| o.worker.is_some_and(|worker| worker.load > 0)))
             .collect();
         modes.transforming = selection
             .ids()
             .filter(|&id| sim.object(id).is_some_and(Object::is_transforming))
             .collect();
         modes
+    }
+
+    /// Whether `id` is a worker that carries a load.
+    pub fn carries(&self, id: ObjectId) -> bool {
+        self.loaded.contains(&id)
     }
 
     /// The same, with `ids` transforming: for the unit tests.
@@ -60,15 +82,15 @@ impl Modes {
 
     /// Whether `id` transforms: a Beacon under deployment, a building under Warp In
     /// (`factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`, design change 0116:
-    /// "no rally point, no other commands"; none of its functions work yet).
+    /// "no rally point, no other commands"); none of its functions work yet).
     pub fn transforming(&self, id: ObjectId) -> bool {
         self.transforming.contains(&id)
     }
 
     /// Whether `id` may attack now: not while its Riot Shield is up, nor on its way up or down
-    /// (`RiotShield::allows_attack`).
+    /// (`sc_sim::riot_shield::allows_attack`).
     pub fn can_attack(&self, id: ObjectId) -> bool {
-        self.shields.get(&id).is_none_or(|shield| shield.allows_attack())
+        !self.held.contains(&id)
     }
 
     /// Whether `ids` carry Riot Shields and all of those are up or on their way up: a toggle lowers them, and
@@ -76,14 +98,23 @@ impl Modes {
     /// differ).
     pub fn shields_up(&self, ids: &[ObjectId]) -> bool {
         let mut shields = ids.iter().filter_map(|id| self.shields.get(id)).peekable();
-        shields.peek().is_some() && shields.all(|shield| shield.is_going_up())
+        shields.peek().is_some() && shields.all(|&going_up| going_up)
     }
 }
 
+/// The modes of units with these Riot Shields, for the unit tests.
 impl FromIterator<(ObjectId, RiotShield)> for Modes {
     fn from_iter<I: IntoIterator<Item = (ObjectId, RiotShield)>>(shields: I) -> Self {
+        let shields: Vec<(ObjectId, RiotShield)> = shields.into_iter().collect();
         Self {
-            shields: shields.into_iter().collect(),
+            held: (shields.iter())
+                .filter(|(_, shield)| !shield.allows_attack())
+                .map(|&(id, _)| id)
+                .collect(),
+            shields: (shields.iter())
+                .map(|&(id, shield)| (id, shield.is_going_up()))
+                .collect(),
+            loaded: BTreeSet::new(),
             transforming: BTreeSet::new(),
         }
     }

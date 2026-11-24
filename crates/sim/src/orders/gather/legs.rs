@@ -1,5 +1,19 @@
-//! A worker's legs: to its patch, or to where the patch was, and back to its drop-off (the module docs of
-//! `orders::gather`: legs are moves to a point).
+//! A worker's legs: to its patch, or to where the patch was, and back to its drop-off (`orders::gather`).
+//!
+//! **Legs are moves to a point, not to the object** (a deviation from the plan's sketch, which named
+//! `MoveGoal::Object`): the point nearest to the worker where it stands against a face of the target
+//! ([`approach_point`]). A move to an object is planned to the point nearest the object's **centre** that the
+//! unit can stand on, ties going to the lowest tile: always the north side of a patch in a row and of an Egress
+//! Node, wherever the worker comes from. A Drone south of a row of patches would walk round the row's end to mine
+//! from the north. The point nearest to the worker keeps trips straight and spreads workers along a face.
+//!
+//! **A leg to a patch that ends short of it** (the mover arrived as near as it gets behind units that won't move,
+//! `systems/controls/behaviors.md > MovingToLocation > Occupied target location`, or gave up) counts as arriving
+//! there, out of reach: "a patch the Drone can't get within MiningReach of (path blocked by units, structures or
+//! terrain) is treated like an occupied patch" (design change 0141). A leg back to the drop-off that ends short is
+//! begun again after [`LEG_RETRY_TICKS`], a back-off: what stopped it is a unit that won't move, and that is rarely
+//! gone a tick later. A worker that set off again at once would ask for a path every dozen ticks and jitter against
+//! its blocker; standing, it is a unit at rest, which the units behind it route around at once.
 
 use glam::Vec2;
 
@@ -22,9 +36,10 @@ pub(super) fn spot_shape(spot: Vec2) -> Shape {
 /// The point a leg to `target` heads for (module docs): the point nearest to the unit where its Silhouette stands
 /// against one of the target's four faces, wholly within that face's span, so that a worker stands in front of its
 /// own patch and not half in front of the next one in a row. A face is left out if the worker couldn't stand
-/// there for a structure or a map resource (the faces between the patches of a row). With no face left, the point
-/// nearest to the unit where it touches the target at all; the mover takes it from there (the nearest point it can
-/// reach, design change 0025).
+/// there for a structure or a map resource its owner knows of (the faces between the patches of a row;
+/// `World::known_fixed`, design change 0139: what stands out of the owner's sight is what it remembers there). With
+/// no face left, the point nearest to the unit where it touches the target at all; the mover takes it from there (the
+/// nearest point it can reach, design change 0025).
 fn approach_point(unit: &Unit, target: &Shape, world: &World) -> Vec2 {
     let half = unit.kind.def().half_extents().unwrap_or(Vec2::ZERO);
     let (lo, hi) = target.bounds();
@@ -51,9 +66,10 @@ fn approach_point(unit: &Unit, target: &Shape, world: &World) -> Vec2 {
         let (other_lo, other_hi) = other.bounds();
         p.x - half.x < other_hi.x && other_lo.x < p.x + half.x && p.y - half.y < other_hi.y && other_lo.y < p.y + half.y
     };
+    let known = world.known_fixed(unit.owner);
     faces
         .into_iter()
-        .filter(|&p| !world.fixed().any(|other| overlaps(p, &other.shape)))
+        .filter(|&p| !known.iter().any(|other| overlaps(p, other)))
         .min_by(|a, b| a.distance_squared(unit.pos).total_cmp(&b.distance_squared(unit.pos)))
         .unwrap_or_else(|| unit.pos.clamp(lo - half, hi + half))
 }

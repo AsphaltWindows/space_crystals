@@ -129,7 +129,8 @@ pub(super) fn click_targets(
         && actions.just_pressed(InputAction::Select)
         && let Some(press) = actions.pointer().press.filter(|p| p.action == InputAction::Select)
     {
-        let target = MapTarget::at(control.sim(), &control.objects(), press.view, press.ground);
+        let player = control.player();
+        let target = MapTarget::at(control.sim(), player, &control.objects(), press.view, press.ground);
         pressed.0 = Some(PressedTarget {
             pending,
             screen: press.screen,
@@ -188,9 +189,12 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
 
 /// `> RightClickResolution`: a right-click on the map (the ContextCommand action's click) in DefaultState. Each
 /// selected object resolves it for itself ([`object_right_click`], design changes 0062 and 0063), whichever group is
-/// active: the units that can carry out the resolved command do, the others move to the location or follow the
-/// unit under the cursor, and so do those whose Riot Shield is up, instead of attacking an enemy: they follow a unit
-/// and move to a structure (`super::resolution::order_without_attack`, design change 0074). The orders go out
+/// active: each unit gets its default command on what was clicked, as the player knows it: an object it sees or one
+/// it remembers (design change 0139). The units that can carry out the resolved command do, the others move to the
+/// location or follow the unit under the cursor, and so do those whose Riot Shield is up, instead of attacking an
+/// enemy: they follow a unit and move to a structure (`super::resolution::unit_right_click`, design change 0074).
+/// A unit right-clicked among the selected ones stops, and the others follow it (design change 0168: "Following
+/// itself = Stop", the sim's). The orders go out
 /// grouped ([`OrderOutbox::give_each`]). The selected producers set their rally point on what was clicked, as one
 /// `Command::Production` (`> Production Building Default Right-Click`; on a producer itself, which clears its rally
 /// point: design change 0086), whatever the Queue modifier. Objects without commands do nothing. Nothing unless the
@@ -224,7 +228,7 @@ pub(super) fn right_click_orders(
         if !commandable(control.sim(), player, &state.selection) {
             return;
         }
-        let target = MapTarget::at(control.sim(), &control.objects(), click.view, click.ground);
+        let target = MapTarget::at(control.sim(), player, &control.objects(), click.view, click.ground);
         let modes = Modes::of(control.sim(), &state.selection);
         let mut orders: Vec<(ObjectId, OrderKind)> = Vec::new();
         let mut rally: Option<(Target, Vec<ObjectId>)> = None;

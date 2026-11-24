@@ -20,10 +20,12 @@ use crate::mover::Mover;
 use crate::object::{Object, ResourceState};
 use crate::paths::NavState;
 use crate::shape::Shape;
+use crate::targets::{self, Live, TargetView};
 use crate::units::{SU_PER_GU, Tick, gu};
 use crate::vision::Vision;
 
 use gathering::Gathering;
+pub(crate) use gathering::KnownPatch;
 
 /// An object as the behaviours see it this tick.
 #[derive(Copy, Clone, Debug)]
@@ -44,6 +46,19 @@ pub(crate) struct View {
     pub is_patch: bool,
     /// The TargetDomain of its attack, if it has one: whom it threatens (`> TurretAutonomousScanning`, priority 1).
     threat: Option<TargetDomain>,
+}
+
+/// What a unit's owner knows of the object its order names, this tick (`crate::targets::TargetView`, design change
+/// 0139): the object as it is while the owner sees it, where its record has it while the owner only remembers it.
+#[derive(Copy, Clone, Debug)]
+pub(crate) enum Known<'a> {
+    Seen(&'a View),
+    /// Out of sight, remembered: the order goes to `position`, the last-known one (the centre of its footprint).
+    Remembered {
+        position: Vec2,
+    },
+    /// Neither: a unit out of sight, or an object the owner saw gone or never saw.
+    Gone,
 }
 
 /// The side of a cell of the scan grid, tiles (technical: about a SightRange, so a scan looks at few cells).
@@ -236,13 +251,23 @@ impl<'a> World<'a> {
             .is_some_and(|sight| sight.sees_box(lo, hi))
     }
 
-    /// Whether `owner` knows of `view`, a structure or a map resource: it sees it now, or remembers it (its
-    /// vision's record, `core/vision.md > Explored`). Nobody's units know nothing.
-    pub(crate) fn knows(&self, owner: Option<PlayerId>, view: &View) -> bool {
-        let (lo, hi) = view.shape.bounds();
-        owner
-            .and_then(|owner| self.vision.player(owner))
-            .is_some_and(|sight| sight.sees_box(lo, hi) || sight.record(view.id).is_some())
+    /// What `owner` knows of object `id` ([`Known`]), by the vision the last tick left: the one rule of
+    /// `targets::view`, the gate's and the default command's, so that a behaviour never reads the truth about an
+    /// object its owner doesn't see (design change 0139). Nobody's units know nothing.
+    pub(crate) fn known(&self, owner: Option<PlayerId>, id: ObjectId) -> Known<'_> {
+        let Some(player) = owner else {
+            return Known::Gone;
+        };
+        let view = self.get(id);
+        let live = view.map(|v| Live {
+            owner: v.owner,
+            seen: self.sees(owner, v),
+        });
+        match (targets::view(self.vision.player(player), player, id, live), view) {
+            (TargetView::Visible, Some(view)) => Known::Seen(view),
+            (TargetView::Remembered { position, .. }, _) => Known::Remembered { position },
+            (TargetView::Visible | TargetView::Gone, _) => Known::Gone,
+        }
     }
 
     /// The objects that stand where they are, structures and map resources, in id order.

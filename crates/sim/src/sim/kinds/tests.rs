@@ -99,6 +99,7 @@ fn a_legionnaire_changes_its_weapon_and_carries_on_with_its_order() {
             target: Some(pk),
             phase: None,
             elapsed: 0,
+            pending: None,
         })
     );
     assert_eq!(after.placement, None);

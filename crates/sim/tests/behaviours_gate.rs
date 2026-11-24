@@ -1,7 +1,8 @@
-//! The command gate's rule for object targets (question Q0017, point 2, its default; `core/vision.md > Explored
-//! Selectability`): an Attack or a Move on an object is taken only while the issuing player sees the object. The
-//! one exception is the design's: a GDO player may target a Supply Delivery Station on Explored ground, by its
-//! last-known record of the station.
+//! The command gate's rule for object targets (`core/vision.md > Explored > Targeting remembered objects`, design
+//! change 0139, which answers question Q0017 point 2): an Attack or a Move on an object is taken while the issuing
+//! player sees the object, or remembers it: a structure or a resource it has seen, by its last-known record, on
+//! Explored ground. Units aren't remembered, so one out of sight is no target; nor is anything the player never saw.
+//! (What the orders on a remembered object do, and that nothing about the real state leaks: `remembered_targets.rs`.)
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
@@ -117,11 +118,12 @@ fn a_unit_seen_before_is_no_target_once_it_is_out_of_sight() {
     apply(&mut t, order(P1, 1, move_on(2), true), Err(Reject::NotVisible(id(2))));
 }
 
-/// `core/vision.md > Explored Selectability`: a Supply Delivery Station on Explored ground can be targeted by a GDO
-/// player, and by nobody else; a crystal patch there by nobody; neither on Unexplored ground. In sight, anyone may
-/// move to either.
+/// Design change 0139: a Supply Delivery Station and a crystal patch on Explored ground, both seen before, can be
+/// targeted by anyone who remembers them, the GDO player and the Syndicate one alike (the GDO exception of `>
+/// Explored Selectability` is about selecting it); neither on Unexplored ground. In sight, anyone may move to either.
+/// The units walk back to what they remember, and their orders complete there.
 #[test]
-fn a_gdo_player_may_target_a_supply_station_it_has_explored() {
+fn remembered_objects_on_explored_ground_are_targets() {
     let mut scenario = ScenarioBuilder::new(&open()).build();
     scenario.setup.players[1].faction = Faction::Syndicate;
     let mut t = TestSim::new(scenario);
@@ -169,23 +171,30 @@ fn a_gdo_player_may_target_a_supply_station_it_has_explored() {
         assert_eq!(state(&t, player, 1), VisibilityState::Explored);
         assert_eq!(state(&t, player, 2), VisibilityState::Explored);
     }
-    apply(&mut t, order(P1, 4, move_on(1), false), Ok(()));
-    apply(&mut t, order(P2, 5, move_on(1), false), Err(Reject::NotVisible(id(1))));
-    apply(&mut t, order(P1, 4, move_on(2), false), Err(Reject::NotVisible(id(2))));
-    apply(&mut t, order(P2, 5, move_on(2), false), Err(Reject::NotVisible(id(2))));
+    apply(&mut t, order(P2, 5, move_on(1), false), Ok(()));
+    apply(&mut t, order(P1, 4, move_on(2), false), Ok(()));
     apply(&mut t, order(P1, 4, move_on(3), false), Err(Reject::NotVisible(id(3))));
-    // The GDO unit walks back to the station it remembers, and its order completes there.
+    apply(&mut t, order(P1, 4, move_on(1), false), Ok(()));
+    apply(&mut t, order(P2, 5, move_on(2), false), Ok(()));
+    // The GDO unit walks back to the station it remembers, the Syndicate one to the patch, and their orders complete
+    // there.
     t.run(500);
-    let unit = t.sim().object(id(4)).unwrap();
-    assert!(unit.orders.as_ref().unwrap().is_idle());
-    let station = sc_sim::Shape::of(t.sim().object(id(1)).unwrap());
-    assert!(sc_sim::Shape::of(unit).gap(&station) <= sc_sim::orders::PROXIMITY_SU);
+    for (unit, target) in [(4, 1), (5, 2)] {
+        let unit = t.sim().object(id(unit)).unwrap();
+        assert!(unit.orders.as_ref().unwrap().is_idle(), "#{}", unit.id.0);
+        let target = sc_sim::Shape::of(t.sim().object(id(target)).unwrap());
+        assert!(
+            sc_sim::Shape::of(unit).gap(&target) <= sc_sim::orders::PROXIMITY_SU,
+            "#{}",
+            unit.id.0
+        );
+    }
 }
 
-/// `core/vision.md > Explored Selectability`: the GDO exception goes by what the player knows, its last-known record
-/// of the station, not by the live station's tiles. A station debug-spawned on tiles the player explored earlier
-/// lies on Explored ground, but the player never saw it: it has no record, so it is no target until the player sees
-/// it (the gate used to take it: its tiles are Explored). Once seen, it stays a target out of sight.
+/// Design change 0139 goes by what the player knows, its last-known record of the station, not by the live station's
+/// tiles. A station debug-spawned on tiles the player explored earlier lies on Explored ground, but the player never
+/// saw it: it has no record, so it is no target until the player sees it. Once seen, it stays a target out of
+/// sight.
 #[test]
 fn a_station_the_gdo_player_never_saw_is_no_target_on_explored_ground() {
     let mut t = ScenarioBuilder::new(&open()).start();
@@ -226,6 +235,6 @@ fn a_station_the_gdo_player_never_saw_is_no_target_on_explored_ground() {
     assert_eq!(state(&t, P1, 3), VisibilityState::Explored);
     assert_eq!(vision(&t).map(|r| r.kind), Some(ObjectKind::SupplyDeliveryStation));
     apply(&mut t, order(P1, 1, move_on(3), false), Ok(()));
-    // A Syndicate player's records don't make it a target (the exception is the GDO's).
+    // Player 2 never saw it: it has no record of it.
     apply(&mut t, order(P2, 2, move_on(3), false), Err(Reject::NotVisible(id(3))));
 }

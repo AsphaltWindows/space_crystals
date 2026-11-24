@@ -186,7 +186,7 @@ fn a_unit_plans_around_its_owners_own_structures_from_the_start() {
 enum InTheGap {
     /// An enemy Generator the unit scouts first (design change 0040).
     ScoutedGenerator,
-    /// Two crystal patches of the map, which the player never sees (design change 0042).
+    /// Two crystal patches of the map, never seen (design change 0042), known from the start (0159).
     MapPatches,
 }
 
@@ -222,11 +222,9 @@ fn remembered_until_seen_gone(in_the_gap: InTheGap) {
     t.without_auto_targeting();
     let sight = |t: &TestSim, id: u32| t.sim().vision().player(P1).unwrap().record(ObjectId(id)).is_some();
     let assumed = |t: &TestSim| t.sim().path_knowledge().player(P1).unwrap().assumed().len();
-    match in_the_gap {
-        InTheGap::ScoutedGenerator => assert!(sight(&t, 1) && assumed(&t) == 0),
-        // Known from the start like terrain, without a record: the fog shows nothing there.
-        InTheGap::MapPatches => assert!(!sight(&t, 1) && !sight(&t, 2) && assumed(&t) == 2),
-    }
+    // The map's patches are known from the start like terrain, by records of them (design change 0159: "pathing and
+    // memory"), and nothing is assumed beside the records.
+    assert!(blockers.iter().all(|&id| sight(&t, id)) && assumed(&t) == 0);
     assert!(known_blocked(t.sim(), P1, WALL, GAP) && known_blocked(t.sim(), P1, WALL, GAP + 1));
 
     // Away to the west, out of sight; then the gap is cleared behind the player's back.
@@ -251,10 +249,7 @@ fn remembered_until_seen_gone(in_the_gap: InTheGap) {
     assert!(went_south(&track) && !went_through_the_gap(&track));
     assert_eq!(version(t.sim(), P1), before, "it never saw the gap");
     assert!(known_blocked(t.sim(), P1, WALL, GAP));
-    match in_the_gap {
-        InTheGap::ScoutedGenerator => assert!(sight(&t, 1), "still remembered"),
-        InTheGap::MapPatches => assert_eq!(assumed(&t), 2, "still assumed"),
-    }
+    assert!(blockers.iter().all(|&id| sight(&t, id)), "still remembered");
 
     // A look at the gap: it is empty.
     move_to(&mut t, unit, point(BY_THE_GAP));
@@ -296,12 +291,16 @@ fn a_unit_routes_around_a_crystal_field_it_has_never_seen() {
     }
     let mut t = builder.spawn(PK, Some(P1), SpawnAt::Point(point(WEST))).start(); // 19
     let knowledge = |t: &TestSim| {
-        let assumed = t.sim().path_knowledge().player(P1).unwrap().assumed().len();
-        (assumed, t.sim().vision().player(P1).unwrap().records().count())
+        let records = || t.sim().vision().player(P1).unwrap().records();
+        (records().count(), records().filter(|r| r.seen > 0).count())
     };
-    assert_eq!(knowledge(&t), (18, 0), "all assumed, none seen");
+    assert_eq!(knowledge(&t), (18, 0), "all known, none seen");
     assert!(
-        t.sim().path_knowledge().player(P2).unwrap().assumed().len() == 18,
+        t.sim().path_knowledge().player(P1).unwrap().assumed().is_empty(),
+        "nothing assumed"
+    );
+    assert!(
+        t.sim().vision().player(P2).unwrap().records().count() == 18,
         "a player without units knows the map too"
     );
     assert!(
@@ -322,10 +321,11 @@ fn a_unit_routes_around_a_crystal_field_it_has_never_seen() {
     assert_eq!((t.status(19), t.pos(19)), (MoveStatus::Arrived, point(EAST)));
     assert!(went_south(&track));
     assert!(track.iter().all(|&p| !overlaps(p, (WALL, 0, 1, SOUTH))));
-    // Each patch is assumed until seen, then remembered: the unit passed the south end, and saw the patches there.
-    let (assumed, seen) = knowledge(&t);
-    assert_eq!(assumed + seen, 18);
-    assert!(seen > 0 && assumed > 0, "{assumed} assumed, {seen} seen");
+    // Each patch is known from the start, and its record refreshed once seen: the unit passed the south end, and saw
+    // the patches there.
+    let (records, seen) = knowledge(&t);
+    assert_eq!(records, 18);
+    assert!(seen > 0 && seen < 18, "{seen} seen");
     assert_eq!(failed_moves(&t), 0);
 }
 
