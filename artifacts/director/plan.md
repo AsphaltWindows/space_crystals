@@ -680,7 +680,7 @@ First playable after M2-H2.
     | L1 (vision: 0177 attacker reveal and clipped shots, 0178 fog delay) | running (wave 4) |
     | L2 (after R; behaviours: 0179 rotation steps, 0180 AttackMove leash, 0182 MinRange, 0186 Guard attack numbers; brief to write) | queued |
     | K1, K2 (K2 also: a half-out unit can attack; 0170 event-driven) | queued |
-- **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, and 0186's Optics Lab gate and Agent pistol. Underground expansions are exempt from the flatness rule (0005).
+- **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
   - Shift-placement queues build orders while Shift is held, with the cost paid per order (0071).
@@ -754,7 +754,7 @@ First playable after M2-H2.
 | Q0048 | Pressing other commands while targeting (0066 vs 0162); a portal group only partly warping in | no | answered: point 1 by 0184 (as built), point 2 by 0185 (M3-U) |
 
 ## Design change entries
-Last triaged: 0186.
+Last triaged: 0188.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -938,4 +938,6 @@ Last triaged: 0186.
 | 0184 Another command pressed while targeting: "Cancel the current command first" | done (as built, M3-J1 `864c13f`) | answers Q0048 point 1 |
 | 0185 Unfinished buildings form their own SelectionGroup (key: type, finished?) | in progress (M3-U) | answers Q0048 point 2; replaces M3-J1's reading |
 | 0186 Syndicate Guard: laser rifle, Universal, 18 damage every 24 ticks, needs an Optics Lab; Agent: pistol, ground only, 5 damage every 20 ticks | Guard attack numbers queued (M3-L2); Optics Lab gate, Hideout and Agent queued (M4) | user redesign |
+| 0187 Syndicate Grenadier: slow, dodgeable AoE grenade, ground only, Attack Ground; Hideout E, needs a Chemical Plant | queued (M4; concept only, numbers TBD) | user addition |
+| 0188 Syndicate Assault Bike: fastest wheeled vehicle, wide turns, mortar on a narrow-angle turret | queued (M4; concept only, numbers TBD) | user addition |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
