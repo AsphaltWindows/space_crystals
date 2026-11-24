@@ -342,6 +342,50 @@ fn each_layout_follows_its_factions_placement_rules_without_sight() {
     );
 }
 
+/// A layout structure over one of its layout's units is one problem, the structure's placement problem
+/// (`TileProblem::Unit`), whichever of the two comes first in the layout: the unit-start rule doesn't report the
+/// unit as blocked by it as well. A unit on impassable ground, or over a pre-placed structure, is still the unit's
+/// problem.
+#[test]
+fn a_layout_structure_over_a_layout_unit_is_reported_once() {
+    let mut s = ScenarioBuilder::new(&flat(24, 12))
+        .spawn(ObjectKind::Generator, None, tile(16, 8)) // 0: (16, 8) to (17, 9)
+        .build();
+    fn gdo(s: &mut Scenario) -> &mut Vec<LayoutObject> {
+        s.map.slots[0].layouts.get_mut(Faction::Gdo)
+    }
+    let unit = unit_at(PK, TilePos::new(7, 7).center());
+    let over_unit = |index| ScenarioProblem::LayoutPlacement {
+        slot: SlotId(1),
+        faction: Faction::Gdo,
+        index,
+        kind: EF,
+        check: PlacementCheck {
+            tiles: vec![(TilePos::new(7, 7), TileProblem::Unit)],
+            whole: vec![],
+        },
+    };
+    // The Extraction Facility from (6, 6) to (8, 8), before the unit and after it.
+    *gdo(&mut s) = vec![laid(DC, 1, 1), laid(EF, 6, 6), unit.clone()];
+    assert_eq!(s.map.validate(), [over_unit(1)]);
+    *gdo(&mut s) = vec![laid(DC, 1, 1), unit.clone(), laid(EF, 6, 6)];
+    assert_eq!(s.map.validate(), [over_unit(2)]);
+    // A unit over the pre-placed Generator is the unit's problem, after a layout structure as well.
+    *gdo(&mut s) = vec![
+        laid(DC, 1, 1),
+        laid(EF, 6, 6),
+        unit_at(PK, TilePos::new(16, 8).center()),
+    ];
+    let blocked = ScenarioProblem::InvalidLayoutObject {
+        slot: SlotId(1),
+        faction: Faction::Gdo,
+        index: 2,
+        kind: PK,
+        problem: SpawnProblem::Blocked,
+    };
+    assert_eq!(s.map.validate(), [blocked]);
+}
+
 /// Each layout is valid on its own, but the players of one game get theirs together: one in another's way keeps the
 /// game from starting (`Scenario::validate`), not the map.
 #[test]
