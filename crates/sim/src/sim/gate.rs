@@ -115,7 +115,7 @@ pub enum Reject {
     /// none of those a Deploy names deploys (`crate::deploy`).
     NoWorkers,
     /// A Gather's target isn't a Space Crystals patch that workers can gather: another object, or a patch under a
-    /// mining structure (question Q0037 point 11).
+    /// mining structure (design change 0137).
     NotGatherable(ObjectId),
     /// The target of a Drop Off order or of Set Drop-off Location isn't a drop-off of the player's, an own Egress
     /// Node (`factions/colonists/units.md > Drone > Assigned Drop-off`).
@@ -131,6 +131,9 @@ pub enum Reject {
     /// Eligibility`, `crate::conversion`): each is Firing or in Cooldown ("the command is rejected during those
     /// phases"), or converting already.
     CannotConvert,
+    /// A Drop Off order to workers none of which carries anything (design change 0140: "Drop Off is only resolved
+    /// for a Drone that is carrying something"; the empty ones among loaded ones are left out).
+    NothingToDeliver,
 }
 
 impl fmt::Display for Reject {
@@ -176,6 +179,7 @@ impl fmt::Display for Reject {
                 f,
                 "none of the units can convert now: firing, cooling down or converting"
             ),
+            Reject::NothingToDeliver => write!(f, "none of the workers carries anything"),
         }
     }
 }

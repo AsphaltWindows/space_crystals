@@ -480,15 +480,41 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Client.** A shield bar above the HP bar, "Shields a / b" in the InfoPanel (0148), and R Convert.
   - **Code.** The Modes step moved to `sim/modes.rs`. The goldens were re-blessed for the new hashed fields; the games are otherwise identical. `behaviours_perf` shows no measurable difference.
 
+- **M3-F Beacon Deployment** (merged in `ff119a8`; 1140 tests):
+  - **Order and gate.** `OrderKind::Deploy { origin }` goes to one Drone. The gate is `Sim::deploy_check` (`Method::WorkerBuilt`, `Mode::Known`, 0120). The truth is checked on arrival (`Mode::Arrival`; 0117, 0118), and a failure emits `SimEvent::DeployFailed`.
+  - **The transform.** The Beacon exists from the first frame (0109), and deployment takes 48 frames. The load is kept during it (0114).
+    - Capacity: the Drone's 1 is freed at the start and the Beacon's 5 arrives at completion (0112).
+    - The Beacon counts for defeat (0113) and accepts only Cancel (0116).
+    - A cancel restores the HP fraction (at least 1), the Shields fraction and the load.
+  - **Reservations (0125).** `Sim::pending_deploys` reserves sites against the owner's Deploy and Warp In (`TileProblem::Reserved`), and doesn't block units. Drones are Groupable.
+  - **Readings.**
+    - A failed Deploy ends only that order.
+    - A cancel returns the load but not the AssignedDropOff.
+    - An own unit on Hold on the site fails the order.
+    - A Deploy refused at the gate emits no event.
+
+- **M3-H3 gathering rules** (merged in `1e43600`; 1156 tests):
+  - **Occupancy.** It is never stored on the patch. A patch is taken by a Drone mining it, by a one-tick claim, or by a Drone waiting within MiningReach; the lowest id mines next (0133).
+  - **The search.** 6 GU around the Drone, centre to centre, over known, unplated, reachable patches (0131, 0137, 0141).
+  - **The loop.**
+    - The Gather follows the last mined patch (0132), and waiting Drones re-check together every 16 ticks.
+    - A gone patch's Drones head for its spot and search there (0134, `Gather::spot`).
+    - A Gather ends only when no patch is left in range, delivering first (0123).
+    - Drop Off is a delivery only, and the gate refuses an empty Drone (`NothingToDeliver`; 0127, 0140).
+    - Loads survive other orders, and a loaded Drone sent to a patch turns round there (0128–0130).
+  - **Tests.** `tests/gathering_rules/` has 17 tests.
+  - **Curve** (per second): 12 → 17.2, 16 → 23.1, 20 → 24.5, 24 → 26.2. The worst gap is 428 ticks, within the restored 480 bound. The 0132 re-check costs about 1/s at 20–24 Drones.
+  - **Open.** A node lost mid-return makes the Drone re-target at once, against 0135's "not continuously": Q0046. Empty Drones idle where the field ran out.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
-  - **M3-F Beacon Deployment** (Opus; brief `scratchpad/briefs/m3f-beacon-deployment.md`): the sim side of deployment, with 0109–0114, 0116–0118, 0120, and 0125's Groupable flag and site reservation.
+  - **M3-P capacity at production start** (Opus; brief `scratchpad/briefs/m3p-capacity-at-production-start.md`): 0143 for every faction, with the production side of 0112.
   - **M3-R one default-order rule, remembered targets, Riot Shield orders** (Opus; brief `scratchpad/briefs/m3r-default-order-remembered-targets.md`): 0136, 0139, 0150–0151 (shield part). Gather on a remembered patch waits for H3.
-  - **M3-H3 gathering rules** (Opus; brief `scratchpad/briefs/m3h3-gathering-rules.md`): 0123, 0127–0138, 0140 and 0141; ends the redirect bounce at 24 Drones.
+  - **M3-J1 Warp In and Deploy UI** (Opus; brief `scratchpad/briefs/m3j1-warp-in-deploy-ui.md`): the Beacon menus, ghosts, Deploy dispatch and chaining, lingering ghosts, Cancel-only panels, and the unavailable-button feedback (0162).
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2 playtest** with the user, using `docs/playtest/m2.md`.
-  - **Fix the Move-onto-itself bug** per Q0031's answer, in the next sim or command-UI slice.
+  - **The Move-onto-itself bug** is being fixed in M3-R (0168).
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
 The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, the defaults from the doc apply.
@@ -608,13 +634,16 @@ First playable after M2-H2.
     | D | done (`20f584e`) |
     | B | done (`61aa089`) |
     | H2 (0106) | done (`777b9a9`) |
-    | F | running (wave 3) |
+    | F | done (`ff119a8`) |
     | G | done (`5d61dc7`) |
-    | H3 | running (wave 3) |
+    | H3 | done (`1e43600`) |
+    | J1 | running (wave 4) |
     | R | running (wave 3; the Gather part after H3) |
     | D2 (next free slot; 0145, the portal energy doorway) | queued |
-    | P (after F; 0143: capacity taken at production start, for every faction) | queued |
-    | J1 (after F), J2 (after R), K1, K2 | queued |
+    | P | running (wave 3) |
+    | J2 (after R; with 0155) | queued |
+    | V (game end and costs: 0163 draw, 0164 results screen, 0167 Robo Portal 250) | queued |
+    | K1, K2 | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -669,24 +698,25 @@ First playable after M2-H2.
 | Q0028 | Mining: lumps or trickle, last partial load, depleted patch under a plate, selecting a covered patch | no | answered by 0098 (lumps) and 0099 (M2-A, M2-B) |
 | Q0029 | What defeat does: the remaining units, victory and game end | no | answered by 0100–0102: units become neutral, the game ends when one side remains, defeated players watch with team vision (M2-F) |
 | Q0030 | Structures as targets (auto-targeting buildings), build menu slots, building InfoPanels | no | answered by 0103 (structures are auto-targets; done in M2-A), 0104 (DC has two build menus; M2-H2), 0105 (structure InfoPanels; M2-G) |
-| Q0031 | A Move or Follow aimed at a selected unit itself (it currently follows itself forever) | no | open; default: the clicked unit is left out |
+| Q0031 | A Move or Follow aimed at a selected unit itself (it currently follows itself forever) | no | answered by 0168 (M3-R) |
 | Q0032 | Arrival radius behind an occupied destination: 2 or 3 grid units (data from G3) | no | open; M1 keeps 2 |
-| Q0033 | Path knowledge, blocked to open: a destination behind a gone obstacle, shortcuts when a wall is seen gone, map-placed structures | no | open; M2-E built the stated current behaviour |
-| Q0034 | Should an enemy plate's InfoPanel show its patch's remaining crystals? | no | open; M2-G shows it to everyone |
-| Q0035 | Rally point UI: Shift with rally targeting, rallying on one of several selected Barracks, feedback when pressing an unavailable command | no | open; M2-H1 built the stated current behaviour |
-| Q0036 | End of game edge cases: simultaneous last defeats, free-for-all spectating, a raised Riot Shield on defeat | no | open; M2-F2 built the stated current behaviour |
+| Q0033 | Path knowledge, blocked to open: a destination behind a gone obstacle, shortcuts when a wall is seen gone, map-placed structures | no | answered by 0156, 0158 and 0159 |
+| Q0034 | Should an enemy plate's InfoPanel show its patch's remaining crystals? | no | answered by 0155 (M3-J2) |
+| Q0035 | Rally point UI: Shift with rally targeting, rallying on one of several selected Barracks, feedback when pressing an unavailable command | no | answered by 0160–0162 |
+| Q0036 | End of game edge cases: simultaneous last defeats, free-for-all spectating, a raised Riot Shield on defeat | no | answered by 0163–0165 |
 | Q0037 | Drone gathering: the cases the loop doesn't define (13 points) | no | answered by 0123 and 0127–0138 |
 | Q0038 | Gathering Drones, collision and the economy targets | was yes | answered by 0106 (pass-through), 0107 (geometry), 0108 (±15%) |
 | Q0039 | Beacon Deployment and Warp In: what the transforming object is | no (answer before M3-F) | answered by 0109–0116 |
 | Q0040 | Deploy and Warp In placement, and the Colonists panels | no | answered by 0117–0125 |
 | Q0041 | Portal exits and Beacon Capacity | no | answered by 0143–0145 |
-| Q0042 | Shields, melee range and Weapon Conversion | no | points 1–8 answered by 0146–0152; point 9 open (M3-B built the proposal) |
-| Q0043 | M3 scope: the Colonists content left TBD (FYI) | no | open |
+| Q0042 | Shields, melee range and Weapon Conversion | no | answered by 0146–0154 |
+| Q0043 | M3 scope: the Colonists content left TBD (FYI) | no | answered by 0166 and 0167 |
 | Q0044 | Gathering details from the build: fog, plates, empty Drop Off, blocked Drones, redirect timing, the Egress Node's sight | no | answered by 0134, 0137 and 0139–0141 |
 | Q0045 | Pass-through details: idle units left stacked, and the Drop Off order | no | answered by 0126 and 0127 |
+| Q0046 | A Drone's drop-off destroyed while it is on its way back | no | open; M3-H3 re-targets at once (option A) |
 
 ## Design change entries
-Last triaged: 0152.
+Last triaged: 0168.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -792,39 +822,39 @@ Last triaged: 0152.
 | 0106 Gathering Drones pass through each other; the general overlap rule | done (M3-H2, `777b9a9`) | answers Q0038 point 1 |
 | 0107 Reference check geometry: a 2-GU gap, edge to edge | done in M3-H's tests (`5bd3b69`); queued (M3-K1) | answers Q0038 point 2 |
 | 0108 Economy check tolerance ±15%; the reference layout is only a benchmark | queued (M3-K1) | answers Q0038 point 3 |
-| 0109 The transforming object is the target structure from the first frame | Warp In done (M3-E, `68ee747`); deploy in progress (M3-F) | answers Q0039 point 1 |
-| 0110 Damage stays taken during the transform interpolation | HP done (M3-E); Shields done (M3-B, `61aa089`); deploy in progress (M3-F) | answers Q0039 point 2 |
-| 0111 A transform cancel keeps the HP and Shields fraction, at least 1 HP | HP done (M3-E); Shields done (M3-B, `61aa089`); deploy in progress (M3-F) | answers Q0039 point 3 |
-| 0112 Beacon Capacity during Deploy and Warp In; over capacity allowed and shown red | red counter done (M3-C); Warp In done (M3-E, `68ee747`); deploy in progress (M3-F) | answers Q0039 point 4, and Q0041 point 2 in effect |
-| 0113 Structures under transformation count for defeat | Warp In done (M3-E, `68ee747`); deploy cancel in progress (M3-F) | answers Q0039 point 5 |
-| 0114 A Drone deploying with a load keeps it; lost on completion, returned on cancel | in progress (M3-F) | answers Q0039 point 6 |
+| 0109 The transforming object is the target structure from the first frame | Warp In done (M3-E, `68ee747`); deploy done (M3-F, `ff119a8`) | answers Q0039 point 1 |
+| 0110 Damage stays taken during the transform interpolation | HP done (M3-E); Shields done (M3-B, `61aa089`); deploy done (M3-F, `ff119a8`) | answers Q0039 point 2 |
+| 0111 A transform cancel keeps the HP and Shields fraction, at least 1 HP | HP done (M3-E); Shields done (M3-B, `61aa089`); deploy done (M3-F, `ff119a8`) | answers Q0039 point 3 |
+| 0112 Beacon Capacity during Deploy and Warp In; over capacity allowed and shown red | red counter done (M3-C); Warp In done (M3-E); deploy done (M3-F, `ff119a8`); production side queued with 0143 (M3-P) | answers Q0039 point 4, and Q0041 point 2 in effect |
+| 0113 Structures under transformation count for defeat | Warp In done (M3-E, `68ee747`); deploy cancel done (M3-F, `ff119a8`) | answers Q0039 point 5 |
+| 0114 A Drone deploying with a load keeps it; lost on completion, returned on cancel | done (M3-F, `ff119a8`) | answers Q0039 point 6 |
 | 0115 A building destroyed mid-Warp-In refunds nothing | done (M3-E, `68ee747`) | answers Q0039 point 7 |
-| 0116 Transforming objects show only Cancel; functions start at completion | sim done (M3-E, `68ee747`); deploy in progress (M3-F); Cancel-only panel queued (M3-J1) | answers Q0039 point 8 |
-| 0117 Deploy start position: the footprint centre, or stopped while overlapping it | in progress (M3-F) | answers Q0040 point 1 |
-| 0118 Ground units block Worker-Built and Warp In sites | Warp In done (M3-E, `68ee747`; air and underground untested, none exist yet); deploy in progress (M3-F) | answers Q0040 point 2 |
+| 0116 Transforming objects show only Cancel; functions start at completion | sim done (M3-E, M3-F `ff119a8`); Cancel-only panel queued (M3-J1) | answers Q0039 point 8 |
+| 0117 Deploy start position: the footprint centre, or stopped while overlapping it | done (M3-F, `ff119a8`) | answers Q0040 point 1 |
+| 0118 Ground units block Worker-Built and Warp In sites | done (M3-E, M3-F `ff119a8`; air and underground untested, none exist yet) | answers Q0040 point 2 |
 | 0119 Warp In needs Visible tiles | sim done (M3-E, `68ee747`); ghost queued (M3-J1) | answers Q0040 point 3; differs from the proposal |
-| 0120 The Worker-Built ghost in fog uses the player's knowledge | gate in progress (M3-F); ghost queued (M3-J1) | answers Q0040 point 4 |
+| 0120 The Worker-Built ghost in fog uses the player's knowledge | gate done (M3-F, `ff119a8`); ghost queued (M3-J1) | answers Q0040 point 4 |
 | 0121 Odd-size Warp In: extras at the bottom-right, turned and flipped about the Beacon centre | sim done (M3-E, `68ee747`: `transform::warp_in_footprint`, `WarpIn` has no origin); ghost queued (M3-J1) | answers Q0040 point 5; replaces cursor snapping |
 | 0122 Beacons are Ungroupable | def done (M3-E, `68ee747`); Tab behaviour queued (M3-J1) | answers Q0040 point 6 |
-| 0123 A Gather ends only when no patch is left within the Drone's search radius; queued orders wait | queued (M3-H3) | answers Q0040 point 7 and Q0037 point 12; Q0037 point 5 in part; replaces the after-the-next-drop-off proposal |
+| 0123 A Gather ends only when no patch is left within the Drone's search radius; queued orders wait | done (M3-H3, `1e43600`) | answers Q0040 point 7 and Q0037 point 12; Q0037 point 5 in part; replaces the after-the-next-drop-off proposal |
 | 0124 Colonists panels: two Warp In menus on the Beacon; Cancel only while transforming; portal, Drone and Egress Node grids | portal grids done (M3-D, `20f584e`); Beacon menus and Cancel queued (M3-J1); Drone panel, Egress Node F and the unavailable W/E portal slots queued (M3-J1, M3-J2) | answers Q0040 point 8 |
-| 0125 Lingering build ghosts; Drones Groupable; a Deploy goes to one Drone of a group; Shift-placement chains through the group | in progress: Groupable flag and site reservation (M3-F); ghosts, dispatch and chaining queued (M3-J1) | answers Q0040 point 9; replaces 0071 for Drones |
+| 0125 Lingering build ghosts; Drones Groupable; a Deploy goes to one Drone of a group; Shift-placement chains through the group | sim done (M3-F, `ff119a8`: Groupable Drones, `Sim::pending_deploys`, `TileProblem::Reserved`); ghosts, dispatch and chaining queued (M3-J1) | answers Q0040 point 9; replaces 0071 for Drones |
 | 0126 Idle overlapping units push apart; units with orders are never moved | done (M3-G, `5d61dc7`) | answers Q0045 point 1; amends 0106 |
-| 0127 Drop Off is only a delivery; the Drone then idles at the drop-off or starts its next order | queued (M3-H3); its pass-through is already built (M3-H2) | answers Q0045 point 2 and Q0037 point 1; replaces the return-to-patch proposal |
-| 0128 A loaded Drone sent to Gather skips mining at the new patch and goes to deliver | queued (M3-H3) | answers Q0037 point 2 |
-| 0129 Other orders keep the load | queued (M3-H3: confirm with a test) | answers Q0037 point 3 |
-| 0130 Interrupted mining gives no partial load; the patch frees at once | queued (M3-H3: confirm with a test) | answers Q0037 point 4 |
-| 0131 The patch search counts only known patches not under a structure | mostly built (M3-H: seen or remembered, not under a structure); queued (M3-H3: centre on the Drone per 0123, confirm with tests) | answers Q0037 point 5 |
-| 0132 A waiting Drone waits at the patch it tried, re-checks every 16 frames, and returns to the patch it last mined | queued (M3-H3) | answers Q0037 point 6 in part |
-| 0133 Which waiting Drone gets a freed patch is the implementation's choice, kept deterministic | queued (M3-H3) | answers Q0037 point 6 |
-| 0134 A depleted patch counts as occupied; Drones walking to it search on arrival | queued (M3-H3; replaces M3-H's immediate redirect) | answers Q0037 point 7 and Q0044 point 5 |
-| 0135 A missing drop-off is replaced by the nearest own Egress Node when the return trip starts; with none, the Drone idles holding its load | built as the proposal (M3-H); queued (M3-H3: confirm with tests) | answers Q0037 point 8 |
+| 0127 Drop Off is only a delivery; the Drone then idles at the drop-off or starts its next order | done (M3-H3, `1e43600`) | answers Q0045 point 2 and Q0037 point 1; replaces the return-to-patch proposal |
+| 0128 A loaded Drone sent to Gather skips mining at the new patch and goes to deliver | done (M3-H3, `1e43600`) | answers Q0037 point 2 |
+| 0129 Other orders keep the load | done (M3-H3, `1e43600`) | answers Q0037 point 3 |
+| 0130 Interrupted mining gives no partial load; the patch frees at once | done (M3-H3, `1e43600`) | answers Q0037 point 4 |
+| 0131 The patch search counts only known patches not under a structure | done (M3-H3, `1e43600`) | answers Q0037 point 5 |
+| 0132 A waiting Drone waits at the patch it tried, re-checks every 16 frames, and returns to the patch it last mined | done (M3-H3, `1e43600`) | answers Q0037 point 6 in part |
+| 0133 Which waiting Drone gets a freed patch is the implementation's choice, kept deterministic | done (M3-H3, `1e43600`) | answers Q0037 point 6 |
+| 0134 A depleted patch counts as occupied; Drones walking to it search on arrival | done (M3-H3, `1e43600`) | answers Q0037 point 7 and Q0044 point 5 |
+| 0135 A missing drop-off is replaced by the nearest own Egress Node when the return trip starts; with none, the Drone idles holding its load | done (M3-H3, `1e43600`) | answers Q0037 point 8 |
 | 0136 A rally gives the new unit its default right-click command against the rally target; one rule for every producer | queued (M3-R; replaces M3-D's "unarmed unit rallied on an enemy moves to the point": a Drone follows an enemy unit) | answers Q0037 points 9–10 |
-| 0137 A Drone mining a patch doesn't block a plate; a plated patch is gone for Drones | built as the proposal (M3-H); queued (M3-H3: confirm with tests) | answers Q0044 point 2 and Q0037 point 11 |
-| 0138 The last load takes the full 32 frames and the remaining crystals | built as the proposal (M3-H); queued (M3-H3: confirm with a test) | answers Q0037 point 13 |
+| 0137 A Drone mining a patch doesn't block a plate; a plated patch is gone for Drones | done (M3-H3, `1e43600`) | answers Q0044 point 2 and Q0037 point 11 |
+| 0138 The last load takes the full 32 frames and the remaining crystals | done (M3-H3, `1e43600`) | answers Q0037 point 13 |
 | 0139 Remembered objects can be targeted: orders go to the last-known position and resolve on sight | queued (M3-R: gate, orders, rally and the client's right-click) | answers Q0017 point 2, Q0044 points 1 and 6; replaces M2's "object targets only when visible" |
-| 0140 No empty Drop Off order: an empty Drone right-clicking its own node moves there | queued (M3-H3: the gate drops empty Drones; M3-J2: the right-click) | answers Q0044 point 3 |
-| 0141 An unreachable patch is handled like an occupied one; the Drone never gives up | queued (M3-H3; replaces retry-forever) | answers Q0044 point 4 |
+| 0140 No empty Drop Off order: an empty Drone right-clicking its own node moves there | sim done (M3-H3, `1e43600`: `NothingToDeliver`); the right-click queued (M3-J2) | answers Q0044 point 3 |
+| 0141 An unreachable patch is handled like an occupied one; the Drone never gives up | done (M3-H3, `1e43600`) | answers Q0044 point 4 |
 | 0142 Beacon Capacity reserved at queue time | superseded by 0143 | answered Q0041 point 1 |
 | 0143 Capacity (Unit Control and Beacon Capacity) is taken when production starts, not at queue time; a producer without room waits at 0% | queued (new slice M3-P, after F; M3-F re-briefed for its 0112 test) | answers Q0041 points 1–2; replaces 0082 and 0142 |
 | 0144 Robo Portal exits: the Bio Portal's rule on all four sides, closest by side midpoint, ties top, right, bottom, left | built (M3-D, `20f584e`); superseded by 0145 | answers Q0041 points 3–4 |
@@ -832,8 +862,24 @@ Last triaged: 0152.
 | 0146 Shields regenerate for neutral and transforming objects | done (M3-B, `61aa089`) | answers Q0042 points 1–2 |
 | 0147 Modifiers skip Shields; only the overflow takes them | done (M3-B, `61aa089`) | answers Q0042 point 3 |
 | 0148 Shield bar above HP; "Shields a / b" in the InfoPanel | done (M3-B, `61aa089`); styling waits for the HUD pass | answers Q0042 point 4 |
-| 0149 Melee reach: 8 su edge to edge for every melee attack | done (placeholder already 8 su, M3-A); doc citations queued (M3-F) | answers Q0042 point 5 |
+| 0149 Melee reach: 8 su edge to edge for every melee attack | done (placeholder 8 su since M3-A; citations fixed in M3-F, `ff119a8`) | answers Q0042 point 5 |
 | 0150 Convert and the Riot Shield are mode switches: orders stay | Convert done (M3-B, `61aa089`); Riot Shield in progress (M3-R) | answers Q0042 point 6 |
 | 0151 Mode switches happen at once; Shift has no effect | Convert done (M3-B, `61aa089`); Riot Shield in progress (M3-R) | answers Q0042 point 7 |
 | 0152 A converted Legionnaire's weapon starts ready | done (M3-B, `61aa089`) | answers Q0042 point 8 |
+| 0153 Convert pressed during Firing or Cooldown happens right after Cooldown ends | in progress (M3-R, folded in; replaces M3-B's leave-out) | answers Q0042 point 9 |
+| 0154 The flag is CanHaveTurret; a unit has a turret only if TurretAttributes are set | in progress (M3-R, folded in: the rename and the Drone counted as unarmed) | answers Q0042 point 10 |
+| 0155 A plate's remaining crystals are shown only to its owner | queued (M3-J2) | answers Q0034; changes M2-G |
+| 0156 A destination resolved at order time is final, even when the obstacle is later seen gone | done (M2-E, as built) | answers Q0033 point 1 |
+| 0157 No re-plan when a remembered obstacle is seen gone | superseded by 0158 | answered Q0033 point 2 |
+| 0158 Route recalculation timing is the Director's choice: no perf issues, predictable movement | done (M2-E's behaviour kept; the Director may change it later without a question) | answers Q0033 point 2 |
+| 0159 Neutral map-placed objects are known from the start (pathing and memory); starting layouts are not | in progress (M3-R, folded in: seed memory records) | answers Q0033 point 3 |
+| 0160 Shift with the rally point sets it and ends targeting | done (as built, M2-H1) | answers Q0035 point 1 |
+| 0161 A rally on one of several selected producers: per-building rules | done (as built, M2-H1) | answers Q0035 point 2 |
+| 0162 A greyed-out button or hotkey gives the refusal feedback with its reason | in progress (M3-J1, folded in) | answers Q0035 point 3 |
+| 0163 Every remaining side defeated in one tick: a draw | queued (new slice M3-V) | answers Q0036 point 1 |
+| 0164 Defeated with no undefeated allies: leave to a results screen | queued (M3-V) | answers Q0036 point 2 |
+| 0165 Defeat clears orders but not modes | done (as built, M2-F2) | answers Q0036 point 3 |
+| 0166 M3 scope confirmed as proposed; deferred content listed | done (the M3 plan) | answers Q0043 points 1, 3, 4; placeholder numbers or questions when deferred content is scheduled |
+| 0167 Robo Portal costs 250 (was 400); Bio Portal stays 150 | queued (M3-V); watch it in K1 | answers Q0043 point 2 |
+| 0168 A Move or Follow whose target is the unit itself is a Stop | in progress (M3-R, folded in) | answers Q0031; fixes M1-G3's self-follow |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

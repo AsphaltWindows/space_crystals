@@ -440,6 +440,10 @@ pub struct WorkerDef {
     pub mining_reach: f32,
     /// DropOffReach, space units: within this of the drop-off point's edge.
     pub drop_off_reach: f32,
+    /// `> Patch Occupancy (one Drone per patch) > Search radius` (design change 0123; the design hasn't named the
+    /// stat yet), grid units: a worker looks for another patch only within this distance of itself, centre to
+    /// centre (`orders::gather`).
+    pub search_radius: f32,
     /// `factions/colonists/units.md > Drone > Gathering Drones pass through each other` (design change 0106):
     /// workers of this type that are on a Gather job don't collide with each other, whoever owns them
     /// (`orders::gather::on_gather_job`, `movement::space::blocks`). "Drones only": the workers of the other

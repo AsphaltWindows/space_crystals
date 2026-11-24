@@ -1235,6 +1235,20 @@ The Barracks keeps its side doorway (0080). |
 | 0150 | Q0042 point 6 | B, R | Convert and the Riot Shield are mode switches, so orders stay and the queue is never cleared. A shielded Peacekeeper's existing Attack runs as a Follow and resumes when the shield is lowered. AttackMove and Patrol only move while shielded. A *new* Attack still leaves shielded units out (0075). |
 | 0151 | Q0042 point 7 | B, R | Mode switches happen at once: Shift has no effect, and nothing is queued. |
 | 0152 | Q0042 point 8 | B | The weapon starts ready after conversion. |
+| 0153 | Q0042 point 9 | R | **Replaces M3-B's leave-out.** A unit in Firing or Cooldown converts right after its Cooldown ends, instead of entering Reloading. This is a per-unit pending flag, for single units too. |
+| 0154 | Q0042 point 10 | R | Rename the flag to CanHaveTurret. A unit has a turret only if TurretAttributes are set, and the attack source is the turret if present, otherwise the base. The Drone is unarmed. |
+| 0155 | Q0034 | J2 | Only the plate's owner sees its patch's remaining crystals. Others get the reduced structure panel: name, owner, HP (0105). Uncovered patches still show their count to everyone. |
+| 0156 | Q0033 point 1 | (none) | As built by M2-E: a destination resolved at order time is final. |
+| 0158 | Q0033 point 2 (replaces 0157) | (none) | Route recalculation timing is the Director's, with no perf issues and predictable movement. The user's instinct is to re-plan only when blocked or stuck. M2-E's behaviour is kept. |
+| 0159 | Q0033 point 3 | R | Every neutral map-placed object is known from the start, for pathing and memory. Starting layouts are not. **Director:** seed each player's memory records at game start. |
+| 0160–0161 | Q0035 points 1–2 | (none) | As built. |
+| 0162 | Q0035 point 3 | J1, P | A greyed-out button or its hotkey issues nothing and gives the refusal feedback with its reason, on the invalid-target channel. |
+| 0163 | Q0036 point 1 | V | If every remaining side is defeated in the same tick, the game is a draw: everyone sees "Draw". |
+| 0164 | Q0036 point 2 | V | A player defeated with no undefeated allies leaves to a results screen (contents TBD) and stops watching, and the game continues for the others. Team games are unchanged. |
+| 0165 | Q0036 point 3 | (none) | As built: defeat clears orders, not modes. |
+| 0166 | Q0043 points 1, 3, 4 | (none) | M3 scope as planned. For deferred content, the Designer fills placeholder numbers; mechanics need a question first. |
+| 0167 | Q0043 point 2 | V, K1 | Robo Portal 400 → 250; the Bio Portal stays 150. Watch the economy targets in K1. |
+| 0168 | Q0031 | R | A Move or Follow onto the unit itself is a Stop. |
 
 ## 9. Notes from merged slices for later slices
 
@@ -1256,3 +1270,5 @@ The Barracks keeps its side doorway (0080). |
 | M3-G | H3, K1 | With DragMovement (before the 0035 correction), income per second at 4, 8, 12, 16, 20 and 24 Drones is 6.34, 11.65, 17.54, 23.10, 25.44 and 27.10. The design's table gives 6.1 (4 Drones), 23 (16) and 32 (24). 24 Drones are 15.3% under, and one Drone went 578 ticks without delivering because the nearest-unoccupied redirect bounced it along the row. 0132's wait-at-the-patch rule (H3) should fix that; K1 judges against 0108. |
 | M3-G | all | One nav grid per set again (`GroundRugged, 1`), so nav rebuilds are back to about 1.1 ms. **Accepted deviation from T28:** `Mover::momentum` is hashed and serialized only while it is non-zero, so the goldens are stable. Sidestep, doorway exit and 0126 separation stay kinematic. Braking uses omni thrust at 15/16. Neutral units never separate, because `can_yield` needs an owner. |
 | M3-B | F, R, K2 | `damage::resolve` takes Shields first. `Phase::Shields` sits in the pipeline. `Ability::Convert` lives in `conversion.rs`, and the Modes step in `sim/modes.rs`. The gate's Convert rule lives in the gate's abilities family file. The SelectionPanel shows no Shields, and memory records keep none. A second Convert during a conversion is refused. |
+| M3-F | J1, P, K1 | `Sim::deploy_check` serves the ghost (`Mode::Known`). `Sim::pending_deploys` gives the lingering ghosts. `TileProblem::Reserved` is the reservation problem. `SimEvent::DeployFailed` carries the feedback text. A deploying Beacon is out of `provides_capacity` until completion. A gate-refused Deploy emits no event, so the client's ghost must show the problem first. |
+| M3-H3 | R, J2, K1 | `Gather::spot` and `live_target` make the Gather the one order that may name a gone object; R unifies it with the target view. Waiting Drones re-check in global 16-tick phases. The gate's `NothingToDeliver` refuses an empty Drone's Drop Off. The search reads vision memory, which R seeds (0159). The curve fell about 1/s at 20–24 Drones from the 0132 re-check. |

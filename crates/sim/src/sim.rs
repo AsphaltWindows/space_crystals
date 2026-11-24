@@ -293,7 +293,14 @@ impl Sim {
         // Phases 5a–5f, `docs/movement.md > 4`.
         // 5a: after the commands, so an order acts in its own tick; before movement, so goals have one writer.
         // The behaviours read the positions and the vision the last tick left (5f).
-        let world = orders::world::World::new(&self.map, &self.vision, &self.objects, self.tick, self.auto_targeting);
+        let world = orders::world::World::new(
+            &self.map,
+            &self.vision,
+            &self.nav,
+            &self.objects,
+            self.tick,
+            self.auto_targeting,
+        );
         orders::update(&mut self.objects, first_new, &world);
         // The Drones that got to their sites in 5a deploy, or their orders fail; before 5b claims the footprints.
         self.step_deployments(first_new);

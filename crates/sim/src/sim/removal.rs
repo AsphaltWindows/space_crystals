@@ -1,8 +1,9 @@
 //! The one way objects leave the game: destroyed in combat (phase 5e) or removed by a debug command. Whatever the
 //! cause, every reference other objects hold to them goes too, so no state ever names an object that is gone, but
-//! for one exception (design change 0139: nothing about the real state leaks): an order or a rally point on an object
-//! its holder's owner remembers out of its sight goes on as if the object stood, until the owner sees its place
-//! ([`Sim::follow_targets`], at the end of the tick).
+//! for two exceptions: an order or a rally point on an object its holder's owner remembers out of its sight goes on
+//! as if the object stood, until the owner sees its place (design change 0139: nothing about the real state leaks;
+//! [`Sim::follow_targets`], at the end of the tick); and a worker's Gather goes on naming its patch while it heads
+//! for where the patch was (design change 0134, `orders::ActiveOrder::live_target`).
 
 use super::Sim;
 use crate::economy;
@@ -34,8 +35,8 @@ impl Sim {
     /// A constructor refunds its construction or its ready building to its owner as if cancelled (design change 0084,
     /// `Sim::refund_constructors`).
     ///
-    /// A worker gathering at a patch that goes is sent to another first, or its order ends
-    /// (`Sim::redirect_gatherers`, question Q0037 point 7); a worker forgets a drop-off and a patch that are gone
+    /// A worker gathering at a patch that goes keeps its Gather, and heads for where the patch was
+    /// (`Sim::keep_gatherers_on_spots`, design change 0134); a worker forgets a drop-off that is gone
     /// (`Worker::forget`).
     ///
     /// Design change 0139 (`core/vision.md > Explored > Targeting remembered objects`: "Nothing about the real state
@@ -55,9 +56,9 @@ impl Sim {
         );
         gone.sort_unstable();
         gone.dedup();
-        // The workers gathering at a patch that goes: on to another one, while this one is still there to measure
-        // from (`Sim::redirect_gatherers`).
-        self.redirect_gatherers(&gone);
+        // The workers gathering at a patch that goes, while it is still there to say where it was
+        // (`Sim::keep_gatherers_on_spots`).
+        self.keep_gatherers_on_spots(&gone);
         for &id in &gone {
             self.refund_production(id);
         }
@@ -121,7 +122,10 @@ fn forget(o: &mut Object, gone: &[ObjectId], remembered: impl Fn(ObjectId) -> bo
             .is_some_and(|id| is_gone(id) && !(outlives_its_target(order) && remembered(id)))
     };
     if let Some(orders) = &mut o.orders {
-        if orders.current.as_ref().is_some_and(|active| names_gone(&active.order)) {
+        // A Gather heading for where its patch was goes on (`ActiveOrder::live_target`).
+        if (orders.current.as_ref()).is_some_and(|active| {
+            (active.live_target()).is_some_and(|id| is_gone(id) && !(outlives_its_target(&active.order) && remembered(id)))
+        }) {
             orders.current = None;
         }
         orders.queue.retain(|order| !names_gone(order));

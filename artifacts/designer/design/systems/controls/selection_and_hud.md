@@ -173,6 +173,8 @@ The display of available commands for the current selection, derived from Contro
 
 When visible, commands available to all objects in the Selection are visually distinguished from commands available only to the ActiveGroup. Clicking a common command issues it to all selected objects. Clicking a group-specific command issues it only to objects in the ActiveGroup.
 
+**Pressing an unavailable command** (user, 2026-11-24): a greyed-out command (e.g. Train with too few Space Crystals, or a full queue) can still be pressed or its hotkey used; nothing is issued, and the player gets the **same feedback as when an order is refused**, naming the reason (e.g. "Not enough Space Crystals", "Queue is full"). Same channel as invalid target clicks (AwaitingTarget > Invalid target clicks; exact form TBD with the notification system).
+
 ### CommonCommands - commands available to every object in Selection
 ### GroupCommands - commands available to objects of type ActiveGroup
 
@@ -198,6 +200,10 @@ For all unit-producing structures, right-click from DefaultState sets the rally 
 - Right-click Ground: sets rally point to that location
 - Right-click Object: sets rally point to that object
 - Right-click the building itself: **clears** the rally point (RallyPoint = None; user, 2026-11-24)
+- **Several producers selected** (user, 2026-11-24): each applies these rules for itself. Right-clicking one of them clears that building's rally point, and the others rally to the clicked building (Move to object).
+
+### Shift and rally points
+(user, 2026-11-24) A producer has a single rally point, so **Shift does nothing special** for rallies: a Shift-click (after C) or Shift+right-click sets the rally point and ends targeting, exactly like a plain click (an exception to AwaitingTarget > Shift while targeting). Shift is left free for possible multi-waypoint rallies later (not designed).
 
 ### What a rally point makes a new unit do
 (user, 2026-11-24) A unit that spawns with a rally point set **always** gets its **own default right-click command** resolved against the rally target (RightClickResolution, including the rule for units that can't carry out the resolved command). No per-building lists override this. Examples: a Drone rallied on a crystal patch **Gathers** it; a Drone rallied on an enemy unit **follows** it (unarmed, so it can't attack); a Peacekeeper rallied on an enemy attacks it.

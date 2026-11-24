@@ -6,6 +6,7 @@ use crate::defs::ObjectKind;
 use crate::ids::PlayerId;
 use crate::map::Map;
 use crate::mover::Mover;
+use crate::paths::NavState;
 use crate::vision::Vision;
 
 fn order(kind: OrderKind) -> Order {
@@ -56,7 +57,8 @@ fn the_queue_is_capped() {
 fn tick(orders: &mut Orders, mover: &mut Mover, attack: Option<&mut AttackState>, tick: Tick) {
     let map = Map::from_ascii("....\n....").unwrap();
     let vision = Vision::new(&map, [PlayerId(1)]);
-    let world = World::new(&map, &vision, &BTreeMap::new(), tick, true);
+    let nav = NavState::unbuilt(&map);
+    let world = World::new(&map, &vision, &nav, &BTreeMap::new(), tick, true);
     let mut unit = Unit {
         id: ObjectId(1),
         owner: Some(PlayerId(1)),
@@ -132,7 +134,8 @@ fn attack_engages_its_target_and_another_order_disengages() {
     // An empty world: no order here looks at it as it starts.
     let map = Map::from_ascii("....\n....").unwrap();
     let vision = Vision::new(&map, [PlayerId(1)]);
-    let world = |tick| World::new(&map, &vision, &BTreeMap::new(), tick, true);
+    let nav = NavState::unbuilt(&map);
+    let world = |tick| World::new(&map, &vision, &nav, &BTreeMap::new(), tick, true);
     let mut state = start(
         &order(OrderKind::Attack(ObjectId(3))),
         &mut unit(&mut mover, Some(&mut attack)),

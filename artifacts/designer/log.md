@@ -2117,3 +2117,15 @@ Q0042 pt 9: Convert during Firing/Cooldown deferred. Entry 0153.
 Q0042 pt 10: HasTurret renamed CanHaveTurret. Entry 0154. Q0042 done.
 Q0034: plate remaining crystals owner only. Entry 0155.
 Q0033 pt 1: destination stays as resolved. Entry 0156.
+Q0033 pt 2: no re-plan when shortcut opens; recalc only when blocked/stuck. Entry 0157.
+Q0033 pt 2 revised: route recalculation timing = Director's discretion (performance, predictability). Entry 0158 replaces 0157.
+Q0033 pt 3: all neutral map-placed objects known from start; starting layouts never. Entry 0159. Q0033 done.
+Q0035 pt 1: Shift nothing special for rally. Entry 0160.
+Q0035 pt 2: per-building rally rules. Entry 0161.
+Q0035 pt 3: feedback on unavailable command. Entry 0162. Q0035 done.
+Q0036 pt 1: simultaneous last defeats = draw. Entry 0163.
+Q0036 pt 2: FFA defeated -> results screen. Entry 0164.
+Q0036 pt 3: defeat keeps modes (shield stays). Entry 0165. Q0036 done.
+Q0043 pts 1,3,4: M3 scope confirmed; layout reading OK; feedback line OK. Entry 0166.
+Q0043 pt 2: Bio Portal 150 kept; Robo Portal 400 -> 250. Entry 0167. Q0043 done.
+Q0031: follow itself = Stop. Entry 0168.

@@ -311,10 +311,10 @@ fn path_knowledge(sim: &Sim) -> Result<(), Violation> {
 ///
 /// 1. **Gathering Drones** (`factions/colonists/units.md > Drone > Gathering Drones pass through each other`):
 ///    both are Drones on a Gather job. The movement step saw a unit so if it is on one now, or was a tick earlier
-///    and has no order now: an order ends after the movement only by leaving the unit idle (its patch was emptied
-///    in the economy phase and none is left, `Sim::redirect_gatherers`), while an order given in this tick began
-///    before the movement and is the unit's current one. (A job that ended in the behaviours of this tick, by a
-///    Stop or for want of a drop-off, reads the same for that one tick: the check can't see the phases.)
+///    and has no order now: an order ends after the movement only by leaving the unit idle (a Drop Off whose
+///    drop-off was destroyed in phase 5e), while an order given in this tick began before the movement and is the
+///    unit's current one. (A job that ended in the behaviours of this tick, by a Stop, for want of a drop-off or
+///    with no patch left, design change 0123, reads the same for that one tick: the check can't see the phases.)
 /// 2. **Units that already overlap** (`systems/units.md > UnitCollision > Units that already overlap`): the two
 ///    overlapped a tick earlier too. They ignore each other until they have separated, so the pair may move in
 ///    any way meanwhile; once apart it is held to I1 again, like every pair that never overlapped.
