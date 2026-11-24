@@ -2039,3 +2039,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Q0023 pt 1: side lettering clockwise from top in default orientation; Barracks and Cults Armory 2x3 (3 wide). Entry 0079.
 - 2026-11-24: Q0023 pts 2-3: Exit Doorway rule (spawn half inside, walk out, stop in doorway if blocked, pause while doorway occupied; buildings may block exits for now). Doc: core/entities.md > Exit Doorway. Entry 0080.
 - 2026-11-24: Q0024 pt 1: queue max 20 includes unit in production (all factions). Entry 0081.
+- 2026-11-24: Q0024 pt 2: GDO Unit Control reserved when queued (A). Doc: gdo/overview.md > Unit Control. Entry 0082.
