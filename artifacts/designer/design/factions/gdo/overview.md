@@ -9,7 +9,7 @@ The Global Defense Organization (GDO) is a military faction that builds and expa
 ### DisplayHud:
 - Space Crystals: current amount
 - Supplies: current amount
-- Power: current / total (current = total generated - total consumed)
+- Power: used / available (used = total consumed, available = total generated; e.g. 21/30 at the start, 51/30 in the all-in Barracks case). Shown in red when used exceeds available (negative power). Same "used / available" format as the other capacity counters (Unit Control, Syndicate Tunnel Space, Colonists Beacon Capacity) (user, 2026-11-24)
 - Unit Control: current used / 200
 
 ## GDOResources

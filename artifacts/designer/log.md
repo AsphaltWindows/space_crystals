@@ -2047,3 +2047,5 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Q0024 pt 6: rally indicators green/red + line. Entry 0087.
 - 2026-11-24: Q0024 pt 7: rally on enemy converts to ground rally at last-seen position when it leaves sight (no info leak). Entry 0088. Q0024 done.
 - 2026-11-24: Q0025 pts 1,2,4: power producers never slowed (A); ratio gen/cons capped; power counts placement→destruction. Entry 0089.
+- 2026-11-24: Q0025 pt 3: Power display used/available (red when over), like other capacity counters. Entry 0090. Q0025 done.
+- 2026-11-24: Q0026 pt 1: GDO build area square. Entry 0091.
