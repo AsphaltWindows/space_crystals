@@ -193,12 +193,18 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Client**: Explored tiles draw the records, dimmed, instead of live objects. Selection, markers and the InfoPanel use the records. Only GDO can select a remembered station; its InfoPanel shows "Last seen". A shot from the fog shows as a hit flash (Q0017 default).
   - **Follow-ups (in G2)**: the gate should use the records for the station exception; selection frames are drawn under structures; the remembered station's countdown is frozen (Q0019).
 
+- **M1-S2 selection follow-ups** (merged in `f35f0f0`; 579 tests):
+  - **Selection rules**:
+    - Shift+box adds (0049).
+    - Ctrl+Shift-click adds the type on screen (0052).
+    - Add inputs do nothing while a non-owned object is selected (0053).
+    - Every add goes through `ControlState::add_to_selection`.
+  - **Control groups (0056)**: Ctrl+1 with an enemy selected used to put the enemy into the group. Fixed: Assign and Add need an all-own selection.
+  - **Panel**: the portrait order is the Tab order (0055).
+  - **Already matched**: 0048, 0051 and 0054.
+  - **Kept as built, since the design is silent**: Shift+double-click adds the type; Ctrl on a box does nothing.
+
 ## In progress (four agents in parallel, kept to disjoint areas)
-- **M1-S2 selection follow-ups** (Opus; brief `scratchpad/briefs/m1s2-selection-followups.md`), covering 0048–0055:
-  - Shift+box adds to the selection.
-  - Ctrl+Shift-click adds a type.
-  - Add inputs do nothing while a non-owned object is selected.
-  - The panel order is the Tab order.
 - **M1-R Riot Shield** (Opus; brief `scratchpad/briefs/m1r-riot-shield.md`): the shield mode in the sim (effects, gate, hash), the panel button and hotkey, right-click while shielded, and a visual.
 - **M1-G1 crowds and nav perf** (Fable; brief `scratchpad/briefs/m1g1-crowds-and-nav-perf.md`):
   - Dense head-on crowds: target under 3 of 36 failing.
@@ -231,7 +237,8 @@ The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, th
 | V Vision | per-player visibility, ElevationModifier for sight, fog texture | done (`83fec7d`) | Opus |
 | W Combat | attack phases, hits, damage, deaths, range (Q0009), elevation helper | done (`dd268bc`) | Opus |
 | E Behaviours | chase (fog: 0034), auto-target and leashes, AttackMove, Patrol (0036/0037), Hold, Stop, Follow and proximity (0032/0033), edge-to-edge range (0031), gate visibility | done (`aa5a05f`) | Fable |
-| S2 Selection follow-ups | 0048–0055 | running | Opus |
+| S2 Selection follow-ups | 0048–0056 | done (`f35f0f0`) | Opus |
+| H2 Command UI follow-ups | right-click per unit with move/follow for units that can't (0062/0063), Mixed cursor, Attack targeting on own/neutral (0064), invalid-target feedback (0065) | after R (both touch `resolution.rs`) | Opus |
 | R Riot Shield | the Peacekeeper's toggled ability, end to end | running | Opus |
 | Q Queued group destinations | 0029/0030 | done (`bb867a5`) | Opus |
 | F Fog memory | last-known structures and resources, Explored selection, hit flash from the fog | done (`167d683`) | Opus |
@@ -307,16 +314,16 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0010 | Chase target lost in fog; Patrol origin; failed legs | no | answered by 0034, 0036 and 0037 |
 | Q0011 | Terrain/obstacles: resources block, Rugged, routes via the true map, underground/air | no | answered by 0038–0045 |
 | Q0012 | Crowds clot without yielding: should friendly units yield or swap? (evidence from M1-D) | no | answered by 0022 (option B) and 0023 |
-| Q0013 | Selection edge cases: ungroupables, allies, modified clicks, empty ground, InfoPanel for 2+ objects, control groups | no | points 1, 3–7 answered by 0048–0056 (M1-S2); point 2 (allies in box selection) open |
-| Q0014 | Combat edge cases: force-attacking own or neutral objects, a shot whose target dies mid-Firing, Rugged for units across tiles | no | open; W built the listed defaults |
+| Q0013 | Selection edge cases: ungroupables, allies, modified clicks, empty ground, InfoPanel for 2+ objects, control groups | no | answered by 0048–0058 |
+| Q0014 | Combat edge cases: force-attacking own or neutral objects, a shot whose target dies mid-Firing, Rugged for units across tiles | no | answered by 0059–0061 (all as built) |
 | Q0015 | Magic box meets yielding (converging groups), box from footprints vs centres, Shift-queued group moves | no | answered by 0027, 0028 and 0029 |
-| Q0016 | Command UI edge cases: who carries out a right-click, invalid targets, input while targeting, Shift keeps targeting | no | open; H built the listed defaults |
+| Q0016 | Command UI edge cases: who carries out a right-click, invalid targets, input while targeting, Shift keeps targeting | no | points 1–2 answered by 0062, 0063 and 0065 (H2); points 3–4 open |
 | Q0017 | Fog: shots from hidden attackers (hit flash vs. a partial tracer); targeting remembered structures | no | open; F and E build the stated defaults |
 | Q0018 | Behaviour gaps: sight-edge flicker, rotation in target priority, AttackMove leash reference, unreachable auto-targets, MinRange, walled-out spots | no | open; E built the stated defaults |
-| Q0019 | A remembered station's delivery countdown: keep counting or freeze | no | open; G2 builds the stated default (keep counting) |
+| Q0019 | A remembered station's delivery countdown: keep counting or freeze | no | answered by 0057: GDO sees the real timer (folded into G2) |
 
 ## Design change entries
-Last triaged: 0056.
+Last triaged: 0065.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -361,13 +368,22 @@ Last triaged: 0056.
 | 0045 Air units ignore terrain; Gliders may leave the map edge briefly | queued (Later: air) | Q0011 fully answered |
 | 0046 Surfacing reserves the spot | queued (Later: underground) | |
 | 0047 Gliders outside the map edge stay visible and attackable | queued (Later: air) | |
-| 0048 Selection edge cases answered from the docs | in progress (M1-S2) | Q0013 points 1, 3, 6 |
-| 0049 Shift+box adds | in progress (M1-S2) | Q0013 point 4 |
+| 0048 Selection edge cases answered from the docs | done (M1-S2, `f35f0f0`) | Q0013 points 1, 3, 6 |
+| 0049 Shift+box adds | done (M1-S2, `f35f0f0`) | Q0013 point 4 |
 | 0050 Correction: empty clicks not decided | superseded by 0051 | |
-| 0051 Empty-ground clicks decided | in progress (M1-S2 confirms it matches) | |
-| 0052 Ctrl+Shift-click adds the type | in progress (M1-S2) | |
-| 0053 Add inputs do nothing with a non-owned selection | in progress (M1-S2) | |
+| 0051 Empty-ground clicks decided | done (M1-S2, `f35f0f0`) | |
+| 0052 Ctrl+Shift-click adds the type | done (M1-S2, `f35f0f0`) | |
+| 0053 Add inputs do nothing with a non-owned selection | done (M1-S2, `f35f0f0`) | |
 | 0054 InfoPanel for 2+ objects kept as a placeholder | no change | Q0013 point 5 |
-| 0055 SelectionPanel grouping: placeholder order = Tab order | in progress (M1-S2) | |
-| 0056 Control groups hold only own objects | folded into M1-S2 (a test for its Verification) | answers Q0013 point 7; matches the current behaviour |
+| 0055 SelectionPanel grouping: placeholder order = Tab order | done (M1-S2, `f35f0f0`) | |
+| 0056 Control groups hold only own objects | done (M1-S2, `f35f0f0`) | answers Q0013 point 7; matches the current behaviour |
+| 0057 GDO sees a remembered station's real delivery timer | folded into M1-G2 (replaces the Q0019 assumption) | answers Q0019 |
+| 0058 Allies can't be multi-selected; GDO station intel intended | matches the build (no teams yet) | answers Q0013 point 2 |
+| 0059 Explicit Attack may target own and neutral objects; right-click doesn't | matches the build | answers Q0014 point 1 |
+| 0060 Hits land at the end of Firing; overkill wastes the shot | matches the build | answers Q0014 point 2 |
+| 0061 Rugged effects use the centre tile | matches the build | answers Q0014 point 3 |
+| 0062 Right-click: units that can't carry it out move or follow | queued (H2) | answers Q0016 point 1 |
+| 0063 Right-click resolves per unit; Mixed cursor | queued (H2) | |
+| 0064 Attack targeting accepts own and neutral destructibles | queued (H2): pointer; the gate already allows it | |
+| 0065 Invalid target click: ignored, targeting stays, with feedback | queued (H2) | answers Q0016 point 2 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
