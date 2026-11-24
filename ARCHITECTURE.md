@@ -180,8 +180,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 - **Footprints don't overlap** (design change 0096: no buildings on resources), with one exception, the pair of an
   Extraction Plate and the uncovered crystal patch it is placed onto (`ObjectKind::may_overlap`;
   `factions/gdo/economy.md > ExtractionPlate`). Scenario validation (`scenario/validate/occupied.rs`, for the map's
-  objects and the Starting Layouts alike) and debug spawns (`Reject::Overlaps`) apply it. Nothing requires a plate
-  to be on a patch yet; one on bare ground mines nothing (see *Economy*).
+  objects and the Starting Layouts alike), debug spawns (`Reject::Overlaps`) and the placement check (see *Placement
+  and the build area*) apply it. Only the placement check requires a plate to be on a patch; one on bare ground
+  mines nothing (see *Economy*).
 
 **Adding an object type**
 1. Add an `ObjectKind` variant whose doc comment cites the design section, and add it to `ObjectKind::ALL`.
@@ -202,6 +203,41 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
    toggled ability such as the Riot Shield) is not an order: it goes through `Command::Ability` (an `Ability`
    variant, see *Commands, events and replays*), never into the order queue.
 6. Write unit tests in the module and a scenario test in `crates/sim/tests/`.
+
+## Placement and the build area
+
+`placement.rs` (slice M2-C; `core/entities.md > Placement Validation`) holds every rule of where a structure may be
+placed, in one pure function, `placement::check`, so that the command gate, the client's placement ghost and Starting
+Layout validation can't disagree. **Never test a placement rule anywhere else: add it to the check.**
+
+- **In**: a footprint (kind, top-left tile, `BuildingOrientation`), a `Site` (the map, the `BuildArea` to reach and
+  the `Mode`) and the `Occupant`s (the kind, centre and footprint of everything on the map). `Mode::Command { vision,
+  player }` is a game: every tile must be Visible to the player as the latest tick left it. `Mode::Layout` is a
+  Starting Layout: no sight (design change 0097). A game asks `Sim::placement_check(player, kind, origin,
+  orientation)`, a layout object `placement::check_layout(map, others, layout, index)`.
+- **Out**: a `PlacementCheck`: the `TileProblem`s of each footprint tile (off the map, not Buildable, sloped, not
+  Visible, under a structure, under a resource, under a ground unit), row by row and in that order, and the
+  `WholeProblem`s (not a structure, outside the build area, a plate not on a patch). Valid means both are empty: the
+  ghost shows the tiles' problems tile by tile, and the gate refuses a placement with any problem. The check reads
+  the true state, but a tile the player doesn't see has `NotVisible` as its only problem, so it tells nothing the fog
+  hides.
+- **The rules** are listed with their design sections in the module docs. Footprints share tiles only as
+  `ObjectKind::may_overlap` allows. A ground unit of any player blocks the tiles its box overlaps, and is never pushed
+  aside (design change 0094); air and underground units never block.
+- **The build area** (`BuildArea`, `Sim::build_area(player)`; `factions/gdo/structures.md > GDOBuildArea`) is the
+  union of one rectangle per GDO building the player owns: its footprint grown by its BuildRadiusExtension on every
+  side, clamped to the map (design change 0091: square). A building with an extension of 0, the plate, adds nothing.
+  It is derived, never stored or hashed: worked out from the objects whenever it is asked for, so it follows every
+  placement and every loss at once (0092). It is the area only, apart from the tiles' validity (0093): an overlay
+  draws `BuildArea::runs`, a ghost the check's tiles. A Starting Layout's area is that of its Deployment Center
+  (`BuildArea::of_layout`). The Deployment Center seeds the area and needs no tile in it (`seeds_build_area`).
+- **Not placement rules**: debug spawns bypass them (they keep the map's rules and apart from other footprints, see
+  *Commands, events and replays*), and starting units follow the unit-start rule (`paths::misplaced`, see *Sim
+  scenarios and tests*).
+- **Tests**: `src/placement/tests.rs` (each rule on the pure check), `placement/build_area.rs`'s (the 28 × 28 area,
+  each kind's extension, the runs), `tests/placement.rs` (the verification points of design changes 0004 and 0091 to
+  0097 in games and layouts, determinism, a save) and the ignored `tests/placement_perf.rs`. Measured (release, 769
+  objects, 101 buildings of the player's): 9 µs a check, 4.5 µs a build area.
 
 ## Tick pipeline
 
@@ -813,7 +849,8 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   Generator freeing its tiles, debug spawns kept apart but for a plate on its patch, flat ground, the optional
   orientation in files) and `structures_vision.rs` (each type's sight, the ElevationModifier, an enemy Barracks
   remembered in the fog, a plate on a patch in maps and layouts, the targets that shoot back first, idle and on an
-  AttackMove, a scan reaching a large footprint by its edge).
+  AttackMove, a scan reaching a large footprint by its edge). The placement tests are listed under *Placement and the
+  build area*.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
   checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is
