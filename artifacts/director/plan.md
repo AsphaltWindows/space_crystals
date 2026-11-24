@@ -366,13 +366,25 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Fix.** A layout structure over a layout unit is reported once. A layout plate off a patch was already refused, and is now pinned by a test.
   - **Bug, for J2.** `MapDef::validate` accepts a map-placed (non-layout) plate off a patch. The ignored repro is `game_start.rs::a_pre_placed_plate_off_a_patch_is_refused`.
 
+- **M2-H2 construction UI** (merged in `2d507b4`; 923 tests; client only). **M2 is playable end to end.**
+  - **Interface states.** `InterfaceState` gains `BuildMenu` and `AwaitingPlacement(Placing)`.
+  - **DC panel.** Q opens BuildMenu[Basic]: Q Generator, W Barracks, E EF. W opens BuildMenu[Advanced], which is unavailable (0104). X cancels construction, or a building that is ready.
+  - **EF panel.** Build a plate, then place it.
+  - **Placement.** The client `placement/` module has a ghost, green or red per tile from `placement_check`, with the side letters. The overlay shows the area only (0093) and is rebuilt only when the area changes. R and F turn and flip through the shared placement keys. A Shift-click places once (0071). Placement respects `commandable`.
+  - **Activity lines** for construction (0105). Feedback for `PlacementRefused` and invalid clicks.
+  - **Bevy quirk.** A `Text2d` changed in a frame when no camera saw text or sprites is lost. The ghost labels use `NoFrustumCulling`, stay visible, and are emptied rather than hidden.
+  - **Placeholders.** A sim-refused Place returns to DefaultState with the building still ready. The ghost and overlay looks and the texts.
+
 ## In progress
-- **M2 wave 4** (common brief `scratchpad/briefs/m2-w4-common.md`):
-  - **M2-H2 construction UI** (Opus; brief `scratchpad/briefs/m2h2-construction-ui.md`): DC and EF panels, build menus (0104), the ghost with per-tile validity, the area overlay (0093), rotate and flip, side labels. This gives the first playable.
+- **M2-J2 final QA** (Opus; brief `scratchpad/briefs/m2j2-final-qa.md`), running alone so the perf numbers are clean:
+  - fixes: `MapDef::validate` for map-placed plates off a patch; the editor listing `LayoutOverlap` live;
+  - `structures_perf`, and every release perf test re-measured;
+  - the walkthrough screenshots, through to VICTORY;
+  - the ARCHITECTURE review;
+  - playtest notes in `docs/playtest/m2.md`.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
-  - **M2-J2** after H2 merges. Run it with no other agents building, so the perf numbers are clean.
-  - **Then the M2 playtest** with the user.
+  - **M2 playtest** with the user, using J2's notes. M2 has been playable since `2d507b4`.
   - **Fix the Move-onto-itself bug** per Q0031's answer, in the next sim or command-UI slice.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -462,9 +474,9 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | M2-G | HUD: resources bar, structure InfoPanels (the banner moved to M2-F2) | B | Opus | done (`69e80a1`) |
 | M2-H1 | Production UI: generalised command UI, Barracks panel, rally point | D2 | Opus | done (`eccaaa6`) |
 | M2-I | Editor: Starting Layout editing | F | Opus | done (`6ae2b02`) |
-| M2-H2 | Construction UI: build menu, ghost, area overlay, rotate and flip, side labels | C, D1, H1 | Opus | running |
+| M2-H2 | Construction UI: build menu, ghost, area overlay, rotate and flip, side labels | C, D1, H1 | Opus | done (`2d507b4`) |
 | M2-J1 | M2 sim QA: the economy oracle with documented tolerances, the `gdo_opening` golden, a tighter `behaviours_soak` check, F1's double layout report | B, D1, D2, F1 | Opus | done (`c2b2a17`) |
-| M2-J2 | M2 QA, the rest: fix `MapDef::validate` for map-placed plates off a patch (ignored repro); `structures_perf`; perf re-measured on a quiet machine; walkthrough screenshots; ARCHITECTURE review; playtest notes | all | Opus | queued |
+| M2-J2 | M2 QA, the rest: fix `MapDef::validate` for map-placed plates off a patch (ignored repro); `structures_perf`; perf re-measured on a quiet machine; walkthrough screenshots; ARCHITECTURE review; playtest notes | all | Opus | running |
 
 First playable after M2-H2.
 
@@ -537,11 +549,11 @@ Last triaged: 0105.
 | Entry | Status | Notes |
 |---|---|---|
 | 0001 Artillery Rig requires Advanced Mechanics | queued (Later: Factory) | |
-| 0002 CommandPanel slots by hotkey | queued (M1 command panel) | answers Q0005 |
+| 0002 CommandPanel slots by hotkey | done (no-op: matches the M1-H command panel) | answers Q0005 |
 | 0003 Art direction | queued (art pipeline) | confirms the square grid and SC1-style client conventions |
 | 0004 Corner-height elevation | done (terrain M0-D; ElevationModifier M1-V `83fec7d`; structure flatness M2-C `0f8cc70`) | |
 | 0005 Underground exemption; structures get ElevationModifier | queued (M1, M4) | |
-| 0006 Slopes don't affect speed | queued (M1, a check only) | confirms the default |
+| 0006 Slopes don't affect speed | done (check: movement has no slope term) | confirms the default |
 | 0007 Per-object resource values | done (M0-D) | answers Q0003 |
 | 0008 Starting layouts; symmetry tools | done (symmetry M0-D/M0-E; layouts: sim M2-F1 `d5a7d29`, editor M2-I `6ae2b02`) | |
 | 0009 Layouts from scratch; Skirmish Default | done (rules M2-F1 `d5a7d29`, editor M2-I `6ae2b02`); per-layout toggle superseded by 0012 | |
@@ -600,7 +612,7 @@ Last triaged: 0105.
 | 0068 Targeting clicks count at the press point | done (M1-H2, `2417f70`) | |
 | 0069 Selection changes while targeting: player changes cancel, deaths don't | done (M1-H2, `2417f70`) | Q0016 point 3 complete |
 | 0070 Shift keeps targeting active while held | done (M1-H3, `80b3d88`) | Q0016 complete; Shift released before any click: targeting continues (proposed default) |
-| 0071 No smart-casting; Shift while placing | audit done (M1-H3, `80b3d88`); placement part queued (M2-H2; the Recruit Shift-queue in M5) | |
+| 0071 No smart-casting; Shift while placing | done (audit M1-H3 `80b3d88`; placement M2-H2 `2d507b4`); the Recruit Shift-queue in M5 | |
 | 0072 Recruits are Groupable | queued (M5 Cults) | |
 | 0073 Targeting click allowance (16 px) | done (M1-H3, `80b3d88`) | answers Q0021 point 1 |
 | 0074 Shielded Peacekeepers follow on right-click | done (M1-H3, `80b3d88`) | answers Q0020 point 1; replaces the Move-to-location default |
@@ -608,7 +620,7 @@ Last triaged: 0105.
 | 0076 AttackMove goes to every unit, including units that can't attack | done (M1-H3, `80b3d88`) | closes 0075's TBD; check that the sim gate doesn't drop shielded units from AttackMove |
 | 0077 GDO supply loop deferred; Starting Supplies 0 | done (M2-B, `39bcf66`) | answers Q0022; matches the plan |
 | 0078 Any control-group recall resets menus | done (M1-H3, `80b3d88`) | answers Q0021 point 3 |
-| 0079 Side lettering convention; Barracks 3 wide × 2 tall | in progress (M2-A) | answers Q0023 point 1 |
+| 0079 Side lettering convention; Barracks 3 wide × 2 tall | done (`sides` M2-A `cbeb804`; ghost labels M2-H2 `2d507b4`) | answers Q0023 point 1 |
 | 0080 Exit doorway: units appear half inside; production pauses while it is occupied | done (M2-D2, `1a64e75`) | answers Q0023 points 2–3; replaces the nearest-free-spot default |
 | 0081 Queue limit of 20 includes the unit in production | done (M2-D2, `1a64e75`) | |
 | 0082 GDO Unit Control reserved when a unit is queued | done (M2-D2, `1a64e75`) | |
@@ -620,12 +632,12 @@ Last triaged: 0105.
 | 0088 Rally on an enemy becomes a ground rally when the enemy leaves sight | done (sim M2-D2; UI M2-H1, `eccaaa6`) | rally on a remembered structure TBD (Q0017 point 2) |
 | 0089 Power penalty scope, ratio and timing | done (M2-B, `39bcf66`) | matches the plan |
 | 0090 Power display: used / available | done (M2-B accessor, M2-G display, `69e80a1`) | replaces "current / total" |
-| 0091 GDO build area is square | queued (M2-C) | matches the plan |
-| 0092 GDO build area follows the current buildings | queued (M2-C) | matches the plan |
-| 0093 Build area overlay shows the area only | queued (M2-H2) | answers Q0026 point 4; matches the plan |
-| 0094 Ground units on the footprint block Direct Placement | queued (M2-C) | answers Q0027 point 1; matches the plan |
+| 0091 GDO build area is square | done (M2-C, `0f8cc70`) | matches the plan |
+| 0092 GDO build area follows the current buildings | done (M2-C, `0f8cc70`) | matches the plan |
+| 0093 Build area overlay shows the area only | done (M2-H2, `2d507b4`) | answers Q0026 point 4; matches the plan |
+| 0094 Ground units on the footprint block Direct Placement | done (M2-C, `0f8cc70`) | answers Q0027 point 1; matches the plan |
 | 0095 Extraction Plates need visible tiles | done (M2-C check; M2-F1 layouts and `dev_skirmish`, `d5a7d29`) | answers Q0027 point 2 |
-| 0096 No buildings on resources, except plates on patches | done in M2-A (`cbeb804`) for spawns; M2-C for the placement check | answers Q0027 point 3 |
+| 0096 No buildings on resources, except plates on patches | done (spawns M2-A `cbeb804`; placement check M2-C `0f8cc70`) | answers Q0027 point 3 |
 | 0097 Starting Layout validation | done (M2-C check; M2-F1 layouts and `dev_skirmish`; M2-I editor `6ae2b02`) | answers Q0027 point 4: the proposal plus a rule for starting units |
 | 0098 Plates pay in lumps; the cycle timer advances by the power ratio | done (M2-B lumps; M2-J1 oracle, `c2b2a17`) | answers Q0028 point 1 |
 | 0099 Plate depletion: last partial load, depleted patch stays under its plate, the pick selects the plate | done (pick: M2-A; mining: M2-B, `39bcf66`) | answers Q0028 points 2–4 |
@@ -633,6 +645,6 @@ Last triaged: 0105.
 | 0101 On defeat, units become neutral; the game ends when one side remains | done (M2-F2, `e3f67a9`) | answers Q0029 points 1–2 |
 | 0102 Defeated players in team games watch with team vision | done (M2-F2, `e3f67a9`) | closes 0101's TBD |
 | 0103 Enemy structures are valid automatic targets | done (M2-A, `cbeb804`) | answers Q0030 point 1; matches M1 |
-| 0104 Deployment Center has two build menus | queued (M2-H2) | answers Q0030 point 2; M2 needs only Generator, Barracks and EF in BuildMenu[Basic] |
-| 0105 Default InfoPanel for structures | done (M2-G, `69e80a1`; activity lines come with H1 and H2) | answers Q0030 point 3, as proposed |
+| 0104 Deployment Center has two build menus | done (M2-H2, `2d507b4`) | answers Q0030 point 2; M2 needs only Generator, Barracks and EF in BuildMenu[Basic] |
+| 0105 Default InfoPanel for structures | done (M2-G `69e80a1`; activity lines M2-H1 `eccaaa6`, M2-H2 `2d507b4`) | answers Q0030 point 3, as proposed |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
