@@ -25,6 +25,7 @@
 
 pub mod build_order;
 mod builder;
+pub mod colonists;
 pub mod invariants;
 mod references;
 
