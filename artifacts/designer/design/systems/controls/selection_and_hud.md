@@ -35,6 +35,8 @@ Rationale (user): smart-casting makes mass use of abilities effortless, which co
 
 To use a Groupable unit's ability on only one instance, the player selects that instance alone (e.g. left-click its portrait in the SelectionPanel).
 
+**Group production with limited resources** (user, 2026-11-24): when a production command (e.g. Q: Peacekeeper) goes to several selected production buildings and the player can't pay for all of them (crystals, GDO Unit Control or any other cost), **as many as possible** queue it. The buildings are served in order of **least work queued first**: the least total remaining production time in their queue (including the unit in production), ties broken in a fixed, deterministic order. The rest don't queue (insufficient-resources feedback). This spreads production across idle buildings first, without picking a single building for the player.
+
 Considered and **parked** (user, 2026-11-23): a player-controlled toggle of a type's grouping (e.g. from the SelectionPanel portraits). Start with the fixed per-type flag; revisit if needed.
 
 ## BoxSelection

@@ -2040,3 +2040,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Q0023 pts 2-3: Exit Doorway rule (spawn half inside, walk out, stop in doorway if blocked, pause while doorway occupied; buildings may block exits for now). Doc: core/entities.md > Exit Doorway. Entry 0080.
 - 2026-11-24: Q0024 pt 1: queue max 20 includes unit in production (all factions). Entry 0081.
 - 2026-11-24: Q0024 pt 2: GDO Unit Control reserved when queued (A). Doc: gdo/overview.md > Unit Control. Entry 0082.
+- 2026-11-24: Q0024 pt 3: group production with limited resources: as many as possible, least remaining queued production time first. Doc: selection_and_hud.md > No smart-casting. Entry 0083.
