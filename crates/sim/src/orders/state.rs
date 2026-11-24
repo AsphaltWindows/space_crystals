@@ -128,18 +128,10 @@ pub struct Leg {
     #[serde(default, skip_serializing_if = "is_false")]
     pub resumed: bool,
     /// The targets the unit let go of while they still lived (out of reach within the leash, or lost from sight on
-    /// the way), oldest first, at most `orders::travel::MAX_DROPPED`; each with whether the unit's scan has reached it
-    /// since. It doesn't go after them until they have left its scan after that (`orders::travel::march`).
+    /// the way), oldest first, at most `orders::travel::MAX_DROPPED`. It leaves them alone for the rest of the leg,
+    /// but within weapon range (`orders::travel::march`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub dropped: Vec<Dropped>,
-}
-
-/// One of [`Leg::dropped`].
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Dropped {
-    pub target: ObjectId,
-    /// The unit's scan (`orders::world::Scan::Sight`) has reached the target since the unit let go of it.
-    pub seen: bool,
+    pub dropped: Vec<ObjectId>,
 }
 
 /// `> Patrolling`.
@@ -258,7 +250,7 @@ impl Leg {
     /// The object ids the leg refers to.
     fn targets(&self) -> impl Iterator<Item = ObjectId> + '_ {
         let ignored = self.ignored.iter().map(|&(id, _)| id);
-        let dropped = self.dropped.iter().map(|dropped| dropped.target);
+        let dropped = self.dropped.iter().copied();
         (self.engaged.iter().map(|p| p.target)).chain(ignored).chain(dropped)
     }
 
@@ -267,7 +259,7 @@ impl Leg {
             self.engaged = None;
         }
         forget_ignored(&mut self.ignored, is_gone);
-        self.dropped.retain(|dropped| !is_gone(dropped.target));
+        self.dropped.retain(|&dropped| !is_gone(dropped));
     }
 }
 

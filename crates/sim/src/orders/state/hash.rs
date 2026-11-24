@@ -126,9 +126,8 @@ impl StateHash for Leg {
         if !dropped.is_empty() {
             h.tag(3);
             h.len(dropped.len());
-            for Dropped { target, seen } in dropped {
+            for target in dropped {
                 target.hash(h);
-                seen.hash(h);
             }
         }
     }

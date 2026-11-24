@@ -671,9 +671,10 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   walking path, is `Leg::walking`) and replaced by a new path the unit gets while it walks its leg: a re-route round
   a blockage. The unit lets go, and resumes the move with a new walking path, when the target is destroyed, dropped
   or no longer valid. **A target let go of while it lives** (dropped at the leash or lost from sight on the way) is
-  left alone (`Leg::dropped`, the last `MAX_DROPPED` (8)) until it has left the unit's scan after the scan reached it
-  again, and meanwhile is fought only within weapon range: without it, a unit whose way to an enemy at the edge of
-  its sight leads out of that sight takes and drops it every other tick, for good (`behaviours_soak`'s seed 1).
+  left alone for the rest of the leg (`Leg::dropped`, the last `MAX_DROPPED` (16)), fought only within weapon range:
+  without it, a unit whose way to an enemy at the edge of its sight leads out of that sight takes and drops it every
+  other tick, for good (`behaviours_soak`'s seed 1), and two such enemies in turn if it may take one again once it
+  is out of its sight (seed 29).
 - **Patrol** (`travel::patrol`): legs to and fro between the position where the Patrol started executing (design
   change 0036) and the destination. A failed leg counts as arrived; `PATROL_FAILED_LEGS` (2) in a row end it (design
   change 0037).
@@ -733,7 +734,7 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   to for `GIVE_UP_RETRY_TICKS` (32).
 - **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): "within SightRange" for
   a scan is measured edge to edge like Range; a 45° step reaches up to its upper bound; an AttackMove leaves a
-  target it let go of alone until it has passed it; a unit backing off from a target inside its MinRange goes to the
+  target it let go of alone for the rest of the leg; a unit backing off from a target inside its MinRange goes to the
   middle of the band from MinRange to Range, and gives the order up when a back-off ends with the target inside and
   where it was; a queued Attack whose target was never seen while it ran completes at once.
 - **Auto-targeting switch**: `DebugCommand::SetAutoTargeting { on }` (`Sim::auto_targeting`, hashed state) turns
@@ -1583,8 +1584,8 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   chase, the last seen position, a target out of reach, queueing), `behaviours_idle.rs` (acquiring by priority,
   the leash and the return, Hold, Move doesn't engage, the auto-targeting switch), `behaviours_travel.rs` (Follow,
   static objects, AttackMove groups and the leash, a fight replayed and saved in its middle), `attack_move_leash.rs`
-  (design change 0180: a target let go of until the unit has passed it, the leash measured from the route planned
-  at the start after a fight, a detour round a blocked route as the new PathReference), `target_priority.rs` (0179:
+  (design change 0180: a target let go of for the rest of the leg, alone and with another, the leash measured from
+  the route planned at the start after a fight, a detour round a blocked route as the new PathReference), `target_priority.rs` (0179:
   the 45° steps of rotation, the step's bound, ties by id), the unit tests in `orders/tests/` (with test-only defs:
   a unit fighting back beyond its leash, artillery out-ranging it left alone, MinRange: the back-off, the immobile
   unit's failed order, the scans skipping enemies inside it; the steps themselves),
