@@ -299,9 +299,10 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    the state the commands before it left, so a cost is paid from the bank as they left it and a Place is checked
    with the footprints they placed (see *Economy > Construction*).
 5. **Systems**, each walking the objects in id order, one function per module (`docs/movement.md > 4`):
-   - Modes, `riot_shield::step`: a Riot Shield on its way up or down goes on one tick. After the commands, so that
-     a toggle counts from its own tick; before 5a, so that the behaviours, the movement and the combat of the tick
-     all see the mode it leaves.
+   - Modes, `Sim::step_modes` (`sim/modes.rs`, beside `Sim::use_ability`, which applies the ability commands): a
+     Riot Shield on its way up or down goes on one tick (`riot_shield::step`). After the commands, so that a toggle
+     counts from its own tick; before 5a, so that the behaviours, the movement and the combat of the tick all see the
+     mode it leaves.
    - 5a `orders::update`: a unit's finished order completes and its next one starts, until one is in progress, so
      legs follow each other without an idle tick; then that order's behaviour runs for the tick, or the idle one
      (see *Behaviours*). They write goals (`Mover::go_to`, `stop`) and the target the attack engages. Everything
