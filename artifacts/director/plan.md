@@ -389,7 +389,8 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Docs.** ARCHITECTURE.md reviewed. Playtest notes are in `docs/playtest/m2.md`.
 
 ## In progress
-- Nothing is running. The M3 plan is ready; building it waits for the user's go-ahead.
+- **M3 wave 1** (common brief `scratchpad/briefs/m3-common.md`):
+  - **M3-A Colonists foundation** (Opus; brief `scratchpad/briefs/m3a-colonists-foundation.md`). It adds the seven kinds, the defs fields, the stand-in Drone mover, `Sim::change_kind`, and splits the defs tests out first.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2 playtest** with the user, using `docs/playtest/m2.md`.
@@ -497,10 +498,17 @@ First playable after M2-H2.
     4. J1, J2 (the first playable);
     5. K1;
     6. K2.
-  - **Waiting on:**
-    - the user's go-ahead after the M2 playtest;
-    - T25, whether DragMovement (G) is in M3: recommended, because without it Drone income runs about 30% above the targets;
-    - Q0038, gathering Drones and collision: blocking for H's final behaviour and K1.
+  - **User decisions (2026-11-24):** start M3 now, and build DragMovement (G) in M3, on Fable.
+  - **Director decisions:**
+    - T14–T28 are accepted as written in `m3-plan.md` §4;
+    - at most three builds at once, so G waits for a free slot.
+  - **Waiting on:** Q0038, gathering Drones and collision. It blocks H's final behaviour and K1, but not H's start.
+  - **Slice status:**
+
+    | Slice | Status |
+    |---|---|
+    | A | running |
+    | B, C, D, E, F, G, H, J1, J2, K1, K2 | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).

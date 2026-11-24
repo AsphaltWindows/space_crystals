@@ -1,4 +1,4 @@
-> **Status (Director, 2026-11-24):** This is the M3 planning spike's output, kept as the durable M3 spec. The drafts in section 5 were filed as Q0037–Q0043. Building M3 waits for the user's go-ahead after the M2 playtest. Decision T25 (DragMovement in M3) is open with the user. Section 8 collects design answers, and section 9 collects notes from merged slices.
+> **Status (Director, 2026-11-24):** This is the M3 planning spike's output, kept as the durable M3 spec. The drafts in section 5 were filed as Q0037–Q0043. The user approved M3 on 2026-11-24, with DragMovement (G) in M3. The Director accepted T14–T28 as written. Section 8 collects design answers, and section 9 collects notes from merged slices.
 
 # M3 plan: the Colonists (planning spike M3-P)
 
