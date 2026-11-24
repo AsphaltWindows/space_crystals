@@ -660,7 +660,7 @@ First playable after M2-H2.
     | J2 (after R; with 0155) | queued |
     | V (0163, 0164, 0167, 0169, 0175–0176) | running (wave 4) |
     | S (after R; Riot Shield as two unit types: 0171–0174; brief to write) | queued |
-    | L (next free slot; vision and targeting: 0177 attacker reveal and clipped shots, 0178 fog delay, 0179 rotation steps; brief to write) | queued |
+    | L (next free slot; vision and targeting: 0177 attacker reveal and clipped shots, 0178 fog delay, 0179 rotation steps; brief `scratchpad/briefs/m3l-vision-and-target-priority.md`) | queued |
     | K1, K2 | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
