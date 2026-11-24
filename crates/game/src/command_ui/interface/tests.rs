@@ -255,7 +255,7 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
         ]
     );
     let labels = [q, x, c].map(|slot| default.get(slot).unwrap().label());
-    assert_eq!(labels, ["Peacekeeper", "Cancel", "Rally"]);
+    assert_eq!(labels, ["Train PK", "Cancel", "Rally"]);
     assert_eq!(
         press(&default, q),
         SlotPress::Produce(Train(PK), ProductionCommand::Train(PK))

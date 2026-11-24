@@ -193,7 +193,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 3. Set up its capability state in `Sim::insert_object` (units get idle `orders` and `mover`), and give it a
    placeholder shape (`object_render::object_mesh`, whose `match` is exhaustive). The other exhaustive matches on
    kinds name the rest: its short label (`hud::selection_panel::short_label`), its per-object values
-   (`SpawnSettings::defaults`, the editor's `fields.rs`) and its interface (`command_ui/interface.rs`).
+   (`SpawnSettings::defaults`, the editor's `fields.rs`) and its interface (`command_ui/interface/templates.rs`).
 4. Test it. Spawn it in a small inline scenario, then check its initial state and its behaviour.
 
 **Adding a capability**
@@ -1072,10 +1072,12 @@ delivery scheduled" while it isn't empty, and never CurrentSupplies. A structure
 the local player's own shows its HP and, in the activity area under it (`InfoText::Activity`, hidden while empty),
 what it is doing; another player's (or a neutral one) its owner and HP only. The activity's lines come from
 `hud/info_panel/activity.rs::lines`, the one extension point for them: each structure capability adds its lines there
-(construction with slice M2-H2, production with M2-H1), and nothing else of the panel changes. A plate adds the
-remaining crystals of the patch under it, for every viewer (0099). The top bar shows the player on the left, the tick
-on the right (in a replay's playback also the replay's last tick and a note on the playback, `ReplayText`: speed,
-paused or end, and a desync in red), and between them, centred, the local player's resources as their faction's
+(construction with slice M2-H2, production with M2-H1), and nothing else of the panel changes. A producer's
+(`activity::production`) are the unit in production and its progress from `Sim::production_status` (100% while it
+waits at the doorway, 0085), the queue against `QUEUE_LIMIT`, and the rally point (placeholder wordings). A plate
+adds the remaining crystals of the patch under it, for every viewer (0099). The top bar shows the player on the left,
+the tick on the right (in a replay's playback also the replay's last tick and a note on the playback, `ReplayText`:
+speed, paused or end, and a desync in red), and between them, centred, the local player's resources as their faction's
 DisplayHud lists them (`hud/resources.rs`, one `ResourceFigure` text each, `resource_bar` for their readings): for
 the GDO Space Crystals and Supplies (the banks), Power as consumed / generated (`Sim::power`), red while consumption
 exceeds generation (0090), and Unit Control as used / `UNIT_CONTROL_CAP`, read through `Sim::unit_control` alone, so
@@ -1188,17 +1190,23 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   box is four edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set.
 
 **Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/selection_and_hud.md > ObjectInterfaceState`
-to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units.
-- **Rules** (pure and unit tested): `command_ui/interface.rs` has the `UnitCommand`s, the `InterfaceState`
+to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units
+and their producing structures, through one command flow (plan decision T10, slice M2-H1).
+- **Rules** (pure and unit tested): `command_ui/interface.rs` and its children (`commands.rs`, `templates.rs`,
+  `conditions.rs`, `panel.rs`) have the `PanelCommand`s (the units' and the producers' commands), the `InterfaceState`
   (DefaultState, or AwaitingTarget of a command, `queued` once a Shift-click has queued it: design change 0070) in
-  each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the Peacekeeper's and the Guard's BasicCombatUnit grid),
+  each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the Peacekeeper's and the Guard's BasicCombatUnit grid;
+  the Barracks': Train Peacekeeper in Q, Cancel Production in X, Set Rally Point in C),
   the `Panel` a selection gets (common, group, pending, disabled and unavailable buttons; Back in Z while a target is
   awaited) and who receives a command (`recipients`: a common one the whole selection, a group one the whole
   ActiveGroup, by hotkey or button; never some of them, no smart-casting, 0071, apart from the units that can't carry
   it out, which the resolution leaves out). A type's grid is its template's plus its own commands (`grid`: the Riot
   Shield in R for a unit that carries one, a placeholder slot). `Modes` holds the selected units' modes as the sim has
   them: the Riot Shield button is on, and lowers the shields, while all its recipients' are up or going up, else it
-  raises them; Attack is disabled while none of its recipients can attack. `command_ui/resolution.rs` has what a click
+  raises them; Attack is disabled while none of its recipients can attack. `Conditions` holds the `Modes` and what
+  the command gate refuses: a production command is disabled exactly when `Sim::validate` refuses the
+  `Command::Production` pressing it would send (the gate's own predicates, no copy of them: crystals, Unit Control, a
+  full queue, nothing to cancel; 0081, 0082). `command_ui/resolution.rs` has what a click
   resolves to and the `PointerDisplay` that previews it. A `MapTarget` is what is under the cursor (`CursorTarget`),
   with the ground point there and, for an object, whether it is destructible and its domain. A right-click resolves
   per unit (design changes 0062, 0063), whichever group is active: `UnitCapabilities` (the unit's template, its
@@ -1206,7 +1214,11 @@ to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how th
   (`right_click`) when the unit can carry it out; a unit that can't attack the target moves to it instead (`move_to`:
   to the point, or Follow an object); a unit whose Riot Shield keeps it from an Attack gets `order_without_attack`,
   the right-click's shield rule: `move_to` too, Follow an enemy unit, Move to (and stop by) an enemy structure (design
-  change 0074); objects without a template do nothing. `group_orders` makes one order per distinct order, so units
+  change 0074); objects without a template do nothing. A producer's right-click sets its rally point
+  (`object_right_click` gives a `Resolved::Rally` beside the units' `Resolved::Order`s, so a mixed selection does
+  both, 0062; `rally_target`: the object under the cursor, else the ground point; the producer itself clears it,
+  0086); Set Rally Point's targeting click resolves the same way (`target_resolution`), and the pointer shows Move
+  for a rally point. `group_orders` makes one order per distinct order, so units
   sent to one location go as one group (the magic box). A left-click while a target is awaited gives `target_order`:
   Attack takes any destructible object, own and neutral ones too (force-attack, 0059, 0064), never an indestructible
   one; a right-click never attacks them. `unit_target_order` is the targeting click's shield rule, per unit: an
@@ -1223,7 +1235,11 @@ to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how th
   only the player's own units, given only if `Sim::validate` takes it, queued while `Queue` (Shift) is held; each one
   is also an `OrderIssued` message. A click's per-unit orders go out grouped (`OrderOutbox::give_each`); in a
   targeting click each recipient's order is `unit_target_order`'s. An ability is a `Command::Ability`, validated the
-  same way, never queued, and no `OrderIssued`. While a target is awaited (`> AwaitingTarget`, design changes 0065 to
+  same way, never queued, and no `OrderIssued`. A producer's command is one `Command::Production` to every recipient
+  (`OrderOutbox::produce`: the player's own producers, validated the same way), never queued, no `OrderIssued`: no
+  smart-casting, the sim decides which producers a Train reaches and pays for (0083); a Shift-click while Set Rally
+  Point awaits its target sets the rally point and ends targeting like a plain click (a placeholder reading: a rally
+  point isn't queued). While a target is awaited (`> AwaitingTarget`, design changes 0065 to
   0070 and 0073): the other commands do nothing (`press`; the panel shows them disabled); a click counts at the press
   point, as the frame of the press drew the objects (`TargetPress`, recorded when the Select button goes down on the
   map, used when it comes up, `Pointer::released`); the press is a click while the pointer stayed within
@@ -1245,15 +1261,21 @@ to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how th
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
   (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow
   `> Color language`; a target object the fog hides gets no marker and ends no leg (`Sight::sees`), but a Move to
-  a remembered one is marked at its record. The pointer
+  a remembered one is marked at its record. The selected own producers' rally points (`indicators/rally.rs`, design
+  changes 0087, 0088) show a marker, green on the ground and around an own or neutral object, red around an enemy
+  (the sim turns an enemy rally point it loses sight of into a ground one, so the marker turns green there), and a
+  solid line from the footprint's edge to it; nothing while the producer isn't selected or has none. The pointer
   (`command_ui/cursor.rs`) shows the `PointerLook`: images drawn in code and cached per look, set as the window's
   `CursorIcon`, and drawn as a UI node at the injected cursor in QA runs, which render no system cursor; Mixed is
   striped in the Attack red and the Move green (`MIXED_COLORS`, `MIXED_STRIPE_PX`). The invalid-target feedback
   (`command_ui/feedback.rs`) is the message `INVALID_TARGET_TEXT` above the HUD Bar for `FEEDBACK_TICKS` sim ticks
-  after the latest `InvalidTarget` (`TargetFeedback`), never in the pointer's way (`Pickable::IGNORE`).
+  after the latest `InvalidTarget` (`TargetFeedback`), never in the pointer's way (`Pickable::IGNORE`). The same
+  band gives the insufficient-resources feedback (0083): `NO_CRYSTALS_TEXT` or `UNIT_CONTROL_TEXT` after the sim's
+  `ProductionRefused` for a local player's producer that a Train didn't reach for want of crystals or Unit Control
+  (a full queue gives none).
 - The design leaves some things open (labels, colours, the flash, the cursor's shapes and the Mixed look, the
-  invalid-target feedback's form and duration, the targeting click allowance's value, when Shift counts for a
-  targeting click); each placeholder is marked where it is made.
+  invalid-target and insufficient-resources feedbacks' form and duration, the targeting click allowance's value, when
+  Shift counts for a targeting click, Shift with a rally point); each placeholder is marked where it is made.
 
 **Bevy code**
 - Write one plugin per feature module (camera, map rendering, HUD, input, …). Keep systems small. Bevy caps a system

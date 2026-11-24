@@ -68,7 +68,7 @@ impl PanelCommand {
     }
 
     /// The production command of a producer's command that needs no target (`sc_sim::Command::Production`): Train
-    /// and Cancel Production. Set Rally Point's waits for its target (`super::super::resolution::target_rally`).
+    /// and Cancel Production. Set Rally Point's waits for its target (`super::super::resolution::target_resolution`).
     pub fn production(self) -> Option<ProductionCommand> {
         match self {
             PanelCommand::Train(kind) => Some(ProductionCommand::Train(kind)),
@@ -106,7 +106,8 @@ impl PanelCommand {
         }
     }
 
-    /// The button's label: a placeholder for its icon (Q0001). A unit to train is named by its type.
+    /// The button's label: a placeholder for its icon (Q0001), short enough for the button. A unit to train is
+    /// named by its type's short label, as the map and the portraits show it (`hud::selection_panel::short_label`).
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -117,6 +118,8 @@ impl PanelCommand {
             PanelCommand::AttackGround => "Atk Gnd",
             PanelCommand::Stop => "Stop",
             PanelCommand::RiotShield => "Raise Shield",
+            PanelCommand::Train(ObjectKind::Peacekeeper) => "Train PK",
+            // No other unit is trained yet.
             PanelCommand::Train(kind) => kind.def().name,
             PanelCommand::CancelProduction => "Cancel",
             PanelCommand::SetRallyPoint => "Rally",

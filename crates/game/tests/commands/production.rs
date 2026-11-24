@@ -64,7 +64,7 @@ fn q_trains_and_x_cancels_by_hotkey_and_by_button() {
     assert_eq!(
         buttons(&mut app),
         [
-            (q(), c(Train(PK)), Common, "Peacekeeper"),
+            (q(), c(Train(PK)), Common, "Train PK"),
             (CommandSlot::CANCEL_PRODUCTION, c(CancelProduction), Disabled, "Cancel"),
             (CommandSlot::RALLY_POINT, c(SetRallyPoint), Common, "Rally"),
         ]
