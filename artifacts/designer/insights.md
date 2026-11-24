@@ -27,7 +27,7 @@
 
 ## Open Director Questions
 
-**New 2026-11-24, none blocking (arrived during Syndicate roster):** Q0049 (Convert pressed again while deferred; A = ignore, B = cancel), Q0050 (ActiveGroup when the active unfinished group empties; A = finished group becomes active), Q0051 (target outrunning sight lost at once despite fog delay; A per-tile / B held target lingers 8 ticks / C every object lingers). Raise after the Shadebringer thread.
+**New 2026-11-24, none blocking (arrived during Syndicate roster):** Q0049 (Convert pressed again while deferred; A = ignore, B = cancel), Q0050 (ActiveGroup when the active unfinished group empties; A = finished group becomes active), Q0051 (target outrunning sight lost at once despite fog delay; A per-tile / B held target lingers 8 ticks / C every object lingers). Q0052 (gathering UI: pt1 Drone right-click enemy — docs already say Follow unit / move to structure, answerable; pt2 Set Drop-off pointer; pt3 who sees a Drone's load; pt4 Gather/Drop Off indicator). Raise after the Shadebringer thread.
 
 All non-blocking; Director proceeds on its defaults (option A in each). Arrived 2026-11-23 mid-GDO-roster; raise after the support-air-unit thread. Movement/pathing cluster:
 - **Q0016** point 1 ANSWERED (0062 non-capable units move/follow; 0063 per-unit resolution + Mixed cursor). (0065 invalid target: ignore + feedback; 0066 other commands unavailable while targeting, cancel first.) (0067 drag while targeting = nothing.) (0068 press point; 0069 player selection changes cancel targeting, deaths don't unless ActiveGroup empty.) (0070 point 4: Shift keeps targeting active until released → Q0016 DONE; follow-up TBD: Shift released before any click; 0071 Shift-placement same rule where builder can take more orders)
