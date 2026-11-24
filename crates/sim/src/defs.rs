@@ -78,8 +78,9 @@ impl ObjectDef {
         }
     }
 
-    /// Half a unit's Silhouette: the half extents of its collision box, axis-aligned and never rotated
-    /// (`docs/movement.md > 3`; question Q0009, gap G6). `None` for tile-based types.
+    /// Half a unit's Silhouette: the half extents of its collision box, axis-aligned for now (`docs/movement.md >
+    /// 3`; design change 0033 makes Silhouettes rotate with the facing, which waits for the vehicles milestone).
+    /// `None` for tile-based types.
     pub fn half_extents(&self) -> Option<Vec2> {
         self.silhouette().map(|s| s / 2.0)
     }

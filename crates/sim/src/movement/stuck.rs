@@ -30,8 +30,8 @@ fn remaining(pos: Vec2, path: &[Vec2], next: usize) -> f32 {
 /// `docs/movement.md > 6.5`, rule 2: a unit chasing the target of its attack (`chased`, which its attack engages),
 /// blocked by a stationary unit of its owner that attacks the same target, **queues**: it keeps waiting, with no
 /// repath and no failure, until the unit ahead moves on or the target dies. `engaged` lists what each body's attack
-/// engages; the unit's own index and `blocker` index it. (The check is a few comparisons, so it runs every tick the
-/// unit is stuck; `mover::QUEUE_RECHECK_TICKS` isn't needed.)
+/// engages; the unit's own index and `blocker` index it. (The check is a few comparisons, so it runs in every tick
+/// the unit is stuck, where `docs/movement.md` first had it re-check every 16 ticks.)
 fn queues_behind(chased: Option<&Chased>, engaged: &[Option<ObjectId>], world: &World, blocker: Option<usize>) -> bool {
     let (Some(chased), Some(blocker)) = (chased, blocker) else {
         return false;
@@ -101,10 +101,11 @@ fn target_is_occupied(
 
 /// After a unit's move in tick `tick` (`docs/movement.md > 6.5`). Returns whether the move failed.
 ///
-/// **Progress towards an object** (`chased`, a `MoveGoal::Object`) is getting on at all: the object may move as
-/// fast as the unit, and the path is re-aimed at it as it moves, so its remaining length says nothing. Such a unit
-/// makes progress in every tick it moves forward (`Moved::forward`), and is stuck when units or terrain have kept
-/// it from that for `STUCK_TICKS`.
+/// **Progress towards a moving object** (`chased`, a `MoveGoal::Object` whose object is a unit that moved this
+/// tick or the last) is getting on at all: the object may move as fast as the unit, and the path is re-aimed at it
+/// as it moves, so its remaining length says nothing. Such a unit makes progress in every tick it moves forward
+/// (`Moved::forward`), and is stuck when units or terrain have kept it from that for `STUCK_TICKS`. Towards an
+/// object at rest, progress is measured as to a point, afresh from when it came to rest.
 ///
 /// **Progress** to a point is the remaining path length: `last_progress` moves on when it beats `best_remaining` by
 /// half a step. A new path measures afresh but is no progress by itself. Following a slower unit is progress, and so is
@@ -146,7 +147,13 @@ pub(super) fn after_move(
 ) -> bool {
     let blocker = moved.blocker.map(|index| &world.bodies[index]);
     let left = remaining(pos, &mover.path, usize::from(mover.next));
-    if matches!(mover.goal, MoveGoal::Object { .. }) {
+    // Bodies are in id order.
+    let target_moves = chased.is_some_and(|chased| {
+        let found = world.bodies.binary_search_by_key(&chased.id, |body| body.id);
+        found.is_ok_and(|index| world.bodies[index].velocity != Vec2::ZERO)
+    });
+    if target_moves {
+        mover.best_remaining = f32::MAX;
         if moved.forward {
             mover.last_progress = tick;
         } else if let Some(ahead) = blocker.and_then(|b| b.progress) {

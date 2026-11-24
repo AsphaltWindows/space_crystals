@@ -12,7 +12,7 @@
 //! - [`stuck`]: progress, stuck detection and recovery (`docs/movement.md > 6.5`).
 //! - [`yielding`]: an idle unit's sidestep for a blocked unit of its owner (`docs/movement.md > 6.6`).
 //!
-//! **Object goals** (`MoveGoal::Object`, slice E): the step looks up the object each such unit heads for
+//! **Object goals** (`MoveGoal::Object`): the step looks up the object each such unit heads for
 //! ([`Chased`]). The unit has arrived once the gap between the two shapes is within the goal's `reach`, or at the
 //! end of its path when the object hasn't moved since it was planned (the nearest point it can reach); the
 //! chase's progress, the occupied-target rule and queueing behind attackers are in [`stuck`].

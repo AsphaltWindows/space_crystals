@@ -73,10 +73,12 @@ mod tests {
     use crate::combat::{AttackPhase, AttackState};
     use crate::defs::ObjectKind;
     use crate::ids::PlayerId;
-    use crate::orders::{ActiveOrder, Behaviour, OrderGroup};
+    use crate::orders::state::Pursuit;
+    use crate::orders::{ActiveOrder, Auto, Behaviour, OrderGroup};
     use crate::scenarios;
 
-    /// Every kind of reference, including a move towards an object, which no behaviour gives yet (slice E).
+    /// Every kind of reference: orders, a move towards an object, an attack, and what the behaviours engaged by
+    /// themselves.
     #[test]
     fn removal_clears_every_reference_to_the_removed() {
         let mut sim = Sim::new(&scenarios::empty(8, 6));
@@ -113,6 +115,28 @@ mod tests {
             phase: Some(AttackPhase::Aiming { target: b }),
             elapsed: 1,
         });
+        // Unit c holds its position and engaged b by itself; the idle unit d went for b on its own.
+        let d = sim.insert_object(
+            ObjectKind::Peacekeeper,
+            Some(PlayerId(1)),
+            Vec2::new(400.0, 100.0),
+            None,
+            None,
+        );
+        sim.objects.get_mut(&c).unwrap().orders.as_mut().unwrap().current = Some(ActiveOrder {
+            order: order(OrderKind::Hold),
+            since: 1,
+            state: Behaviour::Hold { target: Some(b) },
+        });
+        sim.objects.get_mut(&d).unwrap().orders.as_mut().unwrap().auto = Auto::Engaging {
+            pursuit: Pursuit {
+                target: b,
+                chasing: true,
+            },
+            origin: Vec2::ZERO,
+        };
+        assert_eq!(crate::testing::referenced_ids(&sim.objects[&c]), [b]);
+        assert_eq!(crate::testing::referenced_ids(&sim.objects[&d]), [b]);
         sim.events.clear();
 
         sim.remove_objects(&[b, ObjectId(99), b]);
@@ -125,6 +149,12 @@ mod tests {
         let mover = o.mover.as_ref().unwrap();
         assert_eq!((mover.goal, mover.status), (MoveGoal::None, MoveStatus::TargetLost));
         assert_eq!(o.attack, Some(AttackState::default()));
-        assert!(sim.objects.contains_key(&c));
+        let held = sim.objects[&c].orders.as_ref().unwrap();
+        assert!(matches!(
+            held.current.as_ref().map(|active| &active.state),
+            Some(Behaviour::Hold { target: None })
+        ));
+        assert_eq!(sim.objects[&d].orders.as_ref().unwrap().auto, Auto::default());
+        assert_eq!(crate::testing::dangling_references(&sim), []);
     }
 }

@@ -223,15 +223,13 @@ impl<'a> World<'a> {
     /// - [`Scan::Weapon`]: within Range and beyond MinRange (`combat::within_range`).
     pub(crate) fn within(&self, unit: &Unit, attrs: &AttackAttrs, scan: Scan, view: &View) -> bool {
         let gap = unit.shape().gap(&view.shape);
-        let source = self.elevation(unit);
+        Self::gap_within(unit.kind, attrs, scan, gap, self.elevation(unit), view)
+    }
+
+    /// [`World::within`] for a unit of `kind` on `source`, `gap` away from `view`.
+    fn gap_within(kind: ObjectKind, attrs: &AttackAttrs, scan: Scan, gap: f32, source: Elevation, view: &View) -> bool {
         match scan {
-            Scan::Sight => {
-                gap <= gu(elevation::sight_range(
-                    unit.kind.def().sight_range,
-                    source,
-                    view.elevation,
-                ))
-            }
+            Scan::Sight => gap <= gu(elevation::sight_range(kind.def().sight_range, source, view.elevation)),
             Scan::Weapon => within_range(attrs, gap, source, view.elevation),
         }
     }
@@ -271,6 +269,7 @@ impl<'a> World<'a> {
             self.cell_coord(unit.pos.y - radius, self.cells_high),
             self.cell_coord(unit.pos.y + radius, self.cells_high),
         );
+        let (shape, source) = (unit.shape(), self.elevation(unit));
         let mut best: Option<(bool, f32, f32, ObjectId)> = None;
         for y in y0..=y1 {
             for x in x0..=x1 {
@@ -279,9 +278,11 @@ impl<'a> World<'a> {
                 for &index in &self.candidates[range] {
                     let view = &self.views[index as usize];
                     // The cheap tests first: most candidates are the unit's own side.
-                    if view.owner == unit.owner
-                        || Some(view.id) == skip
-                        || !self.within(unit, attrs, scan, view)
+                    if view.owner == unit.owner || Some(view.id) == skip {
+                        continue;
+                    }
+                    let gap = shape.gap(&view.shape);
+                    if !Self::gap_within(unit.kind, attrs, scan, gap, source, view)
                         || !self.valid_target(unit, attrs, view)
                     {
                         continue;
@@ -291,7 +292,7 @@ impl<'a> World<'a> {
                         continue;
                     }
                     let harmless = !view.threat.is_some_and(|threat| domain_allows(threat, my_domain));
-                    let key = (harmless, rotation, unit.shape().gap(&view.shape), view.id);
+                    let key = (harmless, rotation, gap, view.id);
                     let better = best.is_none_or(|b| {
                         key.0
                             .cmp(&b.0)

@@ -13,15 +13,17 @@
 //! - **Deaths**: an object at 0 HP or less dies (`SimEvent::Died`). `step` returns the dead, and `Sim::step`
 //!   removes them through the one removal path (`Sim::remove_objects`), which clears every reference to them.
 //! - **Queries**: [`may_move`] and [`may_turn`] say whether a unit's attack sequence lets it move or turn this tick.
-//!   The movement step holds a unit that may not (phase 5d); the behaviours will read them too (slice E).
+//!   The movement step holds a unit that may not (phase 5d), and the behaviours start a chase only when it may
+//!   (`orders::engage`).
 //! - **Vision** (`systems/combat.md > ValidTarget` 2): a sequence starts, and Aiming goes on, only while the unit's
-//!   owner sees the target, by the vision phase 5f left at the end of the last tick (`vision`). A target out of
-//!   sight stays engaged and its order waits; the behaviours will chase it to where it was last seen (question
-//!   Q0010, slice E).
+//!   owner sees the target, by the vision phase 5f left at the end of the last tick (`vision`). What a unit does
+//!   about a target out of range or out of sight is its behaviour's (`orders::engage`: it closes in, or goes to
+//!   where the target was last seen).
+//! - **Range** (`> Range Measurement`, design change 0031): edge to edge, the gap between the attacker's shape and
+//!   the target's (`shape`); [`reaches`] is the one check.
 //!
-//! Not built yet: chasing a target out of range or out of sight, AttackMove, auto-targeting and leashes (slice E),
-//! turrets, projectiles and location targets (the disjointed attack types), AoE damage, the Riot Shield and
-//! Shields.
+//! Not built yet: turrets, projectiles and location targets (the disjointed attack types), AoE damage, the Riot
+//! Shield and Shields.
 
 mod damage;
 mod phases;
@@ -129,8 +131,8 @@ impl AttackState {
 /// tick. A unit that attacks from its base can't move while Aiming, Firing or in Cooldown; it may while Reloading
 /// and when no sequence runs. A turret unit's base always may (`> TurretSource`, `TurretSourceBaseActions`), and so
 /// may every object without an attack. The movement step (5d) holds a unit that may not, keeping its goal; the
-/// behaviours (5a, slice E) shouldn't start a chase then. Before 5e it reads the phase the last tick left, which is
-/// the one this tick runs in; a Stop or a new target in 5a has already cancelled an aim.
+/// behaviours (5a) don't start a chase then. Before 5e it reads the phase the last tick left, which is the one
+/// this tick runs in; a Stop or a new target in 5a has already cancelled an aim.
 pub fn may_move(o: &Object) -> bool {
     base_is_free(o.kind, o.attack.as_ref())
 }

@@ -145,8 +145,8 @@ pub(super) fn run(
     events: &mut Vec<SimEvent>,
 ) {
     // A target this unit can't attack at all (gone, itself, or in a domain its attack can't reach) is dropped, and
-    // the order that engaged it completes (`orders::update`). One its owner doesn't see stays engaged: the order
-    // waits (chasing it to where it was last seen is the behaviours', question Q0010).
+    // the order that engaged it completes (`orders::update`). One its owner doesn't see stays engaged here: what
+    // to do about it is the behaviour's (`orders::engage`, design change 0034).
     if let Some(target) = state.target
         && !targets.get(target).is_some_and(|t| shooter.can_target(t))
     {

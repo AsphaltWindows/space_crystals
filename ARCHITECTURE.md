@@ -145,7 +145,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 - **Core fields**: `id`, `kind`, `owner` (`None` means neutral), `pos`, `prev_pos`, `facing`, `prev_facing` and `hp`
   (`None` means indestructible).
 - **Capabilities**: today these are `placement` (the tile footprint), `resource` (`ResourceState`), and for units
-  `orders` (`Orders`, `orders.rs`: the current order and a queue of at most `MAX_QUEUED_ORDERS`), `mover`
+  `orders` (`Orders`, `orders.rs`: the current order with its behaviour's state, a queue of at most
+  `MAX_QUEUED_ORDERS`, and what the unit does on its own while it has none; see *Behaviours*), `mover`
   (`Mover`, `mover.rs`: goal, status, path, the replanning state of `docs/movement.md > 3` and the sidestep of a
   yielding unit) and, for units that
   can attack, `attack` (`AttackState`, `combat.rs`: see *Combat*). Production and the rest arrive as more optional
@@ -184,8 +185,11 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 3. **Snapshot** `pos`/`facing` into `prev_pos`/`prev_facing` for every object (the client interpolates from these).
 4. **Commands**: apply each `PlayerCommand` in `TickInputs` order (`apply_command`).
 5. **Systems**, each walking the objects in id order, one function per module (`docs/movement.md > 4`):
-   - 5a `orders::update`: a unit's finished order completes and its next one starts (a move sets `Mover::go_to`,
-     Stop and Hold stop it), until one is in progress, so legs follow each other without an idle tick.
+   - 5a `orders::update`: a unit's finished order completes and its next one starts, until one is in progress, so
+     legs follow each other without an idle tick; then that order's behaviour runs for the tick, or the idle one
+     (see *Behaviours*). They write goals (`Mover::go_to`, `stop`) and the target the attack engages. Everything
+     they read of other objects comes from one snapshot taken first (`orders::world::World`): the positions and the
+     vision the last tick left.
    - 5b `paths::sync`: if the blocking footprints changed, rebuild the navigation grids and bump `nav_version`.
    - 5c `paths::serve`: first each unit's staggered path checks, in the ticks where `(tick + id) % 4 == 0` (after
      the ground changed, line of sight along its remaining path, and a new plan only if that is cut; the farthest
@@ -234,16 +238,20 @@ ticks spent in it. Hashed and serialized like all state.
   of range, cancels an aim; a reload keeps counting. Firing and Cooldown run on whatever happens.
 - **Queries**: `combat::may_move(&Object)` and `may_turn(&Object)`: whether the attack leaves the base free to move
   or turn this tick (`> UnitBaseSource`: not while Aiming, Firing or in Cooldown; turret units always). Phase 5d
-  holds a unit that may not: it stands, keeping its goal, path and stuck clock (`movement::wait`). Behaviours
-  (slice E) should start a chase only when `may_move` holds. A unit that moves in 5d and starts aiming in 5e may
-  turn twice in a tick; harmless while every M1 unit turns 180° per tick.
-- **Range** (`combat/targeting.rs`): from the attacker's centre to the nearest point of the target's silhouette or
-  footprint (`RANGE_MEASURE`, question Q0009's default); within Range and beyond MinRange, both inclusive; the
-  TargetDomain must allow the target's domain. `can_attack_now(map, vision, attacker, target)` is the check for
-  behaviours: in range and seen.
+  holds a unit that may not: it stands, keeping its goal, path and stuck clock (`movement::wait`). The behaviours
+  start a chase only when `may_move` holds. A unit that moves in 5d and starts aiming in 5e (it aims in the tick it
+  comes into range) may turn twice in a tick; harmless while every M1 unit turns 180° per tick.
+- **Range** (`shape.rs`, `combat/targeting.rs`; `systems/combat.md > Range Measurement`, design change 0031): **edge
+  to edge**, the gap between the attacker's shape and the target's. `Shape::of(object)` is a unit's Silhouette or a
+  tile-based object's footprint; `Shape::gap` measures between two, `Shape::distance_to` to a point (ground-location
+  targets). Shapes are axis-aligned for now: Silhouettes that rotate with the facing (design change 0033) wait for
+  the vehicles milestone, and only `shape.rs` changes then (`Shape::silhouette` already takes the facing).
+  `combat::reaches(attrs, attacker shape, elevation, target shape, elevation)` is the one range check: within Range
+  and beyond MinRange, both inclusive, with the ElevationModifier. `can_attack_now(map, vision, attacker, target)`
+  adds the rest for two objects: destructible, seen, an allowed domain.
 - **Vision** (`systems/combat.md > ValidTarget` 2): a sequence starts, and an aim goes on, only while the attacker's
-  owner sees the target (`PlayerVision::sees_box`), by the vision 5f left at the end of the tick before. A target
-  out of sight stays engaged and its Attack order waits, as for one out of range; a neutral attacker sees nothing.
+  owner sees the target (`PlayerVision::sees_box`), by the vision 5f left at the end of the tick before. What a
+  unit does about a target out of range or out of sight is its behaviour's; a neutral attacker sees nothing.
 - **ElevationModifier** (`elevation.rs`, shared with vision): `Elevation::of` an object is its elevation level (the
   height rounded down), or `Exempt` for air units; `modifier(source, target)` is +1/−1/0 grid unit, binary.
   `attack_range` and `sight_range` apply it; melee attacks don't take it.
@@ -256,8 +264,7 @@ ticks spent in it. Hashed and serialized like all state.
   debug removals alike. It emits `Removed` and clears every reference to the removed: a current order naming one
   completes, queued ones are dropped, a move towards one ends `TargetLost`, an attack on one stops (an aim is
   cancelled, a shot being fired hits nothing). `testing::dangling_references` checks that none are left.
-- **Not yet**: chasing, AttackMove, auto-targeting and leashes (slice E: the Attack order waits while its target is
-  out of range, `TODO(E): chase`), turrets, projectiles, AoE, Riot Shield.
+- **Not yet**: turrets, projectiles, AttackGround and the other location-targeted attacks, AoE, Riot Shield.
 
 ## Vision
 
@@ -282,9 +289,64 @@ or `Visible` for each player.
   seen when any tile it covers is Visible (its silhouette box or footprint, `combat::object_box`).
   `Vision::player(id)` gives a `PlayerVision` with `state`, `states` (row-major, for the client's fog texture),
   `object_state`, `sees` and `sees_box`.
-- **Not yet**: the chase to a target's last seen position (slice E, Q0010's default: the behaviour records the
-  position itself); the last-known state of structures and resources on Explored tiles (the client shows them as
+- **Not yet**: the last-known state of structures and resources on Explored tiles (the client shows them as
   they are now).
+
+## Behaviours
+
+Slice E (`orders.rs`, `orders/`; `systems/controls/behaviors.md`). Phase 5a runs one behaviour per unit and tick: its
+current order's, or the idle one. A behaviour never moves or shoots anything itself: it writes the mover's goal and
+the target the attack engages, and reads `Mover::status` and the snapshot.
+
+- **State** (`orders/state.rs`, the design's BaseBehaviorState): `ActiveOrder::state` (`Behaviour`: `Plain`,
+  `Attack`, `Approach`, `AttackMove`, `Patrol`, `Hold`) and `Orders::auto` (`Auto`: what a unit without an order
+  does: `Watching`, `Engaging`, `Returning`). Hashed and serialized like all state; every order that starts resets
+  `auto`. A state names objects only by id, and the removal path clears them (`Orders::forget`).
+- **The snapshot** (`orders/world.rs`): `World` holds a `View` of every object (position, shape, owner, domain,
+  elevation) as the last tick left it, the vision of its phase 5f, and a coarse grid of the objects a scan may
+  pick. Every unit decides on the same world, whatever its id. `World::pick` is the scan of `> BaseAutoTargeting >
+  Target Selection Priority`: among the ValidTargets in reach (enemies only: another player's destructible objects
+  that the unit's owner sees and its attack can target), threatening ones first, then the least rotation from the
+  unit's facing, then the smallest gap, then the lowest id.
+- **AttackingObject** (`orders/engage.rs`): `close_in` is its core, shared by all fighting. In range (`combat::
+  reaches`) the unit stops and phase 5e attacks; out of range it heads for the target with `MoveGoal::Object`,
+  starting only while `combat::may_move` holds. An **Attack order** adds its ends: the target destroyed (the removal
+  path completes the order); the target out of its owner's sight (design change 0034: the unit walks to the **last
+  seen position**, which the behaviour notes while it sees the target, and the order completes there; it never
+  re-engages on the way); the approach failed, or ended as near as the unit gets to a target that hasn't moved.
+- **Idle units** (`engage::idle`): scan their SightRange every tick; the acquired enemy is engaged with `close_in`
+  from the IdleOrigin, where the unit stood. Farther than `IDLE_LEASH_GU` (4) from it the unit disengages and walks
+  back without scanning; a target destroyed or out of SightRange leaves it idle where it is.
+- **Hold Position** (`engage::hold`): scans its weapon's range only, never moves, and disengages the moment the
+  target leaves that range.
+- **Move to an object** (`orders/travel.rs::approach`; design changes 0032 and 0033): proximity is a gap of at most
+  `PROXIMITY_SU` (8). A static object completes the order there (also at the nearest point the unit can reach, or
+  stuck within 2 GU of it behind units that won't move). **A unit is followed**: the order never completes by
+  itself; the follower waits within proximity (or where it was stopped near it, without re-routing) and sets off
+  again when the target moves. It ends with a new order, the target's death, a failed move, or an enemy target
+  going out of sight (to its last seen position, as for Attack). "Leaves the map" (transports, buildings, tunnels)
+  is a documented hook in `approach`.
+- **AttackMove** (`travel::march`): one `Leg` to the unit's own destination (the magic box). While moving it scans
+  its SightRange and engages with `close_in`; it lets go, and resumes the move with a new path, when the target is
+  destroyed or no longer valid, or when the unit is farther than `ATTACK_MOVE_LEASH_GU` (6) from its PathReference.
+- **Patrol** (`travel::patrol`): legs to and fro between the position where the Patrol started executing (design
+  change 0036) and the destination. A failed leg counts as arrived; `PATROL_FAILED_LEGS` (2) in a row end it (design
+  change 0037).
+- **Not active during Move**: a Move never engages, and neither does the walk back to an IdleOrigin or to a last
+  seen position.
+- **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): `GIVE_UP_RETRY_TICKS`
+  (32): a unit doesn't re-acquire a target it couldn't get to for that long; "within SightRange" for a scan is
+  measured edge to edge like Range; the PathReference is the route first planned for a leg and stays that when the
+  unit resumes from elsewhere; a unit farther than the leash from it doesn't acquire; a queued Attack whose target
+  was never seen while it ran completes at once.
+- **Auto-targeting switch**: `DebugCommand::SetAutoTargeting { on }` (`Sim::auto_targeting`, hashed state) turns
+  every scan off or on, for tests and QA runs about movement between hostile units; `TestSim::without_auto_
+  targeting()` schedules it for tick 1. Attack orders work either way.
+- **Adding a behaviour**: give it its state in `orders/state.rs` (with its hash, and its ids in `targets` and
+  `forget`), start it in `orders::start`, run it in `orders::run`, and let it read only the `World` and its own
+  unit. A behaviour that sends the unit somewhere must remember that it did (`chasing`, `marching`, `moving`):
+  `Mover::status` is the outcome of the unit's latest move, whoever asked for it. Never call `Mover::go_to` tick
+  after tick: each call is a path request and a fresh set of repaths.
 
 ## Navigation
 
@@ -364,17 +426,27 @@ magic box did, **(Y)** where friendly yielding and the answers to Q0008 did), an
   that won't yield to it, the unit has arrived instead, without a repath: when stuck, or after `JAMMED_TICKS`
   without a way forward if the blocker has no goal. Two moving units head-on in a passage too narrow to pass both
   fail.
-- **Hooks for later slices**: chasing and queueing behind attackers are `stuck::queues_behind` and the
-  `MoveGoal::Object` arm of `paths::serve` (slice E); other movement models replace the "direction → facing and
-  velocity" part of `step_unit`.
+- **Object goals** (`MoveGoal::Object { id, reach }`, `docs/movement.md > 5.6`, `> 6.5`): the path is planned to
+  the point nearest the object's centre that the unit can stand on (right at a structure's wall), and kept aimed at
+  the object as it moves (`paths::chase_check`, on the stagger tick: straight at it while the unit's box has a
+  clear line, else a new plan once it moved 1 GU or 25 % of the distance, at most every 8 ticks, never counted
+  against the repath cap). The unit has `Arrived` when the gap between the two shapes is within `reach`, at the end
+  of its path if the object hasn't moved, or by the occupied-target rule (the 2 GU measured as that gap). Progress
+  towards a moving object is moving forward at all; towards one at rest it is measured as to a point. A unit
+  chasing its attack's target behind stationary attackers of its owner on the same target **queues**
+  (`stuck::queues_behind`): no repath, no failure.
+- **Hooks for later slices**: other movement models replace the "direction → facing and velocity" part of
+  `step_unit`.
 - **Counters**: `Sim::move_counters()` (sweeps and box tests of the latest tick) and `Sim::nav_counters()` are
   output, not state. Tests assert them; `cargo test -p sc_sim --release --test movement_perf -- --ignored
   --nocapture` prints timings.
 - **Invariants** (`docs/movement.md > 8`, `sc_sim::testing::invariants`): I1 no two units of a layer overlap; I2 no
   ground box overlaps a blocked tile or leaves the map; I3 a unit moves at most its speed per tick; I4 every float
   is finite; I5 a unit without a goal doesn't move; I6 repaths per leg are capped and no path request waits longer
-  than `MAX_REQUEST_AGE`; I7 an arrived unit never moves again without an order, and a unit without a goal is at
-  rest. The one exception to I5 and I7 is a unit taking its sidestep, which must have neither a goal nor an order. A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
+  than `MAX_REQUEST_AGE`; I7 an arrived unit never moves again without an order or a move of its behaviour, and a
+  unit without a goal is at rest. A leg is one `Mover::go_to`: an order's move, or one a behaviour starts (a chase,
+  a Patrol's next leg, the way back to an IdleOrigin). The one exception to I5 and I7 is a unit taking its sidestep,
+  which must have neither a goal nor an order. A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
   letters, with a legend). The check is on by default; `check_invariants(false)` turns it off for timing runs. A
   test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each step.
 
@@ -392,8 +464,8 @@ magic box did, **(Y)** where friendly yielding and the answers to Q0008 did), an
   order: the player is in the game (`Reject::UnknownPlayer`), a debug command needs debug commands on
   (`DebugDisabled`), then the command's own rules: every id it names exists (`UnknownObject`) and, for a player's
   orders to objects, belongs to that player (`NotOwned`, through `Sim::referenced(id, Some(player))`; debug commands
-  and targets may name anyone's objects), positions are finite and on the map (`OffMap`), spawns fit
-  (`Spawn(SpawnProblem)`). A rejected command changes nothing, neither the state nor the events, and never panics.
+  and targets may name anyone's objects), positions are finite and on the map (`OffMap`), an order's target
+  object is in the issuing player's sight (`NotVisible`, below), spawns fit (`Spawn(SpawnProblem)`). A rejected command changes nothing, neither the state nor the events, and never panics.
   There is no rejection event yet: add one as output outside the state hash when the UI needs it.
 - **`Command::Order { units, kind, queue }`** (`systems/controls/commands.md > Unit Command`, `docs/movement.md > 3`):
   `OrderKind` is `Move(Target)` (a point or an object), `Attack(id)`, `AttackMove(point)`, `Patrol(point)`, `Hold`
@@ -403,8 +475,14 @@ magic box did, **(Y)** where friendly yielding and the answers to Q0008 did), an
   finite and on the map, target objects must exist (`UnknownObject`) and an attack's target be destructible
   (`NotAttackable`). Without `queue` the order replaces the unit's queue and current order; with it, the order is
   appended (a full queue drops it). Each order command is one group (`Sim::next_group`); a location order gives
-  each unit of a group its own destination (the magic box, see *Navigation*). `Move` to a point, `Stop` and `Hold` behave, and `Attack` without its approach (see *Combat*);
-  the others complete at once (TODO slice E).
+  each unit of a group its own destination (the magic box, see *Navigation*). What each order does is in
+  *Behaviours*.
+- **Targets must be seen** (question Q0017 point 2, its default; `core/vision.md > Explored Selectability`): an
+  Attack or a Move on an object is taken only while the issuing player sees it (a tile it covers is Visible), else
+  `Reject::NotVisible`. The exception is the design's: a GDO player may target a Supply Delivery Station on Explored
+  ground. The check is on the sim's vision, whatever the client draws (`--no-fog` is display only). A queued order
+  passed the gate when it was given; what its behaviour does if the target is out of sight when its turn comes is
+  in *Behaviours*.
 - **Debug spawns and teleports of units** keep the unit invariants: a box on blocked ground or across the map's edge
   is `Reject::Blocked`, one overlapping another unit of its layer `Reject::Occupied(id)`, and so is a blocking
   footprint spawned onto a ground unit. Touching is allowed. A teleported unit plans its path again.
@@ -415,9 +493,9 @@ magic box did, **(Y)** where friendly yielding and the answers to Q0008 did), an
   debug commands on. `SimConfig::default()` has it off, as a real match will. The client turns it on
   (`AppConfig::new`; off with `--no-debug`), editor play-tests run with it on, and so does `TestSim::new`
   (`TestSim::with_config` or `ScenarioBuilder::config` for other options).
-- `Command::Debug(DebugCommand::…)` covers `Spawn`, `Remove` and `SetPosition`, for development and QA. It bypasses
-  costs and rules, only works while `SimConfig::debug` is on, and is never offered in a real match. A teleport sets
-  `prev_pos = pos`, so nothing interpolates across the map.
+- `Command::Debug(DebugCommand::…)` covers `Spawn`, `Remove`, `SetPosition` and `SetAutoTargeting` (see
+  *Behaviours*), for development and QA. It bypasses costs and rules, only works while `SimConfig::debug` is on, and
+  is never offered in a real match. A teleport sets `prev_pos = pos`, so nothing interpolates across the map.
 - **Replay** = the `Scenario` (the map and the game setup, game options included) plus the `TickInputs` of every
   tick, empty ticks included:
   `sc_sim::Replay` (serde) with `start`/`record`/`step`/`run`. The client must never submit a command with a
@@ -494,11 +572,21 @@ magic box did, **(Y)** where friendly yielding and the answers to Q0008 did), an
   pos)` and `order_at(tick, player, units, kind, queue)` are the shortcuts for units. It advances with `step`,
   `run(n)` and `run_until(tick)`, keeps every event with its tick, and records a `Replay` of the run. After every
   tick it checks the movement invariants (see Movement and collision); `pos(id)`, `mover(id)` and `status(id)` read
-  a unit, and `ascii(focus)` draws the map.
+  a unit, and `ascii(focus)` draws the map. Units of different players fight when they see each other: a test
+  about anything else calls `without_auto_targeting()` first, or keeps them apart or on Hold out of range.
 - **Movement scenario tests** are `crates/sim/tests/movement_collision.rs` (passing, head-on, choke, group arrival,
   idle units, repaths, oscillation bounds, save and load in a crowd), `group_destinations.rs` (the magic box),
   `movement_yield.rs` (friendly yielding, occupied targets, the give-up schedule), `movement_soak.rs` (200 units,
   random orders, 2 000 ticks; bounds on the share of failed moves) and the ignored `movement_perf.rs`.
+- **Behaviour scenario tests** are `crates/sim/tests/behaviours_attack.rs` (the approach to a gap of Range, the
+  chase, the last seen position, a target out of reach, queueing), `behaviours_idle.rs` (acquiring by priority,
+  the leash and the return, Hold, Move doesn't engage, the auto-targeting switch), `behaviours_travel.rs` (Follow,
+  static objects, AttackMove groups and the leash, a fight replayed and saved in its middle),
+  `behaviours_patrol.rs`, `behaviours_gate.rs` (targets must be seen), `behaviours_soak.rs` (120 units fighting
+  under random orders of every kind; no dangling ids, no path-request storms) and the ignored `behaviours_perf.rs`.
+  Measured (release, 500 units on 256 × 256): 0.12 ms a tick with everyone idle, 0.14 ms on Hold in sight of the
+  enemy, 0.5 ms on average in a battle of 250 against 250; the worst ticks, 4.4 ms, are those in which a group's
+  path field is built (four or more of its units resuming their AttackMove in one tick).
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes. Every state type's hash impl
   destructures it (`hash.rs`), so a new field doesn't compile until it is hashed.
