@@ -76,7 +76,14 @@ impl SpawnValue {
             | ObjectKind::Generator
             | ObjectKind::Barracks
             | ObjectKind::ExtractionFacility
-            | ObjectKind::ExtractionPlate => &[],
+            | ObjectKind::ExtractionPlate
+            | ObjectKind::Drone
+            | ObjectKind::Beacon
+            | ObjectKind::EgressNode
+            | ObjectKind::RoboPortal
+            | ObjectKind::BioPortal
+            | ObjectKind::SabreLegionnaire
+            | ObjectKind::RifleLegionnaire => &[],
         }
     }
 

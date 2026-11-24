@@ -287,7 +287,8 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::ConstructionCompleted { .. }
                 | SimEvent::ConstructionCancelled { .. }
                 | SimEvent::StructurePlaced { .. }
-                | SimEvent::PlacementRefused { .. } => {}
+                | SimEvent::PlacementRefused { .. }
+                | SimEvent::KindChanged { .. } => {}
             }
         }
         unit_steps += sim
@@ -415,7 +416,14 @@ fn any_spawn_settings_are_handled() {
                 | ObjectKind::Generator
                 | ObjectKind::Barracks
                 | ObjectKind::ExtractionFacility
-                | ObjectKind::ExtractionPlate => None,
+                | ObjectKind::ExtractionPlate
+                | ObjectKind::Drone
+                | ObjectKind::Beacon
+                | ObjectKind::EgressNode
+                | ObjectKind::RoboPortal
+                | ObjectKind::BioPortal
+                | ObjectKind::SabreLegionnaire
+                | ObjectKind::RifleLegionnaire => None,
             });
             let mut spawn = Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(i * 6, 0)));
             spawn.settings = settings;

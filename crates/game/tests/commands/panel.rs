@@ -96,6 +96,27 @@ fn a_mixed_selection_shows_the_basic_combat_unit_grid() {
     assert_ne!(background(ButtonLook::Disabled), background(ButtonLook::Unavailable));
 }
 
+/// `factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`: "BasicCombatUnitInterfaceState, plus" R,
+/// Convert, which comes with slice M3-B; until then both Legionnaires show the Guard's grid. The other Colonists
+/// types show no commands until their panels are built (slices M3-D, M3-J1 and M3-J2).
+#[test]
+fn the_legionnaires_show_the_basic_combat_unit_grid() {
+    use space_crystals::command_ui::interface::templates::{InterfaceTemplate, grid};
+    for kind in [ObjectKind::SabreLegionnaire, ObjectKind::RifleLegionnaire] {
+        assert_eq!(InterfaceTemplate::of(kind), Some(InterfaceTemplate::BasicCombatUnit));
+        assert_eq!(grid(kind), grid(ObjectKind::Guard), "{kind:?}");
+    }
+    for kind in [
+        ObjectKind::Drone,
+        ObjectKind::Beacon,
+        ObjectKind::EgressNode,
+        ObjectKind::RoboPortal,
+        ObjectKind::BioPortal,
+    ] {
+        assert_eq!(grid(kind), [None; 12], "{kind:?}");
+    }
+}
+
 /// `> CommandPanel`: the panel shows only while every selected object is the local player's.
 #[test]
 fn enemy_and_neutral_selections_show_no_commands() {

@@ -126,17 +126,28 @@ const RIOT_SHIELD_SLOT: usize = 3;
 
 impl InterfaceTemplate {
     /// The template of `kind`'s ObjectInterfaceState; none for types without commands: the map resources, and the
-    /// structures that have none (the Generator, the Extraction Plate).
+    /// structures that have none (the Generator, the Extraction Plate). The Legionnaires' is
+    /// "BasicCombatUnitInterfaceState, plus" their R (`factions/colonists/units.md > Sabre Legionnaire >
+    /// ObjectInterfaceState`; Convert comes with slice M3-B). The other Colonists types have none until slices M3-D,
+    /// J1 and J2 build theirs (plan decision T23).
     pub fn of(kind: ObjectKind) -> Option<Self> {
         match kind {
-            ObjectKind::Peacekeeper | ObjectKind::Guard => Some(InterfaceTemplate::BasicCombatUnit),
+            ObjectKind::Peacekeeper
+            | ObjectKind::Guard
+            | ObjectKind::SabreLegionnaire
+            | ObjectKind::RifleLegionnaire => Some(InterfaceTemplate::BasicCombatUnit),
             ObjectKind::Barracks => Some(InterfaceTemplate::Barracks),
             ObjectKind::DeploymentCenter => Some(InterfaceTemplate::DeploymentCenter),
             ObjectKind::ExtractionFacility => Some(InterfaceTemplate::ExtractionFacility),
             ObjectKind::CrystalPatch
             | ObjectKind::SupplyDeliveryStation
             | ObjectKind::Generator
-            | ObjectKind::ExtractionPlate => None,
+            | ObjectKind::ExtractionPlate
+            | ObjectKind::Drone
+            | ObjectKind::Beacon
+            | ObjectKind::EgressNode
+            | ObjectKind::RoboPortal
+            | ObjectKind::BioPortal => None,
         }
     }
 

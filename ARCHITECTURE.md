@@ -176,6 +176,30 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   its `Placement` holds it as placed, `w` and `h` swapped by a quarter turn, with the orientation it was placed in
   (`Placement::orientation`). It has HP, armour and a SightRange, and no orders, mover or attack, so behaviours,
   movement and combat pass it by.
+- **The Colonists** (`defs/colonists.rs`; `factions/colonists/units.md`, `factions/colonists/economy.md`, slice M3-A):
+  the Drone, the Beacon, the Egress Node, the Robo Portal, the Bio Portal and the Sabre and Rifle Legionnaires, after
+  the M2 kinds. Three def fields are data only until their slices: `ObjectDef::max_shields` (MaxShields, set for
+  exactly the Colonists' kinds; Shields arrive with M3-B), `UnitDef::beacon_capacity_cost` (M3-C) and
+  `StructureDef::warp_in`, the Beacon's Constructs List (M3-E). `warp_in` is not `constructs`, so the Beacon is no
+  GDO-style constructor (plan decision T14). Their structures have no Power and no build area. The portals produce
+  through their first A side clockwise from north, a placeholder until M3-D's exit rule. Until DragMovement (M3-G),
+  the Drone, a HoverVehicle, moves on the stand-in, which reads only `MovementAttrs::max_speed` (the DragMovement
+  equilibrium, `(ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio` = 8 su per tick) and its TurnRate;
+  Rugged tiles stay impassable to it (`HOVER_VEHICLE.rugged_terrain` is false, plan decision T25). Its base gives the
+  navigation a `(Ground, 1)` grid next to the light infantry's `(GroundRugged, 1)`.
+- **Changing kind** (`sim/kinds.rs`, plan decision T15): an object that transforms (a Drone deploying into a Beacon,
+  a Beacon warping in a building, a Legionnaire converting its weapon) stays the same object, its id included.
+  `Sim::change_kind(id, kind, placement)` is the one place a kind changes, and it emits `SimEvent::KindChanged`. It
+  keeps the id, owner and facing; the position too, unless the object gets a placement, whose centre it then jumps
+  to (`prev_pos` too); and the HP, clamped to the new MaxHP (callers interpolate HP themselves). It rebuilds the
+  capabilities from the new def with `kinds::Capabilities::fresh`, which `Sim::insert_object` uses as well: a
+  capability whose def part is unchanged keeps its state, a new one starts fresh, one the new kind lacks goes. A
+  unit that stays a unit keeps its orders and its move (question Q0042 point 6), replanning if its grid changes; a
+  kept attack keeps its target and restarts its sequence. Paid state the new kind has no place for (a production
+  queue, a construction) is refunded first, as on removal. Call it before 5b (in the commands phase, or a step
+  right after 5a), or sync the grids yourself (`paths::sync`). A caller whose new kind isn't functional yet (a
+  building warping in) holds its functions back itself. Slices B, E and F are its callers; until then it is
+  unit-tested only (`sim/kinds/tests.rs`).
 - **Sides** (`sides.rs`, design change 0079): `sides(kind, orientation)` gives the letters of a structure's sides
   that face north, east, south and west (`[SideLetter; 4]`, `None` for other objects). Unturned, the letters of its
   `SymmetryType` (AAAA to ABCD) run clockwise from the top side; a flip mirrors them, then the rotation turns them
@@ -192,16 +216,19 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 1. Add an `ObjectKind` variant whose doc comment cites the design section, and add it to `ObjectKind::ALL`.
 2. Add its `static ObjectDef`, with a citation for every value, and its arm in `ObjectKind::def()`. Missing numbers
    become named consts tagged with the question id.
-3. Set up its capability state in `Sim::insert_object` (units get idle `orders` and `mover`), and give it a
-   placeholder shape (`object_render::object_mesh`, whose `match` is exhaustive). The other exhaustive matches on
-   kinds name the rest: its short label (`hud::selection_panel::short_label`), its per-object values
-   (`SpawnSettings::defaults`, the editor's `fields.rs`) and its interface (`command_ui/interface/templates.rs`).
+3. Set up its capability state in `kinds::Capabilities::fresh` (`sim/kinds.rs`; units get idle `orders` and
+   `mover`), and give it a placeholder shape (`object_render::object_mesh`, whose `match` is exhaustive). The other
+   exhaustive matches on kinds name the rest: its short label (`hud::selection_panel::short_label`), its per-object
+   values (`SpawnSettings::defaults`, the editor's `fields.rs`) and its interface
+   (`command_ui/interface/templates.rs`).
 4. Test it. Spawn it in a small inline scenario, then check its initial state and its behaviour.
 
 **Adding a capability**
 1. Give it its own module with its state type (deriving `Clone, Debug, PartialEq, Serialize, Deserialize`) and logic.
 2. Add `pub <name>: Option<State>` to `Object`, with a doc comment citing the design.
-3. Put its per-type parameters on `ObjectDef`, with citations, and initialize the state in `Sim::insert_object`.
+3. Put its per-type parameters on `ObjectDef`, with citations, and initialize the state in
+   `kinds::Capabilities::fresh`. Decide in `Sim::change_kind`, whose destructuring of `Object` is exhaustive, what a
+   changed object does with it: keep it, start it afresh, or refund it.
 4. Insert its update phase into `Sim::step` at a deliberate position (see *Tick pipeline*).
 5. Add the `Command`s that drive it, with validation, and the `SimEvent`s the client needs. A unit's mode (a
    toggled ability such as the Riot Shield) is not an order: it goes through `Command::Ability` (an `Ability`
@@ -370,6 +397,11 @@ ticks spent in it. Hashed and serialized like all state.
 - **ElevationModifier** (`elevation.rs`, shared with vision): `Elevation::of` an object is its elevation level (the
   height rounded down), or `Exempt` for air units; `modifier(source, target)` is +1/−1/0 grid unit, binary.
   `attack_range` and `sight_range` apply it; melee attacks don't take it.
+- **Melee** (`systems/combat.md > FullyConnected > Melee`: "adjacent contact"; the Sabre Legionnaire): every melee
+  attack has the Range `defs::MELEE_CONTACT_GU`, a gap of 8 su, the one that counts as Proximity
+  (`orders::PROXIMITY_SU`), and no MinRange (`defs_are_consistent` checks both). It is a placeholder (question Q0042
+  point 5): exactly 0 would be fragile, since a unit closing in may stop a little short of touching. `max_range`
+  gives melee no ElevationModifier.
 - **Hits** (`combat/damage.rs`): every attacker acts against one snapshot of the targets, and an attack's effect
   lands at the end of Firing as a `Hit` on the tick's list. The list is applied once all have acted, so every hit
   counts, including those on a unit another hit has killed and those of a unit that dies in the same tick.
@@ -917,8 +949,10 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`,
   `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `UnitProduced`,
   `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
-  `GameOver`, …) are output only, for effects, sounds and UI. The sim never reads them. `Sim::events()` holds only
-  the latest step's events, and `Sim::new` discards the events from the scenario's initial spawns.
+  `GameOver`, `KindChanged`, …) are output only, for effects, sounds and UI. The sim never reads them.
+  `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events from the scenario's
+  initial spawns. `KindChanged { id, from, to }` (`Sim::change_kind`) tells the client to re-mesh an object and
+  regroup the selection; that response arrives with its first caller, slice M3-B.
 
 ## Sim scenarios and tests
 
@@ -1076,6 +1110,11 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   remembered in the fog, a plate on a patch in maps and layouts, the targets that shoot back first, idle and on an
   AttackMove, a scan reaching a large footprint by its edge), and the ignored `structures_perf.rs` (see *Tick
   pipeline > Measuring a tick*). The placement tests are listed under *Placement and the build area*.
+- **Colonists tests** are `crates/sim/tests/colonists.rs` (slice M3-A: each kind spawned for two owners, its
+  structures blocking every ground grid, each kind's sight, the Sabre Legionnaire striking at contact without the
+  ElevationModifier, the Rifle Legionnaire's Range with it, the Drone's 8 su per tick and its path around a Robo
+  Portal). Their stat blocks against the design are in `defs/colonists/tests.rs`, and `Sim::change_kind` is
+  unit-tested in `sim/kinds/tests.rs`.
 - **Game end tests** are `crates/sim/tests/game_end.rs` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and a last defeat shared by two; no producer handed
@@ -1140,14 +1179,18 @@ out by the same rules.
   cliff face: rock-coloured, with a stratum line at every level. Every vertex's z grows with its ground y, so with the
   depth test southern terrain overdraws the terrain behind it. The grid (G) follows the surface in the terrain's z
   band, slightly in front, so terrain in front hides it too. Both meshes are rebuilt when the sim's map changes.
-- **Units** (`object_render.rs`) are placeholder shapes until the art (Q0001): a shape per kind (Peacekeeper round,
-  Guard square) of the silhouette's size, in the owner's colour (`player_color`, the editor's slot colours), with a
-  dark rim and a light tick along the facing; the visual turns with the interpolated facing. The Guard's square
-  doesn't: it stays axis-aligned like its collision box, and only its tick turns (a `FacingTick` child,
-  `body_turns`). One mesh per `MeshKey` (kind, owner, and a structure's size as placed) is shared, and one tick mesh
-  per kind. A unit that carries a Riot Shield has a `RiotShieldVisual` child: a pale arc in front of it, hidden while
-  the shield is down, growing to its full size as it goes up. It is `Visibility::Hidden` or `Inherited`, never
-  `Visible`, so the fog that hides its unit hides it too.
+- **Units** (`object_render.rs`, `object_render/units.rs`) are placeholder shapes until the art (Q0001): a shape per
+  kind (the Peacekeeper round, the Guard and the Legionnaires square, the Drone an octagon) of the silhouette's size,
+  in the owner's colour (`player_color`, the editor's slot colours), with a dark rim and a light tick along the
+  facing. Only a round body turns with the interpolated facing (`body_turns`). A square or an octagon stays
+  axis-aligned like its collision box, and only its tick turns (a `FacingTick` child, `has_tick`). Structures and map
+  resources never turn, whatever their facing (a structure keeps a unit's facing through `Sim::change_kind`). The
+  Colonists' units carry a `UnitTag` child, a `Text2d` of the type's short label (DR, SL, RL), because the
+  Legionnaire's two forms share a silhouette. One mesh per `MeshKey` (kind, owner, and a structure's size as placed)
+  is shared, and one tick mesh per kind. The map resources' shapes are in `object_render/resources.rs`. A unit that
+  carries a Riot Shield has a `RiotShieldVisual` child: a pale arc in front of it, hidden while the shield is down,
+  growing to its full size as it goes up. It is `Visibility::Hidden` or `Inherited`, never `Visible`, so the fog that
+  hides its unit hides it too.
 - **Structures** (`object_render/structures.rs`) are placeholders too: the footprint as placed, in the owner's colour
   inside a dark rim, drawn `INSET_SU` (8) inside its edge so that a selection frame shows around it, and over a map
   resource's placeholder (a plate covers its patch). A `StructureTag` child, a `Text2d` of the type's short label

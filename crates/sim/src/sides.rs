@@ -49,6 +49,7 @@ fn turned(letters: [SideLetter; 4], orientation: BuildingOrientation) -> [SideLe
 mod tests {
     use super::SideLetter::{A, B, C, D};
     use super::*;
+    use crate::defs::SymmetryType;
     use crate::object::Rotation;
 
     /// Every orientation a building can be placed in: the 4 rotations, each unflipped and flipped left and right.
@@ -80,13 +81,52 @@ mod tests {
         assert_eq!(barracks(Rotation::R270, true), [C, A, B, A]);
     }
 
-    /// A square kind (AAAA) shows A on every side, however it is placed.
+    /// A square kind (AAAA: the Generator, the Robo Portal, …) shows A on every side, however it is placed.
     #[test]
     fn a_square_kinds_sides_in_all_eight_orientations() {
+        let aaaa: Vec<ObjectKind> = ObjectKind::ALL
+            .iter()
+            .copied()
+            .filter(|kind| {
+                kind.def()
+                    .structure
+                    .as_ref()
+                    .is_some_and(|s| s.symmetry == SymmetryType::AAAA)
+            })
+            .collect();
+        assert!(aaaa.contains(&ObjectKind::Generator) && aaaa.contains(&ObjectKind::RoboPortal));
+        for kind in aaaa {
+            for rotation in ROTATIONS {
+                for flip_h in [false, true] {
+                    let at = oriented(rotation, flip_h, false);
+                    assert_eq!(sides(kind, at), Some([A; 4]), "{kind:?} {at:?}");
+                }
+            }
+        }
+    }
+
+    /// Design change 0079 for the Bio Portal (AABB, `factions/colonists/structures.md > Bio Portal`): unturned, A on
+    /// top and on the right, B at the bottom and on the left. Its two A sides, its exits (`> Exit Behavior`), stay
+    /// side by side in every orientation, and a flip gives what a turn would.
+    #[test]
+    fn the_bio_portals_sides_in_all_eight_orientations() {
+        let portal = |rotation, flip_h| sides(ObjectKind::BioPortal, oriented(rotation, flip_h, false)).unwrap();
+        // North, east, south, west.
+        assert_eq!(portal(Rotation::R0, false), [A, A, B, B]);
+        assert_eq!(portal(Rotation::R90, false), [B, A, A, B]);
+        assert_eq!(portal(Rotation::R180, false), [B, B, A, A]);
+        assert_eq!(portal(Rotation::R270, false), [A, B, B, A]);
+        // Flipped left and right first: A on top and on the left.
+        assert_eq!(portal(Rotation::R0, true), [A, B, B, A]);
+        assert_eq!(portal(Rotation::R90, true), [A, A, B, B]);
+        assert_eq!(portal(Rotation::R180, true), [B, A, A, B]);
+        assert_eq!(portal(Rotation::R270, true), [B, B, A, A]);
         for rotation in ROTATIONS {
             for flip_h in [false, true] {
-                let at = oriented(rotation, flip_h, false);
-                assert_eq!(sides(ObjectKind::Generator, at), Some([A; 4]), "{at:?}");
+                let placed = portal(rotation, flip_h);
+                let a: Vec<usize> = (0..4).filter(|&i| placed[i] == A).collect();
+                assert_eq!(a.len(), 2, "{rotation:?}, flipped: {flip_h}");
+                assert!((a[0] + 1) % 4 == a[1] || (a[1] + 1) % 4 == a[0], "adjacent: {placed:?}");
             }
         }
     }

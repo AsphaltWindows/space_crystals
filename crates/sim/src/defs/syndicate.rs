@@ -21,6 +21,7 @@ pub(super) static GUARD: ObjectDef = ObjectDef {
     groupable: true,    // Groupable - true
     sight_range: 5.0,   // SightRange - 5 (grid units, `core/scale.md > GridUnit`)
     max_hp: Some(80.0), // MaxHP - 80
+    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 1.0,  // FullArmor - 1
@@ -54,6 +55,7 @@ pub(super) static GUARD: ObjectDef = ObjectDef {
         }),
         unit_control_cost: None,
         tunnel_space_cost: Some(1), // TunnelSpaceCost - 1
+        beacon_capacity_cost: None,
         riot_shield: None,
     }),
     structure: None,

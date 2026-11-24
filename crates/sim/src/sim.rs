@@ -13,13 +13,12 @@ use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
-use crate::mover::Mover;
 use crate::object::{Object, Placement, ResourceState};
-use crate::orders::{Order, OrderGroup, OrderKind, Orders, Target, destinations};
+use crate::orders::{Order, OrderGroup, OrderKind, Target, destinations};
 use crate::paths::knowledge::PathKnowledge;
 use crate::paths::{self, NavState};
 use crate::player::Player;
-use crate::production::{self, Production};
+use crate::production;
 use crate::rng::Rng;
 use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings, StartingConditions};
 use crate::units::{Tick, TilePos};
@@ -485,11 +484,18 @@ impl Sim {
     ) -> ObjectId {
         let id = ObjectId(self.next_id);
         self.next_id += 1;
-        let def = kind.def();
         let resource = SpawnSettings::resolve(kind, settings).map(|s| s.starting_resource());
         let is_patch = matches!(resource, Some(ResourceState::CrystalPatch { .. }));
-        // Units take orders and move (`systems/units.md > Unit`); they start idle.
-        let is_unit = def.unit.is_some();
+        // Its capabilities, as a changed object gets them (`Sim::change_kind`).
+        let kinds::Capabilities {
+            orders,
+            mover,
+            attack,
+            riot_shield,
+            extractor,
+            production,
+            constructor,
+        } = kinds::Capabilities::fresh(&self.objects, kind, placement.as_ref());
         let object = Object {
             id,
             kind,
@@ -498,34 +504,16 @@ impl Sim {
             prev_pos: pos,
             facing: 0.0,
             prev_facing: 0.0,
-            hp: def.max_hp,
+            hp: kind.def().max_hp,
             placement,
             resource,
-            orders: is_unit.then(Orders::default),
-            mover: is_unit.then(Mover::default),
-            // `systems/combat.md > AttackAttributes`: units that can attack; their weapon starts ready.
-            attack: def
-                .unit
-                .as_ref()
-                .and_then(|unit| unit.attack.as_ref())
-                .map(|_| combat::AttackState::default()),
-            // `factions/gdo/units.md > Peacekeeper > Riot Shield`: units that carry one; it starts down.
-            riot_shield: def
-                .unit
-                .as_ref()
-                .and_then(|unit| unit.riot_shield.as_ref())
-                .map(|_| riot_shield::RiotShield::Lowered),
-            // `factions/gdo/economy.md > ExtractionPlate`: a plate mines the patch under it.
-            extractor: economy::mining::extractor_for(&self.objects, kind, placement.as_ref()),
-            // `factions/gdo/structures.md > Barracks`: a structure that produces units starts with an empty queue.
-            production: def
-                .structure
-                .as_ref()
-                .and_then(|structure| structure.production.as_ref())
-                .map(|_| Production::default()),
-            // `factions/gdo/structures.md > DeploymentCenter`, `factions/gdo/economy.md > ExtractionFacility`: a
-            // constructor starts idle.
-            constructor: crate::construction::constructor_for(kind),
+            orders,
+            mover,
+            attack,
+            riot_shield,
+            extractor,
+            production,
+            constructor,
         };
         self.objects.insert(id, object);
         if is_patch {
@@ -577,6 +565,7 @@ impl Sim {
 
 mod construction;
 mod gate;
+mod kinds;
 mod load;
 mod navigation;
 mod phase;

@@ -26,6 +26,7 @@ pub(super) static PEACEKEEPER: ObjectDef = ObjectDef {
     groupable: true,                                       // Groupable - true
     sight_range: 5.0,                                      // SightRange - 5 grid units
     max_hp: Some(50.0),                                    // MaxHP - 50
+    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 1.0,  // FullArmor - 1
@@ -59,6 +60,7 @@ pub(super) static PEACEKEEPER: ObjectDef = ObjectDef {
         }),
         unit_control_cost: Some(1), // UnitControlCost - 1
         tunnel_space_cost: None,
+        beacon_capacity_cost: None,
         riot_shield: Some(RiotShieldDef {
             speed_factor: 0.5,  // MaxSpeed is halved (4 → 2 space units/frame)
             damage_factor: 0.5, // Incoming damage is halved, a 50% pre-armor reduction
@@ -80,6 +82,7 @@ pub(super) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
     groupable: false,                           // Groupable - false
     sight_range: 6.0,                           // SightRange - 6 grid units
     max_hp: Some(1000.0),                       // MaxHP - 1000
+    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 16.0, // FullArmor - 16
@@ -111,6 +114,7 @@ pub(super) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
                 frames: 320, // 320 frames (20 seconds)
             },
         ],
+        warp_in: &[],
     }),
 };
 
@@ -126,6 +130,7 @@ pub(super) static GENERATOR: ObjectDef = ObjectDef {
     groupable: true,                            // Groupable - true
     sight_range: 3.0,                           // SightRange - 3 grid units
     max_hp: Some(350.0),                        // MaxHP - 350
+    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 4.0,  // FullArmor - 4
@@ -139,6 +144,7 @@ pub(super) static GENERATOR: ObjectDef = ObjectDef {
         production: None,
         mining: None,
         constructs: &[],
+        warp_in: &[],
     }),
 };
 
@@ -155,6 +161,7 @@ pub(super) static BARRACKS: ObjectDef = ObjectDef {
     groupable: true,     // Groupable - true
     sight_range: 4.0,    // SightRange - 4 grid units
     max_hp: Some(300.0), // MaxHP - 300
+    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 6.0,  // FullArmor - 6
@@ -175,6 +182,7 @@ pub(super) static BARRACKS: ObjectDef = ObjectDef {
         }),
         mining: None,
         constructs: &[],
+        warp_in: &[],
     }),
 };
 
@@ -190,6 +198,7 @@ pub(super) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
     groupable: false,                           // Groupable - false
     sight_range: 3.0,                           // SightRange - 3 grid units
     max_hp: Some(500.0),                        // MaxHP - 500
+    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 9.0,  // FullArmor - 9
@@ -208,6 +217,7 @@ pub(super) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
             cost: 75,    // Extraction Plate: 75 Space Crystals,
             frames: 400, // 400 frames (25 seconds)
         }],
+        warp_in: &[],
     }),
 };
 
@@ -224,6 +234,7 @@ pub(super) static EXTRACTION_PLATE: ObjectDef = ObjectDef {
     groupable: true,                            // Groupable - true
     sight_range: 0.0,                           // SightRange - 0
     max_hp: Some(85.0),                         // MaxHP - 85
+    max_shields: None,
     armor: Armor {
         point: 2.0, // PointArmor - 2
         full: 2.0,  // FullArmor - 2
@@ -241,5 +252,6 @@ pub(super) static EXTRACTION_PLATE: ObjectDef = ObjectDef {
             cycle_ticks: 48, // "per 48 frames"
         }),
         constructs: &[],
+        warp_in: &[],
     }),
 };

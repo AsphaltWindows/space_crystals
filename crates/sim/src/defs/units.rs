@@ -9,6 +9,7 @@
 //! turn rates in radians per tick, ranges in grid units, durations in ticks (the design's "frames").
 
 use crate::nav::NavClass;
+use crate::units::SU_PER_GU;
 
 /// `systems/units.md > UnitBase > Domain`: where a unit exists. It is also the unit's collision layer
 /// (`docs/movement.md > 6.1`).
@@ -195,6 +196,8 @@ static HOVER_VEHICLE: UnitBaseDef = UnitBaseDef {
     domain: Domain::Ground,
     has_turret: true,
     directional_armor: true,
+    // `> RuggedTerrain - true, with double drag`: crossing Rugged tiles waits for DragMovement (slice M3-G). Until
+    // then the Drone moves on the stand-in, to which Rugged tiles stay impassable (plan decision T25).
     rugged_terrain: false,
     crushable: false,
     can_turn_in_place: true,
@@ -357,8 +360,18 @@ pub enum AttackType {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum FullyConnectedSubtype {
     Ranged,
+    /// `> Melee`: "Fixed short range (adjacent contact)": its Range is always [`MELEE_CONTACT_GU`], and the
+    /// ElevationModifier never adds to it (`combat::max_range`).
     Melee,
 }
+
+/// The Range of every melee attack, grid units: `systems/combat.md > FullyConnected > Melee` ("Fixed short range
+/// (adjacent contact)") and `> Range Measurement` ("Melee (adjacent contact) is a gap of about 0"), as the Sabre
+/// Legionnaire's "Range: melee (adjacent contact)". **Placeholder** (question Q0042 point 5): a gap of 8 space units,
+/// the one that counts as Proximity (`orders::PROXIMITY_SU`, design change 0032). Exactly 0 would be fragile: two
+/// boxes the movement step brings together may end a rounding error apart. A test keeps every melee attack at this
+/// Range, with no MinRange (`defs_are_consistent`).
+pub const MELEE_CONTACT_GU: f32 = 8.0 / SU_PER_GU;
 
 /// `systems/combat.md > AttackAttributes > TargetDomain`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -429,6 +442,9 @@ pub struct UnitDef {
     pub unit_control_cost: Option<u32>,
     /// `factions/syndicate/tunnels.md`, a unit's `TunnelSpaceCost`: Syndicate units only.
     pub tunnel_space_cost: Option<u32>,
+    /// `factions/colonists/units.md`, a unit's `BeaconCapacityCost` (`factions/colonists/overview.md > Beacon
+    /// Capacity`): Colonists units only (plan decision T14). Data only until slice M3-C counts it.
+    pub beacon_capacity_cost: Option<u32>,
     /// `factions/gdo/units.md > Peacekeeper > Riot Shield`.
     pub riot_shield: Option<RiotShieldDef>,
 }

@@ -2,9 +2,10 @@
 //!
 //! One `ObjectKind` per object type in the design; its numbers live in a `static`
 //! [`ObjectDef`] whose comments cite the design section they come from. Faction
-//! types get their own modules (`defs/gdo.rs`, `defs/syndicate.rs`, …); unit bases and the
+//! types get their own modules (`defs/gdo.rs`, `defs/syndicate.rs`, `defs/colonists.rs`, …); unit bases and the
 //! attributes of unit types are in `defs/units.rs`, those of structure types in `defs/structures.rs`.
 
+mod colonists;
 mod gdo;
 mod structures;
 mod syndicate;
@@ -18,8 +19,8 @@ use crate::player::Faction;
 pub use gdo::RIOT_SHIELD_TOGGLE_TICKS;
 pub use structures::{MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType};
 pub use units::{
-    AttackAttrs, AttackType, Domain, FullyConnectedSubtype, MovementAttrs, MovementModel, RiotShieldDef, TargetDomain,
-    TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef,
+    AttackAttrs, AttackType, Domain, FullyConnectedSubtype, MELEE_CONTACT_GU, MovementAttrs, MovementModel,
+    RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -43,6 +44,20 @@ pub enum ObjectKind {
     ExtractionFacility,
     /// `factions/gdo/economy.md > ExtractionPlate`
     ExtractionPlate,
+    /// `factions/colonists/units.md > Drone`
+    Drone,
+    /// `factions/colonists/economy.md > Beacon`
+    Beacon,
+    /// `factions/colonists/economy.md > Egress Node`
+    EgressNode,
+    /// `factions/colonists/structures.md > Robo Portal`
+    RoboPortal,
+    /// `factions/colonists/structures.md > Bio Portal`
+    BioPortal,
+    /// `factions/colonists/units.md > Sabre Legionnaire`
+    SabreLegionnaire,
+    /// `factions/colonists/units.md > Rifle Legionnaire`
+    RifleLegionnaire,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -77,6 +92,10 @@ pub struct ObjectDef {
     pub sight_range: f32,
     /// `None` for indestructible types.
     pub max_hp: Option<f32>,
+    /// `systems/combat.md > Shields > MaxShields`: "Colonists units/buildings only; defined per-entity alongside
+    /// MaxHP", so `Some` for exactly the Colonists types (plan decision T14). Data only so far: no object carries
+    /// Shields and no damage meets them until slice M3-B.
+    pub max_shields: Option<f32>,
     /// PointArmor and FullArmor, which units and structures have alike; none for map resources.
     pub armor: Armor,
     /// Every footprint tile must be flat (`core/map.md > Elevation > Structures only on flat terrain`, `> Map
@@ -142,6 +161,13 @@ impl ObjectKind {
         ObjectKind::Barracks,
         ObjectKind::ExtractionFacility,
         ObjectKind::ExtractionPlate,
+        ObjectKind::Drone,
+        ObjectKind::Beacon,
+        ObjectKind::EgressNode,
+        ObjectKind::RoboPortal,
+        ObjectKind::BioPortal,
+        ObjectKind::SabreLegionnaire,
+        ObjectKind::RifleLegionnaire,
     ];
 
     pub fn def(self) -> &'static ObjectDef {
@@ -155,6 +181,13 @@ impl ObjectKind {
             ObjectKind::Barracks => &gdo::BARRACKS,
             ObjectKind::ExtractionFacility => &gdo::EXTRACTION_FACILITY,
             ObjectKind::ExtractionPlate => &gdo::EXTRACTION_PLATE,
+            ObjectKind::Drone => &colonists::DRONE,
+            ObjectKind::Beacon => &colonists::BEACON,
+            ObjectKind::EgressNode => &colonists::EGRESS_NODE,
+            ObjectKind::RoboPortal => &colonists::ROBO_PORTAL,
+            ObjectKind::BioPortal => &colonists::BIO_PORTAL,
+            ObjectKind::SabreLegionnaire => &colonists::SABRE_LEGIONNAIRE,
+            ObjectKind::RifleLegionnaire => &colonists::RIFLE_LEGIONNAIRE,
         }
     }
 
@@ -186,6 +219,7 @@ static CRYSTAL_PATCH: ObjectDef = ObjectDef {
     groupable: false,
     sight_range: 0.0,
     max_hp: None,
+    max_shields: None,
     armor: Armor::NONE,
     needs_flat_ground: true, // `core/map.md > Elevation > Map resources only on flat terrain`
     unit: None,
@@ -204,6 +238,7 @@ static SUPPLY_DELIVERY_STATION: ObjectDef = ObjectDef {
     groupable: false,
     sight_range: 0.0,
     max_hp: None,
+    max_shields: None,
     armor: Armor::NONE,
     needs_flat_ground: true, // `core/map.md > Elevation > Map resources only on flat terrain`
     unit: None,

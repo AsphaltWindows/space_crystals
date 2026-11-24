@@ -4,17 +4,21 @@
 //! are created and despawned by diffing them against `Sim::objects()` (scenario spawns emit no events), and placed
 //! from the sim every frame at `prev_pos.lerp(pos, alpha)`, drawn at the terrain height there (a tile-based object
 //! at its footprint's height, `core/art_direction.md > Elevation Display`) and y-sorted by its ground position in the
-//! ground-object layer. Placeholder shapes stand in until the art direction (Q0001) is settled: a unit is a shape of
-//! its own per kind, its silhouette's size, in its owner's colour, with a tick showing its facing. The Guard's square
-//! stays axis-aligned, like its collision box, and only its tick turns ([`FacingTick`]). A Peacekeeper's raised Riot
-//! Shield is a pale arc in front of it ([`RiotShieldVisual`]), growing out of its body as the shield goes up. A
-//! structure is its footprint as placed, in its owner's colour, with a tag naming its type ([`structures`]).
+//! ground-object layer. Placeholder shapes stand in until the art direction (Q0001) is settled ([`units`]): a unit is
+//! a shape of its own per kind, its silhouette's size, in its owner's colour, with a tick showing its facing. A square
+//! or octagonal body (the Guard's, the Colonists' units') stays axis-aligned, like its collision box, and only its
+//! tick turns ([`FacingTick`]); the Colonists' units carry a tag naming their type ([`UnitTag`]). A Peacekeeper's
+//! raised Riot Shield is a pale arc in front of it ([`RiotShieldVisual`]), growing out of its body as the shield goes
+//! up. A structure is its footprint as placed, in its owner's colour, with a tag naming its type ([`structures`]).
+//! The map resources have shapes of their own ([`resources`]).
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).
 
 mod remembered;
+mod resources;
 mod structures;
+mod units;
 
 use std::collections::BTreeMap;
 
@@ -23,15 +27,15 @@ use sc_sim::{Category, Map, ObjectId, ObjectKind, Placement, PlayerId};
 
 use crate::ClientSystems;
 use crate::coords::{DrawLayer, facing_to_rotation, footprint_height, ground_translation, lerp_facing};
-use crate::shapes::{ColorMesh, darken, vertex_color_material};
+use crate::shapes::vertex_color_material;
 use crate::sim_driver::{RenderAlpha, SimRes};
 
 /// Links a visual entity to the sim object it shows.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ObjectVisual(pub ObjectId);
 
-/// The facing tick of a visual whose body doesn't turn ([`body_turns`]): a child of the object's visual, turned by
-/// the object's facing.
+/// The facing tick of a visual whose body doesn't turn (`units::body_turns`): a child of the object's visual, turned
+/// by the object's facing.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct FacingTick(pub ObjectId);
 
@@ -43,6 +47,7 @@ pub struct RiotShieldVisual(pub ObjectId);
 
 pub use remembered::{RememberedVisual, RememberedVisuals};
 pub use structures::StructureTag;
+pub use units::UnitTag;
 
 /// What the mesh of an object's visual depends on ([`MeshKey::of`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -130,35 +135,49 @@ pub fn placeholder_mesh(kind: ObjectKind) -> Mesh {
 /// their owner's colour.
 pub fn object_mesh(kind: ObjectKind, owner: Option<PlayerId>) -> Mesh {
     match kind {
-        ObjectKind::CrystalPatch => crystal_patch_mesh(),
-        ObjectKind::SupplyDeliveryStation => supply_station_mesh(),
-        ObjectKind::Peacekeeper => unit_mesh(kind, UnitShape::Round, player_color(owner), true),
-        ObjectKind::Guard => unit_mesh(kind, UnitShape::Square, player_color(owner), true),
+        ObjectKind::CrystalPatch => resources::crystal_patch_mesh(),
+        ObjectKind::SupplyDeliveryStation => resources::supply_station_mesh(),
+        ObjectKind::Peacekeeper
+        | ObjectKind::Guard
+        | ObjectKind::Drone
+        | ObjectKind::SabreLegionnaire
+        | ObjectKind::RifleLegionnaire => units::unit_mesh(kind, player_color(owner), true),
         ObjectKind::DeploymentCenter
         | ObjectKind::Generator
         | ObjectKind::Barracks
         | ObjectKind::ExtractionFacility
-        | ObjectKind::ExtractionPlate => {
+        | ObjectKind::ExtractionPlate
+        | ObjectKind::Beacon
+        | ObjectKind::EgressNode
+        | ObjectKind::RoboPortal
+        | ObjectKind::BioPortal => {
             let (w, h) = kind.def().tile_size().unwrap_or((1, 1));
             structures::structure_mesh(w, h, player_color(owner))
         }
     }
 }
 
-/// Whether a visual of `kind` turns with its object's facing. The Guard's square doesn't: its collision box never
-/// turns, and a turned square makes crowded Guards look as if they overlapped. Its tick turns alone ([`FacingTick`]).
+/// Whether a visual of `kind` turns with its object's facing: only a unit's round body does (`units::body_turns`).
+/// Structures and map resources are drawn as placed, whatever their facing (a structure that was a unit keeps the
+/// unit's: `Sim::change_kind`).
 fn body_turns(kind: ObjectKind) -> bool {
-    kind != ObjectKind::Guard
+    kind.def().unit.is_some() && units::body_turns(kind)
 }
 
-/// The mesh of an object's visual: its placeholder shape, without the tick if its body doesn't turn, a structure
-/// in its size as placed.
+/// Whether a visual of `kind` shows its object's facing by a tick of its own ([`FacingTick`]): a unit whose body
+/// doesn't turn.
+fn has_tick(kind: ObjectKind) -> bool {
+    kind.def().unit.is_some() && !units::body_turns(kind)
+}
+
+/// The mesh of an object's visual: its placeholder shape, a unit's without the tick if its body doesn't turn, a
+/// structure in its size as placed.
 fn visual_mesh(key: MeshKey) -> Mesh {
     let MeshKey { kind, owner, size } = key;
-    match (kind, size) {
-        (ObjectKind::Guard, _) => unit_mesh(kind, UnitShape::Square, player_color(owner), false),
-        (_, Some((w, h))) => structures::structure_mesh(w, h, player_color(owner)),
-        (_, None) => object_mesh(kind, owner),
+    match size {
+        Some((w, h)) => structures::structure_mesh(w, h, player_color(owner)),
+        None if kind.def().unit.is_some() => units::unit_mesh(kind, player_color(owner), units::body_turns(kind)),
+        None => object_mesh(kind, owner),
     }
 }
 
@@ -181,160 +200,6 @@ pub fn player_color(owner: Option<PlayerId>) -> Color {
         Some(p) => PLAYER_COLORS[usize::from(p.0.max(1) - 1) % PLAYER_COLORS.len()],
         None => NEUTRAL_COLOR,
     }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum UnitShape {
-    Round,
-    Square,
-}
-
-/// A unit (placeholders until Q0001 settles the art): its silhouette's size in a shape of its own, filled with its
-/// owner's colour inside a dark rim, and (`with_tick`) a light tick from its center through its front, along local
-/// +x, which the visual's rotation turns to the unit's facing.
-fn unit_mesh(kind: ObjectKind, shape: UnitShape, color: Color, with_tick: bool) -> Mesh {
-    let half = kind.def().half_extents().unwrap_or(Vec2::splat(12.0));
-    let outline = |inset: f32| -> Vec<Vec2> {
-        let h = half - Vec2::splat(inset);
-        match shape {
-            UnitShape::Round => (0..16)
-                .map(|i| {
-                    let a = i as f32 * std::f32::consts::TAU / 16.0;
-                    Vec2::new(h.x * a.cos(), h.y * a.sin())
-                })
-                .collect(),
-            UnitShape::Square => vec![
-                Vec2::new(-h.x, -h.y),
-                Vec2::new(h.x, -h.y),
-                Vec2::new(h.x, h.y),
-                Vec2::new(-h.x, h.y),
-            ],
-        }
-    };
-    let srgba = color.to_srgba();
-    let mut mesh = ColorMesh::triangles();
-    mesh.polygon(&outline(0.0), 0.0, darken(srgba, 0.45).into());
-    mesh.polygon(&outline(2.5), 0.001, color);
-    if with_tick {
-        facing_tick(&mut mesh, half);
-    }
-    mesh.into_mesh()
-}
-
-/// A unit's facing tick, along local +x, in front of its body.
-fn facing_tick(mesh: &mut ColorMesh, half: Vec2) {
-    mesh.segment(
-        Vec2::ZERO,
-        Vec2::new(half.x + 5.0, 0.0),
-        3.0,
-        0.002,
-        Color::srgb(0.96, 0.96, 0.92),
-    );
-}
-
-/// The facing tick of a `kind` visual whose body doesn't turn, alone.
-fn tick_mesh(kind: ObjectKind) -> Mesh {
-    let mut mesh = ColorMesh::triangles();
-    facing_tick(&mut mesh, kind.def().half_extents().unwrap_or(Vec2::splat(12.0)));
-    mesh.into_mesh()
-}
-
-/// A `kind` unit's raised Riot Shield: a pale band in a dark rim, 100° of a ring just outside its body, centred on
-/// local +x, its front, over the tip of its facing tick.
-fn riot_shield_mesh(kind: ObjectKind) -> Mesh {
-    let half = kind.def().half_extents().unwrap_or(Vec2::splat(12.0));
-    let radius = half.x.max(half.y);
-    let mut mesh = ColorMesh::triangles();
-    let band = |mesh: &mut ColorMesh, inner: f32, outer: f32, z: f32, color: Color| {
-        let steps = 10;
-        let half_arc = 50_f32.to_radians();
-        for i in 0..steps {
-            let angle = |i: i32| -half_arc + 2.0 * half_arc * i as f32 / steps as f32;
-            let (a, b) = (Vec2::from_angle(angle(i)), Vec2::from_angle(angle(i + 1)));
-            mesh.polygon(&[a * inner, a * outer, b * outer, b * inner], z, color);
-        }
-    };
-    band(
-        &mut mesh,
-        radius + 3.0,
-        radius + 9.0,
-        0.003,
-        Color::srgb(0.10, 0.13, 0.18),
-    );
-    band(
-        &mut mesh,
-        radius + 4.0,
-        radius + 8.0,
-        0.004,
-        Color::srgb(0.80, 0.90, 1.00),
-    );
-    mesh.into_mesh()
-}
-
-/// `core/map.md > SpaceCrystalsPatch` (1×1): a cluster of three cyan crystals on a dark bed.
-fn crystal_patch_mesh() -> Mesh {
-    let mut mesh = ColorMesh::triangles();
-    let bed: Vec<Vec2> = (0..8)
-        .map(|i| {
-            let a = i as f32 * std::f32::consts::TAU / 8.0;
-            Vec2::new(25.0 * a.cos(), -10.0 + 11.0 * a.sin())
-        })
-        .collect();
-    mesh.polygon(&bed, 0.0, Color::srgb(0.09, 0.14, 0.18));
-    crystal_shard(&mut mesh, Vec2::new(-13.0, -8.0), Vec2::new(7.0, 15.0), 0.001);
-    crystal_shard(&mut mesh, Vec2::new(13.0, -10.0), Vec2::new(7.0, 13.0), 0.001);
-    crystal_shard(&mut mesh, Vec2::new(0.0, -2.0), Vec2::new(10.0, 24.0), 0.002);
-    mesh.into_mesh()
-}
-
-/// A five-sided shard standing on its base, its facets shaded as if lit from the top left.
-fn crystal_shard(mesh: &mut ColorMesh, center: Vec2, half: Vec2, z: f32) {
-    let apex = center + Vec2::new(0.0, half.y);
-    let upper_right = center + Vec2::new(half.x, half.y * 0.35);
-    let lower_right = center + Vec2::new(half.x * 0.7, -half.y);
-    let lower_left = center + Vec2::new(-half.x * 0.7, -half.y);
-    let upper_left = center + Vec2::new(-half.x, half.y * 0.35);
-    let core = center + Vec2::new(0.0, half.y * 0.1);
-    let facets = [
-        (upper_left, apex, Color::srgb(0.72, 1.0, 1.0)),
-        (apex, upper_right, Color::srgb(0.36, 0.90, 0.98)),
-        (upper_right, lower_right, Color::srgb(0.07, 0.48, 0.66)),
-        (lower_right, lower_left, Color::srgb(0.04, 0.32, 0.47)),
-        (lower_left, upper_left, Color::srgb(0.17, 0.72, 0.86)),
-    ];
-    for (a, b, color) in facets {
-        mesh.polygon(&[core, a, b], z, color);
-    }
-}
-
-/// `core/map.md > SupplyDeliveryStation` (2×2): an amber landing pad with a cross and corner lights.
-fn supply_station_mesh() -> Mesh {
-    let mut mesh = ColorMesh::triangles();
-    mesh.rect(
-        Vec2::splat(-60.0),
-        Vec2::splat(60.0),
-        0.0,
-        Color::srgb(0.28, 0.18, 0.07),
-    );
-    mesh.rect(
-        Vec2::splat(-52.0),
-        Vec2::splat(52.0),
-        0.001,
-        Color::srgb(0.85, 0.55, 0.13),
-    );
-    let mark = Color::srgb(0.40, 0.24, 0.06);
-    mesh.rect(Vec2::new(-30.0, -5.0), Vec2::new(30.0, 5.0), 0.002, mark);
-    mesh.rect(Vec2::new(-5.0, -30.0), Vec2::new(5.0, 30.0), 0.002, mark);
-    for corner in [
-        Vec2::new(-1.0, -1.0),
-        Vec2::new(1.0, -1.0),
-        Vec2::new(1.0, 1.0),
-        Vec2::new(-1.0, 1.0),
-    ] {
-        let c = corner * 42.0;
-        mesh.rect(c - 5.0, c + 5.0, 0.002, Color::srgb(1.0, 0.93, 0.55));
-    }
-    mesh.into_mesh()
 }
 
 /// Spawns a visual for every object without one and despawns visuals whose object is gone. A replaced sim (new
@@ -380,24 +245,27 @@ fn sync_object_visuals(
             .or_insert_with(|| meshes.add(visual_mesh(key)))
             .clone();
         let height = object_height(sim.map(), object.pos, object.placement.as_ref());
-        let turns = body_turns(object.kind);
+        let facing = if body_turns(object.kind) { object.facing } else { 0.0 };
         let entity = commands
             .spawn((
                 Name::new(format!("{:?} #{}", object.kind, object.id.0)),
                 ObjectVisual(object.id),
                 Mesh2d(mesh),
                 MeshMaterial2d(material.clone()),
-                object_transform(object.pos, height, if turns { object.facing } else { 0.0 }),
+                object_transform(object.pos, height, facing),
             ))
             .id();
         if let Some(size) = key.size {
             commands.spawn((structures::tag(object.id, object.kind, size, 1.0), ChildOf(entity)));
         }
-        if !turns {
+        if units::tagged(object.kind) {
+            commands.spawn((units::tag(object.id, object.kind), ChildOf(entity)));
+        }
+        if has_tick(object.kind) {
             let tick = assets
                 .ticks
                 .entry(object.kind)
-                .or_insert_with(|| meshes.add(tick_mesh(object.kind)))
+                .or_insert_with(|| meshes.add(units::tick_mesh(object.kind)))
                 .clone();
             commands.spawn((
                 Name::new("Facing tick"),
@@ -412,7 +280,7 @@ fn sync_object_visuals(
             let shield = assets
                 .shields
                 .entry(object.kind)
-                .or_insert_with(|| meshes.add(riot_shield_mesh(object.kind)))
+                .or_insert_with(|| meshes.add(units::riot_shield_mesh(object.kind)))
                 .clone();
             commands.spawn((
                 Name::new("Riot Shield"),

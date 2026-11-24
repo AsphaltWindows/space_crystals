@@ -48,6 +48,16 @@ fn defs_are_consistent() {
             Some(hp) => assert!(def.destructible && hp.is_finite() && hp > 0.0, "{name}: max HP {hp}"),
             None => assert!(!def.destructible, "{name}: destructible without max HP"),
         }
+        // `systems/combat.md > Shields > MaxShields`: "Colonists units/buildings only; defined per-entity alongside
+        // MaxHP".
+        let colonists = def.faction == Some(Faction::Colonists);
+        assert_eq!(def.max_shields.is_some(), colonists, "{name}: MaxShields");
+        if let Some(shields) = def.max_shields {
+            assert!(
+                def.max_hp.is_some() && shields.is_finite() && shields > 0.0,
+                "{name}: MaxShields {shields}"
+            );
+        }
         let Armor { point, full } = def.armor;
         assert!(
             point.is_finite() && point >= 0.0 && full.is_finite() && full >= 0.0,
@@ -73,33 +83,7 @@ fn defs_are_consistent() {
             "{name}: structure attributes"
         );
         if let Some(structure) = &def.structure {
-            let (w, h) = def.tile_size().expect("structures are tile-based");
-            assert!(
-                w == h || structure.symmetry.allows_oblong(),
-                "{name}: {w}×{h} with {:?}",
-                structure.symmetry
-            );
-            assert!(def.destructible && def.max_hp.is_some(), "{name}: destructible");
-            assert!(def.faction.is_some(), "{name}: structures belong to a faction");
-            assert!(def.needs_flat_ground, "{name}: structures stand on flat ground");
-            assert!(def.selectable, "{name}: selectable");
-            // `Constructs`: buildings of the constructor's own faction, each listed once, each taking time, and
-            // short enough for their progress in fixed point (`crate::construction`).
-            for (i, recipe) in structure.constructs.iter().enumerate() {
-                let built = recipe.kind.def();
-                assert!(
-                    built.structure.is_some() && built.faction == def.faction,
-                    "{name} constructs {:?}",
-                    recipe.kind
-                );
-                let longest = u32::MAX / crate::economy::RATIO_ONE;
-                assert!((1..=longest).contains(&recipe.frames), "{name}: {recipe:?}");
-                assert!(
-                    structure.constructs[..i].iter().all(|r| r.kind != recipe.kind),
-                    "{name} lists {:?} twice",
-                    recipe.kind
-                );
-            }
+            structure_is_consistent(def, structure);
         }
         // Exactly the units have unit attributes, and their movement attributes are their base's model.
         assert_eq!(
@@ -108,20 +92,132 @@ fn defs_are_consistent() {
             "{name}: unit attributes"
         );
         if let Some(unit) = &def.unit {
-            let base = unit.base_def();
-            assert_eq!(unit.movement.model(), base.movement_model, "{name}: movement model");
-            let speed = unit.movement.max_speed();
-            assert!(speed.is_finite() && speed > 0.0, "{name}: max speed {speed}");
-            assert_eq!(unit.turret.is_some(), base.has_turret, "{name}: turret");
-            assert_eq!(
-                unit.rugged_terrain_defense_bonus.is_some(),
-                unit.base == UnitBase::LightInfantry,
-                "{name}: RuggedTerrainDefenseBonus belongs to LightInfantry"
-            );
-            assert!(def.faction.is_some(), "{name}: units belong to a faction");
-            assert!(def.half_extents().is_some(), "{name}: units have a collision box");
+            unit_is_consistent(def, unit);
         }
     }
+}
+
+/// `defs_are_consistent` for a structure type. Every structure so far is a destructible building of a faction, on
+/// whole tiles of flat ground (`core/map.md > Elevation > Structures only on flat terrain`), whose footprint its
+/// symmetry type allows (`core/entities.md > Structure Type`: only ABAB, ABAC and ABCD may be oblong; AAAA "requires
+/// for Height and Width to be equal").
+fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
+    let name = def.name;
+    let (w, h) = def.tile_size().expect("structures are tile-based");
+    assert!(
+        w == h || structure.symmetry.allows_oblong(),
+        "{name}: {w}×{h} with {:?}",
+        structure.symmetry
+    );
+    if structure.symmetry == SymmetryType::AAAA {
+        assert_eq!(w, h, "{name}: AAAA is square");
+    }
+    assert!(def.destructible && def.max_hp.is_some(), "{name}: destructible");
+    assert!(def.faction.is_some(), "{name}: structures belong to a faction");
+    assert!(def.needs_flat_ground, "{name}: structures stand on flat ground");
+    assert!(def.selectable, "{name}: selectable");
+    // The Colonists have neither Power nor a build area (plan decision T21, `defs/colonists.rs`).
+    if def.faction == Some(Faction::Colonists) {
+        assert_eq!(
+            (structure.power, structure.build_radius_extension),
+            (0, 0),
+            "{name}: Power, BuildRadiusExtension"
+        );
+    }
+    // `Constructs`, and the Beacon's Warp In list (`factions/colonists/economy.md > Warp In > Constructs List`):
+    // buildings of the type's own faction, each listed once, each taking time, and short enough for their progress in
+    // fixed point (`crate::construction`). A type has one list or the other (plan decision T14): the Beacon warps
+    // in, it is no GDO-style constructor. Nothing warps in a Beacon ("every structure other than the Beacon itself").
+    assert!(
+        structure.constructs.is_empty() || structure.warp_in.is_empty(),
+        "{name}: constructs and warps in"
+    );
+    let longest = u32::MAX / crate::economy::RATIO_ONE;
+    for recipes in [structure.constructs, structure.warp_in] {
+        for (i, recipe) in recipes.iter().enumerate() {
+            let built = recipe.kind.def();
+            assert!(
+                built.structure.is_some() && built.faction == def.faction && recipe.kind != ObjectKind::Beacon,
+                "{name} builds {:?}",
+                recipe.kind
+            );
+            assert!((1..=longest).contains(&recipe.frames), "{name}: {recipe:?}");
+            assert!(
+                recipes[..i].iter().all(|r| r.kind != recipe.kind),
+                "{name} lists {:?} twice",
+                recipe.kind
+            );
+        }
+    }
+    // `Produces`: units of the producer's own faction, each listed once, each taking time.
+    if let Some(production) = &structure.production {
+        for (i, recipe) in production.recipes.iter().enumerate() {
+            let unit = recipe.kind.def();
+            assert!(
+                unit.unit.is_some() && unit.faction == def.faction,
+                "{name} produces {:?}",
+                recipe.kind
+            );
+            assert!((1..=longest).contains(&recipe.frames), "{name}: {recipe:?}");
+            assert!(
+                production.recipes[..i].iter().all(|r| r.kind != recipe.kind),
+                "{name} lists {:?} twice",
+                recipe.kind
+            );
+        }
+    }
+}
+
+/// `defs_are_consistent` for a unit type: its movement attributes are its base's model, and it has a collision box.
+fn unit_is_consistent(def: &ObjectDef, unit: &UnitDef) {
+    let name = def.name;
+    let base = unit.base_def();
+    assert_eq!(unit.movement.model(), base.movement_model, "{name}: movement model");
+    let speed = unit.movement.max_speed();
+    assert!(speed.is_finite() && speed > 0.0, "{name}: max speed {speed}");
+    // `systems/units.md > TurretAttributes`: "Only present on units whose UnitBase has HasTurret = true". HasTurret
+    // reads "the base can carry a turret" (question Q0042 point 10): the HoverVehicle has it, the Drone no turret.
+    assert!(
+        unit.turret.is_none() || base.has_turret,
+        "{name}: a turret on a base without one"
+    );
+    assert_eq!(
+        unit.rugged_terrain_defense_bonus.is_some(),
+        unit.base == UnitBase::LightInfantry,
+        "{name}: RuggedTerrainDefenseBonus belongs to LightInfantry"
+    );
+    // Each faction's army cost belongs to its own units: `factions/gdo/units.md > UnitControlCost`, the Syndicate's
+    // TunnelSpaceCost (`factions/syndicate/tunnels.md`), the Colonists' BeaconCapacityCost
+    // (`factions/colonists/overview.md > Beacon Capacity`).
+    let of = |faction| def.faction == Some(faction);
+    assert_eq!(
+        unit.unit_control_cost.is_some(),
+        of(Faction::Gdo),
+        "{name}: UnitControlCost"
+    );
+    assert_eq!(
+        unit.tunnel_space_cost.is_some(),
+        of(Faction::Syndicate),
+        "{name}: TunnelSpaceCost"
+    );
+    assert_eq!(
+        unit.beacon_capacity_cost.is_some(),
+        of(Faction::Colonists),
+        "{name}: BeaconCapacityCost"
+    );
+    // `systems/combat.md > FullyConnected > Melee`: "Fixed short range (adjacent contact)", the one placeholder Range
+    // of every melee attack (question Q0042 point 5), and nothing nearer to keep out.
+    if let Some(attack) = &unit.attack
+        && attack.attack_type == AttackType::FullyConnected(FullyConnectedSubtype::Melee)
+    {
+        assert_eq!(
+            (attack.range, attack.min_range),
+            (MELEE_CONTACT_GU, 0.0),
+            "{name}: melee range"
+        );
+    }
+    assert!(def.faction.is_some(), "{name}: units belong to a faction");
+    assert!(def.half_extents().is_some(), "{name}: units have a collision box");
 }
 
 /// The stat blocks of the GDO structures: `factions/gdo/structures.md > DeploymentCenter`, `> Barracks`, and

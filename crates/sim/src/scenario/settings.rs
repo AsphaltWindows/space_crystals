@@ -83,7 +83,14 @@ impl SpawnSettings {
             | ObjectKind::Generator
             | ObjectKind::Barracks
             | ObjectKind::ExtractionFacility
-            | ObjectKind::ExtractionPlate => None,
+            | ObjectKind::ExtractionPlate
+            | ObjectKind::Drone
+            | ObjectKind::Beacon
+            | ObjectKind::EgressNode
+            | ObjectKind::RoboPortal
+            | ObjectKind::BioPortal
+            | ObjectKind::SabreLegionnaire
+            | ObjectKind::RifleLegionnaire => None,
         }
     }
 

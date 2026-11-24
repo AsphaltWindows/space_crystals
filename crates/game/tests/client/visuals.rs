@@ -17,7 +17,7 @@ use space_crystals::coords::{drawn_position, lift};
 use space_crystals::hud::selection_panel::short_label;
 use space_crystals::input::InputAction;
 use space_crystals::map_render::{GridOverlay, MapRenderAssets, MapView};
-use space_crystals::object_render::{FacingTick, ObjectVisuals, StructureTag};
+use space_crystals::object_render::{FacingTick, ObjectVisuals, StructureTag, UnitTag};
 use space_crystals::platform::SurfaceSize;
 use space_crystals::sim_driver::{PendingCommands, RecordedInputs, RenderAlpha, SimRes, load_scenario};
 
@@ -242,6 +242,102 @@ fn a_guards_square_stays_axis_aligned_and_only_its_tick_turns() {
     let (of, transform, parent) = tick[0];
     assert_eq!((of, parent), (ObjectId(guard), visuals[&ObjectId(guard)]));
     assert!(front(&transform).distance(facing(&app, guard)) < 1e-3, "its tick turns");
+}
+
+/// The unit tags among `entity`'s children: whose they are, and what they say.
+fn unit_tags(app: &App, entity: Entity) -> Vec<(ObjectId, String)> {
+    let world = app.world();
+    let Some(children) = world.get::<Children>(entity) else {
+        return Vec::new();
+    };
+    let tag = |child| Some((world.get::<UnitTag>(child)?.0, world.get::<Text2d>(child)?.0.clone()));
+    children.iter().filter_map(tag).collect()
+}
+
+/// The Colonists' kinds (slice M3-A), placeholders until the art direction (Q0001): a structure is its footprint with
+/// a tag naming its type, as the GDO's are. A unit is its silhouette's size (36 su), a square for a Legionnaire and
+/// an octagon for the Drone, with a tag naming its type; moving off at an angle, its body stays axis-aligned and only
+/// its own facing tick turns.
+#[test]
+fn the_colonists_kinds_are_drawn_with_tags() {
+    let mut app = headless_app(scenarios::empty(40, 12));
+    app.update();
+    let kinds = [
+        ObjectKind::Drone,
+        ObjectKind::Beacon,
+        ObjectKind::EgressNode,
+        ObjectKind::RoboPortal,
+        ObjectKind::BioPortal,
+        ObjectKind::SabreLegionnaire,
+        ObjectKind::RifleLegionnaire,
+    ];
+    for (i, kind) in kinds.into_iter().enumerate() {
+        let tile = TilePos::new(1 + 5 * i as i32, 2);
+        let at = if kind.def().unit.is_some() {
+            SpawnAt::Point(tile.center())
+        } else {
+            SpawnAt::Tile(tile)
+        };
+        let spawn = debug(DebugCommand::Spawn {
+            kind,
+            owner: Some(PlayerId(1)),
+            at,
+            orientation: Default::default(),
+        });
+        app.world_mut().resource_mut::<PendingCommands>().0.push(spawn);
+    }
+    app.update();
+    let units = [1, 6, 7].map(ObjectId);
+    let go = PlayerCommand {
+        player: PlayerId(1),
+        command: Command::Order {
+            units: units.to_vec(),
+            kind: OrderKind::Move(Target::Point(Vec2::new(1800.0, 700.0))),
+            queue: false,
+        },
+    };
+    app.world_mut().resource_mut::<PendingCommands>().0.push(go);
+    updates(&mut app, 8);
+    let visuals = app.world().resource::<ObjectVisuals>().by_id.clone();
+    let objects: Vec<_> = app
+        .world()
+        .resource::<SimRes>()
+        .objects()
+        .map(|o| (o.id, o.kind, o.placement, o.facing))
+        .collect();
+    assert_eq!(objects.len(), kinds.len());
+    for (id, kind, placement, facing) in objects {
+        let entity = visuals[&id];
+        let label = short_label(kind).to_string();
+        let (lo, hi) = mesh_bounds(&app, entity);
+        if let Some(placement) = placement {
+            let half = Vec2::new(placement.w as f32, placement.h as f32) * 32.0 - 8.0;
+            assert_eq!((lo.truncate(), hi.truncate()), (-half, half), "{kind:?}");
+            assert_eq!(
+                (tags(&app, entity), unit_tags(&app, entity)),
+                (vec![(id, label)], vec![])
+            );
+            continue;
+        }
+        assert!(
+            units.contains(&id) && facing.abs() > 0.1,
+            "{kind:?} faces down-right: {facing}"
+        );
+        assert_eq!(
+            (lo.truncate(), hi.truncate()),
+            (Vec2::splat(-18.0), Vec2::splat(18.0)),
+            "{kind:?}"
+        );
+        assert_eq!(
+            (tags(&app, entity), unit_tags(&app, entity)),
+            (vec![], vec![(id, label)])
+        );
+        let body = app.world().get::<Transform>(entity).unwrap();
+        assert_eq!(body.rotation, Quat::IDENTITY, "{kind:?}");
+    }
+    let mut ticks = app.world_mut().query::<(&FacingTick, &ChildOf)>();
+    let ticks: BTreeSet<_> = ticks.iter(app.world()).map(|(t, parent)| (t.0, parent.0)).collect();
+    assert_eq!(ticks, BTreeSet::from(units.map(|id| (id, visuals[&id]))));
 }
 
 #[test]

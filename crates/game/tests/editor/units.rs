@@ -39,7 +39,15 @@ fn the_palette_lists_the_units_of_each_faction() {
         units,
         [
             ("GDO units".to_string(), vec![PK]),
-            ("Syndicate units".to_string(), vec![GUARD])
+            ("Syndicate units".to_string(), vec![GUARD]),
+            (
+                "Colonists units".to_string(),
+                vec![
+                    ObjectKind::Drone,
+                    ObjectKind::SabreLegionnaire,
+                    ObjectKind::RifleLegionnaire
+                ]
+            )
         ]
     );
 }
