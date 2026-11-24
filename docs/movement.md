@@ -608,7 +608,9 @@ own turn of phase 5d.
   plugged corridor without re-routing; a patch ringed by units is reached within 2 GU; an AttackMove group
   engages and resumes; a Patrol cycles, engages, starts where the order before it ended, turns around after a
   failed leg and ends after two. A soak of 120 units fighting under random orders of every kind keeps the
-  invariants, leaves no dangling id and asks for few paths. **I5–I7 changed**: a leg is one `Mover::go_to`, an
+  invariants, leaves no dangling id and asks for few paths. **(G)** Its checks survive tuning: no unit stays idle
+  in reach of a visible enemy, every order but Hold, Patrol and Follow ends once the orders stop, and refused
+  orders, failed moves and path searches stay under stated shares. **I5–I7 changed**: a leg is one `Mover::go_to`, an
   order's or a behaviour's, so a unit may also move, and get its repaths back, when a behaviour began a move in
   that tick.
 - **QA**: `TestSim::ascii()` renders the map with units as letters for readable failures; a client path overlay

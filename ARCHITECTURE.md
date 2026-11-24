@@ -660,8 +660,10 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   the leash and the return, Hold, Move doesn't engage, the auto-targeting switch), `behaviours_travel.rs` (Follow,
   static objects, AttackMove groups and the leash, a fight replayed and saved in its middle),
   `behaviours_patrol.rs`, `behaviours_gate.rs` (targets must be seen; a GDO player's remembered station, by its
-  record), `behaviours_soak.rs` (120 units fighting
-  under random orders of every kind; no dangling ids, no path-request storms) and the ignored `behaviours_perf.rs`.
+  record), `behaviours_soak.rs` (120 units fighting under random orders of every kind, then without orders until
+  those end; its checks are invariants that survive tuning: no dangling ids, no idle unit in reach of a visible
+  enemy, every order but Hold, Patrol and Follow ends, and bounded shares of refused orders, failed moves and path
+  searches) and the ignored `behaviours_perf.rs`.
   `riot_shield.rs` has the Riot Shield's: toggle timing, each raised-shield effect, the gate, a save in the middle
   of a toggle and its replay.
   Measured (release, 500 units on 256 × 256): 0.12 ms a tick with everyone idle, 0.14 ms on Hold in sight of the
