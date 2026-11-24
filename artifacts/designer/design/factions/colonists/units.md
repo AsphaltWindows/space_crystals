@@ -285,3 +285,10 @@ The Convert command follows the same interruption rules as any other command rel
 
 ### Completion
 Once initiated, the conversion runs to completion over its 4 frames and cannot be cancelled.
+
+### Orders are kept
+(user, 2026-11-24) Convert is a **mode switch, not an order**: it doesn't replace the unit's orders. The unit holds still for the 4 frames, then **carries on** with its current orders using the other weapon (e.g. an attack-move continues as Rifles). Same principle as the Peacekeeper's Riot Shield (factions/gdo/units.md > Peacekeeper > Riot Shield > Orders are kept).
+
+**New weapon starts ready** (user, 2026-11-24): after converting, the new weapon is ready to begin an attack; a reload in progress on the old weapon is not carried over. Safe with current numbers: a round-trip conversion costs 8 frames, longer than either form's ReloadDuration (4–5 frames), so flipping back and forth never skips a reload. **Revisit if a Legionnaire's ReloadDuration ever exceeds ~8 frames.**
+
+**Not queueable** (user, 2026-11-24): Convert always happens immediately; holding Shift changes nothing (it is never placed in the order queue).

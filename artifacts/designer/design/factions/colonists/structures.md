@@ -101,6 +101,16 @@ With the Bio Portal as its own Warp In, building one does not stop Drone product
 - **Footprint of the upgraded stages**: whether the Heavy Portal and Star Portal keep the Bio Portal's 3x3 footprint or grow. To weigh: if a stage needs ground the previous stage did not cover, that ground must be clear at upgrade time, and in a Colonists-vs-Colonists game an enemy Drone can deploy a Beacon on it (3 seconds, no spacing requirement). Before a player has combat units, nothing can remove that Beacon.
 - **Bio Portal cost**: the Bio Portal is described as the more expensive portal, but its current Warp In cost (150 Space Crystals) is lower than the Robo Portal's (400). To be revisited together with the other Colonists costs.
 
+### Portal Exits (energy doorway)
+(user, 2026-11-24) At the centre of every portal is an energy doorway from which units emerge. Portals don't use exit sides (core/entities.md > Structure Type > Exit Doorway); instead:
+1. **Materializing**: a produced unit appears at the portal's **centre** and moves straight out until it is clear of the footprint (it passes through its own portal's footprint; nothing else can).
+2. **Open directions**: it may leave in **any direction that isn't impeded by the building's structure**, i.e. any direction from the centre that passes out through an **open side** (the A sides). Robo Portal (AAAA): every direction, 360°. Bio Portal (AABB: top and right open in the default orientation, rotating with the building): every direction that leaves through the top or right side, a half-circle from pointing at the top-left corner round to pointing at the bottom-right corner.
+3. **Direction chosen**: straight **toward the RallyPoint** if that direction is open. If it isn't, or the way out in that direction is blocked, the unit **tries to go around**: the nearest open direction in which it can get out. With no RallyPoint: a random open, unblocked direction (deterministic random).
+4. **Can't get out**: if no direction is free, the unit stays half out at the edge of the footprint. It is a normal unit there (selectable, attackable, able to attack).
+5. **Next unit**: production of the next unit **continues up to 100%**, but that unit **doesn't come out until the previous units have vacated** the way out; it waits fully inside, as in the Exit Doorway rule (a waiting unit is refunded if the portal is destroyed, like any producer's).
+
+Heavy Portal and Star Portal: assumed to work the same way; their open sides are TBD with their sizes.
+
 ## Robo Portal
 
 The Colonists' Drone production structure. Produces Drones from a build queue, same standard production pattern as GDO's Barracks or Cults' Armory — a finished Drone "warps in" (materializes) at the Robo Portal rather than walking out from a fixed exit side, consistent with the Colonists' overall warping theme. Built via Warp In (see Warp In above). Standalone: not part of the portal upgrade line, and cannot be upgraded (see Portals).
@@ -117,9 +127,7 @@ The Colonists' Drone production structure. Produces Drones from a build queue, s
 ### Groupable - true
 ### SymmetryType - AAAA
 
-Since the Robo Portal is fully symmetric (AAAA), it has no fixed exit side — a warped-in Drone may emerge from any of the 4 sides.
-
-**Which side** (user, 2026-11-24): the same rule as the Bio Portal, over all four sides: the side **closest to the RallyPoint**; with no RallyPoint, or if that side is blocked, a random unblocked side (deterministic random). "Closest" = straight-line distance from the middle of each side to the rally point (an object's centre for object rallies); ties go top, right, bottom, left (in the building's default orientation). The same measure applies to the Bio Portal's A sides.
+Since the Robo Portal is fully symmetric (AAAA), units may leave in any direction (Portals > Portal Exits).
 
 ### RoboPortalInstanceState:
 - RallyPoint: Coordinates | ObjectInstance | None
@@ -159,7 +167,7 @@ The Colonists' basic military production structure. Produces basic combat units 
 ### SymmetryType - AABB
 
 ### Exit Behavior
-The Bio Portal has two exit-eligible sides (the "A" sides, per its AABB symmetry). A produced unit exits from whichever eligible A side is closest to the RallyPoint. If no RallyPoint is set, or the closest side is blocked (obstructed, not currently traversable), the unit exits from whichever eligible A side is unblocked, chosen at random among unblocked candidates.
+The Bio Portal's two open sides are its "A" sides (AABB: **neighbouring** sides, top and right in the default orientation; user, 2026-11-24). Units leave in any direction through them, toward the RallyPoint when possible (Portals > Portal Exits).
 
 ### BioPortalInstanceState:
 - RallyPoint: Coordinates | ObjectInstance | None
