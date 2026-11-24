@@ -12,6 +12,8 @@
 //!   rally points on enemies, refunds and Beacon Capacity, a game replayed and saved;
 //! - `portal_stalls`: a portal whose way out is blocked (the unit half out, the next one waiting at 100%, the
 //!   refund), and invariants I1 and I2 around the energy doorway (negative tests);
+//! - `half_out`: a unit stuck half out of a portal, a normal unit there (0145 point 4, slice M3-K2a): it
+//!   auto-targets an enemy in reach, carries out an Attack, and is attacked;
 //! - `drone_rally`: a Robo Portal rallied on an enemy unit, whose Drones follow it (design change 0136);
 //! - `capacity`: the army caps checked when production starts, for the GDO and the Colonists (design change 0143,
 //!   slice M3-P): the waits at 0%, the notification, a unit in production that always finishes, the refunds.
@@ -23,6 +25,7 @@ mod capacity;
 mod doors;
 mod drone_rally;
 mod exit;
+mod half_out;
 mod portal_stalls;
 mod portals;
 mod queue;

@@ -1302,9 +1302,11 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   M3-D2, design change 0145's Verifications: a Drone's and a Sabre's times and their walk straight out of the
   centre, the heading for a rally point in every direction and on an object, the Bio Portal rallied behind it and
   its arc in all 8 orientations against 9 rallies, random headings by seed, a way walled off, rallies on an enemy,
-  a destroyed portal's refund, a replay and a save in the middle of a walk) and `portal_stalls.rs` (slice M3-D2: a
+  a destroyed portal's refund, a replay and a save in the middle of a walk), `portal_stalls.rs` (slice M3-D2: a
   portal ringed by units, its unit half out and the next held at 100% until the first is out, that unit's refund,
-  and negative tests of I1 and I2 around the energy doorway).
+  and negative tests of I1 and I2 around the energy doorway) and `half_out.rs` (slice M3-K2a, 0145 point 4: a
+  Sabre stuck half out is a normal unit, which auto-targets an enemy in reach, carries out an Attack and is
+  attacked; a click picks it: the client's `selection::draw_order`).
 
 ## Commands, events and replays
 

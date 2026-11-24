@@ -1,7 +1,8 @@
 //! What is drawn in front where objects overlap, and so what a click there picks (`ARCHITECTURE.md > Client
 //! architecture > Visuals > Draw order`): a unit is drawn above every structure, also while it crosses one's
 //! footprint, as a unit walking out of a portal's energy doorway does (slice M3-D2, design change 0145), and its
-//! selection ring between the two; a click on it picks the unit, not the portal under it.
+//! selection ring between the two; a click on it picks the unit, not the portal under it, also once it is stuck there
+//! half out (design change 0145, point 4: "a normal unit there"; slice M3-K2a).
 
 use bevy::prelude::*;
 use sc_sim::testing::ScenarioBuilder;
@@ -131,4 +132,76 @@ fn a_unit_walking_out_of_a_portal_is_drawn_and_picked_above_it() {
     ] {
         assert_eq!(draw_layer(kind), DrawLayer::GroundObjects, "{kind:?}");
     }
+}
+
+/// Player 1's Bio Portal, unturned (open north and east), on tiles (23, 12) to (25, 14): x 1472 to 1664, y 768 to 960
+/// in the world view, its centre (1568, 864). Mountains on the five tiles along its north side and a column of six
+/// Drones of player 2's east of it, 18 su off its east side, leave no open direction free: the Sabre Legionnaire it
+/// trains, rallied east, walks out east all the same and stops half out against the Drones, its centre on the
+/// footprint's east side ([`HALF_OUT`]), as `sc_sim`'s `production::half_out` tests have it. Player 1's Egress Node
+/// (2) far off.
+fn walled_in_bio_portal() -> Scenario {
+    let tile = |x, y| SpawnAt::Tile(TilePos::new(x, y));
+    let mut rows = vec![".".repeat(64); 48];
+    rows[11].replace_range(22..27, "MMMMM");
+    let mut builder = ScenarioBuilder::new(&rows.join("\n"))
+        .faction(P1, Faction::Colonists)
+        .faction(PlayerId(2), Faction::Colonists)
+        .spawn(ObjectKind::BioPortal, Some(P1), tile(23, 12))
+        .spawn(ObjectKind::EgressNode, Some(P1), tile(4, 40));
+    for k in 0..6 {
+        let at = Vec2::new(1700.0, 786.0 + 36.0 * k as f32);
+        builder = builder.spawn(ObjectKind::Drone, Some(PlayerId(2)), SpawnAt::Point(at));
+    }
+    builder.build()
+}
+
+/// Where the Sabre of [`walled_in_bio_portal`] stops, half out.
+const HALF_OUT: Vec2 = Vec2::new(1664.0, 864.0);
+
+/// Design change 0145, point 4 (slice M3-K2a): a unit that can't get out of a portal stays "half out at the edge of
+/// the footprint. It is a normal unit there (selectable, attackable, able to attack)". A click on the half of the
+/// Sabre still over the portal picks it, drawn above the portal, though it stands in its doorway (its attacks:
+/// `sc_sim`'s `production::half_out`).
+#[test]
+fn a_unit_stuck_half_out_of_a_portal_is_picked_by_a_click() {
+    let mut app = game_of(walled_in_bio_portal(), true);
+    let crystals = DebugCommand::SetResources {
+        player: P1,
+        crystals: 100,
+        supplies: 0,
+        alloys: 0,
+        essence: 0,
+        flux: 0,
+    };
+    submit(&mut app, Command::Debug(crystals));
+    app.update();
+    let portal = vec![ObjectId(PORTAL)];
+    let rally = ProductionCommand::SetRally(Target::Point(Vec2::new(2200.0, 864.0)));
+    let train = ProductionCommand::Train(ObjectKind::SabreLegionnaire);
+    for command in [rally, train] {
+        let objects = portal.clone();
+        submit(&mut app, Command::Production { objects, command });
+    }
+    let sabre = |app: &App| {
+        let sim = app.world().resource::<SimRes>();
+        let sabre = sim.objects().find(|o| o.kind == ObjectKind::SabreLegionnaire)?;
+        Some((sabre.id, sabre.pos, sabre.mover.as_ref()?.exit))
+    };
+    for _ in 0..300 {
+        if sabre(&app).is_some_and(|(_, pos, _)| pos == HALF_OUT) {
+            break;
+        }
+        app.update();
+    }
+    updates(&mut app, 10);
+    let (id, pos, exit) = sabre(&app).expect("trained");
+    assert_eq!((pos, exit), (HALF_OUT, Some(ObjectId(PORTAL))), "stuck half out");
+    assert!(
+        drawn_z(&app, id).0 > drawn_z(&app, ObjectId(PORTAL)).0 + 0.01,
+        "drawn above the portal"
+    );
+
+    click(&mut app, HALF_OUT - Vec2::new(9.0, 0.0), &[]);
+    assert_eq!(selected(&app), [id.0], "the click picks the Sabre, not the portal");
 }
