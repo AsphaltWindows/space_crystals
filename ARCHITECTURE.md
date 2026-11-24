@@ -864,7 +864,9 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   map), and it **ignores invalid ones**. It must never panic on player input, so use checked or saturating arithmetic
   on numbers that come from input. Panics are only for programmer errors, such as an invalid scenario passed to
   `Sim::new` or an out-of-bounds `Map::set_tile`.
-- **The command gate** (`sim/gate.rs`): `Sim::validate(&PlayerCommand) -> Result<(), Reject>` checks a command
+- **The command gate** (`sim/gate.rs`, with each command family's checks in its own file, plan decision T28: orders
+  and abilities in `sim/gate/orders.rs`, debug commands in `sim/gate/debug.rs`, production in `sim/producers.rs`,
+  construction in `sim/construction.rs`): `Sim::validate(&PlayerCommand) -> Result<(), Reject>` checks a command
   against the current state without changing it, and `step` applies a command only through the same check
   (`Sim::check`, which hands the application the objects and positions it resolved), so the two can't disagree. In
   order: the player is in the game (`Reject::UnknownPlayer`), the game isn't over (`GameOver`) and the player isn't
