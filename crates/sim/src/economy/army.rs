@@ -21,9 +21,12 @@
 //! `crate::Refusal::UnitControl`, M2's names for it, kept), and the client names the faction's resource in its
 //! feedback ([`ArmyResource::name`]).
 //!
-//! **Capacity below what is used** (Colonists buildings lost; placeholder: Q0041 point 2): the units stay, and new
-//! units are refused; the units already queued keep their reservation and complete. Being derived, the cap needs no
-//! rule of its own for it.
+//! **Over capacity** (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design change 0112): when a
+//! Colonists building is lost, more can be used than is available. That is allowed: nothing is killed or removed,
+//! and new units are refused until there is room again. The units already queued keep their reservation and
+//! complete (placeholder: Q0041 point 2's proposal; 0112's "production blocked" is read as no new units, the queued
+//! ones having passed the check when they were queued). Being derived, the cap needs no rule of its own for it; the
+//! client shows it in red.
 
 use crate::defs::{Category, ObjectKind};
 use crate::ids::PlayerId;
@@ -101,7 +104,8 @@ impl ArmyResource {
 pub struct ArmyCap {
     pub resource: ArmyResource,
     /// What the player's units and their producers' queues take up (module docs). It may exceed `available` when
-    /// Colonists buildings are lost (placeholder: Q0041 point 2).
+    /// Colonists buildings are lost (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design
+    /// change 0112).
     pub used: u32,
     /// [`UNIT_CONTROL_CAP`] for Unit Control; min([`BEACON_CAPACITY_CAP`], [`BEACON_CAPACITY_PER_BUILDING`] × the
     /// player's Colonists structures) for Beacon Capacity.
@@ -153,9 +157,10 @@ pub(crate) fn unit_control_used<'a>(objects: impl IntoIterator<Item = &'a Object
 }
 
 /// Whether `o` provides Beacon Capacity to its owner: a Colonists structure (`factions/colonists/economy.md > Warp In >
-/// Beacon Capacity Retention`), complete or warping in (plan decision T20). Every one is, until Beacon Deployment
-/// exists: a Beacon under deployment is a Beacon from its first frame (plan decision T15) and must not count (T20),
-/// so slice M3-F, which builds the deployment, excludes it here.
+/// Beacon Capacity Retention`), complete or warping in ("throughout a Warp In", design change 0112; plan decision
+/// T20). Every one is, until Beacon Deployment exists: a Beacon under deployment is a Beacon from its first frame
+/// (plan decision T15, design change 0109), and its 5 arrives only on completion (`> Beacon Deployment > Beacon
+/// Capacity during deployment`, 0112), so slice M3-F, which builds the deployment, excludes it here.
 fn provides_capacity(o: &Object) -> bool {
     let def = o.kind.def();
     def.category == Category::Structure && def.faction == Some(Faction::Colonists)

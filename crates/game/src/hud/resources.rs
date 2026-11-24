@@ -14,7 +14,8 @@
 //!   - Space Crystals, Alloys, Essence and Flux, the banks (`Player::alloys` and the others, plan decision T21);
 //!     the refined ones stay 0 until refining exists (question Q0043 point 1);
 //!   - Beacon Capacity as used / available (`Sim::army_cap`, plan decision T20): the units and the units queued
-//!     over 5 per Colonists building, at most 200. No Power: the Colonists have none (T21).
+//!     over 5 per Colonists building, at most 200; in red while more is used than available (`> Beacon Capacity >
+//!     Over capacity`, design change 0112). No Power: the Colonists have none (T21).
 //! - **The other factions** show Space Crystals only, until their own resources (the Syndicate's Tunnel Space and
 //!   Supplies, the Cults' Unit Control) exist in the sim (the M2 plan, slice G).
 //! - A local player who isn't in the game shows no resources.
@@ -32,7 +33,8 @@ use crate::sim_driver::{LocalPlayer, SimRes};
 const FIGURE_VH: f32 = 2.0;
 /// The space between two figures (placeholder).
 const FIGURE_GAP_VH: f32 = 3.0;
-/// A figure that warns: power in the red (design change 0090; the shade is a placeholder).
+/// A figure that warns: power in the red (design change 0090), Beacon Capacity over capacity (0112); the shade is a
+/// placeholder.
 pub const ALERT_COLOR: Color = Color::srgb(1.0, 0.35, 0.3);
 
 /// One figure of a DisplayHud: a resource and how it reads. Declared in the order the bar shows them, every faction's
@@ -102,7 +104,8 @@ impl ResourceFigure {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Reading {
     pub text: String,
-    /// Shown as a warning, in [`ALERT_COLOR`]: power in the red (design change 0090).
+    /// Shown as a warning, in [`ALERT_COLOR`]: power in the red (design change 0090), Beacon Capacity over capacity
+    /// (0112).
     pub alert: bool,
 }
 
@@ -136,7 +139,10 @@ pub fn resource_bar(sim: &Sim, player: PlayerId) -> Vec<(ResourceFigure, Reading
         ResourceFigure::Flux => Reading::plain(format!("Flux {}", p.flux)),
         ResourceFigure::BeaconCapacity => {
             let (used, available) = sim.army_cap(player).map_or((0, 0), |cap| (cap.used, cap.available));
-            Reading::plain(format!("Beacon Capacity {used}/{available}"))
+            Reading {
+                text: format!("Beacon Capacity {used}/{available}"),
+                alert: used > available,
+            }
         }
     };
     ResourceFigure::of(p.faction)
@@ -267,10 +273,11 @@ mod tests {
         assert_eq!(power(&short), "Power 30/20!");
     }
 
-    /// `factions/colonists/overview.md > DisplayHud` on the Colonists' starting base (`factions/colonists/economy.md
-    /// > Starting Conditions`; the plan's acceptance for slice M3-C: "Space Crystals 100 ... Beacon Capacity 4/10", in
-    /// ASCII): the four banks, the refined ones at 0, and Beacon Capacity as used / available, with no Power. The
-    /// refined banks show what `SetResources` sets, and the capacity follows a queued Drone (Q0041 point 1).
+    /// `factions/colonists/overview.md > DisplayHud` on the Colonists' starting base
+    /// (`factions/colonists/economy.md > Starting Conditions`; the plan's acceptance for slice M3-C: "Space
+    /// Crystals 100 ... Beacon Capacity 4/10", in ASCII): the four banks, the refined ones at 0, and Beacon Capacity
+    /// as used / available, with no Power. The refined banks show what `SetResources` sets, the capacity follows a
+    /// queued Drone (Q0041 point 1), and over capacity it shows in red.
     #[test]
     fn the_colonists_bar_reads_their_banks_and_beacon_capacity() {
         use ResourceFigure::{Alloys, BeaconCapacity, Essence, Flux, SpaceCrystals};
@@ -329,6 +336,24 @@ mod tests {
                 "Beacon Capacity 5/10"
             ]
         );
+        // Over capacity (`overview.md > Beacon Capacity > Over capacity`, design change 0112): with a second Drone
+        // queued, the Egress Node lost leaves 6 used of 5, in red.
+        t.at(
+            3,
+            P1,
+            sc_sim::Command::Production {
+                objects: vec![portal],
+                command: train,
+            },
+        );
+        t.debug_at(
+            4,
+            sc_sim::DebugCommand::Remove {
+                id: sc_sim::ObjectId(1),
+            },
+        );
+        t.run(2);
+        assert_eq!(texts(t.sim(), P1)[4], "Beacon Capacity 6/5!");
     }
 
     /// The other factions show only what exists of their DisplayHud: Space Crystals. A player not in the game shows

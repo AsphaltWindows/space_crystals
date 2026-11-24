@@ -770,9 +770,10 @@ section of its own.
   `ArmyResource::cost_of` of the player's units plus what the units in their producers' queues reserve (design
   change 0082; Q0041 point 1 for Beacon Capacity: a unit counts from the moment it is queued, the one in production
   and one waiting inside included). Capacity that falls below what is used leaves the units and the queues alone
-  and refuses new units (Q0041 point 2). `Sim::unit_control(player)` is the GDO's used figure alone, which the HUD
-  reads. A building counts from the tick it is placed until the tick it leaves the game, that one excluded (design
-  change 0089), because it is among the objects in between. Each call walks the objects once.
+  and refuses new units (design change 0112; the queues, Q0041 point 2). `Sim::unit_control(player)` is the GDO's
+  used figure alone, which the HUD reads. A building counts from the tick it is placed until the tick it leaves the
+  game, that one excluded (design change 0089), because it is among the objects in between. Each call walks the
+  objects once.
 - **Speed in fixed point** (plan decision T6): `RATIO_ONE` (2^16) is 100 %. `PowerSummary::ratio()` is
   `min(RATIO_ONE, ⌈generated × 2^16 / consumed⌉)`, and `RATIO_ONE` without consumers. `PowerSummary::speed(kind)` is
   what a structure of that kind advances in a tick: the ratio for a consumer (negative Power), `RATIO_ONE` for any
@@ -1356,8 +1357,8 @@ the GDO Space Crystals and Supplies (the banks), Power as consumed / generated (
 exceeds generation (0090), and Unit Control as used / `UNIT_CONTROL_CAP`, read through `Sim::unit_control` alone, so
 that the queue's reserved Unit Control (0082) shows as soon as the sim counts it; for the Colonists (slice M3-C,
 `factions/colonists/overview.md > DisplayHud`) Space Crystals, Alloys, Essence and Flux, and Beacon Capacity as used
-/ available (`Sim::army_cap`), with no Power; the other factions Space Crystals only, until their own resources
-exist. At the end of the game a banner across the world view (`hud/outcome.rs`,
+/ available (`Sim::army_cap`; red over capacity, 0112), with no Power; the other factions Space Crystals only, until
+their own resources exist. At the end of the game a banner across the world view (`hud/outcome.rs`,
 placeholder look and wording) shows the local player's `Banner`: VICTORY for the winners, DEFEAT for everyone else,
 and DEFEATED with a spectating line while a defeated player watches the game go on. A defeated player, and everyone
 once the game is over, gives no commands: the command UI's input set doesn't run (`outcome::may_command`), and

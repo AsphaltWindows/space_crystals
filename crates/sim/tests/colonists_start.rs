@@ -2,9 +2,10 @@
 //! objects of the Starting Layout on `dev_skirmish` in either slot (plan decision T24), and Beacon Capacity
 //! (`factions/colonists/overview.md > ColonistResources > Beacon Capacity`, `economy.md > Warp In > Beacon Capacity
 //! Retention`; plan decision T20): reserved when a unit is queued (placeholder: Q0041 point 1), checked by the gate
-//! for every producer of a group (design change 0083), and kept by the units and the queues when the capacity falls
-//! (placeholder: Q0041 point 2). Also the refined banks that `SetResources` sets (T21). The Starting Conditions table
-//! is unit-tested in `scenario/starting.rs`, the caps in `economy/army.rs`, the bar and the camera in the client.
+//! for every producer of a group (design change 0083), and kept by the units (design change 0112) and the queues
+//! (placeholder: Q0041 point 2) when the capacity falls. Also the refined banks that `SetResources` sets (T21). The
+//! Starting Conditions table is unit-tested in `scenario/starting.rs`, the caps in `economy/army.rs`, the bar and the
+//! camera in the client.
 
 use sc_sim::scenario::DEFAULT_SEED;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
@@ -278,8 +279,9 @@ fn group_production_serves_the_least_work_first_up_to_the_capacity() {
     assert!(t.events().contains(&(2, refused)));
 }
 
-/// Placeholder: Q0041 point 2: when buildings are lost and the capacity falls below what is used, the units stay and
-/// new units are refused; the units already queued keep their reservation and complete.
+/// `factions/colonists/overview.md > Beacon Capacity > Over capacity` (design change 0112): when buildings are lost
+/// and the capacity falls below what is used, the units stay and new units are refused; the units already queued
+/// keep their reservation and complete (placeholder: Q0041 point 2).
 #[test]
 fn units_and_queues_outlast_a_fall_in_capacity() {
     let mut builder = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
