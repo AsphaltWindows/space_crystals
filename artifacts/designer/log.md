@@ -2129,3 +2129,4 @@ Q0036 pt 3: defeat keeps modes (shield stays). Entry 0165. Q0036 done.
 Q0043 pts 1,3,4: M3 scope confirmed; layout reading OK; feedback line OK. Entry 0166.
 Q0043 pt 2: Bio Portal 150 kept; Robo Portal 400 -> 250. Entry 0167. Q0043 done.
 Q0031: follow itself = Stop. Entry 0168.
+Q0032: arrival radius 3 GU (both behaviours). Entry 0169. Q0046 arrived.
