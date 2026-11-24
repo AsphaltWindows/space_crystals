@@ -209,12 +209,8 @@ mod tests {
     fn players(defeated: &[u8]) -> Vec<Player> {
         (1..=3)
             .map(|i| Player {
-                id: PlayerId(i),
-                name: format!("P{i}"),
-                faction: Faction::Gdo,
-                crystals: 0,
-                supplies: 0,
                 defeated_at: defeated.contains(&i).then_some(5),
+                ..Player::starting(PlayerId(i), format!("P{i}"), Faction::Gdo)
             })
             .collect()
     }

@@ -7,8 +7,7 @@ use glam::Vec2;
 use super::gate::Checked;
 use super::{Reject, Sim};
 use crate::defs::{ObjectKind, ProductionDef, UnitDef};
-use crate::economy::unit_control::cost_of;
-use crate::economy::{self, Refund, UNIT_CONTROL_CAP};
+use crate::economy::{self, Refund};
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::math;
@@ -57,7 +56,8 @@ impl Sim {
     /// units, as an order's units are found ([`Sim::own_units`]: stale and repeated ids dropped, `NotOwned` for
     /// someone else's); none is [`Reject::NoProducers`]. Then:
     /// - **Train**: at least one producer queues the unit, else why not: [`Reject::CannotProduce`] (no producer
-    ///   has the recipe), [`Reject::InsufficientCrystals`], [`Reject::UnitControlCap`] or [`Reject::QueueFull`].
+    ///   has the recipe), [`Reject::InsufficientCrystals`], [`Reject::UnitControlCap`] (the army cap of the player's
+    ///   faction, plan decision T20: [`Sim::army_cap`]) or [`Reject::QueueFull`].
     ///   Design change 0083: the producers are served by the work they have queued, least first, ties by id, each
     ///   check counting what the ones before it in this command took, **until a cost check fails**; a full queue
     ///   is passed over.
@@ -142,9 +142,10 @@ impl Sim {
         }
         able.sort_unstable_by_key(|&(work, id, ..)| (work, id));
         let mut crystals = self.player(player).map_or(0, |p| p.crystals);
-        // Design change 0082: the units queued count already, these included as they are queued.
-        let mut unit_control = self.unit_control(player);
-        let unit_control_cost = cost_of(kind);
+        // Plan decision T20: the army cap of the player's faction, if it has one. Design change 0082: the units
+        // queued count already, these included as they are queued.
+        let mut army = self.army_cap(player);
+        let army_cost = army.map_or(0, |cap| cap.resource.cost_of(kind));
         let (mut accepted, mut refused) = (Vec::new(), Vec::new());
         let mut stopped: Option<Refusal> = None;
         for (_, id, cost, full) in able {
@@ -155,7 +156,7 @@ impl Sim {
             if stopped.is_none() {
                 if crystals < cost {
                     stopped = Some(Refusal::Crystals);
-                } else if unit_control.saturating_add(unit_control_cost) > UNIT_CONTROL_CAP {
+                } else if army.is_some_and(|cap| !cap.fits(army_cost)) {
                     stopped = Some(Refusal::UnitControl);
                 }
             }
@@ -163,7 +164,9 @@ impl Sim {
                 Some(reason) => refused.push((id, reason)),
                 None => {
                     crystals -= cost;
-                    unit_control = unit_control.saturating_add(unit_control_cost);
+                    if let Some(cap) = &mut army {
+                        cap.used = cap.used.saturating_add(army_cost);
+                    }
                     accepted.push(id);
                 }
             }

@@ -10,8 +10,13 @@
 //!   - Unit Control as used / the cap (`Sim::unit_control`, `UNIT_CONTROL_CAP`). "Used" counts the units queued in a
 //!     producer too (design change 0082): the sim's one accessor includes them once slice M2-D2 reserves them, so
 //!     the bar follows without a change here.
-//! - **The other factions** show Space Crystals only, until their own resources (Tunnel Space, Beacon Capacity, the
-//!   Cults' Unit Control, the refined resources, the Syndicate's Supplies) exist in the sim (the M2 plan, slice G).
+//! - **Colonists** (`factions/colonists/overview.md > DisplayHud`; slice M3-C, plan decision T23), left to right:
+//!   - Space Crystals, Alloys, Essence and Flux, the banks (`Player::alloys` and the others, plan decision T21);
+//!     the refined ones stay 0 until refining exists (question Q0043 point 1);
+//!   - Beacon Capacity as used / available (`Sim::army_cap`, plan decision T20): the units and the units queued
+//!     over 5 per Colonists building, at most 200. No Power: the Colonists have none (T21).
+//! - **The other factions** show Space Crystals only, until their own resources (the Syndicate's Tunnel Space and
+//!   Supplies, the Cults' Unit Control) exist in the sim (the M2 plan, slice G).
 //! - A local player who isn't in the game shows no resources.
 //!
 //! Placeholder look, the design giving none: one ASCII text per figure (the UI font has no other glyphs), with the
@@ -30,34 +35,65 @@ const FIGURE_GAP_VH: f32 = 3.0;
 /// A figure that warns: power in the red (design change 0090; the shade is a placeholder).
 pub const ALERT_COLOR: Color = Color::srgb(1.0, 0.35, 0.3);
 
-/// One figure of a DisplayHud: a resource and how it reads.
+/// One figure of a DisplayHud: a resource and how it reads. Declared in the order the bar shows them, every faction's
+/// figures being in that order.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ResourceFigure {
     /// `> Space Crystals: current amount`.
     SpaceCrystals,
-    /// `> Supplies: current amount`.
+    /// `> Supplies: current amount` (GDO).
     Supplies,
-    /// `> Power: used / available` (design change 0090).
+    /// `> Power: used / available` (GDO; design change 0090).
     Power,
-    /// `> Unit Control: current used / 200`.
+    /// `> Unit Control: current used / 200` (GDO).
     UnitControl,
+    /// `> Alloys: current amount` (Colonists).
+    Alloys,
+    /// `> Essence: current amount` (Colonists).
+    Essence,
+    /// `> Flux: current amount` (Colonists).
+    Flux,
+    /// `> Beacon Capacity: current used / current available (max 200)` (Colonists).
+    BeaconCapacity,
 }
+
+/// `factions/gdo/overview.md > DisplayHud`.
+const GDO: [ResourceFigure; 4] = [
+    ResourceFigure::SpaceCrystals,
+    ResourceFigure::Supplies,
+    ResourceFigure::Power,
+    ResourceFigure::UnitControl,
+];
+
+/// `factions/colonists/overview.md > DisplayHud`.
+const COLONISTS: [ResourceFigure; 5] = [
+    ResourceFigure::SpaceCrystals,
+    ResourceFigure::Alloys,
+    ResourceFigure::Essence,
+    ResourceFigure::Flux,
+    ResourceFigure::BeaconCapacity,
+];
 
 impl ResourceFigure {
     /// Every figure, in the order the bar shows them.
-    pub const ALL: [ResourceFigure; 4] = [
+    pub const ALL: [ResourceFigure; 8] = [
         ResourceFigure::SpaceCrystals,
         ResourceFigure::Supplies,
         ResourceFigure::Power,
         ResourceFigure::UnitControl,
+        ResourceFigure::Alloys,
+        ResourceFigure::Essence,
+        ResourceFigure::Flux,
+        ResourceFigure::BeaconCapacity,
     ];
 
-    /// The figures `faction`'s DisplayHud shows, left to right (module docs: the other factions' own resources don't
-    /// exist yet).
+    /// The figures `faction`'s DisplayHud shows, left to right (module docs: the Syndicate's and the Cults' own
+    /// resources don't exist yet).
     pub fn of(faction: Faction) -> &'static [ResourceFigure] {
         match faction {
-            Faction::Gdo => &ResourceFigure::ALL,
-            Faction::Syndicate | Faction::Cults | Faction::Colonists => &[ResourceFigure::SpaceCrystals],
+            Faction::Gdo => &GDO,
+            Faction::Colonists => &COLONISTS,
+            Faction::Syndicate | Faction::Cults => &[ResourceFigure::SpaceCrystals],
         }
     }
 }
@@ -94,6 +130,13 @@ pub fn resource_bar(sim: &Sim, player: PlayerId) -> Vec<(ResourceFigure, Reading
         }
         ResourceFigure::UnitControl => {
             Reading::plain(format!("Unit Control {}/{UNIT_CONTROL_CAP}", sim.unit_control(player)))
+        }
+        ResourceFigure::Alloys => Reading::plain(format!("Alloys {}", p.alloys)),
+        ResourceFigure::Essence => Reading::plain(format!("Essence {}", p.essence)),
+        ResourceFigure::Flux => Reading::plain(format!("Flux {}", p.flux)),
+        ResourceFigure::BeaconCapacity => {
+            let (used, available) = sim.army_cap(player).map_or((0, 0), |cap| (cap.used, cap.available));
+            Reading::plain(format!("Beacon Capacity {used}/{available}"))
         }
     };
     ResourceFigure::of(p.faction)
@@ -185,7 +228,8 @@ mod tests {
         };
         let sim = Sim::new(&base().build());
         let figures: Vec<ResourceFigure> = resource_bar(&sim, P1).into_iter().map(|(f, _)| f).collect();
-        assert_eq!(figures, ResourceFigure::ALL);
+        use ResourceFigure::{Power, SpaceCrystals, Supplies, UnitControl};
+        assert_eq!(figures, [SpaceCrystals, Supplies, Power, UnitControl]);
         assert_eq!(
             texts(&sim, P1),
             ["Space Crystals 100", "Supplies 0", "Power 21/30", "Unit Control 0/200"]
@@ -223,11 +267,75 @@ mod tests {
         assert_eq!(power(&short), "Power 30/20!");
     }
 
+    /// `factions/colonists/overview.md > DisplayHud` on the Colonists' starting base (`factions/colonists/economy.md
+    /// > Starting Conditions`; the plan's acceptance for slice M3-C: "Space Crystals 100 ... Beacon Capacity 4/10", in
+    /// ASCII): the four banks, the refined ones at 0, and Beacon Capacity as used / available, with no Power. The
+    /// refined banks show what `SetResources` sets, and the capacity follows a queued Drone (Q0041 point 1).
+    #[test]
+    fn the_colonists_bar_reads_their_banks_and_beacon_capacity() {
+        use ResourceFigure::{Alloys, BeaconCapacity, Essence, Flux, SpaceCrystals};
+        let mut builder = ScenarioBuilder::new(&vec![".".repeat(16); 10].join("\n"))
+            .faction(P1, Faction::Colonists)
+            .spawn(ObjectKind::EgressNode, Some(P1), tile(1, 1))
+            .spawn(ObjectKind::RoboPortal, Some(P1), tile(6, 1));
+        for x in 1..=4 {
+            let at = TilePos::new(x, 8).center();
+            builder = builder.spawn(ObjectKind::Drone, Some(P1), SpawnAt::Point(at));
+        }
+        let mut t = builder.start();
+        let figures: Vec<ResourceFigure> = resource_bar(t.sim(), P1).into_iter().map(|(f, _)| f).collect();
+        assert_eq!(figures, [SpaceCrystals, Alloys, Essence, Flux, BeaconCapacity]);
+        let start = texts(t.sim(), P1);
+        assert_eq!(
+            start,
+            [
+                "Space Crystals 100",
+                "Alloys 0",
+                "Essence 0",
+                "Flux 0",
+                "Beacon Capacity 4/10"
+            ]
+        );
+        assert!(start.iter().all(|text| text.is_ascii()));
+        t.debug_at(
+            1,
+            sc_sim::DebugCommand::SetResources {
+                player: P1,
+                crystals: 500,
+                supplies: 0,
+                alloys: 3,
+                essence: 4,
+                flux: 5,
+            },
+        );
+        let train = sc_sim::ProductionCommand::Train(ObjectKind::Drone);
+        let portal = sc_sim::ObjectId(2);
+        t.at(
+            2,
+            P1,
+            sc_sim::Command::Production {
+                objects: vec![portal],
+                command: train,
+            },
+        );
+        t.run(2);
+        assert_eq!(
+            texts(t.sim(), P1),
+            [
+                "Space Crystals 450",
+                "Alloys 3",
+                "Essence 4",
+                "Flux 5",
+                "Beacon Capacity 5/10"
+            ]
+        );
+    }
+
     /// The other factions show only what exists of their DisplayHud: Space Crystals. A player not in the game shows
     /// nothing.
     #[test]
     fn other_factions_show_space_crystals_only() {
-        for faction in [Faction::Syndicate, Faction::Cults, Faction::Colonists] {
+        for faction in [Faction::Syndicate, Faction::Cults] {
             assert_eq!(
                 ResourceFigure::of(faction),
                 [ResourceFigure::SpaceCrystals],

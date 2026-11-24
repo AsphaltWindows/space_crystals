@@ -256,6 +256,9 @@ fn every_command_of_a_defeated_player_is_refused() {
             player: P2,
             crystals: 500,
             supplies: 0,
+            alloys: 0,
+            essence: 0,
+            flux: 0,
         },
     );
     t.debug_at(2, remove(2)).run_until(2);
@@ -405,6 +408,9 @@ fn a_defeat_hands_over_no_producer() {
             player: P2,
             crystals: 100,
             supplies: 0,
+            alloys: 0,
+            essence: 0,
+            flux: 0,
         },
     );
     t.at(

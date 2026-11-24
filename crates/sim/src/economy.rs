@@ -1,12 +1,15 @@
-//! The economy (slice M2-B): the players' banks, their power and Unit Control, and the plates that mine —
-//! `factions/gdo/overview.md > GDOResources`, `factions/gdo/economy.md > ExtractionPlate`.
+//! The economy (slice M2-B): the players' banks, their power and army caps, and the plates that mine —
+//! `factions/gdo/overview.md > GDOResources`, `factions/gdo/economy.md > ExtractionPlate`,
+//! `factions/colonists/overview.md > ColonistResources`.
 //!
-//! - **Banks** (`Player::crystals`, `Player::supplies`): stored, hashed and serialized. A spend is refused when the
-//!   bank is short (`Player::spend_crystals`), income saturates (`Player::credit_crystals`), and every refund goes
-//!   through [`Refund`] (plan decision T7). Supplies are a counter only (design change 0077).
-//! - **Power** ([`PowerSummary`], `power.rs`) and **Unit Control** (`unit_control.rs`) are derived from the objects
-//!   whenever they are needed, never stored, so they can't drift from them (T7): `Sim::power`,
-//!   `Sim::unit_control`.
+//! - **Banks** (`Player::crystals`, `Player::supplies`, and the Colonists' `Player::alloys`, `Player::essence` and
+//!   `Player::flux`, plan decision T21): stored, hashed and serialized. A spend is refused when the bank is short
+//!   (`Player::spend_crystals`), income saturates (`Player::credit_crystals`), and every refund goes through
+//!   [`Refund`] (plan decision T7). Supplies are a counter only (design change 0077), and so are the refined
+//!   resources until refining exists (question Q0043 point 1).
+//! - **Power** ([`PowerSummary`], `power.rs`) and the **army caps** ([`ArmyCap`], `army.rs`, plan decision T20: the
+//!   GDO's Unit Control, the Colonists' Beacon Capacity) are derived from the objects whenever they are needed, never
+//!   stored, so they can't drift from them (T7): `Sim::power`, `Sim::army_cap`.
 //! - **Mining** (`mining.rs`): a plate on a patch has an [`Extractor`] (`Object::extractor`), linked when the pair
 //!   comes into being; it pays its owner in lumps at the end of each cycle (design change 0098), and the removal
 //!   path takes a depleted patch away with its plate (`Sim::remove_objects`).
@@ -17,17 +20,17 @@
 //!
 //! Everything is integer: rates are fixed point, [`RATIO_ONE`] being 100% (plan decision T6).
 
+pub(crate) mod army;
 pub mod defeat;
 pub(crate) mod mining;
 pub(crate) mod power;
-pub(crate) mod unit_control;
 
 use std::collections::BTreeMap;
 
+pub use army::{ArmyCap, ArmyResource, BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, UNIT_CONTROL_CAP};
 pub use defeat::Outcome;
 pub use mining::Extractor;
 pub use power::{PowerSummary, RATIO_ONE};
-pub use unit_control::UNIT_CONTROL_CAP;
 
 use crate::events::SimEvent;
 use crate::ids::ObjectId;

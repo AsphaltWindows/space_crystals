@@ -55,6 +55,56 @@ fn bad_flags_are_errors() {
     }
 }
 
+/// `--factions` (plan decision T24): each slot's player plays the faction it names, in slot order, any case, the
+/// slots it doesn't name the GDO; the default scenario, `--scenario` and `--map` take it, and the game must still be
+/// valid. A replay brings its own players, and the editor's play-tests have their own setup.
+#[test]
+fn factions_set_each_slots_faction() {
+    use sc_sim::Faction::{Colonists, Gdo};
+    let o = parse(&args("--factions colonists,GDO")).unwrap();
+    assert_eq!(o.factions, Some(vec![Colonists, Gdo]));
+    let factions = |config: &AppConfig| -> Vec<sc_sim::Faction> {
+        config.scenario.setup.players.iter().map(|p| p.faction).collect()
+    };
+    let default = into_config(o).unwrap();
+    assert_eq!(default.scenario.name(), DEFAULT_SCENARIO);
+    assert_eq!(factions(&default), [Colonists, Gdo]);
+    assert_eq!(
+        default.scenario.setup.config,
+        SimConfig::DEBUG,
+        "the flags' game options still apply"
+    );
+    let scenario = into_config(parse(&args("--scenario dev_skirmish --factions gdo,colonists")).unwrap()).unwrap();
+    assert_eq!(factions(&scenario), [Gdo, Colonists]);
+    let one = into_config(parse(&args("--scenario empty --factions colonists")).unwrap()).unwrap();
+    assert_eq!(factions(&one), [Colonists, Gdo], "the GDO in the slot not named");
+
+    let path = std::env::temp_dir().join(format!("sc_cli_factions_{}.json", std::process::id()));
+    std::fs::write(&path, serde_json::to_string(&scenarios::dev_skirmish_map()).unwrap()).unwrap();
+    let map = into_config(
+        parse(&args(&format!(
+            "--map {} --factions colonists,colonists",
+            path.display()
+        )))
+        .unwrap(),
+    );
+    std::fs::remove_file(&path).unwrap();
+    assert_eq!(factions(&map.unwrap()), [Colonists, Colonists]);
+
+    for bad in ["--factions", "--factions gdo,elves", "--factions gdo,,gdo"] {
+        assert!(parse(&args(bad)).is_err(), "{bad}");
+    }
+    let error = parse(&args("--factions orcs")).unwrap_err();
+    assert!(error.contains("gdo, syndicate, cults, colonists"), "{error}");
+    for bad in [
+        "--factions gdo,gdo,gdo",
+        "--editor --factions colonists",
+        "--editor --scenario dev_skirmish --factions colonists",
+    ] {
+        assert!(into_config(parse(&args(bad)).unwrap()).is_err(), "{bad}");
+    }
+}
+
 #[test]
 fn qa_flags_render_offscreen_and_windowless_runs_must_end() {
     let config = into_config(parse(&args("--screenshot 3:s.png --screenshot 1:t.png")).unwrap()).unwrap();
@@ -255,6 +305,7 @@ fn a_replay_plays_back_with_its_own_scenario_and_options() {
     for bad in [
         "--scenario empty",
         "--map m.json",
+        "--factions colonists",
         "--editor",
         "--no-debug",
         "--commands c.json",

@@ -156,7 +156,62 @@
         ],
         "Syndicate": [],
         "Cults": [],
-        "Colonists": []
+        "Colonists": [
+          {
+            "kind": "EgressNode",
+            "at": {
+              "Tile": {
+                "x": 4,
+                "y": 4
+              }
+            }
+          },
+          {
+            "kind": "RoboPortal",
+            "at": {
+              "Tile": {
+                "x": 6,
+                "y": 6
+              }
+            }
+          },
+          {
+            "kind": "Drone",
+            "at": {
+              "Point": [
+                224.0,
+                576.0
+              ]
+            }
+          },
+          {
+            "kind": "Drone",
+            "at": {
+              "Point": [
+                288.0,
+                576.0
+              ]
+            }
+          },
+          {
+            "kind": "Drone",
+            "at": {
+              "Point": [
+                224.0,
+                640.0
+              ]
+            }
+          },
+          {
+            "kind": "Drone",
+            "at": {
+              "Point": [
+                288.0,
+                640.0
+              ]
+            }
+          }
+        ]
       }
     },
     {
@@ -226,7 +281,72 @@
         ],
         "Syndicate": [],
         "Cults": [],
-        "Colonists": []
+        "Colonists": [
+          {
+            "kind": "EgressNode",
+            "at": {
+              "Tile": {
+                "x": 58,
+                "y": 42
+              }
+            },
+            "orientation": {
+              "rotation": "R180",
+              "flip_h": false,
+              "flip_v": false
+            }
+          },
+          {
+            "kind": "RoboPortal",
+            "at": {
+              "Tile": {
+                "x": 54,
+                "y": 38
+              }
+            },
+            "orientation": {
+              "rotation": "R180",
+              "flip_h": false,
+              "flip_v": false
+            }
+          },
+          {
+            "kind": "Drone",
+            "at": {
+              "Point": [
+                3872.0,
+                2496.0
+              ]
+            }
+          },
+          {
+            "kind": "Drone",
+            "at": {
+              "Point": [
+                3808.0,
+                2496.0
+              ]
+            }
+          },
+          {
+            "kind": "Drone",
+            "at": {
+              "Point": [
+                3872.0,
+                2432.0
+              ]
+            }
+          },
+          {
+            "kind": "Drone",
+            "at": {
+              "Point": [
+                3808.0,
+                2432.0
+              ]
+            }
+          }
+        ]
       }
     }
   ],
