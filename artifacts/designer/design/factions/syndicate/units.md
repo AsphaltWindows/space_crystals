@@ -2,7 +2,10 @@
 
 ## Guard
 
-The Guard is the Syndicate's basic combat infantry. A heavy infantry unit with a rapid-fire fully connected attack, tougher than the GDO Peacekeeper but with shorter range.
+The Guard is the Syndicate's basic combat infantry. A heavy infantry unit armed with a **laser rifle** that hits **ground and air** and **cannot miss** (instant hit), firing at a measured pace rather than rapidly (user, 2026-11-24). Tougher than the GDO Peacekeeper but with shorter range.
+
+### Produced at - Hideout
+### TechPrerequisite - player owns at least one **Optics Lab** (user, 2026-11-24; core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites). So the Optics Lab is the Syndicate's gate to an army; before it, only Agents (pistol) can fight.
 
 ### Entity Type - Unit
 ### Faction - TheSyndicate
@@ -25,22 +28,24 @@ The Guard is the Syndicate's basic combat infantry. A heavy infantry unit with a
 ### TurretAttributes - None
 
 ### AttackAttributes:
-- AttackType: FullyConnected
-- TargetDomain: Ground
+- AttackType: FullyConnected (laser; instant hit, cannot miss)
+- TargetDomain: Universal (ground and air)
 - TargetType: SingleTarget
-- Damage: 6
+- Damage: 18 (placeholder)
 - Range: 3 grid units
 - MinRange: 0
-- AimDuration: 2 frames
-- FiringDuration: 1 frame
-- CooldownDuration: 1 frame
-- ReloadDuration: 4 frames
+- AimDuration: 4 frames (placeholder)
+- FiringDuration: 1 frame (placeholder)
+- CooldownDuration: 3 frames (placeholder)
+- ReloadDuration: 16 frames (placeholder)
+
+One shot every 24 frames (1.5 s) ≈ 12 damage per second, the same output as the earlier rapid-fire version (6 damage every 0.5 s); fewer, bigger hits make armor matter less against it.
 
 ### ObjectInterfaceState: BasicCombatUnitInterfaceState
 
 ## Agent
 
-The Agent is the Syndicate's cyborg worker unit. Agents construct Tunnels and defensive structures on the surface, gather Space Crystals and Supplies, and deliver them to Tunnels. Agents have a melee attack for basic self-defense.
+The Agent is the Syndicate's cyborg worker unit. Agents construct Tunnels and defensive structures on the surface, gather Space Crystals and Supplies, and deliver them to Tunnels. Agents carry a **pistol** for basic self-defense: short range, low-moderate damage, moderate reload, ground only, overall weak (user, 2026-11-24; replaces the melee attack).
 
 ### Entity Type - Unit
 ### Faction - TheSyndicate
@@ -63,15 +68,19 @@ The Agent is the Syndicate's cyborg worker unit. Agents construct Tunnels and de
 ### TurretAttributes - None
 
 ### AttackAttributes:
-- AttackType: FullyConnected (Melee)
+(Pistol; user, 2026-11-24, replacing the melee attack. Numbers are placeholders.)
+- AttackType: FullyConnected (Ranged; instant hit)
 - TargetDomain: Ground
 - TargetType: SingleTarget
-- Damage: 6
-- Range: melee (adjacent contact)
-- AimDuration: 2 frames
-- FiringDuration: 4 frames
-- CooldownDuration: 1 frame
-- ReloadDuration: 9 frames
+- Damage: 5
+- Range: 2 grid units
+- MinRange: 0
+- AimDuration: 3 frames
+- FiringDuration: 1 frame
+- CooldownDuration: 2 frames
+- ReloadDuration: 14 frames
+
+One shot every 20 frames (1.25 s) = 4 damage per second, a third of a Guard's.
 
 ### Gathering
 
@@ -116,7 +125,7 @@ Rationale: the drop-off time (not carry or mining time) sets the ceiling, so len
 #### Unit Commands:
 - **Move** — right-click ground
 - **Stop** — panel button
-- **Attack** — right-click enemy unit/building (melee)
+- **Attack** — right-click enemy unit/building (pistol, ground only)
 - **Enter** — right-click own Tunnel (when not carrying resources)
 - **Gather** — right-click Space Crystals patch or Supply Delivery Station
 - **Drop Off Resources** — right-click own Tunnel (when carrying resources), or via panel button B
@@ -127,7 +136,7 @@ Rationale: the drop-off time (not carry or mining time) sets the ceiling, so len
 - Supply Delivery Station → Gather supplies
 - Own Tunnel (carrying resources) → Drop off resources (auto-routes to correct side)
 - Own Tunnel (not carrying resources) → Enter
-- Enemy unit/building → Attack (melee)
+- Enemy unit/building → Attack (pistol)
 - Ground → Move
 
 Multiple Agents can be selected simultaneously. Right-click commands are issued to all selected Agents even though the Agent is ungroupable (no shared control panel — the panel displays one Agent's interface).
