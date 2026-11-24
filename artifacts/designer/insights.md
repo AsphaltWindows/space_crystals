@@ -30,7 +30,6 @@
 All non-blocking; Director proceeds on its defaults (option A in each). Arrived 2026-11-23 mid-GDO-roster; raise after the support-air-unit thread. Movement/pathing cluster:
 - **Q0016** point 1 ANSWERED (0062 non-capable units move/follow; 0063 per-unit resolution + Mixed cursor). (0065 invalid target: ignore + feedback; 0066 other commands unavailable while targeting, cancel first.) (0067 drag while targeting = nothing.) (0068 press point; 0069 player selection changes cancel targeting, deaths don't unless ActiveGroup empty.) (0070 point 4: Shift keeps targeting active until released → Q0016 DONE; follow-up TBD: Shift released before any click; 0071 Shift-placement same rule where builder can take more orders)
 - **Q0020** Riot Shield (non-blocking): (1) ANSWERED 0074 (shielded = Follow, 0062 wins); (2) slowed + can't attack during raise/lower, 50% DR only when fully up, mid-toggle reverses from current point; (3) raise during a shot: shot lands then held (vs refuse until shot ends, like Convert); (4) mixed group: key raises all, again lowers all; (5) toggle 6 ticks (0.375 s), hotkey R — placeholders.
-- **Q0029** defeat: (1) ANSWERED 0100 stay uncontrollable; (2) game ends when one side left vs continues.
 - **Q0030** structures: (1) auto-target enemy buildings (lower priority than shooters back) vs explicit only; (2) DC BuildMenu slots Q Generator, W Barracks, E EF, Z Back, X Cancel; ready building takes its slot; (3) building InfoPanels contents.
 - **Q0031** Move/Follow aimed at a selected unit itself: A clicked unit left out (keeps orders) / B it stops / C counts as ground click at that spot (magic box incl. it). Currently follows itself forever.
 - **Q0032** occupied-arrival radius: A keep 2 GU / B 3 GU (Guard losses 43→17 in sweep, PK 12→0) / C 2 GU + unit width.
@@ -39,6 +38,8 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 - Yielding (0023): only no-command units yield; Hold Position/busy don't; modes (Riot Shield) irrelevant; deployed Artillery Rig = fixed obstacle. TBD sidestep distance, allies. Watch: mining workers don't yield → possible clots at patches (worker collision while gathering never designed).
 
 ## Loose Ends
+
+- **Team games, defeated player before the end** (0101): proposed keep watching with team vision only (no full reveal: voice-chat cheating). Ask.
 
 - **Exit blocking by buildings** (0080): allowed for now; a building flush against an exit stalls the producer. Revisit (placement rule keeping exit-front tiles clear) if it proves annoying. Aircraft spawning (Airfield) and Syndicate releases not covered by Exit Doorway.
 
