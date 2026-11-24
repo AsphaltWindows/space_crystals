@@ -2136,3 +2136,4 @@ Q0020 pt 3: shield raise mid-attack deferred. Entry 0172.
 Q0020 pt 4: Peacekeeper / Peacekeeper (Shielded) two unit types. Entry 0173.
 Q0020 pt 5: toggle 6 frames, hotkey R placeholders. Entry 0174. Q0020 done.
 Q0047 pt 1: waiting buildings in fixed internal order. Entry 0175.
+Q0047 pts 2-3: no start without progress; zero-cost always passes. Entry 0176. Q0047 done.
