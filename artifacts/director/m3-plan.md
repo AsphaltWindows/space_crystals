@@ -1249,6 +1249,8 @@ The Barracks keeps its side doorway (0080). |
 | 0166 | Q0043 points 1, 3, 4 | (none) | M3 scope as planned. For deferred content, the Designer fills placeholder numbers; mechanics need a question first. |
 | 0167 | Q0043 point 2 | V, K1 | Robo Portal 400 → 250; the Bio Portal stays 150. Watch the economy targets in K1. |
 | 0168 | Q0031 | R | A Move or Follow onto the unit itself is a Stop. |
+| 0169 | Q0032 | V | A unit stuck by non-moving units within 3 GU (was 2) of its target counts as arrived, for MovingToLocation and MovingToObject's "blocked near the target". Still a placeholder. |
+| 0170 | Q0046 | K2 | As built: a drop-off lost mid-return switches the Drone at once to the nearest own node. The user wants no per-frame cost if avoidable, so K2 makes it event-driven on the removal path, like `redirect_gatherers`. |
 
 ## 9. Notes from merged slices for later slices
 
@@ -1272,3 +1274,4 @@ The Barracks keeps its side doorway (0080). |
 | M3-B | F, R, K2 | `damage::resolve` takes Shields first. `Phase::Shields` sits in the pipeline. `Ability::Convert` lives in `conversion.rs`, and the Modes step in `sim/modes.rs`. The gate's Convert rule lives in the gate's abilities family file. The SelectionPanel shows no Shields, and memory records keep none. A second Convert during a conversion is refused. |
 | M3-F | J1, P, K1 | `Sim::deploy_check` serves the ghost (`Mode::Known`). `Sim::pending_deploys` gives the lingering ghosts. `TileProblem::Reserved` is the reservation problem. `SimEvent::DeployFailed` carries the feedback text. A deploying Beacon is out of `provides_capacity` until completion. A gate-refused Deploy emits no event, so the client's ghost must show the problem first. |
 | M3-H3 | R, J2, K1 | `Gather::spot` and `live_target` make the Gather the one order that may name a gone object; R unifies it with the target view. Waiting Drones re-check in global 16-tick phases. The gate's `NothingToDeliver` refuses an empty Drone's Drop Off. The search reads vision memory, which R seeds (0159). The curve fell about 1/s at 20–24 Drones from the 0132 re-check. |
+| M3-P | J1, D2, K1 | `sim/producers/step.rs` runs the production-start check, and `Production::blocked` is the wait at 0%. `SimEvent::ProductionWaiting` feeds the feedback band, which is the channel J1's 0162 feedback uses. M3-D's over-capacity test moved to `tests/production/capacity.rs`. |

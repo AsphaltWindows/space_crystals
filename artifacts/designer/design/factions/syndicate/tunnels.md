@@ -131,6 +131,7 @@ Applies to every Syndicate production building (Hideout, Vehicle Assembly, Aeros
 - **Queuing** a unit requires only its Space Crystals cost (paid when queued) and a free queue slot. Queuing does **not** check or reserve Tunnel Space.
 - **Starting production**: when a queued unit reaches the front of the queue and is about to start, it requires free Tunnel Space (available minus used) at least equal to its TunnelSpaceCost. If there is enough, the unit's Tunnel Space counts as used from that moment — through production and for as long as the unit lives.
 - **Blocked**: if there is not enough free Tunnel Space, the building **waits** — the unit stays at the front of the queue, production is paused, and it starts automatically as soon as enough Tunnel Space frees up (a unit dies, a Tunnel is built or upgraded). The player can still cancel it for a full refund. A blocked queue raises a **notification** for the player (notification system not yet designed).
+- Shared with the other factions' capacities (factions/gdo/overview.md > Unit Control, 2026-11-24): several waiting buildings are served in a fixed internal order; a unit with TunnelSpaceCost 0 always passes.
 
 ### Construction and Upgrade Rules
 
