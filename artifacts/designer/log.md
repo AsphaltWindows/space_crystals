@@ -2020,3 +2020,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T20:28:48-05:00 — Q0014.2: hit at end of Firing; overkill wastes shot+cycle. Doc: combat.md. Change entry 0060.
 - 2026-11-23T20:30:33-05:00 — Q0014.3: rugged effects by centre tile. Doc: units.md. Change entry 0061. Q0014 done.
 - 2026-11-23T20:31:43-05:00 — Q0016.1: non-capable units move/follow on right-click. Doc: selection_and_hud.md. Change entry 0062.
+- 2026-11-23T20:35:28-05:00 — Right-click per-unit resolution; Mixed cursor. Doc: selection_and_hud.md. Change entry 0063.

@@ -181,7 +181,7 @@ For all unit-producing structures, right-click from DefaultState sets the rally 
 The default ObjectInterfaceState for a selection. The command panel displays available commands. Right-click performs a context-sensitive command based on what is under the cursor. Command hotkeys or button clicks initiate transitions to AwaitingTarget or issue immediate commands.
 
 ## RightClickResolution
-Context-sensitive command issued by right-clicking from DefaultState. The command is determined by what is under the cursor and what the selected objects can do. Resolution is evaluated against the ActiveGroup's capabilities.
+Context-sensitive command issued by right-clicking from DefaultState. The command is determined by what is under the cursor and what the selected objects can do. **Each selected unit resolves the right-click for itself**, against its own capabilities, not the ActiveGroup's (user, 2026-11-23). The result doesn't depend on which group is active.
 
 **Units that can't carry out the resolved command** (user, 2026-11-23): every selected unit acts on a right-click. Units that have the resolved command carry it out. Units that can't, e.g. an unarmed Supply Chopper, or ground-only Peacekeepers when the target is an aircraft, **move to or follow the target instead**: Move to the location, or Follow a unit (systems/controls/behaviors.md > MovingToObject). The group stays together.
 
@@ -199,7 +199,7 @@ What is under the player's cursor at the time of a click. Used by AwaitingTarget
 ### Object - ObjectInstance | None
 
 ## PointerDisplayType
-The visual appearance of the player's cursor, communicating what action will occur on click. Determined each tick by the current ControlState, the ActiveGroup's capabilities, and the CursorTarget. Only one PointerDisplayType is active at a time.
+The visual appearance of the player's cursor, communicating what action will occur on click. Determined each tick by the current ControlState, the selected units' capabilities, and the CursorTarget. Only one PointerDisplayType is active at a time.
 
 ### Types:
 
@@ -213,13 +213,17 @@ The visual appearance of the player's cursor, communicating what action will occ
 | GatherResources | — | Unit will gather from this resource. |
 | ReturnResources | — | Unit will return carried resources to this drop-off point. |
 | Enter | — | Unit will enter this object (e.g., Syndicate unit entering a Tunnel, Cults infantry entering an Altar). |
+| Mixed | Generic hybrid | Selected units will do different things on right-click (e.g. some attack, some follow). Visual TBD. |
+
+### Mixed Right-Click Preview
+When a right-click would make different selected units do different things (e.g. Peacekeepers would attack and a Supply Chopper would follow), the pointer shows a **generic hybrid cursor** that signals mixed actions (user, 2026-11-23). When all selected units would do the same thing, the normal cursor for that action is shown. Visual design of the hybrid cursor: TBD (art).
 
 ### Resolution Rules
 
 PointerDisplayType is resolved based on the current ObjectInterfaceState:
 
 #### DefaultState (right-click preview):
-The pointer previews the action that right-click would perform, based on the ActiveGroup's RightClickResolution:
+The pointer previews the action that right-click would perform, resolved per unit (RightClickResolution). If all selected units would do the same thing, that action's pointer is shown, per the list below. If they would do different things, the **Mixed** pointer is shown (Mixed Right-Click Preview):
 
 - Nothing selected: **Inactive**
 - Cursor over enemy object (and selection can attack): **Attack**
