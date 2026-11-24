@@ -134,6 +134,8 @@ GDO resource harvesting structure. Placed onto a Space Crystal Patch by an Extra
 
 ### MiningRate - 10 Space Crystals per 48 frames (3 seconds)
 ### ResidualMiningRate - 1 Space Crystal per 48 frames (3 seconds)
+
+**Paid in lumps** (user, 2026-11-24): a plate delivers its whole amount at once at the end of each 48-frame cycle (+10, or +1 at the residual rate), not as a trickle. A new plate's first payment comes 48 frames after it is placed. Under the power penalty the cycle progresses more slowly (at the power ratio), so the lumps come less often. (The opening baseline's timings were computed as a trickle; with lumps they shift by about 2 seconds, e.g. the fastest clean Barracks starts at ≈48 s instead of 45.8 s.)
 ### PowerPenalty - When total GDO power is negative, MiningRate and ResidualMiningRate are reduced proportionally (same ratio as the global power penalty for buildings).
 
 ### InfoPanel: displays remaining Space Crystals in the underlying patch
