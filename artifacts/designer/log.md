@@ -2117,3 +2117,4 @@ Q0042 pt 9: Convert during Firing/Cooldown deferred. Entry 0153.
 Q0042 pt 10: HasTurret renamed CanHaveTurret. Entry 0154. Q0042 done.
 Q0034: plate remaining crystals owner only. Entry 0155.
 Q0033 pt 1: destination stays as resolved. Entry 0156.
+Q0033 pt 2: no re-plan when shortcut opens; recalc only when blocked/stuck. Entry 0157.

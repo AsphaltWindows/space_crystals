@@ -60,6 +60,7 @@ Paths are planned only from what the unit's **owner knows** (user, 2026-11-23), 
 *Implementation suggestion from the user (not a design requirement; the Director decides):* a per-player cache of known obstacles, updated when a structure enters or leaves that player's view. A cache change since a stuck unit's plan was made could justify a new path calculation.
 
 - **A destination inside a remembered obstacle** (user, 2026-11-24): a click inside (or unreachable behind) a remembered structure resolves, when the order is given, to the nearest reachable spot by what the player knows (systems/controls/commands.md > Group Destinations: destinations are resolved when the order is given). If the unit later sees the obstacle is gone, it **still stops at that resolved spot**; it doesn't continue to the clicked point.
+- **A shortcut opening up** (user, 2026-11-24): a unit that sees a remembered obstacle on or near its route is gone **keeps its planned route** (it may still cut corners where a later point of its route comes into direct view). Principle (user): **avoid recalculating routes unless the unit actually gets blocked or stuck.**
 - **Map-placed objects** (crystal patches, Supply Delivery Stations) are known from the start, like terrain (user, 2026-11-23). A patch depleted out of the player's view is still treated as present until the player sees it gone.
 
 ## MovingToLocation
