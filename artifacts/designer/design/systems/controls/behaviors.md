@@ -113,7 +113,7 @@ Same as MovingToLocation, except:
 ### Completion:
 - **Static TargetObject** (structure, resource, Supply Delivery Station): behavior complete when the unit is within proximity of the TargetObject.
 - **Unit TargetObject: Follow** (user, 2026-11-23). The behavior does **not** complete on reaching the target. While within proximity, the unit stops and waits. When the target moves out of proximity, the unit follows again. Following continues until the player gives a new order, or the target dies or leaves the map (e.g. enters a transport, a building or the Tunnel Network); then the behavior completes.
-- **Blocked near a followed unit**: if the unit is stuck within **2 grid units** of a unit it is following, blocked by units that aren't moving, that counts as having reached it (it waits there, no re-route attempts), like MovingToLocation > Occupied target location.
+- **Blocked near the target**: if the unit is stuck within **2 grid units** of its TargetObject, blocked by units that aren't moving, that counts as having reached it, like MovingToLocation > Occupied target location. For a static target the behavior completes. For a followed unit the unit waits there (no re-route attempts) and keeps following. (User, 2026-11-23.)
 
 ### Failure:
 Same as MovingToLocation.
