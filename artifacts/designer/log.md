@@ -2086,3 +2086,4 @@ Q0040 pt 6: Beacons Ungroupable. Entry 0122.
 Q0040 pt 7 / Q0037 pt 12: Gather ends only when mined out (no patch within Drone's search radius), delivers first; Shift-queued orders wait. Search radius around Drone, per-unit stat, 6 GU placeholder. Entry 0123.
 Q0040 pt 8: Colonists panels; Beacon has two Warp In menus (Basic/Advanced provisional). Entry 0124. Q0045 arrived.
 Q0040 pt 9: Drones Groupable; lingering build ghosts (owner-only, reserve site); group Deploy goes to first Drone in selection order; Shift chains through Drone group (replaces 0071 for Drones). Entry 0125. Q0040 done.
+Q0045 pt 1: idle overlapping units push apart. Entry 0126.
