@@ -31,5 +31,8 @@ Refined from Alloys and Essence at the Flux Reactor (1 Alloy + 1 Essence → 2 F
 ### Beacon Capacity
 Unit control resource. Each Beacon provides a certain amount of Beacon Capacity. Total Beacon Capacity caps at 200. Each Colonist unit has a Beacon Capacity cost. The player cannot build units if doing so would exceed the total available Beacon Capacity.
 
+#### Reserved when queued
+(user, 2026-11-24) Beacon Capacity is checked **when a unit is queued**, and its cost is **reserved immediately**: queued units count as used in the counter until they are produced (then they simply stay used) or cancelled (released). Same as GDO Unit Control (factions/gdo/overview.md).
+
 #### Over capacity
 (user, 2026-11-24) Used Beacon Capacity can end up above available, e.g. when a Colonists building is destroyed, or when a Beacon deployment is cancelled after its freed slot was spent (factions/colonists/economy.md > Beacon Deployment > Beacon Capacity during deployment). This is allowed: the counter shows in red, and no new units can be built until there is room again (the normal rule above). Nothing is killed or removed.
