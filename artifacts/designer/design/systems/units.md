@@ -124,7 +124,7 @@ Determines a Unit's movement behavior, physical characteristics, and interaction
 ### Domain - Ground | Air | Underground
 ### HasTurret - boolean
 ### DirectionalArmor - boolean
-### RuggedTerrain - boolean
+### RuggedTerrain - boolean (can the unit enter Rugged tiles? If false, Rugged tiles are **impassable** for it, like any non-Traversible tile: its Silhouette may never overlap a Rugged tile. User, 2026-11-23)
 ### Crushable - boolean
 ### CanTurnInPlace - boolean
 ### CanReverse - boolean
@@ -198,7 +198,7 @@ Ground vehicle that hovers above the surface. Accelerates omni-directionally wit
 ### Domain - Ground
 ### HasTurret - true
 ### DirectionalArmor - true
-### RuggedTerrain - false
+### RuggedTerrain - true, with **double drag**: while over Rugged terrain, the HoverVehicle's DragRatio is doubled (halving its effective MaxSpeed and making it decelerate faster). No defense bonus. (User, 2026-11-23.)
 ### Crushable - false
 ### CanTurnInPlace - true
 ### CanReverse - false
