@@ -48,8 +48,9 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 - **Player grouping toggle** (parked, 0071): Alt/other-click on portrait toggling a type's grouping; scope options (selection only / rest of game / stored in control groups); Alt-click portrait already = center camera. Revisit if fixed per-type Groupable proves insufficient. Concern: Tab stops pile up with many ungroupable casters in big armies (HUD pass may help, e.g. click a group directly).
 
 
-### >>> WHERE WE LEFT OFF (2026-11-24) — start here next session <<<
-**Answering Director questions one at a time.** Done this session: Q0016, Q0019–Q0030 (entries 0070–0105). Remaining (15 points, none blocking): **Q0031** (was mid-presentation: clicked unit itself — rec A left out/keeps orders; others follow it), Q0032 (arrival radius 2/3 GU/size-scaled), Q0020 pts 2–5 (Riot Shield details), Q0017 (2 fog points), Q0018 (6 behaviour gaps). After that: back to the GDO roster/numbers pass (below).
+### >>> WHERE WE LEFT OFF (2026-11-25) — start here next session <<<
+**All Director questions answered through Q0048** (entries 0106–0185 this session; earlier 0070–0105). No open Director questions. Next: back to the **GDO roster/numbers pass** (previous marker below), or a loose end (deferred Colonists content needs mechanics: Skylance salvo, Plasma Turret beam, Scout stealth/detection, Lancer, psionic unit, Heavy/Star Portal output, research).
+New standing decisions worth remembering: Drones Groupable + lingering build ghosts (0125); capacity reserved at production start for all factions (0143); portals = centre energy doorway (0145); mode switches keep orders, not queueable, deferred mid-attack (0150–0153, 0172); Peacekeeper / Peacekeeper (Shielded) two types (0173); unfinished buildings own group (0185); remembered objects targetable (0139); fog delay 0.5 s + attacker reveal 1.5 s (0177–0178); route recalculation = Director's call (0158).
 
 ### Previous marker (2026-11-23)
 **Current task: unit rosters, one faction at a time, GDO first.** Sketch the full roster (concepts, roles, mechanics), THEN do numbers for all GDO units, then move to the next faction. Later: split into one file per unit/building once most units exist.
