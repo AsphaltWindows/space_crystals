@@ -124,7 +124,7 @@ Determines a Unit's movement behavior, physical characteristics, and interaction
 ### Domain - Ground | Air | Underground
 ### HasTurret - boolean
 ### DirectionalArmor - boolean
-### RuggedTerrain - boolean (can the unit enter Rugged tiles? If false, Rugged tiles are **impassable** for it, like any non-Traversible tile: its Silhouette may never overlap a Rugged tile. User, 2026-11-23)
+### RuggedTerrain - boolean (can the unit enter Rugged tiles? If false, Rugged tiles are **impassable** for it, like any non-Traversible tile: its Silhouette may never overlap a Rugged tile. User, 2026-11-23. Ground domain only: air units ignore terrain, so this flag has no effect for them)
 ### Crushable - boolean
 ### CanTurnInPlace - boolean
 ### CanReverse - boolean
