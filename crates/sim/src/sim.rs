@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
-use crate::command::{Ability, PlayerCommand, TickInputs};
+use crate::command::{PlayerCommand, TickInputs};
 use crate::defs::ObjectKind;
 use crate::economy::Outcome;
 use crate::economy::defeat;
@@ -23,7 +23,7 @@ use crate::rng::Rng;
 use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
 use crate::units::{Tick, TilePos};
 use crate::vision::{VisibilityState, Vision};
-use crate::{combat, economy, movement, orders, riot_shield};
+use crate::{combat, economy, movement, orders, shields};
 
 use gate::Checked;
 pub use gate::Reject;
@@ -288,9 +288,9 @@ impl Sim {
             self.apply_command(cmd);
         }
         observe(Phase::Behaviours);
-        // Modes: after the commands, so that a toggle counts from its own tick; before 5a, so that the behaviours,
-        // the movement and the combat of the tick all see the mode it leaves (`riot_shield`).
-        riot_shield::step(&mut self.objects, first_new);
+        // Modes (`sim/modes.rs`): after the commands, so that a toggle counts from its own tick; before 5a, so that
+        // the behaviours, the movement and the combat of the tick all see the mode it leaves.
+        self.step_modes(first_new);
         // Phases 5a–5f, `docs/movement.md > 4`.
         // 5a: after the commands, so an order acts in its own tick; before movement, so goals have one writer.
         // The behaviours read the positions and the vision the last tick left (5f).
@@ -344,6 +344,10 @@ impl Sim {
             self.remove_objects(&dead);
             paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
         }
+        // The Shields regenerate (plan decision T18): after 5e's hits and the removal of the dead, so that the dead
+        // never do; before the economy, whose transformations then raise them with their maxima.
+        observe(Phase::Shields);
+        shields::step(&mut self.objects, first_new);
         // The economy (plan decision T5): after 5e, so that the buildings destroyed this tick count for nothing in
         // it; before 5f, so that what it brings into the game is seen in its own tick.
         observe(Phase::Economy);
@@ -404,23 +408,7 @@ impl Sim {
         };
         match checked {
             Checked::Order { units, kind, queue } => self.give_order(&units, kind, queue),
-            Checked::Ability { units, ability } => {
-                for id in &units {
-                    let Some(o) = self.objects.get_mut(id) else {
-                        continue;
-                    };
-                    match ability {
-                        Ability::RiotShield { raise } => riot_shield::toggle(o, raise),
-                        // `factions/colonists/units.md > Drone > Assigned Drop-off`: it "only updates
-                        // AssignedDropOff"; the worker's order goes on.
-                        Ability::SetDropOff(node) => {
-                            if let Some(worker) = &mut o.worker {
-                                worker.drop_off = Some(node);
-                            }
-                        }
-                    }
-                }
-            }
+            Checked::Ability { units, ability } => self.use_ability(&units, ability),
             Checked::Spawn {
                 kind,
                 owner,
@@ -515,6 +503,8 @@ impl Sim {
             facing: 0.0,
             prev_facing: 0.0,
             hp: kind.def().max_hp,
+            // `systems/combat.md > Shields`: full, as the HP (`shields`).
+            shields: kind.def().max_shields,
             placement,
             resource,
             orders,
@@ -526,6 +516,7 @@ impl Sim {
             constructor,
             worker,
             transform: None,
+            conversion: None,
         };
         self.objects.insert(id, object);
         if is_patch {
@@ -580,6 +571,7 @@ mod deploy;
 mod gate;
 mod kinds;
 mod load;
+mod modes;
 mod navigation;
 mod phase;
 mod preview;

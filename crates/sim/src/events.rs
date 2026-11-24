@@ -34,11 +34,16 @@ pub enum SimEvent {
         from: Vec2,
         to: Vec2,
     },
-    /// `target` lost `damage` HP to `attacker`'s attack (`systems/combat.md > SingleTargetDamage`).
+    /// `target` lost `damage` HP and `shield_damage` Shields to `attacker`'s attack (`systems/combat.md >
+    /// SingleTargetDamage`, `> Shields > Shield Damage Resolution`; `combat::resolve`): Shields that take all of it
+    /// leave the HP untouched (`damage` 0).
     Hit {
         attacker: ObjectId,
         target: ObjectId,
         damage: f32,
+        /// Optional in files (0), so that the states saved before it existed still load.
+        #[serde(default)]
+        shield_damage: f32,
     },
     /// The object was destroyed: its HP reached 0. What it was and where, since its `Removed` event follows in
     /// the same tick.

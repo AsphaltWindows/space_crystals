@@ -356,18 +356,18 @@ fn hp_and_shields_interpolate_by_the_formulas() {
 /// The plan's acceptance, "With damage taken in between, the current values follow the default" (design change
 /// 0110: "current += (newMax − oldMax) each frame; never a fraction-of-max rescale"): the maximum still follows the
 /// formula, and the HP rises by what it rises, so the damage taken stays taken, exactly, to the end: player 2's
-/// Peacekeeper 6 shoots the warping Robo Portal from tick 100 to 130, 9 HP a hit (its Damage 10 less the portal's
-/// PointArmor 1).
+/// Peacekeeper 6 shoots the warping Robo Portal from tick 100 to 130, and the HP its hits take, what gets through
+/// the portal's Shields less its PointArmor 1 (slice M3-B, `systems/combat.md > Shields > Shield Damage
+/// Resolution`), is what it stays short of its maximum. Every value is a whole number of 64ths (HP 0.75 and Shields
+/// 1/64 a frame, regeneration 0.25), so the f32 arithmetic is exact.
 #[test]
 fn damage_taken_while_warping_in_stays_taken() {
     let mut t = shot_at();
     t.run_until(135);
     let o = object(&t, 1);
     let deficit = o.max_hp().unwrap() - o.hp.unwrap();
-    assert!(
-        deficit >= 9.0 && deficit % 9.0 == 0.0,
-        "the Peacekeeper hit it: {deficit}"
-    );
+    assert!(deficit > 0.0, "the Peacekeeper broke through the Shields: {deficit}");
+    assert_eq!(deficit, hp_lost(&t, 1), "what its hits took");
     for tick in [200, 320, 639] {
         t.run_until(tick);
         let o = object(&t, 1);
@@ -381,8 +381,8 @@ fn damage_taken_while_warping_in_stays_taken() {
 
 /// Design change 0110, for damage "taken before the transformation started too" (its Verification: "Same
 /// arithmetic for a Warp In (Beacon 120 → target MaxHP)"): player 2's Peacekeeper 6 shoots Beacon 1 until it is 40 or
-/// more short of its 120 HP, 10 HP a hit; the Robo Portal it then warps in is exactly as short of each maximum on
-/// the way, and completes that short of its 600.
+/// more short of its 120 HP, what its hits get through the Beacon's Shields (slice M3-B); the Robo Portal it then
+/// warps in is exactly as short of each maximum on the way, and completes that short of its 600.
 #[test]
 fn a_damaged_beacon_keeps_its_deficit_through_the_warp_in() {
     let mut t = base().start();
@@ -397,7 +397,8 @@ fn a_damaged_beacon_keeps_its_deficit_through_the_warp_in() {
     let tick = t.sim().tick();
     t.order_at(tick + 1, P2, &[id(6)], OrderKind::Stop, false).step();
     let deficit = 120.0 - object(&t, 1).hp.unwrap();
-    assert!(deficit >= 40.0 && deficit % 10.0 == 0.0, "{deficit}");
+    assert!(deficit >= 40.0, "{deficit}");
+    assert_eq!(deficit, hp_lost(&t, 1), "what its hits took");
     let start = tick + 2;
     t.at(start, P1, construction(&[1], warp(RoboPortal)));
     for frames in [1, 160, 320, 639, 640] {
@@ -408,6 +409,17 @@ fn a_damaged_beacon_keeps_its_deficit_through_the_warp_in() {
     }
     assert!(!object(&t, 1).is_transforming());
     assert_eq!(object(&t, 1).hp, Some(600.0 - deficit));
+}
+
+/// The HP the hits on object `n` took so far (`SimEvent::Hit`).
+fn hp_lost(t: &TestSim, n: u32) -> f32 {
+    t.events()
+        .iter()
+        .filter_map(|(_, e)| match e {
+            SimEvent::Hit { target, damage, .. } if *target == id(n) => Some(*damage),
+            _ => None,
+        })
+        .sum()
 }
 
 /// The base with Beacon 1 warping in a Robo Portal from tick 1 on, which player 2's Peacekeeper 6, at the centre of
@@ -848,7 +860,7 @@ fn a_cancel_keeps_the_fraction_of_hp() {
     t.run_until(299);
     let o = object(&t, 1);
     let fraction = o.hp.unwrap() / o.max_hp().unwrap();
-    assert!(fraction < 0.99, "damaged: {fraction}");
+    assert!(fraction < 1.0, "damaged through its Shields: {fraction}");
     next(&mut t, construction(&[1], CancelTransform));
     let o = object(&t, 1);
     assert_eq!(o.kind, Beacon);

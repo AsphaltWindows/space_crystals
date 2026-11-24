@@ -5,8 +5,8 @@
 //! only when the sim would take them now (`Sim::validate`); each one given is also an [`OrderIssued`] message, for
 //! the indicators. A click whose units get different orders gives one order per distinct order
 //! ([`super::resolution::group_orders`]). A command issued with the Queue modifier held (Shift) is queued
-//! (`systems/controls/commands.md > Unit Command`), else it replaces the units' orders. Abilities (the Riot Shield)
-//! go as `Command::Ability`, at once and never queued. A producer's commands
+//! (`systems/controls/commands.md > Unit Command`), else it replaces the units' orders. Abilities (the Riot Shield,
+//! Convert) go as `Command::Ability`, at once and never queued. A producer's commands
 //! (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) go as one `Command::Production` to all
 //! the producers they are issued to, also never queued: Train and Cancel Production at once, the rally point on a
 //! right-click or a click while Set Rally Point awaits its target. The sim decides which producers a Train reaches

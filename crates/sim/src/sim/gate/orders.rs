@@ -8,9 +8,9 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::player::Faction;
-use crate::riot_shield;
 use crate::sim::{Reject, Sim};
 use crate::vision::VisibilityState;
+use crate::{conversion, riot_shield};
 
 impl Sim {
     /// `docs/movement.md > 3`, with the approved gate change: ids that no longer exist are dropped.
@@ -72,7 +72,8 @@ impl Sim {
 
     /// [`Command::Ability`](crate::Command::Ability): the player's own units that have the ability. Ids that no
     /// longer exist and the player's objects without the ability are dropped: [`Reject::NoUnits`] if nothing of the
-    /// player's remains at all, [`Reject::LacksAbility`] if none of it has the ability.
+    /// player's remains at all, [`Reject::LacksAbility`] if none of it has the ability. A Convert goes to the units
+    /// with another form that may convert now (`conversion::may_convert`), [`Reject::CannotConvert`] if none may.
     ///
     /// TODO(Bunker): units inside a Bunker can't use their abilities (`factions/gdo/structures.md > Bunker >
     /// Garrison`: "a Peacekeeper cannot raise its Riot Shield"); drop them here once units can enter one.
@@ -85,6 +86,7 @@ impl Sim {
         let has = |o: &Object| match ability {
             Ability::RiotShield { .. } => o.riot_shield.is_some(),
             Ability::SetDropOff(_) => o.worker.is_some(),
+            Ability::Convert => conversion::converts_to(o.kind).is_some(),
         };
         let own = self.own_units(player, units, |_| true)?;
         if own.is_empty() {
@@ -93,12 +95,20 @@ impl Sim {
         if let Ability::SetDropOff(node) = ability {
             self.check_drop_off(player, node)?;
         }
-        let units: Vec<ObjectId> = own
+        let mut units: Vec<ObjectId> = own
             .into_iter()
             .filter(|id| self.objects.get(id).is_some_and(has))
             .collect();
         if units.is_empty() {
             return Err(Reject::LacksAbility);
+        }
+        if ability == Ability::Convert {
+            // `factions/colonists/units.md > Weapon Conversion > Eligibility`: the units in Firing or Cooldown, and
+            // those converting already, are left out, and the others convert (question Q0042 point 9).
+            units.retain(|id| self.objects.get(id).is_some_and(conversion::may_convert));
+            if units.is_empty() {
+                return Err(Reject::CannotConvert);
+            }
         }
         Ok(Checked::Ability { units, ability })
     }

@@ -15,6 +15,7 @@ fn unit(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Object
         facing: 0.0,
         prev_facing: 0.0,
         hp: kind.def().max_hp,
+        shields: kind.def().max_shields,
         placement: None,
         resource: None,
         orders: None,
@@ -26,6 +27,7 @@ fn unit(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Object
         constructor: None,
         worker: None,
         transform: None,
+        conversion: None,
     }
 }
 

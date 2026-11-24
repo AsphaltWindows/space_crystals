@@ -19,9 +19,9 @@
 //!   Beacon MaxHP + (Building MaxHP - Beacon MaxHP) x progress", and the same for Shields, "where progress is frames
 //!   elapsed / WarpInTime" ([`Transform::interpolate`]). The formulas set the maxima, and each frame the current HP
 //!   rises by what its maximum rises ([`follow_max`], design change 0110: "damage is carried through unchanged (not
-//!   scaled)", the damage taken before the transformation started included). Shields have no current value until
-//!   slice M3-B (plan decision T18): their maximum interpolates here, and the current Shields are to follow it the
-//!   same way, and regenerate up to it ("Shields regenerate normally up to the current maximum").
+//!   scaled)", the damage taken before the transformation started included). The current Shields (`crate::shields`,
+//!   slice M3-B) follow their maximum the same way, and regenerate up to it ("Shields regenerate normally up to the
+//!   current maximum").
 //! - **The step** (`Sim::step_transforms`, in the economy phase after construction, plan decision T5's position;
 //!   `ARCHITECTURE.md > Tick pipeline`): each transformation advances one frame a tick ([`Transform::advance`] by
 //!   `RATIO_ONE`: the Colonists have no power, plan decision T21), its first in the tick of its command, as a
@@ -184,8 +184,7 @@ impl Object {
     }
 
     /// Its MaxShields now, as [`Object::max_hp`]: a Robo Portal warped in halfway from a Beacon has 10 + (20 - 10) ×
-    /// 0.5 = 15. `None` for an object without Shields. Nothing has current Shields until slice M3-B (plan decision
-    /// T18), which keeps them within this maximum.
+    /// 0.5 = 15. `None` for an object without Shields. The current Shields stay within it (`crate::shields`).
     pub fn max_shields(&self) -> Option<f32> {
         let to = self.def().max_shields;
         match &self.transform {
@@ -208,8 +207,8 @@ pub fn follow_max(current: f32, before: f32, after: f32) -> f32 {
 /// The current value that a cancel leaves of `current` out of `max`, on the restored maximum `restored` (design
 /// change 0111: "the same fraction of HP and Shields the transforming object had at cancel time", "original_max ×
 /// current_before ÷ max_before"), at most `restored`: an undamaged object is exactly at its old maximum again, a
-/// damaged one keeps the damage in proportion. HP keeps at least 1 more ([`MIN_HP_AFTER_CANCEL`]); the Shields of
-/// slice M3-B take the fraction as it is ("no minimum needed").
+/// damaged one keeps the damage in proportion. HP keeps at least 1 more ([`MIN_HP_AFTER_CANCEL`]); the Shields take
+/// the fraction as it is ("no minimum needed", `crate::shields`).
 pub fn keep_fraction(current: f32, max: f32, restored: f32) -> f32 {
     if max > 0.0 {
         (restored * current / max).min(restored)

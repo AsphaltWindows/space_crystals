@@ -14,6 +14,7 @@
 pub mod combat;
 pub mod command;
 pub mod construction;
+pub mod conversion;
 pub mod defs;
 pub mod deploy;
 pub mod economy;
@@ -38,6 +39,7 @@ pub mod rng;
 pub mod scenario;
 pub mod scenarios;
 pub mod shape;
+pub mod shields;
 pub mod sides;
 pub mod sim;
 pub mod symmetry;

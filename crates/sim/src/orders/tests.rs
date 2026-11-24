@@ -66,6 +66,7 @@ fn tick(orders: &mut Orders, mover: &mut Mover, attack: Option<&mut AttackState>
         mover,
         attack,
         may_attack: true,
+        converting: false,
         worker: None,
     };
     update_unit(orders, &mut unit, &world, &mut gather::Claims::default());
@@ -165,6 +166,7 @@ fn unit<'a>(mover: &'a mut Mover, attack: Option<&'a mut AttackState>) -> Unit<'
         mover,
         attack,
         may_attack: true,
+        converting: false,
         worker: None,
     }
 }

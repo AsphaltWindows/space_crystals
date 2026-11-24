@@ -20,6 +20,12 @@
 //! leaves it out (`super::resolution::unit_target_order`), and a right-click on an enemy sends it after the enemy
 //! instead (`super::resolution::order_without_attack`).
 //!
+//! The Colonists' Legionnaires convert between their two forms with R (`factions/colonists/units.md > Weapon
+//! Conversion`, [`PanelCommand::Convert`]), a common command of a selection of both (each converts to its other
+//! form), issued at once and never queued. It is disabled while the gate would refuse it: while each of its
+//! recipients is Firing, in Cooldown or converting. The converted unit stays selected as its new type
+//! (`crate::selection::ControlState::set_kind`) and is drawn anew (`crate::object_render`).
+//!
 //! A Barracks (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) trains a Peacekeeper (Q)
 //! and cancels the last unit queued (X), at once, and awaits the target of its rally point (C); a Train or a Cancel
 //! Production that the command gate would refuse shows disabled ([`Conditions`]: the same predicates as the gate).

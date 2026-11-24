@@ -92,13 +92,16 @@ impl Sim {
     ///
     /// - **Kept**: its id, owner and facing. Its position, unless it gets a placement: a tile-based object stands at
     ///   its placement's centre (`Placement::center`), and jumps there, as a teleport does (`prev_pos` too). Its HP,
-    ///   at most the new kind's MaxHP: a transformation in progress sets its interpolated HP itself
-    ///   (`factions/colonists/economy.md > Beacon Deployment > HP/Shields Interpolation`, design change 0110).
-    /// - **Capabilities**, rebuilt from the new kind's definition ([`Capabilities::fresh`]): one the old kind had
-    ///   with the same definition keeps its state, the others start as on a new object, and those the new kind
-    ///   lacks go. So a unit that stays a unit keeps its orders and its move (question Q0042 point 6), and plans its
+    ///   at most the new kind's MaxHP, and its Shields, at most the new kind's MaxShields (`crate::shields`; full
+    ///   for an object that had none, none for a kind without them): a transformation in progress sets its
+    ///   interpolated values itself (`factions/colonists/economy.md > Beacon Deployment > HP/Shields Interpolation`,
+    ///   design change 0110), and a Weapon Conversion's forms have the same maxima (`crate::conversion`). A
+    ///   conversion or a transformation under way is its caller's to end.
+    /// - **Capabilities**, rebuilt from the new kind's definition ([`Capabilities::fresh`]): one the old kind had with
+    ///   the same definition keeps its state, the others start as on a new object, and those the new kind lacks go. So
+    ///   a unit that stays a unit keeps its orders and its move (design change 0150: "Orders are kept"), and plans its
     ///   path again if it walks on another grid. A unit that keeps an attack keeps what it engages (its order's
-    ///   target), and its attack sequence starts again, the new weapon ready (Q0042 point 8). A Riot Shield that
+    ///   target), and its attack sequence starts again, the new weapon ready (design change 0152). A Riot Shield that
     ///   goes takes its slowdown with it.
     /// - **Paid state is never lost**: a production queue or a construction the new kind has no place for is
     ///   refunded first, as when the object leaves the game (`Sim::refund_production`, `Sim::refund_constructors`).
@@ -147,6 +150,7 @@ impl Sim {
             facing: _,
             prev_facing: _,
             hp,
+            shields,
             placement: object_placement,
             resource,
             orders,
@@ -158,6 +162,7 @@ impl Sim {
             constructor,
             worker,
             transform: _,
+            conversion: _,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {
@@ -166,6 +171,9 @@ impl Sim {
         }
         *object_placement = placement;
         *hp = new.max_hp.map(|max| hp.map_or(max, |hp| hp.min(max)));
+        *shields = new
+            .max_shields
+            .map(|max| shields.map_or(max, |shields| shields.min(max)));
         *resource = None;
         let unit_of = |def: &'static ObjectDef| def.unit.as_ref();
         let keeps_shield = unit_of(old).map(|u| u.riot_shield) == unit_of(new).map(|u| u.riot_shield);

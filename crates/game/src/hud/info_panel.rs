@@ -4,19 +4,22 @@
 //! - **a unit**: its owner and HP;
 //! - **a structure** (`> Default InfoPanel for structures`, design change 0105): one of the local player's own shows
 //!   its HP and, in the activity area under it, what it is doing ([`activity`]); another player's, or a neutral one,
-//!   shows its owner ("Neutral") and HP only, never what it is doing. A type's own section adds to that, whoever
-//!   looks: the Extraction Plate shows the remaining Space Crystals of the patch under it
-//!   (`factions/gdo/economy.md > ExtractionPlate > InfoPanel`, design change 0099), with the line the patch's own
-//!   panel has, since a covered patch can't be selected on its own (`> Selecting a covered patch`) and anyone who
-//!   sees the patch may see its RemainingAmount (`core/map.md > SpaceCrystalsPatch > InfoPanel`). The plate's own
-//!   section doesn't limit it to its owner, so another player's plate shows it too (the most literal reading);
+//!   shows its owner ("Neutral") and HP only, never what it is doing. An object that has Shields (the Colonists',
+//!   `systems/combat.md > Shields > Display`, slice M3-B, design change 0148: "Shields current/max" next to the HP
+//!   line) shows them on the line after its HP, "Shields a / b". A type's own section adds to that, whoever looks: the
+//!   Extraction Plate shows the remaining Space Crystals of the patch under it (`factions/gdo/economy.md >
+//!   ExtractionPlate > InfoPanel`, design change 0099), with the line the patch's own panel has, since a covered patch
+//!   can't be selected on its own (`> Selecting a covered patch`) and anyone who sees the patch may see its
+//!   RemainingAmount (`core/map.md > SpaceCrystalsPatch > InfoPanel`). The plate's own section doesn't limit it to its
+//!   owner, so another player's plate shows it too (the most literal reading);
 //! - **a map resource**: "Neutral" and its state (`core/map.md > SpaceCrystalsPatch > InfoPanel`, `>
 //!   SupplyDeliveryStation > InfoPanel`).
 //!
 //! An object the local player selected through its record (`core/vision.md > Explored Selectability`: a GDO player's
 //! SupplyDeliveryStation on Explored tiles) shows as last seen, without CurrentSupplies, and with a placeholder note of
 //! how long ago that was; but a GDO player always knows a station's real delivery schedule, so its NextDeliveryTime
-//! is the live station's (`core/map.md > SupplyDeliveryStation > InfoPanel > Explored`, design change 0057).
+//! is the live station's (`core/map.md > SupplyDeliveryStation > InfoPanel > Explored`, design change 0057). A record
+//! keeps no Shields (`sc_sim::vision::LastKnown`), so it shows none.
 //!
 //! The design doesn't say what the InfoPanel shows for two or more objects (the SelectionPanel shows them). Until it
 //! does, a placeholder: the ActiveGroup's type, how many objects are in it and how many are selected.
@@ -105,6 +108,9 @@ struct Shown<'a> {
     hp: Option<f32>,
     /// Its MaxHP: its kind's, or while it transforms the interpolated one (`Object::max_hp`).
     max_hp: Option<f32>,
+    /// Its Shields and MaxShields, the latter interpolated while it transforms (`Object::max_shields`).
+    shields: Option<f32>,
+    max_shields: Option<f32>,
     resource: Option<ResourceState>,
     /// The live object, when the panel shows it as it is now.
     live: Option<&'a Object>,
@@ -117,6 +123,8 @@ impl<'a> Shown<'a> {
             owner: object.owner,
             hp: object.hp,
             max_hp: object.max_hp(),
+            shields: object.shields,
+            max_shields: object.max_shields(),
             resource: object.resource.clone(),
             live: Some(object),
         }
@@ -144,6 +152,8 @@ impl<'a> Shown<'a> {
             owner: record.owner,
             hp: record.hp,
             max_hp: record.kind.def().max_hp,
+            shields: None,
+            max_shields: None,
             resource,
             live: None,
         }
@@ -170,6 +180,10 @@ fn object_info(sim: &Sim, viewer: PlayerId, shown: Shown, record: Option<&LastKn
     if let (Some(hp), Some(max)) = (shown.hp, shown.max_hp) {
         // Fractional HP shows rounded up, so a living unit never shows 0.
         body.push(format!("HP {} / {}", hp.ceil(), max.ceil()));
+    }
+    if let (Some(shields), Some(max)) = (shown.shields, shown.max_shields) {
+        // Rounded up as the HP are, so that Shields as full as their maximum show as full.
+        body.push(format!("Shields {} / {}", shields.ceil(), max.ceil()));
     }
     match shown.resource {
         Some(ResourceState::CrystalPatch { remaining }) => body.push(format!("Space Crystals: {remaining}")),
@@ -380,8 +394,9 @@ mod tests {
 
     /// Slice M3-E: an object being warped in shows its new type, and its HP out of its MaxHP now, interpolated
     /// (`factions/colonists/economy.md > Warp In > HP/Shields Interpolation`): player 1's Beacon (1) warping in a Robo
-    /// Portal, 288 of its 640 frames done, has 120 + (600 - 120) × 0.45 = 336 of 336. Its owner sees the Warp In in
-    /// the activity area ([`activity`]); player 2 sees its owner instead.
+    /// Portal, 288 of its 640 frames done, has 120 + (600 - 120) × 0.45 = 336 of 336, and Shields 10 + (20 - 10) ×
+    /// 0.45 = 14.5 of 14.5, shown rounded up (slice M3-B). Its owner sees the Warp In in the activity area
+    /// ([`activity`]); player 2 sees its owner instead.
     #[test]
     fn a_warp_in_shows_its_new_type_and_its_maximum_so_far() {
         let mut t = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
@@ -409,12 +424,38 @@ mod tests {
             },
         );
         t.run_until(288);
-        let mut own = content("Robo Portal", &["HP 336 / 336"]);
+        let mut own = content("Robo Portal", &["HP 336 / 336", "Shields 15 / 15"]);
         own.activity = vec!["Warping in: Robo Portal 45%".to_string()];
         assert_eq!(panel(t.sim(), P1, 1), own);
         assert_eq!(
             panel(t.sim(), P2, 1),
-            content("Robo Portal", &["Player 1", "HP 336 / 336"])
+            content("Robo Portal", &["Player 1", "HP 336 / 336", "Shields 15 / 15"])
         );
+    }
+
+    /// `systems/combat.md > Shields > Display` (design change 0148): "Shields current/max" next to the HP line, for an
+    /// object that has Shields, rounded up as the HP are; one without (a Peacekeeper) shows none. Player 1's Sabre
+    /// Legionnaire (1), its Shields at 2.25 of 10 (a saved state edited), and player 2's Peacekeeper (2).
+    #[test]
+    fn an_object_with_shields_shows_them_under_its_hp() {
+        let t = ScenarioBuilder::new(&vec![".".repeat(16); 8].join("\n"))
+            .spawn(
+                ObjectKind::SabreLegionnaire,
+                Some(P1),
+                SpawnAt::Point(Vec2::new(160.0, 160.0)),
+            )
+            .spawn(
+                ObjectKind::Peacekeeper,
+                Some(P2),
+                SpawnAt::Point(Vec2::new(544.0, 160.0)),
+            )
+            .start();
+        let mut state = serde_json::to_value(t.sim()).unwrap();
+        let objects = state["objects"].as_array_mut().unwrap();
+        let sabre = objects.iter_mut().find(|o| o["id"] == 1).unwrap();
+        sabre["shields"] = serde_json::json!(2.25);
+        let sim: Sim = serde_json::from_value(state).unwrap();
+        assert_eq!(panel(&sim, P1, 1).body, ["Player 1", "HP 70 / 70", "Shields 3 / 10"]);
+        assert_eq!(panel(&sim, P1, 2).body, ["Player 2", "HP 50 / 50"]);
     }
 }

@@ -151,6 +151,7 @@ fn zero_hp_is_death() {
                 attacker: ObjectId(1),
                 target: ObjectId(2),
                 damage: 5.0,
+                shield_damage: 0.0,
             },
             &SimEvent::Died {
                 id: ObjectId(2),

@@ -97,15 +97,17 @@ fn a_mixed_selection_shows_the_basic_combat_unit_grid() {
 }
 
 /// `factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`: "BasicCombatUnitInterfaceState, plus" R,
-/// Convert, which comes with slice M3-B; until then both Legionnaires show the Guard's grid. The portals show the
+/// Convert (slice M3-B, `convert`): both Legionnaires show the Guard's grid with Convert in R. The portals show the
 /// production panel (slice M3-D, `portals`); the other Colonists types show no commands until their panels are
 /// built (slices M3-J1 and M3-J2).
 #[test]
 fn the_legionnaires_show_the_basic_combat_unit_grid() {
     use space_crystals::command_ui::interface::templates::{InterfaceTemplate, grid};
+    let mut legionnaire = grid(ObjectKind::Guard);
+    legionnaire[3] = Some(PanelCommand::Convert);
     for kind in [ObjectKind::SabreLegionnaire, ObjectKind::RifleLegionnaire] {
         assert_eq!(InterfaceTemplate::of(kind), Some(InterfaceTemplate::BasicCombatUnit));
-        assert_eq!(grid(kind), grid(ObjectKind::Guard), "{kind:?}");
+        assert_eq!(grid(kind), legionnaire, "{kind:?}");
     }
     for kind in [ObjectKind::Drone, ObjectKind::Beacon, ObjectKind::EgressNode] {
         assert_eq!(grid(kind), [None; 12], "{kind:?}");
