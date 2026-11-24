@@ -7,10 +7,17 @@
 //! drawn and can be clicked; what the fog hides from the command flow is tested in `fog.rs`. The sim takes an order
 //! on an object only while the player sees it, so player 1 has scouts off screen, in sight of every target; and
 //! auto-targeting is off (a debug command), so that nobody fights while the orders are given.
+//!
+//! The production UI of slice M2-H1 (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`,
+//! `> Production Building Default Right-Click`) plays on the same field with player 1's Barracks added
+//! ([`production_scenario`]): `production` for Train and Cancel Production, `rally` for the rally points and their
+//! indicators.
 
 mod click_allowance;
 mod indicators;
 mod panel;
+mod production;
+mod rally;
 mod right_click;
 mod riot_shield;
 mod shield_orders;
@@ -20,8 +27,8 @@ mod targeting;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use sc_sim::{
-    Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Scenario, SimEvent, SlotId, Spawn,
-    SpawnAt, Target, TilePos, scenarios,
+    Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, ProductionCommand, Scenario,
+    SimEvent, SlotId, Spawn, SpawnAt, Target, TilePos, scenarios,
 };
 use space_crystals::camera::{CameraView, ViewportInsets, viewport_rect, visible_extent_su};
 use space_crystals::command_ui::cursor::PointerLook;
@@ -349,7 +356,9 @@ fn orders(app: &App) -> Vec<Given> {
                 kind: *kind,
                 queue: *queue,
             }),
-            Command::Ability { .. } | Command::Production { .. } | Command::Debug(_) => None,
+            Command::Ability { .. } | Command::Production { .. } | Command::Construction { .. } | Command::Debug(_) => {
+                None
+            }
         })
         .collect()
 }
@@ -362,7 +371,9 @@ fn abilities(app: &App) -> Vec<(PlayerId, Vec<u32>, sc_sim::Ability)> {
     commands
         .filter_map(|c| match &c.command {
             Command::Ability { units, ability } => Some((c.player, units.iter().map(|id| id.0).collect(), *ability)),
-            Command::Order { .. } | Command::Production { .. } | Command::Debug(_) => None,
+            Command::Order { .. } | Command::Production { .. } | Command::Construction { .. } | Command::Debug(_) => {
+                None
+            }
         })
         .collect()
 }
@@ -388,4 +399,103 @@ fn object_orders(app: &App, id: u32) -> sc_sim::Orders {
 /// A slot by its row and column.
 fn slot(row: u8, column: u8) -> CommandSlot {
     CommandSlot::new(row, column).unwrap()
+}
+
+/// Player 1's Barracks of [`production_scenario`], by id.
+const BARRACKS: [u32; 3] = [15, 16, 17];
+
+/// The centre of Barracks `id`'s footprint ([`BARRACKS`]), where it is drawn (the map is flat).
+fn barracks_at(id: u32) -> Vec2 {
+    match id {
+        15 => Vec2::new(1120.0, 960.0),  // tiles (16, 14) to (18, 15)
+        16 => Vec2::new(1376.0, 960.0),  // tiles (20, 14) to (22, 15)
+        17 => Vec2::new(1120.0, 1152.0), // tiles (16, 17) to (18, 18)
+        _ => panic!("no Barracks {id}"),
+    }
+}
+
+/// [`scenario`] with player 1's three Barracks ([`BARRACKS`], their exit sides facing east), then `extra` more of
+/// player 1's Peacekeepers far off screen (ids from 18), which take up its Unit Control.
+fn production_scenario(extra: usize) -> Scenario {
+    let mut scenario = scenario();
+    for (x, y) in [(16, 14), (20, 14), (16, 17)] {
+        let at = SpawnAt::Tile(TilePos::new(x, y));
+        scenario
+            .map
+            .spawns
+            .push(Spawn::new(ObjectKind::Barracks, Some(SlotId(1)), at));
+    }
+    for i in 0..extra {
+        let at = Vec2::new(200.0 + 40.0 * (i % 25) as f32, 1700.0 + 40.0 * (i / 25) as f32);
+        scenario
+            .map
+            .spawns
+            .push(Spawn::new(ObjectKind::Peacekeeper, Some(SlotId(1)), SpawnAt::Point(at)));
+    }
+    assert_eq!(scenario.validate(), vec![]);
+    scenario
+}
+
+/// A game of [`production_scenario`], as [`game`] sets it up, with `crystals` Space Crystals in player 1's bank.
+fn production_game(extra: usize, crystals: u32) -> App {
+    let mut app = game_of(production_scenario(extra));
+    set_crystals(&mut app, crystals);
+    app
+}
+
+/// Player 1's bank of Space Crystals becomes `crystals` (a debug command), a frame later.
+fn set_crystals(app: &mut App, crystals: u32) {
+    let player = PlayerId(1);
+    let set = DebugCommand::SetResources {
+        player,
+        crystals,
+        supplies: 0,
+    };
+    submit(app, player, Command::Debug(set));
+    app.update();
+}
+
+/// Player 1's Space Crystals.
+fn bank(app: &App) -> u32 {
+    let sim = app.world().resource::<SimRes>();
+    sim.player(PlayerId(1)).expect("in the game").crystals
+}
+
+/// Selects player 1's Barracks `ids`: a click on the first, and a Shift + box around each of the others, which adds
+/// it (`> BoxSelection > Shift + box (add)`; a box selects one structure at a time).
+fn select_barracks(app: &mut App, ids: &[u32]) {
+    click(app, barracks_at(ids[0]), &[]);
+    for &id in &ids[1..] {
+        add_box(app, barracks_at(id));
+    }
+    assert_eq!(selected(app), ids);
+}
+
+/// A Shift + box around the view point `around`, which adds what it selects to the selection.
+fn add_box(app: &mut App, around: Vec2) {
+    press_keys(app, &[KeyCode::ShiftLeft]);
+    drag(app, around - 40.0, around + 40.0);
+    release_keys(app, &[KeyCode::ShiftLeft]);
+}
+
+/// Every production command given so far, as the sim received them (like [`orders`]): player, producers, command.
+fn productions(app: &App) -> Vec<(PlayerId, Vec<u32>, ProductionCommand)> {
+    let recorded = app.world().resource::<RecordedInputs>();
+    let pending = app.world().resource::<PendingCommands>();
+    let commands = recorded.ticks.iter().flat_map(|t| t.commands.iter()).chain(&pending.0);
+    commands
+        .filter_map(|c| match &c.command {
+            Command::Production { objects, command } => {
+                Some((c.player, objects.iter().map(|id| id.0).collect(), *command))
+            }
+            Command::Order { .. } | Command::Ability { .. } | Command::Construction { .. } | Command::Debug(_) => None,
+        })
+        .collect()
+}
+
+/// Producer `id`'s production state, as the sim has it.
+fn production_of(app: &App, id: u32) -> sc_sim::Production {
+    let sim = app.world().resource::<SimRes>();
+    let object = sim.object(ObjectId(id)).expect("in the game");
+    object.production.clone().expect("a producer")
 }

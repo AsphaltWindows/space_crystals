@@ -31,6 +31,7 @@ use glam::Vec2;
 
 use crate::combat::AttackPhase;
 use crate::command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs};
+use crate::construction::ConstructionCommand;
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId, SlotId};
@@ -338,10 +339,9 @@ pub fn dangling_references(sim: &Sim) -> Vec<(ObjectId, ObjectId)> {
 }
 
 /// One command of every kind: every variant of [`Command`], [`OrderKind`], [`Target`], [`Ability`],
-/// [`ProductionCommand`], [`DebugCommand`]
-/// and [`SpawnAt`], queued and not, for tests that a replay file keeps everything a player did
-/// (`ARCHITECTURE.md > Replays and golden hashes`). The ids needn't exist. The match below stops compiling when a
-/// variant is added, as a reminder to add it here.
+/// [`ProductionCommand`], [`ConstructionCommand`], [`DebugCommand`] and [`SpawnAt`], queued and not, for tests that
+/// a replay file keeps everything a player did (`ARCHITECTURE.md > Replays and golden hashes`). The ids needn't
+/// exist. The match below stops compiling when a variant is added, as a reminder to add it here.
 pub fn every_command() -> Vec<Command> {
     let units = vec![ObjectId(1), ObjectId(2)];
     let point = Vec2::new(48.5, 80.25);
@@ -368,6 +368,29 @@ pub fn every_command() -> Vec<Command> {
         units: units.clone(),
         ability: Ability::RiotShield { raise },
     }));
+    commands.extend(
+        [
+            ConstructionCommand::Construct(ObjectKind::Generator),
+            ConstructionCommand::CancelConstruction,
+            ConstructionCommand::CancelReady,
+            ConstructionCommand::Place {
+                origin: crate::units::TilePos::new(5, 2),
+                orientation: Default::default(),
+            },
+            ConstructionCommand::Place {
+                origin: crate::units::TilePos::new(1, 6),
+                orientation: crate::scenario::BuildingOrientation {
+                    rotation: crate::object::Rotation::R270,
+                    flip_h: false,
+                    flip_v: true,
+                },
+            },
+        ]
+        .map(|command| Command::Construction {
+            objects: units.clone(),
+            command,
+        }),
+    );
     commands.extend(
         [
             DebugCommand::Spawn {
@@ -436,6 +459,12 @@ pub fn every_command() -> Vec<Command> {
                 ProductionCommand::Train(_)
                 | ProductionCommand::CancelProduction
                 | ProductionCommand::SetRally(Target::Point(_) | Target::Object(_)) => {}
+            },
+            Command::Construction { command, .. } => match command {
+                ConstructionCommand::Construct(_)
+                | ConstructionCommand::CancelConstruction
+                | ConstructionCommand::CancelReady
+                | ConstructionCommand::Place { .. } => {}
             },
             Command::Debug(
                 DebugCommand::Spawn {

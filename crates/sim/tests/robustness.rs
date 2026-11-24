@@ -2,12 +2,16 @@
 //! a long stream of random, mostly invalid debug commands, orders and abilities runs deterministically,
 //! the commands the gate rejects change nothing, and any per-object values a file holds are
 //! handled.
+//!
+//! Each player has a base the stream never removes ([`BASES`]): a player who loses their last structure is defeated,
+//! and in a two-player game that ends it, after which every command is refused (`core/game_rules.md > End of Game`).
+//! The structures the stream spawns for them come and go around it.
 
 use sc_sim::testing::{self, ScenarioBuilder};
 use sc_sim::{
     Ability, BuildingOrientation, Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId,
-    Replay, Rng, Rotation, SU_PER_GU, Sim, SimConfig, SimEvent, Spawn, SpawnAt, SpawnSettings, Target, TickInputs,
-    TilePos, Vec2, nav,
+    Replay, Rng, Rotation, SU_PER_GU, Scenario, Sim, SimConfig, SimEvent, Spawn, SpawnAt, SpawnSettings, Target,
+    TickInputs, TilePos, Vec2, nav,
 };
 
 const TICKS: u32 = 2000;
@@ -31,6 +35,32 @@ const MAP: &str = "
     ........................
     ........................
 ";
+
+/// The players' bases, a Generator each in a corner of [`MAP`] ([`scenario`]): the stream never removes them, so that
+/// nobody is defeated and the game goes on to the end of the stream (plan decision T8).
+const BASES: [ObjectId; 2] = [ObjectId(2), ObjectId(3)];
+
+/// [`MAP`] with a Supply Delivery Station in the cliffs' ring, and the [`BASES`].
+fn scenario(config: SimConfig) -> Scenario {
+    ScenarioBuilder::new(MAP)
+        .spawn(
+            ObjectKind::SupplyDeliveryStation,
+            None,
+            SpawnAt::Tile(TilePos::new(9, 4)),
+        )
+        .spawn(
+            ObjectKind::Generator,
+            Some(PlayerId(1)),
+            SpawnAt::Tile(TilePos::new(0, 14)),
+        )
+        .spawn(
+            ObjectKind::Generator,
+            Some(PlayerId(2)),
+            SpawnAt::Tile(TilePos::new(22, 0)),
+        )
+        .config(config)
+        .build()
+}
 
 /// A coordinate in tiles: usually on the map or just off its edges, sometimes extreme.
 fn tile_coord(rng: &mut Rng, size: u32) -> i32 {
@@ -161,9 +191,13 @@ fn random_command(rng: &mut Rng, sim: &Sim) -> PlayerCommand {
                 orientation,
             }
         }
-        1 => DebugCommand::Remove {
-            id: random_id(rng, sim),
-        },
+        1 => {
+            // Never a base: an id that never exists instead.
+            let id = random_id(rng, sim);
+            DebugCommand::Remove {
+                id: if BASES.contains(&id) { ObjectId(0) } else { id },
+            }
+        }
         _ => DebugCommand::SetPosition {
             id: random_id(rng, sim),
             pos: random_point(rng, sim),
@@ -221,14 +255,7 @@ struct Run {
 }
 
 fn fuzz_run(seed: u64) -> Run {
-    let scenario = ScenarioBuilder::new(MAP)
-        .spawn(
-            ObjectKind::SupplyDeliveryStation,
-            None,
-            SpawnAt::Tile(TilePos::new(9, 4)),
-        )
-        .config(SimConfig::DEBUG)
-        .build();
+    let scenario = scenario(SimConfig::DEBUG);
     let mut sim = Sim::new(&scenario);
     let mut replay = Replay::new(scenario);
     let mut rng = Rng::from_seed(seed);
@@ -254,7 +281,13 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::ProductionQueued { .. }
                 | SimEvent::ProductionRefused { .. }
                 | SimEvent::ProductionCancelled { .. }
-                | SimEvent::UnitProduced { .. } => {}
+                | SimEvent::UnitProduced { .. }
+                | SimEvent::PlayerDefeated { .. }
+                | SimEvent::GameOver { .. }
+                | SimEvent::ConstructionCompleted { .. }
+                | SimEvent::ConstructionCancelled { .. }
+                | SimEvent::StructurePlaced { .. }
+                | SimEvent::PlacementRefused { .. } => {}
             }
         }
         unit_steps += sim
@@ -284,6 +317,12 @@ fn random_debug_commands_never_panic_and_stay_deterministic() {
         first.removed
     );
     assert!(first.unit_steps > 1000, "{} unit steps", first.unit_steps);
+    // The bases stood through it all: nobody was defeated, and every command had its chance.
+    assert!(
+        first.final_state.players().iter().all(|p| !p.is_defeated()) && first.final_state.outcome().is_none(),
+        "{:?}",
+        first.final_state.players()
+    );
     let commands: usize = first.replay.inputs.iter().map(|i| i.commands.len()).sum();
     assert!(commands > 4000, "{commands} commands");
 
@@ -304,18 +343,12 @@ fn random_debug_commands_never_panic_and_stay_deterministic() {
 
 /// The command gate (`Sim::validate`): a rejected command changes nothing, neither the state nor the events. Each
 /// random command runs alone in a tick, next to a copy of the game that runs the same tick without it. With debug
-/// commands off, the gate rejects every one of them.
+/// commands off, the gate rejects every one of them. (The construction commands have their own such test, with the
+/// one rejection the sim reports: `tests/construction.rs`.)
 #[test]
 fn rejected_commands_change_nothing() {
     for config in [SimConfig::DEBUG, SimConfig::default()] {
-        let scenario = ScenarioBuilder::new(MAP)
-            .spawn(
-                ObjectKind::SupplyDeliveryStation,
-                None,
-                SpawnAt::Tile(TilePos::new(9, 4)),
-            )
-            .config(config)
-            .build();
+        let scenario = scenario(config);
         let mut sim = Sim::new(&scenario);
         let mut rng = Rng::from_seed(0x9a7e);
         let (mut accepted, mut rejected) = (0, 0);

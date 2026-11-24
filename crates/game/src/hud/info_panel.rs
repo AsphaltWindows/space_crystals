@@ -322,8 +322,9 @@ mod tests {
         }
     }
 
-    /// Design change 0105: an own structure shows its name, HP and activity (none yet: no structure constructs or
-    /// produces); another player's its name, owner and HP only, whichever player looks.
+    /// Design change 0105: an own structure shows its name, HP and activity (none here: the Barracks is idle and has
+    /// no rally point; a busy one's is `activity`'s); another player's its name, owner and HP only, whichever player
+    /// looks.
     #[test]
     fn structures_show_their_owner_only_to_other_players() {
         let sim = sim();

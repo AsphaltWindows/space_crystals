@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
 use sc_sim::{Ability, Command, ObjectId, OrderKind, PlayerId, RiotShield, Scenario, SimEvent, Spawn, Target};
-use space_crystals::command_ui::{ButtonLook, InterfaceState, PointerDisplay, UnitCommand};
+use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelCommand, PointerDisplay};
 use space_crystals::hud::command_panel::CommandButton;
 
 use super::*;
@@ -260,7 +260,7 @@ fn an_attack_goes_to_the_unshielded_peacekeepers_alone() {
     select_units(&mut app, &[1, 2, 5, fourth]);
     assert_eq!(attack_button(&mut app), Some(ButtonLook::Common));
     tap(&mut app, &[], KeyA);
-    assert_eq!(interface(&app), InterfaceState::awaiting(UnitCommand::Attack));
+    assert_eq!(interface(&app), InterfaceState::awaiting(PanelCommand::Attack));
     click(&mut app, at(ENEMY_PK), &[]);
     assert_eq!(orders(&app), [given(&[5, fourth], attack(ENEMY_PK), false)]);
 

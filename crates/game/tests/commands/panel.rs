@@ -4,7 +4,7 @@
 use bevy::prelude::*;
 use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
 use sc_sim::{Ability, ObjectId, OrderKind, PlayerId, RiotShield};
-use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, UnitCommand};
+use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, PanelCommand};
 use space_crystals::hud::command_panel::{CommandButton, CommandPanelView};
 use space_crystals::hud::{HudSection, SectionLabel};
 
@@ -44,7 +44,7 @@ fn texts(app: &mut App) -> Vec<String> {
 #[test]
 fn a_mixed_selection_shows_the_basic_combat_unit_grid() {
     use ButtonLook::{Common, Group, Unavailable};
-    use UnitCommand::*;
+    use PanelCommand::*;
     let mut app = game();
     assert!(buttons(&mut app).is_empty(), "nothing selected");
     assert!(name_shown(&mut app));
@@ -174,7 +174,7 @@ fn bare_ground(app: &App) -> Vec2 {
 /// AttackGround go to nobody: no M1 unit has them.)
 #[test]
 fn every_panel_command_reaches_all_its_recipients() {
-    use UnitCommand::*;
+    use PanelCommand::*;
     let mut app = game();
     drag(&mut app, Vec2::new(850.0, 760.0), Vec2::new(1400.0, 1140.0));
     let all = [1, 2, 3, 4, 5];

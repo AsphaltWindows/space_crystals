@@ -8,6 +8,10 @@
 //!
 //! A recording belongs to the sim it started with: should the sim be replaced (`SimRes::generation`), the recording
 //! is written once more and stops.
+//!
+//! When the game is over (`Sim::outcome`, `core/game_rules.md > End of Game`: "the replay is saved"), the recording
+//! is complete: it is written at once, with a checkpoint of the last tick, and the client steps no more
+//! (`sim_driver::SimControl::may_step`). Playing it back ends where the game did, in the same outcome.
 
 use std::path::PathBuf;
 
@@ -32,6 +36,8 @@ pub struct Recorder {
     generation: u32,
     /// The sim was replaced: the recording ends where it was.
     stopped: bool,
+    /// The game is over: the recording is complete.
+    finished: bool,
     /// The last tick of the recording when the file was last written, if it was.
     saved_at: Option<Tick>,
     /// The latest error writing the file, so that a failing disk is reported once, not at every save.
@@ -49,6 +55,11 @@ impl Recorder {
         self.saved_at
     }
 
+    /// Whether the recording is complete: its game is over.
+    pub fn is_finished(&self) -> bool {
+        self.finished
+    }
+
     fn stop(&mut self, reason: &str) {
         warn!(
             "The recording {} stops at tick {}: {reason}",
@@ -59,13 +70,13 @@ impl Recorder {
     }
 
     /// Whether the file is due: the first time, after [`AUTOSAVE_TICKS`] more ticks, and with anything new when the
-    /// app exits or the recording stopped.
+    /// app exits, the recording stopped or the game is over.
     fn save_due(&self, exiting: bool) -> bool {
         let end = self.replay.end_tick();
         match self.saved_at {
             None => true,
             Some(saved) if saved == end => false,
-            Some(saved) => exiting || self.stopped || end >= saved.saturating_add(AUTOSAVE_TICKS),
+            Some(saved) => exiting || self.stopped || self.finished || end >= saved.saturating_add(AUTOSAVE_TICKS),
         }
     }
 }
@@ -89,6 +100,7 @@ impl Plugin for RecordPlugin {
             replay,
             generation: sim.generation(),
             stopped: false,
+            finished: false,
             saved_at: None,
             error: None,
         };
@@ -99,7 +111,8 @@ impl Plugin for RecordPlugin {
 }
 
 /// Records the step that just ran with the inputs it applied (`RecordedInputs`), and a checkpoint at every
-/// `CHECKPOINT_INTERVAL`-th tick. Runs after every step, so it sees each one.
+/// `CHECKPOINT_INTERVAL`-th tick. Runs after every step, so it sees each one; the step that ends the game completes
+/// the recording.
 fn record_step(sim: Res<SimRes>, recorded: Res<RecordedInputs>, mut recorder: ResMut<Recorder>) {
     if recorder.stopped {
         return;
@@ -116,6 +129,13 @@ fn record_step(sim: Res<SimRes>, recorded: Res<RecordedInputs>, mut recorder: Re
         Some(inputs) => {
             let inputs = inputs.clone();
             recorder.replay.record_checked(Some(inputs), &sim);
+            if sim.outcome().is_some() && !recorder.finished {
+                info!(
+                    "The game is over at tick {tick}: the recording {} is complete",
+                    recorder.path.display()
+                );
+                recorder.finished = true;
+            }
         }
         None => recorder.stop(&format!("tick {tick} came without the steps since tick {end}")),
     }

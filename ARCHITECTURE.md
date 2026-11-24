@@ -155,9 +155,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   `riot_shield` (`RiotShield`, `riot_shield.rs`: the shield's mode, see *Combat*); for a plate on a patch,
   `extractor` (`Extractor`, `economy/mining.rs`: the patch it mines and its cycle, see *Economy*); for a structure
   that produces units, `production` (`Production`, `production.rs`: its queue, the progress of the unit in
-  production and its rally point, see *Production*). The rest
-  arrives as more optional fields, each with its own module. Never add them as separate stores keyed by
-  id. A system walks the objects in id order and skips those without its capability
+  production and its rally point, see *Production*); for a structure that constructs buildings, `constructor`
+  (`Constructor`, `construction.rs`: idle, constructing or holding a building ready to place, see *Economy*). The
+  rest arrives as more optional fields, each with its own module. Never add them as separate stores keyed by id. A
+  system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
   them through `ObjectKind::def()` or `Object::def()`. Every value cites its design section. Faction types go in
@@ -169,8 +170,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 - **Structures** (`defs/structures.rs`, `defs/gdo.rs`; `factions/gdo/structures.md`, `factions/gdo/economy.md`): the
   GDO's Deployment Center, Generator, Barracks, Extraction Facility and Extraction Plate (slice M2-A; their
   `ObjectKind`s follow the M1 ones, because the state hash numbers kinds in declaration order). A structure type has
-  `ObjectDef::structure: Some(StructureDef)` (its `SymmetryType`, BuildRadiusExtension and Power, and the plate's
-  `MiningDef` in `StructureDef::mining`, see *Economy*) and a tile footprint, `ObjectDef::tile_size` as unturned;
+  `ObjectDef::structure: Some(StructureDef)` (its `SymmetryType`, BuildRadiusExtension and Power, the plate's
+  `MiningDef` in `StructureDef::mining`, and a constructor's `Constructs` list of `Recipe`s in
+  `StructureDef::constructs`, see *Economy*) and a tile footprint, `ObjectDef::tile_size` as unturned;
   its `Placement` holds it as placed, `w` and `h` swapped by a quarter turn, with the orientation it was placed in
   (`Placement::orientation`). It has HP, armour and a SightRange, and no orders, mover or attack, so behaviours,
   movement and combat pass it by.
@@ -193,7 +195,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 3. Set up its capability state in `Sim::insert_object` (units get idle `orders` and `mover`), and give it a
    placeholder shape (`object_render::object_mesh`, whose `match` is exhaustive). The other exhaustive matches on
    kinds name the rest: its short label (`hud::selection_panel::short_label`), its per-object values
-   (`SpawnSettings::defaults`, the editor's `fields.rs`) and its interface (`command_ui/interface.rs`).
+   (`SpawnSettings::defaults`, the editor's `fields.rs`) and its interface (`command_ui/interface/templates.rs`).
 4. Test it. Spawn it in a small inline scenario, then check its initial state and its behaviour.
 
 **Adding a capability**
@@ -247,8 +249,11 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
 
 1. **Clear events**, so that `Sim::events()` holds only this tick's events.
 2. **Advance the tick** (`tick += 1`).
-3. **Snapshot** `pos`/`facing` into `prev_pos`/`prev_facing` for every object (the client interpolates from these).
-4. **Commands**: apply each `PlayerCommand` in `TickInputs` order (`apply_command`).
+3. **Snapshot** `pos`/`facing` into `prev_pos`/`prev_facing` for every object (the client interpolates from these),
+   and note who owns a structure as the tick starts (`economy::defeat::structure_owners`, for the defeat check).
+4. **Commands**: apply each `PlayerCommand` in `TickInputs` order (`apply_command`). Each passes the gate against
+   the state the commands before it left, so a cost is paid from the bank as they left it and a Place is checked
+   with the footprints they placed (see *Economy > Construction*).
 5. **Systems**, each walking the objects in id order, one function per module (`docs/movement.md > 4`):
    - Modes, `riot_shield::step`: a Riot Shield on its way up or down goes on one tick. After the commands, so that
      a toggle counts from its own tick; before 5a, so that the behaviours, the movement and the combat of the tick
@@ -273,13 +278,18 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    - Economy, `economy::step` (plan decision T5, see *Economy*): after 5e's removals and their `paths::sync`, so
      that a building destroyed in the tick counts for nothing in it; before 5f, so that what it brings into the game
      is seen in its own tick. In order: every player's power (the structures this tick's commands placed included),
-     the constructors (slice M2-D1), the plates' mining, the defeat check (M2-F).
+     the constructors (`construction::step`; when a recipe's frames count: *Economy > Recipe timing*), the plates'
+     mining.
    - Producers, `Sim::step_production` (slice M2-D2, see *Production*): part of the economy phase, run right after
      `economy::step` and not inside it, because a finished unit is inserted into the game (`Sim::insert_object`).
      The unit in production advances, and a finished one is released into its exit doorway, or held while that is
      occupied. Nothing in `economy::step` reads what the producers write, or the other way round, so the order
      between the two is free. After 5d, so a released unit never moves in its own tick; before 5f, so it is seen
      in it.
+   - Defeat, `economy::defeat::step` (slice M2-F2, plan decision T8, see *Economy > Defeat and the end of the
+     game*): the economy phase's last step, run by `step` after the producers, so that every way a structure left
+     the game in the tick counts (the commands' removals, 5e's deaths). Before 5f, so that the units a defeat makes
+     neutral are nobody's eyes in its own tick.
    - 5f `Vision::update`: every player's sight from the objects as the tick leaves them, those this tick's commands
      spawned included (see Vision). Combat in 5e reads the vision of the tick before.
    - `update_supply_stations` (`core/map.md > SupplyDeliveryStation`).
@@ -688,6 +698,14 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   other ("power producers are never slowed", design change 0089). A task of `n` frames at full speed is done when its
   progress reaches `n × RATIO_ONE`, and the rest carries over. Rounding the ratio up gives an exact ratio its exact
   tick count: at 30/51 the k-th 48-frame cycle ends in tick ⌈81.6 k⌉.
+- **Recipe timing** (the Director's convention, for every recipe: construction, production and any to come):
+  progress accrues in the tick in which the command applies, since the commands apply before the economy phase of
+  their tick (plan decision T5). A recipe of `N` frames ordered in tick `t` at full speed completes in tick
+  `t + N − 1`, and what it makes can be used from tick `t + N`: a ready building placed, a produced unit acting (it
+  comes into the game in tick `t + N − 1`, and the spawn-tick rule has it act from the next). So a Generator (240
+  frames) ordered in tick `t` is ready at the end of tick `t + 239` and can be placed in `t + 240`, and a Peacekeeper
+  (80 frames) trained in tick `t` is released in tick `t + 79`. A constructor or producer that comes into the game
+  in tick `t` starts on its recipes in `t + 1` (spawn-tick rule).
 - **Mining** (`economy/mining.rs`, `factions/gdo/economy.md > ExtractionPlate`): a structure with a `MiningDef`
   (`StructureDef::mining`: the plate) that stands on a patch has an `Extractor { patch, cycle }`, linked in
   `Sim::insert_object` once both are in the game, whichever comes first; a plate on bare ground or without an owner
@@ -699,9 +717,48 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   opens the tile (design change 0038; the caller's grid sync covers it); a patch with crystals left stays, uncovered.
   A plate whose patch is removed (only a debug command does that) loses its extractor. `testing::referenced_ids`
   lists the extractor's patch, so `dangling_references` checks it.
-- **Adding to the economy** (slices M2-D1, M2-D2, M2-F): put the new step into `economy::step` at its numbered
-  place, advance progress by `PowerSummary::speed`, take costs with `spend_crystals` when the command applies, and give
-  refunds through `Refund`.
+- **Construction** (`construction.rs`, `sim/construction.rs`; slice M2-D1;
+  `factions/gdo/structures.md > DeploymentCenter`, `factions/gdo/economy.md > ExtractionFacility`): a structure type
+  with a `Constructs` list (`StructureDef::constructs`: each `Recipe` a building, its cost and its frames) is a
+  constructor, and its object has a `Constructor`: `Idle`, `Constructing { kind, progress }` or `Ready { kind }`, one
+  building at a time and one ready at most (design change 0071). `Command::Construction` drives it (see *Commands,
+  events and replays*): Construct pays the cost as it applies, the cancels refund through `Refund` (`Full` while
+  constructing, `Ready` once ready), and so does a constructor that leaves the game (design change 0084, in
+  `Sim::remove_objects`, for a destruction and a debug removal alike), each refund with a
+  `SimEvent::ConstructionCancelled` (the constructor, the building and the refund) for the interface's feedback. Each
+  tick `construction::step` advances a construction by its constructor's `PowerSummary::speed`: the Deployment Center, a
+  producer, at full speed whatever the power, the Extraction Facility at the ratio (design change 0089); at
+  `frames × RATIO_ONE` it is ready (`SimEvent::ConstructionCompleted`), by *Recipe timing*: a Generator ordered in tick
+  `t` is ready at the end of tick `t + 239`, a plate at 30/51 at the end of `t + 679`, and a Place can apply from the
+  next tick on. Place inserts the ready building where `Sim::placement_check` allows it as the command applies (plan
+  decision T4): it counts for power and the build area at once, the true grids take it in phase 5b of its tick and its
+  owner's planning grids at the end of it, and it works from the next tick on. `construction::recipes(kind)`,
+  `Constructor::{current, ready, frames_done}` and `Sim::validate` are what a client needs for its menus. Not built:
+  tech prerequisites (no building with a cost has one yet) and ConstructionHP.
+- **Adding to the economy** (slices M2-D2, M2-F): put the new step into `economy::step` at its numbered place, advance
+  progress by `PowerSummary::speed` from the tick the command applies (*Recipe timing*), take costs with
+  `spend_crystals` when the command applies, and give refunds through `Refund`; `construction.rs` is the pattern.
+- **Defeat and the end of the game** (`economy/defeat.rs`, slice M2-F2, plan decision T8; `core/game_rules.md >
+  Defeat Condition`, `> On Defeat`, `> End of Game`; design changes 0100 to 0102):
+  - **Defeat**: a player is defeated in the tick their count of owned structures drops to 0 (every structure
+    counts, plates included): `defeat::step` compares the owners of structures as the tick started with those as it
+    ends, so a player who never owned a structure (a sandbox's) is never defeated, and nobody is once the game is
+    over. `Player::defeated_at` (hashed, `#[serde(default)]`), `SimEvent::PlayerDefeated`.
+  - **On defeat** (0101): the player's remaining objects, units only since they own no structure, become neutral
+    (`owner: None`): orders cleared, attack disengaged, mover stopped, and `Mover::repath` (see *Navigation > Path
+    knowledge > No owner*). Neutral, they give no vision, never auto-target and are never auto-targeted, never
+    yield, and any player may destroy them with an explicit Attack. A raised Riot Shield stays raised, and an
+    attack already Firing or in Cooldown runs its course. No producer is ever handed over: a defeated player owns
+    none. The gate refuses every command of a defeated player (`Reject::Defeated`), and a debug spawn of an object
+    for them, so a defeated player owns nothing for good.
+  - **Sides**: the sim has no team or alliance data yet (fixed teams are deferred, `core/map_editor.md > Map Types >
+    Custom`), so every player is their own side (`defeat::allied`) and `Sim::allies` is empty. Teams go there.
+  - **The end**: the defeat that leaves at most one side standing ends the game in its tick: `Sim::outcome()` is
+    `Outcome { tick, winners }` (hashed, serialized, `#[serde(default)]`), after the tick's `PlayerDefeated`s comes
+    `SimEvent::GameOver { winners }`. The winners are the side left standing, its defeated members included;
+    nobody wins when the last sides fall in the same tick (a placeholder: the design doesn't say). From then on the
+    gate refuses every command (`Reject::GameOver`). The sim would step on if asked; the client stops it (see
+    *Client architecture > Sim driver*).
 
 ## Production
 
@@ -765,14 +822,17 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
 - **The command gate** (`sim/gate.rs`): `Sim::validate(&PlayerCommand) -> Result<(), Reject>` checks a command
   against the current state without changing it, and `step` applies a command only through the same check
   (`Sim::check`, which hands the application the objects and positions it resolved), so the two can't disagree. In
-  order: the player is in the game (`Reject::UnknownPlayer`), a debug command needs debug commands on
+  order: the player is in the game (`Reject::UnknownPlayer`), the game isn't over (`GameOver`) and the player isn't
+  defeated (`Defeated`, see *Economy > Defeat and the end of the game*), a debug command needs debug commands on
   (`DebugDisabled`), then the command's own rules: every id it names exists (`UnknownObject`) and, for a player's
   orders to objects, belongs to that player (`NotOwned`, through `Sim::referenced(id, Some(player))`; debug commands
   and targets may name anyone's objects), positions are finite and on the map (`OffMap`), an order's target
   object is in the issuing player's sight (`NotVisible`, below), spawns fit (`Spawn(SpawnProblem)`) and keep apart
   from other footprints (`Overlaps(id)`, see Object model). A rejected command changes nothing, neither the state
   nor the events, and never panics.
-  There is no rejection event yet: add one as output outside the state hash when the UI needs it.
+  The one rejection the sim reports is a Place the placement check refuses (plan decision T4): the client checked it
+  before sending it, so the game changed in between, and `SimEvent::PlacementRefused` (output, outside the state
+  hash) says why (`Sim::report_refusal`). Add another such event only when the UI needs it.
 - **`Command::Order { units, kind, queue }`** (`systems/controls/commands.md > Unit Command`, `docs/movement.md > 3`):
   `OrderKind` is `Move(Target)` (a point or an object), `Attack(id)`, `AttackMove(point)`, `Patrol(point)`, `Hold`
   or `Stop`. The gate takes an order whole or not at all, but tolerates stale selections: at most `MAX_ORDER_UNITS`
@@ -796,6 +856,18 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   has something queued, else `NothingQueued`; `SetRally` with a point on the map (`OffMap`) or an object that
   exists and that the player sees, as for an order's target (`UnknownObject`, `NotVisible`; the producer itself
   always). `Sim::validate` gives the interface the same answers for its buttons.
+- **`Command::Construction { objects, command }`** (`construction.rs`, `sim/construction.rs`): the player's constructors
+  carry out a `ConstructionCommand`: `Construct(kind)`, `CancelConstruction`, `CancelReady` or
+  `Place { origin, orientation }` (the top-left tile of the turned footprint; the orientation optional in files, as for
+  a debug spawn). The gate tolerates stale selections as for orders (`TooManyUnits`, repeats, gone ids, the player's
+  objects that construct nothing; `NotOwned` for anyone else's, `NoConstructor` when none is left), then goes through
+  them in id order: a Construct starts at each one that has the building on its list, is idle and can pay from what the
+  ones before it left, and is rejected with the first one's reason if none can (`CannotConstruct(kind)`,
+  `ConstructorBusy(id)`, `InsufficientCrystals`); a cancel goes to each one with something to cancel (`NotConstructing`,
+  `NothingReady`) and refunds it (`ConstructionCancelled`). A Place names one constructor (`SeveralConstructors`; design
+  change 0071) holding a ready building (`NothingReady`), and is rejected with the placement check's first problem
+  (`Unplaceable(PlacementProblem)`), which is reported (above). Each object of a command is one constructor; the client
+  sends a command to the group the design says (no smart-casting, design change 0071).
 - **Targets must be seen** (question Q0017 point 2, its default; `core/vision.md > Explored Selectability`): an
   Attack or a Move on an object is taken only while the issuing player sees it (a tile it covers is Visible), else
   `Reject::NotVisible`. The exception is the design's: a GDO player may target a Supply Delivery Station on Explored
@@ -824,15 +896,16 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   tick, empty ticks included, and state-hash checkpoints: `sc_sim::Replay` (serde) with `start`/`record`/`step`/`run`,
   and `record_checked`/`verify`/`run_checked` for the checkpoints (see Replays and golden hashes, which also covers
   the client's recording and playback). A replay keeps every command whole: `testing::every_command` lists one of
-  each kind (every variant of `Command`, `OrderKind`, `Target`, `Ability`, `ProductionCommand`, `DebugCommand` and
-  `SpawnAt`), and the
-  format tests round-trip it through the sim's serde and the client's file; its match stops compiling when a variant
-  is added, so add the new one to it. The client must never submit a command with a non-finite number. The sim
-  would reject it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to load. Validate at the
-  input layer.
+  each kind (every variant of `Command`, `OrderKind`, `Target`, `Ability`, `ProductionCommand`,
+  `ConstructionCommand`, `DebugCommand` and `SpawnAt`), and the format tests round-trip it through the sim's serde
+  and the client's file; its match stops compiling when a variant is added, so add the new one to it. The client
+  must never submit a command with a non-finite number. The sim would reject it anyway, but JSON can't store NaN or
+  ±∞, so the replay file would fail to load. Validate at the input layer.
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`,
-  `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `UnitProduced`, …) are output only, for effects, sounds and UI. The sim never reads them. `Sim::events()` holds
-  only the latest step's events, and `Sim::new` discards the events from the scenario's initial spawns.
+  `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `UnitProduced`,
+  `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
+  `GameOver`, …) are output only, for effects, sounds and UI. The sim never reads them. `Sim::events()` holds only
+  the latest step's events, and `Sim::new` discards the events from the scenario's initial spawns.
 
 ## Sim scenarios and tests
 
@@ -955,6 +1028,12 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   walks through the opened tile, a patch mined out in the fog that another player assumes until it sees the tile
   (design change 0042), and the links in any order) and `economy_resources.rs` (the banks and
   `SetResources`, power and the ticks a building counts in, Unit Control, a mining game replayed and saved).
+- **Construction tests** are `crates/sim/tests/construction.rs` (each building's frames at full power and the plate's
+  680 ticks at 30/51 beside an unslowed Deployment Center, the refunds and their events, every refused command changing
+  nothing, a group command in id order, a Place in its orientation with power, area and grids following, a refused Place
+  for each problem of the check and one refused by an earlier command of its tick, destroyed constructors' refunds by a
+  debug removal and in combat, a fuzz of the gate, a save and a replay, and the clean Barracks opening from
+  `dev_skirmish`'s starting base as a mini-oracle: started in tick 769, ready at the end of 928).
 - **Game start tests** are `crates/sim/tests/game_start.rs` (slice M2-F1: each player's Starting Layout and banks,
   the Skirmish Default restriction and completeness, the layout rules of design change 0097, two players' layouts in
   each other's way, the outdated flag, and `dev_skirmish`'s bases seeing and reaching their fields) and the unit tests
@@ -966,6 +1045,12 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   remembered in the fog, a plate on a patch in maps and layouts, the targets that shoot back first, idle and on an
   AttackMove, a scan reaching a large footprint by its edge). The placement tests are listed under *Placement and the
   build area*.
+- **Game end tests** are `crates/sim/tests/game_end.rs` (defeat by a removal and in combat, plates counting; no
+  defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
+  refused; a 1v1, three players defeated one after the other, and a last defeat shared by two; no producer handed
+  over; a save across a defeat and the end, and old saves) and, in the client, `crates/game/tests/game_end.rs` (the
+  banners, the stop, the saved recording, QA's end, the spectator's fog). The fuzz games of `robustness.rs` give
+  each player a base it can't remove, so that they never end.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
   checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is
@@ -986,12 +1071,13 @@ out by the same rules.
 - Read `Sim::events()` in the same system, right after `step`, and forward them, for example as Bevy `Message`s. The
   next step clears them, and FixedUpdate can run several times in one frame.
 - `SimControl` says whether the step may run: `paused`, `step_once` (one step while paused, then it clears itself)
-  and QA's `hold_at`. `Pace` says how fast, changeable at any time: `Scaled(f)` runs `f` × 16 ticks per second of
-  real time through `Time<Virtual>`'s relative speed, `Max` (`--fast`) as many ticks per frame as fit in
-  `FAST_FRAME_BUDGET`, drawn exactly at their ticks. A change applies in `PostUpdate` (`apply_pace`), so the next
-  frame's time update already goes at the new pace, and at a scaled pace the fixed loop never owes more than a
-  frame's worth (`limit_fixed_loop`: 250 ms of scaled time), so leaving `Max` runs no burst of ticks. A replay's
-  playback controls both (see Replays and golden hashes).
+  and QA's `hold_at`; never once the game is over (`SimControl::may_step`, `Sim::outcome`: "the game stops",
+  `core/game_rules.md > End of Game`), so a finished game stands at its last tick. `Pace` says how fast, changeable
+  at any time: `Scaled(f)` runs `f` × 16 ticks per second of real time through `Time<Virtual>`'s relative speed,
+  `Max` (`--fast`) as many ticks per frame as fit in `FAST_FRAME_BUDGET`, drawn exactly at their ticks. A change
+  applies in `PostUpdate` (`apply_pace`), so the next frame's time update already goes at the new pace, and at a
+  scaled pace the fixed loop never owes more than a frame's worth (`limit_fixed_loop`: 250 ms of scaled time), so
+  leaving `Max` runs no burst of ticks. A replay's playback controls both (see Replays and golden hashes).
 
 **Visuals**
 - The sim is the source of truth. Visuals are separate entities, each linked to its object by an
@@ -1056,7 +1142,12 @@ out by the same rules.
   the command indicators ask it too. The fog layer is one mesh that follows the terrain's surface tile
   by tile, in the terrain's z band `FOG_Z` in front of it (so no cliff stratum shows through), and one texture of
   one black texel per tile (`UNEXPLORED_ALPHA`, `EXPLORED_ALPHA`, clear when Visible), sampled linearly. The texture
-  is written only when `PlayerVision::revision`, the local player or the sim changes, the mesh only with the map.
+  is written only when `Sight::revision`, the local player or the sim changes, the mesh only with the map.
+  A `Sight` looks through the union of the visions it watches (`Sight::watching`): a tile in the best state any of
+  them gives it, an object out of sight of all of them as the latest record any of them keeps. A player watches
+  their own vision, and a defeated one their allies' too (`Sight::new`, `Sim::allies`; design change 0102: never a
+  full map reveal); `Sight::revision` holds whom it watches. Without teams a defeated player watches their own
+  vision alone, which has no Visible tile left.
   `FogOfWar` turns it off for QA (`--no-fog`, the debug key F3, which a replay's playback takes without debug
   commands too): display only, the sim computes every player's
   vision anyway. The editor shows no fog; its play-tests do.
@@ -1096,15 +1187,21 @@ delivery scheduled" while it isn't empty, and never CurrentSupplies. A structure
 the local player's own shows its HP and, in the activity area under it (`InfoText::Activity`, hidden while empty),
 what it is doing; another player's (or a neutral one) its owner and HP only. The activity's lines come from
 `hud/info_panel/activity.rs::lines`, the one extension point for them: each structure capability adds its lines there
-(construction with slice M2-H2, production with M2-H1), and nothing else of the panel changes. A plate adds the
-remaining crystals of the patch under it, for every viewer (0099). The top bar shows the player on the left, the tick
-on the right (in a replay's playback also the replay's last tick and a note on the playback, `ReplayText`: speed,
-paused or end, and a desync in red), and between them, centred, the local player's resources as their faction's
+(construction with slice M2-H2, production with M2-H1), and nothing else of the panel changes. A producer's
+(`activity::production`) are the unit in production and its progress from `Sim::production_status` (100% while it
+waits at the doorway, 0085), the queue against `QUEUE_LIMIT`, and the rally point (placeholder wordings). A plate
+adds the remaining crystals of the patch under it, for every viewer (0099). The top bar shows the player on the left,
+the tick on the right (in a replay's playback also the replay's last tick and a note on the playback, `ReplayText`:
+speed, paused or end, and a desync in red), and between them, centred, the local player's resources as their faction's
 DisplayHud lists them (`hud/resources.rs`, one `ResourceFigure` text each, `resource_bar` for their readings): for
 the GDO Space Crystals and Supplies (the banks), Power as consumed / generated (`Sim::power`), red while consumption
 exceeds generation (0090), and Unit Control as used / `UNIT_CONTROL_CAP`, read through `Sim::unit_control` alone, so
 that the queue's reserved Unit Control (0082) shows as soon as the sim counts it; the other factions Space Crystals
-only, until their own resources exist.
+only, until their own resources exist. At the end of the game a banner across the world view (`hud/outcome.rs`,
+placeholder look and wording) shows the local player's `Banner`: VICTORY for the winners, DEFEAT for everyone else,
+and DEFEATED with a spectating line while a defeated player watches the game go on. A defeated player, and everyone
+once the game is over, gives no commands: the command UI's input set doesn't run (`outcome::may_command`), and
+nothing is `commandable` after the end.
 
 **Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse, the wheel and the screen edge into
 the input of the game and of the map editor, in `PreUpdate` (`ReadActions`, after Bevy's input, UI picking and the
@@ -1212,17 +1309,23 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   box is four edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set.
 
 **Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/selection_and_hud.md > ObjectInterfaceState`
-to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units.
-- **Rules** (pure and unit tested): `command_ui/interface.rs` has the `UnitCommand`s, the `InterfaceState`
+to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units
+and their producing structures, through one command flow (plan decision T10, slice M2-H1).
+- **Rules** (pure and unit tested): `command_ui/interface.rs` and its children (`commands.rs`, `templates.rs`,
+  `conditions.rs`, `panel.rs`) have the `PanelCommand`s (the units' and the producers' commands), the `InterfaceState`
   (DefaultState, or AwaitingTarget of a command, `queued` once a Shift-click has queued it: design change 0070) in
-  each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the Peacekeeper's and the Guard's BasicCombatUnit grid),
+  each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the Peacekeeper's and the Guard's BasicCombatUnit grid;
+  the Barracks': Train Peacekeeper in Q, Cancel Production in X, Set Rally Point in C),
   the `Panel` a selection gets (common, group, pending, disabled and unavailable buttons; Back in Z while a target is
   awaited) and who receives a command (`recipients`: a common one the whole selection, a group one the whole
   ActiveGroup, by hotkey or button; never some of them, no smart-casting, 0071, apart from the units that can't carry
   it out, which the resolution leaves out). A type's grid is its template's plus its own commands (`grid`: the Riot
   Shield in R for a unit that carries one, a placeholder slot). `Modes` holds the selected units' modes as the sim has
   them: the Riot Shield button is on, and lowers the shields, while all its recipients' are up or going up, else it
-  raises them; Attack is disabled while none of its recipients can attack. `command_ui/resolution.rs` has what a click
+  raises them; Attack is disabled while none of its recipients can attack. `Conditions` holds the `Modes` and what
+  the command gate refuses: a production command is disabled exactly when `Sim::validate` refuses the
+  `Command::Production` pressing it would send (the gate's own predicates, no copy of them: crystals, Unit Control, a
+  full queue, nothing to cancel; 0081, 0082). `command_ui/resolution.rs` has what a click
   resolves to and the `PointerDisplay` that previews it. A `MapTarget` is what is under the cursor (`CursorTarget`),
   with the ground point there and, for an object, whether it is destructible and its domain. A right-click resolves
   per unit (design changes 0062, 0063), whichever group is active: `UnitCapabilities` (the unit's template, its
@@ -1230,7 +1333,11 @@ to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how th
   (`right_click`) when the unit can carry it out; a unit that can't attack the target moves to it instead (`move_to`:
   to the point, or Follow an object); a unit whose Riot Shield keeps it from an Attack gets `order_without_attack`,
   the right-click's shield rule: `move_to` too, Follow an enemy unit, Move to (and stop by) an enemy structure (design
-  change 0074); objects without a template do nothing. `group_orders` makes one order per distinct order, so units
+  change 0074); objects without a template do nothing. A producer's right-click sets its rally point
+  (`object_right_click` gives a `Resolved::Rally` beside the units' `Resolved::Order`s, so a mixed selection does
+  both, 0062; `rally_target`: the object under the cursor, else the ground point; the producer itself clears it,
+  0086); Set Rally Point's targeting click resolves the same way (`target_resolution`), and the pointer shows Move
+  for a rally point. `group_orders` makes one order per distinct order, so units
   sent to one location go as one group (the magic box). A left-click while a target is awaited gives `target_order`:
   Attack takes any destructible object, own and neutral ones too (force-attack, 0059, 0064), never an indestructible
   one; a right-click never attacks them. `unit_target_order` is the targeting click's shield rule, per unit: an
@@ -1239,7 +1346,7 @@ to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how th
   which the sim walks on without engaging (0076: the sim's gate drops shielded units from Attack only). The pointer
   previews the set of per-unit right-click actions: one shows its pointer, several show `Mixed` (0063); while a target
   is awaited, the pending command's look over a target it can use, else Inactive. Nothing is commandable unless the
-  whole selection is the player's (`commandable`).
+  whole selection is the player's, nor once the game is over (`commandable`).
 - **Systems** (`CommandUiSystems`): `Validate` (in `SyncSim`, after the selection's sync) ends an AwaitingTarget that
   no longer holds. `Input` (in `Actions`, after the selection's input) turns Esc, the command hotkeys
   (`InputAction::CommandSlot`), clicks on the panel (found by `CommandGrid`), left-clicks on the map while a target is
@@ -1247,7 +1354,11 @@ to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how th
   only the player's own units, given only if `Sim::validate` takes it, queued while `Queue` (Shift) is held; each one
   is also an `OrderIssued` message. A click's per-unit orders go out grouped (`OrderOutbox::give_each`); in a
   targeting click each recipient's order is `unit_target_order`'s. An ability is a `Command::Ability`, validated the
-  same way, never queued, and no `OrderIssued`. While a target is awaited (`> AwaitingTarget`, design changes 0065 to
+  same way, never queued, and no `OrderIssued`. A producer's command is one `Command::Production` to every recipient
+  (`OrderOutbox::produce`: the player's own producers, validated the same way), never queued, no `OrderIssued`: no
+  smart-casting, the sim decides which producers a Train reaches and pays for (0083); a Shift-click while Set Rally
+  Point awaits its target sets the rally point and ends targeting like a plain click (a placeholder reading: a rally
+  point isn't queued). While a target is awaited (`> AwaitingTarget`, design changes 0065 to
   0070 and 0073): the other commands do nothing (`press`; the panel shows them disabled); a click counts at the press
   point, as the frame of the press drew the objects (`TargetPress`, recorded when the Select button goes down on the
   map, used when it comes up, `Pointer::released`); the press is a click while the pointer stayed within
@@ -1269,15 +1380,21 @@ to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how th
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
   (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow
   `> Color language`; a target object the fog hides gets no marker and ends no leg (`Sight::sees`), but a Move to
-  a remembered one is marked at its record. The pointer
+  a remembered one is marked at its record. The selected own producers' rally points (`indicators/rally.rs`, design
+  changes 0087, 0088) show a marker, green on the ground and around an own or neutral object, red around an enemy
+  (the sim turns an enemy rally point it loses sight of into a ground one, so the marker turns green there), and a
+  solid line from the footprint's edge to it; nothing while the producer isn't selected or has none. The pointer
   (`command_ui/cursor.rs`) shows the `PointerLook`: images drawn in code and cached per look, set as the window's
   `CursorIcon`, and drawn as a UI node at the injected cursor in QA runs, which render no system cursor; Mixed is
   striped in the Attack red and the Move green (`MIXED_COLORS`, `MIXED_STRIPE_PX`). The invalid-target feedback
   (`command_ui/feedback.rs`) is the message `INVALID_TARGET_TEXT` above the HUD Bar for `FEEDBACK_TICKS` sim ticks
-  after the latest `InvalidTarget` (`TargetFeedback`), never in the pointer's way (`Pickable::IGNORE`).
+  after the latest `InvalidTarget` (`TargetFeedback`), never in the pointer's way (`Pickable::IGNORE`). The same
+  band gives the insufficient-resources feedback (0083): `NO_CRYSTALS_TEXT` or `UNIT_CONTROL_TEXT` after the sim's
+  `ProductionRefused` for a local player's producer that a Train didn't reach for want of crystals or Unit Control
+  (a full queue gives none).
 - The design leaves some things open (labels, colours, the flash, the cursor's shapes and the Mixed look, the
-  invalid-target feedback's form and duration, the targeting click allowance's value, when Shift counts for a
-  targeting click); each placeholder is marked where it is made.
+  invalid-target and insufficient-resources feedbacks' form and duration, the targeting click allowance's value, when
+  Shift counts for a targeting click, Shift with a rally point); each placeholder is marked where it is made.
 
 **Bevy code**
 - Write one plugin per feature module (camera, map rendering, HUD, input, …). Keep systems small. Bevy caps a system
@@ -1343,6 +1460,8 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
   machine's GPU (Vulkan, Intel Arc), with no window and no Xvfb. The sim waits at each screenshot tick until the PNG
   is saved, so the PNG shows that tick's exact state with no interpolation. Repeated runs give byte-identical PNGs.
 - Exit codes: 0 when everything was saved, 1 when a QA step failed (the log says which), 2 for invalid flags.
+- Once the game is over the sim steps no more: the screenshots, input steps and exit scheduled after its last tick
+  happen at that tick (`qa::stop_at_game_end`, logged).
 - The `--dump-state` JSON holds `tick`, `scenario` (the map's name), `players`, `objects` (every field of
   `sc_sim::Object`), the last tick's `events`, `client` (`local_player`, `camera_center` as a view point in su,
   `grid_visible`, `fog_of_war`, `recorded_ticks`, the local player's `selection` and `last_known` records, the
@@ -1376,13 +1495,15 @@ unchecked.
 - **Recording** (`crates/game/src/replay/record.rs`): every game the client plays is recorded, not the map editor, its
   play-tests or a playback. The file is `--record`'s, else `replays/<UTC date>_<time>_<map>.json` under the working
   directory (git-ignored; `_2`, `_3`, … when taken). It is written when the game starts, every `AUTOSAVE_TICKS` (160)
-  ticks and when the app exits (window closed, Ctrl+C, a QA run's end), atomically (`files::write_atomically`), so a
-  crash loses a few seconds at most. QA runs record only with `--record`; `--no-record` turns recording off. Should
-  the sim be replaced (`SimRes::generation`), the recording ends there.
+  ticks, at the end of the game (complete, with a checkpoint of its last tick: `Recorder::is_finished`,
+  `core/game_rules.md > End of Game`) and when the app exits (window closed, Ctrl+C, a QA run's end), atomically
+  (`files::write_atomically`), so a crash loses a few seconds at most. QA runs record only with `--record`;
+  `--no-record` turns recording off. Should the sim be replaced (`SimRes::generation`), the recording ends there.
 - **Playback** (`--replay`, `crates/game/src/replay/playback.rs`): the game starts from the replay's scenario with its
   game options, and each step applies the recorded inputs of its tick and nothing else. The local player can't give
   commands: the command UI's input set (`CommandUiSystems::Input`) doesn't run, and anything else pending is dropped.
-  It pauses at the end. The game is checked against the checkpoints at tick 0 and after every step; the first desync
+  It pauses at the end, or where its game ended (a recording made outside the client may go on after it). The game
+  is checked against the checkpoints at tick 0 and after every step; the first desync
   is logged as an error, fails a QA run (exit code 1) and shows in red in the top bar, and the playback goes on.
   Controls (Game context, placeholder keys): Space pauses and resumes, `.` plays one tick and pauses, `-` and `=`
   step through the speeds ×0.5, ×1, ×2, ×4 and max (`playback::SPEEDS`; `--fast` starts at max), F2 switches the

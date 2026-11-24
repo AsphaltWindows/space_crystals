@@ -399,7 +399,7 @@ mod tests {
     /// `> ControlState`: a removal resets the ObjectInterfaceState only when it takes away the ActiveGroup.
     #[test]
     fn a_removal_resets_the_interface_state_only_with_the_active_group() {
-        let awaiting = InterfaceState::awaiting(crate::command_ui::UnitCommand::Attack);
+        let awaiting = InterfaceState::awaiting(crate::command_ui::PanelCommand::Attack);
         let mut state = ControlState::EMPTY;
         state.selection = Selection::new([(id(1), PK), (id(2), PK), (id(3), GUARD)]);
         state.interface = awaiting;

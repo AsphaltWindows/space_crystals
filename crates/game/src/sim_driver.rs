@@ -1,9 +1,10 @@
 //! Owns the simulation and steps it (`ARCHITECTURE.md > Client architecture > Sim driver`).
 //!
 //! One `FixedUpdate` run is one tick at [`TICKS_PER_SECOND`] (`core/scale.md > SimulationFrame`); nothing else
-//! steps the sim. Player intent arrives as `PlayerCommand`s in [`PendingCommands`], which the step drains into that
-//! tick's `TickInputs`. Every tick's inputs are kept in [`RecordedInputs`] for replays, and the tick's
-//! `SimEvent`s are forwarded as [`SimEventMessage`]s right after the step.
+//! steps the sim. Once the game is over (`Sim::outcome`), it isn't stepped again: "the game stops"
+//! (`core/game_rules.md > End of Game`). Player intent arrives as `PlayerCommand`s in [`PendingCommands`], which
+//! the step drains into that tick's `TickInputs`. Every tick's inputs are kept in [`RecordedInputs`] for replays,
+//! and the tick's `SimEvent`s are forwarded as [`SimEventMessage`]s right after the step.
 
 use std::ops::Deref;
 use std::time::{Duration, Instant};
@@ -77,7 +78,7 @@ impl RecordedInputs {
     }
 }
 
-/// Whether the step system may advance the sim.
+/// Whether the step system may advance the sim. Never once the game is over ([`SimControl::may_step`]).
 #[derive(Resource, Default, Debug)]
 pub struct SimControl {
     pub paused: bool,
@@ -88,8 +89,10 @@ pub struct SimControl {
 }
 
 impl SimControl {
-    pub fn may_step(&self, tick: Tick) -> bool {
-        (!self.paused || self.step_once) && self.hold_at.is_none_or(|hold| tick < hold)
+    /// Whether `sim` may advance a tick now: not paused (or one step asked for), not held, and its game not over
+    /// (`core/game_rules.md > End of Game`: "the game stops", design change 0101).
+    pub fn may_step(&self, sim: &Sim) -> bool {
+        (!self.paused || self.step_once) && self.hold_at.is_none_or(|hold| sim.tick() < hold) && sim.outcome().is_none()
     }
 }
 
@@ -187,7 +190,7 @@ fn step_sim(
     mut control: ResMut<SimControl>,
     mut events: MessageWriter<SimEventMessage>,
 ) {
-    if !control.may_step(sim.tick()) {
+    if !control.may_step(&sim) {
         return;
     }
     if control.step_once {
@@ -216,7 +219,7 @@ fn update_render_alpha(
     sim: Res<SimRes>,
     mut alpha: ResMut<RenderAlpha>,
 ) {
-    let a = if *pace == Pace::Max || control.paused || !control.may_step(sim.tick()) {
+    let a = if *pace == Pace::Max || control.paused || !control.may_step(&sim) {
         1.0
     } else {
         fixed.overstep_fraction().clamp(0.0, 1.0)
@@ -274,7 +277,7 @@ fn limit_fixed_loop(
     let keep = match *pace {
         Pace::Max => {
             let out_of_time = frame.deadline.is_none_or(|deadline| Instant::now() >= deadline);
-            if out_of_time || !control.may_step(sim.tick()) {
+            if out_of_time || !control.may_step(&sim) {
                 Duration::ZERO
             } else {
                 owed

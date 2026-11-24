@@ -305,6 +305,7 @@ mod tests {
                     riot_shield: None,
                     extractor: None,
                     production: None,
+                    constructor: None,
                 },
             );
         }

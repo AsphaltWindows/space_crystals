@@ -6,17 +6,22 @@
 //! the indicators. A click whose units get different orders gives one order per distinct order
 //! ([`super::resolution::group_orders`]). A command issued with the Queue modifier held (Shift) is queued
 //! (`systems/controls/commands.md > Unit Command`), else it replaces the units' orders. Abilities (the Riot Shield)
-//! go as `Command::Ability`, at once and never queued.
+//! go as `Command::Ability`, at once and never queued. A producer's commands
+//! (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) go as one `Command::Production` to all
+//! the producers they are issued to, also never queued: Train and Cancel Production at once, the rally point on a
+//! right-click or a click while Set Rally Point awaits its target. The sim decides which producers a Train reaches
+//! (design change 0083); the client sends it to all of them (no smart-casting, design changes 0071 and 0075).
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use sc_sim::{Ability, Command, ObjectId, OrderKind, PlayerCommand, PlayerId, Target};
+use sc_sim::{Ability, Command, ObjectId, OrderKind, PlayerCommand, PlayerId, ProductionCommand, Target};
 
 use super::interface::{
-    InterfaceState, Modes, SlotPress, UnitCommand, commandable, panel, press, recipients, still_valid,
+    Conditions, InterfaceState, Modes, PanelCommand, SlotPress, commandable, panel, press, recipients, still_valid,
 };
 use super::resolution::{
-    MapTarget, UnitCapabilities, capabilities, group_orders, target_order, unit_right_click, unit_target_order,
+    MapTarget, Resolved, UnitCapabilities, capabilities, group_orders, object_right_click, target_resolution,
+    unit_target_order,
 };
 use super::{InvalidTarget, OrderIssued};
 use crate::ClientMode;
@@ -103,6 +108,34 @@ impl OrderOutbox<'_> {
         true
     }
 
+    /// `player`'s producers among `objects` carry out `command` (`Command::Production`), one command for all of
+    /// them, at once: production isn't queued. Nothing when none of them is the player's producer, or when the sim
+    /// would reject it (`Sim::validate`, the predicates the panel greys its buttons out by: e.g. a full queue, too
+    /// few Space Crystals, nothing to cancel, a rally point off the map, which a non-finite point is too).
+    fn produce(&mut self, player: PlayerId, objects: Vec<ObjectId>, command: ProductionCommand) -> bool {
+        let objects: Vec<ObjectId> = objects
+            .into_iter()
+            .filter(|&id| {
+                self.sim
+                    .object(id)
+                    .is_some_and(|o| o.owner == Some(player) && o.production.is_some())
+            })
+            .collect();
+        if objects.is_empty() {
+            return false;
+        }
+        let sent = PlayerCommand {
+            player,
+            command: Command::Production { objects, command },
+        };
+        if let Err(reject) = self.sim.validate(&sent) {
+            debug!("production command {command:?} not given: {reject}");
+            return false;
+        }
+        self.pending.0.push(sent);
+        true
+    }
+
     /// The units among `units` that are `player`'s and take orders.
     fn own_units(&self, player: PlayerId, units: Vec<ObjectId>) -> Vec<ObjectId> {
         units
@@ -135,7 +168,7 @@ pub(super) struct TargetPress(Option<PressedTarget>);
 #[derive(Copy, Clone, Debug, PartialEq)]
 struct PressedTarget {
     /// The command awaiting its target as the button went down.
-    pending: UnitCommand,
+    pending: PanelCommand,
     /// Where it went down, logical pixels: the press's own (`MapPress::screen`).
     screen: Vec2,
     target: MapTarget,
@@ -166,8 +199,8 @@ pub(super) fn validate_interface(mut control: LocalControl) {
         return;
     }
     let commandable = commandable(control.sim(), control.player(), &state.selection);
-    let modes = Modes::of(control.sim(), &state.selection);
-    if !still_valid(state.interface, &state.selection, commandable, &modes) {
+    let conditions = Conditions::of(control.sim(), control.player(), &state.selection);
+    if !still_valid(state.interface, &state.selection, commandable, &conditions) {
         control.update(|state| state.interface = InterfaceState::DefaultState);
     }
 }
@@ -183,8 +216,10 @@ pub(super) fn cancel_targeting(actions: Res<ActionState>, mut control: LocalCont
 /// `> DefaultState`: a command hotkey (`InputAction::CommandSlot`) or a click on a panel button (a press of the
 /// Select action over the button, found by the panel's geometry like the SelectionPanel's portraits) enters
 /// AwaitingTarget for a command that needs a target, or issues an immediate one: a common command to the whole
-/// selection, a group command to the ActiveGroup (`> CommandPanel`). Back (Z) returns to DefaultState. While a target
-/// is awaited the other commands are unavailable (design change 0066): [`press`] finds nothing to do for them.
+/// selection, a group command to the ActiveGroup (`> CommandPanel`), a Train or a Cancel Production to every
+/// producer among them as one command. Back (Z) returns to DefaultState. While a target is awaited the other
+/// commands are unavailable (design change 0066), and so is a production command the gate would refuse (design
+/// changes 0081 and 0082): [`press`] finds nothing to do for them.
 pub(super) fn press_command_slots(
     actions: Res<ActionState>,
     mode: Res<ClientMode>,
@@ -215,8 +250,8 @@ pub(super) fn press_command_slots(
         if !commandable(control.sim(), player, &state.selection) {
             return;
         }
-        let modes = Modes::of(control.sim(), &state.selection);
-        match press(&panel(&state.selection, state.interface, &modes), slot) {
+        let conditions = Conditions::of(control.sim(), player, &state.selection);
+        match press(&panel(&state.selection, state.interface, &conditions), slot) {
             SlotPress::AwaitTarget(command) => {
                 control.update(|state| state.interface = InterfaceState::awaiting(command));
             }
@@ -227,6 +262,10 @@ pub(super) fn press_command_slots(
             SlotPress::UseAbility(command, ability) => {
                 let units = recipients(&state.selection, command);
                 outbox.use_ability(player, units, ability);
+            }
+            SlotPress::Produce(command, production) => {
+                let producers = recipients(&state.selection, command);
+                outbox.produce(player, producers, production);
             }
             SlotPress::Back => {
                 control.update(|state| state.interface = InterfaceState::DefaultState);
@@ -268,6 +307,11 @@ pub(super) fn end_queued_targeting(actions: Res<ActionState>, pressed: Res<Targe
 /// - **An invalid target** (design change 0065): a click that gives nothing, on a target the command can't use
 ///   (the Inactive pointer), is ignored and the target is still awaited, with Shift too; an [`InvalidTarget`]
 ///   message tells the player (`super::feedback`).
+/// - **Set Rally Point** (`factions/gdo/structures.md > Barracks`: "Left-click ground or object sets the rally
+///   point (CommandIssuingTransition, returns to DefaultState)"): the rally point goes to the command's recipients,
+///   every selected producer of the ActiveGroup, as one `Command::Production`; a click on the producer itself clears
+///   its rally point (design change 0086). A rally point isn't queued, so a Shift-click sets it and ends the
+///   targeting like a plain click ([`PanelCommand::queues`], a placeholder reading).
 pub(super) fn click_targets(
     actions: Res<ActionState>,
     mut pressed: ResMut<TargetPress>,
@@ -300,7 +344,7 @@ pub(super) fn click_targets(
                 command: pending,
                 tick: control.sim().tick(),
             });
-        } else if click.queue {
+        } else if click.queue && pending.queues() {
             control.update(|state| state.interface = InterfaceState::AwaitingTarget { pending, queued: true });
         } else {
             control.update(|state| state.interface = InterfaceState::DefaultState);
@@ -311,33 +355,42 @@ pub(super) fn click_targets(
     }
 }
 
-/// Gives the order of the targeting click `click` to its command's recipients, each as [`unit_target_order`] has
-/// it, queued if it was a Shift-click. Whether anything was given: nothing for a target the command can't use, nor
-/// when the sim would take none of it.
+/// Gives what the targeting click `click` resolves to ([`target_resolution`]) to its command's recipients: an order
+/// to each unit as [`unit_target_order`] has it, queued if it was a Shift-click, or the rally point to all the
+/// producers. Whether anything was given: nothing for a target the command can't use, nor when the sim would take
+/// none of it.
 fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: PressedTarget) -> bool {
-    let Some(kind) = target_order(click.pending, &click.target) else {
-        return false;
-    };
     let state = control.state();
-    let modes = Modes::of(control.sim(), &state.selection);
-    let orders = recipients(&state.selection, click.pending)
-        .into_iter()
-        .filter_map(|id| {
-            let unit = UnitCapabilities::of(id, state.selection.kind_of(id)?, &modes);
-            Some((id, unit_target_order(unit, kind)?))
-        })
-        .collect();
-    outbox.give_each(control.player(), orders, click.queue)
+    let recipients = recipients(&state.selection, click.pending);
+    match target_resolution(click.pending, &click.target) {
+        None => false,
+        Some(Resolved::Order(kind)) => {
+            let modes = Modes::of(control.sim(), &state.selection);
+            let orders = recipients
+                .into_iter()
+                .filter_map(|id| {
+                    let unit = UnitCapabilities::of(id, state.selection.kind_of(id)?, &modes);
+                    Some((id, unit_target_order(unit, kind)?))
+                })
+                .collect();
+            outbox.give_each(control.player(), orders, click.queue)
+        }
+        Some(Resolved::Rally(target)) => {
+            outbox.produce(control.player(), recipients, ProductionCommand::SetRally(target))
+        }
+    }
 }
 
 /// `> RightClickResolution`: a right-click on the map (the ContextCommand action's click) in DefaultState. Each
-/// selected unit resolves it for itself ([`unit_right_click`], design changes 0062 and 0063), whichever group is
-/// active: those that can carry out the resolved command do, the others move to the location or follow the unit
-/// under the cursor, and so do those whose Riot Shield is up, instead of attacking an enemy: they follow a unit and
-/// move to a structure (`super::resolution::order_without_attack`, design change 0074). Objects without commands do
-/// nothing. The orders go out grouped
-/// ([`OrderOutbox::give_each`]). Nothing unless the selection is all the player's (`> CommandPanel`). While a target
-/// is awaited, a right-click anywhere, over the HUD too, cancels instead (`> AwaitingTarget`).
+/// selected object resolves it for itself ([`object_right_click`], design changes 0062 and 0063), whichever group is
+/// active: the units that can carry out the resolved command do, the others move to the location or follow the
+/// unit under the cursor, and so do those whose Riot Shield is up, instead of attacking an enemy: they follow a unit
+/// and move to a structure (`super::resolution::order_without_attack`, design change 0074). The orders go out
+/// grouped ([`OrderOutbox::give_each`]). The selected producers set their rally point on what was clicked, as one
+/// `Command::Production` (`> Production Building Default Right-Click`; on a producer itself, which clears its rally
+/// point: design change 0086), whatever the Queue modifier. Objects without commands do nothing. Nothing unless the
+/// selection is all the player's (`> CommandPanel`). While a target is awaited, a right-click anywhere, over the HUD
+/// too, cancels instead (`> AwaitingTarget`).
 pub(super) fn right_click_orders(
     actions: Res<ActionState>,
     mut clicks: MessageReader<MapClick>,
@@ -364,11 +417,20 @@ pub(super) fn right_click_orders(
         }
         let target = MapTarget::at(control.sim(), &control.objects(), click.view, click.ground);
         let modes = Modes::of(control.sim(), &state.selection);
-        let orders = capabilities(&state.selection, &modes)
-            .into_iter()
-            .filter_map(|(id, unit)| Some((id, unit_right_click(unit, &target)?)))
-            .collect();
+        let mut orders: Vec<(ObjectId, OrderKind)> = Vec::new();
+        let mut rally: Option<(Target, Vec<ObjectId>)> = None;
+        for (id, object) in capabilities(&state.selection, &modes) {
+            match object_right_click(object, &target) {
+                Some(Resolved::Order(kind)) => orders.push((id, kind)),
+                // Every producer rallies on the same target: what was clicked.
+                Some(Resolved::Rally(on)) => rally.get_or_insert_with(|| (on, Vec::new())).1.push(id),
+                None => {}
+            }
+        }
         let queue = bindings.holds(InputAction::Queue, click.modifiers);
         outbox.give_each(player, orders, queue);
+        if let Some((on, producers)) = rally {
+            outbox.produce(player, producers, ProductionCommand::SetRally(on));
+        }
     }
 }

@@ -6,6 +6,7 @@ use std::fmt;
 use glam::Vec2;
 
 use super::Sim;
+use super::construction::Resolved;
 use super::producers::ProductionPlan;
 use crate::command::{Ability, Command, DebugCommand, PlayerCommand};
 use crate::defs::{Domain, ObjectKind};
@@ -14,6 +15,7 @@ use crate::nav;
 use crate::object::{Object, Placement};
 use crate::orders::{MAX_ORDER_UNITS, OrderKind, Target};
 use crate::paths::{blocking_footprint, box_overlaps_rect, boxes_overlap};
+use crate::placement::PlacementProblem;
 use crate::player::Faction;
 use crate::riot_shield;
 use crate::scenario::{SpawnProblem, place_spawn};
@@ -24,6 +26,11 @@ use crate::vision::VisibilityState;
 pub enum Reject {
     /// The issuing player, or the player a debug command names, is not in the game.
     UnknownPlayer(PlayerId),
+    /// The game is over (`core/game_rules.md > End of Game`, `Sim::outcome`): the sim accepts no command any more.
+    GameOver,
+    /// The issuing player is defeated, and nothing they had can be commanded again (`core/game_rules.md > On
+    /// Defeat`, design change 0101); or a debug spawn would give a defeated player an object.
+    Defeated(PlayerId),
     /// Debug commands are off in this game ([`super::SimConfig::debug`]).
     DebugDisabled,
     /// No object has this id: it never existed, or it is gone.
@@ -69,19 +76,42 @@ pub enum Reject {
     /// The BuildQueue of every producer that could train the unit is full (design change 0081: 20 with the unit in
     /// production).
     QueueFull,
-    /// The player's Space Crystals don't cover the unit.
+    /// The player's Space Crystals don't cover the unit, or the building to construct ("Only available if player
+    /// has sufficient Space Crystals", `factions/gdo/structures.md > DeploymentCenter >
+    /// ObjectInterfaceState[DeploymentCenter]`).
     InsufficientCrystals,
     /// The unit would take the player's Unit Control past the cap (`factions/gdo/overview.md > GDOResources > Unit
     /// Control`, design change 0082).
     UnitControlCap,
     /// Cancel Production: no producer has anything queued.
     NothingQueued,
+    /// None of the objects a construction command names is one of the player's constructors that exists
+    /// (`crate::construction`).
+    NoConstructor,
+    /// A Place names more than one constructor: one building is placed by one constructor (design change 0071).
+    SeveralConstructors,
+    /// The building isn't on the constructor's `Constructs` list (`factions/gdo/structures.md > DeploymentCenter >
+    /// Constructs`, `factions/gdo/economy.md > ExtractionFacility > Constructs`).
+    CannotConstruct(ObjectKind),
+    /// The constructor is constructing, or holds a building ready to place: "Other build options unavailable"
+    /// (`> ObjectInterfaceState[DeploymentCenter]`).
+    ConstructorBusy(ObjectId),
+    /// A Cancel Construction to a constructor that isn't constructing.
+    NotConstructing,
+    /// A Cancel Ready Building or a Place to a constructor that holds no building ready to place.
+    NothingReady,
+    /// The ready building can't be placed there (`core/entities.md > Placement Validation`, `crate::placement`): the
+    /// first problem the placement check finds. When a Place is refused for this as it applies, the sim says why
+    /// (`SimEvent::PlacementRefused`).
+    Unplaceable(PlacementProblem),
 }
 
 impl fmt::Display for Reject {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Reject::UnknownPlayer(p) => write!(f, "player {} is not in the game", p.0),
+            Reject::GameOver => write!(f, "the game is over"),
+            Reject::Defeated(p) => write!(f, "player {} is defeated", p.0),
             Reject::DebugDisabled => write!(f, "debug commands are off"),
             Reject::UnknownObject(id) => write!(f, "object {} doesn't exist", id.0),
             Reject::NotOwned(id) => write!(f, "object {} belongs to someone else", id.0),
@@ -104,6 +134,13 @@ impl fmt::Display for Reject {
             Reject::InsufficientCrystals => write!(f, "not enough Space Crystals"),
             Reject::UnitControlCap => write!(f, "not enough Unit Control"),
             Reject::NothingQueued => write!(f, "nothing is queued"),
+            Reject::NoConstructor => write!(f, "none of the objects is a constructor of the player's"),
+            Reject::SeveralConstructors => write!(f, "a building is placed by one constructor"),
+            Reject::CannotConstruct(kind) => write!(f, "the constructor doesn't construct a {}", kind.def().name),
+            Reject::ConstructorBusy(id) => write!(f, "constructor {} is busy", id.0),
+            Reject::NotConstructing => write!(f, "nothing is under construction"),
+            Reject::NothingReady => write!(f, "no building is ready to place"),
+            Reject::Unplaceable(problem) => write!(f, "the building can't go there: {problem}"),
         }
     }
 }
@@ -144,37 +181,53 @@ pub(super) enum Checked {
         player: PlayerId,
         plan: ProductionPlan,
     },
+    /// `player`'s constructors carry out what the construction checks resolved (`sim/construction.rs`).
+    Construction {
+        player: PlayerId,
+        resolved: Resolved,
+    },
 }
 
 impl Sim {
     /// The command gate: `Ok` if `cmd` would be applied now, else why it would be ignored. `Sim::step` passes every
     /// command through it before applying it, each against the state the earlier commands of the tick left. In
     /// order, it checks that:
-    /// 1. the issuing player is in the game;
+    /// 1. the issuing player is in the game, the game isn't over ([`Reject::GameOver`]) and the player isn't defeated
+    ///    ([`Reject::Defeated`]: every command, debug commands included, design change 0101);
     /// 2. a debug command comes while [`super::SimConfig::debug`] is on;
-    /// 3. every object the command refers to exists, and every object a player's own order or ability commands
-    ///    belongs to that player (debug commands may refer to anyone's objects). An order or an ability drops the
-    ///    ids of units that no longer exist, and repeated ids; it is rejected if no unit remains
+    /// 3. every object the command refers to exists, and every object a player's own order, ability, production or
+    ///    construction command commands belongs to that player (debug commands may refer to anyone's objects). These
+    ///    drop the ids of objects that no longer exist, and repeated ids; an order is rejected if no unit remains
     ///    (`docs/movement.md > 3`);
     /// 4. the command's own rules hold: an order's size and target (which the player must see,
     ///    [`Reject::NotVisible`]), and for an Attack, units that can attack now ([`Reject::CannotAttack`]); the units
-    ///    of an ability that have it ([`Reject::LacksAbility`]); a spawn's owner and placement (a footprint apart
-    ///    from the others but for a plate on its patch, [`Reject::Overlaps`]), a teleport to a unit and onto the
-    ///    map, a unit's box clear of blocked ground and of the units of its layer, and the player whose banks a
-    ///    debug command sets.
+    ///    of an ability that have it ([`Reject::LacksAbility`]); the producers of a production command and what they
+    ///    can queue (`sim/producers.rs`); the constructors of a construction command that can carry it out, the bank
+    ///    that pays and the placement check of a Place (`sim/construction.rs`); a spawn's owner and placement (a
+    ///    footprint apart from the others but for a plate on its patch, [`Reject::Overlaps`]), a teleport to a unit
+    ///    and onto the map, a unit's box clear of blocked ground and of the units of its layer, and the player whose
+    ///    banks a debug command sets.
     pub fn validate(&self, cmd: &PlayerCommand) -> Result<(), Reject> {
         self.check(cmd).map(|_| ())
     }
 
     /// [`Sim::validate`], keeping what the checks resolved for applying the command.
     pub(super) fn check(&self, cmd: &PlayerCommand) -> Result<Checked, Reject> {
-        if self.player(cmd.player).is_none() {
+        let Some(player) = self.player(cmd.player) else {
             return Err(Reject::UnknownPlayer(cmd.player));
+        };
+        // `core/game_rules.md > End of Game`, `> On Defeat` (design change 0101).
+        if self.outcome.is_some() {
+            return Err(Reject::GameOver);
+        }
+        if player.is_defeated() {
+            return Err(Reject::Defeated(cmd.player));
         }
         match &cmd.command {
             Command::Order { units, kind, queue } => self.check_order(cmd.player, units, *kind, *queue),
             Command::Ability { units, ability } => self.check_ability(cmd.player, units, *ability),
             Command::Production { objects, command } => self.check_production(cmd.player, objects, *command),
+            Command::Construction { objects, command } => self.check_construction(cmd.player, objects, *command),
             Command::Debug(debug) => {
                 if !self.config.debug {
                     return Err(Reject::DebugDisabled);
@@ -322,6 +375,13 @@ impl Sim {
                 let is_player = |p| self.player(p).is_some();
                 let (pos, placement) =
                     place_spawn(&self.map, kind, owner, at, orientation, is_player).map_err(Reject::Spawn)?;
+                // A defeated player stays defeated and owns nothing (`core/game_rules.md > On Defeat`): no object
+                // of theirs, and no eyes for their vision, comes back.
+                if let Some(owner) = owner
+                    && self.player(owner).is_some_and(|p| p.is_defeated())
+                {
+                    return Err(Reject::Defeated(owner));
+                }
                 match &placement {
                     Some(placement) => {
                         self.check_footprint_apart(kind, placement)?;

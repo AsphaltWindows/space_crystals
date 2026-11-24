@@ -5,13 +5,13 @@
 
 use bevy::prelude::*;
 use sc_sim::{ObjectId, OrderKind};
-use space_crystals::command_ui::{InterfaceState, TARGETING_CLICK_ALLOWANCE_PX, UnitCommand};
+use space_crystals::command_ui::{InterfaceState, PanelCommand, TARGETING_CLICK_ALLOWANCE_PX};
 use space_crystals::input::DRAG_THRESHOLD_PX;
 
 use super::*;
 use KeyCode::KeyA;
 
-const AWAIT_ATTACK: InterfaceState = InterfaceState::awaiting(UnitCommand::Attack);
+const AWAIT_ATTACK: InterfaceState = InterfaceState::awaiting(PanelCommand::Attack);
 
 /// The left button goes down at the view point `view`, the cursor moves by each of `moves` (logical pixels, from
 /// the press point) a frame each, and the button comes up there. Then a [`pause`]. Whether the selection box was

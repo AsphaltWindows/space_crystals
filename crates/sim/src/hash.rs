@@ -218,12 +218,14 @@ impl StateHash for Player {
             faction,
             crystals,
             supplies,
+            defeated_at,
         } = self;
         id.hash(h);
         name.hash(h);
         faction.hash(h);
         crystals.hash(h);
         supplies.hash(h);
+        defeated_at.hash(h);
     }
 }
 
@@ -295,6 +297,7 @@ impl StateHash for Object {
             riot_shield,
             extractor,
             production,
+            constructor,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -307,14 +310,14 @@ impl StateHash for Object {
         placement.hash(h);
         resource.hash(h);
         // Their impls live with their types (`orders.rs`, `mover.rs`, `combat.rs`, `riot_shield.rs`,
-        // `economy/mining.rs`).
+        // `economy/mining.rs`, `production.rs`, `construction.rs`).
         orders.hash(h);
         mover.hash(h);
         attack.hash(h);
         riot_shield.hash(h);
         extractor.hash(h);
-        // `production.rs`.
         production.hash(h);
+        constructor.hash(h);
     }
 }
 

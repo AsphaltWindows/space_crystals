@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serializer};
 
 use super::{Sim, SimConfig};
+use crate::economy::Outcome;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
@@ -32,6 +33,9 @@ pub(super) struct SimState {
     tick: Tick,
     map: Map,
     players: Vec<Player>,
+    /// Optional, so that states saved before the end of the game existed still load.
+    #[serde(default)]
+    outcome: Option<Outcome>,
     objects: Vec<Object>,
     next_id: u32,
     rng: Rng,
@@ -52,6 +56,7 @@ impl TryFrom<SimState> for Sim {
             tick,
             map,
             players,
+            outcome,
             objects: list,
             next_id,
             rng,
@@ -74,6 +79,9 @@ impl TryFrom<SimState> for Sim {
         }
         // The Visible tiles follow from the objects, which is how phase 5f left them.
         let ids: Vec<PlayerId> = players.iter().map(|p| p.id).collect();
+        if let Some(winner) = outcome.iter().flat_map(|o| &o.winners).find(|w| !ids.contains(w)) {
+            return Err(format!("winner {} is not in the game", winner.0));
+        }
         let vision = vision::load(&map, &ids, saved, tick, objects.values())?;
         // Between ticks the true grids match the objects and each player's what it knows (`paths`), so rebuilding
         // them gives the running game's.
@@ -83,6 +91,7 @@ impl TryFrom<SimState> for Sim {
             tick,
             map,
             players,
+            outcome,
             objects,
             next_id,
             rng,

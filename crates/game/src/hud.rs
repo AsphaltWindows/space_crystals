@@ -9,7 +9,8 @@
 //! of [`layout`], which also find the portrait or the command button under a click. Two panels show the selection:
 //! the InfoPanel ([`info_panel`]) and the SelectionPanel ([`selection_panel`]); the CommandPanel
 //! ([`command_panel`]) shows the commands for it (`crate::command_ui`). The others show their names, and so do these
-//! three while they have nothing to show.
+//! three while they have nothing to show. At the end of the game a banner shows Victory or Defeat, and a defeated
+//! player gives no more commands ([`outcome`]).
 //!
 //! The HUD is specific to the game mode: it tells the camera which strip it leaves free through
 //! [`ViewportInsets`], and another mode (the map editor) brings its own UI instead and hides the HUD.
@@ -17,6 +18,7 @@
 pub mod command_panel;
 pub mod info_panel;
 pub mod layout;
+pub mod outcome;
 pub mod resources;
 pub mod selection_panel;
 
@@ -137,6 +139,7 @@ impl Plugin for HudPlugin {
         app.insert_resource(HUD_INSETS)
             .init_resource::<selection_panel::SelectionPanelView>()
             .init_resource::<command_panel::CommandPanelView>()
+            .add_plugins(outcome::OutcomePlugin)
             .add_systems(Startup, spawn_hud)
             .add_systems(Update, (update_top_bar, update_replay_note, show_hud_in_game_modes))
             // After the frame's input, which may switch the local player.

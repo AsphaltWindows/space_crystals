@@ -6,7 +6,7 @@
 //! are none: every object shows as it is.
 //!
 //! Synced only when what it shows may change: the sim, the local player, the fog or the mode, and within a sim the
-//! player's tiles or records (`PlayerVision::revision`, `PlayerVision::records_revision`).
+//! tiles or records of the visions the local player watches (`Sight::revision`, `Sight::records_revision`).
 
 use std::collections::BTreeMap;
 
@@ -15,7 +15,7 @@ use sc_sim::vision::LastKnown;
 use sc_sim::{ObjectId, ObjectKind, Placement, PlayerId};
 
 use super::{MeshKey, ObjectVisualAssets, object_height, object_transform, structures, visual_mesh};
-use crate::fog::{EXPLORED_ALPHA, LocalSight};
+use crate::fog::{EXPLORED_ALPHA, LocalSight, Revision};
 use crate::sim_driver::SimRes;
 
 /// Links a visual entity to the record it shows: the local player's record of object `0`.
@@ -38,9 +38,10 @@ struct Shown {
     generation: u32,
     player: PlayerId,
     fogged: bool,
-    /// The player's `PlayerVision::revision` and `PlayerVision::records_revision`; `None` for a player who isn't in
-    /// the game.
-    revisions: Option<(u32, u32)>,
+    /// The sight's `Sight::revision`: whom it watches, and their tiles.
+    revision: Option<Revision>,
+    /// Its `Sight::records_revision`: their records.
+    records_revision: Option<Revision>,
 }
 
 /// How much of its colour a record's visual keeps: the fog's [`EXPLORED_ALPHA`] of black over it, as over the
@@ -64,12 +65,12 @@ pub(super) fn sync_remembered_visuals(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let seen = sight.get();
-    let vision = sim.vision().player(seen.player());
     let shown = Shown {
         generation: sim.generation(),
         player: seen.player(),
         fogged: seen.is_fogged(),
-        revisions: vision.map(|v| (v.revision(), v.records_revision())),
+        revision: seen.revision(),
+        records_revision: seen.records_revision(),
     };
     if visuals.shown == Some(shown) {
         return;

@@ -27,7 +27,7 @@ fn flashes(app: &App) -> Vec<OrderKind> {
 }
 
 /// How many vertices the indicators' mesh has; 0 while it is hidden.
-fn drawn_vertices(app: &mut App) -> usize {
+pub(super) fn drawn_vertices(app: &mut App) -> usize {
     let mut query = app
         .world_mut()
         .query_filtered::<(&Mesh2d, &Visibility), With<IndicatorMesh>>();
