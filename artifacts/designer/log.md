@@ -2013,3 +2013,5 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T20:01:04-05:00 — Add inputs on enemy selection do nothing. Doc: selection_and_hud.md. Change entry 0053.
 - 2026-11-23T20:01:57-05:00 — InfoPanel 2+ placeholder, bookmarked. Change entry 0054.
 - 2026-11-23T20:03:22-05:00 — SelectionPanel grouping bookmarked for HUD pass. Change entry 0055.
+- 2026-11-23T20:22:55-05:00 — Control groups own objects only. Doc: selection_and_hud.md. Change entry 0056. Took in Q0018, Q0019.
+- 2026-11-23T20:23:15-05:00 — Q0019 answered from docs: GDO sees live delivery timer for remembered station. Doc: core/map.md. Change entry 0057.

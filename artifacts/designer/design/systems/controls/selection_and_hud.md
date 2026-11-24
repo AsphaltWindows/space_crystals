@@ -64,6 +64,8 @@ A set of 10 saved selections (indexed 0-9) stored per player as part of ControlS
 
 ### Groups - array of 10 ObjectInstance reference arrays
 
+**Own objects only** (user, 2026-11-23): only the player's own objects can be put into a control group. Assign or Add with a non-owned object selected does nothing.
+
 ### Operations:
 - Assign: replace a control group's contents with the current Selection
 - Add: merge the current Selection into an existing control group (no duplicates)
