@@ -37,6 +37,8 @@ The transforming unit is vulnerable to attack for the entire deployment duration
 ### Cancel Deployment
 The player may cancel the deployment at any point before it completes. The transformation reverses immediately and the unit reverts to being a normal, fully-functional Drone (no HP/Shields loss).
 
+**HP and Shields on cancel** (user, 2026-11-24): the Drone returns with its own maxima and the **same fraction** of HP and Shields the Beacon had at the moment of cancelling. Example: cancelled at 90/120 HP (75%) → Drone at 15/20. Cancelling never kills: the result is at least 1 HP. Rejected: restoring the values from when deployment started (deploying would be a free damage sponge, since cancelling costs nothing), and subtracting what the interpolation added (could kill on cancel).
+
 ### Completion
 Once the 48 frames elapse, the transformation is final and one-way. The resulting Beacon can never revert back into a Drone.
 
@@ -111,6 +113,8 @@ The transforming structure is vulnerable to attack for the entire Warp In durati
 
 ### Cancel Warp In
 The player may cancel the Warp In at any point before it completes. Cancelling refunds 75% of the building's resource cost (rounded down), and the structure reverts to being a normal, fully-functional Beacon (no HP/Shields loss).
+
+HP and Shields on cancel work as in Beacon Deployment > Cancel Deployment: the Beacon returns with the same fraction of HP and Shields the building had, at least 1 HP (user, 2026-11-24). Example: cancelled at 50% HP → Beacon at 60/120.
 
 ### Beacon Capacity Retention
 Every Colonists building provides 5 BeaconCapacity — the Beacon itself, and every structure Warped In from one, since they all originate from a Beacon and retain its BeaconCapacity contribution in addition to their own new function/production capabilities.

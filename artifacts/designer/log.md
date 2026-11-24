@@ -2071,3 +2071,4 @@ Q0038 pt 2: reference check geometry = 2 GU edge to edge, node centred on the ro
 Q0038 pt 3: oracle tolerance ±15% + targets 1–4; reference layout is a benchmark only. File: factions/gdo/economy.md. Entry 0108. Q0038 done.
 Q0039 pt 1: deploying Drone / warping Beacon is the target structure from the first frame (footprint claimed, same object). File: factions/colonists/economy.md. Entry 0109.
 Q0039 pt 2: interpolation sets max; current rises by same amount (damage stays). Entry 0110.
+Q0039 pt 3: cancel keeps HP/Shields fraction, >=1 HP. Entry 0111. Q0044 arrived (recorded).
