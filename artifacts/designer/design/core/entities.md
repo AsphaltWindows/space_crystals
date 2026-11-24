@@ -95,6 +95,14 @@ Structure placement is validated differently depending on the placement method:
 - The worker pathfinds to the location and validates on arrival: tiles must be Buildable, flat (core/map.md > Elevation), unoccupied, and meet faction-specific constraints
 - **Units block** (user, 2026-11-24): "unoccupied" includes units, as in Direct Placement: a ground unit of any player on the footprint makes the site invalid; the building worker itself (e.g. the deploying Drone) doesn't count. Air and underground units never block.
 - If validation fails on arrival, the command is cancelled and the worker stops and idles
+
+### Lingering build ghosts
+(user, 2026-11-24) Every **ordered worker build** (Drone Deploy, Agent build, Cults Recruits' Construct), including **every Shift-queued one**, leaves a **ghost of the building on its site** until construction actually starts.
+- **Visible to its owner.** Enemies never see it. Whether allies see it: TBD.
+- **Reserves the site against the owner's further placements**: a new ghost overlapping it is invalid (red). This is how a Drone group's Deploy reaches only one Drone (systems/controls/selection_and_hud.md > SelectionGroup > Groupable workers used up by a build).
+- **Doesn't block units**: anyone can walk over it; units standing on the site still make the build fail on arrival (Worker-Built Structures above).
+- **Disappears** when construction starts (the real structure replaces it) or when the order is cancelled, replaced by a new order, or fails.
+- Reservation against allies' placements: TBD (with ally visibility).
 - No visibility requirement on arrival (the worker is physically present)
 
 ### Warp In (Colonists Beacon transformation, see factions/colonists/economy.md > Warp In)

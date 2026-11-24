@@ -15,7 +15,8 @@ The Colonists' worker unit. Gathers Space Crystals and deploys into Beacons (see
 ### FullArmor - 0
 ### SightRange - 5 grid units
 ### Destructible - true
-### Groupable - false
+### Groupable - true
+(user, 2026-11-24; was false) Bulk commands (Move, Stop, Set Drop-off) reach every selected Drone; a Deploy goes to one Drone only (systems/controls/selection_and_hud.md > SelectionGroup > Groupable workers used up by a build).
 ### BeaconCapacityCost - 1
 
 With 5 BeaconCapacity per Beacon and the Drone's own 1 freed when it starts deploying, each Beacon is a net +6: beyond the starting 10 BeaconCapacity, roughly every 6th Drone must deploy as a Beacon to keep Drone production going.
@@ -118,7 +119,7 @@ Drones can deploy into a Beacon (see Beacon Deployment above). This transformati
 - Enemy or other object → Move to that object's location (Drone is unarmed and cannot attack)
 - Ground → Move
 
-Multiple Drones can be selected simultaneously. Right-click commands are issued to all selected Drones even though the Drone is ungroupable (no shared control panel — the panel displays one Drone's interface).
+Multiple Drones can be selected simultaneously and form one SelectionGroup (Groupable). Right-click commands and Set Drop-off go to every selected Drone; Deploy goes to one Drone (first in selection order without a Deploy; see Groupable above).
 
 ## Scout
 
