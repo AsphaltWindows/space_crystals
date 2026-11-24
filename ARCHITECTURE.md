@@ -163,8 +163,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   see *Economy > Gathering*); for an object transforming into its kind (a Beacon warping in a building, a
   Beacon deploying from a Drone), `transform` (`Transform`, `transform.rs`: what it was and where it stood, how far it
   has come, what it paid and the load a deploying Drone carried, see *Economy > Warp In* and *> Beacon Deployment*);
-  for a Legionnaire converting its weapon, `conversion` (`Conversion`, `conversion.rs`: the frames left, see *Combat >
-  Weapon Conversion*). The rest arrives as more optional fields, each with its own module. Never add them as separate
+  for a Legionnaire converting its weapon, `conversion` (`Conversion`, `conversion.rs`: the frames left, or a
+  conversion that waits for the unit's Cooldown, design change 0153; see *Combat > Weapon Conversion*). The rest arrives as more optional fields, each with its own module. Never add them as separate
   stores keyed by id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
@@ -316,8 +316,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
 5. **Systems**, each walking the objects in id order, one function per module (`docs/movement.md > 4`):
    - Modes, `Sim::step_modes` (`sim/modes.rs`, beside `Sim::use_ability`, which applies the ability commands): a
      Riot Shield on its way up or down goes on one tick (`riot_shield::step`), and a Weapon Conversion one frame; a
-     conversion whose frames are done makes the unit its other form there (`conversion::step`, `Sim::change_kind`;
-     see *Combat > Weapon Conversion*). After the commands, so that a toggle or a Convert counts from its own tick;
+     conversion pressed mid-attack begins in the first Modes step after the unit's Cooldown (design change 0153),
+     and a conversion whose frames are done makes the unit its other form there (`conversion::step`,
+     `Sim::change_kind`; see *Combat > Weapon Conversion*). After the commands, so that a toggle or a Convert counts from its own tick;
      before 5a, so that the behaviours, the movement and the combat of the tick all see the mode it leaves, and the
      new kind is in place before 5b.
    - 5a `orders::update`: a unit's finished order completes and its next one starts, until one is in progress, so
@@ -479,9 +480,15 @@ ticks spent in it. Hashed and serialized like all state.
 - **Weapon Conversion** (`conversion.rs`, `sim/modes.rs`; `factions/colonists/units.md > Weapon Conversion`, plan
   decision T26): `Ability::Convert` makes each Sabre Legionnaire it goes to a Rifle Legionnaire and each Rifle a Sabre
   (`conversion::converts_to`). The gate drops the units without another form (`Reject::LacksAbility` when none has one)
-  and those Firing, in Cooldown or converting (`conversion::may_convert`, `> Eligibility`; `Reject::CannotConvert` when
-  none is left, question Q0042 point 9). A Convert cancels an Aim or a Reload, keeping the target (design change 0152:
-  the new weapon starts ready), and starts `Object::conversion` for `CONVERT_TICKS`, 4 frames: the unit holds still and
+  and those converting already or waiting to (`conversion::may_convert`, `> Eligibility`; `Reject::CannotConvert` when
+  none is left; a placeholder reading of `> Completion`, so that a second R while a group converts leaves it one
+  form). **Pressed mid-attack** (design change 0153: "deferred, not rejected"), a unit Firing or in Cooldown
+  (`conversion::mid_attack`) fights on, its `Conversion::deferred`, and its conversion begins in the first Modes step
+  after its Cooldown's last tick, before the Reloading that followed runs a tick, as a Convert given then would; so
+  one R converts a whole group in a fight, the mid-swing units 1 to 4 frames later (a Sabre's Firing and Cooldown;
+  design change 0172 will hold a Riot Shield raised mid-attack by the same rule). A Convert cancels an Aim or a
+  Reload, keeping the target (design change 0152: the new weapon starts ready), and starts `Object::conversion` for
+  `CONVERT_TICKS`, 4 frames: the unit holds still and
   doesn't turn (`may_move`, `may_turn`; its behaviours see it can't move; `Mover::speed_factor` 0, so it yields to
   nobody), its attack idles, and it can be attacked throughout (`> Vulnerability`). Converted in tick `t`, it holds
   through tick `t + 3`, and the Modes step of `t + 4` makes it its other form through `Sim::change_kind`, HP and Shields
@@ -491,18 +498,23 @@ ticks spent in it. Hashed and serialized like all state.
 - **Removal path**: `Sim::remove_objects` (`sim/removal.rs`) is the one way objects leave the game, for deaths and
   debug removals alike. It emits `Removed` and clears every reference to the removed: a current order naming one
   completes, queued ones are dropped, a move towards one ends `TargetLost`, an attack on one stops (an aim is
-  cancelled, a shot being fired hits nothing). `testing::dangling_references` checks that none are left. The one
-  exception is a Gather whose patch leaves: it heads for where the patch was (`ActiveOrder::live_target`, see
-  *Behaviours > Gathering*).
+  cancelled, a shot being fired hits nothing). An order outlives its target by one rule (`Order::outlives_target`):
+  an Attack, a Move to an object or a Gather on an object its holder's owner still remembers goes on to the
+  last-known position (design change 0139: "nothing about the real state leaks"), and a Gather whose patch leaves
+  heads for where the patch was (`Gather::spot`, see *Behaviours > Gathering*); the next tick's snapshot sees such a
+  target Remembered until its place is seen, and Gone then (`sim/removal.rs::forget_seen_gone` ends what names it).
+  `testing::dangling_references` checks that nothing else names a removed object.
 - **Riot Shield** (`riot_shield.rs`; `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`): a
   unit whose `UnitDef::riot_shield` is set starts with its shield `Lowered`; `Command::Ability` raises or lowers it,
   through `Raising { left }` or `Lowering { left }` for the toggle time (`RiotShieldDef::toggle_ticks`, 6 ticks, a
   placeholder: the design says under half a second), so a toggle in tick `t` is done at the end of tick
   `t + toggle_ticks − 1`, and a reversal turns back from where the shield is. While it isn't `Lowered` the unit
   moves at half speed (`Mover::speed_factor`, written when the mode changes) and can't attack: the gate drops it
-  from Attack orders (`Reject::CannotAttack` when none is left), its behaviours see no attack (`Unit::attrs`: no
-  auto-targeting, an Attack order gives up, Hold disengages), and 5e cancels an aim (`can_attack_now` is false); a
-  shot already being fired lands. Only while it is `Raised` is the damage it takes halved, a pre-armor multiplier
+  from new Attack orders (`Reject::CannotAttack` when none is left; design change 0075), its behaviours see no attack
+  (`Unit::attrs`: no auto-targeting, Hold disengages), and 5e cancels an aim (`can_attack_now` is false); a shot
+  already being fired lands. **Orders are kept** (design change 0150): an Attack it had goes on hold, following its
+  target as a Move to it would (`AttackOrder::on_hold`), and attacks again once the shield is down; an AttackMove or
+  a Patrol only moves meanwhile (0076); the toggle never touches the queue, and Shift means nothing for it (0151). Only while it is `Raised` is the damage it takes halved, a pre-armor multiplier
   (`damage::pre_armor_multiplier`, with the Rugged bonus). A mode is not a task: the unit keeps its orders and
   yields like any other (design change 0023). The placeholders are listed in the module docs.
 - **Not yet**: turrets, projectiles, AttackGround and the other location-targeted attacks, AoE.
@@ -528,7 +540,11 @@ or `Visible` for each player, and each player remembers the structures and resou
   is rewritten at the end of every such tick (`Vision::remember`, the last phase) and stays as it was out of sight.
   A record whose object is gone, or has moved, is dropped once a tile under the record is Visible: an object
   destroyed in the fog is remembered until its place is seen. An object placed on Explored tiles gets no record, so
-  it stays unknown until seen. Own objects are never recorded.
+  it stays unknown until seen. Own objects are never recorded. **The map's neutral objects are known from the
+  start** (design change 0159, `core/vision.md > Explored`: "like terrain"): as the game starts (`Sim::settle_start`)
+  `Vision::seed` gives every player a record of each object without an owner (the crystal patches, the Supply
+  Delivery Stations), `seen` 0, before the first sight; the players' Starting Layouts are never pre-known, and an
+  object that appears later is unknown until seen.
 - **Memory updates follow the vision's changes**, never a scan of the map or of every object for every player:
   5f's id-order walk over the objects also merges the footprints of the tile-based objects (`Footprints`), so only
   a footprint that came or went touches the index from tiles to objects; `see` and `unsee` note the tiles whose
@@ -549,9 +565,8 @@ or `Visible` for each player, and each player remembers the structures and resou
   tiles under any record) and `records_revision` (changes when a record comes, goes or moves; not when only its
   state changes).
 - **Paths** are planned from what each player knows (design changes 0040 and 0042; *Navigation > Path knowledge*):
-  the records' footprints are the other players' structures and the resources it knows of; its own come from the
-  live objects, as they are never recorded. Map-placed patches and stations, known from the start for paths, are
-  records only once seen: until then `PathKnowledge` holds them, so the fog shows nothing of them.
+  the records' footprints are the other players' structures and the resources it knows of, the map's from the start
+  (0159); its own come from the live objects, as they are never recorded.
 
 ## Behaviours
 
@@ -579,6 +594,10 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   path completes the order); the target out of its owner's sight (design change 0034: the unit walks to the **last
   seen position**, which the behaviour notes while it sees the target, and the order completes there; it never
   re-engages on the way); the approach failed, or ended as near as the unit gets to a target that hasn't moved.
+  **A remembered target** (design change 0139; the snapshot's `World::known`, the owner's `TargetView`): the unit
+  walks to its last-known position, engaging nothing (`AttackOrder::remembered`), attacks it once its owner sees it
+  standing, and stops where its owner sees its place empty, "the way it would for a vanished target" (the next
+  queued order starts). The removal path leaves such an order alone (*Combat > Removal path*).
 - **Idle units** (`engage::idle`): scan their SightRange every tick; the acquired enemy is engaged with `close_in`
   from the IdleOrigin, where the unit stood. Farther than `IDLE_LEASH_GU` (4) from it the unit disengages and walks
   back without scanning; a target destroyed or out of SightRange leaves it idle where it is.
@@ -590,7 +609,10 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   itself; the follower waits within proximity (or where it was stopped near it, without re-routing) and sets off
   again when the target moves. It ends with a new order, the target's death, a failed move, or an enemy target
   going out of sight (to its last seen position, as for Attack). "Leaves the map" (transports, buildings, tunnels)
-  is a documented hook in `approach`.
+  is a documented hook in `approach`. A remembered object (0139) is approached at its last-known position, as an
+  Attack's. **A Move or Follow whose target is the unit itself is a Stop** (design change 0168): it halts, and the
+  order ends at once, as if arrived; a Shift-queued one completes in the tick it starts; the other units of the
+  order follow it as usual (a right-click on one of the selected units).
 - **AttackMove** (`travel::march`): one `Leg` to the unit's own destination (the magic box). While moving it scans
   its SightRange and engages with `close_in`; it lets go, and resumes the move with a new path, when the target is
   destroyed or no longer valid, or when the unit is farther than `ATTACK_MOVE_LEASH_GU` (6) from its PathReference.
@@ -608,7 +630,8 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
     occupies nothing ("Drones travelling to it do not count"); one that sets off for a free patch claims it for the
     tick, so that no other look in that tick picks it too. Of the workers waiting at a patch the lowest id mines it.
   - **Looking round** (`search::search`; 0131, 0141): among the patches the owner knows (seen or remembered, the
-    snapshot's `World::knows`) that no plate covers, within the worker's `WorkerDef::search_radius` (6 GU, a
+    map's from the start, 0159: `World::known_patches_near`, from its records and sight) that no plate it knows of
+    covers, within the worker's `WorkerDef::search_radius` (6 GU, a
     placeholder, centre to centre) around the worker, the nearest free one it can reach (`World::reachable`: a tile
     against the footprint is in the unit's component of its owner's planning grid; the grids leave units out). An
     arrival at a taken patch, or a leg that ends short of one (0141), moves the **order itself** on to that patch,
@@ -619,12 +642,17 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
     again: it goes to a patch that has freed up, or, short of an unreachable one, tries its leg again. One phase for
     all: counted from each worker's own start, the waiters looked round in different ticks and each went for the
     same freed patch (measured: 0.5 Space Crystals per second less with 20 and with 24 Drones).
-  - **A patch that leaves the game** (depleted, 0134; under a plate, 0137): the removal path keeps its gatherers'
-    orders on it and gives them its centre (`Sim::keep_gatherers_on_spots`, `Gather::spot`), and
-    `ActiveOrder::live_target` is `None` for them: the one order that may name an object that is gone. Those at the
-    patch look round at once, one on its way when it gets to the spot, one carrying a load back after its drop-off
-    ("the search radius is centred on the field"). With only occupied patches left it waits at the nearest; with
-    none, the Gather ends.
+  - **Patches by knowledge** (design change 0139, slice M3-R): the behaviour sees its patch as its owner does
+    (`World::known_patch`: seen, or remembered at its last-known footprint). A Gather on a patch out of sight walks
+    to its last-known spot (`legs::approach_point` on the known footprints, `World::known_fixed`), noting it in
+    `Gather::spot` (`note_spot`), and mines it once its owner sees it there; one in reach but not yet seen holds a
+    tick. A claim names the claimer's owner, and a patch out of sight counts as taken only by its owner's own claims
+    and miners, so nothing of an unseen enemy leaks.
+  - **A patch that leaves the game** (depleted, 0134; under a plate, 0137), or is seen gone: the removal path keeps
+    its gatherers' orders on it and gives them its centre (`Sim::keep_gatherers_on_spots`, `Gather::spot`;
+    `Order::outlives_target`, the one rule of *Combat > Removal path*). Those at the patch look round at once, one
+    on its way when it gets to the spot, one carrying a load back after its drop-off ("the search radius is centred
+    on the field"). With only occupied patches left it waits at the nearest; with none, the Gather ends.
   - **A Gather ends** only then (0123): the worker delivers what it carries (`Gather::ending`), the order completes
     and the queue goes on; orders Shift-queued behind a Gather, a Deploy as much as any, wait for that. **A Drop Off
     order** is only a delivery (0127): it completes at the drop-off, the worker idling there or starting its next
@@ -690,15 +718,14 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   `nav_counters()` and `nav_rebuilds()` (sets of grids the latest step rebuilt) expose it to tests and overlays.
 - **Path knowledge** (`paths/knowledge.rs`; `systems/controls/behaviors.md > PathKnowledge`, design changes 0040
   to 0042): paths are planned only from what the unit's owner knows, and units collide with what is there.
-  - **What a player knows** to block the ground, besides the terrain: the footprints it owns; those of its
+  - **What a player knows** to block the ground, besides the terrain: the footprints it owns, and those of its
     vision's records (seen and not seen gone, so a structure destroyed in the fog stays a wall at its last-known
-    position, and one never seen is open ground); and the map's resources it hasn't seen the place of yet, which
-    it assumes (`PlayerKnowledge::assumed`: every resource the game started with, dropped the first time a tile
-    under it is Visible; from then on the record says what the player knows). Only resources are "known from the
-    start": a structure a Custom map pre-places is known to the others once seen.
-  - **State**: `Sim::path_knowledge()` (`PathKnowledge`: per player the assumed resources and a `version`, which
-    counts the changes of the set of footprints it knows) is history, hashed and serialized; a save's is checked
-    on load. The known grids (`Sim::known_nav(player)`) are derived from it, the objects and the vision.
+    position, and one never seen is open ground). The map's neutral objects are records from the start (design
+    change 0159, *Vision > Memory*), so a field never seen is routed around like terrain; the players' Starting
+    Layouts are known once seen. (`PlayerKnowledge::assumed`, the resources assumed before 0159, stays only so that
+    older saves load: a game starts it empty.)
+  - **State**: `Sim::path_knowledge()` (`PathKnowledge`: per player a `version`, which counts the changes of the
+    set of footprints it knows) is history, hashed and serialized; a save's is checked on load. The known grids (`Sim::known_nav(player)`) are derived from it, the objects and the vision.
   - **Plan on knowledge, collide on truth**: `NavState::planning(owner)` and `plan_grid` give the grids a unit
     plans on. Path requests, the staggered checks, a chase's line of sight and the nearest reachable point of a
     destination or an object goal use them. The movement step, the gate's spawn and teleport checks, scenario
@@ -711,7 +738,7 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   - **Timing**: the known grids are brought up to date once per tick, at its end (*Tick pipeline*), so during a
     tick they are those of the end of the tick before (an own structure placed by a command joins them at the end
     of its tick), each player's are rebuilt at most once per tick, and a loaded save rebuilds exactly the running
-    game's. A resource seen for the first time moves from assumed to remembered without a rebuild.
+    game's.
   - **Lazy**: a player's grids exist only while it has a unit that walks on a grid; `ensure_known` builds them
     for an order in the tick of its first unit's spawn.
   - **No owner**: a neutral unit (and a defeated player's, design change 0101) plans on the true grids by
@@ -1155,18 +1182,19 @@ Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' po
   draws, nor does a portal whose closest door is free, so the GDO goldens don't move. A release that then finds no
   spot in the door (`Sim::doorway_spot`, nearly never) waits, and draws again in the next tick. The Rng is hashed
   and saved, so replays and saves draw the same doors.
-- **Rally points** (`production/rally.rs`): `Rally::Point` or `Rally::Object { id, at }`. A released unit gets the
-  order `rally::order_for` gives, through `Sim::give_order` like a player's: Move to the point; Attack an enemy
-  object (if the unit attacks and the object is destructible); Move to the point where the rally shows an enemy for
-  a unit that can't attack (`> Robo Portal > RallyPoint behavior`: "rally on enemy -> Move to that location (Drone
-  is unarmed and cannot attack)"); Gather, for a worker on a patch it can gather (question Q0037 point 9); Move to
-  any other object. Without a rally point it walks out of the doorway and stops (design change 0086). The producer
-  itself as the target clears the rally. A
-  rally on an object that is removed resets to None (`Production::forget`). A rally on an **enemy** follows it only
-  while the owner sees it: at the end of each tick `rally::follow` notes where the owner sees it, or turns the rally
-  into a ground rally at the last such position (design change 0088), so an enemy dying in the fog changes nothing.
-  **Placeholder** (0088's TBD, question Q0017 point 2): a rally set on a remembered object out of sight is a ground
-  rally at the centre of its record's footprint.
+- **Rally points** (`production/rally.rs`): `Rally::Point` or `Rally::Object { id, at }`. A released unit gets its
+  **own default right-click command** on the rally target (design change 0136, `systems/controls/selection_and_hud.md
+  > What a rally point makes a new unit do`: "No per-building lists override this"), through `Sim::give_order` like
+  a player's: `Sim::rally_order` is `Sim::default_order` (`orders/resolution.rs`, the one rule of *Commands > Default
+  orders*) on the target as the owner knows it, so a Drone rallied on a patch gathers it and on an enemy follows it
+  (it is unarmed), a Peacekeeper attacks an enemy, and a rally on the ground is a Move there. Without a rally point
+  it walks out of the doorway and stops (design change 0086). The producer itself as the target clears the rally. A
+  rally on an object that is removed and that the owner doesn't remember resets to None (`Production::forget`). At
+  the end of each tick `rally::follow` (`Sim::follow_targets`) notes where the owner sees the object: an **enemy
+  unit** leaving its sight turns the rally into a ground rally at its last-seen position (design change 0088), so an
+  enemy dying in the fog changes nothing; a **structure** or a resource stays the rally out of sight, at its
+  last-known position, until the owner sees its place without it (design change 0139: "A rally point on an enemy
+  structure stays on it after it leaves sight"), and a rally may be set on one the owner only remembers.
 - **Tests**: `src/production.rs` and `production/exit/tests.rs` (the queue, the Barracks' door in all 8
   orientations and its rule, the portals' doors, the door a unit is in, the room before a door, the choice of
   door), and `tests/production/`: `queue.rs` (times, the power ratio, train and cancel, the limit
@@ -1200,7 +1228,7 @@ Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' po
   (`DebugDisabled`), then the command's own rules: every id it names exists (`UnknownObject`) and, for a player's
   orders to objects, belongs to that player (`NotOwned`, through `Sim::referenced(id, Some(player))`; debug commands
   and targets may name anyone's objects), positions are finite and on the map (`OffMap`), an order's target
-  object is in the issuing player's sight (`NotVisible`, below), spawns fit (`Spawn(SpawnProblem)`) and keep apart
+  object is one the issuing player sees or remembers (`NotVisible`, below), spawns fit (`Spawn(SpawnProblem)`) and keep apart
   from other footprints (`Overlaps(id)`, see Object model). A rejected command changes nothing, neither the state
   nor the events, and never panics.
   The one rejection the sim reports is a Place or a Warp In the placement check refuses (plan decision T4): the
@@ -1213,8 +1241,9 @@ Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' po
   ids (`TooManyUnits`), repeated ids count once, ids of objects that are gone and objects that take no orders are
   dropped, and nothing left is `NoUnits`; any id of another player's object rejects it (`NotOwned`). Points must be
   finite and on the map, target objects must exist (`UnknownObject`) and an attack's target be destructible
-  (`NotAttackable`). A Gather's target is a Space Crystals patch with no plate on it (`NotGatherable`) that the
-  player sees, a Drop Off's a drop-off of the player's own (`NotDropOff`), and only the workers among the units
+  (`NotAttackable`). A Gather's target is a Space Crystals patch the player sees or remembers, with no plate on it
+  that the player knows of (`NotGatherable`; a remembered one judged by its record), a Drop Off's a drop-off of the
+  player's own (`NotDropOff`), and only the workers among the units
   take either (`NoWorkers` if there is none; `sim/workers.rs`), a Drop Off only those that carry a load
   (`NothingToDeliver` if none does, design change 0140). `Deploy { origin }` (slice M3-F, see *Economy >
   Beacon Deployment*) goes to the one Drone among the units (`NoWorkers` if none, `SeveralConstructors` if more: the
@@ -1230,16 +1259,16 @@ Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' po
   action" (`factions/colonists/units.md > Drone > Assigned Drop-off`). `Ability::Convert` converts Legionnaires (see
   *Combat > Weapon Conversion*). The gate tolerates stale selections as for orders
   (`TooManyUnits`, repeats, gone ids, `NotOwned`, `NoUnits`) and drops the units without the ability
-  (`Reject::LacksAbility` when none is left); a Convert also drops those that may not convert now
-  (`Reject::CannotConvert` when none is left).
+  (`Reject::LacksAbility` when none is left); a Convert also drops those converting already or waiting to
+  (`Reject::CannotConvert` when none is left; one Firing or in Cooldown is taken, design change 0153).
 - **`Command::Production { objects, command }`** (`factions/gdo/structures.md > Barracks >
   ObjectInterfaceState[Barracks]`, see *Production*): the producers are the player's objects among `objects` that
   produce units, found as an order's units are (stale and repeated ids dropped, `NotOwned`); none is
   `Reject::NoProducers`. `Train(kind)` is taken when at least one producer queues the unit, else
   `CannotProduce(kind)`, `InsufficientCrystals` or `QueueFull` (the army cap is no reason: design change 0143 checks
   it when production starts); `CancelProduction` when a producer
-  has something queued, else `NothingQueued`; `SetRally` with a point on the map (`OffMap`) or an object that
-  exists and that the player sees, as for an order's target (`UnknownObject`, `NotVisible`; the producer itself
+  has something queued, else `NothingQueued`; `SetRally` with a point on the map (`OffMap`) or an object the
+  player sees or remembers, as for an order's target (`UnknownObject`, `NotVisible`; the producer itself
   always). `Sim::validate` gives the interface the same answers for its buttons.
 - **`Command::Construction { objects, command }`** (`construction.rs`, `sim/construction.rs`): the player's constructors
   carry out a `ConstructionCommand`: `Construct(kind)`, `CancelConstruction`, `CancelReady` or
@@ -1258,14 +1287,26 @@ Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' po
   (`InsufficientCrystals`), and no position: its footprint is derived, and refused like a Place's (`Unplaceable`,
   reported). `CancelTransform` goes to every transforming object of the player's named, in id order
   (`NotTransforming` when none is).
-- **Targets must be seen** (question Q0017 point 2, its default; `core/vision.md > Explored Selectability`): an
-  Attack or a Move on an object is taken only while the issuing player sees it (a tile it covers is Visible), else
-  `Reject::NotVisible`. The exception is the design's: a GDO player may target a Supply Delivery Station on Explored
-  ground, through its last-known record of it (`PlayerVision::remembered_record`), as the client selects it there: a
-  station it never saw, e.g. one debug-spawned on Explored ground, is no target. The check is on the sim's vision,
-  whatever the client draws (`--no-fog` is display only). A queued order
-  passed the gate when it was given; what its behaviour does if the target is out of sight when its turn comes is
-  in *Behaviours*.
+- **Targets must be known** (design change 0139, answering question Q0017 point 2; `core/vision.md > Explored >
+  Targeting remembered objects`): an order (Attack, Move to an object, Gather) or a rally point may name an object
+  the issuing player sees or remembers, else `Reject::NotVisible`. `Sim::target_view(player, id)` (`targets.rs`) is
+  the one view of it: `Visible`, `Remembered { position, footprint }` (a record out of the player's sight: the order
+  goes to the last-known position) or `Gone`. It reads only the player's sight and records, so a remembered object
+  destroyed in the fog is taken exactly as one that stands, and the gate's verdict leaks nothing. Remembered objects
+  stay unselectable (the GDO player's Supply Delivery Station excepted, `core/vision.md > Explored Selectability`).
+  The check is on the sim's vision, whatever the client draws (`--no-fog` is display only). A queued order passed
+  the gate when it was given; what its behaviour does if the target is out of sight when its turn comes is in
+  *Behaviours*.
+- **Default orders** (`orders/resolution.rs`; `systems/controls/selection_and_hud.md > RightClickResolution`, design
+  changes 0062, 0063, 0074 and 0136): `resolve(Abilities, Aim)` is the one rule for what a unit does against a target
+  by default: the ground gives Move; a worker on a patch it can gather Gather, on its owner's drop-off Drop Off while
+  it carries a load (else a Move there, 0140); an enemy it can attack (its attack's TargetDomain, the target
+  destructible, its mode letting it attack) Attack; anything else a Move to the object, which follows a unit (an
+  unarmed Drone follows an enemy, a shielded Peacekeeper too). `Sim::aimed(player, id)` is the target as the player
+  knows it (`Aimed`: enemy, destructible, domain, gatherable, drop-off; a remembered one by its record) and
+  `Sim::default_order(unit, target)` the sim's answer; the rally points use it (*Production > Rally points*), and the
+  client's right-click calls `resolve` itself on what it shows (*Client architecture > Command UI*).
+  `tests/default_order.rs` has the table of unit kinds against targets.
 - **Debug spawns and teleports of units** keep the unit invariants: a box on blocked ground or across the map's edge
   is `Reject::Blocked`, one overlapping another unit of its layer `Reject::Occupied(id)`, and so is a blocking
   footprint spawned onto a ground unit. Touching is allowed. A teleported unit plans its path again.
@@ -1429,7 +1470,13 @@ Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' po
   enemy (but one whose scan held an enemy that died in that tick), every order but Hold, Patrol and Follow ends, and
   bounded shares of refused orders, failed moves and path searches) and the ignored `behaviours_perf.rs`.
   `riot_shield.rs` has the Riot Shield's: toggle timing, each raised-shield effect, the gate, a save in the middle
-  of a toggle and its replay.
+  of a toggle and its replay, and the orders kept through a toggle (design changes 0150, 0151). Slice M3-R's:
+  `default_order.rs` (the table of unit kinds against targets, design change 0136), `remembered_targets.rs` (design
+  change 0139: the gate, each order on a remembered target that stands and that was destroyed unseen, the rally
+  point, no leak in lockstep games), `known_from_the_start.rs` (design change 0159's Verification),
+  `follow_itself.rs` (design change 0168's Verification and the Shift-queued step) and `production/drone_rally.rs`
+  (a Drone rallied on an enemy unit). In the client, `tests/commands/remembered.rs` plays them through the mouse
+  with the fog on.
   Measured (release, 500 units on 256 × 256; slice M2-J2, within 7 % of M1's in an interleaved A/B): 0.13 ms a tick
   with everyone idle or on Hold in sight of the enemy, 0.29 ms on average and 0.65 ms at worst in a battle of 250
   against 250.
@@ -1498,7 +1545,8 @@ Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' po
   Node; interrupted mining; every invalid worker command refused and changing nothing; a Drone rallied on a patch;
   a game replayed and saved in its middle), `gathering_rules/` (slice M3-H3, one binary: a test per Verification
   point of design changes 0123 and 0127 to 0141 that `gathering.rs` doesn't cover, in modules by topic: `ends`,
-  `loads`, `waiting`, `reach`, `knowledge`, `drop_offs`; 0136 and 0139 are slice M3-R's) and
+  `loads`, `waiting`, `reach`, `knowledge`, `drop_offs`, and slice M3-R's `remembered`: a Gather on a patch out of
+  sight, scouted or known from the start, one gone unseen, one placed later and unknown) and
   `gathering_soak.rs` (the four starting Drones for 5 minutes; 24 Drones for 5 minutes, every one delivering at
   least every 30 s, the saturated income, nothing lost; the income growing with the Drones up to saturation; 9
   Drones on 3 patches, once the smallest gridlock, with a steady income; ignored: `saturation_curve`, which prints
@@ -1625,7 +1673,8 @@ out by the same rules.
 - **Fog of war** (`fog.rs`, `core/vision.md`): `Sight` says what the local player is shown: its own objects, and
   everything on its Visible tiles (`Sight::sees`); on Explored tiles the terrain and the player's records of the
   structures and resources it saw there, in their last-known state, never the live objects (`Sight::remembered`,
-  see Vision); on Unexplored tiles nothing. Object visuals it doesn't see get `Visibility::Hidden`; the records get
+  see Vision); on Unexplored tiles nothing (a map object known from the start, design change 0159, shows once a tile
+  under it is Explored). Object visuals it doesn't see get `Visibility::Hidden`; the records get
   visuals of their own (`object_render/remembered.rs`, `RememberedVisuals`: one entity per record shown, dimmed
   like the Explored ground, a placeholder; synced when the sight changes). Tracers, death markers, HP bars, the
   path overlay, the selection (`selectable_by`) and with it what a click or the pointer targets, the InfoPanel and
@@ -1788,7 +1837,10 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   view space. A click picks the frontmost box under it (grown by `PICK_SLOP_SU`), and of boxes drawn at one depth
   anything before a map resource, so a click on a covered patch's tile picks its plate (design change 0099); a box
   (the input layer's `SelectionBox`) applies the priority tiers. `Relation::of` says own, enemy or neutral (no teams
-  yet, so no allies); allies would count with enemies in the tiers.
+  yet, so no allies); allies would count with enemies in the tiers. `Selectables::target_at` picks a target the same
+  way among the selectables and the records the player remembers but may not select (design change 0139:
+  targetable, not selectable), for a right-click, a targeting click and the pointer; with the fog off there are no
+  records to add.
 - **Rules** (`selection/rules.rs`, pure and unit tested): map clicks, boxes, portrait clicks, control group keys and
   Tab on a `ControlState`, under the Constraints: another player's object or a resource is only ever selected alone,
   and any click on one selects it alone (design change 0048). On an own unit a click selects it, Shift toggles it,
@@ -1845,16 +1897,17 @@ M2-H2).
   the command gate refuses: a production command is disabled exactly when `Sim::validate` refuses the
   `Command::Production` pressing it would send (the gate's own predicates, no copy of them: crystals, a full queue,
   nothing to cancel; 0081; never the army cap, which is checked when production starts, 0143), and so is Convert, by
-  its `Command::Ability` (every recipient Firing,
-  in Cooldown or converting). `command_ui/resolution.rs` has what a click
-  resolves to and the `PointerDisplay` that previews it. A `MapTarget` is what is under the cursor (`CursorTarget`),
-  with the ground point there and, for an object, whether it is destructible and its domain. A right-click resolves
-  per unit (design changes 0062, 0063), whichever group is active: `UnitCapabilities` (the unit's template, its
-  attack's TargetDomain, whether its mode lets it attack) and `unit_right_click` give the template's order
-  (`right_click`) when the unit can carry it out; a unit that can't attack the target moves to it instead (`move_to`:
-  to the point, or Follow an object); a unit whose Riot Shield keeps it from an Attack gets `order_without_attack`,
-  the right-click's shield rule: `move_to` too, Follow an enemy unit, Move to (and stop by) an enemy structure (design
-  change 0074); objects without a template do nothing. A producer's right-click sets its rally point
+  its `Command::Ability` (every recipient converting or waiting to, design change 0153). `command_ui/resolution.rs`
+  has what a click resolves to and the `PointerDisplay` that previews it. A `MapTarget` is what is under the cursor
+  (`CursorTarget`, from `Selectables::target_at`: a remembered record too, 0139), with the ground point there and,
+  for an object, the target as the local player knows it (`aimed`, the sim's `Sim::aimed`). A right-click resolves
+  per unit (design changes 0062, 0063), whichever group is active, by the sim's one rule (`unit_right_click` calls
+  `sc_sim::orders::resolution::resolve`, the rally point's rule too, design change 0136) on `UnitCapabilities` (the
+  unit's template and the sim's `Abilities`: its attack's TargetDomain, whether its mode lets it attack, whether it is
+  a worker and carries a load): an enemy it can attack gives Attack, a patch Gather for a Drone, anything else a Move
+  to it, which follows a unit (a shielded Peacekeeper follows an enemy, 0074; a right-click on a selected unit makes
+  it stop and the others follow it, 0168); the ground a Move. A Drone resolves by its own table without a panel yet
+  (slice M3-J2), and its Gather previews as Move; objects without commands do nothing. A producer's right-click sets its rally point
   (`object_right_click` gives a `Resolved::Rally` beside the units' `Resolved::Order`s, so a mixed selection does
   both, 0062; `rally_target`: the object under the cursor, else the ground point; the producer itself clears it,
   0086); Set Rally Point's targeting click resolves the same way (`target_resolution`), and the pointer shows Move
