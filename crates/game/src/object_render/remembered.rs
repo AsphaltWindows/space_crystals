@@ -111,7 +111,7 @@ pub(super) fn sync_remembered_visuals(
                 RememberedVisual(id),
                 Mesh2d(mesh),
                 MeshMaterial2d(material),
-                object_transform(pos, height, 0.0),
+                object_transform(record.kind, pos, height, 0.0),
                 Visibility::Inherited,
             ))
             .id();

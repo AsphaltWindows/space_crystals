@@ -12,7 +12,7 @@ use sc_sim::{Category, Map, Object, ObjectId, ObjectKind, Placement, PlayerId, S
 use super::GroupType;
 use crate::coords::drawn_at_height;
 use crate::fog::Sight;
-use crate::object_render::object_height;
+use crate::object_render::{draw_layer, object_height};
 
 /// A click this close to an object's drawn box (space units) still picks it. Placeholder, unspecified: a few
 /// pixels, so small units stay easy to click.
@@ -80,7 +80,8 @@ pub struct Selectable {
     /// The box it is drawn in (view space): a unit's silhouette or a tile-based object's footprint, lifted by the
     /// height it stands at.
     pub rect: Rect,
-    /// Its ground y, which orders the drawing: southern objects are drawn in front.
+    /// Its ground y, which orders the drawing within its layer (`crate::object_render::draw_layer`): southern objects
+    /// are drawn in front.
     pub depth: f32,
 }
 
@@ -232,8 +233,9 @@ impl Selectables {
     }
 
     /// The object a click at the view point `view` picks: of the objects whose drawn box (grown by
-    /// [`PICK_SLOP_SU`]) contains it, the one drawn in front (the southernmost), then anything but a map resource,
-    /// then the later id. A plate and the patch it covers are drawn as one, and the click selects the plate: the
+    /// [`PICK_SLOP_SU`]) contains it, the one drawn in front (a unit before a tile-based object, whose layer it is
+    /// drawn above, `crate::object_render::draw_layer`; then the southernmost), then anything but a map resource, then
+    /// the later id. A plate and the patch it covers are drawn as one, and the click selects the plate: the
     /// covered patch can't be selected on its own (`factions/gdo/economy.md > ExtractionPlate > Selecting a covered
     /// patch`, design change 0099).
     pub fn at(&self, view: Vec2) -> Option<&Selectable> {
@@ -288,8 +290,8 @@ fn pick<'a>(objects: impl Iterator<Item = &'a Selectable>, view: Vec2) -> Option
     objects
         .filter(|o| o.rect.inflate(PICK_SLOP_SU).contains(view))
         .max_by(|a, b| {
-            a.depth
-                .total_cmp(&b.depth)
+            (draw_layer(a.kind).cmp(&draw_layer(b.kind)))
+                .then(a.depth.total_cmp(&b.depth))
                 .then(over_resources(a).cmp(&over_resources(b)))
                 .then(a.id.cmp(&b.id))
         })
@@ -373,6 +375,23 @@ mod tests {
             object(3, ObjectKind::Guard, Relation::Enemy, Vec2::new(110.0, 100.0)),
         ]);
         assert_eq!(objects.in_box(Rect::new(0.0, 0.0, 200.0, 200.0)), [ObjectId(3)]);
+    }
+
+    /// A unit is drawn above the tile-based objects, whatever their depths (`crate::object_render::draw_layer`): a
+    /// click where a unit stands on a structure's footprint picks the unit, north of the structure's anchor too, and
+    /// the structure around it.
+    #[test]
+    fn a_click_picks_a_unit_drawn_over_a_structure() {
+        let objects = Selectables::from_objects(vec![
+            object(1, ObjectKind::BioPortal, Relation::Own, Vec2::new(100.0, 110.0)),
+            object(2, ObjectKind::SabreLegionnaire, Relation::Own, Vec2::new(100.0, 100.0)),
+        ]);
+        assert_eq!(objects.at(Vec2::new(100.0, 105.0)).map(|o| o.id), Some(ObjectId(2)));
+        assert_eq!(
+            objects.target_at(Vec2::new(100.0, 105.0)).map(|o| o.id),
+            Some(ObjectId(2))
+        );
+        assert_eq!(objects.at(Vec2::new(100.0, 120.0)).map(|o| o.id), Some(ObjectId(1)));
     }
 
     #[test]

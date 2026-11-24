@@ -1698,10 +1698,16 @@ out by the same rules.
   (at a fixed x the drawn y is linear across a tile row) from south to north; beyond the map's edges the ground
   continues flat. The input layer's `Pointer::ground` is the cursor's ground point (`camera::cursor_to_ground`):
   hover, clicks, the editor's brush, ghosts, markers and object picking all use it.
-- **Draw order** follows StarCraft 1. The layers are terrain < ground decals < ground objects < air < overlays, each
-  with its own z band. Within a layer, z grows with **ground** y, so southern objects draw in front. Each sprite is
-  anchored at its ground position, the sim `pos`, and that point drives its y-sort; it is drawn at its height
-  (`ground_translation`; a tile-based object at its footprint's mean corner height, `footprint_height`).
+- **Draw order** follows StarCraft 1. The layers (`coords::DrawLayer`) are terrain < ground decals < ground objects
+  < unit decals < ground units < air < overlays, each with its own z band. Within a layer, z grows with **ground** y,
+  so southern objects draw in front. Each sprite is anchored at its ground position, the sim `pos`, and that point
+  drives its y-sort; it is drawn at its height (`ground_translation`; a tile-based object at its footprint's mean
+  corner height, `footprint_height`). The tile-based objects (structures, map resources, the records of remembered
+  ones) are ground objects, sorted among themselves (a plate over its patch: `structures::BASE_Z`); units are drawn
+  above them whatever the depths (`object_render::draw_layer`, slice M3-U), so a unit crossing a footprint, as one
+  leaving a portal's energy doorway does, is never hidden under it (`tests/selection/draw_order.rs`). Selection rings
+  are unit decals, between the two; frames lie with their structures; ghosts, HP bars, path and command indicators are
+  overlays, above everything.
 - **Terrain** (`map_render.rs`): one mesh. A flat tile is a quad, a sloped one four triangles around its center (at
   the corners' mean height), each shaded by Lambert's law towards `LIGHT_TOWARDS` (a placeholder: from the north-west,
   45° up), so flat ground keeps its colour. A non-Traversible tile at least `CLIFF_MIN_SLOPE` levels steep reads as a
@@ -1920,8 +1926,9 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   its own objects, others on Visible tiles; on Explored ones only a remembered Supply Delivery Station, at its
   record, and only for a GDO player, `remembered_selectable_by`, `core/vision.md > Explored Selectability`; with
   the fog off, everything), each object's box as it is drawn: interpolated, lifted by the height it stands at, in
-  view space. A click picks the frontmost box under it (grown by `PICK_SLOP_SU`), and of boxes drawn at one depth
-  anything before a map resource, so a click on a covered patch's tile picks its plate (design change 0099); a box
+  view space. A click picks the frontmost box under it (grown by `PICK_SLOP_SU`): a unit before a tile-based
+  object, which it is drawn above (see Draw order), then the southernmost, and of boxes drawn at one depth anything
+  before a map resource, so a click on a covered patch's tile picks its plate (design change 0099); a box
   (the input layer's `SelectionBox`) applies the priority tiers. `Relation::of` says own, enemy or neutral (no teams
   yet, so no allies); allies would count with enemies in the tiers. `Selectables::target_at` picks a target the same
   way among the selectables and the records the player remembers but may not select (design change 0139:
@@ -1938,17 +1945,16 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   another player's or a neutral object selected change nothing (0056). What the modifiers of a click or a box mean
   comes from the bindings (`ClickRoles`; Shift is `ToggleSelection`, the add inputs' modifier). Every rule the design
   leaves open is marked as a placeholder where it is made.
-- **Systems** (`SelectionSystems`): `Sync` (in `SyncSim`) removes objects that left the sim from every selection
-  and group in the frame of their tick (`SimEvent::Removed`, deaths included, and anything else gone; a station
-  the player still selects by its record stays), and those their player may no longer select (an enemy that walked
-  into the fog; a placeholder, the design is silent). A selected object the player sees whose `GroupType` changed in
-  place, a new kind (`SimEvent::KindChanged`) or a building that completes or starts transforming, stays selected as
-  its new type (`ControlState::set_type`). The ActiveGroup stays while it exists (`> ObjectInterfaceState`: a change
-  the player didn't make keeps the state unless the ActiveGroup becomes empty); one the object leaves empty gives
-  way to the object's new group (a placeholder: the design is silent), and the ObjectInterfaceState resets with the
-  ActiveGroup. `Sync` also
-  starts every state over when the sim is replaced (`SimRes::generation`). `Input` (in `Actions`) applies map
-  clicks, boxes, the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the
+- **Systems** (`SelectionSystems`): `Sync` (in `SyncSim`) removes objects that left the sim from every selection and
+  group in the frame of their tick (`SimEvent::Removed`, deaths included, and anything else gone; a station the player
+  still selects by its record stays), and those their player may no longer select (an enemy that walked into the fog;
+  a placeholder, the design is silent). A selected object the player sees whose `GroupType` changed in place, a new
+  kind (`SimEvent::KindChanged`) or a building that completes or starts transforming, stays selected as its new type
+  (`ControlState::set_type`). The ActiveGroup stays while it exists (`> ObjectInterfaceState`: a change the player
+  didn't make keeps the state unless the ActiveGroup becomes empty); one the object leaves empty gives way to the
+  object's new group (a placeholder: the design is silent), and the ObjectInterfaceState resets with the ActiveGroup.
+  `Sync` also starts every state over when the sim is replaced (`SimRes::generation`). `Input` (in `Actions`) applies
+  map clicks, boxes, the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the
   debug player switch (F2, only while `SimConfig::debug`: the client acts as the next player, so "own" and the state
   in use change; a replay's playback switches without debug commands too). The HUD's portrait clicks run after it.
   Systems change a state only through `LocalControl::update`, which marks `ControlStates` changed only on a real
@@ -1956,12 +1962,12 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   control group's recall puts it back even when the selection stays the same (`ControlState::recall_group`, design
   change 0078). While a target is awaited, map clicks and boxes select nothing (the drag box isn't drawn): the
   left-click is the target's.
-- **Visuals** (`selection/markers.rs`): one marker entity per selected object: a ring around a unit, in the
-  ground-decal layer under it, or a frame inside a footprint, which the object's visual would hide there, so it is
-  drawn just in front of the object (`FRAME_Z`: half a su of ground y, under the objects south of it); coloured by
-  relation, the ActiveGroup's solid and the others' dashed; meshes cached per shape, relation and activity, and a
-  marker whose object changed its shape (a kind changed in place) takes its new shape's mesh. The drag
-  box is four edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set.
+- **Visuals** (`selection/markers.rs`): one marker entity per selected object: a ring around a unit, in the unit-decal
+  layer under it (over the structures), or a frame inside a footprint, which the object's visual would hide there, so
+  it is drawn just in front of the object (`FRAME_Z`: half a su of ground y, under the objects south of it); coloured
+  by relation, the ActiveGroup's solid and the others' dashed; meshes cached per shape, relation and activity, and a
+  marker whose object changed its shape (a kind changed in place) takes its new shape's mesh. The drag box is four
+  edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set.
 
 **Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/selection_and_hud.md > ObjectInterfaceState`
 to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units,
@@ -2090,7 +2096,10 @@ their producing structures and their constructors, and the Colonists' Beacons an
   (`feedback::unavailable_text`) the feedback band shows.
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command (`PanelSlot::label`: a toggle says what pressing it does) and its hotkey from the
-  bindings, and a toggle that is on has a thick green border. The indicators (`command_ui/indicators.rs`) are
+  bindings, and a toggle that is on has a thick green border. A label never wraps (`TextLayout::no_wrap`): one too
+  long for its button at `LABEL_VH` is drawn smaller to fit on one line inside a lit button's thicker border
+  (`label_px`, from the default font's fixed advance, 0.6 em, which a unit test checks against the font), so a label
+  keeps its size when its button lights up. The indicators (`command_ui/indicators.rs`) are
   one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
   (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow

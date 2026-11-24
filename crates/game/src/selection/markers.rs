@@ -4,12 +4,12 @@
 //!
 //! Placeholders until the art (Q0001), the design gives none: a ring around a unit's silhouette and a frame inside a
 //! tile-based object's footprint, coloured by the object's relation to the local player (own green, ally blue, enemy
-//! red, neutral yellow). Rings are drawn in the ground-decal layer, under the objects; a frame, which the object's
-//! visual would cover there, just in front of its object. The ActiveGroup's rings are solid and
-//! thick, the other groups' dashed and thin (frames: thick and thin). Meshes are made once per shape, relation and
-//! activity; a marker whose object changed its shape (`SimEvent::KindChanged`: a Beacon warping in a bigger
-//! building, plan decision T15) gets the mesh of its new one. A selected record (a GDO player's remembered
-//! SupplyDeliveryStation) is marked where it is shown.
+//! red, neutral yellow). Rings are drawn in the unit-decal layer, under the units and over the structures they may
+//! stand on (`crate::object_render::draw_layer`); a frame, which the object's visual would cover there, just in front
+//! of its object. The ActiveGroup's rings are solid and thick, the other groups' dashed and thin (frames: thick and
+//! thin). Meshes are made once per shape, relation and activity; a marker whose object changed its shape
+//! (`SimEvent::KindChanged`: a Beacon warping in a bigger building, plan decision T15) gets the mesh of its new one. A
+//! selected record (a GDO player's remembered SupplyDeliveryStation) is marked where it is shown.
 
 use std::collections::BTreeMap;
 
@@ -198,7 +198,7 @@ fn sync_markers(
         let z = match shape {
             // Inside the footprint, which the object's visual covers: just in front of the object.
             MarkerShape::Frame { .. } => DrawLayer::GroundObjects.z_at(object.depth) + FRAME_Z,
-            MarkerShape::Ring(_) => DrawLayer::GroundDecals.z_at(object.depth),
+            MarkerShape::Ring(_) => DrawLayer::UnitDecals.z_at(object.depth),
         };
         let transform = Transform::from_translation(view_to_world(object.drawn).extend(z));
         match index.by_id.get(&object.id).and_then(|&e| markers.get_mut(e).ok()) {
