@@ -76,7 +76,7 @@ A specific map location being targeted. The attack is applied to this location.
 ### Target - Coordinates
 
 ## ValidTarget
-An enemy unit is a valid target for an attacker if all of the following are true. This concept is referenced by turret autonomous scanning, attack-move scanning, hold position engagement, and idle auto-attack.
+An enemy object, **unit or structure**, is a valid target for an attacker if all of the following are true (structures included: user, 2026-11-24). Enemy structures that can't attack count as non-threatening, so threatening targets (including defensive structures that can attack) are picked first (systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority). This concept is referenced by turret autonomous scanning, attack-move scanning, hold position engagement, and idle auto-attack.
 
 1. The enemy is a Destructible ObjectInstance
 2. The enemy is visible to the attacker's owner

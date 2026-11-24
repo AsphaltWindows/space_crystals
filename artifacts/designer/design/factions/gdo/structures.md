@@ -99,14 +99,31 @@ Immediate commands (CommandIssuingTransition):
 - **X: Cancel Ready Building**: refunds 75% cost (rounded down), clears ReadyToPlace (CommandIssuingTransition). Only visible when ReadyToPlace is set.
 
 State commands (StateOnlyTransition):
-- **Q: Build**: enters BuildMenu (StateOnlyTransition)
+- **Q: Basic Construction**: enters BuildMenu[Basic] (StateOnlyTransition)
+- **W: Advanced Construction**: enters BuildMenu[Advanced] (StateOnlyTransition)
 
-BuildMenu (instance idle — no CurrentConstruction, no ReadyToPlace):
+**Two build menus** (user, 2026-11-24): the DC's buildings don't fit one 12-slot panel, so they are split. Names: "Basic Construction" / "Advanced Construction" ("Basic Structures" / "Advanced Structures" also acceptable to the user). Slot layout (fine for now, user):
+
+BuildMenu[Basic]:
+```
+[Q] Generator        [W] Barracks   [E] Extraction Facility  [R] Supply Tower
+[A] Radar Station    [S] Arsenal    [D] Career Campus        [F] Defense System
+[Z] Back             [X] Cancel     [C] —                    [V] —
+```
+BuildMenu[Advanced] (the Factory and everything that follows it):
+```
+[Q] Factory                 [W] Advanced Mechanics  [E] Airfield  [R] Propulsion Labs
+[A] Industrial Powerplant   [S] —                   [D] —         [F] —
+[Z] Back                    [X] Cancel              [C] —         [V] —
+```
+Buildings whose prerequisites aren't met are shown greyed out in their slot. When a building is **ready to place**, its own slot (e.g. Q in BuildMenu[Basic] for a Generator) becomes "Select completed building" (enters AwaitingPlacement). The menu-state rules below (idle / constructing / ready) apply to both menus.
+
+BuildMenu[Basic] / BuildMenu[Advanced] (instance idle — no CurrentConstruction, no ReadyToPlace), each entry in its slot above:
 - Generator: deducts 100 Space Crystals, sets CurrentConstruction = Generator (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals.
 - Barracks: deducts 200 Space Crystals, sets CurrentConstruction = Barracks (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals.
 - Extraction Facility: deducts 200 Space Crystals, sets CurrentConstruction = ExtractionFacility (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals.
 - Supply Tower: deducts Space Crystals (TBD), sets CurrentConstruction = SupplyTower (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals and owns at least one Radar Station.
-- Arsenal, Career Campus, Factory, Radar Station, Advanced Mechanics, Airfield, Propulsion Labs, Industrial Powerplant, Defense System: build menu entries TBD — costs, availability gating, and panel layout will be defined alongside each building's full stat block.
+- Arsenal, Career Campus, Factory, Radar Station, Advanced Mechanics, Airfield, Propulsion Labs, Industrial Powerplant, Defense System: deduct their cost and set CurrentConstruction the same way; costs TBD (see Constructs), availability per their Requires clause.
 - Escape/right-click: returns to DefaultState (StateOnlyTransition)
 
 BuildMenu (instance constructing — CurrentConstruction is set):

@@ -41,6 +41,10 @@ Selectable visible entity, instances of which exist in the game at some coordina
 ### Name - string
 ### Size - Height x Width
 ### InfoPanel - (owner: (PlayerNumber | None), seelctor: Player) -> Display
+
+**Default InfoPanel for structures** (user, 2026-11-24; unless a structure's own section specifies more):
+- **Own structure**: name, HP, and what it is doing: construction or production with progress, queue length, a building ready to place, and the rally point.
+- **Another player's structure**: name, owner and HP only (no production or queue information).
 ### Destructible - boolean
 ### SightRange - number (vision is provided to the owning player when the instance has an Owner)
 ### Groupable - boolean (if false, each instance is always in its own SelectionGroup even when selected with other instances of the same type). Caster-type units and workers that are used up by a build (Agent, Drone) are Ungroupable; Recruits, which share a build, are Groupable; see systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting

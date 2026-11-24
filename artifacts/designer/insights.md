@@ -30,8 +30,6 @@
 All non-blocking; Director proceeds on its defaults (option A in each). Arrived 2026-11-23 mid-GDO-roster; raise after the support-air-unit thread. Movement/pathing cluster:
 - **Q0016** point 1 ANSWERED (0062 non-capable units move/follow; 0063 per-unit resolution + Mixed cursor). (0065 invalid target: ignore + feedback; 0066 other commands unavailable while targeting, cancel first.) (0067 drag while targeting = nothing.) (0068 press point; 0069 player selection changes cancel targeting, deaths don't unless ActiveGroup empty.) (0070 point 4: Shift keeps targeting active until released → Q0016 DONE; follow-up TBD: Shift released before any click; 0071 Shift-placement same rule where builder can take more orders)
 - **Q0020** Riot Shield (non-blocking): (1) ANSWERED 0074 (shielded = Follow, 0062 wins); (2) slowed + can't attack during raise/lower, 50% DR only when fully up, mid-toggle reverses from current point; (3) raise during a shot: shot lands then held (vs refuse until shot ends, like Convert); (4) mixed group: key raises all, again lowers all; (5) toggle 6 ticks (0.375 s), hotkey R — placeholders.
-- **Q0029** defeat: (1) ANSWERED 0100 stay uncontrollable; (2) game ends when one side left vs continues.
-- **Q0030** structures: (1) auto-target enemy buildings (lower priority than shooters back) vs explicit only; (2) DC BuildMenu slots Q Generator, W Barracks, E EF, Z Back, X Cancel; ready building takes its slot; (3) building InfoPanels contents.
 - **Q0031** Move/Follow aimed at a selected unit itself: A clicked unit left out (keeps orders) / B it stops / C counts as ground click at that spot (magic box incl. it). Currently follows itself forever.
 - **Q0032** occupied-arrival radius: A keep 2 GU / B 3 GU (Guard losses 43→17 in sweep, PK 12→0) / C 2 GU + unit width.
 - **Q0017** fog: (1) hidden attacker shooting visible unit: hit flash only, no tracer (A) vs visible part of tracer from fog edge (B); (2) [also decides rally on fogged enemy structures, 0088] remembered (Explored) structures targetable? A no (right-click = Move to spot; GDO station exception) / B yes (go to last-known pos, attack if still there).
@@ -40,6 +38,7 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 
 ## Loose Ends
 
+
 - **Exit blocking by buildings** (0080): allowed for now; a building flush against an exit stalls the producer. Revisit (placement rule keeping exit-front tiles clear) if it proves annoying. Aircraft spawning (Airfield) and Syndicate releases not covered by Exit Doorway.
 
 - **GDO Supplies** (Q0022 deferred, 0077): what GDO spends Supplies on, Radar Station stats, Supply Tower cost/time, Chopper cargo. Part of the GDO numbers pass; placeholders allowed if the Director needs them.
@@ -47,7 +46,10 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 - **Player grouping toggle** (parked, 0071): Alt/other-click on portrait toggling a type's grouping; scope options (selection only / rest of game / stored in control groups); Alt-click portrait already = center camera. Revisit if fixed per-type Groupable proves insufficient. Concern: Tab stops pile up with many ungroupable casters in big armies (HUD pass may help, e.g. click a group directly).
 
 
-### >>> WHERE WE LEFT OFF (2026-11-23) — start here next session <<<
+### >>> WHERE WE LEFT OFF (2026-11-24) — start here next session <<<
+**Answering Director questions one at a time.** Done this session: Q0016, Q0019–Q0030 (entries 0070–0105). Remaining (15 points, none blocking): **Q0031** (was mid-presentation: clicked unit itself — rec A left out/keeps orders; others follow it), Q0032 (arrival radius 2/3 GU/size-scaled), Q0020 pts 2–5 (Riot Shield details), Q0017 (2 fog points), Q0018 (6 behaviour gaps). After that: back to the GDO roster/numbers pass (below).
+
+### Previous marker (2026-11-23)
 **Current task: unit rosters, one faction at a time, GDO first.** Sketch the full roster (concepts, roles, mechanics), THEN do numbers for all GDO units, then move to the next faction. Later: split into one file per unit/building once most units exist.
 - **GDO roster so far** (all in `factions/gdo/units.md`, producers in `factions/gdo/structures.md`):
   - Barracks: Peacekeeper (Riot Shield), Rocketman (req. Arsenal; Target Lock), Drone Operator (req. Career Campus; 1 suicide drone), Field Engineer (req. Career Campus; repair, Bunker, First Aid Tent).

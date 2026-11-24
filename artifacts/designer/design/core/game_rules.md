@@ -7,7 +7,12 @@ In a normal game, a player is **defeated when they own no buildings**. This appl
 
 ## On Defeat
 (user, 2026-11-24)
-- **Remaining units stay, but can't be controlled.** When a player is defeated, their remaining units stay on the map, still owned by that player. Their orders are cleared and nobody can command them again (not the defeated player, not their allies). They behave as idle units: they stand where they are and defend themselves through normal auto-targeting (systems/controls/behaviors.md > BaseAutoTargeting) until they are destroyed.
-- **No rebuilding**: since they can't be commanded, a defeated player's workers can't build again (a defeated player stays defeated).
-- TBD: whether a defeated player's units still count as allies/enemies exactly as before (assumed yes), and what the defeated player can still see (see End of Game).
+- **Remaining units become neutral.** When a player is defeated, their remaining units stay on the map but **stop belonging to anyone** (neutral objects, like the Syndicate expansions of a destroyed Tunnel). Their orders are cleared and they stay idle where they are.
+- Being neutral, they **never attack** anyone and are **never auto-targeted** (systems/combat.md > ValidTarget; auto-targeting never picks neutral objects). Any player can still destroy them with an explicit Attack order (systems/controls/commands.md > Attack).
+- They block movement like other units and never step aside (only own idle units yield), so they stay as obstacles until destroyed.
+- A defeated player stays defeated: nothing they had can be commanded or build again.
 
+## End of Game
+(user, 2026-11-24) When only **one player or team** is left undefeated, it **wins**. Every player sees Victory or Defeat, the game stops, and the replay is saved.
+
+**Defeated before the end (team games)** (user, 2026-11-24): a player defeated while their team is still playing keeps watching with **their team's vision only** (what their allies see), never a full map reveal, so they can't pass on information their allies couldn't have. They can't command anything.
