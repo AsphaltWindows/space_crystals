@@ -45,6 +45,9 @@ The player may cancel the deployment at any point before it completes. The trans
 ### Completion
 Once the 48 frames elapse, the transformation is final and one-way. The resulting Beacon can never revert back into a Drone.
 
+### Deploying with a load
+(user, 2026-11-24) A Drone carrying a load deploys without delivering it first. The load stays with the deploying object and is **lost when deployment completes**; on **cancel** the Drone returns still carrying it.
+
 ### Placement
 Beacons may be placed adjacent to or near other Beacons — there is no minimum spacing requirement between them.
 
