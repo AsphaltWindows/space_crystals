@@ -39,6 +39,8 @@ Only tier 1 (own units) produces a multi-selection. All other tiers select exact
 ### Shift + box (add)
 Holding **Shift** while dragging a box **adds** the box's result (after the priority tiers) to the current selection. The current selection **always stays selected**: Shift + box never removes anything, unlike Shift-click, which toggles (user, 2026-11-23). Objects that can't be added under Selection > Constraints (e.g. an enemy, neutral object or other player's object when own objects are selected) are not added, and the selection stays unchanged.
 
+**Adding to a non-owned selection** (user, 2026-11-23): when the current selection is a single enemy, neutral or other player's object, any add input (Shift + box, Shift-click, Ctrl+Shift-click on own units) does **nothing**: the inspected object stays selected. Use a plain click or box to select own units instead.
+
 ### Empty clicks and boxes (user, 2026-11-23)
 - A plain click on empty ground, or a plain box that captures nothing, **clears** the selection.
 - Shift-click or Ctrl-click on empty ground does **nothing** (selection kept).
