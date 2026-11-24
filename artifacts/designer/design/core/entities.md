@@ -91,6 +91,7 @@ Structure placement is validated differently depending on the placement method:
 ### Worker-Built Structures (e.g., Agent building a Tunnel, Drone deploying a Beacon)
 - The player queues a build command targeting a map location
 - The command is accepted regardless of current visibility — no visibility check at command time
+- **The ghost judges by what the player knows** (user, 2026-11-24): it is green if, as far as the player knows, nothing blocks the footprint. On Explored tiles it uses remembered terrain and remembered structures; units hidden in fog are ignored. Never-explored tiles pass. The order can be given even where the area isn't visible; the real check happens on arrival.
 - The worker pathfinds to the location and validates on arrival: tiles must be Buildable, flat (core/map.md > Elevation), unoccupied, and meet faction-specific constraints
 - **Units block** (user, 2026-11-24): "unoccupied" includes units, as in Direct Placement: a ground unit of any player on the footprint makes the site invalid; the building worker itself (e.g. the deploying Drone) doesn't count. Air and underground units never block.
 - If validation fails on arrival, the command is cancelled and the worker stops and idles

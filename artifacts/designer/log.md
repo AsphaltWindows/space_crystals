@@ -2080,3 +2080,4 @@ Q0039 pt 8: transforming objects show only Cancel; functions at completion. Entr
 Q0040 pt 1: Drone deploys at footprint centre (safety net if blocked while overlapping). Entry 0117.
 Q0040 pt 2: ground units block Worker-Built and Warp In placement. Entry 0118.
 Q0040 pt 3: Warp In requires Visible tiles. Entry 0119.
+Q0040 pt 4: worker-built ghost judges by player knowledge; order allowed in fog. Entry 0120.
