@@ -5,6 +5,7 @@
 //! (What the orders on a remembered object do, and that nothing about the real state leaks: `remembered_targets.rs`.)
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::vision::FOG_DELAY_TICKS;
 use sc_sim::{
     Command, DebugCommand, Faction, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Reject, SpawnAt, Target,
     TickInputs, TilePos, Vec2, VisibilityState,
@@ -99,7 +100,8 @@ fn orders_on_units_out_of_sight_are_rejected() {
 }
 
 /// An enemy that was seen and isn't any more (its tiles are Explored) is out of sight like any other: the order is
-/// rejected, where an order given while it was in sight was taken.
+/// rejected, where an order given while it was in sight was taken. For the fog delay after the player's sight leaves
+/// it (design change 0178) it is still Visible, and a target.
 #[test]
 fn a_unit_seen_before_is_no_target_once_it_is_out_of_sight() {
     let mut t = ScenarioBuilder::new(&open()).start();
@@ -113,6 +115,11 @@ fn a_unit_seen_before_is_no_target_once_it_is_out_of_sight() {
         pos: v(200.0, 700.0),
     };
     t.debug_at(t.sim().tick() + 1, away).step();
+    for _ in 0..FOG_DELAY_TICKS {
+        assert_eq!(state(&t, P1, 2), VisibilityState::Visible, "tick {}", t.sim().tick());
+        assert_eq!(t.sim().validate(&order(P1, 1, attack(2), false)), Ok(()));
+        t.step();
+    }
     assert_eq!(state(&t, P1, 2), VisibilityState::Explored);
     apply(&mut t, order(P1, 1, attack(2), false), Err(Reject::NotVisible(id(2))));
     apply(&mut t, order(P1, 1, move_on(2), true), Err(Reject::NotVisible(id(2))));
@@ -159,14 +166,14 @@ fn remembered_objects_on_explored_ground_are_targets() {
             Err(Reject::NotAttackable(id(1))),
         );
     }
-    // Both walk away, far out of sight: the station and the patch are on Explored ground now.
+    // Both walk away, far out of sight: the station and the patch are on Explored ground once the fog delay is over.
     let tick = t.sim().tick() + 1;
     for (unit, x) in [(4, 1100.0), (5, 1200.0)] {
         let pos = v(x, 600.0);
         t.debug_at(tick, DebugCommand::SetPosition { id: id(unit), pos })
             .order_at(tick, PlayerId(unit as u8 - 3), &[id(unit)], OrderKind::Stop, false);
     }
-    t.step();
+    t.step().run(FOG_DELAY_TICKS);
     for player in [P1, P2] {
         assert_eq!(state(&t, player, 1), VisibilityState::Explored);
         assert_eq!(state(&t, player, 2), VisibilityState::Explored);
@@ -203,14 +210,17 @@ fn a_station_the_gdo_player_never_saw_is_no_target_on_explored_ground() {
         .spawn_unit_at(1, PK, P1, v(200.0, 350.0)) // 1, GDO
         .spawn_unit_at(1, ObjectKind::Guard, P2, v(2000.0, 600.0)) // 2, far away
         .run(1);
-    t.debug_at(2, DebugCommand::SetPosition { id: id(1), pos: far }).step();
+    t.debug_at(2, DebugCommand::SetPosition { id: id(1), pos: far })
+        .step()
+        .run(FOG_DELAY_TICKS);
     let station = DebugCommand::Spawn {
         kind: ObjectKind::SupplyDeliveryStation,
         owner: None,
         at: SpawnAt::Tile(TilePos::new(3, 4)),
         orientation: Default::default(),
     };
-    t.debug_at(3, station).step(); // 3, on the tiles unit 1 explored at tick 1
+    // 3, on the tiles unit 1 explored at tick 1, once the fog delay is over.
+    t.debug_at(t.sim().tick() + 1, station).step();
     assert_eq!(t.sim().object(id(3)).unwrap().kind, ObjectKind::SupplyDeliveryStation);
     assert_eq!(state(&t, P1, 3), VisibilityState::Explored);
     let vision = |t: &TestSim| t.sim().vision().player(P1).unwrap().record(id(3)).cloned();
@@ -231,7 +241,8 @@ fn a_station_the_gdo_player_never_saw_is_no_target_on_explored_ground() {
     let tick = t.sim().tick() + 1;
     t.debug_at(tick, DebugCommand::SetPosition { id: id(1), pos: far })
         .order_at(tick, P1, &[id(1)], OrderKind::Stop, false)
-        .step();
+        .step()
+        .run(FOG_DELAY_TICKS);
     assert_eq!(state(&t, P1, 3), VisibilityState::Explored);
     assert_eq!(vision(&t).map(|r| r.kind), Some(ObjectKind::SupplyDeliveryStation));
     apply(&mut t, order(P1, 1, move_on(3), false), Ok(()));

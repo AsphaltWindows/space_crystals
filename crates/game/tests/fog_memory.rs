@@ -1,18 +1,19 @@
 //! What the client shows of the structures and resources the local player remembers (`core/vision.md > Explored`):
 //! Explored tiles show their records, as last seen, never the live objects there; only a GDO player may select a
 //! remembered SupplyDeliveryStation (`> Explored Selectability`), whose InfoPanel shows it as last seen but with the
-//! station's real delivery timer (design change 0057); and a unit hit from the fog flashes, with no tracer (Q0017
-//! point 1's assumption). Headless, one tick per update, as in `fog.rs`.
+//! station's real delivery timer (design change 0057); and a shot from the fog shows from the fog edge, its shooter
+//! revealed for a while (design change 0177). Headless, one tick per update, as in `fog.rs`.
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
 use sc_sim::testing::ScenarioBuilder;
+use sc_sim::vision::{FOG_DELAY_TICKS, REVEAL_TICKS};
 use sc_sim::{
     Command, DebugCommand, Faction, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, ResourceState, Rotation,
     SlotId, Spawn, SpawnAt, SpawnSettings, TICKS_PER_SECOND, Tick, TilePos, scenarios,
 };
-use space_crystals::combat_effects::{CombatEffects, HIT_FLASH_TICKS, ShotView, shot_view, shows_tracer};
+use space_crystals::combat_effects::{CombatEffects, TRACER_TICKS, shot_spans};
 use space_crystals::fog::Sight;
 use space_crystals::hud::info_panel::{InfoText, NO_DELIVERY};
 use space_crystals::input::InjectedInput;
@@ -107,17 +108,19 @@ fn world_with(faction: Faction, station: SpawnSettings) -> App {
     app
 }
 
-/// Moves player 1's scout to tile (`x`, `y`) in the next tick: (20, 7) sees neither the patch nor the station.
+/// Moves player 1's scout to tile (`x`, `y`) in the next tick, and runs on through the fog delay (design change 0178),
+/// until the tiles it left are Explored: (20, 7) sees neither the patch nor the station.
 fn scout_to(app: &mut App, x: i32, y: i32) {
+    move_to(app, ObjectId(SCOUT), x, y);
+}
+
+/// [`scout_to`] for unit `id`.
+fn move_to(app: &mut App, id: ObjectId, x: i32, y: i32) {
     let pos = centre(x, y);
-    debug(
-        app,
-        DebugCommand::SetPosition {
-            id: ObjectId(SCOUT),
-            pos,
-        },
-    );
+    debug(app, DebugCommand::SetPosition { id, pos });
     app.update();
+    let moved = tick(app);
+    run_until(app, moved + FOG_DELAY_TICKS);
 }
 
 /// Whether the visual of live object `id` is drawn; `false` once the object is gone.
@@ -279,9 +282,7 @@ fn a_remembered_enemy_structure_shows_as_placed_with_its_tag() {
     let (id, label, bright) = tag(&app, live).expect("a live structure has its tag");
     assert_eq!((id, label.as_str()), (ObjectId(barracks), "BR"));
 
-    let pos = centre(20, 7);
-    debug(&mut app, DebugCommand::SetPosition { id: ObjectId(2), pos });
-    app.update();
+    move_to(&mut app, ObjectId(2), 20, 7);
     assert!(!drawn(&app, barracks));
     assert_eq!(remembered(&app), [barracks]);
     let memory = app.world().resource::<RememberedVisuals>().by_id[&ObjectId(barracks)];
@@ -524,13 +525,17 @@ const STEP: &str = "
     0000000000000111111111111
 ";
 
-/// Q0017 point 1's assumption: player 2's Peacekeeper on the high ground (tile (14, 2), level 1) shoots player 1's
-/// on (9, 2) from beyond player 1's sight (4 grid units up to level 1) but within its own range (5 grid units down
-/// to level 0). Player 1 sees no tracer, but its unit flashes for `HIT_FLASH_TICKS`; with the fog off, and for
-/// player 2, the tracer shows instead.
+/// Design change 0177 (`core/vision.md > Attacks from outside vision`), which replaces Q0017 point 1's assumption (a
+/// flash of the unit hit, no tracer). Player 2's Peacekeeper on the high ground (tile (14, 2), level 1) shoots player
+/// 1's on (9, 2) from beyond player 1's sight (4 grid units up to level 1) but within its own range (5 grid units down
+/// to level 0). Player 1 sees the shot come out of the fog at the east edge of tile (13, 2), the last tile it sees
+/// that way, a tenth of the way from the shooter; with the fog off, and for player 2, the whole shot shows. The
+/// shooter is revealed to player 1, drawn and selectable, until `REVEAL_TICKS` after its last shot: its first, as
+/// player 2 stops it then. Auto-targeting is off, so that nobody fires on their own.
 #[test]
-fn a_unit_hit_from_the_fog_flashes_without_a_tracer() {
+fn a_shot_from_the_fog_shows_from_the_fog_edge_and_reveals_the_shooter() {
     let mut app = headless(AppConfig::new(ScenarioBuilder::new(STEP).build()));
+    debug(&mut app, DebugCommand::SetAutoTargeting { on: false });
     spawn_unit(&mut app, P1, 9, 2);
     spawn_unit(&mut app, P2, 14, 2);
     app.update();
@@ -540,42 +545,46 @@ fn a_unit_hit_from_the_fog_flashes_without_a_tracer() {
         let unit = |id| sim.object(id).unwrap();
         assert!(!sim.is_visible(P1, unit(attacker)) && sim.is_visible(P2, unit(target)));
     }
-    let units = vec![attacker];
-    let kind = OrderKind::Attack(target);
-    let queue = false;
-    submit(&mut app, P2, Command::Order { units, kind, queue });
+    assert!(!drawn(&app, 2));
+    assert_eq!(selectable(&app), [1]);
+    let order = |kind| Command::Order {
+        units: vec![attacker],
+        kind,
+        queue: false,
+    };
+    submit(&mut app, P2, order(OrderKind::Attack(target)));
     let ordered = tick(&app);
     while app.world().resource::<CombatEffects>().tracers.is_empty() {
         assert!(tick(&app) < ordered + 20, "player 2 never fired");
         app.update();
     }
     let shot = tick(&app);
-    let world = app.world();
-    let sim = world.resource::<SimRes>();
-    let tracer = &world.resource::<CombatEffects>().tracers[0];
-    assert_eq!((tracer.target, tracer.tick), (target, shot));
-    let seen_by = |player, fog| shot_view(sim, &Sight::new(sim, player, fog), tracer);
-    assert!(!shows_tracer(&Sight::new(sim, P1, true), tracer), "from the fog");
-    assert_eq!(seen_by(P1, true), Some(ShotView::Flash(sim.object(target).unwrap())));
-    assert_eq!(seen_by(P1, false), Some(ShotView::Tracer), "the fog off");
-    assert_eq!(seen_by(P2, true), Some(ShotView::Tracer), "the shooter's own");
+    submit(&mut app, P2, order(OrderKind::Stop));
+    {
+        let world = app.world();
+        let sim = world.resource::<SimRes>();
+        let tracer = &world.resource::<CombatEffects>().tracers[0];
+        assert_eq!((tracer.target, tracer.tick), (target, shot));
+        let spans = |player, fog| shot_spans(sim, &Sight::new(sim, player, fog), tracer);
+        assert_eq!(spans(P1, true), [(0.1, 1.0)], "from the fog edge");
+        assert_eq!(spans(P1, false), [(0.0, 1.0)], "the fog off");
+        assert_eq!(spans(P2, true), [(0.0, 1.0)], "the shooter's own");
+    }
+    assert!(drawn(&app, 2), "revealed");
+    assert_eq!(selectable(&app), [1, 2]);
 
-    run_until(&mut app, shot + HIT_FLASH_TICKS - 1);
-    let world = app.world();
-    let sim = world.resource::<SimRes>();
-    let tracer = &world.resource::<CombatEffects>().tracers[0];
-    assert!(matches!(
-        shot_view(sim, &Sight::new(sim, P1, true), tracer),
-        Some(ShotView::Flash(_))
-    ));
+    run_until(&mut app, shot + TRACER_TICKS);
+    {
+        let world = app.world();
+        let sim = world.resource::<SimRes>();
+        let mut tracers = world.resource::<CombatEffects>().tracers.iter();
+        let sight = Sight::new(sim, P1, true);
+        assert!(tracers.all(|t| shot_spans(sim, &sight, t).is_empty()), "faded");
+    }
+    run_until(&mut app, shot + REVEAL_TICKS - 1);
+    assert!(drawn(&app, 2), "still revealed");
+    assert_eq!(selectable(&app), [1, 2]);
     app.update();
-    let world = app.world();
-    let sim = world.resource::<SimRes>();
-    let flashes = world.resource::<CombatEffects>().tracers.iter();
-    assert!(
-        flashes
-            .filter(|t| t.tick == shot)
-            .all(|t| shot_view(sim, &Sight::new(sim, P1, true), t).is_none()),
-        "over"
-    );
+    assert!(!drawn(&app, 2), "hidden again");
+    assert_eq!(selectable(&app), [1]);
 }

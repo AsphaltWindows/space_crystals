@@ -4,6 +4,7 @@
 
 use VisibilityState::{Explored, Unexplored, Visible};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::vision::FOG_DELAY_TICKS;
 use sc_sim::{
     DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, SpawnAt, Target, TickInputs, TilePos,
     Vec2, VisibilityState,
@@ -38,10 +39,15 @@ fn is_visible(t: &TestSim, player: PlayerId, id: u32) -> bool {
     t.sim().is_visible(player, t.sim().object(ObjectId(id)).unwrap())
 }
 
+/// Whether tile `(x, y)` is Visible to `player` only for the fog delay.
+fn lingers(t: &TestSim, player: PlayerId, x: i32, y: i32) -> bool {
+    t.sim().vision().player(player).unwrap().lingers(TilePos::new(x, y))
+}
+
 /// The sight is a disc around the unit's centre; a tile is seen when its centre lies within the SightRange, the
 /// boundary included. A Peacekeeper (5 grid units) on a tile's centre sees the 81 tiles whose centres lie within 5
 /// tiles, those exactly 5 away along an axis or 3-4-5 diagonally included; half a space unit east, the tile exactly
-/// 5 west drops out and the one 5 east stays in.
+/// 5 west drops out of sight (Visible for the fog delay, then Explored) and the one 5 east stays in.
 #[test]
 fn the_edge_of_sight_is_exact() {
     let mut t = ScenarioBuilder::new(&flat(24, 20)).start();
@@ -75,9 +81,13 @@ fn the_edge_of_sight_is_exact() {
     )
     .run_until(2);
     assert_eq!(state(&t, P1, 15, 10), Visible, "319.5 su away");
-    assert_eq!(state(&t, P1, 5, 10), Explored, "320.5 su away");
+    assert!(!lingers(&t, P1, 15, 10));
+    assert!(lingers(&t, P1, 5, 10), "320.5 su away: out of sight");
     assert_eq!(state(&t, P1, 16, 10), Unexplored);
     assert!(is_visible(&t, P1, 1), "a unit's owner sees it");
+    t.run_until(2 + FOG_DELAY_TICKS);
+    assert_eq!(state(&t, P1, 5, 10), Explored, "320.5 su away");
+    assert_eq!(state(&t, P1, 15, 10), Visible);
 }
 
 /// 24 × 5 tiles: level 0 in the west, a ramp on column 12 (its centre at height 0.5, level 0), level 1 from column
@@ -156,6 +166,8 @@ fn explored_tiles_stay_explored() {
     let explored = count(t.sim(), P1, Explored) + count(t.sim(), P1, Visible);
     let tick = t.sim().tick();
     t.debug_at(tick + 1, DebugCommand::Remove { id: ObjectId(1) }).step();
+    assert!(lingers(&t, P1, 30, 5), "Visible for the fog delay after it is gone");
+    t.run(FOG_DELAY_TICKS);
     assert_eq!(count(t.sim(), P1, Visible), 0);
     assert_eq!(count(t.sim(), P1, Explored), explored, "nothing is forgotten");
 }
@@ -182,14 +194,15 @@ fn players_are_kept_apart() {
             pos: centre(9, 5),
         },
     )
-    .run_until(2);
+    .run_until(2 + FOG_DELAY_TICKS);
     assert!(is_visible(&t, P1, 2) && is_visible(&t, P2, 1));
     assert_eq!(state(&t, P2, 20, 5), Explored);
     assert_eq!(state(&t, P1, 20, 5), Unexplored);
 }
 
 /// `Sim::is_visible`: an object is seen when any tile it covers is Visible. A Supply Delivery Station covers 2 × 2
-/// tiles: seen with one of them in sight, Explored once none is. A unit covers the tiles its silhouette overlaps.
+/// tiles: seen with one of them in sight, Explored once none is (after the fog delay). A unit covers the tiles its
+/// silhouette overlaps.
 #[test]
 fn an_object_is_seen_when_any_tile_it_covers_is() {
     let station = SpawnAt::Tile(TilePos::new(15, 5));
@@ -214,6 +227,8 @@ fn an_object_is_seen_when_any_tile_it_covers_is() {
         },
     )
     .run_until(2);
+    assert!(is_visible(&t, P1, 1), "for the fog delay");
+    t.run_until(2 + FOG_DELAY_TICKS);
     assert!(!is_visible(&t, P1, 1));
     assert_eq!((of(&t, P1), of(&t, P2)), (Explored, Unexplored));
 
@@ -297,7 +312,7 @@ fn the_explored_tiles_are_hashed() {
             };
             t.debug_at(2, away).debug_at(3, back);
         }
-        t.run_until(10);
+        t.run_until(3 + FOG_DELAY_TICKS);
         t
     };
     let (stayed, roamed) = (scout(false), scout(true));

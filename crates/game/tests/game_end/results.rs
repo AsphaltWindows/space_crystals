@@ -154,7 +154,8 @@ fn a_spectator_watches_through_the_union_of_the_visions() {
     let mut app = game_as(AppConfig::new(three_way()), P3);
     run_until(&mut app, 3);
     remove(&mut app, 3);
-    run_until(&mut app, 8);
+    // Past the fog delay of the tiles player 3 saw (design change 0178).
+    run_until(&mut app, 8 + FOG_DELAY_TICKS);
     let sim = app.world().resource::<SimRes>();
     let alone = Sight::new(sim, P3, true);
     let union = Sight::watching(sim, P3, &[P3, P2], true);

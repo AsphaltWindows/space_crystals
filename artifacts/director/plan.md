@@ -553,9 +553,17 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Labels.** No command label wraps; long ones shrink. "Raise Shield", "Lower Shield" and "Cancel Ready" shrink to about 6 px at 720p: M3-S shortens the shield texts, K2 the rest.
   - **Splits.** `tests/game_end/` and `sim/tests/movement_yield/`, code moved only.
 
+- **M3-L1 fog delay and attacker reveal** (merged in `aeb54ae`; 1266 tests):
+  - **Fog delay (0178).** `vision/linger.rs`, `FOG_DELAY_TICKS` 8. A per-player bit and end tick per tile, plus a FIFO of expiries, so the cost follows only the tiles that change.
+  - **Reveal (0177).** `vision/reveal.rs`, `REVEAL_TICKS` 24. A `BTreeMap<ObjectId, Tick>` per player, renewed by each shot, revealing to the victim's owner only.
+  - **One query.** Both sit behind `PlayerVision::object_box_state` and `sees_object_box`, which `Vision::sees`, `World::sees`, combat, the gate and the client's `Sight` all use.
+  - **Client.** Tracers are drawn only over Visible tiles (`visible_spans`), and the old hit flash is gone.
+  - **Goldens.** All 7 re-blessed, since the hash covers the new history. Objects are identical at every checkpoint. Perf: no regression in vision, movement, behaviours or structures.
+  - **Open.** A target that outruns sight is lost at once: Q0051. `fog_memory.rs` is 590 lines (K2 splits it).
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
-  - **M3-L1 fog delay and attacker reveal** (Opus; brief `scratchpad/briefs/m3l1-vision.md`): 0177, 0178.
+  - **M3-S Riot Shield as two unit types** (Opus; brief `scratchpad/briefs/m3s-riot-shield-two-types.md`): 0171–0174.
   - **M3-J2 gathering UI** (Opus; brief `scratchpad/briefs/m3j2-gathering-ui.md`): the Drone's right-click checked against the design, pointers, Set Drop-off, Egress Node F, the carried load, 0124 grids, 0155 plate panel, `docs/playtest/m3.md`.
   - **M3-L2 targeting behaviours** (Opus; brief `scratchpad/briefs/m3l2-targeting-behaviours.md`): 0179, 0180, 0182, 0186 Guard numbers, and the AttackMove loop on soak seed 1.
 - **Next**:
@@ -691,11 +699,11 @@ First playable after M2-H2.
     | J2 (0124, 0136, 0139, 0140, 0155) | running (wave 5) |
     | V | done (`9516a0f`) |
     | U | done (`d3814be`) |
-    | S (next free slot; Riot Shield as two unit types: 0171–0174; brief `scratchpad/briefs/m3s-riot-shield-two-types.md`) | queued |
-    | L1 (vision: 0177 attacker reveal and clipped shots, 0178 fog delay) | running (wave 4) |
+    | S (0171–0174) | running (wave 5) |
+    | L1 | done (`aeb54ae`) |
     | L2 (0179, 0180, 0182, 0186 Guard numbers, the AttackMove loop) | running (wave 5) |
     | X (after L1 and L2; Fable: soak robustness over seeds 1–40; master fails 8, 12, 21 idle-mover, 34 settle bound) | queued |
-    | K1, K2 (K2 also: legible command labels at 720p; a half-out unit can attack; 0170 event-driven) | queued |
+    | K1, K2 (K2 also: split `fog_memory.rs`; legible command labels at 720p; a half-out unit can attack; 0170 event-driven) | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -770,6 +778,7 @@ First playable after M2-H2.
 | Q0048 | Pressing other commands while targeting (0066 vs 0162); a portal group only partly warping in | no | answered: point 1 by 0184 (as built), point 2 by 0185 (M3-U) |
 | Q0049 | Convert pressed again while a conversion waits for Cooldown (0153) | no | open; M3-R leaves waiting units out |
 | Q0050 | The ActiveGroup when an unfinished group's last building completes | no | open; M3-U makes the joined finished group active |
+| Q0051 | A target that outruns sight is lost at once, despite the fog delay | no | open; M3-L1 lingers tiles only |
 
 ## Design change entries
 Last triaged: 0188.
@@ -946,8 +955,8 @@ Last triaged: 0188.
 | 0174 Shield toggle 6 ticks (0.375 s), hotkey R for Raise and Lower | queued (M3-S) | answers Q0020 point 5 |
 | 0175 Several buildings waiting for capacity: the lowest id starts first | done (as built, M3-P `9f63a5f`); doc comments updated in M3-V | answers Q0047 point 1 |
 | 0176 No start at power 0 (as built); a capacity cost of 0 always passes | done (point 2 as built, M3-P; point 3 M3-V `9516a0f`, in `ArmyCap::fits`) | answers Q0047 points 2–3 |
-| 0177 Shots drawn only over Visible tiles; an attacker outside the victim's vision is revealed to the victim's owner for 24 ticks after each shot | in progress (M3-L1) | answers Q0017 point 1 |
-| 0178 Fog delay: a tile stays Visible for 8 ticks after it leaves all sight | in progress (M3-L1) | answers Q0018 point 1 |
+| 0177 Shots drawn only over Visible tiles; an attacker outside the victim's vision is revealed to the victim's owner for 24 ticks after each shot | done (M3-L1, `aeb54ae`: `vision/reveal.rs`, `REVEAL_TICKS` 24; tracers cut at Visible tile edges) | answers Q0017 point 1 |
+| 0178 Fog delay: a tile stays Visible for 8 ticks after it leaves all sight | done (M3-L1, `aeb54ae`: `vision/linger.rs`, `FOG_DELAY_TICKS` 8); a target outrunning sight: Q0051 | answers Q0018 point 1 |
 | 0179 Target priority by rotation in 45° steps, then closest, then a fixed order | queued (M3-L2, after R) | answers Q0018 point 2 |
 | 0180 AttackMove leash limits chasing only: targets in weapon range are always fought; PathReference kept after fights, replaced by a blockage detour | queued (M3-L2, after R) | answers Q0018 point 3 |
 | 0181 Unreachable auto-targets: approach, give up, retry after 32 ticks | done (as built) | answers Q0018 point 4 |

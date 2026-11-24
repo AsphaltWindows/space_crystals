@@ -34,10 +34,15 @@ fn the_winner_sees_victory_the_loser_defeat_and_the_game_stops() {
     app.world_mut().resource_mut::<LocalPlayer>().0 = P2;
     app.update();
     assert_eq!(banner(&mut app), shown("DEFEAT", "The game is over"));
-    // The loser owns nothing: nothing shows Visible to them.
+    // The loser owns nothing: what still shows Visible to them is the fog delay of the tiles they saw last (design
+    // change 0178), in which the game stopped.
     let sim = app.world().resource::<SimRes>();
-    let sight = Sight::new(sim, P2, true);
-    assert!(sim.objects().all(|o| sight.object(o) != VisibilityState::Visible));
+    assert!(sim.objects().all(|o| o.owner != Some(P2)));
+    let vision = sim.vision().player(P2).unwrap();
+    let (w, h) = (sim.map().width() as i32, sim.map().height() as i32);
+    let tiles = (0..h).flat_map(|y| (0..w).map(move |x| TilePos::new(x, y)));
+    let visible: Vec<TilePos> = tiles.filter(|&t| vision.state(t) == VisibilityState::Visible).collect();
+    assert!(!visible.is_empty() && visible.iter().all(|&t| vision.lingers(t)));
     assert_eq!(Banner::of(sim, P1), Some(Banner::Victory));
     assert_eq!(Banner::of(sim, PlayerId(9)), None, "not in the game");
 }

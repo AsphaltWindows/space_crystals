@@ -16,7 +16,7 @@ impl Sim {
     pub(super) fn settle_start(&mut self) {
         self.vision
             .seed(self.objects.values().filter(|o| o.owner.is_none()), self.tick);
-        self.vision.update(&self.map, self.objects.values());
+        self.vision.update(&self.map, self.objects.values(), self.tick);
         self.vision.remember(self.tick, |id| self.objects.get(&id));
         self.path_knowledge = PathKnowledge::start(self.players.iter().map(|p| p.id));
         self.nav = NavState::build(&self.map, &self.objects, &self.vision, &self.path_knowledge);

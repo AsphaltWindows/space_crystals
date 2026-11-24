@@ -7,7 +7,7 @@
 //! V1 after every tick, which compares the records with those a fresh build keeps.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::vision::LastKnown;
+use sc_sim::vision::{FOG_DELAY_TICKS, LastKnown};
 use sc_sim::{
     DebugCommand, ObjectId, ObjectKind, PlayerId, ResourceState, Sim, SpawnAt, SpawnSettings, TilePos, Vec2,
     VisibilityState,
@@ -72,7 +72,8 @@ fn resource(t: &TestSim, id: u32) -> ResourceState {
 }
 
 /// A record holds the object as the player last saw it: refreshed every tick in sight, the station's countdown
-/// included, and kept out of sight while the station takes a delivery the player doesn't see.
+/// included, and kept out of sight while the station takes a delivery the player doesn't see. The scout leaves in
+/// tick 6; the station's tiles stay Visible for the fog delay (design change 0178), through tick 13.
 #[test]
 fn records_keep_the_last_state_seen() {
     let mut t = world();
@@ -85,9 +86,16 @@ fn records_keep_the_last_state_seen() {
     assert_eq!(station.pos(), t.sim().object(ObjectId(STATION)).unwrap().pos);
     let patch = record(&t, P1, PATCH).unwrap();
     assert_eq!(patch.resource, Some(ResourceState::CrystalPatch { remaining: 777 }));
-    let at_5 = station.resource;
 
     scout_to(&mut t, 6, 34, 5);
+    let last = 6 + FOG_DELAY_TICKS - 1;
+    t.run_until(last);
+    let at_last = Some(resource(&t, STATION));
+    assert_eq!(
+        record(&t, P1, STATION).unwrap().seen,
+        last,
+        "in sight for the fog delay"
+    );
     t.run_until(30);
     assert!(matches!(
         resource(&t, STATION),
@@ -97,7 +105,11 @@ fn records_keep_the_last_state_seen() {
         }
     ));
     let station = record(&t, P1, STATION).unwrap();
-    assert_eq!((station.seen, station.resource), (5, at_5), "not seen since tick 5");
+    assert_eq!(
+        (station.seen, station.resource),
+        (last, at_last),
+        "not seen since tick {last}"
+    );
     let remembered = |t: &TestSim| -> Vec<u32> {
         let player = t.sim().vision().player(P1).unwrap();
         player.remembered().map(|r| r.id.0).collect()
@@ -117,16 +129,17 @@ fn records_keep_the_last_state_seen() {
 }
 
 /// `core/vision.md > Explored`: an object removed out of sight stays remembered (saved and replayed with the game)
-/// until the player sees its place again.
+/// until the player sees its place again. Out of sight: after the fog delay, which keeps the patch in sight through
+/// tick 13.
 #[test]
 fn a_removed_object_is_remembered_until_its_place_is_seen() {
     let mut t = world();
     scout_to(&mut t, 6, 34, 5);
-    t.debug_at(10, DebugCommand::Remove { id: ObjectId(PATCH) })
-        .run_until(12);
+    t.debug_at(16, DebugCommand::Remove { id: ObjectId(PATCH) })
+        .run_until(18);
     assert!(t.sim().object(ObjectId(PATCH)).is_none());
     let patch = record(&t, P1, PATCH).unwrap();
-    assert_eq!((patch.seen, patch.pos()), (5, centre(14, 5)));
+    assert_eq!((patch.seen, patch.pos()), (6 + FOG_DELAY_TICKS - 1, centre(14, 5)));
     let player = t.sim().vision().player(P1).unwrap();
     assert!(
         player.is_record_tile(TilePos::new(14, 5)),
@@ -139,26 +152,26 @@ fn a_removed_object_is_remembered_until_its_place_is_seen() {
     assert_eq!(&loaded, t.sim());
     assert_eq!(loaded.state_hash(), t.sim().state_hash());
 
-    scout_to(&mut t, 15, 10, 5);
+    scout_to(&mut t, 21, 10, 5);
     for _ in 0..5 {
         t.step();
         assert!(t.replay().step(&mut loaded));
         assert_eq!(loaded.state_hash(), t.sim().state_hash(), "tick {}", t.sim().tick());
     }
-    assert_eq!(record(&t, P1, PATCH), None, "seen gone at tick 15");
+    assert_eq!(record(&t, P1, PATCH), None, "seen gone at tick 21");
     assert_eq!(ids(t.sim(), P1), [STATION, FAR_PATCH]);
     assert_eq!(ids(&loaded, P1), [STATION, FAR_PATCH]);
     assert_eq!(t.replay().run().state_hash(), t.sim().state_hash());
 }
 
-/// An object placed on Explored tiles, out of sight, stays unknown until the player sees it.
+/// An object placed on Explored tiles, out of sight (the fog delay over), stays unknown until the player sees it.
 #[test]
 fn an_object_placed_in_the_fog_stays_unknown() {
     let mut t = world();
     scout_to(&mut t, 6, 34, 5);
     let at = SpawnAt::Tile(TilePos::new(12, 3));
     t.debug_at(
-        8,
+        16,
         DebugCommand::Spawn {
             kind: ObjectKind::CrystalPatch,
             owner: None,
@@ -166,14 +179,14 @@ fn an_object_placed_in_the_fog_stays_unknown() {
             orientation: Default::default(),
         },
     )
-    .run_until(10);
+    .run_until(18);
     let placed = 6;
     assert!(t.sim().object(ObjectId(placed)).is_some());
     assert_eq!(t.sim().visibility(P1, TilePos::new(12, 3)), VisibilityState::Explored);
     assert_eq!(record(&t, P1, placed), None);
-    scout_to(&mut t, 15, 10, 5);
-    t.run_until(15);
-    assert_eq!(record(&t, P1, placed).map(|r| r.seen), Some(15));
+    scout_to(&mut t, 21, 10, 5);
+    t.run_until(21);
+    assert_eq!(record(&t, P1, placed).map(|r| r.seen), Some(21));
 }
 
 /// Each player remembers what it saw itself: the map's objects, which both know from the start (design change 0159),
@@ -206,10 +219,10 @@ fn the_records_are_hashed() {
         let mut t = world();
         scout_to(&mut t, 6, 34, 5);
         t.debug_at(removed_at, DebugCommand::Remove { id: ObjectId(PATCH) })
-            .run_until(12);
+            .run_until(18);
         t
     };
-    let (seen, unseen) = (game(10), game(1));
+    let (seen, unseen) = (game(16), game(1));
     let objects = |t: &TestSim| t.sim().objects().cloned().collect::<Vec<_>>();
     assert_eq!(objects(&seen), objects(&unseen));
     let tiles = |t: &TestSim| t.sim().vision().player(P1).unwrap().states().collect::<Vec<_>>();

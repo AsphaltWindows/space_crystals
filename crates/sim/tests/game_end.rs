@@ -213,18 +213,27 @@ fn a_defeated_players_units_become_neutral_and_idle() {
         assert_eq!(unit.attack.as_ref().unwrap().target, None);
         stood.push(unit.pos);
     }
-    // Nobody's eyes: player 2 sees no tile, and keeps no planning grid (no unit of theirs walks).
+    // Nobody's eyes: no source of player 2's sees a tile, so their tiles are Visible only for the fog delay (design
+    // change 0178), and they keep no planning grid (no unit of theirs walks).
     let vision = t.sim().vision().player(P2).unwrap();
-    assert!(vision.states().all(|s| s != VisibilityState::Visible));
+    let map = t.sim().map();
+    let tiles = (0..map.height() as i32).flat_map(|y| (0..map.width() as i32).map(move |x| TilePos::new(x, y)));
     assert!(
-        vision.states().any(|s| s == VisibilityState::Explored),
-        "what they explored stays"
+        tiles
+            .filter(|&tile| vision.state(tile) == VisibilityState::Visible)
+            .all(|tile| vision.lingers(tile))
     );
     assert!(t.sim().known_nav(P2).is_none());
 
     // Player 1 walks up to them and stands by; nobody shoots.
     t.order_at(6, P1, &p1_units, OrderKind::Move(Target::Point(centre(17, 9))), false);
     t.run_until(150);
+    let vision = t.sim().vision().player(P2).unwrap();
+    assert!(vision.states().all(|s| s != VisibilityState::Visible));
+    assert!(
+        vision.states().any(|s| s == VisibilityState::Explored),
+        "what they explored stays"
+    );
     let positions: Vec<Vec2> = p2_units.iter().map(|&id| t.sim().object(id).unwrap().pos).collect();
     assert_eq!(positions, stood, "they stay where they are");
     let p1 = t.sim().object(ObjectId(4)).unwrap();

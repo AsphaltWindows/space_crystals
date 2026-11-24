@@ -4,6 +4,7 @@
 
 use sc_sim::orders::state::Behaviour;
 use sc_sim::testing::dangling_references;
+use sc_sim::vision::FOG_DELAY_TICKS;
 use sc_sim::{DebugCommand, MoveGoal, Reject, TargetView, VisibilityState};
 
 use super::*;
@@ -58,16 +59,18 @@ fn gather_state(t: &TestSim, n: u32) -> (Option<Vec2>, bool) {
 /// The acceptance of slice M3-R for 0139 ("scout a field and leave, then right-click a greyed patch with Drones: they
 /// walk there and mine"), and for 0159 a patch of the map the player has never seen, far off: the gate takes the
 /// Gather, the Drone walks to where its owner knows the patch, without ever being told more (its move heads for a
-/// point, never the patch itself, and the order notes the spot), and mines it once there.
+/// point, never the patch itself, and the order notes the spot), and mines it once there. A scouted patch is greyed
+/// once the fog delay after its scout's removal is over (design change 0178): in sight through tick 9.
 #[test]
 fn a_drone_walks_to_a_patch_out_of_sight_and_mines_it() {
+    let greyed = 2 + FOG_DELAY_TICKS;
     for known in [Known::Scouted, Known::FromTheStart] {
         let mut t = far_field(known);
-        t.run_until(2);
+        t.run_until(greyed);
         let record = t.sim().vision().player(P1).unwrap().record(id(1)).cloned();
         assert_eq!(
             record.map(|r| r.seen),
-            Some(if known == Known::Scouted { 1 } else { 0 }),
+            Some(if known == Known::Scouted { greyed - 1 } else { 0 }),
             "{known:?}: the record"
         );
         assert!(
@@ -76,8 +79,8 @@ fn a_drone_walks_to_a_patch_out_of_sight_and_mines_it() {
         );
         let cmd = order_of(P1, &[4], OrderKind::Gather(id(1)));
         assert_eq!(t.sim().validate(&cmd), Ok(()), "{known:?}");
-        t.at(3, P1, cmd.command);
-        t.run_until(3);
+        t.at(greyed + 1, P1, cmd.command);
+        t.run_until(greyed + 1);
         let a = TilePos::new(24, 4).center();
         assert_eq!(order(&t, 4), Some(OrderKind::Gather(id(1))), "{known:?}");
         assert_eq!(

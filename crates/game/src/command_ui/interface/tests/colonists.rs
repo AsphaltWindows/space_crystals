@@ -204,11 +204,12 @@ fn whatever_transforms_shows_only_cancel() {
 }
 
 /// Design change 0185: 2 finished Bio Portals and 1 warping in are two groups, each with its panel. The finished
-/// group's commands go to the finished portals only, group commands (the unfinished one doesn't offer them); Tab to
-/// the other group shows only X Cancel, which goes to the portal warping in.
+/// group's commands go to the finished portals only, group commands (the unfinished one doesn't offer them), beside
+/// the units not in the game yet (design change 0124, slice M3-J2); Tab to the other group shows only X Cancel, which
+/// goes to the portal warping in.
 #[test]
 fn finished_and_unfinished_portals_have_their_own_panels() {
-    use PanelCommand::{CancelProduction, CancelTransform, SetRallyPoint, Train};
+    use PanelCommand::{CancelProduction, CancelTransform, Planned as P, SetRallyPoint, Train};
     let bio = ObjectKind::BioPortal;
     let sabre = ObjectKind::SabreLegionnaire;
     let mut portals = Selection::new([
@@ -223,6 +224,8 @@ fn finished_and_unfinished_portals_have_their_own_panels() {
         shown(&finished),
         [
             (slot(0, 0), c(Train(sabre)), ButtonLook::Group),
+            (slot(0, 1), c(P(Planned::Lancer)), ButtonLook::Unavailable),
+            (slot(0, 2), c(P(Planned::PsionicUnit)), ButtonLook::Unavailable),
             (X, c(CancelProduction), ButtonLook::Group),
             (CommandSlot::RALLY_POINT, c(SetRallyPoint), ButtonLook::Group),
         ]

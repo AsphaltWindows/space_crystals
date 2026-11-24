@@ -12,6 +12,7 @@
 use bevy::prelude::*;
 use sc_sim::orders::state::{Behaviour, GatherPhase};
 use sc_sim::testing::ScenarioBuilder;
+use sc_sim::vision::FOG_DELAY_TICKS;
 use sc_sim::{
     Command, DebugCommand, Faction, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand, Rally, Scenario,
     SpawnAt, Target, TargetView, TilePos,
@@ -61,7 +62,8 @@ fn flat() -> String {
 }
 
 /// A headless game of `scenario` as player 1, as [`game_of`] sets it up but with the fog of war on; then the `scout`
-/// is removed, which saw the far field in the first tick.
+/// is removed, which saw the far field in the first tick, and the game runs on through the fog delay (design change
+/// 0178), until player 1 remembers the field out of its sight.
 fn fog_game(scenario: Scenario, scout: u32) -> App {
     let mut config = AppConfig::new(scenario);
     config.display = space_crystals::platform::DisplayMode::Headless;
@@ -77,7 +79,7 @@ fn fog_game(scenario: Scenario, scout: u32) -> App {
     app.update();
     app.world_mut().resource_mut::<CameraView>().center = VIEW_CENTER;
     submit(&mut app, P1, Command::Debug(DebugCommand::Remove { id: id(scout) }));
-    updates(&mut app, 2);
+    updates(&mut app, 2 + FOG_DELAY_TICKS as usize);
     app
 }
 

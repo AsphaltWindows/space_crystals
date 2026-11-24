@@ -375,7 +375,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      the game in the tick counts (the commands' removals, 5e's deaths). Before 5f, so that the units a defeat makes
      neutral are nobody's eyes in its own tick.
    - 5f `Vision::update`: every player's sight from the objects as the tick leaves them, those this tick's commands
-     spawned included (see Vision). Combat in 5e reads the vision of the tick before.
+     spawned included, then the fog delays and the reveals that end (see Vision). Combat in 5e reads the vision of
+     the tick before, and its hits reveal their attackers on top of it.
    - `update_supply_stations` (`core/map.md > SupplyDeliveryStation`).
    - `Vision::remember`: each player's records of the structures and resources in its sight take the tick's
      final state, the deliveries included (see Vision).
@@ -448,8 +449,10 @@ ticks spent in it. Hashed and serialized like all state.
   and beyond MinRange, both inclusive, with the ElevationModifier. `can_attack_now(map, vision, attacker, target)`
   adds the rest for two objects: destructible, seen, an allowed domain.
 - **Vision** (`systems/combat.md > ValidTarget` 2): a sequence starts, and an aim goes on, only while the attacker's
-  owner sees the target (`PlayerVision::sees_box`), by the vision 5f left at the end of the tick before. What a
-  unit does about a target out of range or out of sight is its behaviour's; a neutral attacker sees nothing.
+  owner sees the target (`PlayerVision::sees_object_box`: the fog delay and a reveal count), by the vision 5f left
+  at the end of the tick before. What a unit does about a target out of range or out of sight is its behaviour's; a
+  neutral attacker sees nothing. Once the tick's hits are applied, each one reveals its attacker to the owner of the
+  object hit if that player doesn't see it (`Vision::reveal`, see Vision).
 - **ElevationModifier** (`elevation.rs`, shared with vision): `Elevation::of` an object is its elevation level (the
   height rounded down), or `Exempt` for air units; `modifier(source, target)` is +1/−1/0 grid unit, binary.
   `attack_range` and `sight_range` apply it; melee attacks don't take it.
@@ -545,8 +548,25 @@ or `Visible` for each player, and each player remembers the structures and resou
 - **Incremental stamps**: each source keeps its `Eye` (owner, centre, SightRange, elevation) and the sorted tiles
   it stamped. In 5f a source whose eye is unchanged costs nothing; one that changed stamps again and only the
   difference changes the per-player counts of sources seeing each tile; a source that is gone takes its tiles away.
-  A tile is Visible while its count is above 0, and Explored once it has been Visible. `PlayerVision::revision`
-  changes when any of the player's tiles changes state, so views redraw only then.
+  A tile is Visible while its count is above 0 and for the fog delay after, and Explored once it has been Visible.
+  `PlayerVision::revision` changes when any of the player's tiles changes state, so views redraw only then.
+- **Fog delay** (`vision/linger.rs`, `core/vision.md > Visible > Fog delay`, design change 0178): a tile that no
+  source of the player sees any more in 5f of tick `t` lingers, genuinely Visible, at the end of ticks `t` to
+  `t + FOG_DELAY_TICKS − 1` (8, a placeholder); 5f of `t + FOG_DELAY_TICKS` turns it Explored unless a source sees
+  it again first. It is the one fix for a target blinking out at the edge of sight: Attack and Follow have no grace
+  period of their own, and 0034's last-seen logic runs as before. Per player, `Linger` keeps a bit and an end tick
+  per tile and a FIFO of `(end, tile)` in the order the delays end (a tile back in sight leaves a stale entry that
+  the pop skips), so 5f costs the tiles that leave sight or come back, as before, plus the entries due, never a pass
+  over the map. A delay that ends changes the revision, and the memory takes it as the tile leaving sight. It
+  bridges sight that recedes from a target (a spotter walks off and a chaser's own sight takes over); a target that
+  steps onto a tile never seen, ahead of the front edge of sight, is out of sight at once
+  (`tests/fog_delay.rs`).
+- **Attackers revealed** (`vision/reveal.rs`, `core/vision.md > Attacks from outside vision`, design change 0177):
+  when a hit lands in 5e of tick `t` from an attacker that none of the victim's owner's sources sees (by the vision
+  of the end of `t − 1`, the attacker's box where it fires from; the fog delay doesn't count: independent timers),
+  the attacker alone, not its tiles, is Visible to that player at the end of ticks `t` to `t + REVEAL_TICKS − 1`
+  (24, a placeholder); each such shot renews it. `PlayerVision::reveals` maps each attacker revealed to its end,
+  and 5f drops those that end. Every attacker, whatever its range; a neutral victim reveals nothing.
 - **Memory** (`vision/memory.rs`, `core/vision.md > Explored`): a `LastKnown` record per tile-based object (a
   structure or a resource) the player has seen and doesn't own: kind, owner, footprint, HP, resource state and the
   tick it was last seen. An object is in a player's sight while a tile under its footprint is Visible; its record
@@ -565,15 +585,19 @@ or `Visible` for each player, and each player remembers the structures and resou
   objects enter or leave the sight and the records seen gone are dropped; `remember` reads only the objects in each
   player's sight. Measured (`tests/vision_perf.rs`, ignored, release): 500 moving units and 168 crystal patches on
   256 × 256, `update` and `remember` 0.17 ms per tick on average, 0.2 ms at the 99th percentile.
-- **State**: the Explored bits and the records are history, so they are hashed and serialized (each player's rows of
-  `#` and `.`, and its `last_known` records). Eyes, stamps, counts, the footprint index and the objects in sight are
-  derived: a loaded save rebuilds them from the objects (`vision::load`, which rejects a record twice, of an own
-  object, off the map, or seen after the save's tick), and invariant V1 (`testing::invariants`) rebuilds them from
-  scratch, from the same records, and compares.
+- **State**: the Explored bits, the records, the tiles that linger with their ends and the reveals are history, so
+  they are hashed and serialized (each player's rows of `#` and `.`, its `last_known` records, and its `lingering`
+  and `revealed`, both `#[serde(default)]`). Eyes, stamps, counts, the footprint index, the delay's queue and the
+  objects in sight are derived: a loaded save rebuilds them from the objects (`vision::load`, which rejects a record
+  twice, of an own object, off the map, or seen after the save's tick, and a delay or a reveal that ends in the past
+  or beyond its length), and invariant V1 (`testing::invariants`) rebuilds them from scratch, from the same history,
+  and compares.
 - **Queries**: `Sim::vision()`, `Sim::visibility(player, tile)` and `Sim::is_visible(player, object)`: an object is
-  seen when any tile it covers is Visible (its silhouette box or footprint, `combat::object_box`).
-  `Vision::player(id)` gives a `PlayerVision` with `state`, `states` (row-major, for the client's fog texture),
-  `object_state`, `sees` and `sees_box`; and for the records `records` (by id), `record(id)`, `remembered` and
+  seen while it is revealed or when any tile it covers is Visible (its silhouette box or footprint,
+  `combat::object_box`). `Vision::player(id)` gives a `PlayerVision` with `state`, `states` (row-major, for the
+  client's fog texture), `lingers(tile)`, `is_revealed(id)`, `object_state`, `sees`, `sees_box` (tiles only), and
+  `object_box_state` and `sees_object_box`, the one object query that combat, `World::sees`, the gate and the
+  client's `Sight` all go through; and for the records `records` (by id), `record(id)`, `remembered` and
   `remembered_record(id)` (those not in sight, which Explored tiles show), `record_tiles` and `is_record_tile` (the
   tiles under any record) and `records_revision` (changes when a record comes, goes or moves; not when only its
   state changes).
@@ -1740,8 +1764,9 @@ out by the same rules.
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
   up, red failed, blue arrived; placeholder colours). Its one mesh is rebuilt every frame while it is shown.
 - **Combat effects** (`combat_effects.rs`, placeholders until Q0001): a tracer for each `SimEvent::Attacked`
-  (`TRACER_TICKS`), or a flash of the object hit if the local player sees it but not the tracer, an attacker in the
-  fog (`shot_view`, `HIT_FLASH_TICKS`; Q0017 point 1's assumption), HP bars over damaged and selected units, with
+  (`TRACER_TICKS`), drawn only along the parts of its path over the local player's Visible tiles (`visible_spans`,
+  which cuts it at every tile edge it crosses; design change 0177: a shot from the fog shows from the fog edge, one
+  all in the fog not at all; its attacker is revealed by the sim), HP bars over damaged and selected units, with
   a shield bar right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change
   0148; `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and a fading marker for
   each `SimEvent::Died` (`DEATH_MARKER_TICKS`).
@@ -1763,7 +1788,7 @@ out by the same rules.
   them gives it, an object out of sight of all of them as the latest record any of them keeps. A player watches
   their own vision, and a defeated one their allies' too (`Sight::new`, `Sim::allies`; design change 0102: never a
   full map reveal); `Sight::revision` holds whom it watches. Without teams a defeated player watches their own
-  vision alone, which has no Visible tile left.
+  vision alone, which has no Visible tile left once the fog delay of their last tiles is over.
   `FogOfWar` turns it off for QA (`--no-fog`, the debug key F3, which a replay's playback takes without debug
   commands too): display only, the sim computes every player's
   vision anyway. The editor shows no fog; its play-tests do.

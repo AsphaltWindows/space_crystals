@@ -231,7 +231,7 @@ impl<'a> Sight<'a> {
         self.tile(TilePos::containing(ground))
     }
 
-    /// The best state among the tiles `object` covers (`PlayerVision::object_state`).
+    /// The best state among the tiles `object` covers, or Visible if revealed (`PlayerVision::object_state`, 0177).
     pub fn object(&self, object: &Object) -> VisibilityState {
         match self.fog {
             None => VisibilityState::Visible,

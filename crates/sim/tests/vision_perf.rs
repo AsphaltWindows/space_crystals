@@ -95,7 +95,7 @@ fn perf_vision_500_units_on_256() {
 
     let (fresh, took) = timed(|| {
         let mut fresh = Vision::new(t.sim().map(), players());
-        fresh.update(t.sim().map(), t.sim().objects());
+        fresh.update(t.sim().map(), t.sim().objects(), t.sim().tick());
         fresh
     });
     println!("a fresh build of 500 sources: {:.3} ms", took.as_secs_f64() * 1e3);
@@ -115,7 +115,7 @@ fn perf_vision_500_units_on_256() {
         t.step();
         let moving = t.sim().objects().filter(|o| o.pos != o.prev_pos).count();
         let ((), took) = timed(|| {
-            vision.update(t.sim().map(), t.sim().objects());
+            vision.update(t.sim().map(), t.sim().objects(), t.sim().tick());
             vision.remember(t.sim().tick(), |id| t.sim().object(id));
         });
         assert!(&vision == t.sim().vision());
