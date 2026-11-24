@@ -35,8 +35,9 @@ impl Sim {
 
     /// The gate for `OrderKind::DropOff(node)` and `Ability::SetDropOff(node)` (`> Unit Commands`: "own Egress
     /// Node"; `> Drone ObjectInterfaceState`: "an Egress Node or own refinery"): the target exists and is a
-    /// drop-off of `player`'s, complete: an Egress Node being warped in takes nothing yet (placeholder: question
-    /// Q0039 point 8, `crate::transform`) ([`Reject::NotDropOff`]). A player always sees its own structures.
+    /// drop-off of `player`'s, complete: an Egress Node being warped in takes nothing yet (design change 0116: "A
+    /// Drone can't deliver to an Egress Node under Warp In", `crate::transform`) ([`Reject::NotDropOff`]). A player
+    /// always sees its own structures.
     pub(super) fn check_drop_off(&self, player: PlayerId, node: ObjectId) -> Result<(), Reject> {
         let target = self.referenced(node, None)?;
         if target.owner != Some(player) || !is_drop_off(target.kind) || target.is_transforming() {

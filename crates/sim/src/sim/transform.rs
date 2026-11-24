@@ -12,7 +12,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, Placement};
 use crate::placement::footprint_size;
 use crate::scenario::BuildingOrientation;
-use crate::transform::{self, Transform, follow_max, keep_fraction};
+use crate::transform::{self, MIN_HP_AFTER_CANCEL, Transform, follow_max, keep_fraction};
 use crate::units::TilePos;
 
 impl Sim {
@@ -119,9 +119,9 @@ impl Sim {
     /// resource cost (rounded down), and the structure reverts to being a normal, fully-functional Beacon (no
     /// HP/Shields loss)"): its owner gets back [`Refund::Ready`] of what it paid, with a
     /// `SimEvent::TransformCancelled`; it turns back into what it was where it stood ([`Sim::change_kind`]: its old
-    /// footprint, or for a unit where it is), its capabilities as that kind's; and it keeps the fraction of its HP
-    /// it had ([`keep_fraction`], placeholder: question Q0039 point 3). Nothing for an object that isn't an owned
-    /// one transforming.
+    /// footprint, design change 0109, or for a unit where it is), its capabilities as that kind's; and it keeps the
+    /// fraction of its HP it had, at least 1 ([`keep_fraction`], [`MIN_HP_AFTER_CANCEL`], design change 0111).
+    /// Nothing for an object that isn't an owned one transforming.
     pub(super) fn cancel_transform(&mut self, id: ObjectId) {
         let Some(o) = self.objects.get(&id) else {
             return;
@@ -132,7 +132,7 @@ impl Sim {
         let kind = o.kind;
         let restored = t.from.def().max_hp;
         let hp = match (o.hp, o.max_hp(), restored) {
-            (Some(hp), Some(max), Some(restored)) => Some(keep_fraction(hp, max, restored)),
+            (Some(hp), Some(max), Some(restored)) => Some(keep_fraction(hp, max, restored).max(MIN_HP_AFTER_CANCEL)),
             _ => restored,
         };
         let refund = Refund::Ready.of(t.paid);
@@ -194,11 +194,11 @@ impl Sim {
     }
 }
 
-/// What a transforming object holds back until it completes (placeholder: question Q0039 point 8, "its functions
-/// (production, drop-off) start at completion"): the capabilities a structure works with, its production, its
-/// construction and its mining, which completion gives it as a new object of its kind has them
-/// ([`Sim::complete_transform`]). What its kind does by itself, such as an Egress Node taking drop-offs (slice
-/// M3-H), checks [`Object::is_transforming`].
+/// What a transforming object holds back until it completes (design change 0116: "Production, drop-off, research
+/// and abilities start at completion"): the capabilities a structure works with, its production (so it takes no
+/// Train and no rally either: "no Set Rally Point"), its construction and its mining, which completion gives it as
+/// a new object of its kind has them ([`Sim::complete_transform`]). What its kind does by itself, such as an Egress
+/// Node taking drop-offs (`sim/workers.rs`), checks [`Object::is_transforming`].
 fn hold_back(o: &mut Object) {
     o.production = None;
     o.constructor = None;

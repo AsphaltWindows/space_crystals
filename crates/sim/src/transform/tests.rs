@@ -177,17 +177,23 @@ fn damage_is_carried_through_unchanged() {
     }
 }
 
-/// Question Q0039 point 3: a cancel restores the old maxima with the fraction of each it had.
+/// Design change 0111: a cancel restores the old maxima with "the same fraction of HP and Shields", "original_max ×
+/// current_before ÷ max_before"; its Verification: "Cancel a deploy at 90/120 → Drone 15/20", "Cancel a Warp In at
+/// 50% HP → Beacon 60/120". The minimum of 1 HP ([`MIN_HP_AFTER_CANCEL`]) is the cancel's (`tests/warp_in.rs`).
 #[test]
 fn a_cancel_keeps_the_fraction() {
+    assert_eq!(keep_fraction(90.0, 120.0, 20.0), 15.0, "the deployment's example");
+    assert_eq!(keep_fraction(180.0, 360.0, 120.0), 60.0, "the Warp In's example");
     assert_eq!(
         keep_fraction(360.0, 360.0, 120.0),
         120.0,
         "undamaged: exactly the Beacon's"
     );
-    assert_eq!(keep_fraction(180.0, 360.0, 120.0), 60.0);
     assert_eq!(keep_fraction(50.0, 200.0, 120.0), 30.0);
-    assert!(keep_fraction(0.5, 200.0, 120.0) > 0.0, "a living object stays alive");
+    assert!(
+        keep_fraction(0.5, 200.0, 120.0) < MIN_HP_AFTER_CANCEL,
+        "no minimum of its own: Shields have none"
+    );
     assert_eq!(
         keep_fraction(10.0, 0.0, 120.0),
         120.0,

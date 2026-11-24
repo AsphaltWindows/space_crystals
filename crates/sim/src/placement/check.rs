@@ -62,9 +62,10 @@ pub enum Method {
     Direct,
     /// `> Warp In` (`factions/colonists/economy.md > Warp In`): the Beacon standing at `beacon` transforms in place
     /// into the structure. Every footprint tile must be Buildable, flat and unoccupied "except for the Beacon's own
-    /// footprint, which will be consumed by the transformation": the tiles under `beacon` break no rule. No tile
-    /// needs to be Visible (placeholder: question Q0040 point 3) and there is no build area. The footprint is
-    /// centred on the Beacon ([`WholeProblem::NotOnBeacon`]).
+    /// footprint, which will be consumed by the transformation": the tiles under `beacon` break no rule. A ground
+    /// unit occupies its tiles, as for a Direct Placement (placeholder: question Q0040 point 2). No tile needs to be
+    /// Visible (placeholder: Q0040 point 3) and there is no build area. The footprint is centred on the Beacon
+    /// ([`WholeProblem::NotOnBeacon`]).
     WarpIn { beacon: Placement },
 }
 

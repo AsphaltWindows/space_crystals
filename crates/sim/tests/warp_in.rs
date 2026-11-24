@@ -10,13 +10,14 @@ use sc_sim::economy::{RATIO_ONE, Refund};
 use sc_sim::placement::{self, Method, Mode, Occupant, Site};
 use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references};
 use sc_sim::{
-    Ability, BuildArea, BuildingOrientation, Command, ConstructionCommand, DebugCommand, Object, ObjectId, ObjectKind,
-    OrderKind, PlacementCheck, PlacementProblem, PlayerCommand, PlayerId, ProductionCommand, Reject, Replay, Rng,
-    Rotation, SU_PER_GU, Sim, SimConfig, SimEvent, SpawnAt, Target, Tick, TickInputs, TilePos, TileProblem, Transform,
-    Vec2, WholeProblem,
+    Ability, BuildArea, BuildingOrientation, Command, ConstructionCommand, DebugCommand, Faction, Object, ObjectId,
+    ObjectKind, OrderKind, PlacementCheck, PlacementProblem, PlayerCommand, PlayerId, ProductionCommand, Reject,
+    Replay, Rng, Rotation, SU_PER_GU, Sim, SimConfig, SimEvent, SpawnAt, Target, Tick, TickInputs, TilePos,
+    TileProblem, Transform, Vec2, WholeProblem,
 };
 
 use ConstructionCommand::{CancelTransform, WarpIn};
+use Faction::Colonists;
 use ObjectKind::{Beacon, BioPortal, CrystalPatch, Drone, EgressNode, Generator, Peacekeeper, RoboPortal};
 
 const P1: PlayerId = PlayerId(1);
@@ -134,10 +135,26 @@ fn assert_rejected(t: &mut TestSim, player: PlayerId, command: Command, reason: 
     (reported == 1).then(|| t.sim().events()[0].clone())
 }
 
-/// A 24 × 16 flat map: player 1's Beacons 1 at (8, 6) to (9, 7) and 2 at (16, 6), and Generator 3 at (2, 2); player
-/// 2's Beacon 4 at (16, 12) and Generator 5 at (20, 1). A Robo Portal centred on Beacon 1 covers (7, 5) to (10, 8).
+/// `builder` with both players playing the Colonists (plan decision T27), whose army cap is Beacon Capacity.
+fn colonists(builder: ScenarioBuilder) -> ScenarioBuilder {
+    builder.faction(P1, Colonists).faction(P2, Colonists)
+}
+
+/// `sim` saved, with object `n`'s `field` set to `value`, and loaded: a state no command makes on demand.
+fn edited(sim: &Sim, n: u32, field: &str, value: serde_json::Value) -> Sim {
+    let mut state = serde_json::to_value(sim).unwrap();
+    let objects = state["objects"].as_array_mut().unwrap();
+    let o = objects.iter_mut().find(|o| o["id"] == n).expect("the object is saved");
+    o[field] = value;
+    serde_json::from_value(state).unwrap()
+}
+
+/// A 24 × 16 flat map for two Colonists players: player 1's Beacons 1 at (8, 6) to (9, 7) and 2 at (16, 6), and
+/// Generator 3 at (2, 2), a structure that is neither a Beacon nor a drop-off nor a provider of Beacon Capacity;
+/// player 2's Beacon 4 at (16, 12) and Generator 5 at (20, 1). A Robo Portal centred on Beacon 1 covers (7, 5) to
+/// (10, 8).
 fn base() -> ScenarioBuilder {
-    ScenarioBuilder::new(&flat(24, 16))
+    colonists(ScenarioBuilder::new(&flat(24, 16)))
         .spawn(Beacon, Some(P1), tile(8, 6))
         .spawn(Beacon, Some(P1), tile(16, 6))
         .spawn(Generator, Some(P1), tile(2, 2))
@@ -231,6 +248,20 @@ fn warp_ins_take_their_warp_in_time_and_work_from_the_next_tick() {
             frames - 1
         );
         assert_eq!(completions(&t), []);
+        // Design change 0116: "Production, drop-off, research and abilities start at completion"; "no rally can be
+        // set".
+        let rally = PlayerCommand {
+            player: P1,
+            command: Command::Production {
+                objects: vec![id(1)],
+                command: ProductionCommand::SetRally(Target::Point(at(3, 12).center())),
+            },
+        };
+        assert_eq!(
+            t.sim().validate(&rally),
+            Err(Reject::NoProducers),
+            "{kind:?}: no rally yet"
+        );
         if let Some(cmd) = &trained {
             assert_eq!(
                 t.sim().validate(cmd),
@@ -592,8 +623,8 @@ fn the_whole_footprint_is_solid_from_the_first_frame() {
     }
 }
 
-/// Question Q0039 point 8 (placeholder: "its functions (production, drop-off) start at completion"): an Egress Node
-/// being warped in takes no drop-off. Player 1's Drone 6 can't be sent to it, nor given it as its AssignedDropOff
+/// Design change 0116 ("Production, drop-off, research and abilities start at completion"; "A Drone can't deliver to
+/// an Egress Node under Warp In"): an Egress Node being warped in takes no drop-off. Player 1's Drone 6 can't be sent to it, nor given it as its AssignedDropOff
 /// ([`Reject::NotDropOff`]); sent to gather patch 7 next to it, it mines a load and, with no drop-off to go back to,
 /// idles with it (question Q0037 point 8). Once the node is complete, it delivers there.
 #[test]
@@ -682,8 +713,9 @@ fn a_cancel_refunds_75_percent_and_the_beacon_returns() {
     }
 }
 
-/// Question Q0039 point 3 (placeholder): a damaged building being warped in returns to a Beacon with the fraction
-/// of its HP it had: player 2's Peacekeeper 6 shoots the warping Robo Portal, which is cancelled later.
+/// Design change 0111 ("current_after = max(1, original_max × current_before ÷ max_before)"): a damaged building
+/// being warped in returns to a Beacon with the fraction of its HP it had: player 2's Peacekeeper 6 shoots the
+/// warping Robo Portal, which is cancelled later.
 #[test]
 fn a_cancel_keeps_the_fraction_of_hp() {
     let mut t = shot_at();
@@ -695,6 +727,118 @@ fn a_cancel_keeps_the_fraction_of_hp() {
     let o = object(&t, 1);
     assert_eq!(o.kind, Beacon);
     assert!((o.hp.unwrap() - 120.0 * fraction).abs() < 1e-3, "{:?}", o.hp);
+}
+
+/// Design change 0111's Verification for a Warp In: "Cancel a Warp In at 50% HP → Beacon 60/120"; "Cancel a nearly
+/// dead transforming object: it survives at ≥ 1 HP". A game saved with the Robo Portal on Beacon 1 a quarter warped
+/// in (MaxHP 240) is given 120 HP, or half an HP, and cancelled.
+#[test]
+fn a_cancel_at_half_hp_leaves_a_beacon_at_60_and_a_nearly_dead_one_alive() {
+    let mut t = base().start();
+    t.debug_at(1, fund(P1, 1000))
+        .at(1, P1, construction(&[1], warp(RoboPortal, at(7, 5))));
+    t.run_until(160);
+    assert_eq!(object(&t, 1).max_hp(), Some(240.0));
+    let cancel = TickInputs {
+        commands: vec![PlayerCommand {
+            player: P1,
+            command: construction(&[1], CancelTransform),
+        }],
+    };
+    for (hp, after) in [(120.0, 60.0), (0.5, 1.0)] {
+        let mut sim = edited(t.sim(), 1, "hp", serde_json::json!(hp));
+        sim.step(&cancel);
+        let o = sim.object(id(1)).unwrap();
+        assert_eq!(
+            (o.kind, o.hp, o.max_hp()),
+            (Beacon, Some(after), Some(120.0)),
+            "{hp} of 240"
+        );
+    }
+}
+
+/// Design change 0112's Verification: "Warp In a building: available capacity doesn't dip during the Warp In" (`>
+/// Beacon Capacity Retention`: "A building being warped in keeps providing 5"; `Sim::army_cap`). Player 1's two
+/// Beacons provide 10, all the way through a Robo Portal's Warp In on Beacon 1 and after it. And the plan's
+/// acceptance, "Destroyed mid-Warp-In": a Bio Portal being warped in on Beacon 1 that is removed takes its 5 with it.
+#[test]
+fn a_building_being_warped_in_keeps_providing_beacon_capacity() {
+    let available = |t: &TestSim| t.sim().army_cap(P1).map(|cap| cap.available);
+    let mut t = base().start();
+    t.debug_at(1, fund(P1, 1000))
+        .at(2, P1, construction(&[1], warp(RoboPortal, at(7, 5))));
+    t.step();
+    assert_eq!(available(&t), Some(10), "two Beacons");
+    while t.sim().tick() < 700 {
+        t.step();
+        assert_eq!(available(&t), Some(10), "tick {}", t.sim().tick());
+    }
+    assert_eq!(completions(&t), [(641, 1, RoboPortal)]);
+    let mut t = base().start();
+    t.debug_at(1, fund(P1, 1000))
+        .at(1, P1, construction(&[1], warp(BioPortal, at(7, 5))))
+        .debug_at(100, DebugCommand::Remove { id: id(1) });
+    t.run_until(99);
+    assert_eq!(available(&t), Some(10));
+    t.step();
+    assert_eq!(available(&t), Some(5), "destroyed mid-Warp-In: 5 fewer");
+}
+
+/// Design change 0113 ("A Beacon under deployment and a building under Warp In are structures and keep their owner
+/// undefeated", `core/game_rules.md > Defeat Condition`): player 1's only structure, a Beacon warping in an Egress
+/// Node, keeps them in the game all the way through the Warp In and after it.
+#[test]
+fn a_building_being_warped_in_keeps_its_owner_undefeated() {
+    let mut t = colonists(ScenarioBuilder::new(&flat(24, 16)))
+        .spawn(Beacon, Some(P1), tile(8, 6))
+        .spawn(Generator, Some(P2), tile(20, 12))
+        .start();
+    t.debug_at(1, fund(P1, 75))
+        .at(1, P1, construction(&[1], warp(EgressNode, at(8, 6))));
+    for _ in 0..400 {
+        t.step();
+        assert!(!t.sim().player(P1).unwrap().is_defeated(), "tick {}", t.sim().tick());
+    }
+    assert_eq!(completions(&t), [(320, 1, EgressNode)]);
+    assert_eq!(t.sim().outcome(), None);
+}
+
+/// Design change 0115 ("A building destroyed mid-Warp-In refunds nothing; Beacon and cost are both lost"), and the
+/// trap it names: a Robo Portal and a Bio Portal are producers from their first frame, yet the refunds of a destroyed
+/// producer (design changes 0084, 0085) find nothing to give back. Each portal, warping in on Beacon 1, is destroyed
+/// by player 2's six Peacekeepers; player 1's bank stays as the Warp In left it, and no refund event is sent.
+#[test]
+fn a_portal_destroyed_mid_warp_in_refunds_nothing() {
+    for (kind, cost, frames) in [(RoboPortal, 400, 640), (BioPortal, 150, 480)] {
+        let mut builder = colonists(ScenarioBuilder::new(&flat(24, 16)))
+            .spawn(Beacon, Some(P1), tile(8, 6)) // 1
+            .spawn(Generator, Some(P1), tile(1, 1)) // 2: player 1 stays in the game
+            .spawn(Generator, Some(P2), tile(20, 12)); // 3
+        for (x, y) in [(5, 6), (12, 7), (9, 3), (8, 10), (5, 9), (12, 4)] {
+            builder = builder.spawn(Peacekeeper, Some(P2), SpawnAt::Point(at(x, y).center()));
+        }
+        let mut t = builder.start();
+        let attackers: Vec<ObjectId> = (4..=9).map(id).collect();
+        t.without_auto_targeting()
+            .debug_at(1, fund(P1, 1000))
+            .at(1, P1, construction(&[1], warp(kind, at(7, 5))))
+            .order_at(2, P2, &attackers, OrderKind::Attack(id(1)), false);
+        while t.sim().object(id(1)).is_some() {
+            t.step();
+            assert!(t.sim().tick() < frames, "{kind:?} destroyed before it is complete");
+            assert_eq!(bank(&t, P1), 1000 - cost, "{kind:?}: tick {}", t.sim().tick());
+        }
+        let refunds = t.events().iter().filter(|(_, e)| {
+            matches!(
+                e,
+                SimEvent::ProductionCancelled { .. }
+                    | SimEvent::ConstructionCancelled { .. }
+                    | SimEvent::TransformCancelled { .. }
+            )
+        });
+        assert_eq!(refunds.count(), 0, "{kind:?}");
+        assert!(!t.sim().player(P1).unwrap().is_defeated(), "its Generator stands");
+    }
 }
 
 /// `ConstructionCommand::CancelTransform` goes to every transforming object it names (plan decision T22), in id
@@ -741,13 +885,13 @@ fn a_cancel_goes_to_every_transforming_object_named() {
 }
 
 /// The plan's acceptance, "Destroyed mid-Warp-In" (`> Vulnerability`: "If destroyed mid-Warp-In, the Beacon is
-/// destroyed along with it"): the object is removed through the normal path with no refund (placeholder: question
-/// Q0039 point 7), and its owner, for whom it was the last structure, is defeated in the same tick
-/// (`core/game_rules.md > Defeat Condition`): player 2's Peacekeepers destroy player 1's only structure, a Beacon
-/// warping in an Egress Node.
+/// destroyed along with it"): the object is removed through the normal path with no refund (design change 0115),
+/// and its owner, for whom it was the last structure, stays in the game until then and is defeated in the same tick
+/// (`core/game_rules.md > Defeat Condition`, design change 0113): player 2's Peacekeepers destroy player 1's only
+/// structure, a Beacon warping in an Egress Node.
 #[test]
 fn a_destroyed_warp_in_is_lost_and_its_last_structure_defeats_its_owner() {
-    let mut builder = ScenarioBuilder::new(&flat(24, 16))
+    let mut builder = colonists(ScenarioBuilder::new(&flat(24, 16)))
         .spawn(Beacon, Some(P1), tile(8, 6)) // 1
         .spawn(Generator, Some(P2), tile(20, 12)); // 2
     for (x, y) in [(6, 7), (11, 7), (9, 4), (8, 9)] {
@@ -766,6 +910,7 @@ fn a_destroyed_warp_in_is_lost_and_its_last_structure_defeats_its_owner() {
             break;
         }
         assert!(object(&t, 1).is_transforming());
+        assert!(!t.sim().player(P1).unwrap().is_defeated(), "tick {}", t.sim().tick());
     }
     let died = died.expect("destroyed while warping in");
     assert!(died < 320, "before it is complete");
@@ -836,7 +981,6 @@ fn a_transforming_beacon_warps_nothing_in() {
     let mut t = base().start();
     t.debug_at(1, fund(P1, 1000));
     t.step();
-    let mut state = serde_json::to_value(t.sim()).unwrap();
     let deploying = Transform {
         from: Drone,
         from_placement: None,
@@ -844,10 +988,7 @@ fn a_transforming_beacon_warps_nothing_in() {
         total: 48,
         paid: 0,
     };
-    let objects = state["objects"].as_array_mut().unwrap();
-    let beacon = objects.iter_mut().find(|o| o["id"] == 1).unwrap();
-    beacon["transform"] = serde_json::to_value(&deploying).unwrap();
-    let sim: Sim = serde_json::from_value(state).unwrap();
+    let sim = edited(t.sim(), 1, "transform", serde_json::to_value(&deploying).unwrap());
     assert!(sim.object(id(1)).unwrap().is_transforming());
     let cmd = PlayerCommand {
         player: P1,

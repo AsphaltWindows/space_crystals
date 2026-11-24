@@ -7,12 +7,14 @@
 //!   restores; how far it has come, of how many frames; and what it paid, which a cancel partly refunds. The object
 //!   is the target kind from the first frame (`Sim::change_kind`; design change 0109: "the object is the target
 //!   building under Warp In from the first frame, with its full footprint claimed at once"), so no unit can walk onto
-//!   a building in the making, and it counts as a structure for defeat
-//!   (`core/game_rules.md > Defeat Condition`), auto-targeting (design change 0103), Beacon Capacity (`> Beacon
-//!   Capacity Retention`: "A building being warped in keeps providing 5", Q0039 point 4) and the fog's records. Its
-//!   functions wait for completion (placeholder: Q0039 point 8): it holds back what it would produce, construct or
-//!   mine (`Sim::step_transforms`), and what a kind does by itself checks [`Object::is_transforming`] (a drop-off at an
-//!   Egress Node, slice M3-H; a building counts for tech only once complete, `core/tech_and_research.md`).
+//!   a building in the making, and it counts as a structure for defeat (`core/game_rules.md > Defeat Condition`,
+//!   design change 0113), auto-targeting (design change 0103), Beacon Capacity (`> Beacon Capacity Retention`: "A
+//!   building being warped in keeps providing 5", design change 0112; `economy::army`) and the fog's records. Its
+//!   functions wait for completion (design change 0116: "Production, drop-off, research and abilities start at
+//!   completion"): it holds back what it would produce, construct or mine (`Sim::step_transforms`), and what a kind
+//!   does by itself checks [`Object::is_transforming`] (a drop-off at an Egress Node, `sim/workers.rs`; a building
+//!   counts for tech only once complete, `core/tech_and_research.md`). Its only command is the cancel (0116: "only
+//!   Cancel").
 //! - **The maxima** ([`Object::max_hp`], [`Object::max_shields`]): `> Warp In > HP/Shields Interpolation`: "HP =
 //!   Beacon MaxHP + (Building MaxHP - Beacon MaxHP) x progress", and the same for Shields, "where progress is frames
 //!   elapsed / WarpInTime" ([`Transform::interpolate`]). The formulas set the maxima, and each frame the current HP
@@ -31,11 +33,13 @@
 //!   check allows for the Warp In method (`crate::placement::Method::WarpIn`, plan decision T16);
 //!   `ConstructionCommand::CancelTransform` goes to every transforming object it names (`> Cancel Warp In`): "refunds
 //!   75% of the building's resource cost (rounded down), and the structure reverts to being a normal,
-//!   fully-functional Beacon" on its old tiles, keeping the fraction of its HP it had ([`keep_fraction`],
-//!   placeholder: Q0039 point 3), with a `SimEvent::TransformCancelled`. Both apply in the commands phase, before
-//!   phase 5b brings the grids up to date with the footprint.
+//!   fully-functional Beacon" on its old tiles (design change 0109), keeping the fraction of its HP it had, at least
+//!   1 ([`keep_fraction`], design change 0111), with a `SimEvent::TransformCancelled`. Both apply in the commands
+//!   phase, before phase 5b brings the grids up to date with the footprint.
 //! - **Destroyed** (`> Vulnerability`: "If destroyed mid-Warp-In, the Beacon is destroyed along with it"): the normal
-//!   removal path, with no refund (placeholder: Q0039 point 7). Nothing it holds back is paid for.
+//!   removal path, with no refund (design change 0115: "Beacon and cost are both lost"). Nothing it holds back is
+//!   paid for, so the refunds of a destroyed producer or constructor (design changes 0084, 0085) find nothing to
+//!   give back, a portal's included.
 //!
 //! **For slice M3-F**, which deploys a Drone into a Beacon with the same state: the Drone is `from`, with no
 //! `from_placement`; its load goes into [`Transform`] as a field of its own (with `#[serde(default)]`).
@@ -187,17 +191,22 @@ pub fn follow_max(current: f32, before: f32, after: f32) -> f32 {
     if followed > 0.0 { followed } else { current.min(after) }
 }
 
-/// The current value that a cancel leaves of `current` out of `max`, on the restored maximum `restored` (placeholder:
-/// question Q0039 point 3: "the original form's maxima, with the same fraction of HP and Shields it has when
-/// cancelled"): an undamaged object is exactly at its old maximum again, a damaged one keeps the damage it took
-/// during the transformation in proportion.
+/// The current value that a cancel leaves of `current` out of `max`, on the restored maximum `restored` (design
+/// change 0111: "the same fraction of HP and Shields the transforming object had at cancel time", "original_max ×
+/// current_before ÷ max_before"), at most `restored`: an undamaged object is exactly at its old maximum again, a
+/// damaged one keeps the damage in proportion. HP keeps at least 1 more ([`MIN_HP_AFTER_CANCEL`]); the Shields of
+/// slice M3-B take the fraction as it is ("no minimum needed").
 pub fn keep_fraction(current: f32, max: f32, restored: f32) -> f32 {
     if max > 0.0 {
-        (current / max * restored).min(restored)
+        (restored * current / max).min(restored)
     } else {
         restored
     }
 }
+
+/// Design change 0111: after a cancel the HP is "max(1, original_max × current_before ÷ max_before)", so that "a
+/// nearly dead transforming object" survives.
+pub const MIN_HP_AFTER_CANCEL: f32 = 1.0;
 
 /// The Beacon's `Constructs List` (`> Warp In > Constructs List`, `StructureDef::warp_in`): what an object of `kind`
 /// warps in, with costs and WarpInTimes; empty for every kind but the Beacon.

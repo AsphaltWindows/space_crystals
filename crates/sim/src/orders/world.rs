@@ -200,8 +200,8 @@ impl<'a> World<'a> {
             if world.views[index].is_patch {
                 world.patches.push(index as u32);
             }
-            // An Egress Node being warped in takes nothing until it is complete (placeholder: question Q0039 point
-            // 8, `crate::transform`).
+            // An Egress Node being warped in takes nothing until it is complete (design change 0116,
+            // `crate::transform`).
             if o.def().structure.as_ref().is_some_and(|structure| structure.drop_off) && !o.is_transforming() {
                 world.drop_offs.push(index as u32);
             }
