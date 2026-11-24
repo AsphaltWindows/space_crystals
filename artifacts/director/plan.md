@@ -186,8 +186,14 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Perf**: a 250 v 250 battle averages 0.49 ms per tick, 4.4 ms at worst (group fields on resume; G1).
   - **Open**: behaviour gaps went out as Q0018. The ignored `nav_perf` assertion fails (G1).
 
+- **M1-F fog memory** (merged in `167d683`; 570 tests):
+  - **Records**: per-player `vision::LastKnown` records of seen structures and resources. They are rewritten each tick the object is in sight, and dropped once a tile under them is Visible and the object is gone or has moved. Records are hashed and saved, and V1 rebuilds them.
+  - **Cost**: no scans; the tile flips logged by `see`/`unsee` drive the updates. 500 units + 168 patches take 0.17 ms per tick.
+  - **Hooks for 0040**: `records_revision()`, `record_tiles()` and `is_record_tile()`. Map-placed objects aren't seeded as known (0042), so nav needs its own starting set in M2.
+  - **Client**: Explored tiles draw the records, dimmed, instead of live objects. Selection, markers and the InfoPanel use the records. Only GDO can select a remembered station; its InfoPanel shows "Last seen". A shot from the fog shows as a hit flash (Q0017 default).
+  - **Follow-ups (in G2)**: the gate should use the records for the station exception; selection frames are drawn under structures; the remembered station's countdown is frozen (Q0019).
+
 ## In progress (four agents in parallel, kept to disjoint areas)
-- **M1-F fog memory** (Opus; brief `scratchpad/briefs/m1f-fog-memory.md`): last-known structure and resource records per player, the Explored display, the GDO station exception, and the hit flash. It was told to shape its records for 0040 and to merge E.
 - **M1-S2 selection follow-ups** (Opus; brief `scratchpad/briefs/m1s2-selection-followups.md`), covering 0048–0055:
   - Shift+box adds to the selection.
   - Ctrl+Shift-click adds a type.
@@ -199,13 +205,14 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - Pass-through shoving.
   - The `nav_perf` failure.
   - Group-order and battle perf spikes.
+- **M1-G2 QA tooling** (Opus; brief `scratchpad/briefs/m1g2-qa-tooling.md`):
+  - every played game is recorded to `replays/`; `--replay` plays one back with pause, step and speed controls and desync checkpoints;
+  - a golden-hash suite with `SC_BLESS=1` to re-bless;
+  - the gate uses records for the station exception;
+  - selection frames drawn above structures;
+  - the remembered station countdown (Q0019 default);
+  - 0038 tests.
 - **Next**:
-  - **G2 QA tooling**, after F:
-    - client replay playback;
-    - golden hashes;
-    - 0038 Verification tests;
-    - the turn-twice-in-a-tick note from W;
-    - the `mover.rs` size.
   - Then the M1 wrap-up: ask the user to playtest, and plan M2 with the Designer's current docs.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -227,9 +234,10 @@ The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, th
 | S2 Selection follow-ups | 0048–0055 | running | Opus |
 | R Riot Shield | the Peacekeeper's toggled ability, end to end | running | Opus |
 | Q Queued group destinations | 0029/0030 | done (`bb867a5`) | Opus |
-| F Fog memory | last-known structures and resources, Explored selection, hit flash from the fog | running | Opus |
+| F Fog memory | last-known structures and resources, Explored selection, hit flash from the fog | done (`167d683`) | Opus |
 | G1 Crowds and nav perf | head-on crowd steering, pass-through shoving, nav_perf, group-order and battle spikes | running | Fable |
-| G2 QA tooling | replay playback, golden hashes, 0038 tests, the turn-twice note, `mover.rs` size | after F | Opus |
+| G2 QA tooling | replay recording and playback, golden hashes, gate records fix, marker draw order, station countdown, 0038 tests | running | Opus |
+| G3 Cleanup | the turn-twice-in-a-tick note from W (a per-tick turn budget shared by movement and aiming); `mover.rs` size | after G1 | Opus |
 
 After B: start D, S, V and W in parallel; then H, E, G.
 
@@ -305,6 +313,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0016 | Command UI edge cases: who carries out a right-click, invalid targets, input while targeting, Shift keeps targeting | no | open; H built the listed defaults |
 | Q0017 | Fog: shots from hidden attackers (hit flash vs. a partial tracer); targeting remembered structures | no | open; F and E build the stated defaults |
 | Q0018 | Behaviour gaps: sight-edge flicker, rotation in target priority, AttackMove leash reference, unreachable auto-targets, MinRange, walled-out spots | no | open; E built the stated defaults |
+| Q0019 | A remembered station's delivery countdown: keep counting or freeze | no | open; G2 builds the stated default (keep counting) |
 
 ## Design change entries
 Last triaged: 0055.
