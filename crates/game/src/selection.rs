@@ -27,7 +27,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use sc_sim::{PlayerId, Sim};
 
-pub use model::{ControlGroups, ControlState, GroupKey, MAX_SELECTED, Selection, SelectionGroup};
+pub use model::{ControlGroups, ControlState, GroupKey, GroupType, MAX_SELECTED, Selection, SelectionGroup};
 pub use pick::{PICK_SLOP_SU, Relation, Selectable, Selectables};
 pub use rules::ClickRoles;
 

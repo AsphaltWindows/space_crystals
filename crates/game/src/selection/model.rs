@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use sc_sim::{ObjectId, ObjectKind};
+use sc_sim::{Object, ObjectId, ObjectKind};
 
 use crate::command_ui::InterfaceState;
 use crate::input::ControlGroup;
@@ -14,28 +14,85 @@ use crate::input::ControlGroup;
 /// (`sc_sim::orders::MAX_ORDER_UNITS`), so that one command can always carry the whole selection.
 pub const MAX_SELECTED: usize = sc_sim::orders::MAX_ORDER_UNITS;
 
-/// Names a SelectionGroup (`> SelectionGroup`): its type and, for an Ungroupable type (`Groupable = false`), its one
-/// instance, since each instance of such a type is a group of its own. The ActiveGroup is one SelectionGroup, which
-/// for an Ungroupable type means one instance (`> Selection > ActiveGroup`, design change 0048); the client names
-/// it by this key. Groups are ordered by it: by type (`ObjectKind` order), then by instance.
+/// What the selection groups objects by (`> SelectionGroup > Type`): their type, and whether they are finished. A
+/// building still under construction or transformation forms a SelectionGroup of its own, apart from the finished
+/// buildings of its type, "as if it were another type", with its own panel (only Cancel, `crate::command_ui`); when
+/// it completes, it joins the finished group (`> Unfinished buildings form their own group`, design change 0185: the
+/// group key is "(type, finished?)"). Ordered by type (`ObjectKind` order), the finished before the unfinished.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct GroupType {
+    pub kind: ObjectKind,
+    /// Under construction or transformation: a Beacon a Drone deploys into, a building warped in from a Beacon
+    /// (`sc_sim::Object::is_transforming`, the one way a building is unfinished in the game yet).
+    pub unfinished: bool,
+}
+
+impl GroupType {
+    /// A finished `kind`.
+    pub const fn finished(kind: ObjectKind) -> Self {
+        Self {
+            kind,
+            unfinished: false,
+        }
+    }
+
+    /// An unfinished `kind`.
+    pub const fn unfinished(kind: ObjectKind) -> Self {
+        Self { kind, unfinished: true }
+    }
+
+    /// The type `object` groups as now, as the sim has it.
+    pub fn of(object: &Object) -> Self {
+        Self {
+            kind: object.kind,
+            unfinished: object.is_transforming(),
+        }
+    }
+}
+
+/// A finished `kind`: every object that is no building, and every building but those under construction or
+/// transformation.
+impl From<ObjectKind> for GroupType {
+    fn from(kind: ObjectKind) -> Self {
+        Self::finished(kind)
+    }
+}
+
+/// Names a SelectionGroup (`> SelectionGroup`): its type, whether it is finished ([`GroupType`]) and, for an
+/// Ungroupable type (`Groupable = false`), its one instance, since each instance of such a type is a group of its
+/// own. The ActiveGroup is one SelectionGroup, which for an Ungroupable type means one instance (`> Selection >
+/// ActiveGroup`, design change 0048); the client names it by this key. Groups are ordered by it: by type
+/// (`ObjectKind` order), the finished before the unfinished, then by instance.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GroupKey {
     pub kind: ObjectKind,
+    /// The group of the unfinished objects of its type (design change 0185).
+    pub unfinished: bool,
     /// The instance of an Ungroupable type's group; `None` for a Groupable type, whose instances share one group.
     pub instance: Option<ObjectId>,
 }
 
 impl GroupKey {
-    /// The group that object `id` of type `kind` belongs to.
-    pub fn of(id: ObjectId, kind: ObjectKind) -> Self {
+    /// The group that object `id` of type `ty` (a kind: a finished one) belongs to.
+    pub fn of(id: ObjectId, ty: impl Into<GroupType>) -> Self {
+        let GroupType { kind, unfinished } = ty.into();
         Self {
             kind,
+            unfinished,
             instance: (!kind.def().groupable).then_some(id),
+        }
+    }
+
+    /// The type its objects group as.
+    pub fn group_type(self) -> GroupType {
+        GroupType {
+            kind: self.kind,
+            unfinished: self.unfinished,
         }
     }
 }
 
-/// `> SelectionGroup`: selected instances of one type.
+/// `> SelectionGroup`: selected instances of one type, all finished or all unfinished ([`GroupType`]).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SelectionGroup {
     pub key: GroupKey,
@@ -47,13 +104,19 @@ impl SelectionGroup {
     pub fn kind(&self) -> ObjectKind {
         self.key.kind
     }
+
+    /// Whether it is the group of unfinished buildings of its type (design change 0185).
+    pub fn is_unfinished(&self) -> bool {
+        self.key.unfinished
+    }
 }
 
-/// `> Selection`: the selected objects, grouped by type ([`Selection::groups`]), and the ActiveGroup, which always
-/// names one of the groups while the selection isn't empty (`> Selection > Constraints`).
+/// `> Selection`: the selected objects, grouped by type and whether they are finished ([`Selection::groups`]), and
+/// the ActiveGroup, which always names one of the groups while the selection isn't empty (`> Selection >
+/// Constraints`).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Selection {
-    members: BTreeMap<ObjectId, ObjectKind>,
+    members: BTreeMap<ObjectId, GroupType>,
     active: Option<GroupKey>,
 }
 
@@ -63,9 +126,10 @@ impl Selection {
         active: None,
     };
 
-    /// A selection of these objects (at most [`MAX_SELECTED`], the first by id), whose first group is active.
-    pub fn new(objects: impl IntoIterator<Item = (ObjectId, ObjectKind)>) -> Self {
-        let mut members: BTreeMap<ObjectId, ObjectKind> = objects.into_iter().collect();
+    /// A selection of these objects (at most [`MAX_SELECTED`], the first by id), with the types they group as (a
+    /// kind: a finished one), whose first group is active.
+    pub fn new<T: Into<GroupType>>(objects: impl IntoIterator<Item = (ObjectId, T)>) -> Self {
+        let mut members: BTreeMap<ObjectId, GroupType> = objects.into_iter().map(|(id, ty)| (id, ty.into())).collect();
         while members.len() > MAX_SELECTED {
             members.pop_last();
         }
@@ -88,12 +152,22 @@ impl Selection {
 
     /// The type of the selected object `id`.
     pub fn kind_of(&self, id: ObjectId) -> Option<ObjectKind> {
+        self.members.get(&id).map(|ty| ty.kind)
+    }
+
+    /// The type the selected object `id` groups as: its kind, and whether it is finished.
+    pub fn type_of(&self, id: ObjectId) -> Option<GroupType> {
         self.members.get(&id).copied()
     }
 
     /// The selected objects with their types, in id order.
     pub fn members(&self) -> impl Iterator<Item = (ObjectId, ObjectKind)> + '_ {
-        self.members.iter().map(|(&id, &kind)| (id, kind))
+        self.members.iter().map(|(&id, ty)| (id, ty.kind))
+    }
+
+    /// The selected objects with the types they group as ([`GroupType`]), in id order.
+    pub fn member_types(&self) -> impl Iterator<Item = (ObjectId, GroupType)> + '_ {
+        self.members.iter().map(|(&id, &ty)| (id, ty))
     }
 
     /// The selected objects, in id order.
@@ -103,10 +177,11 @@ impl Selection {
 
     /// The SelectionGroups, in [`GroupKey`] order: the one order in which the SelectionPanel shows them and Tab and
     /// Shift-Tab cycle them (`> SelectionPanel`, design change 0055: a stable order of the implementation's choosing,
-    /// a placeholder until the HUD pass). It doesn't depend on the order in which the objects were selected.
+    /// a placeholder until the HUD pass), a type's unfinished group after its finished one. It doesn't depend on the
+    /// order in which the objects were selected.
     pub fn groups(&self) -> Vec<SelectionGroup> {
         let mut keyed: Vec<(GroupKey, ObjectId)> =
-            self.members().map(|(id, kind)| (GroupKey::of(id, kind), id)).collect();
+            self.member_types().map(|(id, ty)| (GroupKey::of(id, ty), id)).collect();
         keyed.sort();
         let mut groups: Vec<SelectionGroup> = Vec::new();
         for (key, id) in keyed {
@@ -136,15 +211,16 @@ impl Selection {
     pub fn in_active_group(&self, id: ObjectId) -> bool {
         self.members
             .get(&id)
-            .is_some_and(|&kind| Some(GroupKey::of(id, kind)) == self.active)
+            .is_some_and(|&ty| Some(GroupKey::of(id, ty)) == self.active)
     }
 
-    /// Adds an object, unless it is selected already or the selection is full. The ActiveGroup stays.
-    pub fn insert(&mut self, id: ObjectId, kind: ObjectKind) -> bool {
+    /// Adds an object, which groups as `ty` (a kind: a finished one), unless it is selected already or the selection
+    /// is full. The ActiveGroup stays.
+    pub fn insert(&mut self, id: ObjectId, ty: impl Into<GroupType>) -> bool {
         if self.members.contains_key(&id) || self.members.len() >= MAX_SELECTED {
             return false;
         }
-        self.members.insert(id, kind);
+        self.members.insert(id, ty.into());
         self.fix_active();
         true
     }
@@ -158,11 +234,11 @@ impl Selection {
         removed
     }
 
-    /// Keeps only the objects for which `keep` holds; the ActiveGroup as in [`Selection::remove`]. Says whether any
-    /// object was dropped.
-    pub fn retain(&mut self, mut keep: impl FnMut(ObjectId, ObjectKind) -> bool) -> bool {
+    /// Keeps only the objects for which `keep` holds, given their ids and the types they group as; the ActiveGroup as
+    /// in [`Selection::remove`]. Says whether any object was dropped.
+    pub fn retain(&mut self, mut keep: impl FnMut(ObjectId, GroupType) -> bool) -> bool {
         let before = self.members.len();
-        self.members.retain(|&id, &mut kind| keep(id, kind));
+        self.members.retain(|&id, &mut ty| keep(id, ty));
         let changed = self.members.len() != before;
         if changed {
             self.fix_active();
@@ -170,25 +246,31 @@ impl Selection {
         changed
     }
 
-    /// Object `id` changed its type in place, to `kind` (`SimEvent::KindChanged`, plan decision T15: a Beacon warping
-    /// in a building): it stays selected, with the same id, in its new type's group. An ActiveGroup that it leaves
-    /// empty gives way to its new group, so that the object whose panel was shown still is; otherwise the ActiveGroup
-    /// stays. Says whether anything changed. Placeholder: which group a changed object joins, beyond this, is the
-    /// selection's design (slice M3-J1).
-    pub fn set_kind(&mut self, id: ObjectId, kind: ObjectKind) -> bool {
+    /// The type object `id` groups as changed in place, to `ty`: its kind (`SimEvent::KindChanged`, plan decision T15:
+    /// a Beacon warping in a building), or whether it is finished (design change 0185: a building that completes
+    /// "joins the finished group"). It stays selected, with the same id, in its new type's group. An ActiveGroup that
+    /// it leaves empty gives way to its new group, so that the object whose panel was shown still is; otherwise the
+    /// ActiveGroup stays (`> ObjectInterfaceState`: a change the player didn't make keeps it unless "the ActiveGroup
+    /// becomes empty"; placeholder reading of which group takes over then, the design is silent). Says whether
+    /// anything changed.
+    pub fn set_type(&mut self, id: ObjectId, ty: GroupType) -> bool {
         let Some(member) = self.members.get_mut(&id) else {
             return false;
         };
-        if *member == kind {
+        if *member == ty {
             return false;
         }
         let left = GroupKey::of(id, *member);
-        *member = kind;
-        let exists = |key: GroupKey| self.members.iter().any(|(&id, &kind)| GroupKey::of(id, kind) == key);
-        if self.active == Some(left) && !exists(left) {
-            self.active = Some(GroupKey::of(id, kind));
+        *member = ty;
+        if self.active == Some(left) && !self.exists(left) {
+            self.active = Some(GroupKey::of(id, ty));
         }
         true
+    }
+
+    /// Whether the group `key` has members.
+    fn exists(&self, key: GroupKey) -> bool {
+        self.members.iter().any(|(&id, &ty)| GroupKey::of(id, ty) == key)
     }
 
     /// `> GroupCycling`: makes the next group (`forward`) or the previous one active, in [`Selection::groups`] order,
@@ -212,8 +294,7 @@ impl Selection {
     /// `> Selection > Constraints`: ActiveGroup must name an existing group. A group that is gone gives way to the
     /// first one (placeholder: the design doesn't say which group becomes active then).
     fn fix_active(&mut self) {
-        let exists = |key: GroupKey| self.members.iter().any(|(&id, &kind)| GroupKey::of(id, kind) == key);
-        if self.active.is_none_or(|key| !exists(key)) {
+        if self.active.is_none_or(|key| !self.exists(key)) {
             self.active = self.groups().first().map(|g| g.key);
         }
     }
@@ -297,13 +378,13 @@ impl ControlState {
         selection || groups || reset
     }
 
-    /// Object `id` changed its type in place, to `kind` ([`Selection::set_kind`]): selected, it stays so; the control
-    /// groups, which hold ids, keep it as they are. An ObjectInterfaceState of an ActiveGroup that the change
-    /// replaces resets to DefaultState, as in [`ControlState::retain`]: it was the old type's. Says whether anything
-    /// changed.
-    pub fn set_kind(&mut self, id: ObjectId, kind: ObjectKind) -> bool {
+    /// The type object `id` groups as changed in place, to `ty`: its kind, or whether it is finished
+    /// ([`Selection::set_type`]). Selected, it stays so; the control groups, which hold ids, keep it as they are. An
+    /// ObjectInterfaceState of an ActiveGroup that the change replaces resets to DefaultState, as in
+    /// [`ControlState::retain`]: it was the old type's. Says whether anything changed.
+    pub fn set_type(&mut self, id: ObjectId, ty: GroupType) -> bool {
         let active = self.selection.active();
-        let changed = self.selection.set_kind(id, kind);
+        let changed = self.selection.set_type(id, ty);
         if changed && self.selection.active() != active {
             self.interface = InterfaceState::DefaultState;
         }
@@ -312,169 +393,4 @@ impl ControlState {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    const PK: ObjectKind = ObjectKind::Peacekeeper;
-    const GUARD: ObjectKind = ObjectKind::Guard;
-    /// Ungroupable (`core/map.md > SpaceCrystalsPatch`). The rules never select a resource with other objects (design
-    /// change 0048); the patch stands in for the Ungroupable own structures that don't exist yet.
-    const PATCH: ObjectKind = ObjectKind::CrystalPatch;
-
-    fn id(n: u32) -> ObjectId {
-        ObjectId(n)
-    }
-
-    fn group(n: u8) -> ControlGroup {
-        ControlGroup::new(n).unwrap()
-    }
-
-    #[test]
-    fn groups_collect_a_groupable_types_instances_and_split_an_ungroupable_ones() {
-        let s = Selection::new([(id(7), GUARD), (id(2), PK), (id(5), PATCH), (id(3), PATCH), (id(4), PK)]);
-        let groups = s.groups();
-        let keys: Vec<GroupKey> = groups.iter().map(|g| g.key).collect();
-        let key = |kind, instance| GroupKey { kind, instance };
-        // In `ObjectKind` order: CrystalPatch, then Peacekeeper, then Guard; an ungroupable type's groups by id.
-        assert_eq!(
-            keys,
-            [
-                key(PATCH, Some(id(3))),
-                key(PATCH, Some(id(5))),
-                key(PK, None),
-                key(GUARD, None)
-            ]
-        );
-        assert_eq!(groups[2].instances, [id(2), id(4)]);
-        assert_eq!(s.active(), Some(keys[0]), "a new selection's first group is active");
-        assert!(s.in_active_group(id(3)) && !s.in_active_group(id(5)));
-        assert_eq!(s.ids().collect::<Vec<_>>(), [id(2), id(3), id(4), id(5), id(7)]);
-        assert_eq!(Selection::new([]).active(), None);
-    }
-
-    #[test]
-    fn cycling_wraps_around_both_ways() {
-        let mut s = Selection::new([(id(1), PK), (id(2), GUARD), (id(3), PATCH)]);
-        let kinds = |s: &Selection| s.active().map(|k| k.kind);
-        assert_eq!(kinds(&s), Some(PATCH));
-        assert!(s.cycle(true));
-        assert_eq!(kinds(&s), Some(PK));
-        assert!(s.cycle(true));
-        assert!(s.cycle(true));
-        assert_eq!(kinds(&s), Some(PATCH), "wraps to the first after the last");
-        assert!(s.cycle(false));
-        assert_eq!(kinds(&s), Some(GUARD), "and to the last before the first");
-        let mut single = Selection::new([(id(1), PK), (id(4), PK)]);
-        assert!(!single.cycle(true), "one group: nothing to cycle");
-        assert!(!Selection::EMPTY.clone().cycle(false));
-    }
-
-    #[test]
-    fn the_active_group_stays_while_it_has_members() {
-        let mut s = Selection::new([(id(1), PK), (id(2), GUARD)]);
-        s.cycle(true);
-        assert_eq!(s.active().unwrap().kind, GUARD);
-        assert!(s.insert(id(3), PATCH));
-        assert!(!s.insert(id(3), PATCH), "already selected");
-        assert_eq!(s.active().unwrap().kind, GUARD, "adding keeps the active group");
-        assert!(s.remove(id(1)));
-        assert_eq!(s.active().unwrap().kind, GUARD);
-        assert!(s.remove(id(2)));
-        assert_eq!(
-            s.active().unwrap().kind,
-            PATCH,
-            "a group that is gone gives way to the first"
-        );
-        assert!(s.retain(|_, _| false));
-        assert!(s.is_empty() && s.active().is_none());
-        assert!(!s.remove(id(9)));
-    }
-
-    #[test]
-    fn selections_and_groups_hold_at_most_the_maximum() {
-        let many = (1..=MAX_SELECTED as u32 + 5).map(|n| (id(n), PK));
-        let mut s = Selection::new(many);
-        assert_eq!(s.len(), MAX_SELECTED);
-        assert!(s.contains(id(1)) && !s.contains(id(MAX_SELECTED as u32 + 1)));
-        assert!(!s.insert(id(9999), PK));
-        let mut groups = ControlGroups::default();
-        groups.assign(group(1), (1..=MAX_SELECTED as u32 + 5).map(id));
-        assert_eq!(groups.get(group(1)).len(), MAX_SELECTED);
-    }
-
-    #[test]
-    fn control_groups_assign_add_without_duplicates_and_forget() {
-        let mut groups = ControlGroups::EMPTY;
-        groups.assign(group(1), [id(5), id(2), id(5)]);
-        assert_eq!(groups.get(group(1)), [id(2), id(5)]);
-        groups.add(group(1), [id(3), id(2)]);
-        assert_eq!(groups.get(group(1)), [id(2), id(3), id(5)]);
-        groups.assign(group(0), [id(3)]);
-        // An object may be in several groups; a removed one leaves all of them.
-        assert!(groups.retain(|i| i != id(3)));
-        assert_eq!(groups.get(group(1)), [id(2), id(5)]);
-        assert!(groups.get(group(0)).is_empty());
-        assert!(!groups.retain(|_| true));
-        groups.assign(group(1), []);
-        assert!(groups.get(group(1)).is_empty());
-    }
-
-    #[test]
-    fn a_control_state_drops_objects_from_both() {
-        let mut state = ControlState::EMPTY;
-        state.selection = Selection::new([(id(1), PK), (id(2), PK)]);
-        state.groups.assign(group(4), [id(2), id(3)]);
-        assert!(state.retain(|i| i != id(2)));
-        assert_eq!(state.selection.ids().collect::<Vec<_>>(), [id(1)]);
-        assert_eq!(state.groups.get(group(4)), [id(3)]);
-        assert!(!state.retain(|_| true));
-    }
-
-    /// `> ControlState`: a removal resets the ObjectInterfaceState only when it takes away the ActiveGroup.
-    #[test]
-    fn a_removal_resets_the_interface_state_only_with_the_active_group() {
-        let awaiting = InterfaceState::awaiting(crate::command_ui::PanelCommand::Attack);
-        let mut state = ControlState::EMPTY;
-        state.selection = Selection::new([(id(1), PK), (id(2), PK), (id(3), GUARD)]);
-        state.interface = awaiting;
-        assert!(state.retain(|i| i != id(2)));
-        assert_eq!(state.interface, awaiting, "the Peacekeepers' group is still active");
-        assert!(state.retain(|i| i != id(1)));
-        assert_eq!(state.selection.active().map(|k| k.kind), Some(GUARD));
-        assert_eq!(state.interface, InterfaceState::DefaultState);
-    }
-
-    /// Plan decision T15 (`SimEvent::KindChanged`): an object that changes its type in place stays selected, with its
-    /// id, in its new type's group. An ActiveGroup it leaves empty gives way to that group; one it doesn't leave
-    /// empty stays active. The ObjectInterfaceState resets only with the ActiveGroup. Beacons 1 and 2 (Ungroupable,
-    /// design change 0122: a group each) warp in Robo Portals (Groupable: one group for both) and an Egress Node
-    /// (Ungroupable); a cancel turns one back.
-    #[test]
-    fn a_kind_change_keeps_the_object_selected_in_its_new_group() {
-        use ObjectKind::{Beacon, EgressNode, RoboPortal};
-        let awaiting = InterfaceState::awaiting(crate::command_ui::PanelCommand::Attack);
-        let mut state = ControlState::EMPTY;
-        state.selection = Selection::new([(id(1), Beacon), (id(2), Beacon)]);
-        assert_eq!(state.selection.active(), Some(GroupKey::of(id(1), Beacon)));
-        let portals = GroupKey::of(id(1), RoboPortal);
-        state.interface = awaiting;
-        assert!(state.set_kind(id(1), RoboPortal));
-        assert_eq!(state.selection.kind_of(id(1)), Some(RoboPortal));
-        assert_eq!(state.selection.active(), Some(portals), "Beacon 1's group is gone");
-        assert_eq!(state.interface, InterfaceState::DefaultState);
-        state.interface = awaiting;
-        assert!(state.set_kind(id(2), RoboPortal));
-        assert_eq!(state.selection.active_group().unwrap().instances, [id(1), id(2)]);
-        assert_eq!(state.interface, awaiting, "the ActiveGroup stays");
-        assert!(!state.set_kind(id(2), RoboPortal), "no change");
-        assert!(!state.set_kind(id(3), RoboPortal), "not selected");
-        assert!(state.set_kind(id(1), EgressNode));
-        let node = GroupKey::of(id(1), EgressNode);
-        let keys: std::collections::BTreeSet<GroupKey> = state.selection.groups().iter().map(|g| g.key).collect();
-        assert_eq!(keys, [node, portals].into(), "the Egress Node in a group of its own");
-        assert_eq!(state.selection.active(), Some(portals), "Robo Portal 2 is still in it");
-        assert!(state.set_kind(id(2), Beacon), "cancelled");
-        assert_eq!(state.selection.active(), Some(GroupKey::of(id(2), Beacon)));
-        assert_eq!(state.selection.ids().collect::<Vec<_>>(), [id(1), id(2)]);
-    }
-}
+mod tests;

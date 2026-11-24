@@ -1459,9 +1459,9 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   idle units, repaths, oscillation bounds, save and load in a crowd), `group_destinations.rs` (the magic box; a
   group crowding its own spots, 0183),
   `queued_group_destinations.rs` (Shift-queued group orders),
-  `movement_yield.rs` (friendly yielding, occupied targets, the give-up schedule; 0169's 3 GU for a point and for a
-  structure), `movement_crowds.rs` (blocks meeting head-on, a group through an idle block, dense blocks of any
-  shape; the ignored crowd sweep), `movement_soak.rs` (200 units,
+  `movement_yield/` (who yields, a group order's units, the give-up schedule, occupied targets; 0169's 3 GU for a
+  point and for a structure), `movement_crowds.rs` (blocks meeting head-on, a group through an idle block, dense
+  blocks of any shape; the ignored crowd sweep), `movement_soak.rs` (200 units,
   random orders, 2 000 ticks; bounds on the share of failed moves), `movement_stuck.rs` (whose progress a waiting
   unit shares: a unit behind one whose legs begin again finds its way round), `invariants_overlap.rs` (I1's two
   exceptions and nothing more, on edited states) and the ignored `movement_perf.rs`.
@@ -1576,11 +1576,11 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and the draws of 0163: two players defeated in one
   tick, and the last two of three; no producer handed over; a save across a defeat and the end, and old saves) and,
-  in the client, `crates/game/tests/game_end.rs` (the banners, Draw for everyone; the stop, the saved recording,
-  QA's end; the results screen of 0164 in a three-player game, under the debug player switch and in a replay, the
-  draw seen from it; the spectator's fog) with the unit tests of `hud/results.rs` (who leaves, allies included,
-  which the sim can't make yet). The fuzz games of `robustness.rs` give each player a base it can't remove, so that
-  they never end.
+  in the client, `crates/game/tests/game_end/` (`outcome`: the banners, Draw for everyone, the stop; `recording`:
+  the saved recording, QA's end; `results`: the results screen of 0164 in a three-player game, under the debug
+  player switch and in a replay, the draw seen from it, the spectator's fog) with the unit tests of `hud/results.rs`
+  (who leaves, allies included, which the sim can't make yet). The fuzz games of `robustness.rs` give each player a
+  base it can't remove, so that they never end.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
   checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is
@@ -1736,7 +1736,9 @@ its recipe's, whole percent rounded down), or the building ready to place. A tra
 (`activity::transformation`, first; slice M3-E) is the building it becomes and its progress, "Warping in: Robo Portal
 45%" ("Deploying" from a unit, slice M3-F), and its HP is out of its interpolated MaxHP (`Object::max_hp`), as its HP
 bar is. A plate
-adds the remaining crystals of the patch under it, for every viewer (0099). The top bar shows the player on the left,
+adds the remaining crystals of the patch under it, for every viewer (0099). The group of a type's unfinished buildings
+(0185) is "(unfinished)" in the InfoPanel's title, and its portraits are dimmed as the map dims a transforming
+object (`PortraitCell::Object::unfinished`, `transforming_color`). The top bar shows the player on the left,
 the tick on the right (in a replay's playback also the replay's last tick and a note on the playback, `ReplayText`:
 speed, paused or end, and a desync in red), and between them, centred, the local player's resources as their faction's
 DisplayHud lists them (`hud/resources.rs`, one `ResourceFigure` text each, `resource_bar` for their readings): for
@@ -1830,15 +1832,20 @@ elsewhere.
 **Selection** (`selection.rs`, `selection/`; `systems/controls/selection_and_hud.md`): client UI state, never sim
 state. `ControlStates` holds every player's `ControlState`, a `Selection`, 10 control groups and the
 ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the local player's (`LocalPlayer`).
-- **Model** (`selection/model.rs`): a selection is a set of object ids with their kinds. Its SelectionGroups are
-  derived: one per type, each by id, and one per instance of an ungroupable type (the map resources, which are
-  never selected with other objects, design change 0048; the Colonists' Egress Node and Beacon, 0122; the Drone is
-  Groupable, 0125). They
-  come in one stable order, by `ObjectKind` and then by instance (`Selection::groups`), which is the order of the
-  SelectionPanel's portraits and of Tab and Shift + Tab (the
-  placeholder of 0055). The ActiveGroup is one SelectionGroup, named by its `GroupKey` (0048): Tab and Shift + Tab
-  cycle it with wrap-around, adding objects keeps it, and it falls back to the first group when its group empties. At
-  most `MAX_SELECTED` objects (a placeholder: the order limit).
+- **Model** (`selection/model.rs`): a selection is a set of object ids with the types they group as, a `GroupType`:
+  the kind, and whether the object is unfinished, a building under construction or transformation
+  (`Object::is_transforming`: a Beacon a Drone deploys into, a building warped in). Its SelectionGroups are derived:
+  one per `GroupType`, each by id, and one per instance of an ungroupable type (the map resources, which are never
+  selected with other objects, design change 0048; the Colonists' Egress Node and Beacon, 0122; the Drone is
+  Groupable, 0125). So a type's unfinished buildings are a group of their own, "as if it were another type", with
+  their own panel (only Cancel), and one that completes joins the finished group (0185: the group key is "(type,
+  finished?)"). A new dimension of the key goes into `GroupType`, which the rules, the panel (`offers`, `commands`)
+  and the HUD read; a new kind needs nothing (0173's Peacekeeper (Shielded) is one). The groups come in one stable
+  order, by the `GroupKey`: `ObjectKind`, the finished before the unfinished, then the instance (`Selection::groups`),
+  which is the order of the SelectionPanel's portraits and of Tab and Shift + Tab (the placeholder of 0055). The
+  ActiveGroup is one SelectionGroup, named by its `GroupKey` (0048): Tab and Shift + Tab cycle it with wrap-around,
+  adding objects keeps it, and it falls back to the first group when its group empties. At most `MAX_SELECTED`
+  objects (a placeholder: the order limit).
 - **Picking** (`selection/pick.rs`): `Selectables` is what the local player may select this frame (`selectable_by`:
   its own objects, others on Visible tiles; on Explored ones only a remembered Supply Delivery Station, at its
   record, and only for a GDO player, `remembered_selectable_by`, `core/vision.md > Explored Selectability`; with
@@ -1861,9 +1868,12 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
 - **Systems** (`SelectionSystems`): `Sync` (in `SyncSim`) removes objects that left the sim from every selection
   and group in the frame of their tick (`SimEvent::Removed`, deaths included, and anything else gone; a station
   the player still selects by its record stays), and those their player may no longer select (an enemy that walked
-  into the fog; a placeholder, the design is silent). A selected object the player sees that changed its kind in
-  place stays selected as its new kind (`ControlState::set_kind`: an ActiveGroup it leaves empty gives way to its new
-  group, and the ObjectInterfaceState resets with the ActiveGroup). `Sync` also
+  into the fog; a placeholder, the design is silent). A selected object the player sees whose `GroupType` changed in
+  place, a new kind (`SimEvent::KindChanged`) or a building that completes or starts transforming, stays selected as
+  its new type (`ControlState::set_type`). The ActiveGroup stays while it exists (`> ObjectInterfaceState`: a change
+  the player didn't make keeps the state unless the ActiveGroup becomes empty); one the object leaves empty gives
+  way to the object's new group (a placeholder: the design is silent), and the ObjectInterfaceState resets with the
+  ActiveGroup. `Sync` also
   starts every state over when the sim is replaced (`SimRes::generation`). `Input` (in `Actions`) applies map
   clicks, boxes, the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the
   debug player switch (F2, only while `SimConfig::debug`: the client acts as the next player, so "own" and the state
@@ -1992,12 +2002,13 @@ their producing structures and their constructors, and the Colonists' Beacons an
   first with no Deploy, among `Sim::pending_deploys` and the Deploys still in `PendingCommands`, `deploying`). A
   click gives that one Drone `OrderKind::Deploy { origin }`, queued with Shift; Shift-placement stays (`queued:
   true`) while another Drone of the group has none, and letting go of Shift ends it (`end_queued_placement`).
-  Whatever transforms (`Object::is_transforming`): `Conditions::transforming` (every object of the ActiveGroup)
-  gives the panel `TRANSFORMING_GRID`, X `CancelTransform` alone (`ConstructionCommand::CancelTransform`, to the
-  ActiveGroup), `Modes::transforming` gives the object no template in the resolution (no right-click, no rally
-  point), and `still_valid` ends a transforming Beacon's menu or placement. A Drone that deploys stays selected as
-  its Beacon in a group of its own (`ControlState::set_kind`), and a Drones' placement ends once the ActiveGroup is
-  no longer Drones. A greyed-out button (design change 0162) keeps its reason (`PanelSlot::why`, a
+  Whatever transforms (`Object::is_transforming`) is unfinished, in its type's unfinished group (design change
+  0185, `GroupType`): that group's key gives the panel `TRANSFORMING_GRID`, X `CancelTransform` alone
+  (`ConstructionCommand::CancelTransform`, to the ActiveGroup), as `offers` and `commands` of an unfinished
+  `GroupType` give the Cancel and nothing else, so the finished group's commands never go to it and `still_valid`
+  ends a transforming Beacon's menu or placement; `Modes::transforming` gives the object no template in the
+  resolution (no right-click, no rally point). A Drone that deploys stays selected as its Beacon in a group of its
+  own (`ControlState::set_type`), and a Drones' placement ends once the ActiveGroup is no longer Drones. A greyed-out button (design change 0162) keeps its reason (`PanelSlot::why`, a
   `WhyUnavailable`: the gate's `Reject`, the shields, a command awaiting its target, the type, not in the game
   yet); pressing it, by hotkey or click, issues nothing and sends `CommandRefused`, whose message
   (`feedback::unavailable_text`) the feedback band shows.

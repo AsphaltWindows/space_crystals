@@ -1,9 +1,11 @@
 //! The Colonists' panels and placements (slice M3-J1, design change 0124), on a Colonists field of their own
 //! ([`colonists_game`]): a Drone's Deploy, its ghost and the lingering ghosts of the Deploys ordered (`deploy`); a
 //! Beacon's Warp In menus and its ghost on the Beacon, the Cancel of whatever transforms, and what pressing a
-//! greyed-out button says (`warp_in`).
+//! greyed-out button says (`warp_in`); the group of a type's unfinished buildings, apart from its finished ones
+//! (design change 0185, `unfinished`).
 
 mod deploy;
+mod unfinished;
 mod warp_in;
 
 use bevy::prelude::*;

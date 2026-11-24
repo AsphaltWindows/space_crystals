@@ -8,8 +8,8 @@
 //!   which slots, and how a constructor's follow its state and its build menus ([`state_grid`]), the Beacon's its
 //!   Warp In menus ([`menu_grid`]);
 //! - [`conditions`]: what the game allows the selection's commands now ([`Conditions`]): the units' modes, the
-//!   ActiveGroup's constructor state, whether it transforms, and the command gate's answer to each production and
-//!   construction command, with why a button is greyed out ([`WhyUnavailable`]);
+//!   ActiveGroup's constructor state, and the command gate's answer to each production and construction command,
+//!   with why a button is greyed out ([`WhyUnavailable`]);
 //! - [`panel`](mod@panel): the panel a selection gets, what pressing a slot does, and who receives a command;
 //! - [`placing`]: AwaitingPlacement's building and who builds it ([`Placing`], [`Builder`]: a constructor, the
 //!   Drones, a Beacon), where its ghost stands and how the placement keys turn it, and which Drone a Deploy goes
@@ -27,7 +27,7 @@
 //! Conversion`, [`PanelCommand::Convert`]), a common command of a selection of both (each converts to its other
 //! form), issued at once and never queued. It is disabled while the gate would refuse it: while each of its
 //! recipients is Firing, in Cooldown or converting. The converted unit stays selected as its new type
-//! (`crate::selection::ControlState::set_kind`) and is drawn anew (`crate::object_render`).
+//! (`crate::selection::ControlState::set_type`) and is drawn anew (`crate::object_render`).
 //!
 //! A Barracks (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) trains a Peacekeeper (Q)
 //! and cancels the last unit queued (X), at once, and awaits the target of its rally point (C); a Train or a Cancel
@@ -52,8 +52,10 @@
 //! yet show unavailable. A Drone's A (`factions/colonists/units.md > Drone ObjectInterfaceState`) enters
 //! AwaitingPlacement of a Beacon under the cursor; each click sends one Drone of the group to deploy there (design
 //! change 0125), with Shift the next one that has no Deploy yet. Whatever transforms, a Beacon under deployment or
-//! a building under Warp In, shows X Cancel and nothing else (design change 0116). Warp In applies to the Beacon
-//! Tabbed to (Beacons are Ungroupable, design change 0122).
+//! a building under Warp In, shows X Cancel and nothing else (design change 0116): the unfinished buildings of a type
+//! form a SelectionGroup of their own, with that panel, apart from the finished ones and their panel (design change
+//! 0185, `crate::selection::GroupType`). Warp In applies to the Beacon Tabbed to (Beacons are Ungroupable, design
+//! change 0122).
 //!
 //! A greyed-out button, or its hotkey, can still be pressed: nothing is issued, and the player is told why
 //! ([`PanelSlot::why`], design change 0162).
@@ -183,9 +185,9 @@ impl InterfaceState {
 ///   (`conditions`: its state); while it is Drones; while it is the Beacon, which isn't being deployed (the bank is
 ///   the click's to check: `crate::command_ui::feedback` says why it is refused).
 ///
-/// A selected object that transforms has the panel of its new type, but only its Cancel (design change 0116): what
-/// its old type was doing ends (`crate::selection::ControlState::set_kind`), and so does a target awaited for it
-/// (the panel offers no command but the Cancel).
+/// A selected object that transforms has the panel of its new type's unfinished group, only its Cancel (design
+/// changes 0116 and 0185): what its old type was doing ends (`crate::selection::ControlState::set_type`), and so does
+/// a target awaited for it (the panel offers no command but the Cancel).
 pub fn still_valid(
     interface: InterfaceState,
     selection: &Selection,
@@ -203,10 +205,9 @@ pub fn still_valid(
         }
         InterfaceState::BuildMenu(menu) => {
             commandable
-                && !conditions.transforming
                 && selection
                     .active()
-                    .is_some_and(|active| offers(active.kind, PanelCommand::BuildMenu(menu)))
+                    .is_some_and(|active| offers(active.group_type(), PanelCommand::BuildMenu(menu)))
         }
         InterfaceState::AwaitingPlacement(placing) => {
             commandable
@@ -218,10 +219,9 @@ pub fn still_valid(
                     Builder::Drones { .. } => selection.active().is_some_and(|active| deploy::deploys(active.kind)),
                     Builder::Beacon(beacon) => {
                         selection.in_active_group(beacon)
-                            && !conditions.transforming
                             && selection
                                 .active()
-                                .is_some_and(|active| offers(active.kind, PanelCommand::WarpIn(placing.kind)))
+                                .is_some_and(|active| offers(active.group_type(), PanelCommand::WarpIn(placing.kind)))
                     }
                 }
         }

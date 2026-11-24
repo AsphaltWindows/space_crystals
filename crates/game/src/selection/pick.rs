@@ -7,6 +7,7 @@ use bevy::math::{Rect, Vec2};
 use sc_sim::vision::LastKnown;
 use sc_sim::{Category, Map, Object, ObjectId, ObjectKind, Placement, PlayerId, SU_PER_GU, Sim, VisibilityState};
 
+use super::GroupType;
 use crate::coords::drawn_at_height;
 use crate::fog::Sight;
 use crate::object_render::object_height;
@@ -68,6 +69,9 @@ pub fn selectable_id(sim: &Sim, sight: &Sight, id: ObjectId) -> bool {
 pub struct Selectable {
     pub id: ObjectId,
     pub kind: ObjectKind,
+    /// A building under construction or transformation, which groups apart from the finished ones of its type
+    /// ([`GroupType`], design change 0185).
+    pub unfinished: bool,
     pub relation: Relation,
     /// Where its anchor, its ground position, is drawn (view space).
     pub drawn: Vec2,
@@ -83,13 +87,17 @@ impl Selectable {
     pub fn of(object: &Object, player: PlayerId, map: &Map, pos: Vec2) -> Self {
         let relation = Relation::of(player, object.owner);
         if let Some(p) = &object.placement {
-            return Self::placed(object.id, object.kind, relation, p, map);
+            return Self {
+                unfinished: object.is_transforming(),
+                ..Self::placed(object.id, object.kind, relation, p, map)
+            };
         }
         let half = object.def().half_extents().unwrap_or(Vec2::splat(SU_PER_GU / 4.0));
         let drawn = drawn_at_height(pos, object_height(map, pos, None));
         Self {
             id: object.id,
             kind: object.kind,
+            unfinished: object.is_transforming(),
             relation,
             drawn,
             rect: Rect::from_center_half_size(drawn, half),
@@ -111,6 +119,7 @@ impl Selectable {
         Self {
             id,
             kind,
+            unfinished: false,
             relation,
             drawn,
             rect: Rect::from_center_half_size(drawn, half),
@@ -120,6 +129,14 @@ impl Selectable {
 
     pub fn category(&self) -> Category {
         self.kind.def().category
+    }
+
+    /// The type it groups as in a selection: its kind, and whether it is finished.
+    pub fn group_type(&self) -> GroupType {
+        GroupType {
+            kind: self.kind,
+            unfinished: self.unfinished,
+        }
     }
 
     pub fn is_own(&self) -> bool {
@@ -267,6 +284,7 @@ mod tests {
         Selectable {
             id: ObjectId(id),
             kind,
+            unfinished: false,
             relation,
             drawn: at,
             rect: Rect::from_center_half_size(at, Vec2::splat(12.0)),
