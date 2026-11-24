@@ -2064,3 +2064,10 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Q0030 pt 2: DC split into Basic/Advanced Construction menus (Factory in advanced). Entry 0104.
 - 2026-11-24: Q0030 pt 3: structure InfoPanels (own: activity; others: name/owner/HP). Entry 0105. Q0030 done.
 - 2026-11-24: Session end. Answered Q0016 pt 4 through Q0030 (entries 0070–0105). Open: Q0031 (presented, no answer yet), Q0032, Q0020 pts 2–5, Q0017, Q0018.
+
+## 2026-11-24 (cont.) — Q0038 pt 1
+Gathering Drones (any player, every step of a Gather job) pass through each other; Drones only; general rule: overlapping units ignore each other until separated. Files: factions/colonists/units.md, systems/units.md. Entry 0106.
+Q0038 pt 2: reference check geometry = 2 GU edge to edge, node centred on the row's long side. Files: factions/gdo/economy.md, factions/colonists/units.md. Entry 0107.
+Q0038 pt 3: oracle tolerance ±15% + targets 1–4; reference layout is a benchmark only. File: factions/gdo/economy.md. Entry 0108. Q0038 done.
+Q0039 pt 1: deploying Drone / warping Beacon is the target structure from the first frame (footprint claimed, same object). File: factions/colonists/economy.md. Entry 0109.
+Q0039 pt 2: interpolation sets max; current rises by same amount (damage stays). Entry 0110.

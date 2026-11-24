@@ -1158,4 +1158,10 @@ None yet.
 
 ## 9. Notes from merged slices for later slices
 
-None yet.
+| From | For | Note |
+|---|---|---|
+| M3-A | E, F, B | `change_kind` keeps orders, mover and attack target, refunds a production queue or construction, and only clamps HP. Callers decide what a transformation clears (unit to structure in F), and interpolate HP and Shields (Q0039). |
+| M3-A | G | The Drone's (Ground, 1) grid doubles every grid set: nav rebuild 1.0 → 1.4–1.7 ms. G's GroundRugged hover class should remove it. Verify the grid-set count returns to M2's, and re-measure `nav_perf`. |
+| M3-A | D | Portals exit through their first A side, clockwise from north, until D's exit rules. |
+| Director | B, J1 | E builds the generic client response to `KindChanged` (visuals rebuilt, selection kept). B reuses it for Convert; J1 adds selection regrouping. |
+| Director | all of wave 2 | E splits `sim/gate.rs` by command family. C and H port their gate edits when merging master. |

@@ -388,9 +388,17 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Walkthrough.** 24 screenshots through the real UI, from the build menu to VICTORY at tick 3211, using one `SetResources`.
   - **Docs.** ARCHITECTURE.md reviewed. Playtest notes are in `docs/playtest/m2.md`.
 
+- **M3-A Colonists foundation** (merged in `a22aa2d`; 949 tests):
+  - **Kinds and data.** The seven kinds in `defs/colonists.rs`. `max_shields`, `beacon_capacity_cost` and `warp_in` are data only. `MELEE_CONTACT_GU` = 8 su (Q0042 point 5).
+  - **The Drone** moves on the stand-in at 8 su per frame. It adds a (Ground, 1) grid, so nav rebuilds go from 1.0 to 1.4–1.7 ms until G.
+  - **`Sim::change_kind`** (`sim/kinds.rs`) keeps the id and owner, rebuilds the capabilities, refunds a queue or construction, keeps orders, mover and target, and emits `KindChanged`.
+  - **Client.** Placeholder meshes with tags; the Legionnaires use BasicCombatUnit. Goldens unchanged.
+
 ## In progress
-- **M3 wave 1** (common brief `scratchpad/briefs/m3-common.md`):
-  - **M3-A Colonists foundation** (Opus; brief `scratchpad/briefs/m3a-colonists-foundation.md`). It adds the seven kinds, the defs fields, the stand-in Drone mover, `Sim::change_kind`, and splits the defs tests out first.
+- **M3 wave 2** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
+  - **M3-C Colonists start** (Opus): army caps, banks, Starting Conditions, `dev_skirmish` Colonists layouts, `--factions`, the Colonists bar.
+  - **M3-E transformations and Warp In** (Opus): splits `sim/gate.rs` first. The Director added the generic client response to `KindChanged` to E.
+  - **M3-H gathering** (Fable): the loop, then a soak that reports income and jams for Q0038. It may split off the crowding work as H2.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2 playtest** with the user, using `docs/playtest/m2.md`.
@@ -507,8 +515,9 @@ First playable after M2-H2.
 
     | Slice | Status |
     |---|---|
-    | A | running |
-    | B, C, D, E, F, G, H, J1, J2, K1, K2 | queued |
+    | A | done (`a22aa2d`) |
+    | C, E, H | running (wave 2) |
+    | B, D, F, G, J1, J2, K1, K2 | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
