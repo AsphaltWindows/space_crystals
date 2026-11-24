@@ -213,10 +213,12 @@ All numbers (HP, armor, sight, speed, turn radius, turret turn angle and rate, T
 ### Sludge (toggle)
 While on, the Shadebringer leaves a **trail of sludge** on the ground in its wake. Each patch of sludge lasts **X seconds** and then disappears.
 - **Infantry and non-hover vehicles** that step into sludge are **slowed by Y%** for **Z seconds**.
+- **Mechs** are slowed like vehicles (user, 2026-11-25).
+- **Drill Units** are slowed while on the surface, and unaffected while underground (user, 2026-11-25).
 - Not affected: hover units (HoverVehicle, HoverCraft) and air units.
 - **Affects everyone** (user, 2026-11-25): enemy, allied and the player's own units alike. The Shadebringer has to be driven so it doesn't trap its own army.
 - **The Shadebringer itself** (user, 2026-11-25): the sludge is spread **behind** it, so laying the trail doesn't slow it. But it is **not immune**: if it drives back over sludge (its own or another Shadebringer's), it is slowed like any other vehicle.
-- TBD: X, Y, Z; trail width; whether the slow refreshes while a unit stays in the sludge; Mechs and Drill Units.
+- TBD: X, Y, Z; trail width; whether the slow refreshes while a unit stays in the sludge.
 
 ### Cover (toggle)
 While on, the Shadebringer leaves a **stack/wall of smoke** in its wake. Each piece of smoke **lasts a set number of seconds** (TBD) and then clears. The smoke **blocks line of sight into it and behind it** for every unit except **satellites**: it's not possible to see into the smoke, or past it, from the other side.
