@@ -81,6 +81,9 @@ When a Drone arrives at an occupied patch, it goes to the **nearest unoccupied p
 
 **Search radius** (user, 2026-11-24): a Drone only looks for another patch **within a radius around itself**. This radius is an internal per-unit stat of the Drone (stat name TBD). Value: **6 grid units (placeholder)**. Only patches the **player knows** (currently visible, or remembered from earlier sight) and **not covered by a structure** (e.g. a GDO Extraction Plate) count (user, 2026-11-24); a Drone never "finds" a patch hidden in fog.
 
+#### Last load of a patch
+(user, 2026-11-24) A Drone mining a patch with fewer crystals left than its CarryCapacity mines the full 32 frames and takes **what is left**; the patch is then depleted. Same as the GDO plate's last partial load (factions/gdo/economy.md > ExtractionPlate).
+
 #### Interrupted mining
 (user, 2026-11-24) A Drone ordered away (or otherwise stopped) before its 32 MiningDuration frames finish **collects nothing**, and the patch is **freed immediately** for another Drone.
 

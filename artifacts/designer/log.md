@@ -2098,3 +2098,4 @@ Q0037 pt 7 / Q0044 pt 5: depleted patch, walking Drones redirect on arrival. Ent
 Q0037 pt 8: missing drop-off -> nearest Egress Node, else idle holding load. Entry 0135.
 Q0037 pts 9-10: rally always = unit's default right-click (Drone on patch Gathers; on enemy unit Follows). Entry 0136.
 Q0044 pt 2 / Q0037 pt 11: plate can be placed on a patch a Drone mines; plated patch gone for Drones. Entry 0137.
+Q0037 pt 13: Drone last load takes remainder. Entry 0138. Q0037 done.
