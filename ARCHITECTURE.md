@@ -333,7 +333,9 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 - **Group destinations** (`orders/destinations.rs`, `docs/movement.md > 6.4`, the design's magic box): a location
   order (Move to a point, AttackMove, Patrol) to several units looks at the bounding box of their silhouettes
   (design change 0028). A click inside it sends every unit to the click; outside, each unit goes to the click plus
-  its offset from the box's centre. The order keeps the unit's own destination (`Order::slot`; `None` is the click).
+  its offset from the box's centre. The order keeps the unit's own destination (`Order::slot`; `None` is the click),
+  resolved once, at the click (design change 0030). A Shift-queued order takes each unit where its earlier orders
+  leave it (`planned_end`, design change 0029).
   A destination is clamped inside the map, and one the unit can't stand on or reach moves to the nearest point it
   can (`nav::reachable_point`, which never searches; design change 0025).
 - **Avoid tiles** (`Mover::avoid_tiles`): a repath of a stuck unit treats them as blocked, and its smoothed path and
@@ -349,8 +351,8 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 ## Movement and collision
 
 The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice D changed it, **(M)** where the
-magic box did, **(Y)** where friendly yielding and the answers to Q0008 did), and the code is
-`crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
+magic box did, **(Y)** where friendly yielding and the answers to Q0008 did, **(Q)** where queued group orders did),
+and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
 
 - **One pipeline, sequential commit** (`movement::step`, phase 5d): the step builds one spatial grid per collision
   layer (ground, underground; air units collide with nothing) from every unit, then moves the units in id order and
@@ -519,6 +521,7 @@ magic box did, **(Y)** where friendly yielding and the answers to Q0008 did), an
   a unit, and `ascii(focus)` draws the map.
 - **Movement scenario tests** are `crates/sim/tests/movement_collision.rs` (passing, head-on, choke, group arrival,
   idle units, repaths, oscillation bounds, save and load in a crowd), `group_destinations.rs` (the magic box),
+  `queued_group_destinations.rs` (Shift-queued group orders),
   `movement_yield.rs` (friendly yielding, occupied targets, the give-up schedule), `movement_soak.rs` (200 units,
   random orders, 2 000 ticks; bounds on the share of failed moves) and the ignored `movement_perf.rs`.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the

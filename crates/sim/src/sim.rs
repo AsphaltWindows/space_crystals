@@ -337,14 +337,16 @@ impl Sim {
 
     /// `systems/controls/commands.md > Unit Command`: one order for each of `units` (checked: unique existing
     /// units), sharing a new order group. A location order (Move to a point, AttackMove, Patrol) gives each unit of a
-    /// group its own destination by the magic box (`> Group Destinations (Magic Box)`, `docs/movement.md > 6.4`).
-    /// Orders only fill queues here; phase 5a starts them.
+    /// group its own destination by the magic box (`> Group Destinations (Magic Box)`, `docs/movement.md > 6.4`),
+    /// resolved here, at the click, and kept in the unit's order (design change 0030); a Shift-queued one builds the
+    /// box where the units' earlier orders leave them (design change 0029). Orders only fill queues here; phase 5a
+    /// starts them.
     fn give_order(&mut self, units: &[ObjectId], kind: OrderKind, queue: bool) {
         let group = OrderGroup(self.next_group);
         self.next_group = self.next_group.wrapping_add(1);
         let slots = match kind {
             OrderKind::Move(Target::Point(click)) | OrderKind::AttackMove(click) | OrderKind::Patrol(click) => {
-                destinations::assign(self.nav.nav(), &self.map, &self.objects, units, click)
+                destinations::assign(self.nav.nav(), &self.map, &self.objects, units, click, queue)
             }
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => {
                 vec![None; units.len()]

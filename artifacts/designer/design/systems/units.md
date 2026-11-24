@@ -50,9 +50,16 @@ Applies to all ground units. Overlap caused by the rotation itself (a corner swe
   - **No yielding within the same group order**: a unit that has arrived under a group order (one order given to several units at once, systems/controls/commands.md > Group Destinations) does **not** yield to members of that same order that are still arriving. They stop against it (see systems/controls/behaviors.md > MovingToLocation > Occupied target location). It yields normally to every other own unit. This lasts until the unit receives a new order (user, 2026-11-23).
   - TBD: sidestep distance; whether allied (not own) units yield once teams exist.
 - Moving units must pathfind around occupied space
-- Ground units collide with other ground units and with structures
+- Ground units collide with other ground units, with structures, and with **Space Crystals patches and Supply Delivery Stations** (their footprints are solid; user, 2026-11-23). A depleted patch disappears and its tile opens up, so the map's paths can change during a game.
+
+### Underground Collision
+- Underground units **do not collide with each other** (user, 2026-11-23): they pass through one another freely, so underground traffic never jams.
+- **Surfacing**: an underground unit is **not allowed to surface** where its Silhouette would overlap an above-ground unit (user, 2026-11-23), nor a structure or terrain impassable for its surface form. It stays underground until the player surfaces it somewhere clear. It neither waits automatically nor gets moved to another spot.
+- **Reserved while surfacing**: once a unit has started surfacing, its surface footprint is **reserved**. Ground units treat it as occupied (an obstacle) and can't move onto it, and nothing can be built there, until surfacing completes (user, 2026-11-23).
 
 ### Air Collision
+- Air units ignore terrain: they can fly over every tile of the map (user, 2026-11-23).
+- **Map edge**: HoverCraft stay inside the map. **Gliders may unavoidably travel a little outside the map edge** while turning or circling, since they can't stop (user, 2026-11-23). Orders can only target points inside the map (a Glider never goes outside on orders, only while turning or circling, e.g. its idle circle around a point near the edge). A Glider outside the map edge **stays visible and attackable as if it were at the nearest edge tile** (user, 2026-11-23), so the edge is never a safe parking spot. TBD: maximum overshoot.
 - Air units do not collide with ground units or structures
 - Air units use soft separation with other air units — a gentle repulsion force that prevents stacking but does not hard-block
 - SeparationRadius — per unit type, circular, the distance at which air-to-air repulsion activates. Must be larger than the unit's Silhouette
@@ -124,7 +131,7 @@ Determines a Unit's movement behavior, physical characteristics, and interaction
 ### Domain - Ground | Air | Underground
 ### HasTurret - boolean
 ### DirectionalArmor - boolean
-### RuggedTerrain - boolean
+### RuggedTerrain - boolean (can the unit enter Rugged tiles? If false, Rugged tiles are **impassable** for it, like any non-Traversible tile: its Silhouette may never overlap a Rugged tile. User, 2026-11-23. Ground domain only: air units ignore terrain, so this flag has no effect for them)
 ### Crushable - boolean
 ### CanTurnInPlace - boolean
 ### CanReverse - boolean
@@ -198,7 +205,7 @@ Ground vehicle that hovers above the surface. Accelerates omni-directionally wit
 ### Domain - Ground
 ### HasTurret - true
 ### DirectionalArmor - true
-### RuggedTerrain - false
+### RuggedTerrain - true, with **double drag**: while over Rugged terrain, the HoverVehicle's DragRatio is doubled (halving its effective MaxSpeed and making it decelerate faster). No defense bonus. (User, 2026-11-23.)
 ### Crushable - false
 ### CanTurnInPlace - true
 ### CanReverse - false
