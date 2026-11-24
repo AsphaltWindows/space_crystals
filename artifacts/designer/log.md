@@ -2034,3 +2034,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Q0020 pt 1: shielded Peacekeepers right-clicked on enemy follow (B, 0062 wins). Doc: gdo/units.md > Riot Shield. Entry 0074.
 - 2026-11-24: Q0021 pt 2: shielded Peacekeepers left out of explicit Attack (B), differs from right-click follow. Doc: gdo/units.md > Riot Shield; wording fix in No smart-casting. Entry 0075.
 - 2026-11-24: AttackMove issued to units that can't attack; they just move (A; user: a unit without attack never attacks while attack-moving). Docs: commands.md > AttackMove, gdo/units.md > Riot Shield. Entry 0076. Q0022–Q0030 arrived (Q0022 blocking for GDO supplies only); logged in insights.
+- 2026-11-24: Q0022 answered A: GDO supply loop deferred to air milestone; Starting Supplies 0 placeholder. Standing permission: placeholder stats when only numbers block the Director. Entry 0077.
