@@ -8,7 +8,8 @@
 //!
 //! - [`space`]: the spatial grids (one per collision layer), the box sweep, and [`space::blocks`], the single
 //!   filter for collision exceptions.
-//! - [`collide`]: one unit's move by the rules of `docs/movement.md > 6.3`.
+//! - [`collide`]: one unit's move by the rules of `docs/movement.md > 6.3`: lane seeking among the units it has to
+//!   pass (oncoming ones, and idle groups that make way), then the rules after the sweep.
 //! - [`stuck`]: progress, stuck detection and recovery (`docs/movement.md > 6.5`).
 //! - [`yielding`]: an idle unit's sidestep for a blocked unit of its owner (`docs/movement.md > 6.6`).
 //!
@@ -56,6 +57,8 @@ pub struct MoveCounters {
     pub pair_tests: u32,
     /// Box sweeps against the tiles.
     pub tile_sweeps: u32,
+    /// (G) Oncoming units looked at by lane seeking (`collide::World::lane`).
+    pub lane_tests: u32,
 }
 
 /// The collision layers with hard collision (`docs/movement.md > 6.1`): ground and underground. Air units have
@@ -94,6 +97,8 @@ pub(crate) struct Scratch {
     layers: [Layer; LAYERS],
     /// Units in the way of the unit being moved.
     touched: Vec<usize>,
+    /// The lanes of the oncoming units ahead of the unit being moved (`collide::World::lane`).
+    lanes: Vec<collide::Lane>,
     /// The sidesteps asked of idle units this tick (`yielding`), applied when every unit has moved.
     requests: Vec<yielding::Request>,
     counters: MoveCounters,
@@ -103,6 +108,15 @@ impl Scratch {
     pub(crate) fn counters(&self) -> MoveCounters {
         self.counters
     }
+}
+
+/// `Body::heading`: the way to the unit's steering waypoint, if it has a path to follow.
+fn heading_of(pos: Vec2, mover: &Mover) -> Vec2 {
+    if mover.goal == MoveGoal::None || mover.path_state != PathState::Ready {
+        return Vec2::ZERO;
+    }
+    let target = mover.path.get(usize::from(mover.next));
+    target.map_or(Vec2::ZERO, |&target| target - pos)
 }
 
 /// A unit as the others see it this tick.
@@ -115,6 +129,7 @@ fn body_of(o: &Object, mover: &Mover, unit: &UnitDef, half: Vec2) -> Body {
         pos: o.pos,
         half,
         velocity: mover.velocity,
+        heading: heading_of(o.pos, mover),
         stationary: mover.is_stationary(),
         progress: on_its_way.then_some(mover.last_progress),
         arrived_with: mover.group.filter(|_| mover.status == MoveStatus::Arrived),
@@ -169,7 +184,8 @@ pub(crate) fn step(
         });
         scratch.engaged.push(o.attack.as_ref().and_then(|attack| attack.target));
         if let Some(layer) = layer_of(unit.base_def().domain) {
-            scratch.layers[layer].insert(index, o.pos, half);
+            let kinds = scratch.bodies[index as usize].kinds();
+            scratch.layers[layer].insert(index, o.pos, half, kinds);
         }
     }
 
@@ -198,6 +214,7 @@ pub(crate) fn step(
             layer: layer.map(|l| &scratch.layers[l]),
             bodies: &scratch.bodies,
             me,
+            lanes: &mut scratch.lanes,
             counters: &mut scratch.counters,
         };
         let failed = if held {
@@ -235,12 +252,16 @@ pub(crate) fn step(
         }
         // Commit: later units see this one where it is now.
         let mover = o.mover.as_ref().expect("units have movers");
+        let before = scratch.bodies[me].kinds();
         scratch.bodies[me] = body_of(o, mover, unit, half);
-        if o.pos != from
-            && let Some(l) = layer
-        {
-            scratch.layers[l].remove(me as u32, from, half);
-            scratch.layers[l].insert(me as u32, o.pos, half);
+        let kinds = scratch.bodies[me].kinds();
+        if let Some(l) = layer {
+            if o.pos != from {
+                scratch.layers[l].remove(me as u32, from, half);
+                scratch.layers[l].insert(me as u32, o.pos, half, kinds);
+            } else if kinds != before {
+                scratch.layers[l].mark(o.pos, half, kinds);
+            }
         }
     }
     yielding::apply(objects, &scratch.bodies, &mut scratch.requests);
@@ -279,9 +300,10 @@ fn wait(mover: &mut Mover, tick: Tick) {
 ///   object was when it was planned (phase 5c keeps it up to date, `paths::chase_check`): at its end the unit has
 ///   `Arrived` too if the object is still there (it stands on the reachable point nearest to it, design change
 ///   0025), and plans again if the object has moved on. An object that is gone ends the move `TargetLost`.
-/// - Otherwise it moves `step = MaxSpeed × speed_factor` towards the target by the rules of
-///   [`World::resolve`], asks an idle unit of its owner in its way to step aside ([`yielding::ask`]), then its
-///   progress is measured ([`stuck`]).
+/// - Otherwise it moves `step = MaxSpeed × speed_factor` towards the target: a step towards a lane clear of the
+///   units it has to pass, if there are some ahead ([`World::lane_step`]), else by the rules of
+///   [`World::resolve`]. It asks the idle units of its owner in its way to step aside ([`yielding::ask`], and
+///   [`yielding::ask_ahead`] for a group it walks through), then its progress is measured ([`stuck`]).
 #[expect(
     clippy::too_many_arguments,
     reason = "the unit's state, split into the borrows the step holds"
@@ -346,14 +368,33 @@ fn step_unit(
     let arriving = usize::from(mover.next) == last_index && dist <= step;
     let d = if dist > step { to * (step / dist) } else { to };
     touched.clear();
-    let moved = world.resolve(*pos, d, arriving.then_some(target), mover, tick, touched);
+    // (G) First a step towards a lane clear of the units it has to pass, if there are some ahead; else the rules
+    // after the sweep (`docs/movement.md > 6.3`). The idle units it is about to walk into are asked to part.
+    let (shift, lane) = if arriving {
+        (None, None)
+    } else {
+        // The end of its way, if it is steering at it.
+        let to_goal = if usize::from(mover.next) == last_index {
+            dist
+        } else {
+            f32::INFINITY
+        };
+        world.lane_step(*pos, d, to_goal, chased.map(|chased| chased.id), mover, touched)
+    };
+    if let Some(shift) = shift {
+        yielding::ask_ahead(world, d, shift, mover, requests);
+    }
+    let moved = lane.unwrap_or_else(|| {
+        touched.clear();
+        world.resolve(*pos, d, arriving.then_some(target), mover, tick, touched)
+    });
     let from = *pos;
     // The unit it heads for isn't in its way: it is where the unit is going.
     let blocked_by_goal = chased
         .zip(moved.blocker)
         .is_some_and(|(chased, blocker)| world.bodies[blocker].id == chased.id);
     if !blocked_by_goal {
-        yielding::ask(world, from, d, &moved, mover, requests);
+        yielding::ask(world, from, d, &moved, shift.is_some(), mover, requests);
     }
     *pos = moved.pos;
     if arriving && moved.pos == target {

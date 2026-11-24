@@ -339,3 +339,46 @@ fn a_rebuild_follows_a_footprint_change() {
     assert_eq!(nav.grid(NavClass::Underground, 1).unwrap().passable_count(), 62);
     assert_eq!(nav, Nav::build(&flooded, &door, &keys, rules));
 }
+
+/// (G) `NavGrid::open_around` is the movement step's short cut past `box_clear` and `los`: where it holds, a box up
+/// to a tile wide is clear, and so is every move of it shorter than a tile less its half extent. Off the map, on
+/// the map's edge and next to a solid tile it doesn't hold.
+#[test]
+fn open_ground_is_clear_without_a_look_at_the_tiles() {
+    let mut rng = Rng::from_seed(77);
+    let (mut open, mut near_a_cliff) = (0, 0);
+    for _ in 0..6 {
+        let map = random_map(&mut rng, 20, 16, 6);
+        let grid = ground(&map);
+        for _ in 0..4000 {
+            let p = Vec2::new(rng.next_f32() * 1400.0 - 60.0, rng.next_f32() * 1140.0 - 60.0);
+            let tile = TilePos::containing(p);
+            let around = (-1..=1).all(|dy| (-1..=1).all(|dx| !grid.is_solid(t(tile.x + dx, tile.y + dy))));
+            assert_eq!(grid.open_around(p), around, "{p}");
+            if !around {
+                near_a_cliff += 1;
+                continue;
+            }
+            open += 1;
+            for half in [Vec2::splat(12.0), Vec2::splat(18.0), Vec2::new(32.0, 20.0)] {
+                assert!(box_clear(&grid, half, p), "{p} for {half}");
+                let reach = 64.0 - half.max_element();
+                let d = Vec2::new(rng.next_f32() * 2.0 - 1.0, rng.next_f32() * 2.0 - 1.0) * reach;
+                assert!(los(&grid, half, p, p + d), "{p} along {d} for {half}");
+            }
+        }
+    }
+    assert!(open > 2000 && near_a_cliff > 2000, "{open} open, {near_a_cliff} not");
+    let grid = grid("...\n...\n...");
+    assert!(grid.open_around(Vec2::new(96.0, 96.0)));
+    for p in [
+        Vec2::new(32.0, 96.0),
+        Vec2::new(-1.0, 96.0),
+        Vec2::new(96.0, -0.5),
+        Vec2::new(500.0, 96.0),
+        Vec2::new(f32::NAN, 96.0),
+        Vec2::new(96.0, f32::INFINITY),
+    ] {
+        assert!(!grid.open_around(p), "{p}");
+    }
+}

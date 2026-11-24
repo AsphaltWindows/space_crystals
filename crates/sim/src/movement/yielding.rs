@@ -9,6 +9,9 @@
 //! - **Requests** are collected while the units move, in id order, and applied when all have moved ([`apply`]): the
 //!   first request a unit gets wins, so the lowest id that asked. The sidestep starts in the next tick, in the
 //!   unit's own turn.
+//! - **(G) Walking through a group**: a mover aims between the units of an idle group in its way (`World::lane`),
+//!   and those it is about to walk into are asked a moment before, both sides at once, to step straight across
+//!   its way ([`ask_ahead`]). The group parts instead of being shoved along.
 //! - **Dense idle groups**: a sidestep that another idle unit of the owner blocks passes the request on, the same
 //!   way, at most `YIELD_CHAIN_DEPTH` units deep. A unit that can't get out of the way stands, and the mover treats
 //!   it as an ordinary blocker (`docs/movement.md > 6.5`).
@@ -96,9 +99,21 @@ const YIELD_CENTRED_SU: f32 = 4.0;
 ///   the mover's line it already stands on; in the middle of the way ([`YIELD_CENTRED_SU`]), to the side the mover
 ///   isn't going round on (the side it stepped to this tick, else its `Mover::avoid_side`), so the two never chase
 ///   each other.
+/// - **(G) Straight across** instead, with no step along the way, when the mover only clips the unit (its line
+///   passes beside the unit's box) or walks between the units of a group (`in_lanes`: `World::lane` gave it a
+///   lane). Half the step along the way is what shoved an idle group ahead of a group walking through it, a few
+///   widths at a time; a mover that aims between two units needs each a little to its side, and nothing more.
 /// - **Distance**: as far as takes its box out of the mover's lane, at most `YIELD_SIDESTEP_WIDTHS` of its own
 ///   width. A mover still blocked when the sidestep is over asks again.
-pub(super) fn ask(world: &World, pos: Vec2, d: Vec2, moved: &Moved, mover: &Mover, requests: &mut Vec<Request>) {
+pub(super) fn ask(
+    world: &World,
+    pos: Vec2,
+    d: Vec2,
+    moved: &Moved,
+    in_lanes: bool,
+    mover: &Mover,
+    requests: &mut Vec<Request>,
+) {
     let Some(index) = moved.blocker else {
         return;
     };
@@ -122,15 +137,54 @@ pub(super) fn ask(world: &World, pos: Vec2, d: Vec2, moved: &Moved, mover: &Move
     // The lane of the mover's box, widened by the other's: half its width across the way.
     let reach = me.half + other.half;
     let lane = right.x.abs() * reach.x + right.y.abs() * reach.y;
-    // At 45° to the way, the step is √2 times what it gains across it.
-    let dist = (lane - side * offset) * core::f32::consts::SQRT_2;
+    let across = lane - side * offset;
+    let own = right.x.abs() * other.half.x + right.y.abs() * other.half.y;
+    let clipped = in_lanes || offset.abs() >= own;
+    let (dir, dist) = if clipped {
+        (right * side, across)
+    } else {
+        // At 45° to the way, the step is √2 times what it gains across it.
+        (
+            (right * side + ahead) * core::f32::consts::FRAC_1_SQRT_2,
+            across * core::f32::consts::SQRT_2,
+        )
+    };
     requests.push(Request {
         yielder: index,
-        dir: (right * side + ahead) * core::f32::consts::FRAC_1_SQRT_2,
+        dir,
         dist: dist.clamp(YIELD_MIN_SIDESTEP_SU, longest(other.half)),
         depth: 0,
         for_group: mover.group,
     });
+}
+
+/// (G) `> Friendly yielding`, for a mover walking between the units of an idle group (`World::lane`, whose lanes
+/// `world` still holds; `shift` is the line the mover is taking, to the Right of its way `d`): the idle units of
+/// its owner that it is about to be blocked by, within two steps, are asked now, both sides of its gap at once,
+/// instead of one after the other as each stops it. Each steps **straight across** its way, away from the mover's
+/// line, as far as its box reaches into the mover's lane. So the group parts, and nobody is shoved along. A unit
+/// exactly on the line is left to [`ask`], which knows the side the mover goes round on.
+pub(super) fn ask_ahead(world: &World, d: Vec2, shift: f32, mover: &Mover, requests: &mut Vec<Request>) {
+    let step = d.length();
+    let Some(ahead) = d.try_normalize() else {
+        return;
+    };
+    let right = Vec2::new(-ahead.y, ahead.x);
+    for lane in world.lanes.iter() {
+        let (centre, reach) = lane.centre_and_reach();
+        let offset = centre - shift;
+        if !lane.standing || lane.free > 2.0 * step || offset == 0.0 || offset.abs() >= reach {
+            continue;
+        }
+        let other = &world.bodies[lane.index as usize];
+        requests.push(Request {
+            yielder: lane.index as usize,
+            dir: right * offset.signum(),
+            dist: (reach - offset.abs()).clamp(YIELD_MIN_SIDESTEP_SU, longest(other.half)),
+            depth: 0,
+            for_group: mover.group,
+        });
+    }
 }
 
 /// One tick of a yielding unit's sidestep (`> Friendly yielding`): up to its speed along the sidestep's direction,
@@ -301,6 +355,7 @@ mod tests {
             pos: Vec2::ZERO,
             half: Vec2::splat(12.0),
             velocity: Vec2::ZERO,
+            heading: Vec2::ZERO,
             stationary: true,
             progress: None,
             arrived_with,
