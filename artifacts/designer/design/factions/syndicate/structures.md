@@ -103,7 +103,7 @@ Syndicate tech building enabling the Syndicate's explosives and propulsion techn
 
 Syndicate equipment storage warehouse for re-arming Syndicate forces.
 
-Prerequisite for the **Shadebringer** (2026-11-25).
+Prerequisite for the **Shadebringer** (2026-11-25). While the player owns a Vault, Shadebringers inside the Tunnel Network recharge their Sludge and Cover charges (factions/syndicate/units.md > Shadebringer > Charges and recharging).
 
 #### Entity Type - Structure Type (Underground)
 #### Tier Requirement - 1

@@ -2153,3 +2153,4 @@ Syndicate: Guard laser universal req Optics Lab; Agent pistol ground. Entry 0186
 Syndicate: Grenadier added. Entry 0187.
 Syndicate: Assault Bike added. Entry 0188.
 Syndicate: Shadebringer added (Sludge, Cover). Entry 0189. Director Q0049–Q0051 noted.
+Syndicate: Shadebringer Cover duration + charges recharged in tunnels with Vault. Entry 0190.

@@ -217,9 +217,13 @@ While on, the Shadebringer leaves a **trail of sludge** on the ground in its wak
 - TBD: X, Y, Z; trail width; whether the slow refreshes while a unit stays in the sludge; whose units it affects (enemies only, or everyone); Mechs and Drill Units.
 
 ### Cover (toggle)
-While on, the Shadebringer leaves a **stack/wall of smoke** in its wake. The smoke **blocks line of sight into it and behind it** for every unit except **satellites**: it's not possible to see into the smoke, or past it, from the other side.
+While on, the Shadebringer leaves a **stack/wall of smoke** in its wake. Each piece of smoke **lasts a set number of seconds** (TBD) and then clears. The smoke **blocks line of sight into it and behind it** for every unit except **satellites**: it's not possible to see into the smoke, or past it, from the other side.
 - This is the **first sight-blocking mechanic** in the game: elsewhere vision is a plain radius (core/vision.md).
-- TBD: how long the smoke lasts; its width/height; whether units inside the smoke can see out; whether structures' sight is blocked too; whether the two toggles can be on at the same time.
+- TBD: the smoke's duration and width/height; whether units inside the smoke can see out; whether structures' sight is blocked too; whether the two toggles can be on at the same time.
+
+### Charges and recharging
+(user, 2026-11-25) Sludge and Cover each have their **own, separate charge**. The charges are **recharged only inside the Tunnel Network**, and only while the player owns a **Vault** (this is the Vault's "re-arming" role). Away from the tunnels, a Shadebringer that has used up a charge can't use that ability until it goes back underground.
+- TBD: what a charge is (a reservoir that drains while the toggle is on, or a number of uses); what happens when it runs out mid-use; recharge speed; whether a partly used charge recharges.
 
 All numbers (HP, armor, sight, speed, turn radius, TunnelSpaceCost, X, Y, Z, smoke duration, cost, build time) and hotkeys: TBD.
 
