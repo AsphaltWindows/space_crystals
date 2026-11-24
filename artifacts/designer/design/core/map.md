@@ -105,7 +105,7 @@ An Object Type representing a map resource node. Resources are indestructible, u
 ### SightRange - 0
 
 ## SpaceCrystalsPatch
-A minable deposit of Space Crystals on the map. Factions harvest Space Crystals from patches using faction-specific collection mechanics. When a patch is fully depleted, it disappears from the map.
+A minable deposit of Space Crystals on the map. Factions harvest Space Crystals from patches using faction-specific collection mechanics. When a patch is fully depleted, it disappears from the map. Exception: a depleted patch under a GDO Extraction Plate stays until the plate is destroyed (factions/gdo/economy.md > ExtractionPlate).
 
 ### Size - 1x1
 ### RemainingAmount - number (Space Crystals left in the patch)

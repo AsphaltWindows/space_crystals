@@ -135,10 +135,17 @@ GDO resource harvesting structure. Placed onto a Space Crystal Patch by an Extra
 ### MiningRate - 10 Space Crystals per 48 frames (3 seconds)
 ### ResidualMiningRate - 1 Space Crystal per 48 frames (3 seconds)
 
-**Paid in lumps** (user, 2026-11-24): a plate delivers its whole amount at once at the end of each 48-frame cycle (+10, or +1 at the residual rate), not as a trickle. A new plate's first payment comes 48 frames after it is placed. Under the power penalty the cycle progresses more slowly (at the power ratio), so the lumps come less often. (The opening baseline's timings were computed as a trickle; with lumps they shift by about 2 seconds, e.g. the fastest clean Barracks starts at ≈48 s instead of 45.8 s.)
 ### PowerPenalty - When total GDO power is negative, MiningRate and ResidualMiningRate are reduced proportionally (same ratio as the global power penalty for buildings).
 
+**Paid in lumps** (user, 2026-11-24): a plate delivers its whole amount at once at the end of each 48-frame cycle (+10, or +1 at the residual rate), not as a trickle. A new plate's first payment comes 48 frames after it is placed. Under the power penalty the cycle progresses more slowly (at the power ratio), so the lumps come less often. (The opening baseline's timings were computed as a trickle; with lumps they shift by about 2 seconds, e.g. the fastest clean Barracks starts at ≈48 s instead of 45.8 s.)
+
+**Last partial load** (user, 2026-11-24): when the patch holds less than a full load (e.g. 5 left of a 1505 patch), the next payment takes only what is left; after that the plate mines at ResidualMiningRate.
+
+**Depleted patch under a plate**: the patch stays under its plate with 0 crystals left, and the plate keeps mining at ResidualMiningRate indefinitely; the patch is removed only when the plate is destroyed (see On destruction). This is GDO's exception to the general rule that a depleted patch disappears (core/map.md > SpaceCrystalsPatch).
+
 ### InfoPanel: displays remaining Space Crystals in the underlying patch
+
+**Selecting a covered patch** (user, 2026-11-24): a click on a plate's tile selects the **plate**; the covered patch can't be selected on its own while the plate is there.
 
 ### On destruction:
 - If the underlying Space Crystal Patch still has resources: the patch becomes uncovered and accessible
