@@ -838,7 +838,10 @@ section of its own.
   DragMovement): one Drone with its patch 2 GU from the node, edge to edge, delivers every 60 ticks, 2.13 Space
   Crystals per second. On the reference field (8 patches in a row, the node 2 GU south of the middle), with
   gathering Drones passing through each other (design change 0106), nothing jams and every Drone keeps delivering:
-  SATURATION_CURVE
+  4, 8, 12, 16, 20 and 24 Drones dealt out over the patches give 8.3, 15.1, 22.0, 26.8, 32.0 and 32.0 per second,
+  and the longest any Drone goes without a delivery is 70, 82, 140, 200, 167 and 141 ticks; sent by one right-click
+  they give 8.2, 15.0, 21.9, 27.4, 28.9 and 32.0, with gaps of 85 to 284 ticks (the acceptance bound is 480, 30 s).
+  The 24-Drone soak costs 13 µs a tick in release.
   The patches are the only limit: 8 of them give 32 per second (the design's "fully saturated ≈ 32 (~24 working
   Drones)"). Below saturation the stand-in is ahead of the table (16 Drones: 27 for the table's 23), as expected
   until M3-G. Under hard collision, as slice M3-H first had it, the field gridlocked from 12 Drones on.
