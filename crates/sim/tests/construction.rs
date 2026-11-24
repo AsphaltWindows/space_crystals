@@ -3,8 +3,9 @@
 //! ready to place. One test per acceptance point of the plan (`artifacts/director/m2-plan.md` §3.3 D1) and per
 //! verification point of design changes 0084 (a destroyed constructor refunds as if cancelled) and 0089 (the power
 //! penalty slows the Extraction Facility, never the Deployment Center); Place through the placement check as it
-//! applies (plan decision T4); the gate's rules, fuzzed; saves and replays; and the clean Barracks opening as a
-//! mini-oracle. `TestSim` checks the invariants after every tick.
+//! applies (plan decision T4); the gate's rules, fuzzed; saves and replays. `TestSim` checks the invariants after
+//! every tick. The openings on the reference base, this slice's mini-oracle of the clean Barracks among them, are the
+//! economy oracle's (`tests/economy_oracle.rs`, slice M2-J1).
 
 use sc_sim::economy::{RATIO_ONE, Refund};
 use sc_sim::nav::NavClass;
@@ -13,7 +14,7 @@ use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references};
 use sc_sim::{
     BuildingOrientation, Command, ConstructionCommand, Constructor, DebugCommand, ObjectId, ObjectKind, OrderKind,
     Placement, PlacementCheck, PlacementProblem, PlayerCommand, PlayerId, Reject, Replay, Rng, Rotation, Sim,
-    SimConfig, SimEvent, SpawnAt, Tick, TickInputs, TilePos, TileProblem, WholeProblem, scenarios,
+    SimConfig, SimEvent, SpawnAt, Tick, TickInputs, TilePos, TileProblem, WholeProblem,
 };
 
 use ConstructionCommand::{CancelConstruction, CancelReady, Construct, Place};
@@ -951,87 +952,4 @@ fn constructions_go_on_alike_after_a_save_and_in_a_replay() {
     );
     let replay: Replay = serde_json::from_str(&serde_json::to_string(t.replay()).unwrap()).unwrap();
     assert_eq!(replay.run().state_hash(), t.sim().state_hash());
-}
-
-/// The first tile, row by row, where player 1 may place a `kind` unturned now, by the placement check.
-fn first_spot(sim: &Sim, kind: ObjectKind) -> TilePos {
-    let (w, h) = (sim.map().width() as i32, sim.map().height() as i32);
-    (0..h)
-        .flat_map(|y| (0..w).map(move |x| at(x, y)))
-        .find(|&t| {
-            sim.placement_check(P1, kind, t, BuildingOrientation::default())
-                .is_valid()
-        })
-        .unwrap_or_else(|| panic!("no spot for a {kind:?}"))
-}
-
-/// The plan's mini-oracle (`factions/gdo/economy.md > Opening Economy Baseline`): from player 1's starting base in
-/// `dev_skirmish` (the GDO Starting Conditions, slice M2-F1: a Deployment Center, an Extraction Facility, two plates
-/// and 100 Space Crystals), the clean Barracks opening, Plate, Generator, Generator, Barracks, each ordered as soon as
-/// its constructor is free and the bank covers it, each building placed as soon as it is ready, at the first spot the
-/// placement check allows. "Fastest clean Barracks ... starts at ~46 seconds and finishes at ~56 seconds", with
-/// continuous income; with lumps (design change 0098) about 48 s (the plan's R10). Here it starts in tick 769
-/// (48.1 s) and is ready at the end of tick 928, to be placed from tick 929 (58.1 s), and power stays positive
-/// throughout.
-#[test]
-fn the_clean_barracks_opening_starts_the_barracks_at_about_48_seconds() {
-    let mut t = TestSim::new(scenarios::dev_skirmish());
-    let own = |t: &TestSim, kind| {
-        let mut own = t.sim().objects().filter(|o| o.owner == Some(P1) && o.kind == kind);
-        let first = own.next().expect("in the starting base").id.0;
-        assert!(own.next().is_none(), "one {kind:?}");
-        first
-    };
-    let (dc, ef) = (own(&t, DeploymentCenter), own(&t, ExtractionFacility));
-    assert_eq!(bank(&t, P1), 100);
-    t.at(1, P1, construction(&[ef], Construct(ExtractionPlate)));
-    let mut plan = [Generator, Generator, Barracks].into_iter().peekable();
-    let mut started = Vec::new();
-    t.step();
-    while t.sim().tick() < 1000 {
-        let tick = t.sim().tick() + 1;
-        for n in [ef, dc] {
-            if let Some(kind) = state(&t, n).ready() {
-                let spot = first_spot(t.sim(), kind);
-                t.at(tick, P1, construction(&[n], place(spot.x, spot.y)));
-            }
-        }
-        let free = state(&t, dc).current().is_none();
-        if let Some(&kind) = plan.peek()
-            && free
-            && bank(&t, P1) >= sc_sim::construction::recipe(DeploymentCenter, kind).unwrap().cost
-        {
-            t.at(tick, P1, construction(&[dc], Construct(kind)));
-            started.push((tick, kind));
-            plan.next();
-        }
-        t.step();
-        let power = t.sim().power(P1);
-        assert!(!power.is_negative(), "tick {}: {power:?}", t.sim().tick());
-    }
-    let refused = t
-        .events()
-        .iter()
-        .filter(|(_, e)| matches!(e, SimEvent::PlacementRefused { .. }))
-        .count();
-    assert_eq!(refused, 0);
-    assert_eq!(started, [(193, Generator), (433, Generator), (769, Barracks)]);
-    let barracks = completions(&t)
-        .into_iter()
-        .find(|&(_, _, kind)| kind == Barracks)
-        .unwrap()
-        .0;
-    assert_eq!(barracks, 928);
-    // Within the design's tolerance: about 46 to 48 seconds, then 10 more until it can be placed.
-    let seconds = |tick: Tick| f64::from(tick) / f64::from(sc_sim::TICKS_PER_SECOND);
-    assert!((45.0..=50.0).contains(&seconds(769)) && seconds(barracks + 1) - seconds(769) == 10.0);
-    let power = t.sim().power(P1);
-    assert_eq!((power.generated, power.consumed), (70, 54));
-    let built = |kind| {
-        t.sim()
-            .objects()
-            .filter(|o| o.kind == kind && o.owner == Some(P1))
-            .count()
-    };
-    assert_eq!([Generator, Barracks, ExtractionPlate].map(built), [2, 1, 3]);
 }
