@@ -57,8 +57,8 @@ The Colonists' production structures are portals: gateways through which units a
 
 | Portal | Carries | How it is obtained |
 |---|---|---|
-| Robo Portal | Machines (Drones, Scout). The cheaper kind of portal. | Warped In from a Beacon |
-| Bio Portal | Living beings (infantry). A more expensive portal, able to support the transport of living beings. | Warped In from a Beacon |
+| Robo Portal | Machines (Drones, Scout). | Warped In from a Beacon |
+| Bio Portal | Living beings (infantry): able to support the transport of living beings. | Warped In from a Beacon |
 | Heavy Portal | Vehicles | Upgrade of a Bio Portal |
 | Star Portal | Air units | Upgrade of a Heavy Portal |
 
