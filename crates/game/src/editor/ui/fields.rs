@@ -83,7 +83,8 @@ impl SpawnValue {
             | ObjectKind::RoboPortal
             | ObjectKind::BioPortal
             | ObjectKind::SabreLegionnaire
-            | ObjectKind::RifleLegionnaire => &[],
+            | ObjectKind::RifleLegionnaire
+            | ObjectKind::PeacekeeperShielded => &[],
         }
     }
 

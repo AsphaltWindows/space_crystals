@@ -121,12 +121,13 @@ pub fn short_label(kind: ObjectKind) -> &'static str {
         ObjectKind::BioPortal => "BP",
         ObjectKind::SabreLegionnaire => "SL",
         ObjectKind::RifleLegionnaire => "RL",
+        ObjectKind::PeacekeeperShielded => "PKS",
     }
 }
 
 /// Whether a type's portrait shape is round (as its placeholder on the map is).
 fn round(kind: ObjectKind) -> bool {
-    matches!(kind, ObjectKind::Peacekeeper)
+    matches!(kind, ObjectKind::Peacekeeper | ObjectKind::PeacekeeperShielded)
 }
 
 /// What the SelectionPanel shows: the local player's selection, in a game mode, on a surface of some size.

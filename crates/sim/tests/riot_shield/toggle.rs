@@ -94,7 +94,7 @@ fn while_the_shield_goes_up_or_down_the_unit_is_slow_and_does_not_attack() {
         let before = t.pos(1);
         t.run_until(tick);
         let attack = t.sim().validate(&attack_order(&[1], 2, false));
-        if tick <= down - 1 {
+        if tick < down {
             assert_ne!(shield(&t, 1), ShieldMode::Lowered, "tick {tick}");
         }
         let expected = if tick < down {

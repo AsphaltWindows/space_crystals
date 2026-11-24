@@ -26,21 +26,21 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use sc_sim::{
     BuildingOrientation, Command, ConstructionCommand, Constructor, Object, ObjectId, PlayerCommand, PlayerId, Reject,
-    RiotShield, Sim, riot_shield,
+    ShieldMode, Sim, riot_shield,
 };
 
 use super::{PanelCommand, commands, recipients};
 use crate::selection::Selection;
 
-/// What the selected units' modes let them do now, as the sim has them: their Riot Shields (`factions/gdo/units.md >
-/// Peacekeeper > Riot Shield`), by the sim's own queries (`sc_sim::riot_shield::allows_attack` and `::is_going_up`,
-/// so that the panel and the right-click never judge a shield otherwise than the gate), which of the workers carry a
+/// What the selected units' modes let them do now, as the sim has them: which of them their Riot Shield keeps from
+/// attacking (`factions/gdo/units.md > Peacekeeper > Riot Shield`: a Peacekeeper (Shielded), and a Peacekeeper whose
+/// shield is on its way down, design change 0171), by the sim's own query (`sc_sim::riot_shield::allows_attack`, so
+/// that the panel and the right-click never judge a shield otherwise than the gate), which of the workers carry a
 /// load, which a right-click on a drop-off reads (`factions/colonists/units.md > Drone > Right-Click Resolution`:
 /// "Own Egress Node (carrying resources)"), and which of the selected objects transform (`sc_sim::Object::transform`).
+/// Which way a shield goes is its unit's type (design change 0173), whose panel offers the command that turns it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Modes {
-    /// The units with a Riot Shield, by id: whether it is up or on its way up.
-    shields: BTreeMap<ObjectId, bool>,
     /// The units whose Riot Shield keeps them from attacking now.
     held: BTreeSet<ObjectId>,
     loaded: BTreeSet<ObjectId>,
@@ -50,24 +50,20 @@ pub struct Modes {
 impl Modes {
     /// The modes of `selection`'s objects in `sim`.
     pub fn of(sim: &Sim, selection: &Selection) -> Self {
-        let mut modes = Self::default();
-        let objects = || selection.ids().filter_map(|id| sim.object(id));
-        modes.shields = (objects())
-            .filter(|o| o.riot_shield.is_some())
-            .map(|o| (o.id, riot_shield::is_going_up(o)))
-            .collect();
-        modes.held = (objects())
-            .filter(|o| !riot_shield::allows_attack(o))
-            .map(|o| o.id)
-            .collect();
-        modes.loaded = (selection.ids())
-            .filter(|&id| (sim.object(id)).is_some_and(|o| o.worker.is_some_and(|worker| worker.load > 0)))
-            .collect();
-        modes.transforming = selection
-            .ids()
-            .filter(|&id| sim.object(id).is_some_and(Object::is_transforming))
-            .collect();
-        modes
+        Self {
+            held: (selection.ids())
+                .filter_map(|id| sim.object(id))
+                .filter(|o| !riot_shield::allows_attack(o))
+                .map(|o| o.id)
+                .collect(),
+            loaded: (selection.ids())
+                .filter(|&id| (sim.object(id)).is_some_and(|o| o.worker.is_some_and(|worker| worker.load > 0)))
+                .collect(),
+            transforming: selection
+                .ids()
+                .filter(|&id| sim.object(id).is_some_and(Object::is_transforming))
+                .collect(),
+        }
     }
 
     /// Whether `id` is a worker that carries a load.
@@ -93,27 +89,16 @@ impl Modes {
     pub fn can_attack(&self, id: ObjectId) -> bool {
         !self.held.contains(&id)
     }
-
-    /// Whether `ids` carry Riot Shields and all of those are up or on their way up: a toggle lowers them, and
-    /// otherwise raises them all (placeholder: the design doesn't say what a toggle does to a group whose shields
-    /// differ).
-    pub fn shields_up(&self, ids: &[ObjectId]) -> bool {
-        let mut shields = ids.iter().filter_map(|id| self.shields.get(id)).peekable();
-        shields.peek().is_some() && shields.all(|&going_up| going_up)
-    }
 }
 
-/// The modes of units with these Riot Shields, for the unit tests.
-impl FromIterator<(ObjectId, RiotShield)> for Modes {
-    fn from_iter<I: IntoIterator<Item = (ObjectId, RiotShield)>>(shields: I) -> Self {
-        let shields: Vec<(ObjectId, RiotShield)> = shields.into_iter().collect();
+/// The modes of units whose Riot Shields do these, for the unit tests: only one all the way down lets its unit
+/// attack (`sc_sim::riot_shield::allows_attack`).
+impl FromIterator<(ObjectId, ShieldMode)> for Modes {
+    fn from_iter<I: IntoIterator<Item = (ObjectId, ShieldMode)>>(shields: I) -> Self {
         Self {
-            held: (shields.iter())
-                .filter(|(_, shield)| !shield.allows_attack())
-                .map(|&(id, _)| id)
-                .collect(),
-            shields: (shields.iter())
-                .map(|&(id, shield)| (id, shield.is_going_up()))
+            held: (shields.into_iter())
+                .filter(|&(_, mode)| mode != ShieldMode::Lowered)
+                .map(|(id, _)| id)
                 .collect(),
             loaded: BTreeSet::new(),
             transforming: BTreeSet::new(),
@@ -166,10 +151,10 @@ pub struct Conditions {
 impl Conditions {
     /// The conditions of `player`'s `selection` in `sim`: the modes, the ActiveGroup's constructor state, and
     /// `Sim::validate`'s answer to the `Command::Production`, `Command::Construction` or `Command::Ability` each such
-    /// command the ActiveGroup may show would send ([`commands`]). A toggled ability's is never refused: the gate
-    /// takes it whenever a recipient carries it. A Warp In menu entry asks for its Warp In unturned, and leaves out the
-    /// placement's refusal (`Reject::Unplaceable`, the gate's last check): the player turns the ghost before it is
-    /// placed, and the ghost shows each tile's problem.
+    /// command the ActiveGroup may show would send ([`commands`]). Raise and Lower Shield are never refused: the gate
+    /// takes them whenever a recipient carries a shield. A Warp In menu entry asks for its Warp In unturned, and leaves
+    /// out the placement's refusal (`Reject::Unplaceable`, the gate's last check): the player turns the ghost before it
+    /// is placed, and the ghost shows each tile's problem.
     pub fn of(sim: &Sim, player: PlayerId, selection: &Selection) -> Self {
         let commands = selection
             .active()
@@ -204,7 +189,7 @@ impl Conditions {
                 } else {
                     Command::Ability {
                         units: objects,
-                        ability: command.ability(false).filter(|_| !command.toggles())?,
+                        ability: command.ability()?,
                     }
                 };
                 let sent = PlayerCommand { player, command: sent };

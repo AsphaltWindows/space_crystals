@@ -55,22 +55,25 @@ pub enum ButtonLook {
 pub struct PanelSlot {
     pub button: PanelButton,
     pub look: ButtonLook,
-    /// A toggled command that is on: the Riot Shields it goes to are all up or on their way up
-    /// ([`super::Modes`]).
-    pub on: bool,
     /// Why a disabled or unavailable button is greyed out, which pressing it says (design change 0162); none for
     /// the others.
     pub why: Option<WhyUnavailable>,
 }
 
 impl PanelSlot {
-    /// The button's label: a placeholder for its icon (Q0001). A toggle names what pressing it does (placeholder:
-    /// the design doesn't say how a toggled ability shows).
+    /// The button's label: a placeholder for its icon (Q0001).
     pub fn label(&self) -> &'static str {
         match self.button {
-            PanelButton::Command(PanelCommand::RiotShield) if self.on => "Lower Shield",
             PanelButton::Command(command) => command.label(),
             PanelButton::Back => "Back",
+        }
+    }
+
+    /// The button's full name (`PanelCommand::name`), which its label may shorten.
+    pub fn name(&self) -> String {
+        match self.button {
+            PanelButton::Command(command) => command.name(),
+            PanelButton::Back => "Back".into(),
         }
     }
 }
@@ -119,8 +122,8 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
 /// PendingCommand is marked and the others wait, in AwaitingPlacement the building being placed is marked
 /// (`super::Placing::command`) and the others wait, and in every state but DefaultState Z is Back (`> Standard Slot
 /// Assignments`). What the game allows now ([`Conditions`]) disables a command it doesn't let go to its recipients
-/// (Attack with every shield up, a Train, a Cancel Production, a constructor's command, a Warp In or a Convert the
-/// gate would refuse), and turns the Riot Shield on. Each greyed-out button says why ([`PanelSlot::why`]). The
+/// (Attack while none of them may attack, a Train, a Cancel Production, a constructor's command, a Warp In or a
+/// Convert the gate would refuse). Each greyed-out button says why ([`PanelSlot::why`]). The
 /// Egress Node's F shows only while it has Drones to select ([`Conditions::shows`]).
 pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Conditions) -> Panel {
     let mut panel = Panel::default();
@@ -162,14 +165,12 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
             }
         };
         let button = PanelButton::Command(command);
-        let on = command.toggles() && conditions.modes.shields_up(&recipients(selection, command));
-        panel.set(slot, PanelSlot { button, look, on, why });
+        panel.set(slot, PanelSlot { button, look, why });
     }
     if interface != InterfaceState::DefaultState {
         let back = PanelSlot {
             button: PanelButton::Back,
             look: ButtonLook::Back,
-            on: false,
             why: None,
         };
         panel.set(CommandSlot::BACK, back);
@@ -228,14 +229,13 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
         Some(PanelSlot {
             button: PanelButton::Command(command),
             look: ButtonLook::Common | ButtonLook::Group,
-            on,
             ..
         }) => {
             if command.needs_target() {
                 SlotPress::AwaitTarget(command)
             } else if let Some(kind) = command.immediate_order() {
                 SlotPress::Issue(command, kind)
-            } else if let Some(ability) = command.ability(on) {
+            } else if let Some(ability) = command.ability() {
                 SlotPress::UseAbility(command, ability)
             } else if let Some(production) = command.production() {
                 SlotPress::Produce(command, production)
@@ -276,8 +276,11 @@ pub fn is_common(selection: &Selection, command: PanelCommand) -> bool {
 /// `> CommandPanel`: who a panel command goes to: "Clicking a common command issues it to all selected objects.
 /// Clicking a group-specific command issues it only to objects in the ActiveGroup." `> SelectionGroup > No
 /// smart-casting` (design changes 0071 and 0075): every one of them, the whole Selection or the whole ActiveGroup,
-/// never a single member picked out; only a unit that can't carry the command out is left out of it (a raised Riot
-/// Shield under an explicit Attack: `super::super::resolution::unit_target_order`). Every panel command, by hotkey
+/// never a single member picked out; only a unit that can't carry the command out is left out of it (a Peacekeeper
+/// (Shielded), or a Peacekeeper whose shield is on its way down, under an explicit Attack on an object:
+/// `super::super::resolution::unit_target_order`). Raise Shield and Lower Shield are each one type's, so in
+/// a selection of both types they go to the ActiveGroup (`factions/gdo/units.md > Peacekeeper > Riot Shield > Two
+/// unit types`: "the shield command goes to the ActiveGroup"). Every panel command, by hotkey
 /// or button, goes to these objects: a Train to every Barracks of the ActiveGroup, which the sim serves least work
 /// first as far as the player can pay (design change 0083), but never to an unfinished one, which is in a group of
 /// its own and offers its Cancel alone (design change 0185). A constructor's command goes to the ActiveGroup, the one

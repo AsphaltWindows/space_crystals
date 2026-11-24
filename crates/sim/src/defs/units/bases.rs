@@ -61,8 +61,8 @@ pub struct UnitBaseDef {
     /// `> Domain`.
     pub domain: Domain,
     /// `> CanHaveTurret` (design change 0154, renamed from HasTurret): units of this base **can** carry a turret.
-    /// Whether one actually has one is its own TurretAttributes' ([`super::UnitDef::has_turret`]): the HoverVehicle base
-    /// can, and the Drone, built on it, has none.
+    /// Whether one actually has one is its own TurretAttributes' ([`super::UnitDef::has_turret`]): the HoverVehicle
+    /// base can, and the Drone, built on it, has none.
     pub can_have_turret: bool,
     /// `> DirectionalArmor`.
     pub directional_armor: bool,

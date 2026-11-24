@@ -16,12 +16,19 @@
 //!   to ([`deploy_recipient`]);
 //! - here: the ObjectInterfaceState itself ([`InterfaceState`]), and whether it still holds ([`still_valid`]).
 //!
-//! The Peacekeeper's Riot Shield (`factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`) is a
-//! command of its own ([`PanelCommand::RiotShield`]), in slot R of its panel. Pressed, it raises the shields it goes
-//! to, or lowers them when all of them are up or on their way up ([`Modes`]), and the button says which. While a
-//! unit's shield is up it can't attack: Attack is disabled when none of its recipients can, an explicit Attack
-//! leaves it out (`super::resolution::unit_target_order`), and a right-click on an enemy sends it after the enemy
-//! instead (`super::resolution::unit_right_click`).
+//! The Peacekeeper's Riot Shield (`factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`): shield
+//! down and shield up are two unit types (design change 0173), Peacekeeper and Peacekeeper (Shielded), which form
+//! separate SelectionGroups. The Peacekeeper's panel has Raise Shield in slot R ([`PanelCommand::RaiseShield`]), the
+//! Peacekeeper (Shielded)'s Lower Shield there ([`PanelCommand::LowerShield`]) and no Attack (design change 0174: R,
+//! a placeholder). Each is its type's own, so in a selection of both it goes to the ActiveGroup; the units it raises
+//! or lowers change their type at once, so they move to the other type's group ("Tab to the 4, raise → all 10 are
+//! one type and form one group"), which becomes active when theirs empties
+//! (`crate::selection::ControlState::set_type`). While a unit's shield isn't all the way down it can't attack (design
+//! change 0171: neither while it goes up nor while it comes down; [`Modes`]): Attack is disabled when none of its
+//! recipients can, an explicit Attack leaves it out (`super::resolution::unit_target_order`), and a right-click on an
+//! enemy sends it after the enemy instead (`super::resolution::unit_right_click`). The Peacekeeper (Shielded) still
+//! offers the Attack its panel hides ([`templates::hides_attack`]): in a selection with other units, an AttackMove
+//! takes it along (design change 0076).
 //!
 //! The Colonists' Legionnaires convert between their two forms with R (`factions/colonists/units.md > Weapon
 //! Conversion`, [`PanelCommand::Convert`]), a common command of a selection of both (each converts to its other

@@ -154,7 +154,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   (`Mover`, `mover.rs`: goal, status, path, the replanning state of `docs/movement.md > 3` and the sidestep of a
   yielding unit; `mover/` holds the stuck schedule, the sidestep and the hash), for units that
   can attack, `attack` (`AttackState`, `combat.rs`: see *Combat*) and, for units that carry a Riot Shield,
-  `riot_shield` (`RiotShield`, `riot_shield.rs`: the shield's mode, see *Combat*); for a plate on a patch,
+  `riot_shield` (`RiotShield`, `riot_shield.rs`: how far up the shield is, the way it goes being the unit's type,
+  see *Combat*); for a plate on a patch,
   `extractor` (`Extractor`, `economy/mining.rs`: the patch it mines and its cycle, see *Economy*); for a structure
   that produces units, `production` (`Production`, `production.rs`: its queue, the progress of the unit in
   production and its rally point, see *Production*); for a structure that constructs buildings, `constructor`
@@ -197,7 +198,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   It crosses Rugged tiles with double drag (`HOVER_VEHICLE.rugged_terrain`, design change 0039), on the light
   infantry's `(GroundRugged, 1)` grid.
 - **Changing kind** (`sim/kinds.rs`, plan decision T15): an object that transforms (a Drone deploying into a Beacon,
-  a Beacon warping in a building, a Legionnaire converting its weapon) stays the same object, its id included.
+  a Beacon warping in a building, a Legionnaire converting its weapon, a Peacekeeper raising or lowering its Riot
+  Shield) stays the same object, its id included.
   `Sim::change_kind(id, kind, placement)` is the one place a kind changes, and it emits `SimEvent::KindChanged`. It
   keeps the id, owner and facing; the position too, unless the object gets a placement, whose centre it then jumps
   to (`prev_pos` too); the HP, clamped to the new MaxHP (callers interpolate HP themselves); and the Shields, clamped
@@ -205,12 +207,13 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   capabilities from the new def with `kinds::Capabilities::fresh`, which `Sim::insert_object` uses as well: a
   capability whose def part is unchanged keeps its state, a new one starts fresh, one the new kind lacks goes. A
   unit that stays a unit keeps its orders and its move (design change 0150), replanning if its grid changes; a
-  kept attack keeps its target and restarts its sequence. Paid state the new kind has no place for (a production
+  kept attack keeps its target and restarts its sequence (0152), or keeps its whole state when the two kinds' weapon
+  is the same (the Riot Shield's two types: a reload goes on). Paid state the new kind has no place for (a production
   queue, a construction) is refunded first, as on removal. Call it before 5b (in the commands phase, or a step
   right after 5a), or sync the grids yourself (`paths::sync`). A caller whose new kind isn't functional yet (a
   building warping in) holds its functions back itself. Slice E's Warp In and its cancel are its first callers
-  (`sim/transform.rs`), then slice B's Weapon Conversion (`sim/modes.rs`) and slice F's deployment
-  (`sim/deploy.rs`, the step right after 5a). `sim/kinds/tests.rs` unit-tests it. The client rebuilds the visuals of
+  (`sim/transform.rs`), then slice B's Weapon Conversion (`sim/modes.rs`), slice F's deployment
+  (`sim/deploy.rs`, the step right after 5a) and slice M3-S's Riot Shield (`sim/modes.rs`). `sim/kinds/tests.rs` unit-tests it. The client rebuilds the visuals of
   a changed object and keeps it selected (see *Commands, events and replays > Events*).
 - **Sides** (`sides.rs`, design change 0079): `sides(kind, orientation)` gives the letters of a structure's sides
   that face north, east, south and west (`[SideLetter; 4]`, `None` for other objects). Unturned, the letters of its
@@ -318,7 +321,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
 5. **Systems**, each walking the objects in id order, one function per module (`docs/movement.md > 4`):
    - Modes, `Sim::step_modes` (`sim/modes.rs`, beside `Sim::use_ability`, which applies the ability commands): a
      Riot Shield on its way up or down goes on one tick (`riot_shield::step`), and a Weapon Conversion one frame; a
-     conversion pressed mid-attack begins in the first Modes step after the unit's Cooldown (design change 0153),
+     raise of the Riot Shield or a conversion pressed mid-attack begins in the first Modes step after the unit's
+     Cooldown (design changes 0172 and 0153),
      and a conversion whose frames are done makes the unit its other form there (`conversion::step`,
      `Sim::change_kind`; see *Combat > Weapon Conversion*). After the commands, so that a toggle or a Convert counts from its own tick;
      before 5a, so that the behaviours, the movement and the combat of the tick all see the mode it leaves, and the
@@ -503,10 +507,11 @@ ticks spent in it. Hashed and serialized like all state.
   Orders are kept`, design change 0150). Convert isn't queued (design change 0151: "holding Shift changes nothing").
 - **Abilities that wait for an attack** (`sim/modes.rs`, design change 0153): an ability given to a unit Firing or in
   Cooldown (`combat::mid_attack`: the phases that can't be interrupted), if it is one that waits (`waits_for_attack`:
-  the Convert), isn't used but kept in `AttackState::pending` (one at a time; hashed and saved only when set); the
-  first Modes step after the Cooldown's last tick uses it, before the Riot Shields and the conversions take their
-  step, so the unit acts as if given it in that tick and the Reloading never runs. Design change 0172 (a Riot Shield
-  raised mid-shot waits the same way, slice M3-S) adds its ability to `waits_for_attack` and nothing else.
+  the Convert, and a raise of the Riot Shield, design change 0172), isn't used but kept in `AttackState::pending` (one
+  at a time; hashed and saved only when set); the first Modes step after the Cooldown's last tick uses it, before the
+  Riot Shields and the conversions take their step, so the unit acts as if given it in that tick and the Reloading
+  never runs (a raised shield's Reloading goes on behind it: the weapon is kept). A lowering never waits (a
+  Peacekeeper (Shielded) never attacks), and cancels a raise that does (a placeholder reading).
 - **Removal path**: `Sim::remove_objects` (`sim/removal.rs`) is the one way objects leave the game, for deaths and
   debug removals alike. It emits `Removed` and clears every reference to the removed: a current order naming one
   completes, queued ones are dropped, a move towards one ends `TargetLost`, an attack on one stops (an aim is
@@ -516,23 +521,31 @@ ticks spent in it. Hashed and serialized like all state.
   heads for where the patch was (`Gather::spot`, see *Behaviours > Gathering*); the next tick's snapshot sees such a
   target Remembered until its place is seen, and Gone then (`sim/removal.rs::forget_seen_gone` ends what names it).
   `testing::dangling_references` checks that nothing else names a removed object.
-- **Riot Shield** (`riot_shield.rs`; `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`): a
-  unit whose `UnitDef::riot_shield` is set starts with its shield `Lowered`; `Command::Ability` raises or lowers it,
-  through `Raising { left }` or `Lowering { left }` for the toggle time (`RiotShieldDef::toggle_ticks`, 6 ticks, a
-  placeholder: the design says under half a second), so a toggle in tick `t` is done at the end of tick
-  `t + toggle_ticks − 1`, and a reversal turns back from where the shield is. While it isn't `Lowered` the unit
-  moves at half speed (`Mover::speed_factor`, written when the mode changes) and can't attack
-  (`riot_shield::allows_attack(object)`, the one "is it shielded" check: the behaviours, 5e, auto-targeting, the
-  gate, the default command and the client's panel and right-click all ask it, and the client's toggle asks
-  `riot_shield::is_going_up(object)`, so that slice M3-S's shielded type, design change 0173, changes those two
-  only; the client draws the shield from the mode): the gate drops it
-  from new Attack orders (`Reject::CannotAttack` when none is left; design change 0075), its behaviours see no attack
-  (`Unit::attrs`: no auto-targeting, Hold disengages), and 5e cancels an aim (`can_attack_now` is false); a shot
-  already being fired lands. **Orders are kept** (design change 0150): an Attack it had goes on hold, following its
-  target as a Move to it would (`AttackOrder::on_hold`), and attacks again once the shield is down; an AttackMove or
-  a Patrol only moves meanwhile (0076); the toggle never touches the queue, and Shift means nothing for it (0151). Only while it is `Raised` is the damage it takes halved, a pre-armor multiplier
-  (`damage::pre_armor_multiplier`, with the Rugged bonus). A mode is not a task: the unit keeps its orders and
-  yields like any other (design change 0023). The placeholders are listed in the module docs.
+- **Riot Shield** (`riot_shield.rs`; `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`, slice
+  M3-S): shield down and shield up are two unit types, `Peacekeeper` and `PeacekeeperShielded` (design change 0173),
+  which carry the same `RiotShieldDef`, naming both; the Barracks trains the first, and the Unit Control, a sum over
+  the objects, is the same. `Object::riot_shield` (`RiotShield { up }`) is how many ticks of the toggle time the
+  shield is up (`RiotShieldDef::toggle_ticks`, 6, design change 0174); the type says which way it goes, and
+  `riot_shield::mode` tells it as the design does (`ShieldMode`: Lowered, Raising, Raised, Lowering).
+  `Command::Ability` switches the type at once, as the toggle starts (`Sim::change_kind` from `sim/modes.rs`: the
+  orders, the move, the HP and the whole attack kept), and the Modes step takes the shield a tick on
+  (`riot_shield::step`), so a toggle in tick `t` is done at the end of tick `t + toggle_ticks − 1`; a reversal turns
+  back from where the shield is (0171). A raise pressed during Firing or Cooldown waits for the shot (0172, *Abilities
+  that wait for an attack*). From the start of a raise to the end of a lowering the unit moves at half speed (the
+  Peacekeeper (Shielded)'s own MaxSpeed, and `Mover::speed_factor` while lowering: `riot_shield::settle`) and can't
+  attack (`riot_shield::allows_attack(object)`, the one "is it shielded" check: the behaviours, 5e, auto-targeting,
+  the gate, the default command and the client's panel and right-click all ask it; the client draws the shield from
+  `riot_shield::mode`): the gate drops it from new Attack orders (`Reject::CannotAttack` when none is left; design
+  change 0075), its behaviours see no attack (`Unit::attrs`: no auto-targeting, Hold disengages), and 5e cancels an
+  aim (`can_attack_now` is false); a shot already being fired lands. **Orders are kept** (design change 0150): an
+  Attack it had goes on hold, following its target as a Move to it would (`AttackOrder::on_hold`), and attacks again
+  once the shield is down; an AttackMove or a Patrol only moves meanwhile (0076); the toggle never touches the queue,
+  and Shift means nothing for it (0151). Only once the shield is all the way up is the damage it takes halved, a
+  pre-armor multiplier (`riot_shield::damage_factor` in `damage::pre_armor_multiplier`, with the Rugged bonus; 0171:
+  "a half-raised shield gives none"). A mode is not a task: the unit keeps its orders and yields like any other
+  (design change 0023). The placeholders are listed in the module docs. The toggle doesn't use the conversion's
+  machinery (`conversion.rs`), which switches the type at its end, can't be turned back and holds the unit still;
+  they share `Sim::change_kind`, `AttackState::pending` and the Modes step.
 - **Not yet**: turrets, projectiles, AttackGround and the other location-targeted attacks, AoE.
 
 ## Vision
@@ -2015,11 +2028,16 @@ their producing structures and their constructors, and the Colonists' Beacons an
   the `Panel` a selection gets (common, group, pending, disabled and unavailable buttons; Back in Z while a target is
   awaited) and who receives a command (`recipients`: a common one the whole selection, a group one the whole
   ActiveGroup, by hotkey or button; never some of them, no smart-casting, 0071, apart from the units that can't carry
-  it out, which the resolution leaves out). A type's grid is its template's plus its own commands (`grid`: the Riot
-  Shield in R for a unit that carries one, a placeholder slot; Convert in R for the Legionnaires, one command common
-  to a selection of both forms). `Modes` holds the selected units' modes as the sim has
-  them: the Riot Shield button is on, and lowers the shields, while all its recipients' are up or going up, else it
-  raises them; Attack is disabled while none of its recipients can attack. `Conditions` holds the `Modes` and what
+  it out, which the resolution leaves out). A type's grid is its template's plus its own commands (`grid`: in R,
+  Raise Shield for the Peacekeeper and Lower Shield for the Peacekeeper (Shielded), design changes 0173 and 0174,
+  each its type's own, so in a selection of both it goes to the ActiveGroup; Convert for the Legionnaires, one
+  command common to a selection of both forms). The Peacekeeper (Shielded)'s panel leaves out the Attack its type
+  still offers (`hides_attack`, in `state_grid`; 0173: "no Attack"), so that Attack stays common in a selection with
+  other units: an Attack on an object leaves the shielded units out (0075), an AttackMove takes them along (0076). The
+  units that raise or lower their shields change type, and group, as the toggle starts (`ControlState::set_type`: an
+  ActiveGroup they leave empty gives way to the group they join, the rule M3-U set, Q0050). `Modes` holds the
+  selected units' modes as the sim has them: Attack is disabled while none of its recipients can attack (a
+  Peacekeeper whose shield is on its way down can't). `Conditions` holds the `Modes` and what
   the command gate refuses: a production command is disabled exactly when `Sim::validate` refuses the
   `Command::Production` pressing it would send (the gate's own predicates, no copy of them: crystals, a full queue,
   nothing to cancel; 0081; never the army cap, which is checked when production starts, 0143), and so is Convert, by
@@ -2142,8 +2160,10 @@ their producing structures and their constructors, and the Colonists' Beacons an
   (`Conditions::returning`, asked for the ActiveGroup's node: `instance_only`); the button shows only while there are
   some (`Conditions::shows`). Its label, "Drones", keeps the full label size at 720p.
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
-  changes; each shows its command (`PanelSlot::label`: a toggle says what pressing it does) and its hotkey from the
-  bindings, and a toggle that is on has a thick green border. A label never wraps (`TextLayout::no_wrap`): one too
+  changes; each shows its command's label (`PanelSlot::label`, short enough for its button at 720p: "Raise" and
+  "Lower" for Raise Shield and Lower Shield) and its hotkey from the bindings. The InfoPanel names the command of the
+  button under the pointer in full, with its hotkey (`hud/info_panel/hint.rs`, `PanelCommand::name`: "R: Raise
+  Shield"; the client has no tooltips; slice M3-S). A label never wraps (`TextLayout::no_wrap`): one too
   long for its button at `LABEL_VH` is drawn smaller to fit on one line inside a lit button's thicker border
   (`label_px`, from the default font's fixed advance, 0.6 em, which a unit test checks against the font), so a label
   keeps its size when its button lights up. The indicators (`command_ui/indicators.rs`) are

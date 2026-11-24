@@ -2,7 +2,7 @@
 //! Visuals`): a shape of its own per kind, its silhouette's size, in its owner's colour, with a tick showing its
 //! facing. A body turns with its facing only if it is round ([`body_turns`]); the Colonists' units carry a two-letter
 //! tag of their type ([`UnitTag`]). A Peacekeeper's raised Riot Shield is a pale arc in front of it
-//! ([`riot_shield_mesh`]).
+//! ([`riot_shield_mesh`]), the Peacekeeper (Shielded)'s too: the two types share their body (design change 0173).
 
 use bevy::prelude::*;
 use sc_sim::{ObjectId, ObjectKind};
@@ -18,11 +18,11 @@ enum UnitShape {
     Octagon,
 }
 
-/// The placeholder shape of a `kind` unit: round for the Peacekeeper, an octagon for the Drone (a HoverVehicle), and
-/// a square for the HeavyInfantry: the Guard and the Legionnaires.
+/// The placeholder shape of a `kind` unit: round for the Peacekeeper, shielded or not, an octagon for the Drone (a
+/// HoverVehicle), and a square for the HeavyInfantry: the Guard and the Legionnaires.
 fn shape(kind: ObjectKind) -> UnitShape {
     match kind {
-        ObjectKind::Peacekeeper => UnitShape::Round,
+        ObjectKind::Peacekeeper | ObjectKind::PeacekeeperShielded => UnitShape::Round,
         ObjectKind::Drone => UnitShape::Octagon,
         _ => UnitShape::Square,
     }

@@ -114,11 +114,10 @@ fn r_converts_each_selected_legionnaire_to_its_other_form() {
     select_units(&mut app, &[1, 2, 3]);
     let shown = button(&mut app).expect("a button in R");
     assert_eq!(
-        (shown.button, shown.look, shown.on, shown.label()),
+        (shown.button, shown.look, shown.label()),
         (
             PanelButton::Command(PanelCommand::Convert),
             ButtonLook::Common,
-            false,
             "Convert"
         )
     );
