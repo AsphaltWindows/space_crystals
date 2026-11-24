@@ -2037,3 +2037,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Q0022 answered A: GDO supply loop deferred to air milestone; Starting Supplies 0 placeholder. Standing permission: placeholder stats when only numbers block the Director. Entry 0077.
 - 2026-11-24: Q0021 pt 3: any control group recall resets all menus, even identical selection (B, widened). Doc: selection_and_hud.md > ObjectInterfaceState, Selection changes while targeting. Entry 0078. Q0021 done.
 - 2026-11-24: Q0023 pt 1: side lettering clockwise from top in default orientation; Barracks and Cults Armory 2x3 (3 wide). Entry 0079.
+- 2026-11-24: Q0023 pts 2-3: Exit Doorway rule (spawn half inside, walk out, stop in doorway if blocked, pause while doorway occupied; buildings may block exits for now). Doc: core/entities.md > Exit Doorway. Entry 0080.

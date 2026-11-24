@@ -69,7 +69,7 @@ Space Crystals cost and construction time are listed under the Recruit's Constru
 ### EntranceSide - one short side (B)
 ### ExitSide - opposite short side (C)
 
-Recruits enter through the entrance side. Trained units and ejected Recruits exit through the exit side.
+Recruits enter through the entrance side. Trained units and ejected Recruits exit through the exit side, one at a time through the exit doorway (core/entities.md > Structure Type > Exit Doorway).
 
 ### InternalRecruitCapacity - 10
 

@@ -30,7 +30,6 @@
 All non-blocking; Director proceeds on its defaults (option A in each). Arrived 2026-11-23 mid-GDO-roster; raise after the support-air-unit thread. Movement/pathing cluster:
 - **Q0016** point 1 ANSWERED (0062 non-capable units move/follow; 0063 per-unit resolution + Mixed cursor). (0065 invalid target: ignore + feedback; 0066 other commands unavailable while targeting, cancel first.) (0067 drag while targeting = nothing.) (0068 press point; 0069 player selection changes cancel targeting, deaths don't unless ActiveGroup empty.) (0070 point 4: Shift keeps targeting active until released → Q0016 DONE; follow-up TBD: Shift released before any click; 0071 Shift-placement same rule where builder can take more orders)
 - **Q0020** Riot Shield (non-blocking): (1) ANSWERED 0074 (shielded = Follow, 0062 wins); (2) slowed + can't attack during raise/lower, 50% DR only when fully up, mid-toggle reverses from current point; (3) raise during a shot: shot lands then held (vs refuse until shot ends, like Convert); (4) mixed group: key raises all, again lowers all; (5) toggle 6 ticks (0.375 s), hotkey R — placeholders.
-- **Q0023** Barracks: (1) ANSWERED 0079 (clockwise from top; Barracks/Armory 2x3); (2) spawn at middle of side B else nearest free; (3) blocked exit → nearest free around building, never stalls (alt: wait / forbid blocking placement).
 - **Q0024** production: (1) 20 includes unit in production; (2) Unit Control reserved when queued vs checked at start; (3) multiple Barracks, not enough crystals: fixed order while crystals last vs none; (4) producer destroyed: refund as cancel vs lost; (5) clear rally: rally on itself; (6) rally markers green/red; (7) rally on unseen enemy → move to spot.
 - **Q0025** power: (1) DC never slowed (power producer) vs all slowed; (2) ratio gen/cons capped 100%; (3) display current=gen−cons, total=gen; (4) counts from placement to destruction.
 - **Q0026** GDO build area: (1) square (28x28 start) vs round; (2) shrinks when buildings lost vs only grows; (3) no DC → other buildings' areas count; (4) overlay = area only vs minus invalid tiles.
@@ -43,6 +42,8 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 - Yielding (0023): only no-command units yield; Hold Position/busy don't; modes (Riot Shield) irrelevant; deployed Artillery Rig = fixed obstacle. TBD sidestep distance, allies. Watch: mining workers don't yield → possible clots at patches (worker collision while gathering never designed).
 
 ## Loose Ends
+
+- **Exit blocking by buildings** (0080): allowed for now; a building flush against an exit stalls the producer. Revisit (placement rule keeping exit-front tiles clear) if it proves annoying. Aircraft spawning (Airfield) and Syndicate releases not covered by Exit Doorway.
 
 - **GDO Supplies** (Q0022 deferred, 0077): what GDO spends Supplies on, Radar Station stats, Supply Tower cost/time, Chopper cargo. Part of the GDO numbers pass; placeholders allowed if the Director needs them.
 
