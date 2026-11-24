@@ -1,7 +1,9 @@
 //! What the behaviours see of the game in phase 5a — a snapshot of every object, taken before any unit's behaviour
 //! runs, so that every unit decides on the same world: the positions the last tick left and the vision its phase 5f
 //! computed (`docs/movement.md > 4`). Also the scan for targets of `systems/controls/behaviors.md >
-//! BaseAutoTargeting` and `systems/combat.md > ValidTarget`.
+//! BaseAutoTargeting` and `systems/combat.md > ValidTarget`, and what the workers' scans read ([`gathering`]).
+
+mod gathering;
 
 use std::collections::BTreeMap;
 
@@ -9,19 +11,19 @@ use glam::Vec2;
 
 use crate::combat::{self, AttackState, domain_allows, object_domain, within_range};
 use crate::defs::{AttackAttrs, Domain, ObjectKind, TargetDomain, UnitDef};
+use crate::economy::Worker;
 use crate::elevation::{self, Elevation};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::math;
 use crate::mover::Mover;
 use crate::object::{Object, ResourceState};
+use crate::paths::NavState;
 use crate::shape::Shape;
 use crate::units::{SU_PER_GU, Tick, gu};
 use crate::vision::Vision;
 
-use super::OrderKind;
-use super::state::{Behaviour, GatherPhase};
-use crate::economy::Worker;
+use gathering::Gathering;
 
 /// An object as the behaviours see it this tick.
 #[derive(Copy, Clone, Debug)]
@@ -135,25 +137,18 @@ pub(crate) struct World<'a> {
     candidate_half: f32,
     cells_wide: u32,
     cells_high: u32,
-    /// Indices into `views` of the Space Crystals patches and of the drop-offs, in id order: what a worker's scans
-    /// look at (`orders::gather`). They run on events only: an arrival at an occupied patch, a return without a
-    /// drop-off.
-    patches: Vec<u32>,
-    drop_offs: Vec<u32>,
-    /// `factions/colonists/units.md > Drone > Patch Occupancy (one Drone per patch)`: the patches a worker was
-    /// mining as the phase began, sorted.
-    mined: Vec<ObjectId>,
-    /// The patches under a mining structure (a GDO plate: question Q0037 point 11), sorted.
-    covered: Vec<ObjectId>,
-    /// The workers waiting at an occupied patch, as `(patch, since, worker)`, sorted: a patch's first entry is next
-    /// in line (question Q0037 point 6).
-    waiters: Vec<(ObjectId, Tick, ObjectId)>,
+    /// The grids each player plans on, as the last tick left them: whether a worker can reach a patch
+    /// ([`gathering`]).
+    nav: &'a NavState,
+    /// The patches, the drop-offs and who mines and waits where ([`gathering`]).
+    gathering: Gathering,
 }
 
 impl<'a> World<'a> {
     pub(crate) fn new(
         map: &'a Map,
         vision: &'a Vision,
+        nav: &'a NavState,
         objects: &BTreeMap<ObjectId, Object>,
         tick: Tick,
         auto_targeting: bool,
@@ -193,43 +188,9 @@ impl<'a> World<'a> {
             candidate_half: 0.0,
             cells_wide,
             cells_high,
-            patches: Vec::new(),
-            drop_offs: Vec::new(),
-            mined: Vec::new(),
-            covered: Vec::new(),
-            waiters: Vec::new(),
+            nav,
+            gathering: Gathering::new(objects),
         };
-        for (index, o) in objects.values().enumerate() {
-            if world.views[index].is_patch {
-                world.patches.push(index as u32);
-            }
-            // An Egress Node being warped in takes nothing until it is complete (design change 0116,
-            // `crate::transform`).
-            if o.def().structure.as_ref().is_some_and(|structure| structure.drop_off) && !o.is_transforming() {
-                world.drop_offs.push(index as u32);
-            }
-            world.covered.extend(o.extractor.map(|extractor| extractor.patch));
-            let job = o
-                .worker
-                .as_ref()
-                .and(o.orders.as_ref())
-                .and_then(|orders| orders.current.as_ref());
-            if let Some(active) = job
-                && let (OrderKind::Gather(patch), Behaviour::Gather(gather)) = (active.order.kind, &active.state)
-            {
-                match gather.phase {
-                    GatherPhase::Mining { .. } => world.mined.push(patch),
-                    GatherPhase::Waiting { since } => world.waiters.push((patch, since, o.id)),
-                    GatherPhase::ToPatch
-                    | GatherPhase::ToDropOff
-                    | GatherPhase::DroppingOff { .. }
-                    | GatherPhase::Delivered => {}
-                }
-            }
-        }
-        world.mined.sort_unstable();
-        world.covered.sort_unstable();
-        world.waiters.sort_unstable();
         // A counting sort by cell keeps the id order within each cell.
         let is_candidate = |v: &View| v.destructible && v.owner.is_some();
         for v in world.views.iter().filter(|v| is_candidate(v)) {
@@ -287,37 +248,6 @@ impl<'a> World<'a> {
     /// The objects that stand where they are, structures and map resources, in id order.
     pub(crate) fn fixed(&self) -> impl Iterator<Item = &View> + '_ {
         self.views.iter().filter(|view| !view.is_unit)
-    }
-
-    /// The Space Crystals patches, in id order.
-    pub(crate) fn patches(&self) -> impl Iterator<Item = &View> + '_ {
-        self.patches.iter().map(|&index| &self.views[index as usize])
-    }
-
-    /// The structures that take workers' loads, in id order.
-    pub(crate) fn drop_offs(&self) -> impl Iterator<Item = &View> + '_ {
-        self.drop_offs.iter().map(|&index| &self.views[index as usize])
-    }
-
-    /// `> Patch Occupancy (one Drone per patch)`: whether a worker, of any player, was mining `patch` as the
-    /// phase began.
-    pub(crate) fn patch_mined(&self, patch: ObjectId) -> bool {
-        self.mined.binary_search(&patch).is_ok()
-    }
-
-    /// Whether a mining structure stands on `patch` (question Q0037 point 11).
-    pub(crate) fn patch_covered(&self, patch: ObjectId) -> bool {
-        self.covered.binary_search(&patch).is_ok()
-    }
-
-    /// The worker next in line at `patch`: the one that has waited longest, the lowest id among equals (question
-    /// Q0037 point 6).
-    pub(crate) fn first_waiter(&self, patch: ObjectId) -> Option<ObjectId> {
-        let first = self.waiters.partition_point(|&(p, ..)| p < patch);
-        self.waiters
-            .get(first)
-            .filter(|&&(p, ..)| p == patch)
-            .map(|&(.., id)| id)
     }
 
     pub(crate) fn elevation(&self, unit: &Unit) -> Elevation {

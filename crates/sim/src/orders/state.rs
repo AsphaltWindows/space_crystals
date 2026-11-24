@@ -101,10 +101,12 @@ pub struct Patrol {
 /// `orders::gather`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GatherPhase {
-    /// On its way to the order's patch.
+    /// On its way to the order's patch, or to where it was ([`Gather::spot`]).
     ToPatch,
-    /// At an occupied patch with no other patch free, since tick `since` (`> Patch Occupancy (one Drone per
-    /// patch)`: it "waits at the current patch and mines as soon as it frees up").
+    /// At an occupied patch with no other patch free, or as close as it got to a patch it can't reach, since tick
+    /// `since` (`> Patch Occupancy (one Drone per patch)`: it "waits right at the patch it tried to mine, within
+    /// MiningReach, and mines it as soon as it frees up", design change 0132; "it waits as close as it can get",
+    /// 0141). It looks again every `orders::gather::RECHECK_TICKS`, in the ticks that are multiples of it.
     Waiting { since: Tick },
     /// Mining the order's patch, which it occupies: `done` of MiningDuration frames
     /// (`economy::gathering::step` counts them and takes the load).
@@ -119,7 +121,7 @@ pub enum GatherPhase {
 }
 
 /// The state of a Gather or a Drop Off order (`orders::gather`).
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Gather {
     pub phase: GatherPhase,
     /// The drop-off the worker is returning to, or unloading at: its AssignedDropOff as the return leg read it
@@ -127,9 +129,19 @@ pub struct Gather {
     pub node: Option<ObjectId>,
     /// The unit's current move is this phase's leg, so the mover's status is the leg's outcome.
     pub moving: bool,
-    /// A leg of this phase ended short of its target: the next one begins no sooner than this tick
+    /// The leg to the drop-off ended short of it: the next one begins no sooner than this tick
     /// (`orders::gather::LEG_RETRY_TICKS`). 0 while no leg has.
     pub retry_at: Tick,
+    /// Design change 0134 (`factions/colonists/units.md > Patch Occupancy > A patch that runs out`): where the
+    /// order's patch was, its centre, once the patch has left the game. The worker heads there and looks for
+    /// another patch when it gets there. Meanwhile the order names a patch that is gone, the one order that may
+    /// (`orders::ActiveOrder::live_target`). `None` while the patch is there. Optional in files.
+    #[serde(default)]
+    pub spot: Option<Vec2>,
+    /// Design change 0123 (`> When a Gather ends`): the worker found no patch left within its search radius. It
+    /// delivers the load it carries, and then the order is complete. Optional in files.
+    #[serde(default)]
+    pub ending: bool,
 }
 
 impl Gather {
@@ -140,6 +152,8 @@ impl Gather {
             node: None,
             moving: false,
             retry_at: 0,
+            spot: None,
+            ending: false,
         }
     }
 
@@ -384,11 +398,15 @@ impl StateHash for Gather {
             node,
             moving,
             retry_at,
+            spot,
+            ending,
         } = self;
         phase.hash(h);
         node.hash(h);
         moving.hash(h);
         retry_at.hash(h);
+        spot.hash(h);
+        ending.hash(h);
     }
 }
 

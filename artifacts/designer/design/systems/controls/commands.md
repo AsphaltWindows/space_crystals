@@ -25,6 +25,8 @@ TBD: whether the box has a size limit (for widely scattered selections the box c
 ## Move
 Order the unit to move to a target location or object. Moving to a **unit** makes the ordered unit **follow** it until given another order (systems/controls/behaviors.md > MovingToObject > Completion). Right-clicking one of your own units therefore makes the selected units follow it.
 
+**Following itself = Stop** (user, 2026-11-24): if the target unit is itself one of the units receiving the order (e.g. right-clicking one unit of the selection), that unit's order is equivalent to **Stop**: its order ends at once, as if it had arrived (with Shift, as a queued step it ends immediately when reached). The other units follow it as usual.
+
 ### Sets BaseCommandState:
 - CommandType = Move
 - TargetLocation = location | None

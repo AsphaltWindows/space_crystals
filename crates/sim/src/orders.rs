@@ -100,7 +100,9 @@ pub enum OrderKind {
     Stop,
     /// `factions/colonists/units.md > Drone > Unit Commands > Gather`: a worker gathers from a Space Crystals patch
     /// and delivers to its AssignedDropOff, again and again ([`gather`]). The patch is the one the worker heads for
-    /// now: the order follows it to another when its patch is occupied or gone.
+    /// now: the order follows it to another when its patch is occupied, out of reach or gone (design change 0132:
+    /// "its gather target follows where it actually mined"). A patch that is gone stays named while the worker
+    /// heads for where it was (design change 0134, `state::Gather::spot`).
     Gather(ObjectId),
     /// `> Unit Commands > Drop Off Resources`: a worker delivers the load it carries to this drop-off of its
     /// owner's, an Egress Node ([`gather`]).
@@ -154,6 +156,19 @@ pub struct ActiveOrder {
     pub since: Tick,
     /// What its behaviour keeps from tick to tick (`systems/controls/behaviors.md > BaseBehaviorState`).
     pub state: Behaviour,
+}
+
+impl ActiveOrder {
+    /// The object the order names ([`Order::target`]) while the order depends on it. `None` for a Gather whose
+    /// patch has left the game and that heads for where it was (design change 0134, `state::Gather::spot`): the one
+    /// order that goes on naming an object that is gone. The removal path doesn't end it, and
+    /// `testing::dangling_references` doesn't count it.
+    pub fn live_target(&self) -> Option<ObjectId> {
+        match &self.state {
+            Behaviour::Gather(gather) if gather.spot.is_some() => None,
+            _ => self.order.target(),
+        }
+    }
 }
 
 /// A unit's orders (`systems/controls/commands.md > Unit Command`): the current one, and the queue of those
@@ -242,7 +257,7 @@ fn update_unit(orders: &mut Orders, unit: &mut Unit, world: &World, claims: &mut
     // Each pass completes an order or starts one from the queue, which is bounded, so this ends.
     loop {
         if let Some(active) = &mut orders.current {
-            if !run(active, !orders.queue.is_empty(), unit, world, claims) {
+            if !run(active, unit, world, claims) {
                 return;
             }
             orders.current = None;
@@ -323,8 +338,7 @@ fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour {
 }
 
 /// One tick of the current order's behaviour. Returns whether it is complete, so that the next order may start.
-/// `queued`: orders wait behind it.
-fn run(active: &mut ActiveOrder, queued: bool, unit: &mut Unit, world: &World, claims: &mut gather::Claims) -> bool {
+fn run(active: &mut ActiveOrder, unit: &mut Unit, world: &World, claims: &mut gather::Claims) -> bool {
     let order = &mut active.order;
     match (order.kind, &mut active.state) {
         // `> MovingToLocation`: complete when stopped at the target, or after failing to make progress
@@ -345,9 +359,10 @@ fn run(active: &mut ActiveOrder, queued: bool, unit: &mut Unit, world: &World, c
         (OrderKind::Patrol(click), Behaviour::Patrol(state)) => {
             travel::patrol(unit, state, path_group(order, click), world)
         }
-        // A worker's job; the behaviour moves the order on to another patch as it must.
+        // A worker's job; the behaviour moves the order on to another patch as it must. Orders queued behind a
+        // Gather wait until it ends on its own (design change 0123, `gather`).
         (OrderKind::Gather(_) | OrderKind::DropOff(_), Behaviour::Gather(state)) => {
-            gather::run(&mut order.kind, state, unit, queued, world, claims)
+            gather::run(&mut order.kind, state, unit, world, claims)
         }
         // The walk to the site; the step right after this phase ends the order (`Sim::step_deployments`).
         (OrderKind::Deploy { origin }, Behaviour::Deploy(state)) => deploy::run(origin, state, unit),

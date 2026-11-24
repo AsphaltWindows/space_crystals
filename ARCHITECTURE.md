@@ -159,8 +159,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   that produces units, `production` (`Production`, `production.rs`: its queue, the progress of the unit in
   production and its rally point, see *Production*); for a structure that constructs buildings, `constructor`
   (`Constructor`, `construction.rs`: idle, constructing or holding a building ready to place, see *Economy*); for
-  a worker, the Drone, `worker` (`Worker`, `economy/gathering.rs`: its load, its AssignedDropOff and the patch it
-  gathers, see *Economy > Gathering*); for an object transforming into its kind (a Beacon warping in a building, a
+  a worker, the Drone, `worker` (`Worker`, `economy/gathering.rs`: its load and its AssignedDropOff,
+  see *Economy > Gathering*); for an object transforming into its kind (a Beacon warping in a building, a
   Beacon deploying from a Drone), `transform` (`Transform`, `transform.rs`: what it was and where it stood, how far it
   has come, what it paid and the load a deploying Drone carried, see *Economy > Warp In* and *> Beacon Deployment*);
   for a Legionnaire converting its weapon, `conversion` (`Conversion`, `conversion.rs`: the frames left, see *Combat >
@@ -491,7 +491,9 @@ ticks spent in it. Hashed and serialized like all state.
 - **Removal path**: `Sim::remove_objects` (`sim/removal.rs`) is the one way objects leave the game, for deaths and
   debug removals alike. It emits `Removed` and clears every reference to the removed: a current order naming one
   completes, queued ones are dropped, a move towards one ends `TargetLost`, an attack on one stops (an aim is
-  cancelled, a shot being fired hits nothing). `testing::dangling_references` checks that none are left.
+  cancelled, a shot being fired hits nothing). `testing::dangling_references` checks that none are left. The one
+  exception is a Gather whose patch leaves: it heads for where the patch was (`ActiveOrder::live_target`, see
+  *Behaviours > Gathering*).
 - **Riot Shield** (`riot_shield.rs`; `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`): a
   unit whose `UnitDef::riot_shield` is set starts with its shield `Lowered`; `Command::Ability` raises or lowers it,
   through `Raising { left }` or `Lowering { left }` for the toggle time (`RiotShieldDef::toggle_ticks`, 6 ticks, a
@@ -595,29 +597,49 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
 - **Patrol** (`travel::patrol`): legs to and fro between the position where the Patrol started executing (design
   change 0036) and the destination. A failed leg counts as arrived; `PATROL_FAILED_LEGS` (2) in a row end it (design
   change 0037).
-- **Gathering** (`orders/gather.rs`, slice M3-H, plan decision T17; `factions/colonists/units.md > Drone`, whose
-  open cases follow question Q0037's proposals, each marked with its point): one behaviour for the Gather and the
-  Drop Off order, in the phases of `GatherPhase`: ToPatch, Waiting, Mining, ToDropOff, DroppingOff, Delivered.
-  - **Occupancy is derived, never stored on the patch**: a patch is taken while a worker of any player mines it (the
-    snapshot's `World::patch_mined`), once a worker with a lower id claimed it in this tick (`gather::Claims`, the
-    one thing of 5a that isn't the snapshot), or while another worker is first in line for it
-    (`World::first_waiter`: the longest wait, then the lowest id). An arrival at a taken patch moves the **order
-    itself** on to the nearest free patch its owner knows within `REDIRECT_RADIUS_GU` (6, a placeholder), so
-    `OrderKind::Gather` always names the patch the worker heads for; with none, it waits where it stands.
-  - **Legs are moves to a point** the behaviour picks, where the worker stands against the nearest open face of
-    its target (`gather::approach_point`), and the behaviour measures MiningReach and DropOffReach itself. Not
-    `MoveGoal::Object`: that is planned to the point nearest the object's centre, the north side of every patch
-    and node. A leg that ends short of its target is tried again after `LEG_RETRY_TICKS` (32, a placeholder) of
-    standing; a Gather never fails or ends on its own, except with orders queued behind it, which start after its
-    next drop-off.
+- **Gathering** (`orders/gather.rs` with `gather/search.rs` and `gather/legs.rs`, `orders/world/gathering.rs`;
+  slices M3-H and M3-H3, plan decision T17; `factions/colonists/units.md > Drone`, whose rules design changes 0123
+  and 0127 to 0141 settled, answering question Q0037): one behaviour for the Gather and the Drop Off order, in the
+  phases of `GatherPhase`: ToPatch, Waiting, Mining, ToDropOff, DroppingOff, Delivered.
+  - **Occupancy is derived, never stored on the patch** (design change 0133 and the Director's choice): a patch is
+    taken while a worker of any player mines it (the snapshot's `World::patch_mined`), once a worker with a lower id
+    claimed it in this tick (`gather::Claims`, the one thing of 5a that isn't the snapshot, kept for the tick only),
+    and, for any other worker, while one waits at it within MiningReach (`World::waited_at`). A worker on its way
+    occupies nothing ("Drones travelling to it do not count"); one that sets off for a free patch claims it for the
+    tick, so that no other look in that tick picks it too. Of the workers waiting at a patch the lowest id mines it.
+  - **Looking round** (`search::search`; 0131, 0141): among the patches the owner knows (seen or remembered, the
+    snapshot's `World::knows`) that no plate covers, within the worker's `WorkerDef::search_radius` (6 GU, a
+    placeholder, centre to centre) around the worker, the nearest free one it can reach (`World::reachable`: a tile
+    against the footprint is in the unit's component of its owner's planning grid; the grids leave units out). An
+    arrival at a taken patch, or a leg that ends short of one (0141), moves the **order itself** on to that patch,
+    so `OrderKind::Gather` names the patch the worker heads for, and after a delivery the one it last mined (0132).
+    With none free the worker waits, at its patch or as close to it as it got.
+  - **Waiting** (`Waiting { since }`, 0132): the worker mines its patch as soon as it frees, and every
+    `RECHECK_TICKS` (16, a placeholder), in the ticks that are multiples of it, every waiting worker looks round
+    again: it goes to a patch that has freed up, or, short of an unreachable one, tries its leg again. One phase for
+    all: counted from each worker's own start, the waiters looked round in different ticks and each went for the
+    same freed patch (measured: 0.5 Space Crystals per second less with 20 and with 24 Drones).
+  - **A patch that leaves the game** (depleted, 0134; under a plate, 0137): the removal path keeps its gatherers'
+    orders on it and gives them its centre (`Sim::keep_gatherers_on_spots`, `Gather::spot`), and
+    `ActiveOrder::live_target` is `None` for them: the one order that may name an object that is gone. Those at the
+    patch look round at once, one on its way when it gets to the spot, one carrying a load back after its drop-off
+    ("the search radius is centred on the field"). With only occupied patches left it waits at the nearest; with
+    none, the Gather ends.
+  - **A Gather ends** only then (0123): the worker delivers what it carries (`Gather::ending`), the order completes
+    and the queue goes on; orders Shift-queued behind a Gather, a Deploy as much as any, wait for that. **A Drop Off
+    order** is only a delivery (0127): it completes at the drop-off, the worker idling there or starting its next
+    order. A worker carrying a load that is sent to a patch walks there, doesn't mine, and returns to deliver
+    (0128); other orders keep the load (0129).
   - **The return** reads the worker's AssignedDropOff every tick, so `Ability::SetDropOff` redirects it; without
-    one it takes the owner's nearest, and with none the order ends and the worker idles with its load.
-  - **A patch that leaves the game** sends its gatherers on first (`Sim::redirect_gatherers`, in the removal path):
-    to another patch, or to deliver what they carry and idle.
+    one as the return starts it takes the owner's nearest, and with none it idles holding its load (0135).
+  - **Legs are moves to a point** the behaviour picks, where the worker stands against the nearest open face of
+    its target (`legs::approach_point`), and the behaviour measures MiningReach and DropOffReach itself. Not
+    `MoveGoal::Object`: that is planned to the point nearest the object's centre, the north side of every patch
+    and node. A leg to a patch that ends short counts as arriving there, out of reach (0141); a leg back to the
+    drop-off that ends short begins again after `LEG_RETRY_TICKS` (32, a placeholder) of standing, a back-off.
   - **Gathering Drones pass through each other** (design change 0106; `gather::on_gather_job`, see *Movement and
     collision > Collision exceptions*): a worker of a type with `WorkerDef::pass_through` (the Drone) whose current
-    order is a Gather or a Drop Off. They collide with everything else and, having an order, never yield. A leg
-    that ends short (behind a unit that won't move) begins again after `LEG_RETRY_TICKS`, a back-off.
+    order is a Gather or a Drop Off. They collide with everything else and, having an order, never yield.
 - **Not active during Move**: a Move never engages, and neither does the walk back to an IdleOrigin or to a last
   seen position.
 - **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): `GIVE_UP_RETRY_TICKS`
@@ -947,12 +969,13 @@ section of its own.
   `cycle_ticks × RATIO_ONE` (48 frames), the plate pays its owner a whole load: 10 while the patch holds 10, then what
   is left, then the residual 1 forever (design changes 0098, 0099; `SimEvent::PatchDepleted` when the patch reaches
   0, and it stays under the plate). Spawn-tick rule: a plate placed in tick `t` pays first in tick `t + 48`.
-- **Gathering** (`economy/gathering.rs`, `orders/gather.rs`, `sim/workers.rs`; slice M3-H, plan decision T17;
-  `factions/colonists/units.md > Drone > Gathering`, `factions/colonists/economy.md > Egress Node > Drop Off`): a
-  unit type with a `WorkerDef` (`UnitDef::worker`: the Drone's CarryCapacity 8, MiningDuration 32, DropOffDuration 2
-  and the two reaches of 8 su) is a worker, and a structure type with `StructureDef::drop_off` (the Egress Node)
-  takes its loads. `Object::worker` (`Worker`) holds only what outlives an order: the load, the AssignedDropOff
-  and the patch of its latest Gather. The job is an order and its behaviour (see *Behaviours > Gathering*), and
+- **Gathering** (`economy/gathering.rs`, `orders/gather.rs`, `sim/workers.rs`; slices M3-H and M3-H3, plan
+  decision T17; `factions/colonists/units.md > Drone > Gathering`, `factions/colonists/economy.md > Egress Node >
+  Drop Off`): a unit type with a `WorkerDef` (`UnitDef::worker`: the Drone's CarryCapacity 8, MiningDuration 32,
+  DropOffDuration 2, the two reaches of 8 su and its search radius) is a worker, and a structure type with
+  `StructureDef::drop_off` (the Egress Node) takes its loads. `Object::worker` (`Worker`) holds only what outlives
+  an order: the load and the AssignedDropOff (the patch a Gather goes back to is the one its order names, design
+  change 0132). The job is an order and its behaviour (see *Behaviours > Gathering*), and
   **the timed work is part of the order's state** (`GatherPhase::Mining { done }`, `DroppingOff { done }`), so an
   order that ends takes its unfinished work along and frees the patch at once. `gathering::step` counts the
   frames in the economy phase, by *Recipe timing*: a worker that reaches its patch in tick `t` holds its load
@@ -960,18 +983,21 @@ section of its own.
   that reaches its drop-off in tick `t` is paid at the end of `t + 1` (`SimEvent::ResourcesDelivered`). A patch
   emptied this way leaves the map in the same tick, unless a plate stands on it; workers never gather a plated
   patch. `Sim::returning_drones(node)` is the Egress Node's F.
-  **Measured with DragMovement** (slice M3-G; `tests/gathering.rs`, `tests/gathering_soak.rs`; nothing is tuned to
-  the design's table): one Drone with its patch 2 GU from the node, edge to edge, delivers every 81 ticks, 1.58
-  Space Crystals per second (60 ticks on the stand-in mover it had before). On the reference field (8 patches in a
-  row, the node 2 GU south of the middle), with gathering Drones passing through each other (design change 0106),
-  nothing jams: 4, 8, 12, 16, 20 and 24 Drones dealt out over the patches give 6.3, 11.7, 17.9, 23.1, 25.6 and
-  27.3 per second (the stand-in: 8.3, 15.1, 22.0, 26.8, 32.0, 32.0; the design's table: 6.1 for 4, 23 for 16, 32
-  for about 24). Two findings for slice K1's oracle: 24 Drones don't saturate 8 patches (rows of up to 6 patches
-  with three Drones each do), and a Drone sent on from an occupied patch to the nearest free one often finds that
-  taken too when it gets there: dealt out, the longest one of 24 went between two deliveries was 357 to 578 ticks across
-  builds of slice M3-G (the acceptance bound was 480, 30 s; the soak asserts 640 for that case). The 24-Drone soak costs 25 µs a tick
-  in release (13 µs on the stand-in, measured side by side: a Drone's tick is the rules' step and then its own).
-  Under hard collision, as slice M3-H first had it, the field gridlocked from 12 Drones on.
+  **Measured with DragMovement and the rules of slice M3-H3** (`tests/gathering.rs`, `tests/gathering_soak.rs`;
+  nothing is tuned to the design's table): one Drone with its patch 2 GU from the node, edge to edge, delivers
+  every 81 ticks, 1.58 Space Crystals per second (60 ticks on the stand-in mover it had before). On the reference
+  field (8 patches in a row, the node 2 GU south of the middle), with gathering Drones passing through each other
+  (design change 0106), nothing jams: 4, 8, 12, 16, 20 and 24 Drones dealt out over the patches give 6.3, 11.7,
+  17.2, 23.1, 24.5 and 26.2 per second (before M3-H3: 17.9 for 12, 25.6 for 20, 27.3 for 24; the stand-in: 8.3,
+  15.1, 22.0, 26.8, 32.0, 32.0; the design's table: 6.1 for 4, 23 for 16, 32 for about 24). Three findings for
+  slice K1's oracle: 24 Drones don't saturate 8 patches (rows of up to 5 patches with three Drones each do); a
+  Drone sent on from an occupied patch to the nearest free one often finds that taken too when it gets there
+  (dealt out, the longest one of 24 went between two deliveries is 428 ticks, within the plan's 480, 30 s; 357 to
+  578 across earlier builds); and the waiting Drones' re-check (design change 0132) costs up to 0.6 per second
+  below 16 Drones and up to 1.3 over 16: the patch a waiting Drone leaves for is usually one whose own Drone is on
+  its way back to it. The 24-Drone soak costs 25.4 µs a tick in release (24.4 before slice M3-H3's rules and 13 on
+  the stand-in, each measured side by side: a Drone's tick is the rules' step and then its own). Under hard
+  collision, as slice M3-H first had it, the field gridlocked from 12 Drones on.
 - **Removal** (`Sim::remove_objects`): a plate takes its patch along if that is depleted, in the same tick, which
   opens the tile (design change 0038; the caller's grid sync covers it); a patch with crystals left stays, uncovered.
   A plate whose patch is removed (only a debug command does that) loses its extractor. `testing::referenced_ids`
@@ -1189,7 +1215,8 @@ Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' po
   finite and on the map, target objects must exist (`UnknownObject`) and an attack's target be destructible
   (`NotAttackable`). A Gather's target is a Space Crystals patch with no plate on it (`NotGatherable`) that the
   player sees, a Drop Off's a drop-off of the player's own (`NotDropOff`), and only the workers among the units
-  take either (`NoWorkers` if there is none; `sim/workers.rs`). `Deploy { origin }` (slice M3-F, see *Economy >
+  take either (`NoWorkers` if there is none; `sim/workers.rs`), a Drop Off only those that carry a load
+  (`NothingToDeliver` if none does, design change 0140). `Deploy { origin }` (slice M3-F, see *Economy >
   Beacon Deployment*) goes to the one Drone among the units (`NoWorkers` if none, `SeveralConstructors` if more: the
   client picks one, design change 0125), with a site allowed as far as the player knows, its pending sites reserved
   (`Unplaceable(PlacementProblem)`, not reported: `Sim::deploy_check`). Without `queue` the order replaces the unit's queue and current order; with it, the order is
@@ -1464,12 +1491,14 @@ Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' po
   in `combat/damage.rs`, the regeneration in `shields.rs`, the conversion's pieces in `conversion/tests.rs`. In the
   client: `tests/combat.rs` (the shield bar), `tests/commands/convert.rs` (R) and the InfoPanel's Shields line in
   `hud/info_panel`.
-- **Gathering tests** are `crates/sim/tests/gathering.rs` (slice M3-H: one Drone's trip, pinned at 60 ticks; two
-  Drones arriving together; waiting in the order they came; an enemy Drone on the patch; Set Drop-off Location in
-  the middle of mining and of a return; depletion with the partial last load, the opened tile and the redirect, or
-  the delivery and the idling when no patch is left; the Drop Off order and the way back to the patch; a lost
-  Egress Node; interrupted mining; an order queued behind a Gather; every invalid worker command refused and
-  changing nothing; a Drone rallied on a patch; a game replayed and saved in its middle) and
+- **Gathering tests** are `crates/sim/tests/gathering.rs` (slices M3-H and M3-H3: one Drone's trip, pinned at 81
+  ticks; two Drones arriving together; waiting, the lowest id mining next; an enemy Drone on the patch; Set
+  Drop-off Location in the middle of mining and of a return; depletion and the Drones going on at another patch,
+  or delivering and idling when no patch is left; the Drop Off order and the idling at the node; a lost Egress
+  Node; interrupted mining; every invalid worker command refused and changing nothing; a Drone rallied on a patch;
+  a game replayed and saved in its middle), `gathering_rules/` (slice M3-H3, one binary: a test per Verification
+  point of design changes 0123 and 0127 to 0141 that `gathering.rs` doesn't cover, in modules by topic: `ends`,
+  `loads`, `waiting`, `reach`, `knowledge`, `drop_offs`; 0136 and 0139 are slice M3-R's) and
   `gathering_soak.rs` (the four starting Drones for 5 minutes; 24 Drones for 5 minutes, every one delivering at
   least every 30 s, the saturated income, nothing lost; the income growing with the Drones up to saturation; 9
   Drones on 3 patches, once the smallest gridlock, with a steady income; ignored: `saturation_curve`, which prints

@@ -30,17 +30,18 @@
 All non-blocking; Director proceeds on its defaults (option A in each). Arrived 2026-11-23 mid-GDO-roster; raise after the support-air-unit thread. Movement/pathing cluster:
 - **Q0016** point 1 ANSWERED (0062 non-capable units move/follow; 0063 per-unit resolution + Mixed cursor). (0065 invalid target: ignore + feedback; 0066 other commands unavailable while targeting, cancel first.) (0067 drag while targeting = nothing.) (0068 press point; 0069 player selection changes cancel targeting, deaths don't unless ActiveGroup empty.) (0070 point 4: Shift keeps targeting active until released → Q0016 DONE; follow-up TBD: Shift released before any click; 0071 Shift-placement same rule where builder can take more orders)
 - **Q0020** Riot Shield (non-blocking): (1) ANSWERED 0074 (shielded = Follow, 0062 wins); (2) slowed + can't attack during raise/lower, 50% DR only when fully up, mid-toggle reverses from current point; (3) raise during a shot: shot lands then held (vs refuse until shot ends, like Convert); (4) mixed group: key raises all, again lowers all; (5) toggle 6 ticks (0.375 s), hotkey R — placeholders.
-- **Q0031** Move/Follow aimed at a selected unit itself: A clicked unit left out (keeps orders) / B it stops / C counts as ground click at that spot (magic box incl. it). Currently follows itself forever.
-- **Q0032** occupied-arrival radius: A keep 2 GU / B 3 GU (Guard losses 43→17 in sweep, PK 12→0) / C 2 GU + unit width.
 - **Q0017** fog: (1) hidden attacker shooting visible unit: hit flash only, no tracer (A) vs visible part of tracer from fog edge (B); (2) ANSWERED 0139: remembered objects targetable.
 - **Q0018** behaviour gaps: (1) grace period before target counts as lost (edge-of-sight blinking) e.g. 0.5 s; (2) 'least rotation' priority exact angles vs coarse steps then distance; (3) AttackMove leash stays on original route (intent?); (4) unreachable auto-target: retry after 32 ticks vs skip/next target; (5) target inside MinRange: give up vs back off vs auto-target skips; (6) unit walled out of group spot after fight: arrived within 2 GU else gives up — OK?
-- **New 2026-11-24 (Q0033–Q0045)**, none blocking now. DONE: Q0037 (0123, 0127–0138), Q0044 (0134, 0137, 0139–0141), Q0041 (0143–0145), Q0042 (0146–0154), Q0034 (0155), Q0017 pt 2 (0139), Q0038 (0106–0108), Q0039 (0109–0116), Q0040 (0117–0125), Q0045 (0126–0127).
-  - OPEN: Q0033 remembered obstacle gone (pt 1 ANSWERED 0156 A; OPEN 2 re-plan when shortcut opens, 3 map-placed structures known from start); Q0035 rally UI details; Q0036 game-end edge cases; Q0043 M3 scope TBD Colonists content (FYI).
+- **New 2026-11-24 (Q0033–Q0045)**, none blocking now. DONE: Q0037 (0123, 0127–0138), Q0044 (0134, 0137, 0139–0141), Q0041 (0143–0145), Q0042 (0146–0154), Q0034 (0155), Q0033 (0156, 0158, 0159), Q0035 (0160–0162), Q0036 (0163–0165), Q0017 pt 2 (0139), Q0038 (0106–0108), Q0039 (0109–0116), Q0040 (0117–0125), Q0045 (0126–0127).
+  - All 2026-11-24 questions answered (Q0043 done: 0166–0167).
 - Yielding (0023): only no-command units yield; Hold Position/busy don't; modes (Riot Shield) irrelevant; deployed Artillery Rig = fixed obstacle. TBD sidestep distance, allies. Watch: mining workers don't yield → possible clots at patches (worker collision while gathering never designed).
 
 ## Loose Ends
 
 
+- **Multi-waypoint rallies** (idea, 0160): Shift kept free for it; not designed.
+- **Deferred Colonists content** (0166): when scheduled, fill placeholders for refineries + tech buildings; mechanics still needed from user: Skylance salvo, Plasma Turret beam, Scout stealth/detection, Lancer, psionic unit, Heavy/Star Portal output, research contents.
+- **Robo Portal 250** (0167): cheaper 2nd portal → earlier doubled Drone production; Economy Targets assume one portal — watch.
 - **Lingering build ghosts** (0125): ally visibility and reservation against allies' placements TBD (teams). **Agents** stay Ungroupable (Tab) while Drones became Groupable with 'first in selection order' Deploy — revisit whether Agents should follow the Drone model.
 
 - **Exit blocking by buildings** (0080): allowed for now; a building flush against an exit stalls the producer. Revisit (placement rule keeping exit-front tiles clear) if it proves annoying. Aircraft spawning (Airfield) and Syndicate releases not covered by Exit Doorway.
@@ -102,6 +103,7 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 
 - **Map makers are free** (user): the editor enforces only real placement rules; no advisory warnings about layout quality.
 
+- **Route recalculation timing is the Director's call** (0158): goals are performance and predictability for the player. Don't bring such questions to the user.
 - **Placeholder stats allowed** (user, 2026-11-24): when the Director is blocked only by missing stats, invent semi-reasonable values myself, mark them as placeholders in the docs, so the user's indecision doesn't block implementation. (Design decisions still go to the user.)
 
 - **No smart-casting, anywhere** (user, strong principle): it constrains how powerful abilities can be; workers consistent. Individual use = Ungroupable + Tab. Workers used up by a build (Agent, Drone) Ungroupable; Recruits (share builds) Groupable (0072) (middle ground between BW mouse-picking and smart-cast). Don't propose auto-advance-to-next-unit schemes; they are smart-casting by another name.
