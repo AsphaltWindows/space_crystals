@@ -1,11 +1,11 @@
 # GDO: Structures
 
 ## Barracks
-GDO infantry production structure. Produces infantry units from a build queue. Units exit from one of the short sides (B side).
+GDO infantry production structure. Produces infantry units from a build queue. Units exit from one of the short sides (B side, the right end in the default orientation).
 
 ### Faction - GlobalDefenseOrganization
-### Size - 3x2 grid units
-### SymmetryType - ABAC
+### Size - 2x3 grid units (2 tall, 3 wide in the default orientation)
+### SymmetryType - ABAC (top A, right B, bottom A, left C; core/entities.md > Structure Type > Side lettering convention)
 ### MaxHP - 300
 ### PointArmor - 1
 ### FullArmor - 6

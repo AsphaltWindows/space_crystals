@@ -52,6 +52,8 @@ It has one of 7 symmetry types from the perspective of how relevant the building
 
 ### SymmetryType - AAAA | AAAB | AABB | ABAB | AABC | ABAC | ABCD
 
+**Side lettering convention** (user, 2026-11-24): the letters name the building's four sides **clockwise starting from the top edge**, in the building's **default orientation** (rotation 0, unflipped): 1st letter = top, 2nd = right, 3rd = bottom, 4th = left. Size (Height x Width) is also given for the default orientation. Example: the GDO Barracks is 2x3 (2 tall, 3 wide) with ABAC: top A, right B (short side), bottom A, left C (short side). Rotating or flipping the building carries the sides with it.
+
 ### ConstructionHP Rule
 Some structures are built on-site and start at 10% of their maximum HP, gaining HP linearly as construction progresses, reaching full HP when construction completes. HP during construction = MaxHP x (10% + 90% x construction_progress). A partially-built structure can be attacked and destroyed before completion. This rule applies only to structures that explicitly reference it.
 

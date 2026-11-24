@@ -54,8 +54,8 @@ Every Cults unit, including vehicles and aircraft, is made from Recruits. Vehicl
 Training building where Recruits are converted into combat units. Recruits enter through one side and trained units exit from the opposite side. The Armory maintains an internal pool of Recruits that can be trained into Soldiers or Gunners.
 
 ### Faction - TheCults
-### Size - 3x2 grid units
-### SymmetryType - ABAC
+### Size - 2x3 grid units (2 tall, 3 wide in the default orientation)
+### SymmetryType - ABAC (top A, right B, bottom A, left C; core/entities.md > Structure Type > Side lettering convention)
 ### MaxHP - 300
 ### PointArmor - 1
 ### FullArmor - 6
