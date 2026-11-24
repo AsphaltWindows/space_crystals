@@ -248,7 +248,11 @@ fn the_beacon_and_a_transforming_object_resolve_nothing() {
     assert_eq!(object_right_click(beacon, &enemy()), None);
     for kind in [ObjectKind::RoboPortal, ObjectKind::Beacon] {
         let transforming = UnitCapabilities::of(id(2), kind, &modes);
-        assert_eq!((transforming.template, transforming.abilities), (None, None), "{kind:?}");
+        assert_eq!(
+            (transforming.template, transforming.abilities),
+            (None, None),
+            "{kind:?}"
+        );
         assert_eq!(object_right_click(transforming, &patch()), None, "{kind:?}");
         assert_ne!(UnitCapabilities::of(id(3), kind, &modes).template, None, "{kind:?}");
     }

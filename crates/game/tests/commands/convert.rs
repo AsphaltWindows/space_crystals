@@ -6,7 +6,7 @@
 //! to `SimEvent::KindChanged`).
 
 use bevy::prelude::*;
-use sc_sim::conversion::CONVERT_TICKS;
+use sc_sim::conversion::{self, CONVERT_TICKS};
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{Ability, AttackPhase, Faction, ObjectId, ObjectKind, OrderKind, PlayerId, SpawnAt};
 use space_crystals::command_ui::{ButtonLook, PanelButton, PanelCommand, PanelSlot};
@@ -82,11 +82,15 @@ fn phase(app: &App, n: u32) -> Option<AttackPhase> {
     sim.object(ObjectId(n)).unwrap().attack.as_ref().and_then(|a| a.phase)
 }
 
-/// Unit `n`'s conversion: `None` without one, `Some(true)` while it waits for the unit's Cooldown to end (design
-/// change 0153), `Some(false)` under way.
+/// Unit `n`'s conversion: `None` without one, `Some(true)` while its Convert waits for the unit's Cooldown to end
+/// (design change 0153), `Some(false)` under way.
 fn waits(app: &App, n: u32) -> Option<bool> {
     let sim = app.world().resource::<SimRes>();
-    sim.object(ObjectId(n)).unwrap().conversion.map(|c| c.deferred)
+    let o = sim.object(ObjectId(n)).unwrap();
+    match conversion::waits_to_convert(o) {
+        true => Some(true),
+        false => o.conversion.map(|_| false),
+    }
 }
 
 /// Runs ticks until Rifle 3's phase is `wanted`'s, which it must be within a whole sequence.

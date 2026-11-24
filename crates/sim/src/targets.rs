@@ -45,17 +45,19 @@ impl TargetView {
     }
 }
 
-/// An object of the sim as [`view`] reads it: its owner and the box it covers (`combat::object_box`, space units).
-/// Only whether the player sees it is read of it.
+/// An object of the sim as [`view`] reads it: its owner, and whether the player sees it now, by the one visibility
+/// query of the object's holder (`Vision::sees` for the sim's objects, `orders::world::World::sees` for the
+/// behaviours' snapshot: the one `systems/combat.md > ValidTarget` 2 goes by), so that whatever makes an object
+/// visible (the delay of the fog, an attacker revealed: slice M3-L) makes it a Visible target too. Nothing else is
+/// read of it.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) struct Live {
     pub owner: Option<PlayerId>,
-    pub lo: Vec2,
-    pub hi: Vec2,
+    pub seen: bool,
 }
 
 /// The [`TargetView`] `player`, whose vision is `sight`, has of object `id`, which is `live` if it exists:
-/// - **Visible** if it exists and is the player's own, or a tile it covers is Visible to the player;
+/// - **Visible** if it exists and is the player's own, or the player sees it ([`Live::seen`]);
 /// - else **Remembered** if the player has a record of it out of its sight now (`PlayerVision::remembered_record`:
 ///   no tile under the record is Visible), whether or not the object exists;
 /// - else **Gone**. An object that doesn't exist on a tile the player sees is gone; the record of one that no
@@ -64,7 +66,7 @@ pub(crate) struct Live {
 /// A player without a vision (not in the game) knows nothing but its own objects.
 pub(crate) fn view(sight: Option<&PlayerVision>, player: PlayerId, id: ObjectId, live: Option<Live>) -> TargetView {
     if let Some(live) = live
-        && (live.owner == Some(player) || sight.is_some_and(|sight| sight.sees_box(live.lo, live.hi)))
+        && (live.owner == Some(player) || live.seen)
     {
         return TargetView::Visible;
     }

@@ -4,6 +4,7 @@
 //! change 0153), saves and replays. Its pieces are `conversion`'s unit tests. `TestSim` checks the movement invariants
 //! after every tick.
 
+use sc_sim::combat;
 use sc_sim::conversion::{self, CONVERT_TICKS};
 use sc_sim::shields::SHIELD_REGEN_PER_TICK;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
@@ -94,6 +95,15 @@ fn phase(sim: &Sim, n: u32) -> Option<AttackPhase> {
     object(sim, n).attack.as_ref().and_then(|attack| attack.phase)
 }
 
+/// `o`'s conversion: `Some(true)` while its Convert waits for its Cooldown's end (design change 0153: the unit's
+/// pending ability), `Some(false)` under way, `None` without one.
+fn waits(o: &Object) -> Option<bool> {
+    match conversion::waits_to_convert(o) {
+        true => Some(true),
+        false => o.conversion.map(|_| false),
+    }
+}
+
 /// The plan's acceptance: "A Sabre becomes a Rifle in 4 ticks, keeping HP and Shields" (`> Convert Command`: "The
 /// unit converts in place over 4 frames"; `> HP/Shields`: "current HP/Shields values carry over unchanged"). Player
 /// 1's Sabre, at 35 HP and 3 Shields, converts in tick 2: it is a Sabre converting, frame by frame, through tick 5,
@@ -167,10 +177,10 @@ fn convert_is_taken_in_every_phase_and_waits_in_firing_or_cooldown() {
         // The group's Convert: the Sabre converts, and the Rifle too, or, mid-attack, its conversion waits.
         let mut sim = t.sim().clone();
         step(&mut sim, vec![convert(&[1, 3])]);
-        let waits = matches!(phase, AttackPhase::Firing { .. } | AttackPhase::Cooldown);
-        let deferred = [1, 3].map(|n| object(&sim, n).conversion.map(|c| c.deferred));
-        assert_eq!(deferred, [Some(waits), Some(false)], "{phase:?}");
-        assert_eq!(conversion::is_converting(object(&sim, 1)), !waits, "{phase:?}");
+        let mid_attack = matches!(phase, AttackPhase::Firing { .. } | AttackPhase::Cooldown);
+        let deferred = [1, 3].map(|n| waits(object(&sim, n)));
+        assert_eq!(deferred, [Some(mid_attack), Some(false)], "{phase:?}");
+        assert_eq!(conversion::is_converting(object(&sim, 1)), !mid_attack, "{phase:?}");
         let name = format!("{phase:?}")
             .chars()
             .take_while(|c| c.is_alphabetic())
@@ -217,8 +227,8 @@ fn a_rifle_sent_a_convert_while_firing_converts_after_its_cooldown() {
     t.at(press, P1, convert(&[1])).step();
     while t.sim().tick() < cooled {
         let o = object(t.sim(), 1);
-        assert_eq!(o.conversion.map(|c| c.deferred), Some(true), "tick {}", t.sim().tick());
-        assert!(conversion::mid_attack(o) && !conversion::is_converting(o));
+        assert_eq!(waits(o), Some(true), "tick {}", t.sim().tick());
+        assert!(combat::mid_attack(o) && !conversion::is_converting(o));
         assert_eq!(check(t.sim(), &[1]), Err(Reject::CannotConvert), "no second Convert");
         t.step();
     }
@@ -227,7 +237,7 @@ fn a_rifle_sent_a_convert_while_firing_converts_after_its_cooldown() {
     assert_eq!(phase(t.sim(), 1), Some(AttackPhase::Reloading));
     let mut sim = t.sim().clone();
     step(&mut sim, vec![convert(&[1, 3])]);
-    let deferred = [1, 3].map(|n| object(&sim, n).conversion.map(|c| c.deferred));
+    let deferred = [1, 3].map(|n| waits(object(&sim, n)));
     assert_eq!(
         deferred,
         [Some(false), Some(false)],
@@ -304,7 +314,7 @@ fn ten_sabres_fighting_all_convert_on_one_press_the_mid_swing_ones_a_little_late
     }
     let mid_swing = |t: &TestSim| -> Vec<u32> {
         (sabres.iter().copied())
-            .filter(|&n| conversion::mid_attack(object(t.sim(), n)))
+            .filter(|&n| combat::mid_attack(object(t.sim(), n)))
             .collect()
     };
     while !(2..=8).contains(&mid_swing(&t).len()) {

@@ -11,7 +11,7 @@
 //! - [`Sim::default_order`]: a unit's default command against a target (`crate::orders::resolution`), the
 //!   right-click's and the rally point's, on the target as the unit's owner knows it ([`Sim::aimed`]).
 
-use crate::combat::{object_box, object_domain};
+use crate::combat::object_domain;
 use crate::defs::{Domain, ObjectKind};
 use crate::economy::gathering::{gatherable, is_drop_off};
 use crate::ids::{ObjectId, PlayerId};
@@ -27,9 +27,9 @@ impl Sim {
     /// Gone otherwise. Nothing of an object the player doesn't see is read but whether it exists, and a Remembered
     /// view is the same whether or not it does.
     pub fn target_view(&self, player: PlayerId, id: ObjectId) -> TargetView {
-        let live = self.objects.get(&id).map(|o| {
-            let (lo, hi) = object_box(o);
-            Live { owner: o.owner, lo, hi }
+        let live = self.objects.get(&id).map(|o| Live {
+            owner: o.owner,
+            seen: self.is_visible(player, o),
         });
         targets::view(self.vision.player(player), player, id, live)
     }

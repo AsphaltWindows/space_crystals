@@ -142,12 +142,14 @@ impl UnitCapabilities {
         let transforming = modes.transforming(id);
         Self {
             template: InterfaceTemplate::of(kind).filter(|_| !transforming),
-            abilities: (kind.def().unit.as_ref()).filter(|_| !transforming).map(|unit| Abilities {
-                attack: unit.attack.map(|attack| attack.target_domain),
-                may_attack: modes.can_attack(id),
-                worker: unit.worker.is_some(),
-                carrying: modes.carries(id),
-            }),
+            abilities: (kind.def().unit.as_ref())
+                .filter(|_| !transforming)
+                .map(|unit| Abilities {
+                    attack: unit.attack.map(|attack| attack.target_domain),
+                    may_attack: modes.can_attack(id),
+                    worker: unit.worker.is_some(),
+                    carrying: modes.carries(id),
+                }),
         }
     }
 
@@ -184,9 +186,9 @@ pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Optio
     match object.template {
         Some(InterfaceTemplate::Production) => Some(Resolved::Rally(rally_target(target))),
         // A constructor produces no units, and the Beacon has no right-click.
-        Some(InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility | InterfaceTemplate::Beacon) => {
-            None
-        }
+        Some(
+            InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility | InterfaceTemplate::Beacon,
+        ) => None,
         // A unit's default command, by the sim's one rule: the BasicCombatUnit's table and the Drone's own
         // (`factions/colonists/units.md > Drone > Right-Click Resolution`; slice M3-R: "Scout a field and leave, then
         // right-click a greyed patch with Drones"; the Drone's other UI is slice M3-J2's). Without a template, an

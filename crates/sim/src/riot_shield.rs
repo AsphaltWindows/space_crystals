@@ -147,9 +147,18 @@ pub fn def_of(o: &Object) -> Option<&'static RiotShieldDef> {
     o.def().unit.as_ref()?.riot_shield.as_ref()
 }
 
-/// Whether `o`'s Riot Shield lets it attack now ([`RiotShield::allows_attack`]); true for objects without one.
+/// Whether `o`'s Riot Shield lets it attack now ([`RiotShield::allows_attack`]); true for objects without one. The
+/// one "is this unit shielded" check of the sim and the client: the behaviours, phase 5e, auto-targeting, the gate,
+/// the default command and the command panel all ask it (slice M3-S makes the shielded Peacekeeper a type of its
+/// own, design change 0173, here).
 pub fn allows_attack(o: &Object) -> bool {
     o.riot_shield.is_none_or(RiotShield::allows_attack)
+}
+
+/// Whether `o`'s Riot Shield is up or on its way up, so that a toggle lowers it ([`RiotShield::is_going_up`]); false
+/// for objects without one. The client's toggle asks it (design change 0173: slice M3-S, here too).
+pub fn is_going_up(o: &Object) -> bool {
+    o.riot_shield.is_some_and(RiotShield::is_going_up)
 }
 
 /// The pre-armor multiplier `o`'s Riot Shield gives the hits against it ([`RiotShield::damage_factor`]).

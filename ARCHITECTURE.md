@@ -483,10 +483,11 @@ ticks spent in it. Hashed and serialized like all state.
   and those converting already or waiting to (`conversion::may_convert`, `> Eligibility`; `Reject::CannotConvert` when
   none is left; a placeholder reading of `> Completion`, so that a second R while a group converts leaves it one
   form). **Pressed mid-attack** (design change 0153: "deferred, not rejected"), a unit Firing or in Cooldown
-  (`conversion::mid_attack`) fights on, its `Conversion::deferred`, and its conversion begins in the first Modes step
-  after its Cooldown's last tick, before the Reloading that followed runs a tick, as a Convert given then would; so
-  one R converts a whole group in a fight, the mid-swing units 1 to 4 frames later (a Sabre's Firing and Cooldown;
-  design change 0172 will hold a Riot Shield raised mid-attack by the same rule). A Convert cancels an Aim or a
+  (`combat::mid_attack`) fights on, the Convert waiting as its pending ability (see *Abilities that wait for an
+  attack* below; `conversion::waits_to_convert`), and its conversion begins in the first Modes step after its
+  Cooldown's last tick, before the Reloading that followed runs a tick, as a Convert given then would; so one R
+  converts a whole group in a fight, the mid-swing units 1 to 4 frames later (a Sabre's Firing and Cooldown). A
+  Convert cancels an Aim or a
   Reload, keeping the target (design change 0152: the new weapon starts ready), and starts `Object::conversion` for
   `CONVERT_TICKS`, 4 frames: the unit holds still and
   doesn't turn (`may_move`, `may_turn`; its behaviours see it can't move; `Mover::speed_factor` 0, so it yields to
@@ -495,6 +496,12 @@ ticks spent in it. Hashed and serialized like all state.
   unchanged (their maxima are equal), so it moves and fights as that from `t + 4`. Nothing cancels it (`> Completion`):
   a second Convert is refused, a Stop changes nothing. The orders stay, and it carries on with the other weapon (`>
   Orders are kept`, design change 0150). Convert isn't queued (design change 0151: "holding Shift changes nothing").
+- **Abilities that wait for an attack** (`sim/modes.rs`, design change 0153): an ability given to a unit Firing or in
+  Cooldown (`combat::mid_attack`: the phases that can't be interrupted), if it is one that waits (`waits_for_attack`:
+  the Convert), isn't used but kept in `AttackState::pending` (one at a time; hashed and saved only when set); the
+  first Modes step after the Cooldown's last tick uses it, before the Riot Shields and the conversions take their
+  step, so the unit acts as if given it in that tick and the Reloading never runs. Design change 0172 (a Riot Shield
+  raised mid-shot waits the same way, slice M3-S) adds its ability to `waits_for_attack` and nothing else.
 - **Removal path**: `Sim::remove_objects` (`sim/removal.rs`) is the one way objects leave the game, for deaths and
   debug removals alike. It emits `Removed` and clears every reference to the removed: a current order naming one
   completes, queued ones are dropped, a move towards one ends `TargetLost`, an attack on one stops (an aim is
@@ -509,7 +516,11 @@ ticks spent in it. Hashed and serialized like all state.
   through `Raising { left }` or `Lowering { left }` for the toggle time (`RiotShieldDef::toggle_ticks`, 6 ticks, a
   placeholder: the design says under half a second), so a toggle in tick `t` is done at the end of tick
   `t + toggle_ticks − 1`, and a reversal turns back from where the shield is. While it isn't `Lowered` the unit
-  moves at half speed (`Mover::speed_factor`, written when the mode changes) and can't attack: the gate drops it
+  moves at half speed (`Mover::speed_factor`, written when the mode changes) and can't attack
+  (`riot_shield::allows_attack(object)`, the one "is it shielded" check: the behaviours, 5e, auto-targeting, the
+  gate, the default command and the client's panel and right-click all ask it, and the client's toggle asks
+  `riot_shield::is_going_up(object)`, so that slice M3-S's shielded type, design change 0173, changes those two
+  only; the client draws the shield from the mode): the gate drops it
   from new Attack orders (`Reject::CannotAttack` when none is left; design change 0075), its behaviours see no attack
   (`Unit::attrs`: no auto-targeting, Hold disengages), and 5e cancels an aim (`can_attack_now` is false); a shot
   already being fired lands. **Orders are kept** (design change 0150): an Attack it had goes on hold, following its
@@ -1291,7 +1302,10 @@ Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' po
   Targeting remembered objects`): an order (Attack, Move to an object, Gather) or a rally point may name an object
   the issuing player sees or remembers, else `Reject::NotVisible`. `Sim::target_view(player, id)` (`targets.rs`) is
   the one view of it: `Visible`, `Remembered { position, footprint }` (a record out of the player's sight: the order
-  goes to the last-known position) or `Gone`. It reads only the player's sight and records, so a remembered object
+  goes to the last-known position) or `Gone`. Whether the player sees an object is the one visibility query of the
+  object's holder (`Vision::sees` through `Sim::is_visible`; `World::sees` for the behaviours' snapshot, the one
+  ValidTarget goes by; `targets::Live::seen`), so that whatever slice M3-L adds to what a player sees (the fog's
+  delay, 0178; an attacker revealed, 0177) reaches the targets too. It reads only the player's sight and records, so a remembered object
   destroyed in the fog is taken exactly as one that stands, and the gate's verdict leaks nothing. Remembered objects
   stay unselectable (the GDO player's Supply Delivery Station excepted, `core/vision.md > Explored Selectability`).
   The check is on the sim's vision, whatever the client draws (`--no-fog` is display only). A queued order passed
@@ -1535,7 +1549,8 @@ Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' po
   in following its maximum and regenerating up to it, and a cancel's fraction with no minimum) and `conversion.rs`
   (the 4 frames, HP and Shields kept; the gate in every attack phase, moving or idle; a mixed group; no cancel and
   no shelter; the orders going on with the other weapon; a save and a replay). The resolution's cases are unit-tested
-  in `combat/damage.rs`, the regeneration in `shields.rs`, the conversion's pieces in `conversion/tests.rs`. In the
+  in `combat/damage.rs`, the regeneration in `shields.rs`, the conversion's pieces in `conversion/tests.rs`, an
+  ability waiting for the Cooldown's end in `sim/modes/tests.rs` (0153). In the
   client: `tests/combat.rs` (the shield bar), `tests/commands/convert.rs` (R) and the InfoPanel's Shields line in
   `hud/info_panel`.
 - **Gathering tests** are `crates/sim/tests/gathering.rs` (slices M3-H and M3-H3: one Drone's trip, pinned at 81
@@ -1906,8 +1921,10 @@ their producing structures and their constructors, and the Colonists' Beacons an
   unit's template and the sim's `Abilities`: its attack's TargetDomain, whether its mode lets it attack, whether it is
   a worker and carries a load): an enemy it can attack gives Attack, a patch Gather for a Drone, anything else a Move
   to it, which follows a unit (a shielded Peacekeeper follows an enemy, 0074; a right-click on a selected unit makes
-  it stop and the others follow it, 0168); the ground a Move. A Drone resolves by its own table without a panel yet
-  (slice M3-J2), and its Gather previews as Move; objects without commands do nothing. A producer's right-click sets its rally point
+  it stop and the others follow it, 0168); the ground a Move. A Drone (`InterfaceTemplate::Drone`) resolves by its
+  own table, the sim's too, and its Gather previews as Move (its S, F and load marker are slice M3-J2's); the Beacon
+  has no right-click, nor has an object that transforms (no template, no abilities: slice M3-J1); objects without
+  commands do nothing. A producer's right-click sets its rally point
   (`object_right_click` gives a `Resolved::Rally` beside the units' `Resolved::Order`s, so a mixed selection does
   both, 0062; `rally_target`: the object under the cursor, else the ground point; the producer itself clears it,
   0086); Set Rally Point's targeting click resolves the same way (`target_resolution`), and the pointer shows Move
@@ -1981,7 +1998,7 @@ their producing structures and their constructors, and the Colonists' Beacons an
   the bank short since the entry was pressed, says why and placement goes on), and Back returns to its menu. A
   menu entry is greyed out by the gate's answer to its Warp In unturned, `Unplaceable` left out: the ghost shows
   where it can't stand. The Drone's grid (`InterfaceTemplate::Drone`) is Q Move, A Deploy, X Stop (S is slice
-  M3-J2's, and so is its right-click); A enters `AwaitingPlacement` with `Builder::Drones { queued }`: the ghost
+  M3-J2's; its right-click is the sim's rule, slice M3-R); A enters `AwaitingPlacement` with `Builder::Drones { queued }`: the ghost
   under the cursor, checked by `Sim::deploy_check` for the Drone the click would go to (`deploy_recipient`: a plain
   click's the ActiveGroup's first Drone in portrait order, whose orders the Deploy replaces; a Shift-click's the
   first with no Deploy, among `Sim::pending_deploys` and the Deploys still in `PendingCommands`, `deploying`). A

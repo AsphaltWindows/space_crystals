@@ -33,13 +33,12 @@ use std::collections::{BTreeMap, VecDeque};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
-use crate::conversion::Conversion;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus};
 use crate::nav::PathGroup;
 use crate::object::Object;
-use crate::riot_shield::RiotShield;
+use crate::riot_shield;
 use crate::units::{Tick, TilePos};
 
 use state::{Approach, AttackOrder, Leg, Patrol};
@@ -247,6 +246,7 @@ pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: Object
     // `factions/colonists/units.md > Drone > Patch Occupancy (one Drone per patch)`: in id order within the tick.
     let mut claims = gather::Claims::default();
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
+        let may_attack = riot_shield::allows_attack(o);
         let (Some(orders), Some(mover)) = (&mut o.orders, &mut o.mover) else {
             continue;
         };
@@ -258,8 +258,8 @@ pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: Object
             facing: o.facing,
             mover,
             attack: o.attack.as_mut(),
-            may_attack: o.riot_shield.is_none_or(RiotShield::allows_attack),
-            converting: o.conversion.is_some_and(Conversion::under_way),
+            may_attack,
+            converting: o.conversion.is_some(),
             worker: o.worker.as_mut(),
         };
         update_unit(orders, &mut unit, world, &mut claims);

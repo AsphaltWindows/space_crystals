@@ -259,9 +259,9 @@ impl<'a> World<'a> {
             return Known::Gone;
         };
         let view = self.get(id);
-        let live = view.map(|v| {
-            let (lo, hi) = v.shape.bounds();
-            Live { owner: v.owner, lo, hi }
+        let live = view.map(|v| Live {
+            owner: v.owner,
+            seen: self.sees(owner, v),
         });
         match (targets::view(self.vision.player(player), player, id, live), view) {
             (TargetView::Visible, Some(view)) => Known::Seen(view),
