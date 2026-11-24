@@ -580,10 +580,11 @@ First playable after M2-H2.
     | D | done (`20f584e`) |
     | B | running (wave 3) |
     | H2 (0106) | done (`777b9a9`) |
-    | G | running (wave 3) |
     | F | running (wave 3) |
-    | H3 (next free slot; brief `scratchpad/briefs/m3h3-gathering-rules.md`; gather rules 0123 and 0127–0135) | queued |
-    | J1, J2, K1, K2 | queued |
+    | G | correcting 0035 (velocity to 0) before merge |
+    | H3 (after G merges; brief `scratchpad/briefs/m3h3-gathering-rules.md`; gather rules 0123, 0127–0138, 0140) | queued |
+    | R (after H3, or earlier with the gather part last; remembered targets 0139 and the one rally rule 0136, sim and client right-click) | queued |
+    | J1 (after F), J2 (after R), K1, K2 | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -624,7 +625,7 @@ First playable after M2-H2.
 | Q0014 | Combat edge cases: force-attacking own or neutral objects, a shot whose target dies mid-Firing, Rugged for units across tiles | no | answered by 0059–0061 (all as built) |
 | Q0015 | Magic box meets yielding (converging groups), box from footprints vs centres, Shift-queued group moves | no | answered by 0027, 0028 and 0029 |
 | Q0016 | Command UI edge cases: who carries out a right-click, invalid targets, input while targeting, Shift keeps targeting | no | answered by 0062–0070 (H2 and H3) |
-| Q0017 | Fog: shots from hidden attackers (hit flash vs. a partial tracer); targeting remembered structures | no | open; F and E build the stated defaults |
+| Q0017 | Fog: shots from hidden attackers (hit flash vs. a partial tracer); targeting remembered structures | no | point 2 answered by 0139 (M3-R); point 1 open; F and E build the stated defaults |
 | Q0018 | Behaviour gaps: sight-edge flicker, rotation in target priority, AttackMove leash reference, unreachable auto-targets, MinRange, walled-out spots | no | open; E built the stated defaults |
 | Q0019 | A remembered station's delivery countdown: keep counting or freeze | no | answered by 0057: GDO sees the real timer (folded into G2) |
 | Q0020 | Riot Shield: shield Move vs 0062 Follow, transitions, raising mid-shot, mixed groups, toggle time and hotkey | no | point 1 answered by 0074 (Follow wins; H3); points 2–5 open (R built the stated defaults) |
@@ -644,18 +645,18 @@ First playable after M2-H2.
 | Q0034 | Should an enemy plate's InfoPanel show its patch's remaining crystals? | no | open; M2-G shows it to everyone |
 | Q0035 | Rally point UI: Shift with rally targeting, rallying on one of several selected Barracks, feedback when pressing an unavailable command | no | open; M2-H1 built the stated current behaviour |
 | Q0036 | End of game edge cases: simultaneous last defeats, free-for-all spectating, a raised Riot Shield on defeat | no | open; M2-F2 built the stated current behaviour |
-| Q0037 | Drone gathering: the cases the loop doesn't define (13 points) | no | points 1–8 and 12 answered by 0123 and 0127–0135; points 9–11 and 13 open, M3-H built the proposals |
+| Q0037 | Drone gathering: the cases the loop doesn't define (13 points) | no | answered by 0123 and 0127–0138 |
 | Q0038 | Gathering Drones, collision and the economy targets | was yes | answered by 0106 (pass-through), 0107 (geometry), 0108 (±15%) |
 | Q0039 | Beacon Deployment and Warp In: what the transforming object is | no (answer before M3-F) | answered by 0109–0116 |
 | Q0040 | Deploy and Warp In placement, and the Colonists panels | no | answered by 0117–0125 |
 | Q0041 | Portal exits and Beacon Capacity | no | open |
 | Q0042 | Shields, melee range and Weapon Conversion | no | open |
 | Q0043 | M3 scope: the Colonists content left TBD (FYI) | no | open |
-| Q0044 | Gathering details from the build: fog, plates, empty Drop Off, blocked Drones, redirect timing, the Egress Node's sight | no | point 5 answered by 0134; others open; M3-H built the stated current behaviour |
+| Q0044 | Gathering details from the build: fog, plates, empty Drop Off, blocked Drones, redirect timing, the Egress Node's sight | no | points 1, 2, 3, 5 and 6 answered by 0134, 0137, 0139 and 0140; point 4 open |
 | Q0045 | Pass-through details: idle units left stacked, and the Drop Off order | no | answered by 0126 and 0127 |
 
 ## Design change entries
-Last triaged: 0135.
+Last triaged: 0140.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -740,7 +741,7 @@ Last triaged: 0135.
 | 0085 Finished unit waiting inside is refunded if the building dies | done (M2-D2, `1a64e75`) | |
 | 0086 Rally point on the building itself clears it | done (sim M2-D2; UI M2-H1, `eccaaa6`) | |
 | 0087 Rally point indicators | done (sim M2-D2; UI M2-H1, `eccaaa6`) | |
-| 0088 Rally on an enemy becomes a ground rally when the enemy leaves sight | done (sim M2-D2; UI M2-H1, `eccaaa6`) | rally on a remembered structure TBD (Q0017 point 2) |
+| 0088 Rally on an enemy becomes a ground rally when the enemy leaves sight | done (sim M2-D2; UI M2-H1, `eccaaa6`) | a rally on a remembered enemy structure stays on it (0139, M3-R) |
 | 0089 Power penalty scope, ratio and timing | done (M2-B, `39bcf66`) | matches the plan |
 | 0090 Power display: used / available | done (M2-B accessor, M2-G display, `69e80a1`) | replaces "current / total" |
 | 0091 GDO build area is square | done (M2-C, `0f8cc70`) | matches the plan |
@@ -788,4 +789,9 @@ Last triaged: 0135.
 | 0133 Which waiting Drone gets a freed patch is the implementation's choice, kept deterministic | queued (M3-H3) | answers Q0037 point 6 |
 | 0134 A depleted patch counts as occupied; Drones walking to it search on arrival | queued (M3-H3; replaces M3-H's immediate redirect) | answers Q0037 point 7 and Q0044 point 5 |
 | 0135 A missing drop-off is replaced by the nearest own Egress Node when the return trip starts; with none, the Drone idles holding its load | built as the proposal (M3-H); queued (M3-H3: confirm with tests) | answers Q0037 point 8 |
+| 0136 A rally gives the new unit its default right-click command against the rally target; one rule for every producer | queued (M3-R; replaces M3-D's "unarmed unit rallied on an enemy moves to the point": a Drone follows an enemy unit) | answers Q0037 points 9–10 |
+| 0137 A Drone mining a patch doesn't block a plate; a plated patch is gone for Drones | built as the proposal (M3-H); queued (M3-H3: confirm with tests) | answers Q0044 point 2 and Q0037 point 11 |
+| 0138 The last load takes the full 32 frames and the remaining crystals | built as the proposal (M3-H); queued (M3-H3: confirm with a test) | answers Q0037 point 13 |
+| 0139 Remembered objects can be targeted: orders go to the last-known position and resolve on sight | queued (M3-R: gate, orders, rally and the client's right-click) | answers Q0017 point 2, Q0044 points 1 and 6; replaces M2's "object targets only when visible" |
+| 0140 No empty Drop Off order: an empty Drone right-clicking its own node moves there | queued (M3-H3: the gate drops empty Drones; M3-J2: the right-click) | answers Q0044 point 3 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

@@ -206,7 +206,7 @@ For all unit-producing structures, right-click from DefaultState sets the rally 
 (user, 2026-11-24) A rally point on an enemy object only follows that object **while the owner can see it**. As soon as the enemy object leaves the owner's sight, the rally point **turns into a ground rally point at its last-seen position**. So:
 - A unit produced while the enemy is visible attacks it; one produced after the enemy was lost from sight moves to the last-seen position (matching chasing a target into the fog: systems/controls/behaviors.md > AttackingObject).
 - An enemy dying unseen in the fog doesn't change the rally point, so the rally marker never reveals hidden information. (The "reset to None when the object no longer exists" rule applies to own and neutral objects, and to enemies only while visible.)
-- Rallying on a remembered (fogged) enemy structure: TBD with Director question Q0017 point 2.
+- **Remembered enemy structures** (user, 2026-11-24): a rally point can be set on a remembered (fogged) enemy structure, since remembered objects can be targeted (core/vision.md > Explored > Targeting remembered objects). Structures don't move, so a rally on an enemy structure stays on it when it leaves sight (as a remembered target) instead of becoming a ground rally. New units get their default command against it (e.g. attack it once they see it; if it turns out to be gone, they stop there).
 
 ## DefaultState
 The default ObjectInterfaceState for a selection. The command panel displays available commands. Right-click performs a context-sensitive command based on what is under the cursor. Command hotkeys or button clicks initiate transitions to AwaitingTarget or issue immediate commands.

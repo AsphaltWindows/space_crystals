@@ -96,6 +96,8 @@ When a Drone arrives at an occupied patch, it goes to the **nearest unoccupied p
 #### Drop Off order
 (user, 2026-11-24) An explicit **Drop Off** (right-click an own Egress Node or accepting refinery while carrying) is **only a delivery**, not a Gather: the Drone delivers its load and the order is **complete**. It then starts its next queued order (e.g. a Shift-queued build), or with nothing queued **becomes idle** at the drop-off point; it does not walk back to its patch. (If Drop Off counted as a Gather, an order Shift-queued behind it would wait until the field is mined out.)
 
+**Empty Drones** (user, 2026-11-24): Drop Off is only resolved for a Drone that is carrying something. A right-click on an own Egress Node with an **empty** Drone is a plain **Move to the node** (it walks there and stops). Right-click resolves per Drone (systems/controls/selection_and_hud.md > RightClickResolution), so in a mixed group the loaded Drones deliver and idle, and the empty ones walk to the node; none goes back to mining on its own.
+
 #### When a Gather ends
 (user, 2026-11-24) A Gather order normally never ends: the Drone repeats its trip. It **ends on its own** only when the Drone runs out of crystals to mine: its patch is gone and no patch is left within its search radius. It first **delivers any load** it carries, then becomes idle (or starts its next queued order).
 
