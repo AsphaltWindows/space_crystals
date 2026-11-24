@@ -376,7 +376,16 @@ fn knowledge_rebuilds_256() {
             SpawnAt::Tile(t(124 + (i % 5) * 2, 126 + (i / 5) * 2)),
         ));
     }
+    // And one out of everyone else's way, which keeps player 1 in the game when the ten go (`core/game_rules.md >
+    // Defeat Condition`): a defeated player's units become nobody's, and a player without units has no grids to
+    // rebuild (slice M2-J2).
+    map.spawns.push(Spawn::new(
+        ObjectKind::Generator,
+        Some(SlotId(1)),
+        SpawnAt::Tile(t(30, 4)),
+    ));
     let first_generator = 161;
+    let first_unit = first_generator + 11;
     let mut sim = TestSim::new(Scenario::new(map));
     sim.check_invariants(false);
     sim.without_auto_targeting();
@@ -397,7 +406,7 @@ fn knowledge_rebuilds_256() {
         let n = i / 4;
         let at = Vec2::new((cx + (n % 10) as i32) as f32 + 0.5, (cy + (n / 10) as i32) as f32 + 0.5) * 64.0;
         sim.spawn_unit_at(1, pk, PlayerId(player as u8 + 1), at);
-        armies[player].push(ObjectId(first_generator + 10 + 12 + i));
+        armies[player].push(ObjectId(first_unit + 12 + i));
     }
     for (player, army) in armies.iter().enumerate() {
         let (gx, gy) = [(230.0, 230.0), (12.0, 230.0), (230.0, 12.0), (12.0, 12.0)][player];

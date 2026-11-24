@@ -44,7 +44,7 @@ use crate::production::{ProductionCommand, Rally};
 use crate::replay::Replay;
 use crate::scenario::{Scenario, Spawn, SpawnAt, SpawnSettings};
 use crate::scenarios;
-use crate::sim::{Sim, SimConfig};
+use crate::sim::{Phase, Sim, SimConfig};
 use crate::units::Tick;
 
 use invariants::Invariants;
@@ -214,11 +214,16 @@ impl TestSim {
 
     /// Advances one tick, applying the commands scheduled for it.
     pub fn step(&mut self) -> &mut Self {
+        self.step_observed(|_| {})
+    }
+
+    /// [`TestSim::step`] through [`Sim::step_observed`]: `observe` sees each phase of the tick start, for a timing.
+    pub fn step_observed(&mut self, observe: impl FnMut(Phase)) -> &mut Self {
         let tick = self.sim.tick() + 1;
         let inputs = TickInputs {
             commands: self.schedule.remove(&tick).unwrap_or_default(),
         };
-        self.sim.step(&inputs);
+        self.sim.step_observed(&inputs, observe);
         if let Some(invariants) = &mut self.invariants
             && let Err(violation) = invariants.check(&self.sim, &inputs)
         {

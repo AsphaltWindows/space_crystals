@@ -71,7 +71,7 @@ pub use scenario::{
 };
 pub use shape::Shape;
 pub use sides::{SideLetter, sides};
-pub use sim::{Reject, Sim, SimConfig};
+pub use sim::{Phase, Reject, Sim, SimConfig};
 pub use symmetry::{EditableRegion, MapTransform, Orientation, Symmetry};
 pub use units::{CornerPos, SU_PER_GU, TICKS_PER_SECOND, Tick, TilePos, gu, seconds};
 pub use vision::{VisibilityState, Vision};

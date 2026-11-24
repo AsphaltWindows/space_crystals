@@ -29,6 +29,7 @@ use crate::{combat, economy, movement, orders, riot_shield};
 use gate::Checked;
 pub use gate::Reject;
 use load::{SimState, serialize_objects};
+pub use phase::Phase;
 
 /// Game options, chosen with the rest of the game setup ([`crate::GameSetup::config`]) and fixed when the game
 /// starts: stored and hashed in the `Sim`, so a [`crate::Replay`] (map, setup and inputs) brings them back.
@@ -270,6 +271,14 @@ impl Sim {
 
     /// Advance exactly one tick. Phase order is fixed and documented in ARCHITECTURE.md.
     pub fn step(&mut self, inputs: &TickInputs) {
+        self.step_observed(inputs, |_| {});
+    }
+
+    /// [`Sim::step`], calling `observe` as each [`Phase`] of the tick starts and with [`Phase::End`] when it is done,
+    /// for a measurement to time them (`tests/structures_perf.rs`). The sim does the same work either way and never
+    /// reads anything back, so an observer can't change the game.
+    pub fn step_observed(&mut self, inputs: &TickInputs, mut observe: impl FnMut(Phase)) {
+        observe(Phase::Start);
         self.events.clear();
         self.nav.begin_tick();
         self.tick += 1;
@@ -281,10 +290,13 @@ impl Sim {
         // the next one. Ids only grow, so they are exactly the ids from here on.
         let first_new = ObjectId(self.next_id);
         // The defeat check compares with the structures each player owns as the tick starts (`economy::defeat`).
+        observe(Phase::DefeatOwners);
         let owned_before = defeat::structure_owners(&self.objects, &self.players, self.outcome.as_ref());
+        observe(Phase::Commands);
         for cmd in &inputs.commands {
             self.apply_command(cmd);
         }
+        observe(Phase::Behaviours);
         // Modes: after the commands, so that a toggle counts from its own tick; before 5a, so that the behaviours,
         // the movement and the combat of the tick all see the mode it leaves (`riot_shield`).
         riot_shield::step(&mut self.objects, first_new);
@@ -294,9 +306,11 @@ impl Sim {
         let world = orders::world::World::new(&self.map, &self.vision, &self.objects, self.tick, self.auto_targeting);
         orders::update(&mut self.objects, first_new, &world);
         // 5b: the movement below must collide with this tick's obstacles (the true grids).
+        observe(Phase::NavSync);
         paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
         // 5c: after the goals, before the movement that follows the paths. Each unit plans on what its owner knew
         // at the end of the last tick (`paths::knowledge`).
+        observe(Phase::PathServing);
         paths::serve(
             &mut self.nav,
             &mut self.objects,
@@ -307,6 +321,7 @@ impl Sim {
             &mut self.events,
         );
         // 5d: the one movement pipeline, the single place that moves units.
+        observe(Phase::Movement);
         let (nav, scratch) = self.nav.for_movement();
         movement::step(
             &mut self.objects,
@@ -321,6 +336,7 @@ impl Sim {
         // they leave behind no longer blocks, so the grids follow as in 5b.
         // It reads the vision of the end of the last tick (5f below), as the design's ValidTarget asks.
         // A unit turns at most its TurnRate per tick in all: the aim has what 5d's turn left (`movement::Turns`).
+        observe(Phase::Combat);
         let turns = self.nav.turns();
         let dead = combat::step(
             &mut self.objects,
@@ -330,12 +346,14 @@ impl Sim {
             first_new,
             &mut self.events,
         );
+        observe(Phase::Deaths);
         if !dead.is_empty() {
             self.remove_objects(&dead);
             paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
         }
         // The economy (plan decision T5): after 5e, so that the buildings destroyed this tick count for nothing in
         // it; before 5f, so that what it brings into the game is seen in its own tick.
+        observe(Phase::Economy);
         economy::step(&mut self.objects, &mut self.players, first_new, &mut self.events);
         // The producers (slice M2-D2), part of the economy phase: here, not inside `economy::step`, because a
         // finished unit is inserted into the game. Before 5f, so that it is seen in its own tick.
@@ -343,6 +361,7 @@ impl Sim {
         // The defeat check ends the economy phase (plan decisions T5 and T8, slice M2-F2): after every way a
         // structure leaves the game; before 5f, so that the units a defeat makes neutral are no one's eyes in its
         // own tick.
+        observe(Phase::Defeat);
         defeat::step(
             &mut self.objects,
             &mut self.players,
@@ -352,6 +371,7 @@ impl Sim {
             &mut self.events,
         );
         // 5f: sees the tick's final positions, this tick's new objects included.
+        observe(Phase::Vision);
         self.vision.update(&self.map, self.objects.values());
         self.update_supply_stations(first_new);
         // Last: the records of what each player sees keep the tick's final state, the deliveries included.
@@ -362,12 +382,14 @@ impl Sim {
         // Path knowledge, after everything it follows from (the objects, the vision and its records): what each
         // player has seen by now of the map's resources, then its grids for the next tick's plans, rebuilt at most
         // once per player and tick. Nothing after this may change the objects or the vision.
+        observe(Phase::PathKnowledge);
         self.path_knowledge.observe(&self.vision);
         paths::sync_known(&mut self.nav, &self.objects, &self.vision, &mut self.path_knowledge);
         debug_assert!(
             self.nav.matches(&self.objects),
             "a blocking footprint changed after phase 5b: sync the grids again (`paths::sync`)"
         );
+        observe(Phase::End);
     }
 
     /// `ARCHITECTURE.md > Commands, events and replays`: every command passes the gate ([`Sim::validate`]) first.
@@ -557,6 +579,7 @@ mod construction;
 mod gate;
 mod load;
 mod navigation;
+mod phase;
 mod preview;
 mod producers;
 mod removal;
