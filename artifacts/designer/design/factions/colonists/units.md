@@ -140,7 +140,7 @@ Drones can deploy into a Beacon (see Beacon Deployment above). This transformati
 - Own Egress Node (carrying resources) → Drop off resources
 - Own refinery (carrying a resource it accepts as input) → Drop off resources
 - Own refinery (not carrying) → Gather (haul from its output)
-- Enemy or other object → Move to that object's location (Drone is unarmed and cannot attack)
+- Enemy or other object → Move to it: **Follow** if it is a unit, Move to its location otherwise (Drone is unarmed and cannot attack; systems/controls/selection_and_hud.md > RightClickResolution > Units that can't carry out the resolved command)
 - Ground → Move
 
 Multiple Drones can be selected simultaneously and form one SelectionGroup (Groupable). Right-click commands and Set Drop-off go to every selected Drone; Deploy goes to one Drone (first in selection order without a Deploy; see Groupable above).
