@@ -1,8 +1,8 @@
 //! Soak (`docs/movement.md > 8`): 200 units on random maps under seeded random orders for 2 000 ticks. The
-//! invariants I1–I7 hold after every tick (`TestSim` checks them), nothing panics, every move ends, and the run is
-//! deterministic.
+//! invariants I1–I7 hold after every tick (`TestSim` checks them), nothing panics, every move ends within a bounded
+//! time of its last progress, most moves arrive, and the run is deterministic.
 
-use sc_sim::mover::{MAX_REPATHS, REPATH_BACKOFF, STUCK_GRACE_TICKS, STUCK_TICKS};
+use sc_sim::mover::{GIVE_UP_TICKS, STUCK_GRACE_TICKS};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
     Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Rng, SU_PER_GU,
@@ -12,6 +12,10 @@ use sc_sim::{
 const SIDE: i32 = 48;
 const UNITS: u32 = 200;
 const TICKS: u32 = 2000;
+/// Of the moves that end in one seed's run, at most this share ends `Failed`.
+const MAX_FAILED_SHARE: f32 = 0.6;
+/// The same over all seeds.
+const MAX_FAILED_SHARE_OVERALL: f32 = 0.35;
 
 /// A 48 × 48 map: about 8 % scattered water and cliff tiles, a few walls with gaps, a patch of Rugged Terrain.
 fn random_map(rng: &mut Rng) -> String {
@@ -122,8 +126,10 @@ fn soak(seed: u64) -> TestSim {
 
 #[test]
 fn two_hundred_units_under_random_orders_keep_the_invariants() {
-    // A stuck unit ends its move within this many ticks of its last progress (`docs/movement.md > 6.5`).
-    let give_up = STUCK_TICKS * (u32::from(MAX_REPATHS) + 1) + REPATH_BACKOFF[2] + STUCK_GRACE_TICKS;
+    // A stuck unit ends its move within this many ticks of its last progress (`docs/movement.md > 6.5`, design
+    // change 0024).
+    let give_up = GIVE_UP_TICKS + STUCK_GRACE_TICKS;
+    let (mut all_arrived, mut all_failed) = (0, 0);
     for seed in [1, 2, 3] {
         let mut t = soak(seed);
         // Per unit: the tick and the values of its latest progress, and its status a tick ago.
@@ -161,9 +167,20 @@ fn two_hundred_units_under_random_orders_keep_the_invariants() {
         let still_moving = t.sim().objects().filter_map(|o| o.mover.as_ref());
         assert_eq!(still_moving.filter(|m| m.status == MoveStatus::Moving).count(), 0);
         println!("seed {seed}: {arrived} moves arrived, {failed} failed");
-        // The orders pile 200 units into a few tiles again and again; with hard collision and no pushing, many of
-        // those moves give up (question Q0007). How many depends on the seed, so only "moves do arrive" is checked.
-        assert!(arrived >= 100, "seed {seed}: {arrived} arrived, {failed} failed");
+        // The orders pile 200 units into a few tiles again and again. Moving units never make way for each other,
+        // and a unit shut out more than 2 GU from its place gives up (design changes 0022 and 0026), so some of
+        // those moves fail. How many depends on the seed and on every tuning constant, so the bounds are loose:
+        // of the moves that ended, at most `MAX_FAILED_SHARE` failed in any one seed, and at most
+        // `MAX_FAILED_SHARE_OVERALL` over all seeds. (With friendly yielding the shares are 0.38, 0.07 and 0.13,
+        // and 0.16 overall; without it they were 0.66, 0.19 and 0.21, and 0.32 overall.)
+        let ended = arrived + failed;
+        assert!(ended >= 100, "seed {seed}: only {ended} moves ended");
+        assert!(
+            failed as f32 <= MAX_FAILED_SHARE * ended as f32,
+            "seed {seed}: {arrived} arrived, {failed} failed"
+        );
+        all_arrived += arrived;
+        all_failed += failed;
         // The same seed again gives the same state, and so does the replay.
         if seed == 1 {
             let mut again = soak(seed);
@@ -172,4 +189,8 @@ fn two_hundred_units_under_random_orders_keep_the_invariants() {
             assert_eq!(t.replay().run().state_hash(), t.sim().state_hash());
         }
     }
+    assert!(
+        all_failed as f32 <= MAX_FAILED_SHARE_OVERALL * (all_arrived + all_failed) as f32,
+        "{all_arrived} arrived, {all_failed} failed"
+    );
 }

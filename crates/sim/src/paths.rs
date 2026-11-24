@@ -20,7 +20,7 @@ use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::movement;
-use crate::mover::{HALF_STUCK_TICKS, MoveGoal, MoveStatus, Mover, PathState, STAGGER};
+use crate::mover::{MoveGoal, MoveStatus, Mover, PathState, STAGGER};
 use crate::nav::{
     self, BlockerKind, Nav, NavClass, NavCounters, NavGrid, NavRules, PathFail, PathRequest, Search, TileRect,
 };
@@ -256,9 +256,10 @@ const MAX_WAYPOINTS_PER_CHECK: usize = 8;
 ///    the path stays, else the unit plans again. Not counted against the repath cap.
 /// 2. **Steering target**: the unit heads for the farthest waypoint it sees, one after another from the current
 ///    one, so it need not touch any of them.
-/// 3. **Lost sight** of the steering waypoint (pushed off the path by sidesteps) **and** no progress for
-///    `HALF_STUCK_TICKS`: a repath that counts against the cap and waits for its backoff. A unit that is still
-///    getting on finds its own way back by sliding, which saves the leg's few repaths for when it needs them.
+/// 3. **Lost sight** of the steering waypoint (pushed off the path by sidesteps) **and stuck**: another route, a
+///    repath that counts against the cap, on the schedule of design change 0024 (`Mover::recovery_due`: never
+///    before the unit is stuck and has waited). A unit that is still getting on finds its own way back by sliding,
+///    which saves the leg's few repaths for when it needs them.
 fn staggered_check(grid: &NavGrid, pos: Vec2, half: Vec2, mover: &mut Mover, nav_version: u32, tick: Tick) {
     let sees = |from: Vec2, to: Vec2| nav::los(grid, half, from, to);
     let next = usize::from(mover.next);
@@ -285,7 +286,7 @@ fn staggered_check(grid: &NavGrid, pos: Vec2, half: Vec2, mover: &mut Mover, nav
     }
     if at != next {
         mover.next = at as u16;
-    } else if tick.saturating_sub(mover.stuck_clock()) >= HALF_STUCK_TICKS && !sees(pos, target) {
+    } else if mover.is_stuck(tick) && tick >= mover.recovery_due() && !sees(pos, target) {
         mover.counted_repath(tick);
     }
 }

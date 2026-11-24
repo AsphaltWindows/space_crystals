@@ -1,15 +1,18 @@
-//! Progress, stuck detection and recovery — `docs/movement.md > 6.5`, with the repath cap of `> 5.6`.
+//! Progress, stuck detection and recovery — `docs/movement.md > 6.5`, with the repath schedule of `> 5.6`.
 //!
-//! The numbers are the defaults of question Q0008 (`mover::STUCK_TICKS`, `MAX_REPATHS`, `REPATH_BACKOFF`,
-//! `CROWDED_ARRIVAL_GU`). What two units blocking each other for good do (both end `Failed`) is the default of
-//! question Q0007.
+//! The rules are `systems/controls/behaviors.md > MovingToLocation`: `> Failure` (design change 0024: stuck after
+//! `mover::STUCK_TICKS`, `MAX_REPATHS` attempts at another route after `REPATH_WAITS`, then give up) and `> Occupied
+//! target location` (design change 0026, `mover::OCCUPIED_ARRIVAL_GU`). Two moving units that block each other for
+//! good both end `Failed` (design change 0022: moving units never yield or swap).
 
 use glam::Vec2;
 
 use super::collide::{Moved, World};
 use super::space::Body;
+use super::yielding::yields_to;
+use crate::ids::PlayerId;
 use crate::mover::{
-    CROWDED_ARRIVAL_GU, MAX_AVOID_TILES, MAX_REPATHS, MoveGoal, MoveStatus, Mover, STUCK_GRACE_TICKS, STUCK_TICKS,
+    JAMMED_TICKS, MAX_AVOID_TILES, MAX_REPATHS, MoveGoal, MoveStatus, Mover, OCCUPIED_ARRIVAL_GU, STUCK_GRACE_TICKS,
 };
 use crate::units::{Tick, TilePos, gu};
 
@@ -52,6 +55,28 @@ fn avoid_blocker(pos: Vec2, mover: &mut Mover, blocker: &Body) {
     }
 }
 
+/// `systems/controls/behaviors.md > MovingToLocation > Occupied target location` (design change 0026): whether the
+/// unit at `pos`, blocked by `blocker` this tick, counts as arrived. It is within `OCCUPIED_ARRIVAL_GU` of its
+/// destination, and the unit in its way isn't moving and won't move for it.
+/// - **Yielding comes first** (design changes 0022, 0023): a blocker that yields to this unit has been asked to step
+///   aside, and a unit whose blocker steps aside isn't stuck. So the rule is for blockers that stay: units that
+///   arrived with its own group order (0027), units on Hold, busy units, enemies, units that can't move, and a
+///   yielding unit that found no room.
+/// - **Timing** (the design leaves it open; 0026's Verification says "straight away, with no re-route attempts"):
+///   when the unit is stuck (`Mover::is_stuck`, 24 ticks), which is 8 ticks before its first attempt at another
+///   route; or already when it found no way forward for `JAMMED_TICKS` in a row behind a unit that has no goal of
+///   its own, which will never move on. So it never re-routes here.
+fn target_is_occupied(pos: Vec2, mover: &Mover, blocker: Option<&Body>, owner: Option<PlayerId>, tick: Tick) -> bool {
+    let (MoveGoal::Point(_), Some(blocker)) = (mover.goal, blocker) else {
+        return false;
+    };
+    let end = mover.path.last().copied().unwrap_or(pos);
+    if !blocker.stationary || yields_to(blocker, owner, mover.group) || pos.distance(end) > gu(OCCUPIED_ARRIVAL_GU) {
+        return false;
+    }
+    mover.is_stuck(tick) || (blocker.progress.is_none() && mover.blocked_ticks >= JAMMED_TICKS)
+}
+
 /// After a unit's move in tick `tick` (`docs/movement.md > 6.5`). Returns whether the move failed.
 ///
 /// **Progress** is the remaining path length: `last_progress` moves on when it beats `best_remaining` by half a
@@ -61,25 +86,22 @@ fn avoid_blocker(pos: Vec2, mover: &mut Mover, blocker: &Body) {
 /// each other for good share a clock that stands still. (On one path `best_remaining` only falls, and repaths
 /// are capped, so the progress of a whole crowd is finite: nothing keeps a deadlock alive.)
 ///
-/// A unit is **stuck** after `STUCK_TICKS` without progress, counted from its latest counted repath if that was
-/// later (`Mover::stuck_clock`): every new path gets its time. Once stuck, in order:
-/// 1. **Crowded arrival**: the goal is a point and the unit in its way is stationary, and either the goal is
-///    within `CROWDED_ARRIVAL_GU`, or that unit arrived on a move of the same order group and this unit has
-///    already tried another way (a repath): the unit has `Arrived` (G5). The second case lets a group that
-///    converges (a click inside its box sends every unit to the clicked point, `docs/movement.md > 6.4`) fill up
-///    outwards from that point, however large the group is: earlier arrivals wall it in for those that come later.
-/// 2. **Queueing** ([`queues_behind`]): keep waiting.
-/// 3. **Repath**, once the backoff of the last repath is over (`docs/movement.md > 5.6`), if a repath is left.
-///    The tile of a stationary unit in its way is added to `avoid_tiles` first ([`avoid_blocker`]): at once if
-///    that unit has no goal of its own; if it is on its way itself (jammed for now), only from the second
-///    repath on, the first being a plain retry. If the search finds no way around the avoid tiles, phase 5c
-///    drops them and plans again: tiles are too coarse next to units to conclude that there is no way.
-/// 4. No repath left, and the last backoff over: `Failed`. The behaviour stops and completes
-///    (`systems/controls/behaviors.md > MovingToLocation > Failure`). A unit that never gets on repaths 24, 48
-///    and 72 ticks after its last progress and fails at 104 (6.5 s), the default of question Q0008.
+/// In order:
+/// 1. **Occupied target** ([`target_is_occupied`], design change 0026): the unit has `Arrived`.
+/// 2. Not **stuck** (`Mover::is_stuck`, design change 0024: `STUCK_TICKS` without getting closer): carry on.
+/// 3. **Queueing** ([`queues_behind`]): keep waiting.
+/// 4. **Another route**, when its wait is over (`Mover::recovery_due`: 8, 16 and 32 ticks after the unit became
+///    stuck or after the attempt before), if an attempt is left. The tile of a stationary unit in its way is added
+///    to `avoid_tiles` first ([`avoid_blocker`]): at once if that unit has no goal of its own; if it is on its way
+///    itself (jammed for now), only from the second attempt on, the first being a plain retry. If the search finds
+///    no way around the avoid tiles, phase 5c drops them and plans again: tiles are too coarse next to units to
+///    conclude that there is no way.
+/// 5. No attempt left, and still stuck `STUCK_TICKS` after the last one: `Failed`. The behaviour stops and
+///    completes (`> Failure`). A unit that never gets on looks for another route 32, 48 and 80 ticks after its
+///    last progress and fails at 104 (`mover::GIVE_UP_TICKS`, 6.5 s: 0024's "about 7 s").
 ///
-/// A stuck unit that touches no unit in this tick (it stepped around one) waits up to `STUCK_GRACE_TICKS` to meet
-/// its blocker again, so that rules 1 and 3 can see it.
+/// A unit due for 4 or 5 that touches no unit in this tick (it stepped around one) waits up to `STUCK_GRACE_TICKS`
+/// to meet its blocker again, so that rules 1 and 4 can see it.
 pub(super) fn after_move(pos: Vec2, mover: &mut Mover, step: f32, moved: &Moved, world: &World, tick: Tick) -> bool {
     let blocker = moved.blocker.map(|index| &world.bodies[index]);
     let left = remaining(pos, &mover.path, usize::from(mover.next));
@@ -92,27 +114,22 @@ pub(super) fn after_move(pos: Vec2, mover: &mut Mover, step: f32, moved: &Moved,
     } else if let Some(ahead) = blocker.and_then(|b| b.progress) {
         mover.last_progress = mover.last_progress.max(ahead.min(tick));
     }
-    let waited = tick.saturating_sub(mover.stuck_clock());
-    if waited < STUCK_TICKS || (blocker.is_none() && waited < STUCK_TICKS + STUCK_GRACE_TICKS) {
-        return false;
-    }
-    let end = mover.path.last().copied().unwrap_or(pos);
-    let first_repath = mover.repaths_left == MAX_REPATHS;
-    let crowded = blocker.is_some_and(|b| {
-        let with_its_group = !first_repath && mover.group.is_some() && b.arrived_with == mover.group;
-        b.stationary && (with_its_group || pos.distance(end) <= gu(CROWDED_ARRIVAL_GU))
-    });
-    if matches!(mover.goal, MoveGoal::Point(_)) && crowded {
+    if target_is_occupied(pos, mover, blocker, world.body().owner, tick) {
         mover.finish(MoveStatus::Arrived);
         return false;
     }
-    if queues_behind(mover, blocker) || tick < mover.repath_ready_at {
+    if !mover.is_stuck(tick) || queues_behind(mover, blocker) {
+        return false;
+    }
+    let due = mover.recovery_due();
+    if tick < due || (blocker.is_none() && tick < due.saturating_add(STUCK_GRACE_TICKS)) {
         return false;
     }
     if mover.repaths_left == 0 {
         mover.finish(MoveStatus::Failed);
         return true;
     }
+    let first_repath = mover.repaths_left == MAX_REPATHS;
     if let Some(blocker) = blocker.filter(|b| b.stationary && (b.progress.is_none() || !first_repath)) {
         avoid_blocker(pos, mover, blocker);
     }

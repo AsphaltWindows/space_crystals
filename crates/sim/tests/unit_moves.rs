@@ -275,7 +275,55 @@ fn a_group_keeps_its_shape_around_the_click() {
     }
 }
 
-/// `docs/movement.md > 5.4`: a goal on blocked ground is moved to the nearest reachable tile; the unit arrives there.
+/// `systems/controls/behaviors.md > MovingToLocation > Unreachable target location` (design change 0025),
+/// Verification: "Right-click a plateau with no ramp: the unit goes to the closest reachable spot below it."
+#[test]
+fn a_goal_on_a_plateau_without_a_ramp_ends_at_the_closest_spot_below() {
+    // A plateau one level up, tiles (5..=10, 3..=6), ringed by cliffs on every side.
+    let mut t = ScenarioBuilder::new(
+        "
+        ................
+        ................
+        ....cccccccc....
+        ....c......c....
+        ....c......c....
+        ....c......c....
+        ....c......c....
+        ....cccccccc....
+        ................
+        ................
+
+        00000000000000000
+        00000000000000000
+        00000000000000000
+        00000111111100000
+        00000111111100000
+        00000111111100000
+        00000111111100000
+        00000111111100000
+        00000000000000000
+        00000000000000000
+        00000000000000000
+        ",
+    )
+    .start();
+    let goal = v(608.0, 416.0); // tile (9, 6), on top, two tiles from the ground south of the cliff
+    t.spawn_unit_at(1, PK, P1, v(100.0, 100.0))
+        .order_at(2, P1, &[ObjectId(1)], move_to(goal), false);
+    run_to_arrival(&mut t, 1, 400);
+    // Straight below the goal, south of the cliff ring: the centre of tile (9, 8).
+    assert_eq!(pos(&t, 1), TilePos::new(9, 8).center());
+    assert_eq!(t.sim().map().height_at(pos(&t, 1)), 0.0);
+    assert!(
+        t.events()
+            .iter()
+            .all(|(_, e)| !matches!(e, sc_sim::SimEvent::MoveFailed { .. }))
+    );
+}
+
+/// `systems/controls/behaviors.md > MovingToLocation > Unreachable target location` (design change 0025),
+/// Verification: "Right-click the middle of a lake: the unit walks to the nearest shore point and stops."
+/// `docs/movement.md > 5.3`: a goal on blocked ground is moved to the nearest reachable tile; the unit arrives there.
 #[test]
 fn an_unreachable_goal_is_retargeted() {
     let mut t = ScenarioBuilder::new(

@@ -28,6 +28,7 @@ fn tick(pos: &mut Vec2, facing: &mut f32, mover: &mut Mover, movement: &Movement
         stationary: mover.is_stationary(),
         progress: None,
         arrived_with: None,
+        yields: false,
     }];
     let mut counters = MoveCounters::default();
     let mut world = World {
@@ -37,7 +38,16 @@ fn tick(pos: &mut Vec2, facing: &mut f32, mover: &mut Mover, movement: &Movement
         me: 0,
         counters: &mut counters,
     };
-    step_unit(pos, facing, mover, movement, &mut world, &mut Vec::new(), tick)
+    step_unit(
+        pos,
+        facing,
+        mover,
+        movement,
+        &mut world,
+        &mut Vec::new(),
+        &mut Vec::new(),
+        tick,
+    )
 }
 
 #[test]
@@ -107,8 +117,8 @@ fn without_a_path_the_unit_waits_and_its_stuck_clock_stands() {
     assert_eq!(mover.last_progress, 99, "it moved on with the ticks");
 }
 
-/// `docs/movement.md > 6.5`, `> 5.6`: a unit that makes no progress repaths three times, 24 ticks apart and no
-/// sooner than the backoff allows, then fails.
+/// `docs/movement.md > 6.5`, `> 5.6` (design change 0024): a unit that makes no progress is stuck after 24 ticks,
+/// repaths three times after waits of 8, 16 and 32 ticks, then fails.
 #[test]
 fn a_unit_without_progress_repaths_three_times_and_fails() {
     let frozen = MovementAttrs::TurnRate {
@@ -133,9 +143,10 @@ fn a_unit_without_progress_repaths_three_times_and_fails() {
             break;
         }
     }
-    // Stuck 24 ticks after the order (tick 1); it touches no unit, so each time it waits the 8 ticks of grace:
-    // repaths in ticks 33, 65 and 97, served a tick later, each restarting the stuck clock. Then it fails.
-    assert_eq!(repaths, [34, 66, 98]);
-    assert_eq!(failed_at, Some(129));
+    // Stuck 24 ticks after the order (tick 1), in tick 25. It touches no unit, so each time it also waits the 8
+    // ticks of grace: repaths in ticks 25 + 8 + 8 = 41, 41 + 16 + 8 = 65 and 65 + 32 + 8 = 105, each served a tick
+    // later. It fails 24 ticks and the grace after the last.
+    assert_eq!(repaths, [42, 66, 106]);
+    assert_eq!(failed_at, Some(137));
     assert_eq!((mover.status, mover.goal), (MoveStatus::Failed, MoveGoal::None));
 }

@@ -10,6 +10,7 @@
 //!   filter for collision exceptions.
 //! - [`collide`]: one unit's move by the rules of `docs/movement.md > 6.3`.
 //! - [`stuck`]: progress, stuck detection and recovery (`docs/movement.md > 6.5`).
+//! - [`yielding`]: an idle unit's sidestep for a blocked unit of its owner (`docs/movement.md > 6.6`).
 //!
 //! Hooks for later slices: chasing a moving target and queueing behind attackers (slice E) are in [`stuck`];
 //! crushing is an exception in [`space::blocks`]; other movement models replace the "desired direction → facing
@@ -18,6 +19,7 @@
 mod collide;
 mod space;
 mod stuck;
+mod yielding;
 
 use std::collections::BTreeMap;
 
@@ -72,6 +74,8 @@ pub(crate) struct Scratch {
     layers: [Layer; LAYERS],
     /// Units in the way of the unit being moved.
     touched: Vec<usize>,
+    /// The sidesteps asked of idle units this tick (`yielding`), applied when every unit has moved.
+    requests: Vec<yielding::Request>,
     counters: MoveCounters,
 }
 
@@ -82,7 +86,7 @@ impl Scratch {
 }
 
 /// A unit as the others see it this tick.
-fn body_of(o: &Object, mover: &Mover, half: Vec2) -> Body {
+fn body_of(o: &Object, mover: &Mover, unit: &UnitDef, half: Vec2) -> Body {
     // Also while it waits for a path: a unit that just planned again is still on its way.
     let on_its_way = mover.goal != MoveGoal::None;
     Body {
@@ -94,6 +98,7 @@ fn body_of(o: &Object, mover: &Mover, half: Vec2) -> Body {
         stationary: mover.is_stationary(),
         progress: on_its_way.then_some(mover.last_progress),
         arrived_with: mover.group.filter(|_| mover.status == MoveStatus::Arrived),
+        yields: yielding::can_yield(o, mover, unit),
     }
 }
 
@@ -107,7 +112,9 @@ fn unit_of(o: &Object) -> Option<(&'static UnitDef, Vec2)> {
 /// Phase 5d (`docs/movement.md > 4`): builds the spatial grids from **all** units, this tick's spawns included
 /// (they are obstacles, though not moved), then moves every unit before `first_new`, in id order, updating the
 /// grid at each commit. A unit whose attack holds its base (`combat::may_move`, `combat::may_turn`) stands and
-/// keeps its goal.
+/// keeps its goal. An idle unit asked to make way takes its sidestep in its turn, like any move
+/// (`yielding::sidestep`); the sidesteps asked for in this tick are noted when every unit has moved
+/// (`yielding::apply`) and begin in the next.
 pub(crate) fn step(
     objects: &mut BTreeMap<ObjectId, Object>,
     first_new: ObjectId,
@@ -119,6 +126,7 @@ pub(crate) fn step(
 ) {
     scratch.counters = MoveCounters::default();
     scratch.bodies.clear();
+    scratch.requests.clear();
     for layer in &mut scratch.layers {
         layer.reset(map.width(), map.height());
     }
@@ -128,7 +136,7 @@ pub(crate) fn step(
         };
         let mover = o.mover.as_ref().expect("units have movers");
         let index = scratch.bodies.len() as u32;
-        scratch.bodies.push(body_of(o, mover, half));
+        scratch.bodies.push(body_of(o, mover, unit, half));
         if let Some(layer) = layer_of(unit.base_def().domain) {
             scratch.layers[layer].insert(index, o.pos, half);
         }
@@ -162,7 +170,20 @@ pub(crate) fn step(
             counters: &mut scratch.counters,
         };
         let failed = if held {
+            // A unit in an attack sequence is busy: it doesn't yield (design change 0023).
+            mover.sidestep = None;
             wait(mover, tick);
+            false
+        } else if mover.goal == MoveGoal::None && mover.sidestep.is_some() {
+            let speed = unit.movement.max_speed() * mover.speed_factor;
+            yielding::sidestep(
+                &mut o.pos,
+                mover,
+                speed,
+                &mut world,
+                &mut scratch.touched,
+                &mut scratch.requests,
+            );
             false
         } else {
             step_unit(
@@ -172,6 +193,7 @@ pub(crate) fn step(
                 &unit.movement,
                 &mut world,
                 &mut scratch.touched,
+                &mut scratch.requests,
                 tick,
             )
         };
@@ -180,7 +202,7 @@ pub(crate) fn step(
         }
         // Commit: later units see this one where it is now.
         let mover = o.mover.as_ref().expect("units have movers");
-        scratch.bodies[me] = body_of(o, mover, half);
+        scratch.bodies[me] = body_of(o, mover, unit, half);
         if o.pos != from
             && let Some(l) = layer
         {
@@ -188,6 +210,7 @@ pub(crate) fn step(
             scratch.layers[l].insert(me as u32, o.pos, half);
         }
     }
+    yielding::apply(objects, &scratch.bodies, &mut scratch.requests);
 }
 
 /// The unit stands this tick.
@@ -209,8 +232,8 @@ fn wait(mover: &mut Mover, tick: Tick) {
 
 /// One unit's tick (`docs/movement.md > 6.2`, `> 6.3`). Returns whether its move failed this tick.
 ///
-/// - Without a goal, or while waiting for its path, the unit stands still: idle units are never displaced (G2,
-///   question Q0007; `> 5.5`).
+/// - Without a goal, or while waiting for its path, the unit stands still (`> 5.5`). Only its own sidestep moves
+///   an idle unit (`yielding`); nothing pushes it.
 /// - **Steering target**: the path's waypoint `Mover::next`. A waypoint within one step is passed without being
 ///   touched; the staggered check in phase 5c moves on to the farthest waypoint in sight.
 /// - **Facing** (`systems/combat.md > LocomotionOrientationConstraints[TurnRateMovement]`): the unit turns towards
@@ -219,7 +242,12 @@ fn wait(mover: &mut Mover, tick: Tick) {
 /// - **Arrival**: when the goal is within one step and the way is free, the unit stands exactly on it and stops
 ///   with `status = Arrived`. The arrival radius is one tick of travel, so it never overshoots.
 /// - Otherwise it moves `step = MaxSpeed × speed_factor` towards the target by the rules of
-///   [`World::resolve`], then its progress is measured ([`stuck`]).
+///   [`World::resolve`], asks an idle unit of its owner in its way to step aside ([`yielding::ask`]), then its
+///   progress is measured ([`stuck`]).
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the unit's state, split into the borrows the step holds"
+)]
 fn step_unit(
     pos: &mut Vec2,
     facing: &mut f32,
@@ -227,6 +255,7 @@ fn step_unit(
     movement: &MovementAttrs,
     world: &mut World,
     touched: &mut Vec<usize>,
+    requests: &mut Vec<yielding::Request>,
     tick: Tick,
 ) -> bool {
     if mover.goal == MoveGoal::None || mover.path_state != PathState::Ready {
@@ -269,6 +298,7 @@ fn step_unit(
     touched.clear();
     let moved = world.resolve(*pos, d, arriving.then_some(target), mover, tick, touched);
     let from = *pos;
+    yielding::ask(world, from, d, &moved, mover, requests);
     *pos = moved.pos;
     if arriving && moved.pos == target {
         mover.finish(MoveStatus::Arrived);

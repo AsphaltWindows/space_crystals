@@ -5,7 +5,7 @@
 //! The give-up numbers are the defaults of question Q0008, and what two units blocking each other for good do is
 //! the default of question Q0007.
 
-use sc_sim::mover::{Locomotion, MAX_REPATHS, REPATH_BACKOFF, STUCK_TICKS};
+use sc_sim::mover::{GIVE_UP_TICKS, Locomotion, MAX_REPATHS};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
     DebugCommand, MoveGoal, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, SimEvent, SpawnAt, Target, TilePos,
@@ -51,10 +51,6 @@ fn move_to(p: Vec2) -> OrderKind {
 fn ids(range: std::ops::RangeInclusive<u32>) -> Vec<ObjectId> {
     range.map(ObjectId).collect()
 }
-
-/// The worst case from the first stuck tick to `Failed` (`docs/movement.md > 5.6`, `> 6.5`): three repaths, each
-/// a stuck period after the last path, and the last backoff.
-const GIVE_UP_TICKS: u32 = STUCK_TICKS * (MAX_REPATHS as u32 + 1) + REPATH_BACKOFF[MAX_REPATHS as usize - 1];
 
 /// Steps until every unit of `units` has a status other than `Moving`; the tick. Panics, with the map, after
 /// `max_tick`.
@@ -151,11 +147,14 @@ fn twenty_units_go_through_a_choke() {
         ",
     )
     .start();
-    // Five columns of four, west of the wall.
+    // Five columns of four, west of the wall, 56 su apart. The group keeps this shape at the click (the magic box),
+    // and its units fit through the gaps between those already standing there. In a tighter shape the first
+    // arrivals wall off places behind them, and a unit shut out farther than 2 GU from its place gives up
+    // (design changes 0026 and 0027).
     let mut n = 0;
     for col in 0..5 {
         for row in 0..4 {
-            t.spawn_unit_at(1, PK, P1, v(80.0 + 40.0 * col as f32, 230.0 + 40.0 * row as f32));
+            t.spawn_unit_at(1, PK, P1, v(60.0 + 56.0 * col as f32, 204.0 + 56.0 * row as f32));
             n += 1;
         }
     }
@@ -214,10 +213,11 @@ fn a_group_arrives_and_stands_still() {
     }
 }
 
-/// `systems/units.md > UnitCollision > Ground Collision` (question Q0007, G2): idle units do not move aside. A
-/// unit walks around one standing exactly in its way; the idle one never moves.
+/// `systems/units.md > UnitCollision > Ground Collision > Friendly yielding` (design change 0022): an idle unit of
+/// the mover's owner standing exactly in its way takes one short sidestep, without turning, and stays there (no
+/// way back); an enemy's idle unit never moves, and the mover walks around it.
 #[test]
-fn an_idle_unit_in_the_way_is_passed_and_never_moved() {
+fn an_idle_unit_in_the_way_steps_aside_if_it_is_the_movers_own() {
     let mut t = ScenarioBuilder::new(OPEN).start();
     let (start, idle, goal) = (v(100.0, 300.0), v(400.0, 300.0), v(800.0, 300.0));
     t.spawn_unit_at(1, PK, P1, start)
@@ -227,8 +227,14 @@ fn an_idle_unit_in_the_way_is_passed_and_never_moved() {
     // 700 su at 4 su per tick is 175 ticks; two detours.
     let done = run_until_done(&mut t, &ids(1..=1), 2 + 175 + 40);
     assert_eq!((t.pos(1), t.status(1)), (goal, MoveStatus::Arrived));
-    assert_eq!((t.pos(2), t.pos(3)), (idle, v(600.0, 304.0)));
+    // The Guard stepped ahead and aside, to the side the mover didn't go round on: one sidestep of its own width,
+    // 36 su (`YIELD_SIDESTEP_WIDTHS`), the most it takes.
+    let stepped = t.pos(2) - idle;
+    assert!(stepped.x > 0.0 && stepped.y < 0.0, "{stepped}");
+    assert!((stepped.length() - 36.0).abs() < 1e-3, "{stepped}");
+    assert_eq!(t.pos(3), v(600.0, 304.0));
     assert_eq!(t.sim().object(ObjectId(2)).unwrap().facing, 0.0);
+    assert_eq!(t.mover(2).sidestep, None);
     assert!(done >= 177);
 }
 
@@ -319,7 +325,7 @@ fn queued_waypoints_are_visited_in_order_under_collision() {
     let mut t = ScenarioBuilder::new(OPEN).start();
     let stops = [v(500.0, 100.0), v(500.0, 500.0), v(120.0, 500.0)];
     t.spawn_unit_at(1, PK, P1, v(100.0, 100.0))
-        .spawn_unit_at(1, GUARD, P1, v(300.0, 104.0)) // idle on the first leg
+        .spawn_unit_at(1, GUARD, P2, v(300.0, 104.0)) // idle on the first leg
         .spawn_unit_at(1, PK, P2, v(500.0, 300.0)) // idle on the second
         .spawn_unit_at(1, PK, P2, v(300.0, 700.0)); // crosses the third
     for (i, stop) in stops.into_iter().enumerate() {
