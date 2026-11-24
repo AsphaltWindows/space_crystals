@@ -1058,7 +1058,8 @@ unchecked.
   is logged as an error, fails a QA run (exit code 1) and shows in red in the top bar, and the playback goes on.
   Controls (Game context, placeholder keys): Space pauses and resumes, `.` plays one tick and pauses, `-` and `=`
   step through the speeds ×0.5, ×1, ×2, ×4 and max (`playback::SPEEDS`; `--fast` starts at max), F2 switches the
-  player and F3 the fog, also when the recorded game had no debug commands. The top bar shows "Replay x2", ", paused"
+  player and F3 the fog, also when the recorded game had no debug commands (the selection's and the fog's own
+  systems allow them while a `Playback` runs). The top bar shows "Replay x2", ", paused"
   or ", end", and "Tick n / end". Screenshots, `--exit-at-tick`, `--dump-state`, `--input-script` (to press the
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.

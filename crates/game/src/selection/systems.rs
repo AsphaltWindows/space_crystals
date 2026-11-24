@@ -17,6 +17,7 @@ use crate::command_ui::InterfaceState;
 use crate::fog::{FogOfWar, Sight};
 use crate::input::{ActionState, Bindings, InputAction, MapClick, SelectionBox};
 use crate::platform::SurfaceSize;
+use crate::replay::Playback;
 use crate::sim_driver::{LocalPlayer, SimEventMessage, SimRes};
 
 /// `> ControlState`: validated against the game state every tick. Removed objects (`SimEvent::Removed`, which
@@ -169,9 +170,15 @@ pub(super) fn control_group_keys(actions: Res<ActionState>, mut control: LocalCo
 
 /// The debug player switch: the local client acts as the next player of the game (in the sim's order, wrapping
 /// around), whose ControlState and "own" objects are then the ones in use. Only while the game's debug commands
-/// are on (`GameSetup::config`, `SimConfig::debug`).
-pub(super) fn switch_player(actions: Res<ActionState>, sim: Res<SimRes>, mut player: ResMut<LocalPlayer>) {
-    if !actions.just_pressed(InputAction::DebugSwitchPlayer) || !sim.config().debug {
+/// are on (`GameSetup::config`, `SimConfig::debug`); and in a replay's playback, where it only changes what the
+/// replay shows (`crate::replay`).
+pub(super) fn switch_player(
+    actions: Res<ActionState>,
+    sim: Res<SimRes>,
+    playback: Option<Res<Playback>>,
+    mut player: ResMut<LocalPlayer>,
+) {
+    if !actions.just_pressed(InputAction::DebugSwitchPlayer) || !(sim.config().debug || playback.is_some()) {
         return;
     }
     let ids: Vec<PlayerId> = sim.players().iter().map(|p| p.id).collect();
