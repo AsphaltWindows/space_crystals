@@ -69,6 +69,9 @@ When a Drone arrives at an occupied patch, it goes to the **nearest unoccupied p
 
 **Search radius** (user, 2026-11-24): a Drone only looks for another patch **within a radius around itself**. This radius is an internal per-unit stat of the Drone (stat name TBD). Value: **6 grid units (placeholder)**. Which patches count within it (e.g. only ones the player knows): TBD (Q0037 point 5).
 
+#### Gather while carrying a load
+(user, 2026-11-24) A Drone already carrying a load that is ordered to Gather goes **straight to the new pick-up point**. On arrival it sees it is already loaded, **skips mining** (it doesn't occupy the patch) and returns to deliver as if it had just mined the load there. From then on it follows the normal loop for its new patch.
+
 #### Drop Off order
 (user, 2026-11-24) An explicit **Drop Off** (right-click an own Egress Node or accepting refinery while carrying) is **only a delivery**, not a Gather: the Drone delivers its load and the order is **complete**. It then starts its next queued order (e.g. a Shift-queued build), or with nothing queued **becomes idle** at the drop-off point; it does not walk back to its patch. (If Drop Off counted as a Gather, an order Shift-queued behind it would wait until the field is mined out.)
 

@@ -2088,3 +2088,4 @@ Q0040 pt 8: Colonists panels; Beacon has two Warp In menus (Basic/Advanced provi
 Q0040 pt 9: Drones Groupable; lingering build ghosts (owner-only, reserve site); group Deploy goes to first Drone in selection order; Shift chains through Drone group (replaces 0071 for Drones). Entry 0125. Q0040 done.
 Q0045 pt 1: idle overlapping units push apart. Entry 0126.
 Q0045 pt 2 / Q0037 pt 1: Drop Off order = delivery only, then idle/next queued; passes through gathering Drones. Entry 0127. Q0045 done.
+Q0037 pt 2: loaded Drone ordered to Gather goes to patch, skips mining, returns. Entry 0128.
