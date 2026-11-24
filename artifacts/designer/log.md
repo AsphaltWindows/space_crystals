@@ -2057,3 +2057,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Q0027 pt 4: Starting Layout validation = normal rules minus visibility; units not on structures/impassable; no warnings. Entry 0097. Q0027 done.
 - 2026-11-24: Q0028 pt 1: plates pay in lumps; power penalty slows cycle. Entry 0098.
 - 2026-11-24: Q0028 pts 2-4: last load takes remainder; depleted patch stays under plate; click selects plate. Entry 0099. Q0028 done.
+- 2026-11-24: Q0029 pt 1: defeated player's units stay, uncontrollable, idle auto-target. Doc: core/game_rules.md > On Defeat. Entry 0100.
