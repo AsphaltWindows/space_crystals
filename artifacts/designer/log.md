@@ -2017,3 +2017,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T20:23:15-05:00 — Q0019 answered from docs: GDO sees live delivery timer for remembered station. Doc: core/map.md. Change entry 0057.
 - 2026-11-23T20:24:52-05:00 — Allies never multi-selected; GDO station intel intended. Change entry 0058. Q0013 + Q0019 done.
 - 2026-11-23T20:26:12-05:00 — Q0014.1: force-attack own/neutral allowed. Doc: commands.md. Change entry 0059.
+- 2026-11-23T20:28:48-05:00 — Q0014.2: hit at end of Firing; overkill wastes shot+cycle. Doc: combat.md. Change entry 0060.
