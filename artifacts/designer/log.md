@@ -2051,3 +2051,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Q0026 pt 1: GDO build area square. Entry 0091.
 - 2026-11-24: Q0026 pts 2-3: build area = union of current buildings (shrinks; no DC still OK). Entry 0092.
 - 2026-11-24: Q0026 pt 4: overlay = build area only. Entry 0093. Q0026 done.
+- 2026-11-24: Q0027 pt 1: ground units of any player block direct placement. Entry 0094.

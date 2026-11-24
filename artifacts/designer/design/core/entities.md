@@ -78,6 +78,7 @@ Structure placement is validated differently depending on the placement method:
 - All tiles under the footprint must pass validation at the moment the player confirms placement
 - For surface buildings: all footprint tiles must be in the **Visible** state for the placing player. If any tile is not Visible, the placement ghost is shown in red and placement cannot be confirmed
 - For underground expansions: validated against the relevant underground spatial rules (e.g., Tunnel Area bounds, no overlap). Surface visibility is not relevant. Surface flatness is not required either (core/map.md > Elevation > Structures only on flat terrain)
+- **No ground units on the footprint** (user, 2026-11-24): a ground unit of any player (own, allied or enemy) standing on any footprint tile makes those tiles invalid (red on the ghost), and the building can't be placed until they move. Own units are not pushed aside (considered: idle own units stepping aside; judged unnecessary). Air and underground units never block placement.
 - Standard spatial checks also apply (tiles must be Buildable, no existing structure overlap, faction-specific constraints like GDO Build Area). Surface structures also need every footprint tile to be **flat** (core/map.md > Elevation > Structures only on flat terrain)
 
 ### Worker-Built Structures (e.g., Agent building a Tunnel, Drone deploying a Beacon)
