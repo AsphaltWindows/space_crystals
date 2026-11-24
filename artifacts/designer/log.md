@@ -2100,3 +2100,4 @@ Q0037 pts 9-10: rally always = unit's default right-click (Drone on patch Gather
 Q0044 pt 2 / Q0037 pt 11: plate can be placed on a patch a Drone mines; plated patch gone for Drones. Entry 0137.
 Q0037 pt 13: Drone last load takes remainder. Entry 0138. Q0037 done.
 Q0044 pts 1,6 / Q0017 pt 2: remembered objects targetable (incl. rally on remembered enemy structures). Entry 0139.
+Q0044 pt 3: empty Drone right-click node = Move. Entry 0140.
