@@ -22,7 +22,7 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::{CursorIcon, CustomCursor, CustomCursorImage, PrimaryWindow, SystemCursorIcon};
 
 use super::indicators::{AGGRESSIVE_COLOR, ATTACK_COLOR, MOVE_COLOR};
-use super::interface::{InterfaceState, active_template, commandable};
+use super::interface::{InterfaceState, Modes, UnitCommand, able, active_template, commandable};
 use super::resolution::{CursorTarget, PointerDisplay, pointer_display};
 use crate::fog::LocalSight;
 use crate::input::{ActionState, RawInput};
@@ -118,8 +118,13 @@ fn update_pointer_look(
             let objects = Selectables::new(sim, &sight, alpha.0);
             let template = active_template(&state.selection).filter(|_| commandable(sim, player, &state.selection));
             let target = CursorTarget::at(&objects, view, ground);
+            // `factions/gdo/units.md > Peacekeeper > Riot Shield`: with every shield up, a right-click moves.
+            let modes = Modes::of(sim, &state.selection);
+            let armed = able(&state.selection, UnitCommand::Attack)
+                .into_iter()
+                .any(|id| modes.can_attack(id));
             PointerLook {
-                display: Some(pointer_display(template, state.interface, target)),
+                display: Some(pointer_display(template, state.interface, target, armed)),
                 targeting: state.interface != InterfaceState::DefaultState,
                 hovered: objects.at(view).map(|o| o.relation),
             }

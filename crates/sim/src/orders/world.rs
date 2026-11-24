@@ -48,6 +48,8 @@ pub(crate) struct Unit<'a> {
     pub facing: f32,
     pub mover: &'a mut Mover,
     pub attack: Option<&'a mut AttackState>,
+    /// Whether its mode lets it attack now: not while its Riot Shield is up (`riot_shield::allows_attack`).
+    pub may_attack: bool,
 }
 
 impl Unit<'_> {
@@ -55,9 +57,14 @@ impl Unit<'_> {
         self.kind.def().unit.as_ref()
     }
 
-    /// Its attack, if it has one (`systems/combat.md > AttackAttributes`).
+    /// Its attack, if it has one (`systems/combat.md > AttackAttributes`) and may use it now. A unit whose Riot
+    /// Shield is up has none (`factions/gdo/units.md > Peacekeeper > Riot Shield`: it "cannot attack" and "does not
+    /// auto-target enemies"): its behaviours pick no target and let go of the one they engaged.
     pub fn attrs(&self) -> Option<&'static AttackAttrs> {
-        self.unit_def()?.attack.as_ref().filter(|_| self.attack.is_some())
+        self.unit_def()?
+            .attack
+            .as_ref()
+            .filter(|_| self.attack.is_some() && self.may_attack)
     }
 
     pub fn shape(&self) -> Shape {

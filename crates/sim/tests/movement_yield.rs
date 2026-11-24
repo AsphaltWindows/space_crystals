@@ -14,8 +14,8 @@ use sc_sim::mover::{GIVE_UP_TICKS, MAX_REPATHS, OCCUPIED_ARRIVAL_GU, REPATH_WAIT
 use sc_sim::testing::invariants::Invariants;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
-    Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Sim, SimEvent, Target,
-    TickInputs, Vec2, gu,
+    Ability, Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, RiotShield,
+    Sim, SimEvent, Target, TickInputs, Vec2, gu,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -271,20 +271,35 @@ fn a_unit_attacking_from_where_it_stands_doesnt_budge() {
     assert_eq!((t.pos(3), t.status(3)), (v(520.0, 300.0), MoveStatus::Arrived));
 }
 
-/// A game saved in tick 1 with unit 2's `Mover::speed_factor` set to `factor`: the unit's mode, which nothing in the
-/// sim sets yet. Unit 1 (player 1) is ordered east through unit 2 (an idle Peacekeeper of player 1, exactly in its
-/// way) in tick 2. Returns unit 2's positions after each tick up to tick 120; the invariants are checked on the
-/// way.
-fn idle_unit_in_a_mode(factor: f32) -> Vec<Vec2> {
+/// The mode of the idle unit of [`idle_unit_in_a_mode`].
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Mode {
+    /// None: it moves at its full speed.
+    Normal,
+    /// Its Riot Shield raised in tick 1 (`factions/gdo/units.md > Peacekeeper > Riot Shield`): half speed.
+    Shielded,
+    /// A mode it can't move in, stood in for by a save edited in tick 1 to a `Mover::speed_factor` of 0.
+    Fixed,
+}
+
+/// Unit 1 (player 1) is ordered east through unit 2 (an idle Peacekeeper of player 1, exactly in its way, in `mode`)
+/// in tick 2, the game having been saved and loaded in tick 1. Returns unit 2's positions after each tick up to tick
+/// 120; the invariants are checked on the way.
+fn idle_unit_in_a_mode(mode: Mode) -> Vec<Vec2> {
     let mut t = ScenarioBuilder::new(OPEN).start();
     t.without_auto_targeting();
     t.spawn_unit_at(1, PK, P1, v(300.0, 300.0))
-        .spawn_unit_at(1, PK, P1, v(400.0, 300.0))
-        .run(1);
+        .spawn_unit_at(1, PK, P1, v(400.0, 300.0));
+    if mode == Mode::Shielded {
+        t.ability_at(1, P1, &[ObjectId(2)], Ability::RiotShield { raise: true });
+    }
+    t.run(1);
     let mut save = serde_json::to_value(t.sim()).unwrap();
-    let unit = &mut save["objects"][1];
-    assert_eq!(unit["id"], 2);
-    unit["mover"]["speed_factor"] = factor.into();
+    if mode == Mode::Fixed {
+        let unit = &mut save["objects"][1];
+        assert_eq!(unit["id"], 2);
+        unit["mover"]["speed_factor"] = 0.0.into();
+    }
     let mut sim: Sim = serde_json::from_value(save).unwrap();
     let mut invariants = Invariants::new(&sim);
     let order = PlayerCommand {
@@ -308,31 +323,39 @@ fn idle_unit_in_a_mode(factor: f32) -> Vec<Vec2> {
     }
     let walker = sim.object(ObjectId(1)).unwrap();
     assert_eq!(walker.pos, v(600.0, 300.0), "the walker got past");
+    let idle = sim.object(ObjectId(2)).unwrap();
+    assert!(idle.orders.as_ref().unwrap().is_idle());
+    let shield = if mode == Mode::Shielded {
+        RiotShield::Raised
+    } else {
+        RiotShield::Lowered
+    };
+    assert_eq!(idle.riot_shield, Some(shield), "a mode, not a task");
     places
 }
 
 /// 0023, Verification: "Walk a unit through your own idle Peacekeepers with shields raised: they step aside (at
-/// their shielded speed)." and "Through a deployed Artillery Rig: the mover paths around it."
+/// their shielded speed)." and "Through a deployed Artillery Rig: the mover paths around it." The shield stays up
+/// all the while.
 ///
-/// TODO(Riot Shield, Artillery Rig): neither mode exists in the sim yet. Until they do, the modes are stood in for
-/// by what they will set: the Riot Shield's speed factor of 0.5 (`factions/gdo/units.md > Peacekeeper`), and for a
-/// unit that can't move the hook `Mover::can_move`, which a speed factor of 0 answers.
+/// TODO(Artillery Rig): the deployed mode doesn't exist in the sim yet. Until it does, it is stood in for by what it
+/// will set: the hook for a unit that can't move, `Mover::can_move`, which a speed factor of 0 answers.
 #[test]
-fn a_slowed_unit_yields_at_its_speed_and_a_unit_that_cant_move_never_yields() {
+fn a_shielded_unit_yields_at_its_speed_and_a_unit_that_cant_move_never_yields() {
     let start = v(400.0, 300.0);
     let steps = |places: &[Vec2]| -> Vec<f32> {
         let from = std::iter::once(&start).chain(places);
         from.zip(places).map(|(a, b)| a.distance(*b)).collect()
     };
     let fastest = |steps: &[f32]| steps.iter().copied().fold(0.0_f32, f32::max);
-    let unshielded = steps(&idle_unit_in_a_mode(1.0));
+    let unshielded = steps(&idle_unit_in_a_mode(Mode::Normal));
     assert!((fastest(&unshielded) - 4.0).abs() < 1e-3, "{unshielded:?}");
 
-    let shielded = idle_unit_in_a_mode(0.5);
+    let shielded = idle_unit_in_a_mode(Mode::Shielded);
     assert_ne!(*shielded.last().unwrap(), start, "it stepped aside");
     assert!((fastest(&steps(&shielded)) - 2.0).abs() < 1e-3, "at its shielded speed");
 
-    let deployed = idle_unit_in_a_mode(0.0);
+    let deployed = idle_unit_in_a_mode(Mode::Fixed);
     assert!(deployed.iter().all(|p| *p == start), "a fixed obstacle");
 }
 

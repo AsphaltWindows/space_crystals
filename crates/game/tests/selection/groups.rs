@@ -71,30 +71,40 @@ fn a_double_tap_recalls_the_group_and_centers_the_camera_on_it() {
     assert_eq!(selected(&app), [2]);
 }
 
-/// `> Selection > Constraints` hold for control groups too (placeholder rule: the design doesn't cover groups with
-/// other players' objects): an enemy object can be a group alone, but never joins others.
+/// `> ControlGroups > Groups` (design change 0056): only own objects go into control groups. With an enemy or a
+/// neutral object selected, Assign and Add change nothing: a group keeps what it holds, an empty one stays empty.
 #[test]
-fn another_players_object_is_a_control_group_alone() {
+fn only_own_objects_go_into_control_groups() {
     let mut app = game();
     click(&mut app, at(1), &[]);
     tap(&mut app, &[ControlLeft], Digit1);
     pause(&mut app);
-    click(&mut app, at(ENEMY_PK), &[]);
-    tap(&mut app, &[ShiftLeft], Digit1);
-    assert_eq!(control_group(&app, 1), [1], "the enemy doesn't join");
-    pause(&mut app);
-    tap(&mut app, &[ControlLeft], Digit2);
-    assert_eq!(control_group(&app, 2), [ENEMY_PK]);
-    pause(&mut app);
+    for inspected in [ENEMY_PK, PATCH] {
+        // Select an enemy (or a neutral object) and press Ctrl + 1: group 1 is unchanged.
+        click(&mut app, at(inspected), &[]);
+        tap(&mut app, &[ControlLeft], Digit1);
+        assert_eq!(control_group(&app, 1), [1], "Ctrl + 1 leaves group 1 as it was");
+        pause(&mut app);
+        tap(&mut app, &[ShiftLeft], Digit1);
+        assert_eq!(control_group(&app, 1), [1], "the enemy doesn't join it");
+        pause(&mut app);
+        tap(&mut app, &[ControlLeft], Digit2);
+        pause(&mut app);
+        tap(&mut app, &[ShiftLeft], Digit2);
+        assert!(control_group(&app, 2).is_empty(), "nor does it make a group alone");
+        pause(&mut app);
+        assert_eq!(selected(&app), [inspected]);
+    }
+    // Own units still go in, and the groups recall them.
     click(&mut app, at(2), &[]);
     tap(&mut app, &[ShiftLeft], Digit2);
-    assert_eq!(control_group(&app, 2), [ENEMY_PK], "nor do own units join it");
-    pause(&mut app);
-    tap(&mut app, &[], Digit2);
-    assert_eq!(selected(&app), [ENEMY_PK]);
+    assert_eq!(control_group(&app, 2), [2]);
     pause(&mut app);
     tap(&mut app, &[], Digit1);
     assert_eq!(selected(&app), [1]);
+    pause(&mut app);
+    tap(&mut app, &[], Digit2);
+    assert_eq!(selected(&app), [2]);
 }
 
 #[test]

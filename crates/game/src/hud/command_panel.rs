@@ -4,7 +4,8 @@
 //! Placeholder buttons until the art exists (Q0001): a short label in the middle and the slot's hotkey, from the
 //! bindings, in the top-left corner. Each look has its colours: common commands blue, group commands violet (the
 //! design wants the two "visually distinguished"), the PendingCommand lit up in yellow, disabled commands grey and
-//! dim, unavailable ones near-black with a dark red border, Back slate. A click on a button is a press of its slot,
+//! dim, unavailable ones near-black with a dark red border, Back slate. A toggle that is on (the Riot Shields up)
+//! has a thick green border, and its label says what pressing it does. A click on a button is a press of its slot,
 //! handled with the hotkeys (`crate::command_ui`), which finds the button by the same geometry ([`CommandGrid`]).
 
 use bevy::ecs::system::SystemParam;
@@ -14,7 +15,7 @@ use super::layout::{CommandGrid, SECTION_BORDER_PX, section_rect};
 use super::{HudSection, SectionLabel, show_node, text};
 use crate::ClientMode;
 use crate::command_ui::interface::{commandable, panel, slot_index};
-use crate::command_ui::{ButtonLook, Panel, PanelButton, PanelSlot};
+use crate::command_ui::{ButtonLook, Modes, Panel, PanelSlot};
 use crate::input::{Bindings, Button, CommandSlot, InputAction};
 use crate::platform::SurfaceSize;
 use crate::selection::ControlStates;
@@ -23,6 +24,8 @@ use crate::sim_driver::{LocalPlayer, SimRes};
 /// Sizes of a button's label and hotkey (placeholders).
 const LABEL_VH: f32 = 1.5;
 const HOTKEY_VH: f32 = 1.2;
+/// The border of a toggle that is on (placeholder).
+const ON_BORDER: Color = Color::srgb(0.45, 0.95, 0.55);
 
 /// A button of the panel: its slot and what it shows.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
@@ -86,7 +89,8 @@ impl PanelSource<'_> {
     fn panel(&self) -> Panel {
         let state = self.states.of(self.player.0);
         if self.mode.is_game() && commandable(&self.sim, self.player.0, &state.selection) {
-            panel(&state.selection, state.interface)
+            let modes = Modes::of(&self.sim, &state.selection);
+            panel(&state.selection, state.interface, &modes)
         } else {
             Panel::default()
         }
@@ -136,7 +140,7 @@ pub(super) fn update_command_panel(
             .spawn((
                 Name::new("Command button"),
                 CommandButton { slot, shown: button },
-                button_node(rect.min - origin, rect.width(), button.look),
+                button_node(rect.min - origin, rect.width(), button),
                 ChildOf(section),
             ))
             .id();
@@ -175,8 +179,10 @@ fn colors(look: ButtonLook) -> (Color, Color, Color) {
 }
 
 /// A button's node, background and border.
-fn button_node(at: Vec2, side: f32, look: ButtonLook) -> impl Bundle {
-    let (background, border, _) = colors(look);
+fn button_node(at: Vec2, side: f32, shown: PanelSlot) -> impl Bundle {
+    let (background, border, _) = colors(shown.look);
+    let border = if shown.on { ON_BORDER } else { border };
+    let lit = shown.look == ButtonLook::Pending || shown.on;
     (
         Node {
             position_type: PositionType::Absolute,
@@ -184,7 +190,7 @@ fn button_node(at: Vec2, side: f32, look: ButtonLook) -> impl Bundle {
             top: px(at.y),
             width: px(side),
             height: px(side),
-            border: UiRect::all(px(if look == ButtonLook::Pending { 2.0 } else { 1.0 })),
+            border: UiRect::all(px(if lit { 2.0 } else { 1.0 })),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -197,11 +203,7 @@ fn button_node(at: Vec2, side: f32, look: ButtonLook) -> impl Bundle {
 /// A button's label in the middle and its hotkey in the top-left corner.
 fn spawn_button_content(commands: &mut Commands, button: Entity, shown: PanelSlot, hotkey: String) {
     let (_, _, color) = colors(shown.look);
-    let label = match shown.button {
-        PanelButton::Command(command) => command.label(),
-        PanelButton::Back => "Back",
-    };
-    commands.spawn((text(label, LABEL_VH, color), ChildOf(button)));
+    commands.spawn((text(shown.label(), LABEL_VH, color), ChildOf(button)));
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,

@@ -151,6 +151,8 @@ Ground infantry unit. Small, responsive, and able to traverse rugged terrain. Re
 ### MovementModel - TurnRateMovement
 ### RuggedTerrainDefenseBonus - number
 
+**Which tile counts** (user, 2026-11-23): a unit is "on Rugged terrain" when the tile under its **centre** is Rugged. This applies to the RuggedTerrainDefenseBonus and to the HoverVehicle's double drag. (Passability is different: a unit that can't enter Rugged terrain may not overlap a Rugged tile at all.)
+
 ## HeavyInfantry
 Ground infantry unit. Sturdier than Light Infantry and cannot be crushed. Traverses rugged terrain but does not receive a defensive bonus there.
 

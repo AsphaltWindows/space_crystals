@@ -28,6 +28,7 @@ pub mod orders;
 mod paths;
 pub mod player;
 pub mod replay;
+pub mod riot_shield;
 pub mod rng;
 pub mod scenario;
 pub mod scenarios;
@@ -39,7 +40,7 @@ pub mod units;
 pub mod vision;
 
 pub use combat::{AttackPhase, AttackState};
-pub use command::{Command, DebugCommand, PlayerCommand, TickInputs};
+pub use command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs};
 pub use defs::{Category, Footprint, ObjectDef, ObjectKind};
 pub use events::SimEvent;
 pub use glam::Vec2;
@@ -51,6 +52,7 @@ pub use object::{Object, Placement, ResourceState, Rotation};
 pub use orders::{OrderKind, Orders, Target};
 pub use player::{Faction, Player};
 pub use replay::Replay;
+pub use riot_shield::RiotShield;
 pub use rng::Rng;
 pub use scenario::{
     BuildingOrientation, GameSetup, LayoutObject, MapDef, MapSettings, MapType, PlayerSetup, Scenario, ScenarioProblem,

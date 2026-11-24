@@ -13,16 +13,18 @@
 //!
 //! Colours follow `> Color language`: green for Move, red for Attack, orange for AttackMove and Patrol. A target
 //! object marks nothing, and ends no route leg, while the fog of war hides it from the local player
-//! (`crate::fog::Sight::shows`): the indicators would give away where it is. Everything is one alpha-blended mesh
-//! in the overlays layer, between the path overlay and the combat effects, rebuilt every frame while anything
-//! shows. Flashes age by the sim's ticks and the render alpha, so a QA screenshot of a tick (alpha 1) always shows
-//! them alike.
+//! (`crate::fog::Sight::sees`): the indicators would give away where it is. A Move to a structure or resource on
+//! Explored tiles marks where the player remembers it (`crate::fog::Sight::remembered`). Everything is one
+//! alpha-blended mesh in the overlays layer, between the path overlay and the combat effects, rebuilt every frame
+//! while anything shows. Flashes age by the sim's ticks and the render alpha, so a QA screenshot of a tick (alpha 1)
+//! always shows them alike.
 
 use std::collections::BTreeSet;
 use std::f32::consts::TAU;
 
 use bevy::prelude::*;
 use sc_sim::orders::Order;
+use sc_sim::vision::LastKnown;
 use sc_sim::{Map, Object, ObjectId, OrderKind, SU_PER_GU, Sim, Target, Tick};
 
 use super::OrderIssued;
@@ -116,8 +118,8 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
 }
 
 /// The indicator of an order (`> Indicator assignments`): a Location for Move, AttackMove and Patrol (a Move to an
-/// object at the object, wherever it is now), an Object for Attack; none for orders without a target, or whose
-/// target is gone or hidden from `sight`.
+/// object at the object, wherever it is now, or where the player remembers it), an Object for Attack; none for
+/// orders without a target, or whose target is gone or hidden from `sight`.
 pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator> {
     let color = order_color(kind)?;
     match kind {
@@ -125,17 +127,26 @@ pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator>
             Some(Indicator::Location { at, color })
         }
         OrderKind::Move(Target::Object(id)) => {
-            let at = shown(sim, sight, id)?.pos;
+            let at = shown_at(sim, sight, id)?;
             Some(Indicator::Location { at, color })
         }
-        OrderKind::Attack(id) => shown(sim, sight, id).map(|_| Indicator::Object { id, color }),
+        OrderKind::Attack(id) => seen(sim, sight, id).map(|_| Indicator::Object { id, color }),
         OrderKind::Hold | OrderKind::Stop => None,
     }
 }
 
-/// Object `id`, if it exists and `sight` shows it.
-fn shown<'a>(sim: &'a Sim, sight: &Sight, id: ObjectId) -> Option<&'a Object> {
-    sim.object(id).filter(|o| sight.shows(o))
+/// Object `id`, if it exists and `sight` sees it.
+fn seen<'a>(sim: &'a Sim, sight: &Sight, id: ObjectId) -> Option<&'a Object> {
+    sim.object(id).filter(|o| sight.sees(o))
+}
+
+/// Where `sight` shows object `id` (ground space): where it is if the player sees it, else where the record shown
+/// in its place has it.
+fn shown_at(sim: &Sim, sight: &Sight, id: ObjectId) -> Option<Vec2> {
+    match seen(sim, sight, id) {
+        Some(o) => Some(o.pos),
+        None => sight.remembered_record(id).map(LastKnown::pos),
+    }
 }
 
 /// The indicators of the current orders of the selected units of the player whose `sight` this is, and of their
@@ -177,12 +188,13 @@ fn own_selected<'a>(
         .filter(move |o| o.owner == Some(player))
 }
 
-/// Where the leg of a route that carries out `order` ends, ground space: the target object where it is, else the
-/// unit's own destination (its place in the group's shape, `Order::destination`); none for Hold and Stop, and for
-/// a target hidden from `sight`.
+/// Where the leg of a route that carries out `order` ends, ground space: the target object where it is shown, else
+/// the unit's own destination (its place in the group's shape, `Order::destination`); none for Hold and Stop, and
+/// for a target hidden from `sight`.
 fn waypoint(sim: &Sim, sight: &Sight, order: &Order) -> Option<Vec2> {
     match order.kind {
-        OrderKind::Move(Target::Object(id)) | OrderKind::Attack(id) => shown(sim, sight, id).map(|o| o.pos),
+        OrderKind::Move(Target::Object(id)) => shown_at(sim, sight, id),
+        OrderKind::Attack(id) => seen(sim, sight, id).map(|o| o.pos),
         _ => order.destination(),
     }
 }

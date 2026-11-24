@@ -29,7 +29,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 
 use crate::combat::AttackPhase;
-use crate::command::{Command, DebugCommand, PlayerCommand, TickInputs};
+use crate::command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs};
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId, SlotId};
@@ -199,6 +199,12 @@ impl TestSim {
     ) -> &mut Self {
         let units = units.to_vec();
         self.at(tick, player, Command::Order { units, kind, queue })
+    }
+
+    /// [`TestSim::at`] for `player`'s `units` using `ability` (`Command::Ability`).
+    pub fn ability_at(&mut self, tick: Tick, player: PlayerId, units: &[ObjectId], ability: Ability) -> &mut Self {
+        let units = units.to_vec();
+        self.at(tick, player, Command::Ability { units, ability })
     }
 
     /// Advances one tick, applying the commands scheduled for it.

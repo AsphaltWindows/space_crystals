@@ -3,12 +3,13 @@
 //! `> CommandIndicators`; `systems/controls/commands.md > Unit Command`).
 //!
 //! - [`interface`]: the rules as plain data: the unit commands, the ObjectInterfaceState of each ControlState, the
-//!   command panel a selection gets and who receives a command;
+//!   command panel a selection gets and who receives a command, and the Peacekeeper's Riot Shield toggle in R with
+//!   what a raised shield allows ([`interface::Modes`]);
 //! - [`resolution`]: what a click on the map resolves to, and the PointerDisplayType that previews it;
 //! - the systems (`systems.rs`): command hotkeys and panel clicks, left-clicks while a target is awaited,
 //!   right-clicks and Esc change the local player's ObjectInterfaceState and give orders (`Command::Order` in
-//!   `PendingCommands`, with `queue` while the Queue modifier, Shift, is held); every frame the state is checked
-//!   against the game and falls back to DefaultState when it no longer holds;
+//!   `PendingCommands`, with `queue` while the Queue modifier, Shift, is held) and abilities (`Command::Ability`);
+//!   every frame the state is checked against the game and falls back to DefaultState when it no longer holds;
 //! - [`indicators`]: markers at the targets of the selected units' orders, a flash where an order was just given,
 //!   and the queued waypoints as lines while Shift is held;
 //! - [`cursor`]: the pointer's look, from the PointerDisplayType.
@@ -25,7 +26,7 @@ mod systems;
 use bevy::prelude::*;
 use sc_sim::{ObjectId, OrderKind, Tick};
 
-pub use interface::{ButtonLook, InterfaceState, InterfaceTemplate, Panel, PanelButton, PanelSlot, UnitCommand};
+pub use interface::{ButtonLook, InterfaceState, InterfaceTemplate, Modes, Panel, PanelButton, PanelSlot, UnitCommand};
 pub use resolution::{CursorTarget, PointerDisplay};
 
 use crate::ClientSystems;

@@ -36,11 +36,13 @@ fn texts(app: &mut App) -> Vec<String> {
 
 /// `> BasicCombatUnitInterfaceState > DefaultState commands` and `> Standard Slot Assignments` (0002): a selection
 /// of Peacekeepers and Guards shows Move (Q), Hold (E), Attack (A), Patrol (S) and Stop (X), all common to both
-/// types; Reverse (W) and AttackGround (D) unavailable to both; Z, C and V empty. Each button is labelled with its
-/// command and its hotkey. While a target is awaited Z is Back, and disabled and unavailable buttons look apart.
+/// types; Reverse (W) and AttackGround (D) unavailable to both; Z, C and V empty. The Peacekeepers, the ActiveGroup,
+/// add their Riot Shield in R, a group command (`factions/gdo/units.md > Peacekeeper > Riot Shield`). Each button is
+/// labelled with its command and its hotkey. While a target is awaited Z is Back, and disabled and unavailable
+/// buttons look apart.
 #[test]
 fn a_mixed_selection_shows_the_basic_combat_unit_grid() {
-    use ButtonLook::{Common, Unavailable};
+    use ButtonLook::{Common, Group, Unavailable};
     use UnitCommand::*;
     let mut app = game();
     assert!(buttons(&mut app).is_empty(), "nothing selected");
@@ -53,6 +55,7 @@ fn a_mixed_selection_shows_the_basic_combat_unit_grid() {
             (slot(0, 0), c(Move), Common),
             (slot(0, 1), c(Reverse), Unavailable),
             (slot(0, 2), c(HoldPosition), Common),
+            (slot(0, 3), c(RiotShield), Group),
             (slot(1, 0), c(Attack), Common),
             (slot(1, 1), c(Patrol), Common),
             (slot(1, 2), c(AttackGround), Unavailable),
@@ -63,7 +66,20 @@ fn a_mixed_selection_shows_the_basic_combat_unit_grid() {
     assert_eq!(view.hotkeys[..4], ["Q", "W", "E", "R"]);
     assert_eq!(view.hotkeys[8..], ["Z", "X", "C", "V"]);
     let shown = texts(&mut app);
-    for label in ["Move", "Hold", "Attack", "Patrol", "Stop", "Q", "E", "A", "S", "X"] {
+    for label in [
+        "Move",
+        "Hold",
+        "Raise Shield",
+        "Attack",
+        "Patrol",
+        "Stop",
+        "Q",
+        "E",
+        "R",
+        "A",
+        "S",
+        "X",
+    ] {
         assert!(shown.contains(&label.to_string()), "{label} in {shown:?}");
     }
     assert!(!name_shown(&mut app), "the section's name gives way");
@@ -120,9 +136,8 @@ fn hotkeys_and_buttons_issue_immediate_commands() {
     assert_eq!(orders(&app).len(), 4);
 }
 
-/// `> CommandPanel`: a common command goes to the whole selection, whichever group is active. (A group command,
-/// which only the ActiveGroup receives, needs types with different commands; the M1 units share theirs, so the
-/// rules' unit tests cover it, `command_ui::interface`.)
+/// `> CommandPanel`: a common command goes to the whole selection, whichever group is active. (A group command goes
+/// to the ActiveGroup alone: the Peacekeepers' Riot Shield, `riot_shield.rs`.)
 #[test]
 fn common_commands_go_to_the_whole_selection_from_any_active_group() {
     let mut app = game();

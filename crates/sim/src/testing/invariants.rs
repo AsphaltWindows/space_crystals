@@ -197,11 +197,11 @@ impl Invariants {
     }
 }
 
-/// V1: the vision phase 5f keeps up incrementally is the one a fresh build from the objects gives, and every
-/// Visible tile is Explored.
+/// V1: the vision phase 5f keeps up incrementally is the one a fresh build from the objects gives, every Visible
+/// tile is Explored, and each player's records are those it should keep (`vision::memory`).
 fn vision(sim: &Sim) -> Result<(), Violation> {
     sim.vision()
-        .check(sim.map(), sim.objects())
+        .check(sim.map(), sim.objects(), sim.tick())
         .map_err(|(at, message)| Violation {
             invariant: "V1",
             message,

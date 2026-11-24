@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 use serde::{Deserialize, Serialize, Serializer};
 
-use crate::command::{PlayerCommand, TickInputs};
+use crate::command::{Ability, PlayerCommand, TickInputs};
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
@@ -22,7 +22,7 @@ use crate::rng::Rng;
 use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
 use crate::units::{Tick, TilePos};
 use crate::vision::{self, VisibilityState, Vision};
-use crate::{combat, movement, orders};
+use crate::{combat, movement, orders, riot_shield};
 
 use gate::Checked;
 pub use gate::Reject;
@@ -98,8 +98,9 @@ impl Sim {
             sim.insert_object(o.kind, o.owner, o.pos, o.placement, o.settings.as_ref());
         }
         sim.nav = NavState::build(&sim.map, &sim.objects);
-        // The starting objects' vision: tick 0 already shows what they see.
+        // The starting objects' vision: tick 0 already shows what they see, and remembers what it saw.
         sim.vision.update(&sim.map, sim.objects.values());
+        sim.vision.remember(sim.tick, |id| sim.objects.get(&id));
         // Scenario spawns emit no events (`ARCHITECTURE.md > Commands, events and replays`).
         sim.events.clear();
         Ok(sim)
@@ -270,6 +271,9 @@ impl Sim {
         for cmd in &inputs.commands {
             self.apply_command(cmd);
         }
+        // Modes: after the commands, so that a toggle counts from its own tick; before 5a, so that the behaviours,
+        // the movement and the combat of the tick all see the mode it leaves (`riot_shield`).
+        riot_shield::step(&mut self.objects, first_new);
         // Phases 5a–5f, `docs/movement.md > 4`.
         // 5a: after the commands, so an order acts in its own tick; before movement, so goals have one writer.
         // The behaviours read the positions and the vision the last tick left (5f).
@@ -308,6 +312,8 @@ impl Sim {
         // 5f: sees the tick's final positions, this tick's new objects included.
         self.vision.update(&self.map, self.objects.values());
         self.update_supply_stations(first_new);
+        // Last: the records of what each player sees keep the tick's final state, the deliveries included.
+        self.vision.remember(self.tick, |id| self.objects.get(&id));
         debug_assert!(
             self.nav.matches(&self.objects),
             "a blocking footprint changed after phase 5b: sync the grids again (`paths::sync`)"
@@ -322,6 +328,16 @@ impl Sim {
         };
         match checked {
             Checked::Order { units, kind, queue } => self.give_order(&units, kind, queue),
+            Checked::Ability { units, ability } => {
+                for id in &units {
+                    let Some(o) = self.objects.get_mut(id) else {
+                        continue;
+                    };
+                    match ability {
+                        Ability::RiotShield { raise } => riot_shield::toggle(o, raise),
+                    }
+                }
+            }
             Checked::Spawn {
                 kind,
                 owner,
@@ -406,6 +422,12 @@ impl Sim {
                 .as_ref()
                 .and_then(|unit| unit.attack.as_ref())
                 .map(|_| combat::AttackState::default()),
+            // `factions/gdo/units.md > Peacekeeper > Riot Shield`: units that carry one; it starts down.
+            riot_shield: def
+                .unit
+                .as_ref()
+                .and_then(|unit| unit.riot_shield.as_ref())
+                .map(|_| riot_shield::RiotShield::Lowered),
         };
         self.objects.insert(id, object);
         self.events.push(SimEvent::Spawned(id));
@@ -470,7 +492,7 @@ struct SimState {
     nav_version: u32,
     auto_targeting: bool,
     events: Vec<SimEvent>,
-    vision: Vec<vision::ExploredRows>,
+    vision: Vec<vision::SavedVision>,
 }
 
 impl TryFrom<SimState> for Sim {
@@ -489,7 +511,7 @@ impl TryFrom<SimState> for Sim {
             nav_version,
             auto_targeting,
             events,
-            vision: explored,
+            vision: saved,
         } = state;
         let mut objects = BTreeMap::new();
         for o in list {
@@ -504,7 +526,7 @@ impl TryFrom<SimState> for Sim {
         let nav = NavState::build(&map, &objects);
         // The Visible tiles follow from the objects, which is how phase 5f left them.
         let ids: Vec<PlayerId> = players.iter().map(|p| p.id).collect();
-        let vision = vision::load(&map, &ids, explored, objects.values())?;
+        let vision = vision::load(&map, &ids, saved, tick, objects.values())?;
         Ok(Sim {
             tick,
             map,

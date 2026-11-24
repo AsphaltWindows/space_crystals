@@ -15,9 +15,9 @@ use crate::input::ControlGroup;
 pub const MAX_SELECTED: usize = sc_sim::orders::MAX_ORDER_UNITS;
 
 /// Names a SelectionGroup (`> SelectionGroup`): its type and, for an Ungroupable type (`Groupable = false`), its one
-/// instance, since each instance of such a type is a group of its own. The design types ActiveGroup as an
-/// `ObjectEnum`, which can't tell an Ungroupable type's groups apart, so the client names groups by this key.
-/// Groups are ordered by it: by type (`ObjectKind` order), then by instance.
+/// instance, since each instance of such a type is a group of its own. The ActiveGroup is one SelectionGroup, which
+/// for an Ungroupable type means one instance (`> Selection > ActiveGroup`, design change 0048); the client names
+/// it by this key. Groups are ordered by it: by type (`ObjectKind` order), then by instance.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GroupKey {
     pub kind: ObjectKind,
@@ -101,7 +101,9 @@ impl Selection {
         self.members.keys().copied()
     }
 
-    /// The SelectionGroups, in [`GroupKey`] order.
+    /// The SelectionGroups, in [`GroupKey`] order: the one order in which the SelectionPanel shows them and Tab and
+    /// Shift-Tab cycle them (`> SelectionPanel`, design change 0055: a stable order of the implementation's choosing,
+    /// a placeholder until the HUD pass). It doesn't depend on the order in which the objects were selected.
     pub fn groups(&self) -> Vec<SelectionGroup> {
         let mut keyed: Vec<(GroupKey, ObjectId)> =
             self.members().map(|(id, kind)| (GroupKey::of(id, kind), id)).collect();
@@ -168,7 +170,8 @@ impl Selection {
         changed
     }
 
-    /// `> GroupCycling`: makes the next group (`forward`) or the previous one active, wrapping around at the ends.
+    /// `> GroupCycling`: makes the next group (`forward`) or the previous one active, in [`Selection::groups`] order,
+    /// wrapping around at the ends.
     pub fn cycle(&mut self, forward: bool) -> bool {
         let groups = self.groups();
         let Some(current) = groups.iter().position(|g| Some(g.key) == self.active) else {
@@ -195,7 +198,9 @@ impl Selection {
     }
 }
 
-/// `> ControlGroups`: 10 saved selections. An object may be in several groups; a group never holds an object twice.
+/// `> ControlGroups`: 10 saved selections. An object may be in several groups; a group never holds an object twice,
+/// and holds only the player's own objects (design change 0056, which the rules see to: `ControlState::assign_group`
+/// and `add_to_group`).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ControlGroups {
     /// Each group's objects, in id order.
@@ -278,7 +283,8 @@ mod tests {
 
     const PK: ObjectKind = ObjectKind::Peacekeeper;
     const GUARD: ObjectKind = ObjectKind::Guard;
-    /// Ungroupable (`core/map.md > SpaceCrystalsPatch`).
+    /// Ungroupable (`core/map.md > SpaceCrystalsPatch`). The rules never select a resource with other objects (design
+    /// change 0048); the patch stands in for the Ungroupable own structures that don't exist yet.
     const PATCH: ObjectKind = ObjectKind::CrystalPatch;
 
     fn id(n: u32) -> ObjectId {

@@ -14,6 +14,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy::window::ExitSystems;
+use sc_sim::vision::LastKnown;
 use sc_sim::{Command, Map, Object, ObjectId, Player, PlayerCommand, PlayerId, SimEvent, Tick};
 use serde::{Deserialize, Serialize};
 
@@ -370,6 +371,9 @@ pub struct ClientDump {
     pub recorded_ticks: usize,
     /// The local player's selection.
     pub selection: Vec<ObjectId>,
+    /// The local player's records of the structures and resources it has seen (`PlayerVision::records`), by id:
+    /// what its Explored tiles show of them.
+    pub last_known: Vec<LastKnown>,
 }
 
 fn write_state_dump(path: &Path, sources: &DumpSources) -> Result<(), String> {
@@ -390,6 +394,10 @@ fn write_state_dump(path: &Path, sources: &DumpSources) -> Result<(), String> {
                 .control
                 .as_ref()
                 .map_or_else(Vec::new, |c| c.selection(sources.player.0).ids().collect()),
+            last_known: sim
+                .vision()
+                .player(sources.player.0)
+                .map_or_else(Vec::new, |v| v.records().cloned().collect()),
         },
         map: sim.map(),
     };

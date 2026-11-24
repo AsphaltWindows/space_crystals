@@ -2013,3 +2013,17 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T20:01:04-05:00 — Add inputs on enemy selection do nothing. Doc: selection_and_hud.md. Change entry 0053.
 - 2026-11-23T20:01:57-05:00 — InfoPanel 2+ placeholder, bookmarked. Change entry 0054.
 - 2026-11-23T20:03:22-05:00 — SelectionPanel grouping bookmarked for HUD pass. Change entry 0055.
+- 2026-11-23T20:22:55-05:00 — Control groups own objects only. Doc: selection_and_hud.md. Change entry 0056. Took in Q0018, Q0019.
+- 2026-11-23T20:23:15-05:00 — Q0019 answered from docs: GDO sees live delivery timer for remembered station. Doc: core/map.md. Change entry 0057.
+- 2026-11-23T20:24:52-05:00 — Allies never multi-selected; GDO station intel intended. Change entry 0058. Q0013 + Q0019 done.
+- 2026-11-23T20:26:12-05:00 — Q0014.1: force-attack own/neutral allowed. Doc: commands.md. Change entry 0059.
+- 2026-11-23T20:28:48-05:00 — Q0014.2: hit at end of Firing; overkill wastes shot+cycle. Doc: combat.md. Change entry 0060.
+- 2026-11-23T20:30:33-05:00 — Q0014.3: rugged effects by centre tile. Doc: units.md. Change entry 0061. Q0014 done.
+- 2026-11-23T20:31:43-05:00 — Q0016.1: non-capable units move/follow on right-click. Doc: selection_and_hud.md. Change entry 0062.
+- 2026-11-23T20:35:28-05:00 — Right-click per-unit resolution; Mixed cursor. Doc: selection_and_hud.md. Change entry 0063.
+- 2026-11-23T20:35:43-05:00 — Consistency fix: Attack targeting UI accepts own/neutral destructibles. Doc: selection_and_hud.md. Change entry 0064.
+- 2026-11-23T20:37:18-05:00 — Q0016.2: invalid target click ignored + feedback. Doc: selection_and_hud.md. Change entry 0065.
+- 2026-11-23T20:44:54-05:00 — Q0016.3a: no command switching while targeting. Doc: selection_and_hud.md. Change entry 0066.
+- 2026-11-23T20:45:39-05:00 — Q0016.3b: drag while targeting does nothing. Change entry 0067.
+- 2026-11-23T20:46:27-05:00 — Targeting click at press point. Change entry 0068.
+- 2026-11-23T20:49:36-05:00 — Q0016.3c: selection changes while targeting. Doc: selection_and_hud.md. Change entry 0069.

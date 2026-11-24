@@ -6,7 +6,7 @@ use std::fmt;
 use glam::Vec2;
 
 use super::Sim;
-use crate::command::{Command, DebugCommand, PlayerCommand};
+use crate::command::{Ability, Command, DebugCommand, PlayerCommand};
 use crate::defs::{Domain, ObjectKind};
 use crate::ids::{ObjectId, PlayerId};
 use crate::nav;
@@ -14,6 +14,7 @@ use crate::object::{Object, Placement};
 use crate::orders::{MAX_ORDER_UNITS, OrderKind, Target};
 use crate::paths::{blocking_footprint, box_overlaps_rect, boxes_overlap};
 use crate::player::Faction;
+use crate::riot_shield;
 use crate::scenario::{SpawnProblem, place_spawn};
 use crate::vision::VisibilityState;
 
@@ -46,6 +47,11 @@ pub enum Reject {
     /// The order's target isn't in the issuing player's sight (`core/vision.md > Explored Selectability`; question
     /// Q0017, point 2).
     NotVisible(ObjectId),
+    /// None of the units an ability names has that ability.
+    LacksAbility,
+    /// None of the units an Attack order names can attack now: their Riot Shields are up
+    /// (`factions/gdo/units.md > Peacekeeper > Riot Shield`: "Attack orders are not possible").
+    CannotAttack,
     /// A unit's box there would overlap a blocked tile, a blocking footprint or the map's edge
     /// (`docs/movement.md > 3`).
     Blocked,
@@ -69,6 +75,8 @@ impl fmt::Display for Reject {
             Reject::TooManyUnits => write!(f, "an order may name at most {MAX_ORDER_UNITS} units"),
             Reject::NotAttackable(id) => write!(f, "object {} can't be attacked", id.0),
             Reject::NotVisible(id) => write!(f, "object {} is out of sight", id.0),
+            Reject::LacksAbility => write!(f, "none of the units has the ability"),
+            Reject::CannotAttack => write!(f, "none of the units can attack with its shield up"),
             Reject::Blocked => write!(f, "the unit doesn't fit there: blocked ground"),
             Reject::Occupied(id) => write!(f, "unit {} is in the way", id.0),
         }
@@ -82,6 +90,11 @@ pub(super) enum Checked {
         units: Vec<ObjectId>,
         kind: OrderKind,
         queue: bool,
+    },
+    /// `units`: unique, in id order, all existing units of the player that have the ability.
+    Ability {
+        units: Vec<ObjectId>,
+        ability: Ability,
     },
     Spawn {
         kind: ObjectKind,
@@ -103,12 +116,14 @@ impl Sim {
     /// order, it checks that:
     /// 1. the issuing player is in the game;
     /// 2. a debug command comes while [`super::SimConfig::debug`] is on;
-    /// 3. every object the command refers to exists, and every object a player's own order commands belongs to
-    ///    that player (debug commands may refer to anyone's objects). An order drops the ids of units that no
-    ///    longer exist, and repeated ids; it is rejected if no unit remains (`docs/movement.md > 3`);
+    /// 3. every object the command refers to exists, and every object a player's own order or ability commands
+    ///    belongs to that player (debug commands may refer to anyone's objects). An order or an ability drops the
+    ///    ids of units that no longer exist, and repeated ids; it is rejected if no unit remains
+    ///    (`docs/movement.md > 3`);
     /// 4. the command's own rules hold: an order's size and target (which the player must see,
-    ///    [`Reject::NotVisible`]), a spawn's owner and placement, a teleport to a unit and onto the map, and a
-    ///    unit's box clear of blocked ground and of the units of its layer.
+    ///    [`Reject::NotVisible`]), and for an Attack, units that can attack now ([`Reject::CannotAttack`]); the units
+    ///    of an ability that have it ([`Reject::LacksAbility`]); a spawn's owner and placement, a teleport to a unit
+    ///    and onto the map, and a unit's box clear of blocked ground and of the units of its layer.
     pub fn validate(&self, cmd: &PlayerCommand) -> Result<(), Reject> {
         self.check(cmd).map(|_| ())
     }
@@ -120,6 +135,7 @@ impl Sim {
         }
         match &cmd.command {
             Command::Order { units, kind, queue } => self.check_order(cmd.player, units, *kind, *queue),
+            Command::Ability { units, ability } => self.check_ability(cmd.player, units, *ability),
             Command::Debug(debug) => {
                 if !self.config.debug {
                     return Err(Reject::DebugDisabled);
@@ -137,26 +153,8 @@ impl Sim {
         kind: OrderKind,
         queue: bool,
     ) -> Result<Checked, Reject> {
-        if units.len() > MAX_ORDER_UNITS {
-            return Err(Reject::TooManyUnits);
-        }
-        let mut ids = units.to_vec();
-        ids.sort_unstable();
-        ids.dedup();
-        let mut ordered = Vec::with_capacity(ids.len());
-        for id in ids {
-            // A unit may die in the tick its order arrives: not the player's mistake.
-            let Some(o) = self.objects.get(&id) else {
-                continue;
-            };
-            if o.owner != Some(player) {
-                return Err(Reject::NotOwned(id));
-            }
-            // Only units take orders; the player's other objects ignore this one.
-            if o.orders.is_some() {
-                ordered.push(id);
-            }
-        }
+        // Only units take orders; the player's other objects ignore this one.
+        let mut ordered = self.own_units(player, units, |o| o.orders.is_some())?;
         if ordered.is_empty() {
             return Err(Reject::NoUnits);
         }
@@ -176,6 +174,12 @@ impl Sim {
                     return Err(Reject::NotAttackable(id));
                 }
                 self.check_target_seen(player, target)?;
+                // `factions/gdo/units.md > Peacekeeper > Riot Shield`: "Attack orders are not possible" while the
+                // shield is up ("the player must lower the shield before ordering an attack"): those units ignore it.
+                ordered.retain(|id| self.objects.get(id).is_some_and(riot_shield::allows_attack));
+                if ordered.is_empty() {
+                    return Err(Reject::CannotAttack);
+                }
             }
             OrderKind::Hold | OrderKind::Stop => {}
         }
@@ -184,6 +188,60 @@ impl Sim {
             kind,
             queue,
         })
+    }
+
+    /// The player's units among `units` that `keep` keeps, unique and in id order: at most [`MAX_ORDER_UNITS`] ids,
+    /// none of them someone else's. Ids that no longer exist are dropped (a unit may die in the tick its command
+    /// arrives: not the player's mistake), and so are the player's objects that `keep` leaves out.
+    fn own_units(
+        &self,
+        player: PlayerId,
+        units: &[ObjectId],
+        keep: impl Fn(&Object) -> bool,
+    ) -> Result<Vec<ObjectId>, Reject> {
+        if units.len() > MAX_ORDER_UNITS {
+            return Err(Reject::TooManyUnits);
+        }
+        let mut ids = units.to_vec();
+        ids.sort_unstable();
+        ids.dedup();
+        let mut kept = Vec::with_capacity(ids.len());
+        for id in ids {
+            let Some(o) = self.objects.get(&id) else {
+                continue;
+            };
+            if o.owner != Some(player) {
+                return Err(Reject::NotOwned(id));
+            }
+            if keep(o) {
+                kept.push(id);
+            }
+        }
+        Ok(kept)
+    }
+
+    /// [`Command::Ability`]: the player's own units that have the ability. Ids that no longer exist and the player's
+    /// objects without the ability are dropped: [`Reject::NoUnits`] if nothing of the player's remains at all,
+    /// [`Reject::LacksAbility`] if none of it has the ability.
+    ///
+    /// TODO(Bunker): units inside a Bunker can't use their abilities (`factions/gdo/structures.md > Bunker >
+    /// Garrison`: "a Peacekeeper cannot raise its Riot Shield"); drop them here once units can enter one.
+    fn check_ability(&self, player: PlayerId, units: &[ObjectId], ability: Ability) -> Result<Checked, Reject> {
+        let has = |o: &Object| match ability {
+            Ability::RiotShield { .. } => o.riot_shield.is_some(),
+        };
+        let own = self.own_units(player, units, |_| true)?;
+        if own.is_empty() {
+            return Err(Reject::NoUnits);
+        }
+        let units: Vec<ObjectId> = own
+            .into_iter()
+            .filter(|id| self.objects.get(id).is_some_and(has))
+            .collect();
+        if units.is_empty() {
+            return Err(Reject::LacksAbility);
+        }
+        Ok(Checked::Ability { units, ability })
     }
 
     /// Question Q0017, point 2 (its default, until answered): an order may target an object only while the issuing

@@ -31,6 +31,7 @@ use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus};
 use crate::nav::PathGroup;
 use crate::object::Object;
+use crate::riot_shield::RiotShield;
 use crate::units::Tick;
 
 use state::{Approach, AttackOrder, Leg, Patrol};
@@ -199,6 +200,7 @@ pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: Object
             facing: o.facing,
             mover,
             attack: o.attack.as_mut(),
+            may_attack: o.riot_shield.is_none_or(RiotShield::allows_attack),
         };
         update_unit(orders, &mut unit, world);
     }

@@ -1,11 +1,14 @@
 //! The SelectionPanel (`systems/controls/selection_and_hud.md > SelectionPanel`): a grid of portraits, one per
 //! selected object, shown while at least two objects are selected; the ActiveGroup's portraits are highlighted. A
 //! click on a portrait follows `> SelectionPanel > Interactions` ([`crate::selection::ControlState::click_portrait`]).
+//! Two or more selected objects are always the player's own (design change 0048).
 //!
-//! Placeholders until the portraits' art exists (Q0001): a cell shows the type's shape in its owner's colour (round
-//! Peacekeeper, square Guard, as on the map) over a short label of its type. The portraits follow the selection's
-//! groups in order, each group's by id (the design gives no order). When more objects are selected than cells fit,
-//! the last cell shows how many more there are and does nothing when clicked (the design is silent).
+//! The portraits are arranged group by group, in the order of the selection's groups ([`Selection::groups`]), which
+//! is the order Tab and Shift-Tab cycle in, and each group's by id: the placeholder of design change 0055 until the
+//! HUD pass. Placeholders until the portraits' art exists (Q0001): a cell shows the type's shape in its owner's
+//! colour (round Peacekeeper, square Guard, as on the map) over a short label of its type. When more objects are
+//! selected than cells fit, the last cell shows how many more there are, highlighted like the ActiveGroup's portraits
+//! when it hides some of them, and does nothing when clicked (the design is silent).
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -40,8 +43,18 @@ pub enum PortraitCell {
         kind: ObjectKind,
         active: bool,
     },
-    /// The last cell, when the selection holds more objects than the grid fits: how many more.
-    More(usize),
+    /// The last cell, when the selection holds more objects than the grid fits: how many more, and whether any of
+    /// them belongs to the ActiveGroup (then it is highlighted too, so the ActiveGroup always shows).
+    More { count: usize, active: bool },
+}
+
+impl PortraitCell {
+    /// Whether the cell is highlighted as the ActiveGroup's.
+    pub fn is_active(self) -> bool {
+        match self {
+            PortraitCell::Object { active, .. } | PortraitCell::More { active, .. } => active,
+        }
+    }
 }
 
 /// The portraits shown, and where: what a click on the panel hits.
@@ -53,8 +66,8 @@ pub struct SelectionPanelView {
     entities: Vec<Entity>,
 }
 
-/// `> SelectionPanel > Visibility`: the cells for `selection` in a grid of `capacity` cells. None while fewer than
-/// two objects are selected (the InfoPanel shows one).
+/// `> SelectionPanel > Visibility`: the cells for `selection` in a grid of `capacity` cells, group by group. None
+/// while fewer than two objects are selected (the InfoPanel shows one).
 pub fn portraits(selection: &Selection, capacity: usize) -> Vec<PortraitCell> {
     if selection.len() < 2 || capacity == 0 {
         return Vec::new();
@@ -73,10 +86,12 @@ pub fn portraits(selection: &Selection, capacity: usize) -> Vec<PortraitCell> {
         })
         .collect();
     if cells.len() > capacity {
-        let shown = capacity - 1;
-        let more = cells.len() - shown;
-        cells.truncate(shown);
-        cells.push(PortraitCell::More(more));
+        let hidden = cells.split_off(capacity - 1);
+        let active = hidden.iter().any(|cell| cell.is_active());
+        cells.push(PortraitCell::More {
+            count: hidden.len(),
+            active,
+        });
     }
     cells
 }
@@ -144,11 +159,7 @@ pub(super) fn update_selection_panel(
             .spawn((
                 Name::new("Portrait"),
                 *cell,
-                cell_node(
-                    rect.min - origin,
-                    rect.width(),
-                    matches!(cell, PortraitCell::Object { active: true, .. }),
-                ),
+                cell_node(rect.min - origin, rect.width(), cell.is_active()),
                 ChildOf(panel),
             ))
             .id();
@@ -201,8 +212,8 @@ fn spawn_cell_content(commands: &mut Commands, cell: Entity, shown: PortraitCell
             ));
             commands.spawn((text(short_label(kind), CELL_LABEL_VH, CELL_TEXT), ChildOf(cell)));
         }
-        PortraitCell::More(more) => {
-            commands.spawn((text(format!("+{more}"), CELL_LABEL_VH * 1.4, CELL_TEXT), ChildOf(cell)));
+        PortraitCell::More { count, .. } => {
+            commands.spawn((text(format!("+{count}"), CELL_LABEL_VH * 1.4, CELL_TEXT), ChildOf(cell)));
         }
     }
 }
@@ -239,44 +250,115 @@ pub(super) fn click_portraits(
 mod tests {
     use super::*;
 
+    const PK: ObjectKind = ObjectKind::Peacekeeper;
+    const GUARD: ObjectKind = ObjectKind::Guard;
+
+    /// The objects of the highlighted portraits, in the panel's order.
+    fn highlighted(selection: &Selection) -> Vec<u32> {
+        portraits(selection, 10)
+            .into_iter()
+            .filter_map(|cell| match cell {
+                PortraitCell::Object { id, active: true, .. } => Some(id.0),
+                _ => None,
+            })
+            .collect()
+    }
+
     #[test]
     fn portraits_need_two_objects_and_end_in_a_count_when_full() {
-        let selection = |n: u32| Selection::new((1..=n).map(|i| (ObjectId(i), ObjectKind::Peacekeeper)));
+        let selection = |n: u32| Selection::new((1..=n).map(|i| (ObjectId(i), PK)));
         assert!(portraits(&selection(1), 10).is_empty());
         let two = portraits(&selection(2), 10);
         assert_eq!(
             two,
             [1, 2].map(|i| PortraitCell::Object {
                 id: ObjectId(i),
-                kind: ObjectKind::Peacekeeper,
+                kind: PK,
                 active: true
             })
         );
         let full = portraits(&selection(12), 10);
         assert_eq!(full.len(), 10);
-        assert_eq!(full[9], PortraitCell::More(3));
-        assert_eq!(portraits(&selection(10), 10).len(), 10, "exactly full shows them all");
-        assert!(!portraits(&selection(10), 10).contains(&PortraitCell::More(1)));
+        assert_eq!(full[9], PortraitCell::More { count: 3, active: true });
+        let exactly = portraits(&selection(10), 10);
+        assert_eq!(exactly.len(), 10, "exactly full shows them all");
+        assert!(exactly.iter().all(|cell| matches!(cell, PortraitCell::Object { .. })));
     }
 
     #[test]
     fn only_the_active_groups_portraits_are_highlighted() {
-        let mut selection = Selection::new([
-            (ObjectId(1), ObjectKind::Peacekeeper),
-            (ObjectId(2), ObjectKind::Guard),
-            (ObjectId(3), ObjectKind::Peacekeeper),
-        ]);
+        let mut selection = Selection::new([(ObjectId(1), PK), (ObjectId(2), GUARD), (ObjectId(3), PK)]);
         selection.cycle(true);
         let active: Vec<(ObjectId, bool)> = portraits(&selection, 10)
             .into_iter()
             .map(|c| match c {
                 PortraitCell::Object { id, active, .. } => (id, active),
-                PortraitCell::More(_) => unreachable!(),
+                PortraitCell::More { .. } => unreachable!(),
             })
             .collect();
         assert_eq!(
             active,
             [(ObjectId(1), false), (ObjectId(3), false), (ObjectId(2), true)]
+        );
+    }
+
+    /// `> SelectionPanel` (design change 0055): the portraits come group by group, and Tab and Shift-Tab make the
+    /// groups active in that order, wrapping around. Patches stand in for the Ungroupable own structures that don't
+    /// exist yet (a resource is never selected with other objects, 0048).
+    #[test]
+    fn tab_and_shift_tab_follow_the_order_of_the_portraits() {
+        let patch = ObjectKind::CrystalPatch;
+        let mut selection = Selection::new([
+            (ObjectId(1), GUARD),
+            (ObjectId(2), PK),
+            (ObjectId(3), patch),
+            (ObjectId(4), PK),
+            (ObjectId(5), patch),
+        ]);
+        let order: Vec<u32> = portraits(&selection, 10)
+            .into_iter()
+            .map(|cell| match cell {
+                PortraitCell::Object { id, .. } => id.0,
+                PortraitCell::More { .. } => unreachable!(),
+            })
+            .collect();
+        assert_eq!(
+            order,
+            [3, 5, 2, 4, 1],
+            "each patch alone, then the Peacekeepers, then the Guard"
+        );
+        assert_eq!(highlighted(&selection), [3], "the first group is active");
+        let mut tab = |forward: bool| {
+            selection.cycle(forward);
+            highlighted(&selection)
+        };
+        let forward: Vec<Vec<u32>> = (0..4).map(|_| tab(true)).collect();
+        assert_eq!(forward, [vec![5], vec![2, 4], vec![1], vec![3]]);
+        let backward: Vec<Vec<u32>> = (0..4).map(|_| tab(false)).collect();
+        assert_eq!(backward, [vec![1], vec![2, 4], vec![5], vec![3]]);
+    }
+
+    /// The count of the portraits that don't fit is highlighted when it hides some of the ActiveGroup's.
+    #[test]
+    fn the_count_of_hidden_portraits_is_highlighted_when_it_hides_the_active_group() {
+        let pks = (1..=9).map(|i| (ObjectId(i), PK));
+        let mut selection = Selection::new(pks.chain((10..=12).map(|i| (ObjectId(i), GUARD))));
+        let cells = portraits(&selection, 10);
+        assert!(cells[..9].iter().all(|cell| cell.is_active()));
+        assert_eq!(
+            cells[9],
+            PortraitCell::More {
+                count: 3,
+                active: false
+            }
+        );
+        selection.cycle(true);
+        let cells = portraits(&selection, 10);
+        assert!(cells[..9].iter().all(|cell| !cell.is_active()));
+        assert_eq!(
+            cells[9],
+            PortraitCell::More { count: 3, active: true },
+            "the Guards are all hidden"
         );
     }
 }

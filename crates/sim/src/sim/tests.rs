@@ -5,6 +5,7 @@ use crate::ids::SlotId;
 use crate::map::{Tile, TilePresetId};
 use crate::object::Rotation;
 use crate::player::Faction;
+use crate::riot_shield::RiotShield;
 use crate::scenario::{DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, Spawn, SpawnAt, SpawnSettings};
 use crate::scenarios;
 use crate::units::TilePos;
@@ -42,13 +43,14 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         orders: Some(Orders::default()),
         mover: Some(Mover::default()),
         attack: Some(AttackState::default()),
+        riot_shield: Some(RiotShield::Lowered),
     };
     sim.objects.insert(id, unit);
     id
 }
 
-/// Gives unit `id` a current order, a queued one, a path and an attack being aimed, so every field of its orders,
-/// mover and attack has a value.
+/// Gives unit `id` a current order, a queued one, a path, an attack being aimed and a Riot Shield on its way up, so
+/// every field of its orders, mover, attack and shield has a value.
 fn make_busy(sim: &mut Sim, id: u32) {
     let order = Order {
         kind: OrderKind::Move(Target::Point(Vec2::new(40.0, 50.0))),
@@ -72,6 +74,7 @@ fn make_busy(sim: &mut Sim, id: u32) {
         phase: Some(AttackPhase::Aiming { target: ObjectId(2) }),
         elapsed: 1,
     });
+    obj(sim, id).riot_shield = Some(RiotShield::Raising { left: 2 });
 }
 
 fn orders(sim: &mut Sim, id: u32) -> &mut Orders {
@@ -253,6 +256,16 @@ fn state_hash_covers_every_field() {
         ("cooldown", |s| attack(s, 3).phase = Some(AttackPhase::Cooldown)),
         ("reloading", |s| attack(s, 3).phase = Some(AttackPhase::Reloading)),
         ("attack elapsed", |s| attack(s, 3).elapsed += 1),
+        ("riot_shield none", |s| obj(s, 3).riot_shield = None),
+        ("riot_shield mode", |s| {
+            obj(s, 3).riot_shield = Some(RiotShield::Lowering { left: 2 });
+        }),
+        ("riot_shield left", |s| {
+            obj(s, 3).riot_shield = Some(RiotShield::Raising { left: 3 });
+        }),
+        ("riot_shield raised", |s| {
+            obj(s, 3).riot_shield = Some(RiotShield::Raised)
+        }),
     ];
     for (name, mutate) in mutations {
         let mut sim = base.clone();
@@ -463,8 +476,9 @@ fn json_round_trip_keeps_every_float_bit() {
         o.prev_pos = Vec2::new(random_finite(), random_finite());
         (o.facing, o.prev_facing, o.hp) = (random_finite(), -0.0, Some(random_finite()));
     }
-    // What phase 5f would have seen: the units were inserted by hand.
+    // What phase 5f and the end of the tick would have seen: the units were inserted by hand.
     sim.vision.update(&sim.map, sim.objects.values());
+    sim.vision.remember(sim.tick, |id| sim.objects.get(&id));
     let loaded: Sim = serde_json::from_str(&serde_json::to_string(&sim).unwrap()).unwrap();
     assert_eq!(loaded.state_hash(), sim.state_hash());
 }

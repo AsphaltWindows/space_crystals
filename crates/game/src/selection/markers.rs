@@ -6,7 +6,7 @@
 //! tile-based object's footprint, coloured by the object's relation to the local player (own green, ally blue, enemy
 //! red, neutral yellow), drawn in the ground-decal layer, under the objects. The ActiveGroup's rings are solid and
 //! thick, the other groups' dashed and thin (frames: thick and thin). Meshes are made once per shape, relation and
-//! activity.
+//! activity. A selected record (a GDO player's remembered SupplyDeliveryStation) is marked where it is shown.
 
 use std::collections::BTreeMap;
 
@@ -18,9 +18,10 @@ use super::ControlStates;
 use super::pick::{Relation, Selectable};
 use crate::command_ui::InterfaceState;
 use crate::coords::{DrawLayer, view_to_world};
+use crate::fog::LocalSight;
 use crate::input::ActionState;
 use crate::shapes::{ColorMesh, vertex_color_material};
-use crate::sim_driver::{LocalPlayer, RenderAlpha, SimRes};
+use crate::sim_driver::{LocalPlayer, RenderAlpha};
 use crate::{ClientMode, ClientSystems};
 
 /// Marker colours by relation (placeholders).
@@ -95,30 +96,44 @@ impl Plugin for SelectionMarkersPlugin {
 }
 
 /// What the markers show: the local player's selection in a game mode (none in the editor), drawn where the frame
-/// draws the objects.
+/// draws the objects, or the records shown in their place.
 #[derive(SystemParam)]
 struct Shown<'w> {
     mode: Res<'w, ClientMode>,
-    sim: Res<'w, SimRes>,
+    sight: LocalSight<'w>,
     alpha: Res<'w, RenderAlpha>,
     player: Res<'w, LocalPlayer>,
     states: Res<'w, ControlStates>,
 }
 
 impl Shown<'_> {
-    /// Each selected object as it is drawn, and whether it is in the ActiveGroup.
-    fn markers(&self) -> Vec<(Selectable, bool)> {
+    /// Each selected object as it is drawn, its marker's shape, and whether it is in the ActiveGroup.
+    fn markers(&self) -> Vec<(Selectable, MarkerShape, bool)> {
         if !self.mode.is_game() {
             return Vec::new();
         }
+        let (sim, sight) = (self.sight.sim(), self.sight.get());
         let selection = self.states.selection(self.player.0);
         selection
             .ids()
             .filter_map(|id| {
-                let object = self.sim.object(id)?;
-                let pos = object.prev_pos.lerp(object.pos, self.alpha.0);
-                let shown = Selectable::of(object, self.player.0, self.sim.map(), pos);
-                Some((shown, selection.in_active_group(id)))
+                let (shown, placement) = match sim.object(id).filter(|o| sight.sees(o)) {
+                    Some(object) => {
+                        let pos = object.prev_pos.lerp(object.pos, self.alpha.0);
+                        let shown = Selectable::of(object, self.player.0, sim.map(), pos);
+                        (shown, object.placement)
+                    }
+                    None => {
+                        let record = sight.remembered_record(id)?;
+                        let shown = Selectable::remembered(record, self.player.0, sim.map());
+                        (shown, Some(record.placement))
+                    }
+                };
+                let shape = match placement {
+                    Some(p) => MarkerShape::Frame { w: p.w, h: p.h },
+                    None => MarkerShape::Ring(shown.kind),
+                };
+                Some((shown, shape, selection.in_active_group(id)))
             })
             .collect()
     }
@@ -160,7 +175,7 @@ fn sync_markers(
     mut markers: Query<(&mut SelectionMarker, &mut Mesh2d, &mut Transform)>,
 ) {
     let wanted = shown.markers();
-    let keep: BTreeMap<ObjectId, ()> = wanted.iter().map(|(s, _)| (s.id, ())).collect();
+    let keep: BTreeMap<ObjectId, ()> = wanted.iter().map(|(s, _, _)| (s.id, ())).collect();
     index.by_id.retain(|id, entity| {
         let kept = keep.contains_key(id);
         if !kept {
@@ -168,11 +183,7 @@ fn sync_markers(
         }
         kept
     });
-    for (object, active) in wanted {
-        let shape = match shown.sim.object(object.id).and_then(|o| o.placement) {
-            Some(p) => MarkerShape::Frame { w: p.w, h: p.h },
-            None => MarkerShape::Ring(object.kind),
-        };
+    for (object, shape, active) in wanted {
         let marker = SelectionMarker {
             id: object.id,
             relation: object.relation,

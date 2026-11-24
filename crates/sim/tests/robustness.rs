@@ -1,12 +1,12 @@
 //! Player input never panics the sim (`ARCHITECTURE.md > Commands, events and replays`):
-//! a long stream of random, mostly invalid debug commands and orders runs deterministically,
+//! a long stream of random, mostly invalid debug commands, orders and abilities runs deterministically,
 //! the commands the gate rejects change nothing, and any per-object values a file holds are
 //! handled.
 
 use sc_sim::testing::{self, ScenarioBuilder};
 use sc_sim::{
-    Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Replay, Rng, SU_PER_GU, Sim,
-    SimConfig, SimEvent, Spawn, SpawnAt, SpawnSettings, Target, TickInputs, TilePos, Vec2, nav,
+    Ability, Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Replay, Rng, SU_PER_GU,
+    Sim, SimConfig, SimEvent, Spawn, SpawnAt, SpawnSettings, Target, TickInputs, TilePos, Vec2, nav,
 };
 
 const TICKS: u32 = 2000;
@@ -67,7 +67,8 @@ fn random_id(rng: &mut Rng, sim: &Sim) -> ObjectId {
     }
 }
 
-/// An order to a few ids, often the issuing player's units, sometimes anyone's or none.
+/// An order to a few ids, often the issuing player's units, sometimes anyone's or none; one in six raises or
+/// lowers their Riot Shields instead.
 fn random_order(rng: &mut Rng, sim: &Sim, player: PlayerId) -> Command {
     let own: Vec<ObjectId> = sim
         .objects()
@@ -80,6 +81,12 @@ fn random_order(rng: &mut Rng, sim: &Sim, player: PlayerId) -> Command {
             _ => own[rng.below(own.len() as u32) as usize],
         })
         .collect();
+    if rng.below(6) == 0 {
+        let ability = Ability::RiotShield {
+            raise: rng.below(2) == 0,
+        };
+        return Command::Ability { units, ability };
+    }
     // Attacks often go for the destructible object nearest to the first unit, which may be in range.
     let nearest = units.first().and_then(|&id| {
         let unit = sim.object(id)?;

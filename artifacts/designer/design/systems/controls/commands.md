@@ -33,6 +33,8 @@ Order the unit to move to a target location or object. Moving to a **unit** make
 ## Attack
 Order the unit to attack a specific destructible object instance (unit or structure).
 
+**Any destructible target** (user, 2026-11-23): an explicit Attack order (Attack command + click) may target enemy, **own** and **neutral** destructible objects (force-attack). Right-click never does this: it attacks enemies, and moves to or follows own and neutral objects (systems/controls/selection_and_hud.md > RightClickResolution). Auto-targeting never picks own or neutral objects.
+
 ### Sets BaseCommandState:
 - CommandType = Attack
 - TargetLocation = None

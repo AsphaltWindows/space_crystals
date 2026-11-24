@@ -2,7 +2,7 @@
 //! `--show-paths`): each unit's remaining path as a thin line from where the unit is drawn through its remaining
 //! waypoints (`docs/movement.md > 6`), lifted by the terrain's height along the way, in the unit's colour; and a
 //! frame around each unit in the colour of its move's status ([`status_color`], `docs/movement.md > 8`). Only for
-//! the units the local player is shown (`crate::fog::Sight::shows`): the fog of war hides the others' paths too.
+//! the units the local player sees (`crate::fog::Sight::sees`): the fog of war hides the others' paths too.
 
 use bevy::prelude::*;
 use sc_sim::{Map, MoveStatus, Mover, Tick};
@@ -107,7 +107,7 @@ fn draw_paths(
         let map = sim.map();
         let z = DrawLayer::Overlays.base_z();
         let sight = sight.get();
-        for object in sim.objects().filter(|o| sight.shows(o)) {
+        for object in sim.objects().filter(|o| sight.sees(o)) {
             let Some(mover) = &object.mover else {
                 continue;
             };

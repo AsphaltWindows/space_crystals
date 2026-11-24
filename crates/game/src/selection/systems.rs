@@ -8,7 +8,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use sc_sim::{ObjectId, PlayerId, SimEvent};
 
-use super::pick::selectable_by;
+use super::pick::selectable_id;
 use super::rules::{ClickRoles, drawn_centroid};
 use super::{ControlStates, LocalControl};
 use crate::ClientMode;
@@ -21,9 +21,11 @@ use crate::sim_driver::{LocalPlayer, SimEventMessage, SimRes};
 
 /// `> ControlState`: validated against the game state every tick. Removed objects (`SimEvent::Removed`, which
 /// combat's deaths send too) leave every player's selection and control groups in the frame of their tick; so does
-/// anything else that no longer exists, and anything that player may no longer select (`pick::selectable_by`):
-/// an enemy that walks out of sight is deselected at once (a placeholder rule: the design doesn't say). A replaced
-/// sim (`SimRes::generation`) starts every ControlState over, because its ids name other objects.
+/// anything else that no longer exists, and anything that player may no longer select (`pick::selectable_id`):
+/// an enemy that walks out of sight is deselected at once (a placeholder rule: the design doesn't say). A record
+/// the player may select (a GDO player's remembered SupplyDeliveryStation) stays selected even if its object is
+/// removed out of sight: the player doesn't learn of it. A replaced sim (`SimRes::generation`) starts every
+/// ControlState over, because its ids name other objects.
 pub(super) fn sync_control_states(
     sim: Res<SimRes>,
     fog: Res<FogOfWar>,
@@ -49,8 +51,10 @@ pub(super) fn sync_control_states(
     let mut changed = false;
     for (&player, state) in &mut states.bypass_change_detection().by_player {
         let sight = Sight::new(&sim, player, fog.applies(*mode));
-        changed |=
-            state.retain(|id| !removed.contains(&id) && sim.object(id).is_some_and(|o| selectable_by(o, &sight)));
+        changed |= state.retain(|id| {
+            let remembered = sight.remembered_record(id).is_some();
+            (remembered || !removed.contains(&id)) && selectable_id(&sim, &sight, id)
+        });
     }
     if changed {
         states.set_changed();
@@ -73,9 +77,10 @@ impl WorldView<'_> {
     }
 }
 
-/// `> MapClickSelection` and `> BoxSelection`: the `Select` action's clicks and boxes on the map. While a target is
-/// awaited (`> AwaitingTarget`), a left-click on the map is the target (`crate::command_ui`) and selects nothing, and
-/// neither does a box (placeholder: the design doesn't say what a drag does then).
+/// `> MapClickSelection` and `> BoxSelection`: the `Select` action's clicks and boxes on the map, each with the roles
+/// of the modifiers it was sent with. While a target is awaited (`> AwaitingTarget`), a left-click on the map is the
+/// target (`crate::command_ui`) and selects nothing, and neither does a box (placeholder: the design doesn't say what
+/// a drag does then).
 pub(super) fn select_on_map(
     mut clicks: MessageReader<MapClick>,
     mut boxes: MessageReader<SelectionBox>,
@@ -100,7 +105,7 @@ pub(super) fn select_on_map(
             state.click(&objects, click.view, roles, click.double, visible);
         }
         for dragged in &boxes {
-            state.select_box(&objects, dragged.rect);
+            state.select_box(&objects, dragged.rect, ClickRoles::of(&bindings, dragged.modifiers));
         }
     });
 }
@@ -132,7 +137,9 @@ pub(super) fn control_group_keys(actions: Res<ActionState>, mut control: LocalCo
         let mut center = None;
         for action in pressed {
             match action {
-                A::AssignGroup(group) => state.assign_group(group),
+                A::AssignGroup(group) => {
+                    state.assign_group(group, &objects);
+                }
                 A::AddToGroup(group) => {
                     state.add_to_group(group, &objects);
                 }

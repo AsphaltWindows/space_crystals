@@ -1,5 +1,5 @@
 //! Vision — `core/vision.md`. Phase 5f (`docs/movement.md > 4`): what each player sees, from the tick's final
-//! positions.
+//! positions; at the very end of the tick, what it remembers of the structures and resources it has seen.
 //!
 //! - **States** (`> VisibilityState`): every tile is [`VisibilityState::Unexplored`], `Explored` or `Visible` for
 //!   each player. Explored is history: one bit per tile and player, set the first time the tile is Visible and never
@@ -23,18 +23,25 @@
 //!   tick's visibility (`docs/movement.md > 4`).
 //! - **Objects** ([`PlayerVision::object_state`]): an object counts as seen when any tile it covers is Visible; it
 //!   covers the tiles its silhouette box (a unit) or footprint (a structure or resource) overlaps.
+//! - **Memory** ([`memory`], `> Explored`: structures and resources show in their last-known state): each player's
+//!   records of the structures and resources it has seen ([`LastKnown`], [`PlayerVision::records`]), history like
+//!   the Explored tiles. Phase 5f follows which of them the player sees from the tiles that change state, and
+//!   [`Vision::remember`], the last thing a tick does, refreshes the records of those in sight.
 //!
 //! The map never changes during a game; a sim whose map changed would have to build its vision again
 //! ([`Vision::new`]).
 
+mod memory;
+mod save;
 mod sight;
 #[cfg(test)]
 mod tests;
 
+use std::collections::BTreeMap;
 use std::fmt;
 
 use glam::Vec2;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use crate::combat::object_box;
 use crate::elevation::Elevation;
@@ -42,8 +49,11 @@ use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::object::Object;
-use crate::units::{SU_PER_GU, TilePos};
+use crate::units::{SU_PER_GU, Tick, TilePos};
 
+pub use memory::LastKnown;
+use memory::{Footprints, Memory};
+pub(crate) use save::{SavedVision, load};
 pub use sight::TILE_SIGHT_POINT;
 use sight::stamp;
 
@@ -106,6 +116,12 @@ impl TileBits {
             *w |= 1 << (i % 64);
         }
     }
+
+    fn clear(&mut self, i: usize) {
+        if let Some(w) = self.words.get_mut(i / 64) {
+            *w &= !(1 << (i % 64));
+        }
+    }
 }
 
 /// One player's vision (`core/vision.md > Vision`).
@@ -122,6 +138,12 @@ pub struct PlayerVision {
     revision: u32,
     /// A tile changed state in the update under way.
     dirty: bool,
+    /// The tiles that became Visible, or stopped being Visible, in the update under way (a tile may come twice):
+    /// what the memory looks at. Scratch.
+    flips: Vec<u32>,
+    /// `> Explored`: the last-known records of the structures and resources the player has seen (history), and which
+    /// of those objects it sees now (derived).
+    memory: Memory,
 }
 
 impl PlayerVision {
@@ -135,6 +157,8 @@ impl PlayerVision {
             seers: vec![0; tiles],
             revision: 0,
             dirty: false,
+            flips: Vec::new(),
+            memory: Memory::new(tiles),
         }
     }
 
@@ -210,20 +234,22 @@ impl PlayerVision {
 
     /// One more source sees tile `i`: Visible from the first one on, and Explored from then on.
     fn see(&mut self, i: u32) {
-        let i = i as usize;
-        self.seers[i] += 1;
-        if self.seers[i] == 1 {
-            self.explored.set(i);
+        let t = i as usize;
+        self.seers[t] += 1;
+        if self.seers[t] == 1 {
+            self.explored.set(t);
             self.dirty = true;
+            self.flips.push(i);
         }
     }
 
     /// One source fewer sees tile `i`: Explored once none does.
     fn unsee(&mut self, i: u32) {
-        let i = i as usize;
-        self.seers[i] -= 1;
-        if self.seers[i] == 0 {
+        let t = i as usize;
+        self.seers[t] -= 1;
+        if self.seers[t] == 0 {
             self.dirty = true;
+            self.flips.push(i);
         }
     }
 
@@ -278,6 +304,9 @@ pub struct Vision {
     sources: Vec<Source>,
     /// Scratch for a new stamp.
     scratch: Vec<u32>,
+    /// The tile-based objects and the tiles they cover, which the memory looks up ([`memory`]). Derived from the
+    /// objects.
+    footprints: Footprints,
 }
 
 impl Vision {
@@ -300,23 +329,8 @@ impl Vision {
                 .collect(),
             sources: Vec::new(),
             scratch: Vec::new(),
+            footprints: Footprints::new(width, height),
         }
-    }
-
-    /// The vision of a loaded save: `explored` per player as saved, the rest derived from `objects` (all of them,
-    /// in id order). Tiles Visible now count as Explored even if the save forgot them.
-    fn load<'a>(
-        map: &Map,
-        players: impl IntoIterator<Item = PlayerId>,
-        explored: Vec<TileBits>,
-        objects: impl IntoIterator<Item = &'a Object>,
-    ) -> Self {
-        let mut vision = Self::new(map, players);
-        for (player, bits) in vision.players.iter_mut().zip(explored) {
-            player.explored = bits;
-        }
-        vision.update(map, objects);
-        vision
     }
 
     pub fn width(&self) -> u32 {
@@ -373,13 +387,17 @@ impl Vision {
     /// Phase 5f: catches up with `objects`, every object of the sim in ascending id order. New sources stamp the
     /// tiles they see, moved ones stamp again (only the tiles that differ change), and gone ones take their tiles
     /// away; tiles that become Visible become Explored too. Each player whose tiles changed state gets a new
-    /// [`PlayerVision::revision`].
+    /// [`PlayerVision::revision`]. The memory follows ([`memory`]): which structures and resources each player
+    /// sees now, from the tiles that changed state and the footprints that came or went, and the records of those
+    /// seen gone are dropped. [`Vision::remember`] refreshes the records at the end of the tick.
     ///
     /// The sim calls it on its own vision; it is public so that tests can time it and check it on a copy.
     pub fn update<'a>(&mut self, map: &Map, objects: impl IntoIterator<Item = &'a Object>) {
         let mut old = std::mem::take(&mut self.sources).into_iter().peekable();
         let mut kept = Vec::with_capacity(old.len());
+        let mut footprints = self.footprints.walk();
         for o in objects {
+            footprints.visit(o);
             while let Some(gone) = old.next_if(|s| s.id < o.id) {
                 self.withdraw(&gone);
             }
@@ -407,10 +425,22 @@ impl Vision {
             self.withdraw(&gone);
         }
         self.sources = kept;
+        let changes = self.footprints.finish(footprints);
         for player in &mut self.players {
+            player.catch_up(&self.footprints, &changes);
             if std::mem::take(&mut player.dirty) {
                 player.revision = player.revision.wrapping_add(1);
             }
+        }
+    }
+
+    /// The end of the tick, after every phase that changes objects (`Sim::step`): each player's records of the
+    /// structures and resources it sees now take their current state, stamped with `tick` (`core/vision.md >
+    /// Explored`: a record keeps the last state the player saw). The objects the player owns are never recorded.
+    /// `object` finds an object of the sim by id; only those in some player's sight are looked up.
+    pub fn remember<'a>(&mut self, tick: Tick, object: impl Fn(ObjectId) -> Option<&'a Object>) {
+        for player in &mut self.players {
+            player.refresh(tick, &object);
         }
     }
 
@@ -447,16 +477,23 @@ impl Vision {
     }
 
     /// Checks the incremental state against a vision built from scratch out of `objects` (all of the sim's, in id
-    /// order): the same sources, and the same Visible tiles seen by as many of them, for every player; and every
-    /// Visible tile Explored. The test harness runs it after every tick (`testing::invariants`, V1). The first
-    /// difference, and where on the map (space units).
+    /// order) at the end of `tick`: the same sources, and the same Visible tiles seen by as many of them, for every
+    /// player; every Visible tile Explored; and the memory a fresh build makes of the same records: none dropped or
+    /// refreshed, none of an object the player owns, and the same objects in sight. The test harness runs it after
+    /// every tick (`testing::invariants`, V1). The first difference, and where on the map (space units).
     pub(crate) fn check<'a>(
         &self,
         map: &Map,
         objects: impl IntoIterator<Item = &'a Object>,
+        tick: Tick,
     ) -> Result<(), (Vec2, String)> {
+        let objects: BTreeMap<ObjectId, &Object> = objects.into_iter().map(|o| (o.id, o)).collect();
         let mut fresh = Vision::new(map, self.players.iter().map(|p| p.id));
-        fresh.update(map, objects);
+        for (fresh, have) in fresh.players.iter_mut().zip(&self.players) {
+            fresh.set_records(have.records().cloned());
+        }
+        fresh.update(map, objects.values().copied());
+        fresh.remember(tick, |id| objects.get(&id).copied());
         let eyes = |v: &Vision| v.sources.iter().map(|s| (s.id, s.eye)).collect::<Vec<_>>();
         if eyes(self) != eyes(&fresh) {
             let at = self.sources.first().map_or(Vec2::ZERO, |s| s.eye.at);
@@ -474,101 +511,21 @@ impl Vision {
                     return fail("is Visible but not Explored".into());
                 }
             }
+            memory::check(have, want)?;
         }
-        Ok(())
-    }
-
-    /// The serde form of each player's Explored tiles ([`ExploredRows`]).
-    fn explored_rows(&self) -> Vec<ExploredRows> {
-        self.players
-            .iter()
-            .map(|p| ExploredRows {
-                player: p.id,
-                explored: (0..self.height as usize)
-                    .map(|y| {
-                        (0..self.width as usize)
-                            .map(|x| {
-                                if p.explored.get(y * self.width as usize + x) {
-                                    EXPLORED_SYMBOL
-                                } else {
-                                    UNEXPLORED_SYMBOL
-                                }
-                            })
-                            .collect()
-                    })
-                    .collect(),
-            })
-            .collect()
-    }
-}
-
-/// Tile symbols of the Explored rows in a save: Explored (Visible tiles are Explored too), and not.
-const EXPLORED_SYMBOL: char = '#';
-const UNEXPLORED_SYMBOL: char = '.';
-
-/// One player's Explored tiles in a save (the serde form of [`Vision`]): one string per tile row, north to south,
-/// [`EXPLORED_SYMBOL`] for a tile the player has seen and [`UNEXPLORED_SYMBOL`] for one it hasn't.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct ExploredRows {
-    player: PlayerId,
-    explored: Vec<String>,
-}
-
-/// The vision of a loaded save ([`crate::Sim`]'s serde form): `saved` must hold the Explored rows of exactly
-/// `players`, in order, each of `map`'s size; the rest is derived from `objects`.
-pub(crate) fn load<'a>(
-    map: &Map,
-    players: &[PlayerId],
-    saved: Vec<ExploredRows>,
-    objects: impl IntoIterator<Item = &'a Object>,
-) -> Result<Vision, String> {
-    let saved_ids: Vec<PlayerId> = saved.iter().map(|rows| rows.player).collect();
-    if saved_ids != players {
-        return Err(format!(
-            "the vision is saved for players {saved_ids:?}, the game has {players:?}"
-        ));
-    }
-    let (width, height) = (map.width() as usize, map.height() as usize);
-    let mut explored = Vec::with_capacity(saved.len());
-    for rows in saved {
-        let wrong_size = rows.explored.len() != height || rows.explored.iter().any(|r| r.chars().count() != width);
-        if wrong_size {
-            return Err(format!(
-                "player {}'s explored tiles don't match the {width} x {height} map",
-                rows.player.0
+        if !self.footprints.matches(&fresh.footprints) {
+            return Err((
+                Vec2::ZERO,
+                "the footprints of the tile-based objects differ from a fresh build".into(),
             ));
         }
-        let mut bits = TileBits::new(width * height);
-        for (y, row) in rows.explored.iter().enumerate() {
-            for (x, symbol) in row.chars().enumerate() {
-                match symbol {
-                    EXPLORED_SYMBOL => bits.set(y * width + x),
-                    UNEXPLORED_SYMBOL => {}
-                    other => {
-                        return Err(format!(
-                            "player {}'s explored tiles: {other:?} is neither {EXPLORED_SYMBOL:?} nor \
-                             {UNEXPLORED_SYMBOL:?}",
-                            rows.player.0
-                        ));
-                    }
-                }
-            }
-        }
-        explored.push(bits);
-    }
-    Ok(Vision::load(map, players.iter().copied(), explored, objects))
-}
-
-impl Serialize for Vision {
-    /// Only the history: each player's Explored rows ([`ExploredRows`]). The rest comes from the objects on load.
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        self.explored_rows().serialize(serializer)
+        Ok(())
     }
 }
 
 impl PartialEq for Vision {
-    /// The state: each player's Explored tiles. The rest is derived from the objects, which the sims compare too.
+    /// The state: each player's Explored tiles and records. The rest is derived from the objects, which the sims
+    /// compare too.
     fn eq(&self, other: &Self) -> bool {
         self.width == other.width
             && self.height == other.height
@@ -577,7 +534,7 @@ impl PartialEq for Vision {
                 .players
                 .iter()
                 .zip(&other.players)
-                .all(|(a, b)| a.id == b.id && a.explored == b.explored)
+                .all(|(a, b)| a.id == b.id && a.explored == b.explored && a.records().eq(b.records()))
     }
 }
 
@@ -589,10 +546,11 @@ impl fmt::Debug for Vision {
             .iter()
             .map(|p| {
                 format!(
-                    "player {}: {} visible, {} explored, revision {}",
+                    "player {}: {} visible, {} explored, {} records, revision {}",
                     p.id.0,
                     tiles(p, VisibilityState::Visible),
                     tiles(p, VisibilityState::Explored),
+                    p.records().count(),
                     p.revision
                 )
             })
@@ -606,7 +564,8 @@ impl fmt::Debug for Vision {
 }
 
 impl StateHash for Vision {
-    /// The history only: each player's Explored tiles. Visible follows from the objects, which are hashed.
+    /// The history only: each player's Explored tiles and records. Visible follows from the objects, which are
+    /// hashed.
     fn hash(&self, h: &mut StateHasher) {
         h.len(self.players.len());
         for p in &self.players {
@@ -614,6 +573,10 @@ impl StateHash for Vision {
             h.len(p.explored.words.len());
             for word in &p.explored.words {
                 word.hash(h);
+            }
+            h.len(p.records().count());
+            for record in p.records() {
+                record.hash(h);
             }
         }
     }

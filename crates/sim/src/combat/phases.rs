@@ -304,6 +304,7 @@ mod tests {
                     orders: None,
                     mover: None,
                     attack: None,
+                    riot_shield: None,
                 },
             );
         }

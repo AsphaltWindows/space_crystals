@@ -212,7 +212,8 @@ pub struct Mover {
     pub orientation: Orientation,
     /// This tick's displacement, space units per tick; zero when the unit stood still or arrived.
     pub velocity: Vec2,
-    /// MaxSpeed is multiplied by this: 0.5 under a raised Riot Shield (`factions/gdo/units.md > Peacekeeper`).
+    /// MaxSpeed is multiplied by this. The unit's modes set it when they change: 0.5 from the moment its Riot Shield
+    /// starts going up until it is all the way down again (`riot_shield`, `factions/gdo/units.md > Peacekeeper`).
     pub speed_factor: f32,
     /// The order group of the current goal, or of the last one: the units of one command share it
     /// (`orders::OrderGroup`). A unit that arrived doesn't yield to the members of its group that are still
