@@ -1,32 +1,35 @@
 //! Gathering — `factions/colonists/units.md > Drone > Gathering`, `> Patch Occupancy (one Drone per patch)`, `>
-//! Assigned Drop-off`; `factions/colonists/economy.md > Egress Node > Drop Off` (slice M3-H, plan decision T17).
+//! Assigned Drop-off`; `factions/colonists/economy.md > Egress Node > Drop Off` (slices M3-H and M3-H3, plan
+//! decision T17).
 //!
 //! "Every Drone job is pick up at X, deliver to Y": a worker walks to a Space Crystals patch, mines it for
 //! MiningDuration, carries up to CarryCapacity to its AssignedDropOff, unloads for DropOffDuration, and goes again.
 //! "Resources only enter the player's resource pool when delivered to an Egress Node."
 //!
-//! - **The capability** ([`Worker`], `Object::worker`): the load, the AssignedDropOff and the patch the worker
-//!   gathers. A unit type with a `WorkerDef` (`UnitDef::worker`: the Drone) has one.
+//! - **The capability** ([`Worker`], `Object::worker`): the load and the AssignedDropOff. A unit type with a
+//!   `WorkerDef` (`UnitDef::worker`: the Drone) has one. The patch it gathers is its Gather order's.
 //! - **The job** is an order, `OrderKind::Gather(patch)` or `OrderKind::DropOff(node)`, and its behaviour
 //!   (`orders::gather`, phase 5a) owns the legs, the claims and every decision; its state
 //!   (`orders::state::Gather`) holds the phase and the frames of timed work done. **Deviation from the plan's
 //!   sketch**, which put the timed work into the `Worker`: it is part of the order's state, so that an order that
-//!   ends for any reason takes its unfinished work with it (question Q0037 point 4: "nothing is collected, and the
-//!   patch frees at once") and occupancy can't outlive the order that holds it.
+//!   ends for any reason takes its unfinished work with it (design change 0130, `> Interrupted mining`: "collects
+//!   nothing, and the patch is freed immediately") and occupancy can't outlive the order that holds it.
+//! - **The load** leaves the worker only at a drop-off, here, or with the worker itself when it deploys (design
+//!   change 0129, `> Other orders keep the load`; 0114): no order clears it.
 //! - **The timed work** runs here, in the economy phase ([`step`], after the plates' mining, plan decision T5): a
 //!   Mining phase counts its frames and, at MiningDuration, takes `min(CarryCapacity, remaining)` from the patch
-//!   (question Q0037 point 13: the last load is what is left, after the full duration); a DroppingOff phase counts
-//!   its frames and, at DropOffDuration, credits the owner's bank (`SimEvent::ResourcesDelivered`). All bank
-//!   changes stay in the economy phase.
+//!   (design change 0138, `> Last load of a patch`: the full 32 frames, and then "what is left"); a DroppingOff
+//!   phase counts its frames and, at DropOffDuration, credits the owner's bank (`SimEvent::ResourcesDelivered`).
+//!   All bank changes stay in the economy phase.
 //! - **Timing**, by the Director's convention for recipes (`ARCHITECTURE.md > Economy > Recipe timing`): the frame
 //!   in which the behaviour starts the work counts. A worker that reaches its patch in phase 5a of tick `t` holds
 //!   its load at the end of tick `t + 31` and sets off in `t + 32`, when the patch is free again; one that reaches
 //!   its drop-off in tick `t` is paid at the end of `t + 1` and sets off in `t + 2`.
 //! - **Depletion** (`core/map.md > SpaceCrystalsPatch`: "When a patch is fully depleted, it disappears from the
 //!   map"): [`step`] returns the patches its loads emptied, and `Sim::step` takes them out through the removal
-//!   path, which sends the workers that gathered them elsewhere (`Sim::redirect_gatherers`) and opens their tiles
-//!   (design change 0038). A patch under a GDO plate stays (`factions/gdo/economy.md > ExtractionPlate`); workers
-//!   don't gather those (question Q0037 point 11).
+//!   path, which opens their tiles (design change 0038) and leaves the workers that gathered them heading for where
+//!   they were (`Sim::keep_gatherers_on_spots`, design change 0134). A patch under a GDO plate stays
+//!   (`factions/gdo/economy.md > ExtractionPlate`); for workers it is gone already (design change 0137).
 //!
 //! **Trip times with DragMovement** (slice M3-G, plan decision T25; pinned by `tests/gathering.rs`): with the patch
 //! 2 grid units from the Egress Node, edge to edge (design change 0107), one Drone alone delivers a load every
@@ -53,17 +56,19 @@ use crate::orders::{OrderKind, Orders};
 use crate::player::Player;
 
 /// A worker's own state (module docs): what it keeps whatever its orders are.
+///
+/// It no longer keeps the patch it gathers (slice M3-H had it, for question Q0037 point 1's proposal: back to the
+/// patch after a Drop Off order). Design change 0127 dropped that, and the patch a Gather goes back to after a
+/// delivery, "the patch where it last successfully mined" (0132), is the one its order names. A save that has
+/// the field still loads: serde passes over it.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Worker {
     /// The Space Crystals it carries, at most its CarryCapacity. It keeps them through other orders and delivers
-    /// them at its next drop-off (question Q0037 point 3).
+    /// them at its next drop-off (design change 0129).
     pub load: u32,
     /// `> Assigned Drop-off`: "the Egress Node or refinery it delivers its current and future loads to". `None`
     /// until its first Gather assigns one, and again when that one is gone.
     pub drop_off: Option<ObjectId>,
-    /// The patch its latest Gather went to, where it goes back after a Drop Off order (question Q0037 point 1).
-    /// `None` before its first Gather and once that patch is gone.
-    pub patch: Option<ObjectId>,
 }
 
 impl Worker {
@@ -72,18 +77,14 @@ impl Worker {
         if self.drop_off.is_some_and(is_gone) {
             self.drop_off = None;
         }
-        if self.patch.is_some_and(is_gone) {
-            self.patch = None;
-        }
     }
 }
 
 impl StateHash for Worker {
     fn hash(&self, h: &mut StateHasher) {
-        let Worker { load, drop_off, patch } = self;
+        let Worker { load, drop_off } = self;
         load.hash(h);
         drop_off.hash(h);
-        patch.hash(h);
     }
 }
 
@@ -217,7 +218,6 @@ mod tests {
         let worker = Worker {
             load: 8,
             drop_off: Some(ObjectId(2)),
-            patch: Some(ObjectId(3)),
         };
         let changed = [
             Worker { load: 7, ..worker },
@@ -229,35 +229,30 @@ mod tests {
                 drop_off: None,
                 ..worker
             },
-            Worker {
-                patch: Some(ObjectId(2)),
-                ..worker
-            },
-            Worker { patch: None, ..worker },
         ];
         for other in changed {
             assert_ne!(hash_of(&other), hash_of(&worker), "{other:?}");
         }
     }
 
-    /// The removal path: a worker forgets the drop-off and the patch that are gone, and keeps its load.
+    /// The removal path: a worker forgets the drop-off that is gone, and keeps its load. A worker saved with the
+    /// patch slice M3-H kept loads as it was, without it.
     #[test]
     fn a_worker_forgets_what_is_gone() {
         let mut worker = Worker {
             load: 8,
             drop_off: Some(ObjectId(2)),
-            patch: Some(ObjectId(3)),
         };
         worker.forget(&|id| id == ObjectId(9));
-        assert_eq!((worker.drop_off, worker.patch), (Some(ObjectId(2)), Some(ObjectId(3))));
-        worker.forget(&|id| id == ObjectId(3));
-        assert_eq!((worker.drop_off, worker.patch), (Some(ObjectId(2)), None));
+        assert_eq!(worker.drop_off, Some(ObjectId(2)));
         worker.forget(&|id| id == ObjectId(2));
         let emptied = Worker {
             load: 8,
             ..Worker::default()
         };
         assert_eq!(worker, emptied);
+        let saved: Worker = serde_json::from_str(r#"{"load":8,"drop_off":null,"patch":3}"#).unwrap();
+        assert_eq!(saved, emptied);
     }
 
     /// `factions/colonists/units.md > Drone > Gathering`: the Drone is the one worker, and the Egress Node the one
@@ -271,5 +266,9 @@ mod tests {
         let def = worker_def(ObjectKind::Drone).expect("a worker");
         assert_eq!((def.carry_capacity, def.mining_ticks, def.drop_off_ticks), (8, 32, 2));
         assert_eq!((def.mining_reach, def.drop_off_reach), (8.0, 8.0));
+        assert_eq!(
+            def.search_radius, 6.0,
+            "> Patch Occupancy > Search radius (design change 0123)"
+        );
     }
 }

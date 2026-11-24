@@ -56,9 +56,10 @@ impl Sim {
                 self.check_gather(player, patch)?;
                 ordered = self.workers_among(ordered)?;
             }
+            // Design change 0140: and only those that carry something.
             OrderKind::DropOff(node) => {
                 self.check_drop_off(player, node)?;
-                ordered = self.workers_among(ordered)?;
+                ordered = self.carrying_among(self.workers_among(ordered)?)?;
             }
         }
         Ok(Checked::Order {

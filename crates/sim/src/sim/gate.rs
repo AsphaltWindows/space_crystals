@@ -112,7 +112,7 @@ pub enum Reject {
     /// None of the units a Gather or a Drop Off order names is a worker (`factions/colonists/units.md > Drone`).
     NoWorkers,
     /// A Gather's target isn't a Space Crystals patch that workers can gather: another object, or a patch under a
-    /// mining structure (question Q0037 point 11).
+    /// mining structure (design change 0137).
     NotGatherable(ObjectId),
     /// The target of a Drop Off order or of Set Drop-off Location isn't a drop-off of the player's, an own Egress
     /// Node (`factions/colonists/units.md > Drone > Assigned Drop-off`).
@@ -124,6 +124,9 @@ pub enum Reject {
     /// A Cancel Warp In to objects none of which is transforming (`factions/colonists/economy.md > Warp In > Cancel
     /// Warp In`, `crate::transform`).
     NotTransforming,
+    /// A Drop Off order to workers none of which carries anything (design change 0140: "Drop Off is only resolved
+    /// for a Drone that is carrying something"; the empty ones among loaded ones are left out).
+    NothingToDeliver,
 }
 
 impl fmt::Display for Reject {
@@ -165,6 +168,7 @@ impl fmt::Display for Reject {
             Reject::NotDropOff(id) => write!(f, "object {} is no drop-off of the player's", id.0),
             Reject::Unplaceable(problem) => write!(f, "the building can't go there: {problem}"),
             Reject::NotTransforming => write!(f, "nothing is transforming"),
+            Reject::NothingToDeliver => write!(f, "none of the workers carries anything"),
         }
     }
 }

@@ -66,6 +66,7 @@ pub(super) static DRONE: ObjectDef = ObjectDef {
             drop_off_ticks: 2,   // DropOffDuration: 2 frames
             mining_reach: 8.0,   // MiningReach: 8 space units (the design's placeholder)
             drop_off_reach: 8.0, // DropOffReach: 8 space units (the design's placeholder)
+            search_radius: 6.0,  // > Patch Occupancy > Search radius: 6 grid units (placeholder, design change 0123)
             pass_through: true,  // > Gathering Drones pass through each other (design change 0106)
         }),
     }),

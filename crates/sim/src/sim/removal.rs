@@ -1,5 +1,7 @@
 //! The one way objects leave the game: destroyed in combat (phase 5e) or removed by a debug command. Whatever the
-//! cause, every reference other objects hold to them goes too, so no state ever names an object that is gone.
+//! cause, every reference other objects hold to them goes too, so no state ever names an object that is gone, but
+//! for one: a worker's Gather goes on naming its patch while it heads for where the patch was (design change 0134,
+//! `orders::ActiveOrder::live_target`).
 
 use super::Sim;
 use crate::economy;
@@ -30,8 +32,8 @@ impl Sim {
     /// A constructor refunds its construction or its ready building to its owner as if cancelled (design change 0084,
     /// `Sim::refund_constructors`).
     ///
-    /// A worker gathering at a patch that goes is sent to another first, or its order ends
-    /// (`Sim::redirect_gatherers`, question Q0037 point 7); a worker forgets a drop-off and a patch that are gone
+    /// A worker gathering at a patch that goes keeps its Gather, and heads for where the patch was
+    /// (`Sim::keep_gatherers_on_spots`, design change 0134); a worker forgets a drop-off that is gone
     /// (`Worker::forget`).
     ///
     /// The grids aren't touched: phase 5b catches up with a footprint that went away, and a removal after it must
@@ -44,9 +46,9 @@ impl Sim {
         );
         gone.sort_unstable();
         gone.dedup();
-        // The workers gathering at a patch that goes: on to another one, while this one is still there to measure
-        // from (`Sim::redirect_gatherers`).
-        self.redirect_gatherers(&gone);
+        // The workers gathering at a patch that goes, while it is still there to say where it was
+        // (`Sim::keep_gatherers_on_spots`).
+        self.keep_gatherers_on_spots(&gone);
         for &id in &gone {
             self.refund_production(id);
         }
@@ -67,7 +69,8 @@ fn forget(o: &mut Object, gone: &[ObjectId]) {
     let is_gone = |id: ObjectId| gone.binary_search(&id).is_ok();
     let names_gone = |order: &Order| order.target().is_some_and(is_gone);
     if let Some(orders) = &mut o.orders {
-        if orders.current.as_ref().is_some_and(|active| names_gone(&active.order)) {
+        // A Gather heading for where its patch was goes on (`ActiveOrder::live_target`).
+        if (orders.current.as_ref()).is_some_and(|active| active.live_target().is_some_and(is_gone)) {
             orders.current = None;
         }
         orders.queue.retain(|order| !names_gone(order));

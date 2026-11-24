@@ -294,7 +294,14 @@ impl Sim {
         // Phases 5a–5f, `docs/movement.md > 4`.
         // 5a: after the commands, so an order acts in its own tick; before movement, so goals have one writer.
         // The behaviours read the positions and the vision the last tick left (5f).
-        let world = orders::world::World::new(&self.map, &self.vision, &self.objects, self.tick, self.auto_targeting);
+        let world = orders::world::World::new(
+            &self.map,
+            &self.vision,
+            &self.nav,
+            &self.objects,
+            self.tick,
+            self.auto_targeting,
+        );
         orders::update(&mut self.objects, first_new, &world);
         // 5b: the movement below must collide with this tick's obstacles (the true grids).
         observe(Phase::NavSync);

@@ -1,8 +1,9 @@
-//! Gathering (slice M3-H; `factions/colonists/units.md > Drone > Gathering`, `> Patch Occupancy (one Drone per
-//! patch)`, `> Assigned Drop-off`; `factions/colonists/economy.md > Egress Node > Drop Off`; the proposals of
-//! question Q0037): the loop and its trip time, occupancy, waiting and redirects, Set Drop-off Location, depletion,
-//! the Drop Off order, a lost Egress Node, the gate, a rally on a patch, and a game replayed and saved. `TestSim`
-//! checks the invariants after every tick. The crowd is `gathering_soak.rs`.
+//! Gathering (slice M3-H, brought in line with the design answers by slice M3-H3; `factions/colonists/units.md >
+//! Drone > Gathering`, `> Patch Occupancy (one Drone per patch)`, `> When a Gather ends`, `> Assigned Drop-off`;
+//! `factions/colonists/economy.md > Egress Node > Drop Off`): the loop and its trip time, occupancy, waiting and
+//! redirects, Set Drop-off Location, depletion, the Drop Off order, a lost Egress Node, the gate, a rally on a patch,
+//! and a game replayed and saved. `TestSim` checks the invariants after every tick. The Verification points of the
+//! design answers are `gathering_rules`; the crowd is `gathering_soak.rs`.
 
 use sc_sim::nav::NavClass;
 use sc_sim::orders::state::{Behaviour, GatherPhase};
@@ -150,7 +151,7 @@ fn one_drone_carries_loads_of_eight_from_the_patch_to_the_node() {
     let began = mines_from(&mut t, 3);
     assert_eq!(began, 20);
     assert_eq!(drop_off(&t, 3), Some(id(2)), "auto-assigned: the nearest Egress Node");
-    assert_eq!(object(&t, 3).worker.unwrap().patch, Some(id(1)));
+    assert_eq!(order(&t, 3), Some(OrderKind::Gather(id(1))));
     // `> Gathering`: MiningDuration. The load is taken as the mining ends, in the economy phase.
     t.run_until(began + MINING - 2);
     assert_eq!((load(&t, 3), remaining(&t, 1)), (0, 1500));
@@ -213,19 +214,19 @@ fn of_two_drones_arriving_together_the_lower_id_mines_and_the_other_goes_to_the_
         "redirected in the tick it arrived"
     );
     assert_eq!(phase(&t, 6), Some(GatherPhase::ToPatch));
-    assert_eq!(object(&t, 6).worker.unwrap().patch, Some(id(2)));
     let other = mines_from(&mut t, 6);
     // (By then Drone 5 may be on its way to the node: Drone 6 has to turn its momentum round first.)
     assert!(other > arrived, "both mine, each its own patch");
-    assert_eq!(object(&t, 5).worker.unwrap().patch, Some(id(1)));
+    assert_eq!(order(&t, 5), Some(OrderKind::Gather(id(1))));
     assert_eq!(remaining(&t, 3), 1500, "nobody went to the farther one");
 }
 
 /// `> Patch Occupancy`: "If no patch is unoccupied, it waits at the current patch and mines as soon as it frees
-/// up". Question Q0037 point 6: the first to wait gets the patch next, whatever its id. Point 5: a patch its owner
-/// has never seen is no patch to go to.
+/// up". Design change 0133 with the Director's choice: of the Drones waiting there, the lowest id mines next,
+/// whoever came first. Design change 0131: a patch its owner has never seen is no patch to go to, re-check after
+/// re-check (0132).
 #[test]
-fn with_no_patch_free_drones_wait_and_mine_in_the_order_they_came() {
+fn with_no_patch_free_drones_wait_and_the_lowest_id_mines_next() {
     // Patch 1; patch 2, 6 grid units east of it, out of everyone's sight; node 3. Drone 4 comes from the west and
     // arrives last; Drones 5 (south) and 6 (north) arrive together.
     let mut t = flat(16, 10)
@@ -247,19 +248,19 @@ fn with_no_patch_free_drones_wait_and_mine_in_the_order_they_came() {
     );
     let third = run_to(&mut t, 30, "Drone 4 waits too", |t| is_waiting(t, 4));
     assert!(third > first);
-    // The patch frees as the first mining ends, and the Drone that waited longest claims it in the next tick.
-    assert_eq!(mines_from(&mut t, 6), first + MINING);
-    assert!(is_waiting(&t, 4), "the lower id came later, and waits on");
+    // The patch frees as the first mining ends, and the lowest id of the Drones waiting claims it in the next tick.
+    assert_eq!(mines_from(&mut t, 4), first + MINING);
+    assert!(is_waiting(&t, 6), "it came first, and waits on");
     assert_eq!(load(&t, 5), LOAD);
-    assert_eq!(mines_from(&mut t, 4), first + 2 * MINING);
+    assert_eq!(mines_from(&mut t, 6), first + 2 * MINING);
     // The patch gives 8 every 32 frames, its ceiling (`> Patch Occupancy > Consequence`).
     t.run_until(first + 3 * MINING);
     assert_eq!(remaining(&t, 1), 1500 - 3 * LOAD);
     assert_eq!(remaining(&t, 2), 1500);
 }
 
-/// `> Patch Occupancy`: "from any player — an enemy Drone mining a patch blocks your Drones too". Question Q0037
-/// point 8: a Drone whose owner has no Egress Node idles holding its load.
+/// `> Patch Occupancy`: "from any player — an enemy Drone mining a patch blocks your Drones too". Design change
+/// 0135 (`> Assigned Drop-off > Drop-off gone`): a Drone whose owner has no Egress Node idles holding its load.
 #[test]
 fn an_enemy_drone_mining_a_patch_blocks_it() {
     // Patch 1, player 1's node 2 and Drone 3 (south, far), player 2's Drone 4 (north, near).
@@ -336,11 +337,12 @@ fn blocked(t: &TestSim, x: i32, y: i32) -> bool {
 }
 
 /// `core/map.md > SpaceCrystalsPatch`: "When a patch is fully depleted, it disappears from the map", and its tile
-/// opens (design change 0038). Question Q0037 point 13: the last load is what is left, after the full
-/// MiningDuration; point 7: the Drones that gathered there go on at the nearest free patch.
+/// opens (design change 0038). Design change 0138: the last load is what is left, after the full MiningDuration.
+/// Design change 0134: the Drone that mined it looks for another patch where it stands, and goes on there once it
+/// has delivered.
 #[test]
 fn a_depleted_patch_disappears_and_its_drones_go_on_at_another() {
-    // Patch 1 holds 20; patch 2 is two tiles east of it; node 3; Drone 4 mines, Drone 5 waits its turn.
+    // Patch 1 holds 20; patch 2 is two tiles east of it; node 3; Drone 4.
     let mut t = flat(16, 10)
         .spawn_with(patch_of(20), tile(5, 2))
         .spawn(PATCH, None, tile(7, 2))
@@ -364,9 +366,15 @@ fn a_depleted_patch_disappears_and_its_drones_go_on_at_another() {
     assert!(t.sim().events().contains(&SimEvent::Removed(id(1))));
     assert!(!blocked(&t, 5, 2), "its tile is open in the same tick");
     assert_eq!(load(&t, 4), 4, "a partial last load");
+    assert_eq!(
+        dangling_references(t.sim()),
+        [],
+        "its Gather names the patch only to say where it was"
+    );
+    // It looks round as the behaviours next run.
+    t.step();
     assert_eq!(order(&t, 4), Some(OrderKind::Gather(id(2))), "on to the other patch");
     assert_eq!(phase(&t, 4), Some(GatherPhase::ToDropOff), "after it has delivered");
-    assert_eq!(dangling_references(t.sim()), []);
     run_to(&mut t, 100, "the last load delivered", |t| deliveries(t).len() == 3);
     assert_eq!(deliveries(&t)[2].3, 4);
     assert_eq!(bank(&t, P1), 100 + 20);
@@ -374,8 +382,9 @@ fn a_depleted_patch_disappears_and_its_drones_go_on_at_another() {
     assert_eq!(order(&t, 4), Some(OrderKind::Gather(id(2))));
 }
 
-/// Question Q0037 point 7: "With no patch left, the Drone delivers any load and idles." A Drone waiting there idles
-/// at once.
+/// `> When a Gather ends` (design change 0123): with no patch left, the Gather ends, after the Drone has delivered
+/// its load. Design change 0134 (its Verification: "Deplete the last patch: Drones arrive, find nothing, deliver
+/// any load and idle"): the Drone on its way back to the patch walks on to where it was before it looks round.
 #[test]
 fn with_no_patch_left_a_drone_delivers_its_load_and_idles() {
     // Patch 1 holds 12, node 2, Drone 3 mines first (south), Drone 4 waits (north).
@@ -387,23 +396,31 @@ fn with_no_patch_left_a_drone_delivers_its_load_and_idles() {
         .start();
     gather(&mut t, 1, P1, &[3, 4], 1);
     // Drone 3 takes 8 and delivers them; Drone 4 takes the last 4 while Drone 3 is on its way back for more.
-    run_to(&mut t, 200, "the patch is mined out", |t| {
+    let gone = run_to(&mut t, 200, "the patch is mined out", |t| {
         t.sim().object(id(1)).is_none()
     });
     assert_eq!((load(&t, 3), load(&t, 4), bank(&t, P1)), (0, 4, 100 + LOAD));
-    assert_eq!(order(&t, 3), None, "nothing to deliver, nowhere to go: idle at once");
-    assert_eq!(
-        order(&t, 4),
-        Some(OrderKind::DropOff(id(2))),
-        "it delivers what it carries"
-    );
-    assert_eq!(object(&t, 3).worker.unwrap().patch, None);
     assert_eq!(dangling_references(t.sim()), []);
-    // It was on its way back to the patch: it brakes to a stop where it is (DragMovement, slice M3-G).
-    let from = object(&t, 3).pos;
-    t.run(16);
-    assert_eq!(object(&t, 3).pos, object(&t, 3).prev_pos, "it stands");
-    assert!(object(&t, 3).pos.distance(from) <= 42.0, "within its stopping distance");
+    t.step();
+    assert_eq!(
+        (order(&t, 4), phase(&t, 4)),
+        (Some(OrderKind::Gather(id(1))), Some(GatherPhase::ToDropOff)),
+        "it found nothing, and delivers what it carries before its Gather ends"
+    );
+    assert_eq!(
+        (order(&t, 3), phase(&t, 3)),
+        (Some(OrderKind::Gather(id(1))), Some(GatherPhase::ToPatch)),
+        "on to where the patch was"
+    );
+    // It arrives, finds nothing, and its Gather ends: it brakes to a stop beside the empty tile.
+    let ended = run_to(&mut t, 100, "Drone 3 idles", |t| order(t, 3).is_none());
+    assert!(ended > gone + 1);
+    let spot = TilePos::new(5, 2).center();
+    assert!(
+        object(&t, 3).pos.distance(spot) < 64.0,
+        "beside the empty tile: {:?}",
+        object(&t, 3).pos
+    );
     run_to(&mut t, 200, "the last load delivered", |t| deliveries(t).len() == 2);
     t.run(2);
     assert_eq!((order(&t, 3), order(&t, 4)), (None, None), "idle");
@@ -411,11 +428,11 @@ fn with_no_patch_left_a_drone_delivers_its_load_and_idles() {
     assert_eq!(t.sim().returning_drones(id(2)), []);
 }
 
-/// `> Unit Commands > Drop Off Resources`, and question Q0037: a Drone ordered away keeps its load (point 3); after
-/// a Drop Off order it goes back to the patch it was mining (point 1); a Gather while carrying delivers first
-/// (point 2).
+/// `> Unit Commands > Drop Off Resources`: a Drone ordered away keeps its load (design change 0129, `> Other orders
+/// keep the load`); a Drop Off order is only a delivery, at the drop-off it names, after which the Drone idles there
+/// (design change 0127, `> Drop Off order`).
 #[test]
-fn a_drop_off_order_delivers_the_load_and_the_drone_goes_back_to_its_patch() {
+fn a_drop_off_order_delivers_the_load_and_the_drone_idles_at_the_node() {
     // Patch 1, nodes 2 (near) and 3 (east), Drone 4.
     let mut t = flat(16, 10)
         .spawn(PATCH, None, tile(5, 2))
@@ -438,40 +455,44 @@ fn a_drop_off_order_delivers_the_load_and_the_drone_goes_back_to_its_patch() {
     assert_eq!(deliveries(&t)[0].2, 3);
     assert_eq!(bank(&t, P1), 100 + LOAD);
     t.step();
-    assert_eq!(order(&t, 4), Some(OrderKind::Gather(id(1))), "back to its patch");
+    assert_eq!(order(&t, 4), None, "the order is complete");
     assert_eq!(drop_off(&t, 4), Some(id(2)));
-    run_to(&mut t, 200, "the next load delivered", |t| deliveries(t).len() == 2);
-    assert_eq!(deliveries(&t)[1].2, 2, "at its AssignedDropOff");
-
-    // A Gather while carrying: the load goes to the drop-off first.
-    let loaded = run_to(&mut t, 100, "it carries a load", |t| load(t, 4) == LOAD);
-    t.order_at(loaded + 1, P1, &[id(4)], OrderKind::Stop, false);
-    gather(&mut t, loaded + 3, P1, &[4], 1);
-    t.run_until(loaded + 3);
-    assert_eq!(phase(&t, 4), Some(GatherPhase::ToDropOff));
-    let before = remaining(&t, 1);
-    run_to(&mut t, 100, "delivered first", |t| deliveries(t).len() == 3);
-    assert_eq!(remaining(&t, 1), before, "it mined nothing in between");
-    mines_from(&mut t, 4);
+    // It stays at the node: it doesn't go back to its patch.
+    t.run(100);
+    assert_eq!((order(&t, 4), deliveries(&t).len()), (None, 1));
+    let (at, node) = (object(&t, 4).pos, object(&t, 3).pos);
+    assert!(at.distance(node) < 96.0, "beside node 3: {at:?}, the node at {node:?}");
 }
 
-/// A Drop Off order with nothing to go back to: the order completes (question Q0037 point 1: "otherwise it idles").
+/// Design change 0138 (its Verification: "A patch with 3 left: the Drone mines 2 s, carries 3, the patch
+/// disappears"), and `> When a Gather ends` (0123): with no patch left the Gather ends once the 3 are delivered.
 #[test]
-fn a_drop_off_order_without_a_patch_to_go_back_to_completes() {
-    // Patch 1 holds 8: gone with the first load. Node 2, Drone 3.
-    let mut t = one_patch(8).start();
+fn a_patch_with_3_left_gives_a_load_of_3_after_the_full_mining() {
+    let mut t = one_patch(3).start();
     gather(&mut t, 1, P1, &[3], 1);
-    run_to(&mut t, 100, "the patch is mined out", |t| {
-        t.sim().object(id(1)).is_none()
-    });
-    assert_eq!(order(&t, 3), Some(OrderKind::DropOff(id(2))));
-    run_to(&mut t, 100, "delivered", |t| !deliveries(t).is_empty());
+    let began = mines_from(&mut t, 3);
+    t.run_until(began + MINING - 2);
+    assert_eq!(
+        (load(&t, 3), remaining(&t, 1)),
+        (0, 3),
+        "2 seconds, the full MiningDuration"
+    );
     t.step();
-    assert_eq!((order(&t, 3), load(&t, 3), bank(&t, P1)), (None, 0, 108));
+    assert_eq!(load(&t, 3), 3);
+    assert!(t.sim().object(id(1)).is_none(), "the patch is gone");
+    run_to(&mut t, 100, "delivered", |t| !deliveries(t).is_empty());
+    assert_eq!(
+        order(&t, 3),
+        Some(OrderKind::Gather(id(1))),
+        "still gathering as it unloads"
+    );
+    t.step();
+    assert_eq!((order(&t, 3), load(&t, 3), bank(&t, P1)), (None, 0, 103));
 }
 
-/// Question Q0037 point 8: a Drone whose Egress Node is destroyed assigns the nearest one as it starts its return;
-/// with none left it idles holding its load, and delivers it when it is sent gathering again.
+/// Design change 0135 (`> Assigned Drop-off > Drop-off gone`): a Drone whose Egress Node is destroyed assigns the
+/// nearest one as it starts its return; with none left it idles holding its load, and delivers it when it is sent
+/// gathering again (0128: to the patch first, where it turns round without mining).
 #[test]
 fn drones_of_a_lost_egress_node_assign_another_or_idle_with_their_load() {
     // Patch 1, nodes 2 (near) and 3 (east), Drone 4; and a Beacon, 5, so that player 1 isn't defeated with its
@@ -503,7 +524,7 @@ fn drones_of_a_lost_egress_node_assign_another_or_idle_with_their_load() {
     assert_eq!(dangling_references(t.sim()), []);
     t.run(40);
     assert_eq!(object(&t, 4).pos, object(&t, 4).prev_pos, "it stands");
-    // A new node, and a new Gather: the old load is delivered first.
+    // A new node, and a new Gather: the old load is delivered at the new node, the nearest.
     let now = t.sim().tick();
     t.debug_at(
         now + 1,
@@ -522,8 +543,9 @@ fn drones_of_a_lost_egress_node_assign_another_or_idle_with_their_load() {
     assert_eq!(bank(&t, P1), 100 + 2 * LOAD);
 }
 
-/// Question Q0037 point 4: a Drone ordered away while it mines collects nothing, "and the patch frees at once": the
-/// Drone that waited mines from that very tick.
+/// Design change 0130 (`> Interrupted mining`; its Verification: "Order a mining Drone away at frame 20: it carries
+/// nothing; another waiting Drone starts mining that patch immediately"): the Drone that waited mines from that very
+/// tick.
 #[test]
 fn interrupted_mining_collects_nothing_and_frees_the_patch_at_once() {
     // Patch 1, node 2, Drone 3 (south) mines, Drone 4 (north) waits.
@@ -540,21 +562,34 @@ fn interrupted_mining_collects_nothing_and_frees_the_patch_at_once() {
     assert_eq!((load(&t, 4), remaining(&t, 1)), (LOAD, 1500 - LOAD));
 }
 
-/// Question Q0037 point 12: an order Shift-queued behind a Gather "starts after the Drone's next drop-off".
+/// `> When a Gather ends` (design change 0123; its Verification: "Shift-queue a Move behind a Gather: the Drone
+/// keeps mining until its field is exhausted, delivers its last load, then moves"): the queued order waits for the
+/// Gather to end on its own, which it does once no patch is left within the Drone's search radius.
 #[test]
-fn an_order_queued_behind_a_gather_starts_after_the_next_drop_off() {
-    let mut t = one_patch(1500).start();
+fn an_order_queued_behind_a_gather_waits_until_the_field_is_mined_out() {
+    // Patch 1 holds 16, node 2, Drone 3; patch 4, two tiles east of patch 1, holds 8.
+    let mut t = one_patch(16).spawn_with(patch_of(8), tile(7, 2)).start();
     gather(&mut t, 1, P1, &[3], 1);
     let away = OrderKind::Move(Target::Point(Vec2::new(800.0, 288.0)));
     t.order_at(5, P1, &[id(3)], away, true);
     run_to(&mut t, 100, "delivered", |t| !deliveries(t).is_empty());
-    assert_eq!(order(&t, 3), Some(OrderKind::Gather(id(1))));
+    t.step();
+    assert_eq!(order(&t, 3), Some(OrderKind::Gather(id(1))), "back for more");
+    run_to(&mut t, 300, "patch 1 is mined out", |t| t.sim().object(id(1)).is_none());
+    t.step();
+    assert_eq!(order(&t, 3), Some(OrderKind::Gather(id(4))), "on at the other patch");
+    let last = run_to(&mut t, 300, "the field is mined out", |t| {
+        t.sim().object(id(4)).is_none()
+    });
+    assert_eq!(load(&t, 3), LOAD);
+    run_to(&mut t, 100, "the last load delivered", |t| deliveries(t).len() == 3);
+    assert!(deliveries(&t).iter().all(|d| d.3 == LOAD), "{:?}", deliveries(&t));
+    assert!(t.sim().tick() > last);
     t.step();
     assert_eq!(order(&t, 3), Some(away), "the queued order started");
     run_to(&mut t, 100, "it arrived", |t| order(t, 3).is_none());
-    t.run(100);
-    assert_eq!(deliveries(&t).len(), 1, "one load, and no more");
     assert_eq!(object(&t, 3).pos, Vec2::new(800.0, 288.0));
+    assert_eq!(bank(&t, P1), 100 + 24);
 }
 
 fn command(player: PlayerId, command: Command) -> PlayerCommand {
@@ -614,6 +649,8 @@ fn the_gate_rejects_invalid_worker_commands_and_they_change_nothing() {
         (drop_at(&[5], 1), Reject::NotDropOff(id(1))),
         (drop_at(&[5], 99), Reject::UnknownObject(id(99))),
         (drop_at(&[8], 4), Reject::NotOwned(id(8))),
+        // Design change 0140: no Drone of them carries anything.
+        (drop_at(&[5, 6], 4), Reject::NothingToDeliver),
         (set_drop_off(P1, &[6], 4), Reject::LacksAbility),
         (set_drop_off(P1, &[5], 7), Reject::NotDropOff(id(7))),
         (set_drop_off(P1, &[5], 5), Reject::NotDropOff(id(5))),
@@ -631,8 +668,8 @@ fn the_gate_rejects_invalid_worker_commands_and_they_change_nothing() {
     twin.run(3);
     assert_eq!(t.sim().state_hash(), twin.sim().state_hash(), "they changed nothing");
 
-    // The valid forms; the units that aren't workers ignore them.
-    let valid = [gather_at(&[5, 6], 1), drop_at(&[5, 6], 4), set_drop_off(P1, &[5, 6], 4)];
+    // The valid forms; the units that aren't workers ignore them (a valid Drop Off is `gathering_rules`, for 0140).
+    let valid = [gather_at(&[5, 6], 1), set_drop_off(P1, &[5, 6], 4)];
     for cmd in &valid {
         assert_eq!(t.sim().validate(cmd), Ok(()), "{cmd:?}");
     }
@@ -679,7 +716,7 @@ fn a_drone_rallied_on_a_patch_gathers_it() {
 #[test]
 fn a_gathering_game_replays_and_round_trips() {
     let mut scenario = flat(16, 12)
-        .spawn_with(patch_of(40), tile(4, 2))
+        .spawn_with(patch_of(24), tile(4, 2))
         .spawn(PATCH, None, tile(5, 2))
         .spawn(PATCH, None, tile(6, 2))
         .spawn(PATCH, None, tile(7, 2))
@@ -713,7 +750,7 @@ fn a_gathering_game_replays_and_round_trips() {
     assert_eq!(&saved, t.sim());
     t.run_until(900);
     let sim = t.sim();
-    assert!(sim.object(id(1)).is_none(), "the patch of 40 was mined out");
+    assert!(sim.object(id(1)).is_none(), "the patch of 24 was mined out");
     assert!(deliveries(&t).len() > 10, "{:?}", deliveries(&t));
     assert!(
         deliveries(&t).iter().any(|d| d.1 == 14 && d.2 == 7),
