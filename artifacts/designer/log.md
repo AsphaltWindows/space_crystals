@@ -1994,3 +1994,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T19:14:28-05:00 — Q0010.1: chase into fog → last seen position. Doc: behaviors.md. Change entry 0034.
 - 2026-11-23T19:18:25-05:00 — Collision response / un-sticking (velocity reset on block, blocked portion dropped); tracked pathfinding precompute note. Doc: systems/units.md. Change entry 0035 (replaces 0033 turning rule).
 - 2026-11-23T19:20:03-05:00 — Q0010.2: patrol origin at execution. Docs: commands.md, behaviors.md. Change entry 0036.
+- 2026-11-23T19:20:44-05:00 — Q0010.3: failed patrol leg = arrived, 2 in a row end. Doc: behaviors.md. Change entry 0037.

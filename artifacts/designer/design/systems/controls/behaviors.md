@@ -223,6 +223,7 @@ Base behavior for moving back and forth between two locations while engaging ene
 
 ### BaseBehaviorState contains:
 - AttackMovingToLocation sub-behavior state
+- ConsecutiveFailedLegs: number
 - PatrolOrigin: Coordinates (unit's position when the Patrol **starts executing**, not when it was issued; for a Shift-queued Patrol that is where the previous queued order ended. User, 2026-11-23)
 - PatrolDestination: Coordinates (BaseCommandState.TargetLocation)
 - CurrentLeg: origin-to-destination | destination-to-origin
@@ -233,7 +234,12 @@ Base behavior for moving back and forth between two locations while engaging ene
 3. When AttackMovingToLocation completes (arrived at destination): swap legs, begin AttackMovingToLocation toward the other endpoint
 4. Repeat indefinitely until a new command is issued
 
-### Behavior never completes on its own — continues cycling until interrupted by a new command.
+### Failed legs (user, 2026-11-23):
+- A leg that fails (the unit gives up per MovingToLocation > Failure) **counts as arrived**: the unit turns around and patrols back toward the other endpoint.
+- If **two legs in a row** fail (stuck in both directions), the Patrol ends and the unit goes idle.
+- Unreachable or crowded endpoints are not failures (MovingToLocation > Unreachable / Occupied target location), and neither is stopping to fight.
+
+### Behavior never completes on its own (except two failed legs in a row) — continues cycling until interrupted by a new command.
 
 ## HoldingPosition
 Base behavior for remaining stationary. The unit does not move for any reason but will turn and fight if able.
