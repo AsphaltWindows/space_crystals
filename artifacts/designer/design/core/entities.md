@@ -99,7 +99,7 @@ Structure placement is validated differently depending on the placement method:
 
 ### Warp In (Colonists Beacon transformation, see factions/colonists/economy.md > Warp In)
 - The player selects an established Beacon, selects Warp In, and selects a target building
-- The building's footprint ghost is centered on the Beacon's location; the player may rotate/flip it before confirming
+- The building's footprint ghost is centered on the Beacon's location; the player may rotate/flip it before confirming. Odd-sized footprints can't be exactly centred: they start offset to the bottom-right and rotate/flip around the Beacon's centre (factions/colonists/economy.md > Warp In > Warp In Command)
 - All footprint tiles must be Buildable, flat (core/map.md > Elevation) and unoccupied, except for the Beacon's own footprint, which will be consumed by the transformation
 - **Units block** (user, 2026-11-24): "unoccupied" includes units, as in Direct Placement: a ground unit of any player on the footprint makes those tiles invalid. Air and underground units never block.
 - **Visible tiles** (user, 2026-11-24): as in Direct Placement, every footprint tile must be **Visible** to the player; a tile that isn't is red on the ghost. This rarely matters (the Beacon's sight covers its surroundings) but keeps the ghost from revealing hidden units in fog.
