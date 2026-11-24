@@ -2159,3 +2159,4 @@ Syndicate: Sludge affects all players' units. Entry 0192.
 Syndicate: Shadebringer charges are draining tanks. Entry 0193.
 Syndicate: Shadebringer not immune to own sludge, laid behind it. Entry 0194.
 Syndicate: smoke blocks structures' sight; both toggles at once. Entry 0195.
+Syndicate: sludge vs Mechs/Drill Units. Entry 0196. Q0053 noted.
