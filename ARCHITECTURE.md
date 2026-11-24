@@ -148,7 +148,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   `orders` (`Orders`, `orders.rs`: the current order with its behaviour's state, a queue of at most
   `MAX_QUEUED_ORDERS`, and what the unit does on its own while it has none; see *Behaviours*), `mover`
   (`Mover`, `mover.rs`: goal, status, path, the replanning state of `docs/movement.md > 3` and the sidestep of a
-  yielding unit), for units that
+  yielding unit; `mover/` holds the stuck schedule, the sidestep and the hash), for units that
   can attack, `attack` (`AttackState`, `combat.rs`: see *Combat*) and, for units that carry a Riot Shield,
   `riot_shield` (`RiotShield`, `riot_shield.rs`: the shield's mode, see *Combat*). Production and the rest arrive as
   more optional fields, each with its own module. Never add them as separate stores keyed by
@@ -247,8 +247,12 @@ ticks spent in it. Hashed and serialized like all state.
 - **Queries**: `combat::may_move(&Object)` and `may_turn(&Object)`: whether the attack leaves the base free to move
   or turn this tick (`> UnitBaseSource`: not while Aiming, Firing or in Cooldown; turret units always). Phase 5d
   holds a unit that may not: it stands, keeping its goal, path and stuck clock (`movement::wait`). The behaviours
-  start a chase only when `may_move` holds. A unit that moves in 5d and starts aiming in 5e (it aims in the tick it
-  comes into range) may turn twice in a tick; harmless while every M1 unit turns 180° per tick.
+  start a chase only when `may_move` holds.
+- **One turn budget per tick**: a unit turns at most its TurnRate per tick in all. Phase 5d turns it first and notes
+  the angle (`movement::Turns`, in the movement scratch); the aim in 5e turns it only by what is left
+  (`Shooter::turn_left`). Both turn through `math::turn_toward`. It matters in the tick a unit that moved comes into
+  range and begins to aim. The record is transient: 5d writes it afresh and 5e of the same tick reads it, so it is
+  neither hashed nor saved; it follows from the state the tick began with and the tick's inputs.
 - **Range** (`shape.rs`, `combat/targeting.rs`; `systems/combat.md > Range Measurement`, design change 0031): **edge
   to edge**, the gap between the attacker's shape and the target's. `Shape::of(object)` is a unit's Silhouette or a
   tile-based object's footprint; `Shape::gap` measures between two, `Shape::distance_to` to a point (ground-location
@@ -452,9 +456,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   going) and idle units that yield to it. Each bars a range of sideways shifts, its lane. The unit steps, forward
   and sideways at once, towards the nearest clear lane within 3 of its widths, or, in front of a dense group,
   towards the middle of the widest gap; two dense groups mesh like combs and spread from the outside in. One idle
-  unit alone is no lane. The constants are the `LANE_*` in `collide.rs`. It is deterministic by sorted lanes and
-  fixed cell order, and keeps no state but `Mover::avoid_side`. Never let it write a position except through
-  `World::clear`.
+  unit alone is no lane. The code and its constants, the `LANE_*`, are in `collide/lanes.rs`. It is deterministic
+  by sorted lanes and fixed cell order, and keeps no state but `Mover::avoid_side`. Never let it write a position
+  except through `World::clear`.
 - **The grid's cells carry marks** (`Body::kinds`, `Layer::near_any`): which heading sectors and whether a yielding
   unit were listed in a cell this tick. They only ever say "maybe", and exist so that a unit with nobody to pass
   doesn't look at bodies. Keep them conservative: mark on every insert and whenever a body's kinds change.
@@ -478,15 +482,14 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
 - **Collision exceptions** go in `space::blocks(mover, other)` and nowhere else (crushing will).
 - **Held by its attack**: a unit whose attack sequence holds its base (`combat::may_move` or `may_turn` false: see
   *Combat*) stands for the tick and keeps its goal, path and stuck clock (`wait`), like a unit waiting for its path.
-- **Stuck and recovery** (`stuck.rs`; the numbers, in `mover.rs`, are the design's placeholders of changes 0024
-  and 0026): progress is the remaining path length; waiting behind a unit that is getting on counts. A unit is
+- **Stuck and recovery** (`stuck.rs`; the numbers, in `mover/schedule.rs`, are the design's placeholders of changes
+  0024 and 0026): progress is the remaining path length; waiting behind a unit that is getting on counts. A unit is
   stuck after `STUCK_TICKS` (24) without it (`Mover::is_stuck`); it then tries another route `MAX_REPATHS` times,
   after waits of `REPATH_WAITS` (8, 16, 32; `Mover::recovery_due`), around the tile of a blocker that stands, and
-  gives up 24 ticks after the last: `MoveStatus::Failed` and `SimEvent::MoveFailed`, `GIVE_UP_TICKS` (104) after
-  its last progress. **Occupied target**: within `OCCUPIED_ARRIVAL_GU` (2) of its goal behind a stationary unit
-  that won't yield to it, the unit has arrived instead, without a repath: when stuck, or after `JAMMED_TICKS`
-  without a way forward if the blocker has no goal. Two moving units head-on in a passage too narrow to pass both
-  fail.
+  gives up 24 ticks after the last: `MoveStatus::Failed` and `SimEvent::MoveFailed`, `GIVE_UP_TICKS` (104) after its
+  last progress. **Occupied target**: within `OCCUPIED_ARRIVAL_GU` (2) of its goal behind a stationary unit that
+  won't yield to it, the unit has arrived instead, without a repath: when stuck, or after `JAMMED_TICKS` without a
+  way forward if the blocker has no goal. Two moving units head-on in a passage too narrow to pass both fail.
 - **Object goals** (`MoveGoal::Object { id, reach }`, `docs/movement.md > 5.6`, `> 6.5`): the path is planned to
   the point nearest the object's centre that the unit can stand on (right at a structure's wall), and kept aimed at
   the object as it moves (`paths::chase_check`, on the stagger tick: straight at it while the unit's box has a
@@ -649,15 +652,18 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
 - **Movement scenario tests** are `crates/sim/tests/movement_collision.rs` (passing, head-on, choke, group arrival,
   idle units, repaths, oscillation bounds, save and load in a crowd), `group_destinations.rs` (the magic box),
   `queued_group_destinations.rs` (Shift-queued group orders),
-  `movement_yield.rs` (friendly yielding, occupied targets, the give-up schedule), `movement_soak.rs` (200 units,
+  `movement_yield.rs` (friendly yielding, occupied targets, the give-up schedule), `movement_crowds.rs` (blocks
+  meeting head-on, a group through an idle block, dense blocks of any shape), `movement_soak.rs` (200 units,
   random orders, 2 000 ticks; bounds on the share of failed moves) and the ignored `movement_perf.rs`.
 - **Behaviour scenario tests** are `crates/sim/tests/behaviours_attack.rs` (the approach to a gap of Range, the
   chase, the last seen position, a target out of reach, queueing), `behaviours_idle.rs` (acquiring by priority,
   the leash and the return, Hold, Move doesn't engage, the auto-targeting switch), `behaviours_travel.rs` (Follow,
   static objects, AttackMove groups and the leash, a fight replayed and saved in its middle),
   `behaviours_patrol.rs`, `behaviours_gate.rs` (targets must be seen; a GDO player's remembered station, by its
-  record), `behaviours_soak.rs` (120 units fighting
-  under random orders of every kind; no dangling ids, no path-request storms) and the ignored `behaviours_perf.rs`.
+  record), `behaviours_soak.rs` (120 units fighting under random orders of every kind, then without orders until
+  those end; its checks are invariants that survive tuning: no dangling ids, no idle unit in reach of a visible
+  enemy, every order but Hold, Patrol and Follow ends, and bounded shares of refused orders, failed moves and path
+  searches) and the ignored `behaviours_perf.rs`.
   `riot_shield.rs` has the Riot Shield's: toggle timing, each raised-shield effect, the gate, a save in the middle
   of a toggle and its replay.
   Measured (release, 500 units on 256 × 256): 0.12 ms a tick with everyone idle, 0.14 ms on Hold in sight of the
@@ -1068,7 +1074,8 @@ unchecked.
   is logged as an error, fails a QA run (exit code 1) and shows in red in the top bar, and the playback goes on.
   Controls (Game context, placeholder keys): Space pauses and resumes, `.` plays one tick and pauses, `-` and `=`
   step through the speeds ×0.5, ×1, ×2, ×4 and max (`playback::SPEEDS`; `--fast` starts at max), F2 switches the
-  player and F3 the fog, also when the recorded game had no debug commands. The top bar shows "Replay x2", ", paused"
+  player and F3 the fog, also when the recorded game had no debug commands (the selection's and the fog's own
+  systems allow them while a `Playback` runs). The top bar shows "Replay x2", ", paused"
   or ", end", and "Tick n / end". Screenshots, `--exit-at-tick`, `--dump-state`, `--input-script` (to press the
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
@@ -1177,12 +1184,12 @@ unchecked.
   when the editor's state changed or the pointer moved over them; the texts and fields refresh only when their values
   changed. Text fields commit in `EditorSystems::Input`, before the frame's actions, so a click elsewhere (Save, a
   tool, another field) applies the typed text first; Enter commits, Esc gives up the text.
-- **Tests** (`crates/game/tests/editor/`: `session`, `edits`, `creation`, `symmetry`, `review`, `input`) build a
-  headless app with `AppConfig::editor`, push `EditorAction`s into `EditorActions`, call `app.update()`, and assert on
-  `EditorDoc`, the sim, the view and the UI state. Positions are ground points, such as `TilePos::center()`. Tests of
-  the input itself (`input`: keys, pointer, wheel, over the UI, typing) go through the layer's `InjectedInput`
-  (`tap`, the virtual mouse, cursor and wheel). Never inject Bevy's raw input, except a text field's own keys
-  (Enter, Esc) and the window's close button (`WindowCloseRequested`).
+- **Tests** (`crates/game/tests/editor/`: `session`, `edits`, `map_edits`, `creation`, `symmetry`, `review`, `input`)
+  build a headless app with `AppConfig::editor`, push `EditorAction`s into `EditorActions`, call `app.update()`, and
+  assert on `EditorDoc`, the sim, the view and the UI state. Positions are ground points, such as
+  `TilePos::center()`. Tests of the input itself (`input`: keys, pointer, wheel, over the UI, typing) go through the
+  layer's `InjectedInput` (`tap`, the virtual mouse, cursor and wheel). Never inject Bevy's raw input, except a text
+  field's own keys (Enter, Esc) and the window's close button (`WindowCloseRequested`).
 - **QA**: `--editor-script` applies its actions in the first frame, before any screenshot. The editor's sim stays at
   tick 0, so take screenshots at tick 0 unless the script play-tests (`"PlayTest"`).
 

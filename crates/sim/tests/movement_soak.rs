@@ -172,8 +172,9 @@ fn two_hundred_units_under_random_orders_keep_the_invariants() {
         // and a unit shut out more than 2 GU from its place gives up (design changes 0022 and 0026), so some of
         // those moves fail. How many depends on the seed and on every tuning constant, so the bounds are loose:
         // of the moves that ended, at most `MAX_FAILED_SHARE` failed in any one seed, and at most
-        // `MAX_FAILED_SHARE_OVERALL` over all seeds. (With friendly yielding the shares are 0.38, 0.07 and 0.13,
-        // and 0.16 overall; without it they were 0.66, 0.19 and 0.21, and 0.32 overall.)
+        // `MAX_FAILED_SHARE_OVERALL` over all seeds. (The test prints the counts. At the end of M1 the shares were
+        // 0.22, 0.02 and 0.09, and 0.08 overall, of 183, 459 and 472 moves that ended; before friendly yielding
+        // they were 0.66, 0.19 and 0.21, and 0.32 overall.)
         let ended = arrived + failed;
         assert!(ended >= 100, "seed {seed}: only {ended} moves ended");
         assert!(

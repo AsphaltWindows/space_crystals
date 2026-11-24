@@ -378,7 +378,8 @@ fn leaving_the_fastest_pace_runs_no_burst_of_ticks() {
 }
 
 /// F2 switches the player and F3 the fog in a playback as in a game with debug commands, even when the recorded game
-/// had none: they only change what the replay shows. With debug commands, F2 switches once, not twice.
+/// had none: they only change what the replay shows. F2 is the selection's own switch (`selection::systems`), so it
+/// switches once, not twice, and each player keeps their ControlState as in a game.
 #[test]
 fn playback_switches_the_player_and_the_fog_even_without_debug_commands() {
     for debug in [false, true] {
@@ -386,10 +387,18 @@ fn playback_switches_the_player_and_the_fog_even_without_debug_commands() {
         scenario.setup.config = SimConfig { debug };
         let mut app = playback(sim_recording(scenario, 50));
         assert_eq!(app.world().resource::<SimRes>().config(), SimConfig { debug });
+        select(&mut app, 1);
+        let selection_in_use = |app: &App| {
+            let player = app.world().resource::<LocalPlayer>().0;
+            let states = app.world().resource::<ControlStates>();
+            states.selection(player).ids().collect::<Vec<_>>()
+        };
         tap(&mut app, KeyCode::F2);
         assert_eq!(app.world().resource::<LocalPlayer>().0, P2, "debug {debug}");
+        assert_eq!(selection_in_use(&app), [], "player 2's own, debug {debug}");
         tap(&mut app, KeyCode::F2);
         assert_eq!(app.world().resource::<LocalPlayer>().0, P1, "debug {debug}");
+        assert_eq!(selection_in_use(&app), [ObjectId(1)], "debug {debug}");
         tap(&mut app, KeyCode::F3);
         assert!(!app.world().resource::<FogOfWar>().enabled, "debug {debug}");
         tap(&mut app, KeyCode::F3);

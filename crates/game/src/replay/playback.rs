@@ -8,18 +8,19 @@
 //!
 //! Controls ([`InputAction`], placeholder keys: the design has no replays yet): pause and resume, play one tick,
 //! slower and faster through [`SPEEDS`]. The player switch (F2) and the fog toggle (F3) work as in a game with debug
-//! commands, even if the recorded game had none: they only change what the replay shows.
+//! commands, even if the recorded game had none: they only change what the replay shows. Their own systems do it,
+//! the selection's (`crate::selection`) and the fog's (`crate::fog`), which allow them while a [`Playback`] runs.
 
 use std::path::PathBuf;
 
 use bevy::prelude::*;
-use sc_sim::{Desync, PlayerId, Replay, Tick};
+use sc_sim::{Desync, Replay, Tick};
 
 use crate::ClientSystems;
 use crate::command_ui::CommandUiSystems;
 use crate::input::{ActionState, InputAction};
 use crate::qa::QaState;
-use crate::sim_driver::{LocalPlayer, Pace, PendingCommands, SimControl, SimRes, StepSim};
+use crate::sim_driver::{Pace, PendingCommands, SimControl, SimRes, StepSim};
 
 /// The playback speeds, slowest first: half, once, twice and four times the game's speed, and as fast as the client
 /// can step (`Pace::Max`). Playback starts at once, or as fast as possible with `--fast`. Placeholders.
@@ -133,15 +134,13 @@ fn check_checkpoint(
     }
 }
 
-/// The playback controls; and the player switch if the recorded game had no debug commands (with them, the
-/// selection's own switch does it, `crate::selection`).
+/// The playback controls.
 fn playback_keys(
     actions: Res<ActionState>,
     sim: Res<SimRes>,
     playback: Res<Playback>,
     mut control: ResMut<SimControl>,
     mut pace: ResMut<Pace>,
-    mut player: ResMut<LocalPlayer>,
 ) {
     let over = sim.tick() >= playback.end_tick();
     if actions.just_pressed(InputAction::ReplayPause) && !over {
@@ -157,15 +156,5 @@ fn playback_keys(
     }
     if actions.just_pressed(InputAction::ReplayFaster) {
         pace.set_if_neq(SPEEDS[(speed + 1).min(SPEEDS.len() - 1)]);
-    }
-    if actions.just_pressed(InputAction::DebugSwitchPlayer) && !sim.config().debug {
-        let ids: Vec<PlayerId> = sim.players().iter().map(|p| p.id).collect();
-        let next = match ids.iter().position(|&id| id == player.0) {
-            Some(i) => ids.get((i + 1) % ids.len()),
-            None => ids.first(),
-        };
-        if let Some(&next) = next {
-            player.set_if_neq(LocalPlayer(next));
-        }
     }
 }

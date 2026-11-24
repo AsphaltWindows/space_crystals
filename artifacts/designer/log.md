@@ -2034,3 +2034,21 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Q0020 pt 1: shielded Peacekeepers right-clicked on enemy follow (B, 0062 wins). Doc: gdo/units.md > Riot Shield. Entry 0074.
 - 2026-11-24: Q0021 pt 2: shielded Peacekeepers left out of explicit Attack (B), differs from right-click follow. Doc: gdo/units.md > Riot Shield; wording fix in No smart-casting. Entry 0075.
 - 2026-11-24: AttackMove issued to units that can't attack; they just move (A; user: a unit without attack never attacks while attack-moving). Docs: commands.md > AttackMove, gdo/units.md > Riot Shield. Entry 0076. Q0022–Q0030 arrived (Q0022 blocking for GDO supplies only); logged in insights.
+- 2026-11-24: Q0022 answered A: GDO supply loop deferred to air milestone; Starting Supplies 0 placeholder. Standing permission: placeholder stats when only numbers block the Director. Entry 0077.
+- 2026-11-24: Q0021 pt 3: any control group recall resets all menus, even identical selection (B, widened). Doc: selection_and_hud.md > ObjectInterfaceState, Selection changes while targeting. Entry 0078. Q0021 done.
+- 2026-11-24: Q0023 pt 1: side lettering clockwise from top in default orientation; Barracks and Cults Armory 2x3 (3 wide). Entry 0079.
+- 2026-11-24: Q0023 pts 2-3: Exit Doorway rule (spawn half inside, walk out, stop in doorway if blocked, pause while doorway occupied; buildings may block exits for now). Doc: core/entities.md > Exit Doorway. Entry 0080.
+- 2026-11-24: Q0024 pt 1: queue max 20 includes unit in production (all factions). Entry 0081.
+- 2026-11-24: Q0024 pt 2: GDO Unit Control reserved when queued (A). Doc: gdo/overview.md > Unit Control. Entry 0082.
+- 2026-11-24: Q0024 pt 3: group production with limited resources: as many as possible, least remaining queued production time first. Doc: selection_and_hud.md > No smart-casting. Entry 0083.
+- 2026-11-24: Q0024 pt 4: destroyed GDO producers refund as if cancelled. Doc: gdo/structures.md Barracks + DC Cancellation. Entry 0084.
+- 2026-11-24: Finished unit fully inside (waiting for doorway) refunded when building dies. Entry 0085.
+- 2026-11-24: Q0024 pt 5: rally on the building itself clears it. Entry 0086.
+- 2026-11-24: Q0024 pt 6: rally indicators green/red + line. Entry 0087.
+- 2026-11-24: Q0024 pt 7: rally on enemy converts to ground rally at last-seen position when it leaves sight (no info leak). Entry 0088. Q0024 done.
+- 2026-11-24: Q0025 pts 1,2,4: power producers never slowed (A); ratio gen/cons capped; power counts placement→destruction. Entry 0089.
+- 2026-11-24: Q0025 pt 3: Power display used/available (red when over), like other capacity counters. Entry 0090. Q0025 done.
+- 2026-11-24: Q0026 pt 1: GDO build area square. Entry 0091.
+- 2026-11-24: Q0026 pts 2-3: build area = union of current buildings (shrinks; no DC still OK). Entry 0092.
+- 2026-11-24: Q0026 pt 4: overlay = build area only. Entry 0093. Q0026 done.
+- 2026-11-24: Q0027 pt 1: ground units of any player block direct placement. Entry 0094.

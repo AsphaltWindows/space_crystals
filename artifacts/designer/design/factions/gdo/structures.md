@@ -1,11 +1,11 @@
 # GDO: Structures
 
 ## Barracks
-GDO infantry production structure. Produces infantry units from a build queue. Units exit from one of the short sides (B side).
+GDO infantry production structure. Produces infantry units from a build queue. Units exit from one of the short sides (B side, the right end in the default orientation), through the exit doorway (core/entities.md > Structure Type > Exit Doorway).
 
 ### Faction - GlobalDefenseOrganization
-### Size - 3x2 grid units
-### SymmetryType - ABAC
+### Size - 2x3 grid units (2 tall, 3 wide in the default orientation)
+### SymmetryType - ABAC (top A, right B, bottom A, left C; core/entities.md > Structure Type > Side lettering convention)
 ### MaxHP - 300
 ### PointArmor - 1
 ### FullArmor - 6
@@ -17,12 +17,15 @@ GDO infantry production structure. Produces infantry units from a build queue. U
 
 ### BarracksInstanceState:
 - RallyPoint: Coordinates | ObjectInstance | None
-- BuildQueue: array of ObjectEnum (max 20)
+- BuildQueue: array of ObjectEnum (max 20, including the unit currently in production; user, 2026-11-24)
 - CurrentBuild: ObjectEnum | None
 - CurrentBuildProgress: number (frames elapsed) | None
 
+### Destroyed while producing (user, 2026-11-24):
+If a Barracks is destroyed, its whole BuildQueue (including the unit in production) is refunded **as if cancelled**: full Space Crystals cost, and Unit Control released. The same applies to every GDO producer and constructor (e.g. an Extraction Facility constructing a plate, an Airfield's queue). Matches research (core/tech_and_research.md > Research > Shared Rules). This includes a unit that is **finished but still fully inside** (production at 100%, waiting because the exit doorway is occupied; core/entities.md > Structure Type > Exit Doorway): it is refunded like the rest of the queue (user, 2026-11-24). A unit already standing in the doorway is a normal unit and is not affected.
+
 ### RallyPoint behavior:
-When a unit finishes production and spawns, if RallyPoint is set, it is issued the default right-click command resolved against the RallyPoint target. Rally on ground -> Move to location, rally on enemy -> Attack, rally on friendly/neutral object -> Move to object. If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None.
+When a unit finishes production and spawns, if RallyPoint is set, it is issued the default right-click command resolved against the RallyPoint target. Rally on ground -> Move to location, rally on enemy -> Attack, rally on friendly/neutral object -> Move to object. If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None. Rally points on enemy objects turn into ground rally points when the enemy leaves sight (systems/controls/selection_and_hud.md > Rally points on enemy objects).
 
 ### Produces:
 - Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)
@@ -85,6 +88,7 @@ GDO primary construction structure. Constructs buildings one at a time, which mu
 ### Cancellation:
 - Cancel during construction: full refund of Space Crystals cost
 - Cancel when ready to place: 75% refund of Space Crystals cost (rounded down)
+- **Destroyed** while constructing or holding a ready building: refunded **as if cancelled** (full during construction, 75% rounded down when ready to place) (user, 2026-11-24)
 
 ### ObjectInterfaceState[DeploymentCenter]:
 
@@ -118,13 +122,13 @@ BuildMenu (building ready — ReadyToPlace is set):
 
 AwaitingPlacement:
 - A ghost preview of the building follows the cursor, snapped to the grid. The ghost is tinted green when the placement is valid and red when invalid.
-- The player's current GDO build area is highlighted as a semi-transparent overlay on the ground, showing all valid build cells.
+- The player's current GDO build area is highlighted as a semi-transparent overlay on the ground. The overlay shows the **build area only**; whether a given tile is valid right now (flat, Visible, unoccupied, not a resource) is shown per tile on the ghost (user, 2026-11-24).
 - R rotates the ghost 90 degrees clockwise, Shift+R rotates 90 degrees counter-clockwise. Non-square buildings swap footprint dimensions when rotated to 90 or 270. F flips the ghost horizontally, Shift+F flips vertically. Side labels (A/B/C/D per SymmetryType) are displayed on the ghost and update with rotation/flipping.
 - Left-click valid location within build radius: places building at the ghost's position and rotation, clears ReadyToPlace (CommandIssuingTransition, returns to DefaultState)
 - Escape/right-click: returns to BuildMenu (StateOnlyTransition), building remains ready to place
 
 ## GDOBuildArea
-A single shared buildable area per GDO player. Seeded by each Deployment Center's and each Outpost's BuildRadiusExtension and grown by every placed GDO building's BuildRadiusExtension. Field Engineer structures (Bunker, First Aid Tent) have BuildRadiusExtension 0 and never extend it — the Prospector/Outpost is GDO's expansion tool. (Outposts can be deployed outside the current build area, so they seed new, possibly separate, parts of it.) When placing a building, at least 1 grid cell of the new building must be within the current build area. After placement, the build area expands outward from the placed building by that building's BuildRadiusExtension in all directions.
+A single shared buildable area per GDO player. Seeded by each Deployment Center's and each Outpost's BuildRadiusExtension and grown by every placed GDO building's BuildRadiusExtension. Field Engineer structures (Bunker, First Aid Tent) have BuildRadiusExtension 0 and never extend it — the Prospector/Outpost is GDO's expansion tool. (Outposts can be deployed outside the current build area, so they seed new, possibly separate, parts of it.) When placing a building, at least 1 grid cell of the new building must be within the current build area. After placement, the build area expands outward from the placed building by that building's BuildRadiusExtension in all directions. **Shape: square** (user, 2026-11-24): a building adds every tile within BuildRadiusExtension tiles of its footprint, diagonals included, i.e. its footprint grown by that many tiles on every side (the starting Deployment Center, 4x4 with 12, gives a 28x28 square). This matches the game's other square areas on the square grid (e.g. Tunnel Area, Recruitment Area). **The area follows the current buildings** (user, 2026-11-24): it is always the union of the areas of the GDO buildings the player **currently** owns (Deployment Centers, Outposts and every other placed building), so it **shrinks** when a building is destroyed (unless another building also covers those tiles). Buildings already standing outside the shrunken area stay, and plates keep mining; only new placements need the area. Losing the Deployment Center doesn't wipe the area: the other buildings' areas still count (e.g. an Extraction Facility can still place plates within them).
 
 ## Arsenal
 GDO combat research structure. Allows research of attack and weapon upgrades. Also unlocks the **Rocketman** (missile infantry) at the Barracks.

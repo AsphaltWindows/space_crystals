@@ -17,6 +17,7 @@ use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::math::{self, PI};
+use crate::movement;
 use crate::shape::Shape;
 use crate::vision::PlayerVision;
 
@@ -34,9 +35,10 @@ pub(super) struct Shooter<'a> {
     shape: Shape,
     elevation: Elevation,
     pub attrs: &'a AttackAttrs,
-    /// Radians per tick (`systems/combat.md > LocomotionOrientationConstraints`); `None` for the movement models
-    /// whose turn rate depends on speed.
-    turn_rate: Option<f32>,
+    /// (G) What is left of its TurnRate this tick (`systems/combat.md > LocomotionOrientationConstraints`), radians:
+    /// one budget per tick, of which phase 5d may have spent some (`movement::Turns`). `f32::INFINITY` for the
+    /// movement models whose turn rate depends on speed.
+    turn_left: f32,
     /// `systems/units.md > UnitBase > HasTurret`: the turret aims, not the base.
     turret: bool,
     /// Its owner's vision as of the end of the last tick; `None` for a unit without an owner, which sees nothing.
@@ -57,6 +59,7 @@ impl<'a> Shooter<'a> {
         unit: &UnitDef,
         attrs: &'a AttackAttrs,
         sight: Option<&'a PlayerVision>,
+        turned: f32,
     ) -> Self {
         Self {
             id,
@@ -64,7 +67,7 @@ impl<'a> Shooter<'a> {
             shape: Shape::silhouette(kind, pos, facing),
             elevation: Elevation::of(map, kind, pos),
             attrs,
-            turn_rate: unit.movement.turn_rate(),
+            turn_left: movement::turn_rate(&unit.movement) - turned,
             turret: unit.base_def().has_turret,
             sight,
         }
@@ -107,19 +110,14 @@ impl<'a> Shooter<'a> {
 
     /// `systems/combat.md > Aiming`: the unit turns towards `t`, at most its TurnRate this tick
     /// (`> LocomotionOrientationConstraints[TurnRateMovement]`, `Stationary + Turning`), landing exactly on the
-    /// direction once within it.
+    /// direction once within it. (G) The TurnRate is one budget per tick: the aim has what phase 5d left of it
+    /// ([`Shooter::turn_left`]), and it turns a unit at most once per tick.
     fn turn_toward(&self, facing: &mut f32, t: &TargetView) {
         let Some(wanted) = self.bearing(t).filter(|_| !self.turret) else {
             return;
         };
         // TODO(movement models): only TurnRateMovement (every M1 unit) has a fixed rate; the others turn at once.
-        let rate = self.turn_rate.unwrap_or(PI);
-        let turn = math::wrap_angle(wanted - *facing);
-        *facing = if turn.abs() <= rate {
-            wanted
-        } else {
-            math::wrap_angle(*facing + rate.copysign(turn))
-        };
+        math::turn_toward(facing, wanted, self.turn_left);
     }
 }
 
@@ -319,8 +317,18 @@ mod tests {
         let (map, targets, vision) = world(bearing);
         let unit = ObjectKind::Peacekeeper.def().unit.clone().unwrap();
         let sight = vision.player(MINE);
-        let mut shooter = Shooter::new(&map, ME, ObjectKind::Peacekeeper, Vec2::ZERO, 0.0, &unit, attrs, sight);
-        shooter.turn_rate = Some(turn_rate);
+        let mut shooter = Shooter::new(
+            &map,
+            ME,
+            ObjectKind::Peacekeeper,
+            Vec2::ZERO,
+            0.0,
+            &unit,
+            attrs,
+            sight,
+            0.0,
+        );
+        shooter.turn_left = turn_rate;
         let mut state = AttackState::default();
         state.engage(Some(FOE));
         let mut facing = 0.0;
@@ -366,6 +374,48 @@ mod tests {
         assert_eq!(facing, PI / 2.0);
     }
 
+    /// (G) One turn budget per tick (`movement::Turns`): a unit of TurnRate 0.5 rad that phase 5d turned in the
+    /// tick its aim begins has only the rest for the aim, at a target a quarter turn away; in the ticks after, the
+    /// attack holds its base, 5d turns it no more, and the aim has the whole TurnRate.
+    #[test]
+    fn aiming_turns_only_by_what_the_move_left_of_the_turn_rate() {
+        let (map, targets, vision) = world(PI / 2.0);
+        let unit = ObjectKind::Peacekeeper.def().unit.clone().unwrap();
+        let attrs = attrs(2, 1, 0, 30);
+        // The facings after each of the first ticks, and the tick the hit landed in.
+        let aim = |spent_by_the_move: f32| {
+            let sight = vision.player(MINE);
+            let mut shooter = Shooter::new(
+                &map,
+                ME,
+                ObjectKind::Peacekeeper,
+                Vec2::ZERO,
+                0.0,
+                &unit,
+                &attrs,
+                sight,
+                0.0,
+            );
+            let mut state = AttackState::default();
+            state.engage(Some(FOE));
+            let (mut facing, mut facings, mut landed) = (0.0, Vec::new(), None);
+            for tick in 1..=8 {
+                shooter.turn_left = if tick == 1 { 0.5 - spent_by_the_move } else { 0.5 };
+                let mut hits = Vec::new();
+                run(&mut state, &mut facing, &shooter, &targets, &mut hits, &mut Vec::new());
+                facings.push(facing);
+                if !hits.is_empty() {
+                    landed.get_or_insert(tick);
+                }
+            }
+            (facings[..5].to_vec(), landed)
+        };
+        assert_eq!(aim(0.0), (vec![0.5, 1.0, 1.5, PI / 2.0, PI / 2.0], Some(5)));
+        assert_eq!(aim(0.25), (vec![0.25, 0.75, 1.25, PI / 2.0, PI / 2.0], Some(5)));
+        // The move took the whole TurnRate: the aim turns from the next tick on, and the hit lands a tick later.
+        assert_eq!(aim(0.5), (vec![0.0, 0.5, 1.0, 1.5, PI / 2.0], Some(6)));
+    }
+
     /// `systems/combat.md > ValidTarget` 2: no sequence starts at a target the unit's owner doesn't see, and an aim
     /// is cancelled once the target is out of sight. The target stays engaged: the order waits for it.
     #[test]
@@ -384,6 +434,7 @@ mod tests {
             &unit,
             &attrs,
             seen.player(MINE),
+            0.0,
         );
         let doesnt = Shooter::new(
             &map,
@@ -394,8 +445,9 @@ mod tests {
             &unit,
             &attrs,
             blind.player(MINE),
+            0.0,
         );
-        let ownerless = Shooter::new(&map, ME, ObjectKind::Peacekeeper, at, 0.0, &unit, &attrs, None);
+        let ownerless = Shooter::new(&map, ME, ObjectKind::Peacekeeper, at, 0.0, &unit, &attrs, None, 0.0);
         let mut state = AttackState::default();
         state.engage(Some(FOE));
         let (mut facing, mut hits) = (0.0, Vec::new());

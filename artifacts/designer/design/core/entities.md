@@ -52,6 +52,20 @@ It has one of 7 symmetry types from the perspective of how relevant the building
 
 ### SymmetryType - AAAA | AAAB | AABB | ABAB | AABC | ABAC | ABCD
 
+**Side lettering convention** (user, 2026-11-24): the letters name the building's four sides **clockwise starting from the top edge**, in the building's **default orientation** (rotation 0, unflipped): 1st letter = top, 2nd = right, 3rd = bottom, 4th = left. Size (Height x Width) is also given for the default orientation. Example: the GDO Barracks is 2x3 (2 tall, 3 wide) with ABAC: top A, right B (short side), bottom A, left C (short side). Rotating or flipping the building carries the sides with it.
+
+### Exit Doorway
+Applies to structures that release units through an **exit side** (e.g. GDO Barracks side B, Cults Armory exit side C). Decided by the user, 2026-11-24:
+1. **Spawning in the doorway**: a produced or released unit appears **half inside the building**, at the middle of the exit side. Only the releasing building lets a unit overlap its footprint this way; nothing else can overlap a building. Since the spot is partly inside the footprint, no other unit can stand on it, so **the spawn spot can't be blocked from outside**.
+2. **Walking out**: the unit then walks out toward its RallyPoint (or straight out of the exit side if there is none). If the way is blocked, it **stops in the doorway**. It is a normal unit there: selectable, attackable, and able to attack (so a lone enemy blocker gets shot by the unit in the doorway).
+3. **Pausing**: the next unit can only appear once the doorway is free. While a unit still stands in it, the building **pauses**: the finished unit waits inside and the rest of the queue waits behind it. Production resumes as soon as the doorway is free. The waiting unit is **fully inside** (its production shows 100%) and doesn't exist on the map yet.
+4. Own idle units outside step aside for the unit walking out (systems/units.md > Ground Collision, friendly yielding), so they don't cause stalls.
+5. **Exits may be blocked by buildings and terrain** (allowed for now, user): placement does not keep exits clear. A building or cliff right against the exit side leaves the first unit stuck in the doorway and the building effectively stalled; that is the player's own mistake.
+
+Buildings with **several exit-eligible sides** (e.g. Colonists Bio Portal, Robo Portal) choose the side by their own rules; a side whose doorway is occupied counts as blocked, and the building pauses only when every eligible doorway is occupied.
+
+Aircraft and units released underground (e.g. Syndicate Tunnels) are not covered by this rule.
+
 ### ConstructionHP Rule
 Some structures are built on-site and start at 10% of their maximum HP, gaining HP linearly as construction progresses, reaching full HP when construction completes. HP during construction = MaxHP x (10% + 90% x construction_progress). A partially-built structure can be attacked and destroyed before completion. This rule applies only to structures that explicitly reference it.
 
@@ -64,6 +78,7 @@ Structure placement is validated differently depending on the placement method:
 - All tiles under the footprint must pass validation at the moment the player confirms placement
 - For surface buildings: all footprint tiles must be in the **Visible** state for the placing player. If any tile is not Visible, the placement ghost is shown in red and placement cannot be confirmed
 - For underground expansions: validated against the relevant underground spatial rules (e.g., Tunnel Area bounds, no overlap). Surface visibility is not relevant. Surface flatness is not required either (core/map.md > Elevation > Structures only on flat terrain)
+- **No ground units on the footprint** (user, 2026-11-24): a ground unit of any player (own, allied or enemy) standing on any footprint tile makes those tiles invalid (red on the ghost), and the building can't be placed until they move. Own units are not pushed aside (considered: idle own units stepping aside; judged unnecessary). Air and underground units never block placement.
 - Standard spatial checks also apply (tiles must be Buildable, no existing structure overlap, faction-specific constraints like GDO Build Area). Surface structures also need every footprint tile to be **flat** (core/map.md > Elevation > Structures only on flat terrain)
 
 ### Worker-Built Structures (e.g., Agent building a Tunnel, Drone deploying a Beacon)

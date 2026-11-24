@@ -10,61 +10,30 @@
 //! The replanning fields (`repaths_left`, `last_repath`, `avoid_tiles`, `best_remaining`, `last_progress`) follow
 //! `docs/movement.md > 5.6` and `> 6.5`; `blocked_ticks`, `avoid_side` and `avoid_until` follow `> 6.3`; `sidestep`
 //! is friendly yielding, `> 6.6`.
+//!
+//! - `schedule`: when a unit counts as stuck, when it looks for another route and when it gives up (design change
+//!   0024, `docs/movement.md > 5.6`).
+//! - `sidestep`: the one short sidestep of a yielding unit (`docs/movement.md > 6.6`).
+//! - `hash`: the state hash of the mover and its parts.
+
+mod hash;
+mod schedule;
+mod sidestep;
+#[cfg(test)]
+mod tests;
 
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
-use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::nav::PathGroup;
 use crate::units::{Tick, TilePos};
 
-/// `systems/controls/behaviors.md > MovingToLocation > Failure` (design change 0024; a placeholder to tune): a
-/// stuck unit looks for another route at most 3 times per order leg (`docs/movement.md > 5.6`).
-pub const MAX_REPATHS: u8 = 3;
+pub use schedule::{GIVE_UP_TICKS, HALF_STUCK_TICKS, MAX_REPATHS, REPATH_WAITS, STUCK_GRACE_TICKS, STUCK_TICKS};
+pub use sidestep::{Sidestep, YIELD_CHAIN_DEPTH, YIELD_MIN_SIDESTEP_SU, YIELD_SIDESTEP_WIDTHS, YIELD_WAIT_TICKS};
 
 /// `docs/movement.md > 3`: at most this many `avoid_tiles` (a technical cap).
 pub const MAX_AVOID_TILES: usize = 16;
-
-/// `systems/controls/behaviors.md > MovingToLocation > Failure` (design change 0024; a placeholder to tune): a unit
-/// is stuck after 1.5 s (24 frames) without getting any closer to its target (`docs/movement.md > 6.5`).
-pub const STUCK_TICKS: Tick = 24;
-
-/// `systems/controls/behaviors.md > MovingToLocation > Failure` (design change 0024; placeholders to tune): a stuck
-/// unit waits 0.5 s, 1 s and 2 s before its first, second and third attempt at another route
-/// (`docs/movement.md > 5.6`).
-pub const REPATH_WAITS: [Tick; MAX_REPATHS as usize] = [8, 16, 32];
-
-/// 0024's "about 7 s worst case": a unit that never gets on is stuck after [`STUCK_TICKS`], waits out the three
-/// [`REPATH_WAITS`], and gives up once it is still stuck a whole [`STUCK_TICKS`] after its third attempt: 104 ticks,
-/// 6.5 s, after its last progress (`docs/movement.md > 5.6`).
-pub const GIVE_UP_TICKS: Tick = STUCK_TICKS + REPATH_WAITS[0] + REPATH_WAITS[1] + REPATH_WAITS[2] + STUCK_TICKS;
-
-/// `systems/units.md > UnitCollision > Ground Collision > Friendly yielding` (design change 0022): the longest
-/// "one short sidestep" of a yielding unit, in widths of its own silhouette. A placeholder, TBD in the design
-/// (0022, 0023: "sidestep distance"). The unit steps only as far as the mover's lane needs, up to this.
-pub const YIELD_SIDESTEP_WIDTHS: f32 = 1.0;
-
-/// Friendly yielding (0022): the shortest sidestep, space units, so that a request always moves the unit a little
-/// (tuning const).
-pub const YIELD_MIN_SIDESTEP_SU: f32 = 1.0;
-
-/// Friendly yielding (0022) in a dense idle group: a sidestep blocked by another idle unit of the owner passes the
-/// request on, at most this many units deep; beyond that the first unit stays an ordinary blocker (tuning const,
-/// `docs/movement.md > 6.6`).
-pub const YIELD_CHAIN_DEPTH: u8 = 4;
-
-/// Friendly yielding (0022): a sidestep ends this many ticks after the time its distance takes, however far the
-/// unit got: time for the units it asked in turn to make room (one tick per link of the chain; tuning const).
-pub const YIELD_WAIT_TICKS: u8 = YIELD_CHAIN_DEPTH;
-
-/// `docs/movement.md > 6.5`: a stuck unit that isn't in contact with a unit this very tick waits this many ticks
-/// more to meet its blocker again before it recovers without knowing it (tuning const).
-pub const STUCK_GRACE_TICKS: Tick = 8;
-
-/// From this many ticks without progress on, a unit on its way counts as held up (`Mover::is_held_up`, for
-/// overlays; tuning const).
-pub const HALF_STUCK_TICKS: Tick = STUCK_TICKS / 2;
 
 /// `docs/movement.md > 5.6`: a unit runs its staggered checks in the ticks where `(tick + id) % STAGGER == 0`.
 pub const STAGGER: Tick = 4;
@@ -166,38 +135,6 @@ impl Side {
         match self {
             Side::Right => Side::Left,
             Side::Left => Side::Right,
-        }
-    }
-}
-
-/// The one short sidestep of a yielding unit (`systems/units.md > UnitCollision > Ground Collision > Friendly
-/// yielding`, design changes 0022 and 0023; `docs/movement.md > 6.6`): a real move through the collision step, by
-/// an idle unit that a blocked unit of its owner asked to make way.
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Sidestep {
-    /// The way it steps, a unit vector.
-    pub dir: Vec2,
-    /// How far it still has to go along `dir`, space units.
-    pub left: f32,
-    /// It ends after this many more ticks, wherever the unit got to.
-    pub ticks_left: u8,
-    /// How many units the request was passed through: 0 when a moving unit asked ([`YIELD_CHAIN_DEPTH`]).
-    pub depth: u8,
-    /// The order group of the moving unit that asked. A unit that arrived with that group doesn't yield to it
-    /// (design change 0027), so a request passed on keeps it.
-    pub for_group: Option<u32>,
-}
-
-impl Sidestep {
-    /// A sidestep of `dist` space units along `dir` for a unit that moves `speed` space units per tick.
-    pub fn new(dir: Vec2, dist: f32, speed: f32, depth: u8, for_group: Option<u32>) -> Self {
-        let ticks = (dist / speed).ceil().clamp(1.0, 200.0) as u8;
-        Self {
-            dir,
-            left: dist,
-            ticks_left: ticks.saturating_add(YIELD_WAIT_TICKS),
-            depth,
-            for_group,
         }
     }
 }
@@ -346,54 +283,6 @@ impl Mover {
         }
     }
 
-    /// The wait before the leg's next counted repath (design change 0024: 0.5 s, 1 s, 2 s), [`REPATH_WAITS`].
-    fn next_wait(&self) -> Tick {
-        let used = usize::from(MAX_REPATHS.saturating_sub(self.repaths_left));
-        REPATH_WAITS[used.min(REPATH_WAITS.len() - 1)]
-    }
-
-    /// Whether a repath that counts against the cap may happen in `tick`: one is left, and the wait since the
-    /// last one (or since the leg began) is over (`docs/movement.md > 5.6`).
-    pub fn may_repath(&self, tick: Tick) -> bool {
-        self.repaths_left > 0 && tick >= self.last_repath.saturating_add(self.next_wait())
-    }
-
-    /// A repath that counts against the leg's cap (`docs/movement.md > 5.6`): takes one of `repaths_left` and notes
-    /// its tick. Returns `false`, changing nothing, unless [`Mover::may_repath`].
-    pub fn counted_repath(&mut self, tick: Tick) -> bool {
-        if !self.may_repath(tick) || self.goal == MoveGoal::None {
-            return false;
-        }
-        self.repaths_left -= 1;
-        self.last_repath = tick;
-        self.repath(tick);
-        true
-    }
-
-    /// `systems/controls/behaviors.md > MovingToLocation > Failure` (design change 0024): whether the unit is
-    /// **stuck** in `tick`: [`STUCK_TICKS`] have passed without it getting any closer.
-    pub fn is_stuck(&self, tick: Tick) -> bool {
-        tick.saturating_sub(self.last_progress) >= STUCK_TICKS
-    }
-
-    /// Design change 0024, for a unit that stays stuck: the tick it next looks for another route, the wait of
-    /// [`REPATH_WAITS`] after it became stuck or after its previous attempt, whichever is later; with no attempt
-    /// left, the tick it gives up, [`STUCK_TICKS`] after the last one. Without any progress that is 32, 48 and 80
-    /// ticks after the last progress, and 104 ([`GIVE_UP_TICKS`]).
-    pub fn recovery_due(&self) -> Tick {
-        let stuck_at = self.last_progress.saturating_add(STUCK_TICKS);
-        if self.repaths_left == 0 {
-            return stuck_at.max(self.last_repath.saturating_add(STUCK_TICKS));
-        }
-        stuck_at.max(self.last_repath).saturating_add(self.next_wait())
-    }
-
-    /// The tick since which the unit's current path has shown no progress: its latest progress, or its latest
-    /// counted repath if that was later (`docs/movement.md > 6.5`).
-    pub fn stuck_clock(&self) -> Tick {
-        self.last_progress.max(self.last_repath)
-    }
-
     /// `systems/units.md > UnitCollision > Ground Collision > Friendly yielding` (design change 0023): whether the
     /// unit can move at all in its current mode, at `max_speed` space units per tick. Modes that only slow it
     /// (a raised Riot Shield, `speed_factor` 0.5) leave it able to, and it sidesteps at that speed. **The hook for
@@ -401,14 +290,6 @@ impl Mover {
     /// and then it never yields.
     pub fn can_move(&self, max_speed: f32) -> bool {
         max_speed * self.speed_factor > 0.0
-    }
-
-    /// Whether the unit is on its way but hasn't got on for `HALF_STUCK_TICKS`: on the way to being stuck, or
-    /// stuck and recovering (`docs/movement.md > 6.5`). For overlays.
-    pub fn is_held_up(&self, tick: Tick) -> bool {
-        self.status == MoveStatus::Moving
-            && self.path_state == PathState::Ready
-            && tick.saturating_sub(self.stuck_clock()) >= HALF_STUCK_TICKS
     }
 
     /// `docs/movement.md > 6.3`: whether the unit counts as stationary for the others: its locomotion is
@@ -437,263 +318,5 @@ impl Mover {
         self.path.clear();
         self.next = 0;
         self.path_state = PathState::None;
-    }
-}
-
-impl StateHash for MoveGoal {
-    fn hash(&self, h: &mut StateHasher) {
-        match self {
-            MoveGoal::None => h.tag(0),
-            MoveGoal::Point(p) => {
-                h.tag(1);
-                p.hash(h);
-            }
-            MoveGoal::Object { id, reach } => {
-                h.tag(2);
-                id.hash(h);
-                reach.hash(h);
-            }
-        }
-    }
-}
-
-impl StateHash for MoveStatus {
-    fn hash(&self, h: &mut StateHasher) {
-        // Fieldless enum: the discriminant is the declaration index.
-        h.tag(*self as u8);
-    }
-}
-
-impl StateHash for Locomotion {
-    fn hash(&self, h: &mut StateHasher) {
-        h.tag(*self as u8);
-    }
-}
-
-impl StateHash for Orientation {
-    fn hash(&self, h: &mut StateHasher) {
-        match self {
-            Orientation::Turning(toward) => {
-                h.tag(0);
-                toward.hash(h);
-            }
-            Orientation::Maintaining => h.tag(1),
-        }
-    }
-}
-
-impl StateHash for PathState {
-    fn hash(&self, h: &mut StateHasher) {
-        match self {
-            PathState::None => h.tag(0),
-            PathState::Wanted { since, group } => {
-                h.tag(1);
-                since.hash(h);
-                match group {
-                    None => h.tag(0),
-                    Some(PathGroup { id, anchor }) => {
-                        h.tag(1);
-                        id.hash(h);
-                        anchor.hash(h);
-                    }
-                }
-            }
-            PathState::Ready => h.tag(2),
-        }
-    }
-}
-
-impl StateHash for Side {
-    fn hash(&self, h: &mut StateHasher) {
-        h.tag(*self as u8);
-    }
-}
-
-impl StateHash for Mover {
-    fn hash(&self, h: &mut StateHasher) {
-        let Mover {
-            goal,
-            status,
-            locomotion,
-            orientation,
-            velocity,
-            speed_factor,
-            group,
-            path,
-            next,
-            path_state,
-            nav_version,
-            planned_target,
-            repaths_left,
-            last_repath,
-            avoid_tiles,
-            best_remaining,
-            last_progress,
-            blocked_ticks,
-            avoid_side,
-            avoid_until,
-            sidestep,
-        } = self;
-        goal.hash(h);
-        status.hash(h);
-        locomotion.hash(h);
-        orientation.hash(h);
-        velocity.hash(h);
-        speed_factor.hash(h);
-        group.hash(h);
-        path.hash(h);
-        next.hash(h);
-        path_state.hash(h);
-        nav_version.hash(h);
-        planned_target.hash(h);
-        repaths_left.hash(h);
-        last_repath.hash(h);
-        avoid_tiles.hash(h);
-        best_remaining.hash(h);
-        last_progress.hash(h);
-        blocked_ticks.hash(h);
-        avoid_side.hash(h);
-        avoid_until.hash(h);
-        sidestep.hash(h);
-    }
-}
-
-impl StateHash for Sidestep {
-    fn hash(&self, h: &mut StateHasher) {
-        let Sidestep {
-            dir,
-            left,
-            ticks_left,
-            depth,
-            for_group,
-        } = self;
-        dir.hash(h);
-        left.hash(h);
-        ticks_left.hash(h);
-        depth.hash(h);
-        for_group.hash(h);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn go_to_wants_a_path_and_stop_drops_it() {
-        let mut mover = Mover {
-            path: vec![Vec2::ZERO, Vec2::ONE],
-            next: 1,
-            path_state: PathState::Ready,
-            velocity: Vec2::X,
-            ..Mover::default()
-        };
-        assert_eq!(mover.remaining_path(), [Vec2::ONE]);
-        let goal = MoveGoal::Point(Vec2::new(5.0, 6.0));
-        mover.go_to(goal, None, 7);
-        assert_eq!((mover.goal, mover.status), (goal, MoveStatus::Moving));
-        assert_eq!(mover.path_state, PathState::Wanted { since: 7, group: None });
-        assert!(mover.path.is_empty() && mover.remaining_path().is_empty());
-        mover.stop();
-        assert_eq!(
-            (mover.goal, mover.status, mover.path_state),
-            (MoveGoal::None, MoveStatus::Idle, PathState::None)
-        );
-        assert_eq!(mover.velocity, Vec2::ZERO);
-        mover.finish(MoveStatus::Arrived);
-        assert_eq!(mover.status, MoveStatus::Arrived);
-        // Without a goal there is nothing to plan.
-        mover.repath(9);
-        assert_eq!(mover.path_state, PathState::None);
-        assert!(!mover.counted_repath(9));
-    }
-
-    /// Design change 0024, `docs/movement.md > 5.6`: three repaths per leg, after waits of 8, 16 and 32 ticks.
-    #[test]
-    fn counted_repaths_are_capped_and_wait() {
-        let mut mover = Mover::default();
-        mover.go_to(MoveGoal::Point(Vec2::ONE), None, 10);
-        let mut at = Vec::new();
-        for tick in 10..200 {
-            if mover.counted_repath(tick) {
-                at.push(tick);
-                assert_eq!(
-                    mover.path_state,
-                    PathState::Wanted {
-                        since: tick,
-                        group: None
-                    }
-                );
-            }
-        }
-        assert_eq!(
-            at,
-            [18, 34, 66],
-            "8, 16 and 32 ticks after the leg began or the repath before"
-        );
-        assert_eq!((mover.last_repath, mover.stuck_clock()), (66, 66));
-        mover.follow(vec![Vec2::ZERO, Vec2::ONE], Vec2::ONE, 0);
-        assert!(!mover.is_held_up(66 + HALF_STUCK_TICKS - 1) && mover.is_held_up(66 + HALF_STUCK_TICKS));
-        mover.last_progress = 70;
-        assert_eq!(mover.stuck_clock(), 70);
-        assert_eq!(mover.repaths_left, 0);
-        // A new leg starts afresh.
-        mover.go_to(MoveGoal::Point(Vec2::ONE), None, 200);
-        assert_eq!((mover.repaths_left, mover.may_repath(208)), (MAX_REPATHS, true));
-        assert_eq!(mover.stuck_clock(), 200);
-    }
-
-    /// Design change 0024: stuck after 24 ticks without getting closer; another route after waits of 8, 16 and 32
-    /// ticks; then it gives up, 104 ticks (6.5 s, "about 7 s") after its last progress.
-    #[test]
-    fn a_unit_that_never_gets_on_follows_the_schedule_of_0024() {
-        let mut mover = Mover::default();
-        mover.go_to(MoveGoal::Point(Vec2::ONE), None, 100);
-        assert!(!mover.is_stuck(123) && mover.is_stuck(124));
-        let mut due = Vec::new();
-        for _ in 0..MAX_REPATHS {
-            let tick = mover.recovery_due();
-            assert!(mover.counted_repath(tick));
-            due.push(tick - 100);
-        }
-        assert_eq!(due, [32, 48, 80]);
-        assert_eq!(mover.recovery_due() - 100, GIVE_UP_TICKS);
-        assert_eq!(GIVE_UP_TICKS, 104);
-        // Progress in between: stuck again 24 ticks later, and the next attempt waits from then.
-        let mut mover = Mover::default();
-        mover.go_to(MoveGoal::Point(Vec2::ONE), None, 100);
-        assert!(mover.counted_repath(132));
-        mover.last_progress = 150;
-        assert_eq!(mover.recovery_due(), 150 + 24 + 16);
-    }
-
-    /// Design change 0023: modes that slow a unit leave it able to move; a unit that can't move is the hook's
-    /// `false`.
-    #[test]
-    fn a_unit_can_move_unless_its_mode_stops_it() {
-        let mut mover = Mover::default();
-        assert!(mover.can_move(4.0));
-        mover.speed_factor = 0.5;
-        assert!(mover.can_move(4.0), "a raised Riot Shield only slows it");
-        mover.speed_factor = 0.0;
-        assert!(!mover.can_move(4.0));
-        assert_eq!(
-            Sidestep::new(Vec2::X, 24.0, 2.0, 0, None).ticks_left,
-            12 + YIELD_WAIT_TICKS
-        );
-    }
-
-    #[test]
-    fn a_new_path_measures_afresh_but_the_stuck_clock_runs_on() {
-        let mut mover = Mover::default();
-        mover.go_to(MoveGoal::Point(Vec2::X), None, 1);
-        mover.best_remaining = 3.0;
-        mover.blocked_ticks = JAMMED_TICKS;
-        mover.locomotion = Locomotion::Moving;
-        assert!(mover.is_stationary());
-        mover.follow(vec![Vec2::ZERO, Vec2::X], Vec2::X, 2);
-        assert_eq!((mover.best_remaining, mover.last_progress), (f32::MAX, 1));
-        assert!(!mover.is_stationary());
-        assert_eq!(mover.path_end(), Some(Vec2::X));
     }
 }

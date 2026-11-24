@@ -62,6 +62,24 @@ fn avoid_blocker(pos: Vec2, mover: &mut Mover, blocker: &Body) {
     }
 }
 
+/// (G) Notes the tiles of the units that arrived with the order group `group` as ones to avoid, the nearest to
+/// `pos` first (ties by id), as many as `MAX_AVOID_TILES` allow ([`avoid_blocker`] for each). For a unit shut out
+/// of its place by its own group: those units won't make way for it (design change 0027), so its new route goes
+/// round all of them, not round the one in its way into the next, and comes at its place from the open side. Two
+/// blocks that crossed head-on arrive out of order, and a Guard can't pass between Guards that stand 16 su apart:
+/// the late ones stopped behind the group farther than 2 GU from their places and gave up ([`after_move`], rule
+/// 1). A place that the group closes in on every side stays out of reach, and the unit gives up as before.
+fn avoid_group(pos: Vec2, mover: &mut Mover, bodies: &[Body], group: u32) {
+    let mut arrived: Vec<&Body> = bodies.iter().filter(|b| b.arrived_with == Some(group)).collect();
+    arrived.sort_by(|a, b| {
+        let (da, db) = (a.pos.distance_squared(pos), b.pos.distance_squared(pos));
+        da.total_cmp(&db).then(a.id.cmp(&b.id))
+    });
+    for body in arrived {
+        avoid_blocker(pos, mover, body);
+    }
+}
+
 /// `systems/controls/behaviors.md > MovingToLocation > Occupied target location` (design change 0026): whether the
 /// unit at `pos`, blocked by `blocker` this tick, counts as arrived. It is within `OCCUPIED_ARRIVAL_GU` of its
 /// destination, and the unit in its way isn't moving and won't move for it.
@@ -122,9 +140,11 @@ fn target_is_occupied(
 /// 4. **Another route**, when its wait is over (`Mover::recovery_due`: 8, 16 and 32 ticks after the unit became
 ///    stuck or after the attempt before), if an attempt is left. The tile of a stationary unit in its way is added
 ///    to `avoid_tiles` first ([`avoid_blocker`]): at once if that unit has no goal of its own; if it is on its way
-///    itself (jammed for now), only from the second attempt on, the first being a plain retry. If the search finds
-///    no way around the avoid tiles, phase 5c drops them and plans again: tiles are too coarse next to units to
-///    conclude that there is no way.
+///    itself (jammed for now), only from the second attempt on, the first being a plain retry. **(G)** A unit that
+///    arrived with this unit's own group order won't make way for it (design change 0027), and nor will the others
+///    that did: then the tiles of all of them are added ([`avoid_group`]), and the new route goes round the group.
+///    If the search finds no way around the avoid tiles, phase 5c drops them and plans again: tiles are too coarse
+///    next to units to conclude that there is no way.
 /// 5. No attempt left, and still stuck `STUCK_TICKS` after the last one: `Failed`. The behaviour stops and
 ///    completes (`> Failure`). A unit that never gets on looks for another route 32, 48 and 80 ticks after its
 ///    last progress and fails at 104 (`mover::GIVE_UP_TICKS`, 6.5 s: 0024's "about 7 s").
@@ -187,6 +207,9 @@ pub(super) fn after_move(
     let first_repath = mover.repaths_left == MAX_REPATHS;
     if let Some(blocker) = blocker.filter(|b| b.stationary && (b.progress.is_none() || !first_repath)) {
         avoid_blocker(pos, mover, blocker);
+        if let Some(group) = mover.group.filter(|&group| blocker.arrived_with == Some(group)) {
+            avoid_group(pos, mover, world.bodies, group);
+        }
     }
     mover.counted_repath(tick);
     false
@@ -203,5 +226,54 @@ mod tests {
         assert_eq!(remaining(Vec2::new(10.0, 1.0), &path, 2), 4.0);
         assert_eq!(remaining(Vec2::ZERO, &path, 3), 0.0);
         assert_eq!(remaining(Vec2::ZERO, &[], 0), 0.0);
+    }
+
+    /// (G) A unit shut out by its own group avoids the tiles of all the units that arrived with that order, the
+    /// nearest first, up to the cap; never its goal's tile, nor units of another order.
+    #[test]
+    fn a_unit_shut_out_by_its_group_avoids_the_tiles_of_all_that_arrived_with_it() {
+        let body = |id: u32, x: f32, y: f32, arrived_with: Option<u32>| Body {
+            id: ObjectId(id),
+            owner: Some(PlayerId(1)),
+            pos: Vec2::new(x, y),
+            half: Vec2::splat(18.0),
+            velocity: Vec2::ZERO,
+            heading: Vec2::ZERO,
+            stationary: true,
+            progress: None,
+            arrived_with,
+            yields: true,
+        };
+        // The unit stands in tile (1, 1) and goes to tile (7, 1).
+        let pos = Vec2::new(100.0, 96.0);
+        let mut mover = Mover {
+            path: vec![pos, Vec2::new(480.0, 96.0)],
+            ..Mover::default()
+        };
+        let bodies = [
+            body(1, 264.0, 96.0, Some(7)),
+            body(2, 200.0, 160.0, Some(7)),
+            // In the unit's own tile: the tile next to it on that side, (2, 1).
+            body(3, 120.0, 100.0, Some(7)),
+            body(4, 200.0, 96.0, Some(7)),
+            // Another order's, and one on the goal's tile.
+            body(5, 150.0, 40.0, Some(8)),
+            body(6, 480.0, 100.0, Some(7)),
+        ];
+        avoid_group(pos, &mut mover, &bodies, 7);
+        let tile = TilePos::new;
+        assert_eq!(mover.avoid_tiles, [tile(2, 1), tile(3, 1), tile(3, 2), tile(4, 1)]);
+
+        // A long row of them, in tiles (2, 5) to (25, 5), listed from the far end: the nearest MAX_AVOID_TILES.
+        let row: Vec<Body> = (0..24)
+            .map(|i| body(i, 1600.0 - 64.0 * i as f32, 352.0, Some(7)))
+            .collect();
+        let mut mover = Mover {
+            path: vec![pos, Vec2::new(480.0, 96.0)],
+            ..Mover::default()
+        };
+        avoid_group(pos, &mut mover, &row, 7);
+        let nearest: Vec<TilePos> = (2..2 + MAX_AVOID_TILES as i32).map(|x| tile(x, 5)).collect();
+        assert_eq!(mover.avoid_tiles, nearest);
     }
 }

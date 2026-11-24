@@ -44,3 +44,31 @@ pub fn facing_vector(angle: f32) -> Vec2 {
 pub fn vector_angle(v: Vec2) -> f32 {
     atan2(v.y, v.x)
 }
+
+/// One turn towards a direction ([`turn_toward`]).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Turn {
+    /// The angle turned, radians: at most the budget.
+    pub angle: f32,
+    /// Whether the facing is now the wanted direction, else it turned the whole budget and has further to go.
+    pub done: bool,
+}
+
+/// Turns `facing` towards `wanted` (both in `(-PI, PI]`) the shorter way, by at most `budget` radians (`f32::INFINITY`
+/// for no limit): exactly onto `wanted` when it is within the budget.
+pub fn turn_toward(facing: &mut f32, wanted: f32, budget: f32) -> Turn {
+    let turn = wrap_angle(wanted - *facing);
+    if turn.abs() <= budget {
+        *facing = wanted;
+        Turn {
+            angle: turn.abs(),
+            done: true,
+        }
+    } else {
+        *facing = wrap_angle(*facing + budget.copysign(turn));
+        Turn {
+            angle: budget,
+            done: false,
+        }
+    }
+}

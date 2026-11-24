@@ -8,7 +8,7 @@ The GDO player starts with:
 - One pre-built **Extraction Facility**
 - Two **Extraction Plates** already placed on Space Crystals patches near the starting base (which patches: set in the map's GDO Starting Layout)
 
-Starting resources: **100 Space Crystals**. Starting Supplies: TBD (deferred until GDO Supply costs are designed). Starting power: +30 (Deployment Center) − 15 (Extraction Facility) − 6 (two plates) = **+9**. Exact placement of the starting structures and plates relative to the player's start location is defined by the map's start position.
+Starting resources: **100 Space Crystals**. Starting Supplies: **0** (placeholder; revisit when GDO Supply costs are designed, user 2026-11-24). Starting power: +30 (Deployment Center) − 15 (Extraction Facility) − 6 (two plates) = **+9**. Exact placement of the starting structures and plates relative to the player's start location is defined by the map's start position.
 
 ### Opening Economy Baseline
 GDO's early game is bounded by two build queues that should not sit idle: the Deployment Center (buildings) and the Extraction Facility (Extraction Plates, i.e. economy growth). Design goals for the opening:
@@ -113,7 +113,7 @@ DefaultState (ready to place — ReadyToPlace is set):
 
 AwaitingPlacement:
 - A ghost preview of the Extraction Plate follows the cursor, snapped to the grid. The ghost is tinted green when over a valid Space Crystal Patch (within build area, no existing plate) and red otherwise.
-- The player's current GDO build area is highlighted as a semi-transparent overlay on the ground.
+- The player's current GDO build area is highlighted as a semi-transparent overlay on the ground (the build area only; per-tile validity shows on the ghost; user, 2026-11-24).
 - Left-click Space Crystal Patch within GDO build area that does not already have a plate: places Extraction Plate, clears ReadyToPlace (CommandIssuingTransition, returns to DefaultState)
 - Escape/right-click: returns to DefaultState (StateOnlyTransition), plate remains ready to place
 
@@ -164,7 +164,7 @@ GDO supply collection structure. Serves as the drop-off point for supplies gathe
 - AttachedChopper: ObjectInstance | None (the Supply Chopper currently attached to this tower)
 - LandedChopper: ObjectInstance | None (a Supply Chopper currently landed on this tower, may differ from AttachedChopper)
 - ScheduledSDS: ObjectInstance | None (the Supply Delivery Station this tower's attached chopper is scheduled to collect from)
-- BuildQueue: array of ObjectEnum (max 20 entries)
+- BuildQueue: array of ObjectEnum (max 20 entries, including the unit currently in production; user, 2026-11-24)
 - CurrentBuild: ObjectEnum | None
 - CurrentBuildProgress: number (frames elapsed) | None
 

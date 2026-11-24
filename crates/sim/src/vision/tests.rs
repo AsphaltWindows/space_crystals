@@ -1,3 +1,4 @@
+use super::player::tile_span;
 use super::*;
 use crate::defs::ObjectKind;
 

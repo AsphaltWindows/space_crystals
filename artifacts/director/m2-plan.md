@@ -1111,3 +1111,26 @@ Buildings become targets and get panels in M2.
 2. Update the M2 section of `plan.md`: the slice table, deferring supplies, and the typo.
 3. Once G3 merges, brief A. Then brief B, C and E together.
 4. Author `dev_skirmish`'s GDO layouts (with F's proposal and validation), and check the 8-patch reference (R13).
+
+---
+
+## 8. Design answers received after planning (they override the defaults above)
+
+| Entry | Answers | Slices | What it settles |
+|---|---|---|---|
+| 0071 | none | H2 | Placement never moves on to another worker by itself. A GDO Shift-click places once and leaves placement. |
+| 0077 | Q0022 | B, G | The supply loop is deferred. Starting Supplies are 0, and the HUD shows Supplies 0. |
+| 0079 | Q0023 point 1 | A (`sides`), H2 (labels) | The side lettering convention. The Barracks is 3 wide × 2 tall at rotation 0. Rotations and flips carry the letters with them. |
+| 0080 | Q0023 points 2–3 | D2 (spawn, pause, collision exception) | **The exit doorway.** A unit appears half inside the exit side. The releasing building ignores its own unit while the two overlap. Production pauses only while the doorway is occupied, and the finished unit is held. This replaces the nearest-free-spot default and R8's ring search. |
+| 0081 | Q0024 point 1 | D2 | The limit of 20 includes CurrentBuild. |
+| 0082 | Q0024 point 2 | D2, G | Unit Control is reserved when a unit is queued. It is released on cancel, on refund and on death. |
+| 0083 | Q0024 point 3 | D2, H1 | **Group production.** The building with the least remaining production time pays first, ties broken by id, until a cost check fails. |
+| 0084, 0085 | Q0024 point 4 | D1, D2 | A destroyed producer or constructor refunds everything as if cancelled, including a finished unit waiting at the doorway. |
+| 0086 | Q0024 point 5 | D2, H1 | A rally point set on the building itself clears it. With no rally point, units walk out of the doorway and stop. |
+| 0087 | Q0024 point 6 | H1 | Rally point indicators, shown while the building is selected. |
+| 0088 | Q0024 point 7 | D2, H1 | A rally point on an enemy that leaves sight becomes a ground rally at its last-seen position, and the marker turns green. A rally point on a remembered structure is TBD (Q0017 point 2). |
+| 0089 | Q0025 points 1, 2 and 4 | B | As proposed. |
+| 0090 | Q0025 point 3 | G | The power text is consumed / generated, and turns red when consumption exceeds generation. This replaces "current / total". |
+| 0091, 0092 | Q0026 points 1–3 | C | The build area is square and follows the current buildings. Without a DC, the other buildings still count. Point 4 (the overlay) is still open. |
+| 0093 | Q0026 point 4 | H2 | The overlay shows the build area only. Whether a tile is valid right now shows on the ghost, tile by tile. |
+| 0094 | Q0027 point 1 | C | A ground unit of any player standing on the footprint makes those tiles invalid, and own units are not pushed aside. |

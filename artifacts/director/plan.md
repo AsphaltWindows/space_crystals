@@ -240,14 +240,16 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Clicks while targeting**: the target is resolved at the press point (0068). An invalid click shows "Invalid target" for 2 s and keeps targeting (0065). 0066, 0067 and 0069 are confirmed by tests.
   - **Open**: targeting details went out as Q0021.
 
+- **M1-G3 cleanup** (merged in `7be0f39`; 646 tests):
+  - **One turn budget per tick**: movement records the turn angle (`movement::Turns`, which is transient and not hashed), and aiming gets only TurnRate minus that.
+  - **Files split**: `mover.rs` (321 lines plus submodules), `collide/lanes.rs`, `vision/player.rs`, `sim/load.rs`, the cli, bindings and editor tests. Still over 500 lines: `command_ui/interface.rs` (649; M2-H1 splits it), `resolution.rs` (537) and `movement_yield.rs` (537).
+  - **Soak tests**: they now assert invariants. An idle unit near a visible enemy engages within 1 tick, every order ends, and refused, failed and search shares stay bounded. They were checked by breaking the code on purpose.
+  - **Guard blocks**: re-routes avoid the group's own earlier arrivals (`stuck.rs avoid_group`). Sweep failures went from 1.4% to 0.7%, and Guard 5×5 losses from 38 to 20 of 800. Perf is unchanged. Enclosed places remain, see Q0032.
+  - **No golden changed**, and the reasons are explained.
+  - **Found**: a unit ordered to Move onto itself follows itself forever (Q0031).
+
 ## In progress
-- **M1-G3 cleanup** (Opus; brief `scratchpad/briefs/m1g3-cleanup.md`):
-  - one turn budget per tick, shared by movement and aiming;
-  - splitting `mover.rs` and other oversize files;
-  - robust soak bounds;
-  - 5×5 Guard crowds;
-  - F2 in playback;
-  - goldens re-blessed once, with every change explained.
+- **M2-A structure foundation** (Opus; brief `scratchpad/briefs/m2a-structure-foundation.md`; spec `m2-plan.md` §3.3 A plus §8): the five GDO structure kinds; blocking, vision, records, combat; `sides` per 0079; placeholder visuals.
 - **M1-H3 command UI follow-ups** (Opus; brief `scratchpad/briefs/m1h3-command-ui-followups.md`):
   - Shift keeps targeting active (0070);
   - an audit that panel commands go to the whole ActiveGroup (0071);
@@ -255,8 +257,9 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - shielded Peacekeepers follow on right-click (0074);
   - shielded units are left out of explicit Attack (0075), and AttackMove goes to every unit (0076). The agent was re-briefed while running.
 - **Next**:
-  - **M1 wrap-up** once G3 and H3 merge: ask the user to playtest.
-  - **M2**, planned (`artifacts/director/m2-plan.md`): M2-A starts when G3 merges, then B, C and E together.
+  - **M1 wrap-up** once H3 merges: ask the user to playtest.
+  - **M2-B, M2-C and M2-E** together after M2-A.
+  - **Fix the Move-onto-itself bug** per Q0031's answer, in the next sim or command-UI slice.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
 The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, the defaults from the doc apply.
@@ -276,13 +279,13 @@ The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, th
 | E Behaviours | chase (fog: 0034), auto-target and leashes, AttackMove, Patrol (0036/0037), Hold, Stop, Follow and proximity (0032/0033), edge-to-edge range (0031), gate visibility | done (`aa5a05f`) | Fable |
 | S2 Selection follow-ups | 0048–0056 | done (`f35f0f0`) | Opus |
 | H2 Command UI follow-ups | right-click per unit (0062/0063), Mixed pointer, Attack targeting on own or neutral objects (0064), invalid-click feedback (0065), targeting rules (0066–0069), shield interplay (Q0020) | done (`2417f70`) | Opus |
-| H3 Command UI follow-ups 2 | Shift keeps targeting (0070), no smart-casting audit (0071), 16 px targeting allowance (0073), shielded units follow on right-click (0074), left out of Attack (0075), AttackMove goes to every unit (0076) | running | Opus |
+| H3 Command UI follow-ups 2 | Shift keeps targeting (0070), no smart-casting audit (0071), 16 px targeting allowance (0073), shielded units follow on right-click (0074), left out of Attack (0075), AttackMove goes to every unit (0076), any group recall resets menus (0078) | running | Opus |
 | R Riot Shield | the Peacekeeper's toggled ability, end to end | done (`9aa41b6`) | Opus |
 | Q Queued group destinations | 0029/0030 | done (`bb867a5`) | Opus |
 | F Fog memory | last-known structures and resources, Explored selection, hit flash from the fog | done (`167d683`) | Opus |
 | G1 Crowds and nav perf | head-on crowd steering, pass-through shoving, nav_perf, group-order and battle spikes | done (`4a982a0`) | Fable |
 | G2 QA tooling | replay recording and playback, golden hashes, gate records fix, marker draw order, station timer (0057), 0038 tests | done (`52f20a8`) | Opus |
-| G3 Cleanup | a per-tick turn budget shared by movement and aiming; oversize files; robust soak bounds; 5×5 Guard crowds; F2 in playback | running | Opus |
+| G3 Cleanup | a per-tick turn budget shared by movement and aiming; oversize files; robust soak bounds; 5×5 Guard crowds; F2 in playback | done (`7be0f39`) | Opus |
 
 After B: start D, S, V and W in parallel; then H, E, G.
 
@@ -334,7 +337,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 
 | Slice | Content | After | Model | Status |
 |---|---|---|---|---|
-| M2-A | Structure foundation: 5 kinds, stat blocks, armour, orientation and sides, blocking, vision, records, combat, placeholder visuals, oriented debug spawn | G3 | Opus | queued |
+| M2-A | Structure foundation: 5 kinds, stat blocks, armour, orientation and sides, blocking, vision, records, combat, placeholder visuals, oriented debug spawn | G3 | Opus | running |
 | M2-B | Economy core: banks, power and penalty, Unit Control, plate mining and depletion, the economy step | A | Opus | queued |
 | M2-C | Build area and placement validation | A | Opus | queued |
 | M2-E | Path knowledge: per-player planning grids, re-route on discovery | A | Fable | queued |
@@ -395,19 +398,21 @@ First playable after M2-H2.
 | Q0018 | Behaviour gaps: sight-edge flicker, rotation in target priority, AttackMove leash reference, unreachable auto-targets, MinRange, walled-out spots | no | open; E built the stated defaults |
 | Q0019 | A remembered station's delivery countdown: keep counting or freeze | no | answered by 0057: GDO sees the real timer (folded into G2) |
 | Q0020 | Riot Shield: shield Move vs 0062 Follow, transitions, raising mid-shot, mixed groups, toggle time and hotkey | no | point 1 answered by 0074 (Follow wins; H3); points 2–5 open (R built the stated defaults) |
-| Q0021 | Targeting click details: drift during a targeting click, shielded units in Attack targeting, recalling the same group | no | points 1–2 answered by 0073 and 0075 (H3); point 3 open |
-| Q0022 | GDO supplies: Supply Tower prerequisite and cost, Chopper flight, Starting Supplies | yes (the supply loop only) | open; M2 defers supplies |
-| Q0023 | Barracks footprint, side letters and exit; blocked exits | no | open; answer before M2-D2 and M2-H2 |
-| Q0024 | Production and rally details: queue limit, Unit Control when queued, several Barracks short of crystals, refunds on destruction, clearing and showing a rally point, rally on an unseen enemy | no | open |
-| Q0025 | Power penalty: is the DC slowed, the ratio, the display, when power counts | no | open |
-| Q0026 | GDO build area: shape, shrinking, no DC, overlay | no | open; point 1 before the `dev_skirmish` layout (M2-F) |
-| Q0027 | Placement: units under the footprint, plates in fog, buildings on resources, layout rules | no | open |
+| Q0021 | Targeting click details: drift during a targeting click, shielded units in Attack targeting, recalling the same group | no | answered by 0073, 0075 and 0078 (H3) |
+| Q0022 | GDO supplies: Supply Tower prerequisite and cost, Chopper flight, Starting Supplies | no | answered by 0077: the supply loop is deferred, Starting Supplies are 0 |
+| Q0023 | Barracks footprint, side letters and exit; blocked exits | no | answered by 0079 (sides, Barracks 3 wide) and 0080 (exit doorway) |
+| Q0024 | Production and rally details: queue limit, Unit Control when queued, several Barracks short of crystals, refunds on destruction, clearing and showing a rally point, rally on an unseen enemy | no | answered by 0081–0088 (M2-D2, M2-H1) |
+| Q0025 | Power penalty: is the DC slowed, the ratio, the display, when power counts | no | answered by 0089 and 0090 (power display is used / available) |
+| Q0026 | GDO build area: shape, shrinking, no DC, overlay | no | answered by 0091, 0092 and 0093 (square, follows the current buildings, overlay shows the area only) |
+| Q0027 | Placement: units under the footprint, plates in fog, buildings on resources, layout rules | no | point 1 answered by 0094 (ground units of any player block placement; M2-C); points 2–4 open |
 | Q0028 | Mining: lumps or trickle, last partial load, depleted patch under a plate, selecting a covered patch | no | open; point 1 before M2-J |
 | Q0029 | What defeat does: the remaining units, victory and game end | no | open |
 | Q0030 | Structures as targets (auto-targeting buildings), build menu slots, building InfoPanels | no | open |
+| Q0031 | A Move or Follow aimed at a selected unit itself (it currently follows itself forever) | no | open; default: the clicked unit is left out |
+| Q0032 | Arrival radius behind an occupied destination: 2 or 3 grid units (data from G3) | no | open; M1 keeps 2 |
 
 ## Design change entries
-Last triaged: 0076.
+Last triaged: 0094.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -481,4 +486,22 @@ Last triaged: 0076.
 | 0074 Shielded Peacekeepers follow on right-click | in progress (M1-H3) | answers Q0020 point 1; replaces the Move-to-location default |
 | 0075 Shielded Peacekeepers are left out of explicit Attack | in progress (M1-H3, re-briefed) | answers Q0021 point 2; differs from right-click on purpose |
 | 0076 AttackMove goes to every unit, including units that can't attack | in progress (M1-H3, re-briefed) | closes 0075's TBD; check that the sim gate doesn't drop shielded units from AttackMove |
+| 0077 GDO supply loop deferred; Starting Supplies 0 | queued (M2-B, M2-G) | answers Q0022; matches the plan |
+| 0078 Any control-group recall resets menus | in progress (M1-H3, re-briefed) | answers Q0021 point 3 |
+| 0079 Side lettering convention; Barracks 3 wide × 2 tall | in progress (M2-A) | answers Q0023 point 1 |
+| 0080 Exit doorway: units appear half inside; production pauses while it is occupied | queued (M2-D2; needs a collision exception for the releasing building) | answers Q0023 points 2–3; replaces the nearest-free-spot default |
+| 0081 Queue limit of 20 includes the unit in production | queued (M2-D2) | |
+| 0082 GDO Unit Control reserved when a unit is queued | queued (M2-D2, M2-G) | |
+| 0083 Group production: least remaining work pays first | queued (M2-D2, M2-H1) | replaces the fixed-order default |
+| 0084 Destroyed GDO producers refund as if cancelled | queued (M2-D1, M2-D2) | |
+| 0085 Finished unit waiting inside is refunded if the building dies | queued (M2-D2) | |
+| 0086 Rally point on the building itself clears it | queued (M2-D2, M2-H1) | |
+| 0087 Rally point indicators | queued (M2-H1) | |
+| 0088 Rally on an enemy becomes a ground rally when the enemy leaves sight | queued (M2-D2, M2-H1) | rally on a remembered structure TBD (Q0017 point 2) |
+| 0089 Power penalty scope, ratio and timing | queued (M2-B) | matches the plan |
+| 0090 Power display: used / available | queued (M2-G) | replaces "current / total" |
+| 0091 GDO build area is square | queued (M2-C) | matches the plan |
+| 0092 GDO build area follows the current buildings | queued (M2-C) | matches the plan |
+| 0093 Build area overlay shows the area only | queued (M2-H2) | answers Q0026 point 4; matches the plan |
+| 0094 Ground units on the footprint block Direct Placement | queued (M2-C) | answers Q0027 point 1; matches the plan |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
