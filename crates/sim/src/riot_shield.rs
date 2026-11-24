@@ -149,13 +149,6 @@ pub fn allows_attack(o: &Object) -> bool {
     mode(o).is_none_or(|mode| mode == ShieldMode::Lowered)
 }
 
-/// Whether `o`'s Riot Shield is up or on its way up: whether `o` is its shield's raised type, Peacekeeper (Shielded)
-/// (design change 0173: "The type switches **when the toggle starts**"); false for objects without one. The Modes
-/// step takes such a shield up ([`step`]).
-pub fn is_going_up(o: &Object) -> bool {
-    o.riot_shield.is_some() && def_of(o).is_some_and(|def| o.kind == def.raised)
-}
-
 /// The pre-armor multiplier `o`'s Riot Shield gives the hits against it: its `RiotShieldDef::damage_factor` once it
 /// is all the way up, else none (design change 0171: "a half-raised shield gives none").
 pub fn damage_factor(o: &Object) -> f32 {
