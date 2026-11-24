@@ -473,5 +473,5 @@ fn golden_games_play_back_in_the_client() {
         assert_eq!(app.world().resource::<Playback>().desync, None);
         played += 1;
     }
-    assert_eq!(played, 6);
+    assert_eq!(played, 7);
 }
