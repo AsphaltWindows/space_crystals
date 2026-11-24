@@ -1155,3 +1155,7 @@ Buildings become targets and get panels in M2.
 | M2-E | J | `behaviours_soak` skips the "idle unit in reach has engaged" check in any tick with a death. Tighten it to skip only units whose target died that tick. |
 | M2-E | B, D1, F | Own structures join their owner's planning grid at the end of the tick in which they are placed (known grids sync after `Vision::remember`). |
 | M2-A | I | The editor places structures unturned and refuses a plate on a patch. M2-I adds orientation and the plate exception. |
+| M2-C | F1 | Apply `paths::misplaced` to every layout's units. `MapDef::check` only checks a layout's terrain fit. `check_layout(map, others, layout, index)` is ready. |
+| M2-C | F1, I | A layout's build area is its DC's alone, per `core/map_editor.md`'s "within the build area of the DC". The layout's EF doesn't extend it. |
+| Director | D1, D2 | T9 is split into `Command::Construction` (D1) and `Command::Production` (D2), so the two slices can run in parallel. |
+| Director | F | F is split into F1 (game start, wave 3) and F2 (game end, wave 4). F2 also takes the defeat and victory banner from G. |

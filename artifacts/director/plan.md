@@ -274,10 +274,17 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Goldens.** Re-blessed, because the hash now includes path knowledge. Play is identical.
   - **Open.** The blocked-to-open cases went out as Q0033.
 
+- **M2-C placement** (merged in `0f8cc70`; 730 tests):
+  - **`sc_sim::placement`.** A pure `check(site, occupants, kind, origin, orientation) -> PlacementCheck { tiles, whole }`, in `Mode::Command { vision, player }` or `Mode::Layout`. It reads the true state. Supporting it: `Sim::placement_check`, `Sim::build_area`, `BuildArea`, and `check_layout`, ready for F1.
+  - **Build area.** Derived on every call and never stored (0092). Square, per 0091. BRE 0 adds no area. The DC needs no area.
+  - **Tiles.** A tile the player can't see reports only `NotVisible`, so nothing hidden leaks. Ground units of any player block, neutral ones included (0094).
+  - **Layouts.** A layout's area is its DC's alone (`core/map_editor.md`).
+  - **Speed.** 9 µs per check.
+
 ## In progress
 - **M2 wave 2** (common brief `scratchpad/briefs/m2-common.md`, plus one brief per slice):
   - **M2-B economy core** (Opus): banks, power and penalty, Unit Control, plate mining in lumps, depletion.
-  - **M2-C placement** (Opus): the build area and one pure placement check, with the 0091–0097 rules.
+- **Wave 3, briefs ready** (`scratchpad/briefs/m2-w3-common.md`, `m2d1-*`, `m2d2-*`, `m2f1-*`, `m2g-*`): launch D1, D2 (Fable), F1 and G once M2-B merges. Check that the B API named in the common brief matches B's report.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2-B, M2-C and M2-E** together after M2-A.
@@ -354,19 +361,20 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
   - 2^16 fixed-point progress, with the power ratio rounded up;
   - banks in `Player`; costs taken when the command applies; power and Unit Control derived, not stored;
   - defeat when a player's owned-structure count drops to 0; a player who never owned a structure is never defeated (this keeps sandboxes and goldens);
-  - `Command::Structure`, and `PanelCommand` in the client;
+  - **commands per capability**: `Command::Construction` (D1) and `Command::Production` (D2). T9's single `Command::Structure` was split so the parallel slices never edit one enum. `PanelCommand` in the client;
   - layout rules checked for implemented factions only.
 
 | Slice | Content | After | Model | Status |
 |---|---|---|---|---|
 | M2-A | Structure foundation: 5 kinds, stat blocks, armour, orientation and sides, blocking, vision, records, combat, placeholder visuals, oriented debug spawn | G3 | Opus | done (`cbeb804`) |
 | M2-B | Economy core: banks, power and penalty, Unit Control, plate mining and depletion, the economy step | A | Opus | running |
-| M2-C | Build area and placement validation | A | Opus | running |
+| M2-C | Build area and placement validation | A | Opus | done (`0f8cc70`) |
 | M2-E | Path knowledge: per-player planning grids, re-route on discovery | A | Fable | done (`f76db38`) |
 | M2-D1 | Construction: DC and EF, Construct, Cancel, Place, refunds | B, C | Opus | queued |
-| M2-D2 | Production: Barracks queue, rally point, exit spawn, Unit Control | B | Opus | queued |
-| M2-F | Start and end of a game: Starting Conditions, layouts, defeat, `dev_skirmish` GDO layout | B, C | Opus | queued |
-| M2-G | HUD: resources, structure InfoPanels, defeat and victory banner | B | Opus | queued |
+| M2-D2 | Production: Barracks queue, rally point, exit spawn, Unit Control | B | Fable (exit doorway: a unit overlapping its producer, the collision exception, invariants) | queued |
+| M2-F1 | Game start: Starting Conditions, layout rules (restriction, completeness, outdated), game-start banks, camera on the DC, the `dev_skirmish` GDO layouts | B, C | Opus | queued |
+| M2-F2 | Game end: defeat (units become neutral and repath), game over when one side remains, spectating with team vision, the defeat and victory banner | B | Opus | queued (wave 4) |
+| M2-G | HUD: resources bar, structure InfoPanels (the banner moved to M2-F2) | B | Opus | queued |
 | M2-H1 | Production UI: generalised command UI, Barracks panel, rally point | D2 | Opus | queued |
 | M2-I | Editor: Starting Layout editing | F | Opus | queued |
 | M2-H2 | Construction UI: build menu, ghost, area overlay, rotate and flip, side labels | C, D1, H1 | Opus | queued |
