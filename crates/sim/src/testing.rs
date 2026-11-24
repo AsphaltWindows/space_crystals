@@ -39,6 +39,7 @@ use crate::map::Map;
 use crate::mover::{MoveGoal, MoveStatus, Mover};
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
+use crate::production::{ProductionCommand, Rally};
 use crate::replay::Replay;
 use crate::scenario::{Scenario, Spawn, SpawnAt, SpawnSettings};
 use crate::scenarios;
@@ -294,7 +295,8 @@ impl TestSim {
 
 /// The objects `o` refers to, in no particular order: those its orders (current and queued) name, those its
 /// behaviours engaged by themselves, its move's goal object, its attack's target and the target of its attack
-/// phase, and the patch a plate mines.
+/// phase, the patch a plate mines, the object a producer's rally point is on, and the building whose exit doorway a
+/// unit is leaving.
 pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
     let mut ids = Vec::new();
     if let Some(orders) = &o.orders {
@@ -320,6 +322,10 @@ pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
         }
     }
     ids.extend(o.extractor.map(|extractor| extractor.patch));
+    if let Some(Rally::Object { id, .. }) = o.production.as_ref().and_then(|production| production.rally) {
+        ids.push(id);
+    }
+    ids.extend(o.mover.as_ref().and_then(|mover| mover.exit));
     ids
 }
 
@@ -333,9 +339,9 @@ pub fn dangling_references(sim: &Sim) -> Vec<(ObjectId, ObjectId)> {
 }
 
 /// One command of every kind: every variant of [`Command`], [`OrderKind`], [`Target`], [`Ability`],
-/// [`ConstructionCommand`], [`DebugCommand`] and [`SpawnAt`], queued and not, for tests that a replay file keeps
-/// everything a player did (`ARCHITECTURE.md > Replays and golden hashes`). The ids needn't exist. The match below
-/// stops compiling when a variant is added, as a reminder to add it here.
+/// [`ProductionCommand`], [`ConstructionCommand`], [`DebugCommand`] and [`SpawnAt`], queued and not, for tests that
+/// a replay file keeps everything a player did (`ARCHITECTURE.md > Replays and golden hashes`). The ids needn't
+/// exist. The match below stops compiling when a variant is added, as a reminder to add it here.
 pub fn every_command() -> Vec<Command> {
     let units = vec![ObjectId(1), ObjectId(2)];
     let point = Vec2::new(48.5, 80.25);
@@ -423,6 +429,18 @@ pub fn every_command() -> Vec<Command> {
         ]
         .map(Command::Debug),
     );
+    commands.extend(
+        [
+            ProductionCommand::Train(ObjectKind::Peacekeeper),
+            ProductionCommand::CancelProduction,
+            ProductionCommand::SetRally(Target::Point(point)),
+            ProductionCommand::SetRally(Target::Object(ObjectId(3))),
+        ]
+        .map(|command| Command::Production {
+            objects: units.clone(),
+            command,
+        }),
+    );
     for command in &commands {
         match command {
             Command::Order { kind, .. } => match kind {
@@ -437,6 +455,11 @@ pub fn every_command() -> Vec<Command> {
                 ability: Ability::RiotShield { .. },
                 ..
             } => {}
+            Command::Production { command, .. } => match command {
+                ProductionCommand::Train(_)
+                | ProductionCommand::CancelProduction
+                | ProductionCommand::SetRally(Target::Point(_) | Target::Object(_)) => {}
+            },
             Command::Construction { command, .. } => match command {
                 ConstructionCommand::Construct(_)
                 | ConstructionCommand::CancelConstruction

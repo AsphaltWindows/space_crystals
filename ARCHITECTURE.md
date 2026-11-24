@@ -153,11 +153,13 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   yielding unit; `mover/` holds the stuck schedule, the sidestep and the hash), for units that
   can attack, `attack` (`AttackState`, `combat.rs`: see *Combat*) and, for units that carry a Riot Shield,
   `riot_shield` (`RiotShield`, `riot_shield.rs`: the shield's mode, see *Combat*); for a plate on a patch,
-  `extractor` (`Extractor`, `economy/mining.rs`: the patch it mines and its cycle, see *Economy*); for a structure that
-  constructs buildings, `constructor` (`Constructor`, `construction.rs`: idle, constructing or holding a building
-  ready to place, see *Economy*). Production and the rest arrive as more optional fields, each with its own module.
-  Never add them as separate stores keyed by id. A system walks the objects in id order and skips those without its
-  capability (`let Some(..) = &mut o.resource else { continue };`).
+  `extractor` (`Extractor`, `economy/mining.rs`: the patch it mines and its cycle, see *Economy*); for a structure
+  that produces units, `production` (`Production`, `production.rs`: its queue, the progress of the unit in
+  production and its rally point, see *Production*); for a structure that constructs buildings, `constructor`
+  (`Constructor`, `construction.rs`: idle, constructing or holding a building ready to place, see *Economy*). The
+  rest arrives as more optional fields, each with its own module. Never add them as separate stores keyed by id. A
+  system walks the objects in id order and skips those without its capability
+  (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
   them through `ObjectKind::def()` or `Object::def()`. Every value cites its design section. Faction types go in
   per-faction modules (`defs/gdo.rs`, …). A unit type also has `ObjectDef::unit: Some(UnitDef)` (`defs/units.rs`,
@@ -275,13 +277,21 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    - Economy, `economy::step` (plan decision T5, see *Economy*): after 5e's removals and their `paths::sync`, so
      that a building destroyed in the tick counts for nothing in it; before 5f, so that what it brings into the game
      is seen in its own tick. In order: every player's power (the structures this tick's commands placed included),
-     the constructors (`construction::step`; a construction ordered in tick `t` counts its frames from `t + 1`) and
-     producers (M2-D2), the plates' mining, the defeat check (M2-F).
+     the constructors (`construction::step`; a construction ordered in tick `t` counts its frames from `t + 1`), the
+     plates' mining, the defeat check (M2-F).
+   - Producers, `Sim::step_production` (slice M2-D2, see *Production*): part of the economy phase, run right after
+     `economy::step` and not inside it, because a finished unit is inserted into the game (`Sim::insert_object`).
+     The unit in production advances, and a finished one is released into its exit doorway, or held while that is
+     occupied. Nothing in `economy::step` reads what the producers write, or the other way round, so the order
+     between the two is free. After 5d, so a released unit never moves in its own tick; before 5f, so it is seen
+     in it.
    - 5f `Vision::update`: every player's sight from the objects as the tick leaves them, those this tick's commands
      spawned included (see Vision). Combat in 5e reads the vision of the tick before.
    - `update_supply_stations` (`core/map.md > SupplyDeliveryStation`).
    - `Vision::remember`: each player's records of the structures and resources in its sight take the tick's
      final state, the deliveries included (see Vision).
+   - Rally points, `production::rally::follow`: on the vision the tick leaves, a rally point on an enemy its owner
+     no longer sees becomes a ground rally where it was last seen (design change 0088, see *Production*).
    - Path knowledge, last (`PathKnowledge::observe`, `paths::sync_known`): each player stops assuming the map
      resources whose place it now sees, and a player whose known footprints changed gets a new knowledge version
      and its planning grids rebuilt, at most once per player and tick. After everything it follows from: the
@@ -546,6 +556,12 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   leave it (`planned_end`, design change 0029).
   A destination is clamped inside the map, and one the unit can't stand on or reach moves to the nearest point it
   can (`nav::reachable_point`, which never searches; design change 0025).
+- **A path out of a doorway** (`paths/serve.rs::doorway_start`, design change 0080): a unit still in the exit
+  doorway of the building that released it stands on that building's tiles, which no search starts from. Its
+  request starts at the first of the doorway's ways out where its box is clear on the grid it plans on
+  (`Doorway::ways_out`: straight out, then in front of each tile of the exit side), and the unit heads for that
+  start first (`Mover::next` 0). With no way out its owner knows of, the request fails like any from a blocked
+  tile (see *Production*).
 - **Avoid tiles** (`Mover::avoid_tiles`): a repath of a stuck unit treats them as blocked, and its smoothed path and
   its steering stay out of them (`nav::smooth_avoiding`, `nav::segment_avoids`). If they cut every route, the unit
   drops them and plans again.
@@ -599,7 +615,20 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   mover's way; a unit that is only clipped, or stands in the way of a mover walking between the units of a group,
   steps straight across it, and such a mover asks the units on both sides of its gap two steps before it reaches
   them (`yielding::ask_ahead`): the group parts and isn't shoved along.
-- **Collision exceptions** go in `space::blocks(mover, other)` and nowhere else (crushing will).
+- **Collision exceptions** between units go in `space::blocks(mover, other)` and nowhere else (crushing will).
+- **The exit doorway** (`core/entities.md > Structure Type > Exit Doorway`, design change 0080; `production/exit.rs`)
+  is the one exception against tiles, and the one case in which a unit's box overlaps a structure. A unit a producer
+  released has `Mover::exit`, the building's id, while its box still overlaps that footprint. For that unit
+  alone, `World::door_free` replaces the tile tests of `tiles_free`, `is_free_for` and `along_axis`: the building's
+  own tiles don't block it, every other blocked tile does (`Doorway::box_clear`), and it may only come out
+  (`Doorway::allows`: never deeper in, and inside only within the exit side's span, so it leaves through that side
+  and no other). Units still block it and it blocks them, as ever. Phase 5d clears `exit` in the tick the box is
+  clear of the footprint (or the building is gone, or a teleport took the unit away), and nothing ever sets it
+  again: a unit that is out can't re-enter. With a goal the unit moves by the ordinary rules (lane seeking, going
+  around, yielding requests); without one, `doorway::leave` walks it straight out and stops it against the exit
+  side (design change 0086), trying again every tick while something is in the way. **Never set `Mover::exit`
+  anywhere but where a producer releases a unit, and never test a doorway unit's tiles anywhere but through
+  `World::door_free`.**
 - **Held by its attack**: a unit whose attack sequence holds its base (`combat::may_move` or `may_turn` false: see
   *Combat*) stands for the tick and keeps its goal, path and stuck clock (`wait`), like a unit waiting for its path.
 - **Stuck and recovery** (`stuck.rs`; the numbers, in `mover/schedule.rs`, are the design's placeholders of changes
@@ -625,12 +654,14 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   output, not state. Tests assert them; `cargo test -p sc_sim --release --test movement_perf -- --ignored
   --nocapture` prints timings.
 - **Invariants** (`docs/movement.md > 8`, `sc_sim::testing::invariants`): I1 no two units of a layer overlap; I2 no
-  ground box overlaps a blocked tile or leaves the map; I3 a unit moves at most its speed per tick; I4 every float
+  ground box overlaps a blocked tile or leaves the map, except a unit in an exit doorway (`Mover::exit`), which
+  overlaps the tiles of the building that released it and no other blocked tile, overlaps that footprint for as
+  long as `exit` is set, never moves deeper in, and never comes to be in a doorway by moving; I3 a unit moves at most its speed per tick; I4 every float
   is finite; I5 a unit without a goal doesn't move; I6 repaths per leg are capped and no path request waits longer
   than `MAX_REQUEST_AGE`; I7 an arrived unit never moves again without an order or a move of its behaviour, and a
   unit without a goal is at rest. A leg is one `Mover::go_to`: an order's move, or one a behaviour starts (a chase,
-  a Patrol's next leg, the way back to an IdleOrigin). The one exception to I5 and I7 is a unit taking its sidestep,
-  which must have neither a goal nor an order. K1 (`paths`): each player's known grids are those a fresh build
+  a Patrol's next leg, the way back to an IdleOrigin). The exceptions to I5 and I7 are a unit taking its sidestep,
+  which must have neither a goal nor an order, and a unit walking out of an exit doorway. K1 (`paths`): each player's known grids are those a fresh build
   from the state gives. A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
   letters, with a legend). The check is on by default; `check_invariants(false)` turns it off for timing runs. A
   test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each step.
@@ -649,8 +680,9 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
 - **Power and Unit Control are derived** from the objects whenever they are asked for, never stored, so they can't
   drift (plan decision T7). `Sim::power(player)` is a `PowerSummary`: `generated` and `consumed`, the HUD's
   used / available (design change 0090). `Sim::unit_control(player)` is the UnitControlCost of the player's units, out
-  of `UNIT_CONTROL_CAP`; the Unit Control that queued units reserve (design change 0082) goes into
-  `unit_control::reserved`, the hook slice M2-D2 fills. A building counts from the tick it is placed until the tick
+  of `UNIT_CONTROL_CAP`, plus what the units in their producers' queues reserve (design change 0082,
+  `unit_control::reserved`: a unit counts from the moment it is queued, the one in production and one waiting
+  inside included). A building counts from the tick it is placed until the tick
   it leaves the game, that one excluded (design change 0089), because it is among the objects in between. Each call
   walks the objects once.
 - **Speed in fixed point** (plan decision T6): `RATIO_ONE` (2^16) is 100 %. `PowerSummary::ratio()` is
@@ -690,6 +722,57 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   progress by `PowerSummary::speed`, take costs with `spend_crystals` when the command applies, and give refunds
   through `Refund`; `construction.rs` is the pattern.
 
+## Production
+
+Producing structures, their rally points and the exit doorway (`production.rs`, `production/`, `sim/producers.rs`;
+slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Structure Type > Exit Doorway`).
+
+- **State**: `Object::production` (`Production`: the BuildQueue, whose head is the unit in production, so the
+  limit `QUEUE_LIMIT` (20) includes it, design change 0081; its progress in `RATIO_ONE`s; the rally point). What a
+  type produces is `StructureDef::production` (`ProductionDef`: the exit side's letter and the `Recipe`s: kind,
+  Space Crystals, frames). `Sim::production_status(id)` is what the interface shows: the kind, the progress out of
+  its total, and `waiting`.
+- **Commands**: `Command::Production { objects, command }` with `ProductionCommand::Train(kind)`,
+  `CancelProduction` and `SetRally(Target)`; the gate's rules are in *Commands, events and replays*.
+- **Costs** (plan decision T7): a unit's Space Crystals are paid and its Unit Control reserved when it is queued
+  (design change 0082). Cancelling refunds in full (`Refund::Full`) and takes the last entry. When a producer
+  leaves the game, destroyed or removed, `Sim::remove_objects` refunds its whole queue the same way, a finished
+  unit waiting inside included (design changes 0084, 0085; `Sim::refund_production`).
+- **Group production** (design change 0083): a `Train` to several producers serves them by the work they have
+  queued, least first (`Production::remaining_work`: remaining production time, a placeholder reading), ties by
+  id, each check counting what the ones before it took, until a cost check (crystals, Unit Control) fails. A full
+  queue is passed over. The others get `SimEvent::ProductionRefused`.
+- **The step** (`Sim::step_production`, see *Tick pipeline*): the unit in production advances by
+  `PowerSummary::speed` (design change 0089), capped at its total. Trained in tick `t` at full power, a
+  Peacekeeper (80 frames) is released in tick `t + 79`; at 30/51 in tick `t + 135`. The next one starts from 0 in
+  the tick after a release.
+- **The exit doorway** (design change 0080; `production::Doorway`, the one geometry for the release, the movement
+  step and the invariants): the middle of the side lettered `ProductionDef::exit` (the Barracks' B), wherever it
+  faces (`sides`). A finished unit comes into the game there **half inside the building**: its centre on the exit
+  side, facing out, with `Mover::exit` set (see *Movement and collision* for the collision exception). When
+  another unit or a blocked tile is right in front of the doorway it stands as far out as there is room, fully
+  inside against the exit side at most (`Sim::doorway_spot`): the design's "half inside" would overlap what stands
+  there, and its verification wants the unit to appear all the same. **The doorway is occupied** while a unit the
+  building released still overlaps its footprint; meanwhile the next finished unit is held (progress at its
+  total, `waiting`), the queue behind it doesn't advance, and it is released in the first tick the doorway is
+  free. So at most one unit overlaps a building at a time.
+- **Rally points** (`production/rally.rs`): `Rally::Point` or `Rally::Object { id, at }`. A released unit gets the
+  order `rally::order_for` gives, through `Sim::give_order` like a player's: Move to the point; Attack an enemy
+  object (if the unit attacks and the object is destructible); Move to any other object. Without a rally point it
+  walks out of the doorway and stops (design change 0086). The producer itself as the target clears the rally. A
+  rally on an object that is removed resets to None (`Production::forget`). A rally on an **enemy** follows it only
+  while the owner sees it: at the end of each tick `rally::follow` notes where the owner sees it, or turns the rally
+  into a ground rally at the last such position (design change 0088), so an enemy dying in the fog changes nothing.
+  **Placeholder** (0088's TBD, question Q0017 point 2): a rally set on a remembered object out of sight is a ground
+  rally at the centre of its record's footprint.
+- **Tests**: `src/production.rs` and `production/exit.rs` (the queue, the doorway's geometry in all 8
+  orientations, its rule), and `tests/production/`: `queue.rs` (times, the power ratio, train and cancel, the limit
+  of 20, Unit Control, the gate, group production, refunds, a game replayed and saved), `rally.rs` (each kind of
+  target, clearing, an enemy leaving sight, a remembered structure), `exit.rs` (the verification of design change
+  0080, all 8 orientations, a crowd of idle units, a half-blocked exit, a path from inside the footprint, no way
+  back in) and `stalls.rs` (walled in by a building and by units and freed again, the waiting unit's refund, saves
+  in the middle of an exit, and a random game of 3 000 ticks around four doorways).
+
 ## Commands, events and replays
 
 - All player intent is a `Command`. It is wrapped in a `PlayerCommand { player, command }` and collected in one
@@ -726,6 +809,14 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   group and a replay mean the same whatever each unit's mode. The gate tolerates stale selections as for orders
   (`TooManyUnits`, repeats, gone ids, `NotOwned`, `NoUnits`) and drops the units without the ability
   (`Reject::LacksAbility` when none is left).
+- **`Command::Production { objects, command }`** (`factions/gdo/structures.md > Barracks >
+  ObjectInterfaceState[Barracks]`, see *Production*): the producers are the player's objects among `objects` that
+  produce units, found as an order's units are (stale and repeated ids dropped, `NotOwned`); none is
+  `Reject::NoProducers`. `Train(kind)` is taken when at least one producer queues the unit, else
+  `CannotProduce(kind)`, `InsufficientCrystals`, `UnitControlCap` or `QueueFull`; `CancelProduction` when a producer
+  has something queued, else `NothingQueued`; `SetRally` with a point on the map (`OffMap`) or an object that
+  exists and that the player sees, as for an order's target (`UnknownObject`, `NotVisible`; the producer itself
+  always). `Sim::validate` gives the interface the same answers for its buttons.
 - **`Command::Construction { objects, command }`** (`construction.rs`, `sim/construction.rs`): the player's
   constructors carry out a `ConstructionCommand`: `Construct(kind)`, `CancelConstruction`, `CancelReady` or
   `Place { origin, orientation }` (the top-left tile of the turned footprint; the orientation optional in files, as
@@ -733,8 +824,8 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   player's objects that construct nothing; `NotOwned` for anyone else's, `NoConstructor` when none is left), then
   goes through them in id order: a Construct starts at each one that has the building on its list, is idle and can
   pay from what the ones before it left, and is rejected with the first one's reason if none can
-  (`CannotConstruct(kind)`, `ConstructorBusy(id)`, `NotEnoughCrystals`); a cancel goes to each one with something to
-  cancel (`NotConstructing`, `NothingReady`). A Place names one constructor (`SeveralConstructors`; design change
+  (`CannotConstruct(kind)`, `ConstructorBusy(id)`, `InsufficientCrystals`); a cancel goes to each one with something
+  to cancel (`NotConstructing`, `NothingReady`). A Place names one constructor (`SeveralConstructors`; design change
   0071) holding a ready building (`NothingReady`), and is rejected with the placement check's first problem
   (`Unplaceable(PlacementProblem)`), which is reported (above). Each object of a command is one constructor; the
   client sends a command to the group the design says (no smart-casting, design change 0071).
@@ -766,16 +857,16 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   tick, empty ticks included, and state-hash checkpoints: `sc_sim::Replay` (serde) with `start`/`record`/`step`/`run`,
   and `record_checked`/`verify`/`run_checked` for the checkpoints (see Replays and golden hashes, which also covers
   the client's recording and playback). A replay keeps every command whole: `testing::every_command` lists one of
-  each kind (every variant of `Command`, `OrderKind`, `Target`, `Ability`, `ConstructionCommand`, `DebugCommand` and
-  `SpawnAt`), and the
-  format tests round-trip it through the sim's serde and the client's file; its match stops compiling when a variant
-  is added, so add the new one to it. The client must never submit a command with a non-finite number. The sim
-  would reject it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to load. Validate at the
-  input layer.
+  each kind (every variant of `Command`, `OrderKind`, `Target`, `Ability`, `ProductionCommand`,
+  `ConstructionCommand`, `DebugCommand` and `SpawnAt`), and the format tests round-trip it through the sim's serde
+  and the client's file; its match stops compiling when a variant is added, so add the new one to it. The client
+  must never submit a command with a non-finite number. The sim would reject it anyway, but JSON can't store NaN or
+  ±∞, so the replay file would fail to load. Validate at the input layer.
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`,
-  `PatchDepleted`, `ConstructionCompleted`, `StructurePlaced`, `PlacementRefused`, …) are output only, for effects,
-  sounds and UI. The sim never reads them. `Sim::events()` holds
-  only the latest step's events, and `Sim::new` discards the events from the scenario's initial spawns.
+  `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `UnitProduced`,
+  `ConstructionCompleted`, `StructurePlaced`, `PlacementRefused`, …) are output only, for effects, sounds and UI. The
+  sim never reads them. `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events from
+  the scenario's initial spawns.
 
 ## Sim scenarios and tests
 
@@ -1019,9 +1110,19 @@ Selection), the CommandPanel (`hud/command_panel.rs`) its commands (see Commands
 shows its name (`SectionLabel`). A selected object the player doesn't see shows its record's last-known state and a
 "Last seen … ago" line (a placeholder wording), except that a GDO player's remembered Supply Delivery Station shows
 the live station's NextDeliveryTime (`core/map.md > SupplyDeliveryStation > InfoPanel`, design change 0057), "No
-delivery scheduled" while it isn't empty, and never CurrentSupplies. The top bar shows the player and the tick; in a
-replay's playback also the replay's last tick and a note on the playback (`ReplayText`: speed, paused or end, and a
-desync in red).
+delivery scheduled" while it isn't empty, and never CurrentSupplies. A structure's panel follows design change 0105:
+the local player's own shows its HP and, in the activity area under it (`InfoText::Activity`, hidden while empty),
+what it is doing; another player's (or a neutral one) its owner and HP only. The activity's lines come from
+`hud/info_panel/activity.rs::lines`, the one extension point for them: each structure capability adds its lines there
+(construction with slice M2-H2, production with M2-H1), and nothing else of the panel changes. A plate adds the
+remaining crystals of the patch under it, for every viewer (0099). The top bar shows the player on the left, the tick
+on the right (in a replay's playback also the replay's last tick and a note on the playback, `ReplayText`: speed,
+paused or end, and a desync in red), and between them, centred, the local player's resources as their faction's
+DisplayHud lists them (`hud/resources.rs`, one `ResourceFigure` text each, `resource_bar` for their readings): for
+the GDO Space Crystals and Supplies (the banks), Power as consumed / generated (`Sim::power`), red while consumption
+exceeds generation (0090), and Unit Control as used / `UNIT_CONTROL_CAP`, read through `Sim::unit_control` alone, so
+that the queue's reserved Unit Control (0082) shows as soon as the sim counts it; the other factions Space Crystals
+only, until their own resources exist.
 
 **Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse, the wheel and the screen edge into
 the input of the game and of the map editor, in `PreUpdate` (`ReadActions`, after Bevy's input, UI picking and the

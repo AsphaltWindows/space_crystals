@@ -1159,3 +1159,6 @@ Buildings become targets and get panels in M2.
 | M2-C | F1, I | A layout's build area is its DC's alone, per `core/map_editor.md`'s "within the build area of the DC". The layout's EF doesn't extend it. |
 | Director | D1, D2 | T9 is split into `Command::Construction` (D1) and `Command::Production` (D2), so the two slices can run in parallel. |
 | Director | F | F is split into F1 (game start, wave 3) and F2 (game end, wave 4). F2 also takes the defeat and victory banner from G. |
+| M2-D2 | F2 | A producer transferred to neutral keeps its queue, never advances it, and refunds nobody. Decide in F2 whether defeat should clear the queue, which 0101 says for units. |
+| M2-D2 | J | Re-measure `movement_perf` and the other release perf tests on a quiet machine. Under parallel agent builds (load average about 22), master measured from 0.57 to 3.7 ms mean, with spikes up to 179 ms. |
+| M2-D2 | H1 | API: `Sim::production_status`, plus `Command::Production { objects, command: Train(kind) | CancelProduction | SetRally(Target) }`. A rally on the building itself clears it. |

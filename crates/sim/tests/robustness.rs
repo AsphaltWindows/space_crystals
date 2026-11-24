@@ -192,7 +192,10 @@ fn check_invariants(sim: &Sim) {
                     .nav()
                     .grid(class, nav::size_class(silhouette))
                     .expect("a grid per unit type");
-                assert!(nav::box_clear(grid, silhouette / 2.0, o.pos), "I2: {o:?}");
+                // But for a unit in the exit doorway of the building that released it (design change 0080;
+                // `tests/production_exit.rs` checks those).
+                let in_doorway = o.mover.as_ref().is_some_and(|mover| mover.exit.is_some());
+                assert!(in_doorway || nav::box_clear(grid, silhouette / 2.0, o.pos), "I2: {o:?}");
             }
             let moved = o.pos.distance(o.prev_pos);
             assert!(moved <= unit.movement.max_speed() + 1e-3, "I3: {moved} su: {o:?}");
@@ -248,6 +251,10 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::Hit { .. }
                 | SimEvent::Died { .. }
                 | SimEvent::PatchDepleted { .. }
+                | SimEvent::ProductionQueued { .. }
+                | SimEvent::ProductionRefused { .. }
+                | SimEvent::ProductionCancelled { .. }
+                | SimEvent::UnitProduced { .. }
                 | SimEvent::ConstructionCompleted { .. }
                 | SimEvent::StructurePlaced { .. }
                 | SimEvent::PlacementRefused { .. } => {}

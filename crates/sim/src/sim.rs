@@ -17,6 +17,7 @@ use crate::orders::{Order, OrderGroup, OrderKind, Orders, Target, destinations};
 use crate::paths::knowledge::PathKnowledge;
 use crate::paths::{self, NavState};
 use crate::player::Player;
+use crate::production::{self, Production};
 use crate::rng::Rng;
 use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
 use crate::units::{Tick, TilePos};
@@ -312,11 +313,17 @@ impl Sim {
             self.tick,
             &mut self.events,
         );
+        // The producers (slice M2-D2), part of the economy phase: here, not inside `economy::step`, because a
+        // finished unit is inserted into the game. Before 5f, so that it is seen in its own tick.
+        self.step_production(first_new);
         // 5f: sees the tick's final positions, this tick's new objects included.
         self.vision.update(&self.map, self.objects.values());
         self.update_supply_stations(first_new);
         // Last: the records of what each player sees keep the tick's final state, the deliveries included.
         self.vision.remember(self.tick, |id| self.objects.get(&id));
+        // Rally points on enemies follow them only while their owner sees them (design change 0088): on the
+        // vision this tick leaves.
+        production::rally::follow(&mut self.objects, &self.vision);
         // Path knowledge, after everything it follows from (the objects, the vision and its records): what each
         // player has seen by now of the map's resources, then its grids for the next tick's plans, rebuilt at most
         // once per player and tick. Nothing after this may change the objects or the vision.
@@ -374,6 +381,7 @@ impl Sim {
                 crystals,
                 supplies,
             } => self.set_resources(player, crystals, supplies),
+            Checked::Production { player, plan } => self.apply_production(player, plan),
             Checked::Construction { player, resolved } => self.apply_construction(player, resolved),
         }
     }
@@ -452,6 +460,12 @@ impl Sim {
                 .map(|_| riot_shield::RiotShield::Lowered),
             // `factions/gdo/economy.md > ExtractionPlate`: a plate mines the patch under it.
             extractor: economy::mining::extractor_for(&self.objects, kind, placement.as_ref()),
+            // `factions/gdo/structures.md > Barracks`: a structure that produces units starts with an empty queue.
+            production: def
+                .structure
+                .as_ref()
+                .and_then(|structure| structure.production.as_ref())
+                .map(|_| Production::default()),
             // `factions/gdo/structures.md > DeploymentCenter`, `factions/gdo/economy.md > ExtractionFacility`: a
             // constructor starts idle.
             constructor: crate::construction::constructor_for(kind),
@@ -509,6 +523,7 @@ mod gate;
 mod load;
 mod navigation;
 mod preview;
+mod producers;
 mod removal;
 mod resources;
 #[cfg(test)]

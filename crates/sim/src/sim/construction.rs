@@ -40,7 +40,7 @@ impl Sim {
     /// [`Reject::NoConstructor`]), then the command's own:
     /// - **Construct**: each constructor, in id order, that has the building on its list, is idle and can pay for it
     ///   from what the bank holds once the constructors before it paid; if none can, the first one's reason
-    ///   ([`Reject::CannotConstruct`], [`Reject::ConstructorBusy`], [`Reject::NotEnoughCrystals`]);
+    ///   ([`Reject::CannotConstruct`], [`Reject::ConstructorBusy`], [`Reject::InsufficientCrystals`]);
     /// - **Cancel Construction**: each one constructing, else [`Reject::NotConstructing`];
     /// - **Cancel Ready Building**: each one holding a building ready, else [`Reject::NothingReady`];
     /// - **Place**: one constructor ([`Reject::SeveralConstructors`]) holding a building ready
@@ -117,7 +117,7 @@ impl Sim {
             };
             match construction::can_start(o, kind, left) {
                 Ok(recipe) => {
-                    left -= recipe.crystals;
+                    left -= recipe.cost;
                     constructors.push(id);
                 }
                 Err(reject) => {
@@ -194,7 +194,7 @@ impl Sim {
                         continue;
                     };
                     // The gate made sure that the bank pays for every constructor of the command.
-                    if bank.spend_crystals(recipe.crystals) {
+                    if bank.spend_crystals(recipe.cost) {
                         o.constructor = Some(Constructor::Constructing {
                             kind,
                             since: self.tick,

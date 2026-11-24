@@ -14,6 +14,7 @@ use crate::economy::Extractor;
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::Mover;
 use crate::orders::Orders;
+use crate::production::Production;
 use crate::riot_shield::RiotShield;
 use crate::scenario::BuildingOrientation;
 use crate::units::{SU_PER_GU, TilePos};
@@ -49,10 +50,16 @@ pub struct Object {
     /// (`factions/gdo/economy.md > ExtractionPlate`; `economy::mining`). `None` for everything else, a plate on bare
     /// ground included.
     pub extractor: Option<Extractor>,
+    /// A structure that produces units: its queue, the progress of the unit in production and its rally point
+    /// (`factions/gdo/structures.md > Barracks > BarracksInstanceState`; `production`). Optional in files, so that
+    /// states saved before it existed still load.
+    #[serde(default)]
+    pub production: Option<Production>,
     /// A structure that constructs buildings, the Deployment Center and the Extraction Facility: what it is
     /// building, or the building it holds ready to place (`factions/gdo/structures.md > DeploymentCenter >
     /// DeploymentCenterInstanceState`, `factions/gdo/economy.md > ExtractionFacility`; `construction`). `None` for
-    /// everything else.
+    /// everything else. Optional in files, so that states saved before it existed still load.
+    #[serde(default)]
     pub constructor: Option<Constructor>,
 }
 

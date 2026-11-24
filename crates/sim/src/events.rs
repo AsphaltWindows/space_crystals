@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
 use crate::placement::PlacementCheck;
+use crate::production::Refusal;
 use crate::scenario::BuildingOrientation;
 use crate::units::TilePos;
 
@@ -53,6 +54,32 @@ pub enum SimEvent {
     PatchDepleted {
         patch: ObjectId,
         plate: ObjectId,
+    },
+    /// `producer` took a `Train` command: a unit of `kind` was paid for and joined its BuildQueue
+    /// (`factions/gdo/structures.md > Barracks`).
+    ProductionQueued {
+        producer: ObjectId,
+        kind: ObjectKind,
+    },
+    /// `producer` received a `Train` command that other producers took, and didn't queue the unit itself (design
+    /// change 0083: for the "insufficient resources" feedback).
+    ProductionRefused {
+        producer: ObjectId,
+        kind: ObjectKind,
+        reason: Refusal,
+    },
+    /// A unit of `kind` left `producer`'s BuildQueue unbuilt and `refund` Space Crystals went back to its owner:
+    /// cancelled by a command, or refunded as the producer left the game (design changes 0084 and 0085).
+    ProductionCancelled {
+        producer: ObjectId,
+        kind: ObjectKind,
+        refund: u32,
+    },
+    /// `producer` released `unit` into its exit doorway (`core/entities.md > Structure Type > Exit Doorway`), after
+    /// the unit's `Spawned` event.
+    UnitProduced {
+        producer: ObjectId,
+        unit: ObjectId,
     },
     /// `constructor` finished its CurrentConstruction, a `kind`: it now holds it ready to place (ReadyToPlace;
     /// `factions/gdo/structures.md > DeploymentCenter`, `crate::construction`).

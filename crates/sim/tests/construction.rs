@@ -312,7 +312,7 @@ fn refused_construction_commands_change_nothing() {
         .start();
     t.debug_at(1, fund(P1, 150)).run_until(1);
     let dc = |command| construction(&[1], command);
-    assert_rejected(&mut t, P1, dc(Construct(Barracks)), Reject::NotEnoughCrystals);
+    assert_rejected(&mut t, P1, dc(Construct(Barracks)), Reject::InsufficientCrystals);
     assert_rejected(&mut t, P1, dc(CancelConstruction), Reject::NotConstructing);
     assert_rejected(&mut t, P1, dc(CancelReady), Reject::NothingReady);
     assert_rejected(&mut t, P1, dc(place(6, 5)), Reject::NothingReady);
@@ -943,7 +943,7 @@ fn the_clean_barracks_opening_starts_the_barracks_at_about_48_seconds() {
         let free = state(&t, dc).current().is_none();
         if let Some(&kind) = plan.peek()
             && free
-            && bank(&t, P1) >= sc_sim::construction::recipe(DeploymentCenter, kind).unwrap().crystals
+            && bank(&t, P1) >= sc_sim::construction::recipe(DeploymentCenter, kind).unwrap().cost
         {
             t.at(tick, P1, construction(&[dc], Construct(kind)));
             started.push((tick, kind));

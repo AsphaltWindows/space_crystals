@@ -103,11 +103,11 @@ fn a_construction_starts_on_the_list_when_idle_and_paid_for() {
     let ef = objects[&ObjectId(2)].clone();
     let barracks = &objects[&ObjectId(3)];
     assert_eq!(
-        can_start(&dc, GENERATOR, 100).map(|r| (r.crystals, r.ticks)),
+        can_start(&dc, GENERATOR, 100).map(|r| (r.cost, r.frames)),
         Ok((100, 240))
     );
-    assert_eq!(can_start(&ef, PLATE, 75).map(|r| (r.crystals, r.ticks)), Ok((75, 400)));
-    assert_eq!(can_start(&dc, GENERATOR, 99), Err(Reject::NotEnoughCrystals));
+    assert_eq!(can_start(&ef, PLATE, 75).map(|r| (r.cost, r.frames)), Ok((75, 400)));
+    assert_eq!(can_start(&dc, GENERATOR, 99), Err(Reject::InsufficientCrystals));
     assert_eq!(can_start(&dc, PLATE, 1000), Err(Reject::CannotConstruct(PLATE)));
     assert_eq!(can_start(&ef, GENERATOR, 1000), Err(Reject::CannotConstruct(GENERATOR)));
     assert_eq!(
@@ -228,10 +228,10 @@ fn new_and_ownerless_constructors_wait() {
 fn progress_saturates() {
     let longest = Recipe {
         kind: GENERATOR,
-        crystals: 0,
-        ticks: u32::MAX / RATIO_ONE,
+        cost: 0,
+        frames: u32::MAX / RATIO_ONE,
     };
-    let mut progress = longest.ticks * RATIO_ONE - RATIO_ONE;
+    let mut progress = longest.frames * RATIO_ONE - RATIO_ONE;
     assert!(advance(&mut progress, RATIO_ONE, &longest));
     let mut almost = u32::MAX - 1;
     assert!(advance(&mut almost, RATIO_ONE, &longest));

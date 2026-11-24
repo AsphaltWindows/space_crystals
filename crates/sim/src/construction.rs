@@ -61,7 +61,7 @@ pub enum Constructor {
     Idle,
     /// CurrentConstruction: `kind`, which a command started in tick `since` (its frames count from the next tick on).
     /// `progress` is its ConstructionProgress in fixed point (plan decision T6): [`RATIO_ONE`] for each frame done at
-    /// full speed; it is ready at its recipe's `ticks × RATIO_ONE`.
+    /// full speed; it is ready at its recipe's `frames × RATIO_ONE`.
     Constructing {
         kind: ObjectKind,
         since: Tick,
@@ -94,7 +94,7 @@ impl Constructor {
     }
 
     /// ConstructionProgress as the design counts it, "frames elapsed": the whole frames of its CurrentConstruction
-    /// done so far at full speed, out of its recipe's `ticks`. `None` while it constructs nothing.
+    /// done so far at full speed, out of its recipe's `frames`. `None` while it constructs nothing.
     pub fn frames_done(&self) -> Option<u32> {
         match *self {
             Constructor::Constructing { progress, .. } => Some(progress / RATIO_ONE),
@@ -164,14 +164,14 @@ pub(crate) fn constructor_for(kind: ObjectKind) -> Option<Constructor> {
 /// Why `o` can't start constructing `kind` while its owner's bank holds `crystals`, if it can't; else the recipe it
 /// would follow. In this order: `kind` isn't on its `Constructs` list ([`Reject::CannotConstruct`]), it constructs
 /// or holds a building ready ([`Reject::ConstructorBusy`]: "Other build options unavailable"), the bank doesn't
-/// cover the cost ([`Reject::NotEnoughCrystals`]).
+/// cover the cost ([`Reject::InsufficientCrystals`]).
 pub(crate) fn can_start(o: &Object, kind: ObjectKind, crystals: u32) -> Result<&'static Recipe, Reject> {
     let recipe = recipe(o.kind, kind).ok_or(Reject::CannotConstruct(kind))?;
     if !o.constructor.is_some_and(|c| c.is_idle()) {
         return Err(Reject::ConstructorBusy(o.id));
     }
-    if recipe.crystals > crystals {
-        return Err(Reject::NotEnoughCrystals);
+    if recipe.cost > crystals {
+        return Err(Reject::InsufficientCrystals);
     }
     Ok(recipe)
 }
@@ -185,7 +185,7 @@ pub(crate) fn refund(o: &Object) -> u32 {
         Some(Constructor::Ready { kind }) => (kind, Refund::Ready),
         Some(Constructor::Idle) | None => return 0,
     };
-    recipe(o.kind, kind).map_or(0, |r| refund.of(r.crystals))
+    recipe(o.kind, kind).map_or(0, |r| refund.of(r.cost))
 }
 
 /// The constructors' part of the economy phase (module docs; `crate::economy::step`), for the objects from before
@@ -228,7 +228,7 @@ pub(crate) fn step(
 /// recipes are short enough for their progress to fit (`ObjectDef` consistency tests), a hand-edited save needn't be.
 fn advance(progress: &mut u32, speed: u32, recipe: &Recipe) -> bool {
     *progress = progress.saturating_add(speed);
-    *progress >= recipe.ticks.saturating_mul(RATIO_ONE)
+    *progress >= recipe.frames.saturating_mul(RATIO_ONE)
 }
 
 #[cfg(test)]

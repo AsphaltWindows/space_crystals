@@ -13,6 +13,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::mover::{MoveGoal, MoveStatus, PathState, STAGGER};
 use crate::nav::{self, PathFail, PathRequest};
 use crate::object::Object;
+use crate::production::Doorway;
 use crate::units::Tick;
 
 /// Where the object a unit heads for was when its path was planned, else `goal`.
@@ -20,6 +21,28 @@ fn planned_goal_of_direct(aimed_at: &[(ObjectId, Vec2)], id: ObjectId, goal: Vec
     aimed_at
         .binary_search_by_key(&id, |&(chaser, _)| chaser)
         .map_or(goal, |i| aimed_at[i].1)
+}
+
+/// `core/entities.md > Structure Type > Exit Doorway` (design change 0080): where the path of unit `o` starts if it
+/// is still in the exit doorway of the building that released it (`Mover::exit`): the first of the doorway's ways
+/// out (`Doorway::ways_out`: straight out, then in front of each tile of the exit side) where its box is clear on
+/// the grid it plans on. `None` for any other unit, and for one with no way out that its owner knows of: its
+/// request then fails like any from a blocked tile, and the unit waits in the doorway (`movement::doorway::leave`).
+fn doorway_start(
+    state: &NavState,
+    objects: &BTreeMap<ObjectId, Object>,
+    o: &Object,
+    class: nav::NavClass,
+    size: u8,
+    half: Vec2,
+) -> Option<Vec2> {
+    let building = objects.get(&o.mover.as_ref()?.exit?)?;
+    let door = Doorway::of(building).filter(|door| door.holds(o.pos, half))?;
+    door.ways_out(o.pos, half).into_iter().find(|&way| {
+        state
+            .plan_grid(o.owner, class, size, way)
+            .is_some_and(|(_, grid)| nav::box_clear(grid, half, way))
+    })
 }
 
 /// How a wanted path turned out without a search.
@@ -119,7 +142,12 @@ pub(crate) fn serve(
         };
         let class = unit.base_def().nav_class();
         let size = nav::size_class(silhouette);
-        let plan = class.and_then(|class| state.plan_grid(o.owner, class, size, o.pos));
+        // A unit still in the exit doorway of the building that released it stands on that building's tiles,
+        // which no path starts from: its path starts where it comes out (`doorway_start`, design change 0080).
+        let start = class
+            .and_then(|class| doorway_start(state, objects, o, class, size, silhouette / 2.0))
+            .unwrap_or(o.pos);
+        let plan = class.and_then(|class| state.plan_grid(o.owner, class, size, start));
         let goal = match mover.goal {
             MoveGoal::None => {
                 direct.push((o.id, Direct::NoGoal));
@@ -131,7 +159,7 @@ pub(crate) fn serve(
                     aimed_at.push((o.id, target.pos));
                     // The nearest point to it the unit can stand on: a structure's own tiles are blocked.
                     plan.and_then(|(_, grid)| {
-                        let component = grid.component(grid.tile_of(o.pos))?;
+                        let component = grid.component(grid.tile_of(start))?;
                         nav::reachable_point(grid, component, silhouette / 2.0, target.pos)
                     })
                     .unwrap_or(target.pos)
@@ -150,7 +178,7 @@ pub(crate) fn serve(
                     class,
                     size,
                     half: silhouette / 2.0,
-                    start: o.pos,
+                    start,
                     goal,
                     group,
                     avoid: mover.avoid_tiles.clone(),
@@ -190,7 +218,13 @@ pub(crate) fn serve(
             continue;
         };
         match served.result {
-            Ok(path) => mover.follow(path.waypoints, planned_goal(served.id), version),
+            Ok(path) => {
+                mover.follow(path.waypoints, planned_goal(served.id), version);
+                // The path of a unit in a doorway starts outside it: the unit heads for that start first.
+                if mover.exit.is_some() {
+                    mover.next = 0;
+                }
+            }
             // `docs/movement.md > 5.3`: the avoid tiles cut every route. Tiles are coarse next to units, so that
             // doesn't prove there is no way: the unit drops them and plans again in the next tick.
             Err(PathFail::Avoided) if !mover.avoid_tiles.is_empty() => {

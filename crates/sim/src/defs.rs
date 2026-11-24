@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::player::Faction;
 
 pub use gdo::RIOT_SHIELD_TOGGLE_TICKS;
-pub use structures::{MiningDef, Recipe, StructureDef, SymmetryType};
+pub use structures::{MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType};
 pub use units::{
     AttackAttrs, AttackType, Domain, FullyConnectedSubtype, MovementAttrs, MovementModel, RiotShieldDef, TargetDomain,
     TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef,
@@ -307,7 +307,7 @@ mod tests {
                         recipe.kind
                     );
                     let longest = u32::MAX / crate::economy::RATIO_ONE;
-                    assert!((1..=longest).contains(&recipe.ticks), "{name}: {recipe:?}");
+                    assert!((1..=longest).contains(&recipe.frames), "{name}: {recipe:?}");
                     assert!(
                         structure.constructs[..i].iter().all(|r| r.kind != recipe.kind),
                         "{name} lists {:?} twice",
@@ -414,7 +414,7 @@ mod tests {
         }
         // `factions/gdo/structures.md > DeploymentCenter > Constructs` and `factions/gdo/economy.md >
         // ExtractionFacility > Constructs`: the two constructors, with each building's cost and time.
-        let recipe = |kind, crystals, ticks| Recipe { kind, crystals, ticks };
+        let recipe = |kind, cost, frames| Recipe { kind, cost, frames };
         for &kind in ObjectKind::ALL {
             let constructs = kind.def().structure.as_ref().map_or(&[][..], |s| s.constructs);
             let expected = match kind {

@@ -5,6 +5,7 @@
 //! the game, so a unit that dies or is removed gives it back at once. Units of the other factions have no
 //! UnitControlCost (`UnitDef::unit_control_cost`) and take none.
 
+use crate::defs::ObjectKind;
 use crate::ids::PlayerId;
 use crate::object::Object;
 
@@ -22,27 +23,37 @@ pub(crate) fn used<'a>(objects: impl IntoIterator<Item = &'a Object>, player: Pl
 
 /// The Unit Control `o` takes up for its owner: a unit its UnitControlCost, a producer what it holds reserved.
 fn taken_by(o: &Object) -> u32 {
-    let own = o
-        .def()
+    cost_of(o.kind).saturating_add(reserved(o))
+}
+
+/// Design change 0082 (`> Unit Control > Reserved when queued`): "a unit takes its Unit Control the moment it is
+/// queued", so the units in a producer's queue, the one in production and a finished one waiting inside for the
+/// doorway included, count here, at their kind's UnitControlCost, until they leave the queue: produced (the unit
+/// itself counts from then on), cancelled, or refunded when the producer leaves the game.
+fn reserved(producer: &Object) -> u32 {
+    let Some(production) = &producer.production else {
+        return 0;
+    };
+    production
+        .queue
+        .iter()
+        .map(|&kind| cost_of(kind))
+        .fold(0, u32::saturating_add)
+}
+
+/// The UnitControlCost of a unit of `kind` (`factions/gdo/units.md > Peacekeeper > UnitControlCost`); 0 for a kind
+/// without one.
+pub(crate) fn cost_of(kind: ObjectKind) -> u32 {
+    kind.def()
         .unit
         .as_ref()
         .and_then(|unit| unit.unit_control_cost)
-        .unwrap_or(0);
-    own.saturating_add(reserved(o))
-}
-
-/// **Hook for slice M2-D2** (design change 0082, `> Unit Control > Reserved when queued`): "a unit takes its Unit
-/// Control the moment it is queued", so the units in a producer's queue, the one in production and a finished one
-/// waiting at the doorway included, are counted here, at their kind's UnitControlCost, until they leave the queue
-/// (produced, cancelled, or refunded when the producer is destroyed). No object has a production queue yet.
-fn reserved(_producer: &Object) -> u32 {
-    0
+        .unwrap_or(0)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::defs::ObjectKind;
 
     #[test]
     fn the_cap_and_the_costs_follow_the_design() {

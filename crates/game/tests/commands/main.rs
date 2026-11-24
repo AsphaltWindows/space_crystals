@@ -349,7 +349,9 @@ fn orders(app: &App) -> Vec<Given> {
                 kind: *kind,
                 queue: *queue,
             }),
-            Command::Ability { .. } | Command::Construction { .. } | Command::Debug(_) => None,
+            Command::Ability { .. } | Command::Production { .. } | Command::Construction { .. } | Command::Debug(_) => {
+                None
+            }
         })
         .collect()
 }
@@ -362,7 +364,9 @@ fn abilities(app: &App) -> Vec<(PlayerId, Vec<u32>, sc_sim::Ability)> {
     commands
         .filter_map(|c| match &c.command {
             Command::Ability { units, ability } => Some((c.player, units.iter().map(|id| id.0).collect(), *ability)),
-            Command::Order { .. } | Command::Construction { .. } | Command::Debug(_) => None,
+            Command::Order { .. } | Command::Production { .. } | Command::Construction { .. } | Command::Debug(_) => {
+                None
+            }
         })
         .collect()
 }

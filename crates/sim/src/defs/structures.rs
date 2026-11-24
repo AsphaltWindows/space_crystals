@@ -1,7 +1,7 @@
 //! The attributes of structure types (`core/entities.md > Structure Type`). The faction modules (`defs/gdo.rs`, …)
 //! hold the structure types themselves.
 
-use super::ObjectKind;
+use crate::defs::ObjectKind;
 use crate::sides::SideLetter;
 
 /// A structure type's own attributes; the attributes every object type has, armour included, are on its
@@ -16,24 +16,17 @@ pub struct StructureDef {
     /// `Power`: what the type adds to its owner's power, positive for a generator, negative for a consumer
     /// (`factions/gdo/economy.md`).
     pub power: i32,
+    /// What the type produces from its queue, and through which side (`crate::production`): the Barracks' units,
+    /// `None` for a structure that produces nothing.
+    pub production: Option<ProductionDef>,
     /// How the type mines the Space Crystals patch it stands on (`crate::economy::mining`): the Extraction Plate's
     /// rates, `None` for every other structure.
     pub mining: Option<MiningDef>,
     /// `Constructs`: the buildings the type constructs, one at a time (`crate::construction`), with their costs and
-    /// times. A type with any is a constructor (`Object::constructor`); empty for the others.
+    /// times (`factions/gdo/structures.md > DeploymentCenter > Constructs`, `factions/gdo/economy.md >
+    /// ExtractionFacility > Constructs`). A type with any is a constructor (`Object::constructor`); empty for the
+    /// others.
     pub constructs: &'static [Recipe],
-}
-
-/// One entry of a constructor's `Constructs` list (`factions/gdo/structures.md > DeploymentCenter > Constructs`,
-/// `factions/gdo/economy.md > ExtractionFacility > Constructs`): a building, what it costs and how long it takes.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct Recipe {
-    /// The building constructed.
-    pub kind: ObjectKind,
-    /// Its Space Crystals cost, paid when the construction starts.
-    pub crystals: u32,
-    /// Its construction time at full speed, frames (ticks).
-    pub ticks: u32,
 }
 
 /// A mining structure's rates (`factions/gdo/economy.md > ExtractionPlate`): it pays its owner a load at the end of
@@ -46,6 +39,35 @@ pub struct MiningDef {
     pub residual: u32,
     /// The length of a cycle at full power, ticks.
     pub cycle_ticks: u32,
+}
+
+/// A producing structure's recipes and its exit (`factions/gdo/structures.md > Barracks > Produces`,
+/// `core/entities.md > Structure Type > Exit Doorway`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct ProductionDef {
+    /// The side its units leave through, as its SymmetryType letters it (`crate::sides::sides` says where that
+    /// side faces once the building is placed): the exit doorway is in the middle of this side.
+    pub exit: SideLetter,
+    /// What it can produce, in the order of the design's list.
+    pub recipes: &'static [Recipe],
+}
+
+impl ProductionDef {
+    /// The recipe for a unit of `kind`, if the type produces it.
+    pub fn recipe(&self, kind: ObjectKind) -> Option<&'static Recipe> {
+        self.recipes.iter().find(|recipe| recipe.kind == kind)
+    }
+}
+
+/// One entry of a producer's `Produces` list: "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)"; or of a
+/// constructor's `Constructs` list: "Generator: 100 Space Crystals, 240 frames (15 seconds)".
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Recipe {
+    pub kind: ObjectKind,
+    /// Space Crystals, paid when the unit is queued or the construction starts.
+    pub cost: u32,
+    /// The production or construction time at full power, ticks.
+    pub frames: u32,
 }
 
 /// `core/entities.md > Structure Type > SymmetryType`: which of a structure's four sides are alike. The letters name

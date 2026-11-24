@@ -321,6 +321,7 @@ mod tests {
         }
         let mut world = World {
             grid: None,
+            door: None,
             layer: Some(&layer),
             bodies,
             me: 0,
@@ -367,6 +368,7 @@ mod tests {
         }
         let mut world = World {
             grid: None,
+            door: None,
             layer: Some(&layer),
             bodies: &bodies,
             me: 0,
