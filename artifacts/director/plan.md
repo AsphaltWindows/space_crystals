@@ -582,8 +582,9 @@ First playable after M2-H2.
     | H2 (0106) | done (`777b9a9`) |
     | F | running (wave 3) |
     | G | correcting 0035 (velocity to 0) before merge |
-    | H3 (after G merges; brief `scratchpad/briefs/m3h3-gathering-rules.md`; gather rules 0123, 0127–0138, 0140) | queued |
-    | R (after H3, or earlier with the gather part last; remembered targets 0139 and the one rally rule 0136, sim and client right-click) | queued |
+    | H3 (after G merges; brief `scratchpad/briefs/m3h3-gathering-rules.md`; gather rules 0123, 0127–0138, 0140, 0141) | queued |
+    | R (after H3, or earlier with the gather part last; brief `scratchpad/briefs/m3r-default-order-remembered-targets.md`; 0136, 0139) | queued |
+    | P (after F; 0143: capacity taken at production start, for every faction) | queued |
     | J1 (after F), J2 (after R), K1, K2 | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
@@ -649,14 +650,14 @@ First playable after M2-H2.
 | Q0038 | Gathering Drones, collision and the economy targets | was yes | answered by 0106 (pass-through), 0107 (geometry), 0108 (±15%) |
 | Q0039 | Beacon Deployment and Warp In: what the transforming object is | no (answer before M3-F) | answered by 0109–0116 |
 | Q0040 | Deploy and Warp In placement, and the Colonists panels | no | answered by 0117–0125 |
-| Q0041 | Portal exits and Beacon Capacity | no | open |
+| Q0041 | Portal exits and Beacon Capacity | no | points 1–4 answered by 0143 and 0144; points 5–6 open (built as proposed) |
 | Q0042 | Shields, melee range and Weapon Conversion | no | open |
 | Q0043 | M3 scope: the Colonists content left TBD (FYI) | no | open |
-| Q0044 | Gathering details from the build: fog, plates, empty Drop Off, blocked Drones, redirect timing, the Egress Node's sight | no | points 1, 2, 3, 5 and 6 answered by 0134, 0137, 0139 and 0140; point 4 open |
+| Q0044 | Gathering details from the build: fog, plates, empty Drop Off, blocked Drones, redirect timing, the Egress Node's sight | no | answered by 0134, 0137 and 0139–0141 |
 | Q0045 | Pass-through details: idle units left stacked, and the Drop Off order | no | answered by 0126 and 0127 |
 
 ## Design change entries
-Last triaged: 0140.
+Last triaged: 0144.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -735,8 +736,8 @@ Last triaged: 0140.
 | 0079 Side lettering convention; Barracks 3 wide × 2 tall | done (`sides` M2-A `cbeb804`; ghost labels M2-H2 `2d507b4`) | answers Q0023 point 1 |
 | 0080 Exit doorway: units appear half inside; production pauses while it is occupied | done (M2-D2, `1a64e75`) | answers Q0023 points 2–3; replaces the nearest-free-spot default |
 | 0081 Queue limit of 20 includes the unit in production | done (M2-D2, `1a64e75`) | |
-| 0082 GDO Unit Control reserved when a unit is queued | done (M2-D2, `1a64e75`) | |
-| 0083 Group production: least remaining work pays first | done (sim M2-D2; UI M2-H1, `eccaaa6`) | replaces the fixed-order default |
+| 0082 GDO Unit Control reserved when a unit is queued | done (M2-D2, `1a64e75`); superseded by 0143 (queued, M3-P) | |
+| 0083 Group production: least remaining work pays first | done (sim M2-D2; UI M2-H1, `eccaaa6`) | replaces the fixed-order default; 0143 removes Unit Control from it (M3-P) |
 | 0084 Destroyed GDO producers refund as if cancelled | done (M2-D2 producers, M2-D1 constructors, `fda74d3`) | |
 | 0085 Finished unit waiting inside is refunded if the building dies | done (M2-D2, `1a64e75`) | |
 | 0086 Rally point on the building itself clears it | done (sim M2-D2; UI M2-H1, `eccaaa6`) | |
@@ -794,4 +795,8 @@ Last triaged: 0140.
 | 0138 The last load takes the full 32 frames and the remaining crystals | built as the proposal (M3-H); queued (M3-H3: confirm with a test) | answers Q0037 point 13 |
 | 0139 Remembered objects can be targeted: orders go to the last-known position and resolve on sight | queued (M3-R: gate, orders, rally and the client's right-click) | answers Q0017 point 2, Q0044 points 1 and 6; replaces M2's "object targets only when visible" |
 | 0140 No empty Drop Off order: an empty Drone right-clicking its own node moves there | queued (M3-H3: the gate drops empty Drones; M3-J2: the right-click) | answers Q0044 point 3 |
+| 0141 An unreachable patch is handled like an occupied one; the Drone never gives up | queued (M3-H3; replaces retry-forever) | answers Q0044 point 4 |
+| 0142 Beacon Capacity reserved at queue time | superseded by 0143 | answered Q0041 point 1 |
+| 0143 Capacity (Unit Control and Beacon Capacity) is taken when production starts, not at queue time; a producer without room waits at 0% | queued (new slice M3-P, after F; M3-F re-briefed for its 0112 test) | answers Q0041 points 1–2; replaces 0082 and 0142 |
+| 0144 Robo Portal exits: the Bio Portal's rule on all four sides, closest by side midpoint, ties top, right, bottom, left | done (M3-D, `20f584e`) | answers Q0041 points 3–4 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

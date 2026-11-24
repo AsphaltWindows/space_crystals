@@ -1208,6 +1208,18 @@ Buildings and units whose costs are TBD show in their slot, unavailable. A trans
 - There are no leaks: everything treats the remembered object as present until it is seen otherwise.
 - A rally on an enemy *structure* stays on it when it leaves sight. 0088's ground rally is for units only. |
 | 0140 | Q0044 point 3 | H3, J2 | There is no empty Drop Off order: an empty Drone right-clicking its own node gets a Move there. **Director:** the gate drops empty Drones from a Drop Off command. |
+| 0141 | Q0044 point 4 | H3 | An unreachable patch is handled like an occupied one. The search skips it; with no reachable free patch, the Drone waits as close as it can and re-checks every 16 frames. It never gives up. |
+| 0142 | Q0041 point 1 | (none) | Superseded by 0143. |
+| 0143 | Q0041 points 1–2 | P, F, J2 | **Replaces 0082 and 0142, for every faction.**
+- Queuing needs only the cost and a queue slot, with no capacity check.
+- At production start, the unit needs free capacity ≥ its cost, and it then counts as used. HUD "used" = alive + in production.
+- Without room, the producer waits at 0% with the unit at the front, starts automatically when room appears, and raises a notification (system TBD). A cancel gives a full refund.
+- A unit in production always finishes.
+- A destroyed producer releases only its in-production unit.
+- The Barracks' Q and W no longer depend on Unit Control, and 0083 ignores it.
+
+**Director:** a new slice, M3-P, after F. |
+| 0144 | Q0041 points 3–4 | D | As built: the Bio Portal's rule on all four sides of the Robo Portal, closest by side midpoint, ties top, right, bottom, left. |
 
 ## 9. Notes from merged slices for later slices
 
