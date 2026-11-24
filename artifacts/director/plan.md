@@ -307,7 +307,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0010 | Chase target lost in fog; Patrol origin; failed legs | no | answered by 0034, 0036 and 0037 |
 | Q0011 | Terrain/obstacles: resources block, Rugged, routes via the true map, underground/air | no | answered by 0038–0045 |
 | Q0012 | Crowds clot without yielding: should friendly units yield or swap? (evidence from M1-D) | no | answered by 0022 (option B) and 0023 |
-| Q0013 | Selection edge cases: ungroupables, allies, modified clicks, empty ground, InfoPanel for 2+ objects, control groups | no | points 1, 3, 4, 5, 6 answered by 0048–0054 (M1-S2); points 2 (allies) and 7 (others' objects in control groups) open |
+| Q0013 | Selection edge cases: ungroupables, allies, modified clicks, empty ground, InfoPanel for 2+ objects, control groups | no | points 1, 3–7 answered by 0048–0056 (M1-S2); point 2 (allies in box selection) open |
 | Q0014 | Combat edge cases: force-attacking own or neutral objects, a shot whose target dies mid-Firing, Rugged for units across tiles | no | open; W built the listed defaults |
 | Q0015 | Magic box meets yielding (converging groups), box from footprints vs centres, Shift-queued group moves | no | answered by 0027, 0028 and 0029 |
 | Q0016 | Command UI edge cases: who carries out a right-click, invalid targets, input while targeting, Shift keeps targeting | no | open; H built the listed defaults |
@@ -316,7 +316,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | Q0019 | A remembered station's delivery countdown: keep counting or freeze | no | open; G2 builds the stated default (keep counting) |
 
 ## Design change entries
-Last triaged: 0055.
+Last triaged: 0056.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -369,4 +369,5 @@ Last triaged: 0055.
 | 0053 Add inputs do nothing with a non-owned selection | in progress (M1-S2) | |
 | 0054 InfoPanel for 2+ objects kept as a placeholder | no change | Q0013 point 5 |
 | 0055 SelectionPanel grouping: placeholder order = Tab order | in progress (M1-S2) | |
+| 0056 Control groups hold only own objects | folded into M1-S2 (a test for its Verification) | answers Q0013 point 7; matches the current behaviour |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
