@@ -58,7 +58,8 @@ pub const MAX_ORDER_UNITS: usize = 1024;
 pub const IDLE_LEASH_GU: f32 = 4.0;
 
 /// `systems/controls/behaviors.md > AttackMovingToLocation > Global Constant: AttackMoveLeashDistance`: 6 grid
-/// units, measured from the leg's planned path.
+/// units, measured from the leg's PathReference. It limits chasing only (design change 0180): a unit won't move
+/// farther than this from the PathReference to chase a target out of weapon range (`orders::travel::march`).
 pub const ATTACK_MOVE_LEASH_GU: f32 = 6.0;
 
 /// `systems/controls/behaviors.md > MovingToObject > Proximity` (design change 0032): "within proximity" is a gap
@@ -70,8 +71,9 @@ pub const PROXIMITY_SU: f32 = 8.0;
 pub const PATROL_FAILED_LEGS: u8 = 2;
 
 /// A unit that acquired an enemy by itself (idle, or on an AttackMove or Patrol) and couldn't get to it doesn't
-/// acquire that same enemy again for this many ticks, so that it doesn't set off for it again every tick.
-/// Placeholder, unspecified: the design doesn't cover an auto-acquired target out of reach. 2 s.
+/// acquire that same enemy again for this many ticks, so that it doesn't set off for it again every tick:
+/// `systems/controls/behaviors.md > BaseAutoTargeting > Unreachable auto-targets` (design change 0181, "for now":
+/// approach, give up, retry after 32 ticks). 2 s.
 pub const GIVE_UP_RETRY_TICKS: Tick = 32;
 
 /// The units of one order command share it (`docs/movement.md > 3`). Allocated from `Sim::next_group`.
