@@ -92,6 +92,7 @@ Structure placement is validated differently depending on the placement method:
 - The player queues a build command targeting a map location
 - The command is accepted regardless of current visibility — no visibility check at command time
 - The worker pathfinds to the location and validates on arrival: tiles must be Buildable, flat (core/map.md > Elevation), unoccupied, and meet faction-specific constraints
+- **Units block** (user, 2026-11-24): "unoccupied" includes units, as in Direct Placement: a ground unit of any player on the footprint makes the site invalid; the building worker itself (e.g. the deploying Drone) doesn't count. Air and underground units never block.
 - If validation fails on arrival, the command is cancelled and the worker stops and idles
 - No visibility requirement on arrival (the worker is physically present)
 
@@ -99,6 +100,7 @@ Structure placement is validated differently depending on the placement method:
 - The player selects an established Beacon, selects Warp In, and selects a target building
 - The building's footprint ghost is centered on the Beacon's location; the player may rotate/flip it before confirming
 - All footprint tiles must be Buildable, flat (core/map.md > Elevation) and unoccupied, except for the Beacon's own footprint, which will be consumed by the transformation
+- **Units block** (user, 2026-11-24): "unoccupied" includes units, as in Direct Placement: a ground unit of any player on the footprint makes those tiles invalid. Air and underground units never block.
 - If any tile outside the Beacon's own footprint is blocked, the ghost is shown in red and placement cannot be confirmed
 - Once confirmed, the Beacon begins transforming in place into the selected building (transformation mechanics, HP/Shields interpolation, and cancellation defined in factions/colonists/economy.md > Warp In)
 
