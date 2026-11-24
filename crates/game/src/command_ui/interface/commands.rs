@@ -177,9 +177,13 @@ impl PanelCommand {
             PanelCommand::AttackGround => "Atk Gnd",
             PanelCommand::Stop => "Stop",
             PanelCommand::RiotShield => "Raise Shield",
-            PanelCommand::Train(ObjectKind::Peacekeeper) => "Train PK",
-            // No other unit is trained yet.
-            PanelCommand::Train(kind) => kind.def().name,
+            PanelCommand::Train(kind) => match kind {
+                ObjectKind::Peacekeeper => "Train PK",
+                ObjectKind::Drone => "Train DR",
+                ObjectKind::SabreLegionnaire => "Train SL",
+                // No other unit is trained yet.
+                _ => kind.def().name,
+            },
             PanelCommand::CancelProduction | PanelCommand::CancelConstruction => "Cancel",
             PanelCommand::SetRallyPoint => "Rally",
             PanelCommand::BuildMenu(BuildMenu::Basic) => "Basic",

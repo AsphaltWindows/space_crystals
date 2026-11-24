@@ -23,6 +23,10 @@
 //! A Barracks (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) trains a Peacekeeper (Q)
 //! and cancels the last unit queued (X), at once, and awaits the target of its rally point (C); a Train or a Cancel
 //! Production that the command gate would refuse shows disabled ([`Conditions`]: the same predicates as the gate).
+//! Every producing structure has this panel, built from its recipes (the Production template, plan decision T23):
+//! the Colonists' Robo Portal trains a Drone in Q, the Bio Portal a Sabre Legionnaire
+//! (`factions/colonists/structures.md > Robo Portal ObjectInterfaceState`, `> Bio Portal ObjectInterfaceState`,
+//! design change 0124).
 //!
 //! A Deployment Center (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`,
 //! design change 0104) opens BuildMenu\[Basic\] (Q) and BuildMenu\[Advanced\] (W, unavailable while none of its

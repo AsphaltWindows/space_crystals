@@ -1,16 +1,20 @@
-//! Unit production (slice M2-D2; `factions/gdo/structures.md > Barracks`), one test binary:
+//! Unit production (slice M2-D2; `factions/gdo/structures.md > Barracks`; the Colonists' portals, slice M3-D), one
+//! test binary:
 //! - `queue`: the queue and its costs, the commands and their gate, group production (design change 0083), the
 //!   refund of a destroyed producer (0084), a game replayed and saved;
 //! - `rally`: rally points (`> RallyPoint behavior`, design changes 0086 and 0088);
 //! - `exit`: the exit doorway (`core/entities.md > Structure Type > Exit Doorway`, design change 0080): where a unit
 //!   appears, in every orientation, and how it gets out;
-//! - `stalls`: blocked doorways (production pauses, design change 0085's refund), saves, and a long random game.
+//! - `stalls`: blocked doorways (production pauses, design change 0085's refund), saves, and a long random game;
+//! - `portals`: the Robo Portal and the Bio Portal (`factions/colonists/structures.md`, plan decision T19): which of
+//!   their doors a unit leaves by, their pause, rally points on enemies, refunds and Beacon Capacity.
 //!
 //! Every test runs under the invariants of `TestSim` (I1: no two units overlap; I2 with its doorway exception: only
 //! the released unit, only its own building's tiles, only outwards).
 
 mod doors;
 mod exit;
+mod portals;
 mod queue;
 mod rally;
 mod stalls;
