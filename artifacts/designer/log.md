@@ -2067,3 +2067,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 
 ## 2026-11-24 (cont.) — Q0038 pt 1
 Gathering Drones (any player, every step of a Gather job) pass through each other; Drones only; general rule: overlapping units ignore each other until separated. Files: factions/colonists/units.md, systems/units.md. Entry 0106.
+Q0038 pt 2: reference check geometry = 2 GU edge to edge, node centred on the row's long side. Files: factions/gdo/economy.md, factions/colonists/units.md. Entry 0107.

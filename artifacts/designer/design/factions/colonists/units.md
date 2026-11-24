@@ -65,7 +65,7 @@ This rule applies to Drones only. Other factions' workers are not limited by it:
 
 When a Drone arrives at an occupied patch, it goes to the **nearest unoccupied patch to itself** instead. If no patch is unoccupied, it **waits** at the current patch and mines as soon as it frees up.
 
-Consequence: one patch yields at most 8 crystals per 32 frames (4 Space Crystals per second) from Drones. A patch saturates at roughly (round-trip time ÷ 2 seconds) Drones, since each Drone occupies it for 2 of its trip's seconds: about 1 Drone for a patch adjacent to the drop-off, about 2 at 2 grid units, about 2.5 at 3 grid units (ignoring acceleration; slightly more once Drone acceleration is accounted for). Example: 8 patches in a row with the Egress Node 2 grid units from the row's center saturate at roughly 18–22 working Drones.
+Consequence: one patch yields at most 8 crystals per 32 frames (4 Space Crystals per second) from Drones. A patch saturates at roughly (round-trip time ÷ 2 seconds) Drones, since each Drone occupies it for 2 of its trip's seconds: about 1 Drone for a patch adjacent to the drop-off, about 2 at 2 grid units, about 2.5 at 3 grid units (ignoring acceleration; slightly more once Drone acceleration is accounted for). Example: 8 patches in a row with the Egress Node 2 grid units from the row (edge to edge, centred on the long side; factions/gdo/economy.md > Economy Targets (GDO vs Colonists)) saturate at roughly 18–22 working Drones.
 
 #### Waiting at a Full Refinery
 A Drone delivering input to a refinery whose input storage for that resource is full **waits** at the refinery with its load until there is room. This raises a **notification** for the player (notification system not yet designed).
