@@ -1,11 +1,15 @@
-//! The end of the game in the client (slice M2-F2; `core/game_rules.md > End of Game`, design changes 0101 and
-//! 0102), headless, one tick per update (`ARCHITECTURE.md > Client architecture > Client tests`):
+//! The end of the game in the client (slice M2-F2; `core/game_rules.md > End of Game`, design changes 0101, 0102,
+//! 0163 and 0164), headless, one tick per update (`ARCHITECTURE.md > Client architecture > Client tests`):
 //! - the winner sees Victory and the loser Defeat, the game stops at its last tick, and nobody gives orders any more;
+//! - when the last sides fall in the same tick, everyone sees Draw (0163), the players defeated before it too;
 //! - the recording is saved at the end, complete, a QA run's later stops come down to the last tick, and a
 //!   playback pauses there;
-//! - a player defeated while the game goes on sees that they spectate, and watches through the union of their own
-//!   vision and their allies'. The sim has no teams, so the union is tested through `Sight::watching`; a defeated
-//!   player of these games watches their own vision alone, in which no tile is Visible.
+//! - a player defeated while the game goes on, with no ally left (every player of these games: the sim has no
+//!   teams), leaves for the results screen and sees nothing of the world, while the others play on (0164); the debug
+//!   player switch and a replay show each player's view;
+//! - a defeated player whose ally plays on would watch through the union of their own vision and their allies'
+//!   (0102): tested through `Sight::watching`, and the rule of who leaves with `hud::results::left_the_game`'s unit
+//!   tests.
 
 use std::path::PathBuf;
 
@@ -16,8 +20,10 @@ use sc_sim::{
     Command, DebugCommand, GameSetup, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Replay, Scenario,
     SimConfig, Slot, SpawnAt, Tick, TickInputs, TilePos, VisibilityState,
 };
-use space_crystals::fog::{EXPLORED_ALPHA, FogAssets, Sight, UNEXPLORED_ALPHA, fog_texels};
-use space_crystals::hud::outcome::{Banner, BannerText, OutcomeBanner};
+use space_crystals::fog::{EXPLORED_ALPHA, Sight, UNEXPLORED_ALPHA, fog_texels};
+use space_crystals::hud::outcome::{BANNER_Z, Banner, BannerText, OutcomeBanner};
+use space_crystals::hud::results::{RESULTS_Z, ResultsScreen, ResultsText};
+use space_crystals::hud::{HudRoot, TOP_BAR_HEIGHT_VH};
 use space_crystals::input::InjectedInput;
 use space_crystals::platform::DisplayMode;
 use space_crystals::qa::QaConfig;
@@ -125,6 +131,51 @@ fn banner(app: &mut App) -> Option<(String, String)> {
 
 fn shown(title: &str, line: &str) -> Option<(String, String)> {
     Some((title.to_string(), line.to_string()))
+}
+
+/// The results screen's texts while it shows, top to bottom: the title, the player, their defeat and the game's
+/// state.
+fn results_screen(app: &mut App) -> Option<[String; 4]> {
+    let world = app.world_mut();
+    let shown = world
+        .query_filtered::<&Visibility, With<ResultsScreen>>()
+        .single(world)
+        .is_ok_and(|v| *v != Visibility::Hidden);
+    let texts: Vec<(ResultsText, String)> = world
+        .query::<(&ResultsText, &Text)>()
+        .iter(world)
+        .map(|(part, text)| (*part, text.0.clone()))
+        .collect();
+    let text = |part| texts.iter().find(|(p, _)| *p == part).map(|(_, text)| text.clone());
+    let parts = [
+        ResultsText::Title,
+        ResultsText::Player,
+        ResultsText::Defeat,
+        ResultsText::Status,
+    ];
+    shown.then(|| parts.map(|part| text(part).unwrap_or_default()))
+}
+
+fn lines(lines: [&str; 4]) -> Option<[String; 4]> {
+    Some(lines.map(str::to_string))
+}
+
+/// Removes objects `ids` by player 1's debug commands, all in the next tick, and runs it.
+fn remove_together(app: &mut App, ids: &[u32]) {
+    for &id in ids {
+        app.world_mut().resource_mut::<PendingCommands>().0.push(PlayerCommand {
+            player: P1,
+            command: Command::Debug(DebugCommand::Remove { id: ObjectId(id) }),
+        });
+    }
+    let next = tick(app) + 1;
+    run_until(app, next);
+}
+
+/// Switches the local player, as the debug player switch (F2) does, and updates once.
+fn view_as(app: &mut App, player: PlayerId) {
+    app.world_mut().resource_mut::<LocalPlayer>().0 = player;
+    app.update();
 }
 
 /// Selects player 1's Peacekeeper 3 and presses X, the command panel's Stop: whether that frame queued a Stop for
@@ -270,44 +321,188 @@ fn a_playback_pauses_at_the_end_of_the_game() {
     assert_eq!(banner(&mut app), shown("VICTORY", "The game is over"));
 }
 
-/// Design change 0102: player 3, defeated while players 1 and 2 play on, sees that they spectate, and the game goes
-/// on. With no teams they have no allies, so they watch their own vision alone, in which nothing is Visible: the fog
-/// layer has no clear tile, and what they explored and remember stays.
+/// Design change 0163's Verification: "Two players destroy each other's last building in the same tick: both see
+/// 'Draw'; replay saved." The game stops at that tick, and nobody gives orders any more.
 #[test]
-fn a_player_defeated_before_the_end_spectates() {
+fn players_defeated_in_the_same_tick_both_see_a_draw() {
+    let path = std::env::temp_dir()
+        .join(format!("sc_game_end_draw_test_{}", std::process::id()))
+        .join("draw.json");
+    let mut config = AppConfig::new(duel());
+    config.record = Some(path.clone());
+    let mut app = game_as(config, P1);
+    run_until(&mut app, 3);
+    remove_together(&mut app, &[1, 2]);
+    let end = tick(&app);
+    let outcome = app.world().resource::<SimRes>().outcome().cloned().unwrap();
+    assert!(outcome.is_draw() && outcome.tick == end);
+    assert_eq!(banner(&mut app), shown("DRAW", "The game is over"));
+    assert_eq!(
+        results_screen(&mut app),
+        None,
+        "defeated in the last tick: no results screen"
+    );
+    let recorder = app.world().resource::<Recorder>();
+    assert!(
+        recorder.is_finished() && recorder.saved_at() == Some(end),
+        "replay saved"
+    );
+    let replay = load_replay(&path).unwrap();
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    assert_eq!(replay.run().outcome(), Some(&outcome));
+    for _ in 0..20 {
+        app.update();
+    }
+    assert_eq!(tick(&app), end, "the game stopped");
+    assert!(!stop_peacekeeper(&mut app), "no more orders");
+
+    view_as(&mut app, P2);
+    assert_eq!(banner(&mut app), shown("DRAW", "The game is over"));
+    let sim = app.world().resource::<SimRes>();
+    assert_eq!([Banner::of(sim, P1), Banner::of(sim, P2)], [Some(Banner::Draw); 2]);
+}
+
+/// Design change 0164's Verification: "3-player FFA: the first defeated player is moved to a results screen; the
+/// other two keep playing." Player 3 has no allies (no teams), so their defeat takes them to the results screen at
+/// once: DEFEATED, their name and faction, when it happened, and that the game goes on. It covers the world view and
+/// the HUD Bar, below the top bar, so they see nothing of the world, and no banner says Spectating. The game goes
+/// on, and players 1 and 2 play as before: no screen, no banner, their commands given.
+#[test]
+fn a_player_defeated_with_no_ally_left_leaves_for_the_results_screen() {
     let mut app = game_as(AppConfig::new(three_way()), P3);
     run_until(&mut app, 3);
-    assert_eq!(banner(&mut app), None);
+    assert_eq!(results_screen(&mut app), None);
     remove(&mut app, 3);
     let defeat = tick(&app);
     let sim = app.world().resource::<SimRes>();
-    assert!(sim.player(P3).unwrap().is_defeated());
+    assert!(sim.player(P3).unwrap().is_defeated() && sim.allies(P3).is_empty());
     assert_eq!(sim.outcome(), None);
-    assert!(sim.allies(P3).is_empty());
-    run_until(&mut app, defeat + 5);
+    run_until(&mut app, defeat + 20);
     assert_eq!(
-        banner(&mut app),
-        shown("DEFEATED", "Spectating: you can no longer give commands")
+        results_screen(&mut app),
+        lines([
+            "DEFEATED",
+            "Player 3 (GDO)",
+            &format!("Defeated at 0:00 (tick {defeat})"),
+            "The game goes on for the other players",
+        ])
     );
+    assert_eq!(banner(&mut app), None, "not spectating");
+    assert_eq!(Banner::of(app.world().resource::<SimRes>(), P3), None);
+    // Everything below the top bar, opaque, over the HUD.
+    let world = app.world_mut();
+    let (node, background, z) = world
+        .query_filtered::<(&Node, &BackgroundColor, &GlobalZIndex), With<ResultsScreen>>()
+        .single(world)
+        .unwrap();
+    assert_eq!(
+        (node.top, node.bottom, node.left, node.width),
+        (vh(TOP_BAR_HEIGHT_VH), px(0), px(0), percent(100))
+    );
+    assert_eq!((background.0.alpha(), z.0), (1.0, RESULTS_Z));
+    assert!(RESULTS_Z > 0 && BANNER_Z > RESULTS_Z);
+    let hud_z: Vec<i32> = world
+        .query_filtered::<Option<&GlobalZIndex>, With<HudRoot>>()
+        .iter(world)
+        .map(|z| z.map_or(0, |z| z.0))
+        .collect();
+    assert_eq!(hud_z, [0, 0], "the top bar and the HUD Bar lie under it");
 
-    let world = app.world();
-    let sim = world.resource::<SimRes>();
-    let sight = Sight::new(sim, P3, true);
-    let map = sim.map();
-    let (w, h) = (map.width() as i32, map.height() as i32);
-    for y in 0..h {
-        for x in 0..w {
-            assert_ne!(sight.tile(TilePos::new(x, y)), VisibilityState::Visible, "({x}, {y})");
-        }
+    // The game goes on: players 1 and 2 still play, and see nothing of this.
+    assert_eq!(tick(&app), defeat + 20);
+    for player in [P1, P2] {
+        view_as(&mut app, player);
+        assert_eq!((results_screen(&mut app), banner(&mut app)), (None, None));
     }
-    assert_eq!(sight.tile(TilePos::new(18, 12)), VisibilityState::Explored);
-    assert!(sight.remembered_record(ObjectId(7)).is_some() && sight.remembered_record(ObjectId(8)).is_some());
-    // The fog layer as drawn: no clear texel.
-    let texture = &world.resource::<FogAssets>().texture;
-    let image = world.resource::<Assets<Image>>().get(texture).unwrap();
-    let data = image.data.as_ref().unwrap();
-    assert_eq!(data.len(), (w * h * 4) as usize);
-    assert!(data.chunks(4).all(|texel| texel[3] > 0));
+    view_as(&mut app, P1);
+    let selection = Selection::new([(ObjectId(4), PK)]);
+    app.world_mut().resource_mut::<ControlStates>().of_mut(P1).selection = selection;
+    app.world_mut().resource_mut::<PendingCommands>().0.clear();
+    app.world_mut().resource_mut::<InjectedInput>().tap_key(KeyCode::KeyX);
+    app.update();
+    let pending = &app.world().resource::<PendingCommands>().0;
+    assert!(
+        pending
+            .iter()
+            .any(|c| c.player == P1 && matches!(c.command, Command::Order { .. })),
+        "player 1 still gives orders"
+    );
+    run_until(&mut app, defeat + 40);
+    assert_eq!(app.world().resource::<SimRes>().outcome(), None);
+    // The debug player switch back to player 3 shows their screen again.
+    view_as(&mut app, P3);
+    assert!(results_screen(&mut app).is_some());
+}
+
+/// Design change 0163 with a player defeated before the end: player 3 leaves for the results screen; then players
+/// 1 and 2 lose their last buildings in the same tick. The game is a draw, and all three see Draw: players 1 and 2
+/// over the world, player 3 over their results screen, which now says the game is over.
+#[test]
+fn a_player_defeated_earlier_sees_the_draw_on_the_results_screen() {
+    let mut app = game_as(AppConfig::new(three_way()), P3);
+    run_until(&mut app, 3);
+    remove(&mut app, 3);
+    let defeat = tick(&app);
+    run_until(&mut app, 10);
+    assert_eq!(banner(&mut app), None);
+    remove_together(&mut app, &[1, 2]);
+    let end = tick(&app);
+    let sim = app.world().resource::<SimRes>();
+    assert_eq!(sim.outcome().map(|o| (o.tick, o.is_draw())), Some((end, true)));
+    assert_eq!(banner(&mut app), shown("DRAW", "The game is over"));
+    assert_eq!(
+        results_screen(&mut app),
+        lines([
+            "DEFEATED",
+            "Player 3 (GDO)",
+            &format!("Defeated at 0:00 (tick {defeat})"),
+            "The game is over",
+        ])
+    );
+    for player in [P1, P2] {
+        view_as(&mut app, player);
+        assert_eq!(banner(&mut app), shown("DRAW", "The game is over"));
+        assert_eq!(results_screen(&mut app), None, "player {player:?} was there at the end");
+    }
+}
+
+/// Design change 0164 in a replay: played back as player 3, the playback shows their results screen from their
+/// defeat on, as the game did; the debug player switch shows the others' views, the game going on in them.
+#[test]
+fn a_replay_shows_the_results_screen_of_a_player_who_left() {
+    let mut scenario = three_way();
+    scenario.setup.config = SimConfig::DEBUG;
+    let mut replay = Replay::new(scenario);
+    let mut sim = replay.start();
+    replay.record_checked(None, &sim);
+    while sim.tick() < 40 {
+        let mut inputs = TickInputs::default();
+        if sim.tick() + 1 == 10 {
+            inputs.commands.push(PlayerCommand {
+                player: P1,
+                command: Command::Debug(DebugCommand::Remove { id: ObjectId(3) }),
+            });
+        }
+        sim.step(&inputs);
+        replay.record_checked(Some(inputs), &sim);
+    }
+    replay.checkpoint(&sim);
+
+    let mut app = game_as(AppConfig::playback(replay, PathBuf::from("left.json")), P3);
+    run_until(&mut app, 9);
+    assert_eq!(results_screen(&mut app), None);
+    run_until(&mut app, 12);
+    assert_eq!(
+        results_screen(&mut app),
+        lines([
+            "DEFEATED",
+            "Player 3 (GDO)",
+            "Defeated at 0:00 (tick 10)",
+            "The game goes on for the other players",
+        ])
+    );
+    view_as(&mut app, P1);
+    assert_eq!((results_screen(&mut app), banner(&mut app)), (None, None));
 }
 
 /// Design change 0102's mechanism, through `Sight::watching` (the sim has no teams to make player 2 an ally of player

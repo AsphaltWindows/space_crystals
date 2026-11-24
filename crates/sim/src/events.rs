@@ -136,7 +136,8 @@ pub enum SimEvent {
         player: PlayerId,
     },
     /// The game ended in this tick, after its `PlayerDefeated` events (`core/game_rules.md > End of Game`):
-    /// `winners` see Victory, every other player Defeat (`crate::Sim::outcome`, [`crate::economy::Outcome`]).
+    /// `winners` see Victory, every other player Defeat; none for a draw, which everyone sees (design change 0163;
+    /// `crate::Sim::outcome`, [`crate::economy::Outcome`]).
     GameOver {
         winners: Vec<PlayerId>,
     },

@@ -8,20 +8,24 @@
 //! - **Which units**: a unit at 0% at the front of its queue, whether it has just reached the front or waits there.
 //!   A unit in production (`Production::in_production`) is never checked again: it "always finishes" (Q0041 point
 //!   2), however far the cap falls below what is used (design change 0112, `> Over capacity`).
-//! - **The figures** are those of [`crate::Sim::army_cap`]: `available − used ≥ cost` ([`ArmyCap::fits`]), with
-//!   `used` the player's units and their producers' units in production. They are worked out once a step for each
-//!   player who has a unit to start, and the units that start are added as they do ([`Room`]), so that one room is
-//!   given once.
-//! - **Who is served first** when several producers wait for the same room: id order, the order of the step. The
-//!   one other order in the design, design change 0083's "least work queued first", is read as the rule of a group
-//!   `Train` at queue time (`Sim::plan_training`), which 0143 leaves to the crystals: nothing in 0143 orders the
-//!   starts, so the most literal reading keeps the step's (reported to the Director, slice M3-P).
+//! - **The figures** are those of [`crate::Sim::army_cap`]: `cost == 0 || available − used ≥ cost`
+//!   ([`ArmyCap::fits`]), with `used` the player's units and their producers' units in production: a unit whose
+//!   cost is 0 always passes, even over the cap (design change 0176 point 3: "Zero-cost units always pass"). They are
+//!   worked out once a step for each player who has a unit to start, and the units that start are added as they do
+//!   ([`Room`]), so that one room is given once.
+//! - **Who is served first** when several producers wait for the same room: id order, the order of the step, lowest
+//!   id first (design change 0175, `factions/gdo/overview.md > Unit Control`: "Several buildings waiting [...] are
+//!   served in a fixed internal order (e.g. lowest id, effectively oldest building first)", for every faction's
+//!   cap). Design change 0083's "least work queued first" is the rule of a group `Train` at queue time
+//!   (`Sim::plan_training`), which 0143 leaves to the crystals.
 //! - **The notification** ("A blocked queue raises a notification (not yet designed)"): placeholder, a
 //!   `SimEvent::ProductionWaiting` in the tick a wait begins, once until the unit starts or leaves the queue, and
 //!   `Production::blocked` meanwhile, which the interface shows.
 //! - **At a power ratio of 0** (a GDO consumer with nothing generated, design change 0089) the check passes or fails
 //!   all the same, but a unit that passes makes no progress, and so doesn't start or take anything: it is checked
-//!   again in the next step, as one that waits.
+//!   again in the next step, as one that waits, and another producer may take the room (design change 0176 point 2,
+//!   `> Unit Control`: "No power, no start [...] a building that can't make progress [...] doesn't take the room;
+//!   another building may use it").
 
 use std::collections::BTreeMap;
 

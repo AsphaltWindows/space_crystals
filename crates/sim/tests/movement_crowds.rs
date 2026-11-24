@@ -220,3 +220,88 @@ fn dense_blocks_of_any_shape_pass_through_each_other_head_on() {
         assert!(failed * 5 <= 2 * n, "{failed} of {} gave up\n{}", 2 * n, t.ascii(None));
     }
 }
+
+/// 24 × 16 open tiles: 1536 × 1024 su, for [`crowd_sweep`].
+const WIDE: &str = "
+    ........................
+    ........................
+    ........................
+    ........................
+    ........................
+    ........................
+    ........................
+    ........................
+    ........................
+    ........................
+    ........................
+    ........................
+    ........................
+    ........................
+    ........................
+    ........................
+";
+
+/// The crowd sweep of slice M1-G3, kept for design change 0169's Verification ("Rerun the M1-G3 crowd sweep:
+/// failures drop as in the experiment"): two blocks ordered onto each other's place in open ground, 900 su apart,
+/// over 48 layouts for each pair of kinds (Peacekeepers, Guards, Peacekeepers against Guards): gaps of 8 to 24 su
+/// between the units, blocks of 3 × 6, 5 × 5 and 2 × 9, the second block 0 to 37 su off the first one's line; with
+/// one owner, then two. A unit fails if its move failed or it is still moving in tick 2000. Prints the failures
+/// for each pair of kinds and owner count. A measurement, ignored: run it in release, with
+/// `cargo test --release -p sc_sim --test movement_crowds -- --ignored --nocapture crowd_sweep`.
+///
+/// Slice M3-V measured (2 → 3 grid units of `OCCUPIED_ARRIVAL_GU`): see `ARCHITECTURE.md > Movement and collision`.
+#[test]
+#[ignore]
+fn crowd_sweep() {
+    for owners in [P1, P2] {
+        let (mut all, mut units) = (0, 0);
+        for (west_kind, east_kind) in [(PK, PK), (GUARD, GUARD), (PK, GUARD)] {
+            let size = west_kind
+                .def()
+                .silhouette()
+                .unwrap()
+                .x
+                .max(east_kind.def().silhouette().unwrap().x);
+            let (mut failed, mut worst) = (0, 0);
+            for gap in [8.0, 12.0, 16.0, 24.0] {
+                for shape in [(3, 6), (5, 5), (2, 9)] {
+                    for off_line in [0.0, 10.0, 20.0, 37.0] {
+                        let n = shape.0 * shape.1;
+                        let mut t = ScenarioBuilder::new(WIDE).start();
+                        t.without_auto_targeting();
+                        let (west, east) = (v(300.0, 512.0), v(1200.0, 512.0 + off_line));
+                        spawn_block(&mut t, west_kind, P1, west, size + gap, shape);
+                        spawn_block(&mut t, east_kind, owners, east, size + gap, shape);
+                        t.order_at(2, P1, &ids(1..=n), move_to(east), false).order_at(
+                            2,
+                            owners,
+                            &ids(n + 1..=2 * n),
+                            move_to(west),
+                            false,
+                        );
+                        t.run_until(3);
+                        while (1..=2 * n).any(|id| t.status(id) == MoveStatus::Moving) && t.sim().tick() < 2000 {
+                            t.step();
+                        }
+                        let lost = (1..=2 * n)
+                            .filter(|&id| matches!(t.status(id), MoveStatus::Failed | MoveStatus::Moving))
+                            .count();
+                        failed += lost;
+                        worst = worst.max(lost);
+                        units += 2 * n as usize;
+                    }
+                }
+            }
+            all += failed;
+            println!(
+                "crowd sweep, {west_kind:?} v {east_kind:?}, the second block player {}'s: {failed} failed, at worst \
+                 {worst} in a layout",
+                owners.0
+            );
+        }
+        println!(
+            "crowd sweep, the second block player {}'s: {all} of {units} failed",
+            owners.0
+        );
+    }
+}

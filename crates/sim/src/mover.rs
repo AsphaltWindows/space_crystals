@@ -45,10 +45,11 @@ pub const JAMMED_TICKS: u16 = 12;
 /// `docs/movement.md > 6.3`, rule 4: a switch of `avoid_side` commits for this many ticks (tuning const).
 pub const AVOID_COMMIT_TICKS: Tick = 16;
 
-/// `systems/controls/behaviors.md > MovingToLocation > Occupied target location` (design change 0026; a placeholder
-/// to tune): a unit stuck within 2 grid units of its destination, blocked by units that aren't moving, counts as
-/// arrived (`docs/movement.md > 6.5`, rule 1).
-pub const OCCUPIED_ARRIVAL_GU: f32 = 2.0;
+/// `systems/controls/behaviors.md > MovingToLocation > Occupied target location` (design changes 0026 and 0169; a
+/// placeholder to tune): a unit stuck within 3 grid units of its destination, blocked by units that aren't moving,
+/// counts as arrived (`docs/movement.md > 6.5`, rule 1). The one radius of both behaviours: `> MovingToObject`'s
+/// "Blocked near the target" is the same rule (design changes 0033 and 0169). It was 2 until design change 0169.
+pub const OCCUPIED_ARRIVAL_GU: f32 = 3.0;
 
 /// What a unit is asked to reach (`docs/movement.md > 3`).
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -73,8 +74,8 @@ pub enum MoveStatus {
     Idle,
     /// On the way, or waiting for its path.
     Moving,
-    /// Reached the goal, or the reachable point nearest to it (design change 0025), or stopped within 2 grid units
-    /// of it behind units that won't move (design changes 0026, 0032 and 0033).
+    /// Reached the goal, or the reachable point nearest to it (design change 0025), or stopped within
+    /// [`OCCUPIED_ARRIVAL_GU`] of it behind units that won't move (design changes 0026, 0032, 0033 and 0169).
     Arrived,
     /// Gave up: no path, or stuck with no repath left (`systems/controls/behaviors.md > MovingToLocation >
     /// Failure`; the numbers are design change 0024). Two units head-on in a passage too narrow to pass both end here

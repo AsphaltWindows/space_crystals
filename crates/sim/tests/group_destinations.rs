@@ -131,7 +131,7 @@ fn a_click_inside_the_box_makes_the_group_converge() {
         assert_eq!(t.status(id), MoveStatus::Arrived, "#{id}\n{}", t.ascii(None));
     }
     // Bunched up: sixteen boxes of 24 su need a square of 96 su, so the farthest unit can't be much nearer than
-    // 68 su; it started 116 su away. Everyone ends within 2 GU of the click (`OCCUPIED_ARRIVAL_GU`, 0026).
+    // 68 su; it started 116 su away. Everyone ends near the click, within `OCCUPIED_ARRIVAL_GU` of it (0026).
     let farthest = |points: Vec<Vec2>| points.iter().map(|p| p.distance(click)).fold(0.0_f32, f32::max);
     let before = farthest(square.iter().map(|u| u.1).collect());
     let after = farthest((1..=16).map(|id| t.pos(id)).collect());
@@ -155,7 +155,7 @@ fn a_line_clicked_on_itself_closes_up() {
     assert_nobody_failed(&t);
     assert_eq!(t.pos(3), click);
     // Its neighbours close up to it, and the outer two stop at them, a step round them: each by the occupied
-    // target rule, within 2 GU of the click (`docs/movement.md > 6.5`, rule 1).
+    // target rule, within `OCCUPIED_ARRIVAL_GU` of the click (`docs/movement.md > 6.5`, rule 1).
     for (id, &(_, start)) in (1..=5).zip(&line) {
         assert_eq!(t.status(id), MoveStatus::Arrived);
         let (before, after) = (start.distance(click), t.pos(id).distance(click));

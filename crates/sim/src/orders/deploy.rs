@@ -20,7 +20,7 @@ pub(super) fn begin(origin: TilePos, unit: &mut Unit, tick: Tick) -> Deploy {
 }
 
 /// One tick of the walk to the site at `origin`. It is over once the move ended, whatever its outcome: at the centre,
-/// at the reachable point nearest to it, or stopped within 2 grid units of it behind units that won't move
+/// at the reachable point nearest to it, or stopped within 3 grid units of it behind units that won't move
 /// (`MoveStatus::Arrived`), or given up (`Failed`); the arrival then sees whether the Drone overlaps the footprint. It
 /// is also over when the Drone, still on its way, is "stopped by a blocker on the way while already overlapping the
 /// footprint": it found no way forward for [`JAMMED_TICKS`] in a row, the movement's own notion of a unit at a

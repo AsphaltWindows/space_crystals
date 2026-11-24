@@ -204,7 +204,7 @@ const BUILDINGS: [Building; 3] = [
     Building {
         kind: RoboPortal,
         origin: (7, 5),
-        cost: 400,
+        cost: 250, // design change 0167 (was 400)
         frames: 640,
         unit: Some(Drone),
     },
@@ -817,11 +817,11 @@ fn an_egress_node_being_warped_in_takes_no_drop_off() {
 
 /// The plan's acceptance, "Cancel" (`> Cancel Warp In`: "Cancelling refunds 75% of the building's resource cost
 /// (rounded down), and the structure reverts to being a normal, fully-functional Beacon (no HP/Shields loss)"): 75
-/// → 56, 150 → 112, 400 → 300 ([`Refund::Ready`]). The Beacon returns on its old tiles, at its full 120 HP, the
-/// same object, and can warp in again.
+/// → 56, 250 → 187 (the Robo Portal's cost since design change 0167), 150 → 112 ([`Refund::Ready`]). The Beacon
+/// returns on its old tiles, at its full 120 HP, the same object, and can warp in again.
 #[test]
 fn a_cancel_refunds_75_percent_and_the_beacon_returns() {
-    for (b, refund) in BUILDINGS.into_iter().zip([56, 300, 112]) {
+    for (b, refund) in BUILDINGS.into_iter().zip([56, 187, 112]) {
         let (kind, cost) = (b.kind, b.cost);
         assert_eq!(Refund::Ready.of(cost), refund);
         let mut t = base().start();
@@ -947,7 +947,7 @@ fn a_building_being_warped_in_keeps_its_owner_undefeated() {
 /// by player 2's six Peacekeepers; player 1's bank stays as the Warp In left it, and no refund event is sent.
 #[test]
 fn a_portal_destroyed_mid_warp_in_refunds_nothing() {
-    for (kind, cost, frames) in [(RoboPortal, 400, 640), (BioPortal, 150, 480)] {
+    for (kind, cost, frames) in [(RoboPortal, 250, 640), (BioPortal, 150, 480)] {
         let mut builder = colonists(ScenarioBuilder::new(&flat(24, 16)))
             .spawn(Beacon, Some(P1), tile(8, 6)) // 1
             .spawn(Generator, Some(P1), tile(1, 1)) // 2: player 1 stays in the game
@@ -1015,10 +1015,10 @@ fn a_cancel_goes_to_every_transforming_object_named() {
     let tick = t.sim().tick();
     assert_eq!(
         cancellations(&t),
-        [(tick, 1, EgressNode, 56), (tick, 2, RoboPortal, 300)]
+        [(tick, 1, EgressNode, 56), (tick, 2, RoboPortal, 187)]
     );
     assert_eq!((object(&t, 1).kind, object(&t, 2).kind), (Beacon, Beacon));
-    assert_eq!(bank(&t, P1), 1000 - 75 - 400 + 56 + 300);
+    assert_eq!(bank(&t, P1), 1000 - 75 - 250 + 56 + 187);
     assert_eq!(object(&t, 4).kind, EgressNode, "player 2's goes on");
 }
 
@@ -1080,7 +1080,7 @@ fn a_destroyed_warp_in_is_lost_and_its_last_structure_defeats_its_owner() {
 #[test]
 fn refused_warp_ins_change_nothing() {
     let mut t = base().start();
-    t.debug_at(1, fund(P1, 399));
+    t.debug_at(1, fund(P1, 249)); // one short of the Robo Portal's 250 (design change 0167)
     t.step();
     let robo = |objects: &[u32]| construction(objects, warp(RoboPortal));
     assert_rejected(&mut t, P1, robo(&[]), Reject::NoConstructor);

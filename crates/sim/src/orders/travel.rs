@@ -20,12 +20,12 @@ use super::{ATTACK_MOVE_LEASH_GU, GIVE_UP_RETRY_TICKS, PATROL_FAILED_LEGS, PROXI
 ///
 /// **A static object** (`> Completion`: a structure, a map resource): complete within proximity. The move also
 /// ends, and the order with it, at the reachable point nearest to an object the unit can't get to (`>
-/// MovingToLocation > Unreachable target location`), when the unit is stuck within 2 grid units of it behind units
+/// MovingToLocation > Unreachable target location`), when the unit is stuck within 3 grid units of it behind units
 /// that aren't moving ("Blocked near the target", design change 0033; `movement::stuck`), and when it fails
 /// (`> Failure`). A static object needn't be seen: it is where it was.
 ///
 /// **A unit: Follow** (design change 0032). The behaviour never completes on reaching it: within proximity the
-/// unit stops and waits, and when the target moves out of proximity it follows again. Stuck within 2 grid units
+/// unit stops and waits, and when the target moves out of proximity it follows again. Stuck within 3 grid units
 /// behind units that aren't moving, it waits there, with no re-route, until the target moves on. It ends when
 /// - the target dies (the removal path completes the order) or **leaves the map**: entering a transport, a
 ///   building or the Tunnel Network doesn't exist yet. **The hook**: such an object will be gone from
