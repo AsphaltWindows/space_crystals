@@ -1,7 +1,8 @@
 //! Headless selection tests (`systems/controls/selection_and_hud.md`, `ARCHITECTURE.md > Client architecture >
 //! Selection`). Every input arrives through `InjectedInput`, the virtual keyboard and mouse, and goes through the
 //! input layer's bindings like a player's would; each `App::update` is one tick and 1/16 s of real time
-//! (`ARCHITECTURE.md > Client architecture > Client tests`).
+//! (`ARCHITECTURE.md > Client architecture > Client tests`). The fog of war is off (`--no-fog`), so that player 1
+//! can select what it doesn't see: what the fog hides from the selection is tested in `fog.rs`.
 
 mod groups;
 mod map;
@@ -76,10 +77,12 @@ fn scenario() -> Scenario {
     scenario
 }
 
-/// A headless game of `scenario` as player 1, debug commands on or off, the camera at [`VIEW_CENTER`].
+/// A headless game of `scenario` as player 1, debug commands on or off, the camera at [`VIEW_CENTER`], without the
+/// fog of war.
 fn game_of(scenario: Scenario, debug: bool) -> App {
     let mut config = AppConfig::new(scenario);
     config.display = DisplayMode::Headless;
+    config.qa.no_fog = true;
     if !debug {
         config.scenario.setup.config = SimConfig::default();
     }

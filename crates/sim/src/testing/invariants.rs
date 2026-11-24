@@ -1,5 +1,6 @@
 //! The movement invariants I1–I7 of `docs/movement.md > 8`, checked from outside through the sim's public state,
-//! and an ASCII picture of the map with its units for readable failures.
+//! the vision invariant V1 (the vision kept up tick by tick is the one a fresh build gives, and every Visible tile
+//! is Explored: `vision`), and an ASCII picture of the map with its units for readable failures.
 //!
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
 //! [`Invariants`] and calls [`Invariants::check`] after each step.
@@ -26,7 +27,7 @@ pub const MAX_REQUEST_AGE: Tick = 32;
 /// A broken invariant.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Violation {
-    /// "I1" … "I7".
+    /// "I1" … "I7", "V1".
     pub invariant: &'static str,
     pub message: String,
     /// Where on the map to look.
@@ -83,7 +84,10 @@ impl Invariants {
                 _ => None,
             })
             .collect();
-        let result = self.check_units(sim, &teleported).and_then(|()| no_overlaps(sim));
+        let result = self
+            .check_units(sim, &teleported)
+            .and_then(|()| no_overlaps(sim))
+            .and_then(|()| vision(sim));
         self.seen = Self::new(sim).seen;
         result
     }
@@ -175,6 +179,18 @@ impl Invariants {
         }
         Ok(())
     }
+}
+
+/// V1: the vision phase 5f keeps up incrementally is the one a fresh build from the objects gives, and every
+/// Visible tile is Explored.
+fn vision(sim: &Sim) -> Result<(), Violation> {
+    sim.vision()
+        .check(sim.map(), sim.objects())
+        .map_err(|(at, message)| Violation {
+            invariant: "V1",
+            message,
+            at,
+        })
 }
 
 /// I1: no two units of a layer with hard collision overlap. Touching is free.

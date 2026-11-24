@@ -3,9 +3,10 @@
 //! view space, against each object's box as it is drawn this frame, lifted by its terrain height.
 
 use bevy::math::{Rect, Vec2};
-use sc_sim::{Category, Object, ObjectId, ObjectKind, PlayerId, SU_PER_GU, Sim};
+use sc_sim::{Category, Object, ObjectId, ObjectKind, PlayerId, SU_PER_GU, Sim, VisibilityState};
 
 use crate::coords::drawn_at_height;
+use crate::fog::Sight;
 use crate::object_render::object_height;
 
 /// A click this close to an object's drawn box (space units) still picks it. Placeholder, unspecified: a few
@@ -35,11 +36,23 @@ impl Relation {
     }
 }
 
-/// Whether `player` may select `object` now. `core/vision.md > Explored Selectability`: objects in Explored areas
-/// are not selectable (but a SupplyDeliveryStation is, for GDO players), and nothing in Unexplored ones. Vision
-/// doesn't exist yet (slice V), so everything counts as Visible and only the type's Selectable flag decides.
-pub fn selectable_by(object: &Object, _player: PlayerId) -> bool {
-    object.def().selectable
+/// Whether the player whose `sight` this is may select `object` now: its type must be Selectable, and
+/// `core/vision.md > Explored Selectability`: the player's own objects and objects on a tile it sees (Visible) are,
+/// objects in Explored areas are not (but a SupplyDeliveryStation is, for GDO players), and nothing in Unexplored
+/// ones is. An object counts as in the best state among the tiles it covers. With the fog off, everything counts as
+/// Visible.
+pub fn selectable_by(object: &Object, sight: &Sight) -> bool {
+    if !object.def().selectable {
+        return false;
+    }
+    if object.owner == Some(sight.player()) {
+        return true;
+    }
+    match sight.object(object) {
+        VisibilityState::Visible => true,
+        VisibilityState::Explored => object.kind == ObjectKind::SupplyDeliveryStation && sight.is_gdo(),
+        VisibilityState::Unexplored => false,
+    }
 }
 
 /// An object the local player can select, as it is drawn this frame.
@@ -122,12 +135,14 @@ pub struct Selectables {
 }
 
 impl Selectables {
-    /// Every object of `sim` that `player` may select, drawn where the frame draws it: at `prev_pos.lerp(pos,
-    /// alpha)` (`ARCHITECTURE.md > Client architecture > Visuals > Interpolation`).
-    pub fn new(sim: &Sim, player: PlayerId, alpha: f32) -> Self {
+    /// Every object of `sim` that the player whose `sight` this is may select ([`selectable_by`]), drawn where the
+    /// frame draws it: at `prev_pos.lerp(pos, alpha)` (`ARCHITECTURE.md > Client architecture > Visuals >
+    /// Interpolation`).
+    pub fn new(sim: &Sim, sight: &Sight, alpha: f32) -> Self {
+        let player = sight.player();
         let objects = sim
             .objects()
-            .filter(|o| selectable_by(o, player))
+            .filter(|o| selectable_by(o, sight))
             .map(|o| Selectable::of(o, player, sim.map(), o.prev_pos.lerp(o.pos, alpha)))
             .collect();
         Self { objects }

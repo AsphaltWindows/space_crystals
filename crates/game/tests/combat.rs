@@ -1,6 +1,6 @@
 //! Combat feedback in the client (`combat_effects`): a tracer for each shot, HP bars over damaged and selected units
 //! and a marker where a unit died, each kept for its number of ticks. Headless, one tick per update, as in
-//! `client.rs`.
+//! `client.rs`. How the fog of war hides them is tested in `fog.rs`.
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
@@ -11,6 +11,7 @@ use sc_sim::{
 use space_crystals::combat_effects::{
     CombatEffects, CombatEffectsMesh, DEATH_MARKER_TICKS, DeathMarker, HpBar, TRACER_TICKS, hp_bars,
 };
+use space_crystals::fog::{FogOfWar, Sight};
 use space_crystals::platform::DisplayMode;
 use space_crystals::selection::{ControlStates, Selection};
 use space_crystals::sim_driver::{LocalPlayer, PendingCommands, SimRes};
@@ -75,13 +76,14 @@ fn effects(app: &App) -> &CombatEffects {
     app.world().resource::<CombatEffects>()
 }
 
-/// The HP bars drawn at the end of the tick, with the local player's selection.
+/// The HP bars drawn at the end of the tick, with the local player's selection and sight.
 fn bars(app: &App) -> Vec<HpBar> {
     let world = app.world();
-    let selection = world
-        .resource::<ControlStates>()
-        .selection(world.resource::<LocalPlayer>().0);
-    hp_bars(world.resource::<SimRes>(), 1.0, |id| selection.contains(id))
+    let player = world.resource::<LocalPlayer>().0;
+    let selection = world.resource::<ControlStates>().selection(player);
+    let sim = world.resource::<SimRes>();
+    let sight = Sight::new(sim, player, world.resource::<FogOfWar>().enabled);
+    hp_bars(sim, &sight, 1.0, |id| selection.contains(id))
 }
 
 fn effects_visible(app: &mut App) -> bool {
@@ -92,12 +94,14 @@ fn effects_visible(app: &mut App) -> bool {
 /// A Peacekeeper and a Guard, 160 su apart, attack each other: their first shots land 2 ticks after the orders
 /// (Aim 2, Firing 1) and leave tracers for `TRACER_TICKS`; the hits leave HP bars; the Guard's tenth hit kills the
 /// Peacekeeper, which leaves a marker for `DEATH_MARKER_TICKS`. A selected unit shows its HP bar even at full HP.
+/// A second Peacekeeper of player 1 stands by, so that player 1 still sees the Guard once the first is dead.
 #[test]
 fn shots_hits_and_deaths_show_for_their_ticks() {
     let mut app = headless_app();
     app.update();
     spawn(&mut app, ObjectKind::Peacekeeper, P1, Vec2::new(300.0, 300.0));
     spawn(&mut app, ObjectKind::Guard, P2, Vec2::new(460.0, 300.0));
+    spawn(&mut app, ObjectKind::Peacekeeper, P1, Vec2::new(460.0, 520.0));
     app.update();
     let spawned = tick(&app);
     assert!(effects(&app).tracers.is_empty() && bars(&app).is_empty());

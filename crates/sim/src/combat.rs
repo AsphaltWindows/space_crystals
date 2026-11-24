@@ -14,10 +14,14 @@
 //!   removes them through the one removal path (`Sim::remove_objects`), which clears every reference to them.
 //! - **Queries**: [`may_move`] and [`may_turn`] say whether a unit's attack sequence lets it move or turn this tick.
 //!   The movement step holds a unit that may not (phase 5d); the behaviours will read them too (slice E).
+//! - **Vision** (`systems/combat.md > ValidTarget` 2): a sequence starts, and Aiming goes on, only while the unit's
+//!   owner sees the target, by the vision phase 5f left at the end of the last tick (`vision`). A target out of
+//!   sight stays engaged and its order waits; the behaviours will chase it to where it was last seen (question
+//!   Q0010, slice E).
 //!
-//! Not built yet: chasing a target out of range, AttackMove, auto-targeting and leashes (slice E), vision checks
-//! on targets (slice V), turrets, projectiles and location targets (the disjointed attack types), AoE damage, the
-//! Riot Shield and Shields.
+//! Not built yet: chasing a target out of range or out of sight, AttackMove, auto-targeting and leashes (slice E),
+//! turrets, projectiles and location targets (the disjointed attack types), AoE damage, the Riot Shield and
+//! Shields.
 
 mod damage;
 mod phases;
@@ -32,6 +36,7 @@ use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::object::Object;
+use crate::vision::Vision;
 
 pub use damage::{
     DIRECTIONAL_FRONT, DIRECTIONAL_HALF_ARC, DIRECTIONAL_REAR, DIRECTIONAL_SIDE, Hit, MINIMUM_DAMAGE,
@@ -150,10 +155,12 @@ fn base_is_free(o: &Object) -> bool {
 /// Phase 5e (`docs/movement.md > 4`): every unit before `first_new`, in id order, runs one tick of its attack
 /// sequence against a snapshot of the targets taken before any of them acts; then the tick's hits are applied
 /// together. Returns the objects destroyed, in id order, for the removal path (`Sim::remove_objects`). A death that
-/// removes a blocking footprint must re-sync the grids (`paths::sync`), as phase 5b does.
+/// removes a blocking footprint must re-sync the grids (`paths::sync`), as phase 5b does. `vision` is the last
+/// tick's: what each owner sees.
 pub(crate) fn step(
     objects: &mut BTreeMap<ObjectId, Object>,
     map: &Map,
+    vision: &Vision,
     first_new: ObjectId,
     events: &mut Vec<SimEvent>,
 ) -> Vec<ObjectId> {
@@ -177,7 +184,8 @@ pub(crate) fn step(
         let Some(attrs) = &unit.attack else {
             continue;
         };
-        let shooter = phases::Shooter::new(map, o.id, o.kind, o.pos, unit, attrs);
+        let sight = o.owner.and_then(|owner| vision.player(owner));
+        let shooter = phases::Shooter::new(map, o.id, o.kind, o.pos, unit, attrs, sight);
         phases::run(state, &mut o.facing, &shooter, &targets, &mut hits, events);
     }
     damage::apply(objects, &hits, events)

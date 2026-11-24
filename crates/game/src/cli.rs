@@ -38,6 +38,8 @@ pub struct CliOptions {
     pub commands: Option<PathBuf>,
     pub input_script: Option<PathBuf>,
     pub show_paths: bool,
+    /// The fog of war is on unless `--no-fog`.
+    pub fog: bool,
     pub windowed: bool,
     pub headless: bool,
     pub help: bool,
@@ -61,6 +63,7 @@ impl Default for CliOptions {
             commands: None,
             input_script: None,
             show_paths: false,
+            fog: true,
             windowed: false,
             headless: false,
             help: false,
@@ -101,6 +104,8 @@ QA (any of these makes the run reproducible: keyboard and mouse are ignored, fra
                               {{\"tick\": 3, \"cursor\": [640, 300], \"press\": [\"MouseLeft\"], \"tap\": [],
                               \"release\": []}} (buttons: MouseLeft, ShiftLeft, Digit1, KeyA, F2, Tab, ...)
   --show-paths                Start with the unit path overlay on (P toggles it)
+  --no-fog                    Start with the fog of war off: show everything (F3 toggles it; needs debug
+                              commands, display only)
   --windowed                  Show the QA run in a window instead of rendering offscreen
   --headless                  No window and no rendering at all (no screenshots)
 
@@ -138,6 +143,7 @@ pub fn parse(args: &[String]) -> Result<CliOptions, String> {
             "--commands" => options.commands = Some(value()?.into()),
             "--input-script" => options.input_script = Some(value()?.into()),
             "--show-paths" => options.show_paths = true,
+            "--no-fog" => options.fog = false,
             "--windowed" => options.windowed = true,
             "--headless" => options.headless = true,
             "-h" | "--help" => options.help = true,
@@ -211,6 +217,9 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
     if editor.is_some() && options.commands.is_some() {
         return Err("--commands needs a game: the editor's map stays at tick 0".into());
     }
+    if !options.fog && !options.debug {
+        return Err("--no-fog shows what the player can't see: not with --no-debug".into());
+    }
     if editor.is_some() && options.input_script.is_some() {
         return Err("--input-script needs a game: the editor's map stays at tick 0 (use --editor-script)".into());
     }
@@ -223,6 +232,7 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
             None => Vec::new(),
         },
         show_paths: options.show_paths,
+        no_fog: !options.fog,
         input_script: match &options.input_script {
             Some(path) => crate::qa::load_input_script(path)?,
             None => Vec::new(),

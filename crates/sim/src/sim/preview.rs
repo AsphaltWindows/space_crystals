@@ -41,6 +41,7 @@ impl Sim {
             }
         }
         sim.nav = NavState::build(&sim.map, &sim.objects);
+        sim.vision.update(&sim.map, sim.objects.values());
         sim.events.clear();
         (sim, ids)
     }

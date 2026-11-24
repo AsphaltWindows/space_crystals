@@ -35,7 +35,7 @@ pub mod sim;
 pub mod symmetry;
 pub mod testing;
 pub mod units;
-mod vision;
+pub mod vision;
 
 pub use combat::{AttackPhase, AttackState};
 pub use command::{Command, DebugCommand, PlayerCommand, TickInputs};
@@ -58,3 +58,4 @@ pub use scenario::{
 pub use sim::{Reject, Sim, SimConfig};
 pub use symmetry::{EditableRegion, MapTransform, Orientation, Symmetry};
 pub use units::{CornerPos, SU_PER_GU, TICKS_PER_SECOND, Tick, TilePos, gu, seconds};
+pub use vision::{VisibilityState, Vision};

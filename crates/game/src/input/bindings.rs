@@ -256,6 +256,7 @@ impl Default for Bindings {
             (A::CenterOnObject, Held(Modifiers::ALT)),
             // Placeholder: the design has no debug keys.
             (A::DebugSwitchPlayer, Press(key(KeyCode::F2))),
+            (A::DebugToggleFog, Press(key(KeyCode::F3))),
         ];
         for group in ControlGroup::all() {
             let digit = key(group.digit_key());
@@ -361,6 +362,7 @@ mod tests {
         assert_eq!(only(InputAction::SelectSameType), [Binding::Modifiers(Modifiers::CTRL)]);
         assert_eq!(only(InputAction::CenterOnObject), [Binding::Modifiers(Modifiers::ALT)]);
         assert_eq!(only(InputAction::DebugSwitchPlayer), press(KeyCode::F2));
+        assert_eq!(only(InputAction::DebugToggleFog), press(KeyCode::F3));
         let seven = Chord::key(KeyCode::Digit7);
         assert_eq!(
             only(InputAction::AssignGroup(group(7))),
@@ -389,7 +391,7 @@ mod tests {
         );
         assert_eq!(only(InputAction::CommandSlot(CommandSlot::RALLY_POINT)), press(KeyC));
         let game = b.entries().iter().filter(|(a, _)| !matches!(a, InputAction::Editor(_)));
-        assert_eq!(game.count(), 17 + 4 * 10 + 12);
+        assert_eq!(game.count(), 18 + 4 * 10 + 12);
     }
 
     #[test]

@@ -5,16 +5,21 @@
 //! Everything is one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while anything
 //! shows. Effects age by the sim's ticks plus the render alpha, so a QA screenshot of a tick (alpha 1) always shows
 //! them alike. HP bars follow the units' interpolated positions.
+//!
+//! The fog of war hides what the local player doesn't see (`crate::fog`; placeholder rules, the design is silent):
+//! a tracer shows only if both its ends lie on Visible tiles, a death marker only on a Visible tile or for one of
+//! the player's own objects, and an HP bar only over an object the player sees (`Sight::sees`).
 
 use bevy::prelude::*;
-use sc_sim::{Map, Object, ObjectId, ObjectKind, PlayerId, Sim, SimEvent, Tick};
+use sc_sim::{Map, Object, ObjectId, ObjectKind, PlayerId, Sim, SimEvent, Tick, VisibilityState};
 
 use crate::ClientSystems;
 use crate::coords::{DrawLayer, drawn_at_height, view_to_world};
+use crate::fog::{LocalSight, Sight};
 use crate::object_render::{object_height, player_color};
 use crate::selection::ControlStates;
 use crate::shapes::{ColorMesh, darken, lighten};
-use crate::sim_driver::{LocalPlayer, RenderAlpha, SimEventMessage, SimRes};
+use crate::sim_driver::{RenderAlpha, SimEventMessage, SimRes};
 
 /// How long a tracer shows, ticks. Placeholder until the art direction (Q0001).
 pub const TRACER_TICKS: u32 = 5;
@@ -91,14 +96,28 @@ fn shows(sim: &Sim, tick: Tick, ticks: u32) -> bool {
     tick <= sim.tick() && sim.tick() - tick < ticks
 }
 
-/// The HP bars to draw: one over each object that is damaged or `selected`, at its interpolated position.
-pub fn hp_bars(sim: &Sim, alpha: f32, selected: impl Fn(ObjectId) -> bool) -> Vec<HpBar> {
+/// The HP bars to draw: one over each object that is damaged or `selected`, at its interpolated position, among
+/// those `sight` sees.
+pub fn hp_bars(sim: &Sim, sight: &Sight, alpha: f32, selected: impl Fn(ObjectId) -> bool) -> Vec<HpBar> {
     sim.objects()
+        .filter(|o| sight.sees(o))
         .filter_map(|o| {
             let (hp, max_hp) = (o.hp?, o.def().max_hp?);
             (hp < max_hp || selected(o.id)).then(|| hp_bar(sim.map(), o, alpha, hp / max_hp))
         })
         .collect()
+}
+
+/// Whether `sight` shows `tracer`: both its ends lie on Visible tiles, so it reveals no one.
+pub fn shows_tracer(sight: &Sight, tracer: &Tracer) -> bool {
+    [tracer.from, tracer.to]
+        .iter()
+        .all(|&p| sight.at(p) == VisibilityState::Visible)
+}
+
+/// Whether `sight` shows `death`: one of the player's own objects, or on a Visible tile.
+pub fn shows_death(sight: &Sight, death: &DeathMarker) -> bool {
+    death.owner == Some(sight.player()) || sight.at(death.pos) == VisibilityState::Visible
 }
 
 fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32) -> HpBar {
@@ -164,31 +183,32 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
 }
 
 /// Rebuilds the effects mesh: death markers at the back, then tracers, then HP bars (alpha blending draws a mesh's
-/// triangles in order). Hidden while nothing shows.
+/// triangles in order), each only where the local player sees it. Hidden while nothing shows.
 fn draw_effects(
     sim: Res<SimRes>,
     alpha: Res<RenderAlpha>,
     effects: Res<CombatEffects>,
     states: Res<ControlStates>,
-    player: Res<LocalPlayer>,
+    sight: LocalSight,
     mut meshes: ResMut<Assets<Mesh>>,
     mut entity: Query<(&Mesh2d, &mut Visibility), With<CombatEffectsMesh>>,
 ) {
     let Ok((mesh2d, mut visibility)) = entity.single_mut() else {
         return;
     };
+    let sight = sight.get();
     let z = DrawLayer::Overlays.base_z() + EFFECTS_Z;
     let mut mesh = ColorMesh::triangles();
-    for death in &effects.deaths {
+    for death in effects.deaths.iter().filter(|d| shows_death(&sight, d)) {
         let fade = 1.0 - age(&sim, alpha.0, death.tick) / DEATH_MARKER_TICKS as f32;
         death_marker(&mut mesh, sim.map(), death, fade, z);
     }
-    for tracer in &effects.tracers {
+    for tracer in effects.tracers.iter().filter(|t| shows_tracer(&sight, t)) {
         let fade = 1.0 - age(&sim, alpha.0, tracer.tick) / TRACER_TICKS as f32;
         tracer_line(&mut mesh, sim.map(), tracer, fade, z);
     }
-    let selection = states.selection(player.0);
-    for bar in hp_bars(&sim, alpha.0, |id| selection.contains(id)) {
+    let selection = states.selection(sight.player());
+    for bar in hp_bars(&sim, &sight, alpha.0, |id| selection.contains(id)) {
         hp_bar_shape(&mut mesh, bar, z);
     }
     if mesh.vertex_count() == 0 {

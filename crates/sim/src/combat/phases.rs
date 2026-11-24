@@ -17,6 +17,7 @@ use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::math::{self, PI};
+use crate::vision::PlayerVision;
 
 /// `systems/controls/behaviors.md > AttackingObject` 2: a unit attacking from its base must face its target ("unit
 /// facing") before it fires. The largest angle, radians, between its facing and the direction to the target's centre
@@ -37,6 +38,8 @@ pub(super) struct Shooter<'a> {
     turn_rate: Option<f32>,
     /// `systems/units.md > UnitBase > HasTurret`: the turret aims, not the base.
     turret: bool,
+    /// Its owner's vision as of the end of the last tick; `None` for a unit without an owner, which sees nothing.
+    sight: Option<&'a PlayerVision>,
 }
 
 impl<'a> Shooter<'a> {
@@ -47,6 +50,7 @@ impl<'a> Shooter<'a> {
         pos: Vec2,
         unit: &UnitDef,
         attrs: &'a AttackAttrs,
+        sight: Option<&'a PlayerVision>,
     ) -> Self {
         Self {
             id,
@@ -56,6 +60,7 @@ impl<'a> Shooter<'a> {
             attrs,
             turn_rate: unit.movement.turn_rate(),
             turret: unit.base_def().has_turret,
+            sight,
         }
     }
 
@@ -63,6 +68,12 @@ impl<'a> Shooter<'a> {
     /// (`systems/combat.md > ValidTarget` 3).
     fn can_target(&self, t: &TargetView) -> bool {
         t.id != self.id && domain_allows(self.attrs.target_domain, t.domain)
+    }
+
+    /// `systems/combat.md > ValidTarget` 2: whether its owner sees `t` (a tile `t` covers is Visible). Phase 5e
+    /// reads the vision phase 5f left at the end of the last tick (`docs/movement.md > 4`).
+    fn sees(&self, t: &TargetView) -> bool {
+        self.sight.is_some_and(|v| v.sees_box(t.lo, t.hi))
     }
 
     /// Whether `t` is within its Range and beyond its MinRange from where it stands.
@@ -128,17 +139,20 @@ pub(super) fn run(
     events: &mut Vec<SimEvent>,
 ) {
     // A target this unit can't attack at all (gone, itself, or in a domain its attack can't reach) is dropped, and
-    // the order that engaged it completes (`orders::update`).
+    // the order that engaged it completes (`orders::update`). One its owner doesn't see stays engaged: the order
+    // waits (chasing it to where it was last seen is the behaviours', question Q0010).
     if let Some(target) = state.target
         && !targets.get(target).is_some_and(|t| shooter.can_target(t))
     {
         state.engage(None);
     }
     // `systems/controls/behaviors.md > AttackingObject` 3: a sequence begins once the target is in range and no
-    // sequence runs. TODO(slice V): and visible to the unit's owner (`systems/combat.md > ValidTarget` 2).
+    // sequence runs, and only at a target the unit's owner sees (`systems/combat.md > ValidTarget` 2).
     if state.phase.is_none()
         && let Some(target) = state.target
-        && targets.get(target).is_some_and(|t| shooter.reaches(t))
+        && targets
+            .get(target)
+            .is_some_and(|t| shooter.sees(t) && shooter.reaches(t))
     {
         state.phase = Some(AttackPhase::Aiming { target });
         state.elapsed = 0;
@@ -146,12 +160,13 @@ pub(super) fn run(
     let mut tick_left = true;
     while let Some(phase) = state.phase {
         let aimed_at = match phase {
-            // `systems/combat.md > Aiming`: the target must stay valid throughout, or the sequence is cancelled; the
-            // unit keeps turning to face it. A different command already cancelled it (`AttackState::engage`).
+            // `systems/combat.md > Aiming`: the target must stay valid throughout (`> ValidTarget`: seen by the
+            // owner too) and in range, or the sequence is cancelled; the unit keeps turning to face it. A different
+            // command already cancelled it (`AttackState::engage`).
             AttackPhase::Aiming { target } => {
-                let valid = targets
-                    .get(target)
-                    .filter(|t| state.target == Some(target) && shooter.can_target(t) && shooter.reaches(t));
+                let valid = targets.get(target).filter(|t| {
+                    state.target == Some(target) && shooter.can_target(t) && shooter.sees(t) && shooter.reaches(t)
+                });
                 let Some(t) = valid else {
                     state.cancel();
                     break;
@@ -234,10 +249,13 @@ mod tests {
 
     use super::*;
     use crate::defs::{AttackType, FullyConnectedSubtype, TargetDomain, TargetType};
+    use crate::ids::PlayerId;
     use crate::object::Object;
+    use crate::vision::Vision;
 
     const ME: ObjectId = ObjectId(1);
     const FOE: ObjectId = ObjectId(2);
+    const MINE: PlayerId = PlayerId(1);
 
     fn attrs(aim: u32, firing: u32, cooldown: u32, reload: u32) -> AttackAttrs {
         AttackAttrs {
@@ -255,20 +273,21 @@ mod tests {
         }
     }
 
-    /// A Peacekeeper (`ME`) at the origin facing east, and a Guard (`FOE`) 100 su away in direction `bearing`.
-    fn world(bearing: f32) -> (Map, Targets) {
+    /// A Peacekeeper (`ME`, of player `MINE`) at the origin facing east, and a neutral Guard (`FOE`) 100 su away in
+    /// direction `bearing`, which `ME` sees.
+    fn world(bearing: f32) -> (Map, Targets, Vision) {
         let map = Map::new(4, 4);
         let mut objects = BTreeMap::new();
-        for (id, kind, pos) in [
-            (ME, ObjectKind::Peacekeeper, Vec2::ZERO),
-            (FOE, ObjectKind::Guard, math::facing_vector(bearing) * 100.0),
+        for (id, kind, owner, pos) in [
+            (ME, ObjectKind::Peacekeeper, Some(MINE), Vec2::ZERO),
+            (FOE, ObjectKind::Guard, None, math::facing_vector(bearing) * 100.0),
         ] {
             objects.insert(
                 id,
                 Object {
                     id,
                     kind,
-                    owner: None,
+                    owner,
                     pos,
                     prev_pos: pos,
                     facing: 0.0,
@@ -283,14 +302,17 @@ mod tests {
             );
         }
         let targets = Targets::snapshot(&map, &objects);
-        (map, targets)
+        let mut vision = Vision::new(&map, [MINE]);
+        vision.update(&map, objects.values());
+        (map, targets, vision)
     }
 
     /// Runs `ticks` ticks of a sequence engaging `FOE`; the ticks (from 1) whose hits landed, and the final facing.
     fn hit_ticks(attrs: &AttackAttrs, bearing: f32, turn_rate: f32, ticks: u32) -> (Vec<u32>, f32) {
-        let (map, targets) = world(bearing);
+        let (map, targets, vision) = world(bearing);
         let unit = ObjectKind::Peacekeeper.def().unit.clone().unwrap();
-        let mut shooter = Shooter::new(&map, ME, ObjectKind::Peacekeeper, Vec2::ZERO, &unit, attrs);
+        let sight = vision.player(MINE);
+        let mut shooter = Shooter::new(&map, ME, ObjectKind::Peacekeeper, Vec2::ZERO, &unit, attrs, sight);
         shooter.turn_rate = Some(turn_rate);
         let mut state = AttackState::default();
         state.engage(Some(FOE));
@@ -335,5 +357,33 @@ mod tests {
         let (landed, facing) = hit_ticks(&attrs(2, 1, 0, 30), PI / 2.0, PI, 10);
         assert_eq!(landed, [3]);
         assert_eq!(facing, PI / 2.0);
+    }
+
+    /// `systems/combat.md > ValidTarget` 2: no sequence starts at a target the unit's owner doesn't see, and an aim
+    /// is cancelled once the target is out of sight. The target stays engaged: the order waits for it.
+    #[test]
+    fn only_targets_the_owner_sees_are_attacked() {
+        let (map, targets, seen) = world(0.0);
+        let blind = Vision::new(&map, [MINE]);
+        let unit = ObjectKind::Peacekeeper.def().unit.clone().unwrap();
+        let attrs = attrs(2, 1, 0, 30);
+        let at = Vec2::ZERO;
+        let sees = Shooter::new(&map, ME, ObjectKind::Peacekeeper, at, &unit, &attrs, seen.player(MINE));
+        let doesnt = Shooter::new(&map, ME, ObjectKind::Peacekeeper, at, &unit, &attrs, blind.player(MINE));
+        let ownerless = Shooter::new(&map, ME, ObjectKind::Peacekeeper, at, &unit, &attrs, None);
+        let mut state = AttackState::default();
+        state.engage(Some(FOE));
+        let (mut facing, mut hits) = (0.0, Vec::new());
+        for shooter in [&doesnt, &ownerless, &doesnt] {
+            run(&mut state, &mut facing, shooter, &targets, &mut hits, &mut Vec::new());
+            assert_eq!(state.phase, None, "no sequence starts");
+        }
+        assert_eq!(state.target, Some(FOE), "still engaged");
+        run(&mut state, &mut facing, &sees, &targets, &mut hits, &mut Vec::new());
+        assert_eq!(state.phase, Some(AttackPhase::Aiming { target: FOE }));
+        run(&mut state, &mut facing, &doesnt, &targets, &mut hits, &mut Vec::new());
+        assert_eq!(state.phase, None, "the aim is cancelled");
+        assert_eq!(state.target, Some(FOE));
+        assert!(hits.is_empty());
     }
 }
