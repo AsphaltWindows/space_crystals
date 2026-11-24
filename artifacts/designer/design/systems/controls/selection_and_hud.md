@@ -39,11 +39,10 @@ Only tier 1 (own units) produces a multi-selection. All other tiers select exact
 ### Shift + box (add)
 Holding **Shift** while dragging a box **adds** the box's result (after the priority tiers) to the current selection. The current selection **always stays selected**: Shift + box never removes anything, unlike Shift-click, which toggles (user, 2026-11-23). Objects that can't be added under Selection > Constraints (e.g. an enemy, neutral object or other player's object when own objects are selected) are not added, and the selection stays unchanged.
 
-### Empty clicks and boxes
-TBD (not yet decided by the user; Director question Q0013 point 4). Placeholder behaviour until decided:
-- A plain click on empty ground, or a plain box that captures nothing, clears the selection.
-- Shift-click or Ctrl-click on empty ground does nothing (selection kept).
-- A Ctrl+Shift click acts as a Ctrl-click (Ctrl wins).
+### Empty clicks and boxes (user, 2026-11-23)
+- A plain click on empty ground, or a plain box that captures nothing, **clears** the selection.
+- Shift-click or Ctrl-click on empty ground does **nothing** (selection kept).
+- TBD: Ctrl+Shift click (placeholder: acts as a Ctrl-click, Ctrl wins).
 
 ## MapClickSelection
 Selection by clicking objects on the map (as opposed to portraits in the SelectionPanel). Default inputs (user, 2026-11-23):
