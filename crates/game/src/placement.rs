@@ -1,25 +1,33 @@
-//! What the local player sees while placing a building ready to place (`factions/gdo/structures.md >
-//! DeploymentCenter > ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`, `factions/gdo/economy.md >
-//! ExtractionFacility > ObjectInterfaceState[ExtractionFacility] > AwaitingPlacement`; plan decision T10). The state
-//! itself, its keys and its clicks are the command flow's (`crate::command_ui::InterfaceState::AwaitingPlacement`);
-//! this module only shows it:
+//! What the local player sees while placing a building (`factions/gdo/structures.md > DeploymentCenter >
+//! ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`, `factions/gdo/economy.md > ExtractionFacility >
+//! ObjectInterfaceState[ExtractionFacility] > AwaitingPlacement`, `factions/colonists/units.md > Drone
+//! ObjectInterfaceState > A: Deploy`, `factions/colonists/economy.md > Warp In > Warp In Command`; plan decisions T10,
+//! T23), and the buildings ordered but not started. The state itself, its keys and its clicks are the command flow's
+//! (`crate::command_ui::InterfaceState::AwaitingPlacement`); this module only shows it:
 //! - [`ghost`]: "A ghost preview of the building follows the cursor, snapped to the grid", green or red tile by tile
-//!   as the placement check has it now (design change 0093), with the letters of its sides (design change 0079). It
-//!   is the cursor over the map: no pointer shows there (`crate::command_ui::cursor`);
+//!   as the check its builder faces has it now (design change 0093; the Drones' as far as the player knows, design
+//!   change 0120), with the letters of its sides (design change 0079). It is the cursor over the map: no pointer
+//!   shows there (`crate::command_ui::cursor`). A Warp In's ghost stands on its Beacon instead, whatever the cursor
+//!   does (design change 0121), and the pointer shows;
 //! - [`overlay`]: "The player's current GDO build area is highlighted as a semi-transparent overlay on the ground",
-//!   the area only (design change 0093), redrawn only when the area or the map changes.
+//!   the area only (design change 0093), redrawn only when the area or the map changes; while a GDO constructor
+//!   places its building;
+//! - [`lingering`]: the lingering build ghosts, the sites of the player's pending Deploys (`core/entities.md >
+//!   Placement Validation > Lingering build ghosts`, design change 0125), whatever the player does.
 //!
-//! Both show only while the local player places a building ([`placing_now`]): in a game mode, in AwaitingPlacement,
-//! with a selection they may command (never once the game is over or they are defeated: `core/game_rules.md > End
-//! of Game`, design change 0101).
+//! The ghost and the overlay show only while the local player places a building ([`placing_now`]): in a game mode,
+//! in AwaitingPlacement, with a selection they may command (never once the game is over or they are defeated:
+//! `core/game_rules.md > End of Game`, design change 0101).
 
 pub mod ghost;
+pub mod lingering;
 pub mod overlay;
 
 use bevy::prelude::*;
 use sc_sim::{PlayerId, Sim};
 
 pub use ghost::{Ghost, PlacementGhost};
+pub use lingering::LingeringGhosts;
 pub use overlay::BuildAreaOverlay;
 
 use crate::command_ui::Placing;
@@ -41,10 +49,18 @@ impl Plugin for PlacementPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PlacementGhost>()
             .init_resource::<BuildAreaOverlay>()
-            .add_systems(Startup, (ghost::spawn_ghost, overlay::spawn_overlay))
+            .init_resource::<LingeringGhosts>()
+            .add_systems(
+                Startup,
+                (ghost::spawn_ghost, overlay::spawn_overlay, lingering::spawn_lingering),
+            )
             .add_systems(
                 Update,
-                ((ghost::update_ghost, ghost::draw_ghost).chain(), overlay::draw_overlay)
+                (
+                    (ghost::update_ghost, ghost::draw_ghost).chain(),
+                    overlay::draw_overlay,
+                    lingering::draw_lingering,
+                )
                     .in_set(ClientSystems::Present),
             );
     }

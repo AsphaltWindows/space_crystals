@@ -1,13 +1,17 @@
 //! Where the command flow's orders and commands go (`super`): the sim's next tick (`PendingCommands`), each one only
 //! if the sim would take it now (`Sim::validate`), and the indicators (`OrderIssued`).
 
+use std::collections::BTreeSet;
+
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use sc_sim::{
-    Ability, Command, ConstructionCommand, ObjectId, OrderKind, PlayerCommand, PlayerId, ProductionCommand, Target,
+    Ability, Command, ConstructionCommand, ObjectId, OrderKind, PlayerCommand, PlayerId, ProductionCommand, Reject,
+    Target,
 };
 
 use crate::command_ui::OrderIssued;
+use crate::command_ui::interface::deploying;
 use crate::command_ui::resolution::group_orders;
 use crate::sim_driver::{PendingCommands, SimRes};
 
@@ -109,21 +113,29 @@ impl OrderOutbox<'_> {
         true
     }
 
-    /// `player`'s constructors among `objects` carry out `command` (`Command::Construction`), one command for all of
-    /// them, at once: construction isn't queued. Nothing when none of them is the player's constructor, or when the
-    /// sim would reject it (`Sim::validate`, the predicates the panel greys its buttons out by: e.g. too few Space
-    /// Crystals, a constructor already busy, nothing to cancel; a Place the placement check refuses).
+    /// `player`'s objects among `objects` carry out `command` (`Command::Construction`), one command for all of
+    /// them, at once: construction isn't queued. Nothing when none of them is the player's, or when the sim would
+    /// reject it (`Sim::validate`, the predicates the panel greys its buttons out by: e.g. none of them a constructor
+    /// or a Beacon, too few Space Crystals, a constructor already busy, nothing to cancel; a Place or a Warp In the
+    /// placement check refuses).
     pub(super) fn construct(&mut self, player: PlayerId, objects: Vec<ObjectId>, command: ConstructionCommand) -> bool {
+        self.try_construct(player, objects, command).is_ok()
+    }
+
+    /// The same, saying why nothing was sent: the gate's refusal (`Reject::NoConstructor` when none of `objects` is
+    /// the player's).
+    pub(super) fn try_construct(
+        &mut self,
+        player: PlayerId,
+        objects: Vec<ObjectId>,
+        command: ConstructionCommand,
+    ) -> Result<(), Reject> {
         let objects: Vec<ObjectId> = objects
             .into_iter()
-            .filter(|&id| {
-                self.sim
-                    .object(id)
-                    .is_some_and(|o| o.owner == Some(player) && o.constructor.is_some())
-            })
+            .filter(|&id| self.sim.object(id).is_some_and(|o| o.owner == Some(player)))
             .collect();
         if objects.is_empty() {
-            return false;
+            return Err(Reject::NoConstructor);
         }
         let sent = PlayerCommand {
             player,
@@ -131,10 +143,15 @@ impl OrderOutbox<'_> {
         };
         if let Err(reject) = self.sim.validate(&sent) {
             debug!("construction command {command:?} not given: {reject}");
-            return false;
+            return Err(reject);
         }
         self.pending.0.push(sent);
-        true
+        Ok(())
+    }
+
+    /// `player`'s Drones that have a Deploy, in the sim or sent for its next tick ([`deploying`]).
+    pub(super) fn deploying(&self, player: PlayerId) -> BTreeSet<ObjectId> {
+        deploying(&self.sim, player, &self.pending.0)
     }
 
     /// The units among `units` that are `player`'s and take orders.

@@ -24,18 +24,25 @@
 //!   either;
 //! - a Deploy that failed at the end of the Drone's walk (`SimEvent::DeployFailed`, slice M3-F; `factions/colonists/
 //!   economy.md > Beacon Deployment > Placement`): what the check found on arrival, as for a building, or that the
-//!   Drone didn't get to its site ([`deploy_failed_text`]). Placeholders too.
+//!   Drone didn't get to its site ([`deploy_failed_text`]). Placeholders too;
+//! - a greyed-out button pressed, or its hotkey (`systems/controls/selection_and_hud.md > CommandPanel > Pressing an
+//!   unavailable command`, design change 0162: "nothing is issued, and the player gets the same feedback as when an
+//!   order is refused, naming the reason (e.g. "Not enough Space Crystals", "Queue is full")"), and a Warp In whose
+//!   click the sim refused (`super::CommandRefused`): the button's reason ([`unavailable_text`]), placeholder
+//!   wordings but the design's two.
 //!
-//! The message ([`INVALID_TARGET_TEXT`], [`NO_CRYSTALS_TEXT`], an [`army_cap_text`] or a [`placement_text`]) shows
-//! over the world view, centred just above the HUD Bar, on a dark band, for [`FEEDBACK_TICKS`] after the latest cause;
-//! a new one replaces it. It ages by the sim's ticks, so a QA screenshot of a tick always shows it alike. It never
-//! takes the pointer: clicks pass through it to the map.
+//! The message ([`INVALID_TARGET_TEXT`], [`NO_CRYSTALS_TEXT`], an [`army_cap_text`], a [`placement_text`] or an
+//! [`unavailable_text`]) shows over the world view, centred just above the HUD Bar, on a dark band, for
+//! [`FEEDBACK_TICKS`] after the latest cause; a new one replaces it. It ages by the sim's ticks, so a QA screenshot of
+//! a tick always shows it alike. It never takes the pointer: clicks pass through it to the map.
 
 use bevy::picking::Pickable;
 use bevy::prelude::*;
-use sc_sim::{ArmyResource, PlacementCheck, PlacementProblem, Refusal, SimEvent, Tick, TileProblem, WholeProblem};
+use sc_sim::{
+    ArmyResource, PlacementCheck, PlacementProblem, Refusal, Reject, SimEvent, Tick, TileProblem, WholeProblem,
+};
 
-use super::{InvalidPlacement, InvalidTarget};
+use super::{CommandRefused, InvalidPlacement, InvalidTarget, WhyUnavailable};
 use crate::hud::HUD_BAR_HEIGHT_VH;
 use crate::sim_driver::{LocalPlayer, SimEventMessage, SimRes};
 use crate::{ClientMode, ClientSystems};
@@ -56,6 +63,29 @@ pub const BEACON_CAPACITY_TEXT: &str = "Beacon Capacity limit reached";
 pub const CANNOT_PLACE_TEXT: &str = "Cannot place there";
 /// The message of a Deploy whose Drone stopped short of its site (design change 0117). Placeholder wording.
 pub const SITE_UNREACHED_TEXT: &str = "Could not reach the site";
+/// The message of a Train pressed with every queue it would go to full (design change 0162). The design's wording.
+pub const QUEUE_FULL_TEXT: &str = "Queue is full";
+/// The message of a Cancel pressed with nothing to cancel. Placeholder wording.
+pub const NOTHING_TO_CANCEL_TEXT: &str = "Nothing to cancel";
+/// The message of a building to construct pressed while its constructor constructs or holds a building ready
+/// (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`: "Other build options
+/// unavailable"). Placeholder wording.
+pub const BUSY_TEXT: &str = "Already building";
+/// The message of a Convert pressed while none of its recipients may convert. Placeholder wording.
+pub const CANNOT_CONVERT_TEXT: &str = "Cannot convert now";
+/// The message of an Attack pressed while every recipient's Riot Shield is up. Placeholder wording, after
+/// `factions/gdo/units.md > Peacekeeper > Riot Shield`: "the player must lower the shield before ordering an attack".
+pub const SHIELDS_UP_TEXT: &str = "Lower the Riot Shield first";
+/// The message of another command pressed while one awaits its target or a building is placed (design change 0066:
+/// "To change commands, the player cancels first"). Placeholder wording.
+pub const CANCEL_FIRST_TEXT: &str = "Cancel the current command first";
+/// The message of a command the type can't carry out (Reverse, AttackGround). Placeholder wording.
+pub const NOT_FOR_TYPE_TEXT: &str = "Not available for this unit";
+/// The message of a command or building that isn't in the game yet (design change 0124: "shown but unavailable
+/// until defined"). Placeholder wording.
+pub const NOT_YET_TEXT: &str = "Not available yet";
+/// The message of a refusal the others don't name. Placeholder wording.
+pub const CANNOT_DO_TEXT: &str = "Cannot do that now";
 /// Placeholder look: amber text on a dark band, this far above the HUD Bar (percent of the surface height).
 const TEXT_COLOR: Color = Color::srgb(1.0, 0.80, 0.30);
 const BAND_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
@@ -176,6 +206,36 @@ pub fn placement_text(problem: Option<PlacementProblem>) -> &'static str {
     }
 }
 
+/// The message of a greyed-out button pressed (design change 0162), by why it is greyed out: the gate's refusal
+/// ([`reject_text`]), the Riot Shields, a command awaiting its target, the type, or that it isn't in the game yet.
+pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
+    match why {
+        WhyUnavailable::Refused(reject) => reject_text(reject),
+        WhyUnavailable::ShieldsUp => SHIELDS_UP_TEXT,
+        WhyUnavailable::Waiting => CANCEL_FIRST_TEXT,
+        WhyUnavailable::NotForThisType => NOT_FOR_TYPE_TEXT,
+        WhyUnavailable::NotYet => NOT_YET_TEXT,
+    }
+}
+
+/// The message of a command the gate refuses (`sc_sim::Reject`), as a greyed-out button or a Warp In click says it:
+/// "Not enough Space Crystals", "Queue is full" (design change 0162), the placement's first problem
+/// ([`placement_text`]), and placeholders for the others.
+pub fn reject_text(reject: Reject) -> &'static str {
+    match reject {
+        Reject::InsufficientCrystals => NO_CRYSTALS_TEXT,
+        Reject::QueueFull => QUEUE_FULL_TEXT,
+        Reject::NothingQueued | Reject::NotConstructing | Reject::NothingReady | Reject::NotTransforming => {
+            NOTHING_TO_CANCEL_TEXT
+        }
+        Reject::ConstructorBusy(_) => BUSY_TEXT,
+        Reject::CannotConvert => CANNOT_CONVERT_TEXT,
+        Reject::CannotAttack => SHIELDS_UP_TEXT,
+        Reject::Unplaceable(problem) => placement_text(Some(problem)),
+        _ => CANNOT_DO_TEXT,
+    }
+}
+
 /// The message of a Deploy that failed on arrival (`SimEvent::DeployFailed`): the first problem the check of its site
 /// found ([`placement_text`]), or, with none, that the Drone stopped short of the footprint.
 pub fn deploy_failed_text(problems: &PlacementCheck) -> &'static str {
@@ -185,8 +245,9 @@ pub fn deploy_failed_text(problems: &PlacementCheck) -> &'static str {
     }
 }
 
-/// Takes the frame's invalid clicks (on a target, or a placement), the local player's producers' and constructors'
-/// refusals and their producers' waits, and shows the latest one's message for [`FEEDBACK_TICKS`].
+/// Takes the frame's invalid clicks (on a target, or a placement), its greyed-out buttons pressed, the local player's
+/// producers' and constructors' refusals and their producers' waits, and shows the latest one's message for
+/// [`FEEDBACK_TICKS`].
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 fn show_feedback(
     mode: Res<ClientMode>,
@@ -194,6 +255,7 @@ fn show_feedback(
     player: Res<LocalPlayer>,
     mut invalid: MessageReader<InvalidTarget>,
     mut unplaceable: MessageReader<InvalidPlacement>,
+    mut unavailable: MessageReader<CommandRefused>,
     mut events: MessageReader<SimEventMessage>,
     mut feedback: ResMut<TargetFeedback>,
     mut views: Query<&mut Visibility, With<TargetFeedbackView>>,
@@ -203,6 +265,9 @@ fn show_feedback(
     let placements = unplaceable
         .read()
         .map(|click| (click.tick, placement_text(click.problem)));
+    let presses = unavailable
+        .read()
+        .map(|press| (press.tick, unavailable_text(press.why)));
     let own = |id| sim.object(id).is_some_and(|o| o.owner == Some(player.0));
     let refusals = events.read().filter_map(|message| match &message.event {
         SimEvent::ProductionRefused { producer, reason, .. } if own(*producer) => {
@@ -219,7 +284,11 @@ fn show_feedback(
         }
         _ => None,
     });
-    let latest = clicks.chain(placements).chain(refusals).max_by_key(|&(tick, _)| tick);
+    let latest = clicks
+        .chain(placements)
+        .chain(presses)
+        .chain(refusals)
+        .max_by_key(|&(tick, _)| tick);
     let generation = Some(sim.generation());
     let earlier = feedback
         .since

@@ -14,7 +14,9 @@
 //! constructor's commands (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`,
 //! `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`) go as
 //! `Command::Construction` to the one constructor of the ActiveGroup, never queued: Construct and the Cancels at
-//! once, Place on a left-click in AwaitingPlacement, only where the placement check allows it now.
+//! once, Place on a left-click in AwaitingPlacement, only where the placement check allows it now. A Beacon's Warp In
+//! goes the same way to the Beacon, a transforming object's Cancel to the ActiveGroup, and a Deploy as an order to
+//! one Drone of the ActiveGroup (slice M3-J1).
 //!
 //! The systems are split by what they handle: the panel's ([`panel`](mod@panel): the state validated, Esc, the command
 //! slots), AwaitingPlacement's ([`placing`]), and here the targeting clicks and the right-click. All of them give
@@ -37,7 +39,7 @@ use crate::selection::LocalControl;
 
 use outbox::OrderOutbox;
 pub(super) use panel::{cancel_on_escape, press_command_slots, validate_interface};
-pub(super) use placing::{place_on_click, report_placing, turn_ghost};
+pub(super) use placing::{end_queued_placement, place_on_click, report_placing, turn_ghost};
 
 /// `> AwaitingTarget > Dragging while targeting` (design change 0073): while a target is awaited, a press of the
 /// Select action that moves at most this far (logical pixels) before its release is a targeting click, at the press

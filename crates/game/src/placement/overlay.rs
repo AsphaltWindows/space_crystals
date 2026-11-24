@@ -20,6 +20,7 @@ use sc_sim::{BuildArea, Map, TilePos};
 
 use super::placing_now;
 use crate::ClientMode;
+use crate::command_ui::Builder;
 use crate::coords::DrawLayer;
 use crate::fog::FOG_Z;
 use crate::map_render::{MapView, SURFACE_LIFT_Z, surface_vertex, tile_surface};
@@ -81,7 +82,8 @@ pub(super) fn spawn_overlay(
     commands.insert_resource(OverlayAssets { mesh });
 }
 
-/// Shows the local player's build area while they place a building ([`placing_now`]), redrawn when it changed.
+/// Shows the local player's build area while one of their constructors places its building ([`placing_now`]; the
+/// Colonists build where their Beacons and Drones stand: no build area), redrawn when it changed.
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 pub(super) fn draw_overlay(
     mode: Res<ClientMode>,
@@ -94,7 +96,8 @@ pub(super) fn draw_overlay(
     mut overlay: ResMut<BuildAreaOverlay>,
     mut shown: Query<&mut Visibility, With<BuildAreaMesh>>,
 ) {
-    let placing = placing_now(*mode, &sim, player.0, &states).is_some();
+    let placing = placing_now(*mode, &sim, player.0, &states)
+        .is_some_and(|placing| matches!(placing.builder, Builder::Constructor(_)));
     if placing {
         let area = sim.build_area(player.0);
         if overlay.shown.as_ref() != Some(&area) || overlay.map_builds != view.builds {
