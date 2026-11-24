@@ -2050,3 +2050,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Q0025 pt 3: Power display used/available (red when over), like other capacity counters. Entry 0090. Q0025 done.
 - 2026-11-24: Q0026 pt 1: GDO build area square. Entry 0091.
 - 2026-11-24: Q0026 pts 2-3: build area = union of current buildings (shrinks; no DC still OK). Entry 0092.
+- 2026-11-24: Q0026 pt 4: overlay = build area only. Entry 0093. Q0026 done.

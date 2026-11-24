@@ -113,7 +113,7 @@ DefaultState (ready to place — ReadyToPlace is set):
 
 AwaitingPlacement:
 - A ghost preview of the Extraction Plate follows the cursor, snapped to the grid. The ghost is tinted green when over a valid Space Crystal Patch (within build area, no existing plate) and red otherwise.
-- The player's current GDO build area is highlighted as a semi-transparent overlay on the ground.
+- The player's current GDO build area is highlighted as a semi-transparent overlay on the ground (the build area only; per-tile validity shows on the ghost; user, 2026-11-24).
 - Left-click Space Crystal Patch within GDO build area that does not already have a plate: places Extraction Plate, clears ReadyToPlace (CommandIssuingTransition, returns to DefaultState)
 - Escape/right-click: returns to DefaultState (StateOnlyTransition), plate remains ready to place
 

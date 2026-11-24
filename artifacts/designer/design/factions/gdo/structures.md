@@ -122,7 +122,7 @@ BuildMenu (building ready — ReadyToPlace is set):
 
 AwaitingPlacement:
 - A ghost preview of the building follows the cursor, snapped to the grid. The ghost is tinted green when the placement is valid and red when invalid.
-- The player's current GDO build area is highlighted as a semi-transparent overlay on the ground, showing all valid build cells.
+- The player's current GDO build area is highlighted as a semi-transparent overlay on the ground. The overlay shows the **build area only**; whether a given tile is valid right now (flat, Visible, unoccupied, not a resource) is shown per tile on the ghost (user, 2026-11-24).
 - R rotates the ghost 90 degrees clockwise, Shift+R rotates 90 degrees counter-clockwise. Non-square buildings swap footprint dimensions when rotated to 90 or 270. F flips the ghost horizontally, Shift+F flips vertically. Side labels (A/B/C/D per SymmetryType) are displayed on the ghost and update with rotation/flipping.
 - Left-click valid location within build radius: places building at the ghost's position and rotation, clears ReadyToPlace (CommandIssuingTransition, returns to DefaultState)
 - Escape/right-click: returns to BuildMenu (StateOnlyTransition), building remains ready to place
