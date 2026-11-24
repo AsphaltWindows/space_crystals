@@ -2062,3 +2062,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Defeated players in team games watch with team vision only. Entry 0102.
 - 2026-11-24: Q0030 pt 1: enemy structures are auto-targets (non-threatening unless they attack). Entry 0103.
 - 2026-11-24: Q0030 pt 2: DC split into Basic/Advanced Construction menus (Factory in advanced). Entry 0104.
+- 2026-11-24: Q0030 pt 3: structure InfoPanels (own: activity; others: name/owner/HP). Entry 0105. Q0030 done.
