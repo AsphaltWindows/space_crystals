@@ -52,6 +52,10 @@ Applies to all ground units. Overlap caused by the rotation itself (a corner swe
 - Moving units must pathfind around occupied space
 - Ground units collide with other ground units, with structures, and with **Space Crystals patches and Supply Delivery Stations** (their footprints are solid; user, 2026-11-23). A depleted patch disappears and its tile opens up, so the map's paths can change during a game.
 
+### Underground Collision
+- Underground units **do not collide with each other** (user, 2026-11-23): they pass through one another freely, so underground traffic never jams.
+- TBD: what happens when an underground unit surfaces onto a spot occupied by a ground unit or structure (wait until clear vs surface at the nearest free spot).
+
 ### Air Collision
 - Air units do not collide with ground units or structures
 - Air units use soft separation with other air units — a gentle repulsion force that prevents stacking but does not hard-block
