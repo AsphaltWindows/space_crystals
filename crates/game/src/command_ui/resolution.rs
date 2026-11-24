@@ -66,6 +66,17 @@ pub fn target_order(pending: UnitCommand, target: CursorTarget) -> Option<OrderK
     }
 }
 
+/// `factions/gdo/units.md > Peacekeeper > Riot Shield`: "Right-click on an enemy while the shield is up issues a
+/// Move order to that location instead of an Attack". The order a unit that can't attack now gets for a click at
+/// `ground` that gives `kind` to the others: a Move to the clicked point for an Attack, else the same. Placeholder:
+/// a left-click on an enemy in AwaitingTarget[Attack] too, which the design doesn't mention.
+pub fn order_without_attack(kind: OrderKind, ground: Vec2) -> OrderKind {
+    match kind {
+        OrderKind::Attack(_) => OrderKind::Move(Target::Point(ground)),
+        other => other,
+    }
+}
+
 /// `> PointerDisplayType > Types` that M1 can show. GatherResources, ReturnResources and Enter wait for gatherers
 /// and enterable objects.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -79,11 +90,14 @@ pub enum PointerDisplay {
 }
 
 /// `> PointerDisplayType > Resolution Rules` over `target`, for a selection whose ActiveGroup has `template` (none:
-/// nothing commandable is selected).
+/// nothing commandable is selected). `armed`: some unit a right-click's Attack would go to can attack now; when
+/// none can (their Riot Shields are up), the right-click on an enemy moves them there ([`order_without_attack`]),
+/// and the pointer shows a Move (`> DefaultState`: "Cursor over enemy object (and selection can attack)").
 pub fn pointer_display(
     template: Option<InterfaceTemplate>,
     interface: InterfaceState,
     target: CursorTarget,
+    armed: bool,
 ) -> PointerDisplay {
     let Some(template) = template else {
         return PointerDisplay::Inactive;
@@ -91,7 +105,7 @@ pub fn pointer_display(
     match interface {
         // The right-click preview.
         InterfaceState::DefaultState => match right_click(template, target) {
-            Some((UnitCommand::Attack, _)) => PointerDisplay::Attack,
+            Some((UnitCommand::Attack, _)) if armed => PointerDisplay::Attack,
             Some(_) => PointerDisplay::Move,
             None => PointerDisplay::Inactive,
         },
@@ -155,6 +169,19 @@ mod tests {
         assert_eq!(left(UnitCommand::Patrol, Ground(p)), Some(OrderKind::Patrol(p)));
         assert_eq!(left(UnitCommand::Patrol, EnemyObject(id(6))), None);
         assert_eq!(left(UnitCommand::AttackGround, Ground(p)), None, "no sim order yet");
+
+        // With the Riot Shield up, an Attack becomes a Move to the clicked point; the other orders stay.
+        assert_eq!(
+            order_without_attack(OrderKind::Attack(id(6)), p),
+            OrderKind::Move(Target::Point(p))
+        );
+        for kind in [
+            OrderKind::AttackMove(p),
+            OrderKind::Move(Target::Object(id(6))),
+            OrderKind::Stop,
+        ] {
+            assert_eq!(order_without_attack(kind, Vec2::ZERO), kind);
+        }
     }
 
     /// `> PointerDisplayType > Resolution Rules`.
@@ -165,6 +192,7 @@ mod tests {
         let unit = Some(InterfaceTemplate::BasicCombatUnit);
         let ground = Ground(Vec2::ZERO);
         let default = InterfaceState::DefaultState;
+        let pointer_display = |template, interface, target| pointer_display(template, interface, target, true);
         assert_eq!(
             pointer_display(None, default, EnemyObject(id(6))),
             D::Inactive,
@@ -174,6 +202,11 @@ mod tests {
         assert_eq!(pointer_display(unit, default, ground), D::Move);
         assert_eq!(pointer_display(unit, default, FriendlyObject(id(2))), D::Move);
         assert_eq!(pointer_display(unit, default, NeutralObject(id(8))), D::Move);
+        assert_eq!(
+            super::pointer_display(unit, default, EnemyObject(id(6)), false),
+            D::Move,
+            "shields up: a right-click moves there"
+        );
         let awaiting = InterfaceState::AwaitingTarget;
         assert_eq!(pointer_display(unit, awaiting(UnitCommand::Attack), ground), D::Attack);
         assert_eq!(

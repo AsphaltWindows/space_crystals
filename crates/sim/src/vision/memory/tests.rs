@@ -20,6 +20,7 @@ fn object(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Obje
         orders: None,
         mover: None,
         attack: None,
+        riot_shield: None,
     }
 }
 

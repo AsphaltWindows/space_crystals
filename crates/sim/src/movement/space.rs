@@ -26,6 +26,10 @@ pub(crate) struct Body {
     pub half: Vec2,
     /// Its latest displacement: this tick's if it already moved, else last tick's.
     pub velocity: Vec2,
+    /// (G) Where it is heading: the vector from it to its steering waypoint (any length), zero for a unit without
+    /// a goal or waiting for its path. Unlike `velocity` it doesn't turn with a step around a blocker, so it tells
+    /// an oncoming unit from one that only steps aside (`super::collide::World::lane`, [`Body::heads_against`]).
+    pub heading: Vec2,
     /// `Mover::is_stationary`.
     pub stationary: bool,
     /// For a unit on its way (it has a goal): the tick of its latest progress, `Mover::last_progress`. Units
@@ -48,35 +52,112 @@ pub(crate) fn blocks(mover: &Body, other: &Body) -> bool {
 }
 
 /// One layer's grid (`docs/movement.md > 6.1`): a cell per tile, each unit listed in every cell its box overlaps or
-/// touches.
+/// touches, and per cell the kinds of unit listed in it.
 #[derive(Debug, Default)]
 pub(crate) struct Layer {
     width: i32,
     height: i32,
     cells: Vec<Vec<u32>>,
+    /// (G) Per cell: what kinds of body were listed in it since the last reset ([`Body::kinds`]). A bit is never
+    /// taken back when a body leaves or changes, so it says "maybe", and lets a query skip cells that can't hold
+    /// what it looks for ([`Layer::near_any`]).
+    kinds: Vec<u16>,
     /// Cells that got an entry since the last reset, to empty only those.
     used: Vec<u32>,
+    /// (G) The largest half extent of the bodies listed since the last reset ([`Layer::widest`]).
+    widest: f32,
+}
+
+/// [`Body::kinds`]: the body steps aside for a blocked unit of its owner (`Body::yields`).
+pub(crate) const KIND_YIELDS: u16 = 1 << 8;
+
+/// The middles of the eight 45° sectors of headings, sector `k` from `45k°` to `45k + 45°` (0 is east, clockwise
+/// on screen): `(cos, sin)` of `45k + 22.5°`.
+const SECTORS: [Vec2; 8] = {
+    const C: f32 = 0.923_879_5;
+    const S: f32 = 0.382_683_43;
+    [
+        Vec2::new(C, S),
+        Vec2::new(S, C),
+        Vec2::new(-S, C),
+        Vec2::new(-C, S),
+        Vec2::new(-C, -S),
+        Vec2::new(-S, -C),
+        Vec2::new(S, -C),
+        Vec2::new(C, -S),
+    ]
+};
+
+/// The sector of [`SECTORS`] a heading lies in.
+fn sector(heading: Vec2) -> usize {
+    let wide = heading.x.abs() > heading.y.abs();
+    match (heading.y >= 0.0, heading.x >= 0.0) {
+        (true, true) => usize::from(!wide),
+        (true, false) => 2 + usize::from(wide),
+        (false, false) => 4 + usize::from(!wide),
+        (false, true) => 6 + usize::from(wide),
+    }
+}
+
+/// The kinds ([`Body::kinds`]) of the bodies whose heading may be against `ahead` (a unit vector) by more than the
+/// cosine `cos`: every sector that holds such a heading. A heading is within 22.5° of its sector's middle, so the
+/// sectors are those whose middle is nearly as much against `ahead`. It errs on the side of "maybe".
+pub(crate) fn kinds_against(ahead: Vec2, cos: f32) -> u16 {
+    // Two cosines differ by at most the angle between the two directions: 22.5° is 0.393 rad.
+    let bound = cos + 0.4;
+    let mut kinds = 0;
+    for (k, middle) in SECTORS.iter().enumerate() {
+        if middle.dot(ahead) < bound {
+            kinds |= 1 << k;
+        }
+    }
+    kinds
+}
+
+impl Body {
+    /// (G) Whether the body's heading is against the unit vector `ahead` by more than the cosine `cos`, which is
+    /// negative: the angle between the two is wider than that cosine's. In squares, so without a root.
+    pub(crate) fn heads_against(&self, ahead: Vec2, cos: f32) -> bool {
+        let along = self.heading.dot(ahead);
+        along < 0.0 && along * along > cos * cos * self.heading.length_squared()
+    }
+
+    /// (G) What a query may look for in a cell ([`Layer::near_any`]): the sector of the body's heading (bits 0 to 7;
+    /// none for a body that isn't heading anywhere) and [`KIND_YIELDS`].
+    pub(crate) fn kinds(&self) -> u16 {
+        let heading = if self.heading == Vec2::ZERO {
+            0
+        } else {
+            1 << sector(self.heading)
+        };
+        heading | if self.yields { KIND_YIELDS } else { 0 }
+    }
 }
 
 impl Layer {
     /// Empties the grid, for a map of `width × height` tiles.
     pub(crate) fn reset(&mut self, width: u32, height: u32) {
         let (width, height) = (width as i32, height as i32);
+        self.widest = 0.0;
         if (self.width, self.height) != (width, height) {
             self.width = width;
             self.height = height;
             self.cells = vec![Vec::new(); (width * height) as usize];
+            self.kinds = vec![0; (width * height) as usize];
             self.used.clear();
             return;
         }
         for cell in self.used.drain(..) {
             self.cells[cell as usize].clear();
+            self.kinds[cell as usize] = 0;
         }
     }
 
     /// The cells the closed box `lo..=hi` reaches, as inclusive tile ranges, clamped to the map.
     fn span(&self, lo: Vec2, hi: Vec2) -> (i32, i32, i32, i32) {
-        let tile = |v: f32, max: i32| ((v / SU_PER_GU).floor() as i32).clamp(0, max - 1);
+        // (G) The cast truncates, which is the floor for every tile on the map; left of or above the map both
+        // clamp to tile 0. (`floor` is a library call on the baseline x86-64 target, and this is the hot path.)
+        let tile = |v: f32, max: i32| ((v / SU_PER_GU) as i32).clamp(0, max - 1);
         (
             tile(lo.x, self.width),
             tile(lo.y, self.height),
@@ -85,15 +166,57 @@ impl Layer {
         )
     }
 
-    pub(crate) fn insert(&mut self, index: u32, pos: Vec2, half: Vec2) {
+    /// Lists body `index`, of these `kinds` ([`Body::kinds`]), in the cells its box at `pos` reaches.
+    pub(crate) fn insert(&mut self, index: u32, pos: Vec2, half: Vec2, kinds: u16) {
+        self.widest = self.widest.max(half.max_element());
         let (x0, y0, x1, y1) = self.span(pos - half, pos + half);
         for y in y0..=y1 {
             for x in x0..=x1 {
                 let cell = (y * self.width + x) as usize;
                 self.cells[cell].push(index);
+                self.kinds[cell] |= kinds;
                 self.used.push(cell as u32);
             }
         }
+    }
+
+    /// (G) The largest half extent, on either axis, of the bodies listed since the last reset: no box reaches
+    /// farther than `√2` times this from its centre in any direction.
+    pub(crate) fn widest(&self) -> f32 {
+        self.widest
+    }
+
+    /// (G) Notes that the body listed at `pos` now has these `kinds` ([`Body::kinds`]) too.
+    pub(crate) fn mark(&mut self, pos: Vec2, half: Vec2, kinds: u16) {
+        if kinds == 0 || self.kinds.is_empty() {
+            return;
+        }
+        let (x0, y0, x1, y1) = self.span(pos - half, pos + half);
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                self.kinds[(y * self.width + x) as usize] |= kinds;
+            }
+        }
+    }
+
+    /// (G) [`Layer::near`], if a cell the box reaches may list a body of one of `kinds` ([`Body::kinds`]);
+    /// otherwise it visits nothing and returns `false`.
+    pub(crate) fn near_any(&self, lo: Vec2, hi: Vec2, kinds: u16, mut visit: impl FnMut(u32)) -> bool {
+        if self.cells.is_empty() {
+            return false;
+        }
+        let (x0, y0, x1, y1) = self.span(lo, hi);
+        if !(y0..=y1).any(|y| (x0..=x1).any(|x| self.kinds[(y * self.width + x) as usize] & kinds != 0)) {
+            return false;
+        }
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                for &index in &self.cells[(y * self.width + x) as usize] {
+                    visit(index);
+                }
+            }
+        }
+        true
     }
 
     pub(crate) fn remove(&mut self, index: u32, pos: Vec2, half: Vec2) {
@@ -254,12 +377,77 @@ mod tests {
         }
     }
 
+    /// (G) The cell marks never miss a body that lane seeking would count as oncoming: for every pair of
+    /// directions, a heading against `ahead` by more than the cosine is in one of the sectors of `kinds_against`.
+    #[test]
+    fn the_sectors_against_a_direction_hold_every_heading_against_it() {
+        let mut rng = crate::rng::Rng::from_seed(11);
+        let mut random_direction = || loop {
+            let d = Vec2::new(rng.next_f32() * 2.0 - 1.0, rng.next_f32() * 2.0 - 1.0);
+            if d.length() > 0.1 && d.length() <= 1.0 {
+                break d.normalize();
+            }
+        };
+        let body = |heading: Vec2, yields: bool| Body {
+            id: ObjectId(1),
+            owner: None,
+            pos: Vec2::ZERO,
+            half: Vec2::splat(12.0),
+            velocity: Vec2::ZERO,
+            heading,
+            stationary: false,
+            progress: None,
+            arrived_with: None,
+            yields,
+        };
+        let (mut against, mut others) = (0, 0);
+        for _ in 0..20_000 {
+            // Headings come in any length.
+            let (ahead, heading) = (random_direction(), random_direction() * 37.0);
+            let kinds = kinds_against(ahead, -0.5);
+            assert_eq!(
+                body(heading, false).heads_against(ahead, -0.5),
+                heading.normalize().dot(ahead) < -0.5
+            );
+            if body(heading, false).heads_against(ahead, -0.5) {
+                assert_ne!(body(heading, false).kinds() & kinds, 0, "{heading} against {ahead}");
+                against += 1;
+            } else if body(heading, false).kinds() & kinds == 0 {
+                others += 1;
+            }
+        }
+        assert!(
+            against > 1000 && others > 1000,
+            "the marks also rule most others out: {others}"
+        );
+        for axis in [Vec2::X, Vec2::Y, -Vec2::X, -Vec2::Y] {
+            assert_ne!(body(-axis, false).kinds() & kinds_against(axis, -0.5), 0);
+            assert_eq!(body(axis, false).kinds() & kinds_against(axis, -0.5), 0);
+        }
+        assert_eq!(body(Vec2::ZERO, false).kinds(), 0);
+        assert_eq!(body(Vec2::ZERO, true).kinds(), KIND_YIELDS);
+
+        let mut layer = Layer::default();
+        layer.reset(4, 4);
+        layer.insert(0, v(100.0, 100.0), Vec2::splat(12.0), 0);
+        let mut seen = Vec::new();
+        assert!(!layer.near_any(v(64.0, 64.0), v(70.0, 70.0), KIND_YIELDS, |i| seen.push(i)));
+        layer.mark(v(100.0, 100.0), Vec2::splat(12.0), KIND_YIELDS);
+        assert!(layer.near_any(v(64.0, 64.0), v(70.0, 70.0), KIND_YIELDS, |i| seen.push(i)));
+        assert_eq!(seen, [0]);
+        assert!(!layer.near_any(v(64.0, 64.0), v(70.0, 70.0), 0xff, |i| seen.push(i)));
+        assert!(!layer.near_any(v(130.0, 64.0), v(140.0, 70.0), KIND_YIELDS, |i| seen.push(i)));
+        layer.reset(4, 4);
+        assert!(!layer.near_any(v(0.0, 0.0), v(255.0, 255.0), KIND_YIELDS, |i| seen.push(i)));
+        assert_eq!(seen, [0]);
+    }
+
     #[test]
     fn a_layer_lists_a_body_in_every_cell_it_reaches() {
         let mut layer = Layer::default();
         layer.reset(4, 4);
         let half = Vec2::splat(12.0);
-        layer.insert(7, v(64.0, 100.0), half); // straddles tiles (0, 1) and (1, 1)
+        layer.insert(7, v(64.0, 100.0), half, 0); // straddles tiles (0, 1) and (1, 1)
         let mut seen = Vec::new();
         layer.near(v(0.0, 64.0), v(10.0, 70.0), |i| seen.push(i));
         assert_eq!(seen, [7]);
@@ -267,7 +455,7 @@ mod tests {
         layer.near(v(130.0, 64.0), v(140.0, 70.0), |i| seen.push(i));
         assert!(seen.is_empty());
         layer.remove(7, v(64.0, 100.0), half);
-        layer.insert(7, v(200.0, 200.0), half);
+        layer.insert(7, v(200.0, 200.0), half, 0);
         layer.near(v(0.0, 0.0), v(100.0, 127.0), |i| seen.push(i));
         assert!(seen.is_empty());
         layer.reset(4, 4);

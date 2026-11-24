@@ -34,6 +34,8 @@ When the player drags a selection box, the objects captured are filtered by a 5-
 4. Enemy buildings — single-select: the enemy building closest to the box center
 5. Neutral objects — single-select: the neutral object closest to the box center
 
+**Allied objects** (once teams exist) are other players' objects and are never multi-selected (user, 2026-11-23). For the priority tiers they are treated like enemy objects (placeholder until teams are designed).
+
 Only tier 1 (own units) produces a multi-selection. All other tiers select exactly one object — the one closest to the center of the box.
 
 ### Shift + box (add)
@@ -64,6 +66,8 @@ A set of 10 saved selections (indexed 0-9) stored per player as part of ControlS
 
 ### Groups - array of 10 ObjectInstance reference arrays
 
+**Own objects only** (user, 2026-11-23): only the player's own objects can be put into a control group. Assign or Add with a non-owned object selected does nothing.
+
 ### Operations:
 - Assign: replace a control group's contents with the current Selection
 - Add: merge the current Selection into an existing control group (no duplicates)
@@ -80,7 +84,7 @@ A set of 10 saved selections (indexed 0-9) stored per player as part of ControlS
 All default inputs in the controls docs (map clicks, control-group keys, command panel hotkeys, camera panning, command queueing) are **defaults**. Players will be able to **rebind** them; when rebinding is added is up to implementation scheduling (user, 2026-11-23).
 
 ## ObjectInterfaceState[ObjectEnum]
-The current state of the command flow for the active selection group. Parameterized by ObjectEnum — each object type defines its own concrete set of interface states and transitions. Reset to the default state when the Selection or ActiveGroup changes. The available InterfaceTransitions from any given ObjectInterfaceState depend on the game state of the instances in the active SelectionGroup. Each tick, the ObjectInterfaceState is validated against the active SelectionGroup's game state — if the current state is no longer valid (e.g., a structure's construction completed, changing what commands are available), it resets to the default state. For Ungroupable objects, the SelectionGroup always contains exactly one instance, so the ObjectInterfaceState can reliably read that instance's specific game state.
+The current state of the command flow for the active selection group. Parameterized by ObjectEnum — each object type defines its own concrete set of interface states and transitions. Reset to the default state when the player changes the Selection or ActiveGroup (automatic removals such as deaths don't reset it unless the ActiveGroup becomes empty; see AwaitingTarget > Selection changes while targeting). The available InterfaceTransitions from any given ObjectInterfaceState depend on the game state of the instances in the active SelectionGroup. Each tick, the ObjectInterfaceState is validated against the active SelectionGroup's game state — if the current state is no longer valid (e.g., a structure's construction completed, changing what commands are available), it resets to the default state. For Ungroupable objects, the SelectionGroup always contains exactly one instance, so the ObjectInterfaceState can reliably read that instance's specific game state.
 
 ## InterfaceTransition
 A transition from one ControlState to another, triggered by player input. Each InterfaceTransition either only modifies the ControlState or also issues a Command to the selected objects.
@@ -177,10 +181,22 @@ For all unit-producing structures, right-click from DefaultState sets the rally 
 The default ObjectInterfaceState for a selection. The command panel displays available commands. Right-click performs a context-sensitive command based on what is under the cursor. Command hotkeys or button clicks initiate transitions to AwaitingTarget or issue immediate commands.
 
 ## RightClickResolution
-Context-sensitive command issued by right-clicking from DefaultState. The command is determined by what is under the cursor and what the selected objects can do. Resolution is evaluated against the ActiveGroup's capabilities.
+Context-sensitive command issued by right-clicking from DefaultState. The command is determined by what is under the cursor and what the selected objects can do. **Each selected unit resolves the right-click for itself**, against its own capabilities, not the ActiveGroup's (user, 2026-11-23). The result doesn't depend on which group is active.
+
+**Units that can't carry out the resolved command** (user, 2026-11-23): every selected unit acts on a right-click. Units that have the resolved command carry it out. Units that can't, e.g. an unarmed Supply Chopper, or ground-only Peacekeepers when the target is an aircraft, **move to or follow the target instead**: Move to the location, or Follow a unit (systems/controls/behaviors.md > MovingToObject). The group stays together.
 
 ## AwaitingTarget[CommandType]
 An ObjectInterfaceState entered after the player selects a command that requires a target. The command panel indicates which command is pending. Left-clicking a valid target issues the command via a CommandIssuingTransition and returns to DefaultState. The target may resolve to a different command than the one that initiated the state, depending on what is under the cursor. Escape or right-click cancels via a StateOnlyTransition back to DefaultState.
+
+**Other commands while targeting** (user, 2026-11-23): while a target is awaited, the command panel shows the pending command and Back/Cancel (Z). The other commands are **unavailable**: pressing their hotkeys or buttons does nothing. To change commands, the player cancels first (Escape, right-click or Z), then picks the new command.
+
+**Dragging while targeting** (user, 2026-11-23): a left-button drag while a target is awaited does **nothing**: no selection box is drawn, nothing is selected, and targeting stays active. A targeting click counts at the **press point** (where the button went down), even if the mouse moves before release (user, 2026-11-23). The command matches what was under the cursor when the player committed (e.g. pressing on an enemy and releasing on the ground still issues Attack on that enemy).
+
+**Selection changes while targeting** (user, 2026-11-23):
+- **Player-initiated** selection or ActiveGroup changes (control group recall, Tab / Shift-Tab, portrait clicks) **cancel** targeting, per ObjectInterfaceState's reset rule.
+- **Automatic removals** (a selected unit dies, or leaves the selection by entering a building, transport or tunnel) do **not** cancel targeting. Targeting is only cancelled if the **whole ActiveGroup** is gone, since nothing would be left to carry out the command.
+
+**Invalid target clicks** (user, 2026-11-23): a left-click on a target the pending command can't use (shown by the Inactive pointer) is **ignored**. Targeting stays active and waits for a valid target, and the player gets short **feedback** (an "invalid target" message and/or sound; exact form TBD, ties into the future notification system).
 
 ### PendingCommand - CommandType
 ### Resolution - (CursorTarget) -> Command
@@ -193,7 +209,7 @@ What is under the player's cursor at the time of a click. Used by AwaitingTarget
 ### Object - ObjectInstance | None
 
 ## PointerDisplayType
-The visual appearance of the player's cursor, communicating what action will occur on click. Determined each tick by the current ControlState, the ActiveGroup's capabilities, and the CursorTarget. Only one PointerDisplayType is active at a time.
+The visual appearance of the player's cursor, communicating what action will occur on click. Determined each tick by the current ControlState, the selected units' capabilities, and the CursorTarget. Only one PointerDisplayType is active at a time.
 
 ### Types:
 
@@ -207,13 +223,17 @@ The visual appearance of the player's cursor, communicating what action will occ
 | GatherResources | — | Unit will gather from this resource. |
 | ReturnResources | — | Unit will return carried resources to this drop-off point. |
 | Enter | — | Unit will enter this object (e.g., Syndicate unit entering a Tunnel, Cults infantry entering an Altar). |
+| Mixed | Generic hybrid | Selected units will do different things on right-click (e.g. some attack, some follow). Visual TBD. |
+
+### Mixed Right-Click Preview
+When a right-click would make different selected units do different things (e.g. Peacekeepers would attack and a Supply Chopper would follow), the pointer shows a **generic hybrid cursor** that signals mixed actions (user, 2026-11-23). When all selected units would do the same thing, the normal cursor for that action is shown. Visual design of the hybrid cursor: TBD (art).
 
 ### Resolution Rules
 
 PointerDisplayType is resolved based on the current ObjectInterfaceState:
 
 #### DefaultState (right-click preview):
-The pointer previews the action that right-click would perform, based on the ActiveGroup's RightClickResolution:
+The pointer previews the action that right-click would perform, resolved per unit (RightClickResolution). If all selected units would do the same thing, that action's pointer is shown, per the list below. If they would do different things, the **Mixed** pointer is shown (Mixed Right-Click Preview):
 
 - Nothing selected: **Inactive**
 - Cursor over enemy object (and selection can attack): **Attack**
@@ -231,7 +251,8 @@ The pointer reflects the pending command and whether the current CursorTarget is
 
 - AwaitingTarget[Attack] over enemy object: **Attack**
 - AwaitingTarget[Attack] over ground: **Attack** (will issue AttackMove)
-- AwaitingTarget[Attack] over friendly/neutral object: **Inactive**
+- AwaitingTarget[Attack] over own or neutral **destructible** object: **Attack** (force-attack, systems/controls/commands.md > Attack)
+- AwaitingTarget[Attack] over an indestructible object (e.g. crystal patch): **Inactive**
 - AwaitingTarget[Move] over ground or any object: **Move**
 - AwaitingTarget[Patrol] over ground: **Patrol**
 - AwaitingTarget[Patrol] over non-ground: **Inactive**
@@ -281,6 +302,7 @@ Target commands (StateOnlyTransition to AwaitingTarget):
 
 ### AwaitingTarget[Attack] resolution:
 - Left-click EnemyObject: issues Attack command targeting that object
+- Left-click own or neutral destructible object: issues Attack command targeting that object (force-attack, systems/controls/commands.md > Attack)
 - Left-click Ground: issues AttackMove command to that location
 
 ### AwaitingTarget[Move] resolution:

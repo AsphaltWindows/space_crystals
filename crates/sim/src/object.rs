@@ -12,6 +12,7 @@ use crate::defs::{Footprint, ObjectDef, ObjectKind};
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::Mover;
 use crate::orders::Orders;
+use crate::riot_shield::RiotShield;
 use crate::units::{SU_PER_GU, TilePos};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -38,6 +39,9 @@ pub struct Object {
     pub mover: Option<Mover>,
     /// Units that can attack: the attack sequence (`systems/combat.md`; `combat`).
     pub attack: Option<AttackState>,
+    /// Units that carry a Riot Shield: its mode (`factions/gdo/units.md > Peacekeeper > Riot Shield`;
+    /// `riot_shield`).
+    pub riot_shield: Option<RiotShield>,
 }
 
 impl Object {

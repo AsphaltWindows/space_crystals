@@ -24,8 +24,23 @@ pub enum Command {
         kind: OrderKind,
         queue: bool,
     },
+    /// The player's `units` use `ability` at once (`factions/gdo/units.md > Peacekeeper > Riot Shield (toggled
+    /// ability)`). An ability is not an order: it doesn't enter or replace a unit's command queue, Shift means nothing
+    /// to it, and the unit goes on with its orders meanwhile (design change 0023: a mode isn't a task). Ids that no
+    /// longer exist, repeated ids and units without the ability are dropped; the command is rejected if no unit
+    /// remains or one belongs to someone else.
+    Ability { units: Vec<ObjectId>, ability: Ability },
     /// Development / QA only — never offered to players in a real match.
     Debug(DebugCommand),
+}
+
+/// An ability a unit uses at once ([`Command::Ability`]).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Ability {
+    /// `factions/gdo/units.md > Peacekeeper > Riot Shield`: raise the shield (`raise`) or lower it
+    /// (`crate::riot_shield`). The command says which, rather than "toggle", so that it means the same to every unit
+    /// of a group and when it arrives twice; the client works it out from the shields it toggles.
+    RiotShield { raise: bool },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

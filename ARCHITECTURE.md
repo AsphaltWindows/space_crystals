@@ -148,9 +148,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   `orders` (`Orders`, `orders.rs`: the current order with its behaviour's state, a queue of at most
   `MAX_QUEUED_ORDERS`, and what the unit does on its own while it has none; see *Behaviours*), `mover`
   (`Mover`, `mover.rs`: goal, status, path, the replanning state of `docs/movement.md > 3` and the sidestep of a
-  yielding unit) and, for units that
-  can attack, `attack` (`AttackState`, `combat.rs`: see *Combat*). Production and the rest arrive as more optional
-  fields, each with its own module. Never add them as separate stores keyed by
+  yielding unit), for units that
+  can attack, `attack` (`AttackState`, `combat.rs`: see *Combat*) and, for units that carry a Riot Shield,
+  `riot_shield` (`RiotShield`, `riot_shield.rs`: the shield's mode, see *Combat*). Production and the rest arrive as
+  more optional fields, each with its own module. Never add them as separate stores keyed by
   id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
@@ -173,7 +174,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 2. Add `pub <name>: Option<State>` to `Object`, with a doc comment citing the design.
 3. Put its per-type parameters on `ObjectDef`, with citations, and initialize the state in `Sim::insert_object`.
 4. Insert its update phase into `Sim::step` at a deliberate position (see *Tick pipeline*).
-5. Add the `Command`s that drive it, with validation, and the `SimEvent`s the client needs.
+5. Add the `Command`s that drive it, with validation, and the `SimEvent`s the client needs. A unit's mode (a
+   toggled ability such as the Riot Shield) is not an order: it goes through `Command::Ability` (an `Ability`
+   variant, see *Commands, events and replays*), never into the order queue.
 6. Write unit tests in the module and a scenario test in `crates/sim/tests/`.
 
 ## Tick pipeline
@@ -185,6 +188,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 3. **Snapshot** `pos`/`facing` into `prev_pos`/`prev_facing` for every object (the client interpolates from these).
 4. **Commands**: apply each `PlayerCommand` in `TickInputs` order (`apply_command`).
 5. **Systems**, each walking the objects in id order, one function per module (`docs/movement.md > 4`):
+   - Modes, `riot_shield::step`: a Riot Shield on its way up or down goes on one tick. After the commands, so that
+     a toggle counts from its own tick; before 5a, so that the behaviours, the movement and the combat of the tick
+     all see the mode it leaves.
    - 5a `orders::update`: a unit's finished order completes and its next one starts, until one is in progress, so
      legs follow each other without an idle tick; then that order's behaviour runs for the tick, or the idle one
      (see *Behaviours*). They write goals (`Mover::go_to`, `stop`) and the target the attack engages. Everything
@@ -266,7 +272,18 @@ ticks spent in it. Hashed and serialized like all state.
   debug removals alike. It emits `Removed` and clears every reference to the removed: a current order naming one
   completes, queued ones are dropped, a move towards one ends `TargetLost`, an attack on one stops (an aim is
   cancelled, a shot being fired hits nothing). `testing::dangling_references` checks that none are left.
-- **Not yet**: turrets, projectiles, AttackGround and the other location-targeted attacks, AoE, Riot Shield.
+- **Riot Shield** (`riot_shield.rs`; `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`): a
+  unit whose `UnitDef::riot_shield` is set starts with its shield `Lowered`; `Command::Ability` raises or lowers it,
+  through `Raising { left }` or `Lowering { left }` for the toggle time (`RiotShieldDef::toggle_ticks`, 6 ticks, a
+  placeholder: the design says under half a second), so a toggle in tick `t` is done at the end of tick
+  `t + toggle_ticks − 1`, and a reversal turns back from where the shield is. While it isn't `Lowered` the unit
+  moves at half speed (`Mover::speed_factor`, written when the mode changes) and can't attack: the gate drops it
+  from Attack orders (`Reject::CannotAttack` when none is left), its behaviours see no attack (`Unit::attrs`: no
+  auto-targeting, an Attack order gives up, Hold disengages), and 5e cancels an aim (`can_attack_now` is false); a
+  shot already being fired lands. Only while it is `Raised` is the damage it takes halved, a pre-armor multiplier
+  (`damage::pre_armor_multiplier`, with the Rugged bonus). A mode is not a task: the unit keeps its orders and
+  yields like any other (design change 0023). The placeholders are listed in the module docs.
+- **Not yet**: turrets, projectiles, AttackGround and the other location-targeted attacks, AoE.
 
 ## Vision
 
@@ -385,7 +402,12 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 - **`los`, `box_clear`, `smooth`**: line of sight and waypoints for a unit's box (half extents). Touching is free.
 - **`serve(nav, search, requests, PATH_BUDGET)`** serves a tick's `PathRequest`s in `(since, id)` order within the
   expansion budget, with one shared field per order group of `GROUP_FIELD_MIN` or more, anchored on the click's tile.
-  A member whose goal the anchor can't see plans alone: through the anchor it would take a detour. A `Path` is unit
+  A member whose goal the anchor can't see plans alone: through the anchor it would take a detour. The field is
+  built only as far as the members stand (`Search::field_to`: towards their tiles' bounding rectangle, until each
+  is expanded), and the members share the smoothing of the chains they share (`smooth_shared`, same waypoints as
+  `smooth`). The budget's rule is unchanged: a job starts while budget remains and always finishes.
+- **`NavGrid::open_around(p)`**: the tile of `p` and its eight neighbours are free of solid tiles. The movement
+  step asks it before `box_clear` and `los`, which hold there for a small box and a short move. A `Path` is unit
   state (serde, `PartialEq`, `StateHash`); `NavCounters` are output only.
 - **Open questions** (Q0011) are the switches `RESOURCES_BLOCK`, `RUGGED_IMPASSABLE` and `ROUTE_ON_TRUE_MAP`.
 - **In the sim** (`paths.rs`): `NavState` holds the `Nav` of every unit type's `(class, size class)` and the
@@ -413,7 +435,8 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 ## Movement and collision
 
 The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice D changed it, **(M)** where the
-magic box did, **(Y)** where friendly yielding and the answers to Q0008 did, **(Q)** where queued group orders did),
+magic box did, **(Y)** where friendly yielding and the answers to Q0008 did, **(Q)** where queued group orders did, **(G)** where
+the hardening of crowds and nav performance did),
 and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
 
 - **One pipeline, sequential commit** (`movement::step`, phase 5d): the step builds one spatial grid per collision
@@ -424,8 +447,19 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   as invariants I1 and I2 (touching is free). Contact positions are assigned from the blocker's edge
   (`space::resting`), never accumulated. Never write `pos` anywhere else, and never loosen the predicate with an
   epsilon.
+- **Lane seeking** (`World::lane`, `World::lane_step`; `docs/movement.md > 6.3`): before anything else, a unit
+  looks 4 of its lengths ahead for the units it has to pass: oncoming ones (by `Body::heading`, where they are
+  going) and idle units that yield to it. Each bars a range of sideways shifts, its lane. The unit steps, forward
+  and sideways at once, towards the nearest clear lane within 3 of its widths, or, in front of a dense group,
+  towards the middle of the widest gap; two dense groups mesh like combs and spread from the outside in. One idle
+  unit alone is no lane. The constants are the `LANE_*` in `collide.rs`. It is deterministic by sorted lanes and
+  fixed cell order, and keeps no state but `Mover::avoid_side`. Never let it write a position except through
+  `World::clear`.
+- **The grid's cells carry marks** (`Body::kinds`, `Layer::near_any`): which heading sectors and whether a yielding
+  unit were listed in a cell this tick. They only ever say "maybe", and exist so that a unit with nobody to pass
+  doesn't look at bodies. Keep them conservative: mark on every insert and whenever a body's kinds change.
 - **One unit's tick** (`step_unit`, `collide.rs`): turn towards the steering waypoint (at most TurnRate), then move
-  one step: free; **slide** along tiles (per axis); **follow** a unit moving the same way; **go around** a standing
+  one step: a lane step (above), else free; **slide** along tiles (per axis); **follow** a unit moving the same way; **go around** a standing
   or oncoming one (a glance along its face, a 45° step, a step along the face; to the side the unit leans to, which
   it keeps, else to its Right first, so head-on units pass like traffic; a crossing unit is passed behind); else
   close up or stay. Within one step of the
@@ -437,7 +471,10 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   move. `yielding::can_yield` is the one place that says who yields (an owner, no order at all, no goal, not in an
   attack sequence, `Mover::can_move`: the hook for units that can't move in their mode), and `yields_to` to whom
   (its owner's units, but not the group order it arrived with). A blocked sidestep passes the request on, at most
-  `YIELD_CHAIN_DEPTH` deep. Moving units never yield or swap.
+  `YIELD_CHAIN_DEPTH` deep. Moving units never yield or swap. A lone unit squarely in the way steps at 45° to the
+  mover's way; a unit that is only clipped, or stands in the way of a mover walking between the units of a group,
+  steps straight across it, and such a mover asks the units on both sides of its gap two steps before it reaches
+  them (`yielding::ask_ahead`): the group parts and isn't shoved along.
 - **Collision exceptions** go in `space::blocks(mover, other)` and nowhere else (crushing will).
 - **Held by its attack**: a unit whose attack sequence holds its base (`combat::may_move` or `may_turn` false: see
   *Combat*) stands for the tick and keeps its goal, path and stuck clock (`wait`), like a unit waiting for its path.
@@ -461,7 +498,7 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   (`stuck::queues_behind`): no repath, no failure.
 - **Hooks for later slices**: other movement models replace the "direction → facing and velocity" part of
   `step_unit`.
-- **Counters**: `Sim::move_counters()` (sweeps and box tests of the latest tick) and `Sim::nav_counters()` are
+- **Counters**: `Sim::move_counters()` (sweeps, box tests and lane tests of the latest tick) and `Sim::nav_counters()` are
   output, not state. Tests assert them; `cargo test -p sc_sim --release --test movement_perf -- --ignored
   --nocapture` prints timings.
 - **Invariants** (`docs/movement.md > 8`, `sc_sim::testing::invariants`): I1 no two units of a layer overlap; I2 no
@@ -501,6 +538,11 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   appended (a full queue drops it). Each order command is one group (`Sim::next_group`); a location order gives
   each unit of a group its own destination (the magic box, see *Navigation*). What each order does is in
   *Behaviours*.
+- **`Command::Ability { units, ability }`**: the units use an ability at once, beside their orders: no queue, no
+  Shift, no group, and their orders go on. `Ability::RiotShield { raise }` says which way rather than "toggle", so a
+  group and a replay mean the same whatever each unit's mode. The gate tolerates stale selections as for orders
+  (`TooManyUnits`, repeats, gone ids, `NotOwned`, `NoUnits`) and drops the units without the ability
+  (`Reject::LacksAbility` when none is left).
 - **Targets must be seen** (question Q0017 point 2, its default; `core/vision.md > Explored Selectability`): an
   Attack or a Move on an object is taken only while the issuing player sees it (a tile it covers is Visible), else
   `Reject::NotVisible`. The exception is the design's: a GDO player may target a Supply Delivery Station on Explored
@@ -613,6 +655,8 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   `behaviours_patrol.rs`, `behaviours_gate.rs` (targets must be seen; a GDO player's remembered station, by its
   record), `behaviours_soak.rs` (120 units fighting
   under random orders of every kind; no dangling ids, no path-request storms) and the ignored `behaviours_perf.rs`.
+  `riot_shield.rs` has the Riot Shield's: toggle timing, each raised-shield effect, the gate, a save in the middle
+  of a toggle and its replay.
   Measured (release, 500 units on 256 × 256): 0.12 ms a tick with everyone idle, 0.14 ms on Hold in sight of the
   enemy, 0.5 ms on average in a battle of 250 against 250; the worst ticks, 4.4 ms, are those in which a group's
   path field is built (four or more of its units resuming their AttackMove in one tick).
@@ -678,7 +722,10 @@ out by the same rules.
   Guard square) of the silhouette's size, in the owner's colour (`player_color`, the editor's slot colours), with a
   dark rim and a light tick along the facing; the visual turns with the interpolated facing. The Guard's square
   doesn't: it stays axis-aligned like its collision box, and only its tick turns (a `FacingTick` child,
-  `body_turns`). One mesh per `(kind, owner)` is shared, and one tick mesh per kind.
+  `body_turns`). One mesh per `(kind, owner)` is shared, and one tick mesh per kind. A unit that carries a Riot
+  Shield has a `RiotShieldVisual` child: a pale arc in front of it, hidden while the shield is down, growing to its
+  full size as it goes up. It is `Visibility::Hidden` or `Inherited`, never `Visible`, so the fog that hides its unit
+  hides it too.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
@@ -776,8 +823,9 @@ elsewhere.
   cursor now, which keeps following it over UI nodes on the world view, as the editor's drags do). `MapClick`
   messages report clicks on the map: `Select` when released, unless it became a drag, and `ContextCommand` and the
   editor's `Eyedropper` when pressed, with the modifiers and a double-click flag. A `Select` drag ends as a
-  `SelectionBox` message in view space, kept inside the world view. Nothing starts over the UI. What the modifiers of
-  a click mean comes from the table (`Bindings::holds(InputAction::Queue, click.modifiers)`).
+  `SelectionBox` message in view space, kept inside the world view, with the modifiers held at its release. Nothing
+  starts over the UI. What the modifiers of a click or a box mean comes from the table
+  (`Bindings::holds(InputAction::Queue, click.modifiers)`).
 - **Text fields**: while a text field has the keyboard (`TextFocus`), and in the frame after it lost it, keys type
   text and fire no binding, from the real keyboard or the injected one. So the Esc that gives a field up doesn't also
   cancel. A field's own keys (Enter commits, Esc reverts) are Bevy's keyboard input, read by the field
@@ -795,10 +843,13 @@ elsewhere.
 **Selection** (`selection.rs`, `selection/`; `systems/controls/selection_and_hud.md`): client UI state, never sim
 state. `ControlStates` holds every player's `ControlState`, a `Selection`, 10 control groups and the
 ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the local player's (`LocalPlayer`).
-- **Model** (`selection/model.rs`): a selection is a set of object ids with their kinds. Its groups are derived, one
-  per type, in `ObjectKind` order (an ungroupable object, a patch or a station, is a group alone), each by id; the
-  ActiveGroup is a group key, which Tab and Shift + Tab cycle with wrap-around and which falls back to the first group
-  when its group empties. At most `MAX_SELECTED` objects (a placeholder: the order limit).
+- **Model** (`selection/model.rs`): a selection is a set of object ids with their kinds. Its SelectionGroups are
+  derived: one per type, each by id, and one per instance of an ungroupable type (only resources so far, which are
+  never selected with other objects, design change 0048). They come in one stable order, by `ObjectKind` and then by
+  instance (`Selection::groups`), which is the order of the SelectionPanel's portraits and of Tab and Shift + Tab (the
+  placeholder of 0055). The ActiveGroup is one SelectionGroup, named by its `GroupKey` (0048): Tab and Shift + Tab
+  cycle it with wrap-around, adding objects keeps it, and it falls back to the first group when its group empties. At
+  most `MAX_SELECTED` objects (a placeholder: the order limit).
 - **Picking** (`selection/pick.rs`): `Selectables` is what the local player may select this frame (`selectable_by`:
   its own objects, others on Visible tiles; on Explored ones only a remembered Supply Delivery Station, at its
   record, and only for a GDO player, `remembered_selectable_by`, `core/vision.md > Explored Selectability`; with
@@ -807,9 +858,16 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   (grown by `PICK_SLOP_SU`); a box (the input layer's `SelectionBox`) applies the priority tiers. `Relation::of`
   says own, enemy or neutral (no teams yet, so no allies); allies would count with enemies in the tiers.
 - **Rules** (`selection/rules.rs`, pure and unit tested): map clicks, boxes, portrait clicks, control group keys and
-  Tab on a `ControlState`, under the Constraints (another player's object or a resource is only ever selected alone).
-  What a click's modifiers mean comes from the bindings (`ClickRoles`). Every rule the design leaves open is marked
-  as a placeholder where it is made.
+  Tab on a `ControlState`, under the Constraints: another player's object or a resource is only ever selected alone,
+  and any click on one selects it alone (design change 0048). On an own unit a click selects it, Shift toggles it,
+  Ctrl or a double-click selects its type on screen, and Ctrl + Shift adds that type (0052). A box selects what its
+  tiers give, and Shift + box adds that (0049). The add inputs all go through `ControlState::add_to_selection`: they
+  remove nothing and add nothing the Constraints forbid, so they do nothing while another player's or a neutral
+  object is selected (0053). A plain click on empty ground or an empty box clears the selection; a modified click
+  there or an empty Shift + box changes nothing (0051). Control groups take only own objects: Assign and Add with
+  another player's or a neutral object selected change nothing (0056). What the modifiers of a click or a box mean
+  comes from the bindings (`ClickRoles`; Shift is `ToggleSelection`, the add inputs' modifier). Every rule the design
+  leaves open is marked as a placeholder where it is made.
 - **Systems** (`SelectionSystems`): `Sync` (in `SyncSim`) removes objects that left the sim from every selection
   and group in the frame of their tick (`SimEvent::Removed`, deaths included, and anything else gone; a station
   the player still selects by its record stays), and those their player may no longer select (an enemy that walked
@@ -833,17 +891,24 @@ to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how th
   (DefaultState, or AwaitingTarget of a command) in each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the
   Peacekeeper's and the Guard's BasicCombatUnit grid), the `Panel` a selection gets (common, group, pending, disabled
   and unavailable buttons; Back in Z while a target is awaited) and who receives a command (a common one the whole
-  selection, a group one the ActiveGroup). `command_ui/resolution.rs` has what a click resolves to (`CursorTarget`,
-  `right_click`, `target_order`) and the `PointerDisplay` that previews it. Nothing is commandable unless the whole
-  selection is the player's (`commandable`).
+  selection, a group one the ActiveGroup). A type's grid is its template's plus its own commands (`grid`: the
+  Riot Shield in R for a unit that carries one, a placeholder slot). `Modes` holds the selected units' modes as the
+  sim has them: the Riot Shield button is on, and lowers the shields, while all its recipients' are up or going up,
+  else it raises them; Attack is disabled while none of its recipients can attack. `command_ui/resolution.rs` has
+  what a click resolves to (`CursorTarget`, `right_click`, `target_order`, and `order_without_attack`: a Move to the
+  clicked point for a unit that can't attack) and the `PointerDisplay` that previews it. Nothing is commandable
+  unless the whole selection is the player's (`commandable`).
 - **Systems** (`CommandUiSystems`): `Validate` (in `SyncSim`, after the selection's sync) ends an AwaitingTarget that
   no longer holds. `Input` (in `Actions`, after the selection's input) turns Esc, the command hotkeys
   (`InputAction::CommandSlot`), clicks on the panel (found by `CommandGrid`), left-clicks on the map while a target is
   awaited and right-clicks into state changes and orders. An order is a `Command::Order` in `PendingCommands` naming
   only the player's own units, given only if `Sim::validate` takes it, queued while `Queue` (Shift) is held; each one
-  is also an `OrderIssued` message.
+  is also an `OrderIssued` message. A click that resolves to an Attack gives it to the units that can attack and a
+  Move to the clicked point to those whose Riot Shield is up (`OrderOutbox::give_click`). An ability is a
+  `Command::Ability`, validated the same way, never queued, and no `OrderIssued`.
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
-  changes; each shows its command and its hotkey from the bindings. The indicators (`command_ui/indicators.rs`) are
+  changes; each shows its command (`PanelSlot::label`: a toggle says what pressing it does) and its hotkey from the
+  bindings, and a toggle that is on has a thick green border. The indicators (`command_ui/indicators.rs`) are
   one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
   (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow

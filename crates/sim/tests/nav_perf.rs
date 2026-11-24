@@ -228,7 +228,16 @@ fn perf_256() {
     assert_eq!(rows[rows.len() - 1].max_expansions, 0);
 
     // A 200-unit group order, and 200 lone requests against the budget.
+    //
+    // (G) The 200 units stand all over the map, so the bounding box of their silhouettes is the map and any click
+    // lies inside it: by the magic box they converge, every goal the click itself (`docs/movement.md > 6.4`), and
+    // one field serves them all. Slice C gave each unit a random tile within 30 tiles of the anchor, its slot
+    // of the lattice that design change 0021 replaced. Since slice M only members whose goal the anchor's tile
+    // sees share the field (`> 5.5`), and through 10 % obstacles it sees next to none of those tiles: the members
+    // planned alone, four of them used up the budget, and this assertion failed. That layout is measured below
+    // as what it is under the magic box: goals the anchor can't see, served alone within the budget.
     let anchor = far_pairs[0].1;
+    let scattered: Vec<Vec2> = (0..200).map(|_| grid.center(pick(&mut rng, Some(anchor)))).collect();
     let mut requests: Vec<PathRequest> = (0..200)
         .map(|i| PathRequest {
             id: ObjectId(i),
@@ -237,7 +246,7 @@ fn perf_256() {
             size: 1,
             half: HALF,
             start: grid.center(far_pairs[i as usize].0),
-            goal: grid.center(pick(&mut rng, Some(anchor))),
+            goal: grid.center(anchor),
             group: Some(PathGroup {
                 id: 1,
                 anchor: grid.center(anchor),
@@ -248,6 +257,14 @@ fn perf_256() {
     search.reset_counters();
     let (group, group_time) = timed(|| serve(&nav, &mut search, &requests, PATH_BUDGET));
     assert_eq!((group.served.len(), group.counters.fields), (200, 1));
+    assert!(group.counters.expansions <= grid.passable_count());
+    for (request, goal) in requests.iter_mut().zip(&scattered) {
+        request.goal = *goal;
+    }
+    let (unseen, unseen_time) = timed(|| serve(&nav, &mut search, &requests, PATH_BUDGET));
+    assert!(!unseen.served.is_empty() && unseen.counters.fields <= 1);
+    // A job starts within the budget and always finishes: at most the budget, a field and a search.
+    assert!(unseen.counters.expansions < PATH_BUDGET + 2 * grid.passable_count());
     for request in &mut requests {
         request.group = None;
     }
@@ -272,6 +289,14 @@ fn perf_256() {
     println!(
         "serve, 200-unit group: {group_time:.1?} ({} expansions, {} fields, {} searches)",
         group.counters.expansions, group.counters.fields, group.counters.searches
+    );
+    println!(
+        "serve, the same group with goals the anchor can't see, one tick of budget: {unseen_time:.1?} ({} served, {} \
+         expansions, {} fields, {} searches)",
+        unseen.served.len(),
+        unseen.counters.expansions,
+        unseen.counters.fields,
+        unseen.counters.searches
     );
     println!(
         "serve, 200 lone requests, one tick of budget: {lone_time:.1?} ({} served, {} expansions)",

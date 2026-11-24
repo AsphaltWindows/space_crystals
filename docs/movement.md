@@ -34,6 +34,12 @@
   answered by 0033 and waits for the vehicles milestone): slice E gave `MoveGoal::Object` its meaning (3, 5.6, 6.5)
   and built the behaviours that set goals (`ARCHITECTURE.md > Behaviours`). Its changes are marked **(E)**. The code
   is `crates/sim/src/orders/`, `shape.rs`, `paths.rs` (`chase_check`), `movement.rs` and `movement/stuck.rs`.
+- **Crowds and nav performance are hardened** (slice G1; no design rule changed): units seek lanes among the units
+  they have to pass (6.3), an idle group parts for a group that walks through it instead of being shoved along
+  (6.6), and a group's field is built only as far as the group stands (5.5). Its changes are marked **(G)**. The
+  code is `crates/sim/src/movement/collide.rs` (`World::lane`), `movement/yielding.rs` (`ask_ahead`),
+  `movement/space.rs` (the cells' marks), `nav/search.rs` (`Search::field_to`) and `nav/serve.rs`
+  (`smooth_shared`).
 
 Design references are `file.md > Section`, relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -212,7 +218,23 @@ remains and always finishes, so every request is served within bounded time. Uni
   unit's place in the group's shape, which can lie behind an obstacle from the click (on the near side of a wall
   the click is beyond, say), and the way through the anchor would be a detour. A converging group has every goal on
   the anchor's tile, and a group moved over open ground sees all of its goals, so both still cost one field.
-- The budget counts expansions, never time, so it is deterministic.
+- **(G) The field reaches only as far as the group stands** (`Search::field_to`). The search from the anchor heads
+  for the bounding rectangle of the members' tiles (the heuristic is the octile distance to it, which is
+  consistent, so an expanded tile has its final cost and parent) and stops when every member's tile is expanded.
+  The paths cost what the whole field's would. A group standing together pays for the tiles between itself and
+  the anchor, not for the map: the two 250-unit orders of the perf test cost 9 000 expansions each, where the whole
+  field was 62 000, and both now fit into one tick's budget. Units of an AttackMove group that resume together
+  after a fight no longer cost a field over the whole map (4.2 ms in a 250 v 250 battle; now 0.7 ms at worst).
+  Members scattered all over the map still cost the whole field, the bound of 5.8.
+- **(G) The members share their smoothing** (`nav::serve::smooth_shared`). The paths of a field are chains of one
+  tree, so from a tile on two members walk the same tiles, and the waypoint that follows a tile's centre depends
+  on that chain alone while the member's own goal is out of sight. It is found once per tile for the whole group.
+  The waypoints are exactly those of `smooth`.
+- The budget counts expansions, never time, so it is deterministic. **(G)** Its semantics are unchanged: a job
+  starts while budget remains and always finishes, and a field is one job.
+- **(G) Still open**: a member whose goal the anchor can't see plans alone, within the budget. A group ordered into
+  cluttered ground, where the anchor sees few of the goals, is therefore pathed over several ticks, not in the
+  tick of the order (the last case `nav_perf` prints: 4 of 200 served in the first tick on its bad-case map).
 
 **5.6 Repath policy.** Per order leg, `repaths_left = MAX_REPATHS` (3, design change 0024). **(Y)** Every counted
 repath waits `REPATH_WAITS` (8, 16, 32 ticks) since the unit became stuck or since the repath before
@@ -269,6 +291,19 @@ About 70–120 ns per expansion. Consequences: a 200-unit group order costs one 
 the whole sim tick takes 0.19 ms on average and 0.64 ms at worst with 450 or more units moving (2.7 sweeps and 5.9
 box tests per unit and tick); the tick of a 250-unit group order (one field, 62 000 expansions, 250 smoothed paths)
 takes 6 to 10 ms.
+**(G) Measured after slice G1** (the same test, and `behaviours_perf.rs`; before → after):
+
+| Case | Before | After |
+|---|---|---|
+| Group orders of the two armies of 250 | 7.1 ms and 6.1 ms, in two ticks (62 000 expansions each) | 5.9 ms, both in one tick (18 700 expansions) |
+| Whole tick, 450 or more of 500 units moving, the armies crossing | 0.365 ms mean, 0.70 ms worst | 0.40 ms mean, 0.79 ms worst |
+| 500 units attack-moving, up to the first shot | 0.35 ms mean, 0.41 ms worst | 0.33 ms mean, 0.38 ms worst |
+| 250 v 250 AttackMove battle | 0.48 ms mean, 4.2 ms worst (65 700 expansions) | 0.28 ms mean, 0.67 ms worst (940 expansions) |
+| The winners going on | 3.5 ms worst | 0.07 ms worst |
+
+Lane seeking (6.3) costs the crossing armies 10 % of their tick: each unit looks through the cells ahead of it for
+units coming its way. The cells' marks (6.1) keep that to one look at a few cells for a unit that has nobody to
+pass, and the grid's hot path no longer calls `floor`.
 
 ## 6. Collision and steering
 
@@ -276,6 +311,12 @@ takes 6 to 10 ms.
 Ground: hard, vs ground units and the NavGrid of its class. Underground: its own layer (G14). Air: no hard
 collision; soft separation is a velocity bias inside SeparationRadius (not M1). A filter
 `blocks(mover, other) -> bool` is the single place for exceptions (crushing later).
+**(G)** A cell also notes the **kinds** of unit listed in it since the grid was built: the 45° sector of each
+one's heading, and whether it yields (`Body::kinds`, `Layer::near_any`). A mark is never taken back within the
+tick, so it means "maybe": lane seeking (6.3) asks the marks first and looks at the bodies only where a unit
+coming its way, or an idle unit that would make way, may be. And `NavGrid::open_around` says whether a tile and
+its eight neighbours are free of solid tiles: there a unit's box and its step are clear of the tiles without a
+look at them.
 
 **6.2 Steering target.** The farthest path waypoint with LOS, advanced on the stagger tick; a waypoint is never
 required to be touched. This keeps a group's lateral spread through corridors instead of funnelling every unit
@@ -286,6 +327,39 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
 - **Arrival**: if the distance to the final goal is ≤ `step`, set `pos = goal` exactly and stop. The arrival
   radius is one tick of travel by construction, so overshoot is impossible. A finite-deceleration model starts
   braking at `v² / (2 · decel) + v`.
+- **(G) Lane seeking** (`World::lane`, `World::lane_step`), before the sweep. Two dense groups that met head-on
+  jammed: 14 of 36 Peacekeepers in blocks 40 su apart gave up, 18 with two owners. Both groups are moving, so
+  nobody yields (design change 0022), and the rules below only act on contact, one blocker at a time. Now a unit
+  looks ahead for the units it has to pass and steps towards a lane between them, as pedestrians do:
+  - **Whom it has to pass**: units within 4 of its own lengths ahead (`LANE_LOOK`; 96 su for a Peacekeeper) and
+    nearer than the end of its way, that are **oncoming** (heading against its own by more than 120°, by where
+    they are going, `Body::heading`, not by their latest step; moving or jammed), or **idle units that yield to
+    it** (6.6). The object it heads for doesn't count, nor do units beyond its goal: units converging on one
+    point aren't in each other's way.
+  - **Lanes**: each such unit bars a range of sideways shifts of the mover, those at which the two boxes would
+    meet, plus `LANE_MARGIN_SU` = 2 su of clearance. With the lanes that hang together around the unit:
+    a **clear lane** within 3 of its widths (`LANE_REACH`) is taken, the nearer side, and on a tie (4 su) its
+    `avoid_side`, so head-on units still pass on the Right. With **none within reach** (a dense group ahead) it
+    takes the middle of the widest gap between two neighbouring lanes, a nearer gap before a slightly wider one
+    (`LANE_NEAR`).
+  - **The step**: forward and sideways at once, at most 45° off its way; if that isn't free, sideways alone,
+    which counts as blocked like a step along a face. If neither is free, the rules below apply. The side taken
+    becomes its `avoid_side`.
+  - **Why dense groups get through**: the units of both groups aim at the gaps of the other, so the groups mesh
+    like combs. The gaps are too narrow at first (16 su for 24 su units), but the units on the outside find a
+    clear lane and move out, the gaps next to them widen, their neighbours centre themselves again, and the comb
+    spreads until every lane is clear. Collision stays hard throughout: every step is committed through
+    `World::is_free` like any other.
+  - **Deterministic**: the lanes are sorted by their bounds, then by body index (bodies are in id order); the
+    cells are visited in a fixed order; every decision compares `f32`s made with `+ − ×` only (the heading test
+    is in squares, without a root); nothing is kept between ticks except `avoid_side`, which was state already.
+  - **One idle unit alone** in the way is no lane: the unit walks on and asks it to step aside (6.6), as before.
+  - **Results** (`movement_yield.rs`, `movement_collision.rs`): 18 v 18 Peacekeepers 40 su apart: 0 of 36 fail
+    (14 before; 18 with two owners). Over 192 layouts of two blocks (Peacekeepers and Guards, three shapes, gaps
+    of 8 to 24 su, four offsets, one and two owners) 1.4 % of the units fail, 8 of 50 at worst, where 22 % did,
+    and 40 of 50 at worst. The soak's failed moves fall from 223 to 81 of about 1 080.
+  - **Known limits**: Guards in deep square blocks (5 × 5) still lose a few units. In a passage too narrow for
+    two lanes nothing changes: head-on movers fail there, by design.
 - Sweep the box along `d` and find the first blocker (earliest contact; tiles before units, then lowest id):
   1. **Nothing**: commit `d`.
   2. **Tile or structure**: slide. **(D)** Both axis components `(d.x, 0)` and `(0, d.y)`, the larger first, each
@@ -439,11 +513,27 @@ own turn of phase 5d.
   that finds no room stands, counts as stationary, and is an ordinary blocker to the mover (6.5). Chaining was
   chosen over "blocked means ordinary blocker" because a unit can't walk through a tight group of its own without
   it; the depth bounds the cost.
-- **Known limits.** A sidestep straight across the mover's way was tried first: a line of movers facing an idle
-  group as wide as itself then had nowhere to send it (each unit stepped into its neighbour's lane), and a third of
-  them gave up. With the 45° step such a line gets through, but it shoves the idle group ahead of itself, a few
-  widths at a time. An idle unit plugging a passage as narrow as itself has nowhere to step and stays an ordinary
-  blocker. Swapping of two moving units is not built (0022 rules it out).
+- **(G) Walking through a group.** A group walking through an idle group as wide as itself shoved it ahead, a few
+  widths at a time: its units ended 204 su from their places on average and up to 373 su. Three changes:
+  - The movers **aim between the idle units** (lane seeking, 6.3): a group of idle units that would yield is a
+    row of lanes like an oncoming group, and each mover takes the middle of a gap, or walks around the group if a
+    clear lane is within 4/3 of its width (`LANE_AROUND_IDLE`).
+  - A unit that is only **clipped** (the mover's line passes beside its box), or that stands in the way of a mover
+    walking in such a lane, steps **straight across** the mover's way, with no step along it, as far as its box
+    reaches into the mover's lane. The step along the way is what did the shoving. A unit alone and squarely in
+    the way still takes the 45° step.
+  - The mover asks the idle units it is about to be blocked by, **within two steps**, both sides of its gap at
+    once (`yielding::ask_ahead`), instead of one after the other as each stops it. It is still the blocked mover
+    that asks, a moment early; a request is applied like any other, the lowest id first.
+
+  Now the idle block parts: its units end 16 su from their places on average and at most 33 su, and all 18 movers
+  arrive (16 before). One unit walks through a 5 × 5 block 4 su apart as fast as before (189 ticks; 186 before) and
+  moves its units 16 su at most (68 before).
+- **Known limits.** A sidestep straight across the mover's way was tried first, by slice Y: a line of movers
+  facing an idle group as wide as itself then had nowhere to send it (each unit stepped into its neighbour's lane),
+  and a third of them gave up. **(G)** With the movers in the gaps it works: a unit needs only a little to its
+  side. An idle unit plugging a passage as narrow as itself has nowhere to step and stays an ordinary blocker.
+  Swapping of two moving units is not built (0022 rules it out).
 
 ## 7. Numbers: f32, not fixed point
 
@@ -495,12 +585,20 @@ own turn of phase 5d.
   north and back returns as the same line; a queued converge followed by a far queued click moves the blob as a
   blob; a mixed line queued north and back turns at different times and ends in its line; a unit removed on the way
   leaves the others' spots unchanged.
+  **(G)** Crowds (`movement_yield.rs`, `movement_collision.rs`): two blocks of 18 meet head-on and at most 2 of
+  36 give up, with one owner and with two; dense blocks of other shapes and of Guards pass with at most a fifth
+  failing; a group walks through its owner's idle block of the same width, which ends within 96 su of its
+  places (40 su on average) with everyone standing, and an enemy's block never moves. The bounds are loose on
+  purpose. `World::lane` has its own unit test. Nav: a group's field costs at most the component; shared smoothing
+  gives the waypoints of `smooth`; `open_around` implies `box_clear` and `los`; the cells' marks never miss a
+  heading that counts as oncoming.
 - **Oscillation**: distance travelled ≤ 1.5 × path length + c; reversals of velocity along the path ≤ a small bound.
 - **Determinism**: same run twice, per-tick hashes equal; replay round trip; **save at tick k, load, continue**:
   hashes equal (catches hidden unserialized state); **golden hashes** for three scenarios as committed constants.
 - **Soak**: seeded random orders, 200 units, random maps, 2 000 ticks: invariants hold, no panic. **(Y)** Every
   move ends within `GIVE_UP_TICKS` and the grace of its last progress, and of the moves that end at most 60 % fail
-  in a seed and 35 % overall (16 % with yielding, 32 % before).
+  in a seed and 35 % overall (16 % with yielding, 32 % before; **(G)** 7 % with lane seeking: 38, 9 and 34 failed
+  moves in the three seeds, where 105, 54 and 64 failed).
 - **Perf**: an `#[ignore]` test printing ms per tick for 500 units on 256×256, plus CI assertions on the counters.
 - **(E) Behaviours** (`crates/sim/tests/behaviours_*.rs`, the Verification lists of 0031–0034, 0036 and 0037): an
   attacker stops when the gap between the edges is its Range; a chase around a corner until the target is

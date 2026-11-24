@@ -12,6 +12,7 @@ use crate::elevation::{self, Elevation};
 use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::object::Object;
+use crate::riot_shield;
 use crate::shape::Shape;
 use crate::units::gu;
 use crate::vision::Vision;
@@ -86,7 +87,8 @@ pub fn reaches_point(attrs: &AttackAttrs, attacker: &Shape, source: Elevation, p
     within_range(attrs, attacker.distance_to(point), source, ground)
 }
 
-/// Whether `attacker` could attack `target` where both stand now: it has an attack, `target` is destructible and
+/// Whether `attacker` could attack `target` where both stand now: it has an attack and may use it (its Riot Shield
+/// isn't up, `riot_shield::allows_attack`), `target` is destructible and
 /// not `attacker` itself, the attacker's owner sees it in `vision` (`systems/combat.md > ValidTarget` 2; a unit
 /// without an owner sees nothing), the attack's TargetDomain allows it, and it is within Range and beyond MinRange.
 /// Facing is not required: Aiming turns the unit (`systems/combat.md > Aiming`). The behaviours ask the same of
@@ -96,7 +98,8 @@ pub fn can_attack_now(map: &Map, vision: &Vision, attacker: &Object, target: &Ob
     let Some(attrs) = attacker.def().unit.as_ref().and_then(|unit| unit.attack.as_ref()) else {
         return false;
     };
-    target.id != attacker.id
+    riot_shield::allows_attack(attacker)
+        && target.id != attacker.id
         && target.hp.is_some()
         && attacker.owner.is_some_and(|owner| vision.sees(owner, target))
         && domain_allows(attrs.target_domain, object_domain(target))

@@ -14,8 +14,8 @@ use sc_sim::mover::{GIVE_UP_TICKS, MAX_REPATHS, OCCUPIED_ARRIVAL_GU, REPATH_WAIT
 use sc_sim::testing::invariants::Invariants;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
-    Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Sim, SimEvent, Target,
-    TickInputs, Vec2, gu,
+    Ability, Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, RiotShield,
+    Sim, SimEvent, Target, TickInputs, Vec2, gu,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -271,20 +271,35 @@ fn a_unit_attacking_from_where_it_stands_doesnt_budge() {
     assert_eq!((t.pos(3), t.status(3)), (v(520.0, 300.0), MoveStatus::Arrived));
 }
 
-/// A game saved in tick 1 with unit 2's `Mover::speed_factor` set to `factor`: the unit's mode, which nothing in the
-/// sim sets yet. Unit 1 (player 1) is ordered east through unit 2 (an idle Peacekeeper of player 1, exactly in its
-/// way) in tick 2. Returns unit 2's positions after each tick up to tick 120; the invariants are checked on the
-/// way.
-fn idle_unit_in_a_mode(factor: f32) -> Vec<Vec2> {
+/// The mode of the idle unit of [`idle_unit_in_a_mode`].
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Mode {
+    /// None: it moves at its full speed.
+    Normal,
+    /// Its Riot Shield raised in tick 1 (`factions/gdo/units.md > Peacekeeper > Riot Shield`): half speed.
+    Shielded,
+    /// A mode it can't move in, stood in for by a save edited in tick 1 to a `Mover::speed_factor` of 0.
+    Fixed,
+}
+
+/// Unit 1 (player 1) is ordered east through unit 2 (an idle Peacekeeper of player 1, exactly in its way, in `mode`)
+/// in tick 2, the game having been saved and loaded in tick 1. Returns unit 2's positions after each tick up to tick
+/// 120; the invariants are checked on the way.
+fn idle_unit_in_a_mode(mode: Mode) -> Vec<Vec2> {
     let mut t = ScenarioBuilder::new(OPEN).start();
     t.without_auto_targeting();
     t.spawn_unit_at(1, PK, P1, v(300.0, 300.0))
-        .spawn_unit_at(1, PK, P1, v(400.0, 300.0))
-        .run(1);
+        .spawn_unit_at(1, PK, P1, v(400.0, 300.0));
+    if mode == Mode::Shielded {
+        t.ability_at(1, P1, &[ObjectId(2)], Ability::RiotShield { raise: true });
+    }
+    t.run(1);
     let mut save = serde_json::to_value(t.sim()).unwrap();
-    let unit = &mut save["objects"][1];
-    assert_eq!(unit["id"], 2);
-    unit["mover"]["speed_factor"] = factor.into();
+    if mode == Mode::Fixed {
+        let unit = &mut save["objects"][1];
+        assert_eq!(unit["id"], 2);
+        unit["mover"]["speed_factor"] = 0.0.into();
+    }
     let mut sim: Sim = serde_json::from_value(save).unwrap();
     let mut invariants = Invariants::new(&sim);
     let order = PlayerCommand {
@@ -308,31 +323,39 @@ fn idle_unit_in_a_mode(factor: f32) -> Vec<Vec2> {
     }
     let walker = sim.object(ObjectId(1)).unwrap();
     assert_eq!(walker.pos, v(600.0, 300.0), "the walker got past");
+    let idle = sim.object(ObjectId(2)).unwrap();
+    assert!(idle.orders.as_ref().unwrap().is_idle());
+    let shield = if mode == Mode::Shielded {
+        RiotShield::Raised
+    } else {
+        RiotShield::Lowered
+    };
+    assert_eq!(idle.riot_shield, Some(shield), "a mode, not a task");
     places
 }
 
 /// 0023, Verification: "Walk a unit through your own idle Peacekeepers with shields raised: they step aside (at
-/// their shielded speed)." and "Through a deployed Artillery Rig: the mover paths around it."
+/// their shielded speed)." and "Through a deployed Artillery Rig: the mover paths around it." The shield stays up
+/// all the while.
 ///
-/// TODO(Riot Shield, Artillery Rig): neither mode exists in the sim yet. Until they do, the modes are stood in for
-/// by what they will set: the Riot Shield's speed factor of 0.5 (`factions/gdo/units.md > Peacekeeper`), and for a
-/// unit that can't move the hook `Mover::can_move`, which a speed factor of 0 answers.
+/// TODO(Artillery Rig): the deployed mode doesn't exist in the sim yet. Until it does, it is stood in for by what it
+/// will set: the hook for a unit that can't move, `Mover::can_move`, which a speed factor of 0 answers.
 #[test]
-fn a_slowed_unit_yields_at_its_speed_and_a_unit_that_cant_move_never_yields() {
+fn a_shielded_unit_yields_at_its_speed_and_a_unit_that_cant_move_never_yields() {
     let start = v(400.0, 300.0);
     let steps = |places: &[Vec2]| -> Vec<f32> {
         let from = std::iter::once(&start).chain(places);
         from.zip(places).map(|(a, b)| a.distance(*b)).collect()
     };
     let fastest = |steps: &[f32]| steps.iter().copied().fold(0.0_f32, f32::max);
-    let unshielded = steps(&idle_unit_in_a_mode(1.0));
+    let unshielded = steps(&idle_unit_in_a_mode(Mode::Normal));
     assert!((fastest(&unshielded) - 4.0).abs() < 1e-3, "{unshielded:?}");
 
-    let shielded = idle_unit_in_a_mode(0.5);
+    let shielded = idle_unit_in_a_mode(Mode::Shielded);
     assert_ne!(*shielded.last().unwrap(), start, "it stepped aside");
     assert!((fastest(&steps(&shielded)) - 2.0).abs() < 1e-3, "at its shielded speed");
 
-    let deployed = idle_unit_in_a_mode(0.0);
+    let deployed = idle_unit_in_a_mode(Mode::Fixed);
     assert!(deployed.iter().all(|p| *p == start), "a fixed obstacle");
 }
 
@@ -529,9 +552,13 @@ fn outcome(t: &mut TestSim, n: u32) -> (u32, u32, u32) {
 }
 
 /// 0022, Verification: "Re-run the 18-vs-18 head-on": two blocks of 18 Peacekeepers, each ordered onto the other's
-/// place, the second block player 1's or player 2's. Every move ends. Printed for the record (`--nocapture`):
-/// 40 su apart the blocks can't pass through each other, and the jam in the middle is movers against movers, which
-/// never yield; 56 su apart every unit arrives.
+/// place, the second block player 1's or player 2's. Every move ends.
+///
+/// (G) Both blocks are moving, so nobody yields: the units seek lanes (`docs/movement.md > 6.3`). 56 su apart the
+/// blocks pass through each other's gaps and every unit arrives. 40 su apart the gaps (16 su) are narrower than
+/// a unit: the blocks mesh, spread from the outside in, and pass. Before lane seeking 14 of the 36 units gave up
+/// there (18 with two owners); now none does, and the bound leaves room for tuning. The counts are printed for
+/// the record (`--nocapture`).
 #[test]
 fn eighteen_meet_eighteen_head_on() {
     for spacing in [40.0, 56.0] {
@@ -558,13 +585,22 @@ fn eighteen_meet_eighteen_head_on() {
             if spacing > 40.0 {
                 assert_eq!(failed, 0);
             }
+            assert!(failed <= 2, "{failed} of 36 gave up\n{}", t.ascii(None));
+            // Nobody takes much longer than the walk itself: 624 su at 4 su per tick is 156 ticks.
+            assert!(done <= 2 + 156 + 120, "done in tick {done}");
+            assert_eq!(t.replay().run().state_hash(), t.sim().state_hash());
         }
     }
 }
 
 /// A group of 18 ordered through a standing block of 18 idle Peacekeepers as wide as itself. An enemy block never
-/// moves, and much of the group gives up in front of it; the owner's own block makes way (0022), and nearly
-/// everyone arrives.
+/// moves, and much of the group gives up in front of it; the owner's own block makes way (0022), and the group
+/// arrives.
+///
+/// (G) The idle block **parts** for the group and isn't shoved along: the movers walk between its rows, and the
+/// idle units step straight across their way (`docs/movement.md > 6.6`). Before, the block was pushed ahead of the
+/// group, its units 204 su on average and up to 373 su; now they end 12 su from their places on average and at
+/// most 35 su. The bounds leave room for tuning.
 #[test]
 fn eighteen_walk_through_eighteen_idle() {
     let mut failed_by_owner = Vec::new();
@@ -580,10 +616,37 @@ fn eighteen_walk_through_eighteen_idle() {
             owner.0
         );
         assert_eq!(arrived + failed, 18);
+        let moved: Vec<f32> = (0..18)
+            .map(|i| {
+                let offset = v(40.0 * ((i / 6) as f32 - 1.0), 40.0 * ((i % 6) as f32 - 2.5));
+                t.pos(19 + i).distance(v(512.0, 384.0) + offset)
+            })
+            .collect();
+        let (farthest, mean) = (
+            moved.iter().fold(0.0_f32, |a, b| a.max(*b)),
+            moved.iter().sum::<f32>() / 18.0,
+        );
+        println!(
+            "the idle units of player {} ended {mean:.0} su from their places on average, at most {farthest:.0} su",
+            owner.0
+        );
+        if owner == P1 {
+            assert!(
+                farthest <= 96.0 && mean <= 40.0,
+                "shoved along: {moved:?}\n{}",
+                t.ascii(None)
+            );
+            assert!(moved.iter().any(|d| *d > 0.0), "nobody made way");
+            for id in 19..=36 {
+                assert_eq!((t.mover(id).sidestep, t.mover(id).velocity), (None, Vec2::ZERO));
+            }
+        } else {
+            assert_eq!(farthest, 0.0, "enemies never yield");
+        }
         failed_by_owner.push(failed);
     }
     assert!(
-        failed_by_owner[0] <= 3 && failed_by_owner[0] < failed_by_owner[1],
+        failed_by_owner[0] <= 2 && failed_by_owner[0] < failed_by_owner[1],
         "{failed_by_owner:?}"
     );
 }

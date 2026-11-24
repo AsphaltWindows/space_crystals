@@ -82,7 +82,7 @@ An enemy unit is a valid target for an attacker if all of the following are true
 2. The enemy is visible to the attacker's owner
 3. The enemy's domain is compatible with the attacker's AttackAttributes.TargetDomain (Ground attacks can target Ground and surfaced Underground units, Air attacks can target Air units, Universal attacks can target any unit)
 
-Range and arc checks are applied separately by the specific behavior or context using ValidTarget.
+Range and arc checks are applied separately by the specific behavior or context using ValidTarget. (ValidTarget covers enemies for automatic targeting. An explicit Attack order may also target own and neutral destructible objects: systems/controls/commands.md > Attack.)
 
 ## AttackType
 Determines the relationship between the attack animation, projectile, and effect on the target. CanMiss and CanTargetGround are derived directly from the AttackType.
@@ -94,6 +94,8 @@ Determines the relationship between the attack animation, projectile, and effect
 
 ## FullyConnected
 The animation and the effect on the target are a single unified animation during the Firing phase. Neither the animation nor the effect can miss the target.
+
+**Hit timing and overkill** (user, 2026-11-23): the hit lands at the **end** of the Firing phase. If the target is destroyed before then (e.g. by another unit), the shot hits nothing, and the attacker still goes through Cooldown and Reloading. Overkill is intentionally wasteful: focusing too many units on one weak target costs shots and time.
 
 ### Subtype - FullyConnectedSubtypeEnum (Ranged | Melee)
 

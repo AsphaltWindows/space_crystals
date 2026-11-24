@@ -177,9 +177,10 @@ fn a_group_shares_one_field() {
     let mut search = Search::new();
     let out = serve(&nav, &mut search, &group, PATH_BUDGET);
     assert_eq!(ids(&out), [10, 11, 12, 13, 14, 15]);
-    // One Dijkstra over the whole component, and no search per member.
+    // One field and no search per member. (G) The field stops when every member's tile is expanded, so it costs
+    // at most the whole component.
     assert_eq!((out.counters.fields, out.counters.searches), (1, 0));
-    assert_eq!(out.counters.expansions, grid.passable_count());
+    assert!(out.counters.expansions <= grid.passable_count());
     for (served, request) in out.served.iter().zip(&group) {
         assert!(served.via_field);
         let path = served.result.as_ref().unwrap();
@@ -259,7 +260,7 @@ fn a_field_serves_only_its_own_group_class_and_component() {
         .collect();
     let out = serve(&nav, &mut search, &east, PATH_BUDGET);
     assert_eq!((out.counters.fields, out.counters.searches), (1, 0));
-    assert_eq!(out.counters.expansions, 12);
+    assert!(out.counters.expansions <= 12, "at most the east side");
     for (i, served) in out.served.iter().enumerate() {
         let path = served.result.as_ref().unwrap();
         assert!(served.via_field && path.retargeted);

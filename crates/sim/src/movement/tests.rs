@@ -25,6 +25,7 @@ fn tick(pos: &mut Vec2, facing: &mut f32, mover: &mut Mover, movement: &Movement
         pos: *pos,
         half: Vec2::splat(12.0),
         velocity: mover.velocity,
+        heading: Vec2::ZERO,
         stationary: mover.is_stationary(),
         progress: None,
         arrived_with: None,
@@ -36,6 +37,7 @@ fn tick(pos: &mut Vec2, facing: &mut f32, mover: &mut Mover, movement: &Movement
         layer: None,
         bodies: &bodies,
         me: 0,
+        lanes: &mut Vec::new(),
         counters: &mut counters,
     };
     step_unit(
