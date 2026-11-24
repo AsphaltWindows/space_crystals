@@ -230,7 +230,9 @@ fn only_owned_objects_with_sight_give_vision() {
     assert_eq!(lingering(&vision, P1), 81);
     vision.update(&map, [&neutral, &patch, &turncoat], 2 + FOG_DELAY_TICKS);
     assert_eq!((visible(&vision, P1), visible(&vision, P2)), (0, 81));
-    vision.check(&map, [&neutral, &patch, &turncoat], 2 + FOG_DELAY_TICKS).unwrap();
+    vision
+        .check(&map, [&neutral, &patch, &turncoat], 2 + FOG_DELAY_TICKS)
+        .unwrap();
 }
 
 /// V1 catches a count that drifted from the objects, a Visible tile that isn't Explored, a tile lingering in sight
@@ -288,8 +290,19 @@ fn explored_rows_round_trip() {
     let saved = vision.saved();
     assert_eq!(saved[0].explored.len(), 20);
     assert_eq!(&saved[0].explored[6][..13], ".###########.");
-    assert!(saved[0].lingering.iter().any(|l| l.tile == TilePos::new(6, 6) && l.ends == 10));
-    assert_eq!(saved[0].revealed, [save::SavedReveal { id: ObjectId(2), ends: 26 }]);
+    assert!(
+        saved[0]
+            .lingering
+            .iter()
+            .any(|l| l.tile == TilePos::new(6, 6) && l.ends == 10)
+    );
+    assert_eq!(
+        saved[0].revealed,
+        [save::SavedReveal {
+            id: ObjectId(2),
+            ends: 26
+        }]
+    );
     let loaded = load(&map, &[P1, P2], saved.clone(), 2, [&scout, &foe]).unwrap();
     assert_eq!(loaded, vision);
     assert_eq!(loaded.state(P1, TilePos::new(6, 6)), VisibilityState::Visible);
@@ -319,8 +332,14 @@ fn explored_rows_round_trip() {
     loaded.check(&map, [&scout, &foe], 10).unwrap();
 
     let fails = |saved: Vec<SavedVision>, tick| load(&map, &[P1, P2], saved, tick, [&scout, &foe]).unwrap_err();
-    assert!(fails(saved.clone(), 10).contains("lingers until tick 10"), "a delay over");
-    assert!(fails(saved.clone(), 0).contains("outside the 8 ticks"), "a delay too long");
+    assert!(
+        fails(saved.clone(), 10).contains("lingers until tick 10"),
+        "a delay over"
+    );
+    assert!(
+        fails(saved.clone(), 0).contains("outside the 8 ticks"),
+        "a delay too long"
+    );
     let mut twice = saved.clone();
     let first = twice[0].lingering[0].clone();
     twice[0].lingering.insert(0, first);
@@ -328,7 +347,10 @@ fn explored_rows_round_trip() {
     let mut off = saved.clone();
     off[0].lingering[0].tile = TilePos::new(30, 0);
     assert!(fails(off, 2).contains("off the map"));
-    assert!(fails(later.clone(), 26).contains("reveal of #2 ends at tick 26"), "a reveal over");
+    assert!(
+        fails(later.clone(), 26).contains("reveal of #2 ends at tick 26"),
+        "a reveal over"
+    );
     let mut again = later.clone();
     let reveal = again[0].revealed[0].clone();
     again[0].revealed.push(reveal);
@@ -406,7 +428,10 @@ fn a_shot_from_outside_vision_reveals_the_attacker() {
     end_of(&mut vision, 71, &victim, &sniper);
     assert!(p1(&vision).lingers(TilePos::new(8, 10)));
     vision.reveal(P1, &sniper, 72);
-    assert!(p1(&vision).is_revealed(sniper.id), "the fog delay isn't the attacker's sources");
+    assert!(
+        p1(&vision).is_revealed(sniper.id),
+        "the fog delay isn't the attacker's sources"
+    );
     end_of(&mut vision, 72, &victim, &sniper);
     end_of(&mut vision, 71 + FOG_DELAY_TICKS, &victim, &sniper);
     assert_eq!(vision.state(P1, TilePos::new(8, 10)), VisibilityState::Explored);

@@ -66,8 +66,8 @@ pub use linger::FOG_DELAY_TICKS;
 use memory::Footprints;
 pub use memory::LastKnown;
 pub use player::PlayerVision;
-pub use reveal::REVEAL_TICKS;
 use player::TileBits;
+pub use reveal::REVEAL_TICKS;
 pub(crate) use save::{SavedVision, load};
 pub use sight::TILE_SIGHT_POINT;
 use sight::stamp;
@@ -402,11 +402,7 @@ impl PartialEq for Vision {
         self.width == other.width
             && self.height == other.height
             && self.players.len() == other.players.len()
-            && self
-                .players
-                .iter()
-                .zip(&other.players)
-                .all(|(a, b)| a.same_history(b))
+            && self.players.iter().zip(&other.players).all(|(a, b)| a.same_history(b))
     }
 }
 

@@ -13,9 +13,7 @@ use sc_sim::{
     SimConfig, SpawnAt, Target, Tick, TilePos, scenarios,
 };
 use space_crystals::cli;
-use space_crystals::combat_effects::{
-    CombatEffects, CombatEffectsMesh, DeathMarker, Tracer, shows_death, shows_tracer,
-};
+use space_crystals::combat_effects::{CombatEffects, CombatEffectsMesh, DeathMarker, shows_death, visible_spans};
 use space_crystals::command_ui::CursorTarget;
 use space_crystals::command_ui::indicators::{ATTACK_COLOR, Indicator, selection_indicators};
 use space_crystals::editor::EditorConfig;
@@ -285,9 +283,11 @@ fn hidden_enemies_cannot_be_targeted_or_marked() {
     assert_eq!(markers(&app), []);
 }
 
-/// Shots and deaths player 1 can't see don't show: a tracer needs both ends on Visible tiles, a death marker a
-/// Visible tile or one of the player's own objects. A fight between two of player 2's units in player 1's fog draws
-/// nothing for player 1.
+/// Shots and deaths player 1 can't see don't show: a shot only along the part of its path over Visible tiles
+/// (design change 0177), a death marker on a Visible tile or for one of the player's own objects. Player 1's
+/// Peacekeeper on (4, 8) sees up to tile (9, 8) along the row: a shot within that is drawn whole, a shot from (18, 8)
+/// only from the east edge of (9, 8) on, and one between (18, 8) and (20, 8) not at all. A fight between two of
+/// player 2's units in player 1's fog draws nothing for player 1.
 #[test]
 fn combat_in_the_fog_shows_nothing() {
     let mut app = game();
@@ -298,18 +298,26 @@ fn combat_in_the_fog_shows_nothing() {
     {
         let world = app.world();
         let sight = Sight::new(world.resource::<SimRes>(), P1, true);
-        let tracer = |from, to| Tracer {
-            tick: 1,
-            owner: Some(P2),
-            target: ObjectId(1),
-            from,
-            to,
-        };
-        assert!(shows_tracer(&sight, &tracer(centre(4, 8), centre(6, 8))));
+        let spans =
+            |from: (i32, i32), to: (i32, i32)| visible_spans(&sight, centre(from.0, from.1), centre(to.0, to.1));
+        assert_eq!(spans((4, 8), (6, 8)), [(0.0, 1.0)], "inside Visible tiles: whole");
+        assert_eq!(spans((9, 8), (4, 8)), [(0.0, 1.0)]);
+        // The fog edge: x = 640, the east edge of tile (9, 8), as a fraction of the way.
+        let edge = |from: f32, to: f32| (640.0 - from) / (to - from);
+        let (east, west) = (centre(18, 8).x, centre(4, 8).x);
+        assert_eq!(spans((18, 8), (4, 8)), [(edge(east, west), 1.0)], "from the fog edge");
+        assert_eq!(spans((4, 8), (18, 8)), [(0.0, edge(west, east))], "into the fog");
+        assert_eq!(spans((18, 8), (20, 8)), [], "all in the fog");
+        let fogless = Sight::new(world.resource::<SimRes>(), P1, false);
+        let whole = visible_spans(&fogless, centre(18, 8), centre(20, 8));
+        assert_eq!(whole, [(0.0, 1.0)], "the fog off");
+        // Through the sight from fog to fog: pieces in order, apart, none at either end.
+        let across = visible_spans(&sight, centre(4, 2), centre(10, 14));
         assert!(
-            !shows_tracer(&sight, &tracer(centre(18, 8), centre(4, 8))),
-            "from the fog"
+            !across.is_empty() && across.windows(2).all(|w| w[0].1 < w[1].0),
+            "{across:?}"
         );
+        assert!(across[0].0 > 0.0 && across[across.len() - 1].1 < 1.0, "{across:?}");
         let death = |owner, x, y| DeathMarker {
             tick: 1,
             kind: ObjectKind::Guard,

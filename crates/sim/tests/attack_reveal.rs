@@ -123,7 +123,11 @@ fn an_attacker_on_unseen_high_ground_is_revealed_after_each_shot() {
         assert_eq!(sees(&t, P1, SNIPER), revealed, "tick {tick}, shots {shots:?}");
         let player = t.sim().vision().player(P1).unwrap();
         assert_eq!(player.is_revealed(ObjectId(SNIPER)), revealed);
-        assert_ne!(player.state(TilePos::new(14, 2)), VisibilityState::Visible, "only the attacker");
+        assert_ne!(
+            player.state(TilePos::new(14, 2)),
+            VisibilityState::Visible,
+            "only the attacker"
+        );
         let verdict = if revealed {
             Ok(())
         } else {
@@ -193,7 +197,10 @@ fn saves_and_replays_keep_the_reveals() {
     order_fire(&mut t);
     let json = serde_json::to_string(t.sim()).unwrap();
     let ends = t.sim().tick() + REVEAL_TICKS;
-    assert!(json.contains(&format!("\"revealed\":[{{\"id\":2,\"ends\":{ends}}}]")), "{json}");
+    assert!(
+        json.contains(&format!("\"revealed\":[{{\"id\":2,\"ends\":{ends}}}]")),
+        "{json}"
+    );
     let mut loaded: Sim = serde_json::from_str(&json).unwrap();
     assert_eq!(&loaded, t.sim());
     assert_eq!(loaded.state_hash(), t.sim().state_hash());

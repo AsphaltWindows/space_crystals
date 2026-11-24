@@ -86,7 +86,10 @@ fn a_scout_walking_past_leaves_them_visible_for_the_fog_delay() {
         .order_at(2, P1, &[ObjectId(1)], move_to(centre(37, 5)), false)
         .run_until(2);
     let enemies = [2, 3, 4];
-    assert!(enemies.iter().all(|&enemy| !is_visible(&t, P1, enemy)), "hidden at first");
+    assert!(
+        enemies.iter().all(|&enemy| !is_visible(&t, P1, enemy)),
+        "hidden at first"
+    );
     let mut last_in_sight: [Option<Tick>; 3] = [None; 3];
     let mut delayed = [0; 3];
     while t.status(1) == MoveStatus::Moving {
@@ -106,7 +109,11 @@ fn a_scout_walking_past_leaves_them_visible_for_the_fog_delay() {
             } else {
                 Err(Reject::NotVisible(ObjectId(enemy)))
             };
-            assert_eq!(t.sim().validate(&attack(P1, 1, enemy)), verdict, "#{enemy} in tick {tick}");
+            assert_eq!(
+                t.sim().validate(&attack(P1, 1, enemy)),
+                verdict,
+                "#{enemy} in tick {tick}"
+            );
         }
     }
     assert!(last_in_sight.iter().all(Option::is_some), "the scout saw each");
@@ -165,19 +172,29 @@ fn handover(distance: f32, order: OrderKind) -> Handover {
 fn a_short_gap_in_sight_keeps_the_attack_and_the_follow() {
     let (mut shortest, mut longest) = (Tick::MAX, 0);
     for distance in (344..=420).step_by(2) {
-        for order in [OrderKind::Attack(ObjectId(1)), OrderKind::Move(Target::Object(ObjectId(1)))] {
+        for order in [
+            OrderKind::Attack(ObjectId(1)),
+            OrderKind::Move(Target::Object(ObjectId(1))),
+        ] {
             let Handover { gap, lost } = handover(distance as f32, order);
             let length = gap.len() as Tick;
             if let Some(&(first, _)) = gap.first() {
                 let ticks: Vec<Tick> = gap.iter().map(|&(tick, _)| tick).collect();
-                assert_eq!(ticks, (first..first + length).collect::<Vec<_>>(), "one gap: {distance} su");
+                assert_eq!(
+                    ticks,
+                    (first..first + length).collect::<Vec<_>>(),
+                    "one gap: {distance} su"
+                );
             }
             if length <= FOG_DELAY_TICKS {
                 assert!(gap.iter().all(|&(_, visible)| visible), "{distance} su: {gap:?}");
                 assert_eq!(lost, None, "{distance} su, {order:?}: kept through a gap of {length}");
             } else {
                 let delay = FOG_DELAY_TICKS as usize;
-                assert!(gap[..delay].iter().all(|&(_, visible)| visible), "{distance} su: {gap:?}");
+                assert!(
+                    gap[..delay].iter().all(|&(_, visible)| visible),
+                    "{distance} su: {gap:?}"
+                );
                 assert!(!gap[delay].1, "{distance} su: hidden once the delay ran out");
                 assert_eq!(lost, Some(gap[delay].0 + 1), "{distance} su, {order:?}");
             }

@@ -91,7 +91,11 @@ fn records_keep_the_last_state_seen() {
     let last = 6 + FOG_DELAY_TICKS - 1;
     t.run_until(last);
     let at_last = Some(resource(&t, STATION));
-    assert_eq!(record(&t, P1, STATION).unwrap().seen, last, "in sight for the fog delay");
+    assert_eq!(
+        record(&t, P1, STATION).unwrap().seen,
+        last,
+        "in sight for the fog delay"
+    );
     t.run_until(30);
     assert!(matches!(
         resource(&t, STATION),
