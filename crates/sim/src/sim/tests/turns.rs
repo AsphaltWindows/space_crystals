@@ -27,7 +27,7 @@ fn moving_and_aiming_share_the_turn_rate_of_a_tick() {
     mover(&mut sim, walker.0).go_to(MoveGoal::Point(end), None, 0);
     mover(&mut sim, walker.0).follow(vec![start, end], end, 0);
     attack(&mut sim, walker.0).engage(Some(enemy));
-    sim.vision.update(&sim.map, sim.objects.values());
+    sim.vision.update(&sim.map, sim.objects.values(), sim.tick);
 
     sim.step(&TickInputs::default());
     let moved = sim.nav.turns().angle(walker);

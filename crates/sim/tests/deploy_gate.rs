@@ -9,6 +9,7 @@
 use sc_sim::deploy::{self, on_site};
 use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references, every_command};
 use sc_sim::transform::warp_in_footprint;
+use sc_sim::vision::FOG_DELAY_TICKS;
 use sc_sim::{
     Command, ConstructionCommand, DebugCommand, Faction, MoveStatus, Object, ObjectId, ObjectKind, OrderKind,
     PlacementCheck, PlacementProblem, PlayerCommand, PlayerId, Reject, Replay, Rng, Sim, SimEvent, SpawnAt, Target,
@@ -194,9 +195,9 @@ fn a_deploy_goes_to_one_drone_of_the_players() {
 
 /// Design change 0120 ("The ghost judges by what the player knows"; the plan's `Mode::Known`): tiles never explored
 /// pass; explored ground, remembered structures and resources, and the units the player sees count. Player 1's
-/// scout, Drone 4, saw player 2's Egress Node 5 and Peacekeeper 6 at the start, and is removed in tick 1: then the
-/// Egress Node is remembered in the fog, and the Peacekeeper hidden there. Player 2's Egress Node 3 was never seen.
-/// Drone 2 sees Peacekeeper 7, patch 8 and the Mountain at (8, 6).
+/// scout, Drone 4, saw player 2's Egress Node 5 and Peacekeeper 6 at the start, and is removed in tick 1: then, once
+/// the fog delay is over, the Egress Node is remembered in the fog, and the Peacekeeper hidden there. Player 2's
+/// Egress Node 3 was never seen. Drone 2 sees Peacekeeper 7, patch 8 and the Mountain at (8, 6).
 #[test]
 fn the_gate_judges_a_site_by_what_the_player_knows() {
     let mut rows = vec![".".repeat(40); 16];
@@ -211,7 +212,8 @@ fn the_gate_judges_a_site_by_what_the_player_knows() {
         .start();
     t.without_auto_targeting()
         .debug_at(1, DebugCommand::Remove { id: id(4) })
-        .step();
+        .step()
+        .run(FOG_DELAY_TICKS);
     let seen = |t: &TestSim, x, y| t.sim().visibility(P1, at(x, y));
     assert_eq!(
         (seen(&t, 28, 12), seen(&t, 24, 12), seen(&t, 36, 2), seen(&t, 36, 8)),

@@ -13,7 +13,7 @@ impl Sim {
     /// The starting objects are in: tick 0 already shows what they see, and remembers what it saw; every player
     /// knows the map's resources for its paths (design change 0042); and the grids are built from all of it.
     pub(super) fn settle_start(&mut self) {
-        self.vision.update(&self.map, self.objects.values());
+        self.vision.update(&self.map, self.objects.values(), self.tick);
         self.vision.remember(self.tick, |id| self.objects.get(&id));
         let objects: Vec<&Object> = self.objects.values().collect();
         self.path_knowledge = PathKnowledge::start(self.players.iter().map(|p| p.id), &objects, self.nav.nav().rules());

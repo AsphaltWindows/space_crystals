@@ -1,14 +1,19 @@
-//! One player's vision (`core/vision.md > Vision`): the state of each of its tiles, and the counts of its
-//! sources that see each one. [`super::Vision`] keeps one per player and updates them in phase 5f.
+//! One player's vision (`core/vision.md > Vision`): the state of each of its tiles, the counts of its sources that
+//! see each one, the tiles still Visible for the fog delay ([`super::linger`]), and the attackers revealed to it
+//! ([`super::reveal`]). [`super::Vision`] keeps one per player and updates them in phase 5f.
+
+use std::collections::BTreeMap;
 
 use glam::Vec2;
 
 use super::VisibilityState;
+use super::linger::Linger;
 use super::memory::Memory;
 use crate::combat::object_box;
-use crate::ids::PlayerId;
+use crate::hash::{StateHash, StateHasher};
+use crate::ids::{ObjectId, PlayerId};
 use crate::object::Object;
-use crate::units::{SU_PER_GU, TilePos};
+use crate::units::{SU_PER_GU, Tick, TilePos};
 
 /// One tile per bit, row-major.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -38,6 +43,20 @@ impl TileBits {
             *w &= !(1 << (i % 64));
         }
     }
+
+    /// The tiles whose bit is set, ascending: a look at each word, and at each set bit.
+    pub(super) fn ones(&self) -> impl Iterator<Item = usize> + '_ {
+        self.words.iter().enumerate().flat_map(|(w, &word)| {
+            let mut rest = word;
+            std::iter::from_fn(move || {
+                (rest != 0).then(|| {
+                    let bit = rest.trailing_zeros() as usize;
+                    rest &= rest - 1;
+                    w * 64 + bit
+                })
+            })
+        })
+    }
 }
 
 /// One player's vision (`core/vision.md > Vision`).
@@ -50,6 +69,12 @@ pub struct PlayerVision {
     pub(super) explored: TileBits,
     /// How many of the player's sources see each tile; Visible where it isn't 0. Derived.
     pub(super) seers: Vec<u32>,
+    /// `> Visible > Fog delay`: the tiles no source sees that are still Visible, and when each turns Explored
+    /// ([`super::linger`]). History: hashed and serialized.
+    pub(super) linger: Linger,
+    /// `> Attacks from outside vision`: the attackers revealed to the player, each with the tick whose phase 5f ends
+    /// its reveal ([`super::reveal`]). History: hashed and serialized.
+    pub(super) reveals: BTreeMap<ObjectId, Tick>,
     /// Bumped by each update that changed the state of one of the player's tiles. Output for views, not state.
     pub(super) revision: u32,
     /// A tile changed state in the update under way.
@@ -71,6 +96,8 @@ impl PlayerVision {
             height,
             explored: TileBits::new(tiles),
             seers: vec![0; tiles],
+            linger: Linger::new(tiles),
+            reveals: BTreeMap::new(),
             revision: 0,
             dirty: false,
             flips: Vec::new(),
@@ -93,8 +120,13 @@ impl PlayerVision {
         inside.then(|| tile.y as usize * self.width as usize + tile.x as usize)
     }
 
+    /// Whether tile `i` is Visible: a source sees it, or it lingers for the fog delay ([`super::linger`]).
+    pub(super) fn visible_at(&self, i: usize) -> bool {
+        self.seers.get(i).is_some_and(|&n| n > 0) || self.linger.get(i)
+    }
+
     pub(super) fn state_at(&self, i: usize) -> VisibilityState {
-        if self.seers.get(i).is_some_and(|&n| n > 0) {
+        if self.visible_at(i) {
             VisibilityState::Visible
         } else if self.explored.get(i) {
             VisibilityState::Explored
@@ -103,10 +135,23 @@ impl PlayerVision {
         }
     }
 
-    /// `core/vision.md > VisibilityState` of `tile`; Unexplored off the map.
+    /// `core/vision.md > VisibilityState` of `tile`; Unexplored off the map. A tile is Visible while a source sees
+    /// it, and for the fog delay after ([`super::linger`]).
     pub fn state(&self, tile: TilePos) -> VisibilityState {
         self.index(tile)
             .map_or(VisibilityState::Unexplored, |i| self.state_at(i))
+    }
+
+    /// Whether `tile` is Visible only for the fog delay, none of the player's sources seeing it any more
+    /// ([`super::linger`]). For views and tests; everything else asks [`PlayerVision::state`].
+    pub fn lingers(&self, tile: TilePos) -> bool {
+        self.index(tile).is_some_and(|i| self.linger.get(i))
+    }
+
+    /// Whether the object `id` is revealed to the player now: it shot one of the player's objects from outside the
+    /// player's vision lately (`core/vision.md > Attacks from outside vision`, [`super::reveal`]).
+    pub fn is_revealed(&self, id: ObjectId) -> bool {
+        self.reveals.contains_key(&id)
     }
 
     /// Every tile's state, row by row from the north-west corner.
@@ -115,7 +160,8 @@ impl PlayerVision {
     }
 
     /// The best state among the tiles the box `lo..hi` (space units) overlaps; Unexplored if it lies off the map.
-    /// A box only touching a tile's edge doesn't overlap it.
+    /// A box only touching a tile's edge doesn't overlap it. Tiles only: whether the player sees an object is
+    /// [`PlayerVision::object_box_state`]'s question.
     pub fn box_state(&self, lo: Vec2, hi: Vec2) -> VisibilityState {
         let (x0, x1) = tile_span(lo.x, hi.x, self.width);
         let (y0, y1) = tile_span(lo.y, hi.y, self.height);
@@ -131,46 +177,125 @@ impl PlayerVision {
         best
     }
 
-    /// The best state among the tiles `object` covers: those its silhouette box (a unit) or its footprint (a
-    /// structure or resource) overlaps.
+    /// How the player sees `object` ([`PlayerVision::object_box_state`] of the box its silhouette (a unit) or its
+    /// footprint (a structure or resource) makes, `combat::object_box`).
     pub fn object_state(&self, object: &Object) -> VisibilityState {
         let (lo, hi) = object_box(object);
-        self.box_state(lo, hi)
+        self.object_box_state(object.id, lo, hi)
     }
 
-    /// Whether the player sees `object` now: a tile it covers is Visible.
+    /// How the player sees the object `id` whose box is `lo..hi` (space units, `combat::object_box`): Visible
+    /// while it is revealed to the player (`core/vision.md > Attacks from outside vision`, [`super::reveal`]), else
+    /// the best state among the tiles the box overlaps ([`PlayerVision::box_state`]), the fog delay included. The
+    /// one question whether the player sees an object: the behaviours, combat, the command gate and the client's
+    /// sight all ask it, through [`PlayerVision::object_state`] or with the box they hold.
+    pub fn object_box_state(&self, id: ObjectId, lo: Vec2, hi: Vec2) -> VisibilityState {
+        if self.is_revealed(id) {
+            VisibilityState::Visible
+        } else {
+            self.box_state(lo, hi)
+        }
+    }
+
+    /// Whether the player sees `object` now ([`PlayerVision::object_state`]).
     pub fn sees(&self, object: &Object) -> bool {
         self.object_state(object) == VisibilityState::Visible
     }
 
-    /// Whether the player sees something whose box is `lo..hi` now.
+    /// Whether the player sees the object `id` whose box is `lo..hi` now ([`PlayerVision::object_box_state`]).
+    pub fn sees_object_box(&self, id: ObjectId, lo: Vec2, hi: Vec2) -> bool {
+        self.object_box_state(id, lo, hi) == VisibilityState::Visible
+    }
+
+    /// Whether a tile the box `lo..hi` overlaps is Visible now. Tiles only, for a place such as a remembered
+    /// footprint; an object's question is [`PlayerVision::sees_object_box`].
     pub fn sees_box(&self, lo: Vec2, hi: Vec2) -> bool {
         self.box_state(lo, hi) == VisibilityState::Visible
     }
 
-    /// One more source sees tile `i`: Visible from the first one on, and Explored from then on.
+    /// Whether one of the player's sources sees a tile the box `lo..hi` overlaps: [`PlayerVision::sees_box`] without
+    /// the fog delay.
+    pub(super) fn sources_see_box(&self, lo: Vec2, hi: Vec2) -> bool {
+        let (x0, x1) = tile_span(lo.x, hi.x, self.width);
+        let (y0, y1) = tile_span(lo.y, hi.y, self.height);
+        (y0..y1).any(|y| (x0..x1).any(|x| self.seers[y as usize * self.width as usize + x as usize] > 0))
+    }
+
+    /// One more source sees tile `i`: Visible from the first one on, and Explored from then on. A tile still Visible
+    /// for the fog delay just stays Visible.
     pub(super) fn see(&mut self, i: u32) {
         let t = i as usize;
         self.seers[t] += 1;
-        if self.seers[t] == 1 {
+        if self.seers[t] == 1 && !self.linger.stop(i) {
             self.explored.set(t);
             self.dirty = true;
             self.flips.push(i);
         }
     }
 
-    /// One source fewer sees tile `i`: Explored once none does.
-    pub(super) fn unsee(&mut self, i: u32) {
+    /// One source fewer sees tile `i`, in phase 5f of `tick`. Once none does, the tile stays Visible for the fog
+    /// delay ([`super::linger`]), and [`PlayerVision::expire`] turns it Explored when the delay ends.
+    pub(super) fn unsee(&mut self, i: u32, tick: Tick) {
         let t = i as usize;
         self.seers[t] -= 1;
         if self.seers[t] == 0 {
-            self.dirty = true;
-            self.flips.push(i);
+            self.linger.start(i, tick);
         }
     }
 
-    /// A source's stamp went from `old` to `new` (both ascending): only the tiles in one of them change.
-    pub(super) fn restamp(&mut self, old: &[u32], new: &[u32]) {
+    /// Phase 5f of `tick`, after the sources: the tiles whose fog delay ends turn Explored, and the reveals that end
+    /// are over.
+    pub(super) fn expire(&mut self, tick: Tick) {
+        let Self {
+            linger, dirty, flips, ..
+        } = self;
+        linger.expire(tick, |i| {
+            *dirty = true;
+            flips.push(i);
+        });
+        self.reveals.retain(|_, &mut end| end > tick);
+    }
+
+    /// A new player's history besides the Explored tiles and the records (a save's, or a copy to check against):
+    /// the tiles that linger, as `(tile, end)` pairs, and the attackers revealed, as `(id, end)` pairs. The tiles
+    /// that linger are Visible, so Explored too, and the memory looks at them as at any tile that became Visible.
+    pub(super) fn restore(
+        &mut self,
+        lingering: impl IntoIterator<Item = (u32, Tick)>,
+        revealed: impl IntoIterator<Item = (ObjectId, Tick)>,
+    ) {
+        self.linger.restore(lingering);
+        let tiles: Vec<u32> = self.linger.tiles().map(|(i, _)| i).collect();
+        for i in tiles {
+            self.explored.set(i as usize);
+            self.dirty = true;
+            self.flips.push(i);
+        }
+        self.reveals.extend(revealed);
+    }
+
+    /// The tiles that linger, by index, each with the end of its delay ([`super::linger`]).
+    pub(super) fn lingering(&self) -> impl Iterator<Item = (u32, Tick)> + '_ {
+        self.linger.tiles()
+    }
+
+    /// The attackers revealed to the player, by id, each with the end of its reveal ([`super::reveal`]).
+    pub(super) fn revealed(&self) -> impl Iterator<Item = (ObjectId, Tick)> + '_ {
+        self.reveals.iter().map(|(&id, &end)| (id, end))
+    }
+
+    /// Whether `other` has the same history: the Explored tiles, the tiles that linger, the reveals and the records.
+    pub(super) fn same_history(&self, other: &PlayerVision) -> bool {
+        self.id == other.id
+            && self.explored == other.explored
+            && self.linger == other.linger
+            && self.reveals == other.reveals
+            && self.records().eq(other.records())
+    }
+
+    /// A source's stamp went from `old` to `new` (both ascending), in phase 5f of `tick`: only the tiles in one of
+    /// them change.
+    pub(super) fn restamp(&mut self, old: &[u32], new: &[u32], tick: Tick) {
         let (mut a, mut b) = (old.iter().peekable(), new.iter().peekable());
         loop {
             match (a.peek(), b.peek()) {
@@ -179,7 +304,7 @@ impl PlayerVision {
                     b.next();
                 }
                 (Some(&&x), Some(&&y)) if x < y => {
-                    self.unsee(x);
+                    self.unsee(x, tick);
                     a.next();
                 }
                 (_, Some(&&y)) => {
@@ -187,11 +312,46 @@ impl PlayerVision {
                     b.next();
                 }
                 (Some(&&x), None) => {
-                    self.unsee(x);
+                    self.unsee(x, tick);
                     a.next();
                 }
                 (None, None) => break,
             }
+        }
+    }
+}
+
+impl StateHash for PlayerVision {
+    /// The history: the Explored tiles, the records (the memory's only state), the tiles that linger and the
+    /// reveals. The rest is derived from the objects, or output.
+    fn hash(&self, h: &mut StateHasher) {
+        let PlayerVision {
+            id,
+            width: _,
+            height: _,
+            explored,
+            seers: _,
+            linger,
+            reveals,
+            revision: _,
+            dirty: _,
+            flips: _,
+            memory: _,
+        } = self;
+        id.hash(h);
+        h.len(explored.words.len());
+        for word in &explored.words {
+            word.hash(h);
+        }
+        h.len(self.records().count());
+        for record in self.records() {
+            record.hash(h);
+        }
+        linger.hash(h);
+        h.len(reveals.len());
+        for (id, end) in reveals {
+            id.hash(h);
+            end.hash(h);
         }
     }
 }

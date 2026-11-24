@@ -5,7 +5,7 @@
 //! checks the invariants after every tick, the vision invariant V1 included.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::vision::PlayerVision;
+use sc_sim::vision::{FOG_DELAY_TICKS, PlayerVision};
 use sc_sim::{
     DebugCommand, Faction, LayoutObject, ObjectId, ObjectKind, OrderKind, PlacementCheck, PlayerId, ScenarioProblem,
     SimEvent, SlotId, Spawn, SpawnAt, Tick, TilePos, TileProblem, Vec2, VisibilityState, gu,
@@ -145,20 +145,28 @@ fn an_enemy_barracks_is_remembered_in_the_fog() {
         "seen, not remembered"
     );
 
+    // Away in tick 3: in sight for the fog delay (design change 0178), through tick 10.
     teleport(&mut t, 3, 2, centre(28, 5));
     t.run_until(3);
+    assert!(is_visible(&t, P1, 1), "for the fog delay");
+    let out = 3 + FOG_DELAY_TICKS;
+    t.run_until(out);
     assert!(!is_visible(&t, P1, 1));
     assert_eq!(t.sim().visibility(P1, TilePos::new(12, 4)), VisibilityState::Explored);
     let remembered = vision(&t, P1).remembered_record(ObjectId(1));
-    assert_eq!(remembered.map(|r| (r.kind, r.seen)), Some((ObjectKind::Barracks, 2)));
+    assert_eq!(
+        remembered.map(|r| (r.kind, r.seen)),
+        Some((ObjectKind::Barracks, out - 1))
+    );
 
-    t.debug_at(4, DebugCommand::Remove { id: ObjectId(1) }).run_until(4);
+    t.debug_at(out + 1, DebugCommand::Remove { id: ObjectId(1) })
+        .run_until(out + 1);
     assert!(
         vision(&t, P1).remembered_record(ObjectId(1)).is_some(),
         "destroyed in the fog"
     );
-    teleport(&mut t, 5, 2, centre(8, 5));
-    t.run_until(5);
+    teleport(&mut t, out + 2, 2, centre(8, 5));
+    t.run_until(out + 2);
     assert!(vision(&t, P1).record(ObjectId(1)).is_none(), "seen gone");
 }
 
@@ -188,7 +196,7 @@ fn a_plate_on_a_patch() {
     };
     assert_eq!(records(&t), (vec![1, 2], true), "both recorded");
     teleport(&mut t, 2, 3, centre(12, 3));
-    t.run_until(2);
+    t.run_until(2 + FOG_DELAY_TICKS);
     assert!(!is_visible(&t, P2, 1) && !is_visible(&t, P2, 2));
     assert_eq!(records(&t), (vec![1, 2], true), "both remembered");
 }

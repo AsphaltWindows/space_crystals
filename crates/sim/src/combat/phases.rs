@@ -79,11 +79,12 @@ impl<'a> Shooter<'a> {
         t.id != self.id && domain_allows(self.attrs.target_domain, t.domain)
     }
 
-    /// `systems/combat.md > ValidTarget` 2: whether its owner sees `t` (a tile `t` covers is Visible). Phase 5e
-    /// reads the vision phase 5f left at the end of the last tick (`docs/movement.md > 4`).
+    /// `systems/combat.md > ValidTarget` 2: whether its owner sees `t` (`PlayerVision::object_box_state`: a tile `t`
+    /// covers is Visible, or `t` is revealed to the owner). Phase 5e reads the vision phase 5f left at the end of
+    /// the last tick (`docs/movement.md > 4`).
     fn sees(&self, t: &TargetView) -> bool {
         let (lo, hi) = t.shape.bounds();
-        self.sight.is_some_and(|v| v.sees_box(lo, hi))
+        self.sight.is_some_and(|v| v.sees_object_box(t.id, lo, hi))
     }
 
     /// Whether `t` is within its Range and beyond its MinRange from where it stands.
@@ -318,7 +319,7 @@ mod tests {
         }
         let targets = Targets::snapshot(&map, &objects);
         let mut vision = Vision::new(&map, [MINE]);
-        vision.update(&map, objects.values());
+        vision.update(&map, objects.values(), 0);
         (map, targets, vision)
     }
 

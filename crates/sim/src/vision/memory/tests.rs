@@ -1,6 +1,6 @@
 use super::*;
 use crate::map::Map;
-use crate::vision::{VisibilityState, Vision};
+use crate::vision::{FOG_DELAY_TICKS, VisibilityState, Vision};
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
@@ -64,7 +64,7 @@ fn remaining(record: &LastKnown) -> u32 {
 
 /// The end of tick `tick` over `objects` (in id order): phase 5f, then the records; and V1.
 fn end_tick(vision: &mut Vision, map: &Map, tick: Tick, objects: &[&Object]) {
-    vision.update(map, objects.iter().copied());
+    vision.update(map, objects.iter().copied(), tick);
     vision.remember(tick, |id| objects.iter().copied().find(|o| o.id == id));
     vision.check(map, objects.iter().copied(), tick).unwrap();
 }
@@ -73,8 +73,9 @@ fn p1(vision: &Vision) -> &PlayerVision {
     vision.player(P1).unwrap()
 }
 
-/// A record is made when the player first sees a resource, takes its state every tick it stays in sight, and keeps
-/// the last one once it is out of sight.
+/// A record is made when the player first sees a resource, takes its state every tick it stays in sight, the fog
+/// delay included (design change 0178: the tiles are genuinely Visible), and keeps the last one once it is out of
+/// sight.
 #[test]
 fn records_follow_what_the_player_sees() {
     let map = Map::new(40, 20);
@@ -96,20 +97,51 @@ fn records_follow_what_the_player_sees() {
     let record = p1(&vision).record(ObjectId(2)).unwrap();
     assert_eq!((remaining(record), record.seen), (90, 2));
 
-    // Out of sight: the record keeps tick 2, whatever happens to the patch.
+    // The eye leaves in tick 3: the patch's tiles stay Visible through tick 10, so it stays in sight.
     eye.pos = TilePos::new(30, 10).center();
-    end_tick(&mut vision, &map, 3, &[&eye, &crystals]);
+    for tick in 3..3 + FOG_DELAY_TICKS {
+        end_tick(&mut vision, &map, tick, &[&eye, &crystals]);
+        assert!(p1(&vision).remembered_record(ObjectId(2)).is_none(), "tick {tick}");
+    }
+    let last_seen = 2 + FOG_DELAY_TICKS;
+    assert_eq!(p1(&vision).record(ObjectId(2)).unwrap().seen, last_seen);
+
+    // Out of sight: the record keeps tick 10, whatever happens to the patch.
+    end_tick(&mut vision, &map, last_seen + 1, &[&eye, &crystals]);
     crystals.resource = Some(ResourceState::CrystalPatch { remaining: 50 });
-    end_tick(&mut vision, &map, 4, &[&eye, &crystals]);
+    end_tick(&mut vision, &map, last_seen + 2, &[&eye, &crystals]);
     let record = p1(&vision).remembered_record(ObjectId(2)).unwrap();
-    assert_eq!((remaining(record), record.seen), (90, 2));
+    assert_eq!((remaining(record), record.seen), (90, last_seen));
     assert_eq!(p1(&vision).remembered().count(), 1);
 
     eye.pos = TilePos::new(10, 10).center();
-    end_tick(&mut vision, &map, 5, &[&eye, &crystals]);
+    end_tick(&mut vision, &map, last_seen + 3, &[&eye, &crystals]);
     let record = p1(&vision).record(ObjectId(2)).unwrap();
-    assert_eq!((remaining(record), record.seen), (50, 5));
+    assert_eq!((remaining(record), record.seen), (50, last_seen + 3));
     assert!(p1(&vision).remembered_record(ObjectId(2)).is_none());
+}
+
+/// Design change 0178: during the fog delay the tiles are genuinely Visible, so an object that goes then is seen
+/// gone and forgotten, as in sight; once the delay is over, one that goes stays remembered.
+#[test]
+fn the_fog_delay_sees_what_goes() {
+    let map = Map::new(40, 20);
+    let mut vision = Vision::new(&map, [P1]);
+    let mut eye = scout(1, P1, 10, 10);
+    let near = patch(2, 13, 10, 100);
+    let far = patch(3, 7, 10, 100);
+    end_tick(&mut vision, &map, 1, &[&eye, &near, &far]);
+    eye.pos = TilePos::new(30, 10).center();
+    end_tick(&mut vision, &map, 2, &[&eye, &near, &far]);
+    assert!(p1(&vision).lingers(TilePos::new(13, 10)));
+    // Gone during the delay: seen gone.
+    end_tick(&mut vision, &map, 3, &[&eye, &far]);
+    assert!(p1(&vision).record(ObjectId(2)).is_none());
+    // Gone after it: still remembered.
+    end_tick(&mut vision, &map, 2 + FOG_DELAY_TICKS, &[&eye, &far]);
+    assert_eq!(p1(&vision).state(TilePos::new(7, 10)), VisibilityState::Explored);
+    end_tick(&mut vision, &map, 3 + FOG_DELAY_TICKS, &[&eye]);
+    assert!(p1(&vision).remembered_record(ObjectId(3)).is_some());
 }
 
 /// `core/vision.md > Explored`: a resource that disappears out of sight stays remembered, footprint and all, until
@@ -131,10 +163,11 @@ fn a_record_lasts_until_its_place_is_seen_empty() {
     assert_eq!(p1(&vision).records().count(), 2);
     let revision = p1(&vision).records_revision();
 
-    // Out of sight, the station goes: still remembered.
+    // Out of sight, once the fog delay is over, the station goes: still remembered.
     eye.pos = TilePos::new(30, 10).center();
     end_tick(&mut vision, &map, 2, &[&eye, &station, &crystals]);
-    end_tick(&mut vision, &map, 3, &[&eye, &crystals]);
+    end_tick(&mut vision, &map, 2 + FOG_DELAY_TICKS, &[&eye, &station, &crystals]);
+    end_tick(&mut vision, &map, 3 + FOG_DELAY_TICKS, &[&eye, &crystals]);
     assert!(p1(&vision).remembered_record(ObjectId(2)).is_some());
     assert_eq!(
         p1(&vision).records_revision(),
@@ -149,7 +182,7 @@ fn a_record_lasts_until_its_place_is_seen_empty() {
     // One tile of the 2×2 footprint in sight is enough to see the station is gone: (20, 10) sees (15, 10) at
     // exactly 5 grid units, but none of the other three.
     eye.pos = TilePos::new(20, 10).center();
-    end_tick(&mut vision, &map, 4, &[&eye, &crystals]);
+    end_tick(&mut vision, &map, 4 + FOG_DELAY_TICKS, &[&eye, &crystals]);
     assert!(p1(&vision).record(ObjectId(2)).is_none());
     assert_ne!(p1(&vision).records_revision(), revision);
     assert!(!p1(&vision).is_record_tile(TilePos::new(15, 11)));
@@ -157,13 +190,14 @@ fn a_record_lasts_until_its_place_is_seen_empty() {
 
     // Gone while in sight: forgotten at once.
     eye.pos = TilePos::new(9, 10).center();
-    end_tick(&mut vision, &map, 5, &[&eye, &crystals]);
-    end_tick(&mut vision, &map, 6, &[&eye]);
+    end_tick(&mut vision, &map, 5 + FOG_DELAY_TICKS, &[&eye, &crystals]);
+    end_tick(&mut vision, &map, 6 + FOG_DELAY_TICKS, &[&eye]);
     assert_eq!(p1(&vision).records().count(), 0);
     assert_eq!(p1(&vision).record_tiles().count(), 0);
 }
 
-/// An object placed out of sight, on Explored tiles, stays unknown until the player sees it.
+/// An object placed out of sight, on Explored tiles, stays unknown until the player sees it. In the tick the fog
+/// delay ends the tile is Explored already.
 #[test]
 fn objects_placed_in_the_fog_stay_unknown() {
     let map = Map::new(40, 20);
@@ -171,13 +205,17 @@ fn objects_placed_in_the_fog_stay_unknown() {
     let mut eye = scout(1, P1, 10, 10);
     end_tick(&mut vision, &map, 1, &[&eye]);
     eye.pos = TilePos::new(30, 10).center();
+    end_tick(&mut vision, &map, 2, &[&eye]);
     let crystals = patch(2, 12, 10, 100);
-    end_tick(&mut vision, &map, 2, &[&eye, &crystals]);
+    end_tick(&mut vision, &map, 2 + FOG_DELAY_TICKS, &[&eye, &crystals]);
     assert_eq!(p1(&vision).state(TilePos::new(12, 10)), VisibilityState::Explored);
     assert_eq!(p1(&vision).records().count(), 0);
     eye.pos = TilePos::new(10, 10).center();
-    end_tick(&mut vision, &map, 3, &[&eye, &crystals]);
-    assert_eq!(p1(&vision).record(ObjectId(2)).map(|r| r.seen), Some(3));
+    end_tick(&mut vision, &map, 3 + FOG_DELAY_TICKS, &[&eye, &crystals]);
+    assert_eq!(
+        p1(&vision).record(ObjectId(2)).map(|r| r.seen),
+        Some(3 + FOG_DELAY_TICKS)
+    );
 }
 
 /// A record whose object moved goes once its old place is seen, and the object is remembered where it is seen next.
@@ -189,18 +227,20 @@ fn a_moved_footprint_is_seen_gone_from_its_old_place() {
     let mut crystals = patch(2, 13, 10, 100);
     end_tick(&mut vision, &map, 1, &[&eye, &crystals]);
     eye.pos = TilePos::new(30, 10).center();
-    crystals = patch(2, 16, 10, 100);
     end_tick(&mut vision, &map, 2, &[&eye, &crystals]);
+    crystals = patch(2, 16, 10, 100);
+    let moved = 2 + FOG_DELAY_TICKS;
+    end_tick(&mut vision, &map, moved, &[&eye, &crystals]);
     assert_eq!(
         p1(&vision).record(ObjectId(2)).unwrap().placement.origin,
         TilePos::new(13, 10)
     );
     // (10, 10) sees (13, 10) but not (16, 10), 6 grid units away.
     eye.pos = TilePos::new(10, 10).center();
-    end_tick(&mut vision, &map, 3, &[&eye, &crystals]);
+    end_tick(&mut vision, &map, moved + 1, &[&eye, &crystals]);
     assert!(p1(&vision).record(ObjectId(2)).is_none());
     eye.pos = TilePos::new(12, 10).center();
-    end_tick(&mut vision, &map, 4, &[&eye, &crystals]);
+    end_tick(&mut vision, &map, moved + 2, &[&eye, &crystals]);
     assert_eq!(
         p1(&vision).record(ObjectId(2)).unwrap().placement.origin,
         TilePos::new(16, 10)

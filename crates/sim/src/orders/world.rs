@@ -227,13 +227,14 @@ impl<'a> World<'a> {
         self.views.get(i)
     }
 
-    /// `systems/combat.md > ValidTarget` 2: whether `owner` sees `view` now: a tile its shape covers is Visible,
-    /// by the vision the last tick left. A unit without an owner sees nothing.
+    /// `systems/combat.md > ValidTarget` 2: whether `owner` sees `view` now, by the vision the last tick left
+    /// (`PlayerVision::object_box_state`: a tile its shape covers is Visible, the fog delay included, or it is an
+    /// attacker revealed to the owner). A unit without an owner sees nothing.
     pub(crate) fn sees(&self, owner: Option<PlayerId>, view: &View) -> bool {
         let (lo, hi) = view.shape.bounds();
         owner
             .and_then(|owner| self.vision.player(owner))
-            .is_some_and(|sight| sight.sees_box(lo, hi))
+            .is_some_and(|sight| sight.sees_object_box(view.id, lo, hi))
     }
 
     /// Whether `owner` knows of `view`, a structure or a map resource: it sees it now, or remembers it (its
@@ -242,7 +243,7 @@ impl<'a> World<'a> {
         let (lo, hi) = view.shape.bounds();
         owner
             .and_then(|owner| self.vision.player(owner))
-            .is_some_and(|sight| sight.sees_box(lo, hi) || sight.record(view.id).is_some())
+            .is_some_and(|sight| sight.sees_object_box(view.id, lo, hi) || sight.record(view.id).is_some())
     }
 
     /// The objects that stand where they are, structures and map resources, in id order.

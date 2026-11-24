@@ -3,10 +3,14 @@
 //!
 //! - **States** (`> VisibilityState`): every tile is [`VisibilityState::Unexplored`], `Explored` or `Visible` for
 //!   each player. Explored is history: one bit per tile and player, set the first time the tile is Visible and never
-//!   cleared, so it is hashed and serialized with the rest of the state. Visible is derived: a tile is Visible while
-//!   at least one of the player's sight sources sees it. That is a count per tile, kept up to date incrementally,
-//!   never hashed and rebuilt from the objects when a save is loaded. Each player's are a [`PlayerVision`]
-//!   (`player`).
+//!   cleared, so it is hashed and serialized with the rest of the state. A tile is Visible while at least one of the
+//!   player's sight sources sees it, which is a count per tile, kept up to date incrementally, never hashed and
+//!   rebuilt from the objects when a save is loaded; and for the fog delay after the last one stops seeing it
+//!   ([`linger`], `> Visible > Fog delay`, design change 0178), which is history again. Each player's are a
+//!   [`PlayerVision`] (`player`).
+//! - **Reveals** ([`reveal`], `> Attacks from outside vision`, design change 0177): an attacker that shoots one of a
+//!   player's objects from outside the player's vision is Visible to that player for a while, it alone, not its
+//!   tiles. History, like the delay.
 //! - **Sources** (`core/entities.md > Object Type > SightRange`: vision goes to the owner): every owned object whose
 //!   type has a SightRange above 0. Neutral objects and resources (`core/map.md > Resource`: no vision) see nothing.
 //! - **Sight** ([`sight`]): a disc around the object's centre. A tile is seen when its centre lies within the
@@ -16,14 +20,18 @@
 //! - **Update** (incremental stamps): each source keeps the tiles it stamped and its [`Eye`], everything the stamp
 //!   depends on (owner, centre, SightRange, elevation). Phase 5f walks the objects in id order along with the
 //!   sources. A source whose eye is unchanged costs nothing; one that moved stamps its disc again, and only the
-//!   tiles that differ change their counts; a source that is gone takes its tiles away. Each player's
-//!   [`PlayerVision::revision`] changes whenever one of its tiles changed state, so views redraw only then.
+//!   tiles that differ change their counts; a source that is gone takes its tiles away. Then the tiles whose fog
+//!   delay ends turn Explored, and the reveals that end are over, each from a queue or a list of its own, never a
+//!   scan of the map. Each player's [`PlayerVision::revision`] changes whenever one of its tiles changed state, so
+//!   views redraw only then.
 //! - **Timing**: phase 5f sees every object at the end of the tick, those spawned in it included, so Visible is a
-//!   function of the end-of-tick state and a loaded save sees what the running game saw. The next tick reads it:
-//!   combat's target checks in 5e (`systems/combat.md > ValidTarget` 2) and, later, the behaviours in 5a see last
-//!   tick's visibility (`docs/movement.md > 4`).
-//! - **Objects** ([`PlayerVision::object_state`]): an object counts as seen when any tile it covers is Visible; it
-//!   covers the tiles its silhouette box (a unit) or footprint (a structure or resource) overlaps.
+//!   function of the end-of-tick state and the history, and a loaded save sees what the running game saw. The next
+//!   tick reads it: combat's target checks in 5e (`systems/combat.md > ValidTarget` 2) and, later, the behaviours in
+//!   5a see last tick's visibility (`docs/movement.md > 4`). The shots of 5e reveal their attackers ([`reveal`]) on
+//!   top of it, for the next tick.
+//! - **Objects** ([`PlayerVision::object_state`], [`PlayerVision::object_box_state`]): an object counts as seen while
+//!   it is revealed, or when any tile it covers is Visible; it covers the tiles its silhouette box (a unit) or
+//!   footprint (a structure or resource) overlaps. Every question whether a player sees an object comes there.
 //! - **Memory** ([`memory`], `> Explored`: structures and resources show in their last-known state): each player's
 //!   records of the structures and resources it has seen ([`LastKnown`], [`PlayerVision::records`]), history like
 //!   the Explored tiles. Phase 5f follows which of them the player sees from the tiles that change state, and
@@ -32,8 +40,10 @@
 //! The map never changes during a game; a sim whose map changed would have to build its vision again
 //! ([`Vision::new`]).
 
+pub mod linger;
 mod memory;
 mod player;
+pub mod reveal;
 mod save;
 mod sight;
 #[cfg(test)]
@@ -52,9 +62,11 @@ use crate::map::Map;
 use crate::object::Object;
 use crate::units::{Tick, TilePos};
 
+pub use linger::FOG_DELAY_TICKS;
 use memory::Footprints;
 pub use memory::LastKnown;
 pub use player::PlayerVision;
+pub use reveal::REVEAL_TICKS;
 use player::TileBits;
 pub(crate) use save::{SavedVision, load};
 pub use sight::TILE_SIGHT_POINT;
@@ -165,13 +177,14 @@ impl Vision {
             .map_or(VisibilityState::Unexplored, |p| p.state(tile))
     }
 
-    /// The best state among the tiles `object` covers, for `player` ([`PlayerVision::object_state`]).
+    /// How `player` sees `object` ([`PlayerVision::object_state`]): Visible while it is revealed, else the best state
+    /// among the tiles it covers.
     pub fn object_state(&self, player: PlayerId, object: &Object) -> VisibilityState {
         self.player(player)
             .map_or(VisibilityState::Unexplored, |p| p.object_state(object))
     }
 
-    /// Whether `player` sees `object` now: a tile it covers is Visible.
+    /// Whether `player` sees `object` now: it is revealed, or a tile it covers is Visible.
     pub fn sees(&self, player: PlayerId, object: &Object) -> bool {
         self.player(player).is_some_and(|p| p.sees(object))
     }
@@ -191,31 +204,33 @@ impl Vision {
         })
     }
 
-    /// Phase 5f: catches up with `objects`, every object of the sim in ascending id order. New sources stamp the
-    /// tiles they see, moved ones stamp again (only the tiles that differ change), and gone ones take their tiles
-    /// away; tiles that become Visible become Explored too. Each player whose tiles changed state gets a new
-    /// [`PlayerVision::revision`]. The memory follows ([`memory`]): which structures and resources each player
-    /// sees now, from the tiles that changed state and the footprints that came or went, and the records of those
-    /// seen gone are dropped. [`Vision::remember`] refreshes the records at the end of the tick.
+    /// Phase 5f of `tick`: catches up with `objects`, every object of the sim in ascending id order. New sources
+    /// stamp the tiles they see, moved ones stamp again (only the tiles that differ change), and gone ones take their
+    /// tiles away; tiles that become Visible become Explored too. A tile none sees any more stays Visible for the fog
+    /// delay ([`linger`]); the tiles whose delay ends now turn Explored, and the reveals that end now are over
+    /// ([`reveal`]). Each player whose tiles changed state gets a new [`PlayerVision::revision`]. The memory follows
+    /// ([`memory`]): which structures and resources each player sees now, from the tiles that changed state and the
+    /// footprints that came or went, and the records of those seen gone are dropped. [`Vision::remember`] refreshes
+    /// the records at the end of the tick. The ticks of successive updates never go down.
     ///
     /// The sim calls it on its own vision; it is public so that tests can time it and check it on a copy.
-    pub fn update<'a>(&mut self, map: &Map, objects: impl IntoIterator<Item = &'a Object>) {
+    pub fn update<'a>(&mut self, map: &Map, objects: impl IntoIterator<Item = &'a Object>, tick: Tick) {
         let mut old = std::mem::take(&mut self.sources).into_iter().peekable();
         let mut kept = Vec::with_capacity(old.len());
         let mut footprints = self.footprints.walk();
         for o in objects {
             footprints.visit(o);
             while let Some(gone) = old.next_if(|s| s.id < o.id) {
-                self.withdraw(&gone);
+                self.withdraw(&gone, tick);
             }
             let previous = old.next_if(|s| s.id == o.id);
             match (previous, self.eye(map, o)) {
                 (Some(source), Some(eye)) if source.eye == eye => kept.push(source),
                 (Some(mut source), Some(eye)) => {
-                    self.restamp(&mut source, eye);
+                    self.restamp(&mut source, eye, tick);
                     kept.push(source);
                 }
-                (Some(source), None) => self.withdraw(&source),
+                (Some(source), None) => self.withdraw(&source, tick),
                 (None, Some(eye)) => {
                     let mut tiles = Vec::new();
                     self.stamp_into(&eye, &mut tiles);
@@ -229,11 +244,12 @@ impl Vision {
             }
         }
         for gone in old {
-            self.withdraw(&gone);
+            self.withdraw(&gone, tick);
         }
         self.sources = kept;
         let changes = self.footprints.finish(footprints);
         for player in &mut self.players {
+            player.expire(tick);
             player.catch_up(&self.footprints, &changes);
             if std::mem::take(&mut player.dirty) {
                 player.revision = player.revision.wrapping_add(1);
@@ -255,24 +271,24 @@ impl Vision {
         stamp(eye, self.width, self.height, &self.tile_levels, out);
     }
 
-    /// A source is gone, or no longer gives vision: its tiles lose it.
-    fn withdraw(&mut self, source: &Source) {
+    /// A source is gone, or no longer gives vision, in phase 5f of `tick`: its tiles lose it.
+    fn withdraw(&mut self, source: &Source, tick: Tick) {
         let player = &mut self.players[source.eye.player];
         for &i in &source.tiles {
-            player.unsee(i);
+            player.unsee(i, tick);
         }
     }
 
-    /// A source's eye changed: it stamps again, and only the tiles that differ change.
-    fn restamp(&mut self, source: &mut Source, eye: Eye) {
+    /// A source's eye changed, in phase 5f of `tick`: it stamps again, and only the tiles that differ change.
+    fn restamp(&mut self, source: &mut Source, eye: Eye, tick: Tick) {
         let mut fresh = std::mem::take(&mut self.scratch);
         self.stamp_into(&eye, &mut fresh);
         if source.eye.player == eye.player {
             if fresh != source.tiles {
-                self.players[eye.player].restamp(&source.tiles, &fresh);
+                self.players[eye.player].restamp(&source.tiles, &fresh, tick);
             }
         } else {
-            self.withdraw(source);
+            self.withdraw(source, tick);
             let player = &mut self.players[eye.player];
             for &i in &fresh {
                 player.see(i);
@@ -284,10 +300,13 @@ impl Vision {
     }
 
     /// Checks the incremental state against a vision built from scratch out of `objects` (all of the sim's, in id
-    /// order) at the end of `tick`: the same sources, and the same Visible tiles seen by as many of them, for every
-    /// player; every Visible tile Explored; and the memory a fresh build makes of the same records: none dropped or
-    /// refreshed, none of an object the player owns, and the same objects in sight. The test harness runs it after
-    /// every tick (`testing::invariants`, V1). The first difference, and where on the map (space units).
+    /// order) at the end of `tick`, from the same history (records, tiles that linger, reveals): the same sources,
+    /// the same Visible tiles seen by as many of them, and the same tiles lingering until the same ticks, for every
+    /// player; every Visible tile Explored; no tile lingering while a source sees it, and no delay or reveal that
+    /// ends in the past or beyond its length ([`FOG_DELAY_TICKS`], [`REVEAL_TICKS`]); the same reveals, so none was
+    /// due to end; and the memory a fresh build makes of the same records: none dropped or refreshed, none of an
+    /// object the player owns, and the same objects in sight. The test harness runs it after every tick
+    /// (`testing::invariants`, V1). The first difference, and where on the map (space units).
     pub(crate) fn check<'a>(
         &self,
         map: &Map,
@@ -298,8 +317,9 @@ impl Vision {
         let mut fresh = Vision::new(map, self.players.iter().map(|p| p.id));
         for (fresh, have) in fresh.players.iter_mut().zip(&self.players) {
             fresh.set_records(have.records().cloned());
+            fresh.restore(have.lingering(), have.revealed());
         }
-        fresh.update(map, objects.values().copied());
+        fresh.update(map, objects.values().copied(), tick);
         fresh.remember(tick, |id| objects.get(&id).copied());
         let eyes = |v: &Vision| v.sources.iter().map(|s| (s.id, s.eye)).collect::<Vec<_>>();
         if eyes(self) != eyes(&fresh) {
@@ -314,9 +334,43 @@ impl Vision {
                 if n != m {
                     return fail(format!("is seen by {n} sources, a fresh count says {m}"));
                 }
-                if n > 0 && !have.explored.get(i) {
+                if have.visible_at(i) && !have.explored.get(i) {
                     return fail("is Visible but not Explored".into());
                 }
+                let end = have.linger.end(i);
+                match end {
+                    Some(_) if n > 0 => return fail(format!("lingers, though {n} sources see it")),
+                    Some(end) if end <= tick || end > tick + FOG_DELAY_TICKS => {
+                        return fail(format!("lingers until tick {end}, outside the delay after tick {tick}"));
+                    }
+                    _ => {}
+                }
+                if end != want.linger.end(i) {
+                    return fail(format!(
+                        "lingers until {end:?}, a fresh build's {:?}",
+                        want.linger.end(i)
+                    ));
+                }
+            }
+            let at = |id: ObjectId| objects.get(&id).map_or(Vec2::ZERO, |o| o.pos);
+            let player = have.id.0;
+            if let Some((id, end)) = have
+                .revealed()
+                .find(|&(_, end)| end <= tick || end > tick + REVEAL_TICKS)
+            {
+                let message = format!(
+                    "player {player}: #{} is revealed until tick {end}, outside the reveal after tick {tick}",
+                    id.0
+                );
+                return Err((at(id), message));
+            }
+            if have.reveals != want.reveals {
+                let id = have.revealed().map(|(id, _)| id).next().unwrap_or(ObjectId(0));
+                let message = format!(
+                    "player {player}: the reveals are {:?}, a fresh build's {:?}",
+                    have.reveals, want.reveals
+                );
+                return Err((at(id), message));
             }
             memory::check(have, want)?;
         }
@@ -331,8 +385,8 @@ impl Vision {
 }
 
 impl PartialEq for Vision {
-    /// The state: each player's Explored tiles and records. The rest is derived from the objects, which the sims
-    /// compare too.
+    /// The state: each player's history (Explored tiles, the tiles that linger, the reveals and the records). The
+    /// rest is derived from the objects, which the sims compare too.
     fn eq(&self, other: &Self) -> bool {
         self.width == other.width
             && self.height == other.height
@@ -341,7 +395,7 @@ impl PartialEq for Vision {
                 .players
                 .iter()
                 .zip(&other.players)
-                .all(|(a, b)| a.id == b.id && a.explored == b.explored && a.records().eq(b.records()))
+                .all(|(a, b)| a.same_history(b))
     }
 }
 
@@ -353,11 +407,13 @@ impl fmt::Debug for Vision {
             .iter()
             .map(|p| {
                 format!(
-                    "player {}: {} visible, {} explored, {} records, revision {}",
+                    "player {}: {} visible ({} lingering), {} explored, {} records, {} revealed, revision {}",
                     p.id.0,
                     tiles(p, VisibilityState::Visible),
+                    p.lingering().count(),
                     tiles(p, VisibilityState::Explored),
                     p.records().count(),
+                    p.reveals.len(),
                     p.revision
                 )
             })
@@ -371,20 +427,21 @@ impl fmt::Debug for Vision {
 }
 
 impl StateHash for Vision {
-    /// The history only: each player's Explored tiles and records. Visible follows from the objects, which are
-    /// hashed.
+    /// The history only: each player's ([`PlayerVision`]'s hash). The sight sources and the counts follow from the
+    /// objects, which are hashed, and the rest from the map.
     fn hash(&self, h: &mut StateHasher) {
-        h.len(self.players.len());
-        for p in &self.players {
-            p.id.hash(h);
-            h.len(p.explored.words.len());
-            for word in &p.explored.words {
-                word.hash(h);
-            }
-            h.len(p.records().count());
-            for record in p.records() {
-                record.hash(h);
-            }
+        let Vision {
+            width: _,
+            height: _,
+            tile_levels: _,
+            players,
+            sources: _,
+            scratch: _,
+            footprints: _,
+        } = self;
+        h.len(players.len());
+        for p in players {
+            p.hash(h);
         }
     }
 }

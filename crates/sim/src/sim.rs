@@ -334,16 +334,18 @@ impl Sim {
         );
         // 5e: shoots from the positions movement committed. The dead leave through the removal path; a footprint
         // they leave behind no longer blocks, so the grids follow as in 5b.
-        // It reads the vision of the end of the last tick (5f below), as the design's ValidTarget asks.
+        // It reads the vision of the end of the last tick (5f below), as the design's ValidTarget asks, and its hits
+        // reveal the attackers their victims' owners don't see (design change 0177, `vision::reveal`).
         // A unit turns at most its TurnRate per tick in all: the aim has what 5d's turn left (`movement::Turns`).
         observe(Phase::Combat);
         let turns = self.nav.turns();
         let dead = combat::step(
             &mut self.objects,
             &self.map,
-            &self.vision,
+            &mut self.vision,
             turns,
             first_new,
+            self.tick,
             &mut self.events,
         );
         observe(Phase::Deaths);
@@ -383,9 +385,10 @@ impl Sim {
             self.tick,
             &mut self.events,
         );
-        // 5f: sees the tick's final positions, this tick's new objects included.
+        // 5f: sees the tick's final positions, this tick's new objects included; the fog delays and reveals that end
+        // in this tick end (`vision::linger`, `vision::reveal`).
         observe(Phase::Vision);
-        self.vision.update(&self.map, self.objects.values());
+        self.vision.update(&self.map, self.objects.values(), self.tick);
         self.update_supply_stations(first_new);
         // Last: the records of what each player sees keep the tick's final state, the deliveries included.
         self.vision.remember(self.tick, |id| self.objects.get(&id));

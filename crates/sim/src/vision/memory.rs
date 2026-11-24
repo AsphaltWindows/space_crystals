@@ -6,8 +6,9 @@
 //!   `Object::placement`) the player has seen and doesn't own, with what the views need to draw it and fill its
 //!   InfoPanel: kind, owner, footprint, HP, resource state, and the last tick the player saw it. History: hashed and
 //!   serialized with the Explored tiles.
-//! - **In sight**: such an object is in a player's sight while a tile it covers is Visible, as
-//!   [`PlayerVision::object_state`] counts it. Its record is written at the end of every tick it is in sight
+//! - **In sight**: such an object is in a player's sight while a tile it covers is Visible, the fog delay included,
+//!   as [`PlayerVision::box_state`] counts it (only units attack, so none is ever revealed: `super::reveal`). Its
+//!   record is written at the end of every tick it is in sight
 //!   ([`Vision::remember`], after every phase that changes objects, supply deliveries included), so it holds the
 //!   state of the last tick the player saw it; out of sight it stays as it was.
 //! - **Gone**: a record whose object is gone, or no longer covers the record's footprint, is dropped once a tile
@@ -21,8 +22,8 @@
 //! - Phase 5f's walk over the objects ([`Vision::update`]) merges, in id order, the footprints of the tile-based
 //!   objects ([`Footprints`]) with the walk it already makes for the sight sources; only a footprint that came or
 //!   went touches the index from tiles to objects.
-//! - Each tile whose state flips for a player during the walk (to Visible or back) is noted
-//!   (`PlayerVision::see`, `unsee`). After the walk (`PlayerVision::catch_up`), a noted tile under no footprint and
+//! - Each tile whose state flips for a player in the update (to Visible, or back once its fog delay ends) is noted
+//!   (`PlayerVision::see`, `expire`). After the walk (`PlayerVision::catch_up`), a noted tile under no footprint and
 //!   no record costs two bit tests, and most are; on the others, the objects are put in or out of the player's
 //!   sight, and if the tile is now Visible, the records on it whose object is gone are dropped. A new footprint
 //!   enters the sight if a tile under it is Visible; a vanished one leaves it, and its record goes if a tile under
@@ -318,9 +319,9 @@ impl PlayerVision {
         self.index(tile).is_some_and(|i| self.memory.bits.get(i))
     }
 
-    /// Whether a tile under `placement` is Visible: the player sees the object standing there.
+    /// Whether a tile under `placement` is Visible, the fog delay included: the player sees the object standing there.
     fn sees_footprint(&self, placement: Placement) -> bool {
-        footprint_tiles(placement, self.width, self.height).any(|i| self.seers[i as usize] > 0)
+        footprint_tiles(placement, self.width, self.height).any(|i| self.visible_at(i as usize))
     }
 
     /// After phase 5f's walk: puts the tile-based objects in or out of the player's sight where that may have
@@ -345,7 +346,7 @@ impl PlayerVision {
                     }
                 }
             }
-            if self.memory.bits.get(i as usize) && self.seers[i as usize] > 0 {
+            if self.memory.bits.get(i as usize) && self.visible_at(i as usize) {
                 let ids: Vec<ObjectId> = on(&self.memory.tiles, i).collect();
                 for id in ids {
                     self.drop_if_gone(id, footprints);

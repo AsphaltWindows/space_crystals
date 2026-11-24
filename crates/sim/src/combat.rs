@@ -20,9 +20,11 @@
 //!   The movement step holds a unit that may not (phase 5d), and the behaviours start a chase only when it may
 //!   (`orders::engage`).
 //! - **Vision** (`systems/combat.md > ValidTarget` 2): a sequence starts, and Aiming goes on, only while the unit's
-//!   owner sees the target, by the vision phase 5f left at the end of the last tick (`vision`). What a unit does
-//!   about a target out of range or out of sight is its behaviour's (`orders::engage`: it closes in, or goes to
-//!   where the target was last seen).
+//!   owner sees the target, by the vision phase 5f left at the end of the last tick (`vision`), an attacker revealed
+//!   to the owner included. What a unit does about a target out of range or out of sight is its behaviour's
+//!   (`orders::engage`: it closes in, or goes to where the target was last seen).
+//! - **Attacks from outside vision** (`core/vision.md`, design change 0177): each hit reveals its attacker to the
+//!   owner of the object hit, if that player didn't see it (`vision::reveal`), once the tick's hits are applied.
 //! - **Range** (`> Range Measurement`, design change 0031): edge to edge, the gap between the attacker's shape and
 //!   the target's (`shape`); [`reaches`] is the one check.
 //!
@@ -54,6 +56,7 @@ use crate::map::Map;
 use crate::movement;
 use crate::object::Object;
 use crate::riot_shield::RiotShield;
+use crate::units::Tick;
 use crate::vision::Vision;
 
 pub use damage::{
@@ -172,18 +175,21 @@ pub(crate) fn base_is_free(kind: ObjectKind, state: Option<&AttackState>) -> boo
     turret || matches!(state.phase, None | Some(AttackPhase::Reloading))
 }
 
-/// Phase 5e (`docs/movement.md > 4`): every unit before `first_new`, in id order, runs one tick of its attack
-/// sequence against a snapshot of the targets taken before any of them acts; then the tick's hits are applied
-/// together. Returns the objects destroyed, in id order, for the removal path (`Sim::remove_objects`). A death that
-/// removes a blocking footprint must re-sync the grids (`paths::sync`), as phase 5b does. `vision` is the last
-/// tick's: what each owner sees. `turns` holds the angle phase 5d of this tick turned each unit: the aim turns a
-/// unit only by what is left of its TurnRate (one budget per tick).
+/// Phase 5e of `tick` (`docs/movement.md > 4`): every unit before `first_new`, in id order, runs one tick of its
+/// attack sequence against a snapshot of the targets taken before any of them acts; then the tick's hits are applied
+/// together, and each reveals its attacker to the owner of the object hit if that player didn't see it
+/// (`vision::reveal`). Returns the objects destroyed, in id order, for the removal path (`Sim::remove_objects`). A
+/// death that removes a blocking footprint must re-sync the grids (`paths::sync`), as phase 5b does. `vision` is the
+/// last tick's: what each owner sees, all through the phase (the reveals don't change what it sees of tiles).
+/// `turns` holds the angle phase 5d of this tick turned each unit: the aim turns a unit only by what is left of its
+/// TurnRate (one budget per tick).
 pub(crate) fn step(
     objects: &mut BTreeMap<ObjectId, Object>,
     map: &Map,
-    vision: &Vision,
+    vision: &mut Vision,
     turns: &movement::Turns,
     first_new: ObjectId,
+    tick: Tick,
     events: &mut Vec<SimEvent>,
 ) -> Vec<ObjectId> {
     let busy = |o: &Object| {
@@ -219,7 +225,14 @@ pub(crate) fn step(
         let shooter = phases::Shooter::new(map, o.id, o.kind, o.pos, o.facing, unit, attrs, sight, turned);
         phases::run(state, &mut o.facing, &shooter, &targets, &mut hits, events);
     }
-    damage::apply(objects, &hits, events)
+    let dead = damage::apply(objects, &hits, events);
+    for hit in &hits {
+        let victim = objects.get(&hit.target).and_then(|o| o.owner);
+        if let (Some(victim), Some(attacker)) = (victim, objects.get(&hit.attacker)) {
+            vision.reveal(victim, attacker, tick);
+        }
+    }
+    dead
 }
 
 impl StateHash for AttackPhase {
