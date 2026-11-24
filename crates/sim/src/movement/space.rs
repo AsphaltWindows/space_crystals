@@ -60,7 +60,7 @@ pub(crate) struct Layer {
     cells: Vec<Vec<u32>>,
     /// (G) Per cell: what kinds of body were listed in it since the last reset ([`Body::kinds`]). A bit is never
     /// taken back when a body leaves or changes, so it says "maybe", and lets a query skip cells that can't hold
-    /// what it looks for ([`Layer::any`]).
+    /// what it looks for ([`Layer::near_any`]).
     kinds: Vec<u16>,
     /// Cells that got an entry since the last reset, to empty only those.
     used: Vec<u32>,
@@ -122,7 +122,7 @@ impl Body {
         along < 0.0 && along * along > cos * cos * self.heading.length_squared()
     }
 
-    /// (G) What a query may look for in a cell ([`Layer::any`]): the sector of the body's heading (bits 0 to 7;
+    /// (G) What a query may look for in a cell ([`Layer::near_any`]): the sector of the body's heading (bits 0 to 7;
     /// none for a body that isn't heading anywhere) and [`KIND_YIELDS`].
     pub(crate) fn kinds(&self) -> u16 {
         let heading = if self.heading == Vec2::ZERO {

@@ -278,9 +278,9 @@ impl World<'_> {
     /// pedestrians form lanes. `None` if none is in its way (or only one idle unit, below). Afterwards
     /// `self.lanes` holds the lanes it found.
     ///
-    /// It looks [`LANE_LOOK_SU`] ahead (and beside itself), no farther than `to_goal`, the end of its way: it
-    /// never has to pass a unit beyond that, so units converging on one point from all sides aren't in each
-    /// other's way. `aim` is the object it heads for, which isn't in its way either. Two kinds of unit count:
+    /// It looks [`LANE_LOOK`] of its lengths ahead (and beside itself), no farther than `to_goal`, the end of its
+    /// way: it never has to pass a unit beyond that, so units converging on one point from all sides aren't in
+    /// each other's way. `aim` is the object it heads for, which isn't in its way either. Two kinds of unit count:
     /// - **Oncoming units**: their heading (`Body::heading`: where they are going, not their latest step) is
     ///   against `ahead` ([`LANE_ONCOMING_COS`]), whether they move or are jammed.
     /// - **Idle units that yield to it** (`yielding::yields_to`, for its order group `group`): a group of them
@@ -290,9 +290,9 @@ impl World<'_> {
     /// [`LANE_MARGIN_SU`]. With the lanes that hang together around the unit:
     /// - **One idle unit alone**: `None`. The unit walks on and asks it to step aside, as before
     ///   (`docs/movement.md > 6.6`).
-    /// - **A clear lane within reach** ([`LANE_REACH_SU`]; around an idle group only [`LANE_AROUND_IDLE_SU`]):
-    ///   the nearest shift outside every lane. Left and right about equally far ([`LANE_TIE_SU`]): the side
-    ///   `prefer`, the unit's `Mover::avoid_side`.
+    /// - **A clear lane within reach** ([`LANE_REACH`] of its widths; around an idle group only
+    ///   [`LANE_AROUND_IDLE`]): the nearest shift outside every lane. Left and right about equally far
+    ///   ([`LANE_TIE_SU`]): the side `prefer`, the unit's `Mover::avoid_side`.
     /// - **None within reach** (a dense group ahead): the middle of the widest gap between two neighbouring
     ///   lanes within reach, a nearer gap before a slightly wider one ([`LANE_NEAR`]), then the side `prefer`.
     ///   The units of two oncoming groups all do this, so the groups mesh like combs; the units on the outside

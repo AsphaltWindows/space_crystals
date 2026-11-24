@@ -302,7 +302,7 @@ fn field_paths(
         .collect()
 }
 
-/// (G) [`smooth`] for the members of one field, with the same result. The paths of a field are chains of one
+/// (G) [`super::smooth`] for the members of one field, with the same result. The paths of a field are chains of one
 /// tree, so from a tile on, two members walk the same tiles; and the waypoint that follows a tile's centre, the
 /// farthest centre of its chain that it sees, depends on that chain alone as long as the member's own goal is
 /// out of sight. `legs` remembers it per tile (how many tiles ahead it lies) for boxes of `half`, so each leg is
