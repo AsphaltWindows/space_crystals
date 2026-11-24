@@ -5,8 +5,12 @@
 //! The Peacekeeper's Riot Shield (`factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`) is a
 //! command of its own ([`UnitCommand::RiotShield`]), in slot R of its panel. Pressed, it raises the shields it goes
 //! to, or lowers them when all of them are up or on their way up ([`Modes`]), and the button says which. While a
-//! unit's shield is up it can't attack: Attack is disabled when none of its recipients can, and their clicks on an
-//! enemy move them there instead (`super::resolution::order_without_attack`).
+//! unit's shield is up it can't attack: Attack is disabled when none of its recipients can, an explicit Attack
+//! leaves it out (`super::resolution::unit_target_order`), and a right-click on an enemy sends it after the enemy
+//! instead (`super::resolution::order_without_attack`).
+//!
+//! No smart-casting (`> SelectionGroup > No smart-casting`, design changes 0071 and 0075): a panel command goes to
+//! every unit it is issued to ([`recipients`]).
 //!
 //! While a target is awaited, the other commands are unavailable (`> AwaitingTarget > Other commands while
 //! targeting`, design change 0066): the panel shows them disabled, and their hotkeys and buttons do nothing.
@@ -93,7 +97,30 @@ pub enum InterfaceState {
     #[default]
     DefaultState,
     /// `> AwaitingTarget[CommandType]`: the PendingCommand waits for a left-click on its target.
-    AwaitingTarget(UnitCommand),
+    AwaitingTarget {
+        /// The PendingCommand.
+        pending: UnitCommand,
+        /// `> AwaitingTarget > Shift while targeting` (design change 0070): a Shift-click has queued the command
+        /// since the target began to be awaited. Targeting then ends when Shift is released; before the first
+        /// queued click a release of Shift changes nothing (the design's TBD, its proposed default: "targeting
+        /// simply continues").
+        queued: bool,
+    },
+}
+
+impl InterfaceState {
+    /// AwaitingTarget of `pending`, as a command's hotkey or button enters it: no click queued yet.
+    pub const fn awaiting(pending: UnitCommand) -> Self {
+        InterfaceState::AwaitingTarget { pending, queued: false }
+    }
+
+    /// The PendingCommand, while a target is awaited.
+    pub fn pending(self) -> Option<UnitCommand> {
+        match self {
+            InterfaceState::DefaultState => None,
+            InterfaceState::AwaitingTarget { pending, .. } => Some(pending),
+        }
+    }
 }
 
 /// An ObjectInterfaceState template: which commands a type offers, in which slots, and how its clicks resolve.
@@ -320,8 +347,8 @@ pub fn panel(selection: &Selection, interface: InterfaceState, modes: &Modes) ->
             ButtonLook::Unavailable
         } else {
             match interface {
-                InterfaceState::AwaitingTarget(pending) if pending == command => ButtonLook::Pending,
-                InterfaceState::AwaitingTarget(_) => ButtonLook::Disabled,
+                InterfaceState::AwaitingTarget { pending, .. } if pending == command => ButtonLook::Pending,
+                InterfaceState::AwaitingTarget { .. } => ButtonLook::Disabled,
                 InterfaceState::DefaultState if !command.has_order() => ButtonLook::Disabled,
                 InterfaceState::DefaultState
                     if command == UnitCommand::Attack
@@ -339,7 +366,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, modes: &Modes) ->
         let on = command.ability(false).is_some() && modes.shields_up(&recipients(selection, command));
         panel.set(slot, PanelSlot { button, look, on });
     }
-    if matches!(interface, InterfaceState::AwaitingTarget(_)) {
+    if interface.pending().is_some() {
         let back = PanelSlot {
             button: PanelButton::Back,
             look: ButtonLook::Back,
@@ -392,7 +419,7 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
 pub fn still_valid(interface: InterfaceState, selection: &Selection, commandable: bool, modes: &Modes) -> bool {
     match interface {
         InterfaceState::DefaultState => true,
-        InterfaceState::AwaitingTarget(pending) => {
+        InterfaceState::AwaitingTarget { pending, .. } => {
             commandable
                 && press(
                     &panel(selection, InterfaceState::DefaultState, modes),
@@ -416,7 +443,11 @@ fn command_slot(selection: &Selection, command: UnitCommand) -> CommandSlot {
 }
 
 /// `> CommandPanel`: who a panel command goes to: "Clicking a common command issues it to all selected objects.
-/// Clicking a group-specific command issues it only to objects in the ActiveGroup."
+/// Clicking a group-specific command issues it only to objects in the ActiveGroup." `> SelectionGroup > No
+/// smart-casting` (design changes 0071 and 0075): every one of them, the whole Selection or the whole ActiveGroup,
+/// never a single member picked out; only a unit that can't carry the command out is left out of it (a raised Riot
+/// Shield under an explicit Attack: `super::resolution::unit_target_order`). Every panel command, by hotkey or
+/// button, goes to these units.
 pub fn recipients(selection: &Selection, command: UnitCommand) -> Vec<ObjectId> {
     let common = selection.members().all(|(_, kind)| offers(kind, command));
     selection
@@ -492,7 +523,7 @@ mod tests {
         let selection = Selection::new([(id(1), PK)]);
         let panel = panel(
             &selection,
-            InterfaceState::AwaitingTarget(UnitCommand::Attack),
+            InterfaceState::awaiting(UnitCommand::Attack),
             &Modes::default(),
         );
         let look = |slot| panel.get(slot).map(|s| s.look);
@@ -544,13 +575,13 @@ mod tests {
     #[test]
     fn awaiting_a_target_holds_while_the_active_group_offers_its_command() {
         let selection = Selection::new([(id(1), PK), (id(2), GUARD)]);
-        let attack = InterfaceState::AwaitingTarget(UnitCommand::Attack);
+        let attack = InterfaceState::awaiting(UnitCommand::Attack);
         assert!(still_valid(attack, &selection, true, &Modes::default()));
         assert!(
             !still_valid(attack, &selection, false, &Modes::default()),
             "no longer the player's"
         );
-        let reverse = InterfaceState::AwaitingTarget(UnitCommand::Reverse);
+        let reverse = InterfaceState::awaiting(UnitCommand::Reverse);
         assert!(
             !still_valid(reverse, &selection, true, &Modes::default()),
             "infantry can't reverse"
@@ -614,7 +645,7 @@ mod tests {
     #[test]
     fn attack_waits_for_a_recipient_that_can_attack() {
         let a = slot(1, 0);
-        let attack = InterfaceState::AwaitingTarget(UnitCommand::Attack);
+        let attack = InterfaceState::awaiting(UnitCommand::Attack);
         let shielded = Modes::from_iter([(id(1), RiotShield::Raised), (id(2), RiotShield::Lowering { left: 1 })]);
         let pks = Selection::new([(id(1), PK), (id(2), PK)]);
         let panel_of = |selection: &Selection| panel(selection, InterfaceState::DefaultState, &shielded);

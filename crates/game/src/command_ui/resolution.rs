@@ -4,11 +4,14 @@
 //!
 //! - **Right-click** (design changes 0062 and 0063): each selected unit resolves it for itself, by its own template
 //!   and capabilities ([`unit_right_click`]), whichever group is active. A unit that can't carry out the resolved
-//!   command moves to the location or to the object instead, following a unit ([`move_to`]); a unit whose Riot
-//!   Shield keeps it from attacking moves to the clicked location ([`order_without_attack`], question Q0020 point 1).
-//!   The orders go out grouped, one per distinct order ([`group_orders`]).
+//!   command moves to the location or to the object instead, following a unit ([`move_to`]); so does a unit whose
+//!   Riot Shield keeps it from attacking ([`order_without_attack`], design change 0074). The orders go out grouped,
+//!   one per distinct order ([`group_orders`]).
 //! - **Left-click while a target is awaited**: the PendingCommand's order for the target ([`target_order`]); Attack
-//!   takes any destructible object, own and neutral ones too (design changes 0059 and 0064).
+//!   takes any destructible object, own and neutral ones too (design changes 0059 and 0064). It goes to every unit
+//!   of the command's recipients, except that an explicit Attack leaves out the units whose Riot Shield keeps them
+//!   from attacking ([`unit_target_order`], design change 0075); an AttackMove goes to all of them (design change
+//!   0076).
 //! - **The pointer** ([`pointer_display`]): in DefaultState the one thing the selected units would all do on a
 //!   right-click, or Mixed when they would do different things; while a target is awaited, the pending command's
 //!   look over a valid target, else Inactive.
@@ -174,7 +177,7 @@ pub fn unit_right_click(unit: UnitCapabilities, target: &MapTarget) -> Option<Or
     let (command, kind) = right_click(unit.template?, target.target)?;
     Some(match command {
         UnitCommand::Attack if !unit.can_attack(target) => move_to(target),
-        UnitCommand::Attack if !unit.may_attack => order_without_attack(kind, target.ground),
+        UnitCommand::Attack if !unit.may_attack => order_without_attack(target),
         _ => kind,
     })
 }
@@ -189,18 +192,26 @@ pub fn move_to(target: &MapTarget) -> OrderKind {
     })
 }
 
-/// The Riot Shield's rule (question Q0020 point 1, its default until answered): the order a unit whose shield keeps
-/// it from attacking gets in place of `kind`, for a click at the ground point `ground`. An Attack becomes a Move to
-/// that location (`factions/gdo/units.md > Peacekeeper > Riot Shield`: "Right-click on an enemy while the shield is
-/// up issues a Move order to that location instead of an Attack"), which wins over design change 0062's Follow.
-/// This is the one place of that rule: for 0062's Follow, make an `Attack(id)` a `Move(Target::Object(id))` here.
-/// Any other order stays as it is. A unit that couldn't attack the target anyway follows it like the others
-/// ([`unit_right_click`]). Placeholder: the rule holds for a left-click in AwaitingTarget[Attack] too; the design
-/// speaks of the right-click only.
-pub fn order_without_attack(kind: OrderKind, ground: Vec2) -> OrderKind {
+/// The Riot Shield's right-click rule (design change 0074, `factions/gdo/units.md > Peacekeeper > Riot Shield`:
+/// "Right-click on an enemy while the shield is up"): the order a unit whose shield keeps it from attacking gets for a
+/// right-click that would attack `target`. It does what any unit that can't carry out a right-click does (design
+/// change 0062, [`move_to`]): it follows an enemy unit, and moves to an enemy structure, so that in a mixed group the
+/// shield wall stays with the units that attack. The one place of that rule ([`unit_right_click`]). An explicit
+/// Attack has its own: it leaves such a unit out ([`unit_target_order`], design change 0075).
+pub fn order_without_attack(target: &MapTarget) -> OrderKind {
+    move_to(target)
+}
+
+/// The order one of a targeting click's recipients takes, when the click gives `kind` ([`target_order`]): design
+/// change 0075 (`factions/gdo/units.md > Peacekeeper > Riot Shield > Explicit Attack`): a unit whose mode keeps it
+/// from attacking (its Riot Shield up or on its way) is left out of an explicit Attack, on any object, and keeps its
+/// orders; the units that can attack carry it out. Every other order goes to every recipient, an AttackMove too
+/// (design change 0076, `systems/controls/commands.md > AttackMove > Units that can't attack`: it plays out as a
+/// move for a unit that can't attack). Unlike the right-click ([`order_without_attack`]), on purpose.
+pub fn unit_target_order(unit: UnitCapabilities, kind: OrderKind) -> Option<OrderKind> {
     match kind {
-        OrderKind::Attack(_) => OrderKind::Move(Target::Point(ground)),
-        other => other,
+        OrderKind::Attack(_) if !unit.may_attack => None,
+        _ => Some(kind),
     }
 }
 
@@ -274,7 +285,7 @@ pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], ta
     }
     match interface {
         InterfaceState::DefaultState => right_click_display(units, target),
-        InterfaceState::AwaitingTarget(pending) => awaiting_display(pending, target),
+        InterfaceState::AwaitingTarget { pending, .. } => awaiting_display(pending, target),
     }
 }
 
@@ -326,9 +337,13 @@ mod tests {
         }
     }
 
-    /// An enemy ground unit, an own one, a neutral one, a crystal patch and an enemy aircraft.
+    /// An enemy ground unit, an enemy structure (none exists in M1: a destructible enemy object of the Ground
+    /// domain, a structure's), an own unit, a neutral one, a crystal patch and an enemy aircraft.
     fn enemy() -> MapTarget {
         on(CursorTarget::EnemyObject(id(6)), true, Domain::Ground)
+    }
+    fn enemy_structure() -> MapTarget {
+        on(CursorTarget::EnemyObject(id(5)), true, Domain::Ground)
     }
     fn own() -> MapTarget {
         on(CursorTarget::FriendlyObject(id(2)), true, Domain::Ground)
@@ -400,21 +415,39 @@ mod tests {
         assert_eq!(left(UnitCommand::Patrol, ground), Some(OrderKind::Patrol(P)));
         assert_eq!(left(UnitCommand::Patrol, enemy()), None);
         assert_eq!(left(UnitCommand::AttackGround, ground), None, "no sim order yet");
+    }
 
-        // With the Riot Shield up, an Attack becomes a Move to the clicked point; the other orders stay.
-        assert_eq!(
-            order_without_attack(OrderKind::Attack(id(6)), P),
-            OrderKind::Move(Target::Point(P))
-        );
-        for kind in [OrderKind::AttackMove(P), object(6), OrderKind::Stop] {
-            assert_eq!(order_without_attack(kind, Vec2::ZERO), kind);
+    /// The Riot Shield's two rules. A right-click that would attack sends a shielded unit after the target instead
+    /// (design change 0074): it follows a unit and moves to a structure. An explicit Attack leaves it out (0075), on
+    /// any object, own ones too (force-attack); every other order of a targeting click, an AttackMove included
+    /// (0076), goes to it as to the others.
+    #[test]
+    fn a_raised_shield_follows_on_a_right_click_and_is_left_out_of_an_explicit_attack() {
+        assert_eq!(order_without_attack(&enemy()), object(6));
+        assert_eq!(order_without_attack(&enemy_structure()), object(5));
+        for kind in [OrderKind::Attack(id(6)), OrderKind::Attack(id(2))] {
+            assert_eq!(unit_target_order(SHIELDED, kind), None, "{kind:?}");
+            assert_eq!(unit_target_order(ARMED, kind), Some(kind));
+        }
+        let everyone = [
+            OrderKind::AttackMove(P),
+            OrderKind::Move(Target::Point(P)),
+            object(6),
+            OrderKind::Patrol(P),
+            OrderKind::Hold,
+            OrderKind::Stop,
+        ];
+        for kind in everyone {
+            for unit in [ARMED, SHIELDED, UNARMED] {
+                assert_eq!(unit_target_order(unit, kind), Some(kind), "{unit:?} {kind:?}");
+            }
         }
     }
 
-    /// Design changes 0062 and 0063, with question Q0020 point 1's default: every unit resolves a right-click for
-    /// itself. On an enemy, a unit that can attack it attacks; one that can't (no attack, or not in the target's
-    /// domain) follows it; one whose shield is up moves to the clicked spot. The ground, own and neutral objects
-    /// give everyone a Move. An object without commands does nothing.
+    /// Design changes 0062, 0063 and 0074: every unit resolves a right-click for itself. On an enemy, a unit that
+    /// can attack it attacks; one that can't (no attack, or not in the target's domain) follows it, and so does one
+    /// whose shield is up: it follows an enemy unit, and moves to an enemy structure. The ground, own and neutral
+    /// objects give everyone a Move. An object without commands does nothing.
     #[test]
     fn each_unit_resolves_a_right_click_for_itself() {
         let attack = OrderKind::Attack(id(6));
@@ -422,7 +455,9 @@ mod tests {
         let resolved = |unit, target: MapTarget| unit_right_click(unit, &target);
         assert_eq!(resolved(ARMED, enemy()), Some(attack));
         assert_eq!(resolved(UNARMED, enemy()), Some(object(6)), "follows");
-        assert_eq!(resolved(SHIELDED, enemy()), Some(spot), "moves to the spot");
+        assert_eq!(resolved(SHIELDED, enemy()), Some(object(6)), "follows");
+        assert_eq!(resolved(ARMED, enemy_structure()), Some(OrderKind::Attack(id(5))));
+        assert_eq!(resolved(SHIELDED, enemy_structure()), Some(object(5)), "moves to it");
         assert_eq!(resolved(BUILDING, enemy()), None);
         // 0062: "ground-only Peacekeepers when the target is an aircraft" follow it.
         assert_eq!(resolved(ARMED, aircraft()), Some(object(7)));
@@ -474,9 +509,9 @@ mod tests {
         assert_eq!(
             pointer_display(default, &[SHIELDED], &enemy()),
             D::Move,
-            "shields up: a right-click moves there"
+            "shields up: a right-click follows"
         );
-        let awaiting = InterfaceState::AwaitingTarget;
+        let awaiting = InterfaceState::awaiting;
         assert_eq!(
             pointer_display(awaiting(UnitCommand::Attack), &unit, &ground),
             D::Attack

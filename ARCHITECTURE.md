@@ -824,8 +824,10 @@ elsewhere.
   point (`coords::ground_under`) under the cursor, whether it is over the UI (a UI node by Bevy's picking, or outside
   the world view: the one over-UI test of the game and the editor), the press in progress and the drag box. A press of
   `Select` or the editor's `UseTool` that goes down on the map is followed until its release (`Pointer::press`, a
-  `MapPress`: where it went down, whether it moved further than `DRAG_THRESHOLD_PX`, and the ground point under the
-  cursor now, which keeps following it over UI nodes on the world view, as the editor's drags do). `MapClick`
+  `MapPress`: where it went down, the farthest the pointer has been from there (`moved`), whether that is further
+  than `DRAG_THRESHOLD_PX`, and the ground point under the cursor now, which keeps following it over UI nodes on the
+  world view, as the editor's drags do). In the frame its button goes up, the press is `Pointer::released`, for a
+  rule of its own about clicks and drags (the command flow's targeting click allowance). `MapClick`
   messages report clicks on the map: `Select` when released, unless it became a drag, and `ContextCommand` and the
   editor's `Eyedropper` when pressed, with the modifiers and a double-click flag. A `Select` drag ends as a
   `SelectionBox` message in view space, kept inside the world view, with the modifiers held at its release. Nothing
@@ -894,40 +896,52 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
 **Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/selection_and_hud.md > ObjectInterfaceState`
 to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units.
 - **Rules** (pure and unit tested): `command_ui/interface.rs` has the `UnitCommand`s, the `InterfaceState`
-  (DefaultState, or AwaitingTarget of a command) in each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the
-  Peacekeeper's and the Guard's BasicCombatUnit grid), the `Panel` a selection gets (common, group, pending, disabled
-  and unavailable buttons; Back in Z while a target is awaited) and who receives a command (a common one the whole
-  selection, a group one the ActiveGroup). A type's grid is its template's plus its own commands (`grid`: the
-  Riot Shield in R for a unit that carries one, a placeholder slot). `Modes` holds the selected units' modes as the
-  sim has them: the Riot Shield button is on, and lowers the shields, while all its recipients' are up or going up,
-  else it raises them; Attack is disabled while none of its recipients can attack. `command_ui/resolution.rs` has
-  what a click resolves to and the `PointerDisplay` that previews it. A `MapTarget` is what is under the cursor
-  (`CursorTarget`), with the ground point there and, for an object, whether it is destructible and its domain.
-  A right-click resolves per unit (design changes 0062, 0063), whichever group is active: `UnitCapabilities` (the
-  unit's template, its attack's TargetDomain, whether its mode lets it attack) and `unit_right_click` give the
-  template's order (`right_click`) when the unit can carry it out; a unit that can't attack the target moves to it
-  instead (`move_to`: to the point, or Follow an object); a unit whose Riot Shield keeps it from an Attack gets
-  `order_without_attack`, the one place of the shield's rule (a Move to the clicked point, which wins over the
-  Follow: Q0020 point 1; flip it there); objects without a template do nothing. `group_orders` makes one order per
-  distinct order, so units sent to one location go as one group (the magic box). A left-click while a target is
-  awaited gives `target_order`: Attack takes any destructible object, own and neutral ones too (force-attack, 0059,
-  0064), never an indestructible one; a right-click never attacks them. The pointer previews the set of per-unit
-  right-click actions: one shows its pointer, several show `Mixed` (0063); while a target is awaited, the pending
-  command's look over a target it can use, else Inactive. Nothing is commandable unless the whole selection is the
-  player's (`commandable`).
+  (DefaultState, or AwaitingTarget of a command, `queued` once a Shift-click has queued it: design change 0070) in
+  each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the Peacekeeper's and the Guard's BasicCombatUnit grid),
+  the `Panel` a selection gets (common, group, pending, disabled and unavailable buttons; Back in Z while a target is
+  awaited) and who receives a command (`recipients`: a common one the whole selection, a group one the whole
+  ActiveGroup, by hotkey or button; never some of them, no smart-casting, 0071, apart from the units that can't carry
+  it out, which the resolution leaves out). A type's grid is its template's plus its own commands (`grid`: the Riot
+  Shield in R for a unit that carries one, a placeholder slot). `Modes` holds the selected units' modes as the sim has
+  them: the Riot Shield button is on, and lowers the shields, while all its recipients' are up or going up, else it
+  raises them; Attack is disabled while none of its recipients can attack. `command_ui/resolution.rs` has what a click
+  resolves to and the `PointerDisplay` that previews it. A `MapTarget` is what is under the cursor (`CursorTarget`),
+  with the ground point there and, for an object, whether it is destructible and its domain. A right-click resolves
+  per unit (design changes 0062, 0063), whichever group is active: `UnitCapabilities` (the unit's template, its
+  attack's TargetDomain, whether its mode lets it attack) and `unit_right_click` give the template's order
+  (`right_click`) when the unit can carry it out; a unit that can't attack the target moves to it instead (`move_to`:
+  to the point, or Follow an object); a unit whose Riot Shield keeps it from an Attack gets `order_without_attack`,
+  the right-click's shield rule: `move_to` too, Follow an enemy unit, Move to (and stop by) an enemy structure (design
+  change 0074); objects without a template do nothing. `group_orders` makes one order per distinct order, so units
+  sent to one location go as one group (the magic box). A left-click while a target is awaited gives `target_order`:
+  Attack takes any destructible object, own and neutral ones too (force-attack, 0059, 0064), never an indestructible
+  one; a right-click never attacks them. `unit_target_order` is the targeting click's shield rule, per unit: an
+  explicit Attack on an object leaves out a unit whose shield is up, which keeps its orders (0075; all of them
+  shielded: nothing is given, and Attack is disabled anyway); an AttackMove goes to every unit, shielded ones too,
+  which the sim walks on without engaging (0076: the sim's gate drops shielded units from Attack only). The pointer
+  previews the set of per-unit right-click actions: one shows its pointer, several show `Mixed` (0063); while a target
+  is awaited, the pending command's look over a target it can use, else Inactive. Nothing is commandable unless the
+  whole selection is the player's (`commandable`).
 - **Systems** (`CommandUiSystems`): `Validate` (in `SyncSim`, after the selection's sync) ends an AwaitingTarget that
   no longer holds. `Input` (in `Actions`, after the selection's input) turns Esc, the command hotkeys
   (`InputAction::CommandSlot`), clicks on the panel (found by `CommandGrid`), left-clicks on the map while a target is
   awaited and right-clicks into state changes and orders. An order is a `Command::Order` in `PendingCommands` naming
   only the player's own units, given only if `Sim::validate` takes it, queued while `Queue` (Shift) is held; each one
   is also an `OrderIssued` message. A click's per-unit orders go out grouped (`OrderOutbox::give_each`); in a
-  targeting click, units whose Riot Shield is up get `order_without_attack` too. An ability is a `Command::Ability`,
-  validated the same way, never queued, and no `OrderIssued`. While a target is awaited (`> AwaitingTarget`, design
-  changes 0065 to 0069): the other commands do nothing (`press`; the panel shows them disabled); a drag does nothing
-  (the selection's input ignores it); a click counts at the press point, as the frame of the press drew the objects
-  (`TargetPress`, recorded when the Select button goes down on the map, used by the click sent at its release); a
-  click that gives nothing (an invalid target, or an order the sim rejects) keeps targeting and sends an
-  `InvalidTarget` message. The player's changes of the selection or the ActiveGroup cancel targeting
+  targeting click each recipient's order is `unit_target_order`'s. An ability is a `Command::Ability`, validated the
+  same way, never queued, and no `OrderIssued`. While a target is awaited (`> AwaitingTarget`, design changes 0065 to
+  0070 and 0073): the other commands do nothing (`press`; the panel shows them disabled); a click counts at the press
+  point, as the frame of the press drew the objects (`TargetPress`, recorded when the Select button goes down on the
+  map, used when it comes up, `Pointer::released`); the press is a click while the pointer stayed within
+  `TARGETING_CLICK_ALLOWANCE_PX` of where it went down (16, a placeholder: more than the normal `DRAG_THRESHOLD_PX`,
+  which holds everywhere else), and beyond it a drag, which does nothing (the selection's input ignores it, no box is
+  drawn, the target is still awaited); a click that gives nothing (an invalid target, or an order the sim rejects)
+  keeps targeting and sends an `InvalidTarget` message, Shift held or not. A click without Shift returns to
+  DefaultState. A Shift-click (`Queue` held as the button went down, where the click counts) queues its order, one
+  more in each unit's queue, and keeps the target awaited, marked `queued`; letting go of Shift then ends targeting
+  (`end_queued_targeting`, first in `Input`, after a targeting press still held has had its click), while before
+  the first queued click it changes nothing (0070's TBD, its proposed default). Esc, a right-click and Back cancel,
+  Shift held or not. The player's changes of the selection or the ActiveGroup cancel targeting
   (`LocalControl::update`); removals by the game (deaths) don't, unless the whole ActiveGroup is gone
   (`ControlState::retain`).
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
@@ -944,8 +958,8 @@ to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how th
   (`command_ui/feedback.rs`) is the message `INVALID_TARGET_TEXT` above the HUD Bar for `FEEDBACK_TICKS` sim ticks
   after the latest `InvalidTarget` (`TargetFeedback`), never in the pointer's way (`Pickable::IGNORE`).
 - The design leaves some things open (labels, colours, the flash, the cursor's shapes and the Mixed look, the
-  invalid-target feedback's form and duration, the shield's rule in a targeting click); each placeholder is marked
-  where it is made.
+  invalid-target feedback's form and duration, the targeting click allowance's value, when Shift counts for a
+  targeting click); each placeholder is marked where it is made.
 
 **Bevy code**
 - Write one plugin per feature module (camera, map rendering, HUD, input, …). Keep systems small. Bevy caps a system

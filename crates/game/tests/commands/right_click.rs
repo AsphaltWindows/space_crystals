@@ -97,11 +97,11 @@ fn shift_right_clicks_queue_and_plain_ones_replace() {
 
 /// Design changes 0062 and 0063: each selected unit resolves a right-click for itself, whichever group is active,
 /// and the orders go out grouped, one per distinct order. With the Peacekeepers' Riot Shields up, a right-click on
-/// an enemy sends the Guards to attack it and the Peacekeepers, which can't attack now, to the clicked spot (the
-/// shield's Move to the location wins over 0062's Follow: question Q0020 point 1), with either group active. The
-/// pointer previews it: Attack while all of them would attack, Mixed once they would do different things, Move over
-/// the ground. A right-click on the ground is one order for all four: one group for the magic box. (No M1 unit
-/// lacks an attack its target allows; the Follow of a unit that can't attack is unit-tested in `resolution.rs`.)
+/// an enemy sends the Guards to attack it and the Peacekeepers, which can't attack now, to follow it (0062's
+/// `move_to`, design change 0074: it replaced the Move to the clicked spot of question Q0020 point 1), with either
+/// group active. The pointer previews it: Attack while all of them would attack, Mixed once they would do
+/// different things, Move over the ground. A right-click on the ground is one order for all four: one group for the
+/// magic box.
 #[test]
 fn each_selected_unit_resolves_a_right_click_for_itself() {
     let mut app = game();
@@ -126,9 +126,13 @@ fn each_selected_unit_resolves_a_right_click_for_itself() {
     let given_orders = orders(&app);
     assert_eq!(given_orders.len(), 4, "{given_orders:?}");
     for pair in given_orders.chunks(2) {
-        assert_eq!(pair[0].units, [1, 2]);
-        assert!(near(point_of(pair[0].kind), enemy), "{pair:?}");
-        assert_eq!(pair[1], given(&[3, 4], OrderKind::Attack(ObjectId(ENEMY_PK)), false));
+        assert_eq!(
+            pair,
+            [
+                given(&[1, 2], OrderKind::Move(Target::Object(ObjectId(ENEMY_PK))), false),
+                given(&[3, 4], OrderKind::Attack(ObjectId(ENEMY_PK)), false),
+            ]
+        );
     }
 
     right_click(&mut app, ground, &[]);

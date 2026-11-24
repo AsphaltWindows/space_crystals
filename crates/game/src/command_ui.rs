@@ -8,7 +8,8 @@
 //! - [`resolution`]: what a click on the map resolves to, unit by unit for a right-click, and the
 //!   PointerDisplayType that previews it;
 //! - the systems (`systems.rs`): command hotkeys and panel clicks, left-clicks while a target is awaited (at the
-//!   press point), right-clicks and Esc change the local player's ObjectInterfaceState and give orders
+//!   press point, within [`TARGETING_CLICK_ALLOWANCE_PX`]; Shift-clicks queue and keep the target awaited until
+//!   Shift is let go), right-clicks and Esc change the local player's ObjectInterfaceState and give orders
 //!   (`Command::Order` in `PendingCommands`, with `queue` while the Queue modifier, Shift, is held) and abilities
 //!   (`Command::Ability`); every frame the state is checked against the game and falls back to DefaultState when it
 //!   no longer holds;
@@ -32,6 +33,7 @@ use sc_sim::{ObjectId, OrderKind, Tick};
 
 pub use interface::{ButtonLook, InterfaceState, InterfaceTemplate, Modes, Panel, PanelButton, PanelSlot, UnitCommand};
 pub use resolution::{CursorTarget, MapTarget, PointerDisplay, UnitCapabilities};
+pub use systems::TARGETING_CLICK_ALLOWANCE_PX;
 
 use crate::ClientSystems;
 use crate::selection::SelectionSystems;
@@ -90,6 +92,7 @@ impl Plugin for CommandUiPlugin {
             .add_systems(
                 Update,
                 (
+                    systems::end_queued_targeting,
                     systems::cancel_targeting,
                     systems::press_command_slots,
                     systems::click_targets,

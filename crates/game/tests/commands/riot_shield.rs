@@ -1,8 +1,8 @@
 //! The Peacekeeper's Riot Shield in the command flow (`factions/gdo/units.md > Peacekeeper > Riot Shield (toggled
 //! ability)`): its button in R and its hotkey raise and lower the shields of the Peacekeepers it goes to, and the
-//! button shows whether they are up. With the shields up, Attack is disabled and the shielded units move to an
-//! enemy they are sent at, while the other units of the selection attack it. A shield that isn't down is drawn in
-//! front of its unit.
+//! button shows whether they are up. With the shields up, Attack is disabled; a right-click on an enemy has the
+//! shielded units follow it (design change 0074) and an Attack leaves them out (0075), while the other units of the
+//! selection attack it. A shield that isn't down is drawn in front of its unit.
 
 use bevy::prelude::*;
 use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
@@ -121,11 +121,11 @@ fn in_a_mixed_selection_r_goes_to_the_peacekeepers() {
     assert_eq!([shield(&app, 1), shield(&app, 5)], [RiotShield::Raised; 2]);
 }
 
-/// "Right-click on an enemy while the shield is up issues a Move order to that location instead of an Attack", and
-/// "the player must lower the shield before ordering an attack": the pointer previews a Move over an enemy, and
-/// Attack is disabled.
+/// "Right-click on an enemy unit while the shield is up: the Peacekeeper follows that unit" (design change 0074,
+/// which replaced the Move to the clicked location), and "the player must lower the shield before ordering an
+/// attack": the pointer previews a Move over an enemy, and Attack is disabled.
 #[test]
-fn with_their_shields_up_peacekeepers_move_to_the_enemy_they_are_sent_at() {
+fn with_their_shields_up_peacekeepers_follow_the_enemy_they_are_sent_at() {
     let mut app = game();
     select_box(&mut app, &[1, 2]);
     tap(&mut app, &[], KeyR);
@@ -142,20 +142,16 @@ fn with_their_shields_up_peacekeepers_move_to_the_enemy_they_are_sent_at() {
     assert_eq!(interface(&app), InterfaceState::DefaultState, "no Attack to target");
 
     right_click(&mut app, at(ENEMY_PK), &[]);
-    let given_orders = orders(&app);
-    assert_eq!(given_orders.len(), 1, "{given_orders:?}");
-    assert_eq!(
-        (given_orders[0].units.as_slice(), given_orders[0].queue),
-        ([1, 2].as_slice(), false)
-    );
-    assert!(near(point_of(given_orders[0].kind), at(ENEMY_PK)), "{given_orders:?}");
+    let follow = OrderKind::Move(Target::Object(ObjectId(ENEMY_PK)));
+    assert_eq!(orders(&app), [given(&[1, 2], follow, false)]);
     let current = object_orders(&app, 1).current.expect("on its way").order.kind;
-    assert!(near(point_of(current), at(ENEMY_PK)), "{current:?}");
+    assert_eq!(current, follow);
 }
 
-/// In a selection whose Guards can attack, Attack stays: a click on an enemy in AwaitingTarget[Attack], or a
-/// right-click on one, sends the Guards to attack it and the shielded Peacekeepers there. Each click gives one order
-/// per distinct order, in the order of the units' ids: the Peacekeepers' Move first.
+/// In a selection whose Guards can attack, Attack stays: a click on an enemy in AwaitingTarget[Attack] sends the
+/// Guards to attack it and leaves the shielded Peacekeepers out (design change 0075); a right-click on one sends
+/// the Guards to attack it and has the Peacekeepers follow it (0074). Each click gives one order per distinct order,
+/// in the order of the units' ids: the Peacekeepers' Follow first.
 #[test]
 fn a_mixed_selection_attacks_with_the_units_that_can() {
     let mut app = game();
@@ -164,23 +160,21 @@ fn a_mixed_selection_attacks_with_the_units_that_can() {
     toggle_time(&mut app);
     assert_eq!(button(&mut app, slot(1, 0)).map(|b| b.look), Some(ButtonLook::Common));
     tap(&mut app, &[], KeyA);
-    assert_eq!(interface(&app), InterfaceState::AwaitingTarget(UnitCommand::Attack));
+    assert_eq!(interface(&app), InterfaceState::awaiting(UnitCommand::Attack));
     click(&mut app, at(ENEMY_PK), &[]);
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     right_click(&mut app, at(ENEMY_GUARD), &[]);
 
-    let given_orders = orders(&app);
-    assert_eq!(given_orders.len(), 4, "{given_orders:?}");
     let attack = |id: u32| OrderKind::Attack(ObjectId(id));
-    assert_eq!(given_orders[1], given(&[3, 4], attack(ENEMY_PK), false));
-    assert_eq!(given_orders[3], given(&[3, 4], attack(ENEMY_GUARD), false));
-    for (moved, enemy) in [(&given_orders[0], ENEMY_PK), (&given_orders[2], ENEMY_GUARD)] {
-        assert_eq!(moved.units, [1, 2]);
-        assert!(
-            matches!(moved.kind, OrderKind::Move(Target::Point(p)) if near(p, at(enemy))),
-            "{moved:?}"
-        );
-    }
+    let follow = |id: u32| OrderKind::Move(Target::Object(ObjectId(id)));
+    assert_eq!(
+        orders(&app),
+        [
+            given(&[3, 4], attack(ENEMY_PK), false),
+            given(&[1, 2], follow(ENEMY_GUARD), false),
+            given(&[3, 4], attack(ENEMY_GUARD), false),
+        ]
+    );
 }
 
 /// The shield is drawn with its unit's visual while it isn't down, growing to its full size as it goes up; a

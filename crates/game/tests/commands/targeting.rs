@@ -2,7 +2,8 @@
 //! command's hotkey or button awaits a left-click on the map, which issues the command and returns to DefaultState;
 //! Esc, a right-click and Back (Z) cancel. The rules of design changes 0064 to 0069: force-attack on own and
 //! neutral destructible objects, invalid target clicks, no other commands and no box while targeting, the press
-//! point, and which selection changes cancel.
+//! point, and which selection changes cancel. Shift while targeting (0070) is `shift_targeting.rs`, the click
+//! allowance (0073) `click_allowance.rs`.
 
 use bevy::prelude::*;
 use sc_sim::{Command, ObjectId, OrderKind, Target};
@@ -10,13 +11,12 @@ use space_crystals::command_ui::feedback::{FEEDBACK_TICKS, INVALID_TARGET_TEXT, 
 use space_crystals::command_ui::{ButtonLook, InterfaceState, UnitCommand};
 use space_crystals::hud::command_panel::CommandButton;
 use space_crystals::selection::Relation;
-use space_crystals::selection::markers::DragBoxEdge;
 
 use super::*;
 use KeyCode::{ControlLeft, Digit1, Digit2, Escape, KeyA, KeyE, KeyQ, KeyR, KeyS, KeyX, KeyZ, ShiftLeft, Tab};
 
-const AWAIT_ATTACK: InterfaceState = InterfaceState::AwaitingTarget(UnitCommand::Attack);
-const AWAIT_PATROL: InterfaceState = InterfaceState::AwaitingTarget(UnitCommand::Patrol);
+const AWAIT_ATTACK: InterfaceState = InterfaceState::awaiting(UnitCommand::Attack);
+const AWAIT_PATROL: InterfaceState = InterfaceState::awaiting(UnitCommand::Patrol);
 
 fn attack(id: u32) -> OrderKind {
     OrderKind::Attack(ObjectId(id))
@@ -43,12 +43,6 @@ fn feedback_shown(app: &mut App) -> bool {
     let shown = *query.single(app.world()).unwrap() != Visibility::Hidden;
     assert_eq!(shown, app.world().resource::<TargetFeedback>().since.is_some());
     shown
-}
-
-/// Whether the selection box is drawn.
-fn box_drawn(app: &mut App) -> bool {
-    let mut query = app.world_mut().query::<(&DragBoxEdge, &Visibility)>();
-    query.iter(app.world()).any(|(_, v)| *v != Visibility::Hidden)
 }
 
 /// Drags the left button from the view point `from` to `to` (down, moved, up, a frame each, then a [`pause`]), and
@@ -245,8 +239,8 @@ fn a_drag_while_targeting_does_nothing() {
 }
 
 /// Design change 0068: a targeting click counts at the press point. The button goes down on the enemy, at its
-/// edge, and comes up 3 pixels further, over the ground (a click, not a drag: `DRAG_THRESHOLD_PX`): Attack on the
-/// enemy, not AttackMove. And the button goes down on a walking enemy and comes up once it has walked away from
+/// edge, and comes up 3 pixels further, over the ground (a click, not a drag: `TARGETING_CLICK_ALLOWANCE_PX`):
+/// Attack on the enemy, not AttackMove. And the button goes down on a walking enemy and comes up once it has walked away from
 /// under the cursor: Attack on it, as the press found it.
 #[test]
 fn a_targeting_click_counts_at_the_press_point() {
@@ -352,17 +346,29 @@ fn esc_right_click_and_back_cancel_targeting() {
     assert_eq!(interface(&app), AWAIT_PATROL);
 }
 
-/// `commands.md > Unit Command`: Shift queues a targeted command too. The design returns to DefaultState after
-/// every issuing click (`> AwaitingTarget`), Shift or not.
+/// `commands.md > Unit Command`: Shift queues a targeted command too. A Shift-click keeps the target awaited while
+/// Shift is held (design change 0070, which replaced the return to DefaultState after every issuing click); the
+/// click helper lets go of Shift after the click, which ends targeting. Shift pressed for the hotkey and held
+/// through the click is the same.
 #[test]
 fn a_shift_click_queues_the_targeted_order() {
     let mut app = game();
     click(&mut app, at(1), &[]);
     tap(&mut app, &[], KeyA);
     click(&mut app, Vec2::new(1000.0, 1000.0), &[ShiftLeft]);
+    assert_eq!(interface(&app), InterfaceState::DefaultState, "Shift let go");
+    press_keys(&mut app, &[ShiftLeft]);
+    input(&mut app).tap_key(KeyQ);
+    app.update();
+    click(&mut app, Vec2::new(1200.0, 1000.0), &[]);
+    let queued = InterfaceState::AwaitingTarget {
+        pending: UnitCommand::Move,
+        queued: true,
+    };
+    assert_eq!(interface(&app), queued, "Shift still held");
+    release_keys(&mut app, &[ShiftLeft]);
+    app.update();
     assert_eq!(interface(&app), InterfaceState::DefaultState);
-    tap(&mut app, &[ShiftLeft], KeyQ);
-    click(&mut app, Vec2::new(1200.0, 1000.0), &[ShiftLeft]);
     tap(&mut app, &[], KeyA);
     click(&mut app, Vec2::new(1000.0, 1100.0), &[]);
     let queued: Vec<bool> = orders(&app).iter().map(|o| o.queue).collect();

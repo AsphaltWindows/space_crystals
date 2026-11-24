@@ -4,7 +4,8 @@
 //! The pointer follows a press of a primary pointer action that goes down on the map until its release
 //! ([`Pointer::press`]): [`InputAction::Select`] in the game, [`EditorInput::UseTool`] in the editor. A
 //! [`InputAction::Select`] press sends a [`MapClick`] when it is released, or a [`SelectionBox`] when the pointer
-//! moved more than [`DRAG_THRESHOLD_PX`] while it was held. [`InputAction::ContextCommand`] and the editor's
+//! moved more than [`DRAG_THRESHOLD_PX`] while it was held; in the frame of its release the press, with how far it
+//! moved, is [`Pointer::released`]. [`InputAction::ContextCommand`] and the editor's
 //! [`EditorInput::Eyedropper`] send a [`MapClick`] when they are pressed. None of them starts over the UI.
 //! Positions on the map are view points (`crate::coords`), which stay on the same spot of the map while the camera
 //! pans, and the ground points drawn there (`coords::ground_under`), as the last frame showed them.
@@ -53,6 +54,10 @@ pub struct Pointer {
     /// The press of a primary pointer action that went down on the map, from that frame until the frame its button
     /// goes up (or its input context ends): the drag state. The editor's tools stroke and drag from it.
     pub press: Option<MapPress>,
+    /// The press whose button went up this frame, in its input context, as it ended: how far it moved included
+    /// ([`MapPress::moved`]). For a rule of its own about clicks and drags: the command flow's larger click allowance
+    /// while a target is awaited (`crate::command_ui::TARGETING_CLICK_ALLOWANCE_PX`, design change 0073).
+    pub released: Option<MapPress>,
     /// The box of a [`InputAction::Select`] drag in progress, in view space: from where it went down to the
     /// cursor, kept inside the world view.
     pub drag_box: Option<Rect>,
@@ -72,8 +77,10 @@ pub struct MapPress {
     /// The ground point drawn under the cursor now, while the cursor is over the world view: over a UI node there
     /// too, because no press starts over the UI but a drag goes on there. The editor's tools drag to it.
     pub drag_ground: Option<Vec2>,
-    /// The pointer moved further than [`DRAG_THRESHOLD_PX`] from there: a [`InputAction::Select`] press is a box
-    /// now, not a click.
+    /// The farthest the pointer has been from where it went down, in logical pixels.
+    pub moved: f32,
+    /// The pointer moved further than [`DRAG_THRESHOLD_PX`] from there ([`MapPress::moved`]): a
+    /// [`InputAction::Select`] press is a box now, not a click.
     pub dragging: bool,
 }
 
@@ -208,6 +215,7 @@ pub(super) fn track_pointer(
                     view,
                     ground,
                     drag_ground: Some(ground),
+                    moved: 0.0,
                     dragging: false,
                 },
                 now,
@@ -218,15 +226,18 @@ pub(super) fn track_pointer(
     let last_screen = tracking.last_screen;
     if let Some((press, _)) = &mut tracking.press {
         press.drag_ground = in_view.map(ground_at);
-        if last_screen.is_some_and(|cursor| cursor.distance(press.screen) > DRAG_THRESHOLD_PX) {
-            press.dragging = true;
+        if let Some(cursor) = last_screen {
+            press.moved = press.moved.max(cursor.distance(press.screen));
         }
+        press.dragging = press.moved > DRAG_THRESHOLD_PX;
     }
     let drag_end = last_screen.and_then(|s| world.clamped_view_at(s));
+    let mut released = None;
     if let Some((press, pressed_at)) = tracking.press
         && !state.held(press.action)
     {
         tracking.press = None;
+        released = press.action.works_in(state.context).then_some(press);
         // A Select press ends in a click or a box, unless it ended because the input context changed.
         let selected = press.action == InputAction::Select && press.action.works_in(state.context);
         if selected && press.dragging {
@@ -275,6 +286,7 @@ pub(super) fn track_pointer(
         view,
         ground,
         press,
+        released,
         drag_box,
     };
 }

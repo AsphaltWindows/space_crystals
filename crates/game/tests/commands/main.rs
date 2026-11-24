@@ -8,17 +8,20 @@
 //! on an object only while the player sees it, so player 1 has scouts off screen, in sight of every target; and
 //! auto-targeting is off (a debug command), so that nobody fights while the orders are given.
 
+mod click_allowance;
 mod indicators;
 mod panel;
 mod right_click;
 mod riot_shield;
+mod shield_orders;
+mod shift_targeting;
 mod targeting;
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use sc_sim::{
-    Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Scenario, SlotId, Spawn, SpawnAt,
-    Target, TilePos, scenarios,
+    Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Scenario, SimEvent, SlotId, Spawn,
+    SpawnAt, Target, TilePos, scenarios,
 };
 use space_crystals::camera::{CameraView, ViewportInsets, viewport_rect, visible_extent_su};
 use space_crystals::command_ui::cursor::PointerLook;
@@ -27,6 +30,7 @@ use space_crystals::hud::layout::CommandGrid;
 use space_crystals::input::{CommandSlot, InjectedInput};
 use space_crystals::platform::{DisplayMode, SurfaceSize};
 use space_crystals::selection::ControlStates;
+use space_crystals::selection::markers::DragBoxEdge;
 use space_crystals::sim_driver::{LocalPlayer, PendingCommands, RecordedInputs, SimRes};
 use space_crystals::{AppConfig, build_app};
 
@@ -94,7 +98,12 @@ fn scenario() -> Scenario {
 /// A headless game of [`scenario`] as player 1, debug commands on, the camera at [`VIEW_CENTER`], without the fog
 /// of war and without auto-targeting.
 fn game() -> App {
-    let mut config = AppConfig::new(scenario());
+    game_of(scenario())
+}
+
+/// A headless game of `scenario`, as [`game`] sets it up.
+fn game_of(scenario: Scenario) -> App {
+    let mut config = AppConfig::new(scenario);
     config.display = DisplayMode::Headless;
     config.qa.no_fog = true;
     let mut app = build_app(config);
@@ -210,6 +219,12 @@ fn drag(app: &mut App, from: Vec2, to: Vec2) {
     pause(app);
 }
 
+/// Whether the selection box is drawn.
+fn box_drawn(app: &mut App) -> bool {
+    let mut query = app.world_mut().query::<(&DragBoxEdge, &Visibility)>();
+    query.iter(app.world()).any(|(_, v)| *v != Visibility::Hidden)
+}
+
 /// Taps `key` while the modifier keys `modifiers` are down; two frames.
 fn tap(app: &mut App, modifiers: &[KeyCode], key: KeyCode) {
     press_keys(app, modifiers);
@@ -228,10 +243,58 @@ fn select_mixed(app: &mut App) {
 /// Selects the objects of `ids` with a box around them, which must select exactly them.
 fn select_box(app: &mut App, ids: &[u32]) {
     let points: Vec<Vec2> = ids.iter().map(|&id| at(id)).collect();
+    select_around(app, &points, ids);
+}
+
+/// Selects the objects of `ids` with a box around where they are now, which must select exactly them.
+fn select_units(app: &mut App, ids: &[u32]) {
+    let points: Vec<Vec2> = ids.iter().map(|&id| pos(app, id)).collect();
+    select_around(app, &points, ids);
+}
+
+/// Drags a box around `points`, which must select exactly `ids`.
+fn select_around(app: &mut App, points: &[Vec2], ids: &[u32]) {
     let min = points.iter().copied().reduce(Vec2::min).unwrap() - 30.0;
     let max = points.iter().copied().reduce(Vec2::max).unwrap() + 30.0;
     drag(app, min, max);
     assert_eq!(selected(app), ids);
+}
+
+/// Where object `id` is now, as the sim has it (the maps of these tests are flat: where it is drawn).
+fn pos(app: &App, id: u32) -> Vec2 {
+    app.world()
+        .resource::<SimRes>()
+        .object(ObjectId(id))
+        .expect("in the game")
+        .pos
+}
+
+/// Spawns a `kind` of `owner` at the point `at` (a debug command) and returns its id, two frames later.
+fn spawn(app: &mut App, kind: ObjectKind, owner: Option<PlayerId>, at: Vec2) -> u32 {
+    let at = SpawnAt::Point(at);
+    submit(
+        app,
+        PlayerId(1),
+        Command::Debug(DebugCommand::Spawn { kind, owner, at }),
+    );
+    updates(app, 2);
+    let sim = app.world().resource::<SimRes>();
+    let spawned = sim.objects().last().expect("spawned");
+    assert_eq!((spawned.kind, spawned.owner), (kind, owner));
+    spawned.id.0
+}
+
+/// Runs `n` ticks, one per frame, and returns the sim's events of each, in order.
+fn run_collecting(app: &mut App, n: usize) -> Vec<SimEvent> {
+    let mut events = Vec::new();
+    for _ in 0..n {
+        let before = app.world().resource::<SimRes>().tick();
+        app.update();
+        let sim = app.world().resource::<SimRes>();
+        assert_eq!(sim.tick(), before + 1, "one tick per frame");
+        events.extend(sim.events().iter().cloned());
+    }
+    events
 }
 
 fn local_player(app: &App) -> PlayerId {

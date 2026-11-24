@@ -1,14 +1,15 @@
 //! The CommandPanel (`> CommandPanel`): its layout for the M1 units, its hotkeys and buttons, who receives its
-//! commands, and that only the local player's units do.
+//! commands (no smart-casting: all of them, design change 0071), and that only the local player's units do.
 
 use bevy::prelude::*;
-use sc_sim::{OrderKind, PlayerId};
+use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
+use sc_sim::{Ability, ObjectId, OrderKind, PlayerId, RiotShield};
 use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, UnitCommand};
 use space_crystals::hud::command_panel::{CommandButton, CommandPanelView};
 use space_crystals::hud::{HudSection, SectionLabel};
 
 use super::*;
-use KeyCode::{F2, KeyA, KeyE, KeyX, ShiftLeft, Tab};
+use KeyCode::{F2, KeyA, KeyE, KeyR, KeyX, ShiftLeft, Tab};
 
 /// The buttons the HUD shows: slot, button, look.
 fn buttons(app: &mut App) -> Vec<(CommandSlot, PanelButton, ButtonLook)> {
@@ -152,6 +153,100 @@ fn common_commands_go_to_the_whole_selection_from_any_active_group() {
     let given_orders = orders(&app);
     assert_eq!(given_orders.len(), 2);
     assert!(given_orders.iter().all(|o| o.units == [1, 2, 3, 4]), "{given_orders:?}");
+}
+
+/// A point of the ground in the world view, clear of every object, so that a click there is on the ground.
+fn bare_ground(app: &App) -> Vec2 {
+    let sim = app.world().resource::<SimRes>();
+    let mut candidates =
+        (0..8).flat_map(|i| (0..4).map(move |j| Vec2::new(800.0 + 200.0 * i as f32, 650.0 + 180.0 * j as f32)));
+    candidates
+        .find(|&p| sim.objects().all(|o| o.pos.distance(p) > 150.0))
+        .expect("bare ground")
+}
+
+/// `> SelectionGroup > No smart-casting` (design change 0071) with `> CommandPanel`: every command the panel shows,
+/// by its hotkey and by its button, reaches every unit it is issued to, never some of them: a common command the
+/// whole selection, a group command the whole ActiveGroup. For each ActiveGroup of a selection of three
+/// Peacekeepers and two Guards (Tab), each command shown is used: an immediate one is issued, one that awaits a
+/// target gets a click on the ground. The orders and abilities given must go to exactly those units, all at once.
+/// A shown command this does not know how to give, or that gives nothing, fails it. (The unavailable Reverse and
+/// AttackGround go to nobody: no M1 unit has them.)
+#[test]
+fn every_panel_command_reaches_all_its_recipients() {
+    use UnitCommand::*;
+    let mut app = game();
+    drag(&mut app, Vec2::new(850.0, 760.0), Vec2::new(1400.0, 1140.0));
+    let all = [1, 2, 3, 4, 5];
+    assert_eq!(selected(&app), all);
+    let mut used = Vec::new();
+    for _ in 0..2 {
+        let states = app.world().resource::<ControlStates>();
+        let group = states.selection(PlayerId(1)).active_group().expect("a selection");
+        let active: Vec<u32> = group.instances.iter().map(|id| id.0).collect();
+        for (slot, button, look) in buttons(&mut app) {
+            let PanelButton::Command(command) = button else {
+                continue;
+            };
+            let expected = match look {
+                ButtonLook::Common => all.to_vec(),
+                ButtonLook::Group => active.clone(),
+                ButtonLook::Unavailable => continue,
+                other => panic!("{command:?} looks {other:?}"),
+            };
+            for by_button in [false, true] {
+                let before = (orders(&app).len(), abilities(&app).len());
+                if by_button {
+                    click_button(&mut app, slot, &[]);
+                } else {
+                    tap(&mut app, &[], slot.default_key());
+                    pause(&mut app);
+                }
+                if interface(&app) == InterfaceState::awaiting(command) {
+                    let ground = bare_ground(&app);
+                    click(&mut app, ground, &[]);
+                }
+                assert_eq!(interface(&app), InterfaceState::DefaultState, "{command:?}");
+                let new_orders = orders(&app).split_off(before.0).into_iter().map(|o| o.units);
+                let new_abilities = abilities(&app)
+                    .split_off(before.1)
+                    .into_iter()
+                    .map(|(_, units, _)| units);
+                let reached: Vec<Vec<u32>> = new_orders.chain(new_abilities).collect();
+                assert_eq!(
+                    reached,
+                    std::slice::from_ref(&expected),
+                    "{command:?}, by button: {by_button}"
+                );
+            }
+            used.push(command);
+        }
+        tap(&mut app, &[], Tab);
+    }
+    let pks = [Move, HoldPosition, RiotShield, Attack, Patrol, Stop];
+    let guards = [Move, HoldPosition, Attack, Patrol, Stop];
+    assert_eq!(used, [pks.as_slice(), guards.as_slice()].concat());
+}
+
+/// 0071 Verification 3: four Peacekeepers selected and the Riot Shield key (R): all four raise their shields.
+#[test]
+fn the_riot_shield_key_raises_every_selected_peacekeeper() {
+    let mut app = game();
+    let fourth = spawn(
+        &mut app,
+        ObjectKind::Peacekeeper,
+        Some(PlayerId(1)),
+        Vec2::new(1050.0, 1100.0),
+    );
+    let four = [1, 2, 5, fourth];
+    select_units(&mut app, &four);
+    tap(&mut app, &[], KeyR);
+    let raise = Ability::RiotShield { raise: true };
+    assert_eq!(abilities(&app), [(PlayerId(1), four.to_vec(), raise)]);
+    updates(&mut app, RIOT_SHIELD_TOGGLE_TICKS as usize + 2);
+    let sim = app.world().resource::<SimRes>();
+    let shields = four.map(|id| sim.object(ObjectId(id)).unwrap().riot_shield);
+    assert_eq!(shields, [Some(RiotShield::Raised); 4]);
 }
 
 /// `> CommandPanel`: "Commands can only be issued to objects owned by the player." Another player's selected unit
