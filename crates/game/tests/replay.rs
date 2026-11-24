@@ -3,6 +3,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use bevy::ecs::message::Messages;
 use bevy::prelude::*;
@@ -22,7 +23,9 @@ use space_crystals::qa::QaState;
 use space_crystals::replay::playback::SPEEDS;
 use space_crystals::replay::{Playback, Recorder, load_replay};
 use space_crystals::selection::{ControlStates, Selection};
-use space_crystals::sim_driver::{LocalPlayer, Pace, PendingCommands, RecordedInputs, SimControl, SimRes};
+use space_crystals::sim_driver::{
+    FAST_FRAME_BUDGET, LocalPlayer, Pace, PendingCommands, RecordedInputs, SimControl, SimRes,
+};
 use space_crystals::{AppConfig, build_app};
 
 const P1: PlayerId = PlayerId(1);
@@ -327,7 +330,14 @@ fn playback_pauses_steps_and_changes_speed() {
         tap(&mut app, KeyCode::Equal);
     }
     assert_eq!(app.world().resource::<Pace>(), &Pace::Max, "the fastest");
-    assert_eq!(tick(&app), 300, "at the end at once, and not past it");
+    // How many ticks a frame runs at the fastest pace depends on how fast the machine is, but every frame runs one at
+    // least while the playback may step: within as many frames as ticks are left, it is at the end.
+    assert!(tick(&app) <= 300, "not past the end");
+    for _ in tick(&app)..300 {
+        app.update();
+        assert!(tick(&app) <= 300, "not past the end");
+    }
+    assert_eq!(tick(&app), 300, "at the end");
     app.update();
     assert_eq!(tick(&app), 300);
     assert_eq!(top_bar(&mut app), "Replay max, end");
@@ -356,9 +366,16 @@ fn leaving_the_fastest_pace_runs_no_burst_of_ticks() {
     let mut app = headless(config);
     app.insert_resource(SetPace(None)).add_systems(Update, set_pace);
     app.update();
+    // As fast as it can: a frame runs ticks until its budget is spent. How many fit depends on how fast the machine
+    // is, so the frame ran more than a second's worth of them, or else spent its whole budget.
     let before = tick(&app);
+    let started = Instant::now();
     app.update();
-    assert!(tick(&app) > before + 16, "as fast as it can");
+    let (ran, took) = (tick(&app) - before, started.elapsed());
+    assert!(
+        ran > 16 || took >= FAST_FRAME_BUDGET,
+        "as fast as it can: {ran} ticks in {took:?}"
+    );
 
     app.world_mut().resource_mut::<SetPace>().0 = Some(Pace::Scaled(1.0));
     app.update();
