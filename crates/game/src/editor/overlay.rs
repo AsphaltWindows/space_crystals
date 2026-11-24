@@ -1,7 +1,8 @@
 //! What the editor draws over the map: what the tool under the cursor would change ([`previews`]), the
-//! selection, spawns and tiles with problems, the symmetry axes and the dimmed locked part of a symmetric map
-//! ([`tints`]), each player slot's start position and camera start with their labels ([`markers`]), and on request
-//! (K) a tint of flat, sloped and too steep tiles.
+//! selection, spawns, layout objects and tiles with problems, the symmetry axes and the dimmed locked part of a
+//! symmetric map ([`tints`]), each player slot's start position and camera start with their labels ([`markers`]),
+//! the Starting Layouts while the Layout tool edits them ([`layouts`]), and on request (K) a tint of flat, sloped and
+//! too steep tiles.
 //!
 //! Everything sits where the terrain is drawn (`crate::coords::drawn_position`): outlines follow the surface. One
 //! overlay mesh, on top of everything, is rebuilt when any of that changes. The tints are meshes of their own in the
@@ -9,6 +10,7 @@
 //! ghosts reuse the object placeholder meshes with a translucent material; the slot labels are world-space text
 //! kept at a constant screen size.
 
+mod layouts;
 pub mod markers;
 mod previews;
 mod shapes;
@@ -24,6 +26,7 @@ pub use self::markers::{Ghost, SlotLabel};
 use self::shapes::{Overlay, near_map, tile_rect};
 pub use self::tints::{LockedTint, SlopeTint, locked_mesh, slope_mesh};
 use super::doc::EditorDoc;
+use super::layouts::check::LayoutPreview;
 use super::objects;
 use super::state::{EditorCursor, EditorProblems, EditorSelection, Selection};
 use super::terrain;
@@ -171,6 +174,7 @@ fn draw_overlay(
     cursor: Res<EditorCursor>,
     selection: Res<EditorSelection>,
     problems: Res<EditorProblems>,
+    ghost: Res<LayoutPreview>,
     view: (Res<SurfaceSize>, Res<ViewportInsets>, Res<CameraZoom>),
     assets: Res<OverlayAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -188,6 +192,7 @@ fn draw_overlay(
         || cursor.is_changed()
         || selection.is_changed()
         || problems.is_changed()
+        || ghost.is_changed()
         || zoom.is_changed()
         || size.is_changed()
         || mode.is_changed();
@@ -243,16 +248,24 @@ fn draw_overlay(
             _ => Vec::new(),
         };
         for s in spawns.into_iter().filter_map(|i| map.spawns.get(i)) {
-            let rect = objects::spawn_rect(s.kind, s.at);
+            let rect = objects::spawn_rect(s.kind, s.at, s.orientation);
             if near_map(terrain, rect) {
                 o.surface_outline(rect, BAD_EDGE);
             }
         }
     }
+    layouts::problems(&mut o, map, &problems.0);
+    if tools.tool == Tool::Layout {
+        layouts::layout_tool(&mut o, map, &tools, ghost.0.as_ref());
+    }
 
     // The selection.
     let selected = match selection.0 {
-        Some(Selection::Spawn(i)) => map.spawns.get(i).map(|s| objects::spawn_rect(s.kind, s.at)),
+        Some(Selection::Spawn(i)) => map
+            .spawns
+            .get(i)
+            .map(|s| objects::spawn_rect(s.kind, s.at, s.orientation)),
+        Some(Selection::LayoutObject { .. }) => layouts::selected(map, selection.0),
         Some(Selection::Start(s)) => map.slot(s).map(|slot| tile_rect(slot.start)),
         Some(Selection::CameraStart(s)) => {
             if let Some(c) = map.slot(s).and_then(|slot| slot.camera_start).filter(|c| c.is_finite()) {
@@ -284,8 +297,8 @@ fn draw_overlay(
             Tool::Elevation => previews::height_preview(&mut o, map, &tools, tile),
             Tool::Fill => previews::fill_preview(&mut o, map, tile),
             Tool::Place => {
-                for (at, problem) in previews::placements(map, &tools, pos) {
-                    previews::placement_preview(&mut o, tools.kind, at, problem);
+                for (at, orientation, problem) in previews::placements(map, &tools, pos) {
+                    previews::placement_preview(&mut o, tools.kind, at, orientation, problem);
                 }
             }
             Tool::Start if terrain.in_bounds(tile) => {

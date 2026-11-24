@@ -6,6 +6,9 @@
 use bevy::prelude::*;
 use sc_sim::{SpawnAt, TilePos, TilePresetId};
 
+use crate::editor::layouts::{layout, layout_name};
+use crate::editor::orientation;
+
 use super::{ERROR_TEXT, OK_TEXT, TEXT, WARN_TEXT};
 use crate::ClientMode;
 use crate::editor::creation::NewMapDialog;
@@ -39,6 +42,8 @@ pub enum PanelText {
     PlayTestOptions,
     /// Whether the creation dialog's settings make a map.
     NewMapVerdict,
+    /// How the structures the Place and Layout tools place are turned.
+    Orientation,
 }
 
 #[derive(Component)]
@@ -59,8 +64,14 @@ MOUSE
 
 TOOLS
   V Select   B Paint   H Height   F Fill   O Place   L Start   C Camera
+  T Layout (Starting Layouts: the chosen slot's, for the chosen faction)
   [ ]  brush size      E  height mode         + -  height level
   G    grid            K  slopes              Home  whole map
+
+PLACING A STRUCTURE (Place or Layout tool)
+  R  turn 90 clockwise         Shift+R  turn 90 counter-clockwise
+  F  flip left/right           Shift+F  flip top/bottom
+  (F chooses the Fill tool when no structure is being placed)
 
 The Height tool sets the corners of the brush's tiles; the slopes around
 them follow, and stop at cliffs. Plane and Rugged need ground at most
@@ -136,6 +147,18 @@ pub fn status_info(doc: &EditorDoc, tools: &EditorTools, cursor: &EditorCursor) 
         Tool::Start => format!("Start of S{}", tools.slot.0),
         Tool::CameraStart => format!("Camera start of S{}", tools.slot.0),
         Tool::Select => "Select".into(),
+        Tool::Layout => {
+            let turned = if tools.places_structure() {
+                format!(", {}", orientation::describe(tools.orientation))
+            } else {
+                String::new()
+            };
+            format!(
+                "{}: {}{turned}",
+                layout_name(tools.slot, tools.faction),
+                tools.layout_kind.def().name
+            )
+        }
     };
     // The file name only: the properties panel shows where it is.
     let file = match doc.path().and_then(|p| p.file_name()) {
@@ -190,6 +213,25 @@ pub fn selection_text(doc: &EditorDoc, selection: &EditorSelection) -> String {
         },
         Some(Selection::Start(s)) => format!("Start of slot {}", s.0),
         Some(Selection::CameraStart(s)) => format!("Camera start of slot {}", s.0),
+        Some(Selection::LayoutObject { slot, faction, index }) => match layout(map, slot, faction).get(index) {
+            Some(object) => {
+                let at = match object.at {
+                    SpawnAt::Tile(t) => format!("tile {}, {}", t.x, t.y),
+                    SpawnAt::Point(p) => format!("point {:.0}, {:.0}", p.x, p.y),
+                };
+                let turned = if orientation::turns(object.kind) {
+                    format!(", {}", orientation::describe(object.orientation))
+                } else {
+                    String::new()
+                };
+                format!(
+                    "{} in the {} at {at}{turned}",
+                    object.kind.def().name,
+                    layout_name(slot, faction)
+                )
+            }
+            None => String::new(),
+        },
         None => "Nothing. The Select tool (V) picks objects and markers; drag to move them.".into(),
     }
 }
@@ -246,6 +288,10 @@ pub fn update_panel_texts(
                     "Debug commands off (--no-debug)"
                 };
                 set_text(&mut text, options.into());
+            }
+            PanelText::Orientation => {
+                let value = format!("Turned: {}", orientation::describe(tools.orientation));
+                set_text(&mut text, value);
             }
             PanelText::NewMapVerdict => {
                 let (verdict, wanted) = match dialog.settings.check() {

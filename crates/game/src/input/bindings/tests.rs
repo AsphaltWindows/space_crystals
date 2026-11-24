@@ -64,20 +64,23 @@ fn the_defaults_follow_the_design() {
     assert_eq!(game.count(), 22 + 4 * 10 + 12);
 }
 
+/// Except that a placement action's binding overrides another while a structure is being placed: the placement
+/// actions' bindings don't share a chord among themselves, nor the others among themselves.
 #[test]
 fn no_two_default_bindings_of_a_context_share_a_chord() {
     let b = Bindings::default();
     for context in InputContext::ALL {
-        let mut seen: Vec<Binding> = Vec::new();
+        let mut seen: Vec<(bool, Binding)> = Vec::new();
         for (action, binding) in b.in_context(context) {
             if matches!(binding, Binding::Modifiers(_)) {
                 continue;
             }
+            let entry = (action.is_placement(), binding);
             assert!(
-                !seen.contains(&binding),
+                !seen.contains(&entry),
                 "{context:?}: {action:?}: {binding:?} is bound twice"
             );
-            seen.push(binding);
+            seen.push(entry);
         }
     }
     // Every action is bound, each command slot and control group once per operation.
@@ -191,6 +194,58 @@ fn the_editor_has_its_own_bindings_and_shares_some() {
     assert_eq!(press(Game, KeyCode::KeyC, ctrl), Some(slot_c));
     assert_eq!(ed(EditorInput::Undo).context(), Some(Editor));
     assert!(InputAction::Queue.works_in(Game) && !InputAction::Queue.works_in(Editor));
+}
+
+/// The editor places with the keys of the game's placement ghost (`factions/gdo/structures.md > AwaitingPlacement`):
+/// while a structure is being placed, R and Shift + R turn it and F and Shift + F flip it, F over the Fill tool; while
+/// none is, they are nothing or the Fill tool.
+#[test]
+fn placement_keys_work_only_while_placing_and_override_the_others() {
+    use InputContext::{Editor, Game};
+    let b = Bindings::default();
+    let ed = InputAction::Editor;
+    let press = |k, modifiers, placing| b.resolve_placing(Editor, key(k), modifiers, false, placing);
+    let shift = Modifiers::SHIFT;
+    assert_eq!(
+        press(KeyCode::KeyR, Modifiers::NONE, true),
+        Some(ed(EditorInput::RotateClockwise))
+    );
+    assert_eq!(
+        press(KeyCode::KeyR, shift, true),
+        Some(ed(EditorInput::RotateCounterClockwise))
+    );
+    assert_eq!(
+        press(KeyCode::KeyF, Modifiers::NONE, true),
+        Some(ed(EditorInput::FlipHorizontal))
+    );
+    assert_eq!(press(KeyCode::KeyF, shift, true), Some(ed(EditorInput::FlipVertical)));
+    assert_eq!(press(KeyCode::KeyR, Modifiers::NONE, false), None);
+    assert_eq!(press(KeyCode::KeyR, shift, false), None);
+    assert_eq!(
+        press(KeyCode::KeyF, Modifiers::NONE, false),
+        Some(ed(EditorInput::FillTool))
+    );
+    assert_eq!(
+        press(KeyCode::KeyF, shift, false),
+        Some(ed(EditorInput::FillTool)),
+        "Shift doesn't block"
+    );
+    assert_eq!(
+        b.resolve(Editor, key(KeyCode::KeyF), Modifiers::NONE, false),
+        Some(ed(EditorInput::FillTool)),
+        "resolve: nothing is being placed"
+    );
+    // The other keys work as ever while placing; Ctrl still blocks the editor's keys; the game's keys are its own.
+    assert_eq!(
+        press(KeyCode::KeyV, Modifiers::NONE, true),
+        Some(ed(EditorInput::SelectTool))
+    );
+    assert_eq!(press(KeyCode::KeyR, Modifiers::CTRL, true), None);
+    assert_eq!(
+        b.resolve_placing(Game, key(KeyCode::KeyR), Modifiers::NONE, false, true),
+        Some(InputAction::CommandSlot(CommandSlot::new(0, 3).unwrap()))
+    );
+    assert!(ed(EditorInput::FlipVertical).is_placement() && !ed(EditorInput::FillTool).is_placement());
 }
 
 #[test]

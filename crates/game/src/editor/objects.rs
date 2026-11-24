@@ -5,13 +5,13 @@ use std::collections::BTreeSet;
 
 use bevy::math::{Rect, Vec2};
 use sc_sim::{
-    Category, Faction, Footprint, Map, MapDef, MapType, ObjectKind, SU_PER_GU, ScenarioProblem, SlotId, Spawn, SpawnAt,
-    TilePos,
+    BuildingOrientation, Category, Faction, Footprint, Map, MapDef, MapType, ObjectKind, SU_PER_GU, ScenarioProblem,
+    SlotId, Spawn, SpawnAt, TilePos,
 };
 
 use crate::camera::map_extent_su;
 
-/// A tile-based object type's footprint in tiles, or `None` for units.
+/// A tile-based object type's footprint in tiles, unturned, or `None` for units.
 pub fn tile_size(kind: ObjectKind) -> Option<(u32, u32)> {
     match kind.def().footprint {
         Footprint::Tiles { w, h } => Some((w, h)),
@@ -19,10 +19,17 @@ pub fn tile_size(kind: ObjectKind) -> Option<(u32, u32)> {
     }
 }
 
-/// Where an object of `kind` goes for the cursor at `pos`: a tile-based object's footprint centres on the grid
-/// point nearest to `pos` (for a 1×1 footprint, the tile under it); a unit takes the point itself.
-pub fn snap_spawn(kind: ObjectKind, pos: Vec2) -> SpawnAt {
-    match tile_size(kind) {
+/// A tile-based object type's footprint in tiles turned by `orientation` (`sc_sim::placement::footprint_size`: a
+/// quarter turn swaps its sides), or `None` for units.
+pub fn oriented_size(kind: ObjectKind, orientation: BuildingOrientation) -> Option<(u32, u32)> {
+    sc_sim::placement::footprint_size(kind, orientation)
+}
+
+/// Where an object of `kind` turned by `orientation` goes for the cursor at `pos`: a tile-based object's footprint
+/// centres on the grid point nearest to `pos` (for a 1×1 footprint, the tile under it); a unit takes the point
+/// itself.
+pub fn snap_spawn(kind: ObjectKind, orientation: BuildingOrientation, pos: Vec2) -> SpawnAt {
+    match oriented_size(kind, orientation) {
         Some((w, h)) => {
             let origin = |p: f32, n: u32| (p / SU_PER_GU - n as f32 / 2.0 + 0.5).floor() as i32;
             SpawnAt::Tile(TilePos::new(origin(pos.x, w), origin(pos.y, h)))
@@ -31,12 +38,12 @@ pub fn snap_spawn(kind: ObjectKind, pos: Vec2) -> SpawnAt {
     }
 }
 
-/// Where a dragged object goes when its center is dragged to `center`: snapped like a placement and kept
-/// entirely on the map.
-pub fn dragged_spawn(map: &Map, kind: ObjectKind, center: Vec2) -> SpawnAt {
-    match snap_spawn(kind, center) {
+/// Where a dragged object turned by `orientation` goes when its center is dragged to `center`: snapped like a
+/// placement and kept entirely on the map.
+pub fn dragged_spawn(map: &Map, kind: ObjectKind, orientation: BuildingOrientation, center: Vec2) -> SpawnAt {
+    match snap_spawn(kind, orientation, center) {
         SpawnAt::Tile(o) => {
-            let (w, h) = tile_size(kind).unwrap_or((1, 1));
+            let (w, h) = oriented_size(kind, orientation).unwrap_or((1, 1));
             let keep = |v: i32, n: u32, size: u32| v.min(size as i32 - n as i32).max(0);
             SpawnAt::Tile(TilePos::new(keep(o.x, w, map.width()), keep(o.y, h, map.height())))
         }
@@ -50,24 +57,25 @@ pub fn clamp_to_map(map: &Map, p: Vec2) -> Vec2 {
     p.clamp(Vec2::ZERO, map_extent_su(map) - Vec2::splat(0.01))
 }
 
-/// The area a spawn covers in sim space units: its tile footprint, or its silhouette around its point. (Every
-/// tile-based type has a square footprint so far, so building orientations don't change it.)
-pub fn spawn_rect(kind: ObjectKind, at: SpawnAt) -> Rect {
-    match (kind.def().footprint, at) {
-        (Footprint::Tiles { w, h }, SpawnAt::Tile(o)) => {
+/// The area an object of `kind` at `at`, turned by `orientation`, covers in sim space units: its tile footprint, or
+/// its silhouette around its point.
+pub fn spawn_rect(kind: ObjectKind, at: SpawnAt, orientation: BuildingOrientation) -> Rect {
+    match (oriented_size(kind, orientation), kind.def().footprint, at) {
+        (Some((w, h)), _, SpawnAt::Tile(o)) => {
             Rect::from_corners(o.corner(), o.corner() + Vec2::new(w as f32, h as f32) * SU_PER_GU)
         }
-        (Footprint::Silhouette { w, h }, SpawnAt::Point(p)) => Rect::from_center_size(p, Vec2::new(w, h)),
+        (None, Footprint::Silhouette { w, h }, SpawnAt::Point(p)) => Rect::from_center_size(p, Vec2::new(w, h)),
         // The wrong kind of location (an invalid spawn): one tile, or a half-tile square around the point.
-        (_, SpawnAt::Tile(o)) => Rect::from_corners(o.corner(), o.corner() + Vec2::splat(SU_PER_GU)),
-        (_, SpawnAt::Point(p)) => Rect::from_center_size(p, Vec2::splat(SU_PER_GU / 2.0)),
+        (_, _, SpawnAt::Tile(o)) => Rect::from_corners(o.corner(), o.corner() + Vec2::splat(SU_PER_GU)),
+        (_, _, SpawnAt::Point(p)) => Rect::from_center_size(p, Vec2::splat(SU_PER_GU / 2.0)),
     }
 }
 
-/// The tiles a tile-based object of `kind` at `at` covers, unturned; none for units. A spawn of a damaged file may
-/// lie anywhere, even at the ends of the `i32` range: tiles past them are left out instead of overflowing.
-pub fn footprint_tiles(kind: ObjectKind, at: SpawnAt) -> Vec<TilePos> {
-    let (Some((w, h)), SpawnAt::Tile(o)) = (tile_size(kind), at) else {
+/// The tiles a tile-based object of `kind` at `at`, turned by `orientation`, covers; none for units. A spawn of a
+/// damaged file may lie anywhere, even at the ends of the `i32` range: tiles past them are left out instead of
+/// overflowing.
+pub fn footprint_tiles(kind: ObjectKind, at: SpawnAt, orientation: BuildingOrientation) -> Vec<TilePos> {
+    let (Some((w, h)), SpawnAt::Tile(o)) = (oriented_size(kind, orientation), at) else {
         return Vec::new();
     };
     tiles_from(o, w, h)
@@ -75,11 +83,7 @@ pub fn footprint_tiles(kind: ObjectKind, at: SpawnAt) -> Vec<TilePos> {
 
 /// The tiles a spawn covers, its building orientation included ([`footprint_tiles`]).
 pub fn spawn_tiles(spawn: &Spawn) -> Vec<TilePos> {
-    let (Some((w, h)), SpawnAt::Tile(o)) = (tile_size(spawn.kind), spawn.at) else {
-        return Vec::new();
-    };
-    let (w, h) = if spawn.orientation.swaps_axes() { (h, w) } else { (w, h) };
-    tiles_from(o, w, h)
+    footprint_tiles(spawn.kind, spawn.at, spawn.orientation)
 }
 
 fn tiles_from(o: TilePos, w: u32, h: u32) -> Vec<TilePos> {
@@ -134,9 +138,8 @@ impl PlaceProblem {
 
 /// Whether `spawn` fits on `map` alone: entirely on the map, and on flat ground if its type needs it.
 fn check_fit(map: &Map, spawn: &Spawn) -> Result<(), PlaceProblem> {
-    match (tile_size(spawn.kind), spawn.at) {
+    match (oriented_size(spawn.kind, spawn.orientation), spawn.at) {
         (Some((w, h)), SpawnAt::Tile(o)) => {
-            let (w, h) = if spawn.orientation.swaps_axes() { (h, w) } else { (w, h) };
             let fits = |v: i32, n: u32, size: u32| v >= 0 && i64::from(v) + i64::from(n) <= i64::from(size);
             if !(fits(o.x, w, map.width()) && fits(o.y, h, map.height())) {
                 return Err(PlaceProblem::OffMap);
@@ -157,8 +160,9 @@ fn check_fit(map: &Map, spawn: &Spawn) -> Result<(), PlaceProblem> {
 /// Whether `spawn` may go where it is on `map`: in the editable part, neutral on a Skirmish Default map, entirely
 /// on the map, on flat ground if its type needs it, and, with the images the map's symmetry generates for it, not
 /// overlapping the footprint of another tile-based spawn or the box of another unit in its layer, nor partly
-/// overlapping an image of itself. `moving` is the spawn being moved, which doesn't count, and neither do its
-/// images.
+/// overlapping an image of itself. The one overlap allowed is the sim's (`ObjectKind::may_overlap`, slice M2-I): an
+/// Extraction Plate onto a Space Crystals Patch that no plate covers yet (another plate there is in the way).
+/// `moving` is the spawn being moved, which doesn't count, and neither do its images.
 pub fn check_placement(map: &MapDef, spawn: &Spawn, moving: Option<usize>) -> Result<(), PlaceProblem> {
     if !map.is_spawn_editable(spawn) {
         return Err(PlaceProblem::Locked);
@@ -170,12 +174,8 @@ pub fn check_placement(map: &MapDef, spawn: &Spawn, moving: Option<usize>) -> Re
     let images = map.spawn_images(spawn);
     let all: Vec<&Spawn> = std::iter::once(spawn).chain(&images).collect();
     let footprints: Vec<BTreeSet<TilePos>> = all.iter().map(|s| spawn_tiles(s).into_iter().collect()).collect();
-    for (i, a) in footprints.iter().enumerate() {
-        if footprints[i + 1..].iter().any(|b| !a.is_disjoint(b))
-            || all[i + 1..].iter().any(|b| units_overlap(all[i], b))
-        {
-            return Err(PlaceProblem::OverlapsOwnImage);
-        }
+    if overlaps_own_image(&all, &footprints) {
+        return Err(PlaceProblem::OverlapsOwnImage);
     }
     // The spawn being moved, and its images, which move with it.
     let mut skip = BTreeSet::new();
@@ -191,15 +191,24 @@ pub fn check_placement(map: &MapDef, spawn: &Spawn, moving: Option<usize>) -> Re
     }
     let overlap = map.spawns.iter().enumerate().find(|(j, other)| {
         !skip.contains(j)
-            && (spawn_tiles(other)
-                .iter()
-                .any(|t| footprints.iter().any(|f| f.contains(t)))
+            && ((!spawn.kind.may_overlap(other.kind)
+                && spawn_tiles(other)
+                    .iter()
+                    .any(|t| footprints.iter().any(|f| f.contains(t))))
                 || all.iter().any(|s| units_overlap(s, other)))
     });
     match overlap {
         Some((j, _)) => Err(PlaceProblem::Overlaps(j)),
         None => Ok(()),
     }
+}
+
+/// Whether one of `all`, an object and its symmetric images with their `footprints`, overlaps another: the
+/// placeholder rule for objects across an axis (`core/map_editor.md > Symmetry`'s TBD).
+pub fn overlaps_own_image(all: &[&Spawn], footprints: &[BTreeSet<TilePos>]) -> bool {
+    footprints.iter().enumerate().any(|(i, a)| {
+        footprints[i + 1..].iter().any(|b| !a.is_disjoint(b)) || all[i + 1..].iter().any(|b| units_overlap(all[i], b))
+    })
 }
 
 /// `docs/movement.md > 3`: whether two unit spawns' boxes overlap in a layer where units collide (touching is
@@ -222,18 +231,26 @@ fn units_overlap(a: &Spawn, b: &Spawn) -> bool {
 }
 
 /// The spawn drawn at `pos`: of those whose area contains it, the frontmost one (the southernmost, as southern
-/// objects draw in front, then the latest).
+/// objects draw in front, then one that isn't a map resource, as a plate covers its patch, then the latest).
 pub fn spawn_at_point(map: &MapDef, pos: Vec2) -> Option<usize> {
+    let on_top = |s: &Spawn| s.kind.def().category != Category::Resource;
     map.spawns
         .iter()
         .enumerate()
-        .map(|(i, s)| (i, spawn_rect(s.kind, s.at)))
-        .filter(|(_, r)| r.contains(pos))
-        .max_by(|(i, a), (j, b)| a.center().y.total_cmp(&b.center().y).then(i.cmp(j)))
-        .map(|(i, _)| i)
+        .map(|(i, s)| (i, spawn_rect(s.kind, s.at, s.orientation), on_top(s)))
+        .filter(|(_, r, _)| r.contains(pos))
+        .max_by(|(i, a, a_top), (j, b, b_top)| {
+            a.center()
+                .y
+                .total_cmp(&b.center().y)
+                .then(a_top.cmp(b_top))
+                .then(i.cmp(j))
+        })
+        .map(|(i, ..)| i)
 }
 
-/// What a click on a problem in the validation list centres the camera on, and the spawn it concerns.
+/// What a click on a problem in the validation list centres the camera on, and the spawn it concerns: a layout
+/// object's problem centres on the object, a layout that lacks objects on its slot's start.
 pub fn problem_focus(map: &MapDef, problem: &ScenarioProblem) -> (Option<Vec2>, Option<usize>) {
     use sc_sim::scenario::Asymmetry;
     let terrain = &map.terrain;
@@ -251,15 +268,27 @@ pub fn problem_focus(map: &MapDef, problem: &ScenarioProblem) -> (Option<Vec2>, 
             let center = map
                 .spawns
                 .get(*spawn)
-                .and_then(|s| clamp(spawn_rect(s.kind, s.at).center()));
+                .and_then(|s| clamp(spawn_rect(s.kind, s.at, s.orientation).center()));
             (center, Some(*spawn))
         }
         ScenarioProblem::OverlappingFootprints { second, tile, .. } => (clamp(tile.center()), Some(*second)),
-        ScenarioProblem::InvalidLayoutObject { slot, .. }
-        | ScenarioProblem::LayoutOverlap { slot, .. }
-        | ScenarioProblem::LayoutPlacement { slot, .. }
-        | ScenarioProblem::LayoutExtra { slot, .. }
-        | ScenarioProblem::LayoutMissing { slot, .. } => (slot_spot(*slot), None),
+        ScenarioProblem::InvalidLayoutObject {
+            slot, faction, index, ..
+        }
+        | ScenarioProblem::LayoutOverlap {
+            slot, faction, index, ..
+        }
+        | ScenarioProblem::LayoutPlacement {
+            slot, faction, index, ..
+        }
+        | ScenarioProblem::LayoutExtra {
+            slot, faction, index, ..
+        } => {
+            let object = map.slot(*slot).and_then(|s| s.layouts.get(*faction).get(*index));
+            let center = object.and_then(|o| clamp(spawn_rect(o.kind, o.at, o.orientation).center()));
+            (center.or_else(|| slot_spot(*slot)), None)
+        }
+        ScenarioProblem::LayoutMissing { slot, .. } => (slot_spot(*slot), None),
         ScenarioProblem::UnknownSlot { slot, .. } | ScenarioProblem::SlotTaken { slot, .. } => (slot_spot(*slot), None),
         ScenarioProblem::MapTooBig { .. }
         | ScenarioProblem::SkirmishWithoutSymmetry
@@ -333,23 +362,100 @@ mod tests {
         TilePos::new(x, y)
     }
 
+    const UNTURNED: BuildingOrientation = BuildingOrientation {
+        rotation: sc_sim::Rotation::R0,
+        flip_h: false,
+        flip_v: false,
+    };
+
     fn tile_spawn(kind: ObjectKind, x: i32, y: i32) -> Spawn {
         Spawn::new(kind, None, SpawnAt::Tile(t(x, y)))
+    }
+
+    /// Slice M2-I: a quarter turn swaps a footprint's sides for the snap, the area and the tiles (the Barracks is 3
+    /// wide and 2 tall unturned, design change 0079).
+    #[test]
+    fn turned_structures_snap_and_cover_their_turned_footprint() {
+        let barracks = ObjectKind::Barracks;
+        let quarter = crate::editor::orientation::Turn::Clockwise.apply(UNTURNED);
+        assert_eq!(oriented_size(barracks, UNTURNED), Some((3, 2)));
+        assert_eq!(oriented_size(barracks, quarter), Some((2, 3)));
+        // Centred on the grid point nearest the cursor, (3, 3) tiles: 3 wide around x 3 rounds east.
+        assert_eq!(
+            snap_spawn(barracks, UNTURNED, Vec2::splat(192.0)),
+            SpawnAt::Tile(t(2, 2))
+        );
+        assert_eq!(
+            snap_spawn(barracks, quarter, Vec2::splat(192.0)),
+            SpawnAt::Tile(t(2, 2))
+        );
+        let at = SpawnAt::Tile(t(2, 2));
+        assert_eq!(spawn_rect(barracks, at, quarter).size(), Vec2::new(128.0, 192.0));
+        assert_eq!(footprint_tiles(barracks, at, quarter).len(), 6);
+        assert!(footprint_tiles(barracks, at, quarter).contains(&t(3, 4)));
+        let map = Map::new(6, 5);
+        assert_eq!(
+            dragged_spawn(&map, barracks, quarter, Vec2::splat(1e4)),
+            SpawnAt::Tile(t(4, 2)),
+            "kept on the map, 2 wide and 3 tall"
+        );
+    }
+
+    /// Slice M2-I: the one overlap the sim allows (`ObjectKind::may_overlap`), a plate onto an uncovered patch.
+    #[test]
+    fn a_plate_goes_onto_an_uncovered_patch_only() {
+        let mut map = scenarios::empty_map(8, 6);
+        map.spawns = vec![tile_spawn(ObjectKind::CrystalPatch, 2, 2)];
+        let plate = tile_spawn(ObjectKind::ExtractionPlate, 2, 2);
+        assert_eq!(check_placement(&map, &plate, None), Ok(()));
+        map.spawns.push(plate.clone());
+        assert_eq!(
+            check_placement(&map, &plate, None),
+            Err(PlaceProblem::Overlaps(1)),
+            "the patch is covered"
+        );
+        assert_eq!(
+            check_placement(&map, &tile_spawn(ObjectKind::CrystalPatch, 2, 2), None),
+            Err(PlaceProblem::Overlaps(0)),
+            "no patch on a patch"
+        );
+        assert_eq!(
+            check_placement(&map, &tile_spawn(ObjectKind::Generator, 1, 1), None),
+            Err(PlaceProblem::Overlaps(0)),
+            "no other building on a patch"
+        );
+        assert_eq!(
+            spawn_at_point(&map, t(2, 2).center()),
+            Some(1),
+            "the plate covers its patch"
+        );
+        map.spawns.swap(0, 1);
+        assert_eq!(spawn_at_point(&map, t(2, 2).center()), Some(0), "whatever their order");
+        assert_eq!(map.validate(), Vec::new());
     }
 
     #[test]
     fn placements_snap_to_the_grid_and_stay_on_the_map() {
         let patch = ObjectKind::CrystalPatch; // 1×1
         let station = ObjectKind::SupplyDeliveryStation; // 2×2
-        assert_eq!(snap_spawn(patch, Vec2::new(100.0, 70.0)), SpawnAt::Tile(t(1, 1)));
+        assert_eq!(
+            snap_spawn(patch, UNTURNED, Vec2::new(100.0, 70.0)),
+            SpawnAt::Tile(t(1, 1))
+        );
         // A 2×2 footprint centres on the nearest grid point: (128, 128) is the corner of tiles 1 and 2.
-        assert_eq!(snap_spawn(station, Vec2::new(120.0, 140.0)), SpawnAt::Tile(t(1, 1)));
+        assert_eq!(
+            snap_spawn(station, UNTURNED, Vec2::new(120.0, 140.0)),
+            SpawnAt::Tile(t(1, 1))
+        );
         let map = Map::new(6, 5);
         assert_eq!(
-            dragged_spawn(&map, station, Vec2::new(-500.0, 9000.0)),
+            dragged_spawn(&map, station, UNTURNED, Vec2::new(-500.0, 9000.0)),
             SpawnAt::Tile(t(0, 3))
         );
-        assert_eq!(spawn_rect(station, SpawnAt::Tile(t(1, 1))).center(), Vec2::splat(128.0));
+        assert_eq!(
+            spawn_rect(station, SpawnAt::Tile(t(1, 1)), UNTURNED).center(),
+            Vec2::splat(128.0)
+        );
         let p = clamp_to_map(&map, Vec2::new(1e9, f32::NAN));
         assert!(map.contains_point(p));
     }
@@ -438,8 +544,14 @@ mod tests {
     #[test]
     fn footprints_at_the_ends_of_the_coordinate_range_never_overflow() {
         let station = ObjectKind::SupplyDeliveryStation;
-        assert_eq!(footprint_tiles(station, SpawnAt::Tile(t(i32::MAX, i32::MAX))).len(), 1);
-        assert_eq!(footprint_tiles(station, SpawnAt::Tile(t(i32::MAX - 1, 0))).len(), 4);
+        assert_eq!(
+            footprint_tiles(station, SpawnAt::Tile(t(i32::MAX, i32::MAX)), UNTURNED).len(),
+            1
+        );
+        assert_eq!(
+            footprint_tiles(station, SpawnAt::Tile(t(i32::MAX - 1, 0)), UNTURNED).len(),
+            4
+        );
         let mut map = scenarios::empty_map(8, 6);
         map.spawns = vec![
             tile_spawn(station, i32::MAX, i32::MAX),

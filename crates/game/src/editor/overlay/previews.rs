@@ -5,7 +5,7 @@
 use std::collections::BTreeSet;
 
 use bevy::prelude::*;
-use sc_sim::{Category, MapDef, ObjectKind, SU_PER_GU, Spawn, SpawnAt, Symmetry, TilePos};
+use sc_sim::{BuildingOrientation, Category, MapDef, ObjectKind, SU_PER_GU, Spawn, SpawnAt, Symmetry, TilePos};
 
 use super::shapes::{Overlay, near_map, rect_corners};
 use super::{BAD_EDGE, BAD_FILL, BRUSH_EDGE, BRUSH_FILL, CASCADE_DOT, GOOD_FILL, IMAGE_EDGE, TARGET_DOT};
@@ -125,11 +125,17 @@ pub(super) fn fill_preview(o: &mut Overlay, map: &MapDef, tile: TilePos) {
     }
 }
 
-/// One placement of the Place tool: its footprint on the surface, green where it fits, red where it doesn't, with
-/// its sloped tiles marked when it needs flat ground.
-pub(super) fn placement_preview(o: &mut Overlay, kind: ObjectKind, at: SpawnAt, problem: Option<PlaceProblem>) {
+/// One placement of the Place tool: its footprint on the surface as turned, green where it fits, red where it
+/// doesn't, with its sloped tiles marked when it needs flat ground.
+pub(super) fn placement_preview(
+    o: &mut Overlay,
+    kind: ObjectKind,
+    at: SpawnAt,
+    orientation: BuildingOrientation,
+    problem: Option<PlaceProblem>,
+) {
     let map = o.map;
-    let rect = objects::spawn_rect(kind, at);
+    let rect = objects::spawn_rect(kind, at, orientation);
     if !near_map(map, rect) {
         return;
     }
@@ -137,7 +143,7 @@ pub(super) fn placement_preview(o: &mut Overlay, kind: ObjectKind, at: SpawnAt, 
         None => (GOOD_FILL, BRUSH_EDGE),
         Some(_) => (BAD_FILL, BAD_EDGE),
     };
-    let tiles: BTreeSet<TilePos> = objects::footprint_tiles(kind, at).into_iter().collect();
+    let tiles: BTreeSet<TilePos> = objects::footprint_tiles(kind, at, orientation).into_iter().collect();
     if tiles.is_empty() {
         // A unit: its silhouette's rectangle.
         let corners = rect_corners(rect).map(|p| drawn_position(map, p));
@@ -154,20 +160,37 @@ pub(super) fn placement_preview(o: &mut Overlay, kind: ObjectKind, at: SpawnAt, 
     o.tiles_outline(&tiles, edge);
 }
 
-/// Where the Place tool would put the object for the cursor at `pos`, then the images the editor would generate
-/// for it, each with why the placement is refused (the same for all of them).
-pub(super) fn placements(map: &MapDef, tools: &EditorTools, pos: Vec2) -> Vec<(SpawnAt, Option<PlaceProblem>)> {
+/// What the Place tool would place for the cursor at `pos`: the object as turned ([`EditorTools::placed_orientation`]).
+fn placed_spawn(tools: &EditorTools, pos: Vec2) -> Spawn {
     let kind = tools.kind;
     let owner = match kind.def().category {
         Category::Resource => None,
         _ => tools.owner,
     };
-    let spawn = Spawn::new(kind, owner, objects::snap_spawn(kind, pos));
+    let orientation = tools.placed_orientation();
+    Spawn {
+        orientation,
+        ..Spawn::new(kind, owner, objects::snap_spawn(kind, orientation, pos))
+    }
+}
+
+/// Where the Place tool would put the object for the cursor at `pos` and how it is turned, then the images the
+/// editor would generate for it, each with why the placement is refused (the same for all of them).
+pub(super) fn placements(
+    map: &MapDef,
+    tools: &EditorTools,
+    pos: Vec2,
+) -> Vec<(SpawnAt, BuildingOrientation, Option<PlaceProblem>)> {
+    let spawn = placed_spawn(tools, pos);
     let problem = objects::check_placement(map, &spawn, None).err();
-    let mut found = vec![(spawn.at, problem)];
+    let mut found = vec![(spawn.at, spawn.orientation, problem)];
     // A locked spot has no images: the placement is refused.
     if problem != Some(PlaceProblem::Locked) {
-        found.extend(map.spawn_images(&spawn).into_iter().map(|s| (s.at, problem)));
+        found.extend(
+            map.spawn_images(&spawn)
+                .into_iter()
+                .map(|s| (s.at, s.orientation, problem)),
+        );
     }
     found
 }

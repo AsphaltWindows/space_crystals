@@ -3,13 +3,14 @@
 
 use bevy::picking::Pickable;
 use bevy::prelude::*;
-use bevy::ui_widgets::ScrollArea;
+use bevy::ui_widgets::{ControlOrientation, ScrollArea, Scrollbar, ScrollbarThumb};
 
 use super::dialog::spawn_new_map_dialog;
 use super::fields::{TextField, text_field};
 use super::lists::{
     FileList, OwnerList, PlayTestList, PresetEditor, PresetList, ProblemList, SlotList, SpawnFieldList, list_node,
 };
+use super::starting::{self, turn_row};
 use super::texts::{HelpOverlay, PanelText, StatusText, help_text};
 use super::{
     BORDER, DIM_TEXT, GAP_VH, LEFT_PANEL_VH, PANEL_BACKGROUND, RIGHT_PANEL_VH, SMALL_VH, STATUS_VH, ShownIn, TEXT,
@@ -88,37 +89,79 @@ fn spawn_toolbar(commands: &mut Commands) {
         });
 }
 
-/// A panel down one side, between the toolbar and the status line, scrolled with the wheel.
-fn side_panel(name: &'static str, left: bool, width_vh: f32) -> impl Bundle {
-    let (left, right, border) = if left {
-        (px(0), auto(), UiRect::right(px(1)))
+/// The width of a side panel's scrollbar.
+const SCROLLBAR_VH: f32 = 0.8;
+/// The shortest its thumb gets, in pixels.
+const MIN_THUMB_PX: f32 = 24.0;
+const SCROLL_TRACK: Color = Color::srgb(0.10, 0.11, 0.14);
+const SCROLL_THUMB: Color = Color::srgb(0.30, 0.34, 0.40);
+
+/// A panel down one side, between the toolbar and the status line: `fill` spawns its content, which scrolls with
+/// the wheel and with the scrollbar along its inner edge (the M0-E leftovers: a panel scrollbar, and the right
+/// panel running past the bottom with 4 or more slots).
+fn spawn_side_panel(
+    commands: &mut Commands,
+    name: &'static str,
+    left: bool,
+    width_vh: f32,
+    fill: impl FnOnce(&mut ChildSpawnerCommands),
+) {
+    let (left_px, right_px, border, direction) = if left {
+        (px(0), auto(), UiRect::right(px(1)), FlexDirection::Row)
     } else {
-        (auto(), px(0), UiRect::left(px(1)))
+        (auto(), px(0), UiRect::left(px(1)), FlexDirection::RowReverse)
     };
-    (
-        Name::new(name),
-        ShownIn(ClientMode::Editor),
-        ScrollArea,
-        Node {
-            position_type: PositionType::Absolute,
-            top: vh(TOOLBAR_VH),
-            bottom: vh(STATUS_VH),
-            left,
-            right,
-            width: vh(width_vh),
-            flex_direction: FlexDirection::Column,
-            padding: UiRect::all(vh(1.0)),
-            row_gap: vh(GAP_VH),
-            overflow: Overflow {
-                x: OverflowAxis::Clip,
-                y: OverflowAxis::Scroll,
+    let frame = commands
+        .spawn((
+            Name::new(name),
+            ShownIn(ClientMode::Editor),
+            Node {
+                position_type: PositionType::Absolute,
+                top: vh(TOOLBAR_VH),
+                bottom: vh(STATUS_VH),
+                left: left_px,
+                right: right_px,
+                width: vh(width_vh),
+                flex_direction: direction,
+                border,
+                ..default()
             },
-            border,
+            BackgroundColor(PANEL_BACKGROUND),
+            BorderColor::all(BORDER),
+        ))
+        .id();
+    let content = commands
+        .spawn((
+            Name::new("Panel content"),
+            ScrollArea,
+            Node {
+                flex_grow: 1.0,
+                min_width: px(0),
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(vh(1.0)),
+                row_gap: vh(GAP_VH),
+                overflow: Overflow {
+                    x: OverflowAxis::Clip,
+                    y: OverflowAxis::Scroll,
+                },
+                ..default()
+            },
+            ChildOf(frame),
+        ))
+        .with_children(fill)
+        .id();
+    commands.spawn((
+        Name::new("Panel scrollbar"),
+        Scrollbar::new(content, ControlOrientation::Vertical, MIN_THUMB_PX),
+        Node {
+            width: vh(SCROLLBAR_VH),
+            flex_shrink: 0.0,
             ..default()
         },
-        BackgroundColor(PANEL_BACKGROUND),
-        BorderColor::all(BORDER),
-    )
+        BackgroundColor(SCROLL_TRACK),
+        ChildOf(frame),
+        children![(ScrollbarThumb::default(), BackgroundColor(SCROLL_THUMB))],
+    ));
 }
 
 fn note(text: &str) -> impl Bundle {
@@ -126,60 +169,63 @@ fn note(text: &str) -> impl Bundle {
 }
 
 fn spawn_palette(commands: &mut Commands) {
-    commands
-        .spawn(side_panel("Editor palette", true, LEFT_PANEL_VH))
-        .with_children(|panel| {
-            panel.spawn(header("Terrain"));
-            panel.spawn((PresetList, list_node()));
-            panel.spawn(row()).with_children(|r| {
-                r.spawn(label("Brush", SMALL_VH, DIM_TEXT));
-                for size in BRUSH_SIZES {
-                    r.spawn(button(size.to_string(), EditorAction::SetBrush(size)));
-                }
-            });
-            panel.spawn(label("Chosen preset", SMALL_VH, DIM_TEXT));
-            panel.spawn((PresetEditor, list_node()));
-
-            panel.spawn(header("Height"));
-            panel.spawn(row()).with_children(|r| {
-                for mode in ElevationMode::ALL {
-                    r.spawn(button(mode.label(), EditorAction::SetElevationMode(mode)));
-                }
-            });
-            panel.spawn(row()).with_children(|r| {
-                r.spawn(button("-", EditorAction::StepElevation(-1)));
-                r.spawn((PanelText::ElevationLevel, label("", TEXT_VH, TEXT)));
-                r.spawn(button("+", EditorAction::StepElevation(1)));
-            });
-            panel.spawn(note("Sets the brush's tile corners; slopes follow and stop at cliffs."));
-
-            panel.spawn(header("Objects"));
-            for group in palette_groups() {
-                panel.spawn(label(group.title, SMALL_VH, DIM_TEXT));
-                panel.spawn(row()).with_children(|r| {
-                    for kind in group.kinds {
-                        r.spawn(button(kind.def().name, EditorAction::SetKind(kind)));
-                    }
-                });
+    spawn_side_panel(commands, "Editor palette", true, LEFT_PANEL_VH, |panel| {
+        panel.spawn(header("Terrain"));
+        panel.spawn((PresetList, list_node()));
+        panel.spawn(row()).with_children(|r| {
+            r.spawn(label("Brush", SMALL_VH, DIM_TEXT));
+            for size in BRUSH_SIZES {
+                r.spawn(button(size.to_string(), EditorAction::SetBrush(size)));
             }
-            panel.spawn(note("Owner (resources are always neutral)"));
-            panel.spawn((OwnerList, row()));
-
-            panel.spawn(header("Player slots"));
-            panel.spawn(note(
-                "Each slot is a start position. On a symmetric map slots come in sets: you edit the first, its \
-                 images follow.",
-            ));
-            panel.spawn((SlotList, list_node()));
-            panel.spawn(row()).with_children(|r| {
-                r.spawn(button("Add slots", EditorAction::AddSlots));
-                r.spawn(button("Place start", EditorAction::SetTool(Tool::Start)));
-                r.spawn(button("Place camera", EditorAction::SetTool(Tool::CameraStart)));
-            });
-            panel.spawn(note(
-                "Markers belong to the lit slot. Select a camera start and press Delete to clear it.",
-            ));
         });
+        panel.spawn(label("Chosen preset", SMALL_VH, DIM_TEXT));
+        panel.spawn((PresetEditor, list_node()));
+
+        panel.spawn(header("Height"));
+        panel.spawn(row()).with_children(|r| {
+            for mode in ElevationMode::ALL {
+                r.spawn(button(mode.label(), EditorAction::SetElevationMode(mode)));
+            }
+        });
+        panel.spawn(row()).with_children(|r| {
+            r.spawn(button("-", EditorAction::StepElevation(-1)));
+            r.spawn((PanelText::ElevationLevel, label("", TEXT_VH, TEXT)));
+            r.spawn(button("+", EditorAction::StepElevation(1)));
+        });
+        panel.spawn(note("Sets the brush's tile corners; slopes follow and stop at cliffs."));
+
+        panel.spawn(header("Objects"));
+        for group in palette_groups() {
+            panel.spawn(label(group.title, SMALL_VH, DIM_TEXT));
+            panel.spawn(row()).with_children(|r| {
+                for kind in group.kinds {
+                    r.spawn(button(kind.def().name, EditorAction::SetKind(kind)));
+                }
+            });
+        }
+        panel.spawn(note("Owner (resources are always neutral)"));
+        panel.spawn((OwnerList, row()));
+        panel.spawn(note("Structures turn as they are placed (R, Shift+R, F, Shift+F)"));
+        panel.spawn(turn_row());
+        panel.spawn((PanelText::Orientation, label("", SMALL_VH, TEXT)));
+
+        panel.spawn(header("Player slots"));
+        panel.spawn(note(
+            "Each slot is a start position. On a symmetric map slots come in sets: you edit the first, its \
+                 images follow.",
+        ));
+        panel.spawn((SlotList, list_node()));
+        panel.spawn(row()).with_children(|r| {
+            r.spawn(button("Add slots", EditorAction::AddSlots));
+            r.spawn(button("Place start", EditorAction::SetTool(Tool::Start)));
+            r.spawn(button("Place camera", EditorAction::SetTool(Tool::CameraStart)));
+        });
+        panel.spawn(note(
+            "Markers belong to the lit slot. Select a camera start and press Delete to clear it.",
+        ));
+
+        starting::spawn_section(panel);
+    });
 }
 
 fn field_row(name: &str) -> impl Bundle {
@@ -196,56 +242,56 @@ fn field_row(name: &str) -> impl Bundle {
 }
 
 fn spawn_properties(commands: &mut Commands) {
-    commands
-        .spawn(side_panel("Editor properties", false, RIGHT_PANEL_VH))
-        .with_children(|panel| {
-            panel.spawn(header("Map"));
-            panel.spawn(field_row("Name")).with_children(|r| {
-                r.spawn(text_field(TextField::MapName, "", 20.0));
-            });
-            panel.spawn(note("Description"));
-            panel.spawn(text_field(TextField::Description, "", 27.0));
-            panel.spawn(field_row("Type")).with_children(|r| {
-                r.spawn((PanelText::MapType, label("", SMALL_VH, TEXT)));
-            });
-            panel.spawn(field_row("Symmetry")).with_children(|r| {
-                r.spawn((PanelText::Symmetry, label("", SMALL_VH, TEXT)));
-            });
-            panel.spawn(field_row("Size")).with_children(|r| {
-                r.spawn(text_field(TextField::Width, "", 6.0));
-                r.spawn(label("x", TEXT_VH, DIM_TEXT));
-                r.spawn(text_field(TextField::Height, "", 6.0));
-            });
-            panel.spawn(note("Resizing keeps the top-left corner; Enter applies a field."));
-            panel.spawn((PanelText::File, label("", SMALL_VH, DIM_TEXT)));
-
-            panel.spawn(header("Selection"));
-            panel.spawn((PanelText::Selection, label("", SMALL_VH, TEXT)));
-            panel.spawn((SpawnFieldList, list_node()));
-            panel.spawn(row()).with_children(|r| {
-                r.spawn(button("Delete", EditorAction::DeleteSelected));
-            });
-
-            panel.spawn(header("Play-test"));
-            panel.spawn(note(
-                "Who plays which slot (not saved with the map): click a faction to change it.",
-            ));
-            panel.spawn((PlayTestList, list_node()));
-            panel.spawn(field_row("Seed")).with_children(|r| {
-                r.spawn(text_field(TextField::Seed, "", 20.0));
-            });
-            panel.spawn((PanelText::PlayTestOptions, label("", SMALL_VH, DIM_TEXT)));
-
-            panel.spawn((PanelText::ProblemsHeader, header("Problems")));
-            panel.spawn((ProblemList, list_node()));
-
-            panel.spawn(header("Maps"));
-            panel.spawn((FileList, list_node()));
-            panel.spawn(row()).with_children(|r| {
-                r.spawn(button("New map", EditorAction::NewMap));
-                r.spawn(button("Refresh", EditorAction::RefreshFiles));
-            });
+    spawn_side_panel(commands, "Editor properties", false, RIGHT_PANEL_VH, |panel| {
+        panel.spawn(header("Map"));
+        panel.spawn(field_row("Name")).with_children(|r| {
+            r.spawn(text_field(TextField::MapName, "", 20.0));
         });
+        panel.spawn(note("Description"));
+        panel.spawn(text_field(TextField::Description, "", 27.0));
+        panel.spawn(field_row("Type")).with_children(|r| {
+            r.spawn((PanelText::MapType, label("", SMALL_VH, TEXT)));
+        });
+        panel.spawn(field_row("Symmetry")).with_children(|r| {
+            r.spawn((PanelText::Symmetry, label("", SMALL_VH, TEXT)));
+        });
+        panel.spawn(field_row("Size")).with_children(|r| {
+            r.spawn(text_field(TextField::Width, "", 6.0));
+            r.spawn(label("x", TEXT_VH, DIM_TEXT));
+            r.spawn(text_field(TextField::Height, "", 6.0));
+        });
+        panel.spawn(note("Resizing keeps the top-left corner; Enter applies a field."));
+        panel.spawn((PanelText::File, label("", SMALL_VH, DIM_TEXT)));
+
+        panel.spawn(header("Selection"));
+        panel.spawn((PanelText::Selection, label("", SMALL_VH, TEXT)));
+        panel.spawn((SpawnFieldList, list_node()));
+        panel.spawn(row()).with_children(|r| {
+            r.spawn(button("Delete", EditorAction::DeleteSelected));
+        });
+
+        // Above the play-test's slots, which run long on maps with many slots: what keeps the map from being
+        // played comes first.
+        panel.spawn((PanelText::ProblemsHeader, header("Problems")));
+        panel.spawn((ProblemList, list_node()));
+
+        panel.spawn(header("Play-test"));
+        panel.spawn(note(
+            "Who plays which slot (not saved with the map): click a faction to change it.",
+        ));
+        panel.spawn((PlayTestList, list_node()));
+        panel.spawn(field_row("Seed")).with_children(|r| {
+            r.spawn(text_field(TextField::Seed, "", 20.0));
+        });
+        panel.spawn((PanelText::PlayTestOptions, label("", SMALL_VH, DIM_TEXT)));
+
+        panel.spawn(header("Maps"));
+        panel.spawn((FileList, list_node()));
+        panel.spawn(row()).with_children(|r| {
+            r.spawn(button("New map", EditorAction::NewMap));
+            r.spawn(button("Refresh", EditorAction::RefreshFiles));
+        });
+    });
 }
 
 fn spawn_status_line(commands: &mut Commands) {

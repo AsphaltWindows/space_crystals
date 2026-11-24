@@ -8,10 +8,11 @@
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use sc_sim::{Faction, GameSetup, MapDef, PlayerId, Scenario, Sim, SimConfig, SlotId};
+use sc_sim::{Faction, GameSetup, MapDef, PlayerId, Scenario, ScenarioProblem, Sim, SimConfig, SlotId};
 
 use super::actions::{Editor, PlayTestRequest};
 use super::doc::EditorDoc;
+use super::layouts::problems::problem_lines;
 use super::objects::faction_name;
 use super::state::EditorStatus;
 use crate::ClientMode;
@@ -113,6 +114,20 @@ pub struct GameState<'w> {
 }
 
 /// Starts or ends a play-test when one is requested.
+/// Why a play-test can't start: the first line of the Problems list for `problems`, and how many more there are.
+pub fn refusal(map: &MapDef, problems: &[ScenarioProblem]) -> String {
+    let lines = problem_lines(map, problems);
+    let first = match (lines.first(), problems.first()) {
+        (Some(line), _) => line.text.clone(),
+        (None, Some(problem)) => problem.to_string(),
+        (None, None) => "the scenario is invalid".into(),
+    };
+    match lines.len() {
+        0 | 1 => format!("Can't play-test: {first}"),
+        n => format!("Can't play-test: {first}; and {} more, see Problems", n - 1),
+    }
+}
+
 pub fn switch_play_test(
     mut request: ResMut<PlayTestRequest>,
     mut mode: ResMut<ClientMode>,
@@ -133,15 +148,12 @@ pub fn switch_play_test(
                 map: map.clone(),
                 setup: setup.game_setup(map),
             };
-            // The game only runs valid scenarios.
+            // The game only runs valid scenarios. The refusal says what to fix first in the Problems list's words
+            // (slice M2-I: on a new Skirmish Default map, exactly what each layout lacks).
             let sim = match Sim::try_new(&scenario) {
                 Ok(sim) => sim,
                 Err(problems) => {
-                    status.error(format!(
-                        "Can't play-test: {} problem(s), see Problems ({})",
-                        problems.len(),
-                        problems[0]
-                    ));
+                    status.error(refusal(map, &problems));
                     return;
                 }
             };

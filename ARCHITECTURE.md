@@ -1241,7 +1241,13 @@ elsewhere.
   double tap over a single press, then the earlier entry. So Shift + 1 adds to group 1 instead of recalling it, while
   Shift + Q presses slot Q with `Queue` held. One exception: in the editor Ctrl + key is a command of its own, so a
   held Ctrl blocks the editor's key bindings that don't need it (Ctrl + B is nothing, not the Paint tool;
-  `InputContext::ctrl_blocks`). The action stays held until its button goes up. `Bindings::default()` holds the
+  `InputContext::ctrl_blocks`). Another: the placement actions (`InputAction::is_placement`, today the editor's R,
+  Shift + R, F and Shift + F that turn the structure being placed) take a press only while `Placing` says a structure
+  is being placed, and then win over the press's other bindings, which they override (`Bindings::resolve_placing`):
+  F flips then, and chooses the Fill tool otherwise. Whoever places reports `Placing` (the editor's
+  `editor::input::report_placing`); a frame's input follows the report of the frame before. The game's placement
+  ghost can join by adding its actions to `is_placement` and reporting `Placing`. The action stays held until its
+  button goes up. `Bindings::default()` holds the
   design's defaults (camera keys, G for the grid, P for unit paths, Select and ContextCommand on the left and right
   buttons, Esc to cancel, Tab and Shift + Tab, the control group keys, the 4 × 3 command grid QWER/ASDF/ZXCV with
   the standard slots Z, X and C, Shift to queue) and the editor's (its F1 help lists them). A rebinding UI edits it
@@ -1566,8 +1572,9 @@ unchecked.
   doesn't parse exits with code 2. A file that parses but fails validation still opens, with its problems listed, so
   that it can be fixed; `--player` is not checked against it (play-tests fall back to the first slot).
 - **Files**: maps live in `maps/` at the repository root (`editor::files::default_maps_dir`), and new maps are saved
-  as `maps/<name>.json`. Saves are atomic: `files::save` writes a hidden temporary file next to the target, flushes
-  it and renames it over the target. `maps/dev_skirmish.json` is the built-in `dev_skirmish` saved by the editor. A
+  as `maps/<name>.json`. Saves are atomic: `files::save` writes a hidden temporary file next to the target (named
+  after the process too, so that two processes writing one file never write into each other's), flushes it and
+  renames it over the target. Replays are written the same way (`files::write_atomically`). `maps/dev_skirmish.json` is the built-in `dev_skirmish` saved by the editor. A
   test checks that every map in `maps/` is playable and that this one still matches the built-in.
 - **Actions**: every change is an `EditorAction` (`editor/actions.rs`), queued in the `EditorActions` resource and
   applied in `EditorSystems::Apply`. The input layer's actions, the UI's buttons, the text fields and the window's
@@ -1597,8 +1604,35 @@ unchecked.
 - **Map types** (`core/map_editor.md > Map Types`): on a Skirmish Default map, objects outside the Starting Layouts
   are neutral, so the editor offers no owner and refuses owned ones (`PlaceProblem::OwnedOnSkirmishMap`). Custom maps
   have no restrictions. A new Skirmish Default map lists its empty GDO layouts as problems (`LayoutMissing`), so it
-  can't be play-tested until they are placed: the editor shows each slot's GDO layout (its preview has the default
-  setup), but edits layouts only from slice M2-I on.
+  can't be play-tested until they are placed with the Layout tool (see Starting Layouts below).
+- **Starting Layouts** (`editor/layouts.rs` and `layouts/`, slice M2-I; `core/map_editor.md > Starting Layouts`,
+  design changes 0008, 0009, 0012 and 0097): the Layout tool (T) edits the layout of `EditorTools::faction` at
+  `EditorTools::slot`, an editable slot (the generated ones follow it, turned to match). A click places
+  `EditorTools::layout_kind` turned as `EditorTools::orientation` says, or grabs an object of the layout to drag it;
+  Delete removes the selected one (`Selection::LayoutObject`); each is one undo step. The palette's Starting layouts
+  section (`ui/starting.rs`) picks the slot, the faction and the kind, says what the layout lacks or that it is
+  complete, and flags outdated layouts (`layouts::outdated_text`); choosing the tool scrolls the palette to it.
+  - **What it offers** (`layouts::palette`): on a Skirmish Default map the faction's Starting Conditions with how many
+    the layout may still take (a placed kind moves the tool on to the next one missing); on a Custom map every kind a
+    player may own; for a faction without Starting Conditions nothing ("not implemented yet", plan decision T11).
+  - **Checks** (`layouts/check.rs::check_object`): the editor's own rules first (the Starting Conditions' kinds and
+    counts on a Skirmish Default map, the editable part, no overlap with the object's own image), then the sim's:
+    `MapDef::validate` of the map with the object in place, keeping only that object's problems. The sim is the
+    oracle; the editor has no placement rule of its own, so no sight checks or warnings (0097). The ghost
+    (`LayoutPreview`, recomputed only when the document, the tools, the cursor or the gesture changed) shows the
+    verdict, red on the refused tiles, and the status line says why.
+  - **Overlay** (`overlay/layouts.rs`): while the tool is on, the other factions' layouts at the slot are drawn
+    dimmed, the edited one outlined in the slot's colour, its Deployment Center's build area outlined, and the ghost
+    with its images; the preview's sim plays the edited faction in every slot (`layouts::preview_scenario`), so it
+    shows that faction's layouts. Layout objects with a problem are outlined in red with every tool.
+  - **Problems** (`layouts/problems.rs::problem_lines`): the Problems list gives each layout that lacks objects one
+    line that names them all and the tool ("S1 GDO layout: add Deployment Center, Extraction Facility, Extraction
+    Plate x2 (Layout tool, T); S2 follows"), folding the generated slots' identical lines into their editable slot's.
+    A click on a line chooses the slot, the faction and the first missing kind, or selects the broken object. A
+    refused play-test (F5) shows the first line.
+  - **Outdated layouts** are derived (T11): a non-empty layout that isn't its faction's current Starting Conditions
+    is flagged, so one still being placed is too ("Outdated or unfinished"); on a Custom map the line only says that
+    the layout differs. Nothing is fixed automatically.
 - **Symmetry**: the editor edits only the editable part (`MapDef::region`); the locked part is dimmed
   (`overlay/tints.rs`), and the generated slots' markers are drawn faded. Every edit of the locked part is
   refused with a status message that names it: strokes and fills there, placing, moving or selecting what lies there,
@@ -1632,21 +1666,25 @@ unchecked.
   listed as a problem. The overlay previews each dab: the tiles, the corners it sets (white) and the ones the cascade
   moves (amber), from where they are drawn now to where they will be, and in red the tiles a paint would refuse.
 - **Objects**: Place refuses spots off the map, overlapping another footprint or its own image, in the locked part,
-  or, for resources and structures, on a sloped tile (the ghost turns red). Structures are placed unturned, and a
-  plate can't go onto a patch here yet (rotate and flip come with slice M2-I). New objects get
+  or, for resources and structures, on a sloped tile (the ghost turns red). A plate may go onto a patch that no plate
+  covers, the one overlap the sim allows (`ObjectKind::may_overlap`). Structures are placed turned as R, Shift+R, F
+  and Shift+F (or the Turn buttons) turned them while the Place or the Layout tool holds one (`editor/orientation.rs`:
+  a quarter turn either way, a flip left and right or top and bottom, as seen; `EditorTools::orientation`), their
+  footprints and ghosts turned with them; the same keys as the game's placement ghost. New objects get
   `SpawnSettings::defaults`; selecting one shows its values as text fields (the interval in seconds), which commit
   `SetSpawnSettings`, one undo step each.
 - **View**: G toggles the grid, K the slope tint (flat green, sloped amber, too steep red, in the terrain's z band).
   The middle-mouse grab pans as in the game. The status line shows the tile under the cursor with its preset, the
   interpolated height there, its level, whether the tile is flat, sloped or too steep, and whether it is locked.
-- **Selection** is a spawn index or a slot's marker. An undo, a redo or a resize may shift the indexes, so they clear
-  the selection; so does switching documents.
+- **Selection** is a spawn index, a slot's marker or a layout object (slot, faction, index). An undo, a redo or a
+  resize may shift the indexes, so they clear the selection; so does switching documents.
 - **UI work follows changes** (review finding): each list (`ui/lists.rs`) is rebuilt only when what it shows
   changed, keyed so that a field being typed into survives marker moves and preset edits; the buttons are restyled
   when the editor's state changed or the pointer moved over them; the texts and fields refresh only when their values
   changed. Text fields commit in `EditorSystems::Input`, before the frame's actions, so a click elsewhere (Save, a
   tool, another field) applies the typed text first; Enter commits, Esc gives up the text.
-- **Tests** (`crates/game/tests/editor/`: `session`, `edits`, `map_edits`, `creation`, `symmetry`, `review`, `input`)
+- **Tests** (`crates/game/tests/editor/`: `session`, `edits`, `map_edits`, `creation`, `symmetry`, `review`, `input`,
+  `units`, `layouts`)
   build a headless app with `AppConfig::editor`, push `EditorAction`s into `EditorActions`, call `app.update()`, and
   assert on `EditorDoc`, the sim, the view and the UI state. Positions are ground points, such as
   `TilePos::center()`. Tests of the input itself (`input`: keys, pointer, wheel, over the UI, typing) go through the
@@ -1660,10 +1698,12 @@ echo '["FitMap", {"SetTool": "Paint"}, {"Press": [100.0, 80.0]}, "Release"]' > /
 cargo run -- --editor maps/dev_skirmish.json --editor-script /path/to/edits.json --screenshot 0:/path/to/editor.png
 ```
 
-- **UI**: bevy_ui with Bevy's `bevy_ui_widgets` feature (headless `Button`, `TextInput` and `ScrollArea`) and
-  `ui_picking`. Its font has ASCII glyphs only, so UI texts stay ASCII ("Rotate 90", not "90°"). The player slot
-  colours, the overlay, locked-part and slope tint colours, UI sizes, `NEW_MAP_SIZE`, `MAX_DESCRIPTION_CHARS` and the
-  sim's creation limits are placeholders.
+- **UI**: bevy_ui with Bevy's `bevy_ui_widgets` feature (headless `Button`, `TextInput`, `ScrollArea` and
+  `Scrollbar`) and `ui_picking`. Both side panels scroll with the wheel and with a scrollbar along their inner edge
+  (`ui/layout.rs::spawn_side_panel`); the right one lists the problems before the play-test's slots, which run long
+  on maps with many slots. Its font has ASCII glyphs only, so UI texts stay ASCII ("Rotate 90", not "90°"). The
+  player slot colours, the overlay, locked-part, slope tint, dimmed-layout and build-area colours, the scrollbar's,
+  UI sizes, `NEW_MAP_SIZE`, `MAX_DESCRIPTION_CHARS` and the sim's creation limits are placeholders.
 
 ## Code conventions
 

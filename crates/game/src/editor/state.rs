@@ -3,18 +3,24 @@
 use std::path::PathBuf;
 
 use bevy::prelude::*;
-use sc_sim::{ScenarioProblem, SlotId};
+use sc_sim::{Faction, ScenarioProblem, SlotId};
 
 use super::files;
 
-/// What is selected: a spawn (by its index in `MapDef::spawns`) or one of a slot's markers, always in the editable
-/// part of the map. An index goes stale when an undo, a redo or a resize reorders the spawns, so those clear the
-/// selection; regenerating the locked part keeps it on its spawn.
+/// What is selected: a spawn (by its index in `MapDef::spawns`), one of a slot's markers, or an object of a slot's
+/// Starting Layout of a faction (by its index in the layout), always in the editable part of the map. An index goes
+/// stale when an undo, a redo or a resize reorders the spawns, so those clear the selection; regenerating the
+/// locked part keeps it on its spawn, and never touches the layouts of editable slots.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Selection {
     Spawn(usize),
     Start(SlotId),
     CameraStart(SlotId),
+    LayoutObject {
+        slot: SlotId,
+        faction: Faction,
+        index: usize,
+    },
 }
 
 #[derive(Resource, Default, Debug)]

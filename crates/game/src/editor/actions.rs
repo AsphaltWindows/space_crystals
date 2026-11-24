@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use super::creation::{NewMapDialog, NewMapField};
 use super::doc::EditorDoc;
 use super::gesture::{Gesture, GestureKind};
+use super::orientation::Turn;
 use super::playtest::PlayTestSetup;
 use super::presets::PresetFlag;
 use super::state::{EditorCursor, EditorFiles, EditorProblems, EditorSelection, EditorStatus, EditorUi, Selection};
@@ -54,10 +55,18 @@ pub enum EditorAction {
     StepElevation(i32),
     /// Chooses the object type to place (switching to Place).
     SetKind(ObjectKind),
+    /// Turns the structure that the Place or the Layout tool places (R, Shift+R, F, Shift+F; `super::orientation`).
+    Turn(Turn),
     /// Neutral or a player slot, for placed objects. Skirmish Default maps take neutral objects only.
     SetOwner(Option<SlotId>),
-    /// The slot whose markers the marker tools place: an editable one.
+    /// The slot whose markers the marker tools place and whose Starting Layouts the Layout tool edits: an editable
+    /// one.
     SelectSlot(SlotId),
+    /// Chooses the faction whose Starting Layout the Layout tool edits (switching to it; `super::layouts`).
+    SetLayoutFaction(Faction),
+    /// Chooses the object type the Layout tool places (switching to it). On a Skirmish Default map, only one of the
+    /// faction's Starting Conditions.
+    SetLayoutKind(ObjectKind),
     DeleteSelected,
     /// Sets the per-object values of the spawn at this index (`core/map_editor.md > Per-object Resource Values`).
     SetSpawnSettings {
@@ -275,12 +284,15 @@ impl Editor<'_> {
                 self.tools.kind = kind;
                 self.tools.tool = Tool::Place;
             }
+            EditorAction::Turn(turn) => self.turn(turn),
             EditorAction::SetOwner(owner) => self.set_owner(owner),
             EditorAction::SelectSlot(slot) => {
                 if self.slot_editable(slot) {
                     self.tools.slot = slot;
                 }
             }
+            EditorAction::SetLayoutFaction(faction) => self.set_layout_faction(faction),
+            EditorAction::SetLayoutKind(kind) => self.set_layout_kind(kind),
             EditorAction::DeleteSelected => self.delete_selected(),
             EditorAction::SetSpawnSettings { spawn, settings } => self.set_spawn_settings(spawn, settings),
             EditorAction::AddPreset => self.add_preset(),
@@ -381,7 +393,8 @@ impl Editor<'_> {
             Some(Selection::CameraStart(s)) => {
                 map.slot(s).is_some_and(|slot| slot.camera_start.is_some()) && map.is_slot_editable(s)
             }
-            None => true,
+            // Checked with the Layout tool's references, below.
+            Some(Selection::LayoutObject { .. }) | None => true,
         };
         if !valid {
             self.selection.0 = None;
@@ -405,6 +418,7 @@ impl Editor<'_> {
         if map.slot(self.playtest.slot).is_none() && self.playtest.slot != SlotId(1) {
             self.playtest.slot = SlotId(1);
         }
+        self.keep_layout_references_valid();
     }
 
     fn set_preset(&mut self, preset: TilePresetId) {

@@ -159,11 +159,12 @@ impl Bindings {
             .filter(move |(action, _)| action.works_in(context))
     }
 
-    /// The action that a press of `button` fires in `context` while `modifiers` are held; `double` says whether
-    /// the press completes a double tap. Of the bindings of that button in that context whose modifiers are all
-    /// held, the one requiring the most modifiers wins, then a double tap over a single press, then the earlier
-    /// entry. Modifiers held beyond a binding's don't block it, except Ctrl for the editor's own keys
-    /// ([`InputContext::ctrl_blocks`]).
+    /// The action that a press of `button` fires in `context` while `modifiers` are held and nothing is being
+    /// placed; `double` says whether the press completes a double tap. Of the bindings of that button in that
+    /// context whose modifiers are all held, the one requiring the most modifiers wins, then a double tap over a
+    /// single press, then the earlier entry. Modifiers held beyond a binding's don't block it, except Ctrl for the
+    /// editor's own keys ([`InputContext::ctrl_blocks`]). The placement actions' bindings take no press
+    /// ([`Bindings::resolve_placing`]).
     pub fn resolve(
         &self,
         context: InputContext,
@@ -171,7 +172,21 @@ impl Bindings {
         modifiers: Modifiers,
         double: bool,
     ) -> Option<InputAction> {
-        let mut best: Option<((u32, bool), InputAction)> = None;
+        self.resolve_placing(context, button, modifiers, double, false)
+    }
+
+    /// [`Bindings::resolve`], with `placing` saying whether a structure is being placed (`super::Placing`). While
+    /// one is, the bindings of the placement actions ([`InputAction::is_placement`]) take part and win over the
+    /// others of the press, which they override; otherwise they take no press.
+    pub fn resolve_placing(
+        &self,
+        context: InputContext,
+        button: Button,
+        modifiers: Modifiers,
+        double: bool,
+        placing: bool,
+    ) -> Option<InputAction> {
+        let mut best: Option<((bool, u32, bool), InputAction)> = None;
         for (action, binding) in self.in_context(context) {
             let (chord, is_double) = match binding {
                 Binding::Press(chord) => (chord, false),
@@ -181,6 +196,10 @@ impl Bindings {
             if chord.button != button || !modifiers.contains(chord.modifiers) {
                 continue;
             }
+            let placement = action.is_placement();
+            if placement && !placing {
+                continue;
+            }
             if modifiers.ctrl
                 && !chord.modifiers.ctrl
                 && matches!(button, Button::Key(_))
@@ -188,7 +207,7 @@ impl Bindings {
             {
                 continue;
             }
-            let rank = (chord.modifiers.count(), is_double);
+            let rank = (placement, chord.modifiers.count(), is_double);
             if best.is_none_or(|(best_rank, _)| rank > best_rank) {
                 best = Some((rank, action));
             }
@@ -292,6 +311,7 @@ impl Default for Bindings {
                 (E::PlaceTool, Press(key(KeyCode::KeyO))),
                 (E::StartTool, Press(key(KeyCode::KeyL))),
                 (E::CameraTool, Press(key(KeyCode::KeyC))),
+                (E::LayoutTool, Press(key(KeyCode::KeyT))),
                 (E::SmallerBrush, Press(key(KeyCode::BracketLeft))),
                 (E::LargerBrush, Press(key(KeyCode::BracketRight))),
                 (E::NextHeightMode, Press(key(KeyCode::KeyE))),
@@ -310,6 +330,14 @@ impl Default for Bindings {
                 (E::NewMap, ctrl(KeyCode::KeyN)),
                 (E::PlayTest, Press(key(KeyCode::F5))),
                 (E::ToggleHelp, Press(key(KeyCode::F1))),
+                // Placement actions: only while a structure is being placed, over F's Fill tool.
+                (E::RotateClockwise, Press(key(KeyCode::KeyR))),
+                (
+                    E::RotateCounterClockwise,
+                    Press(key(KeyCode::KeyR).with(Modifiers::SHIFT)),
+                ),
+                (E::FlipHorizontal, Press(key(KeyCode::KeyF))),
+                (E::FlipVertical, Press(key(KeyCode::KeyF).with(Modifiers::SHIFT))),
             ]
             .map(|(input, binding)| (A::Editor(input), binding)),
         );

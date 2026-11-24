@@ -1166,4 +1166,5 @@ Buildings become targets and get panels in M2.
 | Director | all | Recipe timing: an order applied in tick t starts progress that tick; a recipe of N frames completes at the end of t+N−1, and the result is usable from t+N (ARCHITECTURE.md > Economy > Recipe timing). |
 | Director | J | J is split. **J1** (sim QA: the oracle, `gdo_opening`, the soak check) runs alongside F2, H2 and I. **J2** (`structures_perf`, quiet-machine perf, walkthrough screenshots, the ARCHITECTURE review, playtest notes) runs after everything merges, with no other agents building. |
 | M2-F2 | J2 | Measure the defeat check, which walks the objects twice per tick, in `structures_perf`. Tests whose scripts kill structures must give each player an out-of-sight structure, or the game ends mid-script. |
+| M2-I | H2, later editor | The placement keys live in `input/bindings.rs`: `Placing`, `resolve_placing`, `is_placement`. The editor shows `LayoutOverlap` between slots only when F5 is refused; it should list it live under Problems. Layout objects must lie in the editable half of a symmetric map. |
 

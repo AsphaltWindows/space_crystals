@@ -4,6 +4,7 @@
 use bevy::prelude::*;
 
 use super::actions::Editor;
+use super::layouts::problems::problem_lines;
 use super::objects;
 use super::state::Selection;
 use crate::camera::{viewport_rect, visible_extent_su};
@@ -61,6 +62,13 @@ impl Editor<'_> {
         if let Some(spawn) = spawn {
             self.selection.0 = Some(Selection::Spawn(spawn));
         }
-        self.status.warn(problem.to_string());
+        self.focus_layout_problem(&problem);
+        // The problem's line in the Problems list, which may sum up several (`super::layouts::problems`).
+        let map = self.doc.map();
+        let line = problem_lines(map, &self.problems.0)
+            .into_iter()
+            .find(|l| l.index == index)
+            .or_else(|| problem_lines(map, std::slice::from_ref(&problem)).into_iter().next());
+        self.status.warn(line.map_or_else(|| problem.to_string(), |l| l.text));
     }
 }

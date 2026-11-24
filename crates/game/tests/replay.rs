@@ -3,6 +3,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use bevy::ecs::message::Messages;
 use bevy::prelude::*;
@@ -22,7 +23,9 @@ use space_crystals::qa::QaState;
 use space_crystals::replay::playback::SPEEDS;
 use space_crystals::replay::{Playback, Recorder, load_replay};
 use space_crystals::selection::{ControlStates, Selection};
-use space_crystals::sim_driver::{LocalPlayer, Pace, PendingCommands, RecordedInputs, SimControl, SimRes};
+use space_crystals::sim_driver::{
+    FAST_FRAME_BUDGET, LocalPlayer, Pace, PendingCommands, RecordedInputs, SimControl, SimRes,
+};
 use space_crystals::{AppConfig, build_app};
 
 const P1: PlayerId = PlayerId(1);
@@ -96,10 +99,14 @@ fn script(tick: Tick) -> Vec<PlayerCommand> {
     }
 }
 
-fn temp_file(name: &str) -> PathBuf {
-    std::env::temp_dir()
-        .join(format!("sc_replay_test_{}", std::process::id()))
-        .join(name)
+/// The file `name` in a fresh directory of test `test`'s own. The tests of this file run as threads of one process,
+/// and each removes its directory when it is done: when two tests shared one (named by the process only), one could
+/// remove it under the other, whose recording was then gone when it read it back.
+fn temp_file(test: &str, name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("sc_replay_test_{test}_{}", std::process::id()));
+    // Left by an earlier run that had the same process id and failed before cleaning up.
+    let _ = std::fs::remove_dir_all(&dir);
+    dir.join(name)
 }
 
 /// The tick an `AppExit` and an update later: the app's last.
@@ -178,7 +185,7 @@ fn top_bar(app: &mut App) -> String {
 /// checkpoint of the latest tick; the file is the game as the sim played it.
 #[test]
 fn games_are_recorded_as_they_run_and_when_the_app_exits() {
-    let path = temp_file("recorded.json");
+    let path = temp_file("recorded", "recorded.json");
     let mut config = AppConfig::new(skirmish());
     config.record = Some(path.clone());
     let mut app = headless(config);
@@ -212,7 +219,7 @@ fn games_are_recorded_as_they_run_and_when_the_app_exits() {
 /// the sim.
 #[test]
 fn a_recorded_game_plays_back_as_it_was_played() {
-    let path = temp_file("played.json");
+    let path = temp_file("played", "played.json");
     let hashes = play_recorded_game(&path, 200);
     let replay = load_replay(&path).unwrap();
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
@@ -327,7 +334,14 @@ fn playback_pauses_steps_and_changes_speed() {
         tap(&mut app, KeyCode::Equal);
     }
     assert_eq!(app.world().resource::<Pace>(), &Pace::Max, "the fastest");
-    assert_eq!(tick(&app), 300, "at the end at once, and not past it");
+    // How many ticks a frame runs at the fastest pace depends on how fast the machine is, but every frame runs one at
+    // least while the playback may step: within as many frames as ticks are left, it is at the end.
+    assert!(tick(&app) <= 300, "not past the end");
+    for _ in tick(&app)..300 {
+        app.update();
+        assert!(tick(&app) <= 300, "not past the end");
+    }
+    assert_eq!(tick(&app), 300, "at the end");
     app.update();
     assert_eq!(tick(&app), 300);
     assert_eq!(top_bar(&mut app), "Replay max, end");
@@ -356,9 +370,16 @@ fn leaving_the_fastest_pace_runs_no_burst_of_ticks() {
     let mut app = headless(config);
     app.insert_resource(SetPace(None)).add_systems(Update, set_pace);
     app.update();
+    // As fast as it can: a frame runs ticks until its budget is spent. How many fit depends on how fast the machine
+    // is, so the frame ran more than a second's worth of them, or else spent its whole budget.
     let before = tick(&app);
+    let started = Instant::now();
     app.update();
-    assert!(tick(&app) > before + 16, "as fast as it can");
+    let (ran, took) = (tick(&app) - before, started.elapsed());
+    assert!(
+        ran > 16 || took >= FAST_FRAME_BUDGET,
+        "as fast as it can: {ran} ticks in {took:?}"
+    );
 
     app.world_mut().resource_mut::<SetPace>().0 = Some(Pace::Scaled(1.0));
     app.update();
