@@ -2095,3 +2095,4 @@ Q0037 pt 5: known, uncovered patches only. Entry 0131.
 Q0037 pt 6 (partly): waiting at tried patch, periodic re-check, return to last mined patch. Entry 0132.
 Q0037 pt 6: waiter order = implementation's choice (deterministic). Entry 0133.
 Q0037 pt 7 / Q0044 pt 5: depleted patch, walking Drones redirect on arrival. Entry 0134.
+Q0037 pt 8: missing drop-off -> nearest Egress Node, else idle holding load. Entry 0135.
