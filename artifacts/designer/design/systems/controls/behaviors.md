@@ -55,12 +55,12 @@ Paths are planned only from what the unit's **owner knows** (user, 2026-11-23), 
 - **Terrain is always known**: tile presets, corner heights, cliffs, water and Rugged tiles are part of the map.
 - **Own structures** are always known.
 - **Other players' structures** are known only once seen. A structure the player has seen that is now covered by fog of war is treated as a **wall at its last-known position** (core/vision.md > Explored), even if it has since been destroyed, until the player sees otherwise. Structures the player has never seen are treated as open ground.
-- A unit that walks toward an obstacle it didn't know about discovers it when it comes into view and re-routes.
+- A unit that walks toward an obstacle it didn't know about discovers it and re-routes (exactly when: see When to recalculate a route below).
 
 *Implementation suggestion from the user (not a design requirement; the Director decides):* a per-player cache of known obstacles, updated when a structure enters or leaves that player's view. A cache change since a stuck unit's plan was made could justify a new path calculation.
 
 - **A destination inside a remembered obstacle** (user, 2026-11-24): a click inside (or unreachable behind) a remembered structure resolves, when the order is given, to the nearest reachable spot by what the player knows (systems/controls/commands.md > Group Destinations: destinations are resolved when the order is given). If the unit later sees the obstacle is gone, it **still stops at that resolved spot**; it doesn't continue to the clicked point.
-- **A shortcut opening up** (user, 2026-11-24): a unit that sees a remembered obstacle on or near its route is gone **keeps its planned route** (it may still cut corners where a later point of its route comes into direct view). Principle (user): **avoid recalculating routes unless the unit actually gets blocked or stuck.**
+- **When to recalculate a route** (user, 2026-11-24): **the Director's discretion**, e.g. whether to re-plan when a shortcut opens up (a remembered obstacle seen gone), or when a new obstacle comes into view rather than only once the unit is actually blocked. The user's goals for these choices: **avoid performance issues** and keep movement **predictable for the player**. (The user's first instinct: recalculate only when a unit actually gets blocked or stuck.)
 - **Map-placed objects** (crystal patches, Supply Delivery Stations) are known from the start, like terrain (user, 2026-11-23). A patch depleted out of the player's view is still treated as present until the player sees it gone.
 
 ## MovingToLocation
