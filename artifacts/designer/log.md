@@ -2119,3 +2119,4 @@ Q0034: plate remaining crystals owner only. Entry 0155.
 Q0033 pt 1: destination stays as resolved. Entry 0156.
 Q0033 pt 2: no re-plan when shortcut opens; recalc only when blocked/stuck. Entry 0157.
 Q0033 pt 2 revised: route recalculation timing = Director's discretion (performance, predictability). Entry 0158 replaces 0157.
+Q0033 pt 3: all neutral map-placed objects known from start; starting layouts never. Entry 0159. Q0033 done.
