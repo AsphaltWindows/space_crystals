@@ -552,9 +552,13 @@ fn outcome(t: &mut TestSim, n: u32) -> (u32, u32, u32) {
 }
 
 /// 0022, Verification: "Re-run the 18-vs-18 head-on": two blocks of 18 Peacekeepers, each ordered onto the other's
-/// place, the second block player 1's or player 2's. Every move ends. Printed for the record (`--nocapture`):
-/// 40 su apart the blocks can't pass through each other, and the jam in the middle is movers against movers, which
-/// never yield; 56 su apart every unit arrives.
+/// place, the second block player 1's or player 2's. Every move ends.
+///
+/// (G) Both blocks are moving, so nobody yields: the units seek lanes (`docs/movement.md > 6.3`). 56 su apart the
+/// blocks pass through each other's gaps and every unit arrives. 40 su apart the gaps (16 su) are narrower than
+/// a unit: the blocks mesh, spread from the outside in, and pass. Before lane seeking 14 of the 36 units gave up
+/// there (18 with two owners); now none does, and the bound leaves room for tuning. The counts are printed for
+/// the record (`--nocapture`).
 #[test]
 fn eighteen_meet_eighteen_head_on() {
     for spacing in [40.0, 56.0] {
@@ -581,13 +585,22 @@ fn eighteen_meet_eighteen_head_on() {
             if spacing > 40.0 {
                 assert_eq!(failed, 0);
             }
+            assert!(failed <= 2, "{failed} of 36 gave up\n{}", t.ascii(None));
+            // Nobody takes much longer than the walk itself: 624 su at 4 su per tick is 156 ticks.
+            assert!(done <= 2 + 156 + 120, "done in tick {done}");
+            assert_eq!(t.replay().run().state_hash(), t.sim().state_hash());
         }
     }
 }
 
 /// A group of 18 ordered through a standing block of 18 idle Peacekeepers as wide as itself. An enemy block never
-/// moves, and much of the group gives up in front of it; the owner's own block makes way (0022), and nearly
-/// everyone arrives.
+/// moves, and much of the group gives up in front of it; the owner's own block makes way (0022), and the group
+/// arrives.
+///
+/// (G) The idle block **parts** for the group and isn't shoved along: the movers walk between its rows, and the
+/// idle units step straight across their way (`docs/movement.md > 6.6`). Before, the block was pushed ahead of the
+/// group, its units 204 su on average and up to 373 su; now they end 12 su from their places on average and at
+/// most 35 su. The bounds leave room for tuning.
 #[test]
 fn eighteen_walk_through_eighteen_idle() {
     let mut failed_by_owner = Vec::new();
@@ -603,10 +616,37 @@ fn eighteen_walk_through_eighteen_idle() {
             owner.0
         );
         assert_eq!(arrived + failed, 18);
+        let moved: Vec<f32> = (0..18)
+            .map(|i| {
+                let offset = v(40.0 * ((i / 6) as f32 - 1.0), 40.0 * ((i % 6) as f32 - 2.5));
+                t.pos(19 + i).distance(v(512.0, 384.0) + offset)
+            })
+            .collect();
+        let (farthest, mean) = (
+            moved.iter().fold(0.0_f32, |a, b| a.max(*b)),
+            moved.iter().sum::<f32>() / 18.0,
+        );
+        println!(
+            "the idle units of player {} ended {mean:.0} su from their places on average, at most {farthest:.0} su",
+            owner.0
+        );
+        if owner == P1 {
+            assert!(
+                farthest <= 96.0 && mean <= 40.0,
+                "shoved along: {moved:?}\n{}",
+                t.ascii(None)
+            );
+            assert!(moved.iter().any(|d| *d > 0.0), "nobody made way");
+            for id in 19..=36 {
+                assert_eq!((t.mover(id).sidestep, t.mover(id).velocity), (None, Vec2::ZERO));
+            }
+        } else {
+            assert_eq!(farthest, 0.0, "enemies never yield");
+        }
         failed_by_owner.push(failed);
     }
     assert!(
-        failed_by_owner[0] <= 3 && failed_by_owner[0] < failed_by_owner[1],
+        failed_by_owner[0] <= 2 && failed_by_owner[0] < failed_by_owner[1],
         "{failed_by_owner:?}"
     );
 }

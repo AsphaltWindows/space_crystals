@@ -4,7 +4,8 @@
 //!
 //! Placeholders until the art (Q0001), the design gives none: a ring around a unit's silhouette and a frame inside a
 //! tile-based object's footprint, coloured by the object's relation to the local player (own green, ally blue, enemy
-//! red, neutral yellow), drawn in the ground-decal layer, under the objects. The ActiveGroup's rings are solid and
+//! red, neutral yellow). Rings are drawn in the ground-decal layer, under the objects; a frame, which the object's
+//! visual would cover there, just in front of its object. The ActiveGroup's rings are solid and
 //! thick, the other groups' dashed and thin (frames: thick and thin). Meshes are made once per shape, relation and
 //! activity. A selected record (a GDO player's remembered SupplyDeliveryStation) is marked where it is shown.
 
@@ -35,6 +36,9 @@ const INACTIVE_WIDTH_SU: f32 = 2.0;
 /// A unit's ring lies this far outside its silhouette's corners; a frame this far inside a footprint.
 const RING_GAP_SU: f32 = 4.0;
 const FRAME_INSET_SU: f32 = 4.0;
+/// A frame's z over its object's: half a space unit of ground y (`coords::depth_offset`), so it draws over the
+/// object and under the objects south of it.
+const FRAME_Z: f32 = 0.0005;
 /// Segments of a ring; a dashed ring draws every other one.
 const RING_SEGMENTS: usize = 28;
 /// The box being dragged: its colour and line width (placeholders).
@@ -189,8 +193,12 @@ fn sync_markers(
             relation: object.relation,
             active,
         };
-        let transform =
-            Transform::from_translation(view_to_world(object.drawn).extend(DrawLayer::GroundDecals.z_at(object.depth)));
+        let z = match shape {
+            // Inside the footprint, which the object's visual covers: just in front of the object.
+            MarkerShape::Frame { .. } => DrawLayer::GroundObjects.z_at(object.depth) + FRAME_Z,
+            MarkerShape::Ring(_) => DrawLayer::GroundDecals.z_at(object.depth),
+        };
+        let transform = Transform::from_translation(view_to_world(object.drawn).extend(z));
         match index.by_id.get(&object.id).and_then(|&e| markers.get_mut(e).ok()) {
             Some((mut current, mut mesh, mut placed)) => {
                 if *current != marker {

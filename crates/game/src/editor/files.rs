@@ -46,19 +46,25 @@ pub fn load(path: &Path) -> Result<MapDef, String> {
     load_map_file(path)
 }
 
-/// Writes `map` as a pretty-printed map file, creating the directory if needed. Atomically (review finding): the
-/// file is written and flushed to disk under a temporary name next to `path` first, then renamed over `path`, so a
-/// crash or a full disk leaves the old file whole instead of a truncated one.
+/// Writes `map` as a pretty-printed map file, creating the directory if needed. Atomically (review finding,
+/// [`write_atomically`]).
 pub fn save(path: &Path, map: &MapDef) -> Result<(), String> {
+    let mut json = serde_json::to_string_pretty(map).map_err(|e| format!("can't serialize the map: {e}"))?;
+    json.push('\n');
+    write_atomically(path, &json)
+}
+
+/// Writes `text` to `path`, creating the directory if needed. Atomically: the file is written and flushed to disk
+/// under a temporary name next to `path` first ([`temp_path`]), then renamed over `path`, so a crash or a full disk
+/// leaves the old file whole instead of a truncated one. Map files and replays (`crate::replay`) are written so.
+pub fn write_atomically(path: &Path, text: &str) -> Result<(), String> {
     if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
         std::fs::create_dir_all(dir).map_err(|e| format!("can't create {}: {e}", dir.display()))?;
     }
-    let mut json = serde_json::to_string_pretty(map).map_err(|e| format!("can't serialize the map: {e}"))?;
-    json.push('\n');
     let temp = temp_path(path);
     let written = std::fs::File::create(&temp)
         .and_then(|mut file| {
-            file.write_all(json.as_bytes())?;
+            file.write_all(text.as_bytes())?;
             file.sync_all()
         })
         .and_then(|()| std::fs::rename(&temp, path));
@@ -68,7 +74,7 @@ pub fn save(path: &Path, map: &MapDef) -> Result<(), String> {
     })
 }
 
-/// Where [`save`] writes before renaming: a hidden file next to `path` that [`list_maps`] doesn't list.
+/// Where [`write_atomically`] writes before renaming: a hidden file next to `path` that [`list_maps`] doesn't list.
 pub fn temp_path(path: &Path) -> PathBuf {
     let name = path.file_name().map_or_else(|| "map".into(), |n| n.to_string_lossy());
     path.with_file_name(format!(".{name}.saving"))

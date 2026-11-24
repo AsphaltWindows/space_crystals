@@ -34,7 +34,7 @@ pub struct InputStep {
 
 /// A key or mouse button, by name: `MouseLeft`, `MouseRight`, `MouseMiddle`, or a key as Bevy's `KeyCode` names it,
 /// among `KeyA`–`KeyZ`, `Digit0`–`Digit9`, `F1`–`F12`, `ShiftLeft`, `ControlLeft`, `AltLeft` (and their `Right`
-/// twins), `Tab`, `Escape`, `Enter`, `Space` and `ArrowLeft`/`Right`/`Up`/`Down`.
+/// twins), `Tab`, `Escape`, `Enter`, `Space`, `Period`, `Minus`, `Equal` and `ArrowLeft`/`Right`/`Up`/`Down`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(try_from = "String")]
 pub enum ScriptButton {
@@ -112,6 +112,9 @@ fn key_named(name: &str) -> Option<KeyCode> {
         "Escape" => Escape,
         "Enter" => Enter,
         "Space" => Space,
+        "Period" => Period,
+        "Minus" => Minus,
+        "Equal" => Equal,
         "ArrowLeft" => ArrowLeft,
         "ArrowRight" => ArrowRight,
         "ArrowUp" => ArrowUp,

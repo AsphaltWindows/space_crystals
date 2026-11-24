@@ -230,7 +230,8 @@ impl Bindings {
 /// The defaults: `core/camera.md > Panning`, `systems/controls/selection_and_hud.md` (`> MapClickSelection`,
 /// `> SelectionPanel > Interactions`, `> AwaitingTarget`, `> GroupCycling`, `> ControlGroups > Default keys`,
 /// `> CommandPanel > Grid Layout`) and `systems/controls/commands.md > Unit Command` (design changes 0002, 0010 and
-/// 0011), and a placeholder debug key; then the map editor's, which its F1 help lists (the design gives none).
+/// 0011), and placeholder debug and replay playback keys; then the map editor's, which its F1 help lists (the design
+/// gives none).
 impl Default for Bindings {
     fn default() -> Self {
         use Binding::{DoubleTap, Modifiers as Held, Press, Wheel};
@@ -257,6 +258,11 @@ impl Default for Bindings {
             // Placeholder: the design has no debug keys.
             (A::DebugSwitchPlayer, Press(key(KeyCode::F2))),
             (A::DebugToggleFog, Press(key(KeyCode::F3))),
+            // Placeholders: the design has no replays yet.
+            (A::ReplayPause, Press(key(KeyCode::Space))),
+            (A::ReplayStep, Press(key(KeyCode::Period))),
+            (A::ReplaySlower, Press(key(KeyCode::Minus))),
+            (A::ReplayFaster, Press(key(KeyCode::Equal))),
         ];
         for group in ControlGroup::all() {
             let digit = key(group.digit_key());
@@ -363,6 +369,10 @@ mod tests {
         assert_eq!(only(InputAction::CenterOnObject), [Binding::Modifiers(Modifiers::ALT)]);
         assert_eq!(only(InputAction::DebugSwitchPlayer), press(KeyCode::F2));
         assert_eq!(only(InputAction::DebugToggleFog), press(KeyCode::F3));
+        assert_eq!(only(InputAction::ReplayPause), press(KeyCode::Space));
+        assert_eq!(only(InputAction::ReplayStep), press(KeyCode::Period));
+        assert_eq!(only(InputAction::ReplaySlower), press(KeyCode::Minus));
+        assert_eq!(only(InputAction::ReplayFaster), press(KeyCode::Equal));
         let seven = Chord::key(KeyCode::Digit7);
         assert_eq!(
             only(InputAction::AssignGroup(group(7))),
@@ -391,7 +401,7 @@ mod tests {
         );
         assert_eq!(only(InputAction::CommandSlot(CommandSlot::RALLY_POINT)), press(KeyC));
         let game = b.entries().iter().filter(|(a, _)| !matches!(a, InputAction::Editor(_)));
-        assert_eq!(game.count(), 18 + 4 * 10 + 12);
+        assert_eq!(game.count(), 22 + 4 * 10 + 12);
     }
 
     #[test]

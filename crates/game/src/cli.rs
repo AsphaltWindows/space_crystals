@@ -1,15 +1,16 @@
 //! Command-line flags, parsed by hand. `ARCHITECTURE.md > QA mode` documents them for agents.
 
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use bevy::math::UVec2;
 use sc_sim::{MapDef, PlayerId, Scenario, SimConfig, Tick, scenarios};
 
-use crate::AppConfig;
 use crate::editor::actions::EditorAction;
 use crate::editor::{EditorConfig, files};
 use crate::platform::DisplayMode;
 use crate::qa::{QaConfig, ScreenshotRequest};
+use crate::{AppConfig, PlaybackSource, replay};
 
 /// The scenario `cargo run` starts without flags.
 pub const DEFAULT_SCENARIO: &str = "dev_skirmish";
@@ -42,6 +43,12 @@ pub struct CliOptions {
     pub fog: bool,
     pub windowed: bool,
     pub headless: bool,
+    /// `--replay`: the replay file to play back.
+    pub replay: Option<PathBuf>,
+    /// `--record`: the file to record the game to.
+    pub record: Option<PathBuf>,
+    /// `--no-record`: games are recorded unless this is given.
+    pub no_record: bool,
     pub help: bool,
 }
 
@@ -66,6 +73,9 @@ impl Default for CliOptions {
             fog: true,
             windowed: false,
             headless: false,
+            replay: None,
+            record: None,
+            no_record: false,
             help: false,
         }
     }
@@ -93,10 +103,18 @@ Map editor:
                               Play-tests take debug commands unless --no-debug.
   --editor-script <file.json> Apply a JSON list of editor actions on the first frame (QA)
 
+Replays (a game is recorded to {replays}/<UTC time>_<map>.json; not the editor and its play-tests):
+  --replay <file.json>        Play a recorded game back, with its own map and game options; it pauses at
+                              the end. Keys (placeholders): Space pauses and resumes, . plays one tick,
+                              - and = change the speed (x0.5, x1, x2, x4, max), F2 switches the player, F3
+                              the fog. --fast starts at max speed. The QA flags below work with it.
+  --record <file.json>        Record the game to this file instead (QA runs record only with this flag)
+  --no-record                 Don't record the game
+
 QA (any of these makes the run reproducible: keyboard and mouse are ignored, frames render offscreen):
   --screenshot <tick>:<path>  Save a PNG of exactly that tick (repeatable)
   --exit-at-tick <n>          Exit at tick n, once its screenshots are saved. A run without a window
-                              defaults to the last screenshot's tick.
+                              defaults to the last screenshot's tick, or else to the end of the --replay.
   --dump-state <path>         Write the state as JSON when the run ends
   --commands <file.json>      Apply player commands at given ticks: a JSON list of
                               {{\"tick\": 2, \"player\": 1, \"command\": {{\"Order\": {{...}}}}}}
@@ -105,12 +123,13 @@ QA (any of these makes the run reproducible: keyboard and mouse are ignored, fra
                               \"release\": []}} (buttons: MouseLeft, ShiftLeft, Digit1, KeyA, F2, Tab, ...)
   --show-paths                Start with the unit path overlay on (P toggles it)
   --no-fog                    Start with the fog of war off: show everything (F3 toggles it; needs debug
-                              commands, display only)
+                              commands or a --replay, display only)
   --windowed                  Show the QA run in a window instead of rendering offscreen
   --headless                  No window and no rendering at all (no screenshots)
 
   -h, --help                  Show this help",
         names = scenarios::NAMES.join(", "),
+        replays = replay::REPLAYS_DIR,
         nw = files::NEW_MAP_SIZE.0,
         nh = files::NEW_MAP_SIZE.1,
         w = DEFAULT_WINDOW_SIZE.x,
@@ -146,6 +165,9 @@ pub fn parse(args: &[String]) -> Result<CliOptions, String> {
             "--no-fog" => options.fog = false,
             "--windowed" => options.windowed = true,
             "--headless" => options.headless = true,
+            "--replay" => options.replay = Some(value()?.into()),
+            "--record" => options.record = Some(value()?.into()),
+            "--no-record" => options.no_record = true,
             "-h" | "--help" => options.help = true,
             other => return Err(format!("unknown flag {other:?}")),
         }
@@ -182,32 +204,40 @@ fn parse_screenshot(s: &str) -> Result<ScreenshotRequest, String> {
     })
 }
 
-/// Loads the map and checks the flags against it and each other. A game's map gets the default setup (a GDO
-/// player in every slot) and must be valid; the editor opens invalid maps too, to fix them, and lists their
-/// problems.
+/// Loads the map, or the replay, and checks the flags against it and each other. A game's map gets the default
+/// setup (a GDO player in every slot) and must be valid; the editor opens invalid maps too, to fix them, and lists
+/// their problems. A replay brings its scenario, game options included.
 pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
     let player = PlayerId(options.player);
-    let (mut scenario, editor) = if options.editor {
+    if options.editor_script.is_some() && !options.editor {
+        return Err("--editor-script needs --editor".into());
+    }
+    let playback = match &options.replay {
+        Some(path) => Some(playback_source(&options, path)?),
+        None => None,
+    };
+    let (mut scenario, editor) = if let Some(source) = &playback {
+        (source.replay.scenario.clone(), None)
+    } else if options.editor {
         // Review finding: no player check here. A map without that slot still opens, and play-tests start as its
         // first slot instead.
         let (map, editor) = editor_document(&options)?;
         (Scenario::new(map), Some(editor))
     } else {
-        if options.editor_script.is_some() {
-            return Err("--editor-script needs --editor".into());
-        }
-        let scenario = game_scenario(&options)?;
-        if scenario.setup.player(player).is_none() {
-            return Err(format!(
-                "map {:?} has no player {} (players 1 to {}, one per slot)",
-                scenario.name(),
-                options.player,
-                scenario.setup.players.len()
-            ));
-        }
-        (scenario, None)
+        (game_scenario(&options)?, None)
     };
-    scenario.setup.config = SimConfig { debug: options.debug };
+    if editor.is_none() && scenario.setup.player(player).is_none() {
+        return Err(format!(
+            "map {:?} has no player {} (players 1 to {}, one per slot)",
+            scenario.name(),
+            options.player,
+            scenario.setup.players.len()
+        ));
+    }
+    if playback.is_none() {
+        // A replay keeps the recorded game's options: only with them does it play out the same.
+        scenario.setup.config = SimConfig { debug: options.debug };
+    }
     if options.windowed && options.headless {
         return Err("--windowed and --headless exclude each other".into());
     }
@@ -245,11 +275,20 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
     } else {
         DisplayMode::Window
     };
+    let replay_end = playback.as_ref().map(|p| p.replay.end_tick());
     if display != DisplayMode::Window && qa.exit_at_tick.is_none() {
-        // Nothing can close a run without a window: end it after its last screenshot.
-        qa.exit_at_tick = qa.screenshots.iter().map(|s| s.tick).max();
+        // Nothing can close a run without a window: end it after its last screenshot, or where the replay ends.
+        qa.exit_at_tick = qa.screenshots.iter().map(|s| s.tick).max().or(replay_end);
         if qa.exit_at_tick.is_none() {
             return Err("a run without a window needs --exit-at-tick".into());
+        }
+    }
+    if let Some(end) = replay_end {
+        let ticks = qa.screenshots.iter().map(|s| s.tick).chain(qa.exit_at_tick);
+        if let Some(tick) = ticks.chain(qa.input_script.iter().map(|s| s.tick)).find(|t| *t > end) {
+            return Err(format!(
+                "the replay pauses at its end, tick {end}, so tick {tick} never comes"
+            ));
         }
     }
     if let Some(exit) = qa.exit_at_tick
@@ -279,6 +318,14 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
     for path in qa.screenshots.iter().map(|s| &s.path).chain(&qa.dump_state) {
         create_parent_dir(path)?;
     }
+    let no_game = editor.is_some() || playback.is_some();
+    let record = record_file(
+        options.record.as_ref(),
+        options.no_record,
+        no_game,
+        qa.is_active(),
+        scenario.name(),
+    )?;
     Ok(AppConfig {
         scenario,
         player,
@@ -287,7 +334,61 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
         qa,
         fast: options.fast,
         editor,
+        record,
+        playback,
     })
+}
+
+/// The replay of `--replay`, which must be valid. It brings its own map, game options and commands.
+fn playback_source(options: &CliOptions, path: &Path) -> Result<PlaybackSource, String> {
+    let conflicts = [
+        (options.editor, "--editor"),
+        (options.scenario.is_some(), "--scenario"),
+        (options.map.is_some(), "--map"),
+        (!options.debug, "--no-debug"),
+        (options.commands.is_some(), "--commands"),
+    ];
+    if let Some((_, flag)) = conflicts.into_iter().find(|(given, _)| *given) {
+        return Err(format!(
+            "--replay plays the recorded game with its own map, game options and commands: not with {flag}"
+        ));
+    }
+    let replay = replay::load_replay(path)?;
+    let problems = replay.scenario.validate();
+    if !problems.is_empty() {
+        let list: Vec<String> = problems.iter().map(|p| format!("  - {p}")).collect();
+        return Err(format!(
+            "{} can't be played back: {} problem(s)\n{}",
+            path.display(),
+            problems.len(),
+            list.join("\n")
+        ));
+    }
+    Ok(PlaybackSource {
+        file: path.to_path_buf(),
+        replay,
+    })
+}
+
+/// The file the game is recorded to: `--record`'s (`record`), else a new one in `replays/` unless this is a QA run;
+/// none in the editor or a replay's playback (`no_game`), or with `--no-record`.
+fn record_file(
+    record: Option<&PathBuf>,
+    no_record: bool,
+    no_game: bool,
+    qa_run: bool,
+    map_name: &str,
+) -> Result<Option<PathBuf>, String> {
+    match record {
+        Some(_) if no_record => Err("--record and --no-record exclude each other".into()),
+        Some(_) if no_game => Err("--record records a game: not the editor, nor a replay's playback".into()),
+        Some(path) => {
+            create_parent_dir(path)?;
+            Ok(Some(path.clone()))
+        }
+        None if no_record || no_game || qa_run => Ok(None),
+        None => Ok(Some(replay::recording_path(SystemTime::now(), map_name))),
+    }
 }
 
 /// The scenario a game plays: the map of `--map`, else of `--scenario`, else the default, with the default setup.
@@ -571,6 +672,80 @@ mod tests {
             let error = error.expect("refused");
             assert!(error.contains("too big"), "{error}");
         }
+    }
+
+    #[test]
+    fn games_are_recorded_unless_told_otherwise() {
+        let config = into_config(parse(&[]).unwrap()).unwrap();
+        let path = config.record.expect("a game is recorded");
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(
+            path.starts_with(replay::REPLAYS_DIR) && name.ends_with("_dev_skirmish.json"),
+            "{name}"
+        );
+        for unrecorded in [
+            "--no-record",
+            "--headless --exit-at-tick 5",
+            "--screenshot 3:s.png",
+            "--editor",
+        ] {
+            let config = into_config(parse(&args(unrecorded)).unwrap()).unwrap();
+            assert_eq!(config.record, None, "{unrecorded}");
+        }
+        let file = std::env::temp_dir()
+            .join(format!("sc_cli_record_{}", std::process::id()))
+            .join("q.json");
+        let qa = format!("--headless --exit-at-tick 5 --record {}", file.display());
+        assert_eq!(
+            into_config(parse(&args(&qa)).unwrap()).unwrap().record,
+            Some(file.clone())
+        );
+        std::fs::remove_dir_all(file.parent().unwrap()).unwrap();
+        for bad in ["--record a.json --no-record", "--editor --record a.json"] {
+            assert!(into_config(parse(&args(bad)).unwrap()).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_replay_plays_back_with_its_own_scenario_and_options() {
+        let dir = std::env::temp_dir().join(format!("sc_cli_replay_{}", std::process::id()));
+        let path = dir.join("game.json");
+        let mut scenario = scenarios::empty(8, 6);
+        scenario.setup.config = SimConfig { debug: false };
+        let mut recorded = sc_sim::Replay::new(scenario);
+        let mut sim = recorded.start();
+        recorded.record_checked(None, &sim);
+        for _ in 0..10 {
+            sim.step(&Default::default());
+            recorded.record_checked(Some(Default::default()), &sim);
+        }
+        replay::save_replay(&path, &recorded).unwrap();
+        let with = |flags: &str| into_config(parse(&args(&format!("--replay {} {flags}", path.display()))).unwrap());
+
+        let config = with("").unwrap();
+        assert_eq!(config.scenario, recorded.scenario, "game options included");
+        assert_eq!((config.display, config.record), (DisplayMode::Window, None));
+        assert_eq!(config.playback.map(|p| p.replay), Some(recorded.clone()));
+        assert_eq!(with("--headless").unwrap().qa.exit_at_tick, Some(10), "the end");
+        assert_eq!(with("--screenshot 4:x.png").unwrap().qa.exit_at_tick, Some(4));
+        assert_eq!(with("--player 2 --fast --no-fog").unwrap().player, PlayerId(2));
+        for bad in [
+            "--scenario empty",
+            "--map m.json",
+            "--editor",
+            "--no-debug",
+            "--commands c.json",
+            "--record r.json",
+            "--headless --exit-at-tick 11",
+            "--screenshot 11:x.png",
+            "--player 3",
+        ] {
+            assert!(with(bad).is_err(), "{bad}");
+        }
+        std::fs::write(&path, "{}").unwrap();
+        assert!(with("").unwrap_err().contains("is not a replay file"));
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(with("").unwrap_err().contains("can't read"));
     }
 
     #[test]

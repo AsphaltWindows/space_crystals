@@ -327,3 +327,82 @@ pub fn dangling_references(sim: &Sim) -> Vec<(ObjectId, ObjectId)> {
         .filter(|&(_, id)| sim.object(id).is_none())
         .collect()
 }
+
+/// One command of every kind: every variant of [`Command`], [`OrderKind`], [`Target`], [`Ability`], [`DebugCommand`]
+/// and [`SpawnAt`], queued and not, for tests that a replay file keeps everything a player did
+/// (`ARCHITECTURE.md > Replays and golden hashes`). The ids needn't exist. The match below stops compiling when a
+/// variant is added, as a reminder to add it here.
+pub fn every_command() -> Vec<Command> {
+    let units = vec![ObjectId(1), ObjectId(2)];
+    let point = Vec2::new(48.5, 80.25);
+    let kinds = [
+        OrderKind::Move(Target::Point(point)),
+        OrderKind::Move(Target::Object(ObjectId(3))),
+        OrderKind::Attack(ObjectId(3)),
+        OrderKind::AttackMove(point),
+        OrderKind::Patrol(point),
+        OrderKind::Hold,
+        OrderKind::Stop,
+    ];
+    let mut commands: Vec<Command> = kinds
+        .into_iter()
+        .flat_map(|kind| {
+            [false, true].map(|queue| Command::Order {
+                units: units.clone(),
+                kind,
+                queue,
+            })
+        })
+        .collect();
+    commands.extend([true, false].map(|raise| Command::Ability {
+        units: units.clone(),
+        ability: Ability::RiotShield { raise },
+    }));
+    commands.extend(
+        [
+            DebugCommand::Spawn {
+                kind: ObjectKind::Peacekeeper,
+                owner: Some(PlayerId(1)),
+                at: SpawnAt::Point(point),
+            },
+            DebugCommand::Spawn {
+                kind: ObjectKind::SupplyDeliveryStation,
+                owner: None,
+                at: SpawnAt::Tile(crate::units::TilePos::new(3, 4)),
+            },
+            DebugCommand::Remove { id: ObjectId(2) },
+            DebugCommand::SetPosition {
+                id: ObjectId(1),
+                pos: point,
+            },
+            DebugCommand::SetAutoTargeting { on: false },
+        ]
+        .map(Command::Debug),
+    );
+    for command in &commands {
+        match command {
+            Command::Order { kind, .. } => match kind {
+                OrderKind::Move(Target::Point(_) | Target::Object(_))
+                | OrderKind::Attack(_)
+                | OrderKind::AttackMove(_)
+                | OrderKind::Patrol(_)
+                | OrderKind::Hold
+                | OrderKind::Stop => {}
+            },
+            Command::Ability {
+                ability: Ability::RiotShield { .. },
+                ..
+            } => {}
+            Command::Debug(
+                DebugCommand::Spawn {
+                    at: SpawnAt::Point(_) | SpawnAt::Tile(_),
+                    ..
+                }
+                | DebugCommand::Remove { .. }
+                | DebugCommand::SetPosition { .. }
+                | DebugCommand::SetAutoTargeting { .. },
+            ) => {}
+        }
+    }
+    commands
+}

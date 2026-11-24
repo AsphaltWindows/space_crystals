@@ -174,7 +174,64 @@ fn twenty_units_go_through_a_choke() {
             .iter()
             .all(|(_, e)| !matches!(e, SimEvent::MoveFailed { .. }))
     );
+    println!("20 units through a choke: all arrived, done in tick {done}");
     assert!(done > 250);
+}
+
+/// A block of `cols × rows` units of `kind`, `spacing` su apart, around `centre`.
+fn spawn_block(
+    t: &mut TestSim,
+    kind: ObjectKind,
+    owner: PlayerId,
+    centre: Vec2,
+    spacing: f32,
+    (cols, rows): (u32, u32),
+) {
+    for i in 0..cols * rows {
+        let across = (i / rows) as f32 - (cols - 1) as f32 / 2.0;
+        let down = (i % rows) as f32 - (rows - 1) as f32 / 2.0;
+        t.spawn_unit_at(1, kind, owner, centre + v(spacing * across, spacing * down));
+    }
+}
+
+/// (G) `docs/movement.md > 6.3`, lane seeking: two dense blocks ordered onto each other's place in open ground
+/// pass through each other, whatever their shape. The gaps between the units are narrower than a unit, so the
+/// blocks have to mesh and spread; both are moving, so nobody yields (design change 0022), and collision stays
+/// hard (the invariants run every tick). `movement_yield.rs` has the layout of 0022's Verification, 18 against 18
+/// Peacekeepers.
+///
+/// Before lane seeking about a fifth of the units of such layouts gave up in the jam, and up to four fifths of
+/// them; now at most a few do (none to two of these). The bound is a fifth, loose enough to survive tuning.
+#[test]
+fn dense_blocks_of_any_shape_pass_through_each_other_head_on() {
+    // Kind, the gap between two units, columns and rows, how far the second block is off the first one's line,
+    // and its owner.
+    let layouts = [
+        (PK, 16.0, (5, 5), 0.0, P1),
+        (PK, 8.0, (2, 9), 10.0, P2),
+        (GUARD, 12.0, (3, 6), 20.0, P2),
+        (GUARD, 16.0, (5, 5), 37.0, P1),
+    ];
+    for (kind, gap, shape, off_line, other) in layouts {
+        let mut t = ScenarioBuilder::new(OPEN).start();
+        t.without_auto_targeting();
+        let spacing = kind.def().silhouette().unwrap().x + gap;
+        let (west, east) = (v(250.0, 380.0), v(774.0, 380.0 + off_line));
+        spawn_block(&mut t, kind, P1, west, spacing, shape);
+        spawn_block(&mut t, kind, other, east, spacing, shape);
+        let n = shape.0 * shape.1;
+        t.order_at(2, P1, &ids(1..=n), move_to(east), false).order_at(
+            2,
+            other,
+            &ids(n + 1..=2 * n),
+            move_to(west),
+            false,
+        );
+        let done = run_until_done(&mut t, &ids(1..=2 * n), 900);
+        let failed = (1..=2 * n).filter(|&id| t.status(id) == MoveStatus::Failed).count() as u32;
+        println!("{n} v {n} {kind:?} head-on, {gap} su between them: {failed} failed, done in tick {done}");
+        assert!(failed * 5 <= 2 * n, "{failed} of {} gave up\n{}", 2 * n, t.ascii(None));
+    }
 }
 
 /// `docs/movement.md > 8`: a mixed group arrives in its own shape (the magic box, `> 6.4`), every unit is

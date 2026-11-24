@@ -51,7 +51,7 @@ pub use mover::{MoveGoal, MoveStatus, Mover};
 pub use object::{Object, Placement, ResourceState, Rotation};
 pub use orders::{OrderKind, Orders, Target};
 pub use player::{Faction, Player};
-pub use replay::Replay;
+pub use replay::{Checkpoint, Desync, Replay, ReplayError};
 pub use riot_shield::RiotShield;
 pub use rng::Rng;
 pub use scenario::{

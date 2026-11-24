@@ -17,6 +17,8 @@ pub struct NavGrid {
     height: u32,
     /// The tile itself is impassable for the class. Line of sight tests boxes against these.
     solid: Vec<bool>,
+    /// (G) The tile and its eight neighbours are all on the map and none is solid ([`NavGrid::open_around`]).
+    open: Vec<bool>,
     /// A unit of this size class can't be anchored here: for size 1 the same as `solid`.
     blocked: Vec<bool>,
     /// Component label, from 1; 0 on blocked tiles.
@@ -60,6 +62,16 @@ impl NavGrid {
                 }
             }
         }
+        let open = (0..w * h)
+            .map(|i| {
+                let (x, y) = (i % w, i / w);
+                x > 0
+                    && y > 0
+                    && x + 1 < w
+                    && y + 1 < h
+                    && (y - 1..=y + 1).all(|ny| !solid[ny * w + x - 1..=ny * w + x + 1].iter().any(|&s| s))
+            })
+            .collect();
         let k = size as usize;
         let blocked = if k == 1 {
             solid.clone()
@@ -80,6 +92,7 @@ impl NavGrid {
             width,
             height,
             solid,
+            open,
             blocked,
             component: Vec::new(),
             components: 0,
@@ -122,6 +135,21 @@ impl NavGrid {
                 }
             }
         }
+    }
+
+    /// (G) Whether the tile of point `p` and its eight neighbours are on the map and free of solid tiles. A box up
+    /// to a tile wide centred within such a tile overlaps no solid tile, and neither does it on a move shorter
+    /// than `SU_PER_GU - half extent` from there: [`super::box_clear`] and [`super::los`] hold without a look at
+    /// the tiles. The movement step asks this first, for every unit and tick. `false` off the map and for points
+    /// that aren't finite.
+    pub fn open_around(&self, p: Vec2) -> bool {
+        // On the map the cast is the floor (`floor` is a library call on the baseline x86-64 target, and this is
+        // the hot path). A point left of or above the map, or not finite, is not on it.
+        if !(p.x >= 0.0 && p.y >= 0.0 && p.is_finite()) {
+            return false;
+        }
+        let tile = TilePos::new((p.x / SU_PER_GU) as i32, (p.y / SU_PER_GU) as i32);
+        self.index(tile).is_some_and(|i| self.open[i as usize])
     }
 
     pub fn class(&self) -> NavClass {

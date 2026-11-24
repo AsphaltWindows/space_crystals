@@ -16,8 +16,8 @@
 //!   The texture is written only when what it shows changes: the local player's tiles (`PlayerVision::revision`),
 //!   the local player, or the sim (`SimRes::generation`); the mesh and the texture's size only with the map.
 //! - **Off** ([`FogOfWar`]): `--no-fog` and the debug toggle (F3, a placeholder key, only while debug commands are
-//!   on) turn it off for QA: then the client shows and lets the player select everything, as if every tile were
-//!   Visible. The map editor never shows fog; its play-tests do.
+//!   on, or in a replay's playback) turn it off for QA: then the client shows and lets the player select
+//!   everything, as if every tile were Visible. The map editor never shows fog; its play-tests do.
 //!
 //! Placeholders, the design being silent on how fog looks: the Explored dimming and the soft edges.
 
@@ -35,6 +35,7 @@ use crate::coords::DrawLayer;
 use crate::input::{ActionState, InputAction};
 use crate::map_render::{MapView, SURFACE_LIFT_Z, surface_vertex, tile_surface};
 use crate::object_render::ObjectVisual;
+use crate::replay::Playback;
 use crate::sim_driver::{LocalPlayer, SimRes};
 use crate::{ClientMode, ClientSystems};
 
@@ -337,9 +338,9 @@ fn spawn_fog(
 }
 
 /// [`InputAction::DebugToggleFog`]: only while the game's debug commands are on (`SimConfig::debug`), since it
-/// shows what the player doesn't see.
-fn toggle_fog(actions: Res<ActionState>, sim: Res<SimRes>, mut fog: ResMut<FogOfWar>) {
-    if actions.just_pressed(InputAction::DebugToggleFog) && sim.config().debug {
+/// shows what the player doesn't see; and in a replay's playback, which shows a finished game.
+fn toggle_fog(actions: Res<ActionState>, sim: Res<SimRes>, playback: Option<Res<Playback>>, mut fog: ResMut<FogOfWar>) {
+    if actions.just_pressed(InputAction::DebugToggleFog) && (sim.config().debug || playback.is_some()) {
         fog.enabled = !fog.enabled;
     }
 }

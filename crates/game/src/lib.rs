@@ -18,7 +18,8 @@
 //! - [`command_ui`]: orders from the command panel, right-clicks and targeting; command indicators and cursors;
 //! - [`hud`]: the game mode's HUD frame, with the InfoPanel, the SelectionPanel and the CommandPanel;
 //! - [`editor`]: the map editor (`--editor`), with its own UI, tools and play-test;
-//! - [`qa`]: screenshots, exit at a tick, state dump, commands and input at given ticks.
+//! - [`qa`]: screenshots, exit at a tick, state dump, commands and input at given ticks;
+//! - [`replay`]: recording the game, and playing a recording back (`--replay`).
 //!
 //! Everything except [`hud`], [`selection`], [`command_ui`] and [`editor`] is independent of the mode
 //! ([`ClientMode`]), apart from the input layer, which applies the bindings of the mode's input context
@@ -38,12 +39,15 @@ pub mod object_render;
 pub mod path_overlay;
 pub mod platform;
 pub mod qa;
+pub mod replay;
 pub mod selection;
 pub mod shapes;
 pub mod sim_driver;
 
+use std::path::PathBuf;
+
 use bevy::prelude::*;
-use sc_sim::{PlayerId, Scenario, SimConfig};
+use sc_sim::{PlayerId, Replay, Scenario, SimConfig};
 
 use crate::camera::GameCameraPlugin;
 use crate::combat_effects::CombatEffectsPlugin;
@@ -57,6 +61,7 @@ use crate::object_render::ObjectRenderPlugin;
 use crate::path_overlay::PathOverlayPlugin;
 use crate::platform::{DisplayMode, PlatformPlugin};
 use crate::qa::{QaConfig, QaPlugin};
+use crate::replay::{PlaybackPlugin, RecordPlugin};
 use crate::selection::SelectionPlugin;
 use crate::sim_driver::SimDriverPlugin;
 
@@ -118,6 +123,19 @@ pub struct AppConfig {
     pub fast: bool,
     /// Edit `scenario`'s map in the map editor instead of playing it.
     pub editor: Option<EditorConfig>,
+    /// Record the game to this file (`replay::record`). `None` in the editor, in a replay's playback, in QA runs
+    /// without `--record`, with `--no-record`, and in tests.
+    pub record: Option<PathBuf>,
+    /// Play this recorded game back instead of playing `scenario` (`--replay`, `replay::playback`), whose
+    /// scenario it then is ([`AppConfig::playback`]).
+    pub playback: Option<PlaybackSource>,
+}
+
+/// A replay to play back, and the file it came from.
+#[derive(Clone, Debug)]
+pub struct PlaybackSource {
+    pub file: PathBuf,
+    pub replay: Replay,
 }
 
 impl AppConfig {
@@ -133,6 +151,19 @@ impl AppConfig {
             qa: QaConfig::default(),
             fast: false,
             editor: None,
+            record: None,
+            playback: None,
+        }
+    }
+
+    /// Player 1's view of `replay` played back in a 1280×720 window, without QA. The game runs with the recorded
+    /// game's options, as it must to play out the same.
+    pub fn playback(replay: Replay, file: PathBuf) -> Self {
+        let scenario = replay.scenario.clone();
+        Self {
+            scenario: scenario.clone(),
+            playback: Some(PlaybackSource { file, replay }),
+            ..Self::new(scenario)
         }
     }
 
@@ -193,6 +224,12 @@ pub fn build_app(config: AppConfig) -> App {
     ))
     // The game mode; the editor hides the HUD except in its play-tests.
     .add_plugins(HudPlugin);
+    if let Some(PlaybackSource { file, replay }) = config.playback {
+        app.add_plugins(PlaybackPlugin { file, replay });
+    }
+    if let Some(path) = config.record {
+        app.add_plugins(RecordPlugin { path });
+    }
     if let Some(editor) = config.editor {
         app.add_plugins(EditorPlugin {
             config: editor,

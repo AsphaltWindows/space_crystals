@@ -247,17 +247,19 @@ impl Sim {
     /// Question Q0017, point 2 (its default, until answered): an order may target an object only while the issuing
     /// player sees it: a tile it covers is Visible. The one exception is the design's
     /// (`core/vision.md > Explored Selectability`): a GDO player may target a Supply Delivery Station on Explored
-    /// ground. Anything else out of sight, a remembered structure included, is `Reject::NotVisible`; the client
-    /// makes a right-click on one a Move to that spot.
+    /// ground, the one its Explored tiles show: by its last-known record of the station
+    /// (`PlayerVision::remembered_record`), as the client selects it, never by the live tiles. A station that came
+    /// onto Explored tiles while the player looked away (a debug spawn) has no record, so the player doesn't know of
+    /// it until it sees it. Anything else out of sight, a remembered structure included, is `Reject::NotVisible`;
+    /// the client makes a right-click on one a Move to that spot.
     fn check_target_seen(&self, player: PlayerId, target: &Object) -> Result<(), Reject> {
-        let seen = match self.vision.object_state(player, target) {
-            VisibilityState::Visible => true,
-            VisibilityState::Explored => {
-                target.kind == ObjectKind::SupplyDeliveryStation
-                    && self.player(player).is_some_and(|p| p.faction == Faction::Gdo)
-            }
-            VisibilityState::Unexplored => false,
-        };
+        let seen = self.vision.object_state(player, target) == VisibilityState::Visible
+            || self.player(player).is_some_and(|p| p.faction == Faction::Gdo)
+                && self
+                    .vision
+                    .player(player)
+                    .and_then(|vision| vision.remembered_record(target.id))
+                    .is_some_and(|record| record.kind == ObjectKind::SupplyDeliveryStation);
         if seen {
             Ok(())
         } else {

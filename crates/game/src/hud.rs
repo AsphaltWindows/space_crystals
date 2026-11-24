@@ -3,7 +3,8 @@
 //! A top resource bar and, at the bottom, the HUD Bar with its five sections in fixed slots, left to right. All
 //! sections share one height, and a slot stays reserved while its panel has nothing to show. Sizes are in percent
 //! of the surface height (`vh`), so the HUD scales with the window and the world view between the bars keeps its
-//! shape at every resolution. The top bar shows the player and the tick. The sections are placed at the rectangles
+//! shape at every resolution. The top bar shows the player and the tick, and while a replay plays back
+//! (`crate::replay::playback`) its last tick, speed and state, and a desync. The sections are placed at the rectangles
 //! of [`layout`], which also find the portrait or the command button under a click. Two panels show the selection:
 //! the InfoPanel ([`info_panel`]) and the SelectionPanel ([`selection_panel`]); the CommandPanel
 //! ([`command_panel`]) shows the commands for it (`crate::command_ui`). The others show their names, and so do these
@@ -21,8 +22,9 @@ use bevy::prelude::*;
 
 use crate::camera::ViewportInsets;
 use crate::platform::SurfaceSize;
+use crate::replay::Playback;
 use crate::selection::SelectionSystems;
-use crate::sim_driver::{LocalPlayer, SimRes};
+use crate::sim_driver::{LocalPlayer, Pace, SimControl, SimRes};
 use crate::{ClientMode, ClientSystems};
 use layout::{SECTION_BORDER_PX, SECTION_PADDING_VH, section_rect};
 
@@ -40,6 +42,8 @@ const SECTION_BACKGROUND: Color = Color::srgb(0.12, 0.13, 0.16);
 const SECTION_BORDER: Color = Color::srgb(0.28, 0.31, 0.36);
 const LABEL_COLOR: Color = Color::srgb(0.55, 0.60, 0.66);
 const TEXT_COLOR: Color = Color::srgb(0.88, 0.90, 0.93);
+/// The top bar's replay note after a desync (placeholder).
+const DESYNC_COLOR: Color = Color::srgb(1.0, 0.35, 0.3);
 /// Size of a section's name.
 const LABEL_VH: f32 = 1.6;
 
@@ -112,6 +116,10 @@ struct PlayerNameText;
 #[derive(Component)]
 struct TickText;
 
+/// The top bar's note on the replay being played back: hidden in a game.
+#[derive(Component)]
+pub struct ReplayText;
+
 /// The strip the HUD leaves for the world view: everything between its two bars.
 pub const HUD_INSETS: ViewportInsets = ViewportInsets {
     top_vh: TOP_BAR_HEIGHT_VH,
@@ -128,7 +136,7 @@ impl Plugin for HudPlugin {
             .init_resource::<selection_panel::SelectionPanelView>()
             .init_resource::<command_panel::CommandPanelView>()
             .add_systems(Startup, spawn_hud)
-            .add_systems(Update, (update_top_bar, show_hud_in_game_modes))
+            .add_systems(Update, (update_top_bar, update_replay_note, show_hud_in_game_modes))
             // `> SelectionPanel > Interactions`: after the map's clicks and the keys of the same frame.
             .add_systems(
                 Update,
@@ -190,6 +198,14 @@ fn spawn_hud(mut commands: Commands, size: Res<SurfaceSize>) {
         BackgroundColor(BAR_BACKGROUND),
         children![
             (PlayerNameText, text("", 2.0, TEXT_COLOR)),
+            (
+                ReplayText,
+                text("", 2.0, TEXT_COLOR),
+                Node {
+                    display: Display::None,
+                    ..default()
+                }
+            ),
             (TickText, text("", 2.0, TEXT_COLOR)),
         ],
     ));
@@ -260,9 +276,11 @@ fn place_sections(size: Res<SurfaceSize>, mut sections: Query<(&HudSection, &mut
     }
 }
 
+/// The top bar's texts: the local player's name and the tick, in a replay's playback with the replay's last tick.
 fn update_top_bar(
     sim: Res<SimRes>,
     player: Res<LocalPlayer>,
+    playback: Option<Res<Playback>>,
     mut name: Query<&mut Text, (With<PlayerNameText>, Without<TickText>)>,
     mut tick: Query<&mut Text, (With<TickText>, Without<PlayerNameText>)>,
 ) {
@@ -276,8 +294,39 @@ fn update_top_bar(
         );
     }
     if let Ok(mut text) = tick.single_mut() {
-        set_text(&mut text, &format!("Tick {}", sim.tick()));
+        let value = match &playback {
+            Some(playback) => format!("Tick {} / {}", sim.tick(), playback.end_tick()),
+            None => format!("Tick {}", sim.tick()),
+        };
+        set_text(&mut text, &value);
     }
+}
+
+/// The top bar's note on a replay's playback ([`Playback::status`]), red after a desync; hidden in a game.
+fn update_replay_note(
+    sim: Res<SimRes>,
+    playback: Option<Res<Playback>>,
+    control: Res<SimControl>,
+    pace: Res<Pace>,
+    mut note: Query<(&mut Text, &mut TextColor, &mut Node), With<ReplayText>>,
+) {
+    let Ok((mut text, mut color, mut node)) = note.single_mut() else {
+        return;
+    };
+    show_node(&mut node, playback.is_some());
+    let Some(playback) = playback else {
+        return;
+    };
+    if !sim.is_changed() && !playback.is_changed() && !control.is_changed() && !pace.is_changed() {
+        return;
+    }
+    set_text(&mut text, &playback.status(sim.tick(), control.paused, *pace));
+    let shown = if playback.desync.is_some() {
+        DESYNC_COLOR
+    } else {
+        TEXT_COLOR
+    };
+    color.set_if_neq(TextColor(shown));
 }
 
 /// Changes the text only when it differs, so unchanged text isn't marked changed and laid out again.

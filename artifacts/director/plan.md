@@ -211,7 +211,30 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Client**: an R button (Raise or Lower Shield). Shielded units right-clicked on an enemy move to the spot. A pale arc shows the raised shield.
   - **Open**: placeholders and the 0062 conflict went out as Q0020. The shield is not yet blocked inside a Bunker (a TODO in the gate).
 
-## In progress (three agents in parallel, kept to disjoint areas)
+- **M1-G1 crowds and nav perf** (merged in `4a982a0`; 603 tests):
+  - **Lane seeking** (`World::lane`): before its sweep, a unit looks 4 lengths ahead and steps toward the nearest clear lane. It is deterministic: fixed orders, plus/minus/times only, no new state.
+  - **Head-on crowds**: 18 v 18 at a 40 su pitch went from 14–18 of 36 failing to 0. Across 192 block layouts, failures went from 22% to 1.4%. Soak failures fell from 105/54/64 to 38/9/34.
+  - **Passing through idle groups**: a mover aims between idle units, and they step straight across. Displacement is now 16 su on average (it was 204). `yielding::ask_ahead` asks two steps before contact; this is an implementation detail of "blocked", marked (G).
+  - **Group field**: `Search::field_to` stops once every member's tile is expanded, and members share smoothing. Two 250-unit orders now take 5.9 ms in one tick (they took 7.1 + 6.1 ms). The battle's worst tick went from 4.2 to 0.67 ms.
+  - **Accepted regression**: a 500-unit crossing tick averages 0.40 ms (it was 0.365); the target is under 1 ms.
+  - **`nav_perf`**: the failure came from M1-M's sees-goal rule against its random goals. The test was adapted to the magic box.
+  - **Leftovers (G3)**: 5×5 Guard blocks still lose a few units; `behaviours_soak` seed 2 is at 315 shots against a bound of > 300; members the anchor can't see plan alone.
+
+- **M1-G2 QA tooling** (merged in `52f20a8`; 632 tests):
+  - **Recording**: every client game is saved to `replays/<UTC>_<map>.json` (gitignored; not editor or playback runs), atomically at the start, every 160 ticks and on exit. QA runs record with `--record <path>`; `--no-record` turns it off.
+  - **Playback**: `--replay <file>` plays only recorded inputs, checking a hash every tick against checkpoints taken every 64 ticks. A desync is logged, fails a QA run with exit 1 and shows red in the top bar.
+    - Keys: Space pauses, `.` steps, `-`/`=` change the speed (×0.5 to max). F2 and F3 work.
+    - It works with `--screenshot`, `--exit-at-tick`, `--dump-state`, `--headless`, `--fast` and `--input-script`.
+  - **Goldens**: `crates/sim/tests/golden.rs` and `golden/*.json` hold six games, including the Riot Shield, and run in 0.01 s. Re-bless with `SC_BLESS=1 cargo test -p sc_sim golden`. `testing::every_command()` round-trips every Command variant and fails to compile when a variant is added.
+  - **Fixes**:
+    - The gate uses the GDO player's records.
+    - Selection frames are drawn above structures.
+    - 0057: GDO sees the real delivery timer on a remembered station.
+    - 0038 tests.
+    - Leaving max pace no longer runs a 64k-tick burst.
+  - **Checked**: a 113k-tick game replays exactly.
+
+## In progress (two agents in parallel, kept to disjoint areas)
 - **M1-H2 command UI follow-ups** (Opus; brief `scratchpad/briefs/m1h2-command-ui-followups.md`), covering 0062–0069:
   - right-click per unit, where units unable to obey move or follow (0062/0063);
   - the Mixed pointer;
@@ -220,18 +243,13 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - targeting at the press point (0068);
   - only player-driven selection changes cancel targeting (0069);
   - the shield's Move wins over Follow (Q0020 default).
-- **M1-G1 crowds and nav perf** (Fable; brief `scratchpad/briefs/m1g1-crowds-and-nav-perf.md`):
-  - Dense head-on crowds: target under 3 of 36 failing.
-  - Pass-through shoving.
-  - The `nav_perf` failure.
-  - Group-order and battle perf spikes.
-- **M1-G2 QA tooling** (Opus; brief `scratchpad/briefs/m1g2-qa-tooling.md`):
-  - every played game is recorded to `replays/`; `--replay` plays one back with pause, step and speed controls and desync checkpoints;
-  - a golden-hash suite with `SC_BLESS=1` to re-bless;
-  - the gate uses records for the station exception;
-  - selection frames drawn above structures;
-  - the remembered station countdown (Q0019 default);
-  - 0038 tests.
+- **M1-G3 cleanup** (Opus; brief `scratchpad/briefs/m1g3-cleanup.md`):
+  - one turn budget per tick, shared by movement and aiming;
+  - splitting `mover.rs` and other oversize files;
+  - robust soak bounds;
+  - 5×5 Guard crowds;
+  - F2 in playback;
+  - goldens re-blessed once, with every change explained.
 - **Next**:
   - Then the M1 wrap-up: ask the user to playtest, and plan M2 with the Designer's current docs.
 
@@ -256,9 +274,9 @@ The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, th
 | R Riot Shield | the Peacekeeper's toggled ability, end to end | done (`9aa41b6`) | Opus |
 | Q Queued group destinations | 0029/0030 | done (`bb867a5`) | Opus |
 | F Fog memory | last-known structures and resources, Explored selection, hit flash from the fog | done (`167d683`) | Opus |
-| G1 Crowds and nav perf | head-on crowd steering, pass-through shoving, nav_perf, group-order and battle spikes | running | Fable |
-| G2 QA tooling | replay recording and playback, golden hashes, gate records fix, marker draw order, station countdown, 0038 tests | running | Opus |
-| G3 Cleanup | the turn-twice-in-a-tick note from W (a per-tick turn budget shared by movement and aiming); `mover.rs` size | after G1 | Opus |
+| G1 Crowds and nav perf | head-on crowd steering, pass-through shoving, nav_perf, group-order and battle spikes | done (`4a982a0`) | Fable |
+| G2 QA tooling | replay recording and playback, golden hashes, gate records fix, marker draw order, station timer (0057), 0038 tests | done (`52f20a8`) | Opus |
+| G3 Cleanup | a per-tick turn budget shared by movement and aiming; oversize files; robust soak bounds; 5×5 Guard crowds; F2 in playback | running | Opus |
 
 After B: start D, S, V and W in parallel; then H, E, G.
 
@@ -373,7 +391,7 @@ Last triaged: 0069.
 | 0035 Collision response: blocked motion dropped, velocity to 0 | **queued for the vehicles milestone** | every Verification point needs vehicles; infantry has no acceleration, so its behaviour is unchanged |
 | 0036 Patrol origin at execution | done (M1-E, `aa5a05f`) | answers Q0010 part 2 |
 | 0037 Patrol failed legs | done (M1-E, `aa5a05f`) | answers Q0010 part 3 |
-| 0038 Crystal patches and supply stations block ground units | matches M1-C's default; G adds the Verification tests (path around a field, station not walkable, a removed patch reopens its tile) | answers Q0011 part 1; mining depletion is verified again with the economy |
+| 0038 Crystal patches and supply stations block ground units | done (M1-C rule; Verification tests in M1-G2, `52f20a8`) | answers Q0011 part 1; mining depletion is verified again with the economy |
 | 0039 Rugged terrain impassable for wheeled, tracked and drill vehicles; hover crosses with double drag | queued for the vehicles milestone | infantry unchanged (M1-C keeps Rugged passable for infantry) |
 | 0040 Pathfinding uses only what the owner knows | queued for the structures milestone (M2): per-player known-obstacle layer from M1-F's last-known records, plus a re-route on discovery | replaces default A (true map); M1 has no player-built structures, so nothing is observable yet; F was told to shape its records for it |
 | 0041 The obstacle cache is only a suggestion | noted with 0040 | how and when to re-path is the Director's call |
@@ -392,7 +410,7 @@ Last triaged: 0069.
 | 0054 InfoPanel for 2+ objects kept as a placeholder | no change | Q0013 point 5 |
 | 0055 SelectionPanel grouping: placeholder order = Tab order | done (M1-S2, `f35f0f0`) | |
 | 0056 Control groups hold only own objects | done (M1-S2, `f35f0f0`) | answers Q0013 point 7; matches the current behaviour |
-| 0057 GDO sees a remembered station's real delivery timer | folded into M1-G2 (replaces the Q0019 assumption) | answers Q0019 |
+| 0057 GDO sees a remembered station's real delivery timer | done (M1-G2, `52f20a8`) | answers Q0019 |
 | 0058 Allies can't be multi-selected; GDO station intel intended | matches the build (no teams yet) | answers Q0013 point 2 |
 | 0059 Explicit Attack may target own and neutral objects; right-click doesn't | matches the build | answers Q0014 point 1 |
 | 0060 Hits land at the end of Firing; overkill wastes the shot | matches the build | answers Q0014 point 2 |

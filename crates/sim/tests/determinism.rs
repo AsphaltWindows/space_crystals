@@ -1,10 +1,12 @@
 //! Determinism (`ARCHITECTURE.md > Determinism`): same scenario plus same inputs gives the
-//! same state hash, also after a JSON round trip and when played back from a replay.
+//! same state hash, also after a JSON round trip and when played back from a replay, whose checkpoints catch a game
+//! that diverges from the recording.
 
-use sc_sim::testing::TestSim;
+use sc_sim::replay::CHECKPOINT_INTERVAL;
+use sc_sim::testing::{TestSim, every_command};
 use sc_sim::{
-    Command, DebugCommand, ObjectId, ObjectKind, PlayerCommand, PlayerId, Replay, Sim, SimConfig, SpawnAt, TickInputs,
-    TilePos, scenarios,
+    Checkpoint, Command, DebugCommand, Desync, ObjectId, ObjectKind, PlayerCommand, PlayerId, Replay, ReplayError, Sim,
+    SimConfig, SpawnAt, TickInputs, TilePos, scenarios,
 };
 
 fn spawn(kind: ObjectKind, x: i32, y: i32) -> DebugCommand {
@@ -136,4 +138,120 @@ fn replays_of_invalid_scenarios_fail_without_panicking() {
     scenario.setup.players[1].slot = sc_sim::SlotId(1);
     let replay = Replay::new(scenario.clone());
     assert_eq!(replay.try_run(), Err(scenario.validate()));
+    assert_eq!(replay.run_checked(), Err(ReplayError::Invalid(scenario.validate())));
+}
+
+/// The scripted skirmish recorded the client's way ([`Replay::record_checked`]), with a checkpoint at its end too.
+fn recorded_skirmish() -> (Replay, Sim) {
+    let mut t = scripted_skirmish();
+    t.run(TICKS);
+    let mut sim = t.replay().start();
+    let mut replay = Replay::new(t.replay().scenario.clone());
+    replay.record_checked(None, &sim);
+    for inputs in &t.replay().inputs {
+        sim.step(inputs);
+        replay.record_checked(Some(inputs.clone()), &sim);
+    }
+    replay.checkpoint(&sim);
+    assert_eq!(sim.state_hash(), t.sim().state_hash());
+    (replay, sim)
+}
+
+/// A recording notes the state hash at tick 0, every `CHECKPOINT_INTERVAL` ticks and where it was asked to; played
+/// back, every checkpoint matches, also after a JSON round trip.
+#[test]
+fn recordings_note_checkpoints_that_playback_matches() {
+    let (replay, sim) = recorded_skirmish();
+    let mut ticks: Vec<u32> = (0..=TICKS).step_by(CHECKPOINT_INTERVAL as usize).collect();
+    ticks.push(TICKS);
+    assert_eq!(replay.checkpoints.iter().map(|c| c.tick).collect::<Vec<_>>(), ticks);
+    let end = Checkpoint {
+        tick: TICKS,
+        hash: sim.state_hash(),
+    };
+    assert_eq!(replay.checkpoint_at(TICKS), Some(end));
+    assert_eq!(replay.checkpoint_at(TICKS - 1), None);
+    // Noting one twice, or anywhere but at the end of the recording, notes nothing.
+    let mut again = replay.clone();
+    again.checkpoint(&sim);
+    again.checkpoint(&replay.start());
+    assert_eq!(again, replay);
+
+    let json = serde_json::to_string(&replay).unwrap();
+    let loaded: Replay = serde_json::from_str(&json).unwrap();
+    assert_eq!(loaded, replay);
+    assert_eq!(loaded.run_checked().unwrap(), sim);
+    // Step by step, as the client plays a replay back.
+    let mut played = loaded.start();
+    assert_eq!(loaded.verify(&played), Ok(()));
+    while loaded.step(&mut played) {
+        assert_eq!(loaded.verify(&played), Ok(()), "tick {}", played.tick());
+    }
+}
+
+/// A game that diverges from its recording fails at the first checkpoint after the change, which names the
+/// checkpoint before it (where it still matched); a recording whose hash was changed fails at that checkpoint.
+#[test]
+fn checkpoints_catch_a_game_that_diverges_from_its_recording() {
+    let (replay, _) = recorded_skirmish();
+    // Without the debug removal of tick 400, the game differs from that tick on.
+    let mut changed = replay.clone();
+    assert_eq!(changed.inputs[399].commands.len(), 1);
+    changed.inputs[399].commands.clear();
+    let Err(ReplayError::Desync(desync)) = changed.run_checked() else {
+        panic!("the change went unnoticed");
+    };
+    assert_eq!((desync.tick, desync.previous), (448, Some(384)));
+    assert_ne!(desync.expected, desync.actual);
+    assert_eq!(desync.expected, replay.checkpoint_at(448).unwrap().hash);
+    let message = desync.to_string();
+    assert!(
+        message.contains("desync at tick 448") && message.contains("at tick 384, matched"),
+        "{message}"
+    );
+
+    let mut tampered = replay.clone();
+    tampered.checkpoints[0].hash ^= 1;
+    let Err(ReplayError::Desync(Desync {
+        tick: 0,
+        previous: None,
+        ..
+    })) = tampered.run_checked()
+    else {
+        panic!("a wrong first checkpoint went unnoticed");
+    };
+}
+
+/// Replays without checkpoints (written before they existed) still load and play: there is just nothing to compare.
+#[test]
+fn a_replay_without_checkpoints_plays_unchecked() {
+    let mut t = scripted_skirmish();
+    t.run(100);
+    let mut json = serde_json::to_value(t.replay()).unwrap();
+    json.as_object_mut().unwrap().remove("checkpoints");
+    let loaded: Replay = serde_json::from_value(json).unwrap();
+    assert!(loaded.checkpoints.is_empty());
+    assert_eq!(loaded.run_checked().unwrap().state_hash(), t.sim().state_hash());
+}
+
+/// A replay file keeps every kind of command (`testing::every_command`: every order, ability and debug command), so
+/// nothing a player did is lost in a recording; the game plays back the same from the file.
+#[test]
+fn replay_files_keep_every_kind_of_command() {
+    let mut t = scripted_skirmish();
+    for (i, command) in every_command().into_iter().enumerate() {
+        let player = PlayerId(1 + (i % 2) as u8);
+        t.at(20 + i as u32, player, command);
+    }
+    t.run(100);
+    let replay = t.replay();
+    let recorded: Vec<Command> = replay.inputs[19..]
+        .iter()
+        .flat_map(|inputs| inputs.commands.iter().map(|c| c.command.clone()))
+        .collect();
+    assert_eq!(recorded, every_command());
+    let json = serde_json::to_string(replay).unwrap();
+    let loaded: Replay = serde_json::from_str(&json).unwrap();
+    assert_eq!(&loaded, replay);
+    assert_eq!(loaded.run().state_hash(), t.sim().state_hash());
 }

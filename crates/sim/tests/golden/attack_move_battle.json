@@ -1,0 +1,1053 @@
+{
+  "scenario": {
+    "map": {
+      "version": 3,
+      "map_type": "Custom",
+      "name": "attack_move_battle",
+      "description": "",
+      "symmetry": "None",
+      "terrain": {
+        "custom_presets": [],
+        "tiles": [
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................",
+          "........................................"
+        ],
+        "heights": [
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000",
+          "00000000000000000000000000000000000000000"
+        ]
+      },
+      "slots": [
+        {
+          "start": {
+            "x": 10,
+            "y": 5
+          },
+          "camera_start": [
+            1280.0,
+            640.0
+          ],
+          "layouts": {
+            "Gdo": [],
+            "Syndicate": [],
+            "Cults": [],
+            "Colonists": []
+          }
+        },
+        {
+          "start": {
+            "x": 29,
+            "y": 14
+          },
+          "camera_start": [
+            1280.0,
+            640.0
+          ],
+          "layouts": {
+            "Gdo": [],
+            "Syndicate": [],
+            "Cults": [],
+            "Colonists": []
+          }
+        }
+      ],
+      "spawns": [
+        {
+          "kind": "Peacekeeper",
+          "owner": 1,
+          "at": {
+            "Point": [
+              224.0,
+              416.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 1,
+          "at": {
+            "Point": [
+              288.0,
+              416.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 1,
+          "at": {
+            "Point": [
+              352.0,
+              416.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 1,
+          "at": {
+            "Point": [
+              416.0,
+              416.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 1,
+          "at": {
+            "Point": [
+              224.0,
+              480.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 1,
+          "at": {
+            "Point": [
+              288.0,
+              480.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 1,
+          "at": {
+            "Point": [
+              352.0,
+              480.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 1,
+          "at": {
+            "Point": [
+              416.0,
+              480.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 1,
+          "at": {
+            "Point": [
+              224.0,
+              544.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 1,
+          "at": {
+            "Point": [
+              288.0,
+              544.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 1,
+          "at": {
+            "Point": [
+              352.0,
+              544.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 1,
+          "at": {
+            "Point": [
+              416.0,
+              544.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 1,
+          "at": {
+            "Point": [
+              224.0,
+              608.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 1,
+          "at": {
+            "Point": [
+              288.0,
+              608.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 1,
+          "at": {
+            "Point": [
+              352.0,
+              608.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 1,
+          "at": {
+            "Point": [
+              416.0,
+              608.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 1,
+          "at": {
+            "Point": [
+              224.0,
+              672.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 1,
+          "at": {
+            "Point": [
+              288.0,
+              672.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 1,
+          "at": {
+            "Point": [
+              352.0,
+              672.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 1,
+          "at": {
+            "Point": [
+              416.0,
+              672.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2144.0,
+              608.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2208.0,
+              608.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2272.0,
+              608.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2336.0,
+              608.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2144.0,
+              672.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2208.0,
+              672.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2272.0,
+              672.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2336.0,
+              672.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2144.0,
+              736.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2208.0,
+              736.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2272.0,
+              736.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2336.0,
+              736.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2144.0,
+              800.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2208.0,
+              800.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2272.0,
+              800.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2336.0,
+              800.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2144.0,
+              864.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2208.0,
+              864.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2272.0,
+              864.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Peacekeeper",
+          "owner": 2,
+          "at": {
+            "Point": [
+              2336.0,
+              864.0
+            ]
+          },
+          "settings": null
+        }
+      ]
+    },
+    "setup": {
+      "players": [
+        {
+          "name": "Player 1",
+          "faction": "Gdo",
+          "slot": 1
+        },
+        {
+          "name": "Player 2",
+          "faction": "Syndicate",
+          "slot": 2
+        }
+      ],
+      "seed": 1,
+      "config": {
+        "debug": false
+      }
+    }
+  },
+  "inputs": [
+    {"commands":[{"player":1,"command":{"Order":{"units":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],"kind":{"AttackMove":[2272.0,736.0]},"queue":false}}},{"player":2,"command":{"Order":{"units":[21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40],"kind":{"AttackMove":[288.0,544.0]},"queue":false}}}]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]}
+  ],
+  "checkpoints": [
+    {"tick":0,"hash":5984288083473333373},
+    {"tick":32,"hash":5303266965266251418},
+    {"tick":64,"hash":17372441150544793592},
+    {"tick":96,"hash":9452389084417732345},
+    {"tick":128,"hash":13583578990594022824},
+    {"tick":160,"hash":1560600273857791962},
+    {"tick":192,"hash":4622226462540770188},
+    {"tick":224,"hash":4670825462131043668},
+    {"tick":256,"hash":1223914059171600489},
+    {"tick":288,"hash":5982297632930292242},
+    {"tick":320,"hash":17954903889566196139},
+    {"tick":352,"hash":11402540432242790923},
+    {"tick":384,"hash":8606882011157437988},
+    {"tick":416,"hash":7385689153389020789},
+    {"tick":448,"hash":9785252866827615823},
+    {"tick":480,"hash":8131175848591195095}
+  ]
+}

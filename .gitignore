@@ -5,3 +5,6 @@ artifacts/*/state/.notified_*
 
 # Agent worktrees (Claude Code isolation)
 .claude/worktrees/
+
+# Recorded games (crates/game/src/replay)
+replays/

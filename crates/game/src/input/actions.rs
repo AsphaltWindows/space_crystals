@@ -93,6 +93,15 @@ pub enum InputAction {
     /// Debug only, like [`InputAction::DebugSwitchPlayer`]: turns the fog of war off and on (`crate::fog`), a view
     /// option for QA. Placeholder binding.
     DebugToggleFog,
+    /// Replay playback (`--replay`, `crate::replay::playback`): pauses and resumes. Placeholder binding, like the
+    /// other replay keys: the design has no replays yet.
+    ReplayPause,
+    /// Replay playback: plays one tick and pauses.
+    ReplayStep,
+    /// Replay playback: the next slower speed (`crate::replay::playback::SPEEDS`).
+    ReplaySlower,
+    /// Replay playback: the next faster speed.
+    ReplayFaster,
     /// The map editor's input (`ARCHITECTURE.md > Map editor`).
     Editor(EditorInput),
 }
