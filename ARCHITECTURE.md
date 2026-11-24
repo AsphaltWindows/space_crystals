@@ -185,8 +185,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   Extraction Plate and the uncovered crystal patch it is placed onto (`ObjectKind::may_overlap`;
   `factions/gdo/economy.md > ExtractionPlate`). Scenario validation (`scenario/validate/occupied.rs`, for the map's
   objects and the Starting Layouts alike), debug spawns (`Reject::Overlaps`) and the placement check (see *Placement
-  and the build area*) apply it. Only the placement check requires a plate to be on a patch; one on bare ground
-  mines nothing (see *Economy*).
+  and the build area*) apply it. A plate must stand exactly on a patch (`placement::Onto`), which the placement check
+  and map validation ask alike; only a debug spawn puts one on bare ground, where it mines nothing (see *Economy*).
 
 **Adding an object type**
 1. Add an `ObjectKind` variant whose doc comment cites the design section, and add it to `ObjectKind::ALL`.
@@ -227,7 +227,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   hides.
 - **The rules** are listed with their design sections in the module docs. Footprints share tiles only as
   `ObjectKind::may_overlap` allows. A ground unit of any player blocks the tiles its box overlaps, and is never pushed
-  aside (design change 0094); air and underground units never block.
+  aside (design change 0094); air and underground units never block. A plate goes exactly onto a patch
+  (`placement::Onto`), the one rule of the check that map validation applies to pre-placed objects too
+  (`SpawnProblem::NotOnPatch`, slice M2-J2).
 - **The build area** (`BuildArea`, `Sim::build_area(player)`; `factions/gdo/structures.md > GDOBuildArea`) is the
   union of one rectangle per GDO building the player owns: its footprint grown by its BuildRadiusExtension on every
   side, clamped to the map (design change 0091: square). A building with an extension of 0, the plate, adds nothing.
@@ -241,7 +243,7 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
 - **Tests**: `src/placement/tests.rs` (each rule on the pure check), `placement/build_area.rs`'s (the 28 × 28 area,
   each kind's extension, the runs), `tests/placement.rs` (the verification points of design changes 0004 and 0091 to
   0097 in games and layouts, determinism, a save) and the ignored `tests/placement_perf.rs`. Measured (release, 769
-  objects, 101 buildings of the player's): 9 µs a check, 4.5 µs a build area.
+  objects, 101 buildings of the player's; slice M2-J2, on a quiet machine): 4 µs a check, 2 µs a build area.
 
 ## Tick pipeline
 
@@ -312,7 +314,16 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   and each player's known grids match what it knows (invariant K1). A phase after 5b that adds or removes a
   blocking footprint (a death in combat, a new structure) must call `paths::sync` again; the known grids follow at
   the end of the tick.
-- Insert a new phase at a deliberate position, with a comment in `step` saying why there, and update this list.
+- **Measuring a tick**: `Sim::step_observed(inputs, observe)` is `step` calling `observe` with each `Phase` as it
+  starts and `Phase::End` when the tick is done (`sim/phase.rs`); `step` passes a no-op, and the sim never reads
+  anything back. `TestSim::step_observed` wraps it for the perf tests. Measured (`tests/structures_perf.rs`, ignored,
+  release; slice M2-J2: four GDO bases of 40 structures and 400 Peacekeepers fighting through two of them on 256 ×
+  256): a whole tick takes 0.28 ms on average, 0.53 ms at the 99th percentile and at most 2.4 ms after the tick of
+  the four players' 20 group orders at once, which takes 7.8 ms, nearly all path serving (each group order is pathed
+  in its tick, `docs/movement.md > 5.8`). At worst the grid syncs (5b, 5e's, path knowledge) take 0.13 ms with up to
+  3 sets rebuilt in a tick, vision 0.17 ms, the economy 0.11 ms and the defeat check's two walks 0.005 ms.
+- Insert a new phase at a deliberate position, with a comment in `step` saying why there, give it its `Phase`, and
+  update this list.
 - Commands always run before movement. There is exactly **one** movement pipeline, and all movement goes through it.
   The old prototype had two pipelines, and they raced.
 - Damage accumulates as a **list of hits** that is applied in one place. Never store it in a single slot that a second
@@ -574,8 +585,9 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   teleports against the sim's grids; scenario validation and the editor check pre-placed and layout units with
   `paths::misplaced` (terrain-only grids of the classes present, plus the footprints).
 - `f32::mul_add` is a disallowed method (`docs/movement.md > 7`): write `a * b + c`.
-- Timings: `cargo test -p sc_sim --release --test nav_perf -- --ignored --nocapture`. That test's `timed` helper is
-  the one place in `crates/sim` that reads the clock, behind an `#[expect]` with its reason.
+- Timings: `cargo test -p sc_sim --release --test nav_perf -- --ignored --nocapture --test-threads=1`, like every
+  `*_perf.rs` test (each reads the clock in its one timing helper, see *Determinism*). Measure on a quiet machine:
+  note the load average (`uptime`) with the numbers.
 
 ## Movement and collision
 
@@ -673,8 +685,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
 
 ## Economy
 
-The players' banks, power and Unit Control, and the plates' mining (`economy.rs`, `economy/`; slice M2-B;
-`factions/gdo/overview.md > GDOResources`, `factions/gdo/economy.md`).
+The players' banks, power and Unit Control, the plates' mining, construction, and defeat and the end of the game
+(`economy.rs`, `economy/`, `construction.rs`; slices M2-B, M2-D1 and M2-F2; `factions/gdo/overview.md >
+GDOResources`, `factions/gdo/economy.md`). Production has a section of its own.
 
 - **Banks** are the only resources stored: `Player::crystals` and `Player::supplies` (`u32`, hashed, and
   `#[serde(default)]` so that older states load). A game starts them at the player's faction's Starting Conditions
@@ -708,11 +721,11 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   in tick `t` starts on its recipes in `t + 1` (spawn-tick rule).
 - **Mining** (`economy/mining.rs`, `factions/gdo/economy.md > ExtractionPlate`): a structure with a `MiningDef`
   (`StructureDef::mining`: the plate) that stands on a patch has an `Extractor { patch, cycle }`, linked in
-  `Sim::insert_object` once both are in the game, whichever comes first; a plate on bare ground or without an owner
-  mines nothing. Each tick the cycle advances by the owner's ratio. When it reaches `cycle_ticks × RATIO_ONE` (48
-  frames), the plate pays its owner a whole load: 10 while the patch holds 10, then what is left, then the residual 1
-  forever (design changes 0098, 0099; `SimEvent::PatchDepleted` when the patch reaches 0, and it stays under the
-  plate). Spawn-tick rule: a plate placed in tick `t` pays first in tick `t + 48`.
+  `Sim::insert_object` once both are in the game, whichever comes first; a plate on bare ground (a debug spawn's) or
+  without an owner mines nothing. Each tick the cycle advances by the owner's ratio. When it reaches
+  `cycle_ticks × RATIO_ONE` (48 frames), the plate pays its owner a whole load: 10 while the patch holds 10, then what
+  is left, then the residual 1 forever (design changes 0098, 0099; `SimEvent::PatchDepleted` when the patch reaches
+  0, and it stays under the plate). Spawn-tick rule: a plate placed in tick `t` pays first in tick `t + 48`.
 - **Removal** (`Sim::remove_objects`): a plate takes its patch along if that is depleted, in the same tick, which
   opens the tile (design change 0038; the caller's grid sync covers it); a patch with crystals left stays, uncovered.
   A plate whose patch is removed (only a debug command does that) loses its extractor. `testing::referenced_ids`
@@ -927,13 +940,14 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   `try_new`. Units start on open ground and apart (`paths::misplaced`, in list order): a unit's box must not overlap
   blocked tiles, the map's edge or a blocking footprint (`SpawnProblem::Blocked`) or an earlier unit of its layer
   (`OverlapsUnit`), and a blocking footprint must not cover a ground unit (`CoversUnit`). Footprints keep apart
-  (`OverlappingFootprints`, `LayoutOverlap`), but for a plate on an uncovered patch (see Object model).
+  (`OverlappingFootprints`, `LayoutOverlap`), but for a plate on an uncovered patch (see Object model), and a plate
+  stands exactly on a patch (`NotOnPatch`, the placement check's `placement::Onto`).
   `MapDef::validate` checks the pre-placed objects, then every Starting Layout of every slot on its own
   (`scenario/validate/layouts.rs`; `core/map_editor.md > Starting Layouts > Layout validation`, design change 0097):
   among the map's objects, its structures by their faction's placement rules minus sight (`placement::check_layout`,
   `LayoutPlacement`; the GDO's need the area of the layout's own Deployment Center), its units by the unit-start rule
   (`InvalidLayoutObject`), and nothing else. Layouts of different factions may overlap. `Scenario::validate` adds the
-  layouts of the players of one game in each other's way.
+  layouts of the players of one game in each other's way, once the map has no problems of its own.
 - **Starting Conditions** (`scenario/starting.rs`, slice M2-F1, plan decision T11): `StartingConditions::of(faction)`
   is a faction's table (`factions/gdo/economy.md > Starting Conditions`): its starting objects with their counts, its
   starting banks, and its primary structure, which the camera starts on. A faction without one (all but the GDO in
@@ -1019,9 +1033,9 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   bounded shares of refused orders, failed moves and path searches) and the ignored `behaviours_perf.rs`.
   `riot_shield.rs` has the Riot Shield's: toggle timing, each raised-shield effect, the gate, a save in the middle
   of a toggle and its replay.
-  Measured (release, 500 units on 256 × 256): 0.12 ms a tick with everyone idle, 0.14 ms on Hold in sight of the
-  enemy, 0.5 ms on average in a battle of 250 against 250; the worst ticks, 4.4 ms, are those in which a group's
-  path field is built (four or more of its units resuming their AttackMove in one tick).
+  Measured (release, 500 units on 256 × 256; slice M2-J2, within 7 % of M1's in an interleaved A/B): 0.13 ms a tick
+  with everyone idle or on Hold in sight of the enemy, 0.29 ms on average and 0.65 ms at worst in a battle of 250
+  against 250.
 - **Resource collision tests** are `crates/sim/tests/resources_block.rs` (design change 0038's verification: units
   path around a crystal field, can't walk across a Supply Delivery Station, and walk through the tile of a patch
   removed by a debug command, standing in for depletion; `economy_mining.rs` has the real thing, below).
@@ -1052,17 +1066,16 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   costs, build times, lumps and the power penalty are checked exactly. `--nocapture` prints each line's timeline.
 - **Game start tests** are `crates/sim/tests/game_start.rs` (slice M2-F1: each player's Starting Layout and banks,
   the Skirmish Default restriction and completeness, the layout rules of design change 0097, a layout plate off its
-  patch refused by the game's rule, two players' layouts in each other's way, the outdated flag, and `dev_skirmish`'s
-  bases seeing and reaching their fields; ignored, a pre-placed plate off a patch, which validation still accepts:
-  a bug left to the Director) and the unit tests
-  of `scenario/starting.rs` (the table, and a layout made for other Starting Conditions).
+  patch refused by the game's rule, a pre-placed one by the same rule, two players' layouts in each other's way, the
+  outdated flag, and `dev_skirmish`'s bases seeing and reaching their fields) and the unit tests of
+  `scenario/starting.rs` (the table, and a layout made for other Starting Conditions).
 - **Structure tests** are `crates/sim/tests/structures.rs` (each type's stat block, the Barracks in all 16 ways to
   rotate and flip it and its sides, ground units walking around a footprint, PointArmor on hits, a destroyed
   Generator freeing its tiles, debug spawns kept apart but for a plate on its patch, flat ground, the optional
   orientation in files) and `structures_vision.rs` (each type's sight, the ElevationModifier, an enemy Barracks
   remembered in the fog, a plate on a patch in maps and layouts, the targets that shoot back first, idle and on an
-  AttackMove, a scan reaching a large footprint by its edge). The placement tests are listed under *Placement and the
-  build area*.
+  AttackMove, a scan reaching a large footprint by its edge), and the ignored `structures_perf.rs` (see *Tick
+  pipeline > Measuring a tick*). The placement tests are listed under *Placement and the build area*.
 - **Game end tests** are `crates/sim/tests/game_end.rs` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and a last defeat shared by two; no producer handed
@@ -1252,8 +1265,9 @@ elsewhere.
   game's AwaitingPlacement shares them (slice M2-H2, risk R11): the four belong to no context, so in a game they turn
   the ghost over the command slots R and F (the editor's `Turn`), and the game reports `Placing` from the local
   ControlState (`command_ui` `report_placing`, in the game modes, outside the command input set, so the keys end with
-  the placement whatever stops the input). Shift + R and Shift + F are theirs while placing, not slot R or F with
-  `Queue` held. The action stays held until its button goes up. `Bindings::default()` holds the
+  the placement whatever stops the input: `Validate` ends a placement in the frame its selection stops being
+  commandable, before the report, on a defeat as at the end). Shift + R and Shift + F are theirs while placing, not
+  slot R or F with `Queue` held. The action stays held until its button goes up. `Bindings::default()` holds the
   design's defaults (camera keys, G for the grid, P for unit paths, Select and ContextCommand on the left and right
   buttons, Esc to cancel, Tab and Shift + Tab, the control group keys, the 4 × 3 command grid QWER/ASDF/ZXCV with
   the standard slots Z, X and C, Shift to queue) and the editor's (its F1 help lists them). A rebinding UI edits it
@@ -1536,7 +1550,9 @@ cargo run -- --scenario dev_skirmish --player 2 --screenshot 1:/path/to/p2.png -
 - `--windowed` runs turn vsync off: with the display asleep, X11 paces a vsynced window at one frame per second.
 - Verify visual work yourself. Capture screenshots and look at the PNGs with the Read tool before you report.
 - To look at another part of a map, give the slot a different camera start in the editor (or the file's
-  `camera_start`) and pass the file with `--map`.
+  `camera_start`) and pass the file with `--map`. In an `--input-script`, pan with middle-button drags (a press, a
+  cursor move, a release: the view moves by the pixels dragged, clamped to the map): the arrow keys and the screen
+  edge pan by real time, which `--fast` makes too short to rely on.
 - To put units on a map in a QA run, spawn them with debug commands in a `--commands` file at tick 1 and order them
   from tick 2. Spawned objects take the ids after the starting objects, in file order (`--dump-state` lists them):
 
@@ -1667,11 +1683,14 @@ unchecked.
     dimmed, the edited one outlined in the slot's colour, its Deployment Center's build area outlined, and the ghost
     with its images; the preview's sim plays the edited faction in every slot (`layouts::preview_scenario`), so it
     shows that faction's layouts. Layout objects with a problem are outlined in red with every tool.
-  - **Problems** (`layouts/problems.rs::problem_lines`): the Problems list gives each layout that lacks objects one
-    line that names them all and the tool ("S1 GDO layout: add Deployment Center, Extraction Facility, Extraction
-    Plate x2 (Layout tool, T); S2 follows"), folding the generated slots' identical lines into their editable slot's.
-    A click on a line chooses the slot, the faction and the first missing kind, or selects the broken object. A
-    refused play-test (F5) shows the first line.
+  - **Problems** (`layouts/problems.rs::problem_lines`): the Problems list holds everything that keeps a play-test
+    from starting (`PlayTestSetup::problems`: `Scenario::validate` of the map with the play-test setup, listed again
+    whenever the document or the setup changes, `sync_problems`), so two slots' layouts in each other's way
+    (`LayoutOverlap`) show as soon as the map has no problems of its own, not only when F5 is refused (slice M2-J2).
+    It gives each layout that lacks objects one line that names them all and the tool ("S1 GDO layout: add Deployment
+    Center, Extraction Facility, Extraction Plate x2 (Layout tool, T); S2 follows"), folding the generated slots'
+    identical lines into their editable slot's. A click on a line chooses the slot, the faction and the first missing
+    kind, or selects the broken object. A refused play-test (F5) shows the first line.
   - **Outdated layouts** are derived (T11): a non-empty layout that isn't its faction's current Starting Conditions
     is flagged, so one still being placed is too ("Outdated or unfinished"); on a Custom map the line only says that
     the layout differs. Nothing is fixed automatically.

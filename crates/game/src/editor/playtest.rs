@@ -73,9 +73,9 @@ impl PlayTestSetup {
 
     /// Everything that keeps a play-test of `map` from starting, which the Problems list shows
     /// ([`Scenario::validate`]): the map's problems ([`MapDef::validate`]), then the game's, such as the layouts of
-    /// different slots in each other's way (`ScenarioProblem::LayoutOverlap`), which the sim lists once the map has
-    /// none of its own. So they show as soon as they are found, not only when F5 is refused (slice M2-J2, M2-I's
-    /// finding).
+    /// different slots in each other's way (`ScenarioProblem::LayoutOverlap`; "no overlaps", `core/map_editor.md >
+    /// Starting Layouts > Layout validation`), which the sim lists once the map has none of its own. So they show as
+    /// soon as they are found, not only when F5 is refused (slice M2-J2, M2-I's finding).
     pub fn problems(&self, map: &MapDef) -> Vec<ScenarioProblem> {
         self.scenario(map).validate()
     }
