@@ -99,7 +99,6 @@ With the Bio Portal as its own Warp In, building one does not stop Drone product
 ### Open Questions
 
 - **Footprint of the upgraded stages**: whether the Heavy Portal and Star Portal keep the Bio Portal's 3x3 footprint or grow. To weigh: if a stage needs ground the previous stage did not cover, that ground must be clear at upgrade time, and in a Colonists-vs-Colonists game an enemy Drone can deploy a Beacon on it (3 seconds, no spacing requirement). Before a player has combat units, nothing can remove that Beacon.
-- **Bio Portal cost**: the Bio Portal is described as the more expensive portal, but its current Warp In cost (150 Space Crystals) is lower than the Robo Portal's (400). To be revisited together with the other Colonists costs.
 
 ### Portal Exits (energy doorway)
 (user, 2026-11-24) At the centre of every portal is an energy doorway from which units emerge. Portals don't use exit sides (core/entities.md > Structure Type > Exit Doorway); instead:
