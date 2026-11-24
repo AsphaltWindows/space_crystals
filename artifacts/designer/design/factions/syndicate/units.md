@@ -43,6 +43,26 @@ One shot every 24 frames (1.5 s) ≈ 12 damage per second, the same output as th
 
 ### ObjectInterfaceState: BasicCombatUnitInterfaceState
 
+## Grenadier
+(user, 2026-11-25) Syndicate explosives infantry. Fires an **explosive grenade**: a **slow projectile** that flies to where the target was when the Grenadier finished aiming and explodes there, dealing **moderate-high area damage**. **Ground only.** Moving units can dodge it; it punishes units standing still or clumped together. Like every attack that can miss, it can also **Attack Ground** (systems/combat.md > AttackType > CanTargetGround).
+
+### Entity Type - Unit
+### Faction - TheSyndicate
+### UnitBase - HeavyInfantry (assumed, like all Syndicate infantry)
+### Produced at - Hideout
+### TechPrerequisite - player owns at least one **Chemical Plant** (explosives)
+### Groupable - true (assumed)
+
+### AttackAttributes:
+- AttackType: DoublyDisjointed (slow projectile to the target's position at the end of Aiming; can be dodged)
+- TargetDomain: Ground
+- TargetType: AoE (moderate-high damage)
+- CanTargetGround: true (derived)
+
+All numbers (HP, armor, sight, speed, TunnelSpaceCost, damage, AoE radius, range, projectile speed, attack timings, cost, build time): TBD.
+
+### ObjectInterfaceState: BasicCombatUnitInterfaceState
+
 ## Agent
 
 The Agent is the Syndicate's cyborg worker unit. Agents construct Tunnels and defensive structures on the surface, gather Space Crystals and Supplies, and deliver them to Tunnels. Agents carry a **pistol** for basic self-defense: short range, low-moderate damage, moderate reload, ground only, overall weak (user, 2026-11-24; replaces the melee attack).
