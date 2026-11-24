@@ -16,4 +16,6 @@ In a normal game, a player is **defeated when they own no buildings**. This appl
 ## End of Game
 (user, 2026-11-24) When only **one player or team** is left undefeated, it **wins**. Every player sees Victory or Defeat, the game stops, and the replay is saved.
 
+**Draw** (user, 2026-11-24): if the last remaining players or teams are all defeated **in the same tick** (e.g. they destroy each other's last buildings simultaneously), nobody is left undefeated: the game ends as a **draw**. Nobody wins, and every player sees "Draw".
+
 **Defeated before the end (team games)** (user, 2026-11-24): a player defeated while their team is still playing keeps watching with **their team's vision only** (what their allies see), never a full map reveal, so they can't pass on information their allies couldn't have. They can't command anything.

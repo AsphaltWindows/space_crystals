@@ -2123,3 +2123,4 @@ Q0033 pt 3: all neutral map-placed objects known from start; starting layouts ne
 Q0035 pt 1: Shift nothing special for rally. Entry 0160.
 Q0035 pt 2: per-building rally rules. Entry 0161.
 Q0035 pt 3: feedback on unavailable command. Entry 0162. Q0035 done.
+Q0036 pt 1: simultaneous last defeats = draw. Entry 0163.
