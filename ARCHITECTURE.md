@@ -146,7 +146,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   (`None` means indestructible).
 - **Capabilities**: today these are `placement` (the tile footprint), `resource` (`ResourceState`), and for units
   `orders` (`Orders`, `orders.rs`: the current order and a queue of at most `MAX_QUEUED_ORDERS`), `mover`
-  (`Mover`, `mover.rs`: goal, status, path and the replanning state of `docs/movement.md > 3`) and, for units that
+  (`Mover`, `mover.rs`: goal, status, path, the replanning state of `docs/movement.md > 3` and the sidestep of a
+  yielding unit) and, for units that
   can attack, `attack` (`AttackState`, `combat.rs`: see *Combat*). Production and the rest arrive as more optional
   fields, each with its own module. Never add them as separate stores keyed by
   id. A system walks the objects in id order and skips those without its capability
@@ -308,11 +309,11 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   compared or serialized, built when a `Sim` is created or loaded and rebuilt in phase 5b. `Sim::nav()` (the grids),
   `nav_version()` and `nav_counters()` expose it to tests and overlays.
 - **Group destinations** (`orders/destinations.rs`, `docs/movement.md > 6.4`, the design's magic box): a location
-  order (Move to a point, AttackMove, Patrol) to several units looks at the bounding box of their positions. A click
-  inside it sends every unit to the click; outside, each unit goes to the click plus its offset from the box's
-  centre. The order keeps the unit's own destination (`Order::slot`; `None` is the click). Until question Q0008 is
-  answered, a destination is clamped inside the map, and one the unit can't stand on or reach moves to the nearest
-  point it can (`nav::reachable_point`, which never searches).
+  order (Move to a point, AttackMove, Patrol) to several units looks at the bounding box of their silhouettes
+  (design change 0028). A click inside it sends every unit to the click; outside, each unit goes to the click plus
+  its offset from the box's centre. The order keeps the unit's own destination (`Order::slot`; `None` is the click).
+  A destination is clamped inside the map, and one the unit can't stand on or reach moves to the nearest point it
+  can (`nav::reachable_point`, which never searches; design change 0025).
 - **Avoid tiles** (`Mover::avoid_tiles`): a repath of a stuck unit treats them as blocked, and its smoothed path and
   its steering stay out of them (`nav::smooth_avoiding`, `nav::segment_avoids`). If they cut every route, the unit
   drops them and plans again.
@@ -326,7 +327,8 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 ## Movement and collision
 
 The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice D changed it, **(M)** where the
-magic box did), and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
+magic box did, **(Y)** where friendly yielding and the answers to Q0008 did), and the code is
+`crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
 
 - **One pipeline, sequential commit** (`movement::step`, phase 5d): the step builds one spatial grid per collision
   layer (ground, underground; air units collide with nothing) from every unit, then moves the units in id order and
@@ -341,16 +343,27 @@ magic box did), and the code is `crates/sim/src/movement.rs` and `movement/`, wi
   or oncoming one (a glance along its face, a 45° step, a step along the face; to the side the unit leans to, which
   it keeps, else to its Right first, so head-on units pass like traffic; a crossing unit is passed behind); else
   close up or stay. Within one step of the
-  goal the unit lands exactly on it. Units without a goal never move: nothing pushes (question Q0007).
+  goal the unit lands exactly on it. A unit without a goal moves only by its own sidestep (below): nothing pushes.
+- **Friendly yielding** (`yielding.rs`, `docs/movement.md > 6.6`; design changes 0022, 0023, 0027): a moving unit
+  asks the idle unit of its owner that blocked its way to step aside. Requests are collected during the step and
+  applied after it in the order made (the lowest id that asked wins); the unit then takes one short sidestep
+  (`Mover::sidestep`, hashed state) in its own turn from the next tick on, through `World::is_free` like every
+  move. `yielding::can_yield` is the one place that says who yields (an owner, no order at all, no goal, not in an
+  attack sequence, `Mover::can_move`: the hook for units that can't move in their mode), and `yields_to` to whom
+  (its owner's units, but not the group order it arrived with). A blocked sidestep passes the request on, at most
+  `YIELD_CHAIN_DEPTH` deep. Moving units never yield or swap.
 - **Collision exceptions** go in `space::blocks(mover, other)` and nowhere else (crushing will).
 - **Held by its attack**: a unit whose attack sequence holds its base (`combat::may_move` or `may_turn` false: see
   *Combat*) stands for the tick and keeps its goal, path and stuck clock (`wait`), like a unit waiting for its path.
-- **Stuck and recovery** (`stuck.rs`, numbers from question Q0008 in `mover.rs`): progress is the remaining path
-  length; waiting behind a unit that is getting on counts. After `STUCK_TICKS` without it: arrived if the goal is
-  within `CROWDED_ARRIVAL_GU` behind stationary units, or behind members of its own order group that have arrived;
-  else a repath (`MAX_REPATHS` per leg, `REPATH_BACKOFF`), around the tile of a blocker that stands; else
-  `MoveStatus::Failed` and `SimEvent::MoveFailed`. Two units head-on in a passage too narrow to pass both fail
-  (question Q0007).
+- **Stuck and recovery** (`stuck.rs`; the numbers, in `mover.rs`, are the design's placeholders of changes 0024
+  and 0026): progress is the remaining path length; waiting behind a unit that is getting on counts. A unit is
+  stuck after `STUCK_TICKS` (24) without it (`Mover::is_stuck`); it then tries another route `MAX_REPATHS` times,
+  after waits of `REPATH_WAITS` (8, 16, 32; `Mover::recovery_due`), around the tile of a blocker that stands, and
+  gives up 24 ticks after the last: `MoveStatus::Failed` and `SimEvent::MoveFailed`, `GIVE_UP_TICKS` (104) after
+  its last progress. **Occupied target**: within `OCCUPIED_ARRIVAL_GU` (2) of its goal behind a stationary unit
+  that won't yield to it, the unit has arrived instead, without a repath: when stuck, or after `JAMMED_TICKS`
+  without a way forward if the blocker has no goal. Two moving units head-on in a passage too narrow to pass both
+  fail.
 - **Hooks for later slices**: chasing and queueing behind attackers are `stuck::queues_behind` and the
   `MoveGoal::Object` arm of `paths::serve` (slice E); other movement models replace the "direction → facing and
   velocity" part of `step_unit`.
@@ -361,7 +374,7 @@ magic box did), and the code is `crates/sim/src/movement.rs` and `movement/`, wi
   ground box overlaps a blocked tile or leaves the map; I3 a unit moves at most its speed per tick; I4 every float
   is finite; I5 a unit without a goal doesn't move; I6 repaths per leg are capped and no path request waits longer
   than `MAX_REQUEST_AGE`; I7 an arrived unit never moves again without an order, and a unit without a goal is at
-  rest. A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
+  rest. The one exception to I5 and I7 is a unit taking its sidestep, which must have neither a goal nor an order. A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
   letters, with a legend). The check is on by default; `check_invariants(false)` turns it off for timing runs. A
   test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each step.
 
@@ -484,7 +497,8 @@ magic box did), and the code is `crates/sim/src/movement.rs` and `movement/`, wi
   a unit, and `ascii(focus)` draws the map.
 - **Movement scenario tests** are `crates/sim/tests/movement_collision.rs` (passing, head-on, choke, group arrival,
   idle units, repaths, oscillation bounds, save and load in a crowd), `group_destinations.rs` (the magic box),
-  `movement_soak.rs` (200 units, random orders, 2 000 ticks) and the ignored `movement_perf.rs`.
+  `movement_yield.rs` (friendly yielding, occupied targets, the give-up schedule), `movement_soak.rs` (200 units,
+  random orders, 2 000 ticks; bounds on the share of failed moves) and the ignored `movement_perf.rs`.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes. Every state type's hash impl
   destructures it (`hash.rs`), so a new field doesn't compile until it is hashed.

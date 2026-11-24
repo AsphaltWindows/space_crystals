@@ -3,17 +3,18 @@
 //!
 //! When one location-targeted order (Move to a point, AttackMove, Patrol) goes to several units, each unit's own
 //! destination is decided here, as the command applies (phase 4):
-//! - The **box** is the bounding rectangle of the units' positions (their centres). The group's centre is the box's
-//!   centre.
+//! - The **box** is the bounding rectangle of the units' full Silhouettes (design change 0028), their collision
+//!   boxes, so a straight line of units has a real box. The group's centre is the box's centre.
 //! - A click **inside** the box, its edges included, makes the group **converge**: every unit goes to the clicked
-//!   point itself, and those the crowd blocks stop by the crowded and group arrival rules (`docs/movement.md > 6.5`).
+//!   point itself, and those the crowd blocks stop by the occupied target rule (`docs/movement.md > 6.5`, rule 1).
 //! - A click **outside** the box **keeps the arrangement**: the group moves by the vector from its centre to the
 //!   click, so each unit goes to its position plus that vector and the group arrives in the shape it had.
 //! - There is no formation movement: each unit travels to its destination at its own speed.
 //!
-//! What happens to an offset destination the unit can't reach is TBD in the design (question Q0008). Until it is
-//! answered, the map's edge clamps it inside the map, and a destination off the unit's ground moves to the nearest
-//! point the unit can stand on, Q0008's default for unreachable targets ([`reachable`]).
+//! An offset destination the unit can't reach becomes the reachable point nearest to it (design change 0025,
+//! `systems/controls/behaviors.md > MovingToLocation > Unreachable target location`): the map's edge clamps it inside
+//! the map, and a destination off the unit's ground moves to the nearest point the unit can stand on
+//! ([`reachable`]).
 
 use std::collections::BTreeMap;
 
@@ -40,11 +41,13 @@ pub(crate) fn assign(
     if members.len() < 2 || members.len() != units.len() {
         return everyone_to_the_click;
     }
-    let (lo, hi) = members
-        .iter()
-        .fold((Vec2::MAX, Vec2::MIN), |(lo, hi), o| (lo.min(o.pos), hi.max(o.pos)));
-    // 0021: a click inside the box converges. The edges count as inside, so a group standing in a perfect line (a
-    // box without area) converges on a click on that line.
+    // 0028: the box bounds the units' full Silhouettes, not their centres.
+    let (lo, hi) = members.iter().fold((Vec2::MAX, Vec2::MIN), |(lo, hi), o| {
+        let half = o.def().half_extents().unwrap_or(Vec2::ZERO);
+        (lo.min(o.pos - half), hi.max(o.pos + half))
+    });
+    // 0021: a click inside the box converges. The edges count as inside. A group standing in a line has a box as
+    // high as its units, so a click on or between them converges it (0028).
     if click.cmpge(lo).all() && click.cmple(hi).all() {
         return everyone_to_the_click;
     }
@@ -57,8 +60,7 @@ pub(crate) fn assign(
         .collect()
 }
 
-/// Where unit `o` goes for its offset destination `dest` (TBD in the design, question Q0008; these are the
-/// defaults until it is answered):
+/// Where unit `o` goes for its offset destination `dest` (design change 0025: the reachable point nearest to it):
 /// - **The map's edge** clamps the destination so that the unit's box lies inside the map.
 /// - A destination the unit **can't reach** (ground its grid blocks: cliff, water, mountain, a footprint; or
 ///   another component) moves to the nearest point the unit can stand on ([`nav::reachable_point`]): Q0008's
@@ -126,29 +128,43 @@ mod tests {
     /// `> Group Destinations (Magic Box)`: outside the box, each unit's offset from the box's centre is kept.
     #[test]
     fn outside_the_box_the_group_moves_by_one_vector() {
-        // The box is x 100..180, y 100..120, its centre (140, 110); the click lies east of it.
+        // 0028: the box bounds the silhouettes: x 88..198 (the Guard reaches 18 su east), y 82..132, its centre
+        // (143, 107); the click lies east of it.
         let units = [(PK, v(100.0, 100.0)), (GUARD, v(180.0, 100.0)), (PK, v(130.0, 120.0))];
-        let shift = v(400.0, 250.0) - v(140.0, 110.0);
+        let shift = v(400.0, 250.0) - v(143.0, 107.0);
         assert_eq!(
             destinations(OPEN, &units, v(400.0, 250.0)),
             units.map(|(_, at)| Some(at + shift))
         );
     }
 
-    /// `> Group Destinations (Magic Box)`: inside the box, its edges included, everyone goes to the click.
+    /// `> Group Destinations (Magic Box)`: inside the box, its edges included, everyone goes to the click. The box
+    /// bounds the units' silhouettes (design change 0028).
     #[test]
     fn inside_the_box_everyone_goes_to_the_click() {
+        // The box is x 88..192, y 88..172.
         let units = [(PK, v(100.0, 100.0)), (PK, v(180.0, 100.0)), (PK, v(130.0, 160.0))];
-        for click in [v(140.0, 130.0), v(100.0, 100.0), v(180.0, 160.0), v(150.0, 100.0)] {
+        for click in [
+            v(140.0, 130.0),
+            v(100.0, 100.0),
+            v(180.0, 160.0),
+            v(88.0, 88.0),
+            v(192.0, 172.0),
+        ] {
             assert_eq!(destinations(OPEN, &units, click), [None; 3], "{click}");
         }
-        assert!(destinations(OPEN, &units, v(181.0, 130.0)).iter().all(Option::is_some));
-        // A perfect line is a box without area: only a click on the line itself is inside.
+        for click in [v(193.0, 130.0), v(140.0, 87.0)] {
+            assert!(destinations(OPEN, &units, click).iter().all(Option::is_some), "{click}");
+        }
+        // 0028: a straight line of units has a real box, as high as the units: x 88..192, y 188..212. A click on a
+        // unit or between two of them is inside; one just above or below the line is outside.
         let line = [(PK, v(100.0, 200.0)), (PK, v(140.0, 200.0)), (PK, v(180.0, 200.0))];
-        assert_eq!(destinations(OPEN, &line, v(150.0, 200.0)), [None; 3]);
+        for click in [v(150.0, 200.0), v(120.0, 209.0), v(160.0, 190.0), v(140.0, 212.0)] {
+            assert_eq!(destinations(OPEN, &line, click), [None; 3], "{click}");
+        }
         assert_eq!(
-            destinations(OPEN, &line, v(150.0, 201.0)),
-            line.map(|(_, at)| Some(at + v(10.0, 1.0)))
+            destinations(OPEN, &line, v(150.0, 213.0)),
+            line.map(|(_, at)| Some(at + v(10.0, 13.0)))
         );
     }
 

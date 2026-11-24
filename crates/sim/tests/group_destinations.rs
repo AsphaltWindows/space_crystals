@@ -131,7 +131,7 @@ fn a_click_inside_the_box_makes_the_group_converge() {
         assert_eq!(t.status(id), MoveStatus::Arrived, "#{id}\n{}", t.ascii(None));
     }
     // Bunched up: sixteen boxes of 24 su need a square of 96 su, so the farthest unit can't be much nearer than
-    // 68 su; it started 116 su away. Everyone ends within 1.5 GU of the click (`CROWDED_ARRIVAL_GU`).
+    // 68 su; it started 116 su away. Everyone ends within 2 GU of the click (`OCCUPIED_ARRIVAL_GU`, 0026).
     let farthest = |points: Vec<Vec2>| points.iter().map(|p| p.distance(click)).fold(0.0_f32, f32::max);
     let before = farthest(square.iter().map(|u| u.1).collect());
     let after = farthest((1..=16).map(|id| t.pos(id)).collect());
@@ -154,8 +154,8 @@ fn a_line_clicked_on_itself_closes_up() {
     run_until_done(&mut t, line.len(), 200);
     assert_nobody_failed(&t);
     assert_eq!(t.pos(3), click);
-    // Its neighbours close up to it, and the outer two stop at them, a step round them: each by crowded arrival,
-    // within 1.5 GU of the click (`docs/movement.md > 6.5`, rule 1).
+    // Its neighbours close up to it, and the outer two stop at them, a step round them: each by the occupied
+    // target rule, within 2 GU of the click (`docs/movement.md > 6.5`, rule 1).
     for (id, &(_, start)) in (1..=5).zip(&line) {
         assert_eq!(t.status(id), MoveStatus::Arrived);
         let (before, after) = (start.distance(click), t.pos(id).distance(click));
@@ -197,7 +197,8 @@ fn a_mixed_group_strings_out_and_its_fast_units_arrive_first() {
     assert!(last_guard < first_pk, "arrival ticks {done:?}");
     for (i, &(_, start)) in column.iter().enumerate() {
         assert_eq!(t.status(i as u32 + 1), MoveStatus::Arrived);
-        assert_eq!(t.pos(i as u32 + 1), start + v(800.0, 0.0));
+        // 0028: the box bounds the silhouettes, y 82 (the first Guard's top) to 412: its centre is (100, 247).
+        assert_eq!(t.pos(i as u32 + 1), start + v(800.0, 3.0));
     }
 }
 
@@ -225,6 +226,77 @@ fn an_offset_destination_on_a_cliff_or_off_the_map_is_retargeted() {
         assert_eq!(slot(&t, i as u32 + 1), Some(expected));
     }
     run_until_done(&mut t, line.len(), 400);
+    for (i, &expected) in slots.iter().enumerate() {
+        assert_eq!(
+            (t.status(i as u32 + 1), t.pos(i as u32 + 1)),
+            (MoveStatus::Arrived, expected)
+        );
+    }
+}
+
+/// 0028, Verification: "Line up units horizontally and right-click between two of them: the group converges." and
+/// "Right-click a few tiles above the line: the line moves there, keeping its shape." The box bounds the units'
+/// silhouettes, so the line's box is as high as its units.
+#[test]
+fn a_line_clicked_between_two_units_converges_and_clicked_above_keeps_its_shape() {
+    // Five Peacekeepers 40 su apart on y 300: the box is x 88..272, y 288..312, its centre (180, 300).
+    let line: Vec<(ObjectKind, Vec2)> = (0..5).map(|i| (PK, v(100.0 + 40.0 * i as f32, 300.0))).collect();
+    // Between the second and the third unit, a little below their centres.
+    let between = v(160.0, 305.0);
+    let mut t = ordered(OPEN, &line, move_to(between));
+    assert!((1..=5).all(|id| slot(&t, id).is_none()), "everyone goes to the click");
+    run_until_done(&mut t, line.len(), 200);
+    assert_nobody_failed(&t);
+    for (id, &(_, start)) in (1..=5).zip(&line) {
+        assert_eq!(t.status(id), MoveStatus::Arrived);
+        let (before, after) = (start.distance(between), t.pos(id).distance(between));
+        assert!(after <= before && after <= 64.0, "#{id} {after} su from the click");
+    }
+    let width = |t: &TestSim| t.pos(5).x - t.pos(1).x;
+    assert!(width(&t) < 110.0, "the line closed up from 160 su to {}", width(&t));
+
+    // Three tiles above the line: outside the box, so the line moves by one vector.
+    let above = v(180.0, 108.0);
+    let mut t = ordered(OPEN, &line, move_to(above));
+    for (id, &(_, start)) in (1..=5).zip(&line) {
+        assert_eq!(slot(&t, id), Some(start + v(0.0, -192.0)));
+    }
+    run_until_done(&mut t, line.len(), 100);
+    for (id, &(_, start)) in (1..=5).zip(&line) {
+        assert_eq!(
+            (t.status(id), t.pos(id)),
+            (MoveStatus::Arrived, start + v(0.0, -192.0)),
+            "#{id}"
+        );
+    }
+}
+
+/// 0025, Verification: "Move a line of units so that one unit's offset spot falls in water: that unit stops at the
+/// nearest shore; the others take their offset spots."
+#[test]
+fn a_unit_whose_offset_spot_is_in_water_stops_at_the_nearest_shore() {
+    // A pond on tiles (10..=12, 3..=5): x 640..832, y 192..384.
+    let map = "
+        ................
+        ................
+        ................
+        ..........~~~...
+        ..........~~~...
+        ..........~~~...
+        ................
+        ................
+    ";
+    // The box's centre is (200, 300); the click moves the line by (500, 0).
+    let line = [(PK, v(100.0, 300.0)), (PK, v(200.0, 300.0)), (PK, v(300.0, 300.0))];
+    let mut t = ordered(map, &line, move_to(v(700.0, 300.0)));
+    // (700, 300) is in the pond, 60 su from its west shore and 84 from its south shore: the unit stands against
+    // the west shore. (600, 300) is open ground; (800, 300) is in the pond, 32 su from its east shore.
+    let slots = [v(600.0, 300.0), v(628.0, 300.0), v(844.0, 300.0)];
+    for (i, &expected) in slots.iter().enumerate() {
+        assert_eq!(slot(&t, i as u32 + 1), Some(expected));
+    }
+    run_until_done(&mut t, line.len(), 400);
+    assert_nobody_failed(&t);
     for (i, &expected) in slots.iter().enumerate() {
         assert_eq!(
             (t.status(i as u32 + 1), t.pos(i as u32 + 1)),

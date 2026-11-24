@@ -220,13 +220,16 @@ fn state_hash_covers_every_field() {
         ("mover nav_version", |s| mover(s, 3).nav_version += 1),
         ("planned_target", |s| mover(s, 3).planned_target.x += 1.0),
         ("repaths_left", |s| mover(s, 3).repaths_left -= 1),
-        ("repath_ready_at", |s| mover(s, 3).repath_ready_at += 1),
+        ("last_repath", |s| mover(s, 3).last_repath += 1),
         ("avoid_tiles", |s| mover(s, 3).avoid_tiles.clear()),
         ("best_remaining", |s| mover(s, 3).best_remaining = 7.0),
         ("last_progress", |s| mover(s, 3).last_progress += 1),
         ("blocked_ticks", |s| mover(s, 3).blocked_ticks += 1),
         ("avoid_side", |s| mover(s, 3).avoid_side = crate::mover::Side::Left),
         ("avoid_until", |s| mover(s, 3).avoid_until += 1),
+        ("sidestep", |s| {
+            mover(s, 3).sidestep = Some(crate::mover::Sidestep::new(Vec2::X, 24.0, 4.0, 0, None));
+        }),
         ("attack none", |s| obj(s, 3).attack = None),
         ("attack target", |s| attack(s, 3).target = Some(ObjectId(1))),
         ("attack target none", |s| attack(s, 3).target = None),

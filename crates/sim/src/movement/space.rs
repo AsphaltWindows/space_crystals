@@ -20,11 +20,7 @@ use crate::units::{SU_PER_GU, Tick};
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct Body {
     pub id: ObjectId,
-    /// For the exceptions of [`blocks`] (crushing spares friendly units).
-    #[allow(
-        dead_code,
-        reason = "read by the crushing exception of `blocks`, which a later slice adds"
-    )]
+    /// For friendly yielding (`super::yielding`) and the exceptions of [`blocks`] (crushing spares friendly units).
     pub owner: Option<PlayerId>,
     pub pos: Vec2,
     pub half: Vec2,
@@ -37,6 +33,9 @@ pub(crate) struct Body {
     pub progress: Option<Tick>,
     /// For a unit whose latest move ended `Arrived`: that move's order group (`Mover::group`).
     pub arrived_with: Option<u32>,
+    /// Whether it steps aside for a blocked unit of its owner (`super::yielding::can_yield`, design changes 0022
+    /// and 0023).
+    pub yields: bool,
 }
 
 /// `docs/movement.md > 6.1`: whether `other` is an obstacle for `mover`, both of one layer. **The single place for

@@ -67,7 +67,7 @@ fn turned_90(d: Vec2, side: Side) -> Vec2 {
 }
 
 impl World<'_> {
-    fn body(&self) -> &Body {
+    pub(super) fn body(&self) -> &Body {
         &self.bodies[self.me]
     }
 
@@ -135,7 +135,7 @@ impl World<'_> {
 
     /// Whether the whole move from `pos` along `d` is free of tiles and units. A unit in the way is noted in
     /// `touched`.
-    fn clear(&mut self, pos: Vec2, d: Vec2, touched: &mut Vec<usize>) -> bool {
+    pub(super) fn clear(&mut self, pos: Vec2, d: Vec2, touched: &mut Vec<usize>) -> bool {
         if !self.tiles_free(pos, d) {
             return false;
         }
@@ -200,6 +200,21 @@ impl World<'_> {
             return self.up_to(pos, to - pos, hit);
         }
         if self.is_free(to) { to } else { pos }
+    }
+
+    /// The sidestep of a yielding unit (`docs/movement.md > 6.6`): `pos` moved by `d` if the whole move is free,
+    /// else by its two axis components one after the other, the larger first, each as far as tiles and units
+    /// allow. The units in the way are noted in `touched`.
+    pub(super) fn shuffle(&mut self, pos: Vec2, d: Vec2, touched: &mut Vec<usize>) -> Vec2 {
+        if d == Vec2::ZERO {
+            return pos;
+        }
+        if self.clear(pos, d, touched) {
+            return pos + d;
+        }
+        let first = if d.x.abs() >= d.y.abs() { 0 } else { 1 };
+        let at = self.along_axis(pos, first, d[first], touched);
+        self.along_axis(at, 1 - first, d[1 - first], touched)
     }
 
     /// `docs/movement.md > 6.3`: one unit's move of `d` from `pos` towards its steering target. `snap` is the
@@ -382,6 +397,7 @@ mod tests {
             stationary: id == 2,
             progress: None,
             arrived_with: None,
+            yields: false,
         };
         // An idle Guard, x 502..538 and y 372..408. A Peacekeeper against its east face heads for a point north-west
         // of it; a head-on contact would make it step south.

@@ -39,6 +39,8 @@ pub struct Violation {
 struct Seen {
     pos: Vec2,
     had_goal: bool,
+    /// It was taking a sidestep for a blocked unit of its owner (design change 0022).
+    sidestepping: bool,
     repaths_left: u8,
     /// The tick its current order started, the leg's identity.
     leg: Option<Tick>,
@@ -58,6 +60,7 @@ fn seen(o: &Object, mover: &Mover) -> Seen {
     Seen {
         pos: o.pos,
         had_goal: mover.goal != MoveGoal::None,
+        sidestepping: mover.sidestep.is_some(),
         repaths_left: mover.repaths_left,
         leg: leg_of(o),
     }
@@ -133,23 +136,34 @@ impl Invariants {
                     format!("was moved outside the movement step: {} to {}", before.pos, o.prev_pos),
                 );
             }
-            // I5, I7: a unit without a goal doesn't move, so an Arrived unit never moves again without an order.
-            // It may move in a tick it ends without a goal only if it had one before, or an order started.
+            // I5, I7: a unit without a goal doesn't move, so an Arrived unit never moves again without an order,
+            // except by the one short sidestep it takes for a blocked unit of its owner (design change 0022).
+            // It may move in a tick it ends without a goal only if it had one before, an order started, or it was
+            // taking a sidestep.
             let had_goal = before.is_some_and(|b| b.had_goal);
+            let sidestepping = before.is_some_and(|b| b.sidestepping);
             let order_started = leg_of(o) == Some(tick);
-            if o.pos != o.prev_pos && mover.goal == MoveGoal::None && !had_goal && !order_started {
+            if o.pos != o.prev_pos && mover.goal == MoveGoal::None && !had_goal && !order_started && !sidestepping {
                 return fail(
                     "I5/I7",
-                    format!("moved from {} to {} without a goal or a new order", o.prev_pos, o.pos),
+                    format!(
+                        "moved from {} to {} without a goal, a new order or a sidestep",
+                        o.prev_pos, o.pos
+                    ),
                 );
             }
-            // A finished move leaves the unit standing (`docs/movement.md > 6.5`).
+            // A finished move leaves the unit standing (`docs/movement.md > 6.5`), and so does a finished sidestep.
             if mover.goal == MoveGoal::None
-                && (mover.velocity != Vec2::ZERO
-                    || mover.locomotion != Locomotion::Stationary
+                && ((mover.sidestep.is_none()
+                    && (mover.velocity != Vec2::ZERO || mover.locomotion != Locomotion::Stationary))
                     || mover.path_state != PathState::None)
             {
                 return fail("I7", format!("has no goal but isn't at rest: {mover:?}"));
+            }
+            // Only a unit without a goal and without an order takes a sidestep (design change 0023).
+            let idle = o.orders.as_ref().is_some_and(|orders| orders.is_idle());
+            if mover.sidestep.is_some() && (mover.goal != MoveGoal::None || !idle) {
+                return fail("I7", format!("sidesteps though it has a goal or an order: {mover:?}"));
             }
             if mover.goal != MoveGoal::None && mover.status != MoveStatus::Moving {
                 return fail("I7", format!("has a goal with status {:?}", mover.status));
@@ -240,6 +254,7 @@ fn floats_finite(o: &Object) -> bool {
             && m.speed_factor.is_finite()
             && m.planned_target.is_finite()
             && m.best_remaining.is_finite()
+            && m.sidestep.is_none_or(|s| s.dir.is_finite() && s.left.is_finite())
             && m.path.iter().all(|p| p.is_finite())
     });
     let orders = o.orders.as_ref().is_none_or(|orders| {

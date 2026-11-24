@@ -23,6 +23,10 @@
 - **Group destinations follow the magic box** (design change 0021, answering G1): slice M replaced the slots of 6.4.
   Its changes are marked **(M)**. The code is `crates/sim/src/orders/destinations.rs`, `nav::reachable_point`, the
   group field of `nav::serve`, and one steering fix the new group shapes exposed (6.3, `movement/collide.rs`).
+- **Friendly yielding, the give-up schedule and occupied targets follow the design** (design changes 0022–0028,
+  answering G2–G5 and question Q0015): slice Y built 6.6, changed 5.6 and 6.5, and drew the magic box around the
+  silhouettes (6.4). Its changes are marked **(Y)**. The code is `crates/sim/src/movement/yielding.rs`,
+  `movement/stuck.rs` and `mover.rs`.
 
 Design references are `file.md > Section`, relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -35,14 +39,14 @@ Every number marked *(placeholder)* becomes a named const tagged with the questi
 | M1 units | Peacekeeper: LightInfantry, 24×24 su, 4 su/tick (2 with Riot Shield up), Range 4 GU, Sight 5 GU. Guard: HeavyInfantry, 36×36, 5 su/tick, Range 3 GU. Both: TurnRate 180°/tick, infinite acceleration and deceleration, so M1 kinematics are instant | `factions/gdo/units.md > Peacekeeper`, `factions/syndicate/units.md > Guard` |
 | Later range | Silhouettes 24–60 su so far (vehicles TBD, may exceed a tile); speeds 4–8 su/tick; five movement models (TurnRate, FixedTurnRadius, SpeedTurnRadius, Drag, Glider) | `systems/units.md > MovementModel` ff., faction unit files |
 | Domains | Ground, Air, Underground per UnitBase | `systems/units.md > UnitBase` |
-| Ground collision | Hard, never overlapping; shape is the Silhouette rectangle; **idle units do not move aside**; moving units path around occupied space; ground units collide with ground units and structures | `systems/units.md > UnitCollision > Ground Collision` |
+| Ground collision | Hard, never overlapping; shape is the Silhouette rectangle; **(Y) friendly yielding**: an idle unit takes one short sidestep for a blocked moving unit of its owner (not on Hold, not busy, not if it can't move, not for its own group order); enemies never yield, and moving units never yield or swap; moving units path around occupied space; ground units collide with ground units and structures | `systems/units.md > UnitCollision > Ground Collision` (0022, 0023, 0027) |
 | Air collision | None with ground or structures; soft separation among air units (SeparationRadius) | `> Air Collision` |
 | Crushing | Moving TrackedVehicle/Mech pass through and kill enemy LightInfantry; not friendly; stationary crushers are solid | `> Crushing` (not M1, but the collision filter must allow it) |
 | Sub-tile lanes | A 64 su gap fits two 24 su units side by side, one lane each way | `factions/cults/units.md > Recruit` (throughput note) |
 | Terrain | Non-Traversible tiles block ground units. RuggedTerrain = true bases (infantry, Mech) cross Rugged tiles. Drill units travel on Drillable tiles | `core/map.md > Tile`, `systems/units.md > UnitBase`, `> DrillUnit` |
 | Elevation | Slopes change neither speed nor path cost; cliffs are non-Traversible tiles; corners are shared, so two adjacent Traversible tiles are always connected | `core/map.md > Elevation` |
 | Underground | Expansions are walked over by surface units | `factions/syndicate/structures.md > Tunnel Expansions` |
-| Move | To a location or an object; ends with Stopping, complete when stopped; completes "within proximity" of an object; on repeated failure to progress: stop, complete | `systems/controls/behaviors.md > MovingToLocation`, `> MovingToObject` |
+| Move | To a location or an object; ends with Stopping, complete when stopped; completes "within proximity" of an object; on repeated failure to progress: stop, complete. **(Y)** Stuck after 24 ticks without getting closer, 3 re-route attempts after waits of 8, 16 and 32 ticks, then give up (0024); an unreachable target becomes the nearest reachable point (0025); stuck within 2 GU of the target behind units that aren't moving is arrived (0026) | `systems/controls/behaviors.md > MovingToLocation`, `> MovingToObject` |
 | Chase | AttackingObject approaches until the target is within Range, beyond MinRange and in facing; resumes when it leaves range. Infantry (UnitBaseSource) cannot move during Aiming, Firing, Cooldown | `> AttackingObject`, `systems/combat.md > AttackPhase` |
 | Range | ±1 GU by elevation level difference, ground and underground only | `core/vision.md > ElevationModifier` |
 | AttackMove, Patrol | Leash 6 GU perpendicular to the path, recompute the path on resuming; Patrol swaps legs forever | `> AttackMovingToLocation`, `> Patrolling` |
@@ -50,7 +54,7 @@ Every number marked *(placeholder)* becomes a named const tagged with the questi
 | Hold, Stop | Hold: Locomotion Stationary always, never completes. Stop: Stopping, then no behaviour | `> HoldingPosition`, `> StoppingBehavior` |
 | Queue | Shift appends, otherwise the command replaces the whole queue; next order starts when the current behaviour completes | `systems/controls/commands.md > Unit Command` |
 | Channels | Locomotion (Moving, Reversing, Stopping, Stationary) and Orientation (Turning, Maintaining) are named state; combat and crushing read them | `behaviors.md > BaseActionChannels`, `combat.md > LocomotionOrientationConstraints` |
-| Group moves | **(M)** The magic box: a location order (Move, AttackMove, Patrol) to several units keeps their arrangement when the click is outside the bounding box of their positions (each goes to the click plus its offset from the group's centre) and converges on the click when it is inside. No formation movement. Selection has no size limit | `systems/controls/commands.md > Group Destinations (Magic Box)`, `systems/controls/selection_and_hud.md` |
+| Group moves | **(M)** The magic box: a location order (Move, AttackMove, Patrol) to several units keeps their arrangement when the click is outside the bounding box of their silhouettes (**(Y)**, 0028; each goes to the click plus its offset from the group's centre) and converges on the click when it is inside. No formation movement. Selection has no size limit | `systems/controls/commands.md > Group Destinations (Magic Box)`, `systems/controls/selection_and_hud.md` |
 
 ## 2. Design gaps and contradictions
 
@@ -59,10 +63,10 @@ Top five first. Each default is what this design implements until answered.
 | # | Question | Proposed default |
 |---|---|---|
 | G1 | Several units are ordered to one point and cannot all stand on it. Where does each end up? | **(M) Answered by 0021** (Q0007, part 1): the magic box, 6.4. The default proposed here, a compact lattice of slots around the point, was rejected. Units move at their own speed, not the slowest's |
-| G2 | **Contradiction with the Director's brief**, which assumes idle units make way. `units.md > Ground Collision` says they don't. Confirm: no pushing or yielding at all, even for own units blocking a chokepoint? | As the spec says: no pushing. The design has a hook for a later "yield" (section 6) |
-| G3 | With hard collision and no yielding, two units meeting head-on in a corridor too narrow to pass (two Guards, 72 su, in one tile) deadlock. Is "both give up and stop" intended? | Yes, by the Failure rule. Alternative to offer: moving friendly units may swap places |
-| G4 | "Repeatedly fails to make progress" has no numbers. | Stuck after 24 ticks without progress; at most 3 repaths per order with 8/16/32-tick backoff; then fail (about 7 s in total) |
-| G5 | Move target that cannot be reached (cliff, water, inside a structure, cut-off area), or whose point is occupied by a unit that won't move. | Go to the reachable point nearest the target and complete there. Complete when stuck within 1.5 GU of the goal behind stationary units |
+| G2 | **Contradiction with the Director's brief**, which assumes idle units make way. `units.md > Ground Collision` says they don't. Confirm: no pushing or yielding at all, even for own units blocking a chokepoint? | **(Y) Answered by 0022, 0023 and 0027**: idle own units yield with one short sidestep (6.6). The default here was "no pushing" |
+| G3 | With hard collision and no yielding, two units meeting head-on in a corridor too narrow to pass (two Guards, 72 su, in one tile) deadlock. Is "both give up and stop" intended? | **(Y) Answered by 0022**: yes, both give up; moving units never yield or swap |
+| G4 | "Repeatedly fails to make progress" has no numbers. | **(Y) Answered by 0024** with these numbers: stuck after 24 ticks without progress; at most 3 repaths per order after waits of 8, 16 and 32 ticks; then fail (about 7 s in total). The schedule is 5.6 |
+| G5 | Move target that cannot be reached (cliff, water, inside a structure, cut-off area), or whose point is occupied by a unit that won't move. | **(Y) Answered by 0025 and 0026**: go to the reachable point nearest the target and complete there; arrived when stuck within **2 GU** of the goal behind units that aren't moving (6.5, rule 1) |
 | G6 | Does the Silhouette rectangle rotate with facing? All specified ones are square. | Axis-aligned, never rotates. Must be answered before the first non-square unit |
 | G7 | How are Range and "within proximity" measured for large targets? | From the unit's centre to the nearest point of the target's silhouette or footprint. Proximity: boxes within 8 su (as MiningReach) |
 | G8 | The attack target leaves the attacker's owner's vision during a chase. | Go to its last seen position, then the order completes |
@@ -106,9 +110,10 @@ pub struct Mover {
     group: Option<u32>,                                 // (D) the order group of this goal, kept after it ends (6.5)
     path: Vec<Vec2>, next: u16, path_state: PathState,  // PathState: None | Wanted { since: Tick } | Ready
     nav_version: u32, planned_target: Vec2,             // staleness checks
-    repaths_left: u8, repath_ready_at: Tick, avoid_tiles: Vec<TilePos> /* cap 16 */,
+    repaths_left: u8, last_repath: Tick /* (Y) */, avoid_tiles: Vec<TilePos> /* cap 16 */,
     best_remaining: f32, last_progress: Tick, blocked_ticks: u16,
     avoid_side: Side, avoid_until: Tick,
+    sidestep: Option<Sidestep>,                         // (Y) the sidestep of a yielding unit (6.6)
 }
 ```
 
@@ -200,22 +205,28 @@ remains and always finishes, so every request is served within bounded time. Uni
   the anchor's tile, and a group moved over open ground sees all of its goals, so both still cost one field.
 - The budget counts expansions, never time, so it is deterministic.
 
-**5.6 Repath policy.** Per order leg, `repaths_left = MAX_REPATHS` (3, G4). Every counted repath waits for
-`repath_ready_at`; the backoff doubles (8, 16, 32 ticks).
+**5.6 Repath policy.** Per order leg, `repaths_left = MAX_REPATHS` (3, design change 0024). **(Y)** Every counted
+repath waits `REPATH_WAITS` (8, 16, 32 ticks) since the unit became stuck or since the repath before
+(`Mover::last_repath`), whichever is later.
 
 | Trigger | Check | Counts against the cap |
 |---|---|---|
-| Stuck (6.5) | every tick, cheap | yes; at 0 the status becomes `Failed` |
+| Stuck (6.5) | every tick, cheap | yes; with none left, `Failed` 24 ticks after the last one |
 | `nav_version` changed | once, on the unit's stagger tick: LOS along the remaining path; repath only if a segment is now blocked | no (bounded by how often the map changes) |
 | Chase target moved | target is farther than `max(1 GU, 25 % of the distance)` from `planned_target`; at most every 8 ticks | no (rate-limited); slice E |
-| Lost LOS to the steering waypoint | on the stagger tick, after being pushed off the path by sidesteps, **(D)** and only after 12 ticks without progress | yes |
+| Lost LOS to the steering waypoint | on the stagger tick, after being pushed off the path by sidesteps, **(Y)** and only when a stuck repath is due (the schedule below; slice D had 12 ticks without progress) | yes |
 
 Stagger tick: `(tick + id) % 4 == 0`. While a chaser has LOS to its target it steers straight at it with no path.
 
-**(D)** Timing. The stuck clock restarts with every counted repath (`Mover::stuck_clock`), so each new path gets
-`STUCK_TICKS` to show progress, and the backoff only matters where it is longer (the last one). A unit that never
-gets on repaths 24, 48 and 72 ticks after its last progress and fails at 104 ticks (6.5 s), the "about 7 s" of G4.
-A unit that lost sight of its waypoint but is still getting on slides back by itself and keeps its repaths.
+**(Y)** Timing, as design change 0024 words it (`systems/controls/behaviors.md > MovingToLocation > Failure`). A
+unit is **stuck** when 24 ticks have passed without progress (`Mover::is_stuck`; nothing restarts that clock but
+progress). A stuck unit waits 8 ticks and tries another route, waits 16 and tries again, waits 32 and tries a third
+time; if it is still stuck 24 ticks after the third attempt, it gives up (`Mover::recovery_due`). So a unit that
+never gets on repaths 32, 48 and 80 ticks after its last progress and fails at 104 ticks (`GIVE_UP_TICKS`, 6.5 s:
+the design's "about 7 s"). A unit that gets on after a repath is stuck again 24 ticks after its last progress, and
+its next wait runs from then. Slice D had repaths at 24, 48 and 72 ticks, each restarting the stuck clock, with the
+same 104. A unit blocked for less than 24 ticks never repaths. A unit that lost sight of its waypoint but is still
+getting on slides back by itself and keeps its repaths.
 
 **5.7 Dynamic obstacles.** A building placed or removed sets a dirty flag; 5b rebuilds grids and components in full
 (65k tiles, about 1 ms, and rare). Units are never in the NavGrid. Stationary units reach the search only
@@ -286,7 +297,8 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
   units) velocity is `d` itself. Other movement models replace only this "desired direction → velocity and facing"
   step; path following and collision stay shared.
 - A unit counts as **stationary** for others when its locomotion is Stationary or `blocked_ticks ≥ 12`.
-- Units with `goal = None` never move: idle units are never displaced (G2).
+- **(Y)** A unit with `goal = None` moves only by its own sidestep for a blocked unit of its owner (6.6); nothing
+  pushes it.
 - **(D) No overlap by construction, in floats.** A position is committed only if it passes the overlap predicates
   of I1 and I2 against the tiles and every unit where it stands now (`World::is_free`); a candidate that fails by a
   rounding corner case is dropped and the unit stays. The sweep works on the same differences as the predicate
@@ -297,18 +309,19 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
 (`systems/controls/commands.md > Group Destinations (Magic Box)`). At command application (phase 4), a location
 order (Move to a point, AttackMove, Patrol) to more than one unit gives each unit its own destination
 (`Order::slot`, `orders/destinations.rs`):
-- The **box** is the bounding rectangle of the units' positions (their centres). The design doesn't define the
-  **group's centre**; it is the box's centre (for a symmetric group also the centroid), so a group arrives centred on
-  the click.
+- **(Y)** The **box** is the bounding rectangle of the units' full Silhouettes, their collision boxes (design
+  change 0028; slice M took their centres). The **group's centre** is the box's centre, so a group arrives centred
+  on the click.
 - **Click inside the box, edges included: converge.** Every unit goes to the click itself (`slot = None`), and those
-  the crowd blocks stop by 6.5 rule 1: within 1.5 GU of the click behind a stationary unit, or at any distance behind
-  one that arrived with the group, after a repath. A group in a perfect line has a box without area, so only a click
-  on the line converges.
+  the crowd blocks stop by 6.5 rule 1: **(Y)** within 2 GU of the click behind units that won't move, which the
+  members that arrived before them are (they don't yield to their own group order, 6.6). A unit shut out farther
+  than that re-routes and gives up. A group in a line has a box as high as its units, so a click on or between
+  them converges it.
 - **Click outside: keep the arrangement.** Every unit goes to its position plus the vector from the box's centre to
   the click, so the group arrives in the shape it had.
 - **No formation movement**: each unit goes at its own speed, and a mixed group strings out. The box comes from the
   positions when the command applies, for a Shift-queued order too.
-- **Unreachable destinations** (TBD in the design, question Q0008; these defaults until it is answered): a
+- **Unreachable destinations** (**(Y)** design change 0025 confirms this: the reachable point nearest the target): a
   destination beyond the map's edge is clamped so that the unit's box lies inside the map. A destination the unit
   can't stand on (a blocked tile, a box not clear of one, another component) moves to the nearest point it can stand
   on (`nav::reachable_point`): in rings of tiles outward from it, the point of each tile of the unit's component
@@ -323,35 +336,76 @@ order (Move to a point, AttackMove, Patrol) to more than one unit gives each uni
 **6.5 Stuck detection and recovery.** Progress = remaining path length to the goal. `last_progress` updates when it
 beats `best_remaining` by half a step. Following a slower unit is progress. A unit is **stuck** after
 `STUCK_TICKS` = 24 without it. Then, in order:
-1. **Crowded arrival**: goal is a point within 1.5 GU and the blocker is stationary → `Arrived` (G5). **(D)** Also,
-   at any distance, when the blocker arrived on a move of the same order group (`Mover::group`) and the unit has
-   already tried another way (a repath). **(M)** A converging group (6.4) sends every unit to the same point, so
-   earlier arrivals wall it in; with the radius alone, the units of a larger group that come last jostled for 6.5 s
-   and failed. Now the group fills up outwards from the point.
+1. **(Y) Occupied target** (design change 0026, `systems/controls/behaviors.md > MovingToLocation > Occupied target
+   location`): the goal is a point within `OCCUPIED_ARRIVAL_GU` = 2 GU, and the unit in the way is stationary and
+   won't move for this unit → `Arrived`, with no repath. **Yielding comes first**: a blocker that yields to this
+   unit (6.6) has been asked to step aside, so the rule is for blockers that stay: units that arrived with its own
+   group order, units on Hold, busy units, enemies, units that can't move, and a yielding unit that found no room.
+   **Timing**: this rule alone doesn't wait for the stuck clock when the blocker has no goal of its own (it will
+   never move on): the unit has arrived once it found no way forward for `JAMMED_TICKS` = 12 in a row. Behind a
+   stationary unit that has a goal (jammed for now) it applies when the unit is stuck, 8 ticks before the first
+   repath. Slice D's stand-in "arrived at any distance behind a unit of its own order group, after a repath" is
+   gone: a unit shut out farther than 2 GU from its destination re-routes and fails.
 2. **Queueing**: chasing a target and blocked by stationary friendly units attacking the same target → keep waiting,
    re-check every 16 ticks; no repath, no failure. (Slice E; the hook is `movement::stuck::queues_behind`.)
-3. **Repath**, if `repaths_left > 0`. **(D)** The tile of the stationary unit in the way is added to `avoid_tiles`:
+3. **Repath**, if `repaths_left > 0`, when its wait is over (5.6). **(D)** The tile of the stationary unit in the way is added to `avoid_tiles`:
    at once if that unit has no goal; if it is on its way itself (only jammed for now), from the second repath on,
    the first being a plain retry. If the blocker stands in the unit's own tile (the start tile is never avoided),
    the neighbouring tile on the blocker's side is taken; the goal's tile is never taken.
-4. Otherwise → `Failed`; the behaviour stops and completes (`behaviors.md > Failure`).
+4. Otherwise, 24 ticks after the last repath → `Failed`; the behaviour stops and completes (`behaviors.md >
+   Failure`).
 
 **(D)** Three refinements, each from a failing scenario:
 - **Waiting behind a unit that is getting on is progress.** A unit blocked by one that has a goal takes over that
   unit's `last_progress` if it is later. A queue at a choke isn't stuck while its head moves; units that block each
   other for good share a clock that stands still. Without it, 20 units at a one-tile choke burnt their repaths
   waiting their turn and failed.
-- **A new path is no progress.** Its first measure only sets `best_remaining`; the stuck clock restarts through the
-  repath itself (5.6), not through `last_progress`, which others take over.
-- **Grace.** A stuck unit that touches no unit in that tick (it just stepped around one) waits up to 8 ticks to
-  meet its blocker again, so that rules 1 and 3 can see it.
+- **A new path is no progress.** Its first measure only sets `best_remaining`; **(Y)** and nothing else restarts
+  the stuck clock (5.6).
+- **Grace.** A unit due for a repath or for giving up that touches no unit in that tick (it just stepped around
+  one) waits up to 8 ticks to meet its blocker again, so that rules 1 and 3 can see it.
 
-An `Arrived` or `Failed` unit is Stationary and has no goal, so it cannot oscillate. Friendly and enemy units block
-alike; a unit reacts to an enemy only on contact, so pathing leaks nothing about unseen units.
+An `Arrived` or `Failed` unit is Stationary and has no goal, so it cannot oscillate; **(Y)** it moves again only by
+a sidestep (6.6). A unit reacts to an enemy only on contact, so pathing leaks nothing about unseen units.
 
-**6.6 If G2 or G3 come back "yes".** Yield: a mover blocked by an idle friendly unit sets a one-shot
-`yield_request` on it, and that unit takes a single sidestep through the same 6.3 pipeline. Swap: two friendly
-movers in mutual head-on block exchange positions. Both fit in 6.3 without restructuring; neither is built in M1.
+**6.6 Friendly yielding. (Y)** Design changes 0022, 0023 and 0027 (`systems/units.md > UnitCollision > Ground
+Collision > Friendly yielding`); the code is `movement/yielding.rs`. A moving unit blocked by an **idle** unit of
+its own owner asks it to make way, and the idle unit takes **one short sidestep**. Collision stays hard: the
+sidestep is a real move, committed through the same predicates as every other (`World::is_free`), in the unit's
+own turn of phase 5d.
+- **Who yields** (`can_yield`): a unit with an owner and **no active command** (no current order, none queued; Hold
+  is a command, so units on Hold never yield), without a goal, not in an attack sequence (Aiming, Firing or
+  Cooldown; `AttackState::phase`), and able to move in its current mode (`Mover::can_move`: modes that only slow
+  it, such as a raised Riot Shield, don't matter, and it sidesteps at that speed; **the hook** for a deployed or
+  deploying Artillery Rig, which will answer `false`). Enemies and nobody's units never yield. Moving units never
+  yield or swap, friendly or not: two of them head-on in a passage too narrow to pass both still end `Failed`.
+- **Not within the same group order** (0027, `yields_to`): a unit that `Arrived` under a group order doesn't yield
+  to members of that order that are still arriving (`Mover::group`; a later order of either clears it). They stop
+  against it by 6.5 rule 1. To every other unit of its owner it yields.
+- **Requests** (`ask`, `apply`): the mover asks the first unit that blocked its way this tick (`Moved::blocker`),
+  whatever it then did about it. Requests are collected while the units move, in id order, and applied when all
+  have moved: the first one a unit gets wins (the lowest id that asked), and it sets `Mover::sidestep`, which is
+  hashed and serialized state. The sidestep begins in the next tick. The spawn rule and the phase order are
+  unchanged.
+- **The sidestep** (`Sidestep`, `sidestep`): the unit steps at 45° to the mover's way, half across it and half
+  along it, so it leaves the lane and the mover at once. Across the way it goes to the side of the mover's line it
+  already stands on; within `YIELD_CENTRED_SU` = 4 su of that line, to the side the mover isn't going round on, so
+  the two never chase each other. It goes as far as takes its box out of the mover's lane, at most
+  `YIELD_SIDESTEP_WIDTHS` = 1 of its own width *(placeholder, TBD in the design)* and at least 1 su, at its current
+  speed, without turning (every M1 unit turns in place; other movement models will need their own). It moves the
+  whole step if that is free, else each axis as far as tiles and units allow. It ends when the distance is done or
+  after the time the distance takes plus `YIELD_WAIT_TICKS` = 4, and the unit **stays where it got to**: there is
+  no way back. A mover still blocked then asks again.
+- **Dense idle groups**: a sidestep that another idle unit of the owner blocks passes the request on to it, the
+  same way and for the distance still to go, at most `YIELD_CHAIN_DEPTH` = 4 units deep (one tick per link). A unit
+  that finds no room stands, counts as stationary, and is an ordinary blocker to the mover (6.5). Chaining was
+  chosen over "blocked means ordinary blocker" because a unit can't walk through a tight group of its own without
+  it; the depth bounds the cost.
+- **Known limits.** A sidestep straight across the mover's way was tried first: a line of movers facing an idle
+  group as wide as itself then had nowhere to send it (each unit stepped into its neighbour's lane), and a third of
+  them gave up. With the 45° step such a line gets through, but it shoves the idle group ahead of itself, a few
+  widths at a time. An idle unit plugging a passage as narrow as itself has nowhere to step and stays an ordinary
+  blocker. Swapping of two moving units is not built (0022 rules it out).
 
 ## 7. Numbers: f32, not fixed point
 
@@ -379,6 +433,8 @@ movers in mutual head-on block exchange positions. Both fit in 6.3 without restr
   I1 no two units of a layer overlap; I2 no ground box overlaps a blocked tile or leaves the map;
   I3 `|pos − prev_pos| ≤ max_speed`; I4 all floats finite; I5 a unit with no goal doesn't move;
   I6 repaths per order ≤ `MAX_REPATHS`, request age bounded; I7 an `Arrived` unit never moves again without an order.
+  **(Y)** I5 and I7 allow the one exception of 6.6: a unit without a goal may move while it has a `Mover::sidestep`,
+  and only a unit without a goal and without an order may have one.
   **(D)** The switch (`TestSim::check_invariants`) is on by default, so every test that uses a `TestSim` runs them;
   `sc_sim::testing::invariants` has the checker for tests that step a bare `Sim`.
 - **Scenario tests** (`crates/sim/tests/movement_*.rs`, inline ASCII maps): straight move arrives exactly at
@@ -390,10 +446,19 @@ movers in mutual head-on block exchange positions. Both fit in 6.3 without restr
   (`crates/sim/tests/group_destinations.rs`, 0021's Verification): a line ordered far away arrives as the same line
   centred on the click; a click inside the box converges with nobody failing; a mixed group strings out, fast units
   first; offset destinations on a cliff or off the map are retargeted; a single unit goes to the click as before.
+  **(Y)** Yielding, occupied targets and the schedule (`crates/sim/tests/movement_yield.rs`, the Verification lists
+  of 0022–0027): a unit walks through its owner's idle group and around an enemy's; two own units head-on in a
+  corridor both give up; Hold units, attacking units and units that can't move don't budge; a slowed unit yields at
+  its speed; twelve units converge without shuffling or re-routing and then step aside for another unit; a unit
+  three tiles behind a wall of Hold units re-routes and gives up, one within 2 GU arrives; a boxed-in unit repaths
+  at 32, 48 and 80 ticks and gives up at 104; a unit blocked for 20 ticks never repaths; a save in the middle of a
+  sidestep continues identically. The 18-v-18 runs print their counts.
 - **Oscillation**: distance travelled ≤ 1.5 × path length + c; reversals of velocity along the path ≤ a small bound.
 - **Determinism**: same run twice, per-tick hashes equal; replay round trip; **save at tick k, load, continue**:
   hashes equal (catches hidden unserialized state); **golden hashes** for three scenarios as committed constants.
-- **Soak**: seeded random orders, 200 units, random maps, 2 000 ticks: invariants hold, no panic.
+- **Soak**: seeded random orders, 200 units, random maps, 2 000 ticks: invariants hold, no panic. **(Y)** Every
+  move ends within `GIVE_UP_TICKS` and the grace of its last progress, and of the moves that end at most 60 % fail
+  in a seed and 35 % overall (16 % with yielding, 32 % before).
 - **Perf**: an `#[ignore]` test printing ms per tick for 500 units on 256×256, plus CI assertions on the counters.
 - **QA**: `TestSim::ascii()` renders the map with units as letters for readable failures; a client path overlay
   (waypoints, destinations, status colours) behind a debug key and flag; client replay playback (`--replay <file>`), so a
