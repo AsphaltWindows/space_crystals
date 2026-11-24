@@ -42,7 +42,7 @@ Holding **Shift** while dragging a box **adds** the box's result (after the prio
 ### Empty clicks and boxes (user, 2026-11-23)
 - A plain click on empty ground, or a plain box that captures nothing, **clears** the selection.
 - Shift-click or Ctrl-click on empty ground does **nothing** (selection kept).
-- TBD: Ctrl+Shift click (placeholder: acts as a Ctrl-click, Ctrl wins).
+- Ctrl+Shift-click on empty ground also does nothing. (Ctrl+Shift-click on an own unit: see MapClickSelection.)
 
 ## MapClickSelection
 Selection by clicking objects on the map (as opposed to portraits in the SelectionPanel). Default inputs (user, 2026-11-23):
@@ -53,6 +53,7 @@ Selection by clicking objects on the map (as opposed to portraits in the Selecti
 | Shift-click own unit | Toggle that unit in the selection: add it if not selected, remove it if selected |
 | Ctrl-click own unit | Select all own units of that type currently on screen |
 | Double-click own unit | Same as Ctrl-click |
+| Ctrl+Shift-click own unit | **Add** all own units of that type currently on screen to the current selection (never removes; user, 2026-11-23) |
 
 The Selection Constraints above still apply (e.g. an enemy or neutral object is always selected alone).
 
