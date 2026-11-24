@@ -458,8 +458,9 @@ fn json_round_trip_keeps_every_float_bit() {
         o.prev_pos = Vec2::new(random_finite(), random_finite());
         (o.facing, o.prev_facing, o.hp) = (random_finite(), -0.0, Some(random_finite()));
     }
-    // What phase 5f would have seen: the units were inserted by hand.
+    // What phase 5f and the end of the tick would have seen: the units were inserted by hand.
     sim.vision.update(&sim.map, sim.objects.values());
+    sim.vision.remember(sim.tick, |id| sim.objects.get(&id));
     let loaded: Sim = serde_json::from_str(&serde_json::to_string(&sim).unwrap()).unwrap();
     assert_eq!(loaded.state_hash(), sim.state_hash());
 }

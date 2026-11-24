@@ -115,7 +115,7 @@ fn updates_change_only_what_moved() {
     assert_eq!((revision(&vision, P1), visible(&vision, P1)), (3, 81));
     assert_eq!(vision.state(P1, TilePos::new(5, 10)), VisibilityState::Explored);
     assert_eq!(vision.state(P1, TilePos::new(16, 10)), VisibilityState::Visible);
-    vision.check(&map, [&scout]).unwrap();
+    vision.check(&map, [&scout], 0).unwrap();
     // Gone: everything it saw is Explored.
     vision.update(&map, []);
     assert_eq!(visible(&vision, P1), 0);
@@ -135,7 +135,7 @@ fn overlapping_sources_count_each() {
     vision.update(&map, [&b]);
     assert_eq!(vision.state(P1, TilePos::new(12, 10)), VisibilityState::Visible);
     assert_eq!(vision.state(P1, TilePos::new(8, 10)), VisibilityState::Explored);
-    vision.check(&map, [&b]).unwrap();
+    vision.check(&map, [&b], 0).unwrap();
 }
 
 /// `core/entities.md > Object Type > SightRange`: vision goes to the owner. A neutral unit and a resource (sight 0)
@@ -152,7 +152,7 @@ fn only_owned_objects_with_sight_give_vision() {
     turncoat.owner = Some(P2);
     vision.update(&map, [&neutral, &patch, &turncoat]);
     assert_eq!((visible(&vision, P1), visible(&vision, P2)), (0, 81));
-    vision.check(&map, [&neutral, &patch, &turncoat]).unwrap();
+    vision.check(&map, [&neutral, &patch, &turncoat], 0).unwrap();
 }
 
 /// V1 catches a count that drifted from the objects, and a Visible tile that isn't Explored.
@@ -164,12 +164,12 @@ fn the_check_finds_drift() {
     vision.update(&map, [&scout]);
     let mut drifted = vision.clone();
     drifted.players[0].seers[0] = 1;
-    let (at, message) = drifted.check(&map, [&scout]).unwrap_err();
+    let (at, message) = drifted.check(&map, [&scout], 0).unwrap_err();
     assert_eq!(at, centre(0, 0));
     assert!(message.contains("fresh count"), "{message}");
     let mut forgotten = vision.clone();
     forgotten.players[0].explored = TileBits::new(30 * 20);
-    let (_, message) = forgotten.check(&map, [&scout]).unwrap_err();
+    let (_, message) = forgotten.check(&map, [&scout], 0).unwrap_err();
     assert!(message.contains("not Explored"), "{message}");
 }
 
@@ -182,32 +182,35 @@ fn explored_rows_round_trip() {
     vision.update(&map, [&scout]);
     scout.pos = centre(20, 12);
     vision.update(&map, [&scout]);
-    let rows = vision.explored_rows();
-    assert_eq!(rows[0].explored.len(), 20);
-    assert_eq!(&rows[0].explored[6][..13], ".###########.");
-    assert!(rows[1].explored.iter().all(|r| !r.contains(EXPLORED_SYMBOL)));
-    let loaded = load(&map, &[P1, P2], rows.clone(), [&scout]).unwrap();
+    let saved = vision.saved();
+    assert_eq!(saved[0].explored.len(), 20);
+    assert_eq!(&saved[0].explored[6][..13], ".###########.");
+    assert!(saved[1].explored.iter().all(|r| !r.contains(save::EXPLORED_SYMBOL)));
+    let loaded = load(&map, &[P1, P2], saved.clone(), 0, [&scout]).unwrap();
     assert_eq!(loaded, vision);
     assert_eq!(loaded.state(P1, TilePos::new(6, 6)), VisibilityState::Explored);
     assert_eq!(loaded.state(P1, TilePos::new(20, 12)), VisibilityState::Visible);
-    loaded.check(&map, [&scout]).unwrap();
+    loaded.check(&map, [&scout], 0).unwrap();
 
     // Tiles Visible now are Explored, even if the save forgot them.
-    let mut forgetful = rows.clone();
-    forgetful[0].explored = vec![UNEXPLORED_SYMBOL.to_string().repeat(30); 20];
-    let loaded = load(&map, &[P1, P2], forgetful, [&scout]).unwrap();
+    let mut forgetful = saved.clone();
+    forgetful[0].explored = vec![save::UNEXPLORED_SYMBOL.to_string().repeat(30); 20];
+    let loaded = load(&map, &[P1, P2], forgetful, 0, [&scout]).unwrap();
     assert_eq!(loaded.state(P1, TilePos::new(20, 12)), VisibilityState::Visible);
-    loaded.check(&map, [&scout]).unwrap();
+    loaded.check(&map, [&scout], 0).unwrap();
 
     assert!(
-        load(&map, &[P2, P1], rows.clone(), [&scout]).is_err(),
+        load(&map, &[P2, P1], saved.clone(), 0, [&scout]).is_err(),
         "players out of order"
     );
-    assert!(load(&map, &[P1], rows.clone(), [&scout]).is_err(), "a player too many");
-    let mut short = rows.clone();
+    assert!(
+        load(&map, &[P1], saved.clone(), 0, [&scout]).is_err(),
+        "a player too many"
+    );
+    let mut short = saved.clone();
     short[1].explored.pop();
-    assert!(load(&map, &[P1, P2], short, [&scout]).is_err());
-    let mut odd = rows;
+    assert!(load(&map, &[P1, P2], short, 0, [&scout]).is_err());
+    let mut odd = saved;
     odd[1].explored[0].replace_range(0..1, "?");
-    assert!(load(&map, &[P1, P2], odd, [&scout]).is_err());
+    assert!(load(&map, &[P1, P2], odd, 0, [&scout]).is_err());
 }

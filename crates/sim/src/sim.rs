@@ -95,8 +95,9 @@ impl Sim {
             sim.insert_object(o.kind, o.owner, o.pos, o.placement, o.settings.as_ref());
         }
         sim.nav = NavState::build(&sim.map, &sim.objects);
-        // The starting objects' vision: tick 0 already shows what they see.
+        // The starting objects' vision: tick 0 already shows what they see, and remembers what it saw.
         sim.vision.update(&sim.map, sim.objects.values());
+        sim.vision.remember(sim.tick, |id| sim.objects.get(&id));
         // Scenario spawns emit no events (`ARCHITECTURE.md > Commands, events and replays`).
         sim.events.clear();
         Ok(sim)
@@ -295,6 +296,8 @@ impl Sim {
         // 5f: sees the tick's final positions, this tick's new objects included.
         self.vision.update(&self.map, self.objects.values());
         self.update_supply_stations(first_new);
+        // Last: the records of what each player sees keep the tick's final state, the deliveries included.
+        self.vision.remember(self.tick, |id| self.objects.get(&id));
         debug_assert!(
             self.nav.matches(&self.objects),
             "a blocking footprint changed after phase 5b: sync the grids again (`paths::sync`)"
@@ -453,7 +456,7 @@ struct SimState {
     next_group: u32,
     nav_version: u32,
     events: Vec<SimEvent>,
-    vision: Vec<vision::ExploredRows>,
+    vision: Vec<vision::SavedVision>,
 }
 
 impl TryFrom<SimState> for Sim {
@@ -471,7 +474,7 @@ impl TryFrom<SimState> for Sim {
             next_group,
             nav_version,
             events,
-            vision: explored,
+            vision: saved,
         } = state;
         let mut objects = BTreeMap::new();
         for o in list {
@@ -486,7 +489,7 @@ impl TryFrom<SimState> for Sim {
         let nav = NavState::build(&map, &objects);
         // The Visible tiles follow from the objects, which is how phase 5f left them.
         let ids: Vec<PlayerId> = players.iter().map(|p| p.id).collect();
-        let vision = vision::load(&map, &ids, explored, objects.values())?;
+        let vision = vision::load(&map, &ids, saved, tick, objects.values())?;
         Ok(Sim {
             tick,
             map,
