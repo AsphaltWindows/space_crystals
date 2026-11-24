@@ -21,6 +21,9 @@ GDO infantry production structure. Produces infantry units from a build queue. U
 - CurrentBuild: ObjectEnum | None
 - CurrentBuildProgress: number (frames elapsed) | None
 
+### Destroyed while producing (user, 2026-11-24):
+If a Barracks is destroyed, its whole BuildQueue (including the unit in production) is refunded **as if cancelled**: full Space Crystals cost, and Unit Control released. The same applies to every GDO producer and constructor (e.g. an Extraction Facility constructing a plate, an Airfield's queue). Matches research (core/tech_and_research.md > Research > Shared Rules). TBD: a finished unit still waiting for the exit doorway (core/entities.md > Structure Type > Exit Doorway) when the building dies.
+
 ### RallyPoint behavior:
 When a unit finishes production and spawns, if RallyPoint is set, it is issued the default right-click command resolved against the RallyPoint target. Rally on ground -> Move to location, rally on enemy -> Attack, rally on friendly/neutral object -> Move to object. If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None.
 
@@ -85,6 +88,7 @@ GDO primary construction structure. Constructs buildings one at a time, which mu
 ### Cancellation:
 - Cancel during construction: full refund of Space Crystals cost
 - Cancel when ready to place: 75% refund of Space Crystals cost (rounded down)
+- **Destroyed** while constructing or holding a ready building: refunded **as if cancelled** (full during construction, 75% rounded down when ready to place) (user, 2026-11-24)
 
 ### ObjectInterfaceState[DeploymentCenter]:
 

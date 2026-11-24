@@ -2041,3 +2041,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Q0024 pt 1: queue max 20 includes unit in production (all factions). Entry 0081.
 - 2026-11-24: Q0024 pt 2: GDO Unit Control reserved when queued (A). Doc: gdo/overview.md > Unit Control. Entry 0082.
 - 2026-11-24: Q0024 pt 3: group production with limited resources: as many as possible, least remaining queued production time first. Doc: selection_and_hud.md > No smart-casting. Entry 0083.
+- 2026-11-24: Q0024 pt 4: destroyed GDO producers refund as if cancelled. Doc: gdo/structures.md Barracks + DC Cancellation. Entry 0084.
