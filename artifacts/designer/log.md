@@ -2125,3 +2125,4 @@ Q0035 pt 2: per-building rally rules. Entry 0161.
 Q0035 pt 3: feedback on unavailable command. Entry 0162. Q0035 done.
 Q0036 pt 1: simultaneous last defeats = draw. Entry 0163.
 Q0036 pt 2: FFA defeated -> results screen. Entry 0164.
+Q0036 pt 3: defeat keeps modes (shield stays). Entry 0165. Q0036 done.

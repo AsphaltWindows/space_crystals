@@ -8,7 +8,7 @@ In a normal game, a player is **defeated when they own no buildings**. This appl
 
 ## On Defeat
 (user, 2026-11-24)
-- **Remaining units become neutral.** When a player is defeated, their remaining units stay on the map but **stop belonging to anyone** (neutral objects, like the Syndicate expansions of a destroyed Tunnel). Their orders are cleared and they stay idle where they are.
+- **Remaining units become neutral.** When a player is defeated, their remaining units stay on the map but **stop belonging to anyone** (neutral objects, like the Syndicate expansions of a destroyed Tunnel). Their orders are cleared and they stay idle where they are. **Modes are kept as they were** (user, 2026-11-24): e.g. a Peacekeeper with its Riot Shield raised stays shielded (a mode isn't an order); an attack already in its Firing/Cooldown phase finishes.
 - Being neutral, they **never attack** anyone and are **never auto-targeted** (systems/combat.md > ValidTarget; auto-targeting never picks neutral objects). Any player can still destroy them with an explicit Attack order (systems/controls/commands.md > Attack).
 - They block movement like other units and never step aside (only own idle units yield), so they stay as obstacles until destroyed.
 - A defeated player stays defeated: nothing they had can be commanded or build again.
