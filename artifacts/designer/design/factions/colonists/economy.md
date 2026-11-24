@@ -25,7 +25,7 @@ Beacon deployment follows the shared Worker-Built Structures placement rules (co
 - On **cancel**, it turns back into the Drone, standing at the centre of the footprint.
 
 ### Beacon Capacity during deployment
-(user, 2026-11-24) The Drone's 1 Beacon Capacity is **freed as soon as deployment starts** (it is already a Beacon, see A Beacon from the first frame). The Beacon's 5 is provided only on **completion**. Cancelling takes the 1 back, even if that puts the player over capacity (factions/colonists/overview.md > Beacon Capacity > Over capacity). Example: at 10/10 a Drone deploys (9/10), a new Drone is queued (10/10), then the deploy is cancelled → 11/10.
+(user, 2026-11-24) The Drone's 1 Beacon Capacity is **freed as soon as deployment starts** (it is already a Beacon, see A Beacon from the first frame). The Beacon's 5 is provided only on **completion**. Cancelling takes the 1 back, even if that puts the player over capacity (factions/colonists/overview.md > Beacon Capacity > Over capacity). Example: at 10/10 a Drone deploys (9/10), a new Drone starts production (10/10), then the deploy is cancelled → 11/10.
 
 ### HP/Shields Interpolation
 During deployment, the transforming unit's HP and Shields each linearly interpolate from the Drone's own MaxHP/MaxShields toward the Beacon's MaxHP/MaxShields as deployment progresses:

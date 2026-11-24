@@ -2103,3 +2103,4 @@ Q0044 pts 1,6 / Q0017 pt 2: remembered objects targetable (incl. rally on rememb
 Q0044 pt 3: empty Drone right-click node = Move. Entry 0140.
 Q0044 pt 4: unreachable patch = occupied (redirect/wait/re-check). Entry 0141. Q0044 done.
 Q0041 pt 1: Beacon Capacity reserved on queue. Entry 0142.
+Q0041 pts 1-2: capacity reserved at production start for GDO and Colonists (Syndicate model); replaces 0082 and 0142. Entry 0143.
