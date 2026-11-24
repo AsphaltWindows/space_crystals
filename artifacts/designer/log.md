@@ -2072,3 +2072,4 @@ Q0038 pt 3: oracle tolerance ±15% + targets 1–4; reference layout is a benchm
 Q0039 pt 1: deploying Drone / warping Beacon is the target structure from the first frame (footprint claimed, same object). File: factions/colonists/economy.md. Entry 0109.
 Q0039 pt 2: interpolation sets max; current rises by same amount (damage stays). Entry 0110.
 Q0039 pt 3: cancel keeps HP/Shields fraction, >=1 HP. Entry 0111. Q0044 arrived (recorded).
+Q0039 pt 4: Drone capacity freed at deploy start, Beacon's 5 at completion; Warp In keeps 5; over capacity allowed (red, blocks production). Entry 0112.

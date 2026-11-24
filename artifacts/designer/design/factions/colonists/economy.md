@@ -22,6 +22,9 @@ Beacon deployment follows the shared Worker-Built Structures placement rules (co
 - It is the **same object** as the Drone, so it stays selected (and stays in any control group the Drone was in).
 - On **cancel**, it turns back into the Drone, standing at the centre of the footprint.
 
+### Beacon Capacity during deployment
+(user, 2026-11-24) The Drone's 1 Beacon Capacity is **freed as soon as deployment starts** (it is already a Beacon, see A Beacon from the first frame). The Beacon's 5 is provided only on **completion**. Cancelling takes the 1 back, even if that puts the player over capacity (factions/colonists/overview.md > Beacon Capacity > Over capacity). Example: at 10/10 a Drone deploys (9/10), a new Drone is queued (10/10), then the deploy is cancelled → 11/10.
+
 ### HP/Shields Interpolation
 During deployment, the transforming unit's HP and Shields each linearly interpolate from the Drone's own MaxHP/MaxShields toward the Beacon's MaxHP/MaxShields as deployment progresses:
 - HP = Drone MaxHP + (Beacon MaxHP - Drone MaxHP) x progress
@@ -118,6 +121,8 @@ HP and Shields on cancel work as in Beacon Deployment > Cancel Deployment: the B
 
 ### Beacon Capacity Retention
 Every Colonists building provides 5 BeaconCapacity — the Beacon itself, and every structure Warped In from one, since they all originate from a Beacon and retain its BeaconCapacity contribution in addition to their own new function/production capabilities.
+
+The 5 is provided **throughout a Warp In** as well: a Beacon being warped in keeps providing it the whole time (user, 2026-11-24).
 
 ## Starting Conditions
 Where each starting object is placed is defined by the map's Starting Layout for this faction (core/map_editor.md > Starting Layouts).
