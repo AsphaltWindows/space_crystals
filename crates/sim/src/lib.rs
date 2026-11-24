@@ -48,7 +48,7 @@ pub use command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs};
 pub use defs::{
     Armor, Category, Footprint, MiningDef, ObjectDef, ObjectKind, ProductionDef, Recipe, StructureDef, SymmetryType,
 };
-pub use economy::{Extractor, PowerSummary, UNIT_CONTROL_CAP};
+pub use economy::{Extractor, Outcome, PowerSummary, UNIT_CONTROL_CAP};
 pub use events::SimEvent;
 pub use glam::Vec2;
 pub use ids::{ObjectId, PlayerId, SlotId};

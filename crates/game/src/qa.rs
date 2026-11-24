@@ -4,6 +4,10 @@
 //! object exactly at its tick position, and raw input is off in QA runs, so a screenshot shows the same pixels on
 //! every run. The sim is also held at the exit tick, so the state dump never overshoots it, and at each tick of the
 //! `--input-script` ([`input_script`]) until its step has been applied.
+//!
+//! Once the game is over (`Sim::outcome`), the sim stands at its last tick for good (`SimControl::may_step`): the
+//! screenshots, input steps and exit scheduled after it happen at that tick ([`stop_at_game_end`]), so a run never
+//! waits for a tick that can't come.
 
 pub mod input_script;
 
@@ -188,7 +192,7 @@ impl Plugin for QaPlugin {
             .add_systems(Startup, hold_at_next_stop)
             .add_systems(
                 Update,
-                (drive_screenshots, exit_when_done, hold_at_next_stop)
+                (stop_at_game_end, drive_screenshots, exit_when_done, hold_at_next_stop)
                     .chain()
                     .in_set(ClientSystems::Qa),
             )
@@ -204,6 +208,31 @@ fn inject_commands(mut qa: ResMut<QaState>, sim: Res<SimRes>, mut pending: ResMu
             player: c.player,
             command: c.command,
         });
+    }
+}
+
+/// The game is over (`core/game_rules.md > End of Game`): the sim steps no more, so every stop scheduled after its last
+/// tick comes down to it. The screenshots are taken there, the input steps applied there, and the run exits there.
+fn stop_at_game_end(mut qa: ResMut<QaState>, sim: Res<SimRes>) {
+    if sim.outcome().is_none() {
+        return;
+    }
+    let end = sim.tick();
+    let qa = &mut *qa;
+    let mut moved = false;
+    let mut bring = |tick: &mut Tick| {
+        if *tick > end {
+            *tick = end;
+            moved = true;
+        }
+    };
+    qa.pending.iter_mut().for_each(|s| bring(&mut s.tick));
+    qa.input_steps.iter_mut().for_each(|s| bring(&mut s.tick));
+    if let Some(exit) = &mut qa.exit_at_tick {
+        bring(exit);
+    }
+    if moved {
+        info!("QA: the game is over at tick {end}: what was due after it happens at tick {end}");
     }
 }
 

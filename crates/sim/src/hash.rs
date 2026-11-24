@@ -218,12 +218,14 @@ impl StateHash for Player {
             faction,
             crystals,
             supplies,
+            defeated_at,
         } = self;
         id.hash(h);
         name.hash(h);
         faction.hash(h);
         crystals.hash(h);
         supplies.hash(h);
+        defeated_at.hash(h);
     }
 }
 

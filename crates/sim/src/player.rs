@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::PlayerId;
+use crate::units::Tick;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Faction {
@@ -22,8 +23,9 @@ impl Faction {
     pub const ALL: &'static [Faction] = &[Faction::Gdo, Faction::Syndicate, Faction::Cults, Faction::Colonists];
 }
 
-/// Per-player simulation state: who the player is, and their banks (`factions/gdo/overview.md > GDOResources`).
-/// Power and Unit Control are not stored: they follow from the player's objects (`crate::economy`).
+/// Per-player simulation state: who the player is, their banks (`factions/gdo/overview.md > GDOResources`) and
+/// whether they are defeated. Power and Unit Control are not stored: they follow from the player's objects
+/// (`crate::economy`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Player {
     pub id: PlayerId,
@@ -38,9 +40,20 @@ pub struct Player {
     /// Supplies yet (design change 0077), so only `DebugCommand::SetResources` changes it.
     #[serde(default)]
     pub supplies: u32,
+    /// The tick in which the player was defeated (`core/game_rules.md > Defeat Condition`, plan decision T8:
+    /// their owned-structure count dropped to 0, `economy::defeat`); `None` while they are in the game. Final: a
+    /// defeated player stays defeated (`> On Defeat`). Optional in files, so that states saved before it existed
+    /// still load.
+    #[serde(default)]
+    pub defeated_at: Option<Tick>,
 }
 
 impl Player {
+    /// Whether the player has been defeated ([`Player::defeated_at`]): the gate refuses all their commands.
+    pub fn is_defeated(&self) -> bool {
+        self.defeated_at.is_some()
+    }
+
     /// Pays `amount` Space Crystals into the bank (mining, refunds). A bank already near the top saturates instead
     /// of overflowing: only a debug command fills one that far (`ARCHITECTURE.md > Commands, events and replays`:
     /// numbers that come from input never panic the sim). So, unlike plan decision T7's sketch, no `debug_assert`
@@ -78,6 +91,7 @@ mod tests {
             faction: Faction::Gdo,
             crystals,
             supplies: 0,
+            defeated_at: None,
         }
     }
 
@@ -99,12 +113,12 @@ mod tests {
         assert_eq!(full.crystals, u32::MAX);
     }
 
-    /// States saved before the banks existed load with empty ones.
+    /// States saved before the banks and the defeat existed load with empty banks, the player in the game.
     #[test]
     fn banks_are_optional_in_files() {
         let json = r#"{"id": 2, "name": "Old", "faction": "Gdo"}"#;
         let p: Player = serde_json::from_str(json).unwrap();
-        assert_eq!((p.id, p.crystals, p.supplies), (PlayerId(2), 0, 0));
+        assert_eq!((p.id, p.crystals, p.supplies, p.defeated_at), (PlayerId(2), 0, 0, None));
     }
 
     #[test]

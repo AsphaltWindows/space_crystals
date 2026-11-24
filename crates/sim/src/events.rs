@@ -78,4 +78,14 @@ pub enum SimEvent {
         producer: ObjectId,
         unit: ObjectId,
     },
+    /// `player` was defeated in this tick: they own no structure any more (`core/game_rules.md > Defeat Condition`,
+    /// plan decision T8), and their remaining units became neutral (`> On Defeat`, design change 0101).
+    PlayerDefeated {
+        player: PlayerId,
+    },
+    /// The game ended in this tick, after its `PlayerDefeated` events (`core/game_rules.md > End of Game`):
+    /// `winners` see Victory, every other player Defeat (`crate::Sim::outcome`, [`crate::economy::Outcome`]).
+    GameOver {
+        winners: Vec<PlayerId>,
+    },
 }

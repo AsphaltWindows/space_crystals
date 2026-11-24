@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::command::{Ability, PlayerCommand, TickInputs};
 use crate::defs::ObjectKind;
+use crate::economy::Outcome;
+use crate::economy::defeat;
 use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
@@ -51,6 +53,9 @@ pub struct Sim {
     tick: Tick,
     map: Map,
     players: Vec<Player>,
+    /// How the game ended, once it has (`core/game_rules.md > End of Game`, `economy::defeat`): hashed and
+    /// serialized. From then on the gate refuses every command.
+    outcome: Option<Outcome>,
     /// Keyed by id ⇒ iteration is always in ascending `ObjectId` order. Serialized as a
     /// list in that order.
     #[serde(serialize_with = "serialize_objects")]
@@ -120,6 +125,7 @@ impl Sim {
                 // The Starting Conditions' banks come with slice M2-F.
                 crystals: 0,
                 supplies: 0,
+                defeated_at: None,
             })
             .collect::<Vec<Player>>();
         Self {
@@ -127,6 +133,7 @@ impl Sim {
             map: scenario.map.terrain.clone(),
             vision: Vision::new(&scenario.map.terrain, players.iter().map(|p| p.id)),
             players,
+            outcome: None,
             objects: BTreeMap::new(),
             next_id: 1,
             rng: Rng::from_seed(scenario.setup.seed),
@@ -159,6 +166,24 @@ impl Sim {
 
     pub fn player(&self, id: PlayerId) -> Option<&Player> {
         self.players.iter().find(|p| p.id == id)
+    }
+
+    /// How the game ended (`core/game_rules.md > End of Game`): `None` while it goes on. Set in the tick of the
+    /// defeat that leaves at most one side standing (`economy::defeat`), and final: the gate refuses every command
+    /// from then on ([`Reject::GameOver`]). The sim itself goes on stepping if asked; the client stops the game.
+    pub fn outcome(&self) -> Option<&Outcome> {
+        self.outcome.as_ref()
+    }
+
+    /// The other players on `player`'s side (design change 0102: a defeated player watches with their allies'
+    /// vision), in id order. None: the sim has no team or alliance data, so every player is their own side
+    /// ([`defeat::allied`]).
+    pub fn allies(&self, player: PlayerId) -> Vec<PlayerId> {
+        self.players
+            .iter()
+            .map(|p| p.id)
+            .filter(|&id| id != player && defeat::allied(player, id))
+            .collect()
     }
 
     /// All objects, in ascending `ObjectId` order.
@@ -198,7 +223,7 @@ impl Sim {
         self.auto_targeting
     }
 
-    /// FNV-1a 64 hash of the whole state: tick, map, players, objects in id order, next id,
+    /// FNV-1a 64 hash of the whole state: tick, map, players, the outcome, objects in id order, next id,
     /// PRNG state, config, next order group, nav version, each player's Explored tiles and records and its path
     /// knowledge (`f32` by its bits; encoding in `hash.rs`). Events are output, and the grids and the Visible tiles
     /// derived data, so they are left out. Equal states give equal hashes on every machine, so
@@ -209,6 +234,7 @@ impl Sim {
             tick,
             map,
             players,
+            outcome,
             objects,
             next_id,
             rng,
@@ -225,6 +251,7 @@ impl Sim {
         tick.hash(&mut h);
         map.hash(&mut h);
         players.hash(&mut h);
+        outcome.hash(&mut h);
         h.len(objects.len());
         for o in objects.values() {
             o.hash(&mut h);
@@ -252,6 +279,8 @@ impl Sim {
         // `ARCHITECTURE.md > Tick pipeline`: objects that commands create during this tick are first updated in
         // the next one. Ids only grow, so they are exactly the ids from here on.
         let first_new = ObjectId(self.next_id);
+        // The defeat check compares with the structures each player owns as the tick starts (`economy::defeat`).
+        let owned_before = defeat::structure_owners(&self.objects, &self.players, self.outcome.as_ref());
         for cmd in &inputs.commands {
             self.apply_command(cmd);
         }
@@ -310,6 +339,17 @@ impl Sim {
         // The producers (slice M2-D2), part of the economy phase: here, not inside `economy::step`, because a
         // finished unit is inserted into the game. Before 5f, so that it is seen in its own tick.
         self.step_production(first_new);
+        // The defeat check ends the economy phase (plan decisions T5 and T8, slice M2-F2): after every way a
+        // structure leaves the game; before 5f, so that the units a defeat makes neutral are no one's eyes in its
+        // own tick.
+        defeat::step(
+            &mut self.objects,
+            &mut self.players,
+            &mut self.outcome,
+            &owned_before,
+            self.tick,
+            &mut self.events,
+        );
         // 5f: sees the tick's final positions, this tick's new objects included.
         self.vision.update(&self.map, self.objects.values());
         self.update_supply_stations(first_new);

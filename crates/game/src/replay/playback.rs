@@ -94,14 +94,16 @@ impl Plugin for PlaybackPlugin {
 }
 
 /// Gives the step the recorded inputs of its tick, in place of anything else pending. At the end of the recording
-/// there are none, and the playback pauses.
+/// there are none, and the playback pauses; so it does at the end of the game, where the sim stops
+/// (`SimControl::may_step`), whatever a recording made outside the client holds after it.
 fn feed_recorded_inputs(
     sim: Res<SimRes>,
     playback: Res<Playback>,
     mut pending: ResMut<PendingCommands>,
     mut control: ResMut<SimControl>,
 ) {
-    match playback.replay.inputs.get(sim.tick() as usize) {
+    let inputs = playback.replay.inputs.get(sim.tick() as usize);
+    match inputs.filter(|_| sim.outcome().is_none()) {
         Some(inputs) => pending.0.clone_from(&inputs.commands),
         None => {
             pending.0.clear();
@@ -142,7 +144,7 @@ fn playback_keys(
     mut control: ResMut<SimControl>,
     mut pace: ResMut<Pace>,
 ) {
-    let over = sim.tick() >= playback.end_tick();
+    let over = sim.tick() >= playback.end_tick() || sim.outcome().is_some();
     if actions.just_pressed(InputAction::ReplayPause) && !over {
         control.paused = !control.paused;
     }

@@ -211,7 +211,14 @@ fn remembered_until_seen_gone(in_the_gap: InTheGap) {
         ),
     };
     let unit = blockers.len() as u32 + 1;
-    let mut t = builder.spawn(PK, Some(P1), SpawnAt::Point(start)).start();
+    let builder = builder.spawn(PK, Some(P1), SpawnAt::Point(start));
+    let builder = match in_the_gap {
+        // Player 2 keeps a building far from the wall, never in player 1's sight: losing the one in the gap doesn't
+        // defeat them (plan decision T8), and the game goes on.
+        InTheGap::ScoutedGenerator => builder.spawn(ObjectKind::Generator, Some(P2), tile(0, 0)),
+        InTheGap::MapPatches => builder,
+    };
+    let mut t = builder.start();
     t.without_auto_targeting();
     let sight = |t: &TestSim, id: u32| t.sim().vision().player(P1).unwrap().record(ObjectId(id)).is_some();
     let assumed = |t: &TestSim| t.sim().path_knowledge().player(P1).unwrap().assumed().len();
@@ -443,6 +450,9 @@ fn a_save_with_stale_knowledge_loads_and_continues_identically() {
             .spawn(ObjectKind::CrystalPatch, None, tile(3, 15)) // 3
             .spawn(PK, Some(P1), SpawnAt::Point(at(21.5, 7.0))) // 4
             .spawn(PK, Some(P2), SpawnAt::Point(at(33.5, 9.0))) // 5
+            // Player 2's other building, never in player 1's sight: losing the Generator in the gap doesn't defeat
+            // them (plan decision T8), and the game goes on.
+            .spawn(ObjectKind::Generator, Some(P2), tile(0, 0)) // 6
             .start();
         t.without_auto_targeting();
         let order = |unit: u32, to: (f32, f32)| (unit, OrderKind::Move(Target::Point(point(to))));

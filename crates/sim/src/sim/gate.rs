@@ -24,6 +24,11 @@ use crate::vision::VisibilityState;
 pub enum Reject {
     /// The issuing player, or the player a debug command names, is not in the game.
     UnknownPlayer(PlayerId),
+    /// The game is over (`core/game_rules.md > End of Game`, `Sim::outcome`): the sim accepts no command any more.
+    GameOver,
+    /// The issuing player is defeated, and nothing they had can be commanded again (`core/game_rules.md > On
+    /// Defeat`, design change 0101); or a debug spawn would give a defeated player an object.
+    Defeated(PlayerId),
     /// Debug commands are off in this game ([`super::SimConfig::debug`]).
     DebugDisabled,
     /// No object has this id: it never existed, or it is gone.
@@ -82,6 +87,8 @@ impl fmt::Display for Reject {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Reject::UnknownPlayer(p) => write!(f, "player {} is not in the game", p.0),
+            Reject::GameOver => write!(f, "the game is over"),
+            Reject::Defeated(p) => write!(f, "player {} is defeated", p.0),
             Reject::DebugDisabled => write!(f, "debug commands are off"),
             Reject::UnknownObject(id) => write!(f, "object {} doesn't exist", id.0),
             Reject::NotOwned(id) => write!(f, "object {} belongs to someone else", id.0),
@@ -150,7 +157,8 @@ impl Sim {
     /// The command gate: `Ok` if `cmd` would be applied now, else why it would be ignored. `Sim::step` passes every
     /// command through it before applying it, each against the state the earlier commands of the tick left. In
     /// order, it checks that:
-    /// 1. the issuing player is in the game;
+    /// 1. the issuing player is in the game, the game isn't over ([`Reject::GameOver`]) and the player isn't defeated
+    ///    ([`Reject::Defeated`]: every command, debug commands included, design change 0101);
     /// 2. a debug command comes while [`super::SimConfig::debug`] is on;
     /// 3. every object the command refers to exists, and every object a player's own order or ability commands
     ///    belongs to that player (debug commands may refer to anyone's objects). An order or an ability drops the
@@ -168,8 +176,15 @@ impl Sim {
 
     /// [`Sim::validate`], keeping what the checks resolved for applying the command.
     pub(super) fn check(&self, cmd: &PlayerCommand) -> Result<Checked, Reject> {
-        if self.player(cmd.player).is_none() {
+        let Some(player) = self.player(cmd.player) else {
             return Err(Reject::UnknownPlayer(cmd.player));
+        };
+        // `core/game_rules.md > End of Game`, `> On Defeat` (design change 0101).
+        if self.outcome.is_some() {
+            return Err(Reject::GameOver);
+        }
+        if player.is_defeated() {
+            return Err(Reject::Defeated(cmd.player));
         }
         match &cmd.command {
             Command::Order { units, kind, queue } => self.check_order(cmd.player, units, *kind, *queue),
@@ -322,6 +337,13 @@ impl Sim {
                 let is_player = |p| self.player(p).is_some();
                 let (pos, placement) =
                     place_spawn(&self.map, kind, owner, at, orientation, is_player).map_err(Reject::Spawn)?;
+                // A defeated player stays defeated and owns nothing (`core/game_rules.md > On Defeat`): no object
+                // of theirs, and no eyes for their vision, comes back.
+                if let Some(owner) = owner
+                    && self.player(owner).is_some_and(|p| p.is_defeated())
+                {
+                    return Err(Reject::Defeated(owner));
+                }
                 match &placement {
                     Some(placement) => {
                         self.check_footprint_apart(kind, placement)?;

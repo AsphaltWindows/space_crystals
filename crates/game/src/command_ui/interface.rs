@@ -286,9 +286,11 @@ impl Panel {
 }
 
 /// `> CommandPanel`: whether commands can be given to `selection`: something is selected, and all of it is
-/// `player`'s. Otherwise no panel is displayed, no right-click resolves and no transition starts.
+/// `player`'s. Otherwise no panel is displayed, no right-click resolves and no transition starts. Never once the game
+/// is over (`core/game_rules.md > End of Game`, design change 0101); a defeated player owns nothing to command.
 pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
-    !selection.is_empty()
+    sim.outcome().is_none()
+        && !selection.is_empty()
         && selection
             .ids()
             .all(|id| sim.object(id).is_some_and(|o| o.owner == Some(player)))

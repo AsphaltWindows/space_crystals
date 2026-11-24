@@ -10,17 +10,21 @@
 //! - **Mining** (`mining.rs`): a plate on a patch has an [`Extractor`] (`Object::extractor`), linked when the pair
 //!   comes into being; it pays its owner in lumps at the end of each cycle (design change 0098), and the removal
 //!   path takes a depleted patch away with its plate (`Sim::remove_objects`).
+//! - **Defeat** (`defeat.rs`, slice M2-F2): the last step of the phase. A player who loses their last structure is
+//!   defeated, their units become neutral, and the defeat that leaves one side standing ends the game.
 //! - **The phase** ([`step`]) runs after phase 5e and before 5f (plan decision T5, `ARCHITECTURE.md > Tick
 //!   pipeline`).
 //!
 //! Everything is integer: rates are fixed point, [`RATIO_ONE`] being 100% (plan decision T6).
 
+pub mod defeat;
 pub(crate) mod mining;
 pub(crate) mod power;
 pub(crate) mod unit_control;
 
 use std::collections::BTreeMap;
 
+pub use defeat::Outcome;
 pub use mining::Extractor;
 pub use power::{PowerSummary, RATIO_ONE};
 pub use unit_control::UNIT_CONTROL_CAP;
@@ -37,7 +41,7 @@ use crate::player::Player;
 /// 1. every player's power, from the structures present ([`PowerSummary`]);
 /// 2. (slice M2-D1) the constructors, then (M2-D2) the producers, each at its speed ([`PowerSummary::speed`]);
 /// 3. the plates mine (`mining::step`), the plates created this tick from the next one on;
-/// 4. (M2-F) the defeat check.
+/// 4. the defeat check, after the producers (`defeat::step`, called by `Sim::step`, which keeps the game's outcome).
 pub(crate) fn step(
     objects: &mut BTreeMap<ObjectId, Object>,
     players: &mut [Player],
