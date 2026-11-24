@@ -2104,3 +2104,4 @@ Q0044 pt 3: empty Drone right-click node = Move. Entry 0140.
 Q0044 pt 4: unreachable patch = occupied (redirect/wait/re-check). Entry 0141. Q0044 done.
 Q0041 pt 1: Beacon Capacity reserved on queue. Entry 0142.
 Q0041 pts 1-2: capacity reserved at production start for GDO and Colonists (Syndicate model); replaces 0082 and 0142. Entry 0143.
+Q0041 pts 3-4: Robo Portal exit = closest side to rally, else random unblocked. Entry 0144.
