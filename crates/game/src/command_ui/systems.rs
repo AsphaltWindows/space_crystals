@@ -190,7 +190,7 @@ fn finite(kind: OrderKind) -> bool {
     match kind {
         OrderKind::Move(Target::Point(p)) | OrderKind::AttackMove(p) | OrderKind::Patrol(p) => p.is_finite(),
         OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => true,
-        OrderKind::Gather(_) | OrderKind::DropOff(_) => true,
+        OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => true,
     }
 }
 

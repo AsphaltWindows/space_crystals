@@ -1105,7 +1105,7 @@ fn refused_warp_ins_change_nothing() {
 }
 
 /// A Beacon that is itself transforming (being deployed, slice M3-F) warps nothing in ([`Reject::ConstructorBusy`]).
-/// No command makes one yet, so the test edits a saved game: Beacon 1 still deploying from a Drone.
+/// The test edits a saved game: Beacon 1 still deploying from a Drone (`tests/deploy.rs` deploys them by command).
 #[test]
 fn a_transforming_beacon_warps_nothing_in() {
     let mut t = base().start();
@@ -1117,6 +1117,7 @@ fn a_transforming_beacon_warps_nothing_in() {
         progress: 10 * RATIO_ONE,
         total: 48,
         paid: 0,
+        load: 0,
     };
     let sim = edited(t.sim(), 1, "transform", serde_json::to_value(&deploying).unwrap());
     assert!(sim.object(id(1)).unwrap().is_transforming());

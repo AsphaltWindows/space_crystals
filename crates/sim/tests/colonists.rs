@@ -173,7 +173,7 @@ fn each_kind_sees_with_its_sight_range() {
 }
 
 /// `factions/colonists/units.md > Sabre Legionnaire`: a melee attack (`systems/combat.md > FullyConnected > Melee`),
-/// at contact: the gap of 8 space units of the placeholder (question Q0042 point 5). Ordered to attack a Peacekeeper
+/// at contact: the reach of 8 space units of the placeholder (design change 0149). Ordered to attack a Peacekeeper
 /// 200 su away, a Sabre Legionnaire closes in and strikes only once the gap between their edges is at most 8 su;
 /// four hits of 14 (Damage 15 less the Peacekeeper's PointArmor 1) destroy its 50 HP. The Peacekeeper doesn't shoot
 /// back: auto-targeting is off.

@@ -93,8 +93,8 @@ pub struct ObjectDef {
     /// `None` for indestructible types.
     pub max_hp: Option<f32>,
     /// `systems/combat.md > Shields > MaxShields`: "Colonists units/buildings only; defined per-entity alongside
-    /// MaxHP", so `Some` for exactly the Colonists types (plan decision T14). Data only so far: no object carries
-    /// Shields and no damage meets them until slice M3-B.
+    /// MaxHP", so `Some` for exactly the Colonists types (plan decision T14). The current Shields, within it, are
+    /// `Object::shields` (`crate::shields`, slice M3-B).
     pub max_shields: Option<f32>,
     /// PointArmor and FullArmor, which units and structures have alike; none for map resources.
     pub armor: Armor,

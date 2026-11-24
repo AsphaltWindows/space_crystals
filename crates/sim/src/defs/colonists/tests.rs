@@ -103,8 +103,8 @@ fn the_drone_follows_the_design() {
         (def.max_hp, def.max_shields, def.armor, def.sight_range),
         (Some(20.0), Some(10.0), Armor { point: 0.0, full: 0.0 }, 5.0)
     );
-    // Destructible - true, Groupable - false
-    assert_eq!((def.destructible, def.groupable, def.selectable), (true, false, true));
+    // Destructible - true, Groupable - true (design change 0125)
+    assert_eq!((def.destructible, def.groupable, def.selectable), (true, true, true));
     let unit = def.unit.as_ref().unwrap();
     // UnitBase - HoverVehicle, BeaconCapacityCost - 1
     assert_eq!(
@@ -132,7 +132,7 @@ fn the_drone_follows_the_design() {
 }
 
 /// `factions/colonists/units.md > Sabre Legionnaire`: the Legionnaire's melee form, whose "Range: melee (adjacent
-/// contact)" is the placeholder gap of question Q0042 point 5.
+/// contact)" is the placeholder reach of 8 su of design change 0149.
 #[test]
 fn the_sabre_legionnaire_follows_the_design() {
     let attack = assert_legionnaire(ObjectKind::SabreLegionnaire);

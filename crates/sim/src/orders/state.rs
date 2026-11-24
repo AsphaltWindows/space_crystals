@@ -165,6 +165,14 @@ impl Gather {
     }
 }
 
+/// The state of a Deploy order (`orders::deploy`, `crate::deploy`).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Deploy {
+    /// The Drone's walk to its site is over (design change 0117): the step right after phase 5a starts its deployment
+    /// or fails the order (`Sim::step_deployments`).
+    pub arrived: bool,
+}
+
 /// The state of the current order's behaviour.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum Behaviour {
@@ -181,6 +189,8 @@ pub enum Behaviour {
     },
     /// A worker's job, for a Gather and a Drop Off order alike (`factions/colonists/units.md > Drone > Gathering`).
     Gather(Gather),
+    /// A Drone on its way to deploy (`factions/colonists/economy.md > Beacon Deployment > Deploy Command`).
+    Deploy(Deploy),
 }
 
 impl Leg {
@@ -212,6 +222,7 @@ impl Behaviour {
             Behaviour::Patrol(patrol) => patrol.leg.targets().collect(),
             Behaviour::Hold { target } => target.iter().copied().collect(),
             Behaviour::Gather(gather) => gather.node.iter().copied().collect(),
+            Behaviour::Deploy(_) => Vec::new(),
         }
     }
 
@@ -219,7 +230,7 @@ impl Behaviour {
     /// carries on without it in its next tick.
     pub(crate) fn forget(&mut self, is_gone: &impl Fn(ObjectId) -> bool) {
         match self {
-            Behaviour::Plain | Behaviour::Attack(_) | Behaviour::Approach(_) => {}
+            Behaviour::Plain | Behaviour::Attack(_) | Behaviour::Approach(_) | Behaviour::Deploy(_) => {}
             Behaviour::AttackMove(leg) => leg.forget(is_gone),
             Behaviour::Patrol(patrol) => patrol.leg.forget(is_gone),
             Behaviour::Hold { target } => {
@@ -426,6 +437,10 @@ impl StateHash for Behaviour {
             Behaviour::Gather(gather) => {
                 h.tag(6);
                 gather.hash(h);
+            }
+            Behaviour::Deploy(Deploy { arrived }) => {
+                h.tag(7);
+                arrived.hash(h);
             }
         }
     }

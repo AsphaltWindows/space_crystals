@@ -100,8 +100,8 @@ fn planned_end(orders: &Orders) -> Option<Vec2> {
             OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) => return order.destination(),
             OrderKind::Stop | OrderKind::Hold => {}
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Patrol(_) => return None,
-            // A worker's job ends wherever its drop-off is by then.
-            OrderKind::Gather(_) | OrderKind::DropOff(_) => return None,
+            // A worker's job ends wherever its drop-off is by then; a Deploy leaves no unit to go on.
+            OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => return None,
         }
     }
     None

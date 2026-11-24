@@ -15,7 +15,15 @@
 //! ([`Method::WarpIn`], slice M3-E; `core/entities.md > Placement Validation > Warp In`) has the same tile rules,
 //! sight included (design change 0119), none but sight on the tiles of the Beacon it consumes, and no build area;
 //! its footprint is derived from the Beacon (`crate::transform::warp_in_footprint`, design change 0121), and a game
-//! asks [`Sim::warp_in_check`].
+//! asks [`Sim::warp_in_check`]. A worker-built structure ([`Method::WorkerBuilt`], slice M3-F: a Drone deploying a
+//! Beacon, `crate::deploy`; `> Worker-Built Structures`) has the same tile rules and no build area; its order and its
+//! ghost are checked on what the player knows ([`Mode::Known`], design change 0120: never-explored tiles pass, units
+//! hidden in the fog don't count), a game asking [`Sim::deploy_check`], and the worker checks its site again on
+//! arrival, on the truth ([`Mode::Arrival`]).
+//!
+//! **Reservations** (`> Lingering build ghosts`, design change 0125): a player's pending worker builds reserve their
+//! sites against that player's further placements, a Deploy's and a Warp In's ([`check_reserving`],
+//! [`TileProblem::Reserved`]). Another player's never matter, and units walk over them.
 //!
 //! **The rules**, in the order the problems are listed:
 //! - each footprint tile: on the map; Buildable (`core/map.md > TilePreset`); flat (`core/map.md > Elevation >
@@ -57,12 +65,14 @@ mod tests;
 pub use build_area::{BuildArea, seeds_build_area};
 pub use check::{
     Method, Mode, Occupant, PlacementCheck, PlacementProblem, Site, TileProblem, WholeProblem, check, check_layout,
-    footprint_size,
+    check_reserving, footprint_size,
 };
 pub use onto::Onto;
 
 use crate::defs::ObjectKind;
+use crate::deploy;
 use crate::ids::{ObjectId, PlayerId};
+use crate::object::Placement;
 use crate::scenario::BuildingOrientation;
 use crate::sim::Sim;
 use crate::transform::warp_in_footprint;
@@ -101,7 +111,8 @@ impl Sim {
     /// ([`crate::transform::warp_in_footprint`], design change 0121), by [`check`] with [`Method::WarpIn`] in
     /// [`Mode::Command`] (slice M3-E): every object as it is now but the Beacon, whose tiles the building takes over,
     /// and the sight of the Beacon's owner as the latest tick left it (design change 0119: "every footprint tile must
-    /// be Visible to the player"), with no build area. The command gate asks it when a `ConstructionCommand::WarpIn`
+    /// be Visible to the player"), with no build area. The sites of the owner's pending Deploys are reserved
+    /// ([`check_reserving`], design change 0125). The command gate asks it when a `ConstructionCommand::WarpIn`
     /// applies, and the Warp In ghost can ask it every frame (slice M3-J1). Whether the Beacon may warp in a `kind` at
     /// all (its Constructs List, the bank) is the gate's. `None` if `beacon` is no object of a player's with a
     /// footprint.
@@ -126,7 +137,79 @@ impl Sim {
             method: Method::WarpIn { beacon: placement },
         };
         let others = self.objects().filter(|o| o.id != beacon).map(Occupant::of);
-        Some(check(&site, others, kind, origin, orientation))
+        let reserved = self.reserved_sites(player, None);
+        Some(check_reserving(&site, others, &reserved, kind, origin, orientation))
+    }
+
+    /// `core/entities.md > Placement Validation > Worker-Built Structures` for a Deploy (slice M3-F, `crate::deploy`):
+    /// everything that keeps the Drone `drone` from being ordered to deploy into a Beacon whose footprint's top-left
+    /// tile is `origin`, as far as its owner knows ([`check_reserving`] with [`Method::WorkerBuilt`] in
+    /// [`Mode::Known`]; design change 0120: "it is green if, as far as the player knows, nothing blocks the
+    /// footprint"). The occupants are the owner's objects, the others it sees, and its records of the structures and
+    /// resources out of its sight (`Sim::known_occupants`), the Drone left out (design change 0118), on the owner's
+    /// sight as the latest tick left it. The sites of the owner's pending Deploys are reserved (design change 0125),
+    /// those of `drone`'s own orders but for a Deploy `queued` with Shift: without, the new order replaces them. The
+    /// command gate asks it when the order applies, and the Deploy ghost can ask it every frame (slice M3-J1). `None` if
+    /// `drone` is no unit of a player's that deploys.
+    pub fn deploy_check(&self, drone: ObjectId, origin: TilePos, queued: bool) -> Option<PlacementCheck> {
+        let o = self.object(drone).filter(|o| deploy::deploys(o.kind))?;
+        let player = o.owner?;
+        let area = BuildArea::default();
+        let site = Site {
+            map: self.map(),
+            area: &area,
+            mode: Mode::Known {
+                vision: self.vision(),
+                player,
+            },
+            method: Method::WorkerBuilt,
+        };
+        let others = self.known_occupants(player).filter(|&(id, _)| id != Some(drone));
+        let reserved = self.reserved_sites(player, (!queued).then_some(drone));
+        let beacon = deploy::BEACON_DEPLOYMENT.kind;
+        Some(check_reserving(
+            &site,
+            others.map(|(_, occupant)| occupant),
+            &reserved,
+            beacon,
+            origin,
+            BuildingOrientation::default(),
+        ))
+    }
+
+    /// What `player` knows to stand on the map ([`Mode::Known`], design change 0120), each with the id of its object:
+    /// its own objects and the others it sees now (a tile they cover is Visible), as they are; and its records of the
+    /// structures and resources out of its sight, as it last saw them (`core/vision.md > Explored`). The units of
+    /// others out of its sight are left out ("units hidden in fog are ignored").
+    fn known_occupants(&self, player: PlayerId) -> impl Iterator<Item = (Option<ObjectId>, Occupant)> + '_ {
+        let vision = self.vision();
+        let seen = self
+            .objects()
+            .filter(move |o| o.owner == Some(player) || vision.sees(player, o))
+            .map(|o| (Some(o.id), Occupant::of(o)));
+        let remembered = vision
+            .player(player)
+            .into_iter()
+            .flat_map(|sight| sight.remembered())
+            .map(|record| {
+                let occupant = Occupant {
+                    kind: record.kind,
+                    pos: record.pos(),
+                    placement: Some(record.placement),
+                };
+                (None, occupant)
+            });
+        seen.chain(remembered)
+    }
+
+    /// The footprints `player`'s pending Deploys reserve ([`Sim::pending_deploys`], design change 0125), but those of
+    /// `except`'s orders.
+    fn reserved_sites(&self, player: PlayerId, except: Option<ObjectId>) -> Vec<Placement> {
+        self.pending_deploys(player)
+            .into_iter()
+            .filter(|&(drone, _)| Some(drone) != except)
+            .map(|(_, site)| site)
+            .collect()
     }
 
     /// `factions/gdo/structures.md > GDOBuildArea`: `player`'s build area now, from the GDO buildings they own

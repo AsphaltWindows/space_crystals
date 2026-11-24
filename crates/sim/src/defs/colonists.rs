@@ -1,7 +1,7 @@
 //! Colonists object types — `factions/colonists/`: its units (`units.md`) and its structures (`economy.md`,
 //! `structures.md`), with their full stat blocks (slice M3-A).
 //!
-//! What the stat blocks name and nothing reads yet: MaxShields (no Shields until slice M3-B), BeaconCapacityCost
+//! What the stat blocks name and later slices read: MaxShields (slice M3-B, `crate::shields`), BeaconCapacityCost
 //! (M3-C), the Beacon's Warp In list (M3-E). The HoverVehicle's DragMovement attributes are the Drone's movement
 //! (`movement::drag`, slice M3-G). "BeaconCapacity provided - 5" is no field: every Colonists
 //! building provides it (`economy.md > Warp In > Beacon Capacity Retention`), a faction rule M3-C derives (plan
@@ -32,10 +32,10 @@ pub(super) static DRONE: ObjectDef = ObjectDef {
     footprint: Footprint::Silhouette { w: 36.0, h: 36.0 }, // Silhouette - 36x36 space units (square)
     selectable: true,                                      // `core/entities.md > Object Type > Selectable - true`
     destructible: true,                                    // Destructible - true
-    groupable: false,                                      // Groupable - false
-    sight_range: 5.0,                                      // SightRange - 5 grid units
-    max_hp: Some(20.0),                                    // MaxHP - 20
-    max_shields: Some(10.0),                               // MaxShields - 10
+    groupable: true,         // Groupable - true (design change 0125: "Drone Groupable: false → true")
+    sight_range: 5.0,        // SightRange - 5 grid units
+    max_hp: Some(20.0),      // MaxHP - 20
+    max_shields: Some(10.0), // MaxShields - 10
     armor: Armor {
         point: 0.0, // PointArmor - 0
         full: 0.0,  // FullArmor - 0
@@ -110,7 +110,7 @@ pub(super) static SABRE_LEGIONNAIRE: ObjectDef = ObjectDef {
             target_domain: TargetDomain::Ground,   // TargetDomain: Ground
             target_type: TargetType::SingleTarget, // TargetType: SingleTarget
             damage: 15.0,                          // Damage: 15
-            // Range: melee (adjacent contact). A placeholder (question Q0042 point 5).
+            // Range: melee (adjacent contact): a reach of 8 su, a placeholder (design change 0149).
             range: MELEE_CONTACT_GU,
             min_range: 0.0,         // none listed: contact is as near as a target gets
             projectile_speed: None, // FullyConnected: no projectile

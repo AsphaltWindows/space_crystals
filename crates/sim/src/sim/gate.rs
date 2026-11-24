@@ -95,7 +95,8 @@ pub enum Reject {
     /// (`crate::construction`); for a Warp In, one of the player's Beacons (`crate::transform`).
     NoConstructor,
     /// A Place names more than one constructor: one building is placed by one constructor (design change 0071); a
-    /// Warp In more than one Beacon: one Beacon becomes the building (plan decision T22).
+    /// Warp In more than one Beacon: one Beacon becomes the building (plan decision T22); a Deploy more than one
+    /// Drone: one Drone becomes the Beacon (`crate::deploy`).
     SeveralConstructors,
     /// The building isn't on the constructor's `Constructs` list (`factions/gdo/structures.md > DeploymentCenter >
     /// Constructs`, `factions/gdo/economy.md > ExtractionFacility > Constructs`), or on the Beacon's
@@ -109,7 +110,8 @@ pub enum Reject {
     NotConstructing,
     /// A Cancel Ready Building or a Place to a constructor that holds no building ready to place.
     NothingReady,
-    /// None of the units a Gather or a Drop Off order names is a worker (`factions/colonists/units.md > Drone`).
+    /// None of the units a Gather or a Drop Off order names is a worker (`factions/colonists/units.md > Drone`), or
+    /// none of those a Deploy names deploys (`crate::deploy`).
     NoWorkers,
     /// A Gather's target isn't a Space Crystals patch that workers can gather: another object, or a patch under a
     /// mining structure (design change 0137).

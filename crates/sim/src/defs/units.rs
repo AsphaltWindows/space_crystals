@@ -366,12 +366,12 @@ pub enum FullyConnectedSubtype {
     Melee,
 }
 
-/// The Range of every melee attack, grid units: `systems/combat.md > FullyConnected > Melee` ("Fixed short range
-/// (adjacent contact)") and `> Range Measurement` ("Melee (adjacent contact) is a gap of about 0"), as the Sabre
-/// Legionnaire's "Range: melee (adjacent contact)". **Placeholder** (question Q0042 point 5): a gap of 8 space units,
-/// the one that counts as Proximity (`orders::PROXIMITY_SU`, design change 0032). Exactly 0 would be fragile: two
-/// boxes the movement step brings together may end a rounding error apart. A test keeps every melee attack at this
-/// Range, with no MinRange (`defs_are_consistent`).
+/// The Range of every melee attack, grid units: `systems/combat.md > FullyConnected > Melee` ("Short reach: 8 space
+/// units for all melee attacks for now") and `> Range Measurement`, as the Sabre Legionnaire's "Range: melee
+/// (adjacent contact)". **Placeholder** (design change 0149: "may become a per-attack value later"): a gap of 8 space
+/// units, the one that counts as Proximity (`orders::PROXIMITY_SU`, design change 0032). Exactly 0 would be fragile
+/// ("an exact 0 would fail on tiny collision gaps"): two boxes the movement step brings together may end a rounding
+/// error apart. A test keeps every melee attack at this Range, with no MinRange (`defs_are_consistent`).
 pub const MELEE_CONTACT_GU: f32 = 8.0 / SU_PER_GU;
 
 /// `systems/combat.md > AttackAttributes > TargetDomain`.

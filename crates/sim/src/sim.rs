@@ -303,6 +303,8 @@ impl Sim {
             self.auto_targeting,
         );
         orders::update(&mut self.objects, first_new, &world);
+        // The Drones that got to their sites in 5a deploy, or their orders fail; before 5b claims the footprints.
+        self.step_deployments(first_new);
         // 5b: the movement below must collide with this tick's obstacles (the true grids).
         observe(Phase::NavSync);
         paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
@@ -464,7 +466,7 @@ impl Sim {
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => {
                 vec![None; units.len()]
             }
-            OrderKind::Gather(_) | OrderKind::DropOff(_) => vec![None; units.len()],
+            OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => vec![None; units.len()],
         };
         for (id, slot) in units.iter().zip(slots) {
             if let Some(orders) = self.objects.get_mut(id).and_then(|o| o.orders.as_mut()) {
@@ -572,6 +574,7 @@ impl Sim {
 }
 
 mod construction;
+mod deploy;
 mod gate;
 mod kinds;
 mod load;

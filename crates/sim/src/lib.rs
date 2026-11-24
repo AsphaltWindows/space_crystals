@@ -16,6 +16,7 @@ pub mod command;
 pub mod construction;
 pub mod conversion;
 pub mod defs;
+pub mod deploy;
 pub mod economy;
 pub mod elevation;
 pub mod events;

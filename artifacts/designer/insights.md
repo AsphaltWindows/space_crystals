@@ -34,13 +34,15 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 - **Q0032** occupied-arrival radius: A keep 2 GU / B 3 GU (Guard losses 43→17 in sweep, PK 12→0) / C 2 GU + unit width.
 - **Q0017** fog: (1) hidden attacker shooting visible unit: hit flash only, no tracer (A) vs visible part of tracer from fog edge (B); (2) ANSWERED 0139: remembered objects targetable.
 - **Q0018** behaviour gaps: (1) grace period before target counts as lost (edge-of-sight blinking) e.g. 0.5 s; (2) 'least rotation' priority exact angles vs coarse steps then distance; (3) AttackMove leash stays on original route (intent?); (4) unreachable auto-target: retry after 32 ticks vs skip/next target; (5) target inside MinRange: give up vs back off vs auto-target skips; (6) unit walled out of group spot after fight: arrived within 2 GU else gives up — OK?
-- **New 2026-11-24 (Q0033–Q0045)**, none blocking now. DONE: Q0037 (0123, 0127–0138), Q0044 (0134, 0137, 0139–0141), Q0041 (0143–0145), Q0042 (0146–0154), Q0034 (0155), Q0017 pt 2 (0139), Q0038 (0106–0108), Q0039 (0109–0116), Q0040 (0117–0125), Q0045 (0126–0127).
-  - OPEN: Q0033 remembered obstacle gone (pt 1 ANSWERED 0156 A; OPEN 2 re-plan when shortcut opens, 3 map-placed structures known from start); Q0035 rally UI details; Q0036 game-end edge cases; Q0043 M3 scope TBD Colonists content (FYI).
+- **New 2026-11-24 (Q0033–Q0045)**, none blocking now. DONE: Q0037 (0123, 0127–0138), Q0044 (0134, 0137, 0139–0141), Q0041 (0143–0145), Q0042 (0146–0154), Q0034 (0155), Q0033 (0156, 0158, 0159), Q0035 (0160–0162), Q0036 (0163–0165), Q0017 pt 2 (0139), Q0038 (0106–0108), Q0039 (0109–0116), Q0040 (0117–0125), Q0045 (0126–0127).
+  - OPEN: Q0043 pt 2 Bio Portal cost (150; pts 1,3,4 answered 0166: M3 scope as proposed; placeholder pass for number-only items when scheduled).
 - Yielding (0023): only no-command units yield; Hold Position/busy don't; modes (Riot Shield) irrelevant; deployed Artillery Rig = fixed obstacle. TBD sidestep distance, allies. Watch: mining workers don't yield → possible clots at patches (worker collision while gathering never designed).
 
 ## Loose Ends
 
 
+- **Multi-waypoint rallies** (idea, 0160): Shift kept free for it; not designed.
+- **Deferred Colonists content** (0166): when scheduled, fill placeholders for refineries + tech buildings; mechanics still needed from user: Skylance salvo, Plasma Turret beam, Scout stealth/detection, Lancer, psionic unit, Heavy/Star Portal output, research contents.
 - **Lingering build ghosts** (0125): ally visibility and reservation against allies' placements TBD (teams). **Agents** stay Ungroupable (Tab) while Drones became Groupable with 'first in selection order' Deploy — revisit whether Agents should follow the Drone model.
 
 - **Exit blocking by buildings** (0080): allowed for now; a building flush against an exit stalls the producer. Revisit (placement rule keeping exit-front tiles clear) if it proves annoying. Aircraft spawning (Airfield) and Syndicate releases not covered by Exit Doorway.
@@ -102,6 +104,7 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 
 - **Map makers are free** (user): the editor enforces only real placement rules; no advisory warnings about layout quality.
 
+- **Route recalculation timing is the Director's call** (0158): goals are performance and predictability for the player. Don't bring such questions to the user.
 - **Placeholder stats allowed** (user, 2026-11-24): when the Director is blocked only by missing stats, invent semi-reasonable values myself, mark them as placeholders in the docs, so the user's indecision doesn't block implementation. (Design decisions still go to the user.)
 
 - **No smart-casting, anywhere** (user, strong principle): it constrains how powerful abilities can be; workers consistent. Individual use = Ungroupable + Tab. Workers used up by a build (Agent, Drone) Ungroupable; Recruits (share builds) Groupable (0072) (middle ground between BW mouse-picking and smart-cast). Don't propose auto-advance-to-next-unit schemes; they are smart-casting by another name.
