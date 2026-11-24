@@ -12,8 +12,9 @@
 //!   occupy the patch) and returns to deliver as if it had just mined the load there" (design change 0128).
 //! - **Waiting**: "right at the patch it tried to mine, within MiningReach", or as close as it got to a patch it
 //!   can't reach (design changes 0132 and 0141). It mines the patch as soon as it frees, and looks round again every
-//!   [`RECHECK_TICKS`]: it goes to a patch that has freed up meanwhile, and one that couldn't get to its patch tries
-//!   again ("carrying on as soon as the way clears"). It never gives up for good.
+//!   [`RECHECK_TICKS`], all waiting workers in the same ticks: it goes to a patch that has freed up meanwhile, and
+//!   one that couldn't get to its patch tries again ("carrying on as soon as the way clears"). It never gives up for
+//!   good.
 //! - **Mining** and **DroppingOff**: the timed work, which the economy phase counts (`economy::gathering::step`).
 //!   Mining that stops before its 32 frames are done, whatever stops it, collects nothing, and the patch frees at
 //!   once (design change 0130): the frames are the order's state, and go with it.
@@ -95,8 +96,14 @@ use legs::{leg, return_leg, spot_shape};
 use search::{search, taken};
 
 /// `> Patch Occupancy > Waiting and re-checking`, item 2 (design change 0132): a waiting worker looks round again
-/// this many ticks after it began to wait, and every as many after that. The design's placeholder: 16 frames, 1
-/// second.
+/// at this interval, in the ticks that are multiples of it. The design's placeholder: 16 frames, 1 second.
+///
+/// **One phase for every worker** (the design gives the interval, not its phase): all those waiting look round in
+/// the same tick, so a patch that freed up meanwhile goes to the lowest id of them (design change 0133 with the
+/// Director's choice, [`Claims`]), and the others wait on. Counted from each worker's own start, they looked round in
+/// different ticks, and every one of them that did before the first got there went for the same patch: measured on
+/// the reference field, that cost 0.5 Space Crystals per second with 20 and 24 Drones, and up to 100 ticks of the
+/// worst gap between deliveries (`tests/gathering_soak.rs`).
 pub const RECHECK_TICKS: Tick = 16;
 
 /// A worker whose leg back to its drop-off ended short of it stands for this many ticks before it tries again
@@ -325,8 +332,8 @@ fn wait(
         return Flow::Stay;
     }
     // 0132, item 2: "it re-checks at intervals for a nearby patch that has freed up. If one has, it goes there."
-    let waited = world.tick.saturating_sub(since);
-    if waited == 0 || !waited.is_multiple_of(RECHECK_TICKS) {
+    // All of them in the same ticks ([`RECHECK_TICKS`]); not in the tick it began to wait, when it just looked.
+    if since == world.tick || !world.tick.is_multiple_of(RECHECK_TICKS) {
         return Flow::Stay;
     }
     if let Some(other) = search(world, claims, unit, def, Some(patch.id)).free {

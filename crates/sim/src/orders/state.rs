@@ -106,7 +106,7 @@ pub enum GatherPhase {
     /// At an occupied patch with no other patch free, or as close as it got to a patch it can't reach, since tick
     /// `since` (`> Patch Occupancy (one Drone per patch)`: it "waits right at the patch it tried to mine, within
     /// MiningReach, and mines it as soon as it frees up", design change 0132; "it waits as close as it can get",
-    /// 0141). It looks again every `orders::gather::RECHECK_TICKS` from `since` on.
+    /// 0141). It looks again every `orders::gather::RECHECK_TICKS`, in the ticks that are multiples of it.
     Waiting { since: Tick },
     /// Mining the order's patch, which it occupies: `done` of MiningDuration frames
     /// (`economy::gathering::step` counts them and takes the load).
