@@ -10,8 +10,8 @@ use bevy::time::TimeUpdateStrategy;
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{
-    Command, DebugCommand, Desync, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Replay, Scenario,
-    SimConfig, SpawnAt, Target, Tick, TickInputs, TilePos,
+    Ability, Command, DebugCommand, Desync, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Replay,
+    RiotShield, Scenario, SimConfig, SpawnAt, Target, Tick, TickInputs, TilePos,
 };
 use space_crystals::command_ui::OrderIssued;
 use space_crystals::fog::FogOfWar;
@@ -108,9 +108,12 @@ fn exit(app: &mut App) -> Tick {
     tick(app)
 }
 
+/// The command panel's hotkeys [`play_recorded_game`] presses, by tick, with the unit selected: unit 2 raises its
+/// Riot Shield (R) and lowers it again, and unit 1 stops (X).
+const HOTKEYS: [(Tick, u32, KeyCode); 3] = [(30, 2, KeyCode::KeyR), (60, 1, KeyCode::KeyX), (70, 2, KeyCode::KeyR)];
+
 /// Plays [`skirmish`] in a client that records it to `path`, through tick `until`, with the commands of [`script`]
-/// and a Stop of unit 1 from the command panel's hotkey (X) at tick 60; then exits. Returns the state hash of each
-/// tick.
+/// and the [`HOTKEYS`]; then exits. Returns the state hash of each tick.
 fn play_recorded_game(path: &Path, until: Tick) -> BTreeMap<Tick, u64> {
     let mut config = AppConfig::new(skirmish());
     config.record = Some(path.to_path_buf());
@@ -119,21 +122,24 @@ fn play_recorded_game(path: &Path, until: Tick) -> BTreeMap<Tick, u64> {
     while tick(&app) < until {
         let next = tick(&app) + 1;
         app.world_mut().resource_mut::<PendingCommands>().0.extend(script(next));
-        if next == 60 {
-            select(&mut app, 1);
-            tap(&mut app, KeyCode::KeyX);
-            assert!(
-                !app.world().resource::<Messages<OrderIssued>>().is_empty(),
-                "the Stop was given"
-            );
-        } else {
-            app.update();
+        match HOTKEYS.iter().find(|(at, ..)| *at == next) {
+            Some(&(_, unit, key)) => {
+                select(&mut app, unit);
+                tap(&mut app, key);
+            }
+            None => app.update(),
         }
         hashes.insert(tick(&app), hash(&app));
     }
     let last = exit(&mut app);
     hashes.insert(last, hash(&app));
     hashes
+}
+
+/// The Riot Shield of unit `id`, as the sim has it.
+fn shield(app: &App, id: u32) -> RiotShield {
+    let sim = app.world().resource::<SimRes>();
+    sim.object(ObjectId(id)).unwrap().riot_shield.expect("a Peacekeeper")
 }
 
 fn select(app: &mut App, id: u32) {
@@ -200,8 +206,9 @@ fn games_are_recorded_as_they_run_and_when_the_app_exits() {
 }
 
 /// `--replay`: the client plays the recorded game back tick for tick, matching every checkpoint, and pauses at its
-/// end. The local player can't give commands meanwhile: the command panel's hotkeys don't work, and nothing else
-/// that is pending reaches the sim.
+/// end. The recording has the orders and the abilities given from the command panel's hotkeys. The local player
+/// can't give commands meanwhile: the command panel's hotkeys don't work, and nothing else that is pending reaches
+/// the sim.
 #[test]
 fn a_recorded_game_plays_back_as_it_was_played() {
     let path = temp_file("played.json");
@@ -210,8 +217,20 @@ fn a_recorded_game_plays_back_as_it_was_played() {
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     let end = replay.end_tick();
     assert_eq!(hashes.keys().last(), Some(&end));
-    let stop = replay.inputs[60].commands.clone();
-    assert_eq!(stop, [order(P1, &[1], OrderKind::Stop)], "recorded from the hotkey");
+    let shield_of_2 = |raise| PlayerCommand {
+        player: P1,
+        command: Command::Ability {
+            units: vec![ObjectId(2)],
+            ability: Ability::RiotShield { raise },
+        },
+    };
+    let from_hotkeys = [30, 60, 70].map(|tick| replay.inputs[tick].commands.clone());
+    let expected = [
+        vec![shield_of_2(true)],
+        vec![order(P1, &[1], OrderKind::Stop)],
+        vec![shield_of_2(false)],
+    ];
+    assert_eq!(from_hotkeys, expected, "recorded from the hotkeys");
 
     let mut app = playback(replay.clone());
     assert_eq!(app.world().resource::<Playback>().end_tick(), end);
@@ -225,20 +244,25 @@ fn a_recorded_game_plays_back_as_it_was_played() {
         if tick(&app) == 100 {
             select(&mut app, 2);
             tap(&mut app, KeyCode::KeyX);
+            tap(&mut app, KeyCode::KeyR);
             assert!(
                 app.world().resource::<Messages<OrderIssued>>().is_empty(),
                 "no command panel"
             );
+            assert_eq!(shield(&app, 2), RiotShield::Lowered, "nor its abilities");
         } else {
             app.update();
         }
-        // The recording missed the hash of tick 60, the first of its hotkey's two updates.
+        if tick(&app) == 50 {
+            assert_eq!(shield(&app, 2), RiotShield::Raised, "as recorded");
+        }
+        // The recording missed the hashes of the first of its hotkeys' two updates.
         if let Some(&recorded) = hashes.get(&tick(&app)) {
             assert_eq!(hash(&app), recorded, "tick {}", tick(&app));
             compared += 1;
         }
     }
-    assert_eq!(compared, end - 2, "every tick but 60 and 101");
+    assert_eq!(compared, end - 6, "every tick but 30, 60, 70 and 101 to 103");
     for _ in 0..5 {
         app.update();
     }
@@ -311,6 +335,48 @@ fn playback_pauses_steps_and_changes_speed() {
     assert_eq!(tick(&app), 300, "nothing after the end");
 }
 
+/// Sets the pace in `Update`, as the playback keys do.
+#[derive(Resource)]
+struct SetPace(Option<Pace>);
+
+fn set_pace(mut set: ResMut<SetPace>, mut pace: ResMut<Pace>) {
+    if let Some(new) = set.0.take() {
+        *pace = new;
+    }
+}
+
+/// Leaving the fastest pace runs no burst of ticks. Changed in `Update`, as the playback keys change it, the new
+/// pace holds from the next frame on; changed between frames, the frame whose time was still taken at the fastest
+/// pace runs at most a frame's worth of ticks at the new one (250 ms: five ticks).
+#[test]
+fn leaving_the_fastest_pace_runs_no_burst_of_ticks() {
+    let mut config = AppConfig::new(skirmish());
+    config.fast = true;
+    let mut app = headless(config);
+    app.insert_resource(SetPace(None)).add_systems(Update, set_pace);
+    app.update();
+    let before = tick(&app);
+    app.update();
+    assert!(tick(&app) > before + 16, "as fast as it can");
+
+    app.world_mut().resource_mut::<SetPace>().0 = Some(Pace::Scaled(1.0));
+    app.update();
+    let before = tick(&app);
+    app.update();
+    assert_eq!(tick(&app), before + 1, "one tick per tick of real time, at once");
+
+    *app.world_mut().resource_mut::<Pace>() = Pace::Max;
+    app.update();
+    app.update();
+    *app.world_mut().resource_mut::<Pace>() = Pace::Scaled(1.0);
+    let before = tick(&app);
+    app.update();
+    assert!(tick(&app) <= before + 5, "{} ticks in a frame", tick(&app) - before);
+    let before = tick(&app);
+    app.update();
+    assert_eq!(tick(&app), before + 1);
+}
+
 /// F2 switches the player and F3 the fog in a playback as in a game with debug commands, even when the recorded game
 /// had none: they only change what the replay shows. With debug commands, F2 switches once, not twice.
 #[test]
@@ -376,5 +442,5 @@ fn golden_games_play_back_in_the_client() {
         assert_eq!(app.world().resource::<Playback>().desync, None);
         played += 1;
     }
-    assert_eq!(played, 5);
+    assert_eq!(played, 6);
 }

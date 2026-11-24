@@ -3,7 +3,7 @@
 //! that diverges from the recording.
 
 use sc_sim::replay::CHECKPOINT_INTERVAL;
-use sc_sim::testing::TestSim;
+use sc_sim::testing::{TestSim, every_command};
 use sc_sim::{
     Checkpoint, Command, DebugCommand, Desync, ObjectId, ObjectKind, PlayerCommand, PlayerId, Replay, ReplayError, Sim,
     SimConfig, SpawnAt, TickInputs, TilePos, scenarios,
@@ -232,4 +232,26 @@ fn a_replay_without_checkpoints_plays_unchecked() {
     let loaded: Replay = serde_json::from_value(json).unwrap();
     assert!(loaded.checkpoints.is_empty());
     assert_eq!(loaded.run_checked().unwrap().state_hash(), t.sim().state_hash());
+}
+
+/// A replay file keeps every kind of command (`testing::every_command`: every order, ability and debug command), so
+/// nothing a player did is lost in a recording; the game plays back the same from the file.
+#[test]
+fn replay_files_keep_every_kind_of_command() {
+    let mut t = scripted_skirmish();
+    for (i, command) in every_command().into_iter().enumerate() {
+        let player = PlayerId(1 + (i % 2) as u8);
+        t.at(20 + i as u32, player, command);
+    }
+    t.run(100);
+    let replay = t.replay();
+    let recorded: Vec<Command> = replay.inputs[19..]
+        .iter()
+        .flat_map(|inputs| inputs.commands.iter().map(|c| c.command.clone()))
+        .collect();
+    assert_eq!(recorded, every_command());
+    let json = serde_json::to_string(replay).unwrap();
+    let loaded: Replay = serde_json::from_str(&json).unwrap();
+    assert_eq!(&loaded, replay);
+    assert_eq!(loaded.run().state_hash(), t.sim().state_hash());
 }

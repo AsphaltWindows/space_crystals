@@ -117,7 +117,8 @@ fn civil_from_days(days: u64) -> (u64, u64, u64) {
 mod tests {
     use std::time::Duration;
 
-    use sc_sim::{Checkpoint, scenarios};
+    use sc_sim::testing::every_command;
+    use sc_sim::{Checkpoint, PlayerCommand, PlayerId, TickInputs, scenarios};
 
     use super::*;
 
@@ -175,5 +176,26 @@ mod tests {
         for error in [unordered, late] {
             assert!(error.unwrap_err().contains("ascending tick order"));
         }
+    }
+
+    /// A replay file keeps every kind of command a player can give (`testing::every_command`), one tick a line.
+    #[test]
+    fn replay_files_keep_every_kind_of_command() {
+        let dir = std::env::temp_dir().join(format!("sc_replay_commands_{}", std::process::id()));
+        let path = dir.join("game.json");
+        let mut replay = Replay::new(scenarios::empty(6, 4));
+        for command in every_command() {
+            let player = PlayerId(2);
+            replay.record(TickInputs {
+                commands: vec![PlayerCommand { player, command }],
+            });
+        }
+        save_replay(&path, &replay).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        let loaded = load_replay(&path);
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(loaded.unwrap(), replay);
+        let lines = text.lines().filter(|line| line.contains("{\"commands\":[{")).count();
+        assert_eq!(lines, every_command().len());
     }
 }

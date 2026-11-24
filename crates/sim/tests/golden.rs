@@ -1,4 +1,4 @@
-//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): five small games, defined below and recorded as
+//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): six small games, defined below and recorded as
 //! replays in `tests/golden/`, each with the state hash at tick 0, every [`EVERY`] ticks and at its end. A run must
 //! give the blessed hashes: a change that alters how any of these games plays out fails here, at the first checkpoint
 //! that differs. The replays play in the client too (`cargo run -- --replay crates/sim/tests/golden/<name>.json`).
@@ -13,8 +13,8 @@ use std::path::PathBuf;
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{
-    Command, Faction, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Replay, SU_PER_GU, Scenario, Sim,
-    SpawnAt, Target, Tick, TickInputs, TilePos, Vec2,
+    Ability, Command, Faction, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Replay, RiotShield, SU_PER_GU,
+    Scenario, Sim, SpawnAt, Target, Tick, TickInputs, TilePos, Vec2,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -25,12 +25,13 @@ const GUARD: ObjectKind = ObjectKind::Guard;
 const EVERY: Tick = 32;
 
 /// A golden game: a scenario, the commands given at each tick, and the tick it is played to. `expect` checks that
-/// the game still does what it is there for (its doc comment), so that a re-bless can't quietly fix a game that
-/// no longer fights, moves or chases.
+/// the game still does what it is there for (its doc comment) at its end, and `during` along the way, after every
+/// tick, so that a re-bless can't quietly fix a game that no longer fights, moves or chases.
 struct Game {
     scenario: Scenario,
     commands: Vec<(Tick, PlayerCommand)>,
     end: Tick,
+    during: fn(Tick, &Sim),
     expect: fn(&Sim),
 }
 
@@ -66,6 +67,17 @@ fn syndicate_p2(builder: ScenarioBuilder) -> Scenario {
     scenario
 }
 
+/// Player 1's `units` raise (`raise`) or lower their Riot Shields.
+fn shield(units: impl IntoIterator<Item = u32>, raise: bool) -> PlayerCommand {
+    PlayerCommand {
+        player: P1,
+        command: Command::Ability {
+            units: units.into_iter().map(ObjectId).collect(),
+            ability: Ability::RiotShield { raise },
+        },
+    }
+}
+
 fn units_of(sim: &Sim, player: PlayerId) -> Vec<&sc_sim::Object> {
     sim.objects().filter(|o| o.owner == Some(player)).collect()
 }
@@ -85,6 +97,7 @@ fn duel_3v3() -> Game {
         scenario: syndicate_p2(builder),
         commands: vec![(1, order(P1, 1..=3, OrderKind::Attack(ObjectId(5))))],
         end: 240,
+        during: |_, _| {},
         expect: |sim| {
             let (p1, p2) = (units_of(sim, P1).len(), units_of(sim, P2).len());
             assert!(p1 == 0 || p2 == 0, "one side is gone: {p1} against {p2}");
@@ -111,6 +124,7 @@ fn attack_move_battle() -> Game {
             (1, order(P2, 21..=40, OrderKind::AttackMove(point(4, 8)))),
         ],
         end: 480,
+        during: |_, _| {},
         expect: |sim| {
             let left = sim.objects().count();
             assert!(left <= 30, "at least ten died: {left} are left");
@@ -137,6 +151,7 @@ fn choke_group_move() -> Game {
         scenario: builder.build(),
         commands: vec![(1, order(P1, 1..=12, OrderKind::Move(Target::Point(point(26, 8)))))],
         end: 480,
+        during: |_, _| {},
         expect: |sim| {
             let wall_east = 16.0 * SU_PER_GU;
             for unit in units_of(sim, P1) {
@@ -163,6 +178,7 @@ fn patrol() -> Game {
         scenario: syndicate_p2(builder),
         commands: vec![(1, order(P1, 1..=3, OrderKind::Patrol(point(18, 5))))],
         end: 640,
+        during: |_, _| {},
         expect: |sim| {
             assert!(sim.object(ObjectId(4)).is_none(), "the Guard is dead");
             let patrolling = units_of(sim, P1)
@@ -191,6 +207,7 @@ fn fog_chase() -> Game {
             (1, order(P1, [1], OrderKind::Attack(ObjectId(2)))),
         ],
         end: 400,
+        during: |_, _| {},
         expect: |sim| {
             let (chaser, runner) = (sim.object(ObjectId(1)).unwrap(), sim.object(ObjectId(2)).unwrap());
             assert!(runner.hp < Some(80.0), "the chaser hit it before it got away");
@@ -205,6 +222,51 @@ fn fog_chase() -> Game {
     }
 }
 
+/// Player 1 raises the Riot Shields of three Peacekeepers (ids 1–3, `Command::Ability`) and walks them, at half
+/// speed, up to a Guard (player 2, id 4), which shoots at them: behind their shields they don't shoot back. On the
+/// way #3 lowers its shield and raises it again before it is down. At tick [`SHIELDS_DOWN`] all three lower their
+/// shields, and then they kill the Guard.
+fn riot_shield() -> Game {
+    let mut builder = ScenarioBuilder::new(&open(16, 10));
+    for y in [4, 5, 6] {
+        builder = builder.spawn(PK, Some(P1), at(3, y));
+    }
+    builder = builder.spawn(GUARD, Some(P2), at(11, 5));
+    Game {
+        scenario: syndicate_p2(builder),
+        commands: vec![
+            (1, shield(1..=3, true)),
+            (1, order(P1, 1..=3, OrderKind::Move(Target::Point(point(8, 5))))),
+            (30, shield([3], false)),
+            (32, shield([3], true)),
+            (SHIELDS_DOWN, shield(1..=3, false)),
+        ],
+        end: 240,
+        during: |tick, sim| {
+            if tick == SHIELDS_DOWN - 1 {
+                let guard = sim.object(ObjectId(4)).expect("the Guard lives");
+                assert_eq!(guard.hp, Some(80.0), "the shielded Peacekeepers didn't shoot");
+                let units = units_of(sim, P1);
+                assert!(units.iter().any(|u| u.hp < Some(50.0)), "the Guard shot at them");
+                for unit in units {
+                    assert_eq!(unit.riot_shield, Some(RiotShield::Raised), "#{}", unit.id.0);
+                }
+            }
+        },
+        expect: |sim| {
+            assert!(sim.object(ObjectId(4)).is_none(), "the Guard is dead");
+            let units = units_of(sim, P1);
+            assert_eq!(units.len(), 3, "no Peacekeeper died");
+            for unit in units {
+                assert_eq!(unit.riot_shield, Some(RiotShield::Lowered), "#{}", unit.id.0);
+            }
+        },
+    }
+}
+
+/// [`riot_shield`]: the Peacekeepers lower their shields in this tick.
+const SHIELDS_DOWN: Tick = 120;
+
 /// Plays `game` and records it: the replay with its checkpoints, and the game at its end.
 fn record(game: &Game) -> (Replay, Sim) {
     let mut inputs = vec![TickInputs::default(); game.end as usize];
@@ -217,6 +279,7 @@ fn record(game: &Game) -> (Replay, Sim) {
     for step in inputs {
         sim.step(&step);
         replay.record(step);
+        (game.during)(sim.tick(), &sim);
         if sim.tick().is_multiple_of(EVERY) || sim.tick() == game.end {
             replay.checkpoint(&sim);
         }
@@ -295,14 +358,21 @@ fn golden(name: &str, game: fn() -> Game) {
         let at = tick(&replay.checkpoints)
             .or(tick(&blessed.checkpoints))
             .unwrap_or_default();
-        let hash = |list: &[sc_sim::Checkpoint]| list.get(i).map(|c| format!("{:#018x}", c.hash));
-        let still = i.checked_sub(1).map(|j| replay.checkpoints[j].tick);
+        let hash = |list: &[sc_sim::Checkpoint]| {
+            list.get(i)
+                .map_or_else(|| "none".to_string(), |c| format!("{:#018x}", c.hash))
+        };
+        let before = match i.checked_sub(1) {
+            Some(j) => format!(
+                "the checkpoint before, at tick {}, still matches",
+                replay.checkpoints[j].tick
+            ),
+            None => "its first checkpoint: the starting state differs".to_string(),
+        };
         panic!(
-            "golden {name}: the game diverges at tick {at}: state hash {}, blessed {} (the checkpoint before, at tick \
-             {}, still matches); {BLESS}",
-            hash(&replay.checkpoints).unwrap_or_default(),
-            hash(&blessed.checkpoints).unwrap_or_default(),
-            still.map_or_else(|| "none".to_string(), |t| t.to_string()),
+            "golden {name}: the game diverges at tick {at}: state hash {}, blessed {} ({before}); {BLESS}",
+            hash(&replay.checkpoints),
+            hash(&blessed.checkpoints),
         );
     }
 }
@@ -330,4 +400,9 @@ fn golden_patrol() {
 #[test]
 fn golden_fog_chase() {
     golden("fog_chase", fog_chase);
+}
+
+#[test]
+fn golden_riot_shield() {
+    golden("riot_shield", riot_shield);
 }

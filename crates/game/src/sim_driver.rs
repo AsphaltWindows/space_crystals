@@ -161,14 +161,9 @@ impl Plugin for SimDriverPlugin {
             .insert_resource(RenderAlpha(1.0))
             .add_message::<SimEventMessage>()
             .add_systems(Startup, apply_pace)
-            .add_systems(PreUpdate, (apply_pace, begin_fast_frame.run_if(at_max_pace)).chain())
-            .add_systems(
-                FixedUpdate,
-                (
-                    step_sim.in_set(StepSim),
-                    end_fast_steps.after(StepSim).run_if(at_max_pace),
-                ),
-            )
+            .add_systems(PreUpdate, begin_fast_frame.run_if(at_max_pace))
+            .add_systems(FixedUpdate, (step_sim.in_set(StepSim), limit_fixed_loop.after(StepSim)))
+            .add_systems(PostUpdate, apply_pace)
             .add_systems(Update, update_render_alpha.in_set(ClientSystems::SyncSim));
     }
 }
@@ -238,8 +233,10 @@ fn at_max_pace(pace: Res<Pace>) -> bool {
     *pace == Pace::Max
 }
 
-/// Sets the speed of virtual time, which drives the fixed loop, when the [`Pace`] changes. A scaled pace drops the
-/// time the loop still owes, so leaving [`Pace::Max`] doesn't run a burst of ticks.
+/// Sets the speed of virtual time, which drives the fixed loop, when the [`Pace`] changes. It runs in `PostUpdate`,
+/// after the systems that change the pace (the playback keys), so that the next frame's time update already goes at
+/// the new pace; a pace changed between frames is caught by [`limit_fixed_loop`]. A scaled pace drops the time the
+/// loop still owes.
 fn apply_pace(pace: Res<Pace>, mut time: ResMut<Time<Virtual>>, mut fixed: ResMut<Time<Fixed>>) {
     if !pace.is_changed() {
         return;
@@ -262,12 +259,28 @@ fn begin_fast_frame(mut frame: ResMut<FastFrame>) {
     frame.deadline = Some(Instant::now() + FAST_FRAME_BUDGET);
 }
 
-/// Ends this frame's fixed loop once the budget is spent or the sim may not step: dropping the owed time makes
-/// `Time<Fixed>::expend` fail, so the loop stops after this run.
-fn end_fast_steps(frame: Res<FastFrame>, sim: Res<SimRes>, control: Res<SimControl>, mut fixed: ResMut<Time<Fixed>>) {
-    let out_of_time = frame.deadline.is_none_or(|deadline| Instant::now() >= deadline);
-    if out_of_time || !control.may_step(sim.tick()) {
-        let owed = fixed.overstep();
-        fixed.discard_overstep(owed);
-    }
+/// Ends or trims this frame's fixed loop by dropping time it still owes, which makes `Time<Fixed>::expend` fail. At
+/// [`Pace::Max`] the loop ends once the frame's budget is spent or the sim may not step. At a scaled pace the loop
+/// never owes more than a frame may add ([`SCALED_MAX_DELTA`] of scaled time), so a frame whose time was still taken
+/// at `Max` (the pace changed between frames) runs a few ticks, not a burst of them.
+fn limit_fixed_loop(
+    frame: Res<FastFrame>,
+    pace: Res<Pace>,
+    sim: Res<SimRes>,
+    control: Res<SimControl>,
+    mut fixed: ResMut<Time<Fixed>>,
+) {
+    let owed = fixed.overstep();
+    let keep = match *pace {
+        Pace::Max => {
+            let out_of_time = frame.deadline.is_none_or(|deadline| Instant::now() >= deadline);
+            if out_of_time || !control.may_step(sim.tick()) {
+                Duration::ZERO
+            } else {
+                owed
+            }
+        }
+        Pace::Scaled(factor) => owed.min(SCALED_MAX_DELTA.mul_f32(factor.max(0.0))),
+    };
+    fixed.discard_overstep(owed - keep);
 }

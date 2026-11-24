@@ -567,9 +567,12 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
 - **Replay** = the `Scenario` (the map and the game setup, game options included) plus the `TickInputs` of every
   tick, empty ticks included, and state-hash checkpoints: `sc_sim::Replay` (serde) with `start`/`record`/`step`/`run`,
   and `record_checked`/`verify`/`run_checked` for the checkpoints (see Replays and golden hashes, which also covers
-  the client's recording and playback). The client must never submit a command with a
-  non-finite number. The sim would reject it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to
-  load. Validate at the input layer.
+  the client's recording and playback). A replay keeps every command whole: `testing::every_command` lists one of
+  each kind (every variant of `Command`, `OrderKind`, `Target`, `Ability`, `DebugCommand` and `SpawnAt`), and the
+  format tests round-trip it through the sim's serde and the client's file; its match stops compiling when a variant
+  is added, so add the new one to it. The client must never submit a command with a non-finite number. The sim
+  would reject it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to load. Validate at the
+  input layer.
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`, …) are
   output only, for effects, sounds and UI. The sim never reads them. `Sim::events()` holds only the latest step's events, and `Sim::new`
   discards the events from the scenario's initial spawns.
@@ -685,8 +688,10 @@ out by the same rules.
 - `SimControl` says whether the step may run: `paused`, `step_once` (one step while paused, then it clears itself)
   and QA's `hold_at`. `Pace` says how fast, changeable at any time: `Scaled(f)` runs `f` × 16 ticks per second of
   real time through `Time<Virtual>`'s relative speed, `Max` (`--fast`) as many ticks per frame as fit in
-  `FAST_FRAME_BUDGET`, drawn exactly at their ticks. A replay's playback controls both (see Replays and golden
-  hashes).
+  `FAST_FRAME_BUDGET`, drawn exactly at their ticks. A change applies in `PostUpdate` (`apply_pace`), so the next
+  frame's time update already goes at the new pace, and at a scaled pace the fixed loop never owes more than a
+  frame's worth (`limit_fixed_loop`: 250 ms of scaled time), so leaving `Max` runs no burst of ticks. A replay's
+  playback controls both (see Replays and golden hashes).
 
 **Visuals**
 - The sim is the source of truth. Visuals are separate entities, each linked to its object by an
@@ -875,15 +880,16 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   starts every state over when the sim is replaced (`SimRes::generation`). `Input` (in `Actions`) applies map
   clicks, boxes, the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the
   debug player switch (F2, only while `SimConfig::debug`: the client acts as the next player, so "own" and the state
-  in use change; a replay's playback switches without debug commands too). The HUD's portrait clicks run after it. Systems change a state only through
-  `LocalControl::update`, which marks `ControlStates` changed only on a real change, and puts the
-  ObjectInterfaceState back to DefaultState when the Selection or its ActiveGroup changes. While a target is
-  awaited, map clicks and boxes select nothing (the drag box isn't drawn): the left-click is the target's.
+  in use change; a replay's playback switches without debug commands too). The HUD's portrait clicks run after it.
+  Systems change a state only through `LocalControl::update`, which marks `ControlStates` changed only on a real
+  change, and puts the ObjectInterfaceState back to DefaultState when the Selection or its ActiveGroup changes. While
+  a target is awaited, map clicks and boxes select nothing (the drag box isn't drawn): the left-click is the
+  target's.
 - **Visuals** (`selection/markers.rs`): one marker entity per selected object: a ring around a unit, in the
   ground-decal layer under it, or a frame inside a footprint, which the object's visual would hide there, so it is
   drawn just in front of the object (`FRAME_Z`: half a su of ground y, under the objects south of it); coloured by
-  relation, the ActiveGroup's solid and the others' dashed; meshes cached per shape, relation and activity. The drag box is four edges of one shared mesh in
-  the overlay layer, shown while `Pointer::drag_box` is set.
+  relation, the ActiveGroup's solid and the others' dashed; meshes cached per shape, relation and activity. The drag
+  box is four edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set.
 
 **Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/selection_and_hud.md > ObjectInterfaceState`
 to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units.
@@ -1030,13 +1036,16 @@ unchecked.
   or ", end", and "Tick n / end". Screenshots, `--exit-at-tick`, `--dump-state`, `--input-script` (to press the
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
-- **Golden hashes** (`crates/sim/tests/golden.rs`): five scripted games, a 3v3 duel, a 40-unit AttackMove battle, a
-  12-unit group move through a choke, a patrol that meets an enemy and a chase into the fog, are blessed as replays
-  with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. The test plays each game
-  from its definition, checks that the definition still is the blessed one, and compares the checkpoints; a mismatch
-  fails with the first diverging tick and the last one that matched. Each game also asserts what it is about (one
-  side of the duel is gone, the group passed the choke, …), so a re-bless can't hide a broken game. Any change to the
-  sim's rules or state changes the hashes: when the change is intended, re-bless and commit the files with it:
+- **Golden hashes** (`crates/sim/tests/golden.rs`): six scripted games, a 3v3 duel, a 40-unit AttackMove battle, a
+  12-unit group move through a choke, a patrol that meets an enemy, a chase into the fog, and three Peacekeepers that
+  raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under fire and lower
+  them to kill it, are blessed as replays with a checkpoint every 32 ticks and at the end, in
+  `crates/sim/tests/golden/<name>.json`. The test plays each game from its definition, checks that the definition
+  still is the blessed one, and compares the checkpoints; a mismatch fails with the first diverging tick and the
+  last one that matched. Each game also asserts what it is about, at its end (`expect`: one side of the duel is
+  gone, the group passed the choke, …) and along the way (`during`: the shielded Peacekeepers held their fire), so
+  a re-bless can't hide a broken game. Any change to the sim's rules or state changes the hashes: when the change is
+  intended, re-bless and commit the files with it:
 
   ```sh
   SC_BLESS=1 cargo test -p sc_sim golden
