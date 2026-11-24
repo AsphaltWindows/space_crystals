@@ -56,7 +56,7 @@ While the shield is **down**, the Peacekeeper behaves normally.
 
 **Toggle time:** raising and lowering the shield takes a short time, so it cannot be flicked on and off between enemy shots. Exact value TBD (should be under half a second).
 
-**Right-click on an enemy while the shield is up** issues a Move order to that location instead of an Attack.
+**Right-click on an enemy while the shield is up** (user, 2026-11-24): the Peacekeeper can't attack, so it does what any unit that can't carry out a right-click does (systems/controls/selection_and_hud.md > RightClickResolution): it **follows** an enemy unit (Move to that unit) and moves to an enemy structure. In a mixed group, the other units attack while the shielded Peacekeepers stay with them.
 
 TBD: hotkey.
 

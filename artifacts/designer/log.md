@@ -2031,3 +2031,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: No smart-casting principle (Groupable fixed per type; workers + casters Ungroupable; player toggle parked); Shift while placing (chain only when builder takes more orders). Docs: selection_and_hud.md > SelectionGroup > No smart-casting, AwaitingTarget > Shift while placing; core/entities.md Groupable. Entry 0071.
 - 2026-11-24: Recruits made Groupable (C): Construct/Assist go to all selected Recruits; Agents/Drones stay Ungroupable. Docs: cults/units.md Recruit, selection_and_hud.md No smart-casting + Shift while placing, core/entities.md. Entry 0072.
 - 2026-11-24: Q0021 pt 1: targeting click allowance 16 px (B). Doc: selection_and_hud.md > Dragging while targeting. Entry 0073.
+- 2026-11-24: Q0020 pt 1: shielded Peacekeepers right-clicked on enemy follow (B, 0062 wins). Doc: gdo/units.md > Riot Shield. Entry 0074.
