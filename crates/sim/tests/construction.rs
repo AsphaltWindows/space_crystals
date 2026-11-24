@@ -13,7 +13,7 @@ use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references};
 use sc_sim::{
     BuildingOrientation, Command, ConstructionCommand, Constructor, DebugCommand, ObjectId, ObjectKind, OrderKind,
     Placement, PlacementCheck, PlacementProblem, PlayerCommand, PlayerId, Reject, Replay, Rng, Rotation, Sim,
-    SimConfig, SimEvent, SpawnAt, Tick, TickInputs, TilePos, TileProblem, WholeProblem,
+    SimConfig, SimEvent, SpawnAt, Tick, TickInputs, TilePos, TileProblem, WholeProblem, scenarios,
 };
 
 use ConstructionCommand::{CancelConstruction, CancelReady, Construct, Place};
@@ -907,36 +907,45 @@ fn constructions_go_on_alike_after_a_save_and_in_a_replay() {
     assert_eq!(replay.run().state_hash(), t.sim().state_hash());
 }
 
-/// The plan's mini-oracle (`factions/gdo/economy.md > Opening Economy Baseline`): from the starting base (a
-/// Deployment Center, an Extraction Facility and two plates, 100 Space Crystals; `> Starting Conditions`, set up by
-/// hand until slice M2-F1), the clean Barracks opening, Plate, Generator, Generator, Barracks, each ordered as soon
-/// as its constructor is free and the bank covers it, each building placed as soon as it is ready. "Fastest clean
-/// Barracks ... starts at ~46 seconds and finishes at ~56 seconds", with continuous income; with lumps (design change
-/// 0098) about 48 s (the plan's R10). Here it starts in tick 769 (48.1 s) and is ready in tick 929 (58.1 s), and
-/// power stays positive throughout.
+/// The first tile, row by row, where player 1 may place a `kind` unturned now, by the placement check.
+fn first_spot(sim: &Sim, kind: ObjectKind) -> TilePos {
+    let (w, h) = (sim.map().width() as i32, sim.map().height() as i32);
+    (0..h)
+        .flat_map(|y| (0..w).map(move |x| at(x, y)))
+        .find(|&t| {
+            sim.placement_check(P1, kind, t, BuildingOrientation::default())
+                .is_valid()
+        })
+        .unwrap_or_else(|| panic!("no spot for a {kind:?}"))
+}
+
+/// The plan's mini-oracle (`factions/gdo/economy.md > Opening Economy Baseline`): from player 1's starting base in
+/// `dev_skirmish` (the GDO Starting Conditions, slice M2-F1: a Deployment Center, an Extraction Facility, two plates
+/// and 100 Space Crystals), the clean Barracks opening, Plate, Generator, Generator, Barracks, each ordered as soon as
+/// its constructor is free and the bank covers it, each building placed as soon as it is ready, at the first spot the
+/// placement check allows. "Fastest clean Barracks ... starts at ~46 seconds and finishes at ~56 seconds", with
+/// continuous income; with lumps (design change 0098) about 48 s (the plan's R10). Here it starts in tick 769
+/// (48.1 s) and is ready in tick 929 (58.1 s), and power stays positive throughout.
 #[test]
 fn the_clean_barracks_opening_starts_the_barracks_at_about_48_seconds() {
-    let mut t = ScenarioBuilder::new(&flat(32, 20))
-        .spawn(CrystalPatch, None, tile(5, 6)) // 1
-        .spawn(CrystalPatch, None, tile(7, 7)) // 2
-        .spawn(CrystalPatch, None, tile(9, 7)) // 3
-        .spawn(DeploymentCenter, Some(P1), tile(6, 1)) // 4
-        .spawn(ExtractionFacility, Some(P1), tile(11, 1)) // 5
-        .spawn(ExtractionPlate, Some(P1), tile(5, 6)) // 6
-        .spawn(ExtractionPlate, Some(P1), tile(7, 7)) // 7
-        .start();
-    let (dc, ef) = (4, 5);
-    t.debug_at(1, fund(P1, 100))
-        .at(1, P1, construction(&[ef], Construct(ExtractionPlate)));
+    let mut t = TestSim::new(scenarios::dev_skirmish());
+    let own = |t: &TestSim, kind| {
+        let mut own = t.sim().objects().filter(|o| o.owner == Some(P1) && o.kind == kind);
+        let first = own.next().expect("in the starting base").id.0;
+        assert!(own.next().is_none(), "one {kind:?}");
+        first
+    };
+    let (dc, ef) = (own(&t, DeploymentCenter), own(&t, ExtractionFacility));
+    assert_eq!(bank(&t, P1), 100);
+    t.at(1, P1, construction(&[ef], Construct(ExtractionPlate)));
     let mut plan = [Generator, Generator, Barracks].into_iter().peekable();
-    let mut spots = [at(9, 7), at(2, 1), at(2, 3), at(10, 5)].into_iter();
     let mut started = Vec::new();
     t.step();
     while t.sim().tick() < 1000 {
         let tick = t.sim().tick() + 1;
         for n in [ef, dc] {
-            if state(&t, n).ready().is_some() {
-                let spot = spots.next().unwrap();
+            if let Some(kind) = state(&t, n).ready() {
+                let spot = first_spot(t.sim(), kind);
                 t.at(tick, P1, construction(&[n], place(spot.x, spot.y)));
             }
         }
@@ -971,10 +980,11 @@ fn the_clean_barracks_opening_starts_the_barracks_at_about_48_seconds() {
     assert!((45.0..=50.0).contains(&seconds(769)) && seconds(barracks) - seconds(769) == 10.0);
     let power = t.sim().power(P1);
     assert_eq!((power.generated, power.consumed), (70, 54));
-    let placed = t
-        .sim()
-        .objects()
-        .filter(|o| o.kind == Barracks && o.owner == Some(P1))
-        .count();
-    assert_eq!(placed, 1);
+    let built = |kind| {
+        t.sim()
+            .objects()
+            .filter(|o| o.kind == kind && o.owner == Some(P1))
+            .count()
+    };
+    assert_eq!([Generator, Barracks, ExtractionPlate].map(built), [2, 1, 3]);
 }

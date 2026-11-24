@@ -995,8 +995,8 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   680 ticks at 30/51 beside an unslowed Deployment Center, the refunds, every refused command changing nothing, a
   group command in id order, a Place in its orientation with power, area and grids following, a refused Place for
   each problem of the check and one refused by an earlier command of its tick, destroyed constructors' refunds by a
-  debug removal and in combat, a fuzz of the gate, a save and a replay, and the clean Barracks opening as a
-  mini-oracle: started in tick 769, ready in 929).
+  debug removal and in combat, a fuzz of the gate, a save and a replay, and the clean Barracks opening from
+  `dev_skirmish`'s starting base as a mini-oracle: started in tick 769, ready in 929).
 - **Game start tests** are `crates/sim/tests/game_start.rs` (slice M2-F1: each player's Starting Layout and banks,
   the Skirmish Default restriction and completeness, the layout rules of design change 0097, two players' layouts in
   each other's way, the outdated flag, and `dev_skirmish`'s bases seeing and reaching their fields) and the unit tests
