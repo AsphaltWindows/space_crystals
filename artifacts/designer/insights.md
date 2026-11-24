@@ -37,7 +37,6 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 
 ## Loose Ends
 
-- **Recruit Build conflict** (raise next): Recruit is Ungroupable (panel Build → active Recruit only, per no-smart-casting), but cults/economy.md > Build Command says "All selected Recruits walk to the location". Also cults Assist Construction "one or more Recruits". Resolve.
 - **Player grouping toggle** (parked, 0071): Alt/other-click on portrait toggling a type's grouping; scope options (selection only / rest of game / stored in control groups); Alt-click portrait already = center camera. Revisit if fixed per-type Groupable proves insufficient. Concern: Tab stops pile up with many ungroupable casters in big armies (HUD pass may help, e.g. click a group directly).
 
 
@@ -88,7 +87,7 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 
 ## Insights
 
-- **No smart-casting, anywhere** (user, strong principle): it constrains how powerful abilities can be; workers consistent. Individual use = Ungroupable + Tab (middle ground between BW mouse-picking and smart-cast). Don't propose auto-advance-to-next-unit schemes; they are smart-casting by another name.
+- **No smart-casting, anywhere** (user, strong principle): it constrains how powerful abilities can be; workers consistent. Individual use = Ungroupable + Tab. Workers used up by a build (Agent, Drone) Ungroupable; Recruits (share builds) Groupable (0072) (middle ground between BW mouse-picking and smart-cast). Don't propose auto-advance-to-next-unit schemes; they are smart-casting by another name.
 - Explain mechanics with concrete numbered examples (positions, queues): the user reasons through them step by step and asks follow-ups until it's clear.
 - When the user offers implementation ideas (caches, algorithms), record them as SUGGESTIONS for the Director, not design requirements, unless the user says otherwise (2026-11-23, path cache).
 - In lists, the user reads in order and stops at the first item they disagree with: items BEFORE it are agreed, items AFTER it are unread (2026-11-23, Q0013.4; 0050/0051). Never treat later items as agreed. Ask ONE thing per message.

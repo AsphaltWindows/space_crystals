@@ -105,7 +105,7 @@ The Recruit is the Cults' basic worker unit, automatically produced by Recruitme
 ### FullArmor - 0
 ### SightRange - 5 grid units
 ### Destructible - true
-### Groupable - false
+### Groupable - true (user, 2026-11-24: Recruits share a build, so Construct and Assist from the panel go to every selected Recruit; see systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting)
 
 ### UnitBaseAttributes[LightInfantry]:
 - TurnRate: 180 degrees/frame
@@ -197,4 +197,4 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 - Enemy unit/building → Attack (melee)
 - Ground → Move
 
-Multiple Recruits can be selected simultaneously. Right-click commands are issued to all selected Recruits even though the Recruit is ungroupable (no shared control panel — the panel displays one Recruit's interface).
+Recruits are Groupable: all selected Recruits form one SelectionGroup, and both right-click and panel commands (Construct, Assist Construction) are issued to all of them. Construct sends every selected Recruit to build the **same** building together (factions/cults/economy.md > Build Command). To build with a single Recruit, select it alone first (e.g. click its portrait).
