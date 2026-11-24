@@ -29,9 +29,8 @@
 
 All non-blocking; Director proceeds on its defaults (option A in each). Arrived 2026-11-23 mid-GDO-roster; raise after the support-air-unit thread. Movement/pathing cluster:
 - **Q0016** point 1 ANSWERED (0062 non-capable units move/follow; 0063 per-unit resolution + Mixed cursor). (0065 invalid target: ignore + feedback; 0066 other commands unavailable while targeting, cancel first.) (0067 drag while targeting = nothing.) (0068 press point; 0069 player selection changes cancel targeting, deaths don't unless ActiveGroup empty.) (0070 point 4: Shift keeps targeting active until released → Q0016 DONE; follow-up TBD: Shift released before any click; 0071 Shift-placement same rule where builder can take more orders)
-- **Q0018** behaviour gaps: (1) ANSWERED 0178 fog delay 0.5 s; (2) ANSWERED 0179 45° steps; (3) AttackMove leash stays on original route (intent?); (4) unreachable auto-target: retry after 32 ticks vs skip/next target; (5) target inside MinRange: give up vs back off vs auto-target skips; (6) unit walled out of group spot after fight: arrived within 2 GU else gives up — OK?
 - **New 2026-11-24 (Q0033–Q0045)**, none blocking now. DONE: Q0037 (0123, 0127–0138), Q0044 (0134, 0137, 0139–0141), Q0041 (0143–0145), Q0042 (0146–0154), Q0034 (0155), Q0033 (0156, 0158, 0159), Q0035 (0160–0162), Q0036 (0163–0165), Q0017 pt 2 (0139), Q0038 (0106–0108), Q0039 (0109–0116), Q0040 (0117–0125), Q0045 (0126–0127).
-  - All 2026-11-24 questions answered through Q0047.
+  - All questions answered through Q0048 (2026-11-24/25).
 - Yielding (0023): only no-command units yield; Hold Position/busy don't; modes (Riot Shield) irrelevant; deployed Artillery Rig = fixed obstacle. TBD sidestep distance, allies. Watch: mining workers don't yield → possible clots at patches (worker collision while gathering never designed).
 
 ## Loose Ends
@@ -49,8 +48,9 @@ All non-blocking; Director proceeds on its defaults (option A in each). Arrived 
 - **Player grouping toggle** (parked, 0071): Alt/other-click on portrait toggling a type's grouping; scope options (selection only / rest of game / stored in control groups); Alt-click portrait already = center camera. Revisit if fixed per-type Groupable proves insufficient. Concern: Tab stops pile up with many ungroupable casters in big armies (HUD pass may help, e.g. click a group directly).
 
 
-### >>> WHERE WE LEFT OFF (2026-11-24) — start here next session <<<
-**Answering Director questions one at a time.** Done this session: Q0016, Q0019–Q0030 (entries 0070–0105). Remaining (15 points, none blocking): **Q0031** (was mid-presentation: clicked unit itself — rec A left out/keeps orders; others follow it), Q0032 (arrival radius 2/3 GU/size-scaled), Q0020 pts 2–5 (Riot Shield details), Q0017 (2 fog points), Q0018 (6 behaviour gaps). After that: back to the GDO roster/numbers pass (below).
+### >>> WHERE WE LEFT OFF (2026-11-25) — start here next session <<<
+**All Director questions answered through Q0048** (entries 0106–0185 this session; earlier 0070–0105). No open Director questions. Next: back to the **GDO roster/numbers pass** (previous marker below), or a loose end (deferred Colonists content needs mechanics: Skylance salvo, Plasma Turret beam, Scout stealth/detection, Lancer, psionic unit, Heavy/Star Portal output, research).
+New standing decisions worth remembering: Drones Groupable + lingering build ghosts (0125); capacity reserved at production start for all factions (0143); portals = centre energy doorway (0145); mode switches keep orders, not queueable, deferred mid-attack (0150–0153, 0172); Peacekeeper / Peacekeeper (Shielded) two types (0173); unfinished buildings own group (0185); remembered objects targetable (0139); fog delay 0.5 s + attacker reveal 1.5 s (0177–0178); route recalculation = Director's call (0158).
 
 ### Previous marker (2026-11-23)
 **Current task: unit rosters, one faction at a time, GDO first.** Sketch the full roster (concepts, roles, mechanics), THEN do numbers for all GDO units, then move to the next faction. Later: split into one file per unit/building once most units exist.

@@ -100,6 +100,7 @@ impl StateHash for Mover {
             sidestep,
             exit,
             momentum,
+            exit_heading,
         } = self;
         goal.hash(h);
         status.hash(h);
@@ -129,6 +130,12 @@ impl StateHash for Mover {
         if *momentum != glam::Vec2::ZERO {
             h.tag(1);
             momentum.hash(h);
+        }
+        // (M3-D2) Likewise only while set, under a tag of its own: games without a unit in a portal's energy doorway
+        // hash as before the field existed.
+        if let Some(heading) = exit_heading {
+            h.tag(2);
+            heading.hash(h);
         }
     }
 }

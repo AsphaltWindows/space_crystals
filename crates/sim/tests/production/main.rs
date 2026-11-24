@@ -6,17 +6,22 @@
 //! - `exit`: the exit doorway (`core/entities.md > Structure Type > Exit Doorway`, design change 0080): where a unit
 //!   appears, in every orientation, and how it gets out;
 //! - `stalls`: blocked doorways (production pauses, design change 0085's refund), saves, and a long random game;
-//! - `portals`: the Robo Portal and the Bio Portal (`factions/colonists/structures.md`, plan decision T19): which of
-//!   their doors a unit leaves by, their pause, rally points on enemies, refunds and Beacon Capacity;
+//! - `portals`: the Robo Portal and the Bio Portal (`factions/colonists/structures.md`; their energy doorway, design
+//!   change 0145): the unit that materializes at the centre and the heading it walks out along (towards the rally
+//!   point, round by the nearest free open direction, or at random), the Bio Portal's arc in every orientation,
+//!   rally points on enemies, refunds and Beacon Capacity, a game replayed and saved;
+//! - `portal_stalls`: a portal whose way out is blocked (the unit half out, the next one waiting at 100%, the
+//!   refund), and invariants I1 and I2 around the energy doorway (negative tests);
 //! - `capacity`: the army caps checked when production starts, for the GDO and the Colonists (design change 0143,
 //!   slice M3-P): the waits at 0%, the notification, a unit in production that always finishes, the refunds.
 //!
 //! Every test runs under the invariants of `TestSim` (I1: no two units overlap; I2 with its doorway exception: only
-//! the released unit, only its own building's tiles, only outwards).
+//! the released unit, only its own building's tiles, only outwards, and out of a portal only through an open side).
 
 mod capacity;
 mod doors;
 mod exit;
+mod portal_stalls;
 mod portals;
 mod queue;
 mod rally;

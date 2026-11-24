@@ -1,36 +1,38 @@
-//! The Colonists' portals (slice M3-D, plan decision T19): `factions/colonists/structures.md > Robo Portal`, `> Bio
-//! Portal`. A unit leaves by the exit side closest to the rally point, else by a random unblocked one, drawn from
-//! the sim's Rng (`> Bio Portal > Exit Behavior`, which the Robo Portal follows over its four sides: question Q0041
-//! point 3); a door a unit still stands in is blocked, and the portal pauses only when every door is
-//! (`core/entities.md > Structure Type > Exit Doorway`).
+//! The Colonists' portals (slice M3-D; slice M3-D2, design change 0145): `factions/colonists/structures.md > Portals
+//! > Portal Exits (energy doorway)`, `> Robo Portal`, `> Bio Portal > Exit Behavior`. A finished unit materializes at
+//! the portal's centre and walks straight out along its heading: towards the rally point if that direction is open,
+//! else the nearest open one whose way out is free; with no rally point, a random open free one, drawn from the
+//! sim's Rng. The Robo Portal is open all round, the Bio Portal through its two A sides. A portal whose way out is
+//! blocked: `portal_stalls`.
 
+use sc_sim::production::exit::HEADINGS;
 use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references};
 use sc_sim::{
-    ArmyCap, ArmyResource, BuildingOrientation, DebugCommand, Doorway, Faction, MoveStatus, ObjectId, ObjectKind,
-    OrderKind, ProductionCommand, Rally, Rotation, SimEvent, Target, Tick, Vec2, math,
+    ArmyCap, ArmyResource, BuildingOrientation, DebugCommand, EnergyDoorway, Faction, MoveStatus, ObjectId, ObjectKind,
+    OrderKind, ProductionCommand, Rally, Rotation, Sim, SimEvent, Target, Tick, Vec2, math,
 };
 
-use super::doors::{exit_of, step_checked, waiting};
-use super::queue::{bank, crystals, queue, rally_of};
-use super::{P1, P2, PK, at, flat, production, tile};
+use super::doors::{exit_of, step_checked};
+use super::queue::{bank, crystals, rally_of};
+use super::{P1, flat, production, tile};
 
-const DRONE: ObjectKind = ObjectKind::Drone;
-const SABRE: ObjectKind = ObjectKind::SabreLegionnaire;
+pub(super) const DRONE: ObjectKind = ObjectKind::Drone;
+pub(super) const SABRE: ObjectKind = ObjectKind::SabreLegionnaire;
 const NODE: ObjectKind = ObjectKind::EgressNode;
 
 /// The portal of [`robo_portal`] and [`bio_portal`].
-const PORTAL: ObjectId = ObjectId(1);
+pub(super) const PORTAL: ObjectId = ObjectId(1);
 
-/// Which way a door faces: north, east, south, west.
-const N: Vec2 = Vec2::NEG_Y;
-const E: Vec2 = Vec2::X;
-const S: Vec2 = Vec2::Y;
-const W: Vec2 = Vec2::NEG_X;
+/// The centre of [`robo_portal`]'s Robo Portal, and of [`bio_portal`]'s Bio Portal.
+pub(super) const ROBO: Vec2 = Vec2::new(896.0, 512.0);
+const BIO: Vec2 = Vec2::new(864.0, 480.0);
+
+/// The half extents of a Drone.
+const HALF: Vec2 = Vec2::splat(18.0);
 
 /// Player 1, Colonists, with a Robo Portal (1) on tiles (12, 6) to (15, 9) of a 30 × 20 map: x 768..1024, y
-/// 384..640, its doors in the middle of each side: north (896, 384), east (1024, 512), south (896, 640) and west
-/// (768, 512). Two Egress Nodes (2, 3) in the far corner: Beacon Capacity 15.
-fn robo_portal() -> ScenarioBuilder {
+/// 384..640, its centre [`ROBO`]. Two Egress Nodes (2, 3) in the far corner: Beacon Capacity 15.
+pub(super) fn robo_portal() -> ScenarioBuilder {
     ScenarioBuilder::new(&flat(30, 20))
         .faction(P1, Faction::Colonists)
         .spawn(ObjectKind::RoboPortal, Some(P1), tile(12, 6))
@@ -39,8 +41,8 @@ fn robo_portal() -> ScenarioBuilder {
 }
 
 /// Player 1, Colonists, with a Bio Portal (1) turned as given on tiles (12, 6) to (14, 8) of a 30 × 20 map: x
-/// 768..960, y 384..576, its centre (864, 480). Two Egress Nodes (2, 3) in the far corner, and `more`.
-fn bio_portal(rotation: Rotation, flip_h: bool, more: impl FnOnce(ScenarioBuilder) -> ScenarioBuilder) -> TestSim {
+/// 768..960, y 384..576, its centre [`BIO`]. Two Egress Nodes (2, 3) in the far corner, and `more`.
+pub(super) fn bio_portal(rotation: Rotation, flip_h: bool, more: fn(ScenarioBuilder) -> ScenarioBuilder) -> TestSim {
     let builder = ScenarioBuilder::new(&flat(30, 20))
         .faction(P1, Faction::Colonists)
         .spawn(ObjectKind::BioPortal, Some(P1), tile(12, 6))
@@ -56,17 +58,17 @@ fn bio_portal(rotation: Rotation, flip_h: bool, more: impl FnOnce(ScenarioBuilde
 }
 
 /// Queues `n` units of `kind` at [`PORTAL`] in `tick`.
-fn train(t: &mut TestSim, tick: Tick, kind: ObjectKind, n: usize) {
+pub(super) fn train(t: &mut TestSim, tick: Tick, kind: ObjectKind, n: usize) {
     for _ in 0..n {
         t.at(tick, P1, production(&[PORTAL], ProductionCommand::Train(kind)));
     }
 }
 
-fn set_rally(t: &mut TestSim, tick: Tick, target: Target) {
+pub(super) fn set_rally(t: &mut TestSim, tick: Tick, target: Target) {
     t.at(tick, P1, production(&[PORTAL], ProductionCommand::SetRally(target)));
 }
 
-fn beacon_capacity(used: u32, available: u32) -> Option<ArmyCap> {
+pub(super) fn beacon_capacity(used: u32, available: u32) -> Option<ArmyCap> {
     Some(ArmyCap {
         resource: ArmyResource::BeaconCapacity,
         used,
@@ -74,48 +76,70 @@ fn beacon_capacity(used: u32, available: u32) -> Option<ArmyCap> {
     })
 }
 
-/// A unit that [`PORTAL`] released: when, which, where it appeared, and which way the door it appeared in faces.
+/// A unit that [`PORTAL`] released: when, which, and the heading it leaves along (`Mover::exit_heading`).
 #[derive(Copy, Clone, Debug, PartialEq)]
-struct Exit {
-    tick: Tick,
-    unit: ObjectId,
-    pos: Vec2,
-    side: Vec2,
+pub(super) struct Exit {
+    pub(super) tick: Tick,
+    pub(super) unit: ObjectId,
+    pub(super) heading: Vec2,
 }
 
 /// Steps `t` until tick `until` under the doorway checks (`doors::step_checked`), and notes each unit [`PORTAL`]
-/// releases as it appears: in the middle of one of its doors, at most half outside, facing out (`> Exit Doorway`).
-fn run_exits(t: &mut TestSim, until: Tick) -> Vec<Exit> {
+/// releases as it appears: at the portal's centre, in its doorway, facing its heading, which is open (design change
+/// 0145, points 1 and 2). Every tick, each unit it released is still on its heading's ray from the centre while it
+/// is in the doorway (it walks straight out).
+pub(super) fn run_exits(t: &mut TestSim, until: Tick) -> Vec<Exit> {
     let mut out = Vec::new();
-    let mut exits = Vec::new();
+    let mut exits: Vec<Exit> = Vec::new();
     while t.sim().tick() < until {
         step_checked(t, &mut out);
         let (sim, tick) = (t.sim(), t.sim().tick());
+        let Some(portal) = sim.object(PORTAL).and_then(EnergyDoorway::of) else {
+            continue;
+        };
         for (_, event) in t.events().iter().filter(|(made, _)| *made == tick) {
             let SimEvent::UnitProduced { producer: PORTAL, unit } = *event else {
                 continue;
             };
             let o = sim.object(unit).unwrap();
-            let door = Doorway::of(sim.object(PORTAL).unwrap()).unwrap().door_at(o.pos);
-            let side = door.outward();
-            let what = format!("#{} at {} in the door facing {side}", unit.0, o.pos);
-            assert_eq!((o.pos - door.middle()).dot(side.perp()), 0.0, "{what}: on the middle");
-            assert!((-18.04..=0.0).contains(&door.out_of(o.pos)), "{what}: at most half out");
-            assert_eq!(math::facing_vector(o.facing).round(), side, "{what}: facing out");
-            assert_eq!(exit_of(sim, unit), Some(PORTAL), "{what}");
-            exits.push(Exit {
-                tick,
-                unit,
-                pos: o.pos,
-                side,
-            });
+            let mover = o.mover.as_ref().unwrap();
+            let heading = mover.exit_heading.expect("a unit in an energy doorway has a heading");
+            let what = format!("#{} at {} heading {heading}", unit.0, o.pos);
+            assert_eq!(
+                (o.pos, o.prev_pos),
+                (portal.centre(), portal.centre()),
+                "{what}: at the centre"
+            );
+            assert_eq!(mover.exit, Some(PORTAL), "{what}: in the doorway");
+            assert!(portal.is_open(heading), "{what}: an open direction");
+            assert!(
+                math::facing_vector(o.facing).distance(heading) < 1e-5,
+                "{what}: facing it"
+            );
+            exits.push(Exit { tick, unit, heading });
+        }
+        for exit in &exits {
+            let Some(o) = sim
+                .object(exit.unit)
+                .filter(|o| o.mover.as_ref().unwrap().exit.is_some())
+            else {
+                continue;
+            };
+            let along = o.pos - portal.centre();
+            assert!(
+                along.perp_dot(exit.heading).abs() < 1e-3 && along.dot(exit.heading) >= 0.0,
+                "tick {tick}: #{} at {} is off its ray {}",
+                exit.unit.0,
+                o.pos,
+                exit.heading
+            );
         }
     }
     exits
 }
 
-fn sides(exits: &[Exit]) -> Vec<Vec2> {
-    exits.iter().map(|exit| exit.side).collect()
+fn headings(exits: &[Exit]) -> Vec<Vec2> {
+    exits.iter().map(|exit| exit.heading).collect()
 }
 
 /// The first order of `unit`.
@@ -125,17 +149,17 @@ fn order_of(t: &TestSim, unit: ObjectId) -> Option<OrderKind> {
 }
 
 /// The sim's Rng, as a save holds it.
-fn rng_of(t: &TestSim) -> serde_json::Value {
+pub(super) fn rng_of(t: &TestSim) -> serde_json::Value {
     serde_json::to_value(t.sim()).unwrap()["rng"].clone()
 }
 
-/// Plan acceptance: "Drone 50 SC paid at queue; ordered tick t → appears at door closest to rally at end of t+159,
-/// acts from t+160" (`> Robo Portal > Produces`: "Drone: 50 Space Crystals, 160 frames (10 seconds)"); the rally
-/// point lies east, so the east door. Choosing it draws nothing from the Rng.
+/// 0145's Verification: "Robo Portal rallied northeast: Drones emerge from the centre heading northeast"; and the
+/// plan's timing: "Drone 50 SC paid at queue; ordered tick t → appears at end of t+159, acts from t+160" (`> Robo
+/// Portal > Produces`: "Drone: 50 Space Crystals, 160 frames (10 seconds)"). With a rally point nothing is drawn.
 #[test]
-fn a_drone_takes_160_frames_and_leaves_by_the_door_closest_to_the_rally_point() {
+fn a_drone_takes_160_frames_and_emerges_from_the_centre_heading_for_its_rally_point() {
     let mut t = robo_portal().start();
-    let point = Vec2::new(1700.0, 500.0);
+    let point = ROBO + Vec2::new(400.0, -400.0);
     t.debug_at(1, crystals(P1, 120));
     set_rally(&mut t, 1, Target::Point(point));
     train(&mut t, 5, DRONE, 1);
@@ -148,62 +172,153 @@ fn a_drone_takes_160_frames_and_leaves_by_the_door_closest_to_the_rally_point() 
     );
     assert_eq!(run_exits(&mut t, 163), []);
     let exits = run_exits(&mut t, 164);
-    assert_eq!(sides(&exits), [E]);
+    assert_eq!(exits.len(), 1);
     let exit = exits[0];
-    assert_eq!(
-        (exit.tick, exit.pos),
-        (164, Vec2::new(1024.0, 512.0)),
-        "half inside the east side"
-    );
-    assert_eq!(t.sim().object(exit.unit).unwrap().prev_pos, exit.pos);
+    assert_eq!((exit.tick, exit.heading), (164, (point - ROBO).normalize()));
     assert_eq!(order_of(&t, exit.unit), Some(OrderKind::Move(Target::Point(point))));
-    assert_eq!(rng_of(&t), rng, "one door was closest: no draw");
-    t.run(1);
-    assert_ne!(t.pos(exit.unit.0), exit.pos, "it acts from the next tick");
+    assert_eq!(rng_of(&t), rng, "no draw");
+    // It acts from the next tick, along its heading, and keeps to it until it is out.
+    run_exits(&mut t, 165);
+    let moved = t.pos(exit.unit.0) - ROBO;
+    assert!(moved.length() > 0.0, "it acts from the next tick");
+    run_exits(&mut t, 220);
+    assert_eq!(exit_of(t.sim(), exit.unit), None, "out");
     t.run_until(400);
     assert_eq!(t.pos(exit.unit.0), point);
 }
 
-/// Question Q0041 point 4 (placeholder): "closest" is the straight line from the middle of the door to the rally
-/// point, and ties go top, right, bottom, left. A rally point beyond any side takes the Drone out of that side;
-/// one as far from two doors takes it out of the first of them; an object's (an own Egress Node: Move to it), out
-/// of the door closest to where it stands.
+/// Point 3: "straight toward the RallyPoint if that direction is open", every direction for the Robo Portal. An
+/// object's rally point is where its owner last saw it (an own Egress Node: Move to it).
 #[test]
-fn each_drone_leaves_by_the_side_closest_to_its_rally_point() {
+fn each_drone_heads_straight_for_its_rally_point() {
     let cases = [
-        (Target::Point(Vec2::new(900.0, 60.0)), N),
-        (Target::Point(Vec2::new(1800.0, 700.0)), E),
-        (Target::Point(Vec2::new(700.0, 1200.0)), S),
-        (Target::Point(Vec2::new(60.0, 300.0)), W),
-        // 300 su across and 300 up or down from the centre, (896, 512): 300 and 172 from the middles of two doors.
-        (Target::Point(Vec2::new(1196.0, 212.0)), N),
-        (Target::Point(Vec2::new(1196.0, 812.0)), E),
-        (Target::Point(Vec2::new(596.0, 812.0)), S),
-        (Target::Point(Vec2::new(596.0, 212.0)), N),
-        // The Egress Node on tiles (1, 1) to (2, 2), its centre (128, 128): closer to the west door.
-        (Target::Object(ObjectId(2)), W),
+        Target::Point(Vec2::new(900.0, 60.0)),
+        Target::Point(Vec2::new(1800.0, 700.0)),
+        Target::Point(Vec2::new(700.0, 1200.0)),
+        Target::Point(Vec2::new(60.0, 300.0)),
+        Target::Point(Vec2::new(1196.0, 812.0)),
+        // The Egress Node on tiles (1, 1) to (2, 2), its centre (128, 128).
+        Target::Object(ObjectId(2)),
     ];
-    for (target, side) in cases {
+    for target in cases {
         let mut t = robo_portal().start();
         t.debug_at(1, crystals(P1, 50));
         set_rally(&mut t, 1, target);
         train(&mut t, 1, DRONE, 1);
         let exits = run_exits(&mut t, 160);
-        assert_eq!(sides(&exits), [side], "{target:?}");
-        let order = match target {
-            Target::Point(_) => OrderKind::Move(target),
-            Target::Object(id) => OrderKind::Move(Target::Object(id)),
+        let point = match target {
+            Target::Point(point) => point,
+            Target::Object(_) => Vec2::new(128.0, 128.0),
         };
-        assert_eq!(order_of(&t, exits[0].unit), Some(order));
+        assert_eq!(headings(&exits), [(point - ROBO).normalize()], "{target:?}");
+        assert_eq!(order_of(&t, exits[0].unit), Some(OrderKind::Move(target)));
     }
 }
 
-/// Plan acceptance: with no rally point the door is random, from the sim's Rng (`> Bio Portal > Exit Behavior`:
-/// "chosen at random among unblocked candidates"): the same seed gives the same doors, run after run, and another
-/// seed others. The Drones leave by several sides, and with every door free when a Drone is done, production never
-/// pauses.
+/// 0145's Verification: "Bio Portal (default orientation) rallied to the southwest (a closed side): units exit
+/// through the nearest open direction (toward the arc end) and walk around." Its arc runs from the north-west corner
+/// round to the south-east one, both 90° from south-west: the clockwise one, north-west, goes first (the Director's
+/// reading). Out there, the Sabre walks round the portal's west side to the point.
 #[test]
-fn with_no_rally_point_the_door_is_random_by_the_seed() {
+fn a_bio_portal_rallied_behind_it_sends_its_units_round_by_the_nearer_end_of_its_arc() {
+    let mut t = bio_portal(Rotation::R0, false, |b| b);
+    let point = BIO + Vec2::new(-400.0, 400.0);
+    t.debug_at(1, crystals(P1, 100));
+    set_rally(&mut t, 1, Target::Point(point));
+    train(&mut t, 1, SABRE, 1);
+    let rng = rng_of(&t);
+    let exits = run_exits(&mut t, 200);
+    assert_eq!(exits.len(), 1);
+    let north_west = Vec2::new(-1.0, -1.0).normalize();
+    assert!(exits[0].heading.distance(north_west) < 1e-6, "{}", exits[0].heading);
+    assert_eq!(rng_of(&t), rng, "no draw");
+    let unit = exits[0].unit.0;
+    // Out at the north-west corner, x 768 and y 384 less its half: then down the west side.
+    assert_eq!(exit_of(t.sim(), exits[0].unit), None);
+    let mut beside = false;
+    while t.sim().tick() < 600 {
+        t.step();
+        let pos = t.pos(unit);
+        beside |= pos.x <= 750.0 && (384.0..576.0).contains(&pos.y);
+    }
+    assert!(beside, "round the west side");
+    assert_eq!((t.pos(unit), t.status(unit)), (point, MoveStatus::Arrived));
+}
+
+/// The end of a Bio Portal's arc nearer to the closed direction `d`, its arc open towards `towards` (the sum of its
+/// two open sides' outward directions): of the two diagonals across `towards`, the one at the smaller angle from `d`,
+/// the clockwise one (on screen) of two as near.
+fn nearer_end(d: Vec2, towards: Vec2) -> Vec2 {
+    let ends = [
+        Vec2::new(-towards.y, towards.x).normalize(),
+        Vec2::new(towards.y, -towards.x).normalize(),
+    ];
+    let key = |end: Vec2| (d.dot(end), d.perp_dot(end));
+    if key(ends[0]) >= key(ends[1]) { ends[0] } else { ends[1] }
+}
+
+/// The Bio Portal's arc in all 8 orientations (`> Bio Portal > Exit Behavior`: its two open sides are its A sides,
+/// top and right unturned, design change 0079, turning with it): towards a rally point in an open direction, else by
+/// the nearer end of the arc (the clockwise one of two as near); with none, an open direction. Each Sabre walks out
+/// through an open side (invariant I2 holds it to the arc every tick) at 5 su a tick, and is clear of the portal
+/// within 33 ticks: 114 su from its centre straight across, √2 times as far along a diagonal.
+#[test]
+fn the_bio_portal_releases_its_units_only_through_its_a_sides_in_all_eight_orientations() {
+    let (n, e, s, w) = (Vec2::NEG_Y, Vec2::X, Vec2::Y, Vec2::NEG_X);
+    let cases = [
+        (Rotation::R0, false, [n, e]),
+        (Rotation::R90, false, [e, s]),
+        (Rotation::R180, false, [s, w]),
+        (Rotation::R270, false, [n, w]),
+        (Rotation::R0, true, [n, w]),
+        (Rotation::R90, true, [n, e]),
+        (Rotation::R180, true, [e, s]),
+        (Rotation::R270, true, [s, w]),
+    ];
+    let rallies = [
+        None,
+        Some(n),
+        Some(e),
+        Some(s),
+        Some(w),
+        Some(n + e),
+        Some(e + s),
+        Some(s + w),
+        Some(w + n),
+    ];
+    for (rotation, flip_h, open) in cases {
+        let towards = open[0] + open[1];
+        for rally in rallies {
+            let what = format!("{rotation:?}, flipped {flip_h}, rally {rally:?}");
+            let mut t = bio_portal(rotation, flip_h, |b| b);
+            t.debug_at(1, crystals(P1, 100));
+            if let Some(direction) = rally {
+                set_rally(&mut t, 1, Target::Point(BIO + direction * 400.0));
+            }
+            train(&mut t, 1, SABRE, 1);
+            let exits = run_exits(&mut t, 193);
+            assert_eq!(exits.len(), 1, "{what}");
+            let heading = exits[0].heading;
+            assert!(towards.dot(heading) >= -1e-6, "{what}: {heading}");
+            if let Some(direction) = rally {
+                let toward = (direction * 400.0).normalize();
+                let expected = if towards.dot(toward) >= 0.0 {
+                    toward
+                } else {
+                    nearer_end(toward, towards)
+                };
+                assert!(heading.distance(expected) < 1e-6, "{what}: {heading}, not {expected}");
+            }
+            assert_eq!(exit_of(t.sim(), exits[0].unit), None, "{what}: out");
+        }
+    }
+}
+
+/// Point 3: "With no RallyPoint: a random open, unblocked direction (deterministic random)", drawn from the sim's Rng
+/// among the 32 headings: the same seed gives the same headings, run after run, and another seed others. Each Drone
+/// walks out and stands where it came clear of the portal, so later ones leave by other directions; no Drone waits.
+#[test]
+fn with_no_rally_point_the_heading_is_random_by_the_seed() {
     let run = |seed| {
         let mut t = robo_portal().seed(seed).start();
         t.debug_at(1, crystals(P1, 1000));
@@ -215,22 +330,31 @@ fn with_no_rally_point_the_door_is_random_by_the_seed() {
             [160, 320, 480, 640, 800, 960, 1120, 1280]
         );
         assert_ne!(rng_of(&t), rng, "drawn");
-        sides(&exits)
+        let portal = EnergyDoorway::of(t.sim().object(PORTAL).unwrap()).unwrap();
+        for exit in &exits {
+            assert!(HEADINGS.contains(&exit.heading), "{}", exit.heading);
+        }
+        for exit in &exits[..7] {
+            let stands = t.pos(exit.unit.0);
+            let clear = portal.outside(ROBO, exit.heading, HALF);
+            assert!(stands.distance(clear) < 1e-3, "{stands} for {clear}");
+            assert_eq!(exit_of(t.sim(), exit.unit), None);
+        }
+        headings(&exits)
     };
     let first = run(1);
     assert_eq!(run(1), first, "the same seed");
-    let mut used: Vec<[i32; 2]> = first.iter().map(|side| side.as_ivec2().to_array()).collect();
-    used.sort();
-    used.dedup();
-    assert!(used.len() >= 2, "several sides: {first:?}");
+    assert!(first.iter().any(|&heading| heading != first[0]), "{first:?}");
     assert_ne!(run(2), first, "another seed");
 }
 
-/// Plan acceptance: "chosen door blocked → another free door". Two Egress Nodes flush against the east side close
-/// it off ("obstructed, not currently traversable"): with the rally point east, the Drones leave by the other
-/// doors, at random, and walk round to it.
+/// Point 3: "If it isn't [open], or the way out in that direction is blocked, the unit tries to go around: the
+/// nearest open direction in which it can get out." Two Egress Nodes flush against the east side (x 1024..1152, y
+/// 384..640) wall it off from a rally point due east. A Drone's box swept out of the centre clears them only at
+/// 56.25° from east or more (11.25° steps): the southern of those two first (clockwise), and from there it walks round
+/// the nodes to the point. With a rally point nothing is drawn.
 #[test]
-fn a_drone_leaves_by_another_door_when_the_closest_is_walled_off() {
+fn a_drone_goes_round_by_the_nearest_free_direction_when_its_way_is_walled_off() {
     let mut t = robo_portal()
         .spawn(NODE, Some(P1), tile(16, 6))
         .spawn(NODE, Some(P1), tile(16, 8))
@@ -238,107 +362,27 @@ fn a_drone_leaves_by_another_door_when_the_closest_is_walled_off() {
     let point = Vec2::new(1500.0, 512.0);
     t.debug_at(1, crystals(P1, 1000));
     set_rally(&mut t, 1, Target::Point(point));
-    train(&mut t, 1, DRONE, 4);
+    train(&mut t, 1, DRONE, 2);
     let rng = rng_of(&t);
-    let exits = run_exits(&mut t, 650);
-    assert_eq!(exits.len(), 4);
-    assert!(sides(&exits).iter().all(|&side| side != E), "{:?}", sides(&exits));
-    assert_ne!(rng_of(&t), rng, "drawn among the three others");
-    // Round the wall (x 1024..1152) to the point, where the four of them crowd.
-    t.run_until(1400);
+    let exits = run_exits(&mut t, 330);
+    assert_eq!(headings(&exits), [HEADINGS[5]; 2]);
+    assert_eq!(rng_of(&t), rng, "no draw");
+    t.run_until(900);
     for exit in exits {
         let pos = t.pos(exit.unit.0);
-        assert!(pos.x > 1152.0 && pos.distance(point) < 200.0, "{pos}");
+        assert!(pos.x > 1152.0 && pos.distance(point) < 100.0, "{pos}");
         assert_eq!(t.status(exit.unit.0), MoveStatus::Arrived);
     }
 }
 
-/// `> Exit Doorway`: "a side whose doorway is occupied counts as blocked". Enemy units (holding their fire) stand
-/// along the east side: the first Drone, rallied east, appears in the east doorway, fully inside, and stays there;
-/// the next ones leave by the other doors.
+/// The Bio Portal's Sabre: "Sabre Legionnaire: 100 Space Crystals, 160 frames", towards the rally point due east. A
+/// Sabre stops within the tick (TurnRateMovement, 5 su a tick): it steps 5 su along its heading every tick, and is
+/// clear of the portal (x 768..960) once its centre is past x 978, on its 23rd step, which takes it the rest of the
+/// way on along its heading.
 #[test]
-fn a_drone_leaves_by_another_door_while_the_closest_is_occupied() {
-    let mut builder = robo_portal();
-    // Eleven Peacekeepers (24 su) touching one another from y 384 to 648, 1 su off the east side.
-    for i in 0..11 {
-        builder = builder.spawn(PK, Some(P2), at(1037.0, 396.0 + 24.0 * i as f32));
-    }
-    let mut t = builder.start();
-    t.without_auto_targeting();
-    t.debug_at(1, crystals(P1, 1000));
-    set_rally(&mut t, 1, Target::Point(Vec2::new(1700.0, 512.0)));
-    train(&mut t, 1, DRONE, 3);
-    let exits = run_exits(&mut t, 500);
-    assert_eq!(sides(&exits)[0], E);
-    let first = exits[0].unit;
-    assert_eq!(
-        exits[0].pos,
-        Vec2::new(1024.0 - 17.0 - 1.0 / 64.0, 512.0),
-        "as far out as there is room"
-    );
-    assert_eq!(exits.len(), 3);
-    assert!(sides(&exits)[1..].iter().all(|&side| side != E), "{:?}", sides(&exits));
-    let door = Doorway::of(t.sim().object(PORTAL).unwrap())
-        .unwrap()
-        .door_at(t.pos(first.0));
-    assert_eq!(
-        (exit_of(t.sim(), first), door.outward()),
-        (Some(PORTAL), E),
-        "still in the east doorway"
-    );
-}
-
-/// Plan acceptance: "all blocked → pause at 100%". The Robo Portal walled in on every side by Egress Nodes: each
-/// Drone appears fully inside a free door and stays there, and the fifth waits, finished, behind the four ("the
-/// building pauses only when every eligible doorway is occupied"). Take away the east wall: the Drone there walks
-/// out, and the fifth comes out of the east door.
-#[test]
-fn a_portal_pauses_while_every_door_is_occupied() {
-    let walls = [(12, 4), (14, 4), (16, 6), (16, 8), (12, 10), (14, 10), (10, 6), (10, 8)];
-    let mut builder = robo_portal();
-    for (x, y) in walls {
-        builder = builder.spawn(NODE, Some(P1), tile(x, y));
-    }
-    let mut t = builder.start();
-    let east_wall = [ObjectId(6), ObjectId(7)];
-    t.debug_at(1, crystals(P1, 1000));
-    train(&mut t, 1, DRONE, 5);
-    let exits = run_exits(&mut t, 1000);
-    assert_eq!(
-        exits.iter().map(|exit| exit.tick).collect::<Vec<_>>(),
-        [160, 320, 480, 640]
-    );
-    let mut used: Vec<[i32; 2]> = sides(&exits).iter().map(|side| side.as_ivec2().to_array()).collect();
-    used.sort();
-    assert_eq!(used, [[-1, 0], [0, -1], [0, 1], [1, 0]], "one Drone in each door");
-    for exit in &exits {
-        assert_eq!(t.pos(exit.unit.0), exit.pos, "still in its doorway");
-        assert_eq!(exit_of(t.sim(), exit.unit), Some(PORTAL));
-    }
-    let status = t.sim().production_status(PORTAL).unwrap();
-    assert!(status.waiting && status.progress == status.total, "held at 100%");
-    assert!(waiting(t.sim(), PORTAL));
-    assert_eq!(queue(t.sim(), PORTAL), 1);
-    for wall in east_wall {
-        t.debug_at(1001, DebugCommand::Remove { id: wall });
-    }
-    let after = run_exits(&mut t, 1020);
-    let east = exits.iter().find(|exit| exit.side == E).unwrap();
-    assert_eq!(exit_of(t.sim(), east.unit), None, "it walked out");
-    assert_eq!(sides(&after), [E], "the fifth, through the door that came free");
-    assert!(
-        after[0].tick > 1001 && after[0].tick <= 1008,
-        "at once: {}",
-        after[0].tick
-    );
-}
-
-/// Plan acceptance: the Bio Portal's Sabre like the Drone: "Sabre Legionnaire: 100 Space Crystals, 160 frames",
-/// out of the A side closest to the rally point.
-#[test]
-fn a_sabre_takes_160_frames_at_the_bio_portal() {
+fn a_sabre_takes_160_frames_at_the_bio_portal_and_walks_straight_out() {
     let mut t = bio_portal(Rotation::R0, false, |b| b);
-    let point = Vec2::new(1500.0, 480.0);
+    let point = BIO + Vec2::new(512.0, 0.0);
     t.debug_at(1, crystals(P1, 250));
     set_rally(&mut t, 1, Target::Point(point));
     train(&mut t, 3, SABRE, 1);
@@ -346,72 +390,32 @@ fn a_sabre_takes_160_frames_at_the_bio_portal() {
     assert_eq!((bank(t.sim(), P1), t.sim().army_cap(P1)), (150, beacon_capacity(2, 15)));
     assert_eq!(run_exits(&mut t, 161), []);
     let exits = run_exits(&mut t, 162);
-    assert_eq!(
-        (exits[0].tick, exits[0].pos, exits[0].side),
-        (162, Vec2::new(960.0, 480.0), E)
-    );
+    assert_eq!((exits.len(), exits[0].tick, exits[0].heading), (1, 162, Vec2::X));
     assert_eq!(order_of(&t, exits[0].unit), Some(OrderKind::Move(Target::Point(point))));
-    t.run(1);
-    assert_ne!(t.pos(exits[0].unit.0), exits[0].pos, "it acts from the next tick");
-}
-
-/// Plan acceptance: the Bio Portal's units leave "only from A sides in all 8 orientations" (`> Bio Portal > Exit
-/// Behavior`: "two exit-eligible sides (the "A" sides, per its AABB symmetry)"; unturned, A is the top and the
-/// right side, design change 0079): by the A side closest to the rally point wherever that lies, and by one of the
-/// two with none.
-#[test]
-fn the_bio_portal_releases_its_units_only_from_its_a_sides_in_all_eight_orientations() {
-    let cases = [
-        (Rotation::R0, false, [N, E]),
-        (Rotation::R90, false, [E, S]),
-        (Rotation::R180, false, [S, W]),
-        (Rotation::R270, false, [N, W]),
-        (Rotation::R0, true, [N, W]),
-        (Rotation::R90, true, [N, E]),
-        (Rotation::R180, true, [E, S]),
-        (Rotation::R270, true, [S, W]),
-    ];
-    let centre = Vec2::new(864.0, 480.0);
-    for (rotation, flip_h, a_sides) in cases {
-        for rally in [None, Some(N), Some(E), Some(S), Some(W)] {
-            let mut t = bio_portal(rotation, flip_h, |b| b);
-            let what = format!("{rotation:?}, flipped {flip_h}, rally {rally:?}");
-            t.debug_at(1, crystals(P1, 200));
-            if let Some(direction) = rally {
-                set_rally(&mut t, 1, Target::Point(centre + direction * 400.0));
-            }
-            train(&mut t, 1, SABRE, 2);
-            let exits = run_exits(&mut t, 330);
-            assert_eq!(exits.len(), 2, "{what}");
-            assert!(
-                sides(&exits).iter().all(|side| a_sides.contains(side)),
-                "{what}: {:?}",
-                sides(&exits)
-            );
-            if let Some(direction) = rally {
-                // The A side whose middle (96 su out from the centre) is nearer to the point.
-                let distance = |side: Vec2| (centre + side * 96.0).distance(centre + direction * 400.0);
-                let nearest = if distance(a_sides[1]) < distance(a_sides[0]) {
-                    a_sides[1]
-                } else {
-                    a_sides[0]
-                };
-                assert_eq!(sides(&exits), [nearest; 2], "{what}");
-            }
-        }
-    }
+    let unit = exits[0].unit;
+    run_exits(&mut t, 163);
+    assert_eq!(t.pos(unit.0), BIO + Vec2::new(5.0, 0.0), "it acts from the next tick");
+    run_exits(&mut t, 184);
+    assert_eq!(
+        (t.pos(unit.0), exit_of(t.sim(), unit)),
+        (Vec2::new(974.0, 480.0), Some(PORTAL))
+    );
+    run_exits(&mut t, 185);
+    assert_eq!((t.pos(unit.0), exit_of(t.sim(), unit)), (Vec2::new(979.0, 480.0), None));
+    t.run_until(300);
+    assert_eq!((t.pos(unit.0), t.status(unit.0)), (point, MoveStatus::Arrived));
 }
 
 /// `> Robo Portal > RallyPoint behavior`: "For a Drone: ... rally on enemy -> Move to that location (Drone is unarmed
 /// and cannot attack)"; the Bio Portal's Sabre, armed, gets the default right-click command on it: Attack (`> Bio
-/// Portal > RallyPoint behavior`). The enemy is a GDO Generator east of the portal, which a Drone of player 1 keeps
-/// in sight.
+/// Portal > RallyPoint behavior`). Both head for where the enemy was seen. The enemy is a GDO Generator east of the
+/// portal, which a Drone of player 1 keeps in sight.
 #[test]
 fn a_drone_rallied_on_an_enemy_moves_to_it_and_a_sabre_attacks_it() {
     // The Generator on tiles (18, 7) to (19, 8): its centre (1216, 512). The Drone south of it.
     let enemy_and_eyes = |b: ScenarioBuilder| {
-        b.spawn(ObjectKind::Generator, Some(P2), tile(18, 7))
-            .spawn(DRONE, Some(P1), at(1240.0, 700.0))
+        b.spawn(ObjectKind::Generator, Some(super::P2), tile(18, 7))
+            .spawn(DRONE, Some(P1), super::at(1240.0, 700.0))
     };
     let enemy = ObjectId(4);
     let generator = Vec2::new(1216.0, 512.0);
@@ -428,6 +432,7 @@ fn a_drone_rallied_on_an_enemy_moves_to_it_and_a_sabre_attacks_it() {
             at: generator
         })
     );
+    assert_eq!(headings(&exits), [(generator - ROBO).normalize()]);
     assert_eq!(
         order_of(&t, exits[0].unit),
         Some(OrderKind::Move(Target::Point(generator)))
@@ -438,7 +443,7 @@ fn a_drone_rallied_on_an_enemy_moves_to_it_and_a_sabre_attacks_it() {
     set_rally(&mut t, 2, Target::Object(enemy));
     train(&mut t, 2, SABRE, 1);
     let exits = run_exits(&mut t, 161);
-    assert_eq!(sides(&exits), [E]);
+    assert_eq!(headings(&exits), [(generator - BIO).normalize()]);
     assert_eq!(order_of(&t, exits[0].unit), Some(OrderKind::Attack(enemy)));
 }
 
@@ -464,16 +469,21 @@ fn a_destroyed_portal_refunds_its_queue_and_frees_its_capacity() {
     assert_eq!(dangling_references(t.sim()), []);
 }
 
-/// Determinism with the Rng drawn: a game whose portal picks its doors at random replays to the same state, and a
-/// save made in the middle of it picks the same doors as the game.
+/// Determinism with the Rng drawn: a game whose portal picks its headings at random replays to the same state, and a
+/// save made while a Drone walks out of the doorway (its heading saved with it) plays on as the game did.
 #[test]
-fn a_game_with_random_doors_replays_and_saves() {
+fn a_game_with_random_headings_replays_and_saves() {
     let mut t = robo_portal().seed(11).start();
     t.debug_at(1, crystals(P1, 1000));
     train(&mut t, 1, DRONE, 6);
     t.at(700, P1, production(&[PORTAL], ProductionCommand::Train(DRONE)));
-    let mut exits = run_exits(&mut t, 400);
-    let saved: sc_sim::Sim = serde_json::from_str(&serde_json::to_string(t.sim()).unwrap()).unwrap();
+    let mut exits = run_exits(&mut t, 330);
+    let walking = t.sim().object(exits[1].unit).unwrap().mover.as_ref().unwrap();
+    assert_eq!(
+        (walking.exit, walking.exit_heading),
+        (Some(PORTAL), Some(exits[1].heading))
+    );
+    let saved: Sim = serde_json::from_str(&serde_json::to_string(t.sim()).unwrap()).unwrap();
     assert_eq!(&saved, t.sim());
     exits.extend(run_exits(&mut t, 1300));
     assert_eq!(exits.len(), 7);
@@ -481,7 +491,7 @@ fn a_game_with_random_doors_replays_and_saves() {
     assert_eq!(replayed.state_hash(), t.sim().state_hash());
     assert_eq!(&replayed, t.sim());
     let mut resumed = saved;
-    for inputs in &t.replay().inputs[400..] {
+    for inputs in &t.replay().inputs[330..] {
         resumed.step(inputs);
     }
     assert_eq!(resumed.state_hash(), t.sim().state_hash());

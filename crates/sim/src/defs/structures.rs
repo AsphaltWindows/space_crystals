@@ -53,9 +53,9 @@ pub struct MiningDef {
 /// `core/entities.md > Structure Type > Exit Doorway`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ProductionDef {
-    /// The sides its units leave through, as its SymmetryType letters them (`crate::sides::sides` says where each
-    /// side faces once the building is placed), and how it picks one of several: the exit doorway is in the middle
-    /// of the side (`crate::production::Doorway`).
+    /// Where its units come into the game and which way they leave: by the doorway in the middle of an exit side,
+    /// or from an energy doorway at the centre through its open sides, the sides as its SymmetryType letters them
+    /// (`crate::sides::sides` says where each faces once the building is placed; `crate::production::exit`).
     pub exits: ExitRule,
     /// What it can produce, in the order of the design's list.
     pub recipes: &'static [Recipe],
@@ -68,29 +68,19 @@ impl ProductionDef {
     }
 }
 
-/// Which sides of a producing structure its units leave through (plan decision T19; `core/entities.md > Structure
-/// Type > Exit Doorway`: "Buildings with several exit-eligible sides (e.g. Colonists Bio Portal, Robo Portal) choose
-/// the side by their own rules"). Each exit side has its doorway, and the building releases each finished unit
-/// through one of them (`crate::production::exit`).
+/// How a producing structure releases its units, and through which of its sides (plan decision T19;
+/// `core/entities.md > Structure Type > Exit Doorway`; `crate::production::exit`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ExitRule {
-    /// One exit side, the only one its SymmetryType letters so: the Barracks' B ("Units exit from one of the short
-    /// sides (B side ...)", `factions/gdo/structures.md > Barracks`).
+    /// One exit side, the only one its SymmetryType letters so, with the exit doorway in its middle (design change
+    /// 0080): the Barracks' B ("Units exit from one of the short sides (B side ...)", `factions/gdo/structures.md >
+    /// Barracks`).
     Side(SideLetter),
-    /// Every side lettered with one of these is exit-eligible, and each unit leaves through the one closest to the
-    /// RallyPoint, or a random unblocked one (`factions/colonists/structures.md > Bio Portal > Exit Behavior`): the
-    /// portals' A sides.
-    Nearest(&'static [SideLetter]),
-}
-
-impl ExitRule {
-    /// Whether a side lettered `letter` is an exit.
-    pub fn includes(self, letter: SideLetter) -> bool {
-        match self {
-            ExitRule::Side(exit) => exit == letter,
-            ExitRule::Nearest(exits) => exits.contains(&letter),
-        }
-    }
+    /// An energy doorway at the centre (design change 0145, `factions/colonists/structures.md > Portals > Portal Exits
+    /// (energy doorway)`: "Portals don't use exit sides"): a unit materializes at the centre and leaves in any
+    /// direction that passes out through a side lettered with one of these, the **open** sides. The portals' A sides;
+    /// the Heavy and Star Portals' are TBD.
+    Centre(&'static [SideLetter]),
 }
 
 /// One entry of a producer's `Produces` list: "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)"; of a

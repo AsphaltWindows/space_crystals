@@ -63,11 +63,14 @@ fn in_attack_sequence(o: &Object) -> bool {
 /// - **Unit modes don't matter**, but it must be able to move in its current mode (`Mover::can_move`, the hook for a
 ///   deployed Artillery Rig).
 /// - It isn't already taking a sidestep: one short sidestep per request.
+/// - (M3-D2) It isn't walking out of a portal's energy doorway (`Mover::exit_heading`, design change 0145): that walk
+///   is its only move until it is out (`doorway::emerge`).
 pub(super) fn can_yield(o: &Object, mover: &Mover, unit: &UnitDef) -> bool {
     o.owner.is_some()
         && o.orders.as_ref().is_some_and(|orders| orders.is_idle())
         && mover.goal == MoveGoal::None
         && mover.sidestep.is_none()
+        && mover.exit_heading.is_none()
         && !in_attack_sequence(o)
         && mover.can_move(unit.movement.max_speed())
 }

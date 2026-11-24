@@ -1,5 +1,6 @@
 //! The movement invariants I1–I7 of `docs/movement.md > 8` (I1 with its two exceptions of design change 0106,
-//! [`may_overlap`]; I2 with its one exception, the exit doorway of design change 0080), checked from outside through the sim's public state,
+//! [`may_overlap`]; I2 with its one exception, the exit doorway of design change 0080, and of a portal design change
+//! 0145's energy doorway), checked from outside through the sim's public state,
 //! the vision invariant V1 (the vision kept up tick by tick is the one a fresh build gives, and every Visible tile
 //! is Explored: `vision`), the path knowledge invariant K1 (each player's planning grids are those a fresh build
 //! from the state gives: `paths`), and an ASCII picture of the map with its units for readable failures.
@@ -21,13 +22,17 @@ use crate::nav;
 use crate::object::Object;
 use crate::orders::{OrderKind, Target, gather};
 use crate::paths::boxes_overlap;
-use crate::production::Doorway;
+use crate::production::ExitDoor;
 use crate::sim::Sim;
 use crate::units::Tick;
 
 /// I6: a path request is served within this many ticks. Requests are served oldest first and at least one per
 /// tick (`docs/movement.md > 5.5`), so this bounds how far a test's scenario may fall behind, not the sim.
 pub const MAX_REQUEST_AGE: Tick = 32;
+
+/// (M3-D2) I2: how far off the open arc of a portal's energy doorway a unit in it may be, by
+/// `EnergyDoorway::margin` (in the footprint's half extents): the rounding of a walk along an end of the arc.
+const ARC_TOLERANCE: f32 = 1e-3;
 
 pub use picture::ascii;
 
@@ -132,7 +137,9 @@ impl Invariants {
             // I2: a ground box overlaps no blocked tile and stays on the map. The one exception (design change
             // 0080, `core/entities.md > Structure Type > Exit Doorway`): a unit that a producer released, while
             // its box still overlaps that building's footprint (`Mover::exit`), overlaps that footprint's tiles
-            // and no other blocked tile; and from tick to tick it only comes out (`Doorway::allows`).
+            // and no other blocked tile; and from tick to tick it only comes out (`ExitDoor::allows`). (M3-D2) Out
+            // of a portal's energy doorway (design change 0145) it never stands off the open arc: its centre lies
+            // in an open direction from the portal's, within a rounding tolerance (`EnergyDoorway::margin`).
             let grid = unit
                 .base_def()
                 .nav_class()
@@ -144,9 +151,20 @@ impl Invariants {
                     }
                 }
                 Some(building) => {
-                    let Some(door) = sim.object(building).and_then(Doorway::of) else {
+                    let Some(door) = sim.object(building).and_then(ExitDoor::of) else {
                         return fail("I2", format!("is in the doorway of #{}, which has none", building.0));
                     };
+                    if let ExitDoor::Centre(portal) = door
+                        && portal.margin(o.pos - portal.centre()) < -ARC_TOLERANCE
+                    {
+                        return fail(
+                            "I2",
+                            format!(
+                                "at {} left the energy doorway of #{} by a closed side",
+                                o.pos, building.0
+                            ),
+                        );
+                    }
                     if !door.holds(o.pos, half) {
                         return fail(
                             "I2",
@@ -319,7 +337,10 @@ fn path_knowledge(sim: &Sim) -> Result<(), Violation> {
 ///    overlapped a tick earlier too. They ignore each other until they have separated, so the pair may move in
 ///    any way meanwhile; once apart it is held to I1 again, like every pair that never overlapped.
 ///
-/// Everything else fails: two units that come to overlap, unless both are gathering Drones.
+/// Everything else fails: two units that come to overlap, unless both are gathering Drones. (M3-D2) A portal's
+/// energy doorway (design change 0145) takes no exception here: its unit appears at the centre only where its box is
+/// clear of every unit and walks out only up to contact, so it overlaps no unit (`tests/production/portal_stalls.rs`
+/// has the negative test).
 fn may_overlap(a: &Object, b: &Object, before: &BTreeMap<ObjectId, Seen>) -> bool {
     let gathered = |o: &Object| {
         let idle = o.orders.as_ref().is_some_and(|orders| orders.current.is_none());
@@ -413,6 +434,7 @@ fn floats_finite(o: &Object) -> bool {
         };
         goal && m.velocity.is_finite()
             && m.momentum.is_finite()
+            && m.exit_heading.is_none_or(Vec2::is_finite)
             && m.speed_factor.is_finite()
             && m.planned_target.is_finite()
             && m.best_remaining.is_finite()
