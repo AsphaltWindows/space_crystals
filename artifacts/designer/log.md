@@ -2002,3 +2002,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T19:40:26-05:00 — Map-placed objects known from start for pathing. Doc: behaviors.md. Change entry 0042.
 - 2026-11-23T19:41:05-05:00 — Underground units don't collide. Doc: systems/units.md. Change entry 0043.
 - 2026-11-23T19:41:33-05:00 — No surfacing onto occupied spots. Doc: systems/units.md. Change entry 0044.
+- 2026-11-23T19:42:02-05:00 — Q0011.4 air: ignore terrain, Gliders may overshoot map edge. Doc: systems/units.md. Change entry 0045. Q0011 complete.

@@ -57,6 +57,8 @@ Applies to all ground units. Overlap caused by the rotation itself (a corner swe
 - **Surfacing**: an underground unit is **not allowed to surface** where its Silhouette would overlap an above-ground unit (user, 2026-11-23), nor a structure or terrain impassable for its surface form. It stays underground until the player surfaces it somewhere clear. It neither waits automatically nor gets moved to another spot.
 
 ### Air Collision
+- Air units ignore terrain: they can fly over every tile of the map (user, 2026-11-23).
+- **Map edge**: HoverCraft stay inside the map. **Gliders may unavoidably travel a little outside the map edge** while turning or circling, since they can't stop (user, 2026-11-23). Orders can only target points inside the map. TBD: whether a Glider outside the map edge can be seen and attacked, and how far out it may go.
 - Air units do not collide with ground units or structures
 - Air units use soft separation with other air units — a gentle repulsion force that prevents stacking but does not hard-block
 - SeparationRadius — per unit type, circular, the distance at which air-to-air repulsion activates. Must be larger than the unit's Silhouette
