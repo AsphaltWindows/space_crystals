@@ -75,6 +75,8 @@ When a Drone arrives at an occupied patch, it goes to the **nearest unoccupied p
 
 **A patch that runs out** (user, 2026-11-24): a depleted patch is treated like an occupied one, so the redirect rule above applies. Drones **already waiting** at it look for another patch right away. Drones **walking to it** keep going to where it was and look for another patch **on arrival**, so the search radius is centred on the field, not on wherever the Drone was when the patch ran out. If no patch is found, the Gather ends (When a Gather ends).
 
+**Patches under a GDO Extraction Plate** (user, 2026-11-24): Drones can't gather a patch covered by a plate (a right-click on it hits the plate), and it is never a redirect target (Search radius below). A Drone mining a patch **doesn't stop a GDO player from plating it**: Drones stand beside the patch, not on it, so the plate can be placed. The patch then counts as gone for the Drones, exactly like a patch that runs out; a Drone in the middle of mining it is interrupted and collects nothing (Interrupted mining). This lets GDO take contested patches by plating them.
+
 **Returning to the last mined patch** (user, 2026-11-24): after delivering a load, a Drone heads back to the patch where it **last successfully mined**, not necessarily the patch it was first ordered to.
 
 **Search radius** (user, 2026-11-24): a Drone only looks for another patch **within a radius around itself**. This radius is an internal per-unit stat of the Drone (stat name TBD). Value: **6 grid units (placeholder)**. Only patches the **player knows** (currently visible, or remembered from earlier sight) and **not covered by a structure** (e.g. a GDO Extraction Plate) count (user, 2026-11-24); a Drone never "finds" a patch hidden in fog.
