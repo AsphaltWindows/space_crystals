@@ -46,6 +46,12 @@ Role intent: in the early game the Peacekeeper should feel like a great all-roun
 ### Riot Shield (toggled ability)
 The Peacekeeper carries a riot shield that can be raised or lowered (toggle).
 
+**Two unit types** (user, 2026-11-24): shield down and shield up are **two unit types**, **Peacekeeper** and **Peacekeeper (Shielded)**, like the Sabre and Rifle Legionnaire (factions/colonists/units.md > Weapon Conversion). They share everything except what the shield changes (below). Raising or lowering the shield switches the unit's type.
+- In a selection, the two types form **separate SelectionGroups**; the shield command goes to the ActiveGroup. Example: 6 shielded + 4 unshielded selected → two groups; Tab to the 4, raise → all 10 are one type and form one group.
+- The Peacekeeper's panel shows **Raise Shield**; Peacekeeper (Shielded)'s shows **Lower Shield** and no Attack.
+- The type switches **when the toggle starts** (designer's reading, so the opposite command is immediately available to reverse mid-way, see During the toggle).
+- The Barracks produces the unshielded Peacekeeper. Cost and Unit Control are the same for both types.
+
 While the shield is **up**:
 - MaxSpeed is halved (4 → 2 space units/frame).
 - The Peacekeeper **cannot attack**.
