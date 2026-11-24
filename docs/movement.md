@@ -656,8 +656,15 @@ Drone. It replaces only the "desired direction → velocity and facing" step of 
 - **Corners** are taken at speed: the approach speed looks at the path's whole length, not at its turns. The
   unit swings wide, or meets the wall beyond the corner and starts again from rest. Slowing for corners is
   not built.
-- **Kinematic steps**: a yielding unit's sidestep (6.6), the walk out of an exit doorway and the step off an
-  overlapped unit (6.8) are plain steps for every model, without momentum.
+- **Kinematic steps**: a yielding unit's sidestep (6.6), the walk out of a side doorway (the Barracks') and the
+  step off an overlapped unit (6.8) are plain steps for every model, without momentum.
+- **Out of a portal's energy doorway (M3-D2)**: design change 0145 (`factions/colonists/structures.md > Portals >
+  Portal Exits (energy doorway)`); the code is `movement/doorway.rs::emerge`. The unit appears at the portal's
+  centre and moves straight along the heading chosen at its release (`Mover::exit_heading`) until its box is clear
+  of the footprint, by its own model: a Drone thrusts along the ray (`Drag::along`), its speed carried from tick
+  to tick, and without a path brakes to land exactly where it comes clear; with one it keeps its speed out of the
+  footprint and follows its path from there. It never leaves the ray (no lanes, no way round, no sidestep) and
+  never comes closer to the centre; it goes up to a unit in its way and no farther (`World::straight`).
 - **State**: `Mover::momentum`, serialized and hashed only while it isn't zero, so the states of games without
   such a unit hash as they did (the goldens of M1 and M2 are unchanged).
 
@@ -697,7 +704,8 @@ apart within `18 × (n − 1)` ticks for Drones, 12 each for Peacekeepers.
 - **Invariants**, checked after every tick by a `TestSim` switch, in every scenario test:
   I1 no two units of a layer overlap (**(H2)** except two Drones on a Gather job, and two units that already
   overlapped a tick earlier, until they are apart: design change 0106); I2 no ground box overlaps a blocked tile or
-  leaves the map;
+  leaves the map (except a unit in an exit doorway, `Mover::exit`, on its own building's tiles: it only comes out,
+  and **(M3-D2)** out of a portal's energy doorway only within its open arc);
   I3 `|pos − prev_pos| ≤ max_speed`; I4 all floats finite; I5 a unit with no goal doesn't move;
   I6 repaths per order ≤ `MAX_REPATHS`, request age bounded; I7 an `Arrived` unit never moves again without an order.
   **(Y)** I5 and I7 allow the one exception of 6.6: a unit without a goal may move while it has a `Mover::sidestep`,

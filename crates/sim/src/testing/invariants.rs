@@ -337,7 +337,10 @@ fn path_knowledge(sim: &Sim) -> Result<(), Violation> {
 ///    overlapped a tick earlier too. They ignore each other until they have separated, so the pair may move in
 ///    any way meanwhile; once apart it is held to I1 again, like every pair that never overlapped.
 ///
-/// Everything else fails: two units that come to overlap, unless both are gathering Drones.
+/// Everything else fails: two units that come to overlap, unless both are gathering Drones. (M3-D2) A portal's
+/// energy doorway (design change 0145) takes no exception here: its unit appears at the centre only where its box is
+/// clear of every unit and walks out only up to contact, so it overlaps no unit (`tests/production/portal_stalls.rs`
+/// has the negative test).
 fn may_overlap(a: &Object, b: &Object, before: &BTreeMap<ObjectId, Seen>) -> bool {
     let gathered = |o: &Object| {
         let idle = o.orders.as_ref().is_some_and(|orders| orders.current.is_none());
