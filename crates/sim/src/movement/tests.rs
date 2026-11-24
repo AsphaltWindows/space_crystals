@@ -17,8 +17,19 @@ fn walking(path: &[Vec2]) -> Mover {
     mover
 }
 
-/// One tick of a lone unit that collides with nothing (as an air unit).
+/// One tick of a lone unit that collides with nothing (as an air unit). Returns whether its move failed.
 fn tick(pos: &mut Vec2, facing: &mut f32, mover: &mut Mover, movement: &MovementAttrs, tick: Tick) -> bool {
+    turning_tick(pos, facing, mover, movement, tick).0
+}
+
+/// [`tick`], and the angle the unit turned: what it leaves of its TurnRate for the aim in phase 5e ([`Turns`]).
+fn turning_tick(
+    pos: &mut Vec2,
+    facing: &mut f32,
+    mover: &mut Mover,
+    movement: &MovementAttrs,
+    tick: Tick,
+) -> (bool, f32) {
     let bodies = [Body {
         id: ObjectId(1),
         owner: None,
@@ -40,9 +51,11 @@ fn tick(pos: &mut Vec2, facing: &mut f32, mover: &mut Mover, movement: &Movement
         lanes: &mut Vec::new(),
         counters: &mut counters,
     };
-    step_unit(
+    let mut turned = 0.0;
+    let failed = step_unit(
         pos,
         facing,
+        &mut turned,
         mover,
         movement,
         &mut world,
@@ -51,7 +64,8 @@ fn tick(pos: &mut Vec2, facing: &mut f32, mover: &mut Mover, movement: &Movement
         None,
         &[],
         tick,
-    )
+    );
+    (failed, turned)
 }
 
 #[test]
@@ -86,6 +100,8 @@ fn passes_waypoints_and_snaps_onto_the_goal() {
     assert_eq!(pos, path[2]);
 }
 
+/// A unit turns at most its TurnRate per tick, in place until it faces its way. (G) Each tick's angle is what it
+/// takes of the tick's one turn budget: the aim in phase 5e has only the rest ([`Turns`]).
 #[test]
 fn a_slow_turn_is_made_in_place() {
     let slow = MovementAttrs::TurnRate {
@@ -97,16 +113,19 @@ fn a_slow_turn_is_made_in_place() {
     let path = [Vec2::ZERO, Vec2::new(0.0, 100.0)];
     let mut mover = walking(&path);
     let (mut pos, mut facing) = (path[0], 0.0);
-    tick(&mut pos, &mut facing, &mut mover, &slow, 2);
+    assert_eq!(turning_tick(&mut pos, &mut facing, &mut mover, &slow, 2), (false, 0.5));
     assert_eq!((pos, facing), (Vec2::ZERO, 0.5));
     assert_eq!(mover.locomotion, Locomotion::Stationary);
     assert_eq!(mover.orientation, Orientation::Turning(path[1]));
-    tick(&mut pos, &mut facing, &mut mover, &slow, 3);
-    tick(&mut pos, &mut facing, &mut mover, &slow, 4);
+    assert_eq!(turning_tick(&mut pos, &mut facing, &mut mover, &slow, 3), (false, 0.5));
+    assert_eq!(turning_tick(&mut pos, &mut facing, &mut mover, &slow, 4), (false, 0.5));
     assert_eq!(pos, Vec2::ZERO);
     // The last 0.07 rad complete within the tick, and the unit walks.
-    tick(&mut pos, &mut facing, &mut mover, &slow, 5);
+    let (_, last) = turning_tick(&mut pos, &mut facing, &mut mover, &slow, 5);
     assert_eq!((pos, facing), (Vec2::new(0.0, 4.0), math::PI / 2.0));
+    assert_eq!(last, math::PI / 2.0 - 1.5);
+    // Facing its way, it turns no more.
+    assert_eq!(turning_tick(&mut pos, &mut facing, &mut mover, &slow, 6), (false, 0.0));
 }
 
 #[test]

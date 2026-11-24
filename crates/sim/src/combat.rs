@@ -6,7 +6,8 @@
 //!   BaseAttackChannel, `systems/controls/behaviors.md`). It is hashed and serialized like all state.
 //! - **Phases** (`systems/combat.md > AttackPhase`; `phases`): Aiming, Firing, Cooldown and Reloading, each
 //!   lasting exactly its duration in ticks. A sequence starts when no sequence runs and the engaged target is valid
-//!   and in range (`targeting`); Aiming also lasts until the unit faces the target ([`FACING_TOLERANCE`]).
+//!   and in range (`targeting`); Aiming also lasts until the unit faces the target ([`FACING_TOLERANCE`]). It turns
+//!   the unit by what phase 5d left of its TurnRate: one turn budget per tick (`movement::Turns`).
 //! - **Hits** (`damage`): an attack's effect lands at the end of its Firing phase, as a [`Hit`] on this tick's
 //!   list. The list is applied in one place once every unit has acted, so two hits in one tick both count, whatever
 //!   the order of their attackers (`ARCHITECTURE.md > Tick pipeline`).
@@ -42,6 +43,7 @@ use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::map::Map;
+use crate::movement;
 use crate::object::Object;
 use crate::riot_shield::RiotShield;
 use crate::vision::Vision;
@@ -164,11 +166,13 @@ pub(crate) fn base_is_free(kind: ObjectKind, state: Option<&AttackState>) -> boo
 /// sequence against a snapshot of the targets taken before any of them acts; then the tick's hits are applied
 /// together. Returns the objects destroyed, in id order, for the removal path (`Sim::remove_objects`). A death that
 /// removes a blocking footprint must re-sync the grids (`paths::sync`), as phase 5b does. `vision` is the last
-/// tick's: what each owner sees.
+/// tick's: what each owner sees. `turns` holds the angle phase 5d of this tick turned each unit: the aim turns a
+/// unit only by what is left of its TurnRate (one budget per tick).
 pub(crate) fn step(
     objects: &mut BTreeMap<ObjectId, Object>,
     map: &Map,
     vision: &Vision,
+    turns: &movement::Turns,
     first_new: ObjectId,
     events: &mut Vec<SimEvent>,
 ) -> Vec<ObjectId> {
@@ -196,7 +200,8 @@ pub(crate) fn step(
             state.engage(None);
         }
         let sight = o.owner.and_then(|owner| vision.player(owner));
-        let shooter = phases::Shooter::new(map, o.id, o.kind, o.pos, o.facing, unit, attrs, sight);
+        let turned = turns.angle(o.id);
+        let shooter = phases::Shooter::new(map, o.id, o.kind, o.pos, o.facing, unit, attrs, sight, turned);
         phases::run(state, &mut o.facing, &shooter, &targets, &mut hits, events);
     }
     damage::apply(objects, &hits, events)

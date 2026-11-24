@@ -85,6 +85,11 @@ impl NavState {
         self.moves.counters()
     }
 
+    /// The angle each unit turned in this tick's phase 5d (`movement::Turns`), for phase 5e.
+    pub(crate) fn turns(&self) -> &movement::Turns {
+        self.moves.turns()
+    }
+
     pub(crate) fn counters(&self) -> NavCounters {
         self.counters
     }

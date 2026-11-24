@@ -385,7 +385,8 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
      progress) counts as blocked too, so units dancing in a corridor count as stationary after 12 ticks.
 - Rotations use constants (`(x, y) → (−y, x)`, and `(x − y, x + y) × FRAC_1_SQRT_2`), no trigonometry. Facing follows
   the path direction, not the sidestep, turning by at most TurnRate; when the turn completes within the tick (all M1
-  units) velocity is `d` itself. Other movement models replace only this "desired direction → velocity and facing"
+  units) velocity is `d` itself. **(G)** TurnRate is one budget per tick: the aim in phase 5e turns a unit only by
+  what this turn left of it (`movement::Turns`), so a unit that moved never turns more than its TurnRate in a tick. Other movement models replace only this "desired direction → velocity and facing"
   step; path following and collision stay shared.
 - A unit counts as **stationary** for others when its locomotion is Stationary or `blocked_ticks ≥ 12`.
 - **(Y)** A unit with `goal = None` moves only by its own sidestep for a blocked unit of its owner (6.6); nothing

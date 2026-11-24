@@ -83,8 +83,34 @@ pub(crate) struct Chased {
     pub shape: Shape,
 }
 
+/// The most a unit turns in one tick, radians: its TurnRate (`systems/combat.md >
+/// LocomotionOrientationConstraints[TurnRateMovement]`), without limit for the movement models whose turn rate
+/// depends on speed (TODO(movement models): not built).
+pub(crate) fn turn_rate(movement: &MovementAttrs) -> f32 {
+    movement.turn_rate().unwrap_or(f32::INFINITY)
+}
+
+/// (G) The one turn budget of a tick (`docs/movement.md > 6.3`): a unit turns at most its [`turn_rate`] per tick in
+/// all. Phase 5d notes here the angle it turned each unit, and phase 5e's Aiming turns a unit only by what is left
+/// of the budget (`combat::step`). By ascending id; a unit that didn't turn isn't listed.
+///
+/// Transient, not state: 5d writes it afresh and 5e reads it within the same tick, so it never outlives the tick. A
+/// save between two ticks has none of it to keep, and the state hash nothing to cover: it follows from the state the
+/// tick began with and the tick's inputs, which the hash and the replay already fix.
+#[derive(Debug, Default)]
+pub(crate) struct Turns(Vec<(ObjectId, f32)>);
+
+impl Turns {
+    /// The angle phase 5d turned unit `id` in this tick, radians.
+    pub(crate) fn angle(&self, id: ObjectId) -> f32 {
+        self.0
+            .binary_search_by_key(&id, |&(id, _)| id)
+            .map_or(0.0, |i| self.0[i].1)
+    }
+}
+
 /// The scratch of phase 5d (`docs/movement.md > 3`): rebuilt from the objects every tick. Kept between ticks only
-/// to reuse its allocations.
+/// to reuse its allocations, except [`Turns`], which phase 5e of the same tick reads.
 #[derive(Debug, Default)]
 pub(crate) struct Scratch {
     /// Every unit, in id order.
@@ -101,12 +127,18 @@ pub(crate) struct Scratch {
     lanes: Vec<collide::Lane>,
     /// The sidesteps asked of idle units this tick (`yielding`), applied when every unit has moved.
     requests: Vec<yielding::Request>,
+    /// The angle each unit turned in this tick's phase 5d, for 5e.
+    turns: Turns,
     counters: MoveCounters,
 }
 
 impl Scratch {
     pub(crate) fn counters(&self) -> MoveCounters {
         self.counters
+    }
+
+    pub(crate) fn turns(&self) -> &Turns {
+        &self.turns
     }
 }
 
@@ -149,7 +181,7 @@ fn unit_of(o: &Object) -> Option<(&'static UnitDef, Vec2)> {
 /// grid at each commit. A unit whose attack holds its base (`combat::may_move`, `combat::may_turn`) stands and
 /// keeps its goal. An idle unit asked to make way takes its sidestep in its turn, like any move
 /// (`yielding::sidestep`); the sidesteps asked for in this tick are noted when every unit has moved
-/// (`yielding::apply`) and begin in the next.
+/// (`yielding::apply`) and begin in the next. The angle each unit turned goes to [`Turns`], for phase 5e.
 pub(crate) fn step(
     objects: &mut BTreeMap<ObjectId, Object>,
     first_new: ObjectId,
@@ -164,6 +196,7 @@ pub(crate) fn step(
     scratch.chased.clear();
     scratch.engaged.clear();
     scratch.requests.clear();
+    scratch.turns.0.clear();
     for layer in &mut scratch.layers {
         layer.reset(map.width(), map.height());
     }
@@ -217,6 +250,7 @@ pub(crate) fn step(
             lanes: &mut scratch.lanes,
             counters: &mut scratch.counters,
         };
+        let mut turned = 0.0;
         let failed = if held {
             // A unit in an attack sequence is busy: it doesn't yield (design change 0023).
             mover.sidestep = None;
@@ -237,6 +271,7 @@ pub(crate) fn step(
             step_unit(
                 &mut o.pos,
                 &mut o.facing,
+                &mut turned,
                 mover,
                 &unit.movement,
                 &mut world,
@@ -249,6 +284,9 @@ pub(crate) fn step(
         };
         if failed {
             events.push(SimEvent::MoveFailed { unit: o.id });
+        }
+        if turned > 0.0 {
+            scratch.turns.0.push((o.id, turned));
         }
         // Commit: later units see this one where it is now.
         let mover = o.mover.as_ref().expect("units have movers");
@@ -292,7 +330,8 @@ fn wait(mover: &mut Mover, tick: Tick) {
 ///   touched; the staggered check in phase 5c moves on to the farthest waypoint in sight.
 /// - **Facing** (`systems/combat.md > LocomotionOrientationConstraints[TurnRateMovement]`): the unit turns towards
 ///   the steering target, at most TurnRate per tick, and moves only once it faces it. Every M1 unit turns 180°
-///   per tick, so its turn always completes. The facing follows the path, not a sidestep.
+///   per tick, so its turn always completes. The facing follows the path, not a sidestep. The angle turned goes to
+///   `turned`: the aim in phase 5e has only the rest of the tick's TurnRate ([`Turns`]).
 /// - **Arrival**: when the goal is within one step and the way is free, the unit stands exactly on it and stops
 ///   with `status = Arrived`. The arrival radius is one tick of travel, so it never overshoots.
 /// - **An object goal** (`chased`; `systems/controls/behaviors.md > MovingToObject`): the unit has `Arrived` as soon
@@ -311,6 +350,7 @@ fn wait(mover: &mut Mover, tick: Tick) {
 fn step_unit(
     pos: &mut Vec2,
     facing: &mut f32,
+    turned: &mut f32,
     mover: &mut Mover,
     movement: &MovementAttrs,
     world: &mut World,
@@ -348,22 +388,19 @@ fn step_unit(
     let to = target - *pos;
     let dist = to.length();
     // TODO(movement models): only TurnRateMovement (every M1 unit) is modelled; the others turn without limit here.
-    let mut turned = false;
+    let mut turning = false;
     if dist > 0.0 {
-        let turn_rate = movement.turn_rate().unwrap_or(math::PI);
         let wanted = math::wrap_angle(math::vector_angle(to));
-        let turn = math::wrap_angle(wanted - *facing);
-        if turn.abs() > turn_rate {
+        // Phase 5d turns a unit first in the tick: the whole budget is left.
+        let turn = math::turn_toward(facing, wanted, turn_rate(movement));
+        *turned = turn.angle;
+        if !turn.done {
             // Turning in place for the whole tick.
-            *facing = math::wrap_angle(*facing + turn_rate.copysign(turn));
             stand(mover);
             mover.orientation = Orientation::Turning(target);
             return false;
         }
-        if turn != 0.0 {
-            *facing = wanted;
-            turned = true;
-        }
+        turning = turn.angle != 0.0;
     }
     let arriving = usize::from(mover.next) == last_index && dist <= step;
     let d = if dist > step { to * (step / dist) } else { to };
@@ -414,7 +451,7 @@ fn step_unit(
     } else {
         Locomotion::Moving
     };
-    mover.orientation = if turned {
+    mover.orientation = if turning {
         Orientation::Turning(target)
     } else {
         Orientation::Maintaining

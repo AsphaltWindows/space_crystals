@@ -247,8 +247,12 @@ ticks spent in it. Hashed and serialized like all state.
 - **Queries**: `combat::may_move(&Object)` and `may_turn(&Object)`: whether the attack leaves the base free to move
   or turn this tick (`> UnitBaseSource`: not while Aiming, Firing or in Cooldown; turret units always). Phase 5d
   holds a unit that may not: it stands, keeping its goal, path and stuck clock (`movement::wait`). The behaviours
-  start a chase only when `may_move` holds. A unit that moves in 5d and starts aiming in 5e (it aims in the tick it
-  comes into range) may turn twice in a tick; harmless while every M1 unit turns 180° per tick.
+  start a chase only when `may_move` holds.
+- **One turn budget per tick**: a unit turns at most its TurnRate per tick in all. Phase 5d turns it first and notes
+  the angle (`movement::Turns`, in the movement scratch); the aim in 5e turns it only by what is left
+  (`Shooter::turn_left`). Both turn through `math::turn_toward`. It matters in the tick a unit that moved comes into
+  range and begins to aim. The record is transient: 5d writes it afresh and 5e of the same tick reads it, so it is
+  neither hashed nor saved; it follows from the state the tick began with and the tick's inputs.
 - **Range** (`shape.rs`, `combat/targeting.rs`; `systems/combat.md > Range Measurement`, design change 0031): **edge
   to edge**, the gap between the attacker's shape and the target's. `Shape::of(object)` is a unit's Silhouette or a
   tile-based object's footprint; `Shape::gap` measures between two, `Shape::distance_to` to a point (ground-location

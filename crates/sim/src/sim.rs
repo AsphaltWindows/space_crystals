@@ -305,7 +305,16 @@ impl Sim {
         // 5e: shoots from the positions movement committed. The dead leave through the removal path; a footprint
         // they leave behind no longer blocks, so the grids follow as in 5b.
         // It reads the vision of the end of the last tick (5f below), as the design's ValidTarget asks.
-        let dead = combat::step(&mut self.objects, &self.map, &self.vision, first_new, &mut self.events);
+        // A unit turns at most its TurnRate per tick in all: the aim has what 5d's turn left (`movement::Turns`).
+        let turns = self.nav.turns();
+        let dead = combat::step(
+            &mut self.objects,
+            &self.map,
+            &self.vision,
+            turns,
+            first_new,
+            &mut self.events,
+        );
         if !dead.is_empty() {
             self.remove_objects(&dead);
             paths::sync(&mut self.nav, &self.map, &self.objects, &mut self.nav_version);
