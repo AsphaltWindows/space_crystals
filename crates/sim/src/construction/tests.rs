@@ -2,6 +2,7 @@ use super::*;
 use crate::scenario::SpawnAt;
 use crate::sim::Sim;
 use crate::testing::ScenarioBuilder;
+use crate::units::Tick;
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
@@ -21,12 +22,9 @@ fn objects() -> BTreeMap<ObjectId, Object> {
     Sim::new(&scenario).objects().map(|o| (o.id, o.clone())).collect()
 }
 
-fn constructing(kind: ObjectKind, since: Tick) -> Option<Constructor> {
-    Some(Constructor::Constructing {
-        kind,
-        since,
-        progress: 0,
-    })
+/// Constructing `kind`, from the start: as a Construct command leaves it.
+fn constructing(kind: ObjectKind) -> Option<Constructor> {
+    Some(Constructor::Constructing { kind, progress: 0 })
 }
 
 /// Player 1's power `generated / consumed`.
@@ -34,7 +32,7 @@ fn power(generated: u32, consumed: u32) -> BTreeMap<PlayerId, PowerSummary> {
     BTreeMap::from([(P1, PowerSummary { generated, consumed })])
 }
 
-/// Runs the constructors' step in ticks `ticks` and lists the completions, with their ticks.
+/// Runs the constructors' step in ticks `ticks`, one step each, and lists the completions, with their ticks.
 fn run(
     objects: &mut BTreeMap<ObjectId, Object>,
     power: &BTreeMap<PlayerId, PowerSummary>,
@@ -43,7 +41,7 @@ fn run(
     let mut completions = Vec::new();
     for tick in ticks {
         let mut events = Vec::new();
-        step(objects, power, ObjectId(u32::MAX), tick, &mut events);
+        step(objects, power, ObjectId(u32::MAX), &mut events);
         completions.extend(events.into_iter().map(|e| (tick, e)));
     }
     completions
@@ -77,7 +75,6 @@ fn the_state_tells_what_is_built_and_what_is_ready() {
     assert_eq!((idle.current(), idle.ready(), idle.frames_done()), (None, None, None));
     let building = Constructor::Constructing {
         kind: GENERATOR,
-        since: 3,
         progress: 5 * RATIO_ONE + RATIO_ONE / 2,
     };
     assert!(!building.is_idle());
@@ -115,7 +112,7 @@ fn a_construction_starts_on_the_list_when_idle_and_paid_for() {
         Err(Reject::CannotConstruct(GENERATOR))
     );
     // "Other build options unavailable" while it constructs or holds a ready building.
-    for state in [constructing(GENERATOR, 1), Some(Constructor::Ready { kind: GENERATOR })] {
+    for state in [constructing(GENERATOR), Some(Constructor::Ready { kind: GENERATOR })] {
         let busy = objects.get_mut(&ObjectId(1)).unwrap();
         busy.constructor = state;
         assert_eq!(
@@ -144,11 +141,11 @@ fn a_refund_follows_the_state() {
         refund(&o)
     };
     let ready = |kind| Some(Constructor::Ready { kind });
-    assert_eq!(with(2, constructing(PLATE, 1)), 75);
+    assert_eq!(with(2, constructing(PLATE)), 75);
     assert_eq!(with(2, ready(PLATE)), 56);
-    assert_eq!(with(1, constructing(GENERATOR, 1)), 100);
+    assert_eq!(with(1, constructing(GENERATOR)), 100);
     assert_eq!(with(1, ready(GENERATOR)), 75);
-    assert_eq!(with(1, constructing(ObjectKind::Barracks, 1)), 200);
+    assert_eq!(with(1, constructing(ObjectKind::Barracks)), 200);
     assert_eq!(with(1, ready(ObjectKind::Barracks)), 150);
     assert_eq!(with(1, ready(EF)), 150);
     assert_eq!(with(1, Some(Constructor::Idle)), 0);
@@ -160,16 +157,17 @@ fn a_refund_follows_the_state() {
     );
 }
 
-/// `> Generator`: 240 frames. A construction ordered in tick 10 counts its frames from tick 11 and is ready in tick
-/// 250, with one event.
+/// `> Generator`: 240 frames. Ordered in tick 10, a construction does its first frame in tick 10 (the command applies
+/// before the economy phase; `ARCHITECTURE.md > Economy > Recipe timing`) and is ready at the end of tick 249, with
+/// one event.
 #[test]
 fn a_construction_is_ready_after_its_frames() {
     let mut objects = objects();
-    objects.get_mut(&ObjectId(1)).unwrap().constructor = constructing(GENERATOR, 10);
+    objects.get_mut(&ObjectId(1)).unwrap().constructor = constructing(GENERATOR);
     let power = power(30, 21);
-    assert_eq!(run(&mut objects, &power, 10..=249), []);
+    assert_eq!(run(&mut objects, &power, 10..=248), []);
     assert_eq!(objects[&ObjectId(1)].constructor.unwrap().frames_done(), Some(239));
-    assert_eq!(run(&mut objects, &power, 250..=1000), [(250, completed(1, GENERATOR))]);
+    assert_eq!(run(&mut objects, &power, 249..=1000), [(249, completed(1, GENERATOR))]);
     assert_eq!(
         objects[&ObjectId(1)].constructor,
         Some(Constructor::Ready { kind: GENERATOR })
@@ -177,12 +175,13 @@ fn a_construction_is_ready_after_its_frames() {
 }
 
 /// Design change 0089: at negative power the Extraction Facility builds at the ratio, 400 frames at 30/51 taking
-/// exactly 680 ticks; the Deployment Center at full speed; with nothing generated, the facility stands still.
+/// exactly 680 ticks; the Deployment Center at full speed; with nothing generated, the facility stands still. Both
+/// ordered in tick 1: ready at the end of ticks 240 and 680.
 #[test]
 fn the_facility_is_slowed_by_negative_power_and_the_center_is_not() {
     let mut objects = objects();
-    objects.get_mut(&ObjectId(1)).unwrap().constructor = constructing(GENERATOR, 0);
-    objects.get_mut(&ObjectId(2)).unwrap().constructor = constructing(PLATE, 0);
+    objects.get_mut(&ObjectId(1)).unwrap().constructor = constructing(GENERATOR);
+    objects.get_mut(&ObjectId(2)).unwrap().constructor = constructing(PLATE);
     let mut slowed = objects.clone();
     assert_eq!(
         run(&mut slowed, &power(30, 51), 1..=2000),
@@ -193,7 +192,7 @@ fn the_facility_is_slowed_by_negative_power_and_the_center_is_not() {
         run(&mut halted, &power(0, 15), 1..=5000),
         [(240, completed(1, GENERATOR))]
     );
-    assert_eq!(halted[&ObjectId(2)].constructor, constructing(PLATE, 0));
+    assert_eq!(halted[&ObjectId(2)].constructor, constructing(PLATE));
     assert_eq!(
         run(&mut objects, &power(30, 21), 1..=2000),
         [(240, completed(1, GENERATOR)), (400, completed(2, PLATE))]
@@ -205,11 +204,11 @@ fn the_facility_is_slowed_by_negative_power_and_the_center_is_not() {
 #[test]
 fn new_and_ownerless_constructors_wait() {
     let mut objects = objects();
-    objects.get_mut(&ObjectId(1)).unwrap().constructor = constructing(GENERATOR, 0);
-    objects.get_mut(&ObjectId(2)).unwrap().constructor = constructing(PLATE, 0);
+    objects.get_mut(&ObjectId(1)).unwrap().constructor = constructing(GENERATOR);
+    objects.get_mut(&ObjectId(2)).unwrap().constructor = constructing(PLATE);
     objects.get_mut(&ObjectId(2)).unwrap().owner = None;
     let mut events = Vec::new();
-    step(&mut objects, &power(30, 21), ObjectId(1), 1, &mut events);
+    step(&mut objects, &power(30, 21), ObjectId(1), &mut events);
     for id in [1, 2] {
         assert_eq!(
             objects[&ObjectId(id)].constructor.unwrap().frames_done(),
@@ -217,7 +216,7 @@ fn new_and_ownerless_constructors_wait() {
             "#{id}"
         );
     }
-    step(&mut objects, &power(30, 21), ObjectId(2), 2, &mut events);
+    step(&mut objects, &power(30, 21), ObjectId(2), &mut events);
     assert_eq!(objects[&ObjectId(1)].constructor.unwrap().frames_done(), Some(1));
     assert_eq!(objects[&ObjectId(2)].constructor.unwrap().frames_done(), Some(0));
     assert_eq!(events, []);

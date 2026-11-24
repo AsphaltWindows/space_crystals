@@ -256,6 +256,7 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::ProductionCancelled { .. }
                 | SimEvent::UnitProduced { .. }
                 | SimEvent::ConstructionCompleted { .. }
+                | SimEvent::ConstructionCancelled { .. }
                 | SimEvent::StructurePlaced { .. }
                 | SimEvent::PlacementRefused { .. } => {}
             }

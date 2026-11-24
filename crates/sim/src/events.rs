@@ -87,6 +87,15 @@ pub enum SimEvent {
         constructor: ObjectId,
         kind: ObjectKind,
     },
+    /// `constructor` gave up its CurrentConstruction or its ReadyToPlace, a `kind`, and `refund` Space Crystals went
+    /// back to its owner (`factions/gdo/structures.md > DeploymentCenter > Cancellation`): cancelled by a command (in
+    /// full while constructing, 75% rounded down once ready), or refunded as the constructor left the game (design
+    /// change 0084; before its `Removed` event).
+    ConstructionCancelled {
+        constructor: ObjectId,
+        kind: ObjectKind,
+        refund: u32,
+    },
     /// `constructor` placed its ready building, which is now the object `structure` (its `Spawned` event comes
     /// first).
     StructurePlaced {

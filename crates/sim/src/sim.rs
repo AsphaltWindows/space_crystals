@@ -307,13 +307,7 @@ impl Sim {
         }
         // The economy (plan decision T5): after 5e, so that the buildings destroyed this tick count for nothing in
         // it; before 5f, so that what it brings into the game is seen in its own tick.
-        economy::step(
-            &mut self.objects,
-            &mut self.players,
-            first_new,
-            self.tick,
-            &mut self.events,
-        );
+        economy::step(&mut self.objects, &mut self.players, first_new, &mut self.events);
         // The producers (slice M2-D2), part of the economy phase: here, not inside `economy::step`, because a
         // finished unit is inserted into the game. Before 5f, so that it is seen in its own tick.
         self.step_production(first_new);

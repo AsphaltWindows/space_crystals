@@ -277,8 +277,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    - Economy, `economy::step` (plan decision T5, see *Economy*): after 5e's removals and their `paths::sync`, so
      that a building destroyed in the tick counts for nothing in it; before 5f, so that what it brings into the game
      is seen in its own tick. In order: every player's power (the structures this tick's commands placed included),
-     the constructors (`construction::step`; a construction ordered in tick `t` counts its frames from `t + 1`), the
-     plates' mining, the defeat check (M2-F).
+     the constructors (`construction::step`; when a recipe's frames count: *Economy > Recipe timing*), the plates'
+     mining, the defeat check (M2-F).
    - Producers, `Sim::step_production` (slice M2-D2, see *Production*): part of the economy phase, run right after
      `economy::step` and not inside it, because a finished unit is inserted into the game (`Sim::insert_object`).
      The unit in production advances, and a finished one is released into its exit doorway, or held while that is
@@ -693,6 +693,14 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   other ("power producers are never slowed", design change 0089). A task of `n` frames at full speed is done when its
   progress reaches `n × RATIO_ONE`, and the rest carries over. Rounding the ratio up gives an exact ratio its exact
   tick count: at 30/51 the k-th 48-frame cycle ends in tick ⌈81.6 k⌉.
+- **Recipe timing** (the Director's convention, for every recipe: construction, production and any to come):
+  progress accrues in the tick in which the command applies, since the commands apply before the economy phase of
+  their tick (plan decision T5). A recipe of `N` frames ordered in tick `t` at full speed completes in tick
+  `t + N − 1`, and what it makes can be used from tick `t + N`: a ready building placed, a produced unit acting (it
+  comes into the game in tick `t + N − 1`, and the spawn-tick rule has it act from the next). So a Generator (240
+  frames) ordered in tick `t` is ready at the end of tick `t + 239` and can be placed in `t + 240`, and a Peacekeeper
+  (80 frames) trained in tick `t` is released in tick `t + 79`. A constructor or producer that comes into the game
+  in tick `t` starts on its recipes in `t + 1` (spawn-tick rule).
 - **Mining** (`economy/mining.rs`, `factions/gdo/economy.md > ExtractionPlate`): a structure with a `MiningDef`
   (`StructureDef::mining`: the plate) that stands on a patch has an `Extractor { patch, cycle }`, linked in
   `Sim::insert_object` once both are in the game, whichever comes first; a plate on bare ground or without an owner
@@ -704,25 +712,27 @@ The players' banks, power and Unit Control, and the plates' mining (`economy.rs`
   opens the tile (design change 0038; the caller's grid sync covers it); a patch with crystals left stays, uncovered.
   A plate whose patch is removed (only a debug command does that) loses its extractor. `testing::referenced_ids`
   lists the extractor's patch, so `dangling_references` checks it.
-- **Construction** (`construction.rs`, `sim/construction.rs`; slice M2-D1; `factions/gdo/structures.md >
-  DeploymentCenter`, `factions/gdo/economy.md > ExtractionFacility`): a structure type with a `Constructs` list
-  (`StructureDef::constructs`: each `Recipe` a building, its cost and its frames) is a constructor, and its object has
-  a `Constructor`: `Idle`, `Constructing { kind, since, progress }` or `Ready { kind }`, one building at a time and one
-  ready at most (design change 0071). `Command::Construction` drives it (see *Commands, events and replays*):
-  Construct pays the cost as it applies, the cancels refund through `Refund` (`Full` while constructing, `Ready` once
-  ready), and so does a constructor that leaves the game (design change 0084, in `Sim::remove_objects`, for a
-  destruction and a debug removal alike). Each tick `construction::step` advances a construction by its constructor's
-  `PowerSummary::speed`: the Deployment Center, a producer, at full speed whatever the power, the Extraction Facility
-  at the ratio (design change 0089); at `ticks × RATIO_ONE` it is ready (`SimEvent::ConstructionCompleted`). Its
-  frames count from the tick after the command, so a Generator (240 frames) ordered in tick `t` is ready in tick
-  `t + 240`, a plate at 30/51 in `t + 680`. Place inserts the ready building where `Sim::placement_check` allows it
-  as the command applies (plan decision T4): it counts for power and the build area at once, the true grids take it in
-  phase 5b of its tick and its owner's planning grids at the end of it, and it works from the next tick on.
-  `construction::recipes(kind)`, `Constructor::{current, ready, frames_done}` and `Sim::validate` are what a client
-  needs for its menus. Not built: tech prerequisites (no building with a cost has one yet) and ConstructionHP.
+- **Construction** (`construction.rs`, `sim/construction.rs`; slice M2-D1;
+  `factions/gdo/structures.md > DeploymentCenter`, `factions/gdo/economy.md > ExtractionFacility`): a structure type
+  with a `Constructs` list (`StructureDef::constructs`: each `Recipe` a building, its cost and its frames) is a
+  constructor, and its object has a `Constructor`: `Idle`, `Constructing { kind, progress }` or `Ready { kind }`, one
+  building at a time and one ready at most (design change 0071). `Command::Construction` drives it (see *Commands,
+  events and replays*): Construct pays the cost as it applies, the cancels refund through `Refund` (`Full` while
+  constructing, `Ready` once ready), and so does a constructor that leaves the game (design change 0084, in
+  `Sim::remove_objects`, for a destruction and a debug removal alike), each refund with a
+  `SimEvent::ConstructionCancelled` (the constructor, the building and the refund) for the interface's feedback. Each
+  tick `construction::step` advances a construction by its constructor's `PowerSummary::speed`: the Deployment Center, a
+  producer, at full speed whatever the power, the Extraction Facility at the ratio (design change 0089); at
+  `frames × RATIO_ONE` it is ready (`SimEvent::ConstructionCompleted`), by *Recipe timing*: a Generator ordered in tick
+  `t` is ready at the end of tick `t + 239`, a plate at 30/51 at the end of `t + 679`, and a Place can apply from the
+  next tick on. Place inserts the ready building where `Sim::placement_check` allows it as the command applies (plan
+  decision T4): it counts for power and the build area at once, the true grids take it in phase 5b of its tick and its
+  owner's planning grids at the end of it, and it works from the next tick on. `construction::recipes(kind)`,
+  `Constructor::{current, ready, frames_done}` and `Sim::validate` are what a client needs for its menus. Not built:
+  tech prerequisites (no building with a cost has one yet) and ConstructionHP.
 - **Adding to the economy** (slices M2-D2, M2-F): put the new step into `economy::step` at its numbered place, advance
-  progress by `PowerSummary::speed`, take costs with `spend_crystals` when the command applies, and give refunds
-  through `Refund`; `construction.rs` is the pattern.
+  progress by `PowerSummary::speed` from the tick the command applies (*Recipe timing*), take costs with
+  `spend_crystals` when the command applies, and give refunds through `Refund`; `construction.rs` is the pattern.
 
 ## Production
 
@@ -819,18 +829,18 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   has something queued, else `NothingQueued`; `SetRally` with a point on the map (`OffMap`) or an object that
   exists and that the player sees, as for an order's target (`UnknownObject`, `NotVisible`; the producer itself
   always). `Sim::validate` gives the interface the same answers for its buttons.
-- **`Command::Construction { objects, command }`** (`construction.rs`, `sim/construction.rs`): the player's
-  constructors carry out a `ConstructionCommand`: `Construct(kind)`, `CancelConstruction`, `CancelReady` or
-  `Place { origin, orientation }` (the top-left tile of the turned footprint; the orientation optional in files, as
-  for a debug spawn). The gate tolerates stale selections as for orders (`TooManyUnits`, repeats, gone ids, the
-  player's objects that construct nothing; `NotOwned` for anyone else's, `NoConstructor` when none is left), then
-  goes through them in id order: a Construct starts at each one that has the building on its list, is idle and can
-  pay from what the ones before it left, and is rejected with the first one's reason if none can
-  (`CannotConstruct(kind)`, `ConstructorBusy(id)`, `InsufficientCrystals`); a cancel goes to each one with something
-  to cancel (`NotConstructing`, `NothingReady`). A Place names one constructor (`SeveralConstructors`; design change
-  0071) holding a ready building (`NothingReady`), and is rejected with the placement check's first problem
-  (`Unplaceable(PlacementProblem)`), which is reported (above). Each object of a command is one constructor; the
-  client sends a command to the group the design says (no smart-casting, design change 0071).
+- **`Command::Construction { objects, command }`** (`construction.rs`, `sim/construction.rs`): the player's constructors
+  carry out a `ConstructionCommand`: `Construct(kind)`, `CancelConstruction`, `CancelReady` or
+  `Place { origin, orientation }` (the top-left tile of the turned footprint; the orientation optional in files, as for
+  a debug spawn). The gate tolerates stale selections as for orders (`TooManyUnits`, repeats, gone ids, the player's
+  objects that construct nothing; `NotOwned` for anyone else's, `NoConstructor` when none is left), then goes through
+  them in id order: a Construct starts at each one that has the building on its list, is idle and can pay from what the
+  ones before it left, and is rejected with the first one's reason if none can (`CannotConstruct(kind)`,
+  `ConstructorBusy(id)`, `InsufficientCrystals`); a cancel goes to each one with something to cancel (`NotConstructing`,
+  `NothingReady`) and refunds it (`ConstructionCancelled`). A Place names one constructor (`SeveralConstructors`; design
+  change 0071) holding a ready building (`NothingReady`), and is rejected with the placement check's first problem
+  (`Unplaceable(PlacementProblem)`), which is reported (above). Each object of a command is one constructor; the client
+  sends a command to the group the design says (no smart-casting, design change 0071).
 - **Targets must be seen** (question Q0017 point 2, its default; `core/vision.md > Explored Selectability`): an
   Attack or a Move on an object is taken only while the issuing player sees it (a tile it covers is Visible), else
   `Reject::NotVisible`. The exception is the design's: a GDO player may target a Supply Delivery Station on Explored
@@ -866,9 +876,9 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   ±∞, so the replay file would fail to load. Validate at the input layer.
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`,
   `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `UnitProduced`,
-  `ConstructionCompleted`, `StructurePlaced`, `PlacementRefused`, …) are output only, for effects, sounds and UI. The
-  sim never reads them. `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events from
-  the scenario's initial spawns.
+  `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, …) are output only, for
+  effects, sounds and UI. The sim never reads them. `Sim::events()` holds only the latest step's events, and `Sim::new`
+  discards the events from the scenario's initial spawns.
 
 ## Sim scenarios and tests
 
@@ -992,11 +1002,11 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   (design change 0042), and the links in any order) and `economy_resources.rs` (the banks and
   `SetResources`, power and the ticks a building counts in, Unit Control, a mining game replayed and saved).
 - **Construction tests** are `crates/sim/tests/construction.rs` (each building's frames at full power and the plate's
-  680 ticks at 30/51 beside an unslowed Deployment Center, the refunds, every refused command changing nothing, a
-  group command in id order, a Place in its orientation with power, area and grids following, a refused Place for
-  each problem of the check and one refused by an earlier command of its tick, destroyed constructors' refunds by a
+  680 ticks at 30/51 beside an unslowed Deployment Center, the refunds and their events, every refused command changing
+  nothing, a group command in id order, a Place in its orientation with power, area and grids following, a refused Place
+  for each problem of the check and one refused by an earlier command of its tick, destroyed constructors' refunds by a
   debug removal and in combat, a fuzz of the gate, a save and a replay, and the clean Barracks opening from
-  `dev_skirmish`'s starting base as a mini-oracle: started in tick 769, ready in 929).
+  `dev_skirmish`'s starting base as a mini-oracle: started in tick 769, ready at the end of 928).
 - **Game start tests** are `crates/sim/tests/game_start.rs` (slice M2-F1: each player's Starting Layout and banks,
   the Skirmish Default restriction and completeness, the layout rules of design change 0097, two players' layouts in
   each other's way, the outdated flag, and `dev_skirmish`'s bases seeing and reaching their fields) and the unit tests

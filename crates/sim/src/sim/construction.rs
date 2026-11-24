@@ -22,7 +22,8 @@ pub(super) enum Resolved {
         kind: ObjectKind,
         constructors: Vec<ObjectId>,
     },
-    /// Each of `constructors` cancels its construction or its ready building, with the refund that goes with it.
+    /// Each of `constructors` cancels its construction or its ready building, with the refund that goes with it and
+    /// its `SimEvent::ConstructionCancelled`.
     Cancel { constructors: Vec<ObjectId> },
     /// `constructor` places its ready `kind` at `placement`, centred on `pos`.
     Place {
@@ -195,24 +196,13 @@ impl Sim {
                     };
                     // The gate made sure that the bank pays for every constructor of the command.
                     if bank.spend_crystals(recipe.cost) {
-                        o.constructor = Some(Constructor::Constructing {
-                            kind,
-                            since: self.tick,
-                            progress: 0,
-                        });
+                        o.constructor = Some(Constructor::Constructing { kind, progress: 0 });
                     }
                 }
             }
             Resolved::Cancel { constructors } => {
                 for id in constructors {
-                    let Some(o) = self.objects.get_mut(&id) else {
-                        continue;
-                    };
-                    let refund = construction::refund(o);
-                    o.constructor = Some(Constructor::Idle);
-                    if let Some(bank) = self.players.iter_mut().find(|p| p.id == player) {
-                        bank.credit_crystals(refund);
-                    }
+                    self.cancel_construction(id);
                 }
             }
             Resolved::Place {
@@ -263,17 +253,30 @@ impl Sim {
     /// `gone`, which are leaving the game, gives its owner back what cancelling would ([`construction::refund`]).
     /// For destructions and debug removals alike: the removal path is the one way out of the game.
     pub(super) fn refund_constructors(&mut self, gone: &[ObjectId]) {
-        for id in gone {
-            let Some((owner, refund)) = self
-                .objects
-                .get(id)
-                .and_then(|o| Some((o.owner?, construction::refund(o))))
-            else {
-                continue;
-            };
-            if let Some(bank) = self.players.iter_mut().find(|p| p.id == owner) {
-                bank.credit_crystals(refund);
-            }
+        for &id in gone {
+            self.cancel_construction(id);
         }
+    }
+
+    /// Constructor `id` gives up its construction or its ready building, and its owner gets back what cancelling
+    /// gives ([`construction::refund`]), with a `SimEvent::ConstructionCancelled` that says how much. Nothing for an
+    /// object that isn't an owned constructor with something to cancel.
+    fn cancel_construction(&mut self, id: ObjectId) {
+        let Some(o) = self.objects.get_mut(&id) else {
+            return;
+        };
+        let (Some(owner), Some(kind)) = (o.owner, o.constructor.and_then(|c| c.current().or(c.ready()))) else {
+            return;
+        };
+        let refund = construction::refund(o);
+        o.constructor = Some(Constructor::Idle);
+        if let Some(bank) = self.players.iter_mut().find(|p| p.id == owner) {
+            bank.credit_crystals(refund);
+        }
+        self.events.push(SimEvent::ConstructionCancelled {
+            constructor: id,
+            kind,
+            refund,
+        });
     }
 }

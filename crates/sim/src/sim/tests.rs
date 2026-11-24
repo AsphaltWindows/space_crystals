@@ -138,8 +138,8 @@ fn debug(command: DebugCommand) -> TickInputs {
 /// A named change to one field.
 type Mutation = (&'static str, fn(&mut Sim));
 
-fn constructing(kind: ObjectKind, since: Tick, progress: u32) -> Constructor {
-    Constructor::Constructing { kind, since, progress }
+fn constructing(kind: ObjectKind, progress: u32) -> Constructor {
+    Constructor::Constructing { kind, progress }
 }
 
 #[test]
@@ -158,7 +158,7 @@ fn state_hash_covers_every_field() {
     );
     obj(&mut base, plate.0).extractor.as_mut().unwrap().cycle = 7;
     // Construction states (any object may hold one here): the unit building a Generator, the plate holding one ready.
-    obj(&mut base, 3).constructor = Some(constructing(ObjectKind::Generator, 2, 5));
+    obj(&mut base, 3).constructor = Some(constructing(ObjectKind::Generator, 5));
     obj(&mut base, plate.0).constructor = Some(Constructor::Ready {
         kind: ObjectKind::Generator,
     });
@@ -302,13 +302,10 @@ fn state_hash_covers_every_field() {
         ("constructor none", |s| obj(s, 3).constructor = None),
         ("constructor idle", |s| obj(s, 3).constructor = Some(Constructor::Idle)),
         ("constructing kind", |s| {
-            obj(s, 3).constructor = Some(constructing(ObjectKind::Barracks, 2, 5));
-        }),
-        ("constructing since", |s| {
-            obj(s, 3).constructor = Some(constructing(ObjectKind::Generator, 3, 5));
+            obj(s, 3).constructor = Some(constructing(ObjectKind::Barracks, 5));
         }),
         ("constructing progress", |s| {
-            obj(s, 3).constructor = Some(constructing(ObjectKind::Generator, 2, 6));
+            obj(s, 3).constructor = Some(constructing(ObjectKind::Generator, 6));
         }),
         ("constructor ready", |s| {
             obj(s, 3).constructor = Some(Constructor::Ready {

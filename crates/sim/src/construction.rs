@@ -20,15 +20,15 @@
 //!   bank is short ("Only available if player has sufficient Space Crystals"). Cancelling refunds through
 //!   [`Refund`]: in full while constructing, 75% rounded down once ready (`> Cancellation`). A constructor that leaves
 //!   the game refunds the same way, as if cancelled (design change 0084), through the removal path
-//!   (`Sim::remove_objects`).
+//!   (`Sim::remove_objects`). Each refund says what went back (`SimEvent::ConstructionCancelled`).
 //! - **Progress** ([`step`], in the economy phase; plan decisions T5 and T6): a construction advances each tick by
 //!   its constructor's speed (`PowerSummary::speed`), in [`RATIO_ONE`]s of a frame at full speed, and is ready once
 //!   it reaches its recipe's frames. The Deployment Center, a power producer, builds at full speed whatever the
 //!   power; the Extraction Facility, a consumer, at the power ratio (design change 0089, `factions/gdo/overview.md >
-//!   GDOResources > Power`). The ratio is rounded up, so a plate at 30/51 takes exactly 400 × 51/30 = 680 ticks. A
-//!   construction counts its frames from the tick after the command that started it, as a plate placed in tick `t`
-//!   first pays in tick `t + 48`: ordered in tick `t`, a Generator (240 frames) is ready in tick `t + 240`
-//!   (ConstructionProgress is "frames elapsed").
+//!   GDOResources > Power`). The ratio is rounded up, so a plate at 30/51 takes exactly 400 × 51/30 = 680 ticks.
+//!   The first frame is the tick of the command that starts the construction, which applies before the economy
+//!   phase (`ARCHITECTURE.md > Economy > Recipe timing`): ordered in tick `t`, a Generator (240 frames) is ready at
+//!   the end of tick `t + 239`, and a Place can put it on the map from tick `t + 240`.
 //! - **Placing** (`> AwaitingPlacement`): Place puts the ready building on the map in its own tick, where the
 //!   placement check in Command mode (`crate::placement`) allows it when the command applies (plan decision T4): the
 //!   footprint's tiles flat, Buildable, Visible and free, at least one in the build area, a plate onto an uncovered
@@ -51,7 +51,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::object::Object;
 use crate::scenario::BuildingOrientation;
 use crate::sim::Reject;
-use crate::units::{Tick, TilePos};
+use crate::units::TilePos;
 
 /// A constructor's state (module docs): `Object::constructor` of a Deployment Center or an Extraction Facility.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -59,14 +59,9 @@ pub enum Constructor {
     /// No CurrentConstruction and no ReadyToPlace: its BuildMenu offers its buildings.
     #[default]
     Idle,
-    /// CurrentConstruction: `kind`, which a command started in tick `since` (its frames count from the next tick on).
-    /// `progress` is its ConstructionProgress in fixed point (plan decision T6): [`RATIO_ONE`] for each frame done at
-    /// full speed; it is ready at its recipe's `frames × RATIO_ONE`.
-    Constructing {
-        kind: ObjectKind,
-        since: Tick,
-        progress: u32,
-    },
+    /// CurrentConstruction: `kind`. `progress` is its ConstructionProgress in fixed point (plan decision T6):
+    /// [`RATIO_ONE`] for each frame done at full speed; it is ready at its recipe's `frames × RATIO_ONE`.
+    Constructing { kind: ObjectKind, progress: u32 },
     /// ReadyToPlace: `kind`, built and waiting to be placed.
     Ready { kind: ObjectKind },
 }
@@ -107,10 +102,9 @@ impl StateHash for Constructor {
     fn hash(&self, h: &mut StateHasher) {
         match self {
             Constructor::Idle => h.tag(0),
-            Constructor::Constructing { kind, since, progress } => {
+            Constructor::Constructing { kind, progress } => {
                 h.tag(1);
                 kind.hash(h);
-                since.hash(h);
                 progress.hash(h);
             }
             Constructor::Ready { kind } => {
@@ -189,25 +183,19 @@ pub(crate) fn refund(o: &Object) -> u32 {
 }
 
 /// The constructors' part of the economy phase (module docs; `crate::economy::step`), for the objects from before
-/// this tick (`first_new`) in id order, the tick being `tick`: each construction a command started before this tick
-/// advances by its constructor's speed for its owner's `power`, and one that reaches its recipe's frames is ready
-/// to place (`SimEvent::ConstructionCompleted`). A constructor without an owner builds nothing.
+/// this tick (`first_new`) in id order: each construction, one that a command of this tick started included (its
+/// first frame), advances by its constructor's speed for its owner's `power`, and one that reaches its recipe's
+/// frames is ready to place (`SimEvent::ConstructionCompleted`). A constructor without an owner builds nothing.
 pub(crate) fn step(
     objects: &mut BTreeMap<ObjectId, Object>,
     power: &BTreeMap<PlayerId, PowerSummary>,
     first_new: ObjectId,
-    tick: Tick,
     events: &mut Vec<SimEvent>,
 ) {
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
-        let (Some(Constructor::Constructing { kind, since, progress }), Some(owner)) = (&mut o.constructor, o.owner)
-        else {
+        let (Some(Constructor::Constructing { kind, progress }), Some(owner)) = (&mut o.constructor, o.owner) else {
             continue;
         };
-        // Started by a command of this tick: its frames count from the next one.
-        if *since == tick {
-            continue;
-        }
         let kind = *kind;
         let Some(recipe) = recipe(o.kind, kind) else {
             continue;

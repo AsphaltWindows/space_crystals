@@ -103,6 +103,22 @@ fn completions(t: &TestSim) -> Vec<(Tick, u32, ObjectKind)> {
         .collect()
 }
 
+/// The `ConstructionCancelled` events of the latest tick: constructor, building, refund.
+fn cancellations(t: &TestSim) -> Vec<(u32, ObjectKind, u32)> {
+    t.sim()
+        .events()
+        .iter()
+        .filter_map(|e| match e {
+            SimEvent::ConstructionCancelled {
+                constructor,
+                kind,
+                refund,
+            } => Some((constructor.0, *kind, *refund)),
+            _ => None,
+        })
+        .collect()
+}
+
 /// Checks that the gate rejects `player`'s `command` for `reason`, then runs the next tick with it and checks that
 /// it changed nothing: the state and the events are those of the same tick without it.
 fn assert_rejected(t: &mut TestSim, player: PlayerId, command: Command, reason: Reject) {
@@ -180,9 +196,10 @@ fn base() -> ScenarioBuilder {
         .spawn(Peacekeeper, Some(P1), SpawnAt::Point(at(3, 1).center()))
 }
 
-/// The plan's acceptance, times at full power: ordered in tick 1, a Barracks is ready in tick 161, a Generator in
-/// 241, an Extraction Facility in 321, a plate in 401 (160, 240, 320 and 400 frames, counted from the tick after the
-/// command). Each cost is paid when the command applies.
+/// The plan's acceptance, times at full power (`ARCHITECTURE.md > Economy > Recipe timing`): ordered in tick 1, a
+/// Barracks is ready at the end of tick 160, a Generator of tick 240, an Extraction Facility of 320, a plate of 400
+/// (160, 240, 320 and 400 frames, the command's own tick the first), and each can be placed from the next tick on.
+/// Each cost is paid when the command applies.
 #[test]
 fn constructions_take_their_frames_at_full_power() {
     let mut t = ScenarioBuilder::new(&flat(40, 12))
@@ -201,19 +218,28 @@ fn constructions_take_their_frames_at_full_power() {
     assert_eq!(state(&t, 1).current(), Some(Generator));
     assert_eq!(
         state(&t, 1).frames_done(),
-        Some(0),
-        "the command's own tick doesn't count"
+        Some(1),
+        "the command's own tick is the first frame"
     );
-    t.run_until(121);
+    t.run_until(120);
     assert_eq!(state(&t, 1).frames_done(), Some(120));
+    // The Generator is ready at the end of tick 240: a Place can't apply in tick 240, and can in tick 241.
+    let place = PlayerCommand {
+        player: P1,
+        command: construction(&[1], place(1, 6)),
+    };
+    t.run_until(239);
+    assert_eq!(t.sim().validate(&place), Err(Reject::NothingReady));
+    t.run_until(240);
+    assert_eq!(t.sim().validate(&place), Ok(()));
     t.run_until(500);
     assert_eq!(
         completions(&t),
         [
-            (161, 2, Barracks),
-            (241, 1, Generator),
-            (321, 3, ExtractionFacility),
-            (401, 4, ExtractionPlate)
+            (160, 2, Barracks),
+            (240, 1, Generator),
+            (320, 3, ExtractionFacility),
+            (400, 4, ExtractionPlate)
         ]
     );
     for (n, kind) in [
@@ -229,7 +255,8 @@ fn constructions_take_their_frames_at_full_power() {
 
 /// The plan's acceptance under the penalty and design change 0089's verification: at 30 generated and 51 consumed
 /// (the all-in Barracks), the Extraction Facility builds a plate at 30/51, in exactly 680 ticks (400 × 51/30), while
-/// the Deployment Center builds a Generator at full speed, in 240.
+/// the Deployment Center builds a Generator at full speed, in 240: ordered in tick 1, ready at the end of ticks 680
+/// and 240.
 #[test]
 fn negative_power_slows_the_facility_and_not_the_center() {
     let mut t = ScenarioBuilder::new(&flat(16, 10))
@@ -249,11 +276,12 @@ fn negative_power_slows_the_facility_and_not_the_center() {
         .at(1, P1, construction(&[4], Construct(ExtractionPlate)))
         .at(1, P1, construction(&[3], Construct(Generator)))
         .run_until(1000);
-    assert_eq!(completions(&t), [(241, 3, Generator), (681, 4, ExtractionPlate)]);
+    assert_eq!(completions(&t), [(240, 3, Generator), (680, 4, ExtractionPlate)]);
 }
 
 /// The plan's acceptance, refunds (`> Cancellation`): cancelling while constructing gives the whole cost back,
-/// cancelling a ready building 75% of it, rounded down: 75 → 56, 100 → 75, 200 → 150. The constructor is idle again.
+/// cancelling a ready building 75% of it, rounded down: 75 → 56, 100 → 75, 200 → 150. The constructor is idle again,
+/// and a `ConstructionCancelled` event in the cancel's tick says what went back.
 #[test]
 fn cancelling_refunds_in_full_while_constructing_and_75_percent_once_ready() {
     let mut t = base().start();
@@ -278,7 +306,9 @@ fn cancelling_refunds_in_full_while_constructing_and_75_percent_once_ready() {
             let cancel = if ready { CancelReady } else { CancelConstruction };
             next(&mut t, construction(&[n], cancel));
             assert!(state(&t, n).is_idle(), "{kind:?}");
-            refunds.push((kind, paid, bank(&t, P1) - before));
+            let refund = bank(&t, P1) - before;
+            assert_eq!(cancellations(&t), [(n, kind, refund)]);
+            refunds.push((kind, paid, refund));
         }
     }
     assert_eq!(
@@ -609,8 +639,9 @@ fn a_place_is_checked_when_it_applies() {
 
 /// Design change 0084's verifications 2 and 3 (`> Cancellation`: "Destroyed while constructing or holding a ready
 /// building: refunded as if cancelled"): a Deployment Center destroyed while it builds a Generator gives 100 back,
-/// one holding a ready Generator 75; an Extraction Facility 75 and 56 for its plate; an idle one nothing. A debug
-/// removal stands for a destruction (`Sim::remove_objects`, the one way out of the game).
+/// one holding a ready Generator 75; an Extraction Facility 75 and 56 for its plate; an idle one nothing. Each refund
+/// has its `ConstructionCancelled` event, before the constructor's `Removed`. A debug removal stands for a destruction
+/// (`Sim::remove_objects`, the one way out of the game).
 #[test]
 fn a_destroyed_constructor_refunds_as_if_cancelled() {
     let mut t = ScenarioBuilder::new(&flat(32, 12))
@@ -623,19 +654,33 @@ fn a_destroyed_constructor_refunds_as_if_cancelled() {
     t.debug_at(1, fund(P1, 1000))
         .at(1, P1, construction(&[1, 2], Construct(Generator)))
         .at(1, P1, construction(&[3, 4], Construct(ExtractionPlate)));
-    let removal = |t: &mut TestSim, tick: Tick, n: u32| -> u32 {
+    let removal = |t: &mut TestSim, tick: Tick, n: u32, kind: Option<ObjectKind>| -> u32 {
         t.run_until(tick - 1);
         let before = bank(t, P1);
         t.debug_at(tick, DebugCommand::Remove { id: id(n) }).step();
         assert!(t.sim().object(id(n)).is_none());
-        bank(t, P1) - before
+        let refund = bank(t, P1) - before;
+        let cancelled = kind.map(|kind| SimEvent::ConstructionCancelled {
+            constructor: id(n),
+            kind,
+            refund,
+        });
+        let order: Vec<&SimEvent> = t
+            .sim()
+            .events()
+            .iter()
+            .filter(|e| matches!(e, SimEvent::ConstructionCancelled { .. } | SimEvent::Removed(_)))
+            .collect();
+        let expected: Vec<SimEvent> = cancelled.into_iter().chain([SimEvent::Removed(id(n))]).collect();
+        assert_eq!(order, expected.iter().collect::<Vec<_>>(), "#{n}");
+        refund
     };
     let refunds = [
-        removal(&mut t, 100, 1),
-        removal(&mut t, 101, 3),
-        removal(&mut t, 300, 2),
-        removal(&mut t, 450, 4),
-        removal(&mut t, 451, 5),
+        removal(&mut t, 100, 1, Some(Generator)),
+        removal(&mut t, 101, 3, Some(ExtractionPlate)),
+        removal(&mut t, 300, 2, Some(Generator)),
+        removal(&mut t, 450, 4, Some(ExtractionPlate)),
+        removal(&mut t, 451, 5, None),
     ];
     assert_eq!(refunds, [100, 75, Refund::Ready.of(100), Refund::Ready.of(75), 0]);
     assert_eq!(refunds[2..4], [75, 56]);
@@ -644,7 +689,7 @@ fn a_destroyed_constructor_refunds_as_if_cancelled() {
 }
 
 /// Design change 0084 in combat: player 2's Extraction Facility, holding a ready plate, is destroyed by player 1's
-/// Peacekeepers; player 2 gets 56 back in the tick it dies.
+/// Peacekeepers; player 2 gets 56 back in the tick it dies, with its `ConstructionCancelled` event.
 #[test]
 fn a_constructor_destroyed_in_combat_refunds_its_owner() {
     let mut builder = ScenarioBuilder::new(&flat(20, 12))
@@ -679,6 +724,7 @@ fn a_constructor_destroyed_in_combat_refunds_its_owner() {
             .any(|e| matches!(e, SimEvent::Died { id: dead, .. } if *dead == id(1)))
     );
     assert_eq!(bank(&t, P2), 56, "refunded in tick {died}");
+    assert_eq!(cancellations(&t), [(1, ExtractionPlate, 56)]);
 }
 
 /// The gate (`ARCHITECTURE.md > Commands, events and replays`), fuzzed: random construction commands from any player
@@ -888,7 +934,7 @@ fn constructions_go_on_alike_after_a_save_and_in_a_replay() {
     let saved = serde_json::to_string(t.sim()).unwrap();
     let mut loaded: Sim = serde_json::from_str(&saved).unwrap();
     assert_eq!(loaded.state_hash(), t.sim().state_hash());
-    assert_eq!(state(&t, 1).frames_done(), Some(199));
+    assert_eq!(state(&t, 1).frames_done(), Some(200));
     while t.sim().tick() < 1000 {
         t.step();
         loaded.step(t.replay().inputs.last().unwrap());
@@ -897,10 +943,10 @@ fn constructions_go_on_alike_after_a_save_and_in_a_replay() {
     assert_eq!(
         completions(&t),
         [
-            (241, 1, Generator),
-            (401, 2, ExtractionPlate),
-            (541, 1, Generator),
-            (821, 2, ExtractionPlate)
+            (240, 1, Generator),
+            (400, 2, ExtractionPlate),
+            (540, 1, Generator),
+            (820, 2, ExtractionPlate)
         ]
     );
     let replay: Replay = serde_json::from_str(&serde_json::to_string(t.replay()).unwrap()).unwrap();
@@ -925,7 +971,8 @@ fn first_spot(sim: &Sim, kind: ObjectKind) -> TilePos {
 /// its constructor is free and the bank covers it, each building placed as soon as it is ready, at the first spot the
 /// placement check allows. "Fastest clean Barracks ... starts at ~46 seconds and finishes at ~56 seconds", with
 /// continuous income; with lumps (design change 0098) about 48 s (the plan's R10). Here it starts in tick 769
-/// (48.1 s) and is ready in tick 929 (58.1 s), and power stays positive throughout.
+/// (48.1 s) and is ready at the end of tick 928, to be placed from tick 929 (58.1 s), and power stays positive
+/// throughout.
 #[test]
 fn the_clean_barracks_opening_starts_the_barracks_at_about_48_seconds() {
     let mut t = TestSim::new(scenarios::dev_skirmish());
@@ -968,16 +1015,16 @@ fn the_clean_barracks_opening_starts_the_barracks_at_about_48_seconds() {
         .filter(|(_, e)| matches!(e, SimEvent::PlacementRefused { .. }))
         .count();
     assert_eq!(refused, 0);
-    assert_eq!(started, [(193, Generator), (434, Generator), (769, Barracks)]);
+    assert_eq!(started, [(193, Generator), (433, Generator), (769, Barracks)]);
     let barracks = completions(&t)
         .into_iter()
         .find(|&(_, _, kind)| kind == Barracks)
         .unwrap()
         .0;
-    assert_eq!(barracks, 929);
-    // Within the design's tolerance: about 46 to 48 seconds, then 10 more.
+    assert_eq!(barracks, 928);
+    // Within the design's tolerance: about 46 to 48 seconds, then 10 more until it can be placed.
     let seconds = |tick: Tick| f64::from(tick) / f64::from(sc_sim::TICKS_PER_SECOND);
-    assert!((45.0..=50.0).contains(&seconds(769)) && seconds(barracks) - seconds(769) == 10.0);
+    assert!((45.0..=50.0).contains(&seconds(769)) && seconds(barracks + 1) - seconds(769) == 10.0);
     let power = t.sim().power(P1);
     assert_eq!((power.generated, power.consumed), (70, 54));
     let built = |kind| {
