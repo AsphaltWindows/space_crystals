@@ -567,7 +567,7 @@ First playable after M2-H2.
     | H2 (0106) | done (`777b9a9`) |
     | G | running (wave 3) |
     | F (after E; Deploy, with 0125's reservation and the Drone's Groupable flag) | queued |
-    | H3 (after E; gather rules 0123 and 0127–0130) | queued |
+    | H3 (after E; gather rules 0123 and 0127–0131) | queued |
     | J1, J2, K1, K2 | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
@@ -629,7 +629,7 @@ First playable after M2-H2.
 | Q0034 | Should an enemy plate's InfoPanel show its patch's remaining crystals? | no | open; M2-G shows it to everyone |
 | Q0035 | Rally point UI: Shift with rally targeting, rallying on one of several selected Barracks, feedback when pressing an unavailable command | no | open; M2-H1 built the stated current behaviour |
 | Q0036 | End of game edge cases: simultaneous last defeats, free-for-all spectating, a raised Riot Shield on defeat | no | open; M2-F2 built the stated current behaviour |
-| Q0037 | Drone gathering: the cases the loop doesn't define (13 points) | no | points 1–4 and 12 answered by 0123 and 0127–0130; point 5 in part; others open, M3-H built the proposals |
+| Q0037 | Drone gathering: the cases the loop doesn't define (13 points) | no | points 1–5 and 12 answered by 0123 and 0127–0131; others open, M3-H built the proposals |
 | Q0038 | Gathering Drones, collision and the economy targets | was yes | answered by 0106 (pass-through), 0107 (geometry), 0108 (±15%) |
 | Q0039 | Beacon Deployment and Warp In: what the transforming object is | no (answer before M3-F) | answered by 0109–0116 |
 | Q0040 | Deploy and Warp In placement, and the Colonists panels | no | answered by 0117–0125 |
@@ -640,7 +640,7 @@ First playable after M2-H2.
 | Q0045 | Pass-through details: idle units left stacked, and the Drop Off order | no | answered by 0126 and 0127 |
 
 ## Design change entries
-Last triaged: 0130.
+Last triaged: 0131.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -768,4 +768,5 @@ Last triaged: 0130.
 | 0128 A loaded Drone sent to Gather skips mining at the new patch and goes to deliver | queued (M3-H3) | answers Q0037 point 2 |
 | 0129 Other orders keep the load | queued (M3-H3: confirm with a test) | answers Q0037 point 3 |
 | 0130 Interrupted mining gives no partial load; the patch frees at once | queued (M3-H3: confirm with a test) | answers Q0037 point 4 |
+| 0131 The patch search counts only known patches not under a structure | mostly built (M3-H: seen or remembered, not under a structure); queued (M3-H3: centre on the Drone per 0123, confirm with tests) | answers Q0037 point 5 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

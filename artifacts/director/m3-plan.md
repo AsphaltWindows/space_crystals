@@ -1195,6 +1195,7 @@ Buildings and units whose costs are TBD show in their slot, unavailable. A trans
 | 0128 | Q0037 point 2 | H3 | **Replaces deliver-first.** A loaded Drone sent to Gather goes to the new patch or refinery and skips mining there, without taking occupancy. It then delivers as if it had just mined the load, and continues the loop. |
 | 0129 | Q0037 point 3 | H3 | The load is cleared only by a delivery or by deploy completion (0114), never by a change of order. |
 | 0130 | Q0037 point 4 | H3 | Mining interrupted before 32 frames gives no partial load, and the patch frees at once. |
+| 0131 | Q0037 point 5 | H3 | Within the Drone's search radius (centred on the Drone, 0123), only patches the player knows, visible or remembered, and not under a structure qualify. M3-H already filters this way, but around the patch; H3 re-centres it and tests that a never-seen patch is never chosen. |
 
 ## 9. Notes from merged slices for later slices
 
