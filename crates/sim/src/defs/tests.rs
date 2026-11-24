@@ -188,12 +188,14 @@ fn unit_is_consistent(def: &ObjectDef, unit: &UnitDef) {
     assert_eq!(unit.movement.model(), base.movement_model, "{name}: movement model");
     let speed = unit.movement.max_speed();
     assert!(speed.is_finite() && speed > 0.0, "{name}: max speed {speed}");
-    // `systems/units.md > TurretAttributes`: "Only present on units whose UnitBase has HasTurret = true". HasTurret
-    // reads "the base can carry a turret" (question Q0042 point 10): the HoverVehicle has it, the Drone no turret.
+    // `systems/units.md > TurretAttributes`: "Only present on units whose UnitBase has CanHaveTurret = true; a unit
+    // of such a base may still have TurretAttributes = None (no turret)" (design change 0154): the HoverVehicle
+    // can carry one, and the Drone has none.
     assert!(
-        unit.turret.is_none() || base.has_turret,
-        "{name}: a turret on a base without one"
+        unit.turret.is_none() || base.can_have_turret,
+        "{name}: a turret on a base that can't carry one"
     );
+    assert_eq!(unit.has_turret(), unit.turret.is_some(), "{name}");
     assert_eq!(
         unit.rugged_terrain_defense_bonus.is_some(),
         unit.base == UnitBase::LightInfantry,

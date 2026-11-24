@@ -10,10 +10,30 @@ use crate::units::gu;
 
 use super::engage::{Closing, close_in};
 use super::state::{Approach, Leg, Patrol, Pursuit};
-use super::world::{Scan, Unit, World};
+use super::world::{Known, Scan, Unit, World};
 use super::{ATTACK_MOVE_LEASH_GU, GIVE_UP_RETRY_TICKS, PATROL_FAILED_LEGS, PROXIMITY_SU};
 
-/// `> MovingToObject`: one tick of a Move to the object `id`. Returns whether the behaviour is complete.
+/// Design change 0139 (`core/vision.md > Explored > Targeting remembered objects`: "The order goes to the object's
+/// **last-known position**"): one tick of a unit's walk to `spot`, the last-known position of an object its owner
+/// remembers but doesn't see. `walking` says whether the unit's current move is this walk. The walk is a move to
+/// the point (`MoveGoal::Point`): the centre of the remembered footprint, which the owner's path knowledge blocks
+/// (design change 0040), so the path ends at its edge, as near as the unit gets. It never names the object, so
+/// neither the path serving nor the movement reads anything of it, and the walk is the same whether or not the
+/// object still stands. It starts once the unit's attack sequence lets it move. Returns whether it is over without
+/// the owner having seen the object: arrived as near as it gets, or failed; the order then ends.
+pub(super) fn walk_to_remembered(unit: &mut Unit, walking: &mut bool, spot: Vec2, world: &World) -> bool {
+    if !*walking {
+        if unit.may_move() {
+            unit.mover.go_to(MoveGoal::Point(spot), None, world.tick);
+            *walking = true;
+        }
+        return false;
+    }
+    unit.mover.status != MoveStatus::Moving
+}
+
+/// `> MovingToObject`: one tick of a Move to the object `id`, as the unit's owner knows it ([`World::known`]).
+/// Returns whether the behaviour is complete.
 ///
 /// **Proximity** (`> Proximity`, design change 0032): a gap of at most [`PROXIMITY_SU`] between the unit's
 /// Silhouette and the object's shape, edge to edge.
@@ -22,7 +42,9 @@ use super::{ATTACK_MOVE_LEASH_GU, GIVE_UP_RETRY_TICKS, PATROL_FAILED_LEGS, PROXI
 /// ends, and the order with it, at the reachable point nearest to an object the unit can't get to (`>
 /// MovingToLocation > Unreachable target location`), when the unit is stuck within 3 grid units of it behind units
 /// that aren't moving ("Blocked near the target", design change 0033; `movement::stuck`), and when it fails
-/// (`> Failure`). A static object needn't be seen: it is where it was.
+/// (`> Failure`). Out of the owner's sight, it is where the owner remembers it (design change 0139): the unit walks
+/// to its last-known position ([`walk_to_remembered`]) and on to the object once the owner sees it; once the owner
+/// sees its place without it, the order ends ("the way it would for a vanished target": `Sim::follow_targets`).
 ///
 /// **A unit: Follow** (design change 0032). The behaviour never completes on reaching it: within proximity the
 /// unit stops and waits, and when the target moves out of proximity it follows again. Stuck within 3 grid units
@@ -33,16 +55,44 @@ use super::{ATTACK_MOVE_LEASH_GU, GIVE_UP_RETRY_TICKS, PATROL_FAILED_LEGS, PROXI
 /// - the move fails (`> Failure`);
 /// - the target leaves the owner's vision (design change 0034, extended to Follow): the unit goes to its last seen
 ///   position and the order completes there. The player's own units are always seen.
+///
+/// **Itself** (design change 0168, `systems/controls/commands.md > Move`: "Following itself = Stop"): a unit whose
+/// Move names itself, one of the units a right-click on it ordered, stops: "its order ends at once, as if it had
+/// arrived". Queued, the step ends as soon as it starts, and the next one follows. The others follow it.
 pub(super) fn approach(unit: &mut Unit, id: ObjectId, state: &mut Approach, world: &World) -> bool {
+    if id == unit.id {
+        unit.halt();
+        return true;
+    }
     if state.lost {
         return unit.mover.status != MoveStatus::Moving;
     }
-    let Some(target) = world.get(id) else {
-        if state.moving {
-            unit.mover.stop();
+    let target = match world.known(unit.owner, id) {
+        Known::Seen(target) => target,
+        Known::Remembered { position, .. } => {
+            state.moving = false;
+            return walk_to_remembered(unit, &mut state.remembered, position, world);
         }
-        return true;
+        // A followed unit out of the owner's sight (below), or an object it knows nothing of.
+        Known::Gone => {
+            state.moving = false;
+            return match state.last_seen {
+                Some(at) => {
+                    unit.mover.go_to(MoveGoal::Point(at), None, world.tick);
+                    state.lost = true;
+                    false
+                }
+                None => {
+                    unit.halt();
+                    true
+                }
+            };
+        }
     };
+    // Seen at last: the move goes on to the object itself.
+    if std::mem::take(&mut state.remembered) {
+        state.moving = false;
+    }
     let goal = MoveGoal::Object {
         id,
         reach: PROXIMITY_SU,
@@ -59,20 +109,6 @@ pub(super) fn approach(unit: &mut Unit, id: ObjectId, state: &mut Approach, worl
             return false;
         }
         return unit.mover.status != MoveStatus::Moving;
-    }
-    if !world.sees(unit.owner, target) {
-        state.moving = false;
-        return match state.last_seen {
-            Some(at) => {
-                unit.mover.go_to(MoveGoal::Point(at), None, world.tick);
-                state.lost = true;
-                false
-            }
-            None => {
-                unit.halt();
-                true
-            }
-        };
     }
     state.last_seen = Some(target.pos);
     if within {

@@ -294,10 +294,10 @@ fn a_plate_destroyed_on_a_depleted_patch_takes_it_along() {
 /// Design change 0042's second verification with the mining itself ("A patch mined out in the fog is still routed
 /// around until a unit sees its tile"; `path_knowledge.rs` has it with a debug removal): player 2's plate mines out a
 /// map patch of 10 in tick 48 and is removed in tick 50, taking the patch along, which opens the true grid at once.
-/// Player 1, who never saw either, still assumes the patch there, its planning grid blocked, until its Peacekeeper
-/// comes in sight of the tile.
+/// Player 1, who never saw either, still knows the patch there by its record from the start (design change 0159),
+/// its planning grid blocked, until its Peacekeeper comes in sight of the tile.
 #[test]
-fn a_patch_mined_out_in_the_fog_is_assumed_until_its_tile_is_seen() {
+fn a_patch_mined_out_in_the_fog_is_known_until_its_tile_is_seen() {
     let mut t = ScenarioBuilder::new(&flat(40, 10))
         .spawn_with(patch(10), tile(30, 5)) // 1
         .spawn(ObjectKind::Generator, Some(P2), tile(36, 1)) // 2
@@ -310,15 +310,15 @@ fn a_patch_mined_out_in_the_fog_is_assumed_until_its_tile_is_seen() {
         .start();
     t.without_auto_targeting()
         .debug_at(50, DebugCommand::Remove { id: ObjectId(3) });
-    let assumed = |t: &TestSim| -> Vec<ObjectId> {
-        let knowledge = t.sim().path_knowledge().player(P1).unwrap();
-        knowledge.assumed().iter().map(|a| a.id).collect()
+    let known = |t: &TestSim| -> Vec<ObjectId> {
+        let sight = t.sim().vision().player(P1).unwrap();
+        sight.records().map(|r| r.id).collect()
     };
     let known_blocked = |t: &TestSim| {
         let grid = t.sim().known_nav(P1).unwrap().grid(NavClass::GroundRugged, 1).unwrap();
         grid.is_blocked(TilePos::new(30, 5))
     };
-    assert_eq!(assumed(&t), [ObjectId(1)]);
+    assert_eq!(known(&t), [ObjectId(1)], "the patch, not player 2's starting layout");
     t.run_until(50);
     assert_eq!(bank(&t, P2), START + 10, "mined out in tick 48");
     assert!(
@@ -326,24 +326,24 @@ fn a_patch_mined_out_in_the_fog_is_assumed_until_its_tile_is_seen() {
         "gone with its plate"
     );
     assert!(
-        known_blocked(&t) && assumed(&t) == [ObjectId(1)],
+        known_blocked(&t) && known(&t) == [ObjectId(1)],
         "player 1 didn't see it go"
     );
 
-    // Towards the tile, until it comes into sight (a Peacekeeper sees 5 tiles): the assumption ends in that tick.
+    // Towards the tile, until it comes into sight (a Peacekeeper sees 5 tiles): the record goes in that tick.
     let sees = |t: &TestSim| t.sim().vision().state(P1, TilePos::new(30, 5)) == VisibilityState::Visible;
     let lookout = TilePos::new(26, 5).center();
     t.order_at(51, P1, &[ObjectId(4)], OrderKind::Move(Target::Point(lookout)), false);
     while !sees(&t) {
         assert!(
-            known_blocked(&t) && assumed(&t) == [ObjectId(1)],
+            known_blocked(&t) && known(&t) == [ObjectId(1)],
             "tick {}",
             t.sim().tick()
         );
         assert!(t.sim().tick() < 1000, "the Peacekeeper should see the tile by now");
         t.step();
     }
-    assert!(!known_blocked(&t) && assumed(&t).is_empty());
+    assert!(!known_blocked(&t) && known(&t).is_empty());
 }
 
 /// The same through a debug removal of the plate, in the command phase: the depleted patch goes in the same tick,

@@ -19,31 +19,31 @@ pub(super) struct Found {
 
 /// `> Patch Occupancy > Search radius` (design changes 0123 and 0131): the patches `unit` looks at are "within a
 /// radius around itself" (`WorkerDef::search_radius`, centre to centre), those its owner knows ("currently
-/// visible, or remembered from earlier sight": `World::knows`; "a Drone never finds a patch hidden in fog") and
-/// "not covered by a structure", all but `except`, the one it comes from. "The nearest unoccupied patch to itself"
-/// is the nearest centre to centre, the lowest id among equals, of those not [`taken`] that it can reach: design
-/// change 0141 treats a patch it can't reach like an occupied one (`World::reachable`, by the grids its owner
-/// knows; a wall of units shows only when a leg ends short of the patch).
+/// visible, or remembered from earlier sight", as its owner knows them: `World::known_patches_near`, design change
+/// 0139; "a Drone never finds a patch hidden in fog", but the map's are known from the start, 0159) and "not covered
+/// by a structure", all but `except`, the one it comes from. "The nearest unoccupied patch to itself" is the nearest
+/// centre to centre, the lowest id among equals, of those not taken that it can reach: design change 0141 treats a
+/// patch it can't reach like an occupied one (`World::reachable`, by the grids its owner knows; a wall of units shows
+/// only when a leg ends short of the patch). A patch in sight is taken as [`taken`] says; one out of it only if
+/// another of its owner's workers claimed it in this tick: what others do there, the owner doesn't see.
 pub(super) fn search(world: &World, claims: &Claims, unit: &Unit, def: &WorkerDef, except: Option<ObjectId>) -> Found {
     let radius = gu(def.search_radius);
     // (distance squared, id) of the nearest free patch, and (out of reach, distance squared, id) of the nearest.
     let mut free: Option<(f32, ObjectId)> = None;
     let mut any: Option<(bool, f32, ObjectId)> = None;
-    for patch in world.patches() {
-        let far = patch.pos.distance_squared(unit.pos);
-        if far > radius * radius
-            || Some(patch.id) == except
-            || world.patch_covered(patch.id)
-            || !world.knows(unit.owner, patch)
-        {
+    for patch in world.known_patches_near(unit.owner, unit.pos, radius) {
+        if Some(patch.id) == except || patch.covered {
             continue;
         }
+        let far = patch.pos.distance_squared(unit.pos);
         // In id order, so the first of equals stays.
         let reachable = world.reachable(unit, &patch.shape);
-        if reachable
-            && !taken(world, claims, patch.id, unit.id, false)
-            && free.is_none_or(|(best, _)| far.total_cmp(&best).is_lt())
-        {
+        let taken = if patch.seen {
+            taken(world, claims, patch.id, unit.id, false)
+        } else {
+            claims.by_other_of(patch.id, unit.id, unit.owner)
+        };
+        if reachable && !taken && free.is_none_or(|(best, _)| far.total_cmp(&best).is_lt()) {
             free = Some((far, patch.id));
         }
         let nearer = |(unreachable, best, _): (bool, f32, ObjectId)| {

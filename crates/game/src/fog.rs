@@ -258,15 +258,15 @@ impl<'a> Sight<'a> {
     }
 
     /// The record shown in place of object `id` ([`Sight::remembered`]), if any: the latest of the records the
-    /// visions watched keep of it (the first of them on a tie), unless one of them sees its footprint now.
+    /// visions watched keep of it (the first of them on a tie), shown while its footprint's best tile is Explored:
+    /// not while one sees it, nor while none has explored it (Unexplored is "fully black", design change 0159).
     pub fn remembered_record(&self, id: ObjectId) -> Option<&'a LastKnown> {
         let latest = self
             .visions()
             .filter_map(|v| v.record(id))
             .reduce(|latest, record| if record.seen > latest.seen { record } else { latest })?;
-        let corner = latest.placement.origin.corner();
-        let far = corner + Vec2::new(latest.placement.w as f32, latest.placement.h as f32) * SU_PER_GU;
-        (!self.visions().any(|v| v.sees_box(corner, far))).then_some(latest)
+        let best = (latest.placement.tiles()).map(|tile| self.tile(tile)).max()?;
+        (best == VisibilityState::Explored).then_some(latest)
     }
 }
 

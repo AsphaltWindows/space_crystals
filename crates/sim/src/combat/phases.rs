@@ -39,7 +39,8 @@ pub(super) struct Shooter<'a> {
     /// one budget per tick, of which phase 5d may have spent some (`movement::Turns`). `f32::INFINITY` for the
     /// movement models whose turn rate depends on speed.
     turn_left: f32,
-    /// `systems/units.md > UnitBase > HasTurret`: the turret aims, not the base.
+    /// The unit has a turret (`UnitDef::has_turret`, its TurretAttributes; design change 0154): the turret aims, not
+    /// the base.
     turret: bool,
     /// Its owner's vision as of the end of the last tick; `None` for a unit without an owner, which sees nothing.
     sight: Option<&'a PlayerVision>,
@@ -68,7 +69,7 @@ impl<'a> Shooter<'a> {
             elevation: Elevation::of(map, kind, pos),
             attrs,
             turn_left: movement::turn_rate(&unit.movement) - turned,
-            turret: unit.base_def().has_turret,
+            turret: unit.has_turret(),
             sight,
         }
     }

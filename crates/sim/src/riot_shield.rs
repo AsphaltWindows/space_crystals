@@ -5,6 +5,13 @@
 //! idle. A mode isn't a task (design change 0023, `systems/units.md > UnitCollision > Ground Collision > Friendly
 //! yielding`): an idle unit with its shield up still yields, at its shielded speed.
 //!
+//! **Orders are kept** (design change 0150, `> Riot Shield > Orders are kept`): toggling never clears the command
+//! queue, and an order the unit can't carry out while shielded is on hold, not dropped. An explicit Attack follows
+//! its target while the shield is up and attacks it again once it is down (`orders::engage::attack`); an AttackMove
+//! or a Patrol only moves meanwhile, and engages along the way again once it is down (`orders::travel::march`: the
+//! scans find nothing while the unit may not attack). **Not queueable** (design change 0151): the toggle always
+//! applies at once; the command has no queue flag.
+//!
 //! - **State**: a unit whose type has a [`RiotShieldDef`] has a [`RiotShield`] (`Object::riot_shield`): Lowered,
 //!   Raising, Raised or Lowering, a transition counting its ticks down. It starts Lowered, as the unit behaves
 //!   normally (the design doesn't say). Hashed and serialized like all state.
@@ -16,8 +23,9 @@
 //!     shield's mode changes ([`RiotShield::speed_factor`]), so movement and yielding go at that speed;
 //!   - **no attacking** ([`RiotShield::allows_attack`]): the behaviours engage nothing and pick no target
 //!     (`orders::world::Unit::attrs`: no auto-targeting either), phase 5e drops whatever is still engaged
-//!     (`combat::step`), and the gate takes no Attack order for the unit (`Sim::validate`, `Reject::CannotAttack`:
-//!     "Attack orders are not possible");
+//!     (`combat::step`), and the gate takes no new Attack order for the unit (`Sim::validate`,
+//!     `Reject::CannotAttack`: "Attack orders are not possible"; design change 0075), while one it had goes on as a
+//!     follow (above);
 //!   - incoming damage × `RiotShieldDef::damage_factor` (halved), a pre-armor multiplier from every direction
 //!     (`combat::pre_armor_multiplier`, `systems/combat.md > DamageModifierOrder` step 1; [`damage_factor`]).
 //!
@@ -139,9 +147,18 @@ pub fn def_of(o: &Object) -> Option<&'static RiotShieldDef> {
     o.def().unit.as_ref()?.riot_shield.as_ref()
 }
 
-/// Whether `o`'s Riot Shield lets it attack now ([`RiotShield::allows_attack`]); true for objects without one.
+/// Whether `o`'s Riot Shield lets it attack now ([`RiotShield::allows_attack`]); true for objects without one. The
+/// one "is this unit shielded" check of the sim and the client: the behaviours, phase 5e, auto-targeting, the gate,
+/// the default command and the command panel all ask it (slice M3-S makes the shielded Peacekeeper a type of its
+/// own, design change 0173, here).
 pub fn allows_attack(o: &Object) -> bool {
     o.riot_shield.is_none_or(RiotShield::allows_attack)
+}
+
+/// Whether `o`'s Riot Shield is up or on its way up, so that a toggle lowers it ([`RiotShield::is_going_up`]); false
+/// for objects without one. The client's toggle asks it (design change 0173: slice M3-S, here too).
+pub fn is_going_up(o: &Object) -> bool {
+    o.riot_shield.is_some_and(RiotShield::is_going_up)
 }
 
 /// The pre-armor multiplier `o`'s Riot Shield gives the hits against it ([`RiotShield::damage_factor`]).

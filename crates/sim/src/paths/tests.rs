@@ -6,8 +6,7 @@ use super::knowledge::PathKnowledge;
 use crate::defs::ObjectKind;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
-use crate::nav::{NavClass, NavRules};
-use crate::object::Object;
+use crate::nav::NavClass;
 use crate::scenario::SpawnAt;
 use crate::testing::ScenarioBuilder;
 use crate::units::TilePos;
@@ -31,7 +30,7 @@ fn units_plan_on_their_owners_grids_and_ownerless_ones_on_the_true_grids() {
         .spawn(ObjectKind::Generator, Some(P2), SpawnAt::Tile(TilePos::new(15, 3))) // 1: unseen by player 1
         .spawn(ObjectKind::Peacekeeper, Some(P1), SpawnAt::Point(Vec2::new(96.0, 96.0))) // 2
         .spawn(ObjectKind::Peacekeeper, None, SpawnAt::Point(Vec2::new(96.0, 224.0))) // 3: neutral
-        .spawn(ObjectKind::CrystalPatch, None, SpawnAt::Tile(TilePos::new(18, 7))) // 4: assumed by both
+        .spawn(ObjectKind::CrystalPatch, None, SpawnAt::Tile(TilePos::new(18, 7))) // 4: known to both (0159)
         .start();
     let state = t.sim().nav_state();
     let generator = TilePos::new(15, 3);
@@ -51,7 +50,7 @@ fn units_plan_on_their_owners_grids_and_ownerless_ones_on_the_true_grids() {
     assert_eq!(state.plan_grid(Some(P2), CLASS, 1, pos).unwrap().0, 0);
     // A player who isn't in the game.
     assert_eq!(state.plan_grid(Some(PlayerId(7)), CLASS, 1, pos).unwrap().0, 0);
-    // Standing on a tile the owner's knowledge blocks (the assumed patch): the true grid.
+    // Standing on a tile the owner's knowledge blocks (the map's patch): the true grid.
     let on_the_patch = TilePos::new(18, 7).center();
     assert_eq!(state.plan_grid(Some(P1), CLASS, 1, on_the_patch).unwrap().0, 0);
     // No grid of that class and size at all.
@@ -61,7 +60,9 @@ fn units_plan_on_their_owners_grids_and_ownerless_ones_on_the_true_grids() {
     assert!(std::ptr::eq(state.planning(Some(P2)), state.nav()));
 }
 
-/// The knowledge is hashed whole: versions, who assumes what, and where.
+/// The knowledge is hashed whole: versions, who assumes what, and where. A game started now assumes nothing: the
+/// map's resources are in every player's records from the start (design change 0159); only an older save assumes
+/// them (the module docs of `knowledge`), and it loads.
 #[test]
 fn the_path_knowledge_hash_covers_versions_and_assumed_resources() {
     let t = ScenarioBuilder::new(&"....................\n".repeat(8))
@@ -74,31 +75,34 @@ fn the_path_knowledge_hash_covers_versions_and_assumed_resources() {
         .spawn(ObjectKind::Peacekeeper, Some(P1), SpawnAt::Point(Vec2::new(96.0, 96.0))) // 3
         .start();
     let base = t.sim().path_knowledge().clone();
-    let assumed = |player| -> Vec<ObjectId> { base.player(player).unwrap().assumed().iter().map(|a| a.id).collect() };
-    assert_eq!(assumed(P1), [ObjectId(1), ObjectId(2)]);
-    assert_eq!(assumed(P2), [ObjectId(1), ObjectId(2)]);
-    assert_eq!(
-        base.player(P1).unwrap().assumed()[1].footprint.w,
-        2,
-        "the station's footprint"
-    );
+    for player in [P1, P2] {
+        assert_eq!(base.player(player).unwrap().assumed(), [], "player {}", player.0);
+        let sight = t.sim().vision().player(player).unwrap();
+        assert!(
+            sight.record(ObjectId(1)).is_some() && sight.record(ObjectId(2)).is_some(),
+            "player {} knows the map's patch and station",
+            player.0
+        );
+    }
 
     let mut bumped = base.clone();
     bumped.bump(P2);
     assert_eq!((bumped.version(P1), bumped.version(P2)), (Some(0), Some(1)));
     assert_ne!(hash_of(&bumped), hash_of(&base));
 
-    // Without the station among the start's objects: one resource less to assume, for both.
-    let objects: Vec<&Object> = t.sim().objects().collect();
-    let fewer = PathKnowledge::start([P1, P2], &[objects[0], objects[2]], NavRules::default());
-    assert_ne!(hash_of(&fewer), hash_of(&base));
-    // Other players, the same resources.
-    let others = PathKnowledge::start([P1, PlayerId(3)], &objects, NavRules::default());
+    // Other players.
+    let others = PathKnowledge::start([P1, PlayerId(3)]);
     assert_ne!(hash_of(&others), hash_of(&base));
-    // A resource elsewhere.
+    // An older save, whose player 1 assumes the patch.
     let mut json = serde_json::to_value(&base).unwrap();
+    json[0]["assumed"] =
+        serde_json::json!([{ "id": 1, "footprint": { "origin": { "x": 18, "y": 7 }, "w": 1, "h": 1 } }]);
+    let older: PathKnowledge = serde_json::from_value(json.clone()).unwrap();
+    assert_eq!(older.player(P1).unwrap().assumed().len(), 1);
+    assert_ne!(hash_of(&older), hash_of(&base));
+    // A resource elsewhere.
     json[0]["assumed"][0]["footprint"]["origin"]["x"] = 17.into();
     let moved: PathKnowledge = serde_json::from_value(json).unwrap();
-    assert_ne!(hash_of(&moved), hash_of(&base));
+    assert_ne!(hash_of(&moved), hash_of(&older));
     assert_eq!(hash_of(&base.clone()), hash_of(&base));
 }

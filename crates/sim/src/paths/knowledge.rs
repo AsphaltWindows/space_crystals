@@ -8,11 +8,16 @@
 //!    (`core/vision.md > Explored`, `vision::LastKnown`): a structure or resource it sees, or saw and hasn't seen
 //!    gone. So a seen structure in the fog is a wall at its last-known position, destroyed or not, until the player
 //!    sees the place without it; one it never saw is open ground.
-//! 3. **The map's resources** (crystal patches, Supply Delivery Stations), known from the start like terrain
-//!    (0042): every resource the game started with whose place the player hasn't seen yet
-//!    ([`PlayerKnowledge::assumed`]). The first time a tile under one is Visible the entry goes: from then on the
-//!    player's record of it says what it knows (the resource as it last saw it, or nothing if it was already
-//!    gone). So a patch mined out in the fog is routed around until a unit sees its tile.
+//! 3. **The map's neutral objects** (crystal patches, Supply Delivery Stations, every neutral object the map maker
+//!    placed), known from the start like terrain (0042; design change 0159: "pathing and memory"): each player has a
+//!    record of every one of them from the start (`Vision::seed`), so part 2 takes them in. A record goes once the
+//!    player sees the place without its object, so a patch mined out in the fog is routed around until a unit sees
+//!    its tile. A player's starting layout is not among them, and nothing of it is known until seen.
+//!
+//!    [`PlayerKnowledge::assumed`] is what an older save, from before design change 0159, has instead: the map's
+//!    resources whose place the player hadn't seen yet, without records. Each is taken on trust until a tile under it
+//!    is Visible, and then the player's record says what it knows (the resource as it last saw it, or nothing if it
+//!    was already gone). A game started now assumes nothing.
 //!
 //! **State.** [`PathKnowledge`] is history, like the Explored tiles: each player's assumed resources and its
 //! [`PlayerKnowledge::version`], which counts the changes of what the player knows to stand in the way. Hashed and
@@ -24,16 +29,15 @@
 //! of the tick before, as the behaviours and the combat use that tick's vision. So each player's grids are rebuilt
 //! at most once per tick, and between ticks they follow from the state alone, which is what a loaded save rebuilds.
 //!
-//! **Not design** (reported to the Director): which map-placed objects count as "known from the start" is read
-//! literally from the design's list, the map's resources. A structure a Custom map pre-places is known to the
-//! others only once seen, like any structure.
+//! Which map-placed objects count as "known from the start" is design change 0159's answer: the neutral ones. A
+//! structure a Custom map pre-places for a slot belongs to whoever takes the slot, and is known to the others only
+//! once seen, like any structure.
 
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
 use super::blocking_footprint;
-use crate::defs::Category;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
@@ -42,8 +46,8 @@ use crate::object::Object;
 use crate::units::TilePos;
 use crate::vision::{PlayerVision, VisibilityState, Vision};
 
-/// A map resource the game started with, which a player takes to be where the map put it until it sees the place
-/// (design change 0042).
+/// A map resource the game started with, which a player of an older save takes to be where the map put it until it
+/// sees the place (design change 0042; since 0159 the players' records do it, module docs).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Assumed {
@@ -62,7 +66,9 @@ pub struct PlayerKnowledge {
     /// planned on (`Mover::nav_version`); a different one sends the unit's staggered check along its remaining
     /// path (`docs/movement.md > 5.6`), which is how a unit re-routes around what it discovers.
     version: u32,
-    /// The map's resources whose place the player hasn't seen yet, by ascending id.
+    /// The map's resources whose place the player hasn't seen yet, by ascending id: only an older save has any
+    /// (module docs). Optional in files.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     assumed: Vec<Assumed>,
 }
 
@@ -77,7 +83,8 @@ impl PlayerKnowledge {
         self.version
     }
 
-    /// The map's resources the player still takes on trust (design change 0042), by ascending id.
+    /// The map's resources the player still takes on trust (design change 0042), by ascending id: an older save's
+    /// (module docs).
     pub fn assumed(&self) -> &[Assumed] {
         &self.assumed
     }
@@ -91,23 +98,15 @@ pub struct PathKnowledge {
 }
 
 impl PathKnowledge {
-    /// The knowledge a game starts with: every player assumes each of the map's resources among `objects` (the
-    /// objects the game starts with) that blocks the ground and isn't its own. [`PathKnowledge::observe`] then
-    /// drops those in sight at the start.
-    pub(crate) fn start(players: impl IntoIterator<Item = PlayerId>, objects: &[&Object], rules: NavRules) -> Self {
+    /// The knowledge a game starts with: version 0 for each of `players`, and nothing assumed. What each knows of
+    /// the map's neutral objects is in its records from the start (design change 0159, module docs).
+    pub(crate) fn start(players: impl IntoIterator<Item = PlayerId>) -> Self {
         let players = players
             .into_iter()
             .map(|player| PlayerKnowledge {
                 player,
                 version: 0,
-                assumed: objects
-                    .iter()
-                    .filter(|o| o.def().category == Category::Resource && o.owner != Some(player))
-                    .filter_map(|o| {
-                        let footprint = blocking_footprint(o.kind, o.placement.as_ref()?, rules)?;
-                        Some(Assumed { id: o.id, footprint })
-                    })
-                    .collect(),
+                assumed: Vec::new(),
             })
             .collect();
         Self { players }
@@ -204,9 +203,10 @@ pub(super) fn own_blockers(objects: &BTreeMap<ObjectId, Object>, rules: NavRules
 }
 
 /// `systems/controls/behaviors.md > PathKnowledge`: the footprints `known`'s player knows to block the ground,
-/// into `out`: its own (from `own`, [`own_blockers`]), those of its vision's records, and the map resources it
-/// assumes, each part in id order. An unchanged list means unchanged knowledge; a changed one may still cover the
-/// same footprints (a resource seen for the first time moves from the assumed to the records).
+/// into `out`: its own (from `own`, [`own_blockers`]), those of its vision's records (the map's neutral objects among
+/// them from the start, design change 0159), and the map resources an older save has it assume, each part in id
+/// order. An unchanged list means unchanged knowledge; a changed one may still cover the same footprints (an assumed
+/// resource seen for the first time moves from the assumed to the records).
 pub(super) fn known_blockers(
     known: &PlayerKnowledge,
     own: &[(PlayerId, TileRect)],

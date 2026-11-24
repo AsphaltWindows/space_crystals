@@ -26,21 +26,21 @@
 pub mod build_order;
 mod builder;
 pub mod invariants;
+mod references;
 
 use std::collections::BTreeMap;
 
 use glam::Vec2;
 
-use crate::combat::AttackPhase;
 use crate::command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs};
 use crate::construction::ConstructionCommand;
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
-use crate::mover::{MoveGoal, MoveStatus, Mover};
+use crate::mover::{MoveStatus, Mover};
 use crate::object::Object;
-use crate::orders::{ActiveOrder, OrderKind, Target};
-use crate::production::{ProductionCommand, Rally};
+use crate::orders::{OrderKind, Target};
+use crate::production::ProductionCommand;
 use crate::replay::Replay;
 use crate::scenario::{Scenario, SpawnAt};
 use crate::sim::{Phase, Sim, SimConfig};
@@ -48,6 +48,7 @@ use crate::units::Tick;
 
 pub use builder::ScenarioBuilder;
 use invariants::Invariants;
+pub use references::{dangling_references, referenced_ids};
 
 /// A sim driven by a schedule of commands. It records a [`Replay`] of everything it runs
 /// and keeps every event, since [`Sim::events`] holds only the latest step's. Debug commands
@@ -244,47 +245,6 @@ impl TestSim {
     pub fn events(&self) -> &[(Tick, SimEvent)] {
         &self.events
     }
-}
-
-/// The objects `o` refers to, in no particular order: those its orders (current and queued) name, those its
-/// behaviours engaged by themselves, its move's goal object, its attack's target and the target of its attack
-/// phase, the patch a plate mines, the object a producer's rally point is on, the building whose exit doorway a
-/// unit is leaving, and a worker's drop-off. Not the patch of a Gather heading for where that patch was, which may
-/// be gone (`ActiveOrder::live_target`, design change 0134).
-pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
-    let mut ids = Vec::new();
-    if let Some(orders) = &o.orders {
-        ids.extend(orders.current.as_ref().and_then(ActiveOrder::live_target));
-        ids.extend(orders.queue.iter().filter_map(|order| order.target()));
-        ids.extend(orders.behaviour_targets());
-    }
-    if let Some(MoveGoal::Object { id, .. }) = o.mover.as_ref().map(|m| m.goal) {
-        ids.push(id);
-    }
-    if let Some(attack) = &o.attack {
-        ids.extend(attack.target);
-        if let Some(AttackPhase::Aiming { target } | AttackPhase::Firing { target: Some(target) }) = attack.phase {
-            ids.push(target);
-        }
-    }
-    ids.extend(o.extractor.map(|extractor| extractor.patch));
-    if let Some(Rally::Object { id, .. }) = o.production.as_ref().and_then(|production| production.rally) {
-        ids.push(id);
-    }
-    ids.extend(o.mover.as_ref().and_then(|mover| mover.exit));
-    if let Some(worker) = &o.worker {
-        ids.extend(worker.drop_off);
-    }
-    ids
-}
-
-/// Every reference to an object that no longer exists, as `(holder, missing)` pairs ([`referenced_ids`]). The
-/// removal path (`Sim::remove_objects`) leaves none behind.
-pub fn dangling_references(sim: &Sim) -> Vec<(ObjectId, ObjectId)> {
-    sim.objects()
-        .flat_map(|o| referenced_ids(o).into_iter().map(move |id| (o.id, id)))
-        .filter(|&(_, id)| sim.object(id).is_none())
-        .collect()
 }
 
 /// One command of every kind: every variant of [`Command`], [`OrderKind`], [`Target`], [`Ability`],

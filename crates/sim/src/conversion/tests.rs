@@ -1,7 +1,7 @@
 use glam::Vec2;
 
 use super::*;
-use crate::combat::{AttackPhase, AttackState};
+use crate::combat::{self, AttackPhase, AttackState};
 use crate::defs::ObjectKind::{RifleLegionnaire, SabreLegionnaire};
 
 /// A `kind` unit, as a new one starts (`Sim::insert_object`), with its attack in `phase`, engaging object 9.
@@ -24,6 +24,7 @@ fn unit(kind: ObjectKind, phase: Option<AttackPhase>) -> Object {
             target: Some(ObjectId(9)),
             phase,
             elapsed: 2,
+            pending: None,
         }),
         riot_shield: None,
         extractor: None,
@@ -54,22 +55,32 @@ fn each_legionnaire_converts_to_its_other_form() {
     assert_eq!(others, 2);
 }
 
-/// `> Eligibility`: "it may be issued freely while the unit is idle, moving, or in the Aiming or Reloading phases
-/// [...]. It cannot be issued while the unit is in the Firing or Cooldown phases"; nor while it converts already (a
+/// `> Eligibility`: "it may be issued freely while the unit is idle, moving, or in the Aiming or Reloading phases",
+/// and in the Firing or Cooldown phases too (`combat::mid_attack`), where it is "deferred, not rejected" (design change
+/// 0153: `Sim::use_ability` holds it as the unit's pending ability); not while it converts already or waits to (a
 /// placeholder: `> Completion`, "cannot be cancelled").
 #[test]
-fn a_legionnaire_may_convert_unless_firing_cooling_down_or_converting() {
+fn a_legionnaire_may_convert_unless_it_converts_or_waits_to() {
     for kind in [SabreLegionnaire, RifleLegionnaire] {
         let aiming = AttackPhase::Aiming { target: ObjectId(9) };
         for phase in [None, Some(aiming), Some(AttackPhase::Reloading)] {
             assert!(may_convert(&unit(kind, phase)), "{kind:?} in {phase:?}");
+            assert!(!combat::mid_attack(&unit(kind, phase)), "{kind:?} in {phase:?}");
         }
         for phase in [AttackPhase::Firing { target: None }, AttackPhase::Cooldown] {
-            assert!(!may_convert(&unit(kind, Some(phase))), "{kind:?} in {phase:?}");
+            let mut o = unit(kind, Some(phase));
+            assert!(may_convert(&o) && combat::mid_attack(&o), "{kind:?} in {phase:?}");
+            o.attack.as_mut().unwrap().pending = Some(Ability::Convert);
+            assert!(waits_to_convert(&o), "{kind:?} in {phase:?}");
+            assert!(
+                !is_converting(&o) && !may_convert(&o),
+                "{kind:?} in {phase:?}: it waits"
+            );
         }
         let mut converting = unit(kind, None);
         start(&mut converting);
         assert!(is_converting(&converting) && !may_convert(&converting));
+        assert!(!waits_to_convert(&converting));
     }
     assert!(!may_convert(&unit(ObjectKind::Peacekeeper, None)), "no other form");
 }
@@ -89,6 +100,7 @@ fn a_conversion_interrupts_an_aim_or_a_reload_and_holds_the_unit() {
                 target: Some(ObjectId(9)),
                 phase: None,
                 elapsed: 0,
+                pending: None,
             })
         );
         let mover = o.mover.as_ref().unwrap();
@@ -97,13 +109,6 @@ fn a_conversion_interrupts_an_aim_or_a_reload_and_holds_the_unit() {
         assert_eq!(o.conversion, None);
         assert_eq!(o.mover, Some(Mover::default()), "at full speed again");
     }
-    // Firing goes on: the gate never lets such a unit through, and nothing starts.
-    let firing = AttackPhase::Firing {
-        target: Some(ObjectId(9)),
-    };
-    let mut o = unit(RifleLegionnaire, Some(firing));
-    start(&mut o);
-    assert_eq!((o.conversion, o.attack.unwrap().phase), (None, Some(firing)));
 }
 
 /// `> Convert Command`: "The unit converts in place over 4 frames": the Modes step of the command's tick takes the

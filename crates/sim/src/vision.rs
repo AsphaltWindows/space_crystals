@@ -257,6 +257,17 @@ impl Vision {
         }
     }
 
+    /// Design change 0159 (`systems/controls/behaviors.md > PathKnowledge`: "Every neutral object placed by the map
+    /// maker is known from the start (pathing and memory), like terrain"): at the start of the game, before its first
+    /// look, every player gets a record of each of `objects` that has a footprint, as it is at the end of `tick`.
+    /// `objects` are the neutral ones the game starts with (`Sim::settle_start`); the players' starting layouts aren't
+    /// among them, since they "are never pre-known" (`vision::memory`).
+    pub(crate) fn seed<'a>(&mut self, objects: impl Iterator<Item = &'a Object> + Clone, tick: Tick) {
+        for player in &mut self.players {
+            player.set_records(objects.clone().filter_map(|o| LastKnown::of(o, tick)));
+        }
+    }
+
     /// The end of the tick, after every phase that changes objects (`Sim::step`): each player's records of the
     /// structures and resources it sees now take their current state, stamped with `tick` (`core/vision.md >
     /// Explored`: a record keeps the last state the player saw). The objects the player owns are never recorded.

@@ -562,8 +562,8 @@ fn set_drop_off(player: PlayerId, units: &[u32], node: u32) -> PlayerCommand {
 /// rejected with its reason, and changes nothing.
 #[test]
 fn the_gate_rejects_invalid_worker_commands_and_they_change_nothing() {
-    // Patch 1; patch 2 under player 1's plate 9, powered by its Generator 10; patch 3 far in the fog; player 1's
-    // node 4, Drone 5 and Peacekeeper 6; player 2's node 7 and Drone 8.
+    // Patch 1; patch 2 under player 1's plate 9, powered by its Generator 10; patch 3 far in the fog, known from the
+    // start (design change 0159); player 1's node 4, Drone 5 and Peacekeeper 6; player 2's node 7 and Drone 8.
     let scenario = flat(24, 10)
         .spawn(PATCH, None, tile(5, 2))
         .spawn(PATCH, None, tile(7, 2))
@@ -584,7 +584,6 @@ fn the_gate_rejects_invalid_worker_commands_and_they_change_nothing() {
         (gather_at(&[6], 1), Reject::NoWorkers),
         (gather_at(&[5], 4), Reject::NotGatherable(id(4))),
         (gather_at(&[5], 2), Reject::NotGatherable(id(2))),
-        (gather_at(&[5], 3), Reject::NotVisible(id(3))),
         (gather_at(&[5], 99), Reject::UnknownObject(id(99))),
         (gather_at(&[8], 1), Reject::NotOwned(id(8))),
         (gather_at(&[], 1), Reject::NoUnits),
@@ -613,7 +612,7 @@ fn the_gate_rejects_invalid_worker_commands_and_they_change_nothing() {
     assert_eq!(t.sim().state_hash(), twin.sim().state_hash(), "they changed nothing");
 
     // The valid forms; the units that aren't workers ignore them (a valid Drop Off is `gathering_rules`, for 0140).
-    let valid = [gather_at(&[5, 6], 1), set_drop_off(P1, &[5, 6], 4)];
+    let valid = [gather_at(&[5, 6], 1), set_drop_off(P1, &[5, 6], 4), gather_at(&[5], 3)];
     for cmd in &valid {
         assert_eq!(t.sim().validate(cmd), Ok(()), "{cmd:?}");
     }

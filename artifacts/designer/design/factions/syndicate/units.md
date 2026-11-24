@@ -43,6 +43,26 @@ One shot every 24 frames (1.5 s) ≈ 12 damage per second, the same output as th
 
 ### ObjectInterfaceState: BasicCombatUnitInterfaceState
 
+## Grenadier
+(user, 2026-11-25) Syndicate explosives infantry. Fires an **explosive grenade**: a **slow projectile** that flies to where the target was when the Grenadier finished aiming and explodes there, dealing **moderate-high area damage**. **Ground only.** Moving units can dodge it; it punishes units standing still or clumped together. Like every attack that can miss, it can also **Attack Ground** (systems/combat.md > AttackType > CanTargetGround).
+
+### Entity Type - Unit
+### Faction - TheSyndicate
+### UnitBase - HeavyInfantry (assumed, like all Syndicate infantry)
+### Produced at - Hideout
+### TechPrerequisite - player owns at least one **Chemical Plant** (explosives)
+### Groupable - true (assumed)
+
+### AttackAttributes:
+- AttackType: DoublyDisjointed (slow projectile to the target's position at the end of Aiming; can be dodged)
+- TargetDomain: Ground
+- TargetType: AoE (moderate-high damage)
+- CanTargetGround: true (derived)
+
+All numbers (HP, armor, sight, speed, TunnelSpaceCost, damage, AoE radius, range, projectile speed, attack timings, cost, build time): TBD.
+
+### ObjectInterfaceState: BasicCombatUnitInterfaceState
+
 ## Agent
 
 The Agent is the Syndicate's cyborg worker unit. Agents construct Tunnels and defensive structures on the surface, gather Space Crystals and Supplies, and deliver them to Tunnels. Agents carry a **pistol** for basic self-defense: short range, low-moderate damage, moderate reload, ground only, overall weak (user, 2026-11-24; replaces the melee attack).
@@ -155,3 +175,27 @@ Agents construct Tunnels and surface defensive structures (see Surface Defensive
 #### Cancel Construction
 While a Tunnel is under initial construction (Agent inside, not yet operational), the owning player may cancel it:
 - **X: Cancel Construction**: cancels the in-progress initial build (CommandIssuingTransition). The Agent survives and emerges at the location. Full refund of Supplies cost. Only available while the Tunnel is under initial construction — mutually exclusive with the post-operational **X: Cancel Upgrade** command, since a Tunnel is never in both states at once.
+
+## Assault Bike
+(user, 2026-11-25) Syndicate fast attack vehicle. The **fastest wheeled vehicle in the game**, with a **relatively wide turning radius** for a fast vehicle (and, being wheeled, it can't turn on the spot). Armed with a **mortar**: like the Grenadier's grenade (slow, dodgeable explosive projectile with area damage) but with **slightly longer range**. The mortar sits on a **turret with a narrow turn angle**: it can aim a little to either side of the bike's facing, but the bike must still roughly point toward its target. Ground only (assumed, like the Grenadier); can Attack Ground.
+
+### Entity Type - Unit
+### Faction - TheSyndicate
+### UnitBase - WheeledVehicle (exits only through Tier 2+ Tunnels)
+### Produced at - Vehicle Assembly
+### Groupable - true (assumed)
+
+### TurretAttributes:
+- TurnAngle: narrow (value TBD)
+
+### AttackAttributes:
+- AttackType: DoublyDisjointed (mortar; slow projectile to the target's position at the end of Aiming; can be dodged)
+- TargetDomain: Ground (assumed)
+- TargetType: AoE
+- Range: slightly longer than the Grenadier's
+- CanTargetGround: true (derived)
+
+All numbers (HP, armor, sight, speed, turn radius, turret turn angle and rate, TunnelSpaceCost, damage, AoE radius, range, projectile speed, timings, cost, build time): TBD.
+
+### ObjectInterfaceState: BasicCombatUnitInterfaceState
+
