@@ -5,19 +5,23 @@
 //! - [`interface`]: the rules as plain data: the unit commands, the ObjectInterfaceState of each ControlState, the
 //!   command panel a selection gets and who receives a command, and the Peacekeeper's Riot Shield toggle in R with
 //!   what a raised shield allows ([`interface::Modes`]);
-//! - [`resolution`]: what a click on the map resolves to, and the PointerDisplayType that previews it;
-//! - the systems (`systems.rs`): command hotkeys and panel clicks, left-clicks while a target is awaited,
-//!   right-clicks and Esc change the local player's ObjectInterfaceState and give orders (`Command::Order` in
-//!   `PendingCommands`, with `queue` while the Queue modifier, Shift, is held) and abilities (`Command::Ability`);
-//!   every frame the state is checked against the game and falls back to DefaultState when it no longer holds;
+//! - [`resolution`]: what a click on the map resolves to, unit by unit for a right-click, and the
+//!   PointerDisplayType that previews it;
+//! - the systems (`systems.rs`): command hotkeys and panel clicks, left-clicks while a target is awaited (at the
+//!   press point), right-clicks and Esc change the local player's ObjectInterfaceState and give orders
+//!   (`Command::Order` in `PendingCommands`, with `queue` while the Queue modifier, Shift, is held) and abilities
+//!   (`Command::Ability`); every frame the state is checked against the game and falls back to DefaultState when it
+//!   no longer holds;
 //! - [`indicators`]: markers at the targets of the selected units' orders, a flash where an order was just given,
 //!   and the queued waypoints as lines while Shift is held;
+//! - [`feedback`]: the message after a click on an invalid target;
 //! - [`cursor`]: the pointer's look, from the PointerDisplayType.
 //!
 //! The panel's buttons belong to the HUD (`crate::hud::command_panel`); a click on one is a press of its slot, like
 //! its hotkey.
 
 pub mod cursor;
+pub mod feedback;
 pub mod indicators;
 pub mod interface;
 pub mod resolution;
@@ -27,7 +31,7 @@ use bevy::prelude::*;
 use sc_sim::{ObjectId, OrderKind, Tick};
 
 pub use interface::{ButtonLook, InterfaceState, InterfaceTemplate, Modes, Panel, PanelButton, PanelSlot, UnitCommand};
-pub use resolution::{CursorTarget, PointerDisplay};
+pub use resolution::{CursorTarget, MapTarget, PointerDisplay, UnitCapabilities};
 
 use crate::ClientSystems;
 use crate::selection::SelectionSystems;
@@ -39,6 +43,16 @@ pub struct OrderIssued {
     pub units: Vec<ObjectId>,
     pub queue: bool,
     /// The sim's tick when it was given; it applies in the next one.
+    pub tick: Tick,
+}
+
+/// `> AwaitingTarget > Invalid target clicks` (design change 0065): a left-click on a target the pending command
+/// can't use, which gave nothing; the target is still awaited. For the feedback ([`feedback`]).
+#[derive(Message, Copy, Clone, Debug, PartialEq)]
+pub struct InvalidTarget {
+    /// The PendingCommand.
+    pub command: UnitCommand,
+    /// The sim's tick when it was clicked.
     pub tick: Tick,
 }
 
@@ -58,6 +72,8 @@ pub struct CommandUiPlugin;
 impl Plugin for CommandUiPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<OrderIssued>()
+            .add_message::<InvalidTarget>()
+            .init_resource::<systems::TargetPress>()
             .configure_sets(
                 Update,
                 CommandUiSystems::Validate
@@ -82,6 +98,10 @@ impl Plugin for CommandUiPlugin {
                     .chain()
                     .in_set(CommandUiSystems::Input),
             )
-            .add_plugins((indicators::IndicatorsPlugin, cursor::CursorPlugin));
+            .add_plugins((
+                indicators::IndicatorsPlugin,
+                feedback::FeedbackPlugin,
+                cursor::CursorPlugin,
+            ));
     }
 }

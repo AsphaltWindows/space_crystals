@@ -7,6 +7,9 @@
 //! to, or lowers them when all of them are up or on their way up ([`Modes`]), and the button says which. While a
 //! unit's shield is up it can't attack: Attack is disabled when none of its recipients can, and their clicks on an
 //! enemy move them there instead (`super::resolution::order_without_attack`).
+//!
+//! While a target is awaited, the other commands are unavailable (`> AwaitingTarget > Other commands while
+//! targeting`, design change 0066): the panel shows them disabled, and their hotkeys and buttons do nothing.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -192,8 +195,9 @@ pub enum ButtonLook {
     Group,
     /// `> AwaitingTarget`: the PendingCommand, which the panel indicates.
     Pending,
-    /// Offered, but not now: the other commands while one awaits its target (placeholder: the design doesn't say
-    /// whether they can be pressed then), and a command the sim has no order for yet.
+    /// Offered, but not now: the other commands while one awaits its target (`> AwaitingTarget > Other commands
+    /// while targeting`, design change 0066: unavailable until the player cancels), Attack while none of its
+    /// recipients can attack, and a command the sim has no order for yet.
     Disabled,
     /// In the template, but this type can't (`> BasicCombatUnitInterfaceState`: the conditional Reverse and
     /// AttackGround).
@@ -255,11 +259,6 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
         && selection
             .ids()
             .all(|id| sim.object(id).is_some_and(|o| o.owner == Some(player)))
-}
-
-/// The ActiveGroup's template, if it has one.
-pub fn active_template(selection: &Selection) -> Option<InterfaceTemplate> {
-    InterfaceTemplate::of(selection.active()?.kind)
 }
 
 /// What the selected units' modes let them do now: their Riot Shields (`factions/gdo/units.md > Peacekeeper > Riot
@@ -427,17 +426,6 @@ pub fn recipients(selection: &Selection, command: UnitCommand) -> Vec<ObjectId> 
         .collect()
 }
 
-/// The selected objects whose type offers `command`: who a right-click's order goes to. Placeholder: the design
-/// says what a right-click resolves to (from the ActiveGroup), not who carries it out; every selected object able to
-/// does, as a common command would.
-pub fn able(selection: &Selection, command: UnitCommand) -> Vec<ObjectId> {
-    selection
-        .members()
-        .filter(|&(_, kind)| offers(kind, command))
-        .map(|(id, _)| id)
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -523,14 +511,16 @@ mod tests {
         let selection = Selection::new([(id(8), ObjectKind::CrystalPatch)]);
         assert!(panel(&selection, InterfaceState::DefaultState, &Modes::default()).is_empty());
         assert!(panel(&Selection::default(), InterfaceState::DefaultState, &Modes::default()).is_empty());
-        assert_eq!(active_template(&selection), None);
+        assert_eq!(InterfaceTemplate::of(ObjectKind::CrystalPatch), None);
     }
 
     /// `> CommandPanel`: a common command goes to the whole selection; a command only the ActiveGroup's type offers
     /// goes to the ActiveGroup. A resource stands in for a type that lacks Attack; the Riot Shield, which Guards lack,
-    /// is `the_riot_shield_toggles_in_slot_r`'s.
+    /// is `the_riot_shield_toggles_in_slot_r`'s. A right-click leaves an object without commands alone (design change
+    /// 0062: buildings aren't affected).
     #[test]
     fn common_commands_go_to_the_selection_and_group_commands_to_the_active_group() {
+        use crate::command_ui::resolution::{MapTarget, capabilities, unit_right_click};
         let selection = Selection::new([(id(1), PK), (id(2), GUARD), (id(3), PK)]);
         assert_eq!(recipients(&selection, UnitCommand::HoldPosition), [id(1), id(2), id(3)]);
         let mut mixed = Selection::new([(id(1), PK), (id(3), PK), (id(8), ObjectKind::CrystalPatch)]);
@@ -540,7 +530,13 @@ mod tests {
         let panel = panel(&mixed, InterfaceState::DefaultState, &Modes::default());
         assert_eq!(panel.get(slot(1, 0)).map(|s| s.look), Some(ButtonLook::Group));
         assert_eq!(recipients(&mixed, UnitCommand::Attack), [id(1), id(3)]);
-        assert_eq!(able(&mixed, UnitCommand::Move), [id(1), id(3)]);
+        let ground = MapTarget::ground(bevy::math::Vec2::new(100.0, 100.0));
+        let moved: Vec<ObjectId> = capabilities(&mixed, &Modes::default())
+            .into_iter()
+            .filter(|(_, unit)| unit_right_click(*unit, &ground).is_some())
+            .map(|(id, _)| id)
+            .collect();
+        assert_eq!(moved, [id(1), id(3)]);
     }
 
     /// `> ObjectInterfaceState`: AwaitingTarget holds while its command is still offered and the selection

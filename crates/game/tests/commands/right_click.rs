@@ -2,13 +2,15 @@
 //! Shift-queue (`commands.md > Unit Command`).
 
 use bevy::prelude::*;
+use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
 use sc_sim::{ObjectId, OrderKind, Target};
 
 use super::*;
-use KeyCode::{ControlLeft, ShiftLeft};
+use KeyCode::{ControlLeft, KeyR, ShiftLeft, Tab};
 
 /// Ground: Move to the point. An enemy: Attack it. An own unit, the neutral patch and the neutral station: Move to
-/// that object. Each to the whole selection, replacing the units' orders.
+/// that object; a right-click never attacks an own or a neutral object (design change 0059). Each to the whole
+/// selection, replacing the units' orders.
 #[test]
 fn a_right_click_resolves_by_what_is_under_the_cursor() {
     let mut app = game();
@@ -91,4 +93,48 @@ fn shift_right_clicks_queue_and_plain_ones_replace() {
     // Ctrl is no queue modifier: a Ctrl right-click replaces too.
     right_click(&mut app, waypoints[0], &[ControlLeft]);
     assert!(!orders(&app)[4].queue);
+}
+
+/// Design changes 0062 and 0063: each selected unit resolves a right-click for itself, whichever group is active,
+/// and the orders go out grouped, one per distinct order. With the Peacekeepers' Riot Shields up, a right-click on
+/// an enemy sends the Guards to attack it and the Peacekeepers, which can't attack now, to the clicked spot (the
+/// shield's Move to the location wins over 0062's Follow: question Q0020 point 1), with either group active. The
+/// pointer previews it: Attack while all of them would attack, Mixed once they would do different things, Move over
+/// the ground. A right-click on the ground is one order for all four: one group for the magic box. (No M1 unit
+/// lacks an attack its target allows; the Follow of a unit that can't attack is unit-tested in `resolution.rs`.)
+#[test]
+fn each_selected_unit_resolves_a_right_click_for_itself() {
+    let mut app = game();
+    select_mixed(&mut app);
+    let enemy = at(ENEMY_PK);
+    let ground = Vec2::new(1500.0, 1000.0);
+    assert_eq!(pointer_over(&mut app, enemy), Some(PointerDisplay::Attack));
+    tap(&mut app, &[], KeyR);
+    updates(&mut app, RIOT_SHIELD_TOGGLE_TICKS as usize + 2);
+    assert_eq!(pointer_over(&mut app, enemy), Some(PointerDisplay::Mixed));
+    assert_eq!(pointer_over(&mut app, ground), Some(PointerDisplay::Move));
+    assert_eq!(pointer_over(&mut app, at(OWN_PKS[2])), Some(PointerDisplay::Move));
+
+    right_click(&mut app, enemy, &[]);
+    tap(&mut app, &[], Tab);
+    assert_eq!(
+        pointer_over(&mut app, enemy),
+        Some(PointerDisplay::Mixed),
+        "the Guards active"
+    );
+    right_click(&mut app, enemy, &[]);
+    let given_orders = orders(&app);
+    assert_eq!(given_orders.len(), 4, "{given_orders:?}");
+    for pair in given_orders.chunks(2) {
+        assert_eq!(pair[0].units, [1, 2]);
+        assert!(near(point_of(pair[0].kind), enemy), "{pair:?}");
+        assert_eq!(pair[1], given(&[3, 4], OrderKind::Attack(ObjectId(ENEMY_PK)), false));
+    }
+
+    right_click(&mut app, ground, &[]);
+    let given_orders = orders(&app);
+    assert_eq!(given_orders.len(), 5, "{given_orders:?}");
+    assert_eq!(given_orders[4].units, [1, 2, 3, 4]);
+    assert!(near(point_of(given_orders[4].kind), ground));
+    assert_eq!(selected(&app), [1, 2, 3, 4]);
 }

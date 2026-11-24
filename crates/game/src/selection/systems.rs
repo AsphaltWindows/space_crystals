@@ -79,8 +79,8 @@ impl WorldView<'_> {
 
 /// `> MapClickSelection` and `> BoxSelection`: the `Select` action's clicks and boxes on the map, each with the roles
 /// of the modifiers it was sent with. While a target is awaited (`> AwaitingTarget`), a left-click on the map is the
-/// target (`crate::command_ui`) and selects nothing, and neither does a box (placeholder: the design doesn't say what
-/// a drag does then).
+/// target (`crate::command_ui`) and selects nothing, and a drag does nothing: no box, no selection (`> AwaitingTarget
+/// > Dragging while targeting`, design change 0067).
 pub(super) fn select_on_map(
     mut clicks: MessageReader<MapClick>,
     mut boxes: MessageReader<SelectionBox>,

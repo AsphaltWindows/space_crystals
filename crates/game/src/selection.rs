@@ -101,8 +101,10 @@ impl LocalControl<'_> {
     }
 
     /// Applies `change` to the local player's ControlState. A change of the Selection or of its ActiveGroup resets
-    /// the ObjectInterfaceState to DefaultState (`> ObjectInterfaceState[ObjectEnum]`). [`ControlStates`] is marked
-    /// changed only when the state did change, so that the HUD and the markers look again only then.
+    /// the ObjectInterfaceState to DefaultState (`> ObjectInterfaceState[ObjectEnum]`): the player changed them, which
+    /// cancels targeting (design change 0069; the game's removals go through `ControlState::retain`, which resets it
+    /// only with the whole ActiveGroup gone). [`ControlStates`] is marked changed only when the state did change, so
+    /// that the HUD and the markers look again only then.
     pub fn update<R>(&mut self, change: impl FnOnce(&mut ControlState) -> R) -> R {
         let player = self.player.0;
         let before = self.states.of(player);

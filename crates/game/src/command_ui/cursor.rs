@@ -5,9 +5,10 @@
 //! awaited, and how the object under the cursor relates to the local player. Its image is drawn in code and cached
 //! per look ([`CursorImages`]): an arrow in DefaultState and a crosshair while a target is awaited, coloured by the
 //! PointerDisplayType (`> Types`: Inactive muted grey; Move green, Attack red, Patrol orange as their indicators;
-//! AttackGround crimson), with a dot in the relation's colour (own green, enemy red, neutral yellow, as the
-//! selection markers) while it points at an object. With nothing to preview (Inactive, no object, no target awaited)
-//! and over the UI, a window shows the system's arrow.
+//! AttackGround crimson; Mixed, "a generic hybrid cursor" whose visual is TBD, striped in the Attack red and the Move
+//! green), with a dot in the relation's colour (own green, enemy red, neutral yellow, as the selection markers) while
+//! it points at an object. With nothing to preview (Inactive, no object, no target awaited) and over the UI, a window
+//! shows the system's arrow.
 //!
 //! A window takes the image as its cursor (`CursorIcon`, Bevy's custom cursors). QA runs ignore the real mouse and
 //! render offscreen, where no system cursor is drawn: there the image is a UI node at the injected cursor
@@ -22,8 +23,8 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::{CursorIcon, CustomCursor, CustomCursorImage, PrimaryWindow, SystemCursorIcon};
 
 use super::indicators::{AGGRESSIVE_COLOR, ATTACK_COLOR, MOVE_COLOR};
-use super::interface::{InterfaceState, Modes, UnitCommand, able, active_template, commandable};
-use super::resolution::{CursorTarget, PointerDisplay, pointer_display};
+use super::interface::{InterfaceState, Modes, commandable};
+use super::resolution::{MapTarget, PointerDisplay, UnitCapabilities, capabilities, pointer_display};
 use crate::fog::LocalSight;
 use crate::input::{ActionState, RawInput};
 use crate::selection::markers::relation_color;
@@ -38,6 +39,10 @@ const SPRITE_Z: i32 = 10_000;
 /// Placeholder colours of the PointerDisplayTypes without an indicator colour.
 const INACTIVE_COLOR: Color = Color::srgb(0.80, 0.82, 0.86);
 const ATTACK_GROUND_COLOR: Color = Color::srgb(0.90, 0.20, 0.50);
+/// The Mixed look (`> Mixed Right-Click Preview`, design change 0063: visual TBD), a placeholder: diagonal stripes
+/// of these two colours, each this many pixels wide.
+const MIXED_COLORS: [Color; 2] = [ATTACK_COLOR, MOVE_COLOR];
+const MIXED_STRIPE_PX: f32 = 4.0;
 const OUTLINE: [u8; 4] = [16, 16, 20, 255];
 
 /// What the pointer shows this frame.
@@ -100,7 +105,9 @@ impl Plugin for CursorPlugin {
 }
 
 /// `> PointerDisplayType > Resolution Rules`: from the local player's ControlState and what is under the cursor,
-/// among the objects it may select: the fog of war hides the others (`crate::fog`).
+/// among the objects it may select: the fog of war hides the others (`crate::fog`). In DefaultState each selected
+/// unit resolves the right-click for itself, with its mode (the Riot Shield), and the pointer shows the one thing
+/// they would all do, or Mixed (design change 0063).
 fn update_pointer_look(
     mode: Res<ClientMode>,
     actions: Res<ActionState>,
@@ -116,15 +123,18 @@ fn update_pointer_look(
             let player = sight.player();
             let state = states.of(player);
             let objects = Selectables::new(sim, &sight, alpha.0);
-            let template = active_template(&state.selection).filter(|_| commandable(sim, player, &state.selection));
-            let target = CursorTarget::at(&objects, view, ground);
-            // `factions/gdo/units.md > Peacekeeper > Riot Shield`: with every shield up, a right-click moves.
-            let modes = Modes::of(sim, &state.selection);
-            let armed = able(&state.selection, UnitCommand::Attack)
-                .into_iter()
-                .any(|id| modes.can_attack(id));
+            let units: Vec<UnitCapabilities> = if commandable(sim, player, &state.selection) {
+                let modes = Modes::of(sim, &state.selection);
+                capabilities(&state.selection, &modes)
+                    .into_iter()
+                    .map(|(_, unit)| unit)
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            let target = MapTarget::at(sim, &objects, view, ground);
             PointerLook {
-                display: Some(pointer_display(template, state.interface, target, armed)),
+                display: Some(pointer_display(state.interface, &units, &target)),
                 targeting: state.interface != InterfaceState::DefaultState,
                 hovered: objects.at(view).map(|o| o.relation),
             }
@@ -210,14 +220,18 @@ fn place_cursor_sprite(
     visibility.set_if_neq(Visibility::Inherited);
 }
 
-/// The colour of a PointerDisplayType.
-fn display_color(display: Option<PointerDisplay>) -> Color {
+/// The colour of a PointerDisplayType at the pixel `p`: one colour per type, and Mixed's stripes.
+fn display_color(display: Option<PointerDisplay>, p: Vec2) -> Color {
     match display {
         None | Some(PointerDisplay::Inactive) => INACTIVE_COLOR,
         Some(PointerDisplay::Move) => MOVE_COLOR,
         Some(PointerDisplay::Attack) => ATTACK_COLOR,
         Some(PointerDisplay::AttackGround) => ATTACK_GROUND_COLOR,
         Some(PointerDisplay::Patrol) => AGGRESSIVE_COLOR,
+        Some(PointerDisplay::Mixed) => {
+            let stripe = ((p.x + p.y) / MIXED_STRIPE_PX).floor().rem_euclid(2.0);
+            MIXED_COLORS[usize::from(stripe >= 1.0)]
+        }
     }
 }
 
@@ -234,7 +248,6 @@ const ARROW: [Vec2; 7] = [
 
 /// Draws `look`'s image: its shape in its colour inside a dark outline, and the hovered object's dot.
 pub fn cursor_image(look: PointerLook) -> Image {
-    let fill = display_color(look.display).to_srgba().to_u8_array();
     let badge = look.hovered.map(|r| relation_color(r).to_srgba().to_u8_array());
     let mut pixels = Vec::with_capacity((CURSOR_SIZE * CURSOR_SIZE * 4) as usize);
     for y in 0..CURSOR_SIZE {
@@ -242,7 +255,7 @@ pub fn cursor_image(look: PointerLook) -> Image {
             let p = Vec2::new(x as f32 + 0.5, y as f32 + 0.5);
             let (core, rim) = if look.targeting { crosshair(p) } else { arrow(p) };
             let mut pixel = if core {
-                fill
+                display_color(look.display, p).to_srgba().to_u8_array()
             } else if rim {
                 OUTLINE
             } else {
@@ -351,5 +364,19 @@ mod tests {
         assert_eq!(pixel(&image, 30, 2)[3], 0, "transparent around");
         assert!(PointerLook::default().is_plain() && !over_enemy.is_plain());
         assert_eq!(attack.hotspot(), (16, 16));
+    }
+
+    /// The Mixed placeholder: an arrow in stripes of the Attack red and the Move green.
+    #[test]
+    fn the_mixed_look_is_striped() {
+        let mixed = PointerLook {
+            display: Some(PointerDisplay::Mixed),
+            targeting: false,
+            hovered: Some(Relation::Enemy),
+        };
+        let image = cursor_image(mixed);
+        assert_eq!(pixel(&image, 3, 6), ATTACK_COLOR.to_srgba().to_u8_array());
+        assert_eq!(pixel(&image, 3, 8), MOVE_COLOR.to_srgba().to_u8_array());
+        assert!(!mixed.is_plain());
     }
 }

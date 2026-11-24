@@ -154,7 +154,8 @@ fn with_their_shields_up_peacekeepers_move_to_the_enemy_they_are_sent_at() {
 }
 
 /// In a selection whose Guards can attack, Attack stays: a click on an enemy in AwaitingTarget[Attack], or a
-/// right-click on one, sends the Guards to attack it and the shielded Peacekeepers there.
+/// right-click on one, sends the Guards to attack it and the shielded Peacekeepers there. Each click gives one order
+/// per distinct order, in the order of the units' ids: the Peacekeepers' Move first.
 #[test]
 fn a_mixed_selection_attacks_with_the_units_that_can() {
     let mut app = game();
@@ -171,9 +172,9 @@ fn a_mixed_selection_attacks_with_the_units_that_can() {
     let given_orders = orders(&app);
     assert_eq!(given_orders.len(), 4, "{given_orders:?}");
     let attack = |id: u32| OrderKind::Attack(ObjectId(id));
-    assert_eq!(given_orders[0], given(&[3, 4], attack(ENEMY_PK), false));
-    assert_eq!(given_orders[2], given(&[3, 4], attack(ENEMY_GUARD), false));
-    for (moved, enemy) in [(&given_orders[1], ENEMY_PK), (&given_orders[3], ENEMY_GUARD)] {
+    assert_eq!(given_orders[1], given(&[3, 4], attack(ENEMY_PK), false));
+    assert_eq!(given_orders[3], given(&[3, 4], attack(ENEMY_GUARD), false));
+    for (moved, enemy) in [(&given_orders[0], ENEMY_PK), (&given_orders[2], ENEMY_GUARD)] {
         assert_eq!(moved.units, [1, 2]);
         assert!(
             matches!(moved.kind, OrderKind::Move(Target::Point(p)) if near(p, at(enemy))),

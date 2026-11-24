@@ -3,19 +3,20 @@
 //!
 //! Orders go to the sim as `Command::Order` in `PendingCommands`, named for the local player's own units only, and
 //! only when the sim would take them now (`Sim::validate`); each one given is also an [`OrderIssued`] message, for
-//! the indicators. A command issued with the Queue modifier held (Shift) is queued (`systems/controls/commands.md >
-//! Unit Command`), else it replaces the units' orders. Abilities (the Riot Shield) go as `Command::Ability`, at once
-//! and never queued.
+//! the indicators. A click whose units get different orders gives one order per distinct order
+//! ([`super::resolution::group_orders`]). A command issued with the Queue modifier held (Shift) is queued
+//! (`systems/controls/commands.md > Unit Command`), else it replaces the units' orders. Abilities (the Riot Shield)
+//! go as `Command::Ability`, at once and never queued.
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use sc_sim::{Ability, Command, ObjectId, OrderKind, PlayerCommand, PlayerId, Target};
 
-use super::OrderIssued;
 use super::interface::{
-    InterfaceState, Modes, SlotPress, able, active_template, commandable, panel, press, recipients, still_valid,
+    InterfaceState, Modes, SlotPress, UnitCommand, commandable, panel, press, recipients, still_valid,
 };
-use super::resolution::{CursorTarget, order_without_attack, right_click, target_order};
+use super::resolution::{MapTarget, capabilities, group_orders, order_without_attack, target_order, unit_right_click};
+use super::{InvalidTarget, OrderIssued};
 use crate::ClientMode;
 use crate::hud::layout::CommandGrid;
 use crate::input::{ActionState, Bindings, CommandSlot, InputAction, MapClick};
@@ -63,26 +64,15 @@ impl OrderOutbox<'_> {
         true
     }
 
-    /// The order of a click that resolved to `kind` at the ground point `ground`, given to `units`: those whose
-    /// `modes` keep them from attacking get [`order_without_attack`] instead (`factions/gdo/units.md > Peacekeeper >
-    /// Riot Shield`: a Move there in place of an Attack), as an order of their own. Whether anything was given.
-    fn give_click(
-        &mut self,
-        player: PlayerId,
-        units: Vec<ObjectId>,
-        kind: OrderKind,
-        ground: Vec2,
-        queue: bool,
-        modes: &Modes,
-    ) -> bool {
-        let instead = order_without_attack(kind, ground);
-        if instead == kind {
-            return self.give(player, units, kind, queue);
+    /// Gives each of `orders` (a unit and its order, in the units' order) as few orders as possible: one per
+    /// distinct order ([`group_orders`]), so the units sent to one location go as one group. Whether anything was
+    /// given.
+    fn give_each(&mut self, player: PlayerId, orders: Vec<(ObjectId, OrderKind)>, queue: bool) -> bool {
+        let mut given = false;
+        for (kind, units) in group_orders(orders) {
+            given |= self.give(player, units, kind, queue);
         }
-        let (armed, unarmed): (Vec<ObjectId>, Vec<ObjectId>) = units.into_iter().partition(|&id| modes.can_attack(id));
-        let attacked = self.give(player, armed, kind, queue);
-        let moved = self.give(player, unarmed, instead, queue);
-        attacked || moved
+        given
     }
 
     /// `player`'s `units` use `ability` (`Command::Ability`), at once: an ability isn't queued. Nothing when none of
@@ -125,9 +115,27 @@ fn finite(kind: OrderKind) -> bool {
     }
 }
 
+/// `> AwaitingTarget > Dragging while targeting` (design change 0068): "A targeting click counts at the press
+/// point". The target found under a press of the Select action that went down on the map while a target was
+/// awaited, as the frame of the press drew the objects; its click, sent at the release, uses it. Cleared when the
+/// press ends or targeting does.
+#[derive(Resource, Default, Debug)]
+pub(super) struct TargetPress(Option<PressedTarget>);
+
+/// What was under a press while a target was awaited ([`TargetPress`]).
+#[derive(Copy, Clone, Debug, PartialEq)]
+struct PressedTarget {
+    /// The command awaiting its target as the button went down.
+    pending: UnitCommand,
+    /// Where it went down, logical pixels: the click's own (`MapClick::screen`).
+    screen: Vec2,
+    target: MapTarget,
+}
+
 /// `> ObjectInterfaceState`: "Each tick, the ObjectInterfaceState is validated against the active SelectionGroup's
 /// game state": an AwaitingTarget whose command the ActiveGroup no longer offers, or whose selection is no longer
-/// all the player's, goes back to DefaultState.
+/// all the player's, goes back to DefaultState. A selected unit that died has already left the selection
+/// (`crate::selection`), and with the ActiveGroup left the target is still awaited (design change 0069).
 pub(super) fn validate_interface(mut control: LocalControl) {
     let state = control.state();
     if state.interface == InterfaceState::DefaultState {
@@ -151,7 +159,8 @@ pub(super) fn cancel_targeting(actions: Res<ActionState>, mut control: LocalCont
 /// `> DefaultState`: a command hotkey (`InputAction::CommandSlot`) or a click on a panel button (a press of the
 /// Select action over the button, found by the panel's geometry like the SelectionPanel's portraits) enters
 /// AwaitingTarget for a command that needs a target, or issues an immediate one: a common command to the whole
-/// selection, a group command to the ActiveGroup (`> CommandPanel`). Back (Z) returns to DefaultState.
+/// selection, a group command to the ActiveGroup (`> CommandPanel`). Back (Z) returns to DefaultState. While a target
+/// is awaited the other commands are unavailable (design change 0066): [`press`] finds nothing to do for them.
 pub(super) fn press_command_slots(
     actions: Res<ActionState>,
     mode: Res<ClientMode>,
@@ -204,46 +213,96 @@ pub(super) fn press_command_slots(
 }
 
 /// `> AwaitingTarget`: a left-click on the map (the Select action's click) on a valid target gives the
-/// PendingCommand's order for what is under it (`> CursorTarget`), to the whole selection or to the ActiveGroup as
+/// PendingCommand's order for what is under it ([`target_order`]), to the whole selection or to the ActiveGroup as
 /// the command is common or not, and returns to DefaultState, with Shift too (the design returns to DefaultState
-/// after every issuing click). A click on an invalid target does nothing and keeps waiting (placeholder: the
-/// design doesn't say). Units whose Riot Shield is up move to an enemy clicked for an Attack
-/// ([`OrderOutbox::give_click`]).
+/// after every issuing click). Units whose Riot Shield is up get [`order_without_attack`] for an Attack.
+///
+/// - **The press point** (design change 0068): the target is what was under the cursor when the button went down,
+///   as that frame drew it ([`TargetPress`]), even if the cursor drifted or the target moved before the release.
+///   A press that moved far enough to be a drag is no click: it does nothing (design change 0067), and neither
+///   does a click whose press went down before the target was awaited.
+/// - **An invalid target** (design change 0065): a click that gives nothing, on a target the command can't use
+///   (the Inactive pointer), is ignored and the target is still awaited; an [`InvalidTarget`] message tells the
+///   player (`super::feedback`).
 pub(super) fn click_targets(
     mut clicks: MessageReader<MapClick>,
+    actions: Res<ActionState>,
     bindings: Res<Bindings>,
+    mut pressed: ResMut<TargetPress>,
     mut control: LocalControl,
     mut outbox: OrderOutbox,
+    mut invalid: MessageWriter<InvalidTarget>,
 ) {
     let clicks: Vec<MapClick> = clicks
         .read()
         .filter(|click| click.action == InputAction::Select)
         .copied()
         .collect();
+    let awaited = match control.state().interface {
+        InterfaceState::AwaitingTarget(pending) => Some(pending),
+        InterfaceState::DefaultState => None,
+    };
+    if let Some(pending) = awaited
+        && actions.just_pressed(InputAction::Select)
+        && let Some(press) = actions.pointer().press.filter(|p| p.action == InputAction::Select)
+    {
+        let target = MapTarget::at(control.sim(), &control.objects(), press.view, press.ground);
+        pressed.0 = Some(PressedTarget {
+            pending,
+            screen: press.screen,
+            target,
+        });
+    }
     for click in clicks {
         let state = control.state();
         let InterfaceState::AwaitingTarget(pending) = state.interface else {
             continue;
         };
-        let target = CursorTarget::at(&control.objects(), click.view, click.ground);
-        let Some(kind) = target_order(pending, target) else {
+        let Some(target) = pressed
+            .0
+            .take()
+            .filter(|p| p.pending == pending && p.screen == click.screen)
+            .map(|p| p.target)
+        else {
             continue;
         };
-        let units = recipients(&state.selection, pending);
+        let player = control.player();
         let queue = bindings.holds(InputAction::Queue, click.modifiers);
-        let modes = Modes::of(control.sim(), &state.selection);
-        if outbox.give_click(control.player(), units, kind, click.ground, queue, &modes) {
+        let given = target_order(pending, &target).is_some_and(|kind| {
+            let modes = Modes::of(control.sim(), &state.selection);
+            let orders = recipients(&state.selection, pending)
+                .into_iter()
+                .map(|id| {
+                    if modes.can_attack(id) {
+                        (id, kind)
+                    } else {
+                        (id, order_without_attack(kind, target.ground))
+                    }
+                })
+                .collect();
+            outbox.give_each(player, orders, queue)
+        });
+        if given {
             control.update(|state| state.interface = InterfaceState::DefaultState);
+        } else {
+            invalid.write(InvalidTarget {
+                command: pending,
+                tick: control.sim().tick(),
+            });
         }
+    }
+    if awaited.is_none() || actions.pointer().press.is_none() {
+        pressed.0 = None;
     }
 }
 
-/// `> RightClickResolution`: a right-click on the map (the ContextCommand action's click) in DefaultState gives the
-/// order that the ActiveGroup's template resolves for what is under the cursor, to every selected unit able to
-/// carry it out ([`able`]); those whose Riot Shield is up move to the clicked point instead of attacking an enemy
-/// (`factions/gdo/units.md > Peacekeeper > Riot Shield`, [`OrderOutbox::give_click`]). Nothing unless the selection
-/// is all the player's (`> CommandPanel`). While a target is awaited, a right-click anywhere, over the HUD too,
-/// cancels instead (`> AwaitingTarget`).
+/// `> RightClickResolution`: a right-click on the map (the ContextCommand action's click) in DefaultState. Each
+/// selected unit resolves it for itself ([`unit_right_click`], design changes 0062 and 0063), whichever group is
+/// active: those that can carry out the resolved command do, the others move to the location or follow the unit
+/// under the cursor, and those whose Riot Shield is up move to the clicked point instead of attacking an enemy
+/// (question Q0020 point 1). Objects without commands do nothing. The orders go out grouped
+/// ([`OrderOutbox::give_each`]). Nothing unless the selection is all the player's (`> CommandPanel`). While a target
+/// is awaited, a right-click anywhere, over the HUD too, cancels instead (`> AwaitingTarget`).
 pub(super) fn right_click_orders(
     actions: Res<ActionState>,
     mut clicks: MessageReader<MapClick>,
@@ -268,16 +327,13 @@ pub(super) fn right_click_orders(
         if !commandable(control.sim(), player, &state.selection) {
             return;
         }
-        let Some(template) = active_template(&state.selection) else {
-            return;
-        };
-        let target = CursorTarget::at(&control.objects(), click.view, click.ground);
-        let Some((command, kind)) = right_click(template, target) else {
-            continue;
-        };
-        let units = able(&state.selection, command);
-        let queue = bindings.holds(InputAction::Queue, click.modifiers);
+        let target = MapTarget::at(control.sim(), &control.objects(), click.view, click.ground);
         let modes = Modes::of(control.sim(), &state.selection);
-        outbox.give_click(player, units, kind, click.ground, queue, &modes);
+        let orders = capabilities(&state.selection, &modes)
+            .into_iter()
+            .filter_map(|(id, unit)| Some((id, unit_right_click(unit, &target)?)))
+            .collect();
+        let queue = bindings.holds(InputAction::Queue, click.modifiers);
+        outbox.give_each(player, orders, queue);
     }
 }

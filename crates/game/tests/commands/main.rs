@@ -21,7 +21,8 @@ use sc_sim::{
     Target, TilePos, scenarios,
 };
 use space_crystals::camera::{CameraView, ViewportInsets, viewport_rect, visible_extent_su};
-use space_crystals::command_ui::InterfaceState;
+use space_crystals::command_ui::cursor::PointerLook;
+use space_crystals::command_ui::{InterfaceState, PointerDisplay};
 use space_crystals::hud::layout::CommandGrid;
 use space_crystals::input::{CommandSlot, InjectedInput};
 use space_crystals::platform::{DisplayMode, SurfaceSize};
@@ -159,6 +160,22 @@ fn click_with(app: &mut App, button: MouseButton, screen: Vec2, modifiers: &[Key
     app.update();
     release_keys(app, modifiers);
     pause(app);
+}
+
+/// The pointer's PointerDisplayType once the cursor is over the view point `view`, a frame later.
+fn pointer_over(app: &mut App, view: Vec2) -> Option<PointerDisplay> {
+    let screen = screen_at(app, view);
+    input(app).cursor = Some(screen);
+    app.update();
+    app.world().resource::<PointerLook>().display
+}
+
+/// Submits `command` in `player`'s name, for the next tick.
+fn submit(app: &mut App, player: PlayerId, command: Command) {
+    app.world_mut()
+        .resource_mut::<PendingCommands>()
+        .0
+        .push(PlayerCommand { player, command });
 }
 
 /// A left click on the map at the view point `view`.

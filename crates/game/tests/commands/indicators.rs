@@ -100,6 +100,7 @@ fn an_attack_marks_its_target() {
 
 /// `> PointerDisplayType > Resolution Rules`: the pointer previews the right-click from DefaultState, and the
 /// pending command's resolution while a target is awaited; over an object it also shows the object's relation.
+/// Attack takes an own destructible unit (force-attack, design change 0064), never the indestructible patch.
 #[test]
 fn the_pointer_previews_what_a_click_would_do() {
     let mut app = game();
@@ -131,7 +132,11 @@ fn the_pointer_previews_what_a_click_would_do() {
     assert_eq!(hover(&mut app, at(PATCH)), look(Move, false, Some(Relation::Neutral)));
     tap(&mut app, &[], KeyA);
     assert_eq!(hover(&mut app, ground), look(Attack, true, None));
-    assert_eq!(hover(&mut app, at(3)), look(Inactive, true, Some(Relation::Own)));
+    assert_eq!(hover(&mut app, at(3)), look(Attack, true, Some(Relation::Own)));
+    assert_eq!(
+        hover(&mut app, at(PATCH)),
+        look(Inactive, true, Some(Relation::Neutral))
+    );
     // Over the HUD there is nothing to preview.
     input(&mut app).cursor = Some(Vec2::new(640.0, 700.0));
     app.update();
