@@ -59,7 +59,7 @@ Paths are planned only from what the unit's **owner knows** (user, 2026-11-23), 
 
 *Implementation suggestion from the user (not a design requirement; the Director decides):* a per-player cache of known obstacles, updated when a structure enters or leaves that player's view. A cache change since a stuck unit's plan was made could justify a new path calculation.
 
-TBD: whether map-placed objects (crystal patches, Supply stations) count as known from the start like terrain, and how a patch depleted in the fog is remembered (assume: known from the start; a depletion is only learned when seen).
+- **Map-placed objects** (crystal patches, Supply Delivery Stations) are known from the start, like terrain (user, 2026-11-23). A patch depleted out of the player's view is still treated as present until the player sees it gone.
 
 ## MovingToLocation
 Base behavior for moving to a static target location.
