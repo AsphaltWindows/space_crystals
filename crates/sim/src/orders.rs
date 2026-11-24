@@ -1,16 +1,16 @@
 //! The `Orders` capability: a unit's command queue and the behaviour of its current order —
 //! `systems/controls/commands.md > Unit Command`, `systems/controls/behaviors.md`, `docs/movement.md > 3`, `> 4`.
 //!
-//! A player's `Command::Order` (phase 4) only writes queues ([`Orders::give`]) and computes group slots
-//! ([`slots`]); it never moves anything. Phase 5a ([`update`]) completes orders, starts the next one and runs the
-//! behaviours, which write `Mover::goal` and read `Mover::status`.
+//! A player's `Command::Order` (phase 4) only writes queues ([`Orders::give`]) and decides where each unit of a
+//! group goes ([`destinations`], the magic box); it never moves anything. Phase 5a ([`update`]) completes orders,
+//! starts the next one and runs the behaviours, which write `Mover::goal` and read `Mover::status`.
 //!
 //! Behaviours in this slice: Move to a point, Stop, Hold, and Attack without the approach: a unit engages its
 //! target (`combat::AttackState::target`), attacks it while it is in range, and the order completes when the target
 //! is gone. Move to an object, AttackMove and Patrol are accepted into the queue but complete at once (slice E gives
 //! them their behaviour).
 
-pub(crate) mod slots;
+pub(crate) mod destinations;
 
 use std::collections::{BTreeMap, VecDeque};
 
@@ -67,22 +67,20 @@ pub enum OrderKind {
 pub struct Order {
     pub kind: OrderKind,
     pub group: OrderGroup,
-    /// For a group's move to a point: where this unit goes, its slot around the clicked point
-    /// (`docs/movement.md > 6.4`); the point itself if `None`.
+    /// For a location order (Move to a point, AttackMove, Patrol) given to a group: this unit's own destination,
+    /// its place in the group's shape (`systems/controls/commands.md > Group Destinations (Magic Box)`,
+    /// [`destinations`]). `None` means the clicked point itself: a single unit, or a click inside the group's box.
     pub slot: Option<Vec2>,
 }
 
 impl Order {
-    /// The point a move to a point goes to: the unit's slot, else the clicked point.
+    /// The point a location order sends this unit to: its own destination, else the clicked point.
     pub fn destination(&self) -> Option<Vec2> {
         match self.kind {
-            OrderKind::Move(Target::Point(click)) => Some(self.slot.unwrap_or(click)),
-            OrderKind::Move(Target::Object(_))
-            | OrderKind::Attack(_)
-            | OrderKind::AttackMove(_)
-            | OrderKind::Patrol(_)
-            | OrderKind::Hold
-            | OrderKind::Stop => None,
+            OrderKind::Move(Target::Point(click)) | OrderKind::AttackMove(click) | OrderKind::Patrol(click) => {
+                Some(self.slot.unwrap_or(click))
+            }
+            OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => None,
         }
     }
 }
@@ -168,7 +166,8 @@ fn start(order: &Order, mover: &mut Mover, attack: Option<&mut AttackState>, tic
         });
     }
     match order.kind {
-        // `> MovingToLocation`: the unit goes to its slot; the group plans from the clicked point.
+        // `> MovingToLocation`: the unit goes to its own destination (the magic box); the group's path field is
+        // anchored on the clicked point, which its destinations surround.
         OrderKind::Move(Target::Point(click)) => {
             let goal = MoveGoal::Point(order.slot.unwrap_or(click));
             let group = PathGroup {
@@ -424,12 +423,22 @@ mod tests {
         assert_eq!(mover.goal, MoveGoal::None, "they stop the unit");
     }
 
+    /// `systems/controls/commands.md > Group Destinations (Magic Box)`: a location order's own destination
+    /// overrides the clicked point.
     #[test]
-    fn a_slot_overrides_the_clicked_point() {
-        let mut o = move_to(1.0, 2.0);
-        assert_eq!(o.destination(), Some(Vec2::new(1.0, 2.0)));
-        o.slot = Some(Vec2::new(3.0, 4.0));
-        assert_eq!(o.destination(), Some(Vec2::new(3.0, 4.0)));
+    fn a_units_own_destination_overrides_the_clicked_point() {
+        let click = Vec2::new(1.0, 2.0);
+        for kind in [
+            OrderKind::Move(Target::Point(click)),
+            OrderKind::AttackMove(click),
+            OrderKind::Patrol(click),
+        ] {
+            let mut o = order(kind);
+            assert_eq!(o.destination(), Some(click));
+            o.slot = Some(Vec2::new(3.0, 4.0));
+            assert_eq!(o.destination(), Some(Vec2::new(3.0, 4.0)));
+        }
         assert_eq!(order(OrderKind::Hold).destination(), None);
+        assert_eq!(order(OrderKind::Attack(ObjectId(1))).destination(), None);
     }
 }

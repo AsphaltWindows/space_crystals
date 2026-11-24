@@ -1,7 +1,8 @@
 //! The fog of war in the client (`fog`): the fog layer's texture follows the local player's vision and is written
 //! only when it changes; other players' objects that the local player doesn't see are neither drawn nor
-//! selectable, and leave its selection; combat effects in the fog don't show; the debug toggle and `--no-fog` show
-//! everything; the map editor never shows fog. Headless, one tick per update, as in `client.rs`.
+//! selectable, leave its selection, can't be targeted and aren't marked by command indicators; combat effects in
+//! the fog don't show; the debug toggle and `--no-fog` show everything; the map editor never shows fog. Headless,
+//! one tick per update, as in `client.rs`.
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
@@ -14,6 +15,8 @@ use space_crystals::cli;
 use space_crystals::combat_effects::{
     CombatEffects, CombatEffectsMesh, DeathMarker, Tracer, shows_death, shows_tracer,
 };
+use space_crystals::command_ui::CursorTarget;
+use space_crystals::command_ui::indicators::{ATTACK_COLOR, Indicator, selection_indicators};
 use space_crystals::editor::EditorConfig;
 use space_crystals::fog::{EXPLORED_ALPHA, FogAssets, FogLayer, FogOfWar, FogView, Sight, UNEXPLORED_ALPHA};
 use space_crystals::input::InjectedInput;
@@ -191,6 +194,59 @@ fn hidden_enemies_are_not_drawn_or_selectable() {
     }
     assert!(app.world().resource::<ControlStates>().selection(P1).is_empty());
     assert_eq!(selectable(&app), [1]);
+}
+
+/// The command flow reaches only what the local player sees: the cursor over an enemy hidden by the fog points at
+/// the ground (a right-click there moves, not attacks), and an attack's marker on its target goes while the target
+/// is hidden, though the order stands.
+#[test]
+fn hidden_enemies_cannot_be_targeted_or_marked() {
+    let mut app = game();
+    spawn(&mut app, ObjectKind::Peacekeeper, P1, 4, 8);
+    spawn(&mut app, ObjectKind::Guard, P2, 20, 8);
+    spawn(&mut app, ObjectKind::Guard, P2, 7, 8);
+    app.update();
+    // On a flat map a ground point is drawn where it is: the view point is the ground point.
+    let under_cursor = |app: &App, x, y| {
+        let sim = app.world().resource::<SimRes>();
+        let objects = Selectables::new(sim, &Sight::new(sim, P1, true), 1.0);
+        CursorTarget::at(&objects, centre(x, y), centre(x, y))
+    };
+    assert_eq!(under_cursor(&app, 20, 8), CursorTarget::Ground(centre(20, 8)));
+    assert_eq!(under_cursor(&app, 7, 8), CursorTarget::EnemyObject(ObjectId(3)));
+
+    app.world_mut().resource_mut::<ControlStates>().of_mut(P1).selection =
+        Selection::new([(ObjectId(1), ObjectKind::Peacekeeper)]);
+    order(&mut app, P1, 1, OrderKind::Attack(ObjectId(3)));
+    order(&mut app, P2, 3, move_to(20, 13));
+    app.update();
+    let markers = |app: &App| {
+        let world = app.world();
+        let sim = world.resource::<SimRes>();
+        let states = world.resource::<ControlStates>();
+        selection_indicators(sim, &Sight::new(sim, P1, true), states, false)
+    };
+    let attack_marker = Indicator::Object {
+        id: ObjectId(3),
+        color: ATTACK_COLOR,
+    };
+    assert_eq!(markers(&app), [attack_marker]);
+    let start = tick(&app);
+    while drawn(&mut app, 3) {
+        assert!(tick(&app) < start + 200, "the Guard never left player 1's sight");
+        app.update();
+    }
+    let sim = app.world().resource::<SimRes>();
+    let current = sim
+        .object(ObjectId(1))
+        .unwrap()
+        .orders
+        .as_ref()
+        .unwrap()
+        .current
+        .as_ref();
+    assert_eq!(current.map(|c| c.order.kind), Some(OrderKind::Attack(ObjectId(3))));
+    assert_eq!(markers(&app), []);
 }
 
 /// Shots and deaths player 1 can't see don't show: a tracer needs both ends on Visible tiles, a death marker a

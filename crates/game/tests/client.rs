@@ -25,7 +25,7 @@ use space_crystals::input::{
     MapClick, Modifiers, SelectionBox,
 };
 use space_crystals::map_render::{GridOverlay, MapRenderAssets, MapView};
-use space_crystals::object_render::{ObjectVisual, ObjectVisuals};
+use space_crystals::object_render::{FacingTick, ObjectVisual, ObjectVisuals};
 use space_crystals::path_overlay::{PathOverlay, PathOverlayMesh};
 use space_crystals::platform::{DisplayMode, SurfaceSize};
 use space_crystals::qa::{QaConfig, TimedCommand};
@@ -390,6 +390,62 @@ fn southern_objects_draw_in_front() {
     // Patch 3 (row 9) lies south of patch 1 (row 2); patches 1 and 2 share a row.
     assert!(z(&app, 3) > z(&app, 1));
     assert_eq!(z(&app, 1), z(&app, 2));
+}
+
+/// A Peacekeeper's visual turns with its facing. A Guard's square stays axis-aligned like its collision box, and only
+/// its facing tick turns.
+#[test]
+fn a_guards_square_stays_axis_aligned_and_only_its_tick_turns() {
+    let mut app = headless_app(small_scenario());
+    app.update();
+    let spawn = |kind, at| {
+        debug(DebugCommand::Spawn {
+            kind,
+            owner: Some(PlayerId(1)),
+            at: SpawnAt::Point(at),
+        })
+    };
+    let move_to = |id, to| PlayerCommand {
+        player: PlayerId(1),
+        command: Command::Order {
+            units: vec![ObjectId(id)],
+            kind: OrderKind::Move(Target::Point(to)),
+            queue: false,
+        },
+    };
+    let pending = |app: &mut App, command| app.world_mut().resource_mut::<PendingCommands>().0.push(command);
+    pending(&mut app, spawn(ObjectKind::Guard, Vec2::new(100.0, 650.0)));
+    pending(&mut app, spawn(ObjectKind::Peacekeeper, Vec2::new(100.0, 560.0)));
+    app.update();
+    let (guard, pk) = (5, 6);
+    pending(&mut app, move_to(guard, Vec2::new(500.0, 740.0)));
+    pending(&mut app, move_to(pk, Vec2::new(500.0, 660.0)));
+    updates(&mut app, 12);
+
+    // Where local +x points after a visual's rotation, against the sim facing it should show.
+    let facing = |app: &App, id: u32| {
+        let o = app.world().resource::<SimRes>().object(ObjectId(id)).unwrap();
+        assert!((o.prev_facing - o.facing).abs() < 1e-4, "unit {id} goes straight on");
+        assert!(o.facing.abs() > 0.1, "unit {id} faces down-right: {}", o.facing);
+        Vec3::new(o.facing.cos(), -o.facing.sin(), 0.0)
+    };
+    let front = |transform: &Transform| transform.rotation * Vec3::X;
+    let visuals = app.world().resource::<ObjectVisuals>().by_id.clone();
+    let body = |app: &App, id: u32| *app.world().get::<Transform>(visuals[&ObjectId(id)]).unwrap();
+    assert!(
+        front(&body(&app, pk)).distance(facing(&app, pk)) < 1e-3,
+        "the Peacekeeper turns"
+    );
+    assert_eq!(body(&app, guard).rotation, Quat::IDENTITY, "the Guard's square doesn't");
+    let mut ticks = app.world_mut().query::<(&FacingTick, &Transform, &ChildOf)>();
+    let tick: Vec<_> = ticks
+        .iter(app.world())
+        .map(|(t, transform, parent)| (t.0, *transform, parent.0))
+        .collect();
+    assert_eq!(tick.len(), 1, "only the Guard has a separate tick");
+    let (of, transform, parent) = tick[0];
+    assert_eq!((of, parent), (ObjectId(guard), visuals[&ObjectId(guard)]));
+    assert!(front(&transform).distance(facing(&app, guard)) < 1e-3, "its tick turns");
 }
 
 #[test]

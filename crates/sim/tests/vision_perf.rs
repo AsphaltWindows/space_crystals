@@ -7,6 +7,7 @@
 //!
 //! Each tick the test copies the vision the sim had before the step, steps the sim, and times the copy catching up
 //! with the step's objects: exactly the work of phase 5f. The assertions are on the result, never on wall time.
+//! It prints the 99th percentile besides the worst tick, which a busy machine's preemption can inflate.
 
 use std::time::Duration;
 
@@ -90,26 +91,29 @@ fn perf_vision_500_units_on_256() {
             .collect::<Vec<_>>()
     );
 
-    let (mut total, mut worst, mut ticks) = (Duration::ZERO, Duration::ZERO, 0_u32);
-    while ticks < 2000 {
+    let mut times: Vec<Duration> = Vec::new();
+    while times.len() < 2000 {
         let mut vision = t.sim().vision().clone();
         t.step();
         let moving = t.sim().objects().filter(|o| o.pos != o.prev_pos).count();
         let ((), took) = timed(|| vision.update(t.sim().map(), t.sim().objects()));
         assert!(&vision == t.sim().vision());
         if moving >= UNITS as usize * 9 / 10 {
-            total += took;
-            worst = worst.max(took);
-            ticks += 1;
+            times.push(took);
         } else if t.sim().tick() > 100 {
             break;
         }
     }
+    let ticks = times.len();
     assert!(ticks > 300, "only {ticks} ticks with 450 or more units moving");
+    times.sort();
+    let ms = |d: Duration| d.as_secs_f64() * 1e3;
+    let mean = times.iter().sum::<Duration>().as_secs_f64() * 1e3 / ticks as f64;
     println!(
-        "{ticks} ticks with >= 450 of 500 units moving: vision update mean {:.3} ms, worst {:.3} ms",
-        total.as_secs_f64() * 1e3 / f64::from(ticks),
-        worst.as_secs_f64() * 1e3
+        "{ticks} ticks with >= 450 of 500 units moving: vision update mean {mean:.3} ms, 99th percentile {:.3} ms, \
+         worst {:.3} ms",
+        ms(times[ticks * 99 / 100]),
+        ms(times[ticks - 1])
     );
     println!("target (slice V, release): <= 1 ms per tick");
 }

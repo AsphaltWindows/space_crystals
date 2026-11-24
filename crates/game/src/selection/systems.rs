@@ -13,6 +13,7 @@ use super::rules::{ClickRoles, drawn_centroid};
 use super::{ControlStates, LocalControl};
 use crate::ClientMode;
 use crate::camera::{CameraView, CameraZoom, ViewportInsets, view_rect};
+use crate::command_ui::InterfaceState;
 use crate::fog::{FogOfWar, Sight};
 use crate::input::{ActionState, Bindings, InputAction, MapClick, SelectionBox};
 use crate::platform::SurfaceSize;
@@ -72,7 +73,9 @@ impl WorldView<'_> {
     }
 }
 
-/// `> MapClickSelection` and `> BoxSelection`: the `Select` action's clicks and boxes on the map.
+/// `> MapClickSelection` and `> BoxSelection`: the `Select` action's clicks and boxes on the map. While a target is
+/// awaited (`> AwaitingTarget`), a left-click on the map is the target (`crate::command_ui`) and selects nothing, and
+/// neither does a box (placeholder: the design doesn't say what a drag does then).
 pub(super) fn select_on_map(
     mut clicks: MessageReader<MapClick>,
     mut boxes: MessageReader<SelectionBox>,
@@ -86,7 +89,7 @@ pub(super) fn select_on_map(
         .copied()
         .collect();
     let boxes: Vec<SelectionBox> = boxes.read().copied().collect();
-    if clicks.is_empty() && boxes.is_empty() {
+    if clicks.is_empty() && boxes.is_empty() || control.state().interface != InterfaceState::DefaultState {
         return;
     }
     let objects = control.objects();

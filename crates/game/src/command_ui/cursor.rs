@@ -1,0 +1,350 @@
+//! The pointer's look (`systems/controls/selection_and_hud.md > PointerDisplayType`), placeholders until the art
+//! (Q0001).
+//!
+//! [`PointerLook`] is what the pointer shows this frame: the PointerDisplayType over the map, whether a target is
+//! awaited, and how the object under the cursor relates to the local player. Its image is drawn in code and cached
+//! per look ([`CursorImages`]): an arrow in DefaultState and a crosshair while a target is awaited, coloured by the
+//! PointerDisplayType (`> Types`: Inactive muted grey; Move green, Attack red, Patrol orange as their indicators;
+//! AttackGround crimson), with a dot in the relation's colour (own green, enemy red, neutral yellow, as the
+//! selection markers) while it points at an object. With nothing to preview (Inactive, no object, no target awaited)
+//! and over the UI, a window shows the system's arrow.
+//!
+//! A window takes the image as its cursor (`CursorIcon`, Bevy's custom cursors). QA runs ignore the real mouse and
+//! render offscreen, where no system cursor is drawn: there the image is a UI node at the injected cursor
+//! ([`CursorSprite`]), so screenshots show it.
+
+use std::collections::HashMap;
+
+use bevy::asset::RenderAssetUsages;
+use bevy::picking::Pickable;
+use bevy::prelude::*;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+use bevy::window::{CursorIcon, CustomCursor, CustomCursorImage, PrimaryWindow, SystemCursorIcon};
+
+use super::indicators::{AGGRESSIVE_COLOR, ATTACK_COLOR, MOVE_COLOR};
+use super::interface::{InterfaceState, active_template, commandable};
+use super::resolution::{CursorTarget, PointerDisplay, pointer_display};
+use crate::fog::LocalSight;
+use crate::input::{ActionState, RawInput};
+use crate::selection::markers::relation_color;
+use crate::selection::{ControlStates, Relation, Selectables};
+use crate::sim_driver::RenderAlpha;
+use crate::{ClientMode, ClientSystems};
+
+/// The side of a cursor image, pixels.
+pub const CURSOR_SIZE: u32 = 32;
+/// The cursor sprite draws above every other UI node.
+const SPRITE_Z: i32 = 10_000;
+/// Placeholder colours of the PointerDisplayTypes without an indicator colour.
+const INACTIVE_COLOR: Color = Color::srgb(0.80, 0.82, 0.86);
+const ATTACK_GROUND_COLOR: Color = Color::srgb(0.90, 0.20, 0.50);
+const OUTLINE: [u8; 4] = [16, 16, 20, 255];
+
+/// What the pointer shows this frame.
+#[derive(Resource, Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct PointerLook {
+    /// `> PointerDisplayType` over the map; `None` over the UI, off the world view and outside the game modes.
+    pub display: Option<PointerDisplay>,
+    /// A target is awaited (`> AwaitingTarget`): a crosshair instead of an arrow.
+    pub targeting: bool,
+    /// How the object under the cursor relates to the local player.
+    pub hovered: Option<Relation>,
+}
+
+impl PointerLook {
+    /// Nothing to preview: a plain arrow, the system's in a window.
+    pub fn is_plain(&self) -> bool {
+        matches!(self.display, None | Some(PointerDisplay::Inactive)) && !self.targeting && self.hovered.is_none()
+    }
+
+    /// The pixel of its image that points.
+    pub fn hotspot(&self) -> (u16, u16) {
+        if self.targeting { (16, 16) } else { (1, 1) }
+    }
+}
+
+/// The cursor images made so far, one per look.
+#[derive(Resource, Default)]
+pub struct CursorImages {
+    images: HashMap<PointerLook, Handle<Image>>,
+}
+
+impl CursorImages {
+    /// The image of `look`, made the first time it is needed.
+    fn get(&mut self, look: PointerLook, assets: &mut Assets<Image>) -> Handle<Image> {
+        self.images
+            .entry(look)
+            .or_insert_with(|| assets.add(cursor_image(look)))
+            .clone()
+    }
+}
+
+/// The UI node that draws the cursor in QA runs.
+#[derive(Component)]
+pub struct CursorSprite;
+
+pub struct CursorPlugin;
+
+impl Plugin for CursorPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<PointerLook>()
+            .init_resource::<CursorImages>()
+            .add_systems(Startup, spawn_cursor_sprite)
+            .add_systems(
+                Update,
+                (update_pointer_look, set_window_cursor, place_cursor_sprite)
+                    .chain()
+                    .in_set(ClientSystems::Present),
+            );
+    }
+}
+
+/// `> PointerDisplayType > Resolution Rules`: from the local player's ControlState and what is under the cursor,
+/// among the objects it may select: the fog of war hides the others (`crate::fog`).
+fn update_pointer_look(
+    mode: Res<ClientMode>,
+    actions: Res<ActionState>,
+    sight: LocalSight,
+    alpha: Res<RenderAlpha>,
+    states: Res<ControlStates>,
+    mut look: ResMut<PointerLook>,
+) {
+    let pointer = actions.pointer();
+    let new = match (pointer.view, pointer.ground) {
+        (Some(view), Some(ground)) if mode.is_game() && !pointer.over_ui => {
+            let (sim, sight) = (sight.sim(), sight.get());
+            let player = sight.player();
+            let state = states.of(player);
+            let objects = Selectables::new(sim, &sight, alpha.0);
+            let template = active_template(&state.selection).filter(|_| commandable(sim, player, &state.selection));
+            let target = CursorTarget::at(&objects, view, ground);
+            PointerLook {
+                display: Some(pointer_display(template, state.interface, target)),
+                targeting: state.interface != InterfaceState::DefaultState,
+                hovered: objects.at(view).map(|o| o.relation),
+            }
+        }
+        _ => PointerLook::default(),
+    };
+    look.set_if_neq(new);
+}
+
+/// A window shows the look as its cursor while the real mouse drives the game.
+fn set_window_cursor(
+    mut commands: Commands,
+    raw: Res<RawInput>,
+    look: Res<PointerLook>,
+    mut images: ResMut<CursorImages>,
+    mut assets: ResMut<Assets<Image>>,
+    windows: Query<(Entity, Option<&CursorIcon>), With<PrimaryWindow>>,
+) {
+    if !raw.enabled {
+        return;
+    }
+    let Ok((window, current)) = windows.single() else {
+        return;
+    };
+    let icon = if look.is_plain() {
+        CursorIcon::System(SystemCursorIcon::Default)
+    } else {
+        CursorIcon::Custom(CustomCursor::Image(CustomCursorImage {
+            handle: images.get(*look, &mut assets),
+            hotspot: look.hotspot(),
+            ..default()
+        }))
+    };
+    if current != Some(&icon) {
+        commands.entity(window).insert(icon);
+    }
+}
+
+fn spawn_cursor_sprite(mut commands: Commands) {
+    commands.spawn((
+        Name::new("Cursor sprite"),
+        CursorSprite,
+        Node {
+            position_type: PositionType::Absolute,
+            width: px(CURSOR_SIZE as f32),
+            height: px(CURSOR_SIZE as f32),
+            ..default()
+        },
+        ImageNode::default(),
+        GlobalZIndex(SPRITE_Z),
+        Pickable::IGNORE,
+        Visibility::Hidden,
+    ));
+}
+
+/// QA runs: the look as a UI node at the injected cursor, in the game modes.
+fn place_cursor_sprite(
+    raw: Res<RawInput>,
+    mode: Res<ClientMode>,
+    actions: Res<ActionState>,
+    look: Res<PointerLook>,
+    mut images: ResMut<CursorImages>,
+    mut assets: ResMut<Assets<Image>>,
+    mut sprite: Query<(&mut Node, &mut ImageNode, &mut Visibility), With<CursorSprite>>,
+) {
+    let Ok((mut node, mut image, mut visibility)) = sprite.single_mut() else {
+        return;
+    };
+    let Some(cursor) = actions.cursor().filter(|_| !raw.enabled && mode.is_game()) else {
+        visibility.set_if_neq(Visibility::Hidden);
+        return;
+    };
+    let handle = images.get(*look, &mut assets);
+    if image.image != handle {
+        image.image = handle;
+    }
+    let (x, y) = look.hotspot();
+    let (left, top) = (px(cursor.x - f32::from(x)), px(cursor.y - f32::from(y)));
+    if node.left != left || node.top != top {
+        node.left = left;
+        node.top = top;
+    }
+    visibility.set_if_neq(Visibility::Inherited);
+}
+
+/// The colour of a PointerDisplayType.
+fn display_color(display: Option<PointerDisplay>) -> Color {
+    match display {
+        None | Some(PointerDisplay::Inactive) => INACTIVE_COLOR,
+        Some(PointerDisplay::Move) => MOVE_COLOR,
+        Some(PointerDisplay::Attack) => ATTACK_COLOR,
+        Some(PointerDisplay::AttackGround) => ATTACK_GROUND_COLOR,
+        Some(PointerDisplay::Patrol) => AGGRESSIVE_COLOR,
+    }
+}
+
+/// The classic arrow, tip at the top left (pixels, y down).
+const ARROW: [Vec2; 7] = [
+    Vec2::new(1.0, 1.0),
+    Vec2::new(1.0, 24.0),
+    Vec2::new(7.0, 19.0),
+    Vec2::new(11.0, 28.0),
+    Vec2::new(15.0, 26.0),
+    Vec2::new(11.0, 17.0),
+    Vec2::new(18.0, 17.0),
+];
+
+/// Draws `look`'s image: its shape in its colour inside a dark outline, and the hovered object's dot.
+pub fn cursor_image(look: PointerLook) -> Image {
+    let fill = display_color(look.display).to_srgba().to_u8_array();
+    let badge = look.hovered.map(|r| relation_color(r).to_srgba().to_u8_array());
+    let mut pixels = Vec::with_capacity((CURSOR_SIZE * CURSOR_SIZE * 4) as usize);
+    for y in 0..CURSOR_SIZE {
+        for x in 0..CURSOR_SIZE {
+            let p = Vec2::new(x as f32 + 0.5, y as f32 + 0.5);
+            let (core, rim) = if look.targeting { crosshair(p) } else { arrow(p) };
+            let mut pixel = if core {
+                fill
+            } else if rim {
+                OUTLINE
+            } else {
+                [0; 4]
+            };
+            if let Some(badge) = badge {
+                let d = p.distance(Vec2::new(26.0, 26.0));
+                if d <= 4.0 {
+                    pixel = badge;
+                } else if d <= 5.5 {
+                    pixel = OUTLINE;
+                }
+            }
+            pixels.extend(pixel);
+        }
+    }
+    let size = Extent3d {
+        width: CURSOR_SIZE,
+        height: CURSOR_SIZE,
+        depth_or_array_layers: 1,
+    };
+    // Kept in the main world too: a window's cursor is made from its pixels there.
+    Image::new(
+        size,
+        TextureDimension::D2,
+        pixels,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    )
+}
+
+/// The arrow's fill and outline at `p`.
+fn arrow(p: Vec2) -> (bool, bool) {
+    let inside = inside(&ARROW, p);
+    let edge = edge_distance(&ARROW, p);
+    (inside && edge > 1.2, inside || edge <= 1.0)
+}
+
+/// The crosshair's fill and outline at `p`: a ring and four arms around the hotspot, and a dot in the middle.
+fn crosshair(p: Vec2) -> (bool, bool) {
+    let d = p - Vec2::splat(16.0);
+    let r = d.length();
+    let ring = (r - 9.0).abs();
+    let (along, across) = (d.x.abs().max(d.y.abs()), d.x.abs().min(d.y.abs()));
+    let arm = (3.5..=14.5).contains(&along) && across <= 1.0;
+    let arm_rim = (2.5..=15.5).contains(&along) && across <= 2.0;
+    (ring <= 1.2 || arm || r <= 1.5, ring <= 2.2 || arm_rim || r <= 2.5)
+}
+
+/// Whether `p` lies inside the polygon (even-odd rule).
+fn inside(polygon: &[Vec2], p: Vec2) -> bool {
+    let mut inside = false;
+    for (i, &a) in polygon.iter().enumerate() {
+        let b = polygon[(i + 1) % polygon.len()];
+        if (a.y > p.y) != (b.y > p.y) && p.x < a.x + (p.y - a.y) / (b.y - a.y) * (b.x - a.x) {
+            inside = !inside;
+        }
+    }
+    inside
+}
+
+/// How far `p` is from the polygon's outline.
+fn edge_distance(polygon: &[Vec2], p: Vec2) -> f32 {
+    polygon
+        .iter()
+        .enumerate()
+        .map(|(i, &a)| {
+            let b = polygon[(i + 1) % polygon.len()];
+            let t = ((p - a).dot(b - a) / (b - a).length_squared()).clamp(0.0, 1.0);
+            p.distance(a + (b - a) * t)
+        })
+        .fold(f32::INFINITY, f32::min)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pixel(image: &Image, x: u32, y: u32) -> [u8; 4] {
+        let data = image.data.as_ref().unwrap();
+        let i = ((y * CURSOR_SIZE + x) * 4) as usize;
+        [data[i], data[i + 1], data[i + 2], data[i + 3]]
+    }
+
+    #[test]
+    fn each_look_draws_its_shape_colour_and_dot() {
+        let attack = PointerLook {
+            display: Some(PointerDisplay::Attack),
+            targeting: true,
+            hovered: None,
+        };
+        let image = cursor_image(attack);
+        assert_eq!(pixel(&image, 25, 16), ATTACK_COLOR.to_srgba().to_u8_array(), "the ring");
+        assert_eq!(pixel(&image, 2, 2)[3], 0, "no arrow");
+        let over_enemy = PointerLook {
+            display: Some(PointerDisplay::Attack),
+            targeting: false,
+            hovered: Some(Relation::Enemy),
+        };
+        let image = cursor_image(over_enemy);
+        assert_eq!(pixel(&image, 3, 8), ATTACK_COLOR.to_srgba().to_u8_array(), "the arrow");
+        assert_eq!(
+            pixel(&image, 26, 26),
+            relation_color(Relation::Enemy).to_srgba().to_u8_array()
+        );
+        assert_eq!(pixel(&image, 30, 2)[3], 0, "transparent around");
+        assert!(PointerLook::default().is_plain() && !over_enemy.is_plain());
+        assert_eq!(attack.hotspot(), (16, 16));
+    }
+}

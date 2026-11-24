@@ -156,6 +156,11 @@ impl LocalSight<'_> {
     pub fn get(&self) -> Sight<'_> {
         Sight::new(&self.sim, self.player.0, self.fog.applies(*self.mode))
     }
+
+    /// The sim it looks at.
+    pub fn sim(&self) -> &Sim {
+        &self.sim
+    }
 }
 
 /// The fog layer's handles: one mesh, one texture, one material, created once and rebuilt in place.

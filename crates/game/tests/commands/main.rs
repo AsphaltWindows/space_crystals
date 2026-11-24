@@ -1,0 +1,278 @@
+//! Headless tests of the command flow (`systems/controls/selection_and_hud.md > CommandPanel`, `> DefaultState`,
+//! `> RightClickResolution`, `> AwaitingTarget`, `> PointerDisplayType`, `> CommandIndicators`;
+//! `systems/controls/commands.md > Unit Command`). Every input arrives through `InjectedInput`, the virtual keyboard
+//! and mouse, and goes through the input layer's bindings like a player's would; each `App::update` is one tick
+//! and 1/16 s of real time (`ARCHITECTURE.md > Client architecture > Client tests`). The orders given are read back
+//! from the recorded inputs, as the sim received them. The fog of war is off (`--no-fog`), so that player 1 can
+//! target what it doesn't see: what the fog hides from the command flow is tested in `fog.rs`.
+
+mod indicators;
+mod panel;
+mod right_click;
+mod targeting;
+
+use bevy::prelude::*;
+use bevy::time::TimeUpdateStrategy;
+use sc_sim::{
+    Command, ObjectId, ObjectKind, OrderKind, PlayerId, Scenario, SlotId, Spawn, SpawnAt, Target, TilePos, scenarios,
+};
+use space_crystals::camera::{CameraView, ViewportInsets, viewport_rect, visible_extent_su};
+use space_crystals::command_ui::InterfaceState;
+use space_crystals::hud::layout::CommandGrid;
+use space_crystals::input::{CommandSlot, InjectedInput};
+use space_crystals::platform::{DisplayMode, SurfaceSize};
+use space_crystals::selection::ControlStates;
+use space_crystals::sim_driver::{LocalPlayer, PendingCommands, RecordedInputs, SimRes};
+use space_crystals::{AppConfig, build_app};
+
+/// Where the camera looks in these tests (view space): the world view then spans x 704 to 2496 and y 536 to 1264.
+const VIEW_CENTER: Vec2 = Vec2::new(1600.0, 900.0);
+
+// The objects of [`scenario`], by id. Player 1's are on the left, player 2's on the right, far enough apart.
+/// Player 1's Peacekeepers on screen, and its Guards.
+const OWN_PKS: [u32; 3] = [1, 2, 5];
+const OWN_GUARDS: [u32; 2] = [3, 4];
+/// Player 2's units.
+const ENEMY_PK: u32 = 6;
+const ENEMY_GUARD: u32 = 7;
+/// A neutral Space Crystals patch and a Supply Delivery Station.
+const PATCH: u32 = 8;
+const STATION: u32 = 11;
+
+/// Where object `id` of [`scenario`] is, and is drawn (the map is flat).
+fn at(id: u32) -> Vec2 {
+    match id {
+        1 => Vec2::new(900.0, 800.0),
+        2 => Vec2::new(1050.0, 800.0),
+        3 => Vec2::new(1200.0, 800.0),
+        4 => Vec2::new(1350.0, 800.0),
+        5 => Vec2::new(900.0, 1100.0),
+        6 => Vec2::new(2200.0, 800.0),
+        7 => Vec2::new(2350.0, 800.0),
+        8 => Vec2::new(25.5, 16.5) * 64.0,
+        9 => Vec2::new(3000.0, 800.0),
+        10 => Vec2::new(2200.0, 1100.0),
+        11 => Vec2::new(28.0, 11.0) * 64.0,
+        _ => panic!("no object {id}"),
+    }
+}
+
+/// A flat 64 × 48 map with two players' units, a patch and a station (ids as above).
+fn scenario() -> Scenario {
+    use ObjectKind::{CrystalPatch, Guard, Peacekeeper, SupplyDeliveryStation};
+    let mut scenario = scenarios::empty(64, 48);
+    let unit = |kind, slot, id| Spawn::new(kind, Some(SlotId(slot)), SpawnAt::Point(at(id)));
+    scenario.map.spawns.extend([
+        unit(Peacekeeper, 1, 1),
+        unit(Peacekeeper, 1, 2),
+        unit(Guard, 1, 3),
+        unit(Guard, 1, 4),
+        unit(Peacekeeper, 1, 5),
+        unit(Peacekeeper, 2, 6),
+        unit(Guard, 2, 7),
+        Spawn::new(CrystalPatch, None, SpawnAt::Tile(TilePos::new(25, 16))),
+        unit(Peacekeeper, 1, 9),
+        unit(Peacekeeper, 2, 10),
+        Spawn::new(SupplyDeliveryStation, None, SpawnAt::Tile(TilePos::new(27, 10))),
+    ]);
+    assert_eq!(scenario.validate(), vec![]);
+    scenario
+}
+
+/// A headless game of [`scenario`] as player 1, debug commands on, the camera at [`VIEW_CENTER`], without the fog
+/// of war.
+fn game() -> App {
+    let mut config = AppConfig::new(scenario());
+    config.display = DisplayMode::Headless;
+    config.qa.no_fog = true;
+    let mut app = build_app(config);
+    app.insert_resource(TimeUpdateStrategy::FixedTimesteps(1));
+    app.finish();
+    app.cleanup();
+    app.update();
+    app.world_mut().resource_mut::<CameraView>().center = VIEW_CENTER;
+    updates(&mut app, 2);
+    app
+}
+
+fn updates(app: &mut App, n: usize) {
+    for _ in 0..n {
+        app.update();
+    }
+}
+
+/// Long enough (half a second) that the next click or key press doesn't make a double-click or a double tap.
+fn pause(app: &mut App) {
+    updates(app, 8);
+}
+
+/// The virtual keyboard and mouse.
+fn input(app: &mut App) -> Mut<'_, InjectedInput> {
+    app.world_mut().resource_mut::<InjectedInput>()
+}
+
+fn press_keys(app: &mut App, keys: &[KeyCode]) {
+    for &key in keys {
+        input(app).keys.press(key);
+    }
+}
+
+fn release_keys(app: &mut App, keys: &[KeyCode]) {
+    for &key in keys {
+        input(app).keys.release(key);
+    }
+}
+
+/// The cursor position (logical pixels) that points at the view point `view`, with the camera where it is now.
+fn screen_at(app: &App, view: Vec2) -> Vec2 {
+    let size = *app.world().resource::<SurfaceSize>();
+    let insets = *app.world().resource::<ViewportInsets>();
+    let (position, viewport) = viewport_rect(size, insets);
+    let su_per_pixel = visible_extent_su(viewport, size.physical.x, 1.0).x / viewport.x as f32;
+    let center = app.world().resource::<CameraView>().center;
+    ((view - center) / su_per_pixel + position.as_vec2() + viewport.as_vec2() / 2.0) / size.scale_factor
+}
+
+/// A click of `button` at the cursor position `screen`, with the modifier keys `modifiers` held: the button goes
+/// down in one frame and up in the next. Then a [`pause`].
+fn click_with(app: &mut App, button: MouseButton, screen: Vec2, modifiers: &[KeyCode]) {
+    press_keys(app, modifiers);
+    input(app).cursor = Some(screen);
+    input(app).mouse.press(button);
+    app.update();
+    input(app).mouse.release(button);
+    app.update();
+    release_keys(app, modifiers);
+    pause(app);
+}
+
+/// A left click on the map at the view point `view`.
+fn click(app: &mut App, view: Vec2, modifiers: &[KeyCode]) {
+    let screen = screen_at(app, view);
+    click_with(app, MouseButton::Left, screen, modifiers);
+}
+
+/// A right click on the map at the view point `view`.
+fn right_click(app: &mut App, view: Vec2, modifiers: &[KeyCode]) {
+    let screen = screen_at(app, view);
+    click_with(app, MouseButton::Right, screen, modifiers);
+}
+
+/// A left click on the command panel's button of `slot`, found by the panel's geometry.
+fn click_button(app: &mut App, slot: CommandSlot, modifiers: &[KeyCode]) {
+    let surface = app.world().resource::<SurfaceSize>().logical();
+    let screen = CommandGrid::on(surface).slot_rect(slot).center();
+    click_with(app, MouseButton::Left, screen, modifiers);
+}
+
+/// A box dragged with the left button from the view point `from` to `to`: down, moved, up, a frame each.
+fn drag(app: &mut App, from: Vec2, to: Vec2) {
+    let (from, to) = (screen_at(app, from), screen_at(app, to));
+    input(app).cursor = Some(from);
+    input(app).mouse.press(MouseButton::Left);
+    app.update();
+    input(app).cursor = Some(to);
+    app.update();
+    input(app).mouse.release(MouseButton::Left);
+    app.update();
+    pause(app);
+}
+
+/// Taps `key` while the modifier keys `modifiers` are down; two frames.
+fn tap(app: &mut App, modifiers: &[KeyCode], key: KeyCode) {
+    press_keys(app, modifiers);
+    input(app).tap_key(key);
+    app.update();
+    release_keys(app, modifiers);
+    app.update();
+}
+
+/// Selects player 1's Peacekeepers 1 and 2 and Guards 3 and 4 with a box.
+fn select_mixed(app: &mut App) {
+    drag(app, Vec2::new(850.0, 760.0), Vec2::new(1400.0, 840.0));
+    assert_eq!(selected(app), [1, 2, 3, 4]);
+}
+
+/// Selects the objects of `ids` with a box around them, which must select exactly them.
+fn select_box(app: &mut App, ids: &[u32]) {
+    let points: Vec<Vec2> = ids.iter().map(|&id| at(id)).collect();
+    let min = points.iter().copied().reduce(Vec2::min).unwrap() - 30.0;
+    let max = points.iter().copied().reduce(Vec2::max).unwrap() + 30.0;
+    drag(app, min, max);
+    assert_eq!(selected(app), ids);
+}
+
+fn local_player(app: &App) -> PlayerId {
+    app.world().resource::<LocalPlayer>().0
+}
+
+/// The local player's selection, in id order.
+fn selected(app: &App) -> Vec<u32> {
+    let states = app.world().resource::<ControlStates>();
+    states.selection(local_player(app)).ids().map(|id| id.0).collect()
+}
+
+/// The local player's ObjectInterfaceState.
+fn interface(app: &App) -> InterfaceState {
+    app.world().resource::<ControlStates>().of(local_player(app)).interface
+}
+
+/// An order as the sim received it.
+#[derive(Clone, Debug, PartialEq)]
+struct Given {
+    player: PlayerId,
+    units: Vec<u32>,
+    kind: OrderKind,
+    queue: bool,
+}
+
+/// Player 1's order of `kind` to `units`, queued or not.
+fn given(units: &[u32], kind: OrderKind, queue: bool) -> Given {
+    Given {
+        player: PlayerId(1),
+        units: units.to_vec(),
+        kind,
+        queue,
+    }
+}
+
+/// Every order given so far: the recorded ticks' and those waiting for the next tick.
+fn orders(app: &App) -> Vec<Given> {
+    let recorded = app.world().resource::<RecordedInputs>();
+    let pending = app.world().resource::<PendingCommands>();
+    let commands = recorded.ticks.iter().flat_map(|t| t.commands.iter()).chain(&pending.0);
+    commands
+        .filter_map(|c| match &c.command {
+            Command::Order { units, kind, queue } => Some(Given {
+                player: c.player,
+                units: units.iter().map(|id| id.0).collect(),
+                kind: *kind,
+                queue: *queue,
+            }),
+            Command::Debug(_) => None,
+        })
+        .collect()
+}
+
+/// The point of a point order (Move to a point, AttackMove, Patrol).
+fn point_of(kind: OrderKind) -> Vec2 {
+    match kind {
+        OrderKind::Move(Target::Point(p)) | OrderKind::AttackMove(p) | OrderKind::Patrol(p) => p,
+        other => panic!("{other:?} has no point"),
+    }
+}
+
+/// Whether `a` and `b` are the same point, give or take the cursor's rounding.
+fn near(a: Vec2, b: Vec2) -> bool {
+    a.distance(b) < 0.5
+}
+
+fn object_orders(app: &App, id: u32) -> sc_sim::Orders {
+    let sim = app.world().resource::<SimRes>();
+    sim.object(ObjectId(id)).unwrap().orders.clone().unwrap()
+}
+
+/// A slot by its row and column.
+fn slot(row: u8, column: u8) -> CommandSlot {
+    CommandSlot::new(row, column).unwrap()
+}

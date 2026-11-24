@@ -1,10 +1,11 @@
-//! Where the HUD Bar's sections and the SelectionPanel's portraits are on the surface, in logical pixels from its
-//! top-left corner. The HUD places its nodes with these rectangles, and a click finds its portrait with them, so both
-//! agree without UI picking (headless tests have none).
+//! Where the HUD Bar's sections, the SelectionPanel's portraits and the CommandPanel's buttons are on the surface,
+//! in logical pixels from its top-left corner. The HUD places its nodes with these rectangles, and a click finds its
+//! portrait or button with them, so both agree without UI picking (headless tests have none).
 
 use bevy::math::{Rect, Vec2};
 
 use super::{HUD_BAR_HEIGHT_VH, HUD_GAP_VH, HudSection, SECTION_HEIGHT_VH, SlotWidth};
+use crate::input::CommandSlot;
 
 /// A section's border, in logical pixels.
 pub const SECTION_BORDER_PX: f32 = 1.0;
@@ -13,6 +14,8 @@ pub const SECTION_PADDING_VH: f32 = 0.5;
 /// Side of a SelectionPanel portrait, and the gap between two (placeholder sizes).
 pub const PORTRAIT_VH: f32 = 5.2;
 pub const PORTRAIT_GAP_VH: f32 = 0.5;
+/// The gap between two CommandPanel buttons (placeholder size).
+pub const COMMAND_GAP_VH: f32 = 0.5;
 
 /// `systems/controls/selection_and_hud.md > HUD Bar > Layout Rules`: the rectangle of `section` on a surface of
 /// `surface` logical pixels. The sections sit side by side in the bottom bar, all as tall as the bar minus its
@@ -97,6 +100,50 @@ impl PortraitGrid {
     }
 }
 
+/// The CommandPanel's 4 × 3 grid of buttons (`> CommandPanel > Grid Layout`): square cells as large as the
+/// section's content box allows, centred in it, row by row from the top left.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct CommandGrid {
+    /// The top-left button's top-left corner on the surface.
+    pub origin: Vec2,
+    /// A button's side.
+    pub cell: f32,
+    /// From one button to the next: its side plus the gap.
+    pub step: f32,
+}
+
+impl CommandGrid {
+    /// The grid on a surface of `surface` logical pixels.
+    pub fn on(surface: Vec2) -> Self {
+        let vh = surface.y / 100.0;
+        let inset = SECTION_BORDER_PX + SECTION_PADDING_VH * vh;
+        let content = section_rect(HudSection::CommandPanel, surface).inflate(-inset);
+        let gap = COMMAND_GAP_VH * vh;
+        let (columns, rows) = (f32::from(CommandSlot::COLUMNS), f32::from(CommandSlot::ROWS));
+        let cell = ((content.width() - gap * (columns - 1.0)) / columns)
+            .min((content.height() - gap * (rows - 1.0)) / rows)
+            .max(0.0);
+        let step = cell + gap;
+        let size = Vec2::new(step * columns - gap, step * rows - gap);
+        Self {
+            origin: content.center() - size / 2.0,
+            cell,
+            step,
+        }
+    }
+
+    /// The rectangle of `slot`'s button on the surface.
+    pub fn slot_rect(&self, slot: CommandSlot) -> Rect {
+        let at = self.origin + Vec2::new(f32::from(slot.column()), f32::from(slot.row())) * self.step;
+        Rect::from_corners(at, at + Vec2::splat(self.cell))
+    }
+
+    /// The slot whose button is under the surface point `point`, if any.
+    pub fn slot_at(&self, point: Vec2) -> Option<CommandSlot> {
+        CommandSlot::all().find(|&slot| self.slot_rect(slot).contains(point))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,5 +183,26 @@ mod tests {
         let between = grid.cell_rect(0).max + Vec2::splat(grid.step - grid.cell) / 2.0;
         assert_eq!(grid.index_at(between), None, "the gap between cells");
         assert_eq!(grid.index_at(Vec2::new(5.0, 5.0)), None);
+    }
+
+    #[test]
+    fn command_buttons_fill_the_command_panel_four_by_three() {
+        let grid = CommandGrid::on(SURFACE);
+        let panel = section_rect(HudSection::CommandPanel, SURFACE);
+        let slot = |row, column| CommandSlot::new(row, column).unwrap();
+        let (first, last) = (grid.slot_rect(slot(0, 0)), grid.slot_rect(slot(2, 3)));
+        assert!(
+            panel.contains(first.min) && panel.contains(last.max),
+            "{panel:?} {first:?} {last:?}"
+        );
+        assert!(grid.cell > panel.height() / 4.0, "{grid:?}");
+        assert_eq!(grid.slot_rect(slot(0, 1)).min.y, first.min.y);
+        assert_eq!(grid.slot_rect(slot(1, 0)).min.x, first.min.x);
+        for s in CommandSlot::all() {
+            assert_eq!(grid.slot_at(grid.slot_rect(s).center()), Some(s));
+        }
+        let between = first.max + Vec2::splat(grid.step - grid.cell) / 2.0;
+        assert_eq!(grid.slot_at(between), None, "the gap between buttons");
+        assert_eq!(grid.slot_at(Vec2::new(5.0, 5.0)), None);
     }
 }

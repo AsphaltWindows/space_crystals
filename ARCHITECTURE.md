@@ -273,7 +273,7 @@ or `Visible` for each player.
   difference changes the per-player counts of sources seeing each tile; a source that is gone takes its tiles away.
   A tile is Visible while its count is above 0, and Explored once it has been Visible. `PlayerVision::revision`
   changes when any of the player's tiles changes state, so views redraw only then. Measured (`tests/vision_perf.rs`,
-  ignored, release): 500 moving units on 256 × 256, 0.16 ms per tick on average, 0.27 ms at worst.
+  ignored, release): 500 moving units on 256 × 256, 0.17 ms per tick on average, 0.2 ms at the 99th percentile.
 - **State**: the Explored bits are history, so they are hashed and serialized (each player's rows of `#` and `.`).
   Eyes, stamps and counts are derived: a loaded save rebuilds them from the objects (`vision::load`), and invariant
   V1 (`testing::invariants`) rebuilds them from scratch and compares.
@@ -299,17 +299,20 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   (`NavGrid::nearest_in_component`), as `find_path` does.
 - **`los`, `box_clear`, `smooth`**: line of sight and waypoints for a unit's box (half extents). Touching is free.
 - **`serve(nav, search, requests, PATH_BUDGET)`** serves a tick's `PathRequest`s in `(since, id)` order within the
-  expansion budget, with one shared field per order group of `GROUP_FIELD_MIN` or more. A `Path` is unit state
-  (serde, `PartialEq`, `StateHash`); `NavCounters` are output only.
+  expansion budget, with one shared field per order group of `GROUP_FIELD_MIN` or more, anchored on the click's tile.
+  A member whose goal the anchor can't see plans alone: through the anchor it would take a detour. A `Path` is unit
+  state (serde, `PartialEq`, `StateHash`); `NavCounters` are output only.
 - **Open questions** (Q0011) are the switches `RESOURCES_BLOCK`, `RUGGED_IMPASSABLE` and `ROUTE_ON_TRUE_MAP`.
 - **In the sim** (`paths.rs`): `NavState` holds the `Nav` of every unit type's `(class, size class)` and the
   footprints it was built from (structures and map resources block, Q0011). It is derived, like the `Nav`: not hashed,
   compared or serialized, built when a `Sim` is created or loaded and rebuilt in phase 5b. `Sim::nav()` (the grids),
   `nav_version()` and `nav_counters()` expose it to tests and overlays.
-- **Group slots** (`orders/slots.rs`, `docs/movement.md > 6.4`): a move of several units to a point gives each its
-  own slot on a square lattice around the click (retargeted into the lead unit's component), the largest silhouette
-  plus `SLOT_GAP` apart. The nearest lattice points whose box is clear and in the component are the slots; the one
-  farthest from the group's centroid takes its nearest unit first. The order keeps its slot (`Order::slot`).
+- **Group destinations** (`orders/destinations.rs`, `docs/movement.md > 6.4`, the design's magic box): a location
+  order (Move to a point, AttackMove, Patrol) to several units looks at the bounding box of their positions. A click
+  inside it sends every unit to the click; outside, each unit goes to the click plus its offset from the box's
+  centre. The order keeps the unit's own destination (`Order::slot`; `None` is the click). Until question Q0008 is
+  answered, a destination is clamped inside the map, and one the unit can't stand on or reach moves to the nearest
+  point it can (`nav::reachable_point`, which never searches).
 - **Avoid tiles** (`Mover::avoid_tiles`): a repath of a stuck unit treats them as blocked, and its smoothed path and
   its steering stay out of them (`nav::smooth_avoiding`, `nav::segment_avoids`). If they cut every route, the unit
   drops them and plans again.
@@ -322,8 +325,8 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 
 ## Movement and collision
 
-The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice D changed it), and the code is
-`crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
+The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice D changed it, **(M)** where the
+magic box did), and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
 
 - **One pipeline, sequential commit** (`movement::step`, phase 5d): the step builds one spatial grid per collision
   layer (ground, underground; air units collide with nothing) from every unit, then moves the units in id order and
@@ -335,8 +338,9 @@ The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice
   epsilon.
 - **One unit's tick** (`step_unit`, `collide.rs`): turn towards the steering waypoint (at most TurnRate), then move
   one step: free; **slide** along tiles (per axis); **follow** a unit moving the same way; **go around** a standing
-  or oncoming one (a glance along its face, a 45° step, a step along the face; to the unit's Right first, so
-  head-on units pass like traffic; a crossing unit is passed behind); else close up or stay. Within one step of the
+  or oncoming one (a glance along its face, a 45° step, a step along the face; to the side the unit leans to, which
+  it keeps, else to its Right first, so head-on units pass like traffic; a crossing unit is passed behind); else
+  close up or stay. Within one step of the
   goal the unit lands exactly on it. Units without a goal never move: nothing pushes (question Q0007).
 - **Collision exceptions** go in `space::blocks(mover, other)` and nowhere else (crushing will).
 - **Held by its attack**: a unit whose attack sequence holds its base (`combat::may_move` or `may_turn` false: see
@@ -385,8 +389,8 @@ The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice
   dropped, and nothing left is `NoUnits`; any id of another player's object rejects it (`NotOwned`). Points must be
   finite and on the map, target objects must exist (`UnknownObject`) and an attack's target be destructible
   (`NotAttackable`). Without `queue` the order replaces the unit's queue and current order; with it, the order is
-  appended (a full queue drops it). Each order command is one group (`Sim::next_group`); a move to a point gives
-  each unit its slot. `Move` to a point, `Stop` and `Hold` behave, and `Attack` without its approach (see *Combat*);
+  appended (a full queue drops it). Each order command is one group (`Sim::next_group`); a location order gives
+  each unit of a group its own destination (the magic box, see *Navigation*). `Move` to a point, `Stop` and `Hold` behave, and `Attack` without its approach (see *Combat*);
   the others complete at once (TODO slice E).
 - **Debug spawns and teleports of units** keep the unit invariants: a box on blocked ground or across the map's edge
   is `Reject::Blocked`, one overlapping another unit of its layer `Reject::Occupied(id)`, and so is a blocking
@@ -479,8 +483,8 @@ The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice
   tick it checks the movement invariants (see Movement and collision); `pos(id)`, `mover(id)` and `status(id)` read
   a unit, and `ascii(focus)` draws the map.
 - **Movement scenario tests** are `crates/sim/tests/movement_collision.rs` (passing, head-on, choke, group arrival,
-  idle units, repaths, oscillation bounds, save and load in a crowd), `movement_soak.rs` (200 units, random orders,
-  2 000 ticks) and the ignored `movement_perf.rs`.
+  idle units, repaths, oscillation bounds, save and load in a crowd), `group_destinations.rs` (the magic box),
+  `movement_soak.rs` (200 units, random orders, 2 000 ticks) and the ignored `movement_perf.rs`.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes. Every state type's hash impl
   destructures it (`hash.rs`), so a new field doesn't compile until it is hashed.
@@ -532,8 +536,9 @@ out by the same rules.
   band, slightly in front, so terrain in front hides it too. Both meshes are rebuilt when the sim's map changes.
 - **Units** (`object_render.rs`) are placeholder shapes until the art (Q0001): a shape per kind (Peacekeeper round,
   Guard square) of the silhouette's size, in the owner's colour (`player_color`, the editor's slot colours), with a
-  dark rim and a light tick along the facing; the visual turns with the interpolated facing. One mesh per
-  `(kind, owner)` is shared.
+  dark rim and a light tick along the facing; the visual turns with the interpolated facing. The Guard's square
+  doesn't: it stays axis-aligned like its collision box, and only its tick turns (a `FacingTick` child,
+  `body_turns`). One mesh per `(kind, owner)` is shared, and one tick mesh per kind.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
@@ -545,12 +550,13 @@ out by the same rules.
 - **Fog of war** (`fog.rs`, `core/vision.md`): `Sight` says what the local player is shown: its own objects, and
   everything on its Visible tiles; on Explored tiles the terrain, structures and resources but no other player's
   units; on Unexplored tiles nothing. Object visuals it doesn't show get `Visibility::Hidden`; tracers, death
-  markers, HP bars, the path overlay and the selection (`selectable_by`) ask it too. The fog layer is one mesh that
-  follows the terrain's surface tile by tile, in the terrain's z band `FOG_Z` in front of it (so no cliff stratum
-  shows through), and one texture of one black texel per tile (`UNEXPLORED_ALPHA`, `EXPLORED_ALPHA`, clear when
-  Visible), sampled linearly. The texture is written only when `PlayerVision::revision`, the local player or the sim
-  changes, the mesh only with the map. `FogOfWar` turns it off for QA (`--no-fog`, the debug key F3): display only,
-  the sim computes every player's vision anyway. The editor shows no fog; its play-tests do.
+  markers, HP bars, the path overlay, the selection (`selectable_by`) and with it what a click or the pointer
+  targets, and the command indicators ask it too. The fog layer is one mesh that follows the terrain's surface tile
+  by tile, in the terrain's z band `FOG_Z` in front of it (so no cliff stratum shows through), and one texture of
+  one black texel per tile (`UNEXPLORED_ALPHA`, `EXPLORED_ALPHA`, clear when Visible), sampled linearly. The texture
+  is written only when `PlayerVision::revision`, the local player or the sim changes, the mesh only with the map.
+  `FogOfWar` turns it off for QA (`--no-fog`, the debug key F3): display only, the sim computes every player's
+  vision anyway. The editor shows no fog; its play-tests do.
 - Never make one entity per tile. Draw the terrain as one mesh or texture, or a few chunks; the fog of war is one
   texture, never per-tile materials.
 - Create mesh and material handles once and cache them in a `Resource`. Never create assets per frame, per object or
@@ -576,8 +582,9 @@ CommandPanel. All five have the same height and keep fixed horizontal slots, and
 (`systems/controls/selection_and_hud.md > HUD Bar`). bevy_ui lays out each root node inside its camera's viewport,
 so the HUD needs its own full-window UI camera (`IsDefaultUiCamera` / `UiTargetCamera`). The sections sit at the
 rectangles `hud::layout` computes from the surface size alone (`section_rect`, `PortraitGrid`); the same geometry
-finds the portrait under a click, because headless tests have no UI picking. The InfoPanel (`hud/info_panel.rs`) and
-the SelectionPanel (`hud/selection_panel.rs`) show the selection (see Selection); a section with nothing to show
+finds the portrait under a click, because headless tests have no UI picking (and `CommandGrid` the command button).
+The InfoPanel (`hud/info_panel.rs`) and the SelectionPanel (`hud/selection_panel.rs`) show the selection (see
+Selection), the CommandPanel (`hud/command_panel.rs`) its commands (see Commands UI); a section with nothing to show
 shows its name (`SectionLabel`).
 
 **Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse, the wheel and the screen edge into
@@ -634,8 +641,8 @@ elsewhere.
   their presses before ours run. `RawInput` turns the real devices off in QA runs.
 
 **Selection** (`selection.rs`, `selection/`; `systems/controls/selection_and_hud.md`): client UI state, never sim
-state. `ControlStates` holds every player's `ControlState`, a `Selection` and 10 control groups; the input changes and
-the HUD shows the local player's (`LocalPlayer`).
+state. `ControlStates` holds every player's `ControlState`, a `Selection`, 10 control groups and the
+ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the local player's (`LocalPlayer`).
 - **Model** (`selection/model.rs`): a selection is a set of object ids with their kinds. Its groups are derived, one
   per type, in `ObjectKind` order (an ungroupable object, a patch or a station, is a group alone), each by id; the
   ActiveGroup is a group key, which Tab and Shift + Tab cycle with wrap-around and which falls back to the first group
@@ -657,11 +664,39 @@ the HUD shows the local player's (`LocalPlayer`).
   clicks, boxes, the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the
   debug player switch (F2, only while `SimConfig::debug`: the client acts as the next player, so "own" and the state
   in use change). The HUD's portrait clicks run after it. Systems change a state only through
-  `LocalControl::update`, which marks `ControlStates` changed only on a real change.
+  `LocalControl::update`, which marks `ControlStates` changed only on a real change, and puts the
+  ObjectInterfaceState back to DefaultState when the Selection or its ActiveGroup changes. While a target is
+  awaited, map clicks and boxes select nothing (the drag box isn't drawn): the left-click is the target's.
 - **Visuals** (`selection/markers.rs`): one marker entity per selected object in the ground-decal layer, under the
   object (a ring around a unit, a frame inside a footprint), coloured by relation, the ActiveGroup's solid and the
   others' dashed; meshes cached per shape, relation and activity. The drag box is four edges of one shared mesh in
   the overlay layer, shown while `Pointer::drag_box` is set.
+
+**Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/selection_and_hud.md > ObjectInterfaceState`
+to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units.
+- **Rules** (pure and unit tested): `command_ui/interface.rs` has the `UnitCommand`s, the `InterfaceState`
+  (DefaultState, or AwaitingTarget of a command) in each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the
+  Peacekeeper's and the Guard's BasicCombatUnit grid), the `Panel` a selection gets (common, group, pending, disabled
+  and unavailable buttons; Back in Z while a target is awaited) and who receives a command (a common one the whole
+  selection, a group one the ActiveGroup). `command_ui/resolution.rs` has what a click resolves to (`CursorTarget`,
+  `right_click`, `target_order`) and the `PointerDisplay` that previews it. Nothing is commandable unless the whole
+  selection is the player's (`commandable`).
+- **Systems** (`CommandUiSystems`): `Validate` (in `SyncSim`, after the selection's sync) ends an AwaitingTarget that
+  no longer holds. `Input` (in `Actions`, after the selection's input) turns Esc, the command hotkeys
+  (`InputAction::CommandSlot`), clicks on the panel (found by `CommandGrid`), left-clicks on the map while a target is
+  awaited and right-clicks into state changes and orders. An order is a `Command::Order` in `PendingCommands` naming
+  only the player's own units, given only if `Sim::validate` takes it, queued while `Queue` (Shift) is held; each one
+  is also an `OrderIssued` message.
+- **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
+  changes; each shows its command and its hotkey from the bindings. The indicators (`command_ui/indicators.rs`) are
+  one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
+  own units' current orders (and queued ones while Shift is held), a flash where an order was just given
+  (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow
+  `> Color language`; a target object the fog hides gets no marker and ends no leg (`Sight::shows`). The pointer
+  (`command_ui/cursor.rs`) shows the `PointerLook`: images drawn in code and cached per look, set as the window's
+  `CursorIcon`, and drawn as a UI node at the injected cursor in QA runs, which render no system cursor.
+- The design leaves some things open (labels, colours, the flash, the cursor's shapes, who carries out a
+  right-click, what an invalid target click does); each placeholder is marked where it is made.
 
 **Bevy code**
 - Write one plugin per feature module (camera, map rendering, HUD, input, …). Keep systems small. Bevy caps a system

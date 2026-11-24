@@ -1,7 +1,8 @@
 //! Selection (`systems/controls/selection_and_hud.md`): client-side UI state, never part of the sim.
 //!
-//! Each player has a ControlState ([`ControlStates`]): a selection grouped by type with an ActiveGroup, and 10
-//! control groups (`> ControlState`, `> Selection`, `> ControlGroups`). The local player's is the one in use; the
+//! Each player has a ControlState ([`ControlStates`]): a selection grouped by type with an ActiveGroup, 10 control
+//! groups and the ObjectInterfaceState of the command flow (`> ControlState`, `> Selection`, `> ControlGroups`;
+//! the command flow is [`crate::command_ui`]). The local player's is the one in use; the
 //! debug player switch ([`crate::input::InputAction::DebugSwitchPlayer`]) changes the local player, and with it
 //! whose state that is and what counts as "own".
 //!
@@ -24,12 +25,13 @@ use std::collections::BTreeMap;
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use sc_sim::PlayerId;
+use sc_sim::{PlayerId, Sim};
 
 pub use model::{ControlGroups, ControlState, GroupKey, MAX_SELECTED, Selection, SelectionGroup};
 pub use pick::{PICK_SLOP_SU, Relation, Selectable, Selectables};
 pub use rules::ClickRoles;
 
+use crate::command_ui::InterfaceState;
 use crate::fog::{FogOfWar, Sight};
 use crate::sim_driver::{LocalPlayer, RenderAlpha, SimRes};
 use crate::{ClientMode, ClientSystems};
@@ -77,6 +79,16 @@ pub struct LocalControl<'w> {
 }
 
 impl LocalControl<'_> {
+    /// The local player.
+    pub fn player(&self) -> PlayerId {
+        self.player.0
+    }
+
+    /// The sim, as this frame shows it.
+    pub fn sim(&self) -> &Sim {
+        &self.sim
+    }
+
     /// The local player's ControlState.
     pub fn state(&self) -> &ControlState {
         self.states.of(self.player.0)
@@ -88,13 +100,18 @@ impl LocalControl<'_> {
         Selectables::new(&self.sim, &sight, self.alpha.0)
     }
 
-    /// Applies `change` to the local player's ControlState. [`ControlStates`] is marked changed only when the state
-    /// did change, so that the HUD and the markers look again only then.
+    /// Applies `change` to the local player's ControlState. A change of the Selection or of its ActiveGroup resets
+    /// the ObjectInterfaceState to DefaultState (`> ObjectInterfaceState[ObjectEnum]`). [`ControlStates`] is marked
+    /// changed only when the state did change, so that the HUD and the markers look again only then.
     pub fn update<R>(&mut self, change: impl FnOnce(&mut ControlState) -> R) -> R {
         let player = self.player.0;
-        let mut state = self.states.of(player).clone();
+        let before = self.states.of(player);
+        let mut state = before.clone();
         let result = change(&mut state);
-        if state != *self.states.of(player) {
+        if state.selection != before.selection {
+            state.interface = InterfaceState::DefaultState;
+        }
+        if state != *before {
             *self.states.of_mut(player) = state;
         }
         result
