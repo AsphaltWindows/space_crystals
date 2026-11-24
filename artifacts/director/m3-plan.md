@@ -1161,6 +1161,10 @@ About 50 TBD notes in the Colonists docs are concentrated in the tech tier. M3 i
 | 0108 | Q0038 point 3 | K1 | Targets 1–4 must hold, and each income figure within ±15% of the table. A larger gap goes back as a question with the measured table. The reference layout is only a benchmark: no gameplay rule may assume it. |
 | 0109 | Q0039 point 1 | E, F | The object is the target structure from the first frame, with its footprint claimed at once. A cancel reverts it (Drone at the footprint centre; Beacon on its original footprint). |
 | 0110 | Q0039 point 2 | E, F | Each frame, `current += (newMax − oldMax)`: damage stays taken, including damage from before the transformation, and is never rescaled. Shields regenerate up to the current maximum. |
+| 0111 | Q0039 point 3 | E, F | On cancel, the original form returns with its own maxima and the same HP and Shields fraction: `max(1, original_max × current ÷ max)`. |
+| 0112 | Q0039 point 4 (and Q0041 point 2 in effect) | C, E, F | A deploying Drone's 1 capacity is freed at deploy start, and the Beacon's 5 arrives at completion. A building being warped in keeps providing 5. A cancel takes the Drone's 1 back even over capacity. Over capacity is allowed and shown red: units stay, and none are built until there's room. |
+| 0113 | Q0039 point 5 | E, F | Transforming structures count for defeat. Cancelling a deployment that was the player's only building defeats them in that tick; the cancel is never refused. |
+| 0114 | Q0039 point 6 | F | A loaded Drone deploys without a detour. The load is kept during deployment, lost on completion, and returned on cancel. |
 
 ## 9. Notes from merged slices for later slices
 
@@ -1173,3 +1177,4 @@ About 50 TBD notes in the Colonists docs are concentrated in the tech tier. M3 i
 | Director | all of wave 2 | E splits `sim/gate.rs` by command family. C and H port their gate edits when merging master. |
 | M3-H | H2, G | A unit blocked by one "on its way" inherits that unit's progress clock (`movement::stuck`). Restarted legs can then keep the units behind from re-routing. H worked around it with `LEG_RETRY_TICKS` = 32. Legs are `MoveGoal::Point` to the nearest open face, because an object goal always planned to the north side. |
 | M3-H | C, E, K1 | `gathering::step` credits banks with `credit_crystals`. Removing the last Egress Node defeats a player who owns no other structure. On the stand-in mover, one Drone at the reference gap delivers every 60 ticks (2.13/s). |
+| M3-C | F, D, K1 | `army_cap` counts own Colonists structures by kind, so a Beacon under deployment counts as 5 until F excludes it (0112). `ScenarioBuilder::faction` builds Colonists tests. The M2 refusal names (`UnitControlCap`) serve every faction. |
