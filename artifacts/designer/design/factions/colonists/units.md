@@ -67,7 +67,7 @@ This rule applies to Drones only. Other factions' workers are not limited by it:
 
 When a Drone arrives at an occupied patch, it goes to the **nearest unoccupied patch to itself** instead. If no patch is unoccupied, it **waits** at the current patch and mines as soon as it frees up.
 
-**Search radius** (user, 2026-11-24): a Drone only looks for another patch **within a radius around itself**. This radius is an internal per-unit stat of the Drone (stat name TBD). Value: **6 grid units (placeholder)**. Which patches count within it (e.g. only ones the player knows): TBD (Q0037 point 5).
+**Search radius** (user, 2026-11-24): a Drone only looks for another patch **within a radius around itself**. This radius is an internal per-unit stat of the Drone (stat name TBD). Value: **6 grid units (placeholder)**. Only patches the **player knows** (currently visible, or remembered from earlier sight) and **not covered by a structure** (e.g. a GDO Extraction Plate) count (user, 2026-11-24); a Drone never "finds" a patch hidden in fog.
 
 #### Interrupted mining
 (user, 2026-11-24) A Drone ordered away (or otherwise stopped) before its 32 MiningDuration frames finish **collects nothing**, and the patch is **freed immediately** for another Drone.

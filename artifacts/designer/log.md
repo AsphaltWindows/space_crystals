@@ -2091,3 +2091,4 @@ Q0045 pt 2 / Q0037 pt 1: Drop Off order = delivery only, then idle/next queued; 
 Q0037 pt 2: loaded Drone ordered to Gather goes to patch, skips mining, returns. Entry 0128.
 Q0037 pt 3: other orders keep the load. Entry 0129.
 Q0037 pt 4: interrupted mining collects nothing, patch frees. Entry 0130.
+Q0037 pt 5: known, uncovered patches only. Entry 0131.
