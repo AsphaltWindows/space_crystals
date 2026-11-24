@@ -69,7 +69,8 @@ The Colonists' foundational structure, created when a Drone deploys into it (see
 ### FullArmor - 0
 ### SightRange - 4 grid units
 ### Destructible - true
-### Groupable - true
+### Groupable - false
+(user, 2026-11-24) A Beacon is used up by a Warp In, like a worker used up by a build, so each Beacon is its own SelectionGroup (systems/controls/selection_and_hud.md > SelectionGroup). With several Beacons selected, Warp In applies to the Beacon the player has Tabbed to.
 ### BeaconCapacity provided - 5
 ### SymmetryType - AAAA
 
@@ -84,6 +85,7 @@ Colonists build every structure other than the Beacon itself by warping it in di
 - Select the Warp In option
 - Select the desired building from the Beacon's Constructs list
 - The building's footprint is shown as a ghost overlay centered on the Beacon's location. The player may rotate the ghost in 90-degree increments and flip it horizontally/vertically before confirming (see core/entities.md > Structure Type)
+- **Odd-sized buildings** (user, 2026-11-24): a building with an odd width or height (e.g. the 3x3 Bio Portal) can't be exactly centred on the 2x2 Beacon; it covers the Beacon and sticks out one extra tile on one side. The ghost starts in a **fixed default position: the extra tiles to the bottom-right**. Rotating and flipping the ghost transforms it **around the Beacon's centre**, so the extra tiles move with it: a horizontal flip moves them to the left/right, a vertical flip to the top/bottom, a 90-degree rotation to the next corner. Every corner can be reached with either orientation of the building (rotation and flip combined), so the player chooses both the corner and the building's facing with the same keys.
 - All footprint tiles must be clear (Buildable, unoccupied), with the exception of the Beacon's own footprint, which will be consumed by the transformation. If the footprint is blocked elsewhere, the ghost is tinted red and placement cannot be confirmed; if clear, it is tinted green
 - Left-click confirms the footprint and begins the transformation. The Beacon is consumed and begins transforming in place into the selected building
 
