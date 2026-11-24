@@ -404,7 +404,7 @@ First playable after M2-H2.
 | Q0024 | Production and rally details: queue limit, Unit Control when queued, several Barracks short of crystals, refunds on destruction, clearing and showing a rally point, rally on an unseen enemy | no | answered by 0081–0088 (M2-D2, M2-H1) |
 | Q0025 | Power penalty: is the DC slowed, the ratio, the display, when power counts | no | answered by 0089 and 0090 (power display is used / available) |
 | Q0026 | GDO build area: shape, shrinking, no DC, overlay | no | answered by 0091, 0092 and 0093 (square, follows the current buildings, overlay shows the area only) |
-| Q0027 | Placement: units under the footprint, plates in fog, buildings on resources, layout rules | no | open |
+| Q0027 | Placement: units under the footprint, plates in fog, buildings on resources, layout rules | no | point 1 answered by 0094 (ground units of any player block placement; M2-C); points 2–4 open |
 | Q0028 | Mining: lumps or trickle, last partial load, depleted patch under a plate, selecting a covered patch | no | open; point 1 before M2-J |
 | Q0029 | What defeat does: the remaining units, victory and game end | no | open |
 | Q0030 | Structures as targets (auto-targeting buildings), build menu slots, building InfoPanels | no | open |
@@ -412,7 +412,7 @@ First playable after M2-H2.
 | Q0032 | Arrival radius behind an occupied destination: 2 or 3 grid units (data from G3) | no | open; M1 keeps 2 |
 
 ## Design change entries
-Last triaged: 0093.
+Last triaged: 0094.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -503,4 +503,5 @@ Last triaged: 0093.
 | 0091 GDO build area is square | queued (M2-C) | matches the plan |
 | 0092 GDO build area follows the current buildings | queued (M2-C) | matches the plan |
 | 0093 Build area overlay shows the area only | queued (M2-H2) | answers Q0026 point 4; matches the plan |
+| 0094 Ground units on the footprint block Direct Placement | queued (M2-C) | answers Q0027 point 1; matches the plan |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

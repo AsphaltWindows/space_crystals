@@ -1133,3 +1133,4 @@ Buildings become targets and get panels in M2.
 | 0090 | Q0025 point 3 | G | The power text is consumed / generated, and turns red when consumption exceeds generation. This replaces "current / total". |
 | 0091, 0092 | Q0026 points 1–3 | C | The build area is square and follows the current buildings. Without a DC, the other buildings still count. Point 4 (the overlay) is still open. |
 | 0093 | Q0026 point 4 | H2 | The overlay shows the build area only. Whether a tile is valid right now shows on the ghost, tile by tile. |
+| 0094 | Q0027 point 1 | C | A ground unit of any player standing on the footprint makes those tiles invalid, and own units are not pushed aside. |
