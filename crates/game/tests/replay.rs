@@ -99,10 +99,14 @@ fn script(tick: Tick) -> Vec<PlayerCommand> {
     }
 }
 
-fn temp_file(name: &str) -> PathBuf {
-    std::env::temp_dir()
-        .join(format!("sc_replay_test_{}", std::process::id()))
-        .join(name)
+/// The file `name` in a fresh directory of test `test`'s own. The tests of this file run as threads of one process,
+/// and each removes its directory when it is done: when two tests shared one (named by the process only), one could
+/// remove it under the other, whose recording was then gone when it read it back.
+fn temp_file(test: &str, name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("sc_replay_test_{test}_{}", std::process::id()));
+    // Left by an earlier run that had the same process id and failed before cleaning up.
+    let _ = std::fs::remove_dir_all(&dir);
+    dir.join(name)
 }
 
 /// The tick an `AppExit` and an update later: the app's last.
@@ -181,7 +185,7 @@ fn top_bar(app: &mut App) -> String {
 /// checkpoint of the latest tick; the file is the game as the sim played it.
 #[test]
 fn games_are_recorded_as_they_run_and_when_the_app_exits() {
-    let path = temp_file("recorded.json");
+    let path = temp_file("recorded", "recorded.json");
     let mut config = AppConfig::new(skirmish());
     config.record = Some(path.clone());
     let mut app = headless(config);
@@ -215,7 +219,7 @@ fn games_are_recorded_as_they_run_and_when_the_app_exits() {
 /// the sim.
 #[test]
 fn a_recorded_game_plays_back_as_it_was_played() {
-    let path = temp_file("played.json");
+    let path = temp_file("played", "played.json");
     let hashes = play_recorded_game(&path, 200);
     let replay = load_replay(&path).unwrap();
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
