@@ -2,6 +2,7 @@
 //! cause, every reference other objects hold to them goes too, so no state ever names an object that is gone.
 
 use super::Sim;
+use crate::economy;
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus};
@@ -16,10 +17,19 @@ impl Sim {
     /// drops it (`Orders::forget`); a move towards one ends as `MoveStatus::TargetLost`; an attack on one stops
     /// (`combat::AttackState::forget`).
     ///
+    /// A plate takes its patch along if that is depleted, in the same tick (`factions/gdo/economy.md >
+    /// ExtractionPlate > On destruction`: "the patch is removed from the map"; a debug removal stands for a
+    /// destruction), which opens its tile (design change 0038); a patch with crystals left stays, uncovered. A plate
+    /// whose patch is removed from under it (a debug command) mines nothing from then on.
+    ///
     /// The grids aren't touched: phase 5b catches up with a footprint that went away, and a removal after it must
     /// sync them (`paths::sync`).
     pub(super) fn remove_objects(&mut self, ids: &[ObjectId]) {
         let mut gone: Vec<ObjectId> = ids.to_vec();
+        gone.extend(
+            ids.iter()
+                .filter_map(|&id| economy::mining::depleted_patch(&self.objects, id)),
+        );
         gone.sort_unstable();
         gone.dedup();
         gone.retain(|id| self.objects.remove(id).is_some());
@@ -53,6 +63,9 @@ fn forget(o: &mut Object, gone: &[ObjectId]) {
     }
     if let Some(attack) = &mut o.attack {
         attack.forget(gone);
+    }
+    if o.extractor.is_some_and(|extractor| is_gone(extractor.patch)) {
+        o.extractor = None;
     }
 }
 

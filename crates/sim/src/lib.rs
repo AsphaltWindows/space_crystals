@@ -14,6 +14,7 @@
 pub mod combat;
 pub mod command;
 pub mod defs;
+pub mod economy;
 pub mod elevation;
 pub mod events;
 pub(crate) mod hash;
@@ -42,7 +43,8 @@ pub mod vision;
 
 pub use combat::{AttackPhase, AttackState};
 pub use command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs};
-pub use defs::{Armor, Category, Footprint, ObjectDef, ObjectKind, StructureDef, SymmetryType};
+pub use defs::{Armor, Category, Footprint, MiningDef, ObjectDef, ObjectKind, StructureDef, SymmetryType};
+pub use economy::{Extractor, PowerSummary, UNIT_CONTROL_CAP};
 pub use events::SimEvent;
 pub use glam::Vec2;
 pub use ids::{ObjectId, PlayerId, SlotId};

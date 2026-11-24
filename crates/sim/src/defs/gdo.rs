@@ -1,6 +1,6 @@
 //! GDO object types — `factions/gdo/`: its units (`units.md`) and its structures (`structures.md`, `economy.md`).
 
-use super::structures::{StructureDef, SymmetryType};
+use super::structures::{MiningDef, StructureDef, SymmetryType};
 use super::units::{
     AttackAttrs, AttackType, FullyConnectedSubtype, MovementAttrs, RiotShieldDef, TargetDomain, TargetType, UnitBase,
     UnitDef,
@@ -89,6 +89,7 @@ pub(super) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 12,   // BuildRadiusExtension - 12 grid units
         power: 30,                    // Power - +30
+        mining: None,
     }),
 };
 
@@ -114,6 +115,7 @@ pub(super) static GENERATOR: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 1,    // BuildRadiusExtension - 1 grid unit
         power: 20,                    // Power - +20
+        mining: None,
     }),
 };
 
@@ -140,6 +142,7 @@ pub(super) static BARRACKS: ObjectDef = ObjectDef {
         symmetry: SymmetryType::ABAC, // SymmetryType - ABAC (top A, right B, bottom A, left C)
         build_radius_extension: 2,    // BuildRadiusExtension - 2 grid units
         power: -30,                   // Power - -30
+        mining: None,
     }),
 };
 
@@ -165,6 +168,7 @@ pub(super) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 2,    // BuildRadiusExtension - 2 grid units
         power: -15,                   // Power - -15
+        mining: None,
     }),
 };
 
@@ -191,5 +195,10 @@ pub(super) static EXTRACTION_PLATE: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 0,    // BuildRadiusExtension - 0
         power: -3,                    // Power - -3
+        mining: Some(MiningDef {
+            load: 10,        // MiningRate - 10 Space Crystals per 48 frames (3 seconds)
+            residual: 1,     // ResidualMiningRate - 1 Space Crystal per 48 frames (3 seconds)
+            cycle_ticks: 48, // "per 48 frames"
+        }),
     }),
 };

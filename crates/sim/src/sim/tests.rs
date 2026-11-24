@@ -46,6 +46,7 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         mover: Some(Mover::default()),
         attack: Some(AttackState::default()),
         riot_shield: Some(RiotShield::Lowered),
+        extractor: None,
     };
     sim.objects.insert(id, unit);
     id
@@ -139,6 +140,16 @@ fn state_hash_covers_every_field() {
     let mut base = small_sim();
     insert_unit(&mut base, Vec2::new(100.0, 100.0)); // id 3
     make_busy(&mut base, 3);
+    // A plate of player 1 on the patch: id 4, mining it halfway through a cycle.
+    let patch = base.objects[&ObjectId(1)].clone();
+    let plate = base.insert_object(
+        ObjectKind::ExtractionPlate,
+        Some(PlayerId(1)),
+        patch.pos,
+        patch.placement,
+        None,
+    );
+    obj(&mut base, plate.0).extractor.as_mut().unwrap().cycle = 7;
     let mutations: Vec<Mutation> = vec![
         ("tick", |s| s.tick += 1),
         ("map", |s| {
@@ -147,6 +158,8 @@ fn state_hash_covers_every_field() {
         ("player id", |s| s.players[0].id = PlayerId(9)),
         ("player name", |s| s.players[0].name.push('!')),
         ("player faction", |s| s.players[0].faction = Faction::Cults),
+        ("player crystals", |s| s.players[0].crystals += 1),
+        ("player supplies", |s| s.players[0].supplies += 1),
         ("player removed", |s| {
             s.players.pop();
         }),
@@ -268,6 +281,11 @@ fn state_hash_covers_every_field() {
         ("riot_shield raised", |s| {
             obj(s, 3).riot_shield = Some(RiotShield::Raised)
         }),
+        ("extractor none", |s| obj(s, 4).extractor = None),
+        ("extractor patch", |s| {
+            obj(s, 4).extractor.as_mut().unwrap().patch = ObjectId(2);
+        }),
+        ("extractor cycle", |s| obj(s, 4).extractor.as_mut().unwrap().cycle += 1),
     ];
     for (name, mutate) in mutations {
         let mut sim = base.clone();

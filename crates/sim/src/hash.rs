@@ -212,10 +212,18 @@ impl StateHash for TileLook {
 
 impl StateHash for Player {
     fn hash(&self, h: &mut StateHasher) {
-        let Player { id, name, faction } = self;
+        let Player {
+            id,
+            name,
+            faction,
+            crystals,
+            supplies,
+        } = self;
         id.hash(h);
         name.hash(h);
         faction.hash(h);
+        crystals.hash(h);
+        supplies.hash(h);
     }
 }
 
@@ -285,6 +293,7 @@ impl StateHash for Object {
             mover,
             attack,
             riot_shield,
+            extractor,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -296,11 +305,13 @@ impl StateHash for Object {
         hp.hash(h);
         placement.hash(h);
         resource.hash(h);
-        // Their impls live with their types (`orders.rs`, `mover.rs`, `combat.rs`, `riot_shield.rs`).
+        // Their impls live with their types (`orders.rs`, `mover.rs`, `combat.rs`, `riot_shield.rs`,
+        // `economy/mining.rs`).
         orders.hash(h);
         mover.hash(h);
         attack.hash(h);
         riot_shield.hash(h);
+        extractor.hash(h);
     }
 }
 

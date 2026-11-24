@@ -292,8 +292,8 @@ impl TestSim {
 }
 
 /// The objects `o` refers to, in no particular order: those its orders (current and queued) name, those its
-/// behaviours engaged by themselves, its move's goal object, and its attack's target and the target of its attack
-/// phase.
+/// behaviours engaged by themselves, its move's goal object, its attack's target and the target of its attack
+/// phase, and the patch a plate mines.
 pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
     let mut ids = Vec::new();
     if let Some(orders) = &o.orders {
@@ -318,6 +318,7 @@ pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
             ids.push(target);
         }
     }
+    ids.extend(o.extractor.map(|extractor| extractor.patch));
     ids
 }
 
@@ -390,6 +391,11 @@ pub fn every_command() -> Vec<Command> {
                 pos: point,
             },
             DebugCommand::SetAutoTargeting { on: false },
+            DebugCommand::SetResources {
+                player: PlayerId(2),
+                crystals: 1234,
+                supplies: 5,
+            },
         ]
         .map(Command::Debug),
     );
@@ -414,7 +420,8 @@ pub fn every_command() -> Vec<Command> {
                 }
                 | DebugCommand::Remove { .. }
                 | DebugCommand::SetPosition { .. }
-                | DebugCommand::SetAutoTargeting { .. },
+                | DebugCommand::SetAutoTargeting { .. }
+                | DebugCommand::SetResources { .. },
             ) => {}
         }
     }

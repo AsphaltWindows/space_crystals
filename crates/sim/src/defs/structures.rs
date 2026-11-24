@@ -15,6 +15,21 @@ pub struct StructureDef {
     /// `Power`: what the type adds to its owner's power, positive for a generator, negative for a consumer
     /// (`factions/gdo/economy.md`).
     pub power: i32,
+    /// How the type mines the Space Crystals patch it stands on (`crate::economy::mining`): the Extraction Plate's
+    /// rates, `None` for every other structure.
+    pub mining: Option<MiningDef>,
+}
+
+/// A mining structure's rates (`factions/gdo/economy.md > ExtractionPlate`): it pays its owner a load at the end of
+/// each cycle, taken from its patch, and the residual amount once the patch is depleted.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct MiningDef {
+    /// `MiningRate`: Space Crystals per cycle, while the patch holds that many (the last load takes what is left).
+    pub load: u32,
+    /// `ResidualMiningRate`: Space Crystals per cycle once the patch is depleted.
+    pub residual: u32,
+    /// The length of a cycle at full power, ticks.
+    pub cycle_ticks: u32,
 }
 
 /// `core/entities.md > Structure Type > SymmetryType`: which of a structure's four sides are alike. The letters name

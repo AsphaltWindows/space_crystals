@@ -80,6 +80,8 @@ There is one exception: an `#[ignore]` perf test under `crates/sim/tests/` may r
   so multiply explicitly. glam is built with its `libm` feature, so glam's own methods are safe.
 - **No engine, frames or logging**: the sim never depends on Bevy, never sees frame time, and never logs or prints.
   Only `Sim::step` advances it.
+- **Money and progress are integers**: banks are `u32`, rates and progress fixed point in `RATIO_ONE` (2^16) a tick
+  (plan decision T6, see *Economy*). No floats in the economy.
 
 ## Time, space and units
 
@@ -150,8 +152,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   (`Mover`, `mover.rs`: goal, status, path, the replanning state of `docs/movement.md > 3` and the sidestep of a
   yielding unit; `mover/` holds the stuck schedule, the sidestep and the hash), for units that
   can attack, `attack` (`AttackState`, `combat.rs`: see *Combat*) and, for units that carry a Riot Shield,
-  `riot_shield` (`RiotShield`, `riot_shield.rs`: the shield's mode, see *Combat*). Production and the rest arrive as
-  more optional fields, each with its own module. Never add them as separate stores keyed by
+  `riot_shield` (`RiotShield`, `riot_shield.rs`: the shield's mode, see *Combat*); for a plate on a patch,
+  `extractor` (`Extractor`, `economy/mining.rs`: the patch it mines and its cycle, see *Economy*). Production and the
+  rest arrive as more optional fields, each with its own module. Never add them as separate stores keyed by
   id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
@@ -164,8 +167,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 - **Structures** (`defs/structures.rs`, `defs/gdo.rs`; `factions/gdo/structures.md`, `factions/gdo/economy.md`): the
   GDO's Deployment Center, Generator, Barracks, Extraction Facility and Extraction Plate (slice M2-A; their
   `ObjectKind`s follow the M1 ones, because the state hash numbers kinds in declaration order). A structure type has
-  `ObjectDef::structure: Some(StructureDef)` (its `SymmetryType`, BuildRadiusExtension and Power, for the later
-  slices) and a tile footprint, `ObjectDef::tile_size` as unturned; its `Placement` holds it as placed, `w` and `h`
+  `ObjectDef::structure: Some(StructureDef)` (its `SymmetryType`, BuildRadiusExtension and Power, and the plate's
+  `MiningDef` in `StructureDef::mining`, see *Economy*) and a tile footprint, `ObjectDef::tile_size` as unturned; its `Placement` holds it as placed, `w` and `h`
   swapped by a quarter turn, with the orientation it was placed in (`Placement::orientation`). It has HP, armour and
   a SightRange, and no orders, mover or attack, so behaviours, movement and combat pass it by.
 - **Sides** (`sides.rs`, design change 0079): `sides(kind, orientation)` gives the letters of a structure's sides
@@ -177,7 +180,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   Extraction Plate and the uncovered crystal patch it is placed onto (`ObjectKind::may_overlap`;
   `factions/gdo/economy.md > ExtractionPlate`). Scenario validation (`scenario/validate/occupied.rs`, for the map's
   objects and the Starting Layouts alike) and debug spawns (`Reject::Overlaps`) apply it. Nothing requires a plate
-  to be on a patch yet.
+  to be on a patch yet; one on bare ground mines nothing (see *Economy*).
 
 **Adding an object type**
 1. Add an `ObjectKind` variant whose doc comment cites the design section, and add it to `ObjectKind::ALL`.
@@ -226,6 +229,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
      (see Movement and collision). Units move one after another in id order and never overlap.
    - 5e `combat::step`: attack phases, the tick's list of hits applied together, deaths (see *Combat*). The dead
      leave through `Sim::remove_objects`, then `paths::sync` runs again in case a footprint went with them.
+   - Economy, `economy::step` (plan decision T5, see *Economy*): after 5e's removals and their `paths::sync`, so
+     that a building destroyed in the tick counts for nothing in it; before 5f, so that what it brings into the game
+     is seen in its own tick. In order: every player's power (the structures this tick's commands placed included),
+     the constructors (slice M2-D1) and producers (M2-D2), the plates' mining, the defeat check (M2-F).
    - 5f `Vision::update`: every player's sight from the objects as the tick leaves them, those this tick's commands
      spawned included (see Vision). Combat in 5e reads the vision of the tick before.
    - `update_supply_stations` (`core/map.md > SupplyDeliveryStation`).
@@ -540,6 +547,45 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   letters, with a legend). The check is on by default; `check_invariants(false)` turns it off for timing runs. A
   test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each step.
 
+## Economy
+
+The players' banks, power and Unit Control, and the plates' mining (`economy.rs`, `economy/`; slice M2-B;
+`factions/gdo/overview.md > GDOResources`, `factions/gdo/economy.md`).
+
+- **Banks** are the only resources stored: `Player::crystals` and `Player::supplies` (`u32`, hashed, and
+  `#[serde(default)]` so that older states load). A game starts them at 0 until the Starting Conditions (slice M2-F);
+  `DebugCommand::SetResources` sets them. Pay with `Player::spend_crystals`, which refuses when the bank is short and
+  leaves it as it was; credit with `Player::credit_crystals`, which saturates (only a debug command fills a bank that
+  far, and input never panics the sim). Every refund goes through `economy::Refund` (`Full`, or `Ready`: 75 %
+  rounded down). Supplies are a counter only: nothing costs them yet (design change 0077).
+- **Power and Unit Control are derived** from the objects whenever they are asked for, never stored, so they can't
+  drift (plan decision T7). `Sim::power(player)` is a `PowerSummary`: `generated` and `consumed`, the HUD's
+  used / available (design change 0090). `Sim::unit_control(player)` is the UnitControlCost of the player's units, out
+  of `UNIT_CONTROL_CAP`; the Unit Control that queued units reserve (design change 0082) goes into
+  `unit_control::reserved`, the hook slice M2-D2 fills. A building counts from the tick it is placed until the tick
+  it leaves the game, that one excluded (design change 0089), because it is among the objects in between. Each call
+  walks the objects once.
+- **Speed in fixed point** (plan decision T6): `RATIO_ONE` (2^16) is 100 %. `PowerSummary::ratio()` is
+  `min(RATIO_ONE, ⌈generated × 2^16 / consumed⌉)`, and `RATIO_ONE` without consumers. `PowerSummary::speed(kind)` is
+  what a structure of that kind advances in a tick: the ratio for a consumer (negative Power), `RATIO_ONE` for any
+  other ("power producers are never slowed", design change 0089). A task of `n` frames at full speed is done when its
+  progress reaches `n × RATIO_ONE`, and the rest carries over. Rounding the ratio up gives an exact ratio its exact
+  tick count: at 30/51 the k-th 48-frame cycle ends in tick ⌈81.6 k⌉.
+- **Mining** (`economy/mining.rs`, `factions/gdo/economy.md > ExtractionPlate`): a structure with a `MiningDef`
+  (`StructureDef::mining`: the plate) that stands on a patch has an `Extractor { patch, cycle }`, linked in
+  `Sim::insert_object` once both are in the game, whichever comes first; a plate on bare ground or without an owner
+  mines nothing. Each tick the cycle advances by the owner's ratio. When it reaches `cycle_ticks × RATIO_ONE` (48
+  frames), the plate pays its owner a whole load: 10 while the patch holds 10, then what is left, then the residual 1
+  forever (design changes 0098, 0099; `SimEvent::PatchDepleted` when the patch reaches 0, and it stays under the
+  plate). Spawn-tick rule: a plate placed in tick `t` pays first in tick `t + 48`.
+- **Removal** (`Sim::remove_objects`): a plate takes its patch along if that is depleted, in the same tick, which
+  opens the tile (design change 0038; the caller's grid sync covers it); a patch with crystals left stays, uncovered.
+  A plate whose patch is removed (only a debug command does that) loses its extractor. `testing::referenced_ids`
+  lists the extractor's patch, so `dangling_references` checks it.
+- **Adding to the economy** (slices M2-D1, M2-D2, M2-F): put the new step into `economy::step` at its numbered
+  place, advance progress by `PowerSummary::speed`, take costs with `spend_crystals` when the command applies, and give
+  refunds through `Refund`.
+
 ## Commands, events and replays
 
 - All player intent is a `Command`. It is wrapped in a `PlayerCommand { player, command }` and collected in one
@@ -592,8 +638,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   debug commands on. `SimConfig::default()` has it off, as a real match will. The client turns it on
   (`AppConfig::new`; off with `--no-debug`), editor play-tests run with it on, and so does `TestSim::new`
   (`TestSim::with_config` or `ScenarioBuilder::config` for other options).
-- `Command::Debug(DebugCommand::…)` covers `Spawn`, `Remove`, `SetPosition` and `SetAutoTargeting` (see
-  *Behaviours*), for development and QA. `Spawn` places a tile-based object in an `orientation`
+- `Command::Debug(DebugCommand::…)` covers `Spawn`, `Remove`, `SetPosition`, `SetAutoTargeting` (see
+  *Behaviours*) and `SetResources` (any player's banks, see *Economy*; the gate checks that the player it names is in
+  the game, `UnknownPlayer`), for development and QA. `Spawn` places a tile-based object in an `orientation`
   (`BuildingOrientation`), which files may leave out: unturned is the default and isn't written, so replays from
   before it load unchanged. It bypasses costs and rules, only works while `SimConfig::debug` is on, and
   is never offered in a real match. A teleport sets `prev_pos = pos`, so nothing interpolates across the map.
@@ -606,7 +653,8 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   is added, so add the new one to it. The client must never submit a command with a non-finite number. The sim
   would reject it anyway, but JSON can't store NaN or ±∞, so the replay file would fail to load. Validate at the
   input layer.
-- **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`, …) are
+- **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`,
+  `PatchDepleted`, …) are
   output only, for effects, sounds and UI. The sim never reads them. `Sim::events()` holds only the latest step's events, and `Sim::new`
   discards the events from the scenario's initial spawns.
 
@@ -703,7 +751,12 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   path field is built (four or more of its units resuming their AttackMove in one tick).
 - **Resource collision tests** are `crates/sim/tests/resources_block.rs` (design change 0038's verification: units
   path around a crystal field, can't walk across a Supply Delivery Station, and walk through the tile of a patch
-  removed by a debug command, standing in for depletion).
+  removed by a debug command, standing in for depletion; `economy_mining.rs` has the real thing, below).
+- **Economy tests** are `crates/sim/tests/economy_mining.rs` (lumps every 48 ticks and the first 48 ticks after
+  placement, the cycles under the power penalty and across a change of ratio, the loads down to the residual, a plate
+  gone from a patch with crystals left or from a depleted one, by a debug removal or in combat, after which a unit
+  walks through the opened tile, and the links in any order) and `economy_resources.rs` (the banks and
+  `SetResources`, power and the ticks a building counts in, Unit Control, a mining game replayed and saved).
 - **Structure tests** are `crates/sim/tests/structures.rs` (each type's stat block, the Barracks in all 16 ways to
   rotate and flip it and its sides, ground units walking around a footprint, PointArmor on hits, a destroyed
   Generator freeing its tiles, debug spawns kept apart but for a plate on its patch, flat ground, the optional

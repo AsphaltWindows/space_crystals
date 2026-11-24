@@ -22,7 +22,7 @@ use crate::rng::Rng;
 use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
 use crate::units::{Tick, TilePos};
 use crate::vision::{VisibilityState, Vision};
-use crate::{combat, movement, orders, riot_shield};
+use crate::{combat, economy, movement, orders, riot_shield};
 
 use gate::Checked;
 pub use gate::Reject;
@@ -119,6 +119,9 @@ impl Sim {
                 id,
                 name: p.name.clone(),
                 faction: p.faction,
+                // The Starting Conditions' banks come with slice M2-F.
+                crystals: 0,
+                supplies: 0,
             })
             .collect::<Vec<Player>>();
         Self {
@@ -319,6 +322,9 @@ impl Sim {
             self.remove_objects(&dead);
             paths::sync(&mut self.nav, &self.map, &self.objects, &mut self.nav_version);
         }
+        // The economy (plan decision T5): after 5e, so that the buildings destroyed this tick count for nothing in
+        // it; before 5f, so that what it brings into the game is seen in its own tick.
+        economy::step(&mut self.objects, &mut self.players, first_new, &mut self.events);
         // 5f: sees the tick's final positions, this tick's new objects included.
         self.vision.update(&self.map, self.objects.values());
         self.update_supply_stations(first_new);
@@ -369,6 +375,11 @@ impl Sim {
                 }
             }
             Checked::AutoTargeting(on) => self.auto_targeting = on,
+            Checked::SetResources {
+                player,
+                crystals,
+                supplies,
+            } => self.set_resources(player, crystals, supplies),
         }
     }
 
@@ -411,6 +422,7 @@ impl Sim {
         self.next_id += 1;
         let def = kind.def();
         let resource = SpawnSettings::resolve(kind, settings).map(|s| s.starting_resource());
+        let is_patch = matches!(resource, Some(ResourceState::CrystalPatch { .. }));
         // Units take orders and move (`systems/units.md > Unit`); they start idle.
         let is_unit = def.unit.is_some();
         let object = Object {
@@ -438,8 +450,14 @@ impl Sim {
                 .as_ref()
                 .and_then(|unit| unit.riot_shield.as_ref())
                 .map(|_| riot_shield::RiotShield::Lowered),
+            // `factions/gdo/economy.md > ExtractionPlate`: a plate mines the patch under it.
+            extractor: economy::mining::extractor_for(&self.objects, kind, placement.as_ref()),
         };
         self.objects.insert(id, object);
+        if is_patch {
+            // A plate may be in the game before the patch under it (a map lists them in any order).
+            economy::mining::link_patch(&mut self.objects, id);
+        }
         self.events.push(SimEvent::Spawned(id));
         id
     }
@@ -487,5 +505,6 @@ mod gate;
 mod load;
 mod preview;
 mod removal;
+mod resources;
 #[cfg(test)]
 mod tests;

@@ -44,4 +44,11 @@ pub enum SimEvent {
         owner: Option<PlayerId>,
         pos: Vec2,
     },
+    /// `plate`'s last load emptied its Space Crystals patch: from now on it mines the residual rate, and the patch
+    /// stays under it with 0 left until the plate is gone (`factions/gdo/economy.md > ExtractionPlate > Depleted
+    /// patch under a plate`).
+    PatchDepleted {
+        patch: ObjectId,
+        plate: ObjectId,
+    },
 }

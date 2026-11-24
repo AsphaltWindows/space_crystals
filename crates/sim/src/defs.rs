@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::player::Faction;
 
 pub use gdo::RIOT_SHIELD_TOGGLE_TICKS;
-pub use structures::{StructureDef, SymmetryType};
+pub use structures::{MiningDef, StructureDef, SymmetryType};
 pub use units::{
     AttackAttrs, AttackType, Domain, FullyConnectedSubtype, MovementAttrs, MovementModel, RiotShieldDef, TargetDomain,
     TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef,
@@ -383,6 +383,17 @@ mod tests {
                 "{kind:?}"
             );
             assert!(def.unit.is_none() && def.needs_flat_ground, "{kind:?}");
+        }
+        // `> ExtractionPlate > MiningRate - 10 Space Crystals per 48 frames`, `> ResidualMiningRate - 1 Space
+        // Crystal per 48 frames`: the plate is the one structure that mines.
+        for &kind in ObjectKind::ALL {
+            let mining = kind.def().structure.as_ref().and_then(|s| s.mining);
+            let expected = (kind == K::ExtractionPlate).then_some(MiningDef {
+                load: 10,
+                residual: 1,
+                cycle_ticks: 48,
+            });
+            assert_eq!(mining, expected, "{kind:?}");
         }
     }
 

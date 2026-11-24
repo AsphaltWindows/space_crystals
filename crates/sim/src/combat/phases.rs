@@ -303,6 +303,7 @@ mod tests {
                     mover: None,
                     attack: None,
                     riot_shield: None,
+                    extractor: None,
                 },
             );
         }

@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::combat::AttackState;
 use crate::defs::{Footprint, ObjectDef, ObjectKind};
+use crate::economy::Extractor;
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::Mover;
 use crate::orders::Orders;
@@ -43,6 +44,10 @@ pub struct Object {
     /// Units that carry a Riot Shield: its mode (`factions/gdo/units.md > Peacekeeper > Riot Shield`;
     /// `riot_shield`).
     pub riot_shield: Option<RiotShield>,
+    /// A structure that mines, standing on a Space Crystals patch: the patch and its mining cycle
+    /// (`factions/gdo/economy.md > ExtractionPlate`; `economy::mining`). `None` for everything else, a plate on bare
+    /// ground included.
+    pub extractor: Option<Extractor>,
 }
 
 impl Object {

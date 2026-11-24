@@ -68,6 +68,13 @@ pub enum DebugCommand {
     /// unit already engaged stays engaged. For tests and QA runs that look at movement between the units of
     /// different players without the fight that would follow.
     SetAutoTargeting { on: bool },
+    /// Set `player`'s banks: Space Crystals and Supplies (`factions/gdo/overview.md > GDOResources`), whoever
+    /// issues it. For tests and QA runs of the economy; a game's starting banks come from the Starting Conditions.
+    SetResources {
+        player: PlayerId,
+        crystals: u32,
+        supplies: u32,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

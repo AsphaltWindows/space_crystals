@@ -246,7 +246,8 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::MoveFailed { .. }
                 | SimEvent::Attacked { .. }
                 | SimEvent::Hit { .. }
-                | SimEvent::Died { .. } => {}
+                | SimEvent::Died { .. }
+                | SimEvent::PatchDepleted { .. } => {}
             }
         }
         unit_steps += sim

@@ -21,7 +21,7 @@ use crate::vision::VisibilityState;
 /// Why the sim ignores a command ([`Sim::validate`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Reject {
-    /// The issuing player is not in the game.
+    /// The issuing player, or the player a debug command names, is not in the game.
     UnknownPlayer(PlayerId),
     /// Debug commands are off in this game ([`super::SimConfig::debug`]).
     DebugDisabled,
@@ -112,6 +112,12 @@ pub(super) enum Checked {
         pos: Vec2,
     },
     AutoTargeting(bool),
+    /// `player`: in the game.
+    SetResources {
+        player: PlayerId,
+        crystals: u32,
+        supplies: u32,
+    },
 }
 
 impl Sim {
@@ -128,7 +134,8 @@ impl Sim {
     ///    [`Reject::NotVisible`]), and for an Attack, units that can attack now ([`Reject::CannotAttack`]); the units
     ///    of an ability that have it ([`Reject::LacksAbility`]); a spawn's owner and placement (a footprint apart
     ///    from the others but for a plate on its patch, [`Reject::Overlaps`]), a teleport to a unit and onto the
-    ///    map, and a unit's box clear of blocked ground and of the units of its layer.
+    ///    map, a unit's box clear of blocked ground and of the units of its layer, and the player whose banks a
+    ///    debug command sets.
     pub fn validate(&self, cmd: &PlayerCommand) -> Result<(), Reject> {
         self.check(cmd).map(|_| ())
     }
@@ -319,6 +326,20 @@ impl Sim {
                 Ok(Checked::Teleport { id, pos })
             }
             DebugCommand::SetAutoTargeting { on } => Ok(Checked::AutoTargeting(on)),
+            DebugCommand::SetResources {
+                player,
+                crystals,
+                supplies,
+            } => {
+                if self.player(player).is_none() {
+                    return Err(Reject::UnknownPlayer(player));
+                }
+                Ok(Checked::SetResources {
+                    player,
+                    crystals,
+                    supplies,
+                })
+            }
         }
     }
 
