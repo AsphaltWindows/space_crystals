@@ -2113,3 +2113,6 @@ Q0042 pt 5: melee reach 8 su placeholder. Entry 0149.
 Q0042 pt 6: Convert and Riot Shield keep orders; shielded Attack on hold (follow), resumes on lower. Entry 0150.
 Q0042 pt 7: Convert/Riot Shield not queueable. Entry 0151.
 Q0042 pt 8: new weapon starts ready after Convert. Entry 0152.
+Q0042 pt 9: Convert during Firing/Cooldown deferred. Entry 0153.
+Q0042 pt 10: HasTurret renamed CanHaveTurret. Entry 0154. Q0042 done.
+Q0034: plate remaining crystals owner only. Entry 0155.

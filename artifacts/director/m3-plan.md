@@ -1220,6 +1220,21 @@ Buildings and units whose costs are TBD show in their slot, unavailable. A trans
 
 **Director:** a new slice, M3-P, after F. |
 | 0144 | Q0041 points 3–4 | D | As built: the Bio Portal's rule on all four sides of the Robo Portal, closest by side midpoint, ties top, right, bottom, left. |
+| 0145 | Q0041 points 5–6 | D2 | **Replaces 0144** with an energy doorway at each portal's centre.
+1. Units materialize at the centre and move straight out through their own portal's footprint until clear.
+2. They may leave in any direction the structure doesn't impede: 360° for the Robo Portal; for the Bio Portal (AABB, top and right by default), a half-circle from the top-left corner direction to the bottom-right one.
+3. They head straight for the RallyPoint if that direction is open. If it is closed or blocked, they go round by the nearest open direction that gets out. With no rally, they take a random open, unblocked direction, deterministically.
+4. With no way out, a unit stays half out at the footprint edge as a normal unit.
+5. The next unit reaches 100% and waits fully inside until the previous units have left (Exit Doorway rule 3). It is refunded if the portal is destroyed.
+
+The Barracks keeps its side doorway (0080). |
+| 0146 | Q0042 points 1–2 | B | Shields regenerate with no ownership condition (neutral objects too), and up to the current maximum while transforming. |
+| 0147 | Q0042 point 3 | B | No modifier applies to Shields; all of them apply to the overflow only. |
+| 0148 | Q0042 point 4 | B | As proposed: a bar above HP, and "Shields a / b" in the InfoPanel. Styling waits for the HUD pass. |
+| 0149 | Q0042 point 5 | B, F | Melee reach is 8 su edge to edge (placeholder), already built. The doc citations still name Q0042 (F fixes them). |
+| 0150 | Q0042 point 6 | B, R | Convert and the Riot Shield are mode switches, so orders stay and the queue is never cleared. A shielded Peacekeeper's existing Attack runs as a Follow and resumes when the shield is lowered. AttackMove and Patrol only move while shielded. A *new* Attack still leaves shielded units out (0075). |
+| 0151 | Q0042 point 7 | B, R | Mode switches happen at once: Shift has no effect, and nothing is queued. |
+| 0152 | Q0042 point 8 | B | The weapon starts ready after conversion. |
 
 ## 9. Notes from merged slices for later slices
 
@@ -1240,3 +1255,4 @@ Buildings and units whose costs are TBD show in their slot, unavailable. A trans
 | M3-E | F, B, J1 | `Transform` is general: from a Drone, `from_placement` is None. `follow_max` and `keep_fraction` (1-HP floor, HP only) serve B's Shields. A deploying Beacon must stay out of `provides_capacity` (F). While transforming, production is None (`NoProducers`), and drop-off and the nearest-node search skip the object. `Sim::warp_in_check` and `transform::warp_in_footprint` are for J1's ghost. The client response to `KindChanged` is generic: `MeshKey`, then `ControlState::set_kind`. |
 | M3-G | H3, K1 | With DragMovement (before the 0035 correction), income per second at 4, 8, 12, 16, 20 and 24 Drones is 6.34, 11.65, 17.54, 23.10, 25.44 and 27.10. The design's table gives 6.1 (4 Drones), 23 (16) and 32 (24). 24 Drones are 15.3% under, and one Drone went 578 ticks without delivering because the nearest-unoccupied redirect bounced it along the row. 0132's wait-at-the-patch rule (H3) should fix that; K1 judges against 0108. |
 | M3-G | all | One nav grid per set again (`GroundRugged, 1`), so nav rebuilds are back to about 1.1 ms. **Accepted deviation from T28:** `Mover::momentum` is hashed and serialized only while it is non-zero, so the goldens are stable. Sidestep, doorway exit and 0126 separation stay kinematic. Braking uses omni thrust at 15/16. Neutral units never separate, because `can_yield` needs an owner. |
+| M3-B | F, R, K2 | `damage::resolve` takes Shields first. `Phase::Shields` sits in the pipeline. `Ability::Convert` lives in `conversion.rs`, and the Modes step in `sim/modes.rs`. The gate's Convert rule lives in the gate's abilities family file. The SelectionPanel shows no Shields, and memory records keep none. A second Convert during a conversion is refused. |

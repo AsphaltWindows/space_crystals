@@ -1,7 +1,7 @@
 # Combat
 
 ## AttackAttributes
-Combat statistics for a unit that can attack. Only present on units that can attack. The attack source (turret or unit base) is determined by the unit's UnitBase HasTurret property. When attacking from a turret, the turret rotates to aim independently of the unit base. When attacking from the unit base, the entire unit must turn to face the target.
+Combat statistics for a unit that can attack. Only present on units that can attack. The attack source is the turret if the unit has TurretAttributes (possible only if its UnitBase has CanHaveTurret = true), otherwise the unit base. When attacking from a turret, the turret rotates to aim independently of the unit base. When attacking from the unit base, the entire unit must turn to face the target.
 
 ### AttackType - AttackTypeEnum (FullyConnected | HeadDisjointed | TailDisjointed | DoublyDisjointed)
 ### TargetDomain - TargetDomainEnum (Ground | Air | Universal)

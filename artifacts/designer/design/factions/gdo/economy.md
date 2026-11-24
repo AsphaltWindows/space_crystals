@@ -150,6 +150,7 @@ GDO resource harvesting structure. Placed onto a Space Crystal Patch by an Extra
 **Depleted patch under a plate**: the patch stays under its plate with 0 crystals left, and the plate keeps mining at ResidualMiningRate indefinitely; the patch is removed only when the plate is destroyed (see On destruction). This is GDO's exception to the general rule that a depleted patch disappears (core/map.md > SpaceCrystalsPatch).
 
 ### InfoPanel: displays remaining Space Crystals in the underlying patch
+**Only the plate's owner** sees the remaining crystals (user, 2026-11-24). Every other player, allies included, gets the reduced panel for other players' structures (name, owner, HP; core/entities.md > Default InfoPanel for structures).
 
 **Selecting a covered patch** (user, 2026-11-24): a click on a plate's tile selects the **plate**; the covered patch can't be selected on its own while the plate is there.
 
