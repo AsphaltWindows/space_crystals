@@ -75,8 +75,8 @@ fn a_legionnaire_may_convert_unless_firing_cooling_down_or_converting() {
 }
 
 /// `> Eligibility`: "interrupting that phase immediately": the aim or the reload ends, the target stays engaged (`>
-/// Orders are kept`, design change 0150), the new weapon will start ready (question Q0042 point 8); and the unit can't
-/// move in its mode, so it makes way for no one.
+/// Orders are kept`, design change 0150), the new weapon will start ready (design change 0152); and the unit can't move
+/// in its mode, so it makes way for no one.
 #[test]
 fn a_conversion_interrupts_an_aim_or_a_reload_and_holds_the_unit() {
     for phase in [AttackPhase::Aiming { target: ObjectId(9) }, AttackPhase::Reloading] {

@@ -334,6 +334,32 @@ fn orders_stay_and_the_unit_carries_on_with_its_other_weapon() {
     assert_eq!(strike, Some(14.0), "a Sabre's strike");
 }
 
+/// Design change 0152's Verification (`> Orders are kept`: "New weapon starts ready"): "Rifle fires, convert during
+/// Reloading: the Sabre begins Aiming as soon as conversion ends and a target is in reach". Player 1's Rifle 1 shoots
+/// player 2's Peacekeeper 2, whose edge is 6 su from its own, within a Sabre's reach too. Converted while Reloading, it
+/// is a Sabre 4 ticks later and Aiming at the Peacekeeper in that very tick: no reload is left to wait for.
+#[test]
+fn the_new_weapon_starts_ready() {
+    let mut t = builder()
+        .spawn(RIFLE, Some(P1), point(200.0, 300.0)) // 1
+        .spawn(PK, Some(P2), point(236.0, 300.0)) // 2: a gap of 36 - 18 - 12 = 6 su
+        .start();
+    t.without_auto_targeting()
+        .order_at(2, P1, &[id(1)], OrderKind::Attack(id(2)), false);
+    while phase(t.sim(), 1) != Some(AttackPhase::Reloading) {
+        assert!(t.sim().tick() < 60, "the Rifle shoots and reloads");
+        t.step();
+    }
+    let tick = t.sim().tick() + 1;
+    t.at(tick, P1, convert(&[1])).run_until(tick + CONVERT_TICKS - 1);
+    assert_eq!(object(t.sim(), 1).kind, RIFLE, "converting");
+    assert_eq!(phase(t.sim(), 1), None, "converting");
+    t.step();
+    assert_eq!(object(t.sim(), 1).kind, SABRE, "tick {}", tick + CONVERT_TICKS);
+    let phase = phase(t.sim(), 1);
+    assert!(matches!(phase, Some(AttackPhase::Aiming { .. })), "{phase:?}");
+}
+
 /// A game saved in the middle of a conversion loads and goes on exactly as the running one, and the whole run, a
 /// mixed group's conversions and a fight included, replays to the same state, also after a JSON round trip.
 #[test]

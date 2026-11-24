@@ -98,9 +98,9 @@ fn until(app: &mut App, wanted: fn(Option<AttackPhase>) -> bool) {
 }
 
 /// `> Weapon Conversion > Convert Command`: "units may be mixed in selection; each converts to its respective other
-/// form". Two Sabres and a Rifle selected, R is one common command, "Convert"; its hotkey sends them all a Convert,
-/// an ability and no order, and 4 ticks on the Sabres are Rifles and the Rifle a Sabre, still selected, each drawn
-/// anew. Its button converts them back, and Shift with R queues nothing (question Q0042 point 7).
+/// form". Two Sabres and a Rifle selected, R is one common command, "Convert"; its hotkey sends them all a Convert, an
+/// ability and no order, and 4 ticks on the Sabres are Rifles and the Rifle a Sabre, still selected, each drawn anew.
+/// Its button converts them back, and Shift with R queues nothing (design change 0151).
 #[test]
 fn r_converts_each_selected_legionnaire_to_its_other_form() {
     let mut app = legion_game();

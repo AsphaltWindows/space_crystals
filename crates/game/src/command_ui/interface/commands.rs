@@ -150,14 +150,14 @@ impl PanelCommand {
     }
 
     /// Whether Shift queues it (`systems/controls/commands.md > Unit Command`): the orders of units. A Shift-click on
-    /// such a command's target also keeps the target awaited (`> AwaitingTarget > Shift while targeting`, design
-    /// change 0070). Abilities, production and construction commands are never queued (Convert: the proposal of
-    /// question Q0042 point 7, a placeholder, "it means nothing; Convert isn't queued"). Set Rally Point is no Unit
-    /// Command: a producer has one rally point, which nothing queues (`factions/gdo/structures.md > Barracks >
+    /// such a command's target also keeps the target awaited (`> AwaitingTarget > Shift while targeting`, design change
+    /// 0070). Abilities, production and construction commands are never queued (Convert: `factions/colonists/units.md >
+    /// Weapon Conversion > Orders are kept`, design change 0151: "holding Shift changes nothing"). Set Rally Point is
+    /// no Unit Command: a producer has one rally point, which nothing queues (`factions/gdo/structures.md > Barracks >
     /// BarracksInstanceState`), so a Shift-click sets it like a plain click and ends the targeting. **Placeholder
-    /// reading**: the design gives Shift no meaning for a rally point; this follows its rule for a builder that
-    /// can't carry out more queued buildings (`> Shift while placing`: "a Shift-click sends it and ends placement
-    /// like a plain click").
+    /// reading**: the design gives Shift no meaning for a rally point; this follows its rule for a builder that can't
+    /// carry out more queued buildings (`> Shift while placing`: "a Shift-click sends it and ends placement like a
+    /// plain click").
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move

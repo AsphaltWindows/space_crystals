@@ -460,18 +460,17 @@ ticks spent in it. Hashed and serialized like all state.
   its HP do and regenerate up to it (design changes 0110 and 0146, `transform::follow_max`), and a cancel keeps
   their fraction, with no minimum (0111, `transform::keep_fraction`). The vision's records keep no Shields.
 - **Weapon Conversion** (`conversion.rs`, `sim/modes.rs`; `factions/colonists/units.md > Weapon Conversion`, plan
-  decision T26): `Ability::Convert` makes each Sabre Legionnaire it goes to a Rifle Legionnaire and each Rifle a
-  Sabre (`conversion::converts_to`). The gate drops the units without another form (`Reject::LacksAbility` when none
-  has one) and those Firing, in Cooldown or converting (`conversion::may_convert`, `> Eligibility`;
-  `Reject::CannotConvert` when none is left, question Q0042 point 9). A Convert cancels an Aim or a Reload, keeping
-  the target (Q0042 point 8: the new weapon starts ready), and starts `Object::conversion` for `CONVERT_TICKS`, 4
-  frames: the unit holds still and doesn't turn (`may_move`, `may_turn`; its behaviours see it can't move;
-  `Mover::speed_factor` 0, so it yields to nobody), its attack idles, and it can be attacked throughout (`>
-  Vulnerability`). Converted in tick `t`, it holds through tick `t + 3`, and the Modes step of `t + 4` makes it its
-  other form through `Sim::change_kind`, HP and Shields unchanged (their maxima are equal), so it moves and fights as
-  that from `t + 4`. Nothing cancels it (`> Completion`): a second Convert is refused, a Stop changes nothing. The
-  orders stay, and it carries on with the other weapon (`> Orders are kept`, design change 0150). Convert isn't
-  queued (Q0042 point 7).
+  decision T26): `Ability::Convert` makes each Sabre Legionnaire it goes to a Rifle Legionnaire and each Rifle a Sabre
+  (`conversion::converts_to`). The gate drops the units without another form (`Reject::LacksAbility` when none has one)
+  and those Firing, in Cooldown or converting (`conversion::may_convert`, `> Eligibility`; `Reject::CannotConvert` when
+  none is left, question Q0042 point 9). A Convert cancels an Aim or a Reload, keeping the target (design change 0152:
+  the new weapon starts ready), and starts `Object::conversion` for `CONVERT_TICKS`, 4 frames: the unit holds still and
+  doesn't turn (`may_move`, `may_turn`; its behaviours see it can't move; `Mover::speed_factor` 0, so it yields to
+  nobody), its attack idles, and it can be attacked throughout (`> Vulnerability`). Converted in tick `t`, it holds
+  through tick `t + 3`, and the Modes step of `t + 4` makes it its other form through `Sim::change_kind`, HP and Shields
+  unchanged (their maxima are equal), so it moves and fights as that from `t + 4`. Nothing cancels it (`> Completion`):
+  a second Convert is refused, a Stop changes nothing. The orders stay, and it carries on with the other weapon (`>
+  Orders are kept`, design change 0150). Convert isn't queued (design change 0151: "holding Shift changes nothing").
 - **Removal path**: `Sim::remove_objects` (`sim/removal.rs`) is the one way objects leave the game, for deaths and
   debug removals alike. It emits `Removed` and clears every reference to the removed: a current order naming one
   completes, queued ones are dropped, a move towards one ends `TargetLost`, an attack on one stops (an aim is

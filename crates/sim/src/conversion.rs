@@ -5,8 +5,8 @@
 //! - **An ability, not an order** (T26): `Ability::Convert` (`> Convert Command`: "Issue the Convert command (panel
 //!   button R)") applies at once, with the tick's commands (`Sim::use_ability`), and leaves the unit's orders as they
 //!   are (`> Orders are kept`, design change 0150): "The unit holds still for the 4 frames, then carries on with its
-//!   current orders using the other weapon". Nothing queues it, so Shift means nothing for it (a placeholder, question
-//!   Q0042 point 7). It has "No resource cost" (`> Cost`).
+//!   current orders using the other weapon". Nothing queues it, so Shift means nothing for it (design change 0151: "Not
+//!   queueable"). It has "No resource cost" (`> Cost`).
 //! - **Who converts** (`> Eligibility`; the gate, `sim/gate/orders.rs`): the player's units that have another form
 //!   ([`converts_to`]: "units may be mixed in selection; each converts to its respective other form") and may convert
 //!   now ([`may_convert`]): "it may be issued freely while the unit is idle, moving, or in the Aiming or Reloading
@@ -17,8 +17,8 @@
 //!   conversion runs to completion over its 4 frames and cannot be cancelled" (`> Completion`), and a second Convert,
 //!   turning it back, would cancel it.
 //! - **The start** ([`start`]): "interrupting that phase immediately": an aim or a reload under way ends, and the new
-//!   weapon starts ready (Q0042 point 8: "A reload in progress isn't carried over"). The unit keeps what its order
-//!   engages.
+//!   weapon starts ready (design change 0152: "a reload in progress on the old weapon is not carried over"). The unit
+//!   keeps what its order engages.
 //! - **Converting** ([`Conversion`], `Object::conversion`; `> Convert Command`: "The unit converts in place over 4
 //!   frames", [`CONVERT_TICKS`]): it holds still. It neither moves nor turns (`combat::may_move`, `combat::may_turn`:
 //!   phase 5d holds it and keeps its goal, and the behaviours start no chase), it makes way for no one (its
@@ -97,7 +97,7 @@ pub(crate) fn start(o: &mut Object) {
     }
     o.conversion = Some(Conversion { left: CONVERT_TICKS });
     // "interrupting that phase immediately": Aiming or Reloading (the gate left out Firing and Cooldown); the new
-    // weapon starts ready (Q0042 point 8).
+    // weapon starts ready (design change 0152).
     if let Some(attack) = &mut o.attack {
         attack.phase = None;
         attack.elapsed = 0;
