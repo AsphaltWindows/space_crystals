@@ -2078,3 +2078,9 @@ Q0039 pt 6: load lost on deploy completion, returned on cancel. Entry 0114.
 Q0039 pt 7: Warp In destroyed = no refund. Entry 0115.
 Q0039 pt 8: transforming objects show only Cancel; functions at completion. Entry 0116. Q0039 done.
 Q0040 pt 1: Drone deploys at footprint centre (safety net if blocked while overlapping). Entry 0117.
+Q0040 pt 2: ground units block Worker-Built and Warp In placement. Entry 0118.
+Q0040 pt 3: Warp In requires Visible tiles. Entry 0119.
+Q0040 pt 4: worker-built ghost judges by player knowledge; order allowed in fog. Entry 0120.
+Q0040 pt 5: odd-sized Warp In ghost default bottom-right; rotate/flip about Beacon centre picks corner. Entry 0121.
+Q0040 pt 6: Beacons Ungroupable. Entry 0122.
+Q0040 pt 7 / Q0037 pt 12: Gather ends only when mined out (no patch within Drone's search radius), delivers first; Shift-queued orders wait. Search radius around Drone, per-unit stat, 6 GU placeholder. Entry 0123.

@@ -2,12 +2,13 @@
 //! (besides a debug teleport).
 //!
 //! Units move one after another in id order. Each steers at its path's steering waypoint, sweeps its box against
-//! the tiles and the other units of its layer, and commits a position that overlaps nothing; the spatial grid is
-//! updated at each commit, so later units see earlier ones where they now are. "No overlap" therefore holds by
-//! construction, and the id order makes it deterministic (`docs/movement.md > 4`).
+//! the tiles and the other units of its layer, and commits a position that overlaps nothing that blocks it
+//! ([`space::blocks`]: every unit but the two exceptions of design change 0106); the spatial grid is updated at
+//! each commit, so later units see earlier ones where they now are. "No overlap" therefore holds by construction,
+//! and the id order makes it deterministic (`docs/movement.md > 4`).
 //!
 //! - [`space`]: the spatial grids (one per collision layer), the box sweep, and [`space::blocks`], the single
-//!   filter for collision exceptions.
+//!   filter for collision exceptions: gathering Drones, and units that already overlap (design change 0106).
 //! - [`collide`]: one unit's move by the rules of `docs/movement.md > 6.3`: lane seeking among the units it has to
 //!   pass (oncoming ones, and idle groups that make way), then the rules after the sweep.
 //! - [`stuck`]: progress, stuck detection and recovery (`docs/movement.md > 6.5`).
@@ -43,6 +44,7 @@ use crate::math;
 use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState};
 use crate::nav::{self, Nav};
 use crate::object::Object;
+use crate::orders::gather;
 use crate::production::Doorway;
 use crate::shape::Shape;
 use crate::units::Tick;
@@ -173,6 +175,8 @@ fn body_of(o: &Object, mover: &Mover, unit: &UnitDef, half: Vec2) -> Body {
         progress: on_its_way.then_some(mover.last_progress),
         arrived_with: mover.group.filter(|_| mover.status == MoveStatus::Arrived),
         yields: yielding::can_yield(o, mover, unit),
+        gathers: gather::on_gather_job(o),
+        leads: stuck::leads(mover),
     }
 }
 

@@ -91,14 +91,18 @@ Structure placement is validated differently depending on the placement method:
 ### Worker-Built Structures (e.g., Agent building a Tunnel, Drone deploying a Beacon)
 - The player queues a build command targeting a map location
 - The command is accepted regardless of current visibility — no visibility check at command time
+- **The ghost judges by what the player knows** (user, 2026-11-24): it is green if, as far as the player knows, nothing blocks the footprint. On Explored tiles it uses remembered terrain and remembered structures; units hidden in fog are ignored. Never-explored tiles pass. The order can be given even where the area isn't visible; the real check happens on arrival.
 - The worker pathfinds to the location and validates on arrival: tiles must be Buildable, flat (core/map.md > Elevation), unoccupied, and meet faction-specific constraints
+- **Units block** (user, 2026-11-24): "unoccupied" includes units, as in Direct Placement: a ground unit of any player on the footprint makes the site invalid; the building worker itself (e.g. the deploying Drone) doesn't count. Air and underground units never block.
 - If validation fails on arrival, the command is cancelled and the worker stops and idles
 - No visibility requirement on arrival (the worker is physically present)
 
 ### Warp In (Colonists Beacon transformation, see factions/colonists/economy.md > Warp In)
 - The player selects an established Beacon, selects Warp In, and selects a target building
-- The building's footprint ghost is centered on the Beacon's location; the player may rotate/flip it before confirming
+- The building's footprint ghost is centered on the Beacon's location; the player may rotate/flip it before confirming. Odd-sized footprints can't be exactly centred: they start offset to the bottom-right and rotate/flip around the Beacon's centre (factions/colonists/economy.md > Warp In > Warp In Command)
 - All footprint tiles must be Buildable, flat (core/map.md > Elevation) and unoccupied, except for the Beacon's own footprint, which will be consumed by the transformation
+- **Units block** (user, 2026-11-24): "unoccupied" includes units, as in Direct Placement: a ground unit of any player on the footprint makes those tiles invalid. Air and underground units never block.
+- **Visible tiles** (user, 2026-11-24): as in Direct Placement, every footprint tile must be **Visible** to the player; a tile that isn't is red on the ghost. This rarely matters (the Beacon's sight covers its surroundings) but keeps the ghost from revealing hidden units in fog.
 - If any tile outside the Beacon's own footprint is blocked, the ghost is shown in red and placement cannot be confirmed
 - Once confirmed, the Beacon begins transforming in place into the selected building (transformation mechanics, HP/Shields interpolation, and cancellation defined in factions/colonists/economy.md > Warp In)
 

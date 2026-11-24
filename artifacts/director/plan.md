@@ -598,15 +598,15 @@ First playable after M2-H2.
 | Q0036 | End of game edge cases: simultaneous last defeats, free-for-all spectating, a raised Riot Shield on defeat | no | open; M2-F2 built the stated current behaviour |
 | Q0037 | Drone gathering: the cases the loop doesn't define (13 points) | no | open; M3-H builds the proposals |
 | Q0038 | Gathering Drones, collision and the economy targets | was yes | answered by 0106 (pass-through), 0107 (geometry), 0108 (±15%) |
-| Q0039 | Beacon Deployment and Warp In: what the transforming object is | no (answer before M3-F) | points 1–7 answered by 0109–0115; point 8 open |
-| Q0040 | Deploy and Warp In placement, and the Colonists panels | no | open |
+| Q0039 | Beacon Deployment and Warp In: what the transforming object is | no (answer before M3-F) | answered by 0109–0116 |
+| Q0040 | Deploy and Warp In placement, and the Colonists panels | no | points 1–6 answered by 0117–0122; points 7–9 open |
 | Q0041 | Portal exits and Beacon Capacity | no | open |
 | Q0042 | Shields, melee range and Weapon Conversion | no | open |
 | Q0043 | M3 scope: the Colonists content left TBD (FYI) | no | open |
 | Q0044 | Gathering details from the build: fog, plates, empty Drop Off, blocked Drones, redirect timing, the Egress Node's sight | no | open; M3-H built the stated current behaviour |
 
 ## Design change entries
-Last triaged: 0115.
+Last triaged: 0122.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -719,4 +719,11 @@ Last triaged: 0115.
 | 0113 Structures under transformation count for defeat | in progress (M3-E); deploy-cancel case queued (M3-F) | answers Q0039 point 5 |
 | 0114 A Drone deploying with a load keeps it; lost on completion, returned on cancel | queued (M3-F) | answers Q0039 point 6 |
 | 0115 A building destroyed mid-Warp-In refunds nothing | in progress (M3-E) | answers Q0039 point 7 |
+| 0116 Transforming objects show only Cancel; functions start at completion | in progress (M3-E sim side); panel queued (M3-J1) | answers Q0039 point 8 |
+| 0117 Deploy start position: the footprint centre, or stopped while overlapping it | queued (M3-F) | answers Q0040 point 1 |
+| 0118 Ground units block Worker-Built and Warp In sites | in progress (M3-E); deploy queued (M3-F) | answers Q0040 point 2 |
+| 0119 Warp In needs Visible tiles | in progress (M3-E, re-briefed); ghost queued (M3-J1) | answers Q0040 point 3; differs from the proposal |
+| 0120 The Worker-Built ghost in fog uses the player's knowledge | queued (M3-F gate, M3-J1 ghost) | answers Q0040 point 4 |
+| 0121 Odd-size Warp In: extras at the bottom-right, turned and flipped about the Beacon centre | in progress (M3-E: footprint derived in the sim; the command drops `origin`); ghost queued (M3-J1) | answers Q0040 point 5; replaces cursor snapping |
+| 0122 Beacons are Ungroupable | in progress (M3-E: the def flag); Tab behaviour queued (M3-J1) | answers Q0040 point 6 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

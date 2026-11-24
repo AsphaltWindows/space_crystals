@@ -436,6 +436,11 @@ pub struct WorkerDef {
     pub mining_reach: f32,
     /// DropOffReach, space units: within this of the drop-off point's edge.
     pub drop_off_reach: f32,
+    /// `factions/colonists/units.md > Drone > Gathering Drones pass through each other` (design change 0106):
+    /// workers of this type that are on a Gather job don't collide with each other, whoever owns them
+    /// (`orders::gather::on_gather_job`, `movement::space::blocks`). "Drones only": the workers of the other
+    /// factions keep normal collision while they mine.
+    pub pass_through: bool,
 }
 
 /// A unit type's own attributes (`systems/units.md > Unit`); the attributes every object type has are on its

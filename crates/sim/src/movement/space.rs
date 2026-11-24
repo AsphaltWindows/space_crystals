@@ -40,15 +40,36 @@ pub(crate) struct Body {
     /// Whether it steps aside for a blocked unit of its owner (`super::yielding::can_yield`, design changes 0022
     /// and 0023).
     pub yields: bool,
+    /// Whether it is a Drone on a Gather job (`orders::gather::on_gather_job`, design change 0106): two such
+    /// bodies don't collide ([`blocks`]).
+    pub gathers: bool,
+    /// (M3-H2) Whether those waiting behind it share its `progress` (`super::stuck::leads`): it has got on since
+    /// its leg began.
+    pub leads: bool,
 }
 
-/// `docs/movement.md > 6.1`: whether `other` is an obstacle for `mover`, both of one layer. **The single place for
-/// collision exceptions.** Today every other unit of the layer blocks, friend or enemy.
+/// `docs/movement.md > 6.1`: whether `other` is an obstacle for `mover`, both of one layer, for the move `mover`
+/// makes this tick from where it stands (`mover.pos`). **The single place for collision exceptions.** Every other
+/// unit of the layer blocks, friend or enemy, except:
+///
+/// 1. **Gathering Drones** (`systems/units.md > UnitCollision > Ground Collision > Exception, gathering Drones`,
+///    design change 0106): two Drones on a Gather job ([`Body::gathers`]) pass through each other, of any player.
+/// 2. **Units that already overlap** (`> Units that already overlap`, design change 0106): two units whose boxes
+///    overlap as the mover's turn begins "ignore each other until they have separated; from then on, normal
+///    collision applies between them. Nothing is pushed apart." It is read off the two boxes each tick and no pair
+///    is remembered: [`overlaps`] is the predicate of invariant I1, so a pair is ignored exactly while I1 would
+///    name it. Only rule 1 ever lets two boxes come to overlap, so the pairs this rule covers are those rule 1 left
+///    behind (a Drone whose job ended inside another) and they only ever part. While it lasts, either may move
+///    freely through the other, deeper in too.
+///
+/// A unit ignored for a move is ignored for the whole of it: the sweeps, the lanes and [`overlaps`] at the
+/// position it commits all ask here. So a move never brings two units to overlap unless one of the two rules
+/// holds between them at its start.
 ///
 /// Crushing (`systems/units.md > UnitCollision > Crushing`) goes here: a moving crusher isn't blocked by a
 /// crushable enemy.
 pub(crate) fn blocks(mover: &Body, other: &Body) -> bool {
-    mover.id != other.id
+    mover.id != other.id && !(mover.gathers && other.gathers) && !overlaps(mover.pos, mover.half, other)
 }
 
 /// One layer's grid (`docs/movement.md > 6.1`): a cell per tile, each unit listed in every cell its box overlaps or
@@ -317,149 +338,4 @@ pub(crate) fn overlaps(pos: Vec2, half: Vec2, body: &Body) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    const REACH: Vec2 = Vec2::splat(24.0);
-
-    fn v(x: f32, y: f32) -> Vec2 {
-        Vec2::new(x, y)
-    }
-
-    #[test]
-    fn a_sweep_finds_the_first_contact_and_its_axis() {
-        // 30 su apart in x: 6 su of free travel.
-        let hit = sweep(v(0.0, 0.0), v(8.0, 0.0), v(30.0, 0.0), REACH).unwrap();
-        assert_eq!((hit.t, hit.axis), (0.75, 0));
-        assert_eq!(
-            sweep(v(0.0, 0.0), v(6.0, 0.0), v(30.0, 0.0), REACH),
-            None,
-            "it ends touching"
-        );
-        // From above, moving down and a little east.
-        let hit = sweep(v(0.0, -30.0), v(1.0, 12.0), v(0.0, 0.0), REACH).unwrap();
-        assert_eq!((hit.t, hit.axis), (0.5, 1));
-    }
-
-    #[test]
-    fn touching_boxes_slide_and_part_freely() {
-        let (a, b) = (v(0.0, 0.0), v(24.0, 0.0));
-        assert_eq!(sweep(a, v(0.0, 5.0), b, REACH), None, "sliding along");
-        assert_eq!(sweep(a, v(-5.0, 3.0), b, REACH), None, "leaving");
-        assert_eq!(sweep(a, v(5.0, 0.0), b, REACH).map(|c| c.t), Some(0.0), "pushing in");
-        assert_eq!(sweep(a, v(0.0, 0.0), b, REACH), None, "standing");
-        // Past each other on the other axis.
-        assert_eq!(sweep(a, v(50.0, 0.0), v(24.0, 24.0), REACH), None);
-    }
-
-    /// A box touching another's corner and moving in on both axes rests on the axis it moves less along.
-    #[test]
-    fn a_corner_contact_keeps_the_larger_motion() {
-        let hit = sweep(v(-24.0, 24.0), v(4.0, -0.5), v(0.0, 0.0), REACH).unwrap();
-        assert_eq!((hit.t, hit.axis), (0.0, 1));
-        let hit = sweep(v(-24.0, 24.0), v(0.5, -4.0), v(0.0, 0.0), REACH).unwrap();
-        assert_eq!((hit.t, hit.axis), (0.0, 0));
-    }
-
-    /// The assigned contact never overlaps by the predicate, whatever the rounding.
-    #[test]
-    fn resting_positions_never_overlap() {
-        let mut rng = crate::rng::Rng::from_seed(5);
-        for _ in 0..20_000 {
-            let other = rng.next_f32() * 16_384.0;
-            for reach in [24.0, 30.0, 36.0, 29.7] {
-                for low_side in [true, false] {
-                    let at = resting(other, reach, low_side);
-                    assert!((at - other).abs() >= reach, "{at} rests inside {other} ± {reach}");
-                    assert!((at - other).abs() < reach + 0.01);
-                }
-            }
-        }
-    }
-
-    /// (G) The cell marks never miss a body that lane seeking would count as oncoming: for every pair of
-    /// directions, a heading against `ahead` by more than the cosine is in one of the sectors of `kinds_against`.
-    #[test]
-    fn the_sectors_against_a_direction_hold_every_heading_against_it() {
-        let mut rng = crate::rng::Rng::from_seed(11);
-        let mut random_direction = || loop {
-            let d = Vec2::new(rng.next_f32() * 2.0 - 1.0, rng.next_f32() * 2.0 - 1.0);
-            if d.length() > 0.1 && d.length() <= 1.0 {
-                break d.normalize();
-            }
-        };
-        let body = |heading: Vec2, yields: bool| Body {
-            id: ObjectId(1),
-            owner: None,
-            pos: Vec2::ZERO,
-            half: Vec2::splat(12.0),
-            velocity: Vec2::ZERO,
-            heading,
-            stationary: false,
-            progress: None,
-            arrived_with: None,
-            yields,
-        };
-        let (mut against, mut others) = (0, 0);
-        for _ in 0..20_000 {
-            // Headings come in any length.
-            let (ahead, heading) = (random_direction(), random_direction() * 37.0);
-            let kinds = kinds_against(ahead, -0.5);
-            assert_eq!(
-                body(heading, false).heads_against(ahead, -0.5),
-                heading.normalize().dot(ahead) < -0.5
-            );
-            if body(heading, false).heads_against(ahead, -0.5) {
-                assert_ne!(body(heading, false).kinds() & kinds, 0, "{heading} against {ahead}");
-                against += 1;
-            } else if body(heading, false).kinds() & kinds == 0 {
-                others += 1;
-            }
-        }
-        assert!(
-            against > 1000 && others > 1000,
-            "the marks also rule most others out: {others}"
-        );
-        for axis in [Vec2::X, Vec2::Y, -Vec2::X, -Vec2::Y] {
-            assert_ne!(body(-axis, false).kinds() & kinds_against(axis, -0.5), 0);
-            assert_eq!(body(axis, false).kinds() & kinds_against(axis, -0.5), 0);
-        }
-        assert_eq!(body(Vec2::ZERO, false).kinds(), 0);
-        assert_eq!(body(Vec2::ZERO, true).kinds(), KIND_YIELDS);
-
-        let mut layer = Layer::default();
-        layer.reset(4, 4);
-        layer.insert(0, v(100.0, 100.0), Vec2::splat(12.0), 0);
-        let mut seen = Vec::new();
-        assert!(!layer.near_any(v(64.0, 64.0), v(70.0, 70.0), KIND_YIELDS, |i| seen.push(i)));
-        layer.mark(v(100.0, 100.0), Vec2::splat(12.0), KIND_YIELDS);
-        assert!(layer.near_any(v(64.0, 64.0), v(70.0, 70.0), KIND_YIELDS, |i| seen.push(i)));
-        assert_eq!(seen, [0]);
-        assert!(!layer.near_any(v(64.0, 64.0), v(70.0, 70.0), 0xff, |i| seen.push(i)));
-        assert!(!layer.near_any(v(130.0, 64.0), v(140.0, 70.0), KIND_YIELDS, |i| seen.push(i)));
-        layer.reset(4, 4);
-        assert!(!layer.near_any(v(0.0, 0.0), v(255.0, 255.0), KIND_YIELDS, |i| seen.push(i)));
-        assert_eq!(seen, [0]);
-    }
-
-    #[test]
-    fn a_layer_lists_a_body_in_every_cell_it_reaches() {
-        let mut layer = Layer::default();
-        layer.reset(4, 4);
-        let half = Vec2::splat(12.0);
-        layer.insert(7, v(64.0, 100.0), half, 0); // straddles tiles (0, 1) and (1, 1)
-        let mut seen = Vec::new();
-        layer.near(v(0.0, 64.0), v(10.0, 70.0), |i| seen.push(i));
-        assert_eq!(seen, [7]);
-        seen.clear();
-        layer.near(v(130.0, 64.0), v(140.0, 70.0), |i| seen.push(i));
-        assert!(seen.is_empty());
-        layer.remove(7, v(64.0, 100.0), half);
-        layer.insert(7, v(200.0, 200.0), half, 0);
-        layer.near(v(0.0, 0.0), v(100.0, 127.0), |i| seen.push(i));
-        assert!(seen.is_empty());
-        layer.reset(4, 4);
-        layer.near(v(0.0, 0.0), v(255.0, 255.0), |i| seen.push(i));
-        assert!(seen.is_empty());
-    }
-}
+mod tests;

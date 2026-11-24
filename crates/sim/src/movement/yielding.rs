@@ -360,6 +360,8 @@ mod tests {
             progress: None,
             arrived_with,
             yields: true,
+            gathers: false,
+            leads: true,
         };
         let (p1, p2) = (Some(PlayerId(1)), Some(PlayerId(2)));
         assert!(yields_to(&body(p1, None), p1, Some(3)));
@@ -370,6 +372,8 @@ mod tests {
         assert!(yields_to(&body(p1, Some(3)), p1, None));
         let busy = Body {
             yields: false,
+            gathers: false,
+            leads: true,
             ..body(p1, None)
         };
         assert!(!yields_to(&busy, p1, None));

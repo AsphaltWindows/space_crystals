@@ -36,21 +36,18 @@
 //! `systems/controls/behaviors.md > MovingToLocation > Occupied target location`, or gave up): at a taken patch
 //! that counts as arriving there, and the occupancy rule applies. Otherwise the worker stands for
 //! [`LEG_RETRY_TICKS`] and tries again from where it is. A Gather never fails: it has no end of its own to fail to
-//! (plan decision T17). **It stands in between** because a worker that set off again at once would be "on its
-//! way" for good, and the units behind a unit that is on its way wait for it instead of looking for a way round
-//! (`movement::stuck`: they take over its progress clock, which every new leg starts afresh). Standing, it is a
-//! unit without a goal, which they route around.
+//! (plan decision T17). **It stands in between**, a back-off: what stopped it short is a unit that won't move
+//! (only units that aren't gathering Drones stop a worker now), and that is rarely gone a tick later. A worker that
+//! set off again at once would ask for a path every dozen ticks and jitter against its blocker; standing, it is a
+//! unit at rest, which the units behind it route around at once. It is no longer what keeps those units from
+//! waiting for ever: a leg that begins again is no progress for them (`movement::stuck::leads`, slice M3-H2).
 //!
-//! **Collision: design change 0106 is not built yet.** It answers question Q0038 point 1 (`factions/colonists/
-//! units.md > Gathering Drones pass through each other`: Drones on a Gather job don't collide with each other) and
-//! arrived while this slice was built, which was told to build the rules as they read before it. So workers still
-//! collide with each other like all ground units, and a worker on a job has an active command, so it never yields
-//! (`systems/units.md > UnitCollision > Ground Collision > Who yields`), whether it mines, waits or travels.
-//! **Crowds gridlock under these rules**: from about one and a half Drones a patch on a row of patches, a Drone
-//! that has mined can't leave for the Drones waiting behind and beside it, and none of them gives way
-//! (`tests/gathering_soak.rs` has the measurements and the smallest jam). Nothing here works around it. 0106 is
-//! the fix: an exception in `movement::space::blocks` for two units on a Gather job, with 0106's rule for units
-//! that already overlap, in a slice of its own.
+//! **Collision** (design change 0106, `factions/colonists/units.md > Drone > Gathering Drones pass through each
+//! other`): Drones on a Gather job don't collide with each other, whoever owns them ([`on_gather_job`]; the
+//! exception itself is `movement::space::blocks`). They collide with everything else, and having an order they
+//! never yield (`systems/units.md > UnitCollision > Ground Collision > Who yields`). So Drones wait, mine and
+//! deliver inside each other, and the patch's occupancy is the only limit. A Drone whose job ends while it is
+//! inside another follows `> Units that already overlap`: the two ignore each other until they are apart.
 
 use glam::Vec2;
 
@@ -59,10 +56,11 @@ use crate::economy::Worker;
 use crate::economy::gathering::is_drop_off;
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::{MoveGoal, MoveStatus};
+use crate::object::Object;
 use crate::units::{Tick, gu};
 
 use super::OrderKind;
-use super::state::{Gather, GatherPhase};
+use super::state::{Behaviour, Gather, GatherPhase};
 use super::world::{Unit, View, World};
 
 /// Placeholder: Q0037 point 5. A worker at a taken patch goes to the nearest free patch its owner knows within
@@ -71,8 +69,22 @@ pub const REDIRECT_RADIUS_GU: f32 = 6.0;
 
 /// A worker whose leg ended short of its target stands for this many ticks before it tries again (module docs).
 /// A placeholder, unspecified (the design has no rule for a worker that can't get to its patch or its drop-off): 2
-/// seconds, longer than the 24 ticks after which the units behind it count it as in their way for good.
+/// seconds.
 pub const LEG_RETRY_TICKS: Tick = 32;
+
+/// `factions/colonists/units.md > Drone > Gathering Drones pass through each other` (design change 0106): whether
+/// `o` is a Drone **on a Gather job**: a worker of a type that passes through its like (`WorkerDef::pass_through`,
+/// "Drones only") whose current order is a Gather or a Drop Off. That is "every step of the jobs in the table":
+/// travelling to the pick-up point, mining, waiting at an occupied patch, carrying the load and delivering it.
+/// An order still queued doesn't count, and neither does a load carried without an order.
+pub(crate) fn on_gather_job(o: &Object) -> bool {
+    let passes = || {
+        let worker = o.kind.def().unit.as_ref().and_then(|unit| unit.worker);
+        worker.is_some_and(|worker| worker.pass_through)
+    };
+    let current = o.orders.as_ref().and_then(|orders| orders.current.as_ref());
+    o.worker.is_some() && current.is_some_and(|active| matches!(active.state, Behaviour::Gather(_))) && passes()
+}
 
 /// `> Patch Occupancy (one Drone per patch)`: the patches claimed so far in this tick's phase 5a, by the workers
 /// with lower ids. Scratch of one phase, never state.
