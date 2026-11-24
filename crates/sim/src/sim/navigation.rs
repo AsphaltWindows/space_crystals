@@ -5,19 +5,20 @@ use super::Sim;
 use crate::ids::PlayerId;
 use crate::movement::MoveCounters;
 use crate::nav::{Nav, NavCounters};
-use crate::object::Object;
 use crate::paths::NavState;
 use crate::paths::knowledge::PathKnowledge;
 
 impl Sim {
-    /// The starting objects are in: tick 0 already shows what they see, and remembers what it saw; every player
-    /// knows the map's resources for its paths (design change 0042); and the grids are built from all of it.
+    /// The starting objects are in: every player knows the neutral objects the map placed, from records of them
+    /// (design change 0159: "known from the start (pathing and memory), like terrain", `Vision::seed`), and nothing
+    /// of the others' starting layouts; tick 0 already shows what they see, and remembers what it saw; and the grids
+    /// are built from all of it (`paths::knowledge`).
     pub(super) fn settle_start(&mut self) {
+        self.vision
+            .seed(self.objects.values().filter(|o| o.owner.is_none()), self.tick);
         self.vision.update(&self.map, self.objects.values());
         self.vision.remember(self.tick, |id| self.objects.get(&id));
-        let objects: Vec<&Object> = self.objects.values().collect();
-        self.path_knowledge = PathKnowledge::start(self.players.iter().map(|p| p.id), &objects, self.nav.nav().rules());
-        self.path_knowledge.observe(&self.vision);
+        self.path_knowledge = PathKnowledge::start(self.players.iter().map(|p| p.id));
         self.nav = NavState::build(&self.map, &self.objects, &self.vision, &self.path_knowledge);
         // Scenario spawns emit no events (`ARCHITECTURE.md > Commands, events and replays`).
         self.events.clear();
@@ -36,8 +37,8 @@ impl Sim {
         self.nav.known(player)
     }
 
-    /// What each player knows for its paths beyond its vision's records: the map resources it still assumes, and
-    /// the version of its knowledge (`systems/controls/behaviors.md > PathKnowledge`).
+    /// What each player knows for its paths beyond its vision's records: the version of its knowledge, and the map
+    /// resources an older save still has it assume (`systems/controls/behaviors.md > PathKnowledge`).
     pub fn path_knowledge(&self) -> &PathKnowledge {
         &self.path_knowledge
     }

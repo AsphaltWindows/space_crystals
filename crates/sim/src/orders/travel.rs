@@ -55,7 +55,15 @@ pub(super) fn walk_to_remembered(unit: &mut Unit, walking: &mut bool, spot: Vec2
 /// - the move fails (`> Failure`);
 /// - the target leaves the owner's vision (design change 0034, extended to Follow): the unit goes to its last seen
 ///   position and the order completes there. The player's own units are always seen.
+///
+/// **Itself** (design change 0168, `systems/controls/commands.md > Move`: "Following itself = Stop"): a unit whose
+/// Move names itself, one of the units a right-click on it ordered, stops: "its order ends at once, as if it had
+/// arrived". Queued, the step ends as soon as it starts, and the next one follows. The others follow it.
 pub(super) fn approach(unit: &mut Unit, id: ObjectId, state: &mut Approach, world: &World) -> bool {
+    if id == unit.id {
+        unit.halt();
+        return true;
+    }
     if state.lost {
         return unit.mover.status != MoveStatus::Moving;
     }

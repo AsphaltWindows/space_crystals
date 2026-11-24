@@ -15,6 +15,12 @@
 //!   destroyed or not (design change 0040: a seen structure in the fog is a wall at its last-known position until
 //!   seen otherwise).
 //! - **Never seen**: an object placed or built on Explored tiles has no record, so it stays unknown until seen.
+//! - **Known from the start** (design change 0159, `systems/controls/behaviors.md > PathKnowledge`: "every neutral
+//!   object placed by the map maker" is "known from the start (pathing and memory), like terrain"): every player
+//!   starts with a record of each neutral object the game starts with, as the map placed it
+//!   ([`super::Vision::seed`]), seen or not; from then on it is a record like any other. A player's starting layout
+//!   has an owner, and nothing of it is known until seen ("it would otherwise reveal their start position and
+//!   faction"); a neutral object that comes into the game later isn't either.
 //! - **Own objects** are never recorded: a player always knows its own objects as they are.
 //!
 //! **Update**, driven by vision changes, never a scan of the map or of every object for every player:
@@ -37,12 +43,11 @@
 //! [`Vision::remember`]: super::Vision::remember
 //! [`Vision::update`]: super::Vision::update
 
+mod footprints;
 #[cfg(test)]
 mod tests;
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::iter::Peekable;
-use std::vec;
 
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
@@ -53,6 +58,8 @@ use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, Placement, ResourceState};
 use crate::units::{Tick, TilePos};
+
+pub(super) use footprints::{Changes, Footprints};
 
 /// `core/vision.md > Explored`: a structure or resource as one player last saw it, at the end of tick `seen`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -135,114 +142,6 @@ fn on(index: &BTreeSet<(u32, ObjectId)>, i: u32) -> impl Iterator<Item = ObjectI
         .map(|&(_, id)| id)
 }
 
-/// The tile-based objects of the sim, by id, and the tiles they cover, so that the memory finds the objects on a
-/// tile. Derived from the objects, kept up by phase 5f's walk.
-#[derive(Clone, Debug)]
-pub(super) struct Footprints {
-    width: u32,
-    height: u32,
-    /// By ascending id.
-    list: Vec<(ObjectId, Placement)>,
-    /// `(tile, id)` for every tile each one covers.
-    tiles: BTreeSet<(u32, ObjectId)>,
-    /// The tiles under at least one.
-    bits: TileBits,
-}
-
-/// What a walk found: the footprints that came and those that went (one that changed is both).
-#[derive(Default)]
-pub(super) struct Changes {
-    added: Vec<(ObjectId, Placement)>,
-    removed: Vec<(ObjectId, Placement)>,
-}
-
-/// Phase 5f's walk over the objects, merging them in id order with the footprints of the walk before.
-pub(super) struct Walk {
-    old: Peekable<vec::IntoIter<(ObjectId, Placement)>>,
-    kept: Vec<(ObjectId, Placement)>,
-    changes: Changes,
-}
-
-impl Footprints {
-    pub(super) fn new(width: u32, height: u32) -> Self {
-        Self {
-            width,
-            height,
-            list: Vec::new(),
-            tiles: BTreeSet::new(),
-            bits: TileBits::new(width as usize * height as usize),
-        }
-    }
-
-    /// Starts a walk: [`Walk::visit`] every object in id order, then [`Footprints::finish`].
-    pub(super) fn walk(&mut self) -> Walk {
-        let old = std::mem::take(&mut self.list);
-        Walk {
-            kept: Vec::with_capacity(old.len()),
-            old: old.into_iter().peekable(),
-            changes: Changes::default(),
-        }
-    }
-
-    /// Ends a walk: the footprints that went leave the index and those that came join it.
-    pub(super) fn finish(&mut self, walk: Walk) -> Changes {
-        let Walk { old, kept, mut changes } = walk;
-        changes.removed.extend(old);
-        let (width, height) = (self.width, self.height);
-        for &(id, placement) in &changes.removed {
-            for i in footprint_tiles(placement, width, height) {
-                self.tiles.remove(&(i, id));
-            }
-        }
-        for &(_, placement) in &changes.removed {
-            for i in footprint_tiles(placement, width, height) {
-                if on(&self.tiles, i).next().is_none() {
-                    self.bits.clear(i as usize);
-                }
-            }
-        }
-        for &(id, placement) in &changes.added {
-            for i in footprint_tiles(placement, width, height) {
-                self.tiles.insert((i, id));
-                self.bits.set(i as usize);
-            }
-        }
-        self.list = kept;
-        changes
-    }
-
-    /// Where the tile-based object `id` stands, if it exists.
-    fn placement(&self, id: ObjectId) -> Option<Placement> {
-        let i = self.list.binary_search_by_key(&id, |&(id, _)| id).ok()?;
-        Some(self.list[i].1)
-    }
-
-    /// The same footprints, indexed the same (V1).
-    pub(super) fn matches(&self, other: &Footprints) -> bool {
-        self.list == other.list && self.tiles == other.tiles && self.bits == other.bits
-    }
-}
-
-impl Walk {
-    /// The next object of the walk, in ascending id order.
-    pub(super) fn visit(&mut self, o: &Object) {
-        while let Some(gone) = self.old.next_if(|&(id, _)| id < o.id) {
-            self.changes.removed.push(gone);
-        }
-        let before = self.old.next_if(|&(id, _)| id == o.id);
-        match (before, o.placement) {
-            (Some(footprint), Some(placement)) if footprint.1 == placement => self.kept.push(footprint),
-            (before, now) => {
-                self.changes.removed.extend(before);
-                if let Some(placement) = now {
-                    self.changes.added.push((o.id, placement));
-                    self.kept.push((o.id, placement));
-                }
-            }
-        }
-    }
-}
-
 /// One player's memory (`core/vision.md > Explored`).
 #[derive(Clone, Debug)]
 pub(super) struct Memory {
@@ -296,6 +195,15 @@ impl PlayerVision {
     /// The player's record of object `id` if the object is out of its sight now: what the views show of it.
     pub fn remembered_record(&self, id: ObjectId) -> Option<&LastKnown> {
         self.record(id).filter(|r| !self.sees_footprint(r.placement))
+    }
+
+    /// The player's records whose footprints share a tile with `placement`, by ascending id: what it knows to stand
+    /// there.
+    pub fn records_on(&self, placement: Placement) -> impl Iterator<Item = &LastKnown> + '_ {
+        let ids: BTreeSet<ObjectId> = footprint_tiles(placement, self.width, self.height)
+            .flat_map(|i| on(&self.memory.tiles, i))
+            .collect();
+        ids.into_iter().filter_map(|id| self.record(id))
     }
 
     /// The objects whose records the latest update ([`super::Vision::update`], phase 5f) dropped because the player

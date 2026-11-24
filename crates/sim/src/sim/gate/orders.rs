@@ -4,13 +4,10 @@
 
 use super::Checked;
 use crate::command::Ability;
-use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
-use crate::player::Faction;
 use crate::sim::{Reject, Sim};
-use crate::vision::VisibilityState;
 use crate::{conversion, riot_shield};
 
 impl Sim {
@@ -115,27 +112,5 @@ impl Sim {
             }
         }
         Ok(Checked::Ability { units, ability })
-    }
-
-    /// The Gather order's target rule, question Q0017 point 2's default (the others follow its answer, design change
-    /// 0139: `Sim::check_target_known`; Gather does once slice M3-H3's gathering rules are in): an order may target
-    /// an object only while the issuing player sees it: a tile it covers is Visible. The one exception is the
-    /// design's (`core/vision.md > Explored Selectability`): a GDO player may target a Supply Delivery Station on
-    /// Explored ground, the one its Explored tiles show: by its last-known record of the station
-    /// (`PlayerVision::remembered_record`), as the client selects it, never by the live tiles. Anything else out of
-    /// sight is `Reject::NotVisible`.
-    pub(in crate::sim) fn check_target_seen(&self, player: PlayerId, target: &Object) -> Result<(), Reject> {
-        let seen = self.vision.object_state(player, target) == VisibilityState::Visible
-            || self.player(player).is_some_and(|p| p.faction == Faction::Gdo)
-                && self
-                    .vision
-                    .player(player)
-                    .and_then(|vision| vision.remembered_record(target.id))
-                    .is_some_and(|record| record.kind == ObjectKind::SupplyDeliveryStation);
-        if seen {
-            Ok(())
-        } else {
-            Err(Reject::NotVisible(target.id))
-        }
     }
 }

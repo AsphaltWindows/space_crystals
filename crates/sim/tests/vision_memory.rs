@@ -1,6 +1,8 @@
 //! Last-known records (`core/vision.md > Explored`: structures and resources show in their last-known state, which
 //! may be out of date): made and refreshed while the player sees the object, kept while it doesn't, dropped once it
-//! sees the place empty; never made of an object placed out of sight; each player's own; hashed, saved and replayed.
+//! sees the place empty; made from the start of the map's neutral objects (design change 0159: "known from the start
+//! (pathing and memory), like terrain"), and never of an object placed out of sight later; each player's own;
+//! hashed, saved and replayed.
 //! No owned structure exists yet, so the patches and stations of the map stand in for structures. `TestSim` checks
 //! V1 after every tick, which compares the records with those a fresh build keeps.
 
@@ -96,15 +98,22 @@ fn records_keep_the_last_state_seen() {
     ));
     let station = record(&t, P1, STATION).unwrap();
     assert_eq!((station.seen, station.resource), (5, at_5), "not seen since tick 5");
-    let player = t.sim().vision().player(P1).unwrap();
-    let remembered: Vec<u32> = player.remembered().map(|r| r.id.0).collect();
-    assert_eq!(remembered, [PATCH, STATION]);
+    let remembered = |t: &TestSim| -> Vec<u32> {
+        let player = t.sim().vision().player(P1).unwrap();
+        player.remembered().map(|r| r.id.0).collect()
+    };
+    assert_eq!(
+        remembered(&t),
+        [PATCH, STATION, FAR_PATCH],
+        "the far one known from the start"
+    );
 
     scout_to(&mut t, 31, 10, 5);
     t.run_until(31);
     let station = record(&t, P1, STATION).unwrap();
     assert_eq!((station.seen, station.resource), (31, Some(resource(&t, STATION))));
-    assert_eq!(t.sim().vision().player(P1).unwrap().remembered().count(), 0);
+    assert_eq!(remembered(&t), [FAR_PATCH]);
+    assert_eq!(record(&t, P1, FAR_PATCH).map(|r| r.seen), Some(0), "never seen");
 }
 
 /// `core/vision.md > Explored`: an object removed out of sight stays remembered (saved and replayed with the game)
@@ -137,8 +146,8 @@ fn a_removed_object_is_remembered_until_its_place_is_seen() {
         assert_eq!(loaded.state_hash(), t.sim().state_hash(), "tick {}", t.sim().tick());
     }
     assert_eq!(record(&t, P1, PATCH), None, "seen gone at tick 15");
-    assert_eq!(ids(t.sim(), P1), [STATION]);
-    assert_eq!(ids(&loaded, P1), [STATION]);
+    assert_eq!(ids(t.sim(), P1), [STATION, FAR_PATCH]);
+    assert_eq!(ids(&loaded, P1), [STATION, FAR_PATCH]);
     assert_eq!(t.replay().run().state_hash(), t.sim().state_hash());
 }
 
@@ -167,13 +176,26 @@ fn an_object_placed_in_the_fog_stays_unknown() {
     assert_eq!(record(&t, P1, placed).map(|r| r.seen), Some(15));
 }
 
-/// Each player remembers what it saw itself.
+/// Each player remembers what it saw itself: the map's objects, which both know from the start (design change 0159),
+/// each as it last saw them, and an object placed later only the player who saw it (player 2, patch 6 on (27, 3)).
 #[test]
 fn players_remember_apart() {
     let mut t = world();
-    t.run_until(3);
-    assert_eq!(ids(t.sim(), P1), [PATCH, STATION]);
-    assert_eq!(ids(t.sim(), P2), [FAR_PATCH]);
+    t.debug_at(
+        1,
+        DebugCommand::Spawn {
+            kind: ObjectKind::CrystalPatch,
+            owner: None,
+            at: SpawnAt::Tile(TilePos::new(27, 3)),
+            orientation: Default::default(),
+        },
+    )
+    .run_until(3);
+    assert_eq!(ids(t.sim(), P1), [PATCH, STATION, FAR_PATCH]);
+    assert_eq!(ids(t.sim(), P2), [PATCH, STATION, FAR_PATCH, 6]);
+    let seen = |player, id| record(&t, player, id).unwrap().seen;
+    assert_eq!((seen(P1, PATCH), seen(P1, FAR_PATCH)), (3, 0));
+    assert_eq!((seen(P2, PATCH), seen(P2, FAR_PATCH)), (0, 3));
 }
 
 /// Two games that end with the same objects and the same Explored tiles, but in one of them player 1 saw the
@@ -194,7 +216,7 @@ fn the_records_are_hashed() {
     assert_eq!(tiles(&seen), tiles(&unseen));
     assert_eq!(
         (ids(seen.sim(), P1), ids(unseen.sim(), P1)),
-        (vec![PATCH, STATION], vec![STATION])
+        (vec![PATCH, STATION, FAR_PATCH], vec![STATION, FAR_PATCH])
     );
     assert_ne!(seen.sim().state_hash(), unseen.sim().state_hash());
 }

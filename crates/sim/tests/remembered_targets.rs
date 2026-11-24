@@ -257,13 +257,14 @@ fn the_walk_to_a_remembered_building_is_the_same_whether_or_not_it_stands() {
 
 /// The gate judges a remembered object by its record (design change 0139: no leak of the real state): an Attack on
 /// a remembered patch is `NotAttackable` whether or not the patch still exists, and a Move to it is taken; an object
-/// the player never saw stays out of reach (`NotVisible`, or `UnknownObject` for an id that names nothing).
+/// the player never saw stays out of reach (`NotVisible`, or `UnknownObject` for an id that names nothing): player
+/// 2's Generator, of its starting layout, never pre-known (design change 0159).
 #[test]
 fn the_gate_takes_remembered_objects_by_their_records() {
     let scenario = ScenarioBuilder::new(&format!("{}\n", ".".repeat(40)).repeat(12))
         .spawn(PK, Some(P1), SpawnAt::Point(Vec2::new(200.0, 300.0)))
         .spawn(ObjectKind::CrystalPatch, None, SpawnAt::Tile(TilePos::new(5, 4)))
-        .spawn(ObjectKind::CrystalPatch, None, SpawnAt::Tile(TilePos::new(35, 4)))
+        .spawn(ObjectKind::Generator, Some(P2), SpawnAt::Tile(TilePos::new(35, 4)))
         .build();
     let mut games: Vec<TestSim> = (0..2).map(|_| TestSim::new(scenario.clone())).collect();
     let (patch, unseen) = (id(2), id(3));

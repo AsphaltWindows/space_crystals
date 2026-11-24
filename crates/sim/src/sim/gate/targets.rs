@@ -15,13 +15,11 @@ use crate::combat::{object_box, object_domain};
 use crate::defs::{Domain, ObjectKind};
 use crate::economy::gathering::{gatherable, is_drop_off};
 use crate::ids::{ObjectId, PlayerId};
-use crate::object::ResourceState;
 use crate::orders::resolution::{Abilities, Aim, Aimed, resolve};
 use crate::orders::{OrderKind, Target};
 use crate::production::Rally;
 use crate::sim::{Reject, Sim};
 use crate::targets::{self, Live, TargetView};
-use crate::vision::LastKnown;
 
 impl Sim {
     /// What `player` knows of object `id` now, by the vision the last tick left (`crate::targets::view`): Visible
@@ -55,13 +53,14 @@ impl Sim {
                 })
             }
             TargetView::Remembered { .. } => {
-                let record = self.vision.player(player)?.record(id)?;
+                let sight = self.vision.player(player)?;
+                let record = sight.record(id)?;
                 Some(Aimed {
                     id,
                     enemy: enemy(record.owner),
                     destructible: record.kind.def().destructible,
                     domain: Domain::Ground,
-                    gatherable: self.remembered_gatherable(player, record),
+                    gatherable: targets::remembered_gatherable(sight, record, self.own_cover(player, id)),
                     drop_off: false,
                 })
             }
@@ -69,22 +68,22 @@ impl Sim {
         }
     }
 
-    /// Question Q0037 point 11 for a patch `player` remembers (`record`): it is a Space Crystals patch, and the
-    /// player knows of no mining structure on it: none of its records of other players' structures, nor any of its
-    /// own (which it always knows).
-    fn remembered_gatherable(&self, player: PlayerId, record: &LastKnown) -> bool {
-        let is_patch = matches!(record.resource, Some(ResourceState::CrystalPatch { .. }));
-        let mines = |kind: ObjectKind| kind.def().structure.as_ref().is_some_and(|s| s.mining.is_some());
-        let known_cover = self.vision.player(player).is_some_and(|vision| {
-            vision
-                .records()
-                .any(|r| r.id != record.id && mines(r.kind) && r.placement.overlaps(&record.placement))
-        });
-        let own_cover = self
-            .objects
-            .values()
-            .any(|o| o.owner == Some(player) && o.extractor.is_some_and(|e| e.patch == record.id));
-        is_patch && !known_cover && !own_cover
+    /// Whether one of `player`'s own mining structures stands on patch `id` (it always knows its own).
+    fn own_cover(&self, player: PlayerId, id: ObjectId) -> bool {
+        (self.objects.values()).any(|o| o.owner == Some(player) && o.extractor.is_some_and(|e| e.patch == id))
+    }
+
+    /// The gate's rule for a Gather's patch (`factions/colonists/units.md > Drone > Unit Commands`: "right-click
+    /// Space Crystal patch"; design change 0139: a patch the player sees or remembers, "Gather" among the targeted
+    /// commands): `player` knows of patch `id` ([`Sim::check_target_known`]), and takes it to be a Space Crystals
+    /// patch with no mining structure on it (design change 0137: "Drones can't gather a patch covered by a plate"),
+    /// as it knows it: a remembered one by its record ([`Reject::NotGatherable`]).
+    pub(in crate::sim) fn check_gather_target(&self, player: PlayerId, id: ObjectId) -> Result<(), Reject> {
+        self.check_target_known(player, id)?;
+        if !self.aimed(player, id).is_some_and(|aimed| aimed.gatherable) {
+            return Err(Reject::NotGatherable(id));
+        }
+        Ok(())
     }
 
     /// `systems/controls/selection_and_hud.md > RightClickResolution` for one unit (`crate::orders::resolution`): the

@@ -5,7 +5,7 @@
 use glam::Vec2;
 
 use super::{Reject, Sim};
-use crate::economy::gathering::{gatherable, is_drop_off};
+use crate::economy::gathering::is_drop_off;
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::ResourceState;
 use crate::orders::state::Behaviour;
@@ -20,16 +20,10 @@ fn gathering(orders: &Orders) -> Option<ObjectId> {
 }
 
 impl Sim {
-    /// The gate for `OrderKind::Gather(patch)` (`factions/colonists/units.md > Drone > Unit Commands`: "right-click
-    /// Space Crystal patch"): the target exists, is a Space Crystals patch with no mining structure on it
-    /// ([`Reject::NotGatherable`]; design change 0137: "Drones can't gather a patch covered by a plate"), and
-    /// `player` sees it, as for every order's target ([`Reject::NotVisible`], question Q0017 point 2).
+    /// The gate for `OrderKind::Gather(patch)`: a patch `player` sees or remembers, and takes to be gatherable, as
+    /// it knows it (design change 0139, `Sim::check_gather_target`).
     pub(super) fn check_gather(&self, player: PlayerId, patch: ObjectId) -> Result<(), Reject> {
-        let target = self.referenced(patch, None)?;
-        if !gatherable(&self.objects, patch) {
-            return Err(Reject::NotGatherable(patch));
-        }
-        self.check_target_seen(player, target)
+        self.check_gather_target(player, patch)
     }
 
     /// The gate for `OrderKind::DropOff(node)` and `Ability::SetDropOff(node)` (`> Unit Commands`: "own Egress
@@ -90,8 +84,8 @@ impl Sim {
     /// 0134 (`factions/colonists/units.md > Patch Occupancy > A patch that runs out`): "a depleted patch is treated
     /// like an occupied one". The behaviour looks round for another patch when the worker is there: at once for
     /// one waiting at it or carrying off its last load, on arrival for one walking to it, after its drop-off for
-    /// one carrying a load back (`orders::gather`). The order goes on naming the patch, the one order the removal
-    /// path doesn't end for naming an object that is gone (`orders::ActiveOrder::live_target`).
+    /// one carrying a load back (`orders::gather`). The order goes on naming the patch
+    /// (`orders::Order::outlives_target`).
     pub(super) fn keep_gatherers_on_spots(&mut self, gone: &[ObjectId]) {
         let spot_of = |id: ObjectId| -> Option<Vec2> {
             let o = self.objects.get(&id).filter(|_| gone.binary_search(&id).is_ok())?;

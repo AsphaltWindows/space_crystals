@@ -38,6 +38,16 @@
 //! (`WorkerDef::search_radius`) around itself, among the patches its owner knows that no plate covers, the nearest
 //! free one it can reach.
 //!
+//! **What the worker goes by** (design change 0139, `core/vision.md > Explored > Targeting remembered objects`:
+//! "Nothing about the real state leaks"): its patch as its owner knows it (`World::known_patch`, the target view of
+//! `crate::targets`), as every order on an object does. A patch the owner sees is the patch as it is. One out of its
+//! sight is where the owner remembers it, standing or not, mined by others or not, plated since or not; and so are
+//! the patches the worker looks round among and the objects it stands clear of on its way (`World::known_fixed`).
+//! The map's patches are known from the start (design change 0159). A Gather on a patch out of its owner's sight
+//! notes where the owner remembers it (`state::Gather::spot`), so that if the patch turns out gone once the worker
+//! sees its place, the order goes on as for a patch that ran out: there, it looks round (0139: "Gather: the redirect
+//! rules").
+//!
 //! **A patch that is gone** — depleted (design change 0134), or under a plate (0137: "the patch then counts as
 //! gone for the Drones, exactly like a patch that runs out") — is treated like an occupied one. A worker that was
 //! there, waiting or mining it (which collects nothing) or carrying away the load that emptied it, looks round at
@@ -91,7 +101,7 @@ use crate::units::Tick;
 
 use super::OrderKind;
 use super::state::{Behaviour, Gather, GatherPhase};
-use super::world::{Unit, View, World};
+use super::world::{KnownPatch, Unit, View, World};
 use legs::{leg, return_leg, spot_shape};
 use search::{search, taken};
 
@@ -126,20 +136,28 @@ pub(crate) fn on_gather_job(o: &Object) -> bool {
 }
 
 /// `> Patch Occupancy (one Drone per patch)`: the patches claimed so far in this tick's phase 5a, each with the
-/// worker that claimed it: one that starts mining it, or one that sets off for it, a free patch it found (design
-/// change 0133: "the lowest-id Drone whose check sees the patch free claims it"). Scratch of one phase, never
+/// worker that claimed it and its owner: one that starts mining it, or one that sets off for it, a free patch it found
+/// (design change 0133: "the lowest-id Drone whose check sees the patch free claims it"). Scratch of one phase, never
 /// state.
 #[derive(Debug, Default)]
-pub(crate) struct Claims(Vec<(ObjectId, ObjectId)>);
+pub(crate) struct Claims(Vec<(ObjectId, ObjectId, Option<PlayerId>)>);
 
 impl Claims {
     /// Whether a worker other than `me` claimed `patch`.
     fn by_other(&self, patch: ObjectId, me: ObjectId) -> bool {
-        self.0.iter().any(|&(p, worker)| p == patch && worker != me)
+        self.0.iter().any(|&(p, worker, _)| p == patch && worker != me)
     }
 
-    fn claim(&mut self, patch: ObjectId, worker: ObjectId) {
-        self.0.push((patch, worker));
+    /// Whether a worker of `owner`'s other than `me` claimed `patch`: all `owner` knows of the claims on a patch out
+    /// of its sight (design change 0139).
+    fn by_other_of(&self, patch: ObjectId, me: ObjectId, owner: Option<PlayerId>) -> bool {
+        self.0
+            .iter()
+            .any(|&(p, worker, of)| p == patch && worker != me && of == owner)
+    }
+
+    fn claim(&mut self, patch: ObjectId, worker: ObjectId, owner: Option<PlayerId>) {
+        self.0.push((patch, worker, owner));
     }
 }
 
@@ -199,6 +217,7 @@ pub(super) fn run(
     else {
         return true;
     };
+    note_spot(*kind, state, unit, world);
     // A phase that ends starts the next one in the same tick. A worker goes through a few at most: it looks round,
     // finds a patch beside it and claims it, say. None of the paths comes back to where it began.
     for _ in 0..6 {
@@ -223,26 +242,37 @@ pub(super) fn run(
     false
 }
 
-/// The order's patch, as the snapshot has it.
-enum Site<'w> {
-    /// A patch workers can gather.
-    Patch(&'w View),
-    /// The shape of a patch that is gone for the workers: one that left the game, where it was (design change
-    /// 0134, `state::Gather::spot`), or one under a plate (0137).
+/// The order's patch, as the worker's owner knows it (module docs: what the worker goes by).
+enum Site {
+    /// A patch workers can gather: one the owner sees, or one it remembers out of its sight (design change 0139),
+    /// which counts as standing where the owner remembers it until the owner sees its place.
+    Patch(KnownPatch),
+    /// The shape of a patch that is gone for the workers: one under a plate (0137), or one gone to the owner, where
+    /// it was (design change 0134, `state::Gather::spot`).
     Gone(Shape),
-    /// Nothing to head for: the order names no patch (a Drop Off, or a save edited by hand).
+    /// Nothing to head for: the order names no patch the owner knows of (a Drop Off, or a save edited by hand).
     Nowhere,
 }
 
-fn site<'w>(kind: OrderKind, state: &Gather, world: &'w World) -> Site<'w> {
+fn site(kind: OrderKind, state: &Gather, unit: &Unit, world: &World) -> Site {
     let OrderKind::Gather(patch) = kind else {
         return Site::Nowhere;
     };
-    match world.get(patch) {
-        Some(view) if view.is_patch && !world.patch_covered(patch) => Site::Patch(view),
-        Some(view) if view.is_patch => Site::Gone(view.shape),
-        Some(_) => Site::Nowhere,
+    match world.known_patch(unit.owner, patch) {
+        Some(known) if !known.covered => Site::Patch(known),
+        Some(known) => Site::Gone(known.shape),
         None => state.spot.map_or(Site::Nowhere, |spot| Site::Gone(spot_shape(spot))),
+    }
+}
+
+/// Design change 0139 (module docs): a Gather notes where its patch is while the patch is out of its owner's sight,
+/// so that it heads on there if the patch turns out gone (`state::Gather::spot`). In sight, it goes by the patch. A
+/// patch gone to the owner leaves the spot as it is: where the patch was (design change 0134).
+fn note_spot(kind: OrderKind, state: &mut Gather, unit: &Unit, world: &World) {
+    if let OrderKind::Gather(patch) = kind
+        && let Some(known) = world.known_patch(unit.owner, patch)
+    {
+        state.spot = (!known.seen).then_some(known.pos);
     }
 }
 
@@ -267,7 +297,7 @@ fn to_patch(
     world: &World,
     claims: &mut Claims,
 ) -> Flow {
-    let site = site(*kind, state, world);
+    let site = site(*kind, state, unit, world);
     let target = match site {
         Site::Patch(patch) => patch.shape,
         Site::Gone(shape) => shape,
@@ -291,8 +321,13 @@ fn to_patch(
         state.enter(GatherPhase::ToDropOff);
         return Flow::Next;
     }
+    // Design change 0139: a patch out of its owner's sight is neither mined nor taken for occupied, whatever stands
+    // there. Within MiningReach the worker sees it, at the latest in the next tick's snapshot.
+    if in_reach && !patch.seen {
+        return Flow::Stay;
+    }
     if in_reach && !taken(world, claims, patch.id, unit.id, false) {
-        claims.claim(patch.id, unit.id);
+        claims.claim(patch.id, unit.id, unit.owner);
         unit.halt();
         state.enter(GatherPhase::Mining { done: 0 });
         return Flow::Stay;
@@ -301,7 +336,7 @@ fn to_patch(
     // itself instead" (0132, item 1; and item 3: one sent on that finds that patch taken too "starts over from
     // there"), and so it does at a patch it can't reach (0141). With none, it waits.
     if let Some(other) = search(world, claims, unit, def, Some(patch.id)).free {
-        go_on(kind, state, unit.id, other, true, claims);
+        go_on(kind, state, (unit.id, unit.owner), other, true, claims);
         return Flow::Next;
     }
     unit.halt();
@@ -318,16 +353,17 @@ fn wait(
     world: &World,
     claims: &mut Claims,
 ) -> Flow {
-    let patch = match site(*kind, state, world) {
+    let patch = match site(*kind, state, unit, world) {
         Site::Patch(patch) => patch,
         // Design change 0134: "Drones already waiting at it look for another patch right away"; 0137, a plate.
         Site::Gone(_) => return find_another(kind, state, unit, def, world, claims),
         Site::Nowhere => return end(state, unit),
     };
-    // 0132, item 1: it "mines it as soon as it frees up"; 0133: the lowest id of those waiting there.
+    // 0132, item 1: it "mines it as soon as it frees up"; 0133: the lowest id of those waiting there. Not one out of
+    // its owner's sight (design change 0139).
     let in_reach = unit.shape().gap(&patch.shape) <= def.mining_reach;
-    if in_reach && !taken(world, claims, patch.id, unit.id, true) {
-        claims.claim(patch.id, unit.id);
+    if in_reach && patch.seen && !taken(world, claims, patch.id, unit.id, true) {
+        claims.claim(patch.id, unit.id, unit.owner);
         state.enter(GatherPhase::Mining { done: 0 });
         return Flow::Stay;
     }
@@ -337,7 +373,7 @@ fn wait(
         return Flow::Stay;
     }
     if let Some(other) = search(world, claims, unit, def, Some(patch.id)).free {
-        go_on(kind, state, unit.id, other, true, claims);
+        go_on(kind, state, (unit.id, unit.owner), other, true, claims);
         return Flow::Next;
     }
     // 0141: short of a patch it couldn't get to, it tries again, "carrying on as soon as the way clears". Not while
@@ -360,7 +396,7 @@ fn mine(
     world: &World,
     claims: &mut Claims,
 ) -> Flow {
-    match site(*kind, state, world) {
+    match site(*kind, state, unit, world) {
         Site::Patch(_) => Flow::Stay,
         Site::Gone(_) => find_another(kind, state, unit, def, world, claims),
         Site::Nowhere => end(state, unit),
@@ -378,7 +414,7 @@ fn to_drop_off(
     // Design change 0134: a worker that is where its patch was when the patch goes (the one that carries off its
     // last load) looks round at once. One farther off goes on, and looks round there after its drop-off.
     if !state.ending
-        && let Site::Gone(spot) = site(*kind, state, world)
+        && let Site::Gone(spot) = site(*kind, state, unit, world)
         && unit.shape().gap(&spot) <= def.mining_reach
     {
         return find_another(kind, state, unit, def, world, claims);
@@ -460,7 +496,7 @@ fn find_another(
     let found = search(world, claims, unit, def, gone);
     match found.free.or(found.any) {
         Some(other) => {
-            go_on(kind, state, unit.id, other, found.free.is_some(), claims);
+            go_on(kind, state, (unit.id, unit.owner), other, found.free.is_some(), claims);
             Flow::Next
         }
         None => end(state, unit),
@@ -469,14 +505,21 @@ fn find_another(
 
 /// The order goes on at `patch` (`OrderKind::Gather`: it names the patch the worker heads for): at once, or after
 /// the drop-off if the worker is on its way back. One that sets off for a `free` patch claims it for this tick
-/// ([`Claims`]).
-fn go_on(kind: &mut OrderKind, state: &mut Gather, me: ObjectId, patch: ObjectId, free: bool, claims: &mut Claims) {
+/// ([`Claims`]), as `me`, the worker and its owner.
+fn go_on(
+    kind: &mut OrderKind,
+    state: &mut Gather,
+    me: (ObjectId, Option<PlayerId>),
+    patch: ObjectId,
+    free: bool,
+    claims: &mut Claims,
+) {
     *kind = OrderKind::Gather(patch);
     state.spot = None;
     if !returning(state) {
         state.enter(GatherPhase::ToPatch);
         if free {
-            claims.claim(patch, me);
+            claims.claim(patch, me.0, me.1);
         }
     }
 }

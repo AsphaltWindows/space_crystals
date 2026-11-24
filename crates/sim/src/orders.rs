@@ -149,6 +149,28 @@ impl Order {
             OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } => None,
         }
     }
+
+    /// The one rule for an order that names an object no longer in the game (design changes 0134 and 0139): whether
+    /// this order goes on naming its target ([`Order::target`]) once the target has left the game. `state` is its
+    /// behaviour's if it is the current order; `remembered`, whether its holder's owner remembers the target out of
+    /// its sight (`PlayerVision::remembered_record`). The removal path (`Sim::remove_objects`), the end of the tick
+    /// (`Sim::follow_targets`) and `testing::dangling_references` all go by it; every other reference to an object
+    /// that is gone goes with the object.
+    /// - **Remembered** (0139, `core/vision.md > Explored > Targeting remembered objects`: "Nothing about the real
+    ///   state leaks"): an Attack, a Move to an object and a Gather go by what their holder's owner knows of the
+    ///   target (`world::World::known`): to its last-known position, as if it stood, until the owner sees its place.
+    ///   Then each ends "the way it would for a vanished target".
+    /// - **A Gather on its way to a spot** (`state::Gather::spot`: where its patch is or was, as its owner last knew
+    ///   it): it goes on there and looks round, whatever its owner knows now. That is how a Gather ends for a vanished
+    ///   target, a patch that ran out (design change 0134) or one seen gone (0139: "Gather: the redirect rules").
+    pub fn outlives_target(&self, state: Option<&Behaviour>, remembered: bool) -> bool {
+        let to_spot = matches!(state, Some(Behaviour::Gather(gather)) if gather.spot.is_some());
+        let by_knowledge = matches!(
+            self.kind,
+            OrderKind::Attack(_) | OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_)
+        );
+        to_spot || (remembered && by_knowledge)
+    }
 }
 
 /// The order a unit is carrying out.
@@ -159,19 +181,6 @@ pub struct ActiveOrder {
     pub since: Tick,
     /// What its behaviour keeps from tick to tick (`systems/controls/behaviors.md > BaseBehaviorState`).
     pub state: Behaviour,
-}
-
-impl ActiveOrder {
-    /// The object the order names ([`Order::target`]) while the order depends on it. `None` for a Gather whose
-    /// patch has left the game and that heads for where it was (design change 0134, `state::Gather::spot`): the one
-    /// order that goes on naming an object that is gone. The removal path doesn't end it, and
-    /// `testing::dangling_references` doesn't count it.
-    pub fn live_target(&self) -> Option<ObjectId> {
-        match &self.state {
-            Behaviour::Gather(gather) if gather.spot.is_some() => None,
-            _ => self.order.target(),
-        }
-    }
 }
 
 /// A unit's orders (`systems/controls/commands.md > Unit Command`): the current one, and the queue of those

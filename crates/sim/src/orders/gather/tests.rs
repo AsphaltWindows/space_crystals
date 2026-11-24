@@ -30,7 +30,7 @@ fn a_job_moves_on_to_another_patch() {
     ] {
         let (mut kind, mut state) = job(phase);
         let mut claims = Claims::default();
-        go_on(&mut kind, &mut state, ME, OTHER, true, &mut claims);
+        go_on(&mut kind, &mut state, (ME, None), OTHER, true, &mut claims);
         assert_eq!(kind, OrderKind::Gather(OTHER));
         assert_eq!(
             (state.phase, state.moving, state.spot),
@@ -46,7 +46,7 @@ fn a_job_moves_on_to_another_patch() {
     ] {
         let (mut kind, mut state) = job(phase);
         let mut claims = Claims::default();
-        go_on(&mut kind, &mut state, ME, OTHER, true, &mut claims);
+        go_on(&mut kind, &mut state, (ME, None), OTHER, true, &mut claims);
         assert_eq!((kind, state.spot), (OrderKind::Gather(OTHER), None));
         assert_eq!((state.phase, state.moving), (phase, true), "it delivers first");
         assert!(!claims.by_other(OTHER, NODE), "{phase:?}");
@@ -54,7 +54,7 @@ fn a_job_moves_on_to_another_patch() {
     // A patch that isn't free is no claim.
     let (mut kind, mut state) = job(GatherPhase::ToPatch);
     let mut claims = Claims::default();
-    go_on(&mut kind, &mut state, ME, OTHER, false, &mut claims);
+    go_on(&mut kind, &mut state, (ME, None), OTHER, false, &mut claims);
     assert!(!claims.by_other(OTHER, NODE));
 }
 

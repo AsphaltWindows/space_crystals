@@ -211,7 +211,9 @@ fn a_random_game_around_the_doorways_keeps_every_invariant() {
     scenario.map.spawns[8].orientation.rotation = Rotation::R180;
     let mut t = TestSim::new(scenario);
     let producers = [ObjectId(2), ObjectId(3), ObjectId(4), ObjectId(9)];
-    let mut rng = Rng::from_seed(0xd00a);
+    // A game with many stalls in the doorways. (Design change 0168 changed the game of seed 0xd00a: a unit that
+    // a random Move sent after itself, which stood there for good, stops now, and its doorway rarely stalls.)
+    let mut rng = Rng::from_seed(0xd00d);
     let mut out = Vec::new();
     let (mut waits, mut in_doorways) = (0u32, 0u32);
     for tick in 1..=3000u32 {

@@ -25,6 +25,7 @@ use crate::units::{SU_PER_GU, Tick, gu};
 use crate::vision::Vision;
 
 use gathering::Gathering;
+pub(crate) use gathering::KnownPatch;
 
 /// An object as the behaviours see it this tick.
 #[derive(Copy, Clone, Debug)]
@@ -267,15 +268,6 @@ impl<'a> World<'a> {
             (TargetView::Remembered { position, .. }, _) => Known::Remembered { position },
             (TargetView::Visible | TargetView::Gone, _) => Known::Gone,
         }
-    }
-
-    /// Whether `owner` knows of `view`, a structure or a map resource: it sees it now, or remembers it (its
-    /// vision's record, `core/vision.md > Explored`). Nobody's units know nothing.
-    pub(crate) fn knows(&self, owner: Option<PlayerId>, view: &View) -> bool {
-        let (lo, hi) = view.shape.bounds();
-        owner
-            .and_then(|owner| self.vision.player(owner))
-            .is_some_and(|sight| sight.sees_box(lo, hi) || sight.record(view.id).is_some())
     }
 
     /// The objects that stand where they are, structures and map resources, in id order.

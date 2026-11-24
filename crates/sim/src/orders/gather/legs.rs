@@ -22,9 +22,10 @@ pub(super) fn spot_shape(spot: Vec2) -> Shape {
 /// The point a leg to `target` heads for (module docs): the point nearest to the unit where its Silhouette stands
 /// against one of the target's four faces, wholly within that face's span, so that a worker stands in front of its
 /// own patch and not half in front of the next one in a row. A face is left out if the worker couldn't stand
-/// there for a structure or a map resource (the faces between the patches of a row). With no face left, the point
-/// nearest to the unit where it touches the target at all; the mover takes it from there (the nearest point it can
-/// reach, design change 0025).
+/// there for a structure or a map resource its owner knows of (the faces between the patches of a row;
+/// `World::known_fixed`, design change 0139: what stands out of the owner's sight is what it remembers there). With
+/// no face left, the point nearest to the unit where it touches the target at all; the mover takes it from there (the
+/// nearest point it can reach, design change 0025).
 fn approach_point(unit: &Unit, target: &Shape, world: &World) -> Vec2 {
     let half = unit.kind.def().half_extents().unwrap_or(Vec2::ZERO);
     let (lo, hi) = target.bounds();
@@ -51,9 +52,10 @@ fn approach_point(unit: &Unit, target: &Shape, world: &World) -> Vec2 {
         let (other_lo, other_hi) = other.bounds();
         p.x - half.x < other_hi.x && other_lo.x < p.x + half.x && p.y - half.y < other_hi.y && other_lo.y < p.y + half.y
     };
+    let known = world.known_fixed(unit.owner);
     faces
         .into_iter()
-        .filter(|&p| !world.fixed().any(|other| overlaps(p, &other.shape)))
+        .filter(|&p| !known.iter().any(|other| overlaps(p, other)))
         .min_by(|a, b| a.distance_squared(unit.pos).total_cmp(&b.distance_squared(unit.pos)))
         .unwrap_or_else(|| unit.pos.clamp(lo - half, hi + half))
 }

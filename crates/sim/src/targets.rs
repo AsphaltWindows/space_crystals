@@ -17,9 +17,10 @@
 
 use glam::Vec2;
 
+use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
-use crate::object::Placement;
-use crate::vision::PlayerVision;
+use crate::object::{Placement, ResourceState};
+use crate::vision::{LastKnown, PlayerVision};
 
 /// What a player knows of an object one of its orders or rally points targets (design change 0139).
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -74,4 +75,20 @@ pub(crate) fn view(sight: Option<&PlayerVision>, player: PlayerId, id: ObjectId,
         },
         None => TargetView::Gone,
     }
+}
+
+/// Question Q0037 point 11 and design change 0137 ("the patch then counts as gone for the Drones") for `record`, an
+/// object the player whose vision is `sight` remembers out of its sight, judged by what the player knows (design
+/// change 0139): whether it is a Space Crystals patch with no mining structure on it that the player knows of. That is
+/// none of its records of the others' structures (`PlayerVision::records_on`), and none of its own (`own_cover`: a
+/// player always knows its own objects). The gate (`Sim::aimed`) and the workers (`orders::world::World::known_patch`)
+/// both go by it.
+pub(crate) fn remembered_gatherable(sight: &PlayerVision, record: &LastKnown, own_cover: bool) -> bool {
+    let is_patch = matches!(record.resource, Some(ResourceState::CrystalPatch { .. }));
+    let mines = |kind: ObjectKind| kind.def().structure.as_ref().is_some_and(|s| s.mining.is_some());
+    is_patch
+        && !own_cover
+        && !sight
+            .records_on(record.placement)
+            .any(|r| r.id != record.id && mines(r.kind))
 }
