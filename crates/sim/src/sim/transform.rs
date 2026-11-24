@@ -82,8 +82,8 @@ impl Sim {
     /// Beacon `beacon` of `player`'s, checked by the gate, warps in `kind` at `placement` (`> Warp In Command`: "The
     /// Beacon is consumed and begins transforming in place into the selected building"): the bank pays the cost (`>
     /// Constructs List`), and the Beacon becomes the building from this frame on (plan decision T15,
-    /// [`Sim::change_kind`]), on its footprint, with its functions held back ([`hold_back`]) and its HP as it was: at
-    /// no frame done, its maximum is still the Beacon's (`> HP/Shields Interpolation`).
+    /// [`Sim::change_kind`]), on its footprint, with its functions held back ([`hold_back`]) and its HP and Shields
+    /// as they were: at no frame done, their maxima are still the Beacon's (`> HP/Shields Interpolation`).
     pub(super) fn start_warp_in(&mut self, player: PlayerId, beacon: ObjectId, kind: ObjectKind, placement: Placement) {
         let Some(o) = self.objects.get(&beacon) else {
             return;
@@ -91,7 +91,7 @@ impl Sim {
         let Some(recipe) = transform::warp_in_recipe(o.kind, kind) else {
             return;
         };
-        let (from, from_placement, hp) = (o.kind, o.placement, o.hp);
+        let (from, from_placement, hp, shields) = (o.kind, o.placement, o.hp, o.shields);
         let Some(bank) = self.players.iter_mut().find(|p| p.id == player) else {
             return;
         };
@@ -104,6 +104,7 @@ impl Sim {
             return;
         };
         o.hp = hp;
+        o.shields = shields;
         hold_back(o);
         o.transform = Some(Transform::new(from, from_placement, recipe));
     }
@@ -113,7 +114,8 @@ impl Sim {
     /// HP/Shields loss)"): its owner gets back [`Refund::Ready`] of what it paid, with a
     /// `SimEvent::TransformCancelled`; it turns back into what it was where it stood ([`Sim::change_kind`]: its old
     /// footprint, design change 0109, or for a unit where it is), its capabilities as that kind's; and it keeps the
-    /// fraction of its HP it had, at least 1 ([`keep_fraction`], [`MIN_HP_AFTER_CANCEL`], design change 0111).
+    /// fraction of its HP it had, at least 1 ([`keep_fraction`], [`MIN_HP_AFTER_CANCEL`], design change 0111), and
+    /// the fraction of its Shields, with no minimum ("Shields by the same fraction (no minimum needed)").
     /// Nothing for an object that isn't an owned one transforming.
     pub(super) fn cancel_transform(&mut self, id: ObjectId) {
         let Some(o) = self.objects.get(&id) else {
@@ -128,6 +130,12 @@ impl Sim {
             (Some(hp), Some(max), Some(restored)) => Some(keep_fraction(hp, max, restored).max(MIN_HP_AFTER_CANCEL)),
             _ => restored,
         };
+        // 0111: "Shields by the same fraction (no minimum needed)" (`crate::shields`).
+        let restored = t.from.def().max_shields;
+        let shields = match (o.shields, o.max_shields(), restored) {
+            (Some(shields), Some(max), Some(restored)) => Some(keep_fraction(shields, max, restored)),
+            _ => restored,
+        };
         let refund = Refund::Ready.of(t.paid);
         if let Some(bank) = self.players.iter_mut().find(|p| p.id == owner) {
             bank.credit_crystals(refund);
@@ -137,26 +145,30 @@ impl Sim {
         if let Some(o) = self.objects.get_mut(&id) {
             o.transform = None;
             o.hp = hp;
+            o.shields = shields;
         }
     }
 
     /// The transformations' part of the economy phase (`crate::transform`; plan decision T5's position, after
     /// construction), for the objects from before this tick (`first_new`) in id order: each transformation, one
     /// that a command of this tick started included (its first frame), advances a frame (plan decision T21: the
-    /// Colonists have no power). Its maxima follow ([`Object::max_hp`]), and its HP rises by what its maximum rises
-    /// ([`follow_max`], design change 0110; slice M3-B's current Shields are to do the same with
-    /// [`Object::max_shields`]). One whose frames are all done completes ([`Sim::complete_transform`]).
+    /// Colonists have no power). Its maxima follow ([`Object::max_hp`], [`Object::max_shields`]), and its HP and its
+    /// Shields rise by what their maxima rise ([`follow_max`], design change 0110: "current += (newMax − oldMax) each
+    /// frame"; `crate::shields`). One whose frames are all done completes ([`Sim::complete_transform`]).
     pub(super) fn step_transforms(&mut self, first_new: ObjectId) {
         let mut completed = Vec::new();
         for o in self.objects.range_mut(..first_new).map(|(_, o)| o) {
             if !o.is_transforming() {
                 continue;
             }
-            let before = o.max_hp();
+            let before = (o.max_hp(), o.max_shields());
             let complete = o.transform.as_mut().is_some_and(|t| t.advance(RATIO_ONE));
-            let after = o.max_hp();
-            if let (Some(hp), Some(before), Some(after)) = (&mut o.hp, before, after) {
+            let after = (o.max_hp(), o.max_shields());
+            if let (Some(hp), Some(before), Some(after)) = (&mut o.hp, before.0, after.0) {
                 *hp = follow_max(*hp, before, after);
+            }
+            if let (Some(shields), Some(before), Some(after)) = (&mut o.shields, before.1, after.1) {
+                *shields = follow_max(*shields, before, after);
             }
             if complete {
                 completed.push(o.id);

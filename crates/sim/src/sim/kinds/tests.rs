@@ -121,6 +121,7 @@ fn a_legionnaire_changes_its_weapon_and_carries_on_with_its_order() {
                 attacker,
                 target,
                 damage,
+                shield_damage: 0.0,
             } => Some((*attacker, *target, *damage)),
             _ => None,
         }));

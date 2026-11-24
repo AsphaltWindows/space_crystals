@@ -23,7 +23,7 @@ use crate::rng::Rng;
 use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
 use crate::units::{Tick, TilePos};
 use crate::vision::{VisibilityState, Vision};
-use crate::{combat, economy, movement, orders};
+use crate::{combat, economy, movement, orders, shields};
 
 use gate::Checked;
 pub use gate::Reject;
@@ -342,6 +342,10 @@ impl Sim {
             self.remove_objects(&dead);
             paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
         }
+        // The Shields regenerate (plan decision T18): after 5e's hits and the removal of the dead, so that the dead
+        // never do; before the economy, whose transformations then raise them with their maxima.
+        observe(Phase::Shields);
+        shields::step(&mut self.objects, first_new);
         // The economy (plan decision T5): after 5e, so that the buildings destroyed this tick count for nothing in
         // it; before 5f, so that what it brings into the game is seen in its own tick.
         observe(Phase::Economy);
@@ -495,6 +499,8 @@ impl Sim {
             facing: 0.0,
             prev_facing: 0.0,
             hp: kind.def().max_hp,
+            // `systems/combat.md > Shields`: full, as the HP (`shields`).
+            shields: kind.def().max_shields,
             placement,
             resource,
             orders,
@@ -506,6 +512,7 @@ impl Sim {
             constructor,
             worker,
             transform: None,
+            conversion: None,
         };
         self.objects.insert(id, object);
         if is_patch {

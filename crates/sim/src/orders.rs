@@ -226,6 +226,7 @@ pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: Object
             mover,
             attack: o.attack.as_mut(),
             may_attack: o.riot_shield.is_none_or(RiotShield::allows_attack),
+            converting: o.conversion.is_some(),
             worker: o.worker.as_mut(),
         };
         update_unit(orders, &mut unit, world, &mut claims);

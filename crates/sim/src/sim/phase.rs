@@ -12,7 +12,7 @@ pub enum Phase {
     DefeatOwners,
     /// The players' commands, through the gate.
     Commands,
-    /// The modes (the Riot Shield) and the behaviours (5a).
+    /// The modes (the Riot Shield, the Weapon Conversion) and the behaviours (5a).
     Behaviours,
     /// The true grids follow the footprints (5b).
     NavSync,
@@ -24,6 +24,8 @@ pub enum Phase {
     Combat,
     /// The dead leave the game and the true grids follow their footprints (5e).
     Deaths,
+    /// The Shields regenerate (`shields`, slice M3-B).
+    Shields,
     /// The economy: construction, mining, the workers, the transformations, then the producers (plan decision T5).
     Economy,
     /// The defeat check's second walk, which ends the economy phase.
@@ -38,7 +40,7 @@ pub enum Phase {
 
 impl Phase {
     /// Every phase, in order, [`Phase::End`] last.
-    pub const ALL: [Phase; 14] = [
+    pub const ALL: [Phase; 15] = [
         Phase::Start,
         Phase::DefeatOwners,
         Phase::Commands,
@@ -48,6 +50,7 @@ impl Phase {
         Phase::Movement,
         Phase::Combat,
         Phase::Deaths,
+        Phase::Shields,
         Phase::Economy,
         Phase::Defeat,
         Phase::Vision,

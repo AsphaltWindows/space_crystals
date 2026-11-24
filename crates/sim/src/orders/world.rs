@@ -58,6 +58,8 @@ pub(crate) struct Unit<'a> {
     pub attack: Option<&'a mut AttackState>,
     /// Whether its mode lets it attack now: not while its Riot Shield is up (`riot_shield::allows_attack`).
     pub may_attack: bool,
+    /// Whether it converts its weapon (`conversion::is_converting`): it holds still meanwhile.
+    pub converting: bool,
     /// A worker's load, patch and drop-off (`economy::gathering`).
     pub worker: Option<&'a mut Worker>,
 }
@@ -81,9 +83,10 @@ impl Unit<'_> {
         Shape::silhouette(self.kind, self.pos, self.facing)
     }
 
-    /// `combat::may_move`: whether its attack sequence leaves its base free to move this tick.
+    /// `combat::may_move`: whether its attack sequence leaves its base free to move this tick, and it isn't
+    /// converting its weapon.
     pub fn may_move(&self) -> bool {
-        combat::base_is_free(self.kind, self.attack.as_deref())
+        !self.converting && combat::base_is_free(self.kind, self.attack.as_deref())
     }
 
     /// Its behaviour engages `target`, or nothing (`AttackState::engage`).

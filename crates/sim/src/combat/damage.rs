@@ -1,5 +1,10 @@
 //! What a hit does — `systems/combat.md > SingleTargetDamage`, `> DamageModifierOrder`, `> DirectionalArmor`,
-//! `> MinimumDamage` — and the tick's list of hits, applied together.
+//! `> MinimumDamage`, `> Shields > Shield Damage Resolution` — and the tick's list of hits, applied together.
+//!
+//! **Shields** (plan decision T18; `crate::shields`) are resolved when a hit is applied, not when it is fired: the
+//! shot puts the attack's Damage on the list with what the target's armour and position make of it ([`Hit`]), and
+//! [`apply`] takes the target's Shields as the hits before it in the list left them ([`resolve`]). So the second of
+//! two hits in a tick meets the Shields the first one left.
 
 use std::collections::BTreeMap;
 
@@ -25,22 +30,70 @@ pub const DIRECTIONAL_SIDE: f32 = 1.0;
 /// `systems/combat.md > DirectionalArmor`: from the rear arc.
 pub const DIRECTIONAL_REAR: f32 = 1.25;
 
-/// One attack's effect on its target, waiting on the tick's list until every unit has acted.
+/// One attack's effect on its target, waiting on the tick's list until every unit has acted: the attack's Damage, and
+/// the target's modifiers as the shot found them (`systems/combat.md > DamageModifierOrder`), for [`resolve`].
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Hit {
     pub attacker: ObjectId,
     pub target: ObjectId,
-    /// HP taken, after every modifier ([`hit_damage`]).
+    /// The attack's Damage, before any modifier: what the target's Shields take, "at full value".
     pub damage: f32,
+    /// The product of the pre-armor multipliers on hits against the target (step 1, [`pre_armor_multiplier`]).
+    pub pre_armor: f32,
+    /// The target's PointArmor (step 2).
+    pub point_armor: f32,
+    /// The DirectionalArmor multiplier, from where the attacker stands (step 3, [`directional_multiplier`]); 1 for a
+    /// target without directional armour.
+    pub directional: f32,
+}
+
+/// What a hit takes from its target ([`resolve`]).
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct Taken {
+    /// Shields lost.
+    pub shields: f32,
+    /// HP lost.
+    pub hp: f32,
 }
 
 /// `systems/combat.md > SingleTargetDamage`: `max((Damage × pre-armor multipliers − PointArmor) × directional
 /// multiplier, MinimumDamage)`, in the order of `> DamageModifierOrder`. HP is fractional (`> MinimumDamage`), so
-/// nothing is rounded.
-///
-/// TODO(Colonists): Shields take the hit first, and only the overflow enters this (`> DamageModifierOrder`).
+/// nothing is rounded. The HP a hit takes from a target without Shields ([`resolve`]).
 pub fn hit_damage(damage: f32, pre_armor: f32, point_armor: f32, directional: f32) -> f32 {
-    ((damage * pre_armor - point_armor) * directional).max(MINIMUM_DAMAGE)
+    hp_damage(damage, pre_armor, point_armor, directional, MINIMUM_DAMAGE)
+}
+
+/// Steps 1 to 4 of `> DamageModifierOrder` on `damage`, with `minimum` as step 4's floor.
+fn hp_damage(damage: f32, pre_armor: f32, point_armor: f32, directional: f32, minimum: f32) -> f32 {
+    ((damage * pre_armor - point_armor) * directional).max(minimum)
+}
+
+/// What `hit` takes from a target with `shields` (its current Shields; `None` for an object without them, which
+/// takes [`hit_damage`]). `> Shields > Shield Damage Resolution`: "Incoming damage is applied to Shields first, at
+/// full value — PointArmor and FullArmor do NOT reduce damage against Shields. If damage exceeds current Shields,
+/// Shields drop to 0 and the remaining (overflow) damage is applied to HP using the normal SingleTargetDamage [...]
+/// armor calculations above [...], with the MinimumDamage capped at the overflow amount [...]. If a unit's current
+/// Shields fully absorb the incoming damage, no HP is lost and armor is never consulted." So the overflow goes
+/// through the steps of `> DamageModifierOrder` ("Colonists Shields are resolved before all of this [...] only the
+/// overflow enters step 1"), with the minimum `min(MinimumDamage, overflow)` (`> MinimumDamage > Shield overflow`:
+/// "HP damage = max(overflow - armor, min(minimum, overflow))"). The pre-armor multipliers and the directional one
+/// touch the overflow only, never the Shields (a placeholder reading of "at full value", question Q0042 point 3).
+pub fn resolve(hit: &Hit, shields: Option<f32>) -> Taken {
+    let Some(shields) = shields else {
+        return Taken {
+            shields: 0.0,
+            hp: hit_damage(hit.damage, hit.pre_armor, hit.point_armor, hit.directional),
+        };
+    };
+    let absorbed = hit.damage.min(shields).max(0.0);
+    let overflow = hit.damage - absorbed;
+    let hp = if overflow > 0.0 {
+        let minimum = MINIMUM_DAMAGE.min(overflow);
+        hp_damage(overflow, hit.pre_armor, hit.point_armor, hit.directional, minimum)
+    } else {
+        0.0
+    };
+    Taken { shields: absorbed, hp }
 }
 
 /// `systems/combat.md > DamageModifierOrder` 1: the product of the pre-armor multipliers on hits against `o` where
@@ -84,9 +137,10 @@ pub fn directional_multiplier(facing: f32, to_source: Vec2) -> f32 {
     }
 }
 
-/// Applies the tick's `hits`, in their order (attacker id order), then finds the dead: every object a hit brought
-/// to 0 HP or less. All hits count, including those on a target an earlier hit in the list has already killed.
-/// Returns the dead in id order, for the removal path.
+/// Applies the tick's `hits`, in their order (attacker id order), each to the Shields and the HP its target has
+/// then ([`resolve`]), then finds the dead: every object a hit brought to 0 HP or less. All hits count, including
+/// those on a target an earlier hit in the list has already killed. Returns the dead in id order, for the removal
+/// path.
 pub(super) fn apply(
     objects: &mut BTreeMap<ObjectId, Object>,
     hits: &[Hit],
@@ -94,15 +148,23 @@ pub(super) fn apply(
 ) -> Vec<ObjectId> {
     let mut struck = Vec::new();
     for hit in hits {
-        let Some(hp) = objects.get_mut(&hit.target).and_then(|o| o.hp.as_mut()) else {
+        let Some(Object {
+            hp: Some(hp), shields, ..
+        }) = objects.get_mut(&hit.target)
+        else {
             continue;
         };
-        *hp -= hit.damage;
+        let taken = resolve(hit, *shields);
+        if let Some(shields) = shields {
+            *shields -= taken.shields;
+        }
+        *hp -= taken.hp;
         struck.push(hit.target);
         events.push(SimEvent::Hit {
             attacker: hit.attacker,
             target: hit.target,
-            damage: hit.damage,
+            damage: taken.hp,
+            shield_damage: taken.shields,
         });
     }
     struck.sort_unstable();

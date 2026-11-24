@@ -8,7 +8,7 @@
 
 use glam::Vec2;
 
-use super::damage::{Hit, directional_multiplier, hit_damage};
+use super::damage::{Hit, directional_multiplier};
 use super::targeting::{TargetView, Targets, domain_allows, reaches};
 use super::{AttackPhase, AttackState};
 use crate::defs::{AttackAttrs, ObjectKind, UnitDef};
@@ -237,7 +237,10 @@ fn fire(shooter: &Shooter, t: &TargetView, hits: &mut Vec<Hit>, events: &mut Vec
     hits.push(Hit {
         attacker: shooter.id,
         target: t.id,
-        damage: hit_damage(shooter.attrs.damage, t.pre_armor, t.point_armor, directional),
+        damage: shooter.attrs.damage,
+        pre_armor: t.pre_armor,
+        point_armor: t.point_armor,
+        directional,
     });
     events.push(SimEvent::Attacked {
         attacker: shooter.id,
@@ -297,6 +300,7 @@ mod tests {
                     facing: 0.0,
                     prev_facing: 0.0,
                     hp: kind.def().max_hp,
+                    shields: kind.def().max_shields,
                     placement: None,
                     resource: None,
                     orders: None,
@@ -308,6 +312,7 @@ mod tests {
                     constructor: None,
                     worker: None,
                     transform: None,
+                    conversion: None,
                 },
             );
         }

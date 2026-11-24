@@ -69,7 +69,11 @@ impl TryFrom<SimState> for Sim {
             path_knowledge,
         } = state;
         let mut objects = BTreeMap::new();
-        for o in list {
+        for mut o in list {
+            // An object saved before it had Shields (slice M3-B, `Object::shields`) is at full Shields.
+            if o.shields.is_none() {
+                o.shields = o.max_shields();
+            }
             if o.id.0 >= next_id {
                 return Err(format!("object id {} is not below next_id {next_id}", o.id.0));
             }
