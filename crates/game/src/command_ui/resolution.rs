@@ -8,8 +8,10 @@
 //!   the rally point's too (design change 0136), on what the unit can do and what the player knows of the target
 //!   (`Sim::aimed`: an object it sees, or one it remembers, design change 0139). A unit that can't carry out the
 //!   command moves to the location or to the object instead, following a unit; so does a unit whose Riot Shield
-//!   keeps it from attacking (design change 0074); a Drone gathers a patch (`factions/colonists/units.md > Drone >
-//!   Right-Click Resolution`). The orders go out grouped, one per distinct order ([`group_orders`]). A producing
+//!   keeps it from attacking (design change 0074); a Drone gathers a patch, delivers its load to its own Egress Node,
+//!   and moves to anything else, following a unit (`factions/colonists/units.md > Drone > Right-Click Resolution`;
+//!   an empty Drone moves to the node, design change 0140). The orders go out grouped, one per distinct order
+//!   ([`group_orders`]). A producing
 //!   structure sets its rally point on what was clicked ([`rally_target`], `> Production Building Default
 //!   Right-Click`): the ground, any object, or itself, which clears it (design change 0086).
 //! - **What a click is on** ([`MapTarget`], `> CursorTarget`): an object the player may select, or a record of one it
@@ -18,18 +20,20 @@
 //!   ([`target_order`]); Attack takes any destructible object, own and neutral ones too (design changes 0059 and
 //!   0064). It goes to every unit of the command's recipients, except that an explicit Attack leaves out the units
 //!   whose Riot Shield keeps them from attacking ([`unit_target_order`], design change 0075); an AttackMove goes to
-//!   all of them (design change 0076). Set Rally Point takes the ground or any object, as the right-click does.
+//!   all of them (design change 0076). Set Rally Point takes the ground or any object, as the right-click does; the
+//!   Drones' Set Drop-off an own Egress Node, which becomes the AssignedDropOff of every one of them (an ability,
+//!   `sc_sim::Ability::SetDropOff`; slice M3-J2).
 //! - **The pointer** ([`pointer_display`]): in DefaultState the one thing the selected objects would all do on a
 //!   right-click, or Mixed when they would do different things (a rally point shows Move: `> Resolution Rules >
-//!   DefaultState`, "Selection is a production building: Move (rally point)"); while a target is awaited, the
-//!   pending command's look over a valid target, else Inactive.
+//!   DefaultState`, "Selection is a production building: Move (rally point)"; a Gather GatherResources, a Drop Off
+//!   ReturnResources); while a target is awaited, the pending command's look over a valid target, else Inactive.
 
 use std::collections::BTreeSet;
 
 use bevy::math::Vec2;
 use sc_sim::defs::Domain;
 use sc_sim::orders::resolution::{Abilities, Aim, Aimed, resolve};
-use sc_sim::{ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target};
+use sc_sim::{Ability, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target};
 
 use super::interface::{InterfaceState, InterfaceTemplate, Modes, PanelCommand};
 use crate::selection::{Relation, Selectables, Selection};
@@ -167,7 +171,8 @@ pub fn capabilities(selection: &Selection, modes: &Modes) -> Vec<(ObjectId, Unit
         .collect()
 }
 
-/// What a click gives one selected object: a unit's order, or a producer's rally point.
+/// What a click gives one selected object: a unit's order, a producer's rally point, or a unit's ability on the
+/// target.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Resolved {
     /// A unit's order (`Command::Order`).
@@ -175,6 +180,9 @@ pub enum Resolved {
     /// A producer's rally point (`ProductionCommand::SetRally`): the ground or an object, the producer itself to
     /// clear it (design change 0086).
     Rally(Target),
+    /// A unit's ability on the target (`Command::Ability`): the Drones' Set Drop-off, on an own Egress Node (slice
+    /// M3-J2). No right-click gives one.
+    Ability(Ability),
 }
 
 /// `> RightClickResolution` for one selected object: a unit's order ([`unit_right_click`]), or, for a producing
@@ -185,14 +193,16 @@ pub enum Resolved {
 pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Option<Resolved> {
     match object.template {
         Some(InterfaceTemplate::Production) => Some(Resolved::Rally(rally_target(target))),
-        // A constructor produces no units, and the Beacon has no right-click.
+        // A constructor produces no units, and the Beacon and the Egress Node have no right-click.
         Some(
-            InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility | InterfaceTemplate::Beacon,
+            InterfaceTemplate::DeploymentCenter
+            | InterfaceTemplate::ExtractionFacility
+            | InterfaceTemplate::Beacon
+            | InterfaceTemplate::EgressNode,
         ) => None,
         // A unit's default command, by the sim's one rule: the BasicCombatUnit's table and the Drone's own
-        // (`factions/colonists/units.md > Drone > Right-Click Resolution`; slice M3-R: "Scout a field and leave, then
-        // right-click a greyed patch with Drones"; the Drone's other UI is slice M3-J2's). Without a template, an
-        // object that transforms, which resolves nothing (`unit_right_click`: it has no abilities then).
+        // (`factions/colonists/units.md > Drone > Right-Click Resolution`; slices M3-R and M3-J2). Without a
+        // template, an object that transforms, which resolves nothing (`unit_right_click`: it has no abilities then).
         Some(InterfaceTemplate::BasicCombatUnit | InterfaceTemplate::Drone) | None => {
             unit_right_click(object, target).map(Resolved::Order)
         }
@@ -286,18 +296,27 @@ pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKi
 }
 
 /// `> AwaitingTarget[..] resolution` for any PendingCommand: what a left-click on `target` gives, if the target is
-/// valid. A unit command's order ([`target_order`]), or the rally point of Set Rally Point, which takes the ground
+/// valid. A unit command's order ([`target_order`]); the rally point of Set Rally Point, which takes the ground
 /// and any object (`factions/gdo/structures.md > Barracks`: "Left-click ground or object sets the rally point";
-/// `> Standard Slot Assignments > C`: the building itself clears it).
+/// `> Standard Slot Assignments > C`: the building itself clears it); the Drones' new drop-off for Set Drop-off
+/// ([`drop_off_target`]).
 pub fn target_resolution(pending: PanelCommand, target: &MapTarget) -> Option<Resolved> {
     match pending {
         PanelCommand::SetRallyPoint => Some(Resolved::Rally(rally_target(target))),
+        PanelCommand::SetDropOff => drop_off_target(target).map(|node| Resolved::Ability(Ability::SetDropOff(node))),
         _ => target_order(pending, target).map(Resolved::Order),
     }
 }
 
-/// `> PointerDisplayType > Types` that M1 can show. GatherResources, ReturnResources and Enter wait for gatherers
-/// and enterable objects.
+/// `factions/colonists/units.md > Drone ObjectInterfaceState > S: Set Drop-off Location`: "Left-click an Egress Node
+/// or own refinery" (no refinery is in the game yet): the drop-off under a click while Set Drop-off awaits its target,
+/// if it is one of the player's own that takes loads now (`sc_sim::orders::resolution::Aimed::drop_off`, the gate's
+/// own check: not while it is warped in). Anything else is an invalid target (design change 0065).
+pub fn drop_off_target(target: &MapTarget) -> Option<ObjectId> {
+    target.aimed.filter(|aimed| aimed.drop_off).map(|aimed| aimed.id)
+}
+
+/// `> PointerDisplayType > Types` that the game can show so far. Enter waits for enterable objects.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PointerDisplay {
     /// Nothing will happen on a click.
@@ -306,6 +325,10 @@ pub enum PointerDisplay {
     Attack,
     AttackGround,
     Patrol,
+    /// "Unit will gather from this resource" (slice M3-J2).
+    GatherResources,
+    /// "Unit will return carried resources to this drop-off point" (slice M3-J2).
+    ReturnResources,
     /// `> Mixed Right-Click Preview` (design change 0063): the selected units would do different things on a
     /// right-click.
     Mixed,
@@ -313,14 +336,15 @@ pub enum PointerDisplay {
 
 impl PointerDisplay {
     /// The PointerDisplayType of an order a click gives: Attack for an AttackMove too (`> Resolution Rules >
-    /// AwaitingTarget[CommandType]`: Attack over ground "will issue AttackMove"). No click gives Hold or Stop.
+    /// AwaitingTarget[CommandType]`: Attack over ground "will issue AttackMove"); GatherResources for a Gather ("Cursor
+    /// over resource (resource gatherer selected)"), ReturnResources for a Drop Off ("Cursor over drop-off point
+    /// (resource gatherer carrying resources)"). No click gives Hold or Stop.
     pub fn of_order(kind: OrderKind) -> Self {
         match kind {
-            // Slice M3-J2 resolves a worker's right-clicks and gives them their pointers; no click gives a Deploy
-            // (slice M3-J1 places it).
-            OrderKind::Move(_) | OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => {
-                PointerDisplay::Move
-            }
+            // No click gives a Deploy (slice M3-J1 places it).
+            OrderKind::Move(_) | OrderKind::Deploy { .. } => PointerDisplay::Move,
+            OrderKind::Gather(_) => PointerDisplay::GatherResources,
+            OrderKind::DropOff(_) => PointerDisplay::ReturnResources,
             OrderKind::Attack(_) | OrderKind::AttackMove(_) => PointerDisplay::Attack,
             OrderKind::Patrol(_) => PointerDisplay::Patrol,
             OrderKind::Hold | OrderKind::Stop => PointerDisplay::Inactive,
@@ -329,11 +353,15 @@ impl PointerDisplay {
 
     /// The PointerDisplayType of what a click gives an object: its order's, or Move for a rally point (`> Resolution
     /// Rules > DefaultState`: "Selection is a production building: Move (rally point)"; `> AwaitingTarget[CommandType]`:
-    /// "AwaitingTarget\[SetRallyPoint\] over ground or object: Move").
+    /// "AwaitingTarget\[SetRallyPoint\] over ground or object: Move"). Set Drop-off over a drop-off shows
+    /// ReturnResources: **placeholder**, the rules have no AwaitingTarget\[SetDropOffLocation\] row, and its target is
+    /// the drop-off point the loads will return to.
     pub fn of(resolved: Resolved) -> Self {
         match resolved {
             Resolved::Order(kind) => Self::of_order(kind),
             Resolved::Rally(_) => PointerDisplay::Move,
+            Resolved::Ability(Ability::SetDropOff(_)) => PointerDisplay::ReturnResources,
+            Resolved::Ability(_) => PointerDisplay::Inactive,
         }
     }
 }

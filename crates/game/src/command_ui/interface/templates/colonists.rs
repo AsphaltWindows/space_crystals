@@ -1,17 +1,20 @@
-//! The Colonists' panels (slice M3-J1, design change 0124): the Beacon's, with its two Warp In menus
+//! The Colonists' panels (slices M3-J1 and M3-J2, design change 0124): the Beacon's, with its two Warp In menus
 //! (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`), the Drone's
-//! (`factions/colonists/units.md > Drone ObjectInterfaceState`), and the one of an object that transforms
+//! (`factions/colonists/units.md > Drone ObjectInterfaceState`), the Egress Node's (`factions/colonists/economy.md >
+//! Egress Node > Egress Node ObjectInterfaceState`), and the one of an object that transforms
 //! (`factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`). The portals have the
-//! Production template (`super::production_grid`, slice M3-D); the Egress Node's F waits for slice M3-J2.
+//! Production template (`super::production_grid`, slice M3-D), with their units not in the game yet in their slots
+//! ([`planned_units`]).
 
 use sc_sim::{ObjectKind, deploy, transform};
 
 use super::super::{BuildMenu, PanelCommand};
 
-/// A building of the Beacon's Warp In menus that isn't in the game yet: its cost and WarpInTime are TBD
-/// (`factions/colonists/economy.md > Warp In > Constructs List`), and so is the rest of it (Q0043). Each holds its
-/// slot, unavailable (design change 0124: "Buildings whose costs are still TBD are shown but unavailable until
-/// defined").
+/// A building of the Beacon's Warp In menus, or a unit of a portal's panel, that isn't in the game yet: a building's
+/// cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In > Constructs List`), and so is the rest of
+/// it (Q0043); a unit's stats, cost and time are TBD (`factions/colonists/units.md > Scout`, `> Lancer`; the psionic
+/// unit has no section yet). Each holds its slot, unavailable (design change 0124: "Buildings and units whose costs
+/// are TBD show in their slot, unavailable").
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Planned {
     AlloyFurnace,
@@ -25,6 +28,12 @@ pub enum Planned {
     NavigationSpire,
     PsionicAmplifier,
     StructuralAnalyzer,
+    /// The Robo Portal's W (`factions/colonists/structures.md > Robo Portal ObjectInterfaceState`).
+    Scout,
+    /// The Bio Portal's W (`> Bio Portal ObjectInterfaceState`).
+    Lancer,
+    /// The Bio Portal's E, "Psionic unit (TBD)" (`> Bio Portal ObjectInterfaceState`).
+    PsionicUnit,
 }
 
 impl Planned {
@@ -42,11 +51,14 @@ impl Planned {
             Planned::NavigationSpire => "Navigation Spire",
             Planned::PsionicAmplifier => "Psionic Amplifier",
             Planned::StructuralAnalyzer => "Structural Analyzer",
+            Planned::Scout => "Scout",
+            Planned::Lancer => "Lancer",
+            Planned::PsionicUnit => "Psionic unit",
         }
     }
 
     /// Its button's label: a placeholder for its icon (Q0001), the initials of its name, as a building warped in is
-    /// labelled by its tag (`PanelCommand::label`).
+    /// labelled by its tag and a unit trained by its type's (`PanelCommand::label`).
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "Warp AF",
@@ -60,7 +72,23 @@ impl Planned {
             Planned::NavigationSpire => "Warp NS",
             Planned::PsionicAmplifier => "Warp PA",
             Planned::StructuralAnalyzer => "Warp SA",
+            Planned::Scout => "Train SC",
+            Planned::Lancer => "Train LA",
+            Planned::PsionicUnit => "Train PU",
         }
+    }
+}
+
+/// The units of a `kind` portal's panel that aren't in the game yet ([`Planned`]), each with its slot
+/// (`CommandSlot::all` order), which `super::production_grid` adds to the portal's recipes: the Robo Portal's "[W]
+/// Scout" (`factions/colonists/structures.md > Robo Portal ObjectInterfaceState`), the Bio Portal's "[W] Lancer" and
+/// "[E] Psionic unit (TBD)" (`> Bio Portal ObjectInterfaceState`); design change 0124: "Robo Portal: Q Drone, W
+/// Scout, X, C. Bio Portal: Q Sabre, W Lancer, E psionic unit, X, C".
+pub(super) fn planned_units(kind: ObjectKind) -> &'static [(usize, Planned)] {
+    match kind {
+        ObjectKind::RoboPortal => &[(1, Planned::Scout)],
+        ObjectKind::BioPortal => &[(1, Planned::Lancer), (2, Planned::PsionicUnit)],
+        _ => &[],
     }
 }
 
@@ -118,17 +146,27 @@ pub(super) fn warp_in_menu(menu: BuildMenu) -> [Option<PanelCommand>; 12] {
 }
 
 /// `factions/colonists/units.md > Drone ObjectInterfaceState > DefaultState commands` ("No Hold Position, Patrol or
-/// Attack"): Q Move and X Stop, "as in BasicCombatUnitInterfaceState", and A Deploy. S, Set Drop-off, is slice
-/// M3-J2's, with its targeting (AwaitingTarget\[SetDropOffLocation\]): empty until then.
+/// Attack"): Q Move and X Stop, "as in BasicCombatUnitInterfaceState", A Deploy, and S Set Drop-off, which awaits
+/// its drop-off (AwaitingTarget\[SetDropOffLocation\]; design change 0124: "Drone: Q Move, A Deploy, S Set Drop-off,
+/// X Stop").
 #[rustfmt::skip]
 pub(super) const DRONE_GRID: [Option<PanelCommand>; 12] = {
-    use PanelCommand::{Deploy, Move, Stop};
+    use PanelCommand::{Deploy, Move, SetDropOff, Stop};
     [
-        Some(Move),   None,       None, None,
-        Some(Deploy), None,       None, None,
-        None,         Some(Stop), None, None,
+        Some(Move),   None,             None, None,
+        Some(Deploy), Some(SetDropOff), None, None,
+        None,         Some(Stop),       None, None,
     ]
 };
+
+/// `factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`: "F: Select Returning Drones"
+/// (design change 0124: "Egress Node: F"), its one command.
+#[rustfmt::skip]
+pub(super) const EGRESS_NODE_GRID: [Option<PanelCommand>; 12] = [
+    None, None, None, None,
+    None, None, None, Some(PanelCommand::SelectReturningDrones),
+    None, None, None, None,
+];
 
 /// `> While transforming: only Cancel` (design change 0116): "A Beacon under deployment and a building under Warp In
 /// show only the Cancel command in their CommandPanel (no rally point, no other commands)", in X ("Cancel's hotkey:

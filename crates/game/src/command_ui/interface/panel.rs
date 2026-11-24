@@ -44,7 +44,7 @@ pub enum ButtonLook {
     Disabled,
     /// In the template, but this type can't (`> BasicCombatUnitInterfaceState`: the conditional Reverse and
     /// AttackGround; a build menu none of whose buildings is in the game yet; a building of the Beacon's Warp In
-    /// menus that isn't in the game yet, design change 0124).
+    /// menus or a unit of a portal's panel that isn't in the game yet, design change 0124).
     Unavailable,
     /// The Back button.
     Back,
@@ -119,7 +119,8 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
 /// (`super::Placing::command`) and the others wait, and in every state but DefaultState Z is Back (`> Standard Slot
 /// Assignments`). What the game allows now ([`Conditions`]) disables a command it doesn't let go to its recipients
 /// (Attack with every shield up, a Train, a Cancel Production, a constructor's command, a Warp In or a Convert the
-/// gate would refuse), and turns the Riot Shield on. Each greyed-out button says why ([`PanelSlot::why`]).
+/// gate would refuse), and turns the Riot Shield on. Each greyed-out button says why ([`PanelSlot::why`]). The
+/// Egress Node's F shows only while it has Drones to select ([`Conditions::shows`]).
 pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Conditions) -> Panel {
     let mut panel = Panel::default();
     let Some(active) = selection.active() else {
@@ -131,7 +132,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
         state_grid(active.kind, interface, conditions.constructor)
     };
     for (slot, command) in CommandSlot::all().zip(grid) {
-        let Some(command) = command else {
+        let Some(command) = command.filter(|&command| conditions.shows(command)) else {
             continue;
         };
         let (look, why) = if !offers(active.kind, command) {
@@ -207,6 +208,9 @@ pub enum SlotPress {
     AwaitWarpIn(ObjectKind),
     /// A StateOnlyTransition to AwaitingPlacement of the Beacon one of the active Drones deploys into.
     AwaitDeploy,
+    /// The Egress Node's F, a StateOnlyTransition: the selection becomes its returning Drones
+    /// (`super::Conditions::returning`).
+    SelectReturningDrones,
     /// Back to the previous state (`InterfaceState::back`).
     Back,
     /// Nothing: an empty slot, or a button that can't be pressed now (a greyed-out one says why:
@@ -216,8 +220,8 @@ pub enum SlotPress {
 
 /// `> DefaultState`: "Command hotkeys or button clicks initiate transitions to AwaitingTarget or issue immediate
 /// commands"; a constructor's enter its build menus and AwaitingPlacement or issue construction commands, a
-/// Beacon's its Warp In menus and a Warp In's placement, a Drone's Deploy its placement; `> Standard Slot
-/// Assignments > Z`: Back.
+/// Beacon's its Warp In menus and a Warp In's placement, a Drone's Deploy its placement, an Egress Node's F selects
+/// its Drones; `> Standard Slot Assignments > Z`: Back.
 pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
     match panel.get(slot) {
         Some(PanelSlot {
@@ -244,6 +248,8 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
                 SlotPress::AwaitWarpIn(kind)
             } else if command == PanelCommand::Deploy {
                 SlotPress::AwaitDeploy
+            } else if command == PanelCommand::SelectReturningDrones {
+                SlotPress::SelectReturningDrones
             } else {
                 SlotPress::Nothing
             }

@@ -54,29 +54,49 @@ fn buttons(app: &mut App) -> Vec<(CommandSlot, PanelButton, ButtonLook, &'static
 
 /// `factions/colonists/structures.md > Robo Portal > Produces` ("Drone: 50 Space Crystals") and `> Bio Portal >
 /// Produces` ("Sabre Legionnaire: 100 Space Crystals"), in the production panel (plan decision T23: Train in Q, X
-/// Cancel, C Rally): Q queues the unit and pays, X takes it off the queue and refunds it, C then a click sets the
-/// rally point, and so does a right-click (`> Production Building Default Right-Click`).
+/// Cancel, C Rally), with the units not in the game yet unavailable in their slots (design change 0124: the Robo
+/// Portal's W Scout, the Bio Portal's W Lancer and E psionic unit; slice M3-J2): Q queues the unit and pays, X takes
+/// it off the queue and refunds it, C then a click sets the rally point, and so does a right-click (`> Production
+/// Building Default Right-Click`).
 #[test]
 fn a_portal_trains_in_q_cancels_in_x_and_rallies_in_c() {
-    use ButtonLook::{Common, Disabled};
-    use PanelCommand::{CancelProduction, SetRallyPoint, Train};
+    use ButtonLook::{Common, Disabled, Unavailable};
+    use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint, Train};
+    use space_crystals::command_ui::interface::templates::Planned::{Lancer, PsionicUnit, Scout};
+    let c = PanelButton::Command;
     let cases = [
-        (ROBO_PORTAL, ROBO_PORTAL_AT, ObjectKind::Drone, "Train DR", 50),
-        (BIO_PORTAL, BIO_PORTAL_AT, ObjectKind::SabreLegionnaire, "Train SL", 100),
+        (
+            ROBO_PORTAL,
+            ROBO_PORTAL_AT,
+            ObjectKind::Drone,
+            "Train DR",
+            50,
+            vec![(slot(0, 1), c(P(Scout)), Unavailable, "Train SC")],
+        ),
+        (
+            BIO_PORTAL,
+            BIO_PORTAL_AT,
+            ObjectKind::SabreLegionnaire,
+            "Train SL",
+            100,
+            vec![
+                (slot(0, 1), c(P(Lancer)), Unavailable, "Train LA"),
+                (slot(0, 2), c(P(PsionicUnit)), Unavailable, "Train PU"),
+            ],
+        ),
     ];
-    for (portal, at, kind, label, cost) in cases {
+    for (portal, at, kind, label, cost, planned) in cases {
         let mut app = portal_game(0, 1000);
         click(&mut app, at, &[]);
         assert_eq!(selected(&app), [portal]);
-        let c = PanelButton::Command;
-        assert_eq!(
-            buttons(&mut app),
-            [
-                (slot(0, 0), c(Train(kind)), Common, label),
-                (CommandSlot::CANCEL_PRODUCTION, c(CancelProduction), Disabled, "Cancel"),
-                (CommandSlot::RALLY_POINT, c(SetRallyPoint), Common, "Rally"),
-            ]
-        );
+        let mut shown = vec![(slot(0, 0), c(Train(kind)), Common, label)];
+        shown.extend(planned);
+        shown.extend([
+            (CommandSlot::CANCEL_PRODUCTION, c(CancelProduction), Disabled, "Cancel"),
+            (CommandSlot::RALLY_POINT, c(SetRallyPoint), Common, "Rally"),
+        ]);
+        assert_eq!(buttons(&mut app), shown);
+
         tap(&mut app, &[], KeyQ);
         assert_eq!(productions(&app), [(P1, vec![portal], ProductionCommand::Train(kind))]);
         assert_eq!((production_of(&app, portal).queue.len(), bank(&app)), (1, 1000 - cost));

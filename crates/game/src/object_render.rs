@@ -12,13 +12,15 @@
 //! or octagonal body (the Guard's, the Colonists' units') stays axis-aligned, like its collision box, and only its
 //! tick turns ([`FacingTick`]); the Colonists' units carry a tag naming their type ([`UnitTag`]). A Peacekeeper's
 //! raised Riot Shield is a pale arc in front of it ([`RiotShieldVisual`]), growing out of its body as the shield goes
-//! up. A structure is its footprint as placed, in its owner's colour, with a tag naming its type ([`structures`]).
+//! up. A worker that carries a load shows a crystal shard on its body ([`LoadMarker`], slice M3-J2). A structure is
+//! its footprint as placed, in its owner's colour, with a tag naming its type ([`structures`]).
 //! An object transforming into its kind (`Object::transform`: a building being warped in) is tinted towards a pale
 //! cyan until it is complete ([`transforming_color`]). The map resources have shapes of their own ([`resources`]).
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).
 
+mod load;
 mod remembered;
 mod resources;
 mod structures;
@@ -49,6 +51,7 @@ pub struct FacingTick(pub ObjectId);
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RiotShieldVisual(pub ObjectId);
 
+pub use load::{LoadMarker, carries};
 pub use remembered::{RememberedVisual, RememberedVisuals};
 pub use structures::StructureTag;
 pub use units::UnitTag;
@@ -96,6 +99,7 @@ pub struct ObjectVisualAssets {
     meshes: BTreeMap<MeshKey, Handle<Mesh>>,
     ticks: BTreeMap<ObjectKind, Handle<Mesh>>,
     shields: BTreeMap<ObjectKind, Handle<Mesh>>,
+    loads: BTreeMap<ObjectKind, Handle<Mesh>>,
 }
 
 /// The visual entity of each object.
@@ -121,6 +125,7 @@ impl Plugin for ObjectRenderPlugin {
                 (
                     place_object_visuals,
                     place_riot_shields,
+                    load::place_load_markers,
                     remembered::sync_remembered_visuals,
                 )
                     .in_set(ClientSystems::Present),
@@ -241,7 +246,9 @@ pub fn player_color(owner: Option<PlayerId>) -> Color {
 
 /// Spawns a visual for every object without one and despawns visuals whose object is gone, or is drawn otherwise
 /// now ([`MeshKey`]: its kind, owner, size or tint changed), which then get a new one, children included (tag, tick,
-/// Riot Shield). A replaced sim (new generation) starts from scratch, because its ids may repeat the old ones.
+/// Riot Shield, load marker). A replaced sim (new generation) starts from scratch, because its ids may repeat the old
+/// ones.
+
 fn sync_object_visuals(
     mut commands: Commands,
     sim: Res<SimRes>,
@@ -334,6 +341,22 @@ fn sync_object_visuals(
                 Mesh2d(shield),
                 MeshMaterial2d(material.clone()),
                 Transform::default(),
+                Visibility::Hidden,
+                ChildOf(entity),
+            ));
+        }
+        if load::marked(object.kind) {
+            let marker = assets
+                .loads
+                .entry(object.kind)
+                .or_insert_with(|| meshes.add(load::mesh(object.kind)))
+                .clone();
+            commands.spawn((
+                Name::new("Load marker"),
+                LoadMarker(object.id),
+                Mesh2d(marker),
+                MeshMaterial2d(material.clone()),
+                Transform::from_xyz(0.0, 0.0, 0.004),
                 Visibility::Hidden,
                 ChildOf(entity),
             ));

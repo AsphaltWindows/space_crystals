@@ -1,6 +1,6 @@
 //! The Colonists' panels as plain data (slice M3-J1, design change 0124): the Beacon's and its Warp In menus, the
 //! Drone's and which Drone a Deploy goes to, the Cancel of whatever transforms, and why a greyed-out button is (design
-//! change 0162).
+//! change 0162). The gathering commands (slice M3-J2) are `gathering`'s.
 
 use std::collections::BTreeSet;
 
@@ -103,13 +103,13 @@ fn a_warp_in_the_bank_cannot_pay_for_says_why() {
     );
 }
 
-/// `factions/colonists/units.md > Drone ObjectInterfaceState`: Q Move, A Deploy, X Stop, and S left for Set Drop-off
-/// (slice M3-J2). A enters AwaitingPlacement for a Beacon (a StateOnlyTransition), the Deploy marked and Back in Z,
-/// which returns to DefaultState; the placement holds while the ActiveGroup is Drones. The Beacon doesn't turn.
+/// `factions/colonists/units.md > Drone ObjectInterfaceState` (design change 0124): Q Move, A Deploy, S Set Drop-off
+/// (`gathering`), X Stop. A enters AwaitingPlacement for a Beacon (a StateOnlyTransition), the Deploy marked and Back
+/// in Z, which returns to DefaultState; the placement holds while the ActiveGroup is Drones. The Beacon doesn't turn.
 #[test]
 fn the_drone_deploys_with_a() {
     use ButtonLook::Common;
-    use PanelCommand::{Deploy, Move, Stop};
+    use PanelCommand::{Deploy, Move, SetDropOff, Stop};
     let drones = Selection::new([(id(1), DRONE), (id(2), DRONE)]);
     let conditions = Conditions::default();
     let default = panel(&drones, InterfaceState::DefaultState, &conditions);
@@ -119,10 +119,10 @@ fn the_drone_deploys_with_a() {
         [
             (slot(0, 0), c(Move), Common),
             (slot(1, 0), c(Deploy), Common),
+            (slot(1, 1), c(SetDropOff), Common),
             (X, c(Stop), Common)
         ]
     );
-    assert_eq!(default.get(slot(1, 1)), None, "Set Drop-off is slice M3-J2's");
     assert_eq!(press(&default, slot(1, 0)), SlotPress::AwaitDeploy);
     assert_eq!(press(&default, X), SlotPress::Issue(Stop, OrderKind::Stop));
 
@@ -199,11 +199,14 @@ fn whatever_transforms_shows_only_cancel() {
 
 /// Every command a Colonists type may show, in any state (`commands`), which the panel's conditions ask the gate
 /// about: the Beacon's menus, its three Warp Ins and the Cancel of its deployment; a portal's production and the
-/// Cancel of its Warp In; the Drone's three, no Cancel (it never transforms itself, its Beacon does). They go to the
-/// ActiveGroup only (`PanelCommand::instance_only`).
+/// Cancel of its Warp In; the Drone's four, no Cancel (it never transforms itself, its Beacon does); the Egress
+/// Node's F and the Cancel of its Warp In. They go to the ActiveGroup only (`PanelCommand::instance_only`), but the
+/// Drone's.
 #[test]
 fn the_colonists_commands() {
-    use PanelCommand::{BuildMenu as Menu, CancelTransform, Deploy, Move, Stop, WarpIn};
+    use PanelCommand::{
+        BuildMenu as Menu, CancelTransform, Deploy, Move, SelectReturningDrones, SetDropOff, Stop, WarpIn,
+    };
     let sorted = |mut commands: Vec<PanelCommand>| {
         commands.sort_unstable();
         commands
@@ -218,10 +221,18 @@ fn the_colonists_commands() {
     ];
     assert_eq!(commands(BEACON), sorted(beacon));
     assert!(commands(ROBO_PORTAL).contains(&CancelTransform));
-    assert_eq!(commands(DRONE), sorted(vec![Move, Deploy, Stop]));
-    for command in [WarpIn(ROBO_PORTAL), Deploy, CancelTransform] {
+    assert_eq!(commands(DRONE), sorted(vec![Move, Deploy, Stop, SetDropOff]));
+    assert_eq!(
+        commands(ObjectKind::EgressNode),
+        sorted(vec![SelectReturningDrones, CancelTransform])
+    );
+    for command in [WarpIn(ROBO_PORTAL), Deploy, CancelTransform, SelectReturningDrones] {
         assert!(command.instance_only(), "{command:?}");
     }
+    assert!(
+        !SetDropOff.instance_only(),
+        "every selected Drone's (question Q0040 point 9)"
+    );
     assert!(Deploy.queues() && !WarpIn(ROBO_PORTAL).queues());
     assert!(!PanelCommand::Planned(Planned::Skylance).has_sim_command());
     assert_eq!(Planned::Skylance.name(), "Skylance");

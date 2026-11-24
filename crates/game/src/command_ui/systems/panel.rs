@@ -55,7 +55,9 @@ pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut con
 /// construction command and return to DefaultState ("CommandIssuingTransition, returns to DefaultState"). A
 /// Beacon's enter its Warp In menus and a Warp In's placement on it (`factions/colonists/economy.md > Beacon > Beacon
 /// ObjectInterfaceState`, design change 0122: the Beacon Tabbed to), the Drones' A the placement of a Beacon
-/// (design change 0125), and the X of whatever transforms cancels it (design change 0116). Back (Z) returns to the
+/// (design change 0125), an Egress Node's F selects its returning Drones instead (`factions/colonists/economy.md >
+/// Egress Node > Egress Node ObjectInterfaceState`, slice M3-J2), and the X of whatever transforms cancels it
+/// (design change 0116). Back (Z) returns to the
 /// previous state. While a target is awaited or a building placed the other commands are unavailable (design change
 /// 0066), and so is a production or construction command the gate would refuse (design change 0081; never for the
 /// army cap, 0143): [`press`] finds nothing to do for them, and a greyed-out button says why it is
@@ -136,6 +138,11 @@ pub(in crate::command_ui) fn press_command_slots(
             }
             SlotPress::AwaitDeploy => {
                 control.update(|state| state.interface = InterfaceState::AwaitingPlacement(Placing::deploy()));
+            }
+            SlotPress::SelectReturningDrones => {
+                let objects = control.objects();
+                let drones = conditions.returning().to_vec();
+                control.update(|state| state.replace_selection(drones, &objects));
             }
             SlotPress::Back => {
                 let back = state.interface.back(&state.selection);

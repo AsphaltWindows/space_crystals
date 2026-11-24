@@ -5,8 +5,9 @@
 //! awaited, and how the object under the cursor relates to the local player. Its image is drawn in code and cached
 //! per look ([`CursorImages`]): an arrow in DefaultState and a crosshair while a target is awaited, coloured by the
 //! PointerDisplayType (`> Types`: Inactive muted grey; Move green, Attack red, Patrol orange as their indicators;
-//! AttackGround crimson; Mixed, "a generic hybrid cursor" whose visual is TBD, striped in the Attack red and the Move
-//! green), with a dot in the relation's colour (own green, enemy red, neutral yellow, as the selection markers) while
+//! AttackGround crimson; GatherResources the cyan of the crystals, ReturnResources gold, slice M3-J2; Mixed, "a
+//! generic hybrid cursor" whose visual is TBD, striped in the Attack red and the Move green), with a dot in the
+//! relation's colour (own green, enemy red, neutral yellow, as the selection markers) while
 //! it points at an object. With nothing to preview (Inactive, no object, no target awaited) and over the UI, a window
 //! shows the system's arrow. While a building is placed there is no pointer over the map (`> Resolution Rules >
 //! AwaitingPlacement`: "No pointer display type — the building ghost preview serves as the cursor";
@@ -41,6 +42,10 @@ const SPRITE_Z: i32 = 10_000;
 /// Placeholder colours of the PointerDisplayTypes without an indicator colour.
 const INACTIVE_COLOR: Color = Color::srgb(0.80, 0.82, 0.86);
 const ATTACK_GROUND_COLOR: Color = Color::srgb(0.90, 0.20, 0.50);
+/// GatherResources: the cyan of the Space Crystals' shards (`crate::object_render`).
+const GATHER_COLOR: Color = Color::srgb(0.36, 0.90, 0.98);
+/// ReturnResources: gold, the bank's.
+const RETURN_COLOR: Color = Color::srgb(1.0, 0.84, 0.30);
 /// The Mixed look (`> Mixed Right-Click Preview`, design change 0063: visual TBD), a placeholder: diagonal stripes
 /// of these two colours, each this many pixels wide.
 const MIXED_COLORS: [Color; 2] = [ATTACK_COLOR, MOVE_COLOR];
@@ -258,6 +263,8 @@ fn display_color(display: Option<PointerDisplay>, p: Vec2) -> Color {
         Some(PointerDisplay::Attack) => ATTACK_COLOR,
         Some(PointerDisplay::AttackGround) => ATTACK_GROUND_COLOR,
         Some(PointerDisplay::Patrol) => AGGRESSIVE_COLOR,
+        Some(PointerDisplay::GatherResources) => GATHER_COLOR,
+        Some(PointerDisplay::ReturnResources) => RETURN_COLOR,
         Some(PointerDisplay::Mixed) => {
             let stripe = ((p.x + p.y) / MIXED_STRIPE_PX).floor().rem_euclid(2.0);
             MIXED_COLORS[usize::from(stripe >= 1.0)]
