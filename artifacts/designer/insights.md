@@ -30,7 +30,7 @@
 All non-blocking; Director proceeds on its defaults (option A in each). Arrived 2026-11-23 mid-GDO-roster; raise after the support-air-unit thread. Movement/pathing cluster:
 - **Q0016** point 1 ANSWERED (0062 non-capable units move/follow; 0063 per-unit resolution + Mixed cursor). (0065 invalid target: ignore + feedback; 0066 other commands unavailable while targeting, cancel first.) (0067 drag while targeting = nothing.) (0068 press point; 0069 player selection changes cancel targeting, deaths don't unless ActiveGroup empty.) (0070 point 4: Shift keeps targeting active until released → Q0016 DONE; follow-up TBD: Shift released before any click; 0071 Shift-placement same rule where builder can take more orders)
 - **New 2026-11-24 (Q0033–Q0045)**, none blocking now. DONE: Q0037 (0123, 0127–0138), Q0044 (0134, 0137, 0139–0141), Q0041 (0143–0145), Q0042 (0146–0154), Q0034 (0155), Q0033 (0156, 0158, 0159), Q0035 (0160–0162), Q0036 (0163–0165), Q0017 pt 2 (0139), Q0038 (0106–0108), Q0039 (0109–0116), Q0040 (0117–0125), Q0045 (0126–0127).
-  - All 2026-11-24 questions answered through Q0047.
+  - Q0048: pt 1 ANSWERED 0184 feedback; OPEN pt 2 portal group partly warping in (A portal panel / B cancel-only / C separate group).
 - Yielding (0023): only no-command units yield; Hold Position/busy don't; modes (Riot Shield) irrelevant; deployed Artillery Rig = fixed obstacle. TBD sidestep distance, allies. Watch: mining workers don't yield → possible clots at patches (worker collision while gathering never designed).
 
 ## Loose Ends
