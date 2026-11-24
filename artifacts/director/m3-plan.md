@@ -1199,6 +1199,7 @@ Buildings and units whose costs are TBD show in their slot, unavailable. A trans
 | 0132 | Q0037 point 6 in part | H3 | With no free patch in range, a Drone waits **at the patch it tried** (within MiningReach) and mines it when it frees. It re-checks every 16 frames (placeholder) for a freed patch nearby and goes there; occupied again on arrival, it starts over from there. After each delivery it returns to the patch where it **last mined**. |
 | 0133 | Q0037 point 6 | H3 | Which waiting Drone gets a freed patch is the implementation's choice, kept deterministic. **Director:** in id order, the lowest-id waiting Drone whose re-check sees the patch free claims it. |
 | 0134 | Q0037 point 7; Q0044 point 5 | H3 | **Replaces the immediate redirect.** A depleted patch counts as occupied. Waiting Drones search at once. Drones walking to it go on to its spot and search on arrival, because the radius is centred on the Drone. Finding nothing ends the Gather (0123): deliver, then idle or start the next order. |
+| 0135 | Q0037 point 8 | H3 | The proposal: when the return trip starts, a missing AssignedDropOff is replaced by the nearest own Egress Node. With none, the Drone idles holding its load. |
 
 ## 9. Notes from merged slices for later slices
 
