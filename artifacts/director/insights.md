@@ -56,5 +56,8 @@
 - Agent worktrees (`isolation: "worktree"`) live in `.claude/worktrees/` (gitignored) and showed the last *pushed* commit at creation, then caught up to local master. Briefs tell agents to `git merge --ff-only master` first anyway. Check `git worktree list` after launching.
 - `git add -A <dir>` fails for an already-staged deleted directory; pass it only to `git commit -- <paths>`.
 - **Tests must not depend on machine speed.** With several agents building in parallel, the load average reaches about 22. Wall-clock assumptions then flake: "one update at Max pace reaches the end" failed under load. So did perf numbers: master's `movement_perf` measured from 0.57 to 3.7 ms mean. Judge a perf change only by interleaved A/B runs against master, and take absolute numbers on a quiet machine.
-- **Never `cd` into a worktree either.** `cd $WT && cargo …` moves the session's cwd. Use a subshell `( cd $WT && … )` or `-C`/`--manifest-path`.
-
+- **Never start a Bash command with a bare `cd`**, whether into a worktree or a docs folder (`cd dir && grep …`). The session's cwd persists, and it slipped twice. Use a subshell `( cd $WT && … )`, `git -C`, `--manifest-path`, or absolute paths. If it slips, run `cd /home/iv/dev/space_crystals` at once.
+- **Every test gets its own temp directory.** The "flaky under load" replay test was really two tests sharing `sc_replay_test_<pid>`, so whichever finished first deleted the other's folder. Suspect shared state before blaming timing.
+- **Bevy 0.20 quirk:** a `Text2d` changed in a frame in which no camera saw any sprite or text is never laid out. Labels that must update anywhere use `NoFrustumCulling`, stay visible, and are emptied rather than hidden (M2-H2 ghost labels).
+- **Agents' "readings to confirm":** sort each into design (a question with the built behaviour as the current behaviour) or technical (decide, and note it in the plan). Don't let them pile up in reports.
+- **Split a slice** when part of it can start early (J1 ran during wave 4) or needs a quiet machine (J2's perf).
