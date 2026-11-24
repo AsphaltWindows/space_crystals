@@ -2155,3 +2155,4 @@ Syndicate: Assault Bike added. Entry 0188.
 Syndicate: Shadebringer added (Sludge, Cover). Entry 0189. Director Q0049–Q0051 noted.
 Syndicate: Shadebringer Cover duration + charges recharged in tunnels with Vault. Entry 0190.
 Syndicate: units inside Cover smoke see nothing. Entry 0191.
+Syndicate: Sludge affects all players' units. Entry 0192.
