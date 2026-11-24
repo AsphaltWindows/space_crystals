@@ -61,7 +61,7 @@ While the shield is **up**:
 
 While the shield is **down**, the Peacekeeper behaves normally.
 
-**Toggle time:** raising and lowering the shield takes a short time, so it cannot be flicked on and off between enemy shots. Exact value TBD (should be under half a second).
+**Toggle time:** raising and lowering the shield takes a short time, so it cannot be flicked on and off between enemy shots. **6 frames (0.375 s), placeholder** (user, 2026-11-24; should stay under half a second).
 
 **During the toggle** (user, 2026-11-24):
 - While raising **or** lowering, the Peacekeeper moves at half speed (as with the shield up) and **cannot attack**.
@@ -78,7 +78,7 @@ Same principle as the Colonists' Weapon Conversion (factions/colonists/units.md 
 
 **Not queueable** (user, 2026-11-24): the toggle always happens immediately; holding Shift changes nothing.
 
-TBD: hotkey.
+**Hotkey: R** (Raise Shield on Peacekeeper, Lower Shield on Peacekeeper (Shielded)), placeholder (user, 2026-11-24).
 
 ### ObjectInterfaceState: BasicCombatUnitInterfaceState
 
