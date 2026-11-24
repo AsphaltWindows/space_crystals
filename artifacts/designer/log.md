@@ -2001,3 +2001,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T19:34:11-05:00 — Path cache reclassified as implementation suggestion (user). Doc: behaviors.md. Change entry 0041.
 - 2026-11-23T19:40:26-05:00 — Map-placed objects known from start for pathing. Doc: behaviors.md. Change entry 0042.
 - 2026-11-23T19:41:05-05:00 — Underground units don't collide. Doc: systems/units.md. Change entry 0043.
+- 2026-11-23T19:41:33-05:00 — No surfacing onto occupied spots. Doc: systems/units.md. Change entry 0044.
