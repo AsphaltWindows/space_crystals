@@ -73,7 +73,8 @@ There is one exception: an `#[ignore]` perf test under `crates/sim/tests/` may r
   `BTreeSet` or a sorted `Vec`.
 - **No outside world**: no wall clock, no threads and no OS randomness. The only source of randomness is the sim's
   PRNG (`sc_sim::Rng`, PCG32), seeded from the game setup's seed (`GameSetup::seed`). It is part of the hashed
-  state.
+  state. Draw from it only where the design asks for chance, and only when there is a choice to make; its one draw
+  so far is a producer's exit door (see *Production*).
 - **Floats**: `f32` is fine. `+ - * /`, `sqrt`, `abs`, `floor`/`round` and `as` casts give identical results
   everywhere, but transcendental functions (`sin`, `cos`, `atan2`, `exp`, `powf`, …) don't. Call them through
   `sc_sim::math`, which wraps the pure-Rust `libm` crate, and add any missing function there. `powi` is banned too,
@@ -184,7 +185,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   exactly the Colonists' kinds; Shields arrive with M3-B), `UnitDef::beacon_capacity_cost` (M3-C) and
   `StructureDef::warp_in`, the Beacon's Constructs List (M3-E). `warp_in` is not `constructs`, so the Beacon is no
   GDO-style constructor (plan decision T14). Their structures have no Power and no build area. The portals produce
-  through their first A side clockwise from north, a placeholder until M3-D's exit rule. Until DragMovement (M3-G),
+  through their A sides, all four of the Robo Portal's (slice M3-D, see *Production*). Until DragMovement (M3-G),
   the Drone, a HoverVehicle, moves on the stand-in, which reads only `MovementAttrs::max_speed` (the DragMovement
   equilibrium, `(ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio` = 8 su per tick) and its TurnRate;
   Rugged tiles stay impassable to it (`HOVER_VEHICLE.rugged_terrain` is false, plan decision T25). Its base gives the
@@ -699,7 +700,8 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   alone, `World::door_free` replaces the tile tests of `tiles_free`, `is_free_for` and `along_axis`: the building's
   own tiles don't block it, every other blocked tile does (`Doorway::box_clear`), and it may only come out
   (`Doorway::allows`: never deeper in, and inside only within the exit side's span, so it leaves through that side
-  and no other). Units still block it and it blocks them, as ever. Phase 5d clears `exit` in the tick the box is
+  and no other; with several exit sides, those of the door it is in, `Doorway::door_at`, see *Production*). Units
+  still block it and it blocks them, as ever. Phase 5d clears `exit` in the tick the box is
   clear of the footprint (or the building is gone, or a teleport took the unit away), and nothing ever sets it
   again: a unit that is out can't re-enter. With a goal the unit moves by the ordinary rules (lane seeking, going
   around, yielding requests); without one, `doorway::leave` walks it straight out and stops it against the exit
@@ -863,12 +865,13 @@ section of its own.
 
 ## Production
 
-Producing structures, their rally points and the exit doorway (`production.rs`, `production/`, `sim/producers.rs`;
-slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Structure Type > Exit Doorway`).
+Producing structures, their rally points and the exit doorways (`production.rs`, `production/`, `sim/producers.rs`;
+slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the
+Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`, `> Bio Portal`, plan decision T19).
 
 - **State**: `Object::production` (`Production`: the BuildQueue, whose head is the unit in production, so the
   limit `QUEUE_LIMIT` (20) includes it, design change 0081; its progress in `RATIO_ONE`s; the rally point). What a
-  type produces is `StructureDef::production` (`ProductionDef`: the exit side's letter and the `Recipe`s: kind,
+  type produces is `StructureDef::production` (`ProductionDef`: its exit rule, `ExitRule`, and the `Recipe`s: kind,
   Space Crystals, frames). `Sim::production_status(id)` is what the interface shows: the kind, the progress out of
   its total, and `waiting`.
 - **Commands**: `Command::Production { objects, command }` with `ProductionCommand::Train(kind)`,
@@ -885,35 +888,65 @@ slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Struct
   queue is passed over. The others get `SimEvent::ProductionRefused`.
 - **The step** (`Sim::step_production`, see *Tick pipeline*): the unit in production advances by
   `PowerSummary::speed` (design change 0089), capped at its total. Trained in tick `t` at full power, a
-  Peacekeeper (80 frames) is released in tick `t + 79`; at 30/51 in tick `t + 135`. The next one starts from 0 in
-  the tick after a release.
-- **The exit doorway** (design change 0080; `production::Doorway`, the one geometry for the release, the movement
-  step and the invariants): the middle of the side lettered `ProductionDef::exit` (the Barracks' B), wherever it
-  faces (`sides`). A finished unit comes into the game there **half inside the building**: its centre on the exit
-  side, facing out, with `Mover::exit` set (see *Movement and collision* for the collision exception). When
-  another unit or a blocked tile is right in front of the doorway it stands as far out as there is room, fully
-  inside against the exit side at most (`Sim::doorway_spot`): the design's "half inside" would overlap what stands
-  there, and its verification wants the unit to appear all the same. **The doorway is occupied** while a unit the
-  building released still overlaps its footprint; meanwhile the next finished unit is held (progress at its
-  total, `waiting`), the queue behind it doesn't advance, and it is released in the first tick the doorway is
-  free. So at most one unit overlaps a building at a time.
+  Peacekeeper (80 frames) is released in tick `t + 79`; at 30/51 in tick `t + 135`; a Drone or a Sabre Legionnaire
+  (160 frames, the Colonists have no Power) in tick `t + 159`. The next one starts from 0 in the tick after a
+  release.
+- **The exit doorways** (design change 0080; `production::Doorway`, the one geometry for the release, the movement
+  step and the invariants): a door (`Door`) in the middle of each side `ProductionDef::exits` names, wherever it
+  faces (`sides`): `ExitRule::Side(B)`, the Barracks' one side B; `ExitRule::Nearest(&[A])`, the portals' A sides
+  (the Bio Portal's two, AABB as written: question Q0041 point 5; all four of the Robo Portal's, AAAA). A
+  `Doorway` is a building's doors, top, right, bottom, left as placed (`Doorway::doors`). A finished unit comes
+  into the game in one of them **half inside the building**: its centre on the exit side, facing out, with
+  `Mover::exit` set (see *Movement and collision* for the collision exception); the Robo Portal's Drone
+  "materializes" the same way (Q0041 point 6). When another unit or a blocked tile is right in front of the door it
+  stands as far out as there is room, fully inside against the exit side at most (`Sim::doorway_spot`;
+  `Door::room_before` counts only what is in front, not what stands behind the door, in another door or beyond the
+  building): the design's "half inside" would overlap what stands there, and its verification wants the unit to
+  appear all the same. **The door a unit is in is judged by geometry** (`Doorway::door_at`: the exit side its
+  centre lies least deep behind, ties top first; `Mover::exit` keeps the building's id): a unit released in a door
+  is in it, and `Doorway::allows` refuses the one move that could take it into another while it overlaps the
+  footprint (deep in a corner between two exit sides), so a unit only ever comes out of its own door. **A door is
+  occupied** while a unit the building released is in it. While every door is, the next finished unit is held
+  (progress at its total, `waiting`), the queue behind it doesn't advance, and it is released in the first tick a
+  door is free. So at most one unit is in each door.
+- **Which door** (`production/exit/choice.rs`, `exit::choose`; `> Bio Portal > Exit Behavior`, which the Robo
+  Portal follows over its four sides, **placeholder**: Q0041 point 3): the door closest to the rally point, by the
+  straight line from the middle of the door to `Rally::point` (where the owner last saw an object; ties top,
+  right, bottom, left: **placeholder**, Q0041 point 4), unless it is blocked; then, or with no rally point, a
+  random unblocked one. **Blocked** is occupied (`> Exit Doorway`: "a side whose doorway is occupied counts as
+  blocked") or obstructed: no way out of the door is clear on the true grid (`Door::has_way_out`; a building, a
+  cliff or the map's edge along the whole side; units never obstruct). **Reading to confirm**: when every free door
+  is obstructed the building doesn't pause ("only when every eligible doorway is occupied"): the unit takes the
+  closest of them, or a random one, and stays stuck as a Barracks' unit does against a wall. A building with one
+  exit side releases through it whenever it is free.
+- **The sim's Rng in production** (its first use): the random door is `Rng::below(n)` among the `n` candidates, drawn
+  in `Sim::release_unit` (economy phase, producers in id order) **only when `n` is 2 or more**. A Barracks never
+  draws, nor does a portal whose closest door is free, so the GDO goldens don't move. A release that then finds no
+  spot in the door (`Sim::doorway_spot`, nearly never) waits, and draws again in the next tick. The Rng is hashed
+  and saved, so replays and saves draw the same doors.
 - **Rally points** (`production/rally.rs`): `Rally::Point` or `Rally::Object { id, at }`. A released unit gets the
   order `rally::order_for` gives, through `Sim::give_order` like a player's: Move to the point; Attack an enemy
-  object (if the unit attacks and the object is destructible); Gather, for a worker on a patch it can gather
-  (question Q0037 point 9); Move to any other object. Without a rally point it
+  object (if the unit attacks and the object is destructible); Move to the point where the rally shows an enemy for
+  a unit that can't attack (`> Robo Portal > RallyPoint behavior`: "rally on enemy -> Move to that location (Drone
+  is unarmed and cannot attack)"); Gather, for a worker on a patch it can gather (question Q0037 point 9); Move to
+  any other object. Without a rally point it
   walks out of the doorway and stops (design change 0086). The producer itself as the target clears the rally. A
   rally on an object that is removed resets to None (`Production::forget`). A rally on an **enemy** follows it only
   while the owner sees it: at the end of each tick `rally::follow` notes where the owner sees it, or turns the rally
   into a ground rally at the last such position (design change 0088), so an enemy dying in the fog changes nothing.
   **Placeholder** (0088's TBD, question Q0017 point 2): a rally set on a remembered object out of sight is a ground
   rally at the centre of its record's footprint.
-- **Tests**: `src/production.rs` and `production/exit.rs` (the queue, the doorway's geometry in all 8
-  orientations, its rule), and `tests/production/`: `queue.rs` (times, the power ratio, train and cancel, the limit
+- **Tests**: `src/production.rs` and `production/exit/tests.rs` (the queue, the Barracks' door in all 8
+  orientations and its rule, the portals' doors, the door a unit is in, the room before a door, the choice of
+  door), and `tests/production/`: `queue.rs` (times, the power ratio, train and cancel, the limit
   of 20, Unit Control, the gate, group production, refunds, a game replayed and saved), `rally.rs` (each kind of
   target, clearing, an enemy leaving sight, a remembered structure), `exit.rs` (the verification of design change
   0080, all 8 orientations, a crowd of idle units, a half-blocked exit, a path from inside the footprint, no way
   back in) and `stalls.rs` (walled in by a building and by units and freed again, the waiting unit's refund, saves
-  in the middle of an exit, and a random game of 3 000 ticks around four doorways).
+  in the middle of an exit, and a random game of 3 000 ticks around four doorways), `portals.rs` (slice M3-D: a
+  Drone's and a Sabre's times, the door closest to the rally point and its ties, random doors by seed, a walled-off
+  and an occupied closest door, a pause with every door occupied, the Bio Portal's A sides in all 8 orientations,
+  rallies on an enemy, a destroyed portal's refund, over capacity, a replay and a save).
 
 ## Commands, events and replays
 
@@ -1488,7 +1521,9 @@ M2-H2).
   `conditions.rs`, `panel.rs`) have the `PanelCommand`s (the units' and the producers' commands), the `InterfaceState`
   (DefaultState, or AwaitingTarget of a command, `queued` once a Shift-click has queued it: design change 0070) in
   each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the Peacekeeper's and the Guard's BasicCombatUnit grid;
-  the Barracks': Train Peacekeeper in Q, Cancel Production in X, Set Rally Point in C),
+  every producer's Production grid, built from its `ProductionDef` (plan decision T23): its units' Train from Q on,
+  Cancel Production in X, Set Rally Point in C, so the Barracks trains the Peacekeeper in Q, the Robo Portal the
+  Drone and the Bio Portal the Sabre Legionnaire),
   the `Panel` a selection gets (common, group, pending, disabled and unavailable buttons; Back in Z while a target is
   awaited) and who receives a command (`recipients`: a common one the whole selection, a group one the whole
   ActiveGroup, by hotkey or button; never some of them, no smart-casting, 0071, apart from the units that can't carry
@@ -1928,7 +1963,11 @@ M3-C; the M3 slices after it add their steps (plan `artifacts/director/m3-plan.m
 6. **HUD figures** (`hud/resources.rs`): the faction's `ResourceFigure`s in its DisplayHud order (`ResourceFigure::of`)
    and each new figure's reading in `resource_bar`, in ASCII.
 7. **Templates** (`command_ui/interface/templates.rs`): `InterfaceTemplate::of(kind)` for each kind with a command
-   panel, `None` until its slice builds one.
+   panel, `None` until its slice builds one. A producer takes `InterfaceTemplate::Production`, whose grid comes
+   from its `ProductionDef` (give a new unit to train its `PanelCommand::label`).
+8. **Producers' exits** (`ProductionDef::exits`, slice M3-D): `ExitRule::Side` for a building with one exit side,
+   `ExitRule::Nearest` for several (the door closest to the rally point, else a random unblocked one; see
+   *Production*). `defs_are_consistent` checks that the letters name the type's sides.
 8. **Tests and QA**: `ScenarioBuilder::faction` sets a test player's faction (plan decision T27), and
    `cargo run -- --factions <f1,f2>` starts a game with it, which its replay records.
 

@@ -1,20 +1,22 @@
-//! Unit production (slice M2-D2) — `factions/gdo/structures.md > Barracks`: a producing structure trains units
-//! from a queue, one at a time, and releases each through its exit doorway with the order its rally point gives.
+//! Unit production (slice M2-D2) — `factions/gdo/structures.md > Barracks`, and the Colonists' portals (slice M3-D,
+//! `factions/colonists/structures.md > Robo Portal`, `> Bio Portal`): a producing structure trains units from a
+//! queue, one at a time, and releases each through an exit doorway with the order its rally point gives.
 //!
 //! - **State** ([`Production`], `Object::production`): the BuildQueue, whose head is CurrentBuild (design change
 //!   0081: the limit of [`QUEUE_LIMIT`] includes it), CurrentBuildProgress in the economy's fixed point
 //!   (`economy::RATIO_ONE` a frame at full power, plan decision T6) and the RallyPoint ([`Rally`], `rally.rs`).
-//!   What a type produces, at what cost and through which side, is its `ProductionDef`
+//!   What a type produces, at what cost and through which sides, is its `ProductionDef`
 //!   (`StructureDef::production`).
 //! - **Commands** ([`ProductionCommand`], sent as `Command::Production`; the gate and their application are in
 //!   `sim/producers.rs`): `Train`, `CancelProduction`, `SetRally`.
-//! - **Costs** (plan decision T7): a unit's Space Crystals are paid, and its Unit Control reserved (design change
-//!   0082, `economy::unit_control`), when it is queued. A cancelled unit is refunded in full
-//!   (`economy::Refund::Full`), and so is everything a producer holds when it leaves the game (design changes 0084
-//!   and 0085, `Sim::remove_objects`).
+//! - **Costs** (plan decision T7): a unit's Space Crystals are paid, and its army cost reserved (the GDO's Unit
+//!   Control, design change 0082; the Colonists' Beacon Capacity: `economy::army`), when it is queued. A cancelled
+//!   unit is refunded in full (`economy::Refund::Full`), and so is everything a producer holds when it leaves the
+//!   game (design changes 0084 and 0085, `Sim::remove_objects`).
 //! - **The step** (`Sim::step_production`, in the economy phase): the head advances by its owner's power ratio
-//!   (design change 0089). When it is complete the unit is released through the doorway ([`Doorway`], `exit.rs`,
-//!   design change 0080), or held at 100% while the doorway is occupied.
+//!   (design change 0089). When it is complete the unit is released through one of the building's doors
+//!   ([`Doorway`], `exit.rs`, design change 0080; which one: `exit/choice.rs`, plan decision T19), or held at 100%
+//!   while every door is occupied.
 
 pub mod exit;
 pub mod rally;
@@ -27,7 +29,7 @@ use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::orders::Target;
 
-pub use exit::Doorway;
+pub use exit::{Door, Doorway};
 pub use rally::Rally;
 
 /// `factions/gdo/structures.md > Barracks > BarracksInstanceState`: "BuildQueue: array of ObjectEnum (max 20,
@@ -184,11 +186,12 @@ impl StateHash for Production {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::defs::ExitRule;
     use crate::defs::Recipe;
     use crate::sides::SideLetter;
 
     const BARRACKS: ProductionDef = ProductionDef {
-        exit: SideLetter::B,
+        exits: ExitRule::Side(SideLetter::B),
         recipes: &[Recipe {
             kind: ObjectKind::Peacekeeper,
             cost: 50,

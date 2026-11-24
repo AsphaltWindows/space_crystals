@@ -1,6 +1,6 @@
 //! GDO object types — `factions/gdo/`: its units (`units.md`) and its structures (`structures.md`, `economy.md`).
 
-use super::structures::{MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType};
+use super::structures::{ExitRule, MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType};
 use super::units::{
     AttackAttrs, AttackType, FullyConnectedSubtype, MovementAttrs, RiotShieldDef, TargetDomain, TargetType, UnitBase,
     UnitDef,
@@ -176,7 +176,7 @@ pub(super) static BARRACKS: ObjectDef = ObjectDef {
         build_radius_extension: 2,    // BuildRadiusExtension - 2 grid units
         power: -30,                   // Power - -30
         production: Some(ProductionDef {
-            exit: SideLetter::B, // "Units exit from one of the short sides (B side ...)"
+            exits: ExitRule::Side(SideLetter::B), // "Units exit from one of the short sides (B side ...)"
             recipes: &[Recipe {
                 kind: ObjectKind::Peacekeeper, // Produces: "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)"
                 cost: 50,

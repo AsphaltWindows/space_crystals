@@ -175,7 +175,7 @@ pub fn right_click(template: InterfaceTemplate, target: CursorTarget) -> Option<
                 (PanelCommand::Move, OrderKind::Move(Target::Object(id)))
             }
         }),
-        InterfaceTemplate::Barracks | InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility => {
+        InterfaceTemplate::Production | InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility => {
             None
         }
     }
@@ -199,7 +199,7 @@ pub enum Resolved {
 pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Option<Resolved> {
     match object.template? {
         InterfaceTemplate::BasicCombatUnit => unit_right_click(object, target).map(Resolved::Order),
-        InterfaceTemplate::Barracks => Some(Resolved::Rally(rally_target(target))),
+        InterfaceTemplate::Production => Some(Resolved::Rally(rally_target(target))),
         InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility => None,
     }
 }
