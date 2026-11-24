@@ -177,6 +177,9 @@ Every hit deals at least a minimum amount of damage, regardless of armor. HP is 
 A Colonists-only stat. Every Colonists unit and building has a MaxShields value in addition to MaxHP.
 
 ### MaxShields - number (Colonists units/buildings only; defined per-entity alongside MaxHP)
+
+### Display
+(user, 2026-11-24) On the map, a **shield bar sits directly above the HP bar** of every object with Shields. The InfoPanel shows **"Shields current/max"** next to the HP line. (Colours and styling: HUD pass.)
 ### ShieldRegenRate - 4 Shields per second (0.25 per frame). Constant base rate shared by all Colonists units and buildings. Shields regenerate continuously (not gated by a delay after taking damage). Regeneration applies to **every** object with Shields, including **neutral** ones (a defeated player's units; user, 2026-11-24), and runs up to the current MaxShields (for a transforming Colonists object, the current interpolated maximum: factions/colonists/economy.md > Beacon Deployment > HP/Shields Interpolation). Upgradeable via the Fusion Core's shield upgrades (factions/colonists/structures.md > Fusion Core > Research), each level increasing the rate; per-level values TBD.
 
 ### Shield Damage Resolution
