@@ -107,8 +107,13 @@ Same as MovingToLocation, except:
 - Recomputation is also triggered when TargetObject has moved sufficiently from its position at plan computation time
 - Optimization of recomputation frequency is stubbed out for future refinement
 
+### Proximity:
+"Within proximity" = a gap of at most **8 space units** between the unit's Silhouette and the TargetObject's shape, measured edge to edge like range (systems/combat.md > Range Measurement). (User, 2026-11-23.)
+
 ### Completion:
-Behavior complete when the unit is within proximity of the TargetObject.
+- **Static TargetObject** (structure, resource, Supply Delivery Station): behavior complete when the unit is within proximity of the TargetObject.
+- **Unit TargetObject: Follow** (user, 2026-11-23). The behavior does **not** complete on reaching the target. While within proximity, the unit stops and waits. When the target moves out of proximity, the unit follows again. Following continues until the player gives a new order, or the target dies or leaves the map (e.g. enters a transport, a building or the Tunnel Network); then the behavior completes.
+- **Blocked near the target**: if the unit is stuck within **2 grid units** of its TargetObject, blocked by units that aren't moving, that counts as having reached it, like MovingToLocation > Occupied target location. For a static target the behavior completes. For a followed unit the unit waits there (no re-route attempts) and keeps following. (User, 2026-11-23.)
 
 ### Failure:
 Same as MovingToLocation.
@@ -130,6 +135,7 @@ Base behavior for attacking a destructible object instance. The unit moves towar
    - Begin attack sequence on BaseAttackChannel (infantry) or set TurretCommandState.LockedTarget = TargetObject (turret units)
 4. If target moves out of range or arc: resume MovingToObject toward TargetObject
 5. If target is destroyed: behavior complete
+6. **Target lost from vision** (user, 2026-11-23): if TargetObject is no longer visible to the unit's owner (it went into the fog of war), the unit moves to the target's **last seen position** (MovingToLocation) and the behavior completes there. It does not track the target's real position through fog. Once stopped it is idle, and normal idle auto-targeting (Idle behavior, with IdleLeashDistance) applies if the enemy is visible again.
 
 ### GliderMovement exception:
 Gliders cannot stop. Instead of stopping when in range, the Glider performs strafing runs:

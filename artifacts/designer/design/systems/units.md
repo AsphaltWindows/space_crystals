@@ -26,6 +26,10 @@ An Object Instance of a Unit.
 ## UnitCollision
 Ground and air units use different collision models.
 
+### Silhouette Rotation
+A unit's Silhouette **rotates with its facing** (user, 2026-11-23). A long vehicle facing north is tall and narrow; facing east it is wide and flat. Collision, crushing, range measurement and proximity all use the rotated shape. A long unit fits through a narrow gap only when pointed through it.
+- **Turning near obstacles**: with hard collision, a unit can't rotate into an orientation where its rotated Silhouette would overlap an obstacle (structure, impassable terrain, another ground unit). It must move to free space first. Pathfinding must account for room to turn.
+
 ### Ground Collision
 - Ground units are solid obstacles defined by their Silhouette rectangle
 - Units cannot overlap — collision is hard, not soft

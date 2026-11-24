@@ -1989,3 +1989,6 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T18:56:56-05:00 — Q0015.3: queued group orders use planned positions for the magic box (+ fallback). Doc: commands.md. Change entry 0029. Took in Q0016.
 - 2026-11-23T19:02:16-05:00 — Clarified: group destinations resolved per unit at issue time (no recompute at dequeue). Doc: commands.md. Change entry 0030.
 - 2026-11-23T19:04:35-05:00 — Q0009.1: range edge to edge. Doc: combat.md. Change entry 0031.
+- 2026-11-23T19:08:12-05:00 — Q0009 proximity: 8 su; Move to unit = Follow; 2-GU blocked rule for followed units. Docs: behaviors.md, commands.md. Change entry 0032.
+- 2026-11-23T19:11:01-05:00 — Q0009.2: silhouettes rotate (B); 2-GU rule for static targets; follow-end confirmed. Docs: units.md, behaviors.md. Change entry 0033.
+- 2026-11-23T19:14:28-05:00 — Q0010.1: chase into fog → last seen position. Doc: behaviors.md. Change entry 0034.
