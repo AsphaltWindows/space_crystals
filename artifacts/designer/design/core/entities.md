@@ -76,10 +76,13 @@ Structure placement is validated differently depending on the placement method:
 ### Direct Placement (e.g., GDO buildings, Tunnel underground expansions)
 - The building is placed immediately from an interface menu
 - All tiles under the footprint must pass validation at the moment the player confirms placement
-- For surface buildings: all footprint tiles must be in the **Visible** state for the placing player. If any tile is not Visible, the placement ghost is shown in red and placement cannot be confirmed
+- For surface buildings: all footprint tiles must be in the **Visible** state for the placing player. This includes GDO Extraction Plates (no exemption; user, 2026-11-24). If any tile is not Visible, the placement ghost is shown in red and placement cannot be confirmed
 - For underground expansions: validated against the relevant underground spatial rules (e.g., Tunnel Area bounds, no overlap). Surface visibility is not relevant. Surface flatness is not required either (core/map.md > Elevation > Structures only on flat terrain)
 - **No ground units on the footprint** (user, 2026-11-24): a ground unit of any player (own, allied or enemy) standing on any footprint tile makes those tiles invalid (red on the ghost), and the building can't be placed until they move. Own units are not pushed aside (considered: idle own units stepping aside; judged unnecessary). Air and underground units never block placement.
 - Standard spatial checks also apply (tiles must be Buildable, no existing structure overlap, faction-specific constraints like GDO Build Area). Surface structures also need every footprint tile to be **flat** (core/map.md > Elevation > Structures only on flat terrain)
+
+### All placement methods: no buildings on resources
+(user, 2026-11-24) No structure may cover any tile of a Space Crystals Patch or a Supply Delivery Station (core/map.md > Resource), whatever the placement method. The only exception is a GDO Extraction Plate, which is placed onto a patch.
 
 ### Worker-Built Structures (e.g., Agent building a Tunnel, Drone deploying a Beacon)
 - The player queues a build command targeting a map location

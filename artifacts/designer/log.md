@@ -2052,3 +2052,7 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Q0026 pts 2-3: build area = union of current buildings (shrinks; no DC still OK). Entry 0092.
 - 2026-11-24: Q0026 pt 4: overlay = build area only. Entry 0093. Q0026 done.
 - 2026-11-24: Q0027 pt 1: ground units of any player block direct placement. Entry 0094.
+- 2026-11-24: Q0027 pt 2: plates need Visible tiles; reference base patches within starting DC sight. Entry 0095.
+- 2026-11-24: Q0027 pt 3: no buildings on resources except plates on patches. Entry 0096.
+- 2026-11-24: Q0027 pt 4: Starting Layout validation = normal rules minus visibility; units not on structures/impassable; no warnings. Entry 0097. Q0027 done.
+- 2026-11-24: Q0028 pt 1: plates pay in lumps; power penalty slows cycle. Entry 0098.
