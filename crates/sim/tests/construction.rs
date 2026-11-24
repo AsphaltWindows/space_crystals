@@ -5,7 +5,7 @@
 //! penalty slows the Extraction Facility, never the Deployment Center); Place through the placement check as it
 //! applies (plan decision T4); the gate's rules, fuzzed; saves and replays. `TestSim` checks the invariants after
 //! every tick. The openings on the reference base, this slice's mini-oracle of the clean Barracks among them, are the
-//! economy oracle's (`tests/economy_oracle.rs`, slice M2-J1).
+//! economy oracle's (`tests/economy_oracle/`, slice M2-J1).
 
 use sc_sim::economy::{RATIO_ONE, Refund};
 use sc_sim::nav::NavClass;

@@ -27,11 +27,15 @@
 //! 4. **What the player pays for** goes through a [`BuildOrder`] (`super::build_order`): Drones and Sabres trained
 //!    at the portals, buildings warped in on the Beacons, each as soon as the bank covers it and its builder is free.
 //!
-//! Gathering, rallies and deploys cost nothing, so the build order's bank is the player's: [`super::build_order::
-//! Books`] balance a Colonists player's steps as they do a GDO player's, counting the Drones' deliveries.
+//! Gathering, rallies and deploys cost nothing, so the build order's bank is the player's: the build order's
+//! [`Books`](super::build_order::Books) balance a Colonists player's steps as they do a GDO player's, counting the
+//! Drones' deliveries.
 //!
 //! [`reference_field`] is `factions/gdo/economy.md > Economy Targets (GDO vs Colonists) > Reference geometry` (design
-//! change 0107) with a Colonists start on it.
+//! change 0107) with a Colonists start on it. [`skirmish`] plays `dev_skirmish` with a Colonists line against a GDO
+//! one, for the golden games and longer runs.
+
+pub mod skirmish;
 
 use std::collections::{BTreeMap, BTreeSet};
 

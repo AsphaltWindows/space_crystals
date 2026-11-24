@@ -453,14 +453,17 @@ fn a_playback_that_departs_from_the_recording_reports_a_desync() {
     assert_eq!(top_bar(&mut app), "Replay x1, end - DESYNC at tick 128 (see the log)");
 }
 
-/// The sim's golden games (`crates/sim/tests/golden/`) are replay files: the client plays them back, as fast as it
-/// can (`--fast`), to their last checkpoint.
+/// The sim's golden games (`crates/sim/tests/golden/*.json`, beside the test's sources) are replay files: the client
+/// plays them back, as fast as it can (`--fast`), to their last checkpoint.
 #[test]
 fn golden_games_play_back_in_the_client() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../sim/tests/golden");
     let mut played = 0;
     for entry in std::fs::read_dir(&dir).unwrap() {
         let path = entry.unwrap().path();
+        if path.extension().is_none_or(|e| e != "json") {
+            continue;
+        }
         let replay = load_replay(&path).unwrap();
         let last = *replay.checkpoints.last().unwrap();
         let mut config = AppConfig::playback(replay, path.clone());
@@ -473,5 +476,5 @@ fn golden_games_play_back_in_the_client() {
         assert_eq!(app.world().resource::<Playback>().desync, None);
         played += 1;
     }
-    assert_eq!(played, 7);
+    assert_eq!(played, 9);
 }

@@ -1549,8 +1549,15 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   producer) in priority order, and `commands(&sim)` gives the commands for the next tick: each ready building placed
   at the first origin, row by row, that the placement check takes (`first_spot`), then each track's next order once
   the bank covers it and its builder is free. `Books::open` before a step and `close` after it check a player's bank:
-  it changed by what the plates mined (read off their patches), less what the step's orders paid, plus the refunds
-  its events report.
+  it changed by what the plates mined (read off their patches) and the workers delivered (the step's
+  `ResourcesDelivered`, plan decision T27), less what the step's orders paid, plus the refunds its events report.
+  An `Order` whose builder is a Beacon is a Warp In (slice M3-K1), issued once `Sim::warp_in_check` takes it; a
+  builder that transforms is never free. `testing::colonists` (slice M3-K1) plays a Colonists player the same way:
+  a `Colonists` line sends the Drones to gather (one command, or each to a patch of its own), sets the portals'
+  rally points, sends a Drone a portal releases to deploy at the next of its sites when the room under Beacon
+  Capacity falls to 1 (the 5th Drone made and every 6th after it), and pays for the rest through a `BuildOrder`.
+  `reference_field(drones)` is the reference geometry of design change 0107, and `colonists::skirmish` plays
+  `dev_skirmish` with a Colonists line against the GDO's (the Colonists' golden games, and longer runs of them).
 - **Movement scenario tests** are `crates/sim/tests/movement_collision.rs` (passing, head-on, choke, group arrival,
   idle units, repaths, oscillation bounds, save and load in a crowd), `group_destinations.rs` (the magic box; a
   group crowding its own spots, 0183),
@@ -1601,7 +1608,14 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   for each problem of the check and one refused by an earlier command of its tick, destroyed constructors' refunds by a
   debug removal and in combat, a fuzz of the gate, a save and a replay). The clean Barracks opening, which slice
   M2-D1 measured there first, is the economy oracle's.
-- **The economy oracle** is `crates/sim/tests/economy_oracle.rs` (slice M2-J1): GDO openings on
+- **The economy oracle** is `crates/sim/tests/economy_oracle/`, one binary in modules; its measured results are in
+  `docs/economy_oracle.md`. **The Colonists** (slice M3-K1, `colonists.rs` and `curve.rs`): the reference line on
+  `testing::colonists::reference_field` (one Robo Portal training Drones without a break, every 6th deploying)
+  against the Colonists' column of `> Economy Targets (GDO vs Colonists)` within ±15% (design change 0108) and its
+  targets 1 to 4, beside the GDO's reference line measured the same way (what each delivered or mined over the 21 s
+  centred on a time), and the saturation curve of the row by number of Drones; the figures and targets measured
+  outside the design are pinned as measured (a question to the Designer, not tuned). **The GDO** (slice M2-J1,
+  `played.rs` and `gdo.rs`): GDO openings on
   `maps/dev_skirmish.json` from its real start, played with `testing::build_order` (player 2 idle), against
   `factions/gdo/economy.md > Opening Economy Baseline` and the GDO income of `> Economy Targets`: plates first (the
   reference line: income at the table's times, plates every 25 s, fully plated at about 2:30, the float at 1:30 and
@@ -1690,7 +1704,7 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
   checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is
-  hashed, and `sim/tests/hash.rs` changes each field in turn and checks the hash changes. The golden games (`golden.rs`) pin the hashes from build to build: see Replays and golden hashes.
+  hashed, and `sim/tests/hash.rs` changes each field in turn and checks the hash changes. The golden games (`golden/`) pin the hashes from build to build: see Replays and golden hashes.
 
 ## Client architecture
 
@@ -2336,12 +2350,14 @@ unchecked.
   or ", end", and "Tick n / end". Screenshots, `--exit-at-tick`, `--dump-state`, `--input-script` (to press the
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
-- **Golden hashes** (`crates/sim/tests/golden.rs`): seven games, a 3v3 duel, a 40-unit AttackMove battle, a
+- **Golden hashes** (`crates/sim/tests/golden/`: the games in `main.rs` and `colonists.rs`, the recording and the
+  comparison in `harness.rs`): nine games, a 3v3 duel, a 40-unit AttackMove battle, a
   12-unit group move through a choke, a patrol that meets an enemy, a chase into the fog, three Peacekeepers that
   raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under fire and lower
   them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1 plays the
   fastest clean Barracks and rallies ten Peacekeepers to player 2's crystal field, where they destroy four plates,
-  while player 2 plates its field and builds Generators), are blessed as replays with a checkpoint every 32 ticks and
+  while player 2 plates its field and builds Generators), and the Colonists' `colonists_opening` and
+  `colonists_vs_gdo` (slice M3-K1, below), are blessed as replays with a checkpoint every 32 ticks and
   at the end, in `crates/sim/tests/golden/<name>.json`. The test plays each game from its definition, checks that the
   definition still is the blessed one, and compares the checkpoints; a mismatch fails with the first diverging tick
   and the last one that matched. Each game also asserts what it is about, at its end (`expect`: one side of the duel
@@ -2351,15 +2367,23 @@ unchecked.
   saw at the end: both players' books balance every step, the patch of a destroyed plate keeps what it held until a
   plate covers it again, player 2's income falls (210 crystals in the 9 s before its first plate fell, 130 in the
   last 9) and it is not defeated. Its commands are recorded like the others', so the file plays back without the
-  script; as they follow the game, they are compared after the checkpoints, not as its definition. Any change to the
-  sim's rules or state changes the hashes: when the change is intended, re-bless and commit the files with it:
+  script; as they follow the game, they are compared after the checkpoints, not as its definition. The Colonists'
+  games play `dev_skirmish` with player 1 as the Colonists, by `testing::colonists::skirmish`: in
+  `colonists_opening` (to 1:50) player 1 gathers, trains Drones, deploys, warps in a Bio Portal on its first Beacon,
+  trains two Sabre Legionnaires and converts the first; in `colonists_vs_gdo` (to 3:00) it trains eight Sabres and
+  converts each to a Rifle Legionnaire to wait east of the Bio Portal, while player 2 plays `gdo_opening`'s Barracks line and sends its ten Peacekeepers to
+  player 1's field in two waves of AttackMove: the Colonists' Shields take hits and units die on both sides. Both
+  players' books balance every step, the Drones' deliveries included, and every command the scripts give is one the
+  gate takes. Any change to the sim's rules or state changes the hashes: when the change is intended, re-bless and
+  commit the files with it:
 
   ```sh
   SC_BLESS=1 cargo test -p sc_sim golden
   ```
 
   The suite runs in well under a second in debug. The golden files are replays, so the client plays them:
-  `cargo run -- --replay crates/sim/tests/golden/duel_3v3.json` (the camera starts over the map's middle).
+  `cargo run -- --replay crates/sim/tests/golden/duel_3v3.json` (the camera starts over the map's middle, or where
+  the game sets it: the Colonists' games start it over player 1's base).
 
 ## Map editor
 
