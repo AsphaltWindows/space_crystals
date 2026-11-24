@@ -160,6 +160,7 @@ impl Plugin for HudPlugin {
                     info_panel::update_info_panel,
                     selection_panel::update_selection_panel,
                     command_panel::update_command_panel,
+                    info_panel::hint::update_command_hint,
                 )
                     .chain()
                     .in_set(ClientSystems::Present),

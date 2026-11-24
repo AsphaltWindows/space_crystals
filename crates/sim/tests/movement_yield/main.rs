@@ -23,8 +23,8 @@ use sc_sim::mover::{GIVE_UP_TICKS, MAX_REPATHS, OCCUPIED_ARRIVAL_GU, REPATH_WAIT
 use sc_sim::testing::invariants::Invariants;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
-    Ability, Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, RiotShield,
-    Shape, Sim, SimEvent, SpawnAt, Target, TickInputs, TilePos, Vec2, gu,
+    Ability, Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Shape, Sim,
+    SimEvent, SpawnAt, Target, TickInputs, TilePos, Vec2, gu,
 };
 
 const P1: PlayerId = PlayerId(1);

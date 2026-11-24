@@ -89,7 +89,9 @@ fn game() -> TestSim {
             "#{n}"
         );
     }
-    assert!(!sim.object(ObjectId(6)).unwrap().riot_shield.unwrap().allows_attack());
+    let shielded = sim.object(ObjectId(6)).unwrap();
+    assert_eq!(shielded.kind, ObjectKind::PeacekeeperShielded);
+    assert!(!sc_sim::riot_shield::allows_attack(shielded));
     t
 }
 

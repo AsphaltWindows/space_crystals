@@ -6,9 +6,10 @@
 //! smaller, to fit on one line ([`label_px`]). Each look has its colours: common commands blue, group commands violet
 //! (the design wants the two "visually distinguished"), the PendingCommand lit up in yellow, disabled commands grey
 //! and dim (a Train or a Cancel Production the command gate would refuse too: `crate::command_ui::Conditions`),
-//! unavailable ones near-black with a dark red border, Back slate. A toggle that is on (the Riot Shields up) has a
-//! thick green border, and its label says what pressing it does. A click on a button is a press of its slot, handled
-//! with the hotkeys (`crate::command_ui`), which finds the button by the same geometry ([`CommandGrid`]).
+//! unavailable ones near-black with a dark red border, Back slate. A click on a button is a press of its slot, handled
+//! with the hotkeys (`crate::command_ui`), which finds the button by the same geometry ([`CommandGrid`]); the button
+//! under the pointer has its full name in the InfoPanel (`super::info_panel::CommandHint`), which a short label
+//! shortens.
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -31,11 +32,9 @@ const LABEL_MARGIN_VH: f32 = 0.2;
 /// The advance of every glyph of the HUD's font, in ems: Bevy's default font, Fira Mono, is monospaced, 600 units to
 /// its em of 1000.
 const GLYPH_ADVANCE_EM: f32 = 0.6;
-/// The borders of a button, and of a lit one: the PendingCommand, a toggle that is on.
+/// The borders of a button, and of a lit one: the PendingCommand.
 const BORDER_PX: f32 = 1.0;
 const LIT_BORDER_PX: f32 = 2.0;
-/// The border of a toggle that is on (placeholder).
-const ON_BORDER: Color = Color::srgb(0.45, 0.95, 0.55);
 
 /// A button of the panel: its slot and what it shows.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
@@ -192,8 +191,7 @@ fn colors(look: ButtonLook) -> (Color, Color, Color) {
 /// A button's node, background and border.
 fn button_node(at: Vec2, side: f32, shown: PanelSlot) -> impl Bundle {
     let (background, border, _) = colors(shown.look);
-    let border = if shown.on { ON_BORDER } else { border };
-    let lit = shown.look == ButtonLook::Pending || shown.on;
+    let lit = shown.look == ButtonLook::Pending;
     (
         Node {
             position_type: PositionType::Absolute,
@@ -258,26 +256,23 @@ mod tests {
 
     /// Every label a command button can show: of each command of each type's panels in any state (its DefaultState
     /// grid, its build or Warp In menus, what it constructs, places or warps in and the Cancels: [`commands`]; an
-    /// unfinished building's Cancel), a toggle's when it is on, and Back.
+    /// unfinished building's Cancel), and Back.
     fn every_label() -> BTreeSet<&'static str> {
-        let label = |button, on| {
+        let label = |button| {
             let look = ButtonLook::Common;
             PanelSlot {
                 button,
                 look,
-                on,
                 why: None,
             }
             .label()
         };
-        let mut labels = BTreeSet::from([label(PanelButton::Back, false)]);
+        let mut labels = BTreeSet::from([label(PanelButton::Back)]);
         for &kind in ObjectKind::ALL {
             let menus = BuildMenu::ALL.map(|menu| menu_grid(kind, menu));
             let grids = [grid(kind), TRANSFORMING_GRID].into_iter().chain(menus);
             for command in grids.flatten().flatten().chain(commands(kind)) {
-                for on in [false, true] {
-                    labels.insert(label(PanelButton::Command(command), on));
-                }
+                labels.insert(label(PanelButton::Command(command)));
             }
         }
         labels
@@ -294,8 +289,8 @@ mod tests {
             "Warp RP",
             "Train SL",
             "Advanced",
-            "Raise Shield",
-            "Lower Shield",
+            "Raise",
+            "Lower",
             "Cancel Ready",
             "Back",
         ] {
@@ -325,7 +320,9 @@ mod tests {
                 );
             }
             let full = LABEL_VH * (surface.y / 100.0);
-            for label in ["Cancel", "Attack", "Rally", "Back"] {
+            // The Riot Shield's labels too (slice M3-S: "Raise Shield" and "Lower Shield" came out at about 6 px at
+            // 720p).
+            for label in ["Cancel", "Attack", "Rally", "Back", "Raise", "Lower"] {
                 assert_eq!(label_px(label, side, surface), full, "{label} on {surface}");
             }
         }
@@ -335,7 +332,7 @@ mod tests {
         let side = CommandGrid::on(surface).cell;
         let ratio = |label| label_px(label, side, surface) / (LABEL_VH * 7.2);
         assert!(ratio("Warp RP") > 0.9, "{}", ratio("Warp RP"));
-        assert!(ratio("Raise Shield") > 0.5, "{}", ratio("Raise Shield"));
+        assert!(ratio("Cancel Ready") > 0.5, "{}", ratio("Cancel Ready"));
     }
 
     /// The font the labels are measured for: Bevy's default, every glyph [`GLYPH_ADVANCE_EM`] wide (its `hmtx`

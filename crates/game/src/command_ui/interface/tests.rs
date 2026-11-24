@@ -3,11 +3,12 @@ mod construction;
 mod gathering;
 
 use sc_sim::defs::AttackType;
-use sc_sim::{Ability, ObjectId, ObjectKind, OrderKind, ProductionCommand, Reject, RiotShield};
+use sc_sim::{Ability, ObjectId, ObjectKind, OrderKind, ProductionCommand, Reject, ShieldMode};
 
 use super::*;
 
 const PK: ObjectKind = ObjectKind::Peacekeeper;
+const SHIELDED: ObjectKind = ObjectKind::PeacekeeperShielded;
 const GUARD: ObjectKind = ObjectKind::Guard;
 const BARRACKS: ObjectKind = ObjectKind::Barracks;
 
@@ -28,7 +29,7 @@ fn shown(panel: &Panel) -> Vec<(CommandSlot, PanelButton, ButtonLook)> {
 
 /// `> BasicCombatUnitInterfaceState > DefaultState commands`: the grid of a Peacekeeper and Guard selection.
 /// Neither can reverse (infantry) nor target the ground (FullyConnected), so W and D are unavailable; every other
-/// command is common to both types. The Peacekeepers, the ActiveGroup, add their Riot Shield in R, a group
+/// command is common to both types. The Peacekeepers, the ActiveGroup, add their Raise Shield in R, a group
 /// command.
 #[test]
 fn a_mixed_infantry_selection_gets_the_basic_combat_unit_grid() {
@@ -43,7 +44,7 @@ fn a_mixed_infantry_selection_gets_the_basic_combat_unit_grid() {
             (slot(0, 0), c(Move), Common),
             (slot(0, 1), c(Reverse), Unavailable),
             (slot(0, 2), c(HoldPosition), Common),
-            (slot(0, 3), c(RiotShield), Group),
+            (slot(0, 3), c(RaiseShield), Group),
             (slot(1, 0), c(Attack), Common),
             (slot(1, 1), c(Patrol), Common),
             (slot(1, 2), c(AttackGround), Unavailable),
@@ -153,76 +154,113 @@ fn awaiting_a_target_holds_while_the_active_group_offers_its_command() {
     ));
 }
 
-/// `factions/gdo/units.md > Peacekeeper > Riot Shield`: R raises the shields of the Peacekeepers it goes to, or
-/// lowers them when they are all up or on their way up; the button says which. Guards have no R.
+/// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): "The Peacekeeper's panel
+/// shows **Raise Shield**; Peacekeeper (Shielded)'s shows **Lower Shield** and no Attack", both in R (design change
+/// 0174), labelled short enough for their button ("Raise", "Lower") and named in full ([`PanelSlot::name`]). Each is
+/// its type's own: in a selection of both types, it goes to the ActiveGroup ("the shield command goes to the
+/// ActiveGroup"), which shows it as a group command. Guards have no R.
 #[test]
-fn the_riot_shield_toggles_in_slot_r() {
-    let r = slot(0, 3);
-    let raise = |raise| SlotPress::UseAbility(PanelCommand::RiotShield, Ability::RiotShield { raise });
-    let pks = Selection::new([(id(1), PK), (id(2), PK)]);
-    let modes =
-        |shields: [RiotShield; 2]| Conditions::with_modes(Modes::from_iter([(id(1), shields[0]), (id(2), shields[1])]));
-    let down = panel(&pks, InterfaceState::DefaultState, &modes([RiotShield::Lowered; 2]));
-    let shown = down.get(r).unwrap();
+fn each_peacekeeper_type_has_its_shield_command_in_slot_r() {
+    let (r, a) = (slot(0, 3), slot(1, 0));
+    let ability = |command, raise| SlotPress::UseAbility(command, Ability::RiotShield { raise });
+    let default = |selection: &Selection| panel(selection, InterfaceState::DefaultState, &Conditions::default());
+    let pks = default(&Selection::new([(id(1), PK), (id(2), PK)]));
+    let shown = pks.get(r).unwrap();
     assert_eq!(
-        (shown.look, shown.on, shown.label()),
-        (ButtonLook::Common, false, "Raise Shield")
+        (shown.button, shown.look, shown.label(), shown.name()),
+        (
+            PanelButton::Command(PanelCommand::RaiseShield),
+            ButtonLook::Common,
+            "Raise",
+            "Raise Shield".to_string()
+        )
     );
-    assert_eq!(press(&down, r), raise(true));
-    for going_up in [
-        [RiotShield::Raised, RiotShield::Raised],
-        [RiotShield::Raising { left: 2 }, RiotShield::Raised],
+    assert_eq!(press(&pks, r), ability(PanelCommand::RaiseShield, true));
+    assert_eq!(
+        pks.get(a).map(|s| s.button),
+        Some(PanelButton::Command(PanelCommand::Attack))
+    );
+
+    let shielded = default(&Selection::new([(id(1), SHIELDED), (id(2), SHIELDED)]));
+    let shown = shielded.get(r).unwrap();
+    assert_eq!(
+        (shown.button, shown.label(), shown.name()),
+        (
+            PanelButton::Command(PanelCommand::LowerShield),
+            "Lower",
+            "Lower Shield".to_string()
+        )
+    );
+    assert_eq!(press(&shielded, r), ability(PanelCommand::LowerShield, false));
+    assert_eq!(shielded.get(a), None, "no Attack");
+    assert_eq!(press(&shielded, a), SlotPress::Nothing);
+
+    let mixed = Selection::new([(id(1), PK), (id(2), SHIELDED), (id(3), PK), (id(4), GUARD)]);
+    assert_eq!(recipients(&mixed, PanelCommand::RaiseShield), [id(1), id(3)]);
+    assert_eq!(default(&mixed).get(r).map(|s| s.look), Some(ButtonLook::Group));
+    let mut tabbed = mixed.clone();
+    while tabbed.active().map(|group| group.kind) != Some(SHIELDED) {
+        assert!(tabbed.cycle(true));
+    }
+    assert_eq!(recipients(&tabbed, PanelCommand::LowerShield), [id(2)]);
+    assert_eq!(press(&default(&tabbed), r), ability(PanelCommand::LowerShield, false));
+
+    let guards = Selection::new([(id(4), GUARD)]);
+    assert_eq!(default(&guards).get(r), None);
+    // The Peacekeeper (Shielded) offers an Attack its panel doesn't show (`hides_attack`).
+    for (ty, raise, lower, attack) in [
+        (PK, true, false, true),
+        (SHIELDED, false, true, true),
+        (GUARD, false, false, true),
     ] {
-        let up = panel(&pks, InterfaceState::DefaultState, &modes(going_up));
         assert_eq!(
-            (up.get(r).unwrap().on, up.get(r).unwrap().label()),
-            (true, "Lower Shield")
+            (
+                offers(ty, PanelCommand::RaiseShield),
+                offers(ty, PanelCommand::LowerShield),
+                offers(ty, PanelCommand::Attack)
+            ),
+            (raise, lower, attack),
+            "{ty:?}"
         );
-        assert_eq!(press(&up, r), raise(false));
     }
-    for differing in [
-        [RiotShield::Raised, RiotShield::Lowered],
-        [RiotShield::Raised, RiotShield::Lowering { left: 1 }],
-    ] {
-        let some = panel(&pks, InterfaceState::DefaultState, &modes(differing));
-        assert_eq!(press(&some, r), raise(true), "{differing:?}: all of them up");
-    }
-    let guards = Selection::new([(id(3), GUARD)]);
-    assert_eq!(
-        panel(&guards, InterfaceState::DefaultState, &Conditions::default()).get(r),
-        None
-    );
-    assert!(!offers(GUARD, PanelCommand::RiotShield) && offers(PK, PanelCommand::RiotShield));
-    let mixed = Selection::new([(id(1), PK), (id(2), PK), (id(3), GUARD)]);
-    assert_eq!(recipients(&mixed, PanelCommand::RiotShield), [id(1), id(2)]);
 }
 
 /// `factions/gdo/units.md > Peacekeeper > Riot Shield`: "the player must lower the shield before ordering an
-/// attack". Attack is disabled while none of its recipients can attack, and a pending Attack ends; a Guard in the
-/// selection still can.
+/// attack", and a Peacekeeper whose shield is on its way down can't attack yet (design change 0171). Attack is
+/// disabled while none of its recipients can attack, and a pending Attack ends; a Guard in the selection still can.
+/// Peacekeepers (Shielded) show no Attack (design change 0173), but with other units Attack goes to them too, a
+/// common command: an Attack on an object then leaves them out (0075), and an AttackMove takes them along (0076).
 #[test]
 fn attack_waits_for_a_recipient_that_can_attack() {
     let a = slot(1, 0);
     let attack = InterfaceState::awaiting(PanelCommand::Attack);
-    let shielded = Conditions::with_modes(Modes::from_iter([
-        (id(1), RiotShield::Raised),
-        (id(2), RiotShield::Lowering { left: 1 }),
+    let lowering = Conditions::with_modes(Modes::from_iter([
+        (id(1), ShieldMode::Lowering { left: 1 }),
+        (id(2), ShieldMode::Lowering { left: 4 }),
     ]));
     let pks = Selection::new([(id(1), PK), (id(2), PK)]);
-    let panel_of = |selection: &Selection| panel(selection, InterfaceState::DefaultState, &shielded);
+    let panel_of = |selection: &Selection| panel(selection, InterfaceState::DefaultState, &lowering);
     assert_eq!(panel_of(&pks).get(a).map(|s| s.look), Some(ButtonLook::Disabled));
     assert_eq!(press(&panel_of(&pks), a), SlotPress::Nothing);
-    assert!(!still_valid(attack, &pks, true, &shielded));
+    assert!(!still_valid(attack, &pks, true, &lowering));
     let with_guard = Selection::new([(id(1), PK), (id(2), PK), (id(3), GUARD)]);
     assert_eq!(
         press(&panel_of(&with_guard), a),
         SlotPress::AwaitTarget(PanelCommand::Attack)
     );
-    assert!(still_valid(attack, &with_guard, true, &shielded));
-    let one_down = Modes::from_iter([(id(1), RiotShield::Raised), (id(2), RiotShield::Lowered)]);
+    assert!(still_valid(attack, &with_guard, true, &lowering));
+    let one_down = Modes::from_iter([(id(1), ShieldMode::Lowering { left: 1 }), (id(2), ShieldMode::Lowered)]);
     assert!(one_down.can_attack(id(2)) && !one_down.can_attack(id(1)) && one_down.can_attack(id(3)));
     assert_eq!(
         panel(&pks, InterfaceState::DefaultState, &Conditions::with_modes(one_down))
+            .get(a)
+            .map(|s| s.look),
+        Some(ButtonLook::Common)
+    );
+    let with_shielded = Selection::new([(id(1), PK), (id(3), GUARD), (id(5), SHIELDED)]);
+    assert_eq!(recipients(&with_shielded, PanelCommand::Attack), [id(1), id(3), id(5)]);
+    assert_eq!(
+        panel(&with_shielded, InterfaceState::DefaultState, &Conditions::default())
             .get(a)
             .map(|s| s.look),
         Some(ButtonLook::Common)

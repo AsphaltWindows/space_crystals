@@ -1,4 +1,5 @@
 use super::*;
+use crate::nav::NavClass;
 
 #[test]
 fn every_base_has_its_def() {

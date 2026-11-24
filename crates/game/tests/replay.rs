@@ -11,8 +11,8 @@ use bevy::time::TimeUpdateStrategy;
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{
-    Ability, Command, DebugCommand, Desync, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Replay,
-    RiotShield, Scenario, SimConfig, SpawnAt, Target, Tick, TickInputs, TilePos,
+    Ability, Command, DebugCommand, Desync, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Replay, Scenario,
+    ShieldMode, SimConfig, SpawnAt, Target, Tick, TickInputs, TilePos,
 };
 use space_crystals::command_ui::OrderIssued;
 use space_crystals::fog::FogOfWar;
@@ -145,9 +145,9 @@ fn play_recorded_game(path: &Path, until: Tick) -> BTreeMap<Tick, u64> {
 }
 
 /// The Riot Shield of unit `id`, as the sim has it.
-fn shield(app: &App, id: u32) -> RiotShield {
+fn shield(app: &App, id: u32) -> ShieldMode {
     let sim = app.world().resource::<SimRes>();
-    sim.object(ObjectId(id)).unwrap().riot_shield.expect("a Peacekeeper")
+    sc_sim::riot_shield::mode(sim.object(ObjectId(id)).unwrap()).expect("a Peacekeeper")
 }
 
 fn select(app: &mut App, id: u32) {
@@ -257,12 +257,12 @@ fn a_recorded_game_plays_back_as_it_was_played() {
                 app.world().resource::<Messages<OrderIssued>>().is_empty(),
                 "no command panel"
             );
-            assert_eq!(shield(&app, 2), RiotShield::Lowered, "nor its abilities");
+            assert_eq!(shield(&app, 2), ShieldMode::Lowered, "nor its abilities");
         } else {
             app.update();
         }
         if tick(&app) == 50 {
-            assert_eq!(shield(&app, 2), RiotShield::Raised, "as recorded");
+            assert_eq!(shield(&app, 2), ShieldMode::Raised, "as recorded");
         }
         // The recording missed the hashes of the first of its hotkeys' two updates.
         if let Some(&recorded) = hashes.get(&tick(&app)) {

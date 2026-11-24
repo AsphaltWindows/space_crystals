@@ -131,6 +131,38 @@ fn a_legionnaire_changes_its_weapon_and_carries_on_with_its_order() {
     assert_eq!(shots.first(), Some(&(sabre, pk, 9.0)), "the Rifle Legionnaire fired");
 }
 
+/// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): "They share everything
+/// except what the shield changes", the weapon included, so a Peacekeeper that becomes a Peacekeeper (Shielded) and
+/// back keeps its attack as it was, the reload under way and a deferred ability with it, unlike a Legionnaire's new
+/// weapon; and it keeps its shield where it was, and its speed factor, which `riot_shield::settle` sets after a toggle.
+#[test]
+fn the_shields_two_types_keep_the_weapon_and_the_shield_as_they_were() {
+    let mut sim = sim(&[(ObjectKind::Peacekeeper, P1, SpawnAt::Point(Vec2::new(300.0, 300.0)))]);
+    let pk = ObjectId(1);
+    let reloading = AttackState {
+        target: Some(ObjectId(7)),
+        phase: Some(crate::combat::AttackPhase::Reloading),
+        elapsed: 5,
+        pending: Some(crate::command::Ability::RiotShield { raise: true }),
+    };
+    let o = sim.objects.get_mut(&pk).unwrap();
+    o.attack = Some(reloading.clone());
+    o.riot_shield = Some(crate::riot_shield::RiotShield { up: 2 });
+    o.mover.as_mut().unwrap().speed_factor = 0.5;
+    for kind in [ObjectKind::PeacekeeperShielded, ObjectKind::Peacekeeper] {
+        assert!(sim.change_kind(pk, kind, None));
+        let o = object(&sim, 1);
+        assert_eq!(o.kind, kind);
+        assert_eq!(o.attack.as_ref(), Some(&reloading), "{kind:?}");
+        assert_eq!(
+            o.riot_shield,
+            Some(crate::riot_shield::RiotShield { up: 2 }),
+            "{kind:?}"
+        );
+        assert_eq!(o.mover.as_ref().unwrap().speed_factor, 0.5, "{kind:?}");
+    }
+}
+
 /// `economy.md > Beacon Deployment`: a Drone that becomes a Beacon stands on its footprint, at its centre, and keeps
 /// its HP (the deployment makes it follow the interpolated maximum, design change 0110); its unit capabilities go. The
 /// footprint blocks the ground from the next phase 5b on. `> Cancel Deployment`: back to a Drone, where the Beacon
@@ -302,7 +334,7 @@ fn a_changed_object_has_the_capabilities_of_a_new_one() {
     let mut sim = sim(&[(ObjectKind::Peacekeeper, P1, SpawnAt::Point(Vec2::new(300.0, 300.0)))]);
     let pk = ObjectId(1);
     let o = sim.objects.get_mut(&pk).unwrap();
-    o.riot_shield = Some(crate::riot_shield::RiotShield::Lowered);
+    o.riot_shield = Some(crate::riot_shield::RiotShield { up: 3 });
     o.mover.as_mut().unwrap().speed_factor = 0.5;
     let mut pos = Vec2::new(300.0, 300.0);
     for (kind, placement) in [

@@ -1,4 +1,4 @@
-//! The abilities that wait for an attack (module docs of `sim/modes.rs`, design change 0153).
+//! The abilities that wait for an attack (module docs of `sim/modes.rs`, design changes 0153 and 0172).
 
 use glam::Vec2;
 
@@ -7,8 +7,12 @@ use crate::combat::AttackPhase;
 use crate::conversion::{self, CONVERT_TICKS, Conversion};
 use crate::defs::ObjectKind;
 use crate::ids::PlayerId;
-use crate::riot_shield::RiotShield;
+use crate::object::Object;
+use crate::riot_shield::{RiotShield, ShieldMode};
 use crate::scenarios;
+
+const RAISE: Ability = Ability::RiotShield { raise: true };
+const LOWER: Ability = Ability::RiotShield { raise: false };
 
 /// A game with a Rifle Legionnaire (id 1) and a Peacekeeper (id 2) of player 1, both engaging object 9 in `phase`.
 fn fighters(phase: AttackPhase) -> (Sim, ObjectId, ObjectId) {
@@ -42,43 +46,56 @@ fn object(sim: &Sim, id: ObjectId) -> &Object {
     &sim.objects[&id]
 }
 
+fn pending(sim: &Sim, id: ObjectId) -> Option<Ability> {
+    object(sim, id).attack.as_ref().unwrap().pending
+}
+
 /// Design change 0153 (`factions/colonists/units.md > Weapon Conversion > Eligibility`): "Pressed during those
 /// phases, it is deferred, not rejected: the unit finishes Firing and Cooldown, then converts immediately (instead
-/// of starting its Reloading phase)". The Convert waits as the unit's pending ability through the Modes steps of its
-/// Firing and its Cooldown; in the first one after (its combat phase has put it into a Reloading that hasn't run a
-/// tick), it is used, and that same step takes the conversion's first frame, as for a Convert given then. The other
-/// abilities don't wait (design change 0172 will hold a raised Riot Shield so, slice M3-S).
+/// of starting its Reloading phase)". Design change 0172 (`factions/gdo/units.md > Peacekeeper > Riot Shield > During
+/// the toggle`) does the same to a raise of the Riot Shield: "the shot finishes, then the shield starts rising
+/// immediately". Each waits as the unit's pending ability through the Modes steps of its Firing and its Cooldown, the
+/// Peacekeeper still a Peacekeeper with its shield down; in the first one after (its combat phase has put it into a
+/// Reloading that hasn't run a tick), it is used, and that same step takes the conversion's first frame, and the
+/// shield's first tick up, as for one given then. The conversion ends the reload; the shield doesn't, the weapon
+/// being the same.
 #[test]
-fn a_convert_given_mid_attack_waits_for_the_cooldown_then_converts_at_once() {
+fn a_convert_or_a_raise_given_mid_attack_waits_for_the_cooldown_then_applies_at_once() {
     let firing = AttackPhase::Firing {
         target: Some(ObjectId(9)),
     };
     let (mut sim, rifle, peacekeeper) = fighters(firing);
     let first_new = ObjectId(sim.next_id);
     sim.use_ability(&[rifle], Ability::Convert);
-    sim.use_ability(&[peacekeeper], Ability::RiotShield { raise: true });
-    assert_eq!(
-        object(&sim, rifle).attack.as_ref().unwrap().pending,
-        Some(Ability::Convert)
-    );
+    sim.use_ability(&[peacekeeper], RAISE);
+    assert_eq!(pending(&sim, rifle), Some(Ability::Convert));
     assert!(conversion::waits_to_convert(object(&sim, rifle)));
     assert!(!conversion::is_converting(object(&sim, rifle)) && !conversion::may_convert(object(&sim, rifle)));
-    let shield = object(&sim, peacekeeper).riot_shield;
-    assert!(shield.is_some_and(RiotShield::is_going_up), "at once: {shield:?}");
-    assert_eq!(object(&sim, peacekeeper).attack.as_ref().unwrap().pending, None);
+    assert_eq!(pending(&sim, peacekeeper), Some(RAISE));
 
     for phase in [firing, AttackPhase::Cooldown] {
-        set_phase(&mut sim, rifle, phase);
+        for id in [rifle, peacekeeper] {
+            set_phase(&mut sim, id, phase);
+        }
         sim.step_modes(first_new);
         let o = object(&sim, rifle);
-        assert_eq!(o.attack.as_ref().unwrap().pending, Some(Ability::Convert), "{phase:?}");
+        assert_eq!(pending(&sim, rifle), Some(Ability::Convert), "{phase:?}");
         assert_eq!(
             (o.conversion, o.attack.as_ref().unwrap().phase),
             (None, Some(phase)),
             "{phase:?}"
         );
+        let pk = object(&sim, peacekeeper);
+        assert_eq!(pending(&sim, peacekeeper), Some(RAISE), "{phase:?}");
+        assert_eq!(
+            (pk.kind, crate::riot_shield::mode(pk)),
+            (ObjectKind::Peacekeeper, Some(ShieldMode::Lowered)),
+            "{phase:?}"
+        );
     }
-    set_phase(&mut sim, rifle, AttackPhase::Reloading);
+    for id in [rifle, peacekeeper] {
+        set_phase(&mut sim, id, AttackPhase::Reloading);
+    }
     sim.step_modes(first_new);
     let o = object(&sim, rifle);
     let attack = o.attack.as_ref().unwrap();
@@ -96,6 +113,41 @@ fn a_convert_given_mid_attack_waits_for_the_cooldown_then_converts_at_once() {
         "its first frame"
     );
     assert!(!o.mover.as_ref().unwrap().can_move(5.0));
+
+    let pk = object(&sim, peacekeeper);
+    let attack = pk.attack.as_ref().unwrap();
+    assert_eq!(
+        (attack.pending, attack.phase, attack.target),
+        (None, Some(AttackPhase::Reloading), Some(ObjectId(9))),
+        "its reload goes on"
+    );
+    assert_eq!(pk.kind, ObjectKind::PeacekeeperShielded);
+    assert_eq!(pk.riot_shield, Some(RiotShield { up: 1 }), "its first tick up");
+}
+
+/// A raise waits only while the unit is Firing or in Cooldown: Aiming, Reloading or idle, the Peacekeeper becomes a
+/// Peacekeeper (Shielded) at once. A lowering never waits, and cancels a raise that does (a placeholder reading:
+/// only a command made by hand sends it, a Peacekeeper's panel having no Lower Shield).
+#[test]
+fn only_a_raise_waits_and_a_lowering_cancels_it() {
+    for phase in [AttackPhase::Aiming { target: ObjectId(9) }, AttackPhase::Reloading] {
+        let (mut sim, _, peacekeeper) = fighters(phase);
+        sim.use_ability(&[peacekeeper], RAISE);
+        assert_eq!(pending(&sim, peacekeeper), None, "{phase:?}");
+        assert_eq!(object(&sim, peacekeeper).kind, ObjectKind::PeacekeeperShielded);
+    }
+    let (mut sim, _, peacekeeper) = fighters(AttackPhase::Cooldown);
+    sim.use_ability(&[peacekeeper], RAISE);
+    assert_eq!(pending(&sim, peacekeeper), Some(RAISE));
+    sim.use_ability(&[peacekeeper], LOWER);
+    assert_eq!(pending(&sim, peacekeeper), None, "cancelled");
+    set_phase(&mut sim, peacekeeper, AttackPhase::Reloading);
+    sim.step_modes(ObjectId(sim.next_id));
+    let pk = object(&sim, peacekeeper);
+    assert_eq!(
+        (pk.kind, crate::riot_shield::mode(pk)),
+        (ObjectKind::Peacekeeper, Some(ShieldMode::Lowered))
+    );
 }
 
 /// A unit created this tick waits for the next Modes step (`Sim::step_modes`), its pending ability too.
@@ -105,10 +157,7 @@ fn a_pending_ability_of_a_unit_created_this_tick_waits_a_step() {
     sim.use_ability(&[rifle], Ability::Convert);
     set_phase(&mut sim, rifle, AttackPhase::Reloading);
     sim.step_modes(rifle);
-    assert_eq!(
-        object(&sim, rifle).attack.as_ref().unwrap().pending,
-        Some(Ability::Convert)
-    );
+    assert_eq!(pending(&sim, rifle), Some(Ability::Convert));
     sim.step_modes(ObjectId(sim.next_id));
     assert!(conversion::is_converting(object(&sim, rifle)));
 }

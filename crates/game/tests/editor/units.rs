@@ -28,6 +28,8 @@ fn mode(app: &App) -> ClientMode {
     *app.world().resource::<ClientMode>()
 }
 
+/// Both Peacekeeper types (design change 0173), like the Legionnaires' two forms: a map may place a Peacekeeper
+/// (Shielded), its shield up from the start.
 #[test]
 fn the_palette_lists_the_units_of_each_faction() {
     let units: Vec<(String, Vec<ObjectKind>)> = palette_groups()
@@ -38,7 +40,7 @@ fn the_palette_lists_the_units_of_each_faction() {
     assert_eq!(
         units,
         [
-            ("GDO units".to_string(), vec![PK]),
+            ("GDO units".to_string(), vec![PK, ObjectKind::PeacekeeperShielded]),
             ("Syndicate units".to_string(), vec![GUARD]),
             (
                 "Colonists units".to_string(),

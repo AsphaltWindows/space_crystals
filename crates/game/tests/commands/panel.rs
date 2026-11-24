@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
-use sc_sim::{Ability, ObjectId, OrderKind, PlayerId, RiotShield};
+use sc_sim::{Ability, ObjectId, OrderKind, PlayerId, ShieldMode};
 use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, PanelCommand};
 use space_crystals::hud::command_panel::{CommandButton, CommandPanelView};
 use space_crystals::hud::{HudSection, SectionLabel};
@@ -38,9 +38,9 @@ fn texts(app: &mut App) -> Vec<String> {
 /// `> BasicCombatUnitInterfaceState > DefaultState commands` and `> Standard Slot Assignments` (0002): a selection
 /// of Peacekeepers and Guards shows Move (Q), Hold (E), Attack (A), Patrol (S) and Stop (X), all common to both
 /// types; Reverse (W) and AttackGround (D) unavailable to both; Z, C and V empty. The Peacekeepers, the ActiveGroup,
-/// add their Riot Shield in R, a group command (`factions/gdo/units.md > Peacekeeper > Riot Shield`). Each button is
-/// labelled with its command and its hotkey. While a target is awaited Z is Back, and disabled and unavailable
-/// buttons look apart.
+/// add their Raise Shield in R, a group command (`factions/gdo/units.md > Peacekeeper > Riot Shield`), labelled
+/// "Raise" to fit its button at 720p. Each button is labelled with its command and its hotkey. While a target is
+/// awaited Z is Back, and disabled and unavailable buttons look apart.
 #[test]
 fn a_mixed_selection_shows_the_basic_combat_unit_grid() {
     use ButtonLook::{Common, Group, Unavailable};
@@ -56,7 +56,7 @@ fn a_mixed_selection_shows_the_basic_combat_unit_grid() {
             (slot(0, 0), c(Move), Common),
             (slot(0, 1), c(Reverse), Unavailable),
             (slot(0, 2), c(HoldPosition), Common),
-            (slot(0, 3), c(RiotShield), Group),
+            (slot(0, 3), c(RaiseShield), Group),
             (slot(1, 0), c(Attack), Common),
             (slot(1, 1), c(Patrol), Common),
             (slot(1, 2), c(AttackGround), Unavailable),
@@ -68,18 +68,7 @@ fn a_mixed_selection_shows_the_basic_combat_unit_grid() {
     assert_eq!(view.hotkeys[8..], ["Z", "X", "C", "V"]);
     let shown = texts(&mut app);
     for label in [
-        "Move",
-        "Hold",
-        "Raise Shield",
-        "Attack",
-        "Patrol",
-        "Stop",
-        "Q",
-        "E",
-        "R",
-        "A",
-        "S",
-        "X",
+        "Move", "Hold", "Raise", "Attack", "Patrol", "Stop", "Q", "E", "R", "A", "S", "X",
     ] {
         assert!(shown.contains(&label.to_string()), "{label} in {shown:?}");
     }
@@ -156,7 +145,7 @@ fn hotkeys_and_buttons_issue_immediate_commands() {
 }
 
 /// `> CommandPanel`: a common command goes to the whole selection, whichever group is active. (A group command goes
-/// to the ActiveGroup alone: the Peacekeepers' Riot Shield, `riot_shield.rs`.)
+/// to the ActiveGroup alone: the Peacekeepers' Raise Shield, `riot_shield.rs`.)
 #[test]
 fn common_commands_go_to_the_whole_selection_from_any_active_group() {
     let mut app = game();
@@ -189,7 +178,9 @@ fn bare_ground(app: &App) -> Vec2 {
 /// Peacekeepers and two Guards (Tab), each command shown is used: an immediate one is issued, one that awaits a
 /// target gets a click on the ground. The orders and abilities given must go to exactly those units, all at once.
 /// A shown command this does not know how to give, or that gives nothing, fails it. (The unavailable Reverse and
-/// AttackGround go to nobody: no M1 unit has them.)
+/// AttackGround go to nobody: no M1 unit has them.) Raise Shield's hotkey turns the three Peacekeepers into
+/// Peacekeepers (Shielded), whose group becomes the ActiveGroup (design change 0173), so its button, in R, is then
+/// Lower Shield, which goes to the same three and turns them back.
 #[test]
 fn every_panel_command_reaches_all_its_recipients() {
     use PanelCommand::*;
@@ -241,12 +232,13 @@ fn every_panel_command_reaches_all_its_recipients() {
         }
         tap(&mut app, &[], Tab);
     }
-    let pks = [Move, HoldPosition, RiotShield, Attack, Patrol, Stop];
+    let pks = [Move, HoldPosition, RaiseShield, Attack, Patrol, Stop];
     let guards = [Move, HoldPosition, Attack, Patrol, Stop];
     assert_eq!(used, [pks.as_slice(), guards.as_slice()].concat());
 }
 
-/// 0071 Verification 3: four Peacekeepers selected and the Riot Shield key (R): all four raise their shields.
+/// 0071 Verification 3: four Peacekeepers selected and the Riot Shield key (R): all four raise their shields, and
+/// are Peacekeepers (Shielded) from the toggle's start (design change 0173).
 #[test]
 fn the_riot_shield_key_raises_every_selected_peacekeeper() {
     let mut app = game();
@@ -263,8 +255,12 @@ fn the_riot_shield_key_raises_every_selected_peacekeeper() {
     assert_eq!(abilities(&app), [(PlayerId(1), four.to_vec(), raise)]);
     updates(&mut app, RIOT_SHIELD_TOGGLE_TICKS as usize + 2);
     let sim = app.world().resource::<SimRes>();
-    let shields = four.map(|id| sim.object(ObjectId(id)).unwrap().riot_shield);
-    assert_eq!(shields, [Some(RiotShield::Raised); 4]);
+    let shields = four.map(|id| {
+        let unit = sim.object(ObjectId(id)).unwrap();
+        (unit.kind, sc_sim::riot_shield::mode(unit))
+    });
+    let shielded = (ObjectKind::PeacekeeperShielded, Some(ShieldMode::Raised));
+    assert_eq!(shields, [shielded; 4]);
 }
 
 /// `> CommandPanel`: "Commands can only be issued to objects owned by the player." Another player's selected unit

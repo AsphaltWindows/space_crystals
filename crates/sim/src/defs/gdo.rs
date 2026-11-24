@@ -10,12 +10,45 @@ use crate::math::PI;
 use crate::player::Faction;
 use crate::sides::SideLetter;
 
-/// `factions/gdo/units.md > Peacekeeper > Riot Shield`: "raising and lowering the shield takes a short time …
-/// Exact value TBD (should be under half a second)". Placeholder, unspecified: 6 ticks (0.375 s).
+/// `factions/gdo/units.md > Peacekeeper > Riot Shield > Toggle time`: "raising and lowering the shield takes a short
+/// time, so it cannot be flicked on and off between enemy shots. **6 frames (0.375 s), placeholder**" (design change
+/// 0174; "should stay under half a second").
 pub const RIOT_SHIELD_TOGGLE_TICKS: u32 = 6;
 
-/// `factions/gdo/units.md > Peacekeeper`.
-pub(super) static PEACEKEEPER: ObjectDef = ObjectDef {
+/// `factions/gdo/units.md > Peacekeeper > Riot Shield`: the Peacekeeper's, on both of its types (design change 0173).
+const PEACEKEEPER_RIOT_SHIELD: RiotShieldDef = RiotShieldDef {
+    lowered: ObjectKind::Peacekeeper,
+    raised: ObjectKind::PeacekeeperShielded,
+    damage_factor: 0.5, // Incoming damage is halved, a 50% pre-armor reduction
+    toggle_ticks: RIOT_SHIELD_TOGGLE_TICKS,
+};
+
+/// `factions/gdo/units.md > Peacekeeper`, shield down.
+pub(super) static PEACEKEEPER: ObjectDef = PEACEKEEPER_DEF;
+
+/// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): "Peacekeeper
+/// (Shielded)", the Peacekeeper with its shield up or on its way up, like the Sabre and Rifle Legionnaire ("They share
+/// everything except what the shield changes"). Its MaxSpeed is halved; that it can't attack is the shield's
+/// (`crate::riot_shield::allows_attack`), so its weapon is the Peacekeeper's, whose reload goes on through a toggle
+/// (`Sim::change_kind`), as do its cost and its Unit Control ("Cost and Unit Control are the same for both types").
+/// The Barracks produces the unshielded type only.
+pub(super) static PEACEKEEPER_SHIELDED: ObjectDef = ObjectDef {
+    kind: ObjectKind::PeacekeeperShielded,
+    name: "Peacekeeper (Shielded)",
+    unit: Some(UnitDef {
+        movement: MovementAttrs::TurnRate {
+            turn_rate: PI,
+            acceleration: None,
+            deceleration: None,
+            max_speed: 2.0, // MaxSpeed is halved (4 → 2 space units/frame)
+        },
+        ..PEACEKEEPER_UNIT
+    }),
+    ..PEACEKEEPER_DEF
+};
+
+/// `factions/gdo/units.md > Peacekeeper`: what both of its types are (design change 0173).
+const PEACEKEEPER_DEF: ObjectDef = ObjectDef {
     kind: ObjectKind::Peacekeeper,
     name: "Peacekeeper",
     faction: Some(Faction::Gdo), // Faction - GlobalDefenseOrganization
@@ -32,43 +65,42 @@ pub(super) static PEACEKEEPER: ObjectDef = ObjectDef {
         full: 1.0,  // FullArmor - 1
     },
     needs_flat_ground: false,
-    unit: Some(UnitDef {
-        base: UnitBase::LightInfantry, // UnitBase - LightInfantry
-        // UnitBaseAttributes[LightInfantry]
-        movement: MovementAttrs::TurnRate {
-            turn_rate: PI,      // TurnRate: 180 degrees/frame
-            acceleration: None, // Acceleration: infinite
-            deceleration: None, // Deceleration: infinite
-            max_speed: 4.0,     // MaxSpeed: 4 space units/frame
-        },
-        rugged_terrain_defense_bonus: Some(0.5), // RuggedTerrainDefenseBonus: 50%
-        turret: None,                            // TurretAttributes - None
-        attack: Some(AttackAttrs {
-            // FullyConnected; its Range of 4 grid units makes it the Ranged subtype (`systems/combat.md >
-            // FullyConnected > Melee` is adjacent contact).
-            attack_type: AttackType::FullyConnected(FullyConnectedSubtype::Ranged),
-            target_domain: TargetDomain::Ground,   // TargetDomain: Ground
-            target_type: TargetType::SingleTarget, // TargetType: SingleTarget
-            damage: 10.0,                          // Damage: 10
-            range: 4.0,                            // Range: 4 grid units
-            min_range: 0.0,                        // MinRange: 0
-            projectile_speed: None,                // FullyConnected: no projectile
-            aim_ticks: 2,                          // AimDuration: 2 frames
-            firing_ticks: 1,                       // FiringDuration: 1 frame
-            cooldown_ticks: 2,                     // CooldownDuration: 2 frames
-            reload_ticks: 12,                      // ReloadDuration: 12 frames
-        }),
-        unit_control_cost: Some(1), // UnitControlCost - 1
-        tunnel_space_cost: None,
-        beacon_capacity_cost: None,
-        riot_shield: Some(RiotShieldDef {
-            speed_factor: 0.5,  // MaxSpeed is halved (4 → 2 space units/frame)
-            damage_factor: 0.5, // Incoming damage is halved, a 50% pre-armor reduction
-            toggle_ticks: RIOT_SHIELD_TOGGLE_TICKS,
-        }),
-        worker: None,
-    }),
+    unit: Some(PEACEKEEPER_UNIT),
     structure: None,
+};
+
+/// `factions/gdo/units.md > Peacekeeper`: its unit attributes, the Shielded type's but for its MaxSpeed.
+const PEACEKEEPER_UNIT: UnitDef = UnitDef {
+    base: UnitBase::LightInfantry, // UnitBase - LightInfantry
+    // UnitBaseAttributes[LightInfantry]
+    movement: MovementAttrs::TurnRate {
+        turn_rate: PI,      // TurnRate: 180 degrees/frame
+        acceleration: None, // Acceleration: infinite
+        deceleration: None, // Deceleration: infinite
+        max_speed: 4.0,     // MaxSpeed: 4 space units/frame
+    },
+    rugged_terrain_defense_bonus: Some(0.5), // RuggedTerrainDefenseBonus: 50%
+    turret: None,                            // TurretAttributes - None
+    attack: Some(AttackAttrs {
+        // FullyConnected; its Range of 4 grid units makes it the Ranged subtype (`systems/combat.md >
+        // FullyConnected > Melee` is adjacent contact).
+        attack_type: AttackType::FullyConnected(FullyConnectedSubtype::Ranged),
+        target_domain: TargetDomain::Ground,   // TargetDomain: Ground
+        target_type: TargetType::SingleTarget, // TargetType: SingleTarget
+        damage: 10.0,                          // Damage: 10
+        range: 4.0,                            // Range: 4 grid units
+        min_range: 0.0,                        // MinRange: 0
+        projectile_speed: None,                // FullyConnected: no projectile
+        aim_ticks: 2,                          // AimDuration: 2 frames
+        firing_ticks: 1,                       // FiringDuration: 1 frame
+        cooldown_ticks: 2,                     // CooldownDuration: 2 frames
+        reload_ticks: 12,                      // ReloadDuration: 12 frames
+    }),
+    unit_control_cost: Some(1), // UnitControlCost - 1
+    tunnel_space_cost: None,
+    beacon_capacity_cost: None,
+    riot_shield: Some(PEACEKEEPER_RIOT_SHIELD),
+    worker: None,
 };
 
 /// `factions/gdo/structures.md > DeploymentCenter`.

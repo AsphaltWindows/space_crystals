@@ -13,11 +13,13 @@
 //! tick showing its facing. A square or octagonal body (the Guard's, the Colonists' units') stays axis-aligned, like
 //! its collision box, and only its tick turns ([`FacingTick`]); the Colonists' units carry a tag naming their type
 //! ([`UnitTag`]). A Peacekeeper's raised Riot Shield is a pale arc in front of it ([`RiotShieldVisual`]), growing out
-//! of its body as the shield goes up. A worker that carries a load shows a crystal shard on its body ([`LoadMarker`],
-//! slice M3-J2). A structure is its footprint as placed, in its owner's colour, with a tag naming its type
-//! ([`structures`]). An object transforming into its kind (`Object::transform`: a building being warped in)
-//! is tinted towards a pale cyan until it is complete ([`transforming_color`]). The map resources have shapes of their
-//! own ([`resources`]).
+//! of its body as the shield goes up and shrinking back as it comes down: the Peacekeeper (Shielded) is the
+//! Peacekeeper's round body with its shield up or on its way up (design change 0173), which becomes the Peacekeeper's
+//! again, the shield on its way down, when the shield is lowered. A worker that carries a load shows a crystal shard
+//! on its body ([`LoadMarker`], slice M3-J2). A structure is its footprint as placed, in its owner's colour, with a
+//! tag naming its type ([`structures`]). An object transforming into its kind (`Object::transform`: a building being
+//! warped in) is tinted towards a pale cyan until it is complete ([`transforming_color`]). The map resources have
+//! shapes of their own ([`resources`]).
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).
@@ -174,6 +176,7 @@ pub fn object_mesh(kind: ObjectKind, owner: Option<PlayerId>) -> Mesh {
         ObjectKind::CrystalPatch => resources::crystal_patch_mesh(),
         ObjectKind::SupplyDeliveryStation => resources::supply_station_mesh(),
         ObjectKind::Peacekeeper
+        | ObjectKind::PeacekeeperShielded
         | ObjectKind::Guard
         | ObjectKind::Drone
         | ObjectKind::SabreLegionnaire
@@ -405,8 +408,9 @@ fn place_object_visuals(
 }
 
 /// Shows each Riot Shield that isn't down, sized by how far up it is (from 60% of its size, close to the body, to
-/// all of it), and turned with its unit's facing when the body doesn't turn. Never `Visible`: a shown shield
-/// inherits its unit's visibility.
+/// all of it: `sc_sim::ShieldMode::progress`, from the unit's type and the toggle's state, design changes 0171 and
+/// 0173), so that only a shield all the way up, the one that protects, is drawn whole; turned with its unit's facing
+/// when the body doesn't turn. Never `Visible`: a shown shield inherits its unit's visibility.
 fn place_riot_shields(
     sim: Res<SimRes>,
     alpha: Res<RenderAlpha>,
@@ -416,10 +420,10 @@ fn place_riot_shields(
         let Some(object) = sim.object(shield.0) else {
             continue;
         };
-        let (Some(mode), Some(def)) = (object.riot_shield, sc_sim::riot_shield::def_of(object)) else {
+        let (Some(mode), Some(def)) = (sc_sim::riot_shield::mode(object), sc_sim::riot_shield::def_of(object)) else {
             continue;
         };
-        let shown = mode != sc_sim::RiotShield::Lowered;
+        let shown = mode != sc_sim::ShieldMode::Lowered;
         visibility.set_if_neq(if shown {
             Visibility::Inherited
         } else {
