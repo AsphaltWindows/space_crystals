@@ -19,9 +19,9 @@ pub enum InterfaceTemplate {
     BasicCombatUnit,
     /// A producing structure's panel (plan decision T23), built from its `ProductionDef` ([`production_grid`]): the
     /// Barracks' (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) and the Colonists'
-    /// portals' (`factions/colonists/structures.md > Robo Portal`, `> Bio Portal`: "Full ObjectInterfaceState ...
-    /// still TBD", so the Barracks' pattern). Its right-click sets the rally point (`> CommandPanel > Production
-    /// Building Default Right-Click`).
+    /// portals' (`factions/colonists/structures.md > Robo Portal ObjectInterfaceState`, `> Bio Portal
+    /// ObjectInterfaceState`, design change 0124: "Standard production panel, same conventions as GDO's Barracks").
+    /// Its right-click sets the rally point (`> CommandPanel > Production Building Default Right-Click`).
     Production,
     /// `factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`: its DefaultState
     /// opens the build menus, whose entries construct; once a building is ready, its entry enters AwaitingPlacement.
@@ -96,9 +96,11 @@ const TRAIN_SLOTS: usize = 8;
 ///   ObjectInterfaceState[Barracks]`). "W: Build Rocketman (hotkey tentative)" stays empty: the Rocketman isn't in
 ///   the game yet (its cost and time are TBD, and so is its Arsenal; M2 plan § 1.2), so it isn't among the recipes
 ///   and its button is hidden.
-/// - The Robo Portal: Q Drone (its Scout is TBD); the Bio Portal: Q Sabre Legionnaire (its Lancer needs an Exophysics
-///   Engine, not in the game yet). Their ObjectInterfaceStates are "still TBD" (`factions/colonists/structures.md`):
-///   **placeholder**, the Barracks' pattern.
+/// - The Robo Portal: Q Drone, X, C; the Bio Portal: Q Sabre Legionnaire, X, C (`factions/colonists/structures.md >
+///   Robo Portal ObjectInterfaceState`, `> Bio Portal ObjectInterfaceState`, design change 0124). Their W Scout, W
+///   Lancer and E psionic unit aren't in the game (their stats, cost and time are TBD), so they aren't among the
+///   recipes and their slots stay empty, as the Rocketman's does; 0124 has them "appear in their slot but
+///   unavailable", which waits for those units to exist (reported to the Director).
 fn production_grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let mut grid = [None; 12];
     let production = kind.def().structure.as_ref().and_then(|s| s.production.as_ref());

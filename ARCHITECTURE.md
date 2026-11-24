@@ -960,8 +960,8 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   object (if the unit attacks and the object is destructible); Move to the point where the rally shows an enemy for
   a unit that can't attack (`> Robo Portal > RallyPoint behavior`: "rally on enemy -> Move to that location (Drone
   is unarmed and cannot attack)"); Gather, for a worker on a patch it can gather (question Q0037 point 9); Move to
-  any other object. Without a rally point it
-  walks out of the doorway and stops (design change 0086). The producer itself as the target clears the rally. A
+  any other object. Without a rally point it walks out of the doorway and stops (design change 0086). The producer
+  itself as the target clears the rally. A
   rally on an object that is removed resets to None (`Production::forget`). A rally on an **enemy** follows it only
   while the owner sees it: at the end of each tick `rally::follow` notes where the owner sees it, or turns the rally
   into a ground rally at the last such position (design change 0088), so an enemy dying in the fog changes nothing.
@@ -973,8 +973,8 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   of 20, Unit Control, the gate, group production, refunds, a game replayed and saved), `rally.rs` (each kind of
   target, clearing, an enemy leaving sight, a remembered structure), `exit.rs` (the verification of design change
   0080, all 8 orientations, a crowd of idle units, a half-blocked exit, a path from inside the footprint, no way
-  back in) and `stalls.rs` (walled in by a building and by units and freed again, the waiting unit's refund, saves
-  in the middle of an exit, and a random game of 3 000 ticks around four doorways), `portals.rs` (slice M3-D: a
+  back in), `stalls.rs` (walled in by a building and by units and freed again, the waiting unit's refund, saves
+  in the middle of an exit, and a random game of 3 000 ticks around four doorways) and `portals.rs` (slice M3-D: a
   Drone's and a Sabre's times, the door closest to the rally point and its ties, random doors by seed, a walled-off
   and an occupied closest door, a pause with every door occupied, the Bio Portal's A sides in all 8 orientations,
   rallies on an enemy, a destroyed portal's refund, over capacity, a replay and a save).
@@ -1559,7 +1559,8 @@ M2-H2).
   each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the Peacekeeper's and the Guard's BasicCombatUnit grid;
   every producer's Production grid, built from its `ProductionDef` (plan decision T23): its units' Train from Q on,
   Cancel Production in X, Set Rally Point in C, so the Barracks trains the Peacekeeper in Q, the Robo Portal the
-  Drone and the Bio Portal the Sabre Legionnaire),
+  Drone and the Bio Portal the Sabre Legionnaire, design change 0124; a unit not in the game yet, such as the
+  Rocketman, the Scout or the Lancer, has no button),
   the `Panel` a selection gets (common, group, pending, disabled and unavailable buttons; Back in Z while a target is
   awaited) and who receives a command (`recipients`: a common one the whole selection, a group one the whole
   ActiveGroup, by hotkey or button; never some of them, no smart-casting, 0071, apart from the units that can't carry

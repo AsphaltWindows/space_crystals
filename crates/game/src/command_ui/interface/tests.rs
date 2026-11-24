@@ -295,7 +295,8 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
 
 /// Plan decision T23: every type that produces units has the Production template, its grid built from its
 /// `ProductionDef`: its units in Q, W and on, X Cancel Production and C Set Rally Point. The Barracks' is the grid of
-/// `> ObjectInterfaceState[Barracks]`; the Robo Portal trains the Drone in Q, the Bio Portal the Sabre Legionnaire.
+/// `> ObjectInterfaceState[Barracks]`; the Robo Portal trains the Drone in Q, the Bio Portal the Sabre Legionnaire
+/// (design change 0124).
 #[test]
 fn every_producer_gets_the_production_panel_of_its_recipes() {
     use PanelCommand::{CancelProduction, SetRallyPoint, Train};
