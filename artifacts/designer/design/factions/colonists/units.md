@@ -54,6 +54,7 @@ Feeding and hauling are separate jobs — the player assigns different Drones to
 
 #### Gathering Drones pass through each other
 (user, 2026-11-24) A Drone **on a Gather job** does not collide with any other Drone on a Gather job, **of any player**. "On a Gather job" covers every step of the jobs in the table above: travelling to the pick-up point, mining or picking up, waiting at an occupied patch, carrying the load and delivering it.
+- **Drop Off orders count for collision too** (user, 2026-11-24): a Drone on an explicit Drop Off order passes through gathering Drones (and they through it) on its way to deliver, since it makes the same trip. This affects collision only; the order itself is not a Gather (see Drop Off order).
 - They still collide with everything else: other units, Drones that are not on a Gather job (idle, moving, deploying), structures, patches and terrain.
 - **Drones only.** Other factions' workers (e.g. Cults Recruits) keep normal collision while mining.
 - Reason: at saturation about 24 Drones work the narrow strip between a patch row and its Egress Node, and the returning Drones converge on one node. With hard collision they would queue and jam, and the Colonists' income targets assume patch occupancy is the only limit (factions/gdo/economy.md > Economy Targets (GDO vs Colonists)).
@@ -67,6 +68,9 @@ This rule applies to Drones only. Other factions' workers are not limited by it:
 When a Drone arrives at an occupied patch, it goes to the **nearest unoccupied patch to itself** instead. If no patch is unoccupied, it **waits** at the current patch and mines as soon as it frees up.
 
 **Search radius** (user, 2026-11-24): a Drone only looks for another patch **within a radius around itself**. This radius is an internal per-unit stat of the Drone (stat name TBD). Value: **6 grid units (placeholder)**. Which patches count within it (e.g. only ones the player knows): TBD (Q0037 point 5).
+
+#### Drop Off order
+(user, 2026-11-24) An explicit **Drop Off** (right-click an own Egress Node or accepting refinery while carrying) is **only a delivery**, not a Gather: the Drone delivers its load and the order is **complete**. It then starts its next queued order (e.g. a Shift-queued build), or with nothing queued **becomes idle** at the drop-off point; it does not walk back to its patch. (If Drop Off counted as a Gather, an order Shift-queued behind it would wait until the field is mined out.)
 
 #### When a Gather ends
 (user, 2026-11-24) A Gather order normally never ends: the Drone repeats its trip. It **ends on its own** only when the Drone runs out of crystals to mine: its patch is gone and no patch is left within its search radius. It first **delivers any load** it carries, then becomes idle (or starts its next queued order).
