@@ -3,12 +3,17 @@
 //!   target clicks`, design change 0065): the click is ignored, the target is still awaited, and the player gets
 //!   "short feedback (an 'invalid target' message and/or sound; exact form TBD, ties into the future notification
 //!   system)";
-//! - a Train that some of its producers didn't queue for want of Space Crystals or room under the army cap, Unit
-//!   Control or the Colonists' Beacon Capacity (`> SelectionGroup > No smart-casting > Group production with limited
-//!   resources`, design change 0083; plan decision T20: one refusal, the faction's name in the feedback): "The others
-//!   don't queue, and the player gets insufficient-resources feedback". The sim tells which
-//!   (`SimEvent::ProductionRefused`); a full queue is no resource, and gives none. A Train that no producer would
-//!   queue is never sent: its button is disabled (`super::interface::Conditions`);
+//! - a Train that some of its producers didn't queue for want of Space Crystals (`> SelectionGroup > No
+//!   smart-casting > Group production with limited resources`, design change 0083): "The others don't queue, and the
+//!   player gets insufficient-resources feedback". The sim tells which (`SimEvent::ProductionRefused`); a full queue
+//!   is no resource, and gives none. A Train that no producer would queue is never sent: its button is disabled
+//!   (`super::interface::Conditions`). The army cap is checked when production starts, not when a unit is queued
+//!   (design change 0143), so it refuses nothing;
+//! - a producer whose unit at the front waits at 0% for room under the army cap (`SimEvent::ProductionWaiting`,
+//!   design change 0143: "A blocked queue raises a notification (not yet designed)"): placeholder for that
+//!   notification, the cap's name ([`army_cap_text`]: Unit Control, or the Colonists' Beacon Capacity, plan decision
+//!   T20), once as the wait begins; the producer's InfoPanel shows the wait for as long as it lasts
+//!   (`crate::hud::info_panel`);
 //! - a building that can't be placed (`factions/gdo/structures.md > DeploymentCenter >
 //!   ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`): a left-click where the ghost is invalid sends
 //!   nothing and placement goes on (`super::InvalidPlacement`), and a Place that the sim refused as it applied it,
@@ -28,9 +33,7 @@
 
 use bevy::picking::Pickable;
 use bevy::prelude::*;
-use sc_sim::{
-    ArmyResource, Faction, PlacementCheck, PlacementProblem, Refusal, SimEvent, Tick, TileProblem, WholeProblem,
-};
+use sc_sim::{ArmyResource, PlacementCheck, PlacementProblem, Refusal, SimEvent, Tick, TileProblem, WholeProblem};
 
 use super::{InvalidPlacement, InvalidTarget};
 use crate::hud::HUD_BAR_HEIGHT_VH;
@@ -41,10 +44,11 @@ use crate::{ClientMode, ClientSystems};
 pub const FEEDBACK_TICKS: u32 = 32;
 /// The message of an invalid target. Placeholder wording, the design's.
 pub const INVALID_TARGET_TEXT: &str = "Invalid target";
-/// The messages of a Train that producers didn't queue for want of a resource (design change 0083). Placeholder
-/// wordings.
+/// The message of a Train that producers didn't queue for want of Space Crystals (design change 0083). Placeholder
+/// wording.
 pub const NO_CRYSTALS_TEXT: &str = "Not enough Space Crystals";
-/// The army cap's (plan decision T20: one refusal, the faction's name in the feedback; [`army_cap_text`]).
+/// The messages of a producer that waits for room under the army cap (design change 0143), by the faction's cap (plan
+/// decision T20: the faction's name in the feedback; [`army_cap_text`]). Placeholder wordings.
 pub const UNIT_CONTROL_TEXT: &str = "Unit Control limit reached";
 pub const BEACON_CAPACITY_TEXT: &str = "Beacon Capacity limit reached";
 /// The message of a building that can't be placed for no rule the check names (the sim refused the command
@@ -130,21 +134,21 @@ fn spawn_feedback(mut commands: Commands) {
 }
 
 /// The message of a producer that didn't queue a unit others of its command took (design change 0083): for want of
-/// Space Crystals or room under the army cap of `faction`, the producer's owner's; none for a full queue.
-fn refusal_text(reason: Refusal, faction: Option<Faction>) -> Option<&'static str> {
+/// Space Crystals; none for a full queue.
+fn refusal_text(reason: Refusal) -> Option<&'static str> {
     match reason {
         Refusal::Crystals => Some(NO_CRYSTALS_TEXT),
-        Refusal::UnitControl => Some(army_cap_text(faction.and_then(ArmyResource::of))),
         Refusal::QueueFull => None,
     }
 }
 
-/// The message of a unit refused for the army cap (`Refusal::UnitControl`, the one refusal of every faction's cap,
-/// plan decision T20), named after the cap of the player's faction: Unit Control, or the Colonists' Beacon Capacity.
-pub fn army_cap_text(resource: Option<ArmyResource>) -> &'static str {
+/// The message of a producer whose unit waits for room under the army cap `resource` (`SimEvent::ProductionWaiting`,
+/// design change 0143; placeholder for its notification), named after it: Unit Control, or the Colonists' Beacon
+/// Capacity.
+pub fn army_cap_text(resource: ArmyResource) -> &'static str {
     match resource {
-        Some(ArmyResource::BeaconCapacity) => BEACON_CAPACITY_TEXT,
-        Some(ArmyResource::UnitControl) | None => UNIT_CONTROL_TEXT,
+        ArmyResource::BeaconCapacity => BEACON_CAPACITY_TEXT,
+        ArmyResource::UnitControl => UNIT_CONTROL_TEXT,
     }
 }
 
@@ -181,8 +185,8 @@ pub fn deploy_failed_text(problems: &PlacementCheck) -> &'static str {
     }
 }
 
-/// Takes the frame's invalid clicks (on a target, or a placement) and the local player's producers' and
-/// constructors' refusals, and shows the latest one's message for [`FEEDBACK_TICKS`].
+/// Takes the frame's invalid clicks (on a target, or a placement), the local player's producers' and constructors'
+/// refusals and their producers' waits, and shows the latest one's message for [`FEEDBACK_TICKS`].
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 fn show_feedback(
     mode: Res<ClientMode>,
@@ -200,10 +204,12 @@ fn show_feedback(
         .read()
         .map(|click| (click.tick, placement_text(click.problem)));
     let own = |id| sim.object(id).is_some_and(|o| o.owner == Some(player.0));
-    let faction = sim.player(player.0).map(|p| p.faction);
     let refusals = events.read().filter_map(|message| match &message.event {
         SimEvent::ProductionRefused { producer, reason, .. } if own(*producer) => {
-            Some((message.tick, refusal_text(*reason, faction)?))
+            Some((message.tick, refusal_text(*reason)?))
+        }
+        SimEvent::ProductionWaiting { producer, reason } if own(*producer) => {
+            Some((message.tick, army_cap_text(*reason)))
         }
         SimEvent::PlacementRefused {
             constructor, problems, ..

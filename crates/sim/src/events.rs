@@ -5,6 +5,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::defs::ObjectKind;
+use crate::economy::ArmyResource;
 use crate::ids::{ObjectId, PlayerId};
 use crate::placement::PlacementCheck;
 use crate::production::Refusal;
@@ -79,6 +80,14 @@ pub enum SimEvent {
         producer: ObjectId,
         kind: ObjectKind,
         refund: u32,
+    },
+    /// `producer`'s unit at the front of its queue can't start: its owner's army cap, `reason` (the GDO's Unit
+    /// Control, the Colonists' Beacon Capacity), has no room for it, and the producer waits at 0% until there is
+    /// (design change 0143: "notification (system TBD)"). Placeholder for that notification: raised once, in the tick
+    /// the wait begins (`sim/producers/step.rs`).
+    ProductionWaiting {
+        producer: ObjectId,
+        reason: ArmyResource,
     },
     /// `producer` released `unit` into its exit doorway (`core/entities.md > Structure Type > Exit Doorway`), after
     /// the unit's `Spawned` event.

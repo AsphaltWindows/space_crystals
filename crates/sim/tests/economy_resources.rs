@@ -150,7 +150,7 @@ fn a_building_powers_the_plates_from_the_tick_it_is_placed_until_the_tick_it_goe
 }
 
 /// `> Unit Control`: the units' UnitControlCost (Peacekeeper 1), counted while they are in the game, so a unit that
-/// dies gives it back (design change 0082: "When a unit dies, release its Unit Control as usual"); structures and the
+/// dies gives it back ("for as long as the unit lives", design change 0143; 0082 before it); structures and the
 /// units of factions without Unit Control take none. The cap is 200.
 #[test]
 fn unit_control_counts_the_units_in_the_game() {

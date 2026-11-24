@@ -281,6 +281,7 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::ProductionQueued { .. }
                 | SimEvent::ProductionRefused { .. }
                 | SimEvent::ProductionCancelled { .. }
+                | SimEvent::ProductionWaiting { .. }
                 | SimEvent::UnitProduced { .. }
                 | SimEvent::PlayerDefeated { .. }
                 | SimEvent::GameOver { .. }

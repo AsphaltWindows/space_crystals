@@ -101,7 +101,7 @@ This definition applies wherever a behavior says "repeatedly fails to make progr
 If TargetLocation can't be reached (impassable terrain such as water or a cliff, inside a structure, or an area cut off from the unit), the unit moves to the **reachable point nearest to TargetLocation** and the behavior completes there (user, 2026-11-23). The order is never refused for being unreachable.
 
 ### Occupied target location:
-If the unit is stuck **within 2 grid units** of TargetLocation and what blocks it are units that aren't moving (e.g. a crowd standing at the destination, units on Hold Position, a group that already converged there), it counts as **arrived**: it stops and the behavior completes normally, without re-route attempts (user, 2026-11-23; 2 grid units is a placeholder).
+If the unit is stuck **within 3 grid units** of TargetLocation and what blocks it are units that aren't moving (e.g. a crowd standing at the destination, units on Hold Position, a group that already converged there), it counts as **arrived**: it stops and the behavior completes normally, without re-route attempts (user, 2026-11-23; radius raised from 2 to **3 grid units** by the user, 2026-11-24, after crowd tests in which large units stuck just beyond 2 gave up; placeholder).
 
 ## MovingToObject
 Base behavior for moving to a mobile or static object instance. Similar to MovingToLocation but the target position may change over time, requiring smarter replanning.
@@ -126,7 +126,7 @@ Same as MovingToLocation, except:
 ### Completion:
 - **Static TargetObject** (structure, resource, Supply Delivery Station): behavior complete when the unit is within proximity of the TargetObject.
 - **Unit TargetObject: Follow** (user, 2026-11-23). The behavior does **not** complete on reaching the target. While within proximity, the unit stops and waits. When the target moves out of proximity, the unit follows again. Following continues until the player gives a new order, or the target dies or leaves the map (e.g. enters a transport, a building or the Tunnel Network); then the behavior completes.
-- **Blocked near the target**: if the unit is stuck within **2 grid units** of its TargetObject, blocked by units that aren't moving, that counts as having reached it, like MovingToLocation > Occupied target location. For a static target the behavior completes. For a followed unit the unit waits there (no re-route attempts) and keeps following. (User, 2026-11-23.)
+- **Blocked near the target**: if the unit is stuck within **3 grid units** (same radius as MovingToLocation; 2026-11-24) of its TargetObject, blocked by units that aren't moving, that counts as having reached it, like MovingToLocation > Occupied target location. For a static target the behavior completes. For a followed unit the unit waits there (no re-route attempts) and keeps following. (User, 2026-11-23.)
 
 ### Failure:
 Same as MovingToLocation.

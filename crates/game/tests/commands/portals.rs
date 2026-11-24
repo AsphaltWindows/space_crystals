@@ -1,8 +1,8 @@
 //! The Colonists' portals from the command panel (slice M3-D, plan decision T23): a selected Robo Portal or Bio
 //! Portal shows the production panel built from its `ProductionDef`, as the Barracks does (`production`, `rally`):
 //! Q trains its unit (the Drone, the Sabre Legionnaire), X cancels the last one queued, and C or a right-click sets
-//! its rally point. A Train the command gate refuses for the Beacon Capacity shows disabled, and available again
-//! once there is room (design change 0112).
+//! its rally point. At the Beacon Capacity a Train stays available and queues, and the portal waits for room and
+//! starts by itself once there is (design changes 0112 and 0143).
 
 use bevy::prelude::*;
 use sc_sim::testing::ScenarioBuilder;
@@ -102,22 +102,27 @@ fn a_portal_trains_in_q_cancels_in_x_and_rallies_in_c() {
     }
 }
 
-/// Design change 0112: at its Beacon Capacity (two portals: 10, and ten Drones), a portal's Train is disabled and
-/// sends nothing; once a Drone is gone there is room, and Q trains again.
+/// Design change 0112 as 0143 amends it: at its Beacon Capacity (two portals: 10, and ten Drones), a portal's Train
+/// stays available, the capacity being checked when production starts, not when a unit is queued: Q queues the
+/// Drone, paid, and it waits at 0%. Once a Drone is gone there is room, and the portal starts it by itself.
 #[test]
-fn a_portal_at_its_beacon_capacity_trains_again_once_there_is_room() {
+fn a_portal_at_its_beacon_capacity_queues_and_starts_once_there_is_room() {
     let mut app = portal_game(10, 1000);
     click(&mut app, ROBO_PORTAL_AT, &[]);
     let q = |app: &mut App| buttons(app).into_iter().find(|b| b.0 == slot(0, 0)).map(|b| b.2);
-    assert_eq!(q(&mut app), Some(ButtonLook::Disabled));
-    tap(&mut app, &[], KeyQ);
-    assert_eq!(productions(&app), []);
-    let drone = ObjectId(3);
-    submit(&mut app, P1, Command::Debug(DebugCommand::Remove { id: drone }));
-    updates(&mut app, 2);
-    assert_eq!(q(&mut app), Some(ButtonLook::Common));
+    assert_eq!(q(&mut app), Some(ButtonLook::Common), "at the capacity");
     tap(&mut app, &[], KeyQ);
     let train = ProductionCommand::Train(ObjectKind::Drone);
     assert_eq!(productions(&app), [(P1, vec![ROBO_PORTAL], train)]);
-    assert_eq!(production_of(&app, ROBO_PORTAL).queue.len(), 1);
+    let production = production_of(&app, ROBO_PORTAL);
+    assert_eq!(
+        (production.queue.len(), production.progress, production.blocked),
+        (1, 0, true)
+    );
+    assert_eq!(bank(&app), 950);
+    let drone = ObjectId(3);
+    submit(&mut app, P1, Command::Debug(DebugCommand::Remove { id: drone }));
+    updates(&mut app, 2);
+    let production = production_of(&app, ROBO_PORTAL);
+    assert!(production.progress > 0 && !production.blocked, "it starts by itself");
 }

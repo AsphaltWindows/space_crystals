@@ -13,30 +13,35 @@
 //! - **The Syndicate and the Cults** have none yet: their Tunnel Space and Unit Control come with their milestones
 //!   ([`ArmyResource::of`]), and nothing caps their armies until then.
 //!
-//! **Used** is what the player's units cost, plus what their producers hold reserved: a unit takes its cost the
-//! moment it is queued until it leaves the queue (design change 0082 for Unit Control; the same for Beacon Capacity,
-//! placeholder: Q0041 point 1): produced (the unit itself counts from then on), cancelled, or refunded when the
-//! producer leaves the game. Units without a cost in the resource, such as another faction's, take none.
+//! **Used** is what the player's units cost, plus their producers' units in production (design change 0143, for
+//! every faction: `factions/gdo/overview.md > GDOResources > Unit Control`, "Reserved when production starts": the
+//! HUD's "used" count "includes in-production units, not merely queued ones"; `factions/colonists/overview.md >
+//! Beacon Capacity > Reserved when production starts` alike). A unit takes its cost from the tick its producer
+//! begins progress on it (`Production::in_production`) for as long as it lives; a unit only queued takes none, nor
+//! does one waiting at 0% for room. Units without a cost in the resource, such as another faction's, take none.
 //!
-//! **One refusal** (T20): the gate refuses a unit that would take the used figure past the available one
-//! (`Sim::plan_training`), for every faction with the same reason (`crate::Reject::UnitControlCap`,
-//! `crate::Refusal::UnitControl`, M2's names for it, kept), and the client names the faction's resource in its
-//! feedback ([`ArmyResource::name`]).
+//! **The check** is made when production starts, not when a unit is queued (0143, which replaces design change 0082's
+//! reservation at queue time and with it M2's and M3-C's refusal of a `Train`): the unit at the front of a queue
+//! starts only while `available − used ≥ cost` ([`ArmyCap::fits`]); else its producer waits with it at 0% and starts
+//! by itself once there is room (`sim/producers/step.rs`, `Production::blocked`). The client names the faction's
+//! resource in the wait's line and feedback ([`ArmyResource::name`]).
 //!
-//! **Over capacity** (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design change 0112): when a
-//! Colonists building is lost, more can be used than is available. That is allowed: nothing is killed or removed,
-//! and new units are refused until there is room again. The units already queued keep their reservation and
-//! complete (placeholder: Q0041 point 2's proposal; 0112's "production blocked" is read as no new units, the queued
-//! ones having passed the check when they were queued). Being derived, the cap needs no rule of its own for it; the
-//! client shows it in red.
+//! **Over capacity** (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design change 0112 as 0143
+//! amends it): when a Colonists building is lost, or a Beacon's deployment is cancelled, more can be used than is
+//! available. That is allowed: nothing is killed or removed, a unit in production finishes (Q0041 point 2), and the
+//! units after it wait until there is room again. Being derived, the cap needs no rule of its own for it; the client
+//! shows it in red.
+
+use serde::{Deserialize, Serialize};
 
 use crate::defs::{Category, ObjectKind};
 use crate::ids::PlayerId;
 use crate::object::Object;
 use crate::player::Faction;
+use crate::production::Production;
 
-/// `factions/gdo/overview.md > GDOResources > Unit Control`: "Hard cap of 200". The player can't build units that
-/// would take the used Unit Control past it.
+/// `factions/gdo/overview.md > GDOResources > Unit Control`: "Hard cap of 200". A unit that would take the used Unit
+/// Control past it doesn't start production until there is room (design change 0143).
 pub const UNIT_CONTROL_CAP: u32 = 200;
 
 /// `factions/colonists/overview.md > ColonistResources > Beacon Capacity`: "Total Beacon Capacity caps at 200".
@@ -47,7 +52,7 @@ pub const BEACON_CAPACITY_CAP: u32 = 200;
 pub const BEACON_CAPACITY_PER_BUILDING: u32 = 5;
 
 /// The resource that caps a faction's army.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ArmyResource {
     /// The GDO's: `factions/gdo/overview.md > GDOResources > Unit Control`.
     UnitControl,
@@ -87,16 +92,14 @@ impl ArmyResource {
         cost.unwrap_or(0)
     }
 
-    /// What `o` takes up of it for its owner: a unit its cost, a producer what it holds reserved (module docs).
+    /// What `o` takes up of it for its owner: a unit its cost, a producer its unit in production's (module docs).
     fn taken_by(self, o: &Object) -> u32 {
-        let reserved = o.production.as_ref().map_or(0, |production| {
-            production
-                .queue
-                .iter()
-                .map(|&kind| self.cost_of(kind))
-                .fold(0, u32::saturating_add)
-        });
-        self.cost_of(o.kind).saturating_add(reserved)
+        let in_production = o
+            .production
+            .as_ref()
+            .and_then(Production::in_production)
+            .map_or(0, |kind| self.cost_of(kind));
+        self.cost_of(o.kind).saturating_add(in_production)
     }
 }
 
@@ -105,9 +108,9 @@ impl ArmyResource {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ArmyCap {
     pub resource: ArmyResource,
-    /// What the player's units and their producers' queues take up (module docs). It may exceed `available` when
-    /// Colonists buildings are lost (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design
-    /// change 0112).
+    /// What the player's units and their producers' units in production take up (module docs; design change 0143).
+    /// It may exceed `available` when Colonists buildings are lost or a deployment is cancelled
+    /// (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design change 0112).
     pub used: u32,
     /// [`UNIT_CONTROL_CAP`] for Unit Control; min([`BEACON_CAPACITY_CAP`], [`BEACON_CAPACITY_PER_BUILDING`] × the
     /// player's Colonists structures) for Beacon Capacity.
@@ -115,9 +118,10 @@ pub struct ArmyCap {
 }
 
 impl ArmyCap {
-    /// Whether one more unit that costs `cost` fits: "The player cannot build units if doing so would exceed the total
-    /// available Beacon Capacity" (`factions/colonists/overview.md > ColonistResources > Beacon Capacity`; the GDO's
-    /// cap, design change 0082, alike).
+    /// Whether one more unit that costs `cost` fits, `available − used ≥ cost`: the start check of design change 0143
+    /// (the unit "needs free Beacon Capacity (available minus used) at least equal to its BeaconCapacityCost",
+    /// `factions/colonists/overview.md > Beacon Capacity > Reserved when production starts`; the GDO's Unit Control
+    /// alike). Over the cap nothing fits, not even a unit without a cost.
     pub fn fits(&self, cost: u32) -> bool {
         self.used.saturating_add(cost) <= self.available
     }
@@ -149,7 +153,7 @@ pub(crate) fn cap<'a>(
 }
 
 /// The Unit Control `player` uses among `objects` (`Sim::unit_control`): the UnitControlCost of their units and of
-/// the units queued at their producers, whatever their faction.
+/// their producers' units in production (design change 0143), whatever their faction.
 pub(crate) fn unit_control_used<'a>(objects: impl IntoIterator<Item = &'a Object>, player: PlayerId) -> u32 {
     objects
         .into_iter()

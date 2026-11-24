@@ -11,7 +11,7 @@
 //! - construction (the constructor capability of slice M2-D1, [`construction`]): the building under construction
 //!   and its progress, or the building ready to place;
 //! - production (the production capability of slice M2-D2, [`production`]): the unit in production and its
-//!   progress, the queue length, and the rally point.
+//!   progress, the wait for room under the army cap (design change 0143), the queue length, and the rally point.
 //!
 //! Lines read only the sim and the structure, so a test can check them without the UI. Their wording is a
 //! placeholder until the panel's layout exists (Q0001).
@@ -69,8 +69,12 @@ pub fn construction(structure: &Object) -> Vec<String> {
 /// A producer's lines (`factions/gdo/structures.md > Barracks > BarracksInstanceState`): while it has a BuildQueue,
 /// the unit in production (CurrentBuild) with its progress, and how many units are queued, that one included, of
 /// the most a queue holds (design change 0081); then its RallyPoint, while it has one. A unit that is finished but
-/// held inside because the exit doorway is occupied shows at 100% (design change 0085). Nothing for an idle producer
-/// without a rally point, nor for a structure that doesn't produce.
+/// held inside because the exit doorway is occupied shows at 100% (design change 0085). A unit at the front that
+/// waits at 0% for room under its owner's army cap (design change 0143: "the building waits with the unit at the
+/// front (0% progress)") has a line saying so under its own, "Waiting for Unit Control" or "Waiting for Beacon
+/// Capacity": placeholder, with the feedback band's message as the wait begins
+/// (`crate::command_ui::feedback::army_cap_text`), for the notification 0143 leaves to be designed. Nothing for an
+/// idle producer without a rally point, nor for a structure that doesn't produce.
 pub fn production(sim: &Sim, structure: &Object) -> Vec<String> {
     let Some(production) = &structure.production else {
         return Vec::new();
@@ -83,6 +87,9 @@ pub fn production(sim: &Sim, structure: &Object) -> Vec<String> {
             total => u64::from(status.progress) * 100 / u64::from(total),
         };
         lines.push(format!("Training {}: {percent}%", status.kind.def().name));
+        if let Some(cap) = status.blocked {
+            lines.push(format!("Waiting for {}", cap.name()));
+        }
         lines.push(format!("Queue: {} / {QUEUE_LIMIT}", production.queue.len()));
     }
     if let Some(rally) = production.rally {
@@ -216,6 +223,42 @@ mod tests {
         assert_eq!(shown(t.sim()), ["Training Peacekeeper: 100%", "Queue: 2 / 20"]);
         let generator = t.sim().object(ObjectId(3)).unwrap();
         assert_eq!(lines(t.sim(), generator), Vec::<String>::new(), "it produces nothing");
+    }
+
+    /// Design change 0143: a Barracks whose Peacekeeper waits at 0% for Unit Control says so under the unit, until
+    /// it starts. Player 1's Deployment Center (1) and Barracks (2) with 200 Peacekeepers (3 to 202), the cap, far
+    /// off; one of them removed gives the room.
+    #[test]
+    fn a_waiting_barracks_says_what_it_waits_for() {
+        let mut builder = ScenarioBuilder::new(&vec![".".repeat(30); 16].join("\n"))
+            .spawn(ObjectKind::DeploymentCenter, Some(P1), tile(1, 1))
+            .spawn(ObjectKind::Barracks, Some(P1), tile(8, 4));
+        for i in 0..200 {
+            let at = Vec2::new(1000.0 + 30.0 * (i % 20) as f32, 80.0 + 30.0 * (i / 20) as f32);
+            builder = builder.spawn(PK, Some(P1), SpawnAt::Point(at));
+        }
+        let mut t = builder.start();
+        t.debug_at(
+            1,
+            DebugCommand::SetResources {
+                player: P1,
+                crystals: 1000,
+                supplies: 0,
+                alloys: 0,
+                essence: 0,
+                flux: 0,
+            },
+        );
+        t.at(2, P1, production(ProductionCommand::Train(PK)));
+        t.at(2, P1, production(ProductionCommand::Train(PK)));
+        t.run_until(10);
+        assert_eq!(
+            shown(t.sim()),
+            ["Training Peacekeeper: 0%", "Waiting for Unit Control", "Queue: 2 / 20"]
+        );
+        t.debug_at(11, DebugCommand::Remove { id: ObjectId(3) });
+        t.run_until(11);
+        assert_eq!(shown(t.sim()), ["Training Peacekeeper: 1%", "Queue: 2 / 20"]);
     }
 
     /// Design change 0105: an own constructor shows its construction and its progress, then the building ready to

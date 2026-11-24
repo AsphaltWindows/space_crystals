@@ -1,5 +1,5 @@
 //! The HUD of slice M2-G, headless (`ARCHITECTURE.md > Client architecture > Client tests`): the resource bar in the
-//! top bar (`factions/gdo/overview.md > DisplayHud`; design changes 0077, 0082 and 0090) and the structures'
+//! top bar (`factions/gdo/overview.md > DisplayHud`; design changes 0077, 0090 and 0143) and the structures'
 //! InfoPanels (design changes 0099 and 0105), with the fog of war on. Each `App::update` is one tick; clicks come
 //! through the virtual mouse (`InjectedInput`).
 
@@ -212,8 +212,9 @@ fn power_is_consumed_over_generated_and_red_while_short() {
     assert_eq!(bar(&mut app)[2], "Power 51/50!");
 }
 
-/// `> Unit Control: current used / 200`, through the sim's one accessor (which counts the queued units too once
-/// slice M2-D2 reserves them, design change 0082): the player's units, and a unit gone gives its Unit Control back.
+/// `> Unit Control: current used / 200`, through the sim's one accessor (which counts the units in production too,
+/// design change 0143; the HUD's waiting Barracks: `tests/commands/production.rs`): the player's units, and a unit
+/// gone gives its Unit Control back.
 #[test]
 fn unit_control_counts_the_players_units() {
     let mut app = game();

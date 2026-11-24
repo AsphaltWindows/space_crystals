@@ -7,12 +7,13 @@
 //! uses the same `sc_sim` predicates as the gate"): the panel asks `Sim::validate` with the command it would send,
 //! to the objects it would go to, so a greyed-out Train is one the gate refuses (`factions/gdo/structures.md >
 //! Barracks > ObjectInterfaceState[Barracks]`: "Only available if BuildQueue has fewer than 20 entries and player has
-//! sufficient Space Crystals and Unit Control"; "X: Cancel Production [...] Only available if BuildQueue is not
-//! empty"; design changes 0081 and 0082), and so is a greyed-out build menu entry (`> DeploymentCenter >
-//! ObjectInterfaceState[DeploymentCenter]`: "Only available if player has sufficient Space Crystals"; "Other build
-//! options unavailable" while the Deployment Center constructs or holds a building ready), and so is a greyed-out
-//! Convert (`factions/colonists/units.md > Weapon Conversion > Eligibility`: not while Firing or in Cooldown; it goes
-//! to the recipients that may convert, `Reject::CannotConvert` when none may).
+//! sufficient Space Crystals (Unit Control is checked when production starts: factions/gdo/overview.md > Unit
+//! Control)"; "X: Cancel Production [...] Only available if BuildQueue is not empty"; design changes 0081 and 0143:
+//! the army cap leaves a Train available, the Colonists' Beacon Capacity alike), and so is a greyed-out build menu
+//! entry (`> DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`: "Only available if player has sufficient
+//! Space Crystals"; "Other build options unavailable" while the Deployment Center constructs or holds a building
+//! ready), and so is a greyed-out Convert (`factions/colonists/units.md > Weapon Conversion > Eligibility`: not while
+//! Firing or in Cooldown; it goes to the recipients that may convert, `Reject::CannotConvert` when none may).
 
 use std::collections::BTreeMap;
 

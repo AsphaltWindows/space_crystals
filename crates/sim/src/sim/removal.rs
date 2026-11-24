@@ -28,7 +28,8 @@ impl Sim {
     /// whose patch is removed from under it (a debug command) mines nothing from then on.
     ///
     /// A producer's whole queue is refunded as if cancelled, a finished unit waiting inside for the doorway included
-    /// (design changes 0084 and 0085, `Sim::refund_production`); the Unit Control it reserved goes with the queue.
+    /// (design changes 0084 and 0085, `Sim::refund_production`); of the army cap it frees what its unit in production
+    /// took, the only one of the queue that took any (design change 0143).
     /// A rally point on a removed object resets to None, and a unit in the doorway of a removed building is an
     /// ordinary unit from then on.
     ///

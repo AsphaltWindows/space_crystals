@@ -16,17 +16,19 @@ impl Sim {
     }
 
     /// `player`'s army cap at the end of the latest tick (plan decision T20, `economy::army`): what their units and
-    /// their producers' queues take up of their faction's cap, and what is available (the GDO's Unit Control, the
-    /// Colonists' Beacon Capacity). The HUD's figure, and what the gate checks a Train against. `None` for a faction
-    /// without one yet, or a player who isn't in the game.
+    /// their producers' units in production take up of their faction's cap (design change 0143), and what is
+    /// available (the GDO's Unit Control, the Colonists' Beacon Capacity). The HUD's figure, and what a unit at the
+    /// front of a queue is checked against when its production would start (`sim/producers/step.rs`). `None` for a
+    /// faction without one yet, or a player who isn't in the game.
     pub fn army_cap(&self, player: PlayerId) -> Option<ArmyCap> {
         let faction = self.player(player)?.faction;
         economy::army::cap(self.objects.values(), player, faction)
     }
 
     /// The Unit Control `player` uses at the end of the latest tick (`> Unit Control`): the UnitControlCost of their
-    /// units and of the units queued at their producers (design change 0082: reserved when queued), out of
-    /// [`economy::UNIT_CONTROL_CAP`]. A GDO player's [`Sim::army_cap`] `used`.
+    /// units and of their producers' units in production (design change 0143: the HUD's "used" count "includes
+    /// in-production units, not merely queued ones"), out of [`economy::UNIT_CONTROL_CAP`]. A GDO player's
+    /// [`Sim::army_cap`] `used`.
     pub fn unit_control(&self, player: PlayerId) -> u32 {
         economy::army::unit_control_used(self.objects.values(), player)
     }

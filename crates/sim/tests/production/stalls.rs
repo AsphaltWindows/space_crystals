@@ -46,7 +46,11 @@ fn a_building_against_the_exit_side_stalls_production_until_it_is_gone() {
         2
     );
     assert!(waiting(t.sim(), BARRACKS));
-    assert_eq!(t.sim().unit_control(P1), 3, "one on the map, two reserved");
+    assert_eq!(
+        t.sim().unit_control(P1),
+        2,
+        "one on the map and one finished inside; the one queued behind takes none (design change 0143)"
+    );
 
     t.debug_at(501, DebugCommand::Remove { id: generator });
     run_checked(&mut t, 520);

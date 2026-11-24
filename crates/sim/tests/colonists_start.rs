@@ -1,18 +1,19 @@
 //! A Colonists player's start (slice M3-C; `factions/colonists/economy.md > Starting Conditions`): the banks, the
 //! objects of the Starting Layout on `dev_skirmish` in either slot (plan decision T24), and Beacon Capacity
 //! (`factions/colonists/overview.md > ColonistResources > Beacon Capacity`, `economy.md > Warp In > Beacon Capacity
-//! Retention`; plan decision T20): reserved when a unit is queued (placeholder: Q0041 point 1), checked by the gate
-//! for every producer of a group (design change 0083), and kept by the units (design change 0112) and the queues
-//! (placeholder: Q0041 point 2) when the capacity falls. Also the refined banks that `SetResources` sets (T21). The
-//! Starting Conditions table is unit-tested in `scenario/starting.rs`, the caps in `economy/army.rs`, the bar and the
-//! camera in the client.
+//! Retention`; plan decision T20): taken when a unit's production starts, not when it is queued, so that group
+//! production leaves it out (design change 0143, answering Q0041 points 1 and 2, slice M3-P; design change 0083), and
+//! kept by the units and the unit in production when the capacity falls (design change 0112). Also the refined banks
+//! that `SetResources` sets (T21). The Starting Conditions table is unit-tested in `scenario/starting.rs`, the caps in
+//! `economy/army.rs`, the bar and the camera in the client; the waits at production start in
+//! `tests/production/capacity.rs`.
 
 use sc_sim::scenario::DEFAULT_SEED;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
     ArmyCap, ArmyResource, Banks, Command, DebugCommand, Faction, GameSetup, MapDef, ObjectId, ObjectKind,
-    PlayerCommand, PlayerId, ProductionCommand, Refusal, Reject, SU_PER_GU, Scenario, ScenarioProblem, Sim, SimEvent,
-    SlotId, SpawnAt, TilePos, Vec2, scenarios,
+    PlayerCommand, PlayerId, ProductionCommand, Reject, SU_PER_GU, Scenario, ScenarioProblem, Sim, SimEvent, SlotId,
+    SpawnAt, TilePos, Vec2, scenarios,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -215,42 +216,47 @@ fn dev_skirmish_validates_with_either_faction_in_either_slot() {
     assert_eq!(Sim::try_new(&Scenario::new(map)).err(), Some(expected.to_vec()));
 }
 
-/// Plan acceptance, capacity (placeholder: Q0041 point 1, as design change 0082 for the GDO): with 10 available and
-/// 4 used, 6 Drones queue at the Robo Portal, paid and reserved when queued, and the 7th is refused although the
-/// bank (set by debug) holds plenty; the gate's refusal changes nothing. A produced Drone takes over the capacity
-/// its queue entry held.
+/// Plan acceptance, capacity, as design change 0143 has it ("Queuing a unit needs only its cost in resources (paid
+/// when queued) and a free queue slot; it does **not** check or reserve Beacon Capacity"): with 10 available and 4
+/// used, 7 Drones queue at the Robo Portal, all paid; each takes its 1 as its production starts, one at a time, so
+/// that six come out and the 7th waits at 0% once they fill the 10.
 #[test]
-fn six_drones_queue_at_the_robo_portal_and_the_seventh_is_refused() {
+fn seven_drones_queue_at_the_robo_portal_and_the_seventh_waits_for_room() {
     let mut t = TestSim::new(dev_skirmish_as([COLONISTS, GDO]));
     let portal = find(t.sim(), P1, PORTAL);
     t.debug_at(1, crystals(P1, 1000));
-    for _ in 0..6 {
+    for _ in 0..7 {
         t.at(2, P1, train(&[portal]));
     }
     t.run(2);
     // `factions/colonists/structures.md > Robo Portal`: a Drone costs 50 Space Crystals.
-    assert_eq!((queue(t.sim(), portal), t.sim().player(P1).unwrap().crystals), (6, 700));
-    assert_eq!(t.sim().army_cap(P1), beacon_capacity(10, 10));
-    assert_eq!(validate(t.sim(), P1, train(&[portal])), Err(Reject::UnitControlCap));
-    t.at(3, P1, train(&[portal]));
-    t.run(1);
-    assert_eq!((queue(t.sim(), portal), t.sim().player(P1).unwrap().crystals), (6, 700));
-    // The first Drone comes out after its 160 frames: 5 Drones and 5 queued.
-    t.run_until(170);
-    let drones = t
-        .sim()
-        .objects()
-        .filter(|o| o.owner == Some(P1) && o.kind == DRONE)
-        .count();
-    assert_eq!((drones, queue(t.sim(), portal)), (5, 5));
-    assert_eq!(t.sim().army_cap(P1), beacon_capacity(10, 10));
+    assert_eq!((queue(t.sim(), portal), t.sim().player(P1).unwrap().crystals), (7, 650));
+    assert_eq!(t.sim().army_cap(P1), beacon_capacity(5, 10), "the first in production");
+    assert_eq!(validate(t.sim(), P1, train(&[portal])), Ok(()));
+    let drones = |sim: &Sim| sim.objects().filter(|o| o.owner == Some(P1) && o.kind == DRONE).count();
+    // 160 frames each, one after another.
+    while drones(t.sim()) < 10 {
+        assert!(t.sim().tick() < 1100, "six come out");
+        t.step();
+    }
+    t.step();
+    assert_eq!(
+        (queue(t.sim(), portal), t.sim().army_cap(P1)),
+        (1, beacon_capacity(10, 10))
+    );
+    let status = t.sim().production_status(portal).unwrap();
+    assert_eq!(
+        (status.progress, status.blocked),
+        (0, Some(ArmyResource::BeaconCapacity))
+    );
 }
 
-/// Design change 0083 ("This applies to every faction and every cost"): with room for one more Drone under the
-/// Beacon Capacity, the idlest of two Robo Portals takes it, and the other is refused for the cap. Two portals
-/// provide 10; eight Drones and one queued take 9.
+/// Design change 0083 as 0143 has it ("0083 (group production with limited resources) no longer considers Unit
+/// Control", nor the Beacon Capacity): with room for one more Drone, a Train to two Robo Portals queues at both, the
+/// idlest first, and none is refused; the idle one starts in the room, and the other's second Drone waits behind
+/// its first. Two portals provide 10; eight Drones and one in production take 9.
 #[test]
-fn group_production_serves_the_least_work_first_up_to_the_capacity() {
+fn group_production_queues_past_the_capacity() {
     let mut builder = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
         .faction(P1, COLONISTS)
         .spawn(PORTAL, Some(P1), tile(1, 1)) // 1: (1, 1) to (4, 4)
@@ -265,25 +271,36 @@ fn group_production_serves_the_least_work_first_up_to_the_capacity() {
     t.at(1, P1, train(&[a]));
     t.at(2, P1, train(&[a, b]));
     t.run(2);
-    assert_eq!(
-        (queue(t.sim(), a), queue(t.sim(), b)),
-        (1, 1),
-        "B, the idle one, took the last"
+    assert_eq!((queue(t.sim(), a), queue(t.sim(), b)), (2, 1), "both queue");
+    assert_eq!(t.sim().army_cap(P1), beacon_capacity(10, 10), "B started");
+    let queued: Vec<ObjectId> = t
+        .events()
+        .iter()
+        .filter_map(|(tick, e)| match e {
+            SimEvent::ProductionQueued { producer, .. } if *tick == 2 => Some(*producer),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(queued, [b, a], "the idlest first");
+    assert!(
+        !t.events()
+            .iter()
+            .any(|(_, e)| matches!(e, SimEvent::ProductionRefused { .. }))
     );
-    assert_eq!(t.sim().army_cap(P1), beacon_capacity(10, 10));
-    let refused = SimEvent::ProductionRefused {
-        producer: a,
-        kind: DRONE,
-        reason: Refusal::UnitControl,
-    };
-    assert!(t.events().contains(&(2, refused)));
+    // A's first comes out after its 160 frames, and its second has no room.
+    t.run_until(161);
+    let status = t.sim().production_status(a).unwrap();
+    assert_eq!(
+        (status.progress, status.blocked),
+        (0, Some(ArmyResource::BeaconCapacity))
+    );
 }
 
-/// `factions/colonists/overview.md > Beacon Capacity > Over capacity` (design change 0112): when buildings are lost
-/// and the capacity falls below what is used, the units stay and new units are refused; the units already queued
-/// keep their reservation and complete (placeholder: Q0041 point 2).
+/// `factions/colonists/overview.md > Beacon Capacity > Over capacity` (design change 0112, as 0143 amends it): when
+/// buildings are lost and the capacity falls below what is used, the units stay, "units already in production
+/// finish", and "no new unit starts production until there is room again": the Drones queued behind wait at 0%.
 #[test]
-fn units_and_queues_outlast_a_fall_in_capacity() {
+fn units_and_the_drone_in_production_outlast_a_fall_in_capacity() {
     let mut builder = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
         .faction(P1, COLONISTS)
         .spawn(PORTAL, Some(P1), tile(8, 6)) // 1: (8, 6) to (11, 9)
@@ -302,21 +319,31 @@ fn units_and_queues_outlast_a_fall_in_capacity() {
     t.debug_at(3, DebugCommand::Remove { id: ObjectId(2) });
     t.debug_at(3, DebugCommand::Remove { id: ObjectId(3) });
     t.run(3);
-    assert_eq!(t.sim().army_cap(P1), beacon_capacity(11, 5), "the portal's 5 left");
+    assert_eq!(
+        t.sim().army_cap(P1),
+        beacon_capacity(9, 5),
+        "the portal's 5 left; eight Drones and one in production"
+    );
     assert_eq!(queue(t.sim(), portal), 3);
-    assert_eq!(validate(t.sim(), P1, train(&[portal])), Err(Reject::UnitControlCap));
-    // 160 frames each: the three come out.
-    while queue(t.sim(), portal) > 0 {
-        assert!(t.sim().tick() < 1000, "the queue completes");
-        t.step();
-    }
+    assert_eq!(validate(t.sim(), P1, train(&[portal])), Ok(()));
+    // The one in production comes out after its 160 frames; the two behind it wait.
+    t.run_until(400);
     let drones = t
         .sim()
         .objects()
         .filter(|o| o.owner == Some(P1) && o.kind == DRONE)
         .count();
-    assert_eq!(drones, 11, "the eight stayed");
-    assert_eq!(t.sim().army_cap(P1), beacon_capacity(11, 5));
+    assert_eq!(
+        (drones, queue(t.sim(), portal)),
+        (9, 2),
+        "the eight stayed, and one came out"
+    );
+    assert_eq!(t.sim().army_cap(P1), beacon_capacity(9, 5));
+    let status = t.sim().production_status(portal).unwrap();
+    assert_eq!(
+        (status.progress, status.blocked),
+        (0, Some(ArmyResource::BeaconCapacity))
+    );
 }
 
 /// Plan decision T21: `SetResources` sets the refined banks too, any player's, and they are part of the state's hash;

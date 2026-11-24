@@ -1,13 +1,16 @@
 //! Production in the sim (slice M2-D2; `crate::production` has the state and the rules it runs): the gate and the
-//! application of `Command::Production`, the producers' step of the economy phase, and the refund when a producer
-//! leaves the game.
+//! application of `Command::Production`, the producers' step of the economy phase (`producers/step.rs`, with the
+//! start check of design change 0143), the release of a finished unit, and the refund when a producer leaves the
+//! game.
+
+mod step;
 
 use glam::Vec2;
 
 use super::gate::Checked;
 use super::{Reject, Sim};
 use crate::defs::{ObjectKind, ProductionDef, UnitDef};
-use crate::economy::{self, Refund};
+use crate::economy::{ArmyResource, Refund};
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::math;
@@ -46,10 +49,13 @@ impl Sim {
     /// What producer `id` is working on (`factions/gdo/structures.md > Barracks > BarracksInstanceState`:
     /// CurrentBuild and CurrentBuildProgress), for the interface: `None` for an object that produces nothing or has
     /// an empty queue. `waiting` says the unit is finished and held inside because the exit doorway is occupied
-    /// (design change 0085: shown at 100%).
+    /// (design change 0085: shown at 100%); `blocked` names the army cap the unit waits for at 0% (design change
+    /// 0143: the owner's Unit Control or Beacon Capacity).
     pub fn production_status(&self, id: ObjectId) -> Option<ProductionStatus> {
-        let (production, def) = producer(self.objects.get(&id)?)?;
-        production.status(def)
+        let o = self.objects.get(&id)?;
+        let (production, def) = producer(o)?;
+        let faction = o.owner.and_then(|owner| self.player(owner)).map(|p| p.faction);
+        production.status(def, faction.and_then(ArmyResource::of))
     }
 
     /// The gate's rules for `Command::Production` (`factions/gdo/structures.md > Barracks >
@@ -57,11 +63,13 @@ impl Sim {
     /// units, as an order's units are found ([`Sim::own_units`]: stale and repeated ids dropped, `NotOwned` for
     /// someone else's); none is [`Reject::NoProducers`]. Then:
     /// - **Train**: at least one producer queues the unit, else why not: [`Reject::CannotProduce`] (no producer
-    ///   has the recipe), [`Reject::InsufficientCrystals`], [`Reject::UnitControlCap`] (the army cap of the player's
-    ///   faction, plan decision T20: [`Sim::army_cap`]) or [`Reject::QueueFull`].
+    ///   has the recipe), [`Reject::InsufficientCrystals`] or [`Reject::QueueFull`]. Queuing "needs only its Space
+    ///   Crystals (paid when queued) and a free queue slot; it does **not** check or reserve Unit Control" (design
+    ///   change 0143, `factions/gdo/overview.md > GDOResources > Unit Control > Reserved when production starts`;
+    ///   the Colonists' Beacon Capacity alike): the army cap is checked when production starts (`producers/step.rs`).
     ///   Design change 0083: the producers are served by the work they have queued, least first, ties by id, each
-    ///   check counting what the ones before it in this command took, **until a cost check fails**; a full queue
-    ///   is passed over.
+    ///   check counting what the ones before it in this command took, **until the crystal check fails** (0143: 0083
+    ///   no longer considers the army cap); a full queue is passed over.
     /// - **CancelProduction**: a producer has something queued, else [`Reject::NothingQueued`].
     /// - **SetRally**: a point on the map ([`Reject::OffMap`]), or an object that exists and that the player sees,
     ///   as for an order's target ([`Sim::check_target_seen`]). The producer itself is always a target: it clears
@@ -137,10 +145,6 @@ impl Sim {
         }
         able.sort_unstable_by_key(|&(work, id, ..)| (work, id));
         let mut crystals = self.player(player).map_or(0, |p| p.crystals);
-        // Plan decision T20: the army cap of the player's faction, if it has one. Design change 0082: the units
-        // queued count already, these included as they are queued.
-        let mut army = self.army_cap(player);
-        let army_cost = army.map_or(0, |cap| cap.resource.cost_of(kind));
         let (mut accepted, mut refused) = (Vec::new(), Vec::new());
         let mut stopped: Option<Refusal> = None;
         for (_, id, cost, full) in able {
@@ -148,20 +152,13 @@ impl Sim {
                 refused.push((id, Refusal::QueueFull));
                 continue;
             }
-            if stopped.is_none() {
-                if crystals < cost {
-                    stopped = Some(Refusal::Crystals);
-                } else if army.is_some_and(|cap| !cap.fits(army_cost)) {
-                    stopped = Some(Refusal::UnitControl);
-                }
+            if stopped.is_none() && crystals < cost {
+                stopped = Some(Refusal::Crystals);
             }
             match stopped {
                 Some(reason) => refused.push((id, reason)),
                 None => {
                     crystals -= cost;
-                    if let Some(cap) = &mut army {
-                        cap.used = cap.used.saturating_add(army_cost);
-                    }
                     accepted.push(id);
                 }
             }
@@ -169,7 +166,6 @@ impl Sim {
         if accepted.is_empty() {
             return Err(match stopped {
                 Some(Refusal::Crystals) => Reject::InsufficientCrystals,
-                Some(Refusal::UnitControl) => Reject::UnitControlCap,
                 Some(Refusal::QueueFull) | None => Reject::QueueFull,
             });
         }
@@ -229,8 +225,9 @@ impl Sim {
                     let Some(kind) = o.production.as_mut().and_then(Production::cancel_last) else {
                         continue;
                     };
-                    // "removes last entry from BuildQueue, refunds full cost to player"; its Unit Control goes
-                    // with the entry (design change 0082).
+                    // "removes last entry from BuildQueue, refunds full cost to player". The army cost goes with the
+                    // unit in production (design change 0143), and a waiting one never took any: "the player can
+                    // still cancel it for a full refund".
                     let cost = def.and_then(|def| def.recipe(kind)).map_or(0, |recipe| recipe.cost);
                     let refund = Refund::Full.of(cost);
                     if let Some(p) = self.players.iter_mut().find(|p| p.id == player) {
@@ -263,7 +260,9 @@ impl Sim {
     /// `factions/gdo/structures.md > Barracks > Destroyed while producing` (design changes 0084 and 0085): object
     /// `id` is about to leave the game. If it produces units, its whole BuildQueue is refunded to its owner "as if
     /// cancelled", the unit in production and a finished one still waiting inside included: the full Space
-    /// Crystals cost of each. Their Unit Control is released with the queue.
+    /// Crystals cost of each. Of their army cost (design change 0143) only the unit in production's goes, being
+    /// the only one that took any ("Unit Control released for the unit in production"); a producer that waited for
+    /// room frees nothing.
     pub(super) fn refund_production(&mut self, id: ObjectId) {
         let Some(o) = self.objects.get_mut(&id) else {
             return;
@@ -273,7 +272,7 @@ impl Sim {
             return;
         };
         let owner = o.owner;
-        for kind in std::mem::take(&mut production.queue) {
+        for kind in production.take_queue() {
             let refund = Refund::Full.of(def.recipe(kind).map_or(0, |recipe| recipe.cost));
             if let Some(p) = self.players.iter_mut().find(|p| Some(p.id) == owner) {
                 p.credit_crystals(refund);
@@ -283,38 +282,6 @@ impl Sim {
                 kind,
                 refund,
             });
-        }
-        production.progress = 0;
-    }
-
-    /// The producers' step of the economy phase (plan decision T5; `ARCHITECTURE.md > Tick pipeline`), in id order:
-    /// the unit in production advances by its owner's power ratio (design change 0089: "unit production speed" is
-    /// slowed at negative power), and a finished one is released through the exit doorway, or held while that is
-    /// occupied ([`Sim::release_unit`]). Producers from `first_new` on were created this tick and wait for the
-    /// next. The released units are in the game from this tick, and act from the next (the spawn-tick rule).
-    pub(super) fn step_production(&mut self, first_new: ObjectId) {
-        let busy: Vec<ObjectId> = self
-            .objects
-            .range(..first_new)
-            .filter(|(_, o)| o.production.as_ref().is_some_and(|p| !p.queue.is_empty()))
-            .map(|(&id, _)| id)
-            .collect();
-        if busy.is_empty() {
-            return;
-        }
-        let power = economy::power::summaries(self.objects.values());
-        for id in busy {
-            let Some(o) = self.objects.get_mut(&id) else {
-                continue;
-            };
-            let def = o.def().structure.as_ref().and_then(|s| s.production.as_ref());
-            let (Some(owner), Some(def), Some(production)) = (o.owner, def, &mut o.production) else {
-                continue;
-            };
-            let speed = power.get(&owner).copied().unwrap_or_default().speed(o.kind);
-            if production.advance(def, speed) {
-                self.release_unit(id);
-            }
         }
     }
 
