@@ -241,7 +241,8 @@ The pointer reflects the pending command and whether the current CursorTarget is
 
 - AwaitingTarget[Attack] over enemy object: **Attack**
 - AwaitingTarget[Attack] over ground: **Attack** (will issue AttackMove)
-- AwaitingTarget[Attack] over friendly/neutral object: **Inactive**
+- AwaitingTarget[Attack] over own or neutral **destructible** object: **Attack** (force-attack, systems/controls/commands.md > Attack)
+- AwaitingTarget[Attack] over an indestructible object (e.g. crystal patch): **Inactive**
 - AwaitingTarget[Move] over ground or any object: **Move**
 - AwaitingTarget[Patrol] over ground: **Patrol**
 - AwaitingTarget[Patrol] over non-ground: **Inactive**
@@ -291,6 +292,7 @@ Target commands (StateOnlyTransition to AwaitingTarget):
 
 ### AwaitingTarget[Attack] resolution:
 - Left-click EnemyObject: issues Attack command targeting that object
+- Left-click own or neutral destructible object: issues Attack command targeting that object (force-attack, systems/controls/commands.md > Attack)
 - Left-click Ground: issues AttackMove command to that location
 
 ### AwaitingTarget[Move] resolution:
