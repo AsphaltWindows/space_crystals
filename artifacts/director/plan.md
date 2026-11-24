@@ -331,15 +331,23 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Open.** Shift with rallies, rallying on one of several selected Barracks, and feedback for a disabled button went out as Q0035.
   - **Flaky test.** `games_are_recorded_as_they_run_and_when_the_app_exits` flaked once under load: `load_replay` returned an Err. M2-I is fixing it.
 
+- **M2-F2 game end** (merged in `e3f67a9`; 872 tests):
+  - **Defeat in the sim.** `economy/defeat.rs` applies T8: a player who owned a structure and now owns none is defeated. Plates count. `Player::defeated_at` and `Sim::outcome` are hashed. Events: `PlayerDefeated`, `GameOver`.
+  - **Commands.** The gate refuses with `Reject::Defeated` and `Reject::GameOver`.
+  - **Units on defeat (0101).** They become neutral: orders cleared, stopped, repathed.
+  - **Client.** The sim stops at game over. Banners for VICTORY, DEFEAT, and DEFEATED while spectating. A defeated player has no input and watches with `Sight::watching` (0102). The replay is saved at the end, and playback pauses there.
+  - **Tests.** Some fuzz and vision tests now give player 2 an out-of-sight Generator so their games don't end mid-script.
+  - **Open.** Three readings went out as Q0036: simultaneous last defeats (no winner), free-for-all spectating (own memories only), a shield left raised.
+
 ## In progress
 - **M2 wave 4** (common brief `scratchpad/briefs/m2-w4-common.md`):
-  - **M2-F2 game end** (Opus): defeat to neutral, game over, spectating, banners;
   - **M2-I editor layouts** (Opus): layout editing, orientation, plates on patches, plus fixes for two flaky replay tests.
   - **M2-H2 construction UI** (Opus; brief `scratchpad/briefs/m2h2-construction-ui.md`): DC and EF panels, build menus (0104), the ghost with per-tile validity, the area overlay (0093), rotate and flip, side labels. This gives the first playable.
   - **M2-J1 sim QA** (Opus): the economy oracle against `factions/gdo/economy.md > Opening Economy Baseline`, the `gdo_opening` golden, a tighter `behaviours_soak` check, and F1's double layout report.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
-  - **M2-B, M2-C and M2-E** together after M2-A.
+  - **M2-J2** after H2, I and J1 merge. Run it with no other agents building, so the perf numbers are clean.
+  - **Then the M2 playtest** with the user.
   - **Fix the Move-onto-itself bug** per Q0031's answer, in the next sim or command-UI slice.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -425,7 +433,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | M2-D1 | Construction: DC and EF, Construct, Cancel, Place, refunds | B, C | Opus | done (`fda74d3`) |
 | M2-D2 | Production: Barracks queue, rally point, exit spawn, Unit Control | B | Fable (exit doorway: a unit overlapping its producer, the collision exception, invariants) | done (`1a64e75`) |
 | M2-F1 | Game start: Starting Conditions, layout rules (restriction, completeness, outdated), game-start banks, camera on the DC, the `dev_skirmish` GDO layouts | B, C | Opus | done (`d5a7d29`) |
-| M2-F2 | Game end: defeat (units become neutral and repath), game over when one side remains, spectating with team vision, the defeat and victory banner | B | Opus | running |
+| M2-F2 | Game end: defeat (units become neutral and repath), game over when one side remains, spectating with team vision, the defeat and victory banner | B | Opus | done (`e3f67a9`) |
 | M2-G | HUD: resources bar, structure InfoPanels (the banner moved to M2-F2) | B | Opus | done (`69e80a1`) |
 | M2-H1 | Production UI: generalised command UI, Barracks panel, rally point | D2 | Opus | done (`eccaaa6`) |
 | M2-I | Editor: Starting Layout editing | F | Opus | running |
@@ -496,6 +504,7 @@ First playable after M2-H2.
 | Q0033 | Path knowledge, blocked to open: a destination behind a gone obstacle, shortcuts when a wall is seen gone, map-placed structures | no | open; M2-E built the stated current behaviour |
 | Q0034 | Should an enemy plate's InfoPanel show its patch's remaining crystals? | no | open; M2-G shows it to everyone |
 | Q0035 | Rally point UI: Shift with rally targeting, rallying on one of several selected Barracks, feedback when pressing an unavailable command | no | open; M2-H1 built the stated current behaviour |
+| Q0036 | End of game edge cases: simultaneous last defeats, free-for-all spectating, a raised Riot Shield on defeat | no | open; M2-F2 built the stated current behaviour |
 
 ## Design change entries
 Last triaged: 0105.
@@ -596,8 +605,8 @@ Last triaged: 0105.
 | 0098 Plates pay in lumps; the cycle timer advances by the power ratio | done (M2-B, `39bcf66`) | answers Q0028 point 1 |
 | 0099 Plate depletion: last partial load, depleted patch stays under its plate, the pick selects the plate | done (pick: M2-A; mining: M2-B, `39bcf66`) | answers Q0028 points 2–4 |
 | 0100 A defeated player's units stay but can't be controlled | superseded by 0101 (units become neutral) | answers Q0029 point 1; replaces removing the units |
-| 0101 On defeat, units become neutral; the game ends when one side remains | queued (M2-F) | answers Q0029 points 1–2 |
-| 0102 Defeated players in team games watch with team vision | queued (M2-F) | closes 0101's TBD |
+| 0101 On defeat, units become neutral; the game ends when one side remains | done (M2-F2, `e3f67a9`) | answers Q0029 points 1–2 |
+| 0102 Defeated players in team games watch with team vision | done (M2-F2, `e3f67a9`) | closes 0101's TBD |
 | 0103 Enemy structures are valid automatic targets | done (M2-A, `cbeb804`) | answers Q0030 point 1; matches M1 |
 | 0104 Deployment Center has two build menus | queued (M2-H2) | answers Q0030 point 2; M2 needs only Generator, Barracks and EF in BuildMenu[Basic] |
 | 0105 Default InfoPanel for structures | done (M2-G, `69e80a1`; activity lines come with H1 and H2) | answers Q0030 point 3, as proposed |
