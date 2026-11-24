@@ -2043,3 +2043,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-24: Q0024 pt 3: group production with limited resources: as many as possible, least remaining queued production time first. Doc: selection_and_hud.md > No smart-casting. Entry 0083.
 - 2026-11-24: Q0024 pt 4: destroyed GDO producers refund as if cancelled. Doc: gdo/structures.md Barracks + DC Cancellation. Entry 0084.
 - 2026-11-24: Finished unit fully inside (waiting for doorway) refunded when building dies. Entry 0085.
+- 2026-11-24: Q0024 pt 5: rally on the building itself clears it. Entry 0086.
