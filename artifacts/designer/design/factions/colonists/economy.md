@@ -16,6 +16,12 @@ Beacon deployment follows the shared Worker-Built Structures placement rules (co
 ### Deployment Duration
 48 frames (3 seconds).
 
+### A Beacon from the first frame
+(user, 2026-11-24) The moment deployment begins, the Drone **becomes a Beacon under deployment**:
+- It is a **structure** on its 2x2 footprint: the footprint is claimed immediately, units can't walk onto it, it can't move, and every rule that treats structures and units differently (targeting, auto-targeting, placement) treats it as a structure.
+- It is the **same object** as the Drone, so it stays selected (and stays in any control group the Drone was in).
+- On **cancel**, it turns back into the Drone, standing at the centre of the footprint.
+
 ### HP/Shields Interpolation
 During deployment, the transforming unit's HP and Shields each linearly interpolate from the Drone's own MaxHP/MaxShields toward the Beacon's MaxHP/MaxShields as deployment progresses:
 - HP = Drone MaxHP + (Beacon MaxHP - Drone MaxHP) x progress
@@ -92,6 +98,9 @@ During the Warp In, the transforming structure's HP and Shields each linearly in
 - Shields = Beacon MaxShields + (Building MaxShields - Beacon MaxShields) x progress
 
 Where progress is frames elapsed / WarpInTime, from 0.0 to 1.0. (Same formula pattern as Beacon Deployment.)
+
+### The target building from the first frame
+(user, 2026-11-24) Same as Beacon Deployment: when the Warp In begins, the object is immediately the **target building under Warp In**, and its full footprint is claimed at once. It is the same object as the Beacon (stays selected). On cancel it shrinks back to the Beacon on the Beacon's original footprint.
 
 ### Vulnerability
 The transforming structure is vulnerable to attack for the entire Warp In duration. If destroyed mid-Warp-In, the Beacon is destroyed along with it.
