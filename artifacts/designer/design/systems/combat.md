@@ -19,7 +19,7 @@ Combat statistics for a unit that can attack. Only present on units that can att
 ### Range Measurement
 Range and MinRange are measured **edge to edge** (user, 2026-11-23): the shortest distance between the attacker's shape and the target's shape, i.e. the gap between them. Shapes are a unit's Silhouette and a structure's footprint. "Range 5" means the gap between attacker and target is at most 5 grid units.
 - Big targets are not harder to reach than small ones, and a big attacker's or turret's own body doesn't eat into its range.
-- Melee (adjacent contact) is a gap of about 0.
+- Melee has a short **reach**: **8 space units** for every melee attack for now (placeholder; user, 2026-11-24). Melee units should have some reach, not exactly 0 (an exact 0 would fail on tiny collision gaps).
 - Ground-location targets (Attack Ground, TailDisjointed artillery): measured from the attacker's shape to the target point.
 - ElevationModifier adds to Range as before (core/vision.md > ElevationModifier).
 
@@ -103,7 +103,7 @@ The animation and the effect on the target are a single unified animation during
 Standard ranged FullyConnected attack. Has meaningful Range. Benefits from ElevationModifier on range.
 
 ### Melee
-Close-quarters FullyConnected attack. Fixed short range (adjacent contact). ElevationModifier does NOT apply to range.
+Close-quarters FullyConnected attack. Short reach: 8 space units for all melee attacks for now (placeholder; user, 2026-11-24); may become a per-attack value later. ElevationModifier does NOT apply to range.
 
 ## HeadDisjointed
 The Firing phase is short and spawns a projectile which tracks the target independently of the attacking unit's further actions. The unit enters Cooldown and Reloading while the projectile is in flight. The effect of the attack is delayed until the projectile reaches the target. The projectile cannot miss.

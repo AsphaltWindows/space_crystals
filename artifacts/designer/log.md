@@ -2109,3 +2109,4 @@ Q0041 pts 5-6: portal energy doorway at centre, open-direction arc, toward rally
 Q0042 pts 1-2: shields regen for neutral and transforming objects. Entry 0146.
 Q0042 pt 3: clarified, no modifiers on Shields (docs). Entry 0147.
 Q0042 pt 4: shields bar above HP, InfoPanel line. Entry 0148.
+Q0042 pt 5: melee reach 8 su placeholder. Entry 0149.
