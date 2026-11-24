@@ -27,8 +27,8 @@ pub(super) const PORTAL: ObjectId = ObjectId(1);
 pub(super) const ROBO: Vec2 = Vec2::new(896.0, 512.0);
 const BIO: Vec2 = Vec2::new(864.0, 480.0);
 
-/// The half extents of a Drone and of a Sabre Legionnaire.
-pub(super) const HALF: Vec2 = Vec2::splat(18.0);
+/// The half extents of a Drone.
+const HALF: Vec2 = Vec2::splat(18.0);
 
 /// Player 1, Colonists, with a Robo Portal (1) on tiles (12, 6) to (15, 9) of a 30 × 20 map: x 768..1024, y
 /// 384..640, its centre [`ROBO`]. Two Egress Nodes (2, 3) in the far corner: Beacon Capacity 15.
@@ -42,11 +42,7 @@ pub(super) fn robo_portal() -> ScenarioBuilder {
 
 /// Player 1, Colonists, with a Bio Portal (1) turned as given on tiles (12, 6) to (14, 8) of a 30 × 20 map: x
 /// 768..960, y 384..576, its centre [`BIO`]. Two Egress Nodes (2, 3) in the far corner, and `more`.
-pub(super) fn bio_portal(
-    rotation: Rotation,
-    flip_h: bool,
-    more: impl FnOnce(ScenarioBuilder) -> ScenarioBuilder,
-) -> TestSim {
+pub(super) fn bio_portal(rotation: Rotation, flip_h: bool, more: fn(ScenarioBuilder) -> ScenarioBuilder) -> TestSim {
     let builder = ScenarioBuilder::new(&flat(30, 20))
         .faction(P1, Faction::Colonists)
         .spawn(ObjectKind::BioPortal, Some(P1), tile(12, 6))
