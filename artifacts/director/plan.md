@@ -452,11 +452,33 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Goldens.** Re-blessed for the hashed `Object::transform`; the inputs are unchanged. Perf A/B shows no regression.
   - **Open.** A portal under Warp In still shows the portal panel; the Cancel-only panel is J1's (0124). A defeated player's units get visuals in the neutral colour.
 
+- **M3-G Drone movement** (Fable; merged in `5d61dc7`; 1082 tests):
+  - **DragMovement (T25).** `movement.rs` is split into `follow.rs` and `drag.rs`. The fixed scheme is turn → drag → thrust → position, with braking planned from the stopping distance. Equilibrium speed is 8, or 4 on Rugged with double drag. The stop takes 42 su and 16 ticks.
+  - **0035.** Any blocked move zeroes the whole momentum, and a Drone creeps at 0.8 su a tick along a wall without tripping the stuck rule. A debug teleport zeroes momentum too.
+  - **0126.** `movement/separate.rs`: an idle unit that yields steps off the lowest-id unit it overlaps, at 2 su a tick, until the boxes touch. Units with orders are never moved, and stacks of up to 8 separate.
+  - **Steering.** H2's dead-centre oscillation is fixed for momentum units: at least 9 loads a minute at every offset, against 0–1 before.
+  - **Nav.** One grid per set again (`GroundRugged, 1`), so nav rebuilds take 1.0–1.1 ms instead of 1.5–1.8.
+  - **Curve** (income per second, worst gap in ticks):
+
+    | Drones | 4 | 8 | 12 | 16 | 20 | 24 |
+    |---|---|---|---|---|---|---|
+    | Income | 6.34 | 11.65 | 17.86 | 23.10 | 25.57 | 27.26 |
+    | Worst gap | 90 | 104 | 130 | 127 | 305 | 357 |
+
+    The design's table gives 6.1, 23 and 32. 24 Drones are 15% under, and a redirect bounce remains; H3's 0132 rule should end it.
+  - **Perf.** `movement_perf` shows no difference. The 24-Drone soak costs 25 µs a tick against 13.7 before.
+  - **Accepted deviations.**
+    - Momentum is hashed only while non-zero.
+    - The Drone faces the step it wants.
+    - Sidestep, exit and separation stay kinematic.
+    - Corners are taken at speed.
+    - Neutral units never separate.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M3-F Beacon Deployment** (Opus; brief `scratchpad/briefs/m3f-beacon-deployment.md`): the sim side of deployment, with 0109–0114, 0116–0118, 0120, and 0125's Groupable flag and site reservation.
   - **M3-B Shields and Weapon Conversion** (Opus; brief `scratchpad/briefs/m3b-shields-conversion.md`): Shields, regen, Convert, and the current Shields that follow E's transforms (0110, 0111). It merges E when E lands.
-  - **M3-G Drone movement** (Fable; brief `scratchpad/briefs/m3g-drag-movement.md`): DragMovement, 0035's response for Drag units, hover on Rugged, H2's steering oscillation, and the saturation curve with momentum.
+  - **M3-H3 gathering rules** (Opus; brief `scratchpad/briefs/m3h3-gathering-rules.md`): 0123, 0127–0138, 0140 and 0141; ends the redirect bounce at 24 Drones.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2 playtest** with the user, using `docs/playtest/m2.md`.
@@ -581,8 +603,8 @@ First playable after M2-H2.
     | B | running (wave 3) |
     | H2 (0106) | done (`777b9a9`) |
     | F | running (wave 3) |
-    | G | correcting 0035 (velocity to 0) before merge |
-    | H3 (after G merges; brief `scratchpad/briefs/m3h3-gathering-rules.md`; gather rules 0123, 0127–0138, 0140, 0141) | queued |
+    | G | done (`5d61dc7`) |
+    | H3 | running (wave 3) |
     | R (after H3, or earlier with the gather part last; brief `scratchpad/briefs/m3r-default-order-remembered-targets.md`; 0136, 0139) | queued |
     | P (after F; 0143: capacity taken at production start, for every faction) | queued |
     | J1 (after F), J2 (after R), K1, K2 | queued |
@@ -780,7 +802,7 @@ Last triaged: 0144.
 | 0123 A Gather ends only when no patch is left within the Drone's search radius; queued orders wait | queued (M3-H3) | answers Q0040 point 7 and Q0037 point 12; Q0037 point 5 in part; replaces the after-the-next-drop-off proposal |
 | 0124 Colonists panels: two Warp In menus on the Beacon; Cancel only while transforming; portal, Drone and Egress Node grids | portal grids done (M3-D, `20f584e`); Beacon menus and Cancel queued (M3-J1); Drone panel, Egress Node F and the unavailable W/E portal slots queued (M3-J1, M3-J2) | answers Q0040 point 8 |
 | 0125 Lingering build ghosts; Drones Groupable; a Deploy goes to one Drone of a group; Shift-placement chains through the group | in progress: Groupable flag and site reservation (M3-F); ghosts, dispatch and chaining queued (M3-J1) | answers Q0040 point 9; replaces 0071 for Drones |
-| 0126 Idle overlapping units push apart; units with orders are never moved | in progress (M3-G, folded in) | answers Q0045 point 1; amends 0106 |
+| 0126 Idle overlapping units push apart; units with orders are never moved | done (M3-G, `5d61dc7`) | answers Q0045 point 1; amends 0106 |
 | 0127 Drop Off is only a delivery; the Drone then idles at the drop-off or starts its next order | queued (M3-H3); its pass-through is already built (M3-H2) | answers Q0045 point 2 and Q0037 point 1; replaces the return-to-patch proposal |
 | 0128 A loaded Drone sent to Gather skips mining at the new patch and goes to deliver | queued (M3-H3) | answers Q0037 point 2 |
 | 0129 Other orders keep the load | queued (M3-H3: confirm with a test) | answers Q0037 point 3 |
