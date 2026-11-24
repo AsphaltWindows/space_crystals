@@ -1995,3 +1995,7 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T19:18:25-05:00 — Collision response / un-sticking (velocity reset on block, blocked portion dropped); tracked pathfinding precompute note. Doc: systems/units.md. Change entry 0035 (replaces 0033 turning rule).
 - 2026-11-23T19:20:03-05:00 — Q0010.2: patrol origin at execution. Docs: commands.md, behaviors.md. Change entry 0036.
 - 2026-11-23T19:20:44-05:00 — Q0010.3: failed patrol leg = arrived, 2 in a row end. Doc: behaviors.md. Change entry 0037.
+- 2026-11-23T19:23:06-05:00 — Q0011.1: patches/stations block ground units. Doc: systems/units.md. Change entry 0038. Took in Q0017.
+- 2026-11-23T19:26:15-05:00 — Q0011.2: rugged impassable for vehicles except HoverVehicle (double drag). Doc: systems/units.md. Change entry 0039.
+- 2026-11-23T19:33:39-05:00 — Q0011.3: path knowledge per player; seen-but-fogged structures = walls; obstacle cache. Doc: behaviors.md. Change entry 0040.
+- 2026-11-23T19:34:11-05:00 — Path cache reclassified as implementation suggestion (user). Doc: behaviors.md. Change entry 0041.
