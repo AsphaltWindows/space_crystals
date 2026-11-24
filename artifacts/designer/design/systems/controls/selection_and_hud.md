@@ -199,6 +199,9 @@ For all unit-producing structures, right-click from DefaultState sets the rally 
 - Right-click Object: sets rally point to that object
 - Right-click the building itself: **clears** the rally point (RallyPoint = None; user, 2026-11-24)
 
+### Shift and rally points
+(user, 2026-11-24) A producer has a single rally point, so **Shift does nothing special** for rallies: a Shift-click (after C) or Shift+right-click sets the rally point and ends targeting, exactly like a plain click (an exception to AwaitingTarget > Shift while targeting). Shift is left free for possible multi-waypoint rallies later (not designed).
+
 ### What a rally point makes a new unit do
 (user, 2026-11-24) A unit that spawns with a rally point set **always** gets its **own default right-click command** resolved against the rally target (RightClickResolution, including the rule for units that can't carry out the resolved command). No per-building lists override this. Examples: a Drone rallied on a crystal patch **Gathers** it; a Drone rallied on an enemy unit **follows** it (unarmed, so it can't attack); a Peacekeeper rallied on an enemy attacks it.
 
