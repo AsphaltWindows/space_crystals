@@ -3,13 +3,16 @@
 //! `> RightClickResolution`, `> Production Building Default Right-Click`, `> AwaitingTarget`, `> PointerDisplayType`,
 //! `> CommandIndicators`; `systems/controls/commands.md > Unit Command`; `factions/gdo/structures.md > Barracks >
 //! ObjectInterfaceState[Barracks]`, `> DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`;
-//! `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`).
+//! `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`;
+//! `factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`, `factions/colonists/units.md > Drone
+//! ObjectInterfaceState`).
 //!
 //! - [`interface`]: the rules as plain data: the panel's commands ([`PanelCommand`], for units, producers and
 //!   constructors alike: plan decision T10), the ObjectInterfaceState of each ControlState (with the Deployment
 //!   Center's build menus and AwaitingPlacement), the command panel a selection gets and who receives a command, the
-//!   Peacekeeper's Riot Shield toggle in R with what a raised shield allows, and the production and construction
-//!   commands the command gate would refuse, which show disabled ([`interface::Conditions`]);
+//!   Peacekeeper's Riot Shield toggle in R with what a raised shield allows, the Colonists' Beacon with its Warp In
+//!   menus, the Drone's Deploy and the Cancel of whatever transforms, and the production and construction commands
+//!   the command gate would refuse, which show disabled, with why ([`interface::Conditions`]);
 //! - [`resolution`]: what a click on the map resolves to, object by object for a right-click (a unit's order, or a
 //!   producer's rally point), and the PointerDisplayType that previews it;
 //! - the systems (`systems.rs`): command hotkeys and panel clicks, left-clicks while a target is awaited (at the
@@ -18,12 +21,14 @@
 //!   player's ObjectInterfaceState and give orders (`Command::Order` in `PendingCommands`, with `queue` while the
 //!   Queue modifier, Shift, is held), abilities (`Command::Ability`), production commands (`Command::Production`:
 //!   Train, Cancel Production and the rally point) and construction commands (`Command::Construction`: Construct,
-//!   the Cancels and Place); every frame the state is checked against the game and falls back to DefaultState when
-//!   it no longer holds, and the input layer takes the placement keys while a building is placed
-//!   (`crate::input::Placing`, the editor's keys);
+//!   the Cancels, Place and Warp In), and a Drone's Deploy (`OrderKind::Deploy`, one Drone a click: design change
+//!   0125); every frame the state is checked against the game and falls back to DefaultState when it no longer
+//!   holds, and the input layer takes the placement keys while a building is placed (`crate::input::Placing`, the
+//!   editor's keys);
 //! - [`indicators`]: markers at the targets of the selected units' orders, a flash where an order was just given,
 //!   the queued waypoints as lines while Shift is held, and the rally points of the selected producers;
-//! - [`feedback`]: the message after a click on an invalid target, a placement that can't be made, and a refusal;
+//! - [`feedback`]: the message after a click on an invalid target, a placement that can't be made, a greyed-out
+//!   button pressed ([`CommandRefused`]), and a refusal;
 //! - [`cursor`]: the pointer's look, from the PointerDisplayType; none while a building is placed, whose ghost is the
 //!   cursor (`crate::placement`).
 //!
@@ -41,8 +46,8 @@ use bevy::prelude::*;
 use sc_sim::{ObjectId, OrderKind, PlacementProblem, Tick};
 
 pub use interface::{
-    BuildMenu, ButtonLook, Conditions, InterfaceState, InterfaceTemplate, Modes, Panel, PanelButton, PanelCommand,
-    PanelSlot, Placing,
+    BuildMenu, Builder, ButtonLook, Conditions, InterfaceState, InterfaceTemplate, Modes, Panel, PanelButton,
+    PanelCommand, PanelSlot, Placing, Planned, WhyUnavailable,
 };
 pub use resolution::{CursorTarget, MapTarget, PointerDisplay, Resolved, UnitCapabilities};
 pub use systems::TARGETING_CLICK_ALLOWANCE_PX;
@@ -82,6 +87,18 @@ pub struct InvalidPlacement {
     pub tick: Tick,
 }
 
+/// Design change 0162 (`systems/controls/selection_and_hud.md > CommandPanel > Pressing an unavailable command`): a
+/// greyed-out button pressed, or its hotkey, which issued nothing; or a Warp In whose click the sim wouldn't take
+/// (the bank short since its entry was pressed). "The player gets the same feedback as when an order is refused,
+/// naming the reason" ([`feedback`]).
+#[derive(Message, Copy, Clone, Debug, PartialEq)]
+pub struct CommandRefused {
+    /// Why: the button's own reason (`PanelSlot::why`), or the gate's refusal.
+    pub why: WhyUnavailable,
+    /// The sim's tick when it was pressed.
+    pub tick: Tick,
+}
+
 /// Order of the command flow's `Update` systems.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CommandUiSystems {
@@ -100,6 +117,7 @@ impl Plugin for CommandUiPlugin {
         app.add_message::<OrderIssued>()
             .add_message::<InvalidTarget>()
             .add_message::<InvalidPlacement>()
+            .add_message::<CommandRefused>()
             .init_resource::<systems::TargetPress>()
             .configure_sets(
                 Update,
@@ -118,6 +136,7 @@ impl Plugin for CommandUiPlugin {
                 Update,
                 (
                     systems::end_queued_targeting,
+                    systems::end_queued_placement,
                     systems::cancel_on_escape,
                     systems::press_command_slots,
                     systems::turn_ghost,

@@ -1824,8 +1824,8 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
 
 **Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/selection_and_hud.md > ObjectInterfaceState`
 to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units,
-their producing structures and their constructors, through one command flow (plan decision T10, slices M2-H1 and
-M2-H2).
+their producing structures and their constructors, and the Colonists' Beacons and Drones, through one command flow
+(plan decision T10, slices M2-H1, M2-H2 and M3-J1).
 - **Rules** (pure and unit tested): `command_ui/interface.rs` and its children (`commands.rs`, `templates.rs`,
   `conditions.rs`, `panel.rs`) have the `PanelCommand`s (the units' and the producers' commands), the `InterfaceState`
   (DefaultState, or AwaitingTarget of a command, `queued` once a Shift-click has queued it: design change 0070) in
@@ -1900,7 +1900,8 @@ M2-H2).
   Center's Q Basic and W Advanced, unavailable while none of its buildings is in the game), `Construct(kind)`,
   `CancelConstruction` and `CancelReady` (X), and `PlaceReady(kind)`, "Select completed building", which takes its
   building's slot once it is ready. `InterfaceState` adds `BuildMenu(menu)` and `AwaitingPlacement(Placing
-  { constructor, kind, orientation })`. A constructor's panel follows its state (`state_grid`, from
+  { builder, kind, orientation })`, the builder a constructor's `Builder::Constructor(id)`. A constructor's panel
+  follows its state (`state_grid`, from
   `Conditions::constructor`, the ActiveGroup's one instance's `Constructor`), and its commands are that instance's
   own (`PanelCommand::instance_only`): they go to the active constructor only, never to the other selected ones. A
   construction command is one `Command::Construction` (`OrderOutbox::construct`, validated like the others), and
@@ -1914,6 +1915,34 @@ M2-H2).
   DefaultState. A build menu leaves the map's clicks to the selection; AwaitingPlacement takes them
   (`InterfaceState::takes_map_clicks`). `Validate` ends a build menu the ActiveGroup doesn't have, a placement whose
   constructor isn't active or holds the building no more, and both when the selection isn't commandable.
+- **Warp In and Deploy** (slice M3-J1; `factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`,
+  `factions/colonists/units.md > Drone ObjectInterfaceState`; design changes 0116, 0119 to 0122, 0124, 0125):
+  `command_ui/interface/templates/colonists.rs` has the Colonists' grids. The Beacon's (`InterfaceTemplate::Beacon`)
+  opens Warp In (Basic) in Q and Warp In (Advanced) in W, `BuildMenu`s whose entries are its own (`menu_grid`): a
+  `WarpIn(kind)` for each building of its Constructs List (`transform::warp_in_recipes`), and a `Planned(..)` for
+  each building not in the game yet, which holds its slot unavailable. A `WarpIn` enters `AwaitingPlacement` with
+  `Builder::Beacon(id)`, for the Beacon Tabbed to (Beacons are Ungroupable, 0122; `instance_only`): the ghost is
+  `transform::warp_in_footprint` of the Beacon's placement (`Placing::origin`), turned by the placement keys about
+  its centre, never moved by the mouse (`Placing::follows_cursor`: the pointer shows); a left-click anywhere sends
+  `ConstructionCommand::WarpIn` if `Sim::warp_in_check` allows it (`OrderOutbox::try_construct`; a gate refusal,
+  the bank short since the entry was pressed, says why and placement goes on), and Back returns to its menu. A
+  menu entry is greyed out by the gate's answer to its Warp In unturned, `Unplaceable` left out: the ghost shows
+  where it can't stand. The Drone's grid (`InterfaceTemplate::Drone`) is Q Move, A Deploy, X Stop (S is slice
+  M3-J2's, and so is its right-click); A enters `AwaitingPlacement` with `Builder::Drones { queued }`: the ghost
+  under the cursor, checked by `Sim::deploy_check` for the Drone the click would go to (`deploy_recipient`: a plain
+  click's the ActiveGroup's first Drone in portrait order, whose orders the Deploy replaces; a Shift-click's the
+  first with no Deploy, among `Sim::pending_deploys` and the Deploys still in `PendingCommands`, `deploying`). A
+  click gives that one Drone `OrderKind::Deploy { origin }`, queued with Shift; Shift-placement stays (`queued:
+  true`) while another Drone of the group has none, and letting go of Shift ends it (`end_queued_placement`).
+  Whatever transforms (`Object::is_transforming`): `Conditions::transforming` (every object of the ActiveGroup)
+  gives the panel `TRANSFORMING_GRID`, X `CancelTransform` alone (`ConstructionCommand::CancelTransform`, to the
+  ActiveGroup), `Modes::transforming` gives the object no template in the resolution (no right-click, no rally
+  point), and `still_valid` ends a transforming Beacon's menu or placement. A Drone that deploys stays selected as
+  its Beacon in a group of its own (`ControlState::set_kind`), and a Drones' placement ends once the ActiveGroup is
+  no longer Drones. A greyed-out button (design change 0162) keeps its reason (`PanelSlot::why`, a
+  `WhyUnavailable`: the gate's `Reject`, the shields, a command awaiting its target, the type, not in the game
+  yet); pressing it, by hotkey or click, issues nothing and sends `CommandRefused`, whose message
+  (`feedback::unavailable_text`) the feedback band shows.
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command (`PanelSlot::label`: a toggle says what pressing it does) and its hotkey from the
   bindings, and a toggle that is on has a thick green border. The indicators (`command_ui/indicators.rs`) are
@@ -1948,12 +1977,21 @@ M2-H2).
   over the map's other overlays, under the indicators: it is the cursor, so no pointer shows over the map
   (`PointerLook::placing`). `BuildAreaOverlay` shows `Sim::build_area`, the area only, as one mesh in the terrain's
   z band just in front of the fog layer (`overlay::AREA_Z`), rebuilt only when the area differs from the one it last
-  drew (`BuildArea: PartialEq`) or the map meshes were rebuilt (`MapView::builds`).
+  drew (`BuildArea: PartialEq`) or the map meshes were rebuilt (`MapView::builds`). The ghost's check is its
+  builder's (`ghost::check_now`: `Sim::placement_check`, `warp_in_check`, or `deploy_check` for the Drone a click
+  would go to, the player's knowledge, Reserved over a lingering ghost included); the overlay shows for a
+  constructor's placement only. `LingeringGhosts` (`placement/lingering.rs`, `core/entities.md > Placement
+  Validation > Lingering build ghosts`) draws the local player's pending Deploys (`Sim::pending_deploys`, never
+  another player's) in the game modes, whatever the interface: each site's footprint tinted on the terrain with an
+  outline, one mesh rebuilt only when the sites or the map change, just in front of the build area overlay
+  (`LINGERING_Z`). A ghost goes with its order, when the deployment starts or the order is cancelled, replaced or
+  fails.
 - The design leaves some things open (labels, colours, the flash, the cursor's shapes and the Mixed look, the
   invalid-target and insufficient-resources feedbacks' form and duration, the targeting click allowance's value, when
   Shift counts for a targeting click, Shift with a rally point; the ghost's and the overlay's looks, the placement
-  messages, the orientation a placement starts with, the hidden slots of buildings not yet in the game); each
-  placeholder is marked where it is made.
+  messages, the orientation a placement starts with, the hidden slots of buildings not yet in the game; the Warp In
+  menus' labels, the lingering ghosts' look, a greyed-out button's messages); each placeholder is marked where it
+  is made.
 
 **Bevy code**
 - Write one plugin per feature module (camera, map rendering, HUD, input, …). Keep systems small. Bevy caps a system
@@ -2278,9 +2316,13 @@ M3-C; the M3 slices after it add their steps (plan `artifacts/director/m3-plan.m
    InfoPanel's waiting line name the faction's resource.
 6. **HUD figures** (`hud/resources.rs`): the faction's `ResourceFigure`s in its DisplayHud order (`ResourceFigure::of`)
    and each new figure's reading in `resource_bar`, in ASCII.
-7. **Templates** (`command_ui/interface/templates.rs`): `InterfaceTemplate::of(kind)` for each kind with a command
-   panel, `None` until its slice builds one. A producer takes `InterfaceTemplate::Production`, whose grid comes
-   from its `ProductionDef` (give a new unit to train its `PanelCommand::label`).
+7. **Templates** (`command_ui/interface/templates.rs`, a faction's own grids in `templates/<faction>.rs`):
+   `InterfaceTemplate::of(kind)` for each kind with a command panel, `None` until its slice builds one. A producer
+   takes `InterfaceTemplate::Production`, whose grid comes from its `ProductionDef` (give a new unit to train its
+   `PanelCommand::label`). A builder needs its `Builder` (`command_ui/interface/placing.rs`: where the ghost stands,
+   which check colours it, what a click sends; slice M3-J1 has a constructor's, the Drones' and the Beacon's), and a
+   building not in the game yet holds its menu slot as a `PanelCommand::Planned`. A type that transforms shows only
+   its Cancel while it does (`TRANSFORMING_GRID`; `colonists::becomes` lists the types that may).
 8. **Producers' exits** (`ProductionDef::exits`, slice M3-D): `ExitRule::Side` for a building with one exit side,
    `ExitRule::Nearest` for several (the door closest to the rally point, else a random unblocked one; see
    *Production*). `defs_are_consistent` checks that the letters name the type's sides.

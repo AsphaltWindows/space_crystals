@@ -26,6 +26,20 @@ Objects in Explored areas are **not selectable**, with one exception:
 ## Visible
 The tile is currently within the SightRange of one of the player's units or structures. Everything on the tile is shown in real time — terrain, structures, and units.
 
+### Fog delay
+(user, 2026-11-24) When a tile leaves the SightRange of all the player's units and structures, it **stays Visible for 0.5 seconds (8 frames), placeholder**, before turning Explored. If it comes back into sight within that time, it simply stays Visible.
+- Fog closes in softly behind moving units.
+- A target at the very edge of sight doesn't blink in and out of view, so chases at the edge of sight stay smooth (this replaces a separate "grace period" for lost targets in AttackingObject / Follow; Q0018).
+- No information leak: during the delay the tile is genuinely Visible, so units only act on what the player can see.
+
+## Attacks from outside vision
+(user, 2026-11-24)
+- **Shots are drawn where they travel through vision**: a shot, tracer or projectile is visible to a player only along the part of its path that crosses tiles **Visible** to that player. A shot fired from the fog at your unit is seen coming out of the fog edge, which shows its direction.
+- **The attacker is revealed**: a unit or structure that attacks one of your units or structures while outside your vision becomes **visible to you** for **1.5 seconds (24 frames), placeholder**, after each shot; a unit that keeps firing stays visible. Only the attacker itself is revealed, not the area around it.
+- While revealed it is a normal visible object for you: it can be seen, selected and **targeted** (e.g. your units can shoot back if in range).
+- Applies to every attacker, including long-range ones (e.g. the Artillery Rig).
+- Stealthed attackers: TBD when stealth and detection are designed.
+
 ## ElevationModifier
 Sight range and attack range are modified by relative elevation between the source and target. This modifier applies when both the source and target are ground or underground **objects: units and structures alike** (structures added 2026-11-23, so a defensive structure on high ground gets the bonus and one on low ground suffers the penalty). Air units are exempt from elevation modifiers in both directions (neither gain nor suffer them).
 

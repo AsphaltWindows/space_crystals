@@ -1249,6 +1249,17 @@ The Barracks keeps its side doorway (0080). |
 | 0166 | Q0043 points 1, 3, 4 | (none) | M3 scope as planned. For deferred content, the Designer fills placeholder numbers; mechanics need a question first. |
 | 0167 | Q0043 point 2 | V, K1 | Robo Portal 400 → 250; the Bio Portal stays 150. Watch the economy targets in K1. |
 | 0168 | Q0031 | R | A Move or Follow onto the unit itself is a Stop. |
+| 0169 | Q0032 | V | A unit stuck by non-moving units within 3 GU (was 2) of its target counts as arrived, for MovingToLocation and MovingToObject's "blocked near the target". Still a placeholder. |
+| 0170 | Q0046 | K2 | As built: a drop-off lost mid-return switches the Drone at once to the nearest own node. The user wants no per-frame cost if avoidable, so K2 makes it event-driven on the removal path, like `redirect_gatherers`. |
+| 0171 | Q0020 | S | The shield toggle is a window: half speed and no attacking while raising or lowering, damage reduction only when fully up, and a second press reverses from the current point. State: progress 0..1 with a direction. |
+| 0172 | Q0020 | S | A toggle pressed during Firing or Cooldown waits for the shot to finish, then starts at once (like Convert, 0153): a pending flag consumed at Cooldown end. |
+| 0173 | Q0020 | S | Peacekeeper and Peacekeeper (Shielded) are two unit types, and the type changes at the start of the toggle. A mixed selection forms two SelectionGroups, which merge after toggling. Panels: Raise Shield, or Lower Shield with no Attack. The Barracks makes Peacekeepers; both types have the same cost and Unit Control. 0074, 0075, 0150 and 0172 are unchanged. |
+| 0174 | Q0020 | S | Toggle time 6 ticks (0.375 s); hotkey R for both commands. |
+| 0175 | Q0047 | V | As built (M3-P): the lowest id starts first. V updates the doc comments. |
+| 0176 | Q0047 | V | Point 2 as built: no start while a building can't progress at power 0. Point 3: a capacity cost of 0 always passes (`cost == 0 \|\| free >= cost`), for every faction. |
+| 0177 | Q0017 | L | Shots are drawn only over tiles Visible to the viewer, so they appear from the fog edge. An attacker outside the victim's vision is revealed to the victim's owner for 24 ticks after each shot. Revealed means fully visible: selectable, targetable, and used by auto-targeting. Stealth is TBD. |
+| 0178 | Q0018 | L | Fog delay: a tile that leaves all sight stays Visible for 8 ticks (a per-player "last seen" tick per tile). There is no separate grace period in Attack or Follow. The 0177 reveal has its own, independent timer. |
+| 0179 | Q0018 | L | Target priority compares the needed rotation in 45° steps; within the lowest step the closest wins, then a fixed order. This applies to turret scanning and base auto-targeting. |
 
 ## 9. Notes from merged slices for later slices
 
@@ -1272,3 +1283,5 @@ The Barracks keeps its side doorway (0080). |
 | M3-B | F, R, K2 | `damage::resolve` takes Shields first. `Phase::Shields` sits in the pipeline. `Ability::Convert` lives in `conversion.rs`, and the Modes step in `sim/modes.rs`. The gate's Convert rule lives in the gate's abilities family file. The SelectionPanel shows no Shields, and memory records keep none. A second Convert during a conversion is refused. |
 | M3-F | J1, P, K1 | `Sim::deploy_check` serves the ghost (`Mode::Known`). `Sim::pending_deploys` gives the lingering ghosts. `TileProblem::Reserved` is the reservation problem. `SimEvent::DeployFailed` carries the feedback text. A deploying Beacon is out of `provides_capacity` until completion. A gate-refused Deploy emits no event, so the client's ghost must show the problem first. |
 | M3-H3 | R, J2, K1 | `Gather::spot` and `live_target` make the Gather the one order that may name a gone object; R unifies it with the target view. Waiting Drones re-check in global 16-tick phases. The gate's `NothingToDeliver` refuses an empty Drone's Drop Off. The search reads vision memory, which R seeds (0159). The curve fell about 1/s at 20–24 Drones from the 0132 re-check. |
+| M3-P | J1, D2, K1 | `sim/producers/step.rs` runs the production-start check, and `Production::blocked` is the wait at 0%. `SimEvent::ProductionWaiting` feeds the feedback band, which is the channel J1's 0162 feedback uses. M3-D's over-capacity test moved to `tests/production/capacity.rs`. |
+| M3-J1 | J2, S, K2 | `Placing` has a `Builder`. The ghosts reuse `warp_in_check` and `deploy_check`, and lingering ghosts read `pending_deploys`. 0162 goes through `CommandRefused` in the feedback band. Client tests are in `tests/commands/colonists/`. The two readings in Q0048 are doc-commented. The highlighted "Warp RP" button wraps (cosmetic). |

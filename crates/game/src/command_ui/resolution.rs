@@ -129,10 +129,12 @@ pub struct UnitCapabilities {
 }
 
 impl UnitCapabilities {
-    /// Those of the selected object `id`, of type `kind`, whose mode is in `modes`.
+    /// Those of the selected object `id`, of type `kind`, whose mode is in `modes`. An object that transforms resolves
+    /// nothing (`factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`, design change
+    /// 0116: "no rally point"): a portal under Warp In sets no rally point (slice M3-J1).
     pub fn of(id: ObjectId, kind: ObjectKind, modes: &Modes) -> Self {
         Self {
-            template: InterfaceTemplate::of(kind),
+            template: InterfaceTemplate::of(kind).filter(|_| !modes.transforming(id)),
             attack: kind
                 .def()
                 .unit
@@ -178,6 +180,9 @@ pub fn right_click(template: InterfaceTemplate, target: CursorTarget) -> Option<
         InterfaceTemplate::Production | InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility => {
             None
         }
+        // The Beacon has no right-click; the Drone's (`factions/colonists/units.md > Drone ObjectInterfaceState >
+        // Right-Click Resolution`) is slice M3-J2's.
+        InterfaceTemplate::Beacon | InterfaceTemplate::Drone => None,
     }
 }
 
@@ -201,6 +206,8 @@ pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Optio
         InterfaceTemplate::BasicCombatUnit => unit_right_click(object, target).map(Resolved::Order),
         InterfaceTemplate::Production => Some(Resolved::Rally(rally_target(target))),
         InterfaceTemplate::DeploymentCenter | InterfaceTemplate::ExtractionFacility => None,
+        // Slice M3-J2 resolves the Drone's.
+        InterfaceTemplate::Beacon | InterfaceTemplate::Drone => None,
     }
 }
 

@@ -4,13 +4,16 @@
 
 use sc_sim::{Ability, ConstructionCommand, ObjectKind, OrderKind, ProductionCommand};
 
-use super::BuildMenu;
+use super::{BuildMenu, Planned};
 
 /// A command of the command panel: the unit commands of `systems/controls/commands.md`, as
 /// `> BasicCombatUnitInterfaceState` lists them, those of the producing structures
 /// (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`, `> Standard Slot Assignments`), and
 /// those of the constructors (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`,
-/// `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`).
+/// `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`), and the Colonists'
+/// Beacon, Drone and transforming objects (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`,
+/// `factions/colonists/units.md > Drone ObjectInterfaceState`, `factions/colonists/economy.md > Beacon Deployment >
+/// While transforming: only Cancel`; slice M3-J1, design change 0124).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -51,6 +54,22 @@ pub enum PanelCommand {
     /// The ready building's own slot, "Select completed building" (design change 0104), the Extraction Facility's
     /// "Q: Place Plate": enters AwaitingPlacement for it (a StateOnlyTransition), where a click places it.
     PlaceReady(ObjectKind),
+    /// A Beacon's Warp In menu entry for a building of its Constructs List (`factions/colonists/economy.md > Beacon >
+    /// Beacon ObjectInterfaceState`: "Choosing a building enters placement"; `> Warp In > Warp In Command`): enters
+    /// AwaitingPlacement of the building on the Beacon (a StateOnlyTransition), where a click warps it in
+    /// (`sc_sim::ConstructionCommand::WarpIn`).
+    WarpIn(ObjectKind),
+    /// A Warp In menu's building that isn't in the game yet (design change 0124: "Buildings whose costs are still TBD
+    /// are shown but unavailable until defined"): it holds its slot and does nothing.
+    Planned(Planned),
+    /// `factions/colonists/units.md > Drone ObjectInterfaceState > A: Deploy`: "enters AwaitingPlacement for a Beacon
+    /// (StateOnlyTransition)", where a click sends one Drone of the group to deploy there (design change 0125,
+    /// `sc_sim::OrderKind::Deploy`).
+    Deploy,
+    /// `factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`: "X" Cancel Deployment
+    /// and Cancel Warp In (design change 0116), the one command of an object that transforms, at once
+    /// (`sc_sim::ConstructionCommand::CancelTransform`; `> Cancel Deployment`, `> Warp In > Cancel Warp In`).
+    CancelTransform,
 }
 
 impl PanelCommand {
@@ -76,7 +95,11 @@ impl PanelCommand {
             | PanelCommand::Construct(_)
             | PanelCommand::CancelConstruction
             | PanelCommand::CancelReady
-            | PanelCommand::PlaceReady(_) => false,
+            | PanelCommand::PlaceReady(_)
+            | PanelCommand::WarpIn(_)
+            | PanelCommand::Planned(_)
+            | PanelCommand::Deploy
+            | PanelCommand::CancelTransform => false,
         }
     }
 
@@ -117,27 +140,42 @@ impl PanelCommand {
     }
 
     /// The construction command of a constructor's command issued at once (`sc_sim::Command::Construction`):
-    /// Construct, Cancel Construction and Cancel Ready Building. The Place of a ready building waits for its click
-    /// in AwaitingPlacement (`crate::placement`).
+    /// Construct, Cancel Construction and Cancel Ready Building, and a transforming object's Cancel. The Place of a
+    /// ready building and a Beacon's Warp In wait for their click in AwaitingPlacement (`crate::placement`).
     pub fn construction(self) -> Option<ConstructionCommand> {
         match self {
             PanelCommand::Construct(kind) => Some(ConstructionCommand::Construct(kind)),
             PanelCommand::CancelConstruction => Some(ConstructionCommand::CancelConstruction),
             PanelCommand::CancelReady => Some(ConstructionCommand::CancelReady),
+            PanelCommand::CancelTransform => Some(ConstructionCommand::CancelTransform),
             _ => None,
         }
     }
 
-    /// Whether the sim has a command for it yet: Reverse and AttackGround have no order (`sc_sim::OrderKind`).
+    /// Whether the sim has a command for it yet: Reverse and AttackGround have no order (`sc_sim::OrderKind`), and a
+    /// building that isn't in the game has none at all.
     pub fn has_sim_command(self) -> bool {
-        !matches!(self, PanelCommand::Reverse | PanelCommand::AttackGround)
+        !matches!(
+            self,
+            PanelCommand::Reverse | PanelCommand::AttackGround | PanelCommand::Planned(_)
+        )
+    }
+
+    /// The building it constructs, places or warps in: a build menu's entry, or a ready building's slot.
+    pub fn building(self) -> Option<ObjectKind> {
+        match self {
+            PanelCommand::Construct(kind) | PanelCommand::PlaceReady(kind) | PanelCommand::WarpIn(kind) => Some(kind),
+            _ => None,
+        }
     }
 
     /// Whether it belongs to one instance's own state: a constructor's commands, which read and change what that one
     /// Deployment Center or Extraction Facility constructs (`> SelectionGroup`: for an Ungroupable type "the
     /// ObjectInterfaceState can reliably read that instance's specific game state"; design change 0071: "a Build
-    /// order from the panel goes only to the active Recruit"). Such a command goes to the ActiveGroup only, never to
-    /// the other selected instances of its type (`super::recipients`).
+    /// order from the panel goes only to the active Recruit"), and a Beacon's Warp In (design change 0122: "Warp In
+    /// applies to the Beacon the player has Tabbed to"). Such a command goes to the ActiveGroup only, never to the
+    /// other selected instances of its type (`super::recipients`). So do a Deploy, which one Drone of the ActiveGroup
+    /// takes (design change 0125), and the Cancel of the objects that transform, whose panel shows it.
     pub fn instance_only(self) -> bool {
         matches!(
             self,
@@ -146,6 +184,10 @@ impl PanelCommand {
                 | PanelCommand::CancelConstruction
                 | PanelCommand::CancelReady
                 | PanelCommand::PlaceReady(_)
+                | PanelCommand::WarpIn(_)
+                | PanelCommand::Planned(_)
+                | PanelCommand::Deploy
+                | PanelCommand::CancelTransform
         )
     }
 
@@ -157,7 +199,8 @@ impl PanelCommand {
     /// BarracksInstanceState`), so a Shift-click sets it like a plain click and ends the targeting. **Placeholder
     /// reading**: the design gives Shift no meaning for a rally point; this follows its rule for a builder that can't
     /// carry out more queued buildings (`> Shift while placing`: "a Shift-click sends it and ends placement like a
-    /// plain click").
+    /// plain click"). A Deploy is a unit's order too, which Shift queues as it is placed (`> Shift while placing >
+    /// Exception, Drones`, design change 0125).
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -166,7 +209,8 @@ impl PanelCommand {
             | PanelCommand::Attack
             | PanelCommand::Patrol
             | PanelCommand::AttackGround
-            | PanelCommand::Stop => true,
+            | PanelCommand::Stop
+            | PanelCommand::Deploy => true,
             PanelCommand::RiotShield
             | PanelCommand::Convert
             | PanelCommand::Train(_)
@@ -176,7 +220,10 @@ impl PanelCommand {
             | PanelCommand::Construct(_)
             | PanelCommand::CancelConstruction
             | PanelCommand::CancelReady
-            | PanelCommand::PlaceReady(_) => false,
+            | PanelCommand::PlaceReady(_)
+            | PanelCommand::WarpIn(_)
+            | PanelCommand::Planned(_)
+            | PanelCommand::CancelTransform => false,
         }
     }
 
@@ -201,7 +248,9 @@ impl PanelCommand {
                 // No other unit is trained yet.
                 _ => kind.def().name,
             },
-            PanelCommand::CancelProduction | PanelCommand::CancelConstruction => "Cancel",
+            PanelCommand::CancelProduction | PanelCommand::CancelConstruction | PanelCommand::CancelTransform => {
+                "Cancel"
+            }
             PanelCommand::SetRallyPoint => "Rally",
             PanelCommand::BuildMenu(BuildMenu::Basic) => "Basic",
             PanelCommand::BuildMenu(BuildMenu::Advanced) => "Advanced",
@@ -221,6 +270,15 @@ impl PanelCommand {
                 ObjectKind::ExtractionPlate => "Place EP",
                 _ => kind.def().name,
             },
+            PanelCommand::WarpIn(kind) => match kind {
+                ObjectKind::EgressNode => "Warp EN",
+                ObjectKind::RoboPortal => "Warp RP",
+                ObjectKind::BioPortal => "Warp BP",
+                // Nothing else is warped in yet.
+                _ => kind.def().name,
+            },
+            PanelCommand::Planned(building) => building.label(),
+            PanelCommand::Deploy => "Deploy",
         }
     }
 }

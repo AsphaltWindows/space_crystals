@@ -55,7 +55,7 @@ pub struct PointerLook {
     /// A target is awaited (`> AwaitingTarget`): a crosshair instead of an arrow.
     pub targeting: bool,
     /// A building is placed (`> AwaitingPlacement`) and the cursor is over the map: no pointer, the ghost is the
-    /// cursor (`crate::placement`).
+    /// cursor (`crate::placement`). Not for a Warp In, whose ghost stands on its Beacon (design change 0121).
     pub placing: bool,
     /// How the object under the cursor relates to the local player; none while a building is placed.
     pub hovered: Option<Relation>,
@@ -141,7 +141,10 @@ fn update_pointer_look(
                 Vec::new()
             };
             let target = MapTarget::at(sim, &objects, view, ground);
-            let placing = state.interface.placing().is_some();
+            let placing = state
+                .interface
+                .placing()
+                .is_some_and(|placing| placing.follows_cursor());
             PointerLook {
                 display: Some(pointer_display(state.interface, &units, &target)),
                 targeting: state.interface.pending().is_some(),
