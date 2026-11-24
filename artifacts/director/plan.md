@@ -389,7 +389,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Docs.** ARCHITECTURE.md reviewed. Playtest notes are in `docs/playtest/m2.md`.
 
 ## In progress
-- **M3-P Colonists planning spike** (Opus, read-only; brief `scratchpad/briefs/m3-planning-spike.md`). It writes `scratchpad/m3/m3-plan.md` and drafts design questions from Q0037. M3 implementation waits for the user's go-ahead after the M2 playtest.
+- Nothing is running. The M3 plan is ready; building it waits for the user's go-ahead.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2 playtest** with the user, using `docs/playtest/m2.md`.
@@ -489,7 +489,18 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 First playable after M2-H2.
 
 ### M3–M5: other factions, basics
-- **M3 Colonists**: Drone, Beacon, Warp In, Egress Node, portals, Legionnaires, shields.
+- **M3 Colonists** (**planned**; spec: `artifacts/director/m3-plan.md`, from the M3-P spike). It covers the statted opening: Drone gathering, Beacon Deployment and Warp In (Egress Node, Robo Portal, Bio Portal), portals with exits on several sides, Sabre and Rifle Legionnaires with Weapon Conversion, Shields, Beacon Capacity, Colonists Starting Conditions and layouts, HUD and panels, and an economy oracle against `Economy Targets (GDO vs Colonists)`. Refining, the tech tier and the other units are deferred (Q0043).
+  - **Slices:** 12, in 6 waves:
+    1. A;
+    2. C, E, H (Fable);
+    3. B, D, F, G (Fable, DragMovement);
+    4. J1, J2 (the first playable);
+    5. K1;
+    6. K2.
+  - **Waiting on:**
+    - the user's go-ahead after the M2 playtest;
+    - T25, whether DragMovement (G) is in M3: recommended, because without it Drone income runs about 30% above the targets;
+    - Q0038, gathering Drones and collision: blocking for H's final behaviour and K1.
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -550,6 +561,13 @@ First playable after M2-H2.
 | Q0034 | Should an enemy plate's InfoPanel show its patch's remaining crystals? | no | open; M2-G shows it to everyone |
 | Q0035 | Rally point UI: Shift with rally targeting, rallying on one of several selected Barracks, feedback when pressing an unavailable command | no | open; M2-H1 built the stated current behaviour |
 | Q0036 | End of game edge cases: simultaneous last defeats, free-for-all spectating, a raised Riot Shield on defeat | no | open; M2-F2 built the stated current behaviour |
+| Q0037 | Drone gathering: the cases the loop doesn't define (13 points) | no | open; M3-H builds the proposals |
+| Q0038 | Gathering Drones, collision and the economy targets | **yes** (M3-H final behaviour, M3-K1) | open |
+| Q0039 | Beacon Deployment and Warp In: what the transforming object is | no (answer before M3-F) | open |
+| Q0040 | Deploy and Warp In placement, and the Colonists panels | no | open |
+| Q0041 | Portal exits and Beacon Capacity | no | open |
+| Q0042 | Shields, melee range and Weapon Conversion | no | open |
+| Q0043 | M3 scope: the Colonists content left TBD (FYI) | no | open |
 
 ## Design change entries
 Last triaged: 0105.
