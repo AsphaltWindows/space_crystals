@@ -53,6 +53,9 @@
   amended in 8. Its changes are marked **(M3-G)**. The code is `crates/sim/src/movement/drag.rs`, `follow.rs`
   (one unit's tick, split from `movement.rs`) and `separate.rs`, `Mover::momentum`, and one steering rule for
   units with momentum in `movement/collide.rs` (`World::around`, the near side).
+- **The occupied-arrival radius is 3 GU** (design change 0169, answering Q0032; slice M3-V): 6.5's rule 1, for a
+  point and for an object goal alike, and with it a unit walled out of its magic-box spot by its own group (design
+  change 0183). Its changes are marked **(V)**. The code is `mover::OCCUPIED_ARRIVAL_GU`.
 
 Design references are `file.md > Section`, relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -72,7 +75,7 @@ Every number marked *(placeholder)* becomes a named const tagged with the questi
 | Terrain | Non-Traversible tiles block ground units. RuggedTerrain = true bases (infantry, Mech) cross Rugged tiles. Drill units travel on Drillable tiles | `core/map.md > Tile`, `systems/units.md > UnitBase`, `> DrillUnit` |
 | Elevation | Slopes change neither speed nor path cost; cliffs are non-Traversible tiles; corners are shared, so two adjacent Traversible tiles are always connected | `core/map.md > Elevation` |
 | Underground | Expansions are walked over by surface units | `factions/syndicate/structures.md > Tunnel Expansions` |
-| Move | To a location or an object; ends with Stopping, complete when stopped; completes "within proximity" of an object; on repeated failure to progress: stop, complete. **(Y)** Stuck after 24 ticks without getting closer, 3 re-route attempts after waits of 8, 16 and 32 ticks, then give up (0024); an unreachable target becomes the nearest reachable point (0025); stuck within 2 GU of the target behind units that aren't moving is arrived (0026) | `systems/controls/behaviors.md > MovingToLocation`, `> MovingToObject` |
+| Move | To a location or an object; ends with Stopping, complete when stopped; completes "within proximity" of an object; on repeated failure to progress: stop, complete. **(Y)** Stuck after 24 ticks without getting closer, 3 re-route attempts after waits of 8, 16 and 32 ticks, then give up (0024); an unreachable target becomes the nearest reachable point (0025); stuck within 3 GU of the target behind units that aren't moving is arrived (0026; **(V)** 3 GU since 0169, 2 before) | `systems/controls/behaviors.md > MovingToLocation`, `> MovingToObject` |
 | Chase | AttackingObject approaches until the target is within Range, beyond MinRange and in facing; resumes when it leaves range. Infantry (UnitBaseSource) cannot move during Aiming, Firing, Cooldown | `> AttackingObject`, `systems/combat.md > AttackPhase` |
 | Range | ±1 GU by elevation level difference, ground and underground only | `core/vision.md > ElevationModifier` |
 | AttackMove, Patrol | Leash 6 GU perpendicular to the path, recompute the path on resuming; Patrol swaps legs forever | `> AttackMovingToLocation`, `> Patrolling` |
@@ -92,7 +95,7 @@ Top five first. Each default is what this design implements until answered.
 | G2 | **Contradiction with the Director's brief**, which assumes idle units make way. `units.md > Ground Collision` says they don't. Confirm: no pushing or yielding at all, even for own units blocking a chokepoint? | **(Y) Answered by 0022, 0023 and 0027**: idle own units yield with one short sidestep (6.6). The default here was "no pushing" |
 | G3 | With hard collision and no yielding, two units meeting head-on in a corridor too narrow to pass (two Guards, 72 su, in one tile) deadlock. Is "both give up and stop" intended? | **(Y) Answered by 0022**: yes, both give up; moving units never yield or swap |
 | G4 | "Repeatedly fails to make progress" has no numbers. | **(Y) Answered by 0024** with these numbers: stuck after 24 ticks without progress; at most 3 repaths per order after waits of 8, 16 and 32 ticks; then fail (about 7 s in total). The schedule is 5.6 |
-| G5 | Move target that cannot be reached (cliff, water, inside a structure, cut-off area), or whose point is occupied by a unit that won't move. | **(Y) Answered by 0025 and 0026**: go to the reachable point nearest the target and complete there; arrived when stuck within **2 GU** of the goal behind units that aren't moving (6.5, rule 1) |
+| G5 | Move target that cannot be reached (cliff, water, inside a structure, cut-off area), or whose point is occupied by a unit that won't move. | **(Y) Answered by 0025 and 0026**: go to the reachable point nearest the target and complete there; arrived when stuck within **2 GU** of the goal behind units that aren't moving (6.5, rule 1); **(V)** 3 GU since 0169 |
 | G6 | Does the Silhouette rectangle rotate with facing? All specified ones are square. | **(E) Answered by 0033**: it rotates with the facing. Not built: it waits for the vehicles milestone, with oriented collision. Until then boxes are axis-aligned, and `shape.rs` is the one place that changes |
 | G7 | How are Range and "within proximity" measured for large targets? | **(E) Answered by 0031 and 0032**: edge to edge, the gap between the two shapes (`shape::Shape::gap`), for Range, MinRange and proximity; proximity is a gap of 8 su. The default here was centre to nearest point |
 | G8 | The attack target leaves the attacker's owner's vision during a chase. | **(E) Answered by 0034**, as proposed: go to its last seen position, then the order completes. A Follow of an enemy ends the same way |
@@ -466,10 +469,10 @@ order (Move to a point, AttackMove, Patrol) to more than one unit gives each uni
   change 0028; slice M took their centres). The **group's centre** is the box's centre, so a group arrives centred
   on the click.
 - **Click inside the box, edges included: converge.** Every unit goes to the click itself (`slot = None`), and those
-  the crowd blocks stop by 6.5 rule 1: **(Y)** within 2 GU of the click behind units that won't move, which the
-  members that arrived before them are (they don't yield to their own group order, 6.6). A unit shut out farther
-  than that re-routes and gives up. A group in a line has a box as high as its units, so a click on or between
-  them converges it.
+  the crowd blocks stop by 6.5 rule 1: **(Y)** within 2 GU (**(V)** 3 GU) of the click behind units that won't
+  move, which the members that arrived before them are (they don't yield to their own group order, 6.6). A unit
+  shut out farther than that re-routes and gives up. A group in a line has a box as high as its units, so a click
+  on or between them converges it.
 - **Click outside: keep the arrangement.** Every unit goes to its position plus the vector from the box's centre to
   the click, so the group arrives in the shape it had.
 - **No formation movement**: each unit goes at its own speed, and a mixed group strings out.
@@ -507,18 +510,20 @@ the unit, and the path is re-aimed as it moves, so its length says nothing; towa
 remaining path length, measured afresh from when it came to rest. A unit is **stuck** after
 `STUCK_TICKS` = 24 without it. Then, in order:
 1. **(Y) Occupied target** (design change 0026, `systems/controls/behaviors.md > MovingToLocation > Occupied target
-   location`): the goal is a point within `OCCUPIED_ARRIVAL_GU` = 2 GU, and the unit in the way is stationary and
-   won't move for this unit → `Arrived`, with no repath. **Yielding comes first**: a blocker that yields to this
-   unit (6.6) has been asked to step aside, so the rule is for blockers that stay: units that arrived with its own
-   group order, units on Hold, busy units, enemies, units that can't move, and a yielding unit that found no room.
+   location`): the goal is a point within `OCCUPIED_ARRIVAL_GU` = 2 GU (**(V)** 3 GU, design change 0169), and the
+   unit in the way is stationary and won't move for this unit → `Arrived`, with no repath. **Yielding comes
+   first**: a blocker that yields to this unit (6.6) has been asked to step aside, so the rule is for blockers that
+   stay: units that arrived with its own group order, units on Hold, busy units, enemies, units that can't move,
+   and a yielding unit that found no room.
    **Timing**: this rule alone doesn't wait for the stuck clock when the blocker has no goal of its own (it will
    never move on): the unit has arrived once it found no way forward for `JAMMED_TICKS` = 12 in a row. Behind a
    stationary unit that has a goal (jammed for now) it applies when the unit is stuck, 8 ticks before the first
    repath. Slice D's stand-in "arrived at any distance behind a unit of its own order group, after a repath" is
-   gone: a unit shut out farther than 2 GU from its destination re-routes and fails. **(E)** For an object goal the
-   rule is the same, the 2 GU measured as the gap between the unit's shape and the object's (design changes 0032
-   and 0033, "Blocked near the target"). What `Arrived` then means is the behaviour's: a static target completes
-   the order, a followed unit is waited for where the follower stands, until it moves.
+   gone: a unit shut out farther than that from its destination re-routes and fails, a unit walled out of its
+   magic-box spot by its own group included (**(V)** design change 0183). **(E)** For an object goal the rule is the
+   same, the radius measured as the gap between the unit's shape and the object's (design changes 0032 and 0033,
+   "Blocked near the target"; **(V)** the same 3 GU, 0169). What `Arrived` then means is the behaviour's: a static
+   target completes the order, a followed unit is waited for where the follower stands, until it moves.
 2. **Queueing (E)**: a unit chasing the target its attack engages, blocked by a stationary unit of its owner whose
    attack engages the same target → keep waiting; no repath, no failure (`movement::stuck::queues_behind`). The
    check is a few comparisons, so it runs every tick the unit is stuck instead of every 16.

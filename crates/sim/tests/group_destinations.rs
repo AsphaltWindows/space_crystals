@@ -2,11 +2,13 @@
 //! change 0021; `docs/movement.md > 6.4`), the checks of 0021's Verification: a group clicked far outside its box
 //! arrives in its own shape, centred on the click; clicked inside, it converges and bunches up, and nobody fails; a
 //! mixed group strings out, fast units first; an offset destination off the unit's ground or off the map is
-//! retargeted (question Q0008); a single unit goes to the click as before. Every `TestSim` checks the invariants
-//! I1–I7 after each tick (`docs/movement.md > 8`), and the runs replay to the same state.
+//! retargeted (question Q0008); a single unit goes to the click as before; a unit walled out of its spot by its own
+//! group has arrived within 3 grid units of it and gives up beyond (design changes 0169 and 0183). Every `TestSim`
+//! checks the invariants I1–I7 after each tick (`docs/movement.md > 8`), and the runs replay to the same state.
 
+use sc_sim::mover::OCCUPIED_ARRIVAL_GU;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::{MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, SimEvent, Target, Vec2};
+use sc_sim::{MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, SimEvent, Target, Vec2, gu};
 
 const P1: PlayerId = PlayerId(1);
 const PK: ObjectKind = ObjectKind::Peacekeeper; // 24 × 24 su, 4 su per tick
@@ -131,7 +133,7 @@ fn a_click_inside_the_box_makes_the_group_converge() {
         assert_eq!(t.status(id), MoveStatus::Arrived, "#{id}\n{}", t.ascii(None));
     }
     // Bunched up: sixteen boxes of 24 su need a square of 96 su, so the farthest unit can't be much nearer than
-    // 68 su; it started 116 su away. Everyone ends within 2 GU of the click (`OCCUPIED_ARRIVAL_GU`, 0026).
+    // 68 su; it started 116 su away. Everyone ends near the click, within `OCCUPIED_ARRIVAL_GU` of it (0026).
     let farthest = |points: Vec<Vec2>| points.iter().map(|p| p.distance(click)).fold(0.0_f32, f32::max);
     let before = farthest(square.iter().map(|u| u.1).collect());
     let after = farthest((1..=16).map(|id| t.pos(id)).collect());
@@ -155,7 +157,7 @@ fn a_line_clicked_on_itself_closes_up() {
     assert_nobody_failed(&t);
     assert_eq!(t.pos(3), click);
     // Its neighbours close up to it, and the outer two stop at them, a step round them: each by the occupied
-    // target rule, within 2 GU of the click (`docs/movement.md > 6.5`, rule 1).
+    // target rule, within `OCCUPIED_ARRIVAL_GU` of the click (`docs/movement.md > 6.5`, rule 1).
     for (id, &(_, start)) in (1..=5).zip(&line) {
         assert_eq!(t.status(id), MoveStatus::Arrived);
         let (before, after) = (start.distance(click), t.pos(id).distance(click));
@@ -342,4 +344,46 @@ fn a_single_unit_goes_to_the_click_as_before() {
             [Some(v(520.0, 400.0)), Some(v(320.0, 600.0))]
         ]
     );
+}
+
+/// Design change 0183 (answering question Q0018 point 6), with design change 0169's radius: a unit walled out of its
+/// magic-box spot by its own group, whose units arrived before it and don't make way for it (design change 0027),
+/// counts as arrived within `OCCUPIED_ARRIVAL_GU` (3 grid units) of its spot, and gives up beyond it. Seven Guards
+/// in a column along a dead-end corridor one Guard wide, clicked beyond its end: every offset spot lies in the water
+/// and becomes the corridor's end (design change 0025), so the whole group crowds one spot. The Guards stack up
+/// behind the first to get there, each against the one before, 36 su apart: the fifth and the sixth stop 144 and 180
+/// su short of the spot (2.25 and 2.8 grid units) and have arrived, the seventh 216 su short (3.4) re-routes and
+/// gives up.
+#[test]
+fn a_unit_walled_out_of_its_spot_by_its_own_group_arrives_within_three_grid_units() {
+    // The corridor: y 64..128, from the map's west edge to x 768, water beyond.
+    let map = "
+        ~~~~~~~~~~~~~~~~
+        ............~~~~
+        ~~~~~~~~~~~~~~~~
+    ";
+    let column: Vec<(ObjectKind, Vec2)> = (0..7).map(|i| (GUARD, v(100.0 + 40.0 * i as f32, 96.0))).collect();
+    let mut t = ordered(map, &column, move_to(v(900.0, 96.0)));
+    let end = v(768.0 - 18.0, 96.0);
+    for id in 1..=7 {
+        assert_eq!(slot(&t, id), Some(end), "#{id}");
+    }
+    run_until_done(&mut t, column.len(), 800);
+    let short_of_it: Vec<f32> = (1..=7).map(|id| t.pos(id).distance(end)).collect();
+    for (id, &short) in (1..=7).zip(&short_of_it) {
+        let expected = if short <= gu(OCCUPIED_ARRIVAL_GU) {
+            MoveStatus::Arrived
+        } else {
+            MoveStatus::Failed
+        };
+        assert_eq!(t.status(id), expected, "#{id}, {short} su short\n{}", t.ascii(None));
+    }
+    // 0169's own cases, walled out more than 2 grid units short and arrived all the same; and one beyond 3.
+    let arrived_beyond_two = (1..=7)
+        .zip(&short_of_it)
+        .filter(|&(id, &short)| short > gu(2.0) && t.status(id) == MoveStatus::Arrived);
+    assert_eq!(arrived_beyond_two.count(), 2, "{short_of_it:?}");
+    let failed = (1..=7).filter(|&id| t.status(id) == MoveStatus::Failed);
+    assert_eq!(failed.count(), 1, "{short_of_it:?}");
+    assert_eq!(t.replay().run().state_hash(), t.sim().state_hash());
 }

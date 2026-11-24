@@ -23,8 +23,9 @@
 //! **The check** is made when production starts, not when a unit is queued (0143, which replaces design change 0082's
 //! reservation at queue time and with it M2's and M3-C's refusal of a `Train`): the unit at the front of a queue
 //! starts only while `available − used ≥ cost` ([`ArmyCap::fits`]); else its producer waits with it at 0% and starts
-//! by itself once there is room (`sim/producers/step.rs`, `Production::blocked`). The client names the faction's
-//! resource in the wait's line and feedback ([`ArmyResource::name`]).
+//! by itself once there is room (`sim/producers/step.rs`, `Production::blocked`). A unit whose cost is 0 always starts,
+//! even over capacity (design change 0176 point 3). The client names the faction's resource in the wait's line and
+//! feedback ([`ArmyResource::name`]).
 //!
 //! **Over capacity** (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design change 0112 as 0143
 //! amends it): when a Colonists building is lost, or a Beacon's deployment is cancelled, more can be used than is
@@ -118,12 +119,15 @@ pub struct ArmyCap {
 }
 
 impl ArmyCap {
-    /// Whether one more unit that costs `cost` fits, `available − used ≥ cost`: the start check of design change 0143
-    /// (the unit "needs free Beacon Capacity (available minus used) at least equal to its BeaconCapacityCost",
-    /// `factions/colonists/overview.md > Beacon Capacity > Reserved when production starts`; the GDO's Unit Control
-    /// alike). Over the cap nothing fits, not even a unit without a cost.
+    /// Whether one more unit that costs `cost` fits, `cost == 0 || available − used ≥ cost`: the start check of design
+    /// change 0143 (the unit "needs free Beacon Capacity (available minus used) at least equal to its
+    /// BeaconCapacityCost", `factions/colonists/overview.md > Beacon Capacity > Reserved when production starts`; the
+    /// GDO's Unit Control alike), where a unit without a cost always fits, even over the cap (design change 0176 point
+    /// 3, `factions/gdo/overview.md > Unit Control`: "a unit whose capacity cost is 0 never waits for capacity, even
+    /// when used is over available"; every faction's cap). Today's units all cost something in their own faction's
+    /// resource, so only another faction's unit, in a debug game, costs 0.
     pub fn fits(&self, cost: u32) -> bool {
-        self.used.saturating_add(cost) <= self.available
+        cost == 0 || self.used.saturating_add(cost) <= self.available
     }
 }
 
@@ -214,7 +218,7 @@ mod tests {
         assert_eq!(names, [Some("Unit Control"), None, None, Some("Beacon Capacity")]);
     }
 
-    /// A unit fits while the used figure stays at most at the available one, a free unit included.
+    /// A unit fits while the used figure stays at most at the available one.
     #[test]
     fn a_unit_fits_up_to_the_cap() {
         let cap = |used| ArmyCap {
@@ -223,10 +227,25 @@ mod tests {
             available: 10,
         };
         assert!(cap(8).fits(2) && !cap(9).fits(2));
-        assert!(
-            cap(10).fits(0) && !cap(11).fits(0),
-            "over the cap, not even a free unit"
-        );
+        assert!(cap(9).fits(1) && !cap(10).fits(1));
         assert!(!cap(u32::MAX).fits(1), "saturates");
+    }
+
+    /// Design change 0176 point 3 (`factions/gdo/overview.md > Unit Control`: "a unit whose capacity cost is 0 never
+    /// waits for capacity, even when used is over available"): the check is `cost == 0 || free >= cost`, for every
+    /// faction's cap. At the cap and over it, a unit of cost 0 starts and one of cost 1 waits.
+    #[test]
+    fn a_unit_without_a_cost_fits_even_over_the_cap() {
+        for resource in [ArmyResource::UnitControl, ArmyResource::BeaconCapacity] {
+            for (used, available) in [(10, 10), (11, 10), (15, 0), (u32::MAX, 0), (0, 0)] {
+                let cap = ArmyCap {
+                    resource,
+                    used,
+                    available,
+                };
+                assert!(cap.fits(0), "{cap:?}: cost 0 passes");
+                assert!(!cap.fits(1), "{cap:?}: cost 1 waits");
+            }
+        }
     }
 }

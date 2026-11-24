@@ -88,8 +88,8 @@ fn avoid_blocker(pos: Vec2, mover: &mut Mover, blocker: &Body) {
 /// of its place by its own group: those units won't make way for it (design change 0027), so its new route goes
 /// round all of them, not round the one in its way into the next, and comes at its place from the open side. Two
 /// blocks that crossed head-on arrive out of order, and a Guard can't pass between Guards that stand 16 su apart:
-/// the late ones stopped behind the group farther than 2 GU from their places and gave up ([`after_move`], rule
-/// 1). A place that the group closes in on every side stays out of reach, and the unit gives up as before.
+/// the late ones stopped behind the group farther than `OCCUPIED_ARRIVAL_GU` from their places and gave up
+/// ([`after_move`], rule 1). A place that the group closes in on every side stays out of reach, and the unit gives up as before.
 fn avoid_group(pos: Vec2, mover: &mut Mover, bodies: &[Body], group: u32) {
     let mut arrived: Vec<&Body> = bodies.iter().filter(|b| b.arrived_with == Some(group)).collect();
     arrived.sort_by(|a, b| {
@@ -101,11 +101,11 @@ fn avoid_group(pos: Vec2, mover: &mut Mover, bodies: &[Body], group: u32) {
     }
 }
 
-/// `systems/controls/behaviors.md > MovingToLocation > Occupied target location` (design change 0026): whether the
-/// unit at `pos`, blocked by `blocker` this tick, counts as arrived. It is within `OCCUPIED_ARRIVAL_GU` of its
-/// destination, and the unit in its way isn't moving and won't move for it.
-/// - **An object goal** (`> MovingToObject > Completion`, "Blocked near the target"; design changes 0032 and 0033):
-///   the same rule, the 2 grid units measured as the gap between the unit's shape and the object's (`chased`).
+/// `systems/controls/behaviors.md > MovingToLocation > Occupied target location` (design changes 0026 and 0169):
+/// whether the unit at `pos`, blocked by `blocker` this tick, counts as arrived. It is within `OCCUPIED_ARRIVAL_GU`
+/// (3 grid units) of its destination, and the unit in its way isn't moving and won't move for it.
+/// - **An object goal** (`> MovingToObject > Completion`, "Blocked near the target"; design changes 0032, 0033 and
+///   0169): the same rule and radius, measured as the gap between the unit's shape and the object's (`chased`).
 ///   What reaching it means is the behaviour's: a followed unit is waited for, a static target completes the order.
 /// - **Yielding comes first** (design changes 0022, 0023): a blocker that yields to this unit has been asked to step
 ///   aside, and a unit whose blocker steps aside isn't stuck. So the rule is for blockers that stay: units that

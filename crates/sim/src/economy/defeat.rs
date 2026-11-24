@@ -1,5 +1,5 @@
 //! Defeat and the end of the game (slice M2-F2): `core/game_rules.md > Defeat Condition`, `> On Defeat` and `> End
-//! of Game`, plan decision T8, design changes 0101 and 0102.
+//! of Game`, plan decision T8, design changes 0101, 0102 and 0163 (slice M3-V: the draw).
 //!
 //! - **Defeat** (T8): a player is defeated in the tick their owned-structure count drops to 0. Every structure
 //!   counts, plates included (`> Defeat Condition`). A player who never owned a structure is never defeated, which
@@ -12,7 +12,8 @@
 //!   refuses every command from that player from then on (`Reject::Defeated`).
 //! - **On defeat** (0101): the player's units become neutral ([`to_neutral`]).
 //! - **Sides** ([`allied`]): the sim has no team or alliance data, so every player is their own side.
-//! - **End of game** (0101): the defeat that leaves at most one side standing ends the game ([`Outcome`]).
+//! - **End of game** (0101): the defeat that leaves at most one side standing ends the game ([`Outcome`]); when it
+//!   leaves none, the game is a draw (0163, [`Outcome::is_draw`]).
 
 use std::collections::BTreeMap;
 
@@ -27,9 +28,16 @@ use crate::orders::Orders;
 use crate::player::Player;
 use crate::units::Tick;
 
-/// How the game ended (`core/game_rules.md > End of Game`, design change 0101): recorded in the sim's hashed state
-/// in the tick it ends (`Sim::outcome`), and final. From then on the gate refuses every command
-/// (`Reject::GameOver`), and the client stops the game, shows each player Victory or Defeat and saves the replay.
+/// How the game ended (`core/game_rules.md > End of Game`, design changes 0101 and 0163): recorded in the sim's
+/// hashed state in the tick it ends (`Sim::outcome`), and final. From then on the gate refuses every command
+/// (`Reject::GameOver`), and the client stops the game, shows each player Victory, Defeat or Draw and saves the
+/// replay.
+///
+/// **The draw** (design change 0163, `> End of Game > Draw`: "if the last remaining players or teams are all defeated
+/// in the same tick [...] the game ends as a draw. Nobody wins, and every player sees 'Draw'") is the outcome without
+/// winners ([`Outcome::is_draw`]): a game ends with no side left standing exactly when its last sides fall in one
+/// tick. Derived, not a field of its own, so the state, its hash and its files are as they were: a game saved or
+/// recorded with that end before 0163 loads as the draw it now is.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Outcome {
@@ -37,14 +45,21 @@ pub struct Outcome {
     pub tick: Tick,
     /// The players of the side left standing, in id order: they see Victory, everyone else Defeat. A side wins as
     /// one ("it wins"), so a team's players defeated before the end win with it. Empty when the last sides were
-    /// defeated in the same tick: nobody wins, a placeholder reading (the design doesn't say what a draw is).
+    /// defeated in the same tick: a draw (design change 0163), nobody wins and everyone sees Draw, the players
+    /// defeated before it too.
     pub winners: Vec<PlayerId>,
 }
 
 impl Outcome {
-    /// Whether `player` won: Victory for them, Defeat otherwise.
+    /// Whether `player` won: Victory for them; Defeat for everyone else, unless it is a draw.
     pub fn is_winner(&self, player: PlayerId) -> bool {
         self.winners.contains(&player)
+    }
+
+    /// Whether the game ended as a draw (design change 0163): every remaining side was defeated in its last tick,
+    /// so nobody won, and every player sees Draw.
+    pub fn is_draw(&self) -> bool {
+        self.winners.is_empty()
     }
 }
 
@@ -180,7 +195,8 @@ fn to_neutral(objects: &mut BTreeMap<ObjectId, Object>, defeated: &[PlayerId], t
 }
 
 /// `core/game_rules.md > End of Game` (design change 0101): the game ends once at most one side ([`allied`]) has a
-/// player who isn't defeated. The winners are that side's players, all of them; nobody if no side is left.
+/// player who isn't defeated. The winners are that side's players, all of them; nobody if no side is left, a draw
+/// (`> Draw`, design change 0163).
 fn game_end(players: &[Player], tick: Tick) -> Option<Outcome> {
     // One player of each side still standing.
     let mut standing: Vec<PlayerId> = Vec::new();
@@ -216,7 +232,7 @@ mod tests {
     }
 
     /// Every player is their own side (no teams): the game goes on while two players stand, and the last one wins;
-    /// with nobody left, nobody wins.
+    /// with nobody left, nobody wins: a draw (design change 0163).
     #[test]
     fn the_last_player_standing_wins() {
         assert_eq!(game_end(&players(&[]), 9), None);
@@ -225,7 +241,11 @@ mod tests {
         assert_eq!(end.winners, [PlayerId(1)]);
         assert_eq!(end.tick, 9);
         assert!(end.is_winner(PlayerId(1)) && !end.is_winner(PlayerId(2)));
-        assert_eq!(game_end(&players(&[1, 2, 3]), 9).unwrap().winners, []);
+        assert!(!end.is_draw());
+        let draw = game_end(&players(&[1, 2, 3]), 9).unwrap();
+        assert_eq!(draw.winners, []);
+        assert!(draw.is_draw());
+        assert!((1..=3).all(|i| !draw.is_winner(PlayerId(i))));
         assert!(allied(PlayerId(1), PlayerId(1)) && !allied(PlayerId(1), PlayerId(2)));
     }
 }

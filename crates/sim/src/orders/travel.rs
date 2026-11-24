@@ -40,14 +40,14 @@ pub(super) fn walk_to_remembered(unit: &mut Unit, walking: &mut bool, spot: Vec2
 ///
 /// **A static object** (`> Completion`: a structure, a map resource): complete within proximity. The move also
 /// ends, and the order with it, at the reachable point nearest to an object the unit can't get to (`>
-/// MovingToLocation > Unreachable target location`), when the unit is stuck within 2 grid units of it behind units
+/// MovingToLocation > Unreachable target location`), when the unit is stuck within 3 grid units of it behind units
 /// that aren't moving ("Blocked near the target", design change 0033; `movement::stuck`), and when it fails
 /// (`> Failure`). Out of the owner's sight, it is where the owner remembers it (design change 0139): the unit walks
 /// to its last-known position ([`walk_to_remembered`]) and on to the object once the owner sees it; once the owner
 /// sees its place without it, the order ends ("the way it would for a vanished target": `Sim::follow_targets`).
 ///
 /// **A unit: Follow** (design change 0032). The behaviour never completes on reaching it: within proximity the
-/// unit stops and waits, and when the target moves out of proximity it follows again. Stuck within 2 grid units
+/// unit stops and waits, and when the target moves out of proximity it follows again. Stuck within 3 grid units
 /// behind units that aren't moving, it waits there, with no re-route, until the target moves on. It ends when
 /// - the target dies (the removal path completes the order) or **leaves the map**: entering a transport, a
 ///   building or the Tunnel Network doesn't exist yet. **The hook**: such an object will be gone from

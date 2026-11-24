@@ -218,7 +218,7 @@ pub(super) static BEACON: ObjectDef = ObjectDef {
             },
             Recipe {
                 kind: ObjectKind::RoboPortal,
-                cost: 400,   // Robo Portal | 400 Space Crystals |
+                cost: 250, // Robo Portal | 250 Space Crystals (was 400; user, 2026-11-24) | (design change 0167)
                 frames: 640, // 640 frames (40 seconds)
             },
             Recipe {

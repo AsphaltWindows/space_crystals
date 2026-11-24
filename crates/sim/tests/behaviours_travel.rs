@@ -2,7 +2,7 @@
 //! 0033) and `> AttackMovingToLocation`; and a fight under AttackMove replayed, and saved and loaded in its middle.
 //! Patrols are in `behaviours_patrol.rs`.
 
-use sc_sim::mover::MAX_REPATHS;
+use sc_sim::mover::{MAX_REPATHS, OCCUPIED_ARRIVAL_GU};
 use sc_sim::orders::{ATTACK_MOVE_LEASH_GU, Behaviour, PROXIMITY_SU};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
@@ -245,9 +245,9 @@ fn a_static_object_behind_a_crowd_counts_as_reached_within_two_grid_units() {
     }
 }
 
-/// Design change 0032, "Blocked near a followed unit": stuck within 2 grid units behind units that aren't moving
-/// counts as having reached it: the follower waits there, with no re-route, and follows again when the target
-/// moves on.
+/// Design change 0032, "Blocked near a followed unit": stuck within `OCCUPIED_ARRIVAL_GU` (3 grid units, design
+/// change 0169) behind units that aren't moving counts as having reached it: the follower waits there, with no
+/// re-route, and follows again when the target moves on.
 #[test]
 fn a_follower_blocked_near_its_target_waits_without_re_routing() {
     let mut t = ScenarioBuilder::new(CORRIDOR).start();
@@ -267,7 +267,7 @@ fn a_follower_blocked_near_its_target_waits_without_re_routing() {
     assert_eq!(t.status(1), MoveStatus::Arrived, "it counts as reached");
     assert_eq!(t.mover(1).repaths_left, MAX_REPATHS);
     assert_eq!(failed_moves(&t, 1), [] as [Tick; 0]);
-    assert!(gap(&t, 1, 3) > PROXIMITY_SU && gap(&t, 1, 3) <= gu(2.0));
+    assert!(gap(&t, 1, 3) > PROXIMITY_SU && gap(&t, 1, 3) <= gu(OCCUPIED_ARRIVAL_GU));
     // The target walks on down the corridor: the follower sets off again (and is blocked again).
     t.order_at(401, P1, &[id(3)], move_to(v(1500.0, 96.0)), false)
         .run_until(402);
@@ -371,12 +371,15 @@ fn an_attack_move_group_engages_on_the_way_and_resumes() {
         t.step();
     }
     // The fight shuffled them, so a unit may find its place walled in by those that arrived before it: it has then
-    // arrived behind them, within 2 grid units (`> MovingToLocation > Occupied target location`).
+    // arrived behind them, within `OCCUPIED_ARRIVAL_GU` (`> MovingToLocation > Occupied target location`).
     let mut exact = 0;
     for (unit, &start) in (1..=6).zip(&starts) {
         let destination = start + (click - v(240.0, 300.0));
         let off = pos(&t, unit).distance(destination);
-        assert!(off <= gu(2.0), "unit {unit} stopped {off} su from its place");
+        assert!(
+            off <= gu(OCCUPIED_ARRIVAL_GU),
+            "unit {unit} stopped {off} su from its place"
+        );
         assert_eq!(t.status(unit), MoveStatus::Arrived);
         exact += u32::from(off == 0.0);
     }

@@ -1,5 +1,5 @@
 //! Defeat and the end of the game (slice M2-F2): `core/game_rules.md > Defeat Condition`, `> On Defeat` and `> End
-//! of Game`, plan decision T8, design changes 0101 and 0102.
+//! of Game`, plan decision T8, design changes 0101 and 0102; the draw, design change 0163 (slice M3-V).
 //!
 //! - A player is defeated in the tick they lose their last structure, plates included, whether to a debug removal
 //!   or in combat; a player who never owned one (an M1 sandbox) never is.
@@ -374,10 +374,11 @@ fn three_players_end_with_the_second_defeat() {
     );
 }
 
-/// `> End of Game` doesn't say what happens when the last sides fall in the same tick. The placeholder reading: the
-/// game ends with no winner, and everyone sees Defeat.
+/// Design change 0163 (`> End of Game > Draw`: "if the last remaining players or teams are all defeated in the same
+/// tick [...] the game ends as a draw. Nobody wins"), its Verification: two players lose their last structures in
+/// the same tick. The game ends in that tick without a winner, a draw.
 #[test]
-fn players_defeated_in_the_same_tick_leave_no_winner() {
+fn players_defeated_in_the_same_tick_draw() {
     let mut t = ScenarioBuilder::new(&flat(24, 12))
         .spawn(ObjectKind::Generator, Some(P1), tile(1, 1)) // 1
         .spawn(ObjectKind::Generator, Some(P2), tile(20, 1)) // 2
@@ -390,7 +391,37 @@ fn players_defeated_in_the_same_tick_leave_no_winner() {
         [(4, defeated(P1)), (4, defeated(P2)), (4, game_over(&[]))]
     );
     let outcome = t.sim().outcome().unwrap();
+    assert!(outcome.is_draw() && outcome.tick == 4);
     assert!(!outcome.is_winner(P1) && !outcome.is_winner(P2));
+}
+
+/// Design change 0163 with three players: player 3 is defeated first and the game goes on; then the last two fall in
+/// one tick, and the game is a draw, which player 3 sees too (`> Draw`: "every player sees 'Draw'"): nobody won.
+#[test]
+fn the_last_two_of_three_defeated_in_the_same_tick_draw() {
+    let mut t = three_way();
+    t.debug_at(3, remove(3)).run_until(5);
+    assert_eq!(t.sim().outcome(), None);
+    t.debug_at(6, remove(1)).debug_at(6, remove(2)).run_until(8);
+    let outcome = t.sim().outcome().unwrap();
+    assert_eq!(
+        outcome,
+        &Outcome {
+            tick: 6,
+            winners: vec![]
+        }
+    );
+    assert!(outcome.is_draw());
+    assert!([P1, P2, P3].iter().all(|&p| !outcome.is_winner(p)));
+    assert_eq!(
+        game_events(&t),
+        [
+            (3, defeated(P3)),
+            (6, defeated(P1)),
+            (6, defeated(P2)),
+            (6, game_over(&[]))
+        ]
+    );
 }
 
 /// Plan §9 (the note from M2-D2): a producer handed over to neutral would keep its queue. By T8 that never happens:

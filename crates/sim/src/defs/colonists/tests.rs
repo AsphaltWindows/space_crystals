@@ -222,7 +222,7 @@ fn the_beacon_follows_the_design() {
         structure.warp_in,
         [
             recipe(ObjectKind::EgressNode, 75, 320),
-            recipe(ObjectKind::RoboPortal, 400, 640),
+            recipe(ObjectKind::RoboPortal, 250, 640), // design change 0167 (was 400)
             recipe(ObjectKind::BioPortal, 150, 480),
         ]
     );

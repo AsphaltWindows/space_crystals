@@ -56,7 +56,7 @@ fn the_beacon_warps_in_its_three_buildings() {
         .collect();
     assert_eq!(
         list,
-        [(EgressNode, 75, 320), (RoboPortal, 400, 640), (BioPortal, 150, 480)]
+        [(EgressNode, 75, 320), (RoboPortal, 250, 640), (BioPortal, 150, 480)]
     );
     assert_eq!(warp_in_recipe(Beacon, ObjectKind::Barracks), None);
     for &kind in ObjectKind::ALL {

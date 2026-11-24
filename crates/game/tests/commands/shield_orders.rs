@@ -182,9 +182,10 @@ fn shielded_peacekeepers_move_to_a_structure_and_stop_by_it() {
     let events = run_collecting(&mut app, 300);
     for id in units {
         assert_eq!(object_orders(&app, id).current, None, "{id} arrived");
-        // Within 2 grid units of the 2 × 2 station, edge to edge (`behaviors.md > MovingToObject`).
+        // Within 3 grid units of the 2 × 2 station, edge to edge (`behaviors.md > MovingToObject`, design change
+        // 0169; 2 before it).
         let distance = pos(&app, id).distance(at(STATION));
-        assert!(distance < 64.0 + 128.0 + 24.0, "{id} by the station: {distance}");
+        assert!(distance < 64.0 + 192.0 + 24.0, "{id} by the station: {distance}");
     }
     assert!(fired(&events, &units).is_empty());
 }

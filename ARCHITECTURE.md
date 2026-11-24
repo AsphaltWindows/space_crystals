@@ -618,7 +618,7 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   target leaves that range.
 - **Move to an object** (`orders/travel.rs::approach`; design changes 0032 and 0033): proximity is a gap of at most
   `PROXIMITY_SU` (8). A static object completes the order there (also at the nearest point the unit can reach, or
-  stuck within 2 GU of it behind units that won't move). **A unit is followed**: the order never completes by
+  stuck within 3 GU of it behind units that won't move). **A unit is followed**: the order never completes by
   itself; the follower waits within proximity (or where it was stopped near it, without re-routing) and sets off
   again when the target moves. It ends with a new order, the target's death, a failed move, or an enemy target
   going out of sight (to its last seen position, as for Attack). "Leaves the map" (transports, buildings, tunnels)
@@ -885,9 +885,14 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   stuck after `STUCK_TICKS` (24) without it (`Mover::is_stuck`); it then tries another route `MAX_REPATHS` times,
   after waits of `REPATH_WAITS` (8, 16, 32; `Mover::recovery_due`), around the tile of a blocker that stands, and
   gives up 24 ticks after the last: `MoveStatus::Failed` and `SimEvent::MoveFailed`, `GIVE_UP_TICKS` (104) after its
-  last progress. **Occupied target**: within `OCCUPIED_ARRIVAL_GU` (2) of its goal behind a stationary unit that
-  won't yield to it, the unit has arrived instead, without a repath: when stuck, or after `JAMMED_TICKS` without a
-  way forward if the blocker has no goal. Two moving units head-on in a passage too narrow to pass both fail.
+  last progress. **Occupied target**: within `OCCUPIED_ARRIVAL_GU` (3, design change 0169; 2 under 0026) of its goal
+  behind a stationary unit that won't yield to it, the unit has arrived instead, without a repath: when stuck, or
+  after `JAMMED_TICKS` without a way forward if the blocker has no goal. That covers a unit walled out of its
+  magic-box spot by its own group's arrivals (design change 0183): arrived within the radius, given up beyond it.
+  Two moving units head-on in a passage too narrow to pass both fail. **The crowd sweep** of slice M1-G3 is kept as
+  the ignored `movement_crowds.rs::crowd_sweep` (two blocks crossing head-on, 288 layouts, run in release): for
+  0169 it went from 43 to 7 failed units of 5 856 for each owner count (Peacekeepers 8 → 0, Guards 20 → 4,
+  Peacekeepers against Guards 15 → 3).
 - **Whose progress a waiting unit shares** (`stuck::leads`, slice M3-H2): a unit blocked by one that is on its way
   takes over that unit's `last_progress`, but only if that unit **has got on since its leg began**. `Mover::go_to`
   sets a unit's own clock to the tick of the order, and that is no progress: before this rule, a blocked unit whose
@@ -900,7 +905,7 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   the object as it moves (`paths::chase_check`, on the stagger tick: straight at it while the unit's box has a
   clear line, else a new plan once it moved 1 GU or 25 % of the distance, at most every 8 ticks, never counted
   against the repath cap). The unit has `Arrived` when the gap between the two shapes is within `reach`, at the end
-  of its path if the object hasn't moved, or by the occupied-target rule (the 2 GU measured as that gap). Progress
+  of its path if the object hasn't moved, or by the occupied-target rule (its 3 GU measured as that gap). Progress
   towards a moving object is moving forward at all; towards one at rest it is measured as to a point. A unit
   chasing its attack's target behind stationary attackers of its owner on the same target **queues**
   (`stuck::queues_behind`): no repath, no failure.
@@ -1119,7 +1124,7 @@ section of its own.
   progress by `PowerSummary::speed` from the tick the command applies (*Recipe timing*), take costs with
   `spend_crystals` when the command applies, and give refunds through `Refund`; `construction.rs` is the pattern.
 - **Defeat and the end of the game** (`economy/defeat.rs`, slice M2-F2, plan decision T8; `core/game_rules.md >
-  Defeat Condition`, `> On Defeat`, `> End of Game`; design changes 0100 to 0102):
+  Defeat Condition`, `> On Defeat`, `> End of Game`; design changes 0100 to 0102, and 0163 and 0164, slice M3-V):
   - **Defeat**: a player is defeated in the tick their count of owned structures drops to 0 (every structure
     counts, plates included): `defeat::step` compares the owners of structures as the tick started with those as it
     ends, so a player who never owned a structure (a sandbox's) is never defeated, and nobody is once the game is
@@ -1135,10 +1140,13 @@ section of its own.
     Custom`), so every player is their own side (`defeat::allied`) and `Sim::allies` is empty. Teams go there.
   - **The end**: the defeat that leaves at most one side standing ends the game in its tick: `Sim::outcome()` is
     `Outcome { tick, winners }` (hashed, serialized, `#[serde(default)]`), after the tick's `PlayerDefeated`s comes
-    `SimEvent::GameOver { winners }`. The winners are the side left standing, its defeated members included;
-    nobody wins when the last sides fall in the same tick (a placeholder: the design doesn't say). From then on the
-    gate refuses every command (`Reject::GameOver`). The sim would step on if asked; the client stops it (see
-    *Client architecture > Sim driver*).
+    `SimEvent::GameOver { winners }`. The winners are the side left standing, its defeated members included.
+    When the last sides fall in the same tick nobody wins: the game is a **draw** (0163, `Outcome::is_draw`, the
+    outcome without winners; derived, so the state and its files are as they were), and every player sees Draw,
+    those defeated before it too. From then on the gate refuses every command (`Reject::GameOver`). The sim would
+    step on if asked; the client stops it (see *Client architecture > Sim driver*).
+  - **Leaving for the results screen** (0164) is the client's (`hud/results.rs`, see *Client architecture > HUD*):
+    the sim runs on as before, and a player whose side fell while the game goes on is simply no longer shown it.
 
 ## Production
 
@@ -1170,13 +1178,15 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   id, each check counting what the ones before it took, until the crystal check fails (0143: the army cap plays no
   part). A full queue is passed over. The others get `SimEvent::ProductionRefused`.
 - **The start check** (design change 0143, `sim/producers/step.rs`): in the producers' step, before a unit at 0% at
-  the front of its queue advances, its owner's `ArmyCap::fits(cost)` (`available − used ≥ cost`) must hold, with
+  the front of its queue advances, its owner's `ArmyCap::fits(cost)` (`cost == 0 || available − used ≥ cost`: a
+  unit without a cost always starts, even over the cap, design change 0176 point 3) must hold, with
   the caps worked out once a step for the players who need them and the units that start in the step added as they
   do. Without room the producer stays at 0%, `Production::blocked`, and checks again every tick; the tick the wait
   begins it raises `SimEvent::ProductionWaiting { producer, reason }`, once (placeholder for 0143's notification,
-  whose system is TBD). Producers waiting for the same room are served in id order, the step's. A unit in
-  production is never checked again: it always finishes (Q0041 point 2). At a power ratio of 0 a unit that passes
-  makes no progress, so it neither starts nor takes anything.
+  whose system is TBD). Producers waiting for the same room are served in id order, the step's, lowest first
+  (design change 0175). A unit in production is never checked again: it always finishes (Q0041 point 2). At a power
+  ratio of 0 a unit that passes makes no progress, so it neither starts nor takes anything, and another producer may
+  take the room (design change 0176 point 2).
 - **The step** (`Sim::step_production`, see *Tick pipeline*): the start check, then the unit in production advances
   by `PowerSummary::speed` (design change 0089), capped at its total. Trained in tick `t` at full power, a
   Peacekeeper (80 frames) is released in tick `t + 79`; at 30/51 in tick `t + 135`; a Drone or a Sabre Legionnaire
@@ -1505,10 +1515,12 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   it changed by what the plates mined (read off their patches), less what the step's orders paid, plus the refunds
   its events report.
 - **Movement scenario tests** are `crates/sim/tests/movement_collision.rs` (passing, head-on, choke, group arrival,
-  idle units, repaths, oscillation bounds, save and load in a crowd), `group_destinations.rs` (the magic box),
+  idle units, repaths, oscillation bounds, save and load in a crowd), `group_destinations.rs` (the magic box; a
+  group crowding its own spots, 0183),
   `queued_group_destinations.rs` (Shift-queued group orders),
-  `movement_yield.rs` (friendly yielding, occupied targets, the give-up schedule), `movement_crowds.rs` (blocks
-  meeting head-on, a group through an idle block, dense blocks of any shape), `movement_soak.rs` (200 units,
+  `movement_yield.rs` (friendly yielding, occupied targets, the give-up schedule; 0169's 3 GU for a point and for a
+  structure), `movement_crowds.rs` (blocks meeting head-on, a group through an idle block, dense blocks of any
+  shape; the ignored crowd sweep), `movement_soak.rs` (200 units,
   random orders, 2 000 ticks; bounds on the share of failed moves), `movement_stuck.rs` (whose progress a waiting
   unit shares: a unit behind one whose legs begin again finds its way round), `invariants_overlap.rs` (I1's two
   exceptions and nothing more, on edited states) and the ignored `movement_perf.rs`.
@@ -1613,7 +1625,8 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   derived footprint, its corners, flips, turns and exit sides (0121); the Robo Portal's ring, blocked by a unit of
   either player, a patch or a structure (0118); every tile Visible, an unseen unit leaking nothing (0119); the
   footprint solid from the first frame and the Beacon's 2 × 2 after a cancel (0109); no drop-off at an Egress Node
-  warping in (0116); the cancels' refunds and HP (0111); Beacon Capacity kept (0112); defeat and destruction, with no
+  warping in (0116); the cancels' refunds, 75 % rounded down (56, 112, and 187 for the Robo Portal, 250 since
+  design change 0167), and HP (0111); Beacon Capacity kept (0112); defeat and destruction, with no
   refund for either portal (0113, 0115); the gate against `Sim::warp_in_check` in every orientation, a save, a
   replay, and a fuzz of the gate). The arithmetic and the footprint are unit-tested in `transform/tests.rs`. In the
   client: `tests/client/visuals.rs` (a visual rebuilt and tinted), `tests/selection/panels.rs` (a selected Beacon
@@ -1630,10 +1643,13 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   (reservations, `Mode::Known`) and `transform/tests.rs` (the load hashed).
 - **Game end tests** are `crates/sim/tests/game_end.rs` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
-  refused; a 1v1, three players defeated one after the other, and a last defeat shared by two; no producer handed
-  over; a save across a defeat and the end, and old saves) and, in the client, `crates/game/tests/game_end.rs` (the
-  banners, the stop, the saved recording, QA's end, the spectator's fog). The fuzz games of `robustness.rs` give
-  each player a base it can't remove, so that they never end.
+  refused; a 1v1, three players defeated one after the other, and the draws of 0163: two players defeated in one
+  tick, and the last two of three; no producer handed over; a save across a defeat and the end, and old saves) and,
+  in the client, `crates/game/tests/game_end.rs` (the banners, Draw for everyone; the stop, the saved recording,
+  QA's end; the results screen of 0164 in a three-player game, under the debug player switch and in a replay, the
+  draw seen from it; the spectator's fog) with the unit tests of `hud/results.rs` (who leaves, allies included,
+  which the sim can't make yet). The fuzz games of `robustness.rs` give each player a base it can't remove, so that
+  they never end.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
   checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is
@@ -1801,9 +1817,17 @@ that the units in production (design change 0143) count as the sim counts them; 
 / available (`Sim::army_cap`; red over capacity, 0112), with no Power; the other factions Space Crystals only, until
 their own resources exist. At the end of the game a banner across the world view (`hud/outcome.rs`,
 placeholder look and wording) shows the local player's `Banner`: VICTORY for the winners, DEFEAT for everyone else,
-and DEFEATED with a spectating line while a defeated player watches the game go on. A defeated player, and everyone
-once the game is over, gives no commands: the command UI's input set doesn't run (`outcome::may_command`), and
-nothing is `commandable` after the end.
+DRAW for everyone when nobody won (design change 0163), and DEFEATED with a spectating line while a defeated player
+watches the game go on beside an ally (0102; never yet: the sim has no teams). A player defeated while the game goes
+on with no ally left standing has **left for the results screen** (design change 0164, `hud/results.rs`;
+`results::has_left`, the rule on its figures `results::left_the_game`): a placeholder, DEFEATED, their name and
+faction, the game time and tick of their defeat, and whether the game goes on, on an opaque node over everything
+below the top bar (`RESULTS_Z`), which takes the pointer, so nothing of the world shows or can be clicked. They stay
+there after the end, and the end's banner shows over the screen (`BANNER_Z`). A side that falls in the game's last
+tick never left. The screen is derived each frame from the sim and the local player, so the debug player switch and
+a replay's playback show each player's view, and the sim isn't touched. A defeated player, and everyone once the
+game is over, gives no commands: the command UI's input set doesn't run (`outcome::may_command`), and nothing is
+`commandable` after the end.
 
 **Input** (`input.rs`, `input/`): one shared layer turns the keyboard, the mouse, the wheel and the screen edge into
 the input of the game and of the map editor, in `PreUpdate` (`ReadActions`, after Bevy's input, UI picking and the
