@@ -82,13 +82,9 @@ pub enum Reject {
     QueueFull,
     /// The player's Space Crystals don't cover the unit, or the building to construct ("Only available if player
     /// has sufficient Space Crystals", `factions/gdo/structures.md > DeploymentCenter >
-    /// ObjectInterfaceState[DeploymentCenter]`).
+    /// ObjectInterfaceState[DeploymentCenter]`). The army cap refuses nothing: design change 0143 checks it when
+    /// production starts (`Production::blocked`), and M2's `UnitControlCap` went with the check at queue time.
     InsufficientCrystals,
-    /// The unit would take the player's army cap past what is available (plan decision T20, `economy::army`): the
-    /// GDO's Unit Control (`factions/gdo/overview.md > GDOResources > Unit Control`, design change 0082) or the
-    /// Colonists' Beacon Capacity (`factions/colonists/overview.md > ColonistResources > Beacon Capacity`). M2's
-    /// name, kept for every faction's cap.
-    UnitControlCap,
     /// Cancel Production: no producer has anything queued.
     NothingQueued,
     /// None of the objects a construction command names is one of the player's constructors that exists
@@ -158,7 +154,6 @@ impl fmt::Display for Reject {
             Reject::CannotProduce(kind) => write!(f, "none of the producers trains a {}", kind.def().name),
             Reject::QueueFull => write!(f, "the build queue is full"),
             Reject::InsufficientCrystals => write!(f, "not enough Space Crystals"),
-            Reject::UnitControlCap => write!(f, "the army cap (Unit Control, Beacon Capacity) is reached"),
             Reject::NothingQueued => write!(f, "nothing is queued"),
             Reject::NoConstructor => write!(f, "none of the objects is a constructor of the player's"),
             Reject::SeveralConstructors => write!(f, "a building is placed by one constructor"),

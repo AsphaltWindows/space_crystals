@@ -9,14 +9,17 @@
 //!   (`StructureDef::production`).
 //! - **Commands** ([`ProductionCommand`], sent as `Command::Production`; the gate and their application are in
 //!   `sim/producers.rs`): `Train`, `CancelProduction`, `SetRally`.
-//! - **Costs** (plan decision T7): a unit's Space Crystals are paid, and its army cost reserved (the GDO's Unit
-//!   Control, design change 0082; the Colonists' Beacon Capacity: `economy::army`), when it is queued. A cancelled
-//!   unit is refunded in full (`economy::Refund::Full`), and so is everything a producer holds when it leaves the
-//!   game (design changes 0084 and 0085, `Sim::remove_objects`).
-//! - **The step** (`Sim::step_production`, in the economy phase): the head advances by its owner's power ratio
-//!   (design change 0089). When it is complete the unit is released through one of the building's doors
-//!   ([`Doorway`], `exit.rs`, design change 0080; which one: `exit/choice.rs`, plan decision T19), or held at 100%
-//!   while every door is occupied.
+//! - **Costs** (plan decision T7): a unit's Space Crystals are paid when it is queued, and only they and room in the
+//!   queue are checked then. Its army cost (the GDO's Unit Control, the Colonists' Beacon Capacity: `economy::army`)
+//!   is taken when production starts (design change 0143, which replaces 0082's reservation at queue time, for every
+//!   faction): the unit at the front starts only while its owner's army cap has room for it, and counts from then
+//!   on ([`Production::in_production`]); without room the producer waits with it at 0% ([`Production::blocked`]) and
+//!   starts by itself once there is. A cancelled unit is refunded in full (`economy::Refund::Full`), and so is
+//!   everything a producer holds when it leaves the game (design changes 0084 and 0085, `Sim::remove_objects`).
+//! - **The step** (`Sim::step_production`, in the economy phase): a unit at 0% starts if there is room for it, or
+//!   waits (0143); then the unit in production advances by its owner's power ratio (design change 0089). When it is
+//!   complete it is released through one of the building's doors ([`Doorway`], `exit.rs`, design change 0080; which
+//!   one: `exit/choice.rs`, plan decision T19), or held at 100% while every door is occupied.
 
 pub mod exit;
 pub mod rally;
@@ -24,7 +27,7 @@ pub mod rally;
 use serde::{Deserialize, Serialize};
 
 use crate::defs::{ObjectKind, ProductionDef};
-use crate::economy::RATIO_ONE;
+use crate::economy::{ArmyResource, RATIO_ONE};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::orders::Target;
@@ -53,15 +56,15 @@ pub enum ProductionCommand {
 
 /// Why a producer that received a `Train` didn't queue the unit, while others of the same command did
 /// (`SimEvent::ProductionRefused`; design change 0083: "the others don't queue, and the player gets
-/// insufficient-resources feedback").
+/// insufficient-resources feedback"). The army cap is no reason: queuing doesn't check it (design change 0143,
+/// `systems/controls/selection_and_hud.md > Group production with limited resources`: "unit capacity is not checked
+/// when queuing"); a unit without room waits at the front of its queue instead ([`Production::blocked`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Refusal {
     /// Its BuildQueue holds [`QUEUE_LIMIT`] units.
     QueueFull,
     /// The player's Space Crystals don't cover the unit, after what the producers before it took.
     Crystals,
-    /// The unit would take the player's Unit Control past the cap (design change 0082).
-    UnitControl,
 }
 
 /// `factions/gdo/structures.md > Barracks > BarracksInstanceState`: a producing structure's state.
@@ -76,6 +79,21 @@ pub struct Production {
     pub progress: u32,
     /// RallyPoint.
     pub rally: Option<Rally>,
+    /// Whether the unit at the front waits at 0% for room under its owner's army cap (design change 0143;
+    /// `factions/gdo/overview.md > GDOResources > Unit Control > Reserved when production starts`,
+    /// `factions/colonists/overview.md > Beacon Capacity > Reserved when production starts`: "If there isn't enough,
+    /// the building **waits** with the unit at the front (0% progress) and starts automatically once there is
+    /// room"). The producers' step sets it in the tick the unit's start check first fails, with a
+    /// `SimEvent::ProductionWaiting`, and clears it when the unit starts or leaves the queue; the interface shows
+    /// the wait by it. Optional in files and left out of them while false, so that states saved before it existed
+    /// still load; hashed only while true, so that the states of games in which no producer waits hash as they did
+    /// before it existed (the goldens).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub blocked: bool,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 /// What a producer is working on, for the interface ([`Production::status`]).
@@ -90,6 +108,9 @@ pub struct ProductionStatus {
     /// The unit is finished and waits inside, because the exit doorway is occupied
     /// (`core/entities.md > Structure Type > Exit Doorway`, point 3).
     pub waiting: bool,
+    /// The army cap whose room the unit waits for at 0% ([`Production::blocked`], design change 0143): its owner's
+    /// Unit Control or Beacon Capacity. `None` while it is in production or about to start.
+    pub blocked: Option<ArmyResource>,
 }
 
 /// The progress at which a unit of `frames` frames is finished.
@@ -108,8 +129,18 @@ impl Production {
         self.queue.len() >= QUEUE_LIMIT
     }
 
-    /// What the producer, of a type with these recipes, is working on; `None` with an empty queue.
-    pub fn status(&self, def: &ProductionDef) -> Option<ProductionStatus> {
+    /// The unit in production (design change 0143): the one at the front once the building has begun progress on it,
+    /// a finished one waiting inside for the doorway included. It counts against its owner's army cap
+    /// (`economy::army`) from then on, through production and for as long as it lives. `None` while the queue is
+    /// empty or the unit at the front is at 0%: about to start in the producers' step, waiting for room
+    /// ([`Production::blocked`]), or not getting on (a consumer at a power ratio of 0 begins no progress).
+    pub fn in_production(&self) -> Option<ObjectKind> {
+        self.current().filter(|_| self.progress > 0)
+    }
+
+    /// What the producer, of a type with these recipes, is working on; `None` with an empty queue. `cap` is its
+    /// owner's army cap, which a unit at the front that is [`Production::blocked`] waits for.
+    pub fn status(&self, def: &ProductionDef, cap: Option<ArmyResource>) -> Option<ProductionStatus> {
         let kind = self.current()?;
         let total = def.recipe(kind).map_or(0, |recipe| total_of(recipe.frames));
         Some(ProductionStatus {
@@ -117,6 +148,7 @@ impl Production {
             progress: self.progress.min(total),
             total,
             waiting: self.progress >= total,
+            blocked: cap.filter(|_| self.blocked),
         })
     }
 
@@ -144,23 +176,35 @@ impl Production {
         self.progress >= total
     }
 
-    /// The finished unit left: the next entry starts from nothing.
+    /// The finished unit left: the next entry starts from nothing, its start check (design change 0143) coming in
+    /// the producers' step of the next tick.
     pub(crate) fn release(&mut self) -> Option<ObjectKind> {
         if self.queue.is_empty() {
             return None;
         }
         self.progress = 0;
+        self.blocked = false;
         Some(self.queue.remove(0))
     }
 
-    /// "X: Cancel Production": takes the last entry off the queue. If that was the unit in production (finished
-    /// and waiting inside included), its progress goes with it.
+    /// "X: Cancel Production": takes the last entry off the queue. If that was the unit at the front (in production,
+    /// finished and waiting inside, or waiting for room: design change 0143, "the player can still cancel it for a
+    /// full refund"), its progress and its wait go with it.
     pub(crate) fn cancel_last(&mut self) -> Option<ObjectKind> {
         let kind = self.queue.pop()?;
         if self.queue.is_empty() {
             self.progress = 0;
+            self.blocked = false;
         }
         Some(kind)
+    }
+
+    /// The producer leaves the game, or changes into a kind without its queue: the whole BuildQueue goes, to be
+    /// refunded (design changes 0084 and 0085), with its progress and its wait.
+    pub(crate) fn take_queue(&mut self) -> Vec<ObjectKind> {
+        self.progress = 0;
+        self.blocked = false;
+        std::mem::take(&mut self.queue)
     }
 
     /// Drops a rally point on an object that is gone (`> RallyPoint behavior`: "If the RallyPoint references an
@@ -176,10 +220,20 @@ impl Production {
 
 impl StateHash for Production {
     fn hash(&self, h: &mut StateHasher) {
-        let Production { queue, progress, rally } = self;
+        let Production {
+            queue,
+            progress,
+            rally,
+            blocked,
+        } = self;
         queue.hash(h);
         progress.hash(h);
         rally.hash(h);
+        // (M3-P) Only while the producer waits: the states of games in which none waits hash as they did before the
+        // field existed (the goldens stand). A waiting producer differs from the same one not waiting by the tag.
+        if *blocked {
+            h.tag(1);
+        }
     }
 }
 
@@ -225,15 +279,16 @@ mod tests {
         for _ in 0..200 {
             p.advance(&BARRACKS, RATIO_ONE);
         }
-        let status = p.status(&BARRACKS).unwrap();
+        let status = p.status(&BARRACKS, None).unwrap();
         assert_eq!(
             (status.progress, status.total, status.waiting),
             (80 << 16, 80 << 16, true)
         );
+        assert_eq!(p.in_production(), Some(ObjectKind::Peacekeeper), "it still counts");
         assert_eq!(p.release(), Some(ObjectKind::Peacekeeper));
         assert_eq!((p.queue.len(), p.progress), (1, 0));
-        assert!(!p.status(&BARRACKS).unwrap().waiting);
-        assert_eq!(queued(0).status(&BARRACKS), None);
+        assert!(!p.status(&BARRACKS, None).unwrap().waiting);
+        assert_eq!(queued(0).status(&BARRACKS, None), None);
     }
 
     /// "X: Cancel Production" takes the last entry; the unit in production last of all, with its progress.
@@ -250,6 +305,76 @@ mod tests {
         assert_eq!(p.cancel_last(), Some(ObjectKind::Peacekeeper));
         assert_eq!((p.queue.len(), p.progress), (0, 0));
         assert_eq!(p.cancel_last(), None);
+    }
+
+    /// Design change 0143: the unit at the front is in production, and takes its army cost, once the building has
+    /// begun progress on it: not while it is queued, nor at 0%, whether it is about to start or waits for room.
+    #[test]
+    fn a_unit_is_in_production_once_progress_has_begun() {
+        let mut p = queued(3);
+        assert_eq!(p.in_production(), None, "queued, not started");
+        p.blocked = true;
+        assert_eq!(p.in_production(), None, "waiting at 0%");
+        p.blocked = false;
+        p.advance(&BARRACKS, 0);
+        assert_eq!(p.in_production(), None, "no progress at a power ratio of 0");
+        p.advance(&BARRACKS, 1);
+        assert_eq!(p.in_production(), Some(ObjectKind::Peacekeeper));
+        assert_eq!(queued(0).in_production(), None);
+    }
+
+    /// Design change 0143: a waiting unit at the front shows the cap it waits for; the wait ends with the unit's
+    /// place at the front: cancelled ("the player can still cancel it for a full refund"), refunded with the whole
+    /// queue, or, once it started, released. A cancel of an entry behind it leaves it waiting.
+    #[test]
+    fn the_wait_goes_with_the_unit_at_the_front() {
+        let cap = Some(ArmyResource::UnitControl);
+        let waiting = |n| Production {
+            blocked: true,
+            ..queued(n)
+        };
+        let status = waiting(2).status(&BARRACKS, cap).unwrap();
+        assert_eq!((status.progress, status.blocked), (0, cap));
+        assert_eq!(queued(2).status(&BARRACKS, cap).unwrap().blocked, None, "not waiting");
+        let mut p = waiting(2);
+        p.cancel_last();
+        assert!(p.blocked, "the unit behind it went");
+        p.cancel_last();
+        assert!(!p.blocked && p.queue.is_empty());
+        let mut p = waiting(3);
+        assert_eq!(p.take_queue().len(), 3);
+        assert_eq!((p.queue.len(), p.progress, p.blocked), (0, 0, false));
+        let mut p = queued(2);
+        while !p.advance(&BARRACKS, RATIO_ONE) {}
+        p.blocked = true;
+        p.release();
+        assert!(!p.blocked, "the next unit starts its own check");
+    }
+
+    /// The wait is hashed only while it lasts (the goldens of games without one stand), and left out of files while
+    /// it doesn't, so that a state saved before it existed loads.
+    #[test]
+    fn the_wait_is_hashed_and_saved_only_while_it_lasts() {
+        let hash = |p: &Production| {
+            let mut h = StateHasher::new();
+            p.hash(&mut h);
+            h.finish()
+        };
+        let (idle, waiting) = (
+            queued(1),
+            Production {
+                blocked: true,
+                ..queued(1)
+            },
+        );
+        assert_ne!(hash(&idle), hash(&waiting));
+        let json = serde_json::to_string(&idle).unwrap();
+        assert!(!json.contains("blocked"), "{json}");
+        let old: Production =
+            serde_json::from_str(r#"{"queue": ["Peacekeeper"], "progress": 0, "rally": null}"#).unwrap();
+        assert_eq!(old, idle);
+        let saved: Production = serde_json::from_str(&serde_json::to_string(&waiting).unwrap()).unwrap();
+        assert_eq!(saved, waiting);
     }
 
     /// Design change 0083: the work queued is the time still ahead, the unit in production counted by what is left

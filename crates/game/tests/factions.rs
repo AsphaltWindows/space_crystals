@@ -154,16 +154,17 @@ fn camera_start(app: &App, player: PlayerId) -> Vec2 {
     start_center(scenario, player, map)
 }
 
-/// Plan decision T20: one refusal for every faction's cap, named in the feedback after the player's. Two Robo
-/// Portals provide 10 Beacon Capacity, and eight Drones take 8: of a Train to both after one more queued, the idle
-/// portal takes the last, and the other's refusal says "Beacon Capacity limit reached".
+/// Plan decision T20, the faction's cap named in the feedback after the player's, as design change 0143 has it: two
+/// Robo Portals provide 10 Beacon Capacity, and nine Drones take 9. The first portal's Drone starts in the last room;
+/// of a Train to both after it, both queue, and the idle portal waits for room, which the band names as the wait
+/// begins, "Beacon Capacity limit reached" (placeholder for 0143's notification).
 #[test]
-fn a_refused_train_names_the_beacon_capacity() {
+fn a_waiting_portal_names_the_beacon_capacity() {
     let mut builder = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
         .faction(P1, Faction::Colonists)
         .spawn(ObjectKind::RoboPortal, Some(P1), SpawnAt::Tile(TilePos::new(1, 1)))
         .spawn(ObjectKind::RoboPortal, Some(P1), SpawnAt::Tile(TilePos::new(8, 1)));
-    for x in 1..9 {
+    for x in 1..10 {
         let at = TilePos::new(x, 12).center();
         builder = builder.spawn(ObjectKind::Drone, Some(P1), SpawnAt::Point(at));
     }

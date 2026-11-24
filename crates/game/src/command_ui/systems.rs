@@ -264,9 +264,9 @@ pub(super) fn cancel_on_escape(actions: Res<ActionState>, mut control: LocalCont
 /// placement of its building ready to place (`InterfaceState::AwaitingPlacement`), or give its one constructor a
 /// construction command and return to DefaultState ("CommandIssuingTransition, returns to DefaultState"). Back (Z)
 /// returns to the previous state. While a target is awaited or a building placed the other commands are unavailable
-/// (design change 0066), and so is a production or construction command the gate would refuse (design changes 0081
-/// and 0082): [`press`] finds nothing to do for them. Nothing while the selection isn't commandable (a defeated
-/// player's, or anyone's once the game is over).
+/// (design change 0066), and so is a production or construction command the gate would refuse (design change 0081;
+/// never for the army cap, 0143): [`press`] finds nothing to do for them. Nothing while the selection isn't
+/// commandable (a defeated player's, or anyone's once the game is over).
 pub(super) fn press_command_slots(
     actions: Res<ActionState>,
     mode: Res<ClientMode>,

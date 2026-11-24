@@ -30,13 +30,13 @@ pub enum ButtonLook {
     /// Offered, but not now ([`Conditions::allows`]): the other commands while one awaits its target (`>
     /// AwaitingTarget > Other commands while targeting`, design change 0066: unavailable until the player cancels)
     /// or while a building is placed, Attack while none of its recipients can attack, a production or construction
-    /// command the command gate would refuse (Train with the BuildQueue full, or too few Space Crystals or too little
-    /// Unit Control; Cancel Production with nothing queued: `factions/gdo/structures.md > Barracks >
-    /// ObjectInterfaceState[Barracks]`, "Only available if"; a building to construct while the bank can't pay for it,
-    /// or while the constructor constructs or holds a building ready: `> DeploymentCenter >
-    /// ObjectInterfaceState[DeploymentCenter]`, "Other build options unavailable"; a Convert none of whose
-    /// recipients may convert now, all of them Firing, in Cooldown or converting: `factions/colonists/units.md >
-    /// Weapon Conversion > Eligibility`), and a command the sim has no order for yet.
+    /// command the command gate would refuse (Train with the BuildQueue full, or too few Space Crystals, the army cap
+    /// being checked when production starts, design change 0143; Cancel Production with nothing queued:
+    /// `factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`, "Only available if"; a building to
+    /// construct while the bank can't pay for it, or while the constructor constructs or holds a building ready: `>
+    /// DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`, "Other build options unavailable"; a Convert none
+    /// of whose recipients may convert now, all of them Firing, in Cooldown or converting:
+    /// `factions/colonists/units.md > Weapon Conversion > Eligibility`), and a command the sim has no order for yet.
     Disabled,
     /// In the template, but this type can't (`> BasicCombatUnitInterfaceState`: the conditional Reverse and
     /// AttackGround; a build menu none of whose buildings is in the game yet).

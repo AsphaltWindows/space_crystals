@@ -1,14 +1,16 @@
 //! Production from the command panel (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`, slice
 //! M2-H1): Q trains a Peacekeeper and X cancels the last unit queued, by hotkey and by button, as one
 //! `Command::Production` to every selected Barracks (no smart-casting, design changes 0071 and 0075: the sim orders
-//! the payments, 0083, and the player hears when crystals or Unit Control fell short). A Train or a Cancel
-//! Production that the command gate would refuse shows disabled and does nothing (0081, 0082).
+//! the payments, 0083, and the player hears when crystals fell short). A Train or a Cancel Production that the
+//! command gate would refuse shows disabled and does nothing (0081); Unit Control never does: it is checked when
+//! production starts, and the player hears when a Barracks waits for it (design change 0143).
 
 use bevy::prelude::*;
-use sc_sim::{Command, ObjectKind, PlayerId, ProductionCommand, UNIT_CONTROL_CAP};
+use sc_sim::{ArmyResource, Command, ObjectKind, PlayerId, ProductionCommand, UNIT_CONTROL_CAP};
 use space_crystals::command_ui::feedback::{NO_CRYSTALS_TEXT, TargetFeedback, UNIT_CONTROL_TEXT};
 use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, PanelCommand};
 use space_crystals::hud::command_panel::CommandButton;
+use space_crystals::hud::info_panel::InfoText;
 
 use super::*;
 use KeyCode::{KeyQ, KeyX, ShiftLeft};
@@ -180,30 +182,49 @@ fn q_is_disabled_without_the_crystals_or_with_the_queue_full() {
     assert_eq!(look(&mut app, q()), Some(Common));
 }
 
-/// Design change 0082's verification through the panel: at 199 of 200 Unit Control one more Peacekeeper can be
-/// queued; then Q is disabled although the crystals are there, and cancelling makes it available again. With two
-/// Barracks selected, Q queues at one of them only, and the player is told why (0083's feedback).
+/// Design change 0143 through the panel (`> ObjectInterfaceState[Barracks]`: Q is "Only available if BuildQueue has
+/// fewer than 20 entries and player has sufficient Space Crystals (Unit Control is checked when production
+/// starts)"): at the Unit Control cap (200 of 200) Q stays available, and each press queues and pays. A Barracks
+/// whose Peacekeeper at the front has no room waits at 0%, and the player is told, by placeholders for 0143's
+/// notification: the band names the cap as the wait begins, and the Barracks' InfoPanel says what it waits for. With
+/// two Barracks selected, Q queues at both (0083 no longer considers Unit Control), and the second waits as well.
+/// (The Barracks here have no power, which makes no difference to a unit without room: the HUD's figure with a unit
+/// in production is the sim's, `tests/production/capacity.rs`.)
 #[test]
-fn q_is_disabled_at_the_unit_control_cap() {
-    use ButtonLook::{Common, Disabled};
-    let mut app = production_game(192, 1000);
+fn q_stays_available_at_the_unit_control_cap() {
+    let mut app = production_game(193, 1000);
     let unit_control = |app: &App| app.world().resource::<SimRes>().unit_control(P1);
-    assert_eq!(unit_control(&app), UNIT_CONTROL_CAP - 1);
+    let waiting = |app: &App, id| {
+        let sim = app.world().resource::<SimRes>();
+        sim.production_status(ObjectId(id)).and_then(|status| status.blocked)
+    };
+    assert_eq!(unit_control(&app), UNIT_CONTROL_CAP);
     click(&mut app, barracks_at(15), &[]);
-    assert_eq!(look(&mut app, q()), Some(Common));
+    assert_eq!(look(&mut app, q()), Some(ButtonLook::Common), "at the cap");
     tap(&mut app, &[], KeyQ);
-    assert_eq!((queued(&app, 15), unit_control(&app)), (1, UNIT_CONTROL_CAP));
-    assert_eq!(look(&mut app, q()), Some(Disabled));
-    tap(&mut app, &[], KeyQ);
-    assert_eq!(productions(&app).len(), 1, "nothing more sent");
-    tap(&mut app, &[], KeyX);
-    assert_eq!(unit_control(&app), UNIT_CONTROL_CAP - 1);
-    assert_eq!(look(&mut app, q()), Some(Common));
-    assert_eq!(feedback(&app), None);
+    assert_eq!((queued(&app, 15), bank(&app)), (1, 950), "queued and paid");
+    assert_eq!(waiting(&app, 15), Some(ArmyResource::UnitControl));
+    assert_eq!(feedback(&app), Some(UNIT_CONTROL_TEXT), "the wait begins");
+    let lines = activity(&mut app).expect("the activity area shows");
+    assert_eq!(
+        lines,
+        "Training Peacekeeper: 0%\nWaiting for Unit Control\nQueue: 1 / 20"
+    );
+    assert_eq!(look(&mut app, q()), Some(ButtonLook::Common));
 
     select_barracks(&mut app, &[15, 16]);
     tap(&mut app, &[], KeyQ);
-    assert_eq!(given_since(&app, 2), [(P1, vec![15, 16], TRAIN)]);
-    assert_eq!([queued(&app, 15), queued(&app, 16)], [1, 0]);
-    assert_eq!(feedback(&app), Some(UNIT_CONTROL_TEXT));
+    assert_eq!(given_since(&app, 1), [(P1, vec![15, 16], TRAIN)]);
+    assert_eq!(([queued(&app, 15), queued(&app, 16)], bank(&app)), ([2, 1], 850));
+    assert_eq!(waiting(&app, 16), Some(ArmyResource::UnitControl));
+    assert_eq!(unit_control(&app), UNIT_CONTROL_CAP);
+}
+
+/// The InfoPanel's activity area, while it shows.
+fn activity(app: &mut App) -> Option<String> {
+    let mut texts = app.world_mut().query::<(&InfoText, &Text, &Node)>();
+    texts
+        .iter(app.world())
+        .find(|(which, _, node)| **which == InfoText::Activity && node.display != Display::None)
+        .map(|(_, text, _)| text.0.clone())
 }

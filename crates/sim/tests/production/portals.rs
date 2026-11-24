@@ -7,11 +7,11 @@
 use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references};
 use sc_sim::{
     ArmyCap, ArmyResource, BuildingOrientation, DebugCommand, Doorway, Faction, MoveStatus, ObjectId, ObjectKind,
-    OrderKind, ProductionCommand, Rally, Reject, Rotation, SimEvent, Target, Tick, Vec2, math,
+    OrderKind, ProductionCommand, Rally, Rotation, SimEvent, Target, Tick, Vec2, math,
 };
 
 use super::doors::{exit_of, step_checked, waiting};
-use super::queue::{bank, crystals, queue, rally_of, validate};
+use super::queue::{bank, crystals, queue, rally_of};
 use super::{P1, P2, PK, at, flat, production, tile};
 
 const DRONE: ObjectKind = ObjectKind::Drone;
@@ -144,7 +144,7 @@ fn a_drone_takes_160_frames_and_leaves_by_the_door_closest_to_the_rally_point() 
     assert_eq!(
         (bank(t.sim(), P1), t.sim().army_cap(P1)),
         (70, beacon_capacity(1, 15)),
-        "50 paid and its Beacon Capacity reserved when queued"
+        "50 paid when queued, and its Beacon Capacity taken as its production starts (design change 0143)"
     );
     assert_eq!(run_exits(&mut t, 163), []);
     let exits = run_exits(&mut t, 164);
@@ -443,15 +443,15 @@ fn a_drone_rallied_on_an_enemy_moves_to_it_and_a_sabre_attacks_it() {
 }
 
 /// Plan acceptance, after design changes 0084 and 0085: a portal destroyed with Drones queued refunds them in full,
-/// and the Beacon Capacity they held is free again (the 5 the portal provided goes with it). A debug removal stands
-/// for the destruction, as for the Barracks.
+/// and the Beacon Capacity its Drone in production held, the only one that took any (design change 0143), is free
+/// again (the 5 the portal provided goes with it). A debug removal stands for the destruction, as for the Barracks.
 #[test]
 fn a_destroyed_portal_refunds_its_queue_and_frees_its_capacity() {
     let mut t = robo_portal().start();
     t.debug_at(1, crystals(P1, 150));
     train(&mut t, 1, DRONE, 3);
     t.run(2);
-    assert_eq!((bank(t.sim(), P1), t.sim().army_cap(P1)), (0, beacon_capacity(3, 15)));
+    assert_eq!((bank(t.sim(), P1), t.sim().army_cap(P1)), (0, beacon_capacity(1, 15)));
     t.debug_at(100, DebugCommand::Remove { id: PORTAL });
     t.run_until(100);
     assert_eq!((bank(t.sim(), P1), t.sim().army_cap(P1)), (150, beacon_capacity(0, 10)));
@@ -462,44 +462,6 @@ fn a_destroyed_portal_refunds_its_queue_and_frees_its_capacity() {
         .count();
     assert_eq!(refunds, 3);
     assert_eq!(dangling_references(t.sim()), []);
-}
-
-/// Plan acceptance, design change 0112: a portal over capacity takes no new Drones (the gate refuses them; the ones
-/// queued before complete, as slice M3-C has it), and trains again as soon as units are gone and there is room.
-#[test]
-fn an_over_capacity_portal_trains_again_once_there_is_room() {
-    let mut builder = robo_portal();
-    for i in 0..12 {
-        builder = builder.spawn(DRONE, Some(P1), at(100.0 + 40.0 * i as f32, 1150.0));
-    }
-    let mut t = builder.start();
-    let drones: Vec<ObjectId> = (4..16).map(ObjectId).collect();
-    let train_one = production(&[PORTAL], ProductionCommand::Train(DRONE));
-    t.debug_at(1, crystals(P1, 1000));
-    train(&mut t, 2, DRONE, 2);
-    t.debug_at(3, DebugCommand::Remove { id: ObjectId(2) });
-    t.run(3);
-    assert_eq!(t.sim().army_cap(P1), beacon_capacity(14, 10), "over capacity");
-    assert_eq!(validate(t.sim(), P1, train_one.clone()), Err(Reject::UnitControlCap));
-    let exits = run_exits(&mut t, 400);
-    assert_eq!(exits.len(), 2, "the queue completes");
-    assert_eq!(validate(t.sim(), P1, train_one.clone()), Err(Reject::UnitControlCap));
-    // Five Drones gone: 9 used of 10.
-    for &drone in &drones[..5] {
-        t.debug_at(401, DebugCommand::Remove { id: drone });
-    }
-    t.run(1);
-    assert_eq!(t.sim().army_cap(P1), beacon_capacity(9, 10));
-    assert_eq!(validate(t.sim(), P1, train_one.clone()), Ok(()));
-    t.at(402, P1, train_one.clone());
-    let exits = run_exits(&mut t, 600);
-    assert_eq!(exits.iter().map(|exit| exit.tick).collect::<Vec<_>>(), [561], "trained");
-    assert_eq!(t.sim().army_cap(P1), beacon_capacity(10, 10));
-    assert_eq!(
-        validate(t.sim(), P1, train_one),
-        Err(Reject::UnitControlCap),
-        "full again"
-    );
 }
 
 /// Determinism with the Rng drawn: a game whose portal picks its doors at random replays to the same state, and a

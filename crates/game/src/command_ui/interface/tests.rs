@@ -322,17 +322,17 @@ fn every_producer_gets_the_production_panel_of_its_recipes() {
     assert_eq!(labels, ["Train PK", "Train DR", "Train SL"]);
 }
 
-/// Design changes 0081 and 0082 (`> ObjectInterfaceState[Barracks]`: "Only available if BuildQueue has fewer than
-/// 20 entries and player has sufficient Space Crystals and Unit Control"; "Only available if BuildQueue is not
-/// empty"): a production command the command gate would refuse is disabled, and pressing it does nothing; the
-/// others stay available.
+/// Design changes 0081 and 0143 (`> ObjectInterfaceState[Barracks]`: "Only available if BuildQueue has fewer than
+/// 20 entries and player has sufficient Space Crystals (Unit Control is checked when production starts)"; "Only
+/// available if BuildQueue is not empty"): a production command the command gate would refuse is disabled, and
+/// pressing it does nothing; the others stay available.
 #[test]
 fn a_production_command_the_gate_would_refuse_is_disabled() {
     use PanelCommand::{CancelProduction, SetRallyPoint, Train};
     let (q, x, c) = (slot(0, 0), CommandSlot::CANCEL_PRODUCTION, CommandSlot::RALLY_POINT);
     let barracks = Selection::new([(id(4), BARRACKS), (id(5), BARRACKS)]);
     let look = |panel: &Panel, slot| panel.get(slot).map(|s| s.look);
-    for reject in [Reject::QueueFull, Reject::InsufficientCrystals, Reject::UnitControlCap] {
+    for reject in [Reject::QueueFull, Reject::InsufficientCrystals] {
         let refused = Conditions::default().refusing(Train(PK), reject);
         assert_eq!(refused.refusal(Train(PK)), Some(reject));
         let shown = panel(&barracks, InterfaceState::DefaultState, &refused);

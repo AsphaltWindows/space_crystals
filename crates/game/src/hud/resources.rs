@@ -7,15 +7,16 @@
 //!     nothing gathers or costs them (design change 0077);
 //!   - Power as used / available: what the player's structures consume over what they generate (`Sim::power`),
 //!     shown in red while consumption exceeds generation (design change 0090);
-//!   - Unit Control as used / the cap (`Sim::unit_control`, `UNIT_CONTROL_CAP`). "Used" counts the units queued in a
-//!     producer too (design change 0082): the sim's one accessor includes them once slice M2-D2 reserves them, so
-//!     the bar follows without a change here.
+//!   - Unit Control as used / the cap (`Sim::unit_control`, `UNIT_CONTROL_CAP`). "Used" counts the units in
+//!     production too, not the ones only queued (design change 0143: "The HUD's 'used' count includes in-production
+//!     units, not merely queued ones"): the sim's one accessor counts them, so the bar follows it without a rule of
+//!     its own.
 //! - **Colonists** (`factions/colonists/overview.md > DisplayHud`; slice M3-C, plan decision T23), left to right:
 //!   - Space Crystals, Alloys, Essence and Flux, the banks (`Player::alloys` and the others, plan decision T21);
 //!     the refined ones stay 0 until refining exists (question Q0043 point 1);
-//!   - Beacon Capacity as used / available (`Sim::army_cap`, plan decision T20): the units and the units queued
-//!     over 5 per Colonists building, at most 200; in red while more is used than available (`> Beacon Capacity >
-//!     Over capacity`, design change 0112). No Power: the Colonists have none (T21).
+//!   - Beacon Capacity as used / available (`Sim::army_cap`, plan decision T20): the units and the units in
+//!     production (design change 0143) over 5 per Colonists building, at most 200; in red while more is used than
+//!     available (`> Beacon Capacity > Over capacity`, design change 0112). No Power: the Colonists have none (T21).
 //! - **The other factions** show Space Crystals only, until their own resources (the Syndicate's Tunnel Space and
 //!   Supplies, the Cults' Unit Control) exist in the sim (the M2 plan, slice G).
 //! - A local player who isn't in the game shows no resources.
@@ -276,8 +277,9 @@ mod tests {
     /// `factions/colonists/overview.md > DisplayHud` on the Colonists' starting base
     /// (`factions/colonists/economy.md > Starting Conditions`; the plan's acceptance for slice M3-C: "Space
     /// Crystals 100 ... Beacon Capacity 4/10", in ASCII): the four banks, the refined ones at 0, and Beacon Capacity
-    /// as used / available, with no Power. The refined banks show what `SetResources` sets, the capacity follows a
-    /// queued Drone (Q0041 point 1), and over capacity it shows in red.
+    /// as used / available, with no Power. The refined banks show what `SetResources` sets, the capacity follows the
+    /// Drones in production and not those only queued (design change 0143, answering Q0041 point 1), and over
+    /// capacity it shows in red.
     #[test]
     fn the_colonists_bar_reads_their_banks_and_beacon_capacity() {
         use ResourceFigure::{Alloys, BeaconCapacity, Essence, Flux, SpaceCrystals};
@@ -336,8 +338,9 @@ mod tests {
                 "Beacon Capacity 5/10"
             ]
         );
-        // Over capacity (`overview.md > Beacon Capacity > Over capacity`, design change 0112): with a second Drone
-        // queued, the Egress Node lost leaves 6 used of 5, in red.
+        // Design change 0143: the Drone in production counts, a second one only queued doesn't; with two more Drones,
+        // 7 of 10. Over capacity (`overview.md > Beacon Capacity > Over capacity`, design change 0112): the Egress
+        // Node lost leaves 7 used of 5, in red.
         t.at(
             3,
             P1,
@@ -346,14 +349,19 @@ mod tests {
                 command: train,
             },
         );
+        for x in [5, 6] {
+            t.spawn_unit_at(3, ObjectKind::Drone, P1, TilePos::new(x, 8).center());
+        }
+        t.run(1);
+        assert_eq!(texts(t.sim(), P1)[4], "Beacon Capacity 7/10");
         t.debug_at(
             4,
             sc_sim::DebugCommand::Remove {
                 id: sc_sim::ObjectId(1),
             },
         );
-        t.run(2);
-        assert_eq!(texts(t.sim(), P1)[4], "Beacon Capacity 6/5!");
+        t.run(1);
+        assert_eq!(texts(t.sim(), P1)[4], "Beacon Capacity 7/5!");
     }
 
     /// The other factions show only what exists of their DisplayHud: Space Crystals. A player not in the game shows

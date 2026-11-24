@@ -361,10 +361,12 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      phase, before 5b.
    - Producers, `Sim::step_production` (slice M2-D2, see *Production*): part of the economy phase, run right after
      `economy::step` and not inside it, because a finished unit is inserted into the game (`Sim::insert_object`).
-     The unit in production advances, and a finished one is released into its exit doorway, or held while that is
-     occupied. Nothing in `economy::step` reads what the producers write, or the other way round, so the order
-     between the two is free. After 5d, so a released unit never moves in its own tick; before 5f, so it is seen
-     in it.
+     A unit at the front starts only if its owner's army cap has room for it (design change 0143), the unit in
+     production advances, and a finished one is released into its exit doorway, or held while that is occupied.
+     Nothing in `economy::step` reads what the producers write, or the other way round, so the order between the
+     two is free; after the transformations, so that a Beacon completed in the tick gives its room in it, as the
+     deaths of 5e do theirs. After 5d, so a released unit never moves in its own tick; before 5f, so it is seen in
+     it.
    - Defeat, `economy::defeat::step` (slice M2-F2, plan decision T8, see *Economy > Defeat and the end of the
      game*): the economy phase's last step, run by `step` after the producers, so that every way a structure left
      the game in the tick counts (the commands' removals, 5e's deaths). Before 5f, so that the units a defeat makes
@@ -916,13 +918,14 @@ section of its own.
   milestones): the GDO's Unit Control, out of `UNIT_CONTROL_CAP`, and the Colonists' Beacon Capacity, out of
   min(`BEACON_CAPACITY_CAP`, `BEACON_CAPACITY_PER_BUILDING` × their Colonists structures, a Beacon under deployment
   left out until it completes: design change 0112, *Beacon Deployment*). Used is the
-  `ArmyResource::cost_of` of the player's units plus what the units in their producers' queues reserve (design
-  change 0082; Q0041 point 1 for Beacon Capacity: a unit counts from the moment it is queued, the one in production
-  and one waiting inside included). Capacity that falls below what is used leaves the units and the queues alone
-  and refuses new units (design change 0112; the queues, Q0041 point 2). `Sim::unit_control(player)` is the GDO's
-  used figure alone, which the HUD reads. A building counts from the tick it is placed until the tick it leaves the
-  game, that one excluded (design change 0089), because it is among the objects in between. Each call walks the
-  objects once.
+  `ArmyResource::cost_of` of the player's units plus their producers' units in production (design change 0143, for
+  every faction: `Production::in_production`, the unit at the front once its progress has begun, a finished one
+  waiting inside included; a unit only queued, or waiting at 0% for room, takes nothing). The cap is checked when a
+  unit's production would start, never when it is queued (*Production*). Capacity that falls below what is used
+  leaves the units and the unit in production alone, and no new unit starts until there is room (design changes
+  0112 and 0143, Q0041 point 2). `Sim::unit_control(player)` is the GDO's used figure alone, which the HUD reads. A
+  building counts from the tick it is placed until the tick it leaves the game, that one excluded (design change
+  0089), because it is among the objects in between. Each call walks the objects once.
 - **Speed in fixed point** (plan decision T6): `RATIO_ONE` (2^16) is 100 %. `PowerSummary::ratio()` is
   `min(RATIO_ONE, ⌈generated × 2^16 / consumed⌉)`, and `RATIO_ONE` without consumers. `PowerSummary::speed(kind)` is
   what a structure of that kind advances in a tick: the ratio for a consumer (negative Power), `RATIO_ONE` for any
@@ -1054,29 +1057,42 @@ section of its own.
 
 ## Production
 
-Producing structures, their rally points and the exit doorways (`production.rs`, `production/`, `sim/producers.rs`;
-slice M2-D2; `factions/gdo/structures.md > Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the
-Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`, `> Bio Portal`, plan decision T19).
+Producing structures, their rally points and the exit doorways (`production.rs`, `production/`, `sim/producers.rs`,
+`sim/producers/step.rs`; slice M2-D2, the army caps at production start slice M3-P; `factions/gdo/structures.md >
+Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' portals, slice M3-D:
+`factions/colonists/structures.md > Robo Portal`, `> Bio Portal`, plan decision T19).
 
 - **State**: `Object::production` (`Production`: the BuildQueue, whose head is the unit in production, so the
   limit `QUEUE_LIMIT` (20) includes it, design change 0081; its progress in `RATIO_ONE`s; the rally point). What a
   type produces is `StructureDef::production` (`ProductionDef`: its exit rule, `ExitRule`, and the `Recipe`s: kind,
   Space Crystals, frames). `Sim::production_status(id)` is what the interface shows: the kind, the progress out of
-  its total, and `waiting`.
+  its total, `waiting` (finished, held for the doorway) and `blocked` (the army cap the unit at the front waits for
+  at 0%, design change 0143). `Production::blocked`, the stored mark of that wait, is hashed and saved only while
+  true (`#[serde(default, skip_serializing_if)]`, as `Mover::momentum` is while non-zero), so that the games without
+  a wait, the goldens among them, keep their hashes.
 - **Commands**: `Command::Production { objects, command }` with `ProductionCommand::Train(kind)`,
   `CancelProduction` and `SetRally(Target)`; the gate's rules are in *Commands, events and replays*.
-- **Costs** (plan decision T7): a unit's Space Crystals are paid and its army cap (Unit Control, Beacon Capacity; see
-  *Economy*) reserved when it is queued (design change 0082). A unit past the cap is refused for every faction with
-  the same reason (`Reject::UnitControlCap`, `Refusal::UnitControl`, plan decision T20). Cancelling refunds in full
-  (`Refund::Full`) and takes the last entry. When a producer
-  leaves the game, destroyed or removed, `Sim::remove_objects` refunds its whole queue the same way, a finished
-  unit waiting inside included (design changes 0084, 0085; `Sim::refund_production`).
+- **Costs** (plan decision T7): a unit's Space Crystals are paid when it is queued, and only they and room in the
+  queue are checked then. Its army cost (Unit Control, Beacon Capacity; see *Economy*) is taken when its production
+  starts (design change 0143, which replaces 0082's reservation at queue time, for every faction): no `Reject` or
+  `Refusal` is about the army cap. Cancelling refunds in full (`Refund::Full`) and takes the last entry, a unit
+  waiting for room included. When a producer leaves the game, destroyed or removed, `Sim::remove_objects` refunds
+  its whole queue the same way, a finished unit waiting inside included (design changes 0084, 0085;
+  `Sim::refund_production`); of the cap it frees only what its unit in production took.
 - **Group production** (design change 0083): a `Train` to several producers serves them by the work they have
   queued, least first (`Production::remaining_work`: remaining production time, a placeholder reading), ties by
-  id, each check counting what the ones before it took, until a cost check (crystals, the army cap) fails. A full
-  queue is passed over. The others get `SimEvent::ProductionRefused`.
-- **The step** (`Sim::step_production`, see *Tick pipeline*): the unit in production advances by
-  `PowerSummary::speed` (design change 0089), capped at its total. Trained in tick `t` at full power, a
+  id, each check counting what the ones before it took, until the crystal check fails (0143: the army cap plays no
+  part). A full queue is passed over. The others get `SimEvent::ProductionRefused`.
+- **The start check** (design change 0143, `sim/producers/step.rs`): in the producers' step, before a unit at 0% at
+  the front of its queue advances, its owner's `ArmyCap::fits(cost)` (`available − used ≥ cost`) must hold, with
+  the caps worked out once a step for the players who need them and the units that start in the step added as they
+  do. Without room the producer stays at 0%, `Production::blocked`, and checks again every tick; the tick the wait
+  begins it raises `SimEvent::ProductionWaiting { producer, reason }`, once (placeholder for 0143's notification,
+  whose system is TBD). Producers waiting for the same room are served in id order, the step's. A unit in
+  production is never checked again: it always finishes (Q0041 point 2). At a power ratio of 0 a unit that passes
+  makes no progress, so it neither starts nor takes anything.
+- **The step** (`Sim::step_production`, see *Tick pipeline*): the start check, then the unit in production advances
+  by `PowerSummary::speed` (design change 0089), capped at its total. Trained in tick `t` at full power, a
   Peacekeeper (80 frames) is released in tick `t + 79`; at 30/51 in tick `t + 135`; a Drone or a Sabre Legionnaire
   (160 frames, the Colonists have no Power) in tick `t + 159`. The next one starts from 0 in the tick after a
   release.
@@ -1128,14 +1144,17 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
 - **Tests**: `src/production.rs` and `production/exit/tests.rs` (the queue, the Barracks' door in all 8
   orientations and its rule, the portals' doors, the door a unit is in, the room before a door, the choice of
   door), and `tests/production/`: `queue.rs` (times, the power ratio, train and cancel, the limit
-  of 20, Unit Control, the gate, group production, refunds, a game replayed and saved), `rally.rs` (each kind of
+  of 20, Unit Control, the gate, group production, refunds, a game replayed and saved), `capacity.rs` (slice M3-P:
+  the army caps at production start, design change 0143's and 0112's Verifications with a real deployment, the
+  waits and their notification, id order, the refunds of a waiting and of a producing producer, a cancelled wait, a
+  producer without power, waits saved and replayed, and slice M3-D's portal over capacity), `rally.rs` (each kind of
   target, clearing, an enemy leaving sight, a remembered structure), `exit.rs` (the verification of design change
   0080, all 8 orientations, a crowd of idle units, a half-blocked exit, a path from inside the footprint, no way
   back in), `stalls.rs` (walled in by a building and by units and freed again, the waiting unit's refund, saves
   in the middle of an exit, and a random game of 3 000 ticks around four doorways) and `portals.rs` (slice M3-D: a
   Drone's and a Sabre's times, the door closest to the rally point and its ties, random doors by seed, a walled-off
   and an occupied closest door, a pause with every door occupied, the Bio Portal's A sides in all 8 orientations,
-  rallies on an enemy, a destroyed portal's refund, over capacity, a replay and a save).
+  rallies on an enemy, a destroyed portal's refund, a replay and a save).
 
 ## Commands, events and replays
 
@@ -1190,7 +1209,8 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   ObjectInterfaceState[Barracks]`, see *Production*): the producers are the player's objects among `objects` that
   produce units, found as an order's units are (stale and repeated ids dropped, `NotOwned`); none is
   `Reject::NoProducers`. `Train(kind)` is taken when at least one producer queues the unit, else
-  `CannotProduce(kind)`, `InsufficientCrystals`, `UnitControlCap` or `QueueFull`; `CancelProduction` when a producer
+  `CannotProduce(kind)`, `InsufficientCrystals` or `QueueFull` (the army cap is no reason: design change 0143 checks
+  it when production starts); `CancelProduction` when a producer
   has something queued, else `NothingQueued`; `SetRally` with a point on the map (`OffMap`) or an object that
   exists and that the player sees, as for an order's target (`UnknownObject`, `NotVisible`; the producer itself
   always). `Sim::validate` gives the interface the same answers for its buttons.
@@ -1245,11 +1265,13 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   must never submit a command with a non-finite number. The sim would reject it anyway, but JSON can't store NaN or
   ±∞, so the replay file would fail to load. Validate at the input layer.
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`,
-  `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `UnitProduced`,
+  `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `ProductionWaiting`, `UnitProduced`,
   `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
   `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, `DeployFailed`, …) are
   output only, for effects, sounds and UI. The sim never reads them. `DeployFailed { drone, origin, problems }` (slice
   M3-F) is a Deploy that failed on arrival; the client's feedback line says why (`command_ui/feedback.rs`).
+  `ProductionWaiting { producer, reason }` (slice M3-P, design change 0143) is a producer whose unit at the front
+  began to wait for room under the army cap `reason`, raised once per wait: the placeholder of 0143's notification.
   `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events from the scenario's
   initial spawns. `Hit { attacker, target, damage, shield_damage }` says what a hit took of the target's HP and of
   its Shields (see *Combat > Shields*). `KindChanged { id, from, to }` (`Sim::change_kind`) says that an object
@@ -1418,8 +1440,9 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   outdated flag, and `dev_skirmish`'s bases seeing and reaching their fields) and the unit tests of
   `scenario/starting.rs` (the table, and a layout made for other Starting Conditions). `colonists_start.rs` (slice
   M3-C) has the Colonists' start on `dev_skirmish` in either slot, its Drones clear of the node and the portal, the
-  validation of every faction combination and of an incomplete layout, and Beacon Capacity: six Drones queued and
-  the seventh refused, group production up to the cap, a fall in capacity, and the refined banks.
+  validation of every faction combination and of an incomplete layout, and Beacon Capacity (design change 0143):
+  seven Drones queued and the seventh waiting for room, group production past the capacity, a fall in capacity, and
+  the refined banks.
 - **Structure tests** are `crates/sim/tests/structures.rs` (each type's stat block, the Barracks in all 16 ways to
   rotate and flip it and its sides, ground units walking around a footprint, PointArmor on hits, a destroyed
   Generator freeing its tiles, debug spawns kept apart but for a plate on its patch, flat ground, the optional
@@ -1640,7 +1663,7 @@ speed, paused or end, and a desync in red), and between them, centred, the local
 DisplayHud lists them (`hud/resources.rs`, one `ResourceFigure` text each, `resource_bar` for their readings): for
 the GDO Space Crystals and Supplies (the banks), Power as consumed / generated (`Sim::power`), red while consumption
 exceeds generation (0090), and Unit Control as used / `UNIT_CONTROL_CAP`, read through `Sim::unit_control` alone, so
-that the queue's reserved Unit Control (0082) shows as soon as the sim counts it; for the Colonists (slice M3-C,
+that the units in production (design change 0143) count as the sim counts them; for the Colonists (slice M3-C,
 `factions/colonists/overview.md > DisplayHud`) Space Crystals, Alloys, Essence and Flux, and Beacon Capacity as used
 / available (`Sim::army_cap`; red over capacity, 0112), with no Power; the other factions Space Crystals only, until
 their own resources exist. At the end of the game a banner across the world view (`hud/outcome.rs`,
@@ -1791,8 +1814,9 @@ M2-H2).
   them: the Riot Shield button is on, and lowers the shields, while all its recipients' are up or going up, else it
   raises them; Attack is disabled while none of its recipients can attack. `Conditions` holds the `Modes` and what
   the command gate refuses: a production command is disabled exactly when `Sim::validate` refuses the
-  `Command::Production` pressing it would send (the gate's own predicates, no copy of them: crystals, Unit Control, a
-  full queue, nothing to cancel; 0081, 0082), and so is Convert, by its `Command::Ability` (every recipient Firing,
+  `Command::Production` pressing it would send (the gate's own predicates, no copy of them: crystals, a full queue,
+  nothing to cancel; 0081; never the army cap, which is checked when production starts, 0143), and so is Convert, by
+  its `Command::Ability` (every recipient Firing,
   in Cooldown or converting). `command_ui/resolution.rs` has what a click
   resolves to and the `PointerDisplay` that previews it. A `MapTarget` is what is under the cursor (`CursorTarget`),
   with the ground point there and, for an object, whether it is destructible and its domain. A right-click resolves
@@ -1877,11 +1901,13 @@ M2-H2).
   striped in the Attack red and the Move green (`MIXED_COLORS`, `MIXED_STRIPE_PX`). The invalid-target feedback
   (`command_ui/feedback.rs`) is the message `INVALID_TARGET_TEXT` above the HUD Bar for `FEEDBACK_TICKS` sim ticks
   after the latest `InvalidTarget` (`TargetFeedback`), never in the pointer's way (`Pickable::IGNORE`). The same
-  band gives the insufficient-resources feedback (0083): `NO_CRYSTALS_TEXT`, or for the army cap the player's
-  faction's (`army_cap_text`: `UNIT_CONTROL_TEXT`, `BEACON_CAPACITY_TEXT`), after the sim's `ProductionRefused` for
-  a local player's producer that a Train didn't reach for want of crystals or army cap (a full queue gives none),
-  and a placement's (`placement_text`, the check's first problem): an `InvalidPlacement`
-  or the sim's `PlacementRefused`.
+  band gives the insufficient-resources feedback (0083): `NO_CRYSTALS_TEXT` after the sim's `ProductionRefused` for
+  a local player's producer that a Train didn't reach for want of crystals (a full queue gives none); the
+  placeholder of design change 0143's notification, the army cap's name (`army_cap_text`: `UNIT_CONTROL_TEXT`,
+  `BEACON_CAPACITY_TEXT`), after the sim's `ProductionWaiting` for a local player's producer whose unit begins to
+  wait for room (its InfoPanel shows "Waiting for Unit Control" or "Waiting for Beacon Capacity" while it does,
+  `hud/info_panel/activity.rs`); and a placement's (`placement_text`, the check's first problem): an
+  `InvalidPlacement` or the sim's `PlacementRefused`.
 - **Placement visuals** (`placement.rs`, `placement/`): while the local player places a building (`placing_now`: a
   game mode, AwaitingPlacement, a commandable selection). `PlacementGhost` holds the `Ghost` under the cursor (the
   footprint as turned, the `PlacementCheck` there now, the side letters of `sc_sim::sides`), worked out every frame;
@@ -2218,8 +2244,9 @@ M3-C; the M3 slices after it add their steps (plan `artifacts/director/m3-plan.m
    `MapDef::validate` (its structures by `placement::check_layout`, its units by the unit-start rule), and keep the
    starting units clear of the structures' sides and exits.
 5. **Army cap** (`economy/army.rs`): the faction's `ArmyResource` (`ArmyResource::of`, `name`, `cost_of`, and what
-   is available in `cap`), or none. The gate's refusal stays the one for every faction (`Reject::UnitControlCap`,
-   `Refusal::UnitControl`); the client's `army_cap_text` names the faction's resource.
+   is available in `cap`), or none. The start check at production start is the one for every faction (design change
+   0143, `sim/producers/step.rs`), and so is its `SimEvent::ProductionWaiting`; the client's `army_cap_text` and the
+   InfoPanel's waiting line name the faction's resource.
 6. **HUD figures** (`hud/resources.rs`): the faction's `ResourceFigure`s in its DisplayHud order (`ResourceFigure::of`)
    and each new figure's reading in `resource_bar`, in ASCII.
 7. **Templates** (`command_ui/interface/templates.rs`): `InterfaceTemplate::of(kind)` for each kind with a command

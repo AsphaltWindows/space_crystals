@@ -3,8 +3,8 @@
 
 use sc_sim::testing::{TestSim, dangling_references};
 use sc_sim::{
-    Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, ProductionCommand, QUEUE_LIMIT,
-    Rally, Refusal, Reject, Sim, SimEvent, Target, Tick, UNIT_CONTROL_CAP, Vec2,
+    ArmyResource, Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, ProductionCommand,
+    QUEUE_LIMIT, Rally, Refusal, Reject, Sim, SimEvent, Target, Tick, UNIT_CONTROL_CAP, Vec2,
 };
 
 use super::{BARRACKS, P1, P2, PK, at, base, production, tile};
@@ -115,14 +115,18 @@ fn train_pays_cancel_refunds_and_the_queue_stops_at_twenty() {
     assert_eq!(QUEUE_LIMIT, 20);
     assert_eq!((queue(t.sim(), BARRACKS), bank(t.sim(), P1)), (20, 1000));
     assert_eq!(validate(t.sim(), P1, train(&[BARRACKS])), Err(Reject::QueueFull));
-    assert_eq!(t.sim().unit_control(P1), 20, "design change 0082: reserved when queued");
+    assert_eq!(
+        t.sim().unit_control(P1),
+        1,
+        "design change 0143: the unit in production, not the 19 queued"
+    );
 
     // "X: Cancel Production: removes last entry from BuildQueue, refunds full cost to player."
     let cancel = production(&[BARRACKS], ProductionCommand::CancelProduction);
     t.at(3, P1, cancel.clone());
     t.run(1);
     assert_eq!((queue(t.sim(), BARRACKS), bank(t.sim(), P1)), (19, 1050));
-    assert_eq!(t.sim().unit_control(P1), 19);
+    assert_eq!(t.sim().unit_control(P1), 1);
     assert!(t.events().contains(&(
         3,
         SimEvent::ProductionCancelled {
@@ -144,10 +148,13 @@ fn train_pays_cancel_refunds_and_the_queue_stops_at_twenty() {
     assert_eq!(produced(&t), [], "nothing is left to produce");
 }
 
-/// Design change 0082's Verification: at 199 of 200 one more Peacekeeper can be queued, the next is refused
-/// although crystals are there, and cancelling gives the Unit Control back. (A Peacekeeper's UnitControlCost is 1.)
+/// Design change 0143 (which replaces 0082's Verification): at 199 of 200 two Peacekeepers queue, both paid, though
+/// only one fits; the first starts, and the HUD shows 200/200 from then on, its Unit Control counting "from that
+/// moment, through production and for as long as the unit lives"; the second waits at the front once the first is
+/// out. Cancelled, it is refunded in full and frees nothing, having taken nothing. (A Peacekeeper's UnitControlCost
+/// is 1.) The waits and their notification: `capacity.rs`.
 #[test]
-fn unit_control_is_reserved_when_a_unit_is_queued() {
+fn unit_control_is_taken_when_production_starts() {
     let mut builder = base();
     for i in 0..199 {
         let (col, row) = (i % 25, i / 25);
@@ -158,22 +165,22 @@ fn unit_control_is_reserved_when_a_unit_is_queued() {
     t.debug_at(1, crystals(P1, 1000));
     t.at(2, P1, train(&[BARRACKS])).at(2, P1, train(&[BARRACKS]));
     t.run(2);
-    assert_eq!((queue(t.sim(), BARRACKS), bank(t.sim(), P1)), (1, 950));
+    assert_eq!((queue(t.sim(), BARRACKS), bank(t.sim(), P1)), (2, 900), "both queue");
+    assert_eq!(t.sim().unit_control(P1), 200, "the first is in production");
     assert_eq!(
-        t.sim().unit_control(P1),
-        200,
-        "the HUD shows 200/200 as soon as it's queued"
+        validate(t.sim(), P1, train(&[BARRACKS])),
+        Ok(()),
+        "queuing doesn't check it"
     );
-    assert_eq!(validate(t.sim(), P1, train(&[BARRACKS])), Err(Reject::UnitControlCap));
-    t.at(3, P1, production(&[BARRACKS], ProductionCommand::CancelProduction));
-    t.run(1);
-    assert_eq!((t.sim().unit_control(P1), bank(t.sim(), P1)), (199, 1000));
-    // Queued again and produced: the unit takes over the Unit Control its queue entry held.
-    t.at(4, P1, train(&[BARRACKS]));
-    t.run_until(90);
+    t.run_until(85);
     assert_eq!((produced(&t).len(), t.sim().unit_control(P1)), (1, 200));
+    let status = t.sim().production_status(BARRACKS).unwrap();
+    assert_eq!((status.progress, status.blocked), (0, Some(ArmyResource::UnitControl)));
+    t.at(86, P1, production(&[BARRACKS], ProductionCommand::CancelProduction));
+    t.run(1);
+    assert_eq!((t.sim().unit_control(P1), bank(t.sim(), P1)), (200, 950));
     // "When a unit dies, release its Unit Control as usual."
-    t.debug_at(91, DebugCommand::Remove { id: ObjectId(10) });
+    t.debug_at(87, DebugCommand::Remove { id: ObjectId(10) });
     t.run(1);
     assert_eq!(t.sim().unit_control(P1), 199);
 }
@@ -326,12 +333,13 @@ fn group_production_queues_everywhere_when_the_player_can_pay() {
     assert_eq!((queue(tie.sim(), BARRACKS), queue(tie.sim(), ObjectId(3))), (1, 0));
 }
 
-/// Design change 0083: "This applies to every faction and every cost, including ... GDO Unit Control": with room
-/// for one more unit under the cap, the idlest Barracks takes it. A full queue is passed over.
+/// Design change 0083 under 0143 ("0083 no longer considers Unit Control"; `systems/controls/selection_and_hud.md >
+/// Group production with limited resources`: "unit capacity is not checked when queuing"): at the cap, a Train to
+/// two Barracks queues at both, paid, the idler first; the room decides only who starts. A full queue is passed over.
 #[test]
-fn group_production_counts_unit_control_and_passes_over_full_queues() {
+fn group_production_leaves_unit_control_out_and_passes_over_full_queues() {
     let mut builder = base().spawn(ObjectKind::Barracks, Some(P1), tile(8, 8));
-    for i in 0..198 {
+    for i in 0..199 {
         let (col, row) = (i % 25, i / 25);
         builder = builder.spawn(PK, Some(P1), at(800.0 + 30.0 * col as f32, 500.0 + 30.0 * row as f32));
     }
@@ -341,20 +349,26 @@ fn group_production_counts_unit_control_and_passes_over_full_queues() {
     t.at(1, P1, train(&[a]));
     t.at(2, P1, train(&[a, b]));
     t.run(2);
+    assert_eq!((queue(t.sim(), a), queue(t.sim(), b)), (2, 1), "both queue");
+    assert_eq!(t.sim().unit_control(P1), 200, "A's first started; B has no room");
+    let events: Vec<&SimEvent> = t
+        .events()
+        .iter()
+        .filter(|(tick, _)| *tick == 2)
+        .map(|(_, e)| e)
+        .collect();
     assert_eq!(
-        (queue(t.sim(), a), queue(t.sim(), b)),
-        (1, 1),
-        "B, the idle one, took the last"
+        events,
+        [
+            &SimEvent::ProductionQueued { producer: b, kind: PK },
+            &SimEvent::ProductionQueued { producer: a, kind: PK },
+            &SimEvent::ProductionWaiting {
+                producer: b,
+                reason: ArmyResource::UnitControl
+            },
+        ],
+        "the idlest first, and no refusal"
     );
-    assert_eq!(t.sim().unit_control(P1), 200);
-    assert!(t.events().contains(&(
-        2,
-        SimEvent::ProductionRefused {
-            producer: a,
-            kind: PK,
-            reason: Refusal::UnitControl
-        }
-    )));
 
     let mut full = base().spawn(ObjectKind::Barracks, Some(P1), tile(8, 8)).start();
     full.debug_at(1, crystals(P1, 5000));
@@ -375,7 +389,8 @@ fn group_production_counts_unit_control_and_passes_over_full_queues() {
 }
 
 /// Design change 0084's Verification 1: "Queue 5 Peacekeepers (250 crystals) at a Barracks, then destroy the
-/// Barracks. Crystals go up by 250, and Unit Control drops by the queued units' cost." Destroyed in combat here.
+/// Barracks. Crystals go up by 250, and Unit Control drops by the queued units' cost", which design change 0143 makes
+/// the cost of the unit in production only, the queued ones having taken none. Destroyed in combat here.
 #[test]
 fn a_destroyed_barracks_refunds_its_whole_queue() {
     let mut builder = base();
@@ -391,7 +406,11 @@ fn a_destroyed_barracks_refunds_its_whole_queue() {
     }
     t.order_at(2, P2, &attackers, OrderKind::Attack(BARRACKS), false);
     t.run(3);
-    assert_eq!((bank(t.sim(), P1), t.sim().unit_control(P1)), (0, 5));
+    assert_eq!(
+        (bank(t.sim(), P1), t.sim().unit_control(P1)),
+        (0, 1),
+        "only the unit in production takes any"
+    );
     let died = (4..2000).find(|_| {
         t.step();
         t.sim().object(BARRACKS).is_none()
@@ -415,7 +434,7 @@ fn a_destroyed_barracks_refunds_its_whole_queue() {
     assert_eq!(
         t.sim().unit_control(P1),
         own_units,
-        "the queue's Unit Control is released"
+        "the Unit Control of the unit in production is released"
     );
     assert_eq!(dangling_references(t.sim()), []);
 }

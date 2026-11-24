@@ -7,11 +7,14 @@
 //!   appears, in every orientation, and how it gets out;
 //! - `stalls`: blocked doorways (production pauses, design change 0085's refund), saves, and a long random game;
 //! - `portals`: the Robo Portal and the Bio Portal (`factions/colonists/structures.md`, plan decision T19): which of
-//!   their doors a unit leaves by, their pause, rally points on enemies, refunds and Beacon Capacity.
+//!   their doors a unit leaves by, their pause, rally points on enemies, refunds and Beacon Capacity;
+//! - `capacity`: the army caps checked when production starts, for the GDO and the Colonists (design change 0143,
+//!   slice M3-P): the waits at 0%, the notification, a unit in production that always finishes, the refunds.
 //!
 //! Every test runs under the invariants of `TestSim` (I1: no two units overlap; I2 with its doorway exception: only
 //! the released unit, only its own building's tiles, only outwards).
 
+mod capacity;
 mod doors;
 mod exit;
 mod portals;
