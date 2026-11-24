@@ -261,7 +261,6 @@ pub fn player_color(owner: Option<PlayerId>) -> Color {
 /// now ([`MeshKey`]: its kind, owner, size or tint changed), which then get a new one, children included (tag, tick,
 /// Riot Shield, load marker). A replaced sim (new generation) starts from scratch, because its ids may repeat the old
 /// ones.
-
 fn sync_object_visuals(
     mut commands: Commands,
     sim: Res<SimRes>,

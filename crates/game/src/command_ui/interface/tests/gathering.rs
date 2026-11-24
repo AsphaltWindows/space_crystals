@@ -69,7 +69,7 @@ fn the_egress_nodes_f_shows_only_with_drones_to_select() {
             f,
             PanelButton::Command(PanelCommand::SelectReturningDrones),
             ButtonLook::Common,
-            "Returning"
+            "Drones"
         )
     );
     assert_eq!(press(&shown, f), SlotPress::SelectReturningDrones);

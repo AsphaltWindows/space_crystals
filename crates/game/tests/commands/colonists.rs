@@ -2,9 +2,11 @@
 //! ([`colonists_game`]): a Drone's Deploy, its ghost and the lingering ghosts of the Deploys ordered (`deploy`); a
 //! Beacon's Warp In menus and its ghost on the Beacon, the Cancel of whatever transforms, and what pressing a
 //! greyed-out button says (`warp_in`); the group of a type's unfinished buildings, apart from its finished ones
-//! (design change 0185, `unfinished`).
+//! (design change 0185, `unfinished`). The gathering UI of slice M3-J2, the Drones' right-click, Set Drop-off, the
+//! Egress Node's F and a load carried: `gathering`, on a field of its own.
 
 mod deploy;
+mod gathering;
 mod unfinished;
 mod warp_in;
 

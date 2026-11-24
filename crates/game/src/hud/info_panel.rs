@@ -255,7 +255,6 @@ fn worker_lines(sim: &Sim, worker: Worker) -> Vec<String> {
 }
 
 /// The Space Crystals left in the patch under `plate`, a structure that mines (`factions/gdo/economy.md >
-
 /// ExtractionPlate > InfoPanel`: "displays remaining Space Crystals in the underlying patch"): in the patch it mines
 /// (`Object::extractor`), else in the patch its footprint covers, for a plate that stands on one but mines nothing
 /// (one without an owner has no bank to pay). `None` for any other object, and for a plate on bare ground.

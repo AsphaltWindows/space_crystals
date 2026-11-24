@@ -306,7 +306,7 @@ impl PanelCommand {
             PanelCommand::Planned(planned) => planned.label(),
             PanelCommand::Deploy => "Deploy",
             PanelCommand::SetDropOff => "Drop-off",
-            PanelCommand::SelectReturningDrones => "Returning",
+            PanelCommand::SelectReturningDrones => "Drones",
         }
     }
 }

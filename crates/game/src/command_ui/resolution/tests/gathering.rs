@@ -39,8 +39,8 @@ fn a_gatherer_previews_gathering_and_returning() {
 fn set_drop_off_takes_an_own_node() {
     use PointerDisplay as D;
     let awaiting = InterfaceState::awaiting(PanelCommand::SetDropOff);
-    let set = Some(Resolved::Ability(Ability::SetDropOff(id(3))));
-    assert_eq!(target_resolution(PanelCommand::SetDropOff, &own_node()), set);
+    let set = Resolved::Ability(Ability::SetDropOff(id(3)));
+    assert_eq!(target_resolution(PanelCommand::SetDropOff, &own_node()), Some(set));
     assert_eq!(drop_off_target(&own_node()), Some(id(3)));
     assert_eq!(pointer_display(awaiting, &[DRONE], &own_node()), D::ReturnResources);
     let ground = MapTarget::ground(P);
@@ -56,7 +56,7 @@ fn set_drop_off_takes_an_own_node() {
             "{invalid:?}"
         );
     }
-    assert_eq!(PointerDisplay::of(set.unwrap()), D::ReturnResources);
+    assert_eq!(PointerDisplay::of(set), D::ReturnResources);
 }
 
 /// The Egress Node has no right-click (`factions/colonists/economy.md > Egress Node > Egress Node
