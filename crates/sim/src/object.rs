@@ -51,8 +51,8 @@ pub struct Object {
     pub mover: Option<Mover>,
     /// Units that can attack: the attack sequence (`systems/combat.md`; `combat`).
     pub attack: Option<AttackState>,
-    /// Units that carry a Riot Shield: its mode (`factions/gdo/units.md > Peacekeeper > Riot Shield`;
-    /// `riot_shield`).
+    /// Units that carry a Riot Shield: how far up it is, the way it goes being the unit's type
+    /// (`factions/gdo/units.md > Peacekeeper > Riot Shield`, design change 0173; `riot_shield`).
     pub riot_shield: Option<RiotShield>,
     /// A structure that mines, standing on a Space Crystals patch: the patch and its mining cycle
     /// (`factions/gdo/economy.md > ExtractionPlate`; `economy::mining`). `None` for everything else, a plate on bare

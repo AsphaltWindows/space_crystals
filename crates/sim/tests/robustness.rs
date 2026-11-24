@@ -428,7 +428,8 @@ fn any_spawn_settings_are_handled() {
                 | ObjectKind::RoboPortal
                 | ObjectKind::BioPortal
                 | ObjectKind::SabreLegionnaire
-                | ObjectKind::RifleLegionnaire => None,
+                | ObjectKind::RifleLegionnaire
+                | ObjectKind::PeacekeeperShielded => None,
             });
             let mut spawn = Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(i * 6, 0)));
             spawn.settings = settings;

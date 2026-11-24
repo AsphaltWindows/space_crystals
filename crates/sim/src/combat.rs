@@ -28,10 +28,10 @@
 //! - **Range** (`> Range Measurement`, design change 0031): edge to edge, the gap between the attacker's shape and
 //!   the target's (`shape`); [`reaches`] is the one check.
 //!
-//! - **Riot Shield** (`factions/gdo/units.md > Peacekeeper > Riot Shield`, `riot_shield`): a unit whose shield is
-//!   up can't attack. Its behaviours engage nothing then; whatever is still engaged is dropped here, which cancels an
-//!   aim, while Firing and Cooldown run on. Its raised shield halves the hits against it before armour
-//!   ([`pre_armor_multiplier`]).
+//! - **Riot Shield** (`factions/gdo/units.md > Peacekeeper > Riot Shield`, `riot_shield`): a unit whose shield isn't
+//!   all the way down can't attack (design change 0171). Its behaviours engage nothing then; whatever is still engaged
+//!   is dropped here, which cancels an aim, while Firing and Cooldown run on, and a reload keeps counting. Its shield
+//!   all the way up halves the hits against it before armour ([`pre_armor_multiplier`]).
 //!
 //! - **Weapon Conversion** (`factions/colonists/units.md > Weapon Conversion`, `crate::conversion`): a unit
 //!   converting its weapon neither moves nor turns ([`may_move`], [`may_turn`]) and attacks nothing: this phase
@@ -120,10 +120,11 @@ pub struct AttackState {
     /// An ability the unit was given while an attack phase that can't be interrupted was under way ([`mid_attack`]),
     /// which waits for it: a Convert pressed while Firing or in Cooldown (design change 0153,
     /// `factions/colonists/units.md > Weapon Conversion > Eligibility`: "the unit finishes Firing and Cooldown, then
-    /// converts immediately (instead of starting its Reloading phase)"). The first Modes step after the Cooldown's
-    /// last tick uses it, before the Reloading that followed has run a tick (`Sim::step_modes`); which abilities wait
-    /// is `Sim::use_ability`'s (design change 0172 will hold a Riot Shield raised mid-attack the same way, slice
-    /// M3-S). One at a time. Left out of files while unset, and out of the hash, so older states load and hash alike.
+    /// converts immediately (instead of starting its Reloading phase)"), or a raise of the Riot Shield (design change
+    /// 0172, `factions/gdo/units.md > Peacekeeper > Riot Shield > During the toggle`: "the shot finishes, then the
+    /// shield starts rising immediately"). The first Modes step after the Cooldown's last tick uses it, before the
+    /// Reloading that followed has run a tick (`Sim::step_modes`); which abilities wait is `Sim::use_ability`'s. One
+    /// at a time. Left out of files while unset, and out of the hash, so older states load and hash alike.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending: Option<Ability>,
 }

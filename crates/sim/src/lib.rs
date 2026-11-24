@@ -75,7 +75,7 @@ pub use production::{
     Refusal,
 };
 pub use replay::{Checkpoint, Desync, Replay, ReplayError};
-pub use riot_shield::RiotShield;
+pub use riot_shield::{RiotShield, ShieldMode};
 pub use rng::Rng;
 pub use scenario::{
     BuildingOrientation, GameSetup, LayoutObject, MapDef, MapSettings, MapType, PlayerSetup, Scenario, ScenarioProblem,
