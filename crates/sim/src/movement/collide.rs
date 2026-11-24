@@ -8,6 +8,7 @@
 //! fails that test (a rounding corner case), the unit stays where it is, which is free by induction.
 
 mod lanes;
+mod straight;
 
 use core::f32::consts::FRAC_1_SQRT_2;
 
@@ -17,7 +18,7 @@ use super::MoveCounters;
 use super::space::{Body, Contact, Layer, blocks, overlaps, resting, sweep};
 use crate::mover::{AVOID_COMMIT_TICKS, Mover, Side};
 use crate::nav::{self, NavGrid};
-use crate::production::Doorway;
+use crate::production::ExitDoor;
 use crate::units::{SU_PER_GU, Tick};
 
 pub(crate) use lanes::Lane;
@@ -32,8 +33,9 @@ pub(super) struct World<'a> {
     /// The moving unit's index in `bodies`.
     pub me: usize,
     /// The exit doorway the moving unit is still in, if it is one a producer released and not yet clear of the
-    /// footprint (`Mover::exit`; `core/entities.md > Structure Type > Exit Doorway`, design change 0080).
-    pub door: Option<Doorway>,
+    /// footprint (`Mover::exit`; `core/entities.md > Structure Type > Exit Doorway`, design change 0080; a portal's
+    /// energy doorway, design change 0145).
+    pub door: Option<ExitDoor>,
     /// Scratch of [`World::lane`].
     pub lanes: &'a mut Vec<Lane>,
     pub counters: &'a mut MoveCounters,
@@ -91,10 +93,10 @@ impl World<'_> {
         &self.bodies[self.me]
     }
 
-    /// **The one collision exception against tiles** (design change 0080): for a unit still in the exit doorway
-    /// of the building that released it, whether its box may be at `to`, coming from `from`. That building's
+    /// **The one collision exception against tiles** (design changes 0080 and 0145): for a unit still in the exit
+    /// doorway of the building that released it, whether its box may be at `to`, coming from `from`. That building's
     /// tiles don't block it, every other blocked tile does, and it may only come out of the footprint
-    /// (`Doorway::allows`). `None` for every other unit: the tiles block it as they are.
+    /// (`ExitDoor::allows`). `None` for every other unit: the tiles block it as they are.
     fn door_free(&self, from: Vec2, to: Vec2) -> Option<bool> {
         let door = self.door?;
         let half = self.body().half;

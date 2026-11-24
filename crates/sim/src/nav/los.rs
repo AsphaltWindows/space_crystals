@@ -9,8 +9,9 @@ use glam::Vec2;
 use super::NavGrid;
 use crate::units::{SU_PER_GU, TilePos};
 
-/// Whether the segment from `a` along `d` (to `a + d`) enters the open box `(lo, hi)`. A slab test.
-fn segment_enters_box(a: Vec2, d: Vec2, lo: Vec2, hi: Vec2) -> bool {
+/// Whether the segment from `a` along `d` (to `a + d`) enters the open box `(lo, hi)`. A slab test. (M3-D2) Also the
+/// test of a portal's way out (`production::exit::EnergyDoorway`), whose own tiles a unit leaving it crosses.
+pub(crate) fn segment_enters_box(a: Vec2, d: Vec2, lo: Vec2, hi: Vec2) -> bool {
     let (mut t_in, mut t_out) = (0.0_f32, 1.0_f32);
     for (a, d, lo, hi) in [(a.x, d.x, lo.x, hi.x), (a.y, d.y, lo.y, hi.y)] {
         if d == 0.0 {

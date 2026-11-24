@@ -286,10 +286,10 @@ pub(super) static ROBO_PORTAL: ObjectDef = ObjectDef {
         build_radius_extension: 0,    // none (see the module docs)
         power: 0,                     // none (plan decision T21)
         production: Some(ProductionDef {
-            // "Since the Robo Portal is fully symmetric (AAAA), it has no fixed exit side — a warped-in Drone may
-            // emerge from any of the 4 sides": all four are exits. **Placeholder** (question Q0041 point 3): which one
-            // follows the Bio Portal's Exit Behavior over all four sides (plan decision T19).
-            exits: ExitRule::Nearest(&[SideLetter::A]),
+            // The energy doorway at the centre (design change 0145, `> Portals > Portal Exits (energy doorway)`):
+            // "Since the Robo Portal is fully symmetric (AAAA), units may leave in any direction": its four A sides
+            // are open, 360°.
+            exits: ExitRule::Centre(&[SideLetter::A]),
             recipes: &[Recipe {
                 kind: ObjectKind::Drone, // Produces: "Drone: 50 Space Crystals, 160 frames (10 seconds)"
                 cost: 50,
@@ -324,14 +324,15 @@ pub(super) static BIO_PORTAL: ObjectDef = ObjectDef {
     unit: None,
     structure: Some(StructureDef {
         // SymmetryType - AABB: A on top and on the right, B at the bottom and on the left, unturned (design change
-        // 0079), so the two A sides are adjacent; built as written (question Q0041 point 5).
+        // 0079), so the two A sides are adjacent ("AABB: neighbouring sides, top and right in the default
+        // orientation", design change 0145, answering question Q0041 point 5).
         symmetry: SymmetryType::AABB,
         build_radius_extension: 0, // none (see the module docs)
         power: 0,                  // none (plan decision T21)
         production: Some(ProductionDef {
-            // `> Exit Behavior`: "two exit-eligible sides (the "A" sides)": "A produced unit exits from whichever
-            // eligible A side is closest to the RallyPoint" (plan decision T19).
-            exits: ExitRule::Nearest(&[SideLetter::A]),
+            // `> Exit Behavior`: "The Bio Portal's two open sides are its "A" sides ... Units leave in any direction
+            // through them" (the energy doorway at the centre, design change 0145): a half-circle of directions.
+            exits: ExitRule::Centre(&[SideLetter::A]),
             recipes: &[Recipe {
                 kind: ObjectKind::SabreLegionnaire, // Produces: "Sabre Legionnaire: 100 Space Crystals, 160 frames"
                 cost: 100,

@@ -18,7 +18,9 @@
 //! - [`separate`]: an idle unit that overlaps another moves off it (design change 0126).
 //! - [`doorway`]: a released unit walking out of its producer's exit doorway (design change 0080), the one case in
 //!   which a unit's box overlaps a structure: `collide::World::door` is where the tiles of that building stop
-//!   blocking it.
+//!   blocking it. (M3-D2) Out of a portal's energy doorway (design change 0145) the unit walks straight from the
+//!   centre along its heading, in its own movement model, and makes no other move until it is clear
+//!   (`doorway::emerge`, `collide::World::straight`).
 //!
 //! **Object goals** (`MoveGoal::Object`): the step looks up the object each such unit heads for
 //! ([`Chased`]). The unit has arrived once the gap between the two shapes is within the goal's `reach`, or at the
@@ -52,7 +54,7 @@ use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathSta
 use crate::nav::{self, Nav};
 use crate::object::Object;
 use crate::orders::gather;
-use crate::production::Doorway;
+use crate::production::ExitDoor;
 use crate::shape::Shape;
 use crate::units::Tick;
 
@@ -136,8 +138,8 @@ pub(crate) struct Scratch {
     bodies: Vec<Body>,
     /// For each of `bodies`: the object it heads for, if its goal is one that exists.
     chased: Vec<Option<Chased>>,
-    /// For each of `bodies`: the exit doorway it is still in (`Mover::exit`, design change 0080).
-    doors: Vec<Option<Doorway>>,
+    /// For each of `bodies`: the exit doorway it is still in (`Mover::exit`, design changes 0080 and 0145).
+    doors: Vec<Option<ExitDoor>>,
     /// For each of `bodies`: the target its attack engages (`AttackState::target`), for queueing behind attackers
     /// (`stuck`).
     engaged: Vec<Option<ObjectId>>,
@@ -241,7 +243,7 @@ pub(crate) fn step(
         });
         scratch.engaged.push(o.attack.as_ref().and_then(|attack| attack.target));
         // Only while its box still overlaps the footprint (a teleport may have taken it away).
-        let door = mover.exit.and_then(|building| Doorway::of(objects.get(&building)?));
+        let door = mover.exit.and_then(|building| ExitDoor::of(objects.get(&building)?));
         scratch.doors.push(door.filter(|door| door.holds(o.pos, half)));
         if let Some(layer) = layer_of(unit.base_def().domain) {
             let kinds = scratch.bodies[index as usize].kinds();
@@ -270,6 +272,7 @@ pub(crate) fn step(
         let door = scratch.doors[me];
         if door.is_none() {
             mover.exit = None;
+            mover.exit_heading = None;
         }
         let mut world = World {
             grid: base
@@ -298,6 +301,24 @@ pub(crate) fn step(
                 model.coast(&mut o.pos, o.facing, mover, &mut world, &mut scratch.touched);
             }
             false
+        } else if let Some(ExitDoor::Centre(portal)) = door {
+            // (M3-D2) Out of a portal's energy doorway the unit walks straight along its heading, with or without a
+            // goal, and makes no other move until it is clear (design change 0145).
+            doorway::emerge(
+                &mut o.pos,
+                &mut o.facing,
+                &mut turned,
+                mover,
+                &unit.movement,
+                rugged,
+                &portal,
+                &mut world,
+                &mut scratch.touched,
+                &mut scratch.requests,
+                scratch.chased[me].as_ref(),
+                &scratch.engaged,
+                tick,
+            )
         } else if scratch.bodies[me].yields
             && !coasting
             && door.is_none()
@@ -322,7 +343,7 @@ pub(crate) fn step(
                 &mut scratch.requests,
             );
             false
-        } else if let Some(door) = door.filter(|_| mover.goal == MoveGoal::None && !coasting) {
+        } else if let Some(ExitDoor::Side(door)) = door.filter(|_| mover.goal == MoveGoal::None && !coasting) {
             doorway::leave(
                 &mut o.pos,
                 &mut o.facing,
@@ -362,6 +383,7 @@ pub(crate) fn step(
         let mover = o.mover.as_mut().expect("units have movers");
         if door.is_some_and(|door| !door.holds(o.pos, half)) {
             mover.exit = None;
+            mover.exit_heading = None;
             if mover.goal == MoveGoal::None && mover.sidestep.is_none() && mover.momentum == Vec2::ZERO {
                 stand(mover);
             }

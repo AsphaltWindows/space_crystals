@@ -191,9 +191,9 @@ pub struct Mover {
     pub sidestep: Option<Sidestep>,
     /// The producing structure whose exit doorway the unit is still in: it was released there and its box still
     /// overlaps the footprint (`core/entities.md > Structure Type > Exit Doorway`, design change 0080;
-    /// `production::Doorway`). While it is set, that footprint's tiles don't block the unit, which may only come
-    /// out; phase 5d clears it once the unit is clear of the footprint, for good. Optional in files, so that
-    /// states saved before it existed still load.
+    /// `production::ExitDoor`: a side doorway or a portal's energy doorway). While it is set, that footprint's tiles
+    /// don't block the unit, which may only come out; phase 5d clears it once the unit is clear of the footprint, for
+    /// good. Optional in files, so that states saved before it existed still load.
     #[serde(default)]
     pub exit: Option<ObjectId>,
     /// The velocity a unit with momentum carries into its next tick, space units per tick (slice M3-G:
@@ -204,6 +204,13 @@ pub struct Mover {
     /// saved before it existed still load, and of the hash while zero (`mover/hash.rs`).
     #[serde(default, skip_serializing_if = "is_zero")]
     pub momentum: Vec2,
+    /// (M3-D2) The heading of a unit in a portal's energy doorway (design change 0145, `production::EnergyDoorway`):
+    /// the unit vector it moves out along, straight from the portal's centre, chosen when it was released. Set with
+    /// `exit` by that release alone and cleared with it; `None` in a side doorway (the Barracks'). Left out of files
+    /// and of the hash while `None` (`mover/hash.rs`), so that states without such a unit, the goldens among them,
+    /// are as they were.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_heading: Option<Vec2>,
 }
 
 fn is_zero(v: &Vec2) -> bool {
@@ -238,6 +245,7 @@ impl Default for Mover {
             sidestep: None,
             exit: None,
             momentum: Vec2::ZERO,
+            exit_heading: None,
         }
     }
 }

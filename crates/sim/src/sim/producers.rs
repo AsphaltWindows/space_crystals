@@ -18,8 +18,7 @@ use crate::nav;
 use crate::object::Object;
 use crate::orders::Target;
 use crate::paths::boxes_overlap;
-use crate::production::exit::{self, Door, DoorState};
-use crate::production::{Doorway, Production, ProductionCommand, ProductionStatus, Rally, Refusal, rally};
+use crate::production::{Door, ExitDoor, Production, ProductionCommand, ProductionStatus, Rally, Refusal, rally};
 
 /// When something stands right in front of the doorway, the released unit stands this far from it, space units,
 /// so that no rounding makes the two boxes overlap (a technical margin: a sixty-fourth of a space unit).
@@ -295,17 +294,18 @@ impl Sim {
     }
 
     /// `core/entities.md > Structure Type > Exit Doorway` (design change 0080): `producer`'s finished unit comes
-    /// into the game in one of its exit doorways, facing out, with the order its rally point gives
-    /// (`> Barracks > RallyPoint behavior`); or it stays inside, finished, while every doorway is occupied: "the
-    /// next unit can only appear once the doorway is free. While a unit still stands in it, the building pauses".
-    /// A door is occupied while a unit this building released (`Mover::exit`) is in it, as `Doorway::door_at` judges
-    /// by where the unit stands (plan decision T19). Which free door: `production::exit::choose`, with a draw from
-    /// the sim's Rng only when two or more doors qualify (a Barracks, with one, never draws).
+    /// into the game in its exit doorway with the order its rally point gives (`> Barracks > RallyPoint
+    /// behavior`); or it stays inside, finished, while the doorway is occupied: "the next unit can only appear once
+    /// the doorway is free. While a unit still stands in it, the building pauses". The doorway is occupied while a
+    /// unit this building released (`Mover::exit`) is still in it. Out of a side doorway the unit appears half
+    /// inside the middle of the exit side, facing out ([`Sim::doorway_spot`]); out of a portal's energy doorway, at
+    /// the centre, facing the heading it leaves along (design change 0145: `production::EnergyDoorway::release`,
+    /// which draws from the sim's Rng only with no rally point and two or more ways out to choose from).
     fn release_unit(&mut self, producer: ObjectId) {
         let Some(building) = self.objects.get(&producer) else {
             return;
         };
-        let (Some(doorway), Some(owner)) = (Doorway::of(building), building.owner) else {
+        let (Some(doorway), Some(owner)) = (ExitDoor::of(building), building.owner) else {
             return;
         };
         let Some(production) = &building.production else {
@@ -321,41 +321,45 @@ impl Sim {
         if self.next_id == u32::MAX {
             return;
         }
-        let in_doors: Vec<Door> = self
+        let occupied = self
             .objects
             .values()
-            .filter(|o| o.mover.as_ref().is_some_and(|mover| mover.exit == Some(producer)))
-            .map(|o| doorway.door_at(o.pos))
-            .collect();
-        let grid = unit
-            .base_def()
-            .nav_class()
-            .and_then(|class| self.nav.nav().grid(class, nav::size_class(half * 2.0)));
-        let doors: Vec<DoorState> = doorway
-            .doors()
-            .map(|door| DoorState {
-                door,
-                occupied: in_doors.contains(&door),
-                obstructed: grid.is_some_and(|grid| !door.has_way_out(grid, half)),
-            })
-            .collect();
-        let rng = &mut self.rng;
-        let Some(choice) = exit::choose(&doors, rally.map(|rally| rally.point()), |n| rng.below(n)) else {
+            .any(|o| o.mover.as_ref().is_some_and(|mover| mover.exit == Some(producer)));
+        if occupied {
             return;
-        };
-        let door = doors[choice].door;
-        let Some(pos) = self.doorway_spot(&door, unit, half) else {
-            return;
+        }
+        // Where it appears, which way it faces, and the heading of a unit leaving an energy doorway.
+        let (pos, facing, heading) = match doorway {
+            ExitDoor::Side(doorway) => {
+                let door = doorway.door();
+                let Some(pos) = self.doorway_spot(&door, unit, half) else {
+                    return;
+                };
+                (pos, door.outward(), None)
+            }
+            ExitDoor::Centre(portal) => {
+                let grid = unit
+                    .base_def()
+                    .nav_class()
+                    .and_then(|class| self.nav.nav().grid(class, nav::size_class(half * 2.0)));
+                let rng = &mut self.rng;
+                let rally = rally.map(|rally| rally.point());
+                let Some(release) = portal.release(unit, half, grid, &self.objects, rally, |n| rng.below(n)) else {
+                    return;
+                };
+                (release.pos, release.heading, Some(release.heading))
+            }
         };
         if let Some(production) = self.objects.get_mut(&producer).and_then(|o| o.production.as_mut()) {
             production.release();
         }
         let id = self.insert_object(kind, Some(owner), pos, None, None);
         if let Some(o) = self.objects.get_mut(&id) {
-            o.facing = math::vector_angle(door.outward());
+            o.facing = math::vector_angle(facing);
             o.prev_facing = o.facing;
             if let Some(mover) = &mut o.mover {
-                mover.exit = door.holds(pos, half).then_some(producer);
+                mover.exit = doorway.holds(pos, half).then_some(producer);
+                mover.exit_heading = heading.filter(|_| mover.exit.is_some());
             }
         }
         self.events.push(SimEvent::UnitProduced { producer, unit: id });

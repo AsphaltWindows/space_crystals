@@ -18,8 +18,10 @@
 //!   everything a producer holds when it leaves the game (design changes 0084 and 0085, `Sim::remove_objects`).
 //! - **The step** (`Sim::step_production`, in the economy phase): a unit at 0% starts if there is room for it, or
 //!   waits (0143); then the unit in production advances by its owner's power ratio (design change 0089). When it is
-//!   complete it is released through one of the building's doors ([`Doorway`], `exit.rs`, design change 0080; which
-//!   one: `exit/choice.rs`, plan decision T19), or held at 100% while every door is occupied.
+//!   complete it is released into the building's doorway (`exit.rs`): half inside the middle of an exit side
+//!   ([`Doorway`], design change 0080: the Barracks), or at the centre of a portal's energy doorway, heading out
+//!   through an open side ([`EnergyDoorway`], design change 0145); or it is held at 100% while a unit the building
+//!   released is still in its doorway.
 
 pub mod exit;
 pub mod rally;
@@ -32,7 +34,7 @@ use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::orders::Target;
 
-pub use exit::{Door, Doorway};
+pub use exit::{Door, Doorway, EnergyDoorway, ExitDoor};
 pub use rally::Rally;
 
 /// `factions/gdo/structures.md > Barracks > BarracksInstanceState`: "BuildQueue: array of ObjectEnum (max 20,

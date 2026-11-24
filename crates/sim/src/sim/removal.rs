@@ -98,11 +98,13 @@ fn forget(o: &mut Object, gone: &[ObjectId]) {
     if let Some(worker) = &mut o.worker {
         worker.forget(&is_gone);
     }
-    // The building whose doorway a unit stood in: nothing is left to overlap.
+    // The building whose doorway a unit stood in: nothing is left to overlap, nor to leave along (design change
+    // 0145).
     if let Some(mover) = &mut o.mover
         && mover.exit.is_some_and(is_gone)
     {
         mover.exit = None;
+        mover.exit_heading = None;
     }
 }
 
