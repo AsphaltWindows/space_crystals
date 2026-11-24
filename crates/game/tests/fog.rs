@@ -1,15 +1,16 @@
 //! The fog of war in the client (`fog`): the fog layer's texture follows the local player's vision and is written
 //! only when it changes; other players' objects that the local player doesn't see are neither drawn nor
-//! selectable, leave its selection, can't be targeted and aren't marked by command indicators; combat effects in
-//! the fog don't show; the debug toggle and `--no-fog` show everything; the map editor never shows fog. Headless,
-//! one tick per update, as in `client.rs`.
+//! selectable, nor their raised Riot Shields, leave its selection, can't be targeted and aren't marked by command
+//! indicators; combat effects in the fog don't show; the debug toggle and `--no-fog` show everything; the map editor
+//! never shows fog. Headless, one tick per update, as in `client.rs`.
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
+use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
 use sc_sim::{
-    Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Scenario, SimConfig, SpawnAt,
-    Target, Tick, TilePos, scenarios,
+    Ability, Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, RiotShield, Scenario,
+    SimConfig, SpawnAt, Target, Tick, TilePos, scenarios,
 };
 use space_crystals::cli;
 use space_crystals::combat_effects::{
@@ -20,7 +21,7 @@ use space_crystals::command_ui::indicators::{ATTACK_COLOR, Indicator, selection_
 use space_crystals::editor::EditorConfig;
 use space_crystals::fog::{EXPLORED_ALPHA, FogAssets, FogLayer, FogOfWar, FogView, Sight, UNEXPLORED_ALPHA};
 use space_crystals::input::InjectedInput;
-use space_crystals::object_render::ObjectVisuals;
+use space_crystals::object_render::{ObjectVisuals, RiotShieldVisual};
 use space_crystals::platform::DisplayMode;
 use space_crystals::selection::{ControlStates, Selectables, Selection};
 use space_crystals::sim_driver::{PendingCommands, SimRes};
@@ -116,6 +117,19 @@ fn drawn(app: &mut App, id: u32) -> bool {
     *app.world().get::<Visibility>(entity).expect("visuals get a Visibility") != Visibility::Hidden
 }
 
+/// Whether the Riot Shield of unit `id` is drawn: shown, and its unit's visual drawn. A shield is never `Visible`
+/// itself, which would show it whatever its unit's visibility.
+fn shield_drawn(app: &mut App, id: u32) -> bool {
+    let mut query = app.world_mut().query::<(&RiotShieldVisual, &Visibility)>();
+    let visibility = query
+        .iter(app.world())
+        .find(|(shield, _)| shield.0 == ObjectId(id))
+        .map(|(_, visibility)| *visibility)
+        .expect("a Peacekeeper's shield");
+    assert_ne!(visibility, Visibility::Visible, "never shown on its own");
+    visibility == Visibility::Inherited && drawn(app, id)
+}
+
 fn fog_layer_drawn(app: &mut App) -> bool {
     let mut query = app.world_mut().query_filtered::<&Visibility, With<FogLayer>>();
     *query.single(app.world()).unwrap() != Visibility::Hidden
@@ -194,6 +208,27 @@ fn hidden_enemies_are_not_drawn_or_selectable() {
     }
     assert!(app.world().resource::<ControlStates>().selection(P1).is_empty());
     assert_eq!(selectable(&app), [1]);
+}
+
+/// A raised Riot Shield is drawn with its unit (`object_render::RiotShieldVisual`), so not for an enemy the local
+/// player doesn't see.
+#[test]
+fn a_hidden_enemys_shield_is_not_drawn() {
+    let mut app = game();
+    spawn(&mut app, ObjectKind::Peacekeeper, P1, 4, 8);
+    spawn(&mut app, ObjectKind::Peacekeeper, P2, 20, 8);
+    spawn(&mut app, ObjectKind::Peacekeeper, P2, 7, 8);
+    app.update();
+    let units = vec![ObjectId(2), ObjectId(3)];
+    let ability = Ability::RiotShield { raise: true };
+    submit(&mut app, P2, Command::Ability { units, ability });
+    let raised = tick(&app) + RIOT_SHIELD_TOGGLE_TICKS + 1;
+    run_until(&mut app, raised);
+    let sim = app.world().resource::<SimRes>();
+    assert_eq!(sim.object(ObjectId(2)).unwrap().riot_shield, Some(RiotShield::Raised));
+    assert!(!shield_drawn(&mut app, 1), "down");
+    assert!(shield_drawn(&mut app, 3), "in sight");
+    assert!(!shield_drawn(&mut app, 2), "in the fog");
 }
 
 /// The command flow reaches only what the local player sees: the cursor over an enemy hidden by the fog points at

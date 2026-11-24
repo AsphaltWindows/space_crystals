@@ -126,9 +126,13 @@ pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, wor
 /// `> HoldingPosition`, `> BaseAutoTargeting > Active during HoldPosition`: one tick. Locomotion stays Stationary:
 /// the unit never moves. It engages the best ValidTarget within weapon range ([`World::pick`]) and disengages at
 /// once when that target leaves range (or is no longer valid). A non-turret unit that can't turn in place engages
-/// only what it already faces. Turrets have no state of their own yet, so a turret unit holds like the others.
+/// only what it already faces. Turrets have no state of their own yet, so a turret unit holds like the others. A
+/// unit that can't attack now (its Riot Shield is up) holds without a target.
 pub(super) fn hold(unit: &mut Unit, target: &mut Option<ObjectId>, world: &World) {
     let Some(attrs) = unit.attrs() else {
+        if target.take().is_some() {
+            unit.engage(None);
+        }
         return;
     };
     if let Some(id) = *target {

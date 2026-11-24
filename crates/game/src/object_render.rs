@@ -6,7 +6,8 @@
 //! at its footprint's height, `core/art_direction.md > Elevation Display`) and y-sorted by its ground position in the
 //! ground-object layer. Placeholder shapes stand in until the art direction (Q0001) is settled: a unit is a shape of
 //! its own per kind, its silhouette's size, in its owner's colour, with a tick showing its facing. The Guard's square
-//! stays axis-aligned, like its collision box, and only its tick turns ([`FacingTick`]).
+//! stays axis-aligned, like its collision box, and only its tick turns ([`FacingTick`]). A Peacekeeper's raised Riot
+//! Shield is a pale arc in front of it ([`RiotShieldVisual`]), growing out of its body as the shield goes up.
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).
@@ -32,6 +33,12 @@ pub struct ObjectVisual(pub ObjectId);
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct FacingTick(pub ObjectId);
 
+/// The Riot Shield of a unit that carries one (`factions/gdo/units.md > Peacekeeper > Riot Shield`): a child of the
+/// unit's visual, hidden while the shield is down, else inheriting the visual's visibility, so the fog hides it with
+/// its unit (`crate::fog`). Placeholder until the art exists (Q0001).
+#[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
+pub struct RiotShieldVisual(pub ObjectId);
+
 pub use remembered::{RememberedVisual, RememberedVisuals};
 
 /// Mesh and material handles, created once per object kind (and owner, for units) and shared by all its visuals.
@@ -42,6 +49,7 @@ pub struct ObjectVisualAssets {
     dimmed: Option<Handle<ColorMaterial>>,
     meshes: BTreeMap<(ObjectKind, Option<PlayerId>), Handle<Mesh>>,
     ticks: BTreeMap<ObjectKind, Handle<Mesh>>,
+    shields: BTreeMap<ObjectKind, Handle<Mesh>>,
 }
 
 /// The visual entity of each object.
@@ -62,7 +70,12 @@ impl Plugin for ObjectRenderPlugin {
             .add_systems(Update, sync_object_visuals.in_set(ClientSystems::SyncSim))
             .add_systems(
                 Update,
-                (place_object_visuals, remembered::sync_remembered_visuals).in_set(ClientSystems::Present),
+                (
+                    place_object_visuals,
+                    place_riot_shields,
+                    remembered::sync_remembered_visuals,
+                )
+                    .in_set(ClientSystems::Present),
             );
     }
 }
@@ -185,6 +198,38 @@ fn facing_tick(mesh: &mut ColorMesh, half: Vec2) {
 fn tick_mesh(kind: ObjectKind) -> Mesh {
     let mut mesh = ColorMesh::triangles();
     facing_tick(&mut mesh, kind.def().half_extents().unwrap_or(Vec2::splat(12.0)));
+    mesh.into_mesh()
+}
+
+/// A `kind` unit's raised Riot Shield: a pale band in a dark rim, 100° of a ring just outside its body, centred on
+/// local +x, its front, over the tip of its facing tick.
+fn riot_shield_mesh(kind: ObjectKind) -> Mesh {
+    let half = kind.def().half_extents().unwrap_or(Vec2::splat(12.0));
+    let radius = half.x.max(half.y);
+    let mut mesh = ColorMesh::triangles();
+    let band = |mesh: &mut ColorMesh, inner: f32, outer: f32, z: f32, color: Color| {
+        let steps = 10;
+        let half_arc = 50_f32.to_radians();
+        for i in 0..steps {
+            let angle = |i: i32| -half_arc + 2.0 * half_arc * i as f32 / steps as f32;
+            let (a, b) = (Vec2::from_angle(angle(i)), Vec2::from_angle(angle(i + 1)));
+            mesh.polygon(&[a * inner, a * outer, b * outer, b * inner], z, color);
+        }
+    };
+    band(
+        &mut mesh,
+        radius + 3.0,
+        radius + 9.0,
+        0.003,
+        Color::srgb(0.10, 0.13, 0.18),
+    );
+    band(
+        &mut mesh,
+        radius + 4.0,
+        radius + 8.0,
+        0.004,
+        Color::srgb(0.80, 0.90, 1.00),
+    );
     mesh.into_mesh()
 }
 
@@ -323,6 +368,22 @@ fn sync_object_visuals(
                 ChildOf(entity),
             ));
         }
+        if object.riot_shield.is_some() {
+            let shield = assets
+                .shields
+                .entry(object.kind)
+                .or_insert_with(|| meshes.add(riot_shield_mesh(object.kind)))
+                .clone();
+            commands.spawn((
+                Name::new("Riot Shield"),
+                RiotShieldVisual(object.id),
+                Mesh2d(shield),
+                MeshMaterial2d(material.clone()),
+                Transform::default(),
+                Visibility::Hidden,
+                ChildOf(entity),
+            ));
+        }
         visuals.by_id.insert(object.id, entity);
     }
 }
@@ -350,5 +411,36 @@ fn place_object_visuals(
         };
         let facing = lerp_facing(object.prev_facing, object.facing, alpha.0);
         transform.set_if_neq(Transform::from_rotation(facing_to_rotation(facing)));
+    }
+}
+
+/// Shows each Riot Shield that isn't down, sized by how far up it is (from 60% of its size, close to the body, to
+/// all of it), and turned with its unit's facing when the body doesn't turn. Never `Visible`: a shown shield
+/// inherits its unit's visibility.
+fn place_riot_shields(
+    sim: Res<SimRes>,
+    alpha: Res<RenderAlpha>,
+    mut shields: Query<(&RiotShieldVisual, &mut Transform, &mut Visibility)>,
+) {
+    for (shield, mut transform, mut visibility) in &mut shields {
+        let Some(object) = sim.object(shield.0) else {
+            continue;
+        };
+        let (Some(mode), Some(def)) = (object.riot_shield, sc_sim::riot_shield::def_of(object)) else {
+            continue;
+        };
+        let shown = mode != sc_sim::RiotShield::Lowered;
+        visibility.set_if_neq(if shown {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        });
+        let scale = 0.6 + 0.4 * mode.progress(def.toggle_ticks);
+        let rotation = if body_turns(object.kind) {
+            Quat::IDENTITY
+        } else {
+            facing_to_rotation(lerp_facing(object.prev_facing, object.facing, alpha.0))
+        };
+        transform.set_if_neq(Transform::from_rotation(rotation).with_scale(Vec3::new(scale, scale, 1.0)));
     }
 }

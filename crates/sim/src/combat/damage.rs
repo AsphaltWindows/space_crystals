@@ -10,6 +10,7 @@ use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::math::{self, PI};
 use crate::object::Object;
+use crate::riot_shield;
 use crate::units::TilePos;
 
 /// `systems/combat.md > MinimumDamage > MinimumDamage`: every single-target hit deals at least this much.
@@ -43,12 +44,15 @@ pub fn hit_damage(damage: f32, pre_armor: f32, point_armor: f32, directional: f3
 }
 
 /// `systems/combat.md > DamageModifierOrder` 1: the product of the pre-armor multipliers on hits against `o` where
-/// it stands. The one built so far is the RuggedTerrainDefenseBonus (`systems/units.md > LightInfantry`): the
-/// bonus's fraction of the damage is taken off while the unit's centre is on a Rugged tile (a placeholder reading:
-/// the design doesn't say which tile counts for a unit standing on several).
+/// it stands, from every direction. Built so far:
+/// - the RuggedTerrainDefenseBonus (`systems/units.md > LightInfantry`): the bonus's fraction of the damage is taken
+///   off while the unit's centre is on a Rugged tile (a placeholder reading: the design doesn't say which tile counts
+///   for a unit standing on several);
+/// - the Peacekeeper's raised Riot Shield (`factions/gdo/units.md > Peacekeeper > Riot Shield`): "a 50% pre-armor
+///   reduction ... multiplying with other pre-armor reductions" (`riot_shield::damage_factor`).
 ///
-/// TODO: the Null Chamber exit buff (`factions/syndicate/structures.md > Tunnel Expansions > Null Chamber`) and the
-/// Peacekeeper's raised Riot Shield (`factions/gdo/units.md > Peacekeeper > Riot Shield`) multiply in here.
+/// TODO: the Null Chamber exit buff (`factions/syndicate/structures.md > Tunnel Expansions > Null Chamber`)
+/// multiplies in here.
 pub fn pre_armor_multiplier(map: &Map, o: &Object) -> f32 {
     let bonus = o
         .def()
@@ -59,7 +63,7 @@ pub fn pre_armor_multiplier(map: &Map, o: &Object) -> f32 {
             map.tile_preset(TilePos::containing(o.pos))
                 .is_some_and(|preset| preset.rugged)
         });
-    bonus.map_or(1.0, |bonus| 1.0 - bonus)
+    bonus.map_or(1.0, |bonus| 1.0 - bonus) * riot_shield::damage_factor(o)
 }
 
 /// `systems/combat.md > DirectionalArmor`: the multiplier on a hit against a unit facing `facing`, from an attack

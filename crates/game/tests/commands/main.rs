@@ -11,6 +11,7 @@
 mod indicators;
 mod panel;
 mod right_click;
+mod riot_shield;
 mod targeting;
 
 use bevy::prelude::*;
@@ -263,7 +264,20 @@ fn orders(app: &App) -> Vec<Given> {
                 kind: *kind,
                 queue: *queue,
             }),
-            Command::Debug(_) => None,
+            Command::Ability { .. } | Command::Debug(_) => None,
+        })
+        .collect()
+}
+
+/// Every ability used so far, as the sim received them (like [`orders`]): player, units, ability.
+fn abilities(app: &App) -> Vec<(PlayerId, Vec<u32>, sc_sim::Ability)> {
+    let recorded = app.world().resource::<RecordedInputs>();
+    let pending = app.world().resource::<PendingCommands>();
+    let commands = recorded.ticks.iter().flat_map(|t| t.commands.iter()).chain(&pending.0);
+    commands
+        .filter_map(|c| match &c.command {
+            Command::Ability { units, ability } => Some((c.player, units.iter().map(|id| id.0).collect(), *ability)),
+            Command::Order { .. } | Command::Debug(_) => None,
         })
         .collect()
 }

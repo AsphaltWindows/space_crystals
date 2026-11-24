@@ -64,6 +64,7 @@ fn tick(orders: &mut Orders, mover: &mut Mover, attack: Option<&mut AttackState>
         facing: 0.0,
         mover,
         attack,
+        may_attack: true,
     };
     update_unit(orders, &mut unit, &world);
 }
@@ -156,6 +157,7 @@ fn unit<'a>(mover: &'a mut Mover, attack: Option<&'a mut AttackState>) -> Unit<'
         facing: 0.0,
         mover,
         attack,
+        may_attack: true,
     }
 }
 

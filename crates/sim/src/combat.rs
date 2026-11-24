@@ -22,8 +22,12 @@
 //! - **Range** (`> Range Measurement`, design change 0031): edge to edge, the gap between the attacker's shape and
 //!   the target's (`shape`); [`reaches`] is the one check.
 //!
-//! Not built yet: turrets, projectiles and location targets (the disjointed attack types), AoE damage, the Riot
-//! Shield and Shields.
+//! - **Riot Shield** (`factions/gdo/units.md > Peacekeeper > Riot Shield`, `riot_shield`): a unit whose shield is
+//!   up can't attack. Its behaviours engage nothing then; whatever is still engaged is dropped here, which cancels an
+//!   aim, while Firing and Cooldown run on. Its raised shield halves the hits against it before armour
+//!   ([`pre_armor_multiplier`]).
+//!
+//! Not built yet: turrets, projectiles and location targets (the disjointed attack types), AoE damage, and Shields.
 
 mod damage;
 mod phases;
@@ -39,6 +43,7 @@ use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::object::Object;
+use crate::riot_shield::RiotShield;
 use crate::vision::Vision;
 
 pub use damage::{
@@ -187,6 +192,9 @@ pub(crate) fn step(
         let Some(attrs) = &unit.attack else {
             continue;
         };
+        if !o.riot_shield.is_none_or(RiotShield::allows_attack) {
+            state.engage(None);
+        }
         let sight = o.owner.and_then(|owner| vision.player(owner));
         let shooter = phases::Shooter::new(map, o.id, o.kind, o.pos, o.facing, unit, attrs, sight);
         phases::run(state, &mut o.facing, &shooter, &targets, &mut hits, events);

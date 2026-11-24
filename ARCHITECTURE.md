@@ -148,9 +148,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   `orders` (`Orders`, `orders.rs`: the current order with its behaviour's state, a queue of at most
   `MAX_QUEUED_ORDERS`, and what the unit does on its own while it has none; see *Behaviours*), `mover`
   (`Mover`, `mover.rs`: goal, status, path, the replanning state of `docs/movement.md > 3` and the sidestep of a
-  yielding unit) and, for units that
-  can attack, `attack` (`AttackState`, `combat.rs`: see *Combat*). Production and the rest arrive as more optional
-  fields, each with its own module. Never add them as separate stores keyed by
+  yielding unit), for units that
+  can attack, `attack` (`AttackState`, `combat.rs`: see *Combat*) and, for units that carry a Riot Shield,
+  `riot_shield` (`RiotShield`, `riot_shield.rs`: the shield's mode, see *Combat*). Production and the rest arrive as
+  more optional fields, each with its own module. Never add them as separate stores keyed by
   id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
@@ -173,7 +174,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 2. Add `pub <name>: Option<State>` to `Object`, with a doc comment citing the design.
 3. Put its per-type parameters on `ObjectDef`, with citations, and initialize the state in `Sim::insert_object`.
 4. Insert its update phase into `Sim::step` at a deliberate position (see *Tick pipeline*).
-5. Add the `Command`s that drive it, with validation, and the `SimEvent`s the client needs.
+5. Add the `Command`s that drive it, with validation, and the `SimEvent`s the client needs. A unit's mode (a
+   toggled ability such as the Riot Shield) is not an order: it goes through `Command::Ability` (an `Ability`
+   variant, see *Commands, events and replays*), never into the order queue.
 6. Write unit tests in the module and a scenario test in `crates/sim/tests/`.
 
 ## Tick pipeline
@@ -185,6 +188,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 3. **Snapshot** `pos`/`facing` into `prev_pos`/`prev_facing` for every object (the client interpolates from these).
 4. **Commands**: apply each `PlayerCommand` in `TickInputs` order (`apply_command`).
 5. **Systems**, each walking the objects in id order, one function per module (`docs/movement.md > 4`):
+   - Modes, `riot_shield::step`: a Riot Shield on its way up or down goes on one tick. After the commands, so that
+     a toggle counts from its own tick; before 5a, so that the behaviours, the movement and the combat of the tick
+     all see the mode it leaves.
    - 5a `orders::update`: a unit's finished order completes and its next one starts, until one is in progress, so
      legs follow each other without an idle tick; then that order's behaviour runs for the tick, or the idle one
      (see *Behaviours*). They write goals (`Mover::go_to`, `stop`) and the target the attack engages. Everything
@@ -266,7 +272,18 @@ ticks spent in it. Hashed and serialized like all state.
   debug removals alike. It emits `Removed` and clears every reference to the removed: a current order naming one
   completes, queued ones are dropped, a move towards one ends `TargetLost`, an attack on one stops (an aim is
   cancelled, a shot being fired hits nothing). `testing::dangling_references` checks that none are left.
-- **Not yet**: turrets, projectiles, AttackGround and the other location-targeted attacks, AoE, Riot Shield.
+- **Riot Shield** (`riot_shield.rs`; `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`): a
+  unit whose `UnitDef::riot_shield` is set starts with its shield `Lowered`; `Command::Ability` raises or lowers it,
+  through `Raising { left }` or `Lowering { left }` for the toggle time (`RiotShieldDef::toggle_ticks`, 6 ticks, a
+  placeholder: the design says under half a second), so a toggle in tick `t` is done at the end of tick
+  `t + toggle_ticks − 1`, and a reversal turns back from where the shield is. While it isn't `Lowered` the unit
+  moves at half speed (`Mover::speed_factor`, written when the mode changes) and can't attack: the gate drops it
+  from Attack orders (`Reject::CannotAttack` when none is left), its behaviours see no attack (`Unit::attrs`: no
+  auto-targeting, an Attack order gives up, Hold disengages), and 5e cancels an aim (`can_attack_now` is false); a
+  shot already being fired lands. Only while it is `Raised` is the damage it takes halved, a pre-armor multiplier
+  (`damage::pre_armor_multiplier`, with the Rugged bonus). A mode is not a task: the unit keeps its orders and
+  yields like any other (design change 0023). The placeholders are listed in the module docs.
+- **Not yet**: turrets, projectiles, AttackGround and the other location-targeted attacks, AoE.
 
 ## Vision
 
@@ -501,6 +518,11 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   appended (a full queue drops it). Each order command is one group (`Sim::next_group`); a location order gives
   each unit of a group its own destination (the magic box, see *Navigation*). What each order does is in
   *Behaviours*.
+- **`Command::Ability { units, ability }`**: the units use an ability at once, beside their orders: no queue, no
+  Shift, no group, and their orders go on. `Ability::RiotShield { raise }` says which way rather than "toggle", so a
+  group and a replay mean the same whatever each unit's mode. The gate tolerates stale selections as for orders
+  (`TooManyUnits`, repeats, gone ids, `NotOwned`, `NoUnits`) and drops the units without the ability
+  (`Reject::LacksAbility` when none is left).
 - **Targets must be seen** (question Q0017 point 2, its default; `core/vision.md > Explored Selectability`): an
   Attack or a Move on an object is taken only while the issuing player sees it (a tile it covers is Visible), else
   `Reject::NotVisible`. The exception is the design's: a GDO player may target a Supply Delivery Station on Explored
@@ -609,6 +631,8 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   static objects, AttackMove groups and the leash, a fight replayed and saved in its middle),
   `behaviours_patrol.rs`, `behaviours_gate.rs` (targets must be seen), `behaviours_soak.rs` (120 units fighting
   under random orders of every kind; no dangling ids, no path-request storms) and the ignored `behaviours_perf.rs`.
+  `riot_shield.rs` has the Riot Shield's: toggle timing, each raised-shield effect, the gate, a save in the middle
+  of a toggle and its replay.
   Measured (release, 500 units on 256 × 256): 0.12 ms a tick with everyone idle, 0.14 ms on Hold in sight of the
   enemy, 0.5 ms on average in a battle of 250 against 250; the worst ticks, 4.4 ms, are those in which a group's
   path field is built (four or more of its units resuming their AttackMove in one tick).
@@ -665,7 +689,10 @@ out by the same rules.
   Guard square) of the silhouette's size, in the owner's colour (`player_color`, the editor's slot colours), with a
   dark rim and a light tick along the facing; the visual turns with the interpolated facing. The Guard's square
   doesn't: it stays axis-aligned like its collision box, and only its tick turns (a `FacingTick` child,
-  `body_turns`). One mesh per `(kind, owner)` is shared, and one tick mesh per kind.
+  `body_turns`). One mesh per `(kind, owner)` is shared, and one tick mesh per kind. A unit that carries a Riot
+  Shield has a `RiotShieldVisual` child: a pale arc in front of it, hidden while the shield is down, growing to its
+  full size as it goes up. It is `Visibility::Hidden` or `Inherited`, never `Visible`, so the fog that hides its unit
+  hides it too.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
@@ -813,17 +840,24 @@ to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how th
   (DefaultState, or AwaitingTarget of a command) in each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the
   Peacekeeper's and the Guard's BasicCombatUnit grid), the `Panel` a selection gets (common, group, pending, disabled
   and unavailable buttons; Back in Z while a target is awaited) and who receives a command (a common one the whole
-  selection, a group one the ActiveGroup). `command_ui/resolution.rs` has what a click resolves to (`CursorTarget`,
-  `right_click`, `target_order`) and the `PointerDisplay` that previews it. Nothing is commandable unless the whole
-  selection is the player's (`commandable`).
+  selection, a group one the ActiveGroup). A type's grid is its template's plus its own commands (`grid`: the
+  Riot Shield in R for a unit that carries one, a placeholder slot). `Modes` holds the selected units' modes as the
+  sim has them: the Riot Shield button is on, and lowers the shields, while all its recipients' are up or going up,
+  else it raises them; Attack is disabled while none of its recipients can attack. `command_ui/resolution.rs` has
+  what a click resolves to (`CursorTarget`, `right_click`, `target_order`, and `order_without_attack`: a Move to the
+  clicked point for a unit that can't attack) and the `PointerDisplay` that previews it. Nothing is commandable
+  unless the whole selection is the player's (`commandable`).
 - **Systems** (`CommandUiSystems`): `Validate` (in `SyncSim`, after the selection's sync) ends an AwaitingTarget that
   no longer holds. `Input` (in `Actions`, after the selection's input) turns Esc, the command hotkeys
   (`InputAction::CommandSlot`), clicks on the panel (found by `CommandGrid`), left-clicks on the map while a target is
   awaited and right-clicks into state changes and orders. An order is a `Command::Order` in `PendingCommands` naming
   only the player's own units, given only if `Sim::validate` takes it, queued while `Queue` (Shift) is held; each one
-  is also an `OrderIssued` message.
+  is also an `OrderIssued` message. A click that resolves to an Attack gives it to the units that can attack and a
+  Move to the clicked point to those whose Riot Shield is up (`OrderOutbox::give_click`). An ability is a
+  `Command::Ability`, validated the same way, never queued, and no `OrderIssued`.
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
-  changes; each shows its command and its hotkey from the bindings. The indicators (`command_ui/indicators.rs`) are
+  changes; each shows its command (`PanelSlot::label`: a toggle says what pressing it does) and its hotkey from the
+  bindings, and a toggle that is on has a thick green border. The indicators (`command_ui/indicators.rs`) are
   one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
   (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow
