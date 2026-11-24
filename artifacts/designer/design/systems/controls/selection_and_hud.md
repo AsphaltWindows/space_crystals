@@ -363,6 +363,11 @@ A marker surrounding the target object's perimeter.
 | Patrol (destination) | Location | Orange |
 | Reverse | Location | Green |
 | Enter | Object | Green |
+| Rally point (ground) | Location | Green |
+| Rally point (own or neutral object) | Object | Green |
+| Rally point (enemy object) | Object | Red |
+
+**Rally points** (user, 2026-11-24): shown while the producing building is selected, with a **line** from the building to the rally point so distant or off-screen rally points are easy to follow. A cleared rally point (None) shows nothing.
 
 ### Color language:
 - Green = peaceful movement
