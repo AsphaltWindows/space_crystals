@@ -183,6 +183,8 @@ The default ObjectInterfaceState for a selection. The command panel displays ava
 ## RightClickResolution
 Context-sensitive command issued by right-clicking from DefaultState. The command is determined by what is under the cursor and what the selected objects can do. Resolution is evaluated against the ActiveGroup's capabilities.
 
+**Units that can't carry out the resolved command** (user, 2026-11-23): every selected unit acts on a right-click. Units that have the resolved command carry it out. Units that can't, e.g. an unarmed Supply Chopper, or ground-only Peacekeepers when the target is an aircraft, **move to or follow the target instead**: Move to the location, or Follow a unit (systems/controls/behaviors.md > MovingToObject). The group stays together.
+
 ## AwaitingTarget[CommandType]
 An ObjectInterfaceState entered after the player selects a command that requires a target. The command panel indicates which command is pending. Left-clicking a valid target issues the command via a CommandIssuingTransition and returns to DefaultState. The target may resolve to a different command than the one that initiated the state, depending on what is under the cursor. Escape or right-click cancels via a StateOnlyTransition back to DefaultState.
 
