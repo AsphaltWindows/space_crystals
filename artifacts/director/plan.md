@@ -264,11 +264,20 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - Fixed: `World::pick`'s scan radius missed large footprints.
   - No golden changed.
 
+- **M2-E path knowledge** (Fable; merged in `f76db38`; 704 tests):
+  - **Knowledge.** `paths/knowledge.rs` holds `PathKnowledge`, which is hashed, serialized and checked on load: per player, a version plus the starting resources the player still assumes are there.
+  - **Grids.** Players' known grids are built lazily: own footprints, plus records, plus assumed resources. Planning uses the owner's grids: serve, staggered checks, chase line of sight, `reachable_point` and the magic box. Movement, the gate and I2 use the true grids.
+  - **Sync timing.** Known grids sync once per tick, at the end, after `Vision::remember`. That deviates from the plan's 5b, so that save and load stay exact.
+  - **Ownerless and neutral units** plan on the true grids.
+  - **`NavGrid::restamp`** uses union-find labelling and takes 0.17 ms per grid, against 1.4 ms for a full rebuild. In the 10-deaths case seen by 4 players, the tick takes 1.0 ms with 5 rebuilds (the target was 5 ms). The worst tick overall is 3.7 ms, at tick 1 with 412 spawns.
+  - **Housekeeping.** New invariant K1: each player's grids equal a fresh build. `paths.rs` is split into `paths/` and `sim/navigation.rs`. `ROUTE_ON_TRUE_MAP` is deleted.
+  - **Goldens.** Re-blessed, because the hash now includes path knowledge. Play is identical.
+  - **Open.** The blocked-to-open cases went out as Q0033.
+
 ## In progress
 - **M2 wave 2** (common brief `scratchpad/briefs/m2-common.md`, plus one brief per slice):
   - **M2-B economy core** (Opus): banks, power and penalty, Unit Control, plate mining in lumps, depletion.
   - **M2-C placement** (Opus): the build area and one pure placement check, with the 0091–0097 rules.
-  - **M2-E path knowledge** (Fable): per-player planning grids, re-route on discovery, the 5 ms worst-tick target.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2-B, M2-C and M2-E** together after M2-A.
@@ -353,7 +362,7 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 | M2-A | Structure foundation: 5 kinds, stat blocks, armour, orientation and sides, blocking, vision, records, combat, placeholder visuals, oriented debug spawn | G3 | Opus | done (`cbeb804`) |
 | M2-B | Economy core: banks, power and penalty, Unit Control, plate mining and depletion, the economy step | A | Opus | running |
 | M2-C | Build area and placement validation | A | Opus | running |
-| M2-E | Path knowledge: per-player planning grids, re-route on discovery | A | Fable | running |
+| M2-E | Path knowledge: per-player planning grids, re-route on discovery | A | Fable | done (`f76db38`) |
 | M2-D1 | Construction: DC and EF, Construct, Cancel, Place, refunds | B, C | Opus | queued |
 | M2-D2 | Production: Barracks queue, rally point, exit spawn, Unit Control | B | Opus | queued |
 | M2-F | Start and end of a game: Starting Conditions, layouts, defeat, `dev_skirmish` GDO layout | B, C | Opus | queued |
@@ -423,6 +432,7 @@ First playable after M2-H2.
 | Q0030 | Structures as targets (auto-targeting buildings), build menu slots, building InfoPanels | no | answered by 0103 (structures are auto-targets; done in M2-A), 0104 (DC has two build menus; M2-H2), 0105 (structure InfoPanels; M2-G) |
 | Q0031 | A Move or Follow aimed at a selected unit itself (it currently follows itself forever) | no | open; default: the clicked unit is left out |
 | Q0032 | Arrival radius behind an occupied destination: 2 or 3 grid units (data from G3) | no | open; M1 keeps 2 |
+| Q0033 | Path knowledge, blocked to open: a destination behind a gone obstacle, shortcuts when a wall is seen gone, map-placed structures | no | open; M2-E built the stated current behaviour |
 
 ## Design change entries
 Last triaged: 0105.
@@ -462,9 +472,9 @@ Last triaged: 0105.
 | 0037 Patrol failed legs | done (M1-E, `aa5a05f`) | answers Q0010 part 3 |
 | 0038 Crystal patches and supply stations block ground units | done (M1-C rule; Verification tests in M1-G2, `52f20a8`) | answers Q0011 part 1; mining depletion is verified again with the economy |
 | 0039 Rugged terrain impassable for wheeled, tracked and drill vehicles; hover crosses with double drag | queued for the vehicles milestone | infantry unchanged (M1-C keeps Rugged passable for infantry) |
-| 0040 Pathfinding uses only what the owner knows | queued for the structures milestone (M2): per-player known-obstacle layer from M1-F's last-known records, plus a re-route on discovery | replaces default A (true map); M1 has no player-built structures, so nothing is observable yet; F was told to shape its records for it |
-| 0041 The obstacle cache is only a suggestion | noted with 0040 | how and when to re-path is the Director's call |
-| 0042 Map-placed patches and stations known from the start | with 0040 in M2 | confirms the 0040 assumption |
+| 0040 Pathfinding uses only what the owner knows | done (M2-E, `f76db38`) | replaces default A (true map); M1 has no player-built structures, so nothing is observable yet; F was told to shape its records for it |
+| 0041 The obstacle cache is only a suggestion | done (M2-E, `f76db38`) | how and when to re-path is the Director's call |
+| 0042 Map-placed patches and stations known from the start | done (M2-E, `f76db38`) | confirms the 0040 assumption |
 | 0043 Underground units don't collide with each other | queued (Later: underground) | |
 | 0044 No surfacing onto occupied spots | queued (Later: underground) | |
 | 0045 Air units ignore terrain; Gliders may leave the map edge briefly | queued (Later: air) | Q0011 fully answered |

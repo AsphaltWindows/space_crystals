@@ -1144,3 +1144,14 @@ Buildings become targets and get panels in M2.
 | 0103 | Q0030 point 1 | A (done) | Enemy structures are valid automatic targets. |
 | 0104 | Q0030 point 2 | H2 | The DC has two build menus. M2 needs only Q Generator, W Barracks and E Extraction Facility, in BuildMenu[Basic]. Other slots are greyed placeholders or hidden. Idle, constructing and ready states work the same in both menus. |
 | 0105 | Q0030 point 3 | G | The default structure InfoPanel, as proposed: own buildings show name, HP and activity; other players' buildings show name, owner and HP. |
+
+---
+
+## 9. Notes from merged slices for later slices
+
+| From | For | Note |
+|---|---|---|
+| M2-E | F | When defeat transfers a unit to neutral (0101), call `Mover::repath`. Its path was planned on the old owner's knowledge grids, and neutral units plan on the true grids. |
+| M2-E | J | `behaviours_soak` skips the "idle unit in reach has engaged" check in any tick with a death. Tighten it to skip only units whose target died that tick. |
+| M2-E | B, D1, F | Own structures join their owner's planning grid at the end of the tick in which they are placed (known grids sync after `Vision::remember`). |
+| M2-A | I | The editor places structures unturned and refuses a plate on a patch. M2-I adds orientation and the plate exception. |
