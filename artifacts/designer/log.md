@@ -2157,3 +2157,4 @@ Syndicate: Shadebringer Cover duration + charges recharged in tunnels with Vault
 Syndicate: units inside Cover smoke see nothing. Entry 0191.
 Syndicate: Sludge affects all players' units. Entry 0192.
 Syndicate: Shadebringer charges are draining tanks. Entry 0193.
+Syndicate: Shadebringer not immune to own sludge, laid behind it. Entry 0194.
