@@ -1165,6 +1165,7 @@ About 50 TBD notes in the Colonists docs are concentrated in the tech tier. M3 i
 | 0112 | Q0039 point 4 (and Q0041 point 2 in effect) | C, E, F | A deploying Drone's 1 capacity is freed at deploy start, and the Beacon's 5 arrives at completion. A building being warped in keeps providing 5. A cancel takes the Drone's 1 back even over capacity. Over capacity is allowed and shown red: units stay, and none are built until there's room. |
 | 0113 | Q0039 point 5 | E, F | Transforming structures count for defeat. Cancelling a deployment that was the player's only building defeats them in that tick; the cancel is never refused. |
 | 0114 | Q0039 point 6 | F | A loaded Drone deploys without a detour. The load is kept during deployment, lost on completion, and returned on cancel. |
+| 0115 | Q0039 point 7 | E | A building destroyed mid-Warp-In refunds nothing: both the Beacon and the cost are lost. A cancel keeps its 75%. M2's 0084 refund must not fire for a portal still warping in. |
 
 ## 9. Notes from merged slices for later slices
 

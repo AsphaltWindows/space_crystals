@@ -598,7 +598,7 @@ First playable after M2-H2.
 | Q0036 | End of game edge cases: simultaneous last defeats, free-for-all spectating, a raised Riot Shield on defeat | no | open; M2-F2 built the stated current behaviour |
 | Q0037 | Drone gathering: the cases the loop doesn't define (13 points) | no | open; M3-H builds the proposals |
 | Q0038 | Gathering Drones, collision and the economy targets | was yes | answered by 0106 (pass-through), 0107 (geometry), 0108 (±15%) |
-| Q0039 | Beacon Deployment and Warp In: what the transforming object is | no (answer before M3-F) | points 1–6 answered by 0109–0114; points 7–8 open |
+| Q0039 | Beacon Deployment and Warp In: what the transforming object is | no (answer before M3-F) | points 1–7 answered by 0109–0115; point 8 open |
 | Q0040 | Deploy and Warp In placement, and the Colonists panels | no | open |
 | Q0041 | Portal exits and Beacon Capacity | no | open |
 | Q0042 | Shields, melee range and Weapon Conversion | no | open |
@@ -606,7 +606,7 @@ First playable after M2-H2.
 | Q0044 | Gathering details from the build: fog, plates, empty Drop Off, blocked Drones, redirect timing, the Egress Node's sight | no | open; M3-H built the stated current behaviour |
 
 ## Design change entries
-Last triaged: 0114.
+Last triaged: 0115.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -718,4 +718,5 @@ Last triaged: 0114.
 | 0112 Beacon Capacity during Deploy and Warp In; over capacity allowed and shown red | red counter and blocked production done (M3-C, `5c75d40`); Warp In in progress (M3-E); deploy queued (M3-F) | answers Q0039 point 4, and Q0041 point 2 in effect |
 | 0113 Structures under transformation count for defeat | in progress (M3-E); deploy-cancel case queued (M3-F) | answers Q0039 point 5 |
 | 0114 A Drone deploying with a load keeps it; lost on completion, returned on cancel | queued (M3-F) | answers Q0039 point 6 |
+| 0115 A building destroyed mid-Warp-In refunds nothing | in progress (M3-E) | answers Q0039 point 7 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
