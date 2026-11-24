@@ -2105,3 +2105,9 @@ Q0044 pt 4: unreachable patch = occupied (redirect/wait/re-check). Entry 0141. Q
 Q0041 pt 1: Beacon Capacity reserved on queue. Entry 0142.
 Q0041 pts 1-2: capacity reserved at production start for GDO and Colonists (Syndicate model); replaces 0082 and 0142. Entry 0143.
 Q0041 pts 3-4: Robo Portal exit = closest side to rally, else random unblocked. Entry 0144.
+Q0041 pts 5-6: portal energy doorway at centre, open-direction arc, toward rally, go around; replaces 0144. Entry 0145. Q0041 done.
+Q0042 pts 1-2: shields regen for neutral and transforming objects. Entry 0146.
+Q0042 pt 3: clarified, no modifiers on Shields (docs). Entry 0147.
+Q0042 pt 4: shields bar above HP, InfoPanel line. Entry 0148.
+Q0042 pt 5: melee reach 8 su placeholder. Entry 0149.
+Q0042 pt 6: Convert and Riot Shield keep orders; shielded Attack on hold (follow), resumes on lower. Entry 0150.

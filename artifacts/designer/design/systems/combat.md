@@ -19,7 +19,7 @@ Combat statistics for a unit that can attack. Only present on units that can att
 ### Range Measurement
 Range and MinRange are measured **edge to edge** (user, 2026-11-23): the shortest distance between the attacker's shape and the target's shape, i.e. the gap between them. Shapes are a unit's Silhouette and a structure's footprint. "Range 5" means the gap between attacker and target is at most 5 grid units.
 - Big targets are not harder to reach than small ones, and a big attacker's or turret's own body doesn't eat into its range.
-- Melee (adjacent contact) is a gap of about 0.
+- Melee has a short **reach**: **8 space units** for every melee attack for now (placeholder; user, 2026-11-24). Melee units should have some reach, not exactly 0 (an exact 0 would fail on tiny collision gaps).
 - Ground-location targets (Attack Ground, TailDisjointed artillery): measured from the attacker's shape to the target point.
 - ElevationModifier adds to Range as before (core/vision.md > ElevationModifier).
 
@@ -103,7 +103,7 @@ The animation and the effect on the target are a single unified animation during
 Standard ranged FullyConnected attack. Has meaningful Range. Benefits from ElevationModifier on range.
 
 ### Melee
-Close-quarters FullyConnected attack. Fixed short range (adjacent contact). ElevationModifier does NOT apply to range.
+Close-quarters FullyConnected attack. Short reach: 8 space units for all melee attacks for now (placeholder; user, 2026-11-24); may become a per-attack value later. ElevationModifier does NOT apply to range.
 
 ## HeadDisjointed
 The Firing phase is short and spawns a projectile which tracks the target independently of the attacking unit's further actions. The unit enters Cooldown and Reloading while the projectile is in flight. The effect of the attack is delayed until the projectile reaches the target. The projectile cannot miss.
@@ -162,7 +162,7 @@ All damage against HP is resolved in this order (shared by single-target and AoE
 3. **Post-armor multipliers** — DirectionalArmor (front × 0.75 / sides × 1.0 / rear × 1.25).
 4. **MinimumDamage** — floor of 0.5 (× overlap fraction for AoE; capped at shield overflow).
 
-Colonists Shields are resolved before all of this: Shields take incoming damage at full value, and only the overflow enters step 1.
+Colonists Shields are resolved before all of this: Shields take incoming damage at full value, and only the overflow enters step 1. "Full value" means **no modifier of any step touches Shields**: no pre-armor reductions, no armor, no DirectionalArmor, no minimum. For AoE, the full value is the unit's damage share. Every modifier applies only to the overflow, in the order above (clarified 2026-11-24, Q0042).
 
 ## MinimumDamage
 Every hit deals at least a minimum amount of damage, regardless of armor. HP is tracked as a fractional value (AoE damage shares and the minimum below can produce fractions).
@@ -177,7 +177,10 @@ Every hit deals at least a minimum amount of damage, regardless of armor. HP is 
 A Colonists-only stat. Every Colonists unit and building has a MaxShields value in addition to MaxHP.
 
 ### MaxShields - number (Colonists units/buildings only; defined per-entity alongside MaxHP)
-### ShieldRegenRate - 4 Shields per second (0.25 per frame). Constant base rate shared by all Colonists units and buildings. Shields regenerate continuously (not gated by a delay after taking damage). Upgradeable via the Fusion Core's shield upgrades (factions/colonists/structures.md > Fusion Core > Research), each level increasing the rate; per-level values TBD.
+
+### Display
+(user, 2026-11-24) On the map, a **shield bar sits directly above the HP bar** of every object with Shields. The InfoPanel shows **"Shields current/max"** next to the HP line. (Colours and styling: HUD pass.)
+### ShieldRegenRate - 4 Shields per second (0.25 per frame). Constant base rate shared by all Colonists units and buildings. Shields regenerate continuously (not gated by a delay after taking damage). Regeneration applies to **every** object with Shields, including **neutral** ones (a defeated player's units; user, 2026-11-24), and runs up to the current MaxShields (for a transforming Colonists object, the current interpolated maximum: factions/colonists/economy.md > Beacon Deployment > HP/Shields Interpolation). Upgradeable via the Fusion Core's shield upgrades (factions/colonists/structures.md > Fusion Core > Research), each level increasing the rate; per-level values TBD.
 
 ### Shield Damage Resolution
 Incoming damage is applied to Shields first, at full value — PointArmor and FullArmor do NOT reduce damage against Shields. If damage exceeds current Shields, Shields drop to 0 and the remaining (overflow) damage is applied to HP using the normal SingleTargetDamage / AoEDamage armor calculations above (PointArmor for single-target, FullArmor for AoE), with the MinimumDamage capped at the overflow amount (see MinimumDamage > Shield overflow). If a unit's current Shields fully absorb the incoming damage, no HP is lost and armor is never consulted.
