@@ -188,6 +188,8 @@ Context-sensitive command issued by right-clicking from DefaultState. The comman
 ## AwaitingTarget[CommandType]
 An ObjectInterfaceState entered after the player selects a command that requires a target. The command panel indicates which command is pending. Left-clicking a valid target issues the command via a CommandIssuingTransition and returns to DefaultState. The target may resolve to a different command than the one that initiated the state, depending on what is under the cursor. Escape or right-click cancels via a StateOnlyTransition back to DefaultState.
 
+**Invalid target clicks** (user, 2026-11-23): a left-click on a target the pending command can't use (shown by the Inactive pointer) is **ignored**. Targeting stays active and waits for a valid target, and the player gets short **feedback** (an "invalid target" message and/or sound; exact form TBD, ties into the future notification system).
+
 ### PendingCommand - CommandType
 ### Resolution - (CursorTarget) -> Command
 

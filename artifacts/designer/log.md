@@ -2022,3 +2022,4 @@ User confirmed sending all 16 pending feature_requests from insights into the pi
 - 2026-11-23T20:31:43-05:00 — Q0016.1: non-capable units move/follow on right-click. Doc: selection_and_hud.md. Change entry 0062.
 - 2026-11-23T20:35:28-05:00 — Right-click per-unit resolution; Mixed cursor. Doc: selection_and_hud.md. Change entry 0063.
 - 2026-11-23T20:35:43-05:00 — Consistency fix: Attack targeting UI accepts own/neutral destructibles. Doc: selection_and_hud.md. Change entry 0064.
+- 2026-11-23T20:37:18-05:00 — Q0016.2: invalid target click ignored + feedback. Doc: selection_and_hud.md. Change entry 0065.
