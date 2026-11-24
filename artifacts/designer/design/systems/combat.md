@@ -162,7 +162,7 @@ All damage against HP is resolved in this order (shared by single-target and AoE
 3. **Post-armor multipliers** — DirectionalArmor (front × 0.75 / sides × 1.0 / rear × 1.25).
 4. **MinimumDamage** — floor of 0.5 (× overlap fraction for AoE; capped at shield overflow).
 
-Colonists Shields are resolved before all of this: Shields take incoming damage at full value, and only the overflow enters step 1.
+Colonists Shields are resolved before all of this: Shields take incoming damage at full value, and only the overflow enters step 1. "Full value" means **no modifier of any step touches Shields**: no pre-armor reductions, no armor, no DirectionalArmor, no minimum. For AoE, the full value is the unit's damage share. Every modifier applies only to the overflow, in the order above (clarified 2026-11-24, Q0042).
 
 ## MinimumDamage
 Every hit deals at least a minimum amount of damage, regardless of armor. HP is tracked as a fractional value (AoE damage shares and the minimum below can produce fractions).
