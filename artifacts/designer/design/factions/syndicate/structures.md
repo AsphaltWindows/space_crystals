@@ -53,7 +53,7 @@ The Hideout (renamed from Headquarters) is the primary accommodations for Syndic
 #### FullArmor - 4
 #### Produces:
 - Agent: 100 Space Crystals, 240 frames (15 seconds)
-- Guard: 125 Space Crystals, 120 frames (7.5 seconds)
+- Guard: 125 Space Crystals, 120 frames (7.5 seconds). Unit Prerequisite: player owns at least one Optics Lab (2026-11-24).
 
 #### HideoutInstanceState:
 - RallyPoint: Coordinates | ObjectInstance | None
@@ -71,7 +71,7 @@ Right-click resolution:
 
 Immediate commands (CommandIssuingTransition):
 - **Q: Build Agent**: deducts 100 Space Crystals from player, adds Agent to BuildQueue. Only available if BuildQueue has fewer than 20 entries and player has sufficient Space Crystals. Tunnel Space is checked when the Agent is about to start, not when queued (see Tunnel > Tunnel Space > Production and Tunnel Space).
-- **W: Build Guard**: deducts 125 Space Crystals from player, adds Guard to BuildQueue. Only available if BuildQueue has fewer than 20 entries and player has sufficient Space Crystals. Tunnel Space is checked when the Guard is about to start, not when queued.
+- **W: Build Guard**: deducts 125 Space Crystals from player, adds Guard to BuildQueue. Only available if the player owns at least one Optics Lab, BuildQueue has fewer than 20 entries and player has sufficient Space Crystals. Tunnel Space is checked when the Guard is about to start, not when queued.
 - **X: Cancel Production**: removes last entry from BuildQueue, refunds full cost to player. Only available if BuildQueue is not empty.
 
 Target commands (StateOnlyTransition):
@@ -79,7 +79,7 @@ Target commands (StateOnlyTransition):
 
 ### Optics Lab
 
-Syndicate tech building enabling the Syndicate's laser weaponry. (Whether "enabling" means acting as a prerequisite for laser-armed units/expansions, hosting laser research, or both is TBD.)
+Syndicate tech building enabling the Syndicate's laser weaponry. It is the prerequisite for the **Guard** (laser rifle) and the **Laser Turret** (2026-11-24). Whether it also hosts laser research is TBD.
 
 #### Entity Type - Structure Type (Underground)
 #### Tier Requirement - 1
