@@ -2093,3 +2093,4 @@ Q0037 pt 3: other orders keep the load. Entry 0129.
 Q0037 pt 4: interrupted mining collects nothing, patch frees. Entry 0130.
 Q0037 pt 5: known, uncovered patches only. Entry 0131.
 Q0037 pt 6 (partly): waiting at tried patch, periodic re-check, return to last mined patch. Entry 0132.
+Q0037 pt 6: waiter order = implementation's choice (deterministic). Entry 0133.
