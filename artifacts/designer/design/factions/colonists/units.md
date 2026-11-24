@@ -69,6 +69,9 @@ When a Drone arrives at an occupied patch, it goes to the **nearest unoccupied p
 
 **Search radius** (user, 2026-11-24): a Drone only looks for another patch **within a radius around itself**. This radius is an internal per-unit stat of the Drone (stat name TBD). Value: **6 grid units (placeholder)**. Which patches count within it (e.g. only ones the player knows): TBD (Q0037 point 5).
 
+#### Interrupted mining
+(user, 2026-11-24) A Drone ordered away (or otherwise stopped) before its 32 MiningDuration frames finish **collects nothing**, and the patch is **freed immediately** for another Drone.
+
 #### Other orders keep the load
 (user, 2026-11-24) A carrying Drone given any other order (Move, Stop, …) **keeps its load**. It delivers it at its next drop-off: on its next Gather trip (Gather while carrying a load below) or with a Drop Off order. (Deploying with a load: factions/colonists/economy.md > Beacon Deployment > Deploying with a load.)
 
