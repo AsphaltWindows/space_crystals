@@ -13,6 +13,7 @@ use sc_sim::ObjectId;
 
 use super::model::{ControlState, Selection};
 use super::pick::{Selectable, Selectables};
+use crate::command_ui::InterfaceState;
 use crate::input::{Bindings, ControlGroup, InputAction, Modifiers};
 
 /// How a click or a box is meant: the roles its modifiers hold in the bindings table (`ARCHITECTURE.md > Client
@@ -214,9 +215,11 @@ impl ControlState {
 
     /// `> Operations > Recall`: the group's objects replace the selection, its first group active. Destroyed objects
     /// have left the group already (`super::systems::sync_control_states`). A group holds own objects only (design
-    /// change 0056), so its recall keeps the Constraints; one that wouldn't is refused all the same. Placeholder
-    /// rule, the design is silent: recalling an empty group changes nothing. Says whether the group had objects to
-    /// recall.
+    /// change 0056), so its recall keeps the Constraints; one that wouldn't is refused all the same. A recall resets
+    /// the ObjectInterfaceState to DefaultState, also one that recalls exactly the current selection
+    /// (`> ObjectInterfaceState`, design change 0078: a recall refreshes the selection). Placeholder rule, the design
+    /// is silent: recalling an empty group changes nothing, the ObjectInterfaceState included. Says whether the
+    /// group had objects to recall.
     pub fn recall_group(&mut self, group: ControlGroup, objects: &Selectables) -> bool {
         let ids: Vec<ObjectId> = self
             .groups
@@ -229,6 +232,7 @@ impl ControlState {
             return false;
         }
         self.select(selection_of(ids, objects));
+        self.interface = InterfaceState::DefaultState;
         true
     }
 

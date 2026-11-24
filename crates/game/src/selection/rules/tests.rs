@@ -225,6 +225,28 @@ fn portrait_clicks_follow_the_panels_rules() {
     assert_eq!(state.click_portrait(&objects, ObjectId(1), alt), None, "not selected");
 }
 
+/// `> ObjectInterfaceState` (design change 0078): a control group's recall resets the ObjectInterfaceState, also one
+/// that recalls exactly the current selection; the key of an empty group changes nothing (placeholder rule).
+#[test]
+fn a_recall_resets_the_interface_state() {
+    let objects = row(&[(1, PK, Relation::Own), (2, GUARD, Relation::Own)]);
+    let (one, two) = (ControlGroup::new(1).unwrap(), ControlGroup::new(2).unwrap());
+    let awaiting = InterfaceState::awaiting(crate::command_ui::UnitCommand::Attack);
+    let mut state = ControlState {
+        selection: selection_of([ObjectId(1), ObjectId(2)], &objects),
+        ..ControlState::default()
+    };
+    assert!(state.assign_group(one, &objects));
+    let before = state.selection.clone();
+    state.interface = awaiting;
+    assert!(state.recall_group(one, &objects));
+    assert_eq!(state.selection, before, "the same selection");
+    assert_eq!(state.interface, InterfaceState::DefaultState);
+    state.interface = awaiting;
+    assert!(!state.recall_group(two, &objects), "an empty group");
+    assert_eq!(state.interface, awaiting);
+}
+
 /// `> ControlGroups > Groups` (design change 0056): only own objects go into control groups. Assign and Add with
 /// another player's or a neutral object selected change nothing, not even an empty group.
 #[test]

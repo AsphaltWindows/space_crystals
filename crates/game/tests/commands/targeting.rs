@@ -377,7 +377,9 @@ fn a_shift_click_queues_the_targeted_order() {
 }
 
 /// `> ObjectInterfaceState[ObjectEnum]`: the player's change of the Selection or of its ActiveGroup resets the
-/// state (design change 0069: Tab, a control group's recall).
+/// state (design change 0069: Tab, a control group's recall), and so does every control group recall, also one
+/// that recalls exactly the current selection (0078; its Verification 1): the panel shows the default commands
+/// again. Tab, with nothing to cycle to, changes nothing and leaves the target awaited.
 #[test]
 fn a_new_selection_or_active_group_ends_targeting() {
     let mut app = game();
@@ -392,6 +394,22 @@ fn a_new_selection_or_active_group_ends_targeting() {
     tap(&mut app, &[], Digit1);
     assert_eq!(selected(&app), [5], "control group 1 recalled");
     assert_eq!(interface(&app), InterfaceState::DefaultState);
+
+    pause(&mut app);
+    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], Tab);
+    assert_eq!(interface(&app), AWAIT_ATTACK, "one group: Tab changes nothing");
+    pause(&mut app);
+    tap(&mut app, &[], Digit1);
+    assert_eq!(selected(&app), [5], "the same selection");
+    assert_eq!(interface(&app), InterfaceState::DefaultState, "any recall resets");
+    let mut buttons = app.world_mut().query::<&CommandButton>();
+    let looks: Vec<(CommandSlot, ButtonLook)> = buttons.iter(app.world()).map(|b| (b.slot, b.shown.look)).collect();
+    assert!(looks.contains(&(slot(1, 0), ButtonLook::Common)), "Attack: {looks:?}");
+    assert!(
+        !looks.iter().any(|&(_, look)| look == ButtonLook::Back),
+        "no Back: {looks:?}"
+    );
 }
 
 /// Design change 0069: a selected unit that dies (removed here, as a death removes it) leaves the selection, but

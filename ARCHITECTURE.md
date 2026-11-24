@@ -890,9 +890,10 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   debug player switch (F2, only while `SimConfig::debug`: the client acts as the next player, so "own" and the state
   in use change; a replay's playback switches without debug commands too). The HUD's portrait clicks run after it.
   Systems change a state only through `LocalControl::update`, which marks `ControlStates` changed only on a real
-  change, and puts the ObjectInterfaceState back to DefaultState when the Selection or its ActiveGroup changes. While
-  a target is awaited, map clicks and boxes select nothing (the drag box isn't drawn): the left-click is the
-  target's.
+  change, and puts the ObjectInterfaceState back to DefaultState when the Selection or its ActiveGroup changes; a
+  control group's recall puts it back even when the selection stays the same (`ControlState::recall_group`, design
+  change 0078). While a target is awaited, map clicks and boxes select nothing (the drag box isn't drawn): the
+  left-click is the target's.
 - **Visuals** (`selection/markers.rs`): one marker entity per selected object: a ring around a unit, in the
   ground-decal layer under it, or a frame inside a footprint, which the object's visual would hide there, so it is
   drawn just in front of the object (`FRAME_Z`: half a su of ground y, under the objects south of it); coloured by
@@ -948,8 +949,8 @@ to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how th
   (`end_queued_targeting`, first in `Input`, after a targeting press still held has had its click), while before
   the first queued click it changes nothing (0070's TBD, its proposed default). Esc, a right-click and Back cancel,
   Shift held or not. The player's changes of the selection or the ActiveGroup cancel targeting
-  (`LocalControl::update`); removals by the game (deaths) don't, unless the whole ActiveGroup is gone
-  (`ControlState::retain`).
+  (`LocalControl::update`), and so does every control group recall, of the same selection too (0078); removals by
+  the game (deaths) don't, unless the whole ActiveGroup is gone (`ControlState::retain`).
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command (`PanelSlot::label`: a toggle says what pressing it does) and its hotkey from the
   bindings, and a toggle that is on has a thick green border. The indicators (`command_ui/indicators.rs`) are
