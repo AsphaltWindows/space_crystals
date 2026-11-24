@@ -6,6 +6,8 @@
 //!
 //! **The extension point** for the structures' activities: [`lines`] gives the area's lines, one capability of the
 //! structure after another, in this order, and the panel shows them as they come:
+//! - transformation (`Object::transform`, slice M3-E, [`transformation`]): the building being warped in and its
+//!   progress, the one thing a transforming structure does (design change 0116);
 //! - construction (the constructor capability of slice M2-D1, [`construction`]): the building under construction
 //!   and its progress, or the building ready to place;
 //! - production (the production capability of slice M2-D2, [`production`]): the unit in production and its
@@ -15,16 +17,32 @@
 //! placeholder until the panel's layout exists (Q0001).
 
 use sc_sim::construction::recipe;
-use sc_sim::{Constructor, Object, PlayerId, QUEUE_LIMIT, Rally, Sim};
+use sc_sim::{Category, Constructor, Object, PlayerId, QUEUE_LIMIT, Rally, Sim};
 
 use crate::selection::Relation;
 
 /// What `structure`, one of the local player's own, is doing, one line per item, for the activity area (module docs):
 /// empty while it has nothing to show.
 pub fn lines(sim: &Sim, structure: &Object) -> Vec<String> {
-    let mut lines = construction(structure);
+    let mut lines = transformation(structure);
+    lines.extend(construction(structure));
     lines.extend(production(sim, structure));
     lines
+}
+
+/// A transforming structure's line (`Object::transform`): the building it becomes and its progress, "frames elapsed /
+/// WarpInTime" (`factions/colonists/economy.md > Warp In > HP/Shields Interpolation`), in whole percent rounded down,
+/// 100% only once complete. "Warping in" from a structure, a Beacon; "Deploying" from a unit, a Drone becoming a
+/// Beacon (slice M3-F). Nothing for a structure that isn't transforming.
+pub fn transformation(structure: &Object) -> Vec<String> {
+    let Some(t) = &structure.transform else {
+        return Vec::new();
+    };
+    let doing = match t.from.def().category {
+        Category::Unit => "Deploying",
+        _ => "Warping in",
+    };
+    vec![format!("{doing}: {} {}%", structure.def().name, t.percent())]
 }
 
 /// A constructor's line (`factions/gdo/structures.md > DeploymentCenter > DeploymentCenterInstanceState`,
@@ -225,5 +243,48 @@ mod tests {
         assert_eq!(shown(t.sim()), ["Constructing Generator: 50%"]);
         t.run_until(400);
         assert_eq!(shown(t.sim()), ["Generator ready to place"]);
+    }
+
+    /// Slice M3-E: a Beacon warping in a building shows the building and the Warp In's progress, "frames elapsed /
+    /// WarpInTime" (`factions/colonists/economy.md > Warp In > HP/Shields Interpolation`) in whole percent rounded
+    /// down, and nothing else (design change 0116: functions start at completion); cancelled, a Beacon again, it
+    /// shows nothing. Player 1's Beacon (1) warps in a Robo Portal (4 × 4 tiles centred on it, WarpInTime 640 frames)
+    /// ordered in tick 1: at the end of tick 288, 288 frames are done, 45%.
+    #[test]
+    fn a_warp_in_shows_its_building_and_its_progress() {
+        let beacon = ObjectId(1);
+        let mut t = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
+            .spawn(ObjectKind::Beacon, Some(P1), tile(8, 6))
+            .start();
+        let shown = |sim: &Sim| lines(sim, sim.object(beacon).unwrap());
+        assert_eq!(shown(t.sim()), Vec::<String>::new(), "a Beacon has nothing to show");
+        let construction = |command| Command::Construction {
+            objects: vec![beacon],
+            command,
+        };
+        t.debug_at(
+            1,
+            DebugCommand::SetResources {
+                player: P1,
+                crystals: 1000,
+                supplies: 0,
+                alloys: 0,
+                essence: 0,
+                flux: 0,
+            },
+        );
+        let warp_in = ConstructionCommand::WarpIn {
+            kind: ObjectKind::RoboPortal,
+            orientation: Default::default(),
+        };
+        t.at(1, P1, construction(warp_in));
+        t.run_until(1);
+        assert_eq!(shown(t.sim()), ["Warping in: Robo Portal 0%"]);
+        t.run_until(288);
+        assert_eq!(shown(t.sim()), ["Warping in: Robo Portal 45%"]);
+        t.at(289, P1, construction(ConstructionCommand::CancelTransform));
+        t.run_until(289);
+        assert_eq!(t.sim().object(beacon).unwrap().kind, ObjectKind::Beacon);
+        assert_eq!(shown(t.sim()), Vec::<String>::new(), "a Beacon again");
     }
 }

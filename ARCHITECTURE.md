@@ -159,9 +159,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   production and its rally point, see *Production*); for a structure that constructs buildings, `constructor`
   (`Constructor`, `construction.rs`: idle, constructing or holding a building ready to place, see *Economy*); for
   a worker, the Drone, `worker` (`Worker`, `economy/gathering.rs`: its load, its AssignedDropOff and the patch it
-  gathers, see *Economy > Gathering*). The
-  rest arrives as more optional fields, each with its own module. Never add them as separate stores keyed by id. A
-  system walks the objects in id order and skips those without its capability
+  gathers, see *Economy > Gathering*); for an object transforming into its kind (a Beacon warping in a building),
+  `transform` (`Transform`, `transform.rs`: what it was and where it stood, how far it has come and what it paid, see
+  *Economy > Warp In*). The rest arrives as more optional fields, each with its own module. Never add them as
+  separate stores keyed by id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
   them through `ObjectKind::def()` or `Object::def()`. Every value cites its design section. Faction types go in
@@ -201,8 +202,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   kept attack keeps its target and restarts its sequence. Paid state the new kind has no place for (a production
   queue, a construction) is refunded first, as on removal. Call it before 5b (in the commands phase, or a step
   right after 5a), or sync the grids yourself (`paths::sync`). A caller whose new kind isn't functional yet (a
-  building warping in) holds its functions back itself. Slices B, E and F are its callers; until then it is
-  unit-tested only (`sim/kinds/tests.rs`).
+  building warping in) holds its functions back itself. Slice E's Warp In and its cancel are its first callers
+  (`sim/transform.rs`), slices B and F follow; `sim/kinds/tests.rs` unit-tests it. The client rebuilds the visuals of
+  a changed object and keeps it selected (see *Commands, events and replays > Events*).
 - **Sides** (`sides.rs`, design change 0079): `sides(kind, orientation)` gives the letters of a structure's sides
   that face north, east, south and west (`[SideLetter; 4]`, `None` for other objects). Unturned, the letters of its
   `SymmetryType` (AAAA to ABCD) run clockwise from the top side; a flip mirrors them, then the rotation turns them
@@ -260,6 +262,15 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   aside (design change 0094); air and underground units never block. A plate goes exactly onto a patch
   (`placement::Onto`), the one rule of the check that map validation applies to pre-placed objects too
   (`SpawnProblem::NotOnPatch`, slice M2-J2).
+- **Methods** (plan decision T16): the `Site` also names how the structure comes to stand (`Method`), and the one
+  check applies that method's rules. `Method::Direct` is the GDO's Direct Placement, with its build area.
+  `Method::WarpIn { beacon }` (slice M3-E; `core/entities.md > Placement Validation > Warp In`) has the same tile
+  rules, sight included (design change 0119: a tile out of sight is invalid whatever stands there), none but sight
+  on the tiles of the Beacon the building consumes, ground units of any player blocking the others (0118), and no
+  build area. A Warp In's footprint is never chosen: `transform::warp_in_footprint(beacon, kind, orientation)`
+  derives it (0121: centred on the Beacon; an odd-sized building's extra row and column at the bottom-right, turned
+  and flipped about the Beacon's centre as the building's sides are), and `Sim::warp_in_check(beacon, kind,
+  orientation)` checks it. The gate and the Warp In ghost (slice M3-J1) call those two.
 - **The build area** (`BuildArea`, `Sim::build_area(player)`; `factions/gdo/structures.md > GDOBuildArea`) is the
   union of one rectangle per GDO building the player owns: its footprint grown by its BuildRadiusExtension on every
   side, clamped to the map (design change 0091: square). A building with an extension of 0, the plate, adds nothing.
@@ -272,8 +283,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   scenarios and tests*).
 - **Tests**: `src/placement/tests.rs` (each rule on the pure check), `placement/build_area.rs`'s (the 28 × 28 area,
   each kind's extension, the runs), `tests/placement.rs` (the verification points of design changes 0004 and 0091 to
-  0097 in games and layouts, determinism, a save) and the ignored `tests/placement_perf.rs`. Measured (release, 769
-  objects, 101 buildings of the player's; slice M2-J2, on a quiet machine): 4 µs a check, 2 µs a build area.
+  0097 in games and layouts, determinism, a save), `tests/warp_in.rs` (the Warp In method, see *Economy > Warp In*)
+  and the ignored `tests/placement_perf.rs`. Measured (release, 769 objects,
+  101 buildings of the player's; slice M2-J2, on a quiet machine): 4 µs a check, 2 µs a build area.
 
 ## Tick pipeline
 
@@ -315,6 +327,11 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      mining, the workers' timed work (`gathering::step`, slice M3-H: mining takes its load from the patch, a
      drop-off pays the bank). `economy::step` returns the patches the workers emptied, and `step` takes them out
      through `Sim::remove_objects` and syncs the grids again, as after 5e's deaths.
+   - Transformations, `Sim::step_transforms` (slice M3-E, see *Economy > Warp In*): part of the economy phase, run
+     right after `economy::step` and its removals, before the producers: each transformation advances one frame,
+     its interpolated maxima and its HP follow, and a complete one turns its functions on, so a portal takes a Train
+     from the next tick's commands. It changes no footprint: a Warp In and a cancel change theirs in the commands
+     phase, before 5b.
    - Producers, `Sim::step_production` (slice M2-D2, see *Production*): part of the economy phase, run right after
      `economy::step` and not inside it, because a finished unit is inserted into the game (`Sim::insert_object`).
      The unit in production advances, and a finished one is released into its exit doorway, or held while that is
@@ -911,6 +928,24 @@ section of its own.
   owner's planning grids at the end of it, and it works from the next tick on. `construction::recipes(kind)`,
   `Constructor::{current, ready, frames_done}` and `Sim::validate` are what a client needs for its menus. Not built:
   tech prerequisites (no building with a cost has one yet) and ConstructionHP.
+- **Warp In** (`transform.rs`, `sim/transform.rs`; slice M3-E, plan decisions T15, T16 and T22;
+  `factions/colonists/economy.md > Warp In`, design changes 0109 to 0122): a Beacon transforms in place into a
+  building of its Constructs List (`StructureDef::warp_in`, `transform::warp_in_recipe`).
+  `ConstructionCommand::WarpIn { kind, orientation }` names one Beacon, which pays the cost at once and becomes the
+  building through `Sim::change_kind`, on the footprint `transform::warp_in_footprint` derives (see *Placement and
+  the build area > Methods*). The object is the building from its first frame, its whole footprint solid (0109),
+  and `Object::transform` (`Transform`: what it was and where, its progress of `total` frames, what it paid) runs
+  until it is complete. `Sim::step_transforms` advances it by `RATIO_ONE` a tick (the Colonists have no power), by
+  *Recipe timing*: ordered in tick `t`, a WarpInTime of `N` frames completes at the end of `t + N − 1`
+  (`SimEvent::TransformCompleted`) and the building works from `t + N`. Its maxima interpolate
+  (`Object::max_hp`, `Object::max_shields`: "Beacon MaxHP + (Building MaxHP − Beacon MaxHP) × progress"), and its
+  HP rises by what its maximum rises (`transform::follow_max`, 0110: damage stays taken, whenever it was taken).
+  Until it is complete it holds its functions back (0116: no production, drop-off, rally or abilities; the gate
+  refuses a Train, a rally and a drop-off at it), but it counts for defeat (0113) and keeps providing its 5 Beacon
+  Capacity (0112). `ConstructionCommand::CancelTransform` turns every transforming object named back into what it
+  was, on its old tiles, with the fraction of its HP it had and at least 1 (`transform::keep_fraction`, 0111), and
+  refunds `Refund::Ready` of what it paid (`SimEvent::TransformCancelled`); a destroyed one refunds nothing (0115).
+  Slice M3-F's deployment reuses `Transform`: `from` a Drone, without `from_placement`, its load a field of its own.
 - **Adding to the economy** (slices M2-D2, M2-F): put the new step into `economy::step` at its numbered place, advance
   progress by `PowerSummary::speed` from the tick the command applies (*Recipe timing*), take costs with
   `spend_crystals` when the command applies, and give refunds through `Refund`; `construction.rs` is the pattern.
@@ -1029,7 +1064,9 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   map), and it **ignores invalid ones**. It must never panic on player input, so use checked or saturating arithmetic
   on numbers that come from input. Panics are only for programmer errors, such as an invalid scenario passed to
   `Sim::new` or an out-of-bounds `Map::set_tile`.
-- **The command gate** (`sim/gate.rs`): `Sim::validate(&PlayerCommand) -> Result<(), Reject>` checks a command
+- **The command gate** (`sim/gate.rs`, with each command family's checks in its own file, plan decision T28: orders
+  and abilities in `sim/gate/orders.rs`, debug commands in `sim/gate/debug.rs`, production in `sim/producers.rs`,
+  construction in `sim/construction.rs`): `Sim::validate(&PlayerCommand) -> Result<(), Reject>` checks a command
   against the current state without changing it, and `step` applies a command only through the same check
   (`Sim::check`, which hands the application the objects and positions it resolved), so the two can't disagree. In
   order: the player is in the game (`Reject::UnknownPlayer`), the game isn't over (`GameOver`) and the player isn't
@@ -1040,9 +1077,9 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   object is in the issuing player's sight (`NotVisible`, below), spawns fit (`Spawn(SpawnProblem)`) and keep apart
   from other footprints (`Overlaps(id)`, see Object model). A rejected command changes nothing, neither the state
   nor the events, and never panics.
-  The one rejection the sim reports is a Place the placement check refuses (plan decision T4): the client checked it
-  before sending it, so the game changed in between, and `SimEvent::PlacementRefused` (output, outside the state
-  hash) says why (`Sim::report_refusal`). Add another such event only when the UI needs it.
+  The one rejection the sim reports is a Place or a Warp In the placement check refuses (plan decision T4): the
+  client checked it before sending it, so the game changed in between, and `SimEvent::PlacementRefused` (output,
+  outside the state hash) says why (`Sim::report_refusal`). Add another such event only when the UI needs it.
 - **`Command::Order { units, kind, queue }`** (`systems/controls/commands.md > Unit Command`, `docs/movement.md > 3`):
   `OrderKind` is `Move(Target)` (a point or an object), `Attack(id)`, `AttackMove(point)`, `Patrol(point)`, `Hold`,
   `Stop`, and for workers `Gather(patch)` and `DropOff(node)` (`factions/colonists/units.md > Drone > Unit
@@ -1082,7 +1119,12 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   `NothingReady`) and refunds it (`ConstructionCancelled`). A Place names one constructor (`SeveralConstructors`; design
   change 0071) holding a ready building (`NothingReady`), and is rejected with the placement check's first problem
   (`Unplaceable(PlacementProblem)`), which is reported (above). Each object of a command is one constructor; the client
-  sends a command to the group the design says (no smart-casting, design change 0071).
+  sends a command to the group the design says (no smart-casting, design change 0071). `WarpIn { kind, orientation }`
+  (slice M3-E, see *Economy > Warp In*) names one Beacon of the player's (`NoConstructor`, `SeveralConstructors`),
+  not transforming itself (`ConstructorBusy`), a building of its list (`CannotConstruct`) and the bank to pay it
+  (`InsufficientCrystals`), and no position: its footprint is derived, and refused like a Place's (`Unplaceable`,
+  reported). `CancelTransform` goes to every transforming object of the player's named, in id order
+  (`NotTransforming` when none is).
 - **Targets must be seen** (question Q0017 point 2, its default; `core/vision.md > Explored Selectability`): an
   Attack or a Move on an object is taken only while the issuing player sees it (a tile it covers is Visible), else
   `Reject::NotVisible`. The exception is the design's: a GDO player may target a Supply Delivery Station on Explored
@@ -1119,10 +1161,14 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`,
   `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `UnitProduced`,
   `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
-  `GameOver`, `KindChanged`, `ResourcesDelivered`, …) are output only, for effects, sounds and UI. The sim never reads them.
+  `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, …) are output only, for
+  effects, sounds and UI. The sim never reads them.
   `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events from the scenario's
-  initial spawns. `KindChanged { id, from, to }` (`Sim::change_kind`) tells the client to re-mesh an object and
-  regroup the selection; that response arrives with its first caller, slice M3-B.
+  initial spawns. `KindChanged { id, from, to }` (`Sim::change_kind`) says that an object changed its kind in place.
+  The client's response (slice M3-E) reads the objects themselves, so a replay's jump or a loaded game gets it too:
+  the object's visual is made anew with the new kind's mesh, size and tag (*Client architecture > Visuals*), it
+  stays selected with the same id as its new kind and its marker takes its new shape (*Selection*), and the panels
+  re-resolve its type. The Warp In's own interface (its ghost, Cancel on its panel) is slice M3-J1's.
 
 ## Sim scenarios and tests
 
@@ -1308,6 +1354,16 @@ Colonists' portals, slice M3-D: `factions/colonists/structures.md > Robo Portal`
   the measurements) and `gathering_pass_through.rs` (design change 0106's Verification: two players' Drones on one
   row; an idle Drone parked in the strip, an enemy's and the gatherer's own; a Drone ordered out of a mining Drone,
   and solid once apart; a Drone stopped inside another, not pushed apart).
+- **Warp In tests** are `crates/sim/tests/warp_in.rs` (slice M3-E: each building's WarpInTime and the Train it takes
+  from the next tick; the interpolated maxima; damage carried through, taken before or during it (0110); the
+  derived footprint, its corners, flips, turns and exit sides (0121); the Robo Portal's ring, blocked by a unit of
+  either player, a patch or a structure (0118); every tile Visible, an unseen unit leaking nothing (0119); the
+  footprint solid from the first frame and the Beacon's 2 × 2 after a cancel (0109); no drop-off at an Egress Node
+  warping in (0116); the cancels' refunds and HP (0111); Beacon Capacity kept (0112); defeat and destruction, with no
+  refund for either portal (0113, 0115); the gate against `Sim::warp_in_check` in every orientation, a save, a
+  replay, and a fuzz of the gate). The arithmetic and the footprint are unit-tested in `transform/tests.rs`. In the
+  client: `tests/client/visuals.rs` (a visual rebuilt and tinted), `tests/selection/panels.rs` (a selected Beacon
+  through its Warp In), and the InfoPanel's line in `hud/info_panel` and `activity.rs`.
 - **Game end tests** are `crates/sim/tests/game_end.rs` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and a last defeat shared by two; no producer handed
@@ -1379,11 +1435,15 @@ out by the same rules.
   axis-aligned like its collision box, and only its tick turns (a `FacingTick` child, `has_tick`). Structures and map
   resources never turn, whatever their facing (a structure keeps a unit's facing through `Sim::change_kind`). The
   Colonists' units carry a `UnitTag` child, a `Text2d` of the type's short label (DR, SL, RL), because the
-  Legionnaire's two forms share a silhouette. One mesh per `MeshKey` (kind, owner, and a structure's size as placed)
-  is shared, and one tick mesh per kind. The map resources' shapes are in `object_render/resources.rs`. A unit that
-  carries a Riot Shield has a `RiotShieldVisual` child: a pale arc in front of it, hidden while the shield is down,
-  growing to its full size as it goes up. It is `Visibility::Hidden` or `Inherited`, never `Visible`, so the fog that
-  hides its unit hides it too.
+  Legionnaire's two forms share a silhouette. One mesh per `MeshKey` (kind, owner, a structure's size as placed, and
+  whether it is transforming) is shared, and one tick mesh per kind. A visual whose object is drawn otherwise now
+  (its `MeshKey` changed: a kind changed in place, `SimEvent::KindChanged`; a transformation began or ended; a
+  defeated player's unit turned neutral) is despawned with its children and made anew (`ObjectVisuals` keeps the
+  key each was made from). A transforming object, a building being warped in, is tinted half way to a pale cyan
+  (`transforming_color`, a placeholder until the art). The map resources' shapes are in
+  `object_render/resources.rs`. A unit that carries a Riot Shield has a `RiotShieldVisual` child: a pale arc in
+  front of it, hidden while the shield is down, growing to its full size as it goes up. It is `Visibility::Hidden` or
+  `Inherited`, never `Visible`, so the fog that hides its unit hides it too.
 - **Structures** (`object_render/structures.rs`) are placeholders too: the footprint as placed, in the owner's colour
   inside a dark rim, drawn `INSET_SU` (8) inside its edge so that a selection frame shows around it, and over a map
   resource's placeholder (a plate covers its patch). A `StructureTag` child, a `Text2d` of the type's short label
@@ -1458,8 +1518,11 @@ what it is doing; another player's (or a neutral one) its owner and HP only. The
 (construction with slice M2-H2, production with M2-H1), and nothing else of the panel changes. A producer's
 (`activity::production`) are the unit in production and its progress from `Sim::production_status` (100% while it
 waits at the doorway, 0085), the queue against `QUEUE_LIMIT`, and the rally point (placeholder wordings). A
-constructor's (`activity::construction`, first) are the building under construction and its progress (frames done of
-its recipe's, whole percent rounded down), or the building ready to place. A plate
+constructor's (`activity::construction`) are the building under construction and its progress (frames done of
+its recipe's, whole percent rounded down), or the building ready to place. A transforming structure's
+(`activity::transformation`, first; slice M3-E) is the building it becomes and its progress, "Warping in: Robo Portal
+45%" ("Deploying" from a unit, slice M3-F), and its HP is out of its interpolated MaxHP (`Object::max_hp`), as its HP
+bar is. A plate
 adds the remaining crystals of the patch under it, for every viewer (0099). The top bar shows the player on the left,
 the tick on the right (in a replay's playback also the replay's last tick and a note on the playback, `ReplayText`:
 speed, paused or end, and a desync in red), and between them, centred, the local player's resources as their faction's
@@ -1547,9 +1610,10 @@ elsewhere.
 state. `ControlStates` holds every player's `ControlState`, a `Selection`, 10 control groups and the
 ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the local player's (`LocalPlayer`).
 - **Model** (`selection/model.rs`): a selection is a set of object ids with their kinds. Its SelectionGroups are
-  derived: one per type, each by id, and one per instance of an ungroupable type (only resources so far, which are
-  never selected with other objects, design change 0048). They come in one stable order, by `ObjectKind` and then by
-  instance (`Selection::groups`), which is the order of the SelectionPanel's portraits and of Tab and Shift + Tab (the
+  derived: one per type, each by id, and one per instance of an ungroupable type (the map resources, which are
+  never selected with other objects, design change 0048; the Colonists' Drone, Egress Node and Beacon, 0122). They
+  come in one stable order, by `ObjectKind` and then by instance (`Selection::groups`), which is the order of the
+  SelectionPanel's portraits and of Tab and Shift + Tab (the
   placeholder of 0055). The ActiveGroup is one SelectionGroup, named by its `GroupKey` (0048): Tab and Shift + Tab
   cycle it with wrap-around, adding objects keeps it, and it falls back to the first group when its group empties. At
   most `MAX_SELECTED` objects (a placeholder: the order limit).
@@ -1575,7 +1639,9 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
 - **Systems** (`SelectionSystems`): `Sync` (in `SyncSim`) removes objects that left the sim from every selection
   and group in the frame of their tick (`SimEvent::Removed`, deaths included, and anything else gone; a station
   the player still selects by its record stays), and those their player may no longer select (an enemy that walked
-  into the fog; a placeholder, the design is silent), and
+  into the fog; a placeholder, the design is silent). A selected object the player sees that changed its kind in
+  place stays selected as its new kind (`ControlState::set_kind`: an ActiveGroup it leaves empty gives way to its new
+  group, and the ObjectInterfaceState resets with the ActiveGroup). `Sync` also
   starts every state over when the sim is replaced (`SimRes::generation`). `Input` (in `Actions`) applies map
   clicks, boxes, the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the
   debug player switch (F2, only while `SimConfig::debug`: the client acts as the next player, so "own" and the state
@@ -1588,7 +1654,8 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
 - **Visuals** (`selection/markers.rs`): one marker entity per selected object: a ring around a unit, in the
   ground-decal layer under it, or a frame inside a footprint, which the object's visual would hide there, so it is
   drawn just in front of the object (`FRAME_Z`: half a su of ground y, under the objects south of it); coloured by
-  relation, the ActiveGroup's solid and the others' dashed; meshes cached per shape, relation and activity. The drag
+  relation, the ActiveGroup's solid and the others' dashed; meshes cached per shape, relation and activity, and a
+  marker whose object changed its shape (a kind changed in place) takes its new shape's mesh. The drag
   box is four edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set.
 
 **Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/selection_and_hud.md > ObjectInterfaceState`

@@ -25,6 +25,7 @@ fn object(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Obje
         production: None,
         constructor: None,
         worker: None,
+        transform: None,
     }
 }
 

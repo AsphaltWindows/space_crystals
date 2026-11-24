@@ -1,7 +1,10 @@
 //! Placeholder visuals for sim objects (`ARCHITECTURE.md > Client architecture > Visuals`).
 //!
 //! The sim is the source of truth. Each visual is a separate entity linked to its object by [`ObjectVisual`]. Visuals
-//! are created and despawned by diffing them against `Sim::objects()` (scenario spawns emit no events), and placed
+//! are created and despawned by diffing them against `Sim::objects()` (scenario spawns emit no events); one whose
+//! object is now drawn otherwise ([`MeshKey`]) is made anew: an object that changed its kind in place
+//! (`SimEvent::KindChanged`, plan decision T15) gets its new kind's mesh, size and tag, a transformation's start
+//! and end change its tint, and a defeated player's units turn neutral (`core/game_rules.md > On Defeat`). Placed
 //! from the sim every frame at `prev_pos.lerp(pos, alpha)`, drawn at the terrain height there (a tile-based object
 //! at its footprint's height, `core/art_direction.md > Elevation Display`) and y-sorted by its ground position in the
 //! ground-object layer. Placeholder shapes stand in until the art direction (Q0001) is settled ([`units`]): a unit is
@@ -10,7 +13,8 @@
 //! tick turns ([`FacingTick`]); the Colonists' units carry a tag naming their type ([`UnitTag`]). A Peacekeeper's
 //! raised Riot Shield is a pale arc in front of it ([`RiotShieldVisual`]), growing out of its body as the shield goes
 //! up. A structure is its footprint as placed, in its owner's colour, with a tag naming its type ([`structures`]).
-//! The map resources have shapes of their own ([`resources`]).
+//! An object transforming into its kind (`Object::transform`: a building being warped in) is tinted towards a pale
+//! cyan until it is complete ([`transforming_color`]). The map resources have shapes of their own ([`resources`]).
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).
@@ -23,7 +27,7 @@ mod units;
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
-use sc_sim::{Category, Map, ObjectId, ObjectKind, Placement, PlayerId};
+use sc_sim::{Category, Map, Object, ObjectId, ObjectKind, Placement, PlayerId};
 
 use crate::ClientSystems;
 use crate::coords::{DrawLayer, facing_to_rotation, footprint_height, ground_translation, lerp_facing};
@@ -57,15 +61,27 @@ struct MeshKey {
     owner: Option<PlayerId>,
     /// A structure's size as placed (`Placement::w`, `Placement::h`, turned).
     size: Option<(u32, u32)>,
+    /// Whether the object is transforming into its kind (`Object::transform`), which tints it.
+    transforming: bool,
 }
 
 impl MeshKey {
+    /// An object of `kind` of `owner`'s, placed at `placement`, as a record shows it too (`remembered`).
     fn of(kind: ObjectKind, owner: Option<PlayerId>, placement: Option<&Placement>) -> Self {
         let def = kind.def();
         Self {
             kind,
             owner: owner.filter(|_| def.category != Category::Resource),
             size: placement.filter(|_| def.structure.is_some()).map(|p| (p.w, p.h)),
+            transforming: false,
+        }
+    }
+
+    /// The live `object`'s.
+    fn of_object(object: &Object) -> Self {
+        Self {
+            transforming: object.is_transforming(),
+            ..Self::of(object.kind, object.owner, object.placement.as_ref())
         }
     }
 }
@@ -86,6 +102,8 @@ pub struct ObjectVisualAssets {
 #[derive(Resource, Default, Debug)]
 pub struct ObjectVisuals {
     pub by_id: BTreeMap<ObjectId, Entity>,
+    /// What each visual was made from.
+    made: BTreeMap<ObjectId, MeshKey>,
     /// The `SimRes::generation` the visuals belong to.
     generation: Option<u32>,
 }
@@ -171,14 +189,33 @@ fn has_tick(kind: ObjectKind) -> bool {
 }
 
 /// The mesh of an object's visual: its placeholder shape, a unit's without the tick if its body doesn't turn, a
-/// structure in its size as placed.
+/// structure in its size as placed; tinted while it transforms.
 fn visual_mesh(key: MeshKey) -> Mesh {
-    let MeshKey { kind, owner, size } = key;
+    let MeshKey {
+        kind,
+        owner,
+        size,
+        transforming,
+    } = key;
+    let color = match transforming {
+        true => transforming_color(player_color(owner)),
+        false => player_color(owner),
+    };
     match size {
-        Some((w, h)) => structures::structure_mesh(w, h, player_color(owner)),
-        None if kind.def().unit.is_some() => units::unit_mesh(kind, player_color(owner), units::body_turns(kind)),
+        Some((w, h)) => structures::structure_mesh(w, h, color),
+        None if kind.def().unit.is_some() => units::unit_mesh(kind, color, units::body_turns(kind)),
         None => object_mesh(kind, owner),
     }
+}
+
+/// The pale cyan that a transforming object's colour turns towards.
+const TRANSFORMING_TINT: Srgba = Srgba::rgb(0.62, 0.96, 1.0);
+
+/// The colour of a visual whose object is transforming into its kind (`Object::transform`: a building being warped
+/// in), from its owner's `color`: half way to a pale cyan. Placeholder until the art direction (Q0001) says how a
+/// Warp In looks; the design gives none.
+pub fn transforming_color(color: Color) -> Color {
+    color.to_srgba().mix(&TRANSFORMING_TINT, 0.5).into()
 }
 
 /// Player colours, by player number: those of the editor's slots, whose players they are by default.
@@ -202,8 +239,9 @@ pub fn player_color(owner: Option<PlayerId>) -> Color {
     }
 }
 
-/// Spawns a visual for every object without one and despawns visuals whose object is gone. A replaced sim (new
-/// generation) starts from scratch, because its ids may repeat the old ones.
+/// Spawns a visual for every object without one and despawns visuals whose object is gone, or is drawn otherwise
+/// now ([`MeshKey`]: its kind, owner, size or tint changed), which then get a new one, children included (tag, tick,
+/// Riot Shield). A replaced sim (new generation) starts from scratch, because its ids may repeat the old ones.
 fn sync_object_visuals(
     mut commands: Commands,
     sim: Res<SimRes>,
@@ -215,19 +253,27 @@ fn sync_object_visuals(
     if !sim.is_changed() {
         return;
     }
-    let visuals = &mut *visuals;
-    if visuals.generation != Some(sim.generation()) {
-        for entity in std::mem::take(&mut visuals.by_id).into_values() {
+    let ObjectVisuals {
+        by_id,
+        made,
+        generation,
+    } = &mut *visuals;
+    if *generation != Some(sim.generation()) {
+        for entity in std::mem::take(by_id).into_values() {
             commands.entity(entity).despawn();
         }
-        visuals.generation = Some(sim.generation());
+        made.clear();
+        *generation = Some(sim.generation());
     }
-    visuals.by_id.retain(|id, entity| {
-        let alive = sim.object(*id).is_some();
-        if !alive {
+    by_id.retain(|id, entity| {
+        let current = sim
+            .object(*id)
+            .is_some_and(|o| made.get(id) == Some(&MeshKey::of_object(o)));
+        if !current {
             commands.entity(*entity).despawn();
+            made.remove(id);
         }
-        alive
+        current
     });
     let assets = &mut *assets;
     let material = assets
@@ -235,10 +281,10 @@ fn sync_object_visuals(
         .get_or_insert_with(|| materials.add(vertex_color_material()))
         .clone();
     for object in sim.objects() {
-        if visuals.by_id.contains_key(&object.id) {
+        if by_id.contains_key(&object.id) {
             continue;
         }
-        let key = MeshKey::of(object.kind, object.owner, object.placement.as_ref());
+        let key = MeshKey::of_object(object);
         let mesh = assets
             .meshes
             .entry(key)
@@ -292,7 +338,8 @@ fn sync_object_visuals(
                 ChildOf(entity),
             ));
         }
-        visuals.by_id.insert(object.id, entity);
+        by_id.insert(object.id, entity);
+        made.insert(object.id, key);
     }
 }
 

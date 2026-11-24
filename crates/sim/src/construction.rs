@@ -14,7 +14,8 @@
 //!   [ExtractionFacility]`), for the player's own constructors. The command gate (`Sim::validate`) checks them, and
 //!   applying them goes through the same check (`sim/construction.rs`). A command goes to every constructor it names
 //!   that can carry it out, in id order (no smart-casting, design change 0071), except Place: one building is placed
-//!   by one constructor.
+//!   by one constructor. The Colonists' Warp In and its cancel are construction commands too (plan decision T22),
+//!   for their Beacons and the buildings being warped in: `crate::transform`.
 //! - **Costs and refunds** (plan decision T7): Construct pays the building's cost when it applies, from the bank as
 //!   the earlier commands of the tick and the earlier constructors of the command left it, and is refused when the
 //!   bank is short ("Only available if player has sufficient Space Crystals"). Cancelling refunds through
@@ -138,6 +139,22 @@ pub enum ConstructionCommand {
         #[serde(default, skip_serializing_if = "BuildingOrientation::is_default")]
         orientation: BuildingOrientation,
     },
+    /// `factions/colonists/economy.md > Warp In > Warp In Command` (plan decision T22, `crate::transform`): "Left-click
+    /// confirms the footprint and begins the transformation. The Beacon is consumed and begins transforming in place
+    /// into the selected building": a `kind` from the Beacon's Constructs List, turned by `orientation` (optional in
+    /// files, unturned by default). No position: the footprint follows from the Beacon and the orientation
+    /// (`crate::transform::warp_in_footprint`, design change 0121). One Beacon, not transforming, while the bank
+    /// covers the cost, which it pays at once, and where the placement check allows the Warp In when the command
+    /// applies (`crate::placement::Method::WarpIn`: every tile Visible, every tile but the Beacon's own clear).
+    WarpIn {
+        kind: ObjectKind,
+        #[serde(default, skip_serializing_if = "BuildingOrientation::is_default")]
+        orientation: BuildingOrientation,
+    },
+    /// `> Warp In > Cancel Warp In` (and slice M3-F's Cancel Deployment, both on X; plan decision T22): every
+    /// transforming object named turns back into what it was, and its owner gets back 75% of what it paid, rounded
+    /// down.
+    CancelTransform,
 }
 
 /// What a constructor of kind `constructor` can build: its `Constructs` list, empty for every other kind.

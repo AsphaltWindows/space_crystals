@@ -1,13 +1,16 @@
 //! What the selection looks like: the InfoPanel and the SelectionPanel (`> HUD Bar`, `> SelectionPanel`), clicks on
 //! portraits (`> SelectionPanel > Interactions`), and the markers under selected objects.
 
+use bevy::mesh::VertexAttributeValues;
 use bevy::prelude::*;
+use sc_sim::{Command, ConstructionCommand, DebugCommand, PlayerCommand};
 use space_crystals::hud::info_panel::InfoText;
 use space_crystals::hud::layout::PortraitGrid;
 use space_crystals::hud::selection_panel::{PortraitCell, SelectionPanelView};
 use space_crystals::hud::{HudSection, SectionLabel};
 use space_crystals::selection::Relation;
 use space_crystals::selection::markers::SelectionMarker;
+use space_crystals::sim_driver::PendingCommands;
 
 use super::*;
 use KeyCode::{AltLeft, ControlLeft, ShiftLeft, Tab};
@@ -68,6 +71,101 @@ fn markers(app: &mut App) -> Vec<(u32, Relation, bool)> {
         .collect();
     markers.sort_by_key(|m| m.0);
     markers
+}
+
+/// The InfoPanel's activity area, while it shows something.
+fn activity(app: &mut App) -> Option<String> {
+    let mut texts = app.world_mut().query::<(&InfoText, &Text, &Node)>();
+    texts
+        .iter(app.world())
+        .find(|(which, _, node)| **which == InfoText::Activity && node.display != Display::None)
+        .map(|(_, text, _)| text.0.clone())
+}
+
+/// How far the mesh of object `id`'s marker reaches across and down.
+fn marker_size(app: &mut App, id: u32) -> Vec2 {
+    let mut markers = app.world_mut().query::<(&SelectionMarker, &Mesh2d)>();
+    let handle = markers
+        .iter(app.world())
+        .find(|(marker, _)| marker.id == ObjectId(id))
+        .map(|(_, mesh)| mesh.0.clone())
+        .expect("a marker");
+    let mesh = app.world().resource::<Assets<Mesh>>().get(&handle).unwrap();
+    let Some(VertexAttributeValues::Float32x3(positions)) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) else {
+        panic!("a 2D mesh has positions");
+    };
+    let (lo, hi) = positions
+        .iter()
+        .fold((Vec2::INFINITY, Vec2::NEG_INFINITY), |(lo, hi), p| {
+            let p = Vec2::new(p[0], p[1]);
+            (lo.min(p), hi.max(p))
+        });
+    hi - lo
+}
+
+/// Plan decision T15 (`SimEvent::KindChanged`, slice M3-E): a selected object that changes its kind in place stays
+/// selected, with its id, as its new kind, and the panels show its new type. Player 1's Beacon 12 (2 × 2 tiles, a
+/// debug spawn), selected, warps in a Robo Portal (4 × 4): the InfoPanel names the Robo Portal and shows the Warp In
+/// in its activity area, and the marker's frame takes the new footprint (inset 4 space units all round). Cancelled,
+/// it is a selected Beacon again.
+#[test]
+fn a_selected_beacon_stays_selected_through_its_warp_in() {
+    let mut app = game();
+    let player = PlayerId(1);
+    let push = |app: &mut App, command| {
+        app.world_mut()
+            .resource_mut::<PendingCommands>()
+            .0
+            .push(PlayerCommand { player, command })
+    };
+    let spawn = DebugCommand::Spawn {
+        kind: ObjectKind::Beacon,
+        owner: Some(player),
+        at: SpawnAt::Tile(TilePos::new(18, 15)),
+        orientation: Default::default(),
+    };
+    let funds = DebugCommand::SetResources {
+        player,
+        crystals: 1000,
+        supplies: 0,
+        alloys: 0,
+        essence: 0,
+        flux: 0,
+    };
+    push(&mut app, Command::Debug(spawn));
+    push(&mut app, Command::Debug(funds));
+    app.update();
+    assert!(object_exists(&app, 12));
+    click(&mut app, Vec2::new(19.0, 16.0) * 64.0, &[]);
+    assert_eq!(selected(&app), [12]);
+    let title = |app: &mut App| info(app).map(|(title, _)| title);
+    assert_eq!(title(&mut app).as_deref(), Some("Beacon"));
+    assert_eq!(marker_size(&mut app, 12), Vec2::splat(2.0 * 64.0 - 8.0));
+    let construction = |command| Command::Construction {
+        objects: vec![ObjectId(12)],
+        command,
+    };
+    let warp_in = ConstructionCommand::WarpIn {
+        kind: ObjectKind::RoboPortal,
+        orientation: Default::default(),
+    };
+    push(&mut app, construction(warp_in));
+    app.update();
+    let kind = |app: &App| {
+        let states = app.world().resource::<ControlStates>();
+        states.selection(player).kind_of(ObjectId(12))
+    };
+    assert_eq!(kind(&app), Some(ObjectKind::RoboPortal));
+    assert_eq!((selected(&app), active_group(&app)), (vec![12], vec![12]));
+    assert_eq!(title(&mut app).as_deref(), Some("Robo Portal"));
+    assert_eq!(activity(&mut app).as_deref(), Some("Warping in: Robo Portal 0%"));
+    assert_eq!(marker_size(&mut app, 12), Vec2::splat(4.0 * 64.0 - 8.0));
+    push(&mut app, construction(ConstructionCommand::CancelTransform));
+    app.update();
+    assert_eq!((kind(&app), selected(&app)), (Some(ObjectKind::Beacon), vec![12]));
+    assert_eq!(title(&mut app).as_deref(), Some("Beacon"));
+    assert_eq!(activity(&mut app), None);
+    assert_eq!(marker_size(&mut app, 12), Vec2::splat(2.0 * 64.0 - 8.0));
 }
 
 /// `> HUD Bar > Sections`: the InfoPanel shows from one selected object, the SelectionPanel from two.

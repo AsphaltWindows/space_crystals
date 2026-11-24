@@ -105,12 +105,12 @@ fn shows(sim: &Sim, tick: Tick, ticks: u32) -> bool {
 }
 
 /// The HP bars to draw: one over each object that is damaged or `selected`, at its interpolated position, among
-/// those `sight` sees.
+/// those `sight` sees. Out of its MaxHP now: a transforming object's interpolated one (`Object::max_hp`).
 pub fn hp_bars(sim: &Sim, sight: &Sight, alpha: f32, selected: impl Fn(ObjectId) -> bool) -> Vec<HpBar> {
     sim.objects()
         .filter(|o| sight.sees(o))
         .filter_map(|o| {
-            let (hp, max_hp) = (o.hp?, o.def().max_hp?);
+            let (hp, max_hp) = (o.hp?, o.max_hp()?);
             (hp < max_hp || selected(o.id)).then(|| hp_bar(sim.map(), o, alpha, hp / max_hp))
         })
         .collect()

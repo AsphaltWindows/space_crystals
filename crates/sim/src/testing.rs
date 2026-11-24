@@ -340,6 +340,19 @@ pub fn every_command() -> Vec<Command> {
                     flip_v: true,
                 },
             },
+            ConstructionCommand::WarpIn {
+                kind: ObjectKind::RoboPortal,
+                orientation: Default::default(),
+            },
+            ConstructionCommand::WarpIn {
+                kind: ObjectKind::BioPortal,
+                orientation: crate::scenario::BuildingOrientation {
+                    rotation: crate::object::Rotation::R90,
+                    flip_h: true,
+                    flip_v: false,
+                },
+            },
+            ConstructionCommand::CancelTransform,
         ]
         .map(|command| Command::Construction {
             objects: units.clone(),
@@ -424,7 +437,9 @@ pub fn every_command() -> Vec<Command> {
                 ConstructionCommand::Construct(_)
                 | ConstructionCommand::CancelConstruction
                 | ConstructionCommand::CancelReady
-                | ConstructionCommand::Place { .. } => {}
+                | ConstructionCommand::Place { .. }
+                | ConstructionCommand::WarpIn { .. }
+                | ConstructionCommand::CancelTransform => {}
             },
             Command::Debug(
                 DebugCommand::Spawn {

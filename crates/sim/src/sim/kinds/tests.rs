@@ -130,9 +130,9 @@ fn a_legionnaire_changes_its_weapon_and_carries_on_with_its_order() {
 }
 
 /// `economy.md > Beacon Deployment`: a Drone that becomes a Beacon stands on its footprint, at its centre, and keeps
-/// its HP (the deployment sets the interpolated HP, question Q0039); its unit capabilities go. The footprint blocks the
-/// ground from the next phase 5b on. `> Cancel Deployment`: back to a Drone, where the Beacon stood, with a unit's
-/// capabilities, idle, its HP at most the Drone's MaxHP.
+/// its HP (the deployment makes it follow the interpolated maximum, design change 0110); its unit capabilities go. The
+/// footprint blocks the ground from the next phase 5b on. `> Cancel Deployment`: back to a Drone, where the Beacon
+/// stood, with a unit's capabilities, idle, its HP at most the Drone's MaxHP.
 #[test]
 fn a_drone_becomes_a_beacon_in_place_and_back() {
     let mut sim = sim(&[(ObjectKind::Drone, P1, SpawnAt::Point(Vec2::new(300.0, 300.0)))]);

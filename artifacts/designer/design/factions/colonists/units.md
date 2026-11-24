@@ -67,7 +67,22 @@ This rule applies to Drones only. Other factions' workers are not limited by it:
 
 When a Drone arrives at an occupied patch, it goes to the **nearest unoccupied patch to itself** instead. If no patch is unoccupied, it **waits** at the current patch and mines as soon as it frees up.
 
-**Search radius** (user, 2026-11-24): a Drone only looks for another patch **within a radius around itself**. This radius is an internal per-unit stat of the Drone (stat name TBD). Value: **6 grid units (placeholder)**. Which patches count within it (e.g. only ones the player knows): TBD (Q0037 point 5).
+**Waiting and re-checking** (user, 2026-11-24):
+1. A Drone that arrives at an occupied patch goes to the nearest unoccupied patch (within its search radius, below). If there is none, it **waits right at the patch it tried to mine**, within MiningReach, and mines it as soon as it frees up.
+2. While waiting, it **re-checks at intervals** for a nearby patch that has freed up. Interval: **16 frames (1 second), placeholder**. If one has, it goes there.
+3. If that patch is occupied again by the time it arrives, it starts over at step 1 from there.
+4. **Several Drones waiting at the same patch:** which one mines next doesn't matter to the design (user, 2026-11-24). The implementation picks whatever rule is cheapest, as long as it is deterministic.
+
+**A patch that runs out** (user, 2026-11-24): a depleted patch is treated like an occupied one, so the redirect rule above applies. Drones **already waiting** at it look for another patch right away. Drones **walking to it** keep going to where it was and look for another patch **on arrival**, so the search radius is centred on the field, not on wherever the Drone was when the patch ran out. If no patch is found, the Gather ends (When a Gather ends).
+
+**Patches under a GDO Extraction Plate** (user, 2026-11-24): Drones can't gather a patch covered by a plate (a right-click on it hits the plate), and it is never a redirect target (Search radius below). A Drone mining a patch **doesn't stop a GDO player from plating it**: Drones stand beside the patch, not on it, so the plate can be placed. The patch then counts as gone for the Drones, exactly like a patch that runs out; a Drone in the middle of mining it is interrupted and collects nothing (Interrupted mining). This lets GDO take contested patches by plating them.
+
+**Returning to the last mined patch** (user, 2026-11-24): after delivering a load, a Drone heads back to the patch where it **last successfully mined**, not necessarily the patch it was first ordered to.
+
+**Search radius** (user, 2026-11-24): a Drone only looks for another patch **within a radius around itself**. This radius is an internal per-unit stat of the Drone (stat name TBD). Value: **6 grid units (placeholder)**. Only patches the **player knows** (currently visible, or remembered from earlier sight) and **not covered by a structure** (e.g. a GDO Extraction Plate) count (user, 2026-11-24); a Drone never "finds" a patch hidden in fog.
+
+#### Last load of a patch
+(user, 2026-11-24) A Drone mining a patch with fewer crystals left than its CarryCapacity mines the full 32 frames and takes **what is left**; the patch is then depleted. Same as the GDO plate's last partial load (factions/gdo/economy.md > ExtractionPlate).
 
 #### Interrupted mining
 (user, 2026-11-24) A Drone ordered away (or otherwise stopped) before its 32 MiningDuration frames finish **collects nothing**, and the patch is **freed immediately** for another Drone.
@@ -96,6 +111,7 @@ Each Drone tracks an AssignedDropOff — the Egress Node or refinery it delivers
 
 - **Auto-assignment**: When a Drone with no AssignedDropOff is ordered to Gather, it automatically assigns the nearest Egress Node as its AssignedDropOff.
 - **Set Drop-off Location command**: The player may explicitly assign or reassign a Drone's AssignedDropOff to an Egress Node or a refinery via the Set Drop-off Location command (see ObjectInterfaceState below). This does not interrupt the Drone's current action (mining, walking, carrying, etc.) — it only updates AssignedDropOff, which determines the destination of the Drone's return trip (including redirecting a trip already in progress, since the return trip's destination is read from AssignedDropOff).
+- **Drop-off gone** (user, 2026-11-24): when a Drone starts its trip back and its AssignedDropOff no longer exists (destroyed), or it has none, it automatically assigns the **nearest own Egress Node**. If the player owns no Egress Node, the Drone **goes idle holding its load** (Other orders keep the load applies; a later Gather or Drop Off delivers it).
 - A refinery is only a valid AssignedDropOff for resources it accepts as input (Space Crystals for the Alloy Furnace and Essence Refinery; Alloys or Essence for the Flux Reactor).
 
 ### Deploying
@@ -129,7 +145,7 @@ Drones can deploy into a Beacon (see Beacon Deployment above). This transformati
 - Own Egress Node (carrying resources) → Drop off resources
 - Own refinery (carrying a resource it accepts as input) → Drop off resources
 - Own refinery (not carrying) → Gather (haul from its output)
-- Enemy or other object → Move to that object's location (Drone is unarmed and cannot attack)
+- Enemy or other object → Move to it: **Follow** if it is a unit, Move to its location otherwise (Drone is unarmed and cannot attack; systems/controls/selection_and_hud.md > RightClickResolution > Units that can't carry out the resolved command)
 - Ground → Move
 
 Multiple Drones can be selected simultaneously and form one SelectionGroup (Groupable). Right-click commands and Set Drop-off go to every selected Drone; Deploy goes to one Drone (first in selection order without a Deploy; see Groupable above).

@@ -200,7 +200,9 @@ impl<'a> World<'a> {
             if world.views[index].is_patch {
                 world.patches.push(index as u32);
             }
-            if o.def().structure.as_ref().is_some_and(|structure| structure.drop_off) {
+            // An Egress Node being warped in takes nothing until it is complete (design change 0116,
+            // `crate::transform`).
+            if o.def().structure.as_ref().is_some_and(|structure| structure.drop_off) && !o.is_transforming() {
                 world.drop_offs.push(index as u32);
             }
             world.covered.extend(o.extractor.map(|extractor| extractor.patch));

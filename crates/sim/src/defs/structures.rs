@@ -29,8 +29,8 @@ pub struct StructureDef {
     pub constructs: &'static [Recipe],
     /// The Beacon's `Constructs List` (`factions/colonists/economy.md > Warp In > Constructs List`): the buildings a
     /// Beacon transforms into in place, with their costs and WarpInTimes; empty for every other type. Not
-    /// [`StructureDef::constructs`], which makes its type a GDO-style constructor (plan decision T14). Data only
-    /// until slice M3-E warps them in.
+    /// [`StructureDef::constructs`], which makes its type a GDO-style constructor (plan decision T14): a Warp In
+    /// turns the Beacon itself into the building (`crate::transform`, plan decision T15).
     pub warp_in: &'static [Recipe],
     /// Whether workers deliver their loads to the type (`factions/colonists/economy.md > Egress Node > Drop Off`:
     /// "the only way resources enter the player's resource pool"; `crate::economy::gathering`).

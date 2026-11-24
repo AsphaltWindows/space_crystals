@@ -7,6 +7,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use super::build_area::{BuildArea, needs_build_area, overlap};
+use super::onto::Onto;
 use crate::defs::{Category, Domain, ObjectKind};
 use crate::ids::PlayerId;
 use crate::map::Map;
@@ -42,9 +43,9 @@ impl Occupant {
 /// How a placement is checked: in a game, or for a Starting Layout.
 #[derive(Copy, Clone, Debug)]
 pub enum Mode<'a> {
-    /// A player's Direct Placement in a game (`core/entities.md > Placement Validation > Direct Placement`): every
-    /// footprint tile must be Visible to `player` in `vision`, as the latest tick left it; an Extraction Plate's too
-    /// (design change 0095).
+    /// A player's placement in a game (`core/entities.md > Placement Validation > Direct Placement`, `> Warp In`):
+    /// every footprint tile must be Visible to `player` in `vision`, as the latest tick left it; an Extraction
+    /// Plate's too (design change 0095), and a Warp In's (design change 0119).
     Command { vision: &'a Vision, player: PlayerId },
     /// An object of a Starting Layout (`core/map_editor.md > Starting Layouts > Layout validation`, design change
     /// 0097): the faction's "normal in-game placement rules, minus visibility", as nothing is "visible" in the editor.
@@ -52,14 +53,33 @@ pub enum Mode<'a> {
     Layout,
 }
 
+/// How the structure comes to stand (plan decision T16: one check, whose rules follow the method;
+/// `core/entities.md > Placement Validation`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Method {
+    /// `> Direct Placement`, the GDO's: placed at once from a menu, onto tiles the player sees (in a game), within
+    /// the build area for a GDO building.
+    Direct,
+    /// `> Warp In` (`factions/colonists/economy.md > Warp In`): the Beacon standing at `beacon` transforms in place
+    /// into the structure, on the footprint `crate::transform::warp_in_footprint` derives from it (design change
+    /// 0121), which the caller checks. Every footprint tile must be Buildable, flat and unoccupied "except for the
+    /// Beacon's own footprint, which will be consumed by the transformation": the tiles under `beacon` break no rule
+    /// but sight. A ground unit of any player occupies its tiles, air and underground units never do (design change
+    /// 0118), as for a Direct Placement. Every tile must be Visible, as for a Direct Placement (design change 0119:
+    /// "a tile that isn't is red on the ghost", whatever stands there), the Beacon's own included (its owner's
+    /// Beacon always sees them). There is no build area.
+    WarpIn { beacon: Placement },
+}
+
 /// What a placement is checked against besides the objects on the map: the ground, the build area the footprint
-/// must reach and the mode.
+/// must reach, the mode and the method.
 #[derive(Copy, Clone, Debug)]
 pub struct Site<'a> {
     pub map: &'a Map,
     /// In a game the placing player's build area ([`crate::Sim::build_area`]), for a Starting Layout the layout's.
     pub area: &'a BuildArea,
     pub mode: Mode<'a>,
+    pub method: Method,
 }
 
 /// A rule one footprint tile breaks (`core/entities.md > Placement Validation > Direct Placement`), in the order they
@@ -73,9 +93,9 @@ pub enum TileProblem {
     NotBuildable,
     /// The tile is sloped (`core/map.md > Elevation > Structures only on flat terrain`).
     NotFlat,
-    /// The tile isn't Visible to the placing player (in a game only). It is then the tile's only problem: what
-    /// stands on a tile the player doesn't see, and the terrain of one they never saw, is hidden from them
-    /// (`core/vision.md > VisibilityStateEnum`), and the tile is invalid anyway.
+    /// The tile isn't Visible to the placing player (in a game: a Direct Placement or a Warp In, design change
+    /// 0119). It is then the tile's only problem: what stands on a tile the player doesn't see, and the terrain of one
+    /// they never saw, is hidden from them (`core/vision.md > VisibilityStateEnum`), and the tile is invalid anyway.
     NotVisible,
     /// Another structure's footprint covers the tile ("no existing structure overlap"), whoever owns it: a plate on
     /// the patch, for another plate.
@@ -178,8 +198,8 @@ pub fn footprint_size(kind: ObjectKind, orientation: BuildingOrientation) -> Opt
 
 /// `core/entities.md > Placement Validation`: everything that keeps a structure of `kind` from being placed at `site`
 /// with the top-left tile of its footprint at `origin`, turned by `orientation`, among `occupants`: everything on
-/// the map, the object being placed excepted. The answer depends on its inputs only, whatever the occupants' order.
-/// Never panics, whatever the origin.
+/// the map, the object being placed excepted (a Warp In's Beacon may be among them: its tiles break no rule). The
+/// answer depends on its inputs only, whatever the occupants' order. Never panics, whatever the origin.
 pub fn check(
     site: &Site<'_>,
     occupants: impl IntoIterator<Item = Occupant>,
@@ -199,6 +219,7 @@ pub fn check(
     // Each footprint tile's problems, as bits, row by row.
     let mut found = vec![0u8; footprint.len()];
     let map = site.map;
+    // `> Direct Placement`: "all footprint tiles must be in the Visible state"; `> Warp In` too (design change 0119).
     for (i, tile) in footprint.tiles() {
         if !map.in_bounds(tile) {
             found[i] |= TileProblem::OffMap.bit();
@@ -248,6 +269,12 @@ pub fn check(
         }
     }
     let hidden = TileProblem::NotVisible.bit();
+    if let Method::WarpIn { beacon } = site.method {
+        // "Except for the Beacon's own footprint, which will be consumed by the transformation": every rule but
+        // sight, which is every tile's (design change 0119).
+        let consumed = TileRect::new(beacon.origin, beacon.w, beacon.h);
+        footprint.keep_only(&mut found, hidden, |tile| overlap(consumed, TileRect::new(tile, 1, 1)));
+    }
     let tiles = footprint
         .tiles()
         .flat_map(|(i, tile)| {
@@ -259,51 +286,13 @@ pub fn check(
         })
         .collect();
     let mut whole = Vec::new();
-    if needs_build_area(kind) && !site.area.reaches(footprint.rect()) {
+    if site.method == Method::Direct && needs_build_area(kind) && !site.area.reaches(footprint.rect()) {
         whole.push(WholeProblem::OutsideBuildArea);
     }
     if !onto.is_kept() {
         whole.push(WholeProblem::NotOnPatch);
     }
     PlacementCheck { tiles, whole }
-}
-
-/// What a structure goes onto, the one statement of the rule (`factions/gdo/economy.md > ExtractionPlate`: "Placed
-/// onto a Space Crystal Patch"): an Extraction Plate goes exactly over a Space Crystals Patch, and nothing else goes
-/// onto anything. Shown everything else on the map, in any order ([`Onto::see`]), it says whether a footprint keeps
-/// the rule ([`Onto::is_kept`]). Every way a structure comes to stand asks it, so they can't drift apart: [`check`]
-/// for a game's placements and the Starting Layouts' ([`WholeProblem::NotOnPatch`]), and map validation for the
-/// map's pre-placed objects, which follow no other placement rule (`SpawnProblem::NotOnPatch`). Whether the patch
-/// has a plate already is the rule of shared tiles ([`ObjectKind::may_overlap`]).
-#[derive(Copy, Clone, Debug)]
-pub struct Onto {
-    kind: ObjectKind,
-    footprint: TileRect,
-    kept: bool,
-}
-
-impl Onto {
-    /// The rule for a structure of `kind` covering `footprint`, before anything is seen: kept, but by a plate.
-    pub fn new(kind: ObjectKind, footprint: TileRect) -> Self {
-        Self {
-            kind,
-            footprint,
-            kept: !goes_onto_patch(kind),
-        }
-    }
-
-    /// Takes `other` into account: a patch exactly under the plate keeps the rule.
-    pub fn see(&mut self, other: &Occupant) {
-        self.kept |= goes_onto(self.kind, other.kind)
-            && other
-                .placement
-                .is_some_and(|p| TileRect::new(p.origin, p.w, p.h) == self.footprint);
-    }
-
-    /// Whether the footprint keeps the rule, given what was seen.
-    pub fn is_kept(&self) -> bool {
-        self.kept
-    }
 }
 
 /// [`Mode::Layout`] for object `index` of a Starting Layout (`core/map_editor.md > Starting Layouts > Layout
@@ -325,6 +314,7 @@ pub fn check_layout(
         map,
         area: &area,
         mode: Mode::Layout,
+        method: Method::Direct,
     };
     let rest = layout.iter().enumerate().filter(|&(i, _)| i != index).map(|(_, o)| *o);
     Some(check(
@@ -334,17 +324,6 @@ pub fn check_layout(
         placement.origin,
         placement.orientation(),
     ))
-}
-
-/// Whether `kind` goes onto a Space Crystals Patch, exactly over it: the Extraction Plate
-/// (`factions/gdo/economy.md > ExtractionPlate`: "Placed onto a Space Crystal Patch by an Extraction Facility").
-fn goes_onto_patch(kind: ObjectKind) -> bool {
-    kind == ObjectKind::ExtractionPlate
-}
-
-/// Whether a structure of `kind` goes onto an object of `other`'s kind: a plate onto a patch.
-fn goes_onto(kind: ObjectKind, other: ObjectKind) -> bool {
-    goes_onto_patch(kind) && other == ObjectKind::CrystalPatch
 }
 
 /// The half extents of the box of a ground unit of `kind` (`docs/movement.md > 3`); `None` for anything else, air
@@ -393,6 +372,15 @@ impl Footprint {
         for (i, tile) in self.tiles() {
             if covered(tile) {
                 found[i] |= problem.bit();
+            }
+        }
+    }
+
+    /// Takes every problem but those of the bits `kept` off the tiles that `exempt` picks.
+    fn keep_only(self, found: &mut [u8], kept: u8, exempt: impl Fn(TilePos) -> bool) {
+        for (i, tile) in self.tiles() {
+            if exempt(tile) {
+                found[i] &= kept;
             }
         }
     }

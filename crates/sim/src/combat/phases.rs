@@ -307,6 +307,7 @@ mod tests {
                     production: None,
                     constructor: None,
                     worker: None,
+                    transform: None,
                 },
             );
         }

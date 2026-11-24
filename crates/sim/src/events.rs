@@ -106,7 +106,9 @@ pub enum SimEvent {
     /// ready `kind`, which was to go with the top-left tile of its footprint at `origin`, turned by `orientation`,
     /// and `problems` says why. The one command the sim reports refusing (`Sim::validate` gives
     /// `Reject::Unplaceable`); the client validates a Place before it sends it, so this tells it that the game
-    /// changed in between, e.g. a unit walked onto the footprint.
+    /// changed in between, e.g. a unit walked onto the footprint. A Warp In refused the same way says so too: its
+    /// Beacon is the `constructor`, and stays a Beacon, and `origin` is that of the footprint derived from it
+    /// (`crate::transform::warp_in_footprint`, design change 0121; `Sim::warp_in_check`, slice M3-E).
     PlacementRefused {
         constructor: ObjectId,
         kind: ObjectKind,
@@ -133,11 +135,25 @@ pub enum SimEvent {
     },
     /// Object `id` changed its kind in place, from `from` to `to`, and is still the same object (plan decision T15,
     /// `Sim::change_kind`): a Drone deploying into a Beacon, a Beacon warping in a building, a Legionnaire converting
-    /// its weapon, or one of these cancelled. For the client to re-mesh the object and regroup the selection (slice
-    /// M3-B, the first caller, adds that response).
+    /// its weapon, or one of these cancelled. The client draws the object anew and keeps it selected as its new kind
+    /// (slice M3-E's response, `ARCHITECTURE.md > Client architecture`).
     KindChanged {
         id: ObjectId,
         from: ObjectKind,
         to: ObjectKind,
+    },
+    /// Object `id` finished transforming into its kind `kind` (`crate::transform`): a building warped in from a
+    /// Beacon (`factions/colonists/economy.md > Warp In`) now works.
+    TransformCompleted {
+        id: ObjectId,
+        kind: ObjectKind,
+    },
+    /// Object `id` gave up transforming into a `kind` by a command, and `refund` Space Crystals went back to its
+    /// owner (`factions/colonists/economy.md > Warp In > Cancel Warp In`: 75% of the cost, rounded down). Its
+    /// `KindChanged` back to what it was follows.
+    TransformCancelled {
+        id: ObjectId,
+        kind: ObjectKind,
+        refund: u32,
     },
 }

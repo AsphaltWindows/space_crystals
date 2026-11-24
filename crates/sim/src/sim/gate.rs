@@ -1,5 +1,13 @@
 //! The command gate (`ARCHITECTURE.md > Commands, events and replays`): the one check every command passes before
 //! it is applied. A rejected command changes nothing and never panics the sim.
+//!
+//! This file holds what every command shares: the reasons for a rejection ([`Reject`]), what a passed command
+//! resolved ([`Checked`]), the dispatch by command ([`Sim::check`]) and the lookups of the objects a command names.
+//! Each family of commands has its own checks (plan decision T28): orders and abilities in `gate/orders.rs`, debug
+//! commands in `gate/debug.rs`, production in `sim/producers.rs`, construction in `sim/construction.rs`.
+
+mod debug;
+mod orders;
 
 use std::fmt;
 
@@ -8,18 +16,14 @@ use glam::Vec2;
 use super::Sim;
 use super::construction::Resolved;
 use super::producers::ProductionPlan;
-use crate::command::{Ability, Command, DebugCommand, PlayerCommand};
-use crate::defs::{Domain, ObjectKind};
+use crate::command::{Ability, Command, PlayerCommand};
+use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
-use crate::nav;
 use crate::object::{Object, Placement};
-use crate::orders::{MAX_ORDER_UNITS, OrderKind, Target};
-use crate::paths::{blocking_footprint, box_overlaps_rect, boxes_overlap};
+use crate::orders::{MAX_ORDER_UNITS, OrderKind};
 use crate::placement::PlacementProblem;
-use crate::player::{Banks, Faction};
-use crate::riot_shield;
-use crate::scenario::{SpawnProblem, place_spawn};
-use crate::vision::VisibilityState;
+use crate::player::Banks;
+use crate::scenario::SpawnProblem;
 
 /// Why the sim ignores a command ([`Sim::validate`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -88,15 +92,18 @@ pub enum Reject {
     /// Cancel Production: no producer has anything queued.
     NothingQueued,
     /// None of the objects a construction command names is one of the player's constructors that exists
-    /// (`crate::construction`).
+    /// (`crate::construction`); for a Warp In, one of the player's Beacons (`crate::transform`).
     NoConstructor,
-    /// A Place names more than one constructor: one building is placed by one constructor (design change 0071).
+    /// A Place names more than one constructor: one building is placed by one constructor (design change 0071); a
+    /// Warp In more than one Beacon: one Beacon becomes the building (plan decision T22).
     SeveralConstructors,
     /// The building isn't on the constructor's `Constructs` list (`factions/gdo/structures.md > DeploymentCenter >
-    /// Constructs`, `factions/gdo/economy.md > ExtractionFacility > Constructs`).
+    /// Constructs`, `factions/gdo/economy.md > ExtractionFacility > Constructs`), or on the Beacon's
+    /// (`factions/colonists/economy.md > Warp In > Constructs List`).
     CannotConstruct(ObjectKind),
     /// The constructor is constructing, or holds a building ready to place: "Other build options unavailable"
-    /// (`> ObjectInterfaceState[DeploymentCenter]`).
+    /// (`> ObjectInterfaceState[DeploymentCenter]`); the Beacon of a Warp In is transforming itself (a Beacon still
+    /// being deployed, slice M3-F).
     ConstructorBusy(ObjectId),
     /// A Cancel Construction to a constructor that isn't constructing.
     NotConstructing,
@@ -112,8 +119,11 @@ pub enum Reject {
     NotDropOff(ObjectId),
     /// The ready building can't be placed there (`core/entities.md > Placement Validation`, `crate::placement`): the
     /// first problem the placement check finds. When a Place is refused for this as it applies, the sim says why
-    /// (`SimEvent::PlacementRefused`).
+    /// (`SimEvent::PlacementRefused`); a Warp In the same.
     Unplaceable(PlacementProblem),
+    /// A Cancel Warp In to objects none of which is transforming (`factions/colonists/economy.md > Warp In > Cancel
+    /// Warp In`, `crate::transform`).
+    NotTransforming,
 }
 
 impl fmt::Display for Reject {
@@ -154,6 +164,7 @@ impl fmt::Display for Reject {
             Reject::NotGatherable(id) => write!(f, "object {} can't be gathered", id.0),
             Reject::NotDropOff(id) => write!(f, "object {} is no drop-off of the player's", id.0),
             Reject::Unplaceable(problem) => write!(f, "the building can't go there: {problem}"),
+            Reject::NotTransforming => write!(f, "nothing is transforming"),
         }
     }
 }
@@ -215,7 +226,8 @@ impl Sim {
     ///    [`Reject::NotVisible`]), and for an Attack, units that can attack now ([`Reject::CannotAttack`]); the units
     ///    of an ability that have it ([`Reject::LacksAbility`]); the producers of a production command and what they
     ///    can queue (`sim/producers.rs`); the constructors of a construction command that can carry it out, the bank
-    ///    that pays and the placement check of a Place (`sim/construction.rs`); a spawn's owner and placement (a
+    ///    that pays and the placement check of a Place (`sim/construction.rs`), and the same of a Warp In's Beacon,
+    ///    or the transforming objects a cancel goes to (`sim/transform.rs`); a spawn's owner and placement (a
     ///    footprint apart from the others but for a plate on its patch, [`Reject::Overlaps`]), a teleport to a unit
     ///    and onto the map, a unit's box clear of blocked ground and of the units of its layer, and the player whose
     ///    banks a debug command sets.
@@ -249,61 +261,6 @@ impl Sim {
         }
     }
 
-    /// `docs/movement.md > 3`, with the approved gate change: ids that no longer exist are dropped.
-    fn check_order(
-        &self,
-        player: PlayerId,
-        units: &[ObjectId],
-        kind: OrderKind,
-        queue: bool,
-    ) -> Result<Checked, Reject> {
-        // Only units take orders; the player's other objects ignore this one.
-        let mut ordered = self.own_units(player, units, |o| o.orders.is_some())?;
-        if ordered.is_empty() {
-            return Err(Reject::NoUnits);
-        }
-        match kind {
-            OrderKind::Move(Target::Point(p)) | OrderKind::AttackMove(p) | OrderKind::Patrol(p) => {
-                // `contains_point` also rejects NaN and infinite positions.
-                if !self.map.contains_point(p) {
-                    return Err(Reject::OffMap);
-                }
-            }
-            OrderKind::Move(Target::Object(id)) => {
-                self.check_target_seen(player, self.referenced(id, None)?)?;
-            }
-            OrderKind::Attack(id) => {
-                let target = self.referenced(id, None)?;
-                if !target.def().destructible {
-                    return Err(Reject::NotAttackable(id));
-                }
-                self.check_target_seen(player, target)?;
-                // `factions/gdo/units.md > Peacekeeper > Riot Shield`: "Attack orders are not possible" while the
-                // shield is up ("the player must lower the shield before ordering an attack"): those units ignore it.
-                ordered.retain(|id| self.objects.get(id).is_some_and(riot_shield::allows_attack));
-                if ordered.is_empty() {
-                    return Err(Reject::CannotAttack);
-                }
-            }
-            OrderKind::Hold | OrderKind::Stop => {}
-            // `factions/colonists/units.md > Drone > Unit Commands` (`sim/workers.rs`): the workers among the
-            // units take it, the others ignore it.
-            OrderKind::Gather(patch) => {
-                self.check_gather(player, patch)?;
-                ordered = self.workers_among(ordered)?;
-            }
-            OrderKind::DropOff(node) => {
-                self.check_drop_off(player, node)?;
-                ordered = self.workers_among(ordered)?;
-            }
-        }
-        Ok(Checked::Order {
-            units: ordered,
-            kind,
-            queue,
-        })
-    }
-
     /// The player's units among `units` that `keep` keeps, unique and in id order: at most [`MAX_ORDER_UNITS`] ids,
     /// none of them someone else's. Ids that no longer exist are dropped (a unit may die in the tick its command
     /// arrives: not the player's mistake), and so are the player's objects that `keep` leaves out.
@@ -334,202 +291,6 @@ impl Sim {
         Ok(kept)
     }
 
-    /// [`Command::Ability`]: the player's own units that have the ability. Ids that no longer exist and the player's
-    /// objects without the ability are dropped: [`Reject::NoUnits`] if nothing of the player's remains at all,
-    /// [`Reject::LacksAbility`] if none of it has the ability.
-    ///
-    /// TODO(Bunker): units inside a Bunker can't use their abilities (`factions/gdo/structures.md > Bunker >
-    /// Garrison`: "a Peacekeeper cannot raise its Riot Shield"); drop them here once units can enter one.
-    fn check_ability(&self, player: PlayerId, units: &[ObjectId], ability: Ability) -> Result<Checked, Reject> {
-        let has = |o: &Object| match ability {
-            Ability::RiotShield { .. } => o.riot_shield.is_some(),
-            Ability::SetDropOff(_) => o.worker.is_some(),
-        };
-        let own = self.own_units(player, units, |_| true)?;
-        if own.is_empty() {
-            return Err(Reject::NoUnits);
-        }
-        if let Ability::SetDropOff(node) = ability {
-            self.check_drop_off(player, node)?;
-        }
-        let units: Vec<ObjectId> = own
-            .into_iter()
-            .filter(|id| self.objects.get(id).is_some_and(has))
-            .collect();
-        if units.is_empty() {
-            return Err(Reject::LacksAbility);
-        }
-        Ok(Checked::Ability { units, ability })
-    }
-
-    /// Question Q0017, point 2 (its default, until answered): an order may target an object only while the issuing
-    /// player sees it: a tile it covers is Visible. The one exception is the design's
-    /// (`core/vision.md > Explored Selectability`): a GDO player may target a Supply Delivery Station on Explored
-    /// ground, the one its Explored tiles show: by its last-known record of the station
-    /// (`PlayerVision::remembered_record`), as the client selects it, never by the live tiles. A station that came
-    /// onto Explored tiles while the player looked away (a debug spawn) has no record, so the player doesn't know of
-    /// it until it sees it. Anything else out of sight, a remembered structure included, is `Reject::NotVisible`;
-    /// the client makes a right-click on one a Move to that spot.
-    pub(super) fn check_target_seen(&self, player: PlayerId, target: &Object) -> Result<(), Reject> {
-        let seen = self.vision.object_state(player, target) == VisibilityState::Visible
-            || self.player(player).is_some_and(|p| p.faction == Faction::Gdo)
-                && self
-                    .vision
-                    .player(player)
-                    .and_then(|vision| vision.remembered_record(target.id))
-                    .is_some_and(|record| record.kind == ObjectKind::SupplyDeliveryStation);
-        if seen {
-            Ok(())
-        } else {
-            Err(Reject::NotVisible(target.id))
-        }
-    }
-
-    fn check_debug(&self, command: &DebugCommand) -> Result<Checked, Reject> {
-        // Debug commands act on anyone's objects.
-        let anyone = None;
-        match *command {
-            DebugCommand::Spawn {
-                kind,
-                owner,
-                at,
-                orientation,
-            } => {
-                if self.next_id == u32::MAX {
-                    return Err(Reject::OutOfIds);
-                }
-                let is_player = |p| self.player(p).is_some();
-                let (pos, placement) =
-                    place_spawn(&self.map, kind, owner, at, orientation, is_player).map_err(Reject::Spawn)?;
-                // A defeated player stays defeated and owns nothing (`core/game_rules.md > On Defeat`): no object
-                // of theirs, and no eyes for their vision, comes back.
-                if let Some(owner) = owner
-                    && self.player(owner).is_some_and(|p| p.is_defeated())
-                {
-                    return Err(Reject::Defeated(owner));
-                }
-                match &placement {
-                    Some(placement) => {
-                        self.check_footprint_apart(kind, placement)?;
-                        self.check_footprint_clear(kind, placement)?;
-                    }
-                    None => self.check_unit_fits(kind, pos, None)?,
-                }
-                Ok(Checked::Spawn {
-                    kind,
-                    owner,
-                    pos,
-                    placement,
-                })
-            }
-            DebugCommand::Remove { id } => {
-                self.referenced(id, anyone)?;
-                Ok(Checked::Remove(id))
-            }
-            DebugCommand::SetPosition { id, pos } => {
-                let object = self.referenced(id, anyone)?;
-                if object.placement.is_some() {
-                    return Err(Reject::TileObject(id));
-                }
-                // `contains_point` also rejects NaN and infinite positions.
-                if !self.map.contains_point(pos) {
-                    return Err(Reject::OffMap);
-                }
-                self.check_unit_fits(object.kind, pos, Some(id))?;
-                Ok(Checked::Teleport { id, pos })
-            }
-            DebugCommand::SetAutoTargeting { on } => Ok(Checked::AutoTargeting(on)),
-            DebugCommand::SetResources {
-                player,
-                crystals,
-                supplies,
-                alloys,
-                essence,
-                flux,
-            } => {
-                if self.player(player).is_none() {
-                    return Err(Reject::UnknownPlayer(player));
-                }
-                let banks = Banks {
-                    crystals,
-                    supplies,
-                    alloys,
-                    essence,
-                    flux,
-                };
-                Ok(Checked::SetResources { player, banks })
-            }
-        }
-    }
-
-    /// `docs/movement.md > 3`: a unit of `kind` placed at `pos` keeps the invariants: its box is clear of blocked
-    /// tiles and blocking footprints and inside the map, and overlaps no other unit of its layer (`moving` is the
-    /// unit itself, when it is teleported). Other kinds pass.
-    fn check_unit_fits(&self, kind: ObjectKind, pos: Vec2, moving: Option<ObjectId>) -> Result<(), Reject> {
-        let def = kind.def();
-        let (Some(unit), Some(silhouette)) = (&def.unit, def.silhouette()) else {
-            return Ok(());
-        };
-        let half = silhouette / 2.0;
-        let base = unit.base_def();
-        if let Some(class) = base.nav_class() {
-            let grid = self.nav.nav().grid(class, nav::size_class(silhouette));
-            if grid.is_some_and(|grid| !nav::box_clear(grid, half, pos)) {
-                return Err(Reject::Blocked);
-            }
-        }
-        // The grids catch up with this tick's spawns and removals only in phase 5b: footprints are checked
-        // directly too, so a unit can't be put on a station spawned earlier in the tick.
-        if base.domain == Domain::Ground
-            && self.objects.values().any(|o| {
-                o.placement
-                    .as_ref()
-                    .and_then(|p| blocking_footprint(o.kind, p, self.nav.nav().rules()))
-                    .is_some_and(|rect| box_overlaps_rect(pos, half, rect))
-            })
-        {
-            return Err(Reject::Blocked);
-        }
-        if base.domain.hard_collision()
-            && let Some(other) = self.objects.values().find(|o| {
-                Some(o.id) != moving
-                    && in_layer(o, base.domain).is_some_and(|other| boxes_overlap(pos, half, o.pos, other))
-            })
-        {
-            return Err(Reject::Occupied(other.id));
-        }
-        Ok(())
-    }
-
-    /// A blocking footprint must not cover a ground unit (`docs/movement.md > 3`).
-    /// `core/entities.md > Placement Validation`: a footprint of `kind` at `placement` overlaps no other footprint,
-    /// a structure's or a map resource's (design change 0096: no buildings on resources), except that a plate goes
-    /// onto an uncovered patch ([`ObjectKind::may_overlap`]). Else the first object in the way, by id.
-    fn check_footprint_apart(&self, kind: ObjectKind, placement: &Placement) -> Result<(), Reject> {
-        let in_the_way = self
-            .objects
-            .values()
-            .find(|o| !kind.may_overlap(o.kind) && o.placement.as_ref().is_some_and(|other| other.overlaps(placement)));
-        match in_the_way {
-            Some(other) => Err(Reject::Overlaps(other.id)),
-            None => Ok(()),
-        }
-    }
-
-    fn check_footprint_clear(&self, kind: ObjectKind, placement: &Placement) -> Result<(), Reject> {
-        let Some(rect) = blocking_footprint(kind, placement, self.nav.nav().rules()) else {
-            return Ok(());
-        };
-        match self
-            .objects
-            .values()
-            .find(|o| in_layer(o, Domain::Ground).is_some_and(|half| box_overlaps_rect(o.pos, half, rect)))
-        {
-            Some(unit) => Err(Reject::Occupied(unit.id)),
-            None => Ok(()),
-        }
-    }
-
     /// An object a command refers to: it must exist and, when `orderer` is given, belong to that player (the
     /// objects a player's own order commands; targets, such as an enemy to attack, may belong to anyone).
     pub(super) fn referenced(&self, id: ObjectId, orderer: Option<PlayerId>) -> Result<&Object, Reject> {
@@ -539,11 +300,4 @@ impl Sim {
             _ => Ok(object),
         }
     }
-}
-
-/// The half extents of `o`'s box if it is a unit of `domain`'s layer (`docs/movement.md > 6.1`).
-fn in_layer(o: &Object, domain: Domain) -> Option<Vec2> {
-    let def = o.def();
-    let unit = def.unit.as_ref()?;
-    (unit.base_def().domain == domain).then(|| def.half_extents()).flatten()
 }

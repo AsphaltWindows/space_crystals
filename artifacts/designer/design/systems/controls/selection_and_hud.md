@@ -199,6 +199,9 @@ For all unit-producing structures, right-click from DefaultState sets the rally 
 - Right-click Object: sets rally point to that object
 - Right-click the building itself: **clears** the rally point (RallyPoint = None; user, 2026-11-24)
 
+### What a rally point makes a new unit do
+(user, 2026-11-24) A unit that spawns with a rally point set **always** gets its **own default right-click command** resolved against the rally target (RightClickResolution, including the rule for units that can't carry out the resolved command). No per-building lists override this. Examples: a Drone rallied on a crystal patch **Gathers** it; a Drone rallied on an enemy unit **follows** it (unarmed, so it can't attack); a Peacekeeper rallied on an enemy attacks it.
+
 ### Rally points on enemy objects
 (user, 2026-11-24) A rally point on an enemy object only follows that object **while the owner can see it**. As soon as the enemy object leaves the owner's sight, the rally point **turns into a ground rally point at its last-seen position**. So:
 - A unit produced while the enemy is visible attacks it; one produced after the enemy was lost from sight moves to the last-seen position (matching chasing a target into the fog: systems/controls/behaviors.md > AttackingObject).
