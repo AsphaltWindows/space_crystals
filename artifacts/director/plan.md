@@ -547,11 +547,17 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Goldens.** `gdo_opening` was re-blessed for 0159 only; the per-tick object digests are unchanged. Perf: B/A 0.94–1.02.
   - **Found.** An AttackMove can loop forever: on `behaviours_soak` seed 1 a Guard takes and drops an edge-of-sight target every other tick. The soak now runs seeds 2–4, and M3-L2 fixes the loop. Master's soak also fails seeds 8, 12, 21 and 34 of 1–40: M3-X.
 
+- **M3-U unfinished groups and polish** (merged in `d3814be`; 1255 tests; client only, goldens unchanged):
+  - **0185.** SelectionGroups are keyed by `GroupKey { kind, unfinished, instance }`. An unfinished group shows Cancel only, with a tinted portrait and "(unfinished)" in the InfoPanel. `ControlState::set_type` moves a completed building into its finished group. The ActiveGroup on completion is a reading: Q0050.
+  - **Draw order.** Units draw in their own layer above structures, with selection rings between, so a unit leaving a portal is visible. A click picks a unit over a structure it overlaps.
+  - **Labels.** No command label wraps; long ones shrink. "Raise Shield", "Lower Shield" and "Cancel Ready" shrink to about 6 px at 720p: M3-S shortens the shield texts, K2 the rest.
+  - **Splits.** `tests/game_end/` and `sim/tests/movement_yield/`, code moved only.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M3-L1 fog delay and attacker reveal** (Opus; brief `scratchpad/briefs/m3l1-vision.md`): 0177, 0178.
   - **M3-J2 gathering UI** (Opus; brief `scratchpad/briefs/m3j2-gathering-ui.md`): the Drone's right-click checked against the design, pointers, Set Drop-off, Egress Node F, the carried load, 0124 grids, 0155 plate panel, `docs/playtest/m3.md`.
-  - **M3-U unfinished groups and polish** (Opus; brief `scratchpad/briefs/m3u-unfinished-groups-and-polish.md`): 0185, units drawn above portals, two test-file splits, button labels.
+  - **M3-L2 targeting behaviours** (Opus; brief `scratchpad/briefs/m3l2-targeting-behaviours.md`): 0179, 0180, 0182, 0186 Guard numbers, and the AttackMove loop on soak seed 1.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2 playtest** with the user, using `docs/playtest/m2.md`.
@@ -684,12 +690,12 @@ First playable after M2-H2.
     | P | done (`9f63a5f`) |
     | J2 (0124, 0136, 0139, 0140, 0155) | running (wave 5) |
     | V | done (`9516a0f`) |
-    | U (0185 unfinished groups; units above portals; test splits; labels) | running (wave 4) |
-    | S (after U; Riot Shield as two unit types: 0171–0174; brief `scratchpad/briefs/m3s-riot-shield-two-types.md`) | queued |
+    | U | done (`d3814be`) |
+    | S (next free slot; Riot Shield as two unit types: 0171–0174; brief `scratchpad/briefs/m3s-riot-shield-two-types.md`) | queued |
     | L1 (vision: 0177 attacker reveal and clipped shots, 0178 fog delay) | running (wave 4) |
-    | L2 (next free slot; behaviours: 0179 rotation steps, 0180 AttackMove leash, 0182 MinRange, 0186 Guard attack numbers, the AttackMove loop on soak seed 1; brief `scratchpad/briefs/m3l2-targeting-behaviours.md`) | queued |
+    | L2 (0179, 0180, 0182, 0186 Guard numbers, the AttackMove loop) | running (wave 5) |
     | X (after L1 and L2; Fable: soak robustness over seeds 1–40; master fails 8, 12, 21 idle-mover, 34 settle bound) | queued |
-    | K1, K2 (K2 also: a half-out unit can attack; 0170 event-driven) | queued |
+    | K1, K2 (K2 also: legible command labels at 720p; a half-out unit can attack; 0170 event-driven) | queued |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -763,6 +769,7 @@ First playable after M2-H2.
 | Q0047 | Waiting for capacity: several waiting buildings, no power, zero-cost units | no | answered by 0175 (as built) and 0176 (point 3 in M3-V) |
 | Q0048 | Pressing other commands while targeting (0066 vs 0162); a portal group only partly warping in | no | answered: point 1 by 0184 (as built), point 2 by 0185 (M3-U) |
 | Q0049 | Convert pressed again while a conversion waits for Cooldown (0153) | no | open; M3-R leaves waiting units out |
+| Q0050 | The ActiveGroup when an unfinished group's last building completes | no | open; M3-U makes the joined finished group active |
 
 ## Design change entries
 Last triaged: 0188.
@@ -947,7 +954,7 @@ Last triaged: 0188.
 | 0182 MinRange: auto-targeting skips targets inside it; an explicit Attack backs a mobile unit off, and fails for an immobile one with "Target too close" | queued (M3-L2, after R) | answers Q0018 point 5 |
 | 0183 A unit walled out of its group spot counts as arrived within the 3 GU radius | done with 0169 (M3-V, `9516a0f`; tested with 7 Guards) | answers Q0018 point 6 |
 | 0184 Another command pressed while targeting: "Cancel the current command first" | done (as built, M3-J1 `864c13f`) | answers Q0048 point 1 |
-| 0185 Unfinished buildings form their own SelectionGroup (key: type, finished?) | in progress (M3-U) | answers Q0048 point 2; replaces M3-J1's reading |
+| 0185 Unfinished buildings form their own SelectionGroup (key: type, finished?) | done (M3-U, `d3814be`: `GroupKey { kind, unfinished, instance }`; the ActiveGroup on completion is Q0050) | answers Q0048 point 2; replaces M3-J1's reading |
 | 0186 Syndicate Guard: laser rifle, Universal, 18 damage every 24 ticks, needs an Optics Lab; Agent: pistol, ground only, 5 damage every 20 ticks | Guard attack numbers queued (M3-L2); Optics Lab gate, Hideout and Agent queued (M4) | user redesign |
 | 0187 Syndicate Grenadier: slow, dodgeable AoE grenade, ground only, Attack Ground; Hideout E, needs a Chemical Plant | queued (M4; concept only, numbers TBD) | user addition |
 | 0188 Syndicate Assault Bike: fastest wheeled vehicle, wide turns, mortar on a narrow-angle turret | queued (M4; concept only, numbers TBD) | user addition |
