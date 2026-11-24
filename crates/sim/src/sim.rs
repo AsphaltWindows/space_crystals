@@ -18,7 +18,7 @@ use crate::paths::knowledge::PathKnowledge;
 use crate::paths::{self, NavState};
 use crate::player::Player;
 use crate::rng::Rng;
-use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
+use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings, StartingConditions};
 use crate::units::{Tick, TilePos};
 use crate::vision::{VisibilityState, Vision};
 use crate::{combat, economy, movement, orders, riot_shield};
@@ -93,7 +93,8 @@ impl Sim {
     /// Starts a game of the scenario's map with its game setup (players, seed and game options), or lists everything
     /// wrong with either ([`Scenario::validate`]). The map's pre-placed objects come first, those of slots that no
     /// player takes left out, then each player's Starting Layout for their faction at their slot; objects a slot
-    /// owns belong to the player who takes it. Never panics.
+    /// owns belong to the player who takes it, and the banks start at their faction's [`StartingConditions`]. Never
+    /// panics.
     pub fn try_new(scenario: &Scenario) -> Result<Self, Vec<ScenarioProblem>> {
         let objects = scenario.start_objects()?;
         let mut sim = Self::empty(scenario);
@@ -116,9 +117,9 @@ impl Sim {
                 id,
                 name: p.name.clone(),
                 faction: p.faction,
-                // The Starting Conditions' banks come with slice M2-F.
-                crystals: 0,
-                supplies: 0,
+                // `factions/gdo/economy.md > Starting Conditions`; 0 for a faction not implemented yet (T11).
+                crystals: StartingConditions::of(p.faction).map_or(0, |s| s.crystals),
+                supplies: StartingConditions::of(p.faction).map_or(0, |s| s.supplies),
             })
             .collect::<Vec<Player>>();
         Self {
