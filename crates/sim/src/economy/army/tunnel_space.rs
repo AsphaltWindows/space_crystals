@@ -51,6 +51,7 @@ pub(crate) fn occupies_tunnel_region(o: &Object, player: PlayerId) -> bool {
     // pop-up (only cells of a region are counted, so an upright one outside every area takes none), and a Tunnel's
     // turret under construction, underground from its first frame as an expansion is (`popup`). An Agent's site
     // stands on the surface until it completes ("If built inside a Tunnel Area, it is a pop-up turret on completion").
+    // Placeholder (Q0091 point 5): so a Tunnel's site takes its ¼ from its first frame, an Agent's at completion.
     let turret =
         popup::def_of(o.kind).is_some() && o.owner == Some(player) && (o.is_operational() || o.popup.is_some());
     turret || underground && (o.owner == Some(player) || o.owner.is_none())

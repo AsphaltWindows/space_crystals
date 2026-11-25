@@ -105,8 +105,8 @@ pub(crate) const LASER_TURRET_SITE: SiteDef = SiteDef {
 /// placed within that Tunnel's Tunnel Area like an expansion. It **uses the Tunnel's single operation slot**"; "A
 /// Tunnel's turret is paid when placed, like an expansion"; "Cancelling a site: **75% refund**").
 pub(crate) const LASER_TURRET_EXPANSION: ExpansionDef = ExpansionDef {
-    // Not given: the ExpandMenu offers it "once the player owns an Optics Lab" and names no tier, so every Tunnel
-    // builds it (the Optics Lab's own Tier Requirement is 1).
+    // Placeholder (Q0091 point 4): not given. The ExpandMenu offers it "once the player owns an Optics Lab" and names
+    // no tier, so every Tunnel builds it (the Optics Lab's own Tier Requirement is 1).
     tier: 1,
     cost: 100,   // "Cost: 100 Space Crystals (no Supplies)"
     frames: 320, // "Build time: 320 frames (20 s)"
@@ -135,7 +135,7 @@ mod tests {
     /// one shot in 24 frames. An Agent builds it in 320 frames for 100 Space Crystals, from 10% of its HP, and comes
     /// out beside it; a Tunnel builds it for the same price and time, at any tier (slice M4-S2). As a pop-up it rises
     /// in 8 frames, retracts after 32 with no target, in 8, and has 6 / 6 underground. Not given, so placeholders:
-    /// Groupable, SymmetryType AAAA (plan decision T29), Tier Requirement 1.
+    /// Groupable, SymmetryType AAAA (plan decision T29), Tier Requirement 1 (Q0091 point 4).
     #[test]
     fn the_laser_turret_follows_the_design() {
         let def = ObjectKind::LaserTurret.def();
