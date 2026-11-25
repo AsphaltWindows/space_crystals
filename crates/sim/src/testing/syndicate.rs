@@ -39,9 +39,10 @@
 //! Crystals, counting the Agents' deliveries; [`SupplyBooks`] balance their Supplies.
 //!
 //! [`reference_field`], [`stacked_field`] and [`opening_field`] are the check's reference layouts (`fields.rs`).
-//! `skirmish` plays `dev_skirmish` with a Syndicate line, alone or against a GDO one, for the golden games.
+//! [`skirmish`] plays `dev_skirmish` with a Syndicate line, alone or against a GDO one, for the golden games.
 
 mod fields;
+pub mod skirmish;
 
 use std::collections::BTreeSet;
 
@@ -408,12 +409,22 @@ impl Syndicate {
 pub struct SupplyBooks {
     player: PlayerId,
     supplies: u32,
+    /// The player's sites as the step starts: a cancelled one's refund is theirs.
+    sites: BTreeSet<ObjectId>,
 }
 
 impl SupplyBooks {
     pub fn open(sim: &Sim, player: PlayerId) -> Self {
         let supplies = sim.player(player).map_or(0, |p| p.supplies);
-        Self { player, supplies }
+        let sites = (sim.objects())
+            .filter(|o| o.owner == Some(player) && o.is_site())
+            .map(|o| o.id)
+            .collect();
+        Self {
+            player,
+            supplies,
+            sites,
+        }
     }
 
     /// Closes the books after the step in which the player's commands paid `spent` Supplies, and returns the bank.
@@ -435,7 +446,7 @@ impl SupplyBooks {
                     ..
                 } if mine(worker) => delivered += amount,
                 SimEvent::BuildRefunded { worker, refund, .. } if mine(worker) => refunded += refund,
-                SimEvent::SiteCancelled { refund, .. } => refunded += refund,
+                SimEvent::SiteCancelled { site, refund, .. } if self.sites.contains(&site) => refunded += refund,
                 _ => {}
             }
         }

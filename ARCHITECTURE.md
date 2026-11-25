@@ -2101,7 +2101,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   and the bank covers them, trains units behind a prerequisite (the Guards behind an Optics Lab) only while the
   player owns it, and pays for its Agents through a `BuildOrder`; `SupplyBooks` balance the Supplies as `Books` do the
   crystals. `reference_field(distance, agents)`, `opening_field(distance)` and `stacked_field(distance, agents)` are
-  the Syndicate economy check's reference layouts (design changes 0259 and 0294).
+  the Syndicate economy check's reference layouts (design changes 0259 and 0294), and `syndicate::skirmish` plays
+  `dev_skirmish` with a Syndicate line, alone or against the GDO's (the Syndicate's golden games).
 - **Movement scenario tests** are `crates/sim/tests/movement_collision/` (passing, head-on, choke, group arrival,
   idle units, repaths, oscillation bounds, save and load in a crowd; in modules by topic: `passing`, `crowds`,
   `paths`), `group_destinations.rs` (the magic box; a
@@ -3152,14 +3153,15 @@ unchecked.
   or ", end", and "Tick n / end". Screenshots, `--exit-at-tick`, `--dump-state`, `--input-script` (to press the
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
-- **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs` and `main.rs`, the
-  recording and the comparison in `harness.rs`): nine games, a 3v3 duel, a 40-unit AttackMove battle, a
+- **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`
+  and `main.rs`, the recording and the comparison in `harness.rs`): eleven games, a 3v3 duel, a 40-unit AttackMove battle, a
   12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three Peacekeepers
   that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under fire and lower
   them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1 plays the
   fastest clean Barracks and rallies ten Peacekeepers to player 2's crystal field, where they destroy four plates,
-  while player 2 plates its field and builds Generators), and the Colonists' `colonists_opening` and
-  `colonists_vs_gdo` (slice M3-K1, below), are blessed as replays with a checkpoint every 32 ticks and
+  while player 2 plates its field and builds Generators), the Colonists' `colonists_opening` and
+  `colonists_vs_gdo` (slice M3-K1, below) and the Syndicate's `syndicate_opening` and `syndicate_vs_gdo` (slice
+  M4-L, below), are blessed as replays with a checkpoint every 32 ticks and
   at the end, in `crates/sim/tests/golden/<name>.json`. A tenth, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -3179,7 +3181,16 @@ unchecked.
   converts each to a Rifle Legionnaire to wait east of the Bio Portal, while player 2 plays `gdo_opening`'s Barracks
   line and sends its ten Peacekeepers to player 1's field in two waves of AttackMove: the Colonists' Shields take
   hits and units die on both sides. Both players' books balance every step, the Drones' deliveries included, and
-  every command the scripts give is one the gate takes. The ignored `tests/skirmish_soak.rs` (slice M3-K2) plays the
+  every command the scripts give is one the gate takes. The Syndicate's games play `dev_skirmish` with player 1 as
+  the Syndicate, by `testing::syndicate::skirmish`: in `syndicate_opening` (to 2:15) its Agents gather the patch 3 GU
+  from the crystal hatch, the Hideout, rallied on it, trains four more, the fourth builds a second Tunnel with the
+  starting Supply, is ejected by it and gathers Supplies, and the first Tunnel expands an Optics Lab; in
+  `syndicate_vs_gdo` (to 3:12) six Guards follow behind the Optics Lab, the Hideout's rally point cleared so that they
+  stay in the Tunnel Network, four of them ejected by the second Tunnel to hold the top of the plateau's west ramp,
+  while player 2 plays the same Barracks line with sixteen Peacekeepers, sent in waves of six to the Syndicate's
+  Tunnel nearest them: Guards and Peacekeepers die, the second Tunnel falls, then the first, which leaves the Hideout
+  and the Optics Lab neutral, strands the two Guards in the network and defeats player 1. Both players' books balance
+  every step, and player 1's Supplies too (`testing::syndicate::SupplyBooks`). The ignored `tests/skirmish_soak.rs` (slice M3-K2) plays the
   same two players for 10 minutes, twice, until player 1's field runs out: the movement invariants and the books
   every tick, no dangling id, no order stuck in one step beyond a bound (a waiting Drone re-checks within 16 ticks
   once its patch is free), the field's 12000 crystals all delivered, no game end, and the hash every 64 ticks equal
