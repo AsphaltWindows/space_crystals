@@ -2174,3 +2174,4 @@ Syndicate: Laser Battery added; Syndicate lasers red. Entry 0207.
 Laser Battery: always charging; empty → same rhythm, ~63% surges. Entry 0208.
 Laser Battery: Amplify dial (N^-1/3), narrow arc turret. Entry 0209.
 Laser Battery req Optics Lab; LB + Artillery Rig deploy = two unit types under toggle rule. Entry 0210.
+Deploy = queueable order, no undeploy until complete, type at completion (replaces 0210 toggle part). Entry 0211.

@@ -282,7 +282,11 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
 - **Deployed**: **cannot move**. The turret gets **360° rotation**. It can **only target air units** (no ground targets while deployed).
 - **Refract** (ability, deployed only): to be designed together with satellites (user, 2026-11-25).
 - **Switching modes works like the GDO Artillery Rig** (user, 2026-11-25; factions/gdo/units.md > Artillery Rig > Modes): deploying and undeploying take time, during which it can **neither move nor attack**.
-- **Two unit types**: **Laser Battery** and **Laser Battery (Deployed)**, with separate SelectionGroups. Deploy/Undeploy follows the **mode toggle rule** (factions/colonists/units.md > Weapon Conversion > A toggle sets a target form): the press goes to the ActiveGroup, sets a target mode, switches the units' type and group at the press, and every pressed unit ends in the same mode.
+- **Two unit types**: **Laser Battery** and **Laser Battery (Deployed)**, with separate SelectionGroups.
+- **Deploy is an order, not a mode switch** (user, 2026-11-25; unlike Convert and the Riot Shield, which follow the toggle rule):
+  - **Queueable**: Shift-Deploy waits until the earlier orders are done (e.g. move here, then deploy). Without Shift it replaces the current orders and starts at once.
+  - **No reversing mid-way**: **Undeploy is only available once deployment is complete**. The unit becomes Laser Battery (Deployed) (type and SelectionGroup) when deploying finishes; until then it is still a Laser Battery. (Undeploying is assumed symmetric: Deploy becomes available again only once undeploying is complete.)
+  - When the switch makes a group disappear, the group the units joined becomes active (systems/controls/selection_and_hud.md > ActiveGroup > When the ActiveGroup disappears).
 - The battery keeps charging in every mode (Battery: always charging).
 - TBD: deploy/undeploy time.
 
