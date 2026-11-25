@@ -12,10 +12,11 @@ use crate::cli::load_map_file;
 pub use sc_sim::map::MAX_MAP_SIDE;
 /// The shortest side the editor creates or resizes to (a placeholder, see its docs).
 pub use sc_sim::scenario::MIN_MAP_SIDE;
-/// The name of a new map.
+/// The name of a new map. Placeholder (not in the design).
 pub const NEW_MAP_NAME: &str = "untitled";
 /// Size of the map the editor starts with when it has no file: the creation dialog's default
-/// ([`MapSettings::default`]).
+/// ([`MapSettings::default`]). Placeholder (not in the design): `core/map_editor.md > Map Creation` leaves the
+/// size to the map maker.
 pub const NEW_MAP_SIZE: (u32, u32) = (64, 48);
 
 /// `maps/` at the repository root, where new maps are saved and the files panel looks.

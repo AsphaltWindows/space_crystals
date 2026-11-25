@@ -102,7 +102,8 @@ pub fn symmetry_label(symmetry: Symmetry) -> &'static str {
     }
 }
 
-/// Brush sizes: the side of the square brush, in tiles.
+/// Brush sizes: the side of the square brush, in tiles. Placeholder (not in the design): odd sides, so that the
+/// brush centres on the tile under the cursor (`terrain::brush_tiles`).
 pub const BRUSH_SIZES: [u32; 4] = [1, 3, 5, 9];
 
 /// The highest elevation (`core/map.md > TilePlacement > Elevation - integer (0 to 16)`).
