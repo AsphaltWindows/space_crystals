@@ -7,11 +7,13 @@
 //!
 //! One test binary: `records` (the records drawn on Explored tiles, an enemy structure's as placed, a Tunnel's at the
 //! tier last seen), `station` (the remembered SupplyDeliveryStation: who may select it, its frame and its InfoPanel),
-//! `shots` (a shot from the fog), `markers` (the markers on a remembered target) and `area_attacks` (slice M4-O:
-//! projectiles and blasts in the fog, and a hidden victim).
+//! `shots` (a shot from the fog), `markers` (the markers on a remembered target), `area_attacks` (slice M4-O:
+//! projectiles and blasts in the fog, and a hidden victim) and `neutral` (slice M4-H: a neutral expansion, seen by
+//! everyone).
 
 mod area_attacks;
 mod markers;
+mod neutral;
 mod records;
 mod shots;
 mod station;
