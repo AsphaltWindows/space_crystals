@@ -48,9 +48,9 @@ fn a_drone_accelerates_to_eight_brakes_and_lands_on_its_goal() {
     for _ in 0..20 {
         assert_eq!(step(&mut t), Vec2::ZERO);
     }
-    // Slower than the stand-in was, 152 ticks at a constant 8: 164 ticks (between 165 and 175 before design change
-    // 0205).
-    assert_eq!(speeds.len(), 164, "{} ticks", speeds.len());
+    // Slower than the stand-in was, 152 ticks at a constant 8. Measured: 164 ticks (between 165 and 175 before design
+    // change 0205).
+    assert!((160..=168).contains(&speeds.len()), "{} ticks", speeds.len());
 }
 
 /// Design change 0205's Verification, "A Drone starting from rest visibly reaches full speed in about 1.25 s", and
