@@ -751,11 +751,26 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - `sim.rs` is at 602 lines and wasn't split.
     - The no-fog debug views draw enemies' hidden Hideouts.
 
+- **M3-L5 own-movement re-check and own-target shots** (merged in `a777ae3`; 1420 tests; goldens unchanged):
+  - **0243.**
+    - Reach-rule rejections, and chases that end beyond the leash, record where the unit judged (`Judged::from`, hashed only while set).
+    - They stand only while the unit is within `REJUDGE_SELF_SU` (64 su) of that point.
+    - Failure-rule give-ups and fog losses keep 0230's triggers. `no_room` guards that: with the trigger, the eight Sabres cycle.
+  - **0243's cost** (release; 12 interleaved rounds; 100 Guards attack-moving past unreachable targets):
+
+    | Targets | Judgement paths per tick | Mean tick |
+    |---|---|---|
+    | Drones | 3.9 → 28.5 | 0.107 → 0.144–0.154 ms (1.35–1.45×) |
+    | Standing Generators | 2.8 → 6.9 | 1.06–1.07× |
+
+    The worst tick is unchanged (1.93 ms, the same tick on master). Steps of 2 GU and 2.5 GU would give 1.16–1.24×. **The Director kept 1 GU:** the absolute cost is tiny.
+  - **0244.** `Tracer::target_owner`. A shot is drawn whole only if its attacker is revealed and its target is the viewer's. Tests cover the neutral and three-player cases.
+- **M3 is complete,** except 0203, which waits for the Rocketman's MinRange value.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M4-C Tunnel Network** (Fable; brief `scratchpad/briefs/m4c-tunnel-network.md`): Enter, the held store, transit, Eject, production into the network and rallies, with 0245–0253. No air doors yet.
   - **M4-D Agent crystal gathering** (Fable; brief `scratchpad/briefs/m4d-agent-gathering.md`): 0255; Agents wait at the hatch for ever; the stacked-Tunnel soak checks liveness.
-  - **M3-L5 own-movement re-check and own-target shots** (Opus; brief `scratchpad/briefs/m3l5-own-movement-and-own-target-shots.md`): 0243, with a perf A/B that includes standing targets, and 0244 in the client.
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
   - **M4 Syndicate:** the plan is adopted (`artifacts/director/m4-plan.md`). M4-A is running, and every later slice waits for it.
@@ -861,7 +876,7 @@ First playable after M2-H2.
 3. M5 Cults.
 
 The user keeps feeding unit and other designs to the Designer, so expect incremental change entries throughout. The user playtests once all four factions are complete. The art pipeline starts once the gameplay design is mostly final.
-- **M3 Colonists** (**planned**; spec: `artifacts/director/m3-plan.md`, from the M3-P spike). It covers the statted opening: Drone gathering, Beacon Deployment and Warp In (Egress Node, Robo Portal, Bio Portal), portals with exits on several sides, Sabre and Rifle Legionnaires with Weapon Conversion, Shields, Beacon Capacity, Colonists Starting Conditions and layouts, HUD and panels, and an economy oracle against `Economy Targets (GDO vs Colonists)`. Refining, the tech tier and the other units are deferred (Q0043).
+- **M3 Colonists** (**done**, except 0203's value; last slice M3-L5 at `a777ae3`; spec: `artifacts/director/m3-plan.md`, from the M3-P spike). It covers the statted opening: Drone gathering, Beacon Deployment and Warp In (Egress Node, Robo Portal, Bio Portal), portals with exits on several sides, Sabre and Rifle Legionnaires with Weapon Conversion, Shields, Beacon Capacity, Colonists Starting Conditions and layouts, HUD and panels, and an economy oracle against `Economy Targets (GDO vs Colonists)`. Refining, the tech tier and the other units are deferred (Q0043).
   - **Slices:** 12, in 6 waves:
     1. A;
     2. C, E, H (Fable);
@@ -907,7 +922,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     | K3 | done (`c4807b8`; Q0072) |
     | L4 | done (`b261863`; Q0074) |
     | K4 | done (`f47fb26`) |
-    | L5 (0243 own-movement re-check, with the cost measured; 0244 shots drawn whole only at your own objects; brief `scratchpad/briefs/m3l5-own-movement-and-own-target-shots.md`) | running (wave 10) |
+    | L5 | done (`a777ae3`) |
     | J3 | done (`827dfeb`; Q0075) |
     | G3 | done (`8480ee0`) |
 - **M4 Syndicate** (**planned**; spec: `artifacts/director/m4-plan.md`, from the design at `36a8cd8` plus 0210–0228).
@@ -1021,7 +1036,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0075 | A revealed attacker shooting at a target the player can't see: draw the shot whole (literal 0206) or clip it? | no | answered by 0244 (stricter than B; M3-L5) |
 
 ## Design change entries
-Last triaged: 0271.
+Last triaged: 0276.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -1217,7 +1232,7 @@ Last triaged: 0271.
 | 0203 The Rocketman's normal attack has a MinRange (value TBD) | queued (waiting for the value; the MinRange rules are built, M3-L2) | context for Q0054 |
 | 0204 AttackMove's dropped target, the MinRange back-off spot and a cornered unit stay as M3-L2 built them; a locked Rocketman's fire ignores MinRange | done (as built M3-L2), except point 1, superseded by 0230 (M3-L4); the locked-fire part is queued with Target Lock | answers Q0054 |
 | 0205 The Drone accelerates faster (ForwardAcceleration 0.9, OmniDirectionalAcceleration 0.3, DragRatio 0.15; were 0.6 / 0.2 / 0.1); re-run the Colonists oracle and report the table for Q0055 | done (M3-K3, `c4807b8`); figures re-reported as Q0072 | a step toward Q0055, which stays open; the table and targets stay unchanged |
-| 0206 While an attacker in the fog is revealed, its own shots are drawn from it to the target; other shots stay clipped to Visible tiles | done (M3-J3, `827dfeb`); a fogged target's case is Q0075 | answers Q0056; client only |
+| 0206 While an attacker in the fog is revealed, its own shots are drawn from it to the target; other shots stay clipped to Visible tiles | done (M3-J3, `827dfeb`); narrowed by 0244 (M3-L5) | answers Q0056; client only |
 | 0207–0209 Laser Battery, a new Syndicate vehicle: always charging, weaker surges on an empty battery, Amplify, a narrow turret arc; Syndicate lasers are red | queued (M4: red lasers in M4-A; the Laser Battery is gated on numbers, N3) | concept; no numbers yet |
 | 0210 The Laser Battery needs an Optics Lab; the Laser Battery and the Artillery Rig have mobile and deployed as two unit types | queued (M4 N3; the Artillery Rig part with the Artillery Rig, not yet built) | deploy times TBD |
 | 0211, 0213, 0214 Vehicle deploy is a queueable order, can't be cancelled once started, switches type at completion; orders given meanwhile are held and checked against the deployed type | queued (with the first deploying vehicle: Laser Battery, Artillery Rig or the Transport's Burrow and Surface) | not the Drone's Beacon Deployment, which stays as M3 built it (0214) |
@@ -1242,8 +1257,8 @@ Last triaged: 0271.
 | 0240 Surface buildings and underground expansions never share a tile, whatever the owner (neutral included). A direct placement (GDO) over a hidden expansion is red at once, an accepted leak. A worker-built ghost judges by what the player knows and fails on the worker's arrival. Units still walk over expansions | queued (M4-E for surface placement: direct placement and the check on arrival read the underground truth; M4-F for expansions: none under a surface building) | answers Q0062 points 3c and 4; replaces T32's "the surface methods ignore them" |
 | 0241 No expansions under resources (patches, Supply Delivery Stations); non-Drillable cells give no Tunnel Space | queued (M4-F: no expansions under resources); the Tunnel Space part is superseded by 0242 | answers Q0062 points 3d and 5 |
 | 0242 A Tunnel's whole area must be on the map and Drillable, for placement and upgrades; every tunnel-region cell is usable; starting layouts must respect it | queued (M4-B: layout validation and a simple Tunnel Space; M4-E: placement, the ghost by knowledge and the check on arrival; M4-G: the upgrade check) | completes Q0062; replaces 0238 and 0241's Tunnel Space part |
-| 0243 AttackMove: a reach-rule rejection is also re-checked once the unit has moved about 1 GU from where it judged; Failure-rule and fog rejections keep 0230's triggers; measure the cost | in progress (M3-L5) | answers Q0074 (B, "to try") |
-| 0244 A revealed attacker's shot is drawn whole only when its target is the viewer's own object; everything else is clipped to Visible tiles | in progress (M3-L5) | answers Q0075; narrows 0206 |
+| 0243 AttackMove: a reach-rule rejection is also re-checked once the unit has moved about 1 GU from where it judged; Failure-rule and fog rejections keep 0230's triggers; measure the cost | done (M3-L5, `a777ae3`); the 1 GU step is kept: at most 1.45× master's mean tick, about +0.05 ms for 100 Guards | answers Q0074 (B, "to try") |
+| 0244 A revealed attacker's shot is drawn whole only when its target is the viewer's own object; everything else is clipped to Visible tiles | done (M3-L5, `a777ae3`) | answers Q0075; narrows 0206 |
 | 0245 Tunnel Network: a flat transit delay of 32 frames (placeholder) after entering before a unit can exit; produced units have none | queued (M4-C) | answers Q0063 point 1 |
 | 0246 Units walk into a Tunnel single file at normal speed with normal spacing, no fixed hold per unit ("one unit wide"); produced units exit without delay | queued (M4-C) | answers Q0063 point 7 and part of 2; replaces the 8-frame hold proposal |
 | 0247 Entering a Tunnel uses the normal Failure rule; no special waiting rule | queued (M4-C) | answers Q0063 point 2, as proposed |
@@ -1271,4 +1286,9 @@ Last triaged: 0271.
 | 0269 The Bomber needs a Vault and a Chemical Plant, attacks ground only, re-arms in the network; the Vault works network-wide | gated (concept only) | — |
 | 0270 The Syndicate bomber is named Specter | gated (concept only) | — |
 | 0271 The Specter returns home | gated (concept only) | — |
+| 0272 Specter: an unarmed Specter ordered to attack flies to the nearest own Tier 3 Tunnel to re-arm; entering wipes its orders; what happens after bombing | gated (concept only) | — |
+| 0273 Specter: with no Tier 3 Tunnel, an unarmed Specter ignores Attack orders | gated (concept only) | — |
+| 0274 Satellites require the Orbital Command | gated (concept only) | — |
+| 0275 Satellite: laser relay, launched like a rocket, can't return to the network, slow with thrust charges | gated (concept only) | — |
+| 0276 Refract: deployed Laser Batteries relay through Satellites, chains allowed | gated (concept only) | — |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
