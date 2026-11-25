@@ -271,10 +271,12 @@ Move-type commands like a combat unit without an attack, plus the two toggles (h
 
 ### Amplify (ability)
 Converts the **entire remaining battery** into the **next surge**. A single big hit for burst damage, at the cost of efficiency (per the ^(2/3) rule) and of an empty battery afterwards.
+
+**The trade is a tuning dial** (user, 2026-11-25: a reasonable trade; its size depends on the numbers). If a full battery holds N normal surges, an Amplified full battery deals N^(2/3) normal surges' worth of damage instead of N, i.e. N^(−1/3) of the total: N = 4 → ~63%, N = 8 → 50%, N = 27 → ~33%. So the share of the battery a normal surge uses sets how costly Amplify is; choose it in the numbers pass.
 - TBD: hotkey; whether it can be used while deployed; whether it is queueable or a mode-like toggle.
 
 ### TurretAttributes (mobile):
-- TurnAngle: narrow / limited ("relatively little mobility"; exact meaning TBD: narrow arc, slow rotation, or both)
+- TurnAngle: **narrow arc** (user, 2026-11-25): it can only aim within a cone ahead of the hull, so the tank must roughly face its target (like the Assault Bike). Value TBD.
 
 ### Deploy (ability)
 - **Deployed**: **cannot move**. The turret gets **360° rotation**. It can **only target air units** (no ground targets while deployed).

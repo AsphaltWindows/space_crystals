@@ -2172,3 +2172,4 @@ Drone acceleration/drag x1.5 (top speed 8); re-measure requested for Q0055. Entr
 Q0056: revealed attacker's shots drawn along whole path (B). Entry 0206.
 Syndicate: Laser Battery added; Syndicate lasers red. Entry 0207.
 Laser Battery: always charging; empty → same rhythm, ~63% surges. Entry 0208.
+Laser Battery: Amplify dial (N^-1/3), narrow arc turret. Entry 0209.
