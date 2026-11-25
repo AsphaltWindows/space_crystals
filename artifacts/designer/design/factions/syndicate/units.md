@@ -331,7 +331,11 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
 
 ### Deploy (ability)
 - **Deployed**: **cannot move**. The turret gets **360° rotation**. It can **only target air units** (no ground targets while deployed).
-- **Refract** (ability, deployed only): to be designed together with satellites (user, 2026-11-25).
+- **Refract** (ability, deployed only; user, 2026-11-25): the deployed Laser Battery **reflects its beam off one of the player's Satellites** to hit a target **farther away**, **ground or air** (so through Refract a deployed Battery can hit ground targets again).
+  - **Only a deployed Laser Battery** can use satellites; no other laser is relayed.
+  - **One or more** Laser Batteries can reflect off the **same** Satellite.
+  - **Chains**: a beam can pass through a **chain of Satellites**, reaching targets much farther away.
+  - TBD: how it is ordered (target the satellite, then the target? or the target directly through a path of satellites?); the range of each leg (battery to satellite, satellite to satellite, satellite to target); sight (whose sight is needed to target); whether relaying costs extra charge or damage.
 - **Switching modes works like the GDO Artillery Rig** (user, 2026-11-25; factions/gdo/units.md > Artillery Rig > Modes): deploying and undeploying take time, during which it can **neither move nor attack**.
 - **Two unit types**: **Laser Battery** and **Laser Battery (Deployed)**, with separate SelectionGroups.
 - **Deploy is an order, not a mode switch** (user, 2026-11-25; unlike Convert and the Riot Shield, which follow the toggle rule):
@@ -434,7 +438,7 @@ TBD: all numbers (HP, armor, sight, speed and handling, TunnelSpaceCost, damage,
 TBD: re-arming time and the Vault's throughput limit; the lift-off/landing transition; all numbers.
 
 ## Satellite (name TBD)
-(user, 2026-11-25) An unmanned Syndicate orbital unit whose function, **for now, is only laser relay**: it redirects Syndicate lasers (see Laser Battery > Refract; relay rules to be designed).
+(user, 2026-11-25) An unmanned Syndicate orbital unit whose function, **for now, is only laser relay**: deployed Laser Batteries reflect their beams off it (one or more Batteries per Satellite; Satellites can be chained) to hit far-off ground or air targets (Laser Battery > Deploy > Refract).
 
 ### Entity Type - Unit
 ### Faction - TheSyndicate
@@ -456,5 +460,5 @@ It is the **only unit that can't get back into the Tunnel Network** (user, 2026-
 ### Sight
 It sees through Shadebringer smoke (Shadebringer > Cover).
 
-TBD: name; the relay rules; launch and transform timing (and whether it can be hit meanwhile); thrust charge count, distance and recharge; all numbers.
+TBD: name; the open relay rules (Laser Battery > Refract); launch and transform timing (and whether it can be hit meanwhile); thrust charge count, distance and recharge; all numbers.
 

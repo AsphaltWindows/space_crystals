@@ -2238,3 +2238,4 @@ Specter attack orders / ammo / queue. Entry 0272.
 Specter: no T3 -> ignores attack. Entry 0273.
 Satellites require Orbital Command. Entry 0274.
 Satellite concept. Entry 0275.
+Refract via satellites, chains. Entry 0276.
