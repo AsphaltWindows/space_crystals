@@ -9,6 +9,10 @@
 //!   [`Construction::max_hp`]: "MaxHP x (10% + 90% x construction_progress)", the share it starts at being its def's
 //!   (`SiteDef::start_hp`). The current HP follows the maximum as it rises, so the damage taken stays
 //!   (`transform::follow_max`, the Warp In's rule).
+//! - **Seen** by another player as any surface structure (`factions/syndicate/units/agent.md > While the Tunnel is
+//!   under construction`: "What enemies see: the site, like any surface structure, but not the Agent inside it"), and
+//!   remembered in the fog as last seen (`core/vision.md > Explored`): a site at the progress it had then, without its
+//!   builder (`vision::LastKnown::site`).
 //! - **Operational** ([`Object::is_operational`]): a site does nothing but cancel (design change 0234: "no Tunnel
 //!   Space, no drop-offs, no Enter, no Expand, no Eject"), and neither does a building still transforming. One
 //!   predicate, for every function that waits for completion: the exits and the Enter target (`network::is_exit`),
@@ -61,11 +65,18 @@ impl Construction {
     }
 
     /// `core/entities.md > ConstructionHP Rule`: the maximum HP of a site of `def`'s whose structure has `full` MaxHP
-    /// once built: "MaxHP x (10% + 90% x construction_progress)", the progress in whole frames done
-    /// ([`Progress::ratio`]).
+    /// once built, at its progress ([`max_hp_at`]).
     pub fn max_hp(&self, def: &SiteDef, full: f32) -> f32 {
-        full * (def.start_hp + (1.0 - def.start_hp) * self.progress.ratio())
+        max_hp_at(def, &self.progress, full)
     }
+}
+
+/// `core/entities.md > ConstructionHP Rule`: the maximum HP of a site of `def`'s at `progress` whose structure has
+/// `full` MaxHP once built: "MaxHP x (10% + 90% x construction_progress)", the progress in whole frames done
+/// ([`Progress::ratio`]). A site's ([`Construction::max_hp`]), and a record's of one as last seen
+/// (`vision::LastKnown::max_hp`).
+pub fn max_hp_at(def: &SiteDef, progress: &Progress, full: f32) -> f32 {
+    full * (def.start_hp + (1.0 - def.start_hp) * progress.ratio())
 }
 
 /// How a worker builds a structure of `kind` (`StructureDef::site`): `None` for a kind no worker builds.

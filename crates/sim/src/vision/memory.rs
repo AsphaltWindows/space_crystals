@@ -4,8 +4,8 @@
 //!
 //! - **Records** ([`LastKnown`]): one per tile-based object (a structure or a resource: an object with a footprint,
 //!   `Object::placement`) the player has seen and doesn't own, with what the views need to draw it and fill its
-//!   InfoPanel: kind, owner, footprint, HP, resource state, a Tunnel's tier, and the last tick the player saw it.
-//!   History: hashed and serialized with the Explored tiles.
+//!   InfoPanel: kind, owner, footprint, HP, resource state, a Tunnel's tier, a site's progress, and the last tick the
+//!   player saw it. History: hashed and serialized with the Explored tiles.
 //! - **In sight**: such an object is in a player's sight while a tile it covers is Visible, the fog delay included,
 //!   as [`PlayerVision::box_state`] counts it (only units attack, so none is ever revealed: `super::reveal`). Its
 //!   record is written at the end of every tick it is in sight
@@ -57,10 +57,12 @@ use serde::{Deserialize, Serialize};
 
 use super::hidden::hidden_from;
 use super::{PlayerVision, TileBits};
+use crate::construction::site::{max_hp_at, site_def};
 use crate::defs::{ObjectDef, ObjectKind};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, Placement, ResourceState};
+use crate::progress::Progress;
 use crate::tunnel::TunnelState;
 use crate::units::{Tick, TilePos};
 
@@ -83,10 +85,18 @@ pub struct LastKnown {
     pub seen: Tick,
     /// A Tunnel's tier when last seen (`Object::tunnel`, plan decision T39; design change 0258: "Enemies see a
     /// Tunnel's tier"), which its look, its MaxHP and, from slice M4-E on, the area a ghost judges by follow (design
-    /// change 0237: "at their remembered position and last-seen tier"). `None` for every other type. Optional in files and left out of them while `None`, so that the records
-    /// saved before it existed still load.
+    /// change 0237: "at their remembered position and last-seen tier"). `None` for every other type. Optional in files
+    /// and left out of them while `None`, so that the records saved before it existed still load.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tunnel: Option<TunnelState>,
+    /// Whether it was a site, a structure under construction, when last seen, and how far its construction had come
+    /// then (`Object::construction`'s progress, `crate::construction::site`): a site in the fog is remembered as one,
+    /// as last seen, though it may have been finished since (`core/vision.md > Explored`), and its look and its MaxHP
+    /// follow (slice M4-I2). Not its builder, held inside it (`factions/syndicate/units/agent.md > While the Tunnel is
+    /// under construction`: enemies see "the site, like any surface structure, but not the Agent inside it"). `None`
+    /// for a finished structure and a resource. Optional in files and left out of them while `None`, as `tunnel`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub site: Option<Progress>,
 }
 
 impl LastKnown {
@@ -103,6 +113,8 @@ impl LastKnown {
             seen: tick,
             // The tier alone: a Tunnel's eject queue is its owner's business (`crate::network`).
             tunnel: object.tunnel.as_ref().map(|tunnel| TunnelState::at(tunnel.tier)),
+            // The progress alone: the builder is its owner's business.
+            site: object.construction.map(|site| site.progress),
         })
     }
 
@@ -110,11 +122,15 @@ impl LastKnown {
         self.kind.def()
     }
 
-    /// The MaxHP of the object as last seen: its type's, a Tunnel's its tier's (`Object::max_hp`). `None` for an
-    /// indestructible type.
+    /// The MaxHP of the object as last seen: its type's, a Tunnel's its tier's, a site's the ConstructionHP Rule's at
+    /// its progress (`Object::max_hp`). `None` for an indestructible type.
     pub fn max_hp(&self) -> Option<f32> {
         let tier = (crate::tunnel::def_of(self.kind)).and_then(|def| def.tier(self.tunnel.as_ref()?.tier));
-        tier.map_or(self.def().max_hp, |tier| Some(tier.max_hp))
+        let full = tier.map_or(self.def().max_hp, |tier| Some(tier.max_hp));
+        match (&self.site, site_def(self.kind)) {
+            (Some(progress), Some(def)) => full.map(|full| max_hp_at(def, progress, full)),
+            _ => full,
+        }
     }
 
     /// Where it stands: the centre of its footprint, which is its object's position (space units).
@@ -134,6 +150,7 @@ impl StateHash for LastKnown {
             resource,
             seen,
             tunnel,
+            site,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -146,6 +163,11 @@ impl StateHash for LastKnown {
         if let Some(tunnel) = tunnel {
             h.tag(1);
             tunnel.hash(h);
+        }
+        // (M4-I2) Only while set too: the records of games in which no one saw a site hash as before.
+        if let Some(site) = site {
+            h.tag(2);
+            site.hash(h);
         }
     }
 }

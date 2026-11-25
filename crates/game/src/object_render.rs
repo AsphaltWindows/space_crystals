@@ -28,8 +28,8 @@
 //! sees its tiles, in the neutral colour, with its HP bar falling as it decays (`crate::combat_effects::hp_bars`: it is
 //! a damaged object). An object transforming into its kind (`Object::transform`: a building being warped in) is tinted
 //! towards a pale cyan until it is complete ([`transforming_color`]); a site under construction (`Object::is_site`) is
-//! tinted towards a pale sand, braced by a scaffold, and shows its progress ([`site`], slice M4-J1). The map resources
-//! have shapes of their own ([`resources`]).
+//! tinted towards a pale sand, braced by a scaffold, and shows its progress ([`site`], slice M4-J1), and so does its
+//! record, at the progress last seen (slice M4-I2). The map resources have shapes of their own ([`resources`]).
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).
@@ -48,6 +48,7 @@ use std::collections::BTreeMap;
 
 use bevy::prelude::*;
 use sc_sim::tunnel::TunnelState;
+use sc_sim::vision::LastKnown;
 use sc_sim::{Category, Map, Object, ObjectId, ObjectKind, Placement, PlayerId};
 
 use crate::ClientSystems;
@@ -87,15 +88,15 @@ struct MeshKey {
     size: Option<(u32, u32)>,
     /// Whether the object is transforming into its kind (`Object::transform`), which tints it.
     transforming: bool,
-    /// Whether the object is a site under construction (`Object::is_site`), drawn as one ([`site`]).
+    /// Whether the object is a site under construction (`Object::is_site`), or was when last seen
+    /// (`LastKnown::site`), drawn as one ([`site`]).
     site: bool,
     /// A Tunnel's look: its tier and where its sides face ([`tunnel`]).
     tunnel: Option<TunnelLook>,
 }
 
 impl MeshKey {
-    /// An object of `kind` of `owner`'s, placed at `placement`, with tier state `tunnel` (a Tunnel's), as a record
-    /// shows it too (`remembered`).
+    /// An object of `kind` of `owner`'s, placed at `placement`, with tier state `tunnel` (a Tunnel's), finished.
     fn of(
         kind: ObjectKind,
         owner: Option<PlayerId>,
@@ -120,6 +121,19 @@ impl MeshKey {
             transforming: object.is_transforming(),
             site: object.is_site(),
             ..Self::of(drawn_kind(object), object.owner, placement, object.tunnel.clone())
+        }
+    }
+
+    /// The object of `record` as last seen (`remembered`): a site if it was one then.
+    fn of_record(record: &LastKnown) -> Self {
+        Self {
+            site: record.site.is_some(),
+            ..Self::of(
+                record.kind,
+                record.owner,
+                Some(&record.placement),
+                record.tunnel.clone(),
+            )
         }
     }
 }

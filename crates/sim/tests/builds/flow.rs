@@ -191,6 +191,53 @@ fn the_agent_inside_keeps_its_load_and_is_out_of_reach() {
     assert_eq!(load(&t, 2), carried);
 }
 
+/// What player 2 remembers of a site it saw (`core/vision.md > Explored`: "Structures and resources are shown in their
+/// last-known state (may have been destroyed or changed since)"; slice M4-I2): its Guard watches the site for 100
+/// ticks and is taken away. Once its sight has left the site's tiles, player 2 remembers a site at the progress it
+/// last saw, with that tick's HP and the ConstructionHP Rule's MaxHP for that progress, while the site grows on out of
+/// its sight and is finished. Back, the Guard sees a Tunnel, and the record is a finished Tunnel's.
+#[test]
+fn a_site_in_the_fog_is_remembered_at_the_progress_last_seen() {
+    let mut t = field();
+    let (started, site) = with_site(&mut t);
+    run_until(&mut t, started + 100);
+    let record = |t: &TestSim| (t.sim().vision().player(P2)?.record(site)).cloned();
+    let guard_to = |x, y| DebugCommand::SetPosition {
+        id: id(3),
+        pos: at(x, y).center(),
+    };
+    next_debug(&mut t, guard_to(36, 2));
+    // Its tiles stay Visible for the fog delay, and its record follows it so long.
+    let mut last_seen = None;
+    while t.sim().vision().sees(P2, object(&t, site)) {
+        let s = object(&t, site);
+        last_seen = Some((
+            t.sim().tick(),
+            s.construction.expect("a site").progress,
+            s.hp,
+            s.max_hp(),
+        ));
+        step(&mut t);
+    }
+    let (tick, progress, hp, max_hp) = last_seen.expect("seen as the Guard left");
+    let remembered = record(&t).expect("remembered");
+    assert_eq!(remembered.seen, tick);
+    assert_eq!(remembered.site, Some(progress), "a site, at the progress last seen");
+    assert!(progress.ratio() > 0.2 && progress.ratio() < 0.5, "{progress:?}");
+    assert_eq!((remembered.hp, remembered.max_hp()), (hp, max_hp));
+
+    run_until(&mut t, started + 480);
+    assert!(!object(&t, site).is_site(), "finished out of sight");
+    let still = record(&t).expect("remembered");
+    assert_eq!((still.seen, still.site, still.hp), (tick, Some(progress), hp));
+
+    next_debug(&mut t, guard_to(22, 10));
+    assert!(t.sim().vision().sees(P2, object(&t, site)));
+    let finished = record(&t).expect("remembered");
+    assert_eq!((finished.seen, finished.site), (t.sim().tick(), None));
+    assert_eq!(finished.max_hp(), Some(600.0));
+}
+
 /// Design changes 0233 and 0234 and Q0085: Cancel Construction refunds "the current construction price, not counting
 /// itself", 1 Supply for Tunnel 1 (not the doc's stale "Full refund"), and the Agent "comes out at the centre of the
 /// footprint, which is now free; it then idles".

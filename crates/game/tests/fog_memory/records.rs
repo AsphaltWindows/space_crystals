@@ -1,9 +1,10 @@
 //! The records drawn on Explored tiles (`core/vision.md > Explored`): as last seen, never the live objects there, an
-//! enemy structure's as placed, with its tag, and a Tunnel's at the tier last seen.
+//! enemy structure's as placed, with its tag, a Tunnel's at the tier last seen, and a site's as a site at the progress
+//! last seen.
 
-use sc_sim::{Rotation, SlotId};
+use sc_sim::{BuildingOrientation, OrderKind, Rotation, SlotId};
 use space_crystals::input::InjectedInput;
-use space_crystals::object_render::StructureTag;
+use space_crystals::object_render::{SiteProgress, StructureTag};
 
 use super::*;
 
@@ -186,4 +187,102 @@ fn a_remembered_tunnel_keeps_the_tier_it_was_seen_at() {
     assert!(drawn(&app, tunnel));
     assert_eq!(remembered(&app), [0_u32; 0]);
     assert_eq!(label(&app, live(&app)).as_deref(), Some("T3"), "seen again");
+}
+
+/// Slice M4-I2 (`core/vision.md > Explored`: "shown in their last-known state"): player 2's Agent builds a Tunnel in
+/// sight of player 1's scout, which leaves while the site grows. The site is remembered as a site, drawn as the live one
+/// was, its progress bar at the share done when last seen, and stays so while the site grows on and is finished out of
+/// sight. Seen again, it is a finished Tunnel; out of sight once more, it is remembered as one, with no bar.
+#[test]
+fn a_remembered_site_shows_as_a_site_at_the_progress_last_seen() {
+    let mut scenario = scenarios::empty(24, 16);
+    scenario.setup.players[1].faction = Faction::Syndicate;
+    let mut app = headless(AppConfig::new(scenario));
+    debug(&mut app, DebugCommand::SetAutoTargeting { on: false });
+    spawn_unit(&mut app, P1, 5, 7); // 1: sees the site, tiles (8, 4) to (11, 7)
+    let agent = DebugCommand::Spawn {
+        kind: ObjectKind::Agent,
+        owner: Some(P2),
+        at: SpawnAt::Point(centre(13, 9)),
+        orientation: Default::default(),
+    };
+    debug(&mut app, agent); // 2
+    app.update();
+    let (scout, agent) = (ObjectId(1), ObjectId(2));
+    let build = OrderKind::Build {
+        kind: ObjectKind::Tunnel,
+        origin: TilePos::new(8, 4),
+        orientation: BuildingOrientation::default(),
+    };
+    let order = Command::Order {
+        units: vec![agent],
+        kind: build,
+        queue: false,
+    };
+    submit(&mut app, P2, order);
+    let site_of = |app: &App| {
+        let sim = app.world().resource::<SimRes>();
+        sim.objects().find(|o| o.is_site()).map(|o| (o.id, tick(app)))
+    };
+    let mut started = None;
+    for _ in 0..200 {
+        app.update();
+        started = site_of(&app);
+        if started.is_some() {
+            break;
+        }
+    }
+    let (site, started) = started.expect("a site within 200 ticks");
+    run_until(&mut app, started + 120);
+    let mesh = |app: &App, entity| app.world().get::<Mesh2d>(entity).unwrap().0.clone();
+    let live = |app: &App| app.world().resource::<ObjectVisuals>().by_id[&site];
+    let site_mesh = mesh(&app, live(&app));
+    // The bars of the site's visuals: whether each is a record's, and the share it shows.
+    let bars = |app: &mut App| {
+        let mut query = app.world_mut().query::<&SiteProgress>();
+        let mut bars: Vec<(bool, f32)> = (query.iter(app.world()))
+            .filter(|fill| fill.id == site)
+            .map(|fill| (fill.remembered, fill.shown))
+            .collect();
+        bars.sort_by(|a, b| a.0.cmp(&b.0));
+        bars
+    };
+
+    move_to(&mut app, scout, 20, 14);
+    assert!(!drawn(&app, site.0));
+    assert_eq!(remembered(&app), [site.0]);
+    let record = (app.world().resource::<SimRes>().vision().player(P1))
+        .and_then(|vision| vision.record(site))
+        .cloned()
+        .expect("remembered");
+    let last_seen = record.site.expect("remembered as a site").ratio();
+    assert!(last_seen > 0.25 && last_seen < 0.5, "{last_seen}");
+    let memory = |app: &App| app.world().resource::<RememberedVisuals>().by_id[&site];
+    assert_eq!(mesh(&app, memory(&app)), site_mesh, "drawn as the site was");
+    let [(false, now), (true, shown)] = bars(&mut app)[..] else {
+        panic!("a bar for the site and one for its record: {:?}", bars(&mut app));
+    };
+    assert_eq!(shown, last_seen, "the progress last seen");
+    assert!(now > last_seen, "the site grows on out of sight");
+
+    run_until(&mut app, started + 500);
+    let finished = |app: &App| {
+        app.world()
+            .resource::<SimRes>()
+            .object(site)
+            .is_some_and(|o| !o.is_site())
+    };
+    assert!(finished(&app), "finished out of sight");
+    assert_eq!(mesh(&app, memory(&app)), site_mesh, "still a site");
+    assert_eq!(bars(&mut app), [(true, last_seen)], "still at the progress last seen");
+
+    move_to(&mut app, scout, 5, 7);
+    assert!(drawn(&app, site.0));
+    assert_eq!(remembered(&app), [0_u32; 0]);
+    let tunnel_mesh = mesh(&app, live(&app));
+    assert_ne!(tunnel_mesh, site_mesh, "a finished Tunnel");
+    move_to(&mut app, scout, 20, 14);
+    assert_eq!(remembered(&app), [site.0]);
+    assert_eq!(mesh(&app, memory(&app)), tunnel_mesh, "remembered finished");
+    assert_eq!(bars(&mut app), [], "with no bar");
 }
