@@ -240,6 +240,60 @@ impl Sim {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::command::{Command, DebugCommand, PlayerCommand, TickInputs, TunnelCommand};
+    use crate::player::Faction;
+    use crate::scenario::SpawnAt;
+    use crate::sim::SimConfig;
+    use crate::testing::ScenarioBuilder;
+    use crate::testing::invariants::Invariants;
+    use crate::units::TilePos;
+
+    /// Design change 0231's verification: "A Tunnel at 500/600 HP upgraded to Tier 2 ends at 700/800", through the
+    /// gate and the 480 frames, its HP set as no command can: 500/600 through the frames, 700/800 at the end of the
+    /// 480th.
+    #[test]
+    fn a_tunnel_at_500_of_600_ends_its_upgrade_at_700_of_800() {
+        let (player, tunnel) = (PlayerId(1), ObjectId(1));
+        let mut scenario = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
+            .faction(player, Faction::Syndicate)
+            .spawn(ObjectKind::Tunnel, Some(player), SpawnAt::Tile(TilePos::new(10, 6)))
+            .build();
+        scenario.setup.config = SimConfig::DEBUG;
+        let mut sim = Sim::new(&scenario);
+        let mut invariants = Invariants::new(&sim);
+        let mut step = |sim: &mut Sim, command: Option<Command>| {
+            let commands = command.map(|command| PlayerCommand { player, command });
+            let inputs = TickInputs {
+                commands: commands.into_iter().collect(),
+            };
+            sim.step(&inputs);
+            if let Err(violation) = invariants.check(sim, &inputs) {
+                panic!("{violation:?}");
+            }
+        };
+        let supplies = DebugCommand::SetResources {
+            player,
+            crystals: 0,
+            supplies: 2,
+            alloys: 0,
+            essence: 0,
+            flux: 0,
+        };
+        step(&mut sim, Some(Command::Debug(supplies)));
+        sim.objects.get_mut(&tunnel).expect("the Tunnel").hp = Some(500.0);
+        let hp = |sim: &Sim| (sim.objects[&tunnel].hp, sim.objects[&tunnel].max_hp());
+        let upgrade = Command::Tunnel {
+            tunnel,
+            command: TunnelCommand::Upgrade,
+        };
+        step(&mut sim, Some(upgrade));
+        assert_eq!(sim.player(player).map(|p| p.supplies), Some(0), "paid when ordered");
+        for _ in 1..480 {
+            assert_eq!(hp(&sim), (Some(500.0), Some(600.0)), "tick {}", sim.tick());
+            step(&mut sim, None);
+        }
+        assert_eq!(hp(&sim), (Some(700.0), Some(800.0)));
+    }
 
     /// The price rule (`factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`): "2 + 2 x (number of T2+
     /// Tunnels owned)" and "3 + 3 x (number of T3 Tunnels owned)", saturating.
@@ -251,7 +305,11 @@ mod tests {
         assert_eq!(prices(tier_2), [2, 4, 6, 8]);
         assert_eq!(prices(tier_3), [3, 6, 9, 12]);
         assert_eq!(price_at(tier_2, usize::MAX), u32::MAX);
-        assert_eq!(upgrade_def(ObjectKind::Tunnel, 1), None, "nothing upgrades to the base tier");
+        assert_eq!(
+            upgrade_def(ObjectKind::Tunnel, 1),
+            None,
+            "nothing upgrades to the base tier"
+        );
         assert_eq!(upgrade_def(ObjectKind::Tunnel, 4), None, "no Tier 4");
         assert_eq!(upgrade_def(ObjectKind::Hideout, 2), None, "no tier table");
     }

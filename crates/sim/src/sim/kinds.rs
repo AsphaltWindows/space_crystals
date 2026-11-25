@@ -249,7 +249,7 @@ impl Sim {
         };
         if tunnel::set_tier(o, tier)
             && let Some(state) = &mut o.tunnel
-            && state.operation.is_some_and(|operation| operation.upgrade_to().is_some())
+            && state.operation.and_then(tunnel::Operation::upgrade_to).is_some()
         {
             state.operation = None;
         }

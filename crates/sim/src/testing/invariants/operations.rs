@@ -37,7 +37,10 @@ pub(super) fn operations(sim: &Sim) -> Result<(), Violation> {
             }
             let frames = (tunnel::def_of(o.kind)).and_then(|def| Some(def.tier(to)?.upgrade?.frames));
             if frames != Some(progress.total) {
-                return fail(format!("upgrades over {} frames, Tier {to}'s upgrade {frames:?}", progress.total));
+                return fail(format!(
+                    "upgrades over {} frames, Tier {to}'s upgrade {frames:?}",
+                    progress.total
+                ));
             }
         }
         if let Some(tunnel) = o.construction.and_then(|site| site.builder.tunnel()) {
