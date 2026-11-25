@@ -58,8 +58,11 @@
   change 0183). Its changes are marked **(V)**. The code is `mover::OCCUPIED_ARRIVAL_GU`.
 - **A queueing unit goes round the row in its way** (slice M3-G2, from the M3 playtest: a unit behind its owner's
   firing line never fired): 6.5's rule 2. Its changes are marked **(M3-G2)**. The code is
-  `crates/sim/src/movement/round.rs`, `stuck.rs` (`queues_behind`, `waits_in_queue`), `collide/hold.rs`,
-  `Mover::go_round` and `Mover::detour_end`.
+  `crates/sim/src/movement/round.rs`, `stuck.rs` (`queues_behind`), `Mover::go_round` and `Mover::detour_end`.
+- **A queueing unit with no way round gives up** (slice M3-G3; design change 0223, answering Q0057): 6.5's rule
+  2, where it waited without limit (since M1 slice E); now the Failure rule applies to it, as to any stuck unit.
+  Its changes are marked **(M3-G3)**. The code is `stuck.rs` (`after_move`); M3-G2's wait (`stuck::waits_in_queue`,
+  `collide/hold.rs`) is gone.
 
 Design references are `file.md > Section`, relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -529,8 +532,9 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
    "Blocked near the target"; **(V)** the same 3 GU, 0169). What `Arrived` then means is the behaviour's: a static
    target completes the order, a followed unit is waited for where the follower stands, until it moves.
 2. **Queueing (E)**: a unit chasing the target its attack engages, blocked by a stationary unit of its owner whose
-   attack engages the same target → no path request, no failure (`movement::stuck::queues_behind`). The
-   check is a few comparisons, so it runs every tick the unit is blocked instead of every 16.
+   attack engages the same target → no path request (`movement::stuck::queues_behind`). The check is a few
+   comparisons, so it runs every tick the unit is blocked instead of every 16. **(M3-G3)** It fails as any stuck
+   unit does (rule 4) once it has no attempt left; until design change 0223 it never failed.
    **(M3-G2) It goes round the row** (`systems/units.md > UnitCollision > Ground Collision`: "Moving units must
    pathfind around occupied space"). Until slice M3-G2 it only waited, and a unit behind its owner's firing line
    stood out of range for as long as the target lived, with open ground on both sides (`docs/playtest/m3.md`: the
@@ -553,9 +557,19 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
      attempt takes the front's other end. An attempt after **a lost race** is free: the unit now in the way
      moved after this unit's last attempt (`Body::moved`), so it took the place the unit went for. Each lost
      race is a unit that found its place, so there are at most as many as units.
-   - **No way round** (a corridor, a passage the row fills), or no attempt left: the unit **waits and stands**
-     (`stuck::waits_in_queue`, `World::hold`). It takes its step only when the way straight ahead is free, and
-     makes no step aside; it never fails. (Before, it tried its sidesteps every tick for as long as it queued.)
+   - **(M3-G3) No way round** (a corridor, a passage the row fills), or no attempt left: the normal **Failure**
+     rule applies (design change 0223, answering Q0057; `behaviors.md > AttackingObject > Blocked by its own
+     side`: "it does not wait behind the blockers indefinitely"). An attempt that finds no way round counts all the
+     same. Once none is left the unit gives up, still stuck 24 ticks after its last attempt (rule 4): 84 ticks
+     after it was blocked behind a unit with no goal (attempts after 12, 28 and 60), 104 (6.5 s) after its last
+     progress otherwise (5.6; the grace below adds up to 8). Meanwhile it steers as any blocked unit (6.3),
+     sidesteps included. The
+     behaviour then gives the target up (`> AttackingObject > Failure`): an Attack completes, and the unit, idle,
+     takes targets again by itself (`> BaseAutoTargeting > Unreachable auto-targets`). An AttackMove leaves the
+     target alone for 32 ticks and walks on, then takes it again (`orders::travel::pursue`, as built), so in a
+     corridor it gives up every 116 ticks and its leg never ends while the row stands. That is slice M3-L4's, under
+     design change 0230. Until 0223 the unit waited and stood (M3-G2's `stuck::waits_in_queue` and `World::hold`,
+     its step only when the way straight ahead was free, no step aside) for as long as the target lived.
 3. **Repath**, for a unit that doesn't queue, if `repaths_left > 0`, when its wait is over (5.6). **(D)** The tile of the stationary unit in the way is added to `avoid_tiles`:
    at once if that unit has no goal; if it is on its way itself (only jammed for now), from the second repath on,
    the first being a plain retry. If the blocker stands in the unit's own tile (the start tile is never avoided),
@@ -805,7 +819,9 @@ apart within `18 × (n − 1)` ticks for Drones, 12 each for Peacekeepers.
   attacker stops when the gap between the edges is its Range; a chase around a corner until the target is
   destroyed; a target lost in the fog ends the order where the attacker stands (**(M3-L3)** design change 0200;
   under 0034 it walked to the last seen position); a target across a moat ends the order
-  at the water's edge; a second attacker queues behind the first for longer than a stuck move lasts; an idle unit
+  at the water's edge; a second attacker blocked behind the first in a corridor gives up by the Failure rule
+  (**(M3-G3)** design change 0223; it queued for as long as the fight lasted, and `attack_behind_friends/
+  no_room.rs` has 0223's Verification: Peacekeepers in a corridor, Sabres on a building); an idle unit
   chases to its leash and returns; Hold never moves; a follower keeps up, waits within 8 su, and waits behind a
   plugged corridor without re-routing; a patch ringed by units is reached within 2 GU; an AttackMove group
   engages and resumes; a Patrol cycles, engages, starts where the order before it ended, turns around after a

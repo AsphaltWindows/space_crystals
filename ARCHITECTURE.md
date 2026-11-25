@@ -873,7 +873,7 @@ The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice
 magic box did, **(Y)** where friendly yielding and the answers to Q0008 did, **(Q)** where queued group orders did, **(G)** where
 the hardening of crowds and nav performance did, **(H2)** where gathering Drones passing through each other did,
 **(M3-G)** where DragMovement and idle units moving apart did, **(M3-G2)** where a queueing unit going round
-the row in its way did),
+the row in its way did, **(M3-G3)** where one with no way round giving up did),
 and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
 
 - **One pipeline, sequential commit** (`movement::step`, phase 5d): the step builds one spatial grid per collision
@@ -986,7 +986,8 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   of its path if the object hasn't moved, or by the occupied-target rule (its 3 GU measured as that gap). Progress
   towards a moving object is moving forward at all; towards one at rest it is measured as to a point. A unit
   chasing its attack's target behind stationary attackers of its owner on the same target **queues**
-  (`stuck::queues_behind`): no path request, no failure.
+  (`stuck::queues_behind`): no path request; it fails as any stuck unit does once its attempts are used up (slice
+  M3-G3, design change 0223; until then it never failed).
 - **A queueing unit goes round the row** (slice M3-G2, `movement/round.rs`, `docs/movement.md > 6.5` rule 2;
   `systems/units.md > UnitCollision > Ground Collision`: "Moving units must pathfind around occupied space").
   The row is the unit in its way and the units standing for good next to it, nearer to each other than the unit
@@ -996,13 +997,16 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   of the path, and `Mover::detour_end` (hashed and serialized only while set) keeps the staggered check from
   skipping them. An attempt counts against the leg's `MAX_REPATHS` on the repath schedule, or comes after
   `JAMMED_TICKS` behind a unit with no goal; it asks for no path. One after a lost race (the unit now in the way
-  moved after this unit's last attempt, `Body::moved`) is free. With no way round, or no attempt left, the unit
-  **waits and stands** (`stuck::waits_in_queue`, `World::hold`): no step aside, no failure, and on the moment the
-  way straight ahead is free. Measured (`tests/attack_behind_friends.rs`): four Peacekeepers in a column all fire
-  on a building within 135 ticks of the order in all 16 layouts, where one of the four never fired in 5; eight
-  within 255. **Never give a queueing unit a path request for the row**: no grid shows it. A melee unit behind
-  its owner's attackers is within `OCCUPIED_ARRIVAL_GU` of its target, so the occupied-target rule comes first
-  and its approach ends there (an open design question, see the M3-G2 report).
+  moved after this unit's last attempt, `Body::moved`) is free. **With no way round, or no attempt left, the
+  Failure rule applies** (slice M3-G3, design change 0223: "it does not wait behind the blockers indefinitely"):
+  the unit gives up still stuck `STUCK_TICKS` after its last attempt, and its behaviour gives the target up. M3-G2
+  had it wait and stand there (`stuck::waits_in_queue`, `World::hold`, both gone). Measured
+  (`tests/attack_behind_friends/`): four Peacekeepers in a column all fire on a building within 135 ticks of the
+  order in all 16 layouts, where one of the four never fired in 5; eight within 255; in a corridor the ones behind
+  give up within `GIVE_UP_TICKS` of their last progress, with the 8 ticks' grace (`no_room.rs`). **Never give a
+  queueing unit a path request for the row**: no grid shows it. A melee unit behind its owner's attackers is
+  within `OCCUPIED_ARRIVAL_GU` of its target, so the occupied-target rule comes first and its approach ends there:
+  it gives the target up (design change 0223 point 1, as built).
 - **Movement models** (`movement/follow.rs`, `movement/drag.rs`; `docs/movement.md > 6.7`): path following, lane
   seeking, the rules after the sweep, yielding and the stuck clock are shared (`follow`), and a model replaces only
   the "direction → facing and velocity" part. Two are built: the units that stop within the tick (every GDO unit
@@ -1637,7 +1641,9 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   unit shares: a unit behind one whose legs begin again finds its way round), `invariants_overlap.rs` (I1's two
   exceptions and nothing more, on edited states) and the ignored `movement_perf.rs`.
 - **Behaviour scenario tests** are `crates/sim/tests/behaviours_attack.rs` (the approach to a gap of Range, the
-  chase, a target lost from vision, a target out of reach, queueing), `target_lost.rs` (design change 0200: Attack,
+  chase, a target lost from vision, a target out of reach, a unit blocked behind its owner's attacker giving up),
+  `attack_behind_friends/` (slices M3-G2 and M3-G3: the way round a firing line, and the Failure rule with none,
+  design change 0223's Verification), `target_lost.rs` (design change 0200: Attack,
   Follow, a queue, AttackMove and idle units as the target leaves vision), `behaviours_idle.rs` (acquiring by priority,
   the leash and the return, Hold, Move doesn't engage, the auto-targeting switch), `behaviours_travel.rs` (Follow,
   static objects, AttackMove groups and the leash, a fight replayed and saved in its middle), `attack_move_leash.rs`
