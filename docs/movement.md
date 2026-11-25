@@ -98,7 +98,7 @@ Top five first. Each default is what this design implements until answered.
 | G5 | Move target that cannot be reached (cliff, water, inside a structure, cut-off area), or whose point is occupied by a unit that won't move. | **(Y) Answered by 0025 and 0026**: go to the reachable point nearest the target and complete there; arrived when stuck within **2 GU** of the goal behind units that aren't moving (6.5, rule 1); **(V)** 3 GU since 0169 |
 | G6 | Does the Silhouette rectangle rotate with facing? All specified ones are square. | **(E) Answered by 0033**: it rotates with the facing. Not built: it waits for the vehicles milestone, with oriented collision. Until then boxes are axis-aligned, and `shape.rs` is the one place that changes |
 | G7 | How are Range and "within proximity" measured for large targets? | **(E) Answered by 0031 and 0032**: edge to edge, the gap between the two shapes (`shape::Shape::gap`), for Range, MinRange and proximity; proximity is a gap of 8 su. The default here was centre to nearest point |
-| G8 | The attack target leaves the attacker's owner's vision during a chase. | **(E) Answered by 0034**, as proposed: go to its last seen position, then the order completes. A Follow of an enemy ends the same way |
+| G8 | The attack target leaves the attacker's owner's vision during a chase. | **(E) Answered by 0034**, as proposed: go to its last seen position, then the order completes. A Follow of an enemy ends the same way. **(M3-L3) Replaced by 0200** (answering Q0051): the Attack or Follow completes at once, where the unit stands |
 | G9 | Patrol: is the origin the position at issue or when a Shift-queued Patrol starts (`commands.md > Patrol` vs `behaviors.md > Patrolling` step 1)? What if a leg fails? | **(E) Answered by 0036 and 0037**, as proposed: when it starts executing. A failed leg counts as arrived; two failed legs in a row end the Patrol |
 | G10 | Do map resources (patch, station) block ground units? "Structures" doesn't name them. | Yes, their footprints block |
 | G11 | RuggedTerrain = false: is a Rugged tile impassable for that base? Implied, never stated. | Yes, impassable |
@@ -774,7 +774,8 @@ apart within `18 × (n − 1)` ticks for Drones, 12 each for Peacekeepers.
 - **Perf**: an `#[ignore]` test printing ms per tick for 500 units on 256×256, plus CI assertions on the counters.
 - **(E) Behaviours** (`crates/sim/tests/behaviours_*.rs`, the Verification lists of 0031–0034, 0036 and 0037): an
   attacker stops when the gap between the edges is its Range; a chase around a corner until the target is
-  destroyed; a target lost in the fog is followed to its last seen position; a target across a moat ends the order
+  destroyed; a target lost in the fog ends the order where the attacker stands (**(M3-L3)** design change 0200;
+  under 0034 it walked to the last seen position); a target across a moat ends the order
   at the water's edge; a second attacker queues behind the first for longer than a stuck move lasts; an idle unit
   chases to its leash and returns; Hold never moves; a follower keeps up, waits within 8 su, and waits behind a
   plugged corridor without re-routing; a patch ringed by units is reached within 2 GU; an AttackMove group
