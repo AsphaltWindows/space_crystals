@@ -1,7 +1,7 @@
 //! The Syndicate's golden games (slice M4-L): `dev_skirmish` from its real start, played by script as
 //! `sc_sim::testing::syndicate::skirmish` plays it (its module docs), through the gate:
 //! - [`opening`]: player 1 alone. Its Agents gather the patch 3 grid units from the crystal hatch, and its Hideout,
-//!   rallied on the patch, trains four more. The fourth Agent builds a second Tunnel with the starting Supply, comes
+//!   rallied on the patch, trains four more. The third of them builds a second Tunnel with the starting Supply, comes
 //!   out of it once it is built and gathers Supplies; the first Tunnel expands an Optics Lab.
 //! - [`versus_gdo`]: the same, with six Guards behind the Optics Lab: four come out at the second Tunnel and hold the
 //!   top of the plateau's west ramp, two wait in the Tunnel Network. Player 2's GDO sends its Peacekeepers in waves:

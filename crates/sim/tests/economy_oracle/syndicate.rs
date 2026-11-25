@@ -276,7 +276,8 @@ fn stacked_tunnels_double_a_fields_intake() {
     }
     let single = income_of(3, 4);
     println!(
-        "stacked at 3 GU: {total:.2} per second in all, against {} and twice one Tunnel's with four Agents ({single:.2})",
+        "stacked at 3 GU: {total:.2} per second in all, against {} and twice one Tunnel's with four Agents \
+         ({single:.2})",
         2.0 * CEILING
     );
     assert!(

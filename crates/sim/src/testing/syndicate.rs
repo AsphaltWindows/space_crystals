@@ -119,7 +119,8 @@ pub struct Syndicate {
     /// The job of an Agent that comes out of the Tunnel it built, if the line ejects it.
     after_build: Option<Job>,
     expansions: Vec<Expansion>,
-    /// The upgrades still to start, in order, each by the place of its Tunnel among the player's ([`Syndicate::upgrade`]).
+    /// The upgrades still to start, in order, each by the place of its Tunnel among the player's
+    /// ([`Syndicate::upgrade`]).
     upgrades: Vec<usize>,
     /// The units behind a prerequisite still to train, in order, each with its prerequisite.
     gated: Vec<(ObjectKind, Order)>,

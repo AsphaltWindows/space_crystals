@@ -5,17 +5,18 @@
 //! 2's GDO Starting Layout as a [`BuildOrder`], or does nothing. Both give their own commands, which the gate takes,
 //! as players would:
 //! - [`Skirmish::opening`]: player 1's Agents gather [`PATCH`], 3 grid units from the crystal hatch, and its Hideout,
-//!   rallied on it, trains [`AGENTS`] more. The [`BUILDER`]th builds a second Tunnel at [`TUNNEL_SITE`] with the
-//!   starting Supply, is ejected by it once it is built, and gathers Supplies at the map's station ([`STATION`]). The
-//!   first Tunnel expands an Optics Lab ([`OPTICS_LAB_SITE`]). Player 2 does nothing.
+//!   rallied on it, trains [`AGENTS`] more. The third of them ([`BUILDER`]) builds a second Tunnel at [`TUNNEL_SITE`]
+//!   with the starting Supply, is ejected by it once it is built, and gathers Supplies at the map's station
+//!   ([`STATION`]). The first Tunnel expands an Optics Lab ([`OPTICS_LAB_SITE`]). Player 2 does nothing.
 //! - [`Skirmish::versus_gdo`]: the same, and then [`GUARDS`] Guards, which the Hideout trains only while the player
 //!   owns the Optics Lab (`factions/syndicate/structures/hideout.md > Produces`: "Only available if the player owns
 //!   at least one Optics Lab"). With its rally point cleared, they stay in the Tunnel Network; the first
-//!   [`GUARDS_OUT`] are ejected by the second Tunnel, the forward one, and hold [`GUARD_POST`] by it, and the rest
-//!   wait in the network. Player 2 plays the Colonists' games' Barracks line (the fastest clean Barracks) with
-//!   [`PEACEKEEPERS`] Peacekeepers, which gather at home ([`GDO_STAGING`]) and attack-move in waves of [`WAVE`] to the
-//!   Syndicate's Tunnel nearest it, fighting what they meet on the way; a Peacekeeper whose Tunnel has fallen goes on
-//!   to the next. The script knows where the Tunnels are, as a player who scouted would.
+//!   [`GUARDS_OUT`] are ejected by the second Tunnel, the forward one, and hold the top of the plateau's west ramp
+//!   above it ([`GUARD_POST`]), and the rest wait in the network. Player 2 plays the Colonists' games' Barracks line
+//!   (the fastest clean Barracks) with [`PEACEKEEPERS`] Peacekeepers, which gather at home ([`GDO_STAGING`]) and
+//!   attack-move in waves of [`WAVE`] to the Syndicate's Tunnel nearest it, fighting what they meet on the way; a
+//!   Peacekeeper whose Tunnel has fallen goes on to the next. The script knows where the Tunnels are, as a player who
+//!   scouted would.
 //!
 //! Nothing here assumes the game goes as the goldens' do: the players stop once the game is over or they are
 //! defeated, a lost Optics Lab stops the Guards (`Syndicate::after`), and the Guards come out only while the forward
@@ -77,7 +78,9 @@ pub const OPTICS_LAB_SITE: TilePos = TilePos::new(10, 4);
 pub const GUARDS: usize = 6;
 /// [`Skirmish::versus_gdo`]: how many of them are ejected by the forward Tunnel; the rest stay in the network.
 pub const GUARDS_OUT: usize = 4;
-/// [`Skirmish::versus_gdo`]: where the Guards out of the forward Tunnel wait, on open ground south-east of its Side A.
+/// [`Skirmish::versus_gdo`]: where the Guards out of the forward Tunnel wait: on the plateau, at the top of its west
+/// ramp (the gap in its cliffs on tiles (26, 22) and (26, 23)), on the Peacekeepers' way. Below the ramp the
+/// Peacekeepers, on the high ground, would outrange and outsee them (`core/vision.md > ElevationModifier`).
 pub const GUARD_POST: TilePos = TilePos::new(28, 23);
 /// [`Skirmish::versus_gdo`]: player 2's Barracks' rally point, on open ground north-west of its base, where its
 /// Peacekeepers wait for their wave (the Colonists' games' too).
