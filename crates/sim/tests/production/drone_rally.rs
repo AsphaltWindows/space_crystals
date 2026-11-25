@@ -1,7 +1,7 @@
 //! Design change 0136's Verification for a rally on an enemy unit (`systems/controls/selection_and_hud.md > What a
 //! rally point makes a new unit do`): "Robo Portal rallied on a visible enemy unit: new Drones follow it; if it leaves
-//! sight, they go to its last-seen spot." (On a patch: `gathering.rs`, `a_drone_rallied_on_a_patch_gathers_it`; on
-//! an enemy structure: `portals.rs`.)
+//! sight, they go to its last-seen spot." (On a patch: `gathering/games.rs`,
+//! `a_drone_rallied_on_a_patch_gathers_it`; on an enemy structure: `portals.rs`.)
 
 use sc_sim::testing::{ScenarioBuilder, dangling_references};
 use sc_sim::{DebugCommand, Faction, ObjectId, ObjectKind, OrderKind, ProductionCommand, Rally, Target, Vec2};

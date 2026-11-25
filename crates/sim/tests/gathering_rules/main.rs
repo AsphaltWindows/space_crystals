@@ -2,7 +2,7 @@
 //! `factions/colonists/units.md > Drone`: `> Patch Occupancy (one Drone per patch)`, `> Last load of a patch`,
 //! `> Interrupted mining`, `> Other orders keep the load`, `> Gather while carrying a load`, `> Drop Off order`,
 //! `> When a Gather ends`, `> Assigned Drop-off`): one test per Verification point of design changes 0123, 0127 to
-//! 0135, 0137, 0138, 0140, 0141 and 0170 that `gathering.rs` doesn't already cover, one test binary:
+//! 0135, 0137, 0138, 0140, 0141 and 0170 that `gathering/` doesn't already cover, one test binary:
 //! - `ends`: when a Gather ends (0123), a Deploy queued behind a Drop Off (0127), a patch that runs out under a
 //!   Drone on its way (0134);
 //! - `loads`: Gather while carrying (0128), other orders keep the load (0129), the Drop Off of a mixed group (0140),
@@ -17,9 +17,9 @@
 //! - `remembered` (slice M3-R): a Gather on a patch out of sight, by what the player knows of it (0139), and the
 //!   map's patches, known from the start (0159).
 //!
-//! `gathering.rs` has the others: 0130 (`interrupted_mining_collects_nothing_and_frees_the_patch_at_once`) and
-//! 0134's last patch (`with_no_patch_left_a_drone_delivers_its_load_and_idles`). Every test runs under the
-//! invariants of `TestSim`, checked after every tick.
+//! `gathering/` has the others: 0130 (`trip.rs`, `interrupted_mining_collects_nothing_and_frees_the_patch_at_once`)
+//! and 0134's last patch (`depletion.rs`, `with_no_patch_left_a_drone_delivers_its_load_and_idles`). Every test
+//! runs under the invariants of `TestSim`, checked after every tick.
 
 mod drop_offs;
 mod ends;
