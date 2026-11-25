@@ -1,5 +1,7 @@
 # Syndicate: Units
 
+**Syndicate lasers are red** (user, 2026-11-25): every Syndicate laser-shooting unit and structure (Guard, Laser Battery, Laser Turret) fires a **red** laser.
+
 ## Guard
 
 The Guard is the Syndicate's basic combat infantry. A heavy infantry unit armed with a **laser rifle** that hits **ground and air** and **cannot miss** (instant hit), firing at a measured pace rather than rapidly (user, 2026-11-24). Tougher than the GDO Peacekeeper but with shorter range.
@@ -240,4 +242,42 @@ All numbers (HP, armor, sight, speed, turn radius, TunnelSpaceCost, X, Y, Z, smo
 
 ### ObjectInterfaceState
 Move-type commands like a combat unit without an attack, plus the two toggles (hotkeys TBD). Whether toggles are queueable and whether they keep orders: TBD (the Riot Shield/Convert rule, mode switches keep orders and are not queueable, is the likely model).
+
+## Laser Battery
+(user, 2026-11-25) Syndicate laser vehicle running on a **battery**. Treaded. Fires a **red laser** (FullyConnected: instant, cannot miss) at **fairly long range**, **ground only** while mobile. Its turret has **relatively little mobility**. It can **deploy**, becoming an immobile **anti-air** emplacement with a full-rotation turret.
+
+### Entity Type - Unit
+### Faction - TheSyndicate
+### UnitBase - TrackedVehicle (exits only through Tier 2+ Tunnels)
+### Produced at - Vehicle Assembly
+### TechPrerequisite - TBD
+### Groupable - true (assumed)
+
+### Battery
+- The Laser Battery has a **battery charge**. The battery **gradually charges up while the unit is not attacking**.
+- **Attacking normally drains it at roughly double the rate it charges.** So it can fire in bursts, then must rest to recharge.
+- TBD: battery size, charge rate; what it does when the battery runs empty mid-attack; whether it charges while moving, deploying or deployed.
+
+### Attack: constant beam with surges
+- **Animation**: while attacking, a **constant thin red laser** connects the Laser Battery to its target. Periodic **surges** along the beam are what **actually do the damage**.
+- **Damage per surge** is proportional to the **charge used^(2/3)** (the square of the cube root of the charge spent on that surge). Spending charge in many small surges deals more total damage than spending the same charge in one big surge, so big surges trade efficiency for burst.
+- AttackType: FullyConnected (cannot miss)
+- TargetDomain: Ground (mobile); Air (deployed, below)
+- TargetType: SingleTarget (assumed)
+- Range: fairly long
+- TBD: surge interval, charge used per normal surge, damage constant, range, aiming time.
+
+### Amplify (ability)
+Converts the **entire remaining battery** into the **next surge**. A single big hit for burst damage, at the cost of efficiency (per the ^(2/3) rule) and of an empty battery afterwards.
+- TBD: hotkey; whether it can be used while deployed; whether it is queueable or a mode-like toggle.
+
+### TurretAttributes (mobile):
+- TurnAngle: narrow / limited ("relatively little mobility"; exact meaning TBD: narrow arc, slow rotation, or both)
+
+### Deploy (ability)
+- **Deployed**: **cannot move**. The turret gets **360° rotation**. It can **only target air units** (no ground targets while deployed).
+- **Refract** (ability, deployed only): to be designed together with satellites (user, 2026-11-25).
+- TBD: deploy/undeploy time; whether it can attack while switching (the Artillery Rig can't); whether deployed and mobile are two unit types (like the Peacekeeper's shield, factions/gdo/units.md > Riot Shield > Two unit types) and so follow the toggle rule.
+
+All numbers (HP, armor, sight, speed, TunnelSpaceCost, battery, damage, range, timings, cost, build time): TBD.
 
