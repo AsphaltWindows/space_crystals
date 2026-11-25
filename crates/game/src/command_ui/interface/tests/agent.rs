@@ -71,10 +71,10 @@ fn build_tunnel_is_greyed_while_the_bank_cant_pay() {
     assert_eq!(press(&shown_panel, slot(1, 0)), SlotPress::Nothing);
 }
 
-/// `> DefaultState commands`: Drop Off is "Always visible, greyed out when Agent is not carrying resources": it awaits
-/// its Tunnel while one of its recipients carries a load (`Modes::carries`), and goes to every selected Agent, the
-/// gate leaving out those that carry nothing; the Build goes to the Agent Tabbed to alone (Agents are Ungroupable,
-/// "each Agent takes exactly one placement").
+/// `factions/syndicate/units/agent.md > DefaultState commands`: Drop Off is "Always visible, greyed out when Agent is
+/// not carrying resources": it awaits its Tunnel while one of its recipients carries a load (`Modes::carries`), and
+/// goes to every selected Agent, the gate leaving out those that carry nothing; the Build goes to the Agent Tabbed to
+/// alone (Agents are Ungroupable, "each Agent takes exactly one placement").
 #[test]
 fn drop_off_awaits_its_tunnel_while_an_agent_carries_a_load() {
     let agents = Selection::new([(id(1), AGENT), (id(2), AGENT)]);

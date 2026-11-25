@@ -54,9 +54,9 @@ pub enum Planned {
     /// Chemical Plant". Slice M4-U brings the Grenadier and its recipe, which take the slot.
     Grenadier,
     /// The Agent's D, "Build Laser Turret" (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > Panel
-    /// letters`, design change 0257: "**D** Build Laser Turret (greyed until available)"; `> DefaultState commands`:
-    /// "Visible but greyed out until the player owns an Optics Lab"). Slice M4-S1 brings the Laser Turret, whose Build
-    /// then takes the slot.
+    /// letters`, design change 0257: "**D** Build Laser Turret (greyed until available)";
+    /// `factions/syndicate/units/agent.md > DefaultState commands`: "Visible but greyed out until the player owns an
+    /// Optics Lab"). Slice M4-S1 brings the Laser Turret, whose Build then takes the slot.
     LaserTurret,
 }
 

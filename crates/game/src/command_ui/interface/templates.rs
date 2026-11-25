@@ -71,8 +71,9 @@ pub enum InterfaceTemplate {
     /// produces no units.
     Tunnel,
     /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState` (design change 0257, slice M4-J1): Q Move, A
-    /// Build Tunnel, S Drop Off, D Build Laser Turret, X Stop ([`syndicate::agent`]). Its right-click (`> Right-Click
-    /// Resolution`: Gather, Drop Off, Enter, Attack, Move) is the sim's one rule, as every unit's.
+    /// Build Tunnel, S Drop Off, D Build Laser Turret, X Stop ([`syndicate::agent`]). Its right-click
+    /// (`factions/syndicate/units/agent.md > Right-Click Resolution`: Gather, Drop Off, Enter, Attack, Move) is the
+    /// sim's one rule, as every unit's.
     Agent,
 }
 

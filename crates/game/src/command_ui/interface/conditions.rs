@@ -30,8 +30,9 @@
 //! for its Build order where it would stand anywhere, and leaves out the placement's refusal as a Warp In does: it is
 //! greyed while the bank can't pay the Tunnel's price ([`Conditions::price`], `Sim::build_price`; design change 0233:
 //! "a Build order that can't be paid is refused"). Its S, Drop Off, is greyed while none of its recipients carries a
-//! load (`> DefaultState commands`: "Always visible, greyed out when Agent is not carrying resources"), the gate's own
-//! test (`Reject::NothingToDeliver`). A site's panel is its Cancel alone ([`Conditions::site`], design change 0237).
+//! load (`factions/syndicate/units/agent.md > DefaultState commands`: "Always visible, greyed out when Agent is not
+//! carrying resources"), the gate's own test (`Reject::NothingToDeliver`). A site's panel is its Cancel alone
+//! ([`Conditions::site`], design change 0237).
 
 use std::collections::{BTreeMap, BTreeSet};
 
