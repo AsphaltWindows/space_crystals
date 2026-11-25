@@ -1,6 +1,6 @@
 # The economy oracle: measured results
 
-The economy oracle (`crates/sim/tests/economy_oracle/`, see `ARCHITECTURE.md > Testing`) plays openings from a real start, the way a player would, through the command gate, and checks them against `factions/gdo/economy.md`. This page records what it measured. The tests check these numbers against the design, each within the tolerance named where it is checked, so a change that moves one too far fails there. A change that moves one at all updates this page.
+The economy oracle (`crates/sim/tests/economy_oracle/`, see `ARCHITECTURE.md > Testing`) plays openings from a real start, the way a player would, through the command gate, and checks them against `factions/gdo/economy.md` and the Syndicate's economy check (`factions/syndicate/units/agent.md > Gathering > Space Crystals`). This page records what it measured. The tests check these numbers against the design, each within the tolerance named where it is checked, so a change that moves one too far fails there. A change that moves one at all updates this page.
 
 To print every line, run:
 
@@ -9,7 +9,7 @@ cargo test -p sc_sim --test economy_oracle -- --nocapture
 cargo test --release -p sc_sim --test economy_oracle -- --ignored --nocapture
 ```
 
-The second command runs the ignored measurements: the Colonists' lines to 6:00, and the saturation curve.
+The second command runs the ignored measurements: the Colonists' lines to 6:00, the saturation curve, and the Syndicate's whole table.
 
 ## The GDO (slice M2-J1)
 
@@ -172,3 +172,36 @@ Full saturation (8 patches at 4 SC/s) took 27 Drones. The design estimated about
 - **Saturation needed more Drones.** The end patches needed four Drones each to stay busy.
 
 Following design change 0108, no game number was changed. The figures outside the tolerance and the failing targets went to the Designer as Q0055 (slice M3-K1), and the oracle pinned them as measured until an answer came. Design change 0205 then changed the Drone's numbers, and design change 0236 answered the question: the figures measured with 0205 are the design (above).
+
+## The Syndicate (slice M4-L)
+
+The Syndicate's economy check (`factions/syndicate/units/agent.md > Gathering > Space Crystals > Syndicate economy check`, design changes 0259 and 0294) is measured on its reference layout: one Tunnel with its crystal hatch facing a single patch, the distance counted edge to edge from the patch to the hatch square (`sc_sim::testing::syndicate::reference_field`). The Agent mines for 64 frames (design change 0294; 80 before) and unloads for 64, and Agents keep their collision.
+
+- **A trip** is one Agent's gap between deliveries once it has settled. **Per Agent** is 50 SC per trip, **payback** is two trips (100 SC), and **Agents to saturate** is the trip over 4 s.
+- **An income** is the average over minutes 5 to 10 of a ten-minute game. The Agents start in a row south-east of the Tunnel and are sent to the patch with one command. With collision they take minutes to settle into their lanes.
+
+The oracle checks every figure from 3 GU at ±15% (0294: "the table from 3 GU outward"). Rows 0–2 are theoretical and only recorded here. Each cell is measured / design (delta).
+
+| GU | Trip (s) | Per Agent | Payback (s) | To saturate | 2 Agents | 3 Agents | 4 Agents | |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 8.00 / 8.0 (+0.0%) | 6.25 / 6.25 (+0.0%) | 16.0 / 16 (+0.0%) | 2.00 / 2.00 (+0.0%) | 6.17 / 12.5 (−50.7%) | 6.17 / 12.5 (−50.7%) | 12.50 / 12.5 (+0.0%) | recorded |
+| 1 | 8.38 / 9.3 (−9.9%) | 5.97 / 5.36 (+11.4%) | 16.8 / 19 (−11.8%) | 2.09 / 2.33 (−10.1%) | 12.00 / 10.7 (+12.1%) | 6.00 / 12.5 (−52.0%) | 6.00 / 12.5 (−52.0%) | recorded |
+| 2 | 9.75 / 10.7 (−8.9%) | 5.13 / 4.69 (+9.3%) | 19.5 / 21 (−7.1%) | 2.44 / 2.67 (−8.7%) | 10.17 / 9.4 (+8.2%) | 11.00 / 12.5 (−12.0%) | 11.33 / 12.5 (−9.3%) | recorded |
+| 3 | 11.00 / 12.0 (−8.3%) | 4.55 / 4.17 (+9.0%) | 22.0 / 24 (−8.3%) | 2.75 / 3.00 (−8.3%) | 9.00 / 8.3 (+8.4%) | 10.67 / 12.5 (−14.7%) | 11.83 / 12.5 (−5.3%) | pass |
+| 4 | 12.38 / 13.3 (−7.0%) | 4.04 / 3.75 (+7.7%) | 24.8 / 27 (−8.3%) | 3.09 / 3.33 (−7.1%) | 8.00 / 7.5 (+6.7%) | 11.17 / 11.3 (−1.2%) | 12.17 / 12.5 (−2.7%) | pass |
+| 5 | 13.75 / 14.7 (−6.5%) | 3.64 / 3.41 (+6.6%) | 27.5 / 29 (−5.2%) | 3.44 / 3.67 (−6.3%) | 7.17 / 6.8 (+5.4%) | 10.33 / 10.2 (+1.3%) | 12.50 / 12.5 (+0.0%) | pass |
+| 6 | 15.00 / 16.0 (−6.2%) | 3.33 / 3.12 (+6.8%) | 30.0 / 32 (−6.2%) | 3.75 / 4.00 (−6.2%) | 6.50 / 6.2 (+4.8%) | 9.67 / 9.4 (+2.8%) | 12.50 / 12.5 (+0.0%) | pass |
+
+0294's Verification, "At 3 GU, 3 Agents reach about 12.5 SC/s; at 4 GU about 11.3; at 6 GU, 4 Agents saturate": 10.67 (−14.7%, at the tolerance's edge), 11.17 and 12.50.
+
+- **Trips** are shorter than the table's, which walks the whole distance both ways. The Agent's own 36 su and the two 8 su reaches come off. So the Agents' incomes run above the table, and the saturating counts below it.
+- **3 Agents at 3 GU** fall short of the hatch's ceiling although their trips (176 ticks) are shorter than three drop-offs (192). Near the hatch they get in each other's way: the hatch stands free for up to about 2 s at a time while a loaded Agent finds its way past the others.
+- **Rows 0 and 1** jam. With the patch that close, Agents can't pass each other between it and the hatch, and an Agent behind another in its lane is blocked for good (`tests/agent_gathering/trips.rs`). Income falls to one Agent's: 2 and 3 Agents at 0 GU, 3 and 4 at 1 GU. Design change 0294 accepts this: "Very close to the hatch (0–2 grid units) they can get in each other's way and income drops".
+
+**The ceiling** held exactly in every game: no two deliveries at a Tunnel came less than 64 ticks apart. Four Agents at 5 and 6 GU reach exactly 12.50.
+
+**Stacked Tunnels** at 3 GU (`stacked_field`): two Tunnels on opposite sides of the field, each hatch 3 GU from its own patch, the two patches a free column apart, four Agents for each Tunnel. With the patches side by side, the ends of their north and south faces lie as near either hatch, and some Agents delivered at the other Tunnel. The Tunnels take in 11.83 and 11.50, 23.33 SC/s in all: −6.7% against twice the ceiling, and −1.4% against twice one Tunnel's 11.83 with four Agents at 3 GU. Every Agent delivered at its own Tunnel. Pass.
+
+**The opening** at 3 GU (`opening_field`) is played from the Syndicate's Starting Conditions on the reference layout: the Tunnel, the Hideout in its area, one Agent, 100 SC and 1 Supply. The Agent is sent to the patch, the Hideout is rallied on it, and the Hideout trains an Agent whenever it is free and the bank covers it. The second Agent starts in tick 1 ("the second Agent can start immediately"). The third is paid for at 0:24.6 and comes out to gather at 0:39.56, against 0:34–0:46: pass. The check reads "saturated (3 Agents, 12.5 Space Crystals per second) around 0:40" as the third Agent at work. Three Agents at 3 GU take in 10.67 at best, so the Tunnel never takes in 12.5 without a break with three; from 1:00 to 1:30 it takes in 10.00 SC/s.
+
+**The lowest one-base saturation**: one Tunnel takes in at most 12.50 SC/s, against the GDO's 26.67 fully plated and the Colonists' 32 (31.62 measured, above). Pass.

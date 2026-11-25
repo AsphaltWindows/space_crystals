@@ -1580,9 +1580,9 @@ section of its own.
   centre, side) and has **the hatch square**
   (`hatch_offset`, `hatch_tile`, `hatch_square(tunnel, Resource)`, also `tunnel::hatch_square`): the middle tile of
   the side, of two middle tiles the one farther from Side A, read off `sides()` so that it turns and flips with the
-  structure; the client draws the hatches there. The Agent: 50 a load, 80 frames of mining, 64 of unloading, reaches
-  of 8 su; alone it delivers every 144, 150, 172, 192, 214, 236 and 256 ticks at 0 to 6 GU from hatch to patch, edge
-  to edge (the design's table: 9.0 to 17.0 s; all within 15%).
+  structure; the client draws the hatches there. The Agent: 50 a load, 64 frames of mining (design change 0294; 80
+  before), 64 of unloading, reaches of 8 su; alone it delivers every 128, 134, 156, 176, 198, 220 and 240 ticks at 0
+  to 6 GU from hatch to patch, edge to edge (the design's table: 8.0 to 16.0 s; all within 15%).
   **Measured with DragMovement, the rules of slice M3-H3 and the Drone's numbers of design change 0205**
   (`tests/gathering/`, `tests/gathering_soak.rs`; nothing is tuned to the design's table): one Drone with its
   patch 2 GU from the node, edge to edge, delivers every 73 ticks, 1.75 Space Crystals per second (81 ticks and
@@ -2111,9 +2111,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   Layout whose Deployment Center sees and reaches its 8-patch field (design change 0095) and two plates on it, and a
   Colonists one (slice M3-C, plan decision T24: the Egress Node on tile (4, 4) within the field's arc, the Robo
   Portal on (6, 6), the Drones at points clear of the node's sides and the portal's), and a Syndicate one (slice
-  M4-B: the Tunnel on (4, 4) turned 180°, Side A south to the open map, Side D east to the middle, its crystal hatch
-  (4, 5) 1 grid unit from the patch (2, 5), design changes 0248, 0255 and 0259, Q0076; the Hideout on (8, 8) in its
-  Tier 1 area; the Agent at (6, 9.5) grid units), gentle hills of slopes only,
+  M4-B: the Tunnel on (6, 6) turned 180°, Side A south to the open map, Side D east to the middle, its crystal hatch
+  (6, 7) 3 grid units from the nearest patches, (2, 6) and (2, 7), design changes 0248, 0255, 0259 and 0294; the
+  Hideout on (10, 10) in its Tier 1 area; the Agent at (8, 11.5) grid units), gentle hills of slopes only,
   and a central plateau ringed by cliffs with a ramp up through a gap in the west and in the east
   (`maps/dev_skirmish.json` is the same map, which a test checks);
   `dev_structures`, a flat 30×12 Custom QA map with one of each GDO structure for each of two players (a plate on a
@@ -2159,6 +2159,16 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   Capacity falls to 1 (the 5th Drone made and every 6th after it), and pays for the rest through a `BuildOrder`.
   `reference_field(drones)` is the reference geometry of design change 0107, and `colonists::skirmish` plays
   `dev_skirmish` with a Colonists line against the GDO's (the Colonists' golden games, and longer runs of them).
+  `testing::syndicate` (slice M4-L) plays a Syndicate player the same way: a `Syndicate` line sends the Agents to
+  gather (one command), sets the Hideouts' rally points, gives the player's `n`th Agent a job (Supplies at a station,
+  or a Tunnel to build once the Supplies cover `Sim::build_price` and the build check takes its site), ejects an Agent
+  that finished a Tunnel by it, has the `n`th Tunnel build the line's expansions once `Sim::can_expand` allows them
+  and the bank covers them, and its upgrades once `Sim::can_upgrade` does and the Supplies cover them (slice M4-G;
+  `tests/syndicate_line.rs`), trains units behind a prerequisite (the Guards behind an Optics Lab) only while the
+  player owns it, and pays for its Agents through a `BuildOrder`; `SupplyBooks` balance the Supplies as `Books` do the
+  crystals. `reference_field(distance, agents)`, `opening_field(distance)` and `stacked_field(distance, agents)` are
+  the Syndicate economy check's reference layouts (design changes 0259 and 0294), and `syndicate::skirmish` plays
+  `dev_skirmish` with a Syndicate line, alone or against the GDO's (the Syndicate's golden games).
 - **Movement scenario tests** are `crates/sim/tests/movement_collision/` (passing, head-on, choke, group arrival,
   idle units, repaths, oscillation bounds, save and load in a crowd; in modules by topic: `passing`, `crowds`,
   `paths`), `group_destinations.rs` (the magic box; a
@@ -2247,6 +2257,13 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   tolerances on the design's trickle figures are named where they are used (a plate's first lump 3 s after it
   lands, a wait for money up to one cycle longer, a bank under a trickle's by less than a lump per plate), while
   costs, build times, lumps and the power penalty are checked exactly. `--nocapture` prints each line's timeline.
+  **The Syndicate** (slice M4-L, `syndicate.rs`): the economy check of `factions/syndicate/units/agent.md > Gathering >
+  Space Crystals` (design changes 0259 and 0294) on `testing::syndicate`'s layouts: one Agent's trip and the income
+  of 2, 3 and 4 Agents (minutes 5 to 10 of a ten-minute game) at 3 to 6 GU within ±15% of the table, a test for each
+  row (rows 0 to 2 are theoretical: the ignored `syndicate_table` measures them for the record); the ceiling, no two
+  deliveries at a Tunnel less than 64 ticks apart, in every game; two stacked Tunnels at 3 GU doubling the field's
+  intake; the opening at 3 GU from the Starting Conditions, its third Agent out within 0:34–0:46, both books
+  balanced every tick; and the lowest one-base saturation.
 - **Game start tests** are `crates/sim/tests/game_start/` (slice M2-F1: each player's Starting Layout and banks,
   the Skirmish Default restriction and completeness, the layout rules of design change 0097, a layout plate off its
   patch refused by the game's rule, a pre-placed one by the same rule, two players' layouts in each other's way, the
@@ -3222,14 +3239,15 @@ unchecked.
   or ", end", and "Tick n / end". Screenshots, `--exit-at-tick`, `--dump-state`, `--input-script` (to press the
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
-- **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs` and `main.rs`, the
-  recording and the comparison in `harness.rs`): nine games, a 3v3 duel, a 40-unit AttackMove battle, a
-  12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three Peacekeepers
-  that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under fire and lower
-  them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1 plays the
-  fastest clean Barracks and rallies ten Peacekeepers to player 2's crystal field, where they destroy four plates,
-  while player 2 plates its field and builds Generators), and the Colonists' `colonists_opening` and
-  `colonists_vs_gdo` (slice M3-K1, below), are blessed as replays with a checkpoint every 32 ticks and
+- **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`
+  and `main.rs`, the recording and the comparison in `harness.rs`): eleven games, a 3v3 duel, a 40-unit AttackMove
+  battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
+  Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
+  fire and lower them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1
+  plays the fastest clean Barracks and rallies ten Peacekeepers to player 2's crystal field, where they destroy four
+  plates, while player 2 plates its field and builds Generators), the Colonists' `colonists_opening` and
+  `colonists_vs_gdo` (slice M3-K1, below) and the Syndicate's `syndicate_opening` and `syndicate_vs_gdo` (slice
+  M4-L, below), are blessed as replays with a checkpoint every 32 ticks and
   at the end, in `crates/sim/tests/golden/<name>.json`. A tenth, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -3249,13 +3267,24 @@ unchecked.
   converts each to a Rifle Legionnaire to wait east of the Bio Portal, while player 2 plays `gdo_opening`'s Barracks
   line and sends its ten Peacekeepers to player 1's field in two waves of AttackMove: the Colonists' Shields take
   hits and units die on both sides. Both players' books balance every step, the Drones' deliveries included, and
-  every command the scripts give is one the gate takes. The ignored `tests/skirmish_soak.rs` (slice M3-K2) plays the
-  same two players for 10 minutes, twice, until player 1's field runs out: the movement invariants and the books
-  every tick, no dangling id, no order stuck in one step beyond a bound (a waiting Drone re-checks within 16 ticks
-  once its patch is free), the field's 12000 crystals all delivered, no game end, and the hash every 64 ticks equal
-  over both runs and the replay (`cargo test -p sc_sim --release --test skirmish_soak -- --ignored --nocapture`
-  prints what it saw: the longest step of each order, each Drone's longest gap between deliveries, the losses).
-  Any change to the sim's rules or state changes the hashes:
+  every command the scripts give is one the gate takes. The Syndicate's games play `dev_skirmish` with player 1 as
+  the Syndicate, by `testing::syndicate::skirmish`: in `syndicate_opening` (to 2:15) its Agents gather the patch 3 GU
+  from the crystal hatch, the Hideout, rallied on it, trains four more, the third of them builds a second Tunnel
+  with the starting Supply, is ejected by it and gathers Supplies, and the first Tunnel expands an Optics Lab; in
+  `syndicate_vs_gdo` (to 3:06.75, where it ends) six Guards follow behind the Optics Lab, the Hideout's rally point
+  cleared so that they stay in the Tunnel Network, four of them ejected by the second Tunnel to hold the top of the
+  plateau's west ramp, while player 2 plays the same Barracks line with sixteen Peacekeepers, sent in waves of six to
+  the Syndicate's Tunnel nearest them: Guards and Peacekeepers die, the second Tunnel falls, then the first, which
+  leaves the Hideout and the Optics Lab neutral, strands the two Guards in the network and defeats player 1; the game
+  is over in its last tick, as the client's playback stops where a game ends. Both players' books balance
+  every step, and player 1's Supplies too (`testing::syndicate::SupplyBooks`). The ignored `tests/skirmish_soak.rs`
+  (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
+  movement invariants and the books every tick, no dangling id, no order stuck in one step beyond a bound (a waiting
+  Drone re-checks within 16 ticks once its patch is free), the field's 12000 crystals all delivered, no game end, and
+  the hash every 64 ticks equal over both runs and the replay
+  (`cargo test -p sc_sim --release --test skirmish_soak -- --ignored --nocapture` prints what it saw: the longest
+  step of each order, each Drone's longest gap between deliveries, the losses). Any change to the sim's rules or
+  state changes the hashes:
   when the change is intended, re-bless and commit the files with it:
 
   ```sh

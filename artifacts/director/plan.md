@@ -1060,8 +1060,30 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Perf** (A/B): the placement check 5.55 → 5.40 µs, and the `structures_perf` battle 0.381 → 0.366 ms.
   - **Reading:** `DebugCommand::SetTier` ends an upgrade in progress with no refund.
 
+- **M4-L Syndicate oracle and goldens** (Opus; merged in `6d05e084`; 1744 tests; two new goldens; three re-blessed for the stored map only):
+  - **0294:**
+    - The Agent's MiningDuration is 64 frames. The tests that follow from it are updated (`agent_gathering`, `agent_supplies/switching.rs`, the gathering unit test, `syndicate_start.rs`).
+    - `dev_skirmish`'s Syndicate layout moved, not the patches: the Tunnel to (6, 6) and the Hideout to (10, 10), with the hatch (6, 7) 3 GU from the patches. The map JSON matches.
+    - `gdo_opening`, `colonists_opening` and `colonists_vs_gdo` store the map, so they were re-blessed. Only the layout's positions changed, and no hash line moved.
+    - No Q0076 mark remains (0294, 0295).
+  - **The oracle** (`tests/economy_oracle/syndicate.rs`, `docs/economy_oracle.md`; one test per row):
+    - every row from 3 GU passes ±15%;
+    - the 12.5 ceiling is exact (no two deliveries less than 64 ticks apart);
+    - stacked Tunnels take in 23.33 against 25;
+    - the third Agent is out at 0:39.56, inside 0:34–0:46;
+    - the Syndicate's one-base income is the lowest, at 12.5 against the GDO's 26.67 and the Colonists' 32;
+    - rows 0–2 are recorded only.
+
+    3 Agents at 3 GU measure 10.67 against 12.5, which is −14.7%; this went to the Designer as Q0089.
+  - **The goldens** (`tests/golden/syndicate.rs`):
+    - `syndicate_opening` runs to 2:15: Agents trained and rallied, the third builds the second Tunnel and brings 2 Supplies, and an Optics Lab is built.
+    - `syndicate_vs_gdo` runs to 3:06.75: an Optics Lab, then 6 Guards against Peacekeepers. Both Tunnels fall, the expansions go neutral and decay, Guards are stranded, and player 1 is defeated.
+    - The client's replay test now counts 11 goldens.
+  - **`testing::syndicate`** has a build line through the gate (Train, Eject, Gather, Gather Supplies, Build Tunnel, Expand, Upgrade). `tests/syndicate_line.rs` upgrades a Tunnel with gathered Supplies.
+  - **Perf:** the `economy_oracle` binary went from 2.85 s to about 4.9 s in debug; the goldens add 0.1 s.
+
 ## In progress
-  - **M4-L Syndicate oracle and goldens** (Opus; brief `scratchpad/briefs/m4l-syndicate-oracle.md`): `testing::syndicate`, the oracle by 0259's method (the opening and the 0–2 GU rows reported as blocked by Q0076/Q0088), and `syndicate_opening` and `syndicate_vs_gdo` with the patch 3 GU from the hatch. `syndicate_vs_gdo` is blessed after K lands, since the Guard needs an Optics Lab. Re-briefed for 0294: L makes the 64-frame MiningDuration and moves `dev_skirmish`'s Syndicate layout to 3 GU; the oracle checks rows from 3 GU, and rows 0–2 are recorded only.
+  - **M4-J3 Tunnel Area display** (Opus; brief `scratchpad/briefs/m4j3-area-display.md`): the selected own Tunnel's area; the Tier 1–3 preview while placing a Tunnel, with blocking cells red; no enemy areas (0299, 0300); and the marks of Q0086 and Q0087.
   - **M4-U Grenadier** (Opus; brief `scratchpad/briefs/m4u-grenadier.md`): the kind and its recipe (requires a Chemical Plant), the Hideout's E, the EjectMenu's third tile, and 0260's and 0264's verifications with the real kind.
   - **M4-S1 Laser Turret, upright and Agent-built** (Opus; brief `scratchpad/briefs/m4s1-laser-turret.md`): the turret's def (requires an Optics Lab), structures that attack (T49), the Build order's turret arm with Q0084's answers (0296–0298: a 75% cancel refund, folded in mid-run), defeat, and the client's D entry, ghost and turret look.
 - **Next**:
@@ -1239,7 +1261,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - N7: the Specter.
   - **Questions:**
     - Q0059–Q0071 are all answered, by 0229–0267.
-    - Answered since revision 2: every M4 question, Q0076 to Q0088. Q0076 by 0294 and 0295; Q0077 by 0288; Q0078 by 0283; Q0079 by 0289; Q0080 by 0290; Q0081 by 0291; Q0082 by 0292; Q0083 by 0293; Q0084 by 0296–0298; Q0085 by 0284; Q0086 by 0285, 0299 and 0300; Q0087 by 0301; Q0088 by 0294. Open: none.
+    - Answered since revision 2: every M4 question, Q0076 to Q0088. Q0076 by 0294 and 0295; Q0077 by 0288; Q0078 by 0283; Q0079 by 0289; Q0080 by 0290; Q0081 by 0291; Q0082 by 0292; Q0083 by 0293; Q0084 by 0296–0298; Q0085 by 0284; Q0086 by 0285, 0299 and 0300; Q0087 by 0301; Q0088 by 0294. Open: Q0089, the 3 GU figures (not blocking).
   - **Slice status:**
     - A: done (`fcd06dc`).
     - C: done (`f67df212`; Q0077).
@@ -1258,10 +1280,10 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - S1: running (wave 7, Opus; brief `scratchpad/briefs/m4s1-laser-turret.md`).
     - G: done (`a737a69a`). **Wave 6 is complete.**
     - U: running (wave 8, started early in G's slot; Opus; brief `scratchpad/briefs/m4u-grenadier.md`).
-    - J3: queued, for the next slot (new, small, client; brief `scratchpad/briefs/m4j3-area-display.md`): the Tunnel Area display (0299, 0300) and the marks of Q0086 and Q0087.
+    - J3: running (new, small, client, Opus; brief `scratchpad/briefs/m4j3-area-display.md`): the Tunnel Area display (0299, 0300) and the marks of Q0086 and Q0087.
     - I2: done (`4f31587f`).
     - O2: done (`2e0f31f4`).
-    - L: running (wave 7, started early; Opus; brief `scratchpad/briefs/m4l-syndicate-oracle.md`).
+    - L: done (`6d05e084`).
     - The rest are queued in the waves above.
   - **Technical follow-ups** (the Director's):
     - **One per-player event filter in the client.** M4-O found that each event consumer filters for the viewer on its own, and fixed one leak (a hidden Hideout's death marker). Put the filter in one place before more hidden objects arrive (S2's pop-up turret, N4–N7). Candidate: a small slice beside L, or in M.
@@ -1379,6 +1401,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0086 | The EjectMenu's order, zero-count tiles and state after a click; when Tunnel Areas are drawn; recalling an all-held group | no | answered by 0285 (point 1), 0299 (points 2, 4, 5) and 0300 (point 3, and the preview's red cells). Point 4 differs from the built version: enemy areas are never shown, and placing a Tunnel previews its Tier 2 and Tier 3 areas (M4-J3) |
 | Q0087 | Does the Agent that finishes a Tunnel wait out the transit delay before it can leave? | no | answered by 0301: (a), as built; rallied produced units have no delay either (M4-J3 updates the marks) |
 | Q0088 | The Agents' jam: what each fix costs (the reply to 0286 and 0287). It isn't head-on; the infantry sidestep exists in the code; only pass-through reaches 12.5 at 0–2 GU | no (answered) | answered by 0294: option (c) with a 4 s mining time; stage 0 documented; 1a not adopted |
+| Q0089 | Three Agents at 3 GU measure 10.67 SC/s against the table's 12.5 (−14.7%, inside ±15%): is the opening target the third Agent at work by 0:40, or the Tunnel at 12.5? | no | open; as built, the third Agent at work by 0:40, and the table met within tolerance (M4-L) |
 
 ## Design change entries
 Last triaged: 0282.
@@ -1618,7 +1641,7 @@ Last triaged: 0282.
 | 0256 Supplies gathering: shared stations, waiting at an empty station, switching resources loses the load; the notification waits for a notification system | done (M4-I, `9aca8972`); Q0082's three proposals as placeholders | answers Q0067 |
 | 0257 Syndicate panel letters on the 4x3 grid | done (M4-J2, `c5910e4d`: the Tunnel's and the Hideout's panels and the EjectMenu; M4-J1, `dd14dc38`: the Agent; M4-F, `2cbb777e`: the ExpandMenu; M4-G, `a737a69a`: Q) | answers Q0068, as proposed |
 | 0258 Losing Tunnels: decay %, attacking neutral expansions, reclaiming, blocked cells (counted as occupied), defeat, and the enemy sees the tier | done (M4-A, `fcd06dc`: the tier seen and remembered; M4-H, `f456b0ca`: neutral expansions, decay, explicit Attack only, reclaiming, stranded units, defeat; M4-F, `2cbb777e`: neutral expansions block expansion placement; M4-G, `a737a69a`: reclaiming at an upgrade's completion) | answers Q0069 |
-| 0259 The Syndicate economy check: measured to the hatch square; the stacked layout puts the Tunnels on opposite sides | queued (M4-L, running); the stacked layout is in M4-D's soak. The 1 GU opening layout is replaced by 0294's 3 GU | answers Q0070 |
+| 0259 The Syndicate economy check: measured to the hatch square; the stacked layout puts the Tunnels on opposite sides | done (M4-L, `6d05e084`; the 1 GU opening layout replaced by 0294's 3 GU) | answers Q0070 |
 | 0260 Placeholders for the Laser Turret, the Grenadier and the Chemical Plant, so they can be planned into M4; the Grenadier needs a projectile, AoE and Attack Ground combat spike | partly done (M4-O, `356d1a96`: the combat spike; M4-K, `bbdbea73`: the Chemical Plant); in progress (M4-S1: the Laser Turret, upright); queued (U the Grenadier, S2 the pop-up) | answers Q0071 (scope B) |
 | 0261 Area damage never hits underground objects unless targeted | void (replaced by 0262) | — |
 | 0262 Area damage does hit underground objects; expansions and the pop-up turret have high armor | partly done (M4-A, `fcd06dc`: damage never asks the hidden predicate; M4-O, `356d1a96`: area damage hits underground objects, even unseen); queued (S2: the pop-up turret's armour, per 0264) | answers Q0071's AoE-underground gap |
@@ -1653,8 +1676,8 @@ Last triaged: 0282.
 | 0291 The ExpandMenu's nine expansions hold fixed slots in table order, greyed while unavailable; the Laser Turret is always tenth | done (M4-F, `2cbb777e`; the turret's tenth slot is a `Planned` entry until S2) | answers Q0081 |
 | 0292 Supplies gathering: 8 su reaches; the nearest Tunnel measured to the crystal hatch; the old load lost when the new pick-up or mining ends | done (points 1 and 3 as built, M4-I `9aca8972`; point 2, M4-I2 `4f31587f`) | answers Q0082 |
 | 0293 Area damage: friendly fire; the reveal when damage lands, to the damaged objects' owners; Attack Ground keeps firing until another order; every shot and projectile drawn only over Visible tiles (replaces 0244) | done (M4-O2, `2e0f31f4`; points 1 and 2 as built by M4-O `356d1a96`) | answers Q0083 |
-| 0294 Agent MiningDuration 80 → 64 frames (4 s); Agents keep collision; the opening and the table checked from 3 GU (rows 0–2 theoretical); `dev_skirmish` and the reference layouts put the patch 3 GU from the hatch; the moving-unit sidestep is documented (stage 0) | in progress (M4-L, re-briefed: the constant, the tests it moves, `dev_skirmish`'s Syndicate layout, and the oracle from 3 GU) | answers Q0076 (except its two "also to confirm" points) and Q0088 |
-| 0295 The hatch is the middle square of its side farther from Side A; the Agent's patch search radius is 6 GU, like the Drone's (a placeholder value) | done (as built, M4-D `edc30e11`); M4-L updates the Q0076 marks | answers Q0076's two "also to confirm" points |
+| 0294 Agent MiningDuration 80 → 64 frames (4 s); Agents keep collision; the opening and the table checked from 3 GU (rows 0–2 theoretical); `dev_skirmish` and the reference layouts put the patch 3 GU from the hatch; the moving-unit sidestep is documented (stage 0) | done (M4-L, `6d05e084`); 3 Agents at 3 GU measure 10.67, inside ±15% (Q0089) | answers Q0076 (except its two "also to confirm" points) and Q0088 |
+| 0295 The hatch is the middle square of its side farther from Side A; the Agent's patch search radius is 6 GU, like the Drone's (a placeholder value) | done (as built, M4-D `edc30e11`; M4-L `6d05e084`: the marks) | answers Q0076's two "also to confirm" points |
 | 0296 Laser Turret: hidden at 6/6 only while fully lowered; sight 6 in both forms; upright turrets and raised pop-ups block like buildings, a lowered pop-up never; a pop-up can't rise while any unit stands over it, and the owner's idle units there are pushed off | queued (M4-S2; S1 builds "an upright turret blocks like a building") | answers Q0084 points 1–3 |
 | 0297 Laser Turret: an Agent's turret is paid at the order, with the Tunnel order's refund rules; cancelling either kind of site refunds 75%; an Agent's site is visible and a Tunnel's is hidden | in progress (M4-S1, re-briefed: 75%, not the proposed 100%); queued (M4-S2: the Tunnel-built site) | answers Q0084 points 4–6 |
 | 0298 Laser Turret: the Agent exits at the first clear spot from its side and waits inside if none; holding-position targeting that keeps its target; an Agent's turret uses no operation slot | in progress (M4-S1, as proposed) | answers Q0084 points 7–9 (Q0084 complete) |

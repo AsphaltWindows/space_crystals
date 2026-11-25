@@ -1,7 +1,7 @@
-//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): nine small games, defined below and in
-//! `colonists.rs` and recorded as replays in `tests/golden/`, each with the state hash at tick 0, every 32 ticks and
-//! at its end (`harness.rs`). A run must give the blessed hashes: a change that alters how any of these games plays
-//! out fails here, at the first checkpoint that differs. The replays play in the client too (`cargo run -- --replay
+//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): eleven small games, defined below and in
+//! `colonists.rs` and `syndicate.rs` and recorded as replays in `tests/golden/`, each with the state hash at tick 0,
+//! every 32 ticks and at its end (`harness.rs`). A run must give the blessed hashes: a change that alters how any of
+//! these games plays out fails here, at the first checkpoint that differs. The replays play in the client too (`cargo run -- --replay
 //! crates/sim/tests/golden/<name>.json`).
 //!
 //! When the change is intended, re-bless the files and review the diff (the checkpoint hashes) before committing:
@@ -12,11 +12,13 @@
 //!
 //! The games are defined in `units.rs` (small games of units on test maps: a duel, an AttackMove battle, a
 //! group move through a choke, a patrol and a chase into the fog), `gdo.rs` (the GDO opening on `dev_skirmish`),
-//! `colonists.rs` (the Colonists' two) and below (the Riot Shield game), and every test is below.
+//! `colonists.rs` (the Colonists' two), `syndicate.rs` (the Syndicate's two) and below (the Riot Shield game), and
+//! every test is below.
 
 mod colonists;
 mod gdo;
 mod harness;
+mod syndicate;
 mod units;
 
 use std::collections::BTreeMap;
@@ -176,4 +178,14 @@ fn golden_colonists_opening() {
 #[test]
 fn golden_colonists_vs_gdo() {
     golden("colonists_vs_gdo", colonists::versus_gdo);
+}
+
+#[test]
+fn golden_syndicate_opening() {
+    golden("syndicate_opening", syndicate::opening);
+}
+
+#[test]
+fn golden_syndicate_vs_gdo() {
+    golden("syndicate_vs_gdo", syndicate::versus_gdo);
 }
