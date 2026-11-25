@@ -417,7 +417,7 @@ TBD: all numbers (HP, armor, sight, speed and handling, TunnelSpaceCost, damage,
 ### TechPrerequisite - player owns at least one **Vault** and at least one **Chemical Plant** (user, 2026-11-25)
 
 ### Attack
-- **A single payload**: one bomb per sortie. **Re-arming** (user, 2026-11-25, designer's reading of "requires a Vault"): it flies back and lands in **any** own Tunnel's air door; inside the network it is re-armed, as long as the player owns a Vault **anywhere** in the network (Vault > Network-wide).
+- **A single payload**: one bomb per sortie. **Re-arming** (user, 2026-11-25, designer's reading of "requires a Vault"): it flies back and lands in any own Tunnel it can land in, i.e. a **Tier 3** Tunnel with air doors (not one mid-upgrade to Tier 3); inside the network it is re-armed, as long as the player owns a Vault **anywhere** in the network (Vault > Network-wide).
 - **AoE damage**.
 - On a **turret with very low range**: it must be nearly over its target.
 - **Can miss**: the bomb falls to a locked location, so targets can dodge (DoublyDisjointed, assumed). The **projectile travel time is relatively high**, almost all of it the **vertical fall**.
