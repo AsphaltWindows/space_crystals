@@ -18,7 +18,7 @@ The Disciple has its own energy pool, which it spends on its spells. It regenera
 - **Damage spreading**: every attack against a unit standing **under the cloud** has its damage **converted to area (AoE) damage**, spread across the **whole area of all clouds contiguously connected** to the cloud the attacked unit stands under. Each object under that combined cloud takes its share under the normal AoE rules (systems/combat.md > AoEDamage: share = damage × its overlap area / the area).
 - **The cloud is centered on the Disciple** (user, 2026-11-26). The Disciple **can't move while channeling**.
 - **It affects every ground object under it** (user, 2026-11-26): **ground units and buildings**, whoever owns them, **not air units**. **All anti-ground damage** landing on objects under the cloud, single-target and area alike, is **absorbed and redistributed** over the connected cloud (likely through a damage buffer; mechanism being designed).
-- Contiguous clouds merge for this purpose: one big connected cloud spreads each hit over its whole area.
+- Contiguous clouds merge for this purpose: **all contiguously connected clouds share one damage buffer** (user, 2026-11-26), and it is spread over their whole combined area.
 
 TBD: cloud size; what ends or interrupts the channel; whether damage spread over empty cloud area is lost or shared among the units under it; drain rate; name; hotkey.
 
