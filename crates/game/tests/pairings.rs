@@ -38,7 +38,11 @@ fn every_pairing_starts_from_the_start_options() {
             for &b in &factions {
                 let names = [a, b].map(|faction| faction_name(faction).to_lowercase());
                 let mut flags = vec!["--factions".to_owned(), names.join(",")];
-                flags.extend(["--headless", "--exit-at-tick", "64"].map(String::from));
+                flags.extend([
+                    "--headless".to_owned(),
+                    "--exit-at-tick".to_owned(),
+                    EXIT_AT.to_string(),
+                ]);
                 flags.extend(map.flags.iter().cloned());
                 let name = format!("--factions {} {}", names.join(","), map.shown);
                 pairings.push((name, flags, [a, b]));

@@ -35,9 +35,9 @@ cargo run -- --factions colonists,syndicate --scenario dev_skirmish
 cargo run -- --factions colonists,colonists --scenario dev_skirmish
 ```
 
-Two tests keep these working, on every map: `crates/game/tests/pairings.rs` starts each from its flags, and
-`crates/sim/tests/pairings/` plays each with a scripted opening, then removes player 2's buildings and checks that
-player 1 wins.
+Two tests keep these working: `crates/game/tests/pairings.rs` starts each from its flags on every map, and
+`crates/sim/tests/pairings/` plays each with a scripted opening (on every map in its ignored run), then removes player
+2's buildings and checks that player 1 wins.
 
 ## Playing both sides
 
@@ -72,7 +72,8 @@ One finding per item, with:
 - **the tuning directory**, if you used one (from slice M5-X2 on).
 
 Design matters (a rule or a number that plays badly, or that the design doesn't settle) go to the **Designer**
-session; bugs (the game doesn't do what the design or the notes say) go to the **Director** session.
+session (`scripts/designer.sh`); bugs (the game doesn't do what the design or the notes say) go to the **Director**
+session (`scripts/director.sh`).
 
 ```text
 ### <what happened, in one line>
