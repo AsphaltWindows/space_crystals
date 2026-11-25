@@ -13,8 +13,8 @@ Syndicate defensive structure capable of attacking both ground and air units. It
 - **Pop-up turret** (inside an own Tunnel Area, whoever built it):
   - Occupies 1 grid unit of that Tunnel's tunnel-region, like an expansion, so it reduces Tunnel Space (¼ Tunnel Space, subject to the rounding rule in Tunnel Space).
   - While it has no target it stays **underground**, hidden like an expansion (invisible to enemies without detection).
-  - It notices enemies the same way an upright turret does. When an enemy comes into range it rises to the surface **already facing the target** and fires; it retracts once it has no target. Rise and retract timing: TBD.
-  - It **can be attacked while underground** (by enemies that can see it), but it has **much higher armor while underground** than when raised. Values TBD.
+  - It notices enemies the same way an upright turret does. When an enemy comes into range it rises to the surface **already facing the target** and fires; it retracts once it has no target. Rise and retract timing: see placeholder stats below.
+  - It **can be attacked while underground** (by enemies that can see it), but it has **much higher armor while underground** than when raised (values in the placeholder stats below).
 
 ## Conversion
 The form updates automatically whenever Tunnel Areas change:

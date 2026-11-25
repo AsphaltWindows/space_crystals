@@ -346,6 +346,11 @@ impl PlayerVision {
         self.memory.in_sight = in_sight;
     }
 
+    /// Object `id` became the player's (`super::Vision::forget_own`): its record, if any, goes.
+    pub(super) fn forget_own(&mut self, id: ObjectId) {
+        self.forget(id);
+    }
+
     /// Starts the player's memory from `records` (a save's, or a copy to check against).
     pub(super) fn set_records(&mut self, records: impl IntoIterator<Item = LastKnown>) {
         for record in records {

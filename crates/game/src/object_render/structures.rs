@@ -6,7 +6,8 @@
 //! sides show their functions by its tier (`super::tunnel`). An underground structure (plan decision T32: the
 //! Hideout) is a translucent outline instead ([`underground_mesh`]), drawn in a blending material
 //! ([`underground_material`]): its owner sees the ground and the units over it, which walk across it; nobody else
-//! sees it while it has an owner (`sc_sim::vision::hidden`).
+//! sees it while it has an owner (`sc_sim::vision::hidden`). A neutral one (slice M4-H: its Tunnel lost) is the same
+//! outline in the neutral colour, which everyone who sees its tiles sees.
 
 use bevy::prelude::*;
 use bevy::sprite_render::AlphaMode2d;

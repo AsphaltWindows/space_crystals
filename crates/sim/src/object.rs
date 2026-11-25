@@ -17,6 +17,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::mover::Mover;
 use crate::orders::Orders;
 use crate::production::Production;
+use crate::progress::Progress;
 use crate::riot_shield::RiotShield;
 use crate::scenario::BuildingOrientation;
 use crate::transform::Transform;
@@ -101,6 +102,13 @@ pub struct Object {
     /// still load and those without a site are as they were.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub construction: Option<Construction>,
+    /// A neutral expansion's decay (`factions/syndicate/tunnels.md > Losing Tunnels`: "They **slowly lose HP** until
+    /// destroyed", slice M4-H, `sim/tunnels.rs`): how much of its MaxHP it has lost to it, counted out exactly per tick
+    /// from the tick its Tunnel fell until it is reclaimed or destroyed. `None` for everything else. Optional in files,
+    /// and left out of them while `None`, so that states saved before it existed still load and those without one are
+    /// as they were.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decay: Option<Progress>,
 }
 
 impl Object {

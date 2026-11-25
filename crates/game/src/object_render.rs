@@ -23,7 +23,9 @@
 //! is its footprint as placed, in its owner's colour, with a tag naming its type ([`structures`]); a Tunnel's names its
 //! tier, and its sides show their functions by tier ([`tunnel`], design change 0224); an underground structure (the
 //! Hideout) is a translucent outline under the units that walk over it (plan decision T32), which only its owner sees
-//! while it has one. An object transforming into its kind (`Object::transform`: a building being warped in) is tinted
+//! while it has one; a neutral one, which a lost Tunnel left (`factions/syndicate/tunnels.md > Losing Tunnels`, slice
+//! M4-H: "visible to everyone"), shows to whoever sees its tiles, in the neutral colour, with its HP bar falling as it
+//! decays (`crate::combat_effects::hp_bars`: it is a damaged object). An object transforming into its kind (`Object::transform`: a building being warped in) is tinted
 //! towards a pale cyan until it is complete ([`transforming_color`]). The map resources have shapes of their own
 //! ([`resources`]).
 //!

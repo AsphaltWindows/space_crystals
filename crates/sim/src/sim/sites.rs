@@ -116,6 +116,8 @@ impl Sim {
             }
         }
         self.events.push(SimEvent::SiteCompleted { site: id, worker });
+        // A Tunnel that finishes takes back the neutral expansions it covers (slice M4-H, `sim/tunnels.rs`).
+        self.reclaim(id);
     }
 
     /// Cancel Construction on site `site` (module docs): it leaves the game, its worker comes out at the centre of its

@@ -267,6 +267,20 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   (`network::is_exit`), the drop-offs (the gate, `Sim::nearest_drop_off`, the resolution's facts) and Tunnel Space
   (`gives_tunnel_space`) all ask it, so that a site does nothing but Cancel. A site counts for defeat, blocks and is
   seen as any structure; the worker inside, held, is not.
+- **Losing Tunnels** (`sim/tunnels.rs`; slice M4-H; `factions/syndicate/tunnels.md > Losing Tunnels`, design changes
+  0254 and 0258): what a Tunnel leaves when it leaves the game, on the removal path (*Removal path*): its unfinished
+  expansions (`built_by`, the arm of `Builder::Tunnel` comes with slice M4-F) are destroyed with no refund; its
+  completed ones, its owner's underground structures wholly inside its area (a Tunnel still a site has none), become
+  **neutral**: their unit in production lost, the rest of the queue refunded (`SimEvent::ProductionCancelled`, the
+  lost one's with 0), the rally cleared; then the units in the owner's network that no remaining Tunnel lets out
+  (`network::admits`, the one exit rule: a site is none) are removed (`Sim::remove_held`). A neutral expansion decays:
+  **`Object::decay: Option<Progress>`**, hashed (a tag) and saved only while set, steps
+  `tuning::tunnel::DECAY_PERCENT_PER_SECOND` (1%, placeholder) of a 100-second decay a tick, and its HP follows the
+  share of its MaxHP the decay has left (`decayed`, computed from the whole ticks in 64 bits, so that a full Hideout
+  dies in its 1600th tick of decay, the first being its Tunnel's last). **Reclaiming** is `Sim::reclaim(tunnel)`,
+  which a site's completion calls (`Sim::complete_site`) and an upgrade's will (slice M4-G): every neutral expansion
+  wholly inside the finished Tunnel's area, at or below its tier (the Tier Requirement, 1 for every expansion until
+  slice M4-F's defs), becomes the Tunnel owner's, stops decaying and is hidden again, with no event.
 - **Side A's paths** (`network::Paths`, design changes 0225 and 0248): the one geometry of a Tunnel's entry and
   exit, for the sim and the client's drawing (`object_render/tunnel.rs` reads `PATH_OFFSET_SU`): two spots on Side
   A's line, 30 su from its middle, the exit towards Side B and the entry towards Side D, wherever the sides face
@@ -522,7 +536,13 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      transformations and for the same reason. Each site from before the tick does a frame, its HP following its
      maximum, and a complete one works from the next tick's commands, its worker in the network for the network's
      step. A site is a new object, so by the spawn-tick rule one started in tick `t` does its first frame in `t + 1`
-     and completes at the end of `t + frames`.
+     and completes at the end of `t + frames`. A Tunnel that completes reclaims the neutral expansions it covers
+     (`Sim::reclaim`, slice M4-H).
+   - Decay, `Sim::step_decay` (slice M4-H, `sim/tunnels.rs`): part of the economy phase, right after the sites, so
+     that an expansion a Tunnel finished over in the tick is its owner's again first. Each neutral expansion that
+     decays loses a tick of it, in id order; one whose HP reaches 0 dies (`SimEvent::Died`, owner `None`) and leaves
+     through `Sim::remove_objects`, the grids synced again. An expansion its Tunnel left neutral in the tick (in the
+     commands' removals or 5e's deaths) decays from that tick.
    - Producers, `Sim::step_production` (slice M2-D2, see *Production*): part of the economy phase, run right after
      `economy::step` and not inside it, because a finished unit is inserted into the game (`Sim::insert_object`).
      A unit at the front starts only if its owner's army cap has room for it (design change 0143), the unit in
@@ -697,7 +717,10 @@ ticks spent in it. Hashed and serialized like all state.
   last-known position (design change 0139: "nothing about the real state leaks"), and a Gather whose patch leaves
   heads for where the patch was (`Gather::spot`, see *Behaviours > Gathering*); the next tick's snapshot sees such a
   target Remembered until its place is seen, and Gone then (`sim/removal.rs::forget_seen_gone` ends what names it).
-  `testing::dangling_references` checks that nothing else names a removed object.
+  `testing::dangling_references` checks that nothing else names a removed object. A Tunnel taken, whatever took it,
+  leaves its expansions neutral, destroys its unfinished ones and strands the network units no remaining Tunnel lets
+  out, once everything of the call has gone (`Sim::lost_tunnels` before, `Sim::lose_tunnels` after; slice M4-H,
+  *Object model > Losing Tunnels*).
 - **Riot Shield** (`riot_shield.rs`; `factions/gdo/units/peacekeeper.md > Riot Shield (toggled ability)`, slice
   M3-S): shield down and shield up are two unit types, `Peacekeeper` and `PeacekeeperShielded` (design change 0173),
   which carry the same `RiotShieldDef`, naming both; the Barracks trains the first, and the Unit Control, a sum over
@@ -832,7 +855,10 @@ or `Visible` for each player, and each player remembers the structures and resou
   (`Sim::hidden_from` for the client), through `Hiding::of(object)`, which the snapshots carry (combat's
   `TargetView::hiding`, `World`'s views) and `object_box_state` takes: a hidden object's state is capped at Explored,
   however Visible its tiles are and whatever is revealed, so targeting, `World::sees`, the gate and the client's `Sight`
-  never see it. The memory never records it (`remember` drops it, `Vision::seed` skips it). **Damage never asks**
+  never see it. The memory never records it (`remember` drops it, `Vision::seed` skips it). A neutral expansion (its
+  Tunnel lost, slice M4-H) is seen and remembered by whoever sees its tiles; reclaimed, it is hidden again: the other
+  players' records of it go when they see its tiles, and its new owner's at once (`Vision::forget_own`: a player never
+  remembers its own objects, whether or not it sees them). **Damage never asks**
   (`systems/combat.md > AoEDamage`, design change 0262, keeping 0218: underground objects "take their share of any blast
   over them, even unseen"): a hit on the tick's list lands whoever sees its target (`combat/damage.rs`). Hidden units
   come with the Tunnel network (design change 0219).
@@ -1566,7 +1592,10 @@ section of its own.
     yield, and any player may destroy them with an explicit Attack. A raised Riot Shield stays raised, and an
     attack already Firing or in Cooldown runs its course. No producer is ever handed over: a defeated player owns
     none. The gate refuses every command of a defeated player (`Reject::Defeated`), and a debug spawn of an object
-    for them, so a defeated player owns nothing for good.
+    for them, so a defeated player owns nothing for good. Their units in a Tunnel Network are destroyed instead
+    (design change 0258 point 5, `Sim::clear_defeated_networks`). A Syndicate player's expansions that a lost Tunnel
+    left neutral no longer count, so losing the last Tunnel defeats a player with no other structure (slice M4-H,
+    *Object model > Losing Tunnels*; whose stranded-unit rule takes the network units first, in the removal).
   - **Sides**: the sim has no team or alliance data yet (fixed teams are deferred, `core/map_editor.md > Map Types >
     Custom`), so every player is their own side (`defeat::allied`) and `Sim::allies` is empty. Teams go there.
   - **The end**: the defeat that leaves at most one side standing ends the game in its tick: `Sim::outcome()` is
@@ -2203,6 +2232,17 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   random orders, Shift-queues, cancels and replacements, with a fixed seed list) and `rules` (the overlap rule by
   knowledge and by truth, the Drillable area, 0240's hidden expansions for the three factions, a unit on the site,
   the lingering ghosts' reservations). Unit tests: `construction/site.rs`'s (the maximum, who builds what).
+- **Losing Tunnel tests** (slice M4-H) are `crates/sim/tests/losing_tunnels/`, under `check` (no reference dangles,
+  each site's worker is held in it, and only a neutral expansion decays) after every tick: `neutral` (the only Tunnel
+  falling in combat: the Hideout neutral, seen and remembered by the enemy, the defeat, the Agents neutral, the network
+  destroyed, 4 HP a second and the death in the 1600th tick; one of two Tunnels: work lost, the queue refunded, the
+  infantry inside kept), `stranded` (the vehicles at the last Tier 2 Tunnel, a site is no exit, the free rebuild with a
+  debug-spawned Barracks), `attack` (auto-targeting and the right-click leave it, an explicit Attack hits it) and
+  `reclaim` (at completion and never while a site, the enemy's view and the events of the tick, an enemy reclaiming
+  and the old owner's record, partial cover blocking cells and taking Tunnel Space) and `saves` (saves at every
+  stage, the replay, the decay hashed and saved only while set). Unit tests: `sim/tunnels.rs`'s
+  (the decay's arithmetic). In the client, `crates/game/tests/fog_memory/neutral.rs` (the neutral colour, the falling
+  HP bar, the record out of sight).
 - **Game end tests** are `crates/sim/tests/game_end/` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and the draws of 0163: two players defeated in one
