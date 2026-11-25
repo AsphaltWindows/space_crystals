@@ -817,9 +817,26 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - gdo_opening, colonists_opening and colonists_vs_gdo: only the embedded map's slots changed. Every checkpoint hash is identical.
   - **Perf:** placement_check, structures_perf and drones_perf are unchanged in interleaved A/B runs.
 
+- **M4-I Supplies** (Opus; merged in `9aca8972`; 1529 tests; goldens unchanged):
+  - **The one Gather job covers stations.**
+    - The pick-up reuses Mining: 48 ticks. It claims one unclaimed Supply in 5a, and the Supply leaves in the pick-up's last tick.
+    - Each worker takes a free spot round the station's faces, so several pick up at once.
+    - The return goes to the nearest Supplies hatch (Side D), one Agent per side at a time.
+  - **`Worker.resource`.** Hashed and saved only while it is Supplies. The Agent's Supplies `LoadDef` is filled in.
+  - **Switching resources** loses the old load when the new pick-up or mining ends. An interrupted pick-up keeps it (Q0082 point 3).
+  - **An empty station.** The sim event `SupplyStationEmpty { station, owner }` goes to each player with a worker gathering there, and the client shows it in `hud/notices.rs` for 80 ticks. Waiting Agents keep their job and never look for another station.
+  - **Orders.** The default right-click and a rally on a station give Gather. A station Gather with no unit that gathers Supplies is refused (`NoWorkers`). A Supply is kept through the Tunnel Network.
+  - **Tests:** `tests/agent_supplies/` (18) covers 0256's Verification, plus the client's right-click and notice tests. Stations stand 3 GU or more from the hatch (Q0076).
+  - **Perf.** `drones_perf` and `behaviours_perf` are unchanged in interleaved A/B runs. An early version searched every object for stations each tick, costing 3–6% when idle, and was fixed.
+  - **Notes for later slices:**
+    - **J1:** the load marker draws the crystal diamond for a Supply too.
+    - **R1:** `player.rs`'s `supplies` doc is stale.
+    - **M:** six Agents coming from one side: one boxed in behind an Agent that is picking up waits for it to finish (the mover's occupied-arrival rule), so the test asserts 4 or more at once.
+
 ## In progress
+  - **M4-R1 Code organization, the sim** (Opus; brief `scratchpad/briefs/m4r1-sim-organization.md`): per-object defs, serde-ready plain data, one kind registry, `tuning/` modules, `Progress` and the toggle rule where hashes allow, splits, and the sim's citations (0282). Every golden byte-identical.
+  - **M4-R2 Code organization, the client and docs** (Opus; brief `scratchpad/briefs/m4r2-client-docs-organization.md`): the citation test, per-kind client modules, client splits, client tuning, and the citations in the client, `docs/` and `ARCHITECTURE.md`. Merges after R1.
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
-  - **M4-I Supplies** (Opus; brief `scratchpad/briefs/m4i-supplies.md`): 0256 (any number of Agents pick up at once; a station that empties means a notification placeholder and Agents waiting for ever; switching resources loses the load) and 0248 (the Supplies hatch on D).
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
   - **M4 Syndicate:** the plan is adopted (`artifacts/director/m4-plan.md`). M4-A is running, and every later slice waits for it.
@@ -993,8 +1010,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - A: done (`fcd06dc`).
     - C: done (`f67df212`; Q0077).
     - D: done (`edc30e11`; Q0076).
-    - I: running (wave 3, started early since it needs only D; Opus; brief `scratchpad/briefs/m4i-supplies.md`).
-    - R1 (sim) and R2 (client, docs, citation test): briefs ready (`scratchpad/briefs/m4r1-sim-organization.md`, `m4r2-client-docs-organization.md`). They launch together once B and I land, with nothing else running; R2 merges after R1.
+    - I: done (`9aca8972`).
+    - R1 (sim) and R2 (client, docs, citation test): running (wave 3, Opus), alone. R2 merges after R1.
     - B: done (`35e19634`).
     - The rest are queued. A planning pass is folding 0229–0271 into slices B and E–M, and planning 0260's new content: a combat spike, the Grenadier, the Laser Turret and the Chemical Plant.
   - **All M4 questions are answered** (Q0059–Q0071), by 0229–0267.
@@ -1103,7 +1120,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0079 | Agent build orders: a refund if the Agent is killed before the start; does a pending ghost or a site reserve its whole area? | no | open; M4-E builds the proposals |
 | Q0080 | Expansion placement: do ground units and lingering ghosts block it; is a Warp In over a hidden expansion red at once? | no | open; M4-F builds the proposals |
 | Q0081 | ExpandMenu slots: do expansions not yet in the game keep their greyed slots, so the turret's letter never moves? | no | open; M4-J2 and M4-F build the proposal |
-| Q0082 | Supplies gathering: pick-up and drop-off reaches; nearest Tunnel measured to the Supplies hatch; the old load lost at the end of the new pick-up | no | open; M4-I builds A |
+| Q0082 | Supplies gathering: pick-up and drop-off reaches; nearest Tunnel measured to the Supplies hatch; the old load lost at the end of the new pick-up | no | open; M4-I (`9aca8972`) built A for all three points, marked `Placeholder: Q0082 point N` |
 | Q0083 | Area damage: friendly fire, the reveal, Attack Ground's end, how grenades are drawn | no | open; M4-O and M4-U build the proposals |
 | Q0084 | Laser Turret: hidden when, sight, blocking, payment, refunds, sites, the Agent's exit, targeting | no | open; M4-S1 and M4-S2 build the proposals |
 | Q0085 | Stale doc lines that later answers contradict (seven lines) | no | open; the newer answer wins |
@@ -1335,7 +1352,7 @@ Last triaged: 0282.
 | 0245 Tunnel Network: a flat transit delay of 32 frames (placeholder) after entering before a unit can exit; produced units have none | done (M4-C, `f67df212`) | answers Q0063 point 1 |
 | 0246 Units walk into a Tunnel single file at normal speed with normal spacing, no fixed hold per unit ("one unit wide"); produced units exit without delay | done (M4-C, `f67df212`) | answers Q0063 point 7 and part of 2; replaces the 8-frame hold proposal |
 | 0247 Entering a Tunnel uses the normal Failure rule; no special waiting rule | done (M4-C, `f67df212`) | answers Q0063 point 2, as proposed |
-| 0248 Tunnel sides corrected: A entrance and exit, B crystal hatch, C back wall (no function), D Supplies hatch. Side A's exit path is the half nearer B, the entry path the half nearer D | done: A, C and D (`fcd06dc`, `f67df212`, `edc30e11`); I delivers Supplies at D | answers Q0063 point 2 (which half of Side A); corrects 0224's B and C hatches |
+| 0248 Tunnel sides corrected: A entrance and exit, B crystal hatch, C back wall (no function), D Supplies hatch. Side A's exit path is the half nearer B, the entry path the half nearer D | done (A `fcd06dc`, C `f67df212`, D `edc30e11`, I `9aca8972`: Supplies at D) | answers Q0063 point 2 (which half of Side A); corrects 0224's B and C hatches |
 | 0249 Inside the network: orders cleared, control groups and loads kept, slow HP regeneration; a Tunnel being upgraded keeps its old tier for entry and exit until it completes | done (M4-C, `f67df212`); the upgrade case waits for G | Q0063 complete (0245–0249) |
 | 0250 Ejection: ground units walk out single file, gated on the exit spot being clear; air doors have their own rate (8 frames) | done for ground units (M4-C, `f67df212`); the air doors wait for the first Syndicate air unit | answers Q0064 points 1, 2, 4, 10 and 11 |
 | 0251 Ejection: the longest-inside unit goes first; queue rules; air doors on the roof over the matching path halves; Vault and Null Chamber limits noted | done for ground units (M4-C, `f67df212`); the air doors wait for the first Syndicate air unit | answers Q0064 points 3, 4 and 11 |
@@ -1343,7 +1360,7 @@ Last triaged: 0282.
 | 0253 Auto-ejected units share the exit queue | done (M4-C, `f67df212`) | Q0064 complete (0250–0253) |
 | 0254 Expansions under construction, as proposed, except the 75% refund on cancel | partly done (M4-A, `fcd06dc`: the Hideout's sight 0 and Groupable); queued (M4-F) | answers Q0065 |
 | 0255 Agent gathering: the Drone's rules, the nearest Tunnel, the 1-square hatch as the drop-off target, and Agents wait at the hatch for ever. The Drones' placeholder (retry every 2 s, never give up) is the settled rule | done (M4-D, `edc30e11`); patches 0–1 GU from the hatch jam with 3+ Agents (Q0076) | answers Q0066; confirms Q0065 point 4 (an expansion's cells are reserved from construction start) |
-| 0256 Supplies gathering: shared stations, waiting at an empty station, switching resources loses the load; the notification waits for a notification system | queued (M4-I) | answers Q0067 |
+| 0256 Supplies gathering: shared stations, waiting at an empty station, switching resources loses the load; the notification waits for a notification system | done (M4-I, `9aca8972`); Q0082's three proposals as placeholders | answers Q0067 |
 | 0257 Syndicate panel letters on the 4x3 grid | queued (M4-J1, M4-J2) | answers Q0068, as proposed |
 | 0258 Losing Tunnels: decay %, attacking neutral expansions, reclaiming, blocked cells (counted as occupied), defeat, and the enemy sees the tier | partly done (M4-A, `fcd06dc`: the tier seen and remembered); queued (M4-H) | answers Q0069 |
 | 0259 The Syndicate economy check: measured to the hatch square; the stacked layout puts the Tunnels on opposite sides | queued (M4-L); the stacked layout is in M4-D's soak | answers Q0070 |
