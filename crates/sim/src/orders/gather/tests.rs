@@ -1,9 +1,14 @@
 //! The job's changes of patch, its end and the claims (`go_on`, `end`, `Claims`); the behaviour itself is tested
 //! in the game, `tests/gathering*.rs`.
 
+use glam::Vec2;
+
+use super::deliver::delivered;
+use super::patch::{end, go_on};
 use super::*;
 use crate::defs::ObjectKind;
 use crate::economy::Worker;
+use crate::ids::ObjectId;
 use crate::mover::Mover;
 
 const PATCH: ObjectId = ObjectId(1);

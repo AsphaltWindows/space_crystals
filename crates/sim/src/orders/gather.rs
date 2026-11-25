@@ -68,25 +68,23 @@
 //! deliver inside each other, and the patch's occupancy is the only limit. A Drone whose job ends while it is
 //! inside another follows `> Units that already overlap`: the two ignore each other until they are apart.
 
+mod claims;
+mod deliver;
 mod legs;
+mod patch;
 mod search;
 mod site;
 
-use glam::Vec2;
-
-use crate::defs::WorkerDef;
-use crate::economy::gathering::is_drop_off;
-use crate::ids::{ObjectId, PlayerId};
-use crate::mover::MoveStatus;
 use crate::object::Object;
 use crate::units::Tick;
 
 use super::OrderKind;
 use super::state::{Behaviour, Gather, GatherPhase};
-use super::world::{Unit, View, World};
-use legs::{leg, return_leg};
-use search::{search, taken};
-use site::{Site, note_spot, site};
+use super::world::{Unit, World};
+pub(crate) use claims::Claims;
+use deliver::{delivered, nearest_drop_off, to_drop_off};
+use patch::{mine, to_patch, wait};
+use site::note_spot;
 
 /// `> Patch Occupancy > Waiting and re-checking`, item 2 (design change 0132): a waiting worker looks round again
 /// at this interval, in the ticks that are multiples of it. The design's placeholder: 16 frames, 1 second.
@@ -118,61 +116,33 @@ pub(crate) fn on_gather_job(o: &Object) -> bool {
     o.worker.is_some() && current.is_some_and(|active| matches!(active.state, Behaviour::Gather(_))) && passes()
 }
 
-/// `> Patch Occupancy (one Drone per patch)`: the patches claimed so far in this tick's phase 5a, each with the
-/// worker that claimed it and its owner: one that starts mining it, or one that sets off for it, a free patch it found
-/// (design change 0133: "the lowest-id Drone whose check sees the patch free claims it"). Scratch of one phase, never
-/// state.
-#[derive(Debug, Default)]
-pub(crate) struct Claims(Vec<(ObjectId, ObjectId, Option<PlayerId>)>);
-
-impl Claims {
-    /// Whether a worker other than `me` claimed `patch`.
-    fn by_other(&self, patch: ObjectId, me: ObjectId) -> bool {
-        self.0.iter().any(|&(p, worker, _)| p == patch && worker != me)
-    }
-
-    /// Whether a worker of `owner`'s other than `me` claimed `patch`: all `owner` knows of the claims on a patch out
-    /// of its sight (design change 0139).
-    fn by_other_of(&self, patch: ObjectId, me: ObjectId, owner: Option<PlayerId>) -> bool {
-        self.0
-            .iter()
-            .any(|&(p, worker, of)| p == patch && worker != me && of == owner)
-    }
-
-    fn claim(&mut self, patch: ObjectId, worker: ObjectId, owner: Option<PlayerId>) {
-        self.0.push((patch, worker, owner));
-    }
-}
-
 /// The state a Gather or a Drop Off order starts with, for `unit`, a worker (`orders::start`).
 /// - `> Assigned Drop-off > Auto-assignment`: "When a Drone with no AssignedDropOff is ordered to Gather, it
 ///   automatically assigns the nearest Egress Node".
 /// - `> Gather while carrying a load` (design change 0128): a worker that carries a load "goes straight to the new
 ///   pick-up point" all the same.
 /// - `> Drop Off order` (design change 0127): straight to the order's drop-off.
+/// - `factions/syndicate/units.md > Agent > Gathering rules` (design change 0255), for a worker without a lasting
+///   AssignedDropOff (`WorkerDef::keeps_drop_off`): the Tunnel "is chosen when the Gather's first return starts and
+///   kept for that Gather (a new Gather picks again)". The Gather begins without one, and its first return takes the
+///   nearest (`deliver::to_drop_off`).
 pub(super) fn begin(kind: OrderKind, unit: &mut Unit, world: &World) -> Gather {
     let (pos, owner) = (unit.pos, unit.owner);
+    let keeps = (unit.unit_def().and_then(|unit| unit.worker)).is_none_or(|def| def.keeps_drop_off);
     let Some(worker) = unit.worker.as_deref_mut() else {
         return Gather::new(GatherPhase::ToPatch);
     };
     match kind {
         OrderKind::Gather(_) => {
-            if worker.drop_off.is_none() {
+            if !keeps {
+                worker.drop_off = None;
+            } else if worker.drop_off.is_none() {
                 worker.drop_off = nearest_drop_off(world, pos, owner).map(|node| node.id);
             }
             Gather::new(GatherPhase::ToPatch)
         }
         _ => Gather::new(GatherPhase::ToDropOff),
     }
-}
-
-/// The drop-off of `owner` nearest to `pos`, centre to centre; the lowest id among equals (`Sim::nearest_drop_off`).
-fn nearest_drop_off<'a>(world: &'a World, pos: Vec2, owner: Option<PlayerId>) -> Option<&'a View> {
-    owner?;
-    world
-        .drop_offs()
-        .filter(|node| node.owner == owner)
-        .min_by(|a, b| a.pos.distance_squared(pos).total_cmp(&b.pos.distance_squared(pos)))
 }
 
 /// What a phase's tick leaves.
@@ -208,7 +178,8 @@ pub(super) fn run(
             GatherPhase::ToPatch => to_patch(kind, state, unit, &def, world, claims),
             GatherPhase::Waiting { since } => wait(kind, state, unit, &def, since, world, claims),
             GatherPhase::Mining { .. } => mine(kind, state, unit, &def, world, claims),
-            GatherPhase::ToDropOff => to_drop_off(kind, state, unit, &def, world, claims),
+            GatherPhase::ToDropOff => to_drop_off(kind, state, unit, &def, None, world, claims),
+            GatherPhase::AtHatch { since } => to_drop_off(kind, state, unit, &def, Some(since), world, claims),
             GatherPhase::Delivered => delivered(*kind, state),
             // The economy phase counts the frames and moves the job on.
             GatherPhase::DroppingOff { .. } => Flow::Stay,
@@ -234,256 +205,8 @@ fn loaded(unit: &Unit) -> bool {
 fn returning(state: &Gather) -> bool {
     matches!(
         state.phase,
-        GatherPhase::ToDropOff | GatherPhase::DroppingOff { .. } | GatherPhase::Delivered
+        GatherPhase::ToDropOff | GatherPhase::AtHatch { .. } | GatherPhase::DroppingOff { .. } | GatherPhase::Delivered
     )
-}
-
-fn to_patch(
-    kind: &mut OrderKind,
-    state: &mut Gather,
-    unit: &mut Unit,
-    def: &WorkerDef,
-    world: &World,
-    claims: &mut Claims,
-) -> Flow {
-    let site = site(*kind, state, unit, world);
-    let target = match site {
-        Site::Patch(patch) => patch.shape,
-        Site::Gone(shape) => shape,
-        Site::Nowhere => return end(state, unit),
-    };
-    // `> Gathering`: MiningReach. A leg that ended short of the patch counts as arriving, out of reach (0141).
-    let in_reach = unit.shape().gap(&target) <= def.mining_reach;
-    let ended = state.moving && unit.mover.status != MoveStatus::Moving;
-    if !in_reach && !ended {
-        leg(state, unit, &target, world);
-        return Flow::Stay;
-    }
-    let Site::Patch(patch) = site else {
-        // Design change 0134: where the patch was, it looks round.
-        return find_another(kind, state, unit, def, world, claims);
-    };
-    // Design change 0128: loaded, it turns round without mining, and claims nothing. (A leg that ended short of
-    // the patch is an arrival too: the patch it can't reach is like an occupied one, 0141, and an occupied one
-    // doesn't keep it.)
-    if loaded(unit) {
-        state.enter(GatherPhase::ToDropOff);
-        return Flow::Next;
-    }
-    // Design change 0139: a patch out of its owner's sight is neither mined nor taken for occupied, whatever stands
-    // there. Within MiningReach the worker sees it, at the latest in the next tick's snapshot.
-    if in_reach && !patch.seen {
-        return Flow::Stay;
-    }
-    if in_reach && !taken(world, claims, patch.id, unit.id, false) {
-        claims.claim(patch.id, unit.id, unit.owner);
-        unit.halt();
-        state.enter(GatherPhase::Mining { done: 0 });
-        return Flow::Stay;
-    }
-    // `> Patch Occupancy`: "When a Drone arrives at an occupied patch, it goes to the nearest unoccupied patch to
-    // itself instead" (0132, item 1; and item 3: one sent on that finds that patch taken too "starts over from
-    // there"), and so it does at a patch it can't reach (0141). With none, it waits.
-    if let Some(other) = search(world, claims, unit, def, Some(patch.id)).free {
-        go_on(kind, state, (unit.id, unit.owner), other, true, claims);
-        return Flow::Next;
-    }
-    unit.halt();
-    state.enter(GatherPhase::Waiting { since: world.tick });
-    Flow::Stay
-}
-
-fn wait(
-    kind: &mut OrderKind,
-    state: &mut Gather,
-    unit: &mut Unit,
-    def: &WorkerDef,
-    since: Tick,
-    world: &World,
-    claims: &mut Claims,
-) -> Flow {
-    let patch = match site(*kind, state, unit, world) {
-        Site::Patch(patch) => patch,
-        // Design change 0134: "Drones already waiting at it look for another patch right away"; 0137, a plate.
-        Site::Gone(_) => return find_another(kind, state, unit, def, world, claims),
-        Site::Nowhere => return end(state, unit),
-    };
-    // 0132, item 1: it "mines it as soon as it frees up"; 0133: the lowest id of those waiting there. Not one out of
-    // its owner's sight (design change 0139).
-    let in_reach = unit.shape().gap(&patch.shape) <= def.mining_reach;
-    if in_reach && patch.seen && !taken(world, claims, patch.id, unit.id, true) {
-        claims.claim(patch.id, unit.id, unit.owner);
-        state.enter(GatherPhase::Mining { done: 0 });
-        return Flow::Stay;
-    }
-    // 0132, item 2: "it re-checks at intervals for a nearby patch that has freed up. If one has, it goes there."
-    // All of them in the same ticks ([`RECHECK_TICKS`]); not in the tick it began to wait, when it just looked.
-    if since == world.tick || !world.tick.is_multiple_of(RECHECK_TICKS) {
-        return Flow::Stay;
-    }
-    if let Some(other) = search(world, claims, unit, def, Some(patch.id)).free {
-        go_on(kind, state, (unit.id, unit.owner), other, true, claims);
-        return Flow::Next;
-    }
-    // 0141: short of a patch it couldn't get to, it tries again, "carrying on as soon as the way clears". Not while
-    // its owner's grids say there is no way: nothing but a change to them can open one.
-    if !in_reach && world.reachable(unit, &patch.shape) {
-        state.enter(GatherPhase::ToPatch);
-        return Flow::Next;
-    }
-    Flow::Stay
-}
-
-/// Mining, whose frames the economy phase counts. A patch that is gone for the workers stops it, and the worker
-/// looks round at once (design change 0137: "a Drone in the middle of mining it is interrupted and collects
-/// nothing").
-fn mine(
-    kind: &mut OrderKind,
-    state: &mut Gather,
-    unit: &mut Unit,
-    def: &WorkerDef,
-    world: &World,
-    claims: &mut Claims,
-) -> Flow {
-    match site(*kind, state, unit, world) {
-        Site::Patch(_) => Flow::Stay,
-        Site::Gone(_) => find_another(kind, state, unit, def, world, claims),
-        Site::Nowhere => end(state, unit),
-    }
-}
-
-fn to_drop_off(
-    kind: &mut OrderKind,
-    state: &mut Gather,
-    unit: &mut Unit,
-    def: &WorkerDef,
-    world: &World,
-    claims: &mut Claims,
-) -> Flow {
-    // Design change 0134: a worker that is where its patch was when the patch goes (the one that carries off its
-    // last load) looks round at once. One farther off goes on, and looks round there after its drop-off.
-    if !state.ending
-        && let Site::Gone(spot) = site(*kind, state, unit, world)
-        && unit.shape().gap(&spot) <= def.mining_reach
-    {
-        return find_another(kind, state, unit, def, world, claims);
-    }
-    let (pos, owner) = (unit.pos, unit.owner);
-    let Some(worker) = unit.worker.as_deref_mut() else {
-        return Flow::Done;
-    };
-    if worker.load == 0 {
-        state.enter(GatherPhase::Delivered);
-        return Flow::Next;
-    }
-    let own_drop_off = |id: ObjectId| {
-        world
-            .get(id)
-            .filter(|node| is_drop_off(node.kind) && owner.is_some() && node.owner == owner)
-    };
-    let node = match *kind {
-        OrderKind::DropOff(node) => own_drop_off(node),
-        // `> Assigned Drop-off`: "the return trip's destination is read from AssignedDropOff". Design change 0135
-        // (`> Drop-off gone`): without one as the trip starts, the nearest own Egress Node becomes it; with none, the
-        // worker idles holding its load. One destroyed on the way was replaced as it went, or left none (design
-        // change 0170, `Sim::reassign_drop_offs`): the leg takes the one it reads.
-        _ => {
-            let nearest = || nearest_drop_off(world, pos, owner).map(|node| node.id);
-            worker.drop_off = worker.drop_off.or_else(nearest);
-            worker.drop_off.and_then(own_drop_off)
-        }
-    };
-    let Some(node) = node else {
-        return Flow::Done;
-    };
-    if state.node != Some(node.id) {
-        state.node = Some(node.id);
-        state.moving = false;
-        state.retry_at = 0;
-    }
-    // `> Gathering`: DropOffReach.
-    if unit.shape().gap(&node.shape) <= def.drop_off_reach {
-        unit.halt();
-        state.enter(GatherPhase::DroppingOff { done: 0 });
-        return Flow::Stay;
-    }
-    return_leg(state, unit, &node.shape, world);
-    Flow::Stay
-}
-
-/// The load is in the bank.
-fn delivered(kind: OrderKind, state: &mut Gather) -> Flow {
-    state.node = None;
-    match kind {
-        // 0132, item 4: back to "the patch where it last successfully mined", which the order names; or to where
-        // it was, if it is gone (0134).
-        OrderKind::Gather(_) if !state.ending => {
-            state.enter(GatherPhase::ToPatch);
-            Flow::Next
-        }
-        // 0123: the Gather ran out of patches. 0127: "the Drone delivers its load and the order is complete".
-        _ => Flow::Done,
-    }
-}
-
-/// The worker is where its patch was, and the patch is gone for the workers (module docs: "a depleted patch is
-/// treated like an occupied one, so the redirect rule applies", design change 0134). It goes to the nearest free
-/// patch it can reach; with none free, to the nearest patch left, where it will wait (0123: "if only occupied
-/// patches remain, the Drone keeps gathering (waits at one)"); with none at all, the Gather ends ([`end`]).
-fn find_another(
-    kind: &mut OrderKind,
-    state: &mut Gather,
-    unit: &mut Unit,
-    def: &WorkerDef,
-    world: &World,
-    claims: &mut Claims,
-) -> Flow {
-    let gone = match *kind {
-        OrderKind::Gather(patch) => Some(patch),
-        _ => None,
-    };
-    let found = search(world, claims, unit, def, gone);
-    match found.free.or(found.any) {
-        Some(other) => {
-            go_on(kind, state, (unit.id, unit.owner), other, found.free.is_some(), claims);
-            Flow::Next
-        }
-        None => end(state, unit),
-    }
-}
-
-/// The order goes on at `patch` (`OrderKind::Gather`: it names the patch the worker heads for): at once, or after
-/// the drop-off if the worker is on its way back. One that sets off for a `free` patch claims it for this tick
-/// ([`Claims`]), as `me`, the worker and its owner.
-fn go_on(
-    kind: &mut OrderKind,
-    state: &mut Gather,
-    me: (ObjectId, Option<PlayerId>),
-    patch: ObjectId,
-    free: bool,
-    claims: &mut Claims,
-) {
-    *kind = OrderKind::Gather(patch);
-    state.spot = None;
-    if !returning(state) {
-        state.enter(GatherPhase::ToPatch);
-        if free {
-            claims.claim(patch, me.0, me.1);
-        }
-    }
-}
-
-/// Design change 0123 (`> When a Gather ends`): no patch is left within the worker's search radius. "It first
-/// delivers any load it carries, then becomes idle (or starts its next queued order)."
-fn end(state: &mut Gather, unit: &Unit) -> Flow {
-    if !loaded(unit) {
-        return Flow::Done;
-    }
-    state.ending = true;
-    if !matches!(state.phase, GatherPhase::ToDropOff | GatherPhase::DroppingOff { .. }) {
-        state.enter(GatherPhase::ToDropOff);
-    }
-    Flow::Next
 }
 
 #[cfg(test)]

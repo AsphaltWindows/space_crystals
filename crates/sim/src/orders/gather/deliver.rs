@@ -1,0 +1,163 @@
+//! The job's way back (the module docs of `orders::gather`): which drop-off, the leg to it, the line at a hatch, and
+//! what follows the delivery.
+
+use glam::Vec2;
+
+use crate::defs::WorkerDef;
+use crate::economy::drop_off::DropPoint;
+use crate::economy::gathering::is_drop_off;
+use crate::ids::{ObjectId, PlayerId};
+use crate::sides::SideLetter;
+use crate::units::Tick;
+
+use super::super::OrderKind;
+use super::super::state::{Gather, GatherPhase};
+use super::super::world::{Unit, View, World};
+use super::legs::return_leg;
+use super::patch::find_another;
+use super::site::{Site, site};
+use super::{Claims, Flow};
+
+/// The drop-off of `owner` nearest to `pos`: by its centre, or by its crystal hatch's for one with hatches
+/// (`factions/syndicate/units.md > Agent > Gathering rules`: "the nearest own operational Tunnel (straight line to
+/// its crystal hatch), regardless of how many other Agents already use it"); the lowest id among equals
+/// (`Sim::nearest_drop_off`).
+pub(super) fn nearest_drop_off<'a>(world: &'a World, pos: Vec2, owner: Option<PlayerId>) -> Option<&'a View> {
+    owner?;
+    world
+        .drop_offs()
+        .filter(|(node, _)| node.owner == owner)
+        .min_by(|(_, a), (_, b)| (a.centre.distance_squared(pos)).total_cmp(&b.centre.distance_squared(pos)))
+        .map(|(node, _)| node)
+}
+
+/// The way back, and the wait at a hatch: `since` is the tick the worker came within reach of the hatch it waits
+/// at (`GatherPhase::AtHatch`), `None` while it is on its way (`GatherPhase::ToDropOff`).
+pub(super) fn to_drop_off(
+    kind: &mut OrderKind,
+    state: &mut Gather,
+    unit: &mut Unit,
+    def: &WorkerDef,
+    since: Option<Tick>,
+    world: &World,
+    claims: &mut Claims,
+) -> Flow {
+    // Design change 0134: a worker that is where its patch was when the patch goes (the one that carries off its
+    // last load) looks round at once. One farther off goes on, and looks round there after its drop-off.
+    if !state.ending
+        && let Site::Gone(spot) = site(*kind, state, unit, world)
+        && unit.shape().gap(&spot) <= def.crystals.pick_up_reach
+    {
+        return find_another(kind, state, unit, def, world, claims);
+    }
+    let (pos, owner) = (unit.pos, unit.owner);
+    let Some(worker) = unit.worker.as_deref_mut() else {
+        return Flow::Done;
+    };
+    if worker.load == 0 {
+        state.enter(GatherPhase::Delivered);
+        return Flow::Next;
+    }
+    let own_drop_off = |id: ObjectId| {
+        world
+            .get(id)
+            .filter(|node| is_drop_off(node.kind) && owner.is_some() && node.owner == owner)
+    };
+    let node = match *kind {
+        OrderKind::DropOff(node) => own_drop_off(node),
+        // `> Assigned Drop-off`: "the return trip's destination is read from AssignedDropOff". Design change 0135
+        // (`> Drop-off gone`): without one as the trip starts, the nearest own Egress Node becomes it; with none, the
+        // worker idles holding its load. One destroyed on the way was replaced as it went, or left none (design
+        // change 0170, `Sim::reassign_drop_offs`): the leg takes the one it reads. An Agent's Gather begins without
+        // one (`super::begin`), so it takes the nearest Tunnel here, as its first return starts, and keeps it
+        // (design change 0255).
+        _ => {
+            let nearest = || nearest_drop_off(world, pos, owner).map(|node| node.id);
+            worker.drop_off = worker.drop_off.or_else(nearest);
+            worker.drop_off.and_then(own_drop_off)
+        }
+    };
+    let Some(node) = node else {
+        return Flow::Done;
+    };
+    if state.node != Some(node.id) {
+        state.node = Some(node.id);
+        state.moving = false;
+        state.retry_at = 0;
+    }
+    // Where it takes the load: the structure, or its crystal hatch. (One that takes none now, being warped in, is
+    // walked to as a whole.)
+    let anywhere = DropPoint {
+        shape: node.shape,
+        centre: node.pos,
+        side: None,
+    };
+    let point = world.drop_point(node.id).unwrap_or(&anywhere);
+    // `> Gathering`: DropOffReach.
+    let reach = def.crystals.drop_off_reach;
+    let in_reach = unit.shape().gap(&point.shape) <= reach;
+    let Some(side) = point.side else {
+        if in_reach {
+            unit.halt();
+            state.enter(GatherPhase::DroppingOff { done: 0 });
+        } else {
+            return_leg(state, unit, &point.shape, None, world);
+        }
+        return Flow::Stay;
+    };
+    if !in_reach {
+        // On its way; or pushed out of reach while it waited, which costs it its place in the line.
+        if since.is_some() {
+            state.enter(GatherPhase::ToDropOff);
+        }
+        return_leg(state, unit, &point.shape, Some(reach), world);
+        return Flow::Stay;
+    }
+    at_hatch(state, unit, (node.id, side), since, world, claims)
+}
+
+/// `factions/syndicate/tunnels.md > Tunnel > SymmetryType - ABCD`: "Only one Agent may drop off resources at a side
+/// at a time"; `factions/syndicate/units.md > Agent > Gathering rules > Waiting at the hatch` (design change 0255):
+/// "an Agent waits within reach (or as close as it can get) while another drops off, and the first to arrive
+/// delivers next. It waits as long as it takes; it never gives up".
+///
+/// The worker is within reach of `hatch`, waiting there since `since`, or just arrived. It unloads if nobody does
+/// there (as phase 5a began, `World::hatch_busy`, or since, [`Claims`]) and it is the first in the line
+/// (`World::first_in_line`: of those within reach as the phase began, the one that arrived first, the lowest id among
+/// equals; one that arrives in this tick goes behind them all). The line is derived from the workers' orders each
+/// tick (plan decision T34), so a worker whose order ends leaves it at once.
+fn at_hatch(
+    state: &mut Gather,
+    unit: &mut Unit,
+    hatch: (ObjectId, SideLetter),
+    since: Option<Tick>,
+    world: &World,
+    claims: &mut Claims,
+) -> Flow {
+    let (node, side) = hatch;
+    if since.is_none() {
+        unit.halt();
+        state.enter(GatherPhase::AtHatch { since: world.tick });
+    }
+    let free = !world.hatch_busy(node, side) && !claims.hatch_taken(node, side);
+    if free && world.first_in_line(node, side).is_none_or(|first| first == unit.id) {
+        claims.take_hatch(node, side);
+        state.enter(GatherPhase::DroppingOff { done: 0 });
+    }
+    Flow::Stay
+}
+
+/// The load is in the bank.
+pub(super) fn delivered(kind: OrderKind, state: &mut Gather) -> Flow {
+    state.node = None;
+    match kind {
+        // 0132, item 4: back to "the patch where it last successfully mined", which the order names; or to where
+        // it was, if it is gone (0134).
+        OrderKind::Gather(_) if !state.ending => {
+            state.enter(GatherPhase::ToPatch);
+            Flow::Next
+        }
+        // 0123: the Gather ran out of patches. 0127: "the Drone delivers its load and the order is complete".
+        _ => Flow::Done,
+    }
+}

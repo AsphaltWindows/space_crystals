@@ -1,12 +1,14 @@
 //! Syndicate object types — `factions/syndicate/`.
 
-use super::structures::{StructureDef, SymmetryType, TierDef, Transit, TunnelDef};
+use super::structures::{DropOff, StructureDef, SymmetryType, TierDef, Transit, TunnelDef};
 use super::units::{
-    AttackAttrs, AttackType, FullyConnectedSubtype, MovementAttrs, TargetDomain, TargetType, UnitBase, UnitDef,
+    AttackAttrs, AttackType, FullyConnectedSubtype, LoadDef, MovementAttrs, TargetDomain, TargetType, UnitBase,
+    UnitDef, WorkerDef,
 };
 use super::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
 use crate::player::Faction;
+use crate::sides::SideLetter;
 
 /// `factions/syndicate/units.md > Guard`.
 pub(super) static GUARD: ObjectDef = ObjectDef {
@@ -64,8 +66,9 @@ pub(super) static GUARD: ObjectDef = ObjectDef {
     structure: None,
 };
 
-/// `factions/syndicate/units.md > Agent`: the Syndicate's worker, with its pistol (slice M4-A). Its gathering
-/// (`> Gathering`: its `worker`) and its construction come with slices M4-D, M4-E and M4-I.
+/// `factions/syndicate/units.md > Agent`: the Syndicate's worker, with its pistol (slice M4-A) and its gathering of
+/// Space Crystals (`> Gathering`: its `worker`, slice M4-D). Its Supplies and its construction come with slices M4-I
+/// and M4-E.
 pub(super) static AGENT: ObjectDef = ObjectDef {
     kind: ObjectKind::Agent,
     name: "Agent",
@@ -114,7 +117,26 @@ pub(super) static AGENT: ObjectDef = ObjectDef {
         tunnel_space_cost: Some(1), // TunnelSpaceCost - 1
         beacon_capacity_cost: None,
         riot_shield: None,
-        worker: None,
+        // `> Gathering` (design change 0255, answering Q0066): "The Drone's job rules apply to Agents [...] with two
+        // exceptions: Agents share patches (no occupancy rule), and there is no Set Drop-off command."
+        worker: Some(WorkerDef {
+            // `> Gathering > Space Crystals`
+            crystals: LoadDef {
+                carry_capacity: 50,  // CarryCapacity: 50 Space Crystals per load
+                pick_up_ticks: 80,   // MiningDuration: 80 frames (5 seconds)
+                drop_off_ticks: 64,  // DropOffDuration: 64 frames (4 seconds)
+                pick_up_reach: 8.0,  // MiningReach: 8 space units (placeholder)
+                drop_off_reach: 8.0, // DropOffReach: 8 space units, to the crystal hatch (placeholder)
+            },
+            supplies: None,        // `> Gathering > Supplies`: slice M4-I
+            shares_patches: true,  // Patch sharing: any number of Agents may mine the same patch
+            keeps_drop_off: false, // `> Gathering rules`: the nearest Tunnel, picked again by each Gather
+            // Placeholder: the Drone's 6 grid units. `> Gathering rules` gives the Agent the Drone's "When a Gather
+            // ends" and "Last load of a patch", which look round within a search radius, and names no number for it.
+            search_radius: 6.0,
+            // `factions/colonists/units.md > Gathering Drones pass through each other`: "Drones only".
+            pass_through: false,
+        }),
     }),
     structure: None,
 };
@@ -143,9 +165,9 @@ static TUNNEL_TIERS: TunnelDef = TunnelDef {
     ],
 };
 
-/// `factions/syndicate/tunnels.md > Tunnel`: one type with a tier (plan decision T39; `crate::tunnel`). Inert so far
-/// (slice M4-A): it blocks, sees and can be destroyed. The network, the drop-offs at Sides B and D, its construction
-/// and its upgrades come with slices M4-C to M4-I.
+/// `factions/syndicate/tunnels.md > Tunnel`: one type with a tier (plan decision T39; `crate::tunnel`). It blocks,
+/// sees and can be destroyed (slice M4-A), and takes the Agents' Space Crystals at its Side B hatch (slice M4-D). The
+/// network, the Supplies at Side D, its construction and its upgrades come with slices M4-C to M4-I.
 pub(super) static TUNNEL: ObjectDef = ObjectDef {
     kind: ObjectKind::Tunnel,
     name: "Tunnel",
@@ -179,9 +201,12 @@ pub(super) static TUNNEL: ObjectDef = ObjectDef {
         constructs: &[],
         warp_in: &[],
         // Agents deliver to its hatches, crystals at Side B and Supplies at Side D (design change 0248), each "1 grid
-        // square, near the middle of the side" (0255 point 6), from slices M4-D and M4-I on (plan decision T34, with
-        // the side rule in its def).
-        drop_off: false,
+        // square, near the middle of the side" (0255 point 6; `economy::drop_off`), one Agent at a time (plan
+        // decision T34, with the side rule in its def). Supplies from slice M4-I on.
+        drop_off: Some(DropOff::Hatches {
+            crystals: SideLetter::B,
+            supplies: SideLetter::D,
+        }),
         underground: false,
         tunnel: Some(&TUNNEL_TIERS),
     }),
@@ -222,7 +247,7 @@ pub(super) static HIDEOUT: ObjectDef = ObjectDef {
         mining: None,
         constructs: &[],
         warp_in: &[],
-        drop_off: false,
+        drop_off: None,
         underground: true, // Entity Type - Structure Type (Underground)
         tunnel: None,
     }),

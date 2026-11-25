@@ -5,7 +5,8 @@
 use glam::Vec2;
 
 use super::{Reject, Sim};
-use crate::economy::gathering::is_drop_off;
+use crate::economy::drop_off::crystal_point_of;
+use crate::economy::gathering::{is_drop_off, worker_def};
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, ResourceState};
 use crate::orders::state::{Behaviour, GatherPhase};
@@ -32,7 +33,7 @@ fn returning_to(o: &Object) -> Option<ObjectId> {
     };
     let returning = match gather.phase {
         GatherPhase::ToDropOff => true,
-        GatherPhase::DroppingOff { .. } => gather.node == Some(drop_off),
+        GatherPhase::AtHatch { .. } | GatherPhase::DroppingOff { .. } => gather.node == Some(drop_off),
         _ => false,
     };
     returning.then_some(drop_off)
@@ -56,6 +57,13 @@ impl Sim {
             return Err(Reject::NotDropOff(node));
         }
         Ok(())
+    }
+
+    /// Whether `o` takes `Ability::SetDropOff`: a worker of a type with a lasting AssignedDropOff
+    /// (`WorkerDef::keeps_drop_off`: the Drone; `factions/syndicate/units.md > Agent > Gathering rules`: "there is no
+    /// Set Drop-off command").
+    pub(super) fn sets_drop_off(o: &Object) -> bool {
+        o.worker.is_some() && worker_def(o.kind).is_some_and(|def| def.keeps_drop_off)
     }
 
     /// The workers among `units`, which take a Gather or a Drop Off order; the others ignore it
@@ -165,7 +173,8 @@ impl Sim {
         }
     }
 
-    /// The drop-off of `owner`'s nearest to `pos`, centre to centre, the lowest id among equals, of those that take
+    /// The drop-off of `owner`'s nearest to `pos`, by its centre or its crystal hatch's
+    /// (`economy::drop_off::DropPoint::centre`), the lowest id among equals, of those that take
     /// loads (an Egress Node being warped in takes nothing, design change 0116) and aren't `gone`: the rule of the
     /// return leg's `orders::gather::nearest_drop_off`, here on the game rather than on the behaviours' snapshot.
     fn nearest_drop_off(
@@ -176,8 +185,9 @@ impl Sim {
     ) -> Option<ObjectId> {
         owner?;
         (self.objects.values())
-            .filter(|o| is_drop_off(o.kind) && !o.is_transforming() && o.owner == owner && !is_gone(o.id))
-            .min_by(|a, b| a.pos.distance_squared(pos).total_cmp(&b.pos.distance_squared(pos)))
-            .map(|o| o.id)
+            .filter(|o| o.owner == owner && !o.is_transforming() && !is_gone(o.id))
+            .filter_map(|o| Some((o.id, crystal_point_of(o)?.centre.distance_squared(pos))))
+            .min_by(|a, b| a.1.total_cmp(&b.1))
+            .map(|(id, _)| id)
     }
 }

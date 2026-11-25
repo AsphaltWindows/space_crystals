@@ -32,9 +32,11 @@ pub struct StructureDef {
     /// [`StructureDef::constructs`], which makes its type a GDO-style constructor (plan decision T14): a Warp In
     /// turns the Beacon itself into the building (`crate::transform`, plan decision T15).
     pub warp_in: &'static [Recipe],
-    /// Whether workers deliver their loads to the type (`factions/colonists/economy.md > Egress Node > Drop Off`:
-    /// "the only way resources enter the player's resource pool"; `crate::economy::gathering`).
-    pub drop_off: bool,
+    /// Whether workers deliver their loads to the type, and where at it (`factions/colonists/economy.md > Egress Node
+    /// > Drop Off`: "the only way resources enter the player's resource pool"; `factions/syndicate/tunnels.md > Tunnel
+    /// > SymmetryType - ABCD`; `crate::economy::gathering`, `crate::economy::drop_off`). `None` for a type that takes
+    /// no loads.
+    pub drop_off: Option<DropOff>,
     /// Whether the type is an underground structure (plan decision T32; `factions/syndicate/structures.md > Tunnel
     /// Expansions`: "Expansions are invisible to enemies without detection and can be walked over by surface units"):
     /// its footprint blocks no movement (`nav::BlockerKind::UndergroundExpansion`), and while it has an owner it is
@@ -43,6 +45,25 @@ pub struct StructureDef {
     /// The Tunnel's tier table (plan decision T39, `factions/syndicate/tunnels.md > Tunnel > Tiers`): an object of a
     /// type with one carries its tier (`Object::tunnel`, `crate::tunnel`). `None` for every other type.
     pub tunnel: Option<&'static TunnelDef>,
+}
+
+/// Where a structure type takes workers' loads (`StructureDef::drop_off`; plan decision T34: "the drop-off rule comes
+/// from the target's def").
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum DropOff {
+    /// Anywhere at the structure, any number of workers at once (`factions/colonists/units.md > Drone > Gathering`:
+    /// DropOffReach is measured to the Egress Node's edge).
+    Anywhere,
+    /// At a hatch on one of its sides, one for each resource (`factions/syndicate/tunnels.md > Tunnel > SymmetryType
+    /// - ABCD`, design change 0248: "Each resource must be delivered to its own hatch: crystals only at Side B,
+    /// Supplies only at Side D"; "Each hatch is 1 grid square long, near the middle of its side", 0255 point 6;
+    /// "Only one Agent may drop off resources at a side at a time"). `crate::economy::drop_off` has the square.
+    Hatches {
+        /// The side of the Space Crystals' hatch.
+        crystals: SideLetter,
+        /// The side of the Supplies' hatch (slice M4-I delivers there).
+        supplies: SideLetter,
+    },
 }
 
 /// `factions/syndicate/tunnels.md > Tunnel > Tiers`: "Tunnels have 3 upgrade tiers. Each tier increases HP, Tunnel

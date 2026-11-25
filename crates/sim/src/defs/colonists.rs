@@ -11,9 +11,9 @@
 //! both are 0 (plan decision T21), and a Beacon may be deployed with "no range limit from other Colonists buildings"
 //! (`economy.md > Beacon Deployment > Placement`).
 
-use super::structures::{ExitRule, ProductionDef, Recipe, StructureDef, SymmetryType};
+use super::structures::{DropOff, ExitRule, ProductionDef, Recipe, StructureDef, SymmetryType};
 use super::units::{
-    AttackAttrs, AttackType, FullyConnectedSubtype, MELEE_CONTACT_GU, MovementAttrs, TargetDomain, TargetType,
+    AttackAttrs, AttackType, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs, TargetDomain, TargetType,
     UnitBase, UnitDef, WorkerDef,
 };
 use super::{Armor, Category, Footprint, ObjectDef, ObjectKind};
@@ -63,13 +63,18 @@ pub(super) static DRONE: ObjectDef = ObjectDef {
         riot_shield: None,
         // `> Gathering`
         worker: Some(WorkerDef {
-            carry_capacity: 8,   // CarryCapacity: 8 per load
-            mining_ticks: 32,    // MiningDuration: 32 frames
-            drop_off_ticks: 2,   // DropOffDuration: 2 frames
-            mining_reach: 8.0,   // MiningReach: 8 space units (the design's placeholder)
-            drop_off_reach: 8.0, // DropOffReach: 8 space units (the design's placeholder)
-            search_radius: 6.0,  // > Patch Occupancy > Search radius: 6 grid units (placeholder, design change 0123)
-            pass_through: true,  // > Gathering Drones pass through each other (design change 0106)
+            crystals: LoadDef {
+                carry_capacity: 8,   // CarryCapacity: 8 per load
+                pick_up_ticks: 32,   // MiningDuration: 32 frames
+                drop_off_ticks: 2,   // DropOffDuration: 2 frames
+                pick_up_reach: 8.0,  // MiningReach: 8 space units (the design's placeholder)
+                drop_off_reach: 8.0, // DropOffReach: 8 space units (the design's placeholder)
+            },
+            supplies: None,
+            shares_patches: false, // > Patch Occupancy (one Drone per patch)
+            keeps_drop_off: true,  // > Assigned Drop-off
+            search_radius: 6.0,    // > Patch Occupancy > Search radius: 6 grid units (placeholder, design change 0123)
+            pass_through: true,    // > Gathering Drones pass through each other (design change 0106)
         }),
     }),
     structure: None,
@@ -229,7 +234,7 @@ pub(super) static BEACON: ObjectDef = ObjectDef {
                 frames: 480, // 480 frames (30 seconds)
             },
         ],
-        drop_off: false,
+        drop_off: None,
         underground: false,
         tunnel: None,
     }),
@@ -262,7 +267,7 @@ pub(super) static EGRESS_NODE: ObjectDef = ObjectDef {
         mining: None,
         constructs: &[],
         warp_in: &[],
-        drop_off: true, // `economy.md > Egress Node > Drop Off`
+        drop_off: Some(DropOff::Anywhere), // `economy.md > Egress Node > Drop Off`
         underground: false,
         tunnel: None,
     }),
@@ -305,7 +310,7 @@ pub(super) static ROBO_PORTAL: ObjectDef = ObjectDef {
         mining: None,
         constructs: &[],
         warp_in: &[],
-        drop_off: false,
+        drop_off: None,
         underground: false,
         tunnel: None,
     }),
@@ -350,7 +355,7 @@ pub(super) static BIO_PORTAL: ObjectDef = ObjectDef {
         mining: None,
         constructs: &[],
         warp_in: &[],
-        drop_off: false,
+        drop_off: None,
         underground: false,
         tunnel: None,
     }),

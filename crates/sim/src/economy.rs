@@ -24,6 +24,7 @@
 
 pub(crate) mod army;
 pub mod defeat;
+pub mod drop_off;
 pub mod gathering;
 pub(crate) mod mining;
 pub(crate) mod power;

@@ -91,7 +91,7 @@ impl Sim {
     ) -> Result<Checked, Reject> {
         let has = |o: &Object| match ability {
             Ability::RiotShield { .. } => o.riot_shield.is_some(),
-            Ability::SetDropOff(_) => o.worker.is_some(),
+            Ability::SetDropOff(_) => Sim::sets_drop_off(o),
             Ability::Convert => conversion::converts_to(o.kind).is_some(),
         };
         let own = self.own_units(player, units, |_| true)?;
