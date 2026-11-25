@@ -99,15 +99,16 @@ Rationale (user, 2026-11-26; replaces the 5 s mining rationale): the drop-off ti
 - **Switching resources**: an Agent carrying Space Crystals that is ordered to gather Supplies goes **straight to the station**; its crystals are **lost when it picks up the Supply**: at the **end** of the pick-up, when the new load arrives. An Agent interrupted mid-pick-up keeps its crystals. The same holds the other way: a carried Supply is lost when the Agent **finishes** mining a crystal load (user, 2026-11-26; Q0082).
 
 ## Repair
-(user, 2026-11-26) Agents can **repair** own **Tunnels** and **Laser Turrets**. **Laser Turrets cost Space Crystals to repair; Tunnels are repaired for free** (user, 2026-11-26). **Repair rules shared by every repairer** (user, 2026-11-26): several repairers on one target repair **faster, scaling linearly** (2 repairers = twice the rate), as construction does. **Placeholder rate and cost** (designer, 2026-11-26): repairing from 0 to full HP takes **half the target's build time** with one repairer, and costs **half its price** in the resource it was bought with, paid gradually as HP is restored (except Tunnels, which are free). How an Agent reaches a pop-up turret or a Tunnel (side, reach) follows the Recruit/Field Engineer repair flow; details: Director's discretion.
+(user, 2026-11-26) Agents can **repair** own **Tunnels** and **Laser Turrets** (right-click a damaged Laser Turret; a Tunnel's right-click stays **Enter**, so repair it with **F: Repair**, user, 2026-11-26). **Laser Turrets cost Space Crystals to repair; Tunnels are repaired for free** (user, 2026-11-26). **Repair rules shared by every repairer** (user, 2026-11-26): several repairers on one target repair **faster, scaling linearly** (2 repairers = twice the rate), as construction does. **Placeholder rate and cost** (designer, 2026-11-26): repairing from 0 to full HP takes **half the target's build time** with one repairer, and costs **half its price** in the resource it was bought with, paid gradually as HP is restored (except Tunnels, which are free). How an Agent reaches a pop-up turret or a Tunnel (side, reach) follows the Recruit/Field Engineer repair flow; details: Director's discretion.
 
 ## Agent ObjectInterfaceState
 
-**Panel letters (4x3 grid)** (user, 2026-11-25; Q0068, "fine for now"): **Q** Move, **A** Build Tunnel, **S** Drop Off Resources, **D** Build Laser Turret (greyed until available), **X** Stop. No Attack, Hold Position, Patrol or AttackMove buttons; the Agent attacks by right-click. These letters replace the older ones listed below where they differ.
+**Panel letters (4x3 grid)** (user, 2026-11-25; Q0068, "fine for now"): **Q** Move, **A** Build Tunnel, **S** Drop Off Resources, **D** Build Laser Turret (greyed until available), **F** Repair (designer placeholder letter, 2026-11-26; D was taken), **X** Stop. No Attack, Hold Position, Patrol or AttackMove buttons; the Agent attacks by right-click. These letters replace the older ones listed below where they differ.
 
 ### DefaultState commands:
 - **A: Build Tunnel** — enters AwaitingPlacement for a Tunnel (StateOnlyTransition). Ghost preview follows cursor, snapped to grid. Tinted green when valid, red when invalid. R rotates 90° clockwise, Shift+R counter-clockwise. F flips horizontally, Shift+F flips vertically. Left-click valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Escape/right-click cancels back to DefaultState.
 - **S: Drop Off Resources** (letters per Panel letters above) — targeted command (CommandIssuingTransition). Requires clicking an own Tunnel. Agent walks to the appropriate side automatically (Side B for crystals, Side D for supplies). Always visible, greyed out when Agent is not carrying resources.
+- **F: Repair** — targeted command (StateOnlyTransition). Left-click a damaged own Tunnel or Laser Turret to repair it (see Repair).
 - **D: Build Laser Turret** — enters AwaitingPlacement for a Laser Turret (StateOnlyTransition), same placement flow as Build Tunnel. Left-click a valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Visible but greyed out until the player owns an Optics Lab.
 
 ### Unit Commands:
@@ -123,7 +124,8 @@ Rationale (user, 2026-11-26; replaces the 5 s mining rationale): the drop-off ti
 - Space Crystals patch → Gather crystals
 - Supply Delivery Station → Gather supplies
 - Own Tunnel (carrying resources) → Drop off resources (auto-routes to correct side)
-- Own Tunnel (not carrying resources) → Enter
+- Own Tunnel (not carrying resources) → Enter (also when damaged: Enter wins over Repair)
+- Damaged own Laser Turret → Repair
 - Enemy unit/building → Attack (pistol)
 - Ground → Move
 
