@@ -412,6 +412,7 @@ pub fn every_command() -> Vec<Command> {
                     flip_v: false,
                 },
             },
+            TunnelCommand::Upgrade,
             TunnelCommand::Cancel,
         ]
         .map(|command| Command::Tunnel {
@@ -453,7 +454,11 @@ pub fn every_command() -> Vec<Command> {
                 | ConstructionCommand::CancelTransform => {}
             },
             Command::Tunnel {
-                command: TunnelCommand::Eject { .. } | TunnelCommand::Expand { .. } | TunnelCommand::Cancel,
+                command:
+                    TunnelCommand::Eject { .. }
+                    | TunnelCommand::Expand { .. }
+                    | TunnelCommand::Upgrade
+                    | TunnelCommand::Cancel,
                 ..
             } => {}
             Command::Debug(

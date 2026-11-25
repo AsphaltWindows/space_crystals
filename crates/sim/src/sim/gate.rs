@@ -162,6 +162,14 @@ pub enum Reject {
     /// (M4-F) A Tunnel's Cancel while it performs no operation ("**X** Cancel (upgrade, construction or the current
     /// operation)", `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`).
     NoOperation(ObjectId),
+    /// (M4-G) An Upgrade to a Tunnel at its table's last tier (`factions/syndicate/tunnels.md > Tunnel
+    /// ObjectInterfaceState`: "Unavailable if already Tier 3").
+    TopTier(ObjectId),
+    /// (M4-G) Something blocks the Tunnel's upgrade, by the truth: its area at the target tier would overlap another
+    /// Tunnel's (any player's, as it reserves it), or reach a cell off the map or not Drillable
+    /// (`factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`). It never says what: "the upgrade check uses
+    /// the truth; the upgrading Tunnel's owner learns that something blocks it".
+    UpgradeBlocked(ObjectId),
 }
 
 impl fmt::Display for Reject {
@@ -219,6 +227,8 @@ impl fmt::Display for Reject {
             Reject::OperationUnderWay(id) => write!(f, "Tunnel {} performs an operation already", id.0),
             Reject::TierRequirement { kind, tier } => write!(f, "a {} needs a Tier {tier} Tunnel", kind.def().name),
             Reject::NoOperation(id) => write!(f, "Tunnel {} performs no operation", id.0),
+            Reject::TopTier(id) => write!(f, "Tunnel {} is at its top tier", id.0),
+            Reject::UpgradeBlocked(id) => write!(f, "something blocks Tunnel {}'s upgrade", id.0),
         }
     }
 }
@@ -273,6 +283,13 @@ pub(super) enum Checked {
     /// `tunnel`: the player's, in operation, with an operation to cancel (`sim/expansions.rs`).
     CancelOperation {
         tunnel: ObjectId,
+    },
+    /// `tunnel`: the player's, in operation and free, upgrading to tier `to` for `price` Supplies, which the bank pays,
+    /// its area at `to` clear by the truth (`sim/upgrades.rs`).
+    Upgrade {
+        tunnel: ObjectId,
+        to: u8,
+        price: u32,
     },
     /// `player`'s production command, with what its checks resolved (`sim/producers.rs`).
     Production {

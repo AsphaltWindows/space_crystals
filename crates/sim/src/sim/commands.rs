@@ -52,6 +52,7 @@ impl Sim {
                 placement,
             } => self.start_expansion(cmd.player, tunnel, kind, placement),
             Checked::CancelOperation { tunnel } => self.cancel_operation(tunnel),
+            Checked::Upgrade { tunnel, to, price } => self.start_upgrade(cmd.player, tunnel, to, price),
             Checked::Production { player, plan } => self.apply_production(player, plan),
             Checked::Construction { player, resolved } => self.apply_construction(player, resolved),
         }
