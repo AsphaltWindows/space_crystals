@@ -70,7 +70,7 @@ impl NavGrid {
 
     /// `docs/movement.md > 5.7`: the grid of the same terrain under other blocking footprints, as
     /// [`NavGrid::build`] would make it. The terrain's part is kept, so this is the cheap rebuild for a map that
-    /// didn't change (timings: `tests/nav_perf.rs`).
+    /// didn't change (timings: `tests/nav_perf/`).
     pub fn restamp(&mut self, blockers: &[TileRect]) {
         let (w, h) = (self.width as usize, self.height as usize);
         self.solid.clone_from(&self.terrain);

@@ -293,7 +293,7 @@ fn a_rifle_legionnaire_fires_at_four_grid_units_with_the_elevation_modifier() {
     );
 }
 
-/// `factions/colonists/units.md > Drone`: it moves by DragMovement (slice M3-G; `tests/movement_drag.rs` has the
+/// `factions/colonists/units.md > Drone`: it moves by DragMovement (slice M3-G; `tests/movement_drag/` has the
 /// model's own tests). From rest it gains 0.8 space units/frame in its first frame and approaches the equilibrium
 /// `(ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio` = (0.6 + 0.2) / 0.1 = 8 space units/frame
 /// without ever passing it; a Peacekeeper moves 4 from its first frame.

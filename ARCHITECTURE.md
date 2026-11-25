@@ -64,7 +64,7 @@ A task is done when all of the following hold:
 every run and every machine. Replays, reproducible bugs and a possible lockstep multiplayer mode depend on this.
 `crates/sim/clippy.toml` enforces the mechanical rules below as disallowed methods and types. Never `#[allow]` them.
 There is one exception: an `#[ignore]` perf test under `crates/sim/tests/` may read the clock in a single timing helper marked
-`#[expect(clippy::disallowed_methods)]`, as `nav_perf.rs` does. Its timings are printed and never asserted.
+`#[expect(clippy::disallowed_methods)]`, as `nav_perf/` does. Its timings are printed and never asserted.
 
 - **Order**: iterate objects in `ObjectId` order. `Sim` keeps them in a `BTreeMap<ObjectId, Object>`, and ids are
   allocated in increasing order and never reused. Break ties between candidates by `ObjectId` (`Iterator::min_by`
@@ -301,10 +301,10 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
 - **Not placement rules**: debug spawns bypass them (they keep the map's rules and apart from other footprints, see
   *Commands, events and replays*), and starting units follow the unit-start rule (`paths::misplaced`, see *Sim
   scenarios and tests*).
-- **Tests**: `src/placement/tests.rs` (each rule on the pure check), `placement/build_area.rs`'s (the 28 × 28 area,
+- **Tests**: `src/placement/tests/` (each rule on the pure check), `placement/build_area.rs`'s (the 28 × 28 area,
   each kind's extension, the runs), `tests/placement.rs` (the verification points of design changes 0004 and 0091 to
-  0097 in games and layouts, determinism, a save), `tests/warp_in.rs` (the Warp In method, see *Economy > Warp In*),
-  `tests/deploy_gate.rs` (the worker-built method, its modes and the reservations) and the ignored `tests/placement_perf.rs`. Measured (release, 769 objects,
+  0097 in games and layouts, determinism, a save), `tests/warp_in/` (the Warp In method, see *Economy > Warp In*),
+  `tests/deploy_gate/` (the worker-built method, its modes and the reservations) and the ignored `tests/placement_perf.rs`. Measured (release, 769 objects,
   101 buildings of the player's; slice M2-J2, on a quiet machine): 4 µs a check, 2 µs a build area.
 
 ## Tick pipeline
@@ -819,7 +819,7 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   - **No owner**: a neutral unit (and a defeated player's, design change 0101) plans on the true grids by
     `nav_version`: it has nobody's knowledge and sees nothing. Code that changes a unit's owner should call
     `Mover::repath`, since the unit's path was planned on other grids.
-  - Measured (`tests/nav_perf.rs`, ignored, release; 4 players, 412 units and 160 patches on 256 × 256): the tick
+  - Measured (`tests/nav_perf/`, ignored, release; 4 players, 412 units and 160 patches on 256 × 256): the tick
     in which ten Generators go in sight of all four players rebuilds 5 sets of grids and takes 1.0 ms; the worst
     tick after it, with the units' path checks, 1.3 ms. A set holds one grid, `(GroundRugged, 1)`: every unit
     type built so far crosses Rugged terrain and is at most a tile wide, the Drone included (a HoverVehicle,
@@ -1590,8 +1590,9 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   Capacity falls to 1 (the 5th Drone made and every 6th after it), and pays for the rest through a `BuildOrder`.
   `reference_field(drones)` is the reference geometry of design change 0107, and `colonists::skirmish` plays
   `dev_skirmish` with a Colonists line against the GDO's (the Colonists' golden games, and longer runs of them).
-- **Movement scenario tests** are `crates/sim/tests/movement_collision.rs` (passing, head-on, choke, group arrival,
-  idle units, repaths, oscillation bounds, save and load in a crowd), `group_destinations.rs` (the magic box; a
+- **Movement scenario tests** are `crates/sim/tests/movement_collision/` (passing, head-on, choke, group arrival,
+  idle units, repaths, oscillation bounds, save and load in a crowd; in modules by topic: `passing`, `crowds`,
+  `paths`), `group_destinations.rs` (the magic box; a
   group crowding its own spots, 0183),
   `queued_group_destinations.rs` (Shift-queued group orders),
   `movement_yield/` (who yields, a group order's units, the give-up schedule, occupied targets; 0169's 3 GU for a
@@ -1629,21 +1630,23 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
 - **Resource collision tests** are `crates/sim/tests/resources_block.rs` (design change 0038's verification: units
   path around a crystal field, can't walk across a Supply Delivery Station, and walk through the tile of a patch
   removed by a debug command, standing in for depletion; `economy_mining.rs` has the real thing, below).
-- **Path knowledge tests** are `crates/sim/tests/path_knowledge.rs` (the verification points of design changes
+- **Path knowledge tests** are `crates/sim/tests/path_knowledge/` (the verification points of design changes
   0040 and 0042: a hidden wall of enemy buildings, a scouted building destroyed out of sight, a crystal field never
   seen, a patch gone in the fog; own structures; an unseen structure is open ground for plans and solid for
-  units; lazy grids; saves with stale knowledge) and the ignored `nav_perf.rs` (`knowledge_rebuilds_256`).
+  units; lazy grids; saves with stale knowledge; in modules by topic: `plans`, `remembered`, `collision`,
+  `grids`) and the ignored `nav_perf/` (`knowledge_rebuilds_256`).
 - **Economy tests** are `crates/sim/tests/economy_mining.rs` (lumps every 48 ticks and the first 48 ticks after
   placement, the cycles under the power penalty and across a change of ratio, the loads down to the residual, a plate
   gone from a patch with crystals left or from a depleted one, by a debug removal or in combat, after which a unit
   walks through the opened tile, a patch mined out in the fog that another player assumes until it sees the tile
   (design change 0042), and the links in any order) and `economy_resources.rs` (the banks and
   `SetResources`, power and the ticks a building counts in, Unit Control, a mining game replayed and saved).
-- **Construction tests** are `crates/sim/tests/construction.rs` (each building's frames at full power and the plate's
+- **Construction tests** are `crates/sim/tests/construction/` (each building's frames at full power and the plate's
   680 ticks at 30/51 beside an unslowed Deployment Center, the refunds and their events, every refused command changing
   nothing, a group command in id order, a Place in its orientation with power, area and grids following, a refused Place
   for each problem of the check and one refused by an earlier command of its tick, destroyed constructors' refunds by a
-  debug removal and in combat, a fuzz of the gate, a save and a replay). The clean Barracks opening, which slice
+  debug removal and in combat, a fuzz of the gate, a save and a replay; in modules by topic: `timings`, `refunds`,
+  `gate`, `placing`, `saves`). The clean Barracks opening, which slice
   M2-D1 measured there first, is the economy oracle's.
 - **The economy oracle** is `crates/sim/tests/economy_oracle/`, one binary in modules; its measured results are in
   `docs/economy_oracle.md`. **The Colonists** (slice M3-K1, `colonists.rs` and `curve.rs`): the reference line on
@@ -1661,10 +1664,11 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   tolerances on the design's trickle figures are named where they are used (a plate's first lump 3 s after it
   lands, a wait for money up to one cycle longer, a bank under a trickle's by less than a lump per plate), while
   costs, build times, lumps and the power penalty are checked exactly. `--nocapture` prints each line's timeline.
-- **Game start tests** are `crates/sim/tests/game_start.rs` (slice M2-F1: each player's Starting Layout and banks,
+- **Game start tests** are `crates/sim/tests/game_start/` (slice M2-F1: each player's Starting Layout and banks,
   the Skirmish Default restriction and completeness, the layout rules of design change 0097, a layout plate off its
   patch refused by the game's rule, a pre-placed one by the same rule, two players' layouts in each other's way, the
-  outdated flag, and `dev_skirmish`'s bases seeing and reaching their fields) and the unit tests of
+  outdated flag, and `dev_skirmish`'s bases seeing and reaching their fields; in modules by topic: `start`,
+  `layout_rules`, `skirmish_default`) and the unit tests of
   `scenario/starting.rs` (the table, and a layout made for other Starting Conditions). `colonists_start.rs` (slice
   M3-C) has the Colonists' start on `dev_skirmish` in either slot, its Drones clear of the node and the portal, the
   validation of every faction combination and of an incomplete layout, and Beacon Capacity (design change 0143):
@@ -1708,7 +1712,7 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   the measurements) and `gathering_pass_through.rs` (design change 0106's Verification: two players' Drones on one
   row; an idle Drone parked in the strip, an enemy's and the gatherer's own; a Drone ordered out of a mining Drone,
   and solid once apart; a Drone stopped inside another, not pushed apart).
-- **Warp In tests** are `crates/sim/tests/warp_in.rs` (slice M3-E: each building's WarpInTime and the Train it takes
+- **Warp In tests** are `crates/sim/tests/warp_in/` (slice M3-E: each building's WarpInTime and the Train it takes
   from the next tick; the interpolated maxima; damage carried through, taken before or during it (0110); the
   derived footprint, its corners, flips, turns and exit sides (0121); the Robo Portal's ring, blocked by a unit of
   either player, a patch or a structure (0118); every tile Visible, an unseen unit leaking nothing (0119); the
@@ -1716,23 +1720,27 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   warping in (0116); the cancels' refunds, 75 % rounded down (56, 112, and 187 for the Robo Portal, 250 since
   design change 0167), and HP (0111); Beacon Capacity kept (0112); defeat and destruction, with no
   refund for either portal (0113, 0115); the gate against `Sim::warp_in_check` in every orientation, a save, a
-  replay, and a fuzz of the gate). The arithmetic and the footprint are unit-tested in `transform/tests.rs`. In the
-  client: `tests/client/visuals.rs` (a visual rebuilt and tinted), `tests/selection/panels.rs` (a selected Beacon
+  replay, and a fuzz of the gate; in modules by topic: `timings`, `interpolation`, `footprints`, `under_warp_in`,
+  `cancel`, `gate`, `saves`). The arithmetic and the footprint are unit-tested in `transform/tests.rs`. In the
+  client: `tests/client/visuals/` (a visual rebuilt and tinted), `tests/selection/panels.rs` (a selected Beacon
   through its Warp In), and the InfoPanel's line in `hud/info_panel` and `activity.rs`.
-- **Beacon Deployment tests** (slice M3-F) are `crates/sim/tests/deploy.rs` (the walk to the footprint's centre and the
+- **Beacon Deployment tests** (slice M3-F) are `crates/sim/tests/deploy/` (the walk to the footprint's centre and the
   start on arrival, the 48 frames, the HP from 20 to 120 and damage carried through (0110), Beacon Capacity 10/10 to
   9/10 to 9/15 and a cancel to 11/10 (0112), the cancel's fractions of HP and Shields and its place (0109, 0111), the
   Drone's Shields kept as it starts, the load lost or returned (0114), defeat (0113), a destruction, the footprint
-  claimed, auto-targeting taking the footprint, Shift, a save and a replay) and `crates/sim/tests/deploy_gate.rs` (one
+  claimed, auto-targeting taking the footprint, Shift, a save and a replay; in modules by topic: `arrival`, `cancel`,
+  `loads`, `beacon`, `saves`) and `crates/sim/tests/deploy_gate/` (one
   Drone per Deploy; the gate on what the player knows, remembered buildings, hidden units and never-explored ground
   (0120); failures on arrival for a structure, a unit of either player, a patch, a Drone walled off, and a Drone blocked
   while overlapping that deploys (0117, 0118); only Cancel on a deploying Beacon (0116); the reservations and
-  `Sim::pending_deploys` (0125); a fuzz of the gate and the arrival). Unit tests: `deploy.rs`'s, `placement/tests.rs`
+  `Sim::pending_deploys` (0125); a fuzz of the gate and the arrival; in modules by topic: `gate`, `arrival`,
+  `pending`, `fuzz`). Unit tests: `deploy.rs`'s, `placement/tests/`
   (reservations, `Mode::Known`) and `transform/tests.rs` (the load hashed).
-- **Game end tests** are `crates/sim/tests/game_end.rs` (defeat by a removal and in combat, plates counting; no
+- **Game end tests** are `crates/sim/tests/game_end/` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and the draws of 0163: two players defeated in one
-  tick, and the last two of three; no producer handed over; a save across a defeat and the end, and old saves) and,
+  tick, and the last two of three; no producer handed over; a save across a defeat and the end, and old saves; in
+  modules by topic: `defeat`, `on_defeat`, `end_of_game`, `saves`) and,
   in the client, `crates/game/tests/game_end/` (`outcome`: the banners, Draw for everyone, the stop; `recording`:
   the saved recording, QA's end; `results`: the results screen of 0164 in a three-player game, under the debug
   player switch and in a replay, the draw seen from it, the spectator's fog) with the unit tests of `hud/results.rs`
@@ -2388,8 +2396,8 @@ unchecked.
   or ", end", and "Tick n / end". Screenshots, `--exit-at-tick`, `--dump-state`, `--input-script` (to press the
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
-- **Golden hashes** (`crates/sim/tests/golden/`: the games in `main.rs` and `colonists.rs`, the recording and the
-  comparison in `harness.rs`): nine games, a 3v3 duel, a 40-unit AttackMove battle, a
+- **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs` and `main.rs`, the
+  recording and the comparison in `harness.rs`): nine games, a 3v3 duel, a 40-unit AttackMove battle, a
   12-unit group move through a choke, a patrol that meets an enemy, a chase into the fog, three Peacekeepers that
   raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under fire and lower
   them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1 plays the

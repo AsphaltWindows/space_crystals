@@ -1,5 +1,5 @@
 //! The DragMovement numbers alone: the thrust, the approach speed and the braking it plans. The scenario tests
-//! in `crates/sim/tests/movement_drag.rs` cover a Drone in a game.
+//! in `crates/sim/tests/movement_drag/` cover a Drone in a game.
 
 use super::*;
 

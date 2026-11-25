@@ -1,5 +1,5 @@
 //! The arithmetic of a transformation (`crate::transform`): its progress, the interpolated maxima and what becomes
-//! of the current values. A game's Warp Ins are `tests/warp_in.rs`.
+//! of the current values. A game's Warp Ins are `tests/warp_in/`.
 
 use glam::Vec2;
 
@@ -182,7 +182,7 @@ fn damage_is_carried_through_unchanged() {
 
 /// Design change 0111: a cancel restores the old maxima with "the same fraction of HP and Shields", "original_max ×
 /// current_before ÷ max_before"; its Verification: "Cancel a deploy at 90/120 → Drone 15/20", "Cancel a Warp In at
-/// 50% HP → Beacon 60/120". The minimum of 1 HP ([`MIN_HP_AFTER_CANCEL`]) is the cancel's (`tests/warp_in.rs`).
+/// 50% HP → Beacon 60/120". The minimum of 1 HP ([`MIN_HP_AFTER_CANCEL`]) is the cancel's (`tests/warp_in/`).
 #[test]
 fn a_cancel_keeps_the_fraction() {
     assert_eq!(keep_fraction(90.0, 120.0, 20.0), 15.0, "the deployment's example");

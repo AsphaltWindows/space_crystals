@@ -1,7 +1,7 @@
 //! Scripted build orders (slice M2-J1), for tests that play an opening the way a player would: with the player's own
 //! `Command::Construction` and `Command::Production`, through the command gate, never with debug commands. The
 //! economy oracle (`tests/economy_oracle/`) checks `factions/gdo/economy.md > Opening Economy Baseline` with them,
-//! and the golden game `gdo_opening` (`tests/golden/main.rs`) plays one. A Colonists player's line
+//! and the golden game `gdo_opening` (`tests/golden/gdo.rs`) plays one. A Colonists player's line
 //! ([`super::colonists`], slice M3-K1) pays for its Drones, Sabres and Warp Ins through one.
 //!
 //! A [`BuildOrder`] is a player's tracks, in priority order; a track is a sequence of [`Order`]s, each a building
