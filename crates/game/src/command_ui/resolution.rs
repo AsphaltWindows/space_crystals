@@ -297,9 +297,9 @@ pub fn group_orders(orders: impl IntoIterator<Item = (ObjectId, OrderKind)>) -> 
 /// 0064), one the player remembers too (design change 0139), and the ground, for an AttackMove. AttackGround takes the
 /// ground only (`systems/controls/selection_and_hud.md > AwaitingTarget[AttackGround] resolution`: "Left-click Ground:
 /// issues AttackGround command to that location"; slice M4-O), wherever the click falls on it, over an object the
-/// player doesn't see too. The Agent's Drop Off takes an own drop-off in operation (`factions/syndicate/units/agent.md
-/// > Agent ObjectInterfaceState`: "Requires clicking an own Tunnel"; [`drop_off_target`], slice M4-J1). Reverse has no
-/// order in the sim yet.
+/// player doesn't see too. The Agent's Drop Off takes an own drop-off in operation ([`drop_off_target`], slice M4-J1;
+/// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "Requires clicking an own Tunnel"). Reverse has
+/// no order in the sim yet.
 pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKind> {
     use CursorTarget::{EnemyObject, FriendlyObject, Ground, NeutralObject};
     match (pending, target.target) {

@@ -27,7 +27,11 @@
 //! The Colonists' Deploy and Warp In (slice M3-J1: the Drone's and the Beacon's panels, their ghosts, the lingering
 //! ghosts, whatever transforms showing only Cancel, and what a greyed-out button says): `colonists`, on a Colonists
 //! field.
+//!
+//! The Agent's UI (slice M4-J1: its panel, Build Tunnel's price and ghost, Shift placing, sites, lingering Tunnel
+//! ghosts, the Enter and Drop Off pointers, a carried Supply): `agent_ui`, on a Syndicate field.
 
+mod agent_ui;
 mod click_allowance;
 mod colonists;
 mod construction;
