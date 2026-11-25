@@ -2227,3 +2227,4 @@ Q0071 gap: no AoE underground unless direct target (replaces 0218). Entry 0261.
 Q0071 gap reversed: AoE hits underground; expansions high armor placeholder. Entry 0262 replaces 0261.
 Q0071 confirmations. Entry 0263.
 Building armor rule n / n*size; placeholders corrected. Entry 0264.
+Q0071 gap: passengers count against Tunnel Space. Entry 0265.
