@@ -2,11 +2,14 @@
 //! [`UnitBaseDef`] per [`UnitBase`], the same for every unit type of that base, with its [`Domain`] and its
 //! [`MovementModel`].
 
+use serde::{Deserialize, Serialize};
+
+use crate::defs::Transit;
 use crate::nav::NavClass;
 
 /// `systems/units.md > UnitBase > Domain`: where a unit exists. It is also the unit's collision layer
 /// (`docs/movement.md > 6.1`).
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Domain {
     Ground,
     Air,
@@ -26,7 +29,7 @@ impl Domain {
 }
 
 /// `systems/units.md > MovementModel`: how a unit moves, turns and accelerates.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MovementModel {
     /// `systems/units.md > TurnRateMovement`.
     TurnRate,
@@ -41,7 +44,7 @@ pub enum MovementModel {
 }
 
 /// `systems/units.md > UnitBase`: the nine unit bases.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum UnitBase {
     LightInfantry,
     HeavyInfantry,
@@ -55,7 +58,7 @@ pub enum UnitBase {
 }
 
 /// What a unit base is (`systems/units.md > UnitBase`): the same for every unit type of that base.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UnitBaseDef {
     pub base: UnitBase,
     /// `> Domain`.
@@ -76,6 +79,9 @@ pub struct UnitBaseDef {
     pub can_reverse: bool,
     /// `> MovementModel`.
     pub movement_model: MovementModel,
+    /// The class of unit the base belongs to for the Tunnel Network's transit (`factions/syndicate/tunnels.md > Tunnel
+    /// Network > Transit Tier Requirements`, as it lists the bases; [`Transit::of`]).
+    pub transit: Transit,
 }
 
 impl UnitBase {
@@ -131,6 +137,7 @@ static LIGHT_INFANTRY: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::TurnRate,
+    transit: Transit::Infantry, // "Tier 1+: Infantry (Light Infantry, Heavy Infantry)"
 };
 
 /// `systems/units.md > HeavyInfantry`.
@@ -144,6 +151,7 @@ static HEAVY_INFANTRY: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::TurnRate,
+    transit: Transit::Infantry, // "Tier 1+: Infantry (Light Infantry, Heavy Infantry)"
 };
 
 /// `systems/units.md > WheeledVehicle`.
@@ -157,6 +165,7 @@ static WHEELED_VEHICLE: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: false,
     can_reverse: true,
     movement_model: MovementModel::FixedTurnRadius,
+    transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
 
 /// `systems/units.md > TrackedVehicle`.
@@ -170,6 +179,7 @@ static TRACKED_VEHICLE: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: true,
     movement_model: MovementModel::SpeedTurnRadius,
+    transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
 
 /// `systems/units.md > DrillUnit`.
@@ -183,6 +193,7 @@ static DRILL_UNIT: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: true,
     movement_model: MovementModel::SpeedTurnRadius,
+    transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
 
 /// `systems/units.md > HoverVehicle`.
@@ -199,6 +210,7 @@ static HOVER_VEHICLE: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::Drag,
+    transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
 
 /// `systems/units.md > Mech`.
@@ -212,6 +224,7 @@ static MECH: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::TurnRate,
+    transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
 
 /// `systems/units.md > HoverCraft`.
@@ -225,6 +238,7 @@ static HOVER_CRAFT: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::Drag,
+    transit: Transit::Air, // "Tier 3+: Air units (Hover Craft, Glider)"
 };
 
 /// `systems/units.md > Glider`.
@@ -238,4 +252,5 @@ static GLIDER: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: false,
     can_reverse: false,
     movement_model: MovementModel::Glider,
+    transit: Transit::Air, // "Tier 3+: Air units (Hover Craft, Glider)"
 };

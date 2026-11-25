@@ -1,7 +1,10 @@
 use super::*;
-use serde::Deserialize;
-use serde::de::IntoDeserializer;
-use serde::de::value::{Error as ValueError, U32Deserializer};
+use ::serde::Deserialize;
+use ::serde::de::IntoDeserializer;
+use ::serde::de::value::{Error as ValueError, U32Deserializer};
+
+/// The defs as plain data: every def through JSON and back (plan decision T54).
+mod serde;
 
 /// Every variant, found through serde's derived `Deserialize`, which accepts a unit
 /// variant by its declaration index and rejects the first index past the last variant.

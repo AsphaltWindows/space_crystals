@@ -4,12 +4,14 @@
 //! its sides with it. [`sides`] is the one place that says where a placed structure's lettered sides face, for every
 //! rule that needs a side (the Barracks' exit on side B, the placement ghost's labels).
 
+use serde::{Deserialize, Serialize};
+
 use crate::defs::ObjectKind;
 use crate::scenario::BuildingOrientation;
 use crate::symmetry::Orientation;
 
 /// A side's letter in its type's SymmetryType (`core/entities.md > Structure Type > SymmetryType`).
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum SideLetter {
     A,
     B,

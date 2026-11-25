@@ -20,7 +20,7 @@ use crate::units::SU_PER_GU;
 /// `systems/units.md > Unit > UnitBaseAttributes[UnitBase]`: a unit type's movement numbers, one variant per
 /// movement model. An acceleration or deceleration of `None` is infinite: the unit reaches its speed, or stops,
 /// within the tick.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum MovementAttrs {
     /// `systems/units.md > TurnRateMovement`.
     TurnRate {
@@ -109,7 +109,7 @@ impl MovementAttrs {
 
 /// `systems/units.md > TurretAttributes`: only on units whose base can carry a turret (`UnitBaseDef::can_have_turret`),
 /// and a unit of such a base may still have none (design change 0154).
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TurretAttrs {
     /// `> TurnAngle`: the full arc, radians, at most a full turn.
     pub turn_angle: f32,
@@ -118,7 +118,7 @@ pub struct TurretAttrs {
 }
 
 /// `systems/combat.md > AttackType`.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AttackType {
     /// `> FullyConnected`, with its subtype.
     FullyConnected(FullyConnectedSubtype),
@@ -131,7 +131,7 @@ pub enum AttackType {
 }
 
 /// `systems/combat.md > FullyConnected > Subtype`.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FullyConnectedSubtype {
     Ranged,
     /// `> Melee`: "Fixed short range (adjacent contact)": its Range is always [`MELEE_CONTACT_GU`], and the
@@ -148,7 +148,7 @@ pub enum FullyConnectedSubtype {
 pub const MELEE_CONTACT_GU: f32 = 8.0 / SU_PER_GU;
 
 /// `systems/combat.md > AttackAttributes > TargetDomain`.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TargetDomain {
     Ground,
     Air,
@@ -156,7 +156,7 @@ pub enum TargetDomain {
 }
 
 /// `systems/combat.md > AttackAttributes > TargetType`.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TargetType {
     SingleTarget,
     /// With its `AoERadius`, grid units.
@@ -166,7 +166,7 @@ pub enum TargetType {
 }
 
 /// `systems/combat.md > AttackAttributes`, read by the attack sequence (`combat`).
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AttackAttrs {
     pub attack_type: AttackType,
     pub target_domain: TargetDomain,
@@ -188,7 +188,7 @@ pub struct AttackAttrs {
 /// `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`: a Riot Shield, the same on both of the
 /// unit types it switches between (design change 0173: "shield down and shield up are two unit types [...] They share
 /// everything except what the shield changes"; `crate::riot_shield`).
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RiotShieldDef {
     /// The type of a unit whose shield is down or going down: the Peacekeeper.
     pub lowered: ObjectKind,
@@ -206,7 +206,7 @@ pub struct RiotShieldDef {
 
 /// `factions/colonists/units/weapon_conversion.md`: a unit with two forms, each of which converts into the other, the
 /// same on both of its types ("two forms of the same underlying unit"; `crate::conversion`).
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ConversionDef {
     /// The unit's two forms, a type each: the Sabre and the Rifle Legionnaire.
     pub forms: [ObjectKind; 2],
@@ -244,7 +244,7 @@ pub enum Resource {
 /// What a worker does with one resource (`factions/colonists/units/drone.md > Gathering`,
 /// `factions/syndicate/units/agent.md > Gathering > Space Crystals` and `> Supplies`): one load of it, from picking
 /// it up to unloading it.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LoadDef {
     /// CarryCapacity: the most it carries of the resource in one load.
     pub carry_capacity: u32,
@@ -262,7 +262,7 @@ pub struct LoadDef {
 /// `factions/colonists/units/drone.md > Gathering`, `factions/syndicate/units/agent.md > Gathering`: what makes a
 /// unit type a worker (`crate::economy::gathering`). One Gather job runs every worker (plan decision T34); these are
 /// the differences between the types.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WorkerDef {
     /// Its loads of Space Crystals.
     pub crystals: LoadDef,
@@ -303,7 +303,7 @@ impl WorkerDef {
 
 /// A unit type's own attributes (`systems/units.md > Unit`); the attributes every object type has are on its
 /// `ObjectDef`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UnitDef {
     /// `> UnitBase`.
     pub base: UnitBase,

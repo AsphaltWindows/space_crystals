@@ -1,13 +1,15 @@
 //! The attributes of structure types (`core/entities.md > Structure Type`). The faction modules (`defs/gdo.rs`, …)
 //! hold the structure types themselves.
 
+use serde::{Deserialize, Serialize};
+
 use crate::defs::{ObjectKind, Resource, UnitBase};
 use crate::sides::SideLetter;
 use crate::units::Tick;
 
 /// A structure type's own attributes; the attributes every object type has, armour included, are on its
 /// `ObjectDef`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StructureDef {
     /// `core/entities.md > Structure Type > SymmetryType`.
     pub symmetry: SymmetryType,
@@ -35,11 +37,13 @@ pub struct StructureDef {
     /// times (`factions/gdo/structures.md > DeploymentCenter > Constructs`, `factions/gdo/economy.md >
     /// ExtractionFacility > Constructs`). A type with any is a constructor (`Object::constructor`); empty for the
     /// others.
+    #[serde(deserialize_with = "super::leak::slice")]
     pub constructs: &'static [Recipe],
     /// The Beacon's `Constructs List` (`factions/colonists/economy.md > Warp In > Constructs List`): the buildings a
     /// Beacon transforms into in place, with their costs and WarpInTimes; empty for every other type. Not
     /// [`StructureDef::constructs`], which makes its type a GDO-style constructor (plan decision T14): a Warp In
     /// turns the Beacon itself into the building (`crate::transform`, plan decision T15).
+    #[serde(deserialize_with = "super::leak::slice")]
     pub warp_in: &'static [Recipe],
     /// Whether workers deliver their loads to the type, and where at it: `None` for a type that takes no loads
     /// (`factions/colonists/economy.md > Egress Node > Drop Off`: "the only way resources enter the player's resource
@@ -51,14 +55,15 @@ pub struct StructureDef {
     /// its footprint blocks no movement (`nav::BlockerKind::UndergroundExpansion`), and while it has an owner it is
     /// hidden from the other players (`vision::hidden_from`). The Syndicate's expansions: the Hideout so far.
     pub underground: bool,
-    /// The Tunnel's tier table (plan decision T39, `factions/syndicate/tunnels.md > Tunnel > Tiers`): an object of a
-    /// type with one carries its tier (`Object::tunnel`, `crate::tunnel`). `None` for every other type.
-    pub tunnel: Option<&'static TunnelDef>,
+    /// The Tunnel's tier table and its network's rules (plan decision T39, `factions/syndicate/tunnels.md > Tunnel >
+    /// Tiers`, `> Tunnel Network`): an object of a type with one carries its tier (`Object::tunnel`, `crate::tunnel`).
+    /// `None` for every other type.
+    pub tunnel: Option<TunnelDef>,
 }
 
 /// Where a structure type takes workers' loads (`StructureDef::drop_off`; plan decision T34: "the drop-off rule comes
 /// from the target's def").
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DropOff {
     /// Anywhere at the structure, any number of workers at once (`factions/colonists/units/drone.md > Gathering`:
     /// DropOffReach is measured to the Egress Node's edge).
@@ -89,9 +94,10 @@ impl DropOff {
 /// `factions/syndicate/tunnels.md > Tunnel > Tiers`: "Tunnels have 3 upgrade tiers. Each tier increases HP, Tunnel
 /// Area radius, and unlocks higher-tier buildings and unit transit." One Tunnel type with a tier (plan decision T39),
 /// not a type per tier. The tiers' PointArmor and FullArmor are the same (1 and 16): the type's (`ObjectDef::armor`).
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TunnelDef {
     /// Tier 1, the base, first: tier `n` is `tiers[n - 1]` ([`TunnelDef::tier`]).
+    #[serde(deserialize_with = "super::leak::slice")]
     pub tiers: &'static [TierDef],
     /// `> Tunnel Network > Transit delay` (design change 0245): how long after it walks into the network a unit can
     /// first exit, ticks, from any Tunnel; none for a unit produced inside (0246; `network::Held::may_exit`).
@@ -109,7 +115,7 @@ impl TunnelDef {
 }
 
 /// One column of `factions/syndicate/tunnels.md > Tunnel > Tiers`.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TierDef {
     /// `HP`: the Tunnel's MaxHP at this tier (`Object::max_hp`).
     pub max_hp: f32,
@@ -119,6 +125,7 @@ pub struct TierDef {
     pub area_radius: u32,
     /// `Transit`: the classes of unit that may enter and leave the Tunnel Network through a Tunnel of this tier
     /// (`> Tunnel Network > Transit Tier Requirements`). Data only until units enter the network (slice M4-C).
+    #[serde(deserialize_with = "super::leak::slice")]
     pub transit: &'static [Transit],
 }
 
@@ -131,7 +138,7 @@ impl TierDef {
 
 /// `factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`: the classes of unit base that a
 /// Tunnel's tier lets into and out of the network.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Transit {
     /// "Tier 1+: Infantry (Light Infantry, Heavy Infantry)".
     Infantry,
@@ -142,23 +149,15 @@ pub enum Transit {
 }
 
 impl Transit {
-    /// The class of a unit of `base`, as the requirements list the bases.
+    /// The class of a unit of `base`, as the requirements list the bases: its base's (`UnitBaseDef::transit`).
     pub fn of(base: UnitBase) -> Transit {
-        match base {
-            UnitBase::LightInfantry | UnitBase::HeavyInfantry => Transit::Infantry,
-            UnitBase::WheeledVehicle
-            | UnitBase::TrackedVehicle
-            | UnitBase::DrillUnit
-            | UnitBase::HoverVehicle
-            | UnitBase::Mech => Transit::Vehicles,
-            UnitBase::HoverCraft | UnitBase::Glider => Transit::Air,
-        }
+        base.def().transit
     }
 }
 
 /// A mining structure's rates (`factions/gdo/economy.md > ExtractionPlate`): it pays its owner a load at the end of
 /// each cycle, taken from its patch, and the residual amount once the patch is depleted.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MiningDef {
     /// `MiningRate`: Space Crystals per cycle, while the patch holds that many (the last load takes what is left).
     pub load: u32,
@@ -170,13 +169,14 @@ pub struct MiningDef {
 
 /// A producing structure's recipes and its exits (`factions/gdo/structures.md > Barracks > Produces`,
 /// `core/entities.md > Structure Type > Exit Doorway`).
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProductionDef {
     /// Where its units come into the game and which way they leave: by the doorway in the middle of an exit side,
     /// or from an energy doorway at the centre through its open sides, the sides as its SymmetryType letters them
     /// (`crate::sides::sides` says where each faces once the building is placed; `crate::production::exit`).
     pub exits: ExitRule,
     /// What it can produce, in the order of the design's list.
+    #[serde(deserialize_with = "super::leak::slice")]
     pub recipes: &'static [Recipe],
 }
 
@@ -189,7 +189,7 @@ impl ProductionDef {
 
 /// How a producing structure releases its units, and through which of its sides (plan decision T19;
 /// `core/entities.md > Structure Type > Exit Doorway`; `crate::production::exit`).
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ExitRule {
     /// One exit side, the only one its SymmetryType letters so, with the exit doorway in its middle (design change
     /// 0080): the Barracks' B ("Units exit from one of the short sides (B side ...)", `factions/gdo/structures.md >
@@ -199,7 +199,7 @@ pub enum ExitRule {
     /// (energy doorway)`: "Portals don't use exit sides"): a unit materializes at the centre and leaves in any
     /// direction that passes out through a side lettered with one of these, the **open** sides. The portals' A sides;
     /// the Heavy and Star Portals' are TBD.
-    Centre(&'static [SideLetter]),
+    Centre(#[serde(deserialize_with = "super::leak::slice")] &'static [SideLetter]),
     /// Into its owner's Tunnel Network (`factions/syndicate/structures/README.md > Rally Point Behavior`, plan
     /// decision T35; `crate::network`): the unit never appears at the building, which is underground and has no doorway
     /// (`core/entities.md > Exit Doorway`: "units released underground (e.g. Syndicate Tunnels) are not covered by
@@ -211,7 +211,7 @@ pub enum ExitRule {
 /// One entry of a producer's `Produces` list: "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)"; of a
 /// constructor's `Constructs` list: "Generator: 100 Space Crystals, 240 frames (15 seconds)"; or of the Beacon's Warp
 /// In list: "Egress Node | 75 Space Crystals | 320 frames (20 seconds)".
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Recipe {
     pub kind: ObjectKind,
     /// Space Crystals, paid when the unit is queued or the construction starts.
@@ -223,7 +223,7 @@ pub struct Recipe {
 /// `core/entities.md > Structure Type > SymmetryType`: which of a structure's four sides are alike. The letters name
 /// the sides clockwise from the top edge, in the default orientation (rotation 0, unflipped): top, right, bottom,
 /// left (`> Side lettering convention`, design change 0079). The placed sides are [`crate::sides::sides`]'.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum SymmetryType {
     AAAA,
     AAAB,

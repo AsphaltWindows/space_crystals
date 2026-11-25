@@ -9,6 +9,7 @@
 
 mod colonists;
 mod gdo;
+mod leak;
 mod map;
 mod structures;
 mod syndicate;
@@ -116,7 +117,7 @@ kind_registry! {
     Hideout => syndicate::structures::hideout::HIDEOUT,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Category {
     Unit,
     Structure,
@@ -124,7 +125,7 @@ pub enum Category {
     Resource,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Footprint {
     /// Structures and resources: whole tiles, `w` wide and `h` tall in the default orientation (`Size - Height x
     /// Width`, given for the default orientation: `core/entities.md > Structure Type > Side lettering convention`).
@@ -133,11 +134,16 @@ pub enum Footprint {
     Silhouette { w: f32, h: f32 },
 }
 
+/// A name in the defs, `&'static str`. Spelt so that serde's derive doesn't borrow it from the text a def is read from,
+/// as it does with every field it sees spelt `&str`: [`leak::str`] reads it instead.
+type StaticStr = &'static str;
+
 /// Attributes shared by every object type (`core/entities.md > Object Type`).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ObjectDef {
     pub kind: ObjectKind,
-    pub name: &'static str,
+    #[serde(deserialize_with = "leak::str")]
+    pub name: StaticStr,
     pub faction: Option<Faction>,
     pub category: Category,
     pub footprint: Footprint,
@@ -169,7 +175,7 @@ pub struct ObjectDef {
 
 /// An object type's armour: `systems/units.md > Unit > PointArmor`, `> FullArmor` for units, and the same two
 /// attributes in each structure type's stat block.
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Armor {
     /// Taken off each single-target hit (`systems/combat.md > SingleTargetDamage`).
     pub point: f32,

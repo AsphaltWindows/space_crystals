@@ -86,7 +86,7 @@ pub(crate) static TUNNEL: ObjectDef = ObjectDef {
             supplies: SideLetter::D,
         }),
         underground: false,
-        tunnel: Some(&TUNNEL_DEF),
+        tunnel: Some(TUNNEL_DEF),
     }),
     default_settings: None,
 };
@@ -133,6 +133,10 @@ mod tests {
                 (1000.0, 4, &[Infantry, Vehicles, Air][..]),
             ]
         );
+        // `> Tunnel Network`: the transit delay, "2 seconds (32 frames)", and the regeneration, "1% of its MaxHP per
+        // second" (design changes 0245 and 0249).
+        let network = structure.tunnel.unwrap();
+        assert_eq!((network.transit_delay, network.regen_per_second), (32, 0.01));
         // Design change 0248: crystals at the hatch on Side B, Supplies at the one on Side D.
         let expected = StructureDef {
             symmetry: SymmetryType::ABCD,
