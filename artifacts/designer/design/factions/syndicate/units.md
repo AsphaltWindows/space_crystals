@@ -373,6 +373,8 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
 
 **Every selected Battery must reach the chain** (user, 2026-11-25): the selected deployed Batteries act as one group, so **each** of them must have at least one Satellite in its own range. If any doesn't, **no relay targets are highlighted**. Highlighted targets are the Satellites reachable from **every** selected Battery (designer's reading).
 
+**Sight** (user, 2026-11-25): the armed Satellite can attack **anything the player sees** within its range (any own vision, not only its own).
+
 **Directing the armed Satellite** (user, 2026-11-25): besides auto-targeting, the player can **select the armed Satellite and give it a specific target** (Attack).
 
 **Several Batteries add up** (user, 2026-11-25): each surge of the armed Satellite deals the **sum** of each relaying Battery's own surge damage (each computed from its own charge by the ^(2/3) rule). Four Batteries deal four times one Battery's damage.
@@ -381,7 +383,6 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
 
 TBD:
 - link range between Satellites, and Battery-to-Satellite range;
-- sight needed to target through the relay.
 
 All numbers (HP, armor, sight, speed, TunnelSpaceCost, battery, damage, range, timings, cost, build time): TBD.
 
@@ -490,9 +491,10 @@ It is the **only unit that can't get back into the Tunnel Network** (user, 2026-
 ### Movement
 - **Very slow** by default.
 - **Directional thrust**: a few **charges**, each giving a quick burst of displacement in a chosen direction (user, 2026-11-25).
+- **Charges never come back** (user, 2026-11-25): once they are spent it only drifts slowly.
 
 ### Sight
 It sees through Shadebringer smoke (Shadebringer > Cover).
 
-TBD: name; the open relay rules (Laser Battery > Relay); launch and transform timing (and whether it can be hit meanwhile); thrust charge count, distance and recharge; all numbers.
+TBD: name; the open relay rules (Laser Battery > Relay); launch and transform timing (and whether it can be hit meanwhile); thrust charge count and distance; all numbers.
 
