@@ -15,9 +15,9 @@ The Cults tech tree splits into two branches above a shared base. A player may b
 |---|---|---|---|---|
 | RecruitmentHall | Shared base | — | — | Starting structure; produces Recruits from Recruitable terrain; provides Unit Control |
 | Storage | Shared base | — | — | Space Crystals drop-off |
-| Armory | Tech/Weaponry | 1 | Storage | Trains Recruits into Soldiers, and Gunners (Gunner requires a Gunworks) |
+| Armory | Tech/Weaponry | 1 | Storage | Trains Recruits into Militants, and Gunners (Gunner requires a Gunworks) |
 | Gunworks | Tech/Weaponry | 2 | Armory | Unlocks Gunner training at the Armory; researches weapon upgrades (staffed by Recruits) |
-| Garrison | Tech/Weaponry (defense) | 2 | Armory | Defensive structure; up to 4 Recruits/Soldiers/Gunners/Acolytes garrison inside; Recruits and Acolytes fire as Soldiers; Soldiers and Gunners get +1 range |
+| Garrison | Tech/Weaponry (defense) | 2 | Armory | Defensive structure; up to 4 Recruits/Militants/Gunners/Acolytes garrison inside; Recruits and Acolytes fire as Militants; Militants and Gunners get +1 range |
 | Chop Shop | Tech/Weaponry | 2 | Armory | Vehicle production (vehicles consume multiple Recruits) |
 | Machine Shop | Tech/Weaponry | 2 | Chop Shop | Researches vehicle and air upgrades (staffed by Recruits) |
 | Airstrip | Tech/Weaponry | 3 | Chop Shop | Aircraft production (from Recruits) |
@@ -29,7 +29,7 @@ The Cults tech tree splits into two branches above a shared base. A player may b
 
 ### Cults Infantry
 
-The Cults have four infantry unit types: Recruit, Soldier, Gunner, and Acolyte (spell caster, trained at the Cathedral). All four can receive Augmentations at the Altar.
+The Cults have four infantry unit types: Recruit, Militant, Gunner, and Acolyte (spell caster, trained at the Cathedral). All four can receive Augmentations at the Altar.
 
 Cults infantry have no natural health regeneration. Their only source of healing is the Shrine's health regeneration ability.
 

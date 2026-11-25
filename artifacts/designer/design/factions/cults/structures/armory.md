@@ -1,6 +1,6 @@
 # Armory
 
-Training building where Recruits are converted into combat units. Recruits enter through one side and trained units exit from the opposite side. The Armory maintains an internal pool of Recruits that can be trained into Soldiers or Gunners.
+Training building where Recruits are converted into combat units. Recruits enter through one side and trained units exit from the opposite side. The Armory maintains an internal pool of Recruits that can be trained into Militants or Gunners.
 
 ## Faction - TheCults
 ## Size - 2x3 grid units (2 tall, 3 wide in the default orientation)
@@ -28,12 +28,12 @@ The Armory can hold up to 10 Recruits in its internal pool at a time.
 Training is queueable and serial — orders are processed one at a time, in the order queued. Queuing an order immediately deducts its Space Crystals cost from the player and reserves one Recruit from StoredRecruits (removing it from the internal pool for the duration it sits in the queue). Only the front of the queue actively trains; queued-but-not-yet-started orders wait with their Recruit and Space Crystals already committed. When an order finishes training, its reserved Recruit is consumed and the trained unit exits from the exit side. The trained unit inherits the Recruit's AugmentationState unchanged (see Augmentation) — Augmentation and Armory training can happen in either order with the same result.
 
 Available unit types:
-- **Soldier** (SpaceCrystalsCost: 20, TrainingTime: 32 frames)
+- **Militant** (SpaceCrystalsCost: 20, TrainingTime: 32 frames)
 - **Gunner** (SpaceCrystalsCost: 40, TrainingTime: 32 frames). TechPrerequisite: player owns at least one Gunworks.
 
 ## ArmoryInstanceState:
 - StoredRecruits: list of Recruit references (max 10)
-- TrainingQueue: array of {UnitType: Soldier | Gunner, ReservedRecruit: Recruit reference} (max 20, including the order currently training; user, 2026-11-24)
+- TrainingQueue: array of {UnitType: Militant | Gunner, ReservedRecruit: Recruit reference} (max 20, including the order currently training; user, 2026-11-24)
 - CurrentTrainingProgress: number (frames elapsed for the front entry of TrainingQueue) | None
 - RallyPoint: Coordinates | ObjectInstance | None
 
@@ -58,5 +58,5 @@ Target commands (StateOnlyTransition):
 - **C: Set Rally Point**: enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState).
 
 Production commands (CommandIssuingTransition):
-- **Q: Train Soldier**: deducts Soldier's Space Crystals cost from the player, moves one Recruit from StoredRecruits into a new TrainingQueue entry. Only available if StoredRecruits is not empty, TrainingQueue has fewer than 20 entries, and player has sufficient Space Crystals.
+- **Q: Train Militant**: deducts Militant's Space Crystals cost from the player, moves one Recruit from StoredRecruits into a new TrainingQueue entry. Only available if StoredRecruits is not empty, TrainingQueue has fewer than 20 entries, and player has sufficient Space Crystals.
 - **W: Train Gunner**: deducts Gunner's Space Crystals cost from the player, moves one Recruit from StoredRecruits into a new TrainingQueue entry. Only available if StoredRecruits is not empty, TrainingQueue has fewer than 20 entries, player has sufficient Space Crystals, and the player owns at least one Gunworks (TechPrerequisite).

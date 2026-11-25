@@ -1,6 +1,8 @@
-# Soldier
+# Militant
 
-The Soldier is the Cults' basic combat infantry, trained from a Recruit at the Armory. A light infantry unit with a fully connected attack effective against both ground and air targets.
+(Renamed from "Soldier", user, 2026-11-26.)
+
+The Militant is the Cults' basic combat infantry, trained from a Recruit at the Armory. A light infantry unit with a fully connected attack effective against both ground and air targets.
 
 ## Entity Type - Unit
 ## Faction - TheCults
