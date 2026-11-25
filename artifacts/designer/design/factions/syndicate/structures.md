@@ -81,7 +81,7 @@ Target commands (StateOnlyTransition):
 
 ### Optics Lab
 
-Syndicate tech building enabling the Syndicate's laser weaponry. It is the prerequisite for the **Guard** (laser rifle) and the **Laser Turret** (2026-11-24). Whether it also hosts laser research is TBD.
+Syndicate tech building enabling the Syndicate's laser weaponry. It is the prerequisite for the **Guard** (laser rifle), the **Laser Turret** (2026-11-24) and the **Laser Battery** (2026-11-25). Whether it also hosts laser research is TBD.
 
 #### Entity Type - Structure Type (Underground)
 #### Tier Requirement - 1
@@ -115,7 +115,7 @@ Prerequisite for the **Shadebringer** (2026-11-25). While the player owns a Vaul
 
 Syndicate production building that assembles Syndicate ground vehicles.
 
-Produces (2026-11-25): **Assault Bike**, **Shadebringer** (requires a Vault), **Laser Battery** (factions/syndicate/units.md). Costs, times and panel layout: TBD.
+Produces (2026-11-25): **Assault Bike**, **Shadebringer** (requires a Vault), **Laser Battery** (requires an Optics Lab) (factions/syndicate/units.md). Costs, times and panel layout: TBD.
 
 #### Entity Type - Structure Type (Underground)
 #### Tier Requirement - 2

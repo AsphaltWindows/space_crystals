@@ -231,6 +231,7 @@ GDO artillery vehicle produced at the Factory; requires Advanced Mechanics. Has 
 - **Mobile:** moves normally; **has no attack**.
 - **Deployed:** cannot move; fires its artillery attack.
 - **Deploy / Undeploy:** switching modes takes time (values TBD); the unit can neither move nor attack while switching.
+- **Two unit types** (user, 2026-11-25): **Artillery Rig** and **Artillery Rig (Deployed)**, with separate SelectionGroups. Deploy/Undeploy follows the **mode toggle rule** (factions/colonists/units.md > Weapon Conversion > A toggle sets a target form): the press goes to the ActiveGroup, sets a target mode, switches the units' type and group at the press, and every pressed unit ends in the same mode. Same model as the Syndicate Laser Battery.
 
 ### AttackAttributes (Deployed only):
 - TargetDomain: Ground

@@ -250,7 +250,7 @@ Move-type commands like a combat unit without an attack, plus the two toggles (h
 ### Faction - TheSyndicate
 ### UnitBase - TrackedVehicle (exits only through Tier 2+ Tunnels)
 ### Produced at - Vehicle Assembly
-### TechPrerequisite - TBD
+### TechPrerequisite - player owns at least one **Optics Lab** (user, 2026-11-25)
 ### Groupable - true (assumed)
 
 ### Battery
@@ -281,7 +281,10 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
 ### Deploy (ability)
 - **Deployed**: **cannot move**. The turret gets **360° rotation**. It can **only target air units** (no ground targets while deployed).
 - **Refract** (ability, deployed only): to be designed together with satellites (user, 2026-11-25).
-- TBD: deploy/undeploy time; whether it can attack while switching (the Artillery Rig can't); whether deployed and mobile are two unit types (like the Peacekeeper's shield, factions/gdo/units.md > Riot Shield > Two unit types) and so follow the toggle rule.
+- **Switching modes works like the GDO Artillery Rig** (user, 2026-11-25; factions/gdo/units.md > Artillery Rig > Modes): deploying and undeploying take time, during which it can **neither move nor attack**.
+- **Two unit types**: **Laser Battery** and **Laser Battery (Deployed)**, with separate SelectionGroups. Deploy/Undeploy follows the **mode toggle rule** (factions/colonists/units.md > Weapon Conversion > A toggle sets a target form): the press goes to the ActiveGroup, sets a target mode, switches the units' type and group at the press, and every pressed unit ends in the same mode.
+- The battery keeps charging in every mode (Battery: always charging).
+- TBD: deploy/undeploy time.
 
 All numbers (HP, armor, sight, speed, TunnelSpaceCost, battery, damage, range, timings, cost, build time): TBD.
 
