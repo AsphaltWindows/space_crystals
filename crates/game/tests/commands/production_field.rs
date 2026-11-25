@@ -94,7 +94,11 @@ pub(crate) fn productions(app: &App) -> Vec<(PlayerId, Vec<u32>, ProductionComma
             Command::Production { objects, command } => {
                 Some((c.player, objects.iter().map(|id| id.0).collect(), *command))
             }
-            Command::Order { .. } | Command::Ability { .. } | Command::Construction { .. } | Command::Debug(_) => None,
+            Command::Order { .. }
+            | Command::Ability { .. }
+            | Command::Construction { .. }
+            | Command::Tunnel { .. }
+            | Command::Debug(_) => None,
         })
         .collect()
 }

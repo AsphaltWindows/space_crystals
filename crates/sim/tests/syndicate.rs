@@ -372,7 +372,11 @@ fn a_tunnels_tier_sets_its_max_hp() {
     let hp = |t: &TestSim| (object(t, 1).hp, object(t, 1).max_hp(), object(t, 1).tunnel.clone());
     let tier = |tier| Some(TunnelState::at(tier));
     assert_eq!(hp(&t), (Some(596.0), Some(600.0), tier(1)));
-    let record = |t: &TestSim| vision(t, P2).record(ObjectId(1)).map(|r| (r.tunnel.clone(), r.max_hp()));
+    let record = |t: &TestSim| {
+        vision(t, P2)
+            .record(ObjectId(1))
+            .map(|r| (r.tunnel.clone(), r.max_hp()))
+    };
     assert_eq!(record(&t), Some((tier(1), Some(600.0))));
 
     t.debug_at(6, set_tier(1, 2)).run_until(6);

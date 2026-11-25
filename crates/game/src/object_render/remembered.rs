@@ -39,7 +39,7 @@ pub struct RememberedVisuals {
 
 /// What the visual of `record` shows of it.
 fn made(record: &LastKnown) -> Made {
-    (record.kind, record.owner, record.placement, record.tunnel)
+    (record.kind, record.owner, record.placement, record.tunnel.clone())
 }
 
 /// Everything the set of records shown depends on.
@@ -109,7 +109,12 @@ pub(super) fn sync_remembered_visuals(
         }
         .clone();
         // Records are of structures, in their owner's colour, and resources.
-        let key = MeshKey::of(record.kind, record.owner, Some(&record.placement), record.tunnel);
+        let key = MeshKey::of(
+            record.kind,
+            record.owner,
+            Some(&record.placement),
+            record.tunnel.clone(),
+        );
         let mesh = assets
             .meshes
             .entry(key)
@@ -130,7 +135,7 @@ pub(super) fn sync_remembered_visuals(
         if let Some(size) = key.size {
             // The text's colour, in sRGB, darkened about as much as the material darkens the mesh.
             let dim = KEPT.powf(1.0 / 2.2);
-            let label = object_label(record.kind, record.tunnel);
+            let label = object_label(record.kind, record.tunnel.clone());
             commands.spawn((structures::tag(id, label, size, dim), ChildOf(entity)));
         }
         by_id.insert(id, entity);

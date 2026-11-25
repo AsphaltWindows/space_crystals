@@ -38,8 +38,8 @@ use glam::Vec2;
 use crate::combat::domain_allows;
 use crate::defs::{Domain, TargetDomain, Transit};
 use crate::ids::ObjectId;
-use crate::object::Object;
 use crate::network;
+use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::riot_shield;
 

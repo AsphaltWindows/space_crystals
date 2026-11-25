@@ -33,7 +33,7 @@
 use std::collections::BTreeSet;
 
 use bevy::math::Vec2;
-use sc_sim::defs::Domain;
+use sc_sim::defs::{Domain, Transit};
 use sc_sim::orders::resolution::{Abilities, Aim, Aimed, resolve};
 use sc_sim::{Ability, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target};
 
@@ -155,6 +155,7 @@ impl UnitCapabilities {
                     may_attack: modes.can_attack(id),
                     worker: unit.worker.is_some(),
                     carrying: modes.carries(id),
+                    transit: Transit::of(unit.base),
                 }),
         }
     }
@@ -348,6 +349,8 @@ impl PointerDisplay {
         match kind {
             // No click gives a Deploy (slice M3-J1 places it).
             OrderKind::Move(_) | OrderKind::Deploy { .. } => PointerDisplay::Move,
+            // **Placeholder**: the Enter pointer ("Unit will enter this object") comes with slice M4-J1.
+            OrderKind::Enter(_) => PointerDisplay::Move,
             OrderKind::Gather(_) => PointerDisplay::GatherResources,
             OrderKind::DropOff(_) => PointerDisplay::ReturnResources,
             OrderKind::Attack(_) | OrderKind::AttackMove(_) => PointerDisplay::Attack,

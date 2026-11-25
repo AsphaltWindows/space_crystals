@@ -192,7 +192,9 @@ impl InterfaceTemplate {
             | ObjectKind::Guard
             | ObjectKind::SabreLegionnaire
             | ObjectKind::RifleLegionnaire => Some(InterfaceTemplate::BasicCombatUnit),
-            ObjectKind::Barracks | ObjectKind::RoboPortal | ObjectKind::BioPortal => {
+            // The Hideout too (slice M4-C: it produces into the Tunnel Network, plan decision T23: "every type that
+            // produces units has the Production template"); slice M4-J2 gives its panel the design's letters.
+            ObjectKind::Barracks | ObjectKind::RoboPortal | ObjectKind::BioPortal | ObjectKind::Hideout => {
                 Some(InterfaceTemplate::Production)
             }
             ObjectKind::DeploymentCenter => Some(InterfaceTemplate::DeploymentCenter),
@@ -206,7 +208,7 @@ impl InterfaceTemplate {
             | ObjectKind::ExtractionPlate => None,
             // The Syndicate's interfaces come with slices M4-J1 and M4-J2 (`factions/syndicate/units.md > Agent >
             // ObjectInterfaceState`, `tunnels.md > Tunnel ObjectInterfaceState`, `structures.md > Hideout`).
-            ObjectKind::Agent | ObjectKind::Tunnel | ObjectKind::Hideout => None,
+            ObjectKind::Agent | ObjectKind::Tunnel => None,
         }
     }
 

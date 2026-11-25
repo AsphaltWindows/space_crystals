@@ -124,9 +124,7 @@ impl Sim {
         if !network::is_exit(target) {
             return Err(Reject::NotATunnel(tunnel));
         }
-        let lets_in = |id: &ObjectId| {
-            (self.objects.get(id)).is_some_and(|o| network::admits(target, o.kind).is_ok())
-        };
+        let lets_in = |id: &ObjectId| (self.objects.get(id)).is_some_and(|o| network::admits(target, o.kind).is_ok());
         let admitted: Vec<ObjectId> = units.into_iter().filter(lets_in).collect();
         if admitted.is_empty() {
             return Err(Reject::NoTransit { tunnel, kind: None });

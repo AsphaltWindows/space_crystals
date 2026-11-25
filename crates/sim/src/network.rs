@@ -356,8 +356,14 @@ mod tests {
         assert_eq!(paths.exit_stand(half), Vec2::new(414.0, 256.0 - 18.0 - WALL_CLEARANCE));
         assert_eq!(paths.entry_stand(half), Vec2::new(354.0, 256.0 - 18.0 - WALL_CLEARANCE));
         assert!(paths.reached_entry(paths.entry_stand(half), half));
-        assert!(!paths.reached_entry(paths.exit_stand(half), half), "the exit is no way in");
-        assert_eq!(paths.walk_out(paths.exit_stand(half)).y, 256.0 - 18.0 - WALL_CLEARANCE - 64.0);
+        assert!(
+            !paths.reached_entry(paths.exit_stand(half), half),
+            "the exit is no way in"
+        );
+        assert_eq!(
+            paths.walk_out(paths.exit_stand(half)).y,
+            256.0 - 18.0 - WALL_CLEARANCE - 64.0
+        );
     }
 
     /// "Both turn and flip with the Tunnel": in each of the 8 orientations the two spots lie on the side A faces,
@@ -378,7 +384,11 @@ mod tests {
                 for (spot, towards) in [(paths.exit, SideLetter::B), (paths.entry, SideLetter::D)] {
                     let from_centre = spot - centre;
                     assert_eq!(from_centre.dot(paths.outward), 128.0, "on Side A's line");
-                    assert_eq!(from_centre.dot(facing(towards)), PATH_OFFSET_SU, "{rotation:?} {flip_h}");
+                    assert_eq!(
+                        from_centre.dot(facing(towards)),
+                        PATH_OFFSET_SU,
+                        "{rotation:?} {flip_h}"
+                    );
                 }
             }
         }

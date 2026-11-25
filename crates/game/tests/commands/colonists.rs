@@ -159,7 +159,11 @@ fn constructions(app: &App) -> Vec<(PlayerId, Vec<u32>, ConstructionCommand)> {
             Command::Construction { objects, command } => {
                 Some((c.player, objects.iter().map(|id| id.0).collect(), *command))
             }
-            Command::Order { .. } | Command::Ability { .. } | Command::Production { .. } | Command::Debug(_) => None,
+            Command::Order { .. }
+            | Command::Ability { .. }
+            | Command::Production { .. }
+            | Command::Tunnel { .. }
+            | Command::Debug(_) => None,
         })
         .collect()
 }

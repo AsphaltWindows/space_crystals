@@ -171,7 +171,10 @@ fn a_remembered_tunnel_keeps_the_tier_it_was_seen_at() {
     debug(&mut app, set_tier(3));
     app.update();
     let sim = app.world().resource::<SimRes>();
-    let now = sim.object(ObjectId(tunnel)).and_then(|o| o.tunnel).map(|t| t.tier);
+    let now = sim
+        .object(ObjectId(tunnel))
+        .and_then(|o| o.tunnel.as_ref())
+        .map(|t| t.tier);
     assert_eq!(now, Some(3), "raised out of sight");
     assert!(!drawn(&app, tunnel));
     assert_eq!(remembered(&app), [tunnel]);

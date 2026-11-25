@@ -1,1 +1,181 @@
-//! The Tunnel Network in a game, where a test needs a type no game has (`defs::test_defs`).
+//! The Tunnel Network in a game, where a test needs the sim's inside or a type no game has (`defs::test_defs`): an
+//! air unit, a worker with a load, a unit taken off the map and put back, the held units at a defeat.
+
+use glam::Vec2;
+
+use crate::command::{Command, DebugCommand, PlayerCommand, TunnelCommand};
+use crate::defs::test_defs::TestDef;
+use crate::defs::{ObjectKind, UnitBase};
+use crate::events::SimEvent;
+use crate::ids::{ObjectId, PlayerId};
+use crate::network::{self, NoTransit, Place};
+use crate::orders::{OrderKind, Target};
+use crate::player::Faction;
+use crate::scenario::SpawnAt;
+use crate::sim::Reject;
+use crate::testing::{ScenarioBuilder, TestSim, dangling_references};
+use crate::units::TilePos;
+
+const P1: PlayerId = PlayerId(1);
+const P2: PlayerId = PlayerId(2);
+const TUNNEL: ObjectId = ObjectId(1);
+
+/// Player 1's Tunnel (1) on tiles (12, 10) to (15, 13) of a 30 × 22 map: its entry path's spot is (866, 640).
+fn base() -> ScenarioBuilder {
+    ScenarioBuilder::new(&"..............................\n".repeat(22))
+        .faction(P1, Faction::Syndicate)
+        .faction(P2, Faction::Syndicate)
+        .spawn(ObjectKind::Tunnel, Some(P1), SpawnAt::Tile(TilePos::new(12, 10)))
+}
+
+fn validate(t: &TestSim, command: Command) -> Result<(), Reject> {
+    t.sim().validate(&PlayerCommand { player: P1, command })
+}
+
+/// The Director's decision for slice M4-C, and the plan's acceptance: "An air test unit is refused at every tier,
+/// since M4 has no air doors." No air unit exists yet, so a Peacekeeper on a Hover Craft base stands in.
+#[test]
+fn an_air_unit_is_refused_at_every_tier() {
+    let _flyer = TestDef::unit(ObjectKind::Peacekeeper, |unit| unit.base = UnitBase::HoverCraft);
+    let mut t = base().start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Peacekeeper, P1, Vec2::new(866.0, 560.0)) // 2: the flyer
+        .spawn_unit_at(1, ObjectKind::Guard, P1, Vec2::new(700.0, 560.0)); // 3
+    t.run_until(1);
+    let (flyer, guard) = (ObjectId(2), ObjectId(3));
+    let enter = |units: &[ObjectId]| Command::Order {
+        units: units.to_vec(),
+        kind: OrderKind::Enter(TUNNEL),
+        queue: false,
+    };
+    let eject = Command::Tunnel {
+        tunnel: TUNNEL,
+        command: TunnelCommand::Eject {
+            kind: ObjectKind::Peacekeeper,
+        },
+    };
+    for tier in 1..=3 {
+        t.debug_at(t.sim().tick() + 1, DebugCommand::SetTier { id: TUNNEL, tier });
+        t.step();
+        let tunnel = t.sim().object(TUNNEL).unwrap();
+        // At Tier 3 the table lists Air; the missing air doors refuse it all the same.
+        let lists_air = crate::tunnel::tier_def(tunnel).unwrap().admits(UnitBase::HoverCraft);
+        assert_eq!(lists_air, tier == 3);
+        assert_eq!(
+            network::admits(tunnel, ObjectKind::Peacekeeper),
+            Err(NoTransit::Air),
+            "Tier {tier}"
+        );
+        assert_eq!(network::admits(tunnel, ObjectKind::Guard), Ok(()));
+        let refused = Reject::NoTransit {
+            tunnel: TUNNEL,
+            kind: None,
+        };
+        assert_eq!(validate(&t, enter(&[flyer])), Err(refused), "Tier {tier}");
+        assert_eq!(validate(&t, enter(&[flyer, guard])), Ok(()), "the Guard takes it");
+        let refused = Reject::NoTransit {
+            tunnel: TUNNEL,
+            kind: Some(ObjectKind::Peacekeeper),
+        };
+        assert_eq!(validate(&t, eject.clone()), Err(refused), "Tier {tier}");
+        // Its default command on the Tunnel is a Move to it, never Enter.
+        let default = t.sim().default_order(flyer, Target::Object(TUNNEL));
+        assert_eq!(default, Some(OrderKind::Move(Target::Object(TUNNEL))), "Tier {tier}");
+    }
+    // Ordered in with the Guard at Tier 3, the flyer stays where it is.
+    t.at(t.sim().tick() + 1, P1, enter(&[flyer, guard]));
+    t.run(120);
+    let inside: Vec<ObjectId> = t.sim().network(P1).map(|held| held.object.id).collect();
+    assert_eq!(inside, [guard]);
+    assert_eq!(t.pos(2), Vec2::new(866.0, 560.0));
+}
+
+/// Design change 0249: "An Agent keeps its load." Plan decision T30: a unit taken off the map and put back is the
+/// same object, with its id, HP, load and modes, and without its orders, its move or its attack. A worker with a load
+/// stands in for the Agent, whose gathering is slice M4-D's.
+#[test]
+fn a_unit_keeps_its_id_its_hp_and_its_load_through_the_network() {
+    let mut t = base().start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Drone, P1, Vec2::new(500.0, 300.0)) // 2
+        .spawn_unit_at(1, ObjectKind::Guard, P1, Vec2::new(300.0, 300.0)) // 3: follows the Drone
+        .order_at(2, P1, &[ObjectId(2)], OrderKind::Patrol(Vec2::new(900.0, 300.0)), false)
+        .order_at(
+            2,
+            P1,
+            &[ObjectId(3)],
+            OrderKind::Move(Target::Object(ObjectId(2))),
+            false,
+        );
+    t.run_until(10);
+    let drone = ObjectId(2);
+    let mut sim = t.sim().clone();
+    let o = sim.objects.get_mut(&drone).unwrap();
+    o.worker.as_mut().unwrap().load = 5;
+    o.hp = Some(33.0);
+    assert!(!o.orders.as_ref().unwrap().is_idle());
+    assert!(sim.take_off_map(drone, Place::Network, true));
+    assert!(
+        !sim.take_off_map(drone, Place::Network, true),
+        "it is off the map already"
+    );
+    assert!(sim.object(drone).is_none());
+    let held = sim.held_unit(drone).unwrap();
+    assert_eq!((held.since, held.entered, held.place), (10, true, Place::Network));
+    let inside = &held.object;
+    assert_eq!(
+        (inside.id, inside.kind, inside.owner),
+        (drone, ObjectKind::Drone, Some(P1))
+    );
+    assert_eq!((inside.hp, inside.worker.unwrap().load), (Some(33.0), 5));
+    assert!(inside.orders.as_ref().unwrap().is_idle());
+    assert_eq!(inside.mover, Some(crate::mover::Mover::default()));
+    // The Guard's Follow ended, as for a removal; nothing names the Drone.
+    assert!(sim.object(ObjectId(3)).unwrap().orders.as_ref().unwrap().is_idle());
+    assert_eq!(dangling_references(&sim), []);
+    // Back on the map, elsewhere: the same object, standing.
+    let at = Vec2::new(1500.0, 900.0);
+    assert!(sim.put_on_map(drone, at, Vec2::new(0.0, 1.0)));
+    assert!(!sim.put_on_map(drone, at, Vec2::X), "it is on the map already");
+    assert!(sim.held_unit(drone).is_none());
+    let back = sim.object(drone).unwrap();
+    assert_eq!((back.pos, back.prev_pos), (at, at));
+    assert_eq!((back.hp, back.worker.unwrap().load), (Some(33.0), 5));
+    assert!(back.orders.as_ref().unwrap().is_idle());
+}
+
+/// Plan decision T30's defeat-time cleanup: when a player is defeated, the units inside their network leave the
+/// game (their last Tunnel is gone, and nothing could bring them out); those on the map become neutral.
+#[test]
+fn a_defeated_players_network_goes_with_them() {
+    let mut t = base().start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Guard, P1, Vec2::new(866.0, 560.0)) // 2: goes in
+        .spawn_unit_at(1, ObjectKind::Guard, P1, Vec2::new(300.0, 300.0)) // 3: stays out
+        .spawn_unit_at(1, ObjectKind::Guard, P2, Vec2::new(300.0, 900.0)); // 4
+    t.debug_at(
+        1,
+        DebugCommand::Spawn {
+            kind: ObjectKind::Tunnel,
+            owner: Some(P2),
+            at: SpawnAt::Tile(TilePos::new(22, 2)),
+            orientation: Default::default(),
+        },
+    ); // 5
+    t.order_at(2, P1, &[ObjectId(2)], OrderKind::Enter(TUNNEL), false);
+    t.run_until(40);
+    assert_eq!(t.sim().held().count(), 1);
+    t.debug_at(41, DebugCommand::Remove { id: TUNNEL });
+    t.run_until(41);
+    assert!(t.sim().player(P1).unwrap().is_defeated());
+    assert_eq!(t.sim().held().count(), 0);
+    let removed: Vec<ObjectId> = (t.events().iter())
+        .filter_map(|(tick, e)| match e {
+            SimEvent::Removed(id) if *tick == 41 => Some(*id),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(removed, [TUNNEL, ObjectId(2)]);
+    assert_eq!(t.sim().object(ObjectId(3)).unwrap().owner, None, "neutral, on the map");
+    assert_eq!(dangling_references(t.sim()), []);
+}

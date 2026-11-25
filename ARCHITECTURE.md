@@ -200,8 +200,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   It crosses Rugged tiles with double drag (`HOVER_VEHICLE.rugged_terrain`, design change 0039), on the light
   infantry's `(GroundRugged, 1)` grid.
 - **The Syndicate** (`defs/syndicate.rs`; `factions/syndicate/`, slice M4-A): the Guard (M3), then the Agent, the
-  Tunnel and the Hideout, after the Colonists' kinds. All inert so far but for blocking, sight and being targets;
-  the Agent has its pistol. **The Tunnel is one kind with a tier** (plan decision T39): `StructureDef::tunnel` holds
+  Tunnel and the Hideout, after the Colonists' kinds. The Agent has its pistol; units enter and leave the Tunnel
+  Network at a Tunnel's Side A and the Hideout produces into it (slice M4-C, *Units off the map* below); the rest is
+  inert so far but for blocking, sight and being targets. **The Tunnel is one kind with a tier** (plan decision T39): `StructureDef::tunnel` holds
   its `TunnelDef`, the rows of `tunnels.md > Tiers` (`TierDef`: MaxHP, Tunnel Area Radius, Transit), and the object
   its `TunnelState` (`tunnel.rs`), from Tier 1. `Object::max_hp` reads its tier's row; `tunnel::set_tier` changes the
   tier as an upgrade will, the damage kept (`transform::follow_max`, design change 0231 point 4), through
@@ -211,6 +212,36 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   under its centre, blocks no movement (*Navigation*) and is hidden from the other players (*Vision > Hidden
   objects*). Surface and underground footprints never share a tile (design change 0240): `may_overlap` keeps them
   apart as any two footprints; the placement rules across the layers come with slices M4-E and M4-F.
+- **Units off the map: the held store** (`network.rs`, `sim/network.rs`; slice M4-C, plan decision T30;
+  `factions/syndicate/tunnels.md > Tunnel Network`): a unit inside a Tunnel Network is **not among the objects**. It
+  is a `Held { object, place, since, entered }` in `Sim::held`, a second map by id beside `Sim::objects`, with the
+  id it had. So every system that walks the objects (movement, collision, vision, targeting, auto-targeting, picking,
+  records, the client's visuals, which diff against `Sim::objects()`) passes it by without a filter, and a forgotten
+  case fails closed: it can't show, move or hit a unit that isn't there. The one exception to "never a separate store
+  keyed by id" above, for that reason. **What must count held units says so**: `Sim::army_cap` (their army cost,
+  Tunnel Space), the removal path's reference cleanup (`Sim::forget_references` walks them too, so a held unit never
+  names an object that is gone), `Sim::clear_defeated_networks` (a defeated player's go, `Sim::remove_held`, which
+  slice M4-H's stranded-unit rule calls too), the state hash and the saves, `testing::dangling_references`, the
+  client's control groups (`ControlState::retain_on_map`). `Place` is where: `Network` so far; match it
+  exhaustively and never assume a held unit's place is on the map (M4-E adds a site, a transport's passengers a
+  carrier that may itself be held). `Sim::take_off_map(id, place, entered)` and `Sim::put_on_map(id, pos, facing)`
+  are the only ways off and back: the first ends every reference to the unit as a removal does, without a death's
+  effects (no `Died`, no `Removed`), and clears the unit's own orders, move and attack (design change 0249), its HP,
+  load and modes kept; call it before 5b, as a change of kind. `Sim::held()`, `held_unit(id)`, `network(player)`,
+  `network_counts(player)` (the EjectMenu's tiles: unreserved units by kind), `reserved()` and `next_out(player,
+  kind)` are what the interface reads. Hashed and saved **only while non-empty** (`#[serde(default,
+  skip_serializing_if)]`, a tag in `Sim::state_hash`), as a Tunnel's eject queue is (`TunnelState::eject`), so the
+  states without a held unit, the goldens among them, are as they were. Inside, a unit regenerates 1% of its MaxHP
+  a second (`REGEN_PER_SECOND`, placeholder, 0249) and may leave `TRANSIT_DELAY_TICKS` (32, placeholder, 0245)
+  after it walked in, a unit produced inside at once (0246; `Held::may_exit`).
+- **Side A's paths** (`network::Paths`, design changes 0225 and 0248): the one geometry of a Tunnel's entry and
+  exit, for the sim and the client's drawing (`object_render/tunnel.rs` reads `PATH_OFFSET_SU`): two spots on Side
+  A's line, 30 su from its middle, the exit towards Side B and the entry towards Side D, wherever the sides face
+  (`sides`). A unit stands on one with its box against the wall (`entry_stand`, `exit_stand`). `network::admits(tunnel,
+  kind)` is the one tier rule (`> Transit Tier Requirements`; the tier a Tunnel has, which an upgrade leaves until it
+  completes, 0249); **air units pass nowhere in M4** (`network::AIR_DOORS`, whose doc holds the rule to come with the
+  first Syndicate air unit, design changes 0250 and 0251). `network::parent` derives an expansion's parent Tunnel
+  (plan decision T32: the owner's Tunnel whose Tunnel Area, `network::area`, fully contains it).
 - **Changing kind** (`sim/kinds.rs`, plan decision T15): an object that transforms (a Drone deploying into a Beacon,
   a Beacon warping in a building, a Legionnaire converting its weapon, a Peacekeeper raising or lowering its Riot
   Shield) stays the same object, its id included.
@@ -371,6 +402,13 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      `orders::update`, in id order. Each Drone whose walk to its site ended this tick deploys there (a change of kind:
      before 5b, which claims the footprint) or fails its order (`SimEvent::DeployFailed`): the changes of kind and
      the events that a behaviour may not make.
+   - Entries, `Sim::step_entries` (slice M4-C, `sim/network.rs`; `factions/syndicate/tunnels.md > Tunnel Network >
+     Walking in`): part of 5a, right after the deployments, in id order. Each unit whose current order is an Enter
+     and whose box is within `ENTRY_REACH_SU` of its Tunnel's entry spot leaves the map for the network
+     (`Sim::take_off_map`, `SimEvent::EnteredNetwork`), on its way or at the end of its walk alike: no hold between
+     units (design change 0246). An Enter whose Tunnel is gone or no longer suits the unit, or whose walk ended short
+     of the path (the normal Failure rule, 0247), ends (`SimEvent::EnterFailed`). Before 5b to 5f, so that no grid,
+     collision, shot or sight of the tick includes a unit that has gone in.
    - Attacks on a target too close, `Sim::step_too_close` (slice M3-L2, design change 0182): part of 5a, right after
      the deployments, in id order. Each unit that can't move whose Attack order 5a found with its target inside its
      MinRange (`AttackOrder::too_close`) ends the order, and its next queued one starts in the next tick, with
@@ -413,6 +451,15 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      two is free; after the transformations, so that a Beacon completed in the tick gives its room in it, as the
      deaths of 5e do theirs. After 5d, so a released unit never moves in its own tick; before 5f, so it is seen in
      it.
+   - The Tunnel Network, `Sim::step_network` (slice M4-C, `sim/network.rs`): part of the economy phase, right after
+     the producers. Every held unit regenerates; then each Tunnel with an eject queue, in id order, lets its first
+     unit out onto the exit spot if that is clear of tiles, footprints and units of its layer (`Sim::check_unit_fits`,
+     the rule of every unit put on the map), else the queue waits: no other spot, no minimum gap (design change
+     0250), one unit a tick at most. The unit keeps its id (`Sim::put_on_map`, `SimEvent::LeftNetwork`) and gets its
+     order through `Sim::give_order`: its rally's, or a Move 1 grid unit straight out. After the producers, so that a
+     unit finished in the tick with a surface rally comes out in it; after 5d, so that it never moves in the tick it
+     appears; before 5f, which sees it. **Old ids come back** (plan decision T35): nothing after this step may take
+     `first_new` for "everything that arrived this tick".
    - Defeat, `economy::defeat::step` (slice M2-F2, plan decision T8, see *Economy > Defeat and the end of the
      game*): the economy phase's last step, run by `step` after the producers, so that every way a structure left
      the game in the tick counts (the commands' removals, 5e's deaths). Before 5f, so that the units a defeat makes
@@ -1392,6 +1439,16 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
     footprint, are open (**the Director's reading**). The Robo Portal (AAAA) is open all round; the Bio Portal
     (AABB) from its top-left corner's direction clockwise round to its bottom-right one unturned, turning and
     flipping with it. The Heavy and Star Portals' arcs will come from their sides the same way.
+  - **No doorway: into the Tunnel Network** (slice M4-C, `ExitRule::Network`, the Hideout's;
+    `factions/syndicate/structures.md > Rally Point Behavior`, design changes 0252 and 0253;
+    `Sim::release_into_network`): the finished unit comes into the game held in its owner's network
+    (`SimEvent::UnitProduced` without a `Spawned`), with no transit delay, and nothing ever holds the release up.
+    With no rally point, or one on a Tunnel of its owner's, it stays inside. Any other rally is on the surface: the
+    unit joins the end of its **parent Tunnel's** eject queue (`network::parent`, derived) with its default command
+    on the rally target, resolved at production (`Sim::rally_order_of`); a rally on an own underground structure is a
+    Move to the point above it, not an object target (0252). Without a parent Tunnel, or one whose tier lets the unit
+    out, it stays inside. An entry's order whose target leaves the game meanwhile is dropped (`forget`), and the unit
+    then walks straight out and idles.
   - **Occupied** while a unit the building released is in its doorway (`Mover::exit` is the building's id). While
     it is, the next finished unit is held (progress at its total, `waiting`), the queue behind it doesn't advance,
     and it is released in the first tick the doorway is free (0080; for the portals 0145 point 5, "it waits fully
@@ -1487,7 +1544,10 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   (`NothingToDeliver` if none does, design change 0140). `Deploy { origin }` (slice M3-F, see *Economy >
   Beacon Deployment*) goes to the one Drone among the units (`NoWorkers` if none, `SeveralConstructors` if more: the
   client picks one, design change 0125), with a site allowed as far as the player knows, its pending sites reserved
-  (`Unplaceable(PlacementProblem)`, not reported: `Sim::deploy_check`). Without `queue` the order replaces the unit's queue and current order; with it, the order is
+  (`Unplaceable(PlacementProblem)`, not reported: `Sim::deploy_check`). `Enter(tunnel)` (slice M4-C,
+  `systems/controls/commands.md > Enter`, `Sim::check_enter`) names a Tunnel of the player's own in operation
+  (`NotOwned`, `NotATunnel`), and goes to the units its tier lets in (`network::admits`; `NoTransit` if none: any
+  unit of the Tunnel's owner may enter, whatever its type's faction). Without `queue` the order replaces the unit's queue and current order; with it, the order is
   appended (a full queue drops it). Each order command is one group (`Sim::next_group`); a location order gives
   each unit of a group its own destination (the magic box, see *Navigation*). What each order does is in
   *Behaviours*.
@@ -1539,10 +1599,19 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   The check is on the sim's vision, whatever the client draws (`--no-fog` is display only). A queued order passed
   the gate when it was given; what its behaviour does if the target is out of sight when its turn comes is in
   *Behaviours*.
+- **`Command::Tunnel { tunnel, command }`** (slice M4-C, plan decision T36; `TunnelCommand`, to which Expand,
+  Upgrade and the cancels come with slices M4-E to M4-G): the player's own Tunnel in operation (`NotOwned`,
+  `NotATunnel`). **`Eject { kind }`** (`factions/syndicate/tunnels.md > EjectMenu`): the tier lets the kind out
+  (`NoTransit`), and a unit of the kind in the player's network is free to leave: not reserved on a queue already
+  (`NotInNetwork`) and past its transit delay (`InTransit`: **a reading**, design change 0245's "For 2 s it can't be
+  ejected anywhere" refuses the click rather than queueing the unit). The gate picks the one inside longest
+  (`Sim::next_out`, design change 0251, ties by id) and the command reserves it at the end of the Tunnel's queue.
+  The queue can't be cancelled, and goes with its Tunnel, its units staying in the network.
 - **Default orders** (`orders/resolution.rs`; `systems/controls/selection_and_hud.md > RightClickResolution`, design
   changes 0062, 0063, 0074 and 0136): `resolve(Abilities, Aim)` is the one rule for what a unit does against a target
   by default: the ground gives Move; a worker on a patch it can gather Gather, on its owner's drop-off Drop Off while
-  it carries a load (else a Move there, 0140); an enemy it can attack (its attack's TargetDomain, the target
+  it carries a load (else a Move there, 0140); an own Tunnel whose tier lets the unit through Enter (slice M4-C:
+  `Abilities::transit` against `Aimed::transit`, `network::passes`); an enemy it can attack (its attack's TargetDomain, the target
   destructible, its mode letting it attack) Attack; anything else a Move to the object, which follows a unit (an
   unarmed Drone follows an enemy, a shielded Peacekeeper too). `Sim::aimed(player, id)` is the target as the player
   knows it (`Aimed`: enemy, destructible, domain, gatherable, drop-off; a remembered one by its record) and
@@ -1585,6 +1654,9 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   (`command_ui/feedback.rs`). `TargetTooClose { unit, target }` (slice M3-L2, design change 0182) is an Attack order
   that failed because its target is inside the MinRange of a unit that can't move; the feedback line says "Target
   too close".
+  `EnteredNetwork { unit, tunnel }` and `LeftNetwork { unit, tunnel }` (slice M4-C) are a unit leaving the map
+  for a Tunnel Network and coming back with its id: no `Removed` and no `Spawned` go with them. `EnterFailed { unit,
+  tunnel }` is an Enter that ended without the unit going in.
   `ProductionWaiting { producer, reason }` (slice M3-P, design change 0143) is a producer whose unit at the front
   began to wait for room under the army cap `reason`, raised once per wait: the placeholder of 0143's notification.
   `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events from the scenario's
@@ -1863,6 +1935,19 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   `cancel`, `gate`, `saves`). The arithmetic and the footprint are unit-tested in `transform/tests.rs`. In the
   client: `tests/client/visuals/` (a visual rebuilt and tinted), `tests/selection/panels.rs` (a selected Beacon
   through its Warp In), and the InfoPanel's line in `hud/info_panel` and `activity.rs`.
+- **Tunnel Network tests** (slice M4-C) are `crates/sim/tests/tunnel_network/` (`enter.rs`: the walk into the entry
+  path, what leaving the map ends, cleared orders, the gate and the tiers with a vehicle, a Tunnel gone or
+  unsuitable, the Failure rule, the transit delay of design change 0245 and the regeneration of 0249; `eject.rs`:
+  the paths in all 8 orientations (0248), 10 Guards streaming out and a blocked exit spot (0250), the unit inside
+  longest, the reservation and a destroyed Tunnel's queue (0251), the gate; `production.rs`: the Hideout's Agent
+  into the network, the rallies of 0252 and the shared queue of 0253, a Hideout without a parent; `crowds.rs`: 20
+  Guards filing in (0246), entries and exits side by side at two Tunnels, 40 Guards in and out; `saves.rs`: saves at
+  every stage and a replay, the store hashed and saved only while it holds a unit), each tick under the held
+  store's invariants (`check_held`). `network.rs`'s unit tests have the geometry in every orientation, the delay and
+  the regeneration; `sim/network/tests.rs` an air unit refused at every tier (a test def), a unit's id, HP and load
+  through `take_off_map` and `put_on_map`, and a defeated player's network. In the client:
+  `tests/commands/tunnel_network.rs` (a right-click on an own Tunnel is Enter; units that go in leave the selection
+  and stay in their control groups, whose recall selects those on the map).
 - **Beacon Deployment tests** (slice M3-F) are `crates/sim/tests/deploy/` (the walk to the footprint's centre and the
   start on arrival, the 48 frames, the HP from 20 to 120 and damage carried through (0110), Beacon Capacity 10/10 to
   9/10 to 9/15 and a cancel to 11/10 (0112), the cancel's fractions of HP and Shields and its place (0109, 0111), the
