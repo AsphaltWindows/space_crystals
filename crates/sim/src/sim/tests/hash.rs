@@ -267,8 +267,9 @@ fn state_hash_covers_every_field() {
             obj(s, 3).tunnel = Some(crate::tunnel::TunnelState::at(2));
         }),
         ("tunnel tier", |s| obj(s, 4).tunnel.as_mut().unwrap().tier = 3),
-        // (M5-A) A Cults unit's lineage (plan decision T56; any unit may hold one here).
-        ("lineage", |s| obj(s, 3).lineage = Some(ObjectId(4))),
+        // (M5-A) A Cults unit's lineage (plan decision T56; any unit may hold one here), one entry per Recruit (M5-C).
+        ("lineage", |s| obj(s, 3).lineage = vec![ObjectId(4)]),
+        ("lineage entries", |s| obj(s, 3).lineage = vec![ObjectId(4), ObjectId(4)]),
     ];
     for (name, mutate) in mutations {
         let mut sim = base.clone();
@@ -278,30 +279,34 @@ fn state_hash_covers_every_field() {
     }
 }
 
-/// (M5-A) A unit's lineage (`Object::lineage`, plan decision T56) is part of the state while it is set: hashed, by the
-/// Hall it names, and saved. While it isn't, nothing of it is hashed, and an object's file has no `lineage` key and
-/// loads with none, so that the states and the files without one are as they were before it existed (the goldens
-/// stand).
+/// (M5-A) A unit's lineage (`Object::lineage`, plan decision T56; one entry per Recruit it embodies, the Director's
+/// amendment for design change 0319, slice M5-C) is part of the state while it has an entry: hashed, by the Halls it
+/// names, how many and in their order, and saved. While it has none, nothing of it is hashed, and an object's file has
+/// no `lineage` key and loads with none, so that the states and the files without one are as they were before it
+/// existed (the goldens stand).
 #[test]
 fn a_lineage_is_hashed_and_saved_only_while_it_is_set() {
     let mut base = small_sim();
     insert_unit(&mut base, Vec2::new(100.0, 100.0)); // id 3
-    let with = |hall: Option<u32>| {
+    let with = |halls: &[u32]| {
         let mut sim = base.clone();
-        obj(&mut sim, 3).lineage = hall.map(ObjectId);
+        obj(&mut sim, 3).lineage = halls.iter().copied().map(ObjectId).collect();
         sim
     };
-    assert_eq!(with(None).state_hash(), base.state_hash());
-    assert_ne!(with(Some(1)).state_hash(), base.state_hash());
-    assert_ne!(with(Some(1)).state_hash(), with(Some(2)).state_hash(), "by its Hall");
-    for hall in [None, Some(1)] {
-        let sim = with(hall);
+    assert_eq!(with(&[]).state_hash(), base.state_hash());
+    assert_ne!(with(&[1]).state_hash(), base.state_hash());
+    assert_ne!(with(&[1]).state_hash(), with(&[2]).state_hash(), "by its Hall");
+    // A Jackal's two Recruits, from one Hall or two (design change 0319).
+    assert_ne!(with(&[1]).state_hash(), with(&[1, 1]).state_hash(), "by its entries");
+    assert_ne!(with(&[1, 2]).state_hash(), with(&[2, 1]).state_hash(), "in their order");
+    for halls in [&[][..], &[1], &[1, 2]] {
+        let sim = with(halls);
         let object = &sim.objects[&ObjectId(3)];
         let json = serde_json::to_value(object).unwrap();
-        let key = hall.map(|id| serde_json::json!(id));
-        assert_eq!(json.get("lineage"), key.as_ref(), "{hall:?}");
+        let key = (!halls.is_empty()).then(|| serde_json::json!(halls));
+        assert_eq!(json.get("lineage"), key.as_ref(), "{halls:?}");
         let loaded: crate::object::Object = serde_json::from_value(json).unwrap();
-        assert_eq!(&loaded, object, "{hall:?}");
+        assert_eq!(&loaded, object, "{halls:?}");
     }
 }
 

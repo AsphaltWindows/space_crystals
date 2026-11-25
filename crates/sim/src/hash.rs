@@ -359,9 +359,9 @@ impl StateHash for Object {
             h.tag(4);
             popup.hash(h);
         }
-        // (M5-A) The same for a Cults unit's lineage, the Hall that produced its Recruit (plan decision T56), under a
-        // tag of its own.
-        if let Some(lineage) = lineage {
+        // (M5-A) The same for a Cults unit's lineage, the Hall that produced each Recruit it embodies (plan decision
+        // T56, one entry per Recruit since slice M5-C), under a tag of its own: only while it has an entry.
+        if !lineage.is_empty() {
             h.tag(5);
             lineage.hash(h);
         }
