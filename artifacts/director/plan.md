@@ -895,9 +895,39 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - The greyed reasons' wording is a placeholder.
     - A rally on an expansion still shows the object marker.
 
+- **M4-O Combat spike: projectiles, area damage, Attack Ground** (Opus; merged in `356d1a96`; 1589 tests; the 9 goldens unchanged, plus the new `test_defs/area_attacks.json`):
+  - **Projectiles (T45):**
+    - `Sim::projectiles`, in launch order, hashed only while non-empty;
+    - they land in phase 5e, before that tick's hits, even if the shooter has died;
+    - only DoublyDisjointed attacks launch them, as planned; a unit-target slot is kept for HeadDisjointed and TailDisjointed.
+  - **Area damage (T46):** `combat/area.rs` is the only AoE path.
+    - The circle–rectangle overlap is exact, through `sc_sim::math` (libm), with a test pinning its bits.
+    - Candidates are chosen by layer and domain, underground objects included, even unseen.
+    - The share, the effective armour, the directional zone (from the blast's centre), the minimum, and Shields at full value.
+    - 0264's "about 93" over a hidden Hideout is a test.
+  - **The sequence (T48):**
+    - the location locks at the end of Aiming;
+    - the projectile launches at the end of Firing;
+    - the base is free in Cooldown;
+    - new events: `ProjectileLaunched` (with its target, for Q0083 point 4) and `Blast`.
+  - **Attack Ground (T47):**
+    - `OrderKind::AttackGround`, and `AttackState::location`, hashed only while set;
+    - the gate's `CannotTargetGround`;
+    - walking into range, and backing off inside MinRange;
+    - it fires once and completes at its blast (Q0083 point 3).
+  - **Client (T52):** `combat_effects/{projectiles,blasts}.rs`.
+    - Projectiles are drawn only over Visible tiles, with a cosmetic arc.
+    - A blast ring shows when its centre tile is Visible.
+    - Nothing is drawn for a hidden victim. One leak was found and fixed: a hidden Hideout's death marker.
+    - The D slot gives Attack Ground, with a red location marker.
+  - **Q0083's placeholders** (points 1–4), each marked in the code.
+  - **Perf** (interleaved A/B, release; load 1.1–8.1):
+    - the behaviours battle 0.319 → 0.326 ms (+2%), and attack-move 5a 0.075 → 0.077 ms; the rest within noise;
+    - `projectiles_perf` (200 in flight): mean 0.11–0.12 ms per tick, worst 0.16 ms; landing ticks mean 0.15–0.16 ms, worst 0.26 ms.
+  - **Open:** see the M4 entry's technical follow-ups.
+
 ## In progress
   - **M4-E Agent-built Tunnels** (Opus): the kind-generic Build order (T51), paid at the ghost with top-price refunds (0233), the site (0234), placement against every player's areas (0237), drillable and on the map (0242), over hidden expansions (0240), and sites left out of "operational".
-  - **M4-O Combat spike** (Opus): projectiles (T45), area damage built once (T46; 0262, 0264), Attack Ground (T47), reveals (T48) and drawing (T52); Q0083's placeholders.
 - **Next**:
   - **M4 wave 5:** J1, H and F, once E lands. The first playable comes after J1 and H.
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
@@ -1083,8 +1113,13 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - R2 (client, docs, citation test): done (`c60b8d0f`, and the citation pass `06d82614`).
     - B: done (`35e19634`).
     - J2: done (`c5910e4d`; Q0086).
-    - E and O: running (wave 4, Opus; briefs `scratchpad/briefs/m4e-agent-built-tunnels.md` and `m4o-combat-spike.md`).
+    - O: done (`356d1a96`; Q0083's placeholders).
+    - E: running (wave 4, Opus; brief `scratchpad/briefs/m4e-agent-built-tunnels.md`).
+    - Wave 5's briefs are drafted: `scratchpad/briefs/m4j1-agent-ui.md`, `m4h-losing-tunnels.md` and `m4f-expansions.md`. They launch once E lands.
     - The rest are queued in the waves above.
+  - **Technical follow-ups** (the Director's):
+    - **One per-player event filter in the client.** M4-O found that each event consumer filters for the viewer on its own, and fixed one leak (a hidden Hideout's death marker). Put the filter in one place before more hidden objects arrive (S2's pop-up turret, N4–N7). Candidate: a small slice beside L, or in M.
+    - **"Target too close" for a location** (`systems/controls/behaviors.md > Target inside MinRange`): an Attack Ground that can't back off gives up without the feedback (a TODO in `orders/attack_ground.rs`). No M4 kind can target the ground with a MinRange, so the first that can (the Gunner in M5, or the Artillery Rig) adds it.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -1192,7 +1227,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0080 | Expansion placement: do ground units and lingering ghosts block it; is a Warp In over a hidden expansion red at once? | no | open; M4-F builds the proposals |
 | Q0081 | ExpandMenu slots: do expansions not yet in the game keep their greyed slots, so the turret's letter never moves? | no | open; M4-J2 and M4-F build the proposal |
 | Q0082 | Supplies gathering: pick-up and drop-off reaches; nearest Tunnel measured to the Supplies hatch; the old load lost at the end of the new pick-up | no | open; M4-I (`9aca8972`) built A for all three points, marked `Placeholder: Q0082 point N` |
-| Q0083 | Area damage: friendly fire, the reveal, Attack Ground's end, how grenades are drawn | no | open; M4-O and M4-U build the proposals |
+| Q0083 | Area damage: friendly fire, the reveal, Attack Ground's end, how grenades are drawn | no | open; M4-O built points 1–4 as placeholders (`356d1a96`); M4-U follows |
 | Q0084 | Laser Turret: hidden when, sight, blocking, payment, refunds, sites, the Agent's exit, targeting | no | open; M4-S1 and M4-S2 build the proposals |
 | Q0085 | Stale doc lines that later answers contradict (seven lines) | no | open; the newer answer wins |
 | Q0086 | The EjectMenu's order, zero-count tiles and state after a click; when Tunnel Areas are drawn; recalling an all-held group | no | open; as built in M4-J2 |
@@ -1436,11 +1471,11 @@ Last triaged: 0282.
 | 0257 Syndicate panel letters on the 4x3 grid | partly done (M4-J2, `c5910e4d`: the Tunnel's and the Hideout's panels, and the EjectMenu); queued (M4-J1 the Agent, M4-F the ExpandMenu, M4-G the upgrade) | answers Q0068, as proposed |
 | 0258 Losing Tunnels: decay %, attacking neutral expansions, reclaiming, blocked cells (counted as occupied), defeat, and the enemy sees the tier | partly done (M4-A, `fcd06dc`: the tier seen and remembered); queued (M4-H) | answers Q0069 |
 | 0259 The Syndicate economy check: measured to the hatch square; the stacked layout puts the Tunnels on opposite sides | queued (M4-L); the stacked layout is in M4-D's soak | answers Q0070 |
-| 0260 Placeholders for the Laser Turret, the Grenadier and the Chemical Plant, so they can be planned into M4; the Grenadier needs a projectile, AoE and Attack Ground combat spike | queued (planned in M4 revision 2: O the combat spike, U the Grenadier, S1 and S2 the Laser Turret, K the Chemical Plant) | answers Q0071 (scope B) |
+| 0260 Placeholders for the Laser Turret, the Grenadier and the Chemical Plant, so they can be planned into M4; the Grenadier needs a projectile, AoE and Attack Ground combat spike | partly done (M4-O, `356d1a96`: the combat spike); queued (U the Grenadier, S1 and S2 the Laser Turret, K the Chemical Plant) | answers Q0071 (scope B) |
 | 0261 Area damage never hits underground objects unless targeted | void (replaced by 0262) | — |
-| 0262 Area damage does hit underground objects; expansions and the pop-up turret have high armor | partly done (M4-A, `fcd06dc`: damage never asks the hidden predicate); queued (M4-O: area damage hits underground objects); armor per 0264 | answers Q0071's AoE-underground gap |
+| 0262 Area damage does hit underground objects; expansions and the pop-up turret have high armor | partly done (M4-A, `fcd06dc`: damage never asks the hidden predicate; M4-O, `356d1a96`: area damage hits underground objects, even unseen); queued (S2: the pop-up turret's armour, per 0264) | answers Q0071's AoE-underground gap |
 | 0263 Confirmed: undeploy, held orders, the Transport's base, the Phantom's attack | queued (T44, the deploy model; gated N3 and N6) | answers Q0071's items to confirm |
-| 0264 Building armor rule: PointArmor n, FullArmor n × size in grid squares; underground expansions 6/24 for 2x2; the Laser Turret 1/1 raised, 6/6 underground | partly done (M4-A, `fcd06dc`: the Hideout 6/24; M4-B, `35e19634`: the defs test across factions, all 11 buildings pass, no exceptions); queued (S1, S2: the Laser Turret) | — |
+| 0264 Building armor rule: PointArmor n, FullArmor n × size in grid squares; underground expansions 6/24 for 2x2; the Laser Turret 1/1 raised, 6/6 underground | partly done (M4-A, `fcd06dc`: the Hideout 6/24; M4-B, `35e19634`: the defs test across factions, all 11 buildings pass, no exceptions; M4-O, `356d1a96`: "about 93" through a hidden Hideout's 6/24); queued (S1, S2: the Laser Turret) | — |
 | 0265 Transport passengers always count against Tunnel Space | queued (gated N3) | answers Q0071's Tunnel Space gap |
 | 0266 A burrowed Transport passes through underground structures; surfacing rules | queued (gated N3) | answers Q0071's underground and surfacing gaps |
 | 0267 A Tunnel-built Laser Turret uses the operation slot; detection comes after the faction rosters | queued (M4-S2) | Q0071 complete (0260–0267) |
