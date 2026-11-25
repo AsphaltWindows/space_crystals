@@ -2197,3 +2197,4 @@ Q0058: AttackMove reach rule (path within leash+sight), no dropped-target memory
 Q0060 pts 3-6 + refund-what-was-paid. Entry 0231.
 Correction: Tunnel upgrade refund = current top price (replaces 0231 refund). Entry 0232.
 Q0061 pt1-2: Tunnel pays at ghost placement; ghosts count; refunds top price. Entry 0233.
+Q0061 rest accepted. Entry 0234.
