@@ -80,7 +80,10 @@ pub struct Held {
     /// network longest" comes out first (design change 0251).
     pub since: Tick,
     /// Whether it walked in (design change 0245: "Each unit inside stores when it entered"), so that the transit
-    /// delay applies from `since`; `false` for a unit produced inside ("no delay", 0246).
+    /// delay applies from `since`; `false` for a unit produced inside ("no delay", 0246), rallied into the network
+    /// included, and for the Agent that finished a Tunnel (design change 0301, answering Q0087: "The Agent that
+    /// completes a Tunnel can be ejected at once [...] produced units rallied into the network have no delay
+    /// either").
     pub entered: bool,
 }
 

@@ -16,7 +16,9 @@
 //!   (0234, `transform::follow_max`).
 //! - **Completion**: "The Tunnel becomes operational and the Agent is inside the Tunnel Network, available for
 //!   redeployment from any Tunnel". Its functions wait for this (`Object::is_operational`); the Agent goes on to the
-//!   network, free to leave at once (it walked into no Tunnel: no transit delay, `Held::entered`).
+//!   network, free to leave at once (it walked into no Tunnel: no transit delay, `Held::entered`; design change 0301,
+//!   answering Q0087: "The Agent that completes a Tunnel can be ejected at once", `factions/syndicate/tunnels.md >
+//!   Tunnel Network`).
 //! - **Cancel** ([`Sim::cancel_site`], `ConstructionCommand::CancelConstruction` on the site: "It does nothing but
 //!   Cancel"): the site goes, refunded at the current top price (design changes 0233 and 0284: "construction and
 //!   upgrade cancels refund the current top price"), and the Agent comes out.
