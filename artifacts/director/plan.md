@@ -1190,9 +1190,40 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - idle units packed against a wall may fail to sidestep, and the turret then stays down (0223: predictable, not optimal);
     - an enemy's record of a turret is drawn raised, since that is the only way an enemy ever sees one.
 
+- **M4-M M4 QA** (Opus; merged in `4e3fdd4a`; 1814 tests, 23 ignored; goldens unchanged). **M4 is complete with it.**
+  - **Perf** (release, load 0.3–0.6), per sim tick:
+    - `agents_perf`, 4 Tunnels with 16 Agents and 60 Guards cycling: mean 0.043 ms, p99 0.067 ms. With 40 Grenadiers shelling: 0.070 and 0.090 ms.
+    - `popup_perf`: 0.194 and 0.406 ms, worst 1.44 ms.
+    - `projectiles_perf` (200 grenades in flight): 0.110 and 0.192 ms.
+  - **`syndicate_soak`** (ignored; 10 minutes of the golden game) delivered:
+    - 5800 SC and 8 Supplies;
+    - 12 grenades, 11 pop-up rises and 27 turret shots;
+    - 15 units into the network and 34 out;
+    - 4 expansions and 1 upgrade.
+
+    Every projectile lands by its arrival tick, the network's invariants hold, and the rerun and replay hashes match.
+  - **The robustness fuzz** accepts a game's end. Its seed is 0x5eed again, with lower thresholds: spawned and removed above 40, and unit steps above 400.
+  - **The walkthrough:** 19 screenshots (`scratchpad/m4m/`, made by `m4m/walk/walkthrough.sh`), all looked at. They include the blast over a hidden Hideout from both sides, and the pop-up raised and lowered.
+  - **The ignored suite:** all 23 pass in 56 s, at load 0.9.
+  - **Docs:**
+    - `docs/playtest/m4.md`;
+    - ARCHITECTURE's "Adding a faction" gains items 15–18, and "Adding a unit or structure" covers M4's kinds;
+    - M4-V's doubts now cite Q0090.
+  - **Findings, for follow-ups:**
+    - **Four Agents on one crystal hatch jam for good:** in the soak at 6:54, after which the income stops. Three never jam. Until it's fixed, the soak runs 3 crystal Agents and 1 on Supplies. Fix: **M4-W** (Fable).
+    - **Strays,** fixed by **M4-Z**:
+      - `Placeholder: Q0060 point 1` in `defs/syndicate/structures/tunnel.rs` (answered by 0229);
+      - Q0091's as-built points carry no marks;
+      - `testing::syndicate::eject_builders` treats a turret's `SiteCompleted` as a Tunnel's;
+      - `Books`/`SupplyBooks` miss a turret's SC refunds and `ExpansionCancelled`.
+    - **Small display notes:**
+      - a site's InfoPanel shows its current construction maximum ("HP 74 / 74" at 10%) with a full bar;
+      - a revealed shooter is drawn over unexplored ground.
+
 ## In progress
 - **Next**:
-  - **M4 wave 9, the last:** M (QA; Opus; brief `scratchpad/briefs/m4m-qa.md`) is running. Every other M4 slice has landed: S2 in `0cee8bc4`, V in `dbefb552`. M also makes the robustness fuzz robust. M4 ends when M lands.
+  - **M4 is complete** (M4-M, `4e3fdd4a`). Two follow-ups remain: **M4-W**, the four-Agent hatch jam (Fable), and **M4-Z**, the QA strays.
+  - **M5 wave 1:** A (Cults foundation) and R (playtest pairings), by `artifacts/director/m5-plan.md`.
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -1291,8 +1322,8 @@ First playable after M2-H2.
 ### M3–M5: other factions, basics
 **Order agreed with the user (2026-11-24):**
 1. Finish M3.
-2. M4 Syndicate (plan being drafted; it will become `artifacts/director/m4-plan.md`).
-3. M5 Cults.
+2. M4 Syndicate (done; `artifacts/director/m4-plan.md`).
+3. M5 Cults (in progress; `artifacts/director/m5-plan.md`), ending at the user's first playtest.
 
 The user keeps feeding unit and other designs to the Designer, so expect incremental change entries throughout. The user playtests once all four factions are complete. The art pipeline starts once the gameplay design is mostly final.
 - **M3 Colonists** (**done**, except 0203's value; last slice M3-L5 at `a777ae3`; spec: `artifacts/director/m3-plan.md`, from the M3-P spike). It covers the statted opening: Drone gathering, Beacon Deployment and Warp In (Egress Node, Robo Portal, Bio Portal), portals with exits on several sides, Sabre and Rifle Legionnaires with Weapon Conversion, Shields, Beacon Capacity, Colonists Starting Conditions and layouts, HUD and panels, and an economy oracle against `Economy Targets (GDO vs Colonists)`. Refining, the tech tier and the other units are deferred (Q0043).
@@ -1344,7 +1375,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     | L5 | done (`a777ae3`) |
     | J3 | done (`827dfeb`; Q0075) |
     | G3 | done (`8480ee0`) |
-- **M4 Syndicate** (**in progress**; spec: `artifacts/director/m4-plan.md`, revision 2, from the design at `70d1bbc` (0282)).
+- **M4 Syndicate** (**done**: M4-M at `4e3fdd4a`, with follow-ups M4-W and M4-Z; spec: `artifacts/director/m4-plan.md`, revision 2, from the design at `70d1bbc` (0282)).
   - **Slices** (revised plan, adopted 2026-11-25, which folds in 0229–0282): A–M plus R1 and R2 (code organization), O (combat spike), U (Grenadier), and S1 and S2 (Laser Turrets). The waves:
     1. A
     2. B, C, D, then I
@@ -1385,7 +1416,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - S1: done (`50f51141`).
     - V: done (`dbefb552`).
     - S2: done (`0cee8bc4`). **Wave 8 is complete.**
-    - M: running (QA; brief `scratchpad/briefs/m4m-qa.md`).
+    - M: done (`4e3fdd4a`). **M4 is complete.**
     - G: done (`a737a69a`). **Wave 6 is complete.**
     - U: done (`f34e4e6e`).
     - J3: done (`5e2e9419`).
@@ -1397,7 +1428,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - **One per-player event filter in the client.** M4-O found that each event consumer filters for the viewer on its own, and fixed one leak (a hidden Hideout's death marker). Put the filter in one place before more hidden objects arrive (S2's pop-up turret, N4–N7). **Done: M4-V, `dbefb552`.**
     - **"Target too close" for a location** (`systems/controls/behaviors.md > Target inside MinRange`): an Attack Ground that can't back off gives up without the feedback (a TODO in `orders/attack_ground.rs`). No M4 kind can target the ground with a MinRange, so the first that can (the Gunner in M5, or the Artillery Rig) adds it. **Now M5-O3** (0304: the Gunner is TailDisjointed, with MinRange 2).
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
-- **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Militant (renamed from Soldier, 0302), Gunner.
+- **M5 Cults** (**in progress**): Recruitment Hall, Storage, Recruit, Armory, Militant (renamed from Soldier, 0302), Gunner.
   - **The plan: `artifacts/director/m5-plan.md`,** adopted from planning spike M5-P's draft, with the Director's decisions at its top.
     - **The slices:** 15, including O3 for 0304, plus answer sweeps S1 and S2, in 8 waves; D runs on Fable.
       1. A (Cults foundation) ∥ R (playtest pairings);
