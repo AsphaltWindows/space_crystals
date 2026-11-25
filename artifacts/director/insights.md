@@ -97,3 +97,24 @@
 - The common brief, `scratchpad/briefs/m4-common.md`, now binds T29–T54, cites the per-object design paths (0282) and the code-organization rules (T54). Update it whenever the plan's structure changes.
 - M4-R runs alone: no other slice beside R1 and R2, since the refactor touches nearly every file. Briefs written after it lands must use its new module layout.
 - The next question number is **Q0086**.
+
+## Code layout after M4-R (R1 `8eab2290`, R2 `c60b8d0f`)
+`ARCHITECTURE.md > Adding a unit or structure` is the guide. Point every brief at it.
+- **The sim:**
+  - `defs/<faction>/{units,structures}/<object>.rs` and `defs/map/`. Each faction's own rules (caps, divisor) go in `defs/<faction>.rs`.
+  - One `kind_registry!` line per kind, and new kinds go last.
+  - Behaviour numbers go in `tuning/<system>.rs`, cited or marked "Placeholder (not in the design)".
+  - Timers use `progress.rs`; toggles use `toggle.rs`.
+- **Serde-ready defs.** Names and lists are `&'static`, and `defs/leak.rs` leaks them once on load. Accepted for the playtest loader.
+- **Timers not on `Progress` yet,** because their hashed bytes would change: production, construction, the Extraction Facility cycle, Weapon Conversion, the Riot Shield, mining and unloading, and the network's held units. Each moves at the next re-bless that touches it.
+- **The client:**
+  - `kinds/<faction>/<object>.rs` (label, `Look`, `ShotStyle`, `PanelTemplate`) behind the exhaustive `kinds::of`;
+  - panels in `command_ui/interface/templates/<faction>/<object>.rs`;
+  - feel tunables in `crates/game/src/tuning/`.
+- **Citations.** `crates/sim/tests/design_citations.rs` fails on any cited path that doesn't exist. The rule is full paths, with a relative `> Section` only inside a module whose doc names exactly one design file.
+- **Files** stay under about 500 lines (`ARCHITECTURE.md`). Splitting is a normal part of every slice.
+
+## Lessons from M4 so far
+- **A comments-only pass across the repository** (citations) must run while nothing else does, or every slice gets conflicts in its comments.
+- **A golden re-bless is fine when you can explain it.** M4-B re-blessed 8 goldens and proved it by re-running with the new starting banks zeroed and getting the old hashes back. Ask for that kind of proof whenever a slice re-blesses.
+- **Ask agents to commit in coherent steps,** each building and passing the tests. R1 did, across 245 files, and review was easy.
