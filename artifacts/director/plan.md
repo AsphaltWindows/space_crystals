@@ -595,9 +595,16 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Goldens.** `colonists_opening` (to 1:50) and `colonists_vs_gdo` (to 3:00, re-blessed after M3-L2 for 0179). There are 9 goldens now, in `tests/golden/`.
   - **Soak game.** `testing::colonists::skirmish` is the 10-minute game for K2.
 
+- **M3-K2a fixes** (merged in `e481b24`; 1328 tests; goldens unchanged):
+  - **Markers (0139 leak).** Markers and the InfoPanel's rally line go by `Sight::target_view`, so they no longer show a remembered target's live position.
+  - **Drop-offs (0170).** `Sim::reassign_drop_offs` runs on the removal path, so nothing checks every tick. After a combat death the new drop-off shows one tick earlier than before (accepted: "immediately").
+  - **Half-out units.** A unit half out of a portal attacks, takes an Attack, and can be selected and attacked; no fix was needed.
+  - **Labels.** Every label is six characters at most, at full size at 720p ("Drop" for Set Drop-off), and a hover hint names each button in full.
+  - **Cleanup.** `fog_memory.rs` is split, and `riot_shield::is_going_up` removed. Gathering perf is unchanged.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
-  - **M3-K2a fixes** (Opus; brief `scratchpad/briefs/m3k2a-fixes.md`): the 0139 marker leak, event-driven drop-off reassignment (0170), a half-out unit attacking, readable labels at 720p, the `fog_memory.rs` split, `is_going_up`.
+  - **M3-T toggles set a target state** (Opus; brief `scratchpad/briefs/m3t-toggles-target-state.md`): 0198 for Convert and the Riot Shield.
   - **M3-K2 final QA** (Opus; brief `scratchpad/briefs/m3k2-qa.md`): `drones_perf`, the 10-minute skirmish soak, soak seed 5, all ignored tests, a scripted walkthrough, the playtest notes (m3.md, m2.md refreshed), the ARCHITECTURE review, long test files.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
@@ -733,7 +740,8 @@ First playable after M2-H2.
     | V | done (`9516a0f`) |
     | U | done (`d3814be`) |
     | S | done (`08f09a6`) |
-    | K2a (fixes: 0139 marker leak, 0170 by event, half-out attack, labels, `fog_memory.rs` split) | running (wave 5) |
+    | K2a | done (`e481b24`) |
+    | T (0198 toggles set a target state; brief `scratchpad/briefs/m3t-toggles-target-state.md`) | running (wave 6) |
     | L1 | done (`aeb54ae`) |
     | L2 | done (`f039e5c`) |
     | K1 | done (`f73262a`; Q0055) |
@@ -810,16 +818,16 @@ First playable after M2-H2.
 | Q0046 | A Drone's drop-off destroyed while it is on its way back | no | answered by 0170 (as built) |
 | Q0047 | Waiting for capacity: several waiting buildings, no power, zero-cost units | no | answered by 0175 (as built) and 0176 (point 3 in M3-V) |
 | Q0048 | Pressing other commands while targeting (0066 vs 0162); a portal group only partly warping in | no | answered: point 1 by 0184 (as built), point 2 by 0185 (M3-U) |
-| Q0049 | Convert pressed again while a conversion waits for Cooldown (0153) | no | answered by 0197 (B: cancels; M3-K2) |
+| Q0049 | Convert pressed again while a conversion waits for Cooldown (0153) | no | answered by 0198 (replaces 0197; M3-T) |
 | Q0050 | The ActiveGroup when an unfinished group's last building completes | no | open; M3-U makes the joined finished group active |
 | Q0051 | A target that outruns sight is lost at once, despite the fog delay | no | open; M3-L1 lingers tiles only |
 | Q0052 | Gathering UI: a Drone's right-click on enemies, the Set Drop-off pointer, who sees a Drone's load, Gather indicators | no | open; M3-J2 built the stated current behaviour |
-| Q0053 | Riot Shield toggle edge cases: orders while lowering, Lower during a waiting raise, the ActiveGroup during a deferred raise | no | open; M3-S built the stated current behaviour |
+| Q0053 | Riot Shield toggle edge cases: orders while lowering, Lower during a waiting raise, the ActiveGroup during a deferred raise | no | points 2–3 answered by 0198 (M3-T); point 1 open |
 | Q0054 | AttackMove: a dropped target not chased again on that leg; the MinRange back-off spot; a cornered unit | no | open; M3-L2 built the stated current behaviour |
 | Q0055 | The Colonists' measured economy misses the table: 1:00, 3:00 and 4:00 outside ±15%; targets 1 and 4 fail (full saturation needs 27 Drones) | no | open; M3-K1 pins the measured figures; no game number changed (0108) |
 
 ## Design change entries
-Last triaged: 0197.
+Last triaged: 0198.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -986,7 +994,7 @@ Last triaged: 0197.
 | 0167 Robo Portal costs 250 (was 400); Bio Portal stays 150 | done (M3-V, `9516a0f`; refund 187); watch it in K1 | answers Q0043 point 2 |
 | 0168 A Move or Follow whose target is the unit itself is a Stop | done (M3-R, `e2975db`: `follow_itself.rs`) | answers Q0031; fixes M1-G3's self-follow |
 | 0169 Arrival radius 3 GU (was 2) for MovingToLocation and MovingToObject | done (M3-V, `9516a0f`: `OCCUPIED_ARRIVAL_GU` 3.0; crowd-sweep failures 43 → 7) | answers Q0032 |
-| 0170 A drop-off destroyed mid-return: the Drone switches at once to the nearest own node | done (as built, M3-H3 `1e43600`); an event-driven check instead of the per-tick one queued (M3-K2) | answers Q0046 |
+| 0170 A drop-off destroyed mid-return: the Drone switches at once to the nearest own node | done (as built M3-H3; event-driven `Sim::reassign_drop_offs`, M3-K2a `e481b24`) | answers Q0046 |
 | 0171 Riot Shield toggle window: half speed and no attacking while toggling; damage reduction only when fully up; a second press reverses from the current point | done (M3-S, `08f09a6`) | answers Q0020 point 2 |
 | 0172 A shield toggle pressed mid-shot waits for Cooldown to end, then starts | done (M3-S, `08f09a6`) | answers Q0020 point 3; like Convert's 0153 |
 | 0173 Peacekeeper and Peacekeeper (Shielded) are two unit types; the type changes at the start of the toggle | done (M3-S, `08f09a6`) | answers Q0020 point 4 |
@@ -1006,5 +1014,6 @@ Last triaged: 0197.
 | 0187 Syndicate Grenadier: slow, dodgeable AoE grenade, ground only, Attack Ground; Hideout E, needs a Chemical Plant | queued (M4; concept only, numbers TBD) | user addition |
 | 0188 Syndicate Assault Bike: fastest wheeled vehicle, wide turns, mortar on a narrow-angle turret | queued (M4; concept only, numbers TBD) | user addition |
 | 0189–0196 Syndicate Shadebringer: support vehicle with Sludge (slows everyone except hover and air, Drill Units only on the surface (0196), laid behind it) and Cover (smoke that blocks line of sight and blinds units inside); separate tanks refilled in the Tunnel Network with a Vault | queued (M4; concept only, numbers and several rules TBD; line-of-sight blocking is new to the vision model) | user additions |
-| 0197 Convert pressed again while a conversion is deferred cancels it; in a group, per unit (converted switch back, mid-conversion left out, waiting cancel) | in progress (M3-K2, folded in) | answers Q0049; changes M3-R's behaviour |
+| 0197 Convert pressed again while a conversion is deferred cancels it; in a group, per unit (converted switch back, mid-conversion left out, waiting cancel) | superseded by 0198 (never built; M3-K2 told to drop it) | answers Q0049; changes M3-R's behaviour |
+| 0198 A mode toggle (Convert, Riot Shield) sets a target state: type and group switch at the press, even when deferred; the ActiveGroup follows; only the ActiveGroup receives the press | in progress (new slice M3-T) | answers Q0049 (replaces 0197) and Q0053 points 2–3; changes M3-R and M3-S |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
