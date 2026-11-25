@@ -83,14 +83,15 @@ fn a_worker_forgets_what_is_gone() {
 }
 
 /// `factions/colonists/units/drone.md > Gathering`, `factions/syndicate/units/agent.md > Gathering`: the Drone
-/// and the Agent are the workers, the Egress Node and the Tunnel the drop-offs.
+/// and the Agent are the workers, the Egress Node and the Tunnel the drop-offs; and the Cults' Recruit and Storage
+/// (slice M5-D; `factions/cults/units/recruit.md > Gathering`, whose numbers the Recruit's def test pins).
 #[test]
-fn the_drone_and_the_agent_are_the_workers() {
-    use crate::defs::LoadDef;
+fn the_drone_the_agent_and_the_recruit_are_the_workers() {
+    use crate::defs::{DropOffChoice, LoadDef};
     for kind in ObjectKind::ALL.iter().copied() {
-        let worker = matches!(kind, ObjectKind::Drone | ObjectKind::Agent);
+        let worker = matches!(kind, ObjectKind::Drone | ObjectKind::Agent | ObjectKind::Recruit);
         assert_eq!(worker_def(kind).is_some(), worker, "{kind:?}");
-        let drop_off = matches!(kind, ObjectKind::EgressNode | ObjectKind::Tunnel);
+        let drop_off = matches!(kind, ObjectKind::EgressNode | ObjectKind::Tunnel | ObjectKind::Storage);
         assert_eq!(is_drop_off(kind), drop_off, "{kind:?}");
     }
     let def = worker_def(ObjectKind::Drone).expect("a worker");
@@ -106,7 +107,7 @@ fn the_drone_and_the_agent_are_the_workers() {
         def.search_radius, 6.0,
         "> Patch Occupancy > Search radius (design change 0123)"
     );
-    assert!(def.pass_through && def.keeps_drop_off && !def.shares_patches);
+    assert!(def.pass_through && def.drop_off == DropOffChoice::Assigned && !def.shares_patches);
     // `factions/syndicate/units/agent.md > Gathering > Space Crystals`: 50 a load, 64 frames of mining (design
     // change 0294), 64 of unloading, reaches of 8 su; `factions/syndicate/units/agent.md > Supplies`: 1 a trip, 48 frames each way, the
     // same reaches (design change 0292 point 1); design change 0255: shared patches, no Set Drop-off; 0106: "Drones
@@ -131,5 +132,5 @@ fn the_drone_and_the_agent_are_the_workers() {
         (def.load(Resource::Crystals), def.load(Resource::Supplies)),
         (Some(crystals), Some(supplies))
     );
-    assert!(def.shares_patches && !def.keeps_drop_off && !def.pass_through);
+    assert!(def.shares_patches && def.drop_off == DropOffChoice::FirstReturn && !def.pass_through);
 }

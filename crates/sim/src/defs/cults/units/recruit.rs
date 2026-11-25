@@ -1,8 +1,8 @@
 //! The Recruit — `factions/cults/units/recruit.md`.
 
 use crate::defs::units::{
-    AttackAttrs, AttackType, FullyConnectedSubtype, MELEE_CONTACT_GU, MovementAttrs, TargetDomain, TargetType,
-    UnitBase, UnitDef,
+    AttackAttrs, AttackType, DropOffChoice, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs,
+    TargetDomain, TargetType, UnitBase, UnitDef, WorkerDef,
 };
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
@@ -10,7 +10,7 @@ use crate::player::Faction;
 
 /// `factions/cults/units/recruit.md`: "the Cults' basic worker unit, automatically produced by Recruitment Halls", with
 /// "a melee attack for basic self-defense". What it does besides fight comes with each system's slice (plan §3.2): its
-/// gathering (`> Gathering`) and its building (`> Building`) in its `worker`, slices M5-D and M5-E; its entering an
+/// gathering (`> Gathering`, slice M5-D) and its building (`> Building`, slice M5-E) in its `worker`; its entering an
 /// Armory (`> Armory Entry`), slice M5-F1.
 pub(crate) static RECRUIT: ObjectDef = ObjectDef {
     kind: ObjectKind::Recruit,
@@ -65,7 +65,29 @@ pub(crate) static RECRUIT: ObjectDef = ObjectDef {
         riot_shield: None,
         conversion: None,
         deploy: None,
-        worker: None, // `> Gathering` (slice M5-D) and `> Building` (slice M5-E)
+        // `> Gathering` (slice M5-D, plan decision T58): "Recruits gather Space Crystals and deliver them to
+        // Storage". One Gather job runs every worker; this is the Recruit's data.
+        worker: Some(WorkerDef {
+            crystals: LoadDef {
+                carry_capacity: 2,   // CarryCapacity: 2 Space Crystals per load
+                pick_up_ticks: 8,    // MiningDuration: 8 frames
+                drop_off_ticks: 2,   // DropOffDuration: 2 frames
+                pick_up_reach: 8.0,  // MiningReach: 8 space units (the design's placeholder)
+                drop_off_reach: 8.0, // DropOffReach: 8 space units (the design's placeholder)
+            },
+            supplies: None,
+            shares_patches: true, // Patch sharing: any number of Recruits may mine the same patch
+            // Placeholder (Q0102 point 1): the nearest own completed Storage, edge to edge from the patch, chosen at
+            // each return.
+            drop_off: DropOffChoice::EachReturn,
+            // Placeholder (not in the design: the Recruit's sections name no search radius for a patch that runs
+            // out; the Drone's and the Agent's 6 grid units, themselves placeholders, design changes 0123 and 0295).
+            search_radius: 6.0,
+            // `factions/colonists/units/drone.md > Gathering Drones pass through each other`: "Drones only. Other
+            // factions' workers (e.g. Cults Recruits) keep normal collision while mining" (design change 0106).
+            pass_through: false,
+            builds: &[], // `> Building`: slice M5-E
+        }),
     }),
     structure: None,
     default_settings: None,
@@ -78,8 +100,10 @@ mod tests {
 
     /// The Cults' worker: LightInfantry, 24×24, MaxHP 40, no armour, SightRange 5, Groupable (user, 2026-11-24),
     /// MaxSpeed 4, with its melee attack "for basic self-defense": FullyConnected Melee, ground only, single target, 3
-    /// damage at contact, one blow every 12 frames (Aim 2, Fire 8, Cooldown 1, Reload 1); Unit Control 1. Its
-    /// gathering and its building come with their slices (M5-D and M5-E).
+    /// damage at contact, one blow every 12 frames (Aim 2, Fire 8, Cooldown 1, Reload 1); Unit Control 1.
+    /// `> Gathering`: 2 a load, 8 frames of mining and 2 of unloading, reaches of 8 su, shared patches, normal
+    /// collision (design change 0106), no Supplies; the Storage by Q0102's placeholder. Its building comes with slice
+    /// M5-E.
     #[test]
     fn the_recruit_follows_the_design() {
         let attack = assert_infantry(ObjectKind::Recruit);
@@ -98,6 +122,22 @@ mod tests {
         assert_eq!(timings(&attack), ((2, 8, 1, 1), 12), "one blow every 12 frames");
         let def = ObjectKind::Recruit.def();
         assert_eq!(def.name, "Recruit");
-        assert_eq!(def.unit.as_ref().unwrap().worker, None, "slices M5-D and M5-E");
+        let worker = def.unit.as_ref().unwrap().worker.expect("a worker");
+        let crystals = LoadDef {
+            carry_capacity: 2,
+            pick_up_ticks: 8,
+            drop_off_ticks: 2,
+            pick_up_reach: 8.0,
+            drop_off_reach: 8.0,
+        };
+        assert_eq!((worker.crystals, worker.supplies), (crystals, None));
+        assert!(worker.shares_patches && !worker.pass_through);
+        assert_eq!(
+            worker.drop_off,
+            DropOffChoice::EachReturn,
+            "Placeholder (Q0102 point 1)"
+        );
+        assert_eq!(worker.search_radius, 6.0, "a placeholder: the other workers' radius");
+        assert_eq!(worker.builds, &[][..], "slice M5-E");
     }
 }

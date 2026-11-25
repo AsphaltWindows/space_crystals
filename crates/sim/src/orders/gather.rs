@@ -10,7 +10,7 @@
 //! **One job for every worker type** (slice M4-D, plan decision T34; `factions/syndicate/units/agent.md >
 //! Gathering > Gathering rules`, design change 0255: "The Drone's job rules apply to Agents [...] with two exceptions:
 //! Agents share patches (no occupancy rule), and there is no Set Drop-off command"). The differences are data: the
-//! worker's `WorkerDef` (its loads, `shares_patches`, `keeps_drop_off`, `pass_through`) and its drop-off's rule
+//! worker's `WorkerDef` (its loads, `shares_patches`, `drop_off`, `pass_through`) and its drop-off's rule
 //! (`defs::DropOff`: anywhere at an Egress Node, at the crystal hatch of a Tunnel, `economy::drop_off`). The text
 //! below says "Drone" where the Drone's sections are quoted; it holds for the Agent but for:
 //! - **patches are shared**: an Agent neither occupies a patch nor takes one for occupied (`search::taken`), so it
@@ -22,6 +22,14 @@
 //! - **the hatch** (`deliver::at_hatch`, phase **AtHatch**): DropOffReach is measured to the 1-square hatch, which
 //!   takes one Agent at a time; those within reach wait in the order they came, and one that can't get within reach
 //!   tries again every [`LEG_RETRY_TICKS`], for ever ("It waits as long as it takes; it never gives up").
+//!
+//! **Recruits** (slice M5-D, plan decision T58; `factions/cults/units/recruit.md > Gathering`,
+//! `factions/cults/economy.md > Storage`) are data on the same job: they share patches as Agents do ("any number of
+//! Recruits may mine the same Space Crystals patch at the same time"), deliver anywhere at a Storage, any number at
+//! once ("Multiple Recruits can drop off Space Crystals simultaneously"), and keep normal collision (design change
+//! 0106). **Which Storage** is a placeholder (Q0102 point 1, `deliver::nearest_to_patch`): the nearest own completed
+//! one, edge to edge from the patch, chosen as each return starts; with none, the Recruit idles holding its load
+//! (Q0102 point 2: the rule of design change 0135).
 //!
 //! One behaviour runs both orders: `OrderKind::Gather(patch)` and `OrderKind::DropOff(node)`. Its phases
 //! (`state::GatherPhase`):
@@ -97,7 +105,7 @@ mod search;
 mod site;
 mod station;
 
-use crate::defs::Resource;
+use crate::defs::{DropOffChoice, Resource};
 use crate::object::Object;
 
 use super::OrderKind;
@@ -129,12 +137,14 @@ pub(crate) fn on_gather_job(o: &Object) -> bool {
 ///   load "goes straight to the new pick-up point" all the same.
 /// - `factions/colonists/units/drone.md > Drop Off order` (design change 0127): straight to the order's drop-off.
 /// - `factions/syndicate/units/agent.md > Gathering rules` (design change 0255), for a worker without a lasting
-///   AssignedDropOff (`WorkerDef::keeps_drop_off`): the Tunnel "is chosen when the Gather's first return starts and
+///   AssignedDropOff (`DropOffChoice::FirstReturn`): the Tunnel "is chosen when the Gather's first return starts and
 ///   kept for that Gather (a new Gather picks again)". The Gather begins without one, and its first return takes the
-///   nearest (`deliver::to_drop_off`).
+///   nearest (`deliver::to_drop_off`). So does a Recruit's, which picks again as every return starts
+///   (`DropOffChoice::EachReturn`, Placeholder (Q0102 point 1)).
 pub(super) fn begin(kind: OrderKind, unit: &mut Unit, world: &World) -> Gather {
     let (pos, owner) = (unit.pos, unit.owner);
-    let keeps = (unit.unit_def().and_then(|unit| unit.worker)).is_none_or(|def| def.keeps_drop_off);
+    let keeps =
+        (unit.unit_def().and_then(|unit| unit.worker)).is_none_or(|def| def.drop_off == DropOffChoice::Assigned);
     let Some(worker) = unit.worker.as_deref_mut() else {
         return Gather::new(GatherPhase::ToPatch);
     };

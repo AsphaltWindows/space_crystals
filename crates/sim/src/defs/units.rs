@@ -245,6 +245,23 @@ pub struct LoadDef {
     pub drop_off_reach: f32,
 }
 
+/// Which drop-off a worker's return trip heads for, and when it is chosen (`WorkerDef::drop_off`;
+/// `orders::gather`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DropOffChoice {
+    /// `factions/colonists/units/drone.md > Assigned Drop-off`: the type has an AssignedDropOff that lasts from
+    /// Gather to Gather, and a Set Drop-off Location command. The Drone.
+    Assigned,
+    /// `factions/syndicate/units/agent.md > Gathering rules`: "there is no Set Drop-off command"; the nearest to the
+    /// worker, "chosen when the Gather's first return starts and kept for that Gather (a new Gather picks again)".
+    /// The Agent.
+    FirstReturn,
+    /// **Placeholder (Q0102 point 1)**: the nearest own completed drop-off, edge to edge from the patch, chosen anew
+    /// as each return starts; no Set Drop-off command. The Recruit (`factions/cults/units/recruit.md > Gathering`:
+    /// "deliver them to Storage"; `factions/cults/economy.md > Storage` assumes the Storage next to the patch).
+    EachReturn,
+}
+
 /// `factions/colonists/units/drone.md > Gathering`, `factions/syndicate/units/agent.md > Gathering`: what makes a
 /// unit type a worker (`crate::economy::gathering`). One Gather job runs every worker (plan decision T34); these are
 /// the differences between the types.
@@ -260,12 +277,8 @@ pub struct WorkerDef {
     /// Gathering rules`: "Agents share patches (no occupancy rule)". Workers of such a type neither occupy a patch nor
     /// take one for occupied (`orders::gather`).
     pub shares_patches: bool,
-    /// `factions/colonists/units/drone.md > Assigned Drop-off`: the type has an AssignedDropOff that lasts from
-    /// Gather to Gather, and a Set Drop-off Location command. Without it (`factions/syndicate/units/agent.md >
-    /// Gathering rules`: "there is no Set Drop-off command"; "chosen when the Gather's first return starts and kept
-    /// for that Gather (a new Gather picks again)") each Gather takes the nearest drop-off as its first return
-    /// starts.
-    pub keeps_drop_off: bool,
+    /// Which drop-off a return trip heads for ([`DropOffChoice`]).
+    pub drop_off: DropOffChoice,
     /// `factions/colonists/units/drone.md > Patch Occupancy (one Drone per patch) > Search radius` (design change 0123;
     /// the design hasn't named the stat yet), grid units: a worker looks for another patch only within this distance of
     /// itself, centre to centre (`orders::gather`).

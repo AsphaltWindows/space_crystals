@@ -5,6 +5,7 @@
 use glam::Vec2;
 
 use super::{Reject, Sim};
+use crate::defs::DropOffChoice;
 use crate::economy::drop_off::{self, crystal_point_of};
 use crate::economy::gathering::{is_drop_off, worker_def};
 use crate::economy::stations::is_station;
@@ -87,10 +88,10 @@ impl Sim {
     }
 
     /// Whether `o` takes `Ability::SetDropOff`: a worker of a type with a lasting AssignedDropOff
-    /// (`WorkerDef::keeps_drop_off`: the Drone; `factions/syndicate/units/agent.md > Gathering rules`: "there is no
+    /// (`DropOffChoice::Assigned`: the Drone; `factions/syndicate/units/agent.md > Gathering rules`: "there is no
     /// Set Drop-off command").
     pub(super) fn sets_drop_off(o: &Object) -> bool {
-        o.worker.is_some() && worker_def(o.kind).is_some_and(|def| def.keeps_drop_off)
+        o.worker.is_some() && worker_def(o.kind).is_some_and(|def| def.drop_off == DropOffChoice::Assigned)
     }
 
     /// The workers among `units`, which take a Gather or a Drop Off order; the others ignore it
