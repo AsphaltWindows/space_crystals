@@ -362,7 +362,7 @@ impl<'a> Arrival<'a> {
     }
 
     /// Whom `event` reaches: one rule for each kind of event (module docs). The match lists them all, so that a new
-    /// kind stops it compiling until it has a rule here, and a row in the table of `tests.rs`.
+    /// kind stops it compiling until it has a rule here, and a row in the table (`tests/table.rs`).
     fn audience(&self, event: &SimEvent) -> Audience {
         match *event {
             SimEvent::Spawned(id) | SimEvent::KindChanged { id, .. } | SimEvent::TransformCompleted { id, .. } => {

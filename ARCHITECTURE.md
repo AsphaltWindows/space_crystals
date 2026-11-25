@@ -2617,7 +2617,8 @@ these.
 
   The fog off shows everything but a player's own business. Whom an object is hidden from is `Hiding::of`'s alone
   (the hook, *Vision > Hidden objects*). A new `SimEvent` doesn't compile until `Arrival::audience` has its rule, and
-  fails the table test (`viewer_events/tests.rs`) until it has a row. Never read `SimEventMessage` elsewhere.
+  fails the table test (`viewer_events/tests.rs`) until it has a row (`tests/table.rs`). Never read
+  `SimEventMessage` elsewhere.
 - Never make one entity per tile. Draw the terrain as one mesh or texture, or a few chunks; the fog of war is one
   texture, never per-tile materials.
 - Create mesh and material handles once and cache them in a `Resource`. Never create assets per frame, per object or
