@@ -2250,3 +2250,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-25 18:00 — Split all faction units.md/structures.md into one file per object (units/, structures/ folders with README for shared rules + index); refs rewritten; content verified line-for-line. Relayed user's request for modular code. Entry 0282.
 2026-11-26 — Q0076–Q0087 arrived; answered from docs Q0078 (0283), Q0085 (0284), Q0086.1 (0285).
 2026-11-26 — Q0076 discussion; asked Director for cost estimates (0286), no design change.
+2026-11-26 — Q0077: eject refused during transit; no-rally 1 GU out. Entry 0288.
