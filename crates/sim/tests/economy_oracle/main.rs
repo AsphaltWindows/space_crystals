@@ -6,6 +6,9 @@
 //! - **The Colonists** (slices M3-K1 and M3-K4; `colonists.rs`, `curve.rs`): [`TABLE`], both its columns, and the
 //!   targets 1 to 4 of `factions/gdo/economy.md > Economy Targets (GDO vs Colonists)`, on the reference field, against
 //!   the GDO's line, and the saturation curve of `factions/colonists/units/drone.md > Patch Occupancy`.
+//! - **The Syndicate** (slice M4-L; `syndicate.rs`): the Syndicate economy check of `factions/syndicate/units/agent.md >
+//!   Gathering > Space Crystals` (design changes 0259 and 0294), its table, ceiling, opening and stacked Tunnels, on the
+//!   reference layouts of `sc_sim::testing::syndicate`.
 //!
 //! **The GDO's lines** check design changes 0098 (plates pay lumps of 10; the cycle timer advances by the power ratio)
 //! and 0089 (the power penalty; the Deployment Center is never slowed). Each line is player 1's on
@@ -37,6 +40,7 @@ mod colonists;
 mod curve;
 mod gdo;
 mod played;
+mod syndicate;
 
 use sc_sim::{PlayerId, TICKS_PER_SECOND, Tick};
 

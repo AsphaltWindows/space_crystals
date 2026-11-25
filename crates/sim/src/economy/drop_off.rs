@@ -3,12 +3,12 @@
 //! at the resource's hatch at a Tunnel (`factions/syndicate/tunnels.md > Tunnel > SymmetryType - ABCD`, design
 //! changes 0248 and 0255; slice M4-D).
 //!
-//! **The hatch square** ([`hatch_offset`]). "Each hatch is 1 grid square long, near the middle of its side (exact
-//! square: the art's choice, mirrored with the Tunnel)": the tile of the side's row nearest its middle, and of the two
-//! middle tiles of a side with an even number of them (the Tunnel's 4) **the one farther from Side A**, the entrance
-//! and exit, so that the Agents standing at a hatch keep off Side A's paths. The Director's choice, standing in for
-//! the art's. It turns and flips with the structure, since it is read off the sides as placed (`crate::sides`); the
-//! client draws the hatches on the same squares (`object_render/tunnel.rs`).
+//! **The hatch square** ([`hatch_offset`]). "Each hatch is 1 grid square long, near the middle of its side": "of the
+//! side's two middle squares, the one farther from Side A, keeping Agents off the entry and exit paths" (design change
+//! 0295, confirming the square slice M4-D chose): the tile of the side's row nearest its middle, and of the two middle
+//! tiles of a side with an even number of them (the Tunnel's 4) the one farther from Side A, the entrance and exit.
+//! "It turns and flips with the Tunnel", since it is read off the sides as placed (`crate::sides`); the client draws
+//! the hatches on the same squares (`object_render/tunnel.rs`).
 //!
 //! DropOffReach is measured to that square (`factions/syndicate/units/agent.md > Gathering > Space Crystals`:
 //! "within 8 su of the crystal hatch on Side B"). Each resource has its point ([`drop_point`]): a load of Supplies is

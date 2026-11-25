@@ -28,6 +28,7 @@ mod builder;
 pub mod colonists;
 pub mod invariants;
 mod references;
+pub mod syndicate;
 
 use std::collections::BTreeMap;
 

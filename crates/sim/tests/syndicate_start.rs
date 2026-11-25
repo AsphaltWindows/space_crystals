@@ -77,9 +77,9 @@ fn a_syndicate_player_starts_with_their_starting_conditions() {
         ..Banks::default()
     };
     let slot_1 = [
-        (TUNNEL, point(6.0, 6.0)),
-        (HIDEOUT, point(9.0, 9.0)),
-        (AGENT, point(6.0, 9.5)),
+        (TUNNEL, point(8.0, 8.0)),
+        (HIDEOUT, point(11.0, 11.0)),
+        (AGENT, point(8.0, 11.5)),
     ];
     for (factions, player, image) in [
         ([SYNDICATE, Faction::Gdo], P1, false),
@@ -107,19 +107,19 @@ fn a_syndicate_player_starts_with_their_starting_conditions() {
 
 /// The layout's geometry (slice M4-B; design changes 0248, 0255, 0259): in either slot, the Tunnel's Side A (the
 /// entrance) faces the open map, south in slot 1, and its Side D (the Supplies hatch) the middle of the map, east in
-/// slot 1; its crystal hatch, on Side B (`tunnel::hatch_square`, slice M4-D: the middle square farther from Side A),
-/// lies 1 grid unit edge to edge from a patch of the field (0259: the patch "1 GU from the hatch"), across a free
-/// column. Q0076: with patches that close, 3 or more Agents jam at the hatch; the layout keeps 0259's 1 GU until the
-/// design decides.
+/// slot 1; its crystal hatch, on Side B (`tunnel::hatch_square`, slice M4-D; design change 0295: "of the side's two
+/// middle squares, the one farther from Side A"), lies 3 grid units edge to edge from the field's nearest patches,
+/// straight across three free columns (design change 0294: "The reference layouts and `dev_skirmish` put the patch
+/// 3 GU from the hatch"), and no patch is closer.
 #[test]
-fn the_crystal_hatch_faces_the_field_one_grid_unit_away() {
+fn the_crystal_hatch_faces_the_field_three_grid_units_away() {
     let sim = Sim::new(&dev_skirmish_as([SYNDICATE, SYNDICATE]));
     let patches: Vec<TilePos> = sim
         .objects()
         .filter(|o| o.kind == ObjectKind::CrystalPatch)
         .map(|o| o.placement.unwrap().origin)
         .collect();
-    for (player, south, hatch) in [(P1, (0, 1), TilePos::new(4, 5)), (P2, (0, -1), TilePos::new(59, 42))] {
+    for (player, south, hatch) in [(P1, (0, 1), TilePos::new(6, 7)), (P2, (0, -1), TilePos::new(57, 40))] {
         let tunnel = find(&sim, player, TUNNEL);
         let letters = sides(TUNNEL, tunnel.placement.unwrap().orientation()).unwrap();
         // North, east, south and west: C, D, A, B in slot 1; turned 180° in slot 2.
@@ -134,11 +134,17 @@ fn the_crystal_hatch_faces_the_field_one_grid_unit_away() {
             Some(hatch),
             "{player:?}"
         );
-        let gap = |p: &TilePos| ((p.x - hatch.x).abs() - 1, (p.y - hatch.y).abs());
+        // Edge to edge, in tiles, across and along.
+        let gap = |p: &TilePos| {
+            let across = |a: i32, b: i32| ((a - b).abs() - 1).max(0);
+            (across(p.x, hatch.x), across(p.y, hatch.y))
+        };
         assert!(
-            patches.iter().any(|p| gap(p) == (1, 0)),
-            "{player:?}: a patch 1 GU west or east of the hatch"
+            patches.iter().any(|p| p.y == hatch.y && gap(p) == (3, 0)),
+            "{player:?}: a patch 3 GU west or east of the hatch, in its row"
         );
+        let nearest = patches.iter().map(&gap).map(|(x, y)| x * x + y * y).min();
+        assert_eq!(nearest, Some(9), "{player:?}: no patch nearer than 3 GU");
     }
 }
 

@@ -8,9 +8,10 @@
 
 use super::*;
 
-/// `> Gathering > Space Crystals`: CarryCapacity, 50 Space Crystals per load; MiningDuration, 80 frames.
+/// `> Gathering > Space Crystals`: CarryCapacity, 50 Space Crystals per load; MiningDuration, 64 frames (design change
+/// 0294).
 const CRYSTALS: u32 = 50;
-const MINING: Tick = 80;
+const MINING: Tick = 64;
 
 /// [`field`]'s Tunnel (1) and a station (2) of 100, 3 grid units west of the Supplies hatch; a patch (3) on tile
 /// (18, 8), 2 grid units east of the crystal hatch; and an Agent (4) south of the Tunnel.

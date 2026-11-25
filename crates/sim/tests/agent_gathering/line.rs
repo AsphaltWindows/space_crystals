@@ -10,7 +10,8 @@ use sc_sim::MoveStatus;
 /// Design change 0255's Verification: "Six Agents on one Tunnel queue at the hatch and all eventually deliver; none
 /// idles with a load." With the patch 3 grid units from the hatch, for ten minutes: every Agent goes on delivering,
 /// in the order they come within reach ([`watch`]), and an Agent within reach never stands at a free hatch beyond the
-/// tick the one before it finishes in.
+/// tick the one before it finishes in. The Tunnel takes in 11.33 Space Crystals per second over the last five minutes
+/// (with 64 frames of mining, design change 0294; 11.5 or more with 80): within the check's 15% of saturated.
 #[test]
 fn six_agents_queue_at_one_hatch_and_all_deliver() {
     const TICKS: Tick = 10 * 60 * 16;
@@ -36,7 +37,8 @@ fn six_agents_queue_at_one_hatch_and_all_deliver() {
         watched.longest_idle_wait <= 1,
         "a free hatch is taken at once: {watched:?}"
     );
-    assert!(income(&t, TICKS / 2, TICKS) >= 11.5, "the Tunnel is all but saturated");
+    let income = income(&t, TICKS / 2, TICKS);
+    assert!(income >= 12.5 * 0.85, "the Tunnel is all but saturated: {income}");
 }
 
 /// The Director's acceptance for 0255: "an Agent waiting in line at the hatch keeps waiting, and delivers when its
