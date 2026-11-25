@@ -2478,7 +2478,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   the saved recording, QA's end; `results`: the results screen of 0164 in a three-player game, under the debug
   player switch and in a replay, the draw seen from it, the spectator's fog) with the unit tests of `hud/results.rs`
   (who leaves, allies included, which the sim can't make yet). The fuzz games of `robustness.rs` give each player a
-  base it can't remove, so that they never end.
+  base the stream never removes, so that a debug removal doesn't end them; a fight still can (a Grenadier or a Laser
+  Turret takes a base), and then the tick after the end checks that every command is refused and changes nothing, and
+  the stream goes on in a new game (slice M4-M: any seed does, none is hunted for).
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
   checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is

@@ -5,13 +5,15 @@
 //!
 //! Each player has a base the stream never removes ([`BASES`]): a player who loses their last structure is defeated,
 //! and in a two-player game that ends it, after which every command is refused (`core/game_rules.md > End of Game`).
-//! The structures the stream spawns for them come and go around it.
+//! The structures the stream spawns for them come and go around it. The stream's fights can still take a base: the
+//! game then ends, the tick after it checks that the gate refuses every command and that they change nothing, and the
+//! stream goes on in a new game ([`fuzz_run`]; [`SEED`] says why).
 
 use sc_sim::testing::{self, ScenarioBuilder};
 use sc_sim::{
     Ability, BuildingOrientation, Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId,
-    Replay, Rng, Rotation, SU_PER_GU, Scenario, Sim, SimConfig, SimEvent, Spawn, SpawnAt, SpawnSettings, Target,
-    TickInputs, TilePos, Vec2, nav,
+    Reject, Replay, Rng, Rotation, SU_PER_GU, Scenario, Sim, SimConfig, SimEvent, Spawn, SpawnAt, SpawnSettings,
+    Target, TickInputs, TilePos, Vec2, nav,
 };
 
 const TICKS: u32 = 2000;
@@ -37,7 +39,8 @@ const MAP: &str = "
 ";
 
 /// The players' bases, a Generator each in a corner of [`MAP`] ([`scenario`]): the stream never removes them, so that
-/// nobody is defeated and the game goes on to the end of the stream (plan decision T8).
+/// a player isn't defeated (plan decision T8) as soon as a debug removal takes the last structure the stream gave
+/// them, and a game lasts. Only a fight can take a base ([`SEED`]).
 const BASES: [ObjectId; 2] = [ObjectId(2), ObjectId(3)];
 
 /// [`MAP`] with a Supply Delivery Station in the cliffs' ring, and the [`BASES`].
@@ -244,20 +247,50 @@ fn check_invariants(sim: &Sim) {
     assert_eq!(testing::dangling_references(sim), []);
 }
 
+/// A game the stream played: its replay from the start, and the state it ended in (at the end of the stream, or in the
+/// tick after the game was over).
+struct Game {
+    replay: Replay,
+    end: Sim,
+}
+
 struct Run {
     hashes: Vec<u64>,
-    replay: Replay,
-    final_state: Sim,
+    /// In order: a game that ends gives way to a new one ([`fuzz_run`]).
+    games: Vec<Game>,
     spawned: usize,
     removed: usize,
     /// Unit steps: a unit's position changed during a tick.
     unit_steps: usize,
 }
 
+/// The tick after a game's end (`core/game_rules.md > End of Game`): the gate refuses each command of the tick, as the
+/// game is over, but for those of a player who isn't in it (`Sim::validate` checks the player first), and the tick runs
+/// as one without them.
+fn check_refused(sim: &Sim, inputs: &TickInputs) {
+    for c in &inputs.commands {
+        let known = sim.players().iter().any(|p| p.id == c.player);
+        let reason = if known {
+            Reject::GameOver
+        } else {
+            Reject::UnknownPlayer(c.player)
+        };
+        assert_eq!(sim.validate(c), Err(reason), "{c:?}");
+    }
+    let (mut with, mut without) = (sim.clone(), sim.clone());
+    with.step(inputs);
+    without.step(&TickInputs::default());
+    assert_eq!(with.state_hash(), without.state_hash());
+    assert_eq!(with, without);
+}
+
+/// [`TICKS`] ticks of the stream from `seed`, the invariants checked after each. A game that ends plays one more tick
+/// of the stream, which [`check_refused`] checks, and the stream goes on in a new game of the same scenario.
 fn fuzz_run(seed: u64) -> Run {
     let scenario = scenario(SimConfig::DEBUG);
     let mut sim = Sim::new(&scenario);
-    let mut replay = Replay::new(scenario);
+    let mut replay = Replay::new(scenario.clone());
+    let mut games = Vec::new();
     let mut rng = Rng::from_seed(seed);
     let (mut spawned, mut removed, mut unit_steps) = (0, 0, 0);
     let mut hashes = Vec::new();
@@ -265,6 +298,10 @@ fn fuzz_run(seed: u64) -> Run {
         // A third are orders, the rest debug commands.
         let commands = (0..rng.below(8)).map(|_| random_command(&mut rng, &sim)).collect();
         let inputs = TickInputs { commands };
+        let over = sim.outcome().is_some();
+        if over {
+            check_refused(&sim, &inputs);
+        }
         sim.step(&inputs);
         replay.record(inputs);
         check_invariants(&sim);
@@ -320,54 +357,67 @@ fn fuzz_run(seed: u64) -> Run {
             .filter(|o| o.mover.is_some() && o.pos != o.prev_pos)
             .count();
         hashes.push(sim.state_hash());
+        if over {
+            let end = std::mem::replace(&mut sim, Sim::new(&scenario));
+            let replay = std::mem::replace(&mut replay, Replay::new(scenario.clone()));
+            games.push(Game { replay, end });
+        }
     }
+    games.push(Game { replay, end: sim });
     Run {
         hashes,
-        replay,
-        final_state: sim,
+        games,
         spawned,
         removed,
         unit_steps,
     }
 }
 
-/// The stream's seed. A Grenadier (slice M4-U) can destroy a base (four grenades of 98.8 against the Generator's 350
-/// HP): a stream that has one beside a base ends the game, and refuses every command after that. About one in sixteen
-/// streams does (master's seed 6, at tick 896). Each kind added reshuffles the streams, and the Laser Turret
-/// (slice M4-S1) made 0x5eed's one of them (its base fell at tick 1366): this is the first seed after it whose stream
-/// keeps both bases.
-const SEED: u64 = 0x5eee;
+/// The stream's seed: any seed does. A stream can end a game: its Grenadiers (slice M4-U: four grenades of 98.8
+/// against the Generator's 350 HP) and Laser Turrets (M4-S1) can destroy a base. 8 of the first 256 seeds' streams do
+/// within [`TICKS`] (slice M4-M), and this one does in tick 1367.
+///
+/// The fuzz accepts that end rather than preventing it. Keeping the bases out of the fight would take a rule the sim
+/// hasn't (a structure no damage reaches), or a stream that knows every way a unit gets within reach of a base (each
+/// weapon's Range, area damage, paths, chases), which each new kind would change. And a seed whose stream happens to
+/// keep both bases holds only until the next kind reshuffles the streams. So a game's end is one more thing the stream
+/// does: [`check_refused`] checks the tick after it, and the stream goes on in a new game, so that every seed plays
+/// all of its commands. The counts the test asserts lie well under those of any of the 256 streams (spawned 65 to
+/// 115, removed 63 to 101, unit steps 565 to 3841, commands 6722 to 7223), so that a reshuffle keeps them too.
+const SEED: u64 = 0x5eed;
 
 #[test]
 fn random_debug_commands_never_panic_and_stay_deterministic() {
     let first = fuzz_run(SEED);
     // The stream exercises the valid paths too, not only rejections.
     assert!(
-        first.spawned > 80 && first.removed > 50,
+        first.spawned > 40 && first.removed > 40,
         "{} spawned, {} removed",
         first.spawned,
         first.removed
     );
-    assert!(first.unit_steps > 1000, "{} unit steps", first.unit_steps);
-    // The bases stood through it all: nobody was defeated, and every command had its chance.
-    assert!(
-        first.final_state.players().iter().all(|p| !p.is_defeated()) && first.final_state.outcome().is_none(),
-        "{:?}",
-        first.final_state.players()
-    );
-    let commands: usize = first.replay.inputs.iter().map(|i| i.commands.len()).sum();
+    assert!(first.unit_steps > 400, "{} unit steps", first.unit_steps);
+    let commands: usize = (first.games.iter())
+        .flat_map(|g| &g.replay.inputs)
+        .map(|i| i.commands.len())
+        .sum();
     assert!(commands > 4000, "{commands} commands");
 
     let second = fuzz_run(SEED);
     assert_eq!(first.hashes, second.hashes);
-    assert_eq!(first.final_state, second.final_state);
+    assert_eq!(first.games.len(), second.games.len());
+    for (a, b) in first.games.iter().zip(&second.games) {
+        assert_eq!(a.end, b.end);
+    }
 
-    // The recorded stream replays to the same state. (Not through JSON: it has no numbers
-    // for the NaN and infinite positions in this stream, and serde_json writes them as
+    // Each game's recorded stream replays to the same state. (Not through JSON: it has no
+    // numbers for the NaN and infinite positions in this stream, and serde_json writes them as
     // `null`, which it can't read back. The state itself never holds such values.)
-    assert_eq!(first.replay.run().state_hash(), first.final_state.state_hash());
-    let state: Sim = serde_json::from_str(&serde_json::to_string(&first.final_state).unwrap()).unwrap();
-    assert_eq!(state.state_hash(), first.final_state.state_hash());
+    for game in &first.games {
+        assert_eq!(game.replay.run().state_hash(), game.end.state_hash());
+        let state: Sim = serde_json::from_str(&serde_json::to_string(&game.end).unwrap()).unwrap();
+        assert_eq!(state.state_hash(), game.end.state_hash());
+    }
 
     let other = fuzz_run(0x0dd);
     assert_ne!(other.hashes.last(), first.hashes.last());
