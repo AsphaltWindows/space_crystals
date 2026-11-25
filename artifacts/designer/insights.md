@@ -30,6 +30,8 @@
 - **Q0055** (not blocking): Colonists economy misses the table (1:00 −16%, 3:00 −15%, 4:00 −24%; target 1 fails, target 4 only from 27 Drones). Options A accept measured / B change numbers / C change benchmark line (e.g. 2nd Robo Portal; one-portal line banks 320 by 1:00) / D widen tolerance. Step taken: Drone thrust/drag ×1.5 (0205) with a re-measure request. **Wait for the Director's new table, then decide with the user.** Context: plate payback 22.5 s running / ~47 s from order; Drone ~36 s / ~46 s (middle patch); growth per producer ~equal (~8 SC/s per minute), hence target 1 fails.
 
 
+- **Q0058** (not blocking): AttackMove target lost to the fog — left alone for the rest of the leg like a leash-dropped target (A, as built) / until it moves a distance (B) / re-taken whenever seen (C, loops). Lean A per Core principle.
+
 All others through Q0057 answered (this session: 0197–0206, 0223).
   - All questions answered through Q0048 (2026-11-24/25).
 - Yielding (0023): only no-command units yield; Hold Position/busy don't; modes (Riot Shield) irrelevant; deployed Artillery Rig = fixed obstacle. TBD sidestep distance, allies. Watch: mining workers don't yield → possible clots at patches (worker collision while gathering never designed).
