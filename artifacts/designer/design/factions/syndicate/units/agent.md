@@ -50,33 +50,35 @@ Agents gather resources and deliver them to Tunnels. Crystal and Supply drop-off
 
 ### Space Crystals
 - CarryCapacity: 50 Space Crystals per load
-- MiningDuration: 80 frames (5 seconds)
+- MiningDuration: 64 frames (4 seconds) (user, 2026-11-26; Q0076/Q0088; was 5 s): equal to DropOffDuration
 - DropOffDuration: 64 frames (4 seconds)
 - Drop-off side: Tunnel Side B
 - MiningReach: 8 space units — an Agent can mine once its Silhouette is within 8 su of the patch's edge (placeholder)
 - DropOffReach: 8 space units — within 8 su of the **crystal hatch** on Side B (placeholder)
 - Patch sharing: any number of Agents may mine the same Space Crystals patch at the same time (unlike Drones, see Colonists > Drone > Patch Occupancy). The only queue in an Agent's trip is at the Tunnel's Side B.
 
-Because a Tunnel's crystal side accepts one drop-off at a time, a Tunnel takes in at most 50 Space Crystals per 4 seconds = **12.5 Space Crystals per second**. Saturation by distance from Side B (Agent speed 1.5 grid units per second; trip = 5 s mining + 4 s drop-off + walking both ways):
+Because a Tunnel's crystal side accepts one drop-off at a time, a Tunnel takes in at most 50 Space Crystals per 4 seconds = **12.5 Space Crystals per second**. Saturation by distance from Side B (Agent speed 1.5 grid units per second; trip = 4 s mining + 4 s drop-off + walking both ways; the walk is counted edge to edge, so real trips are a little shorter):
 
 | Distance to Side B (grid units) | Trip time | Per Agent (SC/s) | Payback (100 SC) | Agents to saturate | Income with 2 Agents | 3 Agents | 4 Agents |
 |---|---|---|---|---|---|---|---|
-| 0 | 9.0 s | 5.6 | 18 s | 2.25 | 11.1 | 12.5 | 12.5 |
-| 1 | 10.3 s | 4.8 | 21 s | 2.58 | 9.7 | 12.5 | 12.5 |
-| 2 | 11.7 s | 4.3 | 23 s | 2.92 | 8.6 | 12.5 | 12.5 |
-| 3 | 13.0 s | 3.8 | 26 s | 3.25 | 7.7 | 11.5 | 12.5 |
-| 4 | 14.3 s | 3.5 | 29 s | 3.58 | 7.0 | 10.5 | 12.5 |
-| 5 | 15.7 s | 3.2 | 31 s | 3.92 | 6.4 | 9.6 | 12.5 |
-| 6 | 17.0 s | 2.9 | 34 s | 4.25 | 5.9 | 8.8 | 11.8 |
+| 0 | 8.0 s | 6.25 | 16 s | 2.00 | 12.5 | 12.5 | 12.5 |
+| 1 | 9.3 s | 5.36 | 19 s | 2.33 | 10.7 | 12.5 | 12.5 |
+| 2 | 10.7 s | 4.69 | 21 s | 2.67 | 9.4 | 12.5 | 12.5 |
+| 3 | 12.0 s | 4.17 | 24 s | 3.00 | 8.3 | 12.5 | 12.5 |
+| 4 | 13.3 s | 3.75 | 27 s | 3.33 | 7.5 | 11.3 | 12.5 |
+| 5 | 14.7 s | 3.41 | 29 s | 3.67 | 6.8 | 10.2 | 12.5 |
+| 6 | 16.0 s | 3.12 | 32 s | 4.00 | 6.2 | 9.4 | 12.5 |
 
 **Syndicate economy check** (user, 2026-11-25; Q0070):
 - **Distance** in the table is measured **edge to edge**, from the patch's edge to the Tunnel's **crystal hatch** (the 1-square hatch on Side B), as for Drones (0107).
 - **Tolerance**: ±15% on every figure, except the **12.5 Space Crystals per second ceiling per Tunnel**, which must hold exactly (hard rule: one drop-off per 4 s).
-- **Targets**: the opening (3 Agents saturate a Tunnel around 0:40, i.e. 0:34–0:46, with the patch 1 GU from the hatch); the table row by row; stacked Tunnels double a field's intake; the Syndicate's one-base saturation income is the lowest of the measured factions.
+- **Targets**: the opening (3 Agents saturate a Tunnel around 0:40, i.e. 0:34–0:46, with the patch **3 GU** from the hatch; user, 2026-11-26, moved from 1 GU); the table **from 3 GU outward** (closer rows are theoretical: with collision, Agents may need the player's help there, see Close patches below); stacked Tunnels double a field's intake; the Syndicate's one-base saturation income is the lowest of the measured factions.
 - **Reference layout**: one Tunnel with its crystal hatch facing a single patch at each distance (Agents share patches, so the patch count doesn't matter). For the **stacked** check, the two Tunnels stand on **opposite sides of the field**, each hatch facing it, so every Agent's nearest Tunnel is its own (Agents deliver to the nearest Tunnel, Gathering rules).
 - **Stacking is not something maps should encourage** (user, 2026-11-25): map makers shouldn't lay out fields that invite two Tunnels on one patch group. It stays allowed, with its existing costs (Tunnel Area Non-Overlap Rule > Crystal intake and stacked Tunnels).
 
-Rationale: the drop-off time (not carry or mining time) sets the ceiling, so lengthening it lowers the per-Tunnel ceiling while keeping the number of Agents (and Tunnel Space) needed to saturate a Tunnel low. The 5-second mining time deliberately makes distance matter: 3 Agents saturate a Tunnel only when the crystals are within ~2 grid units of Side B, and 2 Agents never fully saturate. This incentivizes placing Tunnels as close to the crystals as possible (with Side B facing them). The Agent's payback is faster than the Extraction Plate's (22.5 s) only within ~1 grid unit, and slower beyond — tight Tunnel placement is what makes Agents efficient. Agents take 15 seconds to build at the Hideout, so the Syndicate's early ramp is not instant even though its ceiling is low.
+Rationale (user, 2026-11-26; replaces the 5 s mining rationale): the drop-off time (not carry or mining time) sets the ceiling, so lengthening it lowers the per-Tunnel ceiling while keeping the number of Agents (and Tunnel Space) needed to saturate a Tunnel low. **Mining equals drop-off (4 s / 4 s)**: 2 Agents could saturate only with no walking at all (a patch touching the hatch), and a patch lasts only a couple of minutes at full intake (1500 SC default = 30 loads), so in practice the **third Agent is always needed** once the nearest patch runs out. 3 Agents saturate out to about 3 grid units, 4 Agents to about 6. Agents take 15 seconds to build at the Hideout, so the Syndicate's early ramp is not instant even though its ceiling is low.
+
+**Close patches and traffic** (user, 2026-11-26; Q0076/Q0088): Agents **keep normal collision** while gathering (no pass-through). Very close to the hatch (0–2 grid units) they can get in each other's way and income drops. **How far a starting Tunnel sits from its crystals is up to the map maker**, and where players build later Tunnels is their choice. A little player intervention to get Agents mining well (moving the Tunnel back, re-ordering an Agent to another patch) is acceptable, in line with the Core principle (systems/controls/behaviors.md > Core principle: predictable, not optimal).
 
 ### Supplies
 - CarryCapacity: 1 Supply per trip
