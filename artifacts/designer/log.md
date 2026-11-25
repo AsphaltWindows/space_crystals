@@ -2247,3 +2247,4 @@ Satellite named Prism; shootable during launch. Entry 0281.
 
 ## 2026-11-25 session end (part)
 Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy check, M4 scope = placeholders (Laser Turret, Grenadier, Chemical Plant), AoE hits underground (0262; 0261 void), building armor rule n / n×size (0264), transport gaps, turret uses Tunnel slot, detection after all faction units. Syndicate roster: Specter bomber (0268–0273), Vault network-wide, Prism satellite + Laser Battery Relay (0274–0281). User's order of work: all faction units → all techs → detection. Identity check raised, awaiting answers.
+2026-11-25 18:00 — Split all faction units.md/structures.md into one file per object (units/, structures/ folders with README for shared rules + index); refs rewritten; content verified line-for-line. Relayed user's request for modular code. Entry 0282.
