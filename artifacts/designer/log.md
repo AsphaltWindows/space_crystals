@@ -2184,3 +2184,4 @@ Subterranean Transport surfacing: tile passability, not reachability. Entry 0217
 AoE still hits hidden transport. Entry 0218.
 All DrillUnits hidden underground unless detected. Entry 0219.
 Transport burrow/surface = deploy model; passengers die. Entry 0220.
+Transport req Forge; enters tunnels loaded. Entry 0221.
