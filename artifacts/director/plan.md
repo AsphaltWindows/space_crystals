@@ -1097,9 +1097,24 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 
     Training through the gate is in `tests/prerequisites/`, replacing K's stand-in. `defs_are_consistent` checks that only Disjointed attacks have a ProjectileSpeed.
 
+- **M4-J3 Tunnel Area display** (Opus; merged in `5e2e9419`; 1760 tests; client only, plus comments; goldens untouched):
+  - **Selecting own Tunnels** shows each one's area at its current tier, sites included, and the area hides when the selection changes. Enemy areas, seen or remembered, are never drawn (0299). The ghost still judges by the ones the player knows (0237).
+  - **Placing a Tunnel** shows the ghost's Tier 2 and Tier 3 rings (`placement/tunnel_areas/rings.rs`). A ring cell is red when it is:
+    - off the map (shown as a red line along the map's edge, since the camera can't show off-map cells);
+    - on known non-Drillable ground (never-explored tiles pass, as on the ghost);
+    - on an own area (0300).
+
+    "Own areas" are what the ghost's own check counts: Tunnels and sites (at their reserved tier while upgrading) and pending Tunnel ghosts. That's stricter than `Sim::upgrade_blocked`, which doesn't count pending ghosts, because the preview anticipates them being built.
+  - **G's `reserving` is gone.** The mesh is rebuilt only when what it shows changes.
+  - **The marks:** every Q0086 and Q0087 cites 0285, 0299, 0300 or 0301. Colours and wording stay placeholders (Q0001).
+  - **Tests:**
+    - 0299: Water red only in the T3 ring, and unexplored Water not red; an enemy Tunnel selected draws nothing.
+    - 0300: an own Tunnel's overlap is red in both rings.
+    - 0301: the builder is out in the Eject's tick, and a unit rallied inside has no delay.
+    - The tests of Q0086 points 1, 2, 3 and 5 cite their entries.
+
 ## In progress
   - **M4-V One per-viewer event filter** (Opus; brief `scratchpad/briefs/m4v-viewer-event-filter.md`): the technical follow-up. Every client consumer of `SimEvent` goes through one filter for what the local player may perceive, before S2's hidden pop-up arrives. A table test covers every variant, and any leaks found are fixed.
-  - **M4-J3 Tunnel Area display** (Opus; brief `scratchpad/briefs/m4j3-area-display.md`): the selected own Tunnel's area; the Tier 1–3 preview while placing a Tunnel, with blocking cells red; no enemy areas (0299, 0300); and the marks of Q0086 and Q0087.
   - **M4-S1 Laser Turret, upright and Agent-built** (Opus; brief `scratchpad/briefs/m4s1-laser-turret.md`): the turret's def (requires an Optics Lab), structures that attack (T49), the Build order's turret arm with Q0084's answers (0296–0298: a 75% cancel refund, folded in mid-run), defeat, and the client's D entry, ghost and turret look.
 - **Next**:
   - **M4 wave 8:** S2 (the pop-up, Tunnel-built turret) launches when S1 lands. Its brief is `scratchpad/briefs/m4s2-popup-turret.md`. **It runs on Fable:** 0296 made raised pop-ups block movement, with a footprint-clear rise and an idle push, which is m4-plan's stated trigger for Fable. U is running; J3 is queued. Then M (QA).
@@ -1295,7 +1310,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - S1: running (wave 7, Opus; brief `scratchpad/briefs/m4s1-laser-turret.md`).
     - G: done (`a737a69a`). **Wave 6 is complete.**
     - U: done (`f34e4e6e`).
-    - J3: running (new, small, client, Opus; brief `scratchpad/briefs/m4j3-area-display.md`): the Tunnel Area display (0299, 0300) and the marks of Q0086 and Q0087.
+    - J3: done (`5e2e9419`).
     - I2: done (`4f31587f`).
     - O2: done (`2e0f31f4`).
     - L: done (`6d05e084`).
@@ -1696,7 +1711,7 @@ Last triaged: 0282.
 | 0296 Laser Turret: hidden at 6/6 only while fully lowered; sight 6 in both forms; upright turrets and raised pop-ups block like buildings, a lowered pop-up never; a pop-up can't rise while any unit stands over it, and the owner's idle units there are pushed off | queued (M4-S2; S1 builds "an upright turret blocks like a building") | answers Q0084 points 1–3 |
 | 0297 Laser Turret: an Agent's turret is paid at the order, with the Tunnel order's refund rules; cancelling either kind of site refunds 75%; an Agent's site is visible and a Tunnel's is hidden | in progress (M4-S1, re-briefed: 75%, not the proposed 100%); queued (M4-S2: the Tunnel-built site) | answers Q0084 points 4–6 |
 | 0298 Laser Turret: the Agent exits at the first clear spot from its side and waits inside if none; holding-position targeting that keeps its target; an Agent's turret uses no operation slot | in progress (M4-S1, as proposed) | answers Q0084 points 7–9 (Q0084 complete) |
-| 0299 Every Syndicate unit type keeps its EjectMenu tile (0, greyed); selecting an own Tunnel shows its area; placing a Tunnel previews its Tier 1–3 areas with blocking cells red; enemy areas never shown; recalling an all-inside group does nothing | partly done (points 2 and 5 as built, M4-J2 `c5910e4d`); queued (M4-J3: the area display) | answers Q0086 points 2, 4, 5 |
-| 0300 The EjectMenu stays open after a click; the preview also marks cells overlapping own other Tunnels' areas; the area shows while placing an expansion | partly done (points 1 and 3 as built, M4-J2 and M4-F); queued (M4-J3: the own-overlap cells) | answers Q0086 point 3 (Q0086 complete) |
-| 0301 No transit delay for the Agent that finishes a Tunnel, nor for produced units rallied inside | done (as built, M4-E `4933e094`); M4-J3 checks the verification and updates the marks | answers Q0087 |
+| 0299 Every Syndicate unit type keeps its EjectMenu tile (0, greyed); selecting an own Tunnel shows its area; placing a Tunnel previews its Tier 1–3 areas with blocking cells red; enemy areas never shown; recalling an all-inside group does nothing | done (points 2 and 5 as built, M4-J2 `c5910e4d`; point 4, M4-J3 `5e2e9419`) | answers Q0086 points 2, 4, 5 |
+| 0300 The EjectMenu stays open after a click; the preview also marks cells overlapping own other Tunnels' areas; the area shows while placing an expansion | done (points 1 and 3 as built, M4-J2 and M4-F; point 2, M4-J3 `5e2e9419`) | answers Q0086 point 3 (Q0086 complete) |
+| 0301 No transit delay for the Agent that finishes a Tunnel, nor for produced units rallied inside | done (as built, M4-E `4933e094`; M4-J3 `5e2e9419`: the verification as a test, and the marks) | answers Q0087 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
