@@ -1,5 +1,10 @@
 # Controls: Behaviors and Action Channels
 
+## Core principle: predictable, not optimal
+(user, 2026-11-25) **Every unit's default behavior must be understandable and predictable** in every situation. We do **not** write algorithms that make default behavior optimal for whatever situation the units find themselves in, and we don't aim for silky-smooth crowd pathing. Avoiding bottlenecks and getting the best out of units is **the player's job**. Different units need different amounts of oversight and control to get good results, and that is part of deciding which units to make for a situation.
+
+When a behavior question comes up, prefer the **simple, explainable rule** over a cleverer one that handles more cases, as long as the simple rule fails in ways the player can see and fix (e.g. a unit that gives up and goes idle, then re-acquires a target by itself).
+
 ## BaseBehaviorState[UnitBase]
 Internal data maintained by the base behavior as it executes its algorithm in response to the BaseCommandState. Includes computed data such as planned paths, progress tracking, and any other cached information the behavior needs across frames. Parameterized by UnitBase as different bases may need to store different kinds of intermediate results (e.g., a Glider's circling parameters vs. a Wheeled Vehicle's turn radius planning).
 
