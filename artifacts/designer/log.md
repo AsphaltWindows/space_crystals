@@ -2205,3 +2205,4 @@ Q0062 pt2: off-map cells count (B). Entry 0238.
 Q0062 pt3a: expansions need Drillable. Entry 0239.
 Q0062 pt3c/4: no buildings over expansions and vice versa. Entry 0240.
 Q0062 pts 3d/5: no expansions under resources; water/mountain no tunnel space. Entry 0241.
+Tunnel area fully drillable/on-map (0242); Q0074 own movement re-check B (0243).
