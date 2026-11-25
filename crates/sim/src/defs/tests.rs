@@ -20,6 +20,42 @@ fn all_lists_every_kind_in_declaration_order() {
     assert_eq!(ObjectKind::ALL, declared_kinds().as_slice());
 }
 
+/// The registry's order and names are stored: the order in the state hash (`hash.rs`), the names in saves, replays and
+/// maps. New kinds go last.
+#[test]
+fn every_kind_keeps_its_place_and_name() {
+    let names: Vec<String> = ObjectKind::ALL
+        .iter()
+        .map(|kind| serde_json::to_string(kind).unwrap())
+        .collect();
+    let expected = [
+        "CrystalPatch",
+        "SupplyDeliveryStation",
+        "Peacekeeper",
+        "Guard",
+        "DeploymentCenter",
+        "Generator",
+        "Barracks",
+        "ExtractionFacility",
+        "ExtractionPlate",
+        "Drone",
+        "Beacon",
+        "EgressNode",
+        "RoboPortal",
+        "BioPortal",
+        "SabreLegionnaire",
+        "RifleLegionnaire",
+        "PeacekeeperShielded",
+        "Agent",
+        "Tunnel",
+        "Hideout",
+    ];
+    assert_eq!(names[..expected.len()], expected.map(|name| format!("\"{name}\"")));
+    for (index, &kind) in ObjectKind::ALL.iter().enumerate() {
+        assert_eq!(kind as usize, index, "{kind:?}");
+    }
+}
+
 #[test]
 fn defs_are_consistent() {
     for &kind in ObjectKind::ALL {
