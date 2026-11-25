@@ -34,8 +34,8 @@ pub const DEATH_MARKER_TICKS: u32 = 40;
 /// A shot leaves a unit this far up the screen from its ground point, su, as from its body rather than its feet.
 const MUZZLE_LIFT: f32 = 8.0;
 /// HP bars: height, gap above the corners of the unit's silhouette (clear of a selection ring, which lies 7 su
-/// outside them: `selection::markers`), and the narrowest bar, su. A shield bar is as high, right above the HP bar,
-/// their frames shared.
+/// outside them: `selection::markers`) or above a tile-based object's footprint, and the narrowest bar, su. A shield
+/// bar is as high, right above the HP bar, their frames shared.
 const BAR_HEIGHT: f32 = 4.0;
 const BAR_GAP: f32 = 9.0;
 const BAR_MIN_WIDTH: f32 = 24.0;
@@ -174,12 +174,25 @@ pub fn shows_death(sight: &Sight, death: &DeathMarker) -> bool {
     death.owner == Some(sight.player()) || sight.at(death.pos) == VisibilityState::Visible
 }
 
+/// The bars of `o`: over a unit, clear of its silhouette's corners however it turns, as wide as the silhouette; over a
+/// tile-based object, along the top edge of its footprint, as wide as the footprint (slice M3-K2: before, a
+/// structure's bars were a unit's, inside it).
 fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32, shields: Option<f32>) -> HpBar {
     let pos = o.prev_pos.lerp(o.pos, alpha);
-    let half = o.def().half_extents().unwrap_or(Vec2::splat(BAR_MIN_WIDTH / 2.0));
+    let (half, above) = match (o.def().half_extents(), o.placement.as_ref()) {
+        (Some(half), _) => (half, half.length()),
+        (None, Some(p)) => {
+            let half = Vec2::new(p.w as f32, p.h as f32) * (SU_PER_GU / 2.0);
+            (half, half.y)
+        }
+        (None, None) => {
+            let half = Vec2::splat(BAR_MIN_WIDTH / 2.0);
+            (half, half.length())
+        }
+    };
     let drawn = drawn_at_height(pos, object_height(map, pos, o.placement.as_ref()));
     HpBar {
-        center: drawn - Vec2::new(0.0, half.length() + BAR_GAP + BAR_HEIGHT / 2.0),
+        center: drawn - Vec2::new(0.0, above + BAR_GAP + BAR_HEIGHT / 2.0),
         width: (half.x * 2.0).max(BAR_MIN_WIDTH),
         fraction: fraction.clamp(0.0, 1.0),
         shields: shields.map(|shields| shields.clamp(0.0, 1.0)),

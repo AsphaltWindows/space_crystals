@@ -7,13 +7,16 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
 use sc_sim::{
-    Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, SimEvent, SpawnAt, Tick, scenarios,
+    Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, SU_PER_GU, SimEvent, SpawnAt,
+    Tick, TilePos, scenarios,
 };
 use space_crystals::combat_effects::{
     CombatEffects, CombatEffectsMesh, DEATH_MARKER_TICKS, DeathMarker, HpBar, TRACER_TICKS, hp_bars,
 };
 use space_crystals::command_ui::feedback::{FEEDBACK_TICKS, TARGET_TOO_CLOSE_TEXT, TargetFeedback};
+use space_crystals::coords::drawn_at_height;
 use space_crystals::fog::{FogOfWar, Sight};
+use space_crystals::object_render::object_height;
 use space_crystals::platform::DisplayMode;
 use space_crystals::selection::{ControlStates, Selection};
 use space_crystals::sim_driver::{LocalPlayer, PendingCommands, SimEventMessage, SimRes};
@@ -212,6 +215,44 @@ fn an_object_with_shields_shows_a_shield_bar_above_its_hp_bar() {
     app.world_mut().resource_mut::<ControlStates>().of_mut(P1).selection = Selection::new([(GUARD, ObjectKind::Guard)]);
     let shown: Vec<(f32, Option<f32>)> = bars(&app).iter().map(|bar| (bar.fraction, bar.shields)).collect();
     assert_eq!(shown, [(1.0, None)]);
+}
+
+/// A structure's bars lie along the top edge of its footprint, as wide as it (placeholder look; slice M3-K2's
+/// walkthrough found them unit-sized, inside the building). Player 1's Barracks, 3 × 2 tiles, selected, shows its HP
+/// bar 192 su wide, centred over it, just above its top edge, clear of its selection frame, which lies inside it.
+#[test]
+fn a_structure_shows_its_bar_along_the_top_of_its_footprint() {
+    const BARRACKS: ObjectId = ObjectId(1);
+    let mut app = headless_app();
+    app.update();
+    let spawn = DebugCommand::Spawn {
+        kind: ObjectKind::Barracks,
+        owner: Some(P1),
+        at: SpawnAt::Tile(TilePos::new(4, 4)),
+        orientation: Default::default(),
+    };
+    submit(&mut app, P1, Command::Debug(spawn));
+    app.update();
+    app.world_mut().resource_mut::<ControlStates>().of_mut(P1).selection =
+        Selection::new([(BARRACKS, ObjectKind::Barracks)]);
+    let sim = app.world().resource::<SimRes>();
+    let barracks = sim.object(BARRACKS).expect("the Barracks");
+    let placement = barracks.placement.expect("a tile-based object");
+    assert_eq!((placement.w, placement.h), (3, 2));
+    let drawn = drawn_at_height(barracks.pos, object_height(sim.map(), barracks.pos, Some(&placement)));
+    let top = drawn.y - 2.0 * SU_PER_GU / 2.0;
+
+    let shown = bars(&app);
+    let [bar] = shown.as_slice() else {
+        panic!("one bar: {shown:?}");
+    };
+    assert_eq!((bar.width, bar.center.x, bar.fraction), (3.0 * SU_PER_GU, drawn.x, 1.0));
+    assert!(
+        (top - 16.0..top).contains(&bar.center.y),
+        "just above the top edge, at {}: {}",
+        top,
+        bar.center.y
+    );
 }
 
 /// The feedback message that shows, if any.
