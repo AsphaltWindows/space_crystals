@@ -2182,3 +2182,4 @@ Syndicate: Subterranean Transport added. Entry 0215.
 Subterranean Transport hidden underground unless detected. Entry 0216.
 Subterranean Transport surfacing: tile passability, not reachability. Entry 0217.
 AoE still hits hidden transport. Entry 0218.
+All DrillUnits hidden underground unless detected. Entry 0219.
