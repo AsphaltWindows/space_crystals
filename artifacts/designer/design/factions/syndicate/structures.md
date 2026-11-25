@@ -43,6 +43,9 @@ Each production expansion can have a rally point set. This determines what happe
 
 - **Rally point set on the surface**: Unit auto-ejects from the parent Tunnel (Side A) and moves to the rally point.
 - **No rally point, or rally point set on the parent Tunnel**: Unit stays in the Tunnel Network, available for ejection from any sufficiently-tiered Tunnel.
+- **Rally point on any own Tunnel** (user, 2026-11-25; Q0064): the unit stays inside the network, like a rally on the parent Tunnel.
+- **Rally point on an expansion** (user, 2026-11-25; Q0064): treated as the **surface location** above it: the unit auto-ejects from the parent Tunnel and walks to stand on top of the expansion.
+- **What "moves to the rally point" means** (user, 2026-11-25; Q0064): the unit's default right-click action at the rally target (systems/controls/selection_and_hud.md > What a rally point makes a new unit do), e.g. an Agent rallied on a crystal patch gathers.
 
 ### Hideout
 

@@ -2214,3 +2214,4 @@ Tunnel sides corrected (D Supplies, C back); exit nearer crystals. Entry 0248.
 Q0063 rest: inside rules, regen 1%/s placeholder, upgrade old tier. Entry 0249.
 Q0064: walk-out ejection; air door rate 8 frames placeholder. Entry 0250.
 Q0064 pts 3,4,11; Vault/Null Chamber limits noted. Entry 0251.
+Q0064 pts 5-7 rallies. Entry 0252.
