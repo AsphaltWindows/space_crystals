@@ -771,6 +771,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M4-C Tunnel Network** (Fable; brief `scratchpad/briefs/m4c-tunnel-network.md`): Enter, the held store, transit, Eject, production into the network and rallies, with 0245–0253. No air doors yet.
   - **M4-D Agent crystal gathering** (Fable; brief `scratchpad/briefs/m4d-agent-gathering.md`): 0255; Agents wait at the hatch for ever; the stacked-Tunnel soak checks liveness.
+  - **M4-B Syndicate start** (Opus; brief `scratchpad/briefs/m4b-syndicate-start.md`, spec `scratchpad/m4/rev/B.md`): the Starting Conditions, the `dev_skirmish` layouts, Tunnel Space, 0242's area rule in placement and layouts, and the 0264 armor test across all factions.
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
   - **M4 Syndicate:** the plan is adopted (`artifacts/director/m4-plan.md`). M4-A is running, and every later slice waits for it.
@@ -932,7 +933,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
   - **Slice status:**
     - A: done (`fcd06dc`).
     - C and D: running (wave 2, Fable).
-    - B: next free slot.
+    - B: running (wave 2; Opus; the revised spec `scratchpad/m4/rev/B.md`).
     - The rest are queued. A planning pass is folding 0229–0271 into slices B and E–M, and planning 0260's new content: a combat spike, the Grenadier, the Laser Turret and the Chemical Plant.
   - **All M4 questions are answered** (Q0059–Q0071), by 0229–0267.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
@@ -1036,7 +1037,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0075 | A revealed attacker shooting at a target the player can't see: draw the shot whole (literal 0206) or clip it? | no | answered by 0244 (stricter than B; M3-L5) |
 
 ## Design change entries
-Last triaged: 0276.
+Last triaged: 0282.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -1291,4 +1292,10 @@ Last triaged: 0276.
 | 0274 Satellites require the Orbital Command | gated (concept only) | — |
 | 0275 Satellite: laser relay, launched like a rocket, can't return to the network, slow with thrust charges | gated (concept only) | — |
 | 0276 Refract: deployed Laser Batteries relay through Satellites, chains allowed | gated (concept only) | — |
+| 0277 Relay (renamed from Refract): how Laser Batteries relay through Satellites | gated (concept only) | — |
+| 0278 Relay: damage adds up, and chain breaks | gated (concept only) | — |
+| 0279 Relay: every selected Battery must reach a Satellite; the armed Satellite takes Attack orders | gated (concept only) | — |
+| 0280 Satellite thrust charges never recharge; the armed Satellite fires at anything the player sees | gated (concept only) | — |
+| 0281 The satellite is named Prism; it can be shot down while launching | gated (concept only) | — |
+| 0282 The design docs are reorganized into one file per unit and per structure (`factions/<f>/units/*.md`, `structures/*.md`, shared sections in each folder's README); no design content changed. From the user: keep the code organized and modular too: per-object definitions, data and tunables apart from logic, shared mechanics written once | queued (M4-R, a code-organization slice after wave 2: the ~320 stale citations, a citation-check test, defs per object, tuning modules; being planned). Running slices cite the new paths | — |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

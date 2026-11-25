@@ -20,7 +20,7 @@ Objects in Explored areas are **not selectable**, with one exception:
 
 ### Targeting remembered objects
 (user, 2026-11-24) Remembered objects (structures, resource patches and other objects shown in their last-known state in Explored areas) **can be targeted** by right-click and by targeted commands (Attack, Gather, Move to object, rally points), even though they are not selectable.
-- The order goes to the object's **last-known position**. When that spot comes into sight, the memory updates: if the object is **still there**, the order carries on normally (attack it, gather it, …); if it is **gone**, the order ends the way it would for a vanished target (e.g. Gather: the redirect rules, factions/colonists/units.md > Patch Occupancy; Attack: the unit stops there and takes its next queued order or idles).
+- The order goes to the object's **last-known position**. When that spot comes into sight, the memory updates: if the object is **still there**, the order carries on normally (attack it, gather it, …); if it is **gone**, the order ends the way it would for a vanished target (e.g. Gather: the redirect rules, factions/colonists/units/drone.md > Gathering > Patch Occupancy; Attack: the unit stops there and takes its next queued order or idles).
 - Nothing about the real state leaks: the cursor, the command and any rally marker treat the remembered object as present until the player sees otherwise.
 
 ## Visible

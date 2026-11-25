@@ -8,7 +8,7 @@ A structure type may declare a **TechPrerequisite**: one or more structure types
 A structure only counts toward a TechPrerequisite once it is **fully constructed and present on the map**:
 - **GDO**: the building must have been placed. A completed building sitting in a constructor's ReadyToPlace slot does not count.
 - **Syndicate**: the underground expansion must have finished construction.
-- **Colonists**: the Warp In transformation must have completed. A Beacon still mid-transformation does not count. (Most Colonists buildings have no TechPrerequisites; the exceptions are defensive structures such as the Skylance and Plasma Turret — see factions/colonists/structures.md > Tech Model. The counting rule also applies to Colonists Unit Prerequisites.)
+- **Colonists**: the Warp In transformation must have completed. A Beacon still mid-transformation does not count. (Most Colonists buildings have no TechPrerequisites; the exceptions are defensive structures such as the Skylance and Plasma Turret — see factions/colonists/structures/README.md > Tech Model. The counting rule also applies to Colonists Unit Prerequisites.)
 - **Cults**: the Recruits must have finished constructing the building.
 
 Structures under construction (or awaiting placement) never satisfy a TechPrerequisite.
