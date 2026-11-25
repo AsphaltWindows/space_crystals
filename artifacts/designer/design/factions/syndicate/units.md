@@ -414,14 +414,15 @@ TBD: all numbers (HP, armor, sight, speed and handling, TunnelSpaceCost, damage,
 ### Faction - TheSyndicate
 ### UnitBase - Glider (with vertical lift-off and landing at the Tunnel air doors)
 ### Produced at - Aerospace Assembly
+### TechPrerequisite - player owns at least one **Vault** and at least one **Chemical Plant** (user, 2026-11-25)
 
 ### Attack
-- **A single payload**: one bomb per sortie (how it is re-armed: TBD).
+- **A single payload**: one bomb per sortie. **Re-arming** (user, 2026-11-25, designer's reading of "requires a Vault"): it flies back and lands in **any** own Tunnel's air door; inside the network it is re-armed, as long as the player owns a Vault **anywhere** in the network (Vault > Network-wide).
 - **AoE damage**.
 - On a **turret with very low range**: it must be nearly over its target.
 - **Can miss**: the bomb falls to a locked location, so targets can dodge (DoublyDisjointed, assumed). The **projectile travel time is relatively high**, almost all of it the **vertical fall**.
 - Like every attack that can miss, it can **Attack Ground** (systems/combat.md > AttackType > CanTargetGround).
-- TargetDomain: Ground (assumed: a falling bomb).
+- TargetDomain: **Ground only** (user, 2026-11-25).
 
-TBD: name; tech prerequisite; re-arming; the lift-off/landing transition; all numbers.
+TBD: name; re-arming time and the Vault's throughput limit; the lift-off/landing transition; all numbers.
 
