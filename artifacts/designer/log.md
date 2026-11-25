@@ -2165,3 +2165,4 @@ Q0049 refined + Q0053 pts 2/3: toggles set a target state; ActiveGroup only; typ
 Q0050: joined group becomes active; on death next group in Tab order. Entry 0199.
 Q0051: target lost from vision ends Attack/Follow, unit stops (or next queued). Entry 0200 replaces 0034 fallback.
 Q0052: Set Drop-off pointer ReturnResources; load visual public, details owner-only; distinct Gather/DropOff/SetDropOff markers. Entry 0201.
+Q0053 pt1: orders accepted per new type at press, executed after toggle (B). Entry 0202.
