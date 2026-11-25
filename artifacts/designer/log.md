@@ -2191,3 +2191,4 @@ Tunnel sides/hatches/tier look/air doors. Entry 0224.
 Tunnel paths one unit at a time. Entry 0225.
 Syndicate: Phantom added. Entry 0226.
 Phantom turret 60-90, Guard-like role. Entry 0227.
+Phantom total cone; stale fog line fixed. Entry 0228. Q0058 noted.
