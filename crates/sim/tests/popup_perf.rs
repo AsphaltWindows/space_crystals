@@ -104,23 +104,22 @@ fn perf_12_popups_cycling_under_traffic() {
                 .map(|o| o.id)
                 .collect()
         };
-        match tick % PERIOD {
-            // An enemy 2 tiles north and one 2 tiles south of each Tunnel's area, between its two turrets there: within
-            // 5 grid units of both, and beyond the other two's.
-            0 => {
-                for (x, y) in TUNNELS {
-                    for dy in [-5, 8] {
-                        let spawn = DebugCommand::Spawn {
-                            kind: ObjectKind::Guard,
-                            owner: Some(P2),
-                            at: SpawnAt::Point(TilePos::new(x + 1, y + dy).center()),
-                            orientation: Default::default(),
-                        };
-                        t.debug_at(tick, spawn);
-                    }
-                }
+        // The six enemies come one after another, 10 ticks apart, so that the pairs of turrets rise and retract in
+        // different ticks: 12 ticks in which the grids change in every 64. Each stands 2 tiles north or south of a
+        // Tunnel's area, between its two turrets there: within 5 grid units of both, and beyond the other two's.
+        let (phase, step) = (tick % PERIOD % 10, (tick % PERIOD / 10) as usize);
+        match phase {
+            0 if step < 6 => {
+                let ((x, y), dy) = (TUNNELS[step / 2], [-5, 8][step % 2]);
+                let spawn = DebugCommand::Spawn {
+                    kind: ObjectKind::Guard,
+                    owner: Some(P2),
+                    at: SpawnAt::Point(TilePos::new(x + 1, y + dy).center()),
+                    orientation: Default::default(),
+                };
+                t.debug_at(tick, spawn);
             }
-            1 => {
+            1 if step < 6 => {
                 let hold = Command::Order {
                     units: enemies(&t),
                     kind: OrderKind::Hold,
@@ -128,8 +127,9 @@ fn perf_12_popups_cycling_under_traffic() {
                 };
                 t.at(tick, P2, hold);
             }
-            12 => {
-                for id in enemies(&t) {
+            // The one that came 12 ticks ago goes: the oldest.
+            2 if (1..7).contains(&step) => {
+                if let Some(&id) = enemies(&t).first() {
                     t.debug_at(tick, DebugCommand::Remove { id });
                 }
             }

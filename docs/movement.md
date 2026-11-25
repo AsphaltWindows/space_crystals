@@ -598,7 +598,10 @@ An `Arrived` or `Failed` unit is Stationary and has no goal, so it cannot oscill
 a sidestep (6.6). A unit reacts to an enemy only on contact, so pathing leaks nothing about unseen units.
 
 **6.6 Friendly yielding. (Y)** Design changes 0022, 0023 and 0027 (`systems/units.md > UnitCollision > Ground
-Collision > Friendly yielding`); the code is `movement/yielding.rs`. A moving unit blocked by an **idle** unit of
+Collision > Friendly yielding`); the code is `movement/yielding.rs`. **(M4-S2)** A lowered pop-up Laser Turret that
+wants to rise asks its owner's idle units over its footprint for the same sidestep, off the footprint (design change
+0296 point 3, `factions/syndicate/structures/laser_turret.md > Pop-up rules`; `yielding::make_way`); a raised one is
+an obstacle like any structure, from the tick it starts to rise (5.7: the grids follow). A moving unit blocked by an **idle** unit of
 its own owner asks it to make way, and the idle unit takes **one short sidestep**. Collision stays hard: the
 sidestep is a real move, committed through the same predicates as every other (`World::is_free`), in the unit's
 own turn of phase 5d.

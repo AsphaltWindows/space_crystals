@@ -287,10 +287,51 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   completion (`Sim::complete_expansion`) ends the operation, and so does a cancel, the site's X or the Tunnel's
   (`TunnelCommand::Cancel`, `Sim::cancel_operation`; 75% back, `Refund::Expansion`), or the site gone any other way
   (`forget_references`, no refund). **The ExpandMenu's one table** is `defs::EXPAND_MENU` (`ExpandEntry::Kind(kind)` or
-  `ExpandEntry::Planned(name)`): the nine expansions of the Tech Tree table in its order and the Laser Turret tenth,
-  each holding its slot (0291); the slice that brings one turns its entry into its `Kind`, and tests check the list
+  `ExpandEntry::Planned(name)`): the nine expansions of the Tech Tree table in its order and the Laser Turret tenth
+  (its `Kind` since slice M4-S2: a Tunnel builds it as an expansion, *The pop-up form* below), each holding its slot
+  (0291); the slice that brings one turns its entry into its `Kind`, and tests check the list
   against the design's table and against `StructureDef::expansion`. `Sim::operation_progress(tunnel)` gives the
   operation and its `Progress` for the Tunnel's InfoPanel.
+- **The pop-up form** (`popup.rs`, `sim/popups.rs`; slice M4-S2, plan decision T50;
+  `factions/syndicate/structures/laser_turret.md > Upright vs Pop-up`, `factions/syndicate/structures/laser_turret.md
+  > Pop-up rules`, `factions/syndicate/structures/laser_turret.md > Conversion`; design changes 0267, 0296 and 0297).
+  **The form is derived, never stored**: a structure of a type with `StructureDef::popup` (`PopUpDef`: the rise, idle
+  and retract frames and the underground armour; the Laser Turret's 8, 32, 8 and 6 / 6) is a pop-up while its footprint
+  lies inside the current Tunnel Area of one of its owner's Tunnels in operation (`popup::in_area`, the expansions'
+  parent rule; `Sim::is_popup`), so a new Tunnel, an upgrade and a Tunnel's loss convert it with no event (a reading:
+  "operational", as for reclaiming; an upgrading Tunnel's area is its current tier's). **What is stored** is where it
+  is between underground and the surface, **`Object::popup: Option<PopUp>`** (`Lowered { blocked }`, `Rising(Progress)`,
+  `Raised { idle }`, `Retracting(Progress)`); `None` is a turret standing upright, so the state is hashed (a tag) and
+  saved only for a pop-up. **The cycle** is `popup::step`, once a tick in `Sim::step_popups` (*Tick pipeline*): lowered
+  with no target; rising for its frames once phase 5e picked one, then raised, where alone it fires
+  (`popup::may_fire`, which `combat::step` asks: it keeps the target it picked and faces it meanwhile); retracting after
+  its idle frames with no target. A phase started in tick `t` does its first frame in `t + 1`: a target picked in `t`,
+  raised at the end of `t + 8`, the first shot in `t + 13`; the last target in `t`, down at the end of `t + 40`. Every
+  phase runs its full length (a target seen while it retracts waits for it to go down and come up again: the simplest
+  predictable rule, 0223). **Each reader asks one function**: hiding and the underground armour only while fully
+  lowered (`popup::is_lowered`: `Hiding::of`'s arm, *Vision > Hidden objects*; **`Object::armor()`**, which every hit
+  meets through combat's snapshot), blocking (`popup::blocks`, below), Tunnel Space
+  (`economy::army::occupies_tunnel_region`: a cell of the region, so ¼, for a turret in operation inside an own area
+  and for a Tunnel's turret site). **Blocking** (0296 point 3, a reading): the footprint blocks from the tick the
+  turret starts to rise until it is fully lowered again, so that nothing steps under it while it rises;
+  `paths::blocking(object)` is the one test of a live object's footprint (the true grids, its owner's known ones, the
+  gate's spawn checks), and `step_popups` syncs the true grids when a turret starts or stops blocking, as a structure
+  that appears or goes (*Navigation*). **Rising needs a clear footprint**: a lowered turret that wants up while a
+  ground unit's box overlaps its footprint stays `Lowered { blocked: true }`, and phase 5d of the next tick asks its
+  owner's idle units there to step off (`yielding::make_way`, *Movement and collision > Friendly yielding*); an enemy
+  or a unit with an order keeps it down. **A turret that loses its Tunnel while it isn't up** rises by the same rule,
+  whatever it sees, hidden and armoured as lowered until it does, and its state goes once it stands. **A Tunnel's
+  turret** is the ExpandMenu's tenth entry (`StructureDef::expansion` beside its `site`: the one kind built both
+  ways), placed by `Method::Expansion` with, a reading, the ground a surface structure needs as well (Buildable,
+  flat), its site `Some(PopUp::LOWERED)` from its first frame: hidden, walked over, and taking the Tunnel's one
+  operation (0267). Tests: `popup.rs`'s (the cycle), `tests/popup/` (`cycle`, `blocking`, `hidden`, `building`,
+  `conversion`), `combat/area/tests.rs` (a blast against each armour). **Measured** (`tests/popup_perf.rs`, ignored,
+  release; 12 pop-ups in three areas on 256 × 256, their pairs rising and retracting 10 ticks apart every 64, under
+  200 walkers crossing them; four interleaved A/B rounds against the same file on a build without pop-ups, load 2.3):
+  227 changes of the true grids and 495 sets of grids rebuilt in 1280 ticks; a whole tick 0.197 ms on average against
+  0.179 ms (+10%), 0.41 ms against 0.35 ms at the 99th percentile, the worst tick (the group orders) unchanged: about
+  0.1 ms a tick in which a pop-up starts or stops blocking. `nav_perf`, `movement_perf` and `structures_perf`, which
+  have no turret, are as they were.
 - **Tech prerequisites** (`tech.rs`; slice M4-K, plan decision T37; `core/tech_and_research.md > Tech Prerequisites`,
   design changes 0229 and 0260): **one rule for every faction**. A structure type's TechPrerequisite is
   `StructureDef::requires`, a recipe's "Requires" (a unit's in `Produces`) `Recipe::requires`, kinds leaked from the
@@ -595,6 +636,12 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    - 5e `combat::step`: attack phases and launches, the projectiles due landing in launch order, the tick's list of
      hits applied together (the blasts' first), deaths (see *Combat*). The dead
      leave through `Sim::remove_objects`, then `paths::sync` runs again in case a footprint went with them.
+   - Pop-ups, `Sim::step_popups` (slice M4-S2, `sim/popups.rs`; *Object model > The pop-up form*): right after 5e
+     and its removals. Each turret in operation from before the tick goes one tick through its cycle, in id order: by
+     its form now (so a Tunnel lost in the tick converts its turrets in it), the target 5e left it, and, to start
+     rising, no ground unit's box over its footprint, where 5d left the units. A turret that starts to rise or is
+     fully lowered changes what blocks: `paths::sync` runs again. Before 5f, so that a turret is seen from the tick it
+     starts to rise and hidden from the tick it is down.
    - Shields, `shields::step` (slice M3-B, see *Combat > Shields*): every object's Shields regenerate
      `SHIELD_REGEN_PER_TICK`, up to its MaxShields now (`Object::max_shields`). Right after 5e's removals, so that the
      dead regenerate nothing and a hit's tick ends with the regeneration on top of it; before the economy, so that a
@@ -880,6 +927,10 @@ ticks spent in it. Hashed and serialized like all state.
   gap, then the lowest id; none while auto-targeting is off. Its `facing` snaps to what it fires at
   (`structures::face`), for the client's barrel only. Its `AttackState` comes with its kind (`sim/kinds.rs`,
   `Capabilities`), so hashed and saved as a unit's; the goldens, which have no such structure, are as they were.
+  **A pop-up fires only while raised** (slice M4-S2, `popup::may_fire`; "It can't fire while rising or retracting"):
+  lowered, rising and retracting it picks and faces its target as ever and starts no sequence (an aim is cancelled, a
+  reload runs on). Its armour is `Object::armor()`, the underground one while fully lowered (*Object model > The
+  pop-up form*).
 - **Not yet**: units' turrets (their TurretAttributes: a turret faces its target at once, `TODO(turrets)` in
   `combat/phases.rs`); the HeadDisjointed and TailDisjointed attacks, which hit as a FullyConnected one does and drop a
   location (TODOs in `combat/phases.rs`).
@@ -963,8 +1014,10 @@ or `Visible` for each player, and each player remembers the structures and resou
   remembers its own objects, whether or not it sees them). **Damage never asks**
   (`systems/combat.md > AoEDamage`, design change 0262, keeping 0218: underground objects "take their share of any blast
   over them, even unseen"): a hit on the tick's list lands whoever sees its target (`combat/damage.rs`). Hidden units
-  come with the Tunnel network (design change 0219). **The hook for a new arm of the rule** (slice M4-S2's pop-up
-  turret, hidden while lowered) is `Hiding::of` in `vision/hidden.rs`, alone: vision, targeting, the records and the
+  come with the Tunnel network (design change 0219). **A pop-up turret is hidden while fully lowered** (slice M4-S2,
+  design change 0296 point 1; `popup::is_lowered`), by its state, which its kind doesn't tell: seen and remembered
+  like any structure while it rises, stands or retracts, and its record dropped once its tile is seen with it down.
+  **The hook for a new arm of the rule** is `Hiding::of` in `vision/hidden.rs`, alone, where that arm is: vision, targeting, the records and the
   client's `Sight` ask it of the live objects, a death carries it (`SimEvent::Died::hiding`, slice M4-V), and the
   client's filter of events takes it for a removal (*Client architecture > Viewer events*).
 - **Paths** are planned from what each player knows (design changes 0040 and 0042; *Navigation > Path knowledge*):
@@ -1216,8 +1269,8 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 - **Switches** of Q0011's answers: `RESOURCES_BLOCK` (design change 0038) and `RUGGED_IMPASSABLE` (0039).
 - **In the sim** (`paths.rs`, `paths/`): `NavState` holds the **true grids**, the `Nav` of every unit type's
   `(class, size class)` under every blocking footprint (structures and map resources; an underground expansion's,
-  `BlockerKind::UndergroundExpansion`, blocks none: units walk over it, plan decision T32 and design change 0240), and
-  each player's **known
+  `BlockerKind::UndergroundExpansion`, blocks none: units walk over it, plan decision T32 and design change 0240; nor
+  does a pop-up turret's while it is fully lowered, `paths::blocking`, slice M4-S2), and each player's **known
   grids** (below). It is derived, like the `Nav`: not hashed, compared or serialized, built when a `Sim` is
   created or loaded. The true grids are rebuilt in phase 5b; `Sim::nav()` (the true grids), `nav_version()`,
   `nav_counters()` and `nav_rebuilds()` (sets of grids the latest step rebuilt) expose it to tests and overlays.
@@ -1326,7 +1379,12 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   `YIELD_CHAIN_DEPTH` deep. Moving units never yield or swap. A lone unit squarely in the way steps at 45° to the
   mover's way; a unit that is only clipped, or stands in the way of a mover walking between the units of a group,
   steps straight across it, and such a mover asks the units on both sides of its gap two steps before it reaches
-  them (`yielding::ask_ahead`): the group parts and isn't shoved along.
+  them (`yielding::ask_ahead`): the group parts and isn't shoved along. **A pop-up turret that wants to rise asks the
+  same way** (slice M4-S2, `yielding::make_way`; design change 0296 point 3: "The owner's own idle units over it are
+  pushed off by the idle push"): after the units have moved, each lowered turret kept down (`popup::is_blocked`) asks
+  the units over its footprint that yield to its owner for a sidestep off it, along the axis on which they are out
+  soonest, to where their box touches its edge; the movers' requests come first, and it asks again every tick it is
+  kept down. No other unit is ever moved for it.
 - **Collision exceptions** between units go in `space::blocks(mover, other)` and nowhere else (crushing will). The
   sweeps, lane seeking and `World::is_free` all ask it, so a unit ignored for a move is ignored for the whole of it.
   It is asked last, after the box test (few units near a move are in its way). Two exceptions (design change 0106,
@@ -2550,7 +2608,11 @@ these.
   (`Look::Turret`, `object_render/turret.rs`; the Laser Turret, slice M4-S1, a placeholder) is a structure's footprint
   with a round head on its roof and, once finished, a `TurretBarrel` child turned by the object's facing
   (`place_barrels`, interpolated as a unit's facing tick), which the sim snaps to what it fires at; a record of one
-  keeps the head and no barrel.
+  keeps the head and no barrel. **Its pop-up form** (slice M4-S2, placeholders): fully lowered (`MeshKey::lowered`,
+  `popup::is_lowered`) it is an underground structure's outline in the blending material, with neither head nor
+  barrel, so its owner sees the ground and the units over it and `Sight` shows it to nobody else; from its first
+  rising frame it is the upright body, its barrel facing its target and growing to its length with
+  `PopUp::height`, and shrinking as it retracts.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
@@ -3027,8 +3089,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   EjectMenu's tile slots (`expand_menu::grid`): a `PanelCommand::Expand(kind)` per type in the game, greyed by
   `Sim::can_expand` (`Conditions::of`, its reasons "This Tunnel is busy", "This Tunnel's tier is too low", "Requires
   a ...", "Not enough Space Crystals"), and a `Planned` placeholder per entry not in the game yet, found by name
-  (`Planned::expansion`; the turret's is `Planned::LaserTurret` until slice M4-S2), so a slice that brings an expansion
-  changes the sim's list only. An entry enters `AwaitingPlacement` with **`Builder::Tunnel`** for the Tunnel Tabbed to
+  (`Planned::expansion`), so a slice that brings an expansion changes the sim's list only: the Laser Turret's C is its
+  `Expand` since slice M4-S2, greyed by the same gate ("Requires an Optics Lab", the operation slot). An entry enters `AwaitingPlacement` with **`Builder::Tunnel`** for the Tunnel Tabbed to
   (`SlotPress::AwaitExpansion`); Z goes back to the menu, where the panel stays meanwhile (`state_grid`). **The ghost
   is held within the Tunnel's area** (`Placing::origin`, `placing::within`: the cursor outside leaves it at the
   nearest spot inside; a reading of "follows the cursor within the Tunnel Area"), and judged by

@@ -83,7 +83,10 @@ fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
     // The turret's own gate greys it (slice M4-S2): its Optics Lab, as the Agent's D says it.
     let no_lab = Conditions::default().refusing(Expand(TURRET), Reject::Requires(OPTICS_LAB));
     let without_a_lab = panel(&tunnel, InterfaceState::ExpandMenu, &no_lab);
-    assert_eq!(without_a_lab.get(slot(2, 2)).map(|s| s.look), Some(Unavailable));
+    assert_eq!(
+        without_a_lab.get(slot(2, 2)).map(|s| s.look),
+        Some(ButtonLook::Disabled)
+    );
     assert_eq!(why_text(&without_a_lab, slot(2, 2)), Some("Requires an Optics Lab"));
     assert_eq!(press(&without_a_lab, slot(2, 2)), SlotPress::Nothing);
     assert_eq!(press(&menu, CommandSlot::BACK), SlotPress::Back);

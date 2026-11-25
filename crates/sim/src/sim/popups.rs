@@ -1,7 +1,8 @@
 //! The pop-up turrets in a game (`crate::popup`, plan decision T50, slice M4-S2;
-//! `factions/syndicate/structures/laser_turret.md > Upright vs Pop-up`, `factions/syndicate/structures/laser_turret.md
-//! > Pop-up rules`, `factions/syndicate/structures/laser_turret.md > Conversion`): the step that takes each turret
-//! through its cycle, and the form as the game asks it.
+//! `factions/syndicate/structures/laser_turret.md > Upright vs Pop-up`,
+//! `factions/syndicate/structures/laser_turret.md > Pop-up rules`,
+//! `factions/syndicate/structures/laser_turret.md > Conversion`): the step that takes each turret through its cycle,
+//! and the form as the game asks it.
 //!
 //! [`Sim::step_popups`] runs right after phase 5e and its removals:
 //! - **after 5e**, where a turret picks its target (`combat::structures`), so that a turret starts to rise in the tick

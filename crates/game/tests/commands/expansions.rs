@@ -178,7 +178,7 @@ fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
             (slot(1, 3), c(P(AerospaceAssembly)), Unavailable),
             (CommandSlot::BACK, PanelButton::Back, Back),
             (slot(2, 1), c(P(OrbitalCommand)), Unavailable),
-            (slot(2, 2), c(Expand(TURRET)), Unavailable),
+            (slot(2, 2), c(Expand(TURRET)), ButtonLook::Disabled),
         ]
     );
     let optics_lab = requires_text(OPTICS_LAB);
