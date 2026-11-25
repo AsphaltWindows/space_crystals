@@ -3432,7 +3432,7 @@ unchecked.
   the Syndicate, by `testing::syndicate::skirmish`: in `syndicate_opening` (to 2:15) its Agents gather the patch 3 GU
   from the crystal hatch, the Hideout, rallied on it, trains four more, the third of them builds a second Tunnel
   with the starting Supply, is ejected by it and gathers Supplies, and the first Tunnel expands an Optics Lab; in
-  `syndicate_vs_gdo` (to 3:06.75, where it ends) six Guards follow behind the Optics Lab, the Hideout's rally point
+  `syndicate_vs_gdo` (to 3:07.38, where it ends) six Guards follow behind the Optics Lab, the Hideout's rally point
   cleared so that they stay in the Tunnel Network, four of them ejected by the second Tunnel to hold the top of the
   plateau's west ramp, while player 2 plays the same Barracks line with sixteen Peacekeepers, sent in waves of six to
   the Syndicate's Tunnel nearest them: Guards and Peacekeepers die, the second Tunnel falls, then the first, which
