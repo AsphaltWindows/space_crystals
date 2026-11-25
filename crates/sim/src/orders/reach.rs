@@ -16,10 +16,13 @@
 //!   rejection is kept ([`Judged`], `Leg::rejected`) only to save judging again, and only while nothing the
 //!   judgement depends on has changed (the Director's decision under 0230's "the exact triggers and caching are the
 //!   Director's call"): the enemy stands within [`REJUDGE_MOVE_SU`] of where it was judged, the unit's owner knows
-//!   the same obstacles (`PlayerKnowledge::version`), and the PathReference is the same (`Leg::rejected` is cleared
-//!   when it is replaced). Where the unit itself stands is left out, as the design leaves it out ("only when
-//!   something relevant changes, i.e. the enemy moves a meaningful distance, or the obstacle knowledge the path used
-//!   changes"): a unit that walked on past an enemy it couldn't reach doesn't turn back for it.
+//!   the same obstacles (`PlayerKnowledge::version`), and the PathReference is the same route (`Leg::rejected` is
+//!   cleared when a detour replaces it, [`Leg::set_reference`]). Where the unit itself stands is left out, as the
+//!   design leaves it out ("only when something relevant changes, i.e. the enemy moves a meaningful distance, or the
+//!   obstacle knowledge the path used changes"): a unit that walked on past an enemy it couldn't reach doesn't turn
+//!   back for it.
+//! - **A chase that ends without the target reached is a rejection too** (design change 0235: "A chase given up by
+//!   the Failure rule puts the enemy in the reach rule's rejected set"; `travel::pursue`), on the same triggers.
 //! - **The cost bound**. A unit judges at most [`JUDGE_PATHS_PER_TICK`] paths per tick ([`Reach`]), its candidates
 //!   in target-priority order (`travel::march`); the rest wait for later ticks. An enemy the PathReference rules out
 //!   by itself ([`near_route`]) costs no path at all.
@@ -57,6 +60,10 @@ pub const MAX_REJECTED: usize = 64;
 /// the rule rejects at its first steps anyway, stops there instead of flooding the map
 /// (`tests/attack_move_perf.rs`).
 pub const JUDGE_PATH_SIGHTS: f32 = 2.0;
+
+/// A new PathReference whose waypoints all lie within this distance of the old one is the same route planned again,
+/// not a detour, and the rejections stand ([`Leg::set_reference`]), space units. Technical: half a tile.
+pub const SAME_ROUTE_SU: f32 = SU_PER_GU / 2.0;
 
 /// The step in which a judged path is walked, space units. Technical: a quarter of a tile.
 const SAMPLE_SU: f32 = SU_PER_GU / 4.0;
@@ -152,15 +159,19 @@ impl Leg {
         }
     }
 
-    /// The PathReference is `path` from now on. The rejections were judged by the old one: they go, unless the two
-    /// are the same route (the path that comes for a leg across open ground is its straight line).
+    /// The PathReference is `path` from now on. The rejections were judged by the old one, so they go with it, but
+    /// only if `path` is another route: a re-route that found no way round (stuck behind its own side in a corridor,
+    /// say) plans the old route again from where the unit stands, with every waypoint within [`SAME_ROUTE_SU`] of
+    /// it, and nothing a judgement depends on has changed (design change 0235's Verification: the units behind
+    /// "give up once … walk on, and don't turn back"). The same holds for the path that comes for a leg across open
+    /// ground, its straight line.
     pub(super) fn set_reference(&mut self, path: &[Vec2]) {
-        if self.reference == path {
-            return;
-        }
+        let same_route = (path.iter()).all(|&p| distance_to_route(p, &self.reference) <= SAME_ROUTE_SU);
         self.reference.clear();
         self.reference.extend_from_slice(path);
-        self.rejected.clear();
+        if !same_route {
+            self.rejected.clear();
+        }
     }
 }
 
