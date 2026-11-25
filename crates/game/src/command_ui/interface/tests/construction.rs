@@ -4,6 +4,7 @@
 use sc_sim::{ConstructionCommand, Constructor};
 
 use super::*;
+use crate::command_ui::feedback::unavailable_text;
 
 const DC: ObjectKind = ObjectKind::DeploymentCenter;
 const EF: ObjectKind = ObjectKind::ExtractionFacility;
@@ -212,6 +213,41 @@ fn the_extraction_facility_builds_then_places_its_plate() {
     let awaiting = panel(&ef, placing, &ready);
     assert_eq!(awaiting.get(q).map(|s| s.look), Some(ButtonLook::Pending));
     assert_eq!(awaiting.get(CommandSlot::BACK).map(|s| s.look), Some(ButtonLook::Back));
+}
+
+/// Slice M4-K, one rule for every faction (plan decision T37; `core/tech_and_research.md > Tech Prerequisites`:
+/// "Options whose TechPrerequisite is not met are unavailable in the build menu", and a unit's "on the production
+/// building's panel"): a GDO entry the gate refuses for want of a prerequisite (`Reject::Requires`), here a test
+/// recipe's, the Deployment Center's Barracks or the Barracks' Peacekeeper requiring a Generator (no GDO type in the
+/// game has one yet; `factions/gdo/structures/deployment_center.md > Constructs` gives the later ones theirs), is
+/// greyed and says what it requires, "Requires a Generator", and pressing it does nothing.
+#[test]
+fn a_gdo_entry_whose_prerequisite_is_missing_says_so() {
+    use PanelCommand::{Construct, Train};
+    let requires = Reject::Requires(GENERATOR);
+    let greyed = |panel: &Panel, slot| {
+        let shown = panel.get(slot)?;
+        Some((shown.look, shown.why.map(unavailable_text)))
+    };
+    let dc = Selection::new([(id(1), DC)]);
+    let conditions =
+        (Conditions::default().with_constructor(Constructor::Idle)).refusing(Construct(BARRACKS), requires);
+    let menu = panel(&dc, InterfaceState::BuildMenu(BuildMenu::Basic), &conditions);
+    let (q, w) = (slot(0, 0), slot(0, 1));
+    assert_eq!(
+        greyed(&menu, w),
+        Some((ButtonLook::Disabled, Some("Requires a Generator")))
+    );
+    assert_eq!(press(&menu, w), SlotPress::Nothing);
+    assert_eq!(greyed(&menu, q), Some((ButtonLook::Common, None)));
+    let barracks = Selection::new([(id(2), BARRACKS)]);
+    let conditions = Conditions::default().refusing(Train(PK), requires);
+    let shown = panel(&barracks, InterfaceState::DefaultState, &conditions);
+    assert_eq!(
+        greyed(&shown, q),
+        Some((ButtonLook::Disabled, Some("Requires a Generator")))
+    );
+    assert_eq!(press(&shown, q), SlotPress::Nothing);
 }
 
 /// No smart-casting (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting`, design change 0071):

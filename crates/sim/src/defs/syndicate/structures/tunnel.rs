@@ -127,6 +127,7 @@ pub(crate) static TUNNEL: ObjectDef = ObjectDef {
         tunnel: Some(TUNNEL_DEF),
         site: Some(TUNNEL_SITE),
         expansion: None,
+        requires: &[], // TechPrerequisite - None
     }),
     default_settings: None,
 };
@@ -196,6 +197,7 @@ mod tests {
             tunnel: structure.tunnel,
             site: structure.site,
             expansion: None,
+            requires: &[],
         };
         assert_eq!(structure, &expected);
     }

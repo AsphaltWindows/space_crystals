@@ -40,10 +40,13 @@
 //! dark band, for [`FEEDBACK_TICKS`] after the latest cause; a new one replaces it. It ages by the sim's ticks, so a
 //! QA screenshot of a tick always shows it alike. It never takes the pointer: clicks pass through it to the map.
 
+use std::sync::LazyLock;
+
 use bevy::picking::Pickable;
 use bevy::prelude::*;
 use sc_sim::{
-    ArmyResource, PlacementCheck, PlacementProblem, Refusal, Reject, SimEvent, Tick, TileProblem, WholeProblem,
+    ArmyResource, ObjectKind, PlacementCheck, PlacementProblem, Refusal, Reject, SimEvent, Tick, TileProblem,
+    WholeProblem,
 };
 
 use super::{CommandRefused, InvalidPlacement, InvalidTarget, WhyUnavailable};
@@ -94,12 +97,6 @@ pub const NOT_FOR_TYPE_TEXT: &str = "Not available for this unit";
 pub const NOT_YET_TEXT: &str = "Not available yet";
 /// The message of a refusal the others don't name. Placeholder wording.
 pub const CANNOT_DO_TEXT: &str = "Cannot do that now";
-/// The messages of a unit whose prerequisite the player doesn't own (`factions/syndicate/structures/hideout.md >
-/// ObjectInterfaceState[Hideout]`: "Only available if the player owns at least one Optics Lab", "... at least one
-/// Chemical Plant"): the Hideout's placeholder entries' until slice M4-K's prerequisites (`super::Planned::why`). The
-/// M4 plan's wording.
-pub const REQUIRES_OPTICS_LAB_TEXT: &str = "Requires an Optics Lab";
-pub const REQUIRES_CHEMICAL_PLANT_TEXT: &str = "Requires a Chemical Plant";
 /// The message of an Eject of a unit type none of which is in the Tunnel Network free to leave
 /// (`Reject::NotInNetwork`; `factions/syndicate/tunnels.md > EjectMenu`). Placeholder wording.
 pub const NONE_INSIDE_TEXT: &str = "None in the Tunnel Network";
@@ -265,8 +262,8 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
 /// The message of a command the gate refuses (`sc_sim::Reject`), as a greyed-out button or a Warp In click says it:
 /// "Not enough Space Crystals", "Queue is full" (design change 0162), the placement's first problem
 /// ([`placement_text`]), an EjectMenu tile's (slice M4-J2), an ExpandMenu entry's and the Tunnel's Cancel's (slice
-/// M4-F: its operation, an expansion's Tier Requirement above its tier, nothing to cancel), and placeholders for the
-/// others.
+/// M4-F: its operation, an expansion's Tier Requirement above its tier, nothing to cancel), a prerequisite missing
+/// ([`requires_text`], slice M4-K), and placeholders for the others.
 pub fn reject_text(reject: Reject) -> &'static str {
     match reject {
         Reject::InsufficientCrystals => NO_CRYSTALS_TEXT,
@@ -285,8 +282,32 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::NoTransit { .. } | Reject::TierRequirement { .. } => TIER_TOO_LOW_TEXT,
         Reject::OperationUnderWay(_) => OPERATION_UNDER_WAY_TEXT,
         Reject::NothingToDeliver => NOTHING_CARRIED_TEXT,
+        Reject::Requires(kind) => requires_text(kind),
         _ => CANNOT_DO_TEXT,
     }
+}
+
+/// The message of an entry whose prerequisite the player doesn't own (`Reject::Requires`, slice M4-K;
+/// `core/tech_and_research.md > Tech Prerequisites`: "Options whose TechPrerequisite is not met are unavailable in the
+/// build menu"; `factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`: "Only available if the
+/// player owns at least one Optics Lab"): "Requires", the type's name and its article, "Requires an Optics Lab",
+/// "Requires a Chemical Plant". The M4 plan's wording. Each type's is made once, the first time one is asked for, and
+/// lives as long as the game, as the messages do (`TargetFeedback::text`).
+pub fn requires_text(kind: ObjectKind) -> &'static str {
+    static TEXTS: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
+        (ObjectKind::ALL.iter())
+            .map(|kind| {
+                let name = kind.def().name;
+                let article = if name.starts_with(['A', 'E', 'I', 'O', 'U']) {
+                    "an"
+                } else {
+                    "a"
+                };
+                &*format!("Requires {article} {name}").leak()
+            })
+            .collect()
+    });
+    TEXTS[kind as usize]
 }
 
 /// The message of a Deploy or a Build that failed on arrival (`SimEvent::DeployFailed`, `SimEvent::BuildFailed`): the

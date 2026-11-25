@@ -7,11 +7,12 @@
 //! - **The gate** ([`Sim::check_expand`], `TunnelCommand::Expand`): the Tunnel is its player's and in operation
 //!   (`Sim::check_tunnel`), performs no operation ("A Tunnel can only perform one operation at a time",
 //!   `factions/syndicate/tunnels.md > Construction and Upgrade Rules`), and builds the kind (`StructureDef::expansion`)
-//!   at its tier ("its Tier Requirement is at or below **this** Tunnel's tier", `> ExpandMenu`); its prerequisites
-//!   hold ([`Sim::check_tech_prerequisites`], slice M4-K's), and the bank pays its cost. These are
-//!   [`Sim::can_expand`], which the ExpandMenu greys its entries by. Then the placement, by the truth
-//!   (`Sim::expansion_truth`, design change 0240: "judged by the truth; the placement is refused"), reported to the
-//!   player as a Place's is (`SimEvent::PlacementRefused`, plan decision T4), the Tunnel its constructor.
+//!   at its tier ("its Tier Requirement is at or below **this** Tunnel's tier", `> ExpandMenu`); its TechPrerequisite
+//!   holds ("satisfied anywhere in the Tunnel Network", `Sim::check_requires`, slice M4-K: [`Reject::Requires`]), and
+//!   the bank pays its cost. These are [`Sim::can_expand`], which the ExpandMenu greys its entries by. Then the
+//!   placement, by the truth (`Sim::expansion_truth`, design change 0240: "judged by the truth; the placement is
+//!   refused"), reported to the player as a Place's is (`SimEvent::PlacementRefused`, plan decision T4), the Tunnel
+//!   its constructor.
 //! - **The start** ([`Sim::start_expansion`]): "**Paid when the ghost is placed** ... **Tunnel Space is used once
 //!   construction has started.** Today placing the ghost starts construction at once" (design change 0254): the site
 //!   comes into the game as the command applies, its owner's, which Tunnel Space counts from then on
@@ -45,6 +46,7 @@ use crate::object::{Object, Placement};
 use crate::orders::build::footprint;
 use crate::progress::Progress;
 use crate::scenario::BuildingOrientation;
+use crate::tech;
 use crate::tunnel::Operation;
 use crate::units::TilePos;
 
@@ -120,18 +122,12 @@ impl Sim {
         if state.tier < def.tier {
             return Err(Reject::TierRequirement { kind, tier: def.tier });
         }
-        self.check_tech_prerequisites(player, kind)?;
+        // `factions/syndicate/structures/README.md > Tunnel Expansions > Expansion Requirements`: its TechPrerequisite,
+        // "checked across the whole Tunnel Network" (slice M4-K, `crate::tech`).
+        self.check_requires(player, tech::structure_requires(kind).iter().copied())?;
         if self.player(player).map_or(0, |p| p.crystals) < def.cost {
             return Err(Reject::InsufficientCrystals);
         }
-        Ok(())
-    }
-
-    /// `factions/syndicate/structures/README.md > Tunnel Expansions > Expansion Requirements`: an expansion's
-    /// TechPrerequisite, "satisfied by a fully constructed structure anywhere in the Tunnel Network". A stub that
-    /// passes every kind: slice M4-K brings the prerequisites and their one check (plan decision T37), which takes its
-    /// place here.
-    fn check_tech_prerequisites(&self, _player: PlayerId, _kind: ObjectKind) -> Result<(), Reject> {
         Ok(())
     }
 

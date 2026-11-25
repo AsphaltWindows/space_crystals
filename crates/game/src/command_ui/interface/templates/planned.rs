@@ -1,22 +1,19 @@
 //! The panel entries that aren't in the game yet ([`Planned`]): each holds its slot, unavailable, and says why when
-//! it is pressed (design change 0162). The Colonists' buildings and units whose numbers are TBD (design change 0124:
-//! "Buildings and units whose costs are TBD show in their slot, unavailable"; slices M3-J1 and M3-J2), and the
-//! Syndicate's commands, units and expansions that later slices bring (design change 0257: "unavailable entries are
-//! greyed"; slices M4-J2, M4-J1 and M4-F): the Tunnel's Upgrade, the Hideout's Guard and Grenadier, the Laser Turret,
-//! the Agent's and the ExpandMenu's, and the ExpandMenu's expansions not in the game yet. The slice that brings one
-//! replaces its entry with the real command.
+//! it is pressed (design change 0162; `super::super::Conditions::planned`). The Colonists' buildings and units whose
+//! numbers are TBD (design change 0124: "Buildings and units whose costs are TBD show in their slot, unavailable";
+//! slices M3-J1 and M3-J2), and the Syndicate's commands, units and expansions that later slices bring (design change
+//! 0257: "unavailable entries are greyed"; slices M4-J2, M4-J1 and M4-F): the Tunnel's Upgrade, the Hideout's
+//! Grenadier, the Laser Turret, the Agent's and the ExpandMenu's, and the ExpandMenu's expansions not in the game yet.
+//! The slice that brings one replaces its entry with the real command, as slice M4-K did the Hideout's Guard and the
+//! ExpandMenu's Optics Lab and Chemical Plant.
 
 use sc_sim::ObjectKind;
-
-use super::super::WhyUnavailable;
-use crate::command_ui::feedback::{REQUIRES_CHEMICAL_PLANT_TEXT, REQUIRES_OPTICS_LAB_TEXT};
-use crate::kinds::short_label;
 
 /// A panel entry that isn't in the game yet (module docs). The Colonists' are a building of the Beacon's Warp In menus
 /// or a unit of a portal's panel: a building's cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In >
 /// Constructs List`), and so is the rest of it (Q0043); a unit's stats, cost and time are TBD
 /// (`factions/colonists/units/scout.md`, `factions/colonists/units/lancer.md`; the psionic unit has no section yet).
-/// The Syndicate's are the Tunnel's Upgrade of slice M4-G, the Hideout's units of slices M4-K and M4-U, the Agent's
+/// The Syndicate's are the Tunnel's Upgrade of slice M4-G, the Hideout's Grenadier of slice M4-U, the Agent's
 /// Laser Turret of slice M4-S1, and the ExpandMenu's entries that aren't in the game yet (slice M4-F:
 /// `sc_sim::defs::ExpandEntry::Planned`, by name): its expansions, and its Laser Turret of slice M4-S2.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -42,10 +39,6 @@ pub enum Planned {
     /// The Tunnel's Q, "Upgrade Tunnel" (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`, design change
     /// 0257), which slice M4-G brings.
     UpgradeTunnel,
-    /// The Hideout's W, "Build Guard" (`factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`):
-    /// "Only available if the player owns at least one Optics Lab", which slice M4-K brings with the Hideout's Guard
-    /// recipe; the recipe then takes the slot (`super::production_grid`).
-    Guard,
     /// The Hideout's E, "Build Grenadier" (design change 0260): "Only available if the player owns at least one
     /// Chemical Plant". Slice M4-U brings the Grenadier and its recipe, which take the slot.
     Grenadier,
@@ -59,9 +52,8 @@ pub enum Planned {
     /// The ExpandMenu's expansions not in the game yet (`factions/syndicate/structures/README.md > Tech Tree
     /// Overview`; design change 0291: "**all nine expansions** are always listed, in the Tech Tree table's order, each
     /// holding its slot"), in the table's order: the sim's `sc_sim::defs::EXPAND_MENU` names them
-    /// ([`Planned::expansion`]).
-    OpticsLab,
-    ChemicalPlant,
+    /// ([`Planned::expansion`]). The Optics Lab and the Chemical Plant, which were the first two, are in the game
+    /// (slice M4-K).
     Vault,
     VehicleAssembly,
     Forge,
@@ -72,7 +64,7 @@ pub enum Planned {
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 26] = [
+    pub const ALL: [Planned; 23] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -88,11 +80,8 @@ impl Planned {
         Planned::Lancer,
         Planned::PsionicUnit,
         Planned::UpgradeTunnel,
-        Planned::Guard,
         Planned::Grenadier,
         Planned::LaserTurret,
-        Planned::OpticsLab,
-        Planned::ChemicalPlant,
         Planned::Vault,
         Planned::VehicleAssembly,
         Planned::Forge,
@@ -127,11 +116,8 @@ impl Planned {
             Planned::Lancer => "Lancer",
             Planned::PsionicUnit => "Psionic unit",
             Planned::UpgradeTunnel => "Upgrade Tunnel",
-            Planned::Guard => ObjectKind::Guard.def().name,
             Planned::Grenadier => "Grenadier",
             Planned::LaserTurret => "Laser Turret",
-            Planned::OpticsLab => "Optics Lab",
-            Planned::ChemicalPlant => "Chemical Plant",
             Planned::Vault => "Vault",
             Planned::VehicleAssembly => "Vehicle Assembly",
             Planned::Forge => "Forge",
@@ -141,11 +127,17 @@ impl Planned {
         }
     }
 
-    /// The type in the game it stands for, if it is one: the Hideout's Guard, a unit in the game that the Hideout
-    /// doesn't train yet.
-    pub fn kind(self) -> Option<ObjectKind> {
+    /// The type the player must own before its command will be taken, when the design gives one and the type is in
+    /// the game (`sc_sim::Reject::Requires`, slice M4-K): the Grenadier's Chemical Plant
+    /// (`factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`: "Only available if the player owns
+    /// at least one Chemical Plant") and the Laser Turret's Optics Lab (`factions/syndicate/units/agent.md >
+    /// DefaultState commands`: "Visible but greyed out until the player owns an Optics Lab";
+    /// `factions/syndicate/tunnels.md > ExpandMenu`: "once the player owns an Optics Lab"). Its button says so while the
+    /// player owns none (`super::super::Conditions::planned`).
+    pub fn requires(self) -> Option<ObjectKind> {
         match self {
-            Planned::Guard => Some(ObjectKind::Guard),
+            Planned::Grenadier => Some(ObjectKind::ChemicalPlant),
+            Planned::LaserTurret => Some(ObjectKind::OpticsLab),
             _ => None,
         }
     }
@@ -153,11 +145,11 @@ impl Planned {
     /// Its button's label: a placeholder for its icon (Q0001), the initials of its name, as a building warped in and a
     /// unit trained are labelled by their type's tag (`PanelCommand::label`); the Scout's its first and last letters,
     /// "ST", as the Guard's and the Beacon's are, since "SC" is the crystal patch's (slice M3-J3: every label its own,
-    /// `crate::kinds::short_label`). A type in the game shows its own tag ([`Planned::kind`]: the Guard's "GD"), so
-    /// that its button looks the same once its recipe replaces the entry; the Grenadier's is its first and second
-    /// letters, as the Guard's. The Tunnel's Upgrade is named as the other commands' labels are: "Upgr." shortens
-    /// Upgrade as "Adv." does Advanced. The Laser Turret's is its initials, "LT", as a building's, and so is an
-    /// expansion's, a one-word name's its first and last letters, as the Scout's ("VT" Vault, "FE" Forge).
+    /// `crate::kinds::short_label`); the Grenadier's is its first and second letters, as the Guard's "GD" is. The
+    /// Tunnel's Upgrade is named as the other commands' labels are: "Upgr." shortens Upgrade as "Adv." does Advanced.
+    /// The Laser Turret's is its initials, "LT", as a building's, and so is an expansion's, a one-word name's its first
+    /// and last letters, as the Scout's ("VT" Vault, "FE" Forge). An entry's type takes its label with it into the game
+    /// (the Optics Lab's "OL" and the Chemical Plant's "CP", `crate::kinds`).
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -175,11 +167,8 @@ impl Planned {
             Planned::Lancer => "LA",
             Planned::PsionicUnit => "PU",
             Planned::UpgradeTunnel => "Upgr.",
-            Planned::Guard => short_label(ObjectKind::Guard),
             Planned::Grenadier => "GR",
             Planned::LaserTurret => "LT",
-            Planned::OpticsLab => "OL",
-            Planned::ChemicalPlant => "CP",
             Planned::Vault => "VT",
             Planned::VehicleAssembly => "VA",
             Planned::Forge => "FE",
@@ -193,7 +182,7 @@ impl Planned {
     pub fn is_unit(self) -> bool {
         matches!(
             self,
-            Planned::Scout | Planned::Lancer | Planned::PsionicUnit | Planned::Guard | Planned::Grenadier
+            Planned::Scout | Planned::Lancer | Planned::PsionicUnit | Planned::Grenadier
         )
     }
 
@@ -206,9 +195,7 @@ impl Planned {
     pub fn is_expansion(self) -> bool {
         matches!(
             self,
-            Planned::OpticsLab
-                | Planned::ChemicalPlant
-                | Planned::Vault
+            Planned::Vault
                 | Planned::VehicleAssembly
                 | Planned::Forge
                 | Planned::NullChamber
@@ -218,7 +205,7 @@ impl Planned {
     }
 
     /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout", "Warp In Alloy
-    /// Furnace" or "Build Optics Lab", as a unit in the game is trained, a building warped in and an expansion built
+    /// Furnace" or "Build Vault", as a unit in the game is trained, a building warped in and an expansion built
     /// (`PanelCommand::Expand`), "Build Laser Turret" for the Agent's and the ExpandMenu's alike, as an Agent builds a
     /// Tunnel (`PanelCommand::Build`), or the Tunnel's command by its name ("Upgrade Tunnel").
     pub fn command_name(self) -> String {
@@ -230,20 +217,6 @@ impl Planned {
             format!("Build {}", self.name())
         } else {
             format!("Warp In {}", self.name())
-        }
-    }
-
-    /// Why its button is greyed out (design change 0162): it isn't in the game yet, but where the reason the command
-    /// gate will give is known and true now, that one (slice M4-J2), so that the button says the same before and after
-    /// its slice: the Hideout's units their prerequisites, which no player can own yet ("Requires an Optics Lab",
-    /// "Requires a Chemical Plant", as slice M4-K will grey them), and the Laser Turret its own (design change 0260:
-    /// "greyed until available"; `factions/syndicate/units/agent.md > DefaultState commands`: "until the player owns an
-    /// Optics Lab"; `factions/syndicate/tunnels.md > ExpandMenu`: "once the player owns an Optics Lab").
-    pub fn why(self) -> WhyUnavailable {
-        match self {
-            Planned::Guard | Planned::LaserTurret => WhyUnavailable::Placeholder(REQUIRES_OPTICS_LAB_TEXT),
-            Planned::Grenadier => WhyUnavailable::Placeholder(REQUIRES_CHEMICAL_PLANT_TEXT),
-            _ => WhyUnavailable::NotYet,
         }
     }
 }

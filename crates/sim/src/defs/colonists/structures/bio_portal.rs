@@ -40,6 +40,7 @@ pub(crate) static BIO_PORTAL: ObjectDef = ObjectDef {
                 kind: ObjectKind::SabreLegionnaire, // Produces: "Sabre Legionnaire: 100 Space Crystals, 160 frames"
                 cost: 100,
                 frames: 160,
+                requires: &[],
             }],
         }),
         mining: None,
@@ -51,6 +52,8 @@ pub(crate) static BIO_PORTAL: ObjectDef = ObjectDef {
         tunnel: None,
         site: None,
         expansion: None,
+        // `factions/colonists/structures/README.md > Tech Model`: "Colonists buildings have no TechPrerequisites"
+        requires: &[],
     }),
     default_settings: None,
 };
@@ -85,6 +88,7 @@ mod tests {
                     kind: ObjectKind::SabreLegionnaire,
                     cost: 100,
                     frames: 160,
+                    requires: &[],
                 }][..]
             )
         );

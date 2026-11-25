@@ -162,6 +162,10 @@ pub enum Reject {
     /// (M4-F) A Tunnel's Cancel while it performs no operation ("**X** Cancel (upgrade, construction or the current
     /// operation)", `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`).
     NoOperation(ObjectId),
+    /// (M4-K) The player owns no complete structure of this type, which what the command starts requires: a unit's
+    /// Unit Prerequisite as it is queued, a building's TechPrerequisite as its construction starts
+    /// (`core/tech_and_research.md > Tech Prerequisites`; `crate::tech`, plan decision T37). The first one missing.
+    Requires(ObjectKind),
     /// (M4-G) An Upgrade to a Tunnel at its table's last tier (`factions/syndicate/tunnels.md > Tunnel
     /// ObjectInterfaceState`: "Unavailable if already Tier 3").
     TopTier(ObjectId),
@@ -227,6 +231,7 @@ impl fmt::Display for Reject {
             Reject::OperationUnderWay(id) => write!(f, "Tunnel {} performs an operation already", id.0),
             Reject::TierRequirement { kind, tier } => write!(f, "a {} needs a Tier {tier} Tunnel", kind.def().name),
             Reject::NoOperation(id) => write!(f, "Tunnel {} performs no operation", id.0),
+            Reject::Requires(kind) => write!(f, "it requires a complete {} of the player's", kind.def().name),
             Reject::TopTier(id) => write!(f, "Tunnel {} is at its top tier", id.0),
             Reject::UpgradeBlocked(id) => write!(f, "something blocks Tunnel {}'s upgrade", id.0),
         }

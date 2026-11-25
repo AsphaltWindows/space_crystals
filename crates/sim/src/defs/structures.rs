@@ -69,9 +69,15 @@ pub struct StructureDef {
     /// How a Tunnel builds the type in its Tunnel Area, as its one operation (slice M4-F;
     /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState > ExpandMenu`, `factions/syndicate/tunnels.md >
     /// Construction and Upgrade Rules`; `crate::construction::site`): its Tier Requirement, its cost and its build
-    /// time, and the HP its site starts at. `None` for a type no Tunnel builds. The Hideout's so far; the ExpandMenu
-    /// lists the types in its order (`defs::EXPAND_MENU`).
+    /// time, and the HP its site starts at. `None` for a type no Tunnel builds. The Hideout, the Optics Lab and the
+    /// Chemical Plant so far; the ExpandMenu lists the types in its order (`defs::EXPAND_MENU`).
     pub expansion: Option<ExpansionDef>,
+    /// Its `TechPrerequisite` (`core/tech_and_research.md > Tech Prerequisites`; plan decision T37, slice M4-K): the
+    /// structure types its player must own, each at least once, before one can be started, by whichever way it is
+    /// built (a constructor's Construct, a Warp In, an expansion, a worker's Build; `crate::tech`). Empty for none,
+    /// which every type in the game has so far: the design's first are the Vault's and the later expansions'.
+    #[serde(deserialize_with = "super::leak::slice")]
+    pub requires: &'static [ObjectKind],
 }
 
 /// A Tunnel expansion's construction (`StructureDef::expansion`, slice M4-F): a Tunnel builds it in its Tunnel Area,
@@ -301,6 +307,14 @@ pub struct Recipe {
     pub cost: u32,
     /// The production or construction time at full power, or the WarpInTime, ticks.
     pub frames: u32,
+    /// The types its player must own, each at least once, before the entry can be queued or started (plan decision
+    /// T37, slice M4-K; `crate::tech`): a unit's `Unit Prerequisite` (`core/tech_and_research.md > Tech Prerequisites >
+    /// Unit Prerequisites`: "A unit type's production option may also declare a TechPrerequisite"), such as the
+    /// Hideout's Guard's Optics Lab, or a constructor's "Requires" clause
+    /// (`factions/gdo/structures/deployment_center.md > Constructs`). A building's own TechPrerequisite is its def's
+    /// (`StructureDef::requires`), which holds wherever it is built. Empty for none.
+    #[serde(deserialize_with = "super::leak::slice")]
+    pub requires: &'static [ObjectKind],
 }
 
 /// `core/entities.md > Structure Type > SymmetryType`: which of a structure's four sides are alike. The letters name

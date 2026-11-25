@@ -1,6 +1,7 @@
 //! The Syndicate's panels as plain data (slice M4-J2; design changes 0257 and 0260): the Tunnel's letters, its
-//! EjectMenu with its counts and its greyed tiles, and the Hideout's letters with its units not in the game yet, each
-//! greyed with why (design change 0162). The ExpandMenu's are `super::expansions`'.
+//! EjectMenu with its counts and its greyed tiles, and the Hideout's letters, its Guard behind its prerequisite (slice
+//! M4-K) and its Grenadier not in the game yet, each greyed with why (design change 0162). The ExpandMenu's are
+//! `super::expansions`'.
 
 use std::collections::BTreeSet;
 
@@ -182,20 +183,24 @@ fn the_eject_menu_takes_the_slots_in_order_but_z() {
 }
 
 /// `factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`: Q Build Agent, W Build Guard, E Build
-/// Grenadier (design change 0260), X Cancel Production, C Set Rally Point. The Guard and the Grenadier aren't the
-/// Hideout's yet: their slots are greyed with their prerequisites, as slice M4-K will grey them.
+/// Grenadier (design change 0260), X Cancel Production, C Set Rally Point. W is the Guard's recipe (slice M4-K), greyed
+/// while the gate refuses it for want of an Optics Lab ("W: Build Guard [...] Only available if the player owns at
+/// least one Optics Lab": `Reject::Requires`), and trains Guards once the gate takes it. The Grenadier isn't the
+/// Hideout's yet: its slot is greyed with its prerequisite while the player owns no Chemical Plant, and as not in the
+/// game yet once they own one.
 #[test]
 fn the_hideout_has_q_w_e_x_and_c() {
-    use ButtonLook::{Common, Unavailable};
+    use ButtonLook::{Common, Disabled, Unavailable};
     use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint, Train};
     let hideout = Selection::new([(id(1), HIDEOUT)]);
-    let shown_panel = panel(&hideout, InterfaceState::DefaultState, &Conditions::default());
+    let no_lab = Conditions::default().refusing(Train(GUARD), Reject::Requires(ObjectKind::OpticsLab));
+    let shown_panel = panel(&hideout, InterfaceState::DefaultState, &no_lab);
     let c = PanelButton::Command;
     assert_eq!(
         shown(&shown_panel),
         [
             (slot(0, 0), c(Train(AGENT)), Common),
-            (slot(0, 1), c(P(Planned::Guard)), Unavailable),
+            (slot(0, 1), c(Train(GUARD)), Disabled),
             (slot(0, 2), c(P(Planned::Grenadier)), Unavailable),
             (CommandSlot::CANCEL_PRODUCTION, c(CancelProduction), Common),
             (CommandSlot::RALLY_POINT, c(SetRallyPoint), Common),
@@ -216,4 +221,16 @@ fn the_hideout_has_q_w_e_x_and_c() {
         press(&shown_panel, CommandSlot::RALLY_POINT),
         SlotPress::AwaitTarget(SetRallyPoint)
     );
+    // An Optics Lab and a Chemical Plant owned: W trains Guards, and E isn't in the game yet.
+    let owned = Conditions::default().owning(ObjectKind::ChemicalPlant);
+    let shown_panel = panel(&hideout, InterfaceState::DefaultState, &owned);
+    assert_eq!(
+        shown_panel.get(slot(0, 1)).map(|s| (s.look, s.why)),
+        Some((Common, None))
+    );
+    assert_eq!(
+        press(&shown_panel, slot(0, 1)),
+        SlotPress::Produce(Train(GUARD), ProductionCommand::Train(GUARD))
+    );
+    assert_eq!(why_text(&shown_panel, slot(0, 2)), Some("Not available yet"));
 }

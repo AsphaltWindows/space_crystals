@@ -38,6 +38,7 @@ pub(crate) static ROBO_PORTAL: ObjectDef = ObjectDef {
                 kind: ObjectKind::Drone, // Produces: "Drone: 50 Space Crystals, 160 frames (10 seconds)"
                 cost: 50,
                 frames: 160,
+                requires: &[],
             }],
         }),
         mining: None,
@@ -49,6 +50,8 @@ pub(crate) static ROBO_PORTAL: ObjectDef = ObjectDef {
         tunnel: None,
         site: None,
         expansion: None,
+        // `factions/colonists/structures/README.md > Tech Model`: "Colonists buildings have no TechPrerequisites"
+        requires: &[],
     }),
     default_settings: None,
 };
@@ -82,6 +85,7 @@ mod tests {
                     kind: ObjectKind::Drone,
                     cost: 50,
                     frames: 160,
+                    requires: &[],
                 }][..]
             )
         );

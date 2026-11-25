@@ -52,6 +52,8 @@ fn every_kind_keeps_its_place_and_name() {
         "Agent",
         "Tunnel",
         "Hideout",
+        "OpticsLab",
+        "ChemicalPlant",
     ];
     assert_eq!(names[..expected.len()], expected.map(|name| format!("\"{name}\"")));
     for (index, &kind) in ObjectKind::ALL.iter().enumerate() {
@@ -175,6 +177,7 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
         "{name}: underground"
     );
     tunnel_is_consistent(def, structure);
+    requires_are_consistent(def, def.kind, structure.requires);
     assert!(def.selectable, "{name}: selectable");
     // What a structure goes onto is a map resource (the plate's patch), and seeding the build area is the GDO's
     // (`factions/gdo/structures/README.md > GDOBuildArea`).
@@ -216,6 +219,7 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
                 "{name} lists {:?} twice",
                 recipe.kind
             );
+            requires_are_consistent(def, recipe.kind, recipe.requires);
         }
     }
     // `Produces`: units of the producer's own faction, each listed once, each taking time, out of sides its
@@ -248,7 +252,26 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
                 "{name} lists {:?} twice",
                 recipe.kind
             );
+            requires_are_consistent(def, recipe.kind, recipe.requires);
         }
+    }
+}
+
+/// `defs_are_consistent` for a TechPrerequisite, a structure type's, or the "Requires" of a recipe of `def`'s, gating
+/// `gated` (`core/tech_and_research.md > Tech Prerequisites`, slice M4-K): structure types of `def`'s own faction (one
+/// rule for every faction, plan decision T37), each listed once, none the type it gates.
+fn requires_are_consistent(def: &ObjectDef, gated: ObjectKind, requires: &[ObjectKind]) {
+    let name = def.name;
+    for (i, &required) in requires.iter().enumerate() {
+        let its = required.def();
+        assert!(
+            its.structure.is_some() && its.faction == def.faction && required != gated,
+            "{name}: {gated:?} requires {required:?}"
+        );
+        assert!(
+            !requires[..i].contains(&required),
+            "{name}: {gated:?} requires {required:?} twice"
+        );
     }
 }
 

@@ -36,6 +36,7 @@ use crate::orders::state::Behaviour;
 use crate::orders::{Order, OrderKind, Orders};
 use crate::placement::PlacementCheck;
 use crate::scenario::BuildingOrientation;
+use crate::tech;
 use crate::units::TilePos;
 
 /// A Build order that went before its site started, to be refunded ([`Sim::refund_builds`]).
@@ -141,6 +142,10 @@ impl Sim {
     ///   (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`), as it "goes inside the
     ///   structure it builds": a Build `queued` with Shift to one with a Build already, current or queued, is
     ///   [`Reject::ConstructorBusy`] (without Shift, the new one replaces it).
+    /// - **Its TechPrerequisite** (slice M4-K, `crate::tech`): the player owns what `kind` requires
+    ///   (`StructureDef::requires`), else [`Reject::Requires`]. Checked as the order is given, which is when it is paid
+    ///   (design change 0233), as a constructor's Construct is; no type a worker builds has one yet (the Laser Turret's
+    ///   comes with slice M4-S1, which decides whether the worker's arrival checks it again).
     /// - **The price** (design change 0233): "The order is refused, with feedback, if the player can't pay"
     ///   ([`Reject::InsufficientSupplies`]): the price once the Build orders it replaces have gone
     ///   ([`Sim::build_price`]), out of the bank and their refunds ([`Sim::replacing`]).
@@ -168,6 +173,7 @@ impl Sim {
             return Err(Reject::ConstructorBusy(builder.id));
         }
         let player = builder.owner.ok_or(Reject::NoWorkers)?;
+        self.check_requires(player, tech::structure_requires(kind).iter().copied())?;
         let (refunds, price) = self.replacing(&replaced, player, kind);
         let bank = self.player(player).map_or(0, |p| p.supplies);
         if u64::from(bank) + refunds < u64::from(price.ok_or(Reject::NoWorkers)?) {

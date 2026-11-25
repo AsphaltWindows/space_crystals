@@ -40,16 +40,19 @@ pub(crate) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
                 kind: ObjectKind::Generator,
                 cost: 100,   // Generator: 100 Space Crystals,
                 frames: 240, // 240 frames (15 seconds)
+                requires: &[],
             },
             Recipe {
                 kind: ObjectKind::Barracks,
                 cost: 200,   // Barracks: 200 Space Crystals,
                 frames: 160, // 160 frames (10 seconds)
+                requires: &[],
             },
             Recipe {
                 kind: ObjectKind::ExtractionFacility,
                 cost: 200,   // Extraction Facility: 200 Space Crystals,
                 frames: 320, // 320 frames (20 seconds)
+                requires: &[],
             },
         ],
         warp_in: &[],
@@ -58,6 +61,7 @@ pub(crate) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         tunnel: None,
         site: None,
         expansion: None,
+        requires: &[], // No TechPrerequisite: none declared
     }),
     default_settings: None,
 };
@@ -81,7 +85,12 @@ mod tests {
             12,
             30,
         );
-        let recipe = |kind, cost, frames| Recipe { kind, cost, frames };
+        let recipe = |kind, cost, frames| Recipe {
+            kind,
+            cost,
+            frames,
+            requires: &[],
+        };
         assert_eq!(
             structure.constructs,
             [

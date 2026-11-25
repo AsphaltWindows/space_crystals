@@ -8,7 +8,7 @@ use sc_sim::nav::TileRect;
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{BuildingOrientation, Faction, PlayerCommand as Sent, SU_PER_GU, TunnelCommand};
 use space_crystals::command_ui::feedback::{
-    NO_CRYSTALS_TEXT, NOT_YET_TEXT, OPERATION_UNDER_WAY_TEXT, REQUIRES_OPTICS_LAB_TEXT, TargetFeedback, placement_text,
+    NO_CRYSTALS_TEXT, NOT_YET_TEXT, OPERATION_UNDER_WAY_TEXT, TargetFeedback, placement_text, requires_text,
 };
 use space_crystals::command_ui::{ButtonLook, PanelButton, PanelCommand, Placing, Planned};
 use space_crystals::hud::command_panel::CommandButton;
@@ -17,10 +17,12 @@ use space_crystals::object_render::SiteProgress;
 use space_crystals::placement::{PlacementGhost, TunnelAreaOverlay};
 
 use super::*;
-use KeyCode::{Escape, KeyC, KeyQ, KeyW, KeyX, KeyZ};
+use KeyCode::{Escape, KeyC, KeyQ, KeyR, KeyW, KeyX, KeyZ};
 
 const P1: PlayerId = PlayerId(1);
 const HIDEOUT: ObjectKind = ObjectKind::Hideout;
+const OPTICS_LAB: ObjectKind = ObjectKind::OpticsLab;
+const CHEMICAL_PLANT: ObjectKind = ObjectKind::ChemicalPlant;
 
 /// The objects of [`expansion_game`], by id, and where they are (the map is flat: where they are drawn).
 const TUNNEL: u32 = 1;
@@ -150,9 +152,10 @@ fn placing_hideout() -> InterfaceState {
 }
 
 /// Design change 0291's verification, "The ExpandMenu shows nine expansion slots and then the turret": W opens it
-/// (design change 0257), the Hideout in Q, the eight expansions not in the game yet greyed in W to X, Z being Back, and
-/// the Laser Turret in C, greyed with its prerequisite. A greyed entry says why and leaves the menu open; Z goes back
-/// to DefaultState, and so do Escape and a right-click.
+/// (design change 0257), the Hideout in Q, the Optics Lab in W and the Chemical Plant in E (slice M4-K), the six
+/// expansions not in the game yet greyed in R to X, Z being Back, and the Laser Turret in C, greyed with its
+/// prerequisite. A greyed entry says why and leaves the menu open; Z goes back to DefaultState, and so do Escape and a
+/// right-click.
 #[test]
 fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
     use ButtonLook::{Back, Common, Unavailable};
@@ -165,8 +168,8 @@ fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
         buttons(&mut app),
         [
             (slot(0, 0), c(Expand(HIDEOUT)), Common),
-            (slot(0, 1), c(P(OpticsLab)), Unavailable),
-            (slot(0, 2), c(P(ChemicalPlant)), Unavailable),
+            (slot(0, 1), c(Expand(OPTICS_LAB)), Common),
+            (slot(0, 2), c(Expand(CHEMICAL_PLANT)), Common),
             (slot(0, 3), c(P(Vault)), Unavailable),
             (slot(1, 0), c(P(VehicleAssembly)), Unavailable),
             (slot(1, 1), c(P(Forge)), Unavailable),
@@ -177,7 +180,8 @@ fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
             (slot(2, 2), c(P(LaserTurret)), Unavailable),
         ]
     );
-    for (key, says) in [(KeyW, NOT_YET_TEXT), (KeyC, REQUIRES_OPTICS_LAB_TEXT)] {
+    let optics_lab = requires_text(OPTICS_LAB);
+    for (key, says) in [(KeyR, NOT_YET_TEXT), (KeyC, optics_lab)] {
         tap(&mut app, &[], key);
         assert_eq!(said(&app), Some(says), "{key:?}");
         assert_eq!(interface(&app), InterfaceState::ExpandMenu);

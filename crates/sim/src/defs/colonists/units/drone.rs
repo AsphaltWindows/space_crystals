@@ -12,6 +12,7 @@ pub const BEACON_DEPLOYMENT: Recipe = Recipe {
     kind: ObjectKind::Beacon,
     cost: 0,
     frames: 48, // `factions/colonists/economy.md > Deployment Duration`: "48 frames (3 seconds)"
+    requires: &[],
 };
 
 /// `factions/colonists/units/drone.md`: the worker, unarmed. It moves by DragMovement (`movement::drag`, slice M3-G,

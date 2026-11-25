@@ -172,7 +172,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
             continue;
         };
         let (look, why) = if !offers(active.group_type(), command) {
-            (ButtonLook::Unavailable, Some(not_offered(command)))
+            (ButtonLook::Unavailable, Some(not_offered(command, conditions)))
         } else {
             match interface {
                 InterfaceState::AwaitingTarget { pending, .. } if pending == command => (ButtonLook::Pending, None),
@@ -230,12 +230,12 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
 
 /// Why a command the ActiveGroup's type doesn't offer is unavailable ([`offers`]): Reverse and AttackGround are the
 /// type's conditional commands; anything else isn't in the game yet (a building of the Beacon's menus, a build menu
-/// with none of its buildings), and a placeholder entry says why it is greyed ([`super::Planned::why`]: the Hideout's
-/// Guard "Requires an Optics Lab").
-fn not_offered(command: PanelCommand) -> WhyUnavailable {
+/// with none of its buildings), and a placeholder entry says why it is greyed ([`Conditions::planned`]: the Hideout's
+/// Grenadier "Requires a Chemical Plant" while the player owns none).
+fn not_offered(command: PanelCommand, conditions: &Conditions) -> WhyUnavailable {
     match command {
         PanelCommand::Reverse | PanelCommand::AttackGround => WhyUnavailable::NotForThisType,
-        PanelCommand::Planned(planned) => planned.why(),
+        PanelCommand::Planned(planned) => conditions.planned(planned),
         _ => WhyUnavailable::NotYet,
     }
 }

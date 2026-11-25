@@ -219,7 +219,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   It crosses Rugged tiles with double drag (`HOVER_VEHICLE.rugged_terrain`, design change 0039), on the light
   infantry's `(GroundRugged, 1)` grid.
 - **The Syndicate** (`defs/syndicate/`; `factions/syndicate/`, slice M4-A): the Guard (M3), then the Agent, the
-  Tunnel and the Hideout, after the Colonists' kinds. The Agent has its pistol; units enter and leave the Tunnel
+  Tunnel and the Hideout, after the Colonists' kinds, and the Optics Lab and the Chemical Plant last (slice M4-K,
+  *Tech prerequisites* below). The Agent has its pistol; units enter and leave the Tunnel
   Network at a Tunnel's Side A and the Hideout produces into it (slice M4-C, *Units off the map* below); the rest is
   inert so far but for blocking, sight and being targets. **The Tunnel is one kind with a tier** (plan decision
   T39): `StructureDef::tunnel` holds
@@ -227,7 +228,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   and the object its `TunnelState` (`tunnel.rs`), from Tier 1. `Object::max_hp` reads its tier's row; `tunnel::set_tier`
   changes the tier as an upgrade will, the damage kept (`transform::follow_max`, design change 0231 point 4), through
   `DebugCommand::SetTier` until the upgrades (slice M4-H). Records carry the tier last seen (`LastKnown::tunnel`,
-  0237). **The Hideout is an underground expansion** (`StructureDef::underground`, plan decision T32): it needs no
+  0237). **The Hideout is an underground expansion**, as are the Optics Lab and the Chemical Plant
+  (`StructureDef::underground`, plan decision T32): it needs no
   flat ground (`ObjectDef::needs_flat_ground`, design change 0005), stands for the ElevationModifier at the level
   under its centre, blocks no movement (*Navigation*) and is hidden from the other players (*Vision > Hidden
   objects*). Surface and underground footprints never share a tile (design change 0240): `may_overlap` keeps them
@@ -275,7 +277,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   expansion is a site as above, `Builder::Tunnel(tunnel)`, no worker held.
   `TunnelCommand::Expand { kind, origin, orientation }`'s gate (`Sim::check_expand`) is first **`Sim::can_expand`** (the
   player's Tunnel in operation, no operation under way `Reject::OperationUnderWay`, the kind's Tier Requirement
-  `Reject::TierRequirement`, its prerequisites `check_tech_prerequisites`, a stub that slice M4-K's check replaces, then
+  `Reject::TierRequirement`, its TechPrerequisite `Reject::Requires`, *Tech prerequisites* below, then
   the bank), which the ExpandMenu greys its entries by, then the placement by the truth (`Sim::expansion_truth`,
   `Reject::Unplaceable`). Paid at the click, Tunnel Space used and the ConstructionHP rule from the start (0254);
   completion (`Sim::complete_expansion`) ends the operation, and so does a cancel, the site's X or the Tunnel's
@@ -285,6 +287,24 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   each holding its slot (0291); the slice that brings one turns its entry into its `Kind`, and tests check the list
   against the design's table and against `StructureDef::expansion`. `Sim::operation_progress(tunnel)` gives the
   operation and its `Progress` for the Tunnel's InfoPanel.
+- **Tech prerequisites** (`tech.rs`; slice M4-K, plan decision T37; `core/tech_and_research.md > Tech Prerequisites`,
+  design changes 0229 and 0260): **one rule for every faction**. A structure type's TechPrerequisite is
+  `StructureDef::requires`, a recipe's "Requires" (a unit's in `Produces`) `Recipe::requires`, kinds leaked from the
+  defs (`leak::slice`); `tech::recipe_requires` gives both for a recipe, its own and its building's. **What counts**
+  (`tech::counts`, `Sim::requirement_met`): a structure of the type, the player's own and in operation
+  (`Object::is_operational`: no site, no transformation; a GDO building ready to place is no object yet), anywhere on
+  the map, so anywhere in a Tunnel Network; a neutral one is nobody's. **The gate checks it only as the work starts**
+  (`Sim::check_requires`, `Reject::Requires(kind)`): a Train as it is queued (`plan_training`: a producer whose recipe
+  isn't met is passed over, and with none left the reason is the first unmet kind), a Construct, a Warp In, an Expand
+  (`Sim::can_expand`) and a worker's Build as they are ordered (whether the worker's arrival checks again is slice
+  M4-S1's), each before the bank, so a greyed entry says "Requires ..." rather than the price. Nothing checks again:
+  work queued or started goes on when the last one is lost
+  (`core/tech_and_research.md > Tech Prerequisites > Losing a Prerequisite`). Today the Hideout's Guard requires the
+  Optics Lab; the Optics Lab and the Chemical Plant are placeholder expansions (2 × 2, 150 Space Crystals, 400
+  frames, HP 400, 6 / 24) that only count. `sim/tech/tests.rs`
+  tests the rule with test defs (a GDO unit and building, a Colonists Warp In, a worker's Build, an expansion, the
+  Grenadier's stand-in), `tests/prerequisites/` with the design's own types. The client shows `Reject::Requires` as
+  "Requires a/an <name>" (`feedback::requires_text`), every faction's entries alike (*The Syndicate's panels*).
 - **Losing Tunnels** (`sim/tunnels.rs`; slice M4-H; `factions/syndicate/tunnels.md > Losing Tunnels`, design changes
   0254 and 0258): what a Tunnel leaves when it leaves the game, on the removal path (*Removal path*): its unfinished
   expansions (`built_by`: the sites it builds, `Builder::Tunnel`, slice M4-F) are destroyed with no refund; its
@@ -1554,8 +1574,8 @@ section of its own.
   next tick on. Place inserts the ready building where `Sim::placement_check` allows it as the command applies (plan
   decision T4): it counts for power and the build area at once, the true grids take it in phase 5b of its tick and its
   owner's planning grids at the end of it, and it works from the next tick on. `construction::recipes(kind)`,
-  `Constructor::{current, ready, frames_done}` and `Sim::validate` are what a client needs for its menus. Not built:
-  tech prerequisites (no building with a cost has one yet) and ConstructionHP.
+  `Constructor::{current, ready, frames_done}` and `Sim::validate` are what a client needs for its menus. A Construct
+  checks the building's prerequisites as it starts (slice M4-K, *Tech prerequisites*). Not built: ConstructionHP.
 - **Warp In** (`transform.rs`, `sim/transform.rs`; slice M3-E, plan decisions T15, T16 and T22;
   `factions/colonists/economy.md > Warp In`, design changes 0109 to 0122): a Beacon transforms in place into a
   building of its Constructs List (`StructureDef::warp_in`, `transform::warp_in_recipe`).
@@ -2847,10 +2867,14 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `factions/syndicate/tunnels.md > EjectMenu`, `factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`;
   design changes 0252, 0257, 0260): `command_ui/interface/templates/syndicate/` has `tunnel.rs`
   (`InterfaceTemplate::Tunnel`, no right-click: W `PanelCommand::ExpandMenu`, E `PanelCommand::EjectMenu`, X
-  `PanelCommand::CancelOperation`; Q Upgrade held greyed until slice M4-G), `hideout.rs` (the Production grid, W Guard
-  and E Grenadier held greyed), `eject_menu.rs` and `expand_menu.rs`. **A placeholder entry** (`templates/planned.rs`,
-  `Planned`) holds its slot greyed with its own reason (`Planned::why`: `WhyUnavailable::Placeholder`, such as
-  "Requires an Optics Lab"), until the slice that brings its command replaces it. **A menu's order is the sim's data**
+  `PanelCommand::CancelOperation`; Q Upgrade held greyed until slice M4-G), `hideout.rs` (the Production grid: W
+  trains the Guard, greyed "Requires an Optics Lab" by the gate until the player owns one, slice M4-K; E Grenadier
+  held greyed), `eject_menu.rs` and `expand_menu.rs`. **A placeholder entry** (`templates/planned.rs`, `Planned`)
+  holds its slot greyed with its reason (`Conditions::planned`): "Requires a Chemical Plant" while the player owns no
+  structure of the type its unit or building will require (`Planned::requires`; `Conditions::of` keeps the types
+  owned), "Not available yet" otherwise, until the slice that brings its command replaces it. An entry in the game
+  asks the gate, and **a prerequisite is the gate's** (`Reject::Requires`, *Tech prerequisites*): no template names
+  one. **A menu's order is the sim's data**
   (`sc_sim::defs::EJECT_MENU_ORDER`, design change 0257's "Agent, Guard, Grenadier, …"; `sc_sim::defs::EXPAND_MENU`):
   a slice that adds a unit or an expansion adds it there, not in the client. E enters
   `InterfaceState::EjectMenu`, a StateOnlyTransition (`SlotPress::OpenEjectMenu`): a `PanelCommand::Eject(kind)` tile
@@ -2866,8 +2890,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
 - **The ExpandMenu and an expansion's placement** (slice M4-F; design changes 0257, 0290 and 0291): W enters
   `InterfaceState::ExpandMenu` (`SlotPress::OpenExpandMenu`), whose grid is `sc_sim::defs::EXPAND_MENU` in the
   EjectMenu's tile slots (`expand_menu::grid`): a `PanelCommand::Expand(kind)` per type in the game, greyed by
-  `Sim::can_expand` (`Conditions::of`, its reasons "This Tunnel is busy", "This Tunnel's tier is too low", "Not enough
-  Space Crystals"), and a `Planned` placeholder per entry not in the game yet, found by name
+  `Sim::can_expand` (`Conditions::of`, its reasons "This Tunnel is busy", "This Tunnel's tier is too low", "Requires
+  a ...", "Not enough Space Crystals"), and a `Planned` placeholder per entry not in the game yet, found by name
   (`Planned::expansion`; the turret's is the Agent's `Planned::LaserTurret`), so a slice that brings an expansion
   changes the sim's list only. An entry enters `AwaitingPlacement` with **`Builder::Tunnel`** for the Tunnel Tabbed to
   (`SlotPress::AwaitExpansion`); Z goes back to the menu, where the panel stays meanwhile (`state_grid`). **The ghost
@@ -2883,12 +2907,13 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
 - **The Agent's panel** (slice M4-J1; `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`; design changes
   0233, 0237 and 0257): `templates/syndicate/agent.rs` (`InterfaceTemplate::Agent`) is Q Move, A
   `PanelCommand::Build(Tunnel)`, S `PanelCommand::DropOff`, D `Planned::LaserTurret` (greyed, "Requires an Optics
-  Lab", until slice M4-S1) and X Stop; its right-click is the sim's one rule (*Gathering* above). **A Build** is an
-  instance command (`SlotPress::AwaitBuild`): `AwaitingPlacement` with `Builder::Agent` for the ActiveGroup's one Agent
-  (Agents are Ungroupable: Tab picks the next one). It is greyed exactly when the gate refuses an unqueued Build of
-  that Agent's (`conditions::build_probe`), the placement's own refusal left out; its price (`Sim::build_price`) is
-  `PanelSlot::price`. A click checks the ghost (`Sim::build_check`; a red one sends `InvalidPlacement`), then gives
-  the order through `OrderOutbox::try_give`, which returns the gate's `Reject`: a refused one (the bank, "Already
+  Lab" while the player owns none, until slice M4-S1) and X Stop; its right-click is the sim's one rule (*Gathering*
+  above). **A Build** is an instance command (`SlotPress::AwaitBuild`): `AwaitingPlacement` with `Builder::Agent` for
+  the ActiveGroup's one Agent (Agents are Ungroupable: Tab picks the next one). It is greyed exactly when the gate
+  refuses an unqueued Build of that Agent's (`conditions::build_probe`), the placement's own refusal left out; its
+  price (`Sim::build_price`) is `PanelSlot::price`. A click checks the ghost (`Sim::build_check`; a red one sends
+  `InvalidPlacement`), then gives the order through `OrderOutbox::try_give`, which returns the gate's `Reject`: a
+  refused one (the bank, "Already
   building" for a second Build queued to an Agent) sends `CommandRefused` and placement goes on; a sent one, queued
   with Shift, ends it ("each Agent takes exactly one placement"). The client counts no Build still in
   `PendingCommands` in a price or a ghost. **S** awaits an own drop-off in operation (`drop_off_target`), greyed while
@@ -3338,10 +3363,10 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
 3. **A panel of its own**, `crates/game/src/command_ui/interface/templates/<faction>/<object>.rs`: its `TEMPLATE`, its
    grid and menus, and its `InterfaceTemplate` variant, with its arms in `InterfaceTemplate::grid` and in the
    right-click (`command_ui/resolution.rs`). A unit or building of its panel that isn't in the game yet holds its slot
-   (`PanelTemplate::planned`, `PanelCommand::Planned`, with its reason in `Planned::why`), and a command the design
-   names after the object has its name there (`PanelTemplate::names`). A menu whose entries follow a design list in
-   grid order takes the list from the sim's data (`sc_sim::defs::EJECT_MENU_ORDER`), so a new unit or expansion joins
-   it there. A builder also needs its `Builder` (*Adding a faction*, step 7).
+   (`PanelTemplate::planned`, `PanelCommand::Planned`, with the type it will require in `Planned::requires`), and a
+   command the design names after the object has its name there (`PanelTemplate::names`). A menu whose entries
+   follow a design list in grid order takes the list from the sim's data (`sc_sim::defs::EJECT_MENU_ORDER`), so a
+   new unit or expansion joins it there. A builder also needs its `Builder` (*Adding a faction*, step 7).
 4. **Where numbers go**:
    - the object's own numbers in its def, as fields, not in logic files;
    - a number a system uses for every kind in that system's tuning module (*Tunables*);

@@ -117,6 +117,10 @@ kind_registry! {
     Tunnel => syndicate::structures::tunnel::TUNNEL,
     /// `factions/syndicate/structures/hideout.md`
     Hideout => syndicate::structures::hideout::HIDEOUT,
+    /// `factions/syndicate/structures/optics_lab.md` (design change 0229)
+    OpticsLab => syndicate::structures::optics_lab::OPTICS_LAB,
+    /// `factions/syndicate/structures/chemical_plant.md` (design change 0260)
+    ChemicalPlant => syndicate::structures::chemical_plant::CHEMICAL_PLANT,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
