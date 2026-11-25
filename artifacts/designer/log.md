@@ -2235,3 +2235,4 @@ Bomber prereqs, ground only, re-arm; Vault network-wide. Entry 0269.
 Bomber named Specter. Entry 0270.
 Specter default return-to-rearm. Entry 0271.
 Specter attack orders / ammo / queue. Entry 0272.
+Specter: no T3 -> ignores attack. Entry 0273.
