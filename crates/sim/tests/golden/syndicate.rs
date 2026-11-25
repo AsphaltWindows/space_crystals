@@ -32,8 +32,11 @@ use ObjectKind::{Agent, Guard, Hideout, OpticsLab, Peacekeeper, Tunnel};
 
 /// [`opening`]'s last tick, 2:15: the builder of the second Tunnel has delivered its second Supply.
 const OPENING_END: Tick = 2160;
-/// [`versus_gdo`]'s last tick, 3:12: some seconds after player 1's defeat, the neutral expansions decaying.
-const VERSUS_END: Tick = 3072;
+/// [`versus_gdo`]'s last tick, 3:06.75: the game's end, as player 1's last Tunnel falls and it is defeated. A replay
+/// plays back in the client to where its game ended (`ARCHITECTURE.md > Replays and golden hashes`, "Playback"), so the
+/// golden game ends there too, with its last checkpoint. A change that moves the end fails [`versus_gdo`]'s `expect`:
+/// set this to the tick it names.
+const VERSUS_END: Tick = 2988;
 /// [`opening`]'s camera starts over this tile: player 1's base and its second Tunnel.
 const OPENING_CAMERA: TilePos = TilePos::new(13, 11);
 /// [`versus_gdo`]'s: player 1's two Tunnels and the plateau's west ramp, where the Guards fight.
@@ -75,7 +78,8 @@ pub(crate) fn opening() -> Game {
 }
 
 /// The Syndicate against the GDO (`Skirmish::versus_gdo`). Player 1 is defeated when its first Tunnel, its last,
-/// falls; the game is over, the GDO's, and the Hideout and the Optics Lab it leaves neutral decay.
+/// falls: the game is over, the GDO's, in its last tick, and the Hideout and the Optics Lab it leaves neutral have
+/// started to decay.
 pub(crate) fn versus_gdo() -> Game {
     Game {
         scenario: scenario(VERSUS_CAMERA),
@@ -93,6 +97,8 @@ pub(crate) fn versus_gdo() -> Game {
             }
         },
         expect: |sim| {
+            let ended = sim.outcome().map(|outcome| outcome.tick);
+            assert_eq!(ended, Some(VERSUS_END), "the game ends in the golden's last tick");
             assert!(sim.player(SYNDICATE).unwrap().is_defeated(), "player 1 is defeated");
             assert!(
                 units_of(sim, SYNDICATE).is_empty(),

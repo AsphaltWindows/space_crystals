@@ -3234,11 +3234,12 @@ unchecked.
   the Syndicate, by `testing::syndicate::skirmish`: in `syndicate_opening` (to 2:15) its Agents gather the patch 3 GU
   from the crystal hatch, the Hideout, rallied on it, trains four more, the third of them builds a second Tunnel
   with the starting Supply, is ejected by it and gathers Supplies, and the first Tunnel expands an Optics Lab; in
-  `syndicate_vs_gdo` (to 3:12) six Guards follow behind the Optics Lab, the Hideout's rally point cleared so that they
-  stay in the Tunnel Network, four of them ejected by the second Tunnel to hold the top of the plateau's west ramp,
-  while player 2 plays the same Barracks line with sixteen Peacekeepers, sent in waves of six to the Syndicate's
-  Tunnel nearest them: Guards and Peacekeepers die, the second Tunnel falls, then the first, which leaves the Hideout
-  and the Optics Lab neutral, strands the two Guards in the network and defeats player 1. Both players' books balance
+  `syndicate_vs_gdo` (to 3:06.75, where it ends) six Guards follow behind the Optics Lab, the Hideout's rally point
+  cleared so that they stay in the Tunnel Network, four of them ejected by the second Tunnel to hold the top of the
+  plateau's west ramp, while player 2 plays the same Barracks line with sixteen Peacekeepers, sent in waves of six to
+  the Syndicate's Tunnel nearest them: Guards and Peacekeepers die, the second Tunnel falls, then the first, which
+  leaves the Hideout and the Optics Lab neutral, strands the two Guards in the network and defeats player 1; the game
+  is over in its last tick, as the client's playback stops where a game ends. Both players' books balance
   every step, and player 1's Supplies too (`testing::syndicate::SupplyBooks`). The ignored `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
   movement invariants and the books every tick, no dangling id, no order stuck in one step beyond a bound (a waiting
