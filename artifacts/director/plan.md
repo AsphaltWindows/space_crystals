@@ -1152,10 +1152,47 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **One deliberate change:** a player's own event about an object that died or left in the same frame now reaches that player. Before, it reached no one.
   - **Open, as built:** Q0090 (an unseen shooter's colour, another player's defeat, marks seen late), marked `Placeholder (M4-V)`. A shot at a hidden object shows over Visible tiles up to it. That can only happen in the tick it hides, since nothing can target what it doesn't see.
 
+- **M4-S2 Laser Turret, pop-up and Tunnel-built** (**Fable**; merged in `0cee8bc4`; 1814 tests, 21 ignored; the 11 goldens unchanged, with the pop-up's state hashed only while it has one):
+  - **The form is derived** (T50; `popup.rs`):
+    - `Object::popup: Option<PopUp>`, with `Lowered { blocked }`, `Rising`, `Raised { idle }` and `Retracting`; `None` means upright;
+    - a turret is a pop-up if and only if its tile is in an own operational Tunnel's current area;
+    - `Sim::step_popups` runs in its own phase (`Phase::PopUps`), right after 5e;
+    - `PopUpDef`: 8, 32 and 8 frames; 6/6 while lowered.
+  - **Hiding:** `Hiding::of`'s lowered arm, and nowhere else (M4-V's hook). M4-V's table now uses the real lowered turret, plus a row for a raised turret's death.
+  - **Blocking (0296 point 3):**
+    - the footprint blocks from the tick the turret starts to rise until it is fully lowered (the reading, marked);
+    - the rise waits while any ground unit's box overlaps the tile, and the turret keeps its target meanwhile;
+    - own idle units get a **yield request** (`yielding::make_way`, M1-Y's sidestep with its chain), not `separate.rs`'s step;
+    - `paths::blocking(object)` makes a raised turret a navigation obstacle.
+  - **The Tunnel-built turret:** the ExpandMenu's C is real. It requires the Optics Lab, and the gate greys it. It uses the operation slot (0267: Expand and Upgrade are refused with `OperationUnderWay` meanwhile), its site is hidden, and a cancel refunds 75%.
+  - **Tunnel Space:** ¼ per pop-up, through the derived floor rule. Two pop-ups and an Optics Lab leave floor(42/4) = 10 on a Tier 1 Tunnel.
+  - **Conversion:** a new Tunnel or an upgrade over a turret makes it a pop-up; a Tunnel's death makes its pop-ups upright.
+  - **The client:** an outline while lowered, and a barrel that grows on the rise.
+  - **Timing as built:** a target picked in tick t means raised at the end of t+8 and the first shot at t+13. The last target in tick t means lowered at the end of t+40.
+  - **Readings:**
+    - expansion placement now reserves the owner's pending worker-build sites. 0290's "no ghost check" was about Tunnel ghosts, which can't be in another Tunnel's area; an Agent's turret ghost can (0289's rule);
+    - an Agent-built turret in an area completes raised, and retracts after 32 idle frames.
+
+    Five more are filed as **Q0091**:
+    - a Tunnel's death with a unit on the lowered turret;
+    - a target while it retracts;
+    - Buildable and flat ground for a Tunnel-built turret;
+    - Tier 1;
+    - when a site takes its ¼.
+  - **Tests:**
+    - `crates/sim/tests/popup/` (22: the cycle, blocking, hiding, building and conversion), and unit tests in `popup.rs`;
+    - an area-damage case (a blast against a lowered or raised turret), and `building_armor.rs` for both forms;
+    - the client's look and the ExpandMenu tests.
+
+    0296's verifications are tests. The Agent case asserts only the outcome, since an idle Agent chases the enemy off the tile by itself. The push is proven with an unarmed Drone.
+  - **Perf:** `popup_perf` (ignored) runs 12 pop-ups cycling under 200 walkers on 256×256: the mean goes 0.179 → 0.197 ms (+10%), and p99 0.353 → 0.406 ms; the worst is unchanged. It caused 227 grid changes in 1280 ticks. `nav_perf`, `movement_perf` and `structures_perf` are within noise.
+  - **Accepted limits:**
+    - idle units packed against a wall may fail to sidestep, and the turret then stays down (0223: predictable, not optimal);
+    - an enemy's record of a turret is drawn raised, since that is the only way an enemy ever sees one.
+
 ## In progress
-  - **M4-S2 Laser Turret, pop-up and Tunnel-built** (**Fable**; brief `scratchpad/briefs/m4s2-popup-turret.md`): the derived pop-up form (T50), hidden and at 6/6 while lowered, rising at enemies, and 0296's blocking rule (a raised pop-up blocks; it rises only when its tile is clear; an idle push for own idle units). Also building from the Tunnel's ExpandMenu (the operation slot, a 75% cancel, a hidden site) and conversion as areas change.
 - **Next**:
-  - **M4 wave 8:** S2 (the pop-up, Tunnel-built turret) is running on **Fable** (brief `scratchpad/briefs/m4s2-popup-turret.md`): 0296 made raised pop-ups block movement, with a footprint-clear rise and an idle push, which is m4-plan's stated trigger for Fable. V (the event filter) is done (`dbefb552`). Then M (QA; brief `scratchpad/briefs/m4m-qa.md`), which also makes the robustness fuzz robust.
+  - **M4 wave 9, the last:** M (QA; Opus; brief `scratchpad/briefs/m4m-qa.md`) is running. Every other M4 slice has landed: S2 in `0cee8bc4`, V in `dbefb552`. M also makes the robustness fuzz robust. M4 ends when M lands.
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -1329,7 +1366,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - N7: the Specter.
   - **Questions:**
     - Q0059–Q0071 are all answered, by 0229–0267.
-    - Answered since revision 2: every M4 question, Q0076 to Q0088. Q0076 by 0294 and 0295; Q0077 by 0288; Q0078 by 0283; Q0079 by 0289; Q0080 by 0290; Q0081 by 0291; Q0082 by 0292; Q0083 by 0293; Q0084 by 0296–0298; Q0085 by 0284; Q0086 by 0285, 0299 and 0300; Q0087 by 0301; Q0088 by 0294. Q0089 by 0303 (as built). Open: Q0090 (what a player perceives of events they don't see; not blocking; as built).
+    - Answered since revision 2: every M4 question, Q0076 to Q0088. Q0076 by 0294 and 0295; Q0077 by 0288; Q0078 by 0283; Q0079 by 0289; Q0080 by 0290; Q0081 by 0291; Q0082 by 0292; Q0083 by 0293; Q0084 by 0296–0298; Q0085 by 0284; Q0086 by 0285, 0299 and 0300; Q0087 by 0301; Q0088 by 0294. Q0089 by 0303 (as built). Open, neither blocking and both as built: Q0090 (what a player perceives of events they don't see) and Q0091 (the pop-up turret's details).
   - **Slice status:**
     - A: done (`fcd06dc`).
     - C: done (`f67df212`; Q0077).
@@ -1347,7 +1384,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - K: done (`bbdbea73`).
     - S1: done (`50f51141`).
     - V: done (`dbefb552`).
-    - S2: running (wave 8, **Fable**; brief `scratchpad/briefs/m4s2-popup-turret.md`).
+    - S2: done (`0cee8bc4`). **Wave 8 is complete.**
+    - M: running (QA; brief `scratchpad/briefs/m4m-qa.md`).
     - G: done (`a737a69a`). **Wave 6 is complete.**
     - U: done (`f34e4e6e`).
     - J3: done (`5e2e9419`).
@@ -1467,13 +1505,14 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0081 | ExpandMenu slots: do expansions not yet in the game keep their greyed slots, so the turret's letter never moves? | no | answered by 0291 (as proposed); M4-F builds it |
 | Q0082 | Supplies gathering: pick-up and drop-off reaches; nearest Tunnel measured to the Supplies hatch; the old load lost at the end of the new pick-up | no | answered by 0292 (points 1 and 3 as built; point 2 built by M4-I2 `4f31587f`) |
 | Q0083 | Area damage: friendly fire, the reveal, Attack Ground's end, how grenades are drawn | no | answered by 0293 (points 1 and 2 as built; points 3 and 4 built by M4-O2 `2e0f31f4`) |
-| Q0084 | Laser Turret: hidden when, sight, blocking, payment, refunds, sites, the Agent's exit, targeting | no | answered by 0296 (points 1–3: hidden only while lowered, sight 6, a new blocking rule), 0297 (points 4–6: paid at the order; **75% cancel refund for both**; sites as their flows) and 0298 (points 7–9, as proposed). M4-S1 (`50f51141`) built points 4–9 for the Agent's turret; S2 builds the pop-up rules and the Tunnel-built site |
+| Q0084 | Laser Turret: hidden when, sight, blocking, payment, refunds, sites, the Agent's exit, targeting | no | answered by 0296 (points 1–3: hidden only while lowered, sight 6, a new blocking rule), 0297 (points 4–6: paid at the order; **75% cancel refund for both**; sites as their flows) and 0298 (points 7–9, as proposed). M4-S1 (`50f51141`) built points 4–9 for the Agent's turret; M4-S2 (`0cee8bc4`) the pop-up rules and the Tunnel-built site. Follow-up details in Q0091 |
 | Q0085 | Stale doc lines that later answers contradict (seven lines) | no | answered by 0284 (the docs corrected; as built); F updates the comments |
 | Q0086 | The EjectMenu's order, zero-count tiles and state after a click; when Tunnel Areas are drawn; recalling an all-held group | no | answered by 0285 (point 1), 0299 (points 2, 4, 5) and 0300 (point 3, and the preview's red cells). Point 4 differs from the built version: enemy areas are never shown, and placing a Tunnel previews its Tier 2 and Tier 3 areas (M4-J3) |
 | Q0087 | Does the Agent that finishes a Tunnel wait out the transit delay before it can leave? | no | answered by 0301: (a), as built; rallied produced units have no delay either (M4-J3 updates the marks) |
 | Q0088 | The Agents' jam: what each fix costs (the reply to 0286 and 0287). It isn't head-on; the infantry sidestep exists in the code; only pass-through reaches 12.5 at 0–2 GU | no (answered) | answered by 0294: option (c) with a 4 s mining time; stage 0 documented; 1a not adopted |
 | Q0089 | Three Agents at 3 GU measure 10.67 SC/s against the table's 12.5 (−14.7%, inside ±15%): is the opening target the third Agent at work by 0:40, or the Tunnel at 12.5? | no (answered) | answered by 0303: (a) as built; the third Agent at work by 0:40, and the table is an ideal ("It's better with some variation") |
 | Q0090 | What a player perceives of events they don't see: an unseen shooter's colour, another player's defeat, marks seen late (M4-V's open doubts) | no | open; as built, option (a) for each point, marked `Placeholder (M4-V)` in `viewer_events.rs` |
+| Q0091 | Pop-up turret details: its Tunnel dying with a unit on top, a target while it retracts, a Tunnel-built turret's ground and tier, when a site takes Tunnel Space (M4-S2's readings) | no | open; as built, option (a) for each point |
 
 ## Design change entries
 Last triaged: 0282.
@@ -1714,14 +1753,14 @@ Last triaged: 0282.
 | 0257 Syndicate panel letters on the 4x3 grid | done (M4-J2, `c5910e4d`: the Tunnel's and the Hideout's panels and the EjectMenu; M4-J1, `dd14dc38`: the Agent; M4-F, `2cbb777e`: the ExpandMenu; M4-G, `a737a69a`: Q) | answers Q0068, as proposed |
 | 0258 Losing Tunnels: decay %, attacking neutral expansions, reclaiming, blocked cells (counted as occupied), defeat, and the enemy sees the tier | done (M4-A, `fcd06dc`: the tier seen and remembered; M4-H, `f456b0ca`: neutral expansions, decay, explicit Attack only, reclaiming, stranded units, defeat; M4-F, `2cbb777e`: neutral expansions block expansion placement; M4-G, `a737a69a`: reclaiming at an upgrade's completion) | answers Q0069 |
 | 0259 The Syndicate economy check: measured to the hatch square; the stacked layout puts the Tunnels on opposite sides | done (M4-L, `6d05e084`; the 1 GU opening layout replaced by 0294's 3 GU) | answers Q0070 |
-| 0260 Placeholders for the Laser Turret, the Grenadier and the Chemical Plant, so they can be planned into M4; the Grenadier needs a projectile, AoE and Attack Ground combat spike | partly done (M4-O, `356d1a96`: the combat spike; M4-K, `bbdbea73`: the Chemical Plant; M4-U, `f34e4e6e`: the Grenadier; M4-S1, `50f51141`: the Laser Turret, upright); in progress (M4-S2: the pop-up) | answers Q0071 (scope B) |
+| 0260 Placeholders for the Laser Turret, the Grenadier and the Chemical Plant, so they can be planned into M4; the Grenadier needs a projectile, AoE and Attack Ground combat spike | done (M4-O, `356d1a96`: the combat spike; M4-K, `bbdbea73`: the Chemical Plant; M4-U, `f34e4e6e`: the Grenadier; M4-S1, `50f51141`: the Laser Turret, upright; M4-S2, `0cee8bc4`: the pop-up) | answers Q0071 (scope B) |
 | 0261 Area damage never hits underground objects unless targeted | void (replaced by 0262) | — |
 | 0262 Area damage does hit underground objects; expansions and the pop-up turret have high armor | partly done (M4-A, `fcd06dc`: damage never asks the hidden predicate; M4-O, `356d1a96`: area damage hits underground objects, even unseen); queued (S2: the pop-up turret's armour, per 0264) | answers Q0071's AoE-underground gap |
 | 0263 Confirmed: undeploy, held orders, the Transport's base, the Phantom's attack | queued (T44, the deploy model; gated N3 and N6) | answers Q0071's items to confirm |
-| 0264 Building armor rule: PointArmor n, FullArmor n × size in grid squares; underground expansions 6/24 for 2x2; the Laser Turret 1/1 raised, 6/6 underground | partly done (M4-A, `fcd06dc`: the Hideout 6/24; M4-B, `35e19634`: the defs test across factions; M4-O, `356d1a96`: "about 93" through a hidden Hideout's 6/24; M4-K, `bbdbea73`: the Optics Lab and the Chemical Plant at 6/24; M4-S1, `50f51141`: the turret at 1/1); in progress (M4-S2: 6/6 while lowered) | — |
+| 0264 Building armor rule: PointArmor n, FullArmor n × size in grid squares; underground expansions 6/24 for 2x2; the Laser Turret 1/1 raised, 6/6 underground | done (M4-A, `fcd06dc`: the Hideout 6/24; M4-B, `35e19634`: the defs test across factions; M4-O, `356d1a96`: "about 93" through a hidden Hideout's 6/24; M4-K, `bbdbea73`: the Optics Lab and the Chemical Plant at 6/24; M4-S1, `50f51141`: the turret at 1/1; M4-S2, `0cee8bc4`: 6/6 while lowered) | — |
 | 0265 Transport passengers always count against Tunnel Space | queued (gated N3) | answers Q0071's Tunnel Space gap |
 | 0266 A burrowed Transport passes through underground structures; surfacing rules | queued (gated N3) | answers Q0071's underground and surfacing gaps |
-| 0267 A Tunnel-built Laser Turret uses the operation slot; detection comes after the faction rosters | partly done (M4-F, `2cbb777e`: the operation slot); queued (M4-S2: the turret uses it) | Q0071 complete (0260–0267) |
+| 0267 A Tunnel-built Laser Turret uses the operation slot; detection comes after the faction rosters | done (M4-F, `2cbb777e`: the operation slot; M4-S2, `0cee8bc4`: the turret uses it) | Q0071 complete (0260–0267) |
 | 0268 New Syndicate unit, a single-payload Bomber (concept only) | gated (concept only) | — |
 | 0269 The Bomber needs a Vault and a Chemical Plant, attacks ground only, re-arms in the network; the Vault works network-wide | gated (concept only) | — |
 | 0270 The Syndicate bomber is named Specter | gated (concept only) | — |
@@ -1750,8 +1789,8 @@ Last triaged: 0282.
 | 0293 Area damage: friendly fire; the reveal when damage lands, to the damaged objects' owners; Attack Ground keeps firing until another order; every shot and projectile drawn only over Visible tiles (replaces 0244) | done (M4-O2, `2e0f31f4`; points 1 and 2 as built by M4-O `356d1a96`) | answers Q0083 |
 | 0294 Agent MiningDuration 80 → 64 frames (4 s); Agents keep collision; the opening and the table checked from 3 GU (rows 0–2 theoretical); `dev_skirmish` and the reference layouts put the patch 3 GU from the hatch; the moving-unit sidestep is documented (stage 0) | done (M4-L, `6d05e084`); 3 Agents at 3 GU measure 10.67, inside ±15% (Q0089) | answers Q0076 (except its two "also to confirm" points) and Q0088 |
 | 0295 The hatch is the middle square of its side farther from Side A; the Agent's patch search radius is 6 GU, like the Drone's (a placeholder value) | done (as built, M4-D `edc30e11`; M4-L `6d05e084`: the marks) | answers Q0076's two "also to confirm" points |
-| 0296 Laser Turret: hidden at 6/6 only while fully lowered; sight 6 in both forms; upright turrets and raised pop-ups block like buildings, a lowered pop-up never; a pop-up can't rise while any unit stands over it, and the owner's idle units there are pushed off | partly done (M4-S1, `50f51141`: an upright turret blocks like a building); in progress (M4-S2: the pop-up rules) | answers Q0084 points 1–3 |
-| 0297 Laser Turret: an Agent's turret is paid at the order, with the Tunnel order's refund rules; cancelling either kind of site refunds 75%; an Agent's site is visible and a Tunnel's is hidden | partly done (M4-S1, `50f51141`: paid at the order, 75% cancel, the Agent's site visible); in progress (M4-S2: the Tunnel-built site, hidden, 75%) | answers Q0084 points 4–6 |
+| 0296 Laser Turret: hidden at 6/6 only while fully lowered; sight 6 in both forms; upright turrets and raised pop-ups block like buildings, a lowered pop-up never; a pop-up can't rise while any unit stands over it, and the owner's idle units there are pushed off | done (M4-S1, `50f51141`: an upright turret blocks like a building; M4-S2, `0cee8bc4`: the pop-up rules, with the verifications as tests) | answers Q0084 points 1–3 |
+| 0297 Laser Turret: an Agent's turret is paid at the order, with the Tunnel order's refund rules; cancelling either kind of site refunds 75%; an Agent's site is visible and a Tunnel's is hidden | done (M4-S1, `50f51141`: paid at the order, 75% cancel, the Agent's site visible; M4-S2, `0cee8bc4`: the Tunnel-built site, hidden, 75%) | answers Q0084 points 4–6 |
 | 0298 Laser Turret: the Agent exits at the first clear spot from its side and waits inside if none; holding-position targeting that keeps its target; an Agent's turret uses no operation slot | done (M4-S1, `50f51141`) | answers Q0084 points 7–9 (Q0084 complete) |
 | 0299 Every Syndicate unit type keeps its EjectMenu tile (0, greyed); selecting an own Tunnel shows its area; placing a Tunnel previews its Tier 1–3 areas with blocking cells red; enemy areas never shown; recalling an all-inside group does nothing | done (points 2 and 5 as built, M4-J2 `c5910e4d`; point 4, M4-J3 `5e2e9419`) | answers Q0086 points 2, 4, 5 |
 | 0300 The EjectMenu stays open after a click; the preview also marks cells overlapping own other Tunnels' areas; the area shows while placing an expansion | done (points 1 and 3 as built, M4-J2 and M4-F; point 2, M4-J3 `5e2e9419`) | answers Q0086 point 3 (Q0086 complete) |
