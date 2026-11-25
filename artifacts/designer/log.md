@@ -2160,3 +2160,4 @@ Syndicate: Shadebringer charges are draining tanks. Entry 0193.
 Syndicate: Shadebringer not immune to own sludge, laid behind it. Entry 0194.
 Syndicate: smoke blocks structures' sight; both toggles at once. Entry 0195.
 Syndicate: sludge vs Mechs/Drill Units. Entry 0196. Q0053 noted.
+Q0049: second Convert press cancels a deferred conversion (B). Entry 0197.
