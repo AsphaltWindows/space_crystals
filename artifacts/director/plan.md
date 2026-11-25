@@ -833,8 +833,26 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - **R1:** `player.rs`'s `supplies` doc is stale.
     - **M:** six Agents coming from one side: one boxed in behind an Agent that is picking up waits for it to finish (the mover's occupied-arrival rule), so the test asserts 4 or more at once.
 
+- **M4-R1 Code organization, the sim** (Opus; merged in `8eab2290`; 1543 tests; no golden moved, never re-blessed; 245 files):
+  - **Defs per object:** `defs/<faction>/{units,structures}/<object>.rs` and `defs/map/`. Each faction's own rules (the caps and the divisor) are in `defs/<faction>.rs`. Each object's tests moved into its module.
+  - **Numbers in the defs:**
+    - `RiotShieldDef`, `ConversionDef` and `UnitDef::deploy` (the Drone);
+    - the `TunnelDef` transit delay and regeneration;
+    - the Agent's Supplies reaches;
+    - the map objects' default settings.
+    - Kind matches became fields: `StructureDef::onto`, `seeds_build_area`, and `Transit::of` as data.
+  - **One kind registry macro** in `defs.rs`. The names and order are pinned by a test.
+  - **Serde-ready defs.** `defs/tests/serde.rs` round-trips every def. The names and lists stay `&'static`, and the deserializer leaks them once (`defs/leak.rs`), so defs stay `Copy`. **Accepted by the Director for the playtest loader:** a few KB per reload, at dev time.
+  - **60 behaviour constants** moved to `tuning/{combat,construction,gathering,movement,orders,paths,production,shields,tunnel,vision}.rs`, each cited or marked as a placeholder. The old names stay as aliases.
+  - **Shared mechanics:**
+    - `progress.rs` (`Progress`, used by Transform; hash and JSON byte-identical) and `toggle.rs` (Riot Shield and Conversion).
+    - **Deferred,** because their hashed bytes would change: production and construction progress, the Extraction Facility cycle, Weapon Conversion, the Riot Shield, mining and unloading, and the network's held units. Each moves at the next re-bless that touches it.
+  - **Splits:** `orders.rs` → `orders/run.rs`; `combat/phases.rs` → `phases/tests.rs`; `sim.rs` (648 lines) → `sim/commands.rs` and `sim/phase.rs`.
+  - **Citations:** 204 rewritten by 0282's table, with 0 stale in the sim. The `player.rs` supplies doc is fixed.
+  - **Perf:** `drones_perf` and `nav_perf` are unchanged in 12 interleaved ABBA runs per side, and the counters match.
+  - **The client:** 7 `use` lines in 6 files.
+
 ## In progress
-  - **M4-R1 Code organization, the sim** (Opus; brief `scratchpad/briefs/m4r1-sim-organization.md`): per-object defs, serde-ready plain data, one kind registry, `tuning/` modules, `Progress` and the toggle rule where hashes allow, splits, and the sim's citations (0282). Every golden byte-identical.
   - **M4-R2 Code organization, the client and docs** (Opus; brief `scratchpad/briefs/m4r2-client-docs-organization.md`): the citation test, per-kind client modules, client splits, client tuning, and the citations in the client, `docs/` and `ARCHITECTURE.md`. Merges after R1.
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
 - **Next**:
@@ -1019,8 +1037,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - C: done (`f67df212`; Q0077).
     - D: done (`edc30e11`; Q0076).
     - I: done (`9aca8972`).
-    - R1 (sim): running (wave 3, Opus), alone.
-    - R2 (client, docs, citation test): its part before R1 is done (7 commits; 1532 tests; QA screenshots byte-identical), and it is now splitting `fog.rs` and `editor/objects.rs`. It waits for R1 to land, then merges, drops the citation test's temporary allowance for the sim, and updates ARCHITECTURE.md's sim sections.
+    - R1 (sim): done (`8eab2290`).
+    - R2 (client, docs, citation test): merging R1. It drops the citation test's temporary allowance and updates ARCHITECTURE.md's sim sections.
     - B: done (`35e19634`).
     - The rest are queued in the waves above. E, J2 and O come next, after R1 and R2. Their briefs are ready: `scratchpad/briefs/m4e-agent-built-tunnels.md`, `m4j2-tunnel-hideout-ui.md` and `m4o-combat-spike.md`.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
