@@ -45,7 +45,7 @@ use crate::units::{Tick, TilePos};
 use crate::{combat, conversion, riot_shield};
 
 use reach::Reach;
-pub use reach::{JUDGE_PATHS_PER_TICK, MAX_REJECTED, REJUDGE_MOVE_SU, ReachCounters};
+pub use reach::{JUDGE_PATHS_PER_TICK, MAX_REJECTED, REJUDGE_MOVE_SU, REJUDGE_SELF_SU, ReachCounters};
 use state::{Approach, AttackOrder, Leg, Patrol};
 pub use state::{Auto, Behaviour};
 use world::{Unit, World};
