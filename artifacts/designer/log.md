@@ -2285,3 +2285,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Q0110 (d); Recruit repair noted. Entry 0320.
 2026-11-26 — Repair rules. Entry 0321.
 2026-11-26 — Recruit panel letters, Assist/Repair pointers. Entry 0322 (Q0095, Q0108.2).
+2026-11-26 — Sidestep 90°/body width (infantry, hover, tracked); wheeled graze. Entry 0323.
