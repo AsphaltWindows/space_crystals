@@ -111,19 +111,20 @@ fn the_drone_follows_the_design() {
         (unit.base, unit.beacon_capacity_cost),
         (UnitBase::HoverVehicle, Some(1))
     );
-    // UnitBaseAttributes[HoverVehicle]: TurnRate 45 degrees/frame, ForwardAcceleration 0.6 space units/frame²,
-    // OmniDirectionalAcceleration 0.2 space units/frame², DragRatio 0.1 per frame.
+    // UnitBaseAttributes[HoverVehicle]: TurnRate 45 degrees/frame, and since design change 0205
+    // ForwardAcceleration 0.9 space units/frame², OmniDirectionalAcceleration 0.3 space units/frame², DragRatio 0.15
+    // per frame (were 0.6 / 0.2 / 0.1).
     assert_eq!(
         unit.movement,
         MovementAttrs::Drag {
-            forward_acceleration: 0.6,
-            omni_directional_acceleration: 0.2,
-            drag_ratio: 0.1,
+            forward_acceleration: 0.9,
+            omni_directional_acceleration: 0.3,
+            drag_ratio: 0.15,
             turn_rate: PI / 4.0,
         }
     );
     assert_eq!(unit.movement.model(), MovementModel::Drag);
-    // "MaxSpeed equilibrium = (0.6 + 0.2) / 0.1 = 8 space units/frame": exactly, in f32 too.
+    // "MaxSpeed equilibrium = (0.9 + 0.3) / 0.15 = 8 space units/frame": exactly, in f32 too.
     assert_eq!(unit.movement.max_speed(), 8.0);
     assert_eq!(unit.movement.turn_rate(), Some(PI / 4.0));
     // TurretAttributes - None, AttackAttributes - None (unarmed)

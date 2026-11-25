@@ -23,7 +23,9 @@ use crate::sides::SideLetter;
 
 /// `factions/colonists/units.md > Drone`: the worker, unarmed. It moves by DragMovement (`movement::drag`, slice
 /// M3-G, plan decision T25): it thrusts up to the equilibrium of 8 space units/frame (`MovementAttrs::max_speed`),
-/// 4 on Rugged terrain, and brakes with its omni-directional thrust.
+/// 4 on Rugged terrain, and brakes with its omni-directional thrust. Design change 0205 raised its thrust and drag
+/// ×1.5 (from 0.6 / 0.2 / 0.1), the same top speed reached sooner: about 65% of it after 7 frames, close to all of
+/// it after 20 (slice M3-K3).
 pub(super) static DRONE: ObjectDef = ObjectDef {
     kind: ObjectKind::Drone,
     name: "Drone",
@@ -43,11 +45,11 @@ pub(super) static DRONE: ObjectDef = ObjectDef {
     needs_flat_ground: false,
     unit: Some(UnitDef {
         base: UnitBase::HoverVehicle, // UnitBase - HoverVehicle
-        // UnitBaseAttributes[HoverVehicle]
+        // UnitBaseAttributes[HoverVehicle], the three DragMovement numbers since design change 0205
         movement: MovementAttrs::Drag {
-            forward_acceleration: 0.6,          // ForwardAcceleration: 0.6 space units/frame squared
-            omni_directional_acceleration: 0.2, // OmniDirectionalAcceleration: 0.2 space units/frame squared
-            drag_ratio: 0.1,                    // DragRatio: 0.1 per frame
+            forward_acceleration: 0.9,          // ForwardAcceleration: 0.9 space units/frame squared (0205)
+            omni_directional_acceleration: 0.3, // OmniDirectionalAcceleration: 0.3 space units/frame squared (0205)
+            drag_ratio: 0.15,                   // DragRatio: 0.15 per frame (0205)
             turn_rate: PI / 4.0,                // TurnRate: 45 degrees/frame
         },
         rugged_terrain_defense_bonus: None, // only LightInfantry has it

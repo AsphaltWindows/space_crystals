@@ -8,12 +8,17 @@
 //! The Drones stand beside the node and are dealt out over the patches as `tests/gathering_soak.rs` deals them (it
 //! measured the curve first, slices M3-H to M3-H3), and the income is what they deliver from 50 seconds on, once the
 //! field has settled. **Measured** over the soak's 4 minutes 10 seconds (the ignored `saturation_curve`, in release),
-//! per second: 6.34 with 4 Drones (+3.9% on the 6.1), 11.65 with 8, 17.22 with 12, 23.10 with 16 (+0.4% on the 23),
-//! 24.45 with 20, 26.24 with 24 (**−18.0%** on the 32), 26.91 with 25, 30.72 with 26, and 32.00 from 27 on: the row
-//! is mined without a break, 8 patches at 4 per second, with 27 Drones, not about 24 (nor 18 to 22). With 24 the end
-//! patches, whose trips are the longest (104 ticks, against 81 at the middle), aren't kept busy, and the Drones sent
-//! on from an occupied patch lose time (`tests/gathering_soak.rs`, module docs). Target 4 holds at full saturation
-//! (32 against the GDO's 26.67) and fails at 24 Drones (`colonists.rs`).
+//! with the Drone's numbers of design change 0205 (slice M3-K3), per second: 6.91 with 4 Drones (+13.3% on the 6.1),
+//! 12.67 with 8, 18.75 with 12, 25.34 with 16 (+10.2% on the 23), 25.34 with 18, 25.95 with 20, 26.78 with 22, and
+//! 32.00 from 24 on (+0.0% on the 32): the row is mined without a break, 8 patches at 4 per second, with the
+//! design's ~24 Drones (not 18 to 22). From 16 to 22 Drones the income hardly grows: the patches the Drones are dealt
+//! to next are the end ones, whose trips are the longest (95 ticks, against 73 at the middle), and the Drones sent on
+//! from an occupied patch lose time (`tests/gathering_soak.rs`, module docs). Sent with one command, 24 Drones give
+//! 29.60 and 25 on 32.00. Target 4 holds at 24 Drones and at full saturation (32 against the GDO's 26.67).
+//!
+//! **Before design change 0205** (slice M3-K1, Q0055): 6.34 with 4 Drones, 11.65 with 8, 17.22 with 12, 23.10 with
+//! 16, 24.45 with 20, 26.24 with 24 (**−18.0%** on the 32), 26.91 with 25, 30.72 with 26, and 32.00 from 27 on: the
+//! end patches' trips of 104 ticks were longer than three Drones' mining covered, and target 4 failed at 24 Drones.
 
 use sc_sim::testing::TestSim;
 use sc_sim::testing::colonists::{FIELD_PATCHES, FIELD_PLAYER, field_drones, reference_field};
@@ -65,13 +70,14 @@ fn income(drones: u32, spread: bool, measured: Tick) -> f64 {
     f64::from(delivered) * f64::from(TICKS_PER_SECOND) / f64::from(measured)
 }
 
-/// The design's estimates by Drones (module docs), with whether the measured figure is within ±15% of it (the 24
-/// Drones' isn't: the question draft of slice M3-K1, pinned until the Designer answers).
-const ESTIMATES: [(u32, f64, bool); 3] = [(4, 6.1, true), (16, 23.0, true), (24, 32.0, false)];
+/// The design's estimates by Drones (module docs), with whether the measured figure is within ±15% of it, pinned:
+/// all three since design change 0205 (on 100 seconds 6.88, 25.20 and 32.00); before it the 24 Drones' wasn't
+/// (Q0055).
+const ESTIMATES: [(u32, f64, bool); 3] = [(4, 6.1, true), (16, 23.0, true), (24, 32.0, true)];
 
-/// The design's three estimates on 100 seconds of the dealt-out field (module docs): within ±15% for 4 and 16
-/// Drones, outside it for 24, as measured; and full saturation with 28: every patch mined without a break, 32 per
-/// second, above the GDO's fully plated 26.67 (target 4).
+/// The design's three estimates on 100 seconds of the dealt-out field (module docs): within ±15% for 4, 16 and 24
+/// Drones, as measured; and full saturation with 28: every patch mined without a break, 32 per second, above the
+/// GDO's fully plated 26.67 (target 4).
 #[test]
 fn the_saturation_curve_against_the_design() {
     for (drones, design, within) in ESTIMATES {

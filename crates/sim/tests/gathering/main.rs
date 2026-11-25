@@ -38,8 +38,9 @@ const PATCH: ObjectKind = ObjectKind::CrystalPatch;
 const LOAD: u32 = 8;
 const MINING: Tick = 32;
 const DROP_OFF: Tick = 2;
-/// One trip of the reference geometry with DragMovement (`economy/gathering.rs`, module docs).
-const TRIP: Tick = 81;
+/// One trip of the reference geometry with DragMovement (`economy/gathering.rs`, module docs), with the Drone's
+/// numbers of design change 0205: 81 before them.
+const TRIP: Tick = 73;
 
 fn flat(w: usize, h: usize) -> ScenarioBuilder {
     ScenarioBuilder::new(&vec![".".repeat(w); h].join("\n"))
