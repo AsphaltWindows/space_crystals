@@ -81,7 +81,7 @@ Target commands (StateOnlyTransition):
 
 ### Optics Lab
 
-Syndicate tech building enabling the Syndicate's laser weaponry. It is the prerequisite for the **Guard** (laser rifle), the **Laser Turret** (2026-11-24) and the **Laser Battery** (2026-11-25). Whether it also hosts laser research is TBD.
+Syndicate tech building enabling the Syndicate's laser weaponry. It is the prerequisite for the **Guard** (laser rifle), the **Laser Turret** (2026-11-24), the **Laser Battery** and the **Phantom** (2026-11-25). Whether it also hosts laser research is TBD.
 
 #### Entity Type - Structure Type (Underground)
 #### Tier Requirement - 1
@@ -166,6 +166,8 @@ Syndicate production building that assembles Syndicate aviation and orbital forc
 #### Entity Type - Structure Type (Underground)
 #### Tier Requirement - 3
 #### TechPrerequisite - player owns at least one Forge (anywhere in the Tunnel Network)
+
+Produces (2026-11-25): **Phantom** (requires an Optics Lab) (factions/syndicate/units.md).
 
 (Full stats TBD)
 

@@ -2189,3 +2189,4 @@ Transport passengers locked in inside network. Entry 0222.
 Core principle (predictable not optimal) recorded; Q0057 A/B/A. Entry 0223.
 Tunnel sides/hatches/tier look/air doors. Entry 0224.
 Tunnel paths one unit at a time. Entry 0225.
+Syndicate: Phantom added. Entry 0226.
