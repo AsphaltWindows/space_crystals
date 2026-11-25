@@ -1221,10 +1221,14 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
       - a revealed shooter is drawn over unexplored ground.
 
 ## In progress
+- **Running:**
+  - **M4-W The four-Agent hatch jam** (**Fable**; brief `scratchpad/briefs/m4w-hatch-jam.md`): four Agents at one crystal hatch gridlock for good (M4-M's soak, at 6:54). Reproduce, diagnose and fix it within the existing rules. If it needs a new behaviour rule, report the options for a design question instead. The soak then runs four crystal Agents again.
+  - **M4-Z The QA strays** (Opus; brief `scratchpad/briefs/m4z-qa-strays.md`): the Q0060 mark, Q0091's marks, `eject_builders` on turret sites, and the test books' turret and expansion refunds. No behaviour change.
+  - **M5-A The Cults foundation** (Opus; brief `scratchpad/briefs/m5a-cults-foundation.md`; common rules `scratchpad/briefs/m5-common.md`): the six designed kinds, their client kinds and the lineage field. The Gunner is TailDisjointed as data (0304); O3 builds the attack.
 - **Next**:
-  - **M4 is complete** (M4-M, `4e3fdd4a`). Two follow-ups remain: **M4-W**, the four-Agent hatch jam (Fable), and **M4-Z**, the QA strays.
-  - **M5 wave 1:** A (Cults foundation) and R (playtest pairings), by `artifacts/director/m5-plan.md`.
-  - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
+  - **M4 is complete** (M4-M, `4e3fdd4a`), apart from the follow-ups W and Z.
+  - **M5 wave 1:** A is running. R (playtest pairings) launches when Z lands, keeping to three builds at most.
+  - **Playtest:** the user plays once all four factions are built, in hot-seat from the command line (2026-11-25). The kit is `docs/playtest/` (m2–m4 and M5's README). This replaces separate M1–M4 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
 The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, the defaults from the doc apply.
