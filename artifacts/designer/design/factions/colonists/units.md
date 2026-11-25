@@ -284,8 +284,10 @@ The unit remains fully attackable throughout the 4-frame conversion — no invul
 ### Eligibility
 The Convert command follows the same interruption rules as any other command relative to an in-progress attack sequence (see systems/combat.md > AttackPhase): it may be issued freely while the unit is idle, moving, or in the Aiming or Reloading phases (both Interruptible = true), interrupting that phase immediately. It cannot interrupt the Firing or Cooldown phases (both Interruptible = false). **Pressed during those phases, it is deferred, not rejected** (user, 2026-11-24): the unit finishes Firing and Cooldown, then converts immediately (instead of starting its Reloading phase). So one press of R converts a whole group in a fight, the mid-swing units a few frames later than the rest. (Rejected: leaving them out, since pressing R again would flip the already-converted units back.)
 
+**Pressing R again while a conversion is still deferred** (user, 2026-11-25; Q0049) **cancels the waiting conversion**: that unit keeps its current weapon, as if R had never been pressed for it. A deferred conversion has not been "initiated" in the sense of Completion below. In a group, the second press acts on each unit separately: units already converted switch back, units mid-conversion are left out (Completion), and waiting units cancel. A quick double-tap can therefore leave a group split between the two weapons; that is accepted.
+
 ### Completion
-Once initiated, the conversion runs to completion over its 4 frames and cannot be cancelled.
+Once initiated, the conversion runs to completion over its 4 frames and cannot be cancelled. "Initiated" means the 4-frame conversion has actually started; a deferred one can still be cancelled (Eligibility above).
 
 ### Orders are kept
 (user, 2026-11-24) Convert is a **mode switch, not an order**: it doesn't replace the unit's orders. The unit holds still for the 4 frames, then **carries on** with its current orders using the other weapon (e.g. an attack-move continues as Rifles). Same principle as the Peacekeeper's Riot Shield (factions/gdo/units.md > Peacekeeper > Riot Shield > Orders are kept).

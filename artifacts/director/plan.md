@@ -810,7 +810,7 @@ First playable after M2-H2.
 | Q0046 | A Drone's drop-off destroyed while it is on its way back | no | answered by 0170 (as built) |
 | Q0047 | Waiting for capacity: several waiting buildings, no power, zero-cost units | no | answered by 0175 (as built) and 0176 (point 3 in M3-V) |
 | Q0048 | Pressing other commands while targeting (0066 vs 0162); a portal group only partly warping in | no | answered: point 1 by 0184 (as built), point 2 by 0185 (M3-U) |
-| Q0049 | Convert pressed again while a conversion waits for Cooldown (0153) | no | open; M3-R leaves waiting units out |
+| Q0049 | Convert pressed again while a conversion waits for Cooldown (0153) | no | answered by 0197 (B: cancels; M3-K2) |
 | Q0050 | The ActiveGroup when an unfinished group's last building completes | no | open; M3-U makes the joined finished group active |
 | Q0051 | A target that outruns sight is lost at once, despite the fog delay | no | open; M3-L1 lingers tiles only |
 | Q0052 | Gathering UI: a Drone's right-click on enemies, the Set Drop-off pointer, who sees a Drone's load, Gather indicators | no | open; M3-J2 built the stated current behaviour |
@@ -819,7 +819,7 @@ First playable after M2-H2.
 | Q0055 | The Colonists' measured economy misses the table: 1:00, 3:00 and 4:00 outside ±15%; targets 1 and 4 fail (full saturation needs 27 Drones) | no | open; M3-K1 pins the measured figures; no game number changed (0108) |
 
 ## Design change entries
-Last triaged: 0196.
+Last triaged: 0197.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -1006,4 +1006,5 @@ Last triaged: 0196.
 | 0187 Syndicate Grenadier: slow, dodgeable AoE grenade, ground only, Attack Ground; Hideout E, needs a Chemical Plant | queued (M4; concept only, numbers TBD) | user addition |
 | 0188 Syndicate Assault Bike: fastest wheeled vehicle, wide turns, mortar on a narrow-angle turret | queued (M4; concept only, numbers TBD) | user addition |
 | 0189–0196 Syndicate Shadebringer: support vehicle with Sludge (slows everyone except hover and air, Drill Units only on the surface (0196), laid behind it) and Cover (smoke that blocks line of sight and blinds units inside); separate tanks refilled in the Tunnel Network with a Vault | queued (M4; concept only, numbers and several rules TBD; line-of-sight blocking is new to the vision model) | user additions |
+| 0197 Convert pressed again while a conversion is deferred cancels it; in a group, per unit (converted switch back, mid-conversion left out, waiting cancel) | in progress (M3-K2, folded in) | answers Q0049; changes M3-R's behaviour |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
