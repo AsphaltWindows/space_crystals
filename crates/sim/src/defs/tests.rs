@@ -266,6 +266,32 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
             requires_are_consistent(def, recipe.kind, recipe.requires);
         }
     }
+    // (M5-F1) A building that holds units (plan decision T60, `crate::holding`): an entrance side and an exit side its
+    // SymmetryType letters once each, apart; a pool that holds some; units of its own faction, each listed once. One
+    // that also produces releases through the same doorway, on its exit side (`factions/cults/structures/armory.md >
+    // ExitSide - opposite short side (C)`: "Trained units and ejected Recruits exit through the exit side, one at a
+    // time through the exit doorway").
+    if let Some(holds) = &structure.holds {
+        let letters = structure.symmetry.letters();
+        let count = |letter| letters.iter().filter(|&&l| l == letter).count();
+        for letter in [holds.entrance, holds.exit] {
+            assert_eq!(count(letter), 1, "{name}: side {letter:?} of its holds");
+        }
+        assert_ne!(holds.entrance, holds.exit, "{name}: in and out at one side");
+        assert!(holds.capacity > 0, "{name}: holds none");
+        assert!(!holds.accepts.is_empty(), "{name}: takes no unit in");
+        for (i, &kind) in holds.accepts.iter().enumerate() {
+            let unit = kind.def();
+            assert!(
+                unit.unit.is_some() && unit.faction == def.faction,
+                "{name} takes {kind:?}"
+            );
+            assert!(!holds.accepts[..i].contains(&kind), "{name} lists {kind:?} twice");
+        }
+        if let Some(production) = &structure.production {
+            assert_eq!(production.exits, ExitRule::Side(holds.exit), "{name}: one exit doorway");
+        }
+    }
 }
 
 /// `defs_are_consistent` for the attack of a unit type or of a structure type named `name` (`StructureDef::attack`,

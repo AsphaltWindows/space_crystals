@@ -64,6 +64,7 @@ pub(crate) static BEACON: ObjectDef = ObjectDef {
         requires: &[],
         attack: None,
         popup: None,
+        holds: None,
     }),
     default_settings: None,
 };

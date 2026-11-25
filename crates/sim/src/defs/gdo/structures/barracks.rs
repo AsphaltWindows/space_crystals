@@ -52,6 +52,7 @@ pub(crate) static BARRACKS: ObjectDef = ObjectDef {
         requires: &[],
         attack: None,
         popup: None,
+        holds: None,
     }),
     default_settings: None,
 };
