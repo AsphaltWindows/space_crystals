@@ -330,3 +330,20 @@ Brings it back to its above-ground mode. **It can't surface on top of a building
 
 TBD: capacity (and whether it counts each infantry unit's TunnelSpaceCost); burrow/surface time; load/unload commands and the panel; all numbers.
 
+## Phantom
+(user, 2026-11-25) Syndicate **hovering aircraft**. It **rises vertically out of a Tier 3 Tunnel's air door** (factions/syndicate/tunnels.md > Tunnel > Look by tier). Fires a **red laser** that hits **both air and ground**. **Relatively manoeuvrable.**
+
+### Entity Type - Unit
+### Faction - TheSyndicate
+### UnitBase - HoverCraft (enters and exits only through Tier 3 Tunnels' air doors)
+### Produced at - Aerospace Assembly
+### TechPrerequisite - player owns at least one **Optics Lab** (user, 2026-11-25)
+### Groupable - true (assumed)
+
+### AttackAttributes:
+- AttackType: FullyConnected (laser, assumed like other Syndicate lasers: instant, cannot miss)
+- TargetDomain: Universal (ground and air)
+- TargetType: SingleTarget (assumed)
+
+TBD: role details (general-purpose air fighter, or more specialised); turret; all numbers (HP, armor, sight, speed and handling, TunnelSpaceCost, damage, range, timings, cost, build time); hotkeys.
+
