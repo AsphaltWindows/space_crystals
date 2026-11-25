@@ -16,8 +16,9 @@ The Disciple has its own energy pool, which it spends on its spells. It regenera
 ### Cloud spell (name TBD)
 (user, 2026-11-26) A **channeling** spell: while the Disciple channels it, its energy **drains gradually**, and it creates a **cloud**.
 - **Damage spreading**: every attack against a unit standing **under the cloud** has its damage **converted to area (AoE) damage**, spread across the **whole area of all clouds contiguously connected** to the cloud the attacked unit stands under. Each object under that combined cloud takes its share under the normal AoE rules (systems/combat.md > AoEDamage: share = damage × its overlap area / the area).
+- **The cloud is centered on the Disciple** (user, 2026-11-26). The Disciple **can't move while channeling**.
 - Contiguous clouds merge for this purpose: one big connected cloud spreads each hit over its whole area.
 
-TBD: where the cloud is (on the Disciple or a target area) and its size; what ends or interrupts the channel; whose units and which attacks are affected (any owner? already-AoE attacks? air units? structures?); drain rate; name; hotkey.
+TBD: cloud size; what ends or interrupts the channel; whose units and which attacks are affected (any owner? already-AoE attacks? air units? structures?); drain rate; name; hotkey.
 
 , armor, SightRange, Groupable, movement attributes, AttackAttributes (if any), spells/abilities, and ObjectInterfaceState: TBD. Whether the Disciple counts as an "unarmed" unit for Augmentation increments is TBD.
