@@ -41,7 +41,7 @@ A unit cannot receive an Augmentation it already has. There is no way to re-augm
 - ImprovedMetabolism: None | NoResearch | Level1 | Level2
 
 ### Eligibility
-All four Cults infantry types: Recruit, Militant, Gunner, and Acolyte. Only Cults infantry can be augmented.
+All four Cults infantry types: Recruit, Militant, Gunner, and Disciple. Only Cults infantry can be augmented.
 
 ### Persistence
 - **Training** (Armory or Cathedral): a trained unit inherits its Recruit's AugmentationState unchanged. Augmentation and training can happen in either order with the same result.
@@ -71,7 +71,7 @@ Space Crystals cost and construction time are listed under the Recruit's Constru
 ### InternalUnitCapacity - TBD
 
 ### Entry
-Any Cults infantry (Recruit, Militant, Gunner, Acolyte) can enter the Altar to join its StoredUnits pool, up to InternalUnitCapacity. Right-clicking an own Altar with Cults infantry selected issues Enter Altar.
+Any Cults infantry (Recruit, Militant, Gunner, Disciple) can enter the Altar to join its StoredUnits pool, up to InternalUnitCapacity. Right-clicking an own Altar with Cults infantry selected issues Enter Altar.
 
 Fully augmented units (both Augmentations already applied) can also enter, but there is nothing to apply to them — they can only leave, via Eject All.
 
@@ -107,7 +107,7 @@ Unit type tiles (StateOnlyTransition to AugmentMenu[UnitType]) — each tile sho
 - **Q: Recruit**
 - **W: Militant**
 - **E: Gunner**
-- **R: Acolyte**
+- **R: Disciple**
 
 Immediate commands (CommandIssuingTransition):
 - **A: Eject All**: ejects all StoredUnits. Only available if StoredUnits is not empty.

@@ -2,7 +2,7 @@
 
 ## Files
 
-- `acolyte.md` — **Acolyte**: Spell caster (Cathedral)
+- `disciple.md` — **Disciple**: Spell caster (Cathedral)
 - `militant.md` — **Militant**: Basic combat infantry
 - `gunner.md` — **Gunner**: Heavier-hitting infantry
 - `recruit.md` — **Recruit**: Worker: gathering, building, Armory entry

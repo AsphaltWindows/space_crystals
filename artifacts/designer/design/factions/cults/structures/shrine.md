@@ -23,7 +23,7 @@ The effect is a **buff applied to units at the moment of casting**: qualifying u
 | Ability | Affects | Effect | Energy cost | Area | Duration |
 |---|---|---|---|---|---|
 | Health regeneration (name TBD) | Own Cults infantry | Grants health regeneration (rate TBD) for the duration — Cults infantry have no natural regeneration | TBD | TBD | TBD |
-| Energy regeneration (name TBD) | Own Acolytes | Increases Acolyte energy regeneration (amount TBD) for the duration | TBD | TBD | TBD |
+| Energy regeneration (name TBD) | Own Disciples | Increases Disciple energy regeneration (amount TBD) for the duration | TBD | TBD | TBD |
 
 Cooldowns (if any): TBD.
 
