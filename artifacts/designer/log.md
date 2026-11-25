@@ -2229,3 +2229,4 @@ Q0071 confirmations. Entry 0263.
 Building armor rule n / n*size; placeholders corrected. Entry 0264.
 Q0071 gap: passengers count against Tunnel Space. Entry 0265.
 Q0071 gaps: transport passes underground structures; surfacing rules. Entry 0266.
+Q0071 done: turret uses slot; detection after faction units. Entry 0267.
