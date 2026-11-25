@@ -11,7 +11,7 @@ The two Augmentations are **Enhanced Constitution** and **Improved Metabolism** 
 Augmentation effects are expressed in two kinds of increments:
 
 - **Constitution increment**: +10 MaxHP; +1 melee Damage (unarmed units only)
-- **Metabolism increment**: +TBD movement speed (MaxSpeed); +TBD attack speed (unarmed units only). How an attack-speed increment maps onto AttackPhase durations (Aim/Firing/Cooldown/Reload) is TBD.
+- **Metabolism increment**: **+0.5 space units/frame MaxSpeed** (placeholder); for unarmed units also **−1 frame of FiringDuration** per increment (placeholder; FiringDuration never below 2 frames; a negative increment adds 1 frame).
 
 Increments can be negative. A negative increment applies the opposite effect (e.g. −1 Constitution increment = −10 MaxHP, and −1 melee Damage for unarmed units).
 
@@ -56,19 +56,19 @@ Tier 1 of the Mystical/Human Enhancement branch. The place where Cults infantry 
 ### Constructed by - Recruit
 ### TechPrerequisite - player owns at least one Storage
 
-### Size - TBD
-### SymmetryType - TBD
-### MaxHP - TBD
-### PointArmor - TBD
-### FullArmor - TBD
-### SightRange - TBD
+### Size - 2x3 (placeholder)
+### SymmetryType - ABAC (placeholder)
+### MaxHP - 300 (placeholder)
+### PointArmor - 1 (placeholder)
+### FullArmor - 6 (placeholder)
+### SightRange - 4 grid units (placeholder)
 ### Destructible - true
-### Groupable - TBD
+### Groupable - true (placeholder)
 
 Space Crystals cost and construction time are listed under the Recruit's Constructs list, not here (see Recruit > Building).
 
-### EntranceSide / ExitSide - TBD
-### InternalUnitCapacity - TBD
+### EntranceSide / ExitSide - B / C (placeholder, like the Armory)
+### InternalUnitCapacity - 10 (placeholder)
 
 ### Entry
 Any Cults infantry (Recruit, Militant, Gunner, Disciple) can enter the Altar to join its StoredUnits pool, up to InternalUnitCapacity. Right-clicking an own Altar with Cults infantry selected issues Enter Altar.
@@ -80,11 +80,11 @@ Order types: **Enhanced Constitution**, **Improved Metabolism**, or **Both** (a 
 
 Orders are queueable and serial — processed one at a time, in the order queued. Queuing an order immediately deducts its Space Crystals cost and reserves one unit of the selected type and AugmentationState from StoredUnits (removing it from the pool while it waits). Only the front of the queue actively progresses. When an order finishes, the unit's AugmentationState is updated using the research level in effect at that moment (see Augmentation > Level Locking), and the unit **automatically exits** from the exit side and moves to the RallyPoint.
 
-Cost and time per order type: TBD (including whether a Both order costs the sum of the two).
+Cost and time per order type (placeholder, designer 2026-11-26): **Enhanced Constitution** and **Improved Metabolism**: 25 Space Crystals, 160 frames (10 s) each; **Both**: the sum, 50 Space Crystals, 320 frames.
 
 ### AltarInstanceState:
 - StoredUnits: list of Cults infantry references (max InternalUnitCapacity)
-- AugmentationQueue: array of {Order: EnhancedConstitution | ImprovedMetabolism | Both, ReservedUnit: unit reference} (max TBD)
+- AugmentationQueue: array of {Order: EnhancedConstitution | ImprovedMetabolism | Both, ReservedUnit: unit reference} (max 20, placeholder)
 - CurrentAugmentationProgress: number (frames elapsed for the front entry of AugmentationQueue) | None
 - RallyPoint: Coordinates | ObjectInstance | None
 

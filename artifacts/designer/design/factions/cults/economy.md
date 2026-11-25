@@ -138,7 +138,7 @@ Rationale — size: Recruit income falls off steeply with distance (see Recruit 
 ### SymmetryType - AAAA
 ### MaxHP - 250
 ### PointArmor - 1
-### FullArmor - 6
+### FullArmor - 4 (building armor rule; was 6, a leftover from the old 3x2 size; Q0094)
 ### SightRange - 3 grid units
 ### Destructible - true
 ### Groupable - true
