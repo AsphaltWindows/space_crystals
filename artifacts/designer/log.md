@@ -2278,3 +2278,6 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Cults buggy concept. Entry 0313.
 2026-11-26 — Jackal; Chop Shop like Armory. Entry 0314. Q0109 (blocking) arrived.
 2026-11-26 — Q0109 step 1: Agents wait only within reach. Entry 0315.
+2026-11-26 — Cults light glider concept. Entry 0316.
+2026-11-26 — Light glider details. Entry 0317.
+2026-11-26 — Sparrow. Entry 0318.
