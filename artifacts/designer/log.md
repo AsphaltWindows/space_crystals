@@ -2243,3 +2243,4 @@ Relay (renamed from Refract) specified. Entry 0277.
 Relay additive; chain break ends relay. Entry 0278.
 Relay: all selected must reach; armed satellite takes Attack. Entry 0279.
 Satellite thrust no recharge; armed satellite uses player vision. Entry 0280.
+Satellite named Prism; shootable during launch. Entry 0281.

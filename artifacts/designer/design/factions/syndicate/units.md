@@ -331,7 +331,7 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
 
 ### Deploy (ability)
 - **Deployed**: **cannot move**. The turret gets **360° rotation**. It can **only target air units** (no ground targets while deployed).
-- **Relay** (ability, deployed only; user, 2026-11-25; renamed from "Refract"): the deployed Laser Battery reflects its beam through the player's **Satellites** to hit far-off **ground or air** targets. See **Relay** below.
+- **Relay** (ability, deployed only; user, 2026-11-25; renamed from "Refract"): the deployed Laser Battery reflects its beam through the player's **Prisms** to hit far-off **ground or air** targets. See **Relay** below.
 - **Switching modes works like the GDO Artillery Rig** (user, 2026-11-25; factions/gdo/units.md > Artillery Rig > Modes): deploying and undeploying take time, during which it can **neither move nor attack**.
 - **Two unit types**: **Laser Battery** and **Laser Battery (Deployed)**, with separate SelectionGroups.
 - **Deploy is an order, not a mode switch** (user, 2026-11-25; unlike Convert and the Riot Shield, which follow the toggle rule):
@@ -346,43 +346,43 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
 - TBD: deploy/undeploy time.
 
 ### Relay (ability, deployed only)
-(user, 2026-11-25) Only a **deployed** Laser Battery can relay; no other laser uses Satellites.
+(user, 2026-11-25) Only a **deployed** Laser Battery can relay; no other laser uses Prisms.
 
 **Giving the order**
-1. With deployed Laser Batteries selected, choose **Relay**. This **highlights every Satellite they can relay to**: each Satellite **in range of the Batteries themselves**, plus every Satellite connected to one of those by a **contiguous chain** of Satellites.
-2. Click one of the highlighted Satellites: the **target Satellite**.
+1. With deployed Laser Batteries selected, choose **Relay**. This **highlights every Prism they can relay to**: each Prism **in range of the Batteries themselves**, plus every Prism connected to one of those by a **contiguous chain** of Prisms.
+2. Click one of the highlighted Prisms: the **target Prism**.
 
 **The relay**
-- Each selected Battery **locks onto its nearest Satellite** with its normal thin beam.
-- The beams are **reflected as one beam** along the chain of Satellites to the target Satellite.
-- The target Satellite becomes **armed**. It **targets enemies in its own range at will**, ground or air, like an attacking unit.
+- Each selected Battery **locks onto its nearest Prism** with its normal thin beam.
+- The beams are **reflected as one beam** along the chain of Prisms to the target Prism.
+- The target Prism becomes **armed**. It **targets enemies in its own range at will**, ground or air, like an attacking unit.
 - **Several Batteries** can feed the same relay.
 
 **Firing**
-- The armed Satellite attacks at roughly the **Batteries' own attack frequency**. Each surge **discharges the Batteries as normal** (Battery).
+- The armed Prism attacks at roughly the **Batteries' own attack frequency**. Each surge **discharges the Batteries as normal** (Battery).
 - **Animation**, at every link:
   - surges do the damage;
-  - between surges, the thin, harmless (0 damage) beam stays visible along the whole path: Battery → Satellite(s) → the armed Satellite → its current target.
+  - between surges, the thin, harmless (0 damage) beam stays visible along the whole path: Battery → Prism(s) → the armed Prism → its current target.
 
 **While relaying**
 - The Batteries are **locked in**: they do nothing else.
 - Their commands are:
   - **Stop Relaying**;
-  - **Relay**, which picks another target Satellite;
-  - **Amplify**: available while relaying **if the target Satellite has an active target**. Every selected Battery spends its **entire battery** on the next surge (Amplify).
+  - **Relay**, which picks another target Prism;
+  - **Amplify**: available while relaying **if the target Prism has an active target**. Every selected Battery spends its **entire battery** on the next surge (Amplify).
 
-**Every selected Battery must reach the chain** (user, 2026-11-25): the selected deployed Batteries act as one group, so **each** of them must have at least one Satellite in its own range. If any doesn't, **no relay targets are highlighted**. Highlighted targets are the Satellites reachable from **every** selected Battery (designer's reading).
+**Every selected Battery must reach the chain** (user, 2026-11-25): the selected deployed Batteries act as one group, so **each** of them must have at least one Prism in its own range. If any doesn't, **no relay targets are highlighted**. Highlighted targets are the Prisms reachable from **every** selected Battery (designer's reading).
 
-**Sight** (user, 2026-11-25): the armed Satellite can attack **anything the player sees** within its range (any own vision, not only its own).
+**Sight** (user, 2026-11-25): the armed Prism can attack **anything the player sees** within its range (any own vision, not only its own).
 
-**Directing the armed Satellite** (user, 2026-11-25): besides auto-targeting, the player can **select the armed Satellite and give it a specific target** (Attack).
+**Directing the armed Prism** (user, 2026-11-25): besides auto-targeting, the player can **select the armed Prism and give it a specific target** (Attack).
 
-**Several Batteries add up** (user, 2026-11-25): each surge of the armed Satellite deals the **sum** of each relaying Battery's own surge damage (each computed from its own charge by the ^(2/3) rule). Four Batteries deal four times one Battery's damage.
+**Several Batteries add up** (user, 2026-11-25): each surge of the armed Prism deals the **sum** of each relaying Battery's own surge damage (each computed from its own charge by the ^(2/3) rule). Four Batteries deal four times one Battery's damage.
 
-**Chain breaks** (user, 2026-11-25): if the chain breaks (a Satellite on it is destroyed or a link goes out of range), the Batteries **stop relaying automatically** and go back to ordinary deployed behavior.
+**Chain breaks** (user, 2026-11-25): if the chain breaks (a Prism on it is destroyed or a link goes out of range), the Batteries **stop relaying automatically** and go back to ordinary deployed behavior.
 
 TBD:
-- link range between Satellites, and Battery-to-Satellite range;
+- link range between Prisms, and Battery-to-Prism range;
 
 All numbers (HP, armor, sight, speed, TunnelSpaceCost, battery, damage, range, timings, cost, build time): TBD.
 
@@ -472,8 +472,8 @@ TBD: all numbers (HP, armor, sight, speed and handling, TunnelSpaceCost, damage,
 
 TBD: re-arming time and the Vault's throughput limit; the lift-off/landing transition; all numbers.
 
-## Satellite (name TBD)
-(user, 2026-11-25) An unmanned Syndicate orbital unit whose function, **for now, is only laser relay**: deployed Laser Batteries reflect their beams through it (one or more Batteries; Satellites can be chained), and the target Satellite of a relay becomes **armed**, attacking ground or air enemies in its range (Laser Battery > Relay).
+## Prism
+(user, 2026-11-25; named by the user) The Syndicate's **satellite**: an unmanned orbital unit whose function, **for now, is only laser relay**: deployed Laser Batteries reflect their beams through it (one or more Batteries; Prisms can be chained), and the target Prism of a relay becomes **armed**, attacking ground or air enemies in its range (Laser Battery > Relay).
 
 ### Entity Type - Unit
 ### Faction - TheSyndicate
@@ -483,7 +483,7 @@ TBD: re-arming time and the Vault's throughput limit; the lift-off/landing trans
 ### Manned - no (no Null Chamber buff)
 
 ### Launch
-It leaves the network through a Tier 3 Tunnel's **air exit**, **launched like a rocket straight up**, and **transforms in the air into its orbital form** (user, 2026-11-25).
+It leaves the network through a Tier 3 Tunnel's **air exit**, **launched like a rocket straight up**, and **transforms in the air into its orbital form** (user, 2026-11-25). It **can be shot down while launching and unfolding** (user, 2026-11-25).
 
 ### One way only
 It is the **only unit that can't get back into the Tunnel Network** (user, 2026-11-25). Nothing recharges it inside, Vault or otherwise.
@@ -496,5 +496,5 @@ It is the **only unit that can't get back into the Tunnel Network** (user, 2026-
 ### Sight
 It sees through Shadebringer smoke (Shadebringer > Cover).
 
-TBD: name; the open relay rules (Laser Battery > Relay); launch and transform timing (and whether it can be hit meanwhile); thrust charge count and distance; all numbers.
+TBD: the open relay rules (Laser Battery > Relay); launch and transform timing; thrust charge count and distance; all numbers.
 
