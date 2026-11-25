@@ -95,13 +95,17 @@ fn approach_point(unit: &Unit, target: &Shape, beside: f32, world: &World) -> Ve
 
 /// The leg to `target`: it begins, unless it is under way. One that ended is the caller's business: at a patch it
 /// counts as arriving (design change 0141).
-pub(super) fn leg(state: &mut Gather, unit: &mut Unit, target: &Shape, world: &World) {
-    leg_beside(state, unit, target, 0.0, world);
-}
-
-/// [`leg`], to a point against a face of `target` or up to `beside` past either end of it ([`approach_point`]).
-fn leg_beside(state: &mut Gather, unit: &mut Unit, target: &Shape, beside: f32, world: &World) {
+///
+/// `beside` is `None` for a worker that stands in front of its target, wholly within a face ([`approach_point`]), and
+/// its reach for one that may stand anywhere against a face from where it is within that reach of the target: at a
+/// hatch (`return_leg`).
+pub(super) fn leg(state: &mut Gather, unit: &mut Unit, target: &Shape, beside: Option<f32>, world: &World) {
     if !state.moving {
+        // Its Silhouette's near edge is then within the reach of the target's: a space unit less, for the rounding.
+        let beside = beside.map_or(0.0, |reach| {
+            let half = unit.kind.def().half_extents().unwrap_or(Vec2::ZERO);
+            (reach + 2.0 * half.max_element() - 1.0).max(0.0)
+        });
         let to = approach_point(unit, target, beside, world);
         unit.mover.go_to(MoveGoal::Point(to), None, world.tick);
         state.moving = true;
@@ -124,11 +128,6 @@ pub(super) fn return_leg(state: &mut Gather, unit: &mut Unit, target: &Shape, ha
         state.retry_at = world.tick.saturating_add(LEG_RETRY_TICKS);
     }
     if world.tick >= state.retry_at {
-        // Its Silhouette's near edge is then within the reach of the square's: a space unit less, for the rounding.
-        let beside = hatch_reach.map_or(0.0, |reach| {
-            let half = unit.kind.def().half_extents().unwrap_or(Vec2::ZERO);
-            (reach + 2.0 * half.max_element() - 1.0).max(0.0)
-        });
-        leg_beside(state, unit, target, beside, world);
+        leg(state, unit, target, hatch_reach, world);
     }
 }

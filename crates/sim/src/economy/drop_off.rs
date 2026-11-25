@@ -34,6 +34,27 @@ pub struct DropPoint {
     pub side: Option<SideLetter>,
 }
 
+/// What a worker delivers: each has a hatch of its own at a Tunnel (`defs::DropOff::Hatches`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Resource {
+    Crystals,
+    Supplies,
+}
+
+/// The hatch square of `resource` at the drop-off `o`, a Tunnel as placed: the tile of the map it takes that resource
+/// at (module docs; `tunnel::hatch_square`). `None` for an object that has no hatches. What the economy check measures
+/// to (design change 0259: "from the patch's edge to the Tunnel's crystal hatch") and what the client draws.
+pub fn hatch_square(o: &Object, resource: Resource) -> Option<TilePos> {
+    let DropOff::Hatches { crystals, supplies } = rule(o.kind)? else {
+        return None;
+    };
+    let side = match resource {
+        Resource::Crystals => crystals,
+        Resource::Supplies => supplies,
+    };
+    hatch_tile(o.kind, o.placement.as_ref()?, side)
+}
+
 /// The drop-off rule of `kind`'s type, if workers deliver to it.
 pub fn rule(kind: ObjectKind) -> Option<DropOff> {
     kind.def().structure.as_ref()?.drop_off

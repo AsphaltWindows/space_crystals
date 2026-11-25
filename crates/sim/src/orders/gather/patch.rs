@@ -32,7 +32,7 @@ pub(super) fn to_patch(
     let in_reach = unit.shape().gap(&target) <= def.crystals.pick_up_reach;
     let ended = state.moving && unit.mover.status != MoveStatus::Moving;
     if !in_reach && !ended {
-        leg(state, unit, &target, world);
+        leg(state, unit, &target, None, world);
         return Flow::Stay;
     }
     let Site::Patch(patch) = site else {

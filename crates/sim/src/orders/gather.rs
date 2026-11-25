@@ -4,6 +4,22 @@
 //! T17; design changes 0123 and 0127 to 0141 answered question Q0037). `systems/controls/commands.md` and
 //! `behaviors.md` define no Gather or Drop Off, so the Drone's own sections are the spec.
 //!
+//! **One job for every worker type** (slice M4-D, plan decision T34; `factions/syndicate/units.md > Agent >
+//! Gathering > Gathering rules`, design change 0255: "The Drone's job rules apply to Agents [...] with two exceptions:
+//! Agents share patches (no occupancy rule), and there is no Set Drop-off command"). The differences are data: the
+//! worker's `WorkerDef` (its loads, `shares_patches`, `keeps_drop_off`, `pass_through`) and its drop-off's rule
+//! (`defs::DropOff`: anywhere at an Egress Node, at the crystal hatch of a Tunnel, `economy::drop_off`). The text
+//! below says "Drone" where the Drone's sections are quoted; it holds for the Agent but for:
+//! - **patches are shared**: an Agent neither occupies a patch nor takes one for occupied (`search::taken`), so it
+//!   mines on arrival, and waits only short of a patch it can't get to (0141);
+//! - **which Tunnel**: "the nearest own operational Tunnel (straight line to its crystal hatch) [...] chosen when
+//!   the Gather's first return starts and kept for that Gather (a new Gather picks again; a lost Tunnel means
+//!   picking the nearest again)": a Gather begins without an AssignedDropOff ([`begin`]) and the return takes the
+//!   nearest (`deliver`);
+//! - **the hatch** (`deliver::at_hatch`, phase **AtHatch**): DropOffReach is measured to the 1-square hatch, which
+//!   takes one Agent at a time; those within reach wait in the order they came, and one that can't get within reach
+//!   tries again every [`LEG_RETRY_TICKS`], for ever ("It waits as long as it takes; it never gives up").
+//!
 //! One behaviour runs both orders: `OrderKind::Gather(patch)` and `OrderKind::DropOff(node)`. Its phases
 //! (`state::GatherPhase`):
 //! - **ToPatch**: a leg to the order's patch. On arrival the worker **claims** the patch if it is free and starts
@@ -98,8 +114,9 @@ use site::note_spot;
 pub const RECHECK_TICKS: Tick = 16;
 
 /// A worker whose leg back to its drop-off ended short of it stands for this many ticks before it tries again
-/// (module docs). A placeholder, unspecified (the design has no rule for a worker that can't get to its drop-off;
-/// a patch it can't get to is design change 0141's): 2 seconds.
+/// (module docs), and it never gives up: design change 0255 settles that for Agents ("Agents waiting at the hatch
+/// wait forever") and, by its implementation note, for Drones. The interval is a placeholder the design doesn't
+/// name: 2 seconds.
 pub const LEG_RETRY_TICKS: Tick = 32;
 
 /// `factions/colonists/units.md > Drone > Gathering Drones pass through each other` (design change 0106): whether
