@@ -83,11 +83,15 @@
 >     - take the Technical follow-up **"Target too close" for a location** (`systems/controls/behaviors.md > Target
 >       inside MinRange`), since the Gunner has MinRange 2. That supersedes §1.2's last-but-one row.
 >   - It comes before G, which makes Gunners trainable.
-> - **Pending with the user** (product decisions, §8):
->   - the playtest's opponent (hot-seat with F2, or an AI, which isn't planned);
->   - whether a start screen is wanted;
->   - the Cults' scope for the playtest. That last one is Q0092, which the Designer takes to the user.
-> - **M5 starts** after M4-M merges and the user agrees.
+> - **The user decided (2026-11-25):**
+>   - the playtest is **hot-seat**: one person plays both sides, switching with F2;
+>   - it starts from the **command line**.
+>
+>   No AI and no start screen in M5. The Cults' scope for the playtest is Q0092, which the Designer takes to the user.
+> - **Since the plan:**
+>   - 0305 renamed the Acolyte the **Disciple**;
+>   - 0306–0308 sketch its cloud spell. They are a concept only, "not for the current playtest": gated N4.
+> - **M5 starts** after M4-M merges.
 
 ---
 
