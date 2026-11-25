@@ -270,7 +270,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 - **Losing Tunnels** (`sim/tunnels.rs`; slice M4-H; `factions/syndicate/tunnels.md > Losing Tunnels`, design changes
   0254 and 0258): what a Tunnel leaves when it leaves the game, on the removal path (*Removal path*): its unfinished
   expansions (`built_by`, the arm of `Builder::Tunnel` comes with slice M4-F) are destroyed with no refund; its
-  completed ones, its owner's underground structures wholly inside its area while it was in operation, become
+  completed ones, its owner's underground structures wholly inside its area (a Tunnel still a site has none), become
   **neutral**: their unit in production lost, the rest of the queue refunded (`SimEvent::ProductionCancelled`, the
   lost one's with 0), the rally cleared; then the units in the owner's network that no remaining Tunnel lets out
   (`network::admits`, the one exit rule: a site is none) are removed (`Sim::remove_held`). A neutral expansion decays:

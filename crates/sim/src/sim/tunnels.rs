@@ -10,9 +10,9 @@
 //!     mid-build**: the unfinished expansion is destroyed, no refund");
 //!   - its **completed expansions** become neutral ([`Sim::neutralise`]): "when a Tunnel is destroyed, every expansion
 //!     in its Tunnel Area becomes neutral — no longer owned by the Syndicate player". They are its owner's underground
-//!     structures, sites aside, that lie wholly inside its area at its current tier ([`area::of`], [`area::encloses`])
-//!     while it was in operation: those whose parent it was (`tunnel::area::parent`; an owner's Tunnel Areas never
-//!     overlap, and a site has none). "**In-progress work is destroyed**": the unit in production
+//!     structures, sites aside, that lie wholly inside its area at its current tier ([`area::of`], [`area::encloses`]):
+//!     those whose parent it was (`tunnel::area::parent`; an owner's Tunnel Areas never overlap). A Tunnel that was
+//!     still a site has none. "**In-progress work is destroyed**": the unit in production
 //!     (`Production::in_production`, begun or finished inside) is lost. "**Queued work is refunded**": the units not
 //!     yet begun, their full cost to the owner, each with a `SimEvent::ProductionCancelled` (the lost one's with a
 //!     refund of 0). The rally point is cleared, and the decay starts.
@@ -84,8 +84,9 @@ pub(crate) const DECAY_TICKS: u32 = 100 * TICKS_PER_SECOND;
 pub(super) struct LostTunnel {
     id: ObjectId,
     owner: Option<PlayerId>,
-    /// Its Tunnel Area at its current tier, if it was a Tunnel in operation (`network::is_exit`): the area its
-    /// expansions lie in. `None` for a site, which has none.
+    /// Its Tunnel Area at its current tier, the area its expansions lie in; `None` for a site, which has none. (Not
+    /// whether it was an exit: a Tunnel mid-upgrade is one, and one out of operation for any reason would still have
+    /// its expansions.)
     area: Option<TileRect>,
 }
 
@@ -139,7 +140,7 @@ impl Sim {
             .map(|o| LostTunnel {
                 id: o.id,
                 owner: o.owner,
-                area: area::of(o).filter(|_| network::is_exit(o)),
+                area: area::of(o).filter(|_| !o.is_site()),
             })
             .collect()
     }
