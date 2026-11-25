@@ -9,8 +9,8 @@ The Hideout (renamed from Headquarters) is the primary accommodations for Syndic
 ## Cost - 200 Space Crystals
 ## Build Time - 400 frames (25 seconds)
 ## HP - 400
-## PointArmor - 1
-## FullArmor - 4
+## PointArmor - 6 (underground expansion, n = 6; README > Tunnel Expansions > High armor underground)
+## FullArmor - 24
 ## Produces:
 - Agent: 100 Space Crystals, 240 frames (15 seconds)
 - Guard: 125 Space Crystals, 120 frames (7.5 seconds). Unit Prerequisite: player owns at least one Optics Lab (2026-11-24).
