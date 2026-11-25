@@ -632,8 +632,8 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **M3-L3 target lost ends the attack** (Opus; brief `scratchpad/briefs/m3l3-target-lost-stops.md`): 0200 for Attack and Follow.
   - **M3-G2 stuck behind friends** (Fable; brief `scratchpad/briefs/m3g2-stuck-behind-friends.md`): the last Peacekeeper of an attack-move column never gets into range (M3-K2's walkthrough).
 - **Next**:
-  - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
-  - **M2 playtest** with the user, using `docs/playtest/m2.md`.
+  - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
+  - **M4 Syndicate plan:** a planning agent is drafting it (brief `scratchpad/briefs/m4-planning.md`).
   - **The Move-onto-itself bug** is being fixed in M3-R (0168).
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -730,6 +730,12 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 First playable after M2-H2.
 
 ### M3–M5: other factions, basics
+**Order agreed with the user (2026-11-24):**
+1. Finish M3.
+2. M4 Syndicate (plan being drafted; it will become `artifacts/director/m4-plan.md`).
+3. M5 Cults.
+
+The user keeps feeding unit and other designs to the Designer, so expect incremental change entries throughout. The user playtests once all four factions are complete. The art pipeline starts once the gameplay design is mostly final.
 - **M3 Colonists** (**planned**; spec: `artifacts/director/m3-plan.md`, from the M3-P spike). It covers the statted opening: Drone gathering, Beacon Deployment and Warp In (Egress Node, Robo Portal, Bio Portal), portals with exits on several sides, Sabre and Rifle Legionnaires with Weapon Conversion, Shields, Beacon Capacity, Colonists Starting Conditions and layouts, HUD and panels, and an economy oracle against `Economy Targets (GDO vs Colonists)`. Refining, the tech tier and the other units are deferred (Q0043).
   - **Slices:** 12, in 6 waves:
     1. A;
@@ -773,7 +779,8 @@ First playable after M2-H2.
     | K2 | done (`3559b40`) |
     | L3 (0200 target lost ends Attack and Follow; brief `scratchpad/briefs/m3l3-target-lost-stops.md`) | running (wave 7) |
     | G2 (Fable: unit stuck behind friends firing; brief `scratchpad/briefs/m3g2-stuck-behind-friends.md`) | running (wave 7) |
-    | J3 (0201 markers for Gather, Drop Off and Set Drop-off, plus K2's client polish: label under a marker, build tint over unexplored ground, F2 camera per player, Peacekeeper label, "SC" clash) | queued (next free slot) |
+    | K3 (0205 Drone acceleration; re-run the Colonists oracle and saturation curve, report the table for Q0055, re-pin and re-bless) | queued (first free slot) |
+    | J3 (0201 markers for Gather, Drop Off and Set Drop-off; 0206 a revealed attacker's shots drawn from it; K2's client polish: label under a marker, build tint over unexplored ground, F2 camera per player, Peacekeeper label, "SC" clash) | queued (next free slot after K3) |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -853,10 +860,10 @@ First playable after M2-H2.
 | Q0053 | Riot Shield toggle edge cases: orders while lowering, Lower during a waiting raise, the ActiveGroup during a deferred raise | no | answered: points 2–3 by 0198, point 1 by 0202 (M3-T) |
 | Q0054 | AttackMove: a dropped target not chased again on that leg; the MinRange back-off spot; a cornered unit | no | answered by 0204 (as built M3-L2) |
 | Q0055 | The Colonists' measured economy misses the table: 1:00, 3:00 and 4:00 outside ±15%; targets 1 and 4 fail (full saturation needs 27 Drones) | no | open; M3-K1 pins the measured figures; no game number changed (0108) |
-| Q0056 | Should a revealed attacker's shots be drawn from the attacker, or only over Visible tiles (a gap of about 140 px, M3-K2)? | no | open; as built (only over Visible tiles) |
+| Q0056 | Should a revealed attacker's shots be drawn from the attacker, or only over Visible tiles (a gap of about 140 px, M3-K2)? | no | answered by 0206 (B; M3-J3) |
 
 ## Design change entries
-Last triaged: 0204.
+Last triaged: 0206.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -1051,4 +1058,6 @@ Last triaged: 0204.
 | 0202 Orders during the Riot Shield toggle follow the new type from the press; an Attack given while lowering is held until the shield is down | in progress (M3-T, folded in) | answers Q0053 point 1 |
 | 0203 The Rocketman's normal attack has a MinRange (value TBD) | queued (waiting for the value; the MinRange rules are built, M3-L2) | context for Q0054 |
 | 0204 AttackMove's dropped target, the MinRange back-off spot and a cornered unit stay as M3-L2 built them; a locked Rocketman's fire ignores MinRange | done (as built M3-L2); the locked-fire part is queued with Target Lock | answers Q0054 |
+| 0205 The Drone accelerates faster (ForwardAcceleration 0.9, OmniDirectionalAcceleration 0.3, DragRatio 0.15; were 0.6 / 0.2 / 0.1); re-run the Colonists oracle and report the table for Q0055 | queued (M3-K3, next free slot) | a step toward Q0055, which stays open; the table and targets stay unchanged |
+| 0206 While an attacker in the fog is revealed, its own shots are drawn from it to the target; other shots stay clipped to Visible tiles | queued (M3-J3) | answers Q0056; client only |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
