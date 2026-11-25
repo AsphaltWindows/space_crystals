@@ -2201,3 +2201,4 @@ Q0061 rest accepted. Entry 0234.
 Q0073: failed chase = can't reach (A). Entry 0235.
 Q0055/Q0072: measured Colonists economy = design; table/targets/saturation updated. Entry 0236.
 Q0062 pt1: non-overlap across all players (B). Entry 0237.
+Q0062 pt2: off-map cells count (B). Entry 0238.
