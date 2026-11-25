@@ -23,7 +23,8 @@
 //! - [`replay`]: recording the game, and playing a recording back (`--replay`).
 //!
 //! What the client knows of each object kind (its label, its look, its shots' style and its panel template) is in
-//! [`kinds`], one module per kind behind one registry.
+//! [`kinds`], one module per kind behind one registry; its feel tunables (the camera's, the input's, and how long
+//! feedback shows) are in [`tuning`].
 //!
 //! Everything except [`hud`], [`selection`], [`command_ui`] and [`editor`] is independent of the mode
 //! ([`ClientMode`]), apart from the input layer, which applies the bindings of the mode's input context
@@ -49,6 +50,7 @@ pub mod replay;
 pub mod selection;
 pub mod shapes;
 pub mod sim_driver;
+pub mod tuning;
 
 use std::path::PathBuf;
 

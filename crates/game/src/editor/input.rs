@@ -26,9 +26,7 @@ use super::orientation::Turn;
 use super::tools::{EditorTools, Tool};
 use crate::ClientMode;
 use crate::input::{ActionState, EditorInput, InputAction, MapClick, Placing, Pointer};
-
-/// Zoom per wheel line: one line up shows this fraction of the map shown before.
-const ZOOM_PER_LINE: f32 = 0.85;
+use crate::tuning::camera::ZOOM_PER_LINE;
 
 /// The keys' actions: all of them in the editor; in its play-tests only the play-test switch (F5), because Esc is
 /// the game's Cancel there (`systems/controls/selection_and_hud.md > AwaitingTarget`).

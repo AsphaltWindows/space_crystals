@@ -21,14 +21,7 @@ use crate::coords::ground_under;
 use crate::platform::SurfaceSize;
 use crate::sim_driver::SimRes;
 
-/// A press that moves further than this from where it went down (logical pixels) is a drag, which makes
-/// [`InputAction::Select`] a box instead of a click. Placeholder: unspecified, a few pixels like desktop drags.
-pub const DRAG_THRESHOLD_PX: f32 = 4.0;
-/// Two clicks of the same action within this many seconds (from press to press) are a double-click
-/// (`systems/controls/selection_and_hud.md > MapClickSelection`). Placeholder: unspecified.
-pub const DOUBLE_CLICK_SECONDS: f64 = 0.4;
-/// ... and when the second is at most this far from the first (logical pixels). Placeholder: unspecified.
-pub const DOUBLE_CLICK_DISTANCE_PX: f32 = 6.0;
+pub use crate::tuning::input::{DOUBLE_CLICK_DISTANCE_PX, DOUBLE_CLICK_SECONDS, DRAG_THRESHOLD_PX};
 
 /// The primary pointer actions, the game's and the editor's: the pointer follows a press of one on the map until
 /// its release ([`Pointer::press`]).

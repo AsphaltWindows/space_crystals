@@ -14,9 +14,7 @@ use bevy::prelude::Resource;
 
 use super::actions::{CommandSlot, ControlGroup, EditorInput, InputAction, InputContext};
 
-/// Two presses of the same chord within this many seconds are a double tap (`> ControlGroups > Default keys`:
-/// "press the same number twice quickly"). Placeholder: the design gives no time.
-pub const DOUBLE_TAP_SECONDS: f64 = 0.4;
+pub use crate::tuning::input::DOUBLE_TAP_SECONDS;
 
 /// A key or a mouse button.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]

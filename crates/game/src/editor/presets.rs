@@ -15,7 +15,7 @@ use super::tools::Tool;
 /// The most custom presets a map gets in the editor (placeholder: the design sets no limit; the map format's text
 /// symbols allow 87).
 pub const MAX_CUSTOM_PRESETS: usize = 32;
-/// The longest preset name.
+/// The longest preset name. Placeholder (not in the design): the design sets no limit.
 pub const MAX_PRESET_NAME_CHARS: usize = 24;
 
 /// A game property of a tile preset (`core/map.md > TilePreset`).

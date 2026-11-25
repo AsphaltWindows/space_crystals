@@ -22,7 +22,7 @@ use crate::editor::state::EditorStatus;
 
 const FIELD_BACKGROUND: Color = Color::srgb(0.04, 0.05, 0.06);
 const FIELD_FOCUSED: Color = Color::srgb(0.40, 0.62, 0.95);
-/// Longest map name a field accepts.
+/// Longest map name a field accepts. Placeholder (not in the design): the design sets no limit.
 const MAX_NAME_CHARS: usize = 40;
 
 /// What a text field edits.

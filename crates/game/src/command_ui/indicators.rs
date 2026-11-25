@@ -47,8 +47,8 @@ pub use rally::{RallyIndicator, rally_indicators};
 
 use draw::{OBJECT_GAP, collect_flashes, draw_indicators, ring, spawn_indicator_mesh};
 
-/// How long the flash of a given order lasts, ticks. Placeholder: the design gives none.
-pub const FLASH_TICKS: u32 = 8;
+pub use crate::tuning::feedback::FLASH_TICKS;
+
 /// `> Color language` (placeholder shades): peaceful movement, a hostile target, aggressive movement.
 pub const MOVE_COLOR: Color = Color::srgb(0.30, 0.95, 0.40);
 pub const ATTACK_COLOR: Color = Color::srgb(1.00, 0.25, 0.20);

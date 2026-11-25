@@ -18,9 +18,7 @@ use super::objects;
 use super::state::Selection;
 use super::terrain;
 use super::tools::{ElevationMode, Tool, symmetry_label};
-
-/// How close (in tiles) a click must be to a camera start marker to grab it.
-const MARKER_GRAB_RADIUS_GU: f32 = 0.5;
+use crate::tuning::input::MARKER_GRAB_RADIUS_GU;
 
 /// The gesture in progress, from the press to the release.
 #[derive(Resource, Default, Debug)]

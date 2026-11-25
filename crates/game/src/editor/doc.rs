@@ -15,7 +15,7 @@ use std::sync::OnceLock;
 use bevy::prelude::*;
 use sc_sim::MapDef;
 
-/// The most undo steps kept; older ones are forgotten.
+/// The most undo steps kept; older ones are forgotten. Placeholder (not in the design): the design sets no limit.
 pub const UNDO_LIMIT: usize = 200;
 
 #[derive(Resource, Debug)]

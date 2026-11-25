@@ -39,11 +39,8 @@ pub use pointer::{
 use crate::ClientMode;
 use bindings::TapTracker;
 
-/// Screen-edge panning (`core/camera.md > Panning > Arrow keys and screen edge`): a cursor this close to a window
-/// edge (logical pixels) pans that way. Placeholder: the design gives no margin.
-pub const EDGE_PAN_MARGIN_PX: f32 = 8.0;
-/// Wheels that report pixels instead of lines: this many pixels count as one line. Placeholder: unspecified.
-pub const PIXELS_PER_LINE: f32 = 40.0;
+pub use crate::tuning::camera::EDGE_PAN_MARGIN_PX;
+pub use crate::tuning::input::PIXELS_PER_LINE;
 
 /// This frame's input, rebuilt every frame from the devices and [`InjectedInput`] through the [`Bindings`].
 #[derive(Resource, Default, Debug)]

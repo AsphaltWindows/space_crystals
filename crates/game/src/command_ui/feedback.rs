@@ -50,8 +50,8 @@ use crate::hud::HUD_BAR_HEIGHT_VH;
 use crate::sim_driver::{LocalPlayer, SimEventMessage, SimRes};
 use crate::{ClientMode, ClientSystems};
 
-/// How long the message shows, ticks (2 s). Placeholder: the design says "short".
-pub const FEEDBACK_TICKS: u32 = 32;
+pub use crate::tuning::feedback::FEEDBACK_TICKS;
+
 /// The message of an invalid target. Placeholder wording, the design's.
 pub const INVALID_TARGET_TEXT: &str = "Invalid target";
 /// The message of a Train that producers didn't queue for want of Space Crystals (design change 0083). Placeholder

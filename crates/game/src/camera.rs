@@ -29,10 +29,8 @@ mod players;
 
 pub use players::PlayerCameras;
 
-/// `core/camera.md > Zoom`: the camera displays exactly 28 GridUnits horizontally.
-pub const VIEW_WIDTH_GU: f32 = 28.0;
-/// Placeholder pan speed until Q0002 settles the pan inputs and speed.
-pub const PAN_SPEED_GU_PER_SECOND: f32 = 24.0;
+pub use crate::tuning::camera::{PAN_SPEED_GU_PER_SECOND, VIEW_WIDTH_GU};
+
 /// Shown where the map doesn't fill the view (placeholder colour).
 const BACKGROUND: Color = Color::srgb(0.02, 0.02, 0.03);
 

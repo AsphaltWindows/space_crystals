@@ -14,9 +14,7 @@ use crate::coords::drawn_at_height;
 use crate::fog::Sight;
 use crate::object_render::{draw_layer, object_height};
 
-/// A click this close to an object's drawn box (space units) still picks it. Placeholder, unspecified: a few
-/// pixels, so small units stay easy to click.
-pub const PICK_SLOP_SU: f32 = 4.0;
+pub use crate::tuning::input::PICK_SLOP_SU;
 
 /// How an object's owner relates to the local player.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

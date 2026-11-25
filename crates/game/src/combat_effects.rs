@@ -35,10 +35,8 @@ use crate::object_render::object_height;
 use crate::sim_driver::{SimEventMessage, SimRes};
 use draw::{draw_effects, spawn_effects_mesh};
 
-/// How long a tracer shows, ticks. Placeholder until the art direction (Q0001).
-pub const TRACER_TICKS: u32 = 5;
-/// How long a death marker shows, ticks. Placeholder until the art direction (Q0001).
-pub const DEATH_MARKER_TICKS: u32 = 40;
+pub use crate::tuning::feedback::{DEATH_MARKER_TICKS, TRACER_TICKS};
+
 /// HP bars: height, gap above the corners of the unit's silhouette (clear of a selection ring, which lies 7 su
 /// outside them: `selection::markers`) or above a tile-based object's footprint, and the narrowest bar, su. A shield
 /// bar is as high, right above the HP bar, their frames shared.

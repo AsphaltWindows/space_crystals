@@ -10,12 +10,8 @@ use super::state::Selection;
 use crate::camera::{viewport_rect, visible_extent_su};
 use crate::coords::{drawn_bounds, drawn_position};
 
-/// The closest editor zoom: half the game's view.
-pub const MIN_ZOOM: f32 = 0.5;
-/// Room around the map when the view is zoomed to fit it.
-const FIT_MARGIN: f32 = 1.04;
-/// How much further out than "fit" the view may zoom.
-const MAX_ZOOM_PAST_FIT: f32 = 1.5;
+pub use crate::tuning::camera::MIN_ZOOM;
+use crate::tuning::camera::{FIT_MARGIN, MAX_ZOOM_PAST_FIT};
 
 impl Editor<'_> {
     /// The zoom that shows the whole map, as drawn, in the editor's view.

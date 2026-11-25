@@ -20,8 +20,9 @@ use crate::{ClientMode, ClientSystems};
 
 /// The notice's line. Placeholder wording.
 pub const STATION_EMPTY_TEXT: &str = "Supply Delivery Station empty: your Agents wait there for the next delivery";
-/// How long the notice shows, ticks (5 s). Placeholder.
-pub const NOTICE_TICKS: Tick = 80;
+
+pub use crate::tuning::feedback::NOTICE_TICKS;
+
 /// Placeholder look: pale green text on a dark band, this far under the top bar (percent of the surface height).
 const TEXT_COLOR: Color = Color::srgb(0.70, 0.92, 0.70);
 const BAND_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);

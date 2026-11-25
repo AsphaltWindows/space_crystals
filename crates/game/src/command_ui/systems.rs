@@ -41,12 +41,7 @@ use outbox::OrderOutbox;
 pub(super) use panel::{cancel_on_escape, press_command_slots, validate_interface};
 pub(super) use placing::{end_queued_placement, place_on_click, report_placing, turn_ghost};
 
-/// `> AwaitingTarget > Dragging while targeting` (design change 0073): while a target is awaited, a press of the
-/// Select action that moves at most this far (logical pixels) before its release is a targeting click, at the press
-/// point; one that moves further is a drag, which does nothing (0067). The normal drag threshold
-/// (`crate::input::DRAG_THRESHOLD_PX`) applies everywhere else. "16 pixels (placeholder, half a tile)": the one
-/// value to tune.
-pub const TARGETING_CLICK_ALLOWANCE_PX: f32 = 16.0;
+pub use crate::tuning::input::TARGETING_CLICK_ALLOWANCE_PX;
 
 /// `> AwaitingTarget > Dragging while targeting` (design change 0068): "A targeting click counts at the press
 /// point". The target found under a press of the Select action that went down on the map while a target was
