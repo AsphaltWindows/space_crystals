@@ -27,7 +27,10 @@
 //! count is the network's ([`Conditions::network_count`]). Its ExpandMenu's entries are greyed by the gate's answer to
 //! an Expand short of its placement (`Sim::can_expand`, slice M4-F: an operation under way, a Tier Requirement above
 //! this Tunnel's tier, a prerequisite missing, too few Space Crystals), where the expansion goes being the ghost's to
-//! show; its X while it performs no operation.
+//! show; its X while it performs no operation. Its Q, Upgrade Tunnel (slice M4-G), asks the gate for its Upgrade, by
+//! the truth (`Sim::can_upgrade`: already at its top tier, an operation under way, too few Supplies, or something that
+//! blocks the larger area, never said what), and its hint names the price ([`Conditions::price`],
+//! `Sim::upgrade_price`).
 //!
 //! **Prerequisites** (slice M4-K, `core/tech_and_research.md > Tech Prerequisites`: "Options whose TechPrerequisite is
 //! not met are unavailable in the build menu"): every entry the gate refuses for a type the player doesn't own
@@ -187,7 +190,8 @@ pub struct Conditions {
     /// the click"); none while the ActiveGroup isn't a Tunnel.
     network: BTreeMap<ObjectKind, u32>,
     /// The price of each Build the ActiveGroup offers (`PanelCommand::Build`), in Supplies, as the sim would charge it
-    /// now (`Sim::build_price`, design change 0233).
+    /// now (`Sim::build_price`, design change 0233), and of a Tunnel's Upgrade (`PanelCommand::UpgradeTunnel`,
+    /// `Sim::upgrade_price`, slice M4-G).
     prices: BTreeMap<PanelCommand, u32>,
     /// Whether the ActiveGroup is a site under construction (`sc_sim::Object::is_site`; design change 0237: "a Tunnel
     /// site is a structure that does nothing but Cancel"), whose panel is its X Cancel Construction alone, whatever
@@ -273,6 +277,10 @@ impl Conditions {
         let prices = (commands.iter())
             .filter_map(|&command| match command {
                 PanelCommand::Build(kind) => Some((command, sim.build_price(player, kind)?)),
+                PanelCommand::UpgradeTunnel => {
+                    let tunnel = *recipients(selection, command).first()?;
+                    Some((command, sim.upgrade_price(tunnel)?))
+                }
                 _ => None,
             })
             .collect();
@@ -364,7 +372,8 @@ impl Conditions {
         self
     }
 
-    /// What a Build costs now, in Supplies (`Sim::build_price`): `None` for a command that isn't a Build.
+    /// What a Build or a Tunnel's Upgrade costs now, in Supplies (`Sim::build_price`, `Sim::upgrade_price`): `None` for
+    /// another command, and for the Upgrade of a Tunnel at its top tier.
     pub fn price(&self, command: PanelCommand) -> Option<u32> {
         self.prices.get(&command).copied()
     }

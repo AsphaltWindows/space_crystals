@@ -119,6 +119,15 @@ pub const TARGET_TOO_CLOSE_TEXT: &str = "Target too close";
 /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "greyed out when Agent is not carrying
 /// resources"). Placeholder wording.
 pub const NOTHING_CARRIED_TEXT: &str = "Not carrying resources";
+/// The message of a Tunnel's Upgrade pressed at its top tier (`Reject::TopTier`, slice M4-G;
+/// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "Unavailable if already Tier 3"). Placeholder
+/// wording.
+pub const TOP_TIER_TEXT: &str = "Already at the top tier";
+/// The message of a Tunnel's Upgrade that something blocks, by the truth (`Reject::UpgradeBlocked`, slice M4-G;
+/// `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`: "the upgrading Tunnel's owner learns that something
+/// blocks it"): it never says what, as the owner may not see it. Placeholder wording (the brief's "something blocks
+/// it").
+pub const UPGRADE_BLOCKED_TEXT: &str = "Something blocks the upgrade";
 /// Placeholder look: amber text on a dark band, this far above the HUD Bar (percent of the surface height).
 const TEXT_COLOR: Color = Color::srgb(1.0, 0.80, 0.30);
 const BAND_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
@@ -263,7 +272,8 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
 /// "Not enough Space Crystals", "Queue is full" (design change 0162), the placement's first problem
 /// ([`placement_text`]), an EjectMenu tile's (slice M4-J2), an ExpandMenu entry's and the Tunnel's Cancel's (slice
 /// M4-F: its operation, an expansion's Tier Requirement above its tier, nothing to cancel), a prerequisite missing
-/// ([`requires_text`], slice M4-K), and placeholders for the others.
+/// ([`requires_text`], slice M4-K), the Tunnel's Upgrade's (slice M4-G: its top tier, something blocking it), and
+/// placeholders for the others.
 pub fn reject_text(reject: Reject) -> &'static str {
     match reject {
         Reject::InsufficientCrystals => NO_CRYSTALS_TEXT,
@@ -283,6 +293,8 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::OperationUnderWay(_) => OPERATION_UNDER_WAY_TEXT,
         Reject::NothingToDeliver => NOTHING_CARRIED_TEXT,
         Reject::Requires(kind) => requires_text(kind),
+        Reject::TopTier(_) => TOP_TIER_TEXT,
+        Reject::UpgradeBlocked(_) => UPGRADE_BLOCKED_TEXT,
         _ => CANNOT_DO_TEXT,
     }
 }

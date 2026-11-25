@@ -2,7 +2,7 @@
 
 use bevy::math::Vec2;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::{DebugCommand, Faction, ObjectKind, SpawnAt};
+use sc_sim::{Command, DebugCommand, Faction, ObjectKind, SpawnAt, TunnelCommand};
 
 use super::*;
 
@@ -98,6 +98,44 @@ fn an_enemy_tunnel_out_of_sight_keeps_its_last_seen_tier() {
     );
     t.debug_at(18, back).run_until(20);
     assert_eq!(known(&t)[1], area(SEEN, false, 3, rect(20, 2, 12, 12)));
+}
+
+/// Slice M4-G (Placeholder: Q0086 point 4): while the player places a Tunnel, their own Tunnel that upgrades shows the
+/// Tier 2 area it reserves (`factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`: "from the start of the
+/// upgrade, the larger Tunnel Area of the target tier counts against other placements"), and the enemy Tunnel they see
+/// upgrading its tier now, as the sim lets them know it (`sc_sim::placement::Occupant::as_seen`). The rest of the time
+/// both show at their tier now.
+#[test]
+fn while_placing_a_tunnel_an_own_upgrade_shows_its_reserved_area() {
+    let mut t = field();
+    let supplies = |player| DebugCommand::SetResources {
+        player,
+        crystals: 0,
+        supplies: 10,
+        alloys: 0,
+        essence: 0,
+        flux: 0,
+    };
+    let upgrade = |tunnel| Command::Tunnel {
+        tunnel,
+        command: TunnelCommand::Upgrade,
+    };
+    t.debug_at(1, supplies(P1)).debug_at(1, supplies(P2));
+    t.at(2, P1, upgrade(OWN)).at(2, P2, upgrade(SEEN)).run_until(3);
+    for id in [OWN, SEEN] {
+        let tunnel = t.sim().object(id).and_then(|o| o.tunnel.as_ref()).expect("a Tunnel");
+        assert_eq!((tunnel.tier, tunnel.reserved_tier()), (1, 2), "{id:?} upgrades");
+    }
+    let now = [
+        area(OWN, true, 1, rect(2, 4, 8, 8)),
+        area(SEEN, false, 1, rect(22, 4, 8, 8)),
+    ];
+    assert_eq!(known(&t), now);
+    let placing = [
+        area(OWN, true, 2, rect(1, 3, 10, 10)),
+        area(SEEN, false, 1, rect(22, 4, 8, 8)),
+    ];
+    assert_eq!(reserving(t.sim(), known(&t)), placing);
 }
 
 /// Each area is drawn in its owner's colours with its own edge, also where two touch: an 8 × 8 area is 64 tiles and

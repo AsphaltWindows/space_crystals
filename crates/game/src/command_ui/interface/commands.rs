@@ -139,6 +139,12 @@ pub enum PanelCommand {
     /// or an expansion)", at once (`sc_sim::TunnelCommand::Cancel`). Not an eject queue, which isn't an operation:
     /// "the queue can't be cancelled" (`factions/syndicate/tunnels.md > EjectMenu`).
     CancelOperation,
+    /// The Tunnel's Q (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`, design change 0257): "Upgrade
+    /// Tunnel — upgrades to next tier (CommandIssuingTransition). Costs Supplies per upgrade cost formula. Unavailable
+    /// if already Tier 3 or if currently performing an operation", at once (`sc_sim::TunnelCommand::Upgrade`, slice
+    /// M4-G), greyed with the gate's reason (`sc_sim::Sim::can_upgrade`) and priced in its hint
+    /// (`sc_sim::Sim::upgrade_price`).
+    UpgradeTunnel,
 }
 
 impl PanelCommand {
@@ -180,7 +186,8 @@ impl PanelCommand {
             | PanelCommand::Build(_)
             | PanelCommand::ExpandMenu
             | PanelCommand::Expand(_)
-            | PanelCommand::CancelOperation => false,
+            | PanelCommand::CancelOperation
+            | PanelCommand::UpgradeTunnel => false,
         }
     }
 
@@ -230,12 +237,13 @@ impl PanelCommand {
     }
 
     /// The Tunnel command of a Tunnel's command issued at once (`sc_sim::Command::Tunnel`): an EjectMenu tile's Eject,
-    /// and X's Cancel of the Tunnel's operation. An ExpandMenu entry's Expand waits for its click in AwaitingPlacement
-    /// (`crate::placement`).
+    /// Q's Upgrade, and X's Cancel of the Tunnel's operation. An ExpandMenu entry's Expand waits for its click in
+    /// AwaitingPlacement (`crate::placement`).
     pub fn tunnel(self) -> Option<TunnelCommand> {
         match self {
             PanelCommand::Eject(kind) => Some(TunnelCommand::Eject { kind }),
             PanelCommand::CancelOperation => Some(TunnelCommand::Cancel),
+            PanelCommand::UpgradeTunnel => Some(TunnelCommand::Upgrade),
             _ => None,
         }
     }
@@ -268,11 +276,11 @@ impl PanelCommand {
     /// takes (design change 0125), the Cancel of the objects that transform, whose panel shows it, and the Egress
     /// Node's F, which selects the Drones of "this Egress Node" (Ungroupable: the one Tabbed to). So do a Tunnel's
     /// EjectMenu and its tiles, which eject "from this Tunnel's Side A" (`factions/syndicate/tunnels.md > EjectMenu`;
-    /// Ungroupable too: the one Tabbed to), and its ExpandMenu, its entries and its Cancel, which read and change this
-    /// Tunnel's one operation (`factions/syndicate/tunnels.md > ExpandMenu`: "**this** Tunnel's tier"). So does an
-    /// Agent's Build: "each Agent takes exactly one placement", and "Placement never moves on to another selected
-    /// worker" (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`: "to place with the next
-    /// Agent, the player presses Tab").
+    /// Ungroupable too: the one Tabbed to), and its ExpandMenu, its entries, its Upgrade and its Cancel, which read and
+    /// change this Tunnel's one operation (`factions/syndicate/tunnels.md > ExpandMenu`: "**this** Tunnel's tier").
+    /// So does an Agent's Build: "each Agent takes exactly one placement", and "Placement never moves on to another
+    /// selected worker" (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`: "to place
+    /// with the next Agent, the player presses Tab").
     pub fn instance_only(self) -> bool {
         matches!(
             self,
@@ -292,6 +300,7 @@ impl PanelCommand {
                 | PanelCommand::ExpandMenu
                 | PanelCommand::Expand(_)
                 | PanelCommand::CancelOperation
+                | PanelCommand::UpgradeTunnel
         )
     }
 
@@ -341,7 +350,8 @@ impl PanelCommand {
             | PanelCommand::Eject(_)
             | PanelCommand::ExpandMenu
             | PanelCommand::Expand(_)
-            | PanelCommand::CancelOperation => false,
+            | PanelCommand::CancelOperation
+            | PanelCommand::UpgradeTunnel => false,
         }
     }
 
@@ -353,9 +363,9 @@ impl PanelCommand {
     /// ([`short_label`]: an Agent's Build Tunnel "T1", the tier a Tunnel starts at). A ready building's slot is
     /// "Place", and every Cancel "Cancel". The others are the command's name or its first word ("Hold", "Rally",
     /// "Raise", "Lower", "Drop" for Set Drop-off Location and for the Agent's Drop Off, "Drones" for Select Returning
-    /// Drones), or a shortening of it ("Rev.", "AtkGnd", "Conv.", "Adv."). An EjectMenu tile shows its unit type's
-    /// tag, as a unit trained does, and its count (`super::PanelSlot::count`); an ExpandMenu entry its expansion's, as
-    /// a building constructed does.
+    /// Drones), or a shortening of it ("Rev.", "AtkGnd", "Conv.", "Adv.", the Tunnel's "Upgr." for Upgrade Tunnel). An
+    /// EjectMenu tile shows its unit type's tag, as a unit trained does, and its count (`super::PanelSlot::count`); an
+    /// ExpandMenu entry its expansion's, as a building constructed does.
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -389,6 +399,7 @@ impl PanelCommand {
             PanelCommand::SelectReturningDrones => "Drones",
             PanelCommand::EjectMenu => "Eject",
             PanelCommand::ExpandMenu => "Expand",
+            PanelCommand::UpgradeTunnel => "Upgr.",
         }
     }
 
@@ -424,6 +435,7 @@ impl PanelCommand {
             PanelCommand::ExpandMenu => "Expand Tunnel".into(),
             PanelCommand::Expand(kind) => named("Build", kind),
             PanelCommand::CancelOperation => "Cancel Operation".into(),
+            PanelCommand::UpgradeTunnel => "Upgrade Tunnel".into(),
             PanelCommand::Move
             | PanelCommand::Attack
             | PanelCommand::Patrol
