@@ -871,6 +871,9 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - 1548 tests.
 
 ## In progress
+  - **M4-E Agent-built Tunnels** (Opus): the kind-generic Build order (T51), paid at the ghost with top-price refunds (0233), the site (0234), placement against every player's areas (0237), drillable and on the map (0242), over hidden expansions (0240), and sites left out of "operational".
+  - **M4-J2 Tunnel and Hideout UI** (Opus): the panel letters (0257), the EjectMenu, the area overlay, the network's contents, held units in selection and groups, and rallies (0252, 0253).
+  - **M4-O Combat spike** (Opus): projectiles (T45), area damage built once (T46; 0262, 0264), Attack Ground (T47), reveals (T48) and drawing (T52); Q0083's placeholders.
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
@@ -1057,7 +1060,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - R1 (sim): done (`8eab2290`).
     - R2 (client, docs, citation test): done (`c60b8d0f`, and the citation pass `06d82614`).
     - B: done (`35e19634`).
-    - The rest are queued in the waves above. E, J2 and O come next, after R1 and R2. Their briefs are ready: `scratchpad/briefs/m4e-agent-built-tunnels.md`, `m4j2-tunnel-hideout-ui.md` and `m4o-combat-spike.md`.
+    - E, J2 and O: running (wave 4, Opus; briefs `scratchpad/briefs/m4e-agent-built-tunnels.md`, `m4j2-tunnel-hideout-ui.md` and `m4o-combat-spike.md`).
+    - The rest are queued in the waves above.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
