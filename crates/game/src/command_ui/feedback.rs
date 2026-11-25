@@ -227,6 +227,7 @@ pub fn placement_text(problem: Option<PlacementProblem>) -> &'static str {
         Some(PlacementProblem::Tile(_, problem)) => match problem {
             TileProblem::OffMap => "Outside the map",
             TileProblem::NotBuildable => "Cannot build on this ground",
+            TileProblem::NotDrillable => "Cannot drill this ground",
             TileProblem::NotFlat => "Ground is not flat",
             TileProblem::NotVisible => "Cannot build where you cannot see",
             TileProblem::Structure => "Blocked by a structure",

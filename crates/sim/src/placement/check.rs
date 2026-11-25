@@ -8,13 +8,14 @@ use super::footprint::Footprint;
 use super::onto::Onto;
 use super::problems::{PlacementCheck, TileProblem, WholeProblem};
 use super::site::{Method, Mode, Occupant, Site};
-use super::tunnel_area::{area_rule, outside_tunnel_area};
+use super::tunnel_area::{area_rule, layout_method};
 use super::tunnel_overlap::Overlap;
 use crate::defs::{Category, Domain, ObjectKind};
 use crate::map::Map;
 use crate::nav::TileRect;
 use crate::paths::box_overlaps_rect;
 use crate::scenario::BuildingOrientation;
+use crate::tunnel;
 use crate::units::TilePos;
 use crate::vision::VisibilityState;
 
@@ -64,13 +65,23 @@ pub fn check_reserving(
     // Each footprint tile's problems, as bits, row by row.
     let mut found = vec![0u16; footprint.len()];
     let map = site.map;
+    // An underground expansion's ground (`super::Method::Expansion`, slice M4-F): Drillable in place of Buildable
+    // (design change 0239), and neither flatness nor sight.
+    let expansion = matches!(site.method, Method::Expansion { .. });
     // `> Direct Placement`: "all footprint tiles must be in the Visible state"; `> Warp In` too (design change 0119).
     for (i, tile) in footprint.tiles() {
         if !map.in_bounds(tile) {
             found[i] |= TileProblem::OffMap.bit();
             continue;
         }
-        if !map.tile_preset(tile).is_some_and(|preset| preset.buildable) {
+        let preset = map.tile_preset(tile);
+        if expansion {
+            if !preset.is_some_and(|preset| preset.drillable) {
+                found[i] |= TileProblem::NotDrillable.bit();
+            }
+            continue;
+        }
+        if !preset.is_some_and(|preset| preset.buildable) {
             found[i] |= TileProblem::NotBuildable.bit();
         }
         if def.needs_flat_ground && !map.is_flat(tile) {
@@ -162,6 +173,13 @@ pub fn check_reserving(
     whole.extend(area_rule(site, kind, footprint.rect()));
     // Design change 0237: and clear of every other Tunnel's area (`super::tunnel_overlap`).
     whole.extend(tunnel_areas.rule(footprint.rect()));
+    // `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`: "The expansion must fit entirely within the
+    // Tunnel Area".
+    if let Method::Expansion { area } = site.method
+        && !tunnel::area::encloses(area, footprint.rect())
+    {
+        whole.push(WholeProblem::OutsideTunnelArea);
+    }
     PlacementCheck { tiles, whole }
 }
 
@@ -169,9 +187,10 @@ pub fn check_reserving(
 /// validation`, design change 0097). `layout` is the layout's objects where they stand, `others` the map's
 /// pre-placed objects. The object is checked, turned as its placement is, against the map, `others` and the rest of
 /// `layout`, with the area of the layout's own Deployment Center ([`BuildArea::of_layout`]); an underground
-/// structure must also lie wholly inside the Tier 1 Tunnel Area of a Tunnel of `layout` ([`WholeProblem::
-/// OutsideTunnelArea`], slice M4-B: `super::tunnel_area`). `None` for an object without a footprint, a unit (the
-/// starting units' rule is the unit-start one, `paths::misplaced`), and for an index past the end.
+/// structure by the expansion method ([`Method::Expansion`], slice M4-F), in the Tier 1 Tunnel Area of a Tunnel of
+/// `layout` that holds it ([`WholeProblem::OutsideTunnelArea`] if none does, slice M4-B: `super::tunnel_area`).
+/// `None` for an object without a footprint, a unit (the starting units' rule is the unit-start one,
+/// `paths::misplaced`), and for an index past the end.
 pub fn check_layout(
     map: &Map,
     others: impl IntoIterator<Item = Occupant>,
@@ -185,20 +204,16 @@ pub fn check_layout(
         map,
         area: &area,
         mode: Mode::Layout,
-        method: Method::Direct,
+        method: layout_method(object, layout),
     };
     let rest = layout.iter().enumerate().filter(|&(i, _)| i != index).map(|(_, o)| *o);
-    let mut check = check(
+    Some(check(
         &site,
         others.into_iter().chain(rest),
         object.kind,
         placement.origin,
         placement.orientation(),
-    );
-    if outside_tunnel_area(object, layout) {
-        check.whole.push(WholeProblem::OutsideTunnelArea);
-    }
-    Some(check)
+    ))
 }
 
 /// The half extents of the box of a ground unit of `kind` (`docs/movement.md > 3`); `None` for anything else, air

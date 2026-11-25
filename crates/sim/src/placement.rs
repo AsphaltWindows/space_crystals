@@ -20,7 +20,13 @@
 //! Worker-Built Structures`) has the same tile rules and no build area; its order and its ghost are checked on what
 //! the player knows ([`Mode::Known`], design change 0120: never-explored tiles pass, units hidden in the fog don't
 //! count, and the structures out of sight are as last seen), a game asking [`Sim::deploy_check`] or
-//! [`Sim::build_check`], and the worker checks its site again on arrival, on the truth ([`Mode::Arrival`]).
+//! [`Sim::build_check`], and the worker checks its site again on arrival, on the truth ([`Mode::Arrival`]). An
+//! underground expansion ([`Method::Expansion`], slice M4-F; `factions/syndicate/tunnels.md > AwaitingPlacement
+//! (Expansion)`) is placed by its Tunnel inside the Tunnel's current area, on Drillable ground (design change 0239)
+//! with no flatness and no sight; any structure blocks it, the Tunnel's own and any player's surface building
+//! included (0240), as do resources, ground units and the owner's lingering ghosts. Its ghost judges by what the
+//! owner knows ([`Sim::expansion_check`], [`Mode::Known`]), and the command by the truth (0240: "judged by the truth;
+//! the placement is refused").
 //!
 //! **Reservations** (`core/entities.md > Lingering build ghosts`, design change 0125): a player's pending worker builds
 //! ([`Sim::pending_builds`]) reserve their sites against that player's further placements, a Deploy's, a Build's and
@@ -67,9 +73,9 @@
 //!
 //! **Starting Layouts** (`core/map_editor.md > Starting Layouts > Layout validation`, design change 0097) follow the
 //! same rules in [`Mode::Layout`]: no visibility, and the area of the layout's own Deployment Center. A layout object
-//! is checked against the map's objects and the rest of its layout. A layout's underground structure, the
-//! Syndicate's Hideout, also lies wholly inside the Tier 1 Tunnel Area of a Tunnel of its layout (slice M4-B,
-//! [`WholeProblem::OutsideTunnelArea`], [`check_layout`]). The rule for starting units ("can't stand on
+//! is checked against the map's objects and the rest of its layout. A layout's underground structure, the Syndicate's
+//! Hideout, follows the expansion method, wholly inside the Tier 1 Tunnel Area of a Tunnel of its layout (slices M4-B
+//! and M4-F, [`WholeProblem::OutsideTunnelArea`], [`check_layout`]). The rule for starting units ("can't stand on
 //! structures or impassable tiles") is not a placement rule: it is the unit-start rule of `paths::misplaced`, which
 //! scenario validation applies to the units a game starts with; the mirror rule, no footprint over a ground unit, is
 //! the check's [`TileProblem::Unit`] in both modes.
@@ -232,6 +238,67 @@ impl Sim {
             origin,
             orientation,
         ))
+    }
+
+    /// `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)` (slice M4-F): everything that keeps Tunnel
+    /// `tunnel` from placing an expansion of `kind` with the top-left tile of its footprint at `origin`, turned by
+    /// `orientation`, as far as its owner knows: the ghost's check ([`check_reserving`] by [`Method::Expansion`] in the
+    /// Tunnel's current area, in [`Mode::Known`]: "The ghost judges by what the player knows", design change 0120), on
+    /// the objects its owner knows of (`Sim::known_occupants`), the sites of its owner's pending worker builds reserved
+    /// (Placeholder: Q0080 point 2). The command places it by the truth: a building the owner doesn't know of leaves
+    /// the ghost green and refuses the placement (design change 0240). Whether the Tunnel may build a `kind` now at all
+    /// (its operation, the tier, the bank) is the gate's (`sim/expansions.rs`). `None` if `tunnel` is no placed Tunnel
+    /// of a player's.
+    pub fn expansion_check(
+        &self,
+        tunnel: ObjectId,
+        kind: ObjectKind,
+        origin: TilePos,
+        orientation: BuildingOrientation,
+    ) -> Option<PlacementCheck> {
+        self.expansion_site_check(self.object(tunnel)?, kind, origin, orientation, true)
+    }
+
+    /// The expansion's check, as far as the Tunnel's owner knows (`known`) or by the truth.
+    fn expansion_site_check(
+        &self,
+        tunnel: &Object,
+        kind: ObjectKind,
+        origin: TilePos,
+        orientation: BuildingOrientation,
+        known: bool,
+    ) -> Option<PlacementCheck> {
+        let (player, area) = (tunnel.owner?, crate::tunnel::area::of(tunnel)?);
+        let build_area = BuildArea::default();
+        let vision = self.vision();
+        let site = Site {
+            map: self.map(),
+            area: &build_area,
+            mode: match known {
+                true => Mode::Known { vision, player },
+                false => Mode::Command { vision, player },
+            },
+            method: Method::Expansion { area },
+        };
+        let reserved = self.reserved_sites(player, None);
+        Some(match known {
+            true => check_reserving(
+                &site,
+                self.known_occupants(player).map(|(_, o)| o),
+                &reserved,
+                kind,
+                origin,
+                orientation,
+            ),
+            false => check_reserving(
+                &site,
+                self.objects().map(Occupant::of),
+                &reserved,
+                kind,
+                origin,
+                orientation,
+            ),
+        })
     }
 
     /// What `player` knows to stand on the map ([`Mode::Known`], design change 0120), each with the id of its object:

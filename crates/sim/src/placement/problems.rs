@@ -16,6 +16,11 @@ pub enum TileProblem {
     /// The tile's preset isn't Buildable (`core/map.md > TilePreset`; of the defaults only Plane is,
     /// `core/map.md > DefaultTilePresets`).
     NotBuildable,
+    /// An underground expansion's tile isn't Drillable ([`super::Method::Expansion`], slice M4-F;
+    /// `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`, design change 0239: "Every tile under it must
+    /// be Drillable (... Plane, Rugged and Cliff yes; Mountain and Water no ...)"), which it needs in place of
+    /// Buildable. The preset's flag, a custom preset's included (`core/map.md > Tile`).
+    NotDrillable,
     /// The tile is sloped (`core/map.md > Elevation > Structures only on flat terrain`).
     NotFlat,
     /// The tile isn't Visible to the placing player (in a game: a Direct Placement or a Warp In, design change
@@ -41,9 +46,10 @@ pub enum TileProblem {
 
 impl TileProblem {
     /// Every problem, in the order they are listed.
-    pub const ALL: [TileProblem; 8] = [
+    pub const ALL: [TileProblem; 9] = [
         TileProblem::OffMap,
         TileProblem::NotBuildable,
+        TileProblem::NotDrillable,
         TileProblem::NotFlat,
         TileProblem::NotVisible,
         TileProblem::Structure,
@@ -92,11 +98,14 @@ pub enum WholeProblem {
     /// player's Tunnel counts as the player knows it, "their remembered position and their tier as last seen". The
     /// rule is in `placement/tunnel_overlap.rs`.
     TunnelAreaOverlap,
-    /// A Starting Layout's underground structure doesn't lie wholly inside the Tier 1 Tunnel Area of a Tunnel of the
-    /// same layout (slice M4-B; `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`: "One pre-built
-    /// **Tier 1 Tunnel** containing one pre-built **Hideout**"; `factions/syndicate/structures/README.md > Tunnel
-    /// Expansions`: "Underground buildings constructed within a Tunnel's Tunnel Area"), as a layout's Extraction Plates
-    /// must lie in the build area of its Deployment Center. Only [`super::check_layout`] asks it.
+    /// An underground expansion doesn't lie wholly inside the Tunnel Area it is placed in
+    /// ([`super::Method::Expansion`], slice M4-F; `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`: "The
+    /// expansion must fit entirely within the Tunnel Area"): that of the Tunnel building it, at its current tier; for a
+    /// Starting Layout's, the Tier 1 Tunnel Area of a Tunnel of the same layout (slice M4-B;
+    /// `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`: "One pre-built **Tier 1 Tunnel** containing one
+    /// pre-built **Hideout**"; `factions/syndicate/structures/README.md > Tunnel Expansions`: "Underground buildings
+    /// constructed within a Tunnel's Tunnel Area"), as a layout's Extraction Plates must lie in the build area of its
+    /// Deployment Center ([`super::check_layout`]).
     OutsideTunnelArea,
 }
 
@@ -153,6 +162,7 @@ impl fmt::Display for TileProblem {
         f.write_str(match self {
             TileProblem::OffMap => "off the map",
             TileProblem::NotBuildable => "not buildable ground",
+            TileProblem::NotDrillable => "not drillable ground",
             TileProblem::NotFlat => "sloped",
             TileProblem::NotVisible => "not in sight",
             TileProblem::Structure => "under a structure",

@@ -8,8 +8,11 @@
 //! - `footprint`: the rules of the footprint as a whole (the build area, plates onto patches, structures only),
 //!   and the order the problems come in;
 //! - `tunnel_area`: the Tunnel Area's rules (slice M4-B): on the map and Drillable (design change 0242), and a
-//!   layout's expansions inside their Tunnel's area.
+//!   layout's expansions inside their Tunnel's area;
+//! - `expansion`: the expansion method (slice M4-F): inside the Tunnel's area, on Drillable ground, with no flatness
+//!   and no sight.
 
+mod expansion;
 mod footprint;
 mod ground;
 mod occupants;
@@ -29,7 +32,7 @@ use ObjectKind::{
     Barracks, CrystalPatch, DeploymentCenter, ExtractionFacility, ExtractionPlate, Generator, Guard, Peacekeeper,
     SupplyDeliveryStation,
 };
-use TileProblem::{NotBuildable, NotFlat, NotVisible, OffMap, Reserved, Resource, Structure, Unit};
+use TileProblem::{NotBuildable, NotDrillable, NotFlat, NotVisible, OffMap, Reserved, Resource, Structure, Unit};
 use WholeProblem::{NotAStructure, NotOnPatch, OutsideBuildArea};
 
 fn t(x: i32, y: i32) -> TilePos {

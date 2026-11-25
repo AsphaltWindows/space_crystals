@@ -142,9 +142,8 @@ fn the_ghost_judges_the_area_by_what_the_player_explored() {
 /// Tier 1 Tunnel containing one pre-built Hideout"): a layout's Hideout lies wholly inside the Tier 1 Tunnel Area of
 /// a Tunnel of its layout, here (2, 2) to (9, 9). Outside it, or half inside, it is refused as a whole
 /// (`OutsideTunnelArea`); on the Tunnel it is under a structure, and on a patch under a resource, as any building.
-/// Without a Tunnel in the layout it is outside: a map's Tunnel doesn't count. Its tiles follow a Direct Placement's
-/// rules meanwhile: on Rugged ground, not Buildable (stricter than design change 0239's Drillable, until slice M4-F's
-/// expansion method).
+/// Without a Tunnel in the layout it is outside: a map's Tunnel doesn't count. Its tiles follow the expansion method
+/// (slice M4-F): Rugged ground is Drillable (design change 0239), though not Buildable.
 #[test]
 fn a_layout_hideout_lies_inside_its_tunnels_area() {
     let mut rows = vec![".".repeat(16); 16];
@@ -170,7 +169,7 @@ fn a_layout_hideout_lies_inside_its_tunnels_area() {
     );
     assert_eq!(problems(8, 1).1, [OutsideTunnelArea]);
     assert_eq!(problems(8, 2), (vec![(t(8, 2), Resource)], vec![]), "on a patch");
-    assert_eq!(problems(2, 8), (vec![(t(2, 9), NotBuildable)], vec![]), "Rugged");
+    assert!(hideout(2, 8).is_valid(), "Rugged");
     let alone = [on(Hideout, 8, 8)];
     assert_eq!(check_layout(&map, [], &alone, 0).unwrap().whole, [OutsideTunnelArea]);
     let map_tunnel = [on(Tunnel, 4, 4)];
