@@ -4,7 +4,8 @@
 //! players would. Player 1's Colonists gather, train 30 Drones, deploy Beacons as their Beacon Capacity needs them,
 //! warp in a Bio Portal and train eight Sabre Legionnaires, each converted to a Rifle Legionnaire; player 2's GDO
 //! plays the fastest clean Barracks and sends ten Peacekeepers to the Colonists' field in two waves of AttackMove.
-//! After the fight the Colonists gather on until their field runs out, at about 9 minutes.
+//! After the fight the Colonists gather on until their field runs out, at about 8½ minutes with the Drone's numbers
+//! of design change 0205 (its last patch at 8:36; at 9:02 before 0205).
 //!
 //! It checks, after every tick:
 //! - the invariants: `TestSim`'s (the movement invariants and K1), and that nothing names a removed object

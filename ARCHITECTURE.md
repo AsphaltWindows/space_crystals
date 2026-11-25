@@ -1017,12 +1017,13 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   - **What it wants** is the step the shared rules give a unit without momentum, at the **approach speed**
     (`drag::approach_speed`): the highest speed from which braking with the omni-directional thrust still stops
     it within the path that is left. So braking begins when the stopping distance reaches the remaining path
-    (51 su before the goal from top speed), and the last step lands exactly on the goal. No overshoot.
+    (35 su before the goal from top speed with the Drone's numbers of design change 0205, 51 before them), and the
+    last step lands exactly on the goal. No overshoot.
   - **Blocked means from rest** (`systems/units.md > UnitCollision > Collision Response (Un-sticking)`, design
     change 0035): a move that runs into a tile or a unit goes as far as it can, and the unit's **whole velocity is
     then 0**, not only the part into the obstacle. Where the rules' step is a slide along tiles (`Moved::slid`),
     the unit thrusts at the step it asked for, into the tile, and meets it every tick: it creeps along the wall
-    at single-tick acceleration (0.8 su for the Drone) until its way is free, then accelerates normally. That
+    at single-tick acceleration (1.2 su for the Drone) until its way is free, then accelerates normally. That
     creep is progress for the stuck clock wherever it gets closer (`movement/follow/tests.rs`). A wall it only
     touches, a unit it passes through (`space::blocks`) and a unit it moves off (0126) are no obstacles. A debug
     teleport zeroes the velocity too.
@@ -1030,7 +1031,8 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
     it was blocked. It is hashed and
     serialized **only while it isn't zero**, so states of games without such a unit hash and load as before the
     field existed. `Mover::stop` and `finish` leave it: a unit without a goal that still has some brakes to a
-    stop, `Locomotion::Stopping` (within 42 su and 16 ticks from top speed). **Never zero it to stop a unit**, and
+    stop, `Locomotion::Stopping` (within 26 su and 9 ticks from top speed; 42 su and 16 ticks before design change
+    0205). **Never zero it to stop a unit**, and
     never read `velocity` for it: `velocity` is the tick's displacement and `stop` clears it.
   - **Going round a standing unit**: a unit with momentum takes the side of the blocker's middle it is on
     (`World::around`, `near_side`), whatever its lean, and a step aside doesn't count as blocked while the unit
@@ -1141,21 +1143,24 @@ section of its own.
   that reaches its drop-off in tick `t` is paid at the end of `t + 1` (`SimEvent::ResourcesDelivered`). A patch
   emptied this way leaves the map in the same tick, unless a plate stands on it; workers never gather a plated
   patch. `Sim::returning_drones(node)` is the Egress Node's F.
-  **Measured with DragMovement and the rules of slice M3-H3** (`tests/gathering/`, `tests/gathering_soak.rs`;
-  nothing is tuned to the design's table): one Drone with its patch 2 GU from the node, edge to edge, delivers
-  every 81 ticks, 1.58 Space Crystals per second (60 ticks on the stand-in mover it had before). On the reference
-  field (8 patches in a row, the node 2 GU south of the middle), with gathering Drones passing through each other
-  (design change 0106), nothing jams: 4, 8, 12, 16, 20 and 24 Drones dealt out over the patches give 6.3, 11.7,
-  17.2, 23.1, 24.5 and 26.2 per second (before M3-H3: 17.9 for 12, 25.6 for 20, 27.3 for 24; the stand-in: 8.3,
-  15.1, 22.0, 26.8, 32.0, 32.0; the design's table: 6.1 for 4, 23 for 16, 32 for about 24). Three findings for
-  slice K1's oracle: 24 Drones don't saturate 8 patches (rows of up to 5 patches with three Drones each do); a
+  **Measured with DragMovement, the rules of slice M3-H3 and the Drone's numbers of design change 0205**
+  (`tests/gathering/`, `tests/gathering_soak.rs`; nothing is tuned to the design's table): one Drone with its
+  patch 2 GU from the node, edge to edge, delivers every 73 ticks, 1.75 Space Crystals per second (81 ticks and
+  1.58 before 0205; 60 ticks on the stand-in mover it had before DragMovement). On the reference field (8 patches
+  in a row, the node 2 GU south of the middle), with gathering Drones passing through each other (design change
+  0106), nothing jams: 4, 8, 12, 16, 20 and 24 Drones dealt out over the patches give 6.9, 12.7, 18.8, 25.3, 26.1
+  and 31.4 per second (before 0205: 6.3, 11.7, 17.2, 23.1, 24.5, 26.2; before M3-H3: 17.9 for 12, 25.6 for 20,
+  27.3 for 24; the stand-in: 8.3, 15.1, 22.0, 26.8, 32.0, 32.0; the design's table: 6.1 for 4, 23 for 16, 32 for
+  about 24). Three findings for the economy oracle (slices K1 and K3): 24 Drones dealt out nearly saturate 8
+  patches (before 0205 they didn't: the end patches' trips were longer than three Drones' mining covered); a
   Drone sent on from an occupied patch to the nearest free one often finds that taken too when it gets there
-  (dealt out, the longest one of 24 went between two deliveries is 428 ticks, within the plan's 480, 30 s; 357 to
+  (dealt out, the longest one of 24 went between two deliveries is 393 ticks, within the plan's 480, 30 s; 357 to
   578 across earlier builds); and the waiting Drones' re-check (design change 0132) costs up to 0.6 per second
-  below 16 Drones and up to 1.3 over 16: the patch a waiting Drone leaves for is usually one whose own Drone is on
-  its way back to it. The 24-Drone soak costs 25.4 µs a tick in release (24.4 before slice M3-H3's rules and 13 on
-  the stand-in, each measured side by side: a Drone's tick is the rules' step and then its own). Under hard
-  collision, as slice M3-H first had it, the field gridlocked from 12 Drones on.
+  below 16 Drones and up to 1.3 over 16 (measured in slice M3-H3): the patch a waiting Drone leaves for is
+  usually one whose own Drone is on its way back to it. The 24-Drone soak costs 25.4 µs a tick in release (24.4
+  before slice M3-H3's rules and 13 on the stand-in, each measured side by side: a Drone's tick is the rules' step
+  and then its own); with the numbers of 0205, 25.8 against 27.0 before them, side by side (slice M3-K3). Under
+  hard collision, as slice M3-H first had it, the field gridlocked from 12 Drones on.
 - **Removal** (`Sim::remove_objects`): a plate takes its patch along if that is depleted, in the same tick, which
   opens the tile (design change 0038; the caller's grid sync covers it); a patch with crystals left stays, uncovered.
   A plate whose patch is removed (only a debug command does that) loses its extractor. `testing::referenced_ids`
