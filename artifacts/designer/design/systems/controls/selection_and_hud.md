@@ -297,6 +297,7 @@ The pointer previews the action that right-click would perform, resolved per uni
 - Cursor over own enterable Cults building that accepts the selected unit (see Enter): **Enter**
 - Cursor over resource (resource gatherer selected): **GatherResources**
 - Cursor over drop-off point (resource gatherer carrying resources): **ReturnResources**
+- While targeting **Set Drop-off** (AwaitingTarget[SetDropOffLocation]), cursor over a valid drop-off point: **ReturnResources** (user, 2026-11-25; Q0052)
 - Selection is a production building: **Move** (rally point)
 - No valid action for current cursor target: **Inactive**
 
@@ -393,11 +394,16 @@ A marker surrounding the target object's perimeter.
 | Patrol (destination) | Location | Orange |
 | Reverse | Location | Green |
 | Enter | Object | Green |
+| Gather (sets the source: crystal patch, refinery's output) | Object | Gather marker (distinct look, TBD) |
+| Drop Off (return resources to an Egress Node or refinery) | Object | Return Resources marker (distinct look, TBD) |
+| Set Drop-off | Object | Set Drop-off marker (distinct look, TBD) |
 | Rally point (ground) | Location | Green |
 | Rally point (own or neutral object) | Object | Green |
 | Rally point (enemy object) | Object | Red |
 
 **Rally points** (user, 2026-11-24): shown while the producing building is selected, with a **line** from the building to the rally point so distant or off-screen rally points are easy to follow. A cleared rally point (None) shows nothing.
+
+**Gathering markers** (user, 2026-11-25; Q0052): Gather, Drop Off and Set Drop-off each have their **own distinct marker** on the target object, not the Move marker. Gather targets are crystal patches and refineries (Alloy Furnace, Essence Refinery, Flux Reactor) as sources; Drop Off and Set Drop-off targets are Egress Nodes and refineries as drop-offs. Like all indicators, they are shown only to the owner while the unit is selected.
 
 ### Color language:
 - Green = peaceful movement

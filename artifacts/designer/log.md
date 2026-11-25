@@ -2164,3 +2164,4 @@ Q0049: second Convert press cancels a deferred conversion (B). Entry 0197.
 Q0049 refined + Q0053 pts 2/3: toggles set a target state; ActiveGroup only; type/group switch at press. Entry 0198 replaces 0197.
 Q0050: joined group becomes active; on death next group in Tab order. Entry 0199.
 Q0051: target lost from vision ends Attack/Follow, unit stops (or next queued). Entry 0200 replaces 0034 fallback.
+Q0052: Set Drop-off pointer ReturnResources; load visual public, details owner-only; distinct Gather/DropOff/SetDropOff markers. Entry 0201.
