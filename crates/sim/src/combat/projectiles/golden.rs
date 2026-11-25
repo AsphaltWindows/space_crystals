@@ -52,9 +52,10 @@ fn order(player: PlayerId, units: &[u32], kind: OrderKind) -> PlayerCommand {
 
 /// Player 1's three throwers (1 to 3, the Guard with the test grenade) and a Peacekeeper of theirs ahead of them (4);
 /// player 2's Hideout (5), out of sight in the north-east, and four Peacekeepers (6 to 9) holding a line, three of them
-/// close together. Thrower 1 attacks the ground over the Hideout and walks past the line to do it, which kills it as
-/// its grenade flies; the others fight by themselves, their grenades locked where the Peacekeepers stand, player 1's
-/// own Peacekeeper among them when it walks in.
+/// close together. Thrower 1 attacks the ground over the Hideout, which it doesn't see, and keeps shelling it (an
+/// Attack Ground keeps firing, design change 0293): its fifth grenade destroys the Hideout, player 2's last structure,
+/// which defeats player 2, and it shells the empty ground on to the end. The others fight by themselves, their grenades
+/// locked where the Peacekeepers stand, player 1's own Peacekeeper among them when it walks in.
 fn record() -> Replay {
     let scenario = ScenarioBuilder::new(&format!("{}\n", ".".repeat(24)).repeat(12))
         .faction(P2, Faction::Syndicate)
@@ -111,11 +112,11 @@ fn json(replay: &Replay) -> String {
 }
 
 /// The game still does what it is there for: grenades flew, several at once; one blast hit two objects; the Hideout
-/// was hit; and some died of it all.
+/// was hit, again and again until it fell (design change 0293); and some died of it all.
 fn check(replay: &Replay) {
     let mut sim = replay.start();
     let (mut launched, mut most_in_flight, mut most_in_one_blast) = (0, 0, 0);
-    let (mut hideout_hit, mut died) = (false, 0);
+    let (mut hideout_hit, mut hideout_fell, mut died) = (false, false, 0);
     while replay.step(&mut sim) {
         most_in_flight = most_in_flight.max(sim.projectiles().len());
         let mut blasts = 0;
@@ -128,7 +129,10 @@ fn check(replay: &Replay) {
                     *struck.entry(attacker).or_insert(0) += 1;
                     hideout_hit |= target == HIDEOUT;
                 }
-                SimEvent::Died { .. } => died += 1,
+                SimEvent::Died { id, .. } => {
+                    died += 1;
+                    hideout_fell |= id == HIDEOUT;
+                }
                 _ => {}
             }
         }
@@ -140,6 +144,7 @@ fn check(replay: &Replay) {
     assert!(most_in_flight >= 2, "at most {most_in_flight} in flight at once");
     assert!(most_in_one_blast >= 2, "no blast hit more than {most_in_one_blast}");
     assert!(hideout_hit, "the Hideout under the Attack Ground");
+    assert!(hideout_fell, "the Attack Ground shelled the Hideout until it fell");
     assert!(died >= 2, "{died} died");
 }
 

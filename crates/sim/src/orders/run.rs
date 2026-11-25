@@ -205,7 +205,7 @@ fn run(
         // The walk into the entry path; the step right after this phase takes the unit into the network or ends the
         // order (`Sim::step_entries`).
         (OrderKind::Enter(_), Behaviour::Enter(state)) => enter::run(state, unit),
-        // (M4-O) The walk into range and the one shot, until its blast.
+        // (M4-O) The walk into range and the shots, until another order (design change 0293).
         (OrderKind::AttackGround(at), Behaviour::AttackGround(state)) => attack_ground::run(unit, at, state, world),
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)

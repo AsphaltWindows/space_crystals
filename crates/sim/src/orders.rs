@@ -16,7 +16,8 @@
 //! - [`build`]: a worker's walk to the site of what it builds, a Drone's Beacon (`crate::deploy`) or an Agent's Tunnel
 //!   (`crate::construction::site`);
 //! - [`enter`]: a unit's walk into a Tunnel's entry path (`crate::network`);
-//! - [`attack_ground`]: AttackingLocation, an Attack Ground's walk into range and its one shot (slice M4-O).
+//! - [`attack_ground`]: AttackingLocation, an Attack Ground's walk into range and its shots, until another order
+//!   (slice M4-O; design change 0293).
 //!
 //! What a unit does by default against a target, a right-click's and a rally point's order, is [`resolution`]'s.
 //!

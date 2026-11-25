@@ -4,7 +4,8 @@
 //! treat the remembered object as present until the player sees otherwise." The sim's [`TargetView`]
 //! (`sc_sim::targets`), through a [`Sight`], so that it agrees with what the world view draws: the object itself
 //! while the sight shows it, the record drawn in its place while the player remembers it (slice M3-K2a). And whether
-//! an attacker is revealed to the player ([`Sight::reveals`]), whose shots are then drawn whole (design change 0206).
+//! an attacker is revealed to the player ([`Sight::reveals`]); its shots are drawn only over the player's Visible
+//! tiles all the same (design change 0293, which replaced design change 0206's whole path).
 
 use sc_sim::{ObjectId, Sim, TargetView};
 
@@ -14,7 +15,7 @@ impl Sight<'_> {
     /// Whether attacker `id` is revealed to the player (`core/vision.md > Attacks from outside vision`,
     /// `sc_sim::vision::reveal`): by one of the visions it watches, until `REVEAL_TICKS` after the attacker's last
     /// shot from outside them at the player's objects, also once the attacker is gone (a reveal ends only with its
-    /// time). `false` while the fog doesn't apply, where every shot shows whole anyway.
+    /// time). `false` while the fog doesn't apply, where everything shows anyway.
     pub fn reveals(&self, id: ObjectId) -> bool {
         self.visions().any(|vision| vision.is_revealed(id))
     }

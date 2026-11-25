@@ -7,8 +7,9 @@
 //!
 //! The fog: `core/vision.md > Attacks from outside vision`: "a shot, tracer or projectile is visible to a player only
 //! along the part of its path that crosses tiles **Visible** to that player": a projectile shows while its point on
-//! the ground is over a Visible tile ([`shows_flight`]), as a shot's path is cut ([`super::visible_spans`]). A
-//! revealed attacker's projectile at one of the player's own objects shows whole, as its shots do (design change 0244).
+//! the ground is over a Visible tile ([`shows_flight`]), as a shot's path is cut ([`super::visible_spans`]). **No
+//! exceptions** (design change 0293, answering Q0083 point 4): a revealed attacker's projectile at the player's own
+//! objects too, "you see only the visible part of its projectiles".
 
 use bevy::prelude::*;
 use sc_sim::{Map, ObjectId, PlayerId, Sim, Tick, VisibilityState};
@@ -36,9 +37,6 @@ pub struct Flight {
     pub owner: Option<PlayerId>,
     /// The object whose place it was locked on, if it was fired at one (none at a location: an Attack Ground).
     pub target: Option<ObjectId>,
-    /// That object's owner as the projectile left: a revealed shooter's projectile at the player's own object is
-    /// drawn whole ([`shows_flight`]).
-    pub target_owner: Option<PlayerId>,
     /// Where it left and the point it lands on, ground space.
     pub from: Vec2,
     pub to: Vec2,
@@ -73,19 +71,12 @@ impl Flight {
     }
 }
 
-/// Whether `sight` shows `flight` now, at `progress` of its way: while it flies, and either its point on the ground
-/// is over a tile Visible to the player (`core/vision.md > Attacks from outside vision`), or its shooter is revealed to
-/// the player ([`Sight::reveals`]) and it was locked on one of the player's own objects.
+/// Whether `sight` shows `flight` now, at `progress` of its way: while it flies, and its point on the ground is over a
+/// tile Visible to the player (`core/vision.md > Attacks from outside vision`), whoever threw it and at whatever: a
+/// shooter revealed to the player, at the player's own object, too (design change 0293, which replaced the
+/// placeholder that drew those whole, as design change 0244 drew its shots).
 pub fn shows_flight(sim: &Sim, sight: &Sight, flight: &Flight, progress: f32) -> bool {
-    if !flight.flying(sim) {
-        return false;
-    }
-    // Placeholder: Q0083 point 4. A revealed attacker's projectile at your object is drawn whole, as design change
-    // 0244 draws its shots: both ends show to you already, so it gives nothing away.
-    if sight.reveals(flight.shooter) && flight.target_owner == Some(sight.player()) {
-        return true;
-    }
-    sight.at(flight.ground(progress)) == VisibilityState::Visible
+    flight.flying(sim) && sight.at(flight.ground(progress)) == VisibilityState::Visible
 }
 
 /// The projectile at `progress` of its way, in its shooter's colour, above its shadow on the ground.
@@ -130,7 +121,6 @@ mod tests {
             shooter: ObjectId(1),
             owner: None,
             target: None,
-            target_owner: None,
             from: Vec2::ZERO,
             to: Vec2::new(256.0, 0.0),
             lands_at,

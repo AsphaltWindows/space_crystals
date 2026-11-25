@@ -2,8 +2,8 @@
 //! (slice M4-O, plan decision T47): a unit attacks a location, "the same as AttackingObject" with the location for
 //! its target. It walks into range and stands, and phase 5e aims at the location and fires (`combat::phases`).
 //!
-//! - **Engaged** (`AttackState::location`): from the order's start (`orders::run::start`) until its one shot
-//!   launches. No one needs to see the location.
+//! - **Engaged** (`AttackState::location`): from the order's start (`orders::run::start`) for as long as it runs. No
+//!   one needs to see the location.
 //! - **In range** (`combat::reaches_point`: from the unit's shape to the point, `systems/combat.md > Range
 //!   Measurement`): the unit stops, and phase 5e aims and fires.
 //! - **Out of range**: MovingToLocation, to the point itself; the walk ends in range, where this behaviour stops it.
@@ -13,9 +13,14 @@
 //!   location (`engage::back_off_spot`), and gives up if the back-off ends with the location still inside. A unit that
 //!   can't move gives up at once. TODO(feedback): an Attack's "Target too close" (`SimEvent::TargetTooClose`) has no
 //!   location counterpart yet; no M4 kind can target the ground and has a MinRange.
-//! - **It fires once** (`// Placeholder: Q0083 point 3`): its one projectile launches, the attack lets go of the
-//!   location (`combat::phases`), and the order completes at its blast, in the first phase 5a after the projectile
-//!   landed ([`World::in_flight`]). The next queued order follows.
+//! - **It keeps firing** (design change 0293, answering Q0083 point 3; it replaced "Behavior complete after attack
+//!   effect is applied"): "like an attack on a unit that never dies, the behavior repeats its attack cycle at the
+//!   location until the player gives another order (or Stop). Queued orders after an Attack Ground therefore never
+//!   start on their own." Its sequences follow one another at the location (`combat::phases`), and the order never
+//!   completes by itself, but by the Failure rule above, or once the unit can't attack the location any more: no
+//!   attack in hand (a Riot Shield up), or a weapon that can't target the ground, whose location phase 5e lets go
+//!   of. A projectile already launched lands whatever becomes of the order (`combat::projectiles`). (A Specter's
+//!   Attack Ground follows its ammo rules, `factions/syndicate/units/specter.md`: slice N7's.)
 //! - The point is the one clicked, with no snapping and no group destinations (plan decision T47): every unit given
 //!   the order fires at it.
 
@@ -30,11 +35,10 @@ use crate::mover::{MoveGoal, MoveStatus};
 
 /// One tick of an Attack Ground at `at` (module docs). Returns whether the behaviour is complete.
 pub(super) fn run(unit: &mut Unit, at: Vec2, state: &mut AttackGround, world: &World) -> bool {
+    // The attack let go of a location its weapon can't target (`combat::phases`): the unit can't carry the order out.
     let engaged = unit.attack.as_deref().is_some_and(|attack| attack.location == Some(at));
     if !engaged {
-        // Placeholder: Q0083 point 3. The one shot is away, or the attack let go of a location its weapon can't
-        // target: the order completes once nothing of it is in flight, at its blast.
-        return !world.in_flight(unit.id, at);
+        return true;
     }
     let Some(attrs) = unit.attrs() else {
         unit.engage(None);

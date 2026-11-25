@@ -1011,12 +1011,20 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **The marks:** Q0077, Q0079 and Q0082 now cite 0288, 0289 and 0292.
   - **Remembered sites:** `LastKnown::site: Option<Progress>`, hashed only while set; the remembered MaxHP follows ConstructionHP at that progress. The client draws a dimmed site with its bar fixed at the last-seen progress (`MeshKey::of_record`), and the live bar never shows through the fog.
 
+- **M4-O2 Area damage answers** (Opus; merged in `2e0f31f4`; 1685 tests; `test_defs/area_attacks.json` re-blessed):
+  - **Attack Ground keeps firing** (0293 point 3). The location stays engaged, and the order never completes by itself, so queued orders after it never start. It ends only by another order, Stop, the Failure rule, or when the unit can no longer attack the location. `World::in_flight` and the projectile snapshot are gone.
+  - **No drawing exception** (0293 point 4, replacing 0244). Shots, tracers and projectiles are drawn only over the viewer's Visible tiles, a revealed attacker's included. `Tracer`/`Flight::target_owner` are gone, and five `fog_memory` tests are flipped.
+  - **Points 1 and 2 were as built** (friendly fire; the reveal when the damage lands). They are now tested: a grenade into the thrower's own melee, one at its own feet, and a dodged grenade from the fog with a twin that stays put.
+  - **The golden:** thrower 1 now shells the Hideout spot 12 times instead of once. Its 5th grenade kills the Hideout at tick 205, defeating player 2. The golden's description is corrected.
+  - **Perf** (A/B, interleaved): `projectiles_perf`, `behaviours_perf` and `attack_move_perf` are within noise.
+  - **Left as built:** an attacker killed in the tick its blast lands still gets a reveal entry. It has no visible effect, since the attacker is removed that tick.
+
 ## In progress
+  - **M4-L Syndicate oracle and goldens** (Opus; brief `scratchpad/briefs/m4l-syndicate-oracle.md`): `testing::syndicate`, the oracle by 0259's method (the opening and the 0–2 GU rows reported as blocked by Q0076/Q0088), and `syndicate_opening` and `syndicate_vs_gdo` with the patch 3 GU from the hatch. `syndicate_vs_gdo` is blessed after K lands, since the Guard needs an Optics Lab.
   - **M4-G Tunnel upgrades** (Opus; brief `scratchpad/briefs/m4g-tunnel-upgrades.md`): Q upgrades to Tier 2 and Tier 3 for Supplies paid when ordered; one price rule for orders and refunds; the reserved area; checks by the truth; 480 frames; then `set_tier` and `reclaim`. It folds in 0283 (3 and 4 tiles to the edge). It reads own pending ghosts as not blocking an upgrade (the doc reserves them against Tunnel placements only).
-  - **M4-O2 Area damage answers** (Opus; brief `scratchpad/briefs/m4o2-area-damage-answers.md`): 0293. Attack Ground keeps firing until another order; every shot and projectile is drawn only over Visible tiles (replacing 0244); friendly fire and the reveal tested; the Q0083 marks.
   - **M4-K Prerequisites, the Optics Lab and the Chemical Plant** (Opus; brief `scratchpad/briefs/m4k-prerequisites.md`): generic Tech and Unit Prerequisites (T37), the two new expansions on placeholders (0229, 0260), and the Guard gated on an Optics Lab.
 - **Next**:
-  - **M4 wave 7:** L and S1, after K and G.
+  - **M4 wave 7:** S1 (the Agent-built Laser Turret), after K. L started early, in the slot O2 freed.
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -1208,7 +1216,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - K: running (wave 6, Opus; brief `scratchpad/briefs/m4k-prerequisites.md`).
     - G: running (wave 6, Opus; brief `scratchpad/briefs/m4g-tunnel-upgrades.md`).
     - I2: done (`4f31587f`).
-    - O2: running (new, small, Opus; brief `scratchpad/briefs/m4o2-area-damage-answers.md`): 0293.
+    - O2: done (`2e0f31f4`).
+    - L: running (wave 7, started early; Opus; brief `scratchpad/briefs/m4l-syndicate-oracle.md`).
     - The rest are queued in the waves above.
   - **Technical follow-ups** (the Director's):
     - **One per-player event filter in the client.** M4-O found that each event consumer filters for the viewer on its own, and fixed one leak (a hidden Hideout's death marker). Put the filter in one place before more hidden objects arrive (S2's pop-up turret, N4–N7). Candidate: a small slice beside L, or in M.
@@ -1320,7 +1329,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0080 | Expansion placement: do ground units and lingering ghosts block it; is a Warp In over a hidden expansion red at once? | no | answered by 0290: units and ghosts don't block, and a Warp In is judged like direct placement; M4-F re-briefed |
 | Q0081 | ExpandMenu slots: do expansions not yet in the game keep their greyed slots, so the turret's letter never moves? | no | answered by 0291 (as proposed); M4-F builds it |
 | Q0082 | Supplies gathering: pick-up and drop-off reaches; nearest Tunnel measured to the Supplies hatch; the old load lost at the end of the new pick-up | no | answered by 0292 (points 1 and 3 as built; point 2 built by M4-I2 `4f31587f`) |
-| Q0083 | Area damage: friendly fire, the reveal, Attack Ground's end, how grenades are drawn | no | answered by 0293: points 1 and 2 as built; Attack Ground keeps firing; no drawing exception (M4-O2) |
+| Q0083 | Area damage: friendly fire, the reveal, Attack Ground's end, how grenades are drawn | no | answered by 0293 (points 1 and 2 as built; points 3 and 4 built by M4-O2 `2e0f31f4`) |
 | Q0084 | Laser Turret: hidden when, sight, blocking, payment, refunds, sites, the Agent's exit, targeting | no | open; M4-S1 and M4-S2 build the proposals |
 | Q0085 | Stale doc lines that later answers contradict (seven lines) | no | answered by 0284 (the docs corrected; as built); F updates the comments |
 | Q0086 | The EjectMenu's order, zero-count tiles and state after a click; when Tunnel Areas are drawn; recalling an all-held group | no | point 1 answered by 0285 (as built); points 2–5 open, with the user |
@@ -1524,7 +1533,7 @@ Last triaged: 0282.
 | 0203 The Rocketman's normal attack has a MinRange (value TBD) | queued (waiting for the value; the MinRange rules are built, M3-L2) | context for Q0054 |
 | 0204 AttackMove's dropped target, the MinRange back-off spot and a cornered unit stay as M3-L2 built them; a locked Rocketman's fire ignores MinRange | done (as built M3-L2), except point 1, superseded by 0230 (M3-L4); the locked-fire part is queued with Target Lock | answers Q0054 |
 | 0205 The Drone accelerates faster (ForwardAcceleration 0.9, OmniDirectionalAcceleration 0.3, DragRatio 0.15; were 0.6 / 0.2 / 0.1); re-run the Colonists oracle and report the table for Q0055 | done (M3-K3, `c4807b8`); figures re-reported as Q0072 | a step toward Q0055, which stays open; the table and targets stay unchanged |
-| 0206 While an attacker in the fog is revealed, its own shots are drawn from it to the target; other shots stay clipped to Visible tiles | done (M3-J3, `827dfeb`); narrowed by 0244 (M3-L5) | answers Q0056; client only |
+| 0206 While an attacker in the fog is revealed, its own shots are drawn from it to the target; other shots stay clipped to Visible tiles | done (M3-J3, `827dfeb`); narrowed by 0244 (M3-L5); superseded by 0293 point 4 (M4-O2 `2e0f31f4`) | answers Q0056; client only |
 | 0207–0209 Laser Battery, a new Syndicate vehicle: always charging, weaker surges on an empty battery, Amplify, a narrow turret arc; Syndicate lasers are red | queued (M4: red lasers in M4-A; the Laser Battery is gated on numbers, N3) | concept; no numbers yet |
 | 0210 The Laser Battery needs an Optics Lab; the Laser Battery and the Artillery Rig have mobile and deployed as two unit types | queued (M4 N3; the Artillery Rig part with the Artillery Rig, not yet built) | deploy times TBD |
 | 0211, 0213, 0214 Vehicle deploy is a queueable order, can't be cancelled once started, switches type at completion; orders given meanwhile are held and checked against the deployed type | queued (with the first deploying vehicle: Laser Battery, Artillery Rig or the Transport's Burrow and Surface) | not the Drone's Beacon Deployment, which stays as M3 built it (0214) |
@@ -1550,7 +1559,7 @@ Last triaged: 0282.
 | 0241 No expansions under resources (patches, Supply Delivery Stations); non-Drillable cells give no Tunnel Space | done (M4-F, `2cbb777e`: no expansions under resources); the Tunnel Space part is superseded by 0242 | answers Q0062 points 3d and 5 |
 | 0242 A Tunnel's whole area must be on the map and Drillable, for placement and upgrades; every tunnel-region cell is usable; starting layouts must respect it | partly done (M4-B, `35e19634`: layout and editor validation, `TunnelAreaOffMap` and `TunnelAreaNotDrillable`, Tunnel Space; 2 tiles from the edge valid, Q0078 and 0283; M4-E, `4933e094`: placement, by knowledge at the order and the truth on arrival; M4-J1, `dd14dc38`: the ghost); queued (M4-G: the upgrade check, 3 tiles from the edge for Tier 2 and 4 for Tier 3) | completes Q0062; replaces 0238 and 0241's Tunnel Space part |
 | 0243 AttackMove: a reach-rule rejection is also re-checked once the unit has moved about 1 GU from where it judged; Failure-rule and fog rejections keep 0230's triggers; measure the cost | done (M3-L5, `a777ae3`); the 1 GU step is kept: at most 1.45× master's mean tick, about +0.05 ms for 100 Guards | answers Q0074 (B, "to try") |
-| 0244 A revealed attacker's shot is drawn whole only when its target is the viewer's own object; everything else is clipped to Visible tiles | done (M3-L5, `a777ae3`); superseded by 0293 point 4 (M4-O2 removes the exception) | answers Q0075; narrows 0206 |
+| 0244 A revealed attacker's shot is drawn whole only when its target is the viewer's own object; everything else is clipped to Visible tiles | superseded by 0293 point 4 (M3-L5 `a777ae3` built it; M4-O2 `2e0f31f4` removed the exception) | answers Q0075; narrows 0206 |
 | 0245 Tunnel Network: a flat transit delay of 32 frames (placeholder) after entering before a unit can exit; produced units have none | done (M4-C, `f67df212`) | answers Q0063 point 1 |
 | 0246 Units walk into a Tunnel single file at normal speed with normal spacing, no fixed hold per unit ("one unit wide"); produced units exit without delay | done (M4-C, `f67df212`) | answers Q0063 point 7 and part of 2; replaces the 8-frame hold proposal |
 | 0247 Entering a Tunnel uses the normal Failure rule; no special waiting rule | done (M4-C, `f67df212`) | answers Q0063 point 2, as proposed |
@@ -1599,5 +1608,5 @@ Last triaged: 0282.
 | 0290 Expansion placement: ground units don't block it; no ghost check is needed; a Colonists Warp In over a hidden enemy expansion is red at once, like direct placement | done (M4-F, `2cbb777e`) | answers Q0080 |
 | 0291 The ExpandMenu's nine expansions hold fixed slots in table order, greyed while unavailable; the Laser Turret is always tenth | done (M4-F, `2cbb777e`; the turret's tenth slot is a `Planned` entry until S2) | answers Q0081 |
 | 0292 Supplies gathering: 8 su reaches; the nearest Tunnel measured to the crystal hatch; the old load lost when the new pick-up or mining ends | done (points 1 and 3 as built, M4-I `9aca8972`; point 2, M4-I2 `4f31587f`) | answers Q0082 |
-| 0293 Area damage: friendly fire; the reveal when damage lands, to the damaged objects' owners; Attack Ground keeps firing until another order; every shot and projectile drawn only over Visible tiles (replaces 0244) | in progress (M4-O2; points 1 and 2 as built by M4-O `356d1a96`) | answers Q0083 |
+| 0293 Area damage: friendly fire; the reveal when damage lands, to the damaged objects' owners; Attack Ground keeps firing until another order; every shot and projectile drawn only over Visible tiles (replaces 0244) | done (M4-O2, `2e0f31f4`; points 1 and 2 as built by M4-O `356d1a96`) | answers Q0083 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

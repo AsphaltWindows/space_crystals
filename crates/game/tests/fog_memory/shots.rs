@@ -1,6 +1,7 @@
 //! A shot from the fog (design change 0177): its shooter is revealed for a while to the player whose object it hit,
-//! and while it is, its shots at that player's objects show whole (design changes 0206 and 0244); any other shot
-//! shows only over the player's Visible tiles, from the fog edge.
+//! and every shot shows only over the player's Visible tiles, from the fog edge, a revealed shooter's included (design
+//! change 0293, answering Q0083 point 4: "No exceptions"; it replaced design changes 0206 and 0244, which drew a
+//! revealed attacker's shots at the player's own objects whole).
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::tuning::vision::REVEAL_TICKS;
@@ -25,17 +26,21 @@ const STEP: &str = "
     0000000000000111111111111
 ";
 
+/// Where player 1 sees a shot from player 2's Peacekeeper on (14, 2) to its own on (9, 2) begin: at the east edge of
+/// tile (13, 2), the last tile player 1's unit sees that way (4 grid units up to level 1), a tenth of the way.
+const FOG_EDGE: (f32, f32) = (0.1, 1.0);
+
 /// Design change 0177 (`core/vision.md > Attacks from outside vision`), which replaces Q0017 point 1's assumption (a
 /// flash of the unit hit, no tracer). Player 2's Peacekeeper on the high ground (tile (14, 2), level 1) shoots player
 /// 1's on (9, 2) from beyond player 1's sight (4 grid units up to level 1) but within its own range (5 grid units down
 /// to level 0). The shooter is revealed to player 1, drawn and selectable, until `REVEAL_TICKS` after its last shot:
-/// its first, as player 2 stops it then. And so player 1 sees the whole shot, from the shooter on, not out of the fog
-/// at the east edge of tile (13, 2), the last tile player 1 sees that way (design change 0206, answering Q0056: "while
-/// an attacker is revealed to you, its own shots are drawn along their whole path, from the attacker to the target, so
-/// they visibly come from the unit you can see"), as the shot is at player 1's own unit (design change 0244); as with
-/// the fog off, and for player 2. Auto-targeting is off, so that nobody fires on their own.
+/// its first, as player 2 stops it then. **Design change 0293's verification**, "A revealed attacker's shots appear
+/// only from the edge of your vision": player 1 sees that shot come out of the fog at the east edge of tile (13, 2), a
+/// tenth of the way, though the shooter it came from shows (`core/vision.md > Attacks from outside vision`: "You see
+/// the attacker only when it is revealed by damaging you, and you see only the visible part of its projectiles"). With
+/// the fog off, and to player 2, the shot shows whole. Auto-targeting is off, so that nobody fires on their own.
 #[test]
-fn a_shot_from_the_fog_reveals_the_shooter_whose_shot_then_shows_whole() {
+fn a_shot_from_the_fog_reveals_the_shooter_and_shows_only_from_the_fog_edge() {
     let mut app = headless(AppConfig::new(ScenarioBuilder::new(STEP).build()));
     debug(&mut app, DebugCommand::SetAutoTargeting { on: false });
     spawn_unit(&mut app, P1, 9, 2);
@@ -67,12 +72,12 @@ fn a_shot_from_the_fog_reveals_the_shooter_whose_shot_then_shows_whole() {
         let sim = world.resource::<SimRes>();
         let tracer = &world.resource::<CombatEffects>().tracers[0];
         assert_eq!((tracer.target, tracer.tick), (target, shot));
-        assert_eq!(tracer.target_owner, Some(P1));
+        assert!(Sight::new(sim, P1, true).reveals(attacker), "revealed by the shot");
         let spans = |player, fog| shot_spans(sim, &Sight::new(sim, player, fog), tracer);
         assert_eq!(
             spans(P1, true),
-            [(0.0, 1.0)],
-            "from the revealed shooter, not the fog edge a tenth of the way"
+            [FOG_EDGE],
+            "from the fog edge, not from the revealed shooter"
         );
         assert_eq!(spans(P1, false), [(0.0, 1.0)], "the fog off");
         assert_eq!(spans(P2, true), [(0.0, 1.0)], "the shooter's own");
@@ -112,12 +117,11 @@ fn spawn_neutral(app: &mut App, x: i32, y: i32) {
     );
 }
 
-/// Design change 0206: "Other shots from the fog are still clipped to Visible tiles" (`core/vision.md > Attacks from
-/// outside vision`: "Shots from attackers that aren't revealed to you are still drawn only over your Visible
-/// tiles"). Player 2's Peacekeeper on the high ground (14, 2) shoots a neutral one on (10, 2), which player 1's on
-/// (9, 2) sees: an attack on a neutral object reveals its attacker to nobody (`sc_sim::vision::reveal`), so player 1
-/// sees the shot come out of the fog at the east edge of tile (13, 2), an eighth of the way from the shooter, which
-/// stays hidden; player 2 sees the whole shot.
+/// `core/vision.md > Attacks from outside vision`: "a shot, tracer or projectile is visible to a player only along the
+/// part of its path that crosses tiles **Visible** to that player". Player 2's Peacekeeper on the high ground (14, 2)
+/// shoots a neutral one on (10, 2), which player 1's on (9, 2) sees: an attack on a neutral object reveals its attacker
+/// to nobody (`sc_sim::vision::reveal`), so player 1 sees the shot come out of the fog at the east edge of tile (13,
+/// 2), an eighth of the way from the shooter, which stays hidden; player 2 sees the whole shot.
 #[test]
 fn a_shot_from_an_attacker_not_revealed_shows_from_the_fog_edge() {
     let mut app = headless(AppConfig::new(ScenarioBuilder::new(STEP).build()));
@@ -182,14 +186,14 @@ fn shoot(app: &mut App, player: PlayerId, attacker: ObjectId, target: ObjectId) 
     }
 }
 
-/// Design change 0244, answering Q0075: "A revealed attacker's shots at anything else (a neutral, a third player's
-/// object) are drawn only over your Visible tiles, like any shot from the fog." Player 2's Peacekeeper on the high
-/// ground (14, 2) shoots player 1's on (9, 2), from beyond player 1's sight, and is revealed to player 1: that shot,
-/// at player 1's own unit, shows whole. Then, revealed still, it shoots a neutral Peacekeeper on (10, 2), which
-/// player 1 sees: that shot shows from the fog edge, an eighth of the way, as one from an attacker not revealed
-/// ([`a_shot_from_an_attacker_not_revealed_shows_from_the_fog_edge`]), and whole to player 2.
+/// Design change 0293 (answering Q0083 point 4), "whoever fires it and at whatever": a revealed attacker's shots show
+/// alike at the player's own unit and at a neutral one. Player 2's Peacekeeper on the high ground (14, 2) shoots player
+/// 1's on (9, 2), from beyond player 1's sight, and is revealed to player 1: that shot shows from the fog edge, a tenth
+/// of the way (design change 0244 drew it whole). Then, revealed still, it shoots a neutral Peacekeeper on (10, 2),
+/// which player 1 sees: that shot shows from the fog edge too, an eighth of the way, as one from an attacker not
+/// revealed ([`a_shot_from_an_attacker_not_revealed_shows_from_the_fog_edge`]), and whole to player 2.
 #[test]
-fn a_revealed_attackers_shot_at_a_neutral_shows_from_the_fog_edge() {
+fn a_revealed_attackers_shots_show_from_the_fog_edge_at_your_unit_and_at_a_neutral() {
     let mut app = headless(AppConfig::new(ScenarioBuilder::new(STEP).build()));
     debug(&mut app, DebugCommand::SetAutoTargeting { on: false });
     spawn_unit(&mut app, P1, 9, 2);
@@ -202,8 +206,7 @@ fn a_revealed_attackers_shot_at_a_neutral_shows_from_the_fog_edge() {
         let sim = app.world().resource::<SimRes>();
         let sight = Sight::new(sim, P1, true);
         assert!(sight.reveals(attacker));
-        assert_eq!(first.target_owner, Some(P1));
-        assert_eq!(shot_spans(sim, &sight, &first), [(0.0, 1.0)], "at player 1's own unit");
+        assert_eq!(shot_spans(sim, &sight, &first), [FOG_EDGE], "at player 1's own unit");
     }
     let second = shoot(&mut app, P2, attacker, neutral);
     assert!(second.tick < first.tick + REVEAL_TICKS);
@@ -212,8 +215,7 @@ fn a_revealed_attackers_shot_at_a_neutral_shows_from_the_fog_edge() {
     let sight = Sight::new(sim, P1, true);
     assert!(sight.reveals(attacker), "revealed still");
     assert!(drawn(&app, 2), "and drawn");
-    assert_eq!(second.target_owner, None);
-    assert_eq!(shot_spans(sim, &sight, &second), [(0.125, 1.0)], "from the fog edge");
+    assert_eq!(shot_spans(sim, &sight, &second), [(0.125, 1.0)], "at the neutral");
     assert_eq!(
         shot_spans(sim, &Sight::new(sim, P2, true), &second),
         [(0.0, 1.0)],
@@ -245,13 +247,14 @@ const STEP_TALL: &str = "
 
 const P3: PlayerId = PlayerId(3);
 
-/// **Design change 0244's Verification**: "In a three-player game, a revealed enemy then shoots a third player's unit
-/// hidden in the fog. Only the part of the shot inside your vision is drawn." Player 2's Peacekeeper on the high
-/// ground (15, 2) shoots player 1's on (10, 2), from beyond player 1's sight, and is revealed to player 1. Then it
-/// shoots player 3's Peacekeeper on the high ground (13, 5), which player 1 doesn't see (4.2 grid units up to level
-/// 1, beyond its 4): player 1 sees the shot only over tile (13, 4), the one tile of its path that player 1's unit
-/// sees (3.6 grid units), from three quarters of the way to five sixths, neither where the shooter stands nor where
-/// the target does. Player 3, whose unit sees the shooter, sees the whole shot.
+/// Design change 0244's Verification, which design change 0293 keeps: "In a three-player game, a revealed enemy then
+/// shoots a third player's unit hidden in the fog. Only the part of the shot inside your vision is drawn." Player 2's
+/// Peacekeeper on the high ground (15, 2) shoots player 1's on (10, 2), from beyond player 1's sight, and is revealed to
+/// player 1: player 1 sees that shot from the fog edge, the east edge of tile (14, 2), a tenth of the way (0293). Then
+/// it shoots player 3's Peacekeeper on the high ground (13, 5), which player 1 doesn't see (4.2 grid units up to level
+/// 1, beyond its 4): player 1 sees the shot only over tile (13, 4), the one tile of its path that player 1's unit sees
+/// (3.6 grid units), from three quarters of the way to five sixths, neither where the shooter stands nor where the
+/// target does. Player 3, whose unit sees the shooter, sees the whole shot.
 #[test]
 fn a_revealed_attackers_shot_at_a_third_players_hidden_unit_shows_only_over_your_vision() {
     let mut scenario = ScenarioBuilder::new(STEP_TALL).build();
@@ -275,7 +278,7 @@ fn a_revealed_attackers_shot_at_a_third_players_hidden_unit_shows_only_over_your
     {
         let sim = app.world().resource::<SimRes>();
         let sight = Sight::new(sim, P1, true);
-        assert_eq!(shot_spans(sim, &sight, &first), [(0.0, 1.0)], "at player 1's own unit");
+        assert_eq!(shot_spans(sim, &sight, &first), [FOG_EDGE], "at player 1's own unit");
     }
     let second = shoot(&mut app, P2, attacker, third);
     assert!(second.tick < first.tick + REVEAL_TICKS);
@@ -284,7 +287,6 @@ fn a_revealed_attackers_shot_at_a_third_players_hidden_unit_shows_only_over_your
     let sight = Sight::new(sim, P1, true);
     assert!(sight.reveals(attacker), "revealed still");
     assert!(!sim.is_visible(P1, sim.object(third).unwrap()), "the target hidden");
-    assert_eq!(second.target_owner, Some(P3));
     let spans = shot_spans(sim, &sight, &second);
     assert_eq!(spans, visible_spans(&sight, second.from, second.to));
     assert_eq!(spans.len(), 1, "{spans:?}");
@@ -300,12 +302,12 @@ fn a_revealed_attackers_shot_at_a_third_players_hidden_unit_shows_only_over_your
     );
 }
 
-/// The shot that kills player 1's unit is still one at player 1's own object (design change 0244): the shooter of
-/// [`a_shot_from_the_fog_reveals_the_shooter_whose_shot_then_shows_whole`] fires on until player 1's Peacekeeper
-/// dies, and each of its shots, the last one too, shows whole to player 1, although the unit it killed is gone by the
-/// time the client takes the shot (its owner is its death's, `SimEvent::Died`).
+/// Design change 0293 to the last shot: the shooter of
+/// [`a_shot_from_the_fog_reveals_the_shooter_and_shows_only_from_the_fog_edge`] fires on until player 1's
+/// Peacekeeper dies, revealed to player 1 all the while, and each of its shots, the one that kills the unit too, shows
+/// to player 1 only from the fog edge.
 #[test]
-fn a_revealed_attackers_killing_shot_at_your_unit_shows_whole() {
+fn a_revealed_attackers_shots_at_your_unit_all_show_from_the_fog_edge() {
     let mut app = headless(AppConfig::new(ScenarioBuilder::new(STEP).build()));
     debug(&mut app, DebugCommand::SetAutoTargeting { on: false });
     spawn_unit(&mut app, P1, 9, 2);
@@ -325,8 +327,8 @@ fn a_revealed_attackers_killing_shot_at_your_unit_shows_whole() {
             continue;
         };
         shots += 1;
-        assert_eq!(tracer.target_owner, Some(P1));
-        assert_eq!(shot_spans(sim, &sight, tracer), [(0.0, 1.0)], "shot {shots}");
+        assert!(sight.reveals(attacker), "shot {shots}");
+        assert_eq!(shot_spans(sim, &sight, tracer), [FOG_EDGE], "shot {shots}");
         if sim.object(own).is_none() {
             break;
         }

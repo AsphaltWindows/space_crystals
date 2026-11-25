@@ -1,5 +1,7 @@
 //! Plan §3.3 O's acceptance through the whole sim, with the test grenade (`combat::testing`): the flight, dodging, a
-//! hidden Hideout under a blast and whom it reveals the thrower to, a shot whose thrower died, and the hash.
+//! hidden Hideout under a blast and whom it reveals the thrower to, a shot whose thrower died, and the hash; and design
+//! change 0293's verifications of friendly fire and of the reveal (answering Q0083 points 1 and 2): a grenade into its
+//! thrower's own melee, one at its own feet, and one dodged from the fog.
 
 use glam::Vec2;
 
@@ -72,8 +74,8 @@ fn current(t: &TestSim, id: ObjectId) -> Option<OrderKind> {
 /// Plan §3.3 O's acceptance, the flight: "A shot at 4 GU lands 32 ticks after launch (256 su at 8 su per tick: 0260's
 /// 'about 2 s over 4 GU')". An Attack Ground 256 su east of the thrower: the projectile leaves from its centre at the
 /// end of Firing, flies 32 ticks, and its blast hits the Peacekeeper of player 2 standing there with its share less its
-/// FullArmor, all of it inside the circle. The store holds the projectile just as long; the order completes in the
-/// tick after the blast, the first phase 5a that finds nothing of it in flight, having fired once.
+/// FullArmor, all of it inside the circle. The store holds the projectile just as long; the order goes on past the
+/// blast, as an Attack Ground keeps firing (design change 0293), and the next grenade leaves a cycle after the first.
 #[test]
 fn a_shot_at_four_grid_units_lands_32_ticks_after_it_leaves() {
     let _grenadier = grenadier(GRENADE);
@@ -97,15 +99,10 @@ fn a_shot_at_four_grid_units_lands_32_ticks_after_it_leaves() {
     let peacekeeper = ObjectKind::Peacekeeper.def();
     let share = 100.0 * (24.0 * 24.0 / (PI * 40.0 * 40.0));
     assert_eq!(hits_on(&t, TARGET), [(launched + 32, share - peacekeeper.armor.full)]);
-    assert_eq!(
-        current(&t, SHOOTER),
-        Some(OrderKind::AttackGround(at)),
-        "until the blast"
-    );
-    t.step();
-    assert_eq!(current(&t, SHOOTER), None, "complete");
-    t.run(100);
-    assert_eq!(launches(&t).len(), 1, "it fires once");
+    let cycle = GRENADE.aim_ticks + GRENADE.firing_ticks + GRENADE.cooldown_ticks + GRENADE.reload_ticks;
+    t.run_until(launched + cycle);
+    assert_eq!(current(&t, SHOOTER), Some(OrderKind::AttackGround(at)), "it goes on");
+    assert_eq!(launches(&t).len(), 2, "the next grenade");
 }
 
 /// Plan §3.3 O's acceptance, dodging: "A target walking away at 5 su per tick is clear of the 40 su circle when it lands,
@@ -134,8 +131,9 @@ fn a_target_that_walks_off_is_clear_when_it_lands() {
 
 /// Plan §3.3 O's acceptance, hidden information, in the sim: player 2 throws a grenade at the ground over player 1's
 /// Hideout, which player 2 can't see (plan decision T32). The Hideout takes 100 − 24 × 5026.5 / 16384 ≈ 92.6, and the
-/// thrower, which player 1 doesn't see, is revealed to player 1 at the blast (`// Placeholder: Q0083 point 2`), for
-/// the reveal's 24 ticks. Player 2 still sees nothing of the Hideout.
+/// thrower, which player 1 doesn't see, is revealed to player 1 at the blast, not before (design change 0293, answering
+/// Q0083 point 2: "the reveal happens when the damage lands, not at the throw, and only to the owners of the objects it
+/// damaged"), for the reveal's 24 ticks. Player 2 still sees nothing of the Hideout.
 #[test]
 fn a_blast_over_a_hidden_hideout_reveals_the_thrower_to_its_owner() {
     let _grenadier = grenadier(GRENADE);
@@ -167,8 +165,8 @@ fn a_blast_over_a_hidden_hideout_reveals_the_thrower_to_its_owner() {
 }
 
 /// Plan decision T45: "a projectile lands even if its shooter died". The thrower is removed as its grenade flies: the
-/// blast still hits the Peacekeeper, and reveals no one (`// Placeholder: Q0083 point 2`: the thrower "if still
-/// alive").
+/// blast still hits the Peacekeeper, and reveals no one (design change 0293, answering Q0083 point 2: "The attacker is
+/// revealed only if it is still alive").
 #[test]
 fn a_grenade_lands_after_its_thrower_is_gone() {
     let _grenadier = grenadier(GRENADE);
@@ -187,6 +185,147 @@ fn a_grenade_lands_after_its_thrower_is_gone() {
     t.run_until(p.lands_at);
     assert_eq!(hits_on(&t, TARGET).len(), 1);
     assert!(!t.sim().vision().player(P2).unwrap().is_revealed(SHOOTER));
+}
+
+/// The hits of the run so far: (tick, attacker, target).
+fn hits(t: &TestSim) -> Vec<(Tick, ObjectId, ObjectId)> {
+    (t.events().iter())
+        .filter_map(|(tick, e)| match *e {
+            SimEvent::Hit { attacker, target, .. } => Some((*tick, attacker, target)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Design change 0293's verification, "A Grenadier throwing into its own melee damages its own units" (answering Q0083
+/// point 1; `systems/combat.md > AoEDamage`: "**Friendly fire** ... area damage hits **every** object in the circle
+/// whose domain matches, **whoever owns it**"). Player 1's thrower attacks player 2's Peacekeeper, which stands in a
+/// scrum with one of player 1's own Peacekeepers and a neutral one: the grenade, locked on the enemy, lands on all
+/// three, each a hit of the thrower's, and the thrower's own unit loses HP to it.
+#[test]
+fn a_grenade_into_its_own_melee_damages_its_own_units() {
+    let _grenadier = grenadier(GRENADE);
+    let from = Vec2::new(200.0, 320.0);
+    let enemy = from + Vec2::new(256.0, 0.0);
+    let (own, neutral) = (ObjectId(3), ObjectId(4));
+    let mut t = ScenarioBuilder::new(&open()).start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Guard, P1, from)
+        .spawn_unit_at(1, ObjectKind::Peacekeeper, P2, enemy)
+        .spawn_unit_at(1, ObjectKind::Peacekeeper, P1, enemy + Vec2::new(26.0, 0.0))
+        .debug_at(
+            1,
+            DebugCommand::Spawn {
+                kind: ObjectKind::Peacekeeper,
+                owner: None,
+                at: SpawnAt::Point(enemy - Vec2::new(0.0, 28.0)),
+                orientation: Default::default(),
+            },
+        )
+        .order_at(2, P1, &[SHOOTER], OrderKind::Attack(TARGET), false);
+    until_launched(&mut t);
+    let lands_at = t.sim().projectiles()[0].lands_at;
+    t.run_until(lands_at);
+    assert_eq!(blasts(&t), [(lands_at, enemy, 40.0)]);
+    let struck = [TARGET, own, neutral].map(|id| (lands_at, SHOOTER, id));
+    assert_eq!(
+        hits(&t),
+        struck,
+        "the enemy, the thrower's own unit and the neutral one"
+    );
+    let own_unit = t.sim().object(own).unwrap();
+    assert_eq!(own_unit.owner, Some(P1));
+    assert!(own_unit.hp < ObjectKind::Peacekeeper.def().max_hp, "{:?}", own_unit.hp);
+}
+
+/// Friendly fire hits the attacker itself (design change 0293: "own units and structures, the attacker itself"): a
+/// thrower that attacks the ground 20 su from its centre, inside its own 36 × 36 silhouette's reach, takes its blast's
+/// share of the overlap, as any object there would, and reveals itself to no one. Keeping on at the spot (an Attack
+/// Ground keeps firing, design change 0293), it kills itself with its fourth grenade.
+#[test]
+fn a_grenade_at_its_own_feet_hits_the_thrower() {
+    let _grenadier = grenadier(GRENADE);
+    let from = Vec2::new(200.0, 320.0);
+    let at = from + Vec2::new(20.0, 0.0);
+    let mut t = ScenarioBuilder::new(&open()).start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Guard, P1, from)
+        .order_at(2, P1, &[SHOOTER], OrderKind::AttackGround(at), false);
+    until_launched(&mut t);
+    let lands_at = t.sim().projectiles()[0].lands_at;
+    t.run_until(lands_at);
+    let half = Vec2::splat(18.0);
+    let inside = crate::combat::overlap(at, 40.0, from - half, from + half);
+    let guard = ObjectKind::Guard.def();
+    let fraction = inside / (36.0 * 36.0);
+    let share = 100.0 * (inside / (PI * 40.0 * 40.0));
+    assert!(fraction > 0.9 && fraction < 1.0, "{fraction}");
+    assert_eq!(hits(&t), [(lands_at, SHOOTER, SHOOTER)]);
+    assert_eq!(hits_on(&t, SHOOTER), [(lands_at, share - guard.armor.full * fraction)]);
+    assert!(!revealed_to(&t, P1, SHOOTER) && !revealed_to(&t, P2, SHOOTER));
+    while t.sim().object(SHOOTER).is_some() {
+        assert!(t.sim().tick() < lands_at + 200, "it never died");
+        t.step();
+    }
+    assert_eq!(hits_on(&t, SHOOTER).len(), 4, "its fourth grenade");
+}
+
+/// Design change 0293's verification, "A grenade dodged from the fog reveals nothing" (answering Q0083 point 2: the
+/// reveal "happens when the damage lands, not at the throw ... a dodged projectile or a blast that damages nothing
+/// reveals nothing"). Player 2's thrower (a Range of 8 grid units), 7 grid units off, out of player 1's sight, attacks
+/// the ground under player 1's Peacekeeper, which it doesn't see either. In one game the Peacekeeper walks off as the
+/// grenade leaves: the blast damages nothing, and the thrower is never revealed to player 1, nor seen, though it goes
+/// on throwing at the empty spot. In the other it stays: the thrower is revealed at the blast, and not before, at the
+/// throw or in flight.
+#[test]
+fn a_grenade_dodged_from_the_fog_reveals_nothing() {
+    let _grenadier = grenadier(crate::defs::AttackAttrs { range: 8.0, ..GRENADE });
+    let (walker, thrower) = (ObjectId(1), ObjectId(2));
+    let stands = Vec2::new(200.0, 320.0);
+    let play = |dodge: bool| {
+        let mut t = ScenarioBuilder::new(&open()).start();
+        t.without_auto_targeting()
+            .spawn_unit_at(1, ObjectKind::Peacekeeper, P1, stands)
+            .spawn_unit_at(1, ObjectKind::Guard, P2, stands + Vec2::new(448.0, 0.0))
+            .order_at(2, P2, &[thrower], OrderKind::AttackGround(stands), false);
+        let launched = until_launched(&mut t);
+        if dodge {
+            let away = Target::Point(Vec2::new(40.0, 320.0));
+            t.order_at(launched + 1, P1, &[walker], OrderKind::Move(away), false);
+        }
+        let lands_at = t.sim().projectiles()[0].lands_at;
+        assert_eq!(lands_at, launched + 56, "448 su at 8 su a tick");
+        while t.sim().tick() < lands_at {
+            let tick = t.sim().tick();
+            assert!(
+                !revealed_to(&t, P1, thrower),
+                "not at the throw, nor in flight: tick {tick}"
+            );
+            t.step();
+        }
+        assert_eq!(blasts(&t).len(), 1);
+        t
+    };
+    let stayed = play(false);
+    assert_eq!(hits_on(&stayed, walker).len(), 1);
+    assert!(revealed_to(&stayed, P1, thrower), "revealed at the blast");
+
+    let mut dodged = play(true);
+    assert_eq!(hits(&dodged), [], "the blast damaged nothing");
+    let cycle = GRENADE.aim_ticks + GRENADE.firing_ticks + GRENADE.cooldown_ticks + GRENADE.reload_ticks;
+    for _ in 0..3 * cycle {
+        assert!(!revealed_to(&dodged, P1, thrower), "tick {}", dodged.sim().tick());
+        let shooter = dodged.sim().object(thrower).unwrap();
+        assert!(!dodged.sim().is_visible(P1, shooter), "unseen");
+        dodged.step();
+    }
+    assert!(blasts(&dodged).len() >= 3, "it threw on: {:?}", blasts(&dodged));
+    assert_eq!(hits(&dodged), [], "at the empty spot");
+}
+
+/// Whether `id` is revealed to `player` (`vision::reveal`).
+fn revealed_to(t: &TestSim, player: PlayerId, id: ObjectId) -> bool {
+    t.sim().vision().player(player).unwrap().is_revealed(id)
 }
 
 /// The removal path: a projectile aimed at an object that leaves the game no longer names it, and still lands where

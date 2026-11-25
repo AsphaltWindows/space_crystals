@@ -319,8 +319,8 @@ fn the_minimum_is_half_the_overlap_fraction() {
 }
 
 /// Plan §3.3 O's acceptance, domains: a Ground blast hits a hidden expansion and a surfaced test DrillUnit, and not an
-/// air unit; a Universal one hits all three. Owners don't matter (`// Placeholder: Q0083 point 1`): the attacker's own
-/// objects are hit too.
+/// air unit; a Universal one hits all three. Owners don't matter (design change 0293, answering Q0083 point 1: friendly
+/// fire): the attacker's own objects are hit too.
 #[test]
 fn a_blast_hits_by_domain_whoever_owns_what() {
     let _drill = TestDef::unit(ObjectKind::Guard, |unit| unit.base = UnitBase::DrillUnit);

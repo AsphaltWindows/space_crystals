@@ -10,9 +10,11 @@
 //! a location ([`AttackState::location`]), and locks the location at the end of Aiming: where its target stands then
 //! ("the location the target was at at the end of the Aiming phase"), or the location aimed at. At the end of its
 //! Firing it launches a projectile there (`super::projectiles`), which lands where it was locked, whatever the target
-//! did since. TODO(attack types): the HeadDisjointed and TailDisjointed attacks aren't built (plan §3.3 O: no M4 kind
-//! has one). They hit as a FullyConnected attack does, and a TailDisjointed one, which may be given an Attack Ground
-//! ([`can_target_ground`]), lets go of its location.
+//! did since. A location stays engaged after the launch, so its sequences follow one another as an attack on a target
+//! that never dies does: an Attack Ground keeps firing until another order (design change 0293, answering Q0083
+//! point 3; `orders::attack_ground`). TODO(attack types): the HeadDisjointed and TailDisjointed attacks aren't built
+//! (plan §3.3 O: no M4 kind has one). They hit as a FullyConnected attack does, and a TailDisjointed one, which may be
+//! given an Attack Ground ([`can_target_ground`]), lets go of its location.
 
 use glam::Vec2;
 
@@ -260,13 +262,6 @@ pub(super) fn run(
         if over {
             state.phase = end(phase, aimed_at, shooter, targets, volley, events);
             state.elapsed = 0;
-            // Placeholder: Q0083 point 3. An Attack Ground fires once: its location is let go of as its one
-            // projectile launches, and its behaviour completes at the blast (`orders::attack_ground`).
-            if let AttackPhase::FiringAt { at, target: None } = phase
-                && state.location == Some(at)
-            {
-                state.location = None;
-            }
             continue;
         }
         if !tick_left {

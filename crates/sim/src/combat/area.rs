@@ -3,9 +3,10 @@
 //! Single-target damage keeps its own path (`super::damage`).
 //!
 //! - **Who is hit** ([`hits_domain`]): every destructible object whose domain the attack's TargetDomain reaches, any
-//!   owner, the attacker's own objects and the attacker itself included (`// Placeholder: Q0083 point 1`, friendly
-//!   fire as the literal rule: "AoE only affects units whose domain matches the attack's TargetDomain", no owner
-//!   filter). Underground objects too, seen or not (design change 0262, keeping 0218: "underground DrillUnits,
+//!   owner, the attacker's own objects and the attacker itself included: `systems/combat.md > AoEDamage`, "**Friendly
+//!   fire** ... area damage hits **every** object in the circle whose domain matches, **whoever owns it**: own units
+//!   and structures, the attacker itself, allies, enemies and neutral objects" (design change 0293, answering Q0083
+//!   point 1). Underground objects too, seen or not (design change 0262, keeping 0218: "underground DrillUnits,
 //!   Syndicate expansions, a retracted pop-up Laser Turret and GDO mines take their share of any blast over them, even
 //!   unseen"): this module never asks whom an object is hidden from (`crate::vision::hidden`).
 //! - **How much** ([`strike`]): the exact area of the circle inside each object's shape ([`overlap`]: its footprint,
@@ -125,8 +126,8 @@ pub(super) fn strike(blast: &Blast, targets: &Targets, hits: &mut Vec<Hit>) {
     if circle <= 0.0 {
         return;
     }
-    // Placeholder: Q0083 point 1. Friendly fire, the literal rule: every object whose domain the blast hits, whoever
-    // owns it, the attacker and its owner's objects included.
+    // Friendly fire (design change 0293, answering Q0083 point 1): every object whose domain the blast hits, whoever
+    // owns it, the attacker and its owner's objects included. No owner filter.
     for t in targets.all() {
         if !hits_domain(blast.domain, t.domain) {
             continue;
