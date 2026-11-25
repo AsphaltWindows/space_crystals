@@ -152,6 +152,10 @@ This means players can place Tier 1 Tunnels closer together for early aggression
 
 **Enemies see a Tunnel's tier** (user, 2026-11-25; Q0069): it is a surface structure and each tier looks different (Look by tier).
 
+**Pending ghosts and sites count** (user, 2026-11-26; Q0079):
+- An Agent's **pending Tunnel ghost** (ordered, not yet started) reserves its **whole Tier 1 Tunnel Area** against its **owner's** further Tunnel placements: a new ghost overlapping it shows red. Other players don't know about it, so it doesn't block them; they are stopped once construction starts.
+- A Tunnel **under construction** (a site) counts with its whole area for **every player**, from the moment the site appears.
+
 **Every player's Tunnels count** (user, 2026-11-25; Q0062): the rule applies between **all** Tunnels, not just a player's own. In Syndicate-vs-Syndicate games a player can **crowd or block** an enemy's Tunnels: a Tunnel placed near an enemy one stops the enemy from building where the areas would overlap, and can stop the enemy Tunnel's upgrade.
 - **The ghost** judges enemy Tunnels by what the player knows: their remembered position and their tier as last seen (core/entities.md > Worker-Built Structures > The ghost judges by what the player knows). The real check on arrival uses the truth, so a build can fail on arrival because an enemy Tunnel was upgraded unseen.
 - **Upgrades** are blocked by any Tunnel's area, own or enemy (the upgrade check uses the truth; the upgrading Tunnel's owner learns that something blocks it).
@@ -195,6 +199,8 @@ Tunnel construction and upgrades cost Supplies. Costs scale based on existing in
 Cost = current Tunnels owned (all tiers count), in Supplies.
 
 **Paid when the ghost is placed** (user, 2026-11-25; Q0061): an Agent's build order pays the Supplies **when it is given**, i.e. when the Tunnel's ghost is placed (core/entities.md > Placement Validation > Lingering build ghosts), not on arrival. **Lingering Tunnel ghosts count as Tunnels owned** for the price of further orders, so two orders given in a row cost 1 and 2 (likewise a Tunnel under construction counts). The order is refused, with feedback, if the player can't pay. If the order is cancelled, replaced, or fails before construction starts, it is refunded at the current top price (as for cancelling, Upgrade Costs below).
+
+**Agent killed before construction starts** (user, 2026-11-26; Q0079): the order is **refunded at the current top price**, like an order that is cancelled or fails.
 - 1st Tunnel: 0 Supplies (player starts with this Tunnel)
 - 2nd Tunnel: 1 Supply
 - 3rd Tunnel: 2 Supplies

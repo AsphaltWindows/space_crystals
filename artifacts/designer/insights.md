@@ -27,9 +27,8 @@
 
 ## Open Director Questions
 
-Arrived 2026-11-25 night (Q0076–Q0087). Answered from docs: Q0078 (0283), Q0085 (0284), Q0086 pt 1 (0285). Q0077 DONE (0288). Open, need the user:
+Arrived 2026-11-25 night (Q0076–Q0087). Answered from docs: Q0078 (0283), Q0085 (0284), Q0086 pt 1 (0285). Q0077 DONE (0288). Q0079 DONE (0289). Open, need the user:
 - **Q0076 (partly BLOCKING)** Agents jam head-on near the hatch. Waiting on Director cost estimates (0286): mover sidestep (infantry step right; vehicles turn & graze), idle-yield infantry-only, quick re-route on unit block, 2-square hatch (one at a time CONFIRMED; user would rather avoid for looks, though cheapest), workers return to last drop-off spot, pass-through. User wants mover sidestep IN GENERAL (0287). User clarified: they THOUGHT sidestep = mover steps aside & retries (docs: idle unit yields). Still to confirm: hatch square, search radius 6.
-- Q0079 Agent killed before build: refund?; pending ghost reserves Tier 1 area?; site counts for non-overlap?
 - Q0080 Expansion placement: ground units block?; lingering ghosts reserve?; Warp In over hidden expansion.
 - Q0081 ExpandMenu: all nine expansions hold slots (turret always 10th)?
 - Q0082 Supplies: reaches 8 su; nearest Tunnel measured to Side D; old load lost at end of pick-up.
