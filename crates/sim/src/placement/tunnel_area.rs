@@ -11,7 +11,7 @@
 //!   map always, the map's edge being known. Map spawns and debug spawns don't take the placement check, so they stay
 //!   exempt, as from every placement rule but the shared tiles and [`super::Onto`]. Read as written, a Tunnel 2 tiles
 //!   from the edge breaks nothing, its Tier 1 area just reaching the edge, where 0242's Verification calls it red
-//!   (Q-pending: tunnel edge distance).
+//!   (Placeholder: Q0078).
 //! - **The expansion rule of Starting Layouts** ([`outside_tunnel_area`]): a layout's underground structure lies
 //!   wholly inside the Tier 1 Tunnel Area of a Tunnel of the same layout (`tunnels.md > Tunnel > Starting
 //!   Conditions`: "One pre-built **Tier 1 Tunnel** containing one pre-built **Hideout**";

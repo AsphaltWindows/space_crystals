@@ -12,6 +12,7 @@ mod map_edits;
 mod review;
 mod session;
 mod symmetry;
+mod syndicate;
 mod units;
 
 use std::path::{Path, PathBuf};

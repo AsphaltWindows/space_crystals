@@ -166,29 +166,38 @@ mod tests {
             .collect()
     }
 
-    /// A new Skirmish Default map: one line per edited layout of an implemented faction (the GDO's and the
-    /// Colonists', plan decision T24), saying exactly what to add, with its images folded in.
+    /// A new Skirmish Default map: one line per edited layout of an implemented faction (the GDO's, the Syndicate's
+    /// and the Colonists', plan decision T24, slice M4-B), saying exactly what to add, with its images folded in.
     #[test]
     fn a_new_map_says_what_to_add_where() {
         let map = new_map(2, Symmetry::Rotate180);
-        assert_eq!(map.validate().len(), 12, "3 kinds missing per faction at 2 slots");
+        assert_eq!(map.validate().len(), 18, "3 kinds missing per faction at 2 slots");
         assert_eq!(
             texts(&map),
             [
                 "S1 GDO layout: add Deployment Center, Extraction Facility, Extraction Plate x2 (Layout tool, T); S2 follows",
+                "S1 Syndicate layout: add Tunnel, Hideout, Agent (Layout tool, T); S2 follows",
                 "S1 Colonists layout: add Egress Node, Robo Portal, Drone x4 (Layout tool, T); S2 follows"
             ]
         );
         let four = new_map(8, Symmetry::MirrorBothAxes);
         let lines = texts(&four);
-        assert_eq!(lines.len(), 4, "{lines:?}");
-        assert!(lines[0].starts_with("S1 GDO layout: add ") && lines[0].ends_with("; S2, S3, S4 follow"));
-        assert!(lines[1].starts_with("S1 Colonists layout: add ") && lines[1].ends_with("; S2, S3, S4 follow"));
-        assert!(lines[2].starts_with("S5 GDO layout: add ") && lines[2].ends_with("; S6, S7, S8 follow"));
-        assert!(lines[3].starts_with("S5 Colonists layout: add ") && lines[3].ends_with("; S6, S7, S8 follow"));
-        // A click on a line focuses its first problem.
+        assert_eq!(lines.len(), 6, "{lines:?}");
+        for (line, start, follow) in [
+            (0, "S1 GDO", "S2, S3, S4"),
+            (1, "S1 Syndicate", "S2, S3, S4"),
+            (2, "S1 Colonists", "S2, S3, S4"),
+            (3, "S5 GDO", "S6, S7, S8"),
+            (4, "S5 Syndicate", "S6, S7, S8"),
+            (5, "S5 Colonists", "S6, S7, S8"),
+        ] {
+            let text = &lines[line];
+            assert!(text.starts_with(&format!("{start} layout: add ")), "{text}");
+            assert!(text.ends_with(&format!("; {follow} follow")), "{text}");
+        }
+        // A click on a line focuses its first problem: 9 to a slot, 3 to a layout.
         let indices: Vec<usize> = problem_lines(&four, &four.validate()).iter().map(|l| l.index).collect();
-        assert_eq!(indices, [0, 3, 24, 27]);
+        assert_eq!(indices, [0, 3, 6, 36, 39, 42]);
     }
 
     /// An object that breaks a rule is named with its layout and the rule.
@@ -218,6 +227,42 @@ mod tests {
             lines.contains(
                 &"S1 GDO layout: add Deployment Center, Extraction Plate x2 (Layout tool, T); S2 follows".to_string()
             ),
+            "{lines:?}"
+        );
+    }
+
+    /// Slice M4-B: the Tunnel Area's rules in the Problems list, each named with its object and the rule's text. A
+    /// Syndicate layout's Tunnel 1 tile from the map's edge, whose Tier 1 area reaches off the map (design change
+    /// 0242), and its Hideout outside that area.
+    #[test]
+    fn a_syndicate_layout_names_the_tunnel_area_rules() {
+        let mut map = new_map(2, Symmetry::Rotate180);
+        let laid = |kind, x, y| LayoutObject {
+            kind,
+            at: SpawnAt::Tile(TilePos::new(x, y)),
+            orientation: BuildingOrientation::default(),
+        };
+        *map.slot_mut(SlotId(1)).unwrap().layouts.get_mut(Faction::Syndicate) = vec![
+            laid(ObjectKind::Tunnel, 1, 6),
+            laid(ObjectKind::Hideout, 12, 6),
+            LayoutObject {
+                kind: ObjectKind::Agent,
+                at: SpawnAt::Point(TilePos::new(8, 14).center()),
+                orientation: BuildingOrientation::default(),
+            },
+        ];
+        map.regenerate();
+        let lines = texts(&map);
+        for expected in [
+            "S1 Syndicate layout, Tunnel: the Tunnel Area reaches off the map: a Tunnel's whole Tunnel Area must be on \
+             the map; S2 follows",
+            "S1 Syndicate layout, Hideout: not wholly inside the Tier 1 Tunnel Area of a Tunnel of the layout; S2 \
+             follows",
+        ] {
+            assert!(lines.contains(&expected.to_string()), "{expected:?} not in {lines:?}");
+        }
+        assert!(
+            !lines.iter().any(|l| l.starts_with("S1 Syndicate layout: add")),
             "{lines:?}"
         );
     }

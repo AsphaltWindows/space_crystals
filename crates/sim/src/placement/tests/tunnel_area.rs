@@ -83,7 +83,7 @@ fn a_custom_undrillable_preset_refuses_a_tunnel() {
 
 /// 0242: "So no Tunnel near the map edge (closer than its area reaches)". 1 tile from an edge, a row or a column of
 /// the area lies off the map; 2 tiles from it, the area just reaches the edge and the Tunnel is valid, as the rule
-/// reads (0242's Verification calls it red, one tile off from the rule: Q-pending: tunnel edge distance). With both
+/// reads (0242's Verification calls it red, one tile off from the rule; Placeholder: Q0078). With both
 /// problems, they come in the order of `WholeProblem`.
 #[test]
 fn a_tunnels_area_must_be_on_the_map() {

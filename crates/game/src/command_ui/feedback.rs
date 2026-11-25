@@ -61,6 +61,7 @@ pub const NO_CRYSTALS_TEXT: &str = "Not enough Space Crystals";
 /// decision T20: the faction's name in the feedback; [`army_cap_text`]). Placeholder wordings.
 pub const UNIT_CONTROL_TEXT: &str = "Unit Control limit reached";
 pub const BEACON_CAPACITY_TEXT: &str = "Beacon Capacity limit reached";
+pub const TUNNEL_SPACE_TEXT: &str = "Tunnel Space limit reached";
 /// The message of a building that can't be placed for no rule the check names (the sim refused the command
 /// otherwise). Placeholder wording, like those of [`placement_text`].
 pub const CANNOT_PLACE_TEXT: &str = "Cannot place there";
@@ -178,12 +179,13 @@ fn refusal_text(reason: Refusal) -> Option<&'static str> {
 }
 
 /// The message of a producer whose unit waits for room under the army cap `resource` (`SimEvent::ProductionWaiting`,
-/// design change 0143; placeholder for its notification), named after it: Unit Control, or the Colonists' Beacon
-/// Capacity.
+/// design change 0143; placeholder for its notification), named after it: Unit Control, the Colonists' Beacon
+/// Capacity, or the Syndicate's Tunnel Space (slice M4-B).
 pub fn army_cap_text(resource: ArmyResource) -> &'static str {
     match resource {
         ArmyResource::BeaconCapacity => BEACON_CAPACITY_TEXT,
         ArmyResource::UnitControl => UNIT_CONTROL_TEXT,
+        ArmyResource::TunnelSpace => TUNNEL_SPACE_TEXT,
     }
 }
 
@@ -196,6 +198,9 @@ pub fn placement_text(problem: Option<PlacementProblem>) -> &'static str {
             WholeProblem::NotAStructure => CANNOT_PLACE_TEXT,
             WholeProblem::OutsideBuildArea => "Outside the build area",
             WholeProblem::NotOnPatch => "Must be placed on a crystal patch",
+            WholeProblem::TunnelAreaOffMap => "The Tunnel Area reaches off the map",
+            WholeProblem::TunnelAreaNotDrillable => "The Tunnel Area must be drillable ground",
+            WholeProblem::OutsideTunnelArea => "Must be inside a Tunnel Area",
         },
         Some(PlacementProblem::Tile(_, problem)) => match problem {
             TileProblem::OffMap => "Outside the map",

@@ -125,7 +125,7 @@ pub enum Breach {
 /// The cells of `area` that break design change 0242's rule ("every cell of its Tunnel Area is on the map and
 /// Drillable"), each with how, row by row from the north-west. Read as written, a Tier 1 Tunnel whose footprint lies
 /// 2 tiles from the map's edge has an area that just reaches the edge, and breaks nothing: 0242's Verification ("A
-/// Tunnel 2 tiles from the map edge is red") is one tile off from its own rule. Q-pending: tunnel edge distance.
+/// Tunnel 2 tiles from the map edge is red") is one tile off from its own rule. Placeholder: Q0078.
 pub fn breaches(map: &Map, area: TileRect) -> impl Iterator<Item = (TilePos, Breach)> + '_ {
     cells(area).filter_map(move |cell| match map.tile_preset(cell) {
         _ if !map.in_bounds(cell) => Some((cell, Breach::OffMap)),
@@ -227,7 +227,7 @@ mod tests {
             lake.iter()
                 .all(|&(c, b)| b == Breach::NotDrillable && (c.x == 3 || c.x == 4))
         );
-        // 2 tiles from the east edge, the area (x 8 to 15) just reaches it (Q-pending: tunnel edge distance); 1 tile
+        // 2 tiles from the east edge, the area (x 8 to 15) just reaches it (Placeholder: Q0078); 1 tile
         // from it, a column of 8 lies off the map.
         assert_eq!(found(area(footprint(10, 6), 2)), []);
         let off = found(area(footprint(11, 6), 2));

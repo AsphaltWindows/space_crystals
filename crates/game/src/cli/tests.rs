@@ -105,6 +105,32 @@ fn factions_set_each_slots_faction() {
     }
 }
 
+/// Slice M4-B: "`--factions syndicate,gdo` starts the Syndicate's layout". The default scenario, `dev_skirmish`, now
+/// has one in each slot (`factions/syndicate/tunnels.md > Tunnel > Starting Conditions`): player 1 starts with its
+/// Tunnel, Hideout and Agent, and the Syndicate's banks, in either slot.
+#[test]
+fn factions_start_the_syndicates_layout() {
+    use sc_sim::Faction::{Gdo, Syndicate};
+    use sc_sim::ObjectKind::{Agent, Hideout, Tunnel};
+    for (flag, factions, player) in [
+        ("--factions syndicate,gdo", [Syndicate, Gdo], PlayerId(1)),
+        ("--factions gdo,syndicate", [Gdo, Syndicate], PlayerId(2)),
+    ] {
+        let config = into_config(parse(&args(flag)).unwrap()).unwrap();
+        let players: Vec<sc_sim::Faction> = config.scenario.setup.players.iter().map(|p| p.faction).collect();
+        assert_eq!(players, factions, "{flag}");
+        let sim = sc_sim::Sim::new(&config.scenario);
+        let base: Vec<sc_sim::ObjectKind> = sim
+            .objects()
+            .filter(|o| o.owner == Some(player))
+            .map(|o| o.kind)
+            .collect();
+        assert_eq!(base, [Tunnel, Hideout, Agent], "{flag}");
+        let banks = sim.player(player).unwrap().banks();
+        assert_eq!((banks.crystals, banks.supplies), (100, 1), "{flag}");
+    }
+}
+
 #[test]
 fn qa_flags_render_offscreen_and_windowless_runs_must_end() {
     let config = into_config(parse(&args("--screenshot 3:s.png --screenshot 1:t.png")).unwrap()).unwrap();

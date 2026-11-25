@@ -34,24 +34,24 @@ fn the_layout_tool_edits_the_chosen_slot_and_faction() {
         "generated slots aren't edited: {panel:?}"
     );
 
-    // The other factions can be chosen, but have nothing to place yet.
-    act(&mut app, [A::SetLayoutFaction(Faction::Syndicate)]);
-    assert_eq!(tools(&app).faction, Faction::Syndicate);
+    // The Cults can be chosen, but have nothing to place yet (the Syndicate has had its kinds since slice M4-B).
+    act(&mut app, [A::SetLayoutFaction(Faction::Cults)]);
+    assert_eq!(tools(&app).faction, Faction::Cults);
     assert!(
         status(&app).message.contains("not implemented yet"),
         "{}",
         status(&app).message
     );
-    assert_eq!(palette(doc(&app), SlotId(3), Faction::Syndicate), []);
+    assert_eq!(palette(doc(&app), SlotId(3), Faction::Cults), []);
     let before = doc(&app).clone();
     click(&mut app, at(5, 20));
-    assert_warned(&app, "Syndicate: not implemented yet, its layouts stay empty");
+    assert_warned(&app, "Cults: not implemented yet, its layouts stay empty");
     assert_eq!(*doc(&app), before);
     let panel = texts_under::<LayoutPanel>(&mut app);
     assert!(
         panel
             .iter()
-            .any(|t| t == "Syndicate: not implemented yet, its layouts stay empty"),
+            .any(|t| t == "Cults: not implemented yet, its layouts stay empty"),
         "{panel:?}"
     );
 }
