@@ -1,8 +1,7 @@
 //! (M4-F) The operation invariant O1 (`tunnel::Operation`): a Tunnel's operation and its site name each other. A
-//! Tunnel that builds an expansion names a site of the game whose builder is that Tunnel, and an expansion whose
-//! Tunnel is in the game is that Tunnel's operation. One whose Tunnel has left the game is slice M4-H's to remove
-//! ("Its Tunnel destroyed mid-build: the unfinished expansion is destroyed", `factions/syndicate/tunnels.md >
-//! Expansions under construction`), not this invariant's.
+//! Tunnel that builds an expansion names a site of the game whose builder is that Tunnel, and an expansion's site
+//! names a Tunnel of the game whose operation it is: one whose Tunnel leaves the game goes with it, in the same removal
+//! (`sim/tunnels.rs`, design change 0254: "Its Tunnel destroyed mid-build: the unfinished expansion is destroyed").
 
 use super::Violation;
 use crate::construction::site::Builder;
@@ -25,9 +24,10 @@ pub(super) fn operations(sim: &Sim) -> Result<(), Violation> {
                 return fail(format!("builds #{} whose builder is {builder:?}", site.0));
             }
         }
-        if let Some(tunnel) = o.construction.and_then(|site| site.builder.tunnel())
-            && let Some(t) = sim.object(tunnel)
-        {
+        if let Some(tunnel) = o.construction.and_then(|site| site.builder.tunnel()) {
+            let Some(t) = sim.object(tunnel) else {
+                return fail(format!("is built by #{}, which has left the game", tunnel.0));
+            };
             let operation = t.tunnel.as_ref().and_then(|state| state.operation);
             if operation != Some(Operation::Building(o.id)) {
                 return fail(format!("is built by #{} whose operation is {operation:?}", tunnel.0));

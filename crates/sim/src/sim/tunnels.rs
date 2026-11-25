@@ -61,7 +61,7 @@
 //! [`Vision::forget_own`]: crate::vision::Vision::forget_own
 
 use super::Sim;
-use crate::construction::site::Builder;
+use crate::construction::site::{Builder, expansion_def};
 use crate::defs::ObjectKind;
 use crate::economy::{RATIO_ONE, Refund};
 use crate::events::SimEvent;
@@ -112,11 +112,11 @@ fn built_by(builder: Builder, tunnel: ObjectId) -> bool {
 }
 
 /// `factions/syndicate/structures/README.md > Expansion Requirements`: the Tier Requirement of an expansion of `kind`,
-/// the lowest tier of a Tunnel that may reclaim it (module docs). Every expansion in the game has 1 so far
-/// (`factions/syndicate/structures/hideout.md > Tier Requirement - 1`); slice M4-F brings the defs' Tier Requirement,
-/// which this reads from then on.
-fn tier_requirement(_kind: ObjectKind) -> u8 {
-    BASE_TIER
+/// the lowest tier of a Tunnel that may reclaim it (module docs), its def's as a Tunnel builds it
+/// (`ExpansionDef::tier`, slice M4-F: the Hideout's 1, `factions/syndicate/structures/hideout.md > Tier Requirement -
+/// 1`); the base tier for a kind no Tunnel builds.
+fn tier_requirement(kind: ObjectKind) -> u8 {
+    expansion_def(kind).map_or(BASE_TIER, |def| def.tier)
 }
 
 /// The HP of an expansion at `hp` out of `max`, after a tick of decay took its progress from `before` to `after`
@@ -319,6 +319,19 @@ impl Sim {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::defs::test_defs::TestDef;
+
+    /// The Tier Requirement a reclaiming Tunnel must meet is the expansion's def's (slice M4-F): the Hideout's 1, a
+    /// test kind's 2, and the base tier for a kind no Tunnel builds.
+    #[test]
+    fn the_tier_requirement_is_the_expansions_def() {
+        assert_eq!(tier_requirement(ObjectKind::Hideout), 1);
+        assert_eq!(tier_requirement(ObjectKind::Tunnel), BASE_TIER);
+        let mut def = *expansion_def(ObjectKind::Hideout).expect("a Tunnel builds the Hideout");
+        def.tier = 2;
+        let _tier_2 = TestDef::structure(ObjectKind::Hideout, |structure| structure.expansion = Some(def));
+        assert_eq!(tier_requirement(ObjectKind::Hideout), 2);
+    }
 
     /// The decay's arithmetic (module docs): from full HP the HP is the share left, 4 HP a second off a Hideout's 400
     /// (a quarter a tick), down to 0 in the 1600th tick and not before; a damaged one falls by as much each tick.

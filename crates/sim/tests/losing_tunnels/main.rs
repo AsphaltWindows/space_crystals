@@ -1,7 +1,8 @@
 //! Losing Tunnels (slice M4-H; `factions/syndicate/tunnels.md > Losing Tunnels`, design changes 0254 and 0258, which
 //! answers question Q0069; `core/game_rules.md > On Defeat`), through the gate, one test binary:
 //! - `neutral`: a Tunnel destroyed leaves its expansions neutral, visible to everyone and decaying, their work in
-//!   progress lost and their queue refunded; the Syndicate defeated with its last structure;
+//!   progress lost and their queue refunded, and the one it was building destroyed, unrefunded; the Syndicate
+//!   defeated with its last structure;
 //! - `stranded`: the network units no remaining Tunnel lets out are destroyed; a player who lives on without a Tunnel
 //!   rebuilds for nothing; an Agent's site isn't the lost Tunnel's;
 //! - `attack`: a neutral expansion is attacked only by an explicit Attack;

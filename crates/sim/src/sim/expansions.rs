@@ -27,8 +27,8 @@
 //!   refunding **75%** of its cost (rounded down). The Tunnel's X cancels whatever operation it is running"
 //!   (`TunnelCommand::Cancel`, [`Sim::cancel_operation`]; `economy::Refund::Expansion`).
 //! - **Its site gone** any other way (destroyed, a debug removal): the Tunnel's operation ends with it (the removal
-//!   path's reference cleanup, `sim/removal.rs`), with no refund. Its Tunnel destroyed mid-build is slice M4-H's rule
-//!   ("the unfinished expansion is destroyed, no refund").
+//!   path's reference cleanup, `sim/removal.rs`), with no refund. **Its Tunnel destroyed mid-build**: "the
+//!   unfinished expansion is destroyed, no refund", in the same removal (`sim/tunnels.rs`, slice M4-H).
 //! - **Eject** goes on meanwhile: "Eject still works (it isn't an operation)".
 
 use super::Sim;

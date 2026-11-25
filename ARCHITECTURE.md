@@ -269,7 +269,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   seen as any structure; the worker inside, held, is not.
 - **Losing Tunnels** (`sim/tunnels.rs`; slice M4-H; `factions/syndicate/tunnels.md > Losing Tunnels`, design changes
   0254 and 0258): what a Tunnel leaves when it leaves the game, on the removal path (*Removal path*): its unfinished
-  expansions (`built_by`, the arm of `Builder::Tunnel` comes with slice M4-F) are destroyed with no refund; its
+  expansions (`built_by`: the sites it builds, `Builder::Tunnel`, slice M4-F) are destroyed with no refund; its
   completed ones, its owner's underground structures wholly inside its area (a Tunnel still a site has none), become
   **neutral**: their unit in production lost, the rest of the queue refunded (`SimEvent::ProductionCancelled`, the
   lost one's with 0), the rally cleared; then the units in the owner's network that no remaining Tunnel lets out
@@ -279,8 +279,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   share of its MaxHP the decay has left (`decayed`, computed from the whole ticks in 64 bits, so that a full Hideout
   dies in its 1600th tick of decay, the first being its Tunnel's last). **Reclaiming** is `Sim::reclaim(tunnel)`,
   which a site's completion calls (`Sim::complete_site`) and an upgrade's will (slice M4-G): every neutral expansion
-  wholly inside the finished Tunnel's area, at or below its tier (the Tier Requirement, 1 for every expansion until
-  slice M4-F's defs), becomes the Tunnel owner's, stops decaying and is hidden again, with no event.
+  wholly inside the finished Tunnel's area, at or below its tier (the Tier Requirement, `ExpansionDef::tier`: 1 for
+  the Hideout), becomes the Tunnel owner's, stops decaying and is hidden again, with no event.
 - **Side A's paths** (`network::Paths`, design changes 0225 and 0248): the one geometry of a Tunnel's entry and
   exit, for the sim and the client's drawing (`object_render/tunnel.rs` reads `PATH_OFFSET_SU`): two spots on Side
   A's line, 30 su from its middle, the exit towards Side B and the entry towards Side D, wherever the sides face
