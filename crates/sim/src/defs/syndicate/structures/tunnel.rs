@@ -128,6 +128,7 @@ pub(crate) static TUNNEL: ObjectDef = ObjectDef {
         site: Some(TUNNEL_SITE),
         expansion: None,
         requires: &[], // TechPrerequisite - None
+        attack: None,
     }),
     default_settings: None,
 };
@@ -198,6 +199,7 @@ mod tests {
             site: structure.site,
             expansion: None,
             requires: &[],
+            attack: None,
         };
         assert_eq!(structure, &expected);
     }
@@ -219,7 +221,7 @@ mod tests {
             }
         );
         let agent = ObjectKind::Agent.def().unit.as_ref().unwrap().worker.unwrap();
-        assert_eq!(agent.builds, [ObjectKind::Tunnel]);
+        assert_eq!(agent.builds, [ObjectKind::Tunnel, ObjectKind::LaserTurret]);
     }
 
     /// `factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`: "Tier 1+: Infantry (Light

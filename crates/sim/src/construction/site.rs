@@ -20,15 +20,94 @@
 //!   Space, no drop-offs, no Enter, no Expand, no Eject"), and neither does a building still transforming. One
 //!   predicate, for every function that waits for completion: the exits and the Enter target (`network::is_exit`),
 //!   the drop-offs (`orders::world`, `Sim::nearest_drop_off`, the gate) and Tunnel Space (`economy::army`).
-//! - **The order, the price and the steps** are the game's: `sim/builds.rs` and `sim/sites.rs`.
+//! - **The order, the price and the steps** are the game's: `sim/builds.rs` and `sim/sites.rs`. A price is in its
+//!   def's resource ([`BuildPrice`]): Supplies for a Tunnel, Space Crystals for a Laser Turret (slice M4-S1).
 
 use serde::{Deserialize, Serialize};
 
-use crate::defs::{ExpansionDef, ObjectKind, SiteDef};
+use crate::defs::{ExpansionDef, ObjectKind, Resource, SiteDef, SitePrice};
+use crate::economy::Refund;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::object::Object;
+use crate::player::Player;
 use crate::progress::Progress;
+
+/// What a worker's Build of a type costs now (`SiteDef::price`, `Sim::build_price`): an amount of one resource,
+/// Supplies for a Tunnel (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`), Space Crystals for a
+/// Laser Turret (`factions/syndicate/structures/laser_turret.md`: "Cost: 100 Space Crystals (no Supplies)"). Paid as
+/// the order is given, and given back in the same resource.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct BuildPrice {
+    pub resource: Resource,
+    pub amount: u32,
+}
+
+impl BuildPrice {
+    /// `amount` Supplies.
+    pub const fn supplies(amount: u32) -> Self {
+        Self {
+            resource: Resource::Supplies,
+            amount,
+        }
+    }
+
+    /// `amount` Space Crystals.
+    pub const fn crystals(amount: u32) -> Self {
+        Self {
+            resource: Resource::Crystals,
+            amount,
+        }
+    }
+
+    /// The price by the rule `price`, `owned` being how many structures of the type the player has for it
+    /// (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`: "Cost = current Tunnels owned").
+    pub fn of(price: SitePrice, owned: u32) -> Self {
+        match price {
+            SitePrice::SuppliesPerOwned => Self::supplies(owned),
+            SitePrice::Crystals(amount) => Self::crystals(amount),
+        }
+    }
+
+    /// What `player`'s bank holds of its resource.
+    pub fn banked(self, player: &Player) -> u32 {
+        match self.resource {
+            Resource::Crystals => player.crystals,
+            Resource::Supplies => player.supplies,
+        }
+    }
+
+    /// `player` pays it, if the bank holds it, and says whether it did (`Player::spend_crystals`: a spend is refused,
+    /// never taken below 0).
+    #[must_use]
+    pub fn pay(self, player: &mut Player) -> bool {
+        match self.resource {
+            Resource::Crystals => player.spend_crystals(self.amount),
+            Resource::Supplies => player.spend_supplies(self.amount),
+        }
+    }
+
+    /// `player` gets it back (`Player::credit_crystals`).
+    pub fn refund(self, player: &mut Player) {
+        match self.resource {
+            Resource::Crystals => player.credit_crystals(self.amount),
+            Resource::Supplies => player.credit_supplies(self.amount),
+        }
+    }
+
+    /// What cancelling a site gives back, `self` being the price of the next one once the site has gone
+    /// (`Sim::build_price`) and `rule` its type's (`SiteDef::price`): a Tunnel's all of it, "the current top price"
+    /// (design changes 0233 and 0284); a Laser Turret's 75%, rounded down, "like an expansion" (design change 0297
+    /// point 5, `factions/syndicate/structures/laser_turret.md > Construction`: "Cancelling a site: 75% refund for
+    /// both, Agent-built or Tunnel-built"; `Refund::Expansion`).
+    pub fn cancelled(self, rule: SitePrice) -> Self {
+        let amount = match rule {
+            SitePrice::SuppliesPerOwned => self.amount,
+            SitePrice::Crystals(_) => Refund::Expansion.of(self.amount),
+        };
+        Self { amount, ..self }
+    }
+}
 
 /// A structure under construction on its site (module docs): how far it is, and who builds it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -280,15 +359,33 @@ mod tests {
         }
     }
 
-    /// The Agent builds the Tunnel; nothing else builds anything (the Drone deploys).
+    /// The Agent builds the Tunnel and the Laser Turret (slice M4-S1); nothing else builds anything (the Drone
+    /// deploys).
     #[test]
-    fn only_the_agent_builds_and_only_tunnels() {
+    fn only_the_agent_builds_tunnels_and_turrets() {
         for &builder in ObjectKind::ALL {
             for &kind in ObjectKind::ALL {
-                let expected = builder == ObjectKind::Agent && kind == ObjectKind::Tunnel;
+                let built = [ObjectKind::Tunnel, ObjectKind::LaserTurret].contains(&kind);
+                let expected = builder == ObjectKind::Agent && built;
                 assert_eq!(builds(builder, kind), expected, "{builder:?} {kind:?}");
             }
             assert_eq!(builds_any(builder), builder == ObjectKind::Agent, "{builder:?}");
         }
+    }
+
+    /// A price in its def's resource (`SiteDef::price`): a Tunnel's one Supply for each owned, a Laser Turret's 100
+    /// Space Crystals however many stand. A cancelled site gives back a Tunnel's whole "current top price" (design
+    /// changes 0233 and 0284), a Laser Turret's 75%, rounded down, like an expansion's (design change 0297 point 5).
+    #[test]
+    fn a_cancelled_turret_site_gives_back_three_quarters() {
+        let (supplies, crystals) = (BuildPrice::supplies, BuildPrice::crystals);
+        let (tunnel, turret) = (SitePrice::SuppliesPerOwned, SitePrice::Crystals(100));
+        assert_eq!(
+            (BuildPrice::of(tunnel, 3), BuildPrice::of(turret, 3)),
+            (supplies(3), crystals(100))
+        );
+        assert_eq!(supplies(3).cancelled(tunnel), supplies(3));
+        assert_eq!(crystals(100).cancelled(turret), crystals(75));
+        assert_eq!(crystals(1).cancelled(turret), crystals(0));
     }
 }

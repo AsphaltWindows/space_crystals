@@ -269,7 +269,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   nor transforming) is the one predicate of a structure doing what its type does: the exits and Enter
   (`network::is_exit`), the drop-offs (the gate, `Sim::nearest_drop_off`, the resolution's facts) and Tunnel Space
   (`gives_tunnel_space`) all ask it, so that a site does nothing but Cancel. A site counts for defeat, blocks and is
-  seen as any structure; the worker inside, held, is not.
+  seen as any structure; the worker inside, held, is not. A Laser Turret's site is no different (slice M4-S1, design
+  change 0297 point 6: "An Agent's site is visible ... (the Agent inside is not)"), and it holds its fire until
+  complete (*Combat > Structures that attack*).
 - **Expansions and a Tunnel's operation** (`sim/expansions.rs`, `tunnel/operation.rs`; slice M4-F;
   `factions/syndicate/tunnels.md > ExpandMenu`, `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`,
   `factions/syndicate/tunnels.md > Expansions under construction`; design changes 0240, 0254, 0290, 0291): a Tunnel
@@ -298,15 +300,18 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   the map, so anywhere in a Tunnel Network; a neutral one is nobody's. **The gate checks it only as the work starts**
   (`Sim::check_requires`, `Reject::Requires(kind)`): a Train as it is queued (`plan_training`: a producer whose recipe
   isn't met is passed over, and with none left the reason is the first unmet kind), a Construct, a Warp In, an Expand
-  (`Sim::can_expand`) and a worker's Build as they are ordered (whether the worker's arrival checks again is slice
-  M4-S1's), each before the bank, so a greyed entry says "Requires ..." rather than the price. Nothing checks again:
+  (`Sim::can_expand`) and a worker's Build as they are ordered (`Sim::check_build`; the worker's arrival doesn't check
+  again: `core/tech_and_research.md > Tech Prerequisites > Check Timing`, "checked only at the moment construction is
+  **started** (queued at the constructor, ...)", read as the order, which is when it is paid; slice M4-S1), each before
+  the bank, so a greyed entry says "Requires ..." rather than the price. Nothing checks again:
   work queued or started goes on when the last one is lost
-  (`core/tech_and_research.md > Tech Prerequisites > Losing a Prerequisite`). Today the Hideout's Guard requires the
-  Optics Lab and its Grenadier the Chemical Plant (slice M4-U); the Optics Lab and the Chemical Plant are placeholder
-  expansions (2 × 2, 150 Space Crystals, 400 frames, HP 400, 6 / 24) that only count. `sim/tech/tests.rs`
-  tests the rule with test defs (a GDO unit and building, a Colonists Warp In, a worker's Build, an expansion),
-  `tests/prerequisites/` with the design's own types. The client shows `Reject::Requires` as
-  "Requires a/an <name>" (`feedback::requires_text`), every faction's entries alike (*The Syndicate's panels*).
+  (`core/tech_and_research.md > Tech Prerequisites > Losing a Prerequisite`). Today the Hideout's Guard and the Laser
+  Turret (slice M4-S1) require the Optics Lab, and the Hideout's Grenadier the Chemical Plant (slice M4-U); the Optics
+  Lab and the Chemical Plant are placeholder expansions (2 × 2, 150 Space Crystals, 400 frames, HP 400, 6 / 24) that
+  only count. `sim/tech/tests.rs` tests the rule with test defs (a GDO unit and building, a Colonists Warp In, a
+  worker's Build, an expansion), `tests/prerequisites/` with the design's own types. The client shows
+  `Reject::Requires` as "Requires a/an <name>" (`feedback::requires_text`), every faction's entries alike (*The
+  Syndicate's panels*).
 - **Losing Tunnels** (`sim/tunnels.rs`; slice M4-H; `factions/syndicate/tunnels.md > Losing Tunnels`, design changes
   0254 and 0258): what a Tunnel leaves when it leaves the game, on the removal path (*Removal path*): its unfinished
   expansions (`built_by`: the sites it builds, `Builder::Tunnel`, slice M4-F) are destroyed with no refund; its
@@ -612,7 +617,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      maximum, and a complete one works from the next tick's commands, its worker in the network for the network's
      step. A site is a new object, so by the spawn-tick rule one started in tick `t` does its first frame in `t + 1`
      and completes at the end of `t + frames`. A Tunnel that completes reclaims the neutral expansions it covers
-     (`Sim::reclaim`, slice M4-H).
+     (`Sim::reclaim`, slice M4-H). Then each worker waiting in the structure it finished to come out beside it does,
+     if a spot is clear (`Sim::step_beside`, slice M4-S1: a Laser Turret's Agent), as an ejected unit does.
    - Upgrades, `Sim::step_upgrades` (slice M4-G, `sim/upgrades.rs`): right after the sites. Each Tunnel from before
      the tick that upgrades does a frame, in id order: the Tunnel exists already, so an upgrade ordered in tick `t`
      completes at the end of `t + frames - 1`, as a recipe; then it reclaims, before the decay.
@@ -860,8 +866,23 @@ ticks spent in it. Hashed and serialized like all state.
   the attack cycles at it until another order or a Stop, and the orders queued behind it never start on their own;
   only the Failure rule, or a weapon that can no longer attack the location, ends it. The gate takes it only for units
   whose weapon can target the ground (`combat::can_target_ground`, `Reject::CannotTargetGround`).
-- **Not yet**: turrets; the HeadDisjointed and TailDisjointed attacks, which hit as a FullyConnected one does and
-  drop a location (TODOs in `combat/phases.rs`).
+- **Structures that attack** (`combat/structures.rs`, plan decision T49; slice M4-S1, the Laser Turret,
+  `factions/syndicate/structures/laser_turret.md`): **`StructureDef::attack`** is the type's AttackAttributes
+  (`combat::weapon_of` reads a unit's or a structure's), and **`phases::Shooter::new(map, object, attrs, sight,
+  turned)`** takes the attack and the object, a unit's silhouette or a structure's footprint (`Shape::of`,
+  `Elevation::of_object`), so a structure runs the units' phases and deals their damage, with no turn rate (it fires
+  in any direction: `turn_left` infinite, it faces its target as a turret does) and no orders. In 5e, before its
+  sequence, a complete structure (`Object::is_operational`: a site holds its fire, and is no threat) **picks its own
+  target** (`structures::pick`; design change 0298 point 8, `factions/syndicate/structures/laser_turret.md >
+  Targeting`: "targets like a unit holding position: BaseAutoTargeting within Range ..., then the closest ... It
+  **keeps its target** while the target stays valid and in range"): an enemy's ValidTarget within Range, threatening
+  targets first (`TargetView::threat`, `combat::threat`: an attack that can target the ground), then the smallest
+  gap, then the lowest id; none while auto-targeting is off. Its `facing` snaps to what it fires at
+  (`structures::face`), for the client's barrel only. Its `AttackState` comes with its kind (`sim/kinds.rs`,
+  `Capabilities`), so hashed and saved as a unit's; the goldens, which have no such structure, are as they were.
+- **Not yet**: units' turrets (their TurretAttributes: a turret faces its target at once, `TODO(turrets)` in
+  `combat/phases.rs`); the HeadDisjointed and TailDisjointed attacks, which hit as a FullyConnected one does and drop a
+  location (TODOs in `combat/phases.rs`).
 
 ## Vision
 
@@ -1665,6 +1686,19 @@ section of its own.
   completes after `SiteDef::frames` (480), its worker going where `SiteDef::builder_goes` says (into the network);
   cancelled or destroyed, it lets its worker out at the footprint's centre, idle, with its load
   (`Sim::release_builders`, on the removal path).
+- **Agent-built Laser Turrets** (slice M4-S1, plan decision T51; `factions/syndicate/structures/laser_turret.md >
+  Construction`, design changes 0297 and 0298): the same order and flow, the price in the def's resource
+  (`construction::site::BuildPrice { resource, amount }`, `SitePrice::Crystals(100)`): paid at the order, refunded
+  whole by an order that goes (0297 point 4), 75% of it rounded down by a cancelled site, like an expansion
+  (`BuildPrice::cancelled`, `Refund::Expansion`; 0297 point 5); the gate refuses `Reject::InsufficientCrystals`, and
+  counts only the refunds in the new order's resource. It requires an Optics Lab (*Object model > Tech
+  prerequisites*), checked at the order only. It completes after 320 frames and its Agent comes out **beside it**
+  (`BuilderGoes::Beside`, `Sim::step_beside`; 0298 point 7): at the first spot of the eight against the footprint's
+  sides and corners where it fits (`Sim::check_unit_fits`), tried from the side it came from (`beside_order`: the
+  opposite of its facing as it walked in), then round both ways, ties by direction index; with none clear it waits
+  inside, held at `Place::Site`, and comes out in a later tick, or at the centre if the turret goes meanwhile
+  (`Sim::site_builders`). No Tunnel's operation slot is taken (0298 point 9), and a turret counts for defeat as any
+  structure. Until slice M4-S2 it stands upright also inside an own Tunnel Area.
 - **Adding to the economy** (slices M2-D2, M2-F): put the new step into `economy::step` at its numbered place, advance
   progress by `PowerSummary::speed` from the tick the command applies (*Recipe timing*), take costs with
   `spend_crystals` when the command applies, and give refunds through `Refund`; `construction.rs` is the pattern.
@@ -2192,7 +2226,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   with the fog on.
   Measured (release, 500 units on 256 × 256; slice M2-J2, within 7 % of M1's in an interleaved A/B): 0.13 ms a tick
   with everyone idle or on Hold in sight of the enemy, 0.29 ms on average and 0.65 ms at worst in a battle of 250
-  against 250.
+  against 250. The release build's split into codegen units moves these by a few percent with code that isn't on
+  their path: slice M4-S1's battle ran 3% slower with no new work in it until `World::pick` was `#[inline]` (the
+  split had left its call in `travel::march` out of line); with one codegen unit on both sides it was within noise.
 - **Resource collision tests** are `crates/sim/tests/resources_block.rs` (design change 0038's verification: units
   path around a crystal field, can't walk across a Supply Delivery Station, and walk through the tile of a patch
   removed by a debug command, standing in for depletion; `economy_mining.rs` has the real thing, below).
@@ -2506,11 +2542,15 @@ these.
   **A site** (`Object::is_site`, slice M4-J1; `object_render/site.rs`, a placeholder) is drawn by being one, whatever
   its kind (`MeshKey::site`), on the surface or underground (an expansion's outline, slice M4-F): its footprint tinted
   half way to a pale sand and braced at its corners by a scaffold (clear of its tag) instead of its finished look,
-  with a progress bar near its south edge, a dark track in its mesh and a `SiteProgress` child stretched to its share
-  done (`place_site_progress`, `Progress::ratio`), to everyone who sees it. A record of one is drawn as a site too
-  (`MeshKey::of_record`, slice M4-I2), dimmed, its bar fixed at the progress last seen (`LastKnown::site`,
-  `SiteProgress::remembered`, which `place_site_progress` leaves alone): the site may have grown or been finished
-  since.
+  with a progress bar near its south edge (lower and thinner on a roof one tile high, a Laser Turret's, clear of its
+  tag), a dark track in its mesh and a `SiteProgress` child stretched to its share done (`place_site_progress`,
+  `Progress::ratio`), to everyone who sees it. A record of one is drawn as a site too (`MeshKey::of_record`, slice
+  M4-I2), dimmed, its bar fixed at the progress last seen (`LastKnown::site`, `SiteProgress::remembered`, which
+  `place_site_progress` leaves alone): the site may have grown or been finished since. **A structure that attacks**
+  (`Look::Turret`, `object_render/turret.rs`; the Laser Turret, slice M4-S1, a placeholder) is a structure's footprint
+  with a round head on its roof and, once finished, a `TurretBarrel` child turned by the object's facing
+  (`place_barrels`, interpolated as a unit's facing tick), which the sim snaps to what it fires at; a record of one
+  keeps the head and no barrel.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
@@ -2523,9 +2563,9 @@ these.
   whatever, a revealed attacker's at the player's own objects too; it replaced design changes 0206 and 0244, Q0056 and
   Q0075, which drew those whole, from the attacker to the target); a
   tracer's look is its weapon's (`ShotStyle::of` on the form that fired, its kind's `ClientKind::shot`; design change
-  0207: the Syndicate's lasers, the Guard's so far, red), HP bars over damaged and selected objects (a unit's clear of
-  its silhouette's corners, a structure's along the top edge of its footprint and as wide as it), with a shield bar
-  right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change 0148;
+  0207: the Syndicate's lasers, the Guard's and the Laser Turret's, red), HP bars over damaged and selected objects (a
+  unit's clear of its silhouette's corners, a structure's along the top edge of its footprint and as wide as it), with a
+  shield bar right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change 0148;
   `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and a fading marker for each
   `SimEvent::Died` (`DEATH_MARKER_TICKS`), never for an object that was hidden from the local player
   (`shows_death`, the `Hiding` its death carries; plan decision T52: "nothing is drawn for a hidden victim", as a
@@ -2986,7 +3026,7 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   EjectMenu's tile slots (`expand_menu::grid`): a `PanelCommand::Expand(kind)` per type in the game, greyed by
   `Sim::can_expand` (`Conditions::of`, its reasons "This Tunnel is busy", "This Tunnel's tier is too low", "Requires
   a ...", "Not enough Space Crystals"), and a `Planned` placeholder per entry not in the game yet, found by name
-  (`Planned::expansion`; the turret's is the Agent's `Planned::LaserTurret`), so a slice that brings an expansion
+  (`Planned::expansion`; the turret's is `Planned::LaserTurret` until slice M4-S2), so a slice that brings an expansion
   changes the sim's list only. An entry enters `AwaitingPlacement` with **`Builder::Tunnel`** for the Tunnel Tabbed to
   (`SlotPress::AwaitExpansion`); Z goes back to the menu, where the panel stays meanwhile (`state_grid`). **The ghost
   is held within the Tunnel's area** (`Placing::origin`, `placing::within`: the cursor outside leaves it at the
@@ -3001,14 +3041,15 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   wording; `activity::operation`), which its X cancels either way.
 - **The Agent's panel** (slice M4-J1; `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`; design changes
   0233, 0237 and 0257): `templates/syndicate/agent.rs` (`InterfaceTemplate::Agent`) is Q Move, A
-  `PanelCommand::Build(Tunnel)`, S `PanelCommand::DropOff`, D `Planned::LaserTurret` (greyed, "Requires an Optics
-  Lab" while the player owns none, until slice M4-S1) and X Stop; its right-click is the sim's one rule (*Gathering*
-  above). **A Build** is an instance command (`SlotPress::AwaitBuild`): `AwaitingPlacement` with `Builder::Agent` for
-  the ActiveGroup's one Agent (Agents are Ungroupable: Tab picks the next one). It is greyed exactly when the gate
-  refuses an unqueued Build of that Agent's (`conditions::build_probe`), the placement's own refusal left out; its
-  price (`Sim::build_price`) is `PanelSlot::price`. A click checks the ghost (`Sim::build_check`; a red one sends
-  `InvalidPlacement`), then gives the order through `OrderOutbox::try_give`, which returns the gate's `Reject`: a
-  refused one (the bank, "Already
+  `PanelCommand::Build(Tunnel)`, S `PanelCommand::DropOff`, D `PanelCommand::Build(LaserTurret)` (slice M4-S1:
+  greyed by the gate, "Requires an Optics Lab" while the player owns none, "Not enough Space Crystals" while the bank
+  can't pay) and X Stop; its right-click is the sim's one rule (*Gathering* above). **A Build** is an instance command
+  (`SlotPress::AwaitBuild`): `AwaitingPlacement` with `Builder::Agent` for the ActiveGroup's one Agent (Agents are
+  Ungroupable: Tab picks the next one). It is greyed exactly when the gate refuses an unqueued Build of that Agent's
+  (`conditions::build_probe`), the placement's own refusal left out; its price (`Sim::build_price`, a `BuildPrice` in
+  its resource) is `PanelSlot::price`, which the hint names ("A: Build Tunnel (2 Supplies)", "D: Build Laser Turret (100
+  Space Crystals)"). A click checks the ghost (`Sim::build_check`; a red one sends `InvalidPlacement`), then gives the
+  order through `OrderOutbox::try_give`, which returns the gate's `Reject`: a refused one (the bank, "Already
   building" for a second Build queued to an Agent) sends `CommandRefused` and placement goes on; a sent one, queued
   with Shift, ends it ("each Agent takes exactly one placement"). The client counts no Build still in
   `PendingCommands` in a price or a ghost. **S** awaits an own drop-off in operation (`drop_off_target`), greyed while
@@ -3470,8 +3511,9 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
    `ClientKind`, with
    - its label, two letters of its own (`kinds::tests::every_label_is_its_own` checks them against every other
      label, the planned buttons' too);
-   - its look (`object_render::Look`): a unit's body shape and whether it carries its label, or a structure. A new
-     shape adds a `Look` or `UnitShape` variant and its drawing, in `object_render/`;
+   - its look (`object_render::Look`): a unit's body shape and whether it carries its label, a structure, or a
+     structure that attacks (`Look::Turret`). A new shape adds a `Look` or `UnitShape` variant and its drawing, in
+     `object_render/`;
    - its shots' style (`combat_effects::ShotStyle`) if it has a weapon, none if not
      (`kinds::tests::every_kind_module_fits_its_def` checks both against its def);
    - its panel template. A shared one: `PanelTemplate::of(InterfaceTemplate::BasicCombatUnit)`, or `Production` for a

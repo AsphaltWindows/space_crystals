@@ -42,10 +42,12 @@
 //! The Agent's A, Build Tunnel (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, slice M4-J1), asks
 //! for its Build order where it would stand anywhere, and leaves out the placement's refusal as a Warp In does: it is
 //! greyed while the bank can't pay the Tunnel's price ([`Conditions::price`], `Sim::build_price`; design change 0233:
-//! "a Build order that can't be paid is refused"). Its S, Drop Off, is greyed while none of its recipients carries a
-//! load (`factions/syndicate/units/agent.md > DefaultState commands`: "Always visible, greyed out when Agent is not
-//! carrying resources"), the gate's own test (`Reject::NothingToDeliver`). A site's panel is its Cancel alone
-//! ([`Conditions::site`], design change 0237), an expansion's too.
+//! "a Build order that can't be paid is refused"). So is its D, Build Laser Turret (slice M4-S1), greyed while the
+//! player owns no Optics Lab ("Requires an Optics Lab", the gate's first check) or the bank holds less than its 100
+//! Space Crystals, its price in its own resource (`sc_sim::construction::site::BuildPrice`). Its S, Drop Off, is greyed
+//! while none of its recipients carries a load (`factions/syndicate/units/agent.md > DefaultState commands`: "Always
+//! visible, greyed out when Agent is not carrying resources"), the gate's own test (`Reject::NothingToDeliver`). A
+//! site's panel is its Cancel alone ([`Conditions::site`], design change 0237), an expansion's too.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -53,6 +55,8 @@ use sc_sim::{
     BuildingOrientation, Command, ConstructionCommand, Constructor, ObjectId, ObjectKind, OrderKind, PlayerCommand,
     PlayerId, Reject, ShieldMode, Sim, TilePos, riot_shield,
 };
+
+use sc_sim::construction::site::BuildPrice;
 
 use super::{PanelCommand, Planned, commands, recipients};
 use crate::command_ui::feedback::requires_text;
@@ -163,7 +167,7 @@ pub enum WhyUnavailable {
     /// whose buildings is, an order the sim has none of (Reverse).
     NotYet,
     /// A placeholder entry's own reason, the message the gate's refusal will give once its command is in the game
-    /// ([`Conditions::planned`], slice M4-J2): the Agent's Laser Turret "Requires an Optics Lab".
+    /// ([`Conditions::planned`], slice M4-J2): the ExpandMenu's Laser Turret "Requires an Optics Lab".
     Placeholder(&'static str),
 }
 
@@ -189,10 +193,11 @@ pub struct Conditions {
     /// queue (`sc_sim::Sim::network_counts`; `factions/syndicate/tunnels.md > EjectMenu`: "the tile's count drops at
     /// the click"); none while the ActiveGroup isn't a Tunnel.
     network: BTreeMap<ObjectKind, u32>,
-    /// The price of each Build the ActiveGroup offers (`PanelCommand::Build`), in Supplies, as the sim would charge it
-    /// now (`Sim::build_price`, design change 0233), and of a Tunnel's Upgrade (`PanelCommand::UpgradeTunnel`,
-    /// `Sim::upgrade_price`, slice M4-G).
-    prices: BTreeMap<PanelCommand, u32>,
+    /// The price of each Build the ActiveGroup offers (`PanelCommand::Build`), in its resource, as the sim would charge
+    /// it now (`Sim::build_price`, design change 0233): a Tunnel's in Supplies, a Laser Turret's in Space Crystals
+    /// (slice M4-S1); and of a Tunnel's Upgrade, in Supplies (`PanelCommand::UpgradeTunnel`, `Sim::upgrade_price`,
+    /// slice M4-G).
+    prices: BTreeMap<PanelCommand, BuildPrice>,
     /// Whether the ActiveGroup is a site under construction (`sc_sim::Object::is_site`; design change 0237: "a Tunnel
     /// site is a structure that does nothing but Cancel"), whose panel is its X Cancel Construction alone, whatever
     /// its type (`super::templates::SITE_GRID`).
@@ -279,7 +284,7 @@ impl Conditions {
                 PanelCommand::Build(kind) => Some((command, sim.build_price(player, kind)?)),
                 PanelCommand::UpgradeTunnel => {
                     let tunnel = *recipients(selection, command).first()?;
-                    Some((command, sim.upgrade_price(tunnel)?))
+                    Some((command, BuildPrice::supplies(sim.upgrade_price(tunnel)?)))
                 }
                 _ => None,
             })
@@ -366,14 +371,14 @@ impl Conditions {
     }
 
     /// The same, with `command` priced at `price`: for the unit tests.
-    pub fn pricing(mut self, command: PanelCommand, price: u32) -> Self {
+    pub fn pricing(mut self, command: PanelCommand, price: BuildPrice) -> Self {
         self.prices.insert(command, price);
         self
     }
 
-    /// What a Build or a Tunnel's Upgrade costs now, in Supplies (`Sim::build_price`, `Sim::upgrade_price`): `None` for
-    /// another command, and for the Upgrade of a Tunnel at its top tier.
-    pub fn price(&self, command: PanelCommand) -> Option<u32> {
+    /// What a Build or a Tunnel's Upgrade costs now, in its resource (`Sim::build_price`, `Sim::upgrade_price`): `None`
+    /// for another command, and for the Upgrade of a Tunnel at its top tier.
+    pub fn price(&self, command: PanelCommand) -> Option<BuildPrice> {
         self.prices.get(&command).copied()
     }
 

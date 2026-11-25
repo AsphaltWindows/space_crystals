@@ -418,7 +418,8 @@ impl Syndicate {
             Job::Crystals(patch) => OrderKind::Gather(patch),
             Job::Tunnel(origin, orientation) => {
                 let tunnel = ObjectKind::Tunnel;
-                let price = sim.build_price(self.player(), tunnel)?;
+                // A Tunnel's price is in Supplies (`SitePrice::SuppliesPerOwned`; slice M4-S1's `BuildPrice`).
+                let price = sim.build_price(self.player(), tunnel)?.amount;
                 let check = sim.build_check(agent, tunnel, origin, orientation, false)?;
                 if price > *supplies || !check.is_valid() {
                     return None;

@@ -264,7 +264,7 @@ fn a_structure_shows_its_bar_along_the_top_of_its_footprint() {
 /// Design change 0207: every Syndicate laser is drawn red, whoever fires it, and other shots as tracers in their
 /// shooter's colour. Player 1 (blue) has a Guard and an Agent; both attack player 2's Peacekeeper. The Guard's laser
 /// rifle is a red laser, drawn red; the Agent's pistol, its first shot 4 ticks after the order (Aim 3, Fire 1), is a
-/// tracer like the Peacekeeper's.
+/// tracer like the Peacekeeper's. The Laser Turret's laser is red too (slice M4-S1).
 #[test]
 fn a_guards_laser_is_drawn_red() {
     // In the order they are spawned.
@@ -315,6 +315,7 @@ fn a_guards_laser_is_drawn_red() {
     for kind in [ObjectKind::Peacekeeper, ObjectKind::SabreLegionnaire, ObjectKind::Agent] {
         assert_eq!(ShotStyle::of(Some(kind)), ShotStyle::Tracer, "{kind:?}");
     }
+    assert_eq!(ShotStyle::of(Some(ObjectKind::LaserTurret)), ShotStyle::RedLaser);
 }
 
 /// Slice M4-U: the Grenadier's grenade is no laser (design change 0207 makes the Syndicate's lasers red) and no shot:

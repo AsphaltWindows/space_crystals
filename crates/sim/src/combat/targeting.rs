@@ -9,7 +9,7 @@ use glam::Vec2;
 use super::damage::pre_armor_multiplier;
 use crate::defs::{AttackAttrs, AttackType, Domain, FullyConnectedSubtype, TargetDomain};
 use crate::elevation::{self, Elevation};
-use crate::ids::ObjectId;
+use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::object::Object;
 use crate::riot_shield;
@@ -108,8 +108,8 @@ pub fn reaches_point(attrs: &AttackAttrs, attacker: &Shape, source: Elevation, p
 }
 
 /// Whether `attacker` could attack `target` where both stand now: it has an attack and may use it (its Riot Shield
-/// isn't up, `riot_shield::allows_attack`), `target` is destructible and
-/// not `attacker` itself, the attacker's owner sees it in `vision` (`systems/combat.md > ValidTarget` 2; a unit
+/// isn't up, `riot_shield::allows_attack`; a structure is complete, `Object::is_operational`), `target` is destructible
+/// and not `attacker` itself, the attacker's owner sees it in `vision` (`systems/combat.md > ValidTarget` 2; a unit
 /// without an owner sees nothing), the attack's TargetDomain allows it, and it is within Range and beyond MinRange.
 /// The attack is the weapon in hand (`super::weapon`: a Legionnaire's form's, design change 0198).
 /// Facing is not required: Aiming turns the unit (`systems/combat.md > Aiming`). The behaviours ask the same of
@@ -120,6 +120,7 @@ pub fn can_attack_now(map: &Map, vision: &Vision, attacker: &Object, target: &Ob
         return false;
     };
     riot_shield::allows_attack(attacker)
+        && attacker.is_operational()
         && target.id != attacker.id
         && target.hp.is_some()
         && attacker.owner.is_some_and(|owner| vision.sees(owner, target))
@@ -137,6 +138,11 @@ pub fn can_attack_now(map: &Map, vision: &Vision, attacker: &Object, target: &Ob
 #[derive(Clone, Debug)]
 pub(super) struct TargetView {
     pub id: ObjectId,
+    /// (M4-S1) Its owner: a structure's own pick takes only its enemies (`super::structures`).
+    pub owner: Option<PlayerId>,
+    /// (M4-S1) The domain its own attack threatens (`super::threat`), for a structure's own pick: threatening targets
+    /// first (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`).
+    pub threat: Option<TargetDomain>,
     pub pos: Vec2,
     pub facing: f32,
     pub shape: Shape,
@@ -169,6 +175,8 @@ impl Targets {
                 let unit = o.def().unit.as_ref();
                 TargetView {
                     id: o.id,
+                    owner: o.owner,
+                    threat: super::threat(o),
                     pos: o.pos,
                     facing: o.facing,
                     shape: Shape::of(o),

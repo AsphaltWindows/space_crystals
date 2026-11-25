@@ -91,8 +91,10 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
             // > Space Crystals > Close patches and traffic` (design change 0294): "Agents keep normal collision while
             // gathering (no pass-through)".
             pass_through: false,
-            // `> Building` (slice M4-E): "Agents construct Tunnels"; the Laser Turret comes with slice S1.
-            builds: &[ObjectKind::Tunnel],
+            // `> Building`: "Agents construct Tunnels and surface defensive structures" (slice M4-E), the Laser
+            // Turret (slice M4-S1; `factions/syndicate/structures/laser_turret.md > Constructed by`: "Agent
+            // (anywhere)").
+            builds: &[ObjectKind::Tunnel, ObjectKind::LaserTurret],
         }),
     }),
     structure: None,

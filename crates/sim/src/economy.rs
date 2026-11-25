@@ -85,7 +85,9 @@ pub enum Refund {
     Ready,
     /// A Tunnel's expansion cancelled while it is built (slice M4-F, `sim/expansions.rs`): its share,
     /// [`EXPANSION_CANCEL_REFUND`](crate::tuning::construction::EXPANSION_CANCEL_REFUND), rounded down
-    /// (`factions/syndicate/tunnels.md > Expansions under construction`, design change 0254).
+    /// (`factions/syndicate/tunnels.md > Expansions under construction`, design change 0254). So is a Laser Turret's
+    /// site an Agent builds (slice M4-S1; design change 0297 point 5: "75% refund for both, Agent-built or
+    /// Tunnel-built (like an expansion)"; `construction::site::BuildPrice::cancelled`).
     Expansion,
 }
 

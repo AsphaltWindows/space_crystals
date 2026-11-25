@@ -15,7 +15,7 @@ Augmentation effects are expressed in two kinds of increments:
 
 Increments can be negative. A negative increment applies the opposite effect (e.g. −1 Constitution increment = −10 MaxHP, and −1 melee Damage for unarmed units).
 
-**Unarmed units** are infantry whose attack is an unarmed melee attack — currently only the Recruit. Armed infantry (Soldier, Gunner) receive only the MaxHP part of Constitution increments and only the movement-speed part of Metabolism increments.
+**Unarmed units** are infantry whose attack is an unarmed melee attack — currently only the Recruit. Armed infantry (Militant, Gunner) receive only the MaxHP part of Constitution increments and only the movement-speed part of Metabolism increments.
 
 ### Augmentation Effects
 
@@ -41,7 +41,7 @@ A unit cannot receive an Augmentation it already has. There is no way to re-augm
 - ImprovedMetabolism: None | NoResearch | Level1 | Level2
 
 ### Eligibility
-All four Cults infantry types: Recruit, Soldier, Gunner, and Acolyte. Only Cults infantry can be augmented.
+All four Cults infantry types: Recruit, Militant, Gunner, and Acolyte. Only Cults infantry can be augmented.
 
 ### Persistence
 - **Training** (Armory or Cathedral): a trained unit inherits its Recruit's AugmentationState unchanged. Augmentation and training can happen in either order with the same result.
@@ -71,7 +71,7 @@ Space Crystals cost and construction time are listed under the Recruit's Constru
 ### InternalUnitCapacity - TBD
 
 ### Entry
-Any Cults infantry (Recruit, Soldier, Gunner, Acolyte) can enter the Altar to join its StoredUnits pool, up to InternalUnitCapacity. Right-clicking an own Altar with Cults infantry selected issues Enter Altar.
+Any Cults infantry (Recruit, Militant, Gunner, Acolyte) can enter the Altar to join its StoredUnits pool, up to InternalUnitCapacity. Right-clicking an own Altar with Cults infantry selected issues Enter Altar.
 
 Fully augmented units (both Augmentations already applied) can also enter, but there is nothing to apply to them — they can only leave, via Eject All.
 
@@ -105,7 +105,7 @@ Right-click resolution:
 
 Unit type tiles (StateOnlyTransition to AugmentMenu[UnitType]) — each tile shows the count of that unit type in StoredUnits; disabled if there are none:
 - **Q: Recruit**
-- **W: Soldier**
+- **W: Militant**
 - **E: Gunner**
 - **R: Acolyte**
 

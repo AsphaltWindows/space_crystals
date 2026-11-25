@@ -79,12 +79,12 @@
 //! why while the gate refuses it (slices M4-K and M4-U).
 //!
 //! The Syndicate's Agent (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, design change 0257; slice
-//! M4-J1) has Q Move, A Build Tunnel, S Drop Off, D Build Laser Turret (greyed with its reason until slice M4-S1) and
-//! X Stop. A enters AwaitingPlacement of a Tunnel built by the Agent Tabbed to ([`Builder::Agent`]), greyed while the
-//! bank can't pay the Tunnel's price, which its hint shows ([`PanelSlot::price`], design change 0233); a click sends
-//! that Agent its Build and returns to DefaultState, Shift held or not. S awaits the Tunnel to drop off at, greyed
-//! while no Agent carries a load. A site under construction, of any type, shows X Cancel Construction alone
-//! ([`SITE_GRID`], design change 0237).
+//! M4-J1) has Q Move, A Build Tunnel, S Drop Off, D Build Laser Turret (slice M4-S1) and X Stop. A and D enter
+//! AwaitingPlacement of a Tunnel or a Laser Turret built by the Agent Tabbed to ([`Builder::Agent`]), each greyed while
+//! the gate would refuse it (the bank can't pay its price, which its hint shows, [`PanelSlot::price`], design change
+//! 0233; the Laser Turret's Optics Lab not owned); a click sends that Agent its Build and returns to DefaultState,
+//! Shift held or not. S awaits the Tunnel to drop off at, greyed while no Agent carries a load. A site under
+//! construction, of any type, shows X Cancel Construction alone ([`SITE_GRID`], design change 0237).
 //!
 //! A greyed-out button, or its hotkey, can still be pressed: nothing is issued, and the player is told why
 //! ([`PanelSlot::why`], design change 0162).

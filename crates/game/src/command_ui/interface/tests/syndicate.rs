@@ -6,6 +6,7 @@
 use std::collections::BTreeSet;
 
 use sc_sim::TunnelCommand;
+use sc_sim::construction::site::BuildPrice;
 use sc_sim::defs::EJECT_MENU_ORDER;
 
 use super::*;
@@ -31,8 +32,8 @@ fn the_tunnel_has_q_upgrade_w_expand_e_eject_and_x_cancel() {
     use ButtonLook::{Common, Disabled};
     use PanelCommand::{CancelOperation, EjectMenu, ExpandMenu, UpgradeTunnel};
     let tunnel = Selection::new([(id(1), TUNNEL)]);
-    let conditions =
-        (Conditions::default().refusing(CancelOperation, Reject::NoOperation(id(1)))).pricing(UpgradeTunnel, 2);
+    let conditions = (Conditions::default().refusing(CancelOperation, Reject::NoOperation(id(1))))
+        .pricing(UpgradeTunnel, BuildPrice::supplies(2));
     let shown_panel = panel(&tunnel, InterfaceState::DefaultState, &conditions);
     let c = PanelButton::Command;
     assert_eq!(
@@ -51,7 +52,10 @@ fn the_tunnel_has_q_upgrade_w_expand_e_eject_and_x_cancel() {
         .filter_map(|(slot, _)| shown_panel.name(slot))
         .collect();
     assert_eq!(names, ["Upgrade Tunnel", "Expand Tunnel", "Eject", "Cancel Operation"]);
-    assert_eq!(shown_panel.get(slot(0, 0)).and_then(|s| s.price), Some(2));
+    assert_eq!(
+        shown_panel.get(slot(0, 0)).and_then(|s| s.price),
+        Some(BuildPrice::supplies(2))
+    );
     assert_eq!(why_text(&shown_panel, slot(0, 0)), None);
     assert_eq!(why_text(&shown_panel, slot(0, 1)), None);
     assert_eq!(why_text(&shown_panel, slot(0, 2)), None);
@@ -93,14 +97,14 @@ fn the_tunnels_upgrade_is_greyed_with_the_gates_reason() {
     for (reject, text) in cases {
         let conditions = Conditions::default()
             .refusing(UpgradeTunnel, reject)
-            .pricing(UpgradeTunnel, 4);
+            .pricing(UpgradeTunnel, BuildPrice::supplies(4));
         let shown_panel = panel(&tunnel, InterfaceState::DefaultState, &conditions);
         let q = shown_panel.get(slot(0, 0)).expect("Q");
         assert_eq!(
             (q.button, q.look),
             (PanelButton::Command(UpgradeTunnel), ButtonLook::Disabled)
         );
-        assert_eq!(q.price, Some(4));
+        assert_eq!(q.price, Some(BuildPrice::supplies(4)));
         assert_eq!(why_text(&shown_panel, slot(0, 0)), Some(text), "{reject:?}");
         assert_eq!(press(&shown_panel, slot(0, 0)), SlotPress::Nothing);
     }

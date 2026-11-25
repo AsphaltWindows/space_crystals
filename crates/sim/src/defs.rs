@@ -123,6 +123,8 @@ kind_registry! {
     ChemicalPlant => syndicate::structures::chemical_plant::CHEMICAL_PLANT,
     /// `factions/syndicate/units/grenadier.md` (design change 0260)
     Grenadier => syndicate::units::grenadier::GRENADIER,
+    /// `factions/syndicate/structures/laser_turret.md` (design change 0260)
+    LaserTurret => syndicate::structures::laser_turret::LASER_TURRET,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

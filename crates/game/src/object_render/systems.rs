@@ -4,9 +4,9 @@
 use bevy::prelude::*;
 
 use super::{
-    FacingTick, LoadMarker, MeshKey, ObjectVisual, ObjectVisualAssets, ObjectVisuals, RiotShieldVisual, SiteProgress,
-    body_turns, drawn_kind, has_tick, load, object_height, object_transform, site, structures, underground, units,
-    visual_mesh,
+    FacingTick, LoadMarker, Look, MeshKey, ObjectVisual, ObjectVisualAssets, ObjectVisuals, RiotShieldVisual,
+    SiteProgress, TurretBarrel, body_turns, drawn_kind, has_tick, load, object_height, object_transform, site,
+    structures, turret, underground, units, visual_mesh,
 };
 use crate::coords::{facing_to_rotation, lerp_facing};
 use crate::kinds::object_label;
@@ -15,8 +15,8 @@ use crate::sim_driver::{RenderAlpha, SimRes};
 
 /// Spawns a visual for every object without one and despawns visuals whose object is gone, or is drawn otherwise
 /// now ([`MeshKey`]: its kind, owner, size or tint changed), which then get a new one, children included (tag, tick,
-/// Riot Shield, load marker). A replaced sim (new generation) starts from scratch, because its ids may repeat the old
-/// ones.
+/// Riot Shield, load marker, a finished turret's barrel). A replaced sim (new generation) starts from scratch, because
+/// its ids may repeat the old ones.
 pub(super) fn sync_object_visuals(
     mut commands: Commands,
     sim: Res<SimRes>,
@@ -102,6 +102,20 @@ pub(super) fn sync_object_visuals(
         }
         if units::tagged(drawn) {
             commands.spawn((units::tag(object.id, drawn), ChildOf(entity)));
+        }
+        if Look::of(drawn) == Look::Turret && !key.site {
+            let barrel = assets
+                .barrel
+                .get_or_insert_with(|| meshes.add(turret::barrel_mesh()))
+                .clone();
+            commands.spawn((
+                Name::new("Turret barrel"),
+                TurretBarrel(object.id),
+                Mesh2d(barrel),
+                MeshMaterial2d(material.clone()),
+                Transform::from_rotation(facing_to_rotation(object.facing)),
+                ChildOf(entity),
+            ));
         }
         if has_tick(drawn) {
             let tick = assets

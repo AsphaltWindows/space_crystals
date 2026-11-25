@@ -7,10 +7,10 @@ use crate::player::Faction;
 
 /// `factions/syndicate/structures/optics_lab.md`: "Syndicate tech building enabling the Syndicate's laser weaponry", an
 /// underground expansion (plan decision T32) that is only a prerequisite so far ("Commands - none for now: it is only a
-/// prerequisite (laser research TBD)"): the Hideout's Guard's (`Recipe::requires`, plan decision T37), and later the
-/// Laser Turret's (slice M4-S1). Hidden from the other players while owned, walked over, and destroyed as any
-/// structure. A Tunnel builds it in its Tunnel Area ([`OPTICS_LAB_EXPANSION`]); it counts as a prerequisite once
-/// complete (`crate::tech`).
+/// prerequisite (laser research TBD)"): the Hideout's Guard's (`Recipe::requires`, plan decision T37), and the Laser
+/// Turret's (`StructureDef::requires`, slice M4-S1). Hidden from the other players while owned, walked over, and
+/// destroyed as any structure. A Tunnel builds it in its Tunnel Area ([`OPTICS_LAB_EXPANSION`]); it counts as a
+/// prerequisite once complete (`crate::tech`).
 pub(crate) static OPTICS_LAB: ObjectDef = ObjectDef {
     kind: ObjectKind::OpticsLab,
     name: "Optics Lab",
@@ -51,6 +51,7 @@ pub(crate) static OPTICS_LAB: ObjectDef = ObjectDef {
         site: None,
         expansion: Some(OPTICS_LAB_EXPANSION),
         requires: &[], // TechPrerequisite - None
+        attack: None,
     }),
     default_settings: None,
 };

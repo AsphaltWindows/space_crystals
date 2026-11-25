@@ -30,11 +30,11 @@ pub const EJECT_MENU_ORDER: &[ObjectKind] = &[ObjectKind::Agent, ObjectKind::Gua
 pub enum ExpandEntry {
     /// A type a Tunnel builds (its `StructureDef::expansion`).
     Kind(ObjectKind),
-    /// An entry not in the game yet, by its name in the design: an expansion of
-    /// `factions/syndicate/structures/README.md > Tech Tree Overview`, or the Laser Turret
-    /// (`factions/syndicate/structures/laser_turret.md`, slice M4-S2's). It holds its slot, greyed (design change 0291:
-    /// "Unavailable ones are greyed, including ones not in the build yet"). The slice that brings it turns it into its
-    /// `Kind`.
+    /// An entry no Tunnel builds yet, by its name in the design: an expansion of
+    /// `factions/syndicate/structures/README.md > Tech Tree Overview` not in the game, or the Laser Turret
+    /// (`factions/syndicate/structures/laser_turret.md`: in the game from slice M4-S1, an Agent's; a Tunnel's from
+    /// slice M4-S2). It holds its slot, greyed (design change 0291: "Unavailable ones are greyed, including ones not in
+    /// the build yet"). The slice that has a Tunnel build it turns it into its `Kind`.
     Planned(&'static str),
 }
 
@@ -62,7 +62,7 @@ impl ExpandEntry {
 /// menu reads it). `factions/syndicate/tunnels.md > ExpandMenu` (design change 0291, answering Q0081): "**Fixed
 /// slots** ...: **all nine expansions** are always listed, in the Tech Tree table's order, each holding its slot; ones
 /// not available (tier, prerequisite, or not yet in the build) are greyed. The **Laser Turret is always the tenth
-/// slot**, so no hotkey ever moves": those not in the game yet are [`ExpandEntry::Planned`], the turret until slice
+/// slot**, so no hotkey ever moves": those no Tunnel builds yet are [`ExpandEntry::Planned`], the turret until slice
 /// M4-S2. The Hideout, the Optics Lab and the Chemical Plant are in the game (slices M4-F and M4-K), in Q, W and E.
 /// Tests check it against the table, and that it lists every type a Tunnel builds, once.
 pub const EXPAND_MENU: &[ExpandEntry] = &[

@@ -100,7 +100,7 @@ Index of the design docs. Paths are relative to this folder.
 | `factions/cults/augmentation.md` | Augmentation system, Altar |
 | `factions/cults/units/README.md` | Index of Cults units |
 | `factions/cults/units/recruit.md` | Worker: gathering, building, Armory entry |
-| `factions/cults/units/soldier.md` | Basic combat infantry |
+| `factions/cults/units/militant.md` | Basic combat infantry |
 | `factions/cults/units/gunner.md` | Heavier-hitting infantry |
 | `factions/cults/units/acolyte.md` | Spell caster (Cathedral) |
 | `factions/colonists/overview.md` | Colonists identity and resources (Space Crystals, Alloys, Essence, Flux, Beacon Capacity) |

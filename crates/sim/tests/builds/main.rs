@@ -6,13 +6,17 @@
 //!   the defeat);
 //! - `price`: the price and its refunds (0233), and the books, a property test over random orders;
 //! - `rules`: where a Tunnel may stand: the overlap rule (0237), the Drillable area (0242), the hidden expansions
-//!   (0240), a unit on the site, and the lingering ghosts' reservations (design change 0289 point 2).
+//!   (0240), a unit on the site, and the lingering ghosts' reservations (design change 0289 point 2);
+//! - `turret`: the Laser Turret an Agent builds by the same flow (slice M4-S1,
+//!   `factions/syndicate/structures/laser_turret.md > Construction`): its prerequisite, its price in Space Crystals,
+//!   and its Agent coming out beside it.
 //!
 //! Every test runs under the invariants of `TestSim`, and the sites' ([`check_sites`]) after each tick it steps.
 
 mod flow;
 mod price;
 mod rules;
+mod turret;
 
 use sc_sim::network::Place;
 use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references, referenced_ids};
@@ -26,6 +30,7 @@ const P2: PlayerId = PlayerId(2);
 const AGENT: ObjectKind = ObjectKind::Agent;
 const GUARD: ObjectKind = ObjectKind::Guard;
 const TUNNEL: ObjectKind = ObjectKind::Tunnel;
+const TURRET: ObjectKind = ObjectKind::LaserTurret;
 
 /// Player 1's Tunnel in [`base`].
 const T1: ObjectId = ObjectId(1);
@@ -137,9 +142,11 @@ fn supplies(t: &TestSim, player: PlayerId) -> u32 {
     t.sim().player(player).expect("in the game").supplies
 }
 
-/// The price of `player`'s next Tunnel (`Sim::build_price`).
+/// The price of `player`'s next Tunnel (`Sim::build_price`), in Supplies.
 fn price(t: &TestSim, player: PlayerId) -> u32 {
-    t.sim().build_price(player, TUNNEL).expect("an Agent builds Tunnels")
+    let price = t.sim().build_price(player, TUNNEL).expect("an Agent builds Tunnels");
+    assert_eq!(price.resource, sc_sim::defs::Resource::Supplies);
+    price.amount
 }
 
 /// `player`'s lingering ghosts (`Sim::pending_builds`): each worker and its site's origin.
@@ -222,9 +229,15 @@ fn check_sites(t: &TestSim) {
         let unit = held.object.id;
         assert!(sim.object(unit).is_none(), "held unit {unit:?} is on the map too");
         if let Place::Site(site) = held.place {
-            let builder = (sim.object(site))
-                .and_then(|o| o.construction)
-                .and_then(|c| c.builder.unit());
+            let o = sim
+                .object(site)
+                .unwrap_or_else(|| panic!("unit {unit:?} is held at {site:?}, gone"));
+            // A Laser Turret's Agent waits inside it once it is finished, until a spot beside it is clear (slice
+            // M4-S1).
+            if o.kind == TURRET && !o.is_site() {
+                continue;
+            }
+            let builder = o.construction.and_then(|c| c.builder.unit());
             assert_eq!(
                 builder,
                 Some(unit),

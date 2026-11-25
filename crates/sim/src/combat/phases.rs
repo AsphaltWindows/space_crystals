@@ -1,4 +1,5 @@
-//! A unit's attack sequence, one tick at a time — `systems/combat.md > AttackPhase`.
+//! A unit's attack sequence, one tick at a time — `systems/combat.md > AttackPhase`. A structure that attacks runs the
+//! same sequence (plan decision T49, slice M4-S1: the Laser Turret), as a turret does: it fires in any direction.
 //!
 //! The tick's time goes to the first phase that hasn't run its full duration yet. A phase that has run it ends at
 //! once, with its effect, and the next one begins, so each phase lasts exactly its duration in ticks, zero included.
@@ -22,13 +23,14 @@ use super::damage::{Hit, directional_multiplier};
 use super::projectiles::Projectile;
 use super::targeting::{TargetView, Targets, domain_allows, reaches, reaches_point};
 use super::{AttackPhase, AttackState};
-use crate::defs::{AttackAttrs, AttackType, ObjectKind, UnitDef};
+use crate::defs::{AttackAttrs, AttackType};
 use crate::elevation::Elevation;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::math;
 use crate::movement;
+use crate::object::Object;
 use crate::shape::Shape;
 use crate::tuning::combat::FACING_TOLERANCE;
 use crate::units::Tick;
@@ -52,13 +54,13 @@ impl Volley {
     }
 }
 
-/// The attacking unit, as its sequence needs it.
+/// The attacking unit, or structure, as its sequence needs it.
 pub(super) struct Shooter<'a> {
     pub id: ObjectId,
     /// Its owner, whom a projectile it launches remembers (`super::projectiles`).
     owner: Option<PlayerId>,
     pub pos: Vec2,
-    /// Its shape: Range is measured from its edge (`systems/combat.md > Range Measurement`).
+    /// Its shape: Range is measured from its edge (`systems/combat.md > Range Measurement`), a structure's footprint.
     shape: Shape,
     elevation: Elevation,
     /// For the ground's elevation at a location it aims at.
@@ -66,44 +68,55 @@ pub(super) struct Shooter<'a> {
     pub attrs: &'a AttackAttrs,
     /// (G) What is left of its TurnRate this tick (`systems/combat.md > LocomotionOrientationConstraints`), radians:
     /// one budget per tick, of which phase 5d may have spent some (`movement::Turns`). `f32::INFINITY` for the
-    /// movement models whose turn rate depends on speed.
+    /// movement models whose turn rate depends on speed, and for a structure.
     turn_left: f32,
     /// The unit has a turret (`UnitDef::has_turret`, its TurretAttributes; design change 0154): the turret aims, not
-    /// the base.
+    /// the base. So does a structure (plan decision T49: "A structure has no turn rate (it fires in any direction)").
     turret: bool,
     /// Its owner's vision as of the end of the last tick; `None` for a unit without an owner, which sees nothing.
     sight: Option<&'a PlayerVision>,
 }
 
 impl<'a> Shooter<'a> {
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "the attacking object, split into the parts its sequence reads"
-    )]
+    /// The object `o`, attacking with `attrs` (`super::weapon`), its owner's vision `sight`, after phase 5d turned it
+    /// by `turned` this tick (plan decision T49: the attack and the object, a unit's or a structure's).
     pub(super) fn new(
         map: &'a Map,
-        id: ObjectId,
-        owner: Option<PlayerId>,
-        kind: ObjectKind,
-        pos: Vec2,
-        facing: f32,
-        unit: &UnitDef,
+        o: &Object,
         attrs: &'a AttackAttrs,
         sight: Option<&'a PlayerVision>,
         turned: f32,
     ) -> Self {
+        let unit = o.def().unit.as_ref();
         Self {
-            id,
-            owner,
-            pos,
-            shape: Shape::silhouette(kind, pos, facing),
-            elevation: Elevation::of(map, kind, pos),
+            id: o.id,
+            owner: o.owner,
+            pos: o.pos,
+            // A unit's silhouette where it stands, a structure's footprint (`Shape::of`).
+            shape: Shape::of(o),
+            elevation: Elevation::of_object(map, o),
             map,
             attrs,
-            turn_left: movement::turn_rate(&unit.movement) - turned,
-            turret: unit.has_turret(),
+            turn_left: unit.map_or(f32::INFINITY, |unit| movement::turn_rate(&unit.movement) - turned),
+            turret: unit.is_none_or(|unit| unit.has_turret()),
             sight,
         }
+    }
+
+    /// Its owner, if it has one.
+    pub(super) fn owner(&self) -> Option<PlayerId> {
+        self.owner
+    }
+
+    /// Whether `t` is within its Range and beyond its MinRange, and its owner sees it (`systems/combat.md >
+    /// ValidTarget` 2): what a structure's own pick asks of a target (`super::structures`).
+    pub(super) fn sees_in_range(&self, t: &TargetView) -> bool {
+        self.can_target(t) && self.sees(t) && self.reaches(t)
+    }
+
+    /// The gap between its shape and `t`'s (`systems/combat.md > Range Measurement`).
+    pub(super) fn gap(&self, t: &TargetView) -> f32 {
+        self.shape.gap(&t.shape)
     }
 
     /// Whether its attack can target `t` at all: not itself, and in a domain its TargetDomain allows

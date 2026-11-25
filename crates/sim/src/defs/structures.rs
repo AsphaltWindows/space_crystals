@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::defs::{ObjectKind, Resource, UnitBase};
+use crate::defs::{AttackAttrs, ObjectKind, Resource, UnitBase};
 use crate::sides::SideLetter;
 use crate::units::Tick;
 
@@ -64,7 +64,7 @@ pub struct StructureDef {
     /// `crate::construction::site`): what an order to build one costs, how long its construction takes, the HP it
     /// starts at, and where its builder goes as it completes. The units that build it list it in their worker's def
     /// (`WorkerDef::builds`). `None` for a type no worker builds; the Drone's Beacon is a deployment instead
-    /// (`UnitDef::deploy`, T51). The Tunnel's so far; the Laser Turret's comes with slice S1.
+    /// (`UnitDef::deploy`, T51). The Tunnel's and the Laser Turret's (slice M4-S1).
     pub site: Option<SiteDef>,
     /// How a Tunnel builds the type in its Tunnel Area, as its one operation (slice M4-F;
     /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState > ExpandMenu`, `factions/syndicate/tunnels.md >
@@ -74,10 +74,17 @@ pub struct StructureDef {
     pub expansion: Option<ExpansionDef>,
     /// Its `TechPrerequisite` (`core/tech_and_research.md > Tech Prerequisites`; plan decision T37, slice M4-K): the
     /// structure types its player must own, each at least once, before one can be started, by whichever way it is
-    /// built (a constructor's Construct, a Warp In, an expansion, a worker's Build; `crate::tech`). Empty for none,
-    /// which every type in the game has so far: the design's first are the Vault's and the later expansions'.
+    /// built (a constructor's Construct, a Warp In, an expansion, a worker's Build; `crate::tech`). Empty for none;
+    /// the Laser Turret's Optics Lab is the first (slice M4-S1).
     #[serde(deserialize_with = "super::leak::slice")]
     pub requires: &'static [ObjectKind],
+    /// The type's attack, for a structure that attacks (plan decision T49, slice M4-S1; `systems/combat.md >
+    /// AttackAttributes`): the Laser Turret's (`factions/syndicate/structures/laser_turret.md`). It fires through the
+    /// phases and the damage every attack shares (`crate::combat`), with no turn rate (it fires in any direction), no
+    /// orders, and a target pick of its own (`combat::structures`). `None` for every other structure. Optional in
+    /// files.
+    #[serde(default)]
+    pub attack: Option<AttackAttrs>,
 }
 
 /// A Tunnel expansion's construction (`StructureDef::expansion`, slice M4-F): a Tunnel builds it in its Tunnel Area,
@@ -121,6 +128,13 @@ pub enum SitePrice {
     /// and a site cancelled, refund the price as it is once they are gone ("the current construction price, not
     /// counting itself", `factions/syndicate/tunnels.md > Upgrade Costs`).
     SuppliesPerOwned,
+    /// A fixed price in Space Crystals: the Laser Turret's 100 (`factions/syndicate/structures/laser_turret.md`:
+    /// "Cost: 100 Space Crystals (no Supplies)"; slice M4-S1). Paid as the order is given, "with the same refunds" as
+    /// an Agent's Tunnel (design change 0297 point 4, `factions/syndicate/structures/laser_turret.md > Construction`):
+    /// an order that goes before its site starts gives back the current top price, all of it, the price having no
+    /// scaling. A cancelled site gives back "75%" of it, rounded down, "like an expansion" (0297 point 5;
+    /// `construction::site::BuildPrice::cancelled`).
+    Crystals(u32),
 }
 
 /// Where a worker-built structure's builder goes as the construction completes (plan decision T51).
@@ -129,6 +143,12 @@ pub enum BuilderGoes {
     /// Into its owner's Tunnel Network: the Tunnel's Agent (`factions/syndicate/units/agent.md > Building > Tunnel
     /// Construction Flow`: "the Agent is inside the Tunnel Network, available for redeployment from any Tunnel").
     Network,
+    /// Out onto the surface, beside the finished structure: the Laser Turret's Agent
+    /// (`factions/syndicate/structures/laser_turret.md > Construction`: "the Agent emerges on the surface adjacent to
+    /// the finished structure (unlike Tunnels, where the Agent ends up inside the Tunnel Network)"): "at the **first
+    /// clear spot next to the turret**, searched in a fixed order starting from the side it came from; if none is
+    /// clear, it waits inside until one is" (design change 0298 point 7; `sim/sites.rs`).
+    Beside,
 }
 
 /// Where a structure type takes workers' loads (`StructureDef::drop_off`; plan decision T34: "the drop-off rule comes

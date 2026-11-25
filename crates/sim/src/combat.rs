@@ -54,12 +54,18 @@
 //!   shooter, if it is still alive, to its owner: when the damage lands, not at the throw, so a dodged projectile
 //!   reveals nothing (design change 0293, answering Q0083 point 2; `core/vision.md > Attacks from outside vision`).
 //!
-//! Not built yet: turrets, and the HeadDisjointed and TailDisjointed attacks.
+//! - **Structures that attack** (plan decision T49, slice M4-S1; [`structures`]): the Laser Turret
+//!   (`factions/syndicate/structures/laser_turret.md`), whose attack is its def's (`StructureDef::attack`). It runs the
+//!   same phases and deals the same damage as a unit, from its footprint, with no turn rate (it fires in any
+//!   direction) and no orders: it picks its own target in this phase, once it is complete (`Object::is_operational`).
+//!
+//! Not built yet: units' turrets, and the HeadDisjointed and TailDisjointed attacks.
 
 mod area;
 mod damage;
 mod phases;
 pub mod projectiles;
+mod structures;
 mod targeting;
 #[cfg(test)]
 pub(crate) mod testing;
@@ -70,7 +76,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::conversion;
-use crate::defs::{AttackAttrs, AttackType, ObjectKind};
+use crate::defs::{AttackAttrs, AttackType, ObjectKind, TargetDomain};
 use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
@@ -148,9 +154,24 @@ pub fn weapon(o: &Object) -> Option<&'static AttackAttrs> {
     weapon_of(conversion::form(o))
 }
 
-/// The AttackAttributes of a unit of form `form` ([`weapon`]).
+/// The AttackAttributes of a unit of form `form` ([`weapon`]), or of a structure of type `form` that attacks
+/// (`StructureDef::attack`, plan decision T49).
 pub(crate) fn weapon_of(form: ObjectKind) -> Option<&'static AttackAttrs> {
-    form.def().unit.as_ref()?.attack.as_ref()
+    let def = form.def();
+    match &def.unit {
+        Some(unit) => unit.attack.as_ref(),
+        None => def.structure.as_ref()?.attack.as_ref(),
+    }
+}
+
+/// The domain `o` threatens: its weapon's TargetDomain ([`weapon`]), if it has an attack it can use: a unit that
+/// attacks, a structure that attacks once complete (`Object::is_operational`: a site does nothing but cancel). What the
+/// auto-targeting scans rank first (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`:
+/// "threatening targets first"): the behaviours' (`orders::world`), and a structure's own pick ([`structures`]).
+pub(crate) fn threat(o: &Object) -> Option<TargetDomain> {
+    weapon(o)
+        .filter(|_| o.attack.is_some() && o.is_operational())
+        .map(|attack| attack.target_domain)
 }
 
 /// A unit's attack capability (`systems/combat.md > AttackAttributes`: only units that can attack have one).
@@ -276,7 +297,9 @@ pub(crate) fn base_is_free(kind: ObjectKind, state: Option<&AttackState>) -> boo
 }
 
 /// Phase 5e of `tick` (`docs/movement.md > 4`): every unit before `first_new`, in id order, runs one tick of its
-/// attack sequence against a snapshot of the targets taken before any of them acts, and the projectiles they launch
+/// attack sequence against a snapshot of the targets taken before any of them acts, and so does every complete
+/// structure that attacks, having picked its target first ([`structures`]; none while `auto_targeting` is off, as no
+/// unit auto-targets then: `DebugCommand::SetAutoTargeting`), and the projectiles they launch
 /// join `projectiles`, the store (`Sim::projectiles`); then the projectiles due land, in launch order (slice M4-O,
 /// plan decision T45), their blasts' hits ahead of the tick's new hits on the list; then the tick's hits are applied
 /// together, and each reveals its attacker to the owner of the object hit if that player didn't see it
@@ -297,12 +320,14 @@ pub(crate) fn step(
     turns: &movement::Turns,
     first_new: ObjectId,
     tick: Tick,
+    auto_targeting: bool,
     events: &mut Vec<SimEvent>,
 ) -> Vec<ObjectId> {
+    // A structure that attacks is always busy: it looks for its targets in this phase.
     let busy = |o: &Object| {
         o.attack
             .as_ref()
-            .is_some_and(|a| a.target.is_some() || a.location.is_some() || a.phase.is_some())
+            .is_some_and(|a| a.target.is_some() || a.location.is_some() || a.phase.is_some() || o.placement.is_some())
     };
     if projectiles.is_empty() && !objects.range(..first_new).any(|(_, o)| busy(o)) {
         return Vec::new();
@@ -317,22 +342,31 @@ pub(crate) fn step(
         }
         let may_attack = riot_shield::allows_attack(o);
         // The weapon in hand: the form's, which a Legionnaire whose conversion waits still fights with (design change
-        // 0198); its shape and its turn rate are its type's, the same in either form.
+        // 0198); its shape and its turn rate are its type's, the same in either form. A structure's is its type's.
         let Some(attrs) = weapon(o) else {
             continue;
         };
-        let Some(state) = &mut o.attack else {
+        if o.attack.is_none() {
             continue;
-        };
-        let Some(unit) = &o.kind.def().unit else {
+        }
+        // A structure that attacks (plan decision T49): only once complete (design change 0234: a site "does nothing
+        // but Cancel"); it picks its own targets.
+        let structure = o.def().unit.is_none();
+        if structure && !o.is_operational() {
+            continue;
+        }
+        let sight = o.owner.and_then(|owner| vision.player(owner));
+        let shooter = phases::Shooter::new(map, o, attrs, sight, turns.angle(o.id));
+        let Some(state) = &mut o.attack else {
             continue;
         };
         if !may_attack {
             state.engage(None);
         }
-        let sight = o.owner.and_then(|owner| vision.player(owner));
-        let turned = turns.angle(o.id);
-        let shooter = phases::Shooter::new(map, o.id, o.owner, o.kind, o.pos, o.facing, unit, attrs, sight, turned);
+        if structure {
+            structures::pick(state, &shooter, &targets, auto_targeting);
+            structures::face(state, &mut o.facing, &shooter, &targets);
+        }
         phases::run(state, &mut o.facing, &shooter, &targets, &mut volley, events);
     }
     projectiles.append(&mut volley.launched);

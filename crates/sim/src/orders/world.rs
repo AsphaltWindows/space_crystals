@@ -223,10 +223,9 @@ impl<'a> World<'a> {
                 destructible: o.hp.is_some(),
                 is_unit: o.mover.is_some(),
                 is_patch: matches!(o.resource, Some(ResourceState::CrystalPatch { .. })),
-                // The weapon in hand (`combat::weapon`: a Legionnaire's form's, design change 0198).
-                threat: combat::weapon(o)
-                    .filter(|_| o.attack.is_some())
-                    .map(|attrs| attrs.target_domain),
+                // The weapon in hand (`combat::weapon`: a Legionnaire's form's, design change 0198), a structure's
+                // once it is complete (slice M4-S1).
+                threat: combat::threat(o),
                 hiding: Hiding::of(o),
             })
             .collect();
@@ -392,15 +391,19 @@ impl<'a> World<'a> {
     ///    ties.
     ///
     /// Enemy structures are ValidTargets too (`systems/combat.md > ValidTarget`, design change 0103), so units
-    /// attack enemy buildings on their own; those that can't attack (all of them, so far) are non-threatening, and
-    /// come after the targets that can shoot back. An enemy inside the unit's MinRange is never picked (design change
-    /// 0182, [`Scan`]).
+    /// attack enemy buildings on their own; those that can't attack (all but a complete Laser Turret, slice M4-S1:
+    /// `combat::threat`) are non-threatening, and come after the targets that can shoot back. An enemy inside the
+    /// unit's MinRange is never picked (design change 0182, [`Scan`]).
     ///
     /// Nothing while auto-targeting is off (`DebugCommand::SetAutoTargeting`).
     ///
     /// `facing_only`: a non-turret unit that can't turn in place engages only what it already faces
     /// (`systems/controls/behaviors.md > HoldingPosition` 4, within `tuning::combat::FACING_TOLERANCE`, the exact
     /// angle).
+    // Inlined into each caller, whose `admit` it specializes on: the behaviours' hottest scan. Without the hint, how
+    // the release build splits the crate into codegen units can leave a call to it out of line (slice M4-S1: the one
+    // in `travel::march`, 3% of `behaviours_perf`'s battle, though nothing on the path had changed).
+    #[inline]
     pub(crate) fn pick(
         &self,
         unit: &Unit,

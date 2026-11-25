@@ -16,7 +16,7 @@
 //! (`sc_sim::vision::LastKnown::site`), which no longer moves: the site may have grown or been finished since.
 
 use bevy::prelude::*;
-use sc_sim::ObjectId;
+use sc_sim::{ObjectId, SU_PER_GU};
 
 use super::structures::{LOOK_Z, inner_half};
 use crate::shapes::ColorMesh;
@@ -33,6 +33,12 @@ const TRACK_COLOR: Color = Color::srgb(0.10, 0.10, 0.12);
 const FILL_COLOR: Color = Color::srgb(0.98, 0.84, 0.30);
 const BAR_SU: f32 = 10.0;
 const BAR_INSET_SU: f32 = 8.0;
+/// The bar on a roof one tile high (a Laser Turret's 1 × 1, slice M4-S1): thinner and nearer the edge, so that it stays
+/// clear of the tag at the roof's centre (`super::structures::tag`).
+const SMALL_BAR_SU: f32 = 5.0;
+const SMALL_BAR_INSET_SU: f32 = 3.0;
+/// How far the track reaches around the bar, su.
+const TRACK_MARGIN_SU: f32 = 1.5;
 /// The fill's z over its visual's anchor: over the track, under the structure's tag.
 const FILL_Z: f32 = LOOK_Z + 0.001;
 
@@ -80,10 +86,15 @@ pub fn site_color(color: Color) -> Color {
 }
 
 /// Where the bar lies on a roof whose fill reaches `inner` from the centre: its west and east ends' x, and its south
-/// and north edges' y.
+/// and north edges' y; on a roof one tile high, thinner and lower ([`SMALL_BAR_SU`]).
 fn bar(inner: Vec2) -> (Vec2, Vec2) {
-    let a = Vec2::new(-inner.x + BAR_INSET_SU, -inner.y + BAR_INSET_SU);
-    (a, Vec2::new(inner.x - BAR_INSET_SU, a.y + BAR_SU))
+    let (height, inset) = if inner.y < SU_PER_GU / 2.0 {
+        (SMALL_BAR_SU, SMALL_BAR_INSET_SU)
+    } else {
+        (BAR_SU, BAR_INSET_SU)
+    };
+    let a = Vec2::new(-inner.x + inset, -inner.y + inset);
+    (a, Vec2::new(inner.x - inset, a.y + height))
 }
 
 /// Draws a site's scaffold and its progress bar's track on its roof, whose fill reaches `inner` from its centre: a
@@ -95,7 +106,8 @@ pub(super) fn draw(mesh: &mut ColorMesh, inner: Vec2) {
         mesh.segment(from, from * BRACE_STOP, BEAM_SU, LOOK_Z, SCAFFOLD_COLOR);
     }
     let (a, b) = bar(inner);
-    mesh.rect(a - Vec2::splat(1.5), b + Vec2::splat(1.5), LOOK_Z + 0.0005, TRACK_COLOR);
+    let margin = Vec2::splat(TRACK_MARGIN_SU);
+    mesh.rect(a - margin, b + margin, LOOK_Z + 0.0005, TRACK_COLOR);
 }
 
 /// The fill's mesh: a unit square from the origin, which [`fill_transform`] stretches over the bar's done part.
@@ -126,5 +138,29 @@ pub(super) fn place_site_progress(sim: Res<SimRes>, mut fills: Query<(&mut SiteP
             fill.shown = ratio;
             *transform = fill_transform(fill.size, ratio);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::structures::SMALL_TAG_SU;
+    use super::*;
+
+    /// Slice M4-S1: on a roof one tile high (a Laser Turret's site), the bar and its track lie inside the roof and
+    /// below the tag at its centre, so that both stay legible; on a larger roof (a Tunnel's), the bar is where it was.
+    #[test]
+    fn the_bar_stays_clear_of_the_tag_on_a_one_tile_roof() {
+        let inner = inner_half(1, 1);
+        let (a, b) = bar(inner);
+        let margin = Vec2::splat(TRACK_MARGIN_SU);
+        let (low, high) = (a - margin, b + margin);
+        assert!(high.y < -SMALL_TAG_SU / 2.0, "the track's top {high} under the tag");
+        assert!(
+            low.cmpge(-inner).all() && high.cmple(inner).all(),
+            "{low} to {high} on the roof"
+        );
+        let tunnel = inner_half(4, 4);
+        let at = Vec2::new(-tunnel.x + BAR_INSET_SU, -tunnel.y + BAR_INSET_SU);
+        assert_eq!(bar(tunnel), (at, Vec2::new(-at.x, at.y + BAR_SU)));
     }
 }
