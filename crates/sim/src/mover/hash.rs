@@ -101,6 +101,7 @@ impl StateHash for Mover {
             exit,
             momentum,
             exit_heading,
+            detour_end,
         } = self;
         goal.hash(h);
         status.hash(h);
@@ -136,6 +137,11 @@ impl StateHash for Mover {
         if let Some(heading) = exit_heading {
             h.tag(2);
             heading.hash(h);
+        }
+        // (M3-G2) Likewise only while the unit is on a detour round standing units.
+        if *detour_end != 0 {
+            h.tag(3);
+            detour_end.hash(h);
         }
     }
 }

@@ -56,6 +56,10 @@
 - **The occupied-arrival radius is 3 GU** (design change 0169, answering Q0032; slice M3-V): 6.5's rule 1, for a
   point and for an object goal alike, and with it a unit walled out of its magic-box spot by its own group (design
   change 0183). Its changes are marked **(V)**. The code is `mover::OCCUPIED_ARRIVAL_GU`.
+- **A queueing unit goes round the row in its way** (slice M3-G2, from the M3 playtest: a unit behind its owner's
+  firing line never fired): 6.5's rule 2. Its changes are marked **(M3-G2)**. The code is
+  `crates/sim/src/movement/round.rs`, `stuck.rs` (`queues_behind`, `waits_in_queue`), `collide/hold.rs`,
+  `Mover::go_round` and `Mover::detour_end`.
 
 Design references are `file.md > Section`, relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -525,9 +529,34 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
    "Blocked near the target"; **(V)** the same 3 GU, 0169). What `Arrived` then means is the behaviour's: a static
    target completes the order, a followed unit is waited for where the follower stands, until it moves.
 2. **Queueing (E)**: a unit chasing the target its attack engages, blocked by a stationary unit of its owner whose
-   attack engages the same target → keep waiting; no repath, no failure (`movement::stuck::queues_behind`). The
-   check is a few comparisons, so it runs every tick the unit is stuck instead of every 16.
-3. **Repath**, if `repaths_left > 0`, when its wait is over (5.6). **(D)** The tile of the stationary unit in the way is added to `avoid_tiles`:
+   attack engages the same target → no path request, no failure (`movement::stuck::queues_behind`). The
+   check is a few comparisons, so it runs every tick the unit is blocked instead of every 16.
+   **(M3-G2) It goes round the row** (`systems/units.md > UnitCollision > Ground Collision`: "Moving units must
+   pathfind around occupied space"). Until slice M3-G2 it only waited, and a unit behind its owner's firing line
+   stood out of range for as long as the target lived, with open ground on both sides (`docs/playtest/m3.md`: the
+   last of four Peacekeepers on a building). The units of a firing line each stopped in the tick their attack
+   reached the target, so they stand a fraction of a step out of line, and the unit behind them stepped to and fro
+   in the pocket between two of them: rule 4 (6.3) goes round one blocker and keeps no memory. A repath can't help:
+   the row is in no grid, and an avoid tile is a tile wide where the units in the way stand a fraction of a tile
+   from the unit, often in its own tile.
+   - **The detour** (`movement/round.rs`): the *row* is the unit in the way and every unit standing for good
+     (stationary, no goal of its own) that is nearer to one of the row than the moving unit is wide; its *box* is
+     their bounding box grown by the unit's half extents and 2 su (`ROW_CLEARANCE_SU`). The detour goes straight
+     out of the box by a side and round it, from corner to corner, to an end of the *front*: the side that faces
+     the target. Of the ways whose legs are clear of blocked tiles and of the row's own units the shortest is
+     taken. Its waypoints go in front of what is left of the path (`Mover::go_round`), and
+     `Mover::detour_end` keeps the staggered check (5.6) from skipping them: the tiles show nothing of what they
+     lead round.
+   - **Attempts**: it counts against the leg's `MAX_REPATHS` and waits like a repath, but asks for no path. It is
+     due when the unit is stuck and its wait is over (rule 3's schedule), or already after `JAMMED_TICKS` without
+     a way forward behind a unit that has no goal (it stands in range, and won't move on). The second counted
+     attempt takes the front's other end. An attempt after **a lost race** is free: the unit now in the way
+     moved after this unit's last attempt (`Body::moved`), so it took the place the unit went for. Each lost
+     race is a unit that found its place, so there are at most as many as units.
+   - **No way round** (a corridor, a passage the row fills), or no attempt left: the unit **waits and stands**
+     (`stuck::waits_in_queue`, `World::hold`). It takes its step only when the way straight ahead is free, and
+     makes no step aside; it never fails. (Before, it tried its sidesteps every tick for as long as it queued.)
+3. **Repath**, for a unit that doesn't queue, if `repaths_left > 0`, when its wait is over (5.6). **(D)** The tile of the stationary unit in the way is added to `avoid_tiles`:
    at once if that unit has no goal; if it is on its way itself (only jammed for now), from the second repath on,
    the first being a plain retry. If the blocker stands in the unit's own tile (the start tile is never avoided),
    the neighbouring tile on the blocker's side is taken; the goal's tile is never taken. **(G)** If that unit

@@ -120,19 +120,27 @@ fn forget(o: &mut Object, gone: &[ObjectId], remembered: impl Fn(ObjectId) -> bo
     let ends = |order: &Order, state: Option<&Behaviour>| {
         (order.target()).is_some_and(|id| is_gone(id) && !order.outlives_target(state, remembered(id)))
     };
+    let mut ended = false;
     if let Some(orders) = &mut o.orders {
         if (orders.current.as_ref()).is_some_and(|active| ends(&active.order, Some(&active.state))) {
             orders.current = None;
+            ended = true;
         }
         orders.queue.retain(|order| !ends(order, None));
         // The enemies its behaviours engaged by themselves (`orders::state`).
         orders.forget(&is_gone);
     }
-    if let Some(mover) = &mut o.mover
-        && let MoveGoal::Object { id, .. } = mover.goal
-        && is_gone(id)
-    {
-        mover.finish(MoveStatus::TargetLost);
+    if let Some(mover) = &mut o.mover {
+        match mover.goal {
+            MoveGoal::Object { id, .. } if is_gone(id) => mover.finish(MoveStatus::TargetLost),
+            // (M3-G2) The order's walk to a point ends with the order (`systems/controls/behaviors.md >
+            // MovingToObject > Completion`: "the unit stops where it is"), as in `forget_seen_gone`: an Attack's
+            // back-off from a target inside its MinRange (`orders::engage`). The walk to where the target was last
+            // seen, which went on to that point without an order (`behaviours_soak`'s seed 17), went with design
+            // change 0200; a walk to a remembered target (0139) outlives the target, as its order does.
+            MoveGoal::Point(_) if ended => mover.stop(),
+            _ => {}
+        }
     }
     if let Some(attack) = &mut o.attack {
         attack.forget(gone);

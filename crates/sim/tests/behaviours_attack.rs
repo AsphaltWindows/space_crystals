@@ -152,6 +152,10 @@ fn an_attacker_chases_a_moving_target_until_it_is_destroyed() {
 /// into the fog." The Guard runs east, faster than the Peacekeeper, which goes after it. In the tick after the Guard
 /// leaves player 1's sight (behaviours read the vision of the tick before), the order completes, "exactly as when the
 /// target is destroyed": the Peacekeeper stands where it was as the Guard vanished, idle, engaging nothing.
+///
+/// Slice M3-G2's case, folded in (`behaviours_soak`'s seed 17): the Guard then leaves the game, and the Peacekeeper
+/// stands on. Under 0034 it was on its walk to the last seen position then, which the removal path left running:
+/// it went on there without an order.
 #[test]
 fn a_target_lost_in_the_fog_ends_the_attack_where_the_unit_stands() {
     let mut t = ScenarioBuilder::new(OPEN).start();
@@ -179,6 +183,12 @@ fn a_target_lost_in_the_fog_ends_the_attack_where_the_unit_stands() {
     t.run(100);
     assert_eq!(pos(&t, 1), there, "no walk into the fog");
     assert!(pos(&t, 2).x > there.x + gu(10.0), "{}", pos(&t, 2));
+    let gone = t.sim().tick() + 1;
+    t.debug_at(gone, sc_sim::DebugCommand::Remove { id: id(2) });
+    t.run(60);
+    assert!(t.sim().object(id(2)).is_none(), "the Guard left the game");
+    assert!(is_idle(&t, 1));
+    assert_eq!((pos(&t, 1), t.status(1)), (there, MoveStatus::Idle), "it stands on");
 }
 
 /// Design change 0200's Verification: "When the enemy steps back into view near the idle Peacekeeper, it is engaged"
@@ -307,8 +317,9 @@ const CORRIDOR: &str = "
 ";
 
 /// `docs/movement.md > 6.5`, rule 2 (queueing): a unit chasing the target of its attack, blocked by a unit of its
-/// owner that stands attacking the same target, keeps waiting: no re-route, no failure, however long the fight
-/// lasts. Two Guards attack a Peacekeeper down a corridor; the second can't get into range past the first, which
+/// owner that stands attacking the same target, keeps waiting: no path request, no failure, however long the fight
+/// lasts. (M3-G2: it looks for a way round the unit ahead, which a corridor doesn't have, and those attempts are
+/// the leg's three; `tests/attack_behind_friends.rs` has the cases with room.) Two Guards attack a Peacekeeper down a corridor; the second can't get into range past the first, which
 /// fights for longer than the 104 ticks after which a stuck move gives up (on Rugged ground the Peacekeeper takes 8 a
 /// hit, 18 × 0.5 − 1: seven hits, one every 24 ticks). When the target is destroyed, both orders complete.
 /// (Auto-targeting is off, so the target doesn't fight back and the scout that sees it doesn't join in.)
@@ -327,6 +338,9 @@ fn an_attacker_queues_behind_its_owners_attackers_of_the_same_target() {
     loop {
         assert!(t.sim().tick() < 600, "the fight never ends\n{}", t.ascii(None));
         t.step();
+        // The order's own two paths are planned in tick 2, and none after it.
+        let planned = t.sim().nav_counters().searches + t.sim().nav_counters().fields;
+        assert!(t.sim().tick() <= 2 || planned == 0, "a path in tick {}", t.sim().tick());
         if t.sim().object(id(3)).is_none() {
             break;
         }
@@ -344,7 +358,11 @@ fn an_attacker_queues_behind_its_owners_attackers_of_the_same_target() {
     assert!(waited > 120, "it queued for {waited} ticks");
     assert!(gap(&t, 1, 2) == 0.0, "still right behind it");
     assert_eq!(attack_ticks(&t, 2), [] as [Tick; 0], "it never got into range");
-    assert_eq!(t.mover(2).repaths_left, sc_sim::mover::MAX_REPATHS, "no re-route");
+    assert_eq!(
+        t.mover(2).repaths_left,
+        0,
+        "it looked for a way round, and there is none"
+    );
     assert!(
         t.events()
             .iter()
