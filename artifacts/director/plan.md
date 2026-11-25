@@ -1065,7 +1065,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **M4-U Grenadier** (Opus; brief `scratchpad/briefs/m4u-grenadier.md`): the kind and its recipe (requires a Chemical Plant), the Hideout's E, the EjectMenu's third tile, and 0260's and 0264's verifications with the real kind.
   - **M4-S1 Laser Turret, upright and Agent-built** (Opus; brief `scratchpad/briefs/m4s1-laser-turret.md`): the turret's def (requires an Optics Lab), structures that attack (T49), the Build order's turret arm with Q0084's answers (0296–0298: a 75% cancel refund, folded in mid-run), defeat, and the client's D entry, ghost and turret look.
 - **Next**:
-  - **M4 wave 8:** U (the Grenadier, after K and O) and S2 (the pop-up, Tunnel-built turret, after S1, F, G and H). Then M (QA).
+  - **M4 wave 8:** S2 (the pop-up, Tunnel-built turret) launches when S1 lands. Its brief is `scratchpad/briefs/m4s2-popup-turret.md`. **It runs on Fable:** 0296 made raised pop-ups block movement, with a footprint-clear rise and an idle push, which is m4-plan's stated trigger for Fable. U is running; J3 is queued. Then M (QA).
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
