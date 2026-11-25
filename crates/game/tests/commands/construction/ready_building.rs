@@ -24,20 +24,17 @@ fn a_ready_generator_is_placed_where_the_ghost_is_green() {
     assert_eq!(
         buttons(&mut app),
         [
-            (q(), c(PlaceReady(GENERATOR)), Common, "Place GN"),
-            (w(), c(Construct(BARRACKS_KIND)), Disabled, "Build BR"),
-            (e(), c(Construct(EXTRACTION_FACILITY)), Disabled, "Build EF"),
+            (q(), c(PlaceReady(GENERATOR)), Common, "Place"),
+            (w(), c(Construct(BARRACKS_KIND)), Disabled, "BR"),
+            (e(), c(Construct(EXTRACTION_FACILITY)), Disabled, "EF"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
-            (X, c(CancelReady), Common, "Cancel Ready"),
+            (X, c(CancelReady), Common, "Cancel"),
         ]
     );
     assert!(!placement_keys(&app));
     tap(&mut app, &[], KeyQ);
     assert_eq!(placing(&app), Some(Placing::new(ObjectId(DC), GENERATOR)));
-    assert_eq!(
-        buttons(&mut app)[0],
-        (q(), c(PlaceReady(GENERATOR)), Pending, "Place GN")
-    );
+    assert_eq!(buttons(&mut app)[0], (q(), c(PlaceReady(GENERATOR)), Pending, "Place"));
     assert!(placement_keys(&app));
 
     hover(&mut app, middle(OPEN, (2, 2)));

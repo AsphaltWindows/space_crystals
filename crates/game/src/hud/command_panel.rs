@@ -2,14 +2,15 @@
 //! 4 × 3 grid (`crate::command_ui::interface::panel`), shown while everything selected is the local player's.
 //!
 //! Placeholder buttons until the art exists (Q0001): a short label in the middle and the slot's hotkey, from the
-//! bindings, in the top-left corner. A label never wraps: one too long for its button at the label size is drawn
-//! smaller, to fit on one line ([`label_px`]). Each look has its colours: common commands blue, group commands violet
-//! (the design wants the two "visually distinguished"), the PendingCommand lit up in yellow, disabled commands grey
-//! and dim (a Train or a Cancel Production the command gate would refuse too: `crate::command_ui::Conditions`),
-//! unavailable ones near-black with a dark red border, Back slate. A click on a button is a press of its slot, handled
-//! with the hotkeys (`crate::command_ui`), which finds the button by the same geometry ([`CommandGrid`]); the button
-//! under the pointer has its full name in the InfoPanel (`super::info_panel::CommandHint`), which a short label
-//! shortens.
+//! bindings, in the top-left corner. Every label keeps the label size at 720p (slice M3-K2a: six characters at most,
+//! `crate::command_ui::PanelCommand::label`); a label never wraps, and one too long for its button at the label size
+//! (on a surface too small for it) is drawn smaller, to fit on one line ([`label_px`]). Each look has its colours:
+//! common commands blue, group commands violet (the design wants the two "visually distinguished"), the
+//! PendingCommand lit up in yellow, disabled commands grey and dim (a Train or a Cancel Production the command gate
+//! would refuse too: `crate::command_ui::Conditions`), unavailable ones near-black with a dark red border, Back
+//! slate. A click on a button is a press of its slot, handled with the hotkeys (`crate::command_ui`), which finds the
+//! button by the same geometry ([`CommandGrid`]); the button under the pointer has its full name in the InfoPanel
+//! (`super::info_panel::CommandHint`), which its short label shortens.
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -278,21 +279,16 @@ mod tests {
         labels
     }
 
-    /// M3-U: the highlighted "Warp RP" of a Beacon's Warp In menu wrapped onto two lines, and the labels of 8 or
-    /// more characters did whether lit or not. Every label fits its button on one line, lit or not, on surfaces of
-    /// any size and shape, at the label size or smaller; the short ones keep the label size, and a label doesn't
-    /// change its size when its button lights up.
+    /// Slice M3-K2a: every label of every panel keeps the label size on its button at 720p, lit or not, on one line
+    /// ("Cancel Ready" and the other long labels came out at about 6 px there, slice M3-U having made a label too
+    /// long for its button shrink to fit), and so on every surface of these, of any shape, down to 800 × 600. That is
+    /// six characters at most at 720p: a seventh would not fit. The full names are the hint's
+    /// (`super::super::info_panel::hint`).
     #[test]
-    fn every_label_fits_its_button_on_one_line() {
+    fn every_label_keeps_the_label_size_at_720p() {
         let labels = every_label();
         for label in [
-            "Warp RP",
-            "Train SL",
-            "Advanced",
-            "Raise",
-            "Lower",
-            "Cancel Ready",
-            "Back",
+            "PK", "RP", "SK", "Adv.", "Place", "Cancel", "Drop", "Drones", "Raise", "Back",
         ] {
             assert!(labels.contains(label), "{label} is shown");
         }
@@ -307,32 +303,41 @@ mod tests {
         ];
         for surface in surfaces {
             let side = CommandGrid::on(surface).cell;
+            let full = LABEL_VH * (surface.y / 100.0);
             for label in &labels {
-                let size = label_px(label, side, surface);
-                let width = GLYPH_ADVANCE_EM * size * label.chars().count() as f32;
+                assert_eq!(label_px(label, side, surface), full, "{label} on {surface}");
+                let width = GLYPH_ADVANCE_EM * full * label.chars().count() as f32;
                 assert!(
                     width <= side - 2.0 * LIT_BORDER_PX,
                     "{label} on {surface}: {width} in {side}"
                 );
-                assert!(
-                    size > 0.0 && size <= LABEL_VH * (surface.y / 100.0),
-                    "{label} on {surface}: {size}"
-                );
-            }
-            let full = LABEL_VH * (surface.y / 100.0);
-            // The Riot Shield's labels too (slice M3-S: "Raise Shield" and "Lower Shield" came out at about 6 px at
-            // 720p).
-            for label in ["Cancel", "Attack", "Rally", "Back", "Raise", "Lower"] {
-                assert_eq!(label_px(label, side, surface), full, "{label} on {surface}");
             }
         }
-        // On the default surface, a label of 7 characters loses less than a tenth of the label size, one of 12
-        // under half.
         let surface = Vec2::new(1280.0, 720.0);
         let side = CommandGrid::on(surface).cell;
-        let ratio = |label| label_px(label, side, surface) / (LABEL_VH * 7.2);
-        assert!(ratio("Warp RP") > 0.9, "{}", ratio("Warp RP"));
-        assert!(ratio("Cancel Ready") > 0.5, "{}", ratio("Cancel Ready"));
+        assert!(label_px("Cancel", side, surface) == LABEL_VH * 7.2);
+        assert!(
+            label_px("Reverse", side, surface) < LABEL_VH * 7.2,
+            "seven characters don't fit"
+        );
+    }
+
+    /// A label too long for its button, as none is now, would be drawn smaller rather than wrap (slice M3-U: the
+    /// highlighted "Warp RP" of a Beacon's Warp In menu wrapped onto two lines): it fits on one line, lit or not, and
+    /// keeps its size when its button lights up.
+    #[test]
+    fn a_label_too_long_for_its_button_is_drawn_smaller_on_one_line() {
+        let surface = Vec2::new(1280.0, 720.0);
+        let side = CommandGrid::on(surface).cell;
+        for label in ["Warp RP", "Cancel Ready Building"] {
+            let size = label_px(label, side, surface);
+            let width = GLYPH_ADVANCE_EM * size * label.chars().count() as f32;
+            assert!(size > 0.0 && size < LABEL_VH * 7.2, "{label}: {size}");
+            assert!(
+                width <= side - 2.0 * (LIT_BORDER_PX + LABEL_MARGIN_VH * 7.2) + 1e-3,
+                "{label}: {width} in {side}"
+            );
+        }
     }
 
     /// The font the labels are measured for: Bevy's default, every glyph [`GLYPH_ADVANCE_EM`] wide (its `hmtx`

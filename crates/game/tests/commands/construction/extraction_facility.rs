@@ -14,7 +14,7 @@ fn the_extraction_facility_places_its_plate_on_a_free_patch() {
     let mut app = construction_game(1000);
     select(&mut app, EF);
     let c = PanelButton::Command;
-    assert_eq!(buttons(&mut app), [(q(), c(Construct(PLATE_KIND)), Common, "Build EP")]);
+    assert_eq!(buttons(&mut app), [(q(), c(Construct(PLATE_KIND)), Common, "EP")]);
     tap(&mut app, &[], KeyQ);
     let construct = ConstructionCommand::Construct(PLATE_KIND);
     assert_eq!(constructions(&app), [(P1, vec![EF], construct)]);
@@ -25,8 +25,8 @@ fn the_extraction_facility_places_its_plate_on_a_free_patch() {
     assert_eq!(
         buttons(&mut app),
         [
-            (q(), c(PlaceReady(PLATE_KIND)), Common, "Place EP"),
-            (X, c(CancelReady), Common, "Cancel Ready"),
+            (q(), c(PlaceReady(PLATE_KIND)), Common, "Place"),
+            (X, c(CancelReady), Common, "Cancel"),
         ]
     );
     tap(&mut app, &[], KeyQ);
@@ -78,5 +78,5 @@ fn the_extraction_facility_places_its_plate_on_a_free_patch() {
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     assert!(structure_at(&app, PLATE_KIND, FREE_PATCH).is_some());
     assert_eq!(constructor(&app, EF), Constructor::Idle);
-    assert_eq!(buttons(&mut app), [(q(), c(Construct(PLATE_KIND)), Common, "Build EP")]);
+    assert_eq!(buttons(&mut app), [(q(), c(Construct(PLATE_KIND)), Common, "EP")]);
 }

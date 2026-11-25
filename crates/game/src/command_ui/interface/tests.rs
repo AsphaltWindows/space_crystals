@@ -297,7 +297,7 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
         ]
     );
     let labels = [q, x, c].map(|slot| default.get(slot).unwrap().label());
-    assert_eq!(labels, ["Train PK", "Cancel", "Rally"]);
+    assert_eq!(labels, ["PK", "Cancel", "Rally"]);
     assert_eq!(
         press(&default, q),
         SlotPress::Produce(Train(PK), ProductionCommand::Train(PK))
@@ -369,7 +369,7 @@ fn every_producer_gets_the_production_panel_of_its_recipes() {
         produces(ObjectKind::SabreLegionnaire, &[Planned::Lancer, Planned::PsionicUnit])
     );
     let labels = [PK, ObjectKind::Drone, ObjectKind::SabreLegionnaire].map(|unit| Train(unit).label());
-    assert_eq!(labels, ["Train PK", "Train DR", "Train SL"]);
+    assert_eq!(labels, ["PK", "DR", "SL"]);
 }
 
 /// Design changes 0081 and 0143 (`> ObjectInterfaceState[Barracks]`: "Only available if BuildQueue has fewer than

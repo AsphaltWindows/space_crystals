@@ -129,7 +129,7 @@ fn two_finished_bio_portals_and_one_warping_in_are_two_groups() {
         ]
     );
     let c = PanelButton::Command;
-    let train = (slot(0, 0), c(Train(SabreLegionnaire)), ButtonLook::Group, "Train SL");
+    let train = (slot(0, 0), c(Train(SabreLegionnaire)), ButtonLook::Group, "SL");
     assert_eq!(buttons(&mut app).first(), Some(&train));
     tap(&mut app, &[], KeyQ);
     let trained = ProductionCommand::Train(SabreLegionnaire);
@@ -235,7 +235,7 @@ fn the_unfinished_group_stays_active_until_its_last_portal_completes() {
     let all = vec![PORTAL_A, PORTAL_B, BEACON_1, BEACON_2];
     assert_eq!(groups(&app), [(BioPortal, false, all, true)]);
     assert_eq!(interface(&app), InterfaceState::DefaultState);
-    let train = (slot(0, 0), c(Train(SabreLegionnaire)), ButtonLook::Common, "Train SL");
+    let train = (slot(0, 0), c(Train(SabreLegionnaire)), ButtonLook::Common, "SL");
     assert_eq!(buttons(&mut app).first(), Some(&train));
 }
 

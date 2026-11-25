@@ -288,6 +288,6 @@ fn the_colonists_commands() {
             WarpIn(ObjectKind::BioPortal)
         ]
         .map(PanelCommand::label),
-        ["Warp EN", "Warp RP", "Warp BP"]
+        ["EN", "RP", "BP"]
     );
 }

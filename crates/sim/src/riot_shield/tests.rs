@@ -85,7 +85,7 @@ fn the_mode_is_the_type_and_how_far_up_the_shield_is() {
     let mut guard = unit(ObjectKind::Guard, 0);
     guard.riot_shield = None;
     assert_eq!(mode(&guard), None);
-    assert!(allows_attack(&guard) && !is_going_up(&guard));
+    assert!(allows_attack(&guard));
     assert_eq!((damage_factor(&guard), speed_factor(&guard)), (1.0, 1.0));
     let progress = [
         ShieldMode::Lowered,
@@ -100,7 +100,9 @@ fn the_mode_is_the_type_and_how_far_up_the_shield_is() {
 
 /// `> Riot Shield` and design change 0171 (`> During the toggle`): half speed and no attacking from the start of a
 /// raise to the end of a lowering, the damage reduction only all the way up. The Shielded type moves at its own
-/// MaxSpeed, the Peacekeeper's halved; a Peacekeeper on its way down at the same speed, by its speed factor.
+/// MaxSpeed, the Peacekeeper's halved; a Peacekeeper on its way down at the same speed, by its speed factor. Which way
+/// the shield goes is the unit's type (design change 0173: "The type switches **when the toggle starts**"): up, or on
+/// its way up, on the Peacekeeper (Shielded) alone ([`mode`]).
 #[test]
 fn the_effects_follow_the_mode() {
     let cases = [(PK, 0), (SHIELDED, 1), (SHIELDED, T), (PK, 1), (PK, T)];
@@ -108,8 +110,8 @@ fn the_effects_follow_the_mode() {
         let o = unit(kind, up);
         let max_speed = kind.def().unit.as_ref().unwrap().movement.max_speed();
         (
+            mode(&o).unwrap(),
             allows_attack(&o),
-            is_going_up(&o),
             max_speed * speed_factor(&o),
             damage_factor(&o),
         )
@@ -117,13 +119,18 @@ fn the_effects_follow_the_mode() {
     assert_eq!(
         effects,
         [
-            (true, false, 4.0, 1.0),
-            (false, true, 2.0, 1.0),
-            (false, true, 2.0, 0.5),
-            (false, false, 2.0, 1.0),
-            (false, false, 2.0, 1.0),
+            (ShieldMode::Lowered, true, 4.0, 1.0),
+            (ShieldMode::Raising { left: T - 1 }, false, 2.0, 1.0),
+            (ShieldMode::Raised, false, 2.0, 0.5),
+            (ShieldMode::Lowering { left: 1 }, false, 2.0, 1.0),
+            (ShieldMode::Lowering { left: T }, false, 2.0, 1.0),
         ]
     );
+    let going_up = cases.map(|(kind, up)| {
+        let mode = mode(&unit(kind, up)).unwrap();
+        matches!(mode, ShieldMode::Raising { .. } | ShieldMode::Raised)
+    });
+    assert_eq!(going_up, cases.map(|(kind, _)| kind == SHIELDED));
 }
 
 /// The Modes step's part: a shield goes the way its unit's type takes it, a tick at a time, and stops at either end;

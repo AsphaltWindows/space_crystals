@@ -44,7 +44,7 @@ fn the_deployment_center_opens_its_build_menus() {
             (w, command(Menu(BuildMenu::Advanced)), Unavailable),
         ]
     );
-    assert_eq!([q, w].map(|s| default.get(s).unwrap().label()), ["Basic", "Advanced"]);
+    assert_eq!([q, w].map(|s| default.get(s).unwrap().label()), ["Basic", "Adv."]);
     assert_eq!(press(&default, q), SlotPress::OpenMenu(BuildMenu::Basic));
     assert_eq!(press(&default, w), SlotPress::Nothing, "nothing to build in it yet");
 
@@ -59,10 +59,7 @@ fn the_deployment_center_opens_its_build_menus() {
             (CommandSlot::BACK, PanelButton::Back, Back),
         ]
     );
-    assert_eq!(
-        [q, w, e].map(|s| menu.get(s).unwrap().label()),
-        ["Build GN", "Build BR", "Build EF"]
-    );
+    assert_eq!([q, w, e].map(|s| menu.get(s).unwrap().label()), ["GN", "BR", "EF"]);
     assert_eq!(
         press(&menu, q),
         SlotPress::Construct(Construct(GENERATOR), ConstructionCommand::Construct(GENERATOR))
@@ -130,7 +127,7 @@ fn a_constructing_or_ready_deployment_center_cancels_in_x_and_places_its_buildin
             Some((command(CancelReady), Common)),
         ]
     );
-    assert_eq!(menu.get(q).map(|s| s.label()), Some("Place GN"));
+    assert_eq!(menu.get(q).map(|s| s.label()), Some("Place"));
     assert_eq!(press(&menu, q), SlotPress::AwaitPlacement(GENERATOR));
     assert_eq!(
         press(&menu, x),
@@ -187,7 +184,7 @@ fn the_extraction_facility_builds_then_places_its_plate() {
     let idle = Conditions::default().with_constructor(Constructor::Idle);
     let default = panel(&ef, InterfaceState::DefaultState, &idle);
     assert_eq!(shown(&default), [(q, command(Construct(PLATE)), Common)]);
-    assert_eq!(default.get(q).map(|s| s.label()), Some("Build EP"));
+    assert_eq!(default.get(q).map(|s| s.label()), Some("EP"));
     assert_eq!(
         press(&default, q),
         SlotPress::Construct(Construct(PLATE), ConstructionCommand::Construct(PLATE))
@@ -203,7 +200,7 @@ fn the_extraction_facility_builds_then_places_its_plate() {
             (x, command(CancelReady), Common),
         ]
     );
-    assert_eq!(place.get(q).map(|s| s.label()), Some("Place EP"));
+    assert_eq!(place.get(q).map(|s| s.label()), Some("Place"));
     assert_eq!(press(&place, q), SlotPress::AwaitPlacement(PLATE));
     let placing = InterfaceState::AwaitingPlacement(Placing::new(id(3), PLATE));
     assert_eq!(

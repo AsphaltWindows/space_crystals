@@ -26,7 +26,7 @@ fn the_drones_s_awaits_a_drop_off() {
         (
             PanelButton::Command(PanelCommand::SetDropOff),
             ButtonLook::Group,
-            "Drop-off"
+            "Drop"
         )
     );
     assert_eq!(press(&default, s), SlotPress::AwaitTarget(PanelCommand::SetDropOff));
@@ -83,12 +83,12 @@ fn the_egress_nodes_f_shows_only_with_drones_to_select() {
 fn the_portals_show_their_units_not_in_the_game_yet() {
     use PanelCommand::Planned as P;
     let cases = [
-        (ObjectKind::RoboPortal, vec![(slot(0, 1), Planned::Scout, "Train SC")]),
+        (ObjectKind::RoboPortal, vec![(slot(0, 1), Planned::Scout, "SC")]),
         (
             ObjectKind::BioPortal,
             vec![
-                (slot(0, 1), Planned::Lancer, "Train LA"),
-                (slot(0, 2), Planned::PsionicUnit, "Train PU"),
+                (slot(0, 1), Planned::Lancer, "LA"),
+                (slot(0, 2), Planned::PsionicUnit, "PU"),
             ],
         ),
     ];

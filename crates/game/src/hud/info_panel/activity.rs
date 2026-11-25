@@ -13,20 +13,21 @@
 //! - production (the production capability of slice M2-D2, [`production`]): the unit in production and its
 //!   progress, the wait for room under the army cap (design change 0143), the queue length, and the rally point.
 //!
-//! Lines read only the sim and the structure, so a test can check them without the UI. Their wording is a
-//! placeholder until the panel's layout exists (Q0001).
+//! Lines read only the sim, the structure and what the player knows of the objects it names (its sight), so a test
+//! can check them without the UI. Their wording is a placeholder until the panel's layout exists (Q0001).
 
 use sc_sim::construction::recipe;
-use sc_sim::{Category, Constructor, Object, PlayerId, QUEUE_LIMIT, Rally, Sim};
+use sc_sim::{Category, Constructor, Object, PlayerId, QUEUE_LIMIT, Rally, Sim, TargetView};
 
+use crate::fog::Sight;
 use crate::selection::Relation;
 
-/// What `structure`, one of the local player's own, is doing, one line per item, for the activity area (module docs):
-/// empty while it has nothing to show.
-pub fn lines(sim: &Sim, structure: &Object) -> Vec<String> {
+/// What `structure` is doing, one line per item, for the activity area (module docs): empty while it has nothing to
+/// show. It is one of the local player's own, the player whose `sight` this is.
+pub fn lines(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
     let mut lines = transformation(structure);
     lines.extend(construction(structure));
-    lines.extend(production(sim, structure));
+    lines.extend(production(sim, sight, structure));
     lines
 }
 
@@ -75,7 +76,7 @@ pub fn construction(structure: &Object) -> Vec<String> {
 /// Capacity": placeholder, with the feedback band's message as the wait begins
 /// (`crate::command_ui::feedback::army_cap_text`), for the notification 0143 leaves to be designed. Nothing for an
 /// idle producer without a rally point, nor for a structure that doesn't produce.
-pub fn production(sim: &Sim, structure: &Object) -> Vec<String> {
+pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
     let Some(production) = &structure.production else {
         return Vec::new();
     };
@@ -93,24 +94,31 @@ pub fn production(sim: &Sim, structure: &Object) -> Vec<String> {
         lines.push(format!("Queue: {} / {QUEUE_LIMIT}", production.queue.len()));
     }
     if let Some(rally) = production.rally {
-        lines.push(rally_line(sim, structure.owner, rally));
+        lines.push(rally_line(sim, sight, structure.owner, rally));
     }
     lines
 }
 
 /// The RallyPoint of a producer of `owner`: the ground, or the object it is on by its type's name, marked when it is
-/// an enemy's (the colours of its indicator: `crate::command_ui::indicators::rally`). An object rally point is on an
-/// object its owner sees, or on an own or neutral one (design change 0088), so its name gives nothing away.
-fn rally_line(sim: &Sim, owner: Option<PlayerId>, rally: Rally) -> String {
+/// an enemy's (the colours of its indicator: `crate::command_ui::indicators::rally`), as the player whose `sight`
+/// this is knows the object (`Sight::target_view`): the object while the player sees it; out of sight, the record it
+/// remembers (a structure or a resource, design change 0139: "any rally marker treat[s] the remembered object as
+/// present until the player sees otherwise"), whatever became of the object (slice M3-K2a). An enemy unit's rally
+/// point turns to the ground when the unit leaves its owner's sight (design change 0088).
+fn rally_line(sim: &Sim, sight: &Sight, owner: Option<PlayerId>, rally: Rally) -> String {
     let target = match rally {
         Rally::Point(_) => None,
-        Rally::Object { id, .. } => sim.object(id),
+        Rally::Object { id, .. } => match sight.target_view(sim, id) {
+            TargetView::Visible => sim.object(id).map(|o| (o.kind, o.owner)),
+            TargetView::Remembered { .. } => sight.remembered_record(id).map(|r| (r.kind, r.owner)),
+            TargetView::Gone => None,
+        },
     };
     match target {
         None => "Rally point: ground".to_string(),
-        Some(target) => {
-            let name = target.def().name;
-            match owner.map(|owner| Relation::of(owner, target.owner)) {
+        Some((kind, target_owner)) => {
+            let name = kind.def().name;
+            match owner.map(|owner| Relation::of(owner, target_owner)) {
                 Some(Relation::Enemy) => format!("Rally point: {name} (enemy)"),
                 _ => format!("Rally point: {name}"),
             }
@@ -144,9 +152,14 @@ mod tests {
         }
     }
 
+    /// The activity lines of player 1's structure `id`, as player 1 sees the world.
+    fn lines_of(sim: &Sim, id: ObjectId) -> Vec<String> {
+        lines(sim, &Sight::new(sim, P1, true), sim.object(id).unwrap())
+    }
+
     /// The Barracks' activity lines.
     fn shown(sim: &Sim) -> Vec<String> {
-        lines(sim, sim.object(BARRACKS).unwrap())
+        lines_of(sim, BARRACKS)
     }
 
     /// `core/entities.md > Object Type > InfoPanel` (design change 0105's first verification: "Select your own
@@ -221,8 +234,12 @@ mod tests {
         );
         t.run_until(201);
         assert_eq!(shown(t.sim()), ["Training Peacekeeper: 100%", "Queue: 2 / 20"]);
-        let generator = t.sim().object(ObjectId(3)).unwrap();
-        assert_eq!(lines(t.sim(), generator), Vec::<String>::new(), "it produces nothing");
+        let generator = ObjectId(3);
+        assert_eq!(
+            lines_of(t.sim(), generator),
+            Vec::<String>::new(),
+            "it produces nothing"
+        );
     }
 
     /// Design change 0143: a Barracks whose Peacekeeper waits at 0% for Unit Control says so under the unit, until
@@ -270,7 +287,7 @@ mod tests {
         let mut t = ScenarioBuilder::new(&vec![".".repeat(30); 16].join("\n"))
             .spawn(ObjectKind::DeploymentCenter, Some(P1), tile(1, 1))
             .start();
-        let shown = |sim: &Sim| lines(sim, sim.object(dc).unwrap());
+        let shown = |sim: &Sim| lines_of(sim, dc);
         assert_eq!(shown(t.sim()), Vec::<String>::new(), "idle");
         t.at(
             1,
@@ -299,7 +316,7 @@ mod tests {
         let mut t = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
             .spawn(ObjectKind::Beacon, Some(P1), tile(8, 6))
             .start();
-        let shown = |sim: &Sim| lines(sim, sim.object(beacon).unwrap());
+        let shown = |sim: &Sim| lines_of(sim, beacon);
         assert_eq!(shown(t.sim()), Vec::<String>::new(), "a Beacon has nothing to show");
         let construction = |command| Command::Construction {
             objects: vec![beacon],

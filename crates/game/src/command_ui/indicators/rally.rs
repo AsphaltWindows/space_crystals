@@ -6,16 +6,20 @@
 //! - a ground rally point: a green Location marker;
 //! - an own or neutral object: a green Object marker around it;
 //! - an enemy: a red Object marker around it. The sim turns it into a ground rally point at the enemy's last-seen
-//!   position as soon as the enemy leaves the owner's sight (design change 0088), so the marker turns into a green
-//!   Location marker there, and never follows an enemy the player doesn't see.
+//!   position as soon as an enemy unit leaves the owner's sight (design change 0088), so the marker turns into a
+//!   green Location marker there, and never follows an enemy the player doesn't see.
+//! - an object the player remembers out of sight (a structure or a resource: design change 0139, "any rally marker
+//!   treat[s] the remembered object as present until the player sees otherwise"): the Object marker around its
+//!   record, where the record is drawn, wherever the object really is and whether or not it still exists
+//!   (`super::targets`, slice M3-K2a), red for an enemy's.
 //!
 //! The line runs from the edge of the building's footprint to the marker's ring, solid, in the marker's colour
 //! (placeholders, like the markers: Q0001).
 
 use bevy::prelude::*;
-use sc_sim::{Object, ObjectId, Rally, SU_PER_GU, Sim};
+use sc_sim::{Object, ObjectId, Rally, SU_PER_GU, Sim, TargetView};
 
-use super::{ATTACK_COLOR, Indicator, MOVE_COLOR, marker_ring, own_selected, seen};
+use super::{ATTACK_COLOR, Indicator, MOVE_COLOR, marker_ring, own_selected};
 use crate::coords::{drawn_position, view_to_world};
 use crate::fog::Sight;
 use crate::selection::{ControlStates, Relation};
@@ -50,16 +54,18 @@ pub fn rally_indicators(sim: &Sim, sight: &Sight, states: &ControlStates) -> Vec
         .collect()
 }
 
-/// `> Indicator assignments`: the marker of a rally point. An object rally point marks its object while the player
-/// sees it, or remembers it in the fog (a structure or a resource, which doesn't move: its own and neutral ones stay
-/// rally points out of sight, design change 0088); nothing marks an object hidden from `sight`.
+/// `> Indicator assignments`: the marker of a rally point. An object rally point marks its object as the player knows
+/// it (`sight.target_view`): the object while the player sees it, its record while the player remembers it (a
+/// structure or a resource: its own and neutral ones stay rally points out of sight, design change 0088, and an
+/// enemy's too, design change 0139), coloured by the owner it knows; nothing marks an object hidden from `sight`.
 fn rally_marker(sim: &Sim, sight: &Sight, rally: Rally) -> Option<Indicator> {
     match rally {
         Rally::Point(at) => Some(Indicator::Location { at, color: MOVE_COLOR }),
         Rally::Object { id, .. } => {
-            let owner = match seen(sim, sight, id) {
-                Some(object) => object.owner,
-                None => sight.remembered_record(id)?.owner,
+            let owner = match sight.target_view(sim, id) {
+                TargetView::Visible => sim.object(id)?.owner,
+                TargetView::Remembered { .. } => sight.remembered_record(id)?.owner,
+                TargetView::Gone => return None,
             };
             let color = match Relation::of(sight.player(), owner) {
                 Relation::Enemy => ATTACK_COLOR,
@@ -71,12 +77,14 @@ fn rally_marker(sim: &Sim, sight: &Sight, rally: Rally) -> Option<Indicator> {
 }
 
 /// Draws the line of `rally` (module docs), as drawn at the render `alpha`: from where it leaves the producer's
-/// footprint to the marker's ring. Nothing when the marker's ring reaches into the footprint.
-pub(super) fn draw_line(mesh: &mut ColorMesh, sim: &Sim, rally: &RallyIndicator, alpha: f32, z: f32) {
-    let (Some(producer), Some((to, radius))) = (sim.object(rally.producer), marker_ring(sim, rally.marker, alpha))
+/// footprint to the marker's ring, where the player whose `sight` this is knows the rally target
+/// ([`marker_ring`]). Nothing when the marker's ring reaches into the footprint.
+pub(super) fn draw_line(mesh: &mut ColorMesh, sim: &Sim, sight: &Sight, rally: &RallyIndicator, alpha: f32, z: f32) {
+    let (Some(producer), Some(ring)) = (sim.object(rally.producer), marker_ring(sim, sight, rally.marker, alpha))
     else {
         return;
     };
+    let (to, radius) = (ring.center, ring.radius);
     let Some(from) = footprint_exit(producer, to) else {
         return;
     };
@@ -86,9 +94,7 @@ pub(super) fn draw_line(mesh: &mut ColorMesh, sim: &Sim, rally: &RallyIndicator,
         return;
     }
     let to = from + along.normalize() * length;
-    let color = match rally.marker {
-        Indicator::Location { color, .. } | Indicator::Object { color, .. } => color.with_alpha(LINE_ALPHA),
-    };
+    let color = rally.marker.color().with_alpha(LINE_ALPHA);
     let pieces = (length / LINE_PIECE).ceil().clamp(1.0, 4096.0) as u32;
     let at = |i: u32| view_to_world(drawn_position(sim.map(), from.lerp(to, i as f32 / pieces as f32)));
     for i in 0..pieces {

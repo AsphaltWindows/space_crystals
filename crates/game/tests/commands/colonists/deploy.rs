@@ -83,7 +83,7 @@ fn a_drone_deploys_where_its_ghost_snaps_under_the_cursor() {
         [
             (slot(0, 0), c(Move), Common, "Move"),
             (slot(1, 0), c(Deploy), Common, "Deploy"),
-            (slot(1, 1), c(SetDropOff), Common, "Drop-off"),
+            (slot(1, 1), c(SetDropOff), Common, "Drop"),
             (x, c(Stop), Common, "Stop"),
         ]
     );
@@ -94,7 +94,7 @@ fn a_drone_deploys_where_its_ghost_snaps_under_the_cursor() {
         [
             (slot(0, 0), c(Move), Disabled, "Move"),
             (slot(1, 0), c(Deploy), Pending, "Deploy"),
-            (slot(1, 1), c(SetDropOff), Disabled, "Drop-off"),
+            (slot(1, 1), c(SetDropOff), Disabled, "Drop"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
             (x, c(Stop), Disabled, "Stop"),
         ]

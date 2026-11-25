@@ -23,7 +23,7 @@ fn the_deployment_center_opens_its_basic_build_menu() {
         buttons(&mut app),
         [
             (q(), c(Menu(BuildMenu::Basic)), Common, "Basic"),
-            (w(), c(Menu(BuildMenu::Advanced)), Unavailable, "Advanced"),
+            (w(), c(Menu(BuildMenu::Advanced)), Unavailable, "Adv."),
         ]
     );
     tap(&mut app, &[], KeyW);
@@ -39,9 +39,9 @@ fn the_deployment_center_opens_its_basic_build_menu() {
     assert_eq!(
         buttons(&mut app),
         [
-            (q(), c(Construct(GENERATOR)), Common, "Build GN"),
-            (w(), c(Construct(BARRACKS_KIND)), Common, "Build BR"),
-            (e(), c(Construct(EXTRACTION_FACILITY)), Common, "Build EF"),
+            (q(), c(Construct(GENERATOR)), Common, "GN"),
+            (w(), c(Construct(BARRACKS_KIND)), Common, "BR"),
+            (e(), c(Construct(EXTRACTION_FACILITY)), Common, "EF"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
         ]
     );
@@ -81,7 +81,7 @@ fn the_deployment_center_opens_its_basic_build_menu() {
         InterfaceState::DefaultState,
         "the Extraction Facility has no build menu"
     );
-    assert_eq!(buttons(&mut app), [(q(), c(Construct(PLATE_KIND)), Group, "Build EP")]);
+    assert_eq!(buttons(&mut app), [(q(), c(Construct(PLATE_KIND)), Group, "EP")]);
     tap(&mut app, &[], KeyQ);
     assert_eq!(
         constructions(&app),
@@ -115,7 +115,7 @@ fn a_construction_is_cancelled_with_a_full_refund() {
         buttons(&mut app),
         [
             (q(), c(Menu(BuildMenu::Basic)), Common, "Basic"),
-            (w(), c(Menu(BuildMenu::Advanced)), Unavailable, "Advanced"),
+            (w(), c(Menu(BuildMenu::Advanced)), Unavailable, "Adv."),
             (X, c(CancelConstruction), Common, "Cancel"),
         ]
     );
@@ -137,9 +137,9 @@ fn a_construction_is_cancelled_with_a_full_refund() {
     assert_eq!(
         buttons(&mut app),
         [
-            (q(), c(Construct(GENERATOR)), Disabled, "Build GN"),
-            (w(), c(Construct(BARRACKS_KIND)), Disabled, "Build BR"),
-            (e(), c(Construct(EXTRACTION_FACILITY)), Disabled, "Build EF"),
+            (q(), c(Construct(GENERATOR)), Disabled, "GN"),
+            (w(), c(Construct(BARRACKS_KIND)), Disabled, "BR"),
+            (e(), c(Construct(EXTRACTION_FACILITY)), Disabled, "EF"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
             (X, c(CancelConstruction), Common, "Cancel"),
         ]

@@ -2,9 +2,10 @@
 //! structures and constructors alike (plan decision T10: one command flow, not a structure UI beside the unit UI):
 //! [`PanelCommand`], and what pressing each one gives the sim.
 
-use sc_sim::{Ability, ConstructionCommand, ObjectKind, OrderKind, ProductionCommand};
+use sc_sim::{Ability, ConstructionCommand, ObjectKind, OrderKind, ProductionCommand, conversion, transform};
 
 use super::{BuildMenu, Planned};
+use crate::hud::selection_panel::short_label;
 
 /// A command of the command panel: the unit commands of `systems/controls/commands.md`, as
 /// `> BasicCombatUnitInterfaceState` lists them, those of the producing structures
@@ -256,74 +257,54 @@ impl PanelCommand {
         }
     }
 
-    /// The button's label: a placeholder for its icon (Q0001), short enough for the button. A unit to train and a
-    /// building to construct or place are named by their type's short label, as the map and the portraits show it
-    /// (`hud::selection_panel::short_label`). Raise Shield and Lower Shield are "Raise" and "Lower", short enough to
-    /// keep the label size at 720p (slice M3-S); their full names are [`Self::name`]'s.
+    /// The button's label: a placeholder for its icon (Q0001), short enough to keep the label size on its button
+    /// at 720p (slice M3-K2a: six characters at most, `crate::hud::command_panel`), its full name being
+    /// [`Self::name_on`]'s, in the InfoPanel's hint for the button under the pointer (`crate::hud::info_panel::hint`).
+    /// What a button makes, a unit to train or a building to construct or warp in (one that isn't in the game yet
+    /// too), it shows as an icon would: by its type's tag, as the map and the portraits show it ([`short_label`]).
+    /// A ready building's slot is "Place", and every Cancel "Cancel". The others are the command's name or its first
+    /// word ("Hold", "Rally", "Raise", "Lower", "Drop" for Set Drop-off Location, "Drones" for Select Returning
+    /// Drones), or a shortening of it ("Rev.", "AtkGnd", "Conv.", "Adv.").
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
-            PanelCommand::Reverse => "Reverse",
+            PanelCommand::Reverse => "Rev.",
             PanelCommand::HoldPosition => "Hold",
             PanelCommand::Attack => "Attack",
             PanelCommand::Patrol => "Patrol",
-            PanelCommand::AttackGround => "Atk Gnd",
+            PanelCommand::AttackGround => "AtkGnd",
             PanelCommand::Stop => "Stop",
             PanelCommand::RaiseShield => "Raise",
             PanelCommand::LowerShield => "Lower",
-            PanelCommand::Convert => "Convert",
-            PanelCommand::Train(kind) => match kind {
-                ObjectKind::Peacekeeper => "Train PK",
-                ObjectKind::Drone => "Train DR",
-                ObjectKind::SabreLegionnaire => "Train SL",
-                // No other unit is trained yet.
-                _ => kind.def().name,
-            },
-            PanelCommand::CancelProduction | PanelCommand::CancelConstruction | PanelCommand::CancelTransform => {
-                "Cancel"
-            }
+            PanelCommand::Convert => "Conv.",
+            PanelCommand::Train(kind) | PanelCommand::Construct(kind) | PanelCommand::WarpIn(kind) => short_label(kind),
+            PanelCommand::Planned(planned) => planned.label(),
+            PanelCommand::CancelProduction
+            | PanelCommand::CancelConstruction
+            | PanelCommand::CancelReady
+            | PanelCommand::CancelTransform => "Cancel",
             PanelCommand::SetRallyPoint => "Rally",
             PanelCommand::BuildMenu(BuildMenu::Basic) => "Basic",
-            PanelCommand::BuildMenu(BuildMenu::Advanced) => "Advanced",
-            PanelCommand::Construct(kind) => match kind {
-                ObjectKind::Generator => "Build GN",
-                ObjectKind::Barracks => "Build BR",
-                ObjectKind::ExtractionFacility => "Build EF",
-                ObjectKind::ExtractionPlate => "Build EP",
-                // Nothing else is constructed yet.
-                _ => kind.def().name,
-            },
-            PanelCommand::CancelReady => "Cancel Ready",
-            PanelCommand::PlaceReady(kind) => match kind {
-                ObjectKind::Generator => "Place GN",
-                ObjectKind::Barracks => "Place BR",
-                ObjectKind::ExtractionFacility => "Place EF",
-                ObjectKind::ExtractionPlate => "Place EP",
-                _ => kind.def().name,
-            },
-            PanelCommand::WarpIn(kind) => match kind {
-                ObjectKind::EgressNode => "Warp EN",
-                ObjectKind::RoboPortal => "Warp RP",
-                ObjectKind::BioPortal => "Warp BP",
-                // Nothing else is warped in yet.
-                _ => kind.def().name,
-            },
-            PanelCommand::Planned(planned) => planned.label(),
+            PanelCommand::BuildMenu(BuildMenu::Advanced) => "Adv.",
+            PanelCommand::PlaceReady(_) => "Place",
             PanelCommand::Deploy => "Deploy",
-            PanelCommand::SetDropOff => "Drop-off",
+            PanelCommand::SetDropOff => "Drop",
             PanelCommand::SelectReturningDrones => "Drones",
         }
     }
 
-    /// The command's full name, which its button's label may shorten ([`Self::label`]), as the design names it: what
-    /// the InfoPanel says of the button under the pointer (`crate::hud::info_panel`; no tooltip exists).
+    /// The command's full name, which its button's label shortens ([`Self::label`]), as the design names it. Where
+    /// the design names a command after the object whose panel shows it, the panel names it so ([`Self::name_on`]):
+    /// this is the name of the others, and the generic one of those.
     pub fn name(self) -> String {
         let named = |verb: &str, kind: ObjectKind| format!("{verb} {}", kind.def().name);
         match self {
+            PanelCommand::Reverse => "Reverse".into(),
             PanelCommand::HoldPosition => "Hold Position".into(),
             PanelCommand::AttackGround => "Attack Ground".into(),
             PanelCommand::RaiseShield => "Raise Shield".into(),
             PanelCommand::LowerShield => "Lower Shield".into(),
+            PanelCommand::Convert => "Convert".into(),
             PanelCommand::Train(kind) => named("Train", kind),
             PanelCommand::CancelProduction => "Cancel Production".into(),
             PanelCommand::SetRallyPoint => "Set Rally Point".into(),
@@ -334,17 +315,46 @@ impl PanelCommand {
             PanelCommand::CancelReady => "Cancel Ready Building".into(),
             PanelCommand::PlaceReady(kind) => named("Place", kind),
             PanelCommand::WarpIn(kind) => named("Warp In", kind),
+            PanelCommand::Planned(planned) => planned.command_name(),
+            PanelCommand::CancelTransform => "Cancel".into(),
             PanelCommand::SetDropOff => "Set Drop-off Location".into(),
             PanelCommand::SelectReturningDrones => "Select Returning Drones".into(),
             PanelCommand::Move
-            | PanelCommand::Reverse
             | PanelCommand::Attack
             | PanelCommand::Patrol
             | PanelCommand::Stop
-            | PanelCommand::Convert
-            | PanelCommand::Planned(_)
-            | PanelCommand::Deploy
-            | PanelCommand::CancelTransform => self.label().into(),
+            | PanelCommand::Deploy => self.label().into(),
+        }
+    }
+
+    /// The command's full name on the panel of a `kind` ActiveGroup, which the InfoPanel's hint shows
+    /// (`super::Panel::name`): [`Self::name`], but for the commands the design names after the object whose panel
+    /// shows them:
+    /// - a Beacon's menus: "Q: Warp In (Basic)", "W: Warp In (Advanced)" (`factions/colonists/economy.md > Beacon >
+    ///   Beacon ObjectInterfaceState`), the Deployment Center's being "Basic Construction" and "Advanced
+    ///   Construction";
+    /// - a Legionnaire's Convert: "R: Convert to Rifle Legionnaire" on the Sabre's, "R: Convert to Sabre Legionnaire"
+    ///   on the Rifle's (`factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`, `> Rifle
+    ///   Legionnaire > ObjectInterfaceState`; `sc_sim::conversion::converts_to`);
+    /// - the Cancel of an object that transforms (`factions/colonists/economy.md > Beacon Deployment > While
+    ///   transforming: only Cancel`: "Cancel Deployment / Cancel Warp In"): a Beacon's under deployment, any other
+    ///   building's under Warp In (the object is the building from the first frame, `sc_sim::transform`);
+    /// - the Extraction Facility's "X: Cancel Ready Plate" (`factions/gdo/economy.md > ExtractionFacility >
+    ///   ObjectInterfaceState[ExtractionFacility]`).
+    pub fn name_on(self, kind: ObjectKind) -> String {
+        match self {
+            PanelCommand::BuildMenu(menu) if !transform::warp_in_recipes(kind).is_empty() => match menu {
+                BuildMenu::Basic => "Warp In (Basic)".into(),
+                BuildMenu::Advanced => "Warp In (Advanced)".into(),
+            },
+            PanelCommand::Convert => match conversion::converts_to(kind) {
+                Some(other) => format!("Convert to {}", other.def().name),
+                None => self.name(),
+            },
+            PanelCommand::CancelTransform if kind == ObjectKind::Beacon => "Cancel Deployment".into(),
+            PanelCommand::CancelTransform => "Cancel Warp In".into(),
+            PanelCommand::CancelReady if kind == ObjectKind::ExtractionFacility => "Cancel Ready Plate".into(),
+            _ => self.name(),
         }
     }
 }

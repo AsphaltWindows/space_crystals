@@ -733,6 +733,12 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
     (0128); other orders keep the load (0129).
   - **The return** reads the worker's AssignedDropOff every tick, so `Ability::SetDropOff` redirects it; without
     one as the return starts it takes the owner's nearest, and with none it idles holding its load (0135).
+  - **A drop-off lost on the way** (0170, "switches at once") is replaced by the removal path, not looked for by
+    the leg (`Sim::reassign_drop_offs`, like `keep_gatherers_on_spots`): a worker heading for it or unloading
+    there takes its owner's nearest at the destruction, by the leg's rule, or none; the others forget it and take
+    the nearest as their next return starts (0135). The loss is reacted to once, where it happens, and nothing
+    checks every tick that the drop-off still stands. The leg turns in the first 5a after the loss, as it did; for
+    a death in 5e the assignment shows from that tick's end.
   - **Legs are moves to a point** the behaviour picks, where the worker stands against the nearest open face of
     its target (`legs::approach_point`), and the behaviour measures MiningReach and DropOffReach itself. Not
     `MoveGoal::Object`: that is planned to the point nearest the object's centre, the north side of every patch
@@ -1326,9 +1332,11 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   M3-D2, design change 0145's Verifications: a Drone's and a Sabre's times and their walk straight out of the
   centre, the heading for a rally point in every direction and on an object, the Bio Portal rallied behind it and
   its arc in all 8 orientations against 9 rallies, random headings by seed, a way walled off, rallies on an enemy,
-  a destroyed portal's refund, a replay and a save in the middle of a walk) and `portal_stalls.rs` (slice M3-D2: a
+  a destroyed portal's refund, a replay and a save in the middle of a walk), `portal_stalls.rs` (slice M3-D2: a
   portal ringed by units, its unit half out and the next held at 100% until the first is out, that unit's refund,
-  and negative tests of I1 and I2 around the energy doorway).
+  and negative tests of I1 and I2 around the energy doorway) and `half_out.rs` (slice M3-K2a, 0145 point 4: a
+  Sabre stuck half out is a normal unit, which auto-targets an enemy in reach, carries out an Attack and is
+  attacked; a click picks it: the client's `selection::draw_order`).
 
 ## Commands, events and replays
 
@@ -2219,22 +2227,35 @@ their producing structures and their constructors, and the Colonists' Beacons an
   (`Conditions::returning`, asked for the ActiveGroup's node: `instance_only`); the button shows only while there are
   some (`Conditions::shows`). Its label, "Drones", keeps the full label size at 720p.
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
-  changes; each shows its command's label (`PanelSlot::label`, short enough for its button at 720p: "Raise" and
-  "Lower" for Raise Shield and Lower Shield) and its hotkey from the bindings. The InfoPanel names the command of the
-  button under the pointer in full, with its hotkey (`hud/info_panel/hint.rs`, `PanelCommand::name`: "R: Raise
-  Shield"; the client has no tooltips; slice M3-S). A label never wraps (`TextLayout::no_wrap`): one too
-  long for its button at `LABEL_VH` is drawn smaller to fit on one line inside a lit button's thicker border
-  (`label_px`, from the default font's fixed advance, 0.6 em, which a unit test checks against the font), so a label
-  keeps its size when its button lights up. The indicators (`command_ui/indicators.rs`) are
+  changes; each shows its command's label (`PanelSlot::label`) and its hotkey from the bindings. **Every label keeps
+  the full label size at 720p: six characters at most** (slice M3-K2a; a unit test measures every label of every
+  panel on surfaces down to 800 × 600): what a button makes by its type's tag ("PK" trains a Peacekeeper, "GN" builds
+  a Generator, "RP" warps in a Robo Portal, as `short_label` shows them on the map), "Place" for a ready building,
+  "Cancel" for every Cancel, else the command's name, its first word or a shortening ("Raise", "Drop", "Rev.",
+  "AtkGnd", "Adv."). **Never add a label longer than that**; its full name goes in `PanelCommand::name`. The
+  InfoPanel names every button under the pointer in full, with its hotkey (`hud/info_panel/hint.rs`, `Panel::name`:
+  "R: Raise Shield", "Q: Train Peacekeeper"; the client has no tooltips; slices M3-S and M3-K2a), after the
+  ActiveGroup's type where the design names a command so (`PanelCommand::name_on`: a Beacon's "Warp In (Basic)", a
+  Sabre's "Convert to Rifle Legionnaire", "Cancel Deployment" and "Cancel Warp In"). A label never wraps
+  (`TextLayout::no_wrap`): one too long for its button at `LABEL_VH` (on a surface too small for it) is drawn smaller
+  to fit on one line inside a lit button's thicker border (`label_px`, from the default font's fixed advance, 0.6 em,
+  which a unit test checks against the font), so a label keeps its size when its button lights up. The indicators
+  (`command_ui/indicators.rs`) are
   one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
   (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow
-  `> Color language`; a target object the fog hides gets no marker and ends no leg (`Sight::sees`), but a Move to
-  a remembered one is marked at its record. The selected own producers' rally points (`indicators/rally.rs`, design
+  `> Color language`. **A marker or a route leg that names an object goes by what the local player knows of it,
+  never by the live object** (`indicators/targets.rs`, `Sight::target_view`: the sim's `TargetView` through the
+  client's `Sight`; design change 0139, slice M3-K2a): where the object is drawn while the player sees it, around
+  its record (last-known position and footprint) while the player remembers it, wherever the object really is (a
+  Beacon whose deployment was cancelled walks away as a Drone) and whether it still exists, and nothing while the
+  player knows nothing of it (a unit out of sight). `marker_ring` is where a marker is drawn; the rally lines end
+  at it. The selected own producers' rally points (`indicators/rally.rs`, design
   changes 0087, 0088) show a marker, green on the ground and around an own or neutral object, red around an enemy
   (the sim turns an enemy rally point it loses sight of into a ground one, so the marker turns green there), and a
   solid line from the footprint's edge to it; nothing while the producer isn't selected or has none; a portal rallied
-  on a patch rings the patch in green (slice M3-J2). A Gather or a Drop Off is marked as a Move to its object, a green
+  on a patch rings the patch in green (slice M3-J2). The InfoPanel's rally line names the target as the player knows
+  it too (`activity::rally_line`). A Gather or a Drop Off is marked as a Move to its object, a green
   Location marker (placeholders: the design gives them no indicator). The pointer
   (`command_ui/cursor.rs`) shows the `PointerLook`: images drawn in code and cached per look, set as the window's
   `CursorIcon`, and drawn as a UI node at the injected cursor in QA runs, which render no system cursor; Mixed is

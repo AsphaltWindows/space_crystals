@@ -2,7 +2,7 @@
 //! `factions/colonists/units.md > Drone`: `> Patch Occupancy (one Drone per patch)`, `> Last load of a patch`,
 //! `> Interrupted mining`, `> Other orders keep the load`, `> Gather while carrying a load`, `> Drop Off order`,
 //! `> When a Gather ends`, `> Assigned Drop-off`): one test per Verification point of design changes 0123, 0127 to
-//! 0135, 0137, 0138, 0140 and 0141 that `gathering.rs` doesn't already cover, one test binary:
+//! 0135, 0137, 0138, 0140, 0141 and 0170 that `gathering.rs` doesn't already cover, one test binary:
 //! - `ends`: when a Gather ends (0123), a Deploy queued behind a Drop Off (0127), a patch that runs out under a
 //!   Drone on its way (0134);
 //! - `loads`: Gather while carrying (0128), other orders keep the load (0129), the Drop Off of a mixed group (0140),
@@ -12,7 +12,8 @@
 //! - `reach`: a patch walled off by units or by terrain (0141);
 //! - `knowledge`: only known patches count, never a plated one (0131), and a plate placed on a patch being mined
 //!   (0137);
-//! - `drop_offs`: a group's node destroyed, then every node, then a node warped in (0135);
+//! - `drop_offs`: a group's node destroyed, then every node, then a node warped in (0135); a node removed, and one
+//!   destroyed in combat, while Drones are on their way back to it (0170);
 //! - `remembered` (slice M3-R): a Gather on a patch out of sight, by what the player knows of it (0139), and the
 //!   map's patches, known from the start (0159).
 //!

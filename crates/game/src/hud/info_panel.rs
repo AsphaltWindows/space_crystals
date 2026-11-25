@@ -91,11 +91,11 @@ pub fn info_text(sim: &Sim, sight: &Sight, selection: &Selection) -> Option<Info
     let first = ids.next()?;
     if ids.next().is_none() {
         if let Some(object) = sim.object(first).filter(|o| sight.sees(o)) {
-            return Some(object_info(sim, sight.player(), Shown::live(object), None));
+            return Some(object_info(sim, sight, Shown::live(object), None));
         }
         let record = sight.remembered_record(first)?;
         let shown = Shown::remembered(sim, sight, record);
-        return Some(object_info(sim, sight.player(), shown, Some(record)));
+        return Some(object_info(sim, sight, shown, Some(record)));
     }
     let group = selection.active_group()?;
     let name = group.kind().def().name;
@@ -171,11 +171,13 @@ impl<'a> Shown<'a> {
     }
 }
 
-/// `core/entities.md > Object Type > InfoPanel`: what one object's panel shows to `viewer` (module docs). From a
+/// `core/entities.md > Object Type > InfoPanel`: what one object's panel shows to the player whose `sight` this is
+/// (module docs). From a
 /// `record` (an Explored area: `core/map.md > SupplyDeliveryStation > InfoPanel > Explored`), the state last seen
 /// without CurrentSupplies, and how long ago that was (placeholder note). A station that isn't empty runs no
 /// countdown: no delivery is scheduled (`> SupplyDeliveryStation`, the doc's wording).
-fn object_info(sim: &Sim, viewer: PlayerId, shown: Shown, record: Option<&LastKnown>) -> InfoContent {
+fn object_info(sim: &Sim, sight: &Sight, shown: Shown, record: Option<&LastKnown>) -> InfoContent {
+    let viewer = sight.player();
     let def = shown.kind.def();
     // `> Default InfoPanel for structures` (design change 0105): an own structure shows no owner.
     let own_structure = def.structure.is_some() && shown.owner == Some(viewer);
@@ -232,7 +234,7 @@ fn object_info(sim: &Sim, viewer: PlayerId, shown: Shown, record: Option<&LastKn
         ));
     }
     let activity = match shown.live {
-        Some(structure) if own_structure => activity::lines(sim, structure),
+        Some(structure) if own_structure => activity::lines(sim, sight, structure),
         _ => Vec::new(),
     };
     InfoContent {
