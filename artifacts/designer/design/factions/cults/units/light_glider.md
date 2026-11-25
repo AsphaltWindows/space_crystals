@@ -5,10 +5,16 @@
 ## Entity Type - Unit
 ## Faction - TheCults
 ## UnitBase - Glider (must keep moving; circles when idle; systems/units.md)
-## Produced at - Airstrip (consumes Recruits; number TBD; Unit Control cost = Recruits consumed)
+## Produced at - Airstrip (consumes **1 Recruit**; Unit Control cost **1**). On completion it **takes off from the Airstrip** and **never lands** again (user, 2026-11-26).
+
+## TurretAttributes:
+- TurnAngle: **modest, about 45°** (user, 2026-11-26; total cone or to each side: to confirm)
 
 ## AttackAttributes:
-- Machine-gun style (rapid, low damage per shot)
+- AttackType: FullyConnected (machine gun similar to the Jackal's; **cannot miss**)
 - TargetDomain: **Universal** (air and ground)
+- TargetType: SingleTarget
+- Rapid fire, low damage per shot
+- **Unlimited ammo** (user, 2026-11-26): unlike GDO aircraft it never returns to re-arm.
 
-TBD: name; Recruits consumed; whether it can miss; fixed forward gun (strafing) or turret; ammo and re-arming; all numbers; hotkey; the Airstrip's production flow.
+TBD: name; all numbers; hotkey.
