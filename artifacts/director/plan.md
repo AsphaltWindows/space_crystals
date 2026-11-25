@@ -979,6 +979,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Open:** a remembered enemy site looks finished, because `LastKnown` keeps no construction state (M4-I2 fixes it).
 
 ## In progress
+  - **M4-O2 Area damage answers** (Opus; brief `scratchpad/briefs/m4o2-area-damage-answers.md`): 0293. Attack Ground keeps firing until another order; every shot and projectile is drawn only over Visible tiles (replacing 0244); friendly fire and the reveal tested; the Q0083 marks.
   - **M4-I2 Answers sweep** (Opus; brief `scratchpad/briefs/m4i2-answers-sweep.md`): 0292 point 2 (Supplies' nearest Tunnel by the crystal hatch), the verifications of 0288, 0289 and 0292, the marks of Q0077, Q0079 and Q0082, and remembered sites drawn as sites.
   - **M4-F Expansions** (Opus; brief `m4f-expansions.md`): `Method::Expansion` (0239–0241), the operation slot, Expand and Cancel at 75% (0254), the ExpandMenu (0257), and the expansion's ghost and site.
 - **Next**:
@@ -1156,7 +1157,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - N7: the Specter.
   - **Questions:**
     - Q0059–Q0071 are all answered, by 0229–0267.
-    - Answered since revision 2: Q0077 (0288), Q0078 (0283), Q0079 (0289), Q0080 (0290), Q0081 (0291), Q0082 (0292), Q0085 (0284) and Q0086 point 1 (0285). Open: Q0076 (with Q0088, the cost estimates 0286 asked for), Q0083, Q0084, Q0086 points 2–5, Q0087 and Q0088. Q0076, the Agents' jam near the hatch, partly blocks L's oracle; the others don't block, and their slices build the proposals.
+    - Answered since revision 2: Q0077 (0288), Q0083 (0293), Q0078 (0283), Q0079 (0289), Q0080 (0290), Q0081 (0291), Q0082 (0292), Q0085 (0284) and Q0086 point 1 (0285). Open: Q0076 (with Q0088, the cost estimates 0286 asked for), Q0084, Q0086 points 2–5, Q0087 and Q0088. Q0076, the Agents' jam near the hatch, partly blocks L's oracle; the others don't block, and their slices build the proposals.
   - **Slice status:**
     - A: done (`fcd06dc`).
     - C: done (`f67df212`; Q0077).
@@ -1172,6 +1173,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - J1: done (`dd14dc38`). **With H, the first playable.**
     - F: running (wave 5, Opus; brief `scratchpad/briefs/m4f-expansions.md`). It adds H's `Builder::Tunnel` arm, the Tier Requirements and the comments for 0283–0285, and was re-briefed for 0290 and 0291.
     - I2: running (new, small, Opus; brief `scratchpad/briefs/m4i2-answers-sweep.md`).
+    - O2: running (new, small, Opus; brief `scratchpad/briefs/m4o2-area-damage-answers.md`): 0293.
     - The rest are queued in the waves above.
   - **Technical follow-ups** (the Director's):
     - **One per-player event filter in the client.** M4-O found that each event consumer filters for the viewer on its own, and fixed one leak (a hidden Hideout's death marker). Put the filter in one place before more hidden objects arrive (S2's pop-up turret, N4–N7). Candidate: a small slice beside L, or in M.
@@ -1283,7 +1285,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0080 | Expansion placement: do ground units and lingering ghosts block it; is a Warp In over a hidden expansion red at once? | no | answered by 0290: units and ghosts don't block, and a Warp In is judged like direct placement; M4-F re-briefed |
 | Q0081 | ExpandMenu slots: do expansions not yet in the game keep their greyed slots, so the turret's letter never moves? | no | answered by 0291 (as proposed); M4-F builds it |
 | Q0082 | Supplies gathering: pick-up and drop-off reaches; nearest Tunnel measured to the Supplies hatch; the old load lost at the end of the new pick-up | no | answered by 0292: points 1 and 3 as built; point 2 measures to the crystal hatch (M4-I2) |
-| Q0083 | Area damage: friendly fire, the reveal, Attack Ground's end, how grenades are drawn | no | open; M4-O built points 1–4 as placeholders (`356d1a96`); M4-U follows |
+| Q0083 | Area damage: friendly fire, the reveal, Attack Ground's end, how grenades are drawn | no | answered by 0293: points 1 and 2 as built; Attack Ground keeps firing; no drawing exception (M4-O2) |
 | Q0084 | Laser Turret: hidden when, sight, blocking, payment, refunds, sites, the Agent's exit, targeting | no | open; M4-S1 and M4-S2 build the proposals |
 | Q0085 | Stale doc lines that later answers contradict (seven lines) | no | answered by 0284 (the docs corrected; as built); F updates the comments |
 | Q0086 | The EjectMenu's order, zero-count tiles and state after a click; when Tunnel Areas are drawn; recalling an all-held group | no | point 1 answered by 0285 (as built); points 2–5 open, with the user |
@@ -1513,7 +1515,7 @@ Last triaged: 0282.
 | 0241 No expansions under resources (patches, Supply Delivery Stations); non-Drillable cells give no Tunnel Space | queued (M4-F: no expansions under resources); the Tunnel Space part is superseded by 0242 | answers Q0062 points 3d and 5 |
 | 0242 A Tunnel's whole area must be on the map and Drillable, for placement and upgrades; every tunnel-region cell is usable; starting layouts must respect it | partly done (M4-B, `35e19634`: layout and editor validation, `TunnelAreaOffMap` and `TunnelAreaNotDrillable`, Tunnel Space; 2 tiles from the edge valid, Q0078; M4-E, `4933e094`: placement, by knowledge at the order and the truth on arrival); queued (M4-J1: the ghost; M4-G: the upgrade check) | completes Q0062; replaces 0238 and 0241's Tunnel Space part |
 | 0243 AttackMove: a reach-rule rejection is also re-checked once the unit has moved about 1 GU from where it judged; Failure-rule and fog rejections keep 0230's triggers; measure the cost | done (M3-L5, `a777ae3`); the 1 GU step is kept: at most 1.45× master's mean tick, about +0.05 ms for 100 Guards | answers Q0074 (B, "to try") |
-| 0244 A revealed attacker's shot is drawn whole only when its target is the viewer's own object; everything else is clipped to Visible tiles | done (M3-L5, `a777ae3`) | answers Q0075; narrows 0206 |
+| 0244 A revealed attacker's shot is drawn whole only when its target is the viewer's own object; everything else is clipped to Visible tiles | done (M3-L5, `a777ae3`); superseded by 0293 point 4 (M4-O2 removes the exception) | answers Q0075; narrows 0206 |
 | 0245 Tunnel Network: a flat transit delay of 32 frames (placeholder) after entering before a unit can exit; produced units have none | done (M4-C, `f67df212`) | answers Q0063 point 1 |
 | 0246 Units walk into a Tunnel single file at normal speed with normal spacing, no fixed hold per unit ("one unit wide"); produced units exit without delay | done (M4-C, `f67df212`) | answers Q0063 point 7 and part of 2; replaces the 8-frame hold proposal |
 | 0247 Entering a Tunnel uses the normal Failure rule; no special waiting rule | done (M4-C, `f67df212`) | answers Q0063 point 2, as proposed |
@@ -1562,4 +1564,5 @@ Last triaged: 0282.
 | 0290 Expansion placement: ground units don't block it; no ghost check is needed; a Colonists Warp In over a hidden enemy expansion is red at once, like direct placement | in progress (M4-F, re-briefed: it had built the old placeholders) | answers Q0080 |
 | 0291 The ExpandMenu's nine expansions hold fixed slots in table order, greyed while unavailable; the Laser Turret is always tenth | in progress (M4-F, as proposed) | answers Q0081 |
 | 0292 Supplies gathering: 8 su reaches; the nearest Tunnel measured to the crystal hatch; the old load lost when the new pick-up or mining ends | partly done (points 1 and 3 as built, M4-I `9aca8972`); queued (M4-I2: point 2, the crystal-hatch measure) | answers Q0082 |
+| 0293 Area damage: friendly fire; the reveal when damage lands, to the damaged objects' owners; Attack Ground keeps firing until another order; every shot and projectile drawn only over Visible tiles (replaces 0244) | in progress (M4-O2; points 1 and 2 as built by M4-O `356d1a96`) | answers Q0083 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
