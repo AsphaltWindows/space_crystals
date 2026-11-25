@@ -56,15 +56,29 @@ fn random_point(rng: &mut Rng) -> Vec2 {
     Vec2::new(rng.next_f32(), rng.next_f32()) * (SIDE as f32 * SU_PER_GU)
 }
 
-/// The ticks after the last order within which every order that ends by itself must have ended: the time the
-/// slowest unit takes to walk four sides of the map, more than the longest way around both walls (about three) and
-/// the fights on it. Only a run that fails waits this long.
-fn settle_ticks() -> u32 {
+/// The ticks after the last order within which every order that ends by itself must have ended, for each of the
+/// `orders` a unit has in flight then (its current order and its queue, [`in_flight`]): the time the slowest unit
+/// takes to walk four sides of the map, more than the longest way around both walls (about three) and the fights on
+/// it. Only a run that fails waits this long.
+///
+/// Per order in flight, not once (slice M3-K2): a unit's Shift-queued orders each take it as far again. Seed 5 has
+/// five Peacekeepers with three orders left at the last order, a Move and two queued AttackMoves, each to the other
+/// side of both walls; walking at full speed all along (progress every tick, no repath, no target dropped), they
+/// finish 2765 ticks after the last order, beyond the 2560 of a single order's allowance.
+fn settle_ticks(orders: usize) -> u32 {
     let slowest = [ObjectKind::Guard, ObjectKind::Peacekeeper]
         .map(|kind| kind.def().unit.as_ref().expect("a unit").movement.max_speed())
         .into_iter()
         .fold(f32::INFINITY, f32::min);
-    (4.0 * SIDE as f32 * SU_PER_GU / slowest) as u32
+    orders.max(1) as u32 * (4.0 * SIDE as f32 * SU_PER_GU / slowest) as u32
+}
+
+/// The most orders any unit has in flight: its current order and the ones queued behind it.
+fn in_flight(sim: &Sim) -> usize {
+    (sim.objects().filter_map(|o| o.orders.as_ref()))
+        .map(|orders| usize::from(orders.current.is_some()) + orders.queue.len())
+        .max()
+        .unwrap_or(0)
 }
 
 /// What one seed's run came to.
@@ -93,7 +107,8 @@ struct Outcome {
 /// One seed: the units are spawned in tick 1, player 1's in the west and player 2's in the east, with a few map
 /// resources between them; then every few ticks one player orders a run of its units, by what the sim holds then.
 /// An order the gate refuses (a target out of sight, say) is part of the test. After [`TICKS`] nobody gives an
-/// order, and the run goes on until every order that ends by itself has ended, or [`settle_ticks`] have passed.
+/// order, and the run goes on until every order that ends by itself has ended, or [`settle_ticks`] have passed for
+/// the orders then in flight.
 fn soak(seed: u64) -> Outcome {
     let mut rng = Rng::from_seed(seed);
     let mut t = ScenarioBuilder::new(&random_map(&mut rng)).seed(seed).start();
@@ -105,8 +120,13 @@ fn soak(seed: u64) -> Outcome {
     let (mut engaging, mut acquired, mut checks) = (BTreeSet::new(), 0, (0, 0));
     let mut in_reach: Vec<(ObjectId, Vec<ObjectId>)> = Vec::new();
     let mut settled = None;
-    while t.sim().tick() < TICKS + settle_ticks() {
+    let mut end = TICKS + settle_ticks(1);
+    while t.sim().tick() < end {
         let tick = t.sim().tick() + 1;
+        if tick == TICKS + 1 {
+            // The last order is in: allow for every order a unit still has.
+            end = TICKS + settle_ticks(in_flight(t.sim()));
+        }
         if tick <= TICKS && tick >= next_order {
             next_order = tick + 1 + rng.below(8);
             if let Some((player, command)) = random_order(&t, &mut rng) {
@@ -423,10 +443,11 @@ fn check(seed: u64, run: &Outcome) {
     );
 }
 
-/// The soak over seeds 1 to 40, each run on its own, its outcome printed: which seeds fail, and how. Ignored: about
-/// ten times the soak's own time. `cargo test -p sc_sim --release --test behaviours_soak -- --ignored --nocapture`.
+/// The soak over seeds 1 to 40, each run on its own, its outcome printed: which seeds fail, and how; it fails if any
+/// does. Ignored: about ten times the soak's own time.
+/// `cargo test -p sc_sim --release --test behaviours_soak -- --ignored --nocapture`.
 #[test]
-#[ignore]
+#[ignore = "a sweep of 40 seeds: run it in release"]
 fn soak_sweep() {
     let mut failed = Vec::new();
     for seed in 1..=40 {
@@ -440,4 +461,6 @@ fn soak_sweep() {
         }
     }
     println!("failed: {failed:?}");
+    // Every seed passes since slice M3-K2 ([`settle_ticks`]), so a seed that fails is news.
+    assert_eq!(failed, Vec::<u64>::new(), "the seeds that failed");
 }
