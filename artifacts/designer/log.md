@@ -2283,3 +2283,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Sparrow. Entry 0318.
 2026-11-26 — Cults placeholders for all designed content. Entry 0319 (Q0092–Q0094, Q0108.1).
 2026-11-26 — Q0110 (d); Recruit repair noted. Entry 0320.
+2026-11-26 — Repair rules. Entry 0321.
