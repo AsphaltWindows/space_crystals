@@ -192,7 +192,11 @@ fn a_hall_has_four_doors_tried_from_the_one_facing_the_rally_point() {
     assert_eq!(order(Some(Vec2::new(300.0, 20.0))), [e, s, w, n]);
     assert_eq!(order(Some(Vec2::new(-10.0, -300.0))), [n, e, s, w]);
     assert_eq!(order(Some(Vec2::new(-300.0, 299.0))), [w, n, e, s]);
-    assert_eq!(order(Some(Vec2::new(50.0, -50.0))), [e, s, w, n], "north-east: east, clockwise of it");
+    assert_eq!(
+        order(Some(Vec2::new(50.0, -50.0))),
+        [e, s, w, n],
+        "north-east: east, clockwise of it"
+    );
     assert_eq!(order(Some(Vec2::new(-50.0, 50.0))), [w, n, e, s], "south-west: west");
     let middles: Vec<Vec2> = doorway.doors().map(|door| door.middle()).collect();
     let expected = [(256.0, 64.0), (384.0, 192.0), (256.0, 320.0), (128.0, 192.0)].map(Vec2::from);

@@ -436,7 +436,12 @@ mod tests {
         assert!(!serde_json::to_string(&pre_built).unwrap().contains("completed_at"));
         let saved: Production = serde_json::from_str(&serde_json::to_string(&built).unwrap()).unwrap();
         assert_eq!(saved, built);
-        let hall = ObjectKind::RecruitmentHall.def().structure.as_ref().and_then(|s| s.production.as_ref()).unwrap();
+        let hall = ObjectKind::RecruitmentHall
+            .def()
+            .structure
+            .as_ref()
+            .and_then(|s| s.production.as_ref())
+            .unwrap();
         assert_eq!(total_of(hall, 192), 19_200);
         let (mut full, mut half) = (Production::default(), Production::default());
         full.queue.push(ObjectKind::Recruit);
