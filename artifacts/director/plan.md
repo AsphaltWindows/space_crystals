@@ -569,11 +569,36 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Readings.** Q0052: enemy right-click, the Set Drop-off pointer, who sees the load, Gather indicators.
   - **Bug, K2.** Object markers (the rally ring, the Move marker) follow a remembered target's live position, which leaks it (0139).
 
+- **M3-S Riot Shield as two unit types** (merged in `08f09a6`; 1298 tests):
+  - **Two types (0173).** `ObjectKind::PeacekeeperShielded` has MaxSpeed 2 and the same cost and Unit Control. The Barracks trains only the Peacekeeper.
+  - **The toggle (0171, 0174).** The type switches at the toggle's start via `change_kind`, which keeps orders, movement and attack state. The toggle takes 6 ticks, and a second press reverses it from where it is. During it the unit moves at half speed and can't attack; the reduction applies only when fully up.
+  - **Mid-attack (0172).** A raise pressed during Firing or Cooldown waits in `AttackState::pending`. The conversion machinery isn't reused: it switches at the end and can't reverse. The two share `change_kind`, `pending` and the Modes step.
+  - **Client.** R is Raise on the Peacekeeper and Lower on the Shielded, which hides Attack (`templates::hides_attack`, so 0075 and 0076 work unchanged). An InfoPanel hint names the hovered button in full. The portrait label is "PKS".
+  - **Goldens.** Only `riot_shield` was re-blessed, at its shield-up checkpoints. Perf is unchanged.
+  - **Readings.** Q0053: orders while lowering, Lower during a waiting raise, the ActiveGroup during a deferred raise.
+
+- **M3-L2 target priority, AttackMove leash, MinRange, Guard laser** (merged in `f039e5c`; 1314 tests):
+  - **0179.** `World::pick` ranks targets by `rotation_step` (45° steps), then distance, then id.
+  - **0180.** A target in weapon range is always fought. An out-of-range one is chased only within 6 GU of the PathReference. The reference is kept after fights and replaced by a new path mid-leg.
+  - **Loop fix.** A target dropped while alive is left alone for the rest of the leg (`Leg::dropped`), which ends soak seed 1's loop and seed 29's two-target variant. It isn't in the design: Q0054.
+  - **0182.** Scans skip targets inside MinRange. An explicit Attack backs a mobile unit off to the middle of the band; an immobile one gets `SimEvent::TargetTooClose`, shown as "Target too close". Test-only defs are in `defs/test_defs.rs`.
+  - **0186.** The Guard's laser: 18 damage, 4/1/3/16, Universal.
+  - **Goldens.** duel_3v3, riot_shield, patrol, attack_move_battle and gdo_opening were re-blessed, each change traced to its entry.
+  - **Soak.** Seed 1 is back in `behaviours_soak`, and an ignored `soak_sweep` covers seeds 1–40. Only seed 5 fails, on the settle bound with units still walking, not looping (master failed 5, 8, 11 and 34). Perf: same per-tick cost, longer battles.
+
+- **M3-K1 Colonists economy oracle and goldens** (merged in `f73262a`; 1318 tests):
+  - **Code.** `testing::colonists`: a build line with a Drone every 10 s and a deploy whenever Beacon room falls to 1 (Drones 5, 11, 17, 23), and `reference_field()` (0107). The oracle is in `tests/economy_oracle/`; `docs/economy_oracle.md` has both factions' tables.
+  - **Measured.** 6.17 / 10.29 / 12.57 / 14.86 / 17.52 / 20.57 / 22.10 / 23.62 / 24.38 SC/s at 0:00–4:00.
+    - 1:00 (−16.2%), 3:00 (−15.3%) and 4:00 (−23.6%) are outside ±15%.
+    - Targets 1 and 4 fail; full saturation needs 27 Drones.
+    - Pinned as measured, with no game number changed (0108): Q0055.
+  - **Goldens.** `colonists_opening` (to 1:50) and `colonists_vs_gdo` (to 3:00, re-blessed after M3-L2 for 0179). There are 9 goldens now, in `tests/golden/`.
+  - **Soak game.** `testing::colonists::skirmish` is the 10-minute game for K2.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
-  - **M3-S Riot Shield as two unit types** (Opus; brief `scratchpad/briefs/m3s-riot-shield-two-types.md`): 0171–0174.
-  - **M3-K1 Colonists economy oracle** (Opus; brief `scratchpad/briefs/m3k1-colonists-oracle.md`): targets 1–4 and the income table within ±15% (0107, 0108), the saturation curve, goldens `colonists_opening` and `colonists_vs_gdo`.
-  - **M3-L2 targeting behaviours** (Opus; brief `scratchpad/briefs/m3l2-targeting-behaviours.md`): 0179, 0180, 0182, 0186 Guard numbers, and the AttackMove loop on soak seed 1.
+  - **M3-K2a fixes** (Opus; brief `scratchpad/briefs/m3k2a-fixes.md`): the 0139 marker leak, event-driven drop-off reassignment (0170), a half-out unit attacking, readable labels at 720p, the `fog_memory.rs` split, `is_going_up`.
+  - **M3-K2 final QA** (Opus; brief `scratchpad/briefs/m3k2-qa.md`): `drones_perf`, the 10-minute skirmish soak, soak seed 5, all ignored tests, a scripted walkthrough, the playtest notes (m3.md, m2.md refreshed), the ARCHITECTURE review, long test files.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2 playtest** with the user, using `docs/playtest/m2.md`.
@@ -707,12 +732,12 @@ First playable after M2-H2.
     | J2 | done (`298f364`) |
     | V | done (`9516a0f`) |
     | U | done (`d3814be`) |
-    | S (0171–0174) | running (wave 5) |
+    | S | done (`08f09a6`) |
+    | K2a (fixes: 0139 marker leak, 0170 by event, half-out attack, labels, `fog_memory.rs` split) | running (wave 5) |
     | L1 | done (`aeb54ae`) |
-    | L2 (0179, 0180, 0182, 0186 Guard numbers, the AttackMove loop) | running (wave 5) |
-    | X (after L1 and L2; Fable: soak robustness over seeds 1–40; master fails 8, 12, 21 idle-mover, 34 settle bound) | queued |
-    | K1 (0107, 0108, saturation curve, two goldens) | running (wave 5) |
-    | K2 (also: markers on a remembered target drawn at the remembered position (0139 leak); split `fog_memory.rs`; legible command labels at 720p; a half-out unit can attack; 0170 event-driven) | queued |
+    | L2 | done (`f039e5c`) |
+    | K1 | done (`f73262a`; Q0055) |
+    | K2 (final QA; brief `scratchpad/briefs/m3k2-qa.md`) | running (wave 6) |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -789,9 +814,12 @@ First playable after M2-H2.
 | Q0050 | The ActiveGroup when an unfinished group's last building completes | no | open; M3-U makes the joined finished group active |
 | Q0051 | A target that outruns sight is lost at once, despite the fog delay | no | open; M3-L1 lingers tiles only |
 | Q0052 | Gathering UI: a Drone's right-click on enemies, the Set Drop-off pointer, who sees a Drone's load, Gather indicators | no | open; M3-J2 built the stated current behaviour |
+| Q0053 | Riot Shield toggle edge cases: orders while lowering, Lower during a waiting raise, the ActiveGroup during a deferred raise | no | open; M3-S built the stated current behaviour |
+| Q0054 | AttackMove: a dropped target not chased again on that leg; the MinRange back-off spot; a cornered unit | no | open; M3-L2 built the stated current behaviour |
+| Q0055 | The Colonists' measured economy misses the table: 1:00, 3:00 and 4:00 outside ±15%; targets 1 and 4 fail (full saturation needs 27 Drones) | no | open; M3-K1 pins the measured figures; no game number changed (0108) |
 
 ## Design change entries
-Last triaged: 0194.
+Last triaged: 0196.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -959,23 +987,23 @@ Last triaged: 0194.
 | 0168 A Move or Follow whose target is the unit itself is a Stop | done (M3-R, `e2975db`: `follow_itself.rs`) | answers Q0031; fixes M1-G3's self-follow |
 | 0169 Arrival radius 3 GU (was 2) for MovingToLocation and MovingToObject | done (M3-V, `9516a0f`: `OCCUPIED_ARRIVAL_GU` 3.0; crowd-sweep failures 43 → 7) | answers Q0032 |
 | 0170 A drop-off destroyed mid-return: the Drone switches at once to the nearest own node | done (as built, M3-H3 `1e43600`); an event-driven check instead of the per-tick one queued (M3-K2) | answers Q0046 |
-| 0171 Riot Shield toggle window: half speed and no attacking while toggling; damage reduction only when fully up; a second press reverses from the current point | queued (M3-S) | answers Q0020 point 2 |
-| 0172 A shield toggle pressed mid-shot waits for Cooldown to end, then starts | queued (M3-S) | answers Q0020 point 3; like Convert's 0153 |
-| 0173 Peacekeeper and Peacekeeper (Shielded) are two unit types; the type changes at the start of the toggle | queued (M3-S) | answers Q0020 point 4 |
-| 0174 Shield toggle 6 ticks (0.375 s), hotkey R for Raise and Lower | queued (M3-S) | answers Q0020 point 5 |
+| 0171 Riot Shield toggle window: half speed and no attacking while toggling; damage reduction only when fully up; a second press reverses from the current point | done (M3-S, `08f09a6`) | answers Q0020 point 2 |
+| 0172 A shield toggle pressed mid-shot waits for Cooldown to end, then starts | done (M3-S, `08f09a6`) | answers Q0020 point 3; like Convert's 0153 |
+| 0173 Peacekeeper and Peacekeeper (Shielded) are two unit types; the type changes at the start of the toggle | done (M3-S, `08f09a6`) | answers Q0020 point 4 |
+| 0174 Shield toggle 6 ticks (0.375 s), hotkey R for Raise and Lower | done (M3-S, `08f09a6`) | answers Q0020 point 5 |
 | 0175 Several buildings waiting for capacity: the lowest id starts first | done (as built, M3-P `9f63a5f`); doc comments updated in M3-V | answers Q0047 point 1 |
 | 0176 No start at power 0 (as built); a capacity cost of 0 always passes | done (point 2 as built, M3-P; point 3 M3-V `9516a0f`, in `ArmyCap::fits`) | answers Q0047 points 2–3 |
 | 0177 Shots drawn only over Visible tiles; an attacker outside the victim's vision is revealed to the victim's owner for 24 ticks after each shot | done (M3-L1, `aeb54ae`: `vision/reveal.rs`, `REVEAL_TICKS` 24; tracers cut at Visible tile edges) | answers Q0017 point 1 |
 | 0178 Fog delay: a tile stays Visible for 8 ticks after it leaves all sight | done (M3-L1, `aeb54ae`: `vision/linger.rs`, `FOG_DELAY_TICKS` 8); a target outrunning sight: Q0051 | answers Q0018 point 1 |
-| 0179 Target priority by rotation in 45° steps, then closest, then a fixed order | queued (M3-L2, after R) | answers Q0018 point 2 |
-| 0180 AttackMove leash limits chasing only: targets in weapon range are always fought; PathReference kept after fights, replaced by a blockage detour | queued (M3-L2, after R) | answers Q0018 point 3 |
+| 0179 Target priority by rotation in 45° steps, then closest, then a fixed order | done (M3-L2, `f039e5c`: `rotation_step`; exactly 45° is step 0) | answers Q0018 point 2 |
+| 0180 AttackMove leash limits chasing only: targets in weapon range are always fought; PathReference kept after fights, replaced by a blockage detour | done (M3-L2, `f039e5c`: `travel::pursue`; the dropped-target rule is Q0054) | answers Q0018 point 3 |
 | 0181 Unreachable auto-targets: approach, give up, retry after 32 ticks | done (as built) | answers Q0018 point 4 |
-| 0182 MinRange: auto-targeting skips targets inside it; an explicit Attack backs a mobile unit off, and fails for an immobile one with "Target too close" | queued (M3-L2, after R) | answers Q0018 point 5 |
+| 0182 MinRange: auto-targeting skips targets inside it; an explicit Attack backs a mobile unit off, and fails for an immobile one with "Target too close" | done (M3-L2, `f039e5c`: back-off, `Sim::step_too_close`, `SimEvent::TargetTooClose`; back-off spot is Q0054) | answers Q0018 point 5 |
 | 0183 A unit walled out of its group spot counts as arrived within the 3 GU radius | done with 0169 (M3-V, `9516a0f`; tested with 7 Guards) | answers Q0018 point 6 |
 | 0184 Another command pressed while targeting: "Cancel the current command first" | done (as built, M3-J1 `864c13f`) | answers Q0048 point 1 |
 | 0185 Unfinished buildings form their own SelectionGroup (key: type, finished?) | done (M3-U, `d3814be`: `GroupKey { kind, unfinished, instance }`; the ActiveGroup on completion is Q0050) | answers Q0048 point 2; replaces M3-J1's reading |
-| 0186 Syndicate Guard: laser rifle, Universal, 18 damage every 24 ticks, needs an Optics Lab; Agent: pistol, ground only, 5 damage every 20 ticks | Guard attack numbers queued (M3-L2); Optics Lab gate, Hideout and Agent queued (M4) | user redesign |
+| 0186 Syndicate Guard: laser rifle, Universal, 18 damage every 24 ticks, needs an Optics Lab; Agent: pistol, ground only, 5 damage every 20 ticks | Guard laser done (M3-L2, `f039e5c`); Optics Lab gate, Hideout and Agent queued (M4) | user redesign |
 | 0187 Syndicate Grenadier: slow, dodgeable AoE grenade, ground only, Attack Ground; Hideout E, needs a Chemical Plant | queued (M4; concept only, numbers TBD) | user addition |
 | 0188 Syndicate Assault Bike: fastest wheeled vehicle, wide turns, mortar on a narrow-angle turret | queued (M4; concept only, numbers TBD) | user addition |
-| 0189–0194 Syndicate Shadebringer: support vehicle with Sludge (slows everyone, laid behind it) and Cover (smoke that blocks line of sight and blinds units inside); separate tanks refilled in the Tunnel Network with a Vault | queued (M4; concept only, numbers and several rules TBD; line-of-sight blocking is new to the vision model) | user additions |
+| 0189–0196 Syndicate Shadebringer: support vehicle with Sludge (slows everyone except hover and air, Drill Units only on the surface (0196), laid behind it) and Cover (smoke that blocks line of sight and blinds units inside); separate tanks refilled in the Tunnel Network with a Vault | queued (M4; concept only, numbers and several rules TBD; line-of-sight blocking is new to the vision model) | user additions |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

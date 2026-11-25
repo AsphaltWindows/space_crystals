@@ -1,28 +1,32 @@
-//! Scripted build orders (slice M2-J1), for tests that play a GDO player's opening the way a player would: with the
-//! player's own `Command::Construction` and `Command::Production`, through the command gate, never with debug
-//! commands. The economy oracle (`tests/economy_oracle.rs`) checks `factions/gdo/economy.md > Opening Economy
-//! Baseline` with them, and the golden game `gdo_opening` (`tests/golden.rs`) plays one.
+//! Scripted build orders (slice M2-J1), for tests that play an opening the way a player would: with the player's own
+//! `Command::Construction` and `Command::Production`, through the command gate, never with debug commands. The
+//! economy oracle (`tests/economy_oracle/`) checks `factions/gdo/economy.md > Opening Economy Baseline` with them,
+//! and the golden game `gdo_opening` (`tests/golden/main.rs`) plays one. A Colonists player's line
+//! ([`super::colonists`], slice M3-K1) pays for its Drones, Sabres and Warp Ins through one.
 //!
 //! A [`BuildOrder`] is a player's tracks, in priority order; a track is a sequence of [`Order`]s, each a building
-//! for one of the player's constructors to construct or a unit for one of their producers to train. Before each
-//! step, [`BuildOrder::commands`] looks at the game as the last tick left it and gives the player's commands for the
-//! next tick:
+//! for one of the player's constructors to construct, a unit for one of their producers to train, or a building for
+//! one of their Beacons to warp in. Before each step, [`BuildOrder::commands`] looks at the game as the last tick
+//! left it and gives the player's commands for the next tick:
 //! 1. each building held ready to place is placed at once, at the first spot of a fixed scan that the placement
 //!    check accepts ([`first_spot`]);
 //! 2. then each track in turn issues its next order, once the bank covers its cost (as the tracks before it in this
 //!    tick left the bank) and its builder is free: a constructor that is idle or places its ready building in this
-//!    tick (the Place applies first), a producer with nothing queued. The builder is the player's first object of
-//!    the order's `by` kind, by id; a constructor or producer that came into the game in a tick takes orders from
-//!    the next (`ARCHITECTURE.md > Tick pipeline > Spawn tick`).
+//!    tick (the Place applies first), a producer with nothing queued, a Beacon (slice M3-K1) whose Warp In the
+//!    placement check allows now, unturned (`Sim::warp_in_check`). Nothing that transforms is free: a building under
+//!    Warp In and a Beacon under deployment take only their cancel (design change 0116). The builder is the player's
+//!    first object of the order's `by` kind, by id; a constructor or producer that came into the game in a tick
+//!    takes orders from the next (`ARCHITECTURE.md > Tick pipeline > Spawn tick`).
 //!
 //! An order waits for the orders before it in its track; the tracks don't wait for each other, but the earlier ones
 //! get the money first. A track's orders may go to different builders: a line of one track is the design's "Plate,
 //! Generator, Generator, Barracks". Every order a build order issues is one the gate takes: it pays from a bank that
-//! nothing else in the tick draws on, as mining pays only after the commands.
+//! nothing else in the tick draws on, as mining and deliveries pay only after the commands.
 //!
 //! [`Books`] keep a player's accounts for a step: the bank's change must be what the plates mined (read off the
-//! patches under them, not off the bank), less what the step's orders paid, plus the refunds the step's events
-//! report.
+//! patches under them, not off the bank) and what the workers delivered (the step's `SimEvent::ResourcesDelivered`,
+//! plan decision T27: "books that count drop-offs"), less what the step's orders paid, plus the refunds the step's
+//! events report.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -37,6 +41,7 @@ use crate::placement::{footprint_size, seeds_build_area};
 use crate::production::ProductionCommand;
 use crate::scenario::BuildingOrientation;
 use crate::sim::Sim;
+use crate::transform;
 use crate::units::{Tick, TilePos};
 
 /// One order of a build order: the player's building of kind `by` makes a `kind`, a building it constructs
@@ -52,12 +57,19 @@ impl Order {
         Self { by, kind }
     }
 
-    /// The recipe `by` follows: its `Constructs` entry for a building, its `Produces` entry for a unit. Panics if it
-    /// makes no `kind`: a build order that asks for it is a mistake in the test.
+    /// The recipe `by` follows: its `Constructs` entry for a building, its `Produces` entry for a unit, its Warp In
+    /// list's entry for a building a Beacon warps in. Panics if it makes no `kind`: a build order that asks for it is
+    /// a mistake in the test.
     pub fn recipe(&self) -> &'static Recipe {
         construction::recipe(self.by, self.kind)
             .or_else(|| self.by.def().structure.as_ref()?.production.as_ref()?.recipe(self.kind))
+            .or_else(|| transform::warp_in_recipe(self.by, self.kind))
             .unwrap_or_else(|| panic!("a {:?} makes no {:?}", self.by, self.kind))
+    }
+
+    /// Whether `by` warps `kind` in rather than constructing or training it.
+    fn is_warp_in(&self) -> bool {
+        transform::warp_in_recipe(self.by, self.kind).is_some()
     }
 }
 
@@ -177,7 +189,11 @@ impl BuildOrder {
                 },
                 Some(Constructor::Constructing { .. }) | None => {}
             }
-            if o.production.as_ref().is_some_and(|p| p.queue.is_empty()) {
+            let idle = !o.is_transforming();
+            if idle && o.production.as_ref().is_some_and(|p| p.queue.is_empty()) {
+                free.insert(o.id);
+            }
+            if idle && !transform::warp_in_recipes(o.kind).is_empty() {
                 free.insert(o.id);
             }
         }
@@ -193,7 +209,13 @@ impl BuildOrder {
                 continue;
             };
             let cost = order.recipe().cost;
-            if !free.contains(&by) || cost > bank {
+            let allowed = || {
+                !order.is_warp_in()
+                    || sim
+                        .warp_in_check(by, order.kind, BuildingOrientation::default())
+                        .is_some_and(|check| check.is_valid())
+            };
+            if !free.contains(&by) || cost > bank || !allowed() {
                 continue;
             }
             bank -= cost;
@@ -203,6 +225,14 @@ impl BuildOrder {
                 Command::Construction {
                     objects: vec![by],
                     command: ConstructionCommand::Construct(order.kind),
+                }
+            } else if order.is_warp_in() {
+                Command::Construction {
+                    objects: vec![by],
+                    command: ConstructionCommand::WarpIn {
+                        kind: order.kind,
+                        orientation: BuildingOrientation::default(),
+                    },
                 }
             } else {
                 Command::Production {
@@ -267,6 +297,9 @@ pub struct Books {
     reserves: BTreeMap<ObjectId, u32>,
     /// The player's constructors, producers and transforming objects, whose refunds go to them.
     builders: BTreeSet<ObjectId>,
+    /// The player's workers, whose deliveries go to them. A unit that comes into the game in a step can't deliver
+    /// in it.
+    workers: BTreeSet<ObjectId>,
 }
 
 /// What one step did to a player's bank ([`Books::close`]).
@@ -278,6 +311,10 @@ pub struct Entry {
     pub mined: u32,
     /// Each patch that lost crystals in the step, by id, and how many: its plate's lump.
     pub paid: Vec<(ObjectId, u32)>,
+    /// What the player's workers delivered: their `SimEvent::ResourcesDelivered` (slice M3-K1).
+    pub delivered: u32,
+    /// Each delivery of the step: the worker, and what it delivered.
+    pub deliveries: Vec<(ObjectId, u32)>,
     /// What the player's commands paid.
     pub spent: u32,
     /// What came back: the `SimEvent::ConstructionCancelled`, `SimEvent::ProductionCancelled` and
@@ -306,18 +343,24 @@ impl Books {
             })
             .map(|o| o.id)
             .collect();
+        let workers = sim
+            .objects()
+            .filter(|o| o.owner == Some(player) && o.worker.is_some())
+            .map(|o| o.id)
+            .collect();
         Self {
             player,
             bank: sim.player(player).map_or(0, |p| p.crystals),
             reserves,
             builders,
+            workers,
         }
     }
 
     /// Closes the books after the step in which the player's commands paid `spent`. Panics if they don't balance:
-    /// if the bank changed by anything but what the plates mined, less `spent`, plus the refunds; or if a patch ran
-    /// out, since a depleted patch's residual mining doesn't show on it (`factions/gdo/economy.md > ExtractionPlate >
-    /// Depleted patch under a plate`).
+    /// if the bank changed by anything but what the plates mined and the workers delivered, less `spent`, plus the
+    /// refunds; or if a plated patch ran out, since a depleted patch's residual mining doesn't show on it
+    /// (`factions/gdo/economy.md > ExtractionPlate > Depleted patch under a plate`).
     pub fn close(self, sim: &Sim, spent: u32) -> Entry {
         let paid: Vec<(ObjectId, u32)> = self
             .reserves
@@ -347,12 +390,23 @@ impl Books {
                 _ => None,
             })
             .sum();
+        let deliveries: Vec<(ObjectId, u32)> = sim
+            .events()
+            .iter()
+            .filter_map(|e| match *e {
+                SimEvent::ResourcesDelivered { worker, amount, .. } => {
+                    self.workers.contains(&worker).then_some((worker, amount))
+                }
+                _ => None,
+            })
+            .collect();
+        let delivered = deliveries.iter().map(|&(_, amount)| amount).sum();
         let bank = sim.player(self.player).map_or(0, |p| p.crystals);
         assert_eq!(
             i64::from(bank),
-            i64::from(self.bank) + i64::from(mined) - i64::from(spent) + i64::from(refunded),
-            "tick {}: player {}'s bank went from {} to {bank}, but the plates mined {mined}, the commands paid {spent} \
-             and {refunded} came back",
+            i64::from(self.bank) + i64::from(mined) + i64::from(delivered) - i64::from(spent) + i64::from(refunded),
+            "tick {}: player {}'s bank went from {} to {bank}, but the plates mined {mined}, the workers delivered \
+             {delivered}, the commands paid {spent} and {refunded} came back",
             sim.tick(),
             self.player.0,
             self.bank,
@@ -361,6 +415,8 @@ impl Books {
             bank,
             mined,
             paid,
+            delivered,
+            deliveries,
             spent,
             refunded,
         }

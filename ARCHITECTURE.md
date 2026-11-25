@@ -336,6 +336,10 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      `orders::update`, in id order. Each Drone whose walk to its site ended this tick deploys there (a change of kind:
      before 5b, which claims the footprint) or fails its order (`SimEvent::DeployFailed`): the changes of kind and
      the events that a behaviour may not make.
+   - Attacks on a target too close, `Sim::step_too_close` (slice M3-L2, design change 0182): part of 5a, right after
+     the deployments, in id order. Each unit that can't move whose Attack order 5a found with its target inside its
+     MinRange (`AttackOrder::too_close`) ends the order, and its next queued one starts in the next tick, with
+     `SimEvent::TargetTooClose`.
    - 5b `paths::sync`: if the blocking footprints changed, rebuild the true navigation grids and bump
      `nav_version`.
    - 5c `paths::serve`: first each unit's staggered path checks, in the ticks where `(tick + id) % 4 == 0` (after
@@ -430,7 +434,8 @@ ticks spent in it. Hashed and serialized like all state.
 - **Phases** (`combat/phases.rs`): Aiming → Firing → Cooldown → Reloading, each lasting exactly its duration in
   ticks (zero included). A sequence starts in 5e when none runs and the engaged target is valid and in range; the
   next one at the earliest in the tick after Reloading ends, so a cycle takes Aim + Firing + Cooldown + Reload ticks
-  (Peacekeeper 17, Guard 8). Ordered in tick `t`, the first hit lands at the end of tick `t + Aim + Firing − 1`.
+  (Peacekeeper 17, Guard 24: its laser rifle, design change 0186). Ordered in tick `t`, the first hit lands at the
+  end of tick `t + Aim + Firing − 1`.
   Aiming turns the base towards the target at TurnRate (the attack writes `facing`) and lasts until it faces it
   within `FACING_TOLERANCE`. Aiming and Reloading are interruptible: another order, or a target that is gone or out
   of range, cancels an aim; a reload keeps counting. Firing and Cooldown run on whatever happens.
@@ -633,9 +638,12 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   pick. Every unit decides on the same world, whatever its id. `World::pick` is the scan of `> BaseAutoTargeting >
   Target Selection Priority`: among the ValidTargets in reach (enemies only: another player's destructible objects
   that the unit's owner sees and its attack can target), threatening ones first, then the least rotation from the
-  unit's facing, then the smallest gap, then the lowest id. Enemy structures are ValidTargets too (design change
-  0103), so units attack enemy bases on their own; the structures that can't attack come after the targets that
-  shoot back. The grid holds candidates by their centres, so a scan looks as far as the unit's longest range with
+  unit's facing **in steps of 45°** (design change 0179, `world::rotation_step`, a placeholder step: each step
+  reaches up to its upper bound, so a target exactly 45° off is in the first), then the smallest gap, then the
+  lowest id. A scan of SightRange skips enemies inside the unit's MinRange (design change 0182) and picks one it can
+  hit; the caller may leave out more (`pick`'s `admit`: the AttackMove's leash). Enemy structures are ValidTargets
+  too (design change 0103), so units attack enemy bases on their own; the structures that can't attack come after
+  the targets that shoot back. The grid holds candidates by their centres, so a scan looks as far as the unit's longest range with
   the modifier, plus its own half size and the largest candidate's (`World::candidate_half`): a footprint in reach
   is found however far its centre lies.
 - **AttackingObject** (`orders/engage.rs`): `close_in` is its core, shared by all fighting. In range (`combat::
@@ -648,6 +656,10 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   walks to its last-known position, engaging nothing (`AttackOrder::remembered`), attacks it once its owner sees it
   standing, and stops where its owner sees its place empty, "the way it would for a vanished target" (the next
   queued order starts). The removal path leaves such an order alone (*Combat > Removal path*).
+  **A target inside MinRange** (`engage::too_close`, design change 0182): a unit that can move backs straight away
+  from it, to where the gap would be the middle of the band from MinRange to Range (`AttackOrder::backing_off`), and
+  attacks once out of MinRange; one that can't (`Mover::can_move`) fails the order (`AttackOrder::too_close`,
+  `Sim::step_too_close`, `SimEvent::TargetTooClose`; the client's feedback line says "Target too close").
 - **Idle units** (`engage::idle`): scan their SightRange every tick; the acquired enemy is engaged with `close_in`
   from the IdleOrigin, where the unit stood. Farther than `IDLE_LEASH_GU` (4) from it the unit disengages and walks
   back without scanning; a target destroyed or out of SightRange leaves it idle where it is.
@@ -664,8 +676,18 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   order ends at once, as if arrived; a Shift-queued one completes in the tick it starts; the other units of the
   order follow it as usual (a right-click on one of the selected units).
 - **AttackMove** (`travel::march`): one `Leg` to the unit's own destination (the magic box). While moving it scans
-  its SightRange and engages with `close_in`; it lets go, and resumes the move with a new path, when the target is
-  destroyed or no longer valid, or when the unit is farther than `ATTACK_MOVE_LEASH_GU` (6) from its PathReference.
+  its SightRange and engages with `close_in`. **The leash limits chasing only** (design change 0180): a target in
+  weapon range is always fought, wherever the unit stands (`travel::pursue`); one out of range the unit acquires or
+  goes on chasing only while it and the spot it would shoot from are within `ATTACK_MOVE_LEASH_GU` (6) of its
+  **PathReference** (`travel::leashed`), and drops otherwise. The PathReference (`Leg::reference`,
+  `Leg::follow_path`) is the first path the leg's move gets; it is kept after fights (the move's path then, the
+  walking path, is `Leg::walking`) and replaced by a new path the unit gets while it walks its leg: a re-route round
+  a blockage. The unit lets go, and resumes the move with a new walking path, when the target is destroyed, dropped
+  or no longer valid. **A target let go of while it lives** (dropped at the leash or lost from sight on the way) is
+  left alone for the rest of the leg (`Leg::dropped`, the last `MAX_DROPPED` (16)), fought only within weapon range:
+  without it, a unit whose way to an enemy at the edge of its sight leads out of that sight takes and drops it every
+  other tick, for good (`behaviours_soak`'s seed 1), and two such enemies in turn if it may take one again once it
+  is out of its sight (seed 29).
 - **Patrol** (`travel::patrol`): legs to and fro between the position where the Patrol started executing (design
   change 0036) and the destination. A failed leg counts as arrived; `PATROL_FAILED_LEGS` (2) in a row end it (design
   change 0037).
@@ -721,11 +743,13 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
     order is a Gather or a Drop Off. They collide with everything else and, having an order, never yield.
 - **Not active during Move**: a Move never engages, and neither does the walk back to an IdleOrigin or to a last
   seen position.
-- **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): `GIVE_UP_RETRY_TICKS`
-  (32): a unit doesn't re-acquire a target it couldn't get to for that long; "within SightRange" for a scan is
-  measured edge to edge like Range; the PathReference is the route first planned for a leg and stays that when the
-  unit resumes from elsewhere; a unit farther than the leash from it doesn't acquire; a queued Attack whose target
-  was never seen while it ran completes at once.
+- **Unreachable auto-targets** (design change 0181, "for now"): a unit doesn't re-acquire a target it couldn't get
+  to for `GIVE_UP_RETRY_TICKS` (32).
+- **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): "within SightRange" for
+  a scan is measured edge to edge like Range; a 45° step reaches up to its upper bound; an AttackMove leaves a
+  target it let go of alone for the rest of the leg; a unit backing off from a target inside its MinRange goes to the
+  middle of the band from MinRange to Range, and gives the order up when a back-off ends with the target inside and
+  where it was; a queued Attack whose target was never seen while it ran completes at once.
 - **Auto-targeting switch**: `DebugCommand::SetAutoTargeting { on }` (`Sim::auto_targeting`, hashed state) turns
   every scan off or on, for tests and QA runs about movement between hostile units; `TestSim::without_auto_
   targeting()` schedules it for tick 1. Attack orders work either way.
@@ -1436,9 +1460,12 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
 - **Events**: `SimEvent`s (`Spawned`, `Removed`, `SuppliesDelivered`, `MoveFailed`, `Attacked`, `Hit`, `Died`,
   `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `ProductionWaiting`, `UnitProduced`,
   `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
-  `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, `DeployFailed`, …) are
-  output only, for effects, sounds and UI. The sim never reads them. `DeployFailed { drone, origin, problems }` (slice
-  M3-F) is a Deploy that failed on arrival; the client's feedback line says why (`command_ui/feedback.rs`).
+  `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, `DeployFailed`,
+  `TargetTooClose`, …) are output only, for effects, sounds and UI. The sim never reads them. `DeployFailed { drone,
+  origin, problems }` (slice M3-F) is a Deploy that failed on arrival; the client's feedback line says why
+  (`command_ui/feedback.rs`). `TargetTooClose { unit, target }` (slice M3-L2, design change 0182) is an Attack order
+  that failed because its target is inside the MinRange of a unit that can't move; the feedback line says "Target
+  too close".
   `ProductionWaiting { producer, reason }` (slice M3-P, design change 0143) is a producer whose unit at the front
   began to wait for room under the army cap `reason`, raised once per wait: the placeholder of 0143's notification.
   `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events from the scenario's
@@ -1527,6 +1554,11 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   `scenarios::empty(w, h)` builds an empty scenario of any size, `empty_map(w, h)` its map.
 - Unit tests sit in their module (`#[cfg(test)] mod tests`). Scenario and integration tests go in `crates/sim/tests/`
   and use only the public API.
+- **Test-only defs** (`defs/test_defs.rs`, slice M3-L2): a sim unit test can give a kind other numbers through the
+  whole sim, on its own thread, while the guard `TestDef::set(def)` or `TestDef::unit(kind, change)` returns lives
+  (`ObjectKind::def` reads them first): a MinRange, an artillery's Range, a unit that can't move, which no type of
+  the design has yet. Only the sim's own unit tests can (`#[cfg(test)]`); they run the game through `TestSim` all
+  the same (`orders/tests/leash.rs`, `orders/tests/min_range.rs`).
 - Build test scenarios inline from an ASCII map or from `scenarios::empty(w, h)` plus tiles and spawns, not from
   `dev_skirmish`'s layout.
 - **ASCII maps** (`Map::from_ascii`, `Map::to_ascii`; full rules in the `map` module docs) have one symbol per tile and
@@ -1551,8 +1583,15 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   producer) in priority order, and `commands(&sim)` gives the commands for the next tick: each ready building placed
   at the first origin, row by row, that the placement check takes (`first_spot`), then each track's next order once
   the bank covers it and its builder is free. `Books::open` before a step and `close` after it check a player's bank:
-  it changed by what the plates mined (read off their patches), less what the step's orders paid, plus the refunds
-  its events report.
+  it changed by what the plates mined (read off their patches) and the workers delivered (the step's
+  `ResourcesDelivered`, plan decision T27), less what the step's orders paid, plus the refunds its events report.
+  An `Order` whose builder is a Beacon is a Warp In (slice M3-K1), issued once `Sim::warp_in_check` takes it; a
+  builder that transforms is never free. `testing::colonists` (slice M3-K1) plays a Colonists player the same way:
+  a `Colonists` line sends the Drones to gather (one command, or each to a patch of its own), sets the portals'
+  rally points, sends a Drone a portal releases to deploy at the next of its sites when the room under Beacon
+  Capacity falls to 1 (the 5th Drone made and every 6th after it), and pays for the rest through a `BuildOrder`.
+  `reference_field(drones)` is the reference geometry of design change 0107, and `colonists::skirmish` plays
+  `dev_skirmish` with a Colonists line against the GDO's (the Colonists' golden games, and longer runs of them).
 - **Movement scenario tests** are `crates/sim/tests/movement_collision.rs` (passing, head-on, choke, group arrival,
   idle units, repaths, oscillation bounds, save and load in a crowd), `group_destinations.rs` (the magic box; a
   group crowding its own spots, 0183),
@@ -1566,7 +1605,12 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
 - **Behaviour scenario tests** are `crates/sim/tests/behaviours_attack.rs` (the approach to a gap of Range, the
   chase, the last seen position, a target out of reach, queueing), `behaviours_idle.rs` (acquiring by priority,
   the leash and the return, Hold, Move doesn't engage, the auto-targeting switch), `behaviours_travel.rs` (Follow,
-  static objects, AttackMove groups and the leash, a fight replayed and saved in its middle),
+  static objects, AttackMove groups and the leash, a fight replayed and saved in its middle), `attack_move_leash.rs`
+  (design change 0180: a target let go of for the rest of the leg, alone and with another, the leash measured from
+  the route planned at the start after a fight, a detour round a blocked route as the new PathReference), `target_priority.rs` (0179:
+  the 45° steps of rotation, the step's bound, ties by id), the unit tests in `orders/tests/` (with test-only defs:
+  a unit fighting back beyond its leash, artillery out-ranging it left alone, MinRange: the back-off, the immobile
+  unit's failed order, the scans skipping enemies inside it; the steps themselves),
   `behaviours_patrol.rs`, `behaviours_gate.rs` (targets must be seen; a GDO player's remembered station, by its
   record), `behaviours_soak.rs` (120 units fighting under random orders of every kind, then without orders until
   those end; its checks are invariants that survive tuning: no dangling ids, no idle unit in reach of a visible
@@ -1603,7 +1647,14 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   for each problem of the check and one refused by an earlier command of its tick, destroyed constructors' refunds by a
   debug removal and in combat, a fuzz of the gate, a save and a replay). The clean Barracks opening, which slice
   M2-D1 measured there first, is the economy oracle's.
-- **The economy oracle** is `crates/sim/tests/economy_oracle.rs` (slice M2-J1): GDO openings on
+- **The economy oracle** is `crates/sim/tests/economy_oracle/`, one binary in modules; its measured results are in
+  `docs/economy_oracle.md`. **The Colonists** (slice M3-K1, `colonists.rs` and `curve.rs`): the reference line on
+  `testing::colonists::reference_field` (one Robo Portal training Drones without a break, every 6th deploying)
+  against the Colonists' column of `> Economy Targets (GDO vs Colonists)` within ±15% (design change 0108) and its
+  targets 1 to 4, beside the GDO's reference line measured the same way (what each delivered or mined over the 21 s
+  centred on a time), and the saturation curve of the row by number of Drones; the figures and targets measured
+  outside the design are pinned as measured (a question to the Designer, not tuned). **The GDO** (slice M2-J1,
+  `played.rs` and `gdo.rs`): GDO openings on
   `maps/dev_skirmish.json` from its real start, played with `testing::build_order` (player 2 idle), against
   `factions/gdo/economy.md > Opening Economy Baseline` and the GDO income of `> Economy Targets`: plates first (the
   reference line: income at the table's times, plates every 25 s, fully plated at about 2:30, the float at 1:30 and
@@ -1692,7 +1743,7 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
   checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is
-  hashed, and `sim/tests/hash.rs` changes each field in turn and checks the hash changes. The golden games (`golden.rs`) pin the hashes from build to build: see Replays and golden hashes.
+  hashed, and `sim/tests/hash.rs` changes each field in turn and checks the hash changes. The golden games (`golden/`) pin the hashes from build to build: see Replays and golden hashes.
 
 ## Client architecture
 
@@ -2203,8 +2254,9 @@ their producing structures and their constructors, and the Colonists' Beacons an
   placeholder of design change 0143's notification, the army cap's name (`army_cap_text`: `UNIT_CONTROL_TEXT`,
   `BEACON_CAPACITY_TEXT`), after the sim's `ProductionWaiting` for a local player's producer whose unit begins to
   wait for room (its InfoPanel shows "Waiting for Unit Control" or "Waiting for Beacon Capacity" while it does,
-  `hud/info_panel/activity.rs`); and a placement's (`placement_text`, the check's first problem): an
-  `InvalidPlacement` or the sim's `PlacementRefused`.
+  `hud/info_panel/activity.rs`); a placement's (`placement_text`, the check's first problem): an
+  `InvalidPlacement` or the sim's `PlacementRefused`; and `TARGET_TOO_CLOSE_TEXT` after the sim's `TargetTooClose`
+  for a local player's unit (design change 0182).
 - **Placement visuals** (`placement.rs`, `placement/`): while the local player places a building (`placing_now`: a
   game mode, AwaitingPlacement, a commandable selection). `PlacementGhost` holds the `Ghost` under the cursor (the
   footprint as turned, the `PlacementCheck` there now, the side letters of `sc_sim::sides`), worked out every frame;
@@ -2351,12 +2403,14 @@ unchecked.
   or ", end", and "Tick n / end". Screenshots, `--exit-at-tick`, `--dump-state`, `--input-script` (to press the
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
-- **Golden hashes** (`crates/sim/tests/golden.rs`): seven games, a 3v3 duel, a 40-unit AttackMove battle, a
+- **Golden hashes** (`crates/sim/tests/golden/`: the games in `main.rs` and `colonists.rs`, the recording and the
+  comparison in `harness.rs`): nine games, a 3v3 duel, a 40-unit AttackMove battle, a
   12-unit group move through a choke, a patrol that meets an enemy, a chase into the fog, three Peacekeepers that
   raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under fire and lower
   them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1 plays the
   fastest clean Barracks and rallies ten Peacekeepers to player 2's crystal field, where they destroy four plates,
-  while player 2 plates its field and builds Generators), are blessed as replays with a checkpoint every 32 ticks and
+  while player 2 plates its field and builds Generators), and the Colonists' `colonists_opening` and
+  `colonists_vs_gdo` (slice M3-K1, below), are blessed as replays with a checkpoint every 32 ticks and
   at the end, in `crates/sim/tests/golden/<name>.json`. The test plays each game from its definition, checks that the
   definition still is the blessed one, and compares the checkpoints; a mismatch fails with the first diverging tick
   and the last one that matched. Each game also asserts what it is about, at its end (`expect`: one side of the duel
@@ -2366,15 +2420,23 @@ unchecked.
   saw at the end: both players' books balance every step, the patch of a destroyed plate keeps what it held until a
   plate covers it again, player 2's income falls (210 crystals in the 9 s before its first plate fell, 130 in the
   last 9) and it is not defeated. Its commands are recorded like the others', so the file plays back without the
-  script; as they follow the game, they are compared after the checkpoints, not as its definition. Any change to the
-  sim's rules or state changes the hashes: when the change is intended, re-bless and commit the files with it:
+  script; as they follow the game, they are compared after the checkpoints, not as its definition. The Colonists'
+  games play `dev_skirmish` with player 1 as the Colonists, by `testing::colonists::skirmish`: in
+  `colonists_opening` (to 1:50) player 1 gathers, trains Drones, deploys, warps in a Bio Portal on its first Beacon,
+  trains two Sabre Legionnaires and converts the first; in `colonists_vs_gdo` (to 3:00) it trains eight Sabres and
+  converts each to a Rifle Legionnaire to wait east of the Bio Portal, while player 2 plays `gdo_opening`'s Barracks
+  line and sends its ten Peacekeepers to player 1's field in two waves of AttackMove: the Colonists' Shields take
+  hits and units die on both sides. Both players' books balance every step, the Drones' deliveries included, and
+  every command the scripts give is one the gate takes. Any change to the sim's rules or state changes the hashes:
+  when the change is intended, re-bless and commit the files with it:
 
   ```sh
   SC_BLESS=1 cargo test -p sc_sim golden
   ```
 
   The suite runs in well under a second in debug. The golden files are replays, so the client plays them:
-  `cargo run -- --replay crates/sim/tests/golden/duel_3v3.json` (the camera starts over the map's middle).
+  `cargo run -- --replay crates/sim/tests/golden/duel_3v3.json` (the camera starts over the map's middle, or where
+  the game sets it: the Colonists' games start it over player 1's base).
 
 ## Map editor
 

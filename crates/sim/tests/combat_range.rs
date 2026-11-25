@@ -83,7 +83,8 @@ fn range_is_the_gap_between_the_edges() {
 
 /// Design change 0031's Verification, as far as today's units go: an attacker's own body doesn't eat into its
 /// range. The wide Guard (Range 3, 36 su) and the narrow Peacekeeper (Range 4, 24 su) each start firing when the
-/// gap between the edges reaches their Range, whatever their own width.
+/// gap between the edges reaches their Range, whatever their own width. (The Guard aims for 4 ticks, design change
+/// 0186: its first hit lands in tick 6.)
 #[test]
 fn an_attackers_own_size_doesnt_change_its_range() {
     let flat = RAMP.split("\n\n").next().unwrap();
@@ -91,7 +92,7 @@ fn an_attackers_own_size_doesnt_change_its_range() {
     let guard = (ObjectKind::Guard, Vec2::new(100.0, 96.0));
     let pk_at = |gap: f32| (ObjectKind::Peacekeeper, Vec2::new(100.0 + 18.0 + gap + 12.0, 96.0));
     let (_, ticks) = attacks(flat, guard, pk_at(192.0));
-    assert_eq!(ticks, [4], "Range 3 from its edge");
+    assert_eq!(ticks, [6], "Range 3 from its edge");
     let (_, ticks) = attacks(flat, guard, pk_at(193.0));
     assert_eq!(ticks, [] as [Tick; 0]);
 }
@@ -117,7 +118,8 @@ fn min_range() {
 }
 
 /// `systems/combat.md > ValidTarget` 3: Ground attacks target Ground (and surfaced Underground) units, Air attacks
-/// Air units, Universal attacks anything. Every M1 unit is a ground unit with a Ground attack.
+/// Air units, Universal attacks anything. Every M1 unit is a ground unit; the Peacekeeper's attack is Ground, the
+/// Guard's laser rifle Universal (design change 0186).
 #[test]
 fn target_domain() {
     use Domain::{Air, Ground, Underground};
@@ -130,9 +132,12 @@ fn target_domain() {
         let got = [Ground, Air, Underground].map(|d| combat::domain_allows(attack, d));
         assert_eq!(got, allowed, "{attack:?}");
     }
-    for kind in [ObjectKind::Peacekeeper, ObjectKind::Guard] {
+    for (kind, domain) in [
+        (ObjectKind::Peacekeeper, TargetDomain::Ground),
+        (ObjectKind::Guard, TargetDomain::Universal),
+    ] {
         let unit = kind.def().unit.as_ref().unwrap();
-        assert_eq!(unit.attack.as_ref().unwrap().target_domain, TargetDomain::Ground);
+        assert_eq!(unit.attack.as_ref().unwrap().target_domain, domain, "{kind:?}");
         assert_eq!(unit.base_def().domain, Ground);
     }
 }
@@ -157,13 +162,14 @@ fn higher_ground_adds_one_grid_unit_from_the_exact_level() {
 }
 
 /// The other way round: a Guard (Range 3) on level 0 reaches a Peacekeeper across a gap of 141 su (2.2 grid units)
-/// on the ramp while it is on level 0, and not once it stands on level 1 (2 grid units).
+/// on the ramp while it is on level 0, and not once it stands on level 1 (2 grid units). (Its hit lands after its Aim
+/// of 4 ticks.)
 #[test]
 fn lower_ground_takes_one_grid_unit_off_from_the_exact_level() {
     let guard = (ObjectKind::Guard, Vec2::new(512.0 - 12.0 - 160.0, 96.0));
     let at = |x: f32| (ObjectKind::Peacekeeper, Vec2::new(x, 96.0));
     let (_, ticks) = attacks(RAMP, guard, at(511.0));
-    assert_eq!(ticks, [4], "equal levels: 3 grid units");
+    assert_eq!(ticks, [6], "equal levels: 3 grid units");
     let (t, ticks) = attacks(RAMP, guard, at(512.0));
     assert!(!can_attack_now(&t));
     assert_eq!(ticks, [] as [Tick; 0], "uphill: 2 grid units");

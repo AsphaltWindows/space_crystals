@@ -382,12 +382,46 @@ fn the_m1_units_follow_the_design() {
     );
     assert_eq!(
         (gd_attack.damage, gd_attack.range, gd_attack.reload_ticks),
-        (6.0, 3.0, 4)
+        (18.0, 3.0, 16)
     );
     let shield = pk.riot_shield.unwrap();
     assert_eq!(shield.damage_factor, 0.5);
     assert!(shield.toggle_ticks < 8, "under half a second (8 ticks)");
     assert_eq!((pk.unit_control_cost, gd.tunnel_space_cost), (Some(1), Some(1)));
+}
+
+/// Design change 0186 (`factions/syndicate/units.md > Guard > AttackAttributes`): the Guard's laser rifle hits
+/// ground and air (TargetDomain Universal), instantly, for 18 damage, one shot every 24 frames (Aim 4, Fire 1,
+/// Cooldown 3, Reload 16; placeholders). Its Range, its MinRange and the rest of the Guard are as before.
+#[test]
+fn the_guards_laser_rifle_hits_ground_and_air_every_24_frames() {
+    let guard = ObjectKind::Guard.def();
+    let attack = guard.unit.as_ref().unwrap().attack.unwrap();
+    assert_eq!(attack.target_domain, TargetDomain::Universal);
+    for domain in [Domain::Ground, Domain::Air] {
+        assert!(crate::combat::domain_allows(attack.target_domain, domain), "{domain:?}");
+    }
+    assert_eq!(
+        attack.attack_type,
+        AttackType::FullyConnected(FullyConnectedSubtype::Ranged),
+        "instant hit: it can't miss"
+    );
+    assert_eq!(attack.projectile_speed, None);
+    assert_eq!((attack.target_type, attack.damage), (TargetType::SingleTarget, 18.0));
+    let timings = (
+        attack.aim_ticks,
+        attack.firing_ticks,
+        attack.cooldown_ticks,
+        attack.reload_ticks,
+    );
+    assert_eq!(timings, (4, 1, 3, 16));
+    assert_eq!(
+        timings.0 + timings.1 + timings.2 + timings.3,
+        24,
+        "one shot every 24 frames"
+    );
+    assert_eq!((attack.range, attack.min_range), (3.0, 0.0));
+    assert_eq!((guard.max_hp, guard.sight_range), (Some(80.0), 5.0));
 }
 
 /// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): Peacekeeper (Shielded)

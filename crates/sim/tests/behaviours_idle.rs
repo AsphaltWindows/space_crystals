@@ -253,10 +253,11 @@ fn own_and_neutral_units_are_never_picked_and_a_move_doesnt_engage() {
         0
     );
 
-    // An enemy Guard holds 200 su off the Peacekeeper's way; the Peacekeeper walks past it and on.
+    // An enemy Guard holds 215 su off the Peacekeeper's way; the Peacekeeper walks past it and on. (Far enough for the
+    // Guard's hits of 17, design change 0186, to land twice only: a third would kill the Peacekeeper.)
     let mut t = ScenarioBuilder::new(OPEN).start();
     t.spawn_unit_at(1, PK, P1, v(300.0, 500.0))
-        .spawn_unit_at(1, GUARD, P2, v(700.0, 700.0))
+        .spawn_unit_at(1, GUARD, P2, v(700.0, 715.0))
         .order_at(2, P2, &[id(2)], OrderKind::Hold, false)
         .order_at(2, P1, &[id(1)], OrderKind::Move(Target::Point(v(900.0, 500.0))), false);
     t.run_until(2);
@@ -266,7 +267,7 @@ fn own_and_neutral_units_are_never_picked_and_a_move_doesnt_engage() {
     }
     let arrived = t.sim().tick();
     assert_eq!(attack_ticks(&t, 1), [] as [Tick; 0]);
-    assert!(!attack_ticks(&t, 2).is_empty(), "the Guard shot at it as it passed");
+    assert_eq!(attack_ticks(&t, 2).len(), 2, "the Guard shot at it as it passed");
     // Arrived and idle, with the Guard in sight and in range: it turns on it by itself.
     t.run(60);
     assert_eq!(target(&t, 1), Some(id(2)));
@@ -300,7 +301,8 @@ fn the_debug_switch_turns_auto_targeting_off_and_on() {
     t.debug_at(61, DebugCommand::SetAutoTargeting { on: true })
         .run_until(70);
     assert!(t.sim().auto_targeting());
-    assert_eq!(attack_ticks(&t, 2), [63], "now it does");
+    // The Guard's AimDuration is 4 ticks (design change 0186), the Peacekeeper's 2.
+    assert_eq!(attack_ticks(&t, 2), [65], "now it does");
     assert_eq!(attack_ticks(&t, 3), [63], "and so does the unit on Hold");
 
     // A debug command like the others: a game without them ignores it.

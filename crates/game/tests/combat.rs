@@ -7,15 +7,16 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
 use sc_sim::{
-    Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, SpawnAt, Tick, scenarios,
+    Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, SimEvent, SpawnAt, Tick, scenarios,
 };
 use space_crystals::combat_effects::{
     CombatEffects, CombatEffectsMesh, DEATH_MARKER_TICKS, DeathMarker, HpBar, TRACER_TICKS, hp_bars,
 };
+use space_crystals::command_ui::feedback::{FEEDBACK_TICKS, TARGET_TOO_CLOSE_TEXT, TargetFeedback};
 use space_crystals::fog::{FogOfWar, Sight};
 use space_crystals::platform::DisplayMode;
 use space_crystals::selection::{ControlStates, Selection};
-use space_crystals::sim_driver::{LocalPlayer, PendingCommands, SimRes};
+use space_crystals::sim_driver::{LocalPlayer, PendingCommands, SimEventMessage, SimRes};
 use space_crystals::{AppConfig, build_app};
 
 const P1: PlayerId = PlayerId(1);
@@ -93,11 +94,12 @@ fn effects_visible(app: &mut App) -> bool {
     *query.single(app.world()).unwrap() != Visibility::Hidden
 }
 
-/// A Peacekeeper and a Guard, 160 su apart, attack each other: their first shots land 2 ticks after the orders
-/// (Aim 2, Firing 1) and leave tracers for `TRACER_TICKS`; the hits leave HP bars; the Guard's tenth hit kills the
-/// Peacekeeper, which leaves a marker for `DEATH_MARKER_TICKS`. A selected unit shows its HP bar even at full HP.
-/// A second Peacekeeper of player 1 stands by, so that player 1 still sees the Guard once the first is dead; with
-/// auto-targeting off (a debug command), it only watches.
+/// A Peacekeeper and a Guard, 160 su apart, attack each other: the Peacekeeper's first shot lands 2 ticks after the
+/// orders (Aim 2, Firing 1), the Guard's 4 (Aim 4, its laser rifle: design change 0186), and each leaves a tracer for
+/// `TRACER_TICKS`; the hits leave HP bars; the Guard's third hit of 17 kills the Peacekeeper, which leaves a marker
+/// for `DEATH_MARKER_TICKS`. A selected unit shows its HP bar even at full HP. A second Peacekeeper of player 1
+/// stands by, so that player 1 still sees the Guard once the first is dead; with auto-targeting off (a debug
+/// command), it only watches.
 #[test]
 fn shots_hits_and_deaths_show_for_their_ticks() {
     let mut app = headless_app();
@@ -120,25 +122,37 @@ fn shots_hits_and_deaths_show_for_their_ticks() {
 
     attack(&mut app, P1, PEACEKEEPER, GUARD);
     attack(&mut app, P2, GUARD, PEACEKEEPER);
-    let first_shots = spawned + 3;
-    run_until(&mut app, first_shots);
+    let first_shot = spawned + 3;
+    run_until(&mut app, first_shot);
+    let tracers = &effects(&app).tracers;
+    assert_eq!(tracers.len(), 1, "{tracers:?}");
+    let shot = &tracers[0];
+    assert_eq!(
+        (shot.tick, shot.owner, shot.from, shot.to),
+        (first_shot, Some(P1), Vec2::new(300.0, 300.0), Vec2::new(460.0, 300.0))
+    );
+    let fractions: Vec<f32> = bars(&app).iter().map(|bar| bar.fraction).collect();
+    assert_eq!(fractions, [71.0 / 80.0], "the Guard's");
+    assert!(effects_visible(&mut app));
+
+    let guard_shot = spawned + 5;
+    run_until(&mut app, guard_shot);
     let tracers = &effects(&app).tracers;
     assert_eq!(tracers.len(), 2, "{tracers:?}");
-    let shot = tracers.iter().find(|t| t.owner == Some(P1)).unwrap();
+    let shot = tracers.iter().find(|t| t.owner == Some(P2)).unwrap();
     assert_eq!(
         (shot.tick, shot.from, shot.to),
-        (first_shots, Vec2::new(300.0, 300.0), Vec2::new(460.0, 300.0))
+        (guard_shot, Vec2::new(460.0, 300.0), Vec2::new(300.0, 300.0))
     );
     let mut fractions: Vec<f32> = bars(&app).iter().map(|bar| bar.fraction).collect();
     fractions.sort_by(f32::total_cmp);
-    assert_eq!(fractions, [71.0 / 80.0, 45.0 / 50.0]);
-    assert!(effects_visible(&mut app));
+    assert_eq!(fractions, [33.0 / 50.0, 71.0 / 80.0]);
 
-    run_until(&mut app, first_shots + TRACER_TICKS);
+    run_until(&mut app, guard_shot + TRACER_TICKS);
     assert!(effects(&app).tracers.is_empty(), "faded");
 
-    // Ten hits of 5, one every 8 ticks.
-    let death = first_shots + 9 * 8;
+    // Three hits of 17, one every 24 ticks; meanwhile the Peacekeeper lands three of 9.
+    let death = guard_shot + 2 * 24;
     run_until(&mut app, death);
     assert_eq!(
         effects(&app).deaths,
@@ -151,7 +165,7 @@ fn shots_hits_and_deaths_show_for_their_ticks() {
     );
     let guard_bars = bars(&app);
     assert_eq!(guard_bars.len(), 1, "the Guard's");
-    assert_eq!(guard_bars[0].fraction, 35.0 / 80.0);
+    assert_eq!(guard_bars[0].fraction, 53.0 / 80.0);
 
     run_until(&mut app, death + DEATH_MARKER_TICKS);
     assert!(effects(&app).deaths.is_empty(), "faded");
@@ -161,13 +175,14 @@ fn shots_hits_and_deaths_show_for_their_ticks() {
 /// Slice M3-B (`systems/combat.md > Shields > Display`, design change 0148: "a shield bar sits directly above the HP
 /// bar of every object with Shields"): an object that has Shields gets a shield bar with its HP bar, filled with the
 /// share of its MaxShields it has left, and shows them while its Shields alone are short; one without Shields has no
-/// shield bar. Player 2's Guard shoots player 1's Sabre Legionnaire, 160 su off: its 6 take 6 of the Sabre's 10 Shields
-/// and no HP, so the Sabre's bars show with its HP full, and 0.25 of the Shields back by the end of the tick (`>
-/// ShieldRegenRate`). Once the Guard stops, the Shields regenerate to full and the bars go; a selected Guard shows its
-/// HP bar alone.
+/// shield bar. Player 2's Peacekeeper shoots player 1's Sabre Legionnaire, 160 su off: its 10 take the Sabre's 10
+/// Shields and no HP, so the Sabre's bars show with its HP full, and 0.25 of the Shields back by the end of the tick
+/// (`> ShieldRegenRate`). Once the Peacekeeper stops, the Shields regenerate to full and the bars go; player 2's
+/// Guard, which stands by, selected, shows its HP bar alone. (A Guard's 18, design change 0186, would take HP too.)
 #[test]
 fn an_object_with_shields_shows_a_shield_bar_above_its_hp_bar() {
     const SABRE: ObjectId = ObjectId(1);
+    const SHOOTER: ObjectId = ObjectId(3);
     let mut app = headless_app();
     submit(
         &mut app,
@@ -177,23 +192,85 @@ fn an_object_with_shields_shows_a_shield_bar_above_its_hp_bar() {
     app.update();
     spawn(&mut app, ObjectKind::SabreLegionnaire, P1, Vec2::new(300.0, 300.0));
     spawn(&mut app, ObjectKind::Guard, P2, Vec2::new(460.0, 300.0));
+    spawn(&mut app, ObjectKind::Peacekeeper, P2, Vec2::new(460.0, 380.0));
     app.update();
     let spawned = tick(&app);
     assert!(bars(&app).is_empty(), "full HP and Shields");
-    attack(&mut app, P2, GUARD, SABRE);
+    attack(&mut app, P2, SHOOTER, SABRE);
     run_until(&mut app, spawned + 3);
     let shown: Vec<(f32, Option<f32>)> = bars(&app).iter().map(|bar| (bar.fraction, bar.shields)).collect();
-    assert_eq!(shown, [(1.0, Some(4.25 / 10.0))], "the Sabre's, its HP full");
+    assert_eq!(shown, [(1.0, Some(0.25 / 10.0))], "the Sabre's, its HP full");
 
     let stop = Command::Order {
-        units: vec![GUARD],
+        units: vec![SHOOTER],
         kind: OrderKind::Stop,
         queue: false,
     };
     submit(&mut app, P2, stop);
-    run_until(&mut app, spawned + 3 + 8 + 24);
+    run_until(&mut app, spawned + 3 + 40);
     assert!(bars(&app).is_empty(), "the Shields are full again");
     app.world_mut().resource_mut::<ControlStates>().of_mut(P1).selection = Selection::new([(GUARD, ObjectKind::Guard)]);
     let shown: Vec<(f32, Option<f32>)> = bars(&app).iter().map(|bar| (bar.fraction, bar.shields)).collect();
     assert_eq!(shown, [(1.0, None)]);
+}
+
+/// The feedback message that shows, if any.
+fn feedback(app: &App) -> Option<&'static str> {
+    let feedback = app.world().resource::<TargetFeedback>();
+    feedback.since.map(|_| feedback.text)
+}
+
+/// Gives the client `event` as the sim's of the tick that runs next, as the sim driver forwards them.
+fn sim_event(app: &mut App, event: SimEvent) {
+    let tick = tick(app) + 1;
+    app.world_mut()
+        .resource_mut::<Messages<SimEventMessage>>()
+        .write(SimEventMessage { tick, event });
+}
+
+/// Design change 0182 (`systems/controls/behaviors.md > AttackingObject > Target inside MinRange`): an Attack its unit
+/// can't carry out, the target inside the unit's MinRange and the unit unable to move (a deployed Artillery Rig), fails
+/// "with feedback ("Target too close"; same channel as other refusals)": the feedback band shows it, for
+/// `FEEDBACK_TICKS`, when it is the local player's unit, and not for another player's. No type has a MinRange yet, so
+/// the sim's event is handed to the client as the sim driver would.
+#[test]
+fn an_attack_on_a_target_too_close_shows_its_feedback() {
+    let mut app = headless_app();
+    submit(
+        &mut app,
+        P1,
+        Command::Debug(DebugCommand::SetAutoTargeting { on: false }),
+    );
+    app.update();
+    spawn(&mut app, ObjectKind::Peacekeeper, P1, Vec2::new(300.0, 300.0));
+    spawn(&mut app, ObjectKind::Guard, P2, Vec2::new(340.0, 300.0));
+    app.update();
+    assert_eq!(app.world().resource::<LocalPlayer>().0, P1);
+    assert_eq!(feedback(&app), None);
+
+    sim_event(
+        &mut app,
+        SimEvent::TargetTooClose {
+            unit: GUARD,
+            target: PEACEKEEPER,
+        },
+    );
+    app.update();
+    assert_eq!(feedback(&app), None, "player 2's Guard: not for player 1");
+
+    sim_event(
+        &mut app,
+        SimEvent::TargetTooClose {
+            unit: PEACEKEEPER,
+            target: GUARD,
+        },
+    );
+    app.update();
+    let shown = tick(&app);
+    assert_eq!(feedback(&app), Some(TARGET_TOO_CLOSE_TEXT));
+    assert_eq!(TARGET_TOO_CLOSE_TEXT, "Target too close", "the design's wording");
+    run_until(&mut app, shown + FEEDBACK_TICKS - 1);
+    assert_eq!(feedback(&app), Some(TARGET_TOO_CLOSE_TEXT));
+    app.update();
+    assert_eq!(feedback(&app), None, "gone after FEEDBACK_TICKS");
 }

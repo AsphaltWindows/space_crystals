@@ -184,4 +184,12 @@ pub enum SimEvent {
         origin: TilePos,
         problems: PlacementCheck,
     },
+    /// `unit`'s Attack order on `target` failed: the target is inside the unit's MinRange and the unit can't move to
+    /// back off (`systems/controls/behaviors.md > AttackingObject > Target inside MinRange`, design change 0182: "the
+    /// order fails with feedback ("Target too close"; same channel as other refusals)"; `Sim::step_too_close`). The
+    /// unit stands, with its next queued order, if any, from the next tick.
+    TargetTooClose {
+        unit: ObjectId,
+        target: ObjectId,
+    },
 }
