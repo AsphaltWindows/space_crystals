@@ -1433,3 +1433,27 @@ Each question is its own file, in the Director's format, in `scratchpad/m4/quest
   - Run C and D on Fable. Tell them that `orders/resolution.rs` and `sim/gate.rs` are shared in W2.
   - Tell D that the Colonists goldens and oracle must not change.
 - **Folding answers in.** The Designer answers within the hour, so fold each answer into the briefs that haven't launched. Rewrite a placeholder only when its slice is open.
+
+## 9. Design answers since the plan was adopted
+Quote these in the slice briefs.
+- **0229** (Q0059, and Q0060 points 1–2):
+  - The Optics Lab's placeholders are as proposed: 2x2, 150 SC with no Supplies, 400 frames, HP 400, armour 1/4, Groupable, and no commands. **This unblocks K.**
+  - A Tunnel upgrade takes 480 frames per tier, with the Supplies paid when it is ordered. **This unblocks G.**
+- **0231 and 0232** (Q0060 points 3–6, for G):
+  - An upgrade in progress counts toward the next upgrade's cost.
+  - Cancel Upgrade refunds the current top price, not counting itself (0232 corrects 0231's "exactly what was paid").
+  - On completion, current HP rises with max HP.
+  - Supplies are lost if the Tunnel is destroyed mid-upgrade.
+  - The larger area is reserved from the start of the upgrade.
+- **0233** (Q0061 points 1–2, for E):
+  - A Tunnel build order pays its Supplies when the ghost is placed.
+  - Lingering ghosts and sites count as owned Tunnels for the price.
+  - An order that can't be paid for is refused, with feedback.
+  - Cancelled, replaced or failed orders, and cancelled constructions, refund the current top price.
+- **0234** (Q0061 points 3–5 and 7–9, for E): accepted as proposed.
+  - An unfinished Tunnel offers only Cancel.
+  - The ConstructionHP formula gives the maximum, and damage stays.
+  - The Agent comes out at the footprint's centre and idles.
+  - The site counts for defeat.
+  - The Agent keeps its load.
+  - Enemies see the site, not the Agent.

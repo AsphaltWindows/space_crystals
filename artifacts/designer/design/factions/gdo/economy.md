@@ -34,12 +34,12 @@ GDO's early game is bounded by two build queues that should not sit idle: the De
 ### Economy Targets (GDO vs Colonists)
 The Colonists are the apt one-base comparison for GDO (Cults must balance Recruits' other jobs; the Syndicate should have the lowest one-base saturation income and expand fast, gated by Supplies). Comparing one Extraction Facility against one Robo Portal on the same patches, the intended shape is:
 
-1. **Early on, the Colonists' economy grows faster** — until they reach about 2 Drones per patch.
+1. **Early on, the Colonists lead**: from the start to about 1:40 (restated 2026-11-25, Q0055/Q0072: the Colonists start slightly higher, ≈6.9 vs 6.7, so "grows faster up to 2 Drones per patch" no longer measures cleanly).
 2. **After that, the Colonists grow more slowly** (each extra Drone adds less, and every 6th Drone becomes a Beacon).
 3. **GDO's full saturation yields more Space Crystals per second, and costs less, than the Colonists at 2 Drones per patch.**
 4. **The Colonists' full saturation yields more than GDO's full saturation.**
 
-Reference check (8 adjacent patches in a row, Egress Node 2 grid units from the row, Drone acceleration included): Colonists at 2 Drones per patch ≈ 23 Space Crystals per second for 18 Drones (900 Space Crystals, including 2 Beacons); GDO fully plated = 26.7 per second for 8 plates (600); Colonists fully saturated ≈ 32 per second (~24 working Drones). Targets 3 and 4 hold with current numbers. With 25-second plates and 10-second Drones (one Robo Portal), target 1 is roughly met:
+Reference check (8 adjacent patches in a row, Egress Node 2 grid units from the row, Drone acceleration included): Colonists at 2 Drones per patch ≈ 23 Space Crystals per second for 18 Drones (900 Space Crystals, including 2 Beacons); GDO fully plated = 26.7 per second for 8 plates (600); Colonists fully saturated = 32 per second (24 working Drones). **The table below is the simulated measurement** (user, 2026-11-25, Q0055/Q0072: the measured economy is the design; Drone acceleration per 0205; one Robo Portal producing Drones nonstop, a Beacon whenever capacity runs short), not an estimate:
 
 **Reference geometry** (user, 2026-11-24): the Egress Node sits on the row's **long side, centred along it**, with a **2-grid-unit gap of open ground between the node's edge and the edge of the row's middle patches** (edge to edge, not centre to centre).
 
@@ -49,17 +49,17 @@ Reference check (8 adjacent patches in a row, Egress Node 2 grid units from the 
 
 | Time | Colonists income | GDO income |
 |---|---|---|
-| 0:00 | 6.1 | 6.7 |
-| 0:40 | 12.1 | 10.0 |
-| 1:00 | 15.0 | 13.3 |
-| 1:20 | 16.5 | 16.7 |
-| 1:40 | 19.2 | 20.0 |
-| 2:20 | 23.1 (2 Drones per patch) | 23.3 |
-| 2:40 | 25.7 | 26.7 (fully plated) |
-| 3:00 | 27.9 | 26.7 |
-| 4:00 | 31.9 | 26.7 |
+| 0:00 | 6.9 | 6.7 |
+| 0:40 | 11.4 | 10.0 |
+| 1:00 | 13.3 | 12.9 |
+| 1:20 | 16.0 | 15.2 |
+| 1:40 | 18.7 | 17.6 |
+| 2:20 | 22.9 (2 Drones per patch) | 23.3 |
+| 2:40 | 25.1 | 26.2 (fully plated) |
+| 3:00 | 26.3 | 26.7 |
+| 4:00 | 27.8 | 26.7 |
 
-The Colonists pull ahead in the first minute, the two are close from ~1:20 to ~2:40 (GDO briefly ahead as plates land in 3.33 steps), and the Colonists pass GDO's ceiling around 3:00.
+The Colonists lead from the start to about 1:40, GDO is ahead from about 2:20 to the mid 3:00s as its plates land, and the Colonists pass GDO's ceiling between 3:40 and 4:00, reaching 32 per second at full saturation. (The earlier estimated table, which ignored each new Drone's first trip and the longer trips to the row's end patches, is superseded.)
 
 ## Generator
 GDO power generation structure. Provides power to the GDO global power grid.
