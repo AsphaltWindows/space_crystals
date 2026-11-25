@@ -91,7 +91,10 @@
 > - **Since the plan:**
 >   - 0305 renamed the Acolyte the **Disciple**;
 >   - 0306–0312 sketch its cloud spell, named **Shroud** (0312). They are a concept only, "not for the current playtest": gated N4;
->   - 0313 sketches the Cults' light vehicle, a buggy from the Chop Shop: gated N6, with the vehicles.
+>   - 0313 sketches the Cults' light vehicle, a buggy from the Chop Shop: gated N6, with the vehicles;
+>   - 0314–0318 name it the Jackal and add the Sparrow glider. The Chop Shop and the Airstrip work like the Armory;
+>   - **0319 gives placeholder numbers to every designed Cults building and unit** (it answers Q0092–Q0094 and Q0108 point 1), **so the gated slices and G are in M5.** Planning spike M5-P2 drafts their slices and the waves from W5, as an addendum to this plan;
+>   - **T56 amended (the Director, 2026-11-25):** `Object::lineage` is one entry per Recruit a unit embodies (`Vec<ObjectId>`), not an `Option`. The Jackal consumes 2 Recruits, and "each point of cost [is] attributed to the originating hall of the respective Recruit" (`factions/cults/economy.md > Unit Control Tracking`). C builds it, and F2 concatenates the consumed Recruits' entries.
 > - **M5 starts** after M4-M merges.
 
 ---
