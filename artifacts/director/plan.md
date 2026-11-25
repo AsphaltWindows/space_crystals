@@ -1133,11 +1133,29 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - `PanelSlot::price` and `Conditions::pricing` take a `BuildPrice`.
   - **The robustness fuzz** asserts that nobody is defeated, but one random stream in sixteen lets a Grenadier destroy a base. S1 moved the seed to 0x5eee; M4-M makes the test robust.
 
+- **M4-V One per-viewer event filter** (Opus; merged in `dbefb552`; 1784 tests; goldens unchanged; QA screenshots byte-identical to master's):
+  - **The filter:** `crates/game/src/viewer_events.rs`.
+    - `filter_events` (set `FilterEvents`, in SyncSim) is the only reader of `SimEventMessage`, apart from the QA state dump.
+    - Each event gets an `Audience`:
+      - the owner alone;
+      - whoever sees the object;
+      - whoever sees the place (a shot's path is clipped for every viewer, the shooter's owner included);
+      - a removal, never shown to a player who remembers the object out of sight;
+      - everyone.
+  - **Moved onto it:** the combat effects (tracers, the Laser Turret's laser among them; projectiles, blasts and death markers), the feedback line, the station notice and the per-player selection sync.
+  - **One latent leak closed:** death markers judged hiding by kind (`Hiding::of_kind`), which S2's lowered turret would have broken. `SimEvent::Died` now carries `hiding: Hiding::of(o)`, an additive field with a serde default; events are outside the state hash.
+  - **S2's hook:** `Hiding::of` in `crates/sim/src/vision/hidden.rs` is the one place for a new arm. ARCHITECTURE names it under "Vision > Hidden objects" and in a new section, "Client architecture > Viewer events".
+  - **Tests:**
+    - a table test over every variant (`viewer_events/tests.rs`, `tests/table.rs`), for the owner, an enemy who sees, an enemy in the fog, and with the fog off, plus hidden objects and a turret firing;
+    - a variant with no row fails the test;
+    - `tests/fog_memory/station.rs`: a remembered station removed out of sight stays selected.
+  - **One deliberate change:** a player's own event about an object that died or left in the same frame now reaches that player. Before, it reached no one.
+  - **Open, as built:** Q0090 (an unseen shooter's colour, another player's defeat, marks seen late), marked `Placeholder (M4-V)`. A shot at a hidden object shows over Visible tiles up to it. That can only happen in the tick it hides, since nothing can target what it doesn't see.
+
 ## In progress
   - **M4-S2 Laser Turret, pop-up and Tunnel-built** (**Fable**; brief `scratchpad/briefs/m4s2-popup-turret.md`): the derived pop-up form (T50), hidden and at 6/6 while lowered, rising at enemies, and 0296's blocking rule (a raised pop-up blocks; it rises only when its tile is clear; an idle push for own idle units). Also building from the Tunnel's ExpandMenu (the operation slot, a 75% cancel, a hidden site) and conversion as areas change.
-  - **M4-V One per-viewer event filter** (Opus; brief `scratchpad/briefs/m4v-viewer-event-filter.md`): the technical follow-up. Every client consumer of `SimEvent` goes through one filter for what the local player may perceive, before S2's hidden pop-up arrives. A table test covers every variant, and any leaks found are fixed.
 - **Next**:
-  - **M4 wave 8:** S2 (the pop-up, Tunnel-built turret) is running on **Fable** (brief `scratchpad/briefs/m4s2-popup-turret.md`): 0296 made raised pop-ups block movement, with a footprint-clear rise and an idle push, which is m4-plan's stated trigger for Fable. V (the event filter) runs alongside. Then M (QA; brief `scratchpad/briefs/m4m-qa.md`), which also makes the robustness fuzz robust.
+  - **M4 wave 8:** S2 (the pop-up, Tunnel-built turret) is running on **Fable** (brief `scratchpad/briefs/m4s2-popup-turret.md`): 0296 made raised pop-ups block movement, with a footprint-clear rise and an idle push, which is m4-plan's stated trigger for Fable. V (the event filter) is done (`dbefb552`). Then M (QA; brief `scratchpad/briefs/m4m-qa.md`), which also makes the robustness fuzz robust.
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -1311,7 +1329,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - N7: the Specter.
   - **Questions:**
     - Q0059–Q0071 are all answered, by 0229–0267.
-    - Answered since revision 2: every M4 question, Q0076 to Q0088. Q0076 by 0294 and 0295; Q0077 by 0288; Q0078 by 0283; Q0079 by 0289; Q0080 by 0290; Q0081 by 0291; Q0082 by 0292; Q0083 by 0293; Q0084 by 0296–0298; Q0085 by 0284; Q0086 by 0285, 0299 and 0300; Q0087 by 0301; Q0088 by 0294. Open: Q0089, the 3 GU figures (not blocking).
+    - Answered since revision 2: every M4 question, Q0076 to Q0088. Q0076 by 0294 and 0295; Q0077 by 0288; Q0078 by 0283; Q0079 by 0289; Q0080 by 0290; Q0081 by 0291; Q0082 by 0292; Q0083 by 0293; Q0084 by 0296–0298; Q0085 by 0284; Q0086 by 0285, 0299 and 0300; Q0087 by 0301; Q0088 by 0294. Q0089 by 0303 (as built). Open: Q0090 (what a player perceives of events they don't see; not blocking; as built).
   - **Slice status:**
     - A: done (`fcd06dc`).
     - C: done (`f67df212`; Q0077).
@@ -1328,6 +1346,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - F: done (`2cbb777e`). **Wave 5 is complete.**
     - K: done (`bbdbea73`).
     - S1: done (`50f51141`).
+    - V: done (`dbefb552`).
     - S2: running (wave 8, **Fable**; brief `scratchpad/briefs/m4s2-popup-turret.md`).
     - G: done (`a737a69a`). **Wave 6 is complete.**
     - U: done (`f34e4e6e`).
@@ -1337,7 +1356,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - L: done (`6d05e084`).
     - The rest are queued in the waves above.
   - **Technical follow-ups** (the Director's):
-    - **One per-player event filter in the client.** M4-O found that each event consumer filters for the viewer on its own, and fixed one leak (a hidden Hideout's death marker). Put the filter in one place before more hidden objects arrive (S2's pop-up turret, N4–N7). **Running as M4-V.**
+    - **One per-player event filter in the client.** M4-O found that each event consumer filters for the viewer on its own, and fixed one leak (a hidden Hideout's death marker). Put the filter in one place before more hidden objects arrive (S2's pop-up turret, N4–N7). **Done: M4-V, `dbefb552`.**
     - **"Target too close" for a location** (`systems/controls/behaviors.md > Target inside MinRange`): an Attack Ground that can't back off gives up without the feedback (a TODO in `orders/attack_ground.rs`). No M4 kind can target the ground with a MinRange, so the first that can (the Gunner in M5, or the Artillery Rig) adds it.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Militant (renamed from Soldier, 0302), Gunner.
@@ -1453,7 +1472,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0086 | The EjectMenu's order, zero-count tiles and state after a click; when Tunnel Areas are drawn; recalling an all-held group | no | answered by 0285 (point 1), 0299 (points 2, 4, 5) and 0300 (point 3, and the preview's red cells). Point 4 differs from the built version: enemy areas are never shown, and placing a Tunnel previews its Tier 2 and Tier 3 areas (M4-J3) |
 | Q0087 | Does the Agent that finishes a Tunnel wait out the transit delay before it can leave? | no | answered by 0301: (a), as built; rallied produced units have no delay either (M4-J3 updates the marks) |
 | Q0088 | The Agents' jam: what each fix costs (the reply to 0286 and 0287). It isn't head-on; the infantry sidestep exists in the code; only pass-through reaches 12.5 at 0–2 GU | no (answered) | answered by 0294: option (c) with a 4 s mining time; stage 0 documented; 1a not adopted |
-| Q0089 | Three Agents at 3 GU measure 10.67 SC/s against the table's 12.5 (−14.7%, inside ±15%): is the opening target the third Agent at work by 0:40, or the Tunnel at 12.5? | no | open; as built, the third Agent at work by 0:40, and the table met within tolerance (M4-L) |
+| Q0089 | Three Agents at 3 GU measure 10.67 SC/s against the table's 12.5 (−14.7%, inside ±15%): is the opening target the third Agent at work by 0:40, or the Tunnel at 12.5? | no (answered) | answered by 0303: (a) as built; the third Agent at work by 0:40, and the table is an ideal ("It's better with some variation") |
+| Q0090 | What a player perceives of events they don't see: an unseen shooter's colour, another player's defeat, marks seen late (M4-V's open doubts) | no | open; as built, option (a) for each point, marked `Placeholder (M4-V)` in `viewer_events.rs` |
 
 ## Design change entries
 Last triaged: 0282.
@@ -1737,4 +1757,5 @@ Last triaged: 0282.
 | 0300 The EjectMenu stays open after a click; the preview also marks cells overlapping own other Tunnels' areas; the area shows while placing an expansion | done (points 1 and 3 as built, M4-J2 and M4-F; point 2, M4-J3 `5e2e9419`) | answers Q0086 point 3 (Q0086 complete) |
 | 0301 No transit delay for the Agent that finishes a Tunnel, nor for produced units rallied inside | done (as built, M4-E `4933e094`; M4-J3 `5e2e9419`: the verification as a test, and the marks) | answers Q0087 |
 | 0302 The Cults' Soldier is renamed Militant (`factions/cults/units/militant.md`); the Armory's Q reads "Train Militant" | queued (M5: no code mentions the Soldier yet) | — |
+| 0303 The Syndicate's opening target means the third Agent at work by about 0:40; the Agent table is an ideal, and real income varies a little below it | done (as built, M4-L `6d05e084`; no change) | answers Q0089 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
