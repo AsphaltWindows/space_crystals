@@ -83,12 +83,14 @@ Rationale: the drop-off time (not carry or mining time) sets the ceiling, so len
 - PickUpDuration: 48 frames (3 seconds)
 - DropOffDuration: 48 frames (3 seconds)
 - Drop-off side: Tunnel Side D
+- PickUpReach: 8 space units from the Supply Delivery Station's edge; DropOffReach: 8 space units from the **Supplies hatch** on Side D (user, 2026-11-26; Q0082; placeholders, as for crystals)
+- **Which Tunnel**: the nearest own operational Tunnel measured to its **crystal hatch**, the same measure as for crystals (user, 2026-11-26; Q0082), even though Supplies are delivered at Side D.
 
 (user, 2026-11-25; Q0067)
 - **Several Agents at one station**: any number pick up at once, as at patches.
 - **When a Supply leaves the station**: when the pick-up ends. A pick-up starts only if a Supply remains that no running pick-up has claimed.
 - **An empty station**: the owner gets a **notification** (notifications not designed yet), and every Agent picking up there **stands next to it indefinitely**, keeping its job, waiting for the next supply delivery.
-- **Switching resources**: an Agent carrying Space Crystals that is ordered to gather Supplies goes **straight to the station**; its crystals are **lost when it picks up the Supply**. (Assumed the same the other way: a carried Supply is lost when it mines crystals.)
+- **Switching resources**: an Agent carrying Space Crystals that is ordered to gather Supplies goes **straight to the station**; its crystals are **lost when it picks up the Supply**: at the **end** of the pick-up, when the new load arrives. An Agent interrupted mid-pick-up keeps its crystals. The same holds the other way: a carried Supply is lost when the Agent **finishes** mining a crystal load (user, 2026-11-26; Q0082).
 
 ## Agent ObjectInterfaceState
 
