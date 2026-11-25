@@ -59,7 +59,7 @@ Starting Space Crystals: **100** (same as GDO and the Colonists). With 100, the 
 
 Each side of the Tunnel has a distinct function:
 - **Side A**: Unit entrance/exit (units enter and emerge from the Tunnel Network here). It has **two paths: one for entering, one for exiting** (user, 2026-11-25). **Each path is one unit wide** and fixes where units go in and come out: entering and exiting units never block each other, and an army enters or leaves single file, each unit walking through at its normal speed with normal spacing (Tunnel Network > Walking in). (The Tier 3 air doors have their own rate: one aircraft per 8 frames, placeholder; EjectMenu.)
-- **Side B**: Crystal drop-off, a **hatch** for Space Crystals (Agents deliver Space Crystals here). Each hatch is **1 grid square** long, near the middle of its side (user, 2026-11-25; exact square: the art's choice, mirrored with the Tunnel)
+- **Side B**: Crystal drop-off, a **hatch** for Space Crystals (Agents deliver Space Crystals here). Each hatch is **1 grid square** long, near the middle of its side (user, 2026-11-25): of the side's two middle squares, the one **farther from Side A**, keeping Agents off the entry and exit paths (user, 2026-11-26; Q0076); it turns and flips with the Tunnel
 - **Side C** (opposite Side A): Back wall (no gameplay function)
 - **Side D**: Supply drop-off, a **hatch** for Supplies (Agents deliver Supplies here)
 

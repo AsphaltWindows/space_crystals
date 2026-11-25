@@ -46,6 +46,7 @@ Agents gather resources and deliver them to Tunnels. Crystal and Supply drop-off
 - **Which Tunnel**: the **nearest** own operational Tunnel (straight line to its crystal hatch), **regardless of how many other Agents already use it**; no load balancing. It is chosen when the Gather's first return starts and kept for that Gather (a new Gather picks again; a lost Tunnel means picking the nearest again). A Drop Off order delivers to the Tunnel clicked, once.
 - **The hatch** is **1 grid square** long, near the middle of its side (Tunnel > SymmetryType - ABCD). An Agent must be within DropOffReach of the hatch to deliver.
 - **Waiting at the hatch**: an Agent waits within reach (or as close as it can get) while another drops off, and the first to arrive delivers next. **It waits as long as it takes; it never gives up** (unlike the Failure rule for other orders), so a worker never silently stops with a load.
+- **Search radius** (user, 2026-11-26; Q0076): when its patch runs out (or can't be reached), an Agent looks for another known patch within **6 grid units** of itself, the Drone's value (placeholder).
 - **Patches under a GDO Extraction Plate** can't be mined (as for Drones). **Agents of different players** may mine the same patch.
 
 ### Space Crystals
