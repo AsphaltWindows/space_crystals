@@ -82,6 +82,56 @@ fn recruits_from_every_side_go_round_to_the_entrance() {
     assert_eq!(failed(&t), []);
 }
 
+/// Slice M5-F1's QA run, kept as it went: eleven Recruits Enter an Armory, ten go in and the eleventh's Enter fails
+/// for want of room; Eject All lets the ten out of side C, and all eleven are ordered in again, so that ten walk round
+/// the Armory in a crowd and along its wall to side B. Ten go in again, and again only the last one's Enter fails, for
+/// want of room. With the walk ending against the wall, as into a Tunnel, two didn't: one, pressed along the wall,
+/// slid ever more slowly towards a spot it couldn't get round the corner to, the one behind it waited, and both gave
+/// up (`holding::ENTRY_STANDOFF_SU`).
+#[test]
+fn ejected_recruits_go_round_to_side_b_and_back_in() {
+    // The QA run's game: a 32 × 24 map, the Armory at tile (7, 5) (x 448..640, y 320..448: side B is x = 640), a
+    // Storage, and eleven Recruits east of side B, all spawned in tick 1.
+    let mut t = cults(&flat(32, 24)).start();
+    for (kind, at) in [(ARMORY, tile(7, 5)), (ObjectKind::Storage, tile(2, 9))] {
+        let orientation = Default::default();
+        t.debug_at(
+            1,
+            DebugCommand::Spawn {
+                kind,
+                owner: Some(P1),
+                at,
+                orientation,
+            },
+        );
+    }
+    for x in [780.0, 812.0] {
+        for y in [320.0, 352.0, 384.0, 416.0, 448.0] {
+            t.spawn_unit_at(1, RECRUIT, P1, Vec2::new(x, y));
+        }
+    }
+    t.spawn_unit_at(1, RECRUIT, P1, Vec2::new(844.0, 384.0));
+    let recruits: Vec<ObjectId> = (3..14).map(id).collect();
+    t.at(2, P1, enter(&recruits, A1));
+    t.at(130, P1, eject_all(&[A1]));
+    t.at(260, P1, enter(&recruits, A1));
+    run_checked(&mut t, 129);
+    assert_eq!((inside(&t, A1).len(), failed(&t).len()), (10, 1));
+    run_checked(&mut t, 259);
+    assert_eq!(inside(&t, A1), [], "all ejected");
+    run_checked(&mut t, 520);
+    assert_eq!(
+        inside(&t, A1).len(),
+        10,
+        "{:?}\n{}",
+        failed(&t),
+        t.ascii(Some(Vec2::new(640.0, 384.0)))
+    );
+    let [(_, true), (_, true)] = failed(&t)[..] else {
+        panic!("only for want of room: {:?}", failed(&t));
+    };
+}
+
 /// The plan's acceptance: "The 11th Recruit's Enter fails, with feedback." Placeholder (Q0104 point 2): "The Enter ends
 /// and it idles beside the Armory (the normal Failure rule)": the one that gets to the entry path with ten inside
 /// stays out, idle, by the entrance, and its owner is told (`SimEvent::EnterFailed` with `full`, the client's feedback

@@ -174,6 +174,7 @@ impl Paths {
         EntryPath {
             outward: self.outward,
             spot: self.entry,
+            standoff: 0.0,
         }
     }
 
@@ -215,6 +216,9 @@ pub struct EntryPath {
     pub outward: Vec2,
     /// The spot, on the side's line.
     pub spot: Vec2,
+    /// How far clear of the wall an entering unit's walk ends ([`EntryPath::stand`]), space units: none for a
+    /// Tunnel's, whose units walk up against it (M4-C); `holding::ENTRY_STANDOFF_SU` for a building that holds units.
+    pub standoff: f32,
 }
 
 impl EntryPath {
@@ -227,10 +231,10 @@ impl EntryPath {
         }
     }
 
-    /// Where an entering unit with half extents `half` walks to: on the spot, "just outside" the side, its box against
-    /// the wall.
+    /// Where an entering unit with half extents `half` walks to: on the spot, "just outside" the side, its box
+    /// [`EntryPath::standoff`] clear of the wall (against it, for a Tunnel).
     pub fn stand(&self, half: Vec2) -> Vec2 {
-        self.spot + self.outward * (self.outward.abs().dot(half) + WALL_CLEARANCE)
+        self.spot + self.outward * (self.outward.abs().dot(half) + WALL_CLEARANCE + self.standoff)
     }
 
     /// Whether a unit with half extents `half` at `pos` has walked into the path: its box is within [`ENTRY_REACH_SU`]

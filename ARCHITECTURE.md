@@ -307,7 +307,11 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     at the gate, Placeholder (Q0104 point 4); `accepts` names the kind, else `NoTransit::NotAccepted`,
     `Reject::NotAccepted` when none of the units is let in). The walk ends at `network::EntryPath` (`outward`, `spot`;
     `stand(half)`, `reached(pos, half)`), `EntryPath::of_object`: a Tunnel's from `Paths::entry_path`, a holder's
-    the middle of its entrance side (`holding::entry_path`, Placeholder (Q0104 point 1)). **The room is judged on
+    the middle of its entrance side (`holding::entry_path`, Placeholder (Q0104 point 1)). A Tunnel's units walk up
+    against the wall (M4-C, unchanged); a holder's stop `holding::ENTRY_STANDOFF_SU` (4 su, within the reach) clear
+    of it (`EntryPath::standoff`): against it, a Recruit pressed along the wall by the crowd coming round the corner of
+    the entrance side slid ever more slowly towards a spot it couldn't get round the corner to, and gave up with the
+    one behind it (`entering.rs`, the QA run's game). **The room is judged on
     arrival** (`Sim::room`: capacity less the pool, Placeholder (Q0104 points 2 and 5)), not at the gate: a unit that
     gets there with no room loses its order and idles (`SimEvent::EnterFailed { full: true }`, the client's "No room
     inside" line). The right-click resolves an own operational holder that takes the unit's kind to Enter
@@ -2546,15 +2550,16 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `tests/commands/tunnel_network.rs` (a right-click on an own Tunnel is Enter; units that go in leave the selection
   and stay in their control groups, whose recall selects those on the map).
 - **Holding tests** (slice M5-F1) are `crates/sim/tests/holding/` (`entering.rs`: ten Recruits filing in, timed, from
-  a block and from every side, the eleventh's Enter failing for want of room, the gate, the right-click, an Enter
-  whose Armory goes; `eject.rs`: Eject All streaming the pool out of side C one at a time, a Recruit that goes in
-  during the stream, the gate; `evacuation.rs`: ten evacuated alive in the fixed order at exact spots, the free spots
-  around a Storage, an enemy and a unit in the doorway, the evacuees of a defeated player; `loads.rs`: a load kept
-  inside and out by real gathering, and through an evacuation; `saves.rs`: saves at every stage and a replay), each
-  tick checking `testing::dangling_references`. `holding/tests.rs` has the entry path in every orientation and the
-  kinds let in; `sim/holding/tests.rs` an Armory under construction (no Cults site exists before slice M5-E) and the
-  Eject All mark hashed and saved only while set; `placement/spots/tests.rs` the rings and both rounds. The ignored
-  `holding_perf.rs` times eight Armories cycling, then evacuated (*Object model > Buildings that hold units*).
+  a block and from every side, the eleventh's Enter failing for want of room, the QA run's ejected ten going round
+  to side B and back in, the gate, the right-click, an Enter whose Armory goes; `eject.rs`: Eject All streaming the
+  pool out of side C one at a time, a Recruit that goes in during the stream, the gate; `evacuation.rs`: ten
+  evacuated alive in the fixed order at exact spots, the free spots around a Storage, an enemy and a unit in the
+  doorway, the evacuees of a defeated player; `loads.rs`: a load kept inside and out by real gathering, and through an
+  evacuation; `saves.rs`: saves at every stage and a replay), each tick checking `testing::dangling_references`.
+  `holding/tests.rs` has the entry path in every orientation and the kinds let in; `sim/holding/tests.rs` an Armory
+  under construction (no Cults site exists before slice M5-E) and the Eject All mark hashed and saved only while set;
+  `placement/spots/tests.rs` the rings and both rounds. The ignored `holding_perf.rs` times eight Armories cycling,
+  then evacuated (*Object model > Buildings that hold units*).
 - **Beacon Deployment tests** (slice M3-F) are `crates/sim/tests/deploy/` (the walk to the footprint's centre and the
   start on arrival, the 48 frames, the HP from 20 to 120 and damage carried through (0110), Beacon Capacity 10/10 to
   9/10 to 9/15 and a cancel to 11/10 (0112), the cancel's fractions of HP and Shields and its place (0109, 0111), the

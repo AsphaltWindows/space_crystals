@@ -41,12 +41,14 @@ fn the_entry_path_is_the_middle_of_side_b() {
     let path = entry_path(&armory(Rotation::R0, false)).unwrap();
     assert_eq!(path.outward, Vec2::new(1.0, 0.0));
     assert_eq!(path.spot, Vec2::new(448.0, 320.0));
-    // A Recruit (24 x 24) walks to it with its box against the wall, and is in once it is there.
+    // A Recruit (24 x 24) walks to it with its box 4 su clear of the wall, and is in once it is there, or nearer.
     let half = Vec2::splat(12.0);
     let stand = path.stand(half);
-    assert_eq!(stand, Vec2::new(448.0 + 12.0 + crate::network::WALL_CLEARANCE, 320.0));
+    let against = 448.0 + 12.0 + crate::network::WALL_CLEARANCE;
+    assert_eq!(stand, Vec2::new(against + 4.0, 320.0));
     assert!(path.reached(stand, half));
-    assert!(!path.reached(stand + Vec2::new(12.0, 0.0), half), "8 su at most");
+    assert!(path.reached(Vec2::new(against, 320.0), half));
+    assert!(!path.reached(stand + Vec2::new(8.0, 0.0), half), "8 su at most");
 }
 
 /// In each orientation the entry path is the middle of the side lettered B, which faces away from the exit doorway's
