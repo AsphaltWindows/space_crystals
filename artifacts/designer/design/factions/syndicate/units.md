@@ -106,7 +106,14 @@ One shot every 20 frames (1.25 s) = 4 damage per second, a third of a Guard's.
 
 ### Gathering
 
-Agents gather resources and deliver them to Tunnels. Crystal and Supply drop-offs use separate Tunnel sides (B and C respectively), so they do not block each other.
+Agents gather resources and deliver them to Tunnels. Crystal and Supply drop-offs use separate Tunnel sides (B and D respectively), so they do not block each other.
+
+#### Gathering rules (user, 2026-11-25; Q0066)
+- **The Drone's job rules apply to Agents** (factions/colonists/units.md > Drone > Gathering: Last load of a patch, Interrupted mining, Other orders keep the load, Gather while carrying a load, Drop Off order, When a Gather ends), with two exceptions: Agents **share patches** (no occupancy rule), and there is **no Set Drop-off** command.
+- **Which Tunnel**: the **nearest** own operational Tunnel (straight line to its crystal hatch), **regardless of how many other Agents already use it**; no load balancing. It is chosen when the Gather's first return starts and kept for that Gather (a new Gather picks again; a lost Tunnel means picking the nearest again). A Drop Off order delivers to the Tunnel clicked, once.
+- **The hatch** is **1 grid square** long, near the middle of its side (Tunnel > SymmetryType - ABCD). An Agent must be within DropOffReach of the hatch to deliver.
+- **Waiting at the hatch**: an Agent waits within reach (or as close as it can get) while another drops off, and the first to arrive delivers next. **It waits as long as it takes; it never gives up** (unlike the Failure rule for other orders), so a worker never silently stops with a load.
+- **Patches under a GDO Extraction Plate** can't be mined (as for Drones). **Agents of different players** may mine the same patch.
 
 #### Space Crystals
 - CarryCapacity: 50 Space Crystals per load
@@ -114,7 +121,7 @@ Agents gather resources and deliver them to Tunnels. Crystal and Supply drop-off
 - DropOffDuration: 64 frames (4 seconds)
 - Drop-off side: Tunnel Side B
 - MiningReach: 8 space units — an Agent can mine once its Silhouette is within 8 su of the patch's edge (placeholder)
-- DropOffReach: 8 space units — within 8 su of Side B (placeholder)
+- DropOffReach: 8 space units — within 8 su of the **crystal hatch** on Side B (placeholder)
 - Patch sharing: any number of Agents may mine the same Space Crystals patch at the same time (unlike Drones, see Colonists > Drone > Patch Occupancy). The only queue in an Agent's trip is at the Tunnel's Side B.
 
 Because a Tunnel's crystal side accepts one drop-off at a time, a Tunnel takes in at most 50 Space Crystals per 4 seconds = **12.5 Space Crystals per second**. Saturation by distance from Side B (Agent speed 1.5 grid units per second; trip = 5 s mining + 4 s drop-off + walking both ways):
@@ -135,13 +142,21 @@ Rationale: the drop-off time (not carry or mining time) sets the ceiling, so len
 - CarryCapacity: 1 Supply per trip
 - PickUpDuration: 48 frames (3 seconds)
 - DropOffDuration: 48 frames (3 seconds)
-- Drop-off side: Tunnel Side C
+- Drop-off side: Tunnel Side D
+
+(user, 2026-11-25; Q0067)
+- **Several Agents at one station**: any number pick up at once, as at patches.
+- **When a Supply leaves the station**: when the pick-up ends. A pick-up starts only if a Supply remains that no running pick-up has claimed.
+- **An empty station**: the owner gets a **notification** (notifications not designed yet), and every Agent picking up there **stands next to it indefinitely**, keeping its job, waiting for the next supply delivery.
+- **Switching resources**: an Agent carrying Space Crystals that is ordered to gather Supplies goes **straight to the station**; its crystals are **lost when it picks up the Supply**. (Assumed the same the other way: a carried Supply is lost when it mines crystals.)
 
 ### Agent ObjectInterfaceState
 
+**Panel letters (4x3 grid)** (user, 2026-11-25; Q0068, "fine for now"): **Q** Move, **A** Build Tunnel, **S** Drop Off Resources, **D** Build Laser Turret (greyed until available), **X** Stop. No Attack, Hold Position, Patrol or AttackMove buttons; the Agent attacks by right-click. These letters replace the older ones listed below where they differ.
+
 #### DefaultState commands:
 - **A: Build Tunnel** — enters AwaitingPlacement for a Tunnel (StateOnlyTransition). Ghost preview follows cursor, snapped to grid. Tinted green when valid, red when invalid. R rotates 90° clockwise, Shift+R counter-clockwise. F flips horizontally, Shift+F flips vertically. Left-click valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Escape/right-click cancels back to DefaultState.
-- **B: Drop Off Resources** — targeted command (CommandIssuingTransition). Requires clicking an own Tunnel. Agent walks to the appropriate side automatically (Side B for crystals, Side C for supplies). Always visible, greyed out when Agent is not carrying resources.
+- **B: Drop Off Resources** — targeted command (CommandIssuingTransition). Requires clicking an own Tunnel. Agent walks to the appropriate side automatically (Side B for crystals, Side D for supplies). Always visible, greyed out when Agent is not carrying resources.
 - **Build Laser Turret** (hotkey TBD) — enters AwaitingPlacement for a Laser Turret (StateOnlyTransition), same placement flow as Build Tunnel. Left-click a valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Visible but greyed out until the player owns an Optics Lab.
 
 #### Unit Commands:
