@@ -930,6 +930,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0070 | The Syndicate economy check | no | open; M4 builds the proposals |
 | Q0071 | Deferred Syndicate content: which items will get their numbers or design in time for M4? | no | open; M4 builds the proposals |
 | Q0072 | Q0055 re-measured after 0205: every figure is within ±15%; target 1 fails at 2:20 only (the start is 6.93 against the GDO's 6.67); saturation at 24, not 18–22 | no | open; the oracle pins the new figures |
+| Q0073 | AttackMove: does a chase given up by the Failure rule count as "can't reach" until 0230's triggers fire? (corridor cycle found by M3-G3) | no | open; M3-L4 builds A |
 
 ## Design change entries
 Last triaged: 0233.
