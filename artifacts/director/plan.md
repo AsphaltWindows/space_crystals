@@ -626,11 +626,35 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - The design leaves the rule to us (`units.md > Patch Occupancy` point 4).
     - Consider longest-waiting first once Q0055 is answered, since it would move the pinned oracle figures.
 
+- **M3-G2 stuck behind friends** (Fable; merged in `d98ae13`; 1343 tests):
+  - **Cause.** A unit chasing its attack's target behind its own side's standing attackers "queued" (`docs/movement.md` 6.5 rule 2), and only waited. Units in a firing line stop a step out of line, so the unit behind stepped to and fro in the pocket between two of them.
+  - **Fix.** A queueing unit detours round the row of standing units, to the end on the side facing the target (`movement/round.rs`, `stuck.rs`, `collide/hold.rs`, `Mover::go_round`, `Mover::detour_end`). Each attempt counts against the leg's three. With no way round, the unit stands still and never fails. Plain moves are unchanged.
+  - **Also.** `sim/removal.rs::forget` now stops a walk to a last-seen point when its order ends. This was an older bug, found through soak seed 17.
+  - **Tests.** `attack_behind_friends.rs` has 8:
+    - four Peacekeepers in a column all fire within 200 ticks, in 16 layouts;
+    - also covered: eight Peacekeepers, Guards, lines, and corridors with no room.
+
+    One case isn't covered: eight Guards on an AttackMove, where the last is still walking round in 1 of 12 layouts.
+  - **Goldens and perf.** `attack_move_battle` and `colonists_vs_gdo` were re-blessed. The perf counters are identical, and the timings are unchanged within the noise.
+  - **Question Q0057:**
+    - melee attackers behind their own side, within 3 GU, give the target up (2–3 of 8 Sabres never strike);
+    - whether a unit should wait without limit;
+    - whether three attempts at a way round are right.
+
+- **M3-L3 target lost ends the attack** (merged in `33b3e3f`; 1349 tests):
+  - **0200.** An Attack or Follow whose target leaves vision ends at once, after the 8-tick fog delay. The unit stops where it is, or its next queued order starts that tick.
+    - 0034's walk to the last seen position is gone, along with `last_seen`/`lost`. The new `AttackOrder::seen` is `#[serde(default)]`.
+    - A target remembered when the order is given is still walked to (0139).
+    - A detour round friends (M3-G2) ends where the unit is.
+  - **AttackMove.** It keeps M3-L2's placeholder: a target lost to the fog counts as dropped for the rest of the leg, and is taken again only within weapon range. Taking it again normally loops near walls (soak seeds 8 and 29 fail), so this went to Q0058.
+  - **M3-G2's `removal.rs::forget` stop is removed**, since no walk to a last-seen point is left.
+  - **Goldens.** `duel_3v3` changes only in a hash. In `fog_chase` the Peacekeeper stops at (404,352). `soak_sweep` passes 40/40.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M3-T toggles set a target state** (Opus; brief `scratchpad/briefs/m3t-toggles-target-state.md`): 0198 for Convert and the Riot Shield, with 0199 (the ActiveGroup) and 0202 (orders during the shield toggle) folded in.
-  - **M3-L3 target lost ends the attack** (Opus; brief `scratchpad/briefs/m3l3-target-lost-stops.md`): 0200 for Attack and Follow.
-  - **M3-G2 stuck behind friends** (Fable; brief `scratchpad/briefs/m3g2-stuck-behind-friends.md`): the last Peacekeeper of an attack-move column never gets into range (M3-K2's walkthrough).
+  - **M3-G3 no indefinite wait** (Opus; brief `scratchpad/briefs/m3g3-no-indefinite-wait.md`): 0223; a unit with no way round follows the Failure rule.
+  - **M3-K3 Drone acceleration** (Opus; brief `scratchpad/briefs/m3k3-drone-acceleration.md`): 0205's constants; the Colonists oracle re-measured for Q0055; goldens re-blessed.
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
   - **M4 Syndicate plan:** a planning agent is drafting it (brief `scratchpad/briefs/m4-planning.md`).
@@ -777,10 +801,11 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     | L2 | done (`f039e5c`) |
     | K1 | done (`f73262a`; Q0055) |
     | K2 | done (`3559b40`) |
-    | L3 (0200 target lost ends Attack and Follow; brief `scratchpad/briefs/m3l3-target-lost-stops.md`) | running (wave 7) |
-    | G2 (Fable: unit stuck behind friends firing; brief `scratchpad/briefs/m3g2-stuck-behind-friends.md`) | running (wave 7) |
-    | K3 (0205 Drone acceleration; re-run the Colonists oracle and saturation curve, report the table for Q0055, re-pin and re-bless) | queued (first free slot) |
+    | L3 | done (`33b3e3f`; Q0058) |
+    | G2 | done (`d98ae13`; Q0057) |
+    | K3 (0205 Drone acceleration; the Colonists oracle re-measured for Q0055; brief `scratchpad/briefs/m3k3-drone-acceleration.md`) | running (wave 7) |
     | J3 (0201 markers for Gather, Drop Off and Set Drop-off; 0206 a revealed attacker's shots drawn from it; K2's client polish: label under a marker, build tint over unexplored ground, F2 camera per player, Peacekeeper label, "SC" clash) | queued (next free slot after K3) |
+    | G3 (0223: no indefinite wait behind blockers; the Failure rule applies; brief `scratchpad/briefs/m3g3-no-indefinite-wait.md`) | running (wave 8) |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -855,15 +880,17 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0048 | Pressing other commands while targeting (0066 vs 0162); a portal group only partly warping in | no | answered: point 1 by 0184 (as built), point 2 by 0185 (M3-U) |
 | Q0049 | Convert pressed again while a conversion waits for Cooldown (0153) | no | answered by 0198 (replaces 0197; M3-T) |
 | Q0050 | The ActiveGroup when an unfinished group's last building completes | no | answered by 0199 (M3-T) |
-| Q0051 | A target that outruns sight is lost at once, despite the fog delay | no | answered by 0200 (M3-L3) |
+| Q0051 | A target that outruns sight is lost at once, despite the fog delay | no | answered by 0200 (done, M3-L3 `33b3e3f`) |
 | Q0052 | Gathering UI: a Drone's right-click on enemies, the Set Drop-off pointer, who sees a Drone's load, Gather indicators | no | answered by 0201 (points 1–3 as built; markers M3-J3) |
 | Q0053 | Riot Shield toggle edge cases: orders while lowering, Lower during a waiting raise, the ActiveGroup during a deferred raise | no | answered: points 2–3 by 0198, point 1 by 0202 (M3-T) |
 | Q0054 | AttackMove: a dropped target not chased again on that leg; the MinRange back-off spot; a cornered unit | no | answered by 0204 (as built M3-L2) |
 | Q0055 | The Colonists' measured economy misses the table: 1:00, 3:00 and 4:00 outside ±15%; targets 1 and 4 fail (full saturation needs 27 Drones) | no | open; M3-K1 pins the measured figures; no game number changed (0108) |
 | Q0056 | Should a revealed attacker's shots be drawn from the attacker, or only over Visible tiles (a gap of about 140 px, M3-K2)? | no | answered by 0206 (B; M3-J3) |
+| Q0057 | An attacker blocked by its own side near its target: melee units within 3 GU give the target up (2–3 of 8 Sabres never strike); should a unit wait without limit; three attempts at a way round | no | answered by 0223 (points 1 A, 2 B, 3 A; M3-G3) |
+| Q0058 | AttackMove: is a target lost to the fog left alone for the rest of the leg, like one dropped at the leash? (taking it again loops near walls: soak seeds 8 and 29) | no | open; as M3-L2 built it (A) |
 
 ## Design change entries
-Last triaged: 0220.
+Last triaged: 0228.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -1053,7 +1080,7 @@ Last triaged: 0220.
 | 0197 Convert pressed again while a conversion is deferred cancels it; in a group, per unit (converted switch back, mid-conversion left out, waiting cancel) | superseded by 0198 (never built; M3-K2 told to drop it) | answers Q0049; changes M3-R's behaviour |
 | 0198 A mode toggle (Convert, Riot Shield) sets a target state: type and group switch at the press, even when deferred; the ActiveGroup follows; only the ActiveGroup receives the press | in progress (new slice M3-T) | answers Q0049 (replaces 0197) and Q0053 points 2–3; changes M3-R and M3-S |
 | 0199 The ActiveGroup when it disappears: on a type change the joined group becomes active, the panel resets and targeting ends; when the last member dies or leaves, the next group in Tab order (wrapping) | in progress (M3-T, folded in) | answers Q0050 |
-| 0200 A target lost from vision ends Attack and Follow at once; the unit stops or goes on to its next order (replaces 0034's walk to the last seen position) | in progress (M3-L3) | answers Q0051 |
+| 0200 A target lost from vision ends Attack and Follow at once; the unit stops or goes on to its next order (replaces 0034's walk to the last seen position) | done (M3-L3, `33b3e3f`); AttackMove keeps M3-L2's dropped-target placeholder (Q0058) | answers Q0051 |
 | 0201 Gathering UI: a Drone's right-click on enemies, the Set Drop-off pointer and who sees the load confirmed; Gather, Drop Off and Set Drop-off get their own markers | points 1–3 done (as built M3-J2); point 4 queued (M3-J3) | answers Q0052 |
 | 0202 Orders during the Riot Shield toggle follow the new type from the press; an Attack given while lowering is held until the shield is down | in progress (M3-T, folded in) | answers Q0053 point 1 |
 | 0203 The Rocketman's normal attack has a MinRange (value TBD) | queued (waiting for the value; the MinRange rules are built, M3-L2) | context for Q0054 |
@@ -1065,4 +1092,10 @@ Last triaged: 0220.
 | 0211, 0213, 0214 Vehicle deploy is a queueable order, can't be cancelled once started, switches type at completion; orders given meanwhile are held and checked against the deployed type | queued (with the first deploying vehicle: Laser Battery, Artillery Rig or the Transport's Burrow and Surface) | not the Drone's Beacon Deployment, which stays as M3 built it (0214) |
 | 0212 Stop while deploying winds the deploy back | superseded by 0213 | never built |
 | 0215–0220 Subterranean Transport, a new Syndicate infantry transport (Burrow and Surface on the deploy model, hidden underground unless detected, area damage still hits it, surfaces on tiles a tracked vehicle can cross that have no building, passengers die with it); every DrillUnit hidden underground unless detected | queued (M4 N3; hiding needs the detection system, TBD) | concept; capacity, timings and detection TBD |
+| 0221–0222 The Subterranean Transport requires a Forge and drives into Tunnels loaded; passengers stay aboard in the network, and only its own Tunnel space counts | queued (M4 N3) | concept |
+| 0223 Attackers blocked by their own side: no special crowd logic. Melee units within 3 GU give up (as built); farther out a unit goes round if it can, else the Failure rule applies (about 7 s), with no indefinite wait; a few attempts, no re-checking. New principle: default behaviour is predictable, not optimal | queued (M3-G3) | answers Q0057; removes M3-G2's and M1-E's indefinite wait |
+| 0224 The Tunnel: Side A has an entry path and an exit path; Sides B and C are hatches for crystals and Supplies; Side D has no function; the look changes by tier; T3 adds air doors | queued (M4: A, C, D and I; air doors deferred with air units) | art direction for three tiers |
+| 0225 Each Side A path takes one unit at a time at a fixed position; entering and exiting don't block each other | queued (M4-C) | how long a unit holds a path is TBD (an M4 question) |
+| 0226–0227 The Phantom, a Syndicate hovering aircraft from the Aerospace Assembly: requires an Optics Lab, rises from a T3 Tunnel's air door, red laser against air and ground, a 60–90° turret arc, Guard-like but squishier and faster | queued (M4, deferred: numbers TBD) | concept |
+| 0228 The Phantom's 60–90° is the total turret cone; the rally line no longer cites chasing into the fog (no rule change) | queued (M4, with the Phantom); the doc fix needs no code | follows Q0058's context note |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

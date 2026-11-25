@@ -3,10 +3,10 @@
 //!
 //! [`close_in`] is the core of AttackingObject (steps 1 to 4): approach the target until the attack reaches it,
 //! stand while it does, and go after it again when it leaves range. The Attack order ([`attack`]) adds the order's
-//! ends (the target destroyed, lost from vision, or out of reach for good), its walk to a target its owner only
-//! remembers (design change 0139) and its wait behind a raised Riot Shield (design change 0150); idle units
-//! ([`idle`]) and AttackMove (`travel`) run it on the enemies they acquire themselves; Hold Position ([`hold`])
-//! never moves.
+//! ends (the target destroyed, lost from vision: design change 0200, or out of reach for good), its walk to a
+//! target its owner only remembers (design change 0139) and its wait behind a raised Riot Shield (design change
+//! 0150); idle units ([`idle`]) and AttackMove (`travel`) run it on the enemies they acquire themselves; Hold
+//! Position ([`hold`]) never moves.
 
 use glam::Vec2;
 
@@ -85,18 +85,24 @@ pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world
 /// ([`World::known`]). Returns whether the behaviour is complete.
 /// - Step 5: the target is destroyed (the removal path completes the order, `Sim::remove_objects`), or the unit
 ///   can't attack it at all (phase 5e dropped it, or the unit has no attack).
-/// - Step 6 (design change 0034): the target is no longer visible to the unit's owner, and isn't remembered (a
-///   unit). The unit moves to its **last seen position** (MovingToLocation) and the order completes there; it is
-///   never tracked through the fog, even if it comes back into sight on the way. A target the owner never saw while
-///   the order ran (a queued Attack whose target left sight before its turn) has no such position, and the order
-///   completes at once: a placeholder, the design doesn't say.
+/// - Step 6, **target lost from vision** (design change 0200, answering question Q0051; it replaces design change
+///   0034's walk to the last seen position): once the owner has seen the target while the order ran
+///   ([`AttackOrder::seen`]), the target no longer visible to it (`World::sees`: the fog delay of the tiles that
+///   just left sight counts as seen) ends the order at once, "exactly as when the target is destroyed": the unit
+///   engages nothing and "stops where it is", and is idle, its idle auto-targeting taking over, or goes on to its
+///   next queued order in the same tick (`orders::update`). It never walks after the target into the fog. That holds
+///   for a structure that the fog closes over too, which the owner remembers then: the walk to a remembered target
+///   below is for one not seen since the order began. A Firing or a Cooldown under way runs its course
+///   (`systems/combat.md > Firing`). A unit the owner doesn't see as the order begins (a queued Attack whose target
+///   left sight before its turn: units aren't remembered) is no longer visible either, and the order completes at
+///   once.
 /// - **A remembered target** (design change 0139, `core/vision.md > Explored > Targeting remembered objects`): the
-///   owner doesn't see it, but remembers it (a structure). "The order goes to the object's last-known position"
-///   ([`walk_to_remembered`]), with nothing engaged, so that phase 5e reads nothing of it: the walk is the same
-///   whether or not the target still stands. Once the owner sees it, the unit engages it again and attacks; once the
-///   owner sees its place without it, the order ends where the unit is ("the unit stops there and takes its next
-///   queued order or idles": `Sim::follow_targets`). A walk that ends without the owner seeing it (no way there)
-///   ends the order.
+///   owner doesn't see it, but remembers it (a structure), and hasn't seen it since the order began. "The order goes
+///   to the object's last-known position" ([`walk_to_remembered`]), with nothing engaged, so that phase 5e reads
+///   nothing of it: the walk is the same whether or not the target still stands. Once the owner sees it, the unit
+///   engages it again and attacks; once the owner sees its place without it, the order ends where the unit is ("the
+///   unit stops there and takes its next queued order or idles": `Sim::follow_targets`). A walk that ends without
+///   the owner seeing it (no way there) ends the order.
 /// - **The Riot Shield** (design change 0150: "Explicit Attack → follows the target while shielded, resumes
 ///   attacking when lowered"): while the unit may not attack, the order is on hold. The unit follows the target as a
 ///   Move to it would ([`approach`]: it follows a unit, and goes up to anything else and waits there), and the
@@ -106,72 +112,39 @@ pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world
 ///   ([`too_close`]).
 /// - `> Failure`: the approach gave up ([`Closing::GaveUp`]).
 pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, world: &World) -> bool {
-    if state.lost {
-        return unit.mover.status != MoveStatus::Moving;
-    }
-    let known = world.known(unit.owner, id);
-    if let Known::Remembered { position, .. } = known {
-        unit.engage(None);
-        state.chasing = false;
-        state.backing_off = None;
-        state.on_hold = None;
-        return walk_to_remembered(unit, &mut state.remembered, position, world);
-    }
-    if let Known::Seen(target) = known
-        && !unit.may_attack
-    {
+    let target = match world.known(unit.owner, id) {
+        Known::Seen(target) => target,
+        Known::Remembered { position } if !state.seen => {
+            unit.engage(None);
+            return walk_to_remembered(unit, &mut state.remembered, position, world);
+        }
+        // Lost from vision (design change 0200), or a unit out of sight as the order began.
+        Known::Remembered { .. } | Known::Gone => {
+            unit.engage(None);
+            unit.halt();
+            return true;
+        }
+    };
+    state.seen = true;
+    if !unit.may_attack {
         state.remembered = false;
         state.chasing = false;
         state.backing_off = None;
-        state.last_seen = Some(target.pos);
         let follow = state.on_hold.get_or_insert_with(Default::default);
         approach(unit, id, follow, world);
         return false;
     }
-    let target = match known {
-        Known::Seen(target) => {
-            // Back from the walk to a remembered target, or from behind the shield: the unit engages its target
-            // again (the move it was on isn't the approach of `close_in`).
-            if std::mem::take(&mut state.remembered) | state.on_hold.take().is_some() {
-                unit.engage(Some(id));
-            }
-            if !unit.attack.as_ref().is_some_and(|attack| attack.target == Some(id)) {
-                if state.chasing || state.backing_off.is_some() {
-                    unit.mover.stop();
-                }
-                return true;
-            }
-            target
+    // Back from the walk to a remembered target, or from behind the shield: the unit engages its target again (the
+    // move it was on isn't the approach of `close_in`).
+    if std::mem::take(&mut state.remembered) | state.on_hold.take().is_some() {
+        unit.engage(Some(id));
+    }
+    if !unit.attack.as_ref().is_some_and(|attack| attack.target == Some(id)) {
+        if state.chasing || state.backing_off.is_some() {
+            unit.mover.stop();
         }
-        Known::Gone if state.on_hold.is_some() || unit.attack.as_ref().is_some_and(|a| a.target == Some(id)) => {
-            if !unit.may_move() {
-                // Firing and Cooldown run on; the unit sets off when they are over.
-                return false;
-            }
-            unit.engage(None);
-            state.chasing = false;
-            state.backing_off = None;
-            state.on_hold = None;
-            return match state.last_seen {
-                Some(at) => {
-                    unit.mover.go_to(MoveGoal::Point(at), None, world.tick);
-                    state.lost = true;
-                    false
-                }
-                None => {
-                    unit.halt();
-                    true
-                }
-            };
-        }
-        Known::Gone | Known::Remembered { .. } => {
-            if state.chasing || state.backing_off.is_some() {
-                unit.mover.stop();
-            }
-            return true;
-        }
-    };
-    state.last_seen = Some(target.pos);
+        return true;
+    }
     if let Some(attrs) = unit.attrs()
         && inside_min_range(attrs, unit.shape().gap(&target.shape))
     {

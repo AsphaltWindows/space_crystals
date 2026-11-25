@@ -14,8 +14,8 @@ use sc_sim::orders::state::{Behaviour, GatherPhase};
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::vision::FOG_DELAY_TICKS;
 use sc_sim::{
-    Command, DebugCommand, Faction, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand, Rally, Scenario,
-    SpawnAt, Target, TargetView, TilePos,
+    Command, DebugCommand, Faction, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand, Rally,
+    Scenario, SpawnAt, Target, TargetView, TilePos,
 };
 use space_crystals::command_ui::PointerDisplay;
 use space_crystals::sim_driver::SimRes;
@@ -320,8 +320,9 @@ fn a_robo_portal_rallied_on_a_patch_sends_its_drones_to_mine() {
 
 /// The acceptance for 0136: a Robo Portal right-clicked onto an enemy unit in sight rallies on it, and its new Drone,
 /// unarmed, follows it ("Enemy or other object → Move to it: Follow if it is a unit", `factions/colonists/units.md >
-/// Drone > Right-Click Resolution`). Once the enemy is out of sight, the Drone goes to where it was last seen, and
-/// its order ends there (design change 0034).
+/// Drone > Right-Click Resolution`), and waits by it, out of the portal. Once the enemy is out of sight, the Drone's
+/// Follow ends and it stays where it is (design change 0200), and the rally point is a ground rally where the enemy
+/// was last seen (design change 0088).
 #[test]
 fn a_robo_portal_rallied_on_an_enemy_unit_sends_its_drones_after_it() {
     let mut app = colonists_field();
@@ -339,6 +340,13 @@ fn a_robo_portal_rallied_on_an_enemy_unit_sends_its_drones_after_it() {
     updates(&mut app, 2);
     let drone = new_units(&app, before)[0];
     assert_eq!(current(&app, drone), Some(OrderKind::Move(Target::Object(id(enemy)))));
+    // Out through the portal's east side (x 1280), it waits by the enemy, at rest (a Drone brakes off its momentum
+    // when it stops, slice M3-G).
+    until(&mut app, 200, "the Drone waits by the enemy", |app| {
+        let unit = app.world().resource::<SimRes>().object(id(drone)).unwrap();
+        let mover = unit.mover.as_ref().unwrap();
+        mover.status != MoveStatus::Moving && mover.momentum == Vec2::ZERO && unit.pos.x > 1280.0 + 18.0
+    });
     // The enemy leaves at once, far out of sight.
     let last_seen = pos(&app, enemy);
     submit(
@@ -349,14 +357,13 @@ fn a_robo_portal_rallied_on_an_enemy_unit_sends_its_drones_after_it() {
             pos: Vec2::new(3800.0, 2900.0),
         }),
     );
-    until(&mut app, 600, "the Drone's order ends", |app| {
+    until(&mut app, 10, "the Drone's Follow ends", |app| {
         current(app, drone).is_none()
     });
-    assert!(
-        pos(&app, drone).distance(last_seen) < 80.0,
-        "at the last-seen spot: {}",
-        pos(&app, drone)
-    );
+    let stopped = pos(&app, drone);
+    updates(&mut app, 30);
+    assert_eq!(pos(&app, drone), stopped, "it stays where it stopped");
+    assert_eq!(rally_of(&app, PORTAL), Some(Rally::Point(last_seen)));
 }
 
 /// Design change 0168's Verification: "Select 6 Peacekeepers (one walking), right-click the walking one: it stops;

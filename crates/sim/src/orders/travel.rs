@@ -60,8 +60,11 @@ pub(super) fn walk_to_remembered(unit: &mut Unit, walking: &mut bool, spot: Vec2
 ///   building or the Tunnel Network doesn't exist yet. **The hook**: such an object will be gone from
 ///   `World::get`, or carry a flag this function reads where it looks the target up;
 /// - the move fails (`> Failure`);
-/// - the target leaves the owner's vision (design change 0034, extended to Follow): the unit goes to its last seen
-///   position and the order completes there. The player's own units are always seen.
+/// - the target **goes out of the owner's vision** (design change 0200, answering question Q0051, "same as
+///   AttackingObject > Target lost from vision"; it replaces design change 0034's walk to the last seen position):
+///   the order completes at once and the unit "stops where it is", or goes on to its next queued order. The fog
+///   delay of the tiles that just left sight counts as seen (`World::sees`). A unit out of sight as the order
+///   begins (queued behind others) ends it at once the same way. The player's own units are always seen.
 ///
 /// **Itself** (design change 0168, `systems/controls/commands.md > Move`: "Following itself = Stop"): a unit whose
 /// Move names itself, one of the units a right-click on it ordered, stops: "its order ends at once, as if it had
@@ -71,29 +74,17 @@ pub(super) fn approach(unit: &mut Unit, id: ObjectId, state: &mut Approach, worl
         unit.halt();
         return true;
     }
-    if state.lost {
-        return unit.mover.status != MoveStatus::Moving;
-    }
     let target = match world.known(unit.owner, id) {
         Known::Seen(target) => target,
-        Known::Remembered { position, .. } => {
+        Known::Remembered { position } => {
             state.moving = false;
             return walk_to_remembered(unit, &mut state.remembered, position, world);
         }
-        // A followed unit out of the owner's sight (below), or an object it knows nothing of.
+        // A followed unit out of the owner's sight (design change 0200), or an object it knows nothing of.
         Known::Gone => {
             state.moving = false;
-            return match state.last_seen {
-                Some(at) => {
-                    unit.mover.go_to(MoveGoal::Point(at), None, world.tick);
-                    state.lost = true;
-                    false
-                }
-                None => {
-                    unit.halt();
-                    true
-                }
-            };
+            unit.halt();
+            return true;
         }
     };
     // Seen at last: the move goes on to the object itself.
@@ -117,7 +108,6 @@ pub(super) fn approach(unit: &mut Unit, id: ObjectId, state: &mut Approach, worl
         }
         return unit.mover.status != MoveStatus::Moving;
     }
-    state.last_seen = Some(target.pos);
     if within {
         if state.moving {
             unit.mover.stop();
@@ -255,21 +245,24 @@ fn distance_to_route(p: Vec2, route: &[Vec2]) -> f32 {
 /// 3. While engaged ([`pursue`]; design change 0180, "the leash limits chasing only"): a target within weapon range
 ///    is always fought. Out of range, the unit goes after it only within AttackMoveLeashDistance of the
 ///    PathReference ([`Leg::reference`], [`Leg::follow_path`]); a target it could only reach beyond the leash is
-///    dropped. Dropped, destroyed or no longer a ValidTarget (out of sight, say): the unit disengages and resumes
-///    MovingToLocation from where it is, with a new walking path; the PathReference stays.
+///    dropped. Dropped, destroyed or no longer a ValidTarget (out of sight: its AttackingObject completes, design
+///    change 0200): the unit disengages and resumes MovingToLocation from where it is, with a new walking path; the
+///    PathReference stays.
+///    **A dropped target is left alone for the rest of the leg** (design change 0204, answering question Q0054,
+///    "for now"): a target the unit let go of at the leash while it still lived is not taken again on this leg
+///    ([`Leg::dropped`]), "unless it comes within weapon range", where it is fought as always.
 /// 4. Arrived: the leg is over. `> Failure`: as MovingToLocation.
 ///
 /// Placeholder readings, where the design is silent:
-/// - **Letting go for the rest of the leg**: a target the unit let go of while it still lived, out of reach within
-///   the leash or lost from sight on the way ("dropped, and the unit resumes toward its destination"), is left alone
-///   for the rest of the leg ([`Leg::dropped`]): fought only while within weapon range, and never chased. Otherwise a
-///   unit whose way to an enemy at the edge of its sight leads out of that sight would let go, walk on, see it again,
-///   take it again and turn back, for good (the soak's seed 1). Taken again after a fixed while, it would be when the
-///   unit had walked on less than the stretch of its route from which it sees the enemy; and let go of only until it
-///   had left the unit's sight, two such enemies would be taken in turn, each chase taking the unit out of sight of
-///   the other (seed 29). One the unit can't get to
-///   ([`Closing::GaveUp`]) is left alone for [`GIVE_UP_RETRY_TICKS`] ([`Leg::ignored`], design change 0181: "retries
-///   after 32 ticks").
+/// - **A target lost from sight on the way** counts as dropped too, left alone for the rest of the leg (an open
+///   question to the Designer, raised by slice M3-L3). Were it taken again whenever seen, as an enemy not yet
+///   fought, a unit whose way to an enemy at the edge of its sight leads out of that sight would let go, walk on, see
+///   it again, take it again and turn back, for good (the soak's seeds 1, 8 and 29). Taken again after a fixed
+///   while, it would be when the unit had walked on less than the stretch of its route from which it sees the enemy;
+///   and let go of only until it had left the unit's sight, two such enemies would be taken in turn, each chase
+///   taking the unit out of sight of the other (seed 29).
+/// - One the unit can't get to ([`Closing::GaveUp`]) is left alone for [`GIVE_UP_RETRY_TICKS`] ([`Leg::ignored`],
+///   design change 0181: "retries after 32 ticks").
 /// - **A target inside the unit's MinRange** is dropped at once, too close to hit (design change 0182): the scan
 ///   picks a hittable one instead.
 pub(super) fn march(unit: &mut Unit, leg: &mut Leg, group: Option<PathGroup>, world: &World) -> LegStatus {
@@ -331,7 +324,7 @@ fn pursue(unit: &mut Unit, leg: &mut Leg, pursuit: &mut Pursuit, world: &World) 
         return false;
     };
     if !world.valid_target(unit, attrs, target) {
-        // Out of sight, say.
+        // Out of sight, say: the attack completes (design change 0200), and the target counts as dropped (`march`).
         leg.drop_target(id);
         return false;
     }

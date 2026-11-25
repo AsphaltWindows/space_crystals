@@ -3,8 +3,8 @@
 //! Explored, and one that comes back into sight meanwhile simply stays Visible. During the delay the tile is
 //! genuinely Visible: everything on it shows and counts as seen, for the player's units as for its views. So a target
 //! at the very edge of sight no longer blinks out of view for a tick. This is the one fix for that: AttackingObject
-//! and Follow have no grace period of their own, and design change 0034's last-seen logic (`orders::engage`,
-//! `orders::travel`) runs as before, only less often.
+//! and Follow have no grace period of their own (design change 0200, Q0051's option A: "the fog delay stays per
+//! tile"), and their target lost from vision ends them (`orders::engage`, `orders::travel`) once the delay is over.
 //!
 //! - **Ticks**: a tile that no source sees any more in phase 5f of tick `t` lingers. It is Visible at the end of
 //!   ticks `t` to `t + FOG_DELAY_TICKS − 1`, and phase 5f of tick `t + FOG_DELAY_TICKS` (its end) turns it Explored,

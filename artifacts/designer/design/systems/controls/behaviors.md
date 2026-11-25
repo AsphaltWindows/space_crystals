@@ -1,5 +1,10 @@
 # Controls: Behaviors and Action Channels
 
+## Core principle: predictable, not optimal
+(user, 2026-11-25) **Every unit's default behavior must be understandable and predictable** in every situation. We do **not** write algorithms that make default behavior optimal for whatever situation the units find themselves in, and we don't aim for silky-smooth crowd pathing. Avoiding bottlenecks and getting the best out of units is **the player's job**. Different units need different amounts of oversight and control to get good results, and that is part of deciding which units to make for a situation.
+
+When a behavior question comes up, prefer the **simple, explainable rule** over a cleverer one that handles more cases, as long as the simple rule fails in ways the player can see and fix (e.g. a unit that gives up and goes idle, then re-acquires a target by itself).
+
 ## BaseBehaviorState[UnitBase]
 Internal data maintained by the base behavior as it executes its algorithm in response to the BaseCommandState. Includes computed data such as planned paths, progress tracking, and any other cached information the behavior needs across frames. Parameterized by UnitBase as different bases may need to store different kinds of intermediate results (e.g., a Glider's circling parameters vs. a Wheeled Vehicle's turn radius planning).
 
@@ -167,6 +172,12 @@ Gliders cannot stop. Instead of stopping when in range, the Glider performs stra
 ### Failure:
 If the unit repeatedly fails to make progress toward the target, behavior complete.
 
+
+### Blocked by its own side
+(user, 2026-11-25; Q0057; applies the Core principle above) An attacker whose way to its target is blocked by other units, its own side's included:
+- **Within 3 grid units of the target** (MovingToObject > Blocked near the target): the approach counts as arrived. If it is **not in weapon range** there (typically melee units behind the front rank), it **gives up the target**: an explicit Attack completes and the unit is idle; an AttackMove drops the target for the rest of the leg (AttackMovingToLocation). An idle unit then re-acquires targets by itself (BaseAutoTargeting > Unreachable auto-targets).
+- **Farther out**: it pathfinds around the occupied space if there is a way round (systems/units.md > UnitCollision > Ground Collision). If there isn't, the normal **Failure** rule applies (re-route attempts, then give up after about 7 s); it does **not** wait behind the blockers indefinitely.
+- No special crowd logic (rings, queueing, re-checking for spots opening along a row): getting units into good positions is the player's job.
 
 ### Target inside MinRange
 (user, 2026-11-24) On an explicit Attack whose target is inside the weapon's MinRange, a unit that can move **backs off** until the target is outside MinRange, then attacks. A unit that can't move (e.g. a deployed Artillery Rig) can't carry it out: the order fails with feedback ("Target too close"; same channel as other refusals).
