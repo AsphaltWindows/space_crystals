@@ -626,11 +626,26 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - The design leaves the rule to us (`units.md > Patch Occupancy` point 4).
     - Consider longest-waiting first once Q0055 is answered, since it would move the pinned oracle figures.
 
+- **M3-G2 stuck behind friends** (Fable; merged in `d98ae13`; 1343 tests):
+  - **Cause.** A unit chasing its attack's target behind its own side's standing attackers "queued" (`docs/movement.md` 6.5 rule 2), and only waited. Units in a firing line stop a step out of line, so the unit behind stepped to and fro in the pocket between two of them.
+  - **Fix.** A queueing unit detours round the row of standing units, to the end on the side facing the target (`movement/round.rs`, `stuck.rs`, `collide/hold.rs`, `Mover::go_round`, `Mover::detour_end`). Each attempt counts against the leg's three. With no way round, the unit stands still and never fails. Plain moves are unchanged.
+  - **Also.** `sim/removal.rs::forget` now stops a walk to a last-seen point when its order ends. This was an older bug, found through soak seed 17.
+  - **Tests.** `attack_behind_friends.rs` has 8:
+    - four Peacekeepers in a column all fire within 200 ticks, in 16 layouts;
+    - also covered: eight Peacekeepers, Guards, lines, and corridors with no room.
+
+    One case isn't covered: eight Guards on an AttackMove, where the last is still walking round in 1 of 12 layouts.
+  - **Goldens and perf.** `attack_move_battle` and `colonists_vs_gdo` were re-blessed. The perf counters are identical, and the timings are unchanged within the noise.
+  - **Question Q0057:**
+    - melee attackers behind their own side, within 3 GU, give the target up (2–3 of 8 Sabres never strike);
+    - whether a unit should wait without limit;
+    - whether three attempts at a way round are right.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M3-T toggles set a target state** (Opus; brief `scratchpad/briefs/m3t-toggles-target-state.md`): 0198 for Convert and the Riot Shield, with 0199 (the ActiveGroup) and 0202 (orders during the shield toggle) folded in.
   - **M3-L3 target lost ends the attack** (Opus; brief `scratchpad/briefs/m3l3-target-lost-stops.md`): 0200 for Attack and Follow.
-  - **M3-G2 stuck behind friends** (Fable; brief `scratchpad/briefs/m3g2-stuck-behind-friends.md`): the last Peacekeeper of an attack-move column never gets into range (M3-K2's walkthrough).
+  - **M3-K3 Drone acceleration** (Opus; brief `scratchpad/briefs/m3k3-drone-acceleration.md`): 0205's constants; the Colonists oracle re-measured for Q0055; goldens re-blessed.
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
   - **M4 Syndicate plan:** a planning agent is drafting it (brief `scratchpad/briefs/m4-planning.md`).
@@ -778,8 +793,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     | K1 | done (`f73262a`; Q0055) |
     | K2 | done (`3559b40`) |
     | L3 (0200 target lost ends Attack and Follow; brief `scratchpad/briefs/m3l3-target-lost-stops.md`) | running (wave 7) |
-    | G2 (Fable: unit stuck behind friends firing; brief `scratchpad/briefs/m3g2-stuck-behind-friends.md`) | running (wave 7) |
-    | K3 (0205 Drone acceleration; re-run the Colonists oracle and saturation curve, report the table for Q0055, re-pin and re-bless) | queued (first free slot) |
+    | G2 | done (`d98ae13`; Q0057) |
+    | K3 (0205 Drone acceleration; the Colonists oracle re-measured for Q0055; brief `scratchpad/briefs/m3k3-drone-acceleration.md`) | running (wave 7) |
     | J3 (0201 markers for Gather, Drop Off and Set Drop-off; 0206 a revealed attacker's shots drawn from it; K2's client polish: label under a marker, build tint over unexplored ground, F2 camera per player, Peacekeeper label, "SC" clash) | queued (next free slot after K3) |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
@@ -861,9 +876,10 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0054 | AttackMove: a dropped target not chased again on that leg; the MinRange back-off spot; a cornered unit | no | answered by 0204 (as built M3-L2) |
 | Q0055 | The Colonists' measured economy misses the table: 1:00, 3:00 and 4:00 outside ±15%; targets 1 and 4 fail (full saturation needs 27 Drones) | no | open; M3-K1 pins the measured figures; no game number changed (0108) |
 | Q0056 | Should a revealed attacker's shots be drawn from the attacker, or only over Visible tiles (a gap of about 140 px, M3-K2)? | no | answered by 0206 (B; M3-J3) |
+| Q0057 | An attacker blocked by its own side near its target: melee units within 3 GU give the target up (2–3 of 8 Sabres never strike); should a unit wait without limit; three attempts at a way round | no | open; as M3-G2 built it |
 
 ## Design change entries
-Last triaged: 0220.
+Last triaged: 0222.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -1065,4 +1081,5 @@ Last triaged: 0220.
 | 0211, 0213, 0214 Vehicle deploy is a queueable order, can't be cancelled once started, switches type at completion; orders given meanwhile are held and checked against the deployed type | queued (with the first deploying vehicle: Laser Battery, Artillery Rig or the Transport's Burrow and Surface) | not the Drone's Beacon Deployment, which stays as M3 built it (0214) |
 | 0212 Stop while deploying winds the deploy back | superseded by 0213 | never built |
 | 0215–0220 Subterranean Transport, a new Syndicate infantry transport (Burrow and Surface on the deploy model, hidden underground unless detected, area damage still hits it, surfaces on tiles a tracked vehicle can cross that have no building, passengers die with it); every DrillUnit hidden underground unless detected | queued (M4 N3; hiding needs the detection system, TBD) | concept; capacity, timings and detection TBD |
+| 0221–0222 The Subterranean Transport requires a Forge and drives into Tunnels loaded; passengers stay aboard in the network, and only its own Tunnel space counts | queued (M4 N3) | concept |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

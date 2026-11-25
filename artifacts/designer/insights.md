@@ -29,9 +29,8 @@
 
 - **Q0055** (not blocking): Colonists economy misses the table (1:00 −16%, 3:00 −15%, 4:00 −24%; target 1 fails, target 4 only from 27 Drones). Options A accept measured / B change numbers / C change benchmark line (e.g. 2nd Robo Portal; one-portal line banks 320 by 1:00) / D widen tolerance. Step taken: Drone thrust/drag ×1.5 (0205) with a re-measure request. **Wait for the Director's new table, then decide with the user.** Context: plate payback 22.5 s running / ~47 s from order; Drone ~36 s / ~46 s (middle patch); growth per producer ~equal (~8 SC/s per minute), hence target 1 fails.
 
-- **Q0057** (not blocking): attacker blocked by its own side near the target. Pt1 melee within 3 GU "arrives" and gives up (A) / go round + wait (B) / B for explicit Attack only (C); pt2 ranged queue behind firing line waits forever (A) / give up after 7 s (B); pt3 look-again: 3 attempts (A) / every N s (B) / when a unit ahead dies or leaves (C).
 
-All others through Q0056 answered (this session: 0197–0206).
+All others through Q0057 answered (this session: 0197–0206, 0223).
   - All questions answered through Q0048 (2026-11-24/25).
 - Yielding (0023): only no-command units yield; Hold Position/busy don't; modes (Riot Shield) irrelevant; deployed Artillery Rig = fixed obstacle. TBD sidestep distance, allies. Watch: mining workers don't yield → possible clots at patches (worker collision while gathering never designed).
 
@@ -115,6 +114,7 @@ New standing decisions worth remembering: Drones Groupable + lingering build gho
 - In lists, the user reads in order and stops at the first item they disagree with: items BEFORE it are agreed, items AFTER it are unread (2026-11-23, Q0013.4; 0050/0051). Never treat later items as agreed. Ask ONE thing per message.
 - Don't claim how other games work unless sure; say plainly when unsure (2026-11-23: I overstated SC2/AoE2 behaviour; user checked me).
 - User WANTS to hear edge cases in full and expects me to CONTRADICT them when they misjudge impact (2026-11-23: they said magic-box centres-vs-silhouettes 'doesn't make a big difference' as a test; I wrongly agreed — it matters a lot for 2-unit / line groups). Never just agree to be agreeable; say plainly when something matters.
+- **CORE PRINCIPLE (user, 2026-11-25): unit behavior = predictable, not optimal.** No clever situational algorithms; the player manages bottlenecks/micro; units differ in how much control they need. Use it to judge behavior questions (systems/controls/behaviors.md > Core principle).
 - **Deploy (Artillery Rig, Laser Battery) is NOT a mode toggle** (0211, 0213, 0214): a queueable order, not cancellable, type switches at completion; orders given meanwhile are held, ones the deployed unit can't do are dropped. Drone→Beacon is a third model (instant type, cancellable).
 - **Mode toggles (Convert, Riot Shield, likely future ones) set a target state**: the press goes to the ActiveGroup, type/group switches at the press, units work toward the target; spam ends with everyone in the same state (user, 2026-11-25).
 - User prefers Director questions presented ONE AT A TIME, with plain explanations; they like concrete comparisons and may reference StarCraft themselves.
