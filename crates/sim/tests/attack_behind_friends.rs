@@ -115,7 +115,7 @@ fn assert_all_fire(kind: ObjectKind, n: u32, formation: Formation, attack: bool,
 
 /// The bug: four Peacekeepers attack-move in a column onto a building, and each of them fires, in 16 layouts (how
 /// far apart they walk, and which row they come along: straight at the building's east face, or past its corner).
-/// Before the fix the last one never fired in 5 of them, and the third in 2.
+/// Before the fix one of them never fired in 5 of the 16: the last in 3, the third in 2.
 ///
 /// **The bound**, 200 ticks from the order: the last of them walks 450 su to where the first stopped (113 ticks at
 /// 4 su), stands behind the row for `JAMMED_TICKS` (12), goes round at most half of it (three Peacekeepers, 40 su

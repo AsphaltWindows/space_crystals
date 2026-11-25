@@ -998,11 +998,11 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   `JAMMED_TICKS` behind a unit with no goal; it asks for no path. One after a lost race (the unit now in the way
   moved after this unit's last attempt, `Body::moved`) is free. With no way round, or no attempt left, the unit
   **waits and stands** (`stuck::waits_in_queue`, `World::hold`): no step aside, no failure, and on the moment the
-  way straight ahead is free. Measured (`tests/attack_behind_friends.rs`): the last of four Peacekeepers in a
-  column fires on a building within 135 ticks of the order in all 16 layouts, where it never fired in 5; the last
-  of eight within 255. **Never give a queueing unit a path request for the row**: no grid shows it. A melee unit
-  behind its owner's attackers is within `OCCUPIED_ARRIVAL_GU` of its target, so the occupied-target rule comes
-  first and its approach ends there (an open design question, see the M3-G2 report).
+  way straight ahead is free. Measured (`tests/attack_behind_friends.rs`): four Peacekeepers in a column all fire
+  on a building within 135 ticks of the order in all 16 layouts, where one of the four never fired in 5; eight
+  within 255. **Never give a queueing unit a path request for the row**: no grid shows it. A melee unit behind
+  its owner's attackers is within `OCCUPIED_ARRIVAL_GU` of its target, so the occupied-target rule comes first
+  and its approach ends there (an open design question, see the M3-G2 report).
 - **Movement models** (`movement/follow.rs`, `movement/drag.rs`; `docs/movement.md > 6.7`): path following, lane
   seeking, the rules after the sweep, yielding and the stuck clock are shared (`follow`), and a model replaces only
   the "direction → facing and velocity" part. Two are built: the units that stop within the tick (every GDO unit
