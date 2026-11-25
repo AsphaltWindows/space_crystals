@@ -5,11 +5,12 @@
 //! one"; and `> MovingToObject`, a Follow "same as AttackingObject > Target lost from vision".
 //!
 //! Here: the queued order after an Attack and after a Follow; a structure the fog covers while an Attack on it runs,
-//! which the player may order again; AttackMove, which resumes its leg; and an idle unit whose own target leaves its
-//! sight. Elsewhere: the stop itself (`behaviours_attack.rs`, `behaviours_travel.rs`), the target kept through the
-//! fog delay and lost after it (`fog_delay.rs`), an Attack on a structure remembered when it is given, which walks to
-//! the record (design change 0139, `remembered_targets.rs`), and rally points on enemies, unchanged
-//! (`production/rally.rs`, `production/drone_rally.rs`).
+//! which the player may order again; AttackMove, which resumes its leg; an idle unit whose own target leaves its
+//! sight; and a unit on its way round its owner's attackers (slice M3-G2), which stops there. Elsewhere: the stop
+//! itself (`behaviours_attack.rs`, `behaviours_travel.rs`), the target kept through the fog delay and lost after it
+//! (`fog_delay.rs`), an Attack on a structure remembered when it is given, which walks to the record (design change
+//! 0139, `remembered_targets.rs`), and rally points on enemies, unchanged (`production/rally.rs`,
+//! `production/drone_rally.rs`).
 //!
 //! Every `TestSim` checks the invariants I1–I7 and V1 after each tick.
 
@@ -317,4 +318,54 @@ fn an_idle_unit_stops_where_its_target_left_sight_and_takes_it_again_within_its_
     );
     assert_eq!(pos(&t, 1), stopped, "back on its new IdleOrigin");
     assert!(is_idle(&t, 1), "it had no order all the while");
+}
+
+/// Slice M3-G2's detour (`movement::round`, `Mover::go_round`): a unit chasing its target, queueing behind a unit
+/// of its owner that stands attacking the same target, goes round the row that unit stands in. Its target lost from
+/// sight in the middle of the detour ends the Attack there too: the unit stops where it is, and the rest of the
+/// detour goes with its path (`Mover::detour_end` back to 0). Player 1's Peacekeeper 2 stands in range of player 2's
+/// Guard (1) and attacks it, in the middle of a row of six more on Hold (4 to 9, auto-targeting off: they don't fire,
+/// and nor does the Guard); Peacekeeper 3, behind the row, is ordered to attack the Guard too. Once it is on its way
+/// round the row, the Guard vanishes into the fog (set far off).
+#[test]
+fn a_target_lost_in_the_fog_ends_a_detour_round_friends_where_the_unit_is() {
+    // The Guard's edge is at x 1138; Peacekeeper 2's at 1388, 250 su off, within its Range (256). Peacekeeper 3
+    // can't get within it straight on: right behind Peacekeeper 2, its edge would be at 1412.
+    let mut builder = ScenarioBuilder::new(&open())
+        .spawn(GUARD, Some(P2), SpawnAt::Point(v(1120.0, 288.0)))
+        .spawn(PK, Some(P1), SpawnAt::Point(v(1400.0, 288.0)))
+        .spawn(PK, Some(P1), SpawnAt::Point(v(1480.0, 288.0)));
+    // 2 su apart: a Peacekeeper doesn't fit between them.
+    for k in [1.0, 2.0, 3.0, -1.0, -2.0, -3.0] {
+        builder = builder.spawn(PK, Some(P1), SpawnAt::Point(v(1400.0, 288.0 + 26.0 * k)));
+    }
+    let mut t = builder.start();
+    let row: Vec<ObjectId> = (4..10).map(id).collect();
+    t.without_auto_targeting()
+        .order_at(2, P1, &row, OrderKind::Hold, false)
+        .order_at(2, P1, &[id(2), id(3)], OrderKind::Attack(id(1)), false)
+        .run_until(2);
+    while t.mover(3).detour_end == 0 {
+        assert!(t.sim().tick() < 200, "it never went round\n{}", t.ascii(None));
+        assert!(t.sim().object(id(1)).is_some(), "the Guard fell first");
+        t.step();
+    }
+    assert_eq!(t.status(3), MoveStatus::Moving);
+    assert!(!attack_ticks(&t, 2).is_empty(), "Peacekeeper 2 fires");
+    let there = pos(&t, 3);
+    let tick = t.sim().tick() + 1;
+    teleport(&mut t, tick, 1, v(200.0, 1300.0));
+    t.step();
+    assert!(!seen(&t, 1), "out of sight at once");
+    assert!(is_idle(&t, 2) && is_idle(&t, 3), "both Attacks ended");
+    let mover = t.mover(3);
+    assert_eq!(
+        (mover.goal, mover.status, mover.detour_end),
+        (MoveGoal::None, MoveStatus::Idle, 0),
+        "it stopped, its detour gone"
+    );
+    assert_eq!(pos(&t, 3), there, "where it was");
+    t.run(60);
+    assert_eq!(pos(&t, 3), there, "and it stays");
+    assert_eq!(attack_ticks(&t, 3), [] as [Tick; 0], "it never got into range");
 }

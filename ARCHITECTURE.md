@@ -766,10 +766,6 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   from a target inside its MinRange goes to the middle of the band from MinRange to Range, and gives the order up
   when a back-off ends with the target inside and where it was; a queued Attack or Follow whose target, a unit, is
   out of its owner's sight when its turn comes completes at once, as one lost from vision (0200).
-- **An order that ends with its target ends its walk** (slice M3-G2, `sim/removal.rs::forget`): the removal path
-  stops a unit whose current order it ends while the unit walks to a point for it (its back-off from a target
-  inside its MinRange; before 0200, also the walk to a last seen position), as it ends a move to the object itself
-  (`MoveStatus::TargetLost`). A walk to a remembered target (0139) outlives the target, as its order does.
 - **Auto-targeting switch**: `DebugCommand::SetAutoTargeting { on }` (`Sim::auto_targeting`, hashed state) turns
   every scan off or on, for tests and QA runs about movement between hostile units; `TestSim::without_auto_
   targeting()` schedules it for tick 1. Attack orders work either way.

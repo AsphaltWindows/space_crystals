@@ -4,10 +4,12 @@
 
 use glam::Vec2;
 
+use crate::command::DebugCommand;
 use crate::defs::test_defs::TestDef;
 use crate::defs::{MovementAttrs, ObjectKind};
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
+use crate::mover::{MoveGoal, MoveStatus};
 use crate::orders::OrderKind;
 use crate::shape::Shape;
 use crate::testing::{ScenarioBuilder, TestSim};
@@ -99,6 +101,38 @@ fn a_mobile_unit_backs_off_from_a_target_inside_its_min_range_then_fires() {
     t.run(40);
     assert_eq!(t.pos(1), stood, "it stands while it attacks");
     assert!(attacks(&t, UNIT, NEAR).len() >= 2);
+}
+
+/// The back-off is a walk to a point. When its target leaves the game, the removal path ends the order, and the walk
+/// ends at the unit's next turn in 5a (`orders::engage::idle`): "the behavior completes, and the unit stops where it
+/// is" (`systems/controls/behaviors.md > MovingToObject > Completion`). It doesn't walk on to the end of its back-off
+/// without an order, as a walk to a last seen position once did (slice M3-G2, `behaviours_soak`'s seed 17; design
+/// change 0200 removed that walk, and slice M3-L3 the stop M3-G2 gave it in `sim/removal.rs::forget`).
+#[test]
+fn a_back_off_ends_where_the_unit_is_when_the_target_leaves_the_game() {
+    let _pk = min_range_peacekeeper(true);
+    let start = Vec2::new(400.0, 320.0);
+    let mut t = ScenarioBuilder::new(&open()).start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Peacekeeper, P1, start)
+        .spawn_unit_at(1, ObjectKind::Guard, P2, start + Vec2::new(12.0 + 16.0 + 18.0, 0.0))
+        .order_at(2, P1, &[UNIT], OrderKind::Attack(NEAR), false)
+        .run_until(6);
+    let mover = t.mover(1);
+    assert!(
+        matches!(mover.goal, MoveGoal::Point(_)) && mover.status == MoveStatus::Moving,
+        "it backs off: {:?}",
+        mover.goal
+    );
+    assert!(t.pos(1).x < start.x);
+    let there = t.pos(1);
+    t.debug_at(7, DebugCommand::Remove { id: NEAR });
+    t.step();
+    assert_eq!(current(&t, UNIT), None, "the order ended with its target");
+    assert_eq!((t.mover(1).goal, t.mover(1).status), (MoveGoal::None, MoveStatus::Idle));
+    assert_eq!(t.pos(1), there, "where it was");
+    t.run(30);
+    assert_eq!(t.pos(1), there, "and it stays");
 }
 
 /// "Deployed Artillery Rig: feedback, order ends." The Peacekeeper that can't move is ordered to attack a Guard
