@@ -107,6 +107,8 @@ The player orders Target Lock on one enemy unit.
 
 **LockRange** is a bit longer than the normal missile Range — so a lock both reaches further and is harder to shake off than a normal attack.
 
+**No minimum range when locked** (user, 2026-11-25): locked homing missiles can be fired at **any distance** up to LockRange, even inside the normal attack's MinRange.
+
 **The lock (or the locking in progress) breaks when:**
 - the target leaves LockRange,
 - the Rocketman loses vision of the target,
