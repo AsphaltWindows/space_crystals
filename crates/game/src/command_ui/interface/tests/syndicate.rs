@@ -1,6 +1,6 @@
 //! The Syndicate's panels as plain data (slice M4-J2; design changes 0257 and 0260): the Tunnel's letters, its
 //! EjectMenu with its counts and its greyed tiles, and the Hideout's letters with its units not in the game yet, each
-//! greyed with why (design change 0162).
+//! greyed with why (design change 0162). The ExpandMenu's are `super::expansions`'.
 
 use std::collections::BTreeSet;
 
@@ -20,27 +20,25 @@ fn why_text(panel: &Panel, slot: CommandSlot) -> Option<&'static str> {
 }
 
 /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257): Q Upgrade Tunnel, W Expand
-/// Tunnel, E Eject, X Cancel. Upgrade and Expand aren't in the game yet (slices M4-G and M4-F), and a Tunnel has no
-/// operation to cancel; E opens the EjectMenu. A greyed-out button does nothing and says why.
+/// Tunnel, E Eject, X Cancel. Upgrade isn't in the game yet (slice M4-G); W opens the ExpandMenu (slice M4-F) and E
+/// the EjectMenu; X cancels the Tunnel's operation, greyed while it performs none (`Reject::NoOperation`), and sends
+/// the Cancel once it does (`> Expansions under construction`: "The Tunnel's X cancels whatever operation it is
+/// running"). A greyed-out button does nothing and says why.
 #[test]
 fn the_tunnel_has_q_upgrade_w_expand_e_eject_and_x_cancel() {
-    use ButtonLook::{Common, Unavailable};
-    use PanelCommand::{EjectMenu, Planned as P};
+    use ButtonLook::{Common, Disabled, Unavailable};
+    use PanelCommand::{CancelOperation, EjectMenu, ExpandMenu, Planned as P};
     let tunnel = Selection::new([(id(1), TUNNEL)]);
-    let conditions = Conditions::default();
+    let conditions = Conditions::default().refusing(CancelOperation, Reject::NoOperation(id(1)));
     let shown_panel = panel(&tunnel, InterfaceState::DefaultState, &conditions);
     let c = PanelButton::Command;
     assert_eq!(
         shown(&shown_panel),
         [
             (slot(0, 0), c(P(Planned::UpgradeTunnel)), Unavailable),
-            (slot(0, 1), c(P(Planned::ExpandTunnel)), Unavailable),
+            (slot(0, 1), c(ExpandMenu), Common),
             (slot(0, 2), c(EjectMenu), Common),
-            (
-                CommandSlot::CANCEL_PRODUCTION,
-                c(P(Planned::CancelOperation)),
-                Unavailable
-            ),
+            (CommandSlot::CANCEL_PRODUCTION, c(CancelOperation), Disabled),
         ]
     );
     let labels: Vec<&str> = shown_panel.slots().filter_map(|(_, s)| s.map(|s| s.label())).collect();
@@ -51,17 +49,24 @@ fn the_tunnel_has_q_upgrade_w_expand_e_eject_and_x_cancel() {
         .collect();
     assert_eq!(names, ["Upgrade Tunnel", "Expand Tunnel", "Eject", "Cancel Operation"]);
     assert_eq!(why_text(&shown_panel, slot(0, 0)), Some("Not available yet"));
-    assert_eq!(why_text(&shown_panel, slot(0, 1)), Some("Not available yet"));
+    assert_eq!(why_text(&shown_panel, slot(0, 1)), None);
     assert_eq!(why_text(&shown_panel, slot(0, 2)), None);
     assert_eq!(
         why_text(&shown_panel, CommandSlot::CANCEL_PRODUCTION),
         Some("Nothing to cancel")
     );
-    for greyed in [slot(0, 0), slot(0, 1), CommandSlot::CANCEL_PRODUCTION] {
+    for greyed in [slot(0, 0), CommandSlot::CANCEL_PRODUCTION] {
         assert_eq!(press(&shown_panel, greyed), SlotPress::Nothing);
     }
+    assert_eq!(press(&shown_panel, slot(0, 1)), SlotPress::OpenExpandMenu);
     assert_eq!(press(&shown_panel, slot(0, 2)), SlotPress::OpenEjectMenu);
     assert_eq!(InterfaceTemplate::of(TUNNEL), Some(InterfaceTemplate::Tunnel));
+
+    let building = panel(&tunnel, InterfaceState::DefaultState, &Conditions::default());
+    assert_eq!(
+        press(&building, CommandSlot::CANCEL_PRODUCTION),
+        SlotPress::Tunnel(CancelOperation, TunnelCommand::Cancel)
+    );
 }
 
 /// `factions/syndicate/tunnels.md > EjectMenu`: a tile per unit type of the sim's list, in grid order (design change

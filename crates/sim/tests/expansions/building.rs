@@ -136,7 +136,7 @@ fn eject_works_during_construction() {
     t.run(100);
     let (current, progress) = t.sim().operation_progress(T1).expect("an operation");
     assert_eq!(current, Operation::Building(site));
-    assert!((progress - 100.0 / 400.0).abs() < 1e-3, "{progress}");
+    assert_eq!((progress.ticks_done(), progress.total), (100, 400));
     let eject = Command::Tunnel {
         tunnel: T1,
         command: TunnelCommand::Eject { kind: AGENT },

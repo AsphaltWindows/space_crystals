@@ -1,12 +1,14 @@
 //! AwaitingPlacement's building (`factions/gdo/structures/deployment_center.md >
 //! ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`, `factions/gdo/economy.md > ExtractionFacility >
 //! ObjectInterfaceState[ExtractionFacility] > AwaitingPlacement`, `factions/colonists/units/drone.md > Drone
-//! ObjectInterfaceState > A: Deploy`, `factions/colonists/economy.md > Warp In > Warp In Command`): which one is
-//! placed and who builds it ([`Placing`], [`Builder`]; plan decision T23), where its ghost stands
-//! ([`Placing::origin`]), and how the placement keys turn it ([`Placing::turned`]). A Deploy given to a group of
-//! Drones goes to one of them ([`deploy_recipient`], design change 0125). An Agent's Build Tunnel places the Tunnel
-//! its Agent walks to and builds (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > A: Build Tunnel`,
-//! slice M4-J1). The ghost and the build area overlay that show it are `crate::placement`'s.
+//! ObjectInterfaceState > A: Deploy`, `factions/colonists/economy.md > Warp In > Warp In Command`,
+//! `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`): which one is placed and who builds it
+//! ([`Placing`], [`Builder`]; plan decision T23), where its ghost stands ([`Placing::origin`]), and how the placement
+//! keys turn it ([`Placing::turned`]). A Deploy given to a group of Drones goes to one of them ([`deploy_recipient`],
+//! design change 0125). An Agent's Build Tunnel places the Tunnel its Agent walks to and builds
+//! (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > A: Build Tunnel`, slice M4-J1), a Tunnel's
+//! ExpandMenu the expansion it builds in its Tunnel Area (slice M4-F). The ghost and the overlays that show it are
+//! `crate::placement`'s.
 //!
 //! The placement keys are the ones the map editor turns its structures with, one definition for both: the shared
 //! placement actions of the input layer (`crate::input::InputAction::is_placement`, which take R, Shift+R, F and
@@ -16,18 +18,19 @@
 use std::collections::BTreeSet;
 
 use bevy::math::Vec2;
+use sc_sim::nav::TileRect;
 use sc_sim::placement::footprint_size;
 use sc_sim::{
     BuildingOrientation, Command, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, SU_PER_GU, Sim, TilePos,
-    deploy, transform,
+    deploy, transform, tunnel,
 };
 
 use super::PanelCommand;
 use crate::editor::orientation::Turn;
 use crate::selection::Selection;
 
-/// Who builds the building placed (plan decision T23: "a constructor, a worker or a Beacon"), which decides where its
-/// ghost stands, what checks it and what a click sends.
+/// Who builds the building placed (plan decision T23: "a constructor, a worker or a Beacon"; a Tunnel its expansions,
+/// slice M4-F), which decides where its ghost stands, what checks it and what a click sends.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Builder {
     /// A GDO constructor holding the building ready: the ActiveGroup's one Deployment Center or Extraction Facility
@@ -56,6 +59,11 @@ pub enum Builder {
     /// ends placement, which never moves on to another Agent (`systems/controls/selection_and_hud.md > AwaitingTarget
     /// > Shift while placing`: "to place with the next Agent, the player presses Tab").
     Agent(ObjectId),
+    /// The ActiveGroup's Tunnel building an expansion in its Tunnel Area (`factions/syndicate/tunnels.md >
+    /// AwaitingPlacement (Expansion)`: "A ghost preview of the expansion follows the cursor within the Tunnel Area,
+    /// snapped to the grid"; [`Placing::origin`]): `Sim::expansion_check`, as far as the player knows, then
+    /// `TunnelCommand::Expand`, which the sim checks by the truth (design change 0240).
+    Tunnel(ObjectId),
 }
 
 /// `systems/controls/selection_and_hud.md > AwaitingPlacement`: the building that the local player is placing, and who
@@ -111,14 +119,25 @@ impl Placing {
         }
     }
 
+    /// The placement of the expansion `kind` that Tunnel `tunnel` builds (`factions/syndicate/tunnels.md > ExpandMenu`:
+    /// "Click an expansion type: [...] enters AwaitingPlacement for that expansion"), unturned.
+    pub fn expansion(tunnel: ObjectId, kind: ObjectKind) -> Self {
+        Self {
+            builder: Builder::Tunnel(tunnel),
+            kind,
+            orientation: BuildingOrientation::default(),
+        }
+    }
+
     /// The panel command whose slot the placement belongs to, which the panel marks while it lasts: the ready
-    /// building's, the Deploy, the menu entry of the building warped in, the Agent's Build.
+    /// building's, the Deploy, the menu entry of the building warped in or of the expansion built, the Agent's Build.
     pub fn command(self) -> PanelCommand {
         match self.builder {
             Builder::Constructor(_) => PanelCommand::PlaceReady(self.kind),
             Builder::Drones { .. } => PanelCommand::Deploy,
             Builder::Beacon(_) => PanelCommand::WarpIn(self.kind),
             Builder::Agent(_) => PanelCommand::Build(self.kind),
+            Builder::Tunnel(_) => PanelCommand::Expand(self.kind),
         }
     }
 
@@ -149,14 +168,20 @@ impl Placing {
     }
 
     /// The top-left tile of the ghost's footprint in `sim`, the cursor on the ground point `ground` if it is over the
-    /// map: under the cursor ([`Placing::origin_under`]), or for a Warp In the footprint derived from the Beacon as
-    /// it stands (`sc_sim::transform::warp_in_footprint`, design change 0121: "moving the mouse never changes the
-    /// ghost"), wherever the cursor is. `None` without a footprint: no cursor over the map, a Beacon gone.
+    /// map: under the cursor ([`Placing::origin_under`]), an expansion's held within its Tunnel's area as it is now
+    /// ([`within`]: "follows the cursor within the Tunnel Area", read as never leaving it: the cursor outside the area
+    /// leaves the ghost at the nearest spot inside), or for a Warp In the footprint derived from the Beacon as it
+    /// stands (`sc_sim::transform::warp_in_footprint`, design change 0121: "moving the mouse never changes the
+    /// ghost"), wherever the cursor is. `None` without a footprint: no cursor over the map, a Beacon or a Tunnel gone.
     pub fn origin(self, sim: &Sim, ground: Option<Vec2>) -> Option<TilePos> {
         match self.builder {
             Builder::Beacon(beacon) => {
                 let placement = sim.object(beacon)?.placement?;
                 transform::warp_in_footprint(&placement, self.kind, self.orientation).map(|p| p.origin)
+            }
+            Builder::Tunnel(id) => {
+                let area = tunnel::area::of(sim.object(id)?)?;
+                Some(within(self.origin_under(ground?)?, self.size()?, area))
             }
             Builder::Constructor(_) | Builder::Drones { .. } | Builder::Agent(_) => self.origin_under(ground?),
         }
@@ -176,6 +201,20 @@ impl Placing {
             ..self
         }
     }
+}
+
+/// The top-left tile nearest `origin` of a footprint `size` tiles across that lies within `area`: the ghost of an
+/// expansion held in its Tunnel Area ([`Placing::origin`]). A footprint larger than the area, which no expansion is,
+/// stays at the area's north-west corner, where its check finds it outside.
+pub fn within(origin: TilePos, (w, h): (u32, u32), area: TileRect) -> TilePos {
+    let clamp = |at: i32, start: i32, len: u32, size: u32| {
+        let last = start.saturating_add_unsigned(len.saturating_sub(size));
+        at.clamp(start, last)
+    };
+    TilePos::new(
+        clamp(origin.x, area.origin.x, area.w, w),
+        clamp(origin.y, area.origin.y, area.h, h),
+    )
 }
 
 /// Design change 0125 (`systems/controls/selection_and_hud.md > SelectionGroup > Groupable workers used up by a

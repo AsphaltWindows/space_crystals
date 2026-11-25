@@ -43,6 +43,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::network;
 use crate::object::{Object, Placement};
 use crate::orders::build::footprint;
+use crate::progress::Progress;
 use crate::scenario::BuildingOrientation;
 use crate::tunnel::Operation;
 use crate::units::TilePos;
@@ -60,15 +61,15 @@ impl Sim {
         self.expansion_available(player, target, kind)
     }
 
-    /// Tunnel `tunnel`'s operation, if it performs one, with how far it is, from 0 to 1: an expansion's its site's
-    /// progress (`Construction::progress`). For the Tunnel's panel: "**The Tunnel meanwhile** shows the progress"
+    /// Tunnel `tunnel`'s operation, if it performs one, with how far it is: an expansion's its site's progress
+    /// (`Construction::progress`). For the Tunnel's InfoPanel: "**The Tunnel meanwhile** shows the progress"
     /// (`factions/syndicate/tunnels.md > Expansions under construction`).
-    pub fn operation_progress(&self, tunnel: ObjectId) -> Option<(Operation, f32)> {
+    pub fn operation_progress(&self, tunnel: ObjectId) -> Option<(Operation, Progress)> {
         let operation = self.object(tunnel)?.tunnel.as_ref()?.operation?;
-        let ratio = match operation {
-            Operation::Building(site) => self.object(site)?.construction?.progress.ratio(),
+        let progress = match operation {
+            Operation::Building(site) => self.object(site)?.construction?.progress,
         };
-        Some((operation, ratio))
+        Some((operation, progress))
     }
 
     /// The gate for `TunnelCommand::Expand` on `tunnel`, the player's Tunnel in operation (`Sim::check_tunnel`): the

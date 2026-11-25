@@ -61,12 +61,13 @@ pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut con
 /// Beacon (design change 0125), an Egress Node's F selects its returning Drones instead
 /// (`factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`, slice M3-J2), and the X of
 /// whatever transforms cancels it (design change 0116). A Tunnel's E opens its EjectMenu, whose tiles each send the
-/// Tunnel an Eject, the menu staying open (`factions/syndicate/tunnels.md > EjectMenu`, slice M4-J2). Back (Z)
-/// returns to the previous state. While a target is awaited or a building placed the other commands are unavailable
-/// (design change 0066), and so is a production or construction command the gate would refuse (design change 0081;
-/// never for the army cap, 0143): [`press`] finds nothing to do for them, and a greyed-out button says why it is
-/// ([`CommandRefused`], design change 0162: "nothing is issued, and the player gets the same feedback as when an
-/// order is refused, naming the reason"). Nothing while the selection isn't commandable (a defeated player's, or
+/// Tunnel an Eject, the menu staying open (`factions/syndicate/tunnels.md > EjectMenu`, slice M4-J2); its W opens its
+/// ExpandMenu, whose entries enter their placement in the Tunnel Area, and its X cancels its operation
+/// (`factions/syndicate/tunnels.md > ExpandMenu`, slice M4-F). Back (Z) returns to the previous state. While a target
+/// is awaited or a building placed the other commands are unavailable (design change 0066), and so is a production or
+/// construction command the gate would refuse (design change 0081; never for the army cap, 0143): [`press`] finds
+/// nothing to do for them, and a greyed-out button says why it is ([`CommandRefused`], design change 0162: "nothing is
+/// issued, and the player gets the same feedback as when an order is refused, naming the reason"). Nothing while the selection isn't commandable (a defeated player's, or
 /// anyone's once the game is over).
 pub(in crate::command_ui) fn press_command_slots(
     actions: Res<ActionState>,
@@ -154,6 +155,16 @@ pub(in crate::command_ui) fn press_command_slots(
             }
             SlotPress::OpenEjectMenu => {
                 control.update(|state| state.interface = InterfaceState::EjectMenu);
+            }
+            SlotPress::OpenExpandMenu => {
+                control.update(|state| state.interface = InterfaceState::ExpandMenu);
+            }
+            SlotPress::AwaitExpansion(kind) => {
+                // The one Tunnel of the ActiveGroup (Ungroupable), the one Tabbed to.
+                if let [tunnel] = recipients(&state.selection, PanelCommand::Expand(kind))[..] {
+                    let placing = Placing::expansion(tunnel, kind);
+                    control.update(|state| state.interface = InterfaceState::AwaitingPlacement(placing));
+                }
             }
             SlotPress::Tunnel(command, tunnel) => {
                 let tunnels = recipients(&state.selection, command);
