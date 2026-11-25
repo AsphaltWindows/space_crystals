@@ -180,8 +180,8 @@ impl Planned {
 
     /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout", "Warp In Alloy
     /// Furnace" or "Build Vault", as a unit in the game is trained, a building warped in and an expansion built
-    /// (`PanelCommand::Expand`), and "Build Laser Turret" for the Agent's and the ExpandMenu's alike, as an Agent builds
-    /// a Tunnel (`PanelCommand::Build`).
+    /// (`PanelCommand::Expand`), and the ExpandMenu's "Build Laser Turret", as the Agent's D is named
+    /// (`PanelCommand::Build`, slice M4-S1).
     pub fn command_name(self) -> String {
         if self.is_unit() {
             format!("Train {}", self.name())

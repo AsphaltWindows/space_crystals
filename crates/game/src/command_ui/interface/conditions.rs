@@ -167,7 +167,7 @@ pub enum WhyUnavailable {
     /// whose buildings is, an order the sim has none of (Reverse).
     NotYet,
     /// A placeholder entry's own reason, the message the gate's refusal will give once its command is in the game
-    /// ([`Conditions::planned`], slice M4-J2): the Agent's Laser Turret "Requires an Optics Lab".
+    /// ([`Conditions::planned`], slice M4-J2): the ExpandMenu's Laser Turret "Requires an Optics Lab".
     Placeholder(&'static str),
 }
 
