@@ -4,6 +4,7 @@
 //! the network; and the Tunnel Area overlay while a Tunnel is selected.
 
 use bevy::prelude::*;
+use sc_sim::defs::TRANSIT_DELAY_TICKS;
 use sc_sim::nav::TileRect;
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{Command, Faction, ObjectId, ObjectKind, OrderKind, PlayerId, Rally, SpawnAt};
@@ -214,8 +215,9 @@ fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
 
 /// `factions/syndicate/tunnels.md > EjectMenu`: each tile counts the units of its type in the network, the Agents in
 /// Q and the Guards in W (design change 0257); a type whose every unit only just walked in is greyed for the transit
-/// delay (Q0077 point 1); Q ejects the Agent inside the longest, the count dropping at the press, and the menu stays
-/// open (plan M4-J2: "Q ejects the oldest Agent").
+/// delay, and its press refused (design change 0288's Verification: "Eject a Guard right after it entered: its tile is
+/// grey for 2 s"; point 1: "its tile is greyed and the click is refused; nothing is queued"); Q ejects the Agent inside
+/// the longest, the count dropping at the press, and the menu stays open (plan M4-J2: "Q ejects the oldest Agent").
 #[test]
 fn the_eject_menu_counts_the_network_and_q_ejects_the_oldest_agent() {
     use ButtonLook::{Back, Common, Disabled};
@@ -237,18 +239,34 @@ fn the_eject_menu_counts_the_network_and_q_ejects_the_oldest_agent() {
         ]
     );
 
-    // Another Agent and a Guard walk in: the Guard's tile counts it and is greyed while it is in transit.
+    // Another Agent and a Guard walk in: the Guard's tile counts it and is greyed while it is in transit, from the tick
+    // it walked in until its transit delay is over, 2 s later; W says why and queues nothing.
     let newer = spawn(&mut app, AGENT, Some(P1), NORTH);
     enter(&mut app, &[newer, GUARDS[0]]);
     until(&mut app, 300, |app| inside(app).len() == 3);
+    let walked_in = {
+        let sim = app.world().resource::<SimRes>();
+        let held = sim.network(P1).find(|held| held.object.id == ObjectId(GUARDS[0]));
+        held.expect("inside").since
+    };
     app.update();
     let (agents, guards) = (buttons(&mut app)[0], buttons(&mut app)[1]);
     assert_eq!((agents.2, agents.3), (Common, Some(2)), "the oldest Agent may leave");
     assert_eq!((guards.2, guards.3), (Disabled, Some(1)));
     tap(&mut app, &[], KeyW);
     assert_eq!(feedback(&app), Some("Still in transit"));
-    updates(&mut app, 40);
-    assert_eq!(buttons(&mut app)[1].2, Common);
+    let tick = |app: &App| app.world().resource::<SimRes>().tick();
+    let queued = |app: &App| {
+        let sim = app.world().resource::<SimRes>();
+        let tunnel = sim.object(ObjectId(TUNNEL)).and_then(|o| o.tunnel.as_ref());
+        tunnel.expect("a Tunnel").eject.len()
+    };
+    while tick(&app) < walked_in + TRANSIT_DELAY_TICKS {
+        assert_eq!(buttons(&mut app)[1].2, Disabled, "tick {}", tick(&app));
+        assert_eq!((queued(&app), inside(&app).len()), (0, 3), "nothing is queued");
+        app.update();
+    }
+    assert_eq!(buttons(&mut app)[1].2, Common, "2 s after it walked in");
 
     tap(&mut app, &[], KeyQ);
     assert_eq!(interface(&app), InterfaceState::EjectMenu);

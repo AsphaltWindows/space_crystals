@@ -2811,9 +2811,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   "Agent, Guard, Grenadier, …"): a slice that adds a unit adds it there, not in the client. E enters
   `InterfaceState::EjectMenu`, a StateOnlyTransition (`SlotPress::OpenEjectMenu`): a `PanelCommand::Eject(kind)` tile
   per kind of that list, from Q on, every slot but Z; each is greyed by the gate's answer to its `Command::Tunnel`
-  (`Reject::NotInNetwork`, `InTransit` for Q0077's transit delay, `NoTransit` for the tier, each with its message) and
-  carries the network's count (`PanelSlot::count`, `Conditions::network_count` from `Sim::network_counts`, so the count
-  drops at the press). A tile sends `TunnelCommand::Eject` to the Tunnel Tabbed to (Tunnels are Ungroupable;
+  (`Reject::NotInNetwork`, `InTransit` for the transit delay, design change 0288 point 1, `NoTransit` for the tier,
+  each with its message) and carries the network's count (`PanelSlot::count`, `Conditions::network_count` from
+  `Sim::network_counts`, so the count drops at the press). A tile sends `TunnelCommand::Eject` to the Tunnel Tabbed to (Tunnels are Ungroupable;
   `SlotPress::Tunnel`, `OrderOutbox::tunnel`) and the menu stays open; Z, Escape and a right-click go back. Held units
   leave the selection and stay in their control groups (`ControlState::retain_on_map`); a recall selects the members
   on the map, and a group with none on the map recalls as an empty one does: nothing changes (placeholder,

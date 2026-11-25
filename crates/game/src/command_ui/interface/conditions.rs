@@ -23,8 +23,8 @@
 //!
 //! A Tunnel's EjectMenu tiles are its Ejects, which the gate answers too (`factions/syndicate/tunnels.md > EjectMenu`,
 //! slice M4-J2): a tile is greyed while no unit of its type is in the network free to leave, while every one of them
-//! only just walked in (Q0077 point 1), or while this Tunnel's tier doesn't let the type out; and its count is the
-//! network's ([`Conditions::network_count`]).
+//! only just walked in (design change 0288 point 1), or while this Tunnel's tier doesn't let the type out; and its
+//! count is the network's ([`Conditions::network_count`]).
 //!
 //! The Agent's A, Build Tunnel (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, slice M4-J1), asks
 //! for its Build order where it would stand anywhere, and leaves out the placement's refusal as a Warp In does: it is

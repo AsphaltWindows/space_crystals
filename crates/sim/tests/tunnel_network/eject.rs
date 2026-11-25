@@ -32,7 +32,8 @@ fn guards_inside(t: &mut TestSim, count: u32) -> Vec<ObjectId> {
 
 /// Design change 0248's Verification: "Ejected units come out of the half of Side A nearer the crystal hatch." In
 /// each of the Tunnel's 8 orientations ("Both turn and flip with the Tunnel") a Guard goes in by the half nearer Side
-/// D and comes out on the half nearer Side B, its box against the wall, then walks 1 grid unit straight out.
+/// D and comes out on the half nearer Side B, its box against the wall, then walks 1 grid unit straight out and idles
+/// (design change 0288's Verification: "Eject without a rally: the Guard stops 1 GU out").
 #[test]
 fn units_go_in_nearer_d_and_come_out_nearer_b_in_every_orientation() {
     for rotation in [Rotation::R0, Rotation::R90, Rotation::R180, Rotation::R270] {
