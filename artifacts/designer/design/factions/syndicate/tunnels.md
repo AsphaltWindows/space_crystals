@@ -45,7 +45,7 @@ Starting Space Crystals: **100** (same as GDO and the Colonists). With 100, the 
 ### SymmetryType - ABCD
 
 Each side of the Tunnel has a distinct function:
-- **Side A**: Unit entrance/exit (units enter and emerge from the Tunnel Network here). It has **two paths: one for entering, one for exiting** (user, 2026-11-25).
+- **Side A**: Unit entrance/exit (units enter and emerge from the Tunnel Network here). It has **two paths: one for entering, one for exiting** (user, 2026-11-25). **Each path takes one unit at a time** and fixes where units go in and come out: entering and exiting units never block each other, but an army enters or leaves single file. (Whether the Tier 3 air doors also take one aircraft at a time: TBD.)
 - **Side B**: Crystal drop-off, a **hatch** for Space Crystals (Agents deliver Space Crystals here)
 - **Side C**: Supply drop-off, a **hatch** for Supplies (Agents deliver Supplies here)
 - **Side D**: Back wall (no gameplay function)
